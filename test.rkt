@@ -1,15 +1,7 @@
 #lang racket
 (require "component.rkt"
-         "fuse-ir.rkt")
-         ;; "fuse-ir-prims.rkt"
-
-;; (define/module myadd (l r) (o)
-;;   ([adder = new comp/add]
-;;    [l -> adder @ left]
-;;    [r -> adder @ right]
-;;    [adder @ out -> o]))
-;; (myadd)
-;; (plot (myadd))
+         "futil.rkt")
+         "futil-prims.rkt"
 
 (define (comp/add)
   (default-component 'add
@@ -22,7 +14,7 @@
   [lft -> adder @ left]
   [rgt -> adder @ right]
   [adder @ out -> out])
-;; (plot (myadd))
+(myadd)
 
 (define (myadd-man)
   (define c (default-component 'myadd-man (list (port 'l 32) (port 'r 32)) (list (port 'o 32))))
@@ -66,19 +58,3 @@
 ;;   (connect! c 'in-right 'inf# 'out-right 'inf#)
 ;;   c)
 ;; (joiner32)
-
-;; (plot (splitter32))
-;; (plot (splitter32))
-;; (plot (myadd-man))
-;; (plot (myadd-man))
-
-;; (define/module test (a b c) (x)
-;;   ([cat = new myadd]
-;;    [dog = new myadd]
-;;    [a -> cat @ l]
-;;    [b -> cat @ r]
-;;    [cat @ o -> dog @ l]
-;;    [c -> dog @ r]
-;;    [dog @ o -> x]))
-;; (test)
-;; (plot (test))
