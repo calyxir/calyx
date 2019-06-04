@@ -79,11 +79,11 @@
 
 ;; ==========================
 
-(define (show-board)
+(define (show-board name)
   (define board (new graph-board%))
 
    (define toplevel (new frame%
-                         [label "Graph"]
+                         [label (~a name)]
                          [width (* 50 8)]
                          [height (* 50 8)]))
 

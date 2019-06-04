@@ -12,3 +12,4 @@ There are 3 kinds of statements that can go in the body:
 - Module instantiation: `[name = new module]`
 - Port connections: `[in1 -> out1]`
 - Port splitting: `[name1 & name2 = split 16 in1]`
+

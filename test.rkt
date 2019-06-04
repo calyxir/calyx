@@ -25,36 +25,14 @@
   c)
 (myadd-man)
 
-(define/module splitter32 ((in : 32)) ((out-l : 16) (out-r : 16))
-  [in-l & in-r = split 16 in]
+(define/module splitter32 ((in : 32)) ((out-l : 20) (out-r : 12))
+  [in-l & in-r = split 20 in]
   [in-l -> out-l]
   [in-r -> out-r])
-(splitter32)
-
-;; (define (splitter32-man)
-;;   (define c (default-component
-;;               'splitter32
-;;               (list (port 'in 32))
-;;               (list (port 'left-out 16) (port 'right-out 16))))
-;;   (split! c 'in 16 'in-left 'in-right)
-;;   (connect! c 'in-left 'inf# 'left-out 'inf#)
-;;   (connect! c 'in-right 'inf# 'right-out 'inf#)
-;;   c)
-;; (splitter32)
+(plot (splitter32))
 
 (define/module joiner32 ((in-l : 16) (in-r : 16)) ((out : 32))
   [out-l & out-r = split 16 out]
   [in-l -> out-l]
   [in-r -> out-r])
 (joiner32)
-
-;; (define (joiner32)
-;;   (define c (default-component
-;;               'joiner32
-;;               (list (port 'in-left 16) (port 'in-right 16))
-;;               (list (port 'out 32))))
-;;   (split-out! c 'out 16 'out-left 'out-right)
-;;   (connect! c 'in-left 'inf# 'out-left 'inf#)
-;;   (connect! c 'in-right 'inf# 'out-right 'inf#)
-;;   c)
-;; (joiner32)

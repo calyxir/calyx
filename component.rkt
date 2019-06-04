@@ -30,15 +30,16 @@
 (define (join-port p1 p2 name)
   (port name (+ (port-width p1) (port-width p2))))
 
-(struct component (name                ;; name of the component
-                   [ins #:mutable]     ;; list of input ports
-                   [outs #:mutable]    ;; list of output ports
-                   [submods #:mutable] ;; hashtbl of sub components keyed on their name
-                   graph))             ;; graph representing internal connections
+(struct component (name               ;; name of the component
+                   [ins #:mutable]    ;; list of input ports
+                   [outs #:mutable]   ;; list of output ports
+                   [submods]          ;; hashtbl of sub components keyed on their name
+                   splits             ;; hashtbl keeping track of split nodes
+                   graph))            ;; graph representing internal connections
 
 ;; creates a default component given a name for the component,
 ;; a list of input port names, and a list of output port names
-(define (empty-graph) (unweighted-graph/directed '()))
+(define (empty-graph) (weighted-graph/directed '()))
 
 ;; creates a component with a single infinite output port of width w
 ;; and no input ports. Designed to be used as the input of a component.
@@ -46,6 +47,7 @@
                              'input
                              '()
                              (list (port 'inf# w))
+                             (make-hash)
                              (make-hash)
                              (empty-graph)))
 
@@ -55,6 +57,7 @@
                               'output
                               (list (port 'inf# w))
                               '()
+                              (make-hash)
                               (make-hash)
                               (empty-graph)))
 
@@ -71,7 +74,7 @@
     (for-each (lambda (p)
                 (hash-set! htbl (port-name p) (output-component (port-width p))))
               outs)
-    (component name ins outs htbl (empty-graph))))
+    (component name ins outs htbl (make-hash) (empty-graph))))
 
 ;; Looks for an input/output port matching [port] in [comp]. If the port is found
 ;; and is equal to the value [#f], then this function does nothing. Otherwise
@@ -95,6 +98,11 @@
 (define (get-submod! comp name)
   (hash-ref (component-submods comp) name))
 
+(define (add-edge! comp src tar width)
+  (let ([src-name (hash-ref (component-splits comp) src src)]
+        [tar-name (hash-ref (component-splits comp) tar tar)])
+    (add-directed-edge! (component-graph comp) src-name tar-name width)))
+
 (define (connect! comp src src-portname tar tar-portname)
   (let* ([src-submod (get-submod! comp src)]
          [tar-submod (get-submod! comp tar)]
@@ -104,7 +112,7 @@
         (begin
           (consume-out! src-submod src-port)
           (consume-in! tar-submod tar-port)
-          (add-directed-edge! (component-graph comp) src tar))
+          (add-edge! comp src tar (port-width src-port)))
         (error "Port widths don't match!"
                src-port '!= tar-port))))
 
@@ -117,37 +125,16 @@
                name2
                (make-comp (- (port-width port) split-pt))))
   (cond [(name->port name (component-ins comp))
-         => (lambda (p) (help p input-component))]
+         => (lambda (p)
+              (help p input-component)
+              (hash-set! (component-splits comp) name1 name)
+              (hash-set! (component-splits comp) name2 name))]
         [(name->port name (component-outs comp))
-         => (lambda (p) (help p output-component))]
-        [else (error "Port not found in the inputs!")])
-  ;; (cond [(member name (component-ins comp) port-eq)
-  ;;        (help input-component)]
-  ;;       [(member name (component-outs comp) port-eq)
-  ;;        (help output-component)]
-  ;;       )
-  )
-  ;; (let* ([lst (get-prop comp)]
-  ;;        [port (name->port port-name lst)])
-  ;;   (if port
-        ;; )))
-
-;; (define (split-in! comp port-name split-pt name1 name2)
-;;   (split! comp port-name split-pt name1 name2 component-ins input-component))
-;; (define (split-out! comp port-name split-pt name1 name2)
-;;   (split! comp port-name split-pt name1 name2 component-outs output-component))
-
-;; (define (split-in! comp port-name split-pt name1 name2)
-;;   (let* ([lst (component-ins comp)]
-;;          [port (name->port port-name lst)])
-;;     (if port
-;;         (begin
-;;           (split-port-ok? port split-pt)
-;;           (hash-set! (component-submods comp) name1 (input-component split-pt))
-;;           (hash-set! (component-submods comp)
-;;                      name2
-;;                      (input-component (- (port-width port) split-pt))))
-;;         (error "Port not found in the inputs!"))))
+         => (lambda (p)
+              (help p output-component)
+              (hash-set! (component-splits comp) name1 name)
+              (hash-set! (component-splits comp) name2 name))]
+        [else (error "Port not found in the inputs!")]))
 
 (define (plot comp)
-  (plot-graph (show-board) (component-graph comp)))
+  (plot-graph (show-board (component-name comp)) (component-graph comp)))
