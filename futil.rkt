@@ -48,27 +48,13 @@
                   (syntax->list #'(i1.name ... o1.name ...)))
      "duplicate variable name"
 
-     #'(define (name)
-         (let ([c (default-component
-                    'name
-                    (list (port 'i1.name i1.width) ...)
-                    (list (port 'o1.name o1.width) ...))])
-           (stmt.fun c) ...
-           c))]))
-
-;; (define (repeat f n x)
-;;   (if (= n 0)
-;;       x
-;;       (repeat f (- n 1) (f x))))
-;; (require macro-debugger/stepper)
-;; (syntax->datum
-;;  (repeat expand-once 10 '(define/module splitter32 ((in : 32)) ((out-l : 16) (out-r : 16))
-;;                  [in-l & in-r = split 16 in]
-;;                  [in-l -> out-l]
-;;                  [in-r -> out-r])))
-
-;; (syntax->datum (expand #'(define/module myadd (l r) (o)
-;;                            ([adder = new add]
-;;                             [l -> adder @ left]
-;;                             [r -> adder @ right]
-;;                             [adder @ out -> o]))))
+     #'(begin
+         (define (name)
+           (let ([c (default-component
+                      'name
+                      (list (port 'i1.name i1.width) ...)
+                      (list (port 'o1.name o1.width) ...))])
+             (stmt.fun c) ...
+             c))
+         (name)
+         name)]))
