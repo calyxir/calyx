@@ -8,17 +8,28 @@
          comp/or
          comp/xor)
 
+(define input-list
+  (list (port 'left 32)
+        (port 'right 32)))
+(define output-list
+  (list (port 'out 32)))
+
 (define (comp/add)
-  (default-component 'add (left right) '(out)))
+  (default-component
+    'add
+    input-list
+    output-list
+    (keyword-lambda (left right) (+ left right))
+    #t))
 (define (comp/sub)
-  (default-component 'sub '(left right) '(out)))
+  (default-component 'sub input-list output-list))
 (define (comp/mult)
-  (default-component 'mult '(left right) '(out)))
+  (default-component 'mult input-list output-list))
 (define (comp/div)
-  (default-component 'div '(left right) '(out)))
+  (default-component 'div input-list output-list))
 (define (comp/and)
-  (default-component 'and '(left right) '(out)))
+  (default-component 'and input-list output-list))
 (define (comp/or)
-  (default-component 'or '(left right) '(out)))
+  (default-component 'or input-list output-list))
 (define (comp/xor)
-  (default-component 'xor '(left right) '(out)))
+  (default-component 'xor input-list output-list))

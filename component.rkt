@@ -1,17 +1,26 @@
 #lang racket
 (require graph
          "dis-graphs.rkt")
-(provide (struct-out component)
+(provide keyword-lambda
+         (struct-out component)
          (struct-out port)
          name->port
          input-component
          output-component
          default-component
+         make-constant
          connect!
          add-submod!
          get-submod!
          split!
+         compute
+         stabilize
          plot)
+
+(define-syntax-rule (keyword-lambda (arg ...) body ...)
+  (lambda (h)
+    (define arg (hash-ref h 'arg)) ...
+    ((lambda (arg ...) body ...) arg ...)))
 
 (struct port (name width) #:transparent)
 (define (infinite-port? p)
@@ -33,9 +42,12 @@
 (struct component (name               ;; name of the component
                    [ins #:mutable]    ;; list of input ports
                    [outs #:mutable]   ;; list of output ports
-                   [submods]          ;; hashtbl of sub components keyed on their name
+                   submods            ;; hashtbl of sub components keyed on their name
                    splits             ;; hashtbl keeping track of split nodes
-                   graph))            ;; graph representing internal connections
+                   proc               ;; procedure representing this modules computation
+                   graph              ;; graph representing internal connections
+                   primitive          ;; true when this component is primitive
+                   ))
 
 ;; creates a default component given a name for the component,
 ;; a list of input port names, and a list of output port names
@@ -49,7 +61,9 @@
                              (list (port 'inf# w))
                              (make-hash)
                              (make-hash)
-                             (empty-graph)))
+                             void
+                             (empty-graph)
+                             #f))
 
 ;; creates a component with a single infinite input port of width w
 ;; and no output ports. Designed to be used as the output of a component.
@@ -59,22 +73,28 @@
                               '()
                               (make-hash)
                               (make-hash)
-                              (empty-graph)))
+                              (lambda (h) (hash-ref h 'inf#))
+                              (empty-graph)
+                              #f))
 
 ;; TODO: maybe add vertices for ins and outs
 
 ;; given a name, list of input ports, and list of output ports, creates
 ;; a component an empty graph and the appropriate input and output ports
 ;; in the hashtable.
-(define (default-component name ins outs)
-  (let ([htbl (make-hash)])
-    (for-each (lambda (p) ; n is a port
+(define (default-component name ins outs proc [prim #f])
+  (let ([htbl (make-hash)]
+        [g (empty-graph)])
+    (for-each (lambda (p) ; p is a port
                 (hash-set! htbl (port-name p) (input-component (port-width p))))
               ins)
     (for-each (lambda (p)
                 (hash-set! htbl (port-name p) (output-component (port-width p))))
               outs)
-    (component name ins outs htbl (make-hash) (empty-graph))))
+    (component name ins outs htbl (make-hash) proc g prim)))
+
+(define (make-constant n width)
+  (default-component n '() (list (port 'inf# width)) (keyword-lambda () n) #t))
 
 ;; Looks for an input/output port matching [port] in [comp]. If the port is found
 ;; and is equal to the value [#f], then this function does nothing. Otherwise
@@ -89,19 +109,29 @@
         (error "Couldn't find" port "in" (component-name comp) name))))
 
 (define (consume-in! comp port)
-  (consume! comp port set-component-ins! component-ins 'input))
+  (void)
+  ;; (consume! comp port set-component-ins! component-ins 'input)
+  )
 (define (consume-out! comp port)
-  (consume! comp port set-component-outs! component-outs 'outputs))
+  (void)
+  ;; (consume! comp port set-component-outs! component-outs 'outputs)
+  )
 
 (define (add-submod! comp name mod)
   (hash-set! (component-submods comp) name mod))
 (define (get-submod! comp name)
   (hash-ref (component-submods comp) name))
 
-(define (add-edge! comp src tar width)
+(define (add-edge! comp src src-port tar tar-port width)
   (let ([src-name (hash-ref (component-splits comp) src src)]
-        [tar-name (hash-ref (component-splits comp) tar tar)])
-    (add-directed-edge! (component-graph comp) src-name tar-name width)))
+        [tar-name (hash-ref (component-splits comp) tar tar)]
+        [src-port-name (port-name src-port)]
+        [tar-port-name (port-name tar-port)])
+    (add-directed-edge!
+     (component-graph comp)
+     `(,src-name . ,src-port-name)
+     `(,tar-name . ,tar-port-name)
+     width)))
 
 (define (connect! comp src src-portname tar tar-portname)
   (let* ([src-submod (get-submod! comp src)]
@@ -112,7 +142,7 @@
         (begin
           (consume-out! src-submod src-port)
           (consume-in! tar-submod tar-port)
-          (add-edge! comp src tar (port-width src-port)))
+          (add-edge! comp src src-port tar tar-port (port-width src-port)))
         (error "Port widths don't match!"
                src-port '!= tar-port))))
 
@@ -136,5 +166,50 @@
               (hash-set! (component-splits comp) name2 name))]
         [else (error "Port not found in the inputs!")]))
 
+(define (backtrack comp outlst)
+  (apply append (map (lambda (vert)
+                       (match vert
+                         [(cons v _)
+                          (map (lambda (kw) `(,v . ,kw))
+                               (map port-name (component-ins (get-submod! comp v))))]))
+                     outlst)))
+
+(define (get-neighbors comp vertex)
+  (define valid-ports (map port-name (component-ins (get-submod! comp vertex))))
+  (define neighs (map (lambda (p)
+                        (sequence->list (in-neighbors
+                                         (transpose (component-graph comp))
+                                         `(,vertex . ,p))))
+                      valid-ports))
+  (map (lambda (p n) `(,p . ,n)) valid-ports neighs))
+
+(define (stabilize comp inputs vertex)
+  (if (member vertex (map port-name (component-ins comp)))
+      (hash-ref inputs vertex)
+      (let* ([neighs (get-neighbors comp vertex)]
+             [sub (get-submod! comp vertex)]
+             [vals (map (lambda (pair)
+                          (match pair
+                            [(cons name (cons (cons v _) _))
+                             `(,name . ,(stabilize comp inputs v))]))
+                        neighs)]
+             [proc (component-proc sub)])
+        (proc (make-hash vals)))))
+
+(define (compute comp inputs)
+  (if (component-primitive comp)
+      ((component-proc comp) inputs)
+      (flatten (map (lambda (v) (stabilize comp inputs v))
+                    (map port-name (component-outs comp))))))
+
+(define (convert-graph g)
+  (define newg (empty-graph))
+  (for-each (lambda (edge)
+              (match edge
+                [(cons (cons u _) (cons (cons v _) _))
+                 (add-directed-edge! newg u v)]))
+            (get-edges g))
+  newg)
+
 (define (plot comp)
-  (plot-graph (show-board (component-name comp)) (component-graph comp)))
+  (plot-graph (show-board (component-name comp)) (convert-graph (component-graph comp))))
