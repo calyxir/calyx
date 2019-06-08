@@ -1,12 +1,14 @@
 #lang racket
-(require "component.rkt")
+(require "component.rkt"
+         "port.rkt")
 (provide comp/add
          comp/sub
          comp/mult
          comp/div
          comp/and
          comp/or
-         comp/xor)
+         comp/xor
+         magic/mux)
 
 (define input-list
   (list (port 'left 32)
@@ -33,3 +35,16 @@
   (default-component 'or input-list output-list))
 (define (comp/xor)
   (default-component 'xor input-list output-list))
+
+(define (magic/mux)
+  (default-component
+    'mux
+    (list (port 'left 32)
+          (port 'right 32)
+          (port 'control 1))
+    (list (port 'out 32))
+    (keyword-lambda (left right control)
+                    (if (= 1 control)
+                        left
+                        right))
+    #t))

@@ -1,4 +1,5 @@
-# FutIL
+# FuTIL
+Fuse Temportal Intermediate Language  
 An intermediate language for [Fuse](https://github.com/cucapra/seashell).
 
 ## Syntax
