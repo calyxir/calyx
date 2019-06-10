@@ -6,20 +6,23 @@ An intermediate language for [Fuse](https://github.com/cucapra/seashell).
 Structure consists of all static components of a circuit. This consists
 of things like feeding inputs into an adder and getting the output. Another
 way to think about the structure is as a graph representing the computation.
-All structure is physically realizable.
+All structure is physically realizable. (correlates to [combinational logic](https://en.wikipedia.org/wiki/Combinational_logic))
 
-Control gives you a way of expressing the more dynamic behavior of a graph, conditional
+Control gives you a way of expressing the more dynamic behavior of a graph. Such as conditional
 activation of sub-circuits, enforcing a logical notion of time (e.g subcircuit A runs
 and only then subcircuit B runs), and repeated activation of a circuit (loops).
+(maybe a nice way of lifting the combinational logic to [sequential logic](https://en.wikipedia.org/wiki/Sequential_logic) 
+without having explicit clocks and flip-flops, but working at a more logical level).
 
 ## Goal
-All behavior is representable in the structure. However, when control is expressed
-in structure, all the high level logical structure of the program becomes obscured.
+All behavior is representable in the structure (because otherwise it could never be hardware). 
+However, when control is expressed in structure, all the high level logical structure 
+of the program becomes obscured. 
 
-In this light, you can think of representions of circuits as existing on a continuum
-from all structure to all control. The goal of Futil is to be able to express a range
-of this continuum to allow for the gradual lowering of control into structure without
-ever leaving the IL.
+The specification of a circuit exists on a continuum between all control and all structure.
+THe goal of Futil is to be able to express specifications of circuits on a range of
+this continuum so that you can start off with a representation that is mostly control (and close
+to the source Fuse program) and then gradually lower the specification into mostly structure.
 
 ## Details
 The basic unit of Futil is a `module`. Modules carry around structure and optionally control.
@@ -37,7 +40,14 @@ The control code has access to the control points defined in the structure. In t
 section, you can "activate" the sub-circuit contained in a control point. If a sub-circuit
 is activated, then values flow through it normally. If a circuit is not activated, then values
 are stopped before entering the sub-circuit. This ensures that if a sub-circuit has a side-effect,
-the side-effect is not triggered when a circuit is not active.
+the side-effect is not triggered when a circuit is not active. In addition to activation, there
+are ways to direct a logical flow of time. You can have sequentional compostion, 
+`(A --- B)`, and parallel composition, `(A ; B)` that let you express whether two sub-circuits should
+be activated in parallel or whether the second activation shouldn't be triggered until after the
+first completes. There are also conditionals of the form `if A then B else C` which activates `B` or `C`
+depending on the result of activating `A`. (maybe `A` shouldn't be an activation but rather a variable storing
+the result of `A`? Idk yet how variables should fit into this). Finally there are loops which let you
+specify that a sub-circuit should be activated repeatedly over time.
 
 ## Syntax
 You can define new modules as follows:
