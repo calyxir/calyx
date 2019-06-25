@@ -21,7 +21,8 @@
     'add
     input-list
     output-list
-    (keyword-lambda (left right) (+ left right))
+    (keyword-lambda (left right)
+                    [out = (+ left right)])
     #t))
 (define (comp/sub)
   (default-component 'sub input-list output-list))
@@ -44,7 +45,7 @@
           (port 'control 1))
     (list (port 'out 32))
     (keyword-lambda (left right control)
-                    (if (= 1 control)
-                        left
-                        right))
+                    [out = (if (= 1 control)
+                               left
+                               right)])
     #t))

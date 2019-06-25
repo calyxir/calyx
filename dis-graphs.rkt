@@ -18,64 +18,97 @@
 
 (define node-snip%
   (class snip%
-    (init-field value radius)
+    (init-field value)
     (super-new)
     (send this set-snipclass node-snip-class)
+
+    (define char-width 12)
+    (define value-width
+      (+ 4
+         (* char-width (string-length (~a value)))))
 
     (define/public (get-value) value)
 
     (define/override (get-extent dc x y width height descent space lspace rspace)
-      (when width (set-box! width (* radius 2)))
-      (when height (set-box! height (* radius 2)))
+      (when width (set-box! width value-width))
+      (when height (set-box! height 20))
       (when descent (set-box! descent 0.0))
       (when space (set-box! space 0.0))
       (when lspace (set-box! lspace 0.0))
       (when rspace (set-box! rspace 0.0)))
 
     (define/override (draw dc x y . other)
-      (send dc set-font (send the-font-list find-or-create-font 10 'default 'normal 'normal))
+      (define font (send the-font-list find-or-create-font 10 'modern 'normal 'normal))
+      (send dc set-font font)
       (send dc set-text-background "black")
-      ;; (send dc draw-ellipse (+ x 0) (+ y 0) (* 3 radius) (* 3 radius))
-      (send dc draw-rectangle (+ x 0) (+ y 0) (* 2 radius) (* 2 radius))
+      (send dc draw-rectangle (+ x 0) (+ y 0) value-width 20)
       (define label (~a value))
-      (send dc draw-text label (+ x (/ radius 2)) (+ y (/ radius 2))))))
+      (send dc draw-text label (+ x (/ value-width 4)) (+ y 3)))))
 
 (define node%
   (graph-snip-mixin node-snip%))
+
+(define (top-order g)
+  (define (check against lst)
+    (if (foldl (lambda (x acc)
+                 (or acc (member x against)))
+               #f
+               lst)
+        #t
+        #f))
+  (define trans-g (transpose g))
+  (reverse
+   (foldl (lambda (x acc)
+            (if (check (flatten acc) (sequence->list (in-neighbors trans-g x)))
+                (cons `(,x) acc)
+                (match acc
+                  [(cons h tl) (cons (cons x h) tl)])))
+          '(())
+          (tsort g))))
 
 (define (plot-graph board g)
   ;; clear old graph
   (send board erase)
 
   ;; get all the vertices in the graph
-  (define nodes
-    (map (λ (v)
-           (new node% [value v] [radius 10]))
-         (get-vertices g)))
+  ;; (define nodes
+  ;;   (map (lambda (v)
+  ;;          (new node% [value v]))
+  ;;        (get-vertices g)))
 
   ;; insert all the vertices into the board
-  (for-each (λ (node) (send board insert node 100 100)) nodes)
+  (define nodes
+    (flatten (map (lambda (vert-row j)
+                    (map (lambda (vert i)
+                           (let ([node (new node% [value vert])])
+                             (send board insert node (* 50 (+ i 1)) (* 50 (+ j 1)))
+                             node))
+                         vert-row
+                         (build-list (length vert-row) values)))
+                  (top-order g)
+                  (build-list (length (top-order g)) values))))
 
   ;; add all the edges
-  (map (λ (parent)
-         (for-each (λ (neigh-l)
-                (define obj-i
-                  (index-where
-                   nodes
-                   (λ (item) (equal? neigh-l (send item get-value)))))
-                (define child (list-ref nodes obj-i))
-                (add-links parent child)
-                (let* ([u (send parent get-value)]
-                       [v (send child get-value)]
-                       [label (if (= (edge-weight g u v) 1) "" (~a (edge-weight g u v)))])
-                  (cond
-                    [(has-edge? g u v)
-                     (set-link-label parent child label)])))
-              (get-neighbors g (send parent get-value))))
+  (map (lambda (parent)
+         (for-each (lambda (neigh-l)
+                     (define obj-i
+                       (index-where
+                        nodes
+                        (lambda (item) (equal? neigh-l (send item get-value)))))
+                     (define child (list-ref nodes obj-i))
+                     (add-links parent child)
+                     (let* ([u (send parent get-value)]
+                            [v (send child get-value)]
+                            [label (if (= (edge-weight g u v) 1) "" (~a (edge-weight g u v)))])
+                       (cond
+                         [(has-edge? g u v)
+                          (set-link-label parent child label)])))
+                   (get-neighbors g (send parent get-value))))
        nodes)
 
   ;; position the nodes on the board
-  (dot-positioning board "dot"))
+  ;; (dot-positioning board "dot")
+  )
 
 ;; ==========================
 
@@ -95,10 +128,15 @@
                        [editor board]))
 
    (send toplevel show #t)
-   (values board))
+   board)
 
 
 ;; ==========================
+
+;; (define g (directed-graph '((a b) (b short)) '(1 1)))
+;; (define board (show-board "test"))
+;; (plot-graph board g)
+;; (dot-positioning board "dot")
 
 ;; (define g (directed-graph '((a b) (b c)) '(1 1)))
 ;; (define g (matrix-graph [[0 3 8 #f -4]

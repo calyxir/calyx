@@ -25,22 +25,22 @@
     (add-submod! c n (make-constant n width))
     (connect! c n 'inf# u uport)))
 
-(define-syntax-rule (in-hole var-name u uport)
-  (lambda(c)
-    (add-in-hole! c var-name u uport)))
-(define-syntax-rule (const-hole var-name n width)
-  (lambda (c)
-    (add-submod! c n (make-constant n width))
-    (add-in-hole! c var-name n 'inf#)))
-(define-syntax-rule (out-hole var-name u uport)
-  (lambda(c)
-    (add-out-hole! c var-name u uport)))
+;; (define-syntax-rule (in-hole var-name u uport)
+;;   (lambda(c)
+;;     (add-in-hole! c var-name u uport)))
+;; (define-syntax-rule (const-hole var-name n width)
+;;   (lambda (c)
+;;     (add-submod! c n (make-constant n width))
+;;     (add-in-hole! c var-name n 'inf#)))
+;; (define-syntax-rule (out-hole var-name u uport)
+;;   (lambda(c)
+;;     (add-out-hole! c var-name u uport)))
 
-(define-syntax-rule (gen-proc name (in ...))
-  (keyword-lambda (in ...)
-    (let ([inputs (make-hash)])
-      (hash-set! inputs 'in in) ...
-      (compute (name) inputs))))
+;; (define-syntax-rule (gen-proc name (in ...))
+;;   (keyword-lambda (in ...)
+;;     (let ([inputs (make-hash)])
+;;       (hash-set! inputs 'in in) ...
+;;       (compute (name) inputs))))
 
 (define-syntax-rule (add-eq-constr left right)
   (lambda (c)
@@ -77,18 +77,18 @@
              #:with fun #'(constant n w 'u 'uport))
     (pattern (const n:nat : w:nat -> u:id)
              #:with fun #'(constant n w 'u 'inf#))
-    (pattern (const n:nat : w:nat -> hole var:id)
-             #:with fun #'(const-hole var n w))
+    ;; (pattern (const n:nat : w:nat -> hole var:id)
+    ;;          #:with fun #'(const-hole var n w))
 
     ;; hole patterns
-    (pattern (u:id @ uport:id -> hole var:id)
-             #:with fun #'(in-hole 'var 'u 'uport))
-    (pattern (u:id -> hole var:id)
-             #:with fun #'(in-hole 'var 'u 'inf#))
-    (pattern (hole var:id -> u:id @ uport:id)
-             #:with fun #'(out-hole 'var 'u 'uport))
-    (pattern (hole var:id -> u:id)
-             #:with fun #'(out-hole 'var 'u 'inf#))
+    ;; (pattern (u:id @ uport:id -> hole var:id)
+    ;;          #:with fun #'(in-hole 'var 'u 'uport))
+    ;; (pattern (u:id -> hole var:id)
+    ;;          #:with fun #'(in-hole 'var 'u 'inf#))
+    ;; (pattern (hole var:id -> u:id @ uport:id)
+    ;;          #:with fun #'(out-hole 'var 'u 'uport))
+    ;; (pattern (hole var:id -> u:id)
+    ;;          #:with fun #'(out-hole 'var 'u 'inf#))
 
     ;; create module pattern
     (pattern (name:id = new mod:id)
@@ -125,7 +125,7 @@
                       'name
                       (list (port 'i1.name i1.width) ...)
                       (list (port 'o1.name o1.width) ...)
-                      (gen-proc name (i1.name ...))
+                      void ;; (gen-proc name (i1.name ...))
                       )])
              (stmt.fun c) ...
              (constraint.fun c) ...
@@ -141,13 +141,21 @@
 ;;  )
 
 
+;; (require macro-debugger/stepper)
+;; (expand/step
+;;  #'(define/module add1 ((a : 32)) ((out : 32))
+;;    ([add = new comp/add]
+;;     [a -> add @ right]
+;;     [const 1 : 32 -> add @ left]
+;;     [add @ out -> out]))
+;;  )
 ;; (syntax->datum
 ;;  (expand
-;;   '(define/module add1 ((a : 32)) ((out : 32))
-;;      ([add = new comp/add]
-;;       [a -> add @ right]
-;;       [const 1 : 32 -> add @ left]
-;;       [add @ out -> out]))
+  ;; '(define/module add1 ((a : 32)) ((out : 32))
+  ;;    ([add = new comp/add]
+  ;;     [a -> add @ right]
+  ;;     [const 1 : 32 -> add @ left]
+  ;;     [add @ out -> out]))
 ;;  ))
 
 ;; (syntax->datum

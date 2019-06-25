@@ -12,34 +12,45 @@
          connect!
          add-submod!
          get-submod!
-         add-in-hole!
-         add-out-hole!
+         ;; add-in-hole!
+         ;; add-out-hole!
          add-constraint!
          split!
-         get-neighs
-         follow-holes ; temp
+         ;; get-neighs
+         ;; follow-holes ; temp
          compute
-         stabilize
+         ;; stabilize
+         convert-graph
          plot)
 
-(define-syntax-rule (keyword-lambda (arg ...) body ...)
+(define-syntax-rule (keyword-lambda (arg ...)
+                                    ([kw = body ...] ...))
   (lambda (h)
     (define arg (hash-ref h 'arg)) ...
-    ((lambda (arg ...) body ...) arg ...)))
+    (make-hash `((kw . ,(begin body ...)) ...))
+    ;; ((lambda (arg ...) body ...) arg ...)
+    ))
 
-(struct s-hole (name    ;; name of the hole
-                pair    ;; the port that is connected to this
-                type)   ;; #t for input and #f for output
-  #:transparent)
-(define (left-handed? hole) (s-hole-type hole))
-(define (right-handed? hole) (not (s-hole-type hole)))
+(expand/step #'(keyword-lambda (left right)
+                               ([out = (+ left right)])))
+((keyword-lambda (left right)
+                 ([out = (+ left right)]))
+ (make-hash '((left . 10) (right . 20)))
+ )
+
+;; (struct s-hole (name    ;; name of the hole
+;;                 pair    ;; the port that is connected to this
+;;                 type)   ;; #t for input and #f for output
+;;   #:transparent)
+;; (define (left-handed? hole) (s-hole-type hole))
+;; (define (right-handed? hole) (not (s-hole-type hole)))
 
 (struct component (name                       ;; name of the component
                    [ins #:mutable]            ;; list of input ports
                    [outs #:mutable]           ;; list of output ports
                    submods                    ;; hashtbl of sub components keyed on their name
                    splits                     ;; hashtbl keeping track of split nodes
-                   holes                      ;; hashtbl from hole-names to holes
+                   ;; holes                      ;; hashtbl from hole-names to holes
                    [constraints #:mutable]    ;; a list of constraints
                    proc                       ;; procedure representing this modules computation
                    graph                      ;; graph representing internal connections
@@ -58,7 +69,7 @@
                              (list (port 'inf# w))
                              (make-hash) ; submods
                              (make-hash) ; splits
-                             (make-hash) ; holes
+                             ;; (make-hash) ; holes
                              '()
                              void
                              (empty-graph)
@@ -72,7 +83,7 @@
                               '()
                               (make-hash) ; submods
                               (make-hash) ; splits
-                              (make-hash) ; holes
+                              ;; (make-hash) ; holes
                               '()
                               (lambda (h) (hash-ref h 'inf#))
                               (empty-graph)
@@ -98,7 +109,7 @@
      outs
      htbl          ; sub-mods
      (make-hash)   ; splits
-     (make-hash)   ; holes
+     ;; (make-hash)   ; holes
      '()
      proc
      g
@@ -144,15 +155,15 @@
      `(,tar-name . ,tar-port-name)
      width)))
 
-(define (add-in-hole! comp var-name u uport)
-  (hash-set! (component-holes comp) var-name
-             (s-hole var-name `(,u . ,uport) #t))
-  (add-vertex! (component-graph comp) `(,u . ,uport)))
+;; (define (add-in-hole! comp var-name u uport)
+;;   (hash-set! (component-holes comp) var-name
+;;              (s-hole var-name `(,u . ,uport) #t))
+;;   (add-vertex! (component-graph comp) `(,u . ,uport)))
 
-(define (add-out-hole! comp var-name u uport)
-  (hash-set! (component-holes comp) var-name
-             (s-hole var-name `(,u . ,uport) #f))
-  (add-vertex! (component-graph comp) `(,u . ,uport)))
+;; (define (add-out-hole! comp var-name u uport)
+;;   (hash-set! (component-holes comp) var-name
+;;              (s-hole var-name `(,u . ,uport) #f))
+;;   (add-vertex! (component-graph comp) `(,u . ,uport)))
 
 (define (add-constraint! comp constr)
   (set-component-constraints! comp (cons constr (component-constraints comp))))
@@ -198,92 +209,95 @@
 ;;                                (map port-name (component-ins (get-submod! comp v))))]))
 ;;                      outlst)))
 
-(define (relevant-constraints comp var)
-  (filter (lambda (con) (equal? (get-left con) var)) (component-constraints comp)))
+;; (define (relevant-constraints comp var)
+;;   (filter (lambda (con) (equal? (get-left con) var)) (component-constraints comp)))
 
-(define (follow-back comp pair)
-  (define cands (filter right-handed? (hash-values (component-holes comp))))
-  (map s-hole-name (filter (lambda (c) (equal? (s-hole-pair c) pair)) cands)))
+;; (define (follow-back comp pair)
+;;   (define cands (filter right-handed? (hash-values (component-holes comp))))
+;;   (map s-hole-name (filter (lambda (c) (equal? (s-hole-pair c) pair)) cands)))
 
-(define (get-neighs comp vertex)
-  (define valid-ports (map port-name (component-ins (get-submod! comp vertex))))
-  (define neighs (map (lambda (p)
-                        (sequence->list (in-neighbors
-                                         (transpose (component-graph comp))
-                                         `(,vertex . ,p))))
-                      valid-ports))
-  (define traces (flatten (map (lambda (x) (follow-back comp x))
-                               (map (lambda (x) `(,vertex . ,x)) valid-ports))))
-  (define trace-deps (flatten (map get-dependencies
-                                   (flatten
-                                    (map (lambda (x) (relevant-constraints comp x))
-                                         traces)))))
-  ;; (define dependent (flatten (map get-dependencies (relevant-constraints comp vertex))))
-  ;; (print (~v trace-deps dependent))
-  ;; (define holes (map s-hole-pair
-  ;;                    (filter left-handed?
-  ;;                            (map (lambda (d) (hash-ref (component-holes comp) d))
-  ;;                                 (append trace-deps dependent)))))
-  (remove-duplicates (filter (lambda (p) (not (empty? (cdr p))))
-                             (map (lambda (p n) `(,p . ,n)) valid-ports neighs))))
+;; (define (get-neighs comp vertex)
+;;   (define valid-ports (map port-name (component-ins (get-submod! comp vertex))))
+;;   (define neighs (map (lambda (p)
+;;                         (sequence->list (in-neighbors
+;;                                          (transpose (component-graph comp))
+;;                                          `(,vertex . ,p))))
+;;                       valid-ports))
+;;   (define traces (flatten (map (lambda (x) (follow-back comp x))
+;;                                (map (lambda (x) `(,vertex . ,x)) valid-ports))))
+;;   (define trace-deps (flatten (map get-dependencies
+;;                                    (flatten
+;;                                     (map (lambda (x) (relevant-constraints comp x))
+;;                                          traces)))))
+;;   (remove-duplicates (filter (lambda (p) (not (empty? (cdr p))))
+;;                              (map (lambda (p n) `(,p . ,n)) valid-ports neighs))))
 
-(define (follow-holes comp var)
-  (define valid-ports (map port-name (component-ins (get-submod! comp var))))
-  (define traces (flatten (map (lambda (x) (follow-back comp x))
-                               (map (lambda (x) `(,var . ,x)) valid-ports))))
-  (define trace-deps (map get-dependencies
-                          (flatten
-                           (map (lambda (x) (relevant-constraints comp x))
-                                traces))))
-  (println (~v valid-ports trace-deps))
-  (if (empty? trace-deps)
-      '()
-      (map (lambda (prt dep)
-             (let ([con (match dep
-                          [(cond-computation x y)
-                           (cond-computation
-                            (car (s-hole-pair (hash-ref (component-holes comp) x)))
-                            (car (s-hole-pair (hash-ref (component-holes comp) y))))]
-                          [(equal-computation x)
-                           (equal-computation
-                            (car (s-hole-pair (hash-ref (component-holes comp) x))))])])
-               `(,prt . ,con)))
-           valid-ports
-           trace-deps)))
+;; (define (follow-holes comp var)
+;;   (define valid-ports (map port-name (component-ins (get-submod! comp var))))
+;;   (define traces (flatten (map (lambda (x) (follow-back comp x))
+;;                                (map (lambda (x) `(,var . ,x)) valid-ports))))
+;;   (define trace-deps (map get-dependencies
+;;                           (flatten
+;;                            (map (lambda (x) (relevant-constraints comp x))
+;;                                 traces))))
+;;   (println (~v valid-ports trace-deps))
+;;   (if (empty? trace-deps)
+;;       '()
+;;       (map (lambda (prt dep)
+;;              (let ([con (match dep
+;;                           [(cond-computation x y)
+;;                            (cond-computation
+;;                             (car (s-hole-pair (hash-ref (component-holes comp) x)))
+;;                             (car (s-hole-pair (hash-ref (component-holes comp) y))))]
+;;                           [(equal-computation x)
+;;                            (equal-computation
+;;                             (car (s-hole-pair (hash-ref (component-holes comp) x))))])])
+;;                `(,prt . ,con)))
+;;            valid-ports
+;;            trace-deps)))
 
-(define (stabilize comp inputs vertex)
-  (if (member vertex (map port-name (component-ins comp)))
-      (hash-ref inputs vertex)
-      (let* ([neighs (get-neighs comp vertex)]
-             [sub (get-submod! comp vertex)]
-             [holes (map (lambda (x)
-                           (match x
-                             [(cons name (cond-computation x con))
-                              (begin
-                                (println (~v 'there x))
-                                (if (= 1 (stabilize comp inputs con))
-                                    `(,name . ,(stabilize comp inputs x))
-                                    `(,name . undefined)))]
-                             [(cons name (equal-computation x))
-                              (begin
-                                (println (~v 'bye x))
-                                `(,name . ,(stabilize comp inputs x)))]))
-                         (follow-holes comp vertex))]
-             [vals (map (lambda (pair)
-                          (match pair
-                            [(cons name (cons (cons v _) _))
-                             `(,name . ,(stabilize comp inputs v))]))
-                        neighs)]
-             [proc (component-proc sub)])
-        (proc (make-hash (append holes vals))))))
+;; (define (stabilize comp inputs vertex)
+;;   (if (member vertex (map port-name (component-ins comp)))
+;;       (hash-ref inputs vertex)
+;;       (let* ([neighs (get-neighs comp vertex)]
+;;              [sub (get-submod! comp vertex)]
+;;              [holes (map (lambda (x)
+;;                            (match x
+;;                              [(cons name (cond-computation x con))
+;;                               (begin
+;;                                 (println (~v 'there x))
+;;                                 (if (= 1 (stabilize comp inputs con))
+;;                                     `(,name . ,(stabilize comp inputs x))
+;;                                     `(,name . undefined)))]
+;;                              [(cons name (equal-computation x))
+;;                               (begin
+;;                                 (println (~v 'bye x))
+;;                                 `(,name . ,(stabilize comp inputs x)))]))
+;;                          (follow-holes comp vertex))]
+;;              [vals (map (lambda (pair)
+;;                           (match pair
+;;                             [(cons name (cons (cons v _) _))
+;;                              `(,name . ,(stabilize comp inputs v))]))
+;;                         neighs)]
+;;              [proc (component-proc sub)])
+;;         (proc (make-hash (append holes vals))))))
 
+;; (define (compute comp inputs)
+;;   (if (component-primitive comp)
+;;       ((component-proc comp) inputs)
+;;       (flatten (map (lambda (v) (stabilize comp inputs v))
+;;                     (map port-name (component-outs comp))))))
 (define (compute comp inputs)
-  (if (component-primitive comp)
-      ((component-proc comp) inputs)
-      (flatten (map (lambda (v) (stabilize comp inputs v))
-                    (map port-name (component-outs comp))))))
+  (println "nyi"))
 
-(define (convert-graph g)
+(compute triv (make-hash '((a . 20) (b . 10))))
+(plot (triv))
+(get-edges (component-graph (triv)))
+((component-proc (get-submod! (triv) 'add)) (make-hash '((left . 00) (right . 10))))
+
+
+(define (convert-graph comp)
+  (define g (component-graph comp))
   (define newg (empty-graph))
   (for-each (lambda (edge)
               (match edge
@@ -293,4 +307,4 @@
   newg)
 
 (define (plot comp)
-  (plot-graph (show-board (component-name comp)) (convert-graph (component-graph comp))))
+  (plot-graph (show-board (component-name comp)) (convert-graph comp)))

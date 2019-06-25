@@ -45,6 +45,20 @@
 ;;   ;;      out = two])
 ;;   )
 
+(define/module triv ((a : 32) (b : 32)) ((out : 32))
+  ([add = new comp/add]
+   [a -> add @ left]
+   [b -> add @ right]
+   [add @ out -> out]))
+(plot (triv))
+
+;; (tsort (convert-graph (triv)))
+;; (get-edges (convert-graph (triv)))
+;; (require graph)
+;; (define g (convert-graph (triv)))
+;; (tsort g) ;; want '((a b) (add) (out))
+;; (sequence->list (in-neighbors (transpose g) 'add))
+
 ;; (compute (prog) (make-hash '((a . 6) (c . 0))))
 
 ;; (syntax->datum (expand '(keyword-lambda (x y z) (+ x y z))))
@@ -53,30 +67,31 @@
   ; or
   ;; [out = two]
 
-(define/module foo ((in : 32)) ((out : 32))
-  ([in -> out]))
+;; (define/module foo ((in : 32)) ((out : 32))
+;;   ([in -> out]))
 
-(require graph)
-(define/module test ((a : 32) (c : 1)) ((out : 32))
-  ([a -> hole a]
-   [foo = new foo]
-   [hole a-in -> foo @ in]
-   [foo @ out -> hole a-out]
-   [c -> hole c]
-   [hole o -> out])
-  [a-in = a]
-  [o = a-out (when c)])
+;; (require graph)
+;; (define/module test ((a : 32) (c : 1)) ((out : 32))
+;;   ([a -> hole a]
+;;    [foo = new foo]
+;;    [hole a-in -> foo @ in]
+;;    [foo @ out -> hole a-out]
+;;    [c -> hole c]
+;;    [hole o -> out])
+;;   [a-in = a]
+;;   [o = a-out (when c)])
 
-(define/module test2 ((a : 32) (b : 32) (c : 1)) ((out : 32))
-  ([a -> hole in-a]
-   [b -> hole in-b]
-   [c -> hole con]
-   [hole out -> out])
-  [out = a]
-  [out = b (when c)])
-(compute (test2) (make-hash '((a . 10) (b . 20) (c . 1))))
+;; (define/module test2 ((a : 32) (b : 32) (c : 1)) ((out : 32))
+;;   ([a -> hole in-a]
+;;    [b -> hole in-b]
+;;    [c -> hole con]
+;;    [hole out -> out])
+;;   [out = a]
+;;   [out = b (when c)])
 
-(follow-holes (test) 'foo)
+;; (compute (test2) (make-hash '((a . 10) (b . 20) (c . 1))))
+
+;; (follow-holes (test) 'foo)
 
 ;; (map (lambda (x)
 ;;        (match x
@@ -85,7 +100,7 @@
 ;;  (follow-holes (test) 'out))
 ;; (component-holes (test))
 
-(stabilize (test) (make-hash '((a . 20) (c . 1))) 'out)
+;; (stabilize (test) (make-hash '((a . 20) (c . 1))) 'out)
 ;; (component-holes (test))
 
 ;; (component-constraints (test))
@@ -131,7 +146,7 @@
 ;;    ...
 
 ;; (get-vertices (component-graph (test)))
-(get-neighs (test) 'out)
+;; (get-neighs (test) 'out)
 ;; (compute (test) (make-hash '((a . 10) (c . 1))))
 
 ;; (define/module test2 ((a : 32)) ((out : 32))
