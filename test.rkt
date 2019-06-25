@@ -45,11 +45,16 @@
 ;;   ;;      out = two])
 ;;   )
 
-(define/module triv ((a : 32) (b : 32)) ((out : 32))
+(require "futil.rkt" "futil-prims.rkt")
+(define/module triv ((a : 32) (b : 32) (c : 32)) ((out : 32))
   ([add = new comp/add]
+   [add2 = new comp/add]
    [a -> add @ left]
    [b -> add @ right]
-   [add @ out -> out]))
+   [add @ out -> add2 @ left]
+   [c -> add2 @ right]
+   [add2 @ out -> out]
+   ))
 (plot (triv))
 
 ;; (tsort (convert-graph (triv)))

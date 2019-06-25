@@ -1,5 +1,6 @@
 #lang racket
 (require graph
+         racket/hash
          "dis-graphs.rkt"
          "port.rkt"
          "constraint.rkt")
@@ -18,25 +19,16 @@
          split!
          ;; get-neighs
          ;; follow-holes ; temp
-         compute
+         ;; compute
          ;; stabilize
          convert-graph
          plot)
 
 (define-syntax-rule (keyword-lambda (arg ...)
-                                    ([kw = body ...] ...))
+                                    [kw = body ...] ...)
   (lambda (h)
     (define arg (hash-ref h 'arg)) ...
-    (make-hash `((kw . ,(begin body ...)) ...))
-    ;; ((lambda (arg ...) body ...) arg ...)
-    ))
-
-(expand/step #'(keyword-lambda (left right)
-                               ([out = (+ left right)])))
-((keyword-lambda (left right)
-                 ([out = (+ left right)]))
- (make-hash '((left . 10) (right . 20)))
- )
+    (make-hash `((kw . ,(begin body ...)) ...))))
 
 ;; (struct s-hole (name    ;; name of the hole
 ;;                 pair    ;; the port that is connected to this
@@ -71,7 +63,7 @@
                              (make-hash) ; splits
                              ;; (make-hash) ; holes
                              '()
-                             void
+                             (keyword-lambda (inf#) [inf# = inf#])
                              (empty-graph)
                              #f))
 
@@ -85,7 +77,7 @@
                               (make-hash) ; splits
                               ;; (make-hash) ; holes
                               '()
-                              (lambda (h) (hash-ref h 'inf#))
+                              (keyword-lambda (inf#) [inf# = inf#])
                               (empty-graph)
                               #f))
 
@@ -116,7 +108,7 @@
      prim)))
 
 (define (make-constant n width)
-  (default-component n '() (list (port 'inf# width)) (keyword-lambda () n) #t))
+  (default-component n '() (list (port 'inf# width)) (keyword-lambda () [out = n]) #t))
 
 ;; Looks for an input/output port matching [port] in [comp]. If the port is found
 ;; and is equal to the value [#f], then this function does nothing. Otherwise
@@ -287,14 +279,62 @@
 ;;       ((component-proc comp) inputs)
 ;;       (flatten (map (lambda (v) (stabilize comp inputs v))
 ;;                     (map port-name (component-outs comp))))))
+(define (top-order g)
+  (define (check against lst)
+    (if (foldl (lambda (x acc)
+                 (or acc (member x against)))
+               #f
+               lst)
+        #t
+        #f))
+  (define trans-g (transpose g))
+  (reverse
+   (foldl (lambda (x acc)
+            (if (check (flatten acc) (sequence->list (in-neighbors trans-g x)))
+                (cons `(,x) acc)
+                (match acc
+                  [(cons h tl) (cons (cons x h) tl)])))
+          '(())
+          (tsort g))))
+
+;; (top-order (convert-graph (triv)))
+
+;; (hash, comp-name) -> transformed hash
+(define (transform comp inputs name)
+  (define sub (get-submod! comp name))
+  (define ins (map port-name (component-ins sub))) ; XXX: deal with port widths
+  (make-immutable-hash
+   (map (lambda (in)
+          (define neighs (sequence->list (in-neighbors (transpose (component-graph comp)) `(,name . ,in))))
+          `((,name . ,in) . ,(hash-ref inputs (car neighs))))
+        ins)))
+
+(define (submod-compute comp inputs name)
+  (define ins (make-immutable-hash (hash-map inputs (lambda (k v) `(,(cdr k) . ,v)))))
+  (make-immutable-hash
+   (hash-map ((component-proc (get-submod! comp name)) ins)
+             (lambda (k v) `((,name . ,k) . ,v)))))
+
+;; (submod-compute (triv) (transform (triv) (make-immutable-hash '(((add2 . out) . 60))) 'out) 'out)
+
+(define (println-ret x) (println x) x)
+
 (define (compute comp inputs)
-  (println "nyi"))
-
-(compute triv (make-hash '((a . 20) (b . 10))))
-(plot (triv))
-(get-edges (component-graph (triv)))
-((component-proc (get-submod! (triv) 'add)) (make-hash '((left . 00) (right . 10))))
-
+  (define order (cdr (top-order (convert-graph comp)))) ; throw away first element because they are inputs and already computed
+  (define filled
+    (foldl (lambda (lst acc)
+             (foldl (lambda (x acc)
+                      (hash-union acc (submod-compute comp (transform comp acc x) x)))
+                    acc
+                    lst))
+           inputs
+           order))
+  (map (lambda (x)
+         `(,(car x) . ,(hash-ref filled x)))
+       (map (lambda (x) `(,(port-name x) . inf#)) (component-outs comp))))
+(define (input-hash lst)
+  (make-immutable-hash (map (lambda (x) `((,(car x) . inf#) . ,(cdr x))) lst)))
+(compute (triv) (input-hash '((a . 20) (b . 10) (c . 30))))
 
 (define (convert-graph comp)
   (define g (component-graph comp))
