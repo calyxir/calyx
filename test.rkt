@@ -2,7 +2,8 @@
 (require "port.rkt"
          "component.rkt"
          "futil.rkt"
-         "futil-prims.rkt")
+         "futil-prims.rkt"
+         "dis-graphs.rkt")
 
 ;; (define/module prog2 () ((out : 32))
 ;;   ([foo1 = new foo]
@@ -45,16 +46,21 @@
 ;;   ;;      out = two])
 ;;   )
 
-(require "futil.rkt" "futil-prims.rkt")
-(define/module triv ((a : 32) (b : 32) (c : 32)) ((out : 32))
+(define/module id ((in : 32)) ((out : 32))
+  ([in -> out]))
+
+(require "futil.rkt" "futil-prims.rkt" "dis-graphs.rkt")
+(define/module triv ((a : 32) (b : 32)) ((out : 32))
   ([add = new comp/add]
-   [add2 = new comp/add]
+   [id = new id]
+   [control a1 = add]
+   [control id = id]
    [a -> add @ left]
    [b -> add @ right]
-   [add @ out -> add2 @ left]
-   [c -> add2 @ right]
-   [add2 @ out -> out]
-   ))
+   [add @ out -> id @ in]
+   [id @ out -> out]))
+;; (compute (triv) (input-hash '((a . 30) (b . 2) (c . 12) (d . 10))))
+;; (component-control (triv))
 (plot (triv))
 
 ;; (tsort (convert-graph (triv)))

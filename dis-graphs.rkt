@@ -1,9 +1,10 @@
 #lang racket/gui
 (require graph)
 (require racket/gui/base
-         mrlib/graph)
+         mrlib/graph
+         "component.rkt")
 (provide show-board
-         plot-graph)
+         plot)
 
 (define graph-board%
   (graph-pasteboard-mixin pasteboard%))
@@ -28,6 +29,7 @@
          (* char-width (string-length (~a value)))))
 
     (define/public (get-value) value)
+    (define/public (get-width) value-width)
 
     (define/override (get-extent dc x y width height descent space lspace rspace)
       (when width (set-box! width value-width))
@@ -48,45 +50,47 @@
 (define node%
   (graph-snip-mixin node-snip%))
 
-(define (top-order g)
-  (define (check against lst)
-    (if (foldl (lambda (x acc)
-                 (or acc (member x against)))
-               #f
-               lst)
-        #t
-        #f))
-  (define trans-g (transpose g))
-  (reverse
-   (foldl (lambda (x acc)
-            (if (check (flatten acc) (sequence->list (in-neighbors trans-g x)))
-                (cons `(,x) acc)
-                (match acc
-                  [(cons h tl) (cons (cons x h) tl)])))
-          '(())
-          (tsort g))))
+;; (define (top-order g)
+;;   (define (check against lst)
+;;     (if (foldl (lambda (x acc)
+;;                  (or acc (member x against)))
+;;                #f
+;;                lst)
+;;         #t
+;;         #f))
+;;   (define trans-g (transpose g))
+;;   (reverse
+;;    (foldl (lambda (x acc)
+;;             (if (check (flatten acc) (sequence->list (in-neighbors trans-g x)))
+;;                 (cons `(,x) acc)
+;;                 (match acc
+;;                   [(cons h tl) (cons (cons x h) tl)])))
+;;           '(())
+;;           (tsort g))))
 
-(define (plot-graph board g)
+(define (plot-comp board comp)
   ;; clear old graph
   (send board erase)
 
-  ;; get all the vertices in the graph
-  ;; (define nodes
-  ;;   (map (lambda (v)
-  ;;          (new node% [value v]))
-  ;;        (get-vertices g)))
+  (define spacing 50)
+  (define center 200)
 
   ;; insert all the vertices into the board
   (define nodes
     (flatten (map (lambda (vert-row j)
                     (map (lambda (vert i)
-                           (let ([node (new node% [value vert])])
-                             (send board insert node (* 50 (+ i 1)) (* 50 (+ j 1)))
+                           (let* ([node (new node% [value vert])]
+                                  [size (* spacing (- (length vert-row) 1))]
+                                  [node-size (send node get-width)]
+                                  [xoff (- center (/ size 2))])
+                             (send board insert node (- (+ xoff (* spacing i)) node-size) (* spacing (+ j 1)))
                              node))
                          vert-row
                          (build-list (length vert-row) values)))
-                  (top-order g)
-                  (build-list (length (top-order g)) values))))
+                  (top-order comp)
+                  (build-list (length (top-order comp)) values))))
+
+  (define g (convert-graph comp))
 
   ;; add all the edges
   (map (lambda (parent)
@@ -104,11 +108,7 @@
                          [(has-edge? g u v)
                           (set-link-label parent child label)])))
                    (get-neighbors g (send parent get-value))))
-       nodes)
-
-  ;; position the nodes on the board
-  ;; (dot-positioning board "dot")
-  )
+       nodes))
 
 ;; ==========================
 
@@ -129,6 +129,8 @@
 
    (send toplevel show #t)
    board)
+
+(define (plot comp) (plot-comp (show-board (component-name comp)) comp))
 
 
 ;; ==========================

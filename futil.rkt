@@ -2,7 +2,6 @@
 (require graph
          "port.rkt"
          "component.rkt"
-         "constraint.rkt"
          racket/format)
 (require (for-syntax racket/base
                      syntax/parse))
@@ -25,6 +24,10 @@
     (add-submod! c n (make-constant n width))
     (connect! c n 'inf# u uport)))
 
+(define-syntax-rule (control-point name lst)
+  (lambda (c)
+    (add-control! c 'name lst)))
+
 ;; (define-syntax-rule (in-hole var-name u uport)
 ;;   (lambda(c)
 ;;     (add-in-hole! c var-name u uport)))
@@ -36,31 +39,31 @@
 ;;   (lambda(c)
 ;;     (add-out-hole! c var-name u uport)))
 
-;; (define-syntax-rule (gen-proc name (in ...))
-;;   (keyword-lambda (in ...)
-;;     (let ([inputs (make-hash)])
-;;       (hash-set! inputs 'in in) ...
-;;       (compute (name) inputs))))
+(define-syntax-rule (gen-proc name (in ...))
+  (keyword-lambda (in ...)
+                  [out = (let ([inputs (make-hash)])
+                           (hash-set! inputs 'in in) ...
+                           (compute (name) inputs))]))
 
-(define-syntax-rule (add-eq-constr left right)
-  (lambda (c)
-    (add-constraint! c (equal-constraint left right))))
+;; (define-syntax-rule (add-eq-constr left right)
+;;   (lambda (c)
+;;     (add-constraint! c (equal-constraint left right))))
 
-(define-syntax-rule (add-when-constr left right con)
-  (lambda (c)
-    (add-constraint! c (cond-constraint left right con))))
+;; (define-syntax-rule (add-when-constr left right con)
+;;   (lambda (c)
+;;     (add-constraint! c (cond-constraint left right con))))
 
-(define-syntax-rule (add-unless-constr left right con)
-  (lambda (c)
-    (let ([ncon (if (= con 1) 0 1)])
-      (add-constraint! c (cond-constraint left right ncon)))))
+;; (define-syntax-rule (add-unless-constr left right con)
+;;   (lambda (c)
+;;     (let ([ncon (if (= con 1) 0 1)])
+;;       (add-constraint! c (cond-constraint left right ncon)))))
 
 ;; TODO: factor out the patterns properly
 (define-syntax (define/module stx)
   (define-syntax-class stmt
     #:description "connecting components and instantiating modules"
     #:literals (-> = new const)
-    #:datum-literals (@ split &)
+    #:datum-literals (@ split & control)
     #:attributes (fun)
     ;; port patterns
     (pattern (u:id @ uport:id -> v:id @ vport:id)
@@ -90,6 +93,10 @@
     ;; (pattern (hole var:id -> u:id)
     ;;          #:with fun #'(out-hole 'var 'u 'inf#))
 
+    ;; control point patterns
+    (pattern (control name:id = x:id ...)
+             #:with fun #'(control-point name '(x ...)))
+
     ;; create module pattern
     (pattern (name:id = new mod:id)
              #:with fun #'(create-module 'name (mod)))
@@ -107,11 +114,11 @@
     #:description "the constraint language for futil"
     #:literals (when)
     (pattern (out:id = in:id (when con:id))
-             #:with fun #'(add-when-constr 'out 'in 'con))
+             #:with fun #'(void))
     ;; (pattern (out:id = in:id (unless con:id))
     ;;          #:with fun #'(add-unless-constr 'out 'in 'con))
     (pattern (out:id = in:id)
-             #:with fun #'(add-eq-constr 'out 'in)))
+             #:with fun #'(void)))
 
   (syntax-parse stx
     [(_ name (i1:portdecl ...) (o1:portdecl ...) (stmt:stmt ...) constraint:constraint ...)
@@ -125,7 +132,7 @@
                       'name
                       (list (port 'i1.name i1.width) ...)
                       (list (port 'o1.name o1.width) ...)
-                      void ;; (gen-proc name (i1.name ...))
+                      (gen-proc name (i1.name ...))
                       )])
              (stmt.fun c) ...
              (constraint.fun c) ...
