@@ -39,11 +39,27 @@
 ;;   (lambda(c)
 ;;     (add-out-hole! c var-name u uport)))
 
-(define-syntax-rule (gen-proc name (in ...))
+(define-syntax-rule (gen-proc name (in ...) (out ...))
   (keyword-lambda (in ...)
-                  [out = (let ([inputs (make-hash)])
-                           (hash-set! inputs 'in in) ...
-                           (compute (name) inputs))]))
+                  ([res = (let ([inputs (list (cons 'in in) ...)])
+                            (match (compute (name) inputs)
+                              [(cons state vals)
+                               (make-hash (apply append vals))]))])
+                  [out => (begin
+                            (println res)
+                            (hash-ref res 'out))] ...))
+
+(define-syntax-rule (make-constraint comp port tru fals)
+  (constr '(comp . port) 'tru 'fals))
+
+(define-syntax-rule (construct-control (var ...))
+  (begin
+    (for-each (lambda (x) (println (~v 'cc (eval x) (constr? (eval x))))) (list var ...))
+    (let ([lst (map eval (list var ...))])
+      (control-pair (filter (lambda (x) (not (constr? x))) lst)
+                    (filter (lambda (x) (constr? x)) lst)))))
+
+;; (expand/step #'(gen-proc test (a b c) (out1 out2)))
 
 ;; (define-syntax-rule (add-eq-constr left right)
 ;;   (lambda (c)
@@ -110,15 +126,29 @@
     #:datum-literals (:)
     (pattern (name:id : width:nat)))
 
+  (define-syntax-class constr-expr
+    #:description "possible constraint expressions"
+    #:literals (if)
+
+    (pattern (if (comp:id port) tru:id fals:id)
+             #:with val #'(make-constraint comp port tru fals))
+    (pattern (x:id)
+             #:with val #'x))
+
   (define-syntax-class constraint
     #:description "the constraint language for futil"
     #:literals (when)
-    (pattern (out:id = in:id (when con:id))
-             #:with fun #'(void))
+
+    (pattern (x:constr-expr ...)
+             #:with item #'(construct-control ('x.val ...)))
+
+    ;; (pattern (out:id = in:id (when con:id))
+    ;;          #:with fun #'(void))
     ;; (pattern (out:id = in:id (unless con:id))
     ;;          #:with fun #'(add-unless-constr 'out 'in 'con))
-    (pattern (out:id = in:id)
-             #:with fun #'(void)))
+    ;; (pattern (out:id = in:id)
+    ;;          #:with fun #'(void))
+    )
 
   (syntax-parse stx
     [(_ name (i1:portdecl ...) (o1:portdecl ...) (stmt:stmt ...) constraint:constraint ...)
@@ -132,21 +162,12 @@
                       'name
                       (list (port 'i1.name i1.width) ...)
                       (list (port 'o1.name o1.width) ...)
-                      (gen-proc name (i1.name ...))
+                      (gen-proc name (i1.name ...) (o1.name ...))
+                      (list constraint.item ...)
                       )])
              (stmt.fun c) ...
-             (constraint.fun c) ...
              c))
          (name))]))
-;; (syntax->datum
-;;  (expand
-;;   '(define/module test ((a : 32) (c : 1)) ((out : 32))
-;;      ([a -> hole a]
-;;       [c -> hole c]
-;;       [hole out -> out]))
-;;   )
-;;  )
-
 
 ;; (require macro-debugger/stepper)
 ;; (expand/step
@@ -164,25 +185,3 @@
   ;;     [const 1 : 32 -> add @ left]
   ;;     [add @ out -> out]))
 ;;  ))
-
-;; (syntax->datum
-;;  (expand
-;;   '(define/module mux4 ((a : 32) (b : 32) (c : 32) (d : 32) (control : 2)) ((out : 32))
-;;     [con1 & con2 = split 1 control]
-;;     [dup = new dup]
-;;     [con1 -> dup]
-;;     [mux1 = new mux]
-;;     [mux2 = new mux]
-;;     [mux3 = new mux]
-;;     [a -> mux1 @ left]
-;;     [b -> mux1 @ right]
-;;     [c -> mux2 @ left]
-;;     [d -> mux2 @ right]
-;;     [dup @ out1 -> mux1 @ control]
-;;     [dup @ out2 -> mux2 @ control]
-;;     [con2 -> mux3 @ control]
-;;     [mux1 @ out -> mux3 @ left]
-;;     [mux2 @ out -> mux3 @ right]
-;;     [mux3 @ out -> out])
-;;   )
-;;  )
