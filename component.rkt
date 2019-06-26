@@ -33,7 +33,7 @@
                    ;; holes                      ;; hashtbl from hole-names to holes
                    ;; [constraints #:mutable]    ;; a list of constraints
                    control                    ;; a hashtbl from names to sets of names representing control points
-                   proc                       ;; procedure representing this modules computation
+                   [proc #:mutable]           ;; procedure representing this modules computation XXX: remove mut
                    graph                      ;; graph representing internal connections
                    primitive                  ;; true when this component is primitive
                    ))
@@ -200,7 +200,6 @@
                '(() . -1)
                sorted))))
 
-;; (hash, comp-name) -> transformed hash
 (define (transform comp inputs name)
   (define sub (get-submod! comp name))
   (define ins (map port-name (component-ins sub))) ; XXX: deal with port widths
@@ -210,22 +209,46 @@
           `((,name . ,in) . ,(hash-ref inputs (car neighs))))
         ins)))
 
+(define (mint-inactive-hash comp name)
+  (make-immutable-hash (map
+                        (lambda (x)
+                          `((,name . ,(port-name x)) . #f))
+                        (append
+                         (component-outs (get-submod! comp name))
+                         (filter-map
+                          (lambda (x) (and (equal? name (port-name x)) (port 'inf# (port-width x))))
+                          (component-outs comp))))))
+
 (define (submod-compute comp inputs name)
   (define ins (make-immutable-hash (hash-map inputs (lambda (k v) `(,(cdr k) . ,v)))))
-  (make-immutable-hash
-   (hash-map ((component-proc (get-submod! comp name)) ins)
-             (lambda (k v) `((,name . ,k) . ,v)))))
+  ;; (println (~v 'submod ins))
+  (if (andmap (lambda (x) x) (hash-values ins))
+      (make-immutable-hash
+       (hash-map ((component-proc (get-submod! comp name)) ins)
+                 (lambda (k v) `((,name . ,k) . ,v))))
+      (begin
+        ;; (println (~v 'mint name (mint-inactive-hash comp name)))
+        (mint-inactive-hash comp name))
+      ))
 
-(define (compute comp inputs)
+(define (compute comp inputs inactive)
   (define order (cdr (top-order comp))) ; throw away first element because they are inputs and already computed
   (define filled
     (foldl (lambda (lst acc)
              (foldl (lambda (x acc)
-                      (hash-union acc (submod-compute comp (transform comp acc x) x)))
+                      ;; (println (~v x (member x inactive)))
+                      ;; (println (~v acc (submod-compute comp (transform comp acc x) x)))
+                      (if (member x inactive)
+                          (begin
+                            ;; (println (~v 'inactive (hash-union acc (mint-inactive-hash comp x))))
+                            (hash-union acc (mint-inactive-hash comp x))) ; inactive
+                          (hash-union acc (submod-compute comp (transform comp acc x) x)) ; active
+                          ))
                     acc
                     lst))
            inputs
            order))
+  (println filled)
   (map (lambda (x)
          `(,(car x) . ,(hash-ref filled x)))
        (map (lambda (x) `(,(port-name x) . inf#)) (component-outs comp))))
