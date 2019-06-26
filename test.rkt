@@ -25,12 +25,8 @@
    [b -> add @ right]
    [add @ out -> id @ in]
    [id @ out -> out]))
-(compute (triv) (input-hash '((a . 30) (b . 2))) '(id))
-;; (component-control (triv))
+(compute (triv) (input-hash '((a . 30) (b . 2))) '(a))
 (plot (triv))
-
-(mint-inactive-hash (triv) 'out)
-(component-outs (get-submod! (triv) 'add)) (filter (lambda (x) (equal? 'add (port-name x))) (component-outs (triv)))
 
 (define/module add4 ((a : 32) (b : 32) (c : 32) (d : 32)) ((out : 32))
   ([add1 = new comp/add]
@@ -45,6 +41,13 @@
    [id = new id]
    [add3 @ out -> id @ in]
    [id @ out -> out]))
-(compute (add4) (input-hash '((a . 1) (b . 2) (c . 3) (d . 4))) '(add2 add3))
-
+(compute (add4) (input-hash '((a . 1) (b . 2) (c . 3) (d . 4))) '(a b c d))
 (plot (add4))
+
+(define/module mux ((a : 32) (b : 32) (c : 1)) ((out : 32))
+  ([a -> out]
+   [b -> out]))
+(plot (mux))
+(get-edges (convert-graph (mux)))
+
+;; (compute (mux) (input-hash '((a . 1) (b . 10) (c . 1))) '(out) '((constr 'c 'a 'b)))

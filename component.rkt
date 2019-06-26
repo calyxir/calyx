@@ -188,6 +188,8 @@
     (hash-remove (make-immutable-hash (hash-map distMat (lambda (k v) `(,k . ,(- v 1)))))
                  'start#)))
 
+(struct constr (condition tbranch fbranch) #:transparent)
+
 (define (top-order comp)
   (define sorted (sort (hash->list (distMatrix comp))
                        (lambda (x y)
@@ -201,13 +203,19 @@
                sorted))))
 
 (define (transform comp inputs name)
-  (define sub (get-submod! comp name))
-  (define ins (map port-name (component-ins sub))) ; XXX: deal with port widths
-  (make-immutable-hash
-   (map (lambda (in)
-          (define neighs (sequence->list (in-neighbors (transpose (component-graph comp)) `(,name . ,in))))
-          `((,name . ,in) . ,(hash-ref inputs (car neighs))))
-        ins)))
+  (println (~v 'transform name (component-ins comp)))
+  (if (findf (lambda (x) (equal? name (port-name x))) (component-ins comp))
+      inputs
+      (begin
+        (let* ([sub (get-submod! comp name)]
+               [ins (map port-name (component-ins sub))])  ; XXX: deal with port widths
+          (println (~v 'transform name ': inputs '-> ins))
+          (make-immutable-hash
+           (map (lambda (in)
+                  (define neighs (sequence->list (in-neighbors (transpose (component-graph comp)) `(,name . ,in))))
+                  (println neighs)
+                  `((,name . ,in) . ,(hash-ref inputs (car neighs))))
+                ins))))))
 
 (define (mint-inactive-hash comp name)
   (make-immutable-hash (map
@@ -221,7 +229,7 @@
 
 (define (submod-compute comp inputs name)
   (define ins (make-immutable-hash (hash-map inputs (lambda (k v) `(,(cdr k) . ,v)))))
-  ;; (println (~v 'submod ins))
+  (println (~v 'submod inputs '-> ins))
   (if (andmap (lambda (x) x) (hash-values ins))
       (make-immutable-hash
        (hash-map ((component-proc (get-submod! comp name)) ins)
@@ -231,27 +239,30 @@
         (mint-inactive-hash comp name))
       ))
 
+(define (c-hash-union h1 h2)
+  (hash-union h1 h2 #:combine (lambda (v1 v2) v2)))
+
 (define (compute comp inputs inactive)
-  (define order (cdr (top-order comp))) ; throw away first element because they are inputs and already computed
+  ;; (define order (cdr (top-order comp))) ; throw away first element because they are inputs and already computed
+  (define order (top-order comp))
   (define filled
     (foldl (lambda (lst acc)
              (foldl (lambda (x acc)
-                      ;; (println (~v x (member x inactive)))
-                      ;; (println (~v acc (submod-compute comp (transform comp acc x) x)))
+                      (println (~v x (member x inactive)))
+                      (println (~v acc))
                       (if (member x inactive)
-                          (begin
-                            ;; (println (~v 'inactive (hash-union acc (mint-inactive-hash comp x))))
-                            (hash-union acc (mint-inactive-hash comp x))) ; inactive
-                          (hash-union acc (submod-compute comp (transform comp acc x) x)) ; active
+                          (c-hash-union acc (mint-inactive-hash comp x)) ; inactive
+                          (c-hash-union acc (submod-compute comp (transform comp acc x) x)) ; active
                           ))
                     acc
                     lst))
            inputs
            order))
-  (println filled)
-  (map (lambda (x)
-         `(,(car x) . ,(hash-ref filled x)))
-       (map (lambda (x) `(,(port-name x) . inf#)) (component-outs comp))))
+  (values
+   filled
+   (map (lambda (x)
+          `(,(car x) . ,(hash-ref filled x)))
+        (map (lambda (x) `(,(port-name x) . inf#)) (component-outs comp)))))
 
 (define (input-hash lst)
   (make-immutable-hash (map (lambda (x) `((,(car x) . inf#) . ,(cdr x))) lst)))
