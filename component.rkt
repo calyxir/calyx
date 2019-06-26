@@ -203,18 +203,19 @@
                sorted))))
 
 (define (transform comp inputs name)
-  (println (~v 'transform name (component-ins comp)))
+  ;; (println (~v 'transform name (component-ins comp)))
   (if (findf (lambda (x) (equal? name (port-name x))) (component-ins comp))
-      inputs
+      (make-immutable-hash `(((,name . inf#) . ,(hash-ref inputs `(,name . inf#)))))
       (begin
         (let* ([sub (get-submod! comp name)]
                [ins (map port-name (component-ins sub))])  ; XXX: deal with port widths
-          (println (~v 'transform name ': inputs '-> ins))
+          ;; (println (~v 'transform name ': inputs '-> ins))
           (make-immutable-hash
            (map (lambda (in)
                   (define neighs (sequence->list (in-neighbors (transpose (component-graph comp)) `(,name . ,in))))
-                  (println neighs)
-                  `((,name . ,in) . ,(hash-ref inputs (car neighs))))
+                  (define neighs-vals (filter-map (lambda (x) (hash-ref inputs x)) neighs))
+                  (println (~v 'neighs neighs neighs-vals))
+                  `((,name . ,in) . ,(car neighs-vals)))
                 ins))))))
 
 (define (mint-inactive-hash comp name)
@@ -242,9 +243,18 @@
 (define (c-hash-union h1 h2)
   (hash-union h1 h2 #:combine (lambda (v1 v2) v2)))
 
-(define (compute comp inputs inactive)
-  ;; (define order (cdr (top-order comp))) ; throw away first element because they are inputs and already computed
+(define (compute comp inputs [inactive-lst '()] [constrs '()])
   (define order (top-order comp))
+  (define inactive (remove-duplicates
+                    (flatten
+                     (foldl (lambda (c acc)
+                              (append acc
+                                      (if (equal? 1 (hash-ref inputs (constr-condition c)))
+                                          (constr-tbranch c)
+                                          (constr-fbranch c))))
+                            inactive-lst
+                            constrs))))
+  (println inactive)
   (define filled
     (foldl (lambda (lst acc)
              (foldl (lambda (x acc)

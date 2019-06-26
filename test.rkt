@@ -50,4 +50,4 @@
 (plot (mux))
 (get-edges (convert-graph (mux)))
 
-;; (compute (mux) (input-hash '((a . 1) (b . 10) (c . 1))) '(out) '((constr 'c 'a 'b)))
+(compute (mux) (input-hash '((a . 2) (b . 10) (c . 1))) '() (list (constr '(c . inf#) 'a 'b)))
