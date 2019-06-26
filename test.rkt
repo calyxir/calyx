@@ -23,6 +23,7 @@
   [])
 
 (component-control (triv))
+(plot (triv))
 (compute (triv) '((a . 1) (b . 2)))
 
 ;; add -- id
@@ -58,7 +59,6 @@
   ([a -> out]
    [b -> out])
   [(if (c inf#) a b)])
-(component-control (mux))
 (compute (mux) '((a . 20) (b . 10) (c . 1)))
 ;; (define (mux-p)
 ;;   (define comp (mux))

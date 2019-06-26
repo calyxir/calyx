@@ -54,8 +54,12 @@
 
 (define-syntax-rule (construct-control (var ...))
   (begin
-    (for-each (lambda (x) (println (~v 'cc (eval x) (constr? (eval x))))) (list var ...))
-    (let ([lst (map eval (list var ...))])
+    ;; (for-each (lambda (x) (println (~v 'cc (eval x) (constr? (eval x))))) (list var ...))
+    (let ([lst (map (lambda (x)
+                      (if (list? x)
+                          (eval x)
+                          x))
+                    (list var ...))])
       (control-pair (filter (lambda (x) (not (constr? x))) lst)
                     (filter (lambda (x) (constr? x)) lst)))))
 
