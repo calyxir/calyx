@@ -6,6 +6,7 @@
          (struct-out constr)
          (struct-out control-pair)
          (struct-out component)
+         transform-control
          input-component
          output-component
          default-component
@@ -42,7 +43,7 @@
                    [control #:mutable]        ;; list of (inactive lst * constr list) tuples XXX: remove mut
                    [proc #:mutable]           ;; procedure representing this modules computation XXX: remove mut
                    graph                      ;; graph representing internal connections
-                   primitive                  ;; true when this component is primitive
+                   ;; primitive                  ;; true when this component is primitive
                    ))
 
 ;; creates a default component given a name for the component,
@@ -59,8 +60,7 @@
                              (make-hash) ; splits
                              (list (control-pair '() '()))
                              (keyword-lambda (inf#) () [inf# => inf#])
-                             (empty-graph)
-                             #f))
+                             (empty-graph)))
 
 ;; creates a component with a single infinite input port of width w
 ;; and no output ports. Designed to be used as the output of a component.
@@ -72,15 +72,34 @@
                               (make-hash) ; splits
                               (list (control-pair '() '()))
                               (keyword-lambda (inf#) () [inf# => inf#])
-                              (empty-graph)
-                              #f))
+                              (empty-graph)))
+
+(define (list-subtraction l1 l2)
+  (foldl (lambda (x acc)
+           (remove x acc))
+         l1
+         l2))
+
+(define (transform-control control)
+  ;; (define control (component-control (add4)))
+  (define all-inactive (map control-pair-inactive control))
+  (define all-constr (map control-pair-constr control))
+  (define grid (make-list (length control) (flatten all-inactive)))
+  (define edited
+    (map (lambda (g a)
+           (list-subtraction g a))
+         grid
+         all-inactive))
+  (map (lambda (e a) (control-pair e a))
+       edited
+       all-constr))
 
 ;; TODO: maybe add vertices for ins and outs
 
 ;; given a name, list of input ports, and list of output ports, creates
 ;; a component an empty graph and the appropriate input and output ports
 ;; in the hashtable.
-(define (default-component name ins outs proc [control (list (control-pair '() '()))] [prim #f])
+(define (default-component name ins outs proc [control (list (control-pair '() '()))])
   (let ([htbl (make-hash)]
         [g (empty-graph)])
     (for-each (lambda (p) ; p is a port
@@ -97,11 +116,10 @@
      (make-hash)   ; splits
      control
      proc
-     g
-     prim)))
+     g)))
 
 (define (make-constant n width)
-  (default-component n '() (list (port 'inf# width)) (keyword-lambda () () [inf# => n]) #t))
+  (default-component n '() (list (port 'inf# width)) (keyword-lambda () () [inf# => n])))
 
 ;; Looks for an input/output port matching [port] in [comp]. If the port is found
 ;; and is equal to the value [#f], then this function does nothing. Otherwise
@@ -253,7 +271,11 @@
       ))
 
 (define (c-hash-union h1 h2)
-  (hash-union h1 h2 #:combine (lambda (v1 v2) v2)))
+  (hash-union h1 h2 #:combine (lambda (v1 v2)
+                                (cond
+                                  [(not v1) v2]
+                                  [(not v2) v1]
+                                  [else v2]))))
 
 (define (compute-step comp inputs [inactive-lst '()] [constrs '()])
   (define order (top-order comp))
@@ -273,9 +295,10 @@
                       ;; (println (~v x (member x inactive)))
                       ;; (println (~v acc))
                       (if (member x inactive)
-                          (c-hash-union acc (mint-inactive-hash comp x)) ; inactive
-                          (c-hash-union acc (submod-compute comp (transform comp acc x) x)) ; active
-                          ))
+                          ; inactive
+                          (c-hash-union acc (mint-inactive-hash comp x))
+                          ; active
+                          (c-hash-union acc (submod-compute comp (transform comp acc x) x))))
                     acc
                     lst))
            inputs
@@ -314,15 +337,21 @@
   (c-hash-union empty-hash
                 (make-immutable-hash (map (lambda (x) `((,(car x) . inf#) . ,(cdr x))) lst))))
 
-(define (convert-graph comp)
+(define (convert-graph comp [vals #f])
   (define g (component-graph comp))
   (define newg (empty-graph))
   (for-each (lambda (edge)
               (match edge
                 [(cons (cons u _) (cons (cons v _) _))
-                 (add-directed-edge! newg u v)]))
+                 (if vals
+                     (begin
+                       (add-directed-edge! newg u v (hash-ref vals (car edge))))
+                     (add-directed-edge! newg u v)
+                     )
+                 ]))
             (get-edges g))
   newg)
+
 
 ;; (define (plot comp)
 ;;   (plot-graph (show-board (component-name comp)) (convert-graph comp)))

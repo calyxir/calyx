@@ -4,7 +4,8 @@
          mrlib/graph
          "component.rkt")
 (provide show-board
-         plot)
+         plot
+         animate)
 
 (define graph-board%
   (graph-pasteboard-mixin pasteboard%))
@@ -19,7 +20,7 @@
 
 (define node-snip%
   (class snip%
-    (init-field value)
+    (init-field value color)
     (super-new)
     (send this set-snipclass node-snip-class)
 
@@ -43,6 +44,7 @@
       (define font (send the-font-list find-or-create-font 10 'modern 'normal 'normal))
       (send dc set-font font)
       (send dc set-text-background "black")
+      (send dc set-pen color 1 'solid)
       (send dc draw-rectangle (+ x 0) (+ y 0) value-width 20)
       (define label (~a value))
       (send dc draw-text label (+ x (/ value-width 4)) (+ y 3)))))
@@ -68,29 +70,31 @@
 ;;           '(())
 ;;           (tsort g))))
 
-(define (plot-comp board comp)
+(define (plot-comp board comp vals inactive)
   ;; clear old graph
   (send board erase)
 
-  (define spacing 50)
-  (define center 200)
+  (define spacing 100)
+  (define center 250)
 
   ;; insert all the vertices into the board
   (define nodes
     (flatten (map (lambda (vert-row j)
                     (map (lambda (vert i)
-                           (let* ([node (new node% [value vert])]
+                           (let* ([color (if (member vert inactive) "red" "black")]
+                                  [node (new node% [value vert] [color color])]
                                   [size (* spacing (- (length vert-row) 1))]
                                   [node-size (send node get-width)]
                                   [xoff (- center (/ size 2))])
-                             (send board insert node (- (+ xoff (* spacing i)) node-size) (* spacing (+ j 1)))
+                             (send board insert node
+                                   (- (+ xoff (* spacing i)) node-size) (* spacing (+ j 1)))
                              node))
                          vert-row
                          (build-list (length vert-row) values)))
                   (top-order comp)
                   (build-list (length (top-order comp)) values))))
 
-  (define g (convert-graph comp))
+  (define g (convert-graph comp vals))
 
   ;; add all the edges
   (map (lambda (parent)
@@ -103,7 +107,7 @@
                      (add-links parent child)
                      (let* ([u (send parent get-value)]
                             [v (send child get-value)]
-                            [label (if (= (edge-weight g u v) 1) "" (~a (edge-weight g u v)))])
+                            [label (~a (edge-weight g u v))])
                        (cond
                          [(has-edge? g u v)
                           (set-link-label parent child label)])))
@@ -115,23 +119,28 @@
 (define (show-board name)
   (define board (new graph-board%))
 
-   (define toplevel (new frame%
-                         [label (~a name)]
-                         [width (* 50 8)]
-                         [height (* 50 8)]))
+  (define toplevel (new frame%
+                        [label name]
+                        [width (* 50 10)]
+                        [height (* 50 10)]))
 
-   (define canvas (new editor-canvas%
-                       [parent toplevel]
-                       [style '(no-hscroll no-vscroll)]
-                       [horizontal-inset 0]
-                       [vertical-inset 0]
-                       [editor board]))
+  (define canvas (new editor-canvas%
+                      [parent toplevel]
+                      [style '(no-hscroll no-vscroll)]
+                      [horizontal-inset 0]
+                      [vertical-inset 0]
+                      [editor board]))
 
-   (send toplevel show #t)
-   board)
+  (send toplevel show #t)
+  board)
 
-(define (plot comp) (plot-comp (show-board (component-name comp)) comp))
+(define (plot comp [vals #f] [inactive '()] [suffix ""])
+  (plot-comp (show-board (~a (component-name comp) suffix)) comp vals inactive))
 
+(define (animate comp inputs)
+  (define hashs (rest (car (compute comp inputs))))
+  (define control (map control-pair-inactive (component-control comp)))
+  (map (lambda (h c i) (plot comp h c i)) hashs control (build-list (length hashs) values)))
 
 ;; ==========================
 

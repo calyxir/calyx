@@ -1,12 +1,10 @@
 #lang racket
-(require "port.rkt"
-         "component.rkt"
+(require "component.rkt"
          "futil.rkt"
          "futil-prims.rkt"
          "dis-graphs.rkt")
 
 (require "futil.rkt" "futil-prims.rkt" "dis-graphs.rkt")
-(require "futil-prims.rkt")
 (define/module id ((in : 32)) ((out : 32))
   ([in -> out])
   [])
@@ -18,13 +16,25 @@
    [b -> add @ right]
    [add @ out -> id @ in]
    [id @ out -> out])
-  [(add) (id)]
-  [(id)]
-  [])
+  [(add)]
+  [(id)])
 
-(component-control (triv))
-(plot (triv))
-(compute (triv) '((a . 1) (b . 2)))
+;; [(add)]
+;; [(id)]
+
+;; (component-control (triv))
+;; (convert-graph (triv) (list-ref (car (compute (triv) '((a . 1) (b . 2)))) 1))
+(plot (triv) (list-ref (car (compute (triv) '((a . 1) (b . 2)))) 2) '(a))
+
+
+(animate (triv) '((a . 1) (b . 2)))
+
+;; (map (lambda (h) (plot (triv) h))
+;;      (rest (car (compute (triv) '((a . 1) (b . 2))))))
+
+;; (require describe)
+;; (hash? (list-ref (car (compute (triv) '((a . 1) (b . 2)))) 1))
+
 
 ;; add -- id
 ;; (define (triv-p)
@@ -39,27 +49,37 @@
 ;; (compute (triv-p) '((a . 30) (b . 2)))
 ;; (plot (triv))
 
-;; (define/module add4 ((a : 32) (b : 32) (c : 32) (d : 32)) ((out : 32))
-;;   ([add1 = new comp/add]
-;;    [add2 = new comp/add]
-;;    [add3 = new comp/add]
-;;    [a -> add1 @ left]
-;;    [b -> add1 @ right]
-;;    [c -> add2 @ left]
-;;    [d -> add2 @ right]
-;;    [add1 @ out -> add3 @ left]
-;;    [add2 @ out -> add3 @ right]
-;;    [id = new id]
-;;    [add3 @ out -> id @ in]
-;;    [id @ out -> out]))
+(define/module add4 ((a : 32) (b : 32) (c : 32) (d : 32)) ((out : 32))
+  ([add1 = new comp/add]
+   [add2 = new comp/add]
+   [add3 = new comp/add]
+   [a -> add1 @ left]
+   [b -> add1 @ right]
+   [c -> add2 @ left]
+   [d -> add2 @ right]
+   [add1 @ out -> add3 @ left]
+   [add2 @ out -> add3 @ right]
+   [id = new id]
+   [add3 @ out -> id @ in]
+   [id @ out -> out])
+  [(a) (b) (c) (d)]
+  [(add2) (add1)]
+  [(add3)]
+  [(id)])
+
+(plot (add4) )
+(animate (add4) '((a . 1) (b . 2) (c . 3) (d . 4)))
+;; (plot (add4))
+
+;; (add2 -- add3)
 ;; (compute-step (add4) (input-hash '((a . 1) (b . 2) (c . 3) (d . 4))) '(a b c d))
 ;; (plot (add4))
 
-(define/module mux ((a : 32) (b : 32) (c : 1)) ((out : 32))
-  ([a -> out]
-   [b -> out])
-  [(if (c inf#) a b)])
-(compute (mux) '((a . 20) (b . 10) (c . 1)))
+;; (define/module mux ((a : 32) (b : 32) (c : 1)) ((out : 32))
+;;   ([a -> out]
+;;    [b -> out])
+;;   [(if (c inf#) a b)])
+;; (compute (mux) '((a . 20) (b . 10) (c . 1)))
 ;; (define (mux-p)
 ;;   (define comp (mux))
 ;;   (define control

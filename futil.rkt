@@ -5,7 +5,8 @@
          racket/format)
 (require (for-syntax racket/base
                      syntax/parse))
-(provide define/module)
+(provide define/module
+         make-constraint)
 
 (define-syntax-rule (connect u uf v vf)
   (lambda (c)
@@ -45,9 +46,7 @@
                             (match (compute (name) inputs)
                               [(cons state vals)
                                (make-hash (apply append vals))]))])
-                  [out => (begin
-                            (println res)
-                            (hash-ref res 'out))] ...))
+                  [out => (hash-ref res 'out)] ...))
 
 (define-syntax-rule (make-constraint comp port tru fals)
   (constr '(comp . port) 'tru 'fals))
@@ -167,8 +166,7 @@
                       (list (port 'i1.name i1.width) ...)
                       (list (port 'o1.name o1.width) ...)
                       (gen-proc name (i1.name ...) (o1.name ...))
-                      (list constraint.item ...)
-                      )])
+                      (transform-control (list constraint.item ...)))])
              (stmt.fun c) ...
              c))
          (name))]))
