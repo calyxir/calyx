@@ -74,7 +74,7 @@
   ;; clear old graph
   (send board erase)
 
-  (define spacing 100)
+  (define spacing 75)
   (define center 250)
 
   ;; insert all the vertices into the board
@@ -107,7 +107,9 @@
                      (add-links parent child)
                      (let* ([u (send parent get-value)]
                             [v (send child get-value)]
-                            [label (~a (edge-weight g u v))])
+                            [label (~a (if (= +inf.0 (edge-weight g u v))
+                                           ""
+                                           (edge-weight g u v)))])
                        (cond
                          [(has-edge? g u v)
                           (set-link-label parent child label)])))
@@ -135,7 +137,7 @@
   board)
 
 (define (plot comp [vals #f] [inactive '()] [suffix ""])
-  (plot-comp (show-board (~a (component-name comp) suffix)) comp vals inactive))
+  (plot-comp (show-board (~a (component-name comp) "-" suffix)) comp vals inactive))
 
 (define (animate comp inputs)
   (define hashs (rest (car (compute comp inputs))))

@@ -133,7 +133,7 @@
     #:description "possible constraint expressions"
     #:literals (if)
 
-    (pattern (if (comp:id port) tru:id fals:id)
+    (pattern (if (comp:id port) tru fals)
              #:with val #'(make-constraint comp port tru fals))
     (pattern (x:id)
              #:with val #'x))

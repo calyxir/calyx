@@ -29,25 +29,6 @@
 
 (animate (triv) '((a . 1) (b . 2)))
 
-;; (map (lambda (h) (plot (triv) h))
-;;      (rest (car (compute (triv) '((a . 1) (b . 2))))))
-
-;; (require describe)
-;; (hash? (list-ref (car (compute (triv) '((a . 1) (b . 2)))) 1))
-
-
-;; add -- id
-;; (define (triv-p)
-;;   (define comp (triv))
-;;   (define control
-;;     (list
-;;      (control-pair '(add id) '())
-;;      (control-pair '(id) '())
-;;      (control-pair '() '())))
-;;   (set-component-control! comp control)
-;;   comp)
-;; (compute (triv-p) '((a . 30) (b . 2)))
-;; (plot (triv))
 
 (define/module add4 ((a : 32) (b : 32) (c : 32) (d : 32)) ((out : 32))
   ([add1 = new comp/add]
@@ -63,12 +44,55 @@
    [add3 @ out -> id @ in]
    [id @ out -> out])
   [(a) (b) (c) (d)]
-  [(add2) (add1)]
-  [(add3)]
+  [(add3) (add2) (add1)]
   [(id)])
 
 (plot (add4) )
 (animate (add4) '((a . 1) (b . 2) (c . 3) (d . 4)))
+
+(define/module times4 ((a : 32)) ((out : 32))
+  ([add = new comp/add]
+   [a -> add @ left]
+   [const 0 : 32 -> add @ right]
+   [id = new id]
+   [add @ out -> id @ in]
+   [id @ out -> add @ right]
+   [id @ out -> out])
+  []
+  [(if (add out) 0 id)]
+  [(if (add out) 0 id)]
+  [(if (add out) 0 id)]
+  [(if (add out) 0 id)])
+
+(animate (times4) '((a . 10)))
+
+(define/module loop ((a : 32)) ((out : 32))
+  ([id1 = new id]
+   [id2 = new id]
+   [id3 = new id]
+   [a -> id1 @ in]
+   [id1 @ out -> id2 @ in]
+   [id2 @ out -> id3 @ in]
+   [id3 @ out -> id1 @ in]
+   [id2 @ out -> out])
+  [(a)]
+  [(id1)]
+  [(id2)]
+  [(id3)]
+  [(id1)]
+  [(id2)]
+  [(id3)])
+
+(remove* '(id1 id2) '(id1 id2 id1 id2 a))
+
+(component-control (loop))
+
+(plot (loop))
+
+(animate (loop) '((a . 10)))
+(plot (times4))
+
+
 ;; (plot (add4))
 
 ;; (add2 -- add3)

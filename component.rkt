@@ -74,23 +74,16 @@
                               (keyword-lambda (inf#) () [inf# => inf#])
                               (empty-graph)))
 
-(define (list-subtraction l1 l2)
-  (foldl (lambda (x acc)
-           (remove x acc))
-         l1
-         l2))
-
 (define (transform-control control)
-  ;; (define control (component-control (add4)))
   (define all-inactive (map control-pair-inactive control))
   (define all-constr (map control-pair-constr control))
   (define grid (make-list (length control) (flatten all-inactive)))
   (define edited
     (map (lambda (g a)
-           (list-subtraction g a))
+           (remove* a g))
          grid
          all-inactive))
-  (map (lambda (e a) (control-pair e a))
+  (map (lambda (e a) (control-pair (remove-duplicates e) (remove-duplicates a)))
        edited
        all-constr))
 
@@ -270,7 +263,7 @@
         (mint-inactive-hash comp name))
       ))
 
-(define (c-hash-union h1 h2)
+(define (save-hash-union h1 h2)
   (hash-union h1 h2 #:combine (lambda (v1 v2)
                                 (cond
                                   [(not v1) v2]
@@ -283,28 +276,32 @@
                     (flatten
                      (foldl (lambda (c acc)
                               (append acc
-                                      (if (equal? 0 (hash-ref inputs (constr-condition c)))
+                                      (if (not (equal? 0 (hash-ref inputs (constr-condition c))))
                                           (constr-tbranch c)
                                           (constr-fbranch c))))
                             inactive-lst
                             constrs))))
-  ;; (println inactive)
+  ;; for every node in the graph, call submod-compute; making sure to thread the inputs through properly
   (define filled
     (foldl (lambda (lst acc)
              (foldl (lambda (x acc)
-                      ;; (println (~v x (member x inactive)))
-                      ;; (println (~v acc))
                       (if (member x inactive)
                           ; inactive
-                          (c-hash-union acc (mint-inactive-hash comp x))
+                          (save-hash-union acc (mint-inactive-hash comp x))
                           ; active
-                          (c-hash-union acc (submod-compute comp (transform comp acc x) x))))
+                          (save-hash-union acc (submod-compute comp (transform comp acc x) x))))
                     acc
                     lst))
            inputs
            order))
+  ;; after we have used all the values, set the wires coming from inactive modules to #f
+  (define filled-mod
+    (foldl (lambda (x acc)
+             (hash-set acc x #f))
+           filled
+           (filter (lambda (x) (member (car x) inactive)) (hash-keys filled))))
   (values
-   filled
+   filled-mod
    (map (lambda (x)
           `(,(car x) . ,(hash-ref filled x)))
         (map (lambda (x) `(,(port-name x) . inf#)) (component-outs comp)))))
