@@ -5,13 +5,9 @@
          "dis-graphs.rkt")
 
 (require "futil.rkt" "futil-prims.rkt" "dis-graphs.rkt")
-(define/module id ((in : 32)) ((out : 32))
-  ([in -> out])
-  [])
-
 (define/module triv ((a : 32) (b : 32)) ((out : 32))
   ([add = new comp/add]
-   [id = new id]
+   [id = new comp/id]
    [a -> add @ left]
    [b -> add @ right]
    [add @ out -> id @ in]
@@ -40,7 +36,7 @@
    [d -> add2 @ right]
    [add1 @ out -> add3 @ left]
    [add2 @ out -> add3 @ right]
-   [id = new id]
+   [id = new comp/id]
    [add3 @ out -> id @ in]
    [id @ out -> out])
   [(a) (b) (c) (d)]
@@ -64,70 +60,47 @@
   [(if (add out) 0 id)]
   [(if (add out) 0 id)])
 
-(animate (times4) '((a . 10)))
+(while (wire port)
+  [()])
 
-(define/module loop ((a : 32)) ((out : 32))
-  ([id1 = new id]
-   [id2 = new id]
-   [id3 = new id]
-   [a -> id1 @ in]
-   [id1 @ out -> id2 @ in]
-   [id2 @ out -> id3 @ in]
-   [id3 @ out -> id1 @ in]
-   [id2 @ out -> out])
-  [(a)]
-  [(id1)]
-  [(id2)]
-  [(id3)]
-  [(id1)]
-  [(id2)]
-  [(id3)])
+(define/module decr ((in : 32)) ((out : 32))
+  ([sub = new comp/sub]
+   [const 1 : 32 -> sub @ right]
+   [in -> sub @ left]
+   [sub @ out -> out])
+  []
+  [])
 
-(remove* '(id1 id2) '(id1 id2 id1 id2 a))
+(compute (decr) '((in . 0)))
 
-(component-control (loop))
+(define/module test ((in : 32) (other : 32)) ((out : 32))
+  ([reg = new comp/reg]
+   [in -> reg @ in]
+   [other -> reg @ in]
+   [reg @ out -> out])
+  [(in) (other)]
+  []
+  [(other)]
+  [])
+(animate (test) '((in . 10) (other . 20)))
 
-(plot (loop))
+(define/module counter ((n : 32)) ((out : 32))
+  ([sub = new decr]
+   [reg = new comp/reg]
+   [n -> reg @ in]
+   [sub @ out -> reg @ in]
+   [reg @ out -> sub @ in]
+   [const 1 : 32 -> out]
+   [const 0 : 32 -> out]
+   )
+  [(n)]
+  [(while (sub out)
+     [(if (sub out) 1 0)]
+     [(0) (1)])]
+  [(if (sub out) 0 1)])
 
-(animate (loop) '((a . 10)))
-(plot (times4))
+(component-control (counter))
+(compute (counter) '((n . 3)))
 
-
-;; (plot (add4))
-
-;; (add2 -- add3)
-;; (compute-step (add4) (input-hash '((a . 1) (b . 2) (c . 3) (d . 4))) '(a b c d))
-;; (plot (add4))
-
-;; (define/module mux ((a : 32) (b : 32) (c : 1)) ((out : 32))
-;;   ([a -> out]
-;;    [b -> out])
-;;   [(if (c inf#) a b)])
-;; (compute (mux) '((a . 20) (b . 10) (c . 1)))
-;; (define (mux-p)
-;;   (define comp (mux))
-;;   (define control
-;;     (list
-;;      (cons '() (list (constr '(c . inf#) 'a 'b)))))
-;;   (set-component-control! comp control)
-;;   comp)
-;; (plot (mux))
-;; (get-edges (convert-graph (mux)))
-
-;; (compute-step (mux) (input-hash '((a . 2) (b . 10) (c . 0))) '() (list (constr '(c . inf#) 'a 'b)))
-;; (compute (mux-p) (input-hash '((a . 2) (b . 10) (c . 1))))
-
-;; (define/module times4 ((a : 32)) ((out : 32))
-;;   ([add = new comp/add]
-;;    [a -> add @ left]
-;;    [a -> add @ right]
-;;    [add @ out -> out]
-;;    [add @ out -> add @ right]))
-;; (plot (times4))
-
-;; (define in (input-hash (times4) '((a . 10))))
-;; (define-values (h1 res) (compute-step (times4) in '() '()))
-;; (define-values (h2 res2) (compute-step (times4) h1 '() (list (constr '(add . out) ))))
-;; (define-values (h3 res3) (compute-step (times4) h2 '() '()))
-
+;; the input to transform can't use memory if module is not active
 

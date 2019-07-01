@@ -6,7 +6,13 @@
 (require (for-syntax racket/base
                      syntax/parse))
 (provide define/module
-         make-constraint)
+         make-constraint
+         make-while)
+
+(define-syntax-rule (call fun)
+  (if (procedure? fun)
+      (fun)
+      fun))
 
 (define-syntax-rule (connect u uf v vf)
   (lambda (c)
@@ -43,13 +49,16 @@
 (define-syntax-rule (gen-proc name (in ...) (out ...))
   (keyword-lambda (in ...)
                   ([res = (let ([inputs (list (cons 'in in) ...)])
-                            (match (compute (name) inputs)
+                            (match (compute (call name) inputs)
                               [(cons state vals)
                                (make-hash (apply append vals))]))])
                   [out => (hash-ref res 'out)] ...))
 
 (define-syntax-rule (make-constraint comp port tru fals)
   (constr '(comp . port) 'tru 'fals))
+
+(define-syntax-rule (make-while comp port (instrs ...))
+  (loop '(comp . port) '(instrs ...)))
 
 (define-syntax-rule (construct-control (var ...))
   (begin
@@ -61,6 +70,7 @@
                     (list var ...))])
       (control-pair (filter (lambda (x) (not (constr? x))) lst)
                     (filter (lambda (x) (constr? x)) lst)))))
+
 
 ;; (expand/step #'(gen-proc test (a b c) (out1 out2)))
 
@@ -118,7 +128,7 @@
 
     ;; create module pattern
     (pattern (name:id = new mod:id)
-             #:with fun #'(create-module 'name (mod)))
+             #:with fun #'(create-module 'name (call mod)))
 
     ;; split port pattern
     (pattern (n1:id & n2:id = split pt:nat var:id)
@@ -132,15 +142,19 @@
   (define-syntax-class constr-expr
     #:description "possible constraint expressions"
     #:literals (if)
+    #:datum-literals (while)
 
     (pattern (if (comp:id port) tru fals)
              #:with val #'(make-constraint comp port tru fals))
-    (pattern (x:id)
+    (pattern (while (comp:id port)
+               [constr:constr-expr ...] ...)
+             #:with val #'(make-while comp port ('(constr ...) ...)))
+    (pattern (x)
              #:with val #'x))
 
   (define-syntax-class constraint
     #:description "the constraint language for futil"
-    #:literals (when)
+    #:literals ()
 
     (pattern (x:constr-expr ...)
              #:with item #'(construct-control ('x.val ...)))
@@ -166,7 +180,7 @@
                       (list (port 'i1.name i1.width) ...)
                       (list (port 'o1.name o1.width) ...)
                       (gen-proc name (i1.name ...) (o1.name ...))
-                      (transform-control (list constraint.item ...)))])
+                      #:control (transform-control (list constraint.item ...)))])
              (stmt.fun c) ...
              c))
          (name))]))

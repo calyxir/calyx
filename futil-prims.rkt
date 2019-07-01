@@ -1,7 +1,9 @@
 #lang racket
 (require "component.rkt"
          "port.rkt")
-(provide comp/add
+(provide comp/id
+         comp/reg
+         comp/add
          comp/sub
          comp/mult
          comp/div
@@ -16,16 +18,41 @@
 (define output-list
   (list (port 'out 32)))
 
+(define-syntax-rule (filter-apply op item ...)
+  (apply op (filter-map (lambda (x) x) (list item ...))))
+
+(define (comp/id)
+  (default-component
+    'id
+    (list (port 'in 32))
+    (list (port 'out 32))
+    (keyword-lambda (in) ()
+                    [out => in])))
+(define (comp/reg)
+  (default-component
+    'reg
+    (list (port 'in 32))
+    (list (port 'out 32))
+    (keyword-lambda (in) ()
+                    [out => in])
+    #:mode #t))
 (define (comp/add)
   (default-component
     'add
     input-list
     output-list
     (keyword-lambda (left right) ()
-                    [out => (+ left right)])
-    #t))
+                    [out => (filter-apply + left right)])))
 (define (comp/sub)
-  (default-component 'sub input-list output-list))
+  (default-component
+    'sub
+    input-list
+    output-list
+    (keyword-lambda (left right) ()
+                    [out => (let ([x (filter-apply - left right)])
+                              (if (< x 0)
+                                  0
+                                  x))])))
 (define (comp/mult)
   (default-component 'mult input-list output-list))
 (define (comp/div)
@@ -47,5 +74,4 @@
     (keyword-lambda (left right control) ()
                     [out => (if (= 1 control)
                                 left
-                                right)])
-    #t))
+                                right)])))

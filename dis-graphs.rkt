@@ -142,7 +142,10 @@
 (define (animate comp inputs)
   (define hashs (rest (car (compute comp inputs))))
   (define control (map control-pair-inactive (component-control comp)))
-  (map (lambda (h c i) (plot comp h c i)) hashs control (build-list (length hashs) values)))
+  (map (lambda (h c i) (plot comp h c i))
+       (reverse hashs)
+       (reverse control)
+       (reverse (build-list (length hashs) values))))
 
 ;; ==========================
 
