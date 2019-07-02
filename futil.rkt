@@ -2,12 +2,11 @@
 (require graph
          "port.rkt"
          "component.rkt"
+         "ast.rkt"
          racket/format)
 (require (for-syntax racket/base
                      syntax/parse))
-(provide define/module
-         make-constraint
-         make-while)
+(provide define/module)
 
 (define-syntax-rule (call fun)
   (if (procedure? fun)
@@ -26,10 +25,10 @@
   (lambda (c)
     (split! c port-name split-pt name1 name2)))
 
-(define-syntax-rule (constant n width u uport)
+(define-syntax-rule (constant name n width u uport)
   (lambda (c)
-    (add-submod! c n (make-constant n width))
-    (connect! c n 'inf# u uport)))
+    (add-submod! c name (make-constant n width))
+    (connect! c name 'inf# u uport)))
 
 (define-syntax-rule (control-point name lst)
   (lambda (c)
@@ -54,22 +53,34 @@
                                (make-hash (apply append vals))]))])
                   [out => (hash-ref res 'out)] ...))
 
-(define-syntax-rule (make-constraint comp port tru fals)
-  (constr '(comp . port) 'tru 'fals))
+;; (define-syntax-rule (make-constraint comp port tru fals)
+;;   (constr '(comp . port) 'tru 'fals))
 
-(define-syntax-rule (make-while comp port (instrs ...))
-  (loop '(comp . port) '(instrs ...)))
+;; (define-syntax-rule (make-while comp port (instrs ...))
+;;   (loop '(comp . port) '(instrs ...)))
 
-(define-syntax-rule (construct-control (var ...))
-  (begin
-    ;; (for-each (lambda (x) (println (~v 'cc (eval x) (constr? (eval x))))) (list var ...))
-    (let ([lst (map (lambda (x)
-                      (if (list? x)
-                          (eval x)
-                          x))
-                    (list var ...))])
-      (control-pair (filter (lambda (x) (not (constr? x))) lst)
-                    (filter (lambda (x) (constr? x)) lst)))))
+;; (define-syntax-rule (make-struct-val struct-name args ...)
+;;   (lambda () (struct-name args ...)))
+
+(define-syntax-rule (make-deact-stmt name)
+  (deact-stmt name))
+
+(define-syntax-rule (make-if-stmt condition tbranch fbranch)
+  (if-stmt condition tbranch fbranch))
+
+(define-syntax-rule (make-while-stmt condition body)
+  (while-stmt condition body))
+
+;; (define-syntax-rule (construct-control (var ...))
+;;   (begin
+;;     (let ([compare? (lambda (x) (or (constr? x) (loop? x)))]
+;;           [lst (map (lambda (x)
+;;                       (if (list? x)
+;;                           (eval x)
+;;                           x))
+;;                     (list var ...))])
+;;       (control-pair (filter (lambda (x) (not (compare? x))) lst)
+;;                     (filter (lambda (x) (compare? x)) lst)))))
 
 
 ;; (expand/step #'(gen-proc test (a b c) (out1 out2)))
@@ -105,10 +116,10 @@
              #:with fun #'(connect 'u 'inf# 'v 'inf#))
 
     ;; const patterns
-    (pattern (const n:nat : w:nat -> u:id @ uport:id)
-             #:with fun #'(constant n w 'u 'uport))
-    (pattern (const n:nat : w:nat -> u:id)
-             #:with fun #'(constant n w 'u 'inf#))
+    (pattern (const str:id n:nat : w:nat -> u:id @ uport:id)
+             #:with fun #'(constant 'str n w 'u 'uport))
+    (pattern (const str:id n:nat : w:nat -> u:id)
+             #:with fun #'(constant 'str n w 'u 'inf#))
     ;; (pattern (const n:nat : w:nat -> hole var:id)
     ;;          #:with fun #'(const-hole var n w))
 
@@ -144,20 +155,24 @@
     #:literals (if)
     #:datum-literals (while)
 
-    (pattern (if (comp:id port) tru fals)
-             #:with val #'(make-constraint comp port tru fals))
-    (pattern (while (comp:id port)
-               [constr:constr-expr ...] ...)
-             #:with val #'(make-while comp port ('(constr ...) ...)))
+    (pattern (if (comp:id port) [tbranch:constraint ...] [fbranch:constraint ...])
+             ;; #:with val #'(make-constraint comp port tru fals)
+             #:with val #'(make-if-stmt '(comp . port)
+                                        (seq-comp (list tbranch.item ...))
+                                        (seq-comp (list fbranch.item ...))))
+    (pattern (while (comp:id port) [body:constraint ...])
+             #:with val #'(make-while-stmt '(comp . port)
+                                           (seq-comp (list body.item ...))))
     (pattern (x)
-             #:with val #'x))
+             #:with val #'(make-deact-stmt 'x)))
 
   (define-syntax-class constraint
     #:description "the constraint language for futil"
     #:literals ()
 
     (pattern (x:constr-expr ...)
-             #:with item #'(construct-control ('x.val ...)))
+             ;; #:with item #'(construct-control ('x.val ...))
+             #:with item #'(par-comp (list x.val ...)))
 
     ;; (pattern (out:id = in:id (when con:id))
     ;;          #:with fun #'(void))
@@ -180,7 +195,7 @@
                       (list (port 'i1.name i1.width) ...)
                       (list (port 'o1.name o1.width) ...)
                       (gen-proc name (i1.name ...) (o1.name ...))
-                      #:control (transform-control (list constraint.item ...)))])
+                      #:control (seq-comp (list constraint.item ...)))])
              (stmt.fun c) ...
              c))
          (name))]))

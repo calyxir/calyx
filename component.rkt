@@ -3,9 +3,9 @@
          racket/hash
          "port.rkt")
 (provide keyword-lambda
-         (struct-out constr)
-         (struct-out loop)
-         (struct-out control-pair)
+         ;; (struct-out constr)
+         ;; (struct-out loop)
+         ;; (struct-out control-pair)
          (struct-out component)
          transform-control
          input-component
@@ -19,8 +19,8 @@
          ;; add-constraint!
          split!
          top-order
-         compute-step
-         compute
+         ;; compute-step
+         ;; compute
          input-hash
          convert-graph)
 
@@ -32,9 +32,9 @@
     (define var (begin body1 ...)) ...
     (make-hash `((kw . ,(begin body2 ...)) ...))))
 
-(struct constr (condition tbranch fbranch) #:transparent)
-(struct loop (condition instrs) #:transparent)
-(struct control-pair (inactive constr) #:transparent)
+;; (struct constr (condition tbranch fbranch) #:transparent)
+;; (struct loop (condition instrs) #:transparent)
+;; (struct control-pair (inactive constr) #:transparent)
 
 (struct component (name                       ;; name of the component
                    [ins #:mutable]            ;; list of input ports
@@ -60,7 +60,7 @@
                              (list (port 'inf# w))
                              (make-hash) ; submods
                              (make-hash) ; splits
-                             (list (control-pair '() '()))
+                             '() ;; (list (control-pair '() '()))
                              (keyword-lambda (inf#) () [inf# => inf#])
                              (empty-graph)
                              #t))
@@ -73,23 +73,24 @@
                               '()
                               (make-hash) ; submods
                               (make-hash) ; splits
-                              (list (control-pair '() '()))
+                              '() ;; (list (control-pair '() '()))
                               (keyword-lambda (inf#) () [inf# => inf#])
                               (empty-graph)
                               #f))
 
-(define (transform-control control)
-  (define all-inactive (map control-pair-inactive control))
-  (define all-constr (map control-pair-constr control))
-  (define grid (make-list (length control) (flatten all-inactive)))
-  (define edited
-    (map (lambda (g a)
-           (remove* a g))
-         grid
-         all-inactive))
-  (map (lambda (e a) (control-pair (remove-duplicates e) (remove-duplicates a)))
-       edited
-       all-constr))
+(define (transform-control control) control)
+;; (define (transform-control control)
+;;   (define all-inactive (map control-pair-inactive control))
+;;   (define all-constr (map control-pair-constr control))
+;;   (define grid (make-list (length control) (flatten all-inactive)))
+;;   (define edited
+;;     (map (lambda (g a)
+;;            (remove* a g))
+;;          grid
+;;          all-inactive))
+;;   (map (lambda (e a) (control-pair (remove-duplicates e) (remove-duplicates a)))
+;;        edited
+;;        all-constr))
 
 ;; TODO: maybe add vertices for ins and outs
 
@@ -101,7 +102,8 @@
           ins
           outs
           proc
-          #:control [control (list (control-pair '() '()))]
+          #:control [control '() ;; (list (control-pair '() '()))
+                             ]
           #:mode [mode #f])
   (let ([htbl (make-hash)]
         [g (empty-graph)])
@@ -231,24 +233,24 @@
                '(() . -1)
                sorted))))
 
-(define (transform comp inputs name)
-  (if (findf (lambda (x) (equal? name (port-name x))) (component-ins comp))
-      (make-immutable-hash `(((,name . inf#) . ,(hash-ref inputs `(,name . inf#)))))
-      (begin
-        (let* ([sub (get-submod! comp name)]
-               [ins (map port-name (component-ins sub))])  ; XXX: deal with port widths
-          ;; (println (~v 'transform name ': inputs '-> ins))
-          (make-immutable-hash
-           (map (lambda (in)
-                  (define neighs
-                    (sequence->list (in-neighbors (transpose (component-graph comp)) `(,name . ,in))))
-                  (define filt-neighs-vals (filter-map (lambda (x) (hash-ref inputs x)) neighs))
-                  (define neighs-vals
-                    (if (empty? filt-neighs-vals)
-                        (map (lambda (x) (hash-ref inputs x)) neighs)
-                        filt-neighs-vals))
-                  `((,name . ,in) . ,(car neighs-vals)))
-                ins))))))
+;; (define (transform comp inputs name)
+;;   (if (findf (lambda (x) (equal? name (port-name x))) (component-ins comp))
+;;       (make-immutable-hash `(((,name . inf#) . ,(hash-ref inputs `(,name . inf#)))))
+;;       (begin
+;;         (let* ([sub (get-submod! comp name)]
+;;                [ins (map port-name (component-ins sub))])  ; XXX: deal with port widths
+;;           ;; (println (~v 'transform name ': inputs '-> ins))
+;;           (make-immutable-hash
+;;            (map (lambda (in)
+;;                   (define neighs
+;;                     (sequence->list (in-neighbors (transpose (component-graph comp)) `(,name . ,in))))
+;;                   (define filt-neighs-vals (filter-map (lambda (x) (hash-ref inputs x)) neighs))
+;;                   (define neighs-vals
+;;                     (if (empty? filt-neighs-vals)
+;;                         (map (lambda (x) (hash-ref inputs x)) neighs)
+;;                         filt-neighs-vals))
+;;                   `((,name . ,in) . ,(car neighs-vals)))
+;;                 ins))))))
 
 (define (mint-inactive-hash comp name)
   (make-immutable-hash (map
@@ -284,95 +286,97 @@
 (define (clob-hash-union h1 h2)
   (hash-union h1 h2 #:combine (lambda (v1 v2) v2)))
 
-(define (compute-step comp memory inputs [inactive-lst '()] [constrs '()])
-  (define order (top-order comp))
-  (define inactive (remove-duplicates
-                    (flatten
-                     (foldl (lambda (c acc)
-                              (match c
-                                [(constr condition tbranch fbranch)
-                                 (append acc
-                                         (if (not (equal? 0 (hash-ref inputs (constr-condition c))))
-                                             (constr-tbranch c)
-                                             (constr-fbranch c)))]
-                                [(loop condition instrs)
-                                 (begin
-                                   (println "hi")
-                                   acc)]
-                                ))
-                            inactive-lst
-                            constrs))))
-  ;; for every node in the graph, call submod-compute;
-  ;; making sure to thread the inputs through properly
-  (define (filt hsh)
-    (make-immutable-hash
-     (hash-map hsh (lambda (k v) (if (member (car k) inactive)
-                                     `(,k . #f)
-                                     `(,k . ,v))))))
-  (define filled
-    (foldl (lambda (lst acc)
-             (foldl (lambda (x acc)
-                      (if (member x inactive)
-                          ; inactive
-                          (cons (save-hash-union (car acc) (mint-inactive-hash comp x)) (cdr acc))
-                          ; active
-                          (let* ([res (submod-compute comp
-                                                      (transform comp
-                                                                 (filt (save-hash-union (cdr acc) (car acc)))
-                                                                 x)
-                                                      x)]
-                                 [mem-p (if (component-activation-mode (get-submod! comp x))
-                                            (save-hash-union (cdr acc) (mint-remembered-hash comp res x))
-                                            (cdr acc))])
-                            (cons (save-hash-union (car acc) res) mem-p))))
-                    acc
-                    lst))
-           (cons inputs memory)
-           order))
-  ;; after we have used all the values, set the wires coming from inactive modules to #f
-  (define filled-mod
-    (foldl (lambda (x acc)
-             (hash-set acc x #f))
-           (car filled)
-           (filter (lambda (x) (member (car x) inactive)) (hash-keys (car filled)))))
-  ;; (define filled-mod filled)
-  (values
-   filled-mod
-   (cdr filled)
-   (map (lambda (x)
-          `(,(car x) . ,(hash-ref (car filled) x)))
-        (map (lambda (x) `(,(port-name x) . inf#)) (component-outs comp)))))
+;; (define (compute-step comp memory inputs [inactive-lst '()] [constrs '()])
+;;   (define order (top-order comp))
+;;   (define inactive (remove-duplicates
+;;                     (flatten
+;;                      (foldl (lambda (c acc)
+;;                               (match c
+;;                                 [(constr condition tbranch fbranch)
+;;                                  (append acc
+;;                                          (if (not (equal? 0 (hash-ref inputs (constr-condition c))))
+;;                                              (constr-tbranch c)
+;;                                              (constr-fbranch c)))]
+;;                                 [(loop condition instrs)
+;;                                  (begin
+;;                                    (println 'hi)
+;;                                    (println condition)
+;;                                    (println instrs)
+;;                                    acc)]
+;;                                 ))
+;;                             inactive-lst
+;;                             constrs))))
+;;   ;; for every node in the graph, call submod-compute;
+;;   ;; making sure to thread the inputs through properly
+;;   (define (filt hsh)
+;;     (make-immutable-hash
+;;      (hash-map hsh (lambda (k v) (if (member (car k) inactive)
+;;                                      `(,k . #f)
+;;                                      `(,k . ,v))))))
+;;   (define filled
+;;     (foldl (lambda (lst acc)
+;;              (foldl (lambda (x acc)
+;;                       (if (member x inactive)
+;;                           ; inactive
+;;                           (cons (save-hash-union (car acc) (mint-inactive-hash comp x)) (cdr acc))
+;;                           ; active
+;;                           (let* ([res (submod-compute comp
+;;                                                       (transform comp
+;;                                                                  (filt (save-hash-union (cdr acc) (car acc)))
+;;                                                                  x)
+;;                                                       x)]
+;;                                  [mem-p (if (component-activation-mode (get-submod! comp x))
+;;                                             (save-hash-union (cdr acc) (mint-remembered-hash comp res x))
+;;                                             (cdr acc))])
+;;                             (cons (save-hash-union (car acc) res) mem-p))))
+;;                     acc
+;;                     lst))
+;;            (cons inputs memory)
+;;            order))
+;;   ;; after we have used all the values, set the wires coming from inactive modules to #f
+;;   (define filled-mod
+;;     (foldl (lambda (x acc)
+;;              (hash-set acc x #f))
+;;            (car filled)
+;;            (filter (lambda (x) (member (car x) inactive)) (hash-keys (car filled)))))
+;;   ;; (define filled-mod filled)
+;;   (values
+;;    filled-mod
+;;    (cdr filled)
+;;    (map (lambda (x)
+;;           `(,(car x) . ,(hash-ref (car filled) x)))
+;;         (map (lambda (x) `(,(port-name x) . inf#)) (component-outs comp)))))
 
-(define (compute comp lst)
-  (define inputs (input-hash comp lst))
-  ;; (define (union h1 h2 inactive)
-  ;;   (hash-union h1 h2 #:combine/key (lambda (k v1 v2)
-  ;;                                     (if (member (car k) inactive)
-  ;;                                         #f
-  ;;                                         v2))))
-  (struct accum (state vals memory))
-  (define res
-    (foldl (lambda (p acc)
-             (match p
-               [(control-pair inactive constrs)
-                (let-values ([(state mem vals)
-                              (compute-step comp
-                                            (accum-memory acc)
-                                            (car (accum-state acc)) ;; (caar acc)
-                                            inactive
-                                            constrs)])
-                  (match acc
-                    [(accum o-state o-vals o-mem)
-                     (accum (cons state o-state) (cons vals o-vals) mem)]))]))
-           (accum (list inputs) '() (make-immutable-hash))
-           ;; (cons (list inputs) '())
-           (component-control comp)))
-  (match res
-    [(accum state vals mem)
-     (cons (reverse state) (reverse vals))]
-    ;; [(cons states vals)
-    ;;  (cons (reverse states) (reverse vals))]
-    ))
+;; (define (compute comp lst)
+;;   (define inputs (input-hash comp lst))
+;;   ;; (define (union h1 h2 inactive)
+;;   ;;   (hash-union h1 h2 #:combine/key (lambda (k v1 v2)
+;;   ;;                                     (if (member (car k) inactive)
+;;   ;;                                         #f
+;;   ;;                                         v2))))
+;;   (struct accum (state vals memory))
+;;   (define res
+;;     (foldl (lambda (p acc)
+;;              (match p
+;;                [(control-pair inactive constrs)
+;;                 (let-values ([(state mem vals)
+;;                               (compute-step comp
+;;                                             (accum-memory acc)
+;;                                             (car (accum-state acc)) ;; (caar acc)
+;;                                             inactive
+;;                                             constrs)])
+;;                   (match acc
+;;                     [(accum o-state o-vals o-mem)
+;;                      (accum (cons state o-state) (cons vals o-vals) mem)]))]))
+;;            (accum (list inputs) '() (make-immutable-hash))
+;;            ;; (cons (list inputs) '())
+;;            (component-control comp)))
+;;   (match res
+;;     [(accum state vals mem)
+;;      (cons (reverse state) (reverse vals))]
+;;     ;; [(cons states vals)
+;;     ;;  (cons (reverse states) (reverse vals))]
+;;     ))
 
 (define (input-hash comp lst)
   (define empty-hash

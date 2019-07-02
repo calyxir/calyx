@@ -114,7 +114,9 @@
                          [(has-edge? g u v)
                           (set-link-label parent child label)])))
                    (get-neighbors g (send parent get-value))))
-       nodes))
+       nodes)
+
+  (dot-positioning board "dot"))
 
 ;; ==========================
 

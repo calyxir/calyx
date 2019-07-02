@@ -4,7 +4,7 @@
          "futil-prims.rkt"
          "dis-graphs.rkt")
 
-(require "futil.rkt" "futil-prims.rkt" "dis-graphs.rkt")
+(require "futil.rkt" "futil-prims.rkt")
 (define/module triv ((a : 32) (b : 32)) ((out : 32))
   ([add = new comp/add]
    [id = new comp/id]
@@ -84,23 +84,50 @@
   [])
 (animate (test) '((in . 10) (other . 20)))
 
+(require "futil.rkt" "futil-prims.rkt")
 (define/module counter ((n : 32)) ((out : 32))
-  ([sub = new decr]
+  ([sub = new comp/sub]
    [reg = new comp/reg]
    [n -> reg @ in]
    [sub @ out -> reg @ in]
-   [reg @ out -> sub @ in]
-   [const 1 : 32 -> out]
-   [const 0 : 32 -> out]
-   )
-  [(n)]
+   [reg @ out -> sub @ left]
+   [const decr 1 : 32 -> sub @ right]
+   [const on 1 : 32 -> out]
+   [const off 0 : 32 -> out])
+  [(on)]
   [(while (sub out)
-     [(if (sub out) 1 0)]
-     [(0) (1)])]
-  [(if (sub out) 0 1)])
+     ([(a) (b) (c)]
+      [(d) (e) (if (a b) ([(c)]) ([(d)]))]))]
+  [(n) (on)]
+  [(n) (on)]
+  [(n) (on)]
+  [(n) (on)]
+  [(n) (on)]
+  [(n) (if (sub out)
+           ([(n) (out)]
+            [(hi)])
+           ([(bye) (there)]))])
 
 (component-control (counter))
-(compute (counter) '((n . 3)))
+
+(datum->syntax 1)
+
+(component-control (counter))
+(compute (counter) '((n . 5)))
+(animate (counter) '((n . 5)))
+
+(struct test-struct (x y z))
+(struct other-struct (a b c))
+
+(define-syntax (foo-struct stx)
+  (define-syntax-class make-struct
+    #:datum-literals (make)
+    (pattern (make name:id a b c)
+             #:with val #'(test-struct a b c)))
+  (syntax-parse stx
+    [(_ ms:make-struct)
+     #'(ms.val)]))
+(use-struct 1 2 3)
 
 ;; the input to transform can't use memory if module is not active
 
