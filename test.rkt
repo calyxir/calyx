@@ -73,18 +73,8 @@
 
 (compute (decr) '((in . 0)))
 
-(define/module test ((in : 32) (other : 32)) ((out : 32))
-  ([reg = new comp/reg]
-   [in -> reg @ in]
-   [other -> reg @ in]
-   [reg @ out -> out])
-  [(in) (other)]
-  []
-  [(other)]
-  [])
 (animate (test) '((in . 10) (other . 20)))
 
-(require "futil.rkt" "futil-prims.rkt")
 (define/module counter ((n : 32)) ((out : 32))
   ([sub = new comp/sub]
    [reg = new comp/reg]
@@ -95,39 +85,44 @@
    [const on 1 : 32 -> out]
    [const off 0 : 32 -> out])
   [(on)]
-  [(while (sub out)
-     ([(a) (b) (c)]
-      [(d) (e) (if (a b) ([(c)]) ([(d)]))]))]
-  [(n) (on)]
-  [(n) (on)]
-  [(n) (on)]
-  [(n) (on)]
-  [(n) (on)]
-  [(n) (if (sub out)
-           ([(n) (out)]
-            [(hi)])
-           ([(bye) (there)]))])
+  [(n) (while (reg out)
+         ([(on)]))]
+  [(n) (off)])
 
-(component-control (counter))
+(require "futil.rkt" "futil-prims.rkt")
+(define/module counter2.0 ((in : 32)) ((out : 32))
+  ([sub = new comp/sub]
+   [reg = new comp/reg]
+   [in -> sub @ left]
+   [const decr 1 : 32 -> sub @ right]
+   [sub @ out -> reg @ in]
+   [reg @ out -> sub @ left]
+   [reg @ out -> out])
+  [(ifen (in inf#)
+         ([])
+         ([(in)]))]
+  )
+(component-control (counter2.0))
+(ast-tuple-state
+ (compute (counter2.0) '((in . 9))
+          #:memory (memory-tup
+                    (make-immutable-hash '(((in . inf#) . 10)
+                                           ((reg . out) . 7)))
+                    (make-immutable-hash))
+          )
+ )
 
-(datum->syntax 1)
+(define/module consumer ((n : 32)) ((out : 32))
+  ([counter = new counter2.0]
+   [n -> counter @ in]
+   [const on 1 : 32 -> out])
+  [(on)]
+  [(n) (on)
+       (while (counter out)
+         ([]))]
+  [(off) (n)]
+  )
+(ast-tuple-state (compute (consumer) '((n . 2))))
 
-(component-control (counter))
-(compute (counter) '((n . 5)))
-(animate (counter) '((n . 5)))
 
-(struct test-struct (x y z))
-(struct other-struct (a b c))
-
-(define-syntax (foo-struct stx)
-  (define-syntax-class make-struct
-    #:datum-literals (make)
-    (pattern (make name:id a b c)
-             #:with val #'(test-struct a b c)))
-  (syntax-parse stx
-    [(_ ms:make-struct)
-     #'(ms.val)]))
-(use-struct 1 2 3)
-
-;; the input to transform can't use memory if module is not active
 

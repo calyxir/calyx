@@ -46,27 +46,23 @@
 ;;     (add-out-hole! c var-name u uport)))
 
 (define-syntax-rule (gen-proc name (in ...) (out ...))
-  (keyword-lambda (in ...)
-                  ([res = (let ([inputs (list (cons 'in in) ...)])
-                            (match (compute (call name) inputs)
-                              [(cons state vals)
-                               (make-hash (apply append vals))]))])
-                  [out => (hash-ref res 'out)] ...))
-
-;; (define-syntax-rule (make-constraint comp port tru fals)
-;;   (constr '(comp . port) 'tru 'fals))
-
-;; (define-syntax-rule (make-while comp port (instrs ...))
-;;   (loop '(comp . port) '(instrs ...)))
-
-;; (define-syntax-rule (make-struct-val struct-name args ...)
-;;   (lambda () (struct-name args ...)))
+  (keyword-lambda (mem# in ...)
+                  ([res = (let* ([inputs (list (cons 'in in) ...)]
+                                 [tup (compute (call name) inputs #:memory mem#)])
+                            (cons
+                             (ast-tuple-state tup)
+                             (ast-tuple-memory tup)))])
+                  [mem# => (cdr res)]
+                  [out => (hash-ref (car res) '(out . inf#))] ...))
 
 (define-syntax-rule (make-deact-stmt name)
   (deact-stmt name))
 
 (define-syntax-rule (make-if-stmt condition tbranch fbranch)
   (if-stmt condition tbranch fbranch))
+
+(define-syntax-rule (make-ifen-stmt condition tbranch fbranch)
+  (ifen-stmt condition tbranch fbranch))
 
 (define-syntax-rule (make-while-stmt condition body)
   (while-stmt condition body))
@@ -133,10 +129,6 @@
     ;; (pattern (hole var:id -> u:id)
     ;;          #:with fun #'(out-hole 'var 'u 'inf#))
 
-    ;; control point patterns
-    (pattern (control name:id = x:id ...)
-             #:with fun #'(control-point name '(x ...)))
-
     ;; create module pattern
     (pattern (name:id = new mod:id)
              #:with fun #'(create-module 'name (call mod)))
@@ -153,16 +145,21 @@
   (define-syntax-class constr-expr
     #:description "possible constraint expressions"
     #:literals (if)
-    #:datum-literals (while)
+    #:datum-literals (while ifen)
 
     (pattern (if (comp:id port) [tbranch:constraint ...] [fbranch:constraint ...])
              ;; #:with val #'(make-constraint comp port tru fals)
              #:with val #'(make-if-stmt '(comp . port)
                                         (seq-comp (list tbranch.item ...))
                                         (seq-comp (list fbranch.item ...))))
+    (pattern (ifen (comp:id port) [tbranch:constraint ...] [fbranch:constraint ...])
+             ;; #:with val #'(make-constraint comp port tru fals)
+             #:with val #'(make-ifen-stmt '(comp . port)
+                                          (seq-comp (list tbranch.item ...))
+                                          (seq-comp (list fbranch.item ...))))
     (pattern (while (comp:id port) [body:constraint ...])
              #:with val #'(make-while-stmt '(comp . port)
-                                           (seq-comp (list body.item ...))))
+                                           (top-seq-comp (list body.item ...))))
     (pattern (x)
              #:with val #'(make-deact-stmt 'x)))
 
@@ -171,16 +168,7 @@
     #:literals ()
 
     (pattern (x:constr-expr ...)
-             ;; #:with item #'(construct-control ('x.val ...))
-             #:with item #'(par-comp (list x.val ...)))
-
-    ;; (pattern (out:id = in:id (when con:id))
-    ;;          #:with fun #'(void))
-    ;; (pattern (out:id = in:id (unless con:id))
-    ;;          #:with fun #'(add-unless-constr 'out 'in 'con))
-    ;; (pattern (out:id = in:id)
-    ;;          #:with fun #'(void))
-    )
+             #:with item #'(par-comp (list x.val ...))))
 
   (syntax-parse stx
     [(_ name (i1:portdecl ...) (o1:portdecl ...) (stmt:stmt ...) constraint:constraint ...)
@@ -195,7 +183,7 @@
                       (list (port 'i1.name i1.width) ...)
                       (list (port 'o1.name o1.width) ...)
                       (gen-proc name (i1.name ...) (o1.name ...))
-                      #:control (seq-comp (list constraint.item ...)))])
+                      #:control (top-seq-comp (list constraint.item ...)))])
              (stmt.fun c) ...
              c))
          (name))]))

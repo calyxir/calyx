@@ -21,7 +21,7 @@
          top-order
          ;; compute-step
          ;; compute
-         input-hash
+         ;; input-hash
          convert-graph)
 
 (define-syntax-rule (keyword-lambda (arg ...)
@@ -30,7 +30,7 @@
   (lambda (h)
     (define arg (hash-ref h 'arg)) ...
     (define var (begin body1 ...)) ...
-    (make-hash `((kw . ,(begin body2 ...)) ...))))
+    (make-immutable-hash `((kw . ,(begin body2 ...)) ...))))
 
 ;; (struct constr (condition tbranch fbranch) #:transparent)
 ;; (struct loop (condition instrs) #:transparent)
@@ -277,15 +277,6 @@
                  (lambda (k v) `((,name . ,k) . ,v))))
       (mint-inactive-hash comp name)))
 
-(define (save-hash-union h1 h2)
-  (hash-union h1 h2 #:combine (lambda (v1 v2)
-                                (cond
-                                  [(not v1) v2]
-                                  [(not v2) v1]
-                                  [else v2]))))
-(define (clob-hash-union h1 h2)
-  (hash-union h1 h2 #:combine (lambda (v1 v2) v2)))
-
 ;; (define (compute-step comp memory inputs [inactive-lst '()] [constrs '()])
 ;;   (define order (top-order comp))
 ;;   (define inactive (remove-duplicates
@@ -378,17 +369,7 @@
 ;;     ;;  (cons (reverse states) (reverse vals))]
 ;;     ))
 
-(define (input-hash comp lst)
-  (define empty-hash
-    (make-immutable-hash
-     (map (lambda (x) `(,x . #f))
-          (append
-           (map car (get-edges (component-graph comp)))
-           (map (lambda (p)
-                  `(,(port-name p) . inf#))
-                (component-outs comp))))))
-  (clob-hash-union empty-hash
-                (make-immutable-hash (map (lambda (x) `((,(car x) . inf#) . ,(cdr x))) lst))))
+
 
 (define (convert-graph comp [vals #f])
   (define g (component-graph comp))

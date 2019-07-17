@@ -18,8 +18,10 @@
 (define output-list
   (list (port 'out 32)))
 
-(define-syntax-rule (filter-apply op item ...)
-  (apply op (filter-map (lambda (x) x) (list item ...))))
+(define-syntax-rule (falsify-apply op item ...)
+  (if (andmap (lambda (x) x) (list item ...))
+      (apply op (list item ...))
+      #f))
 
 (define (comp/id)
   (default-component
@@ -42,14 +44,14 @@
     input-list
     output-list
     (keyword-lambda (left right) ()
-                    [out => (filter-apply + left right)])))
+                    [out => (falsify-apply + left right)])))
 (define (comp/sub)
   (default-component
     'sub
     input-list
     output-list
     (keyword-lambda (left right) ()
-                    [out => (let ([x (filter-apply - left right)])
+                    [out => (let ([x (falsify-apply - left right)])
                               (if (< x 0)
                                   0
                                   x))])))
