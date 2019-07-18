@@ -190,3 +190,14 @@ lets you see the value coming out of counter in the pictures.
 Result of `(plot-compute (mult) '((a . 3) (b . 4))')`:
 ![Image 0 for mult example](imgs/mult-0.png)
 ![Image 1 for mult example](imgs/mult-1.png)
+
+## Things that are broken / Things to do 
+ - Port widths are not actually meaningful at the moment. You can put any number, string,
+ or any racket value really on a wire. Please don't abuse this power for bad.
+ Eventually you will only be able to put a n bit number on a n bit wire.
+ - Umm...so about the multiplication example. It works nicely for small numbers, like 3 and 5,
+ but once the numbers get bigger than 7 it starts giving you the wrong answers. I assure you that
+ this is entirely intended behavior.
+ - Tests are a good thing I hear
+ - Figure out the proper way to merge memory in parallel composition
+ - My vizualizer currently doesn't have animated animals carrying values along the wires

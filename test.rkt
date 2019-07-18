@@ -134,8 +134,3 @@
 
 (plot (simp) (ast-tuple-history
               (compute (simp) '((a . 10) (b . 20)))))
-
-;; [(a) (b) ...] means, (merge (ast-step a) (ast-step b) ...)
-;; (merge ...) merges inactive modules by merging lists and removing duplicates
-;;             merges state by merging hashs and failing if two states write different vals to the same wire
-;;             merges memory by
