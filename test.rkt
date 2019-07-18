@@ -65,31 +65,16 @@
 
 (define/module decr ((in : 32)) ((out : 32))
   ([sub = new comp/sub]
-   [const 1 : 32 -> sub @ right]
+   [const one 1 : 32 -> sub @ right]
    [in -> sub @ left]
    [sub @ out -> out])
-  []
   [])
 
-(compute (decr) '((in . 0)))
+(ast-tuple-state (compute (decr) '((in . 1))))
 
 (animate (test) '((in . 10) (other . 20)))
 
-(define/module counter ((n : 32)) ((out : 32))
-  ([sub = new comp/sub]
-   [reg = new comp/reg]
-   [n -> reg @ in]
-   [sub @ out -> reg @ in]
-   [reg @ out -> sub @ left]
-   [const decr 1 : 32 -> sub @ right]
-   [const on 1 : 32 -> out]
-   [const off 0 : 32 -> out])
-  [(on)]
-  [(n) (while (reg out)
-         ([(on)]))]
-  [(n) (off)])
-
-(require "futil.rkt" "futil-prims.rkt")
+(require "futil.rkt" "futil-prims.rkt" "dis-graphs.rkt")
 (define/module counter2.0 ((in : 32)) ((out : 32))
   ([sub = new comp/sub]
    [reg = new comp/reg]
@@ -100,29 +85,57 @@
    [reg @ out -> out])
   [(ifen (in inf#)
          ([])
-         ([(in)]))]
-  )
+         ([(in)]))])
 (component-control (counter2.0))
-(ast-tuple-state
- (compute (counter2.0) '((in . 9))
-          #:memory (memory-tup
-                    (make-immutable-hash '(((in . inf#) . 10)
-                                           ((reg . out) . 7)))
-                    (make-immutable-hash))
-          )
- )
+(plot-compute (counter2.0) '((in . 10)))
 
 (define/module consumer ((n : 32)) ((out : 32))
   ([counter = new counter2.0]
+   [viz = new comp/id]
    [n -> counter @ in]
+   [counter @ out -> viz @ in]
    [const on 1 : 32 -> out])
   [(on)]
-  [(n) (on)
-       (while (counter out)
-         ([]))]
-  [(off) (n)]
-  )
-(ast-tuple-state (compute (consumer) '((n . 2))))
+  [(while (counter out)
+     ([(n on)]))]
+  [(n)])
+(plot-compute (consumer) '((n . 10)))
 
+(define/module mult ((a : 32) (b : 32)) ((out : 32))
+  ([counter = new counter2.0]
+   [add = new comp/add]
+   [reg = new comp/reg]
+   [viz = new comp/id]
 
+   [b -> counter @ in]
+   [counter @ out -> viz @ in]
 
+   [const zero 0 : 32 -> add @ left]
+   [a -> add @ right]
+   [add @ out -> reg @ in]
+   [reg @ out -> add @ left]
+   [reg @ out -> out])
+  []
+  [(while (counter out) ([(b zero)]))])
+(plot-compute (mult) '((a . 10) (b . 7)))
+
+(require "futil.rkt" "futil-prims.rkt" "dis-graphs.rkt")
+(define/module simp ((a : 32) (b : 32)) ((out : 32))
+  ([add = new comp/add]
+   [a -> add @ left]
+   [b -> add @ right]
+   [add @ out -> out])
+  [(a)]
+  [(b)]
+  []
+  [(a) (b)])
+
+(plot-compute (simp) '((a . 10) (b . 20)))
+
+(plot (simp) (ast-tuple-history
+              (compute (simp) '((a . 10) (b . 20)))))
+
+;; [(a) (b) ...] means, (merge (ast-step a) (ast-step b) ...)
+;; (merge ...) merges inactive modules by merging lists and removing duplicates
+;;             merges state by merging hashs and failing if two states write different vals to the same wire
+;;             merges memory by

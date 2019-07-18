@@ -2,10 +2,10 @@
 (require graph)
 (require racket/gui/base
          mrlib/graph
-         "component.rkt")
-(provide show-board
-         plot
-         animate)
+         "component.rkt"
+         "ast.rkt")
+(provide plot
+         plot-compute)
 
 (define graph-board%
   (graph-pasteboard-mixin pasteboard%))
@@ -81,7 +81,7 @@
   (define nodes
     (flatten (map (lambda (vert-row j)
                     (map (lambda (vert i)
-                           (let* ([color (if (member vert inactive) "red" "black")]
+                           (let* ([color (if (member vert inactive) "blue" "black")]
                                   [node (new node% [value vert] [color color])]
                                   [size (* spacing (- (length vert-row) 1))]
                                   [node-size (send node get-width)]
@@ -120,34 +120,74 @@
 
 ;; ==========================
 
-(define (show-board name)
+;; (define (show-board name)
+;;     board)
+
+(define (plot comp [vals '()])
+  (define index 0)
+  (define hist (list->vector (reverse vals)))
+
   (define board (new graph-board%))
 
-  (define toplevel (new frame%
-                        [label name]
-                        [width (* 50 10)]
-                        [height (* 50 10)]))
+  (define toplevel
+    (new frame%
+         [label (~a (component-name comp))]
+         [width (* 50 10)]
+         [height (* 50 10)]))
 
-  (define canvas (new editor-canvas%
-                      [parent toplevel]
-                      [style '(no-hscroll no-vscroll)]
-                      [horizontal-inset 0]
-                      [vertical-inset 0]
-                      [editor board]))
+  (define canvas
+    (new editor-canvas%
+         [parent toplevel]
+         [style '(no-hscroll no-vscroll)]
+         [horizontal-inset 0]
+         [vertical-inset 0]
+         [editor board]))
+
+  (define control-panel
+    (new horizontal-panel%
+         [parent toplevel]
+         [alignment '(center center)]
+         [stretchable-height #f]))
+
+  (define prev
+    (new button%
+         [parent control-panel]
+         [label "<"]
+         [callback (lambda (button event)
+                     (update -1))]))
+
+  (define next
+    (new button%
+         [parent control-panel]
+         [label ">"]
+         [callback (lambda (button event)
+                     (update 1))]))
+
+  (define index-label
+    (new message%
+         [parent control-panel]
+         [label ""]))
+
+  (define (update dir)
+    (set! index (modulo (+ index dir) (vector-length hist)))
+    (send index-label set-label (~a (add1 index) "/" (vector-length hist)))
+    (plot-comp board comp
+               (ast-tuple-state (vector-ref hist index))
+               (ast-tuple-inactive (vector-ref hist index))))
 
   (send toplevel show #t)
-  board)
+  (update 0))
 
-(define (plot comp [vals #f] [inactive '()] [suffix ""])
-  (plot-comp (show-board (~a (component-name comp) "-" suffix)) comp vals inactive))
+(define (plot-compute comp inputs)
+  (plot comp (ast-tuple-history (compute comp inputs))))
 
-(define (animate comp inputs)
-  (define hashs (rest (car (compute comp inputs))))
-  (define control (map control-pair-inactive (component-control comp)))
-  (map (lambda (h c i) (plot comp h c i))
-       (reverse hashs)
-       (reverse control)
-       (reverse (build-list (length hashs) values))))
+;; (define (animate comp inputs)
+;;   (define hashs (rest (car (compute comp inputs))))
+;;   (define control (map control-pair-inactive (component-control comp)))
+;;   (map (lambda (h c i) (plot comp h c i))
+;;        (reverse hashs)
+;;        (reverse control)
+;;        (reverse (build-list (length hashs) values))))
 
 ;; ==========================
 

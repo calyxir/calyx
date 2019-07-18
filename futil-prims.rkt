@@ -52,9 +52,9 @@
     output-list
     (keyword-lambda (left right) ()
                     [out => (let ([x (falsify-apply - left right)])
-                              (if (< x 0)
-                                  0
-                                  x))])))
+                              (cond [(not x) #f]
+                                    [(< x 0) 0]
+                                    [else x]))])))
 (define (comp/mult)
   (default-component 'mult input-list output-list))
 (define (comp/div)

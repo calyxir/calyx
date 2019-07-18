@@ -55,8 +55,8 @@
                   [mem# => (cdr res)]
                   [out => (hash-ref (car res) '(out . inf#))] ...))
 
-(define-syntax-rule (make-deact-stmt name)
-  (deact-stmt name))
+(define-syntax-rule (make-deact-stmt name ...)
+  (deact-stmt (list name ...)))
 
 (define-syntax-rule (make-if-stmt condition tbranch fbranch)
   (if-stmt condition tbranch fbranch))
@@ -159,9 +159,9 @@
                                           (seq-comp (list fbranch.item ...))))
     (pattern (while (comp:id port) [body:constraint ...])
              #:with val #'(make-while-stmt '(comp . port)
-                                           (top-seq-comp (list body.item ...))))
-    (pattern (x)
-             #:with val #'(make-deact-stmt 'x)))
+                                           (seq-comp (list body.item ...))))
+    (pattern (x ...)
+             #:with val #'(make-deact-stmt 'x ...)))
 
   (define-syntax-class constraint
     #:description "the constraint language for futil"
@@ -183,7 +183,7 @@
                       (list (port 'i1.name i1.width) ...)
                       (list (port 'o1.name o1.width) ...)
                       (gen-proc name (i1.name ...) (o1.name ...))
-                      #:control (top-seq-comp (list constraint.item ...)))])
+                      #:control (seq-comp (list constraint.item ...)))])
              (stmt.fun c) ...
              c))
          (name))]))
