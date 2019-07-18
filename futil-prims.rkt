@@ -4,6 +4,7 @@
 (provide comp/id
          comp/reg
          comp/add
+         comp/trunc-sub
          comp/sub
          comp/mult
          comp/div
@@ -45,7 +46,7 @@
     output-list
     (keyword-lambda (left right) ()
                     [out => (falsify-apply + left right)])))
-(define (comp/sub)
+(define (comp/trunc-sub)
   (default-component
     'sub
     input-list
@@ -55,16 +56,49 @@
                               (cond [(not x) #f]
                                     [(< x 0) 0]
                                     [else x]))])))
+
+(define (comp/sub)
+  (default-component
+    'sub
+    input-list
+    output-list
+    (keyword-lambda (left right) ()
+                    [out => (falsify-apply - left right)])))
 (define (comp/mult)
-  (default-component 'mult input-list output-list))
+  (default-component
+    'mult
+    input-list
+    output-list
+    (keyword-lambda (left right) ()
+                    [out => (falsify-apply * left right)])))
 (define (comp/div)
-  (default-component 'div input-list output-list))
+  (default-component
+    'div
+    input-list
+    output-list
+    (keyword-lambda (left right) ()
+                    [out => (falsify-apply / left right)])))
 (define (comp/and)
-  (default-component 'and input-list output-list))
+  (default-component
+    'and
+    input-list
+    output-list
+    (keyword-lambda (left right) ()
+                    [out => (falsify-apply bitwise-and left right)])))
 (define (comp/or)
-  (default-component 'or input-list output-list))
+  (default-component
+    'or
+    input-list
+    output-list
+    (keyword-lambda (left right) ()
+                    [out => (falsify-apply bitwise-ior left right)])))
 (define (comp/xor)
-  (default-component 'xor input-list output-list))
+  (default-component
+    'xor
+    input-list
+    output-list
+    (keyword-lambda (left right) ()
+                    [out => (falsify-apply bitwise-xor left right)])))
 
 (define (magic/mux)
   (default-component

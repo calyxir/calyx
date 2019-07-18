@@ -32,22 +32,57 @@ You define a module with `define/module`. There is an elaboration on the syntax 
 At the beginning of a module definition, you define a list of input port and output ports
 along with corresponding names and widths. In the body of the structure definition, you
 can instantiate other modules, and connect ports together. This lets you define the
-a computation graph. You can also declare sets of submodules as control points.
-A control point is a place where the control is allowed to act.
+a computation graph.
 
 ### Specifying Control
-The control code has access to the control points defined in the structure. In the control
-section, you can "activate" the sub-circuit contained in a control point. If a sub-circuit
-is activated, then values flow through it normally. If a circuit is not activated, then values
-are stopped before entering the sub-circuit. This ensures that if a sub-circuit has a side-effect,
-the side-effect is not triggered when a circuit is not active. In addition to activation, there
-are ways to direct a logical flow of time. You can have sequentional compostion, 
-`(A --- B)`, and parallel composition, `(A ; B)` that let you express whether two sub-circuits should
-be activated in parallel or whether the second activation shouldn't be triggered until after the
-first completes. There are also conditionals of the form `if A then B else C` which activates `B` or `C`
-depending on the result of activating `A`. (maybe `A` shouldn't be an activation but rather a variable storing
-the result of `A`? Idk yet how variables should fit into this). Finally there are loops which let you
-specify that a sub-circuit should be activated repeatedly over time.
+The control code has the power to define logical time steps, conditionally deactivate submodules
+based on the value on a wire, and specify loops. 
+
+## Semantics
+This is a informal description of the semantics of FuTIL.
+
+In FuTIL, modules are built out of smaller submodules. Each submodule exposes a `procedure`
+which represents some computation.
+
+### Submodule Activation
+Submodules are active by default. When a module is active, the values on it's input
+wires are passed to the submodule's procedure as arguments. The output of the procedure
+are put on the wires coming out of the submodule. The execution of all submodules are atomic
+which means that even when a submodule defines time steps internally, externally they are
+executed in a single time step. When a module is deactived, the values on it's input
+wires are not passed to the submodule's procedure. Additionally, the output wires are disabled.
+
+### Memory
+This provides a mechanism for a module to store state. In a module definition, there is a flag
+called `mode` (bad name). Currently this flag is impossible to set in FuTIL; it can only be
+set when creating modules in `racket`. There is a primitive called `comp/reg` that has this
+flag set and can be used as a register. When the flag is set, all enabled outputs of the module
+are saved during the computation. If the module outputs a new value, then this value is written
+into memory. If the module has a disabled output, then the value in memory is used for that output.
+If the module is inactive, the outputs are disabled as normal.
+
+Each module recursively keeps track of all of it's submodule's memory. This allows the creation of
+a module that outputs distinct values given the same input.
+
+### Composition
+There are two different ways to compose different control statements together: sequential and parallel.
+Let `a` and `b` be statements, then `[a] [b]` executes `a`, then with the resulting state and memory
+of the module, executes `b`.
+
+Let `a` and `b` be statements and `st` and `mem` be the current state and memory of the module, 
+then `[a b ...]` evaluates to (approximately) `(merge (step a st mem) (step b st mem) ...)` where
+`step` is the evaluation function and `merge` merges states and memories.
+
+`merge` is defined on a per-wire basis. Let state by a function from wires to values.
+Given states `st0` and `st1`, the output for each wire is defined according to the following
+table. `#f` signifies that a wire is disabled.
+| st0 | st1 | out         |
+|-----|-----|-------------|
+| #f  | a   | a           |
+| a   | #f  | a           |
+| a   | a   | a           |
+| a   | b   | !! error !! |
+| #f  | #f  | #f          |
 
 ## Syntax
 You can define new modules as follows:
@@ -82,5 +117,72 @@ There are 4 kinds of control statements.
  `(name . port)` has a value, then go into the true branch, otherwise go into the
  false branch.
  - While loop: `(while (name port) (body ...))`
- Equivalent to `[if (name port) ([body] [(while (name port) (body))]) ()]`
+ Equivalent to `[(if (name port) ([body] [(while (name port) (body))]) ())]`
  Note that this uses a valued conditional rather than the enable condition.
+
+## Primitives
+For all computational primitives, if one or more of the input wires is disabled, the 
+output is disabled.
+| name           | ins                  | outs | description                            |
+|----------------|----------------------|------|----------------------------------------|
+| comp/id        | in                   | out  | out = in                               |
+| comp/reg       | in                   | out  | out = in (also has memory bit set)     |
+| comp/add       | left, right          | out  | out = left + right                     |
+| comp/trunc-sub | left, right          | out  | out = max(left - right, 0)             |
+| comp/sub       | left, right          | out  | out = left - right                     |
+| comp/mult      | left, right          | out  | out = left * right                     |
+| comp/div       | left, right          | out  | out = left / right                     |
+| comp/and       | left, right          | out  | out = left & right (bitwise)           |
+| comp/or        | left, right          | out  | out = left &#124; right (bitwise)      |
+| comp/xor       | left, right          | out  | out = left ^ right (bitwise)           |
+| magic/mux      | left, right, control | out  | out = if (control = 1) left else right |
+
+## Vizualization
+There is a function `compute` which takes in a module, and a list of inputs.
+For example `(compute (comp/add) '((left . 10) (right . 10)))`
+You can visualize the results of a computation with by using the function `plot-compute` instead.
+The arguments are the same.
+
+## Examples
+Building multiplication out of addition. First we need a way of counting down so that
+we can do something `n` times.
+
+```racket
+(define/module counter ((in : 32)) ((out : 32))
+  ([sub = new comp/sub]
+   [reg = new comp/reg]
+   [in -> sub @ left]
+   [const decr 1 : 32 -> sub @ right]
+   [sub @ out -> reg @ in]
+   [reg @ out -> sub @ left]
+   [reg @ out -> out])
+  [(ifen (in inf#)
+         ([])
+         ([(in)]))])
+```
+
+Then, the acutal implementation of multiplication using a while loop
+and addition.
+
+``` racket
+(define/module mult ((a : 32) (b : 32)) ((out : 32))
+  ([counter = new counter2.0]
+   [add = new comp/add]
+   [reg = new comp/reg]
+   [viz = new comp/id]
+
+   [b -> counter @ in]
+   [counter @ out -> viz @ in]
+
+   [const zero 0 : 32 -> add @ left]
+   [a -> add @ right]
+   [add @ out -> reg @ in]
+   [reg @ out -> add @ left]
+   [reg @ out -> out])
+  []
+  [(while (counter out) ([(b zero)]))])
+```
+
+Result of `(plot-compute (mult) '((a . 3) (b . 4))')`:
+![Image 0 for mult example](imgs/mult-0.png)
+![Image 1 for mult example](imgs/mult-1.png)

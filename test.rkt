@@ -117,7 +117,7 @@
    [reg @ out -> out])
   []
   [(while (counter out) ([(b zero)]))])
-(plot-compute (mult) '((a . 10) (b . 7)))
+(plot-compute (mult) '((a . 3) (b . 4)))
 
 (require "futil.rkt" "futil-prims.rkt" "dis-graphs.rkt")
 (define/module simp ((a : 32) (b : 32)) ((out : 32))
