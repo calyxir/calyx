@@ -140,8 +140,9 @@ output is disabled.
 | `magic/mux`      | left, right, control | out  | `out = if (control = 1) left else right` |
 
 ## Vizualization
-There is a function `compute` which takes in a module, and a list of inputs.
-For example `(compute (comp/add) '((left . 10) (right . 10)))`
+There is a function `compute` which takes in a module, and a list of inputs and produces
+a list of outputs (as well as some other information).
+For example `(compute (comp/add) '((left . 10) (right . 10)))` computes the sum of 10 and 10.
 You can visualize the results of a computation with by using the function `plot-compute` instead.
 The arguments are the same.
 
