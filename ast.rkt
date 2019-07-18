@@ -289,7 +289,7 @@
                                                      (ast-tuple-state acc-p)
                                                      (ast-tuple-inactive acc-p))])
                           (struct-copy ast-tuple acc
-                                       [inactive (remove-duplicates
+                                       [inactive (remove-duplicates ; XXX why do we merge inactive?
                                                   (append
                                                    (ast-tuple-inactive acc-p)
                                                    (ast-tuple-inactive acc)))]
