@@ -76,6 +76,7 @@ then `[a b ...]` evaluates to (approximately) `(merge (step a st mem) (step b st
 `merge` is defined on a per-wire basis. Let state by a function from wires to values.
 Given states `st0` and `st1`, the output for each wire is defined according to the following
 table. `#f` signifies that a wire is disabled.
+
 | st0 | st1 | out         |
 |-----|-----|-------------|
 | #f  | a   | a           |
@@ -123,19 +124,20 @@ There are 4 kinds of control statements.
 ## Primitives
 For all computational primitives, if one or more of the input wires is disabled, the 
 output is disabled.
-| name           | ins                  | outs | description                            |
-|----------------|----------------------|------|----------------------------------------|
-| comp/id        | in                   | out  | out = in                               |
-| comp/reg       | in                   | out  | out = in (also has memory bit set)     |
-| comp/add       | left, right          | out  | out = left + right                     |
-| comp/trunc-sub | left, right          | out  | out = max(left - right, 0)             |
-| comp/sub       | left, right          | out  | out = left - right                     |
-| comp/mult      | left, right          | out  | out = left * right                     |
-| comp/div       | left, right          | out  | out = left / right                     |
-| comp/and       | left, right          | out  | out = left & right (bitwise)           |
-| comp/or        | left, right          | out  | out = left &#124; right (bitwise)      |
-| comp/xor       | left, right          | out  | out = left ^ right (bitwise)           |
-| magic/mux      | left, right, control | out  | out = if (control = 1) left else right |
+
+| name             | ins                  | outs | description                              |
+|------------------|----------------------|------|------------------------------------------|
+| `comp/id`        | in                   | out  | `out = in`                               |
+| `comp/reg`       | in                   | out  | `out = in (also has memory bit set)`     |
+| `comp/add`       | left, right          | out  | `out = left + right`                     |
+| `comp/trunc-sub` | left, right          | out  | `out = max(left - right, 0)`             |
+| `comp/sub`       | left, right          | out  | `out = left - right`                     |
+| `comp/mult`      | left, right          | out  | `out = left * right`                     |
+| `comp/div`       | left, right          | out  | `out = left / right`                     |
+| `comp/and`       | left, right          | out  | `out = left & right` (bitwise)           |
+| `comp/or`        | left, right          | out  | `out = left &#124; right` (bitwise)      |
+| `comp/xor`       | left, right          | out  | `out = left ^ right` (bitwise)           |
+| `magic/mux`      | left, right, control | out  | `out = if (control = 1) left else right` |
 
 ## Vizualization
 There is a function `compute` which takes in a module, and a list of inputs.
