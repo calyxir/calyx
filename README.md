@@ -165,7 +165,8 @@ we can do something `n` times.
 ```
 
 Then, the acutal implementation of multiplication using a while loop
-and addition.
+and addition. The `viz` submodule is not actually necessary. It just
+lets you see the value coming out of counter in the pictures.
 
 ``` racket
 (define/module mult ((a : 32) (b : 32)) ((out : 32))
