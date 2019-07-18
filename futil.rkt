@@ -116,18 +116,6 @@
              #:with fun #'(constant 'str n w 'u 'uport))
     (pattern (const str:id n:nat : w:nat -> u:id)
              #:with fun #'(constant 'str n w 'u 'inf#))
-    ;; (pattern (const n:nat : w:nat -> hole var:id)
-    ;;          #:with fun #'(const-hole var n w))
-
-    ;; hole patterns
-    ;; (pattern (u:id @ uport:id -> hole var:id)
-    ;;          #:with fun #'(in-hole 'var 'u 'uport))
-    ;; (pattern (u:id -> hole var:id)
-    ;;          #:with fun #'(in-hole 'var 'u 'inf#))
-    ;; (pattern (hole var:id -> u:id @ uport:id)
-    ;;          #:with fun #'(out-hole 'var 'u 'uport))
-    ;; (pattern (hole var:id -> u:id)
-    ;;          #:with fun #'(out-hole 'var 'u 'inf#))
 
     ;; create module pattern
     (pattern (name:id = new mod:id)

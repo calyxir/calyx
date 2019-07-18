@@ -54,16 +54,33 @@ You can define new modules as follows:
 ```racket
 (define/module name ((in1 : 32) (in2 : 32)) (out1 : 16)
   (structure body ...)
-  control body ...
-  ...)
+  control body ...)
 ```
 
-There are 5 kinds of statements that can go in the structure body:
-- Module instantiation: `[name = new module]`
-- Port connections: `[in1 -> out1]`
-- Port splitting: `[name1 & name2 = split 16 in1]`
-- Constants: `[const n : width -> other]` 
-- Control Points: `[control a = name1, name2, ..., nameN]`
-(constants can only show up on the left side of arrows)
+There are 4 kinds of statements that can go in the structure body:
+ - Module instantiation: `[name = new module]`
+ - Port connections: `[in1 -> out1]`
+ - Port splitting: `[name1 & name2 = split 16 in1]`
+ - Constants: `[const name n : width -> other]` 
+   (constants can only show up on the left side of arrows)
 
-The control body is optional. Syntax not yet implemented.
+The control body is optional. There are two different ways to compose
+stmts: parallel composition and sequential composition.
+Consider `[(stmt-1) ...] [(stmt-2) ...] ...`
+The square brackets denote sequential composition while the stmts
+inside the square brackets denote parallel composition. 
+
+There are 4 kinds of control statements.
+ - Submodule deactivation: `(a b ...)`. This means deactivate
+ submodules a, b, ...
+ - Valued condition: `(if (name port) (tbranch stmts ...) (fbranch stmts ...))`
+ If there is a value on the wire `(name . port)`, then if the value is non-zero
+ go into the true branch, otherwise go into the false branch. If there is no value
+ on the wire, then this expression does nothing.
+ - Enable condition: `(ifen (name port) (tbranch stmts ...) (fbranch stmts ...))`
+ This conditional statement lets you check if a wire is enabled or disabled. If
+ `(name . port)` has a value, then go into the true branch, otherwise go into the
+ false branch.
+ - While loop: `(while (name port) (body ...))`
+ Equivalent to `[if (name port) ([body] [(while (name port) (body))]) ()]`
+ Note that this uses a valued conditional rather than the enable condition.
