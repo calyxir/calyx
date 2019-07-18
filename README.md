@@ -1,5 +1,4 @@
-# FuTIL
-Fuse Temportal Intermediate Language  
+# Fuse Temporal Intermediate Language (FuTIL)
 An intermediate language for [Fuse](https://github.com/cucapra/seashell).
 
 ## Difference between Control and Structure
@@ -23,6 +22,19 @@ The specification of a circuit exists on a continuum between all control and all
 THe goal of Futil is to be able to express specifications of circuits on a range of
 this continuum so that you can start off with a representation that is mostly control (and close
 to the source Fuse program) and then gradually lower the specification into mostly structure.
+
+## Things that are broken / Things to do 
+ - Port widths are not actually meaningful at the moment. You can put any number, string,
+ or any racket value really on a wire. Please don't abuse this power for bad.
+ Eventually you will only be able to put a n bit number on a n bit wire.
+ - Umm...so about the multiplication example. It works nicely for small numbers, like 3 and 5,
+ but once the numbers get bigger than 7 it starts giving you the wrong answers. I assure you that
+ this is entirely intended behavior.
+ - Tests are a good thing I hear
+ - Figure out the proper way to merge memory in parallel composition
+ - My vizualizer currently doesn't have animated animals carrying values along the wires
+ - Racket contracts are something I should look into
+ - Output sensible error messages. Atm I am the only person who would have any idea what errors mean.
 
 ## Details
 The basic unit of Futil is a `module`. Modules carry around structure and optionally control.
@@ -243,15 +255,3 @@ Signatures for the important functions involved.
  the output ports. There is a special key called `mem#` that contains the submodule memory.
  `keyword-lambda` is utility syntax to make defining functions of this form convenient.
 
-## Things that are broken / Things to do 
- - Port widths are not actually meaningful at the moment. You can put any number, string,
- or any racket value really on a wire. Please don't abuse this power for bad.
- Eventually you will only be able to put a n bit number on a n bit wire.
- - Umm...so about the multiplication example. It works nicely for small numbers, like 3 and 5,
- but once the numbers get bigger than 7 it starts giving you the wrong answers. I assure you that
- this is entirely intended behavior.
- - Tests are a good thing I hear
- - Figure out the proper way to merge memory in parallel composition
- - My vizualizer currently doesn't have animated animals carrying values along the wires
- - Racket contracts are something I should look into
- - Output sensible error messages. Atm I am the only person who would have any idea what errors mean.
