@@ -8,43 +8,36 @@
                      syntax/parse))
 (provide define/module)
 
+;; simple macro that allows you to pass in components instead of
+;; functions for components in some places
 (define-syntax-rule (call fun)
   (if (procedure? fun)
       (fun)
       fun))
 
+;; syntax for function that takes in a component and connects (u . uf) to (v . vf)
 (define-syntax-rule (connect u uf v vf)
   (lambda (c)
     (connect! c u uf v vf)))
 
+;; syntax for function that takes a component and adds the submodule
 (define-syntax-rule (create-module name mod)
   (lambda (c)
     (add-submod! c name mod)))
 
+;; syntax for splitting a port
 (define-syntax-rule (split port-name split-pt name1 name2)
   (lambda (c)
     (split! c port-name split-pt name1 name2)))
 
+;; syntax for adding a constant
 (define-syntax-rule (constant name n width u uport)
   (lambda (c)
     (add-submod! c name (make-constant n width))
     (connect! c name 'inf# u uport)))
 
-(define-syntax-rule (control-point name lst)
-  (lambda (c)
-    (add-control! c 'name lst)))
-
-;; (define-syntax-rule (in-hole var-name u uport)
-;;   (lambda(c)
-;;     (add-in-hole! c var-name u uport)))
-;; (define-syntax-rule (const-hole var-name n width)
-;;   (lambda (c)
-;;     (add-submod! c n (make-constant n width))
-;;     (add-in-hole! c var-name n 'inf#)))
-;; (define-syntax-rule (out-hole var-name u uport)
-;;   (lambda(c)
-;;     (add-out-hole! c var-name u uport)))
-
+;; syntax that generates the correct computation function
+;; that is used for a modules procedure
 (define-syntax-rule (gen-proc name (in ...) (out ...))
   (keyword-lambda (mem# in ...)
                   ([res = (let* ([inputs (list (cons 'in in) ...)]
@@ -54,45 +47,6 @@
                              (ast-tuple-memory tup)))])
                   [mem# => (cdr res)]
                   [out => (hash-ref (car res) '(out . inf#))] ...))
-
-(define-syntax-rule (make-deact-stmt name ...)
-  (deact-stmt (list name ...)))
-
-(define-syntax-rule (make-if-stmt condition tbranch fbranch)
-  (if-stmt condition tbranch fbranch))
-
-(define-syntax-rule (make-ifen-stmt condition tbranch fbranch)
-  (ifen-stmt condition tbranch fbranch))
-
-(define-syntax-rule (make-while-stmt condition body)
-  (while-stmt condition body))
-
-;; (define-syntax-rule (construct-control (var ...))
-;;   (begin
-;;     (let ([compare? (lambda (x) (or (constr? x) (loop? x)))]
-;;           [lst (map (lambda (x)
-;;                       (if (list? x)
-;;                           (eval x)
-;;                           x))
-;;                     (list var ...))])
-;;       (control-pair (filter (lambda (x) (not (compare? x))) lst)
-;;                     (filter (lambda (x) (compare? x)) lst)))))
-
-
-;; (expand/step #'(gen-proc test (a b c) (out1 out2)))
-
-;; (define-syntax-rule (add-eq-constr left right)
-;;   (lambda (c)
-;;     (add-constraint! c (equal-constraint left right))))
-
-;; (define-syntax-rule (add-when-constr left right con)
-;;   (lambda (c)
-;;     (add-constraint! c (cond-constraint left right con))))
-
-;; (define-syntax-rule (add-unless-constr left right con)
-;;   (lambda (c)
-;;     (let ([ncon (if (= con 1) 0 1)])
-;;       (add-constraint! c (cond-constraint left right ncon)))))
 
 ;; TODO: factor out the patterns properly
 (define-syntax (define/module stx)
@@ -137,23 +91,21 @@
 
     (pattern (if (comp:id port) [tbranch:constraint ...] [fbranch:constraint ...])
              ;; #:with val #'(make-constraint comp port tru fals)
-             #:with val #'(make-if-stmt '(comp . port)
-                                        (seq-comp (list tbranch.item ...))
-                                        (seq-comp (list fbranch.item ...))))
+             #:with val #'(if-stmt '(comp . port)
+                                   (seq-comp (list tbranch.item ...))
+                                   (seq-comp (list fbranch.item ...))))
     (pattern (ifen (comp:id port) [tbranch:constraint ...] [fbranch:constraint ...])
-             ;; #:with val #'(make-constraint comp port tru fals)
-             #:with val #'(make-ifen-stmt '(comp . port)
-                                          (seq-comp (list tbranch.item ...))
-                                          (seq-comp (list fbranch.item ...))))
+             #:with val #'(ifen-stmt '(comp . port)
+                                     (seq-comp (list tbranch.item ...))
+                                     (seq-comp (list fbranch.item ...))))
     (pattern (while (comp:id port) [body:constraint ...])
-             #:with val #'(make-while-stmt '(comp . port)
-                                           (seq-comp (list body.item ...))))
+             #:with val #'(while-stmt '(comp . port)
+                                      (seq-comp (list body.item ...))))
     (pattern (x ...)
-             #:with val #'(make-deact-stmt 'x ...)))
+             #:with val #'(deact-stmt (list 'x ...))))
 
   (define-syntax-class constraint
     #:description "the constraint language for futil"
-    #:literals ()
 
     (pattern (x:constr-expr ...)
              #:with item #'(par-comp (list x.val ...))))
