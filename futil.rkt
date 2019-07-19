@@ -50,26 +50,18 @@
 
 ;; TODO: factor out the patterns properly
 (define-syntax (define/module stx)
-  (define-syntax-class stmt
+  (define-splicing-syntax-class stmt
     #:description "connecting components and instantiating modules"
     #:literals (-> = new const)
     #:datum-literals (@ split & control)
     #:attributes (fun)
     ;; port patterns
-    (pattern (u:id @ uport:id -> v:id @ vport:id)
-             #:with fun #'(connect 'u 'uport 'v 'vport))
-    (pattern (u:id -> v:id @ vport:id)
-             #:with fun #'(connect 'u 'inf# 'v 'vport))
-    (pattern (u:id @ uport:id -> v:id)
-             #:with fun #'(connect 'u 'uport 'v 'inf#))
-    (pattern (u:id -> v:id)
-             #:with fun #'(connect 'u 'inf# 'v 'inf#))
+    (pattern (u:wire-port -> v:wire-port)
+             #:with fun #'(connect 'u.name 'u.port 'v.name 'v.port))
 
     ;; const patterns
-    (pattern (const str:id n:nat : w:nat -> u:id @ uport:id)
-             #:with fun #'(constant 'str n w 'u 'uport))
-    (pattern (const str:id n:nat : w:nat -> u:id)
-             #:with fun #'(constant 'str n w 'u 'inf#))
+    (pattern (const str:id n:nat : w:nat -> u:wire-port)
+             #:with fun #'(constant 'str n w 'u.name 'u.port))
 
     ;; create module pattern
     (pattern (name:id = new mod:id)
@@ -79,8 +71,16 @@
     (pattern (n1:id & n2:id = split pt:nat var:id)
              #:with fun #'(split 'var pt 'n1 'n2)))
 
+  ;; (require syntax/parse)
+  (define-splicing-syntax-class wire-port
+    #:description "syntax for specifying the port of a submodule"
+    #:datum-literals (@)
+    (pattern (~seq name:id
+                   (~optional (~seq @ port:id)
+                              #:defaults ([port #'inf#])))))
+
   (define-syntax-class portdecl
-    #:description "ports"
+    #:description "port declaration in module signature defintion"
     #:datum-literals (:)
     (pattern (name:id : width:nat)))
 
@@ -90,7 +90,6 @@
     #:datum-literals (while ifen)
 
     (pattern (if (comp:id port) [tbranch:constraint ...] [fbranch:constraint ...])
-             ;; #:with val #'(make-constraint comp port tru fals)
              #:with val #'(if-stmt '(comp . port)
                                    (seq-comp (list tbranch.item ...))
                                    (seq-comp (list fbranch.item ...))))

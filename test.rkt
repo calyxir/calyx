@@ -38,7 +38,7 @@
   [(while (counter out)
      ([(n on)]))]
   [(n)])
-(plot-compute (consumer) '((n . 10)))
+;; (plot-compute (consumer) '((n . 10)))
 
 (define/module mult ((a : 32) (b : 32)) ((out : 32))
   ([counter = new counter2.0]
@@ -59,17 +59,15 @@
 (plot-compute (mult) '((a . 3) (b . 4)))
 
 ;; (require "futil.rkt" "futil-prims.rkt" "dis-graphs.rkt")
+;; (require "futil-prims.rkt")
 (define/module simp ((a : 32) (b : 32)) ((out : 32))
   ([add = new comp/add]
    [a -> add @ left]
    [b -> add @ right]
-   [add @ out -> out])
+   [add @ out -> out]
+   )
   [(a)]
   [(b)]
   []
   [(a) (b)])
-
 (plot-compute (simp) '((a . 10) (b . 20)))
-
-(plot (simp) (ast-tuple-history
-              (compute (simp) '((a . 10) (b . 20)))))
