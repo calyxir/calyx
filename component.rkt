@@ -15,6 +15,8 @@
          split!
          convert-graph)
 
+;; syntatic sugar that makes it nice to define procedures in the way
+;; that component expects them
 (define-syntax-rule (keyword-lambda (arg ...)
                                     ([var = body1 ...] ...)
                                     [kw => body2 ...] ...)
@@ -23,9 +25,6 @@
     (define var (begin body1 ...)) ...
     (make-immutable-hash `((kw . ,(begin body2 ...)) ...))))
 
-;; (struct constr (condition tbranch fbranch) #:transparent)
-;; (struct loop (condition instrs) #:transparent)
-;; (struct control-pair (inactive constr) #:transparent)
 
 (struct component (;; name of the component
                    name
@@ -45,6 +44,11 @@
                    graph
                    ;; true when this component should always activate
                    activation-mode))
+
+;; (define component/c
+;;   (struct/dc
+;;    [a (list/c any/c)]
+;;    [b (list/c number?)]))
 
 ;; creates a default component given a name for the component,
 ;; a list of input port names, and a list of output port names

@@ -1,8 +1,5 @@
 #lang racket
-(require "ast.rkt"
-         "futil.rkt"
-         "futil-prims.rkt"
-         "dis-graphs.rkt")
+(require "futil.rkt")
 
 (define/module decr ((in : 32)) ((out : 32))
   ([sub = new comp/trunc-sub]
@@ -13,7 +10,6 @@
 
 ;; (ast-tuple-state (compute (decr) '((in . 1))))
 
-;; (require "futil.rkt" "futil-prims.rkt" "dis-graphs.rkt")
 (define/module counter2.0 ((in : 32)) ((out : 32))
   ([sub = new comp/trunc-sub]
    [reg = new comp/reg]
@@ -56,10 +52,8 @@
    [reg @ out -> out])
   []
   [(while (counter out) ([(b zero)]))])
-(plot-compute (mult) '((a . 3) (b . 4)))
+(plot-compute (mult) '((a . 10) (b . 8)))
 
-;; (require "futil.rkt" "futil-prims.rkt" "dis-graphs.rkt")
-;; (require "futil-prims.rkt")
 (define/module simp ((a : 32) (b : 32)) ((out : 32))
   ([add = new comp/add]
    [a -> add @ left]
@@ -69,5 +63,5 @@
   [(a)]
   [(b)]
   []
-  [(a) (b)])
-(plot-compute (simp) '((a . 10) (b . 20)))
+  [(a b)])
+;; (plot-compute (simp) '((a . 10) (b . 20)))
