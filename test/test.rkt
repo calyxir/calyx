@@ -1,5 +1,5 @@
 #lang racket
-(require "futil.rkt")
+(require "../src/futil.rkt")
 
 (define/module decr ((in : 32)) ((out : 32))
   ([sub = new comp/trunc-sub]
