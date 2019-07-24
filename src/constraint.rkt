@@ -1,4 +1,5 @@
-#lang racket
+#lang racket/base
+
 (provide (struct-out equal-constraint)
          (struct-out cond-constraint)
          (struct-out equal-computation)

@@ -1,6 +1,12 @@
-#lang racket
+#lang racket/base
 
 (require racket/hash
+         racket/bool
+         racket/sequence
+         racket/list
+         racket/pretty
+         racket/format
+         racket/match
          graph
          "component.rkt"
          "port.rkt")

@@ -1,4 +1,5 @@
-#lang racket
+#lang racket/base
+
 (require "ast.rkt"
          "futil-syntax.rkt"
          "futil-prims.rkt"

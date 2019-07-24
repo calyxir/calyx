@@ -1,4 +1,7 @@
-#lang racket
+#lang racket/base
+
+(require racket/match)
+
 (provide (struct-out port)
          infinite-port?
          find-port

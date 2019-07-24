@@ -1,7 +1,11 @@
-#lang racket
+#lang racket/base
+
 (require graph
          racket/hash
+         racket/list
+         racket/match
          "port.rkt")
+
 (provide keyword-lambda
          (struct-out component)
          transform-control
