@@ -1,4 +1,5 @@
-#lang racket
+#lang racket/base
+
 (require "component.rkt"
          "port.rkt"
          "util.rkt")

@@ -1,8 +1,11 @@
-#lang racket
+#lang racket/base
+
 (require graph
          racket/hash
-         "port.rkt"
-         "util.rkt")
+         racket/list
+         racket/match
+         "port.rkt")
+
 (provide (struct-out component)
          transform-control
          input-component

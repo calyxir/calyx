@@ -1,5 +1,7 @@
 #lang racket/gui
+
 (require graph)
+
 (require racket/gui/base
          mrlib/graph
          "component.rkt"

@@ -1,8 +1,16 @@
-#lang racket
+#lang racket/base
+
 (require racket/hash
+         racket/bool
+         racket/sequence
+         racket/list
+         racket/pretty
+         racket/format
+         racket/match
          graph
          "component.rkt"
          "port.rkt")
+
 (provide (struct-out par-comp)
          (struct-out seq-comp)
          (struct-out deact-stmt)
@@ -24,17 +32,33 @@
 ;;   if v1 or v2 is #f, choose non-false option
 ;;   otherwise, if both v1 and v2 have values, choose v2
 (define (save-hash-union h1 h2)
-  (hash-union h1 h2 #:combine (lambda (v1 v2)
-                                (cond
-                                  [(not v1) v2]
-                                  [(not v2) v1]
-                                  [else v2]))))
+  (hash-union
+   h1
+   h2
+   #:combine (lambda (v1 v2) (if (and v1 v2) v2 (xor v1 v2)))))
 
 ;; a hash union function that always prefers h2 when keys overlap
 (define (clob-hash-union h1 h2)
   (hash-union h1 h2 #:combine (lambda (v1 v2) v2)))
 
+;; a hash union function that chooses non-false values
+;; over false ones, keeps equal values the same,
+;; and errors on non-equal values
+(define (equal-hash-union h0 h1
+                          #:error [error-msg "Expected same values or one false."])
+  (hash-union
+   h0
+   h1
+   #:combine
+   (lambda (v0 v1)
+     (cond
+       [(xor v0 v1) (or v1 v0)] ; when only one is false, choose the true one.
+       [(equal? v0 v1) v0]      ; v0 = v1, then v0
+       [else
+        (raise-result-error 'equal-hash-union error-msg `(,h0 ,h1))]))))
+
 (define (input-hash comp lst)
+
   (define empty-hash
     (make-immutable-hash
      (map (lambda (x) `(,x . #f))
@@ -43,8 +67,11 @@
            (map (lambda (p)
                   `(,(port-name p) . inf#))
                 (component-outs comp))))))
-  (clob-hash-union empty-hash
-                   (make-immutable-hash (map (lambda (x) `((,(car x) . inf#) . ,(cdr x))) lst))))
+
+  (clob-hash-union
+   empty-hash
+   (make-immutable-hash
+    (map (lambda (x) `((,(car x) . inf#) . ,(cdr x))) lst))))
 
 (define (transform comp inputs name)
   (if (findf (lambda (x) (equal? name (port-name x))) (component-ins comp))
@@ -56,8 +83,10 @@
            (map (lambda (in)
                   (define neighs
                     (sequence->list
-                     (in-neighbors (transpose (component-graph comp)) `(,name . ,in))))
-                  (define filt-neighs-vals (filter-map (lambda (x) (hash-ref inputs x)) neighs))
+                     (in-neighbors
+                      (transpose (component-graph comp)) `(,name . ,in))))
+                  (define filt-neighs-vals
+                    (filter-map (lambda (x) (hash-ref inputs x)) neighs))
                   (define neighs-vals
                     (if (empty? filt-neighs-vals)
                         (map (lambda (x) (hash-ref inputs x)) neighs)
@@ -65,37 +94,17 @@
                   `((,name . ,in) . ,(car neighs-vals)))
                 ins))))))
 
-(define (top-order comp)
-  (define (distMatrix comp)
-    (define copy (graph-copy (convert-graph comp)))
-    (for-each (lambda (x)
-                (add-directed-edge! copy 'start# x))
-              (map port-name (component-ins comp)))
-    (let-values ([(distMat _) (bfs copy 'start#)])
-      (hash-remove (make-immutable-hash (hash-map distMat (lambda (k v) `(,k . ,(- v 1)))))
-                   'start#)))
-
-  (define sorted (sort (hash->list (distMatrix comp))
-                       (lambda (x y)
-                         (< (cdr x) (cdr y)))))
-  (reverse
-   (car (foldl (lambda (x acc)
-                 (if (= (cdr x) (cdr acc))
-                     `(,(cons (cons (car x) (caar acc)) (cdar acc)) . ,(cdr acc))
-                     `(,(cons `(,(car x)) (car acc)) . ,(+ 1 (cdr acc)))))
-               '(() . -1)
-               sorted))))
-
 (define (mint-inactive-hash comp name)
-  (make-immutable-hash (map
-                        (lambda (x)
-                          `((,name . ,(port-name x)) . #f))
-                        (append
-                         (component-outs (get-submod! comp name))
-                         (filter-map
-                          (lambda (x) (and (equal? name (port-name x))
-                                           (port 'inf# (port-width x))))
-                          (component-outs comp))))))
+  (make-immutable-hash
+   (map
+    (lambda (x)
+      `((,name . ,(port-name x)) . #f))
+    (append
+     (component-outs (get-submod! comp name))
+     (filter-map
+      (lambda (x) (and (equal? name (port-name x))
+                       (port 'inf# (port-width x))))
+      (component-outs comp))))))
 
 ;; creates a hash for the outputs of sub-component [name] in [comp]
 ;; that has values from [hsh]
@@ -215,31 +224,14 @@
 
 (struct ast-tuple (inactive state memory history) #:transparent)
 
-;; a hash union function that chooses non-false values
-;; over false ones, keeps equal values the same,
-;; and errors on non-equal values
-(define (equal-hash-union h0 h1 #:error [error-msg "Invalid merge!"])
-  (hash-union h0 h1
-              #:combine
-              (lambda (v0 v1)
-                (cond
-                  [(and v0 (not v1)) v0] ; v0 not false, v1 false, then v0
-                  [(and (not v0) v1) v1] ; v0 false, fb not false, then v1
-                  [(equal? v0 v1) v0]    ; v0 = v1, then v0
-                  [else (error error-msg h0 h1)]))))
-
 (define (merge-state st0 st1)
   (equal-hash-union st0 st1))
 
 (define (merge-mem mem0 mem1)
-  (let*-values ([(curr0 curr1)
-                 (values (memory-tup-current mem0)
-                         (memory-tup-current mem1))]
-                [(subm0 subm1)
-                 (values (memory-tup-sub-mem mem0)
-                         (memory-tup-sub-mem mem1))])
-    (memory-tup (equal-hash-union curr0 curr1 #:error "Invalid current mem merge!")
-                (equal-hash-union subm0 subm1))))
+  (match-define (memory-tup curr0 subm0) mem0)
+  (match-define (memory-tup curr1 subm1) mem1)
+  (memory-tup (equal-hash-union curr0 curr1 #:error "Invalid current mem merge!")
+              (equal-hash-union subm0 subm1)))
 
 (define (update-history ast-tup)
   (struct-copy ast-tuple ast-tup
@@ -285,8 +277,7 @@
                       (compute-step comp
                                     memory
                                     state
-                                    mods ; XXX maybe merge with tup inactive?
-                                    )])
+                                    mods)])
          (log-debug "state: ~a\n memory: ~a\n" st mem)
          (struct-copy ast-tuple tup
                       [state st]
