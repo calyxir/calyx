@@ -58,7 +58,6 @@
         (raise-result-error 'equal-hash-union error-msg `(,h0 ,h1))]))))
 
 (define (input-hash comp lst)
-
   (define empty-hash
     (make-immutable-hash
      (map (lambda (x) `(,x . #f))
@@ -150,7 +149,6 @@
 
 (define (compute-step comp memory state inactive)
   ;; sort the components so that we evaluate things in the right order
-  ;; (define order (top-order comp))
   (define order (tsort (convert-graph comp)))
 
   ;; function that goes through a given hashmap and sets all disabled wires to false
@@ -159,6 +157,7 @@
      (hash-map hsh (lambda (k v) (if (member (car k) inactive)
                                      `(,k . #f)
                                      `(,k . ,v))))))
+
   ;; for every node in the graph, call submod-compute;
   ;; making sure to thread the state through properly
   (struct accum (state memory))
@@ -242,9 +241,6 @@
   (log-debug "(open ast-step ~a" ast)
   (define result
     (match ast
-      ;; handle the case when we don't have any parallel stmts
-      ;; (would be nice to do this in syntax)
-      [(par-comp '()) (ast-step comp tup (deact-stmt '()))]
       [(par-comp stmts)
        (define (merge-tup tup1 tup2)
          (match-let ([(ast-tuple inact-1 st-1 mem-1 hist-1)

@@ -1,5 +1,6 @@
 #lang racket
 (require "../src/futil.rkt")
+(require "../src/vizualizer.rkt")
 
 (define/module decr ((in : 32)) ((out : 32))
   ([sub = new comp/trunc-sub]
@@ -54,11 +55,10 @@
    [reg @ out -> out])
   []
   [(while (counter out)
-     ([(b zero)]))]
-  )
+     ([(b zero)]))])
 ;; (while (counter out) ([(b zero)]))
 ;; (listen-debug)
-(plot-compute (mult) '((a . 7) (b . 8)))
+;; (plot-compute (mult) '((a . 7) (b . 8)))
 ;; (unlisten-debug)
 
 (define/module simp ((a : 32) (b : 32)) ((out : 32))

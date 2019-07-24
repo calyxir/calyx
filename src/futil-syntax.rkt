@@ -74,7 +74,6 @@
     (pattern (n1:id & n2:id = split pt:nat var:id)
              #:with fun #'(split 'var pt 'n1 'n2)))
 
-  ;; (require syntax/parse)
   (define-splicing-syntax-class wire-port
     #:description "syntax for specifying the port of a submodule"
     #:datum-literals (@)
@@ -109,8 +108,11 @@
   (define-syntax-class constraint
     #:description "the constraint language for futil"
 
-    (pattern (x:constr-expr ...)
-             #:with item #'(par-comp (list x.val ...))))
+    (pattern (x:constr-expr ...+)
+             #:with item #'(par-comp (list x.val ...)))
+
+    (pattern ()
+             #:with item #'(deact-stmt (list))))
 
   (syntax-parse stx
     [(_ name (i1:portdecl ...) (o1:portdecl ...) (stmt:stmt ...) constraint:constraint ...)
