@@ -27,9 +27,6 @@ to the source Fuse program) and then gradually lower the specification into most
  - Port widths are not actually meaningful at the moment. You can put any number, string,
  or any racket value really on a wire. Please don't abuse this power for bad.
  Eventually you will only be able to put a n bit number on a n bit wire.
- - Umm...so about the multiplication example. It works nicely for small numbers, like 3 and 5,
- but once the numbers get bigger than 7 it starts giving you the wrong answers. I assure you that
- this is entirely intended behavior.
  - Tests are a good thing I hear
  - Figure out the proper way to merge memory in parallel composition
  - My vizualizer currently doesn't have animated animals carrying values along the wires
@@ -227,15 +224,13 @@ Signatures for the important functions involved.
  Below are all the nodes and what `ast-step` does for each of these.
  I assume that `mem`, `st`, and `inactive` are defined that they refer to the memory, state,
  and inactive modules of the current context.
-   - `(par-comp stmts)` (parallel composition). This is where most of the hard work happens.
-   Firstly, this checks if the stmt list is empty. If it is, call `compute-step` with the current
-   context. Otherwise, expand stmts to (eliding some arguments) 
-   `(merge (compute-step (ast-step tup stmt)) ...)`. The merge function is talked about earlier.
+   - `(par-comp stmts)` (parallel composition). Expands to `(merge (ast-step tup stmt) ...)` 
    Notice that we call each stmt in the toplevel context, rather than feeding through the result
    of the earlier computation. This is what makes this parallel composition.
    - `(seq-comp stmts)` This is more or less standard composition. This becomes
    `(ast-step (ast-step (ast-step tup s0) s1) ...)`
-   - `(deact-stmts mods)` Append `mods` to `inactive`, removing any duplicates
+   - `(deact-stmts mods)` Calls compute step with mods as the inactive modules and returns
+   the result in an `ast-tuple`
    - `(if-stmt condition tb fb)` If `condition` is valued and non-zero, call `(ast-step tup tb)`
    else if it is valued and zero call `(ast-step tup fb)`. If `condition` is disabled, then do nothing.
    - `(ifen-stmt condition tb fb)` like `if-stmt` but only checks if `condition` is valued or not.
