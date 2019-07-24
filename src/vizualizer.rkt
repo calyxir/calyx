@@ -22,7 +22,7 @@
 
 (define node-snip%
   (class snip%
-    (init-field value color)
+    (init-field value active)
     (super-new)
     (send this set-snipclass node-snip-class)
 
@@ -45,32 +45,25 @@
     (define/override (draw dc x y . other)
       (define font (send the-font-list find-or-create-font 10 'modern 'normal 'normal))
       (send dc set-font font)
-      (send dc set-text-background "black")
-      (send dc set-pen color 1 'solid)
-      (send dc draw-rectangle (+ x 0) (+ y 0) value-width 20)
       (define label (~a value))
-      (send dc draw-text label (+ x (/ value-width 4)) (+ y 3)))))
+      (cond
+        [(not active)
+         (send dc set-pen "blue" 1 'solid)
+         (send dc set-brush "blue" 'bdiagonal-hatch)
+         (send dc draw-rectangle x y value-width 20)
+         (send dc set-text-foreground "red")
+         (send dc draw-text label (+ x (/ value-width 4)) (+ y 3))
+         (send dc set-brush "white" 'transparent)]
+        [active
+         (send dc set-text-background "black")
+         (send dc draw-text label (+ x (/ value-width 4)) (+ y 3))
+         (send dc set-pen "black" 1 'solid)
+         (send dc draw-rectangle x y value-width 20)
+         (send dc set-text-foreground "black")
+         (send dc draw-text label (+ x (/ value-width 4)) (+ y 3))]))))
 
 (define node%
   (graph-snip-mixin node-snip%))
-
-;; (define (top-order g)
-;;   (define (check against lst)
-;;     (if (foldl (lambda (x acc)
-;;                  (or acc (member x against)))
-;;                #f
-;;                lst)
-;;         #t
-;;         #f))
-;;   (define trans-g (transpose g))
-;;   (reverse
-;;    (foldl (lambda (x acc)
-;;             (if (check (flatten acc) (sequence->list (in-neighbors trans-g x)))
-;;                 (cons `(,x) acc)
-;;                 (match acc
-;;                   [(cons h tl) (cons (cons x h) tl)])))
-;;           '(())
-;;           (tsort g))))
 
 (define (plot-comp board comp vals inactive)
   ;; clear old graph
@@ -79,26 +72,10 @@
   (define spacing 75)
   (define center 250)
 
-  ;; insert all the vertices into the board
-  ;; (define nodes
-  ;;   (flatten (map (lambda (vert-row j)
-  ;;                   (map (lambda (vert i)
-  ;;                          (let* ([color (if (member vert inactive) "blue" "black")]
-  ;;                                 [node (new node% [value vert] [color color])]
-  ;;                                 [size (* spacing (- (length vert-row) 1))]
-  ;;                                 [node-size (send node get-width)]
-  ;;                                 [xoff (- center (/ size 2))])
-  ;;                            (send board insert node
-  ;;                                  (- (+ xoff (* spacing i)) node-size) (* spacing (+ j 1)))
-  ;;                            node))
-  ;;                        vert-row
-  ;;                        (build-list (length vert-row) values)))
-  ;;                 (top-order comp)
-  ;;                 (build-list (length (top-order comp)) values))))
   (define nodes
     (map (lambda (vert)
-           (let* ([color (if (member vert inactive) "blue" "black")]
-                  [node (new node% [value vert] [color color])])
+           (let* ([active (not (member vert inactive))]
+                  [node (new node% [value vert] [active active])])
              (send board insert node 0 0)
              node))
          (get-vertices (convert-graph comp))))
@@ -128,9 +105,6 @@
   (dot-positioning board "dot"))
 
 ;; ==========================
-
-;; (define (show-board name)
-;;     board)
 
 (define (plot comp [vals '()])
   (define index 0)
@@ -189,29 +163,3 @@
 
 (define (plot-compute comp inputs)
   (plot comp (ast-tuple-history (compute comp inputs))))
-
-;; (define (animate comp inputs)
-;;   (define hashs (rest (car (compute comp inputs))))
-;;   (define control (map control-pair-inactive (component-control comp)))
-;;   (map (lambda (h c i) (plot comp h c i))
-;;        (reverse hashs)
-;;        (reverse control)
-;;        (reverse (build-list (length hashs) values))))
-
-;; ==========================
-
-;; (define g (directed-graph '((a b) (b short)) '(1 1)))
-;; (define board (show-board "test"))
-;; (plot-graph board g)
-;; (dot-positioning board "dot")
-
-;; (define g (directed-graph '((a b) (b c)) '(1 1)))
-;; (define g (matrix-graph [[0 3 8 #f -4]
-;;                          [#f 0 #f 1 7]
-;;                          [#f 4 0 #f #f]
-;;                          [2 1 -5 0 #f]
-;;                          [#f #f #f 6 0]]))
-
-;; (plot-graph (show-board) g)
-
-;; (dot-positioning board "dot")

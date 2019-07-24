@@ -242,6 +242,9 @@
   (log-debug "(open ast-step ~a" ast)
   (define result
     (match ast
+      ;; handle the case when we don't have any parallel stmts
+      ;; (would be nice to do this in syntax)
+      [(par-comp '()) (ast-step comp tup (deact-stmt '()))]
       [(par-comp stmts)
        (define (merge-tup tup1 tup2)
          (match-let ([(ast-tuple inact-1 st-1 mem-1 hist-1)
@@ -253,17 +256,13 @@
             (merge-state st-1 st-2)
             mem-1 ;; XXX fix this
             history)))
-       ;; handle the case when we don't have any parallel stmts
-       ;; (would be nice to do this in syntax)
-       (if (empty? stmts)
-           (ast-step comp tup (deact-stmt '()))
-           (foldl merge-tup
-                  (struct-copy ast-tuple tup
-                               [state (make-immutable-hash)]
-                               [memory (memory-tup (make-immutable-hash)
-                                                   (make-immutable-hash))])
-                  (map (lambda (s) (ast-step comp tup s))
-                       stmts)))]
+       (foldl merge-tup
+              (struct-copy ast-tuple tup
+                           [state (make-immutable-hash)]
+                           [memory (memory-tup (make-immutable-hash)
+                                               (make-immutable-hash))])
+              (map (lambda (s) (ast-step comp tup s))
+                   stmts))]
       [(seq-comp stmts)
        (foldl (lambda (s acc)
                 (define acc-p (struct-copy ast-tuple acc
