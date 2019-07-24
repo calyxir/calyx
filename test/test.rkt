@@ -10,7 +10,7 @@
 
 ;; (ast-tuple-state (compute (decr) '((in . 1))))
 
-(define/module counter2.0 ((in : 32)) ((out : 32))
+(define/module counter ((in : 32)) ((out : 32))
   ([sub = new comp/trunc-sub]
    [reg = new comp/reg]
    [in -> sub @ left]
@@ -21,11 +21,11 @@
   [(ifen (in inf#)
          ([])
          ([(in)]))])
-;; (component-control (counter2.0))
-;; (plot-compute (counter2.0) '((in . 10)))
+;; (component-control (counter))
+(plot-compute (counter) '((in . 10)))
 
 (define/module consumer ((n : 32)) ((out : 32))
-  ([counter = new counter2.0]
+  ([counter = new counter]
    [viz = new comp/id]
    [n -> counter @ in]
    [counter @ out -> viz @ in]
@@ -37,11 +37,13 @@
 ;; (plot-compute (consumer) '((n . 10)))
 
 (define/module mult ((a : 32) (b : 32)) ((out : 32))
-  ([counter = new counter2.0]
+  ([counter = new counter]
    [add = new comp/add]
    [reg = new comp/reg]
    [viz = new comp/id]
 
+   ;; [decr = new decr]
+   ;; [b -> decr @ in]
    [b -> counter @ in]
    [counter @ out -> viz @ in]
 
@@ -51,8 +53,13 @@
    [reg @ out -> add @ left]
    [reg @ out -> out])
   []
-  [(while (counter out) ([(b zero)]))])
-(plot-compute (mult) '((a . 10) (b . 8)))
+  [(while (counter out)
+     ([(b zero)]))]
+  )
+;; (while (counter out) ([(b zero)]))
+;; (listen-debug)
+;; (plot-compute (mult) '((a . 7) (b . 8)))
+;; (unlisten-debug)
 
 (define/module simp ((a : 32) (b : 32)) ((out : 32))
   ([add = new comp/add]

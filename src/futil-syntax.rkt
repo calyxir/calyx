@@ -3,6 +3,7 @@
          "port.rkt"
          "component.rkt"
          "ast.rkt"
+         "util.rkt"
          racket/format)
 (require (for-syntax racket/base
                      syntax/parse))

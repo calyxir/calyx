@@ -52,11 +52,11 @@
       (begin
         (let* ([sub (get-submod! comp name)]
                [ins (map port-name (component-ins sub))])  ; XXX: deal with port widths
-          ;; (println (~v 'transform name ': inputs '-> ins))
           (make-immutable-hash
            (map (lambda (in)
                   (define neighs
-                    (sequence->list (in-neighbors (transpose (component-graph comp)) `(,name . ,in))))
+                    (sequence->list
+                     (in-neighbors (transpose (component-graph comp)) `(,name . ,in))))
                   (define filt-neighs-vals (filter-map (lambda (x) (hash-ref inputs x)) neighs))
                   (define neighs-vals
                     (if (empty? filt-neighs-vals)
@@ -64,8 +64,6 @@
                         filt-neighs-vals))
                   `((,name . ,in) . ,(car neighs-vals)))
                 ins))))))
-
-(define (pln x) (println x) x)
 
 (define (top-order comp)
   (define (distMatrix comp)
@@ -134,7 +132,6 @@
                         (hash-ref res 'mem#)
                         (memory-tup (make-immutable-hash)
                                     (make-immutable-hash)))]
-         ;; [mem (hash-ref res 'mem)]
          [res-wo-mem (hash-remove res 'mem#)])
     (values
      (make-immutable-hash
@@ -158,7 +155,6 @@
   (struct accum (state memory))
   (define filled
     (foldl (lambda (sub acc)
-             (println (~a "<-<" sub "<-<"))
              (define res
                (if (member sub inactive)
                    ; inactive (set sub to false in acc)
@@ -187,14 +183,9 @@
                                               (mint-remembered-hash comp state-p sub))
                              ; is not a register
                              (memory-tup-current (accum-memory acc)))])
-                     (println inactive) (println (memory-tup-current (accum-memory acc)))
-                     (println vals) (println trans) (println state-p)
                      (accum
                       (save-hash-union (accum-state acc) state-p)
-                      (memory-tup curr-mem-p sub-mem-p))
-                     ;; (cons (save-hash-union (car acc) state-p) mem-p)
-                     )))
-             (println (~a ">->" sub ">->"))
+                      (memory-tup curr-mem-p sub-mem-p)))))
              res)
            (accum state memory)
            order))
@@ -215,15 +206,12 @@
           `(,(car x) . ,(hash-ref (accum-state filled) x)))
         (map (lambda (x) `(,(port-name x) . inf#)) (component-outs comp)))))
 
-;; XXX: fix the computation for parallel composition
-;; run all computations in "parallel" and then merge the results
-
-(define-syntax-rule (if-valued condition tbranch fbranch)
+(define-syntax-rule (if-valued condition tbranch fbranch disbranch)
   (if condition
       (if (not (equal? condition 0))
           tbranch
           fbranch)
-      (void)))
+      disbranch))
 
 (struct ast-tuple (inactive state memory history) #:transparent)
 
@@ -253,109 +241,86 @@
     (memory-tup (equal-hash-union curr0 curr1 #:error "Invalid current mem merge!")
                 (equal-hash-union subm0 subm1))))
 
-;; XXX fix/justify memory merge
-;; type test = (submod -> memory * test)
-;; (component * tup * ast) -> (tup')
+(define (update-history ast-tup)
+  (struct-copy ast-tuple ast-tup
+               [history (cons ast-tup (ast-tuple-history ast-tup))]))
+
 (define (ast-step comp tup ast)
-  ;; (println "-----------------")
-  ;; (println ast)
-  (define-values (inactive state memory history)
-    (match tup
-      [(ast-tuple inactive state memory history)
-       (values inactive state memory history)]))
+  (match-define (ast-tuple inactive state memory history) tup)
+  (log-debug "(open ast-step ~a" ast)
   (define result
     (match ast
       [(par-comp stmts)
-       (begin
-         (println (~a "===- " stmts " -==="))
-         (println tup)
-         (define res
-           (if (empty? stmts)
-               ; no stmts, run compute-step
-               (let-values ([(st mem out)
-                             (compute-step comp
-                                           (ast-tuple-memory tup)
-                                           (ast-tuple-state tup)
-                                           (ast-tuple-inactive tup))])
-                 (struct-copy ast-tuple tup
-                              [state st]
-                              [memory mem]))
-               ; there are stmts! fold over them
-               (foldl (lambda (s acc)
-                        (let*-values ([(acc-p) (ast-step comp tup s)]
-                                      [(st mem out)
-                                       (compute-step comp
-                                                     (ast-tuple-memory acc-p)
-                                                     (ast-tuple-state acc-p)
-                                                     (ast-tuple-inactive acc-p))])
-                          (struct-copy ast-tuple acc
-                                       [inactive (remove-duplicates ; XXX why do we merge inactive?
-                                                  (append
-                                                   (ast-tuple-inactive acc-p)
-                                                   (ast-tuple-inactive acc)))]
-                                       [state (merge-state st (ast-tuple-state acc))]
-                                       [memory mem ;; (merge-mem mem (ast-tuple-memory acc))
-                                               ])))
-                      ; the accum starts out with no state and no memory
-                      ; we never need to merge the starting state/mem with
-                      ; the state/mem calcuated in this step. rather, we
-                      ; use the starting state/mem to compute the new state/mem
-                      ; and then merge those with each other and pass those on
-                      (struct-copy ast-tuple tup
-                                   [state (make-immutable-hash)]
-                                   [memory (memory-tup (make-immutable-hash) (make-immutable-hash))])
-                      stmts)))
-         (println tup)
-         (println res)
-         (println (ast-tuple-inactive res))
-         (println "===--===")
-         res)]
+       (define (merge-tup tup1 tup2)
+         (match-let ([(ast-tuple inact-1 st-1 mem-1 hist-1)
+                      tup1]
+                     [(ast-tuple inact-2 st-2 mem-2 hist-2)
+                      tup2])
+           (ast-tuple
+            (remove-duplicates (append inact-1 inact-2))
+            (merge-state st-1 st-2)
+            mem-1 ;; XXX fix this
+            history)))
+       ;; handle the case when we don't have any parallel stmts
+       ;; (would be nice to do this in syntax)
+       (if (empty? stmts)
+           (ast-step comp tup (deact-stmt '()))
+           (foldl merge-tup
+                  (struct-copy ast-tuple tup
+                               [state (make-immutable-hash)]
+                               [memory (memory-tup (make-immutable-hash)
+                                                   (make-immutable-hash))])
+                  (map (lambda (s) (ast-step comp tup s))
+                       stmts)))]
       [(seq-comp stmts)
        (foldl (lambda (s acc)
                 (define acc-p (struct-copy ast-tuple acc
                                            [inactive (ast-tuple-inactive tup)]))
                 (define res (ast-step comp acc-p s))
-                (struct-copy ast-tuple res
-                             [history (cons res (ast-tuple-history res))]))
+                (update-history res))
               tup
               stmts)]
-      [(deact-stmt mods) (ast-tuple (remove-duplicates
-                                     (append mods inactive))
-                                    state
+      [(deact-stmt mods) ; compute step with this list of inactive modules
+       (let*-values ([(st mem out)
+                      (compute-step comp
                                     memory
-                                    history)]
+                                    state
+                                    mods ; XXX maybe merge with tup inactive?
+                                    )])
+         (log-debug "state: ~a\n memory: ~a\n" st mem)
+         (struct-copy ast-tuple tup
+                      [state st]
+                      [memory mem]
+                      [inactive mods]))]
       [(if-stmt condition tbranch fbranch)
+       (log-debug "if: ~a" state)
        (if-valued (hash-ref state condition)
                   (ast-step comp tup tbranch)
-                  (ast-step comp tup fbranch))]
+                  (ast-step comp tup fbranch)
+                  tup)]
       [(ifen-stmt condition tbranch fbranch)
        (if (hash-ref state condition)
            (ast-step comp tup tbranch)
            (ast-step comp tup fbranch))]
       [(while-stmt condition body)
        (if-valued (hash-ref state condition)
-                  (begin
-                    (println state)
-                    ;; (struct-copy ast-tuple [history (cons state history)])
-                    (ast-step comp (ast-step comp tup body) ast))
+                  (ast-step comp
+                            (ast-step comp tup body)
+                            ast)
                   tup
-                  ;; (struct-copy ast-tuple tup [history (cons state history)])
-                  )]
+                  tup)]
       [_ (error "Malformed ast!" ast)]))
-  ;; (print "-> ") (println result)
+  (log-debug "close)")
   result)
 
-;; (define comp (simp))
-;; (define inputs '((a . 10) (b . 4)))
 (define (compute comp inputs #:memory [mem (memory-tup
                                             (make-immutable-hash)
                                             (make-immutable-hash))])
   (define ast (component-control comp))
   (define state (input-hash comp inputs))
-  (println "================")
-  (println (~a "start compute for " (component-name comp)))
-  (print "mem ")
-  (println mem)
+  (log-debug "================")
+  (log-debug "(start compute for ~a" (component-name comp))
+  (log-debug "memory: ~a" mem)
   (define st-mem
     (struct-copy memory-tup mem
                  [current
@@ -364,15 +329,11 @@
                     (map (lambda (x) `((,(car x) . inf#) . ,(cdr x)))
                          inputs))
                    (memory-tup-current mem))]))
-  (print "st-mem ")
-  (println st-mem)
+  (log-debug (~a st-mem))
   (define result (ast-step comp (ast-tuple '() state st-mem '()) ast))
-  (println (~a "end compute for " (component-name comp)))
-  (println (ast-tuple-state result))
-  (println "================")
 
-  result
-  ;; (list (ast-tuple-state result) (ast-tuple-history result))
-  )
-
-;; (compute (counter) '((n . 3)))
+  (log-debug "~a" (ast-tuple-state result))
+  (log-debug "~a" (ast-tuple-memory result))
+  (log-debug "end compute)")
+  (log-debug "================")
+  result)

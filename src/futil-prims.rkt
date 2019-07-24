@@ -1,6 +1,7 @@
 #lang racket
 (require "component.rkt"
-         "port.rkt")
+         "port.rkt"
+         "util.rkt")
 (provide comp/id
          comp/reg
          comp/add

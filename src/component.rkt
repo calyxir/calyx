@@ -1,9 +1,9 @@
 #lang racket
 (require graph
          racket/hash
-         "port.rkt")
-(provide keyword-lambda
-         (struct-out component)
+         "port.rkt"
+         "util.rkt")
+(provide (struct-out component)
          transform-control
          input-component
          output-component
@@ -14,17 +14,6 @@
          get-submod!
          split!
          convert-graph)
-
-;; syntatic sugar that makes it nice to define procedures in the way
-;; that component expects them
-(define-syntax-rule (keyword-lambda (arg ...)
-                                    ([var = body1 ...] ...)
-                                    [kw => body2 ...] ...)
-  (lambda (h)
-    (define arg (hash-ref h 'arg)) ...
-    (define var (begin body1 ...)) ...
-    (make-immutable-hash `((kw . ,(begin body2 ...)) ...))))
-
 
 (struct component (;; name of the component
                    name
