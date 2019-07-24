@@ -89,7 +89,7 @@
                  `((,name . ,in) . ,(car neighs-vals)))
                ins))))))
 
-(define (pln x) (println x) x)
+(define (pln x) (pretty-print x) x)
 
 (define (top-order comp)
 
