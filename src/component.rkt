@@ -4,7 +4,8 @@
          racket/hash
          racket/list
          racket/match
-         "port.rkt")
+         "port.rkt"
+         "util.rkt")
 
 (provide (struct-out component)
          transform-control

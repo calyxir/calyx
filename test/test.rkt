@@ -22,7 +22,7 @@
          ([])
          ([(in)]))])
 ;; (component-control (counter))
-(plot-compute (counter) '((in . 10)))
+;; (plot-compute (counter) '((in . 10)))
 
 (define/module consumer ((n : 32)) ((out : 32))
   ([counter = new counter]
@@ -58,7 +58,7 @@
   )
 ;; (while (counter out) ([(b zero)]))
 ;; (listen-debug)
-;; (plot-compute (mult) '((a . 7) (b . 8)))
+(plot-compute (mult) '((a . 7) (b . 8)))
 ;; (unlisten-debug)
 
 (define/module simp ((a : 32) (b : 32)) ((out : 32))
