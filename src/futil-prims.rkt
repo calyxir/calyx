@@ -26,6 +26,14 @@
       (apply op (list item ...))
       #f))
 
+(define (simple-binop name op)
+  (default-component
+    name
+    input-list
+    output-list
+    (keyword-lambda (left right) ()
+                    [out => (falsify-apply op left right)])))
+
 (define (comp/id)
   (default-component
     'id
@@ -41,16 +49,10 @@
     (keyword-lambda (in) ()
                     [out => in])
     #:mode #t))
-(define (comp/add)
-  (default-component
-    'add
-    input-list
-    output-list
-    (keyword-lambda (left right) ()
-                    [out => (falsify-apply + left right)])))
+
 (define (comp/trunc-sub)
   (default-component
-    'sub
+    'trunc-sub
     input-list
     output-list
     (keyword-lambda (left right) ()
@@ -59,48 +61,13 @@
                                     [(< x 0) 0]
                                     [else x]))])))
 
-(define (comp/sub)
-  (default-component
-    'sub
-    input-list
-    output-list
-    (keyword-lambda (left right) ()
-                    [out => (falsify-apply - left right)])))
-(define (comp/mult)
-  (default-component
-    'mult
-    input-list
-    output-list
-    (keyword-lambda (left right) ()
-                    [out => (falsify-apply * left right)])))
-(define (comp/div)
-  (default-component
-    'div
-    input-list
-    output-list
-    (keyword-lambda (left right) ()
-                    [out => (falsify-apply / left right)])))
-(define (comp/and)
-  (default-component
-    'and
-    input-list
-    output-list
-    (keyword-lambda (left right) ()
-                    [out => (falsify-apply bitwise-and left right)])))
-(define (comp/or)
-  (default-component
-    'or
-    input-list
-    output-list
-    (keyword-lambda (left right) ()
-                    [out => (falsify-apply bitwise-ior left right)])))
-(define (comp/xor)
-  (default-component
-    'xor
-    input-list
-    output-list
-    (keyword-lambda (left right) ()
-                    [out => (falsify-apply bitwise-xor left right)])))
+(define (comp/add) (simple-binop 'add +))
+(define (comp/sub) (simple-binop 'sub -))
+(define (comp/mult) (simple-binop 'mult *))
+(define (comp/div) (simple-binop 'div /))
+(define (comp/and) (simple-binop 'and bitwise-and))
+(define (comp/or) (simple-binop 'or bitwise-ior))
+(define (comp/xor) (simple-binop 'xor bitwise-xor))
 
 (define (magic/mux)
   (default-component

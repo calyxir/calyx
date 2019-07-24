@@ -1,6 +1,6 @@
 #lang racket
-(require "../src/futil.rkt")
-(require "../src/vizualizer.rkt")
+(require "../src/futil.rkt"
+         "../src/vizualizer.rkt")
 
 (define/module decr ((in : 32)) ((out : 32))
   ([sub = new comp/trunc-sub]
@@ -72,3 +72,4 @@
   []
   [(a b)])
 ;; (plot-compute (simp) '((a . 10) (b . 20)))
+

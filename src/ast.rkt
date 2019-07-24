@@ -7,6 +7,7 @@
          racket/pretty
          racket/format
          racket/match
+         racket/contract
          graph
          "component.rkt"
          "port.rkt")
@@ -20,13 +21,44 @@
          (struct-out ast-tuple)
          compute)
 
+;; (define ast-node?
+;;   (or/c
+;;    par-comp?
+;;    seq-comp?
+;;    deact-stmt?
+;;    if-stmt?
+;;    ifen-stmt?
+;;    while-stmt?))
+
 ;; type of statements
-(struct par-comp (stmts) #:transparent)
-(struct seq-comp (stmts) #:transparent)
-(struct deact-stmt (mods) #:transparent)
-(struct if-stmt (condition tbranch fbranch) #:transparent)
-(struct ifen-stmt (condition tbranch fbranch) #:transparent)
-(struct while-stmt (condition body) #:transparent)
+(define-struct/contract par-comp
+  ([stmts (and/c list? (not/c empty?))])
+  #:transparent)
+
+(define-struct/contract seq-comp
+  ([stmts list?])
+  #:transparent)
+
+(define-struct/contract deact-stmt
+  ([mods (listof symbol?)])
+  #:transparent)
+
+(define-struct/contract if-stmt
+  ([condition any/c]
+   [tbranch any/c]
+   [fbranch any/c])
+  #:transparent)
+
+(define-struct/contract ifen-stmt
+  ([condition any/c]
+   [tbranch any/c]
+   [fbranch any/c])
+  #:transparent)
+
+(define-struct/contract while-stmt
+  ([condition any/c]
+   [body any/c])
+  #:transparent)
 
 ;; a hash union that tries to make overlapping keys non-false
 ;;   if v1 or v2 is #f, choose non-false option

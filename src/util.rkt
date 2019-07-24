@@ -1,4 +1,6 @@
-#lang racket
+#lang racket/base
+(require racket/logging)
+
 (provide keyword-lambda
          listen-debug
          unlisten-debug)
@@ -13,8 +15,6 @@
     (define var (begin body1 ...)) ...
     (make-immutable-hash `((kw . ,(begin body2 ...)) ...))))
 
-;; (define futil-logger #f)
-;; (define debug-rc #f)
 (define futil-logger (make-logger 'futil-logger))
 (define debug-rc (make-log-receiver futil-logger 'debug))
 (define logger-thrd #f)
