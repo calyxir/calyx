@@ -59,15 +59,22 @@
    [reg @ out -> add @ left]
    [reg @ out -> out])
   []
-  [(while (counter out)
-     ([(b zero)]))]
+  [(if (counter out) ([(b zero)]) ())]
+  [(if (counter out) ([(b zero)]) ())]
+  [(if (counter out) ([(b zero)]) ())]
+  [(if (counter out) ([(b zero)]) ())]
+  [(if (counter out) ([(b zero)]) ())]
+  [(if (counter out) ([(b zero)]) ())]
+  [(if (counter out) ([(b zero)]) ())]
+  ;; [(while (counter out)
+  ;;    ([(b zero)]))]
   )
 ;; (while (counter out) ([(b zero)]))
 ;; (listen-debug)
-;; (plot-compute (mult) '((a . 7) (b . 8)))
+(plot-compute (mult) '((a . 7) (b . 8)))
 ;; (unlisten-debug)
 
-(define/module mem-test ((addr1 : 32) (data1 : 32) (addr2 : 32) (data2 : 32)) ((out : 32))
+(define/module mem-test ((addr1 : 32) (data1 : 32) (addr2 : 32) (data2 : 32)) ((out1 : 32) (out2 : 32))
   ([mem = new comp/memory-8bit]
    [addr1 -> mem @ addr]
    [addr2 -> mem @ addr]
@@ -79,11 +86,13 @@
 
    [reg1 = new comp/reg]
    [viz @ out -> reg1 @ in]
+   [reg1 @ out -> out1]
 
    [reg2 = new comp/reg]
-   [viz @ out -> reg2 @ in])
+   [viz @ out -> reg2 @ in]
+   [reg2 @ out -> out2])
 
-  [(mem)]
+  [(mem viz)]
 
   [(data1 addr2 data2 reg1 reg2)]
   [(addr2 data2 reg1 reg2)]
@@ -94,9 +103,8 @@
 
   [(data1 addr2 data2 reg2)]
   [(data1 addr1 data2 reg1)]
-  [(mem viz)])
 
-(require "../src/vizualizer.rkt")
+  [(mem viz)])
 
 ;; (unlisten-debug)
 (plot-compute (mem-test) '((addr1 . 1)
