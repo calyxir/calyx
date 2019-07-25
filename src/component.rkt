@@ -171,30 +171,6 @@
               (hash-set! (component-splits comp) name2 name))]
         [else (error "Port not found in the inputs!")]))
 
-  (define (mint-inactive-hash comp name)
-  (make-immutable-hash (map
-                        (lambda (x)
-                          `((,name . ,(port-name x)) . #f))
-                        (append
-                         (component-outs (get-submod! comp name))
-                         (filter-map
-                          (lambda (x) (and (equal? name (port-name x))
-                                           (port 'inf# (port-width x))))
-                          (component-outs comp))))))
-
-(define (mint-remembered-hash comp hsh name)
-  (define base (mint-inactive-hash comp name))
-  (make-immutable-hash
-   (hash-map base (lambda (k v) `(,k . ,(hash-ref hsh k))))))
-
-(define (submod-compute comp inputs name)
-  (define ins (make-immutable-hash (hash-map inputs (lambda (k v) `(,(cdr k) . ,v)))))
-  (if (andmap (lambda (x) x) (hash-values ins))
-      (make-immutable-hash
-       (hash-map ((component-proc (get-submod! comp name)) ins)
-                 (lambda (k v) `((,name . ,k) . ,v))))
-      (mint-inactive-hash comp name)))
-
 (define (convert-graph comp [vals #f])
   (define g (component-graph comp))
   (define newg (empty-graph))

@@ -27,10 +27,8 @@ to the source Fuse program) and then gradually lower the specification into most
  - Port widths are not actually meaningful at the moment. You can put any number, string,
  or any racket value really on a wire. Please don't abuse this power for bad.
  Eventually you will only be able to put a n bit number on a n bit wire.
- - Tests are a good thing I hear
  - Figure out the proper way to merge memory in parallel composition
  - My vizualizer currently doesn't have animated animals carrying values along the wires
- - Racket contracts are something I should look into
  - Output sensible error messages. Atm I am the only person who would have any idea what errors mean.
 
 ## Details
@@ -62,13 +60,11 @@ executed in a single time step. When a module is deactived, the values on it's i
 wires are not passed to the submodule's procedure. Additionally, the output wires are disabled.
 
 ### Memory
-This provides a mechanism for a module to store state. In a module definition, there is a flag
-called `mode` (bad name). Currently this flag is impossible to set in FuTIL; it can only be
-set when creating modules in `racket`. There is a primitive called `comp/reg` that has this
-flag set and can be used as a register. When the flag is set, all enabled outputs of the module
-are saved during the computation. If the module outputs a new value, then this value is written
-into memory. If the module has a disabled output, then the value in memory is used for that output.
-If the module is inactive, the outputs are disabled as normal.
+This provides a mechanism for a module to store state. Each component has a `memory-proc` field.
+This is only possible to use by directly constructing components, you can't use the FuTIL syntax
+to make use of this. The `memory-proc` field defines how to construct a new abitrary memory value 
+given the previous memory value and the state of the wires. This memory value is passed to `proc`
+so that a module can make use of the memory value. 
 
 Each module recursively keeps track of all of it's submodule's memory. This allows the creation of
 a module that outputs distinct values given the same input.
