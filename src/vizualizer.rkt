@@ -106,7 +106,7 @@
 
 ;; ==========================
 
-(define (plot comp [vals '()])
+(define (plot comp vals animate)
   (define index 0)
   (define hist (list->vector (reverse vals)))
 
@@ -132,6 +132,19 @@
          [alignment '(center center)]
          [stretchable-height #f]))
 
+  (define play
+    (new button%
+         [parent control-panel]
+         [label "Play"]
+         [callback (lambda (button event)
+                     (if (equal? (send play get-label) "Play")
+                         (begin
+                           (send play set-label "Stop")
+                           (send timer start animate))
+                         (begin
+                           (send play set-label "Play")
+                           (send timer stop))))]))
+
   (define prev
     (new button%
          [parent control-panel]
@@ -154,12 +167,20 @@
   (define (update dir)
     (set! index (modulo (+ index dir) (vector-length hist)))
     (send index-label set-label (~a (add1 index) "/" (vector-length hist)))
+    (send board begin-edit-sequence)
     (plot-comp board comp
                (ast-tuple-state (vector-ref hist index))
-               (ast-tuple-inactive (vector-ref hist index))))
+               (ast-tuple-inactive (vector-ref hist index)))
+    (send board end-edit-sequence))
+
+  (define timer
+    (new timer%
+         [notify-callback (lambda () (update 1))]))
 
   (send toplevel show #t)
   (update 0))
 
-(define (plot-compute comp inputs)
-  (plot comp (ast-tuple-history (compute comp inputs))))
+(define (plot-compute comp inputs
+                      #:memory [memory (make-immutable-hash)]
+                      #:animate [animate 1000])
+  (plot comp (ast-tuple-history (compute comp inputs #:memory memory)) animate))

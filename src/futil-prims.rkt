@@ -3,17 +3,8 @@
 (require "component.rkt"
          "port.rkt"
          "util.rkt")
-(provide comp/id
-         comp/reg
-         comp/add
-         comp/trunc-sub
-         comp/sub
-         comp/mult
-         comp/div
-         comp/and
-         comp/or
-         comp/xor
-         magic/mux)
+
+(provide (all-defined-out))
 
 (define input-list
   (list (port 'left 32)
@@ -41,14 +32,38 @@
     (list (port 'out 32))
     (keyword-lambda (in) ()
                     [out => in])))
+
 (define (comp/reg)
   (default-component
     'reg
     (list (port 'in 32))
     (list (port 'out 32))
-    (keyword-lambda (in) ()
-                    [out => in])
-    #:mode #t))
+    (keyword-lambda (mem-val# in) ()
+                    [out => (if in in mem-val#)])
+    #:memory-proc (lambda (old st)
+                    (define new-v (hash-ref st 'in))
+                    (if new-v new-v old))))
+
+(define (comp/memory-8bit)
+  (default-component
+    'mem-8bit
+    (list (port 'addr 32)     ; XXX should be 8 bits
+          (port 'data-in 32))
+    (list (port 'out 32))
+    (keyword-lambda (mem-val# addr data-in)
+                    ([mem = (if (hash? mem-val#) mem-val# (make-immutable-hash))])
+                    [out => (if data-in
+                                data-in
+                                (hash-ref mem addr
+                                          (lambda () 0)))])
+    #:memory-proc (lambda (old st)
+                    (if (hash? old)
+                        (if (hash-ref st 'data-in)
+                            (hash-set
+                             old
+                             (hash-ref st 'addr) (hash-ref st 'data-in))
+                            old)
+                        (make-immutable-hash)))))
 
 (define (comp/trunc-sub)
   (default-component

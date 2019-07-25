@@ -29,19 +29,14 @@
                    submods
                    ;; hashtbl keeping track of split nodes
                    splits
-                   ;; list of (inactive lst * constr list) tuples
+                   ;; ast
                    control
                    ;; procedure representing this modules computation
                    proc
+                   ;; procedure for setting memory
+                   memory-proc
                    ;; graph representing internal connections
-                   graph
-                   ;; true when this component should always activate
-                   activation-mode))
-
-;; (define component/c
-;;   (struct/dc
-;;    [a (list/c any/c)]
-;;    [b (list/c number?)]))
+                   graph))
 
 ;; creates a default component given a name for the component,
 ;; a list of input port names, and a list of output port names
@@ -55,10 +50,10 @@
                              (list (port 'inf# w))
                              (make-hash) ; submods
                              (make-hash) ; splits
-                             '() ;; (list (control-pair '() '()))
+                             #f
                              (keyword-lambda (inf#) () [inf# => inf#])
-                             (empty-graph)
-                             #t))
+                             (lambda (old st) #f)
+                             (empty-graph)))
 
 ;; creates a component with a single infinite input port of width w
 ;; and no output ports. Designed to be used as the output of a component.
@@ -68,10 +63,10 @@
                               '()
                               (make-hash) ; submods
                               (make-hash) ; splits
-                              '() ;; (list (control-pair '() '()))
+                              #f
                               (keyword-lambda (inf#) () [inf# => inf#])
-                              (empty-graph)
-                              #f))
+                              (lambda (old st) #f)
+                              (empty-graph)))
 
 (define (transform-control control) control)
 
@@ -85,9 +80,9 @@
           ins
           outs
           proc
-          #:control [control '() ;; (list (control-pair '() '()))
-                             ]
-          #:mode [mode #f])
+          #:control [control #f]
+          #:memory-proc [memory-proc
+                         (lambda (old st) #f)])
   (let ([htbl (make-hash)]
         [g (empty-graph)])
     (for-each (lambda (p) ; p is a port
@@ -104,8 +99,8 @@
      (make-hash)   ; splits
      control
      proc
-     g
-     mode)))
+     memory-proc
+     g)))
 
 (define (make-constant n width)
   (default-component n '() (list (port 'inf# width)) (keyword-lambda () () [inf# => n])))

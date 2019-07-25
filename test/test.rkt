@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 (require "../src/futil.rkt"
          "../src/vizualizer.rkt")
 
@@ -10,7 +10,6 @@
   [])
 
 ;; (ast-tuple-state (compute (decr) '((in . 1))))
-
 (define/module counter ((in : 32)) ((out : 32))
   ([sub = new comp/trunc-sub]
    [reg = new comp/reg]
@@ -21,9 +20,12 @@
    [reg @ out -> out])
   [(ifen (in inf#)
          ([])
-         ([(in)]))])
-;; (component-control (counter))
-;; (plot-compute (counter) '((in . 10)))
+         ([(in)]
+          [(in)]))])
+;; (plot-compute (counter) '((in . #f))
+;;               #:memory (make-immutable-hash
+;;                         `((reg . ,(mem-tuple 5 (make-immutable-hash)))))
+;;          )
 
 (define/module consumer ((n : 32)) ((out : 32))
   ([counter = new counter]
@@ -32,9 +34,14 @@
    [counter @ out -> viz @ in]
    [const on 1 : 32 -> out])
   [(on)]
-  [(while (counter out)
-     ([(n on)]))]
-  [(n)])
+  [(n on)]
+  [(n on)]
+  ;; [(while (counter out)
+  ;;    ([(n on)]))]
+  )
+;; (listen-debug)
+;; (plot-compute (consumer) '((n . 10)))
+
 ;; (plot-compute (consumer) '((n . 10)))
 
 (define/module mult ((a : 32) (b : 32)) ((out : 32))
@@ -43,8 +50,6 @@
    [reg = new comp/reg]
    [viz = new comp/id]
 
-   ;; [decr = new decr]
-   ;; [b -> decr @ in]
    [b -> counter @ in]
    [counter @ out -> viz @ in]
 
@@ -55,21 +60,37 @@
    [reg @ out -> out])
   []
   [(while (counter out)
-     ([(b zero)]))])
+     ([(b zero)]))]
+  )
 ;; (while (counter out) ([(b zero)]))
 ;; (listen-debug)
 ;; (plot-compute (mult) '((a . 7) (b . 8)))
 ;; (unlisten-debug)
 
-(define/module simp ((a : 32) (b : 32)) ((out : 32))
-  ([add = new comp/add]
-   [a -> add @ left]
-   [b -> add @ right]
-   [add @ out -> out]
-   )
-  [(a)]
-  [(b)]
-  []
-  [(a b)])
-;; (plot-compute (simp) '((a . 10) (b . 20)))
+(define/module mem-test ((addr1 : 32) (data1 : 32) (addr2 : 32) (data2 : 32)) ((out : 32))
+  ([mem = new comp/memory-8bit]
+   [addr1 -> mem @ addr]
+   [addr2 -> mem @ addr]
+   [data1 -> mem @ data-in]
+   [data2 -> mem @ data-in]
 
+   [viz = new comp/id]
+   [mem @ out -> viz @ in])
+
+  [(mem)]
+
+  [(data1 addr2 data2)]
+  [(addr2 data2)]
+  [(data1 addr1 data2)]
+  [(data1 addr1)]
+
+  [(mem)]
+
+  [(data1 addr2 data2)]
+  [(data1 addr1 data2)])
+
+;; (unlisten-debug)
+;; (plot-compute (mem-test) '((addr1 . 1)
+;;                            (data1 . 6)
+;;                            (addr2 . 2)
+;;                            (data2 . 7)))

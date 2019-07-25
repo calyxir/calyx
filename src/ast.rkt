@@ -19,16 +19,8 @@
          (struct-out ifen-stmt)
          (struct-out while-stmt)
          (struct-out ast-tuple)
+         (struct-out mem-tuple)
          compute)
-
-;; (define ast-node?
-;;   (or/c
-;;    par-comp?
-;;    seq-comp?
-;;    deact-stmt?
-;;    if-stmt?
-;;    ifen-stmt?
-;;    while-stmt?))
 
 ;; type of statements
 (define-struct/contract par-comp
@@ -44,19 +36,19 @@
   #:transparent)
 
 (define-struct/contract if-stmt
-  ([condition any/c]
+  ([condition pair?]
    [tbranch any/c]
    [fbranch any/c])
   #:transparent)
 
 (define-struct/contract ifen-stmt
-  ([condition any/c]
+  ([condition pair?]
    [tbranch any/c]
    [fbranch any/c])
   #:transparent)
 
 (define-struct/contract while-stmt
-  ([condition any/c]
+  ([condition pair?]
    [body any/c])
   #:transparent)
 
@@ -144,40 +136,60 @@
   (make-immutable-hash
    (hash-map base (lambda (k v) `(,k . ,(hash-ref hsh k))))))
 
-(struct memory-tup (current sub-mem) #:transparent)
+; (submod -> mem-tuple) hash
+; mem-tuple = (value * (submod -> mem-tuple) hash)
+(struct mem-tuple (value sub-mem) #:transparent)
+(define (empty-mem-tuple) (mem-tuple #f (make-immutable-hash)))
 ;; given a subcomponent (comp name) a state and memory,
 ;; run subcomponents proc with state and memory and
 ;; return updated state and memory
-(define (submod-compute comp name state tot-mem)
+(define (submod-compute comp name state mem-tup)
   ;; state is of the form (((sub . port) . val) ...)
   ;; change to ((port . val) ...)
   (define ins
     (make-immutable-hash
      (hash-map state (lambda (k v) `(,(cdr k) . ,v)))))
 
-  ;; get the current submemory out of mem, creating one if
-  ;; it doesn't exist
-  (define sub-mem
-    (if (hash-has-key? tot-mem name)
-        (hash-ref tot-mem name)
-        (memory-tup (make-immutable-hash)
-                    (make-immutable-hash))))
+  ;; (define mem (memory-tup-sub-mem tot-mem))
 
-  ;; add memory to ins
-  (define ins-p (hash-set ins 'mem# sub-mem))
+  ;; get the current submemory out of mem-tup, creating one if
+  ;; it doesn't exist
+  ;; (define sub-mem
+  ;;   (hash-ref (mem-tuple-sub-mem mem-tup) name
+  ;;             empty-mem-tuple) ; default
+    ;; (if (hash-has-key? mem name)
+    ;;     (hash-ref mem name)
+    ;;     (memory-tup (make-immutable-hash)
+    ;;                 (make-immutable-hash)))
+    ;; )
+
+  ;; add sub-memory and memory value to ins
+  (define ins-p (hash-set* ins
+                           'sub-mem# (mem-tuple-sub-mem mem-tup)
+                           'mem-val# (mem-tuple-value mem-tup)))
 
   (let* ([proc (component-proc (get-submod! comp name))]
-         [res (proc ins-p)]
-         [sub-mem-p (if (hash-has-key? res 'mem#)
-                        (hash-ref res 'mem#)
-                        (memory-tup (make-immutable-hash)
-                                    (make-immutable-hash)))]
-         [res-wo-mem (hash-remove res 'mem#)])
+         [mem-proc (component-memory-proc (get-submod! comp name))]
+         [state-res (proc ins-p)]
+         [sub-mem-p (hash-ref state-res 'sub-mem#
+                              (make-immutable-hash))
+
+          ;; (if (hash-has-key? res 'sub-mem#)
+          ;;               (hash-ref res 'sub-mem#)
+          ;;               (memory-tup (make-immutable-hash)
+          ;;                           (make-immutable-hash)))
+          ]
+         [state-wo-mem (hash-remove state-res 'sub-mem#)]
+         [value-p (mem-proc (mem-tuple-value mem-tup)
+                          (save-hash-union ins state-wo-mem))]
+         [mem-tup-p (mem-tuple value-p sub-mem-p)])
     (values
      (make-immutable-hash
-      (hash-map res-wo-mem
+      (hash-map state-wo-mem
                 (lambda (k v) `((,name . ,k) . ,v))))
-     (hash-set tot-mem name sub-mem-p))))
+     mem-tup-p)))
+
+; XXX I don't think that inputs behave like memories
 
 (define (compute-step comp memory state inactive)
   ;; sort the components so that we evaluate things in the right order
@@ -197,35 +209,40 @@
     (foldl (lambda (sub acc)
              (define res
                (if (member sub inactive)
-                   ; inactive (set sub to false in acc)
-                   (struct-copy accum acc
-                                [state
-                                 ; use save-union because other mods might
-                                 ; need values on the wires. we'll set them
-                                 ; to #f later
-                                 (save-hash-union (accum-state acc)
-                                                  (mint-inactive-hash comp sub))])
+                   ; inactive (do nothing)
+                   (begin (log-debug "here") acc)
                    ; active
                    (let*-values
-                       (; remove disabled wires from memory, then union with state
-                        [(vals) (filt (save-hash-union
-                                       (memory-tup-current (accum-memory acc))
-                                       (accum-state acc)))]
-                        [(trans) (transform comp vals sub)]
-                        [(state-p sub-mem-p) ; pass in state and memory to submodule
-                         (submod-compute comp sub trans
-                                         (memory-tup-sub-mem (accum-memory acc)))]
-                        [(curr-mem-p) ; update this modules curr memory
-                         (if (component-activation-mode (get-submod! comp sub))
-                             ; is a register, update memory
-                             ; prefering first non-false then new vals
-                             (save-hash-union (memory-tup-current (accum-memory acc))
-                                              (mint-remembered-hash comp state-p sub))
-                             ; is not a register
-                             (memory-tup-current (accum-memory acc)))])
+                       ([(mem-tup) (hash-ref (accum-memory acc) sub
+                                             (lambda () (empty-mem-tuple)))]
+                        ; remove disabled wires from memory, then union with state
+                        [(state) (filt (accum-state acc))
+                         ;; (filt (save-hash-union
+                         ;;        (memory-tup-current (accum-memory acc))
+                         ;;        (accum-state acc)))
+                         ]
+                        [(trans) (transform comp state sub)]
+                        [(outs mem-tup-p) ; pass in state and memory to submodule
+                         (submod-compute comp sub trans mem-tup)]
+                        [(state-p) (save-hash-union (accum-state acc) outs)]
+                        ;; [(mem-value-p)
+                        ;;  ((component-memory-proc (get-submod! comp sub)) state-p)]
+                        ;; [(mem-tup-p) (mem-tuple mem-value-p sub-mem-p)]
+                        ;; [(mem-tup-p) (mem-tuple mem-value-p sub-mem-p)]
+                        ;; [(curr-mem-p) ; update this modules curr memory
+                        ;;  (if (component-activation-mode (get-submod! comp sub))
+                        ;;      ; is a register, update memory
+                        ;;      ; prefering first non-false then new state
+                        ;;      (save-hash-union (memory-tup-current (accum-memory acc))
+                        ;;                       (mint-remembered-hash comp outs sub))
+                        ;;      ; is not a register
+                        ;;      (memory-tup-current (accum-memory acc)))]
+                        )
+                     (log-debug "mem-val (~v): ~v" sub mem-tup-p)
+                     (log-debug "state-p(~v): ~v" sub state-p)
                      (accum
-                      (save-hash-union (accum-state acc) state-p)
-                      (memory-tup curr-mem-p sub-mem-p)))))
+                      state-p
+                      (hash-set (accum-memory acc) sub mem-tup-p)))))
              res)
            (accum state memory)
            order))
@@ -253,33 +270,34 @@
           fbranch)
       disbranch))
 
-(struct ast-tuple (inactive state memory history) #:transparent)
+(struct ast-tuple (inputs inactive state memory history) #:transparent)
 
 (define (merge-state st0 st1)
   (equal-hash-union st0 st1))
 
-(define (merge-mem mem0 mem1)
-  (match-define (memory-tup curr0 subm0) mem0)
-  (match-define (memory-tup curr1 subm1) mem1)
-  (memory-tup (equal-hash-union curr0 curr1 #:error "Invalid current mem merge!")
-              (equal-hash-union subm0 subm1)))
+;; (define (merge-mem mem0 mem1)
+;;   (match-define (memory-tup curr0 subm0) mem0)
+;;   (match-define (memory-tup curr1 subm1) mem1)
+;;   (memory-tup (equal-hash-union curr0 curr1 #:error "Invalid current mem merge!")
+;;               (equal-hash-union subm0 subm1)))
 
 (define (update-history ast-tup)
   (struct-copy ast-tuple ast-tup
                [history (cons ast-tup (ast-tuple-history ast-tup))]))
 
 (define (ast-step comp tup ast)
-  (match-define (ast-tuple inactive state memory history) tup)
-  (log-debug "(open ast-step ~a" ast)
+  (match-define (ast-tuple inputs inactive state memory history) tup)
+  (log-debug "(open ast-step ~v" ast)
   (define result
     (match ast
       [(par-comp stmts)
        (define (merge-tup tup1 tup2)
-         (match-let ([(ast-tuple inact-1 st-1 mem-1 hist-1)
+         (match-let ([(ast-tuple ins-1 inact-1 st-1 mem-1 hist-1)
                       tup1]
-                     [(ast-tuple inact-2 st-2 mem-2 hist-2)
+                     [(ast-tuple ins-2 inact-2 st-2 mem-2 hist-2)
                       tup2])
            (ast-tuple
+            inputs
             (remove-duplicates (append inact-1 inact-2))
             (merge-state st-1 st-2)
             mem-1 ;; XXX fix this
@@ -287,8 +305,7 @@
        (foldl merge-tup
               (struct-copy ast-tuple tup
                            [state (make-immutable-hash)]
-                           [memory (memory-tup (make-immutable-hash)
-                                               (make-immutable-hash))])
+                           [memory (make-immutable-hash)])
               (map (lambda (s) (ast-step comp tup s))
                    stmts))]
       [(seq-comp stmts)
@@ -303,15 +320,15 @@
        (let*-values ([(st mem out)
                       (compute-step comp
                                     memory
-                                    state
+                                    (save-hash-union inputs state)
                                     mods)])
-         (log-debug "state: ~a\n memory: ~a\n" st mem)
+         (log-debug "state: ~v\n memory: ~v\n" st mem)
          (struct-copy ast-tuple tup
                       [state st]
                       [memory mem]
                       [inactive mods]))]
       [(if-stmt condition tbranch fbranch)
-       (log-debug "if: ~a" state)
+       (log-debug "if: ~v" state)
        (if-valued (hash-ref state condition)
                   (ast-step comp tup tbranch)
                   (ast-step comp tup fbranch)
@@ -327,31 +344,30 @@
                             ast)
                   tup
                   tup)]
+      [#f (ast-step comp tup (deact-stmt '()))]
       [_ (error "Malformed ast!" ast)]))
   (log-debug "close)")
   result)
 
-(define (compute comp inputs #:memory [mem (memory-tup
-                                            (make-immutable-hash)
-                                            (make-immutable-hash))])
+(define (compute comp inputs #:memory [mem (make-immutable-hash)])
   (define ast (component-control comp))
   (define state (input-hash comp inputs))
   (log-debug "================")
-  (log-debug "(start compute for ~a" (component-name comp))
-  (log-debug "memory: ~a" mem)
-  (define st-mem
-    (struct-copy memory-tup mem
-                 [current
-                  (clob-hash-union
-                   (make-immutable-hash
-                    (map (lambda (x) `((,(car x) . inf#) . ,(cdr x)))
-                         inputs))
-                   (memory-tup-current mem))]))
-  (log-debug (~a st-mem))
-  (define result (ast-step comp (ast-tuple '() state st-mem '()) ast))
+  (log-debug "(start compute for ~v" (component-name comp))
+  (log-debug "memory: ~v" mem)
+  ;; (define st-mem
+  ;;   (struct-copy memory-tup mem
+  ;;                [current
+  ;;                 (clob-hash-union
+  ;;                  (make-immutable-hash
+  ;;                   (map (lambda (x) `((,(car x) . inf#) . ,(cdr x)))
+  ;;                        inputs))
+  ;;                  (memory-tup-current mem))]))
+  ;; (log-debug (~v st-mem))
+  (define result (ast-step comp (ast-tuple state '() state mem '()) ast))
 
-  (log-debug "~a" (ast-tuple-state result))
-  (log-debug "~a" (ast-tuple-memory result))
+  (log-debug "~v" (ast-tuple-state result))
+  (log-debug "~v" (ast-tuple-memory result))
   (log-debug "end compute)")
   (log-debug "================")
   result)

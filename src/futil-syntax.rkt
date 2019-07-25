@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 (require graph
          "port.rkt"
          "component.rkt"
@@ -42,21 +42,20 @@
 ;; syntax that generates the correct computation function
 ;; that is used for a modules procedure
 (define-syntax-rule (gen-proc name (in ...) (out ...))
-  (keyword-lambda (mem# in ...)
+  (keyword-lambda (sub-mem# in ...)
                   ([res = (let* ([inputs (list (cons 'in in) ...)]
-                                 [tup (compute (call name) inputs #:memory mem#)])
+                                 [tup (compute (call name) inputs #:memory sub-mem#)])
                             (cons
                              (ast-tuple-state tup)
                              (ast-tuple-memory tup)))])
-                  [mem# => (cdr res)]
+                  [sub-mem# => (cdr res)]
                   [out => (hash-ref (car res) '(out . inf#))] ...))
 
 ;; TODO: factor out the patterns properly
 (define-syntax (define/module stx)
   (define-splicing-syntax-class stmt
     #:description "connecting components and instantiating modules"
-    #:literals (-> = new const)
-    #:datum-literals (@ split & control)
+    #:datum-literals (@ split & control new -> = const)
     #:attributes (fun)
     ;; port patterns
     (pattern (u:wire-port -> v:wire-port)
