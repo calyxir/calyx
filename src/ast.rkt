@@ -328,7 +328,6 @@
                       [memory mem]
                       [inactive mods]))]
       [(if-stmt condition tbranch fbranch)
-       (log-debug "if: ~v" state)
        (if-valued (hash-ref state condition)
                   (ast-step comp tup tbranch)
                   (ast-step comp tup fbranch)

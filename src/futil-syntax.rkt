@@ -129,7 +129,7 @@
                       #:control (seq-comp (list constraint.item ...)))])
              (stmt.fun c) ...
              c))
-         (name))]))
+         (void (name)))]))
 
 ;; (require macro-debugger/stepper)
 ;; (expand/step

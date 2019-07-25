@@ -75,22 +75,31 @@
    [data2 -> mem @ data-in]
 
    [viz = new comp/id]
-   [mem @ out -> viz @ in])
+   [mem @ out -> viz @ in]
+
+   [reg1 = new comp/reg]
+   [viz @ out -> reg1 @ in]
+
+   [reg2 = new comp/reg]
+   [viz @ out -> reg2 @ in])
 
   [(mem)]
 
-  [(data1 addr2 data2)]
-  [(addr2 data2)]
-  [(data1 addr1 data2)]
-  [(data1 addr1)]
+  [(data1 addr2 data2 reg1 reg2)]
+  [(addr2 data2 reg1 reg2)]
+  [(data1 addr1 data2 reg1 reg2)]
+  [(data1 addr1 reg1 reg2)]
 
-  [(mem)]
+  [(mem viz)]
 
-  [(data1 addr2 data2)]
-  [(data1 addr1 data2)])
+  [(data1 addr2 data2 reg2)]
+  [(data1 addr1 data2 reg1)]
+  [(mem viz)])
+
+(require "../src/vizualizer.rkt")
 
 ;; (unlisten-debug)
-;; (plot-compute (mem-test) '((addr1 . 1)
-;;                            (data1 . 6)
-;;                            (addr2 . 2)
-;;                            (data2 . 7)))
+(plot-compute (mem-test) '((addr1 . 1)
+                           (data1 . 6)
+                           (addr2 . 2)
+                           (data2 . 7)))
