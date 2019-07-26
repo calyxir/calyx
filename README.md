@@ -193,10 +193,10 @@ lets you see the value coming out of counter in the pictures.
   [(while (counter out) ([(b zero)]))])
 ```
 
-Result of `(plot-compute (mult) '((a . 7) (b . 8))')`:
-
+Result of `(plot-compute (mult) '((a . 7) (b . 8))')`:  
 (note that the while loop was expanded to `ifs` for the purpose of creating this animation.
 If you don't do this, you only get two frames)
+
 ![Image 0 for mult example](imgs/mult-example.gif)
 
 ## Computation Implementation Notes

@@ -6,8 +6,7 @@
          mrlib/graph
          "component.rkt"
          "ast.rkt")
-(provide plot
-         plot-compute)
+(provide plot-compute)
 
 (define graph-board%
   (graph-pasteboard-mixin pasteboard%))
@@ -106,9 +105,7 @@
 
 ;; ==========================
 
-(define (plot comp vals animate)
-  (define index 0)
-  (define hist (list->vector (reverse vals)))
+(define (plot-compute comp inputs #:animate [animate 100])
 
   (define board (new graph-board%))
 
@@ -139,48 +136,61 @@
          [callback (lambda (button event)
                      (if (equal? (send play get-label) "Play")
                          (begin
-                           (send play set-label "Stop")
+                           (send play set-label "Reset")
                            (send timer start animate))
                          (begin
                            (send play set-label "Play")
-                           (send timer stop))))]))
+                           (send timer stop)
+                           (thread-send compute-worker 'stop)
+                           )))]))
 
-  (define prev
+  (define forward
     (new button%
          [parent control-panel]
-         [label "<"]
-         [callback (lambda (button event)
-                     (update -1))]))
+         [label "Step"]
+         [callback (lambda (button event) (next))]))
 
-  (define next
-    (new button%
-         [parent control-panel]
-         [label ">"]
-         [callback (lambda (button event)
-                     (update 1))]))
+  (define frame-number 0)
 
   (define index-label
     (new message%
          [parent control-panel]
-         [label ""]))
+         [label (format "Frame ~v" frame-number)]))
 
-  (define (update dir)
-    (set! index (modulo (+ index dir) (vector-length hist)))
-    (send index-label set-label (~a (add1 index) "/" (vector-length hist)))
+  (define (update tup)
+    (send index-label set-label (format "Frame ~v" frame-number))
     (send board begin-edit-sequence)
     (plot-comp board comp
-               (ast-tuple-state (vector-ref hist index))
-               (ast-tuple-inactive (vector-ref hist index)))
+               (ast-tuple-state tup)
+               (ast-tuple-inactive tup))
     (send board end-edit-sequence))
+
+  (define (next)
+    (when (not (thread-running? compute-worker))
+      (set! compute-worker (start-compute-worker)))
+    (thread-send compute-worker 'next))
+
+  (define (start-compute-worker)
+    (set! frame-number 0)
+    (thread
+     (lambda ()
+       (compute comp inputs
+                #:hook (lambda (tup)
+                         (match (thread-receive)
+                           ['next
+                            (update tup)
+                            (set! frame-number (add1 frame-number))]
+                           ['stop
+                            (kill-thread (current-thread))]))))))
+  (define compute-worker (start-compute-worker))
 
   (define timer
     (new timer%
-         [notify-callback (lambda () (update 1))]))
+         [notify-callback (lambda () (next))]))
 
   (send toplevel show #t)
-  (update 0))
+  (next))
 
-(define (plot-compute comp inputs
-                      #:memory [memory (make-immutable-hash)]
-                      #:animate [animate 1000])
-  (plot comp (ast-tuple-history (compute comp inputs #:memory memory)) animate))
+;; (define (plot-compute comp inputs
+;;                       #:animate [animate 100])
+;;   (plot comp (ast-tuple-history (compute comp inputs)) animate))

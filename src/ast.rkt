@@ -214,44 +214,39 @@
           fbranch)
       disbranch))
 
-(struct ast-tuple (inputs inactive state memory history) #:transparent)
+(struct ast-tuple (inputs inactive state memory) #:transparent)
 
 (define (merge-state st0 st1)
   (equal-hash-union st0 st1))
 
-(define (update-history ast-tup)
-  (struct-copy ast-tuple ast-tup
-               [history (cons ast-tup (ast-tuple-history ast-tup))]))
-
-(define (ast-step comp tup ast)
-  (match-define (ast-tuple inputs inactive state memory history) tup)
+(define (ast-step comp tup ast #:hook [callback void])
+  (match-define (ast-tuple inputs inactive state memory) tup)
   (log-debug "(open ast-step ~v" ast)
   (define result
     (match ast
       [(par-comp stmts)
        (define (merge-tup tup1 tup2)
-         (match-let ([(ast-tuple ins-1 inact-1 st-1 mem-1 hist-1)
+         (match-let ([(ast-tuple ins-1 inact-1 st-1 mem-1)
                       tup1]
-                     [(ast-tuple ins-2 inact-2 st-2 mem-2 hist-2)
+                     [(ast-tuple ins-2 inact-2 st-2 mem-2)
                       tup2])
            (ast-tuple
             inputs
             (remove-duplicates (append inact-1 inact-2))
             (merge-state st-1 st-2)
             mem-1 ;; XXX fix this
-            history)))
+            )))
        (foldl merge-tup
               (struct-copy ast-tuple tup
                            [state (make-immutable-hash)]
                            [memory (make-immutable-hash)])
-              (map (lambda (s) (ast-step comp tup s))
+              (map (lambda (s) (ast-step comp tup s #:hook callback))
                    stmts))]
       [(seq-comp stmts)
        (foldl (lambda (s acc)
                 (define acc-p (struct-copy ast-tuple acc
                                            [inactive (ast-tuple-inactive tup)]))
-                (define res (ast-step comp acc-p s))
-                (update-history res))
+                (ast-step comp acc-p s #:hook callback))
               tup
               stmts)]
       [(deact-stmt mods) ; compute step with this list of inactive modules
@@ -267,32 +262,33 @@
                       [inactive mods]))]
       [(if-stmt condition tbranch fbranch)
        (if-valued (hash-ref state condition)
-                  (ast-step comp tup tbranch)
-                  (ast-step comp tup fbranch)
+                  (ast-step comp tup tbranch #:hook callback)
+                  (ast-step comp tup fbranch #:hook callback)
                   tup)]
       [(ifen-stmt condition tbranch fbranch)
        (if (hash-ref state condition)
-           (ast-step comp tup tbranch)
-           (ast-step comp tup fbranch))]
+           (ast-step comp tup tbranch #:hook callback)
+           (ast-step comp tup fbranch #:hook callback))]
       [(while-stmt condition body)
        (if-valued (hash-ref state condition)
-                  (ast-step comp
-                            (ast-step comp tup body)
-                            ast)
+                  (let* ([bodyres (ast-step comp tup body #:hook callback)]
+                         [res (ast-step comp bodyres ast #:hook callback)])
+                    res)
                   tup
                   tup)]
-      [#f (ast-step comp tup (deact-stmt '()))]
+      [#f (ast-step comp tup (deact-stmt '()) #:hook callback)]
       [_ (error "Malformed ast!" ast)]))
+  (callback result)
   (log-debug "close)")
   result)
 
-(define (compute comp inputs #:memory [mem (make-immutable-hash)])
+(define (compute comp inputs #:memory [mem (make-immutable-hash)] #:hook [callback void])
   (define ast (component-control comp))
   (define state (input-hash comp inputs))
   (log-debug "================")
   (log-debug "(start compute for ~v" (component-name comp))
   (log-debug "memory: ~v" mem)
-  (define result (ast-step comp (ast-tuple state '() state mem '()) ast))
+  (define result (ast-step comp (ast-tuple state '() state mem) ast #:hook callback))
 
   (log-debug "~v" (ast-tuple-state result))
   (log-debug "~v" (ast-tuple-memory result))

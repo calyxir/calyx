@@ -55,15 +55,15 @@
                     [out => (if data-in
                                 data-in
                                 (hash-ref mem addr
-                                          (lambda () 0)))])
+                                          (lambda () #f)))])
     #:memory-proc (lambda (old st)
-                    (if (hash? old)
-                        (if (hash-ref st 'data-in)
-                            (hash-set
-                             old
-                             (hash-ref st 'addr) (hash-ref st 'data-in))
-                            old)
-                        (make-immutable-hash)))))
+                    (define hsh (if (hash? old) old (make-immutable-hash)))
+                    (if (hash-ref st 'data-in)
+                        (hash-set
+                         hsh
+                         (hash-ref st 'addr)
+                         (hash-ref st 'data-in))
+                        hsh))))
 
 (define (comp/trunc-sub)
   (default-component
