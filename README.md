@@ -23,13 +23,30 @@ THe goal of Futil is to be able to express specifications of circuits on a range
 this continuum so that you can start off with a representation that is mostly control (and close
 to the source Fuse program) and then gradually lower the specification into mostly structure.
 
+## Philosophy
+We want control to be optional, so that you can take away all the control and the circuit
+still runs. The process of lowering a FuTIL program is to remove control bit by bit.
+In other words, the only thing that control does is interfere with the normal execution 
+flow of a program.
+
+FuTIL should be a good compilation target for fuse.
+
+There is this separation between Logical time steps (time steps defined using control)
+and Simulation time steps (time steps that happen during the execution of the program).
+To deal cycles in the computation graph, we will define a single simulation time step
+to be each submodule gets to do computation based on the current values on the wires
+(this should be order insensitive). We will continue doing simulation time steps until
+all of the module's outputs are active.
+
+
 ## Things that are broken / Things to do 
  - Port widths are not actually meaningful at the moment. You can put any number, string,
  or any racket value really on a wire. Please don't abuse this power for bad.
  Eventually you will only be able to put a n bit number on a n bit wire.
  - Figure out the proper way to merge memory in parallel composition
  - My vizualizer currently doesn't have animated animals carrying values along the wires
- - Output sensible error messages. Atm I am the only person who would have any idea what errors mean.
+ - Output sensible error messages. Atm I am the only person who would have any idea what 
+ errors mean.
 
 ## Details
 The basic unit of Futil is a `module`. Modules carry around structure and optionally control.

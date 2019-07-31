@@ -2,6 +2,16 @@
 (require "../src/futil.rkt"
          "../src/vizualizer.rkt")
 
+;; (require "futil.rkt")
+;; (require "vizualizer.rkt")
+
+(define/module incr ((in : 32)) ((out : 32))
+  ([add = new comp/add]
+   [const one 1 : 32 -> add @ left]
+   [in -> add @ right]
+   [add @ out -> out])
+  [])
+
 (define/module decr ((in : 32)) ((out : 32))
   ([sub = new comp/trunc-sub]
    [const one 1 : 32 -> sub @ right]
@@ -9,37 +19,53 @@
    [sub @ out -> out])
   [])
 
-;; (ast-tuple-state (compute (decr) '((in . 1))))
-(define/module counter ((in : 32)) ((out : 32))
+(define/module counter ((in : 32) (en : 32)) ((out : 32))
   ([sub = new comp/trunc-sub]
    [reg = new comp/reg]
+   [con = new comp/id]
+   [dis = new comp/id]
+
    [in -> sub @ left]
    [const decr 1 : 32 -> sub @ right]
    [sub @ out -> reg @ in]
-   [reg @ out -> sub @ left]
-   [reg @ out -> out])
-  [(ifen (in inf#)
-         ([])
-         ([(in)]
-          [(in)]))])
-;; (plot-compute (counter) '((in . #f))
-;;               #:memory (make-immutable-hash
-;;                         `((reg . ,(mem-tuple 5 (make-immutable-hash)))))
-;;          )
+   [reg @ out -> con @ in]
+   [reg @ out -> dis @ in]
+
+   [con @ out -> sub @ left]
+   [sub @ out -> out]
+
+   [dis @ out -> out])
+  [(ifen (en inf#)
+         ([(ifen (in inf#)
+                 ([(con dis)])
+                 ([(dis)]))])
+         ([(in con)]))])
+
+;; (require "vizualizer.rkt")
+;; (plot-compute (counter) '((in . 10) (en . 1))
+;;               #:memory (hash
+;;                         'decr
+;;                         (mem-tuple #f '#hash())
+;;                         'in
+;;                         (mem-tuple #f '#hash())
+;;                         'out
+;;                         (mem-tuple #f '#hash())
+;;                         'reg
+;;                         (mem-tuple 8 '#hash())
+;;                         'sub
+;;                         (mem-tuple #f '#hash())))
 
 (define/module consumer ((n : 32)) ((out : 32))
   ([counter = new counter]
    [viz = new comp/id]
+   [const en 1 : 32 -> counter @ en]
    [n -> counter @ in]
    [counter @ out -> viz @ in]
    [const on 1 : 32 -> out])
   [(on)]
-  [(n on)]
-  [(n on)]
-  ;; [(while (counter out)
-  ;;    ([(n on)]))]
-  )
-;; (listen-debug)
+  [(while (counter out)
+     ([(n on)]))]
+  [])
 ;; (plot-compute (consumer) '((n . 10)))
 
 ;; (plot-compute (consumer) '((n . 10)))
@@ -49,22 +75,24 @@
    [add = new comp/add]
    [reg = new comp/reg]
    [viz = new comp/id]
+   [con = new comp/id]
 
    [b -> counter @ in]
+   [const en 1 : 32 -> counter @ en]
    [counter @ out -> viz @ in]
 
    [const zero 0 : 32 -> add @ left]
    [a -> add @ right]
    [add @ out -> reg @ in]
-   [reg @ out -> add @ left]
-   [reg @ out -> out])
-  []
+   [reg @ out -> con @ in]
+   [con @ out -> add @ left]
+   [add @ out -> out])
+  [(con)]
   [(while (counter out)
-     ([(b zero)]))]
-  )
+     ([(b zero)]))])
+
 ;; (while (counter out) ([(b zero)]))
-;; (listen-debug)
-;; (plot-compute (mult) '((a . 7) (b . 8)))
+;; (ast-tuple-state (compute (mult) '((a . 7) (b . 8))))
 ;; (unlisten-debug)
 
 (define/module mem-test ((addr1 : 32) (data1 : 32) (addr2 : 32) (data2 : 32)) ((out1 : 32) (out2 : 32))
@@ -111,6 +139,7 @@
 
    [n -> store-n @ in]
    [n -> counter @ in]
+   [en -> counter @ en]
    [sub = new comp/sub]
    [store-n @ out -> sub @ left]
    [counter @ out -> sub @ right]
@@ -129,7 +158,9 @@
    [decr3 @ out -> out3])
   [(ifen (en inf#)
        ([(halt)])
-       ())])
+       ([]))])
+
+;; (plot-compute (counter-up-3out) '((n . 10) (en . 1)))
 
 ;; (plot-compute (test-c) '((n . 10)))
 
@@ -146,15 +177,8 @@
   [(n en)]
   [(n en)]
   [(n)]
-  [(n)]
-  )
+  [(n)])
 
-(define/module incr ((in : 32)) ((out : 32))
-  ([add = new comp/add]
-   [const one 1 : 32 -> add @ left]
-   [in -> add @ right]
-   [add @ out -> out])
-  [])
 
 (define/module fib ((n : 32)) ((out : 32))
   ([mem = new comp/memory-8bit]
@@ -170,7 +194,6 @@
    [con3 = new comp/id]
    [con4 = new comp/id]
    [con5 = new comp/id]
-   [addc = new comp/id]
    [const en 1 : 32 -> counter @ en]
    [counter @ out1 -> con1 @ in]
    [counter @ out2 -> con2 @ in]
@@ -193,20 +216,21 @@
    [con5 @ out -> rreg @ in]
 
    [const one 1 : 32 -> mem @ data-in]
-   [add @ out -> addc @ in]
-   [addc @ out -> mem @ data-in]
+   [add @ out -> mem @ data-in]
 
    [mem @ out -> out])
-  [(con1 con2 con3 con4 con5 fib1 addc)]
-  [(n incr con1 con2 con3 con4 con5 fib0 addc)]
-  [(n incr one fib0 fib1 addc con1 con2 con3 con4 con5 mem)]
+  [(con1 con2 con3 con4 con5 fib1 add)]
+  [(n incr con1 con2 con3 con4 con5 fib0 add)]
+  [(n incr one fib0 fib1 add con1 con2 con3 con4 con5 mem)]
 
   [(while (counter stop)
-     ([(en n incr one fib0 fib1 addc con1 con2 con5)]
-      [(en n incr one fib0 fib1 addc con1 con3 con4)]
+     ([(en n incr one fib0 fib1 add con1 con2 con5)]
+      [(en n incr one fib0 fib1 add con1 con3 con4)]
       [(en n incr one fib0 fib1 con2 con3 con4 con5)]
-      [(en n incr one fib0 fib1 con2 con3 con4 con5)]
-      [(n incr one fib0 fib1 addc con1 con2 con3 con4 con5 mem)]))])
+      [(n incr one fib0 fib1 add con1 con2 con3 con4 con5 mem)]
+      ))])
 
-(plot-compute (fib) '((n . 30)))
+;; (unlisten-debug)
+;; (plot-compute (fib) '((n . 30)))
+;; (component-outs (counter))
 

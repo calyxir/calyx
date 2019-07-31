@@ -21,15 +21,17 @@
 (define/module counter ((in : 32)) ((out : 32))
   ([sub = new comp/trunc-sub]
    [reg = new comp/reg]
+   [con = new comp/id]
+
    [in -> sub @ left]
    [const decr 1 : 32 -> sub @ right]
    [sub @ out -> reg @ in]
-   [reg @ out -> sub @ left]
+   [reg @ out -> con @ in]
+   [con @ out -> sub @ left]
    [reg @ out -> out])
   [(ifen (in inf#)
-         ([])
-         ([(in)]
-          [(in)]))])
+         ([(con)])
+         ([]))])
 
 (test-case
     "Simple computation"
@@ -69,6 +71,7 @@
      [add = new comp/add]
      [reg = new comp/reg]
      [viz = new comp/id]
+     [con = new comp/id]
 
      [b -> counter @ in]
      [counter @ out -> viz @ in]
@@ -76,9 +79,10 @@
      [const zero 0 : 32 -> add @ left]
      [a -> add @ right]
      [add @ out -> reg @ in]
-     [reg @ out -> add @ left]
+     [reg @ out -> con @ in]
+     [con @ out -> add @ left]
      [reg @ out -> out])
-    []
+    [(con)]
     [(while (counter out)
        ([(b zero)]))])
   (check-compute (mult) '((a . 8) (b . 7)) '((out . 56)))

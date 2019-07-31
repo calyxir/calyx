@@ -105,12 +105,16 @@
 
 ;; ==========================
 
-(define (plot-compute comp inputs #:animate [animate 100])
+(define (plot-compute comp inputs
+                      #:memory [memory (make-immutable-hash)]
+                      #:animate [animate 100])
 
   (define board (new graph-board%))
 
   (define toplevel
-    (new frame%
+    (new (class frame% (super-new)
+           (define/augment (on-close)
+             (kill-thread compute-worker)))
          [label (~a (component-name comp))]
          [width (* 50 10)]
          [height (* 50 10)]))
@@ -175,6 +179,7 @@
     (thread
      (lambda ()
        (compute comp inputs
+                #:memory memory
                 #:hook (lambda (tup)
                          (match (thread-receive)
                            ['next

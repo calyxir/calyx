@@ -42,7 +42,8 @@
                     [out => (if in in mem-val#)])
     #:memory-proc (lambda (old st)
                     (define new-v (hash-ref st 'in))
-                    (if new-v new-v old))))
+                    (if new-v new-v old))
+    #:time-increment 1))
 
 (define (comp/memory-8bit)
   (default-component

@@ -35,6 +35,8 @@
                    proc
                    ;; procedure for setting memory
                    memory-proc
+                   ;; time increment
+                   time-increment
                    ;; graph representing internal connections
                    graph))
 
@@ -53,6 +55,7 @@
                              #f
                              (keyword-lambda (inf#) () [inf# => inf#])
                              (lambda (old st) #f)
+                             0
                              (empty-graph)))
 
 ;; creates a component with a single infinite input port of width w
@@ -66,6 +69,7 @@
                               #f
                               (keyword-lambda (inf#) () [inf# => inf#])
                               (lambda (old st) #f)
+                              0
                               (empty-graph)))
 
 (define (transform-control control) control)
@@ -82,7 +86,8 @@
           proc
           #:control [control #f]
           #:memory-proc [memory-proc
-                         (lambda (old st) #f)])
+                         (lambda (old st) #f)]
+          #:time-increment [time-increment 0])
   (let ([htbl (make-hash)]
         [g (empty-graph)])
     (for-each (lambda (p) ; p is a port
@@ -100,6 +105,7 @@
      control
      proc
      memory-proc
+     time-increment
      g)))
 
 (define (make-constant n width)
