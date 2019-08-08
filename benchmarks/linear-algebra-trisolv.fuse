@@ -5,7 +5,9 @@ define(DATATYPE, float)
 
 // END macro definitions
 
-def extern print_float_vec(c: float[N]);
+import "printer.cpp" {
+  def extern print_float_vec(c: float[N]);
+}
 
 decl L: DATATYPE[N][N];
 decl x: DATATYPE[N];

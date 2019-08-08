@@ -6,7 +6,7 @@ JSON_URL:=https://raw.githubusercontent.com/nlohmann/json/develop/single_include
 
 all: $(OBJS)
 
-%.data: _headers/json.hpp %.cpp
+%.data: %.cpp _headers/json.hpp
 	@echo Fuse:
 	@./$(addsuffix .cpp.o,$(basename $@)) $(addsuffix .data,$(basename $@))
 	@echo Futil:
@@ -16,10 +16,10 @@ _headers/json.hpp:
 	wget $(JSON_URL) --directory-prefix _headers
 
 %.cpp: %.fuse.pre
-	fuse run $< -o $@
+	fuse run $< -o $@ -x "-Iprint_headers/"
 
 %.fuse.pre: %.fuse
 	m4 $< > $@
 
 clean:
-	rm -f *.cpp *.o _headers/json.hpp
+	rm -rf *.cpp *.o _headers

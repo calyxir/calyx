@@ -4,4 +4,4 @@ compiled/
 README.html
 *.o
 *.cpp
-json.hpp
+benchmarks/_headers/
