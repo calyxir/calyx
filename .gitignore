@@ -4,3 +4,4 @@ compiled/
 README.html
 *.o
 *.cpp
+json.hpp
