@@ -2,6 +2,7 @@
 (require racket/logging)
 
 (provide keyword-lambda
+         debug
          debug-wrap)
 
 ;; syntatic sugar that makes it nice to define procedures in the way
@@ -14,8 +15,16 @@
     (define var (begin body1 ...)) ...
     (make-immutable-hash `((kw . ,(begin body2 ...)) ...))))
 
+;; debugging stuffs
+(define should-print-debug? (make-parameter #f))
+
+(define-syntax-rule (debug fmt v ...)
+  (begin
+    (when (should-print-debug?)
+      (displayln (format fmt v ...)))
+    (values v ...)))
+
+;; sugar for wrapping functions that I want to log
 (define-syntax-rule (debug-wrap body ...)
-  (with-logging-to-port (current-output-port)
-    (lambda ()
-      body ...)
-    'debug))
+  (parameterize ([should-print-debug? #t])
+    body ...))

@@ -11,7 +11,8 @@
          racket/set
          graph
          "component.rkt"
-         "port.rkt")
+         "port.rkt"
+         "util.rkt")
 
 (provide (struct-out par-comp)
          (struct-out seq-comp)
@@ -232,8 +233,8 @@
 (struct ast-tuple (inputs inactive state memory) #:transparent)
 
 (define (compute-step comp tup)
-  (log-debug "compute-step ~a" (ast-tuple-state tup))
-  (log-debug "inactives mods: ~a" (ast-tuple-inactive tup))
+  (debug "compute-step ~a" (ast-tuple-state tup))
+  (debug "inactives mods: ~a" (ast-tuple-inactive tup))
   (define (filt tup lst)
     (define state (ast-tuple-state tup))
     (struct-copy ast-tuple tup
@@ -246,7 +247,7 @@
                                    `(,k . ,v)))))]))
 
   (define (worklist tup todo visited)
-    (log-debug "worklist todo: ~a" todo)
+    (debug "worklist todo: ~a" todo)
     (cond
       [(empty? todo) tup]
       [else
@@ -295,10 +296,10 @@
                          acc-visited)]
                     [(debug)
                      (begin
-                       (log-debug "---- ~v ----" name)
-                       (log-debug "inputs: ~v" trans)
-                       (log-debug "changed?: ~v" changed?)
-                       (log-debug "result: ~v" outs))])
+                       (debug "---- ~v ----" name)
+                       (debug "inputs: ~v" trans)
+                       (debug "changed?: ~v" changed?)
+                       (debug "result: ~v" outs))])
                  (accum acc-tup-p acc-todo-p acc-visited-p))]))
           (accum tup '() visited)
           todo))
@@ -319,8 +320,8 @@
 (define (check-condition condition tup)
   (match-define (ast-tuple inputs inactive state _) tup)
   (define state-p (save-hash-union inputs state))
-  (log-debug "state-p: ~v" state-p)
-  (log-debug "inactive: ~v" inactive)
+  (debug "state-p: ~v" state-p)
+  (debug "inactive: ~v" inactive)
   (define filt-state-p
     (make-immutable-hash
      (hash-map state-p
@@ -332,7 +333,7 @@
 
 (define (ast-step comp tup ast #:hook [callback void])
   (match-define (ast-tuple inputs inactive state memory) tup)
-  (log-debug "(open ast-step ~v" ast)
+  (debug "(open ast-step ~v" ast)
   (define result
     (match ast
       [(par-comp stmts)
@@ -399,20 +400,20 @@
        tup]
       [#f (ast-step comp tup (deact-stmt '()) #:hook callback)]
       [_ (error "Malformed ast!" ast)]))
-  (log-debug "close)")
+  (debug "close)")
   result)
 
 (define (compute comp inputs #:memory [mem (make-immutable-hash)] #:hook [callback void])
   (define ast (component-control comp))
-  (log-debug "================")
-  (log-debug "(start compute for ~v" (component-name comp))
+  (debug "================")
+  (debug "(start compute for ~v" (component-name comp))
   (define tup (ast-tuple (input-hash inputs) '() (empty-hash comp) mem))
   (define result (ast-step comp tup ast #:hook callback))
 
-  (log-debug "~v" (ast-tuple-state result))
-  (log-debug "~v" (ast-tuple-memory result))
-  (log-debug "end compute)")
-  (log-debug "================")
+  (debug "~v" (ast-tuple-state result))
+  (debug "~v" (ast-tuple-memory result))
+  (debug "end compute)")
+  (debug "================")
   result)
 
 

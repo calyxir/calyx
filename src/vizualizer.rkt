@@ -65,7 +65,7 @@
 (define node%
   (graph-snip-mixin node-snip%))
 
-(define (plot-comp board comp vals inactive)
+(define (plot-comp board comp [vals #f] [inactive '()])
   ;; clear old graph
   (send board erase)
 
@@ -80,7 +80,7 @@
              node))
          (get-vertices (convert-graph comp))))
 
-  (define g (convert-graph comp))
+  (define g (convert-graph comp vals))
 
   ;; add all the edges
   (map (lambda (parent)
@@ -224,9 +224,7 @@
 
   (define (update)
     (send board begin-edit-sequence)
-    (plot-comp board comp
-               (input-hash '())
-               '())
+    (plot-comp board comp)
     (send board end-edit-sequence))
 
   (send toplevel show #t)
