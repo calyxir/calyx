@@ -1,0 +1,32 @@
+// BEGIN macro definitions
+
+define(N, 8)
+define(DATATYPE, float)
+
+// END macro definitions
+
+def extern print_float_vec(c: float[N]);
+
+decl L: DATATYPE[N][N];
+decl x: DATATYPE[N];
+decl b: DATATYPE[N];
+
+for (let i = 0..N) {
+  x[i] := b[i];
+  ---
+  let j = 0;
+  while (j < i) {
+    let x_j = x[j];
+    ---
+    x[i] := L[i][j] * x_j;
+
+    // Update loop counter
+    j := j + 1;
+  }
+  ---
+  let x_i = x[i];
+  ---
+  x[i] := x_i / L[i][i];
+}
+---
+print_float_vec(x);
