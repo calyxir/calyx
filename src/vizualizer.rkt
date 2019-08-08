@@ -80,7 +80,7 @@
              node))
          (get-vertices (convert-graph comp))))
 
-  (define g (convert-graph comp vals))
+  (define g (convert-graph comp))
 
   ;; add all the edges
   (map (lambda (parent)
@@ -231,7 +231,3 @@
 
   (send toplevel show #t)
   (update))
-
-;; (define (plot-compute comp inputs
-;;                       #:animate [animate 100])
-;;   (plot comp (ast-tuple-history (compute comp inputs)) animate))

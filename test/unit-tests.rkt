@@ -18,21 +18,6 @@
    [sub @ out -> out])
   [])
 
-(define/module counter ((in : 32)) ((out : 32))
-  ([sub = new comp/trunc-sub]
-   [reg = new comp/reg]
-   [con = new comp/id]
-
-   [in -> sub @ left]
-   [const decr 1 : 32 -> sub @ right]
-   [sub @ out -> reg @ in]
-   [reg @ out -> con @ in]
-   [con @ out -> sub @ left]
-   [reg @ out -> out])
-  [(ifen (in inf#)
-         ([(con)])
-         ([]))])
-
 (test-case
     "Simple computation"
   (check-compute (decr) '((in . 10)) '((out . 9))))
@@ -67,12 +52,13 @@
 (test-case
     "Memory in submodules works correctly"
   (define/module mult ((a : 32) (b : 32)) ((out : 32))
-    ([counter = new counter]
+    ([counter = new comp/counter-down]
      [add = new comp/add]
      [reg = new comp/reg]
      [viz = new comp/id]
      [con = new comp/id]
 
+     [const en 1 : 32 -> counter @ en]
      [b -> counter @ in]
      [counter @ out -> viz @ in]
 
@@ -84,15 +70,19 @@
      [reg @ out -> out])
     [(con)]
     [(while (counter out)
-       ([(b zero)]))])
+       ([(en b zero)]
+        [(!! en counter)]))]
+    [(!! reg out)])
   (check-compute (mult) '((a . 8) (b . 7)) '((out . 56)))
   (check-compute (mult) '((a . 7) (b . 8)) '((out . 56)))
   (check-compute (mult) '((a . 12) (b . 4)) '((out . 48))))
 
 (test-case
     "Addressable memory works"
-  (define/module mem-test ((addr1 : 32) (data1 : 32) (addr2 : 32) (data2 : 32)) ((out1 : 32) (out2 : 32))
-    ([mem = new comp/memory-8bit]
+  (define/module mem-test
+    ((addr1 : 32) (data1 : 32) (addr2 : 32) (data2 : 32)) ; ins
+    ((out1 : 32) (out2 : 32))                             ; outs
+    ([mem = new comp/memory1d]
      [addr1 -> mem @ addr]
      [addr2 -> mem @ addr]
      [data1 -> mem @ data-in]

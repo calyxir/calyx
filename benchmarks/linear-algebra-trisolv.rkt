@@ -33,8 +33,6 @@
                  ([(!! zero reg out)]))]))]
   [(!! reg out)])
 
-; XXX changed? should really be the timestamps changing
-
 (define/module main ((n : 32)) ()
   (; memory
    [L = new comp/memory2d]
@@ -67,8 +65,6 @@
    [i @ out -> iL_buf @ in]
    [iL_buf @ out -> L @ addr2]
    [i @ out -> i-min-j @ left]
-   ;; [i-stop = new comp/id]
-   ;; [i @ stop -> i-stop @ in]
 
    ; j connections
    [const j-en 1 : 32 -> j @ en]
@@ -121,7 +117,7 @@
       (simplify-path
        (build-path (current-directory) ".." "benchmarks" "linear-algebra-trisolv.data"))
       (build-path (current-directory) (vector-ref (current-command-line-arguments) 0))))
-(void
- (compute
-  (main) '((n . 9))
-  #:memory (json->memory fn)))
+;; (void
+;;  (compute
+;;   (main) '((n . 9))
+;;   #:memory (json->memory fn)))

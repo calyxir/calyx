@@ -75,8 +75,6 @@
 
 (define (transform-control control) control)
 
-;; TODO: maybe add vertices for ins and outs
-
 ;; given a name, list of input ports, and list of output ports, creates
 ;; a component an empty graph and the appropriate input and output ports
 ;; in the hashtable.

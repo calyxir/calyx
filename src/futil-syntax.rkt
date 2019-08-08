@@ -51,7 +51,6 @@
                   [sub-mem# => (cdr res)]
                   [out => (hash-ref (car res) '(out . inf#))] ...))
 
-;; TODO: factor out the patterns properly
 (define-syntax (define/module stx)
   (define-splicing-syntax-class stmt
     #:description "connecting components and instantiating modules"
