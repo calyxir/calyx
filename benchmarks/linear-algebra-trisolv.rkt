@@ -3,8 +3,7 @@
 (require racket/path
          racket/list
          racket/format
-         "../src/futil.rkt"
-         "../src/vizualizer.rkt")
+         "../src/futil.rkt")
 
 ;; I don't think that this module is possible to define at the moment
 ;; because a submodule has no way of changing the state of the parent module
@@ -117,6 +116,7 @@
       (simplify-path
        (build-path (current-directory) ".." "benchmarks" "linear-algebra-trisolv.data"))
       (build-path (current-directory) (vector-ref (current-command-line-arguments) 0))))
+
 (void
  (compute
   (main) '((n . 9))
