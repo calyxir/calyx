@@ -6,7 +6,8 @@
          mrlib/graph
          "component.rkt"
          "ast.rkt")
-(provide plot-compute)
+(provide plot-compute
+         plot-component)
 
 (define graph-board%
   (graph-pasteboard-mixin pasteboard%))
@@ -114,13 +115,20 @@
   (define toplevel
     (new (class frame% (super-new)
            (define/augment (on-close)
-             (kill-thread compute-worker)))
+             (send timer stop)
+             (kill-thread compute-worker)
+             (thread-wait compute-worker)))
          [label (~a (component-name comp))]
          [width (* 50 10)]
          [height (* 50 10)]))
 
   (define canvas
-    (new editor-canvas%
+    (new (class editor-canvas% (super-new)
+           (define/override (on-char evt)
+             (match (send evt get-key-code)
+               [#\space (start/stop-animation)]
+               [#\n (next)]
+               [_ (void)])))
          [parent toplevel]
          [style '(no-hscroll no-vscroll)]
          [horizontal-inset 0]
@@ -133,20 +141,21 @@
          [alignment '(center center)]
          [stretchable-height #f]))
 
+  (define (start/stop-animation)
+    (if (equal? (send play get-label) "Play")
+        (begin
+          (send play set-label "Reset")
+          (send timer start animate))
+        (begin
+          (send play set-label "Play")
+          (send timer stop)
+          (thread-send compute-worker 'stop))))
+
   (define play
     (new button%
          [parent control-panel]
          [label "Play"]
-         [callback (lambda (button event)
-                     (if (equal? (send play get-label) "Play")
-                         (begin
-                           (send play set-label "Reset")
-                           (send timer start animate))
-                         (begin
-                           (send play set-label "Play")
-                           (send timer stop)
-                           (thread-send compute-worker 'stop)
-                           )))]))
+         [callback (lambda (button event) (start/stop-animation))]))
 
   (define forward
     (new button%
@@ -195,6 +204,33 @@
 
   (send toplevel show #t)
   (next))
+
+(define (plot-component comp)
+  (define board (new graph-board%))
+
+  (define toplevel
+    (new frame%
+         [label (~a (component-name comp))]
+         [width (* 50 10)]
+         [height (* 50 10)]))
+
+  (define canvas
+    (new editor-canvas%
+         [parent toplevel]
+         [style '(no-hscroll no-vscroll)]
+         [horizontal-inset 0]
+         [vertical-inset 0]
+         [editor board]))
+
+  (define (update)
+    (send board begin-edit-sequence)
+    (plot-comp board comp
+               (input-hash '())
+               '())
+    (send board end-edit-sequence))
+
+  (send toplevel show #t)
+  (update))
 
 ;; (define (plot-compute comp inputs
 ;;                       #:animate [animate 100])

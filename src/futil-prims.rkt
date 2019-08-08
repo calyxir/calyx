@@ -1,8 +1,10 @@
 #lang racket/base
 
-(require "component.rkt"
+(require racket/format
+         "component.rkt"
          "port.rkt"
-         "util.rkt")
+         "util.rkt"
+         "futil-syntax.rkt")
 
 (provide (all-defined-out))
 
@@ -45,9 +47,9 @@
                     (if new-v new-v old))
     #:time-increment 1))
 
-(define (comp/memory-8bit)
+(define (comp/memory1d)
   (default-component
-    'mem-8bit
+    'mem-1d
     (list (port 'addr 32)     ; XXX should be 8 bits
           (port 'data-in 32))
     (list (port 'out 32))
@@ -66,6 +68,27 @@
                          (hash-ref st 'data-in))
                         hsh))))
 
+(define (comp/memory2d)
+  (default-component
+    'mem-2d
+    (list (port 'addr1 32)
+          (port 'addr2 32)
+          (port 'data-in 32))
+    (list (port 'out 32))
+    (keyword-lambda (mem-val# addr1 addr2 data-in)
+                    ([mem = (if (hash? mem-val#) mem-val# (make-immutable-hash))]
+                     [addr = (~a addr1 'x addr2)])
+                    [out => (if data-in
+                                data-in
+                                (hash-ref mem addr
+                                          (lambda () #f)))])
+    #:memory-proc (lambda (old st)
+                    (define hsh (if (hash? old) old (make-immutable-hash)))
+                    (define addr (~a (hash-ref st 'addr1) 'x (hash-ref st 'addr2)))
+                    (if (hash-ref st 'data-in)
+                        (hash-set hsh addr (hash-ref st 'data-in))
+                        hsh))))
+
 (define (comp/trunc-sub)
   (default-component
     'trunc-sub
@@ -79,8 +102,8 @@
 
 (define (comp/add) (simple-binop 'add +))
 (define (comp/sub) (simple-binop 'sub -))
-(define (comp/mult) (simple-binop 'mult *))
 (define (comp/div) (simple-binop 'div /))
+(define (comp/mult) (simple-binop 'mult *))
 (define (comp/and) (simple-binop 'and bitwise-and))
 (define (comp/or) (simple-binop 'or bitwise-ior))
 (define (comp/xor) (simple-binop 'xor bitwise-xor))
@@ -96,3 +119,45 @@
                     [out => (if (= 1 control)
                                 left
                                 right)])))
+
+(define/module comp/counter-down ((in : 32) (en : 32)) ((out : 32))
+  ([sub = new comp/trunc-sub]
+   [reg = new comp/reg]
+   [con = new comp/id]
+   [dis = new comp/id]
+
+   [in -> sub @ left]
+   [const decr 1 : 32 -> sub @ right]
+   [sub @ out -> reg @ in]
+   [sub @ out -> out]
+   [reg @ out -> con @ in]
+   [reg @ out -> dis @ in]
+   [dis @ out -> out]
+
+   [con @ out -> sub @ left])
+  [(ifen (en inf#)
+         ([(ifen (in inf#)
+                 ([(con dis)])
+                 ([(dis)]))])
+         ([(!! reg dis out)]))])
+
+(define/module comp/counter-up ((in : 32) (en : 32)) ((out : 32) (stop : 32))
+  ([counter = new comp/counter-down]
+   [store-n = new comp/reg]
+   [sub = new comp/trunc-sub]
+   [decr-sub = new comp/trunc-sub]
+
+   [en -> counter @ en]
+   [in -> counter @ in]
+   [in -> store-n @ in]
+
+   [store-n @ out -> sub @ left]
+   [counter @ out -> sub @ right]
+   [sub @ out -> decr-sub @ left]
+   [const d 1 : 32 -> decr-sub @ right]
+   [decr-sub @ out -> out]
+   [counter @ out -> stop])
+  [(ifen (in inf#)
+         ([(!! en in store-n counter)]
+          [(en in)])
+         ([]))])

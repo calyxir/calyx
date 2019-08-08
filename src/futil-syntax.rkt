@@ -62,7 +62,7 @@
              #:with fun #'(connect 'u.name 'u.port 'v.name 'v.port))
 
     ;; const patterns
-    (pattern (const str:id n:nat : w:nat -> u:wire-port)
+    (pattern (const str:id n : w:nat -> u:wire-port)
              #:with fun #'(constant 'str n w 'u.name 'u.port))
 
     ;; create module pattern
@@ -88,7 +88,7 @@
   (define-syntax-class constr-expr
     #:description "possible constraint expressions"
     #:literals (if)
-    #:datum-literals (while ifen)
+    #:datum-literals (while ifen !! mem-print)
 
     (pattern (if (comp:id port) [tbranch:constraint ...] [fbranch:constraint ...])
              #:with val #'(if-stmt '(comp . port)
@@ -101,6 +101,10 @@
     (pattern (while (comp:id port) [body:constraint ...])
              #:with val #'(while-stmt '(comp . port)
                                       (seq-comp (list body.item ...))))
+    (pattern (mem-print sym)
+             #:with val #'(mem-print 'sym))
+    (pattern (!! x ...)
+             #:with val #'(act-stmt (list 'x ...)))
     (pattern (x ...)
              #:with val #'(deact-stmt (list 'x ...))))
 

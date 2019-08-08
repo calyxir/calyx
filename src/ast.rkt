@@ -16,11 +16,16 @@
 (provide (struct-out par-comp)
          (struct-out seq-comp)
          (struct-out deact-stmt)
+         (struct-out act-stmt)
          (struct-out if-stmt)
          (struct-out ifen-stmt)
          (struct-out while-stmt)
+         (struct-out mem-print)
+         ;; (struct-out val-print)
          (struct-out ast-tuple)
          (struct-out mem-tuple)
+         empty-hash
+         input-hash
          compute)
 
 ;; type of statements
@@ -33,6 +38,10 @@
   #:transparent)
 
 (define-struct/contract deact-stmt
+  ([mods (listof symbol?)])
+  #:transparent)
+
+(define-struct/contract act-stmt
   ([mods (listof symbol?)])
   #:transparent)
 
@@ -53,6 +62,10 @@
    [body any/c])
   #:transparent)
 
+(define-struct/contract mem-print
+  ([var any/c])
+  #:transparent)
+
 ;; a hash union that tries to make overlapping keys non-false
 ;;   if v1 or v2 is #f, choose non-false option
 ;;   otherwise, if both v1 and v2 have values, choose v2
@@ -62,9 +75,6 @@
    h2
    #:combine (lambda (v1 v2)
                (cond [(and v1 v2) v2]
-                     ;; [(and v1 v2) (error (format "Couldn't merge: ~v & ~v\n~v\n~v"
-                     ;;                             v1 v2
-                     ;;                             h1 h2))]
                      [else (xor v1 v2)]))))
 
 ;; a hash union function that always prefers h2 when keys overlap
@@ -73,6 +83,7 @@
 
 ;; a hash union function that chooses non-false values
 ;; over false ones, keeps equal values the same,
+
 ;; and errors on non-equal values
 (define (equal-hash-union h0 h1
                           #:error [error-msg "Expected same values or one false."])
@@ -87,20 +98,46 @@
        [else
         (raise-result-error 'equal-hash-union error-msg `(,h0 ,h1))]))))
 
-(define (input-hash comp lst)
-  (define empty-hash
-    (make-immutable-hash
-     (map (lambda (x) `(,x . #f))
-          (append
-           (map car (get-edges (component-graph comp)))
-           (map (lambda (p)
-                  `(,(port-name p) . inf#))
-                (component-outs comp))))))
+(define (display-mem sym tup)
+  (let* ([val (mem-tuple-value (hash-ref (ast-tuple-memory tup) sym))]
+         [out (if (hash? val)
+                  (sort (hash->list val)
+                        (lambda (x y) (< (car x) (car y))))
+                  val)])
+    (if (list? out)
+        (for-each (lambda (x)
+                    (if (exact-integer? (cdr x))
+                        (display (cdr x))
+                        (display (exact->inexact (cdr x))))
+                    (display "\t"))
+                  out)
+        (display out))
+    (display "\n")))
 
-  (clob-hash-union
-   empty-hash
-   (make-immutable-hash
-    (map (lambda (x) `((,(car x) . inf#) . ,(cdr x))) lst))))
+(define (empty-hash comp)
+  (define sub-outs
+    (apply append
+           (hash-map
+            (component-submods comp)
+            (lambda (name sc)
+              (map (lambda (p)
+                     `(,name . ,(port-name p)))
+                   (component-outs sc))))))
+  (define comp-outs
+    (map (lambda (p)
+           `(,(port-name p) . inf#))
+         (component-outs comp)))
+  (make-immutable-hash
+   (map (lambda (x)
+          `(,x . #f))
+        (append sub-outs comp-outs))))
+
+(define (input-hash lst)
+  (make-immutable-hash
+   (map (match-lambda
+          [(cons name val) `((,name . inf#) . ,val)]
+          [_ (error "Expected list of tuples")])
+        lst)))
 
 (struct stamped (val t) #:transparent)
 
@@ -108,6 +145,7 @@
 (define (restrict-inputs comp state name)
   (define sub (get-submod! comp name))
   (define ins (map port-name (component-ins sub)))
+
   (foldl (lambda (in acc)
            (define neighs
              (sequence->list
@@ -119,6 +157,15 @@
                   neighs))
          (make-immutable-hash)
          ins))
+
+(define (restrict-outputs comp state name)
+  (define sub (get-submod! comp name))
+  (define outs (map (lambda (p) `(,name . ,(port-name p)))
+                    (component-outs sub)))
+  (make-immutable-hash
+   (filter (lambda (x)
+             (member (car x) outs))
+           (hash->list state))))
 
 (define (transform comp inputs name)
   (if (findf (lambda (x) (equal? name (port-name x))) (component-ins comp))
@@ -145,7 +192,10 @@
                     (match filt-neighs-vals
                       [(list) (stamped #f 0)]
                       [(list x) x]
-                      [x (error "Overlapping values!" x)]))
+                      [x (error
+                          'transform
+                          "Overlapping values in ~v! ~v : ~v\n ~v\ncontext: ~v"
+                                (component-name comp) name in x neighs)]))
                   `((,name . ,in) . ,neighs-val))
                 ins))))))
 
@@ -157,12 +207,19 @@
 ;; given a subcomponent (comp name) a state and memory,
 ;; run subcomponents proc with state and memory and
 ;; return updated state and memory
-(define (submod-compute comp name state mem-tup)
+(define (submod-compute comp name state mem-tup inputs)
+  (define inputs-p
+    (make-immutable-hash
+     (filter (lambda (pr)
+               (equal? (caar pr) name))
+             (hash->list inputs))))
+  (define state-p
+    (save-hash-union state inputs-p))
   ;; state is of the form (((sub . port) . val) ...)
   ;; change to ((port . val) ...)
   (define in-vals
     (make-immutable-hash
-     (hash-map state (lambda (k v) `(,(cdr k) . ,v)))))
+     (hash-map state-p (lambda (k v) `(,(cdr k) . ,v)))))
 
   ;; add sub-memory and memory value to in-vals
   (define in-vals-p (hash-set* in-vals
@@ -229,59 +286,83 @@
     (log-debug "worklist todo: ~a" todo)
     (cond [(empty? todo) tup]
           [else
-           (define name (car todo))
-           (match-define (ast-tuple _ inactive state memory) tup)
-
-           (define ts-valid?
-             (apply =
-                    (append '(0 0)
-                            (hash-map (restrict-inputs comp state name)
-                                      (lambda (k v) (stamped-t v))))))
-           (log-debug "ts-valid? ~a: ~a" name ts-valid?)
-
-           (define-values (tup-p todo-p)
-             (cond [(member name inactive) ; inactive
-                    (log-debug "~a inactive" name)
-                    (values (filt tup inactive) (cdr todo))]
-                   [(not ts-valid?)
-                    (values tup (cdr todo))]
-                   [else ; active
-                    (let*-values
-                        ([(trans) (transform comp state name)]
-                         [(mem-tup) (hash-ref memory name empty-mem-tuple)]
-                         [(outs mem-tup-p)
-                          (submod-compute comp name (unstamp trans) mem-tup)]
-                         [(time-incr) (component-time-increment (get-submod! comp name))]
-                         [(outs-p)
-                          (if (set-member? visited name)
-                              (make-immutable-hash
-                               (hash-map
-                                outs
-                                (lambda (k v)
-                                  `(,k . ,(stamped v time-incr)))))
-                              (stamp outs))]
-                         [(debug)
-                          (begin
-                            (log-debug "transformed ~a: ~a" name trans)
-                            (log-debug "result ~a: ~a" name outs-p))]
-                         [(state-p) (save-hash-union state outs-p)]
-                         [(tup-p)
-                          (struct-copy ast-tuple tup
-                                       [state state-p]
-                                       [memory (hash-set memory name mem-tup-p)])]
-                         [(todo-p)
-                          (remove-duplicates
-                           (append
-                            (cdr todo)
-                            (sequence->list (in-neighbors (convert-graph comp) name))))])
-                      (values tup-p todo-p))]))
-
-           (worklist tup-p todo-p (set-add visited name))]))
+           (match-define (ast-tuple inputs inactive unfilt-state memory) tup)
+           (define state (ast-tuple-state (filt tup inactive)))
+           (struct accum (tup todo visited))
+           (match-define (accum acc-tup acc-todo acc-visited)
+             (foldl (lambda (name acc)
+                      (cond ;; [(not (apply = (append '(0 0)
+                            ;;                     (hash-map (restrict-inputs comp state name)
+                            ;;                               (lambda (k v) (stamped-t v))))))
+                            ;;  (log-debug "restricted: ~v" (restrict-inputs comp state name))
+                            ;;  ; if ts not valid, skip 'name'
+                            ;;  acc]
+                            [(member name inactive)
+                             (struct-copy accum acc
+                                          [tup (filt (accum-tup acc) `(,name))])]
+                            ; else, ts valid
+                            [else
+                             (match-let*-values
+                                 ([((accum acc-tup acc-todo acc-visited)) acc]
+                                  [(trans) (transform comp state name)]
+                                  [(mem-tup) (hash-ref memory name empty-mem-tuple)]
+                                  [(outs mem-tup-p)
+                                   (submod-compute comp name (unstamp trans) mem-tup inputs)]
+                                  [(time-incr) (component-time-increment (get-submod! comp name))]
+                                  [(outs-p) (stamp outs)
+                                   ;; (if (set-member? acc-visited name)
+                                   ;;     (restrict-outputs)
+                                   ;;     ;; (make-immutable-hash
+                                   ;;     ;;  (hash-map
+                                   ;;     ;;   outs
+                                   ;;     ;;   (lambda (k v)
+                                   ;;     ;;     `(,k . ,(stamped v time-incr)))))
+                                   ;;     (stamp outs))
+                                   ]
+                                  [(state-p) (save-hash-union (ast-tuple-state acc-tup)
+                                                              outs-p)]
+                                  [(changed?)
+                                   (cond [(set-member? acc-visited name)
+                                          #f]
+                                         [else
+                                          (not (equal? outs-p (restrict-outputs comp state name)))])]
+                                  [(acc-tup-p)
+                                   (struct-copy ast-tuple acc-tup
+                                                [state (if changed?
+                                                           state-p
+                                                           (ast-tuple-state acc-tup))]
+                                                [memory (hash-set (ast-tuple-memory acc-tup)
+                                                                  name
+                                                                  mem-tup-p)])]
+                                  [(acc-todo-p)
+                                   (if changed?
+                                       ; changed
+                                       (remove-duplicates
+                                        (append
+                                         acc-todo
+                                         (sequence->list (in-neighbors (convert-graph comp) name))))
+                                       ; nothing changed
+                                       acc-todo)]
+                                  [(acc-visited-p)
+                                   (if (= 0 time-incr)
+                                       acc-visited
+                                       (set-add acc-visited name))]
+                                  [(debug)
+                                   (begin
+                                     (log-debug "---- ~v ----" name)
+                                     (log-debug "inputs: ~v" trans)
+                                     (log-debug "changed?: ~v" (not (equal? outs-p
+                                                                            (restrict-outputs comp state name))))
+                                     (log-debug "result: ~v" outs-p))])
+                               (accum acc-tup-p acc-todo-p acc-visited-p))]))
+                    (accum tup '() visited)
+                    todo))
+           (worklist acc-tup acc-todo acc-visited)]))
 
   (define res
     (unstamp-tup
      (worklist (stamp-tup tup)
-               (tsort (convert-graph comp))
+               (hash-keys (component-submods comp))
                (set))))
 
   (values
@@ -290,6 +371,20 @@
 
 (define (merge-state st0 st1)
   (equal-hash-union st0 st1))
+
+(define (check-condition condition tup)
+  (match-define (ast-tuple inputs inactive state _) tup)
+  (define state-p (save-hash-union inputs state))
+  (log-debug "state-p: ~v" state-p)
+  (log-debug "inactive: ~v" inactive)
+  (define filt-state-p
+    (make-immutable-hash
+     (hash-map state-p
+               (lambda (k v)
+                 (if (member (car k) inactive)
+                     `(,k . #f)
+                     `(,k . ,v))))))
+  (hash-ref filt-state-p condition))
 
 (define (ast-step comp tup ast #:hook [callback void])
   (match-define (ast-tuple inputs inactive state memory) tup)
@@ -310,60 +405,71 @@
             )))
        (foldl merge-tup
               (struct-copy ast-tuple tup
+                           [inactive '()]
                            [state (make-immutable-hash)]
                            [memory (make-immutable-hash)])
               (map (lambda (s) (ast-step comp tup s #:hook callback)) stmts))]
       [(seq-comp stmts)
-       (foldl (lambda (s acc)
-                (define acc-p (struct-copy ast-tuple acc
-                                           [inactive (ast-tuple-inactive tup)]))
-                (ast-step comp acc-p s #:hook callback))
-              tup
-              stmts)]
+       (struct-copy ast-tuple (foldl (lambda (s acc)
+                                       (define acc-p (struct-copy ast-tuple acc
+                                                                  [inactive (ast-tuple-inactive tup)]))
+                                       (ast-step comp acc-p s #:hook callback))
+                                     tup
+                                     stmts)
+                    [inactive (ast-tuple-inactive tup)])]
       [(deact-stmt mods) ; compute step with this list of inactive modules
        (let*-values ([(tup-p)
                       (struct-copy ast-tuple tup
-                                   [state (save-hash-union inputs state)]
-                                   [inactive mods] ;; [inactive (remove-duplicates (append inactive mods))]
-                                   )]
+                                   [inactive (remove-duplicates (append inactive mods))])]
                      [(st mem)
-                      (compute-step comp tup-p)])
-         (log-debug "state: ~v" st)
+                      (compute-step comp tup-p)]
+                     [(call) (callback (struct-copy ast-tuple tup-p
+                                                    [state st]
+                                                    [memory mem]))])
          (struct-copy ast-tuple tup
                       [state st]
-                      [memory mem]
-                      [inactive mods]))]
+                      [memory mem]))]
+      [(act-stmt mods)
+       (define mods-p (filter (lambda (x)
+                                (not (member x mods)))
+                              (hash-keys (component-submods comp))))
+       (ast-step comp tup (deact-stmt mods-p) #:hook callback)]
       [(if-stmt condition tbranch fbranch)
-       (if-valued (hash-ref state condition)
+       (if-valued (check-condition condition tup)
                   (ast-step comp tup tbranch #:hook callback)
                   (ast-step comp tup fbranch #:hook callback)
                   tup)]
       [(ifen-stmt condition tbranch fbranch)
-       (if (hash-ref state condition)
+       (if (check-condition condition tup)
            (ast-step comp tup tbranch #:hook callback)
            (ast-step comp tup fbranch #:hook callback))]
       [(while-stmt condition body)
-       (if-valued (hash-ref state condition)
+       (if-valued (check-condition condition tup)
                   (let* ([bodyres (ast-step comp tup body #:hook callback)]
                          [res (ast-step comp bodyres ast #:hook callback)])
                     res)
                   tup
                   tup)]
+      [(mem-print var)
+       (display-mem var tup)
+       tup]
       [#f (ast-step comp tup (deact-stmt '()) #:hook callback)]
       [_ (error "Malformed ast!" ast)]))
   (log-debug "close)")
-  (callback result)
   result)
 
 (define (compute comp inputs #:memory [mem (make-immutable-hash)] #:hook [callback void])
   (define ast (component-control comp))
-  (define state (input-hash comp inputs))
   (log-debug "================")
   (log-debug "(start compute for ~v" (component-name comp))
-  (define result (ast-step comp (ast-tuple state '() state mem) ast #:hook callback))
+  (define tup (ast-tuple (input-hash inputs) '() (empty-hash comp) mem))
+  (define result (ast-step comp tup ast #:hook callback))
 
   (log-debug "~v" (ast-tuple-state result))
   (log-debug "~v" (ast-tuple-memory result))
   (log-debug "end compute)")
   (log-debug "================")
   result)
+
+
+

@@ -19,27 +19,7 @@
    [sub @ out -> out])
   [])
 
-(define/module counter ((in : 32) (en : 32)) ((out : 32))
-  ([sub = new comp/trunc-sub]
-   [reg = new comp/reg]
-   [con = new comp/id]
-   [dis = new comp/id]
 
-   [in -> sub @ left]
-   [const decr 1 : 32 -> sub @ right]
-   [sub @ out -> reg @ in]
-   [reg @ out -> con @ in]
-   [reg @ out -> dis @ in]
-
-   [con @ out -> sub @ left]
-   [sub @ out -> out]
-
-   [dis @ out -> out])
-  [(ifen (en inf#)
-         ([(ifen (in inf#)
-                 ([(con dis)])
-                 ([(dis)]))])
-         ([(in con)]))])
 
 ;; (require "vizualizer.rkt")
 ;; (plot-compute (counter) '((in . 10) (en . 1))
@@ -56,14 +36,14 @@
 ;;                         (mem-tuple #f '#hash())))
 
 (define/module consumer ((n : 32)) ((out : 32))
-  ([counter = new counter]
+  ([counter = new comp/counter-up]
    [viz = new comp/id]
    [const en 1 : 32 -> counter @ en]
    [n -> counter @ in]
    [counter @ out -> viz @ in]
    [const on 1 : 32 -> out])
   [(on)]
-  [(while (counter out)
+  [(while (counter stop)
      ([(n on)]))]
   [])
 ;; (plot-compute (consumer) '((n . 10)))

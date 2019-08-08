@@ -11,6 +11,7 @@
          transform-control
          input-component
          output-component
+
          default-component
          make-constant
          connect!
@@ -91,10 +92,12 @@
   (let ([htbl (make-hash)]
         [g (empty-graph)])
     (for-each (lambda (p) ; p is a port
-                (hash-set! htbl (port-name p) (input-component (port-width p))))
+                (hash-set! htbl (port-name p) (input-component (port-width p)))
+                (add-vertex! g `(,(port-name p) . inf#)))
               ins)
     (for-each (lambda (p)
-                (hash-set! htbl (port-name p) (output-component (port-width p))))
+                (hash-set! htbl (port-name p) (output-component (port-width p)))
+                (add-vertex! g `(,(port-name p) . inf#)))
               outs)
     (component
      name
@@ -180,6 +183,10 @@
 (define (convert-graph comp [vals #f])
   (define g (component-graph comp))
   (define newg (empty-graph))
+  (for-each (lambda (v)
+              (add-vertex! newg v))
+            (remove-duplicates
+             (map car (get-vertices g))))
   (for-each (lambda (edge)
               (match edge
                 [(cons (cons u _) (cons (cons v _) _))
