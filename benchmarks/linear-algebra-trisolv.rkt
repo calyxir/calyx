@@ -117,7 +117,7 @@
       (simplify-path
        (build-path (current-directory) ".." "benchmarks" "linear-algebra-trisolv.data"))
       (build-path (current-directory) (vector-ref (current-command-line-arguments) 0))))
-;; (void
-;;  (compute
-;;   (main) '((n . 9))
-;;   #:memory (json->memory fn)))
+(void
+ (compute
+  (main) '((n . 9))
+  #:memory (json->memory fn)))

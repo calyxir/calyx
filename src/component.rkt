@@ -23,9 +23,9 @@
 (struct component (;; name of the component
                    name
                    ;; list of input ports
-                   [ins #:mutable]
+                   ins
                    ;; list of output ports
-                   [outs #:mutable]
+                   outs
                    ;; hashtbl of sub components keyed on their name
                    submods
                    ;; hashtbl keeping track of split nodes
