@@ -43,24 +43,25 @@
       (when rspace (set-box! rspace 0.0)))
 
     (define/override (draw dc x y . other)
-      (define font (send the-font-list find-or-create-font 10 'modern 'normal 'normal))
+      (define font
+        (send the-font-list find-or-create-font 10 'modern 'normal 'normal))
       (send dc set-font font)
       (define label (~a value))
       (cond
         [(not active)
-         (send dc set-pen "blue" 1 'solid)
-         (send dc set-brush "blue" 'bdiagonal-hatch)
-         (send dc draw-rectangle x y value-width 20)
-         (send dc set-text-foreground "red")
-         (send dc draw-text label (+ x (/ value-width 4)) (+ y 3))
-         (send dc set-brush "white" 'transparent)]
+         (send* dc (set-pen "blue" 1 'solid)
+                   (set-brush "blue" 'bdiagonal-hatch)
+                   (draw-rectangle x y value-width 20)
+                   (set-text-foreground "red")
+                   (draw-text label (+ x (/ value-width 4)) (+ y 3))
+                   (set-brush "white" 'transparent))]
         [active
-         (send dc set-text-background "black")
-         (send dc draw-text label (+ x (/ value-width 4)) (+ y 3))
-         (send dc set-pen "black" 1 'solid)
-         (send dc draw-rectangle x y value-width 20)
-         (send dc set-text-foreground "black")
-         (send dc draw-text label (+ x (/ value-width 4)) (+ y 3))]))))
+          (send* dc (set-text-background "black")
+                    (draw-text label (+ x (/ value-width 4)) (+ y 3))
+                    (set-pen "black" 1 'solid)
+                    (draw-rectangle x y value-width 20)
+                    (set-text-foreground "black")
+                    (draw-text label (+ x (/ value-width 4)) (+ y 3)))]))))
 
 (define node%
   (graph-snip-mixin node-snip%))
