@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require graph
+         threading
          racket/hash
          racket/list
          racket/match
@@ -11,7 +12,6 @@
          transform-control
          input-component
          output-component
-
          default-component
          make-constant
          connect!
@@ -181,18 +181,17 @@
 (define (convert-graph comp [vals #f])
   (define g (component-graph comp))
   (define newg (empty-graph))
-  (for-each (lambda (v)
-              (add-vertex! newg v))
-            (remove-duplicates
-             (map car (get-vertices g))))
-  (for-each (lambda (edge)
-              (match edge
-                [(cons (cons u _) (cons (cons v _) _))
-                 (if vals
-                     (begin
-                       (add-directed-edge! newg u v (hash-ref vals (car edge))))
-                     (add-directed-edge! newg u v)
-                     )
-                 ]))
-            (get-edges g))
+  (~> (get-vertices g)
+      (map car _)
+      remove-duplicates
+      (for-each (lambda (v) (add-vertex! newg v)) _))
+  (for-each
+    (lambda (edge)
+      (match edge
+        ; NOTE(rachit): plz no
+        [(cons (cons u _) (cons (cons v _) _))
+         (if vals
+           (add-directed-edge! newg u v (hash-ref vals (car edge)))
+           (add-directed-edge! newg u v))]))
+    (get-edges g))
   newg)
