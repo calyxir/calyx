@@ -1,9 +1,8 @@
 #lang racket/base
-(require racket/logging)
+(require racket/logging
+         racket/path)
 
-(provide keyword-lambda
-         debug
-         debug-wrap)
+(provide (all-defined-out))
 
 ;; syntatic sugar that makes it nice to define procedures in the way
 ;; that component expects them
@@ -16,15 +15,53 @@
     (make-immutable-hash `((kw . ,(begin body2 ...)) ...))))
 
 ;; debugging stuffs
-(define should-print-debug? (make-parameter #f))
+;; (define should-print-debug? (make-parameter #f))
 
-(define-syntax-rule (debug fmt v ...)
-  (begin
-    (when (should-print-debug?)
-      (displayln (format fmt v ...)))
-    (values v ...)))
+;; (define-syntax-rule (debug fmt v ...)
+;;   (begin
+;;     (when (should-print-debug?)
+;;       (displayln (format fmt v ...)))
+;;     (values v ...)))
 
-;; sugar for wrapping functions that I want to log
-(define-syntax-rule (debug-wrap body ...)
-  (parameterize ([should-print-debug? #t])
-    body ...))
+;; (define-syntax-rule (debug-wrap body ...)
+;;   (parameterize ([should-print-debug? #t])
+;;     body ...))
+(define-logger base)
+(define-logger worklist #:parent base-logger)
+(define-logger compute #:parent worklist-logger)
+(define-logger ast #:parent compute-logger)
+
+(define-syntax-rule (show-debug body ...)
+  (with-logging-to-port (current-output-port)
+    (lambda ()
+      body ...)
+    #:logger base-logger
+    'debug))
+
+(define-syntax-rule (show-debug-worklist body ...)
+  (with-logging-to-port (current-output-port)
+    (lambda ()
+      body ...)
+    #:logger worklist-logger
+    'debug))
+
+(define-syntax-rule (show-debug-compute body ...)
+  (with-logging-to-port (current-output-port)
+    (lambda ()
+      body ...)
+    #:logger compute-logger
+    'debug))
+
+(define-syntax-rule (show-debug-ast body ...)
+  (with-logging-to-port (current-output-port)
+    (lambda ()
+      body ...)
+    #:logger ast-logger
+    'debug))
+
+;; file utilities
+(define (benchmark-data-path default)
+  (if (= 0 (vector-length (current-command-line-arguments)))
+      (simplify-path
+       (build-path (current-directory) ".." "benchmarks" default))
+      (build-path (current-directory) (vector-ref (current-command-line-arguments) 0))))

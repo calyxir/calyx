@@ -51,7 +51,7 @@
 ;; (plot-compute (consumer) '((n . 10)))
 
 (define/module mult ((a : 32) (b : 32)) ((out : 32))
-  ([counter = new counter]
+  ([counter = new comp/counter-down]
    [add = new comp/add]
    [reg = new comp/reg]
    [viz = new comp/id]
@@ -76,7 +76,7 @@
 ;; (unlisten-debug)
 
 (define/module mem-test ((addr1 : 32) (data1 : 32) (addr2 : 32) (data2 : 32)) ((out1 : 32) (out2 : 32))
-  ([mem = new comp/memory-8bit]
+  ([mem = new comp/memory1d]
    [addr1 -> mem @ addr]
    [addr2 -> mem @ addr]
    [data1 -> mem @ data-in]
@@ -114,7 +114,7 @@
 ;;                            (data2 . 7)))
 
 (define/module counter-up-3out ((n : 32) (en : 32)) ((out1 : 32) (out2 : 32) (out3 : 32) (stop : 32))
-  ([counter = new counter]
+  ([counter = new comp/counter-down]
    [store-n = new comp/reg]
 
    [n -> store-n @ in]
@@ -161,7 +161,7 @@
 
 
 (define/module fib ((n : 32)) ((out : 32))
-  ([mem = new comp/memory-8bit]
+  ([mem = new comp/memory1d]
    [counter = new counter-up-3out]
    [incr = new incr]
    [n -> incr @ in]
@@ -214,3 +214,64 @@
 ;; (plot-compute (fib) '((n . 30)))
 ;; (component-outs (counter))
 
+;; (require racket/logging)
+
+;; ; define a logger called 'test-logger
+;; (define base-logger (make-logger 'all))
+;; (define ast-logger (make-logger 'ast base-logger))
+;; (define compute-logger (make-logger 'compute ast-logger))
+;; (define lg (make-logger 'top compute-logger))
+
+;; ; define a chain of 3 loggers
+;; (define-logger base)
+;; (define-logger ast #:parent base-logger)
+;; (define-logger compute #:parent base-logger)
+
+;; (with-logging-to-port (current-output-port)
+;;   (lambda ()
+;;     (log-ast-debug "some fmt ~v" '(hi bye))) ; outputs because base is higher than ast
+;;   #:logger base-logger
+;;   'debug
+;;   'ast)
+
+;; (with-logging-to-port (current-output-port)
+;;   (lambda ()
+;;     (log-ast-debug "some fmt ~v" '(hi bye))) ; doesn't output because compute is lower than ast
+;;   #:logger base-logger
+;;   'debug
+;;   'compute)
+
+;; ; log a message to it on topic1, nothing prints
+;; (log-message test-logger 'debug 'topic1 "some message!!")
+;; ; log a message to it on topic2, nothing prints
+;; (log-message test-logger 'debug 'topic2 "some message!!")
+
+;; ; capture logging to test-logger at 'debug level on topic 'topic1
+;; ; and send to stdout
+;; (with-logging-to-port (current-output-port)
+;;   (lambda ()
+;;     (log-message test-logger 'debug 'topic1 "some message!!")  ; prints
+;;     (log-message test-logger 'debug 'topic2 "some message!!")) ; doesn't print
+;;   #:logger test-logger
+;;   'debug
+;;   'topic1)
+
+;; ; thread that waits to receive a message and then logs it
+;; (define thrd
+;;   (thread (lambda ()
+;;             (let loop ()
+;;               (define msg (thread-receive))
+;;               (log-message test-logger 'debug 'topic1 msg)
+;;               (loop)))))
+
+;; (thread-send thrd "un msg")    ; nothing prints
+;; (thread-send thrd "otra msg")  ; nothing prints
+
+;; ; wrap the thread-sends in with-logging-to-port
+;; ; this is what I thought originally didn't work
+;; (with-logging-to-port (current-output-port)
+;;   #:logger test-logger
+;;   (lambda ()
+;;     (thread-send thrd "un msg")     ; prints
+;;     (thread-send thrd "otra msg"))  ; prints
+;;   'debug)

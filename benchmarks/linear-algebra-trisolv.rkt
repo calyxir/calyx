@@ -32,7 +32,7 @@
                  ([(!! zero reg out)]))]))]
   [(!! reg out)])
 
-(define/module main ((n : 32)) ()
+(define/module main () ()
   (; memory
    [L = new comp/memory2d]
    [x = new comp/memory1d]
@@ -56,7 +56,7 @@
    [i-min-j = new comp/trunc-sub]
 
    ; i connections
-   [n -> i @ in]
+   [const n 9 : 32 -> i @ in]
    [const i-en 1 : 32 -> i @ en]
    [i @ out -> x @ addr]
    [i @ out -> b @ addr]
@@ -111,11 +111,7 @@
       ))]
   [(mem-print x)])
 
-(define fn
-  (if (= 0 (vector-length (current-command-line-arguments)))
-      (simplify-path
-       (build-path (current-directory) ".." "benchmarks" "linear-algebra-trisolv.data"))
-      (build-path (current-directory) (vector-ref (current-command-line-arguments) 0))))
+(define fn (benchmark-data-path "linear-algebra-trisolv.data"))
 
 (void
  (compute
