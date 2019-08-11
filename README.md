@@ -161,7 +161,7 @@ output is disabled.
 | `comp/xor`       | left, right          | out  | `out = left ^ right` (bitwise)           |
 | `magic/mux`      | left, right, control | out  | `out = if (control = 1) left else right` |
 
-## Vizualization
+## Visualization
 There is a function `compute` which takes in a module, and a list of inputs and produces
 a list of outputs (as well as some other information).
 For example `(compute (comp/add) '((left . 10) (right . 10)))` computes the sum of 10 and 10.
@@ -174,26 +174,29 @@ we can do something `n` times.
 
 ```racket
 (define/module counter ((in : 32)) ((out : 32))
-  ([sub = new comp/sub]
+  ([sub = new comp/trunc-sub]
    [reg = new comp/reg]
-   [in -> sub @ left]
-   [const decr 1 : 32 -> sub @ right]
-   [sub @ out -> reg @ in]
+   [in -> reg @ in]
    [reg @ out -> sub @ left]
-   [reg @ out -> out])
-  [(ifen (in inf#)
-         ([])
-         ([(in)]
-          [(in)]))])
+   [const decr 1 : 32 -> sub @ right]
+   [sub @ out -> out]
+   [sub @ out -> reg @ in])
+  [(ifen (in inf#) ([]) ())]
+  [(in)])
 ```
+
+If you want to see the module before testing it, run `(plot-component (counter))`.
+This circuit works by saving the value on the wire coming from `in` if there is one.
+Then, it subtracts one from `reg` and feeds the result to both `out` and `reg`. We
+go back to `reg` so that the next time this circuit runs we have the value stored.
 
 Then, the acutal implementation of multiplication using a while loop
 and addition. The `viz` submodule is not actually necessary. It just
-lets you see the value coming out of counter in the pictures.
+lets you see the value coming out of counter in the animation.
 
 ``` racket
 (define/module mult ((a : 32) (b : 32)) ((out : 32))
-  ([counter = new counter2.0]
+  ([counter = new counter]
    [add = new comp/add]
    [reg = new comp/reg]
    [viz = new comp/id]
@@ -205,14 +208,13 @@ lets you see the value coming out of counter in the pictures.
    [a -> add @ right]
    [add @ out -> reg @ in]
    [reg @ out -> add @ left]
-   [reg @ out -> out])
+   [add @ out -> out])
   []
   [(while (counter out) ([(b zero)]))])
 ```
 
 Result of `(plot-compute (mult) '((a . 7) (b . 8))')`:  
-(note that the while loop was expanded to `ifs` for the purpose of creating this animation.
-If you don't do this, you only get two frames)
+Note that the module was changed slightly to make the image more legible.
 
 ![Image 0 for mult example](imgs/mult-example.gif)
 

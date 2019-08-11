@@ -273,3 +273,40 @@
 ;;     (thread-send thrd "un msg")     ; prints
 ;;     (thread-send thrd "otra msg"))  ; prints
 ;;   'debug)
+
+(define/module counter ((in : 32)) ((out : 32))
+  ([sub = new comp/trunc-sub]
+   [reg = new comp/reg]
+   [in -> reg @ in]
+   [reg @ out -> sub @ left]
+   [const decr 1 : 32 -> sub @ right]
+   [sub @ out -> out]
+   [sub @ out -> reg @ in])
+  [(ifen (in inf#) ([]) ())]
+  [(in)])
+(plot-compute (counter) '((in . #f))
+              #:memory (hash 'reg (mem-tuple 9 (hash))))
+
+(define/module mult ((a : 32) (b : 32)) ((out : 32))
+  ([counter = new counter]
+   [add = new comp/add]
+   [reg = new comp/reg]
+   [viz = new comp/id]
+   [v = new comp/id]
+
+   [b -> counter @ in]
+   [counter @ out -> viz @ in]
+
+   [const zero 0 : 32 -> add @ left]
+   [a -> add @ right]
+   [add @ out -> reg @ in]
+   [reg @ out -> v @ in]
+   [v @ out -> add @ left]
+   [add @ out -> out])
+  []
+  [(while (counter out) ([(b zero)]))])
+
+(ast-tuple-state
+ (plot-compute (mult) '((a . 8) (b . 7)))
+ )
+
