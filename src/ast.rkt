@@ -110,9 +110,10 @@
                   val)])
     (if (list? out)
         (for-each (lambda (x)
-                    (if (exact-integer? (cdr x))
-                        (display (cdr x))
-                        (display (exact->inexact (cdr x))))
+                    (display
+                     (real->decimal-string
+                      (exact->inexact (cdr x))
+                      4))
                     (display "\t"))
                   out)
         (display out))

@@ -1,10 +1,11 @@
 #include <vector>
+#include <cstdio>
 
 using std::vector;
 
 void print_float_vec(std::vector<float> &input) {
-	for (int i = 0; i < input.size(); i++) {
-		std::cout << input.at(i) << '\t';
+	for (uint i = 0; i < input.size(); i++) {
+    printf("%.4f\t", input.at(i));
 	}
-  std::cout << '\n';
+  printf("\n");
 }

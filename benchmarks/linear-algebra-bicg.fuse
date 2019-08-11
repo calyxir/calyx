@@ -1,0 +1,40 @@
+// BEGIN macro definitions
+
+define(M, 8)
+define(N, 8)
+define(DATATYPE, float)
+
+// END macro definitions
+
+import "printer.cpp" {
+  def extern print_float_vec(c: float[N]);
+}
+
+decl A: DATATYPE[N][M];
+decl s: DATATYPE[M];
+decl q: DATATYPE[N];
+decl p: DATATYPE[M];
+decl r: DATATYPE[N];
+
+for (let i = 0..M) {
+  s[i] := 0.0;
+}
+
+---
+
+for (let i = 0..N) {
+  q[i] := 0.0;
+  ---
+  for (let j = 0..M) {
+    let s0 = s[j];
+    let q0 = q[i];
+    let A_i_j = A[i][j];
+    ---
+    s[j] := s0 + r[i] * A_i_j;
+    q[i] := q0 + A_i_j * p[j];
+  }
+}
+
+---
+print_float_vec(s);
+print_float_vec(q);

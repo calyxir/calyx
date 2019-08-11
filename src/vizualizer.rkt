@@ -65,21 +65,13 @@
 (define node%
   (graph-snip-mixin node-snip%))
 
-(define (plot-comp board comp [vals #f] [inactive '()])
-  ;; clear old graph
-  (send board erase)
+(define (update-nodes board nodes inactive)
+  (for-each (lambda (n)
+              (let ([active (not (member (send n get-value) inactive))])
+                (set-field! active n active)))
+            nodes))
 
-  (define spacing 75)
-  (define center 250)
-
-  (define nodes
-    (map (lambda (vert)
-           (let* ([active (not (member vert inactive))]
-                  [node (new node% [value vert] [active active])])
-             (send board insert node 0 0)
-             node))
-         (get-vertices (convert-graph comp))))
-
+(define (update-edges board comp nodes [vals #f])
   (define g (convert-graph comp vals))
 
   ;; add all the edges
@@ -90,6 +82,7 @@
                         nodes
                         (lambda (item) (equal? neigh-l (send item get-value)))))
                      (define child (list-ref nodes obj-i))
+                     (remove-links parent child)
                      (add-links parent child)
                      (let* ([u (send parent get-value)]
                             [v (send child get-value)]
@@ -101,8 +94,27 @@
                           (set-link-label parent child label)])))
                    (get-neighbors g (send parent get-value))))
        nodes)
+  (void))
 
-  (dot-positioning board "dot"))
+(define (init-nodes board comp)
+  ;; clear old graph
+  (send board erase)
+
+  ;; make nodes from vertices in comp graph
+  (define nodes
+    (map (lambda (vert)
+           (let* (;; [active (not (member vert inactive))]
+                  [node (new node% [value vert] [active #t])])
+             (send board insert node 0 0)
+             node))
+         (get-vertices (convert-graph comp))))
+
+  (update-nodes board nodes '())
+  (update-edges board comp nodes)
+
+  ;; position nodes on the board
+  (dot-positioning board "dot")
+  nodes)
 
 ;; ==========================
 
@@ -117,18 +129,18 @@
            (define/augment (on-close)
              (send timer stop)
              (kill-thread compute-worker)
-             (thread-wait compute-worker)))
+             (thread-wait compute-worker))
+           (define/override (on-subwindow-char subwin evt)
+             (match (send evt get-key-code)
+               [#\space (start/stop-animation)]
+               [#\n (next)]
+               [_ (void)])))
          [label (~a (component-name comp))]
          [width (* 50 10)]
          [height (* 50 10)]))
 
   (define canvas
-    (new (class editor-canvas% (super-new)
-           (define/override (on-char evt)
-             (match (send evt get-key-code)
-               [#\space (start/stop-animation)]
-               [#\n (next)]
-               [_ (void)])))
+    (new editor-canvas%
          [parent toplevel]
          [style '(no-hscroll no-vscroll)]
          [horizontal-inset 0]
@@ -170,12 +182,13 @@
          [parent control-panel]
          [label (format "Frame ~v" frame-number)]))
 
+  (define nodes (init-nodes board comp))
   (define (update tup)
     (send index-label set-label (format "Frame ~v" frame-number))
     (send board begin-edit-sequence)
-    (plot-comp board comp
-               (ast-tuple-state tup)
-               (ast-tuple-inactive tup))
+    (update-nodes board nodes (ast-tuple-inactive tup))
+    (update-edges board comp nodes (ast-tuple-state tup))
+    (send canvas refresh)
     (send board end-edit-sequence))
 
   (define (next)
@@ -222,10 +235,15 @@
          [vertical-inset 0]
          [editor board]))
 
-  (define (update)
+  (define (render)
     (send board begin-edit-sequence)
-    (plot-comp board comp)
+    (define nodes (init-nodes board comp))
+    (update-edges board comp nodes)
+    (send canvas refresh)
     (send board end-edit-sequence))
 
+  (render)
   (send toplevel show #t)
-  (update))
+  (define-values (win-x win-y) (send toplevel get-client-size))
+  (define bitmap (send canvas make-bitmap win-x win-y))
+  (send bitmap save-file "test.png" 'png))

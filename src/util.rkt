@@ -59,9 +59,12 @@
     #:logger ast-logger
     'debug))
 
+(define (in-repl?)
+  (= 0 (vector-length (current-command-line-arguments))))
+
 ;; file utilities
 (define (benchmark-data-path default)
-  (if (= 0 (vector-length (current-command-line-arguments)))
+  (if (in-repl?)
       (simplify-path
        (build-path (current-directory) ".." "benchmarks" default))
       (build-path (current-directory) (vector-ref (current-command-line-arguments) 0))))

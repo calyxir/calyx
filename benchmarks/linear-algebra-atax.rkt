@@ -4,6 +4,14 @@
          racket/format
          "../src/futil.rkt")
 
+;; (generate-json
+;;  "linear-algebra-atax.data"
+;;  (random 1 10)
+;;  (A 8 8)
+;;  (x 8)
+;;  (y 8)
+;;  (tmp 8))
+
 (define/module main () ()
   (; decls
    [A = new comp/memory2d]   ; |A| = M x N
@@ -16,17 +24,17 @@
    [mult = new comp/mult]
 
    [i0 = new comp/counter-up]
-   [const N0 9 : 32 -> i0 @ in]
+   [const N0 8 : 32 -> i0 @ in]
    [const i0-en 1 : 32 -> i0 @ en]
    [const y-data 0 : 32 -> y @ data-in]
    [i0 @ out -> y @ addr]
 
    [i1 = new comp/counter-up]
-   [const M0 9 : 32 -> i1 @ in]
+   [const M0 8 : 32 -> i1 @ in]
    [const i1-en 1 : 32 -> i1 @ en]
 
    [j0 = new comp/counter-up]
-   [const N1 9 : 32 -> j0 @ in]
+   [const N1 8 : 32 -> j0 @ in]
    [const j0-en 1 : 32 -> j0 @ en]
 
    [tmp-t = new comp/reg]
@@ -40,7 +48,7 @@
    [add-buf @ out -> tmp @ data-in]
 
    [j1 = new comp/counter-up]
-   [const N2 9 : 32 -> j1 @ in]
+   [const N2 8 : 32 -> j1 @ in]
    [const j1-en 1 : 32 -> j1 @ en]
    [y-y0 = new comp/reg]
    [y @ out -> y-y0 @ in]

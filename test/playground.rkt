@@ -19,8 +19,6 @@
    [sub @ out -> out])
   [])
 
-
-
 ;; (require "vizualizer.rkt")
 ;; (plot-compute (counter) '((in . 10) (en . 1))
 ;;               #:memory (hash

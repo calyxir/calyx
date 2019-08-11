@@ -60,13 +60,12 @@
                                 (hash-ref mem addr
                                           (lambda () #f)))])
     #:memory-proc (lambda (old st)
-                    (define hsh (if (hash? old) old (make-immutable-hash)))
-                    (if (hash-ref st 'data-in)
-                        (hash-set
-                         hsh
-                         (hash-ref st 'addr)
-                         (hash-ref st 'data-in))
-                        hsh))))
+                    (let* ([hsh (if (hash? old) old (make-immutable-hash))]
+                           [data-in (hash-ref st 'data-in)]
+                           [addr (hash-ref st 'addr)])
+                      (if (and addr data-in)
+                          (hash-set hsh addr data-in)
+                          hsh)))))
 
 (define (comp/memory2d)
   (default-component
@@ -83,11 +82,14 @@
                                 (hash-ref mem addr
                                           (lambda () #f)))])
     #:memory-proc (lambda (old st)
-                    (define hsh (if (hash? old) old (make-immutable-hash)))
-                    (define addr (~a (hash-ref st 'addr1) 'x (hash-ref st 'addr2)))
-                    (if (hash-ref st 'data-in)
-                        (hash-set hsh addr (hash-ref st 'data-in))
-                        hsh))))
+                    (let* ([hsh (if (hash? old) old (make-immutable-hash))]
+                           [addr1 (hash-ref st 'addr1)]
+                           [addr2 (hash-ref st 'addr2)]
+                           [data-in (hash-ref st 'data-in)]
+                           [addr (~a addr1 'x addr2)])
+                      (if (and data-in addr1 addr2)
+                          (hash-set hsh addr data-in)
+                          hsh)))))
 
 (define (comp/trunc-sub)
   (default-component
@@ -120,12 +122,11 @@
                                 left
                                 right)])))
 
-(define/module comp/counter-down ((in : 32) (en : 32)) ((out : 32))
+(define/module comp/counter-down ((in : 32) (en : 32)) ((out : 32) (stop : 32))
   ([sub = new comp/trunc-sub]
    [reg = new comp/reg]
    [con = new comp/id]
    [dis = new comp/id]
-
    [in -> sub @ left]
    [const decr 1 : 32 -> sub @ right]
    [sub @ out -> reg @ in]
@@ -133,31 +134,44 @@
    [reg @ out -> con @ in]
    [reg @ out -> dis @ in]
    [dis @ out -> out]
+   [con @ out -> sub @ left]
 
-   [con @ out -> sub @ left])
+   [sub+1 = new comp/trunc-sub]
+   [add = new comp/add]
+   [reg1 = new comp/reg]
+   [con1 = new comp/id]
+   [dis1 = new comp/id]
+
+   [in -> add @ left]
+   [const a 1 : 32 -> add @ right]
+   [add @ out -> sub+1 @ left]
+   [const decr1 1 : 32 -> sub+1 @ right]
+   [sub+1 @ out -> reg1 @ in]
+   [sub+1 @ out -> stop]
+   [reg1 @ out -> con1 @ in]
+   [reg1 @ out -> dis1 @ in]
+   [dis1 @ out -> stop]
+   [con1 @ out -> sub+1 @ left])
   [(ifen (en inf#)
          ([(ifen (in inf#)
-                 ([(con dis)])
-                 ([(dis)]))])
-         ([(!! reg dis out)]))])
+                 ([(con dis con1 dis1)])
+                 ([(dis dis1)]))])
+         ([(!! reg dis out reg1 dis1 stop)]))])
 
 (define/module comp/counter-up ((in : 32) (en : 32)) ((out : 32) (stop : 32))
   ([counter = new comp/counter-down]
    [store-n = new comp/reg]
    [sub = new comp/trunc-sub]
-   [decr-sub = new comp/trunc-sub]
 
    [en -> counter @ en]
    [in -> counter @ in]
    [in -> store-n @ in]
 
    [store-n @ out -> sub @ left]
-   [counter @ out -> sub @ right]
-   [sub @ out -> decr-sub @ left]
-   [const d 1 : 32 -> decr-sub @ right]
-   [decr-sub @ out -> out]
-   [counter @ out -> stop])
+   [counter @ stop -> sub @ right]
+   [sub @ out -> out]
+   [counter @ stop -> stop])
   [(ifen (in inf#)
          ([(!! en in store-n counter)]
-          [(en in)])
+          [(en in sub)])
          ([]))])

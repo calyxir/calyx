@@ -13,6 +13,13 @@
 ;; registers are local variables
 ;; I think that I need global variables
 
+;; (generate-json
+;;  "../benchmarks/linear-algebra-trisolv.data"
+;;  (random 1 100)
+;;  (L 8 8)
+;;  (x 8)
+;;  (b 8))
+
 (define/module counter ((en : 32) (res : 32)) ((out : 32))
   ([add = new comp/add]
    [reg = new comp/reg]
