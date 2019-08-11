@@ -98,7 +98,7 @@
   [(mem-print s)]
   [(mem-print q)])
 
-;; (require "../src/vizualizer.rkt")
+;; (require "../src/visualizer.rkt")
 ;; (plot-component (main))
 (define fn (benchmark-data-path "linear-algebra-bicg.data"))
 

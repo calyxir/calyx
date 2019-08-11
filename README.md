@@ -44,7 +44,7 @@ all of the module's outputs are active.
  or any racket value really on a wire. Please don't abuse this power for bad.
  Eventually you will only be able to put a n bit number on a n bit wire.
  - Figure out the proper way to merge memory in parallel composition
- - My vizualizer currently doesn't have animated animals carrying values along the wires
+ - My visualizer currently doesn't have animated animals carrying values along the wires
  - Output sensible error messages. Atm I am the only person who would have any idea what 
  errors mean.
 

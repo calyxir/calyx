@@ -1,9 +1,9 @@
 #lang racket/base
 (require "../src/futil.rkt"
-         "../src/vizualizer.rkt")
+         "../src/visualizer.rkt")
 
 ;; (require "futil.rkt")
-;; (require "vizualizer.rkt")
+;; (require "visualizer.rkt")
 
 (define/module incr ((in : 32)) ((out : 32))
   ([add = new comp/add]
@@ -19,7 +19,7 @@
    [sub @ out -> out])
   [])
 
-;; (require "vizualizer.rkt")
+;; (require "visualizer.rkt")
 ;; (plot-compute (counter) '((in . 10) (en . 1))
 ;;               #:memory (hash
 ;;                         'decr
