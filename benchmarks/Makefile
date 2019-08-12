@@ -3,15 +3,20 @@
 JSON_URL:=https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp
 SOURCES:=$(wildcard *.data)
 
-all: $(patsubst %.data,%.out,$(SOURCES))
+all: $(patsubst %.data,%.run,$(SOURCES))
 
-%.out: %.cpp
-	@echo Fuse: >> $@
-	@./$(addsuffix .cpp.o,$(basename $@)) $(addsuffix .data,$(basename $@)) >> $@
-	@echo Futil: >> $@
-	@racket $(addsuffix .rkt,$(basename $@)) $(addsuffix .data,$(basename $@)) >> $@
-	@cat $@
-	rm $@
+%.run-fuse: %.cpp
+	./$(addsuffix .cpp.o,$*) $(addsuffix .data,$*) >> $@
+
+%.run-futil:
+	racket $(addsuffix .rkt,$*) $(addsuffix .data,$*) >> $@
+
+%.run: %.run-fuse %.run-futil
+	@if diff -y $?; then \
+		echo "[TEST] $* passed!"; \
+	else \
+		echo "[TEST] $* failed!"; \
+	fi
 
 %.cpp: %.fuse.pre
 	fuse run $< -o $@ -x "-Iprint_headers/"
@@ -21,4 +26,4 @@ all: $(patsubst %.data,%.out,$(SOURCES))
 	m4 $< > $@
 
 clean:
-	rm -rf *.cpp *.o _headers *.out
+	rm -rf *.cpp *.o _headers *.out *.run-fuse *.run-futil

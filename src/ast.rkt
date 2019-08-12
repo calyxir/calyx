@@ -117,10 +117,9 @@
                      (real->decimal-string
                       (exact->inexact (cdr x))
                       4))
-                    (display "\t"))
+                    (display "\n"))
                   out)
-        (display out))
-    (display "\n")))
+        (display out))))
 
 ;; create an empty state for the given component
 (define (empty-hash comp)

@@ -98,10 +98,10 @@
   [(mem-print s)]
   [(mem-print q)])
 
-(require "../src/visualizer.rkt")
+;; (require "../src/visualizer.rkt")
 ;; (plot-component (main))
 (define fn (benchmark-data-path "linear-algebra-bicg.data"))
 
 (void
- (plot-compute (main) '()
+ (compute (main) '()
                #:memory (json->memory fn)))
