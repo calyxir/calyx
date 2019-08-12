@@ -307,6 +307,5 @@
   [(while (counter out) ([(b zero)]))])
 
 (ast-tuple-state
- (plot-compute (mult) '((a . 8) (b . 7)))
- )
+ (plot-compute (mult) '((a . 8) (b . 7))))
 

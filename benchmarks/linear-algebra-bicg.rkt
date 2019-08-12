@@ -6,7 +6,7 @@
 
 ;; (generate-json
 ;;  "linear-algebra-bicg.data"
-;;  (random 1 100)
+;;  (random 1 20)
 ;;  (A 8 8)
 ;;  (s 8)
 ;;  (q 8)
@@ -98,10 +98,10 @@
   [(mem-print s)]
   [(mem-print q)])
 
-;; (require "../src/visualizer.rkt")
+(require "../src/visualizer.rkt")
 ;; (plot-component (main))
 (define fn (benchmark-data-path "linear-algebra-bicg.data"))
 
 (void
- (compute (main) '()
-          #:memory (json->memory fn)))
+ (plot-compute (main) '()
+               #:memory (json->memory fn)))
