@@ -1,6 +1,13 @@
 # Fuse Temporal Intermediate Language (FuTIL)
 An intermediate language for [Fuse](https://github.com/cucapra/seashell).
 
+## Install
+You need `racket` installed. You can find instructions
+[here](https://docs.racket-lang.org/pollen/Installation.html).
+Racket dependencies:
+ - `graph`
+ - `threading-lib`
+
 ## Difference between Control and Structure
 Structure consists of all static components of a circuit. This consists
 of things like feeding inputs into an adder and getting the output. Another
