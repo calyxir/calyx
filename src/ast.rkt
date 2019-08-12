@@ -9,6 +9,7 @@
          racket/match
          racket/contract
          racket/set
+         threading
          graph
          "component.rkt"
          "port.rkt"
@@ -161,13 +162,12 @@
           (make-immutable-hash
            (map (lambda (in)
                   (define neighs
-                    (sequence->list
-                     (in-neighbors
-                      (transpose (component-graph comp)) `(,name . ,in))))
+                    (~> (component-graph comp)
+                        transpose
+                        (in-neighbors _ `(,name . ,in))
+                        sequence->list))
                   (define filt-neighs-vals
-                    (filter-map (lambda (x)
-                                  (hash-ref inputs x))
-                                neighs))
+                    (filter-map (lambda (x) (hash-ref inputs x)) neighs))
                   (define neighs-val
                     (match filt-neighs-vals
                       [(list) #f]
@@ -288,10 +288,11 @@
                     [(acc-todo-p)
                      (if changed?
                          ; changed
-                         (remove-duplicates
-                          (append
-                           acc-todo
-                           (sequence->list (in-neighbors (convert-graph comp) name))))
+                         (~> (convert-graph comp)
+                             (in-neighbors _ name)
+                             sequence->list
+                             (append acc-todo _)
+                             remove-duplicates)
                          ; nothing changed
                          acc-todo)]
                     [(acc-visited-p)
@@ -359,17 +360,21 @@
                            [memory (make-immutable-hash)])
               (map (lambda (s) (ast-step comp tup s #:hook callback)) stmts))]
       [(seq-comp stmts)
-       (struct-copy ast-tuple (foldl (lambda (s acc)
-                                       (define acc-p (struct-copy ast-tuple acc
-                                                                  [inactive (ast-tuple-inactive tup)]))
-                                       (ast-step comp acc-p s #:hook callback))
-                                     tup
-                                     stmts)
+       (struct-copy ast-tuple
+                    (foldl (lambda (s acc)
+                             (define acc-p
+                               (struct-copy ast-tuple
+                                            acc
+                                            [inactive (ast-tuple-inactive tup)]))
+                             (ast-step comp acc-p s #:hook callback))
+                           tup
+                           stmts)
                     [inactive (ast-tuple-inactive tup)])]
       [(deact-stmt mods) ; compute step with this list of inactive modules
        (let*-values ([(tup-p)
                       (struct-copy ast-tuple tup
-                                   [inactive (remove-duplicates (append inactive mods))])]
+                                   [inactive (~> (append inactive mods)
+                                                 remove-duplicates)])]
                      [(st mem)
                       (compute-step comp tup-p)]
                      [(call) (callback (struct-copy ast-tuple tup-p
@@ -389,9 +394,8 @@
                   (ast-step comp tup fbranch #:hook callback)
                   tup)]
       [(ifen-stmt condition tbranch fbranch)
-       (if (check-condition condition tup)
-           (ast-step comp tup tbranch #:hook callback)
-           (ast-step comp tup fbranch #:hook callback))]
+       (~> (if (check-condition condition tup) tbranch fbranch)
+           (ast-step comp tup _ #:hook callback))]
       [(while-stmt condition body)
        (if-valued (check-condition condition tup)
                   (let* ([bodyres (ast-step comp tup body #:hook callback)]
