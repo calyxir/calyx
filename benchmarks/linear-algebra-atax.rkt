@@ -97,6 +97,8 @@
 
   [(mem-print y)])
 
+;; (require "../src/visualizer.rkt")
+;; (plot-component (main))
 (define fn (benchmark-data-path "linear-algebra-atax.data"))
 
 (void

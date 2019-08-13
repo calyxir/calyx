@@ -65,7 +65,7 @@
   (= 0 (vector-length (current-command-line-arguments))))
 
 ;; file utilities
-(define (benchmark-data-path default)
+(define (benchmark-data-path [default "none.data"])
   (if (in-repl?)
       (simplify-path
        (build-path (current-directory) ".." "benchmarks" default))
