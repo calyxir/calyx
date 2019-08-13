@@ -1,8 +1,6 @@
 #lang racket/base
 
-(require racket/list
-         racket/format
-         "../src/futil.rkt")
+(require futil)
 
 ;; (generate-json
 ;;  "linear-algebra-atax.data"
@@ -97,11 +95,4 @@
 
   [(mem-print y)])
 
-;; (require "../src/visualizer.rkt")
-;; (plot-component (main))
-(define fn (benchmark-data-path "linear-algebra-atax.data"))
-
-(void
- (compute (main) '()
-          #:memory (json->memory fn)))
-
+(parse-cmdline (main))

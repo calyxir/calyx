@@ -1,8 +1,6 @@
 #lang racket/base
 
-(require racket/list
-         racket/format
-         "../src/futil.rkt")
+(require "../src/futil.rkt" "../src/cmdline.rkt")
 
 ;; (generate-json
 ;;  "linear-algebra-bicg.data"
@@ -100,8 +98,10 @@
 
 ;; (require "../src/visualizer.rkt")
 ;; (plot-component (main))
-(define fn (benchmark-data-path "linear-algebra-bicg.data"))
+;; (define fn (benchmark-data-path "linear-algebra-bicg.data"))
 
-(void
- (compute (main) '()
-               #:memory (json->memory fn)))
+;; (void
+;;  (compute (main) '()
+;;                #:memory (json->memory fn)))
+
+(parse-cmdline (main))

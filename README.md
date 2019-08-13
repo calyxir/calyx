@@ -5,9 +5,9 @@ An intermediate language for [Fuse](https://github.com/cucapra/seashell).
 ### Install
 You need `racket` installed. You can find instructions
 [here](https://docs.racket-lang.org/pollen/Installation.html).
-Racket dependencies:
- - `graph`
- - `threading-lib`
+Install `futil` with `make install`. While editing the code, you might run into
+an out of sync error. `make build` should fix this.
+
 ### Running
 You can run any of the `*.rkt` files with `racket *.rkt`. Running
 `make test` in the root directory will run the unit-tests in `test`.

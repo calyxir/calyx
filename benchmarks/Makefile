@@ -18,17 +18,14 @@ all: $(patsubst %.data,%.run,$(SOURCES))
 %.run-fuse: %.cpp
 	./$(addsuffix .cpp.o,$*) $(addsuffix .data,$*) >> $@
 
-%.run-futil-hand:
-	racket $(addsuffix .rkt,$*) $(addsuffix .data,$*) >> $@
-
 %.run-futil: %.futil
-	racket $< $(addsuffix .data,$*) >> $@
+	racket $< -c $(addsuffix .data,$*) >> $@
 
 %.run: %.run-fuse %.run-futil
 	@if diff -y $?; then \
-		echo "[TEST] $* passed!"; \
+		echo -e "[\e[32mTEST\e[0m] $* passed!"; \
 	else \
-		echo "[TEST] $* failed!"; \
+		echo -e "[\e[31mTEST\e[0m] $* failed!"; \
 	fi
 
 clean:
