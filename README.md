@@ -5,7 +5,9 @@ An intermediate language for [Fuse](https://github.com/cucapra/seashell).
 ### Install
 You need `racket` installed. You can find instructions
 [here](https://docs.racket-lang.org/pollen/Installation.html).
-Install `futil` with `make install`. While editing the code, you might run into
+You can use `raco pkg install futil` to download and install it.
+If you want to locally install `futil` with `make install`. 
+While editing the code, you might run into
 an out of sync error. `make build` should fix this.
 
 ### Running

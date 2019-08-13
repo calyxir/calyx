@@ -10,4 +10,4 @@ install:
 	cd futil; raco pkg install
 
 uninstall:
-	cd futil; raco pkg remove
+	raco pkg remove futil
