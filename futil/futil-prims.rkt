@@ -152,8 +152,8 @@
    [reg1 @ out -> dis1 @ in]
    [dis1 @ out -> stop]
    [con1 @ out -> sub+1 @ left])
-  [(ifen (en inf#)
-         ([(ifen (in inf#)
+  [(ifen (en)
+         ([(ifen (in)
                  ([(con dis con1 dis1)])
                  ([(dis dis1)]))])
          ([(!! reg dis out reg1 dis1 stop)]))])
@@ -171,7 +171,7 @@
    [counter @ stop -> sub @ right]
    [sub @ out -> out]
    [counter @ stop -> stop])
-  [(ifen (in inf#)
+  [(ifen (in)
          ([(!! en in store-n counter)]
           [(en in sub)])
          ([]))])

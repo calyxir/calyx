@@ -1,14 +1,12 @@
 #lang racket/base
 
-(require racket/list
-         racket/format
-         "../src/futil.rkt")
+(require futil)
 
-(generate-json
- "pipeline.data"
- (random 1 20)
- (A 10)
- (B 10))
+;; (generate-json
+;;  "pipeline.data"
+;;  (random 1 20)
+;;  (A 10)
+;;  (B 10))
 
 ;; pipeline-for (let i = 0..10) {
 ;;   let a = A[i];
@@ -28,10 +26,10 @@
    [add @ out -> reg @ in]
    [reg @ out -> out])
   [(!! reg res)]
-  [(ifen (res inf#)
+  [(ifen (res)
          ([(!! zero reg out)])
-         ([(ifen (reg out)
-                 ([(ifen (en inf#)
+         ([(ifen (reg @ out)
+                 ([(ifen (en)
                          ([(!! one add reg out)])
                          ([(!! reg out)]))])
                  ([(!! zero reg out)]))]))]
@@ -78,15 +76,16 @@
    [min-3 @ out -> B @ addr]
    [div @ out -> B @ data-in])
   [(!! i i-en i-res stop stop-val)]
-  [(while (stop out)
+  [(while (stop @ out)
      ([(i-en i-res)]
       [(!! i-en i stop stop-val)]))]
   [(mem-print B)])
 
-(require "../src/visualizer.rkt")
+;; (require "../src/visualizer.rkt")
 ;; (plot-component (main))
 
-(void
- (plot-compute
-  (main) '()
-  #:memory (json->memory "pipeline.data")))
+;; (void
+;;  (compute
+;;   (main) '()
+;;   #:memory (json->memory "pipeline.data")))
+(parse-cmdline (main))

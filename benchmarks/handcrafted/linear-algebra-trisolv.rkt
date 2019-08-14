@@ -1,9 +1,6 @@
 #lang racket/base
 
-(require racket/path
-         racket/list
-         racket/format
-         "../src/futil.rkt")
+(require futil)
 
 ;; I don't think that this module is possible to define at the moment
 ;; because a submodule has no way of changing the state of the parent module
@@ -30,10 +27,10 @@
    [add @ out -> reg @ in]
    [reg @ out -> out])
   [(!! reg res)]
-  [(ifen (res inf#)
+  [(ifen (res)
          ([(!! zero reg out)])
-         ([(ifen (reg out)
-                 ([(ifen (en inf#)
+         ([(ifen (reg @ out)
+                 ([(ifen (en)
                          ([(!! one add reg out)])
                          ([(!! reg out)]))])
                  ([(!! zero reg out)]))]))]
@@ -63,7 +60,7 @@
    [i-min-j = new comp/trunc-sub]
 
    ; i connections
-   [const n 9 : 32 -> i @ in]
+   [const n 8 : 32 -> i @ in]
    [const i-en 1 : 32 -> i @ en]
    [i @ out -> x @ addr]
    [i @ out -> b @ addr]
@@ -104,11 +101,11 @@
    [const L-data #f : 32 -> L @ data-in])
 
   [(!! n i-en i)]
-  [(while (i stop)
+  [(while (i @ stop)
      ([(!! i x b)]                                   ; x[i] := b[i]; and i++;
       ; do loop here
       [(!! i j j-en j-res i-min-j)]                  ; let j = 0
-      [(while (i-min-j out)
+      [(while (i-min-j @ out)
          ([(!! j jx_buf x x_j)]                      ; let x_j = x[j];
           [(!! x i L j x_j mult)]                    ; x[i] := L[i][j] * x_j;
           [(!! j-en j i-min-j i)]))]                 ; j := j + 1;
@@ -118,9 +115,10 @@
       ))]
   [(mem-print x)])
 
-(define fn (benchmark-data-path "linear-algebra-trisolv.data"))
+;; (define fn (benchmark-data-path "linear-algebra-trisolv.data"))
 
-(void
- (compute
-  (main) '((n . 9))
-  #:memory (json->memory fn)))
+;; (void
+;;  (compute
+;;   (main) '((n . 9))
+;;   #:memory (json->memory fn)))
+(parse-cmdline (main))

@@ -70,22 +70,22 @@
 
    [j1 @ out -> y @ addr])
   [(!! N0 i0 i0-en)]                                  ; init i = 0..N
-  [(while (i0 stop)
+  [(while (i0 @ stop)
      ([(!! i0 y-data y)]                              ; y[i] := 0.0
       [(!! i0 i0-en)]))]                              ; i++
 
   [(!! M0 i1 i1-en)]                                  ; init i = 0..M
-  [(while (i1 stop)
+  [(while (i1 @ stop)
      ([(!! tmp i1 tmp-data)]                          ; tmp[i] := 0.0
 
       [(!! N1 j0 j0-en)]                              ; init j = 0..N
-      [(while (j0 stop)
+      [(while (j0 @ stop)
          ([(!! tmp-t tmp i1)]                         ; let t = tmp[i]
           [(!! tmp i1 tmp-t add add-buf A j0 mult x)] ; tmp[i] := t + A[i][j] * x[j]
           [(!! j0 j0-en)]))]                          ; j++
 
       [(!! N2 j1 j1-en)]                              ; init j = 0..N
-      [(while (j1 stop)
+      [(while (j1 @ stop)
          ([(!! y-y0 y j1)]                            ; let y0 = y[j]
           [(!! y j1 y-y0 add A i1 mult tmp tmp-buf)]  ; y[j] := y0 + A[i][j] * tmp[i]
           [(!! j1 j1-en)]))]                          ; j++

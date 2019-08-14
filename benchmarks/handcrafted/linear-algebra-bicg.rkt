@@ -1,6 +1,6 @@
 #lang racket/base
 
-(require "../src/futil.rkt" "../src/cmdline.rkt")
+(require futil)
 
 ;; (generate-json
 ;;  "linear-algebra-bicg.data"
@@ -74,16 +74,16 @@
    [add2 @ out -> q @ data-in])
   [(!! N N-val M M-val)]
   [(!! i i-en M)]                                  ; let i = 0..M
-  [(while (i stop)
+  [(while (i @ stop)
      ([(!! s i i-buf s-data)]                      ; s[i] := 0
       [(!! i i-en)]))]                             ; i++
 
   [(!! i i-en N)]                                  ; let i = 0..N
-  [(while (i stop)
+  [(while (i @ stop)
      ([(!! q q-en i q-data)]                       ; q[i] := 0
 
       [(!! j j-en M)]                              ; let j = 0..M
-      [(while (j stop)
+      [(while (j @ stop)
          ([(!! s0 s j                              ; let s0 = s[j]
                q0 q i                              ; let q0 = q[i]
                A_i_j A i j)]                       ; let A_i_j = A[i][j]

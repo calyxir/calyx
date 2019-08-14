@@ -103,14 +103,12 @@
                                       (lambda (j) (proc `(,i . ,j))))))))))
   (syntax-parse stx
     [(_ fn type:gen-type phrase:phrase ...)
-     #'(when (= 0 (vector-length (current-command-line-arguments)))
-         (with-output-to-file fn
-           #:mode 'text
-           #:exists 'replace
-           (lambda ()
-             (display-json
-              (hash-union (phrase.obj type.fun) ...
-                          #:combine/key (lambda (k v0 v1)
-                                          (error (format "~v was in multple phrases!" k))))
-              ))))
+     #'(with-output-to-file fn
+         #:mode 'text
+         #:exists 'replace
+         (lambda ()
+           (display-json
+            (hash-union (phrase.obj type.fun) ...
+                        #:combine/key (lambda (k v0 v1)
+                                        (error (format "~v was in multple phrases!" k)))))))
      ]))
