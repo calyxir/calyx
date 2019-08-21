@@ -1,0 +1,65 @@
+// Macro definitions start
+
+define(NI, 8)
+define(NJ, 8)
+define(NK, 8)
+define(NL, 8)
+define(NM, 8)
+define(DATATYPE, float)
+
+// Macro definition end
+import "printer.cpp" {
+  def  extern print_vec_2d(v: DATATYPE[NI][NI]);
+}
+
+decl E: DATATYPE[NI][NJ];
+decl A: DATATYPE[NI][NK];
+decl B: DATATYPE[NK][NJ];
+decl F: DATATYPE[NJ][NL];
+decl C: DATATYPE[NJ][NM];
+decl D: DATATYPE[NM][NL];
+decl G: DATATYPE[NI][NL];
+
+
+for (let i = 0..NI) {
+  for (let j = 0..NJ) {
+    E[i][j] := 0.0;
+    ---
+    for (let k = 0..NK) {
+      let v = A[i][k] * B[k][j]
+    } combine {
+      E[i][j] += v;
+    }
+  }
+}
+
+for (let i = 0..NJ) {
+  for (let j = 0..NL) {
+    F[i][j] := 0.0;
+    ---
+    for (let k = 0..NJ) {
+      let v = C[i][k] * D[k][j]
+    } combine {
+      F[i][j] += v;
+    }
+  }
+}
+
+---
+
+for (let i = 0..NI) {
+  for (let j = 0..NL) {
+    G[i][j] := 0.0;
+    ---
+    for (let k = 0..NJ) {
+      let v = E[i][k] * F[k][j]
+    } combine {
+      G[i][j] += v;
+    }
+  }
+}
+
+---
+print_vec_2d(E);
+print_vec_2d(F);
+print_vec_2d(G);

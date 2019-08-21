@@ -1,0 +1,18 @@
+#lang racket/base
+(require futil)
+
+(generate-json
+ "linear-algebra-gemver.json"
+ (random 1 50)
+ (alpha)
+ (beta)
+ (A 8 8)
+ (u1 8)
+ (v1 8)
+ (u2 8)
+ (v2 8)
+ (w 8)
+ (x 8)
+ (y 8)
+ (z 8))
+

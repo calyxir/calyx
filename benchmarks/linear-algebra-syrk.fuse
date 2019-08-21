@@ -1,0 +1,44 @@
+// BEGIN macro definitions
+
+define(N, 8)
+define(M, 12)
+define(DATATYPE, float)
+
+// END macro definitions
+import "printer.cpp" {
+  def extern print_vec_2d(v: DATATYPE[N][N]);
+}
+
+decl alpha: DATATYPE;
+decl beta: DATATYPE;
+decl C: DATATYPE[N][N];
+decl A: DATATYPE[N][M];
+
+
+for (let i = 0..N) {
+  let j = 0;
+
+  // Originally a for loop
+  while (j <= i) {
+    let C_i_j = C[i][j];
+    ---
+    C[i][j] := C_i_j * beta;
+    // Update loop counter
+    j := j + 1;
+  }
+  ---
+  for (let k = 0..M) {
+    let j2 = 0;
+    while (j2 <= i) {
+      let C_i_j = C[i][j];
+      let A_i_k = A[i][k];
+      ---
+      C[i][j] := alpha * A_i_k * A[j][k] + C_i_j;
+      // Update loop counter
+      j2 := j2 + 1;
+    }
+  }
+}
+
+---
+print_vec_2d(C);

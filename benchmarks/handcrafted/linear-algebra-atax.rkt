@@ -21,18 +21,26 @@
    [add = new comp/add]
    [mult = new comp/mult]
 
-   [i0 = new comp/counter-up]
-   [const N0 8 : 32 -> i0 @ in]
+   [i0 = new comp/iterator]
+   [const i0-start 0 : 32 -> i0 @ start]
+   [const i0-incr 1 : 32 -> i0 @ incr]
+   [const N0 8 : 32 -> i0 @ end]
    [const i0-en 1 : 32 -> i0 @ en]
    [const y-data 0 : 32 -> y @ data-in]
+   [i0-viz = new comp/id]
+   [i0 @ stop -> i0-viz @ in]
    [i0 @ out -> y @ addr]
 
-   [i1 = new comp/counter-up]
-   [const M0 8 : 32 -> i1 @ in]
+   [i1 = new comp/iterator]
+   [const i1-start 0 : 32 -> i1 @ start]
+   [const i1-incr 1 : 32 -> i1 @ incr]
+   [const M0 8 : 32 -> i1 @ end]
    [const i1-en 1 : 32 -> i1 @ en]
 
-   [j0 = new comp/counter-up]
-   [const N1 8 : 32 -> j0 @ in]
+   [j0 = new comp/iterator]
+   [const j0-start 0 : 32 -> j0 @ start]
+   [const j0-incr 1 : 32 -> j0 @ incr]
+   [const N1 8 : 32 -> j0 @ end]
    [const j0-en 1 : 32 -> j0 @ en]
 
    [tmp-t = new comp/reg]
@@ -45,8 +53,10 @@
    [add @ out -> add-buf @ in]
    [add-buf @ out -> tmp @ data-in]
 
-   [j1 = new comp/counter-up]
-   [const N2 8 : 32 -> j1 @ in]
+   [j1 = new comp/iterator]
+   [const j1-start 0 : 32 -> j1 @ start]
+   [const j1-incr 1 : 32 -> j1 @ incr]
+   [const N2 8 : 32 -> j1 @ end]
    [const j1-en 1 : 32 -> j1 @ en]
    [y-y0 = new comp/reg]
    [y @ out -> y-y0 @ in]
@@ -69,22 +79,22 @@
    [j0 @ out -> x @ addr]
 
    [j1 @ out -> y @ addr])
-  [(!! N0 i0 i0-en)]                                  ; init i = 0..N
+  [(!! i0-start i0-incr N0 i0 i0-en)]                 ; init i = 0..N
   [(while (i0 @ stop)
      ([(!! i0 y-data y)]                              ; y[i] := 0.0
       [(!! i0 i0-en)]))]                              ; i++
 
-  [(!! M0 i1 i1-en)]                                  ; init i = 0..M
+  [(!! i1-start i1-incr M0 i1 i1-en)]                 ; init i = 0..M
   [(while (i1 @ stop)
      ([(!! tmp i1 tmp-data)]                          ; tmp[i] := 0.0
 
-      [(!! N1 j0 j0-en)]                              ; init j = 0..N
+      [(!! j0-start j0-incr N1 j0 j0-en)]             ; init j = 0..N
       [(while (j0 @ stop)
          ([(!! tmp-t tmp i1)]                         ; let t = tmp[i]
           [(!! tmp i1 tmp-t add add-buf A j0 mult x)] ; tmp[i] := t + A[i][j] * x[j]
           [(!! j0 j0-en)]))]                          ; j++
 
-      [(!! N2 j1 j1-en)]                              ; init j = 0..N
+      [(!! j1-start j1-incr N2 j1 j1-en)]             ; init j = 0..N
       [(while (j1 @ stop)
          ([(!! y-y0 y j1)]                            ; let y0 = y[j]
           [(!! y j1 y-y0 add A i1 mult tmp tmp-buf)]  ; y[j] := y0 + A[i][j] * tmp[i]
@@ -92,7 +102,7 @@
 
       [(!! i1 i1-en)])                                ; i++
      )]
-
+  [(mem-print tmp)]
   [(mem-print y)])
 
 (parse-cmdline (main))

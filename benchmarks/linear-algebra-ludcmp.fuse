@@ -1,0 +1,94 @@
+// BEGIN macro definitions
+
+define(N, 8)
+define(DATATYPE, float)
+
+// END macro definitions
+import "printer.cpp" {
+  def extern print_vec_2d(v: DATATYPE[N][N]);
+  def extern print_vec(v: DATATYPE[N]);
+}
+
+decl A: DATATYPE[N][N];
+decl b: DATATYPE[N];
+decl x: DATATYPE[N];
+decl y: DATATYPE[N];
+
+let w: DATATYPE = 0.0;
+
+for (let i = 0..N) {
+  let j = 0;
+  while(j < i) {
+    w := A[i][j];
+    ---
+    let k = 0;
+    while(k < j) {
+      let A_i_k = A[i][k];
+      ---
+      w := w - A_i_k * A[k][j];
+
+      // Update loop counter
+      k := k + 1;
+    }
+    ---
+    let A_j_j = A[j][j];
+    ---
+    A[i][j] := w / A_j_j;
+
+    // Update loop counter
+    j := j + 1;
+  }
+  ---
+
+  let j2: bit<4> = i;
+  while(j < N) {
+    w := A[i][j];
+    ---
+    let k = 0;
+    while (k < i) {
+      let A_i_k = A[i][k];
+      ---
+      w := w - A_i_k * A[k][j];
+      // Update loop counter
+      k := k + 1;
+    }
+    ---
+    A[i][j] := w;
+
+    // Update loop counter
+    j2 := j2 + 1;
+  }
+}
+---
+for (let i = 0..N) {
+  w := b[i];
+
+  let j = 0;
+  while (j < i) {
+    w := w - A[i][j] * y[j];
+    // Update loop counter
+    j := j + 1;
+  }
+  ---
+  y[i] := w;
+}
+---
+// This loop has been reversed.
+for (let i = 0..N) {
+  w := y[N - i];
+  ---
+  let j = N - i + 1;
+  while (j < N) {
+    w := w - A[N - i][j] * x[j];
+
+    // Update loop counter
+    j := j + 1;
+  }
+  ---
+  x[N - i] := w / A[N - i][N - i];
+}
+
+---
+print_vec(x);
+print_vec(y);
+print_vec_2d(A);

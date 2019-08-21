@@ -41,10 +41,29 @@
     (list (port 'in 32))
     (list (port 'out 32))
     (keyword-lambda (mem-val# in) ()
-                    [out => (if in in mem-val#)])
+                    [out => mem-val#])
     #:memory-proc (lambda (old st)
                     (define new-v (hash-ref st 'in))
                     (if new-v new-v old))
+    #:time-increment 1))
+
+(define (comp/res-reg)
+  (default-component
+    'res-reg
+    (list (port 'in 32)
+          (port 'res 32))
+    (list (port 'out 32))
+    (keyword-lambda (mem-val# in res) ()
+                    [out =>
+                         (if res
+                             #f
+                             (if in in mem-val#))])
+    #:memory-proc (lambda (old st)
+                    (define new-v (hash-ref st 'in))
+                    (define res (hash-ref st 'res))
+                    (if res
+                        #f
+                        (if new-v new-v old)))
     #:time-increment 1))
 
 (define (comp/memory1d)
@@ -76,7 +95,9 @@
     (list (port 'out 32))
     (keyword-lambda (mem-val# addr1 addr2 data-in)
                     ([mem = (if (hash? mem-val#) mem-val# (make-immutable-hash))]
-                     [addr = (~a addr1 'x addr2)])
+                     ;; [addr = (~a addr1 'x addr2)]
+                     [addr = (cons addr1 addr2)]
+                     )
                     [out => (if data-in
                                 data-in
                                 (hash-ref mem addr
@@ -86,7 +107,8 @@
                            [addr1 (hash-ref st 'addr1)]
                            [addr2 (hash-ref st 'addr2)]
                            [data-in (hash-ref st 'data-in)]
-                           [addr (~a addr1 'x addr2)])
+                           ;; [addr (~a addr1 'x addr2)]
+                           [addr (cons addr1 addr2)])
                       (if (and data-in addr1 addr2)
                           (hash-set hsh addr data-in)
                           hsh)))))
@@ -109,6 +131,13 @@
 (define (comp/and) (simple-binop 'and bitwise-and))
 (define (comp/or) (simple-binop 'or bitwise-ior))
 (define (comp/xor) (simple-binop 'xor bitwise-xor))
+(define (comp/sqrt)
+  (default-component
+    'sqrt
+    (list (port 'in 32))
+    (list (port 'out 32))
+    (keyword-lambda (in) ()
+                    [out => (if in (sqrt in) #f)])))
 
 (define (magic/mux)
   (default-component
@@ -122,56 +151,49 @@
                                 left
                                 right)])))
 
-(define/module comp/counter-down ((in : 32) (en : 32)) ((out : 32) (stop : 32))
-  ([sub = new comp/trunc-sub]
-   [reg = new comp/reg]
-   [con = new comp/id]
-   [dis = new comp/id]
-   [in -> sub @ left]
-   [const decr 1 : 32 -> sub @ right]
-   [sub @ out -> reg @ in]
-   [sub @ out -> out]
-   [reg @ out -> con @ in]
-   [reg @ out -> dis @ in]
-   [dis @ out -> out]
-   [con @ out -> sub @ left]
+(define/module and3way ((a : 32) (b : 32) (c : 32)) ((out : 32))
+  ([const en 1 : 32 -> out])
+  [(ifen (a)
+         ([(ifen (b)
+                 ([(ifen (c)
+                         ([(!! en out)])
+                         ())])
+                 ())])
+         ())])
 
-   [sub+1 = new comp/trunc-sub]
+(define/module comp/iterator
+  ((start : 32) (incr : 32) (end : 32) (en : 32))
+  ((out : 32) (stop : 32))
+  ([incr-reg = new comp/reg]
+   [end-reg = new comp/reg]
    [add = new comp/add]
-   [reg1 = new comp/reg]
-   [con1 = new comp/id]
-   [dis1 = new comp/id]
+   [cmp = new comp/trunc-sub]
 
-   [in -> add @ left]
-   [const a 1 : 32 -> add @ right]
-   [add @ out -> sub+1 @ left]
-   [const decr1 1 : 32 -> sub+1 @ right]
-   [sub+1 @ out -> reg1 @ in]
-   [sub+1 @ out -> stop]
-   [reg1 @ out -> con1 @ in]
-   [reg1 @ out -> dis1 @ in]
-   [dis1 @ out -> stop]
-   [con1 @ out -> sub+1 @ left])
+   [ins-and = new and3way]
+   [start -> ins-and @ a]
+   [incr -> ins-and @ b]
+   [end -> ins-and @ c]
+
+   [incr -> incr-reg @ in]
+   [end -> end-reg @ in]
+
+   [val-reg = new comp/res-reg]
+   [const res-val 1 : 32 -> val-reg @ res]
+
+   [const add-zero 0 : 32 -> add @ right]
+   [start -> add @ left]
+   [incr-reg @ out -> add @ right]
+   [add @ out -> val-reg @ in]
+   [val-reg @ out -> add @ left]
+   [add @ out -> out]
+   [end-reg @ out -> cmp @ left]
+   [add @ out -> cmp @ right]
+   [cmp @ out -> stop])
+  [(!! start incr end ins-and)]
   [(ifen (en)
-         ([(ifen (in)
-                 ([(con dis con1 dis1)])
-                 ([(dis dis1)]))])
-         ([(!! reg dis out reg1 dis1 stop)]))])
-
-(define/module comp/counter-up ((in : 32) (en : 32)) ((out : 32) (stop : 32))
-  ([counter = new comp/counter-down]
-   [store-n = new comp/reg]
-   [sub = new comp/trunc-sub]
-
-   [en -> counter @ en]
-   [in -> counter @ in]
-   [in -> store-n @ in]
-
-   [store-n @ out -> sub @ left]
-   [counter @ stop -> sub @ right]
-   [sub @ out -> out]
-   [counter @ stop -> stop])
-  [(ifen (in)
-         ([(!! en in store-n counter)]
-          [(en in sub)])
-         ([]))])
+         ([(ifen (ins-and @ out)
+                 ([(!! res-val val-reg)]
+                  [(!! start incr end incr-reg end-reg)]
+                  [(incr incr-reg end res-val)])
+                 ([(add-zero start incr end res-val)]))])
+         ([(start incr incr-reg end res-val)]))])

@@ -7,7 +7,7 @@ define(DATATYPE, float)
 // END macro definitions
 
 import "printer.cpp" {
-  def extern print_float_vec(c: float[N]);
+  def extern print_vec(c: DATATYPE[N]);
 }
 
 decl A: DATATYPE[N][M];
@@ -36,5 +36,5 @@ for (let i = 0..N) {
 }
 
 ---
-print_float_vec(s);
-print_float_vec(q);
+print_vec(s);
+print_vec(q);

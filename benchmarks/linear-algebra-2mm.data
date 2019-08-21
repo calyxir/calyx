@@ -1,0 +1,13 @@
+#lang racket/base
+(require futil)
+
+(generate-json
+ "linear-algebra-2mm.json"
+ (random 1 50)
+ (alpha)
+ (beta)
+ (tmp 8 8)
+ (A 8 8)
+ (B 8 8)
+ (C 8 8)
+ (D 8 8))

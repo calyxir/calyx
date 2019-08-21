@@ -1,0 +1,9 @@
+#lang racket/base
+(require futil)
+
+(generate-json
+ "linear-algebra-doitgen.json"
+ (random 1 50)
+ (A 8 8 8)
+ (C4 8 8)
+ (sum 8))

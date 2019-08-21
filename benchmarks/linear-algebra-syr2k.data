@@ -1,0 +1,11 @@
+#lang racket/base
+(require futil)
+
+(generate-json
+ "linear-algebra-syr2k.json"
+ (random 1 50)
+ (alpha)
+ (beta)
+ (C 12 12)
+ (A 12 8)
+ (B 12 8))

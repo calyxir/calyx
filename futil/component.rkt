@@ -38,6 +38,8 @@
                    memory-proc
                    ;; time increment
                    time-increment
+                   ;; flag for whether this module was built in futil
+                   constructed
                    ;; graph representing internal connections
                    graph))
 
@@ -57,6 +59,7 @@
                              (keyword-lambda (inf#) () [inf# => inf#])
                              (lambda (old st) #f)
                              0
+                             #f
                              (empty-graph)))
 
 ;; creates a component with a single infinite input port of width w
@@ -71,6 +74,7 @@
                               (keyword-lambda (inf#) () [inf# => inf#])
                               (lambda (old st) #f)
                               0
+                              #f
                               (empty-graph)))
 
 (define (transform-control control) control)
@@ -86,7 +90,8 @@
           #:control [control #f]
           #:memory-proc [memory-proc
                          (lambda (old st) #f)]
-          #:time-increment [time-increment 0])
+          #:time-increment [time-increment 0]
+          #:constructed [constructed #f])
   (let ([htbl (make-hash)]
         [g (empty-graph)])
     (for-each (lambda (p) ; p is a port
@@ -107,6 +112,7 @@
      proc
      memory-proc
      time-increment
+     constructed
      g)))
 
 (define (make-constant n width)
@@ -148,8 +154,8 @@
 (define (connect! comp src src-portname tar tar-portname)
   (let* ([src-submod (get-submod! comp src)]
          [tar-submod (get-submod! comp tar)]
-         [src-port (name->port src-portname (component-outs src-submod))]
-         [tar-port (name->port tar-portname (component-ins tar-submod))])
+         [src-port (name->port (component-name comp) src-portname (component-outs src-submod))]
+         [tar-port (name->port (component-name comp) tar-portname (component-ins tar-submod))])
     (if (= (port-width src-port) (port-width tar-port))
         (begin
           (consume-out! src-submod src-port)
@@ -166,12 +172,12 @@
     (hash-set! (component-submods comp)
                name2
                (make-comp (- (port-width port) split-pt))))
-  (cond [(name->port name (component-ins comp))
+  (cond [(name->port (component-name comp) name (component-ins comp))
          => (lambda (p)
               (help p input-component)
               (hash-set! (component-splits comp) name1 name)
               (hash-set! (component-splits comp) name2 name))]
-        [(name->port name (component-outs comp))
+        [(name->port (component-name comp) name (component-outs comp))
          => (lambda (p)
               (help p output-component)
               (hash-set! (component-splits comp) name1 name)

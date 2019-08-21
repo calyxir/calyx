@@ -102,6 +102,8 @@
                                       (seq-comp (list body.item ...))))
     (pattern (mem-print sym)
              #:with val #'(mem-print 'sym))
+    (pattern (c:constraint ...+)
+             #:with val #'(seq-comp (list c.item ...)))
     (pattern (!! x ...)
              #:with val #'(act-stmt (list 'x ...)))
     (pattern (x ...)
@@ -129,7 +131,8 @@
                       (list (port 'i1.name i1.width) ...)
                       (list (port 'o1.name o1.width) ...)
                       (gen-proc name (i1.name ...) (o1.name ...))
-                      #:control (seq-comp (list constraint.item ...)))])
+                      #:control (seq-comp (list constraint.item ...))
+                      #:constructed #t)])
              (stmt.fun c) ...
              c))
          (void (name)))]))

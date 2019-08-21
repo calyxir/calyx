@@ -6,3 +6,5 @@ README.html
 *.cpp
 benchmarks/_headers/
 *.pre
+*.out
+*.run*

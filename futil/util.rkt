@@ -18,15 +18,21 @@
 ;; debugging stuffs
 (define should-print-debug? (make-parameter #f))
 
-(define-syntax-rule (debug fmt v ...)
+(define-syntax-rule (debug prfx v ...)
   (begin
     (when (should-print-debug?)
-      (pretty-display (format fmt v ...)))
+      (display prfx)
+      (pretty-print v) ...)
     (values v ...)))
 
 (define-syntax-rule (show-debug body ...)
   (parameterize ([should-print-debug? #t])
     body ...))
+
+(define (type-or-default f? v def)
+  (if (f? v)
+      v
+      def))
 
 ;; (define-logger base)
 ;; (define-logger worklist #:parent base-logger)

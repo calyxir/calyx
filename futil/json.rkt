@@ -23,7 +23,7 @@
 (define (convert-2darray lst)
   (foldl (lambda (l i acc)
            (foldl (lambda (x j acc)
-                    (hash-set acc (~a i 'x j) x))
+                    (hash-set acc (cons i j) x))
                   acc
                   l
                   (build-list (length l) values)))
@@ -50,33 +50,42 @@
                        [else v]))
                `(,k . ,(mem-tuple v-p (hash)))))))
 
-;; crude json formatting
 (define (format-list l)
-  (define (format-1d l)
-    (string-join (map (lambda (x) (~a x)) l)
-                 ","
-                 #:before-first "["
-                 #:after-last "]"))
-  (if (list-2d? l)
-      (string-join (map (lambda (x)
-                          (format-1d x))
-                        l)
+  (if (not (list? (car l)))
+      (string-join (map ~a l)
+                   ","
+                   #:before-first "["
+                   #:after-last "]")
+      (string-join (map format-list l)
                    ",\n"
                    #:before-first "["
-                   #:after-last "]"
-                   )
-      (format-1d l)))
+                   #:after-last "]")))
+
+;; crude json formatting
+(define (format-data d)
+  (if (number? d)
+      d
+      (format-list d)))
 
 (define (display-json json)
   (display
    (string-join
     (hash-map json
               (lambda (k v)
-                (format "\"~a\": ~a" k (format-list v))))
+                (format "\"~a\": ~a" k (format-data v))))
     ",\n"
     #:before-first "{\n"
     #:after-last "\n}")))
 
+(require threading)
+
+(define (create-list dim-lst proc)
+  (cond [(empty? dim-lst) (error "Can't create a zero-dimensional list")]
+        [(= (length dim-lst) 1)
+         (build-list (car dim-lst) proc)]
+        [else
+         (build-list (car dim-lst)
+                     (lambda (v) (create-list (cdr dim-lst) proc)))]))
 
 ;; syntax for json creation
 (define-syntax (generate-json stx)
@@ -89,18 +98,11 @@
              #:with fun #'(lambda (v) 0)))
 
   (define-syntax-class phrase
-    (pattern (x:id dim)
+    (pattern (x:id)
              #:with obj #'(lambda (proc)
-                            (hash 'x (build-list dim proc))))
-    (pattern (x:id i-dim j-dim)
-             #:with obj #'(lambda (proc)
-                            (hash 'x
-                                  (build-list
-                                   i-dim
-                                   (lambda (i)
-                                     (build-list
-                                      j-dim
-                                      (lambda (j) (proc `(,i . ,j))))))))))
+                            (hash 'x (proc 0))))
+    (pattern (x:id dim ...+)
+             #:with obj #'(lambda (proc) (hash 'x (create-list (list dim ...) proc)))))
   (syntax-parse stx
     [(_ fn type:gen-type phrase:phrase ...)
      #'(with-output-to-file fn

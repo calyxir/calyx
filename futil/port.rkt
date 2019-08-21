@@ -21,10 +21,10 @@
 (define (find-port p lst)
   (findf (lambda (x) (equal? x p)) lst))
 
-(define (name->port name lst)
+(define (name->port comp-name name lst)
   (define res (findf (lambda (x) (equal? (port-name x) name)) lst))
   (when (not res)
-    (error 'name->port "Could not find port ~v in ~v" name (map port-name lst)))
+    (error 'name->port "Could not find port ~v in ~v ports: ~v" name comp-name (map port-name lst)))
   res)
 
 (define (split-port-ok? p pt)
