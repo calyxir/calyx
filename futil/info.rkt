@@ -4,7 +4,8 @@
 (define build-deps '("scribble-lib"
                      "racket-doc"
                      "rackunit-lib"
-                     "graph"
+                     "gui-lib"
+                     "graph-lib"
                      "threading-lib"))
 ;; (define scribblings '(("scribblings/futil.scrbl" ())))
 (define pkg-desc "Description Here")
