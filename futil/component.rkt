@@ -9,6 +9,7 @@
          "util.rkt")
 
 (provide (struct-out component)
+         (struct-out blocked)
          transform-control
          input-component
          output-component
@@ -42,6 +43,9 @@
                    constructed
                    ;; graph representing internal connections
                    graph))
+
+;; structure for blocked values
+(struct blocked (dirty clean) #:transparent)
 
 ;; creates a default component given a name for the component,
 ;; a list of input port names, and a list of output port names

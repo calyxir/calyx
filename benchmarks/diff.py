@@ -3,7 +3,7 @@
 import sys
 
 def approxeq(a, b):
-    return "{:.5g}".format(a) == "{:.5g}".format(b)
+    return float("{:.3g}".format(a)) == float("{:.3g}".format(b))
 
 def main():
     filenameA = sys.argv[1]
@@ -15,12 +15,15 @@ def main():
             cleanB = list(map(lambda x: x.strip(), fileB.readlines()))
             pad = 5
             valWidth = max(map(lambda x: len(x), list(cleanA) + list(cleanB))) + pad
-            idxWidth = len(str(max(len(cleanA), len(cleanB))))
+            if len(cleanA) != len(cleanB): exit(-1)
+            idxWidth = len(str(len(cleanA)))
             failed = False
             for (i, (a, b)) in enumerate(zip(cleanA, cleanB)):
                 if not(approxeq(float(a), float(b))):
                     failed = True
-                    print("{}: {}|{}".format(str(i).ljust(idxWidth), a.ljust(valWidth), b.rjust(valWidth)))
+                    print("{}: {}|{}".format(str(i).ljust(idxWidth),
+                                             a.ljust(valWidth),
+                                             b.rjust(valWidth)))
     if failed: exit(-1)
 
 if __name__ == "__main__":

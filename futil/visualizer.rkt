@@ -87,9 +87,10 @@
                      (add-links parent child)
                      (let* ([u (send parent get-value)]
                             [v (send child get-value)]
+                            [w (edge-weight g u v)]
                             [label (~a (cond
-                                         [(equal? +inf.0 (edge-weight g u v)) ""]
-                                         [(number? (edge-weight g u v)) (edge-weight g u v)]
+                                         [(equal? +inf.0 w) ""]
+                                         [(number? w) w]
                                          [else "**"]))])
                        (cond
                          [(has-edge? g u v)

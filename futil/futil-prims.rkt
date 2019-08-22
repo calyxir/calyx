@@ -41,11 +41,12 @@
     (list (port 'in 32))
     (list (port 'out 32))
     (keyword-lambda (mem-val# in) ()
-                    [out => mem-val#])
+                    [out => (if in
+                                (blocked in mem-val#)
+                                mem-val#)])
     #:memory-proc (lambda (old st)
                     (define new-v (hash-ref st 'in))
-                    (if new-v new-v old))
-    #:time-increment 1))
+                    (if new-v new-v old))))
 
 (define (comp/res-reg)
   (default-component
@@ -56,15 +57,14 @@
     (keyword-lambda (mem-val# in res) ()
                     [out =>
                          (if res
-                             #f
-                             (if in in mem-val#))])
+                             (if in (blocked #f #f) #f)
+                             (if in (blocked in mem-val#) (blocked mem-val# mem-val#)))])
     #:memory-proc (lambda (old st)
                     (define new-v (hash-ref st 'in))
                     (define res (hash-ref st 'res))
                     (if res
                         #f
-                        (if new-v new-v old)))
-    #:time-increment 1))
+                        (if new-v new-v old)))))
 
 (define (comp/memory1d)
   (default-component
@@ -73,11 +73,11 @@
           (port 'data-in 32))
     (list (port 'out 32))
     (keyword-lambda (mem-val# addr data-in)
-                    ([mem = (if (hash? mem-val#) mem-val# (make-immutable-hash))])
+                    ([mem = (if (hash? mem-val#) mem-val# (make-immutable-hash))]
+                     [val = (hash-ref mem addr (lambda () #f))])
                     [out => (if data-in
-                                data-in
-                                (hash-ref mem addr
-                                          (lambda () #f)))])
+                                (blocked data-in val)
+                                val)])
     #:memory-proc (lambda (old st)
                     (let* ([hsh (if (hash? old) old (make-immutable-hash))]
                            [data-in (hash-ref st 'data-in)]
@@ -95,13 +95,11 @@
     (list (port 'out 32))
     (keyword-lambda (mem-val# addr1 addr2 data-in)
                     ([mem = (if (hash? mem-val#) mem-val# (make-immutable-hash))]
-                     ;; [addr = (~a addr1 'x addr2)]
                      [addr = (cons addr1 addr2)]
-                     )
+                     [val = (hash-ref mem addr (lambda () #f))])
                     [out => (if data-in
-                                data-in
-                                (hash-ref mem addr
-                                          (lambda () #f)))])
+                                (blocked data-in val)
+                                val)])
     #:memory-proc (lambda (old st)
                     (let* ([hsh (if (hash? old) old (make-immutable-hash))]
                            [addr1 (hash-ref st 'addr1)]
@@ -137,7 +135,7 @@
     (list (port 'in 32))
     (list (port 'out 32))
     (keyword-lambda (in) ()
-                    [out => (if in (sqrt in) #f)])))
+                    [out => (if in (real-part (sqrt in)) #f)])))
 
 (define (magic/mux)
   (default-component

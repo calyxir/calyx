@@ -133,7 +133,6 @@
                   out)
         (display out))))
 
-
 ;; create an empty state for the given component
 (define (empty-hash comp)
   (define sub-outs
@@ -161,8 +160,6 @@
           [_ (error "Expected list of tuples")])
         lst)))
 
-(struct blocked () #:transparent)
-
 ;; takes comp, inputs to a submodule named 'name and renames them
 ;; to the ports of 'name that the inputs are connected to
 (define (transform comp inputs name)
@@ -183,7 +180,7 @@
                   (define filt-neighs-vals
                     (filter-map (lambda (x)
                                   (match (hash-ref inputs x)
-                                    [(blocked) #f]
+                                    [(blocked dirt clean) clean]
                                     [v v]))
                                 neighs))
                   (define neighs-val
@@ -198,7 +195,7 @@
                           (filter-map
                            (lambda (x)
                              (match (hash-ref inputs x)
-                               [(blocked) #f]
+                               [(blocked _ _) #f]
                                [#f #f]
                                [_ x]))
                            neighs))]))
@@ -226,8 +223,14 @@
   ;; trans is of the form (((sub . port) . val) ...)
   ;; change to ((port . val) ...)
   (define in-vals
-    (make-immutable-hash
-     (hash-map trans-p (lambda (k v) `(,(cdr k) . ,v)))))
+    (~> (hash-map trans-p
+                  (lambda (k v)
+                    (define v-p
+                      (match v
+                        [(blocked dirt clean) clean]
+                        [_ v]))
+                    `(,(cdr k) . ,v-p)))
+        make-immutable-hash))
 
   ;; add sub-memory and memory value to in-vals
   (define in-vals-p (hash-set* in-vals
@@ -284,17 +287,19 @@
                                    `(,k . #f)
                                    `(,k . ,v)))))]))
 
-  (define (block dirty-state)
-    (~> (hash-map dirty-state
-                  (lambda (k v)
-                    `(,k . ,(blocked))))
-        (debug "blocked: " _)
-        make-immutable-hash))
+  ;; (define (block dirty-state)
+  ;;   (~> (hash-map dirty-state
+  ;;                 (lambda (k v)
+  ;;                   `(,k . ,(blocked))))
+  ;;       (debug "blocked: " _)
+  ;;       make-immutable-hash))
 
   ;; algorithm that iteratively goes through a list of modules to calculate
   ;; the new state. Does this with a worklist like approach
-  (define (worklist tup todo visited)
+  (define (worklist tup todo visited iter)
     (debug "worklist todo: " todo)
+    (when (> iter 100)
+      (error 'worklist "Executed worklist too many times! There's probably an infinite loop."))
     (cond
       [(empty? todo) tup]
       [else
@@ -309,6 +314,7 @@
        ;;                     `(,k . ,v-p))))
        ;;       make-immutable-hash))
 
+       ;; XXX removed visited
        (struct accum (tup todo visited))
        (match-define (accum acc-tup acc-todo acc-visited)
          (foldl
@@ -322,36 +328,58 @@
               [else
                (match-let*-values
                    ([((accum acc-tup acc-todo acc-visited)) acc]
-                    [(time-incr) (component-time-increment (get-submod! comp name))]
+                    ;; [(time-incr) (component-time-increment (get-submod! comp name))]
                     [(mem-tup) (hash-ref memory name empty-mem-tuple)]
                     [(dbg1) (debug "---- " name)]
                     [(outs mem-tup-p)
                      (submod-compute comp name state mem-tup inputs)]
-                    ;; [(outs)
-                    ;;  (if (or (not (set-member? acc-visited name)) (= 0 time-incr))
-                    ;;      outs
-                    ;;      (old outs))]
-                    [(dbg2) (debug "result: " outs)]
+                    [(outs-p)
+                     outs]
+                    [(dbg2) (debug "result: " outs-p)]
                     [(state-p)
-                     (if (or (not (set-member? acc-visited name)) (= 0 time-incr))
-                         (save-hash-union (ast-tuple-state acc-tup) outs)
-                         (ast-tuple-state acc-tup))]
+                     (save-hash-union (ast-tuple-state acc-tup) outs-p)
+                     ;; (if (or (not (set-member? acc-visited name)) (= 0 time-incr))
+                     ;;     (save-hash-union (ast-tuple-state acc-tup) outs-p)
+                     ;;     (ast-tuple-state acc-tup))
+                     ]
                     [(acc-tup-p)
                      (struct-copy ast-tuple acc-tup
                                   [state state-p])]
                     [(acc-todo-p)
-                     (cond [(or (not (set-member? acc-visited name)) (= 0 time-incr))
-                            (~> (convert-graph comp)
-                                (in-neighbors _ name)
-                                sequence->list
-                                (append acc-todo _)
-                                remove-duplicates)]
-                           [else acc-todo])]
+                     (~> outs-p
+                         hash->list
+                         (filter-not (lambda (x)
+                                       (and
+                                        (set-member? visited name)
+                                        (blocked? (cdr x)))) _) ;; filter out all blocked values
+                         (filter-map (lambda (x)
+                                       (if (has-vertex? (component-graph comp) (car x))
+                                           (in-neighbors (component-graph comp) (car x))
+                                           #f))
+                                     _) ;; get neighbors
+                         (map sequence->list _)
+                         (apply append _)
+                         (filter-not empty? _)
+                         (map car _) ;; remove port names
+                         (debug "todo-p: " _)
+                         (append acc-todo _)
+                         remove-duplicates)
+                     ;; (~> (component-graph comp)
+                     ;;     (in-neighbors _ name)
+                     ;;     sequence->list
+                     ;;     (filter-map (lambda (x)
+                     ;;                   (if (equal? ))
+                     ;;                   ) _)
+                     ;;     (debug "todo-p: " _)
+                     ;;     (append acc-todo _)
+                     ;;     remove-duplicates)
+                     ]
                     [(acc-visited-p) (set-add acc-visited name)])
                  (accum acc-tup-p acc-todo-p acc-visited-p))]))
           (accum tup '() visited)
           todo))
-       (worklist acc-tup acc-todo acc-visited)]))
+       (worklist acc-tup acc-todo acc-visited (add1 iter))]))
+
 
   (define (commit-memory tup order)
     (debug "commit state: " (ast-tuple-state tup))
@@ -377,7 +405,7 @@
 
   ;; stabilize state without saving memory
   (define res
-    (worklist tup order (set)))
+    (worklist tup order (set) 0))
 
   ;; if toplevel, do a single pass saving memory
   (define res2
@@ -385,7 +413,7 @@
         (commit-memory res order)
         res))
 
-  (values
+    (values
    (ast-tuple-state res2)
    (ast-tuple-memory res2)))
 
@@ -476,7 +504,15 @@
                                                     [state st]
                                                     [memory mem]))])
          (struct-copy ast-tuple tup
-                      [state st]
+                      [state
+                       (~> (hash-map st
+                                     (lambda (k v)
+                                       (define v-p
+                                         (match v
+                                           [(blocked dirt cln) dirt]
+                                           [_ v]))
+                                       `(,k . ,v-p)))
+                           make-immutable-hash)]
                       [memory mem]))]
       [(act-stmt mods)
        (define mods-p

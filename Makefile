@@ -5,6 +5,7 @@ test:
 
 build:
 	cd futil; raco make main.rkt
+	@echo "done"
 
 install:
 	cd futil; raco pkg install
