@@ -3,6 +3,7 @@
 (require graph
          threading
          racket/hash
+         racket/dict
          racket/list
          racket/match
          "port.rkt"
@@ -94,11 +95,11 @@
   (let ([htbl (make-hash)]
         [g (empty-graph)])
     (for-each (lambda (p) ; p is a port
-                (hash-set! htbl (port-name p) (input-component (port-width p)))
+                (dict-set! htbl (port-name p) (input-component (port-width p)))
                 (add-vertex! g `(,(port-name p) . inf#)))
               ins)
     (for-each (lambda (p)
-                (hash-set! htbl (port-name p) (output-component (port-width p)))
+                (dict-set! htbl (port-name p) (output-component (port-width p)))
                 (add-vertex! g `(,(port-name p) . inf#)))
               outs)
     (component
@@ -138,13 +139,13 @@
   (void))
 
 (define (add-submod! comp name mod)
-  (hash-set! (component-submods comp) name mod))
+  (dict-set! (component-submods comp) name mod))
 (define (get-submod! comp name)
-  (hash-ref (component-submods comp) name))
+  (dict-ref (component-submods comp) name))
 
 (define (add-edge! comp src src-port tar tar-port width)
-  (let ([src-name (hash-ref (component-splits comp) src src)]
-        [tar-name (hash-ref (component-splits comp) tar tar)]
+  (let ([src-name (dict-ref (component-splits comp) src src)]
+        [tar-name (dict-ref (component-splits comp) tar tar)]
         [src-port-name (port-name src-port)]
         [tar-port-name (port-name tar-port)])
     (add-directed-edge!
@@ -170,20 +171,20 @@
   (define (port-eq x y) (equal? (port-name x) (port-name y)))
   (define (help port make-comp)
     (split-port-ok? port split-pt)
-    (hash-set! (component-submods comp) name1 (make-comp split-pt))
-    (hash-set! (component-submods comp)
+    (dict-set! (component-submods comp) name1 (make-comp split-pt))
+    (dict-set! (component-submods comp)
                name2
                (make-comp (- (port-width port) split-pt))))
   (cond [(name->port (component-name comp) name (component-ins comp))
          => (lambda (p)
               (help p input-component)
-              (hash-set! (component-splits comp) name1 name)
-              (hash-set! (component-splits comp) name2 name))]
+              (dict-set! (component-splits comp) name1 name)
+              (dict-set! (component-splits comp) name2 name))]
         [(name->port (component-name comp) name (component-outs comp))
          => (lambda (p)
               (help p output-component)
-              (hash-set! (component-splits comp) name1 name)
-              (hash-set! (component-splits comp) name2 name))]
+              (dict-set! (component-splits comp) name1 name)
+              (dict-set! (component-splits comp) name2 name))]
         [else (error "Port not found in the inputs!")]))
 
 (define (commit-transpose! c)
@@ -202,7 +203,7 @@
         ; NOTE(rachit): plz no
         [(cons (cons u _) (cons (cons v _) _))
          (if vals
-           (add-directed-edge! newg u v (hash-ref vals (car edge)))
+           (add-directed-edge! newg u v (dict-ref vals (car edge)))
            (add-directed-edge! newg u v))]))
     (get-edges g))
   newg)

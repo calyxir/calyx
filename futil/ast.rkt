@@ -103,9 +103,11 @@
     (if (list? out)
         (for-each (lambda (x)
                     (display
-                     (real->decimal-string
-                      (exact->inexact (cdr x))
-                      4))
+                     (with-handlers ([exn:fail:contract?
+                                      (lambda (e) "-nan")])
+                       (real->decimal-string
+                        (exact->inexact (cdr x))
+                        4)))
                     (display "\n"))
                   out)
         (display out))))

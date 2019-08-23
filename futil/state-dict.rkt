@@ -25,7 +25,9 @@
      (map (lambda (x) (proc (car x) (cdr x)))
           (state-dict-v dict)))
    (define (dict->list dict)
-     (state-dict-v dict))]
+     (state-dict-v dict))
+   (define (dict-keys dict)
+     (map car (state-dict-v dict)))]
   #:methods gen:custom-write
   [(define (write-proc state port mode)
      (fprintf port

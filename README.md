@@ -179,9 +179,10 @@ output is disabled.
 ## Visualization
 There is a function `compute` which takes in a module, and a list of inputs and produces
 a list of outputs (as well as some other information).
-For example `(compute (comp/add) '((left . 10) (right . 10)))` computes the sum of 10 and 10.
-You can visualize the results of a computation with by using the function `plot-compute` instead.
-The arguments are the same.
+For example `(compute (comp/add) '((left . 10) (right . 10)) #:toplevel #t)`
+ computes the sum of 10 and 10.
+You can visualize the results of a computation with by using the function 
+`plot-compute` instead. The arguments are the same.
 
 ## Examples
 Building multiplication out of addition. First we need a way of counting down so that
@@ -196,7 +197,7 @@ we can do something `n` times.
    [const decr 1 : 32 -> sub @ right]
    [sub @ out -> out]
    [sub @ out -> reg @ in])
-  [(ifen (in inf#) ([]) ())]
+  [(ifen (in) ([]) ())]
   [(in)])
 ```
 
@@ -225,7 +226,7 @@ lets you see the value coming out of counter in the animation.
    [reg @ out -> add @ left]
    [add @ out -> out])
   []
-  [(while (counter out) ([(b zero)]))])
+  [(while (counter @ out) ([(b zero)]))])
 ```
 
 Result of `(plot-compute (mult) '((a . 7) (b . 8))')`:  

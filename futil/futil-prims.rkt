@@ -44,7 +44,9 @@
     (keyword-lambda (mem-val# in) ()
                     [out => (if in
                                 (blocked in mem-val#)
-                                mem-val#)])
+                                (if mem-val#
+                                    mem-val#
+                                    (blocked #f #f)))])
     #:memory-proc (lambda (old st)
                     (define new-v (dict-ref st 'in))
                     (if new-v new-v old))))
@@ -85,7 +87,10 @@
                            [data-in (dict-ref st 'data-in)]
                            [addr (dict-ref st 'addr)])
                       (if (and addr data-in)
-                          (dict-set hsh addr data-in)
+                          (if (dict-has-key? hsh addr)
+                              (dict-set hsh addr data-in)
+                              (error 'comp/memory1d
+                                     "Address: ~v doesn't exist!" addr))
                           hsh)))))
 
 (define (comp/memory2d)
@@ -107,10 +112,12 @@
                            [addr1 (dict-ref st 'addr1)]
                            [addr2 (dict-ref st 'addr2)]
                            [data-in (dict-ref st 'data-in)]
-                           ;; [addr (~a addr1 'x addr2)]
                            [addr (cons addr1 addr2)])
                       (if (and data-in addr1 addr2)
-                          (dict-set hsh addr data-in)
+                          (if (dict-has-key? hsh addr)
+                              (dict-set hsh addr data-in)
+                              (error 'comp/memory1d
+                                     "Address: ~v doesn't exist!" addr))
                           hsh)))))
 
 (define (comp/trunc-sub)
@@ -124,9 +131,16 @@
                                     [(< x 0) 0]
                                     [else x]))])))
 
+(define (custom-div a b)
+  (if (zero? b)
+      (begin
+        (eprintf "[WARN] You divided by zero! Alas, I shall let it pass.\n")
+        +nan.0)
+      (/ a b)))
+
 (define (comp/add) (simple-binop 'add +))
 (define (comp/sub) (simple-binop 'sub -))
-(define (comp/div) (simple-binop 'div /))
+(define (comp/div) (simple-binop 'div custom-div))
 (define (comp/mult) (simple-binop 'mult *))
 (define (comp/and) (simple-binop 'and bitwise-and))
 (define (comp/or) (simple-binop 'or bitwise-ior))
@@ -138,6 +152,18 @@
     (list (port 'out 32))
     (keyword-lambda (in) ()
                     [out => (if in (real-part (sqrt in)) #f)])))
+(define (comp/lte)
+  (default-component
+    'lte
+    (list (port 'left 32)
+          (port 'right 32))
+    (list (port 'out 32))
+    (keyword-lambda (left right) ()
+                    [out => (if (and left right)
+                                (if (<= left right)
+                                    1
+                                    0)
+                                #f)])))
 
 (define (magic/mux)
   (default-component

@@ -5,7 +5,8 @@
 (require racket/gui/base
          mrlib/graph
          "component.rkt"
-         "ast.rkt")
+         "ast.rkt"
+         "state-dict.rkt")
 (provide plot-compute
          plot-component)
 
@@ -122,7 +123,7 @@
 ;; ==========================
 
 (define (plot-compute comp inputs
-                      #:memory [memory (make-immutable-hash)]
+                      #:memory [memory (empty-state)]
                       #:animate [animate 100])
 
   (define board (new graph-board%))
