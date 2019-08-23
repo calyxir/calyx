@@ -5,6 +5,7 @@ README.html
 *.o
 *.cpp
 benchmarks/_headers/
+benchmarks/*.futil
 *.pre
 *.out
 *.run*

@@ -143,19 +143,20 @@ Consider `[(stmt-1) ...] [(stmt-2) ...] ...`
 The square brackets denote sequential composition while the stmts
 inside the square brackets denote parallel composition. 
 
-There are 4 kinds of control statements.
+There are 4 kinds of control statements. Anywhere you see `(name @ port)`
+can be replaced with just `(name)` to refer the the current modules inputs.
  - Submodule deactivation: `(a b ...)`. This means deactivate
  submodules a, b, ...
- - Valued condition: `(if (name port) (tbranch stmts ...) (fbranch stmts ...))`
+ - Valued condition: `(if (name @ port) (tbranch stmts ...) (fbranch stmts ...))`
  If there is a value on the wire `(name . port)`, then if the value is non-zero
  go into the true branch, otherwise go into the false branch. If there is no value
  on the wire, then this expression does nothing.
- - Enable condition: `(ifen (name port) (tbranch stmts ...) (fbranch stmts ...))`
+ - Enable condition: `(ifen (name @ port) (tbranch stmts ...) (fbranch stmts ...))`
  This conditional statement lets you check if a wire is enabled or disabled. If
  `(name . port)` has a value, then go into the true branch, otherwise go into the
  false branch.
- - While loop: `(while (name port) (body ...))`
- Equivalent to `[(if (name port) ([body] [(while (name port) (body))]) ())]`
+ - While loop: `(while (name @ port) (body ...))`
+ Equivalent to `[(if (name @ port) ([body] [(while (name port) (body))]) ())]`
  Note that this uses a valued conditional rather than the enable condition.
  
 ## Primitives
