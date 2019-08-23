@@ -4,6 +4,7 @@
          "component.rkt"
          "ast.rkt"
          "util.rkt"
+         racket/dict
          racket/format)
 
 (require (for-syntax racket/base
@@ -44,12 +45,13 @@
 (define-syntax-rule (gen-proc name (in ...) (out ...))
   (keyword-lambda (sub-mem# in ...)
                   ([res = (let* ([inputs (list (cons 'in in) ...)]
-                                 [tup (compute (call name) inputs #:memory sub-mem#)])
+                                 [tup (compute (call name) inputs
+                                               #:memory sub-mem#)])
                             (cons
                              (ast-tuple-state tup)
                              (ast-tuple-memory tup)))])
                   [sub-mem# => (cdr res)]
-                  [out => (hash-ref (car res) '(out . inf#))] ...))
+                  [out => (dict-ref (car res) '(out . inf#))] ...))
 
 (define-syntax (define/module stx)
   (define-splicing-syntax-class stmt
@@ -131,8 +133,7 @@
                       (list (port 'i1.name i1.width) ...)
                       (list (port 'o1.name o1.width) ...)
                       (gen-proc name (i1.name ...) (o1.name ...))
-                      #:control (seq-comp (list constraint.item ...))
-                      #:constructed #t)])
+                      #:control (seq-comp (list constraint.item ...)))])
              (stmt.fun c) ...
              c))
          (void (name)))]))

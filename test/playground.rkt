@@ -2,7 +2,8 @@
 
 (require futil)
 
-(compute
- (comp/iterator)
- '((start . 0) (end . 10) (incr . 1) (en . 1))
- )
+(show-debug
+ (compute
+  (comp/iterator)
+  '((start . 0) (end . 10) (incr . 1) (en . 1))
+  ))

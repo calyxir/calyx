@@ -1,5 +1,6 @@
 #lang racket/base
 (require racket/logging
+         racket/dict
          racket/path
          racket/pretty)
 
@@ -11,7 +12,7 @@
                                     ([var = body1 ...] ...)
                                     [kw => body2 ...] ...)
   (lambda (h)
-    (define arg (hash-ref h 'arg)) ...
+    (define arg (dict-ref h 'arg)) ...
     (define var (begin body1 ...)) ...
     (make-immutable-hash `((kw . ,(begin body2 ...)) ...))))
 

@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require racket/format
+         racket/dict
          "component.rkt"
          "port.rkt"
          "util.rkt"
@@ -45,7 +46,7 @@
                                 (blocked in mem-val#)
                                 mem-val#)])
     #:memory-proc (lambda (old st)
-                    (define new-v (hash-ref st 'in))
+                    (define new-v (dict-ref st 'in))
                     (if new-v new-v old))))
 
 (define (comp/res-reg)
@@ -60,8 +61,8 @@
                              (if in (blocked #f #f) #f)
                              (if in (blocked in mem-val#) (blocked mem-val# mem-val#)))])
     #:memory-proc (lambda (old st)
-                    (define new-v (hash-ref st 'in))
-                    (define res (hash-ref st 'res))
+                    (define new-v (dict-ref st 'in))
+                    (define res (dict-ref st 'res))
                     (if res
                         #f
                         (if new-v new-v old)))))
@@ -73,17 +74,17 @@
           (port 'data-in 32))
     (list (port 'out 32))
     (keyword-lambda (mem-val# addr data-in)
-                    ([mem = (if (hash? mem-val#) mem-val# (make-immutable-hash))]
-                     [val = (hash-ref mem addr (lambda () #f))])
+                    ([mem = (if (dict? mem-val#) mem-val# (make-immutable-hash))]
+                     [val = (dict-ref mem addr (lambda () #f))])
                     [out => (if data-in
                                 (blocked data-in val)
                                 val)])
     #:memory-proc (lambda (old st)
-                    (let* ([hsh (if (hash? old) old (make-immutable-hash))]
-                           [data-in (hash-ref st 'data-in)]
-                           [addr (hash-ref st 'addr)])
+                    (let* ([hsh (if (dict? old) old (make-immutable-hash))]
+                           [data-in (dict-ref st 'data-in)]
+                           [addr (dict-ref st 'addr)])
                       (if (and addr data-in)
-                          (hash-set hsh addr data-in)
+                          (dict-set hsh addr data-in)
                           hsh)))))
 
 (define (comp/memory2d)
@@ -94,21 +95,21 @@
           (port 'data-in 32))
     (list (port 'out 32))
     (keyword-lambda (mem-val# addr1 addr2 data-in)
-                    ([mem = (if (hash? mem-val#) mem-val# (make-immutable-hash))]
+                    ([mem = (if (dict? mem-val#) mem-val# (make-immutable-hash))]
                      [addr = (cons addr1 addr2)]
-                     [val = (hash-ref mem addr (lambda () #f))])
+                     [val = (dict-ref mem addr (lambda () #f))])
                     [out => (if data-in
                                 (blocked data-in val)
                                 val)])
     #:memory-proc (lambda (old st)
-                    (let* ([hsh (if (hash? old) old (make-immutable-hash))]
-                           [addr1 (hash-ref st 'addr1)]
-                           [addr2 (hash-ref st 'addr2)]
-                           [data-in (hash-ref st 'data-in)]
+                    (let* ([hsh (if (dict? old) old (make-immutable-hash))]
+                           [addr1 (dict-ref st 'addr1)]
+                           [addr2 (dict-ref st 'addr2)]
+                           [data-in (dict-ref st 'data-in)]
                            ;; [addr (~a addr1 'x addr2)]
                            [addr (cons addr1 addr2)])
                       (if (and data-in addr1 addr2)
-                          (hash-set hsh addr data-in)
+                          (dict-set hsh addr data-in)
                           hsh)))))
 
 (define (comp/trunc-sub)

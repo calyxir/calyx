@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require racket/hash
+         racket/dict
          racket/bool
          racket/sequence
          racket/list
@@ -118,9 +119,9 @@
           [(and (number? a) (number? b))
            (< a b)]
           [else (error 'display-mem "Couldn't compare ~v and ~v" a b)]))
-  (let* ([val (mem-tuple-value (hash-ref (ast-tuple-memory tup) sym))]
-         [out (if (hash? val)
-                  (sort (hash->list val)
+  (let* ([val (mem-tuple-value (dict-ref (ast-tuple-memory tup) sym))]
+         [out (if (dict? val)
+                  (sort (dict->list val)
                         (lambda (x y) (compare (car x) (car y))))
                   val)])
     (if (list? out)
@@ -137,7 +138,7 @@
 (define (empty-hash comp)
   (define sub-outs
     (apply append
-           (hash-map
+           (dict-map
             (component-submods comp)
             (lambda (name sc)
               (map (lambda (p)
@@ -165,7 +166,7 @@
 (define (transform comp inputs name)
   (if (findf (lambda (x) (equal? name (port-name x))) (component-ins comp))
       ; if name is an input, (((in . inf#) . v) ...) -> ((in . inf#) . v)
-      (make-immutable-hash `(((,name . inf#) . ,(hash-ref inputs `(,name . inf#)))))
+      (make-immutable-hash `(((,name . inf#) . ,(dict-ref inputs `(,name . inf#)))))
       ; else name is not an input
       (begin
         (let* ([sub (get-submod! comp name)]
@@ -179,7 +180,7 @@
                         sequence->list))
                   (define filt-neighs-vals
                     (filter-map (lambda (x)
-                                  (match (hash-ref inputs x)
+                                  (match (dict-ref inputs x)
                                     [(blocked dirt clean) clean]
                                     [v v]))
                                 neighs))
@@ -194,7 +195,7 @@
                           name in x
                           (filter-map
                            (lambda (x)
-                             (match (hash-ref inputs x)
+                             (match (dict-ref inputs x)
                                [(blocked _ _) #f]
                                [#f #f]
                                [_ x]))
@@ -217,13 +218,13 @@
     (make-immutable-hash
      (filter (lambda (pr)
                (equal? (caar pr) name))
-             (hash->list inputs))))
+             (dict->list inputs))))
   (define trans-p
     (save-hash-union trans inputs-p))
   ;; trans is of the form (((sub . port) . val) ...)
   ;; change to ((port . val) ...)
   (define in-vals
-    (~> (hash-map trans-p
+    (~> (dict-map trans-p
                   (lambda (k v)
                     (define v-p
                       (match v
@@ -233,7 +234,7 @@
         make-immutable-hash))
 
   ;; add sub-memory and memory value to in-vals
-  (define in-vals-p (hash-set* in-vals
+  (define in-vals-p (dict-set* in-vals
                                'sub-mem# (mem-tuple-sub-mem mem-tup)
                                'mem-val# (mem-tuple-value mem-tup)))
 
@@ -241,7 +242,7 @@
          [proc (component-proc sub)]
          [mem-proc (component-memory-proc sub)]
          [trans-res (proc in-vals-p)]
-         [sub-mem-p (hash-ref trans-res 'sub-mem#
+         [sub-mem-p (dict-ref trans-res 'sub-mem#
                               (make-immutable-hash))]
          [trans-wo-mem (hash-remove trans-res 'sub-mem#)]
          [value-p (mem-proc (mem-tuple-value mem-tup)
@@ -249,7 +250,7 @@
          [mem-tup-p (mem-tuple value-p sub-mem-p)])
     (values
      (make-immutable-hash
-      (hash-map trans-wo-mem
+      (dict-map trans-wo-mem
                 (lambda (k v) `((,name . ,k) . ,v))))
      mem-tup-p)))
 
@@ -281,40 +282,27 @@
     (struct-copy ast-tuple tup
                  [state
                   (make-immutable-hash
-                   (hash-map state
+                   (dict-map state
                              (lambda (k v)
                                (if (member (car k) lst)
                                    `(,k . #f)
                                    `(,k . ,v)))))]))
-
-  ;; (define (block dirty-state)
-  ;;   (~> (hash-map dirty-state
-  ;;                 (lambda (k v)
-  ;;                   `(,k . ,(blocked))))
-  ;;       (debug "blocked: " _)
-  ;;       make-immutable-hash))
 
   ;; algorithm that iteratively goes through a list of modules to calculate
   ;; the new state. Does this with a worklist like approach
   (define (worklist tup todo visited iter)
     (debug "worklist todo: " todo)
     (when (> iter 100)
-      (error 'worklist "Executed worklist too many times! There's probably an infinite loop."))
+      (error
+       'worklist
+       "Executed worklist too many times! There's probably an infinite loop."))
     (cond
       [(empty? todo) tup]
       [else
        (match-define (ast-tuple inputs inactive unfilt-state memory) tup)
-       (define state (ast-tuple-state (filt tup inactive))) ;; filter inactive modules from the state
-       ;; (define state
-       ;;   (~> (hash-map pre-state
-       ;;                 (lambda (k v)
-       ;;                   (let ([v-p (match v
-       ;;                                [(marked cln drt) cln]
-       ;;                                [_ v])])
-       ;;                     `(,k . ,v-p))))
-       ;;       make-immutable-hash))
+       ;; filter inactive modules from the state
+       (define state (ast-tuple-state (filt tup inactive)))
 
-       ;; XXX removed visited
        (struct accum (tup todo visited))
        (match-define (accum acc-tup acc-todo acc-visited)
          (foldl
@@ -328,8 +316,7 @@
               [else
                (match-let*-values
                    ([((accum acc-tup acc-todo acc-visited)) acc]
-                    ;; [(time-incr) (component-time-increment (get-submod! comp name))]
-                    [(mem-tup) (hash-ref memory name empty-mem-tuple)]
+                    [(mem-tup) (dict-ref memory name empty-mem-tuple)]
                     [(dbg1) (debug "---- " name)]
                     [(outs mem-tup-p)
                      (submod-compute comp name state mem-tup inputs)]
@@ -347,7 +334,7 @@
                                   [state state-p])]
                     [(acc-todo-p)
                      (~> outs-p
-                         hash->list
+                         dict->list
                          (filter-not (lambda (x)
                                        (and
                                         (set-member? visited name)
@@ -390,18 +377,18 @@
                    [else
                     (debug "commit memory for " name)
                     (let*-values
-                        ([(mem-tup) (hash-ref (ast-tuple-memory acc) name empty-mem-tuple)]
+                        ([(mem-tup) (dict-ref (ast-tuple-memory acc) name empty-mem-tuple)]
                          [(_ mem-tup-p)
                           (submod-compute comp name state mem-tup inputs)])
                       (struct-copy ast-tuple acc
                                    [memory
-                                    (hash-set (ast-tuple-memory acc)
+                                    (dict-set (ast-tuple-memory acc)
                                               name
                                               mem-tup-p)]))]))
            tup
            order))
 
-  (define order (tsort (convert-graph comp)))
+  (define order (dict-keys (component-submods comp)))
 
   ;; stabilize state without saving memory
   (define res
@@ -425,12 +412,12 @@
   (define state-p (save-hash-union inputs state))
   (define filt-state-p
     (make-immutable-hash
-     (hash-map state-p
+     (dict-map state-p
                (lambda (k v)
                  (if (member (car k) inactive)
                      `(,k . #f)
                      `(,k . ,v))))))
-  (hash-ref filt-state-p condition))
+  (dict-ref filt-state-p condition))
 
 ;; XXX don't delete this, I think I will need this to do par-comp correctly
 ;; (define (ast-active-mods comp ast)
@@ -443,7 +430,7 @@
 ;;             (map (lambda (x) (ast-active-mods comp x))))]
 ;;     [(deact-stmt mods)
 ;;      (filter-not (lambda (x) (member x mods))
-;;                  (hash-keys (component-submods comp)))]
+;;                  (dict-keys (component-submods comp)))]
 ;;     [(act-stmt mods) mods]
 ;;     [(if-stmt _ tbranch fbranch)
 ;;      (append (ast-active-mods comp tbranch) (ast-active-mods comp fbranch))]
@@ -505,7 +492,7 @@
                                                     [memory mem]))])
          (struct-copy ast-tuple tup
                       [state
-                       (~> (hash-map st
+                       (~> (dict-map st
                                      (lambda (k v)
                                        (define v-p
                                          (match v
@@ -517,7 +504,7 @@
       [(act-stmt mods)
        (define mods-p
          (filter-not (lambda (x) (member x mods))
-                     (hash-keys (component-submods comp))))
+                     (dict-keys (component-submods comp))))
        (ast-step comp tup (deact-stmt mods-p) #:hook callback)]
       [(if-stmt condition tbranch fbranch)
        (if-valued (check-condition condition tup)

@@ -4,6 +4,7 @@
          racket/list
          racket/format
          racket/hash
+         racket/dict
          racket/port
          racket/string
          "ast.rkt"
@@ -15,7 +16,7 @@
 
 (define (convert-1darray lst)
   (foldl (lambda (x i acc)
-           (hash-set acc i x))
+           (dict-set acc i x))
          (make-immutable-hash)
          lst
          (build-list (length lst) values)))
@@ -23,7 +24,7 @@
 (define (convert-2darray lst)
   (foldl (lambda (l i acc)
            (foldl (lambda (x j acc)
-                    (hash-set acc (cons i j) x))
+                    (dict-set acc (cons i j) x))
                   acc
                   l
                   (build-list (length l) values)))
@@ -42,7 +43,7 @@
       (lambda () (read-json))))
 
   (make-immutable-hash
-   (hash-map data
+   (dict-map data
              (lambda (k v)
                (define v-p
                  (cond [(list-2d? v) (convert-2darray v)]
@@ -70,7 +71,7 @@
 (define (display-json json)
   (display
    (string-join
-    (hash-map json
+    (dict-map json
               (lambda (k v)
                 (format "\"~a\": ~a" k (format-data v))))
     ",\n"
