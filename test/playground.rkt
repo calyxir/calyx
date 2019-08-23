@@ -30,3 +30,5 @@
    [add @ out -> out])
   []
   [(while (counter @ out) ([(b zero)]))])
+
+(plot-compute (mult) '((a . 3) (b . 5)))
