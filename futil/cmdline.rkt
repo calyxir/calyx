@@ -8,13 +8,17 @@
 
 (provide parse-cmdline)
 
-(define (parse-cmdline comp [filename #f])
+(define (parse-cmdline comp [filename #f] [visualizer #t])
 
   (define mode (make-parameter 'none))
   (define data-filename (make-parameter #f))
 
   (if filename
-      (plot-compute comp '() #:memory (json->memory filename))
+      (if visualizer
+          (plot-compute comp '() #:memory (json->memory filename))
+          (void (compute comp '()
+                         #:memory (json->memory filename)
+                         #:toplevel #t)))
       (begin
         (command-line
          #:program "test"

@@ -135,6 +135,7 @@
                       (gen-proc name (i1.name ...) (o1.name ...))
                       #:control (seq-comp (list constraint.item ...)))])
              (stmt.fun c) ...
+             (commit-transpose! c)
              c))
          (void (name)))]))
 

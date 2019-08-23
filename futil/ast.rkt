@@ -1,7 +1,6 @@
 #lang racket/base
 
-(require racket/hash
-         racket/dict
+(require racket/dict
          racket/bool
          racket/sequence
          racket/list
@@ -12,6 +11,7 @@
          racket/set
          threading
          graph
+         "state-dict.rkt"
          "component.rkt"
          "port.rkt"
          "util.rkt")
@@ -28,8 +28,8 @@
          (struct-out ast-tuple)
          (struct-out mem-tuple)
          display-mem
-         empty-hash
-         input-hash
+         blank-state
+         input-state
          compute)
 
 ;; type of statements
@@ -73,37 +73,13 @@
 ;; a hash union that tries to make overlapping keys non-false
 ;;   if v1 or v2 is #f, choose non-false option
 ;;   otherwise, if both v1 and v2 have values, choose v2
-(define (save-hash-union h1 h2)
-  (hash-union
+(define (save-state-union h1 h2)
+  (state-union
    h1
    h2
    #:combine (lambda (v1 v2)
                (cond [(and v1 v2) v2]
                      [else (xor v1 v2)]))))
-
-;; a hash union function that always prefers h2 when keys overlap
-(define (clob-hash-union h1 h2)
-  (hash-union h1 h2 #:combine (lambda (v1 v2) v2)))
-
-;; a hash union function that chooses non-false values
-;; over false ones, keeps equal values the same,
-
-;; and errors on non-equal values
-(define (equal-hash-union h0 h1)
-  (hash-union
-   h0
-   h1
-   #:combine/key
-   (lambda (k v0 v1)
-     (cond
-       [(xor v0 v1) (or v1 v0)] ; when only one is false, choose the true one.
-       [(equal? v0 v1) v0]      ; v0 = v1, then v0
-       [else
-        (error
-         'equal-hash-union
-         "Expected ~v = ~v for key: ~v in:\n~v\n~v"
-         v0 v1 k
-         h0 h1)]))))
 
 ;; given a symbol representing the name of a value, and a ast-tuple
 ;; display the memory in a nice way
@@ -135,7 +111,7 @@
         (display out))))
 
 ;; create an empty state for the given component
-(define (empty-hash comp)
+(define (blank-state comp)
   (define sub-outs
     (apply append
            (dict-map
@@ -148,14 +124,14 @@
     (map (lambda (p)
            `(,(port-name p) . inf#))
          (component-outs comp)))
-  (make-immutable-hash
+  (state-dict
    (map (lambda (x)
           `(,x . #f))
         (append sub-outs comp-outs))))
 
 ;; create a state-like hash with only the inputs in the list
-(define (input-hash lst)
-  (make-immutable-hash
+(define (input-state lst)
+  (state-dict
    (map (match-lambda
           [(cons name val) `((,name . inf#) . ,val)]
           [_ (error "Expected list of tuples")])
@@ -166,16 +142,15 @@
 (define (transform comp inputs name)
   (if (findf (lambda (x) (equal? name (port-name x))) (component-ins comp))
       ; if name is an input, (((in . inf#) . v) ...) -> ((in . inf#) . v)
-      (make-immutable-hash `(((,name . inf#) . ,(dict-ref inputs `(,name . inf#)))))
+      (state-dict `(((,name . inf#) . ,(dict-ref inputs `(,name . inf#)))))
       ; else name is not an input
       (begin
         (let* ([sub (get-submod! comp name)]
                [ins (map port-name (component-ins sub))])  ; XXX: deal with port widths
-          (make-immutable-hash
+          (state-dict
            (map (lambda (in)
                   (define neighs
-                    (~> (component-graph comp)
-                        transpose
+                    (~> (component-transpose comp)
                         (in-neighbors _ `(,name . ,in))
                         sequence->list))
                   (define filt-neighs-vals
@@ -206,7 +181,7 @@
 ; (submod -> mem-tuple) hash
 ; mem-tuple = (value * (submod -> mem-tuple) hash)
 (struct mem-tuple (value sub-mem) #:transparent)
-(define (empty-mem-tuple) (mem-tuple #f (make-immutable-hash)))
+(define (empty-mem-tuple) (mem-tuple #f (empty-state)))
 
 ;; given a subcomponent (comp name) a state and memory,
 ;; run subcomponents proc with state and memory and
@@ -215,12 +190,12 @@
   (define trans (transform comp state name))
   (debug "inputs: " trans)
   (define inputs-p
-    (make-immutable-hash
+    (state-dict
      (filter (lambda (pr)
                (equal? (caar pr) name))
              (dict->list inputs))))
   (define trans-p
-    (save-hash-union trans inputs-p))
+    (save-state-union trans inputs-p))
   ;; trans is of the form (((sub . port) . val) ...)
   ;; change to ((port . val) ...)
   (define in-vals
@@ -231,7 +206,7 @@
                         [(blocked dirt clean) clean]
                         [_ v]))
                     `(,(cdr k) . ,v-p)))
-        make-immutable-hash))
+        state-dict))
 
   ;; add sub-memory and memory value to in-vals
   (define in-vals-p (dict-set* in-vals
@@ -243,13 +218,13 @@
          [mem-proc (component-memory-proc sub)]
          [trans-res (proc in-vals-p)]
          [sub-mem-p (dict-ref trans-res 'sub-mem#
-                              (make-immutable-hash))]
-         [trans-wo-mem (hash-remove trans-res 'sub-mem#)]
+                              (empty-state))]
+         [trans-wo-mem (dict-remove trans-res 'sub-mem#)]
          [value-p (mem-proc (mem-tuple-value mem-tup)
-                            (save-hash-union in-vals trans-wo-mem))]
+                            (save-state-union in-vals trans-wo-mem))]
          [mem-tup-p (mem-tuple value-p sub-mem-p)])
     (values
-     (make-immutable-hash
+     (state-dict
       (dict-map trans-wo-mem
                 (lambda (k v) `((,name . ,k) . ,v))))
      mem-tup-p)))
@@ -281,7 +256,7 @@
     (define state (ast-tuple-state tup))
     (struct-copy ast-tuple tup
                  [state
-                  (make-immutable-hash
+                  (state-dict
                    (dict-map state
                              (lambda (k v)
                                (if (member (car k) lst)
@@ -324,9 +299,9 @@
                      outs]
                     [(dbg2) (debug "result: " outs-p)]
                     [(state-p)
-                     (save-hash-union (ast-tuple-state acc-tup) outs-p)
+                     (save-state-union (ast-tuple-state acc-tup) outs-p)
                      ;; (if (or (not (set-member? acc-visited name)) (= 0 time-incr))
-                     ;;     (save-hash-union (ast-tuple-state acc-tup) outs-p)
+                     ;;     (save-state-union (ast-tuple-state acc-tup) outs-p)
                      ;;     (ast-tuple-state acc-tup))
                      ]
                     [(acc-tup-p)
@@ -404,14 +379,11 @@
    (ast-tuple-state res2)
    (ast-tuple-memory res2)))
 
-(define (merge-state st0 st1)
-  (equal-hash-union st0 st1))
-
 (define (check-condition condition tup)
   (match-define (ast-tuple inputs inactive state _) tup)
-  (define state-p (save-hash-union inputs state))
+  (define state-p (save-state-union inputs state))
   (define filt-state-p
-    (make-immutable-hash
+    (state-dict
      (dict-map state-p
                (lambda (k v)
                  (if (member (car k) inactive)
@@ -460,8 +432,8 @@
        ;; (foldl merge-tup
        ;;        (struct-copy ast-tuple tup
        ;;                     [inactive '()]
-       ;;                     [state (make-immutable-hash)]
-       ;;                     [memory (make-immutable-hash)])
+       ;;                     [state (empty-state)]
+       ;;                     [memory (empty-state)])
        ;;        (map (lambda (s) (ast-step comp tup s #:hook callback)) stmts))
        ]
       [(seq-comp stmts)
@@ -499,7 +471,7 @@
                                            [(blocked dirt cln) dirt]
                                            [_ v]))
                                        `(,k . ,v-p)))
-                           make-immutable-hash)]
+                           state-dict)]
                       [memory mem]))]
       [(act-stmt mods)
        (define mods-p
@@ -530,13 +502,13 @@
   result)
 
 (define (compute comp inputs
-                 #:memory [mem (make-immutable-hash)]
+                 #:memory [mem (empty-state)]
                  #:hook [callback void]
                  #:toplevel [toplevel #f])
   (define ast (component-control comp))
   (debug "================\n")
   (debug "(start compute for " (component-name comp))
-  (define tup (ast-tuple (input-hash inputs) '() (empty-hash comp) mem))
+  (define tup (ast-tuple (input-state inputs) '() (blank-state comp) mem))
   (define result
     (if toplevel
         (parameterize ([toplevel-name (component-name comp)])

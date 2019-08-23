@@ -2,7 +2,8 @@
 (require racket/logging
          racket/dict
          racket/path
-         racket/pretty)
+         racket/pretty
+         "state-dict.rkt")
 
 (provide (all-defined-out))
 
@@ -14,7 +15,7 @@
   (lambda (h)
     (define arg (dict-ref h 'arg)) ...
     (define var (begin body1 ...)) ...
-    (make-immutable-hash `((kw . ,(begin body2 ...)) ...))))
+    (state-dict `((kw . ,(begin body2 ...)) ...))))
 
 ;; debugging stuffs
 (define should-print-debug? (make-parameter #f))

@@ -19,6 +19,7 @@
          add-submod!
          get-submod!
          split!
+         commit-transpose!
          convert-graph)
 
 (struct component (;; name of the component
@@ -37,12 +38,10 @@
                    proc
                    ;; procedure for setting memory
                    memory-proc
-                   ;; time increment
-                   time-increment
-                   ;; flag for whether this module was built in futil
-                   constructed
                    ;; graph representing internal connections
-                   graph))
+                   graph
+                   ;; inverse of graph
+                   [transpose #:mutable]))
 
 ;; structure for blocked values
 (struct blocked (dirty clean) #:transparent)
@@ -54,7 +53,7 @@
 ;; creates a component with a single infinite output port of width w
 ;; and no input ports. Designed to be used as the input of a component.
 (define (input-component w) (component
-                             'input
+                             'inpu
                              '()
                              (list (port 'inf# w))
                              (make-hash) ; submods
@@ -62,9 +61,8 @@
                              #f
                              (keyword-lambda (inf#) () [inf# => inf#])
                              (lambda (old st) #f)
-                             0
-                             #f
-                             (empty-graph)))
+                             (empty-graph)
+                             #f))
 
 ;; creates a component with a single infinite input port of width w
 ;; and no output ports. Designed to be used as the output of a component.
@@ -77,9 +75,8 @@
                               #f
                               (keyword-lambda (inf#) () [inf# => inf#])
                               (lambda (old st) #f)
-                              0
-                              #f
-                              (empty-graph)))
+                              (empty-graph)
+                              #f))
 
 (define (transform-control control) control)
 
@@ -93,9 +90,7 @@
           proc
           #:control [control #f]
           #:memory-proc [memory-proc
-                         (lambda (old st) #f)]
-          #:time-increment [time-increment 0]
-          #:constructed [constructed #f])
+                         (lambda (old st) #f)])
   (let ([htbl (make-hash)]
         [g (empty-graph)])
     (for-each (lambda (p) ; p is a port
@@ -115,12 +110,15 @@
      control
      proc
      memory-proc
-     time-increment
-     constructed
-     g)))
+     g
+     #f)))
 
 (define (make-constant n width)
-  (default-component n '() (list (port 'inf# width)) (keyword-lambda () () [inf# => n])))
+  (default-component
+    n
+    '()
+    (list (port 'inf# width))
+    (keyword-lambda () () [inf# => n])))
 
 ;; Looks for an input/output port matching [port] in [comp]. If the port is found
 ;; and is equal to the value [#f], then this function does nothing. Otherwise
@@ -187,6 +185,9 @@
               (hash-set! (component-splits comp) name1 name)
               (hash-set! (component-splits comp) name2 name))]
         [else (error "Port not found in the inputs!")]))
+
+(define (commit-transpose! c)
+  (set-component-transpose! c (transpose (component-graph c))))
 
 (define (convert-graph comp [vals #f])
   (define g (component-graph comp))

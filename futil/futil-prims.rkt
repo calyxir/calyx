@@ -59,7 +59,8 @@
                     [out =>
                          (if res
                              (if in (blocked #f #f) #f)
-                             (if in (blocked in mem-val#) (blocked mem-val# mem-val#)))])
+                             (if in (blocked in mem-val#)
+                                 (blocked mem-val# mem-val#)))])
     #:memory-proc (lambda (old st)
                     (define new-v (dict-ref st 'in))
                     (define res (dict-ref st 'res))

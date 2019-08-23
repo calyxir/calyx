@@ -3,11 +3,11 @@
 (require json
          racket/list
          racket/format
-         racket/hash
          racket/dict
          racket/port
          racket/string
          "ast.rkt"
+         "state-dict.rkt"
          (for-syntax racket/base
                      syntax/parse))
 
@@ -17,7 +17,7 @@
 (define (convert-1darray lst)
   (foldl (lambda (x i acc)
            (dict-set acc i x))
-         (make-immutable-hash)
+         (empty-state)
          lst
          (build-list (length lst) values)))
 
@@ -28,7 +28,7 @@
                   acc
                   l
                   (build-list (length l) values)))
-         (make-immutable-hash)
+         (empty-state)
          lst
          (build-list (length lst) values)))
 
@@ -42,14 +42,14 @@
     (with-input-from-file filename
       (lambda () (read-json))))
 
-  (make-immutable-hash
+  (state-dict
    (dict-map data
              (lambda (k v)
                (define v-p
                  (cond [(list-2d? v) (convert-2darray v)]
                        [(list? v) (convert-1darray v)]
                        [else v]))
-               `(,k . ,(mem-tuple v-p (hash)))))))
+               `(,k . ,(mem-tuple v-p (empty-state)))))))
 
 (define (format-list l)
   (if (not (list? (car l)))
@@ -101,9 +101,11 @@
   (define-syntax-class phrase
     (pattern (x:id)
              #:with obj #'(lambda (proc)
-                            (hash 'x (proc 0))))
+                            (state-dict (cons 'x (proc 0)))))
     (pattern (x:id dim ...+)
-             #:with obj #'(lambda (proc) (hash 'x (create-list (list dim ...) proc)))))
+             #:with obj #'(lambda (proc)
+                            (state-dict (cons 'x
+                                              (create-list (list dim ...) proc))))))
   (syntax-parse stx
     [(_ fn type:gen-type phrase:phrase ...)
      #'(with-output-to-file fn
@@ -111,7 +113,10 @@
          #:exists 'replace
          (lambda ()
            (display-json
-            (hash-union (phrase.obj type.fun) ...
+            (state-union (phrase.obj type.fun) ...
                         #:combine/key (lambda (k v0 v1)
-                                        (error (format "~v was in multple phrases!" k)))))))
+                                        (error 'generate-json
+                                               "~v was in multple phrases!"
+                                               k))
+                        ))))
      ]))
