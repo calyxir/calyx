@@ -1,4 +1,4 @@
-.PHONY: clean all all-json all-fuse all-futil result
+.PHONY: clean all all-json all-fuse all-futil status
 
 JSON_URL:=https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp
 SOURCES:=$(wildcard *.json)

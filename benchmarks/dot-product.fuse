@@ -1,6 +1,6 @@
 
 import "printer.cpp" {
-  def extern print_vec(v: float[1]);
+  def print_vec(v: float[1]);
 }
 
 decl A: float[8];

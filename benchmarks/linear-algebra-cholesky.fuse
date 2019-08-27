@@ -6,11 +6,11 @@ define(DATATYPE, float)
 // END macro definitions
 
 import "math.h" {
-  def extern sqrt(x: DATATYPE);
+  defsqrt(x: DATATYPE);
 }
 
 import "printer.cpp" {
-  def  extern print_vec_2d(v: DATATYPE[N][N]);
+  def print_vec_2d(v: DATATYPE[N][N]);
 }
 
 decl A: DATATYPE[N][N];

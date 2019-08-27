@@ -290,9 +290,19 @@
                     [(dbg1) (debug "---- " name)]
                     [(outs mem-tup-p)
                      (submod-compute comp name state mem-tup inputs)]
-                    [(dbg2) (debug "result: " outs)]
+                    [(outs-p)
+                     (if (= iter 0)
+                         (state-map
+                          outs
+                          (lambda (k v)
+                            (define v-p (if (blocked? v)
+                                            (blocked-clean v)
+                                            v))
+                            `(,k . ,v-p)))
+                         outs)]
+                    [(dbg2) (debug "result: " outs-p)]
                     [(acc-todo-p)
-                     (~> outs
+                     (~> outs-p
                          dict->list
                          ;; filter out all blocked values
                          (filter-not (lambda (x)
@@ -315,7 +325,7 @@
                          (debug "todo-p: " _)
                          ;; back to a set
                          list->set)])
-                 (result outs acc-todo-p)))
+                 (result outs-p acc-todo-p)))
              _)
         (foldl (lambda (res acc)
                  (match-let ([(result res-st res-todo) res]

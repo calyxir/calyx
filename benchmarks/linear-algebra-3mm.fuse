@@ -9,7 +9,7 @@ define(DATATYPE, float)
 
 // Macro definition end
 import "printer.cpp" {
-  def  extern print_vec_2d(v: DATATYPE[NI][NI]);
+  def print_vec_2d(v: DATATYPE[NI][NI]);
 }
 
 decl E: DATATYPE[NI][NJ];
