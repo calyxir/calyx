@@ -333,7 +333,6 @@
                  res-todo
                  (add1 iter))]))
 
-
   (define (commit-memory tup order)
     (debug "commit state: " (ast-tuple-state tup))
     (match-define (ast-tuple inputs inactive unfilt-state memory) tup)
@@ -466,6 +465,7 @@
                                        `(,k . ,v-p)))
                            state-dict)]
                       [memory mem]))]
+      [(act-stmt '()) tup]
       [(act-stmt mods)
        (define mods-p
          (filter-not (lambda (x) (member x mods))

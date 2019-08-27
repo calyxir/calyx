@@ -8,7 +8,7 @@ build:
 	@echo "done"
 
 watch:
-	find futil | entr -cd make build; make watch
+	while true; do find futil | entr -cd make build; test $? -gt 128 && break; done
 
 install:
 	cd futil; raco pkg install

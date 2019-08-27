@@ -8,6 +8,10 @@ all: $(patsubst %.json,%.run,$(SOURCES))
 status:
 	@echo "`ls -l *.run | wc -l`/`ls -l *.fuse | wc -l` successfully ran"
 	@echo "`cat *.run | grep success | wc -l`/`ls -l *.run | wc -l` passed"
+	@echo "failed:"
+	@grep "failure" *.run | cut -f 1 -d ':' | cut -f 1 -d '.' | sed -e 's/^/ - /;'
+	@echo "succeeded:"
+	@grep "success" *.run | cut -f 1 -d ':' | cut -f 1 -d '.' | sed -e 's/^/ - /;'
 
 all-fuse: $(patsubst %.json,%.run-fuse,$(SOURCES))
 
