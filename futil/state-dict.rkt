@@ -31,7 +31,7 @@
   #:methods gen:custom-write
   [(define (write-proc state port mode)
      (fprintf port
-              "state-dict#~a"
+              "state-dict#~v"
               (state-dict-v state)))])
 
 (define (state-union s1 s2

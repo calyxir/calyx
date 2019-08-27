@@ -267,82 +267,71 @@
 
   ;; algorithm that iteratively goes through a list of modules to calculate
   ;; the new state. Does this with a worklist like approach
-  (define (worklist tup todo visited iter)
+  (define (worklist tup todo iter)
     (debug "worklist todo: " todo)
     (when (> iter 100)
       (error
        'worklist
        "Executed worklist too many times! There's probably an infinite loop."))
     (cond
-      [(empty? todo) tup]
+      [(set-empty? todo) tup]
       [else
        (match-define (ast-tuple inputs inactive unfilt-state memory) tup)
        ;; filter inactive modules from the state
        (define state (ast-tuple-state (filt tup inactive)))
 
-       (struct accum (tup todo visited))
-       (match-define (accum acc-tup acc-todo acc-visited)
-         (foldl
-          (lambda (name acc)
-            (cond
-              ; inactive
-              [(member name inactive)
-               (struct-copy accum acc
-                            [tup (filt (accum-tup acc) (list name))])]
-              ; else
-              [else
+       (struct result (state todo))
+       (~>
+        (set-subtract todo (list->set inactive))
+        set->list
+        (map (lambda (name)
                (match-let*-values
-                   ([((accum acc-tup acc-todo acc-visited)) acc]
-                    [(mem-tup) (dict-ref memory name empty-mem-tuple)]
+                   ([(mem-tup) (dict-ref memory name empty-mem-tuple)]
                     [(dbg1) (debug "---- " name)]
                     [(outs mem-tup-p)
                      (submod-compute comp name state mem-tup inputs)]
-                    [(outs-p)
-                     outs]
-                    [(dbg2) (debug "result: " outs-p)]
-                    [(state-p)
-                     (save-state-union (ast-tuple-state acc-tup) outs-p)
-                     ;; (if (or (not (set-member? acc-visited name)) (= 0 time-incr))
-                     ;;     (save-state-union (ast-tuple-state acc-tup) outs-p)
-                     ;;     (ast-tuple-state acc-tup))
-                     ]
-                    [(acc-tup-p)
-                     (struct-copy ast-tuple acc-tup
-                                  [state state-p])]
+                    [(dbg2) (debug "result: " outs)]
                     [(acc-todo-p)
-                     (~> outs-p
+                     (~> outs
                          dict->list
+                         ;; filter out all blocked values
                          (filter-not (lambda (x)
-                                       (and
-                                        (set-member? visited name)
-                                        (blocked? (cdr x)))) _) ;; filter out all blocked values
-                         (filter-map (lambda (x)
-                                       (if (has-vertex? (component-graph comp) (car x))
-                                           (in-neighbors (component-graph comp) (car x))
-                                           #f))
-                                     _) ;; get neighbors
+                                       (blocked? (cdr x))) _)
+                         ;; get neighbors
+                         (filter-map
+                          (lambda (x)
+                            (if (has-vertex? (component-graph comp) (car x))
+                                (in-neighbors (component-graph comp) (car x))
+                                #f))
+                          _)
+                         ;; convert to list
                          (map sequence->list _)
+                         ;; flatten
                          (apply append _)
+                         ;; remove empty lists if there are any
                          (filter-not empty? _)
-                         (map car _) ;; remove port names
+                         ;; remove port names
+                         (map car _)
                          (debug "todo-p: " _)
-                         (append acc-todo _)
-                         remove-duplicates)
-                     ;; (~> (component-graph comp)
-                     ;;     (in-neighbors _ name)
-                     ;;     sequence->list
-                     ;;     (filter-map (lambda (x)
-                     ;;                   (if (equal? ))
-                     ;;                   ) _)
-                     ;;     (debug "todo-p: " _)
-                     ;;     (append acc-todo _)
-                     ;;     remove-duplicates)
-                     ]
-                    [(acc-visited-p) (set-add acc-visited name)])
-                 (accum acc-tup-p acc-todo-p acc-visited-p))]))
-          (accum tup '() visited)
-          todo))
-       (worklist acc-tup acc-todo acc-visited (add1 iter))]))
+                         ;; back to a set
+                         list->set)])
+                 (result outs acc-todo-p)))
+             _)
+        (foldl (lambda (res acc)
+                 (match-let ([(result res-st res-todo) res]
+                             [(result acc-st acc-todo) acc])
+                   (result
+                    (save-state-union acc-st res-st)
+                    (set-union res-todo acc-todo))))
+               (result state (set))
+               _)
+        (match-define (result res-state res-todo) _))
+
+       (worklist (filt (struct-copy ast-tuple tup
+                                    [state res-state])
+                       inactive)
+                 res-todo
+                 (add1 iter))]))
 
 
   (define (commit-memory tup order)
@@ -354,7 +343,9 @@
                    [else
                     (debug "commit memory for " name)
                     (let*-values
-                        ([(mem-tup) (dict-ref (ast-tuple-memory acc) name empty-mem-tuple)]
+                        ([(mem-tup) (dict-ref (ast-tuple-memory acc)
+                                              name
+                                              empty-mem-tuple)]
                          [(_ mem-tup-p)
                           (submod-compute comp name state mem-tup inputs)])
                       (struct-copy ast-tuple acc
@@ -369,7 +360,7 @@
 
   ;; stabilize state without saving memory
   (define res
-    (worklist tup order (set) 0))
+    (worklist tup (list->set order) 0))
 
   ;; if toplevel, do a single pass saving memory
   (define res2
