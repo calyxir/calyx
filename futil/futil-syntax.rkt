@@ -14,10 +14,10 @@
 
 ;; simple macro that allows you to pass in components instead of
 ;; functions for components in some places
-(define-syntax-rule (call fun)
-  (if (procedure? fun)
-      (fun)
-      fun))
+;; (define-syntax-rule (call fun)
+;;   (if (procedure? fun)
+;;       (fun)
+;;       fun))
 
 ;; syntax for function that takes in a component and connects (u . uf) to (v . vf)
 (define-syntax-rule (connect u uf v vf)
@@ -45,7 +45,7 @@
 (define-syntax-rule (gen-proc name (in ...) (out ...))
   (keyword-lambda (sub-mem# in ...)
                   ([res = (let* ([inputs (list (cons 'in in) ...)]
-                                 [tup (compute (call name) inputs
+                                 [tup (compute (name) inputs
                                                #:memory sub-mem#)])
                             (cons
                              (ast-tuple-state tup)
@@ -68,7 +68,10 @@
 
     ;; create module pattern
     (pattern (name:id = new mod:id)
-             #:with fun #'(create-module 'name (call mod)))
+             #:with fun #'(create-module 'name (mod)))
+
+    (pattern (name:id = new (mod:id args ...))
+             #:with fun #'(create-module 'name (mod args ...)))
 
     ;; split port pattern
     (pattern (n1:id & n2:id = split pt:nat var:id)
@@ -91,11 +94,15 @@
     #:literals (if)
     #:datum-literals (while ifen !! mem-print)
 
-    (pattern (if (c:wire-port) [tbranch:constraint ...] [fbranch:constraint ...])
+    (pattern (if (c:wire-port)
+                 [tbranch:constraint ...]
+                 [fbranch:constraint ...])
              #:with val #'(if-stmt '(c.name . c.port)
                                    (seq-comp (list tbranch.item ...))
                                    (seq-comp (list fbranch.item ...))))
-    (pattern (ifen (c:wire-port) [tbranch:constraint ...] [fbranch:constraint ...])
+    (pattern (ifen (c:wire-port)
+                   [tbranch:constraint ...]
+                   [fbranch:constraint ...])
              #:with val #'(ifen-stmt '(c.name . c.port)
                                      (seq-comp (list tbranch.item ...))
                                      (seq-comp (list fbranch.item ...))))

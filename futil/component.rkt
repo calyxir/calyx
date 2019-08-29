@@ -190,8 +190,8 @@
 (define (commit-transpose! c)
   (set-component-transpose! c (transpose (component-graph c))))
 
-(define (convert-graph comp [vals #f])
-  (define g (component-graph comp))
+(define (convert-graph comp [vals #f] #:transpose [transpose #f])
+  (define g (if transpose (component-transpose comp) (component-graph comp)))
   (define newg (empty-graph))
   (~> (get-vertices g)
       (map car _)

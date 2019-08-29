@@ -2,6 +2,8 @@
 
 (require racket/format
          racket/dict
+         racket/function
+         "state-dict.rkt"
          "component.rkt"
          "port.rkt"
          "util.rkt"
@@ -70,55 +72,46 @@
                         #f
                         (if new-v new-v old)))))
 
-(define (comp/memory1d)
-  (default-component
-    'mem-1d
-    (list (port 'addr 32)     ; XXX should be 8 bits
-          (port 'data-in 32))
-    (list (port 'out 32))
-    (keyword-lambda (mem-val# addr data-in)
-                    ([mem = (if (dict? mem-val#) mem-val# (make-immutable-hash))]
-                     [val = (dict-ref mem addr (lambda () #f))])
-                    [out => (if data-in
-                                (blocked data-in val)
-                                val)])
-    #:memory-proc (lambda (old st)
-                    (let* ([hsh (if (dict? old) old (make-immutable-hash))]
-                           [data-in (dict-ref st 'data-in)]
-                           [addr (dict-ref st 'addr)])
-                      (if (and addr data-in)
-                          (if (dict-has-key? hsh addr)
-                              (dict-set hsh addr data-in)
-                              (error 'comp/memory1d
-                                     "Address: ~v doesn't exist!" addr))
-                          hsh)))))
+(define (comp/memory . args)
+  (define addr-names
+    (map (lambda (i) (string->symbol (format "addr~v" i)))
+         (build-list (length args) values)))
+  (define in-ports
+    (cons
+     (port 'data-in 32)
+     (map (lambda (name) (port name 32))
+          addr-names)))
 
-(define (comp/memory2d)
+  (define (proc h)
+    (let* ([mem-val# (dict-ref h 'mem-val#)]
+           [mem (if (dict? mem-val#) mem-val# (make-immutable-hash))]
+           [data-in (dict-ref h 'data-in)]
+           [addr (map (lambda (name) (dict-ref h name))
+                      addr-names)]
+           [val (dict-ref mem addr (thunk #f))]
+           [outval (if data-in
+                       (blocked data-in val)
+                       val)])
+      (state-dict `((out . ,outval)))))
+
+  (define (memory-proc old st)
+    (let* ([hsh (if (dict? old) old (make-immutable-hash))]
+           [addr (map (lambda (name) (dict-ref st name))
+                      addr-names)]
+           [data-in (dict-ref st 'data-in)])
+      (if (andmap values (cons data-in addr))
+          (if (dict-has-key? hsh addr)
+              (dict-set hsh addr data-in)
+              (error 'comp/memory
+                     "Address: ~v doesn't exist!" addr))
+          hsh)))
+
   (default-component
-    'mem-2d
-    (list (port 'addr1 32)
-          (port 'addr2 32)
-          (port 'data-in 32))
+    'memory
+    in-ports
     (list (port 'out 32))
-    (keyword-lambda (mem-val# addr1 addr2 data-in)
-                    ([mem = (if (dict? mem-val#) mem-val# (make-immutable-hash))]
-                     [addr = (cons addr1 addr2)]
-                     [val = (dict-ref mem addr (lambda () #f))])
-                    [out => (if data-in
-                                (blocked data-in val)
-                                val)])
-    #:memory-proc (lambda (old st)
-                    (let* ([hsh (if (dict? old) old (make-immutable-hash))]
-                           [addr1 (dict-ref st 'addr1)]
-                           [addr2 (dict-ref st 'addr2)]
-                           [data-in (dict-ref st 'data-in)]
-                           [addr (cons addr1 addr2)])
-                      (if (and data-in addr1 addr2)
-                          (if (dict-has-key? hsh addr)
-                              (dict-set hsh addr data-in)
-                              (error 'comp/memory1d
-                                     "Address: ~v doesn't exist!" addr))
-                          hsh)))))
+    proc
+    #:memory-proc memory-proc))
 
 (define (comp/trunc-sub)
   (default-component

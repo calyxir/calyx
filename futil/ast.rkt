@@ -82,19 +82,22 @@
                      [else (xor v1 v2)]))))
 
 ;; given a symbol representing the name of a value, and a ast-tuple
-;; display the memory in a nice way
+;; display the memory
 (define (display-mem sym tup)
-  (define (pair<? a b)
-    (if (= (car a) (car b))
-        (< (cdr a) (cdr b))
-        (< (car a) (car b))))
-
   (define (compare a b)
-    (cond [(and (pair? a) (pair? b))
-           (pair<? a b)]
+    (cond [(and (empty? a)
+                (empty? b))
+           #f]
+          [(and (list? a)
+                (list? b)
+                (= (length a) (length b)))
+           (if (= (car a) (car b))
+               (compare (cdr a) (cdr b))
+               (< (car a) (car b)))]
           [(and (number? a) (number? b))
            (< a b)]
           [else (error 'display-mem "Couldn't compare ~v and ~v" a b)]))
+
   (let* ([val (mem-tuple-value (dict-ref (ast-tuple-memory tup) sym))]
          [out (if (dict? val)
                   (sort (dict->list val)

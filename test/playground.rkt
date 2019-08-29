@@ -31,4 +31,15 @@
   []
   [(while (counter @ out) ([(b zero)]))])
 
-(plot-compute (mult) '((a . 3) (b . 5)))
+(define (test n)
+  (default-component
+    'test
+    (list (port 'in 32))
+    (list (port 'out 32))
+    (keyword-lambda (in) ()
+                    [out => (if in
+                                (+ n in)
+                                #f)])))
+
+
+;; (plot-compute (mult) '((a . 3) (b . 5)))

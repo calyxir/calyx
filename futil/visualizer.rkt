@@ -1,14 +1,14 @@
 #lang racket/gui
 
-(require graph)
-
 (require racket/gui/base
+         graph
          mrlib/graph
          "component.rkt"
          "ast.rkt"
          "state-dict.rkt")
 (provide plot-compute
          plot-component)
+
 
 (define graph-board%
   (graph-pasteboard-mixin pasteboard%))

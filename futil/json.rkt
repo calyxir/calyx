@@ -6,6 +6,8 @@
          racket/dict
          racket/port
          racket/string
+         racket/hash
+         threading
          "ast.rkt"
          "state-dict.rkt"
          (for-syntax racket/base
@@ -37,19 +39,42 @@
       (list? (car lst))
       #f))
 
-(define (json->memory filename)
-  (define data
-    (with-input-from-file filename
-      (lambda () (read-json))))
+(define (zip-with-idx lst)
+  (if (list? lst)
+      (map (lambda (x i) (cons `(,i) x))
+           lst
+           (build-list (length lst) values))
+      lst))
 
-  (state-dict
-   (dict-map data
-             (lambda (k v)
-               (define v-p
-                 (cond [(list-2d? v) (convert-2darray v)]
-                       [(list? v) (convert-1darray v)]
-                       [else v]))
-               `(,k . ,(mem-tuple v-p (empty-state)))))))
+(define (build-mem mem)
+  (cond [(and (pair? mem) (list? (car mem)))  ; if the head is a list
+         (~>
+          ; recursive call on every item in the list
+          (map (lambda (x) (build-mem x))
+               mem)
+          ; add the idx for the last dim
+          zip-with-idx
+          ; map over each row
+          (map (lambda (row)
+                 ; map over content in each row to merge idxes
+                 (map (lambda (item)
+                        (cons (append (car row) (car item)) ; merge idx
+                              (cdr item)))                  ; pass along content
+                      (cdr row)))
+               _)
+          ; flatten list one level
+          (apply append _))]
+        [else (zip-with-idx mem)]))
+
+(define (json->memory filename)
+  (~> (with-input-from-file filename
+        (lambda () (read-json)))
+      (dict-map _
+                (lambda (k v)
+                  `(,k . ,(mem-tuple
+                           (build-mem v)
+                           (empty-state)))))
+      state-dict))
 
 (define (format-list l)
   (if (not (list? (car l)))
@@ -78,8 +103,6 @@
     #:before-first "{\n"
     #:after-last "\n}")))
 
-(require threading)
-
 (define (create-list dim-lst proc)
   (cond [(empty? dim-lst) (error "Can't create a zero-dimensional list")]
         [(= (length dim-lst) 1)
@@ -101,11 +124,10 @@
   (define-syntax-class phrase
     (pattern (x:id)
              #:with obj #'(lambda (proc)
-                            (state-dict (cons 'x (proc 0)))))
+                            (hash 'x (proc 0))))
     (pattern (x:id dim ...+)
              #:with obj #'(lambda (proc)
-                            (state-dict (cons 'x
-                                              (create-list (list dim ...) proc))))))
+                            (hash 'x (create-list (list dim ...) proc)))))
   (syntax-parse stx
     [(_ fn type:gen-type phrase:phrase ...)
      #'(with-output-to-file fn
@@ -113,10 +135,10 @@
          #:exists 'replace
          (lambda ()
            (display-json
-            (state-union (phrase.obj type.fun) ...
-                        #:combine/key (lambda (k v0 v1)
-                                        (error 'generate-json
-                                               "~v was in multple phrases!"
-                                               k))
-                        ))))
+            (hash-union (phrase.obj type.fun) ...
+                        #:combine/key
+                        (lambda (k v0 v1)
+                          (error 'generate-json
+                                 "~v was in multple phrases!"
+                                 k))))))
      ]))
