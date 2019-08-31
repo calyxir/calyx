@@ -145,6 +145,20 @@
       (send this refresh x1 y1 x2 y2
             'no-caret #f))
 
+    (define/private (refresh-screen)
+      (define admin (get-admin))
+      (when admin
+        (let* ([xb (box 0)]
+               [yb (box 0)]
+               [wb (box 0)]
+               [hb (box 0)]
+               [nada (send admin get-max-view xb yb wb hb)]
+               [x (unbox xb)]
+               [y (unbox yb)]
+               [w (unbox wb)]
+               [h (unbox hb)])
+          (send this refresh x y (+ x w) (+ y h)))))
+
     ;; (in-rectangle? x y rect) is true when [x] [y] is contained with in [rect]
     (define/private (in-rectangle? x y rect)
       (and (<= (min (rectangle-x1 rect)
@@ -168,7 +182,8 @@
                               bbox
                               cache
                               cache-offx
-                              cache-offy))
+                              cache-offy)
+      #:transparent)
 
     ;; structure representing a path and associated methods
     (struct path (;; name of starting port in the form: (mod . port)
@@ -184,8 +199,6 @@
                   ;; render data
                   [data #:mutable #:auto])
       #:transparent)
-
-
 
     (define grid-cache #f)
 
@@ -241,8 +254,8 @@
                          (lambda (old)
                            (cons path old)))))
         empty-hash))
-    (layout)
     (send this end-edit-sequence)
+    (layout)
 
     ;; overriding the on-paint method to add our own drawing code
     (define/override (on-paint before? dc topx topy width height . other)
@@ -328,6 +341,7 @@
               ['active
                (send dc set-pen "green" 2 'solid)])))
       (draw-route pdc route set-style)
+      (send pdc set-bitmap #f)
       (define new-data
         (path-render-data
          route
@@ -336,6 +350,7 @@
          0
          0))
       (set-path-data! p new-data)
+      (refresh-rectangle (path-render-data-bbox new-data))
       )
 
     ;; (define/augment (on-move-to snip x y dragging?)
@@ -422,9 +437,46 @@
              #f))
        (hash->list nodes)))
 
+    (define/private (top-order g)
+      (define (check against lst)
+        (if (foldl (lambda (x acc)
+                     (or acc (member x against)))
+                   #f
+                   lst)
+            #t
+            #f))
+      (define trans-g (transpose g))
+      (reverse
+       (foldl (lambda (x acc)
+                (if (check (flatten acc) (sequence->list (in-neighbors trans-g x)))
+                    (cons `(,x) acc)
+                    (match acc
+                      [(cons h tl) (cons (cons x h) tl)])))
+              '(())
+              (tsort g))))
+
     ;; function responsible for positioning all the snips
     (define/private (layout)
-      (dot-positioning this "dot"))
+      (define order (top-order (convert-graph comp)))
+      (define margin (* 3 grid-width))
+      (for-each
+       (lambda (col idx)
+         (define y-pos margin)
+         (for-each
+          (lambda (comp)
+            (println comp)
+            (define snip (hash-ref nodes comp))
+            (define height (send snip get-height))
+            (send this move-to snip (* idx 5 grid-width) y-pos)
+            (set! y-pos (+ y-pos height margin))
+
+          )
+          col
+          )
+         )
+       order
+       (build-list (length order) add1))
+      )
 
     ;; render a given route to the provided drawing context
     (define/private (draw-route dc route set-style)
@@ -517,18 +569,7 @@
   ([add = new comp/add]
    [a -> add @ left]
    [b -> add @ right]
+   [const c 1 : 32 -> add @ right]
    [add @ out -> out])
   [])
-(show (test))
-
-
-
-
-
-
-
-
-
-
-
-
+(show (comp/iterator))
