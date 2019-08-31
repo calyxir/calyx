@@ -5,6 +5,7 @@
          mrlib/graph
          racket/set
          racket/hash
+         racket/match
          "component.rkt"
          "port.rkt"
          "futil-prims.rkt")
@@ -134,49 +135,154 @@
     (init-field [(comp component)] grid-width)
     (super-new)
 
+    ;; structure representing a rectangle and associated methods
+    (struct rectangle (x1 y1 x2 y2)
+      #:transparent)
+
+    ;; redraw the given rectangle
+    (define/private (refresh-rectangle rect)
+      (match-define (rectangle x1 y1 x2 y2) rect)
+      (send this refresh x1 y1 x2 y2
+            'no-caret #f))
+
+    ;; (in-rectangle? x y rect) is true when [x] [y] is contained with in [rect]
+    (define/private (in-rectangle? x y rect)
+      (and (<= (min (rectangle-x1 rect)
+                    (rectangle-x2 rect))
+               x
+               (max (rectangle-x1 rect)
+                    (rectangle-x2 rect)))
+           (<= (min (rectangle-y1 rect)
+                    (rectangle-y2 rect))
+               y
+               (max (rectangle-y1 rect)
+                    (rectangle-y2 rect)))))
+
+
+    ;; (rectangle-mult rect v) applies f to each coordinate in rect
+    (define/private (rectangle-apply rect f)
+      (match-define (rectangle x1 y1 x2 y2) rect)
+      (rectangle (f x1) (f y1) (f x2) (f y2)))
+
+    (struct path-render-data (route
+                              bbox
+                              cache
+                              cache-offx
+                              cache-offy))
+
+    ;; structure representing a path and associated methods
+    (struct path (;; name of starting port in the form: (mod . port)
+                  start
+                  ;; name of ending port in the form: (mod . port)
+                  end
+                  ;; label on the wire, #f signifies no value
+                  [label #:mutable]
+                  ;; how to draw this path. options are 'inactive, 'active
+                  [style #:mutable]
+                  ;; flag signifying that this path should be highlighted
+                  [hover #:mutable #:auto]
+                  ;; render data
+                  [data #:mutable #:auto])
+      #:transparent)
+
+
+
     (define grid-cache #f)
-    (define hover-list '())
 
     ;; initialize nodes
     (send this begin-edit-sequence)
     (define nodes
-      (make-immutable-hash
+      ;; make a hash from node names to snip objects
+      (make-hash
        (map (lambda (vert)
               (let* ([sub (get-submod! comp vert)]
-                     [node (new node%
+                     [;; construct new node
+                      node (new node%
                                 [inputs (component-ins sub)]
                                 [outputs (component-outs sub)]
                                 [value vert]
                                 [active #t]
                                 [grid-width grid-width])])
+                ;; insert the new node into the board
                 (send this insert node 0 0)
+                ;; return a pair mapping the vertex name to the new node
                 `(,vert . ,node)))
+            ;; map over all submods in the component
             (get-vertices (convert-graph comp)))))
+
+    ;; construct a hash mapping edges to paths
+    (define edge-path-hash
+      (make-hash
+       (map (lambda (edge)
+              (let-values ([(start end) (values (car edge) (cadr edge))])
+                `(,edge . ,(path start end "" 'inactive))))
+            ;; map over edges in the graph
+            (get-edges (component-graph comp)))))
+
+    ;; construct a hash mapping node names to paths connected to it
+    (define node-path-hash
+      (let ([;; first construct a hash mapping node names to the empty list
+             empty-hash
+             (make-hash
+              (map (lambda (node) `(,node . ()))
+                   (get-vertices (convert-graph comp))))])
+        ;; then map over edges adding each path to the corresponding node list
+        (hash-for-each
+         edge-path-hash
+         (lambda (edge path)
+           (define-values (start-mod end-mod)
+             (values (caar edge) (caadr edge)))
+           (hash-update! empty-hash
+                         start-mod
+                         (lambda (old)
+                           (cons path old)))
+           (hash-update! empty-hash
+                         end-mod
+                         (lambda (old)
+                           (cons path old)))))
+        empty-hash))
     (layout)
     (send this end-edit-sequence)
 
+    ;; overriding the on-paint method to add our own drawing code
     (define/override (on-paint before? dc topx topy width height . other)
+      ;; when we are drawing before the snips
       (when before?
         (draw-grid dc width height)
         (draw-wires dc))
+
+      ;; call the super method
       (super on-paint before? dc topx topy width height . other))
 
+    ;; called when the size of the window changes
     (define/augment (on-display-size)
       (set! grid-cache #f))
 
-    (define/private (empty-cache)
+    ;; creates an empty bitmap with size given by rect
+    ;; or if rect is [#f] then sized by the window
+    (define/private (empty-cache [rect #f])
       (define admin (get-admin))
-      (if admin
-          (let ([xb (box 0)]
-                [yb (box 0)]
-                [wb (box 0)]
-                [hb (box 0)])
-            (send admin get-max-view xb yb wb hb)
-            (make-bitmap (unbox wb) (unbox hb)))
-          #f)
-      )
+      (define (fullscreen-cache)
+        (if admin
+            (let ([xb (box 0)]
+                  [yb (box 0)]
+                  [wb (box 0)]
+                  [hb (box 0)])
+              (send admin get-max-view xb yb wb hb)
+              (make-bitmap (unbox wb) (unbox hb)))
+            #f))
+      (if rect
+          (let* ([rect
+                 (rectangle-apply rect (compose inexact->exact))]
+                 [width (- (rectangle-x2 rect) (rectangle-x1 rect))]
+                 [height (- (rectangle-y2 rect) (rectangle-y1 rect))])
+            (if (or (zero? width) (zero? height))
+                (fullscreen-cache)
+                (make-bitmap width height)))
+          (fullscreen-cache)))
 
-    (define/public (draw-grid dc width height)
+    ;; renders the grid of dots to the screen
+    (define/private (draw-grid dc width height)
       (unless grid-cache
         (set! grid-cache (empty-cache))
         (define grid-dc (make-object bitmap-dc% grid-cache))
@@ -190,10 +296,56 @@
 
       (send dc draw-bitmap grid-cache 0 0))
 
-    (define/public (draw-wires dc)
-      (map (lambda (x)
-             (draw-path dc (car x) (cadr x)))
-           (get-edges (component-graph comp))))
+    (define/private (draw-wires dc)
+      (hash-for-each
+       edge-path-hash
+       (lambda (name p)
+         (unless (path-data p)
+           (recreate-path-render-data p))
+
+         (match-define (path start end lbl style hover data) p)
+         (match-let
+             ([(path-render-data route bbox
+                                 cache cache-offx cache-offy)
+               data])
+           (send dc draw-bitmap cache cache-offx cache-offy)))))
+
+    (define/private (recreate-path-render-data p)
+      (match-define (path start end label style hover data)
+        p)
+      (define-values (route bbox) (make-route start end))
+      (define cache (empty-cache
+                     ;; (rectangle-apply bbox
+                     ;;                  (lambda (x) (* x grid-width)))
+                     ))
+      (define pdc (make-object bitmap-dc% cache))
+      (define (set-style dc)
+        (if hover
+            (send dc set-pen "red" 2 'solid)
+            (match style
+              ['inactive
+               (send dc set-pen "black" 2 'solid)]
+              ['active
+               (send dc set-pen "green" 2 'solid)])))
+      (draw-route pdc route set-style)
+      (define new-data
+        (path-render-data
+         route
+         (rectangle-apply bbox (lambda (x) (* x grid-width)))
+         cache
+         0
+         0))
+      (set-path-data! p new-data)
+      )
+
+    ;; (define/augment (on-move-to snip x y dragging?)
+    ;;   (hash-for-each
+    ;;    wires
+    ;;    (lambda (name pth)
+    ;;      (invalidate-path name pth)
+    ;;      )
+    ;;    )
+    ;;   )
 
     (define/augment (after-move-to snip x y dragging?)
       (when (not dragging?)
@@ -201,88 +353,121 @@
         (send this move-to snip
               (round-to-closest x grid-width)
               (round-to-closest y grid-width))
+        (for-each
+         (lambda (p)
+           (when (path-data p)
+             (refresh-rectangle (path-render-data-bbox (path-data p)))
+             (set-path-data! p #f)))
+         (hash-ref node-path-hash (get-field value snip)))
         (send this end-edit-sequence)))
 
+    ;; listener for mouse events (and probably other events)
     (define/override (on-event evt)
       (cond
-        [(send evt leaving?)
-         (set! hover-list '())]
+        ;; [(send evt leaving?)
+        ;;  ]
         [(or (send evt entering?)
              (send evt moving?))
-         (let ([ex (send evt get-x)]
-               [ey (send evt get-y)])
-           (set! hover-list (get-nodes-at ex ey)))]
+         (let* ([ex (send evt get-x)]
+                [ey (send evt get-y)]
+                [hover (get-nodes-at ex ey)])
+           (void)
+           ;; (hash-for-each
+           ;;  node-path-hash
+           ;;  (lambda (name plst)
+           ;;    (for-each
+           ;;     (lambda (p)
+           ;;       ;; (set-path-hover! p (member name hover))
+           ;;       ;; (define data (path-data p))
+           ;;       ;; (when data
+           ;;       ;;   (set-path-data! p #f)
+           ;;       ;;   (refresh-rectangle (path-render-data-bbox data))
+           ;;       ;;   )
+           ;;       (define data (path-data p))
+           ;;       (if (member name hover)
+           ;;           (unless (path-hover p)
+           ;;             (set-path-hover! p #t)
+           ;;             (when data
+           ;;               (set-path-data! p #f)
+           ;;               (refresh-rectangle (path-render-data-bbox data))))
+           ;;           (when (path-hover p)
+           ;;             (set-path-hover! p #f)
+           ;;             (when data
+           ;;               (set-path-data! p #f)
+           ;;               (refresh-rectangle (path-render-data-bbox data)))))
+           ;;       )
+           ;;     plst)))
+           )]
         [else (void)])
-      (super on-event evt)
-      )
+      (super on-event evt))
 
+    ;; function that returns the position rectangle of a node
     (define/private (get-location node)
       (let ([x (box 0)]
             [y (box 0)]
             [w (send node get-width)]
             [h (send node get-height)])
         (send this get-snip-location node x y)
-        (values (unbox x)
-                (unbox y)
-                w h)))
+        (rectangle (unbox x) (unbox y)
+                   (+ (unbox x) w)
+                   (+ (unbox y) h))))
 
-    (define/private (in-rectangle? x y p1x p1y p2x p2y)
-      (and (<= (min p1x p2x) x (max p1x p2x))
-           (<= (min p1y p2y) y (max p1y p2y))))
-
+    ;; get nodes at a given position
     (define/private (get-nodes-at ex ey)
       (filter-map
        (lambda (pair)
          (define-values (key node) (values (car pair) (cdr pair)))
-         (let-values ([(x y w h) (get-location node)])
-           (if (in-rectangle? ex ey x y
-                              (+ x w) (+ y h))
-               key
-               #f
-               )))
-       (hash->list nodes))
-      )
+         (if (in-rectangle? ex ey (get-location node))
+             key
+             #f))
+       (hash->list nodes)))
 
+    ;; function responsible for positioning all the snips
     (define/private (layout)
       (dot-positioning this "dot"))
 
-    (define/private (draw-path-on-grid dc vpoints hover)
+    ;; render a given route to the provided drawing context
+    (define/private (draw-route dc route set-style)
+      ;; convert virtual coords of route to real coords
       (define realpoints
         (map (lambda (x)
-               (cons
-                (* grid-width (car x))
-                (* grid-width (cdr x))))
-             vpoints))
+               (cons (* grid-width (car x))
+                     (* grid-width (cdr x))))
+             route))
+
+      ;; get all the x coords
       (define real-xs
         (map (lambda (p)
                (car p))
              realpoints))
+
+      ;; get all the y coords
       (define real-ys
         (map (lambda (p)
                (cdr p))
              realpoints))
-      (if hover
-          (send dc set-pen "blue" 2 'solid)
-          (send dc set-pen "green" 2 'solid))
-      (send dc draw-lines realpoints)
-      (send this refresh
-            (apply min real-xs) (apply min real-ys)
-            (apply max real-xs) (apply max real-ys)
-            'no-caret
-            #f))
 
-    (define/private (draw-path dc start end)
+      (set-style dc)
+      (send dc draw-lines realpoints))
+
+
+    ;; given a start port and end port, create a route and a bounding box
+    (define/private (make-route start end)
       (define start-node (hash-ref nodes (car start)))
       (define-values (start-vx start-vy)
-        (let-values ([(x y w h) (get-location start-node)])
+        (let ([rect (get-location start-node)])
           (send start-node get-out-port-pos
-                (cdr start) x y)))
+                (cdr start)
+                (rectangle-x1 rect)
+                (rectangle-y1 rect))))
 
       (define end-node (hash-ref nodes (car end)))
       (define-values (end-vx end-vy)
-        (let-values ([(x y w h) (get-location end-node)])
+        (let ([rect (get-location end-node)])
           (send end-node get-in-port-pos
-                (cdr end) x y)))
+                (cdr end)
+                (rectangle-x1 rect)
+                (rectangle-y1 rect))))
 
       (define path
         `((,start-vx . ,start-vy)
@@ -290,12 +475,13 @@
           (,(sub1 end-vx) . ,end-vy)
           (,end-vx . ,end-vy)))
 
-      (define hover
-        (or (member (car start) hover-list)
-            (member (car end) hover-list )))
+      (define bbox
+        (let* ([xs (map car path)]
+               [ys (map cdr path)])
+          (rectangle (apply min xs) (apply min ys)
+                     (apply max xs) (apply max ys))))
 
-      (draw-path-on-grid dc path hover))
-    ))
+      (values path bbox))))
 
 (define (show comp #:grid-width [grid-width 20])
   (define toplevel
@@ -334,3 +520,15 @@
    [add @ out -> out])
   [])
 (show (test))
+
+
+
+
+
+
+
+
+
+
+
+

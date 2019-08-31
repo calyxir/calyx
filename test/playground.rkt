@@ -31,15 +31,8 @@
   []
   [(while (counter @ out) ([(b zero)]))])
 
-(define (test n)
-  (default-component
-    'test
-    (list (port 'in 32))
-    (list (port 'out 32))
-    (keyword-lambda (in) ()
-                    [out => (if in
-                                (+ n in)
-                                #f)])))
-
+(require graph)
+(require futil/component)
+(caadr (car (get-edges (component-graph (mult)))))
 
 ;; (plot-compute (mult) '((a . 3) (b . 5)))
