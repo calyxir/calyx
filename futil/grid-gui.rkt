@@ -455,16 +455,79 @@
               '(())
               (tsort g))))
 
+    (define/private (samkenn-layouter)
+      ;; generates list of components that are not an input
+      ;; and have no inputs
+      (define constant-like
+        (filter
+         (lambda (sub)
+           (and (not (member sub (map port-name (component-ins comp))))
+                (empty? (component-ins (get-submod! comp sub)))))
+         (hash-keys (component-submods comp))))
+
+      (define (can-place? sub layout-grid)
+        (let* ([subcomp (get-submod! comp sub)]
+               [ins (map port-name (component-ins subcomp))]
+               [flat-layout (apply append layout-grid)])
+          (andmap (lambda (input)
+                    (or (member input flat-layout)
+                        (member input constant-like)))
+                  ins)))
+
+      ;; meeeeeaaat
+      (define (meat layout-grid worklist)
+        (if (empty? worklist)
+            layout-grid
+            (let ([placeable
+                   (filter (lambda (x) (can-place? x layout-grid))
+                           worklist)]
+                  [unplaceable
+                   (filter-not (lambda (x) (can-place? x layout-grid))
+                               worklist)])
+              (if (empty? placeable)
+                  ;; empty case
+                  (let* ([head (car unplaceable)]
+                         [neighs (get-neighbors (convert-graph comp) head)]
+                         [filt-neighs (filter-not
+                                       (lambda (x)
+                                         (member x (flatten layout-grid)))
+                                       neighs)]
+                         [layout-p (append layout-grid
+                                           `((,(car unplaceable))))]
+                         [worklist-p (append (cdr unplaceable) filt-neighs)])
+                    (meat layout-p worklist-p))
+                  ;; non-empty case
+                  (let* ([neighs (map
+                                  (lambda (mod)
+                                    (get-neighbors (convert-graph comp) mod))
+                                  placeable)]
+                         [flatten-neighs (apply append neighs)]
+                         [filt-neighs (filter-not
+                                       (lambda (x)
+                                         (member x (flatten layout-grid)))
+                                       flatten-neighs)]
+                         [layout-p (append layout-grid (list placeable))]
+                         [worklist-p (append unplaceable filt-neighs)])
+                    (meat layout-p worklist-p))))))
+
+      (append '((start incr end)) '((hi)))
+
+      ;; (define layout-grid '(()))
+      (meat '()
+            (map port-name (component-ins comp))))
+
+    (append '() '((start incr end)) '((some other things)))
+
     ;; function responsible for positioning all the snips
     (define/private (layout)
-      (define order (top-order (convert-graph comp)))
+      ;; (top-order (convert-graph comp))
+      (define order (samkenn-layouter))
       (define margin (* 3 grid-width))
       (for-each
        (lambda (col idx)
          (define y-pos margin)
          (for-each
           (lambda (comp)
-            (println comp)
             (define snip (hash-ref nodes comp))
             (define height (send snip get-height))
             (send this move-to snip (* idx 5 grid-width) y-pos)
@@ -535,7 +598,7 @@
 
       (values path bbox))))
 
-(define (show comp #:grid-width [grid-width 20])
+(define (show comp #:grid-width [grid-width 15])
   (define toplevel
     (new frame%
          [label "Grid"]
