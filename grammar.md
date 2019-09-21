@@ -24,8 +24,9 @@ control ::= ( seq <control>+ )
           | ( ifen <cond: port> <true_branch: control> <false_branch: control> )
           | ( while <cond: port> <body: control> )
           | ( print <id: string> )    ;id is the id of a component instance  in structure
+          | ( !! <id: string>+ )      ; Activates just components with id <id>+
+          | ( <id: string>+ )         ; Deactivates just components with id <id>+
           | ( )                       ; Empty control
-
 
 ```
 
