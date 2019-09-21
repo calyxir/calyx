@@ -6,11 +6,15 @@
          racket/dict
          racket/list
          racket/match
+         racket/pretty
          "port.rkt"
          "util.rkt")
 
 (provide (struct-out component)
          (struct-out blocked)
+         (struct-out connection)
+         (struct-out decl)
+         make-component
          transform-control
          input-component
          output-component
@@ -22,6 +26,20 @@
          split!
          commit-transpose!
          convert-graph)
+
+(struct connection (src dest) #:transparent)
+(struct decl (var comp) #:transparent)
+
+(define (make-component name
+                        inputs
+                        outputs
+                        structure
+                        [control '()])
+  (pretty-print name)
+  (pretty-print inputs)
+  (pretty-print outputs)
+  (pretty-print structure)
+  (pretty-print control))
 
 (struct component (;; name of the component
                    name
@@ -54,7 +72,7 @@
 ;; creates a component with a single infinite output port of width w
 ;; and no input ports. Designed to be used as the input of a component.
 (define (input-component w) (component
-                             'inpu
+                             'input
                              '()
                              (list (port 'inf# w))
                              (make-hash) ; submods
@@ -121,23 +139,6 @@
     (list (port 'inf# width))
     (keyword-lambda () () [inf# => n])))
 
-;; Looks for an input/output port matching [port] in [comp]. If the port is found
-;; and is equal to the value [#f], then this function does nothing. Otherwise
-;; it removes that port from [comp].
-(define (consume! comp port set-prop! get-prop name)
-  (let* ([lst (get-prop comp)]
-         [p (find-port port lst)])
-    (if p
-        (if (infinite-port? p)
-            (void)
-            (set-prop! comp (remove p lst)))
-        (error "Couldn't find" port "in" (component-name comp) name))))
-
-(define (consume-in! comp port)
-  (void))
-(define (consume-out! comp port)
-  (void))
-
 (define (add-submod! comp name mod)
   (dict-set! (component-submods comp) name mod))
 (define (get-submod! comp name)
@@ -160,10 +161,7 @@
          [src-port (name->port (component-name comp) src-portname (component-outs src-submod))]
          [tar-port (name->port (component-name comp) tar-portname (component-ins tar-submod))])
     (if (= (port-width src-port) (port-width tar-port))
-        (begin
-          (consume-out! src-submod src-port)
-          (consume-in! tar-submod tar-port)
-          (add-edge! comp src src-port tar tar-port (port-width src-port)))
+        (add-edge! comp src src-port tar tar-port (port-width src-port))
         (error "Port widths don't match!"
                src-port '!= tar-port))))
 

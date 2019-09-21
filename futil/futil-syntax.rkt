@@ -12,13 +12,6 @@
 
 (provide define/module)
 
-;; simple macro that allows you to pass in components instead of
-;; functions for components in some places
-;; (define-syntax-rule (call fun)
-;;   (if (procedure? fun)
-;;       (fun)
-;;       fun))
-
 ;; syntax for function that takes in a component and connects (u . uf) to (v . vf)
 (define-syntax-rule (connect u uf v vf)
   (lambda (c)

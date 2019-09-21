@@ -9,3 +9,5 @@ benchmarks/*.futil
 *.pre
 *.out
 *.run*
+Cargo.lock
+target/*
