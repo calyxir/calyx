@@ -10,4 +10,4 @@ benchmarks/*.futil
 *.out
 *.run*
 Cargo.lock
-target/*
+*/target/*
