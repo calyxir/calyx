@@ -4,7 +4,7 @@
          graph
          mrlib/graph
          "component.rkt"
-         "ast.rkt"
+         "interpret.rkt"
          "state-dict.rkt")
 (provide plot-compute
          plot-component)

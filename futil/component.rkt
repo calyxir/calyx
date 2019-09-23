@@ -14,7 +14,7 @@
          (struct-out blocked)
          (struct-out connection)
          (struct-out decl)
-         make-component
+         empty-graph
          transform-control
          input-component
          output-component
@@ -30,17 +30,6 @@
 (struct connection (src dest) #:transparent)
 (struct decl (var comp) #:transparent)
 
-(define (make-component name
-                        inputs
-                        outputs
-                        structure
-                        [control '()])
-  (pretty-print name)
-  (pretty-print inputs)
-  (pretty-print outputs)
-  (pretty-print structure)
-  (pretty-print control))
-
 (struct component (;; name of the component
                    name
                    ;; list of input ports
@@ -54,7 +43,7 @@
                    ;; ast
                    control
                    ;; procedure representing this modules computation
-                   proc
+                   [proc #:mutable]
                    ;; procedure for setting memory
                    memory-proc
                    ;; graph representing internal connections
@@ -198,7 +187,6 @@
   (for-each
     (lambda (edge)
       (match edge
-        ; NOTE(rachit): plz no
         [(cons (cons u _) (cons (cons v _) _))
          (if vals
            (add-directed-edge! newg u v (dict-ref vals (car edge)))

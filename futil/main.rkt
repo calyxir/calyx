@@ -23,6 +23,7 @@
 
 ;; Code here
 (require "ast.rkt"
+         "interpret.rkt"
          "futil-syntax.rkt"
          "futil-prims.rkt"
          "util.rkt"
@@ -30,6 +31,7 @@
          "cmdline.rkt")
 
 (provide (all-from-out "ast.rkt")
+         (all-from-out "interpret.rkt")
          (all-from-out "futil-syntax.rkt")
          (all-from-out "futil-prims.rkt")
          (all-from-out "util.rkt")
