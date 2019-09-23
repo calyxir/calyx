@@ -11,3 +11,4 @@ benchmarks/*.futil
 *.run*
 Cargo.lock
 */target/*
+*.bak
