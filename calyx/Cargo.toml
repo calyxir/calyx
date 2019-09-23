@@ -1,0 +1,9 @@
+[package]
+name = "calyx"
+version = "0.1.0"
+authors = ["Samuel Thomas <sgpthomas@gmail.com>", "Kenneth Fang <kwf37@cornell.edu>"]
+edition = "2018"
+
+[dependencies]
+sexp = "~1.1"
+clap = "~2.33"
