@@ -2,24 +2,23 @@
 namespace ::= ( define/namespace <name: string> <component>* )
 component ::= ( 
                 define/component
-                <signature: comp-sig>   ; module signature (name and parameters)
+                <name: string>          ; component name
                 <inputs: port-def>*     ; input port definitions
                 <outputs: port-def>*    ; output port definitions
                 <structure>*            ; list of structure
                 <control>               ; single control module
               )
-              
-comp-sig ::= ( <name: string> <param: number>* )
-              
+
 port-def ::= ( port <name: string> <port-width: number> )
 
-structure ::= ( new <inst-name: string> <comp-inst> )
+structure ::= ( new <inst-name: string> <compponent: string> )
+            | ( new-std <inst-name: string> <comp-inst> )
             | ( -> <src: port> <dest: port> )
             
 port ::= ( @ <component: name> <port: name> )
        | ( @ this <port: name> )    ; used when referring to own component
        
-comp-inst ::= ( <comp-name: string> <param: number>* )    ; component instancing expressions
+comp-inst ::= ( <comp-name: string> <param: number>* )    ; stdlib component instancing expressions
 
 control ::= ( seq <control>+ )
           | ( par <control>+ )
