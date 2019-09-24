@@ -1,52 +1,78 @@
-use sexp::Sexp;
-
 // Abstract Syntax Tree for Futil. See link below for the grammar
 // https://github.com/cucapra/futil/blob/master/grammar.md
 
-pub struct Namespace<'a> {
-    name: &'a str,
-    components: Vec<Component<'a>>,
+#[derive(Debug)]
+pub struct Namespace {
+    pub name: String,
+    pub components: Vec<Component>,
 }
 
-pub struct Component<'a> {
-    name: &'a str,
-    inputs: Vec<Portdef<'a>>,
-    outputs: Vec<Portdef<'a>>,
-    structure: Vec<Structure<'a>>,
-    control: Control<'a>,
+#[derive(Debug)]
+pub struct Component {
+    pub name: String,
+    pub inputs: Vec<Portdef>,
+    pub outputs: Vec<Portdef>,
+    pub structure: Vec<Structure>,
+    pub control: Control,
 }
 
-pub struct Portdef<'a> {
-    name: &'a str,
-    port_width: i32,
+#[derive(Debug)]
+pub struct Portdef {
+    pub name: String,
+    pub width: i64,
 }
 
-pub enum Structure<'a> {
-    New { name: &'a str, instance: Compinst<'a> },
-    Wire { src: Port<'a>, dest: Port<'a> },
+#[derive(Debug)]
+pub enum Structure {
+    Decl { name: String, instance: Compinst },
+    Wire { src: Port, dest: Port },
 }
 
-pub enum Port<'a> {
-    Comp { component: &'a str, port: &'a str },
-    This { port: &'a str },
+#[derive(Debug)]
+pub enum Port {
+    Comp { component: String, port: String },
+    This { port: String },
 }
 
-pub struct Compinst<'a> {
-    name: &'a str,
-    param: Vec<i32>,
+#[derive(Debug)]
+pub struct Compinst {
+    pub name: String,
+    pub param: Vec<i64>,
 }
 
 // Need Boxes for recursive data structure
 // Cannot have recursive data structure without
 // indirection
-pub enum Control<'a> {
-    Seq { cexp: Vec<Control<'a>> },
-    Par { cexp: Vec<Control<'a>> },
-    If { cond: Port<'a>, t: Box<Control<'a>>, f: Box<Control<'a>> },
-    Ifen { cond: Port<'a>, t: Box<Control<'a>>, f: Box<Control<'a>> },
-    While { cond: Port<'a>, body: Box<Control<'a>> },
-    Print { id: &'a str },
-    Enable { components: Vec<&'a str> },
-    Disable { components: Vec<&'a str> },
-    Empty {},
+#[derive(Debug)]
+pub enum Control {
+    Seq {
+        cexp: Vec<Control>,
+    },
+    Par {
+        cexp: Vec<Control>,
+    },
+    If {
+        cond: Port,
+        t: Box<Control>,
+        f: Box<Control>,
+    },
+    Ifen {
+        cond: Port,
+        t: Box<Control>,
+        f: Box<Control>,
+    },
+    While {
+        cond: Port,
+        body: Box<Control>,
+    },
+    Print {
+        id: String,
+    },
+    Enable {
+        components: Vec<String>,
+    },
+    Disable {
+        components: Vec<String>,
+    },
+    Empty,
 }
