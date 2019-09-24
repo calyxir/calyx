@@ -1,3 +1,4 @@
+mod parse;
 mod ast;
 
 #[macro_use]
@@ -12,5 +13,5 @@ fn main() {
     .get_matches();
 
     let filename = matches.value_of("FILE").unwrap();
-    ast::read_futil(filename);
+    parse::parse_file(filename);
 }
