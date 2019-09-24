@@ -1,5 +1,5 @@
-mod parse;
 mod ast;
+mod parse;
 
 #[macro_use]
 extern crate clap;
