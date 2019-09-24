@@ -11,15 +11,10 @@ pub fn parse_file(filename: &str) {
 }
 
 fn parse(prog: &str) -> Namespace {
-    // println!("{}", prog);
     match sexp::parse(prog) {
         Ok(exp) => parse_namespace(&exp),
         e => panic!("Error parsing program: {:?}", e),
     }
-    /*match exp {
-        Atom(_) => panic!("Didn't expect an atom."),
-        List(l) => panic!("nyi"),
-    }*/
 }
 
 // use lifetime here to specify that the return is borrowing from [e]
@@ -79,7 +74,6 @@ fn parse_component(e: &Sexp) -> Component {
 }
 
 fn parse_portdef(e: &Sexp) -> Portdef {
-    println!("{:?}", e);
     match e {
         Atom(_) => panic!("Ill formed port"),
         List(vec) => match vec.as_slice() {
@@ -147,6 +141,55 @@ fn parse_port(e: &Sexp) -> Port {
     }
 }
 
-fn parse_control(_e: &Sexp) -> Control {
-    Control::Empty
+fn parse_control(e: &Sexp) -> Control {
+    match e {
+        Atom(_) => panic!("ill formed"),
+        List(list) => {
+            let head = &list[0];
+            let rest = &list[1..];
+            match atom_to_string(&head).unwrap().as_ref() {
+                "seq" => Control::Seq(rest.into_iter().map(parse_control).collect()),
+                "par" => Control::Par(rest.into_iter().map(parse_control).collect()),
+                "if" => match rest {
+                    [cond, t, f] => Control::If {
+                        cond: parse_port(cond),
+                        tbranch: Box::new(parse_control(t)),
+                        fbranch: Box::new(parse_control(f)),
+                    },
+                    _ => panic!("ill formed if"),
+                },
+                "ifen" => match rest {
+                    [cond, t, f] => Control::Ifen {
+                        cond: parse_port(cond),
+                        tbranch: Box::new(parse_control(t)),
+                        fbranch: Box::new(parse_control(f)),
+                    },
+                    _ => panic!("ill formed ifen"),
+                },
+                "while" => match rest {
+                    [cond, body] => Control::While {
+                        cond: parse_port(cond),
+                        body: Box::new(parse_control(body)),
+                    },
+                    _ => panic!("ill formed ifen"),
+                },
+                "print" => match rest {
+                    [Atom(sexp::Atom::S(var))] => Control::Print(var.to_string()),
+                    _ => panic!("ill formed ifen"),
+                },
+                "enable" => Control::Enable(
+                    rest.into_iter()
+                        .map(|x| atom_to_string(x).unwrap())
+                        .collect(),
+                ),
+                "disable" => Control::Disable(
+                    rest.into_iter()
+                        .map(|x| atom_to_string(x).unwrap())
+                        .collect(),
+                ),
+                "empty" => Control::Empty,
+                _ => panic!("unknown control head"),
+            }
+        }
+    }
 }

@@ -45,34 +45,26 @@ pub struct Compinst {
 // indirection
 #[derive(Debug)]
 pub enum Control {
-    Seq {
-        cexp: Vec<Control>,
-    },
-    Par {
-        cexp: Vec<Control>,
-    },
+    Seq(Vec<Control>),
+
+    Par(Vec<Control>),
+
     If {
         cond: Port,
-        t: Box<Control>,
-        f: Box<Control>,
+        tbranch: Box<Control>,
+        fbranch: Box<Control>,
     },
     Ifen {
         cond: Port,
-        t: Box<Control>,
-        f: Box<Control>,
+        tbranch: Box<Control>,
+        fbranch: Box<Control>,
     },
     While {
         cond: Port,
         body: Box<Control>,
     },
-    Print {
-        id: String,
-    },
-    Enable {
-        components: Vec<String>,
-    },
-    Disable {
-        components: Vec<String>,
-    },
+    Print(String),
+    Enable(Vec<String>),
+    Disable(Vec<String>),
     Empty,
 }
