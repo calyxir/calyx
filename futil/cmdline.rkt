@@ -2,7 +2,7 @@
 
 (require racket/cmdline
          racket/match
-         "ast.rkt"
+         "interpret.rkt"
          "json.rkt"
          "visualizer.rkt")
 

@@ -5,7 +5,7 @@ mod ast;
 extern crate clap;
 
 fn main() {
-    let matches = clap_app!(passes =>
+    let matches = clap_app!(calyx =>
                             (version: "0.1.0")
                             (author: "Samuel Thomas <sgt43@cornell.edu>")
                             (about: "Optimization passes for futil")

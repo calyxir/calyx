@@ -3,6 +3,7 @@
          "port.rkt"
          "component.rkt"
          "ast.rkt"
+         "interpret.rkt"
          "util.rkt"
          racket/dict
          racket/format)

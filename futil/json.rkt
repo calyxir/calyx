@@ -8,7 +8,7 @@
          racket/string
          racket/hash
          threading
-         "ast.rkt"
+         "interpret.rkt"
          "state-dict.rkt"
          (for-syntax racket/base
                      syntax/parse))

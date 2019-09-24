@@ -30,7 +30,14 @@
     (keyword-lambda (left right) ()
                     [out => (falsify-apply op left right)])))
 
-(define (comp/id)
+(define (const n)
+  (default-component
+    'const
+    '()
+    (list (port 'out 32))
+    (keyword-lambda () () [out => n])))
+
+(define comp/id
   (default-component
     'id
     (list (port 'in 32))
@@ -38,7 +45,7 @@
     (keyword-lambda (in) ()
                     [out => in])))
 
-(define (comp/reg)
+(define comp/reg
   (default-component
     'reg
     (list (port 'in 32))
@@ -53,7 +60,7 @@
                     (define new-v (dict-ref st 'in))
                     (if new-v new-v old))))
 
-(define (comp/res-reg)
+(define comp/res-reg
   (default-component
     'res-reg
     (list (port 'in 32)
@@ -113,7 +120,7 @@
     proc
     #:memory-proc memory-proc))
 
-(define (comp/trunc-sub)
+(define comp/trunc-sub
   (default-component
     'trunc-sub
     input-list
@@ -131,21 +138,21 @@
         +nan.0)
       (/ a b)))
 
-(define (comp/add) (simple-binop 'add +))
-(define (comp/sub) (simple-binop 'sub -))
-(define (comp/div) (simple-binop 'div custom-div))
-(define (comp/mult) (simple-binop 'mult *))
-(define (comp/and) (simple-binop 'and bitwise-and))
-(define (comp/or) (simple-binop 'or bitwise-ior))
-(define (comp/xor) (simple-binop 'xor bitwise-xor))
-(define (comp/sqrt)
+(define comp/add (simple-binop 'add +))
+(define comp/sub (simple-binop 'sub -))
+(define comp/div (simple-binop 'div custom-div))
+(define comp/mult (simple-binop 'mult *))
+(define comp/and (simple-binop 'and bitwise-and))
+(define comp/or (simple-binop 'or bitwise-ior))
+(define comp/xor (simple-binop 'xor bitwise-xor))
+(define comp/sqrt
   (default-component
     'sqrt
     (list (port 'in 32))
     (list (port 'out 32))
     (keyword-lambda (in) ()
                     [out => (if in (real-part (sqrt in)) #f)])))
-(define (comp/lte)
+(define comp/lte
   (default-component
     'lte
     (list (port 'left 32)
@@ -158,7 +165,7 @@
                                     0)
                                 #f)])))
 
-(define (magic/mux)
+(define magic/mux
   (default-component
     'mux
     (list (port 'left 32)
@@ -170,49 +177,49 @@
                                 left
                                 right)])))
 
-(define/module and3way ((a : 32) (b : 32) (c : 32)) ((out : 32))
-  ([const en 1 : 32 -> out])
-  [(ifen (a)
-         ([(ifen (b)
-                 ([(ifen (c)
-                         ([(!! en out)])
-                         ())])
-                 ())])
-         ())])
+;; (define/module and3way ((a : 32) (b : 32) (c : 32)) ((out : 32))
+;;   ([const en 1 : 32 -> out])
+;;   [(ifen (a)
+;;          ([(ifen (b)
+;;                  ([(ifen (c)
+;;                          ([(!! en out)])
+;;                          ())])
+;;                  ())])
+;;          ())])
 
-(define/module comp/iterator
-  ((start : 32) (incr : 32) (end : 32) (en : 32))
-  ((out : 32) (stop : 32))
-  ([incr-reg = new comp/reg]
-   [end-reg = new comp/reg]
-   [add = new comp/add]
-   [cmp = new comp/trunc-sub]
+;; (define/module comp/iterator
+;;   ((start : 32) (incr : 32) (end : 32) (en : 32))
+;;   ((out : 32) (stop : 32))
+;;   ([incr-reg = new comp/reg]
+;;    [end-reg = new comp/reg]
+;;    [add = new comp/add]
+;;    [cmp = new comp/trunc-sub]
 
-   [ins-and = new and3way]
-   [start -> ins-and @ a]
-   [incr -> ins-and @ b]
-   [end -> ins-and @ c]
+;;    [ins-and = new and3way]
+;;    [start -> ins-and @ a]
+;;    [incr -> ins-and @ b]
+;;    [end -> ins-and @ c]
 
-   [incr -> incr-reg @ in]
-   [end -> end-reg @ in]
+;;    [incr -> incr-reg @ in]
+;;    [end -> end-reg @ in]
 
-   [val-reg = new comp/res-reg]
-   [const res-val 1 : 32 -> val-reg @ res]
+;;    [val-reg = new comp/res-reg]
+;;    [const res-val 1 : 32 -> val-reg @ res]
 
-   [const add-zero 0 : 32 -> add @ right]
-   [start -> add @ left]
-   [incr-reg @ out -> add @ right]
-   [add @ out -> val-reg @ in]
-   [val-reg @ out -> add @ left]
-   [add @ out -> out]
-   [end-reg @ out -> cmp @ left]
-   [add @ out -> cmp @ right]
-   [cmp @ out -> stop])
-  [(!! start incr end ins-and)]
-  [(ifen (en)
-         ([(ifen (ins-and @ out)
-                 ([(!! res-val val-reg)]
-                  [(!! start incr end incr-reg end-reg)]
-                  [(incr incr-reg end res-val)])
-                 ([(add-zero start incr end res-val)]))])
-         ([(start incr incr-reg end res-val)]))])
+;;    [const add-zero 0 : 32 -> add @ right]
+;;    [start -> add @ left]
+;;    [incr-reg @ out -> add @ right]
+;;    [add @ out -> val-reg @ in]
+;;    [val-reg @ out -> add @ left]
+;;    [add @ out -> out]
+;;    [end-reg @ out -> cmp @ left]
+;;    [add @ out -> cmp @ right]
+;;    [cmp @ out -> stop])
+;;   [(!! start incr end ins-and)]
+;;   [(ifen (en)
+;;          ([(ifen (ins-and @ out)
+;;                  ([(!! res-val val-reg)]
+;;                   [(!! start incr end incr-reg end-reg)]
+;;                   [(incr incr-reg end res-val)])
+;;                  ([(add-zero start incr end res-val)]))])
+;;          ([(start incr incr-reg end res-val)]))])
