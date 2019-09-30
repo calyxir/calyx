@@ -10,6 +10,116 @@ pub fn parse_file(filename: &str) {
     println!("{:#?}", namespace);
 }
 
+// ===============================================
+//             Parsing Helper Functions
+// ===============================================
+
+/**
+ * Atomic Results for Futil grammar
+ */
+enum Result {
+    Int(i64),
+    Str(String),
+    Lst(Box<Result>),
+}
+
+/**
+ * Expect another value in the sexp that can be
+ * parsed with function f directly into a value
+ */
+fn parse_next(e: &Sexp, f: Box<Fn(&Sexp) -> Result>) -> (Sexp, Result) {
+    match e {
+        Atom(_) => panic!("Error: {:?}", e),
+        List(vec) => {
+            let head = &vec[0];
+            let tail = List(vec[1..].to_vec());
+            return (tail, f(head));
+        }
+    }
+}
+
+/**
+ * Parses an individual list into a result vector
+ */
+fn parse_list(e: &Sexp, f: Box<Fn(&Sexp) -> Result>) -> Vec<Result> {
+    match e {
+        Atom(_) => panic!("Error: {:?}", e),
+        List(vec) => {
+            let res = vec.into_iter().map(|expr| f(expr)).collect();
+            return res;
+        }
+    }
+}
+
+fn sexp_to_str(e: &Sexp) -> String {
+    match e {
+        Atom(sexp::Atom::S(str)) => return String::from(str),
+        _ => panic!("Error: {:?}", e),
+    }
+}
+
+fn sexp_to_int(e: &Sexp) -> i64 {
+    match e {
+        Atom(sexp::Atom::I(i)) => return *i,
+        _ => panic!("Error: {:?}", e),
+    }
+}
+
+fn get_str(e: &Sexp) -> (String, Sexp) {
+    match e {
+        Atom(_) => panic!("Error: {:?}", e),
+        List(vec) => {
+            let head = &vec[0];
+            let tail = List(vec[1..].to_vec());
+            return (sexp_to_str(head), tail);
+        }
+    }
+}
+
+fn get_int(e: &Sexp) -> (i64, Sexp) {
+    match e {
+        Atom(_) => panic!("Error: {:?}", e),
+        List(vec) => {
+            let head = &vec[0];
+            let tail = List(vec[1..].to_vec());
+            return (sexp_to_int(head), tail);
+        }
+    }
+}
+
+impl From<&Sexp> for Portdef {
+    fn from(e: &Sexp) -> Self {
+        let (name, e1) = get_str(e);
+        let (width, e2) = get_int(&e1);
+        return Portdef {
+            name: name,
+            width: width,
+        };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn portdef_test() {
+        let s = "(\"hi\" 3)";
+        println!("{}", s);
+        match sexp::parse(s) {
+            Ok(e) => {
+                let pd: Portdef = (&e).into();
+                println!("{:#?}", pd);
+            }
+            Err(e) => {
+                println!("Error: {:#?}", e);
+            }
+        }
+    }
+}
+
+// ===============================================
+//                  Main Parser
+// ===============================================
 fn parse(prog: &str) -> Namespace {
     match sexp::parse(prog) {
         Ok(exp) => parse_namespace(&exp),

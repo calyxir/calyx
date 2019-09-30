@@ -4,4 +4,4 @@ build:
 	cargo build
 
 test:
-	cargo run stdlib.rkt
+	cargo test -- --nocapture
