@@ -1,5 +1,6 @@
 mod ast;
 mod parse;
+mod rtl_gen;
 
 #[macro_use]
 extern crate clap;

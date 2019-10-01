@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 sexp = "~1.1"
 clap = "~2.33"
+quickcheck = "0.9.0"
