@@ -15,42 +15,8 @@ pub fn parse_file(filename: &str) {
 // ===============================================
 
 /**
- * Atomic Results for Futil grammar
+ * Converts a Sexp library s-expression to a string
  */
-enum Result {
-    Int(i64),
-    Str(String),
-    Lst(Box<Result>),
-}
-
-/**
- * Expect another value in the sexp that can be
- * parsed with function f directly into a value
- */
-fn parse_next(e: &Sexp, f: Box<Fn(&Sexp) -> Result>) -> (Sexp, Result) {
-    match e {
-        Atom(_) => panic!("Error: {:?}", e),
-        List(vec) => {
-            let head = &vec[0];
-            let tail = List(vec[1..].to_vec());
-            return (tail, f(head));
-        }
-    }
-}
-
-/**
- * Parses an individual list into a result vector
- */
-fn parse_list(e: &Sexp, f: Box<Fn(&Sexp) -> Result>) -> Vec<Result> {
-    match e {
-        Atom(_) => panic!("Error: {:?}", e),
-        List(vec) => {
-            let res = vec.into_iter().map(|expr| f(expr)).collect();
-            return res;
-        }
-    }
-}
-
 fn sexp_to_str(e: &Sexp) -> String {
     match e {
         Atom(sexp::Atom::S(str)) => return String::from(str),
@@ -58,6 +24,9 @@ fn sexp_to_str(e: &Sexp) -> String {
     }
 }
 
+/**
+ * Converts a Sexp library s-expression to an int
+ */
 fn sexp_to_int(e: &Sexp) -> i64 {
     match e {
         Atom(sexp::Atom::I(i)) => return *i,
@@ -65,6 +34,11 @@ fn sexp_to_int(e: &Sexp) -> i64 {
     }
 }
 
+/**
+ * Grabs the first element in a Sexp List and converts
+ * it to a string, if possible. Returns the string and the
+ * remaining s-expressions
+ */
 fn get_str(e: &Sexp) -> (String, Sexp) {
     match e {
         Atom(_) => panic!("Error: {:?}", e),
@@ -76,6 +50,11 @@ fn get_str(e: &Sexp) -> (String, Sexp) {
     }
 }
 
+/**
+ * Grabs the first element in a Sexp List and converts
+ * it to an int, if possible. Returns the int and the
+ * remaining s-expressions
+ */
 fn get_int(e: &Sexp) -> (i64, Sexp) {
     match e {
         Atom(_) => panic!("Error: {:?}", e),
@@ -87,14 +66,98 @@ fn get_int(e: &Sexp) -> (i64, Sexp) {
     }
 }
 
+/**
+ * Unboxes an Sexp into a Vector of S expressions, if it
+ * has the proper type.
+ */
+fn get_rest(e: &Sexp) -> Vec<Sexp> {
+    match e {
+        Atom(_) => panic!("Error: {:?}", e),
+        List(vec) => {
+            return vec.clone();
+        }
+    }
+}
+
+// ===============================================
+//                  Main Parser
+// ===============================================
+
 impl From<&Sexp> for Portdef {
     fn from(e: &Sexp) -> Self {
-        let (name, e1) = get_str(e);
-        let (width, e2) = get_int(&e1);
+        let (port, e1) = get_str(e);
+        let (name, e2) = get_str(&e1);
+        let (width, e3) = get_int(&e2);
+        // TODO verify e3 is empty and port == "port"
         return Portdef {
             name: name,
             width: width,
         };
+    }
+}
+
+impl From<&Sexp> for Port {
+    fn from(e: &Sexp) -> Self {
+        let (name, e1) = get_str(e);
+        let (component, e2) = get_str(&e1);
+        let (port, e3) = get_str(&e2);
+        // TODO error checking
+        if port == "this" {
+            return Port::This { port: port };
+        } else {
+            return Port::Comp {
+                component: component,
+                port: port,
+            };
+        }
+    }
+}
+
+impl From<&Sexp> for Compinst {
+    fn from(e: &Sexp) -> Self {
+        let (name, e1) = get_str(e);
+        let lst = get_rest(&e1);
+        let params = lst.into_iter().map(|exp| sexp_to_int(&exp)).collect();
+        return Compinst {
+            name: name,
+            params: params,
+        };
+    }
+}
+
+impl From<&Sexp> for Structure {
+    fn from(e: &Sexp) -> Self {
+        let (s, e1) = get_str(e);
+        let lst = get_rest(&e1);
+        match s.as_ref() {
+            "new" => {
+                let name = sexp_to_str(&lst[0]);
+                let comp = sexp_to_str(&lst[1]);
+                return Structure::Decl {
+                    name: name,
+                    component: comp,
+                };
+            }
+            "new-std" => {
+                let name = sexp_to_str(&lst[0]);
+                let inst = Compinst::from(&lst[1]);
+                return Structure::Std {
+                    name: name,
+                    instance: inst,
+                };
+            }
+            "->" => {
+                let src = Port::from(&lst[0]);
+                let dest = Port::from(&lst[1]);
+                return Structure::Wire {
+                    src: src,
+                    dest: dest,
+                };
+            }
+            _ => {
+                panic!("AHHH in structure");
+            }
+        }
     }
 }
 
@@ -103,12 +166,14 @@ mod tests {
     use super::*;
     #[test]
     fn portdef_test() {
-        let s = "(\"hi\" 3)";
+        let s = "( port hi 3)";
         println!("{}", s);
         match sexp::parse(s) {
             Ok(e) => {
-                let pd: Portdef = (&e).into();
+                let pd = Portdef::from(&e);
                 println!("{:#?}", pd);
+                assert_eq!(pd.name, "hi");
+                assert_eq!(pd.width, 3);
             }
             Err(e) => {
                 println!("Error: {:#?}", e);
@@ -176,7 +241,7 @@ fn parse_component(e: &Sexp) -> Component {
             name: atom_to_string(name).unwrap(),
             inputs: inputs.into_iter().map(|x| parse_portdef(x)).collect(),
             outputs: outputs.into_iter().map(|x| parse_portdef(x)).collect(),
-            structure: structure.into_iter().map(|x| parse_structure(x)).collect(),
+            structure: structure.into_iter().map(|x| Structure::from(x)).collect(),
             control: parse_control(control),
         },
         _ => panic!("Ill formed component"),
@@ -193,42 +258,6 @@ fn parse_portdef(e: &Sexp) -> Portdef {
             },
             _ => panic!("Ill formed"),
         },
-    }
-}
-
-fn parse_structure(e: &Sexp) -> Structure {
-    match match_head(e, "new") {
-        Some(vec) => match vec.as_slice() {
-            [Atom(sexp::Atom::S(name)), Atom(sexp::Atom::S(comp))] => Structure::Decl {
-                name: name.to_string(),
-                instance: Compinst {
-                    name: comp.to_string(),
-                    param: vec![],
-                },
-            },
-            [Atom(sexp::Atom::S(name)), List(param_vec)] => Structure::Decl {
-                name: name.to_string(),
-                instance: parse_param_vec(param_vec),
-            },
-            _ => panic!("Ill formed"),
-        },
-        None => match match_head(e, "->").unwrap().as_slice() {
-            [src, dest] => Structure::Wire {
-                src: parse_port(src),
-                dest: parse_port(dest),
-            },
-            _ => panic!("ill formed"),
-        },
-    }
-}
-
-fn parse_param_vec(e: &Vec<Sexp>) -> Compinst {
-    Compinst {
-        name: atom_to_string(&e[0]).unwrap(),
-        param: e[1..]
-            .into_iter()
-            .map(|x| atom_to_i64(x).unwrap())
-            .collect(),
     }
 }
 

@@ -24,7 +24,8 @@ pub struct Portdef {
 
 #[derive(Debug)]
 pub enum Structure {
-    Decl { name: String, instance: Compinst },
+    Decl { name: String, component: String },
+    Std { name: String, instance: Compinst },
     Wire { src: Port, dest: Port },
 }
 
@@ -37,7 +38,7 @@ pub enum Port {
 #[derive(Debug)]
 pub struct Compinst {
     pub name: String,
-    pub param: Vec<i64>,
+    pub params: Vec<i64>,
 }
 
 // Need Boxes for recursive data structure
