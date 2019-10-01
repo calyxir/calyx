@@ -1,8 +1,8 @@
 (define/namespace stdlib
   (define/component and3way
-    ((a 32) (b 32) (c 32))
-    ((out 32))
-    ((new en (const 1))
+    ((port a 32) (port b 32) (port c 32))
+    ((port out 32))
+    ((new-std en (const 1))
      (-> (@ en out) (@ this out)))
     (ifen (@ this a)
           (ifen (@ this b)
@@ -13,12 +13,12 @@
           (empty)))
 
   (define/component comp/iterator
-    ((start 32) (incr 32) (end 32) (en 32))
-    ((out 32) (stop 32))
-    ((new incr-reg comp/reg)
-     (new end-reg comp/reg)
-     (new add comp/add)
-     (new cmp comp/trunc-sub)
+    ((port start 32) (port incr 32) (port end 32) (port en 32))
+    ((port out 32) (port stop 32))
+    ((new-std incr-reg (comp/reg))
+     (new-std end-reg (comp/reg))
+     (new-std add (comp/add))
+     (new-std cmp (comp/trunc-sub))
 
      (new ins-and and3way)
      (-> (@ this start) (@ ins-and a))
@@ -28,11 +28,11 @@
      (-> (@ this incr) (@ incr-reg in))
      (-> (@ this end) (@ end-reg in))
 
-     (new val-reg comp/res-reg)
-     (new res-vel (const 1))
+     (new-std val-reg (comp/res-reg))
+     (new-std res-vel (const 1))
      (-> (@ res-val out) (@ val-reg res))
 
-     (new add0 (const 0))
+     (new-std add0 (const 0))
      (-> (@ add0 out) (@ add right))
      (-> (@ this start) (@ add left))
      (-> (@ incr-reg out) (@ add right))

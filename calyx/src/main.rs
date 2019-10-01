@@ -1,5 +1,7 @@
 mod ast;
 mod parse;
+mod pass;
+mod unit_pass;
 
 #[macro_use]
 extern crate clap;
@@ -13,5 +15,7 @@ fn main() {
     .get_matches();
 
     let filename = matches.value_of("FILE").unwrap();
-    parse::parse_file(filename);
+    let mut syntax: ast::Namespace = parse::parse_file(filename);
+    unit_pass::do_nothing(&mut syntax);
+    // println!("{:#?}", syntax)
 }
