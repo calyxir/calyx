@@ -98,11 +98,11 @@ impl From<&Sexp> for Portdef {
 
 impl From<&Sexp> for Port {
     fn from(e: &Sexp) -> Self {
-        let (name, e1) = get_str(e);
+        let (at, e1) = get_str(e);
         let (component, e2) = get_str(&e1);
         let (port, e3) = get_str(&e2);
         // TODO error checking
-        if port == "this" {
+        if component == "this" {
             return Port::This { port: port };
         } else {
             return Port::Comp {
@@ -161,174 +161,185 @@ impl From<&Sexp> for Structure {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn portdef_test() {
-        let s = "( port hi 3)";
-        println!("{}", s);
-        match sexp::parse(s) {
-            Ok(e) => {
-                let pd = Portdef::from(&e);
-                println!("{:#?}", pd);
-                assert_eq!(pd.name, "hi");
-                assert_eq!(pd.width, 3);
+impl From<&Sexp> for Control {
+    fn from(e: &Sexp) -> Self {
+        let (keyword, e1) = get_str(e);
+        let lst = get_rest(&e1);
+        match keyword.as_ref() {
+            "seq" => {
+                let vec = lst.into_iter().map(|exp| Control::from(&exp)).collect();
+                return Control::Seq(vec);
             }
-            Err(e) => {
-                println!("Error: {:#?}", e);
+            "par" => {
+                let vec = lst.into_iter().map(|exp| Control::from(&exp)).collect();
+                return Control::Par(vec);
             }
+            "if" => {
+                let cond = Port::from(&lst[0]);
+                let t = Box::new(Control::from(&lst[1]));
+                let f = Box::new(Control::from(&lst[2]));
+                return Control::If {
+                    cond: cond,
+                    tbranch: t,
+                    fbranch: f,
+                };
+            }
+            "ifen" => {
+                let cond = Port::from(&lst[0]);
+                let t = Box::new(Control::from(&lst[1]));
+                let f = Box::new(Control::from(&lst[2]));
+                return Control::Ifen {
+                    cond: cond,
+                    tbranch: t,
+                    fbranch: f,
+                };
+            }
+            "while" => {
+                let cond = Port::from(&lst[0]);
+                let body = Box::new(Control::from(&lst[1]));
+                return Control::While {
+                    cond: cond,
+                    body: body,
+                };
+            }
+            "print" => {
+                return Control::Print(sexp_to_str(&lst[0]));
+            }
+            "enable" => {
+                let vec = lst.into_iter().map(|exp| sexp_to_str(&exp)).collect();
+                return Control::Enable(vec);
+            }
+            "disable" => {
+                let vec = lst.into_iter().map(|exp| sexp_to_str(&exp)).collect();
+                return Control::Disable(vec);
+            }
+            "empty" => return Control::Empty,
+            _ => panic!("Unexpected Control Keyword!"),
         }
     }
 }
 
-// ===============================================
-//                  Main Parser
-// ===============================================
+impl From<&Sexp> for Component {
+    fn from(e: &Sexp) -> Self {
+        let (def, e1) = get_str(e);
+        let lst = get_rest(&e1);
+
+        let name = sexp_to_str(&lst[0]);
+        let inputs = get_rest(&lst[1])
+            .into_iter()
+            .map(|exp| Portdef::from(&exp))
+            .collect();
+        let outputs = get_rest(&lst[2])
+            .into_iter()
+            .map(|exp| Portdef::from(&exp))
+            .collect();
+        let structure = get_rest(&lst[3])
+            .into_iter()
+            .map(|exp| Structure::from(&exp))
+            .collect();
+        let control = Control::from(&lst[4]);
+        return Component {
+            name: name,
+            inputs: inputs,
+            outputs: outputs,
+            structure: structure,
+            control: control,
+        };
+    }
+}
+
+impl From<&Sexp> for Namespace {
+    fn from(e: &Sexp) -> Self {
+        let (def, e1) = get_str(e);
+        let lst = get_rest(&e1);
+
+        let name = sexp_to_str(&lst[0]);
+        let components = get_rest(&lst[1])
+            .into_iter()
+            .map(|exp| Component::from(&exp))
+            .collect();
+
+        return Namespace {
+            name: name,
+            components: components,
+        };
+    }
+}
+
 fn parse(prog: &str) -> Namespace {
     match sexp::parse(prog) {
-        Ok(exp) => parse_namespace(&exp),
+        Ok(exp) => Namespace::from(&exp),
         e => panic!("Error parsing program: {:?}", e),
     }
 }
 
-// use lifetime here to specify that the return is borrowing from [e]
-fn match_head(e: &Sexp, target: &str) -> Option<Vec<Sexp>> {
-    match e {
-        Atom(_) => panic!("{:?} is not a head pattern", e),
-        List(vec) => match &vec[0] {
-            Sexp::Atom(sexp::Atom::S(name)) => {
-                if name == target {
-                    Some(vec[1..].to_vec())
-                } else {
-                    None
-                }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // Test Strings
+    const portdef1: &str = "( port hi 3 )";
+    const port1: &str = "( @ this input_port)";
+    const port2: &str = "( @ c1 in2 )";
+    const compinst1: &str = "( comp 1 2 3 4 5 )";
+
+    #[test]
+    fn portdef_test() {
+        match sexp::parse(portdef1) {
+            Ok(e) => {
+                let pd = Portdef::from(&e);
+                //println!("{:#?}", pd);
+                assert_eq!(pd.name, "hi");
+                assert_eq!(pd.width, 3);
             }
-            _ => None,
-        },
-    }
-}
-
-// XXX(sam) implement this on the Sexp type?
-fn atom_to_string(e: &Sexp) -> Option<String> {
-    match e {
-        Atom(sexp::Atom::S(name)) => Some(name.to_string()),
-        _ => None,
-    }
-}
-
-fn atom_to_i64(e: &Sexp) -> Option<i64> {
-    match e {
-        Atom(sexp::Atom::I(num)) => Some(*num),
-        _ => None,
-    }
-}
-
-fn parse_namespace(e: &Sexp) -> Namespace {
-    let contents = match_head(e, "define/namespace").unwrap();
-    Namespace {
-        name: atom_to_string(&contents[0]).unwrap(),
-        components: contents[1..]
-            .into_iter()
-            .map(|x| parse_component(x))
-            .collect(),
-    }
-}
-
-fn parse_component(e: &Sexp) -> Component {
-    match match_head(e, "define/component").unwrap().as_slice() {
-        [name, List(inputs), List(outputs), List(structure), control] => Component {
-            name: atom_to_string(name).unwrap(),
-            inputs: inputs.into_iter().map(|x| parse_portdef(x)).collect(),
-            outputs: outputs.into_iter().map(|x| parse_portdef(x)).collect(),
-            structure: structure.into_iter().map(|x| Structure::from(x)).collect(),
-            control: parse_control(control),
-        },
-        _ => panic!("Ill formed component"),
-    }
-}
-
-fn parse_portdef(e: &Sexp) -> Portdef {
-    match e {
-        Atom(_) => panic!("Ill formed port"),
-        List(vec) => match vec.as_slice() {
-            [Atom(sexp::Atom::S(name)), Atom(sexp::Atom::I(width))] => Portdef {
-                name: name.to_string(),
-                width: *width,
-            },
-            _ => panic!("Ill formed"),
-        },
-    }
-}
-
-fn parse_port(e: &Sexp) -> Port {
-    match match_head(e, "@").unwrap().as_slice() {
-        [Atom(sexp::Atom::S(comp)), Atom(sexp::Atom::S(port))] => {
-            if comp == "this" {
-                Port::This {
-                    port: port.to_string(),
-                }
-            } else {
-                Port::Comp {
-                    component: comp.to_string(),
-                    port: port.to_string(),
-                }
-            }
-        }
-
-        _ => panic!("Ill formed"),
-    }
-}
-
-fn parse_control(e: &Sexp) -> Control {
-    match e {
-        Atom(_) => panic!("ill formed"),
-        List(list) => {
-            let head = &list[0];
-            let rest = &list[1..];
-            match atom_to_string(&head).unwrap().as_ref() {
-                "seq" => Control::Seq(rest.into_iter().map(parse_control).collect()),
-                "par" => Control::Par(rest.into_iter().map(parse_control).collect()),
-                "if" => match rest {
-                    [cond, t, f] => Control::If {
-                        cond: parse_port(cond),
-                        tbranch: Box::new(parse_control(t)),
-                        fbranch: Box::new(parse_control(f)),
-                    },
-                    _ => panic!("ill formed if"),
-                },
-                "ifen" => match rest {
-                    [cond, t, f] => Control::Ifen {
-                        cond: parse_port(cond),
-                        tbranch: Box::new(parse_control(t)),
-                        fbranch: Box::new(parse_control(f)),
-                    },
-                    _ => panic!("ill formed ifen"),
-                },
-                "while" => match rest {
-                    [cond, body] => Control::While {
-                        cond: parse_port(cond),
-                        body: Box::new(parse_control(body)),
-                    },
-                    _ => panic!("ill formed ifen"),
-                },
-                "print" => match rest {
-                    [Atom(sexp::Atom::S(var))] => Control::Print(var.to_string()),
-                    _ => panic!("ill formed ifen"),
-                },
-                "enable" => Control::Enable(
-                    rest.into_iter()
-                        .map(|x| atom_to_string(x).unwrap())
-                        .collect(),
-                ),
-                "disable" => Control::Disable(
-                    rest.into_iter()
-                        .map(|x| atom_to_string(x).unwrap())
-                        .collect(),
-                ),
-                "empty" => Control::Empty,
-                _ => panic!("unknown control head"),
+            Err(e) => {
+                panic!("Error parsing string");
             }
         }
     }
+
+    #[test]
+    fn port_test1() {
+        match sexp::parse(port1) {
+            Ok(e) => {
+                let p = Port::from(&e);
+                println!("{:#?}", p);
+                match p {
+                    Port::This { port } => assert_eq!(port, "input_port"),
+                    _ => panic!("Parsed Wrong AST Type"),
+                }
+            }
+            Err(_) => panic!("Error parsing string"),
+        }
+    }
+    #[test]
+    fn port_test2() {
+        match sexp::parse(port2) {
+            Ok(e) => {
+                let p = Port::from(&e);
+                println!("{:#?}", p);
+                match p {
+                    Port::Comp { component, port } => {
+                        assert_eq!(port, "in2");
+                        assert_eq!(component, "c1");
+                    }
+                    _ => panic!("Parsed Wrong AST Type"),
+                }
+            }
+            Err(_) => panic!("Error parsing string"),
+        }
+    }
+
+    #[test]
+    fn compinst_test1() {
+        match sexp::parse(compinst1) {
+            Ok(e) => {
+                let p = Compinst::from(&e);
+                println!("{:#?}", p);
+                assert_eq!(p.name, "comp");
+                assert_eq!(p.params, [1, 2, 3, 4, 5]);
+            }
+            Err(_) => panic!("Error parsing string"),
+        }
+    }
+
 }
