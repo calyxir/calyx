@@ -28,7 +28,7 @@ control ::= ( seq <control>+ )
           | ( print <id: string> )    ; id is the id of a component instance  in structure
           | ( enable <id: string>+ )  ; enables just components with id <id>+
           | ( disable <id: string>+ ) ; deactivates just components with id <id>+
-          | ( empty )                 ; empty control
+          | ( )                       ; empty control
 
 ```
 
