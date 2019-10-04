@@ -33,109 +33,109 @@ pub trait Visitor<Err> {
         res
     }
 
-    fn start_seq(&mut self, _s: &mut Control) -> Result<(), Err> {
+    fn start_seq(&mut self, _s: &mut Seq) -> Result<(), Err> {
         Ok(())
     }
 
     fn finish_seq(
         &mut self,
-        _s: &mut Control,
+        _s: &mut Seq,
         res: Result<(), Err>,
     ) -> Result<(), Err> {
         res
     }
 
-    fn start_par(&mut self, _s: &mut Control) -> Result<(), Err> {
+    fn start_par(&mut self, _s: &mut Par) -> Result<(), Err> {
         Ok(())
     }
 
     fn finish_par(
         &mut self,
-        _s: &mut Control,
+        _s: &mut Par,
         res: Result<(), Err>,
     ) -> Result<(), Err> {
         res
     }
 
-    fn start_if(&mut self, _s: &mut Control) -> Result<(), Err> {
+    fn start_if(&mut self, _s: &mut If) -> Result<(), Err> {
         Ok(())
     }
 
     fn finish_if(
         &mut self,
-        _s: &mut Control,
+        _s: &mut If,
         res: Result<(), Err>,
     ) -> Result<(), Err> {
         res
     }
 
-    fn start_ifen(&mut self, _s: &mut Control) -> Result<(), Err> {
+    fn start_ifen(&mut self, _s: &mut Ifen) -> Result<(), Err> {
         Ok(())
     }
 
     fn finish_ifen(
         &mut self,
-        _s: &mut Control,
+        _s: &mut Ifen,
         res: Result<(), Err>,
     ) -> Result<(), Err> {
         res
     }
 
-    fn start_while(&mut self, _s: &mut Control) -> Result<(), Err> {
+    fn start_while(&mut self, _s: &mut While) -> Result<(), Err> {
         Ok(())
     }
 
     fn finish_while(
         &mut self,
-        _s: &mut Control,
+        _s: &mut While,
         res: Result<(), Err>,
     ) -> Result<(), Err> {
         res
     }
 
-    fn start_print(&mut self, _s: &mut Control) -> Result<(), Err> {
+    fn start_print(&mut self, _s: &mut Print) -> Result<(), Err> {
         Ok(())
     }
 
     fn finish_print(
         &mut self,
-        _s: &mut Control,
+        _s: &mut Print,
         res: Result<(), Err>,
     ) -> Result<(), Err> {
         res
     }
 
-    fn start_enable(&mut self, _s: &mut Control) -> Result<(), Err> {
+    fn start_enable(&mut self, _s: &mut Enable) -> Result<(), Err> {
         Ok(())
     }
 
     fn finish_enable(
         &mut self,
-        _s: &mut Control,
+        _s: &mut Enable,
         res: Result<(), Err>,
     ) -> Result<(), Err> {
         res
     }
 
-    fn start_disable(&mut self, _s: &mut Control) -> Result<(), Err> {
+    fn start_disable(&mut self, _s: &mut Disable) -> Result<(), Err> {
         Ok(())
     }
 
     fn finish_disable(
         &mut self,
-        _s: &mut Control,
+        _s: &mut Disable,
         res: Result<(), Err>,
     ) -> Result<(), Err> {
         res
     }
 
-    fn start_empty(&mut self, _s: &mut Control) -> Result<(), Err> {
+    fn start_empty(&mut self, _s: &mut Empty) -> Result<(), Err> {
         Ok(())
     }
 
     fn finish_empty(
         &mut self,
-        _s: &mut Control,
+        _s: &mut Empty,
         res: Result<(), Err>,
     ) -> Result<(), Err> {
         res
@@ -151,6 +151,7 @@ pub trait Visitable {
         -> Result<(), Err>;
 }
 
+// Blanket impl for Vectors of Visitables
 impl<V: Visitable> Visitable for Vec<V> {
     fn visit<Err>(
         &mut self,
@@ -190,69 +191,55 @@ impl Visitable for Control {
         &mut self,
         visitor: &mut dyn Visitor<Err>,
     ) -> Result<(), Err> {
-        // call start_* functions on visitor. This needs to be in a separate
-        // match because otherwise the types don't work out.
-        // XXX(sam) figure out a better way to do this
         match self {
-            Control::Seq(_) => visitor.start_seq(self),
-            Control::Par(_) => visitor.start_par(self),
-            Control::If {
-                cond: _,
-                tbranch: _,
-                fbranch: _,
-            } => visitor.start_if(self),
-            Control::Ifen {
-                cond: _,
-                tbranch: _,
-                fbranch: _,
-            } => visitor.start_ifen(self),
-            Control::While { cond: _, body: _ } => visitor.start_while(self),
-            Control::Print(_) => visitor.start_print(self),
-            Control::Enable(_) => visitor.start_enable(self),
-            Control::Disable(_) => visitor.start_disable(self),
-            Control::Empty => visitor.start_empty(self),
-        }?;
-
-        match self {
-            Control::Seq(stmts) => {
-                let res = stmts.visit(visitor);
-                visitor.finish_seq(self, res)
+            Control::Seq { data } => {
+                visitor.start_seq(data)?;
+                let res = data.stmts.visit(visitor);
+                visitor.finish_seq(data, res)
             }
-            Control::Par(stmts) => {
-                let res = stmts.visit(visitor);
-                visitor.finish_par(self, res)
+            Control::Par { data } => {
+                visitor.start_par(data)?;
+                let res = data.stmts.visit(visitor);
+                visitor.finish_par(data, res)
             }
-            Control::If {
-                cond: _,
-                tbranch,
-                fbranch,
-            } => {
+            Control::If { data } => {
+                visitor.start_if(data)?;
                 // closure to combine the results
                 let res = (|| {
-                    tbranch.visit(visitor)?;
-                    fbranch.visit(visitor)
+                    data.tbranch.visit(visitor)?;
+                    data.fbranch.visit(visitor)
                 })();
-                visitor.finish_if(self, res)
+                visitor.finish_if(data, res)
             }
-            Control::Ifen {
-                cond: _,
-                tbranch,
-                fbranch,
-            } => {
+            Control::Ifen { data } => {
+                visitor.start_ifen(data)?;
                 let res = (|| {
-                    tbranch.visit(visitor)?;
-                    fbranch.visit(visitor)
+                    data.tbranch.visit(visitor)?;
+                    data.fbranch.visit(visitor)
                 })();
-                visitor.finish_ifen(self, res)
+                visitor.finish_ifen(data, res)
             }
-            Control::While { cond: _, body } => {
-                let res = body.visit(visitor);
-                visitor.finish_ifen(self, res)
+            Control::While { data } => {
+                visitor.start_while(data)?;
+                let res = data.body.visit(visitor);
+                visitor.finish_while(data, res)
             }
-            Control::Print(_) => visitor.finish_print(self, Ok(())),
-            Control::Enable(_) => visitor.finish_enable(self, Ok(())),
-            Control::Disable(_) => visitor.finish_disable(self, Ok(())),
-            Control::Empty => visitor.finish_empty(self, Ok(())),
+            Control::Print { data } => {
+                let res = visitor.start_print(data);
+                visitor.finish_print(data, res)
+            }
+            Control::Enable { data } => {
+                let res = visitor.start_enable(data);
+                visitor.finish_enable(data, res)
+            }
+            Control::Disable { data } => {
+                let res = visitor.start_disable(data);
+                visitor.finish_disable(data, res)
+            }
+            Control::Empty { data } => {
+                let res = visitor.start_empty(data);
+                visitor.finish_empty(data, res)
+            }
         }
     }
 }

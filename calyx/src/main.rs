@@ -17,5 +17,4 @@ fn main() {
     let filename = matches.value_of("FILE").unwrap();
     let mut syntax: ast::Namespace = parse::parse_file(filename);
     unit_pass::do_nothing(&mut syntax);
-    // println!("{:#?}", syntax)
 }

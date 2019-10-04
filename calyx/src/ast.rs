@@ -43,31 +43,70 @@ pub struct Compinst {
     pub params: Vec<i64>,
 }
 
+// ==================================
+// Data definitions for Control Ast
+// ===================================
+
+#[derive(Debug)]
+pub struct Seq {
+    pub stmts: Vec<Control>,
+}
+
+#[derive(Debug)]
+pub struct Par {
+    pub stmts: Vec<Control>,
+}
+
+#[derive(Debug)]
+pub struct If {
+    pub cond: Port,
+    pub tbranch: Box<Control>,
+    pub fbranch: Box<Control>,
+}
+
+#[derive(Debug)]
+pub struct Ifen {
+    pub cond: Port,
+    pub tbranch: Box<Control>,
+    pub fbranch: Box<Control>,
+}
+
+#[derive(Debug)]
+pub struct While {
+    pub cond: Port,
+    pub body: Box<Control>,
+}
+
+#[derive(Debug)]
+pub struct Print {
+    pub var: String,
+}
+
+#[derive(Debug)]
+pub struct Enable {
+    pub comps: Vec<String>,
+}
+
+#[derive(Debug)]
+pub struct Disable {
+    pub comps: Vec<String>,
+}
+
+#[derive(Debug)]
+pub struct Empty {}
+
 // Need Boxes for recursive data structure
 // Cannot have recursive data structure without
 // indirection
 #[derive(Debug)]
 pub enum Control {
-    Seq(Vec<Control>),
-
-    Par(Vec<Control>),
-
-    If {
-        cond: Port,
-        tbranch: Box<Control>,
-        fbranch: Box<Control>,
-    },
-    Ifen {
-        cond: Port,
-        tbranch: Box<Control>,
-        fbranch: Box<Control>,
-    },
-    While {
-        cond: Port,
-        body: Box<Control>,
-    },
-    Print(Id),
-    Enable(Vec<String>),
-    Disable(Vec<String>),
-    Empty,
+    Seq { data: Seq },
+    Par { data: Par },
+    If { data: If },
+    Ifen { data: Ifen },
+    While { data: While },
+    Print { data: Print },
+    Enable { data: Enable },
+    Disable { data: Disable },
+    Empty { data: Empty },
 }
