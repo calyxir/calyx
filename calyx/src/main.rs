@@ -1,6 +1,7 @@
 mod ast;
 mod parse;
 mod pass;
+mod rtl_gen;
 mod unit_pass;
 
 #[macro_use]
