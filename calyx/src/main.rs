@@ -1,8 +1,12 @@
 mod ast;
+mod pretty_print;
 mod parse;
 mod pass;
 mod rtl_gen;
+mod utils;
 mod unit_pass;
+
+use crate::pretty_print::Printable;
 
 #[macro_use]
 extern crate clap;
@@ -17,6 +21,7 @@ fn main() {
 
     let filename = matches.value_of("FILE").unwrap();
     let mut syntax: ast::Namespace = parse::parse_file(filename);
+    syntax.pretty_print(); 
     unit_pass::do_nothing(&mut syntax);
     // println!("{:#?}", syntax)
 }

@@ -1,20 +1,5 @@
 use crate::ast::*;
-
-/**
- * Combine concatenates [vec] into a single string, with each entry
- * separated by [delimiter], and [end] appended to the end result
- */
-pub fn combine(vec: Vec<String>, delimiter: &str, end: &str) -> String {
-    let mut s = String::new();
-    let n = vec.len() - 1;
-    for i in 0..n {
-        s.push_str(vec[i].as_ref());
-        s.push_str(delimiter);
-    }
-    s.push_str(vec[n].as_ref());
-    s.push_str(end);
-    return s;
-}
+use crate::utils::*;
 
 pub fn gen_namespace(n: Namespace) {}
 
@@ -25,7 +10,7 @@ fn gen_comp_ports(inputs: Vec<String>, outputs: Vec<String>) -> String {
     strings.extend(inputs);
     strings.extend(outputs);
 
-    return combine(strings, ",\n", "\n");
+    return combine(&strings, ",\n", "\n");
 }
 
 fn gen_outputs(vec: Vec<Portdef>) -> Vec<String> {
