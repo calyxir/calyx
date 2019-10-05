@@ -1,0 +1,10 @@
+
+let i = 0;
+let v = 0;
+while (i < 10) {
+  if (i < 5) {
+    v := v + i;
+  } else {
+    v := v + v;
+  }
+}
