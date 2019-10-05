@@ -31,7 +31,7 @@ pub enum Structure {
     Wire { src: Port, dest: Port },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Port {
     Comp { component: Id, port: String },
     This { port: String },
@@ -47,58 +47,58 @@ pub struct Compinst {
 // Data definitions for Control Ast
 // ===================================
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Seq {
     pub stmts: Vec<Control>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Par {
     pub stmts: Vec<Control>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct If {
     pub cond: Port,
     pub tbranch: Box<Control>,
     pub fbranch: Box<Control>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Ifen {
     pub cond: Port,
     pub tbranch: Box<Control>,
     pub fbranch: Box<Control>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct While {
     pub cond: Port,
     pub body: Box<Control>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Print {
     pub var: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Enable {
     pub comps: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Disable {
     pub comps: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Empty {}
 
 // Need Boxes for recursive data structure
 // Cannot have recursive data structure without
 // indirection
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Control {
     Seq { data: Seq },
     Par { data: Par },
