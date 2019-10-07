@@ -1,0 +1,52 @@
+(define/namespace prog
+  (define/component main () ()
+    ((new-std i0 (comp/reg ))
+     (-> (@ const0 out) (@ i0 in))
+     (new-std const0 (const 0))
+     (new-std v0 (comp/reg ))
+     (-> (@ const1 out) (@ v0 in))
+     (new-std const1 (const 0))
+     (new-std lt1 (comp/lt ))
+     (-> (@ i0 out) (@ lt1 left))
+     (-> (@ const3 out) (@ lt1 right))
+     (new-std const3 (const 5))
+     (new-std add0 (comp/add ))
+     (-> (@ v0 out) (@ add0 left))
+     (-> (@ i0 out) (@ add0 right))
+     (-> (@ add0 out) (@ v0 in))
+     (new-std add1 (comp/add ))
+     (-> (@ v0 out) (@ add1 left))
+     (-> (@ i0 out) (@ add1 right))
+     (-> (@ add1 out) (@ v0 in))
+     (new-std add2 (comp/add ))
+     (-> (@ v0 out) (@ add2 left))
+     (-> (@ v0 out) (@ add2 right))
+     (-> (@ add2 out) (@ v0 in))
+     (new-std add3 (comp/add ))
+     (-> (@ v0 out) (@ add3 left))
+     (-> (@ v0 out) (@ add3 right))
+     (-> (@ add3 out) (@ v0 in))
+     (new-std lt0 (comp/lt ))
+     (-> (@ i0 out) (@ lt0 left))
+     (-> (@ const2 out) (@ lt0 right))
+     (new-std const2 (const 10)))
+    (par
+     (enable i0 const0)
+     (enable v0 const1)
+     (seq
+      (enable lt0 i0 const2)
+      (while (@ lt0 out)
+        (seq
+         (enable lt1 i0 const3)
+         (if (@ lt1 out)
+             (seq
+              (seq
+               (seq
+                (seq
+                 (enable v0 add0 i0)
+                 (enable v0 add1 i0)))))
+             (seq
+              (seq
+               (enable v0 add2)
+               (enable v0 add3))))
+         (enable lt0 i0 const2)))))))

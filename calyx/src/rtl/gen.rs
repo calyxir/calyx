@@ -1,4 +1,4 @@
-use crate::ast::*;
+use crate::lang::ast::*;
 use crate::utils::*;
 
 pub fn gen_namespace(n: Namespace) {}
