@@ -16,8 +16,16 @@
      (-> (@ add0 out) (@ v0 in))
      (new-std add1 (comp/add ))
      (-> (@ v0 out) (@ add1 left))
-     (-> (@ v0 out) (@ add1 right))
+     (-> (@ i0 out) (@ add1 right))
      (-> (@ add1 out) (@ v0 in))
+     (new-std add2 (comp/add ))
+     (-> (@ v0 out) (@ add2 left))
+     (-> (@ v0 out) (@ add2 right))
+     (-> (@ add2 out) (@ v0 in))
+     (new-std add3 (comp/add ))
+     (-> (@ v0 out) (@ add3 left))
+     (-> (@ v0 out) (@ add3 right))
+     (-> (@ add3 out) (@ v0 in))
      (new-std lt0 (comp/lt ))
      (-> (@ i0 out) (@ lt0 left))
      (-> (@ const2 out) (@ lt0 right))
@@ -32,7 +40,13 @@
          (enable lt1 i0 const3)
          (if (@ lt1 out)
              (seq
-              (enable v0 add0 i0))
+              (seq
+               (seq
+                (seq
+                 (enable v0 add0 i0)
+                 (enable v0 add1 i0)))))
              (seq
-              (enable v0 add1)))
+              (seq
+               (enable v0 add2)
+               (enable v0 add3))))
          (enable lt0 i0 const2)))))))

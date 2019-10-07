@@ -34,6 +34,7 @@ pub trait Visitor<Err> {
     }
 
     fn start_seq(&mut self, _s: &mut Seq) -> Result<(), Err> {
+        println!("starting..");
         Ok(())
     }
 
@@ -42,6 +43,7 @@ pub trait Visitor<Err> {
         _s: &mut Seq,
         res: Result<(), Err>,
     ) -> Result<(), Err> {
+        println!("ending..");
         res
     }
 
