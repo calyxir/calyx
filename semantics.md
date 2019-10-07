@@ -1,6 +1,7 @@
 # Semantics for Futil
 This document details the semantics for the Futil intermediate hardware description language.
 
+
 ## Basic Constructs
 The basic building block in Futil is the `component`. Each component has the following properties:
 * `inputs`: A set of input ports
