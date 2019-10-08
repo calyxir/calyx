@@ -1,4 +1,4 @@
-use crate::ast::{Control, Seq};
+use crate::lang::ast::{Control, Seq};
 use crate::passes::visitor::Visitor;
 
 /** Collapses nested Seqs, i.e. (seq (seq (seq ...)))

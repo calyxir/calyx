@@ -1,4 +1,5 @@
-use crate::ast::*;
+use crate::lang::ast::*;
+use crate::lang::structure::{Structure, StructureStmt};
 use sexp::Sexp;
 use sexp::Sexp::{Atom, List};
 use std::fs;
@@ -124,7 +125,7 @@ impl From<&Sexp> for Compinst {
     }
 }
 
-impl From<&Sexp> for Structure {
+impl From<&Sexp> for StructureStmt {
     fn from(e: &Sexp) -> Self {
         let (s, e1) = get_str(e);
         let lst = get_rest(&e1);
@@ -132,7 +133,7 @@ impl From<&Sexp> for Structure {
             "new" => {
                 let name = sexp_to_str(&lst[0]);
                 let comp = sexp_to_str(&lst[1]);
-                return Structure::Decl {
+                return StructureStmt::Decl {
                     name: name,
                     component: comp,
                 };
@@ -140,7 +141,7 @@ impl From<&Sexp> for Structure {
             "new-std" => {
                 let name = sexp_to_str(&lst[0]);
                 let inst = Compinst::from(&lst[1]);
-                return Structure::Std {
+                return StructureStmt::Std {
                     name: name,
                     instance: inst,
                 };
@@ -148,7 +149,7 @@ impl From<&Sexp> for Structure {
             "->" => {
                 let src = Port::from(&lst[0]);
                 let dest = Port::from(&lst[1]);
-                return Structure::Wire {
+                return StructureStmt::Wire {
                     src: src,
                     dest: dest,
                 };
@@ -280,14 +281,14 @@ impl From<&Sexp> for Component {
             .collect();
         let structure = get_rest(&lst[3])
             .into_iter()
-            .map(|exp| Structure::from(&exp))
+            .map(|exp| StructureStmt::from(&exp))
             .collect();
         let control = Control::from(&lst[4]);
         return Component {
             name: name,
             inputs: inputs,
             outputs: outputs,
-            structure: structure,
+            structure: Structure::new(structure),
             control: control,
         };
     }

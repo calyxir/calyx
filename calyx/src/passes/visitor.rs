@@ -1,6 +1,6 @@
 // Inspired by this blog post: http://thume.ca/2019/04/18/writing-a-compiler-in-rust/
 
-use crate::ast::*;
+use crate::lang::ast::*;
 
 /** The `Visitor` trait parameterized on an `Error` type.
 For each node `x` in the Ast, there are the functions `start_x`
