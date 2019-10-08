@@ -9,6 +9,21 @@ of the traversal for each node, and the finish functions are called
 at the end of the traversal for each node. You can use the finish
 functions to wrap error with more information. */
 pub trait Visitor<Err> {
+    fn new() -> Self
+    where
+        Self: Sized;
+
+    fn name(&self) -> String;
+
+    fn do_pass(&mut self, v: &mut Namespace) -> &mut Self
+    where
+        Self: Sized,
+    {
+        v.visit(self)
+            .unwrap_or_else(|_x| panic!("{} failed!", self.name()));
+        self
+    }
+
     fn start_namespace(&mut self, _n: &mut Namespace) -> Result<(), Err> {
         Ok(())
     }
@@ -34,7 +49,6 @@ pub trait Visitor<Err> {
     }
 
     fn start_seq(&mut self, _s: &mut Seq) -> Result<(), Err> {
-        println!("starting..");
         Ok(())
     }
 
@@ -43,7 +57,6 @@ pub trait Visitor<Err> {
         _s: &mut Seq,
         res: Result<(), Err>,
     ) -> Result<(), Err> {
-        println!("ending..");
         res
     }
 
