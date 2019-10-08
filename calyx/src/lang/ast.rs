@@ -1,6 +1,8 @@
 // Abstract Syntax Tree for Futil. See link below for the grammar
 // https://github.com/cucapra/futil/blob/master/grammar.md
 
+use crate::lang::structure;
+
 pub type Id = String;
 
 #[derive(Debug)]
@@ -14,7 +16,7 @@ pub struct Component {
     pub name: String,
     pub inputs: Vec<Portdef>,
     pub outputs: Vec<Portdef>,
-    pub structure: Vec<Structure>,
+    pub structure: structure::Structure,
     pub control: Control,
 }
 
@@ -22,13 +24,6 @@ pub struct Component {
 pub struct Portdef {
     pub name: Id,
     pub width: i64,
-}
-
-#[derive(Clone, Debug)]
-pub enum Structure {
-    Decl { name: Id, component: String },
-    Std { name: Id, instance: Compinst },
-    Wire { src: Port, dest: Port },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
