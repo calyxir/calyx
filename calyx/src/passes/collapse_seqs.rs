@@ -1,10 +1,21 @@
-use crate::ast::{Control, Namespace, Seq};
-use crate::passes::visitor::{Visitable, Visitor};
+use crate::ast::{Control, Seq};
+use crate::passes::visitor::Visitor;
 
+/** Collapses nested Seqs, i.e. (seq (seq (seq ...)))
+becomes (seq ...) because all the other seqs are redundant because
+they create a time scope with only step. */
 #[derive(Debug)]
 pub struct Count {}
 
 impl Visitor<()> for Count {
+    fn new() -> Self {
+        Count {}
+    }
+
+    fn name(&self) -> String {
+        "Collapse Seqs".to_string()
+    }
+
     // we want to do this on the way back up so that
     // we collapse multiple layers of nested seqs.
     fn finish_seq(
@@ -19,14 +30,4 @@ impl Visitor<()> for Count {
 
         Ok(())
     }
-}
-
-/** Collapses nested Seqs, i.e. (seq (seq (seq ...)))
-becomes (seq ...) because all the other seqs are redundant because
-they create a time scope with only step. */
-pub fn do_pass(n: &mut Namespace) -> Count {
-    let mut count = Count {};
-    let _ = n.visit(&mut count);
-    println!("{:?}", n);
-    count
 }
