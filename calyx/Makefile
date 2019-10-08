@@ -1,8 +1,5 @@
 .PHONY: build test run test
 
-install:
-	cargo install --path .
-
 build:
 	cargo build
 
@@ -11,3 +8,6 @@ test:
 
 run:
 	RUST_BACKTRACE=1 cargo run stdlib.rkt
+
+install:
+	cargo install --path .

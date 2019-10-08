@@ -1,43 +1,43 @@
 // Abstract Syntax Tree for Futil. See link below for the grammar
 // https://github.com/cucapra/futil/blob/master/grammar.md
 
-type Id = String;
+pub type Id = String;
 
 #[derive(Debug)]
 pub struct Namespace {
-    pub name: Id,
+    pub name: String,
     pub components: Vec<Component>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Component {
-    pub name: Id,
+    pub name: String,
     pub inputs: Vec<Portdef>,
     pub outputs: Vec<Portdef>,
     pub structure: Vec<Structure>,
     pub control: Control,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Portdef {
     pub name: Id,
     pub width: i64,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Structure {
-    Decl { name: String, component: String },
-    Std { name: String, instance: Compinst },
+    Decl { name: Id, component: String },
+    Std { name: Id, instance: Compinst },
     Wire { src: Port, dest: Port },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Port {
     Comp { component: Id, port: String },
     This { port: String },
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Compinst {
     pub name: Id,
     pub params: Vec<i64>,

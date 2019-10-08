@@ -1,4 +1,4 @@
-use crate::ast::{Control, Namespace, Seq};
+use crate::lang::ast::{Control, Namespace, Seq};
 use crate::passes::visitor::{Visitable, Visitor};
 
 #[derive(Debug)]

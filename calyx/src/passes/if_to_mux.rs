@@ -1,4 +1,4 @@
-use crate::ast::{If, Namespace};
+use crate::lang::ast::{If, Namespace};
 use crate::passes::visitor::{Visitable, Visitor};
 
 pub struct Muxify {}

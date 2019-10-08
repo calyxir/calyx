@@ -1,4 +1,4 @@
-use crate::ast::*;
+use crate::lang::ast::*;
 use sexp::Sexp;
 use sexp::Sexp::{Atom, List};
 use std::fs;
