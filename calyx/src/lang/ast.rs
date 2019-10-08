@@ -9,7 +9,7 @@ pub struct Namespace {
     pub components: Vec<Component>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Component {
     pub name: String,
     pub inputs: Vec<Portdef>,
@@ -18,26 +18,26 @@ pub struct Component {
     pub control: Control,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Portdef {
     pub name: Id,
     pub width: i64,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Structure {
     Decl { name: Id, component: String },
     Std { name: Id, instance: Compinst },
     Wire { src: Port, dest: Port },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Port {
     Comp { component: Id, port: String },
     This { port: String },
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Compinst {
     pub name: Id,
     pub params: Vec<i64>,

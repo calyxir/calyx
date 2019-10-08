@@ -1,6 +1,7 @@
 mod lang;
 mod passes;
 mod rtl;
+mod utils;
 
 use crate::lang::*;
 
@@ -17,5 +18,6 @@ fn main() {
 
     let filename = matches.value_of("FILE").unwrap();
     let mut syntax: ast::Namespace = parse::parse_file(filename);
+    rtl::gen::gen_namespace(&syntax, "./build/".to_string());
     passes::collapse_seqs::do_pass(&mut syntax);
 }
