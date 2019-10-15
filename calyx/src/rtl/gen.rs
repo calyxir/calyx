@@ -1,7 +1,9 @@
 use crate::lang::ast::*;
+use crate::lang::ast::Structure::*;
 use crate::utils::combine;
 use std::collections::HashMap;
 use std::fs;
+use crate::rtl::templates::*;
 
 // Connections is a hashmap that maps src wires
 // to the set of all of their destination wires
@@ -12,14 +14,6 @@ type Connections = HashMap<Port, Vec<Port>>;
 // includes all primitives and all components in the
 // same namespace
 type Components = HashMap<String, Component>;
-
-// Intermediate data structure conducive to string formatting
-pub struct RtlInst {
-    comp_name: String,
-    id: String,
-    params: Vec<i64>,
-    ports: HashMap<String, String>,// Maps Port names to wires
-}
 
 pub fn gen_namespace(n: &Namespace, build_dir: String) {
     let dir = format!("{}{}/", build_dir, n.name);
@@ -40,35 +34,94 @@ pub fn gen_namespace(n: &Namespace, build_dir: String) {
 }
 
 pub fn gen_component(c: &Component, comp: &Components) -> (Component, Connections, Vec<RtlInst>) {
+
     unimplemented!();
 }
 
-fn gen_comp_ports(inputs: Vec<String>, outputs: Vec<String>) -> String {
+// TODO clean me up- Generates all Wire connections from Structure of a component
+fn gen_connections(structure: &Vec<Structure>) -> Connections {
+    // Construct connections
+    let mut conn: Connections = HashMap::new();
+    let f = |mut c: Connections, s: &Structure| {
+        match s {
+            Wire {src, dest} => {
+                match c.get_mut(&src) {
+                    Some(v) => {
+                        v.push(dest.clone());
+                        return c;
+                    },
+                    None => {
+                        let _ = c.insert(src.clone(), vec![dest.clone()]);
+                        return c;
+                    }
+                }
+            },
+            _ => return c, 
+        }
+    };
+
+    let conn = structure.iter().fold(conn, f);
+    return conn;
+}
+
+/**
+ * Fetches the list of input and output ports for a given component
+ */
+fn port_list(component: String, comp: &Components) -> Vec<Portdef> {
+    match comp.get(&component) {
+        Some(c) => {
+            let mut v: Vec<Portdef> = Vec::new();
+            v.append(&mut c.inputs.clone());
+            v.append(&mut c.outputs.clone());
+            return v;
+        },
+        None => panic!("Component {} not defined", component),
+    }
+}
+
+/**
+ * Finds the name of the wire that will connect to the input port
+ * Very inefficient :(
+ */
+fn find_wire(c: Connections, pd: Portdef, id: Id) -> String {
+    let to_find = Port::Comp { component: id, port: pd.name };
+    for (src, dests) in c {
+        if to_find == src || dests.contains(&to_find) {
+            return port_wire_id(src);
+        }
+    }
+    return "".to_string();
+}
+
+// Generates all instances of subcomponents in a structure
+fn gen_insts(structure: &Vec<Structure>) -> Vec<RtlInst> {
+    unimplemented!();
+    let mut insts: Vec<RtlInst> = Vec::new();
+    let f = |mut insts: Vec<RtlInst>, s: &Structure| {
+        match s {
+            Decl {name, component} => {
+                // let new_inst = RtlInst {
+                //     comp_name: component,
+                //     id: name,
+                //     params: vec![],
+                //     ports: 
+                // };
+                unimplemented!();
+            },
+            _ => return insts, 
+        }
+    };
+}
+
+fn gen_comp_ports(inputs: Vec<Portdef>, outputs: Vec<Portdef>) -> String {
     let mut strings = Vec::new();
-    strings.extend(inputs);
-    strings.extend(outputs);
+    let in_ports = inputs.into_iter().map(|pd| in_port(pd.width, pd.name));
+    let out_ports = outputs.into_iter().map(|pd| out_port(pd.width, pd.name));
+
+    strings.extend(in_ports);
+    strings.extend(out_ports);
 
     return combine(&strings, ",\n", "\n");
-}
-
-fn gen_outputs(vec: Vec<Portdef>) -> Vec<String> {
-    let strings: Vec<String> = vec
-        .into_iter()
-        .map(|pd| format!("{}{}", "output ", gen_portdef(pd)))
-        .collect();
-    return strings;
-}
-
-fn gen_inputs(vec: Vec<Portdef>) -> Vec<String> {
-    let strings: Vec<String> = vec
-        .into_iter()
-        .map(|pd| format!("{}{}", "input  ", gen_portdef(pd)))
-        .collect();
-    return strings;
-}
-
-fn gen_portdef(pd: Portdef) -> String {
-    return format!("logic [{}:0] {}", pd.width - 1, pd.name);
 }
 
 #[cfg(test)]
@@ -81,9 +134,41 @@ mod tests {
             name: "in0".to_string(),
             width: 8,
         };
-        let s = gen_portdef(pd);
+        let s = in_port(pd.width, pd.name);
         println!("{}", s);
-        assert_eq!(s, "logic [7:0] in0");
+        assert_eq!(s, "input  logic [7:0] in0");
     }
 
+    #[test]
+    fn portdef2() {
+        let pd = Portdef {
+            name: "out0".to_string(),
+            width: 8,
+        };
+        let s = out_port(pd.width, pd.name);
+        println!("{}", s);
+        assert_eq!(s, "output logic [7:0] out0");
+    }
+
+    #[test]
+    fn portdef3() {
+        let pd = Portdef {
+            name: "in0".to_string(),
+            width: 1,
+        };
+        let s = in_port(pd.width, pd.name);
+        println!("{}", s);
+        assert_eq!(s, "input  logic in0");
+    }
+
+    #[test]
+    fn portdef4() {
+        let pd = Portdef {
+            name: "out0".to_string(),
+            width: 1,
+        };
+        let s = out_port(pd.width, pd.name);
+        println!("{}", s);
+        assert_eq!(s, "output logic out0");
+    }
 }

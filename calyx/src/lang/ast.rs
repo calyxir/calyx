@@ -20,7 +20,7 @@ pub struct Component {
 
 #[derive(Clone, Debug)]
 pub struct Portdef {
-    pub name: Id,
+    pub name: String,
     pub width: i64,
 }
 
