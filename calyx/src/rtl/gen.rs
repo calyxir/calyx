@@ -37,6 +37,9 @@ pub fn gen_component(c: &Component, comp: &Components) -> (Component, Connection
 
     unimplemented!();
 }
+// ==================================
+// Generating Assign Statements 
+// ==================================
 
 // TODO clean me up- Generates all Wire connections from Structure of a component
 fn gen_connections(structure: &Vec<Structure>) -> Connections {
@@ -64,6 +67,10 @@ fn gen_connections(structure: &Vec<Structure>) -> Connections {
     return conn;
 }
 
+// ==================================
+// Generating Subcomponent Instances 
+// ==================================
+
 /**
  * Fetches the list of input and output ports for a given component
  */
@@ -83,35 +90,55 @@ fn port_list(component: String, comp: &Components) -> Vec<Portdef> {
  * Finds the name of the wire that will connect to the input port
  * Very inefficient :(
  */
-fn find_wire(c: Connections, pd: Portdef, id: Id) -> String {
+fn find_wire(c: &Connections, pd: Portdef, id: Id) -> String {
     let to_find = Port::Comp { component: id, port: pd.name };
     for (src, dests) in c {
-        if to_find == src || dests.contains(&to_find) {
-            return port_wire_id(src);
+        if to_find == *src || dests.contains(&to_find) {
+            return port_wire_id(src.clone());
         }
     }
     return "".to_string();
 }
 
+/**
+ * Generates a hashmap of ports and their connections to instance structures
+ */
+fn gen_inst_ports(c: &Connections, id: String, component: String, comp: &Components) -> HashMap<String, String> {
+    let portdefs: Vec<Portdef> = port_list(component, comp);
+    let mut map: HashMap<String, String> = HashMap::new();
+    for pd in portdefs {
+        let p: Port = Port::Comp { component: id.clone(), port: pd.name.clone()};
+        map.insert(port_wire_id(p), find_wire(&c, pd, id.clone()));
+    }
+
+    return map;
+}
+
 // Generates all instances of subcomponents in a structure
-fn gen_insts(structure: &Vec<Structure>) -> Vec<RtlInst> {
+fn gen_insts(structure: &Vec<Structure>, c: &Connections, comp: &Components) -> Vec<RtlInst> {
     unimplemented!();
     let mut insts: Vec<RtlInst> = Vec::new();
-    let f = |mut insts: Vec<RtlInst>, s: &Structure| {
+    let f = |mut insts: Vec<RtlInst>, s: &Structure| -> Vec<RtlInst> {
         match s {
             Decl {name, component} => {
-                // let new_inst = RtlInst {
-                //     comp_name: component,
-                //     id: name,
-                //     params: vec![],
-                //     ports: 
-                // };
-                unimplemented!();
+                let map = gen_inst_ports(c, name.clone(), component.clone(), comp);
+                let new_inst = RtlInst {
+                    comp_name: component.clone(),
+                    id: name.clone(),
+                    params: vec![],
+                    ports: map,
+                };
+                insts.push(new_inst);
+                return insts;
             },
             _ => return insts, 
         }
     };
 }
+
+// ==================================
+// Generating Toplevel Component Signature 
+// ==================================
 
 fn gen_comp_ports(inputs: Vec<Portdef>, outputs: Vec<Portdef>) -> String {
     let mut strings = Vec::new();
@@ -123,6 +150,10 @@ fn gen_comp_ports(inputs: Vec<Portdef>, outputs: Vec<Portdef>) -> String {
 
     return combine(&strings, ",\n", "\n");
 }
+
+// ==================================
+//               Tests 
+// ==================================
 
 #[cfg(test)]
 mod tests {

@@ -6,10 +6,10 @@ use std::collections::HashMap;
 
 // Intermediate data structure conducive to string formatting
 pub struct RtlInst {
-    comp_name: String,
-    id: String,
-    params: Vec<i64>,
-    ports: HashMap<String, String>,// Maps Port names to wires
+    pub comp_name: String,
+    pub id: String,
+    pub params: Vec<i64>,
+    pub ports: HashMap<String, String>,// Maps Port names to wires
 }
 
 pub fn comp () -> String {
