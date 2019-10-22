@@ -1,14 +1,14 @@
 
 let i = 0;
-let v = 0;
+let v: bit<3> = 0;
 while (i < 10) {
   if (i < 5) {
-    v := v + i;
+    v := v + 1;
     ---
-    v := v + i;
+    v := v + 2;
   } else {
-    v := v + v;
+    v := v + 3;
     ---
-    v := v + v;
+    v := v + 4;
   }
 }

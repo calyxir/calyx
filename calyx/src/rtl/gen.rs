@@ -1,5 +1,5 @@
 use crate::lang::ast::*;
-use crate::lang::ast::Structure::*;
+use crate::lang::structure::StructureStmt;
 use crate::utils::combine;
 use std::collections::HashMap;
 use std::fs;
@@ -42,12 +42,12 @@ pub fn gen_component(c: &Component, comp: &Components) -> (Component, Connection
 // ==================================
 
 // TODO clean me up- Generates all Wire connections from Structure of a component
-fn gen_connections(structure: &Vec<Structure>) -> Connections {
+fn gen_connections(structure: &Vec<StructureStmt>) -> Connections {
     // Construct connections
     let mut conn: Connections = HashMap::new();
-    let f = |mut c: Connections, s: &Structure| {
+    let f = |mut c: Connections, s: &StructureStmt| {
         match s {
-            Wire {src, dest} => {
+            StructureStmt::Wire {src, dest} => {
                 match c.get_mut(&src) {
                     Some(v) => {
                         v.push(dest.clone());
@@ -115,12 +115,12 @@ fn gen_inst_ports(c: &Connections, id: String, component: String, comp: &Compone
 }
 
 // Generates all instances of subcomponents in a structure
-fn gen_insts(structure: &Vec<Structure>, c: &Connections, comp: &Components) -> Vec<RtlInst> {
+fn gen_insts(structure: &Vec<StructureStmt>, c: &Connections, comp: &Components) -> Vec<RtlInst> {
     unimplemented!();
     let mut insts: Vec<RtlInst> = Vec::new();
-    let f = |mut insts: Vec<RtlInst>, s: &Structure| -> Vec<RtlInst> {
+    let f = |mut insts: Vec<RtlInst>, s: &StructureStmt| -> Vec<RtlInst> {
         match s {
-            Decl {name, component} => {
+            StructureStmt::Decl {name, component} => {
                 let map = gen_inst_ports(c, name.clone(), component.clone(), comp);
                 let new_inst = RtlInst {
                     comp_name: component.clone(),
