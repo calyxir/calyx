@@ -98,7 +98,9 @@ impl Structure {
         println!("{:?}", Dot::new(&self.graph))
     }
     // more future methods for manipulating the structure
+
     /** Returns the equivalent statements to the current Structure graph */
+    // TODO make this based off the graph instead of storing the statements
     pub fn get_stmts(&self) -> Vec<StructureStmt> {
         return self.stmts.clone();
     }
