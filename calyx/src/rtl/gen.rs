@@ -5,15 +5,10 @@ use std::collections::HashMap;
 use std::fs;
 use crate::rtl::templates::*;
 
-// Connections is a hashmap that maps src wires
-// to the set of all of their destination wires
-// This can then be used when instancing components
-// to look up wire names
-type Connections = HashMap<Port, Vec<Port>>;
-// Environment type for all components in scope. This
-// includes all primitives and all components in the
-// same namespace
-type Components = HashMap<String, Component>;
+/**
+ * This file generates the intermediate data structures in templates.rs from 
+ * an AST
+ */
 
 pub fn gen_namespace(n: &Namespace, build_dir: String) {
     let dir = format!("{}{}/", build_dir, n.name);
@@ -33,7 +28,10 @@ pub fn gen_namespace(n: &Namespace, build_dir: String) {
     }
 }
 
+// TODO generate control logic
 pub fn gen_component(c: &Component, comp: &Components) -> (Component, Connections, Vec<RtlInst>) {
+    let conn: Connections = gen_connections(&(c.structure.get_stmts()));
+    let insts: Vec<RtlInst> = gen_insts(&c.structure.get_stmts(), &conn, &comp);
 
     unimplemented!();
 }
@@ -94,7 +92,7 @@ fn find_wire(c: &Connections, pd: Portdef, id: Id) -> String {
     let to_find = Port::Comp { component: id, port: pd.name };
     for (src, dests) in c {
         if to_find == *src || dests.contains(&to_find) {
-            return port_wire_id(src.clone());
+            return port_wire_id(src);
         }
     }
     return "".to_string();
@@ -108,7 +106,7 @@ fn gen_inst_ports(c: &Connections, id: String, component: String, comp: &Compone
     let mut map: HashMap<String, String> = HashMap::new();
     for pd in portdefs {
         let p: Port = Port::Comp { component: id.clone(), port: pd.name.clone()};
-        map.insert(port_wire_id(p), find_wire(&c, pd, id.clone()));
+        map.insert(port_wire_id(&p), find_wire(&c, pd, id.clone()));
     }
 
     return map;
