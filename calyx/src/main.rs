@@ -27,7 +27,7 @@ fn main() {
 
     if matches.occurrences_of("VIZ") == 1 {
         for comp in &syntax.components {
-            comp.structure.visualize()
+            //comp.structure.visualize()
         }
     }
 }
