@@ -1,5 +1,5 @@
 // Abstract Syntax Tree for library declarations in Futil
-use crate::lang::ast::{Id, Portdef};
+use crate::lang::ast::Id;
 
 #[derive(Clone, Debug)]
 pub struct Library {

@@ -26,6 +26,14 @@ fn init_library(libs: Vec<String>) -> HashMap<String, library::ast::Primitive> {
 }
 
 trait Backend {
-    fn init_context();
-    fn perform_passes();
+    fn init_context(libs: Vec<String>) -> Context {
+        Context {
+            instances: HashMap::new(),
+            definitions: HashMap::new(),
+            library: init_library(libs),
+        }
+    }
+
+    fn perform_passes(c: ast::Component) -> ast::Component;
+    fn run_backend();
 }
