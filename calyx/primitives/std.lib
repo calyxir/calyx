@@ -1,0 +1,29 @@
+
+(define/library
+  (define/prim (add p_width)
+    ((port in0 p_width) (port in1 p_width))
+    ((port out p_width) ))
+
+  (define/prim (sub p_width)
+    ((port in0 p_width) (port in1 p_width))
+    ((port out p_width) ))
+
+  (define/prim (mul p_width)
+    ((port in0 p_width) (port in1 p_width))
+    ((port out p_width) ))
+
+  (define/prim (div p_width)
+    ((port in0 p_width) (port in1 p_width))
+    ((port out p_width) ))
+
+  (define/prim (and p_width)
+    ((port in0 p_width) (port in1 p_width))
+    ((port out p_width) ))
+
+  (define/prim (or p_width)
+    ((port in0 p_width) (port in1 p_width))
+    ((port out p_width) ))
+    
+  (define/prim (register p_width)
+    ((port in p_width) (port reset 1))
+    ((port out p_width))))

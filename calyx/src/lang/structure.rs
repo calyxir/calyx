@@ -41,13 +41,13 @@ impl ast::Port {
     }
 }
 
-impl Structure {
+impl ast::Structure {
     // Control the creation method of Structure
-    pub fn new(stmts: Vec<StructureStmt>) -> Structure {
+    pub fn new(&self) -> Structure {
         let mut g = StructGraph::new();
         let mut node_hash = HashMap::new();
         // add vertices
-        for stmt in &stmts {
+        for stmt in self {
             match stmt {
                 StructureStmt::Decl { name, component: _ } => {
                     node_hash.insert(name.clone(), g.add_node(name.clone()));

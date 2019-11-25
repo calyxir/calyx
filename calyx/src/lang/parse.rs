@@ -1,5 +1,5 @@
 use crate::lang::ast::*;
-use crate::lang::structure::{Structure, StructureStmt};
+use crate::lang::utils::*;
 use sexp::Sexp;
 use sexp::Sexp::{Atom, List};
 use std::fs;
@@ -8,75 +8,6 @@ pub fn parse_file(filename: &str) -> Namespace {
     let content = &fs::read_to_string(filename)
         .expect("Something went wrong reading the file");
     parse(content)
-}
-
-// ===============================================
-//             Parsing Helper Functions
-// ===============================================
-
-/**
- * Converts a Sexp library s-expression to a string
- */
-fn sexp_to_str(e: &Sexp) -> String {
-    match e {
-        Atom(sexp::Atom::S(str)) => return String::from(str),
-        _ => panic!("Error: {:?}", e),
-    }
-}
-
-/**
- * Converts a Sexp library s-expression to an int
- */
-fn sexp_to_int(e: &Sexp) -> i64 {
-    match e {
-        Atom(sexp::Atom::I(i)) => return *i,
-        _ => panic!("Error: {:?}", e),
-    }
-}
-
-/**
- * Grabs the first element in a Sexp List and converts
- * it to a string, if possible. Returns the string and the
- * remaining s-expressions
- */
-fn get_str(e: &Sexp) -> (String, Sexp) {
-    match e {
-        Atom(_) => panic!("Error: {:?}", e),
-        List(vec) => {
-            let head = &vec[0];
-            let tail = List(vec[1..].to_vec());
-            return (sexp_to_str(head), tail);
-        }
-    }
-}
-
-/**
- * Grabs the first element in a Sexp List and converts
- * it to an int, if possible. Returns the int and the
- * remaining s-expressions
- */
-fn get_int(e: &Sexp) -> (i64, Sexp) {
-    match e {
-        Atom(_) => panic!("Error: {:?}", e),
-        List(vec) => {
-            let head = &vec[0];
-            let tail = List(vec[1..].to_vec());
-            return (sexp_to_int(head), tail);
-        }
-    }
-}
-
-/**
- * Unboxes an Sexp into a Vector of S expressions, if it
- * has the proper type.
- */
-fn get_rest(e: &Sexp) -> Vec<Sexp> {
-    match e {
-        Atom(_) => panic!("Error: {:?}", e),
-        List(vec) => {
-            return vec.clone();
-        }
-    }
 }
 
 // ===============================================
@@ -125,38 +56,48 @@ impl From<&Sexp> for Compinst {
     }
 }
 
-impl From<&Sexp> for StructureStmt {
+impl From<Vec<Sexp>> for Decl {
+    fn from(e: Vec<Sexp>) -> Self {
+        Decl {
+            name: sexp_to_str(&e[0]),
+            component: sexp_to_str(&e[1]),
+        }
+    }
+}
+
+impl From<Vec<Sexp>> for Std {
+    fn from(e: Vec<Sexp>) -> Self {
+        Std {
+            name: sexp_to_str(&e[0]),
+            instance: Compinst::from(&e[1]),
+        }
+    }
+}
+
+impl From<Vec<Sexp>> for Wire {
+    fn from(e: Vec<Sexp>) -> Self {
+        Wire {
+            src: Port::from(&e[0]),
+            dest: Port::from(&e[1]),
+        }
+    }
+}
+
+impl From<&Sexp> for Structure {
     fn from(e: &Sexp) -> Self {
         let (s, e1) = get_str(e);
         let lst = get_rest(&e1);
         match s.as_ref() {
-            "new" => {
-                let name = sexp_to_str(&lst[0]);
-                let comp = sexp_to_str(&lst[1]);
-                return StructureStmt::Decl {
-                    name: name,
-                    component: comp,
-                };
-            }
-            "new-std" => {
-                let name = sexp_to_str(&lst[0]);
-                let inst = Compinst::from(&lst[1]);
-                return StructureStmt::Std {
-                    name: name,
-                    instance: inst,
-                };
-            }
-            "->" => {
-                let src = Port::from(&lst[0]);
-                let dest = Port::from(&lst[1]);
-                return StructureStmt::Wire {
-                    src: src,
-                    dest: dest,
-                };
-            }
-            _ => {
-                panic!("AHHH in structure");
-            }
+            "new" => Structure::Decl {
+                data: Decl::from(lst),
+            },
+            "new-std" => Structure::Std {
+                data: Std::from(lst),
+            },
+            "->" => Structure::Wire {
+                data: Wire::from(lst),
+            },
+            _ => panic!("AHHH in structure"),
         }
     }
 }
@@ -281,14 +222,14 @@ impl From<&Sexp> for Component {
             .collect();
         let structure = get_rest(&lst[3])
             .into_iter()
-            .map(|exp| StructureStmt::from(&exp))
+            .map(|exp| Structure::from(&exp))
             .collect();
         let control = Control::from(&lst[4]);
         return Component {
             name: name,
             inputs: inputs,
             outputs: outputs,
-            structure: Structure::new(structure),
+            structure: structure,
             control: control,
         };
     }

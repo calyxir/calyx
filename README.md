@@ -2,7 +2,15 @@
 An intermediate language for [Fuse](https://github.com/cucapra/seashell).
 
 ## Using
-### Install
+We are in the process of transitioning everything over to Rust. At the moment the interpreter is still in racket, although it hasn't been kept up to date with the syntax changes. `Calyx` is the name of the pass framework that we are writing. Instructions for installation are below.
+
+### Install Calyx
+Once you have rust installed ([here](https://rustup.rs/) are instructions), you should be
+able to go into the `calyx` directory and run `cargo build`. This will download and install
+all the dependencies.
+
+### Install Racket stuff
+#### Interpreter
 You need `racket` installed. You can find instructions
 [here](https://docs.racket-lang.org/pollen/Installation.html).
 You can use `raco pkg install futil` to download and install it.
@@ -10,7 +18,7 @@ If you want to locally install `futil` with `make install`.
 While editing the code, you might run into
 an out of sync error. `make build` should fix this.
 
-### Running
+#### Running
 You can run any of the `*.rkt` files with `racket *.rkt`. Running
 `make test` in the root directory will run the unit-tests in `test`.
 Going into the `benchmarks` directory and running `make all` will run
@@ -234,54 +242,3 @@ Result of `(plot-compute (mult) '((a . 7) (b . 8))')`:
 Note that the module was changed slightly to make the image more legible.
 
 ![Image 0 for mult example](imgs/mult-example.gif)
-
-## Computation Implementation Notes
-Structures involved.
- - `memory-tup`: fields are 
-   - `current`: a hashmap from wires to values. All the values in memory
-   should have values. 
-   - `sub-mem` is a hashmap from submodule names to `memory-tup`.
-   This keeps track of the memory of submodules.
- - `ast-tuple`: fields are 
-   - `inactive`: a list of inactive submodules 
-   - `state`: a hashmap from wires to values (`#f` for when a wire is disabled)
-   - `memory`: a memory tuple
-   - `history`: a list of history states
-
-Signatures for the important functions involved.
- - `compute` takes a `component` a list of pairs from input name to value and optionally
- a memory tuple. The memory tuple is used internally to thread through the memories between
- different steps. `compute` returns an `ast-tuple`
- - `ast-step`: takes in a component, ast tuple, and an ast. This function doesn't actually
- do the computation directly. Instead, this function goes through the ast threading through state
- and memory, figuring out inactive modules, and then calling the actual compute functions with the 
- right inputs in the right places. This is a big step function. 
- Below are all the nodes and what `ast-step` does for each of these.
- I assume that `mem`, `st`, and `inactive` are defined that they refer to the memory, state,
- and inactive modules of the current context.
-   - `(par-comp stmts)` (parallel composition). Expands to `(merge (ast-step tup stmt) ...)` 
-   Notice that we call each stmt in the toplevel context, rather than feeding through the result
-   of the earlier computation. This is what makes this parallel composition.
-   - `(seq-comp stmts)` This is more or less standard composition. This becomes
-   `(ast-step (ast-step (ast-step tup s0) s1) ...)`
-   - `(deact-stmts mods)` Calls compute step with mods as the inactive modules and returns
-   the result in an `ast-tuple`
-   - `(if-stmt condition tb fb)` If `condition` is valued and non-zero, call `(ast-step tup tb)`
-   else if it is valued and zero call `(ast-step tup fb)`. If `condition` is disabled, then do nothing.
-   - `(ifen-stmt condition tb fb)` like `if-stmt` but only checks if `condition` is valued or not.
-   - `(while-stmt condition body)` becomes 
-   (if-valued condition (ast-step (ast-step tup body) ast) tup)
- - `compute-step` This function does the acutal computation of the circuit. It first
- performs a topological sort on the graph defining the connections of the circuit. This is to ensure
- that we always have all the values before we attempt to evaluate some submodule. Then we fold
- over the sorted list of submodules building up a state that describes the state of the component.
- At each submodule, we pass in the state and submodule to the function `submod-compute` which
- converts the state to a form that the submodule understands and then passes it into the submodules
- procedure. It then adds the output back to the state.
- 
- For use defined modules, the module procedure is simply a call to `compute`. However, outside the
- language, it is possible to define an abitrary racket function as the procedure. The function takes
- in a hashmap that describes the values on the input ports and should produce a hashmap that describe
- the output ports. There is a special key called `mem#` that contains the submodule memory.
- `keyword-lambda` is utility syntax to make defining functions of this form convenient.
-

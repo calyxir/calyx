@@ -1,0 +1,12 @@
+(define/library
+  (define/prim (add B)
+    ((port left B) (port right B))
+    ((port out B) (port carry 1)))
+
+  (define/prim (memory1d word-size addr-width port-mode)
+    ((port data-in word-size) (port addr addr-width))
+    ((port out word-size)))
+
+  (define/prim (register B)
+    ((port in B) (port res 1))
+    ((port out B))))
