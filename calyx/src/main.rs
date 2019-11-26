@@ -41,7 +41,7 @@ fn main() {
     // (as below), requesting just the name used, or both at the same time
     if matches.occurrences_of("VIZ") == 1 {
         for comp in &syntax.components {
-            //comp.structure.visualize()
+            comp.structure.visualize()
         }
     }
 }
