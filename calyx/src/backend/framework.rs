@@ -1,7 +1,8 @@
 use crate::lang::ast;
-use crate::lang::ast::{Id, Port};
+use crate::lang::ast::{Id, Namespace, Port};
 use crate::lang::library;
 use crate::lang::library::ast::Library;
+use crate::lang::parse;
 use std::collections::HashMap;
 
 pub struct Context {
@@ -26,7 +27,12 @@ fn init_library(libs: Vec<String>) -> HashMap<String, library::ast::Primitive> {
 }
 
 impl Context {
-    fn init_context(file: String, libs: Vec<String>) -> Context {
+    fn init_context(
+        file: String,
+        toplevel: String,
+        libs: Vec<String>,
+    ) -> Context {
+        let namespace: Namespace = parse::parse_file(file.as_ref());
         Context {
             instances: HashMap::new(),
             definitions: HashMap::new(),
