@@ -23,9 +23,8 @@ impl Visitor<()> for Count {
         con: &mut Seq,
         _res: Result<(), ()>,
     ) -> Result<(), ()> {
-        match con.stmts.as_slice() {
-            [Control::Seq { data }] => con.stmts = data.stmts.clone(),
-            _ => (),
+        if let [Control::Seq { data }] = con.stmts.as_slice() {
+            con.stmts = data.stmts.clone()
         }
 
         Ok(())

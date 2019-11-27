@@ -16,9 +16,9 @@ pub struct StructureGraph {
 }
 
 impl ast::Port {
-    fn into_id(&self) -> &ast::Id {
+    fn get_id(&self) -> &ast::Id {
         match self {
-            ast::Port::Comp { component, port: _ } => component,
+            ast::Port::Comp { component, .. } => component,
             ast::Port::This { port } => port,
         }
     }
@@ -60,8 +60,8 @@ impl ast::Component {
                 ast::Structure::Decl { .. } | ast::Structure::Std { .. } => (),
                 ast::Structure::Wire { data } => {
                     match (
-                        node_hash.get(data.src.into_id()),
-                        node_hash.get(data.dest.into_id()),
+                        node_hash.get(data.src.get_id()),
+                        node_hash.get(data.dest.get_id()),
                     ) {
                         (Some(s), Some(d)) => {
                             g.add_edge(*s, *d, ());
@@ -70,8 +70,8 @@ impl ast::Component {
                             panic!(
                                 "Used an undeclared component in a connection while parsing {:?}: {:?} -> {:?}",
                                 self.name,
-                                data.src.into_id(),
-                                data.dest.into_id()
+                                data.src.get_id(),
+                                data.dest.get_id()
                             )
                         },
                     }
@@ -80,14 +80,14 @@ impl ast::Component {
         }
 
         StructureGraph {
-            node_hash: node_hash,
+            node_hash,
             graph: g,
         }
     }
 }
 
 impl StructureGraph {
-    pub fn visualize(&self) -> () {
+    pub fn visualize(&self) {
         let config = &[Config::EdgeNoLabel];
         println!("{:?}", Dot::with_config(&self.graph, config))
     }

@@ -8,7 +8,7 @@ use std::fs;
  * This file generates the intermediate data structures in templates.rs from
  * an AST
  */
-
+#[allow(unused)]
 pub fn gen_namespace(n: &Namespace, build_dir: String) {
     let dir = format!("{}{}/", build_dir, n.name);
     fs::create_dir_all(dir);
@@ -33,7 +33,7 @@ pub fn gen_component(
     comp: &Components,
 ) -> (Component, Connections, Vec<RtlInst>) {
     let conn: Connections = gen_connections(&c.structure);
-    let insts: Vec<RtlInst> = gen_insts(&c.structure, &conn, &comp);
+    let _insts: Vec<RtlInst> = gen_insts(&c.structure, &conn, &comp);
 
     unimplemented!();
 }
@@ -42,27 +42,26 @@ pub fn gen_component(
 // ==================================
 
 // TODO clean me up- Generates all Wire connections from Structure of a component
-fn gen_connections(structure: &Vec<Structure>) -> Connections {
+fn gen_connections(structure: &[Structure]) -> Connections {
     // Construct connections
-    let mut conn: Connections = HashMap::new();
+    let conn: Connections = HashMap::new();
     let f = |mut c: Connections, s: &Structure| match s {
         Structure::Wire {
             data: Wire { src, dest },
         } => match c.get_mut(&src) {
             Some(v) => {
                 v.push(dest.clone());
-                return c;
+                c
             }
             None => {
                 let _ = c.insert(src.clone(), vec![dest.clone()]);
-                return c;
+                c
             }
         },
-        _ => return c,
+        _ => c,
     };
 
-    let conn = structure.iter().fold(conn, f);
-    return conn;
+    structure.iter().fold(conn, f)
 }
 
 // ==================================
@@ -78,7 +77,7 @@ fn port_list(component: String, comp: &Components) -> Vec<Portdef> {
             let mut v: Vec<Portdef> = Vec::new();
             v.append(&mut c.inputs.clone());
             v.append(&mut c.outputs.clone());
-            return v;
+            v
         }
         None => panic!("Component {} not defined", component),
     }
@@ -98,7 +97,7 @@ fn find_wire(c: &Connections, pd: Portdef, id: Id) -> String {
             return port_wire_id(src);
         }
     }
-    return "".to_string();
+    "".to_string()
 }
 
 /**
@@ -120,18 +119,17 @@ fn gen_inst_ports(
         map.insert(port_wire_id(&p), find_wire(&c, pd, id.clone()));
     }
 
-    return map;
+    map
 }
 
 // Generates all instances of subcomponents in a structure
 fn gen_insts(
-    structure: &Vec<Structure>,
+    _structure: &[Structure],
     c: &Connections,
     comp: &Components,
 ) -> Vec<RtlInst> {
-    unimplemented!();
-    let mut insts: Vec<RtlInst> = Vec::new();
-    let f = |mut insts: Vec<RtlInst>, s: &Structure| -> Vec<RtlInst> {
+    let mut _insts: Vec<RtlInst> = Vec::new();
+    let _f = |mut insts: Vec<RtlInst>, s: &Structure| -> Vec<RtlInst> {
         match s {
             Structure::Decl {
                 data: Decl { name, component },
@@ -145,17 +143,19 @@ fn gen_insts(
                     ports: map,
                 };
                 insts.push(new_inst);
-                return insts;
+                insts
             }
-            _ => return insts,
+            _ => insts,
         }
     };
+    unimplemented!();
 }
 
 // ==================================
 // Generating Toplevel Component Signature
 // ==================================
 
+#[allow(unused)]
 fn gen_comp_ports(inputs: Vec<Portdef>, outputs: Vec<Portdef>) -> String {
     let mut strings = Vec::new();
     let in_ports = inputs.into_iter().map(|pd| in_port(pd.width, pd.name));
@@ -164,7 +164,7 @@ fn gen_comp_ports(inputs: Vec<Portdef>, outputs: Vec<Portdef>) -> String {
     strings.extend(in_ports);
     strings.extend(out_ports);
 
-    return combine(&strings, ",\n", "\n");
+    combine(&strings, ",\n", "\n")
 }
 
 // ==================================

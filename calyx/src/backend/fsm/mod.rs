@@ -1,1 +1,1 @@
-pub mod fsm;
+pub mod machine;

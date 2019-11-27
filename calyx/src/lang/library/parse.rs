@@ -1,10 +1,10 @@
-use crate::lang::ast::Portdef;
 use crate::lang::library::ast::{Library, PrimPortdef, Primitive, Width};
 use crate::lang::utils::*;
 use sexp::Sexp;
 use sexp::Sexp::{Atom, List};
 use std::fs;
 
+#[allow(unused)]
 pub fn parse_file(filename: &str) -> Library {
     let content = &fs::read_to_string(filename)
         .expect("Something went wrong reading the library file");
@@ -56,10 +56,7 @@ impl From<&Sexp> for PrimPortdef {
         let (name, e2) = get_str(&e1);
         let width = Width::from(&e2);
         // TODO verify e3 is empty and port == "port"
-        PrimPortdef {
-            name: name,
-            width: width,
-        }
+        PrimPortdef { name, width }
     }
 }
 

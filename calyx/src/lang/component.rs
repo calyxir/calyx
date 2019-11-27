@@ -1,9 +1,9 @@
 use crate::lang::ast;
-use petgraph::graph::{Graph, NodeIndex};
 use std::collections::HashMap;
 
 type CompStore = HashMap<ast::Id, ast::Structure>;
 
+#[allow(unused)]
 impl ast::Component {
     //==========================================
     //        Structure Helper Functions
@@ -12,9 +12,8 @@ impl ast::Component {
     pub fn get_wires(&self) -> Vec<ast::Wire> {
         let mut v: Vec<ast::Wire> = Vec::new();
         for structure in self.structure.iter() {
-            match structure {
-                ast::Structure::Wire { data } => v.push(data.clone()),
-                _ => {}
+            if let ast::Structure::Wire { data } = structure {
+                v.push(data.clone())
             }
         }
         v
@@ -23,9 +22,8 @@ impl ast::Component {
     pub fn get_std(&self) -> Vec<ast::Std> {
         let mut v: Vec<ast::Std> = Vec::new();
         for structure in self.structure.iter() {
-            match structure {
-                ast::Structure::Std { data } => v.push(data.clone()),
-                _ => {}
+            if let ast::Structure::Std { data } = structure {
+                v.push(data.clone())
             }
         }
         v
@@ -34,13 +32,13 @@ impl ast::Component {
     pub fn get_decl(&self) -> Vec<ast::Decl> {
         let mut v: Vec<ast::Decl> = Vec::new();
         for structure in self.structure.iter() {
-            match structure {
-                ast::Structure::Decl { data } => v.push(data.clone()),
-                _ => {}
+            if let ast::Structure::Decl { data } = structure {
+                v.push(data.clone())
             }
         }
         v
     }
+
     pub fn get_store(&self) -> CompStore {
         let mut store: CompStore = HashMap::new();
         let std = self.get_std();
@@ -73,7 +71,7 @@ impl ast::Component {
         false
     }
 
-    pub fn get_port_width(&self, port: &String) -> i64 {
+    pub fn get_port_width(&self, port: &str) -> i64 {
         for in_port in &self.inputs {
             if in_port.name == *port {
                 return in_port.width;

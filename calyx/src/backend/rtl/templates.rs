@@ -26,18 +26,19 @@ pub type Connections = HashMap<Port, Vec<Port>>;
 // in the same namespace
 pub type Components = HashMap<String, Component>;
 
+#[allow(unused)]
 pub fn component_string(
     comp: &Component,
     conn: &Connections,
     comps: &Components,
-    insts: &Vec<RtlInst>,
+    insts: &[RtlInst],
 ) -> String {
     let io: String = comp_io(comp);
     let wires: String = wires(conn, comp, comps, insts);
     let inst_vec: Vec<String> =
         insts.iter().map(|inst| comp_inst(inst.clone())).collect();
     let inst_strings = combine(&inst_vec, "\n\n", "");
-    return format!(
+    format!(
         "
     // Component Name
     module {}
@@ -54,7 +55,7 @@ pub fn component_string(
     endmodule
     ",
         comp.name, io, wires, inst_strings
-    );
+    )
 }
 
 /**
@@ -70,7 +71,7 @@ fn find_portdef(port: String, c: &Component) -> Option<Portdef> {
             return Some(pd);
         }
     }
-    return None;
+    None
 }
 
 /**
@@ -81,7 +82,7 @@ fn find_portdef(port: String, c: &Component) -> Option<Portdef> {
 fn component_from_inst_id(
     id: Id,
     comps: &Components,
-    insts: &Vec<RtlInst>,
+    insts: &[RtlInst],
 ) -> Option<Component> {
     let mut comp_name: Option<String> = None;
     for inst in insts {
@@ -91,8 +92,8 @@ fn component_from_inst_id(
     }
 
     match comp_name {
-        Some(name) => return Some(comps.clone().get(&name).unwrap().clone()),
-        None => return None,
+        Some(name) => Some(comps.clone().get(&name).unwrap().clone()),
+        None => None,
     }
 }
 
@@ -105,7 +106,7 @@ pub fn port_width(
     p: &Port,
     top: &Component,
     comps: &Components,
-    insts: &Vec<RtlInst>,
+    insts: &[RtlInst],
 ) -> i64 {
     match p {
         Port::Comp { component, port } => {
@@ -113,11 +114,11 @@ pub fn port_width(
                 component_from_inst_id(component.clone(), comps, insts)
                     .unwrap();
             let pd: Portdef = find_portdef(port.clone(), &comp).unwrap();
-            return pd.width;
+            pd.width
         }
         Port::This { port } => {
             let pd: Portdef = find_portdef(port.clone(), top).unwrap();
-            return pd.width;
+            pd.width
         }
     }
 }
@@ -125,27 +126,29 @@ pub fn port_width(
 /**
  * Create String that declares all of the wires for the Verilog output
  */
+#[allow(unused)]
 pub fn wires(
     conn: &Connections,
     top: &Component,
     comps: &Components,
-    insts: &Vec<RtlInst>,
+    insts: &[RtlInst],
 ) -> String {
     let mut s = String::new();
-    for (p, _) in conn {
+    for p in conn.keys() {
         match p {
-            Port::Comp { component, port } => {
+            Port::Comp { .. } => {
                 let wire_name = port_wire_id(p);
                 let bit_width = bit_width(port_width(p, top, comps, insts));
                 let decl = format!("logic {}{};\n", bit_width, wire_name);
                 s = format!("{}{}", s, decl); //Append decl to string
             }
-            Port::This { port } => {} // If Port is an input or output of toplevel, no need to declare wire
+            Port::This { .. } => {} // If Port is an input or output of toplevel, no need to declare wire
         }
     }
-    return s;
+    s
 }
 
+#[allow(unused)]
 pub fn comp_inst(inst: RtlInst) -> String {
     let ports: Vec<String> = inst
         .ports
@@ -156,45 +159,43 @@ pub fn comp_inst(inst: RtlInst) -> String {
     let params: Vec<String> =
         inst.params.iter().map(|p| p.to_string()).collect();
     let params: String = combine(&params, ", ", "");
-    return format!(
-        "{}#({}) {}\n(\n{})",
-        inst.comp_name, params, inst.id, ports
-    );
+    format!("{}#({}) {}\n(\n{})", inst.comp_name, params, inst.id, ports)
 }
 
 /**
  * Returns a string with the list of all of a component's i/o pins
  */
+#[allow(unused)]
 pub fn comp_io(c: &Component) -> String {
-    let mut inputs = c.inputs.clone();
+    let inputs = c.inputs.clone();
     let mut inputs: Vec<String> = inputs
         .into_iter()
         .map(|pd| in_port(pd.width, pd.name))
         .collect();
-    let mut outputs = c.outputs.clone();
+    let outputs = c.outputs.clone();
     let mut outputs: Vec<String> = outputs
         .into_iter()
         .map(|pd| out_port(pd.width, pd.name))
         .collect();
     inputs.append(&mut outputs);
-    return combine(&inputs, ",\n", "");
+    combine(&inputs, ",\n", "")
 }
 
 pub fn in_port(width: i64, name: String) -> String {
-    return format!("input  logic {}{}", bit_width(width), name);
+    format!("input  logic {}{}", bit_width(width), name)
 }
 
 pub fn out_port(width: i64, name: String) -> String {
-    return format!("output logic {}{}", bit_width(width), name);
+    format!("output logic {}{}", bit_width(width), name)
 }
 
 pub fn bit_width(width: i64) -> String {
     if width < 1 {
         panic!("Invalid bit width!");
     } else if width == 1 {
-        return format!("");
+        format!("")
     } else {
-        return format!("[{}:0] ", width - 1);
+        format!("[{}:0] ", width - 1)
     }
 }
 
@@ -203,9 +204,7 @@ pub fn bit_width(width: i64) -> String {
  */
 pub fn port_wire_id(p: &Port) -> String {
     match p {
-        Port::Comp { component, port } => {
-            return format!("{}_{}", component, port)
-        }
-        Port::This { port } => return port.clone(),
+        Port::Comp { component, port } => format!("{}_{}", component, port),
+        Port::This { port } => port.clone(),
     }
 }

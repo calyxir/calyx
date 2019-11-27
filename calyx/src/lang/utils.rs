@@ -10,7 +10,7 @@ use sexp::Sexp::{Atom, List};
  */
 pub fn sexp_to_str(e: &Sexp) -> String {
     match e {
-        Atom(sexp::Atom::S(str)) => return String::from(str),
+        Atom(sexp::Atom::S(str)) => String::from(str),
         _ => panic!("Expected str but found: {:?}", e),
     }
 }
@@ -20,7 +20,7 @@ pub fn sexp_to_str(e: &Sexp) -> String {
  */
 pub fn sexp_to_int(e: &Sexp) -> i64 {
     match e {
-        Atom(sexp::Atom::I(i)) => return *i,
+        Atom(sexp::Atom::I(i)) => *i,
         _ => panic!("Expected int but found: {:?}", e),
     }
 }
@@ -36,7 +36,7 @@ pub fn get_str(e: &Sexp) -> (String, Sexp) {
         List(vec) => {
             let head = &vec[0];
             let tail = List(vec[1..].to_vec());
-            return (sexp_to_str(head), tail);
+            (sexp_to_str(head), tail)
         }
     }
 }
@@ -52,7 +52,7 @@ pub fn get_int(e: &Sexp) -> (i64, Sexp) {
         List(vec) => {
             let head = &vec[0];
             let tail = List(vec[1..].to_vec());
-            return (sexp_to_int(head), tail);
+            (sexp_to_int(head), tail)
         }
     }
 }
@@ -64,8 +64,6 @@ pub fn get_int(e: &Sexp) -> (i64, Sexp) {
 pub fn get_rest(e: &Sexp) -> Vec<Sexp> {
     match e {
         Atom(_) => panic!("Error: {:?}", e),
-        List(vec) => {
-            return vec.clone();
-        }
+        List(vec) => vec.clone(),
     }
 }

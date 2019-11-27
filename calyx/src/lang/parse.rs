@@ -1,7 +1,6 @@
 use crate::lang::ast::*;
 use crate::lang::utils::*;
 use sexp::Sexp;
-use sexp::Sexp::{Atom, List};
 use std::fs;
 
 pub fn parse_file(filename: &str) -> Namespace {
@@ -20,10 +19,7 @@ impl From<&Sexp> for Portdef {
         let (name, e2) = get_str(&e1);
         let (width, _e3) = get_int(&e2);
         // TODO verify e3 is empty and port == "port"
-        return Portdef {
-            name: name,
-            width: width,
-        };
+        Portdef { name, width }
     }
 }
 
@@ -34,12 +30,9 @@ impl From<&Sexp> for Port {
         let (port, _e3) = get_str(&e2);
         // TODO error checking
         if component == "this" {
-            return Port::This { port: port };
+            Port::This { port }
         } else {
-            return Port::Comp {
-                component: component,
-                port: port,
-            };
+            Port::Comp { component, port }
         }
     }
 }
@@ -49,10 +42,7 @@ impl From<&Sexp> for Compinst {
         let (name, e1) = get_str(e);
         let lst = get_rest(&e1);
         let params = lst.into_iter().map(|exp| sexp_to_int(&exp)).collect();
-        return Compinst {
-            name: name,
-            params: params,
-        };
+        Compinst { name, params }
     }
 }
 
@@ -225,13 +215,13 @@ impl From<&Sexp> for Component {
             .map(|exp| Structure::from(&exp))
             .collect();
         let control = Control::from(&lst[4]);
-        return Component {
-            name: name,
-            inputs: inputs,
-            outputs: outputs,
-            structure: structure,
-            control: control,
-        };
+        Component {
+            name,
+            inputs,
+            outputs,
+            structure,
+            control,
+        }
     }
 }
 
@@ -247,10 +237,7 @@ impl From<&Sexp> for Namespace {
             .map(|exp| Component::from(&exp))
             .collect();
 
-        return Namespace {
-            name: name,
-            components: components,
-        };
+        Namespace { name, components }
     }
 }
 

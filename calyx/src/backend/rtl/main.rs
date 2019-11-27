@@ -3,6 +3,7 @@ use crate::backend::rtl::templates;
 use crate::lang::ast::{Component, Port, Wire};
 use crate::utils;
 
+#[allow(unused)]
 pub fn to_verilog(comp: &Component, c: &Context) -> String {
     format!(
         "
@@ -25,8 +26,7 @@ pub fn to_verilog(comp: &Component, c: &Context) -> String {
 }
 
 fn component_signature(c: &Component) -> String {
-    let pins = templates::comp_io(c);
-    pins
+    templates::comp_io(c)
 }
 
 //==========================================
@@ -39,7 +39,7 @@ fn wire_declarations(comp: &Component, c: &Context) -> String {
         .map(|wire| wire_string(&wire, comp, c))
         .collect();
 
-    utils::combine(&wire_names, "\n", "")
+    utils::combine(&[wire_names], "\n", "")
 }
 
 fn wire_string(wire: &Wire, comp: &Component, c: &Context) -> String {
@@ -51,26 +51,25 @@ fn wire_string(wire: &Wire, comp: &Component, c: &Context) -> String {
  */
 pub fn port_wire_id(p: &Port) -> String {
     match p {
-        Port::Comp { component, port } => {
-            return format!("{}_{}", component, port)
-        }
-        Port::This { port } => return port.clone(),
+        Port::Comp { component, port } => format!("{}_{}", component, port),
+        Port::This { port } => port.clone(),
     }
 }
 
+#[allow(unused)]
 fn bit_width(width: i64) -> String {
     if width < 1 {
         panic!("Invalid bit width!");
     } else if width == 1 {
-        return format!("");
+        format!("")
     } else {
-        return format!("[{}:0] ", width - 1);
+        format!("[{}:0] ", width - 1)
     }
 }
 
 //==========================================
 //        Instance String Functions
 //==========================================
-fn component_instances() {}
+// fn component_instances() {}
 
-fn primitive_instances() {}
+// fn primitive_instances() {}

@@ -1,16 +1,18 @@
 use crate::lang::ast;
-use crate::lang::ast::{Id, Namespace, Port};
+use crate::lang::ast::{Namespace, Port};
 use crate::lang::library;
 use crate::lang::library::ast::Library;
 use crate::lang::parse;
 use std::collections::HashMap;
 
+#[allow(unused)]
 pub struct Context {
     pub instances: HashMap<ast::Id, ast::Structure>,
     pub definitions: HashMap<String, ast::Component>,
     pub library: HashMap<String, library::ast::Primitive>,
 }
 
+#[allow(unused)]
 fn init_library(libs: Vec<String>) -> HashMap<String, library::ast::Primitive> {
     let libraries = libs
         .into_iter()
@@ -27,12 +29,12 @@ fn init_library(libs: Vec<String>) -> HashMap<String, library::ast::Primitive> {
 }
 
 impl Context {
-    fn init_context(
+    fn _init_context(
         file: String,
-        toplevel: String,
+        _toplevel: String,
         libs: Vec<String>,
     ) -> Context {
-        let namespace: Namespace = parse::parse_file(file.as_ref());
+        let _namespace: Namespace = parse::parse_file(file.as_ref());
         Context {
             instances: HashMap::new(),
             definitions: HashMap::new(),
@@ -40,7 +42,7 @@ impl Context {
         }
     }
 
-    fn lookup_prim(id: &Id, c: &Context) -> library::ast::Primitive {
+    fn lookup_prim(id: &str, c: &Context) -> library::ast::Primitive {
         let inst = c.instances.get(id).unwrap();
         match inst {
             ast::Structure::Std { data } => {
@@ -50,7 +52,7 @@ impl Context {
         }
     }
 
-    fn lookup_comp(id: &Id, c: &Context) -> ast::Component {
+    fn lookup_comp(id: &str, c: &Context) -> ast::Component {
         let inst = c.instances.get(id).unwrap();
         match inst {
             ast::Structure::Decl { data } => {

@@ -27,11 +27,13 @@ pub enum Width {
 }
 
 impl Library {
+    #[allow(unused)]
     pub fn new() -> Library {
         let lib: Vec<Primitive> = Vec::new();
         Library { primitives: lib }
     }
 
+    #[allow(unused)]
     pub fn merge(libraries: Vec<Library>) -> Library {
         let mut primitives = vec![];
         for lib in libraries {
