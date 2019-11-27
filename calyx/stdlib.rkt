@@ -29,7 +29,7 @@
      (-> (@ this end) (@ end-reg in))
 
      (new-std val-reg (comp/res-reg))
-     (new-std res-vel (const 1))
+     (new-std res-val (const 1))
      (-> (@ res-val out) (@ val-reg res))
 
      (new-std add0 (const 0))
