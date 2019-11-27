@@ -5,11 +5,13 @@ An intermediate language for [Fuse](https://github.com/cucapra/seashell).
 We are in the process of transitioning everything over to Rust. At the moment the interpreter is still in racket, although it hasn't been kept up to date with the syntax changes. `Calyx` is the name of the pass framework that we are writing. Instructions for installation are below.
 
 ### Install Calyx
-Once you have rust installed ([here](https://rustup.rs/) are instructions), you should be
+Once you have rust and cargo installed ([here](https://doc.rust-lang.org/cargo/getting-started/installation.html) are instructions), you should be
 able to go into the `calyx` directory and run `cargo build`. This will download and install
 all the dependencies.
 
 ### Install Racket stuff
+This is old stuff that isn't working with the new version of FuTIL. You probably want to just install the calyx stuff.
+
 #### Interpreter
 You need `racket` installed. You can find instructions
 [here](https://docs.racket-lang.org/pollen/Installation.html).
@@ -198,16 +200,20 @@ Building multiplication out of addition. First we need a way of counting down so
 we can do something `n` times.
 
 ```racket
-(define/module counter ((in : 32)) ((out : 32))
-  ([sub = new comp/trunc-sub]
-   [reg = new comp/reg]
-   [in -> reg @ in]
-   [reg @ out -> sub @ left]
-   [const decr 1 : 32 -> sub @ right]
-   [sub @ out -> out]
-   [sub @ out -> reg @ in])
-  [(ifen (in) ([]) ())]
-  [(in)])
+(define/module counter ((port in 32)) ((port out 32))
+  ((new-std sub (comp/trunc-sub))
+   (new-std reg (comp/reg))
+   (-> (@ this in) (@ reg in))
+   (-> (@ reg out) (@ sub left))
+   (new-std decr (const 1))
+   (-> (@ decr out) (@ sub right))
+   (-> (@ sub out) (@ this out))
+   (-> (@ sub out) (@ reg in)))
+  (seq
+    (ifen (@ this in)
+          (seq (empty))
+          (empty))
+    (disable in)))
 ```
 
 If you want to see the module before testing it, run `(plot-component (counter))`.
@@ -220,22 +226,25 @@ and addition. The `viz` submodule is not actually necessary. It just
 lets you see the value coming out of counter in the animation.
 
 ``` racket
-(define/module mult ((a : 32) (b : 32)) ((out : 32))
-  ([counter = new counter]
-   [add = new comp/add]
-   [reg = new comp/reg]
-   [viz = new comp/id]
+(define/module mult ((port a 32) (port b 32)) ((port out 32))
+  ((new counter counter)
+   (new-std add (comp/add))
+   (new-std reg (comp/reg))
+   (new-std viz (comp/id))
 
-   [b -> counter @ in]
-   [counter @ out -> viz @ in]
+   (-> (@ this b) (@ counter in))
+   (-> (@ counter out) (@ viz in))
 
-   [const zero 0 : 32 -> add @ left]
-   [a -> add @ right]
-   [add @ out -> reg @ in]
-   [reg @ out -> add @ left]
-   [add @ out -> out])
-  []
-  [(while (counter @ out) ([(b zero)]))])
+   (new-std zero (const 0))
+   (-> (@ zero out) (@ add left))
+   (-> (@ this a) (@ add right))
+   (-> (@ add out) (@ reg in))
+   (-> (@ reg out) (@ add left))
+   (-> (@ add out) (@ this out)))
+  (seq
+    (empty)
+    (while (@ counter out)
+           (seq (disable b zero)))))
 ```
 
 Result of `(plot-compute (mult) '((a . 7) (b . 8))')`:  
