@@ -7,7 +7,7 @@ test:
 	cargo test -- --nocapture
 
 run:
-	cargo run stdlib.rkt -l ./primitives/std.lib
+	cargo run stdlib.rkt and3way -l ./primitives/std.lib
 
 install:
 	cargo install --path .

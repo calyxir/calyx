@@ -3,6 +3,7 @@ mod lang;
 mod passes;
 mod utils;
 
+use crate::backend::framework::Context;
 use crate::lang::*;
 
 #[macro_use]
@@ -27,10 +28,15 @@ fn main() {
     let syntax: ast::Namespace = parse::parse_file(filename);
 
     if matches.occurrences_of("LIB") == 1 {
-        let filename = matches.value_of("LIB").unwrap();
+        let libname = matches.value_of("LIB").unwrap();
         println!("LIBRARY FILE: {}\n\n\n", filename);
-        // let lib = lang::library::parse::parse_file(filename);
-        //println!("{:#?}", backend::rtl::main::to_verilog());
+        let context = Context::init_context(
+            filename.to_string(),
+            component_name.to_string(),
+            vec![libname.to_string()],
+        );
+
+        println!("{:#?}", context);
     }
 
     // backend::rtl::gen::gen_namespace(&syntax, "./build/".to_string());

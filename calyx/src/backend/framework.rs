@@ -1,12 +1,14 @@
 use crate::lang::ast;
-use crate::lang::ast::{Namespace, Port};
+use crate::lang::ast::{Component, Namespace, Port};
 use crate::lang::library;
 use crate::lang::library::ast::Library;
 use crate::lang::parse;
 use std::collections::HashMap;
 
 #[allow(unused)]
+#[derive(Debug)]
 pub struct Context {
+    pub toplevel: Component,
     pub instances: HashMap<ast::Id, ast::Structure>,
     pub definitions: HashMap<String, ast::Component>,
     pub library: HashMap<String, library::ast::Primitive>,
@@ -29,15 +31,18 @@ fn init_library(libs: Vec<String>) -> HashMap<String, library::ast::Primitive> {
 }
 
 impl Context {
-    fn _init_context(
+    pub fn init_context(
         file: String,
-        _toplevel: String,
+        toplevel: String,
         libs: Vec<String>,
     ) -> Context {
-        let _namespace: Namespace = parse::parse_file(file.as_ref());
+        let namespace: Namespace = parse::parse_file(file.as_ref());
+        let comp: Component = namespace.get_component(toplevel);
+        let store = comp.get_store();
         Context {
-            instances: HashMap::new(),
-            definitions: HashMap::new(),
+            toplevel: comp,
+            instances: store,
+            definitions: namespace.get_definitions(),
             library: init_library(libs),
         }
     }
