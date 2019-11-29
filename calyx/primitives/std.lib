@@ -1,5 +1,9 @@
 
 (define/library
+  (define/prim (const p_width p_value)
+    ()
+    ((port out p_width) ))
+
   (define/prim (add p_width)
     ((port in0 p_width) (port in1 p_width))
     ((port out p_width) ))

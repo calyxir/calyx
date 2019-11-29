@@ -61,7 +61,7 @@ fn bit_width(width: i64) -> String {
     if width < 1 {
         panic!("Invalid bit width!");
     } else if width == 1 {
-        format!("")
+        "".to_string()
     } else {
         format!("[{}:0] ", width - 1)
     }

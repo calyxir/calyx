@@ -177,8 +177,10 @@ pub fn comp_io(c: &Component) -> String {
         .into_iter()
         .map(|pd| out_port(pd.width, pd.name))
         .collect();
+
     inputs.append(&mut outputs);
-    combine(&inputs, ",\n", "")
+    println!("{}", combine(&inputs, ",\n    ", ""));
+    combine(&inputs, ",\n        ", "")
 }
 
 pub fn in_port(width: i64, name: String) -> String {
@@ -193,7 +195,7 @@ pub fn bit_width(width: i64) -> String {
     if width < 1 {
         panic!("Invalid bit width!");
     } else if width == 1 {
-        format!("")
+        "".to_string()
     } else {
         format!("[{}:0] ", width - 1)
     }

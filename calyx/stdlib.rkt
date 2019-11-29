@@ -1,8 +1,8 @@
 (define/namespace stdlib
   (define/component and3way
     ((port a 32) (port b 32) (port c 32))
-    ((port out 32))
-    ((new-std en (const 1))
+    ((port out 32) )
+    ((new-std en (const 32 1))
      (-> (@ en out) (@ this out)))
     (ifen (@ this a)
           (ifen (@ this b)

@@ -1,5 +1,5 @@
 use crate::lang::ast;
-use crate::lang::ast::{Component, Namespace, Port};
+use crate::lang::ast::{Component, Namespace, Port, Structure};
 use crate::lang::library;
 use crate::lang::library::ast::Library;
 use crate::lang::parse;
@@ -70,18 +70,23 @@ impl Context {
     pub fn port_width(p: &Port, comp: &ast::Component, c: &Context) -> i64 {
         match p {
             Port::Comp { component, port } => {
-                if c.definitions.contains_key(component) {
-                    let comp = Context::lookup_comp(component, c);
-                    comp.get_port_width(port)
-                } else if c.library.contains_key(component) {
-                    let prim = Context::lookup_prim(component, c);
-                    let inst = c.instances.get(component).unwrap();
-                    prim.get_port_width(inst.clone(), port)
+                if *comp.name == *component {
+                    comp.get_port_width(port.as_ref())
                 } else {
-                    panic!(
-                        "Nonexistent component: Port: {}, Component {}",
-                        port, comp.name
-                    );
+                    match c.instances.get(component).unwrap() {
+                        Structure::Decl { data } => {
+                            let comp =
+                                Context::lookup_comp(data.name.as_ref(), c);
+                            comp.get_port_width(port)
+                        }
+                        Structure::Std { data } => {
+                            let prim =
+                                Context::lookup_prim(data.name.as_ref(), c);
+                            let inst = c.instances.get(&data.name).unwrap();
+                            prim.get_port_width(inst.clone(), port)
+                        }
+                        _ => panic!("Wire in component instances store"),
+                    }
                 }
             }
             Port::This { port } => comp.get_port_width(port),

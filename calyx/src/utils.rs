@@ -5,7 +5,7 @@
 pub fn combine(vec: &[String], delimiter: &str, end: &str) -> String {
     let mut s = String::new();
     let n = vec.len() - 1;
-    for x in vec {
+    for x in vec.iter().take(n) {
         s.push_str(x);
         s.push_str(delimiter);
     }
