@@ -4,7 +4,7 @@ use crate::utils::*;
 use std::collections::HashMap;
 
 #[allow(unused)]
-pub fn to_verilog(comp: &Component, c: &Context) -> String {
+pub fn to_verilog(c: &Context) -> String {
     format!(
         "
     // Component signature
@@ -18,9 +18,9 @@ pub fn to_verilog(comp: &Component, c: &Context) -> String {
     // Subcomponent Instances
     {}
     endmodule",
-        comp.name,
-        component_io(&comp),
-        wire_declarations(&comp, &c),
+        c.toplevel.name,
+        component_io(&c.toplevel),
+        wire_declarations(&c),
         instances(&c)
     )
 }
@@ -70,18 +70,19 @@ pub fn bit_width(width: i64) -> String {
 //==========================================
 //        Wire Declaration Functions
 //==========================================
-fn wire_declarations(comp: &Component, c: &Context) -> String {
-    let wire_names = comp
+fn wire_declarations(c: &Context) -> String {
+    let wire_names = c
+        .toplevel
         .get_wires()
         .into_iter()
-        .map(|wire| wire_string(&wire, comp, c))
+        .map(|wire| wire_string(&wire, c))
         .collect();
 
     combine(&[wire_names], "\n", "")
 }
 
-fn wire_string(wire: &Wire, comp: &Component, c: &Context) -> String {
-    let width = Context::port_width(&wire.src, comp, c);
+fn wire_string(wire: &Wire, c: &Context) -> String {
+    let width = Context::port_width(&wire.src, &c.toplevel, c);
     format!("logic {}{};", bit_width(width), port_wire_id(&wire.src))
 }
 

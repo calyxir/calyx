@@ -35,8 +35,7 @@ fn main() {
             vec![libname.to_string()],
         );
 
-        let verilog =
-            backend::rtl::gen::to_verilog(&context.toplevel, &context);
+        let verilog = backend::rtl::gen::to_verilog(&context);
 
         println!("{}", verilog);
     }
