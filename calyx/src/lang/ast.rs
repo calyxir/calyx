@@ -26,7 +26,7 @@ pub struct Portdef {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Port {
-    Comp { component: String, port: String },
+    Comp { component: Id, port: String },
     This { port: String },
 }
 

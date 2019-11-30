@@ -1,221 +1,192 @@
-use crate::backend::rtl::templates::*;
-use crate::lang::ast::*;
-use crate::utils::combine;
+use crate::backend::framework::Context;
+use crate::lang::ast::{Component, Decl, Port, Std, Wire};
+use crate::utils::*;
 use std::collections::HashMap;
-use std::fs;
-
-/**
- * This file generates the intermediate data structures in templates.rs from
- * an AST
- */
-#[allow(unused)]
-pub fn gen_namespace(n: &Namespace, build_dir: String) {
-    let dir = format!("{}{}/", build_dir, n.name);
-    fs::create_dir_all(dir);
-
-    // Initialize Component Store
-    let mut comp: Components = HashMap::new();
-    for c in &n.components {
-        comp.insert(c.name.clone(), c.clone());
-    }
-
-    // TODO Add primitives to component store
-    // Initialize wire store
-    let mut conn: Connections = HashMap::new();
-    for c in &n.components {
-        gen_component(c, &comp);
-    }
-}
-
-// TODO generate control logic
-pub fn gen_component(
-    c: &Component,
-    comp: &Components,
-) -> (Component, Connections, Vec<RtlInst>) {
-    let conn: Connections = gen_connections(&c.structure);
-    let _insts: Vec<RtlInst> = gen_insts(&c.structure, &conn, &comp);
-
-    unimplemented!();
-}
-// ==================================
-// Generating Assign Statements
-// ==================================
-
-// TODO clean me up- Generates all Wire connections from Structure of a component
-fn gen_connections(structure: &[Structure]) -> Connections {
-    // Construct connections
-    let conn: Connections = HashMap::new();
-    let f = |mut c: Connections, s: &Structure| match s {
-        Structure::Wire {
-            data: Wire { src, dest },
-        } => match c.get_mut(&src) {
-            Some(v) => {
-                v.push(dest.clone());
-                c
-            }
-            None => {
-                let _ = c.insert(src.clone(), vec![dest.clone()]);
-                c
-            }
-        },
-        _ => c,
-    };
-
-    structure.iter().fold(conn, f)
-}
-
-// ==================================
-// Generating Subcomponent Instances
-// ==================================
-
-/**
- * Fetches the list of input and output ports for a given component
- */
-fn port_list(component: String, comp: &Components) -> Vec<Portdef> {
-    match comp.get(&component) {
-        Some(c) => {
-            let mut v: Vec<Portdef> = Vec::new();
-            v.append(&mut c.inputs.clone());
-            v.append(&mut c.outputs.clone());
-            v
-        }
-        None => panic!("Component {} not defined", component),
-    }
-}
-
-/**
- * Finds the name of the wire that will connect to the input port
- * Very inefficient :(
- */
-fn find_wire(c: &Connections, pd: Portdef, id: Id) -> String {
-    let to_find = Port::Comp {
-        component: id,
-        port: pd.name,
-    };
-    for (src, dests) in c {
-        if to_find == *src || dests.contains(&to_find) {
-            return port_wire_id(src);
-        }
-    }
-    "".to_string()
-}
-
-/**
- * Generates a hashmap of ports and their connections to instance structures
- */
-fn gen_inst_ports(
-    c: &Connections,
-    id: String,
-    component: String,
-    comp: &Components,
-) -> HashMap<String, String> {
-    let portdefs: Vec<Portdef> = port_list(component, comp);
-    let mut map: HashMap<String, String> = HashMap::new();
-    for pd in portdefs {
-        let p: Port = Port::Comp {
-            component: id.clone(),
-            port: pd.name.clone(),
-        };
-        map.insert(port_wire_id(&p), find_wire(&c, pd, id.clone()));
-    }
-
-    map
-}
-
-// Generates all instances of subcomponents in a structure
-fn gen_insts(
-    _structure: &[Structure],
-    c: &Connections,
-    comp: &Components,
-) -> Vec<RtlInst> {
-    let mut _insts: Vec<RtlInst> = Vec::new();
-    let _f = |mut insts: Vec<RtlInst>, s: &Structure| -> Vec<RtlInst> {
-        match s {
-            Structure::Decl {
-                data: Decl { name, component },
-            } => {
-                let map =
-                    gen_inst_ports(c, name.clone(), component.clone(), comp);
-                let new_inst = RtlInst {
-                    comp_name: component.clone(),
-                    id: name.clone(),
-                    params: vec![],
-                    ports: map,
-                };
-                insts.push(new_inst);
-                insts
-            }
-            _ => insts,
-        }
-    };
-    unimplemented!();
-}
-
-// ==================================
-// Generating Toplevel Component Signature
-// ==================================
 
 #[allow(unused)]
-fn gen_comp_ports(inputs: Vec<Portdef>, outputs: Vec<Portdef>) -> String {
-    let mut strings = Vec::new();
-    let in_ports = inputs.into_iter().map(|pd| in_port(pd.width, pd.name));
-    let out_ports = outputs.into_iter().map(|pd| out_port(pd.width, pd.name));
+pub fn to_verilog(comp: &Component, c: &Context) -> String {
+    format!(
+        "
+    // Component signature
+    module {}
+    (
+        {}
+    );
+    // Wire declarations
+    {}
 
-    strings.extend(in_ports);
-    strings.extend(out_ports);
-
-    combine(&strings, ",\n", "\n")
+    // Subcomponent Instances
+    {}
+    endmodule",
+        comp.name,
+        component_io(&comp),
+        wire_declarations(&comp, &c),
+        instances(&c)
+    )
 }
 
-// ==================================
-//               Tests
-// ==================================
+//==========================================
+//        Component I/O Functions
+//==========================================
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/**
+ * Returns a string with the list of all of a component's i/o pins
+ */
+#[allow(unused)]
+pub fn component_io(c: &Component) -> String {
+    let inputs = c.inputs.clone();
+    let mut inputs: Vec<String> = inputs
+        .into_iter()
+        .map(|pd| in_port(pd.width, pd.name))
+        .collect();
+    let outputs = c.outputs.clone();
+    let mut outputs: Vec<String> = outputs
+        .into_iter()
+        .map(|pd| out_port(pd.width, pd.name))
+        .collect();
 
-    #[test]
-    fn portdef1() {
-        let pd = Portdef {
-            name: "in0".to_string(),
-            width: 8,
-        };
-        let s = in_port(pd.width, pd.name);
-        println!("{}", s);
-        assert_eq!(s, "input  logic [7:0] in0");
+    inputs.append(&mut outputs);
+    combine(&inputs, ",\n        ", "")
+}
+
+pub fn in_port(width: i64, name: String) -> String {
+    format!("input  logic {}{}", bit_width(width), name)
+}
+
+pub fn out_port(width: i64, name: String) -> String {
+    format!("output logic {}{}", bit_width(width), name)
+}
+
+pub fn bit_width(width: i64) -> String {
+    if width < 1 {
+        panic!("Invalid bit width!");
+    } else if width == 1 {
+        "".to_string()
+    } else {
+        format!("[{}:0] ", width - 1)
     }
+}
 
-    #[test]
-    fn portdef2() {
-        let pd = Portdef {
-            name: "out0".to_string(),
-            width: 8,
-        };
-        let s = out_port(pd.width, pd.name);
-        println!("{}", s);
-        assert_eq!(s, "output logic [7:0] out0");
-    }
+//==========================================
+//        Wire Declaration Functions
+//==========================================
+fn wire_declarations(comp: &Component, c: &Context) -> String {
+    let wire_names = comp
+        .get_wires()
+        .into_iter()
+        .map(|wire| wire_string(&wire, comp, c))
+        .collect();
 
-    #[test]
-    fn portdef3() {
-        let pd = Portdef {
-            name: "in0".to_string(),
-            width: 1,
-        };
-        let s = in_port(pd.width, pd.name);
-        println!("{}", s);
-        assert_eq!(s, "input  logic in0");
-    }
+    combine(&[wire_names], "\n", "")
+}
 
-    #[test]
-    fn portdef4() {
-        let pd = Portdef {
-            name: "out0".to_string(),
-            width: 1,
-        };
-        let s = out_port(pd.width, pd.name);
-        println!("{}", s);
-        assert_eq!(s, "output logic out0");
+fn wire_string(wire: &Wire, comp: &Component, c: &Context) -> String {
+    let width = Context::port_width(&wire.src, comp, c);
+    format!("logic {}{};", bit_width(width), port_wire_id(&wire.src))
+}
+
+/**
+ * Generates a string wirename for the provided Port object
+ */
+pub fn port_wire_id(p: &Port) -> String {
+    match p {
+        Port::Comp { component, port } => format!("{}_{}", component, port),
+        Port::This { port } => port.clone(),
     }
+}
+
+//==========================================
+//        Subcomponent Instance Functions
+//==========================================
+// Intermediate data structures for string formatting
+#[derive(Clone, Debug)]
+pub struct RtlInst {
+    pub comp_name: String,
+    pub id: String,
+    pub params: Vec<i64>,
+    pub ports: HashMap<String, String>, // Maps Port names to wires
+}
+
+fn instances(c: &Context) -> String {
+    let decls = c.toplevel.get_decl();
+    let mut decls: Vec<RtlInst> = decls
+        .into_iter()
+        .map(|decl| component_to_inst(&decl, c))
+        .collect();
+    let prims = c.toplevel.get_std();
+    let prims: Vec<RtlInst> = prims
+        .into_iter()
+        .map(|prim| prim_to_inst(&prim, c))
+        .collect();
+    decls.extend(prims);
+    let strings: Vec<String> = decls.into_iter().map(inst_to_string).collect();
+    combine(&strings, "\n", "")
+}
+
+fn component_to_inst(inst: &Decl, c: &Context) -> RtlInst {
+    let comp = c.definitions.get(&inst.component).unwrap();
+    let wires = c.toplevel.get_wires();
+    let mut port_map: HashMap<String, String> = HashMap::new();
+    for w in wires {
+        if let Port::Comp { component, port } = &w.src {
+            if component.clone() == inst.name {
+                // Note that all port_wire_ids are currently based off the source
+                port_map.insert(port.clone(), port_wire_id(&w.src));
+            }
+        }
+        if let Port::Comp { component, port } = &w.dest {
+            if component.clone() == inst.name {
+                // Note that all port_wire_ids are currently based off the source
+                port_map.insert(port.clone(), port_wire_id(&w.src));
+            }
+        }
+    }
+    RtlInst {
+        comp_name: comp.name.clone(),
+        id: inst.name.clone(),
+        params: vec![],
+        ports: port_map,
+    }
+}
+
+fn prim_to_inst(inst: &Std, c: &Context) -> RtlInst {
+    let prim = c.library.get(&inst.instance.name).unwrap();
+    let wires = c.toplevel.get_wires();
+    let mut port_map: HashMap<String, String> = HashMap::new();
+    for w in wires {
+        if let Port::Comp { component, port } = &w.src {
+            if component.clone() == inst.name {
+                // Note that all port_wire_ids are currently based off the source
+                port_map.insert(port.clone(), port_wire_id(&w.src));
+            }
+        }
+        if let Port::Comp { component, port } = &w.dest {
+            if component.clone() == inst.name {
+                // Note that all port_wire_ids are currently based off the source
+                port_map.insert(port.clone(), port_wire_id(&w.src));
+            }
+        }
+    }
+    RtlInst {
+        comp_name: prim.name.clone(),
+        id: inst.name.clone(),
+        params: inst.instance.params.clone(),
+        ports: port_map,
+    }
+}
+
+pub fn inst_to_string(inst: RtlInst) -> String {
+    let ports: Vec<String> = inst
+        .ports
+        .iter()
+        .map(|(port, wire)| format!(".{}({})", port, wire))
+        .collect();
+    let ports: String = combine(&ports, ",\n        ", "\n    ");
+    let params: Vec<String> =
+        inst.params.iter().map(|p| p.to_string()).collect();
+    let params: String = combine(&params, ", ", "");
+    format!(
+        "{} #({}) {}\n    (\n        {});",
+        inst.comp_name, params, inst.id, ports
+    )
 }

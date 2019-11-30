@@ -29,7 +29,6 @@ fn main() {
 
     if matches.occurrences_of("LIB") == 1 {
         let libname = matches.value_of("LIB").unwrap();
-        println!("LIBRARY FILE: {}\n\n\n", filename);
         let context = Context::init_context(
             filename.to_string(),
             component_name.to_string(),
@@ -37,7 +36,7 @@ fn main() {
         );
 
         let verilog =
-            backend::rtl::main::to_verilog(&context.toplevel, &context);
+            backend::rtl::gen::to_verilog(&context.toplevel, &context);
 
         println!("{}", verilog);
     }
