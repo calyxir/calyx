@@ -1,0 +1,14 @@
+// git.status = dirty, build.date = Thu Nov 21 11:29:05 EST 2019, git.hash = 1fbd17a
+(define/namespace prog
+  (define/component main () ()
+    ((new-std x0 (comp/reg ))
+     (-> (@ const0 out) (@ x0 in))
+     (new-std const0 (const 0 32))
+     (new-std const1 (const 1 32))
+     (-> (@ const1 out) (@ x0 in))
+     (new-std const2 (const 2 32))
+     (-> (@ const2 out) (@ x0 in)))
+    (seq
+     (enable x0 const0)
+     (enable x0 const1)
+     (enable x0 const2))))

@@ -19,22 +19,34 @@ pub type Input = (Id, i64);
 pub type Edge = (Vec<Input>, State);
 
 #[allow(unused)]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct State {
     pub outputs: Vec<(Id, i64)>,
     pub transitions: Vec<Edge>,
-    pub default: Box<State>, // Default next state if no edges are matched
+    pub default: Option<Box<State>>, // Default next state if no edges are matched
 }
 
 #[allow(unused)]
 impl State {
+    pub fn empty() -> Self {
+        State {
+            outputs: vec![],
+            transitions: vec![],
+            default: None,
+        }
+    }
+
+    //XXX(sam) probably can find a better solution
     fn transition(st: State, i: Vec<Input>) -> State {
-        for (inputs, next_st) in st.transitions {
+        for (inputs, next_st) in st.clone().transitions {
             if i == inputs {
                 return next_st;
             }
         }
-        *st.default
+        match st.default {
+            None => st,
+            Some(default) => *default,
+        }
     }
 }
 
@@ -44,7 +56,10 @@ impl FSM {
     fn state_value(&self, st: &State) -> usize {
         self.states
             .iter()
-            .position(|state| *state == *st.default)
+            .position(|state| match st.clone().default {
+                None => *state == *st,
+                Some(default) => *state == *default,
+            })
             .unwrap()
             + 1 // Plus one for 1 indexing (instead of 0 indexing)
     }

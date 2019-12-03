@@ -5,6 +5,7 @@ mod utils;
 
 use crate::backend::framework::Context;
 use crate::lang::*;
+use crate::passes::visitor::Visitor;
 
 #[macro_use]
 extern crate clap;
@@ -25,7 +26,7 @@ fn main() {
 
     let filename = matches.value_of("FILE").unwrap();
     let component_name = matches.value_of("COMPONENT").unwrap();
-    let syntax: ast::Namespace = parse::parse_file(filename);
+    let mut syntax: ast::Namespace = parse::parse_file(filename);
 
     if matches.occurrences_of("LIB") == 1 {
         let libname = matches.value_of("LIB").unwrap();
@@ -39,6 +40,9 @@ fn main() {
 
         println!("{}", verilog);
     }
+
+    backend::fsm::machine::FSM::new().do_pass(&mut syntax);
+    // passes::fsm::FSM::new().do_pass(&mut syntax);
 
     // backend::rtl::gen::gen_namespace(&syntax, "./build/".to_string());
     // collapse_seqs::Count::new().do_pass(&mut syntax);
