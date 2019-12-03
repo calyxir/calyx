@@ -12,16 +12,18 @@ pub struct FSM {
 // must be an input of the toplevel component for
 // this FSM. The i64 is the value that it needs
 // to be to help trigger state transition
-pub type Input = (Id, i64);
 
 //type Bits = Vec<i64>;
 
 pub type Edge = (Vec<Input>, State);
+pub type Port = (Id, String);
+
+pub type Input = (Port, i64);
 
 #[allow(unused)]
 #[derive(PartialEq, Debug, Clone)]
 pub struct State {
-    pub outputs: Vec<(Id, i64)>,
+    pub outputs: Vec<(Port, i64)>,
     pub transitions: Vec<Edge>,
     pub default: Option<Box<State>>, // Default next state if no edges are matched
 }
@@ -51,6 +53,14 @@ impl State {
 
 #[allow(unused)]
 impl FSM {
+    pub fn new(st: State) -> Self {
+        FSM {
+            inputs: vec![],
+            outputs: vec![],
+            states: vec![],
+            start: st,
+        }
+    }
     // Returns a unique value for the state for rtl generation
     fn state_value(&self, st: &State) -> usize {
         self.states

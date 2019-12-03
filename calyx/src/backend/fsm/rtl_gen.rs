@@ -57,8 +57,7 @@ fn next_state_case(st: &State, fsm: &FSM) -> String {
         .map(|e| if_statement(&e, fsm))
         .collect();
     let if_statements = combine(&if_statements, "\n    else ", "");
-    let else_statement =
-        format!("\n    else\n    next_state = {};", fsm.state_string(st));
+    let else_statement = format!("\n    else\n    next_state = {};", fsm.state_string(st));
     format!(
         "{}: begin\n    {}{}\n    end",
         fsm.state_string(st),
@@ -73,7 +72,7 @@ fn next_state_case(st: &State, fsm: &FSM) -> String {
 fn if_statement((inputs, st): &Edge, fsm: &FSM) -> String {
     let conditions: Vec<String> = inputs
         .iter()
-        .map(|(input_name, value)| format!("{} == 1'd{}", input_name, value))
+        .map(|((id, _), value)| format!("{} == 1'd{}", id, value))
         .collect();
     let conditions: String = combine(&conditions, " && ", "");
     format!(
