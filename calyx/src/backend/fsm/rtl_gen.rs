@@ -6,6 +6,7 @@ use crate::utils::*;
 //const state_string: String = "state".to_string();
 //const next_state_string: String = "next_state".to_string();
 
+#[allow(unused)]
 fn to_verilog(fsm: &FSM) -> String {
     let module_name = "pls_change_me";
     let portdefs = "TODO\n";
@@ -82,6 +83,6 @@ fn if_statement((inputs, st): &Edge, fsm: &FSM) -> String {
     )
 }
 
-fn output_logic(fsm: &FSM) -> String {
+fn output_logic(_fsm: &FSM) -> String {
     "TODO".to_string()
 }

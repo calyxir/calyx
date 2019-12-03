@@ -36,11 +36,10 @@ impl State {
         }
     }
 
-    //XXX(sam) probably can find a better solution
     fn transition(st: State, i: Vec<Input>) -> State {
-        for (inputs, next_st) in st.clone().transitions {
-            if i == inputs {
-                return next_st;
+        for (inputs, next_st) in &st.transitions {
+            if i == *inputs {
+                return next_st.clone();
             }
         }
         match st.default {
