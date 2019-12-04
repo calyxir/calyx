@@ -1,6 +1,7 @@
 use crate::lang::ast::Id;
 
 #[allow(unused)]
+#[derive(Clone, Debug)]
 pub struct FSM {
     pub inputs: Vec<Id>,
     pub outputs: Vec<Id>,

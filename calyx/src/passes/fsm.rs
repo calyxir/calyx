@@ -1,5 +1,5 @@
 use crate::backend::fsm::machine::{State, FSM};
-use crate::lang::ast::{Enable, Seq};
+use crate::lang::ast::{Component, Enable, Seq};
 use crate::passes::visitor::Visitor;
 pub struct FsmList {
     list: Vec<FSM>,
@@ -30,21 +30,39 @@ impl Visitor<()> for FsmList {
         self.list.push(fsm);
         Ok(())
     }
-    fn finish_seq(&mut self, seq: &mut Seq, _: Result<(), ()>) -> Result<(), ()> {
+
+    fn finish_seq(
+        &mut self,
+        _seq: &mut Seq,
+        _: Result<(), ()>,
+    ) -> Result<(), ()> {
         //println!("{:#?}", seq);
         for i in 0..(self.list.len() - 1) {
-            let next = &self.list[i + 1].states[0].clone();
+            if self.list[i + 1].states.len() > 0 {
+                let next = self.list[i + 1].states[0].clone();
 
-            let current = &mut self.list[i];
-            let os = &current.states[current.states.len() - 1].outputs;
-            let condition = os
-                .into_iter()
-                .map(|((id, _), _)| ((id.clone(), "rdy".to_string()), 1))
-                .collect();
-            current.states[current.states.len() - 1]
-                .transitions
-                .push((condition, next.states[0].clone()));
+                let current = &mut self.list[i];
+                let last_idx = current.states.len() - 1;
+                let os = &current.states[last_idx].outputs;
+                let condition = os
+                    .iter()
+                    .map(|((id, _), _)| ((id.clone(), "rdy".to_string()), 1))
+                    .collect();
+
+                current.states[last_idx]
+                    .transitions
+                    .push((condition, next.clone()));
+            }
         }
+        Ok(())
+    }
+
+    fn finish_component(
+        &mut self,
+        _c: &mut Component,
+        _res: Result<(), ()>,
+    ) -> Result<(), ()> {
+        println!("{:#?}", self.list);
         Ok(())
     }
 }
