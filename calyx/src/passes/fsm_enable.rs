@@ -84,12 +84,10 @@ impl Visitor<()> for FsmList {
                 control: Control::empty(),
             };
 
-            changes.add_structure(Structure::Decl {
-                data: Decl {
-                    name: component.name.clone(),
-                    component: "enable_fsm".to_string(),
-                },
-            });
+            changes.add_structure(Structure::decl(
+                component.name.clone(),
+                "enable_fsm".to_string(),
+            ));
 
             // change the instruction
             en.comps = vec![component.name.clone()];

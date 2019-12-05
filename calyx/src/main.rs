@@ -4,6 +4,7 @@ mod passes;
 mod utils;
 
 use crate::backend::framework::Context;
+use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::*;
 // use crate::passes::visitor::Visitor;
 
@@ -42,7 +43,7 @@ fn main() {
     }
 
     passes::fsm::generate(&mut syntax);
-    println!("{:#?}", syntax);
+    syntax.pretty_print();
 
     // You can handle information about subcommands by requesting their matches by name
     // (as below), requesting just the name used, or both at the same time

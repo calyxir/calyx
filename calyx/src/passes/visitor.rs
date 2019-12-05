@@ -2,6 +2,8 @@
 
 use crate::lang::ast::*;
 
+/// `Changes` collects abstract syntax changes and additions during a visitor pass
+/// The way the changes are defined is specified by each function.
 pub struct Changes {
     new_comps: Vec<Component>,
     new_struct: Vec<Structure>,
@@ -9,15 +11,22 @@ pub struct Changes {
 }
 
 impl Changes {
+    /// adds a new component to the current namespace
+    /// You can call this anywhere during a pass
     pub fn add_component(&mut self, comp: Component) {
         self.new_comps.push(comp);
     }
 
+    /// Adds new structure statements to the current component
     pub fn add_structure(&mut self, structure: Structure) {
         self.new_struct.push(structure);
     }
 
-    pub fn change_node(&mut self, control: Control) {
+    /// Changes the control node that is being visited when this is called to `control`.
+    /// This provides a way to change the actual nodes in the ast.
+    /// This change is applied *after* the `finish_*` function is called for the current
+    /// control node.
+    pub fn _change_node(&mut self, control: Control) {
         self.new_node = Some(control);
     }
 
@@ -53,35 +62,11 @@ pub trait Visitor<Err> {
                 .visit(self, &mut changes)
                 .unwrap_or_else(|_x| panic!("{} failed!", self.name()));
             comp.structure.append(&mut changes.new_struct);
-            changes.new_struct = vec![];
+            changes.new_struct = vec![]; // reset structure additions after we're doing visiting a component
         }
         syntax.components.append(&mut changes.new_comps);
         self
     }
-
-    // fn start_namespace(&mut self, _n: &mut Namespace) -> Result<(), Err> {
-    //     Ok(())
-    // }
-
-    // fn finish_namespace(
-    //     &mut self,
-    //     _n: &mut Namespace,
-    //     res: Result<(), Err>,
-    // ) -> Result<(), Err> {
-    //     res
-    // }
-
-    // fn start_component(&mut self, _c: &mut Component) -> Result<(), Err> {
-    //     Ok(())
-    // }
-
-    // fn finish_component(
-    //     &mut self,
-    //     _c: &mut Component,
-    //     res: Result<(), Err>,
-    // ) -> Result<(), Err> {
-    //     res
-    // }
 
     fn start_seq(&mut self, _s: &mut Seq, _c: &mut Changes) -> Result<(), Err> {
         Ok(())
@@ -250,30 +235,6 @@ impl<V: Visitable> Visitable for Vec<V> {
         Ok(())
     }
 }
-
-// impl Visitable for Namespace {
-//     fn visit<Err>(
-//         &mut self,
-//         structure: &mut Structure,
-//         visitor: &mut dyn Visitor<Err>,
-//     ) -> Result<(), Err> {
-//         visitor.start_namespace(self)?;
-//         let res = self.components.visit(structure, visitor);
-//         visitor.finish_namespace(self, res)
-//     }
-// }
-
-// impl Visitable for Component {
-//     fn visit<Err>(
-//         &mut self,
-//         _structure: &mut Structure,
-//         visitor: &mut dyn Visitor<Err>,
-//     ) -> Result<(), Err> {
-//         visitor.start_component(self)?;
-//         let res = self.control.visit(&mut self.structure, visitor);
-//         visitor.finish_component(self, res)
-//     }
-// }
 
 impl Visitable for Control {
     fn visit<Err>(

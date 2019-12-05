@@ -64,6 +64,27 @@ pub enum Structure {
     Wire { data: Wire },
 }
 
+#[allow(unused)]
+impl Structure {
+    pub fn decl(name: Id, component: String) -> Structure {
+        Structure::Decl {
+            data: Decl { name, component },
+        }
+    }
+
+    pub fn std(name: Id, instance: Compinst) -> Structure {
+        Structure::Std {
+            data: Std { name, instance },
+        }
+    }
+
+    pub fn wire(src: Port, dest: Port) -> Structure {
+        Structure::Wire {
+            data: Wire { src, dest },
+        }
+    }
+}
+
 // ===================================
 // Data definitions for Control Ast
 // ===================================
@@ -132,22 +153,20 @@ pub enum Control {
     Empty { data: Empty },
 }
 
+#[allow(unused)]
 impl Control {
-    #[allow(unused)]
     pub fn seq(stmts: Vec<Control>) -> Control {
         Control::Seq {
             data: Seq { stmts },
         }
     }
 
-    #[allow(unused)]
     pub fn par(stmts: Vec<Control>) -> Control {
         Control::Par {
             data: Par { stmts },
         }
     }
 
-    #[allow(unused)]
     pub fn c_if(cond: Port, tbranch: Control, fbranch: Control) -> Control {
         Control::If {
             data: If {
@@ -158,7 +177,6 @@ impl Control {
         }
     }
 
-    #[allow(unused)]
     pub fn ifen(cond: Port, tbranch: Control, fbranch: Control) -> Control {
         Control::Ifen {
             data: Ifen {
@@ -169,7 +187,6 @@ impl Control {
         }
     }
 
-    #[allow(unused)]
     pub fn c_while(cond: Port, body: Control) -> Control {
         Control::While {
             data: While {
@@ -179,7 +196,6 @@ impl Control {
         }
     }
 
-    #[allow(unused)]
     pub fn print(var: String) -> Control {
         Control::Print {
             data: Print { var },
@@ -192,7 +208,6 @@ impl Control {
         }
     }
 
-    #[allow(unused)]
     pub fn disable(comps: Vec<String>) -> Control {
         Control::Disable {
             data: Disable { comps },

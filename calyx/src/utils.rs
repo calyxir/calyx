@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 /**
  * Combine concatenates [vec] into a single string, with each entry
- * separated by [delimiter], and [end] appended to the end result
+ * separated by [delimiter], [start] prepended, and [end] appended to the end result.
  */
-pub fn combine(vec: &[String], delimiter: &str, end: &str) -> String {
+pub fn combine(vec: &[String], start: &str, delimiter: &str) -> String {
     if vec.is_empty() {
         "".to_string()
     } else {
@@ -14,8 +14,8 @@ pub fn combine(vec: &[String], delimiter: &str, end: &str) -> String {
             s.push_str(x);
             s.push_str(delimiter);
         }
+        s.push_str(start);
         s.push_str(vec[n].as_ref());
-        s.push_str(end);
         s
     }
 }

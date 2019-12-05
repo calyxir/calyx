@@ -47,7 +47,7 @@ impl Visitor<()> for FsmSeq {
             match con {
                 Control::Enable { data } => {
                     if data.comps.len() != 1 {
-                        panic!("Expected single actication enable statements")
+                        return Err(());
                     }
                     let comp = &data.comps[0];
                     let ready = Portdef {
@@ -82,8 +82,9 @@ impl Visitor<()> for FsmSeq {
                     outputs.push(valid);
                     changes.add_structure(Structure::Wire { data: ready_wire });
                     changes.add_structure(Structure::Wire { data: valid_wire });
+                    data.comps = vec![component_name.clone()];
                 }
-                _ => panic!("Expected enable statement"),
+                _ => return Err(()),
             }
         }
 
@@ -96,7 +97,7 @@ impl Visitor<()> for FsmSeq {
         };
 
         changes.add_component(component);
-        changes.change_node(Control::enable(vec![component_name]));
+        // changes.change_node(Control::enable(vec![component_name]));
         Ok(())
     }
 }

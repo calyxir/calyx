@@ -1,104 +1,290 @@
 use crate::lang::ast::*;
-use crate::utils::*;
+use pretty::RcDoc;
 
 /**
  * Conversion function from identifiers to string
  */
-pub fn id_to_string(id: Id) -> String {
-    return id;
+// pub fn id_to_string(id: Id) -> String {
+//     return id;
+// }
+
+fn surround<'a>(pre: &'a str, doc: RcDoc<'a>, post: &'a str) -> RcDoc<'a> {
+    RcDoc::text(pre).append(doc).append(RcDoc::text(post))
 }
 
-pub trait Printable {
-    fn prettify( &self ) -> String;
-    fn pretty_print( &self ) -> () {
-        println!("{}", self.prettify());
+fn parens<'a>(doc: RcDoc<'a>) -> RcDoc<'a> {
+    surround("(", doc, ")")
+}
+
+pub trait PrettyPrint {
+    fn prettify(&self) -> RcDoc;
+    fn pretty_print(&self) {
+        let mut w = Vec::new();
+        self.prettify().render(80, &mut w).unwrap();
+        println!("{}", String::from_utf8(w).unwrap());
     }
 }
 
-impl Printable for Namespace {
-    fn prettify(&self) -> String {
-        let comps = self.components.iter().map(|c| c.prettify()).collect();
-        return format!("( define/namespace {} {} )", self.name, combine(&comps, " ",""));
+/* =============== Generic impls ================ */
+
+impl PrettyPrint for String {
+    fn prettify(&self) -> RcDoc {
+        RcDoc::text(self)
     }
 }
 
-impl Printable for Component {
-    fn prettify(&self) -> String {
-        return format!("( define/component {} {} {} {} {} )",
-            self.name,
-            combine(&self.inputs.iter().map(|i| i.prettify()).collect(), "\r\n", ""),
-            combine(&self.outputs.iter().map(|o| o.prettify()).collect(), "\r\n", ""),
-            combine(&self.structure.iter().map(|s| s.prettify()).collect(), "\r\n", ""),
-            self.control.prettify()
-        );
+impl PrettyPrint for i64 {
+    fn prettify(&self) -> RcDoc {
+        RcDoc::text(self.to_string())
     }
 }
 
-impl Printable for Control {
-    // TODO handle nested levels
-    fn prettify( &self ) -> String {
+impl<T: PrettyPrint> PrettyPrint for Vec<T> {
+    fn prettify(&self) -> RcDoc {
+        let docs = self.into_iter().map(|s| s.prettify());
+        RcDoc::intersperse(docs, RcDoc::line())
+    }
+}
+
+/* =============== Toplevel ================ */
+
+impl PrettyPrint for Namespace {
+    fn prettify(&self) -> RcDoc {
+        let comps = self.components.iter().map(|s| s.prettify());
+        let inner = RcDoc::text("define/namespace")
+            .append(RcDoc::space())
+            .append(RcDoc::text(self.name.clone()))
+            .append(RcDoc::line())
+            .append(RcDoc::intersperse(
+                comps,
+                RcDoc::line().append(RcDoc::hardline()),
+            ))
+            .nest(2);
+        parens(inner)
+    }
+}
+
+impl PrettyPrint for Component {
+    fn prettify(&self) -> RcDoc {
+        let inner = RcDoc::text("define/component")
+            .append(RcDoc::space())
+            .append(RcDoc::text(self.name.clone()))
+            .append(RcDoc::line())
+            .append(parens(self.inputs.prettify()).nest(1).group())
+            .append(RcDoc::line())
+            .append(parens(self.outputs.prettify()).nest(1).group())
+            .append(RcDoc::line())
+            .append(parens(self.structure.prettify()).nest(1).group())
+            .append(RcDoc::line())
+            .append(self.control.prettify().group())
+            .nest(2);
+        parens(inner)
+    }
+}
+
+impl PrettyPrint for Portdef {
+    fn prettify(&self) -> RcDoc {
+        let inner = RcDoc::text("port")
+            .append(RcDoc::space())
+            .append(RcDoc::text(self.name.clone()))
+            .append(RcDoc::space())
+            .append(RcDoc::text(self.width.to_string()));
+        parens(inner)
+    }
+}
+
+/* ============== Impls for Structure ================= */
+
+impl PrettyPrint for Structure {
+    fn prettify(&self) -> RcDoc {
         match self {
-            Control::Seq(vec) => {
-                let seq = vec.iter().map(|c| c.prettify()).collect();
-                return format!("( seq\r\n    {})", combine(&seq, "\r\n    ","\r\n"));
-            },
-            Control::Par(vec) => {
-                let par = vec.iter().map(|c| c.prettify()).collect();
-                return format!("( par\r\n    {})", combine(&par, "\r\n    ","\r\n"));
-            },
-            Control::If{ cond, tbranch, fbranch } => {
-                return format!("( if {}\r\n    {}\r\n    {}\r\n)", cond.prettify(), tbranch.prettify(), fbranch.prettify());
-            },
-            Control::Ifen{ cond, tbranch, fbranch } => {
-                return format!("( ifen {}\r\n    {}\r\n    {}\r\n)", cond.prettify(), tbranch.prettify(), fbranch.prettify());
-            },
-            Control::While{ cond, body } => {
-                return format!("( while {}\r\n    {}\r\n)", cond.prettify(), body.prettify());
-            }
-            Control::Print(id) => {
-                return format!("( print\r\n    {}\r\n)", id.to_string());
-            }
-            Control::Enable(vec) => {
-                return format!("( enable {} )", combine(vec, " ",""));
-            }
-            Control::Disable(vec) => {
-                return format!("( disable {} )", combine(vec, " ",""));
-            }
-            Control::Empty => {
-                return format!("( empty )");
-            }
+            Structure::Decl { data } => data.prettify(),
+            Structure::Std { data } => data.prettify(),
+            Structure::Wire { data } => data.prettify(),
         }
     }
 }
 
-impl Printable for Structure {
-    fn prettify( &self ) -> String {
-        match self {
-            Structure::Decl{ name, component } => return format!("( new {} {} )", name, component),
-            Structure::Std{ name, instance } => return format!("( new-std {} {} )", name, instance.prettify()),
-            Structure::Wire{ src, dest } => return format!("( -> {} {} )", src.prettify(), dest.prettify()),
+impl PrettyPrint for Decl {
+    fn prettify(&self) -> RcDoc {
+        let inner = RcDoc::text("new")
+            .append(RcDoc::space())
+            .append(self.name.prettify())
+            .append(RcDoc::space())
+            .append(self.component.prettify());
+        parens(inner)
+    }
+}
+
+impl PrettyPrint for Std {
+    fn prettify(&self) -> RcDoc {
+        let inner = RcDoc::text("std")
+            .append(RcDoc::space())
+            .append(self.name.prettify())
+            .append(RcDoc::space())
+            .append(self.instance.prettify())
+            .group();
+        parens(inner)
+    }
+}
+
+impl PrettyPrint for Wire {
+    fn prettify(&self) -> RcDoc {
+        let inner = RcDoc::text("->")
+            .append(RcDoc::space())
+            .append(self.src.prettify())
+            .append(RcDoc::space())
+            .append(self.dest.prettify());
+        parens(inner)
+    }
+}
+
+impl PrettyPrint for Compinst {
+    fn prettify(&self) -> RcDoc {
+        if self.params.len() == 0 {
+            parens(self.name.prettify())
+        } else {
+            let inner = self
+                .name
+                .prettify()
+                .append(RcDoc::space())
+                .append(self.params.prettify());
+            parens(inner)
         }
     }
 }
 
-impl Printable for Portdef {
-    fn prettify( &self ) -> String {
-        return format!("( port {} {} )", id_to_string(self.name.clone()), self.width.to_string());
-    }
-}
+/* ============== Impls for Control ================= */
 
-impl Printable for Port {
-    fn prettify( &self ) -> String {
+impl PrettyPrint for Control {
+    fn prettify(&self) -> RcDoc {
         match self {
-            Port::Comp{ component, port } => return format!("( @ {} {} )", component, port),
-            Port::This{ port } => return format!("( @ this {} )", port),
+            Control::Seq { data } => data.prettify(),
+            Control::Par { data } => data.prettify(),
+            Control::If { data } => data.prettify(),
+            Control::Ifen { data } => data.prettify(),
+            Control::While { data } => data.prettify(),
+            Control::Print { data } => data.prettify(),
+            Control::Enable { data } => data.prettify(),
+            Control::Disable { data } => data.prettify(),
+            Control::Empty { data } => data.prettify(),
         }
     }
 }
 
-impl Printable for Compinst {
-    fn prettify( &self ) -> String {
-        let params = self.params.iter().map(|p| p.to_string()).collect();
-        return format!("( {} {} )", self.name, combine(&params, " ",""));
+impl PrettyPrint for Seq {
+    fn prettify(&self) -> RcDoc {
+        let inner = RcDoc::text("seq")
+            .append(RcDoc::hardline())
+            .append(self.stmts.prettify())
+            .nest(1);
+        parens(inner)
+    }
+}
+
+impl PrettyPrint for Par {
+    fn prettify(&self) -> RcDoc {
+        let inner = RcDoc::text("par")
+            .append(RcDoc::hardline())
+            .append(self.stmts.prettify())
+            .nest(1);
+        parens(inner)
+    }
+}
+
+impl PrettyPrint for If {
+    fn prettify(&self) -> RcDoc {
+        let inner = RcDoc::text("if")
+            .append(RcDoc::space())
+            .append(self.cond.prettify())
+            .append(RcDoc::line())
+            .append(self.tbranch.prettify())
+            .append(RcDoc::line())
+            .append(self.fbranch.prettify())
+            .nest(1);
+        parens(inner)
+    }
+}
+
+impl PrettyPrint for Ifen {
+    fn prettify(&self) -> RcDoc {
+        let inner = RcDoc::text("ifen")
+            .append(RcDoc::space())
+            .append(self.cond.prettify())
+            .append(RcDoc::line())
+            .append(self.tbranch.prettify())
+            .append(RcDoc::line())
+            .append(self.fbranch.prettify())
+            .nest(1);
+        parens(inner)
+    }
+}
+
+impl PrettyPrint for While {
+    fn prettify(&self) -> RcDoc {
+        let inner = RcDoc::text("while")
+            .append(RcDoc::space())
+            .append(self.cond.prettify())
+            .append(RcDoc::line())
+            .append(self.body.prettify())
+            .nest(1);
+        parens(inner)
+    }
+}
+
+impl PrettyPrint for Print {
+    fn prettify(&self) -> RcDoc {
+        let inner = RcDoc::text("print")
+            .append(RcDoc::space())
+            .append(self.var.prettify());
+        parens(inner)
+    }
+}
+
+impl PrettyPrint for Enable {
+    fn prettify(&self) -> RcDoc {
+        let inner = RcDoc::text("enable")
+            .append(RcDoc::space())
+            .append(self.comps.prettify());
+        parens(inner)
+    }
+}
+
+impl PrettyPrint for Disable {
+    fn prettify(&self) -> RcDoc {
+        let inner = RcDoc::text("enable")
+            .append(RcDoc::space())
+            .append(self.comps.prettify());
+        parens(inner)
+    }
+}
+
+impl PrettyPrint for Empty {
+    fn prettify(&self) -> RcDoc {
+        let inner = RcDoc::text("empty");
+        parens(inner)
+    }
+}
+
+impl PrettyPrint for Port {
+    fn prettify(&self) -> RcDoc {
+        match self {
+            Port::Comp { component, port } => {
+                let inner = RcDoc::text("@")
+                    .append(RcDoc::space())
+                    .append(component.prettify())
+                    .append(RcDoc::space())
+                    .append(port.prettify());
+                parens(inner)
+            }
+            Port::This { port } => {
+                let inner = RcDoc::text("@")
+                    .append(RcDoc::space())
+                    .append(RcDoc::text("this"))
+                    .append(RcDoc::space())
+                    .append(port.prettify());
+                parens(inner)
+            }
+        }
     }
 }
