@@ -285,18 +285,26 @@ impl Visitable for Control {
             Control::Seq { data } => {
                 visitor.start_seq(data, changes)?;
                 let res = data.stmts.visit(visitor, changes);
+                let res2 = visitor.finish_seq(data, changes, res);
                 match &changes.new_node {
                     Some(c) => {
                         *self = c.clone();
-                        Ok(())
                     }
-                    None => visitor.finish_seq(data, changes, res),
+                    None => (),
                 }
+                res2
             }
             Control::Par { data } => {
                 visitor.start_par(data, changes)?;
                 let res = data.stmts.visit(visitor, changes);
-                visitor.finish_par(data, changes, res)
+                let res2 = visitor.finish_par(data, changes, res);
+                match &changes.new_node {
+                    Some(c) => {
+                        *self = c.clone();
+                    }
+                    None => (),
+                }
+                res2
             }
             Control::If { data } => {
                 visitor.start_if(data, changes)?;
@@ -305,7 +313,14 @@ impl Visitable for Control {
                     data.tbranch.visit(visitor, changes)?;
                     data.fbranch.visit(visitor, changes)
                 })();
-                visitor.finish_if(data, changes, res)
+                let res2 = visitor.finish_if(data, changes, res);
+                match &changes.new_node {
+                    Some(c) => {
+                        *self = c.clone();
+                    }
+                    None => (),
+                }
+                res2
             }
             Control::Ifen { data } => {
                 visitor.start_ifen(data, changes)?;
@@ -313,28 +328,70 @@ impl Visitable for Control {
                     data.tbranch.visit(visitor, changes)?;
                     data.fbranch.visit(visitor, changes)
                 })();
-                visitor.finish_ifen(data, changes, res)
+                let res2 = visitor.finish_ifen(data, changes, res);
+                match &changes.new_node {
+                    Some(c) => {
+                        *self = c.clone();
+                    }
+                    None => (),
+                }
+                res2
             }
             Control::While { data } => {
                 visitor.start_while(data, changes)?;
                 let res = data.body.visit(visitor, changes);
-                visitor.finish_while(data, changes, res)
+                let res2 = visitor.finish_while(data, changes, res);
+                match &changes.new_node {
+                    Some(c) => {
+                        *self = c.clone();
+                    }
+                    None => (),
+                }
+                res2
             }
             Control::Print { data } => {
                 let res = visitor.start_print(data, changes);
-                visitor.finish_print(data, changes, res)
+                let res2 = visitor.finish_print(data, changes, res);
+                match &changes.new_node {
+                    Some(c) => {
+                        *self = c.clone();
+                    }
+                    None => (),
+                }
+                res2
             }
             Control::Enable { data } => {
                 let res = visitor.start_enable(data, changes);
-                visitor.finish_enable(data, changes, res)
+                let res2 = visitor.finish_enable(data, changes, res);
+                match &changes.new_node {
+                    Some(c) => {
+                        *self = c.clone();
+                    }
+                    None => (),
+                }
+                res2
             }
             Control::Disable { data } => {
                 let res = visitor.start_disable(data, changes);
-                visitor.finish_disable(data, changes, res)
+                let res2 = visitor.finish_disable(data, changes, res);
+                match &changes.new_node {
+                    Some(c) => {
+                        *self = c.clone();
+                    }
+                    None => (),
+                }
+                res2
             }
             Control::Empty { data } => {
                 let res = visitor.start_empty(data, changes);
-                visitor.finish_empty(data, changes, res)
+                let res2 = visitor.finish_empty(data, changes, res);
+                match &changes.new_node {
+                    Some(c) => {
+                        *self = c.clone();
+                    }
+                    None => (),
+                }
+                res2
             }
         }
     }
