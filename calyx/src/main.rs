@@ -5,7 +5,7 @@ mod utils;
 
 use crate::backend::framework::Context;
 use crate::lang::*;
-use crate::passes::visitor::Visitor;
+// use crate::passes::visitor::Visitor;
 
 #[macro_use]
 extern crate clap;
@@ -41,11 +41,8 @@ fn main() {
         println!("{}", verilog);
     }
 
-    passes::fsm::FsmList::new().do_pass(&mut syntax);
-    // passes::fsm::FSM::new().do_pass(&mut syntax);
-
-    // backend::rtl::gen::gen_namespace(&syntax, "./build/".to_string());
-    // collapse_seqs::Count::new().do_pass(&mut syntax);
+    passes::fsm::generate(&mut syntax);
+    println!("{:#?}", syntax);
 
     // You can handle information about subcommands by requesting their matches by name
     // (as below), requesting just the name used, or both at the same time

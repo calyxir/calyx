@@ -131,3 +131,75 @@ pub enum Control {
     Disable { data: Disable },
     Empty { data: Empty },
 }
+
+impl Control {
+    #[allow(unused)]
+    pub fn seq(stmts: Vec<Control>) -> Control {
+        Control::Seq {
+            data: Seq { stmts },
+        }
+    }
+
+    #[allow(unused)]
+    pub fn par(stmts: Vec<Control>) -> Control {
+        Control::Par {
+            data: Par { stmts },
+        }
+    }
+
+    #[allow(unused)]
+    pub fn c_if(cond: Port, tbranch: Control, fbranch: Control) -> Control {
+        Control::If {
+            data: If {
+                cond,
+                tbranch: Box::new(tbranch),
+                fbranch: Box::new(fbranch),
+            },
+        }
+    }
+
+    #[allow(unused)]
+    pub fn ifen(cond: Port, tbranch: Control, fbranch: Control) -> Control {
+        Control::Ifen {
+            data: Ifen {
+                cond,
+                tbranch: Box::new(tbranch),
+                fbranch: Box::new(fbranch),
+            },
+        }
+    }
+
+    #[allow(unused)]
+    pub fn c_while(cond: Port, body: Control) -> Control {
+        Control::While {
+            data: While {
+                cond,
+                body: Box::new(body),
+            },
+        }
+    }
+
+    #[allow(unused)]
+    pub fn print(var: String) -> Control {
+        Control::Print {
+            data: Print { var },
+        }
+    }
+
+    pub fn enable(comps: Vec<String>) -> Control {
+        Control::Enable {
+            data: Enable { comps },
+        }
+    }
+
+    #[allow(unused)]
+    pub fn disable(comps: Vec<String>) -> Control {
+        Control::Disable {
+            data: Disable { comps },
+        }
+    }
+
+    pub fn empty() -> Control {
+        Control::Empty { data: Empty {} }
+    }
+}

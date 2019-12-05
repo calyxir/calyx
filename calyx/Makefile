@@ -2,7 +2,6 @@
 
 build:
 	cargo clippy
-	# cargo build
 
 test:
 	cargo clippy

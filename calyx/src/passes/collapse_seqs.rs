@@ -1,5 +1,5 @@
 use crate::lang::ast::{Control, Seq};
-use crate::passes::visitor::Visitor;
+use crate::passes::visitor::{Changes, Visitor};
 
 /** Collapses nested Seqs, i.e. (seq (seq (seq ...)))
 becomes (seq ...) because all the other seqs are redundant because
@@ -21,6 +21,7 @@ impl Visitor<()> for Count {
     fn finish_seq(
         &mut self,
         con: &mut Seq,
+        _changes: &mut Changes,
         _res: Result<(), ()>,
     ) -> Result<(), ()> {
         if let [Control::Seq { data }] = con.stmts.as_slice() {

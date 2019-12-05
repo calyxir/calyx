@@ -190,7 +190,7 @@ impl From<&Sexp> for Control {
             "disable" => Control::Disable {
                 data: Disable::from(lst),
             },
-            "empty" => Control::Empty { data: Empty {} },
+            "empty" => Control::empty(),
             _ => panic!("Unexpected Control Keyword!"),
         }
     }
