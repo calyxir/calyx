@@ -1,3 +1,4 @@
+; git.status = dirty, build.date = Fri Dec 06 17:13:01 EST 2019, git.hash = 69c22b2
 (define/namespace prog
   (define/component main () ()
     ((new-std x0 (comp/reg ))
