@@ -27,6 +27,10 @@ impl Visitor<()> for FsmIf {
             name: "reset".to_string(),
             width: 32,
         };
+        let cond = Portdef {
+            name: "condition".to_string(),
+            width: 32,
+        };
 
         // make output ports for enable fsm component
         let rdy = Portdef {
@@ -36,7 +40,7 @@ impl Visitor<()> for FsmIf {
 
         let component_name = self.unique.gen_name("fsm_if_");
 
-        let mut inputs: Vec<Portdef> = vec![val, reset];
+        let mut inputs: Vec<Portdef> = vec![cond.clone(), val, reset];
         let mut outputs: Vec<Portdef> = vec![rdy];
         let mut branchs = vec![*c_if.tbranch.clone(), *c_if.fbranch.clone()];
         for con in &mut branchs {
@@ -78,11 +82,24 @@ impl Visitor<()> for FsmIf {
                     outputs.push(valid);
                     changes.add_structure(Structure::Wire { data: ready_wire });
                     changes.add_structure(Structure::Wire { data: valid_wire });
-                    data.comps = vec![component_name.clone()];
+                    //data.comps = vec![component_name.clone()];
                 }
+                Control::Empty { .. } => (),
                 _ => return Err(()),
             }
         }
+
+        let condition_wire = Wire {
+            src: c_if.cond.clone(),
+            dest: Port::Comp {
+                component: component_name.clone(),
+                port: cond.name.clone(),
+            },
+        };
+
+        changes.add_structure(Structure::Wire {
+            data: condition_wire,
+        });
 
         let component = Component {
             name: component_name.clone(),
@@ -93,7 +110,18 @@ impl Visitor<()> for FsmIf {
         };
 
         changes.add_component(component);
-        // changes.change_node(Control::enable(vec![component_name]));
+        changes.change_node(Control::enable(vec![component_name]));
+        Ok(())
+    }
+
+    fn finish_if(
+        &mut self,
+        _s: &mut If,
+        changes: &mut Changes,
+        res: Result<(), ()>,
+    ) -> Result<(), ()> {
+        let component_name = self.unique.gen_name("fsm_if_");
+        changes.change_node(Control::enable(vec![component_name]));
         Ok(())
     }
 }

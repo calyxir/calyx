@@ -17,11 +17,7 @@ impl Visitor<()> for FsmSeq {
         "FSM seq".to_string()
     }
 
-    fn start_seq(
-        &mut self,
-        seq: &mut Seq,
-        changes: &mut Changes,
-    ) -> Result<(), ()> {
+    fn start_seq(&mut self, seq: &mut Seq, changes: &mut Changes) -> Result<(), ()> {
         // make input ports for enable fsm component
         let val = Portdef {
             name: "valid".to_string(),
@@ -82,7 +78,7 @@ impl Visitor<()> for FsmSeq {
                     outputs.push(valid);
                     changes.add_structure(Structure::Wire { data: ready_wire });
                     changes.add_structure(Structure::Wire { data: valid_wire });
-                    data.comps = vec![component_name.clone()];
+                    //data.comps = vec![component_name.clone()];
                 }
                 _ => return Err(()),
             }
@@ -97,7 +93,17 @@ impl Visitor<()> for FsmSeq {
         };
 
         changes.add_component(component);
-        // changes.change_node(Control::enable(vec![component_name]));
+        Ok(())
+    }
+
+    fn finish_seq(
+        &mut self,
+        _s: &mut Seq,
+        changes: &mut Changes,
+        res: Result<(), ()>,
+    ) -> Result<(), ()> {
+        let component_name = self.unique.gen_name("fsm_seq_");
+        changes.change_node(Control::enable(vec![component_name]));
         Ok(())
     }
 }

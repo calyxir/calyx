@@ -19,5 +19,5 @@
      (enable x0 const2)
      (enable gt0 x0 const3)
      (if (@ gt0 out)
-         ((enable x0 const4))
-         ((enable ))))))
+         (enable x0 const4)
+         (empty)))))

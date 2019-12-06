@@ -4,6 +4,7 @@ use crate::lang::ast::*;
 
 /// `Changes` collects abstract syntax changes and additions during a visitor pass
 /// The way the changes are defined is specified by each function.
+#[derive(Debug)]
 pub struct Changes {
     new_comps: Vec<Component>,
     new_struct: Vec<Structure>,
@@ -26,7 +27,7 @@ impl Changes {
     /// This provides a way to change the actual nodes in the ast.
     /// This change is applied *after* the `finish_*` function is called for the current
     /// control node.
-    pub fn _change_node(&mut self, control: Control) {
+    pub fn change_node(&mut self, control: Control) {
         self.new_node = Some(control);
     }
 
@@ -60,7 +61,7 @@ pub trait Visitor<Err> {
         for comp in &mut syntax.components {
             comp.control
                 .visit(self, &mut changes)
-                .unwrap_or_else(|_x| panic!("{} failed!", self.name()));
+                .unwrap_or_else(|_x| eprintln!("The {} pass failed", self.name()));
             comp.structure.append(&mut changes.new_struct);
             changes.new_struct = vec![]; // reset structure additions after we're doing visiting a component
         }
@@ -107,11 +108,7 @@ pub trait Visitor<Err> {
         res
     }
 
-    fn start_ifen(
-        &mut self,
-        _s: &mut Ifen,
-        _c: &mut Changes,
-    ) -> Result<(), Err> {
+    fn start_ifen(&mut self, _s: &mut Ifen, _c: &mut Changes) -> Result<(), Err> {
         Ok(())
     }
 
@@ -124,11 +121,7 @@ pub trait Visitor<Err> {
         res
     }
 
-    fn start_while(
-        &mut self,
-        _s: &mut While,
-        _c: &mut Changes,
-    ) -> Result<(), Err> {
+    fn start_while(&mut self, _s: &mut While, _c: &mut Changes) -> Result<(), Err> {
         Ok(())
     }
 
@@ -141,11 +134,7 @@ pub trait Visitor<Err> {
         res
     }
 
-    fn start_print(
-        &mut self,
-        _s: &mut Print,
-        _x: &mut Changes,
-    ) -> Result<(), Err> {
+    fn start_print(&mut self, _s: &mut Print, _x: &mut Changes) -> Result<(), Err> {
         Ok(())
     }
 
@@ -158,11 +147,7 @@ pub trait Visitor<Err> {
         res
     }
 
-    fn start_enable(
-        &mut self,
-        _s: &mut Enable,
-        _x: &mut Changes,
-    ) -> Result<(), Err> {
+    fn start_enable(&mut self, _s: &mut Enable, _x: &mut Changes) -> Result<(), Err> {
         Ok(())
     }
 
@@ -175,11 +160,7 @@ pub trait Visitor<Err> {
         res
     }
 
-    fn start_disable(
-        &mut self,
-        _s: &mut Disable,
-        _x: &mut Changes,
-    ) -> Result<(), Err> {
+    fn start_disable(&mut self, _s: &mut Disable, _x: &mut Changes) -> Result<(), Err> {
         Ok(())
     }
 
@@ -192,11 +173,7 @@ pub trait Visitor<Err> {
         res
     }
 
-    fn start_empty(
-        &mut self,
-        _s: &mut Empty,
-        _x: &mut Changes,
-    ) -> Result<(), Err> {
+    fn start_empty(&mut self, _s: &mut Empty, _x: &mut Changes) -> Result<(), Err> {
         Ok(())
     }
 
@@ -250,6 +227,7 @@ impl Visitable for Control {
                 match &changes.new_node {
                     Some(c) => {
                         *self = c.clone();
+                        changes.new_node = None;
                     }
                     None => (),
                 }
@@ -262,6 +240,7 @@ impl Visitable for Control {
                 match &changes.new_node {
                     Some(c) => {
                         *self = c.clone();
+                        changes.new_node = None;
                     }
                     None => (),
                 }
@@ -278,6 +257,7 @@ impl Visitable for Control {
                 match &changes.new_node {
                     Some(c) => {
                         *self = c.clone();
+                        changes.new_node = None;
                     }
                     None => (),
                 }
@@ -293,6 +273,7 @@ impl Visitable for Control {
                 match &changes.new_node {
                     Some(c) => {
                         *self = c.clone();
+                        changes.new_node = None;
                     }
                     None => (),
                 }
@@ -305,6 +286,7 @@ impl Visitable for Control {
                 match &changes.new_node {
                     Some(c) => {
                         *self = c.clone();
+                        changes.new_node = None;
                     }
                     None => (),
                 }
@@ -316,6 +298,7 @@ impl Visitable for Control {
                 match &changes.new_node {
                     Some(c) => {
                         *self = c.clone();
+                        changes.new_node = None;
                     }
                     None => (),
                 }
@@ -327,6 +310,7 @@ impl Visitable for Control {
                 match &changes.new_node {
                     Some(c) => {
                         *self = c.clone();
+                        changes.new_node = None;
                     }
                     None => (),
                 }
@@ -338,6 +322,7 @@ impl Visitable for Control {
                 match &changes.new_node {
                     Some(c) => {
                         *self = c.clone();
+                        changes.new_node = None;
                     }
                     None => (),
                 }
@@ -349,6 +334,7 @@ impl Visitable for Control {
                 match &changes.new_node {
                     Some(c) => {
                         *self = c.clone();
+                        changes.new_node = None;
                     }
                     None => (),
                 }

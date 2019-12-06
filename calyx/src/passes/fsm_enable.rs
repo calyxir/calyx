@@ -13,11 +13,7 @@ impl Visitor<()> for FsmList {
         "FSM enable".to_string()
     }
 
-    fn start_enable(
-        &mut self,
-        en: &mut Enable,
-        changes: &mut Changes,
-    ) -> Result<(), ()> {
+    fn start_enable(&mut self, en: &mut Enable, changes: &mut Changes) -> Result<(), ()> {
         if en.comps.len() > 1 {
             // make input ports for enable fsm component
             let val = Portdef {
@@ -35,8 +31,7 @@ impl Visitor<()> for FsmList {
                 width: 32,
             };
 
-            let component_name =
-                format!("enable_fsm_{}", combine(&en.comps, "_", ""));
+            let component_name = format!("fsm_enable_{}", combine(&en.comps, "_", ""));
 
             // generate ports and wires from enabled components
             let mut inputs: Vec<Portdef> = vec![val, reset];
