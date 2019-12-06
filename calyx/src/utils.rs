@@ -1,4 +1,6 @@
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 /**
  * Combine concatenates [vec] into a single string, with each entry
@@ -40,4 +42,10 @@ impl NameGenerator {
         self.name_hash.insert(name.to_string(), count + 1);
         format!("{}{}", name, count)
     }
+}
+
+pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
+    let mut s = DefaultHasher::new();
+    t.hash(&mut s);
+    s.finish()
 }

@@ -3,13 +3,13 @@
 
 pub type Id = String;
 
-#[derive(Debug)]
+#[derive(Debug, Hash)]
 pub struct Namespace {
     pub name: String,
     pub components: Vec<Component>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct Component {
     pub name: String,
     pub inputs: Vec<Portdef>,
@@ -18,7 +18,7 @@ pub struct Component {
     pub control: Control,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct Portdef {
     pub name: String,
     pub width: i64,
@@ -30,7 +30,7 @@ pub enum Port {
     This { port: String },
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct Compinst {
     pub name: String,
     pub params: Vec<i64>,
@@ -39,25 +39,25 @@ pub struct Compinst {
 // ===================================
 // Data definitions for Structure
 // ===================================
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct Decl {
     pub name: Id,
     pub component: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct Std {
     pub name: Id,
     pub instance: Compinst,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct Wire {
     pub src: Port,
     pub dest: Port,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub enum Structure {
     Decl { data: Decl },
     Std { data: Std },
@@ -89,58 +89,58 @@ impl Structure {
 // Data definitions for Control Ast
 // ===================================
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct Seq {
     pub stmts: Vec<Control>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct Par {
     pub stmts: Vec<Control>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct If {
     pub cond: Port,
     pub tbranch: Box<Control>,
     pub fbranch: Box<Control>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct Ifen {
     pub cond: Port,
     pub tbranch: Box<Control>,
     pub fbranch: Box<Control>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct While {
     pub cond: Port,
     pub body: Box<Control>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct Print {
     pub var: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct Enable {
     pub comps: Vec<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct Disable {
     pub comps: Vec<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct Empty {}
 
 // Need Boxes for recursive data structure
 // Cannot have recursive data structure without
 // indirection
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub enum Control {
     Seq { data: Seq },
     Par { data: Par },

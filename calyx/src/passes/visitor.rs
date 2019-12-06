@@ -26,7 +26,7 @@ impl Changes {
     /// This provides a way to change the actual nodes in the ast.
     /// This change is applied *after* the `finish_*` function is called for the current
     /// control node.
-    pub fn _change_node(&mut self, control: Control) {
+    pub fn change_node(&mut self, control: Control) {
         self.new_node = Some(control);
     }
 

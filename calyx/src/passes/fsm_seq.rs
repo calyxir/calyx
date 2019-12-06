@@ -82,7 +82,7 @@ impl Visitor<()> for FsmSeq {
                     outputs.push(valid);
                     changes.add_structure(Structure::Wire { data: ready_wire });
                     changes.add_structure(Structure::Wire { data: valid_wire });
-                    data.comps = vec![component_name.clone()];
+                    // data.comps = vec![component_name.clone()];
                 }
                 _ => return Err(()),
             }
@@ -97,7 +97,7 @@ impl Visitor<()> for FsmSeq {
         };
 
         changes.add_component(component);
-        // changes.change_node(Control::enable(vec![component_name]));
+        changes.change_node(Control::enable(vec![component_name]));
         Ok(())
     }
 }
