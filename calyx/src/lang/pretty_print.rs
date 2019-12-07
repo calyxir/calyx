@@ -1,13 +1,6 @@
 use crate::lang::ast::*;
 use pretty::RcDoc;
 
-/**
- * Conversion function from identifiers to string
- */
-// pub fn id_to_string(id: Id) -> String {
-//     return id;
-// }
-
 fn surround<'a>(pre: &'a str, doc: RcDoc<'a>, post: &'a str) -> RcDoc<'a> {
     RcDoc::text(pre).append(doc).append(RcDoc::text(post))
 }

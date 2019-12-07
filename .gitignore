@@ -12,3 +12,5 @@ benchmarks/*.futil
 Cargo.lock
 */target/*
 *.bak
+.DS_Store
+*.png
