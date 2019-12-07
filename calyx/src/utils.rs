@@ -41,3 +41,50 @@ impl NameGenerator {
         format!("{}{}", name, count)
     }
 }
+
+#[derive(Debug)]
+pub struct Scoped<T> {
+    current: T,
+    stack: Vec<T>,
+}
+
+pub trait WithDefault {
+    fn default() -> Self;
+}
+
+impl<T: WithDefault + Clone> Scoped<T> {
+    pub fn new() -> Self {
+        Scoped {
+            current: T::default(),
+            stack: vec![],
+        }
+    }
+
+    pub fn set(&mut self, thing: T) {
+        self.current = thing;
+    }
+
+    pub fn get(&mut self) -> T {
+        self.current.clone()
+    }
+
+    pub fn push_scope(&mut self) {
+        self.stack.push(self.current.clone());
+        self.current = T::default();
+    }
+
+    pub fn pop_scope(&mut self) {
+        match self.stack.pop() {
+            None => (),
+            Some(x) => {
+                self.current = x;
+            }
+        }
+    }
+}
+
+impl<T> WithDefault for Option<T> {
+    fn default() -> Self {
+        None
+    }
+}

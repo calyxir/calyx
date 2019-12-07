@@ -43,7 +43,9 @@ fn main() {
     }
 
     passes::fsm::generate(&mut syntax);
-    syntax.pretty_print();
+    if matches.occurrences_of("VIZ") == 0 {
+        syntax.pretty_print();
+    }
 
     // You can handle information about subcommands by requesting their matches by name
     // (as below), requesting just the name used, or both at the same time

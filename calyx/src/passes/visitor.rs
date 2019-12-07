@@ -1,13 +1,15 @@
 // Inspired by this blog post: http://thume.ca/2019/04/18/writing-a-compiler-in-rust/
 
 use crate::lang::ast::*;
+use crate::utils::Scoped;
 
 /// `Changes` collects abstract syntax changes and additions during a visitor pass
 /// The way the changes are defined is specified by each function.
+#[derive(Debug)]
 pub struct Changes {
     new_comps: Vec<Component>,
     new_struct: Vec<Structure>,
-    new_node: Option<Control>,
+    new_node: Scoped<Option<Control>>,
 }
 
 impl Changes {
@@ -26,15 +28,25 @@ impl Changes {
     /// This provides a way to change the actual nodes in the ast.
     /// This change is applied *after* the `finish_*` function is called for the current
     /// control node.
-    pub fn _change_node(&mut self, control: Control) {
-        self.new_node = Some(control);
+    pub fn change_node(&mut self, control: Control) {
+        self.new_node.set(Some(control));
+    }
+
+    /// internal function that creates a new scope for Changes
+    fn push_scope(&mut self) {
+        self.new_node.push_scope();
+    }
+
+    /// internal function that goes out a scope for Changes
+    fn pop_scope(&mut self) {
+        self.new_node.pop_scope();
     }
 
     fn new() -> Self {
         Changes {
             new_comps: vec![],
             new_struct: vec![],
-            new_node: None,
+            new_node: Scoped::new(),
         }
     }
 }
@@ -58,9 +70,9 @@ pub trait Visitor<Err> {
     {
         let mut changes = Changes::new();
         for comp in &mut syntax.components {
-            comp.control
-                .visit(self, &mut changes)
-                .unwrap_or_else(|_x| panic!("{} failed!", self.name()));
+            comp.control.visit(self, &mut changes).unwrap_or_else(|_x| {
+                eprintln!("The {} pass failed", self.name())
+            });
             comp.structure.append(&mut changes.new_struct);
             changes.new_struct = vec![]; // reset structure additions after we're doing visiting a component
         }
@@ -242,15 +254,14 @@ impl Visitable for Control {
         visitor: &mut dyn Visitor<Err>,
         changes: &mut Changes,
     ) -> Result<(), Err> {
-        match self {
+        changes.push_scope();
+        let res = match self {
             Control::Seq { data } => {
                 visitor.start_seq(data, changes)?;
                 let res = data.stmts.visit(visitor, changes);
                 let res2 = visitor.finish_seq(data, changes, res);
-                match &changes.new_node {
-                    Some(c) => {
-                        *self = c.clone();
-                    }
+                match &changes.new_node.get() {
+                    Some(c) => *self = c.clone(),
                     None => (),
                 }
                 res2
@@ -259,10 +270,9 @@ impl Visitable for Control {
                 visitor.start_par(data, changes)?;
                 let res = data.stmts.visit(visitor, changes);
                 let res2 = visitor.finish_par(data, changes, res);
-                match &changes.new_node {
-                    Some(c) => {
-                        *self = c.clone();
-                    }
+                match &changes.new_node.get() {
+                    Some(c) => *self = c.clone(),
+
                     None => (),
                 }
                 res2
@@ -275,7 +285,7 @@ impl Visitable for Control {
                     data.fbranch.visit(visitor, changes)
                 })();
                 let res2 = visitor.finish_if(data, changes, res);
-                match &changes.new_node {
+                match &changes.new_node.get() {
                     Some(c) => {
                         *self = c.clone();
                     }
@@ -290,7 +300,7 @@ impl Visitable for Control {
                     data.fbranch.visit(visitor, changes)
                 })();
                 let res2 = visitor.finish_ifen(data, changes, res);
-                match &changes.new_node {
+                match &changes.new_node.get() {
                     Some(c) => {
                         *self = c.clone();
                     }
@@ -302,7 +312,7 @@ impl Visitable for Control {
                 visitor.start_while(data, changes)?;
                 let res = data.body.visit(visitor, changes);
                 let res2 = visitor.finish_while(data, changes, res);
-                match &changes.new_node {
+                match &changes.new_node.get() {
                     Some(c) => {
                         *self = c.clone();
                     }
@@ -313,7 +323,7 @@ impl Visitable for Control {
             Control::Print { data } => {
                 let res = visitor.start_print(data, changes);
                 let res2 = visitor.finish_print(data, changes, res);
-                match &changes.new_node {
+                match &changes.new_node.get() {
                     Some(c) => {
                         *self = c.clone();
                     }
@@ -324,7 +334,7 @@ impl Visitable for Control {
             Control::Enable { data } => {
                 let res = visitor.start_enable(data, changes);
                 let res2 = visitor.finish_enable(data, changes, res);
-                match &changes.new_node {
+                match &changes.new_node.get() {
                     Some(c) => {
                         *self = c.clone();
                     }
@@ -335,7 +345,7 @@ impl Visitable for Control {
             Control::Disable { data } => {
                 let res = visitor.start_disable(data, changes);
                 let res2 = visitor.finish_disable(data, changes, res);
-                match &changes.new_node {
+                match &changes.new_node.get() {
                     Some(c) => {
                         *self = c.clone();
                     }
@@ -346,7 +356,7 @@ impl Visitable for Control {
             Control::Empty { data } => {
                 let res = visitor.start_empty(data, changes);
                 let res2 = visitor.finish_empty(data, changes, res);
-                match &changes.new_node {
+                match &changes.new_node.get() {
                     Some(c) => {
                         *self = c.clone();
                     }
@@ -354,6 +364,8 @@ impl Visitable for Control {
                 }
                 res2
             }
-        }
+        };
+        changes.pop_scope();
+        res
     }
 }

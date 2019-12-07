@@ -2,24 +2,24 @@ use crate::lang::ast::*;
 use crate::passes::visitor::{Changes, Visitor};
 use crate::utils::NameGenerator;
 
-pub struct FsmSeq {
+pub struct FsmIf {
     unique: NameGenerator,
 }
 
-impl Visitor<()> for FsmSeq {
-    fn new() -> FsmSeq {
-        FsmSeq {
+impl Visitor<()> for FsmIf {
+    fn new() -> FsmIf {
+        FsmIf {
             unique: NameGenerator::new(),
         }
     }
 
     fn name(&self) -> String {
-        "FSM seq".to_string()
+        "FSM if".to_string()
     }
 
-    fn start_seq(
+    fn start_if(
         &mut self,
-        seq: &mut Seq,
+        c_if: &mut If,
         changes: &mut Changes,
     ) -> Result<(), ()> {
         // make input ports for enable fsm component
@@ -31,6 +31,10 @@ impl Visitor<()> for FsmSeq {
             name: "reset".to_string(),
             width: 32,
         };
+        let cond = Portdef {
+            name: "condition".to_string(),
+            width: 32,
+        };
 
         // make output ports for enable fsm component
         let rdy = Portdef {
@@ -38,12 +42,12 @@ impl Visitor<()> for FsmSeq {
             width: 32,
         };
 
-        let component_name = self.unique.gen_name("fsm_seq_");
+        let component_name = self.unique.gen_name("fsm_if_");
 
-        let mut inputs: Vec<Portdef> = vec![val, reset];
+        let mut inputs: Vec<Portdef> = vec![cond.clone(), val, reset];
         let mut outputs: Vec<Portdef> = vec![rdy];
-
-        for con in &mut seq.stmts {
+        let mut branchs = vec![*c_if.tbranch.clone(), *c_if.fbranch.clone()];
+        for con in &mut branchs {
             match con {
                 Control::Enable { data } => {
                     if data.comps.len() != 1 {
@@ -84,9 +88,22 @@ impl Visitor<()> for FsmSeq {
                     changes.add_structure(Structure::Wire { data: valid_wire });
                     //data.comps = vec![component_name.clone()];
                 }
+                Control::Empty { .. } => (),
                 _ => return Err(()),
             }
         }
+
+        let condition_wire = Wire {
+            src: c_if.cond.clone(),
+            dest: Port::Comp {
+                component: component_name.clone(),
+                port: cond.name.clone(),
+            },
+        };
+
+        changes.add_structure(Structure::Wire {
+            data: condition_wire,
+        });
 
         let component = Component {
             name: component_name.clone(),
@@ -98,7 +115,7 @@ impl Visitor<()> for FsmSeq {
 
         changes.add_structure(Structure::decl(
             component.name.clone(),
-            "fsm_seq".to_string(),
+            "fsm_if".to_string(),
         ));
 
         changes.add_component(component);

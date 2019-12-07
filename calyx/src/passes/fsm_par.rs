@@ -2,26 +2,22 @@ use crate::lang::ast::*;
 use crate::passes::visitor::{Changes, Visitor};
 use crate::utils::NameGenerator;
 
-pub struct FsmSeq {
+pub struct FsmPar {
     unique: NameGenerator,
 }
 
-impl Visitor<()> for FsmSeq {
-    fn new() -> FsmSeq {
-        FsmSeq {
+impl Visitor<()> for FsmPar {
+    fn new() -> FsmPar {
+        FsmPar {
             unique: NameGenerator::new(),
         }
     }
 
     fn name(&self) -> String {
-        "FSM seq".to_string()
+        "FSM par".to_string()
     }
 
-    fn start_seq(
-        &mut self,
-        seq: &mut Seq,
-        changes: &mut Changes,
-    ) -> Result<(), ()> {
+    fn start_par(&mut self, par: &mut Par, changes: &mut Changes) -> Result<(), ()> {
         // make input ports for enable fsm component
         let val = Portdef {
             name: "valid".to_string(),
@@ -38,12 +34,12 @@ impl Visitor<()> for FsmSeq {
             width: 32,
         };
 
-        let component_name = self.unique.gen_name("fsm_seq_");
+        let component_name = self.unique.gen_name("fsm_par_");
 
         let mut inputs: Vec<Portdef> = vec![val, reset];
         let mut outputs: Vec<Portdef> = vec![rdy];
 
-        for con in &mut seq.stmts {
+        for con in &mut par.stmts {
             match con {
                 Control::Enable { data } => {
                     if data.comps.len() != 1 {
@@ -98,7 +94,7 @@ impl Visitor<()> for FsmSeq {
 
         changes.add_structure(Structure::decl(
             component.name.clone(),
-            "fsm_seq".to_string(),
+            "fsm_par".to_string(),
         ));
 
         changes.add_component(component);

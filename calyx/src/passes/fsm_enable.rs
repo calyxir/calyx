@@ -36,7 +36,7 @@ impl Visitor<()> for FsmList {
             };
 
             let component_name =
-                format!("enable_fsm_{}", combine(&en.comps, "_", ""));
+                format!("fsm_enable_{}", combine(&en.comps, "_", ""));
 
             // generate ports and wires from enabled components
             let mut inputs: Vec<Portdef> = vec![val, reset];
@@ -86,7 +86,7 @@ impl Visitor<()> for FsmList {
 
             changes.add_structure(Structure::decl(
                 component.name.clone(),
-                "enable_fsm".to_string(),
+                "fsm_enable".to_string(),
             ));
 
             // change the instruction
