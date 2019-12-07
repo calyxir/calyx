@@ -6,6 +6,8 @@ pub fn generate(syntax: &mut Namespace) {
     passes::fsm_enable::FsmList::new().do_pass(syntax);
     //passes::fsm_seq::FsmSeq::new().do_pass(syntax);
     passes::fsm_if::FsmIf::new().do_pass(syntax);
+    passes::fsm_ifen::FsmIfen::new().do_pass(syntax);
     passes::fsm_seq::FsmSeq::new().do_pass(syntax);
+    passes::fsm_par::FsmPar::new().do_pass(syntax);
     passes::fsm_while::FsmWhile::new().do_pass(syntax);
 }

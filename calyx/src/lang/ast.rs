@@ -3,7 +3,7 @@
 
 pub type Id = String;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Namespace {
     pub name: String,
     pub components: Vec<Component>,
