@@ -5,7 +5,7 @@ fn surround<'a>(pre: &'a str, doc: RcDoc<'a>, post: &'a str) -> RcDoc<'a> {
     RcDoc::text(pre).append(doc).append(RcDoc::text(post))
 }
 
-fn parens<'a>(doc: RcDoc<'a>) -> RcDoc<'a> {
+fn parens(doc: RcDoc) -> RcDoc {
     surround("(", doc, ")")
 }
 
@@ -34,7 +34,7 @@ impl PrettyPrint for i64 {
 
 impl<T: PrettyPrint> PrettyPrint for Vec<T> {
     fn prettify(&self) -> RcDoc {
-        let docs = self.into_iter().map(|s| s.prettify());
+        let docs = self.iter().map(|s| s.prettify());
         RcDoc::intersperse(docs, RcDoc::line())
     }
 }
@@ -134,7 +134,7 @@ impl PrettyPrint for Wire {
 
 impl PrettyPrint for Compinst {
     fn prettify(&self) -> RcDoc {
-        if self.params.len() == 0 {
+        if self.params.is_empty() {
             parens(self.name.prettify())
         } else {
             let inner = self

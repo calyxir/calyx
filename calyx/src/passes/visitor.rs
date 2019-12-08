@@ -57,10 +57,10 @@ and `finish_x`. The start functions are called at the beginning
 of the traversal for each node, and the finish functions are called
 at the end of the traversal for each node. You can use the finish
 functions to wrap error with more information. */
-pub trait Visitor<Err> {
-    fn new() -> Self
-    where
-        Self: Sized;
+pub trait Visitor<Err: std::fmt::Debug> {
+    // fn new() -> Self
+    // where
+    //     Self: Sized;
 
     fn name(&self) -> String;
 
@@ -70,8 +70,8 @@ pub trait Visitor<Err> {
     {
         let mut changes = Changes::new();
         for comp in &mut syntax.components {
-            comp.control.visit(self, &mut changes).unwrap_or_else(|_x| {
-                eprintln!("The {} pass failed", self.name())
+            comp.control.visit(self, &mut changes).unwrap_or_else(|x| {
+                eprintln!("The {} pass failed: {:?}", self.name(), x)
             });
             comp.structure.append(&mut changes.new_struct);
             changes.new_struct = vec![]; // reset structure additions after we're doing visiting a component
@@ -227,7 +227,7 @@ implementing `Visitor`. This performs a recursive walk of the tree.
 It calls `Visitor::start_*` on the way down, and `Visitor::finish_*`
 on the way up. */
 pub trait Visitable {
-    fn visit<Err>(
+    fn visit<Err: std::fmt::Debug>(
         &mut self,
         visitor: &mut dyn Visitor<Err>,
         changes: &mut Changes,
@@ -236,7 +236,7 @@ pub trait Visitable {
 
 // Blanket impl for Vectors of Visitables
 impl<V: Visitable> Visitable for Vec<V> {
-    fn visit<Err>(
+    fn visit<Err: std::fmt::Debug>(
         &mut self,
         visitor: &mut dyn Visitor<Err>,
         changes: &mut Changes,
@@ -249,7 +249,7 @@ impl<V: Visitable> Visitable for Vec<V> {
 }
 
 impl Visitable for Control {
-    fn visit<Err>(
+    fn visit<Err: std::fmt::Debug>(
         &mut self,
         visitor: &mut dyn Visitor<Err>,
         changes: &mut Changes,

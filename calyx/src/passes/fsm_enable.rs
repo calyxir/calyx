@@ -2,13 +2,15 @@ use crate::lang::ast::*;
 use crate::passes::visitor::{Changes, Visitor};
 use crate::utils::combine;
 
-pub struct FsmList {}
+pub struct FsmEnable {}
 
-impl Visitor<()> for FsmList {
-    fn new() -> FsmList {
-        FsmList {}
+impl FsmEnable {
+    pub fn new() -> FsmEnable {
+        FsmEnable {}
     }
+}
 
+impl Visitor<()> for FsmEnable {
     fn name(&self) -> String {
         "FSM enable".to_string()
     }

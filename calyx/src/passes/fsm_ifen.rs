@@ -2,22 +2,26 @@ use crate::lang::ast::*;
 use crate::passes::visitor::{Changes, Visitor};
 use crate::utils::NameGenerator;
 
-pub struct FsmIfen {
-    unique: NameGenerator,
+pub struct FsmIfen<'a> {
+    names: &'a mut NameGenerator,
 }
 
-impl Visitor<()> for FsmIfen {
-    fn new() -> FsmIfen {
-        FsmIfen {
-            unique: NameGenerator::new(),
-        }
+impl FsmIfen<'_> {
+    pub fn new(names: &mut NameGenerator) -> FsmIfen {
+        FsmIfen { names }
     }
+}
 
+impl Visitor<()> for FsmIfen<'_> {
     fn name(&self) -> String {
         "FSM ifen".to_string()
     }
 
-    fn start_ifen(&mut self, ifen: &mut Ifen, changes: &mut Changes) -> Result<(), ()> {
+    fn start_ifen(
+        &mut self,
+        ifen: &mut Ifen,
+        changes: &mut Changes,
+    ) -> Result<(), ()> {
         // make input ports for enable fsm component
         let val = Portdef {
             name: "valid".to_string(),
@@ -38,7 +42,7 @@ impl Visitor<()> for FsmIfen {
             width: 32,
         };
 
-        let component_name = self.unique.gen_name("fsm_ifen_");
+        let component_name = self.names.gen_name("fsm_ifen_");
 
         let mut inputs: Vec<Portdef> = vec![cond.clone(), val, reset];
         let mut outputs: Vec<Portdef> = vec![rdy];
@@ -47,7 +51,7 @@ impl Visitor<()> for FsmIfen {
             match con {
                 Control::Enable { data } => {
                     if data.comps.len() != 1 {
-                        return Err(());
+                        return Ok(());
                     }
                     let comp = &data.comps[0];
                     let ready = Portdef {
@@ -85,7 +89,7 @@ impl Visitor<()> for FsmIfen {
                     //data.comps = vec![component_name.clone()];
                 }
                 Control::Empty { .. } => (),
-                _ => return Err(()),
+                _ => return Ok(()),
             }
         }
 

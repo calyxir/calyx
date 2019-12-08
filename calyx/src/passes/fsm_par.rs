@@ -2,22 +2,26 @@ use crate::lang::ast::*;
 use crate::passes::visitor::{Changes, Visitor};
 use crate::utils::NameGenerator;
 
-pub struct FsmPar {
-    unique: NameGenerator,
+pub struct FsmPar<'a> {
+    names: &'a mut NameGenerator,
 }
 
-impl Visitor<()> for FsmPar {
-    fn new() -> FsmPar {
-        FsmPar {
-            unique: NameGenerator::new(),
-        }
+impl FsmPar<'_> {
+    pub fn new(names: &mut NameGenerator) -> FsmPar {
+        FsmPar { names }
     }
+}
 
+impl Visitor<()> for FsmPar<'_> {
     fn name(&self) -> String {
         "FSM par".to_string()
     }
 
-    fn start_par(&mut self, par: &mut Par, changes: &mut Changes) -> Result<(), ()> {
+    fn start_par(
+        &mut self,
+        par: &mut Par,
+        changes: &mut Changes,
+    ) -> Result<(), ()> {
         // make input ports for enable fsm component
         let val = Portdef {
             name: "valid".to_string(),
@@ -34,7 +38,7 @@ impl Visitor<()> for FsmPar {
             width: 32,
         };
 
-        let component_name = self.unique.gen_name("fsm_par_");
+        let component_name = self.names.gen_name("fsm_par_");
 
         let mut inputs: Vec<Portdef> = vec![val, reset];
         let mut outputs: Vec<Portdef> = vec![rdy];
@@ -43,7 +47,7 @@ impl Visitor<()> for FsmPar {
             match con {
                 Control::Enable { data } => {
                     if data.comps.len() != 1 {
-                        return Err(());
+                        return Ok(());
                     }
                     let comp = &data.comps[0];
                     let ready = Portdef {
@@ -80,7 +84,7 @@ impl Visitor<()> for FsmPar {
                     changes.add_structure(Structure::Wire { data: valid_wire });
                     //data.comps = vec![component_name.clone()];
                 }
-                _ => return Err(()),
+                _ => return Ok(()),
             }
         }
 

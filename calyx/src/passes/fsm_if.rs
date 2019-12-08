@@ -2,17 +2,17 @@ use crate::lang::ast::*;
 use crate::passes::visitor::{Changes, Visitor};
 use crate::utils::NameGenerator;
 
-pub struct FsmIf {
-    unique: NameGenerator,
+pub struct FsmIf<'a> {
+    names: &'a mut NameGenerator,
 }
 
-impl Visitor<()> for FsmIf {
-    fn new() -> FsmIf {
-        FsmIf {
-            unique: NameGenerator::new(),
-        }
+impl FsmIf<'_> {
+    pub fn new(names: &mut NameGenerator) -> FsmIf {
+        FsmIf { names }
     }
+}
 
+impl Visitor<()> for FsmIf<'_> {
     fn name(&self) -> String {
         "FSM if".to_string()
     }
@@ -42,7 +42,7 @@ impl Visitor<()> for FsmIf {
             width: 32,
         };
 
-        let component_name = self.unique.gen_name("fsm_if_");
+        let component_name = self.names.gen_name("fsm_if_");
 
         let mut inputs: Vec<Portdef> = vec![cond.clone(), val, reset];
         let mut outputs: Vec<Portdef> = vec![rdy];
@@ -51,7 +51,7 @@ impl Visitor<()> for FsmIf {
             match con {
                 Control::Enable { data } => {
                     if data.comps.len() != 1 {
-                        return Err(());
+                        return Ok(());
                     }
                     let comp = &data.comps[0];
                     let ready = Portdef {
@@ -89,7 +89,7 @@ impl Visitor<()> for FsmIf {
                     //data.comps = vec![component_name.clone()];
                 }
                 Control::Empty { .. } => (),
-                _ => return Err(()),
+                _ => return Ok(()),
             }
         }
 
