@@ -6,6 +6,7 @@ mod utils;
 use crate::backend::framework::Context;
 use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::*;
+use crate::utils::NameGenerator;
 // use crate::passes::visitor::Visitor;
 
 #[macro_use]
@@ -29,6 +30,8 @@ fn main() {
     let component_name = matches.value_of("COMPONENT").unwrap();
     let mut syntax: ast::Namespace = parse::parse_file(filename);
 
+    let mut names = NameGenerator::new();
+
     if matches.occurrences_of("LIB") == 1 {
         let libname = matches.value_of("LIB").unwrap();
         let context = Context::init_context(
@@ -42,8 +45,10 @@ fn main() {
         println!("{}", verilog);
     }
 
-    passes::fsm::generate(&mut syntax);
-    syntax.pretty_print();
+    passes::fsm::generate(&mut syntax, &mut names);
+    if matches.occurrences_of("VIZ") == 0 {
+        syntax.pretty_print();
+    }
 
     // You can handle information about subcommands by requesting their matches by name
     // (as below), requesting just the name used, or both at the same time

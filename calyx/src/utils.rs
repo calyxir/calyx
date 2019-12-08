@@ -23,6 +23,7 @@ pub fn combine(vec: &[String], start: &str, delimiter: &str) -> String {
 }
 
 /// Structure to generate unique names that are somewhat readable
+#[derive(Debug)]
 pub struct NameGenerator {
     name_hash: HashMap<String, i64>,
 }
@@ -44,8 +45,58 @@ impl NameGenerator {
     }
 }
 
+/// Calculates the hash of hashable trait using the default hasher
 pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);
     s.finish()
+}
+
+/// A generic data structure that supports scopes
+#[derive(Debug)]
+pub struct Scoped<T> {
+    current: T,
+    stack: Vec<T>,
+}
+
+/// Trait for things that have a default constructor
+pub trait WithDefault {
+    fn default() -> Self;
+}
+
+impl<T: WithDefault + Clone> Scoped<T> {
+    pub fn new() -> Self {
+        Scoped {
+            current: T::default(),
+            stack: vec![],
+        }
+    }
+
+    pub fn set(&mut self, thing: T) {
+        self.current = thing;
+    }
+
+    pub fn get(&mut self) -> T {
+        self.current.clone()
+    }
+
+    pub fn push_scope(&mut self) {
+        self.stack.push(self.current.clone());
+        self.current = T::default();
+    }
+
+    pub fn pop_scope(&mut self) {
+        match self.stack.pop() {
+            None => (),
+            Some(x) => {
+                self.current = x;
+            }
+        }
+    }
+}
+
+impl<T> WithDefault for Option<T> {
+    fn default() -> Self {
+        None
+    }
 }

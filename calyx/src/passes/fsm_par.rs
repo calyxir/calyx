@@ -2,26 +2,26 @@ use crate::lang::ast::*;
 use crate::passes::visitor::{Changes, Visitor};
 use crate::utils::NameGenerator;
 
-pub struct FsmSeq<'a> {
+pub struct FsmPar<'a> {
     names: &'a mut NameGenerator,
 }
 
-impl FsmSeq<'_> {
-    pub fn new(names: &mut NameGenerator) -> FsmSeq {
-        FsmSeq { names }
+impl FsmPar<'_> {
+    pub fn new(names: &mut NameGenerator) -> FsmPar {
+        FsmPar { names }
     }
 }
 
-impl Visitor<String> for FsmSeq<'_> {
+impl Visitor<()> for FsmPar<'_> {
     fn name(&self) -> String {
-        "FSM seq".to_string()
+        "FSM par".to_string()
     }
 
-    fn start_seq(
+    fn start_par(
         &mut self,
-        seq: &mut Seq,
+        par: &mut Par,
         changes: &mut Changes,
-    ) -> Result<(), String> {
+    ) -> Result<(), ()> {
         // make input ports for enable fsm component
         let val = Portdef {
             name: "valid".to_string(),
@@ -38,12 +38,12 @@ impl Visitor<String> for FsmSeq<'_> {
             width: 32,
         };
 
-        let component_name = self.names.gen_name("fsm_seq_");
+        let component_name = self.names.gen_name("fsm_par_");
 
         let mut inputs: Vec<Portdef> = vec![val, reset];
         let mut outputs: Vec<Portdef> = vec![rdy];
 
-        for con in &mut seq.stmts {
+        for con in &mut par.stmts {
             match con {
                 Control::Enable { data } => {
                     if data.comps.len() != 1 {
@@ -82,9 +82,9 @@ impl Visitor<String> for FsmSeq<'_> {
                     outputs.push(valid);
                     changes.add_structure(Structure::Wire { data: ready_wire });
                     changes.add_structure(Structure::Wire { data: valid_wire });
+                    //data.comps = vec![component_name.clone()];
                 }
-                Control::Empty { .. } => (),
-                _x => return Ok(()),
+                _ => return Ok(()),
             }
         }
 
@@ -98,7 +98,7 @@ impl Visitor<String> for FsmSeq<'_> {
 
         changes.add_structure(Structure::decl(
             component.name.clone(),
-            "fsm_seq".to_string(),
+            "fsm_par".to_string(),
         ));
 
         changes.add_component(component);

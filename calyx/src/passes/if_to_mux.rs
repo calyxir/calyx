@@ -3,11 +3,13 @@ use crate::passes::visitor::{Changes, Visitor};
 
 pub struct Muxify {}
 
-impl Visitor<()> for Muxify {
-    fn new() -> Muxify {
+impl Muxify {
+    pub fn new() -> Muxify {
         Muxify {}
     }
+}
 
+impl Visitor<()> for Muxify {
     fn name(&self) -> String {
         "Muxify".to_string()
     }

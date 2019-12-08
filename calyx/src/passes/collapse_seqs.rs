@@ -7,11 +7,13 @@ they create a time scope with only step. */
 #[derive(Debug)]
 pub struct Count {}
 
-impl Visitor<()> for Count {
-    fn new() -> Self {
+impl Count {
+    pub fn new() -> Self {
         Count {}
     }
+}
 
+impl Visitor<()> for Count {
     fn name(&self) -> String {
         "Collapse Seqs".to_string()
     }

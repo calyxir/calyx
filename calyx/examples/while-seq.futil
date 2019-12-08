@@ -1,0 +1,16 @@
+(define/namespace prog
+  (define/component main () ()
+    ((new-std i0 (comp/iterator ))
+     (-> (@ i0-start out) (@ i0 start))
+     (-> (@ i0-incr out) (@ i0 incr))
+     (-> (@ i0-end out) (@ i0 end))
+     (-> (@ i0-en out) (@ i0 en))
+     (new-std x0 (comp/reg ))
+     (-> (@ i0 out) (@ x0 in)))
+    (seq
+     (enable i0-en i0-start i0-incr i0-end i0)
+     (while (@ i0 stop)
+       (seq
+        (enable x0 i0)
+        (empty)
+        (enable i0 i0-en))))))

@@ -1,0 +1,2 @@
+let x: bit<32> = 0;
+let y: bit<32> = 10;
