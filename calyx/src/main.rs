@@ -45,7 +45,7 @@ fn main() {
         println!("{}", verilog);
     }
 
-    passes::fsm::generate(&mut syntax, &mut names);
+    //passes::fsm::generate(&mut syntax, &mut names);
     if matches.occurrences_of("VIZ") == 0 {
         syntax.pretty_print();
     }
