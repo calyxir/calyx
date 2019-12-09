@@ -2,11 +2,11 @@ use crate::lang::ast::Id;
 
 #[allow(unused)]
 #[derive(Clone, Debug)]
-pub struct FSM {
+pub struct FSM<'a> {
     pub inputs: Vec<Id>,
     pub outputs: Vec<Id>,
-    pub states: Vec<State>,
-    pub start: State,
+    pub states: Box<Vec<State<'a>>>,
+    pub start: &'a State<'a>,
 }
 
 // The String is the name of the input port, and
@@ -16,50 +16,50 @@ pub struct FSM {
 
 //type Bits = Vec<i64>;
 
-pub type Edge = (Vec<Input>, State);
+pub type Edge<'a> = (Vec<Input>, &'a State<'a>);
 pub type Port = (Id, String);
 
 pub type Input = (Port, i64);
 
 #[allow(unused)]
 #[derive(PartialEq, Debug, Clone)]
-pub struct State {
+pub struct State<'a> {
     pub outputs: Vec<(Port, i64)>,
-    pub transitions: Vec<Edge>,
-    pub default: Option<Box<State>>, // Default next state if no edges are matched
+    pub transitions: Vec<Edge<'a>>,
+    pub default: &'a State<'a>,
 }
 
 #[allow(unused)]
-impl State {
-    pub fn empty() -> Self {
-        State {
-            outputs: vec![],
-            transitions: vec![],
-            default: None,
-        }
-    }
+impl State<'_> {
+    // pub fn empty() -> Self {
+    //     State {
+    //         outputs: vec![],
+    //         transitions: vec![],
+    //         default: None,
+    //     }
+    // }
 
-    fn transition(st: State, i: Vec<Input>) -> State {
+    fn transition<'a>(st: &'a State<'a>, i: Vec<Input>) -> &'a State<'a> {
         for (inputs, next_st) in &st.transitions {
             if i == *inputs {
                 return next_st.clone();
             }
         }
-        match st.default {
-            None => st,
-            Some(default) => *default,
-        }
+        // match st.default {
+        //     None => &st,
+        //     Some(default) => default,
+        // }
     }
 }
 
 #[allow(unused)]
-impl FSM {
-    pub fn new(st: State) -> Self {
+impl<'a> FSM<'a> {
+    pub fn new(start: &'a State<'a>) -> Self {
         FSM {
             inputs: vec![],
             outputs: vec![],
             states: vec![],
-            start: st,
+            start,
         }
     }
     // Returns a unique value for the state for rtl generation

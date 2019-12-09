@@ -111,7 +111,7 @@ impl PrettyPrint for Decl {
 
 impl PrettyPrint for Std {
     fn prettify(&self) -> RcDoc {
-        let inner = RcDoc::text("std")
+        let inner = RcDoc::text("new-std")
             .append(RcDoc::space())
             .append(self.name.prettify())
             .append(RcDoc::space())
