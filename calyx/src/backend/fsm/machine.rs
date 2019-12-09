@@ -26,18 +26,18 @@ pub type Input = (Port, i64);
 pub struct State<'a> {
     pub outputs: Vec<(Port, i64)>,
     pub transitions: Vec<Edge<'a>>,
-    pub default: &'a State<'a>,
+    //pub default: &'a State<'a>,
 }
 
 #[allow(unused)]
 impl State<'_> {
-    // pub fn empty() -> Self {
-    //     State {
-    //         outputs: vec![],
-    //         transitions: vec![],
-    //         default: None,
-    //     }
-    // }
+    pub fn empty() -> Self {
+        State {
+            outputs: vec![],
+            transitions: vec![],
+            //default: Box::new(),
+        }
+    }
 
     fn transition<'a>(st: &'a State<'a>, i: Vec<Input>) -> &'a State<'a> {
         for (inputs, next_st) in &st.transitions {
@@ -45,6 +45,7 @@ impl State<'_> {
                 return next_st.clone();
             }
         }
+        panic!("not found matching state")
         // match st.default {
         //     None => &st,
         //     Some(default) => default,
@@ -58,18 +59,20 @@ impl<'a> FSM<'a> {
         FSM {
             inputs: vec![],
             outputs: vec![],
-            states: vec![],
+            states: Box::new(vec![]),
             start,
         }
     }
     // Returns a unique value for the state for rtl generation
     fn state_value(&self, st: &State) -> usize {
-        self.states
+        (*self.states)
             .iter()
-            .position(|state| match st.clone().default {
-                None => *state == *st,
-                Some(default) => *state == *default,
-            })
+            .position(
+                |state| *state == *st, //match st.clone().default {
+                                       //None => *state == *st,
+                                       //Some(default) => *state == *default,
+                                       //})
+            )
             .unwrap()
             + 1 // Plus one for 1 indexing (instead of 0 indexing)
     }
