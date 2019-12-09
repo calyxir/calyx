@@ -1,1 +1,1 @@
-pub mode eval;
+pub mod eval;
