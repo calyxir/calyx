@@ -9,31 +9,31 @@ impl ast::Component {
     //        Structure Helper Functions
     //==========================================
 
-    pub fn get_wires(&self) -> Vec<ast::Wire> {
-        let mut v: Vec<ast::Wire> = Vec::new();
+    pub fn get_wires(&self) -> Vec<&ast::Wire> {
+        let mut v: Vec<&ast::Wire> = Vec::new();
         for structure in self.structure.iter() {
             if let ast::Structure::Wire { data } = structure {
-                v.push(data.clone())
+                v.push(data)
             }
         }
         v
     }
 
-    pub fn get_std(&self) -> Vec<ast::Std> {
-        let mut v: Vec<ast::Std> = Vec::new();
+    pub fn get_std(&self) -> Vec<&ast::Std> {
+        let mut v: Vec<&ast::Std> = Vec::new();
         for structure in self.structure.iter() {
             if let ast::Structure::Std { data } = structure {
-                v.push(data.clone())
+                v.push(data)
             }
         }
         v
     }
 
-    pub fn get_decl(&self) -> Vec<ast::Decl> {
-        let mut v: Vec<ast::Decl> = Vec::new();
+    pub fn get_decl(&self) -> Vec<&ast::Decl> {
+        let mut v: Vec<&ast::Decl> = Vec::new();
         for structure in self.structure.iter() {
             if let ast::Structure::Decl { data } = structure {
-                v.push(data.clone())
+                v.push(data)
             }
         }
         v
@@ -44,11 +44,16 @@ impl ast::Component {
         let std = self.get_std();
         let new = self.get_decl();
         for inst in std {
-            store.insert(inst.name.clone(), ast::Structure::Std { data: inst });
+            store.insert(
+                inst.name.clone(),
+                ast::Structure::Std { data: inst.clone() },
+            );
         }
         for inst in new {
-            store
-                .insert(inst.name.clone(), ast::Structure::Decl { data: inst });
+            store.insert(
+                inst.name.clone(),
+                ast::Structure::Decl { data: inst.clone() },
+            );
         }
         store
     }

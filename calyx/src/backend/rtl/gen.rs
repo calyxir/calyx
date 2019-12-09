@@ -1,28 +1,40 @@
 use crate::backend::framework::Context;
 use crate::lang::ast::{Component, Decl, Port, Std, Wire};
-use crate::utils::*;
+use pretty::RcDoc;
 use std::collections::HashMap;
+
+fn pretty_print(doc: RcDoc) -> String {
+    let mut w = Vec::new();
+    doc.render(80, &mut w).unwrap();
+    String::from_utf8(w).unwrap()
+}
 
 #[allow(unused)]
 pub fn to_verilog(c: &Context) -> String {
-    format!(
-        "
-    // Component signature
-    module {}
-    (
-        {}
-    );
-    // Wire declarations
-    {}
-
-    // Subcomponent Instances
-    {}
-    endmodule",
-        c.toplevel.name,
-        component_io(&c.toplevel),
-        wire_declarations(&c),
-        instances(&c)
-    )
+    let doc: RcDoc = RcDoc::text("// Component Signature")
+        .append(RcDoc::line())
+        .append(RcDoc::text("module"))
+        .append(RcDoc::space())
+        .append(RcDoc::text(c.toplevel.name.clone()))
+        .append(RcDoc::line())
+        .append(RcDoc::text("("))
+        .append(component_io(&c.toplevel).nest(4))
+        .append(RcDoc::line())
+        .append(RcDoc::text(");"))
+        .append(RcDoc::line())
+        .append(RcDoc::line())
+        .append(RcDoc::text("// Wire declarations"))
+        .append(RcDoc::line())
+        .append(wire_declarations(c))
+        .append(RcDoc::line())
+        .append(RcDoc::line())
+        .append(RcDoc::text("// Subcomponent Instances"))
+        .append(RcDoc::line())
+        .append(instances(c))
+        .append(RcDoc::line())
+        .append(RcDoc::line())
+        .append(RcDoc::text("endmodule"));
+    pretty_print(doc)
 }
 
 //==========================================
@@ -33,66 +45,80 @@ pub fn to_verilog(c: &Context) -> String {
  * Returns a string with the list of all of a component's i/o pins
  */
 #[allow(unused)]
-pub fn component_io(c: &Component) -> String {
-    let inputs = c.inputs.clone();
-    let mut inputs: Vec<String> = inputs
-        .into_iter()
-        .map(|pd| in_port(pd.width, pd.name))
-        .collect();
-    let outputs = c.outputs.clone();
-    let mut outputs: Vec<String> = outputs
-        .into_iter()
-        .map(|pd| out_port(pd.width, pd.name))
-        .collect();
-
-    inputs.append(&mut outputs);
-    combine(&inputs, ",\n        ", "")
+pub fn component_io(c: &Component) -> RcDoc<'_> {
+    let mut inputs = c.inputs.iter().map(|pd| in_port(&pd.width, &pd.name));
+    let mut outputs = c.outputs.iter().map(|pd| out_port(&pd.width, &pd.name));
+    RcDoc::line()
+        .append(RcDoc::intersperse(
+            inputs,
+            RcDoc::text(",").append(RcDoc::line()),
+        ))
+        .append(RcDoc::text(","))
+        .append(RcDoc::line())
+        .append(RcDoc::intersperse(
+            outputs,
+            RcDoc::text(",").append(RcDoc::line()),
+        ))
 }
 
-pub fn in_port(width: i64, name: String) -> String {
-    format!("input  logic {}{}", bit_width(width), name)
+pub fn in_port<'a>(width: &i64, name: &'a String) -> RcDoc<'a> {
+    RcDoc::text("input")
+        .append(RcDoc::space())
+        .append(RcDoc::text("logic"))
+        .append(RcDoc::space())
+        .append(bit_width(width))
+        .append(RcDoc::text(name))
 }
 
-pub fn out_port(width: i64, name: String) -> String {
-    format!("output logic {}{}", bit_width(width), name)
+pub fn out_port<'a>(width: &i64, name: &'a String) -> RcDoc<'a> {
+    RcDoc::text("output")
+        .append(RcDoc::space())
+        .append(RcDoc::text("logic"))
+        .append(RcDoc::space())
+        .append(bit_width(width))
+        .append(RcDoc::text(name))
 }
 
-pub fn bit_width(width: i64) -> String {
-    if width < 1 {
+pub fn bit_width<'a>(width: &i64) -> RcDoc<'a> {
+    if *width < 1 {
         panic!("Invalid bit width!");
-    } else if width == 1 {
-        "".to_string()
+    } else if *width == 1 {
+        RcDoc::text("".to_string())
     } else {
-        format!("[{}:0] ", width - 1)
+        RcDoc::text(format!("[{}:0]", *width - 1)).append(RcDoc::space())
     }
 }
 
 //==========================================
 //        Wire Declaration Functions
 //==========================================
-fn wire_declarations(c: &Context) -> String {
+fn wire_declarations<'a>(c: &'a Context) -> RcDoc<'a> {
     let wire_names = c
         .toplevel
         .get_wires()
         .into_iter()
-        .map(|wire| wire_string(&wire, c))
-        .collect();
-
-    combine(&[wire_names], "\n", "")
+        .map(|wire| wire_string(&wire, c));
+    RcDoc::intersperse(wire_names, RcDoc::line())
 }
 
-fn wire_string(wire: &Wire, c: &Context) -> String {
+fn wire_string<'a>(wire: &'a Wire, c: &Context) -> RcDoc<'a> {
     let width = Context::port_width(&wire.src, &c.toplevel, c);
-    format!("logic {}{};", bit_width(width), port_wire_id(&wire.src))
+    RcDoc::text("logic")
+        .append(RcDoc::space())
+        .append(bit_width(&width))
+        .append(port_wire_id(&wire.src))
+        .append(RcDoc::text(";"))
 }
 
 /**
  * Generates a string wirename for the provided Port object
  */
-pub fn port_wire_id(p: &Port) -> String {
+pub fn port_wire_id<'a>(p: &'a Port) -> RcDoc<'a> {
     match p {
-        Port::Comp { component, port } => format!("{}_{}", component, port),
-        Port::This { port } => port.clone(),
+        Port::Comp { component, port } => RcDoc::text(component)
+            .append(RcDoc::space())
+            .append(RcDoc::text(port)),
+        Port::This { port } => RcDoc::text(port),
     }
 }
 
@@ -101,93 +127,110 @@ pub fn port_wire_id(p: &Port) -> String {
 //==========================================
 // Intermediate data structures for string formatting
 #[derive(Clone, Debug)]
-pub struct RtlInst {
-    pub comp_name: String,
-    pub id: String,
+pub struct RtlInst<'a> {
+    pub comp_name: &'a String,
+    pub id: &'a String,
     pub params: Vec<i64>,
-    pub ports: HashMap<String, String>, // Maps Port names to wires
+    pub ports: HashMap<&'a String, String>, // Maps Port names to wires
 }
 
-fn instances(c: &Context) -> String {
-    let decls = c.toplevel.get_decl();
-    let mut decls: Vec<RtlInst> = decls
+fn instances<'a>(c: &'a Context) -> RcDoc<'a> {
+    let decls = c
+        .toplevel
+        .get_decl()
         .into_iter()
         .map(|decl| component_to_inst(&decl, c))
-        .collect();
-    let prims = c.toplevel.get_std();
-    let prims: Vec<RtlInst> = prims
+        .map(|inst| inst_to_string(inst));
+    let prims = c
+        .toplevel
+        .get_std()
         .into_iter()
         .map(|prim| prim_to_inst(&prim, c))
-        .collect();
-    decls.extend(prims);
-    let strings: Vec<String> = decls.into_iter().map(inst_to_string).collect();
-    combine(&strings, "\n", "")
+        .map(|inst| inst_to_string(inst));
+    RcDoc::intersperse(decls, RcDoc::line().append(RcDoc::line()))
+        .append(RcDoc::line())
+        .append(RcDoc::intersperse(
+            prims,
+            RcDoc::line().append(RcDoc::line()),
+        ))
 }
 
-fn component_to_inst(inst: &Decl, c: &Context) -> RtlInst {
+fn component_to_inst<'a>(inst: &'a Decl, c: &'a Context) -> RtlInst<'a> {
     let comp = c.definitions.get(&inst.component).unwrap();
     let wires = c.toplevel.get_wires();
-    let mut port_map: HashMap<String, String> = HashMap::new();
+    let mut port_map: HashMap<&String, String> = HashMap::new();
     for w in wires {
         if let Port::Comp { component, port } = &w.src {
-            if component.clone() == inst.name {
+            if *component == inst.name {
                 // Note that all port_wire_ids are currently based off the source
-                port_map.insert(port.clone(), port_wire_id(&w.src));
+                port_map.insert(port, pretty_print(port_wire_id(&w.src)));
             }
         }
         if let Port::Comp { component, port } = &w.dest {
             if component.clone() == inst.name {
                 // Note that all port_wire_ids are currently based off the source
-                port_map.insert(port.clone(), port_wire_id(&w.src));
+                port_map.insert(port, pretty_print(port_wire_id(&w.src)));
             }
         }
     }
     RtlInst {
-        comp_name: comp.name.clone(),
-        id: inst.name.clone(),
+        comp_name: &comp.name,
+        id: &inst.name,
         params: vec![],
         ports: port_map,
     }
 }
 
-fn prim_to_inst(inst: &Std, c: &Context) -> RtlInst {
+fn prim_to_inst<'a>(inst: &'a Std, c: &'a Context) -> RtlInst<'a> {
     let prim = c.library.get(&inst.instance.name).unwrap();
     let wires = c.toplevel.get_wires();
-    let mut port_map: HashMap<String, String> = HashMap::new();
+    let mut port_map: HashMap<&String, String> = HashMap::new();
     for w in wires {
         if let Port::Comp { component, port } = &w.src {
             if component.clone() == inst.name {
                 // Note that all port_wire_ids are currently based off the source
-                port_map.insert(port.clone(), port_wire_id(&w.src));
+                port_map.insert(port, pretty_print(port_wire_id(&w.src)));
             }
         }
         if let Port::Comp { component, port } = &w.dest {
             if component.clone() == inst.name {
                 // Note that all port_wire_ids are currently based off the source
-                port_map.insert(port.clone(), port_wire_id(&w.src));
+                port_map.insert(port, pretty_print(port_wire_id(&w.src)));
             }
         }
     }
     RtlInst {
-        comp_name: prim.name.clone(),
-        id: inst.name.clone(),
+        comp_name: &prim.name,
+        id: &inst.name,
         params: inst.instance.params.clone(),
         ports: port_map,
     }
 }
 
-pub fn inst_to_string(inst: RtlInst) -> String {
-    let ports: Vec<String> = inst
-        .ports
-        .iter()
-        .map(|(port, wire)| format!(".{}({})", port, wire))
-        .collect();
-    let ports: String = combine(&ports, ",\n        ", "\n    ");
-    let params: Vec<String> =
-        inst.params.iter().map(|p| p.to_string()).collect();
-    let params: String = combine(&params, ", ", "");
-    format!(
-        "{} #({}) {}\n    (\n        {});",
-        inst.comp_name, params, inst.id, ports
-    )
+pub fn inst_to_string<'a>(inst: RtlInst<'a>) -> RcDoc<'a> {
+    let ports = inst.ports.into_iter().map(|(port, wire)| {
+        RcDoc::text(".")
+            .append(RcDoc::text(port))
+            .append(RcDoc::text("("))
+            .append(RcDoc::text(wire))
+            .append(RcDoc::text(")"))
+    });
+    let params = inst.params.iter().map(|p| RcDoc::text(p.to_string()));
+    RcDoc::text(inst.comp_name.clone())
+        .append(RcDoc::space())
+        .append(RcDoc::text("#("))
+        .append(RcDoc::intersperse(
+            params,
+            RcDoc::text(",").append(RcDoc::space()).group(),
+        ))
+        .append(RcDoc::text(")"))
+        .append(RcDoc::space())
+        .append(RcDoc::text(inst.id.clone()))
+        .append(
+            RcDoc::line()
+                .append(RcDoc::intersperse(ports, RcDoc::line()))
+                .nest(4),
+        )
+        .append(RcDoc::line())
+        .append(RcDoc::text(");"))
 }
