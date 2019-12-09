@@ -46,8 +46,8 @@ pub fn to_verilog(c: &Context) -> String {
  */
 #[allow(unused)]
 pub fn component_io(c: &Component) -> RcDoc<'_> {
-    let mut inputs = c.inputs.iter().map(|pd| in_port(&pd.width, &pd.name));
-    let mut outputs = c.outputs.iter().map(|pd| out_port(&pd.width, &pd.name));
+    let mut inputs = c.inputs.iter().map(|pd| in_port(pd.width, &pd.name));
+    let mut outputs = c.outputs.iter().map(|pd| out_port(pd.width, &pd.name));
     RcDoc::line()
         .append(RcDoc::intersperse(
             inputs,
@@ -61,7 +61,7 @@ pub fn component_io(c: &Component) -> RcDoc<'_> {
         ))
 }
 
-pub fn in_port<'a>(width: &i64, name: &'a String) -> RcDoc<'a> {
+pub fn in_port(width: i64, name: &str) -> RcDoc<'_> {
     RcDoc::text("input")
         .append(RcDoc::space())
         .append(RcDoc::text("logic"))
@@ -70,7 +70,7 @@ pub fn in_port<'a>(width: &i64, name: &'a String) -> RcDoc<'a> {
         .append(RcDoc::text(name))
 }
 
-pub fn out_port<'a>(width: &i64, name: &'a String) -> RcDoc<'a> {
+pub fn out_port(width: i64, name: &str) -> RcDoc<'_> {
     RcDoc::text("output")
         .append(RcDoc::space())
         .append(RcDoc::text("logic"))
@@ -79,20 +79,20 @@ pub fn out_port<'a>(width: &i64, name: &'a String) -> RcDoc<'a> {
         .append(RcDoc::text(name))
 }
 
-pub fn bit_width<'a>(width: &i64) -> RcDoc<'a> {
-    if *width < 1 {
+pub fn bit_width<'a>(width: i64) -> RcDoc<'a> {
+    if width < 1 {
         panic!("Invalid bit width!");
-    } else if *width == 1 {
+    } else if width == 1 {
         RcDoc::text("".to_string())
     } else {
-        RcDoc::text(format!("[{}:0]", *width - 1)).append(RcDoc::space())
+        RcDoc::text(format!("[{}:0]", width - 1)).append(RcDoc::space())
     }
 }
 
 //==========================================
 //        Wire Declaration Functions
 //==========================================
-fn wire_declarations<'a>(c: &'a Context) -> RcDoc<'a> {
+fn wire_declarations(c: &Context) -> RcDoc<'_> {
     let wire_names = c
         .toplevel
         .get_wires()
@@ -105,7 +105,7 @@ fn wire_string<'a>(wire: &'a Wire, c: &Context) -> RcDoc<'a> {
     let width = Context::port_width(&wire.src, &c.toplevel, c);
     RcDoc::text("logic")
         .append(RcDoc::space())
-        .append(bit_width(&width))
+        .append(bit_width(width))
         .append(port_wire_id(&wire.src))
         .append(RcDoc::text(";"))
 }
@@ -113,7 +113,7 @@ fn wire_string<'a>(wire: &'a Wire, c: &Context) -> RcDoc<'a> {
 /**
  * Generates a string wirename for the provided Port object
  */
-pub fn port_wire_id<'a>(p: &'a Port) -> RcDoc<'a> {
+pub fn port_wire_id(p: &Port) -> RcDoc<'_> {
     match p {
         Port::Comp { component, port } => RcDoc::text(component)
             .append(RcDoc::space())
@@ -134,19 +134,19 @@ pub struct RtlInst<'a> {
     pub ports: HashMap<&'a String, String>, // Maps Port names to wires
 }
 
-fn instances<'a>(c: &'a Context) -> RcDoc<'a> {
+fn instances(c: &Context) -> RcDoc<'_> {
     let decls = c
         .toplevel
         .get_decl()
         .into_iter()
         .map(|decl| component_to_inst(&decl, c))
-        .map(|inst| inst_to_string(inst));
+        .map(inst_to_string);
     let prims = c
         .toplevel
         .get_std()
         .into_iter()
         .map(|prim| prim_to_inst(&prim, c))
-        .map(|inst| inst_to_string(inst));
+        .map(inst_to_string);
     RcDoc::intersperse(decls, RcDoc::line().append(RcDoc::line()))
         .append(RcDoc::line())
         .append(RcDoc::intersperse(
@@ -207,7 +207,7 @@ fn prim_to_inst<'a>(inst: &'a Std, c: &'a Context) -> RtlInst<'a> {
     }
 }
 
-pub fn inst_to_string<'a>(inst: RtlInst<'a>) -> RcDoc<'a> {
+pub fn inst_to_string(inst: RtlInst) -> RcDoc<'_> {
     let ports = inst.ports.into_iter().map(|(port, wire)| {
         RcDoc::text(".")
             .append(RcDoc::text(port))
