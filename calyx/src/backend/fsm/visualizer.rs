@@ -35,7 +35,7 @@ impl FSM {
     }
 
     pub fn visualize(&self) {
-        let config = &[Config::EdgeNoLabel];
+        let config = &[];
         println!("{:?}", Dot::with_config(&self.graph(), config))
     }
 }

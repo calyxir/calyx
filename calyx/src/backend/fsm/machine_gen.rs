@@ -1,10 +1,12 @@
 use super::machine::{ValuedPort, FSM};
+use super::visualizer;
 use crate::lang::ast::{Component, Namespace, Portdef};
 
 pub fn generate_fsms(syntax: &mut Namespace) -> Vec<FSM> {
     (&mut syntax.components)
         .iter_mut()
         .filter_map(|comp| {
+            println!("{}", comp.name.clone());
             if comp.name.starts_with("fsm_enable") {
                 Some(enable_fsm(comp))
             } else if comp.name.starts_with("fsm_par") {
@@ -157,7 +159,7 @@ pub fn seq_fsm(component: &Component) -> FSM {
             current = next;
         }
     }
-    //println!("{:#?}", fsm);
+    fsm.visualize();
     fsm
 }
 
@@ -212,6 +214,7 @@ pub fn if_fsm(component: &Component) -> FSM {
             ));
         }
     }
+    fsm.visualize();
     fsm
 }
 
@@ -259,6 +262,6 @@ pub fn while_fsm(component: &Component) -> FSM {
         vec![(component.name.clone(), "condition".to_string(), 0)],
         end,
     ));
-    //println!("{:#?}", fsm);
+    fsm.visualize();
     fsm
 }

@@ -51,10 +51,10 @@ fn main() {
         syntax.pretty_print();
     }
 
-    let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
-    for fsm in fsms {
-        fsm.visualize()
-    }
+    let _fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
+    // for fsm in fsms {
+    //     fsm.visualize()
+    // }
 
     // You can handle information about subcommands by requesting their matches by name
     // (as below), requesting just the name used, or both at the same time
