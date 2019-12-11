@@ -4,7 +4,7 @@ use std::collections::HashMap;
 /// Represents a pointer to a State in an FSM
 #[derive(PartialEq, Clone, Copy, Debug, Hash, Eq)]
 pub struct StateIndex {
-    id: i64,
+    pub id: i64,
 }
 
 // pub type Port = (Id, String);
@@ -117,11 +117,11 @@ impl FSM {
         new_idx
     }
     // Returns a unique value for the state for rtl generation
-    // fn state_value(&self, st: State) -> usize {
-    //     (*self.states)
+    // fn state_value(&self, st_ind: StateI) -> usize {
+    //     (self.states)
     //         .iter()
     //         .position(
-    //             |state| *state == st,
+    //             |(_, state)| *state == st,
     //             //match st.clone().default {
     //             //None => *state == *st,
     //             //Some(default) => *state == *default,
@@ -132,13 +132,13 @@ impl FSM {
     // }
 
     // Returns the number of bits required to represent each state in the FSM
-    // pub fn state_bits(&self) -> i64 {
-    //     let num_states: f64 = self.states.len() as f64;
-    //     num_states.log2().ceil() as i64
-    // }
+    pub fn state_bits(&self) -> i64 {
+        let num_states: f64 = self.states.len() as f64;
+        num_states.log2().ceil() as i64
+    }
 
     // Convenience function for generating verilog string values for each state
-    // pub fn state_string(&self, st: State) -> String {
-    //     format!("{}'d{}", self.state_bits(), self.state_value(st))
-    // }
+    pub fn state_string(&self, st_ind: StateIndex) -> String {
+        format!("{}'d{}", self.state_bits(), st_ind.id)
+    }
 }
