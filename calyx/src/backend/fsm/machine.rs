@@ -29,10 +29,10 @@ pub struct State {
 /// structs that are received from `FSM::new()` and `fsm.new_state()`.
 #[derive(Clone, Debug)]
 pub struct FSM {
-    pub inputs: Vec<Id>,
-    pub outputs: Vec<Id>,
-    pub states: HashMap<StateIndex, State>,
-    pub start: StateIndex,
+    inputs: Vec<Id>,
+    outputs: Vec<Id>,
+    states: HashMap<StateIndex, State>,
+    start: StateIndex,
     last_index: StateIndex,
 }
 
