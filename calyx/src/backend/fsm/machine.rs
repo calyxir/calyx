@@ -19,8 +19,8 @@ pub type Edge = (Vec<ValuedPort>, StateIndex);
 /// can be taken.
 #[derive(PartialEq, Debug, Clone)]
 pub struct State {
-    outputs: Vec<ValuedPort>,
-    transitions: Vec<Edge>,
+    pub outputs: Vec<ValuedPort>,
+    pub transitions: Vec<Edge>,
     default: Option<StateIndex>,
 }
 

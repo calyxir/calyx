@@ -4,6 +4,7 @@ mod passes;
 mod utils;
 
 use crate::backend::framework::Context;
+use crate::backend::fsm::visualizer;
 use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::*;
 use crate::utils::NameGenerator;
@@ -51,7 +52,9 @@ fn main() {
     }
 
     let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
-    //println!("{:#?}", fsms);
+    for fsm in fsms {
+        fsm.visualize()
+    }
 
     // You can handle information about subcommands by requesting their matches by name
     // (as below), requesting just the name used, or both at the same time
