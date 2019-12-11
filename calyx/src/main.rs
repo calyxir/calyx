@@ -45,13 +45,13 @@ fn main() {
         println!("{}", verilog);
     }
 
-    //passes::fsm::generate(&mut syntax, &mut names);
+    passes::fsm::generate(&mut syntax, &mut names);
     if matches.occurrences_of("VIZ") == 0 {
         syntax.pretty_print();
     }
 
     let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
-    println!("{:#?}", fsms);
+    //println!("{:#?}", fsms);
 
     // You can handle information about subcommands by requesting their matches by name
     // (as below), requesting just the name used, or both at the same time
