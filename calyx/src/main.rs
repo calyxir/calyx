@@ -51,20 +51,29 @@ fn main() -> Result<(), errors::Error> {
         None => (),
         Some(po) => {
             for fsm in fsms {
-                path_write(po, Box::new(move |w| writeln!(w, "{:#?}", fsm)));
+                if fsm.name == opts.component {
+                    path_write(po, Some("dot"), &mut |w| {
+                        writeln!(w, "{}", fsm.visualize())
+                    });
+                    utils::dot_command(po)
+                }
             }
         }
     }
-    // println!("{:#?}", fsms);
 
-    // // You can handle information about subcommands by requesting their matches by name
-    // // (as below), requesting just the name used, or both at the same time
-    // if matches.occurrences_of("VIZ") == 1 {
-    //     for comp in &syntax.components {
-    //         if comp.name == component_name {
-    //             comp.structure_graph().visualize();
-    //         }
-    //     }
-    // }
+    match &opts.visualize_structure {
+        None => (),
+        Some(po) => {
+            for comp in &syntax.components {
+                if comp.name == opts.component {
+                    path_write(po, Some("dot"), &mut |w| {
+                        writeln!(w, "{}", comp.structure_graph().visualize())
+                    });
+                    utils::dot_command(po)
+                }
+            }
+        }
+    }
+
     Ok(())
 }

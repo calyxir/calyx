@@ -1,4 +1,4 @@
-use crate::backend::fsm::machine::{Edge, State, FSM};
+use crate::backend::fsm::machine::{Edge, State, StateIndex, FSM};
 use crate::utils::*;
 
 //const reset_string: String = "reset".to_string();
@@ -38,7 +38,7 @@ fn next_state_logic(fsm: &FSM) -> String {
     let cases: Vec<String> = fsm
         .states
         .iter()
-        .map(|st| next_state_case(&st, fsm))
+        .map(|(ind, st)| next_state_case(&st, fsm, ind))
         .collect();
     let cases = combine(&cases, "\n", "");
     format!(
@@ -50,17 +50,20 @@ fn next_state_logic(fsm: &FSM) -> String {
 // TODO:
 // Set bitwidths of value? Currently hardcoded to 1 bit
 // Need bitwidth of state
-fn next_state_case(st: &State, fsm: &FSM) -> String {
+fn next_state_case(st: &State, fsm: &FSM, st_ind: &StateIndex) -> String {
     let if_statements: Vec<String> = st
         .transitions
         .iter()
         .map(|e| if_statement(&e, fsm))
         .collect();
     let if_statements = combine(&if_statements, "\n    else ", "");
-    let else_statement = format!("\n    else\n    next_state = {};", fsm.state_string(st));
+    let else_statement = format!(
+        "\n    else\n    next_state = {};",
+        fsm.state_string(*st_ind)
+    );
     format!(
         "{}: begin\n    {}{}\n    end",
-        fsm.state_string(st),
+        fsm.state_string(*st_ind),
         if_statements,
         else_statement
     )
@@ -72,16 +75,43 @@ fn next_state_case(st: &State, fsm: &FSM) -> String {
 fn if_statement((inputs, st): &Edge, fsm: &FSM) -> String {
     let conditions: Vec<String> = inputs
         .iter()
-        .map(|((id, _), value)| format!("{} == 1'd{}", id, value))
+        .map(|(_, id, value)| format!("{} == 1'd{}", id, value))
         .collect();
     let conditions: String = combine(&conditions, " && ", "");
     format!(
-        "if ( {} )\n    next_state = {};",
+        "if ( {} )\n    next_state = {}'d{};",
         conditions,
-        fsm.state_string(st)
+        fsm.state_bits(),
+        st.id + 1 //fsm.state_string(st)
     )
 }
 
-fn output_logic(_fsm: &FSM) -> String {
-    "TODO".to_string()
+fn output_logic(fsm: &FSM) -> String {
+    let statements: Vec<String> = fsm
+        .states
+        .iter()
+        .map(|(st_id, state)| output_state(&state, fsm, st_id))
+        .collect();
+    let statements = combine(&statements, "\n ", "");
+    format!(
+        "always_comb begin\n    case (state)\n{}\n endcase\n end",
+        statements
+    )
+
+    //"TODO".to_string()
+}
+
+fn output_state(st: &State, fsm: &FSM, st_id: &StateIndex) -> String {
+    let out_statements: Vec<String> = st
+        .outputs
+        .iter()
+        .map(|(_, id, val)| format!("{} = 1'd{};", id, val))
+        .collect();
+
+    let out_statements = combine(&out_statements, "\n ", "");
+    format!(
+        "{}: begin\n    {}\n   end",
+        fsm.state_string(*st_id),
+        out_statements
+    )
 }

@@ -1,6 +1,8 @@
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::path::PathBuf;
+use std::process::Command;
 
 /**
  * Combine concatenates [vec] into a single string, with each entry
@@ -98,5 +100,25 @@ impl<T: WithDefault + Clone> Scoped<T> {
 impl<T> WithDefault for Option<T> {
     fn default() -> Self {
         None
+    }
+}
+
+pub fn dot_command(file: &Option<PathBuf>) {
+    match file {
+        None => (),
+        Some(p) => {
+            let mut dot_file = p.clone();
+            dot_file.set_extension("dot");
+            let mut png_file = p.clone();
+            png_file.set_extension("png");
+            let _res = Command::new("dot")
+                .args(&[
+                    "-Tpng",
+                    dot_file.to_str().unwrap(),
+                    "-o",
+                    png_file.to_str().unwrap(),
+                ])
+                .spawn();
+        }
     }
 }

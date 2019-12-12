@@ -4,7 +4,7 @@ use std::collections::HashMap;
 /// Represents a pointer to a State in an FSM
 #[derive(PartialEq, Clone, Copy, Debug, Hash, Eq)]
 pub struct StateIndex {
-    id: i64,
+    pub id: i64,
 }
 
 // pub type Port = (Id, String);
@@ -19,8 +19,8 @@ pub type Edge = (Vec<ValuedPort>, StateIndex);
 /// can be taken.
 #[derive(PartialEq, Debug, Clone)]
 pub struct State {
-    outputs: Vec<ValuedPort>,
-    transitions: Vec<Edge>,
+    pub outputs: Vec<ValuedPort>,
+    pub transitions: Vec<Edge>,
     default: Option<StateIndex>,
 }
 
@@ -29,9 +29,10 @@ pub struct State {
 /// structs that are received from `FSM::new()` and `fsm.new_state()`.
 #[derive(Clone, Debug)]
 pub struct FSM {
+    pub name: String,
     inputs: Vec<Id>,
     outputs: Vec<Id>,
-    states: HashMap<StateIndex, State>,
+    pub states: HashMap<StateIndex, State>,
     start: StateIndex,
     last_index: StateIndex,
 }
@@ -72,13 +73,14 @@ impl State {
 }
 
 impl FSM {
-    pub fn new() -> (StateIndex, Self) {
+    pub fn new(name: &str) -> (StateIndex, Self) {
         let mut states = HashMap::new();
         let idx = StateIndex::new();
         states.insert(idx, State::empty());
         (
             idx,
             FSM {
+                name: name.to_string(),
                 inputs: vec![],
                 outputs: vec![],
                 states,
@@ -117,11 +119,11 @@ impl FSM {
         new_idx
     }
     // Returns a unique value for the state for rtl generation
-    // fn state_value(&self, st: State) -> usize {
-    //     (*self.states)
+    // fn state_value(&self, st_ind: StateI) -> usize {
+    //     (self.states)
     //         .iter()
     //         .position(
-    //             |state| *state == st,
+    //             |(_, state)| *state == st,
     //             //match st.clone().default {
     //             //None => *state == *st,
     //             //Some(default) => *state == *default,
@@ -132,13 +134,13 @@ impl FSM {
     // }
 
     // Returns the number of bits required to represent each state in the FSM
-    // pub fn state_bits(&self) -> i64 {
-    //     let num_states: f64 = self.states.len() as f64;
-    //     num_states.log2().ceil() as i64
-    // }
+    pub fn state_bits(&self) -> i64 {
+        let num_states: f64 = self.states.len() as f64;
+        num_states.log2().ceil() as i64
+    }
 
     // Convenience function for generating verilog string values for each state
-    // pub fn state_string(&self, st: State) -> String {
-    //     format!("{}'d{}", self.state_bits(), self.state_value(st))
-    // }
+    pub fn state_string(&self, st_ind: StateIndex) -> String {
+        format!("{}'d{}", self.state_bits(), st_ind.id)
+    }
 }

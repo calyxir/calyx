@@ -17,11 +17,7 @@ impl Visitor<()> for FsmIf<'_> {
         "FSM if".to_string()
     }
 
-    fn start_if(
-        &mut self,
-        c_if: &mut If,
-        changes: &mut Changes,
-    ) -> Result<(), ()> {
+    fn start_if(&mut self, c_if: &mut If, changes: &mut Changes) -> Result<(), ()> {
         // make input ports for enable fsm component
         let val = Portdef {
             name: "valid".to_string(),
@@ -47,6 +43,8 @@ impl Visitor<()> for FsmIf<'_> {
         let mut inputs: Vec<Portdef> = vec![cond.clone(), val, reset];
         let mut outputs: Vec<Portdef> = vec![rdy];
         let mut branchs = vec![*c_if.tbranch.clone(), *c_if.fbranch.clone()];
+        println!("{:#?}", branchs);
+        let mut i = 0;
         for con in &mut branchs {
             match con {
                 Control::Enable { data } => {
@@ -54,13 +52,27 @@ impl Visitor<()> for FsmIf<'_> {
                         return Ok(());
                     }
                     let comp = &data.comps[0];
-                    let ready = Portdef {
-                        name: format!("ready_{}", comp),
-                        width: 32,
+                    let ready = if i == 0 {
+                        Portdef {
+                            name: format!("ready_t_{}", comp),
+                            width: 32,
+                        }
+                    } else {
+                        Portdef {
+                            name: format!("ready_f_{}", comp),
+                            width: 32,
+                        }
                     };
-                    let valid = Portdef {
-                        name: format!("valid_{}", comp),
-                        width: 32,
+                    let valid = if i == 0 {
+                        Portdef {
+                            name: format!("valid_t_{}", comp),
+                            width: 32,
+                        }
+                    } else {
+                        Portdef {
+                            name: format!("valid_f_{}", comp),
+                            width: 32,
+                        }
                     };
                     let ready_wire = Wire {
                         src: Port::Comp {
@@ -88,9 +100,12 @@ impl Visitor<()> for FsmIf<'_> {
                     changes.add_structure(Structure::Wire { data: valid_wire });
                     //data.comps = vec![component_name.clone()];
                 }
-                Control::Empty { .. } => (),
+                Control::Empty { data } => {
+                    println!("{:?}", data);
+                }
                 _ => return Ok(()),
             }
+            i += 1;
         }
 
         let condition_wire = Wire {

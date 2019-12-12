@@ -47,15 +47,30 @@ impl std::fmt::Write for Writer {
     }
 }
 
-pub fn path_write(
+/// Function that helps deal with optional paths that can be provided
+/// on the command line. Takes in a optional path, an optional `ext` to
+/// replace the path extension with, and a function that does the writing
+pub fn path_write<F>(
     path: &Option<PathBuf>,
-    write_fn: Box<dyn FnOnce(&mut Writer) -> Result<(), std::fmt::Error>>,
-) {
+    ext: Option<&str>,
+    write_fn: &mut F,
+) where
+    F: FnMut(&mut Writer) -> Result<(), std::fmt::Error>,
+{
     match path {
         None => write_fn(&mut Writer { file: None }).unwrap(),
-        Some(p) => write_fn(&mut Writer {
-            file: Some(File::create(p.as_path()).unwrap()),
-        })
+        Some(p) => {
+            let mut path = p.clone();
+            match ext {
+                None => (),
+                Some(ext) => {
+                    path.set_extension(ext);
+                }
+            };
+            write_fn(&mut Writer {
+                file: Some(File::create(path.as_path()).unwrap()),
+            })
+        }
         .unwrap(),
     }
 }
