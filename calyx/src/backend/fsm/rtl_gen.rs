@@ -190,11 +190,22 @@ fn output_logic(fsm: &FSM) -> String {
 }
 
 fn output_state(st: &State, fsm: &FSM, st_id: &StateIndex) -> String {
-    let out_statements: Vec<String> = st
+    let mut state_list: Vec<&String> = Vec::new();
+    let mut out_statements: Vec<String> = st
         .outputs
         .iter()
-        .map(|(_, id, val)| format!("{} = 1'd{};", id, val))
+        .map(|(_, id, val)| {
+            state_list.push(id);
+            format!("{} = 1'd{};", id, val)
+        })
         .collect();
+
+    let mut iter = state_list.iter();
+    for outputs in &fsm.outputs {
+        if !iter.any(|&x| x == outputs) {
+            out_statements.push(format!("{} = 1'd0", outputs))
+        }
+    }
 
     let out_statements = combine(&out_statements, "\n ", "");
     format!(
