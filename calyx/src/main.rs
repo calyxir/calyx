@@ -1,40 +1,28 @@
 mod backend;
 mod cmdline;
+mod errors;
 mod lang;
 mod passes;
 mod utils;
 
-use crate::backend::framework::Context;
-use crate::cmdline::Opts;
-use crate::lang::pretty_print::PrettyPrint;
+// use crate::backend::framework::Context;
+use crate::cmdline::{path_write, Opts};
+// use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::*;
 use crate::utils::NameGenerator;
+use std::fmt::Write;
+use structopt::StructOpt;
+// use crate::backend::fsm::visualize;
 // use crate::passes::visitor::Visitor;
 
-// #[macro_use]
-// extern crate clap;
-
-fn main() {
+fn main() -> Result<(), errors::Error> {
     better_panic::install();
 
-    let opts: Opts = Opts::parse();
+    let opts: Opts = Opts::from_args();
 
-    // let matches = clap_app!(calyx =>
-    //     (version: "0.1.0")
-    //     (author: "Samuel Thomas <sgt43@cornell.edu>, Kenneth Fang <kwf37@cornell.edu>")
-    //     (about: "Optimization passes for futil")
-    //     (@arg FILE: +required "File to use")
-    //     (@arg COMPONENT: +required "Toplevel Component")
-    //     (@arg LIB: -l --lib +takes_value "Libraries to load in")
-    //     (@arg VIZ: -s --show "Output the structure in the Graphviz format")
-    // )
-    // .get_matches();
+    let mut syntax = parse::parse_file(&opts.file)?;
 
-    // let filename = matches.value_of("FILE").unwrap();
-    // let component_name = matches.value_of("COMPONENT").unwrap();
-    // let mut syntax: ast::Namespace = parse::parse_file(filename);
-
-    // let mut names = NameGenerator::new();
+    let mut names = NameGenerator::new();
 
     // if matches.occurrences_of("LIB") == 1 {
     //     let libname = matches.value_of("LIB").unwrap();
@@ -49,12 +37,24 @@ fn main() {
     //     println!("{}", verilog);
     // }
 
-    // passes::fsm::generate(&mut syntax, &mut names);
+    passes::fsm::generate(&mut syntax, &mut names);
+    // match opts.visualize_structure {
+    //     None => (),
+    //     Some(None) =>
+    // }
     // if matches.occurrences_of("VIZ") == 0 {
     //     syntax.pretty_print();
     // }
 
-    // let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
+    let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
+    match &opts.visualize_fsm {
+        None => (),
+        Some(po) => {
+            for fsm in fsms {
+                path_write(po, Box::new(move |w| writeln!(w, "{:#?}", fsm)));
+            }
+        }
+    }
     // println!("{:#?}", fsms);
 
     // // You can handle information about subcommands by requesting their matches by name
@@ -66,4 +66,5 @@ fn main() {
     //         }
     //     }
     // }
+    Ok(())
 }

@@ -18,7 +18,7 @@ pub struct Context {
 fn init_library(libs: Vec<String>) -> HashMap<String, library::ast::Primitive> {
     let libraries = libs
         .into_iter()
-        .map(|filename| library::parse::parse_file(filename.as_ref()))
+        .map(|filename| library::parse::parse_file(&filename))
         .collect();
 
     let lib = Library::merge(libraries);
@@ -32,11 +32,11 @@ fn init_library(libs: Vec<String>) -> HashMap<String, library::ast::Primitive> {
 
 impl Context {
     pub fn init_context(
-        file: String,
+        file: &std::path::PathBuf,
         toplevel: String,
         libs: Vec<String>,
     ) -> Context {
-        let namespace: Namespace = parse::parse_file(file.as_ref());
+        let namespace: Namespace = parse::parse_file(file).unwrap();
         let comp: Component = namespace.get_component(toplevel);
         let store = comp.get_store();
         Context {
