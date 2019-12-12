@@ -1,4 +1,5 @@
 use crate::backend::fsm::machine::{Edge, State, StateIndex, FSM};
+use crate::lang::ast::Id;
 use crate::utils::*;
 use pretty::RcDoc;
 
@@ -14,13 +15,11 @@ fn pretty_print(doc: RcDoc) -> String {
 
 #[allow(unused)]
 pub fn to_verilog(fsm: &FSM) -> String {
-    let module_name = "pls_change_me";
     let portdefs = "TODO\n";
     let wiredefs = format!("logic [{}:0] state, next_state;", fsm.state_bits());
     format!(
-        "module {} (\n{});\n\n{}\n\n{}\n\n{}\n\n{}\n endmodule",
-        module_name,
-        portdefs,
+        "module {}\n\n{}\n\n{}\n\n{}\n\n{}\n endmodule",
+        pretty_print(module_declaration(fsm)),
         wiredefs,
         pretty_print(state_transition(fsm)),
         pretty_print(next_state_logic(fsm)),
@@ -28,6 +27,41 @@ pub fn to_verilog(fsm: &FSM) -> String {
     )
 }
 
+//==========================================
+//        FSM Module Declaration Functions
+//==========================================
+fn module_declaration<'a>(fsm: &'a FSM) -> RcDoc<'a> {
+    let module_name = "pls_change_me";
+    let inputs = fsm.inputs().into_iter().map(|id| input(id));
+    let outputs = fsm.outputs().into_iter().map(|id| output(id));
+    RcDoc::text(format!("{} (", module_name))
+        .append(RcDoc::line())
+        .nest(4)
+        .append(RcDoc::intersperse(
+            inputs,
+            RcDoc::text(",").append(RcDoc::line()).nest(4),
+        ))
+        .append(RcDoc::text(","))
+        .append(RcDoc::line().nest(4))
+        .append(RcDoc::intersperse(
+            outputs,
+            RcDoc::text(",").append(RcDoc::line()).nest(4),
+        ))
+        .append(RcDoc::line())
+        .append(RcDoc::text(");"))
+}
+
+fn input<'a>(id: Id) -> RcDoc<'a> {
+    RcDoc::text(format!("input  logic {}", id))
+}
+
+fn output<'a>(id: Id) -> RcDoc<'a> {
+    RcDoc::text(format!("output logic {}", id))
+}
+
+//==========================================
+//        FSM State Transition Block
+//==========================================
 fn state_transition(fsm: &FSM) -> RcDoc<'_> {
     RcDoc::text("always_ff")
         .append(RcDoc::space())
@@ -47,16 +81,10 @@ fn state_transition(fsm: &FSM) -> RcDoc<'_> {
         .append(RcDoc::text("state <= next_state;"))
         .append(RcDoc::line())
         .append(RcDoc::text("end"))
-    //format!(
-    //"always_ff @(posedge clk) begin
-    //if(reset)
-    //state <= {}'d0; // 0 default state?
-    //else
-    //state <= next_state;
-    //end",
-    //fsm.state_bits()
-    //)
 }
+//==========================================
+//        FSM State Transition Logic
+//==========================================
 /// TODO add default case
 fn next_state_logic(fsm: &FSM) -> RcDoc<'_> {
     let cases = fsm
@@ -93,17 +121,6 @@ fn next_state_case<'a>(
     st_ind: &'a StateIndex,
 ) -> RcDoc<'a> {
     let if_statements = st.transitions.iter().map(|e| if_statement(&e, fsm));
-    //let if_statements = combine(&if_statements, "\n    else ", "");
-    let else_statement = format!(
-        "\n    else\n    next_state = {};",
-        fsm.state_string(*st_ind)
-    );
-    //format!(
-    //    "{}: begin\n    {}{}\n    end",
-    //    fsm.state_string(*st_ind),
-    //    if_statements,
-    //    else_statement
-    //);
     RcDoc::text(fsm.state_string(*st_ind))
         .append(RcDoc::text(":"))
         .append(RcDoc::space())
@@ -174,6 +191,9 @@ fn condition((_, id, value): &(String, String, i64)) -> RcDoc<'_> {
         .append(RcDoc::text(value.to_string()))
 }
 
+//==========================================
+//        FSM State Output Logic
+//==========================================
 fn output_logic(fsm: &FSM) -> String {
     let statements: Vec<String> = fsm
         .states
