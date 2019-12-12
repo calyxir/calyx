@@ -4,6 +4,7 @@ mod passes;
 mod utils;
 
 use crate::backend::framework::Context;
+use crate::backend::fsm::rtl_gen;
 use crate::backend::fsm::visualizer;
 use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::*;
@@ -43,18 +44,18 @@ fn main() {
 
         let verilog = backend::rtl::gen::to_verilog(&context);
 
-        println!("{}", verilog);
+        //println!("{}", verilog);
     }
 
     passes::fsm::generate(&mut syntax, &mut names);
     if matches.occurrences_of("VIZ") == 0 {
-        syntax.pretty_print();
+        //syntax.pretty_print();
     }
 
-    let _fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
-    // for fsm in fsms {
-    //     fsm.visualize()
-    // }
+    let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
+    for fsm in fsms {
+        println!("{}", rtl_gen::to_verilog(&fsm));
+    }
 
     // You can handle information about subcommands by requesting their matches by name
     // (as below), requesting just the name used, or both at the same time
