@@ -17,7 +17,7 @@ fn pretty_print(doc: RcDoc) -> String {
 pub fn to_verilog(fsm: &FSM) -> String {
     let portdefs = "TODO\n";
     let wiredefs = format!("logic [{}:0] state, next_state;", fsm.state_bits());
-    let doc = RcDoc::text(format!("module"))
+    let doc = RcDoc::text("module")
         .append(RcDoc::space())
         .append(module_declaration(fsm))
         .append(RcDoc::line())
@@ -37,10 +37,10 @@ pub fn to_verilog(fsm: &FSM) -> String {
 //==========================================
 //        FSM Module Declaration Functions
 //==========================================
-fn module_declaration<'a>(fsm: &'a FSM) -> RcDoc<'a> {
+fn module_declaration(fsm: &FSM) -> RcDoc<'_> {
     let module_name = &fsm.name;
-    let inputs = fsm.inputs().into_iter().map(|id| input(id));
-    let outputs = fsm.outputs().into_iter().map(|id| output(id));
+    let inputs = fsm.inputs().into_iter().map(input);
+    let outputs = fsm.outputs().into_iter().map(output);
     RcDoc::text(format!("{} (", module_name))
         .append(RcDoc::line())
         .nest(4)
@@ -229,7 +229,7 @@ fn output_logic(fsm: &FSM) -> RcDoc<'_> {
     //"TODO".to_string()
 }
 
-fn has_port(p: &Id, v: &Vec<ValuedPort>) -> bool {
+fn has_port(p: &Id, v: &[ValuedPort]) -> bool {
     for (_, port, _) in v {
         if port == p {
             return true;
