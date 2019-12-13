@@ -5,7 +5,6 @@ pub fn generate_fsms(syntax: &mut Namespace) -> Vec<FSM> {
     (&mut syntax.components)
         .iter_mut()
         .filter_map(|comp| {
-            println!("{}", comp.name.clone());
             if comp.name.starts_with("fsm_enable") {
                 Some(enable_fsm(comp))
             } else if comp.name.starts_with("fsm_par") {

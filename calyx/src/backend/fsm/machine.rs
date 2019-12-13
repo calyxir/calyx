@@ -29,10 +29,10 @@ pub struct State {
 /// structs that are received from `FSM::new()` and `fsm.new_state()`.
 #[derive(Clone, Debug)]
 pub struct FSM {
-    pub states: HashMap<StateIndex, State>,
-    pub start: StateIndex,
-    last_index: StateIndex,
     pub name: String,
+    pub states: HashMap<StateIndex, State>,
+    start: StateIndex,
+    last_index: StateIndex,
 }
 
 // Impls for structs
@@ -78,10 +78,10 @@ impl FSM {
         (
             idx,
             FSM {
+                name: name.to_string(),
                 states,
                 start: idx,
                 last_index: idx,
-                name: name.to_string(),
             },
         )
     }

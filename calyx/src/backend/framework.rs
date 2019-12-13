@@ -4,6 +4,7 @@ use crate::lang::library;
 use crate::lang::library::ast::Library;
 use crate::lang::parse;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[allow(unused)]
 #[derive(Debug)]
@@ -15,10 +16,10 @@ pub struct Context {
 }
 
 #[allow(unused)]
-fn init_library(libs: Vec<String>) -> HashMap<String, library::ast::Primitive> {
+fn init_library(libs: &[PathBuf]) -> HashMap<String, library::ast::Primitive> {
     let libraries = libs
         .into_iter()
-        .map(|filename| library::parse::parse_file(filename.as_ref()))
+        .map(|filename| library::parse::parse_file(filename))
         .collect();
 
     let lib = Library::merge(libraries);
@@ -32,12 +33,12 @@ fn init_library(libs: Vec<String>) -> HashMap<String, library::ast::Primitive> {
 
 impl Context {
     pub fn init_context(
-        file: String,
-        toplevel: String,
-        libs: Vec<String>,
+        file: &PathBuf,
+        toplevel: &str,
+        libs: &[PathBuf],
     ) -> Context {
-        let namespace: Namespace = parse::parse_file(file.as_ref());
-        let comp: Component = namespace.get_component(toplevel);
+        let namespace: Namespace = parse::parse_file(file).unwrap();
+        let comp: Component = namespace.get_component(toplevel.to_string());
         let store = comp.get_store();
         Context {
             toplevel: comp,
