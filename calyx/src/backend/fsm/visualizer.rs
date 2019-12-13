@@ -1,5 +1,5 @@
 use super::machine::FSM;
-use petgraph::dot::{Config, Dot};
+use petgraph::dot::Dot;
 use petgraph::graph::Graph;
 use std::collections::HashMap;
 

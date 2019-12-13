@@ -5,8 +5,8 @@ mod utils;
 
 use crate::backend::framework::Context;
 use crate::backend::fsm::rtl_gen;
-use crate::backend::fsm::visualizer;
-use crate::lang::pretty_print::PrettyPrint;
+// use crate::backend::fsm::visualizer;
+// use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::*;
 use crate::utils::NameGenerator;
 // use crate::passes::visitor::Visitor;
@@ -42,7 +42,7 @@ fn main() {
             vec![libname.to_string()],
         );
 
-        let verilog = backend::rtl::gen::to_verilog(&context);
+        let _verilog = backend::rtl::gen::to_verilog(&context);
 
         //println!("{}", verilog);
     }

@@ -1,5 +1,4 @@
 use super::machine::{ValuedPort, FSM};
-use super::visualizer;
 use crate::lang::ast::{Component, Namespace, Portdef};
 
 pub fn generate_fsms(syntax: &mut Namespace) -> Vec<FSM> {
@@ -24,7 +23,11 @@ pub fn generate_fsms(syntax: &mut Namespace) -> Vec<FSM> {
         .collect()
 }
 
-fn port_def_to_input(pre: &str, ports: Vec<Portdef>, comp_name: String) -> Vec<ValuedPort> {
+fn port_def_to_input(
+    pre: &str,
+    ports: Vec<Portdef>,
+    comp_name: String,
+) -> Vec<ValuedPort> {
     ports
         .into_iter()
         .filter_map(|port: Portdef| {
@@ -38,16 +41,22 @@ fn port_def_to_input(pre: &str, ports: Vec<Portdef>, comp_name: String) -> Vec<V
 }
 
 pub fn enable_fsm(component: &Component) -> FSM {
-    let (start, mut fsm) = FSM::new();
+    let (start, mut fsm) = FSM::new(&component.name);
 
     let mid = fsm.new_state();
     let end = fsm.new_state();
 
     // transitions
-    fsm.get_state(start)
-        .add_transition((vec![(component.name.clone(), "valid".to_string(), 1)], mid));
+    fsm.get_state(start).add_transition((
+        vec![(component.name.clone(), "valid".to_string(), 1)],
+        mid,
+    ));
     fsm.get_state(mid).add_transition((
-        port_def_to_input("ready", component.inputs.clone(), component.name.clone()),
+        port_def_to_input(
+            "ready",
+            component.inputs.clone(),
+            component.name.clone(),
+        ),
         end,
     ));
     fsm.get_state(end).add_transition((
@@ -61,23 +70,32 @@ pub fn enable_fsm(component: &Component) -> FSM {
         component.outputs.clone(),
         component.name.clone(),
     ));
-    fsm.get_state(end)
-        .push_output((component.name.clone(), "ready".to_string(), 1));
+    fsm.get_state(end).push_output((
+        component.name.clone(),
+        "ready".to_string(),
+        1,
+    ));
 
     fsm
 }
 
 pub fn par_fsm(component: &Component) -> FSM {
-    let (start, mut fsm) = FSM::new();
+    let (start, mut fsm) = FSM::new(&component.name);
 
     let mid = fsm.new_state();
     let end = fsm.new_state();
 
     // transitions
-    fsm.get_state(start)
-        .add_transition((vec![(component.name.clone(), "valid".to_string(), 1)], mid));
+    fsm.get_state(start).add_transition((
+        vec![(component.name.clone(), "valid".to_string(), 1)],
+        mid,
+    ));
     fsm.get_state(mid).add_transition((
-        port_def_to_input("ready", component.inputs.clone(), component.name.clone()),
+        port_def_to_input(
+            "ready",
+            component.inputs.clone(),
+            component.name.clone(),
+        ),
         end,
     ));
     fsm.get_state(end).add_transition((
@@ -91,14 +109,17 @@ pub fn par_fsm(component: &Component) -> FSM {
         component.outputs.clone(),
         component.name.clone(),
     ));
-    fsm.get_state(end)
-        .push_output((component.name.clone(), "ready".to_string(), 1));
+    fsm.get_state(end).push_output((
+        component.name.clone(),
+        "ready".to_string(),
+        1,
+    ));
 
     fsm
 }
 
 pub fn seq_fsm(component: &Component) -> FSM {
-    let (start, mut fsm) = FSM::new();
+    let (start, mut fsm) = FSM::new(&component.name);
 
     let mut current = fsm.new_state();
     //transition from start to current
@@ -107,8 +128,16 @@ pub fn seq_fsm(component: &Component) -> FSM {
         current,
     ));
 
-    let rdy_ports = port_def_to_input("ready", component.inputs.clone(), component.name.clone());
-    let val_ports = port_def_to_input("valid", component.outputs.clone(), component.name.clone());
+    let rdy_ports = port_def_to_input(
+        "ready",
+        component.inputs.clone(),
+        component.name.clone(),
+    );
+    let val_ports = port_def_to_input(
+        "valid",
+        component.outputs.clone(),
+        component.name.clone(),
+    );
     assert!(rdy_ports.len() == val_ports.len());
     for i in 0..rdy_ports.len() {
         let next = fsm.new_state();
@@ -120,21 +149,26 @@ pub fn seq_fsm(component: &Component) -> FSM {
                 vec![(component.name.clone(), "reset".to_string(), 1)],
                 start,
             ));
-            fsm.get_state(next)
-                .push_output((component.name.clone(), "ready".to_string(), 1));
+            fsm.get_state(next).push_output((
+                component.name.clone(),
+                "ready".to_string(),
+                1,
+            ));
         } else {
             current = next;
         }
     }
-    fsm.visualize();
     fsm
 }
 
 pub fn if_fsm(component: &Component) -> FSM {
-    let (start, mut fsm) = FSM::new();
+    let (start, mut fsm) = FSM::new(&component.name);
     let end = fsm.new_state();
-    fsm.get_state(end)
-        .push_output((component.name.clone(), "ready".to_string(), 1));
+    fsm.get_state(end).push_output((
+        component.name.clone(),
+        "ready".to_string(),
+        1,
+    ));
     fsm.get_state(end).add_transition((
         vec![(component.name.clone(), "reset".to_string(), 1)],
         start,
@@ -178,27 +212,39 @@ pub fn if_fsm(component: &Component) -> FSM {
             ));
         }
     }
-    fsm.visualize();
     fsm
 }
 
 pub fn while_fsm(component: &Component) -> FSM {
-    let (start, mut fsm) = FSM::new();
+    let (start, mut fsm) = FSM::new(&component.name);
     let cond = fsm.new_state();
     let end = fsm.new_state();
 
-    fsm.get_state(start)
-        .add_transition((vec![(component.name.clone(), "valid".to_string(), 1)], cond));
+    fsm.get_state(start).add_transition((
+        vec![(component.name.clone(), "valid".to_string(), 1)],
+        cond,
+    ));
     fsm.get_state(end).add_transition((
         vec![(component.name.clone(), "reset".to_string(), 1)],
         start,
     ));
 
-    fsm.get_state(end)
-        .push_output((component.name.clone(), "ready".to_string(), 1));
+    fsm.get_state(end).push_output((
+        component.name.clone(),
+        "ready".to_string(),
+        1,
+    ));
 
-    let rdy_port = port_def_to_input("ready", component.inputs.clone(), component.name.clone());
-    let val_port = port_def_to_input("val", component.outputs.clone(), component.name.clone());
+    let rdy_port = port_def_to_input(
+        "ready",
+        component.inputs.clone(),
+        component.name.clone(),
+    );
+    let val_port = port_def_to_input(
+        "val",
+        component.outputs.clone(),
+        component.name.clone(),
+    );
     assert!(rdy_port.len() == 1 && rdy_port.len() == val_port.len());
     let body = fsm.new_state();
     fsm.get_state(cond).add_transition((
@@ -213,6 +259,5 @@ pub fn while_fsm(component: &Component) -> FSM {
         vec![(component.name.clone(), "condition".to_string(), 0)],
         end,
     ));
-    fsm.visualize();
     fsm
 }

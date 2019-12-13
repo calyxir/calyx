@@ -1,7 +1,6 @@
 use super::machine::ValuedPort;
 use crate::backend::fsm::machine::{Edge, State, StateIndex, FSM};
 use crate::lang::ast::Id;
-use crate::utils::*;
 use pretty::RcDoc;
 
 //const reset_string: String = "reset".to_string();
@@ -30,7 +29,8 @@ pub fn to_verilog(fsm: &FSM) -> String {
         .append(RcDoc::line())
         .append(output_logic(fsm))
         .append(RcDoc::line())
-        .append(RcDoc::text("endmodule"));
+        .append(RcDoc::text("endmodule"))
+        .append(RcDoc::hardline());
     pretty_print(doc)
 }
 
@@ -38,7 +38,7 @@ pub fn to_verilog(fsm: &FSM) -> String {
 //        FSM Module Declaration Functions
 //==========================================
 fn module_declaration<'a>(fsm: &'a FSM) -> RcDoc<'a> {
-    let module_name = "pls_change_me";
+    let module_name = &fsm.name;
     let inputs = fsm.inputs().into_iter().map(|id| input(id));
     let outputs = fsm.outputs().into_iter().map(|id| output(id));
     RcDoc::text(format!("{} (", module_name))

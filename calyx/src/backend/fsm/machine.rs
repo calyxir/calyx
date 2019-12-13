@@ -32,6 +32,7 @@ pub struct FSM {
     pub states: HashMap<StateIndex, State>,
     pub start: StateIndex,
     last_index: StateIndex,
+    pub name: String,
 }
 
 // Impls for structs
@@ -70,7 +71,7 @@ impl State {
 }
 
 impl FSM {
-    pub fn new() -> (StateIndex, Self) {
+    pub fn new(name: &str) -> (StateIndex, Self) {
         let mut states = HashMap::new();
         let idx = StateIndex::new();
         states.insert(idx, State::empty());
@@ -80,6 +81,7 @@ impl FSM {
                 states,
                 start: idx,
                 last_index: idx,
+                name: name.to_string(),
             },
         )
     }
