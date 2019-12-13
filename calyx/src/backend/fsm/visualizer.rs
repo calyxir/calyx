@@ -34,8 +34,8 @@ impl FSM {
         graph
     }
 
-    pub fn visualize(&self) {
+    pub fn visualize(&self) -> String {
         let config = &[];
-        println!("{:?}", Dot::with_config(&self.graph(), config))
+        format!("{:?}", Dot::with_config(&self.graph(), config))
     }
 }

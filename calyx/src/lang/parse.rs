@@ -1,12 +1,14 @@
+use crate::errors::Error;
 use crate::lang::ast::*;
 use crate::lang::utils::*;
 use sexp::Sexp;
 use std::fs;
+use std::path::PathBuf;
 
-pub fn parse_file(filename: &str) -> Namespace {
-    let content = &fs::read_to_string(filename)
-        .expect("Something went wrong reading the file");
-    parse(content)
+pub fn parse_file(file: &PathBuf) -> Result<Namespace, Error> {
+    let content = &fs::read(file)?;
+    let string_content = std::str::from_utf8(content)?;
+    parse(string_content)
 }
 
 // ===============================================
@@ -241,11 +243,9 @@ impl From<&Sexp> for Namespace {
     }
 }
 
-fn parse(prog: &str) -> Namespace {
-    match sexp::parse(prog) {
-        Ok(exp) => Namespace::from(&exp),
-        e => panic!("Error parsing program: {:?}", e),
-    }
+fn parse(prog: &str) -> Result<Namespace, Error> {
+    let exp = sexp::parse(prog)?;
+    Ok(Namespace::from(&exp))
 }
 
 #[cfg(test)]

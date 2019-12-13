@@ -1,6 +1,8 @@
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::path::PathBuf;
+use std::process::Command;
 
 /**
  * Combine concatenates [vec] into a single string, with each entry
@@ -99,4 +101,38 @@ impl<T> WithDefault for Option<T> {
     fn default() -> Self {
         None
     }
+}
+
+/// Takes a path and an optional suffix and attempts to
+/// run `dot` to generate a `png` for the graph. Will
+/// silently fail if `dot` doesn't exist.
+pub fn dot_command(p: &PathBuf, suffix: Option<&str>) {
+    let mut p = p.clone();
+    suffix.map_or((), |suffix| add_suffix(&mut p, suffix));
+    let mut dot_file = p.clone();
+    dot_file.set_extension("dot");
+    let mut png_file = p.clone();
+    png_file.set_extension("png");
+    let _res = Command::new("dot")
+        .args(&[
+            "-Tpng",
+            dot_file.to_str().unwrap(),
+            "-o",
+            png_file.to_str().unwrap(),
+        ])
+        .spawn();
+}
+
+/// Ignore the return result of an operation
+pub fn ignore<T>(_t: T) {}
+
+/// hacky method to add suffix to file stem. don't think there's a
+/// better way though
+pub fn add_suffix(path: &mut PathBuf, suffix: &str) {
+    let cl = path.clone();
+    let mut file = cl.file_stem().unwrap().to_str().unwrap().to_string();
+    let ext = cl.extension();
+    file.push_str(suffix);
+    path.set_file_name(file);
+    ext.map_or((), |x| ignore(path.set_extension(x)));
 }

@@ -87,8 +87,8 @@ impl ast::Component {
 }
 
 impl StructureGraph {
-    pub fn visualize(&self) {
+    pub fn visualize(&self) -> String {
         let config = &[Config::EdgeNoLabel];
-        println!("{:?}", Dot::with_config(&self.graph, config))
+        format!("{:?}", Dot::with_config(&self.graph, config))
     }
 }

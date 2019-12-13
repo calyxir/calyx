@@ -1,69 +1,83 @@
 mod backend;
+mod cmdline;
+mod errors;
 mod lang;
 mod passes;
 mod utils;
 
+// use crate::backend::framework::Context;
 use crate::backend::framework::Context;
 use crate::backend::fsm::rtl_gen;
+use crate::cmdline::{path_write, Opts};
 // use crate::backend::fsm::visualizer;
 // use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::*;
 use crate::utils::NameGenerator;
+use std::fmt::Write;
+use structopt::StructOpt;
+// use crate::backend::fsm::visualize;
 // use crate::passes::visitor::Visitor;
 
-#[macro_use]
-extern crate clap;
-
-fn main() {
+fn main() -> Result<(), errors::Error> {
+    // better stack traces
     better_panic::install();
 
-    let matches = clap_app!(calyx =>
-        (version: "0.1.0")
-        (author: "Samuel Thomas <sgt43@cornell.edu>, Kenneth Fang <kwf37@cornell.edu>")
-        (about: "Optimization passes for futil")
-        (@arg FILE: +required "File to use")
-        (@arg COMPONENT: +required "Toplevel Component")
-        (@arg LIB: -l --lib +takes_value "Libraries to load in")
-        (@arg VIZ: -s --show "Output the structure in the Graphviz format")
-    )
-    .get_matches();
-
-    let filename = matches.value_of("FILE").unwrap();
-    let component_name = matches.value_of("COMPONENT").unwrap();
-    let mut syntax: ast::Namespace = parse::parse_file(filename);
+    // parse the command line arguments into Opts struct
+    let opts: Opts = Opts::from_args();
 
     let mut names = NameGenerator::new();
+    let mut syntax = parse::parse_file(&opts.file)?;
 
-    if matches.occurrences_of("LIB") == 1 {
-        let libname = matches.value_of("LIB").unwrap();
-        let context = Context::init_context(
-            filename.to_string(),
-            component_name.to_string(),
-            vec![libname.to_string()],
-        );
+    // generate verilog
+    // opts.libraries.as_ref().map_or((), |libpath| {
+    //     let context =
+    //         Context::init_context(&opts.file, &opts.component, &libpath[..]);
 
-        let _verilog = backend::rtl::gen::to_verilog(&context);
-
-        //println!("{}", verilog);
-    }
+    //     let verilog = backend::rtl::gen::to_verilog(&context);
+    //     path_write(&opts.output, None, Some("v"), &mut |w| {
+    //         writeln!(w, "{}", verilog)
+    //     })
+    // });
 
     passes::fsm::generate(&mut syntax, &mut names);
-    if matches.occurrences_of("VIZ") == 0 {
-        //syntax.pretty_print();
-    }
-
     let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
-    for fsm in fsms {
-        println!("{}", rtl_gen::to_verilog(&fsm));
-    }
 
-    // You can handle information about subcommands by requesting their matches by name
-    // (as below), requesting just the name used, or both at the same time
-    if matches.occurrences_of("VIZ") == 1 {
-        for comp in &syntax.components {
-            if comp.name == component_name {
-                comp.structure_graph().visualize();
-            }
-        }
+    // generate verilog for fsms
+    let mut buf = String::new();
+    for fsm in &fsms {
+        write!(buf, "{}", rtl_gen::to_verilog(fsm))?;
     }
+    path_write(&opts.output, None, Some("v"), &mut |w| write!(w, "{}", buf));
+
+    // visualize fsms
+    opts.visualize_fsm.as_ref().map_or((), |path| {
+        // get fsm for specified component
+        let fsm = fsms.iter().find(|x| x.name == opts.component);
+        fsm.map_or((), |fsm| {
+            // commit fsm
+            path_write(&path, Some("_fsm"), Some("dot"), &mut |w| {
+                write!(w, "{}", fsm.visualize())
+            });
+            // try running dot
+            path.as_ref()
+                .map_or((), |p| utils::dot_command(&p, Some("_fsm")));
+        })
+    });
+
+    // visualize
+    opts.visualize_structure.as_ref().map_or((), |path| {
+        // get specified component
+        let comp = &syntax.components.iter().find(|x| x.name == opts.component);
+        comp.map_or((), |comp| {
+            // commit visualization for comp
+            path_write(&path, Some("_struct"), Some("dot"), &mut |w| {
+                write!(w, "{}", comp.structure_graph().visualize())
+            });
+            // try running dot
+            path.as_ref()
+                .map_or((), |p| utils::dot_command(&p, Some("_struct")));
+        })
+    });
+
+    Ok(())
 }
