@@ -36,7 +36,7 @@ fn main() -> Result<(), errors::Error> {
             Context::init_context(&opts.file, &opts.component, &libpath[..]);
 
         let verilog = backend::rtl::gen::to_verilog(&context);
-        write!(verilog_buf, "{}", verilog)
+        writeln!(verilog_buf, "{}", verilog)
     })?;
 
     passes::fsm::generate(&mut syntax, &mut names);
@@ -44,7 +44,7 @@ fn main() -> Result<(), errors::Error> {
 
     // generate verilog for fsms
     for fsm in &fsms {
-        write!(verilog_buf, "{}", rtl_gen::to_verilog(fsm))?;
+        writeln!(verilog_buf, "{}", rtl_gen::to_verilog(fsm))?;
     }
     path_write(&opts.output, None, Some("v"), &mut |w| {
         write!(w, "{}", verilog_buf)
