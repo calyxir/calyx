@@ -14,3 +14,5 @@ Cargo.lock
 *.bak
 .DS_Store
 *.png
+*.dot
+*.v

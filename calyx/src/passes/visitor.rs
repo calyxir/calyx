@@ -10,6 +10,8 @@ pub struct Changes {
     new_comps: Vec<Component>,
     new_struct: Vec<Structure>,
     new_node: Scoped<Option<Control>>,
+    new_input_ports: Vec<Portdef>,
+    new_output_ports: Vec<Portdef>,
 }
 
 impl Changes {
@@ -32,6 +34,16 @@ impl Changes {
         self.new_node.set(Some(control));
     }
 
+    /// asdf
+    pub fn add_input_port(&mut self, port: Portdef) {
+        self.new_input_ports.push(port);
+    }
+
+    /// asdf
+    pub fn add_output_port(&mut self, port: Portdef) {
+        self.new_output_ports.push(port);
+    }
+
     /// internal function that creates a new scope for Changes
     fn push_scope(&mut self) {
         self.new_node.push_scope();
@@ -42,11 +54,19 @@ impl Changes {
         self.new_node.pop_scope();
     }
 
+    fn clear(&mut self) {
+        self.new_struct = vec![];
+        self.new_input_ports = vec![];
+        self.new_output_ports = vec![];
+    }
+
     fn new() -> Self {
         Changes {
             new_comps: vec![],
             new_struct: vec![],
             new_node: Scoped::new(),
+            new_input_ports: vec![],
+            new_output_ports: vec![],
         }
     }
 }
@@ -58,10 +78,6 @@ of the traversal for each node, and the finish functions are called
 at the end of the traversal for each node. You can use the finish
 functions to wrap error with more information. */
 pub trait Visitor<Err: std::fmt::Debug> {
-    // fn new() -> Self
-    // where
-    //     Self: Sized;
-
     fn name(&self) -> String;
 
     fn do_pass(&mut self, syntax: &mut Namespace) -> &mut Self
@@ -70,15 +86,27 @@ pub trait Visitor<Err: std::fmt::Debug> {
     {
         let mut changes = Changes::new();
         for comp in &mut syntax.components {
+            let res = self.start(&mut changes);
             comp.control.visit(self, &mut changes).unwrap_or_else(|x| {
                 eprintln!("The {} pass failed: {:?}", self.name(), x)
             });
+            self.finish(&mut changes, res);
+
+            // update changes
             comp.structure.append(&mut changes.new_struct);
-            changes.new_struct = vec![]; // reset structure additions after we're doing visiting a component
+            comp.inputs.append(&mut changes.new_input_ports);
+            comp.outputs.append(&mut changes.new_output_ports);
+            changes.clear();
         }
         syntax.components.append(&mut changes.new_comps);
         self
     }
+
+    fn start(&mut self, _c: &mut Changes) -> Result<(), Err> {
+        Ok(())
+    }
+
+    fn finish(&mut self, _c: &mut Changes, _res: Result<(), Err>) {}
 
     fn start_seq(&mut self, _s: &mut Seq, _c: &mut Changes) -> Result<(), Err> {
         Ok(())

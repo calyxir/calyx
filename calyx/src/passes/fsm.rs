@@ -4,6 +4,7 @@ use crate::passes::visitor::Visitor;
 use crate::utils::{calculate_hash, NameGenerator};
 
 pub fn generate(syntax: &mut Namespace, names: &mut NameGenerator) {
+    passes::lat_insensitive::LatencyInsenstive::new().do_pass(syntax);
     passes::fsm_enable::FsmEnable::new().do_pass(syntax);
     let mut prev_hash = calculate_hash(&syntax);
     loop {
