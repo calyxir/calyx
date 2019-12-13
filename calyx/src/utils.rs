@@ -103,28 +103,27 @@ impl<T> WithDefault for Option<T> {
     }
 }
 
-pub fn dot_command(file: &Option<PathBuf>, suffix: Option<&str>) {
-    match file {
-        None => (),
-        Some(p) => {
-            let mut p = p.clone();
-            suffix.map_or((), |suffix| add_suffix(&mut p, suffix));
-            let mut dot_file = p.clone();
-            dot_file.set_extension("dot");
-            let mut png_file = p.clone();
-            png_file.set_extension("png");
-            let _res = Command::new("dot")
-                .args(&[
-                    "-Tpng",
-                    dot_file.to_str().unwrap(),
-                    "-o",
-                    png_file.to_str().unwrap(),
-                ])
-                .spawn();
-        }
-    }
+/// Takes a path and an optional suffix and attempts to
+/// run `dot` to generate a `png` for the graph. Will
+/// silently fail if `dot` doesn't exist.
+pub fn dot_command(p: &PathBuf, suffix: Option<&str>) {
+    let mut p = p.clone();
+    suffix.map_or((), |suffix| add_suffix(&mut p, suffix));
+    let mut dot_file = p.clone();
+    dot_file.set_extension("dot");
+    let mut png_file = p.clone();
+    png_file.set_extension("png");
+    let _res = Command::new("dot")
+        .args(&[
+            "-Tpng",
+            dot_file.to_str().unwrap(),
+            "-o",
+            png_file.to_str().unwrap(),
+        ])
+        .spawn();
 }
 
+/// Ignore the return result of an operation
 pub fn ignore<T>(_t: T) {}
 
 /// hacky method to add suffix to file stem. don't think there's a

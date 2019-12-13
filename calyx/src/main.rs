@@ -28,19 +28,6 @@ fn main() -> Result<(), errors::Error> {
     let mut names = NameGenerator::new();
     let mut syntax = parse::parse_file(&opts.file)?;
 
-    // if matches.occurrences_of("LIB") == 1 {
-    //     let libname = matches.value_of("LIB").unwrap();
-    //     let context = Context::init_context(
-    //         filename.to_string(),
-    //         component_name.to_string(),
-    //         vec![libname.to_string()],
-    //     );
-
-    //     let verilog = backend::rtl::gen::to_verilog(&context);
-
-    //     println!("{}", verilog);
-    // }
-
     // generate verilog
     opts.libraries.as_ref().map_or((), |libpath| {
         let context =
@@ -65,7 +52,8 @@ fn main() -> Result<(), errors::Error> {
                 writeln!(w, "{}", fsm.visualize())
             });
             // try running dot
-            utils::dot_command(&path, Some("_fsm"))
+            path.as_ref()
+                .map_or((), |p| utils::dot_command(&p, Some("_fsm")));
         })
     });
 
@@ -79,7 +67,8 @@ fn main() -> Result<(), errors::Error> {
                 writeln!(w, "{}", comp.structure_graph().visualize())
             });
             // try running dot
-            utils::dot_command(&path, Some("_struct"));
+            path.as_ref()
+                .map_or((), |p| utils::dot_command(&p, Some("_struct")));
         })
     });
 
