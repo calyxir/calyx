@@ -129,7 +129,7 @@ impl FSM {
     /// edges' port fields- ignores component id's)
     pub fn inputs(&self) -> Vec<Id> {
         let mut v: Vec<Id> = Vec::new();
-        for (_, st) in &self.states {
+        for st in self.states.values() {
             for (ports, _) in &st.transitions {
                 for (_, port, _) in ports {
                     if !v.contains(port) {
@@ -145,7 +145,7 @@ impl FSM {
     /// outputs' port fields- ignores component id's)
     pub fn outputs(&self) -> Vec<Id> {
         let mut v: Vec<Id> = Vec::new();
-        for (_, st) in &self.states {
+        for st in self.states.values() {
             for (_, port, _) in &st.outputs {
                 if !v.contains(port) {
                     v.push(port.clone());
