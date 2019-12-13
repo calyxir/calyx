@@ -28,26 +28,27 @@ fn main() -> Result<(), errors::Error> {
     let mut names = NameGenerator::new();
     let mut syntax = parse::parse_file(&opts.file)?;
 
-    // generate verilog
-    // opts.libraries.as_ref().map_or((), |libpath| {
-    //     let context =
-    //         Context::init_context(&opts.file, &opts.component, &libpath[..]);
+    let mut verilog_buf = String::new();
 
-    //     let verilog = backend::rtl::gen::to_verilog(&context);
-    //     path_write(&opts.output, None, Some("v"), &mut |w| {
-    //         writeln!(w, "{}", verilog)
-    //     })
-    // });
+    // generate verilog
+    opts.libraries.as_ref().map_or(Ok(()), |libpath| {
+        let context =
+            Context::init_context(&opts.file, &opts.component, &libpath[..]);
+
+        let verilog = backend::rtl::gen::to_verilog(&context);
+        write!(verilog_buf, "{}", verilog)
+    })?;
 
     passes::fsm::generate(&mut syntax, &mut names);
     let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
 
     // generate verilog for fsms
-    let mut buf = String::new();
     for fsm in &fsms {
-        write!(buf, "{}", rtl_gen::to_verilog(fsm))?;
+        write!(verilog_buf, "{}", rtl_gen::to_verilog(fsm))?;
     }
-    path_write(&opts.output, None, Some("v"), &mut |w| write!(w, "{}", buf));
+    path_write(&opts.output, None, Some("v"), &mut |w| {
+        write!(w, "{}", verilog_buf)
+    });
 
     // visualize fsms
     opts.visualize_fsm.as_ref().map_or((), |path| {
