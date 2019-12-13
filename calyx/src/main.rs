@@ -29,27 +29,34 @@ fn main() -> Result<(), errors::Error> {
     let mut syntax = parse::parse_file(&opts.file)?;
 
     // generate verilog
-    opts.libraries.as_ref().map_or((), |libpath| {
-        let context =
-            Context::init_context(&opts.file, &opts.component, &libpath[..]);
+    // opts.libraries.as_ref().map_or((), |libpath| {
+    //     let context =
+    //         Context::init_context(&opts.file, &opts.component, &libpath[..]);
 
-        let verilog = backend::rtl::gen::to_verilog(&context);
-        path_write(&opts.output, None, Some("v"), &mut |w| {
-            writeln!(w, "{}", verilog)
-        })
-    });
+    //     let verilog = backend::rtl::gen::to_verilog(&context);
+    //     path_write(&opts.output, None, Some("v"), &mut |w| {
+    //         writeln!(w, "{}", verilog)
+    //     })
+    // });
 
     passes::fsm::generate(&mut syntax, &mut names);
+    let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
+
+    // generate verilog for fsms
+    let mut buf = String::new();
+    for fsm in &fsms {
+        write!(buf, "{}", rtl_gen::to_verilog(fsm))?;
+    }
+    path_write(&opts.output, None, Some("v"), &mut |w| write!(w, "{}", buf));
 
     // visualize fsms
-    let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
     opts.visualize_fsm.as_ref().map_or((), |path| {
         // get fsm for specified component
         let fsm = fsms.iter().find(|x| x.name == opts.component);
         fsm.map_or((), |fsm| {
             // commit fsm
             path_write(&path, Some("_fsm"), Some("dot"), &mut |w| {
-                writeln!(w, "{}", fsm.visualize())
+                write!(w, "{}", fsm.visualize())
             });
             // try running dot
             path.as_ref()
@@ -64,7 +71,7 @@ fn main() -> Result<(), errors::Error> {
         comp.map_or((), |comp| {
             // commit visualization for comp
             path_write(&path, Some("_struct"), Some("dot"), &mut |w| {
-                writeln!(w, "{}", comp.structure_graph().visualize())
+                write!(w, "{}", comp.structure_graph().visualize())
             });
             // try running dot
             path.as_ref()
