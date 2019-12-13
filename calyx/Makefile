@@ -7,8 +7,7 @@ test:
 	cargo clippy
 	cargo test -- --nocapture
 
-run:
-	cargo clippy
+run: build
 	cargo run stdlib.rkt and3way -l ./primitives/std.lib
 
 install:

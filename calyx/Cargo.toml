@@ -3,7 +3,8 @@ name = "calyx"
 version = "0.1.0"
 authors = ["Samuel Thomas <sgpthomas@gmail.com>"]
 edition = "2018"
-build = "build.rs"
+build = false
+# build = "build.rs"
 
 [dependencies]
 sexp = "~1.1"
@@ -13,6 +14,6 @@ petgraph = "~0.4"
 better-panic = "~0.2"
 pretty = "~0.7"
 
-[build-dependencies]
-clap = "2.33"
-structopt = "~0.3"
+# [build-dependencies]
+# clap = "2.33"
+# structopt = "~0.3"

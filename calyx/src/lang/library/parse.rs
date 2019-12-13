@@ -3,12 +3,13 @@ use crate::lang::utils::*;
 use sexp::Sexp;
 use sexp::Sexp::{Atom, List};
 use std::fs;
+use std::path::PathBuf;
 
-#[allow(unused)]
-pub fn parse_file(filename: &str) -> Library {
-    let content = &fs::read_to_string(filename)
+pub fn parse_file(filename: &PathBuf) -> Library {
+    let content = &fs::read(filename)
         .expect("Something went wrong reading the library file");
-    parse(content)
+    let string = std::str::from_utf8(content).unwrap();
+    parse(string)
 }
 
 fn parse(prog: &str) -> Library {

@@ -1,3 +1,4 @@
+use crate::utils::ignore;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -28,11 +29,17 @@ pub struct Opts {
 
     // library paths
     #[structopt(long, short)]
-    pub libraries: Vec<PathBuf>,
+    pub libraries: Option<Vec<PathBuf>>,
+
+    // where to output verilog
+    #[structopt(short)]
+    pub output: Option<PathBuf>,
 }
 
 // ================== Helper Functions ======================= //
 
+/// struct that implements `std::fmt::Write` to support rewriting
+/// to either stdout or a file
 pub struct Writer {
     file: Option<File>,
 }
@@ -52,6 +59,7 @@ impl std::fmt::Write for Writer {
 /// replace the path extension with, and a function that does the writing
 pub fn path_write<F>(
     path: &Option<PathBuf>,
+    suffix: Option<&str>,
     ext: Option<&str>,
     write_fn: &mut F,
 ) where
@@ -61,12 +69,8 @@ pub fn path_write<F>(
         None => write_fn(&mut Writer { file: None }).unwrap(),
         Some(p) => {
             let mut path = p.clone();
-            match ext {
-                None => (),
-                Some(ext) => {
-                    path.set_extension(ext);
-                }
-            };
+            suffix.map_or((), |x| path.push(x));
+            ext.map_or((), |ext| ignore(path.set_extension(ext)));
             write_fn(&mut Writer {
                 file: Some(File::create(path.as_path()).unwrap()),
             })

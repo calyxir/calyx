@@ -7,7 +7,7 @@ pub struct StateIndex {
     pub id: i64,
 }
 
-// pub type Port = (Id, String);
+/// A ValuedPort is (component id, port name, value)
 pub type ValuedPort = (Id, String, i64);
 pub type Edge = (Vec<ValuedPort>, StateIndex);
 
@@ -30,8 +30,6 @@ pub struct State {
 #[derive(Clone, Debug)]
 pub struct FSM {
     pub name: String,
-    inputs: Vec<Id>,
-    outputs: Vec<Id>,
     pub states: HashMap<StateIndex, State>,
     start: StateIndex,
     last_index: StateIndex,
@@ -81,8 +79,6 @@ impl FSM {
             idx,
             FSM {
                 name: name.to_string(),
-                inputs: vec![],
-                outputs: vec![],
                 states,
                 start: idx,
                 last_index: idx,
@@ -118,21 +114,6 @@ impl FSM {
         self.last_index = new_idx;
         new_idx
     }
-    // Returns a unique value for the state for rtl generation
-    // fn state_value(&self, st_ind: StateI) -> usize {
-    //     (self.states)
-    //         .iter()
-    //         .position(
-    //             |(_, state)| *state == st,
-    //             //match st.clone().default {
-    //             //None => *state == *st,
-    //             //Some(default) => *state == *default,
-    //             //})
-    //         )
-    //         .unwrap()
-    //         + 1 // Plus one for 1 indexing (instead of 0 indexing)
-    // }
-
     // Returns the number of bits required to represent each state in the FSM
     pub fn state_bits(&self) -> i64 {
         let num_states: f64 = self.states.len() as f64;
@@ -142,5 +123,35 @@ impl FSM {
     // Convenience function for generating verilog string values for each state
     pub fn state_string(&self, st_ind: StateIndex) -> String {
         format!("{}'d{}", self.state_bits(), st_ind.id)
+    }
+
+    /// A vector of all the inputs to the FSM (based off state transition
+    /// edges' port fields- ignores component id's)
+    pub fn inputs(&self) -> Vec<Id> {
+        let mut v: Vec<Id> = Vec::new();
+        for (_, st) in &self.states {
+            for (ports, _) in &st.transitions {
+                for (_, port, _) in ports {
+                    if !v.contains(port) {
+                        v.push(port.clone())
+                    }
+                }
+            }
+        }
+        v
+    }
+
+    /// A vector of all the outputs to the FSM (based off state
+    /// outputs' port fields- ignores component id's)
+    pub fn outputs(&self) -> Vec<Id> {
+        let mut v: Vec<Id> = Vec::new();
+        for (_, st) in &self.states {
+            for (_, port, _) in &st.outputs {
+                if !v.contains(port) {
+                    v.push(port.clone());
+                }
+            }
+        }
+        v
     }
 }

@@ -122,3 +122,5 @@ pub fn dot_command(file: &Option<PathBuf>) {
         }
     }
 }
+
+pub fn ignore<T>(_t: T) {}
