@@ -12,4 +12,4 @@ run:
 	cargo run stdlib.rkt and3way -l ./primitives/std.lib
 
 install:
-	cargo install --path .
+	cargo install --force --path .
