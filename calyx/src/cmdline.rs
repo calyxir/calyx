@@ -1,4 +1,4 @@
-use crate::utils::ignore;
+use crate::utils::{add_suffix, ignore};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -69,7 +69,7 @@ pub fn path_write<F>(
         None => write_fn(&mut Writer { file: None }).unwrap(),
         Some(p) => {
             let mut path = p.clone();
-            suffix.map_or((), |x| path.push(x));
+            suffix.map_or((), |x| add_suffix(&mut path, x));
             ext.map_or((), |ext| ignore(path.set_extension(ext)));
             write_fn(&mut Writer {
                 file: Some(File::create(path.as_path()).unwrap()),

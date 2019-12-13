@@ -103,10 +103,12 @@ impl<T> WithDefault for Option<T> {
     }
 }
 
-pub fn dot_command(file: &Option<PathBuf>) {
+pub fn dot_command(file: &Option<PathBuf>, suffix: Option<&str>) {
     match file {
         None => (),
         Some(p) => {
+            let mut p = p.clone();
+            suffix.map_or((), |suffix| add_suffix(&mut p, suffix));
             let mut dot_file = p.clone();
             dot_file.set_extension("dot");
             let mut png_file = p.clone();
@@ -124,3 +126,14 @@ pub fn dot_command(file: &Option<PathBuf>) {
 }
 
 pub fn ignore<T>(_t: T) {}
+
+/// hacky method to add suffix to file stem. don't think there's a
+/// better way though
+pub fn add_suffix(path: &mut PathBuf, suffix: &str) {
+    let cl = path.clone();
+    let mut file = cl.file_stem().unwrap().to_str().unwrap().to_string();
+    let ext = cl.extension();
+    file.push_str(suffix);
+    path.set_file_name(file);
+    ext.map_or((), |x| ignore(path.set_extension(x)));
+}

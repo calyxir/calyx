@@ -65,7 +65,7 @@ fn main() -> Result<(), errors::Error> {
                 writeln!(w, "{}", fsm.visualize())
             });
             // try running dot
-            utils::dot_command(&path)
+            utils::dot_command(&path, Some("_fsm"))
         })
     });
 
@@ -79,7 +79,7 @@ fn main() -> Result<(), errors::Error> {
                 writeln!(w, "{}", comp.structure_graph().visualize())
             });
             // try running dot
-            utils::dot_command(&path);
+            utils::dot_command(&path, Some("_struct"));
         })
     });
 
