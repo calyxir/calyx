@@ -1,3 +1,4 @@
+use super::machine::ValuedPort;
 use crate::backend::fsm::machine::{Edge, State, StateIndex, FSM};
 use crate::lang::ast::Id;
 use crate::utils::*;
@@ -23,7 +24,7 @@ pub fn to_verilog(fsm: &FSM) -> String {
         wiredefs,
         pretty_print(state_transition(fsm)),
         pretty_print(next_state_logic(fsm)),
-        output_logic(fsm)
+        pretty_print(output_logic(fsm))
     )
 }
 
@@ -194,43 +195,75 @@ fn condition((_, id, value): &(String, String, i64)) -> RcDoc<'_> {
 //==========================================
 //        FSM State Output Logic
 //==========================================
-fn output_logic(fsm: &FSM) -> String {
-    let statements: Vec<String> = fsm
+fn output_logic(fsm: &FSM) -> RcDoc<'_> {
+    let statements = fsm
         .states
         .iter()
-        .map(|(st_id, state)| output_state(&state, fsm, st_id))
-        .collect();
-    let statements = combine(&statements, "\n ", "");
-    format!(
-        "always_comb begin\n    case (state)\n{}\n endcase\n end",
-        statements
-    )
+        .map(|(st_id, state)| state_outputs(&state, fsm, st_id));
+    RcDoc::text("always_comb")
+        .append(RcDoc::space())
+        .append(RcDoc::text("begin"))
+        .append(RcDoc::line().nest(4))
+        .append(RcDoc::text("case"))
+        .append(RcDoc::space())
+        .append(RcDoc::text("(state)"))
+        .append(
+            RcDoc::line()
+                .nest(4)
+                .append(
+                    RcDoc::intersperse(statements, RcDoc::line().nest(4))
+                        .append(RcDoc::line()),
+                )
+                .nest(4),
+        )
+        .append(RcDoc::text("endcase"))
+        .append(RcDoc::line())
+        .append(RcDoc::text("end"))
 
     //"TODO".to_string()
 }
 
-fn output_state(st: &State, fsm: &FSM, st_id: &StateIndex) -> String {
-    let mut state_list: Vec<&String> = Vec::new();
-    let mut out_statements: Vec<String> = st
-        .outputs
-        .iter()
-        .map(|(_, id, val)| {
-            state_list.push(id);
-            format!("{} = 1'd{};", id, val)
-        })
-        .collect();
-
-    let mut iter = state_list.iter();
-    for outputs in &fsm.outputs {
-        if !iter.any(|&x| x == outputs) {
-            out_statements.push(format!("{} = 1'd0", outputs))
+fn has_port(p: &Id, v: &Vec<ValuedPort>) -> bool {
+    for (_, port, _) in v {
+        if port == p {
+            return true;
         }
     }
+    false
+}
 
-    let out_statements = combine(&out_statements, "\n ", "");
-    format!(
-        "{}: begin\n    {}\n   end",
-        fsm.state_string(*st_id),
-        out_statements
-    )
+fn state_outputs<'a>(
+    st: &'a State,
+    fsm: &'a FSM,
+    st_id: &'a StateIndex,
+) -> RcDoc<'a> {
+    let mut outputs: Vec<ValuedPort> = st.outputs.clone();
+    for port in fsm.outputs() {
+        if has_port(&port, &outputs) {
+            outputs.push(("".to_string(), port, 0));
+        }
+    }
+    let outputs = outputs.into_iter().map(out_statement);
+    RcDoc::text(fsm.state_string(*st_id))
+        .append(RcDoc::text(":"))
+        .append(RcDoc::space())
+        .append(RcDoc::text("begin"))
+        .append(
+            RcDoc::line()
+                .nest(4)
+                .append(RcDoc::intersperse(outputs, RcDoc::line().nest(4))),
+        )
+        .append(RcDoc::line())
+        .nest(4)
+        .append(RcDoc::text("end"))
+    //let out_statements = combine(&out_statements, "\n ", "");
+    //format!(
+    //    "{}: begin\n    {}\n   end",
+    //    fsm.state_string(*st_id),
+    //    out_statements
+    //)
+}
+
+fn out_statement<'a>((_, port, value): ValuedPort) -> RcDoc<'a> {
+    RcDoc::text(format!("{} = 1'd{};", port, value))
 }
