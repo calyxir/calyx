@@ -245,7 +245,7 @@ fn state_outputs<'a>(
 ) -> RcDoc<'a> {
     let mut outputs: Vec<ValuedPort> = st.outputs.clone();
     for port in fsm.outputs() {
-        if has_port(&port, &outputs) {
+        if !has_port(&port, &outputs) {
             outputs.push(("".to_string(), port, 0));
         }
     }
