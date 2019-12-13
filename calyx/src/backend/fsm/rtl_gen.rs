@@ -18,14 +18,20 @@ fn pretty_print(doc: RcDoc) -> String {
 pub fn to_verilog(fsm: &FSM) -> String {
     let portdefs = "TODO\n";
     let wiredefs = format!("logic [{}:0] state, next_state;", fsm.state_bits());
-    format!(
-        "module {}\n\n{}\n\n{}\n\n{}\n\n{}\n endmodule",
-        pretty_print(module_declaration(fsm)),
-        wiredefs,
-        pretty_print(state_transition(fsm)),
-        pretty_print(next_state_logic(fsm)),
-        pretty_print(output_logic(fsm))
-    )
+    let doc = RcDoc::text(format!("module"))
+        .append(RcDoc::space())
+        .append(module_declaration(fsm))
+        .append(RcDoc::line())
+        .append(RcDoc::text(wiredefs))
+        .append(RcDoc::line())
+        .append(state_transition(fsm))
+        .append(RcDoc::line())
+        .append(next_state_logic(fsm))
+        .append(RcDoc::line())
+        .append(output_logic(fsm))
+        .append(RcDoc::line())
+        .append(RcDoc::text("endmodule"));
+    pretty_print(doc)
 }
 
 //==========================================
