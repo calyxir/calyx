@@ -98,7 +98,7 @@ impl Visitor<()> for FsmPar<'_> {
 
         changes.add_structure(Structure::decl(
             component.name.clone(),
-            "fsm_par".to_string(),
+            component.name.clone(),
         ));
 
         changes.add_component(component);

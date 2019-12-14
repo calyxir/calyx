@@ -2,7 +2,6 @@ use crate::lang::ast;
 use crate::lang::ast::{Component, Namespace, Port, Structure};
 use crate::lang::library;
 use crate::lang::library::ast::Library;
-use crate::lang::parse;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -33,17 +32,17 @@ fn init_library(libs: &[PathBuf]) -> HashMap<String, library::ast::Primitive> {
 
 impl Context {
     pub fn init_context(
-        file: &PathBuf,
+        syntax: &mut Namespace,
         toplevel: &str,
         libs: &[PathBuf],
     ) -> Context {
-        let namespace: Namespace = parse::parse_file(file).unwrap();
-        let comp: Component = namespace.get_component(toplevel.to_string());
+        // let namespace: Namespace = parse::parse_file(file).unwrap();
+        let comp: Component = syntax.get_component(toplevel.to_string());
         let store = comp.get_store();
         Context {
             toplevel: comp,
             instances: store,
-            definitions: namespace.get_definitions(),
+            definitions: syntax.get_definitions(),
             library: init_library(libs),
         }
     }

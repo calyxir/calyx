@@ -115,7 +115,7 @@ impl Visitor<()> for FsmIfen<'_> {
 
         changes.add_structure(Structure::decl(
             component.name.clone(),
-            "fsm_ifen".to_string(),
+            component.name.clone(),
         ));
 
         changes.add_component(component);

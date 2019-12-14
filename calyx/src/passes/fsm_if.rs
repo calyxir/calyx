@@ -17,7 +17,11 @@ impl Visitor<()> for FsmIf<'_> {
         "FSM if".to_string()
     }
 
-    fn start_if(&mut self, c_if: &mut If, changes: &mut Changes) -> Result<(), ()> {
+    fn start_if(
+        &mut self,
+        c_if: &mut If,
+        changes: &mut Changes,
+    ) -> Result<(), ()> {
         // make input ports for enable fsm component
         let val = Portdef {
             name: "valid".to_string(),
@@ -130,7 +134,7 @@ impl Visitor<()> for FsmIf<'_> {
 
         changes.add_structure(Structure::decl(
             component.name.clone(),
-            "fsm_if".to_string(),
+            component.name.clone(),
         ));
 
         changes.add_component(component);

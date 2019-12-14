@@ -10,6 +10,7 @@ use crate::backend::framework::Context;
 use crate::backend::fsm::rtl_gen;
 use crate::cmdline::{path_write, Opts};
 // use crate::backend::fsm::visualizer;
+
 // use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::*;
 use crate::utils::NameGenerator;
@@ -30,17 +31,17 @@ fn main() -> Result<(), errors::Error> {
 
     let mut verilog_buf = String::new();
 
+    passes::fsm::generate(&mut syntax, &mut names);
+    let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
+
     // generate verilog
     opts.libraries.as_ref().map_or(Ok(()), |libpath| {
         let context =
-            Context::init_context(&opts.file, &opts.component, &libpath[..]);
+            Context::init_context(&mut syntax, &opts.component, &libpath[..]);
 
         let verilog = backend::rtl::gen::to_verilog(&context);
         writeln!(verilog_buf, "{}", verilog)
     })?;
-
-    passes::fsm::generate(&mut syntax, &mut names);
-    let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
 
     // generate verilog for fsms
     for fsm in &fsms {

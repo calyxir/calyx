@@ -113,7 +113,7 @@ impl Visitor<String> for FsmWhile<'_> {
 
         changes.add_structure(Structure::decl(
             component.name.clone(),
-            "fsm_while".to_string(),
+            component.name.clone(),
         ));
 
         changes.add_component(component);

@@ -88,7 +88,7 @@ impl Visitor<()> for FsmEnable {
 
             changes.add_structure(Structure::decl(
                 component.name.clone(),
-                "fsm_enable".to_string(),
+                component.name.clone(),
             ));
 
             // change the instruction
