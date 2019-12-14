@@ -223,7 +223,10 @@ pub fn inst_to_string(inst: RtlInst) -> RcDoc<'_> {
         .append(RcDoc::text("("))
         .append(
             RcDoc::line()
-                .append(RcDoc::intersperse(ports, RcDoc::line()))
+                .append(RcDoc::intersperse(
+                    ports,
+                    RcDoc::text(",").append(RcDoc::line()),
+                ))
                 .nest(4),
         )
         .append(RcDoc::line())

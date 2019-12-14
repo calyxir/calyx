@@ -25,26 +25,30 @@ impl Visitor<()> for FsmIf<'_> {
         // make input ports for enable fsm component
         let val = Portdef {
             name: "valid".to_string(),
-            width: 32,
+            width: 1,
         };
         let reset = Portdef {
             name: "reset".to_string(),
-            width: 32,
+            width: 1,
         };
         let cond = Portdef {
             name: "condition".to_string(),
             width: 32,
         };
+        let clk = Portdef {
+            name: "clock".to_string(),
+            width: 1,
+        };
 
         // make output ports for enable fsm component
         let rdy = Portdef {
             name: "ready".to_string(),
-            width: 32,
+            width: 1,
         };
 
         let component_name = self.names.gen_name("fsm_if_");
 
-        let mut inputs: Vec<Portdef> = vec![cond.clone(), val, reset];
+        let mut inputs: Vec<Portdef> = vec![cond.clone(), val, reset, clk];
         let mut outputs: Vec<Portdef> = vec![rdy];
         let mut branchs = vec![*c_if.tbranch.clone(), *c_if.fbranch.clone()];
         println!("{:#?}", branchs);

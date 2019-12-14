@@ -25,15 +25,19 @@ impl Visitor<String> for FsmWhile<'_> {
         // make input ports for enable fsm component
         let val = Portdef {
             name: "valid".to_string(),
-            width: 32,
+            width: 1,
         };
         let reset = Portdef {
             name: "reset".to_string(),
-            width: 32,
+            width: 1,
         };
         let cond = Portdef {
             name: "condition".to_string(),
             width: 32,
+        };
+        let clk = Portdef {
+            name: "clock".to_string(),
+            width: 1,
         };
 
         //make output ports for enable fsm component
@@ -44,7 +48,7 @@ impl Visitor<String> for FsmWhile<'_> {
 
         let component_name = self.names.gen_name("fsm_while_");
 
-        let mut inputs: Vec<Portdef> = vec![cond.clone(), val, reset];
+        let mut inputs: Vec<Portdef> = vec![cond.clone(), val, reset, clk];
         let mut outputs: Vec<Portdef> = vec![rdy];
         let branches = *c_while.body.clone();
 

@@ -11,7 +11,7 @@ use crate::backend::fsm::rtl_gen;
 use crate::cmdline::{path_write, Opts};
 // use crate::backend::fsm::visualizer;
 
-// use crate::lang::pretty_print::PrettyPrint;
+use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::*;
 use crate::utils::NameGenerator;
 use std::fmt::Write;
@@ -33,6 +33,8 @@ fn main() -> Result<(), errors::Error> {
 
     passes::fsm::generate(&mut syntax, &mut names);
     let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
+
+    syntax.pretty_print();
 
     // generate verilog
     opts.libraries.as_ref().map_or(Ok(()), |libpath| {

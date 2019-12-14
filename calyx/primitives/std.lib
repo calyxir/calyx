@@ -1,6 +1,6 @@
 
 (define/library
-  (define/prim (const p_width p_value)
+  (define/prim (c_const p_width p_value)
     ((port valid 32) (port reset 32))
     ((port out p_width) (port ready 32)))
 
@@ -29,8 +29,8 @@
     ((port out p_width) ))
 
   (define/prim (register p_width)
-    ((port in p_width) (port reset 1) (port valid 32) (port reset 32))
-    ((port out p_width) (port ready 32)))
+    ((port in p_width) (port reset 1) (port valid 1) (port reset 1))
+    ((port out p_width) (port ready 1)))
 
   (define/prim (gt p_width)
     ((port in0 p_width) (port in1 p_width))

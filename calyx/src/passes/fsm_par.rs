@@ -25,22 +25,26 @@ impl Visitor<()> for FsmPar<'_> {
         // make input ports for enable fsm component
         let val = Portdef {
             name: "valid".to_string(),
-            width: 32,
+            width: 1,
         };
         let reset = Portdef {
             name: "reset".to_string(),
-            width: 32,
+            width: 1,
+        };
+        let clk = Portdef {
+            name: "clock".to_string(),
+            width: 1,
         };
 
         // make output ports for enable fsm component
         let rdy = Portdef {
             name: "ready".to_string(),
-            width: 32,
+            width: 1,
         };
 
         let component_name = self.names.gen_name("fsm_par_");
 
-        let mut inputs: Vec<Portdef> = vec![val, reset];
+        let mut inputs: Vec<Portdef> = vec![val, reset, clk];
         let mut outputs: Vec<Portdef> = vec![rdy];
 
         for con in &mut par.stmts {

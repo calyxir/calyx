@@ -25,26 +25,30 @@ impl Visitor<()> for FsmIfen<'_> {
         // make input ports for enable fsm component
         let val = Portdef {
             name: "valid".to_string(),
-            width: 32,
+            width: 1,
         };
         let reset = Portdef {
             name: "reset".to_string(),
-            width: 32,
+            width: 1,
         };
         let cond = Portdef {
             name: "condition".to_string(),
             width: 32,
         };
+        let clk = Portdef {
+            name: "clock".to_string(),
+            width: 1,
+        };
 
         // make output ports for enable fsm component
         let rdy = Portdef {
             name: "ready".to_string(),
-            width: 32,
+            width: 1,
         };
 
         let component_name = self.names.gen_name("fsm_ifen_");
 
-        let mut inputs: Vec<Portdef> = vec![cond.clone(), val, reset];
+        let mut inputs: Vec<Portdef> = vec![cond.clone(), val, reset, clk];
         let mut outputs: Vec<Portdef> = vec![rdy];
         let mut branchs = vec![*ifen.tbranch.clone(), *ifen.fbranch.clone()];
         for con in &mut branchs {
@@ -86,7 +90,6 @@ impl Visitor<()> for FsmIfen<'_> {
                     outputs.push(valid);
                     changes.add_structure(Structure::Wire { data: ready_wire });
                     changes.add_structure(Structure::Wire { data: valid_wire });
-                    //data.comps = vec![component_name.clone()];
                 }
                 Control::Empty { .. } => (),
                 _ => return Ok(()),
