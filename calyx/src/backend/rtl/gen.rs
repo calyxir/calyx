@@ -109,7 +109,7 @@ fn wire_string<'a>(wire: &'a Wire, c: &Context) -> RcDoc<'a> {
 pub fn port_wire_id(p: &Port) -> RcDoc<'_> {
     match p {
         Port::Comp { component, port } => RcDoc::text(component)
-            .append(RcDoc::space())
+            .append(RcDoc::text("_"))
             .append(RcDoc::text(port)),
         Port::This { port } => RcDoc::text(port),
     }
