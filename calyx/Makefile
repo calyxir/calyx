@@ -1,4 +1,4 @@
-.PHONY: build test run test
+.PHONY: build test run test clean
 
 build:
 	cargo clippy
@@ -12,3 +12,16 @@ run: build
 
 install:
 	cargo install --force --path .
+
+clean:
+	rm */*.vcd
+
+%.v:
+	cargo run $*.futil -l primitives/std.lib -o $*.v
+
+%.vcd: %.v
+	echo $*
+	verilator -cc --trace $*.v --exe tb.cpp
+	make -j -C obj_dir -f V$*.mk V$*
+	obj_dir/V$*
+	rm -rf obj_dir
