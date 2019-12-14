@@ -48,17 +48,10 @@ pub fn to_verilog(c: &Context) -> String {
 pub fn component_io(c: &Component) -> RcDoc<'_> {
     let mut inputs = c.inputs.iter().map(|pd| in_port(pd.width, &pd.name));
     let mut outputs = c.outputs.iter().map(|pd| out_port(pd.width, &pd.name));
-    RcDoc::line()
-        .append(RcDoc::intersperse(
-            inputs,
-            RcDoc::text(",").append(RcDoc::line()),
-        ))
-        .append(RcDoc::text(","))
-        .append(RcDoc::line())
-        .append(RcDoc::intersperse(
-            outputs,
-            RcDoc::text(",").append(RcDoc::line()),
-        ))
+    RcDoc::line().append(RcDoc::intersperse(
+        inputs.chain(outputs),
+        RcDoc::text(",").append(RcDoc::line()),
+    ))
 }
 
 pub fn in_port(width: i64, name: &str) -> RcDoc<'_> {
@@ -226,6 +219,8 @@ pub fn inst_to_string(inst: RtlInst) -> RcDoc<'_> {
         .append(RcDoc::text(")"))
         .append(RcDoc::space())
         .append(RcDoc::text(inst.id.clone()))
+        .append(RcDoc::space())
+        .append(RcDoc::text("("))
         .append(
             RcDoc::line()
                 .append(RcDoc::intersperse(ports, RcDoc::line()))

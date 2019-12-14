@@ -8,7 +8,7 @@
      (-> (@ const1 out) (@ x0 in))
      (new-std const2 (const 16 2))
      (-> (@ const2 out) (@ x0 in))
-     (new-std gt0 (comp/gt 16 ))
+     (new-std gt0 (gt 16 ))
      (-> (@ x0 out) (@ gt0 left))
      (-> (@ const3 out) (@ gt0 right))
      (new-std const3 (const 16 1))
