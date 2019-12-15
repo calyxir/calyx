@@ -82,10 +82,20 @@ impl Visitor<String> for FsmSeq<'_> {
                             port: "valid".to_string(),
                         },
                     };
+                    let clk_wire = Wire {
+                        src: Port::This {
+                            port: "clk".to_string(),
+                        },
+                        dest: Port::Comp {
+                            component: component_name.clone(),
+                            port: "clk".to_string(),
+                        },
+                    };
                     inputs.push(ready);
                     outputs.push(valid);
                     changes.add_structure(Structure::Wire { data: ready_wire });
                     changes.add_structure(Structure::Wire { data: valid_wire });
+                    changes.add_structure(Structure::Wire { data: clk_wire });
                 }
                 Control::Empty { .. } => (),
                 _x => return Ok(()),
