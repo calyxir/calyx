@@ -85,11 +85,21 @@ impl Visitor<()> for FsmEnable {
                         port: "clk".to_string(),
                     },
                 };
+                let reset_wire = Wire {
+                    src: Port::This {
+                        port: "reset".to_string(),
+                    },
+                    dest: Port::Comp {
+                        component: component_name.clone(),
+                        port: "reset".to_string(),
+                    },
+                };
                 inputs.push(ready);
                 outputs.push(valid);
                 changes.add_structure(Structure::Wire { data: ready_wire });
                 changes.add_structure(Structure::Wire { data: valid_wire });
                 changes.add_structure(Structure::Wire { data: clk_wire });
+                changes.add_structure(Structure::Wire { data: reset_wire });
             }
 
             let component = Component {
