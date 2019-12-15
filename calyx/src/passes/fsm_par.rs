@@ -27,10 +27,6 @@ impl Visitor<()> for FsmPar<'_> {
             name: "valid".to_string(),
             width: 1,
         };
-        let reset = Portdef {
-            name: "reset".to_string(),
-            width: 1,
-        };
         // make output ports for enable fsm component
         let rdy = Portdef {
             name: "ready".to_string(),
@@ -39,7 +35,7 @@ impl Visitor<()> for FsmPar<'_> {
 
         let component_name = self.names.gen_name("fsm_par_");
 
-        let mut inputs: Vec<Portdef> = vec![val, reset];
+        let mut inputs: Vec<Portdef> = vec![val];
         let mut outputs: Vec<Portdef> = vec![rdy];
 
         for con in &mut par.stmts {
@@ -77,20 +73,10 @@ impl Visitor<()> for FsmPar<'_> {
                             port: "valid".to_string(),
                         },
                     };
-                    let reset_wire = Wire {
-                        src: Port::This {
-                            port: "reset".to_string(),
-                        },
-                        dest: Port::Comp {
-                            component: component_name.clone(),
-                            port: "reset".to_string(),
-                        },
-                    };
                     inputs.push(ready);
                     outputs.push(valid);
                     changes.add_structure(Structure::Wire { data: ready_wire });
                     changes.add_structure(Structure::Wire { data: valid_wire });
-                    changes.add_structure(Structure::Wire { data: reset_wire });
                 }
                 _ => return Ok(()),
             }

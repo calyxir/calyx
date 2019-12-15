@@ -27,10 +27,6 @@ impl Visitor<()> for FsmIfen<'_> {
             name: "valid".to_string(),
             width: 1,
         };
-        let reset = Portdef {
-            name: "reset".to_string(),
-            width: 1,
-        };
         let cond = Portdef {
             name: "condition".to_string(),
             width: 1,
@@ -43,7 +39,7 @@ impl Visitor<()> for FsmIfen<'_> {
 
         let component_name = self.names.gen_name("fsm_ifen_");
 
-        let mut inputs: Vec<Portdef> = vec![cond.clone(), val, reset];
+        let mut inputs: Vec<Portdef> = vec![cond.clone(), val];
         let mut outputs: Vec<Portdef> = vec![rdy];
         let mut branchs = vec![*ifen.tbranch.clone(), *ifen.fbranch.clone()];
         for con in &mut branchs {
@@ -81,20 +77,10 @@ impl Visitor<()> for FsmIfen<'_> {
                             port: "valid".to_string(),
                         },
                     };
-                    let reset_wire = Wire {
-                        src: Port::This {
-                            port: "reset".to_string(),
-                        },
-                        dest: Port::Comp {
-                            component: component_name.clone(),
-                            port: "reset".to_string(),
-                        },
-                    };
                     inputs.push(ready);
                     outputs.push(valid);
                     changes.add_structure(Structure::Wire { data: ready_wire });
                     changes.add_structure(Structure::Wire { data: valid_wire });
-                    changes.add_structure(Structure::Wire { data: reset_wire });
                 }
                 Control::Empty { .. } => (),
                 _ => return Ok(()),
