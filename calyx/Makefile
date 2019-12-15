@@ -14,14 +14,15 @@ install:
 	cargo install --force --path .
 
 clean:
-	rm */*.vcd
+	rm -f build/*.vcd
+	rm -f build/*.v
 
 %.v:
-	cargo run $*.futil -l primitives/std.lib -o $*.v
+	cargo run examples/$*.futil -l primitives/std.lib -o build/$*.v
 
 %.vcd: %.v
 	echo $*
-	verilator -cc --trace $*.v --exe tb.cpp
+	verilator -cc --trace build/$*.v --exe tb.cpp
 	make -j -C obj_dir -f V$*.mk V$*
 	obj_dir/V$*
 	rm -rf obj_dir

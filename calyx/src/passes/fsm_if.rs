@@ -33,7 +33,7 @@ impl Visitor<()> for FsmIf<'_> {
         };
         let cond = Portdef {
             name: "condition".to_string(),
-            width: 32,
+            width: 1,
         };
         let clk = Portdef {
             name: "clock".to_string(),
@@ -63,23 +63,23 @@ impl Visitor<()> for FsmIf<'_> {
                     let ready = if i == 0 {
                         Portdef {
                             name: format!("ready_t_{}", comp),
-                            width: 32,
+                            width: 1,
                         }
                     } else {
                         Portdef {
                             name: format!("ready_f_{}", comp),
-                            width: 32,
+                            width: 1,
                         }
                     };
                     let valid = if i == 0 {
                         Portdef {
                             name: format!("valid_t_{}", comp),
-                            width: 32,
+                            width: 1,
                         }
                     } else {
                         Portdef {
                             name: format!("valid_f_{}", comp),
-                            width: 32,
+                            width: 1,
                         }
                     };
                     let ready_wire = Wire {

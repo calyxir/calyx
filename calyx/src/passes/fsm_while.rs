@@ -33,7 +33,7 @@ impl Visitor<String> for FsmWhile<'_> {
         };
         let cond = Portdef {
             name: "condition".to_string(),
-            width: 32,
+            width: 1,
         };
         let clk = Portdef {
             name: "clock".to_string(),
@@ -43,7 +43,7 @@ impl Visitor<String> for FsmWhile<'_> {
         //make output ports for enable fsm component
         let rdy = Portdef {
             name: "ready".to_string(),
-            width: 32,
+            width: 1,
         };
 
         let component_name = self.names.gen_name("fsm_while_");
@@ -60,11 +60,11 @@ impl Visitor<String> for FsmWhile<'_> {
                 let comp = &data.comps[0];
                 let ready = Portdef {
                     name: format!("ready_{}", comp),
-                    width: 32,
+                    width: 1,
                 };
                 let valid = Portdef {
                     name: format!("valid_{}", comp),
-                    width: 32,
+                    width: 1,
                 };
                 let ready_wire = Wire {
                     src: Port::Comp {

@@ -50,11 +50,11 @@ impl Visitor<()> for FsmEnable {
             for comp in &en.comps {
                 let ready = Portdef {
                     name: format!("ready_{}", comp),
-                    width: 32,
+                    width: 1,
                 };
                 let valid = Portdef {
                     name: format!("valid_{}", comp),
-                    width: 32,
+                    width: 1,
                 };
                 let ready_wire = Wire {
                     src: Port::Comp {
