@@ -38,7 +38,7 @@ fn main() -> Result<(), errors::Error> {
     // output futil after passes
     opts.futil_output.as_ref().map_or((), |path| {
         path_write(&path, Some("futil"), Some("futil"), &mut |w| {
-            write!(w, "{}", syntax.pretty_string())
+            writeln!(w, "{}", syntax.pretty_string())
         })
     });
 
