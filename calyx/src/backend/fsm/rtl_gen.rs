@@ -15,7 +15,6 @@ fn pretty_print(doc: RcDoc) -> String {
 
 #[allow(unused)]
 pub fn to_verilog(fsm: &FSM) -> String {
-    let portdefs = "TODO\n";
     let wiredefs =
         format!("logic [{}:0] state, next_state;", fsm.state_bits() - 1);
     let doc = RcDoc::text("module")
@@ -43,9 +42,6 @@ fn module_declaration(fsm: &FSM) -> RcDoc<'_> {
     let inputs = fsm.inputs().into_iter().map(input);
     let outputs = fsm.outputs().into_iter().map(output);
     RcDoc::text(format!("{} (", module_name))
-        .append(RcDoc::line())
-        .nest(4)
-        .append(RcDoc::text("input  logic clk,")) // XXX(sam)
         .append(RcDoc::line())
         .nest(4)
         .append(RcDoc::intersperse(

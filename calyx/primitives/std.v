@@ -9,7 +9,7 @@ endmodule
 
 module register
   #(parameter width = 32,
-    parameter def = 0)
+    parameter reset_val = 0)
    (input logic  [width-1:0] in,
     input logic                reset,
     input logic                valid,
@@ -21,7 +21,7 @@ module register
    logic [width-1:0]           register;
    always_ff @(posedge clk) begin
       if (reset) begin
-         register <= def;
+         register <= reset_val;
       end else begin
          register <= in;
       end

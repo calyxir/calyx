@@ -1,5 +1,6 @@
 use crate::backend::framework::Context;
-use crate::lang::ast::{Component, Decl, Port, Std, Wire};
+use crate::lang::ast::{Component, Decl, Port, Portdef, Std, Wire};
+use crate::lang::library::ast::PrimPortdef;
 use pretty::RcDoc;
 use std::collections::HashMap;
 
@@ -166,6 +167,14 @@ fn component_to_inst<'a>(inst: &'a Decl, c: &'a Context) -> RtlInst<'a> {
             }
         }
     }
+    // Fill up any remaining ports with empty string
+    for Portdef { name, width: _ } in
+        comp.inputs.iter().chain(comp.outputs.iter())
+    {
+        if !port_map.contains_key(name) {
+            port_map.insert(name, "".to_string());
+        }
+    }
     RtlInst {
         comp_name: &comp.name,
         id: &inst.name,
@@ -190,6 +199,14 @@ fn prim_to_inst<'a>(inst: &'a Std, c: &'a Context) -> RtlInst<'a> {
                 // Note that all port_wire_ids are currently based off the source
                 port_map.insert(port, pretty_print(port_wire_id(&w.src)));
             }
+        }
+    }
+    // Fill up any remaining ports with empty string
+    for PrimPortdef { name, width: _ } in
+        prim.inputs.iter().chain(prim.outputs.iter())
+    {
+        if !port_map.contains_key(name) {
+            port_map.insert(name, "".to_string());
         }
     }
     RtlInst {

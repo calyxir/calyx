@@ -1,57 +1,57 @@
 
 (define/library
-  (define/prim (c_const p_width p_value)
+  (define/prim (std/const p_width p_value)
     ((port valid 1) (port reset 1))
     ((port out p_width) (port ready 1)))
 
-  (define/prim (add p_width)
+  (define/prim (std/add p_width)
     ((port in0 p_width) (port in1 p_width))
     ((port out p_width) ))
 
-  (define/prim (sub p_width)
+  (define/prim (std/sub p_width)
     ((port in0 p_width) (port in1 p_width))
     ((port out p_width) ))
 
-  (define/prim (mul p_width)
+  (define/prim (std/mul p_width)
     ((port in0 p_width) (port in1 p_width))
     ((port out p_width) ))
 
-  (define/prim (div p_width)
+  (define/prim (std/div p_width)
     ((port in0 p_width) (port in1 p_width))
     ((port out p_width) ))
 
-  (define/prim (and p_width)
+  (define/prim (std/and p_width)
     ((port in0 p_width) (port in1 p_width))
     ((port out p_width) ))
 
-  (define/prim (or p_width)
+  (define/prim (std/or p_width)
     ((port in0 p_width) (port in1 p_width))
     ((port out p_width) ))
 
-  (define/prim (register p_width)
+  (define/prim (std/reg p_width)
     ((port in p_width) (port reset 1) (port valid 1) (port reset 1))
     ((port out p_width) (port ready 1)))
 
-  (define/prim (gt p_width)
+  (define/prim (std/gt p_width)
     ((port in0 p_width) (port in1 p_width))
     ((port out 1) ))
 
-  (define/prim (lt p_width)
+  (define/prim (std/lt p_width)
     ((port in0 p_width) (port in1 p_width))
     ((port out 1) ))
 
-  (define/prim (eq p_width)
+  (define/prim (std/eq p_width)
     ((port in0 p_width) (port in1 p_width))
     ((port out 1) ))
 
-  (define/prim (ge p_width)
+  (define/prim (std/ge p_width)
     ((port in0 p_width) (port in1 p_width))
     ((port out 1) ))
 
-  (define/prim (le p_width)
+  (define/prim (std/le p_width)
     ((port in0 p_width) (port in1 p_width))
     ((port out 1) ))
 
-  (define/prim (gt p_width)
+  (define/prim (std/gt p_width)
     ((port in0 p_width) (port in1 p_width))
     ((port out 1) )))
