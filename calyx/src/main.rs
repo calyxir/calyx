@@ -7,7 +7,8 @@ mod utils;
 
 // use crate::backend::framework::Context;
 use crate::backend::framework::Context;
-use crate::backend::fsm::rtl_gen;
+use crate::backend::fsm::machine::FSM;
+use crate::backend::fsm::{machine_gen, rtl_gen};
 use crate::cmdline::{path_write, Opts};
 // use crate::backend::fsm::visualizer;
 
@@ -32,7 +33,7 @@ fn main() -> Result<(), errors::Error> {
     let mut verilog_buf = String::new();
 
     passes::fsm::generate(&mut syntax, &mut names);
-    let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
+    //let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
 
     syntax.pretty_print();
 
@@ -45,10 +46,19 @@ fn main() -> Result<(), errors::Error> {
         writeln!(verilog_buf, "{}", verilog)
     })?;
 
+    let fsms: Vec<FSM> = syntax
+        .components
+        .iter()
+        .filter_map(machine_gen::generate_fsm)
+        .collect();
+
     // generate verilog for fsms
-    for fsm in &fsms {
-        writeln!(verilog_buf, "{}", rtl_gen::to_verilog(fsm))?;
+    for comp in &syntax.components {
+        machine_gen::generate_fsm(comp).map_or(Ok(()), |fsm| {
+            writeln!(verilog_buf, "{}", rtl_gen::to_verilog(&fsm, comp))
+        })?;
     }
+    // Commit Verilog buffer to output file
     path_write(&opts.output, None, Some("v"), &mut |w| {
         write!(w, "{}", verilog_buf)
     });

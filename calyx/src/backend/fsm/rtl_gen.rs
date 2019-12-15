@@ -1,6 +1,7 @@
 use super::machine::ValuedPort;
 use crate::backend::fsm::machine::{Edge, State, StateIndex, FSM};
-use crate::lang::ast::Id;
+use crate::backend::rtl::gen;
+use crate::lang::ast::{Component, Id};
 use pretty::RcDoc;
 
 //const reset_string: String = "reset".to_string();
@@ -14,12 +15,12 @@ fn pretty_print(doc: RcDoc) -> String {
 }
 
 #[allow(unused)]
-pub fn to_verilog(fsm: &FSM) -> String {
+pub fn to_verilog(fsm: &FSM, component: &Component) -> String {
     let wiredefs =
         format!("logic [{}:0] state, next_state;", fsm.state_bits() - 1);
     let doc = RcDoc::text("module")
         .append(RcDoc::space())
-        .append(module_declaration(fsm))
+        .append(module_declaration(component))
         .append(RcDoc::line())
         .append(RcDoc::text(wiredefs))
         .append(RcDoc::line())
@@ -37,23 +38,10 @@ pub fn to_verilog(fsm: &FSM) -> String {
 //==========================================
 //        FSM Module Declaration Functions
 //==========================================
-fn module_declaration(fsm: &FSM) -> RcDoc<'_> {
-    let module_name = &fsm.name;
-    let inputs = fsm.inputs().into_iter().map(input);
-    let outputs = fsm.outputs().into_iter().map(output);
+fn module_declaration(comp: &Component) -> RcDoc<'_> {
+    let module_name = &comp.name;
     RcDoc::text(format!("{} (", module_name))
-        .append(RcDoc::line())
-        .nest(4)
-        .append(RcDoc::intersperse(
-            inputs,
-            RcDoc::text(",").append(RcDoc::line()).nest(4),
-        ))
-        .append(RcDoc::text(","))
-        .append(RcDoc::line().nest(4))
-        .append(RcDoc::intersperse(
-            outputs,
-            RcDoc::text(",").append(RcDoc::line()).nest(4),
-        ))
+        .append(gen::component_io(&comp).nest(4))
         .append(RcDoc::line())
         .append(RcDoc::text(");"))
 }

@@ -1,25 +1,20 @@
 use super::machine::{ValuedPort, FSM};
 use crate::lang::ast::{Component, Namespace, Portdef};
 
-pub fn generate_fsms(syntax: &mut Namespace) -> Vec<FSM> {
-    (&mut syntax.components)
-        .iter_mut()
-        .filter_map(|comp| {
-            if comp.name.starts_with("fsm_enable") {
-                Some(enable_fsm(comp))
-            } else if comp.name.starts_with("fsm_par") {
-                Some(par_fsm(comp))
-            } else if comp.name.starts_with("fsm_seq") {
-                Some(seq_fsm(comp))
-            } else if comp.name.starts_with("fsm_if") {
-                Some(if_fsm(comp))
-            } else if comp.name.starts_with("fsm_while") {
-                Some(while_fsm(comp))
-            } else {
-                None
-            }
-        })
-        .collect()
+pub fn generate_fsm(comp: &Component) -> Option<FSM> {
+    if comp.name.starts_with("fsm_enable") {
+        Some(enable_fsm(comp))
+    } else if comp.name.starts_with("fsm_par") {
+        Some(par_fsm(comp))
+    } else if comp.name.starts_with("fsm_seq") {
+        Some(seq_fsm(comp))
+    } else if comp.name.starts_with("fsm_if") {
+        Some(if_fsm(comp))
+    } else if comp.name.starts_with("fsm_while") {
+        Some(while_fsm(comp))
+    } else {
+        None
+    }
 }
 
 fn port_def_to_input(

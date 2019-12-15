@@ -1,4 +1,4 @@
-module c_const
+module std_const
   #(parameter width = 32,
     parameter val = 0)
    (input logic valid,
@@ -7,7 +7,7 @@ module c_const
    assign out = val;
 endmodule
 
-module register
+module std_register
   #(parameter width = 32,
     parameter reset_val = 0)
    (input logic  [width-1:0] in,

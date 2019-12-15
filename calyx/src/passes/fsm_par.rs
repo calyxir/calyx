@@ -32,7 +32,7 @@ impl Visitor<()> for FsmPar<'_> {
             width: 1,
         };
         let clk = Portdef {
-            name: "clock".to_string(),
+            name: "clk".to_string(),
             width: 1,
         };
 
