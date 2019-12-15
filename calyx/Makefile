@@ -20,7 +20,7 @@ clean:
 %.v: src/*
 	cargo run examples/$*.futil -l primitives/std.lib -o sim/$*.v
 
-%.vcd: 
+%.vcd: sim/%.v
 	echo $*
 	verilator -cc --trace sim/$*.v --exe sim/testbench.cpp
 	make -j -C obj_dir -f V$*.mk V$*

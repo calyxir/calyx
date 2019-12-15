@@ -33,96 +33,96 @@ logic fsm_seq_0_valid_fsm_enable_c0_const2;
 
 // Subcomponent Instances
 fsm_enable_a0_const0 #() fsm_enable_a0_const0 (
-    .clk(),
-    .valid_a0(fsm_enable_a0_const0_valid_a0),
-    .valid_const0(fsm_enable_a0_const0_valid_const0),
     .ready_a0(a0_ready),
+    .valid_a0(fsm_enable_a0_const0_valid_a0),
+    .clk(clk),
+    .reset(reset),
     .ready_const0(const0_ready),
+    .valid_const0(fsm_enable_a0_const0_valid_const0),
     .ready(fsm_enable_a0_const0_ready),
-    .reset(),
     .valid(fsm_seq_0_valid_fsm_enable_a0_const0)
 );
 
 fsm_enable_b0_const1 #() fsm_enable_b0_const1 (
-    .valid_const1(fsm_enable_b0_const1_valid_const1),
     .ready_const1(const1_ready),
-    .reset(),
     .ready_b0(b0_ready),
     .valid(fsm_seq_0_valid_fsm_enable_b0_const1),
-    .clk(),
+    .clk(clk),
+    .reset(reset),
     .valid_b0(fsm_enable_b0_const1_valid_b0),
+    .valid_const1(fsm_enable_b0_const1_valid_const1),
     .ready(fsm_enable_b0_const1_ready)
 );
 
 fsm_enable_c0_const2 #() fsm_enable_c0_const2 (
-    .reset(),
-    .ready_c0(c0_ready),
+    .clk(clk),
+    .valid_c0(fsm_enable_c0_const2_valid_c0),
     .valid_const2(fsm_enable_c0_const2_valid_const2),
-    .valid(fsm_seq_0_valid_fsm_enable_c0_const2),
     .ready_const2(const2_ready),
     .ready(fsm_enable_c0_const2_ready),
-    .clk(),
-    .valid_c0(fsm_enable_c0_const2_valid_c0)
+    .valid(fsm_seq_0_valid_fsm_enable_c0_const2),
+    .reset(reset),
+    .ready_c0(c0_ready)
 );
 
 fsm_seq_0 #() fsm_seq_0 (
+    .reset(reset),
+    .valid(),
+    .valid_fsm_enable_a0_const0(fsm_seq_0_valid_fsm_enable_a0_const0),
     .ready(),
     .ready_fsm_enable_a0_const0(fsm_enable_a0_const0_ready),
-    .valid_fsm_enable_b0_const1(fsm_seq_0_valid_fsm_enable_b0_const1),
-    .valid_fsm_enable_a0_const0(fsm_seq_0_valid_fsm_enable_a0_const0),
     .ready_fsm_enable_c0_const2(fsm_enable_c0_const2_ready),
     .ready_fsm_enable_b0_const1(fsm_enable_b0_const1_ready),
-    .valid(),
+    .valid_fsm_enable_b0_const1(fsm_seq_0_valid_fsm_enable_b0_const1),
     .valid_fsm_enable_c0_const2(fsm_seq_0_valid_fsm_enable_c0_const2),
-    .clk(),
-    .reset()
+    .clk(clk)
 );
 std_reg #(32, 0) a0 (
-    .reset(),
+    .out(),
+    .clk(),
     .valid(fsm_enable_a0_const0_valid_a0),
     .in(const0_out),
     .ready(a0_ready),
-    .clk(),
-    .out()
+    .reset()
 );
 
 std_const #(32, 0) const0 (
     .valid(fsm_enable_a0_const0_valid_const0),
-    .reset(),
     .out(const0_out),
+    .reset(),
     .ready(const0_ready)
 );
 
 std_reg #(32, 0) b0 (
-    .valid(fsm_enable_b0_const1_valid_b0),
-    .ready(b0_ready),
     .in(const1_out),
-    .reset(),
+    .ready(b0_ready),
     .clk(),
-    .out()
+    .out(),
+    .reset(),
+    .valid(fsm_enable_b0_const1_valid_b0)
 );
 
 std_const #(32, 0) const1 (
-    .out(const1_out),
     .reset(),
     .ready(const1_ready),
+    .out(const1_out),
     .valid(fsm_enable_b0_const1_valid_const1)
 );
 
 std_reg #(32, 0) c0 (
-    .valid(fsm_enable_c0_const2_valid_c0),
-    .clk(),
-    .out(),
-    .ready(c0_ready),
     .reset(),
-    .in(const2_out)
+    .valid(fsm_enable_c0_const2_valid_c0),
+    .ready(c0_ready),
+    .in(const2_out),
+    .clk(),
+    .out()
 );
 
 std_const #(32, 0) const2 (
-    .out(const2_out),
-    .valid(fsm_enable_c0_const2_valid_const2),
+    .ready(const2_ready),
     .reset(),
-    .ready(const2_ready)
+    .out(const2_out),
+    .valid(fsm_enable_c0_const2_valid_const2)
 );
 
 endmodule
@@ -145,6 +145,12 @@ always_ff @(posedge clk) begin
 end
 always_comb begin
     case (state)
+                2'd2: begin
+                    if ( reset == 1'd1 )
+                        next_state = 2'd1;
+                    else
+                        next_state = 2'd2;
+                end
                 2'd0: begin
                     if ( valid == 1'd1 )
                         next_state = 2'd2;
@@ -157,12 +163,6 @@ always_comb begin
                     else
                         next_state = 2'd1;
                 end
-                2'd2: begin
-                    if ( reset == 1'd1 )
-                        next_state = 2'd1;
-                    else
-                        next_state = 2'd2;
-                end
             
             default: 
         next_state = 2'd0;
@@ -170,26 +170,26 @@ always_comb begin
 end
 always_comb begin
     case (state)
-        2'd0: begin
+        2'd2: begin
+            ready = 1'd1;
             valid_a0 = 1'd0;
             valid_const0 = 1'd0;
+        end
+        2'd0: begin
             ready = 1'd0;
+            valid_a0 = 1'd0;
+            valid_const0 = 1'd0;
         end
         2'd1: begin
             valid_a0 = 1'd1;
             valid_const0 = 1'd1;
             ready = 1'd0;
         end
-        2'd2: begin
-            ready = 1'd1;
-            valid_a0 = 1'd0;
-            valid_const0 = 1'd0;
-        end
     
         default: begin
+            ready = 1'd0;
             valid_a0 = 1'd0;
             valid_const0 = 1'd0;
-            ready = 1'd0;
         end
         endcase
 end
@@ -214,12 +214,6 @@ always_ff @(posedge clk) begin
 end
 always_comb begin
     case (state)
-                2'd1: begin
-                    if ( ready_b0 == 1'd1 && ready_const1 == 1'd1 )
-                        next_state = 2'd3;
-                    else
-                        next_state = 2'd1;
-                end
                 2'd2: begin
                     if ( reset == 1'd1 )
                         next_state = 2'd1;
@@ -232,6 +226,12 @@ always_comb begin
                     else
                         next_state = 2'd0;
                 end
+                2'd1: begin
+                    if ( ready_b0 == 1'd1 && ready_const1 == 1'd1 )
+                        next_state = 2'd3;
+                    else
+                        next_state = 2'd1;
+                end
             
             default: 
         next_state = 2'd0;
@@ -239,26 +239,26 @@ always_comb begin
 end
 always_comb begin
     case (state)
-        2'd1: begin
-            valid_b0 = 1'd1;
-            valid_const1 = 1'd1;
-            ready = 1'd0;
-        end
         2'd2: begin
             ready = 1'd1;
             valid_b0 = 1'd0;
             valid_const1 = 1'd0;
         end
         2'd0: begin
+            ready = 1'd0;
             valid_b0 = 1'd0;
             valid_const1 = 1'd0;
+        end
+        2'd1: begin
+            valid_b0 = 1'd1;
+            valid_const1 = 1'd1;
             ready = 1'd0;
         end
     
         default: begin
+            ready = 1'd0;
             valid_b0 = 1'd0;
             valid_const1 = 1'd0;
-            ready = 1'd0;
         end
         endcase
 end
@@ -283,17 +283,17 @@ always_ff @(posedge clk) begin
 end
 always_comb begin
     case (state)
-                2'd1: begin
-                    if ( ready_c0 == 1'd1 && ready_const2 == 1'd1 )
-                        next_state = 2'd3;
-                    else
-                        next_state = 2'd1;
-                end
                 2'd2: begin
                     if ( reset == 1'd1 )
                         next_state = 2'd1;
                     else
                         next_state = 2'd2;
+                end
+                2'd1: begin
+                    if ( ready_c0 == 1'd1 && ready_const2 == 1'd1 )
+                        next_state = 2'd3;
+                    else
+                        next_state = 2'd1;
                 end
                 2'd0: begin
                     if ( valid == 1'd1 )
@@ -308,26 +308,26 @@ always_comb begin
 end
 always_comb begin
     case (state)
-        2'd1: begin
-            valid_c0 = 1'd1;
-            valid_const2 = 1'd1;
-            ready = 1'd0;
-        end
         2'd2: begin
             ready = 1'd1;
             valid_c0 = 1'd0;
             valid_const2 = 1'd0;
         end
+        2'd1: begin
+            valid_c0 = 1'd1;
+            valid_const2 = 1'd1;
+            ready = 1'd0;
+        end
         2'd0: begin
+            ready = 1'd0;
             valid_c0 = 1'd0;
             valid_const2 = 1'd0;
-            ready = 1'd0;
         end
     
         default: begin
+            ready = 1'd0;
             valid_c0 = 1'd0;
             valid_const2 = 1'd0;
-            ready = 1'd0;
         end
         endcase
 end
@@ -360,11 +360,11 @@ always_comb begin
                     else
                         next_state = 3'd0;
                 end
-                3'd4: begin
-                    if ( reset == 1'd1 )
-                        next_state = 3'd1;
+                3'd1: begin
+                    if ( ready_fsm_enable_a0_const0 == 1'd1 )
+                        next_state = 3'd3;
                     else
-                        next_state = 3'd4;
+                        next_state = 3'd1;
                 end
                 3'd2: begin
                     if ( ready_fsm_enable_b0_const1 == 1'd1 )
@@ -378,11 +378,11 @@ always_comb begin
                     else
                         next_state = 3'd3;
                 end
-                3'd1: begin
-                    if ( ready_fsm_enable_a0_const0 == 1'd1 )
-                        next_state = 3'd3;
-                    else
+                3'd4: begin
+                    if ( reset == 1'd1 )
                         next_state = 3'd1;
+                    else
+                        next_state = 3'd4;
                 end
             
             default: 
@@ -392,41 +392,41 @@ end
 always_comb begin
     case (state)
         3'd0: begin
-            ready = 1'd0;
+            valid_fsm_enable_a0_const0 = 1'd0;
             valid_fsm_enable_b0_const1 = 1'd0;
             valid_fsm_enable_c0_const2 = 1'd0;
-            valid_fsm_enable_a0_const0 = 1'd0;
-        end
-        3'd4: begin
-            ready = 1'd1;
-            valid_fsm_enable_b0_const1 = 1'd0;
-            valid_fsm_enable_c0_const2 = 1'd0;
-            valid_fsm_enable_a0_const0 = 1'd0;
-        end
-        3'd2: begin
-            valid_fsm_enable_b0_const1 = 1'd1;
             ready = 1'd0;
-            valid_fsm_enable_c0_const2 = 1'd0;
-            valid_fsm_enable_a0_const0 = 1'd0;
-        end
-        3'd3: begin
-            valid_fsm_enable_c0_const2 = 1'd1;
-            ready = 1'd0;
-            valid_fsm_enable_b0_const1 = 1'd0;
-            valid_fsm_enable_a0_const0 = 1'd0;
         end
         3'd1: begin
             valid_fsm_enable_a0_const0 = 1'd1;
+            valid_fsm_enable_b0_const1 = 1'd0;
+            valid_fsm_enable_c0_const2 = 1'd0;
             ready = 1'd0;
+        end
+        3'd2: begin
+            valid_fsm_enable_b0_const1 = 1'd1;
+            valid_fsm_enable_a0_const0 = 1'd0;
+            valid_fsm_enable_c0_const2 = 1'd0;
+            ready = 1'd0;
+        end
+        3'd3: begin
+            valid_fsm_enable_c0_const2 = 1'd1;
+            valid_fsm_enable_a0_const0 = 1'd0;
+            valid_fsm_enable_b0_const1 = 1'd0;
+            ready = 1'd0;
+        end
+        3'd4: begin
+            ready = 1'd1;
+            valid_fsm_enable_a0_const0 = 1'd0;
             valid_fsm_enable_b0_const1 = 1'd0;
             valid_fsm_enable_c0_const2 = 1'd0;
         end
     
         default: begin
-            ready = 1'd0;
+            valid_fsm_enable_a0_const0 = 1'd0;
             valid_fsm_enable_b0_const1 = 1'd0;
             valid_fsm_enable_c0_const2 = 1'd0;
-            valid_fsm_enable_a0_const0 = 1'd0;
+            ready = 1'd0;
         end
         endcase
 end

@@ -91,17 +91,22 @@ fn wire_declarations(c: &Context) -> RcDoc<'_> {
         .toplevel
         .get_wires()
         .into_iter()
-        .map(|wire| wire_string(&wire, c));
+        .filter_map(|wire| wire_string(&wire, c));
     RcDoc::intersperse(wire_names, RcDoc::line())
 }
 
-fn wire_string<'a>(wire: &'a Wire, c: &Context) -> RcDoc<'a> {
+fn wire_string<'a>(wire: &'a Wire, c: &Context) -> Option<RcDoc<'a>> {
     let width = Context::port_width(&wire.src, &c.toplevel, c);
-    RcDoc::text("logic")
-        .append(RcDoc::space())
-        .append(bit_width(width))
-        .append(port_wire_id(&wire.src))
-        .append(RcDoc::text(";"))
+    match &wire.src {
+        Port::Comp { .. } => Some(
+            RcDoc::text("logic")
+                .append(RcDoc::space())
+                .append(bit_width(width))
+                .append(port_wire_id(&wire.src))
+                .append(RcDoc::text(";")),
+        ),
+        Port::This { .. } => None,
+    }
 }
 
 /**
