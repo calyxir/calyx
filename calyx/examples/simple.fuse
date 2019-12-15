@@ -1,7 +1,7 @@
-let a = 0;
+let a = 2;
 let b = 1;
 ---
-if (2 > 1) {
+if (a > 1) {
 	let y = 2;
 } else {
   let z = 4;
