@@ -5,20 +5,16 @@ mod lang;
 mod passes;
 mod utils;
 
-// use crate::backend::framework::Context;
 use crate::backend::framework::Context;
 use crate::backend::fsm::machine::FSM;
 use crate::backend::fsm::{machine_gen, rtl_gen};
 use crate::cmdline::{path_write, Opts};
-// use crate::backend::fsm::visualizer;
-
 use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::*;
+use crate::passes::visitor::Visitor;
 use crate::utils::NameGenerator;
 use std::fmt::Write;
 use structopt::StructOpt;
-// use crate::backend::fsm::visualize;
-// use crate::passes::visitor::Visitor;
 
 fn main() -> Result<(), errors::Error> {
     // better stack traces
@@ -32,9 +28,13 @@ fn main() -> Result<(), errors::Error> {
 
     let mut verilog_buf = String::new();
 
-    writeln!(verilog_buf, "`include \"sim/lib/std.v\"");
+    utils::ignore(writeln!(verilog_buf, "`include \"sim/lib/std.v\""));
 
+    passes::lat_insensitive::LatencyInsenstive::new().do_pass(&mut syntax);
     passes::fsm::generate(&mut syntax, &mut names);
+    passes::interfacing::Interfacing::new().do_pass(&mut syntax);
+    passes::toplevel_component::Toplevel::new(opts.component.clone())
+        .do_pass(&mut syntax);
     //let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
 
     // output futil after passes

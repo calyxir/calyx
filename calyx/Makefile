@@ -22,7 +22,7 @@ clean:
 
 %.vcd: sim/%.v
 	echo $*
-	verilator -cc --trace sim/$*.v --exe sim/testbench.cpp
-	make -j -C obj_dir -f V$*.mk V$*
-	obj_dir/V$*
+	verilator -cc --trace sim/$*.v --exe sim/testbench.cpp --top-module main
+	make -j -C obj_dir -f Vmain.mk Vmain
+	obj_dir/Vmain
 	rm -rf obj_dir

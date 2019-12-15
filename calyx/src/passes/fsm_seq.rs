@@ -31,11 +31,6 @@ impl Visitor<String> for FsmSeq<'_> {
             name: "reset".to_string(),
             width: 1,
         };
-        let clk = Portdef {
-            name: "clk".to_string(),
-            width: 1,
-        };
-
         // make output ports for enable fsm component
         let rdy = Portdef {
             name: "ready".to_string(),
@@ -44,7 +39,7 @@ impl Visitor<String> for FsmSeq<'_> {
 
         let component_name = self.names.gen_name("fsm_seq_");
 
-        let mut inputs: Vec<Portdef> = vec![val, reset, clk];
+        let mut inputs: Vec<Portdef> = vec![val, reset];
         let mut outputs: Vec<Portdef> = vec![rdy];
 
         for con in &mut seq.stmts {
@@ -82,15 +77,6 @@ impl Visitor<String> for FsmSeq<'_> {
                             port: "valid".to_string(),
                         },
                     };
-                    let clk_wire = Wire {
-                        src: Port::This {
-                            port: "clk".to_string(),
-                        },
-                        dest: Port::Comp {
-                            component: component_name.clone(),
-                            port: "clk".to_string(),
-                        },
-                    };
                     let reset_wire = Wire {
                         src: Port::This {
                             port: "reset".to_string(),
@@ -104,7 +90,6 @@ impl Visitor<String> for FsmSeq<'_> {
                     outputs.push(valid);
                     changes.add_structure(Structure::Wire { data: ready_wire });
                     changes.add_structure(Structure::Wire { data: valid_wire });
-                    changes.add_structure(Structure::Wire { data: clk_wire });
                     changes.add_structure(Structure::Wire { data: reset_wire });
                 }
                 Control::Empty { .. } => (),

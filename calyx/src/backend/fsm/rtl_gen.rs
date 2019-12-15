@@ -80,7 +80,6 @@ fn state_transition(fsm: &FSM) -> RcDoc<'_> {
 //==========================================
 //        FSM State Transition Logic
 //==========================================
-/// TODO add default case
 fn next_state_logic(fsm: &FSM) -> RcDoc<'_> {
     let cases = fsm
         .states
@@ -180,9 +179,7 @@ fn if_statement<'a>((inputs, st): &'a Edge, fsm: &'a FSM) -> RcDoc<'a> {
         .append(RcDoc::space())
         .append(RcDoc::text("="))
         .append(RcDoc::space())
-        .append(RcDoc::text(fsm.state_bits().to_string()))
-        .append(RcDoc::text("'d"))
-        .append(RcDoc::text((st.id + 1).to_string()))
+        .append(RcDoc::text(fsm.state_string(*st)))
         .append(RcDoc::text(";"))
 }
 

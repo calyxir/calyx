@@ -1,5 +1,5 @@
 use super::machine::{ValuedPort, FSM};
-use crate::lang::ast::{Component, Namespace, Portdef};
+use crate::lang::ast::{Component, Portdef};
 
 pub fn generate_fsm(comp: &Component) -> Option<FSM> {
     if comp.name.starts_with("fsm_enable") {

@@ -35,11 +35,6 @@ impl Visitor<()> for FsmIf<'_> {
             name: "condition".to_string(),
             width: 1,
         };
-        let clk = Portdef {
-            name: "clk".to_string(),
-            width: 1,
-        };
-
         // make output ports for enable fsm component
         let rdy = Portdef {
             name: "ready".to_string(),
@@ -48,7 +43,7 @@ impl Visitor<()> for FsmIf<'_> {
 
         let component_name = self.names.gen_name("fsm_if_");
 
-        let mut inputs: Vec<Portdef> = vec![cond.clone(), val, reset, clk];
+        let mut inputs: Vec<Portdef> = vec![cond.clone(), val, reset];
         let mut outputs: Vec<Portdef> = vec![rdy];
         let mut branchs = vec![*c_if.tbranch.clone(), *c_if.fbranch.clone()];
         println!("{:#?}", branchs);
@@ -102,15 +97,6 @@ impl Visitor<()> for FsmIf<'_> {
                             port: "valid".to_string(),
                         },
                     };
-                    let clk_wire = Wire {
-                        src: Port::This {
-                            port: "clk".to_string(),
-                        },
-                        dest: Port::Comp {
-                            component: component_name.clone(),
-                            port: "clk".to_string(),
-                        },
-                    };
                     let reset_wire = Wire {
                         src: Port::This {
                             port: "reset".to_string(),
@@ -124,7 +110,6 @@ impl Visitor<()> for FsmIf<'_> {
                     outputs.push(valid);
                     changes.add_structure(Structure::Wire { data: ready_wire });
                     changes.add_structure(Structure::Wire { data: valid_wire });
-                    changes.add_structure(Structure::Wire { data: clk_wire });
                     changes.add_structure(Structure::Wire { data: reset_wire });
                 }
                 Control::Empty { data } => {

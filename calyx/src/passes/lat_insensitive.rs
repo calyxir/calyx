@@ -1,5 +1,5 @@
 use super::visitor::{Changes, Visitor};
-use crate::lang::ast::Portdef;
+use crate::lang::ast::{Component, Portdef};
 
 pub struct LatencyInsenstive {}
 
@@ -14,17 +14,18 @@ impl Visitor<()> for LatencyInsenstive {
         "Latency Insenstive".to_string()
     }
 
-    fn start(&mut self, changes: &mut Changes) -> Result<(), ()> {
+    fn start(
+        &mut self,
+        comp: &mut Component,
+        changes: &mut Changes,
+    ) -> Result<(), ()> {
+        println!("{}", comp.name);
         let val = Portdef {
             name: "valid".to_string(),
             width: 1,
         };
         let reset = Portdef {
             name: "reset".to_string(),
-            width: 1,
-        };
-        let clk = Portdef {
-            name: "clk".to_string(),
             width: 1,
         };
         let rdy = Portdef {
@@ -34,7 +35,6 @@ impl Visitor<()> for LatencyInsenstive {
 
         changes.add_input_port(val);
         changes.add_input_port(reset);
-        changes.add_input_port(clk);
         changes.add_output_port(rdy);
 
         // return err to avoid touching every control node

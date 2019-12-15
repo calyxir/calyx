@@ -16,6 +16,7 @@ pub struct Changes {
 
 impl Changes {
     /// adds a new component to the current namespace
+
     /// You can call this anywhere during a pass
     pub fn add_component(&mut self, comp: Component) {
         self.new_comps.push(comp);
@@ -86,11 +87,11 @@ pub trait Visitor<Err: std::fmt::Debug> {
     {
         let mut changes = Changes::new();
         for comp in &mut syntax.components {
-            let res = self.start(&mut changes);
+            let res = self.start(comp, &mut changes);
             comp.control.visit(self, &mut changes).unwrap_or_else(|x| {
                 eprintln!("The {} pass failed: {:?}", self.name(), x)
             });
-            self.finish(&mut changes, res);
+            self.finish(comp, &mut changes, res);
 
             // update changes
             comp.structure.append(&mut changes.new_struct);
@@ -102,11 +103,21 @@ pub trait Visitor<Err: std::fmt::Debug> {
         self
     }
 
-    fn start(&mut self, _c: &mut Changes) -> Result<(), Err> {
+    fn start(
+        &mut self,
+        _comp: &mut Component,
+        _c: &mut Changes,
+    ) -> Result<(), Err> {
         Ok(())
     }
 
-    fn finish(&mut self, _c: &mut Changes, _res: Result<(), Err>) {}
+    fn finish(
+        &mut self,
+        _comp: &mut Component,
+        _c: &mut Changes,
+        _res: Result<(), Err>,
+    ) {
+    }
 
     fn start_seq(&mut self, _s: &mut Seq, _c: &mut Changes) -> Result<(), Err> {
         Ok(())
