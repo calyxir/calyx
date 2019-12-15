@@ -54,7 +54,7 @@ pub fn enable_fsm(component: &Component) -> FSM {
         end,
     ));
     fsm.get_state(end).add_transition((
-        vec![(component.name.clone(), "reset".to_string(), 1)],
+        vec![(component.name.clone(), "valid".to_string(), 0)],
         start,
     ));
 
@@ -93,7 +93,7 @@ pub fn par_fsm(component: &Component) -> FSM {
         end,
     ));
     fsm.get_state(end).add_transition((
-        vec![(component.name.clone(), "reset".to_string(), 1)],
+        vec![(component.name.clone(), "valid".to_string(), 0)],
         start,
     ));
 
@@ -140,7 +140,7 @@ pub fn seq_fsm(component: &Component) -> FSM {
         fsm.get_state(current).push_output(val_ports[i].clone());
         if i == rdy_ports.len() - 1 {
             fsm.get_state(next).add_transition((
-                vec![(component.name.clone(), "reset".to_string(), 1)],
+                vec![(component.name.clone(), "valid".to_string(), 0)],
                 start,
             ));
             fsm.get_state(next).push_output((
@@ -164,7 +164,7 @@ pub fn if_fsm(component: &Component) -> FSM {
         1,
     ));
     fsm.get_state(end).add_transition((
-        vec![(component.name.clone(), "reset".to_string(), 1)],
+        vec![(component.name.clone(), "valid".to_string(), 0)],
         start,
     ));
 
@@ -219,7 +219,7 @@ pub fn while_fsm(component: &Component) -> FSM {
         cond,
     ));
     fsm.get_state(end).add_transition((
-        vec![(component.name.clone(), "reset".to_string(), 1)],
+        vec![(component.name.clone(), "valid".to_string(), 0)],
         start,
     ));
 
