@@ -37,7 +37,12 @@ fn main() -> Result<(), errors::Error> {
     passes::fsm::generate(&mut syntax, &mut names);
     //let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
 
-    syntax.pretty_print();
+    // output futil after passes
+    opts.futil_output.as_ref().map_or((), |path| {
+        path_write(&path, Some("futil"), Some("futil"), &mut |w| {
+            writeln!(w, "{}", syntax.pretty_string())
+        })
+    });
 
     // generate verilog
     opts.libraries.as_ref().map_or(Ok(()), |libpath| {

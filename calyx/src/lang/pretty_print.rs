@@ -11,6 +11,11 @@ fn parens(doc: RcDoc) -> RcDoc {
 
 pub trait PrettyPrint {
     fn prettify(&self) -> RcDoc;
+    fn pretty_string(&self) -> String {
+        let mut w = Vec::new();
+        self.prettify().render(80, &mut w).unwrap();
+        String::from_utf8(w).unwrap()
+    }
     fn pretty_print(&self) {
         let mut w = Vec::new();
         self.prettify().render(80, &mut w).unwrap();
