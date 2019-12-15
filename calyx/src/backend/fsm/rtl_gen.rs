@@ -100,6 +100,16 @@ fn next_state_logic(fsm: &FSM) -> RcDoc<'_> {
                     RcDoc::intersperse(cases, RcDoc::line().nest(4))
                         .append(RcDoc::line()),
                 )
+                .append(RcDoc::line())
+                .nest(4)
+                .append(RcDoc::text("default: "))
+                .append(RcDoc::line())
+                .nest(4)
+                .append(RcDoc::text(format!(
+                    "next_state = {}'d0;",
+                    fsm.state_bits()
+                )))
+                .append(RcDoc::line())
                 .nest(4),
         )
         .append(RcDoc::text("endcase"))
@@ -208,6 +218,9 @@ fn output_logic(fsm: &FSM) -> RcDoc<'_> {
                     RcDoc::intersperse(statements, RcDoc::line().nest(4))
                         .append(RcDoc::line()),
                 )
+                .append(RcDoc::line().nest(4))
+                .append(default_outputs(fsm))
+                .append(RcDoc::line().nest(4))
                 .nest(4),
         )
         .append(RcDoc::text("endcase"))
@@ -250,12 +263,28 @@ fn state_outputs<'a>(
         .append(RcDoc::line())
         .nest(4)
         .append(RcDoc::text("end"))
-    //let out_statements = combine(&out_statements, "\n ", "");
-    //format!(
-    //    "{}: begin\n    {}\n   end",
-    //    fsm.state_string(*st_id),
-    //    out_statements
-    //)
+}
+
+fn default_outputs<'a>(fsm: &'a FSM) -> RcDoc<'a> {
+    let mut outputs: Vec<ValuedPort> = Vec::new();
+    for port in fsm.outputs() {
+        if !has_port(&port, &outputs) {
+            outputs.push(("".to_string(), port, 0));
+        }
+    }
+    let outputs = outputs.into_iter().map(out_statement);
+    RcDoc::text("default")
+        .append(RcDoc::text(":"))
+        .append(RcDoc::space())
+        .append(RcDoc::text("begin"))
+        .append(
+            RcDoc::line()
+                .nest(4)
+                .append(RcDoc::intersperse(outputs, RcDoc::line().nest(4))),
+        )
+        .append(RcDoc::line())
+        .nest(4)
+        .append(RcDoc::text("end"))
 }
 
 fn out_statement<'a>((_, port, value): ValuedPort) -> RcDoc<'a> {

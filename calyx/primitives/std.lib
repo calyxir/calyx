@@ -29,7 +29,7 @@
     ((port out p_width) ))
 
   (define/prim (std_reg p_width)
-    ((port in p_width) (port reset 1) (port valid 1) (port reset 1))
+    ((port in p_width) (port reset 1) (port valid 1) (port clk 1) (port reset 1))
     ((port out p_width) (port ready 1)))
 
   (define/prim (std_gt p_width)

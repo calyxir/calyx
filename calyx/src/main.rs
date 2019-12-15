@@ -32,6 +32,8 @@ fn main() -> Result<(), errors::Error> {
 
     let mut verilog_buf = String::new();
 
+    writeln!(verilog_buf, "`include \"sim/lib/std.v\"");
+
     passes::fsm::generate(&mut syntax, &mut names);
     //let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
 

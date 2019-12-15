@@ -1,4 +1,6 @@
 firrtl.pdf
+calyx/sim/*.v
+calyx/sim/*.vcd
 test.fuse
 compiled/
 README.html

@@ -2,12 +2,13 @@ module std_const
   #(parameter width = 32,
     parameter val = 0)
    (input logic valid,
+    input logic                reset,
     output logic               ready,
     output logic [width - 1:0] out);
    assign out = val;
 endmodule
 
-module std_register
+module std_reg
   #(parameter width = 32,
     parameter reset_val = 0)
    (input logic  [width-1:0] in,
