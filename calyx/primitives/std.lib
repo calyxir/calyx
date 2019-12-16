@@ -1,12 +1,19 @@
 
 (define/library
   (define/prim (std_reg p_width)
-    ((port in p_width) (port reset 1) (port valid 1) (port clk 1) (port reset 1))
-    ((port out p_width) (port ready 1)))
+    ((port in p_width)
+     (port in_read_in 1)
+     (port valid 1)
+     (port clk 1))
+    ((port out p_width)
+     (port out_read_out 1)
+     (port ready 1)))
 
   (define/prim (std_const p_width p_value)
-    ((port valid 1) (port reset 1))
-    ((port out p_width) (port ready 1)))
+    ((port valid 1))
+    ((port out p_width)
+     (port out_read_out 1)
+     (port ready 1)))
 
   (define/prim (std_add p_width)
     ((port left p_width) (port right p_width) (port valid 1) (port reset 1))
@@ -33,8 +40,11 @@
     ((port out p_width) (port ready 1)))
 
   (define/prim (std_gt p_width)
-    ((port left p_width) (port right p_width) (port valid 1) (port reset 1))
-    ((port out 1) (port ready 1)))
+    ((port left p_width) (port left_read_in 1)
+     (port right p_width) (port right_read_in 1)
+     (port valid 1))
+    ((port out 1) (port out_read_out 1)
+     (port ready 1)))
 
   (define/prim (std_lt p_width)
     ((port left p_width) (port right p_width) (port valid 1) (port reset 1))

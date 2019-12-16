@@ -18,7 +18,7 @@ pub struct Component {
     pub control: Control,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(PartialEq, Clone, Debug, Hash)]
 pub struct Portdef {
     pub name: String,
     pub width: i64,
@@ -30,7 +30,7 @@ pub enum Port {
     This { port: String },
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(PartialEq, Clone, Debug, Hash)]
 pub struct Compinst {
     pub name: String,
     pub params: Vec<i64>,
@@ -39,25 +39,25 @@ pub struct Compinst {
 // ===================================
 // Data definitions for Structure
 // ===================================
-#[derive(Clone, Debug, Hash)]
+#[derive(PartialEq, Clone, Debug, Hash)]
 pub struct Decl {
     pub name: Id,
     pub component: String,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(PartialEq, Clone, Debug, Hash)]
 pub struct Std {
     pub name: Id,
     pub instance: Compinst,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(PartialEq, Clone, Debug, Hash)]
 pub struct Wire {
     pub src: Port,
     pub dest: Port,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(PartialEq, Clone, Debug, Hash)]
 pub enum Structure {
     Decl { data: Decl },
     Std { data: Std },

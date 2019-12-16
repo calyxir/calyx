@@ -1,7 +1,7 @@
 use super::machine::ValuedPort;
 use crate::backend::fsm::machine::{Edge, State, StateIndex, FSM};
 use crate::backend::rtl::gen;
-use crate::lang::ast::{Component, Id};
+use crate::lang::ast::{Component, Id, Portdef};
 use pretty::RcDoc;
 
 //const reset_string: String = "reset".to_string();
@@ -14,7 +14,6 @@ fn pretty_print(doc: RcDoc) -> String {
     String::from_utf8(w).unwrap()
 }
 
-#[allow(unused)]
 pub fn to_verilog(fsm: &FSM, component: &Component) -> String {
     let wiredefs =
         format!("logic [{}:0] state, next_state;", fsm.state_bits() - 1);
@@ -35,6 +34,76 @@ pub fn to_verilog(fsm: &FSM, component: &Component) -> String {
     pretty_print(doc)
 }
 
+pub fn control_lut_verilog(component: &Component) -> String {
+    let doc = RcDoc::text("module")
+        .append(RcDoc::space())
+        .append(module_declaration(component))
+        .append(RcDoc::line())
+        .append(control_lut_switch(&component))
+        .append(RcDoc::line())
+        .append(RcDoc::text("endmodule"))
+        .append(RcDoc::hardline());
+    pretty_print(doc)
+}
+
+fn control_lut_switch(component: &Component) -> RcDoc {
+    let cases = component.inputs.iter().enumerate().map(|(idx, _)| {
+        control_lut_case(
+            component.inputs.len(),
+            idx,
+            &component.outputs[0].name,
+        )
+    });
+    RcDoc::text("always_comb")
+        .append(RcDoc::space())
+        .append(RcDoc::text("begin"))
+        .append(RcDoc::line().nest(4))
+        .append(RcDoc::text("case"))
+        .append(RcDoc::space())
+        .append(RcDoc::text("({"))
+        .append(portdef_to_doc(&component.inputs))
+        .append(RcDoc::text("})"))
+        .append(
+            RcDoc::line()
+                .nest(4)
+                .append(
+                    RcDoc::intersperse(cases, RcDoc::line().nest(4))
+                        .append(RcDoc::line()),
+                )
+                .append(RcDoc::line())
+                .nest(4)
+                .append(RcDoc::text("default: "))
+                .append(RcDoc::text(&component.outputs[0].name))
+                .append(RcDoc::text("= 0;"))
+                .nest(4),
+        )
+        .append(RcDoc::text("endcase"))
+        .append(RcDoc::line())
+        .append(RcDoc::text("end"))
+}
+
+fn portdef_to_doc<'a>(ports: &[Portdef]) -> RcDoc<'a> {
+    let port_docs = ports.iter().map(|p| RcDoc::text(p.name.clone()));
+    RcDoc::intersperse(port_docs, RcDoc::text(", "))
+}
+
+fn control_lut_case<'a>(num: usize, idx: usize, name: &'a str) -> RcDoc<'a> {
+    let mut bits = format!("{}'b", num);
+    for i in 0..num {
+        if i == idx {
+            bits.push('1')
+        } else {
+            bits.push('0')
+        }
+    }
+    RcDoc::text(bits)
+        .append(RcDoc::text(":"))
+        .append(RcDoc::space())
+        .append(RcDoc::text(name))
+        .append(RcDoc::space())
+        .append(RcDoc::text("= 1;"))
+}
+
 //==========================================
 //        FSM Module Declaration Functions
 //==========================================
@@ -46,33 +115,33 @@ fn module_declaration(comp: &Component) -> RcDoc<'_> {
         .append(RcDoc::text(");"))
 }
 
-fn input<'a>(id: Id) -> RcDoc<'a> {
-    RcDoc::text(format!("input  logic {}", id))
-}
+// fn input<'a>(id: Id) -> RcDoc<'a> {
+//     RcDoc::text(format!("input  logic {}", id))
+// }
 
-fn output<'a>(id: Id) -> RcDoc<'a> {
-    RcDoc::text(format!("output logic {}", id))
-}
+// fn output<'a>(id: Id) -> RcDoc<'a> {
+//     RcDoc::text(format!("output logic {}", id))
+// }
 
 //==========================================
 //        FSM State Transition Block
 //==========================================
-fn state_transition(fsm: &FSM) -> RcDoc<'_> {
+fn state_transition(_fsm: &FSM) -> RcDoc<'_> {
     RcDoc::text("always_ff")
         .append(RcDoc::space())
         .append(RcDoc::text("@(posedge clk)"))
         .append(RcDoc::space())
         .append(RcDoc::text("begin"))
         .append(RcDoc::line().nest(4))
-        .append(RcDoc::text("if ( reset )"))
-        .append(RcDoc::line().nest(8))
-        .append(RcDoc::text(format!(
-            "state <= {}'d0; // 0 default state?",
-            fsm.state_bits()
-        )))
-        .append(RcDoc::line().nest(4))
-        .append(RcDoc::text("else"))
-        .append(RcDoc::line().nest(8))
+        // .append(RcDoc::text("if ( !valid )"))
+        // .append(RcDoc::line().nest(8))
+        // .append(RcDoc::text(format!(
+        //     "state <= {}'d0; // 0 default state?",
+        //     fsm.state_bits()
+        // )))
+        // .append(RcDoc::line().nest(4))
+        // .append(RcDoc::text("else"))
+        // .append(RcDoc::line().nest(8))
         .append(RcDoc::text("state <= next_state;"))
         .append(RcDoc::line())
         .append(RcDoc::text("end"))

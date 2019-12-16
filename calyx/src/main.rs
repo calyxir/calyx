@@ -30,9 +30,11 @@ fn main() -> Result<(), errors::Error> {
 
     utils::ignore(writeln!(verilog_buf, "`include \"sim/lib/std.v\""));
 
+    passes::add_read_wire::ReadWire::new().do_pass(&mut syntax);
     passes::lat_insensitive::LatencyInsenstive::new().do_pass(&mut syntax);
     passes::fsm::generate(&mut syntax, &mut names);
     passes::interfacing::Interfacing::new().do_pass(&mut syntax);
+    passes::control_lookup::Lookup::new(&mut names).do_pass(&mut syntax);
     passes::toplevel_component::Toplevel::new(opts.component.clone())
         .do_pass(&mut syntax);
     //let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
@@ -58,6 +60,13 @@ fn main() -> Result<(), errors::Error> {
         .iter()
         .filter_map(machine_gen::generate_fsm)
         .collect();
+
+    for comp in &syntax.components {
+        if comp.name.starts_with("lut_control") {
+            let verilog = backend::fsm::rtl_gen::control_lut_verilog(comp);
+            writeln!(verilog_buf, "{}", verilog)?;
+        }
+    }
 
     // generate verilog for fsms
     for comp in &syntax.components {
