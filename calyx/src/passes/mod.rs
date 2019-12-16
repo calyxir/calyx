@@ -1,3 +1,5 @@
+pub mod add_read_wire;
+pub mod control_lookup;
 pub mod fsm;
 pub mod fsm_enable;
 pub mod fsm_if;

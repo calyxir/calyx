@@ -12,6 +12,7 @@ pub struct Changes {
     new_node: Scoped<Option<Control>>,
     new_input_ports: Vec<Portdef>,
     new_output_ports: Vec<Portdef>,
+    remove_structure: Vec<Structure>,
 }
 
 impl Changes {
@@ -45,6 +46,15 @@ impl Changes {
         self.new_output_ports.push(port);
     }
 
+    /// asdf
+    pub fn remove_structure(&mut self, structure: Structure) {
+        self.remove_structure.push(structure);
+    }
+
+    pub fn batch_remove_structure(&mut self, structure: &mut Vec<Structure>) {
+        self.remove_structure.append(structure);
+    }
+
     /// internal function that creates a new scope for Changes
     fn push_scope(&mut self) {
         self.new_node.push_scope();
@@ -59,6 +69,7 @@ impl Changes {
         self.new_struct = vec![];
         self.new_input_ports = vec![];
         self.new_output_ports = vec![];
+        self.remove_structure = vec![];
     }
 
     fn new() -> Self {
@@ -68,6 +79,7 @@ impl Changes {
             new_node: Scoped::new(),
             new_input_ports: vec![],
             new_output_ports: vec![],
+            remove_structure: vec![],
         }
     }
 }
@@ -97,7 +109,17 @@ pub trait Visitor<Err: std::fmt::Debug> {
             comp.structure.append(&mut changes.new_struct);
             comp.inputs.append(&mut changes.new_input_ports);
             comp.outputs.append(&mut changes.new_output_ports);
-            changes.clear();
+            comp.structure = comp
+                .structure
+                .iter()
+                .filter_map(|s| {
+                    if changes.remove_structure.contains(s) {
+                        None
+                    } else {
+                        Some(s.clone())
+                    }
+                })
+                .collect();
         }
         syntax.components.append(&mut changes.new_comps);
         self

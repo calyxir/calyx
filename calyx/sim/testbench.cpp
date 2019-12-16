@@ -15,11 +15,9 @@ int main(int argc, char **argv, char **env)
     tfp->open("simple.vcd");
     // initialize simulation inputs
     top->clk = 1;
-    top->reset = 1;
     top->valid = 1;
     // run simulation for 100 clock periods
     for (i = 0; i < 20; i++) {
-      top->reset = (i < 2);
       // dump variables into VCD file and toggle clock
       for (clk = 0; clk < 2; clk++)
         {
