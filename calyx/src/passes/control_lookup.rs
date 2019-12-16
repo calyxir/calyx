@@ -46,6 +46,7 @@ impl Visitor<()> for Lookup<'_> {
 
         for (dest, srcs) in sources {
             if srcs.len() > 1 {
+                println!("here  {:#?}  {:#?}", dest, srcs);
                 if get_port_name(&dest).starts_with("valid")
                     || get_port_name(&dest).starts_with("ready")
                 {

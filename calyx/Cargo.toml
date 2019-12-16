@@ -13,6 +13,7 @@ quickcheck = "0.9.0"
 petgraph = "~0.4"
 better-panic = "~0.2"
 pretty = "~0.7"
+itertools = "~0.7"
 
 # [build-dependencies]
 # clap = "2.33"
