@@ -41,8 +41,45 @@ impl Visitor<()> for FsmIf<'_> {
 
         let mut inputs: Vec<Portdef> = vec![cond.clone(), val];
         let mut outputs: Vec<Portdef> = vec![rdy];
+
+        // add ports for cond
+        for id in &c_if.cond {
+            let port_rdy = Portdef {
+                name: format!("cond_rdy_{}", id),
+                width: 1,
+            };
+            let port_val = Portdef {
+                name: format!("cond_val_{}", id),
+                width: 1,
+            };
+            let ready_wire = Wire {
+                src: Port::Comp {
+                    component: id.to_string(),
+                    port: "ready".to_string(),
+                },
+                dest: Port::Comp {
+                    component: component_name.clone(),
+                    port: port_rdy.name.clone(),
+                },
+            };
+            let valid_wire = Wire {
+                src: Port::Comp {
+                    component: component_name.clone(),
+                    port: port_val.name.clone(),
+                },
+                dest: Port::Comp {
+                    component: id.to_string(),
+                    port: "valid".to_string(),
+                },
+            };
+            inputs.push(port_rdy);
+            outputs.push(port_val);
+            changes.add_structure(Structure::Wire { data: ready_wire });
+            changes.add_structure(Structure::Wire { data: valid_wire });
+        }
+
+        // add ports for branches
         let mut branchs = vec![*c_if.tbranch.clone(), *c_if.fbranch.clone()];
-        println!("{:#?}", branchs);
         let mut i = 0;
         for con in &mut branchs {
             match con {
@@ -107,7 +144,7 @@ impl Visitor<()> for FsmIf<'_> {
         }
 
         let condition_wire = Wire {
-            src: c_if.cond.clone(),
+            src: c_if.port.clone(),
             dest: Port::Comp {
                 component: component_name.clone(),
                 port: cond.name.clone(),

@@ -46,38 +46,11 @@ fn main() -> Result<(), errors::Error> {
         })
     });
 
-    // generate verilog
-    opts.libraries.as_ref().map_or(Ok(()), |libpath| {
-        let context =
-            Context::init_context(&mut syntax, &opts.component, &libpath[..]);
-
-        let verilog = backend::rtl::gen::to_verilog(&context);
-        writeln!(verilog_buf, "{}", verilog)
-    })?;
-
     let fsms: Vec<FSM> = syntax
         .components
         .iter()
         .filter_map(machine_gen::generate_fsm)
         .collect();
-
-    for comp in &syntax.components {
-        if comp.name.starts_with("lut_control") {
-            let verilog = backend::fsm::rtl_gen::control_lut_verilog(comp);
-            writeln!(verilog_buf, "{}", verilog)?;
-        }
-    }
-
-    // generate verilog for fsms
-    for comp in &syntax.components {
-        machine_gen::generate_fsm(comp).map_or(Ok(()), |fsm| {
-            writeln!(verilog_buf, "{}", rtl_gen::to_verilog(&fsm, comp))
-        })?;
-    }
-    // Commit Verilog buffer to output file
-    path_write(&opts.output, None, Some("v"), &mut |w| {
-        write!(w, "{}", verilog_buf)
-    });
 
     // visualize fsms
     opts.visualize_fsm.as_ref().map_or((), |path| {
@@ -107,6 +80,33 @@ fn main() -> Result<(), errors::Error> {
             path.as_ref()
                 .map_or((), |p| utils::dot_command(&p, Some("_struct")));
         })
+    });
+
+    // generate verilog
+    opts.libraries.as_ref().map_or(Ok(()), |libpath| {
+        let context =
+            Context::init_context(&mut syntax, &opts.component, &libpath[..]);
+
+        let verilog = backend::rtl::gen::to_verilog(&context);
+        writeln!(verilog_buf, "{}", verilog)
+    })?;
+
+    for comp in &syntax.components {
+        if comp.name.starts_with("lut_control") {
+            let verilog = backend::fsm::rtl_gen::control_lut_verilog(comp);
+            writeln!(verilog_buf, "{}", verilog)?;
+        }
+    }
+
+    // generate verilog for fsms
+    for comp in &syntax.components {
+        machine_gen::generate_fsm(comp).map_or(Ok(()), |fsm| {
+            writeln!(verilog_buf, "{}", rtl_gen::to_verilog(&fsm, comp))
+        })?;
+    }
+    // Commit Verilog buffer to output file
+    path_write(&opts.output, None, Some("v"), &mut |w| {
+        write!(w, "{}", verilog_buf)
     });
 
     Ok(())

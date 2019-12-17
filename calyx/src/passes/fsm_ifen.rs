@@ -88,7 +88,7 @@ impl Visitor<()> for FsmIfen<'_> {
         }
 
         let condition_wire = Wire {
-            src: ifen.cond.clone(),
+            src: ifen.port.clone(),
             dest: Port::Comp {
                 component: component_name.clone(),
                 port: cond.name.clone(),

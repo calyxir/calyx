@@ -117,6 +117,7 @@ pub fn seq_fsm(component: &Component) -> FSM {
 
     let mut current = fsm.new_state();
     //transition from start to current
+
     fsm.get_state(start).add_transition((
         vec![(component.name.clone(), "valid".to_string(), 1)],
         current,
@@ -157,6 +158,23 @@ pub fn seq_fsm(component: &Component) -> FSM {
 
 pub fn if_fsm(component: &Component) -> FSM {
     let (start, mut fsm) = FSM::new(&component.name);
+
+    // cond state
+    let cond = fsm.new_state();
+    let mut cond_outputs = port_def_to_input(
+        "cond",
+        component.inputs.clone(),
+        component.name.clone(),
+    );
+    fsm.get_state(cond).add_outputs(&mut cond_outputs);
+
+    // transition from start to cond on valid
+    fsm.get_state(start).add_transition((
+        vec![(component.name.clone(), "valid".to_string(), 1)],
+        cond,
+    ));
+
+    // add end state outputs and transitions
     let end = fsm.new_state();
     fsm.get_state(end).push_output((
         component.name.clone(),
@@ -184,26 +202,21 @@ pub fn if_fsm(component: &Component) -> FSM {
             component.name.clone(),
         );
         assert!(rdy_port.len() <= 1 && rdy_port.len() == val_port.len());
+        cond_outputs.push((
+            component.name.clone(),
+            "condition".to_string(),
+            i as i64,
+        ));
         if rdy_port.len() == 1 {
             let branch = fsm.new_state();
-            fsm.get_state(start).add_transition((
-                vec![
-                    (component.name.clone(), "valid".to_string(), 1),
-                    (component.name.clone(), "condition".to_string(), i as i64),
-                ],
-                branch,
-            ));
+            fsm.get_state(cond)
+                .add_transition((cond_outputs.clone(), branch));
             fsm.get_state(branch)
                 .add_transition((vec![rdy_port[0].clone()], end));
             fsm.get_state(branch).push_output(val_port[0].clone());
         } else {
-            fsm.get_state(start).add_transition((
-                vec![
-                    (component.name.clone(), "valid".to_string(), 1),
-                    (component.name.clone(), "condition".to_string(), i as i64),
-                ],
-                end,
-            ));
+            fsm.get_state(cond)
+                .add_transition((cond_outputs.clone(), end));
         }
     }
     fsm

@@ -101,21 +101,24 @@ pub struct Par {
 
 #[derive(Debug, Clone, Hash)]
 pub struct If {
-    pub cond: Port,
+    pub port: Port,
+    pub cond: Vec<String>,
     pub tbranch: Box<Control>,
     pub fbranch: Box<Control>,
 }
 
 #[derive(Debug, Clone, Hash)]
 pub struct Ifen {
-    pub cond: Port,
+    pub port: Port,
+    pub cond: Vec<String>,
     pub tbranch: Box<Control>,
     pub fbranch: Box<Control>,
 }
 
 #[derive(Debug, Clone, Hash)]
 pub struct While {
-    pub cond: Port,
+    pub port: Port,
+    pub cond: Vec<String>,
     pub body: Box<Control>,
 }
 
@@ -167,34 +170,34 @@ impl Control {
         }
     }
 
-    pub fn c_if(cond: Port, tbranch: Control, fbranch: Control) -> Control {
-        Control::If {
-            data: If {
-                cond,
-                tbranch: Box::new(tbranch),
-                fbranch: Box::new(fbranch),
-            },
-        }
-    }
+    // pub fn c_if(cond: Port, tbranch: Control, fbranch: Control) -> Control {
+    //     Control::If {
+    //         data: If {
+    //             cond,
+    //             tbranch: Box::new(tbranch),
+    //             fbranch: Box::new(fbranch),
+    //         },
+    //     }
+    // }
 
-    pub fn ifen(cond: Port, tbranch: Control, fbranch: Control) -> Control {
-        Control::Ifen {
-            data: Ifen {
-                cond,
-                tbranch: Box::new(tbranch),
-                fbranch: Box::new(fbranch),
-            },
-        }
-    }
+    // pub fn ifen(cond: Port, tbranch: Control, fbranch: Control) -> Control {
+    //     Control::Ifen {
+    //         data: Ifen {
+    //             cond,
+    //             tbranch: Box::new(tbranch),
+    //             fbranch: Box::new(fbranch),
+    //         },
+    //     }
+    // }
 
-    pub fn c_while(cond: Port, body: Control) -> Control {
-        Control::While {
-            data: While {
-                cond,
-                body: Box::new(body),
-            },
-        }
-    }
+    // pub fn c_while(cond: Port, body: Control) -> Control {
+    //     Control::While {
+    //         data: While {
+    //             cond,
+    //             body: Box::new(body),
+    //         },
+    //     }
+    // }
 
     pub fn print(var: String) -> Control {
         Control::Print {
