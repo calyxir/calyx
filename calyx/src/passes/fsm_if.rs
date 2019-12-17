@@ -31,6 +31,10 @@ impl Visitor<()> for FsmIf<'_> {
             name: "condition".to_string(),
             width: 1,
         };
+        let cond_read = Portdef {
+            name: "condition_read_in".to_string(),
+            width: 1,
+        };
         // make output ports for enable fsm component
         let rdy = Portdef {
             name: "ready".to_string(),
@@ -39,7 +43,8 @@ impl Visitor<()> for FsmIf<'_> {
 
         let component_name = self.names.gen_name("fsm_if_");
 
-        let mut inputs: Vec<Portdef> = vec![cond.clone(), val];
+        let mut inputs: Vec<Portdef> =
+            vec![cond.clone(), cond_read.clone(), val];
         let mut outputs: Vec<Portdef> = vec![rdy];
 
         // add ports for cond
@@ -135,9 +140,7 @@ impl Visitor<()> for FsmIf<'_> {
                     changes.add_structure(Structure::Wire { data: ready_wire });
                     changes.add_structure(Structure::Wire { data: valid_wire });
                 }
-                Control::Empty { data } => {
-                    println!("{:?}", data);
-                }
+                Control::Empty { .. } => {}
                 _ => return Ok(()),
             }
             i += 1;
@@ -151,6 +154,25 @@ impl Visitor<()> for FsmIf<'_> {
             },
         };
 
+        let condition_read_wire = Wire {
+            src: match &c_if.port {
+                Port::This { .. } => Port::This {
+                    port: "out_read_out".to_string(),
+                },
+                Port::Comp { component, .. } => Port::Comp {
+                    component: component.to_string(),
+                    port: "out_read_out".to_string(),
+                },
+            },
+            dest: Port::Comp {
+                component: component_name.clone(),
+                port: cond.name.clone(),
+            },
+        };
+
+        changes.add_structure(Structure::Wire {
+            data: condition_read_wire,
+        });
         changes.add_structure(Structure::Wire {
             data: condition_wire,
         });
