@@ -110,12 +110,22 @@ impl From<Vec<Sexp>> for Par {
     }
 }
 
+fn parse_condition(e: &Sexp) -> Vec<String> {
+    match e {
+        Sexp::Atom(_) => {
+            panic!("Expected list for the condition but found atom")
+        }
+        Sexp::List(l) => l.iter().map(|exp| sexp_to_str(&exp)).collect(),
+    }
+}
+
 impl From<Vec<Sexp>> for If {
     fn from(e: Vec<Sexp>) -> Self {
         If {
-            cond: Port::from(&e[0]),
-            tbranch: Box::new(Control::from(&e[1])),
-            fbranch: Box::new(Control::from(&e[2])),
+            port: Port::from(&e[0]),
+            cond: parse_condition(&e[1]),
+            tbranch: Box::new(Control::from(&e[2])),
+            fbranch: Box::new(Control::from(&e[3])),
         }
     }
 }
@@ -123,7 +133,8 @@ impl From<Vec<Sexp>> for If {
 impl From<Vec<Sexp>> for Ifen {
     fn from(e: Vec<Sexp>) -> Self {
         Ifen {
-            cond: Port::from(&e[0]),
+            port: Port::from(&e[0]),
+            cond: parse_condition(&e[1]),
             tbranch: Box::new(Control::from(&e[1])),
             fbranch: Box::new(Control::from(&e[2])),
         }
@@ -133,7 +144,8 @@ impl From<Vec<Sexp>> for Ifen {
 impl From<Vec<Sexp>> for While {
     fn from(e: Vec<Sexp>) -> Self {
         While {
-            cond: Port::from(&e[0]),
+            port: Port::from(&e[0]),
+            cond: parse_condition(&e[1]),
             body: Box::new(Control::from(&e[1])),
         }
     }

@@ -87,7 +87,7 @@ impl Visitor<String> for FsmWhile<'_> {
         }
 
         let condition_wire = Wire {
-            src: c_while.cond.clone(),
+            src: c_while.port.clone(),
             dest: Port::Comp {
                 component: component_name.clone(),
                 port: cond.name.clone(),
