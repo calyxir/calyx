@@ -95,6 +95,9 @@ fn main() -> Result<(), errors::Error> {
         if comp.name.starts_with("lut_control") {
             let verilog = backend::fsm::rtl_gen::control_lut_verilog(comp);
             writeln!(verilog_buf, "{}", verilog)?;
+        } else if comp.name.starts_with("lut_data") {
+            let verilog = backend::fsm::rtl_gen::data_lut_verilog(comp);
+            writeln!(verilog_buf, "{}", verilog)?;
         }
     }
 
