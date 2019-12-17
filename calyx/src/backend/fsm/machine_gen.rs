@@ -216,7 +216,7 @@ pub fn if_fsm(component: &Component) -> FSM {
         cond_rdy_ins.push((
             component.name.clone(),
             "condition_read_in".to_string(),
-            i as i64,
+            1,
         ));
         if rdy_port.len() == 1 {
             let branch = fsm.new_state();

@@ -17,12 +17,11 @@ clean:
 	rm -f sim/*.vcd
 	rm -f sim/*.v
 
-%.v: src/*
-	cargo run examples/$*.futil -l primitives/std.lib -o sim/$*.v
+%.v:
+	cargo run examples/$*.futil -l primitives/std.lib -o $*.v
 
-%.vcd: sim/%.v
-	echo $*
-	verilator -cc --trace sim/$*.v --exe sim/testbench.cpp --top-module main
+%.vcd: %.v
+	verilator -cc --trace $*.v --exe sim/testbench.cpp --top-module main
 	make -j -C obj_dir -f Vmain.mk Vmain
-	obj_dir/Vmain
+	obj_dir/Vmain $*.vcd
 	rm -rf obj_dir

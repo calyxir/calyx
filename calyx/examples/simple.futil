@@ -9,6 +9,7 @@
      (new-std const1 (std_const 32 1))
      (new-std gt0 (std_gt 32))
      (-> (@ a0 out) (@ gt0 left))
+     (-> (@ b0 out) (@ gt0 left))
      (-> (@ const2 out) (@ gt0 right))
      (new-std const2 (std_const 32 5))
      (new-std y0 (std_reg 32 0))
@@ -21,7 +22,7 @@
      (par
       (enable a0 const0)
       (enable b0 const1))
-     (enable gt0 a0 const2)
-     (if (@ gt0 out) (gt0 b0 const2)
+     (enable gt0 b0 const2)
+     (if (@ gt0 out) (gt0 a0 const2)
          (enable y0 const3)
          (enable z0 const4)))))

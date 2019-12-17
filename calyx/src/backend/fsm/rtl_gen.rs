@@ -64,8 +64,10 @@ fn data_lut_switch(component: &Component) -> RcDoc {
         .append(RcDoc::space())
         .append(RcDoc::intersperse(
             tail.iter().map(|t| RcDoc::text(t.name.clone())),
-            RcDoc::text("&"),
+            RcDoc::text(" | "),
         ))
+        .append(RcDoc::text(";"))
+        .append(RcDoc::line())
         .append(RcDoc::text("always_comb"))
         .append(RcDoc::space())
         .append(RcDoc::text("begin"))
@@ -73,7 +75,7 @@ fn data_lut_switch(component: &Component) -> RcDoc {
         .append(RcDoc::text("case"))
         .append(RcDoc::space())
         .append(RcDoc::text("({"))
-        .append(portdef_to_doc(&component.inputs))
+        .append(portdef_to_doc(&tail))
         .append(RcDoc::text("})"))
         .append(
             RcDoc::line()
