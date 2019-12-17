@@ -113,8 +113,7 @@ impl Visitor<()> for Lookup<'_> {
         let mut data_src_hash: HashMap<String, Vec<Port>> = HashMap::new();
         let mut data_dest_hash: HashMap<String, Port> = HashMap::new();
         for (dest, srcs) in sources.clone() {
-            if srcs.len() > 1 && get_port_name(&dest).contains("read") {
-                //println!("{:#?} ", dest);
+            if srcs.len() > 1 && get_port_name(&dest).contains("_read_") {
                 data_src_hash
                     .insert(get_comp_name(&dest).to_string(), srcs.clone());
                 data_dest_hash
@@ -126,14 +125,16 @@ impl Visitor<()> for Lookup<'_> {
                 changes.batch_remove_structure(&mut structs);
             }
         }
+        println!("{:#?} ", data_dest_hash);
+        println!("{:#?} ", data_src_hash);
         for (dest, srcs) in sources {
             if srcs.len() > 1
-                && !(get_port_name(&dest).contains("read")
+                && !(get_port_name(&dest).contains("_read_")
                     || get_port_name(&dest).starts_with("valid")
                     || get_port_name(&dest).starts_with("ready"))
             {
-                println!("src {:#?}", srcs);
-                println!("{:#?}", dest);
+                //println!("src {:#?}", srcs);
+                //println!("{:#?}", dest);
                 let name = self.names.gen_name("lut_data_");
                 let mut inputs: Vec<Portdef> = srcs
                     .iter()
@@ -142,23 +143,20 @@ impl Visitor<()> for Lookup<'_> {
                         width: 32, //XXX: incorrect, should look up input port width
                     })
                     .collect();
-                let mut inputs_read: Vec<Portdef> = srcs
+                let mut inputs_read: Vec<Portdef> = inputs
                     .iter()
-                    .map(|_| Portdef {
-                        name: self.names.gen_name(&format!(
-                            "{}_read_in",
-                            get_port_name(&dest)
-                        )),
+                    .map(|p| Portdef {
+                        name: format!("{}_read_in", p.name),
                         width: 1,
                     })
                     .collect();
                 inputs.append(&mut inputs_read);
                 let mut outputs = vec![Portdef {
-                    name: get_port_name(&dest).to_string(),
+                    name: "lut_out".to_string(),
                     width: 32,
                 }];
                 outputs.push(Portdef {
-                    name: format!("{}_read_out", get_port_name(&dest)),
+                    name: "lut_out_read_out".to_string(),
                     width: 1,
                 });
                 let component = Component {
@@ -209,7 +207,7 @@ impl Visitor<()> for Lookup<'_> {
                 let output_wire_read = Structure::wire(
                     Port::Comp {
                         component: name,
-                        port: outputs[0].clone().name,
+                        port: outputs[1].clone().name,
                     },
                     dest_read.clone(),
                 );

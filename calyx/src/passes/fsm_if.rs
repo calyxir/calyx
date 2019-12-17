@@ -166,7 +166,7 @@ impl Visitor<()> for FsmIf<'_> {
             },
             dest: Port::Comp {
                 component: component_name.clone(),
-                port: cond.name.clone(),
+                port: cond_read.name.clone(),
             },
         };
 
