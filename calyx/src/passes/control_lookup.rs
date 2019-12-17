@@ -19,6 +19,12 @@ fn get_port_name(port: &Port) -> &str {
         Port::This { port } => port,
     }
 }
+fn get_comp_name(port: &Port) -> &str {
+    match port {
+        Port::Comp { component, .. } => component,
+        Port::This { .. } => panic!("necessary to have component name"),
+    }
+}
 
 impl Visitor<()> for Lookup<'_> {
     fn name(&self) -> String {
@@ -44,7 +50,7 @@ impl Visitor<()> for Lookup<'_> {
             }
         }
 
-        for (dest, srcs) in sources {
+        for (dest, srcs) in sources.clone() {
             if srcs.len() > 1 {
                 if get_port_name(&dest).starts_with("valid")
                     || get_port_name(&dest).starts_with("ready")
@@ -102,6 +108,120 @@ impl Visitor<()> for Lookup<'_> {
                         .collect();
                     changes.batch_remove_structure(&mut structs);
                 }
+            }
+        }
+        let mut data_src_hash: HashMap<String, Vec<Port>> = HashMap::new();
+        let mut data_dest_hash: HashMap<String, Port> = HashMap::new();
+        for (dest, srcs) in sources.clone() {
+            if srcs.len() > 1 && get_port_name(&dest).contains("read") {
+                //println!("{:#?} ", dest);
+                data_src_hash
+                    .insert(get_comp_name(&dest).to_string(), srcs.clone());
+                data_dest_hash
+                    .insert(get_comp_name(&dest).to_string(), dest.clone());
+                let mut structs = srcs
+                    .iter()
+                    .map(|p| Structure::wire(p.clone(), dest.clone()))
+                    .collect();
+                changes.batch_remove_structure(&mut structs);
+            }
+        }
+        for (dest, srcs) in sources {
+            if srcs.len() > 1
+                && !(get_port_name(&dest).contains("read")
+                    || get_port_name(&dest).starts_with("valid")
+                    || get_port_name(&dest).starts_with("ready"))
+            {
+                println!("src {:#?}", srcs);
+                println!("{:#?}", dest);
+                let name = self.names.gen_name("lut_data_");
+                let mut inputs: Vec<Portdef> = srcs
+                    .iter()
+                    .map(|_| Portdef {
+                        name: self.names.gen_name(&get_port_name(&dest)),
+                        width: 32, //XXX: incorrect, should look up input port width
+                    })
+                    .collect();
+                let mut inputs_read: Vec<Portdef> = srcs
+                    .iter()
+                    .map(|_| Portdef {
+                        name: self.names.gen_name(&format!(
+                            "{}_read_in",
+                            get_port_name(&dest)
+                        )),
+                        width: 1,
+                    })
+                    .collect();
+                inputs.append(&mut inputs_read);
+                let mut outputs = vec![Portdef {
+                    name: get_port_name(&dest).to_string(),
+                    width: 32,
+                }];
+                outputs.push(Portdef {
+                    name: format!("{}_read_out", get_port_name(&dest)),
+                    width: 1,
+                });
+                let component = Component {
+                    name: name.clone(),
+                    inputs: inputs.clone(),
+                    outputs: outputs.clone(),
+                    structure: vec![],
+                    control: Control::empty(),
+                };
+
+                changes.add_structure(Structure::decl(
+                    component.name.clone(),
+                    component.name.clone(),
+                ));
+                let mut srcs_all = srcs.clone();
+                let srcs_read = match data_src_hash
+                    .get(&get_comp_name(&dest).to_string())
+                {
+                    Some(read_port) => read_port,
+                    None => panic!("cannot find corresonding read port!"),
+                };
+                srcs_all.append(&mut srcs_read.clone());
+                for (src, lut_dest) in srcs_all.iter().zip(inputs) {
+                    let wire = Structure::wire(
+                        src.clone(),
+                        Port::Comp {
+                            component: name.clone(),
+                            port: lut_dest.name,
+                        },
+                    );
+                    changes.add_structure(wire);
+                }
+
+                let output_wire_data = Structure::wire(
+                    Port::Comp {
+                        component: name.clone(),
+                        port: outputs[0].clone().name,
+                    },
+                    dest.clone(),
+                );
+
+                let dest_read = match data_dest_hash
+                    .get(&get_comp_name(&dest).to_string())
+                {
+                    Some(read_port) => read_port,
+                    None => panic!("cannot find corresonding read port!"),
+                };
+                let output_wire_read = Structure::wire(
+                    Port::Comp {
+                        component: name,
+                        port: outputs[0].clone().name,
+                    },
+                    dest_read.clone(),
+                );
+
+                changes.add_structure(output_wire_data);
+                changes.add_structure(output_wire_read);
+                changes.add_component(component);
+                let mut structs = srcs
+                    .iter()
+                    .map(|p| Structure::wire(p.clone(), dest.clone()))
+                    .collect();
+                changes.batch_remove_structure(&mut structs);
             }
         }
 

@@ -34,6 +34,90 @@ pub fn to_verilog(fsm: &FSM, component: &Component) -> String {
     pretty_print(doc)
 }
 
+pub fn data_lut_verilog(component: &Component) -> String {
+    let doc = RcDoc::text("module")
+        .append(RcDoc::space())
+        .append(module_declaration(component))
+        .append(RcDoc::line())
+        .append(data_lut_switch(&component))
+        .append(RcDoc::line())
+        .append(RcDoc::text("endmodule"))
+        .append(RcDoc::hardline());
+    pretty_print(doc)
+}
+
+fn data_lut_switch(component: &Component) -> RcDoc {
+    let (head, tail) = component.inputs.split_at(component.inputs.len() / 2);
+    let cases = head.iter().enumerate().map(|(idx, h)| {
+        data_lut_case(
+            tail.len(),
+            idx,
+            &component.outputs[0].name,
+            h.name.clone(),
+        )
+    });
+    RcDoc::text("assign")
+        .append(RcDoc::space())
+        .append(RcDoc::text(&component.outputs[1].name))
+        .append(RcDoc::space())
+        .append(RcDoc::text("="))
+        .append(RcDoc::space())
+        .append(RcDoc::intersperse(
+            tail.iter().map(|t| RcDoc::text(t.name.clone())),
+            RcDoc::text("&"),
+        ))
+        .append(RcDoc::text("always_comb"))
+        .append(RcDoc::space())
+        .append(RcDoc::text("begin"))
+        .append(RcDoc::line().nest(4))
+        .append(RcDoc::text("case"))
+        .append(RcDoc::space())
+        .append(RcDoc::text("({"))
+        .append(portdef_to_doc(&component.inputs))
+        .append(RcDoc::text("})"))
+        .append(
+            RcDoc::line()
+                .nest(4)
+                .append(
+                    RcDoc::intersperse(cases, RcDoc::line().nest(4))
+                        .append(RcDoc::line()),
+                )
+                .nest(4)
+                .append(RcDoc::text("default: "))
+                .append(RcDoc::text(&component.outputs[0].name))
+                .append(RcDoc::text("= 0;"))
+                .append(RcDoc::line())
+                .nest(4),
+        )
+        .append(RcDoc::text("endcase"))
+        .append(RcDoc::line())
+        .append(RcDoc::text("end"))
+}
+
+fn data_lut_case<'a>(
+    num: usize,
+    idx: usize,
+    name: &'a str,
+    out: String,
+) -> RcDoc<'a> {
+    let mut bits = format!("{}'b", num);
+    for i in 0..num {
+        if i == idx {
+            bits.push('1')
+        } else {
+            bits.push('0')
+        }
+    }
+    RcDoc::text(bits)
+        .append(RcDoc::text(":"))
+        .append(RcDoc::space())
+        .append(RcDoc::text(name))
+        .append(RcDoc::space())
+        .append(RcDoc::text("= "))
+        .append(RcDoc::text(out))
+        .append(RcDoc::text(";"))
+}
+
 pub fn control_lut_verilog(component: &Component) -> String {
     let doc = RcDoc::text("module")
         .append(RcDoc::space())
@@ -70,11 +154,11 @@ fn control_lut_switch(component: &Component) -> RcDoc {
                     RcDoc::intersperse(cases, RcDoc::line().nest(4))
                         .append(RcDoc::line()),
                 )
-                .append(RcDoc::line())
                 .nest(4)
                 .append(RcDoc::text("default: "))
                 .append(RcDoc::text(&component.outputs[0].name))
                 .append(RcDoc::text("= 0;"))
+                .append(RcDoc::line())
                 .nest(4),
         )
         .append(RcDoc::text("endcase"))

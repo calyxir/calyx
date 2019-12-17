@@ -31,7 +31,7 @@ pub struct Opts {
     #[structopt(long, short)]
     pub libraries: Option<Vec<PathBuf>>,
 
-    #[structopt(long)]
+    #[structopt(long = "futil-output")]
     pub futil_output: Option<Option<PathBuf>>,
 
     // where to output verilog
