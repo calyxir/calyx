@@ -31,13 +31,13 @@ fn main() -> Result<(), errors::Error> {
     utils::ignore(writeln!(verilog_buf, "`include \"sim/lib/std.v\""));
 
     passes::add_read_wire::ReadWire::new().do_pass(&mut syntax);
+    println!("{}", syntax.pretty_string());
     passes::lat_insensitive::LatencyInsenstive::new().do_pass(&mut syntax);
     passes::fsm::generate(&mut syntax, &mut names);
     passes::interfacing::Interfacing::new().do_pass(&mut syntax);
     passes::control_lookup::Lookup::new(&mut names).do_pass(&mut syntax);
     passes::toplevel_component::Toplevel::new(opts.component.clone())
         .do_pass(&mut syntax);
-    //let fsms = backend::fsm::machine_gen::generate_fsms(&mut syntax);
 
     // output futil after passes
     opts.futil_output.as_ref().map_or((), |path| {

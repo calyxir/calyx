@@ -166,7 +166,6 @@ pub fn if_fsm(component: &Component) -> FSM {
         component.outputs.clone(),
         component.name.clone(),
     );
-    println!("{:?}", cond_val_outputs);
     fsm.get_state(cond).add_outputs(&mut cond_val_outputs);
 
     // transition from start to cond on valid
@@ -236,17 +235,21 @@ pub fn if_fsm(component: &Component) -> FSM {
 pub fn while_fsm(component: &Component) -> FSM {
     let (start, mut fsm) = FSM::new(&component.name);
     let cond = fsm.new_state();
+    let body = fsm.new_state();
     let end = fsm.new_state();
 
+    // transition start -> cond
     fsm.get_state(start).add_transition((
         vec![(component.name.clone(), "valid".to_string(), 1)],
         cond,
     ));
+    // transition end -> start
     fsm.get_state(end).add_transition((
         vec![(component.name.clone(), "valid".to_string(), 0)],
         start,
     ));
 
+    // set outputs for end
     fsm.get_state(end).push_output((
         component.name.clone(),
         "ready".to_string(),
@@ -263,19 +266,39 @@ pub fn while_fsm(component: &Component) -> FSM {
         component.outputs.clone(),
         component.name.clone(),
     );
+
+    // add cond outputs
+    let mut cond_val_outputs = port_def_to_input(
+        "cond_val",
+        component.outputs.clone(),
+        component.name.clone(),
+    );
+    fsm.get_state(cond).add_outputs(&mut cond_val_outputs);
+
     assert!(rdy_port.len() == 1 && rdy_port.len() == val_port.len());
-    let body = fsm.new_state();
-    fsm.get_state(cond).add_transition((
-        vec![(component.name.clone(), "condition".to_string(), 1)],
-        body,
+    let mut cond_rdy_ins = port_def_to_input(
+        "cond_rdy",
+        component.inputs.clone(),
+        component.name.clone(),
+    );
+    cond_rdy_ins.push((
+        component.name.clone(),
+        "condition_read_in".to_string(),
+        1,
     ));
+    let mut tbranch_conds = cond_rdy_ins.clone();
+    tbranch_conds.push((component.name.clone(), "condition".to_string(), 1));
+    // transition cond -> body
+    fsm.get_state(cond).add_transition((tbranch_conds, body));
+    // transition body -> cond
     fsm.get_state(body)
         .add_transition((vec![rdy_port[0].clone()], cond));
     fsm.get_state(body).push_output(val_port[0].clone());
 
-    fsm.get_state(cond).add_transition((
-        vec![(component.name.clone(), "condition".to_string(), 0)],
-        end,
-    ));
+    // transition condition -> end
+    let mut fbranch_conds = cond_rdy_ins.clone();
+    fbranch_conds.push((component.name.clone(), "condition".to_string(), 0));
+    fsm.get_state(cond).add_transition((fbranch_conds, end));
+
     fsm
 }

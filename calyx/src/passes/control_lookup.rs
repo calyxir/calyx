@@ -88,6 +88,7 @@ impl Visitor<()> for Lookup<'_> {
                                 port: lut_dest.name,
                             },
                         );
+                        println!("{:?}", wire);
                         changes.add_structure(wire);
                     }
 
@@ -99,6 +100,7 @@ impl Visitor<()> for Lookup<'_> {
                         dest.clone(),
                     );
 
+                    println!("{:?}\n", output_wire);
                     changes.add_structure(output_wire);
                     changes.add_component(component);
 
@@ -125,16 +127,12 @@ impl Visitor<()> for Lookup<'_> {
                 changes.batch_remove_structure(&mut structs);
             }
         }
-        println!("{:#?} ", data_dest_hash);
-        println!("{:#?} ", data_src_hash);
         for (dest, srcs) in sources {
             if srcs.len() > 1
                 && !(get_port_name(&dest).contains("_read_")
                     || get_port_name(&dest).starts_with("valid")
                     || get_port_name(&dest).starts_with("ready"))
             {
-                //println!("src {:#?}", srcs);
-                //println!("{:#?}", dest);
                 let name = self.names.gen_name("lut_data_");
                 let mut inputs: Vec<Portdef> = srcs
                     .iter()
@@ -176,7 +174,10 @@ impl Visitor<()> for Lookup<'_> {
                     .get(&get_comp_name(&dest).to_string())
                 {
                     Some(read_port) => read_port,
-                    None => panic!("cannot find corresonding read port!"),
+                    None => panic!(
+                        "cannot find corresonding read port: {}!",
+                        &get_comp_name(&dest).to_string()
+                    ),
                 };
                 srcs_all.append(&mut srcs_read.clone());
                 for (src, lut_dest) in srcs_all.iter().zip(inputs) {
@@ -202,7 +203,10 @@ impl Visitor<()> for Lookup<'_> {
                     .get(&get_comp_name(&dest).to_string())
                 {
                     Some(read_port) => read_port,
-                    None => panic!("cannot find corresonding read port!"),
+                    None => panic!(
+                        "cannot find corresonding read port: {}!",
+                        &get_comp_name(&dest).to_string()
+                    ),
                 };
                 let output_wire_read = Structure::wire(
                     Port::Comp {
@@ -223,6 +227,7 @@ impl Visitor<()> for Lookup<'_> {
             }
         }
 
+        changes.commit();
         Err(())
     }
 }

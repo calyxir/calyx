@@ -146,7 +146,7 @@ impl From<Vec<Sexp>> for While {
         While {
             port: Port::from(&e[0]),
             cond: parse_condition(&e[1]),
-            body: Box::new(Control::from(&e[1])),
+            body: Box::new(Control::from(&e[2])),
         }
     }
 }

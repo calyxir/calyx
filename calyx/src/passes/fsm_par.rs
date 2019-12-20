@@ -97,6 +97,7 @@ impl Visitor<()> for FsmPar<'_> {
 
         changes.add_component(component);
         changes.change_node(Control::enable(vec![component_name]));
+        changes.commit();
         Ok(())
     }
 }

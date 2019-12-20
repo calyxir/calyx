@@ -47,42 +47,6 @@ impl Visitor<()> for FsmIf<'_> {
             vec![cond.clone(), cond_read.clone(), val];
         let mut outputs: Vec<Portdef> = vec![rdy];
 
-        // add ports for cond
-        for id in &c_if.cond {
-            let port_rdy = Portdef {
-                name: format!("cond_rdy_{}", id),
-                width: 1,
-            };
-            let port_val = Portdef {
-                name: format!("cond_val_{}", id),
-                width: 1,
-            };
-            let ready_wire = Wire {
-                src: Port::Comp {
-                    component: id.to_string(),
-                    port: "ready".to_string(),
-                },
-                dest: Port::Comp {
-                    component: component_name.clone(),
-                    port: port_rdy.name.clone(),
-                },
-            };
-            let valid_wire = Wire {
-                src: Port::Comp {
-                    component: component_name.clone(),
-                    port: port_val.name.clone(),
-                },
-                dest: Port::Comp {
-                    component: id.to_string(),
-                    port: "valid".to_string(),
-                },
-            };
-            inputs.push(port_rdy);
-            outputs.push(port_val);
-            changes.add_structure(Structure::Wire { data: ready_wire });
-            changes.add_structure(Structure::Wire { data: valid_wire });
-        }
-
         // add ports for branches
         let mut branchs = vec![*c_if.tbranch.clone(), *c_if.fbranch.clone()];
         let mut i = 0;
@@ -146,6 +110,42 @@ impl Visitor<()> for FsmIf<'_> {
             i += 1;
         }
 
+        // add ports for cond
+        for id in &c_if.cond {
+            let port_rdy = Portdef {
+                name: format!("cond_rdy_{}", id),
+                width: 1,
+            };
+            let port_val = Portdef {
+                name: format!("cond_val_{}", id),
+                width: 1,
+            };
+            let ready_wire = Wire {
+                src: Port::Comp {
+                    component: id.to_string(),
+                    port: "ready".to_string(),
+                },
+                dest: Port::Comp {
+                    component: component_name.clone(),
+                    port: port_rdy.name.clone(),
+                },
+            };
+            let valid_wire = Wire {
+                src: Port::Comp {
+                    component: component_name.clone(),
+                    port: port_val.name.clone(),
+                },
+                dest: Port::Comp {
+                    component: id.to_string(),
+                    port: "valid".to_string(),
+                },
+            };
+            inputs.push(port_rdy);
+            outputs.push(port_val);
+            changes.add_structure(Structure::Wire { data: ready_wire });
+            changes.add_structure(Structure::Wire { data: valid_wire });
+        }
+
         let condition_wire = Wire {
             src: c_if.port.clone(),
             dest: Port::Comp {
@@ -192,6 +192,7 @@ impl Visitor<()> for FsmIf<'_> {
 
         changes.add_component(component);
         changes.change_node(Control::enable(vec![component_name]));
+        changes.commit();
         Ok(())
     }
 }

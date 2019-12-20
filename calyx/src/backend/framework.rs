@@ -73,7 +73,11 @@ impl Context {
                 if *comp.name == *component {
                     comp.get_port_width(port.as_ref())
                 } else {
-                    match c.instances.get(component).unwrap() {
+                    match c
+                        .instances
+                        .get(component)
+                        .expect(&format!("Couldn't find: {}", component))
+                    {
                         Structure::Decl { data } => {
                             let comp =
                                 Context::lookup_comp(data.name.as_ref(), c);

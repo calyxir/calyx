@@ -34,6 +34,7 @@ impl Visitor<String> for FsmSeq<'_> {
         };
 
         let component_name = self.names.gen_name("fsm_seq_");
+        println!("{}", component_name);
 
         let mut inputs: Vec<Portdef> = vec![val];
         let mut outputs: Vec<Portdef> = vec![rdy];
@@ -42,6 +43,7 @@ impl Visitor<String> for FsmSeq<'_> {
             match con {
                 Control::Enable { data } => {
                     if data.comps.len() != 1 {
+                        println!("nope!");
                         return Ok(());
                     }
                     let comp = &data.comps[0];
@@ -78,8 +80,10 @@ impl Visitor<String> for FsmSeq<'_> {
                     changes.add_structure(Structure::Wire { data: ready_wire });
                     changes.add_structure(Structure::Wire { data: valid_wire });
                 }
-                Control::Empty { .. } => (),
-                _x => return Ok(()),
+                _ => {
+                    println!("nope!");
+                    return Ok(());
+                }
             }
         }
 
@@ -98,6 +102,7 @@ impl Visitor<String> for FsmSeq<'_> {
 
         changes.add_component(component);
         changes.change_node(Control::enable(vec![component_name]));
+        changes.commit();
         Ok(())
     }
 }
