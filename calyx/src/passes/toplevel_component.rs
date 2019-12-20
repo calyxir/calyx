@@ -47,6 +47,7 @@ impl Visitor<()> for Toplevel {
         }
 
         // return err to avoid recursing down the whole tree
+        changes.commit();
         Err(())
     }
 }

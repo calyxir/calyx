@@ -54,6 +54,7 @@ impl Visitor<()> for ReadWire {
                         src: update_port(&data.src, "read_out"),
                         dest: update_port(&data.dest, "read_in"),
                     };
+                    println!("{:?}", read_wire);
                     changes.add_structure(Structure::Wire { data: read_wire })
                 }
                 _ => (),
@@ -61,6 +62,7 @@ impl Visitor<()> for ReadWire {
         }
 
         // return err to avoid touching every control node
+        changes.commit();
         Err(())
     }
 }

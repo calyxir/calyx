@@ -92,6 +92,7 @@ impl Visitor<()> for FsmEnable {
             changes.add_component(component);
         }
 
+        changes.commit();
         Ok(())
     }
 }

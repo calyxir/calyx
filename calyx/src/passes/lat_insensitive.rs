@@ -31,7 +31,7 @@ impl Visitor<()> for LatencyInsenstive {
         changes.add_input_port(val);
         changes.add_output_port(rdy);
 
-        // return err to avoid touching every control node
+        changes.commit();
         Err(())
     }
 }
