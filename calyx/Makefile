@@ -14,8 +14,9 @@ install:
 	cargo install --force --path .
 
 clean:
-	rm -f sim/*.vcd
-	rm -f sim/*.v
+	rm -f *.vcd sim/*.vcd
+	rm -f *.v sim/*.v
+	rm -f *.dot
 
 %.v: src/*
 	cargo run examples/$*.futil -l primitives/std.lib -o sim/$*.v
