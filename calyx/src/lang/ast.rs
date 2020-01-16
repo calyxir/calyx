@@ -1,36 +1,64 @@
+use crate::errors::Error;
+use sexpy::Sexpy;
+use std::fs;
+use std::path::PathBuf;
+
 // Abstract Syntax Tree for Futil. See link below for the grammar
 // https://github.com/cucapra/futil/blob/master/grammar.md
 
 pub type Id = String;
 
-#[derive(Clone, Debug, Hash)]
+pub fn parse_file(file: &PathBuf) -> Result<Namespace, Error> {
+    let content = &fs::read(file)?;
+    let string_content = std::str::from_utf8(content)?;
+    match Namespace::parse(string_content) {
+        Ok(ns) => Ok(ns),
+        Err(msg) => Err(Error::ParseError(msg)),
+    }
+}
+
+#[derive(Clone, Debug, Hash, Sexpy)]
+#[sexpy(head = "define/namespace")]
 pub struct Namespace {
     pub name: String,
     pub components: Vec<Component>,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, Sexpy)]
+#[sexpy(head = "define/component")]
 pub struct Component {
     pub name: String,
+    #[sexpy(surround)]
     pub inputs: Vec<Portdef>,
+    #[sexpy(surround)]
     pub outputs: Vec<Portdef>,
+    #[sexpy(surround)]
     pub structure: Vec<Structure>,
     pub control: Control,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, Sexpy)]
+#[sexpy(head = "port")]
 pub struct Portdef {
     pub name: String,
     pub width: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Sexpy)]
+#[sexpy(head = "@")]
 pub enum Port {
-    Comp { component: Id, port: String },
-    This { port: String },
+    Comp {
+        component: Id,
+        port: String,
+    },
+    #[sexpy(head = "this")]
+    This {
+        port: String,
+    },
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, Sexpy)]
+#[sexpy(nohead)]
 pub struct Compinst {
     pub name: String,
     pub params: Vec<i64>,
@@ -39,25 +67,30 @@ pub struct Compinst {
 // ===================================
 // Data definitions for Structure
 // ===================================
-#[derive(Clone, Debug, Hash)]
+
+#[derive(Clone, Debug, Hash, Sexpy)]
+#[sexpy(head = "new", nosurround)]
 pub struct Decl {
     pub name: Id,
     pub component: String,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, Sexpy)]
+#[sexpy(head = "new-std", nosurround)]
 pub struct Std {
     pub name: Id,
     pub instance: Compinst,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, Sexpy)]
+#[sexpy(head = "->", nosurround)]
 pub struct Wire {
     pub src: Port,
     pub dest: Port,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, Sexpy)]
+#[sexpy(nohead)]
 pub enum Structure {
     Decl { data: Decl },
     Std { data: Std },
@@ -88,59 +121,69 @@ impl Structure {
 // ===================================
 // Data definitions for Control Ast
 // ===================================
+// Need Boxes for recursive data structure
+// Cannot have recursive data structure without
+// indirection
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Sexpy)]
+#[sexpy(nosurround)]
 pub struct Seq {
     pub stmts: Vec<Control>,
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Sexpy)]
+#[sexpy(nosurround)]
 pub struct Par {
     pub stmts: Vec<Control>,
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Sexpy)]
+#[sexpy(nosurround)]
 pub struct If {
     pub cond: Port,
     pub tbranch: Box<Control>,
     pub fbranch: Box<Control>,
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Sexpy)]
+#[sexpy(nosurround)]
 pub struct Ifen {
     pub cond: Port,
     pub tbranch: Box<Control>,
     pub fbranch: Box<Control>,
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Sexpy)]
+#[sexpy(nosurround)]
 pub struct While {
     pub cond: Port,
     pub body: Box<Control>,
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Sexpy)]
+#[sexpy(nosurround)]
 pub struct Print {
     pub var: String,
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Sexpy)]
+#[sexpy(nosurround)]
 pub struct Enable {
     pub comps: Vec<String>,
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Sexpy)]
+#[sexpy(nosurround)]
 pub struct Disable {
     pub comps: Vec<String>,
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Sexpy)]
+#[sexpy(nosurround)]
 pub struct Empty {}
 
-// Need Boxes for recursive data structure
-// Cannot have recursive data structure without
-// indirection
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Sexpy)]
+#[sexpy(nohead)]
 pub enum Control {
     Seq { data: Seq },
     Par { data: Par },

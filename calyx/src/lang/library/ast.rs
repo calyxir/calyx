@@ -1,26 +1,46 @@
 // Abstract Syntax Tree for library declarations in Futil
+use crate::errors::Error;
 use crate::lang::ast::Id;
+use sexpy::Sexpy;
+use std::fs;
+use std::path::PathBuf;
 
-#[derive(Clone, Debug)]
+pub fn parse_file(file: &PathBuf) -> Result<Library, Error> {
+    let content = &fs::read(file)?;
+    let string_content = std::str::from_utf8(content)?;
+    match Library::parse(string_content) {
+        Ok(ns) => Ok(ns),
+        Err(msg) => Err(Error::ParseError(msg)),
+    }
+}
+
+#[derive(Sexpy, Clone, Debug)]
+#[sexpy(head = "define/library")]
 pub struct Library {
     pub primitives: Vec<Primitive>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Sexpy, Clone, Debug)]
+#[sexpy(head = "define/prim")]
 pub struct Primitive {
     pub name: String,
+    #[sexpy(surround)]
     pub params: Vec<Id>,
+    #[sexpy(surround)]
     pub inputs: Vec<PrimPortdef>,
+    #[sexpy(surround)]
     pub outputs: Vec<PrimPortdef>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Sexpy, Clone, Debug)]
+#[sexpy(head = "port")]
 pub struct PrimPortdef {
     pub name: String,
     pub width: Width,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Sexpy, Clone, Debug)]
+#[sexpy(nohead, nosurround)]
 pub enum Width {
     Const { value: i64 },
     Param { value: Id },

@@ -18,7 +18,7 @@ pub struct Context {
 fn init_library(libs: &[PathBuf]) -> HashMap<String, library::ast::Primitive> {
     let libraries = libs
         .into_iter()
-        .map(|filename| library::parse::parse_file(filename))
+        .map(|filename| library::ast::parse_file(filename).unwrap())
         .collect();
 
     let lib = Library::merge(libraries);
@@ -50,9 +50,11 @@ impl Context {
     fn lookup_prim(id: &str, c: &Context) -> library::ast::Primitive {
         let inst = c.instances.get(id).unwrap();
         match inst {
-            ast::Structure::Std { data } => {
-                c.library.get(&data.instance.name).unwrap().clone()
-            }
+            ast::Structure::Std { data } => c
+                .library
+                .get(&data.instance.name)
+                .expect(&data.instance.name)
+                .clone(),
             _ => panic!("Prim Not found: {}", id),
         }
     }
