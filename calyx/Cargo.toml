@@ -13,6 +13,7 @@ petgraph = "~0.4"
 better-panic = "~0.2"
 pretty = "~0.7"
 sexpy = "~0.5"
+itertools = "~0.7"
 
 # [build-dependencies]
 # clap = "2.33"

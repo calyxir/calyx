@@ -141,6 +141,7 @@ pub struct Par {
 #[sexpy(nosurround)]
 pub struct If {
     pub port: Port,
+    #[sexpy(surround)]
     pub cond: Vec<String>,
     pub tbranch: Box<Control>,
     pub fbranch: Box<Control>,
@@ -150,6 +151,7 @@ pub struct If {
 #[sexpy(nosurround)]
 pub struct Ifen {
     pub port: Port,
+    #[sexpy(surround)]
     pub cond: Vec<String>,
     pub tbranch: Box<Control>,
     pub fbranch: Box<Control>,
@@ -159,6 +161,7 @@ pub struct Ifen {
 #[sexpy(nosurround)]
 pub struct While {
     pub port: Port,
+    #[sexpy(surround)]
     pub cond: Vec<String>,
     pub body: Box<Control>,
 }
