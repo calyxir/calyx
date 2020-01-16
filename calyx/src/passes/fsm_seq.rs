@@ -27,10 +27,6 @@ impl Visitor<String> for FsmSeq<'_> {
             name: "valid".to_string(),
             width: 1,
         };
-        let reset = Portdef {
-            name: "reset".to_string(),
-            width: 1,
-        };
         // make output ports for enable fsm component
         let rdy = Portdef {
             name: "ready".to_string(),
@@ -38,14 +34,16 @@ impl Visitor<String> for FsmSeq<'_> {
         };
 
         let component_name = self.names.gen_name("fsm_seq_");
+        println!("{}", component_name);
 
-        let mut inputs: Vec<Portdef> = vec![val, reset];
+        let mut inputs: Vec<Portdef> = vec![val];
         let mut outputs: Vec<Portdef> = vec![rdy];
 
         for con in &mut seq.stmts {
             match con {
                 Control::Enable { data } => {
                     if data.comps.len() != 1 {
+                        println!("nope!");
                         return Ok(());
                     }
                     let comp = &data.comps[0];
@@ -77,23 +75,15 @@ impl Visitor<String> for FsmSeq<'_> {
                             port: "valid".to_string(),
                         },
                     };
-                    let reset_wire = Wire {
-                        src: Port::This {
-                            port: "reset".to_string(),
-                        },
-                        dest: Port::Comp {
-                            component: component_name.clone(),
-                            port: "reset".to_string(),
-                        },
-                    };
                     inputs.push(ready);
                     outputs.push(valid);
                     changes.add_structure(Structure::Wire { data: ready_wire });
                     changes.add_structure(Structure::Wire { data: valid_wire });
-                    changes.add_structure(Structure::Wire { data: reset_wire });
                 }
-                Control::Empty { .. } => (),
-                _x => return Ok(()),
+                _ => {
+                    println!("nope!");
+                    return Ok(());
+                }
             }
         }
 
@@ -112,6 +102,7 @@ impl Visitor<String> for FsmSeq<'_> {
 
         changes.add_component(component);
         changes.change_node(Control::enable(vec![component_name]));
+        changes.commit();
         Ok(())
     }
 }

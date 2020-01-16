@@ -57,7 +57,7 @@ pub enum Port {
     },
 }
 
-#[derive(Clone, Debug, Hash, Sexpy)]
+#[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
 #[sexpy(nohead)]
 pub struct Compinst {
     pub name: String,
@@ -68,28 +68,28 @@ pub struct Compinst {
 // Data definitions for Structure
 // ===================================
 
-#[derive(Clone, Debug, Hash, Sexpy)]
+#[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
 #[sexpy(head = "new", nosurround)]
 pub struct Decl {
     pub name: Id,
     pub component: String,
 }
 
-#[derive(Clone, Debug, Hash, Sexpy)]
+#[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
 #[sexpy(head = "new-std", nosurround)]
 pub struct Std {
     pub name: Id,
     pub instance: Compinst,
 }
 
-#[derive(Clone, Debug, Hash, Sexpy)]
+#[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
 #[sexpy(head = "->", nosurround)]
 pub struct Wire {
     pub src: Port,
     pub dest: Port,
 }
 
-#[derive(Clone, Debug, Hash, Sexpy)]
+#[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
 #[sexpy(nohead)]
 pub enum Structure {
     Decl { data: Decl },
@@ -140,7 +140,9 @@ pub struct Par {
 #[derive(Debug, Clone, Hash, Sexpy)]
 #[sexpy(nosurround)]
 pub struct If {
-    pub cond: Port,
+    pub port: Port,
+    #[sexpy(surround)]
+    pub cond: Vec<String>,
     pub tbranch: Box<Control>,
     pub fbranch: Box<Control>,
 }
@@ -148,7 +150,9 @@ pub struct If {
 #[derive(Debug, Clone, Hash, Sexpy)]
 #[sexpy(nosurround)]
 pub struct Ifen {
-    pub cond: Port,
+    pub port: Port,
+    #[sexpy(surround)]
+    pub cond: Vec<String>,
     pub tbranch: Box<Control>,
     pub fbranch: Box<Control>,
 }
@@ -156,7 +160,9 @@ pub struct Ifen {
 #[derive(Debug, Clone, Hash, Sexpy)]
 #[sexpy(nosurround)]
 pub struct While {
-    pub cond: Port,
+    pub port: Port,
+    #[sexpy(surround)]
+    pub cond: Vec<String>,
     pub body: Box<Control>,
 }
 
@@ -210,34 +216,34 @@ impl Control {
         }
     }
 
-    pub fn c_if(cond: Port, tbranch: Control, fbranch: Control) -> Control {
-        Control::If {
-            data: If {
-                cond,
-                tbranch: Box::new(tbranch),
-                fbranch: Box::new(fbranch),
-            },
-        }
-    }
+    // pub fn c_if(cond: Port, tbranch: Control, fbranch: Control) -> Control {
+    //     Control::If {
+    //         data: If {
+    //             cond,
+    //             tbranch: Box::new(tbranch),
+    //             fbranch: Box::new(fbranch),
+    //         },
+    //     }
+    // }
 
-    pub fn ifen(cond: Port, tbranch: Control, fbranch: Control) -> Control {
-        Control::Ifen {
-            data: Ifen {
-                cond,
-                tbranch: Box::new(tbranch),
-                fbranch: Box::new(fbranch),
-            },
-        }
-    }
+    // pub fn ifen(cond: Port, tbranch: Control, fbranch: Control) -> Control {
+    //     Control::Ifen {
+    //         data: Ifen {
+    //             cond,
+    //             tbranch: Box::new(tbranch),
+    //             fbranch: Box::new(fbranch),
+    //         },
+    //     }
+    // }
 
-    pub fn c_while(cond: Port, body: Control) -> Control {
-        Control::While {
-            data: While {
-                cond,
-                body: Box::new(body),
-            },
-        }
-    }
+    // pub fn c_while(cond: Port, body: Control) -> Control {
+    //     Control::While {
+    //         data: While {
+    //             cond,
+    //             body: Box::new(body),
+    //         },
+    //     }
+    // }
 
     pub fn print(var: String) -> Control {
         Control::Print {

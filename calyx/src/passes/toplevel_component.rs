@@ -40,24 +40,14 @@ impl Visitor<()> for Toplevel {
                         },
                     };
 
-                    let reset_wire = Wire {
-                        src: Port::This {
-                            port: "reset".to_string(),
-                        },
-                        dest: Port::Comp {
-                            component: enabled_comp.to_string(),
-                            port: "reset".to_string(),
-                        },
-                    };
-
                     changes.add_structure(Structure::Wire { data: valid_wire });
-                    changes.add_structure(Structure::Wire { data: reset_wire });
                 }
                 _ => panic!("Expected enable in the toplevel component"),
             }
         }
 
         // return err to avoid recursing down the whole tree
+        changes.commit();
         Err(())
     }
 }

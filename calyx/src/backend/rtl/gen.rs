@@ -1,6 +1,7 @@
 use crate::backend::framework::Context;
 use crate::lang::ast::{Component, Decl, Port, Portdef, Std, Wire};
 use crate::lang::library::ast::PrimPortdef;
+use itertools::Itertools;
 use pretty::RcDoc;
 use std::collections::HashMap;
 
@@ -91,6 +92,7 @@ fn wire_declarations(c: &Context) -> RcDoc<'_> {
         .toplevel
         .get_wires()
         .into_iter()
+        .unique_by(|wire| &wire.src)
         .filter_map(|wire| wire_string(&wire, c));
     RcDoc::intersperse(wire_names, RcDoc::line())
 }

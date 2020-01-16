@@ -1,0 +1,13 @@
+let a = 1;
+let i = 0;
+---
+let b = 1;
+---
+while (i < 10) {
+  let tmp = b;
+  i := i + 1;
+  ---
+  b := a + tmp;
+  ---
+  a := tmp;
+}

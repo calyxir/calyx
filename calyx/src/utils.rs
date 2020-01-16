@@ -59,6 +59,7 @@ pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
 pub struct Scoped<T> {
     current: T,
     stack: Vec<T>,
+    history: Vec<T>,
 }
 
 /// Trait for things that have a default constructor
@@ -71,6 +72,7 @@ impl<T: WithDefault + Clone> Scoped<T> {
         Scoped {
             current: T::default(),
             stack: vec![],
+            history: vec![],
         }
     }
 
@@ -78,8 +80,12 @@ impl<T: WithDefault + Clone> Scoped<T> {
         self.current = thing;
     }
 
-    pub fn get(&mut self) -> T {
-        self.current.clone()
+    pub fn get(&mut self) -> &mut T {
+        &mut self.current
+    }
+
+    pub fn reset(&mut self) {
+        self.current = T::default();
     }
 
     pub fn push_scope(&mut self) {
@@ -91,15 +97,32 @@ impl<T: WithDefault + Clone> Scoped<T> {
         match self.stack.pop() {
             None => (),
             Some(x) => {
+                self.history.push(self.current.clone());
                 self.current = x;
             }
         }
+    }
+
+    pub fn flatten(&mut self) -> Vec<T> {
+        self.history.clone()
     }
 }
 
 impl<T> WithDefault for Option<T> {
     fn default() -> Self {
         None
+    }
+}
+
+impl WithDefault for bool {
+    fn default() -> Self {
+        false
+    }
+}
+
+impl<T> WithDefault for Vec<T> {
+    fn default() -> Self {
+        vec![]
     }
 }
 

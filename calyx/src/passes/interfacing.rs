@@ -62,6 +62,7 @@ impl Visitor<()> for Interfacing {
         }
 
         // return err to avoid recursing down entire control tree
+        changes.commit();
         Err(())
     }
 }

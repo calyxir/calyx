@@ -16,16 +16,11 @@ impl Visitor<()> for LatencyInsenstive {
 
     fn start(
         &mut self,
-        comp: &mut Component,
+        _comp: &mut Component,
         changes: &mut Changes,
     ) -> Result<(), ()> {
-        println!("{}", comp.name);
         let val = Portdef {
             name: "valid".to_string(),
-            width: 1,
-        };
-        let reset = Portdef {
-            name: "reset".to_string(),
             width: 1,
         };
         let rdy = Portdef {
@@ -34,10 +29,9 @@ impl Visitor<()> for LatencyInsenstive {
         };
 
         changes.add_input_port(val);
-        changes.add_input_port(reset);
         changes.add_output_port(rdy);
 
-        // return err to avoid touching every control node
+        changes.commit();
         Err(())
     }
 }

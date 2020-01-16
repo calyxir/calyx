@@ -14,16 +14,16 @@ install:
 	cargo install --force --path .
 
 clean:
-	rm -f *.vcd sim/*.vcd
-	rm -f *.v sim/*.v
-	rm -f *.dot
+	rm -f *.vcd *.v *.futil *.dot *.png
 
-%.v: src/*
-	cargo run examples/$*.futil -l primitives/std.lib -o sim/$*.v
+%.futil:
+	fuse -b futil $*.fuse > $*.futil
 
-%.vcd: sim/%.v
-	echo $*
-	verilator -cc --trace sim/$*.v --exe sim/testbench.cpp --top-module main
+%.v: examples/%.futil
+	cargo run examples/$*.futil -l primitives/std.lib -o $*.v
+
+%.vcd: %.v
+	verilator -cc --trace $*.v --exe sim/testbench.cpp --top-module main
 	make -j -C obj_dir -f Vmain.mk Vmain
-	obj_dir/Vmain
+	obj_dir/Vmain $*.vcd
 	rm -rf obj_dir

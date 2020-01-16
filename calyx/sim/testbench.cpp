@@ -12,14 +12,11 @@ int main(int argc, char **argv, char **env)
     Verilated::traceEverOn(true);
     VerilatedVcdC *tfp = new VerilatedVcdC;
     top->trace(tfp, 99);
-    tfp->open("simple.vcd");
+    tfp->open(argv[1]);
     // initialize simulation inputs
     top->clk = 1;
-    top->reset = 1;
     top->valid = 1;
-    // run simulation for 100 clock periods
-    for (i = 0; i < 20; i++) {
-      top->reset = (i < 2);
+    for (i = 0; i < 300; i++) {
       // dump variables into VCD file and toggle clock
       for (clk = 0; clk < 2; clk++)
         {

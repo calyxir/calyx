@@ -7,11 +7,13 @@ use crate::utils::Scoped;
 /// The way the changes are defined is specified by each function.
 #[derive(Debug)]
 pub struct Changes {
-    new_comps: Vec<Component>,
-    new_struct: Vec<Structure>,
+    committed: Scoped<bool>,
+    new_comps: Scoped<Vec<Component>>,
+    new_struct: Scoped<Vec<Structure>>,
     new_node: Scoped<Option<Control>>,
-    new_input_ports: Vec<Portdef>,
-    new_output_ports: Vec<Portdef>,
+    new_input_ports: Scoped<Vec<Portdef>>,
+    new_output_ports: Scoped<Vec<Portdef>>,
+    remove_structure: Scoped<Vec<Structure>>,
 }
 
 impl Changes {
@@ -19,12 +21,12 @@ impl Changes {
 
     /// You can call this anywhere during a pass
     pub fn add_component(&mut self, comp: Component) {
-        self.new_comps.push(comp);
+        self.new_comps.get().push(comp);
     }
 
     /// Adds new structure statements to the current component
     pub fn add_structure(&mut self, structure: Structure) {
-        self.new_struct.push(structure);
+        self.new_struct.get().push(structure);
     }
 
     /// Changes the control node that is being visited when this is called to `control`.
@@ -37,37 +39,76 @@ impl Changes {
 
     /// asdf
     pub fn add_input_port(&mut self, port: Portdef) {
-        self.new_input_ports.push(port);
+        self.new_input_ports.get().push(port);
     }
 
     /// asdf
     pub fn add_output_port(&mut self, port: Portdef) {
-        self.new_output_ports.push(port);
+        self.new_output_ports.get().push(port);
+    }
+
+    /// asdf
+    pub fn _remove_structure(&mut self, structure: Structure) {
+        self.remove_structure.get().push(structure);
+    }
+
+    pub fn batch_remove_structure(&mut self, structure: &mut Vec<Structure>) {
+        self.remove_structure.get().append(structure);
+    }
+
+    pub fn commit(&mut self) {
+        self.committed.set(true);
     }
 
     /// internal function that creates a new scope for Changes
     fn push_scope(&mut self) {
+        self.committed.push_scope();
+        self.new_comps.push_scope();
+        self.new_struct.push_scope();
         self.new_node.push_scope();
+        self.new_input_ports.push_scope();
+        self.new_output_ports.push_scope();
+        self.remove_structure.push_scope();
     }
 
     /// internal function that goes out a scope for Changes
     fn pop_scope(&mut self) {
+        self.committed.pop_scope();
+        self.new_comps.pop_scope();
+        self.new_struct.pop_scope();
         self.new_node.pop_scope();
+        self.new_input_ports.pop_scope();
+        self.new_output_ports.pop_scope();
+        self.remove_structure.pop_scope();
+    }
+
+    fn clear_scope(&mut self) {
+        self.new_comps.reset();
+        self.new_struct.reset();
+        self.new_node.reset();
+        self.new_input_ports.reset();
+        self.new_output_ports.reset();
+        self.remove_structure.reset();
     }
 
     fn clear(&mut self) {
-        self.new_struct = vec![];
-        self.new_input_ports = vec![];
-        self.new_output_ports = vec![];
+        self.committed = Scoped::new();
+        self.new_struct = Scoped::new();
+        self.new_node = Scoped::new();
+        self.new_input_ports = Scoped::new();
+        self.new_output_ports = Scoped::new();
+        self.remove_structure = Scoped::new();
     }
 
     fn new() -> Self {
         Changes {
-            new_comps: vec![],
-            new_struct: vec![],
+            committed: Scoped::new(),
+            new_comps: Scoped::new(),
+            new_struct: Scoped::new(),
             new_node: Scoped::new(),
-            new_input_ports: vec![],
-            new_output_ports: vec![],
+            new_input_ports: Scoped::new(),
+            new_output_ports: Scoped::new(),
+            remove_structure: Scoped::new(),
         }
     }
 }
@@ -87,19 +128,73 @@ pub trait Visitor<Err: std::fmt::Debug> {
     {
         let mut changes = Changes::new();
         for comp in &mut syntax.components {
+            changes.push_scope();
             let res = self.start(comp, &mut changes);
-            comp.control.visit(self, &mut changes).unwrap_or_else(|x| {
-                eprintln!("The {} pass failed: {:?}", self.name(), x)
-            });
+            match res {
+                Ok(_) => {
+                    comp.control.visit(self, &mut changes).unwrap_or_else(
+                        |x| {
+                            eprintln!(
+                                "The {} pass failed: {:?}",
+                                self.name(),
+                                x
+                            )
+                        },
+                    );
+                }
+                Err(_) => (),
+            }
             self.finish(comp, &mut changes, res);
+            changes.pop_scope();
 
             // update changes
-            comp.structure.append(&mut changes.new_struct);
-            comp.inputs.append(&mut changes.new_input_ports);
-            comp.outputs.append(&mut changes.new_output_ports);
+            comp.structure.append(
+                &mut changes
+                    .new_struct
+                    .flatten()
+                    .into_iter()
+                    .flatten()
+                    .collect(),
+            );
+            comp.inputs.append(
+                &mut changes
+                    .new_input_ports
+                    .flatten()
+                    .into_iter()
+                    .flatten()
+                    .collect(),
+            );
+            comp.outputs.append(
+                &mut changes
+                    .new_output_ports
+                    .flatten()
+                    .into_iter()
+                    .flatten()
+                    .collect(),
+            );
+            comp.structure = comp
+                .structure
+                .iter()
+                .filter_map(|s| {
+                    if changes
+                        .remove_structure
+                        .flatten()
+                        .into_iter()
+                        .flatten()
+                        .collect::<Vec<Structure>>()
+                        .contains(s)
+                    {
+                        None
+                    } else {
+                        Some(s.clone())
+                    }
+                })
+                .collect();
             changes.clear();
         }
-        syntax.components.append(&mut changes.new_comps);
+        syntax.components.append(
+            &mut changes.new_comps.flatten().into_iter().flatten().collect(),
+        );
         self
     }
 
@@ -311,7 +406,6 @@ impl Visitable for Control {
                 let res2 = visitor.finish_par(data, changes, res);
                 match &changes.new_node.get() {
                     Some(c) => *self = c.clone(),
-
                     None => (),
                 }
                 res2
@@ -404,6 +498,9 @@ impl Visitable for Control {
                 res2
             }
         };
+        if !(*changes.committed.get()) {
+            changes.clear_scope();
+        }
         changes.pop_scope();
         res
     }
