@@ -1,23 +1,22 @@
 ; git.status = dirty, build.date = Mon Dec 16 20:53:50 EST 2019, git.hash = 43be196
 (define/namespace prog
   (define/component main () ()
-    ((new-std a0 (std_reg 32 0))
-     (-> (@ const0 out) (@ a0 in))
-     (new-std const0 (std_const 32 10))
-     (new-std b0 (std_reg 32 0))
-     (-> (@ const1 out) (@ b0 in))
-     (new-std const1 (std_const 32 1))
-     (new-std gt0 (std_gt 32))
-     (-> (@ a0 out) (@ gt0 left))
-     (-> (@ b0 out) (@ gt0 left))
-     (-> (@ const2 out) (@ gt0 right))
-     (new-std const2 (std_const 32 5))
-     (new-std y0 (std_reg 32 0))
-     (-> (@ const3 out) (@ y0 in))
-     (new-std const3 (std_const 32 20))
-     (new-std z0 (std_reg 32 0))
-     (-> (@ const4 out) (@ z0 in))
-     (new-std const4 (std_const 32 40)))
+    ([new-std a0 (std_reg 32 0)]
+     [-> (@ const0 out) (@ a0 in)]
+     [new-std const0 (std_const 32 0)]
+     [new-std b0 (std_reg 32 0)]
+     [-> (@ const1 out) (@ b0 in)]
+     [new-std const1 (std_const 32 1)]
+     [new-std gt0 (std_gt 32)]
+     [-> (@ a0 out) (@ gt0 left)]
+     [-> (@ const2 out) (@ gt0 right)]
+     [new-std const2 (std_const 32 1)]
+     [new-std y0 (std_reg 32 0)]
+     [-> (@ const3 out) (@ y0 in)]
+     [new-std const3 (std_const 32 2)]
+     [new-std z0 (std_reg 32 0)]
+     [-> (@ const4 out) (@ z0 in)]
+     [new-std const4 (std_const 32 4)])
     (seq
      (par
       (enable a0 const0)
