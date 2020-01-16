@@ -139,9 +139,13 @@ pub fn dot_command(p: &PathBuf, suffix: Option<&str>) {
     let _res = Command::new("dot")
         .args(&[
             "-Tpng",
-            dot_file.to_str().unwrap(),
+            dot_file
+                .to_str()
+                .expect("`dot_file` could not be turned into a string"),
             "-o",
-            png_file.to_str().unwrap(),
+            png_file
+                .to_str()
+                .expect("`png_file` could not be turned into a string"),
         ])
         .spawn();
 }

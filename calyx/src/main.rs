@@ -31,7 +31,6 @@ fn main() -> Result<(), errors::Error> {
     utils::ignore(writeln!(verilog_buf, "`include \"sim/lib/std.v\""));
 
     passes::add_read_wire::ReadWire::new().do_pass(&mut syntax);
-    println!("{}", syntax.pretty_string());
     passes::lat_insensitive::LatencyInsenstive::new().do_pass(&mut syntax);
     passes::fsm::generate(&mut syntax, &mut names);
     passes::interfacing::Interfacing::new().do_pass(&mut syntax);

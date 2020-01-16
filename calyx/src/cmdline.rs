@@ -51,7 +51,7 @@ impl std::fmt::Write for Writer {
     fn write_str(&mut self, msg: &str) -> Result<(), std::fmt::Error> {
         match &mut self.file {
             None => print!("{}", msg),
-            Some(f) => write!(f, "{}", msg).unwrap(),
+            Some(f) => write!(f, "{}", msg).expect("Writing failed"),
         }
         Ok(())
     }
@@ -68,16 +68,19 @@ pub fn path_write<F>(
 ) where
     F: FnMut(&mut Writer) -> Result<(), std::fmt::Error>,
 {
-    match path {
-        None => write_fn(&mut Writer { file: None }).unwrap(),
+    let r = match path {
+        None => write_fn(&mut Writer { file: None }),
         Some(p) => {
             let mut path = p.clone();
             suffix.map_or((), |x| add_suffix(&mut path, x));
             ext.map_or((), |ext| ignore(path.set_extension(ext)));
             write_fn(&mut Writer {
-                file: Some(File::create(path.as_path()).unwrap()),
+                file: Some(
+                    File::create(path.as_path()).expect("File creation failed"),
+                ),
             })
         }
-        .unwrap(),
-    }
+    };
+    // panic if writing fails
+    r.expect("path_write failed")
 }
