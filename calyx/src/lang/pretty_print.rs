@@ -13,13 +13,11 @@ pub trait PrettyPrint {
     fn prettify(&self) -> RcDoc;
     fn pretty_string(&self) -> String {
         let mut w = Vec::new();
-        self.prettify().render(80, &mut w).unwrap();
+        self.prettify().render(100, &mut w).unwrap();
         String::from_utf8(w).unwrap()
     }
     fn pretty_print(&self) {
-        let mut w = Vec::new();
-        self.prettify().render(80, &mut w).unwrap();
-        println!("{}", String::from_utf8(w).unwrap());
+        println!("{}", self.pretty_string());
     }
 }
 
@@ -233,8 +231,9 @@ impl PrettyPrint for While {
 impl PrettyPrint for Print {
     fn prettify(&self) -> RcDoc {
         let inner = RcDoc::text("print")
-            .append(RcDoc::space())
-            .append(self.var.prettify());
+            .append(RcDoc::line())
+            .append(self.var.prettify())
+            .group();
         parens(inner)
     }
 }
@@ -242,8 +241,9 @@ impl PrettyPrint for Print {
 impl PrettyPrint for Enable {
     fn prettify(&self) -> RcDoc {
         let inner = RcDoc::text("enable")
-            .append(RcDoc::space())
-            .append(self.comps.prettify());
+            .append(RcDoc::line())
+            .append(self.comps.prettify())
+            .group();
         parens(inner)
     }
 }
@@ -251,8 +251,9 @@ impl PrettyPrint for Enable {
 impl PrettyPrint for Disable {
     fn prettify(&self) -> RcDoc {
         let inner = RcDoc::text("enable")
-            .append(RcDoc::space())
-            .append(self.comps.prettify());
+            .append(RcDoc::line())
+            .append(self.comps.prettify())
+            .group();
         parens(inner)
     }
 }

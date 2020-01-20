@@ -10,7 +10,6 @@ use crate::backend::fsm::machine::FSM;
 use crate::backend::fsm::{machine_gen, rtl_gen};
 use crate::cmdline::{path_write, Opts};
 use crate::lang::pretty_print::PrettyPrint;
-use crate::lang::*;
 use crate::passes::visitor::Visitor;
 use crate::utils::NameGenerator;
 use std::fmt::Write;
@@ -24,10 +23,9 @@ fn main() -> Result<(), errors::Error> {
     let opts: Opts = Opts::from_args();
 
     let mut names = NameGenerator::new();
-    let mut syntax = parse::parse_file(&opts.file)?;
+    let mut syntax = lang::ast::parse_file(&opts.file)?;
 
     let mut verilog_buf = String::new();
-
     utils::ignore(writeln!(verilog_buf, "`include \"sim/lib/std.v\""));
 
     passes::add_read_wire::ReadWire::new().do_pass(&mut syntax);
