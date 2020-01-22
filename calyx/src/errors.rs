@@ -1,16 +1,22 @@
+use crate::lang::ast;
+
 pub enum Error {
     InvalidFile,
     ParseError(String),
     WriteError,
+    UndefinedComponent(ast::Id),
 }
 
 impl std::fmt::Debug for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use Error::*;
         match self {
             InvalidFile => write!(f, "InvalidFile"),
             ParseError(msg) => write!(f, "{}", msg),
             WriteError => write!(f, "WriteError"),
+            UndefinedComponent(id) => {
+                write!(f, "Use of undefined component {:?}", id)
+            }
         }
     }
 }
