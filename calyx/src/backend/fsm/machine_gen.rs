@@ -1,7 +1,7 @@
 use super::machine::{ValuedPort, FSM};
-use crate::lang::ast::{Component, Portdef};
+use crate::lang::ast::{ComponentDef, Portdef};
 
-pub fn generate_fsm(comp: &Component) -> Option<FSM> {
+pub fn generate_fsm(comp: &ComponentDef) -> Option<FSM> {
     if comp.name.starts_with("fsm_enable") {
         Some(enable_fsm(comp))
     } else if comp.name.starts_with("fsm_par") {
@@ -34,7 +34,7 @@ fn port_def_to_input(
         .collect()
 }
 
-pub fn enable_fsm(component: &Component) -> FSM {
+pub fn enable_fsm(component: &ComponentDef) -> FSM {
     let (start, mut fsm) = FSM::new(&component.name);
 
     let mid = fsm.new_state();
@@ -73,7 +73,7 @@ pub fn enable_fsm(component: &Component) -> FSM {
     fsm
 }
 
-pub fn par_fsm(component: &Component) -> FSM {
+pub fn par_fsm(component: &ComponentDef) -> FSM {
     let (start, mut fsm) = FSM::new(&component.name);
 
     let mid = fsm.new_state();
@@ -112,7 +112,7 @@ pub fn par_fsm(component: &Component) -> FSM {
     fsm
 }
 
-pub fn seq_fsm(component: &Component) -> FSM {
+pub fn seq_fsm(component: &ComponentDef) -> FSM {
     let (start, mut fsm) = FSM::new(&component.name);
 
     let mut current = fsm.new_state();
@@ -156,7 +156,7 @@ pub fn seq_fsm(component: &Component) -> FSM {
     fsm
 }
 
-pub fn if_fsm(component: &Component) -> FSM {
+pub fn if_fsm(component: &ComponentDef) -> FSM {
     let (start, mut fsm) = FSM::new(&component.name);
 
     // cond state
@@ -232,7 +232,7 @@ pub fn if_fsm(component: &Component) -> FSM {
     fsm
 }
 
-pub fn while_fsm(component: &Component) -> FSM {
+pub fn while_fsm(component: &ComponentDef) -> FSM {
     let (start, mut fsm) = FSM::new(&component.name);
     let cond = fsm.new_state();
     let body = fsm.new_state();

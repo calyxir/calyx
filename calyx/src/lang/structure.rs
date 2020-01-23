@@ -14,7 +14,11 @@ enum NodeData {
 }
 
 /// store the src port and dst port on edge
-type EdgeData = ast::Wire;
+#[derive(Clone, Debug)]
+struct EdgeData {
+    wire: ast::Wire,
+    width: u32,
+}
 
 /// private graph type. the data in the node is the identifier
 /// for the corresponding component, and the data on the edge
@@ -43,15 +47,18 @@ impl ast::Port {
     }
 }
 
-impl ast::Component {
+impl ast::ComponentDef {
     // Control the creation method of Structure
-    pub fn structure_graph(&self) -> Result<StructureGraph, errors::Error> {
+    pub fn structure_graph(
+        &self,
+        sigs: &HashMap<ast::Id, ast::Signature>,
+    ) -> Result<StructureGraph, errors::Error> {
         let mut graph = StructG::new();
         let mut portdef_map = HashMap::new();
         let mut inst_map = HashMap::new();
 
         // add vertices for `inputs`
-        for port in &self.inputs {
+        for port in &self.signature.inputs {
             portdef_map.insert(
                 port.name.clone(),
                 graph.add_node(NodeData::Input(port.clone())),
@@ -59,7 +66,7 @@ impl ast::Component {
         }
 
         // add vertices for `outputs`
-        for port in &self.outputs {
+        for port in &self.signature.outputs {
             portdef_map.insert(
                 port.name.clone(),
                 graph.add_node(NodeData::Output(port.clone())),
@@ -91,17 +98,29 @@ impl ast::Component {
                 ast::Structure::Decl { .. } | ast::Structure::Std { .. } => (),
                 ast::Structure::Wire { data } => {
                     use ast::Port::{Comp, This};
-                    let src_node = match &data.src {
-                        Comp { component, port } => inst_map.get(component),
-                        This { port } => portdef_map.get(port),
+                    let (src_node, src_width) = match &data.src {
+                        Comp { component, .. } => {
+                            let width = sigs.get(component).map_or(
+                                Err(errors::Error::UndefinedComponent(
+                                    *component,
+                                )),
+                                |sig: ast::Signature| sig.outputs,
+                            );
+                            (inst_map.get(component), component)
+                        }
+                        This { port } => (portdef_map.get(port), port),
                     };
-                    let dest_node = match &data.dest {
-                        Comp { component, port } => inst_map.get(component),
+                    let (dest_node, dest_width) = match &data.dest {
+                        Comp { component, .. } => inst_map.get(component),
                         This { port } => portdef_map.get(port),
                     };
                     match (src_node, dest_node) {
                         (Some(s), Some(d)) => {
-                            graph.add_edge(*s, *d, data.clone());
+                            let edge_data = EdgeData {
+                                wire: data.clone(),
+                                width: 1,
+                            };
+                            graph.add_edge(*s, *d, edge_data);
                         }
                         // dest not found
                         (Some(_), None) => {
@@ -152,6 +171,7 @@ impl Into<Vec<ast::Structure>> for StructureGraph {
                 data: self.graph[ed].clone(),
             })
         }
+
         ret
     }
 }

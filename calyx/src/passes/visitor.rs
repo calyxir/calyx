@@ -8,7 +8,7 @@ use crate::utils::Scoped;
 #[derive(Debug)]
 pub struct Changes {
     committed: Scoped<bool>,
-    new_comps: Scoped<Vec<Component>>,
+    new_comps: Scoped<Vec<ComponentDef>>,
     new_struct: Scoped<Vec<Structure>>,
     new_node: Scoped<Option<Control>>,
     new_input_ports: Scoped<Vec<Portdef>>,
@@ -20,7 +20,7 @@ impl Changes {
     /// adds a new component to the current namespace
 
     /// You can call this anywhere during a pass
-    pub fn add_component(&mut self, comp: Component) {
+    pub fn add_component(&mut self, comp: ComponentDef) {
         self.new_comps.get().push(comp);
     }
 
@@ -122,7 +122,7 @@ functions to wrap error with more information. */
 pub trait Visitor<Err: std::fmt::Debug> {
     fn name(&self) -> String;
 
-    fn do_pass(&mut self, syntax: &mut Namespace) -> &mut Self
+    fn do_pass(&mut self, syntax: &mut NamespaceDef) -> &mut Self
     where
         Self: Sized,
     {
@@ -200,7 +200,7 @@ pub trait Visitor<Err: std::fmt::Debug> {
 
     fn start(
         &mut self,
-        _comp: &mut Component,
+        _comp: &mut ComponentDef,
         _c: &mut Changes,
     ) -> Result<(), Err> {
         Ok(())
@@ -208,7 +208,7 @@ pub trait Visitor<Err: std::fmt::Debug> {
 
     fn finish(
         &mut self,
-        _comp: &mut Component,
+        _comp: &mut ComponentDef,
         _c: &mut Changes,
         _res: Result<(), Err>,
     ) {

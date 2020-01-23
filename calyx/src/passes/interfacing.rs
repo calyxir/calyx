@@ -1,4 +1,4 @@
-use crate::lang::ast::{Component, Port, Portdef, Structure, Wire};
+use crate::lang::ast::{ComponentDef, Port, Portdef, Structure, Wire};
 use crate::passes::visitor::{Changes, Visitor};
 
 pub struct Interfacing {}
@@ -16,7 +16,7 @@ impl Visitor<()> for Interfacing {
 
     fn start(
         &mut self,
-        component: &mut Component,
+        component: &mut ComponentDef,
         changes: &mut Changes,
     ) -> Result<(), ()> {
         // add clk port to all components

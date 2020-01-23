@@ -4,7 +4,7 @@ use std::collections::HashMap;
 type CompStore = HashMap<ast::Id, ast::Structure>;
 
 #[allow(unused)]
-impl ast::Component {
+impl ast::ComponentDef {
     //==========================================
     //        Structure Helper Functions
     //==========================================

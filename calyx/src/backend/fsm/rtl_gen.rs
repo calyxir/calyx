@@ -1,7 +1,7 @@
 use super::machine::ValuedPort;
 use crate::backend::fsm::machine::{Edge, State, StateIndex, FSM};
 use crate::backend::rtl::gen;
-use crate::lang::ast::{Component, Id, Portdef};
+use crate::lang::ast::{ComponentDef, Id, Portdef};
 use pretty::RcDoc;
 
 //const reset_string: String = "reset".to_string();
@@ -14,7 +14,7 @@ fn pretty_print(doc: RcDoc) -> String {
     String::from_utf8(w).unwrap()
 }
 
-pub fn to_verilog(fsm: &FSM, component: &Component) -> String {
+pub fn to_verilog(fsm: &FSM, component: &ComponentDef) -> String {
     let wiredefs =
         format!("logic [{}:0] state, next_state;", fsm.state_bits() - 1);
     let doc = RcDoc::text("module")
@@ -34,7 +34,7 @@ pub fn to_verilog(fsm: &FSM, component: &Component) -> String {
     pretty_print(doc)
 }
 
-pub fn data_lut_verilog(component: &Component) -> String {
+pub fn data_lut_verilog(component: &ComponentDef) -> String {
     let doc = RcDoc::text("module")
         .append(RcDoc::space())
         .append(module_declaration(component))
@@ -46,7 +46,7 @@ pub fn data_lut_verilog(component: &Component) -> String {
     pretty_print(doc)
 }
 
-fn data_lut_switch(component: &Component) -> RcDoc {
+fn data_lut_switch(component: &ComponentDef) -> RcDoc {
     let (head, tail) = component.inputs.split_at(component.inputs.len() / 2);
     let cases = head.iter().enumerate().map(|(idx, h)| {
         data_lut_case(
@@ -120,7 +120,7 @@ fn data_lut_case<'a>(
         .append(RcDoc::text(";"))
 }
 
-pub fn control_lut_verilog(component: &Component) -> String {
+pub fn control_lut_verilog(component: &ComponentDef) -> String {
     let doc = RcDoc::text("module")
         .append(RcDoc::space())
         .append(module_declaration(component))
@@ -132,7 +132,7 @@ pub fn control_lut_verilog(component: &Component) -> String {
     pretty_print(doc)
 }
 
-fn control_lut_switch(component: &Component) -> RcDoc {
+fn control_lut_switch(component: &ComponentDef) -> RcDoc {
     let cases = component.inputs.iter().enumerate().map(|(idx, _)| {
         control_lut_case(
             component.inputs.len(),
@@ -193,7 +193,7 @@ fn control_lut_case<'a>(num: usize, idx: usize, name: &'a str) -> RcDoc<'a> {
 //==========================================
 //        FSM Module Declaration Functions
 //==========================================
-fn module_declaration(comp: &Component) -> RcDoc<'_> {
+fn module_declaration(comp: &ComponentDef) -> RcDoc<'_> {
     let module_name = &comp.name;
     RcDoc::text(format!("{} (", module_name))
         .append(gen::component_io(&comp).nest(4))

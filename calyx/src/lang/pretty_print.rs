@@ -44,7 +44,7 @@ impl<T: PrettyPrint> PrettyPrint for Vec<T> {
 
 /* =============== Toplevel ================ */
 
-impl PrettyPrint for Namespace {
+impl PrettyPrint for NamespaceDef {
     fn prettify(&self) -> RcDoc {
         let comps = self.components.iter().map(|s| s.prettify());
         let inner = RcDoc::text("define/namespace")
@@ -60,7 +60,7 @@ impl PrettyPrint for Namespace {
     }
 }
 
-impl PrettyPrint for Component {
+impl PrettyPrint for ComponentDef {
     fn prettify(&self) -> RcDoc {
         let inner = RcDoc::text("define/component")
             .append(RcDoc::space())

@@ -73,7 +73,7 @@ impl Visitor<()> for FsmEnable {
                 changes.add_structure(Structure::Wire { data: valid_wire });
             }
 
-            let component = Component {
+            let component = ComponentDef {
                 name: component_name,
                 inputs,
                 outputs,

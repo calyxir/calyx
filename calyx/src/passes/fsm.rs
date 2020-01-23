@@ -1,9 +1,9 @@
-use crate::lang::ast::Namespace;
+use crate::lang::ast::NamespaceDef;
 use crate::passes;
 use crate::passes::visitor::Visitor;
 use crate::utils::{calculate_hash, NameGenerator};
 
-pub fn generate(syntax: &mut Namespace, names: &mut NameGenerator) {
+pub fn generate(syntax: &mut NamespaceDef, names: &mut NameGenerator) {
     passes::fsm_enable::FsmEnable::new().do_pass(syntax);
     let mut prev_hash = calculate_hash(&syntax);
     loop {

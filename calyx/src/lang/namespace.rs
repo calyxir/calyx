@@ -1,9 +1,9 @@
-use crate::lang::ast::{Component, Namespace};
+use crate::lang::ast::{ComponentDef, NamespaceDef};
 use std::collections::HashMap;
 
 #[allow(unused)]
-impl Namespace {
-    pub fn get_component(&self, component: String) -> Component {
+impl NamespaceDef {
+    pub fn get_component(&self, component: String) -> ComponentDef {
         for c in self.components.iter() {
             if c.name == component {
                 return c.clone();
@@ -15,8 +15,8 @@ impl Namespace {
         );
     }
 
-    pub fn get_definitions(&self) -> HashMap<String, Component> {
-        let mut defs: HashMap<String, Component> = HashMap::new();
+    pub fn get_definitions(&self) -> HashMap<String, ComponentDef> {
+        let mut defs: HashMap<String, ComponentDef> = HashMap::new();
         for c in self.components.iter() {
             defs.insert(c.name.clone(), c.clone());
         }

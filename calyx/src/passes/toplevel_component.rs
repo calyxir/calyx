@@ -1,4 +1,4 @@
-use crate::lang::ast::{Component, Control, Id, Port, Structure, Wire};
+use crate::lang::ast::{ComponentDef, Control, Id, Port, Structure, Wire};
 use crate::passes::visitor::{Changes, Visitor};
 
 pub struct Toplevel {
@@ -18,7 +18,7 @@ impl Visitor<()> for Toplevel {
 
     fn start(
         &mut self,
-        component: &mut Component,
+        component: &mut ComponentDef,
         changes: &mut Changes,
     ) -> Result<(), ()> {
         if component.name == self.name {

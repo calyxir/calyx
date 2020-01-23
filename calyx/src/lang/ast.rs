@@ -8,10 +8,10 @@ use std::path::PathBuf;
 
 pub type Id = String;
 
-pub fn parse_file(file: &PathBuf) -> Result<Namespace, Error> {
+pub fn parse_file(file: &PathBuf) -> Result<NamespaceDef, Error> {
     let content = &fs::read(file)?;
     let string_content = std::str::from_utf8(content)?;
-    match Namespace::parse(string_content) {
+    match NamespaceDef::parse(string_content) {
         Ok(ns) => Ok(ns),
         Err(msg) => Err(Error::ParseError(msg)),
     }
@@ -19,22 +19,28 @@ pub fn parse_file(file: &PathBuf) -> Result<Namespace, Error> {
 
 #[derive(Clone, Debug, Hash, Sexpy)]
 #[sexpy(head = "define/namespace")]
-pub struct Namespace {
+pub struct NamespaceDef {
     pub name: String,
-    pub components: Vec<Component>,
+    pub components: Vec<ComponentDef>,
 }
 
 #[derive(Clone, Debug, Hash, Sexpy)]
 #[sexpy(head = "define/component")]
-pub struct Component {
-    pub name: String,
+pub struct ComponentDef {
+    pub name: Id,
+    pub signature: Signature,
+    #[sexpy(surround)]
+    pub structure: Vec<Structure>,
+    pub control: Control,
+}
+
+#[derive(Clone, Debug, Hash, Sexpy)]
+#[sexpy(nohead, nosurround)]
+pub struct Signature {
     #[sexpy(surround)]
     pub inputs: Vec<Portdef>,
     #[sexpy(surround)]
     pub outputs: Vec<Portdef>,
-    #[sexpy(surround)]
-    pub structure: Vec<Structure>,
-    pub control: Control,
 }
 
 #[derive(Clone, Debug, Hash, Sexpy, PartialEq)]

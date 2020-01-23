@@ -82,7 +82,7 @@ impl Visitor<()> for FsmPar<'_> {
             }
         }
 
-        let component = Component {
+        let component = ComponentDef {
             name: component_name.clone(),
             inputs,
             outputs,

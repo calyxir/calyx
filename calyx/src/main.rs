@@ -1,6 +1,5 @@
 mod backend;
 mod cmdline;
-mod context;
 mod errors;
 mod lang;
 mod passes;

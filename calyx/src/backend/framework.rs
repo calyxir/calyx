@@ -1,5 +1,5 @@
 use crate::lang::ast;
-use crate::lang::ast::{Component, Namespace, Port, Structure};
+use crate::lang::ast::{ComponentDef, NamespaceDef, Port, Structure};
 use crate::lang::library;
 use crate::lang::library::ast::Library;
 use std::collections::HashMap;
@@ -8,9 +8,9 @@ use std::path::PathBuf;
 #[allow(unused)]
 #[derive(Debug)]
 pub struct Context {
-    pub toplevel: Component,
+    pub toplevel: ComponentDef,
     pub instances: HashMap<ast::Id, ast::Structure>,
-    pub definitions: HashMap<String, ast::Component>,
+    pub definitions: HashMap<String, ast::ComponentDef>,
     pub library: HashMap<String, library::ast::Primitive>,
 }
 
@@ -32,12 +32,12 @@ fn init_library(libs: &[PathBuf]) -> HashMap<String, library::ast::Primitive> {
 
 impl Context {
     pub fn init_context(
-        syntax: &mut Namespace,
+        syntax: &mut NamespaceDef,
         toplevel: &str,
         libs: &[PathBuf],
     ) -> Context {
         // let namespace: Namespace = parse::parse_file(file).unwrap();
-        let comp: Component = syntax.get_component(toplevel.to_string());
+        let comp: ComponentDef = syntax.get_component(toplevel.to_string());
         let store = comp.get_store();
         Context {
             toplevel: comp,
@@ -59,7 +59,7 @@ impl Context {
         }
     }
 
-    fn lookup_comp(id: &str, c: &Context) -> ast::Component {
+    fn lookup_comp(id: &str, c: &Context) -> ast::ComponentDef {
         let inst = c.instances.get(id).unwrap();
         match inst {
             ast::Structure::Decl { data } => {
@@ -69,7 +69,7 @@ impl Context {
         }
     }
 
-    pub fn port_width(p: &Port, comp: &ast::Component, c: &Context) -> i64 {
+    pub fn port_width(p: &Port, comp: &ast::ComponentDef, c: &Context) -> i64 {
         match p {
             Port::Comp { component, port } => {
                 if *comp.name == *component {

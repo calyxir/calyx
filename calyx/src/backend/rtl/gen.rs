@@ -1,5 +1,5 @@
 use crate::backend::framework::Context;
-use crate::lang::ast::{Component, Decl, Port, Portdef, Std, Wire};
+use crate::lang::ast::{ComponentDef, Decl, Port, Portdef, Std, Wire};
 use crate::lang::library::ast::PrimPortdef;
 use itertools::Itertools;
 use pretty::RcDoc;
@@ -47,7 +47,7 @@ pub fn to_verilog(c: &Context) -> String {
  * Returns a string with the list of all of a component's i/o pins
  */
 #[allow(unused)]
-pub fn component_io(c: &Component) -> RcDoc<'_> {
+pub fn component_io(c: &ComponentDef) -> RcDoc<'_> {
     let mut inputs = c.inputs.iter().map(|pd| in_port(pd.width, &pd.name));
     let mut outputs = c.outputs.iter().map(|pd| out_port(pd.width, &pd.name));
     RcDoc::line().append(RcDoc::intersperse(

@@ -1,5 +1,5 @@
 use super::visitor::{Changes, Visitor};
-use crate::lang::ast::{Component, Portdef};
+use crate::lang::ast::{ComponentDef, Portdef};
 
 pub struct LatencyInsenstive {}
 
@@ -16,7 +16,7 @@ impl Visitor<()> for LatencyInsenstive {
 
     fn start(
         &mut self,
-        _comp: &mut Component,
+        _comp: &mut ComponentDef,
         changes: &mut Changes,
     ) -> Result<(), ()> {
         let val = Portdef {

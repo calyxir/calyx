@@ -177,7 +177,7 @@ impl Visitor<()> for FsmIf<'_> {
             data: condition_wire,
         });
 
-        let component = Component {
+        let component = ComponentDef {
             name: component_name.clone(),
             inputs,
             outputs,

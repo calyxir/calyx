@@ -1,5 +1,5 @@
 use super::visitor::{Changes, Visitor};
-use crate::lang::ast::{Component, Control, Port, Portdef, Structure};
+use crate::lang::ast::{ComponentDef, Control, Port, Portdef, Structure};
 use crate::utils::NameGenerator;
 use std::collections::HashMap;
 
@@ -33,7 +33,7 @@ impl Visitor<()> for Lookup<'_> {
 
     fn start(
         &mut self,
-        component: &mut Component,
+        component: &mut ComponentDef,
         changes: &mut Changes,
     ) -> Result<(), ()> {
         let mut sources: HashMap<Port, Vec<Port>> = HashMap::new();
@@ -67,7 +67,7 @@ impl Visitor<()> for Lookup<'_> {
                         name: get_port_name(&dest).to_string(),
                         width: 1,
                     };
-                    let component = Component {
+                    let component = ComponentDef {
                         name: name.clone(),
                         inputs: inputs.clone(),
                         outputs: vec![output.clone()],
@@ -157,7 +157,7 @@ impl Visitor<()> for Lookup<'_> {
                     name: "lut_out_read_out".to_string(),
                     width: 1,
                 });
-                let component = Component {
+                let component = ComponentDef {
                     name: name.clone(),
                     inputs: inputs.clone(),
                     outputs: outputs.clone(),
