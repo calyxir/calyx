@@ -1,12 +1,14 @@
 use crate::cmdline::Opts;
 use crate::errors;
 use crate::lang::ast;
+use crate::lang::library;
 use crate::lang::structure;
 use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Context {
     definitions: HashMap<ast::Id, (ast::Control, structure::StructureGraph)>,
+    lib_definitions: HashMap<ast::Id, library::ast::Primitive>,
 }
 
 impl Context {
@@ -21,6 +23,23 @@ impl Context {
             definitions.insert(comp.name.clone(), (comp.control, graph));
         }
 
-        Ok(Context { definitions })
+        // build hashmap for primitives in provided libraries
+        let mut lib_definitions = HashMap::new();
+        match &opts.libraries {
+            Some(libs) => {
+                for filename in libs {
+                    let def = library::ast::parse_file(&filename)?;
+                    for prim in def.primitives {
+                        lib_definitions.insert(prim.name.clone(), prim.clone());
+                    }
+                }
+            }
+            None => (),
+        }
+
+        Ok(Context {
+            definitions,
+            lib_definitions,
+        })
     }
 }
