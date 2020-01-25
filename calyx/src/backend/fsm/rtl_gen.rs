@@ -47,18 +47,21 @@ pub fn data_lut_verilog(component: &ComponentDef) -> String {
 }
 
 fn data_lut_switch(component: &ComponentDef) -> RcDoc {
-    let (head, tail) = component.inputs.split_at(component.inputs.len() / 2);
+    let (head, tail) = component
+        .signature
+        .inputs
+        .split_at(component.signature.inputs.len() / 2);
     let cases = head.iter().enumerate().map(|(idx, h)| {
         data_lut_case(
             tail.len(),
             idx,
-            &component.outputs[0].name,
+            &component.signature.outputs[0].name,
             h.name.clone(),
         )
     });
     RcDoc::text("assign")
         .append(RcDoc::space())
-        .append(RcDoc::text(&component.outputs[1].name))
+        .append(RcDoc::text(&component.signature.outputs[1].name))
         .append(RcDoc::space())
         .append(RcDoc::text("="))
         .append(RcDoc::space())
@@ -86,7 +89,7 @@ fn data_lut_switch(component: &ComponentDef) -> RcDoc {
                 )
                 .nest(4)
                 .append(RcDoc::text("default: "))
-                .append(RcDoc::text(&component.outputs[0].name))
+                .append(RcDoc::text(&component.signature.outputs[0].name))
                 .append(RcDoc::text("= 0;"))
                 .append(RcDoc::line())
                 .nest(4),
@@ -133,13 +136,19 @@ pub fn control_lut_verilog(component: &ComponentDef) -> String {
 }
 
 fn control_lut_switch(component: &ComponentDef) -> RcDoc {
-    let cases = component.inputs.iter().enumerate().map(|(idx, _)| {
-        control_lut_case(
-            component.inputs.len(),
-            idx,
-            &component.outputs[0].name,
-        )
-    });
+    let cases =
+        component
+            .signature
+            .inputs
+            .iter()
+            .enumerate()
+            .map(|(idx, _)| {
+                control_lut_case(
+                    component.signature.inputs.len(),
+                    idx,
+                    &component.signature.outputs[0].name,
+                )
+            });
     RcDoc::text("always_comb")
         .append(RcDoc::space())
         .append(RcDoc::text("begin"))
@@ -147,7 +156,7 @@ fn control_lut_switch(component: &ComponentDef) -> RcDoc {
         .append(RcDoc::text("case"))
         .append(RcDoc::space())
         .append(RcDoc::text("({"))
-        .append(portdef_to_doc(&component.inputs))
+        .append(portdef_to_doc(&component.signature.inputs))
         .append(RcDoc::text("})"))
         .append(
             RcDoc::line()
@@ -158,7 +167,7 @@ fn control_lut_switch(component: &ComponentDef) -> RcDoc {
                 )
                 .nest(4)
                 .append(RcDoc::text("default: "))
-                .append(RcDoc::text(&component.outputs[0].name))
+                .append(RcDoc::text(&component.signature.outputs[0].name))
                 .append(RcDoc::text("= 0;"))
                 .append(RcDoc::line())
                 .nest(4),

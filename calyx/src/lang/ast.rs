@@ -43,6 +43,18 @@ pub struct Signature {
     pub outputs: Vec<Portdef>,
 }
 
+impl Signature {
+    /// Returns an iterator over the inputs of signature
+    pub fn inputs(&self) -> std::slice::Iter<Portdef> {
+        self.inputs.iter()
+    }
+
+    /// Returns an iterator over the outputs of signature
+    pub fn outputs(&self) -> std::slice::Iter<Portdef> {
+        self.outputs.iter()
+    }
+}
+
 #[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
 #[sexpy(head = "port")]
 pub struct Portdef {
@@ -66,7 +78,7 @@ pub enum Port {
 #[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
 #[sexpy(nohead)]
 pub struct Compinst {
-    pub name: String,
+    pub name: Id,
     pub params: Vec<i64>,
 }
 

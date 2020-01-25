@@ -1,5 +1,7 @@
 use super::visitor::{Changes, Visitor};
-use crate::lang::ast::{ComponentDef, Control, Port, Portdef, Structure};
+use crate::lang::ast::{
+    ComponentDef, Control, Port, Portdef, Signature, Structure,
+};
 use crate::utils::NameGenerator;
 use std::collections::HashMap;
 
@@ -69,8 +71,10 @@ impl Visitor<()> for Lookup<'_> {
                     };
                     let component = ComponentDef {
                         name: name.clone(),
-                        inputs: inputs.clone(),
-                        outputs: vec![output.clone()],
+                        signature: Signature {
+                            inputs: inputs.clone(),
+                            outputs: vec![output.clone()],
+                        },
                         structure: vec![],
                         control: Control::empty(),
                     };
@@ -159,8 +163,10 @@ impl Visitor<()> for Lookup<'_> {
                 });
                 let component = ComponentDef {
                     name: name.clone(),
-                    inputs: inputs.clone(),
-                    outputs: outputs.clone(),
+                    signature: Signature {
+                        inputs: inputs.clone(),
+                        outputs: outputs.clone(),
+                    },
                     structure: vec![],
                     control: Control::empty(),
                 };

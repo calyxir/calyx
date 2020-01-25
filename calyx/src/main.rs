@@ -9,6 +9,7 @@ use crate::backend::framework::Context;
 use crate::backend::fsm::machine::FSM;
 use crate::backend::fsm::{machine_gen, rtl_gen};
 use crate::cmdline::{path_write, Opts};
+use crate::lang::context;
 use crate::lang::pretty_print::PrettyPrint;
 use crate::passes::visitor::Visitor;
 use crate::utils::NameGenerator;

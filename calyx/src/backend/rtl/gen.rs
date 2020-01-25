@@ -1,6 +1,6 @@
 use crate::backend::framework::Context;
 use crate::lang::ast::{ComponentDef, Decl, Port, Portdef, Std, Wire};
-use crate::lang::library::ast::PrimPortdef;
+use crate::lang::library::ast::ParamPortdef;
 use itertools::Itertools;
 use pretty::RcDoc;
 use std::collections::HashMap;
@@ -48,8 +48,16 @@ pub fn to_verilog(c: &Context) -> String {
  */
 #[allow(unused)]
 pub fn component_io(c: &ComponentDef) -> RcDoc<'_> {
-    let mut inputs = c.inputs.iter().map(|pd| in_port(pd.width, &pd.name));
-    let mut outputs = c.outputs.iter().map(|pd| out_port(pd.width, &pd.name));
+    let mut inputs = c
+        .signature
+        .inputs
+        .iter()
+        .map(|pd| in_port(pd.width, &pd.name));
+    let mut outputs = c
+        .signature
+        .outputs
+        .iter()
+        .map(|pd| out_port(pd.width, &pd.name));
     RcDoc::line().append(RcDoc::intersperse(
         inputs.chain(outputs),
         RcDoc::text(",").append(RcDoc::line()),
@@ -175,8 +183,11 @@ fn component_to_inst<'a>(inst: &'a Decl, c: &'a Context) -> RtlInst<'a> {
         }
     }
     // Fill up any remaining ports with empty string
-    for Portdef { name, width: _ } in
-        comp.inputs.iter().chain(comp.outputs.iter())
+    for Portdef { name, width: _ } in comp
+        .signature
+        .inputs
+        .iter()
+        .chain(comp.signature.outputs.iter())
     {
         if !port_map.contains_key(name) {
             port_map.insert(name, "".to_string());
@@ -209,8 +220,8 @@ fn prim_to_inst<'a>(inst: &'a Std, c: &'a Context) -> RtlInst<'a> {
         }
     }
     // Fill up any remaining ports with empty string
-    for PrimPortdef { name, width: _ } in
-        prim.inputs.iter().chain(prim.outputs.iter())
+    for ParamPortdef { name, width: _ } in
+        prim.signature.inputs().chain(prim.signature.outputs())
     {
         if !port_map.contains_key(name) {
             port_map.insert(name, "".to_string());

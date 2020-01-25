@@ -160,8 +160,7 @@ impl Visitor<String> for FsmWhile<'_> {
 
         let component = ComponentDef {
             name: component_name.clone(),
-            inputs,
-            outputs,
+            signature: Signature { inputs, outputs },
             structure: vec![],
             control: Control::empty(),
         };

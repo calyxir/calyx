@@ -59,7 +59,7 @@ impl ast::ComponentDef {
     }
 
     pub fn has_input_port(&self, port: String) -> bool {
-        for in_port in &self.inputs {
+        for in_port in &self.signature.inputs {
             if in_port.name == port {
                 return true;
             }
@@ -68,7 +68,7 @@ impl ast::ComponentDef {
     }
 
     pub fn has_output_port(&self, port: String) -> bool {
-        for out_port in &self.outputs {
+        for out_port in &self.signature.outputs {
             if out_port.name == port {
                 return true;
             }
@@ -77,12 +77,12 @@ impl ast::ComponentDef {
     }
 
     pub fn get_port_width(&self, port: &str) -> i64 {
-        for in_port in &self.inputs {
+        for in_port in &self.signature.inputs {
             if in_port.name == *port {
                 return in_port.width;
             }
         }
-        for out_port in &self.outputs {
+        for out_port in &self.signature.outputs {
             if out_port.name == *port {
                 return out_port.width;
             }

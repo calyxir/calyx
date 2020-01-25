@@ -1,5 +1,6 @@
 use crate::errors;
 use crate::lang::ast;
+use crate::lang::context::LibraryContext;
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::NodeIndex;
 use petgraph::stable_graph::StableDiGraph;
@@ -10,7 +11,10 @@ use std::collections::HashMap;
 enum NodeData {
     Input(ast::Portdef),
     Output(ast::Portdef),
-    Instance(ast::Structure),
+    Instance {
+        structure: ast::Structure,
+        signature: ast::Signature,
+    },
 }
 
 /// store the src port and dst port on edge
@@ -52,6 +56,7 @@ impl ast::ComponentDef {
     pub fn structure_graph(
         &self,
         sigs: &HashMap<ast::Id, ast::Signature>,
+        libctx: &LibraryContext,
     ) -> Result<StructureGraph, errors::Error> {
         let mut graph = StructG::new();
         let mut portdef_map = HashMap::new();
@@ -77,16 +82,25 @@ impl ast::ComponentDef {
         for stmt in &self.structure {
             match stmt {
                 ast::Structure::Decl { data } => {
-                    inst_map.insert(
-                        data.name.clone(),
-                        graph.add_node(NodeData::Instance(stmt.clone())),
-                    );
+                    let instance = NodeData::Instance {
+                        structure: stmt.clone(),
+                        signature: sigs
+                            .get(&data.component)
+                            .expect("Signature not found")
+                            .clone(),
+                    };
+                    inst_map
+                        .insert(data.name.clone(), graph.add_node(instance));
                 }
                 ast::Structure::Std { data } => {
-                    inst_map.insert(
-                        data.name.clone(),
-                        graph.add_node(NodeData::Instance(stmt.clone())),
-                    );
+                    let instance = NodeData::Instance {
+                        structure: stmt.clone(),
+                        signature: libctx
+                            .resolve(&data.instance.name, &data.instance.params)
+                            .expect("Primitive Signature failed to resolve"),
+                    };
+                    inst_map
+                        .insert(data.name.clone(), graph.add_node(instance));
                 }
                 ast::Structure::Wire { .. } => (),
             }
@@ -94,46 +108,84 @@ impl ast::ComponentDef {
 
         // then add edges
         for stmt in &self.structure {
-            match stmt {
-                ast::Structure::Decl { .. } | ast::Structure::Std { .. } => (),
-                ast::Structure::Wire { data } => {
-                    use ast::Port::{Comp, This};
-                    let (src_node, src_width) = match &data.src {
-                        Comp { component, .. } => {
-                            let width = sigs.get(component).map_or(
-                                Err(errors::Error::UndefinedComponent(
-                                    *component,
-                                )),
-                                |sig: ast::Signature| sig.outputs,
-                            );
-                            (inst_map.get(component), component)
+            if let ast::Structure::Wire { data } = stmt {
+                use ast::Port::{Comp, This};
+
+                let find_width =
+                    |port_to_find: &str, portdefs: &[ast::Portdef]| {
+                        match portdefs.iter().find(|x| &x.name == port_to_find)
+                        {
+                            Some(port) => Ok(port.width),
+                            None => Err(errors::Error::UndefinedPort(
+                                port_to_find.to_string(),
+                            )),
                         }
-                        This { port } => (portdef_map.get(port), port),
                     };
-                    let (dest_node, dest_width) = match &data.dest {
-                        Comp { component, .. } => inst_map.get(component),
-                        This { port } => portdef_map.get(port),
-                    };
-                    match (src_node, dest_node) {
-                        (Some(s), Some(d)) => {
+
+                // get src node in graph and width of src port
+                let (src_node, src_port) = match &data.src {
+                    Comp { component, port } => (inst_map.get(component), port),
+                    This { port } => (portdef_map.get(port), port),
+                };
+
+                // get dest node in graph and width of dest port
+                let (dest_node, dest_port) = match &data.dest {
+                    Comp { component, port } => (inst_map.get(component), port),
+                    This { port } => (portdef_map.get(port), port),
+                };
+
+                match (src_node, dest_node) {
+                    (Some(s), Some(d)) => {
+                        let (src_width, dest_width) = if let (
+                            NodeData::Instance {
+                                signature: src_sig, ..
+                            },
+                            NodeData::Instance {
+                                signature: dest_sig,
+                                ..
+                            },
+                        ) =
+                            (&graph[*s], &graph[*d])
+                        {
+                            let src_width =
+                                find_width(src_port, &src_sig.outputs)?;
+                            let dest_width =
+                                find_width(dest_port, &dest_sig.inputs)?;
+                            (src_width, dest_width)
+                        } else {
+                            let src_width =
+                                find_width(src_port, &self.signature.outputs)?;
+                            let dest_width =
+                                find_width(dest_port, &self.signature.inputs)?;
+                            (src_width, dest_width)
+                        };
+
+                        if src_width == dest_width {
                             let edge_data = EdgeData {
                                 wire: data.clone(),
-                                width: 1,
+                                width: src_width as u32,
                             };
                             graph.add_edge(*s, *d, edge_data);
-                        }
-                        // dest not found
-                        (Some(_), None) => {
-                            return Err(errors::Error::UndefinedComponent(
-                                data.dest.get_id().clone(),
+                        } else {
+                            return Err(errors::Error::MismatchedPortWidths(
+                                data.src.clone(),
+                                src_width,
+                                data.dest.clone(),
+                                dest_width,
                             ));
                         }
-                        // either source or dest not found, report src as error
-                        _ => {
-                            return Err(errors::Error::UndefinedComponent(
-                                data.src.get_id().clone(),
-                            ))
-                        }
+                    }
+                    // dest not found
+                    (Some(_), None) => {
+                        return Err(errors::Error::UndefinedComponent(
+                            data.dest.get_id().clone(),
+                        ));
+                    }
+                    // either source or dest not found, report src as error
+                    _ => {
+                        return Err(errors::Error::UndefinedComponent(
+                            data.src.get_id().clone(),
+                        ))
                     }
                 }
             }
@@ -160,7 +212,7 @@ impl Into<Vec<ast::Structure>> for StructureGraph {
         let mut ret: Vec<ast::Structure> = vec![];
         // add structure stmts for nodes
         for (_, idx) in self.inst_map {
-            if let NodeData::Instance(structure) = &self.graph[idx] {
+            if let NodeData::Instance { structure, .. } = &self.graph[idx] {
                 ret.push(structure.clone());
             }
         }
@@ -168,7 +220,7 @@ impl Into<Vec<ast::Structure>> for StructureGraph {
         // add wire structure stmts for edges
         for ed in self.graph.edge_indices() {
             ret.push(ast::Structure::Wire {
-                data: self.graph[ed].clone(),
+                data: self.graph[ed].wire.clone(),
             })
         }
 

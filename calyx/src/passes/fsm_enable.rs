@@ -75,8 +75,7 @@ impl Visitor<()> for FsmEnable {
 
             let component = ComponentDef {
                 name: component_name,
-                inputs,
-                outputs,
+                signature: Signature { inputs, outputs },
                 structure: vec![],
                 control: Control::empty(),
             };

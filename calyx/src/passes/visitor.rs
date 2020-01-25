@@ -156,7 +156,7 @@ pub trait Visitor<Err: std::fmt::Debug> {
                     .flatten()
                     .collect(),
             );
-            comp.inputs.append(
+            comp.signature.inputs.append(
                 &mut changes
                     .new_input_ports
                     .flatten()
@@ -164,7 +164,7 @@ pub trait Visitor<Err: std::fmt::Debug> {
                     .flatten()
                     .collect(),
             );
-            comp.outputs.append(
+            comp.signature.outputs.append(
                 &mut changes
                     .new_output_ports
                     .flatten()
