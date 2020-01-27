@@ -29,7 +29,7 @@ impl PrettyPrint for String {
     }
 }
 
-impl PrettyPrint for i64 {
+impl PrettyPrint for u64 {
     fn prettify(&self) -> RcDoc {
         RcDoc::text(self.to_string())
     }

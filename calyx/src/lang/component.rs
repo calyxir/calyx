@@ -76,7 +76,7 @@ impl ast::ComponentDef {
         false
     }
 
-    pub fn get_port_width(&self, port: &str) -> i64 {
+    pub fn get_port_width(&self, port: &str) -> u64 {
         for in_port in &self.signature.inputs {
             if in_port.name == *port {
                 return in_port.width;

@@ -5,15 +5,15 @@ mod lang;
 mod passes;
 mod utils;
 
-use crate::backend::framework::Context;
-use crate::backend::fsm::machine::FSM;
-use crate::backend::fsm::{machine_gen, rtl_gen};
-use crate::cmdline::{path_write, Opts};
+// use crate::backend::framework::Context;
+// use crate::backend::fsm::machine::FSM;
+// use crate::backend::fsm::{machine_gen, rtl_gen};
+use crate::cmdline::Opts;
 use crate::lang::context;
-use crate::lang::pretty_print::PrettyPrint;
-use crate::passes::visitor::Visitor;
+// use crate::lang::pretty_print::PrettyPrint;
+// use crate::passes::visitor::Visitor;
 use crate::utils::NameGenerator;
-use std::fmt::Write;
+// use std::fmt::Write;
 use structopt::StructOpt;
 
 fn main() -> Result<(), errors::Error> {
@@ -24,7 +24,7 @@ fn main() -> Result<(), errors::Error> {
     let opts: Opts = Opts::from_args();
 
     let mut _names = NameGenerator::new();
-    let context = context::Context::from_opts(&opts)?;
+    let context = Box::new(context::Context::from_opts(&opts)?);
     println!("{:#?}", context);
     // let mut syntax = lang::ast::parse_file(&opts.file)?;
 

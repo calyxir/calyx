@@ -4,7 +4,7 @@ pub enum Error {
     InvalidFile,
     ParseError(String),
     WriteError,
-    MismatchedPortWidths(ast::Port, i64, ast::Port, i64),
+    MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
     UndefinedPort(String),
     UndefinedComponent(ast::Id),
     SignatureResolutionFailed(ast::Id),

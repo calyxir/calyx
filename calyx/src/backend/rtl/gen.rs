@@ -64,7 +64,7 @@ pub fn component_io(c: &ComponentDef) -> RcDoc<'_> {
     ))
 }
 
-pub fn in_port(width: i64, name: &str) -> RcDoc<'_> {
+pub fn in_port(width: u64, name: &str) -> RcDoc<'_> {
     RcDoc::text("input")
         .append(RcDoc::space())
         .append(RcDoc::text("logic"))
@@ -73,7 +73,7 @@ pub fn in_port(width: i64, name: &str) -> RcDoc<'_> {
         .append(RcDoc::text(name))
 }
 
-pub fn out_port(width: i64, name: &str) -> RcDoc<'_> {
+pub fn out_port(width: u64, name: &str) -> RcDoc<'_> {
     RcDoc::text("output")
         .append(RcDoc::space())
         .append(RcDoc::text("logic"))
@@ -82,7 +82,7 @@ pub fn out_port(width: i64, name: &str) -> RcDoc<'_> {
         .append(RcDoc::text(name))
 }
 
-pub fn bit_width<'a>(width: i64) -> RcDoc<'a> {
+pub fn bit_width<'a>(width: u64) -> RcDoc<'a> {
     if width < 1 {
         panic!("Invalid bit width!");
     } else if width == 1 {
@@ -139,7 +139,7 @@ pub fn port_wire_id(p: &Port) -> RcDoc<'_> {
 pub struct RtlInst<'a> {
     pub comp_name: &'a String,
     pub id: &'a String,
-    pub params: Vec<i64>,
+    pub params: Vec<u64>,
     pub ports: HashMap<&'a String, String>, // Maps Port names to wires
 }
 

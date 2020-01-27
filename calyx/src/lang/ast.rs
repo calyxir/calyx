@@ -59,7 +59,7 @@ impl Signature {
 #[sexpy(head = "port")]
 pub struct Portdef {
     pub name: String,
-    pub width: i64,
+    pub width: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Sexpy)]
@@ -79,7 +79,7 @@ pub enum Port {
 #[sexpy(nohead)]
 pub struct Compinst {
     pub name: Id,
-    pub params: Vec<i64>,
+    pub params: Vec<u64>,
 }
 
 // ===================================

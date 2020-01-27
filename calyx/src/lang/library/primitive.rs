@@ -3,7 +3,7 @@ use crate::lang::library;
 
 impl library::ast::Primitive {
     #[allow(unused)]
-    pub fn get_port_width(&self, inst: ast::Structure, port: &str) -> i64 {
+    pub fn get_port_width(&self, inst: ast::Structure, port: &str) -> u64 {
         match inst {
             ast::Structure::Std { data } => {
                 let params = data.instance.params;

@@ -69,7 +69,7 @@ impl Context {
         }
     }
 
-    pub fn port_width(p: &Port, comp: &ast::ComponentDef, c: &Context) -> i64 {
+    pub fn port_width(p: &Port, comp: &ast::ComponentDef, c: &Context) -> u64 {
         match p {
             Port::Comp { component, port } => {
                 if *comp.name == *component {

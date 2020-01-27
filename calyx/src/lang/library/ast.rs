@@ -49,7 +49,7 @@ pub struct ParamPortdef {
 #[derive(Sexpy, Clone, Debug)]
 #[sexpy(nohead, nosurround)]
 pub enum Width {
-    Const { value: i64 },
+    Const { value: u64 },
     Param { value: Id },
 }
 
@@ -68,7 +68,7 @@ impl ParamSignature {
 impl ParamPortdef {
     pub fn resolve(
         &self,
-        val_map: &HashMap<&Id, i64>,
+        val_map: &HashMap<&Id, u64>,
     ) -> Result<Portdef, Error> {
         match &self.width {
             Width::Const { value } => Ok(Portdef {
