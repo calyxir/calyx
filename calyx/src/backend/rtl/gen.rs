@@ -183,7 +183,7 @@ fn component_to_inst<'a>(inst: &'a Decl, c: &'a Context) -> RtlInst<'a> {
         }
     }
     // Fill up any remaining ports with empty string
-    for Portdef { name, width: _ } in comp
+    for Portdef { name, .. } in comp
         .signature
         .inputs
         .iter()
@@ -220,7 +220,7 @@ fn prim_to_inst<'a>(inst: &'a Std, c: &'a Context) -> RtlInst<'a> {
         }
     }
     // Fill up any remaining ports with empty string
-    for ParamPortdef { name, width: _ } in
+    for ParamPortdef { name, .. } in
         prim.signature.inputs().chain(prim.signature.outputs())
     {
         if !port_map.contains_key(name) {

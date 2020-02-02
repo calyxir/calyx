@@ -10,6 +10,7 @@ use structopt::StructOpt;
     version = env!("CARGO_PKG_VERSION"),
     author = env!("CARGO_PKG_AUTHORS")
 )]
+#[allow(clippy::option_option)]
 pub struct Opts {
     // name of path where futil program lives
     #[structopt(required = true, parse(from_os_str))]

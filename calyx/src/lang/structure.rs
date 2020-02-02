@@ -105,7 +105,7 @@ impl ast::ComponentDef {
         let find_width =
             |port_to_find: &str, portdefs: &[ast::Portdef]| match portdefs
                 .iter()
-                .find(|x| &x.name == port_to_find)
+                .find(|x| x.name == port_to_find)
             {
                 Some(port) => Ok(port.width),
                 None => {
@@ -137,7 +137,7 @@ impl ast::ComponentDef {
         // if widths match, add edge to the graph
         if src_width == dest_width {
             let edge_data = EdgeData {
-                wire: wire,
+                wire,
                 width: src_width,
             };
             graph.add_edge(src_node, dest_node, edge_data);
@@ -153,7 +153,7 @@ impl ast::ComponentDef {
     }
 
     // Control the creation method of Structure
-    pub fn structure_graph<'a>(
+    pub fn structure_graph(
         &self,
         comp_sigs: &HashMap<ast::Id, ast::Signature>,
         prim_sigs: &HashMap<ast::Id, ast::Signature>,

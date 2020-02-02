@@ -53,67 +53,66 @@ impl Visitor<()> for Lookup<'_> {
         }
 
         for (dest, srcs) in sources.clone() {
-            if srcs.len() > 1 {
-                if get_port_name(&dest).starts_with("valid")
-                    || get_port_name(&dest).starts_with("ready")
-                {
-                    let name = self.names.gen_name("lut_control_");
-                    let inputs: Vec<Portdef> = srcs
-                        .iter()
-                        .map(|_| Portdef {
-                            name: self.names.gen_name(&get_port_name(&dest)),
-                            width: 1,
-                        })
-                        .collect();
-                    let output = Portdef {
-                        name: get_port_name(&dest).to_string(),
+            if srcs.len() > 1
+                && (get_port_name(&dest).starts_with("valid")
+                    || get_port_name(&dest).starts_with("ready"))
+            {
+                let name = self.names.gen_name("lut_control_");
+                let inputs: Vec<Portdef> = srcs
+                    .iter()
+                    .map(|_| Portdef {
+                        name: self.names.gen_name(&get_port_name(&dest)),
                         width: 1,
-                    };
-                    let component = ComponentDef {
-                        name: name.clone(),
-                        signature: Signature {
-                            inputs: inputs.clone(),
-                            outputs: vec![output.clone()],
-                        },
-                        structure: vec![],
-                        control: Control::empty(),
-                    };
+                    })
+                    .collect();
+                let output = Portdef {
+                    name: get_port_name(&dest).to_string(),
+                    width: 1,
+                };
+                let component = ComponentDef {
+                    name: name.clone(),
+                    signature: Signature {
+                        inputs: inputs.clone(),
+                        outputs: vec![output.clone()],
+                    },
+                    structure: vec![],
+                    control: Control::empty(),
+                };
 
-                    changes.add_structure(Structure::decl(
-                        component.name.clone(),
-                        component.name.clone(),
-                    ));
+                changes.add_structure(Structure::decl(
+                    component.name.clone(),
+                    component.name.clone(),
+                ));
 
-                    for (src, lut_dest) in srcs.iter().zip(inputs) {
-                        let wire = Structure::wire(
-                            src.clone(),
-                            Port::Comp {
-                                component: name.clone(),
-                                port: lut_dest.name,
-                            },
-                        );
-                        println!("{:?}", wire);
-                        changes.add_structure(wire);
-                    }
-
-                    let output_wire = Structure::wire(
+                for (src, lut_dest) in srcs.iter().zip(inputs) {
+                    let wire = Structure::wire(
+                        src.clone(),
                         Port::Comp {
-                            component: name,
-                            port: output.name,
+                            component: name.clone(),
+                            port: lut_dest.name,
                         },
-                        dest.clone(),
                     );
-
-                    println!("{:?}\n", output_wire);
-                    changes.add_structure(output_wire);
-                    changes.add_component(component);
-
-                    let mut structs = srcs
-                        .iter()
-                        .map(|p| Structure::wire(p.clone(), dest.clone()))
-                        .collect();
-                    changes.batch_remove_structure(&mut structs);
+                    println!("{:?}", wire);
+                    changes.add_structure(wire);
                 }
+
+                let output_wire = Structure::wire(
+                    Port::Comp {
+                        component: name,
+                        port: output.name,
+                    },
+                    dest.clone(),
+                );
+
+                println!("{:?}\n", output_wire);
+                changes.add_structure(output_wire);
+                changes.add_component(component);
+
+                let mut structs = srcs
+                    .iter()
+                    .map(|p| Structure::wire(p.clone(), dest.clone()))
+                    .collect();
+                changes.batch_remove_structure(&mut structs);
             }
         }
         let mut data_src_hash: HashMap<String, Vec<Port>> = HashMap::new();

@@ -3,14 +3,15 @@ use crate::errors;
 use crate::lang::ast;
 use crate::lang::library;
 use crate::lang::structure;
+use std::cell::{Ref, RefCell, RefMut};
 use std::collections::HashMap;
 
 /// In memory representation for a Component. Contains a Signature, Control AST,
 /// structure graph, and resolved signatures of used components
 #[derive(Debug)]
-struct Component {
+pub struct Component {
     signature: ast::Signature,
-    control: ast::Control,
+    pub control: ast::Control,
     structure: structure::StructureGraph,
     resolved_sigs: HashMap<ast::Id, ast::Signature>,
 }
@@ -18,7 +19,7 @@ struct Component {
 /// Represents an entire Futil program
 #[derive(Debug)]
 pub struct Context {
-    definitions: HashMap<ast::Id, Component>,
+    definitions: HashMap<ast::Id, RefCell<Component>>,
     library_context: LibraryContext,
 }
 
@@ -53,12 +54,12 @@ impl Context {
             let graph = comp.structure_graph(&signatures, &prim_sigs)?;
             definitions.insert(
                 comp.name.clone(),
-                Component {
+                RefCell::new(Component {
                     signature: comp.signature.clone(),
                     control: comp.control.clone(),
                     structure: graph,
                     resolved_sigs: prim_sigs,
-                },
+                }),
             );
         }
 
@@ -66,6 +67,22 @@ impl Context {
             definitions,
             library_context: libctx,
         })
+    }
+
+    pub fn definitions(
+        &self,
+    ) -> impl Iterator<Item = (&ast::Id, Ref<Component>)> {
+        self.definitions
+            .iter()
+            .map(|(id, comp)| (id, comp.borrow()))
+    }
+
+    pub fn definitions_mut(
+        &self,
+    ) -> impl Iterator<Item = (&ast::Id, RefMut<Component>)> {
+        self.definitions
+            .iter()
+            .map(|(id, comp)| (id, comp.borrow_mut()))
     }
 }
 

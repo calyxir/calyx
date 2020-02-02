@@ -99,12 +99,7 @@ fn data_lut_switch(component: &ComponentDef) -> RcDoc {
         .append(RcDoc::text("end"))
 }
 
-fn data_lut_case<'a>(
-    num: usize,
-    idx: usize,
-    name: &'a str,
-    out: String,
-) -> RcDoc<'a> {
+fn data_lut_case(num: usize, idx: usize, name: &str, out: String) -> RcDoc {
     let mut bits = format!("{}'b", num);
     for i in 0..num {
         if i == idx {

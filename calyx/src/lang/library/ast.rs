@@ -84,7 +84,6 @@ impl ParamPortdef {
                     Err(Error::SignatureResolutionFailed(self.name.clone()))
                 }
             },
-            _ => Err(Error::SignatureResolutionFailed(self.name.clone())),
         }
     }
 }

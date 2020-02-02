@@ -17,7 +17,7 @@ pub struct Context {
 #[allow(unused)]
 fn init_library(libs: &[PathBuf]) -> HashMap<String, library::ast::Primitive> {
     let libraries = libs
-        .into_iter()
+        .iter()
         .map(|filename| library::ast::parse_file(filename).unwrap())
         .collect();
 
