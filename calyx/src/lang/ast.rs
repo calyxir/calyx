@@ -1,5 +1,7 @@
 use crate::errors::Error;
+use crate::lang::context::LibraryContext;
 use sexpy::Sexpy;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -34,6 +36,27 @@ pub struct ComponentDef {
     pub control: Control,
 }
 
+impl ComponentDef {
+    /// Given a Library Context, resolve all the primitive components
+    /// in `self` and return the signatures in a HashMap
+    pub fn resolve_primitives(
+        &self,
+        libctx: &LibraryContext,
+    ) -> Result<HashMap<Id, Signature>, Error> {
+        let mut map = HashMap::new();
+
+        for stmt in &self.structure {
+            if let Structure::Std { data } = stmt {
+                let sig = libctx
+                    .resolve(&data.instance.name, &data.instance.params)?;
+                map.insert(data.name.clone(), sig);
+            }
+        }
+
+        Ok(map)
+    }
+}
+
 #[derive(Clone, Debug, Hash, Sexpy)]
 #[sexpy(nohead, nosurround)]
 pub struct Signature {
@@ -53,6 +76,13 @@ impl Signature {
     pub fn outputs(&self) -> std::slice::Iter<Portdef> {
         self.outputs.iter()
     }
+
+    pub fn new(inputs: &[(&str, u64)], outputs: &[(&str, u64)]) -> Self {
+        Signature {
+            inputs: inputs.iter().map(|x| x.into()).collect(),
+            outputs: outputs.iter().map(|x| x.into()).collect(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
@@ -60,6 +90,30 @@ impl Signature {
 pub struct Portdef {
     pub name: String,
     pub width: u64,
+}
+
+impl From<(String, u64)> for Portdef {
+    fn from((name, width): (String, u64)) -> Self {
+        Portdef { name, width }
+    }
+}
+
+impl From<(&str, u64)> for Portdef {
+    fn from((name, width): (&str, u64)) -> Self {
+        Portdef {
+            name: name.to_string(),
+            width,
+        }
+    }
+}
+
+impl From<&(&str, u64)> for Portdef {
+    fn from((name, width): &(&str, u64)) -> Self {
+        Portdef {
+            name: name.to_string(),
+            width: *width,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Sexpy)]

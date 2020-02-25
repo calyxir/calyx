@@ -1,6 +1,6 @@
 use crate::errors;
-use crate::lang::ast;
-use crate::lang::context::LibraryContext;
+use crate::lang::context::{Context, LibraryContext};
+use crate::lang::{ast, component};
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::NodeIndex;
 use petgraph::stable_graph::StableDiGraph;
@@ -12,6 +12,7 @@ enum NodeData {
     Input(ast::Portdef),
     Output(ast::Portdef),
     Instance {
+        name: ast::Id,
         structure: ast::Structure,
         signature: ast::Signature,
     },
@@ -20,7 +21,8 @@ enum NodeData {
 /// store the src port and dst port on edge
 #[derive(Clone, Debug)]
 struct EdgeData {
-    wire: ast::Wire,
+    src: String,
+    dest: String,
     width: u64,
 }
 
@@ -42,186 +44,116 @@ pub struct StructureGraph {
     graph: StructG,
 }
 
-impl ast::Port {
-    fn get_id(&self) -> &ast::Id {
-        match self {
-            ast::Port::Comp { component, .. } => component,
-            ast::Port::This { port } => port,
-        }
-    }
-}
-
-impl ast::ComponentDef {
-    pub fn resolve_primitives(
-        &self,
-        libctx: &LibraryContext,
-    ) -> Result<HashMap<ast::Id, ast::Signature>, errors::Error> {
-        let mut map = HashMap::new();
-
-        for stmt in &self.structure {
-            if let ast::Structure::Std { data } = stmt {
-                let sig = libctx
-                    .resolve(&data.instance.name, &data.instance.params)?;
-                map.insert(data.name.clone(), sig);
-            }
-        }
-
-        Ok(map)
-    }
-
-    /// Insert nodes for input and output ports of self
-    fn insert_io_nodes(
-        &self,
-        graph: &mut StructG,
-        map: &mut HashMap<ast::Id, NodeIndex>,
-    ) {
-        // add vertices for `inputs`
-        for port in &self.signature.inputs {
-            map.insert(
-                port.name.clone(),
-                graph.add_node(NodeData::Input(port.clone())),
-            );
-        }
-
-        // add vertices for `outputs`
-        for port in &self.signature.outputs {
-            map.insert(
-                port.name.clone(),
-                graph.add_node(NodeData::Output(port.clone())),
-            );
+impl StructureGraph {
+    pub fn new() -> Self {
+        StructureGraph {
+            portdef_map: HashMap::new(),
+            inst_map: HashMap::new(),
+            graph: StructG::new(),
         }
     }
 
-    /// Construct and insert an edge given two node indices
-    fn insert_edge(
-        &self,
-        graph: &mut StructG,
-        wire: ast::Wire,
-        src_node: NodeIndex,
-        src_port: &str,
-        dest_node: NodeIndex,
-        dest_port: &str,
-    ) -> Result<(), errors::Error> {
-        let find_width =
-            |port_to_find: &str, portdefs: &[ast::Portdef]| match portdefs
-                .iter()
-                .find(|x| x.name == port_to_find)
-            {
-                Some(port) => Ok(port.width),
-                None => {
-                    Err(errors::Error::UndefinedPort(port_to_find.to_string()))
-                }
-            };
-
-        // get width of src and dest ports by looking up signature in node
-        let (src_width, dest_width) = if let (
-            NodeData::Instance {
-                signature: src_sig, ..
-            },
-            NodeData::Instance {
-                signature: dest_sig,
-                ..
-            },
-        ) =
-            (&graph[src_node], &graph[dest_node])
-        {
-            let src_width = find_width(src_port, &src_sig.outputs)?;
-            let dest_width = find_width(dest_port, &dest_sig.inputs)?;
-            (src_width, dest_width)
-        } else {
-            let src_width = find_width(src_port, &self.signature.outputs)?;
-            let dest_width = find_width(dest_port, &self.signature.inputs)?;
-            (src_width, dest_width)
-        };
-
-        // if widths match, add edge to the graph
-        if src_width == dest_width {
-            let edge_data = EdgeData {
-                wire,
-                width: src_width,
-            };
-            graph.add_edge(src_node, dest_node, edge_data);
-            Ok(())
-        } else {
-            Err(errors::Error::MismatchedPortWidths(
-                wire.src.clone(),
-                src_width,
-                wire.dest.clone(),
-                dest_width,
-            ))
+    // XXX(sam) bad name
+    pub fn add_signature(&mut self, sig: &ast::Signature) {
+        // add nodes for inputs and outputs
+        for port in &sig.inputs {
+            self.insert_io_port(port, NodeData::Input);
+        }
+        for port in &sig.outputs {
+            self.insert_io_port(port, NodeData::Output);
         }
     }
 
-    // Control the creation method of Structure
-    pub fn structure_graph(
-        &self,
+    pub fn add_instance(
+        &mut self,
+        id: &ast::Id,
+        comp: &component::Component,
+    ) -> NodeIndex {
+        let idx = self.graph.add_node(NodeData::Instance {
+            name: id.clone(),
+            structure: ast::Structure::decl(id.clone(), id.clone()),
+            signature: comp.signature.clone(),
+        });
+        self.inst_map.insert(id.to_string(), idx);
+        idx
+    }
+
+    // XXX(sam) this is a bad name
+    pub fn add_component_def(
+        &mut self,
+        compdef: &ast::ComponentDef,
         comp_sigs: &HashMap<ast::Id, ast::Signature>,
         prim_sigs: &HashMap<ast::Id, ast::Signature>,
-    ) -> Result<StructureGraph, errors::Error> {
-        let mut portdef_map: HashMap<String, NodeIndex> = HashMap::new();
-        let mut inst_map: HashMap<ast::Id, NodeIndex> = HashMap::new();
-        let mut graph = StructG::new();
-
-        self.insert_io_nodes(&mut graph, &mut portdef_map);
+    ) -> Result<(), errors::Error> {
+        self.add_signature(&compdef.signature);
 
         // add vertices first, ignoring wires so that order of structure doesn't matter
-        for stmt in &self.structure {
+        for stmt in &compdef.structure {
             match stmt {
                 ast::Structure::Decl { data } => {
-                    let sig = comp_sigs
-                        .get(&data.component)
-                        .expect("Signature not found");
+                    let sig =
+                        comp_sigs.get(&data.component).ok_or_else(|| {
+                            errors::Error::SignatureResolutionFailed(
+                                data.component.clone(),
+                            )
+                        })?;
                     let instance = NodeData::Instance {
+                        name: data.name.clone(),
                         structure: stmt.clone(),
                         signature: sig.clone(),
                     };
-                    inst_map
-                        .insert(data.name.clone(), graph.add_node(instance));
+                    self.inst_map.insert(
+                        data.name.clone(),
+                        self.graph.add_node(instance),
+                    );
                 }
                 ast::Structure::Std { data } => {
                     // resolve param signature and add it to hashmap so that
                     //  we keep a reference to it
-                    let sig =
-                        prim_sigs.get(&data.name).expect("Signature not found");
+                    let sig = prim_sigs.get(&data.name).ok_or_else(|| {
+                        errors::Error::SignatureResolutionFailed(
+                            data.name.clone(),
+                        )
+                    })?;
                     let instance = NodeData::Instance {
+                        name: data.name.clone(),
                         structure: stmt.clone(),
                         signature: sig.clone(),
                     };
-                    inst_map
-                        .insert(data.name.clone(), graph.add_node(instance));
+                    self.inst_map.insert(
+                        data.name.clone(),
+                        self.graph.add_node(instance),
+                    );
                 }
                 ast::Structure::Wire { .. } => (),
             }
         }
 
         // then add edges
-        for stmt in &self.structure {
+        for stmt in &compdef.structure {
             if let ast::Structure::Wire { data } = stmt {
                 use ast::Port::{Comp, This};
 
                 // get src node in graph and src port
                 let (src_node, src_port) = match &data.src {
-                    Comp { component, port } => (inst_map.get(component), port),
-                    This { port } => (portdef_map.get(port), port),
+                    Comp { component, port } => {
+                        (self.inst_map.get(component), port)
+                    }
+                    This { port } => (self.portdef_map.get(port), port),
                 };
 
                 // get dest node in graph and dest port
                 let (dest_node, dest_port) = match &data.dest {
-                    Comp { component, port } => (inst_map.get(component), port),
-                    This { port } => (portdef_map.get(port), port),
+                    Comp { component, port } => {
+                        (self.inst_map.get(component), port)
+                    }
+                    This { port } => (self.portdef_map.get(port), port),
                 };
 
                 match (src_node, dest_node) {
                     // both nodes were found, this is a valid edge!
                     (Some(s), Some(d)) => {
-                        self.insert_edge(
-                            &mut graph,
-                            data.clone(),
-                            *s,
-                            src_port,
-                            *d,
-                            dest_port,
-                        )?;
+                        self.insert_edge(*s, src_port, *d, dest_port)?;
                     }
                     // dest not found
                     (Some(_), None) => {
@@ -238,19 +170,122 @@ impl ast::ComponentDef {
                 }
             }
         }
-
-        Ok(StructureGraph {
-            portdef_map,
-            inst_map,
-            graph,
-        })
+        Ok(())
     }
-}
 
-impl StructureGraph {
+    pub fn insert_input_port(&mut self, port: &ast::Portdef) {
+        self.insert_io_port(&port, NodeData::Input)
+    }
+
+    pub fn insert_output_port(&mut self, port: &ast::Portdef) {
+        self.insert_io_port(&port, NodeData::Output)
+    }
+
+    fn insert_io_port(
+        &mut self,
+        port: &ast::Portdef,
+        constr: impl Fn(ast::Portdef) -> NodeData,
+    ) {
+        self.portdef_map.insert(
+            port.name.clone(),
+            self.graph.add_node(constr(port.clone())),
+        );
+    }
+
+    /// Construct and insert an edge given two node indices
+    pub fn insert_edge(
+        &mut self,
+        src_node: NodeIndex,
+        src_port: &str,
+        dest_node: NodeIndex,
+        dest_port: &str,
+    ) -> Result<(), errors::Error> {
+        let find_width =
+            |port_to_find: &str, portdefs: &[ast::Portdef]| match portdefs
+                .iter()
+                .find(|x| x.name == port_to_find)
+            {
+                Some(port) => Ok(port.width),
+                None => {
+                    Err(errors::Error::UndefinedPort(port_to_find.to_string()))
+                }
+            };
+
+        use NodeData::{Input, Instance, Output};
+        let src_width = match &self.graph[src_node] {
+            Instance { signature, .. } => {
+                find_width(src_port, &signature.outputs)
+            }
+            Input(portdef) => Ok(portdef.width),
+            Output(_portdef) => {
+                Err(errors::Error::UndefinedPort(src_port.to_string()))
+            }
+        }?;
+        let dest_width = match &self.graph[dest_node] {
+            Instance { signature, .. } => {
+                find_width(dest_port, &signature.inputs)
+            }
+            Input(_portdef) => {
+                Err(errors::Error::UndefinedPort(dest_port.to_string()))
+            }
+            Output(portdef) => Ok(portdef.width),
+        }?;
+
+        // if widths match, add edge to the graph
+        if src_width == dest_width {
+            let edge_data = EdgeData {
+                src: src_port.into(),
+                dest: dest_port.into(),
+                width: src_width,
+            };
+            self.graph.add_edge(src_node, dest_node, edge_data);
+            Ok(())
+        } else {
+            Err(errors::Error::MismatchedPortWidths(
+                self.construct_port(src_node, src_port),
+                src_width,
+                self.construct_port(dest_node, dest_port),
+                dest_width,
+            ))
+        }
+    }
+
+    pub fn get_io_index(&self, port: &str) -> Result<NodeIndex, errors::Error> {
+        match self.portdef_map.get(port) {
+            Some(idx) => Ok(*idx),
+            None => Err(errors::Error::UndefinedPort(port.to_string())),
+        }
+    }
+
+    fn construct_port(&self, idx: NodeIndex, port: &str) -> ast::Port {
+        use ast::Port;
+        use NodeData::*;
+        match &self.graph[idx] {
+            Input(portdef) => Port::This {
+                port: portdef.name.clone(),
+            },
+            Output(portdef) => Port::This {
+                port: portdef.name.clone(),
+            },
+            Instance { name, .. } => Port::Comp {
+                component: name.to_string(),
+                port: port.to_string(),
+            },
+        }
+    }
+
     pub fn visualize(&self) -> String {
         let config = &[Config::EdgeNoLabel];
         format!("{:?}", Dot::with_config(&self.graph, config))
+    }
+}
+
+impl ast::Port {
+    fn get_id(&self) -> &ast::Id {
+        match self {
+            ast::Port::Comp { component, .. } => component,
+            ast::Port::This { port } => port,
+        }
     }
 }
 
@@ -259,17 +294,19 @@ impl Into<Vec<ast::Structure>> for StructureGraph {
     fn into(self) -> Vec<ast::Structure> {
         let mut ret: Vec<ast::Structure> = vec![];
         // add structure stmts for nodes
-        for (_, idx) in self.inst_map {
-            if let NodeData::Instance { structure, .. } = &self.graph[idx] {
+        for idx in self.inst_map.values() {
+            if let NodeData::Instance { structure, .. } = &self.graph[*idx] {
                 ret.push(structure.clone());
             }
         }
 
         // add wire structure stmts for edges
         for ed in self.graph.edge_indices() {
-            ret.push(ast::Structure::Wire {
-                data: self.graph[ed].wire.clone(),
-            })
+            if let Some((src, dest)) = self.graph.edge_endpoints(ed) {
+                let src_port = self.construct_port(src, &self.graph[ed].src);
+                let dest_port = self.construct_port(dest, &self.graph[ed].dest);
+                ret.push(ast::Structure::wire(src_port, dest_port))
+            }
         }
 
         ret

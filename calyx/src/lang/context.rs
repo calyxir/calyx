@@ -1,25 +1,18 @@
 use crate::cmdline::Opts;
 use crate::errors;
-use crate::lang::ast;
-use crate::lang::library;
-use crate::lang::structure;
-use std::cell::{Ref, RefCell, RefMut};
+use crate::lang::pretty_print::PrettyPrint;
+use crate::lang::{
+    ast, component::Component, library, structure::StructureGraph,
+};
+use pretty::RcDoc;
+use std::cell::RefCell;
 use std::collections::HashMap;
-
-/// In memory representation for a Component. Contains a Signature, Control AST,
-/// structure graph, and resolved signatures of used components
-#[derive(Debug)]
-pub struct Component {
-    signature: ast::Signature,
-    pub control: ast::Control,
-    structure: structure::StructureGraph,
-    resolved_sigs: HashMap<ast::Id, ast::Signature>,
-}
+use std::rc::Rc;
 
 /// Represents an entire Futil program
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Context {
-    definitions: HashMap<ast::Id, RefCell<Component>>,
+    definitions: RefCell<HashMap<ast::Id, Component>>,
     library_context: LibraryContext,
 }
 
@@ -51,42 +44,50 @@ impl Context {
         let mut definitions = HashMap::new();
         for comp in &namespace.components {
             let prim_sigs = comp.resolve_primitives(&libctx)?;
-            let graph = comp.structure_graph(&signatures, &prim_sigs)?;
+            let mut graph = StructureGraph::new();
+            graph.add_component_def(&comp, &signatures, &prim_sigs)?;
             definitions.insert(
                 comp.name.clone(),
-                RefCell::new(Component {
+                Component {
+                    name: comp.name.clone(),
                     signature: comp.signature.clone(),
                     control: comp.control.clone(),
                     structure: graph,
                     resolved_sigs: prim_sigs,
-                }),
+                },
             );
         }
 
         Ok(Context {
-            definitions,
+            definitions: RefCell::new(definitions),
             library_context: libctx,
         })
     }
 
-    pub fn definitions(
+    pub fn definitions_map(
         &self,
-    ) -> impl Iterator<Item = (&ast::Id, Ref<Component>)> {
+        mut func: impl FnMut(&ast::Id, &mut Component) -> Result<(), errors::Error>,
+    ) -> Result<(), errors::Error> {
         self.definitions
-            .iter()
-            .map(|(id, comp)| (id, comp.borrow()))
+            .borrow_mut()
+            .iter_mut()
+            .map(|(id, comp)| func(id, comp))
+            .collect()
     }
 
-    pub fn definitions_mut(
-        &self,
-    ) -> impl Iterator<Item = (&ast::Id, RefMut<Component>)> {
-        self.definitions
-            .iter()
-            .map(|(id, comp)| (id, comp.borrow_mut()))
+    // pub fn add_component(&self, id: &ast::Id) {}
+
+    pub fn print(&self) {
+        let def = self.definitions.borrow();
+        for (k, v) in def.iter() {
+            let compdef: ast::ComponentDef = v.into();
+            println!("{} ->", k);
+            compdef.pretty_print()
+        }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LibraryContext {
     definitions: HashMap<ast::Id, library::ast::Primitive>,
 }
@@ -128,5 +129,14 @@ impl LibraryContext {
                 Err(errors::Error::SignatureResolutionFailed(id.to_string()))
             }
         }
+    }
+}
+
+/* =============== Context Printing ================ */
+impl PrettyPrint for Context {
+    fn prettify(&self) -> RcDoc {
+        let defs = self.definitions.borrow();
+        let t = format!("{:#?}", defs);
+        RcDoc::text(t)
     }
 }

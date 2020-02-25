@@ -10,8 +10,8 @@ mod utils;
 // use crate::backend::fsm::{machine_gen, rtl_gen};
 use crate::cmdline::Opts;
 use crate::lang::context;
-use crate::passes::visitor::Visitor;
 // use crate::lang::pretty_print::PrettyPrint;
+use crate::passes::visitor::Visitor;
 use crate::utils::NameGenerator;
 // use std::fmt::Write;
 use structopt::StructOpt;
@@ -23,10 +23,14 @@ fn main() -> Result<(), errors::Error> {
     // parse the command line arguments into Opts struct
     let opts: Opts = Opts::from_args();
 
-    let mut _names = NameGenerator::new();
-    let mut context = Box::new(context::Context::from_opts(&opts)?);
-    // println!("{:#?}", context);
-    passes::test_pass::Test::new().do_pass(&context);
+    let mut names = NameGenerator::new();
+    let context = context::Context::from_opts(&opts)?;
+    context.print();
+    passes::lat_insensitive::LatencyInsenstive::do_pass_default(&context)?;
+    context.print();
+    passes::fsm_if::FsmIf::new(&mut names).do_pass(&context)?;
+    context.print();
+    // passes::test_pass::Test::do_pass(&context);
     // let mut syntax = lang::ast::parse_file(&opts.file)?;
 
     // let mut verilog_buf = String::new();

@@ -55,76 +55,53 @@ pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
 }
 
 /// A generic data structure that supports scopes
-#[derive(Debug)]
-pub struct Scoped<T> {
-    current: T,
-    stack: Vec<T>,
-    history: Vec<T>,
-}
+// #[derive(Debug)]
+// pub struct Scoped<T> {
+//     current: T,
+//     stack: Vec<T>,
+//     history: Vec<T>,
+// }
 
-/// Trait for things that have a default constructor
-pub trait WithDefault {
-    fn default() -> Self;
-}
+// impl<T: Default + Clone> Scoped<T> {
+//     pub fn new() -> Self {
+//         Scoped {
+//             current: T::default(),
+//             stack: vec![],
+//             history: vec![],
+//         }
+//     }
 
-impl<T: WithDefault + Clone> Scoped<T> {
-    pub fn new() -> Self {
-        Scoped {
-            current: T::default(),
-            stack: vec![],
-            history: vec![],
-        }
-    }
+//     pub fn set(&mut self, thing: T) {
+//         self.current = thing;
+//     }
 
-    pub fn set(&mut self, thing: T) {
-        self.current = thing;
-    }
+//     pub fn get(&mut self) -> &mut T {
+//         &mut self.current
+//     }
 
-    pub fn get(&mut self) -> &mut T {
-        &mut self.current
-    }
+//     pub fn reset(&mut self) {
+//         self.current = T::default();
+//     }
 
-    pub fn reset(&mut self) {
-        self.current = T::default();
-    }
+//     pub fn push_scope(&mut self) {
+//         self.stack.push(self.current.clone());
+//         self.current = T::default();
+//     }
 
-    pub fn push_scope(&mut self) {
-        self.stack.push(self.current.clone());
-        self.current = T::default();
-    }
+//     pub fn pop_scope(&mut self) {
+//         match self.stack.pop() {
+//             None => (),
+//             Some(x) => {
+//                 self.history.push(self.current.clone());
+//                 self.current = x;
+//             }
+//         }
+//     }
 
-    pub fn pop_scope(&mut self) {
-        match self.stack.pop() {
-            None => (),
-            Some(x) => {
-                self.history.push(self.current.clone());
-                self.current = x;
-            }
-        }
-    }
-
-    pub fn flatten(&mut self) -> Vec<T> {
-        self.history.clone()
-    }
-}
-
-impl<T> WithDefault for Option<T> {
-    fn default() -> Self {
-        None
-    }
-}
-
-impl WithDefault for bool {
-    fn default() -> Self {
-        false
-    }
-}
-
-impl<T> WithDefault for Vec<T> {
-    fn default() -> Self {
-        vec![]
-    }
-}
+//     pub fn flatten(&mut self) -> Vec<T> {
+//         self.history.clone()
+//     }
+// }
 
 /// Takes a path and an optional suffix and attempts to
 /// run `dot` to generate a `png` for the graph. Will

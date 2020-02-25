@@ -42,6 +42,18 @@ impl<T: PrettyPrint> PrettyPrint for Vec<T> {
     }
 }
 
+impl<T: PrettyPrint, U: PrettyPrint> PrettyPrint for (T, U) {
+    fn prettify(&self) -> RcDoc {
+        let (t, u) = self;
+        parens(
+            t.prettify()
+                .append(RcDoc::text(","))
+                .append(RcDoc::space())
+                .append(u.prettify()),
+        )
+    }
+}
+
 /* =============== Toplevel ================ */
 
 impl PrettyPrint for NamespaceDef {

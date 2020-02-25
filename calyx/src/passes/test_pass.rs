@@ -4,8 +4,8 @@ use crate::passes::visitor::{Action, VisResult, Visitor};
 
 pub struct Test {}
 
-impl Test {
-    pub fn new() -> Test {
+impl Default for Test {
+    fn default() -> Test {
         Test {}
     }
 }

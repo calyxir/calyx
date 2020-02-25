@@ -2,7 +2,7 @@
 
 use crate::context::Context;
 use crate::errors;
-use crate::lang::ast::*;
+use crate::lang::{ast::*, component::Component};
 
 pub enum Action {
     /// Continue AST traversal
@@ -53,86 +53,205 @@ functions to wrap error with more information. */
 pub trait Visitor {
     fn name(&self) -> String;
 
-    fn do_pass(&mut self, context: &Context) -> &mut Self
+    fn do_pass_default(context: &Context) -> Result<Self, errors::Error>
+    where
+        Self: Default + Sized,
+    {
+        let mut visitor = Self::default();
+        visitor.do_pass(&context)?;
+        Ok(visitor)
+    }
+
+    fn do_pass(&mut self, context: &Context) -> Result<(), errors::Error>
     where
         Self: Sized,
     {
-        for (id, mut comp) in context.definitions_mut() {
-            println!("{:?}", id);
-            let _res = comp.control.visit(self, context);
-        }
-        self
+        context.definitions_map(|_id, mut comp| {
+            let _ = self
+                .start(&mut comp, context)?
+                .and_then(|| {
+                    // clone component control so that we can visit the control and provide
+                    // mutable access to the component
+                    let mut control = comp.control.clone();
+                    control.visit(self, &mut comp, context)?;
+                    // replace component control with the control we visited
+                    comp.control = control;
+                    Ok(Action::Continue)
+                })?
+                .and_then(|| self.finish(&mut comp, context))?;
+            Ok(())
+        })?;
+
+        Ok(())
     }
 
-    fn start_seq(&mut self, _s: &mut Seq, _c: &Context) -> VisResult {
+    fn start(&mut self, _comp: &mut Component, _c: &Context) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn finish_seq(&mut self, _s: &mut Seq, _c: &Context) -> VisResult {
+    fn finish(&mut self, _comp: &mut Component, _c: &Context) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn start_par(&mut self, _s: &mut Par, _c: &Context) -> VisResult {
+    fn start_seq(
+        &mut self,
+        _s: &mut Seq,
+        _comp: &mut Component,
+        _c: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn finish_par(&mut self, _s: &mut Par, _x: &Context) -> VisResult {
+    fn finish_seq(
+        &mut self,
+        _s: &mut Seq,
+        _comp: &mut Component,
+        _c: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn start_if(&mut self, _s: &mut If, _c: &Context) -> VisResult {
+    fn start_par(
+        &mut self,
+        _s: &mut Par,
+        _comp: &mut Component,
+        _c: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn finish_if(&mut self, _s: &mut If, _x: &Context) -> VisResult {
+    fn finish_par(
+        &mut self,
+        _s: &mut Par,
+        _comp: &mut Component,
+        _x: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn start_ifen(&mut self, _s: &mut Ifen, _c: &Context) -> VisResult {
+    fn start_if(
+        &mut self,
+        _s: &mut If,
+        _comp: &mut Component,
+        _c: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn finish_ifen(&mut self, _s: &mut Ifen, _x: &Context) -> VisResult {
+    fn finish_if(
+        &mut self,
+        _s: &mut If,
+        _comp: &mut Component,
+        _x: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn start_while(&mut self, _s: &mut While, _c: &Context) -> VisResult {
+    fn start_ifen(
+        &mut self,
+        _s: &mut Ifen,
+        _comp: &mut Component,
+        _c: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn finish_while(&mut self, _s: &mut While, _x: &Context) -> VisResult {
+    fn finish_ifen(
+        &mut self,
+        _s: &mut Ifen,
+        _comp: &mut Component,
+        _x: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn start_print(&mut self, _s: &mut Print, _x: &Context) -> VisResult {
+    fn start_while(
+        &mut self,
+        _s: &mut While,
+        _comp: &mut Component,
+        _c: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn finish_print(&mut self, _s: &mut Print, _x: &Context) -> VisResult {
+    fn finish_while(
+        &mut self,
+        _s: &mut While,
+        _comp: &mut Component,
+        _x: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn start_enable(&mut self, _s: &mut Enable, _x: &Context) -> VisResult {
+    fn start_print(
+        &mut self,
+        _s: &mut Print,
+        _comp: &mut Component,
+        _x: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn finish_enable(&mut self, _s: &mut Enable, _x: &Context) -> VisResult {
+    fn finish_print(
+        &mut self,
+        _s: &mut Print,
+        _comp: &mut Component,
+        _x: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn start_disable(&mut self, _s: &mut Disable, _x: &Context) -> VisResult {
+    fn start_enable(
+        &mut self,
+        _s: &mut Enable,
+        _comp: &mut Component,
+        _x: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn finish_disable(&mut self, _s: &mut Disable, _x: &Context) -> VisResult {
+    fn finish_enable(
+        &mut self,
+        _s: &mut Enable,
+        _comp: &mut Component,
+        _x: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn start_empty(&mut self, _s: &mut Empty, _x: &Context) -> VisResult {
+    fn start_disable(
+        &mut self,
+        _s: &mut Disable,
+        _comp: &mut Component,
+        _x: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn finish_empty(&mut self, _s: &mut Empty, _x: &Context) -> VisResult {
+    fn finish_disable(
+        &mut self,
+        _s: &mut Disable,
+        _comp: &mut Component,
+        _x: &Context,
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    fn start_empty(
+        &mut self,
+        _s: &mut Empty,
+        _comp: &mut Component,
+        _x: &Context,
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    fn finish_empty(
+        &mut self,
+        _s: &mut Empty,
+        _comp: &mut Component,
+        _x: &Context,
+    ) -> VisResult {
         Ok(Action::Continue)
     }
 }
@@ -145,6 +264,7 @@ pub trait Visitable {
     fn visit(
         &mut self,
         visitor: &mut dyn Visitor,
+        component: &mut Component,
         context: &Context,
     ) -> VisResult;
 }
@@ -154,10 +274,11 @@ impl<V: Visitable> Visitable for Vec<V> {
     fn visit(
         &mut self,
         visitor: &mut dyn Visitor,
+        component: &mut Component,
         context: &Context,
     ) -> VisResult {
         for t in self {
-            match t.visit(visitor, context)? {
+            match t.visit(visitor, component, context)? {
                 Action::Continue | Action::Change(_) => continue,
                 Action::Stop => return Ok(Action::Stop),
             };
@@ -170,43 +291,46 @@ impl Visitable for Control {
     fn visit(
         &mut self,
         visitor: &mut dyn Visitor,
+        component: &mut Component,
         context: &Context,
     ) -> VisResult {
         match self {
             Control::Seq { data } => visitor
-                .start_seq(data, context)?
-                .and_then(|| data.stmts.visit(visitor, context))?
-                .and_then(|| visitor.finish_seq(data, context))?,
+                .start_seq(data, component, context)?
+                .and_then(|| data.stmts.visit(visitor, component, context))?
+                .and_then(|| visitor.finish_seq(data, component, context))?,
             Control::Par { data } => visitor
-                .start_par(data, context)?
-                .and_then(|| data.stmts.visit(visitor, context))?
-                .and_then(|| visitor.finish_par(data, context))?,
+                .start_par(data, component, context)?
+                .and_then(|| data.stmts.visit(visitor, component, context))?
+                .and_then(|| visitor.finish_par(data, component, context))?,
             Control::If { data } => visitor
-                .start_if(data, context)?
-                .and_then(|| data.tbranch.visit(visitor, context))?
-                .and_then(|| data.fbranch.visit(visitor, context))?
-                .and_then(|| visitor.finish_if(data, context))?,
+                .start_if(data, component, context)?
+                .and_then(|| data.tbranch.visit(visitor, component, context))?
+                .and_then(|| data.fbranch.visit(visitor, component, context))?
+                .and_then(|| visitor.finish_if(data, component, context))?,
             Control::Ifen { data } => visitor
-                .start_ifen(data, context)?
-                .and_then(|| data.tbranch.visit(visitor, context))?
-                .and_then(|| data.fbranch.visit(visitor, context))?
-                .and_then(|| visitor.finish_ifen(data, context))?,
+                .start_ifen(data, component, context)?
+                .and_then(|| data.tbranch.visit(visitor, component, context))?
+                .and_then(|| data.fbranch.visit(visitor, component, context))?
+                .and_then(|| visitor.finish_ifen(data, component, context))?,
             Control::While { data } => visitor
-                .start_while(data, context)?
-                .and_then(|| data.body.visit(visitor, context))?
-                .and_then(|| visitor.finish_while(data, context))?,
+                .start_while(data, component, context)?
+                .and_then(|| data.body.visit(visitor, component, context))?
+                .and_then(|| visitor.finish_while(data, component, context))?,
             Control::Print { data } => visitor
-                .start_print(data, context)?
-                .and_then(|| visitor.finish_print(data, context))?,
+                .start_print(data, component, context)?
+                .and_then(|| visitor.finish_print(data, component, context))?,
             Control::Enable { data } => visitor
-                .start_enable(data, context)?
-                .and_then(|| visitor.finish_enable(data, context))?,
-            Control::Disable { data } => visitor
-                .start_disable(data, context)?
-                .and_then(|| visitor.finish_disable(data, context))?,
+                .start_enable(data, component, context)?
+                .and_then(|| visitor.finish_enable(data, component, context))?,
+            Control::Disable { data } => {
+                visitor.start_disable(data, component, context)?.and_then(
+                    || visitor.finish_disable(data, component, context),
+                )?
+            }
             Control::Empty { data } => visitor
-                .start_empty(data, context)?
-                .and_then(|| visitor.finish_empty(data, context))?,
+                .start_empty(data, component, context)?
+                .and_then(|| visitor.finish_empty(data, component, context))?,
         }
         .apply_change(self)
     }
