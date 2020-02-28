@@ -10,6 +10,7 @@ mod utils;
 // use crate::backend::fsm::{machine_gen, rtl_gen};
 use crate::cmdline::Opts;
 use crate::lang::context;
+use crate::lang::pretty_print::PrettyPrint;
 // use crate::lang::pretty_print::PrettyPrint;
 use crate::passes::visitor::Visitor;
 use crate::utils::NameGenerator;
@@ -25,11 +26,11 @@ fn main() -> Result<(), errors::Error> {
 
     let mut names = NameGenerator::new();
     let context = context::Context::from_opts(&opts)?;
-    context.print();
+    context.pretty_print();
     passes::lat_insensitive::LatencyInsenstive::do_pass_default(&context)?;
-    context.print();
+    context.pretty_print();
     passes::fsm_if::FsmIf::new(&mut names).do_pass(&context)?;
-    context.print();
+    context.pretty_print();
     // passes::test_pass::Test::do_pass(&context);
     // let mut syntax = lang::ast::parse_file(&opts.file)?;
 

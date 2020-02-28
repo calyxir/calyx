@@ -1,6 +1,8 @@
 use super::{ast, structure::StructureGraph};
 use crate::errors;
+use crate::lang::pretty_print::PrettyPrint;
 use petgraph::graph::NodeIndex;
+use pretty::RcDoc;
 use std::collections::HashMap;
 
 /// In memory representation for a Component. Contains a Signature, Control AST,
@@ -64,17 +66,6 @@ impl Component {
     }
 }
 
-impl Into<ast::ComponentDef> for &Component {
-    fn into(self) -> ast::ComponentDef {
-        ast::ComponentDef {
-            name: self.name.clone(),
-            signature: self.signature.clone(),
-            structure: self.structure.clone().into(),
-            control: self.control.clone(),
-        }
-    }
-}
-
 impl Into<ast::ComponentDef> for Component {
     fn into(self) -> ast::ComponentDef {
         ast::ComponentDef {
@@ -83,6 +74,14 @@ impl Into<ast::ComponentDef> for Component {
             structure: self.structure.into(),
             control: self.control,
         }
+    }
+}
+
+impl PrettyPrint for Component {
+    fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a> {
+        let v: ast::ComponentDef = self.clone().into();
+        let vref = arena.alloc(v);
+        vref.prettify(&arena)
     }
 }
 

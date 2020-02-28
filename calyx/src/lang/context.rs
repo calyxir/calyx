@@ -7,7 +7,6 @@ use crate::lang::{
 use pretty::RcDoc;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 /// Represents an entire Futil program
 #[derive(Debug, Clone)]
@@ -80,7 +79,7 @@ impl Context {
     pub fn print(&self) {
         let def = self.definitions.borrow();
         for (k, v) in def.iter() {
-            let compdef: ast::ComponentDef = v.into();
+            let compdef: ast::ComponentDef = v.clone().into();
             println!("{} ->", k);
             compdef.pretty_print()
         }
@@ -134,9 +133,12 @@ impl LibraryContext {
 
 /* =============== Context Printing ================ */
 impl PrettyPrint for Context {
-    fn prettify(&self) -> RcDoc {
-        let defs = self.definitions.borrow();
-        let t = format!("{:#?}", defs);
-        RcDoc::text(t)
+    fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a> {
+        let def = self.definitions.borrow();
+        RcDoc::intersperse(
+            def.iter()
+                .map(|(k, v)| (k.clone(), v.clone()).prettify(&arena)),
+            RcDoc::line(),
+        )
     }
 }

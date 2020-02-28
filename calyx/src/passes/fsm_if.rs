@@ -53,8 +53,6 @@ impl Visitor for FsmIf<'_> {
             ),
         );
 
-        println!("hi!");
-
         // we need to do the same thing for the true and false branch, so we use a for loop
         for (branch, label) in
             [(&*c_if.tbranch, "t"), (&*c_if.fbranch, "f")].iter()
