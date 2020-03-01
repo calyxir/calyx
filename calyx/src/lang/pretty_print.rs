@@ -42,6 +42,18 @@ fn italic(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
     doc.annotate(c)
 }
 
+fn control(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
+    let mut c = ColorSpec::new();
+    c.set_fg(Some(Color::Green));
+    doc.annotate(c)
+}
+
+fn enable(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
+    let mut c = ColorSpec::new();
+    c.set_fg(Some(Color::Yellow));
+    doc.annotate(c)
+}
+
 fn small_vec<'a, T: PrettyPrint>(
     vec: &[T],
     arena: &'a bumpalo::Bump,
@@ -251,7 +263,7 @@ impl PrettyPrint for Control {
 
 impl PrettyPrint for Seq {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = RcDoc::text("seq")
+        let inner = control(RcDoc::text("seq"))
             .append(RcDoc::hardline())
             .append(self.stmts.prettify(&arena))
             .nest(1);
@@ -261,7 +273,7 @@ impl PrettyPrint for Seq {
 
 impl PrettyPrint for Par {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = RcDoc::text("par")
+        let inner = control(RcDoc::text("par"))
             .append(RcDoc::hardline())
             .append(self.stmts.prettify(&arena))
             .nest(1);
@@ -271,7 +283,7 @@ impl PrettyPrint for Par {
 
 impl PrettyPrint for If {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = RcDoc::text("if")
+        let inner = control(RcDoc::text("if"))
             .append(RcDoc::space())
             .append(self.port.prettify(&arena))
             .append(RcDoc::space())
@@ -287,7 +299,7 @@ impl PrettyPrint for If {
 
 impl PrettyPrint for Ifen {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = RcDoc::text("ifen")
+        let inner = control(RcDoc::text("ifen"))
             .append(RcDoc::space())
             .append(self.port.prettify(&arena))
             .append(RcDoc::space())
@@ -303,7 +315,7 @@ impl PrettyPrint for Ifen {
 
 impl PrettyPrint for While {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = RcDoc::text("while")
+        let inner = control(RcDoc::text("while"))
             .append(RcDoc::space())
             .append(self.port.prettify(&arena))
             .append(RcDoc::space())
@@ -317,37 +329,37 @@ impl PrettyPrint for While {
 
 impl PrettyPrint for Print {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = RcDoc::text("print")
+        let inner = enable(RcDoc::text("print"))
             .append(RcDoc::line())
             .append(self.var.prettify(&arena))
             .group();
-        brackets(inner)
+        parens(inner)
     }
 }
 
 impl PrettyPrint for Enable {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = RcDoc::text("enable")
+        let inner = enable(RcDoc::text("enable"))
             .append(RcDoc::line())
             .append(self.comps.prettify(&arena))
             .group();
-        brackets(inner)
+        parens(inner)
     }
 }
 
 impl PrettyPrint for Disable {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = RcDoc::text("disable")
+        let inner = enable(RcDoc::text("disable"))
             .append(RcDoc::line())
             .append(self.comps.prettify(&arena))
             .group();
-        brackets(inner)
+        parens(inner)
     }
 }
 
 impl PrettyPrint for Empty {
     fn prettify<'a>(&self, _arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = RcDoc::text("empty");
+        let inner = enable(RcDoc::text("empty"));
         parens(inner)
     }
 }
