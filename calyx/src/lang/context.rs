@@ -4,7 +4,7 @@ use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::{
     ast, component::Component, library, structure::StructureGraph,
 };
-use pretty::RcDoc;
+use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -73,17 +73,6 @@ impl Context {
             .map(|(id, comp)| func(id, comp))
             .collect()
     }
-
-    // pub fn add_component(&self, id: &ast::Id) {}
-
-    pub fn print(&self) {
-        let def = self.definitions.borrow();
-        for (k, v) in def.iter() {
-            let compdef: ast::ComponentDef = v.clone().into();
-            println!("{} ->", k);
-            compdef.pretty_print()
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -133,12 +122,12 @@ impl LibraryContext {
 
 /* =============== Context Printing ================ */
 impl PrettyPrint for Context {
-    fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a> {
+    fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         let def = self.definitions.borrow();
         RcDoc::intersperse(
             def.iter()
                 .map(|(k, v)| (k.clone(), v.clone()).prettify(&arena)),
-            RcDoc::line(),
+            RcDoc::hardline(),
         )
     }
 }

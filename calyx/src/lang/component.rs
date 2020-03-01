@@ -2,7 +2,7 @@ use super::{ast, structure::StructureGraph};
 use crate::errors;
 use crate::lang::pretty_print::PrettyPrint;
 use petgraph::graph::NodeIndex;
-use pretty::RcDoc;
+use pretty::{termcolor::ColorSpec, RcDoc};
 use std::collections::HashMap;
 
 /// In memory representation for a Component. Contains a Signature, Control AST,
@@ -78,7 +78,7 @@ impl Into<ast::ComponentDef> for Component {
 }
 
 impl PrettyPrint for Component {
-    fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a> {
+    fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         let v: ast::ComponentDef = self.clone().into();
         let vref = arena.alloc(v);
         vref.prettify(&arena)
