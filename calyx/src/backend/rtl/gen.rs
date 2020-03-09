@@ -106,17 +106,18 @@ fn wire_declarations(c: &Context) -> RcDoc<'_> {
 }
 
 fn wire_string<'a>(wire: &'a Wire, c: &Context) -> Option<RcDoc<'a>> {
-    let width = Context::port_width(&wire.src, &c.toplevel, c);
-    match &wire.src {
-        Port::Comp { .. } => Some(
-            RcDoc::text("logic")
-                .append(RcDoc::space())
-                .append(bit_width(width))
-                .append(port_wire_id(&wire.src))
-                .append(RcDoc::text(";")),
-        ),
-        Port::This { .. } => None,
-    }
+    None
+    // let width = Context::port_width(&wire.src, &c.toplevel, c);
+    // match &wire.src {
+    //     Port::Comp { .. } => Some(
+    //         RcDoc::text("logic")
+    //             .append(RcDoc::space())
+    //             .append(bit_width(width))
+    //             .append(port_wire_id(&wire.src))
+    //             .append(RcDoc::text(";")),
+    //     ),
+    //     Port::This { .. } => None,
+    // }
 }
 
 /**
