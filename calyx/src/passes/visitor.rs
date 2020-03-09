@@ -44,12 +44,12 @@ impl Action {
 
 pub type VisResult = Result<Action, errors::Error>;
 
-/** The `Visitor` trait parameterized on an `Error` type.
-For each node `x` in the Ast, there are the functions `start_x`
-and `finish_x`. The start functions are called at the beginning
-of the traversal for each node, and the finish functions are called
-at the end of the traversal for each node. You can use the finish
-functions to wrap error with more information. */
+/// The `Visitor` trait parameterized on an `Error` type.
+/// For each node `x` in the Ast, there are the functions `start_x`
+/// and `finish_x`. The start functions are called at the beginning
+/// of the traversal for each node, and the finish functions are called
+/// at the end of the traversal for each node. You can use the finish
+/// functions to wrap error with more information.
 pub trait Visitor {
     fn name(&self) -> String;
 

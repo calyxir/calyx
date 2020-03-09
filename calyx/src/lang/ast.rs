@@ -8,8 +8,12 @@ use std::path::PathBuf;
 // Abstract Syntax Tree for Futil. See link below for the grammar
 // https://github.com/cucapra/futil/blob/master/grammar.md
 
+// XXX(sam) Add location information to this type so that we can print
+// them out nicely
+/// Represents an identifier in a Futil program
 pub type Id = String;
 
+/// Parses a pathbuf into a NamespaceDef
 pub fn parse_file(file: &PathBuf) -> Result<NamespaceDef, Error> {
     let content = &fs::read(file)?;
     let string_content = std::str::from_utf8(content)?;
@@ -68,11 +72,13 @@ pub struct Signature {
 
 impl Signature {
     /// Returns an iterator over the inputs of signature
+    #[allow(unused)]
     pub fn inputs(&self) -> std::slice::Iter<Portdef> {
         self.inputs.iter()
     }
 
     /// Returns an iterator over the outputs of signature
+    #[allow(unused)]
     pub fn outputs(&self) -> std::slice::Iter<Portdef> {
         self.outputs.iter()
     }
@@ -110,7 +116,7 @@ impl From<(&str, u64)> for Portdef {
 impl From<&(&str, u64)> for Portdef {
     fn from((name, width): &(&str, u64)) -> Self {
         Portdef {
-            name: name.to_string(),
+            name: (*name).to_string(),
             width: *width,
         }
     }
@@ -193,9 +199,6 @@ impl Structure {
 // ===================================
 // Data definitions for Control Ast
 // ===================================
-// Need Boxes for recursive data structure
-// Cannot have recursive data structure without
-// indirection
 
 #[derive(Debug, Clone, Hash, Sexpy)]
 #[sexpy(nosurround)]
@@ -288,34 +291,47 @@ impl Control {
         }
     }
 
-    // pub fn c_if(cond: Port, tbranch: Control, fbranch: Control) -> Control {
-    //     Control::If {
-    //         data: If {
-    //             cond,
-    //             tbranch: Box::new(tbranch),
-    //             fbranch: Box::new(fbranch),
-    //         },
-    //     }
-    // }
+    pub fn c_if(
+        port: Port,
+        stmts: Vec<String>,
+        tbranch: Control,
+        fbranch: Control,
+    ) -> Control {
+        Control::If {
+            data: If {
+                port,
+                cond: stmts,
+                tbranch: Box::new(tbranch),
+                fbranch: Box::new(fbranch),
+            },
+        }
+    }
 
-    // pub fn ifen(cond: Port, tbranch: Control, fbranch: Control) -> Control {
-    //     Control::Ifen {
-    //         data: Ifen {
-    //             cond,
-    //             tbranch: Box::new(tbranch),
-    //             fbranch: Box::new(fbranch),
-    //         },
-    //     }
-    // }
+    pub fn ifen(
+        port: Port,
+        stmts: Vec<String>,
+        tbranch: Control,
+        fbranch: Control,
+    ) -> Control {
+        Control::Ifen {
+            data: Ifen {
+                port,
+                cond: stmts,
+                tbranch: Box::new(tbranch),
+                fbranch: Box::new(fbranch),
+            },
+        }
+    }
 
-    // pub fn c_while(cond: Port, body: Control) -> Control {
-    //     Control::While {
-    //         data: While {
-    //             cond,
-    //             body: Box::new(body),
-    //         },
-    //     }
-    // }
+    pub fn c_while(port: Port, stmts: Vec<String>, body: Control) -> Control {
+        Control::While {
+            data: While {
+                port,
+                cond: stmts,
+                body: Box::new(body),
+            },
+        }
+    }
 
     pub fn print(var: String) -> Control {
         Control::Print {

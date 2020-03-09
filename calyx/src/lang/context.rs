@@ -8,7 +8,10 @@ use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-/// Represents an entire Futil program
+/// Represents an entire Futil program. We use an unsafe `RefCell` for definitions
+/// so that we can provide inplace mutable access to the component for Visitors while
+/// also allowing Visitors to add definitions. We ensure safety through the Context
+/// interface.
 #[derive(Debug, Clone)]
 pub struct Context {
     definitions: RefCell<HashMap<ast::Id, Component>>,
@@ -63,6 +66,7 @@ impl Context {
         })
     }
 
+    /// Maps over the context definitions, giving mutable access the components
     pub fn definitions_map(
         &self,
         mut func: impl FnMut(&ast::Id, &mut Component) -> Result<(), errors::Error>,

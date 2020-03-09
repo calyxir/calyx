@@ -85,9 +85,6 @@ impl PrettyPrint for Component {
     }
 }
 
-// use crate::lang::ast;
-// use std::collections::HashMap;
-
 type CompStore = HashMap<ast::Id, ast::Structure>;
 
 #[allow(unused)]

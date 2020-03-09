@@ -4,6 +4,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
+/// Definition of the command line interface. Uses the `structopt` derive macro
 #[derive(StructOpt, Debug)]
 #[structopt(
     name = env!("CARGO_PKG_NAME"),
@@ -61,6 +62,7 @@ impl std::fmt::Write for Writer {
 /// Function that helps deal with optional paths that can be provided
 /// on the command line. Takes in a optional path, an optional `ext` to
 /// replace the path extension with, and a function that does the writing
+#[allow(unused)]
 pub fn path_write<F>(
     path: &Option<PathBuf>,
     suffix: Option<&str>,

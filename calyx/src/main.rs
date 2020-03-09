@@ -26,11 +26,10 @@ fn main() -> Result<(), errors::Error> {
 
     let mut names = NameGenerator::new();
     let context = context::Context::from_opts(&opts)?;
-    context.pretty_print();
     passes::lat_insensitive::LatencyInsenstive::do_pass_default(&context)?;
-    context.pretty_print();
     passes::fsm_if::FsmIf::new(&mut names).do_pass(&context)?;
     context.pretty_print();
+
     // passes::test_pass::Test::do_pass(&context);
     // let mut syntax = lang::ast::parse_file(&opts.file)?;
 

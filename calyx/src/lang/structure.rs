@@ -276,6 +276,7 @@ impl StructureGraph {
         }
     }
 
+    #[allow(unused)]
     pub fn visualize(&self) -> String {
         let config = &[Config::EdgeNoLabel];
         format!("{:?}", Dot::with_config(&self.graph, config))

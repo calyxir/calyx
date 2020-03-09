@@ -1,3 +1,9 @@
+//! This file contains the centralized error handling for Futil. Each variant of the
+//! `Error` enum represents a different type of error. For some types of errors, you
+//! might want to add a `From` impl so that the `?` syntax is more convienent.
+
+// XXX(Sam) Add a proper printer for error types
+
 use crate::lang::ast;
 
 pub enum Error {

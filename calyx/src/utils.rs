@@ -4,10 +4,9 @@ use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::process::Command;
 
-/**
- * Combine concatenates [vec] into a single string, with each entry
- * separated by [delimiter], [start] prepended, and [end] appended to the end result.
- */
+/// Combine concatenates [vec] into a single string, with each entry
+/// separated by [delimiter], [start] prepended, and [end] appended to the end result.
+#[allow(unused)]
 pub fn combine(vec: &[String], start: &str, delimiter: &str) -> String {
     if vec.is_empty() {
         "".to_string()
@@ -48,64 +47,17 @@ impl NameGenerator {
 }
 
 /// Calculates the hash of hashable trait using the default hasher
+#[allow(unused)]
 pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);
     s.finish()
 }
 
-/// A generic data structure that supports scopes
-// #[derive(Debug)]
-// pub struct Scoped<T> {
-//     current: T,
-//     stack: Vec<T>,
-//     history: Vec<T>,
-// }
-
-// impl<T: Default + Clone> Scoped<T> {
-//     pub fn new() -> Self {
-//         Scoped {
-//             current: T::default(),
-//             stack: vec![],
-//             history: vec![],
-//         }
-//     }
-
-//     pub fn set(&mut self, thing: T) {
-//         self.current = thing;
-//     }
-
-//     pub fn get(&mut self) -> &mut T {
-//         &mut self.current
-//     }
-
-//     pub fn reset(&mut self) {
-//         self.current = T::default();
-//     }
-
-//     pub fn push_scope(&mut self) {
-//         self.stack.push(self.current.clone());
-//         self.current = T::default();
-//     }
-
-//     pub fn pop_scope(&mut self) {
-//         match self.stack.pop() {
-//             None => (),
-//             Some(x) => {
-//                 self.history.push(self.current.clone());
-//                 self.current = x;
-//             }
-//         }
-//     }
-
-//     pub fn flatten(&mut self) -> Vec<T> {
-//         self.history.clone()
-//     }
-// }
-
 /// Takes a path and an optional suffix and attempts to
 /// run `dot` to generate a `png` for the graph. Will
 /// silently fail if `dot` doesn't exist.
+#[allow(unused)]
 pub fn dot_command(p: &PathBuf, suffix: Option<&str>) {
     let mut p = p.clone();
     suffix.map_or((), |suffix| add_suffix(&mut p, suffix));
@@ -128,10 +80,12 @@ pub fn dot_command(p: &PathBuf, suffix: Option<&str>) {
 }
 
 /// Ignore the return result of an operation
+#[allow(unused)]
 pub fn ignore<T>(_t: T) {}
 
 /// hacky method to add suffix to file stem. don't think there's a
 /// better way though
+#[allow(unused)]
 pub fn add_suffix(path: &mut PathBuf, suffix: &str) {
     let cl = path.clone();
     let mut file = cl.file_stem().unwrap().to_str().unwrap().to_string();
