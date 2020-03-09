@@ -122,8 +122,9 @@ impl<T: PrettyPrint, U: PrettyPrint> PrettyPrint for (T, U) {
         t.prettify(&arena)
             .append(RcDoc::space())
             .append(RcDoc::text("->"))
-            .append(RcDoc::space())
+            .append(RcDoc::line())
             .append(u.prettify(&arena))
+            .nest(2)
     }
 }
 
