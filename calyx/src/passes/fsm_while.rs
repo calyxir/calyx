@@ -158,10 +158,9 @@ impl Visitor<String> for FsmWhile<'_> {
             data: condition_read_wire,
         });
 
-        let component = Component {
+        let component = ComponentDef {
             name: component_name.clone(),
-            inputs,
-            outputs,
+            signature: Signature { inputs, outputs },
             structure: vec![],
             control: Control::empty(),
         };

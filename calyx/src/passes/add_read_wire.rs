@@ -1,5 +1,5 @@
 use super::visitor::{Changes, Visitor};
-use crate::lang::ast::{Component, Port, Portdef, Structure, Wire};
+use crate::lang::ast::{ComponentDef, Port, Portdef, Structure, Wire};
 
 pub struct ReadWire {}
 
@@ -28,10 +28,10 @@ impl Visitor<()> for ReadWire {
 
     fn start(
         &mut self,
-        comp: &mut Component,
+        comp: &mut ComponentDef,
         changes: &mut Changes,
     ) -> Result<(), ()> {
-        for port in &comp.inputs {
+        for port in &comp.signature.inputs {
             let read_for_port = Portdef {
                 name: format!("{}_read_in", port.name),
                 width: 1,
@@ -39,7 +39,7 @@ impl Visitor<()> for ReadWire {
             changes.add_input_port(read_for_port)
         }
 
-        for port in &comp.outputs {
+        for port in &comp.signature.outputs {
             let read_for_port = Portdef {
                 name: format!("{}_read_out", port.name),
                 width: 1,

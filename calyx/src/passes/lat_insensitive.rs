@@ -1,37 +1,24 @@
-use super::visitor::{Changes, Visitor};
-use crate::lang::ast::{Component, Portdef};
+use crate::context::Context;
+use crate::lang::component::Component;
+use crate::passes::visitor::{Action, VisResult, Visitor};
 
 pub struct LatencyInsenstive {}
 
-impl LatencyInsenstive {
-    pub fn new() -> Self {
+impl Default for LatencyInsenstive {
+    fn default() -> Self {
         LatencyInsenstive {}
     }
 }
 
-impl Visitor<()> for LatencyInsenstive {
+impl Visitor for LatencyInsenstive {
     fn name(&self) -> String {
         "Latency Insenstive".to_string()
     }
 
-    fn start(
-        &mut self,
-        _comp: &mut Component,
-        changes: &mut Changes,
-    ) -> Result<(), ()> {
-        let val = Portdef {
-            name: "valid".to_string(),
-            width: 1,
-        };
-        let rdy = Portdef {
-            name: "ready".to_string(),
-            width: 1,
-        };
+    fn start(&mut self, comp: &mut Component, _c: &Context) -> VisResult {
+        comp.add_input(("valid", 1));
+        comp.add_output(("ready", 1));
 
-        changes.add_input_port(val);
-        changes.add_output_port(rdy);
-
-        changes.commit();
-        Err(())
+        Ok(Action::Stop)
     }
 }

@@ -1,7 +1,7 @@
 use super::machine::ValuedPort;
 use crate::backend::fsm::machine::{Edge, State, StateIndex, FSM};
 use crate::backend::rtl::gen;
-use crate::lang::ast::{Component, Id, Portdef};
+use crate::lang::ast::{ComponentDef, Id, Portdef};
 use pretty::RcDoc;
 
 //const reset_string: String = "reset".to_string();
@@ -14,7 +14,7 @@ fn pretty_print(doc: RcDoc) -> String {
     String::from_utf8(w).unwrap()
 }
 
-pub fn to_verilog(fsm: &FSM, component: &Component) -> String {
+pub fn to_verilog(fsm: &FSM, component: &ComponentDef) -> String {
     let wiredefs =
         format!("logic [{}:0] state, next_state;", fsm.state_bits() - 1);
     let doc = RcDoc::text("module")
@@ -34,7 +34,7 @@ pub fn to_verilog(fsm: &FSM, component: &Component) -> String {
     pretty_print(doc)
 }
 
-pub fn data_lut_verilog(component: &Component) -> String {
+pub fn data_lut_verilog(component: &ComponentDef) -> String {
     let doc = RcDoc::text("module")
         .append(RcDoc::space())
         .append(module_declaration(component))
@@ -46,19 +46,22 @@ pub fn data_lut_verilog(component: &Component) -> String {
     pretty_print(doc)
 }
 
-fn data_lut_switch(component: &Component) -> RcDoc {
-    let (head, tail) = component.inputs.split_at(component.inputs.len() / 2);
+fn data_lut_switch(component: &ComponentDef) -> RcDoc {
+    let (head, tail) = component
+        .signature
+        .inputs
+        .split_at(component.signature.inputs.len() / 2);
     let cases = head.iter().enumerate().map(|(idx, h)| {
         data_lut_case(
             tail.len(),
             idx,
-            &component.outputs[0].name,
+            &component.signature.outputs[0].name,
             h.name.clone(),
         )
     });
     RcDoc::text("assign")
         .append(RcDoc::space())
-        .append(RcDoc::text(&component.outputs[1].name))
+        .append(RcDoc::text(&component.signature.outputs[1].name))
         .append(RcDoc::space())
         .append(RcDoc::text("="))
         .append(RcDoc::space())
@@ -86,7 +89,7 @@ fn data_lut_switch(component: &Component) -> RcDoc {
                 )
                 .nest(4)
                 .append(RcDoc::text("default: "))
-                .append(RcDoc::text(&component.outputs[0].name))
+                .append(RcDoc::text(&component.signature.outputs[0].name))
                 .append(RcDoc::text("= 0;"))
                 .append(RcDoc::line())
                 .nest(4),
@@ -96,12 +99,7 @@ fn data_lut_switch(component: &Component) -> RcDoc {
         .append(RcDoc::text("end"))
 }
 
-fn data_lut_case<'a>(
-    num: usize,
-    idx: usize,
-    name: &'a str,
-    out: String,
-) -> RcDoc<'a> {
+fn data_lut_case(num: usize, idx: usize, name: &str, out: String) -> RcDoc {
     let mut bits = format!("{}'b", num);
     for i in 0..num {
         if i == idx {
@@ -120,7 +118,7 @@ fn data_lut_case<'a>(
         .append(RcDoc::text(";"))
 }
 
-pub fn control_lut_verilog(component: &Component) -> String {
+pub fn control_lut_verilog(component: &ComponentDef) -> String {
     let doc = RcDoc::text("module")
         .append(RcDoc::space())
         .append(module_declaration(component))
@@ -132,14 +130,20 @@ pub fn control_lut_verilog(component: &Component) -> String {
     pretty_print(doc)
 }
 
-fn control_lut_switch(component: &Component) -> RcDoc {
-    let cases = component.inputs.iter().enumerate().map(|(idx, _)| {
-        control_lut_case(
-            component.inputs.len(),
-            idx,
-            &component.outputs[0].name,
-        )
-    });
+fn control_lut_switch(component: &ComponentDef) -> RcDoc {
+    let cases =
+        component
+            .signature
+            .inputs
+            .iter()
+            .enumerate()
+            .map(|(idx, _)| {
+                control_lut_case(
+                    component.signature.inputs.len(),
+                    idx,
+                    &component.signature.outputs[0].name,
+                )
+            });
     RcDoc::text("always_comb")
         .append(RcDoc::space())
         .append(RcDoc::text("begin"))
@@ -147,7 +151,7 @@ fn control_lut_switch(component: &Component) -> RcDoc {
         .append(RcDoc::text("case"))
         .append(RcDoc::space())
         .append(RcDoc::text("({"))
-        .append(portdef_to_doc(&component.inputs))
+        .append(portdef_to_doc(&component.signature.inputs))
         .append(RcDoc::text("})"))
         .append(
             RcDoc::line()
@@ -158,7 +162,7 @@ fn control_lut_switch(component: &Component) -> RcDoc {
                 )
                 .nest(4)
                 .append(RcDoc::text("default: "))
-                .append(RcDoc::text(&component.outputs[0].name))
+                .append(RcDoc::text(&component.signature.outputs[0].name))
                 .append(RcDoc::text("= 0;"))
                 .append(RcDoc::line())
                 .nest(4),
@@ -193,7 +197,7 @@ fn control_lut_case<'a>(num: usize, idx: usize, name: &'a str) -> RcDoc<'a> {
 //==========================================
 //        FSM Module Declaration Functions
 //==========================================
-fn module_declaration(comp: &Component) -> RcDoc<'_> {
+fn module_declaration(comp: &ComponentDef) -> RcDoc<'_> {
     let module_name = &comp.name;
     RcDoc::text(format!("{} (", module_name))
         .append(gen::component_io(&comp).nest(4))

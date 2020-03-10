@@ -1,6 +1,6 @@
 use crate::backend::framework::Context;
-use crate::lang::ast::{Component, Decl, Port, Portdef, Std, Wire};
-use crate::lang::library::ast::PrimPortdef;
+use crate::lang::ast::{ComponentDef, Decl, Port, Portdef, Std, Wire};
+use crate::lang::library::ast::ParamPortdef;
 use itertools::Itertools;
 use pretty::RcDoc;
 use std::collections::HashMap;
@@ -47,16 +47,24 @@ pub fn to_verilog(c: &Context) -> String {
  * Returns a string with the list of all of a component's i/o pins
  */
 #[allow(unused)]
-pub fn component_io(c: &Component) -> RcDoc<'_> {
-    let mut inputs = c.inputs.iter().map(|pd| in_port(pd.width, &pd.name));
-    let mut outputs = c.outputs.iter().map(|pd| out_port(pd.width, &pd.name));
+pub fn component_io(c: &ComponentDef) -> RcDoc<'_> {
+    let mut inputs = c
+        .signature
+        .inputs
+        .iter()
+        .map(|pd| in_port(pd.width, &pd.name));
+    let mut outputs = c
+        .signature
+        .outputs
+        .iter()
+        .map(|pd| out_port(pd.width, &pd.name));
     RcDoc::line().append(RcDoc::intersperse(
         inputs.chain(outputs),
         RcDoc::text(",").append(RcDoc::line()),
     ))
 }
 
-pub fn in_port(width: i64, name: &str) -> RcDoc<'_> {
+pub fn in_port(width: u64, name: &str) -> RcDoc<'_> {
     RcDoc::text("input")
         .append(RcDoc::space())
         .append(RcDoc::text("logic"))
@@ -65,7 +73,7 @@ pub fn in_port(width: i64, name: &str) -> RcDoc<'_> {
         .append(RcDoc::text(name))
 }
 
-pub fn out_port(width: i64, name: &str) -> RcDoc<'_> {
+pub fn out_port(width: u64, name: &str) -> RcDoc<'_> {
     RcDoc::text("output")
         .append(RcDoc::space())
         .append(RcDoc::text("logic"))
@@ -74,7 +82,7 @@ pub fn out_port(width: i64, name: &str) -> RcDoc<'_> {
         .append(RcDoc::text(name))
 }
 
-pub fn bit_width<'a>(width: i64) -> RcDoc<'a> {
+pub fn bit_width<'a>(width: u64) -> RcDoc<'a> {
     if width < 1 {
         panic!("Invalid bit width!");
     } else if width == 1 {
@@ -98,17 +106,18 @@ fn wire_declarations(c: &Context) -> RcDoc<'_> {
 }
 
 fn wire_string<'a>(wire: &'a Wire, c: &Context) -> Option<RcDoc<'a>> {
-    let width = Context::port_width(&wire.src, &c.toplevel, c);
-    match &wire.src {
-        Port::Comp { .. } => Some(
-            RcDoc::text("logic")
-                .append(RcDoc::space())
-                .append(bit_width(width))
-                .append(port_wire_id(&wire.src))
-                .append(RcDoc::text(";")),
-        ),
-        Port::This { .. } => None,
-    }
+    None
+    // let width = Context::port_width(&wire.src, &c.toplevel, c);
+    // match &wire.src {
+    //     Port::Comp { .. } => Some(
+    //         RcDoc::text("logic")
+    //             .append(RcDoc::space())
+    //             .append(bit_width(width))
+    //             .append(port_wire_id(&wire.src))
+    //             .append(RcDoc::text(";")),
+    //     ),
+    //     Port::This { .. } => None,
+    // }
 }
 
 /**
@@ -131,7 +140,7 @@ pub fn port_wire_id(p: &Port) -> RcDoc<'_> {
 pub struct RtlInst<'a> {
     pub comp_name: &'a String,
     pub id: &'a String,
-    pub params: Vec<i64>,
+    pub params: Vec<u64>,
     pub ports: HashMap<&'a String, String>, // Maps Port names to wires
 }
 
@@ -175,8 +184,11 @@ fn component_to_inst<'a>(inst: &'a Decl, c: &'a Context) -> RtlInst<'a> {
         }
     }
     // Fill up any remaining ports with empty string
-    for Portdef { name, width: _ } in
-        comp.inputs.iter().chain(comp.outputs.iter())
+    for Portdef { name, .. } in comp
+        .signature
+        .inputs
+        .iter()
+        .chain(comp.signature.outputs.iter())
     {
         if !port_map.contains_key(name) {
             port_map.insert(name, "".to_string());
@@ -209,8 +221,8 @@ fn prim_to_inst<'a>(inst: &'a Std, c: &'a Context) -> RtlInst<'a> {
         }
     }
     // Fill up any remaining ports with empty string
-    for PrimPortdef { name, width: _ } in
-        prim.inputs.iter().chain(prim.outputs.iter())
+    for ParamPortdef { name, .. } in
+        prim.signature.inputs().chain(prim.signature.outputs())
     {
         if !port_map.contains_key(name) {
             port_map.insert(name, "".to_string());

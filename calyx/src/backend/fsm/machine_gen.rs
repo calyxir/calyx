@@ -1,7 +1,7 @@
 use super::machine::{ValuedPort, FSM};
-use crate::lang::ast::{Component, Portdef};
+use crate::lang::ast::{ComponentDef, Portdef};
 
-pub fn generate_fsm(comp: &Component) -> Option<FSM> {
+pub fn generate_fsm(comp: &ComponentDef) -> Option<FSM> {
     if comp.name.starts_with("fsm_enable") {
         Some(enable_fsm(comp))
     } else if comp.name.starts_with("fsm_par") {
@@ -34,7 +34,7 @@ fn port_def_to_input(
         .collect()
 }
 
-pub fn enable_fsm(component: &Component) -> FSM {
+pub fn enable_fsm(component: &ComponentDef) -> FSM {
     let (start, mut fsm) = FSM::new(&component.name);
 
     let mid = fsm.new_state();
@@ -48,7 +48,7 @@ pub fn enable_fsm(component: &Component) -> FSM {
     fsm.get_state(mid).add_transition((
         port_def_to_input(
             "ready",
-            component.inputs.clone(),
+            component.signature.inputs.clone(),
             component.name.clone(),
         ),
         end,
@@ -61,7 +61,7 @@ pub fn enable_fsm(component: &Component) -> FSM {
     // outputs
     fsm.get_state(mid).add_outputs(&mut port_def_to_input(
         "valid",
-        component.outputs.clone(),
+        component.signature.outputs.clone(),
         component.name.clone(),
     ));
     fsm.get_state(end).push_output((
@@ -73,7 +73,7 @@ pub fn enable_fsm(component: &Component) -> FSM {
     fsm
 }
 
-pub fn par_fsm(component: &Component) -> FSM {
+pub fn par_fsm(component: &ComponentDef) -> FSM {
     let (start, mut fsm) = FSM::new(&component.name);
 
     let mid = fsm.new_state();
@@ -87,7 +87,7 @@ pub fn par_fsm(component: &Component) -> FSM {
     fsm.get_state(mid).add_transition((
         port_def_to_input(
             "ready",
-            component.inputs.clone(),
+            component.signature.inputs.clone(),
             component.name.clone(),
         ),
         end,
@@ -100,7 +100,7 @@ pub fn par_fsm(component: &Component) -> FSM {
     // outputs
     fsm.get_state(mid).add_outputs(&mut port_def_to_input(
         "valid",
-        component.outputs.clone(),
+        component.signature.outputs.clone(),
         component.name.clone(),
     ));
     fsm.get_state(end).push_output((
@@ -112,7 +112,7 @@ pub fn par_fsm(component: &Component) -> FSM {
     fsm
 }
 
-pub fn seq_fsm(component: &Component) -> FSM {
+pub fn seq_fsm(component: &ComponentDef) -> FSM {
     let (start, mut fsm) = FSM::new(&component.name);
 
     let mut current = fsm.new_state();
@@ -125,12 +125,12 @@ pub fn seq_fsm(component: &Component) -> FSM {
 
     let rdy_ports = port_def_to_input(
         "ready",
-        component.inputs.clone(),
+        component.signature.inputs.clone(),
         component.name.clone(),
     );
     let val_ports = port_def_to_input(
         "valid",
-        component.outputs.clone(),
+        component.signature.outputs.clone(),
         component.name.clone(),
     );
     assert!(rdy_ports.len() == val_ports.len());
@@ -156,14 +156,14 @@ pub fn seq_fsm(component: &Component) -> FSM {
     fsm
 }
 
-pub fn if_fsm(component: &Component) -> FSM {
+pub fn if_fsm(component: &ComponentDef) -> FSM {
     let (start, mut fsm) = FSM::new(&component.name);
 
     // cond state
     let cond = fsm.new_state();
     let mut cond_val_outputs = port_def_to_input(
         "cond_val",
-        component.outputs.clone(),
+        component.signature.outputs.clone(),
         component.name.clone(),
     );
     fsm.get_state(cond).add_outputs(&mut cond_val_outputs);
@@ -193,18 +193,18 @@ pub fn if_fsm(component: &Component) -> FSM {
         // 2 branches
         let rdy_port = port_def_to_input(
             rdy_name[i],
-            component.inputs.clone(),
+            component.signature.inputs.clone(),
             component.name.clone(),
         );
         let val_port = port_def_to_input(
             val_name[i],
-            component.outputs.clone(),
+            component.signature.outputs.clone(),
             component.name.clone(),
         );
         assert!(rdy_port.len() <= 1 && rdy_port.len() == val_port.len());
         let mut cond_rdy_ins = port_def_to_input(
             "cond_rdy",
-            component.inputs.clone(),
+            component.signature.inputs.clone(),
             component.name.clone(),
         );
         cond_rdy_ins.push((
@@ -232,7 +232,7 @@ pub fn if_fsm(component: &Component) -> FSM {
     fsm
 }
 
-pub fn while_fsm(component: &Component) -> FSM {
+pub fn while_fsm(component: &ComponentDef) -> FSM {
     let (start, mut fsm) = FSM::new(&component.name);
     let cond = fsm.new_state();
     let body = fsm.new_state();
@@ -258,19 +258,19 @@ pub fn while_fsm(component: &Component) -> FSM {
 
     let rdy_port = port_def_to_input(
         "ready",
-        component.inputs.clone(),
+        component.signature.inputs.clone(),
         component.name.clone(),
     );
     let val_port = port_def_to_input(
         "val",
-        component.outputs.clone(),
+        component.signature.outputs.clone(),
         component.name.clone(),
     );
 
     // add cond outputs
     let mut cond_val_outputs = port_def_to_input(
         "cond_val",
-        component.outputs.clone(),
+        component.signature.outputs.clone(),
         component.name.clone(),
     );
     fsm.get_state(cond).add_outputs(&mut cond_val_outputs);
@@ -278,7 +278,7 @@ pub fn while_fsm(component: &Component) -> FSM {
     assert!(rdy_port.len() == 1 && rdy_port.len() == val_port.len());
     let mut cond_rdy_ins = port_def_to_input(
         "cond_rdy",
-        component.inputs.clone(),
+        component.signature.inputs.clone(),
         component.name.clone(),
     );
     cond_rdy_ins.push((
