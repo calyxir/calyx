@@ -29,7 +29,7 @@ impl Backend for RtlBackend {
     }
 
     fn to_string(_: &context::Context) -> std::string::String {
-        "hello!".to_string()
+        "unimplemented backend!\n".to_string()
     }
 }
 

@@ -3,7 +3,6 @@ use crate::errors;
 use crate::lang::ast;
 use crate::lang::component::Component;
 use crate::passes::visitor::{Action, VisResult, Visitor};
-// use petgraph::stable_graph::NodeIndex;
 
 /// Pass that removes if statments where both branches are enables:
 /// ```lisp
@@ -89,7 +88,12 @@ impl Visitor for RemoveIf {
                     }
                 }
 
-                Ok(Action::Continue)
+                let mut comps = vec![];
+                comps.append(&mut con.cond);
+                comps.append(&mut tbranch.comps.clone());
+                comps.append(&mut fbranch.comps.clone());
+
+                Ok(Action::Change(ast::Control::enable(comps)))
             }
             _ => Ok(Action::Continue),
         }
