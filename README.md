@@ -24,3 +24,16 @@ the `-l`. For example, this is how to run the `calyx/examples/simple.futil` prog
 cargo run -- examples/simple.futil -l primitives/std.lib
 ```
 
+## Compiler Development
+We use the [structopt](https://docs.rs/structopt/0.3.11/structopt/) library to implement the command line interface.
+
+The general flow of the compiler is as follows:
+ 1) Build up `context::Context`
+    - Parse Futil files + library file specified in cli
+    - Build an in memory representation of each Component specified using
+    the primitives defined in the library file to resolve and instantiate 
+    subcomponents defined with `new-std` statements
+ 2) Run passes that update the context. Passes are defined using the Visitor
+ framework defined in `src/passes/visitor.rs`. For now the passes to run are just specified
+ in `src/main.rs`
+ 3) Use a backend to emit code from the context. Backends must implement `backend::traits::Backend`
