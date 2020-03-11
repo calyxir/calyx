@@ -47,7 +47,25 @@ impl Component {
         id: &ast::Id,
         comp: &Component,
     ) -> NodeIndex {
-        self.structure.add_instance(id, comp)
+        let structure = ast::Structure::decl(id.clone(), id.clone());
+        self.structure.add_instance(id, comp, structure)
+    }
+
+    pub fn add_primitive(
+        &mut self,
+        id: &ast::Id,
+        name: &str,
+        comp: &Component,
+        params: &[u64],
+    ) -> NodeIndex {
+        let structure = ast::Structure::std(
+            id.clone(),
+            ast::Compinst {
+                name: name.to_string(),
+                params: params.to_vec(),
+            },
+        );
+        self.structure.add_instance(id, comp, structure)
     }
 
     pub fn add_wire(

@@ -70,10 +70,11 @@ impl StructureGraph {
         &mut self,
         id: &ast::Id,
         comp: &component::Component,
+        structure: ast::Structure,
     ) -> NodeIndex {
         let idx = self.graph.add_node(NodeData::Instance {
             name: id.clone(),
-            structure: ast::Structure::decl(id.clone(), id.clone()),
+            structure,
             signature: comp.signature.clone(),
         });
         self.inst_map.insert(id.to_string(), idx);

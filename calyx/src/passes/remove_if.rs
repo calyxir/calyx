@@ -59,8 +59,8 @@ impl Visitor for RemoveIf {
                     &"std_not".to_string(), // XXX(sam) this is silly
                     &[1],
                 )?;
-                // XXX(sam) this doesn't work properly with primitives
-                let neg = this_comp.add_instance(&name, &neg_comp);
+                let neg =
+                    this_comp.add_primitive(&name, "std_not", &neg_comp, &[1]);
                 this_comp.add_wire(cmp_idx, &cmp_port, neg, "in")?;
                 this_comp.add_wire(
                     neg,
