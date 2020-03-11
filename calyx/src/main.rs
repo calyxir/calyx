@@ -5,16 +5,11 @@ mod lang;
 mod passes;
 mod utils;
 
-// use crate::backend::framework::Context;
-// use crate::backend::fsm::machine::FSM;
-// use crate::backend::fsm::{machine_gen, rtl_gen};
+use crate::backend::traits::Backend;
 use crate::cmdline::Opts;
 use crate::lang::context;
 use crate::lang::pretty_print::PrettyPrint;
-// use crate::lang::pretty_print::PrettyPrint;
 use crate::passes::visitor::Visitor;
-use crate::utils::NameGenerator;
-// use std::fmt::Write;
 use structopt::StructOpt;
 
 fn main() -> Result<(), errors::Error> {
@@ -24,11 +19,14 @@ fn main() -> Result<(), errors::Error> {
     // parse the command line arguments into Opts struct
     let opts: Opts = Opts::from_args();
 
-    let mut names = NameGenerator::new();
+    // let mut names = NameGenerator::new();
     let context = context::Context::from_opts(&opts)?;
     passes::lat_insensitive::LatencyInsenstive::do_pass_default(&context)?;
-    passes::fsm_if::FsmIf::new(&mut names).do_pass(&context)?;
+    passes::redundant_par::RedundantPar::do_pass_default(&context)?;
+    passes::remove_if::RemoveIf::do_pass_default(&context)?;
+
     context.pretty_print();
+    backend::rtl::gen::RtlBackend::emit(&context)?;
 
     // passes::test_pass::Test::do_pass(&context);
     // let mut syntax = lang::ast::parse_file(&opts.file)?;

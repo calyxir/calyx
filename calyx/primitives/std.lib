@@ -34,6 +34,10 @@
     ((port left p_width) (port right p_width) (port valid 1))
     ((port out p_width) (port ready 1)))
 
+  (define/prim std_not (p_width)
+    ((port in p_width) (port valid 1))
+    ((port out p_width) (port ready 1)))
+
   (define/prim std_and (p_width)
     ((port left p_width) (port right p_width) (port valid 1))
     ((port out p_width) (port ready 1)))

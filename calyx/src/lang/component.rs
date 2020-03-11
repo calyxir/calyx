@@ -61,6 +61,13 @@ impl Component {
             .insert_edge(src_comp, src_port, dest_comp, dest_port)
     }
 
+    pub fn get_inst_index(
+        &self,
+        port: &ast::Id,
+    ) -> Result<NodeIndex, errors::Error> {
+        self.structure.get_inst_index(port)
+    }
+
     pub fn get_io_index(&self, port: &str) -> Result<NodeIndex, errors::Error> {
         self.structure.get_io_index(port)
     }

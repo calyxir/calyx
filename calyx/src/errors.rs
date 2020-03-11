@@ -14,6 +14,9 @@ pub enum Error {
     UndefinedPort(String),
     UndefinedComponent(ast::Id),
     SignatureResolutionFailed(ast::Id),
+    MalformedControl, // XXX(sam) add more info to this
+    #[allow(unused)]
+    Misc(String),
 }
 
 impl std::fmt::Debug for Error {
@@ -35,6 +38,8 @@ impl std::fmt::Debug for Error {
             SignatureResolutionFailed(id) => {
                 write!(f, "Failed to resolve portdef: {:?}", id)
             }
+            MalformedControl => write!(f, "Malformed Control"),
+            Misc(msg) => write!(f, "{}", msg),
         }
     }
 }

@@ -77,6 +77,18 @@ impl Context {
             .map(|(id, comp)| func(id, comp))
             .collect()
     }
+
+    pub fn instantiate_primitive(
+        &self,
+        name: &str,
+        id: &ast::Id,
+        params: &[u64],
+    ) -> Result<Component, errors::Error> {
+        let sig = self.library_context.resolve(id, params)?;
+        Ok(Component::from_signature(name, sig))
+    }
+
+    // XXX(sam) need a way to insert components
 }
 
 #[derive(Debug, Clone)]

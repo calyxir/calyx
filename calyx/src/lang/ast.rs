@@ -71,24 +71,25 @@ pub struct Signature {
 }
 
 impl Signature {
-    /// Returns an iterator over the inputs of signature
-    #[allow(unused)]
-    pub fn inputs(&self) -> std::slice::Iter<Portdef> {
-        self.inputs.iter()
+    pub fn has_input(&self, name: &str) -> bool {
+        self.inputs.iter().any(|e| e.name == name)
     }
+    // Returns an iterator over the inputs of signature
+    // pub fn inputs(&self) -> std::slice::Iter<Portdef> {
+    //     self.inputs.iter()
+    // }
 
-    /// Returns an iterator over the outputs of signature
-    #[allow(unused)]
-    pub fn outputs(&self) -> std::slice::Iter<Portdef> {
-        self.outputs.iter()
-    }
+    // Returns an iterator over the outputs of signature
+    // pub fn outputs(&self) -> std::slice::Iter<Portdef> {
+    //     self.outputs.iter()
+    // }
 
-    pub fn new(inputs: &[(&str, u64)], outputs: &[(&str, u64)]) -> Self {
-        Signature {
-            inputs: inputs.iter().map(|x| x.into()).collect(),
-            outputs: outputs.iter().map(|x| x.into()).collect(),
-        }
-    }
+    // pub fn new(inputs: &[(&str, u64)], outputs: &[(&str, u64)]) -> Self {
+    //     Signature {
+    //         inputs: inputs.iter().map(|x| x.into()).collect(),
+    //         outputs: outputs.iter().map(|x| x.into()).collect(),
+    //     }
+    // }
 }
 
 #[derive(Clone, Debug, Hash, Sexpy, PartialEq)]

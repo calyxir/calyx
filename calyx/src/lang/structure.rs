@@ -155,7 +155,11 @@ impl StructureGraph {
                 match (src_node, dest_node) {
                     // both nodes were found, this is a valid edge!
                     (Some(s), Some(d)) => {
-                        self.insert_edge(*s, src_port, *d, dest_port)?;
+                        // dereference s and d before their use because
+                        // otherwise the self is borrowed with `self.insert_edge`
+                        // before they are used
+                        let (s, d) = (*s, *d);
+                        self.insert_edge(s, src_port, d, dest_port)?;
                     }
                     // dest not found
                     (Some(_), None) => {
@@ -249,6 +253,16 @@ impl StructureGraph {
                 self.construct_port(dest_node, dest_port),
                 dest_width,
             ))
+        }
+    }
+
+    pub fn get_inst_index(
+        &self,
+        port: &ast::Id,
+    ) -> Result<NodeIndex, errors::Error> {
+        match self.inst_map.get(port) {
+            Some(idx) => Ok(*idx),
+            None => Err(errors::Error::UndefinedPort(port.to_string())),
         }
     }
 
