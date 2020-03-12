@@ -25,12 +25,11 @@ impl Context {
 
         // build hashmap for primitives in provided libraries
         let mut lib_definitions = HashMap::new();
-        if let Some(libs) = &opts.libraries {
-            for filename in libs {
-                let def = library::ast::parse_file(&filename)?;
-                for prim in def.primitives {
-                    lib_definitions.insert(prim.name.clone(), prim.clone());
-                }
+        let libs = &opts.libraries;
+        for filename in libs {
+            let def = library::ast::parse_file(&filename)?;
+            for prim in def.primitives {
+                lib_definitions.insert(prim.name.clone(), prim.clone());
             }
         }
         let libctx = LibraryContext {

@@ -30,8 +30,8 @@ pub struct Opts {
     pub visualize_fsm: Option<Option<PathBuf>>,
 
     // library paths
-    #[structopt(long, short)]
-    pub libraries: Option<Vec<PathBuf>>,
+    #[structopt(long, short, required = true)]
+    pub libraries: Vec<PathBuf>,
 
     #[structopt(long = "futil-output")]
     pub futil_output: Option<Option<PathBuf>>,
