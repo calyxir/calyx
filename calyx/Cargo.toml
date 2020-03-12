@@ -14,6 +14,7 @@ better-panic = "~0.2"
 sexpy = "~0.5"
 itertools = "~0.7"
 bumpalo = "3.2.0"
+atty = "~0.2"
 
 [dependencies.pretty]
 version = "~0.9"

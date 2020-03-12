@@ -2,6 +2,7 @@
 
 use crate::context::Context;
 use crate::errors;
+use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::{ast::*, component::Component};
 
 pub enum Action {
@@ -81,6 +82,13 @@ pub trait Visitor {
                 .and_then(|| self.finish(&mut comp, context))?;
             Ok(())
         })?;
+
+        // Display intermediate futil program after running the pass.
+        if context.debug_mode {
+            println!("=============== {} ==============", self.name());
+            context.pretty_print();
+            println!("================================================");
+        }
 
         Ok(())
     }

@@ -16,6 +16,7 @@ use std::collections::HashMap;
 pub struct Context {
     definitions: RefCell<HashMap<ast::Id, Component>>,
     library_context: LibraryContext,
+    pub debug_mode: bool,
 }
 
 impl Context {
@@ -62,6 +63,7 @@ impl Context {
         Ok(Context {
             definitions: RefCell::new(definitions),
             library_context: libctx,
+            debug_mode: opts.enable_debug,
         })
     }
 

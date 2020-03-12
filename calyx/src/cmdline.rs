@@ -13,32 +13,36 @@ use structopt::StructOpt;
 )]
 #[allow(clippy::option_option)]
 pub struct Opts {
-    // name of path where futil program lives
+    /// Input futil program.
     #[structopt(required = true, parse(from_os_str))]
     pub file: PathBuf,
 
-    // name of the component in <file>
+    /// Name of the top-level component. Used by visulization to find the top-level module.
     #[structopt(short, long, default_value = "main")]
     pub component: String,
 
-    // optional argument that optionally takes a value
+    /// Generate a PNG or DOT file to visualize the structure.
     #[structopt(short = "s", long = "show-struct")]
     pub visualize_structure: Option<Option<PathBuf>>,
 
-    // optional argument that optionally takes a path to output png
+    /// Generate a PNG or DOT representation of the FSM.
     #[structopt(long = "show-fsm")]
     pub visualize_fsm: Option<Option<PathBuf>>,
 
-    // library paths
+    /// Path to the primitives library.
     #[structopt(long, short, required = true)]
     pub libraries: Vec<PathBuf>,
 
     #[structopt(long = "futil-output")]
     pub futil_output: Option<Option<PathBuf>>,
 
-    // where to output verilog
+    /// Output location for generated Verilog.
     #[structopt(short)]
     pub output: Option<PathBuf>,
+
+    /// Enable debug mode output.
+    #[structopt(short = "d", long = "debug")]
+    pub enable_debug: bool,
 }
 
 // ================== Helper Functions ======================= //

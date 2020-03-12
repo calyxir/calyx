@@ -1,6 +1,8 @@
 use crate::lang::ast::*;
 use pretty::termcolor::{Color, ColorChoice, ColorSpec, StandardStream};
 use pretty::RcDoc;
+use atty::Stream;
+use std::io;
 
 fn surround<'a, A>(
     pre: &'a str,
@@ -38,7 +40,7 @@ fn keyword(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
 
 fn italic(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
     let mut c = ColorSpec::new();
-    c.set_italic(true);
+    c.set_fg(Some(Color::Red));
     doc.annotate(c)
 }
 
@@ -68,20 +70,19 @@ pub trait PrettyPrint {
     /// The RcDoc. Call `arena.alloc(obj)` to allocate `obj` and use the
     /// returned reference for printing.
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec>;
-    fn pretty_string(&self) -> String {
-        let mut w = Vec::new();
-        // XXX(sam) this leaks memory atm because we put vecs into this
-        let mut arena = bumpalo::Bump::new();
-        self.prettify(&arena).render(100, &mut w).unwrap();
-        arena.reset();
-        String::from_utf8(w).unwrap()
-    }
     fn pretty_print(&self) {
         // XXX(sam) this leaks memory atm because we put vecs into this
         let mut arena = bumpalo::Bump::new();
-        self.prettify(&arena)
-            .render_colored(100, StandardStream::stdout(ColorChoice::Auto))
-            .unwrap();
+        {
+            let str = self.prettify(&arena);
+            if atty::is(Stream::Stdout) {
+                str.render_colored(100, StandardStream::stdout(ColorChoice::Auto))
+                    .unwrap();
+                } else {
+                    str.render(100, &mut io::stdout())
+                        .unwrap();
+            }
+        }
         arena.reset();
     }
 }
