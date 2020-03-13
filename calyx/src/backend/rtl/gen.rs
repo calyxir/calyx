@@ -2,10 +2,6 @@ use crate::backend::traits::Backend;
 use crate::context;
 use crate::errors;
 use crate::lang::ast;
-// use crate::lang::library::ast::ParamPortdef;
-// use itertools::Itertools;
-use pretty::RcDoc;
-use std::collections::HashMap;
 
 pub struct RtlBackend {}
 

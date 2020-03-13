@@ -1,7 +1,4 @@
-use crate::context::Context;
-use crate::lang::ast;
-use crate::lang::component::Component;
-use crate::passes::visitor::{Action, VisResult, Visitor};
+use crate::passes::visitor::Visitor;
 
 pub struct Validate {}
 

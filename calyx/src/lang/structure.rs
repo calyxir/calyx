@@ -1,11 +1,8 @@
 use crate::errors;
-use crate::lang::context::{Context, LibraryContext};
-use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::{ast, component};
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::NodeIndex;
 use petgraph::stable_graph::StableDiGraph;
-use pretty::RcDoc;
 use std::collections::HashMap;
 
 /// store the structure ast node so that we can reconstruct the ast

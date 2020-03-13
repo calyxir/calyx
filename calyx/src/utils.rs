@@ -29,6 +29,7 @@ pub struct NameGenerator {
     name_hash: HashMap<String, i64>,
 }
 
+#[allow(unused)]
 impl NameGenerator {
     pub fn new() -> Self {
         NameGenerator {

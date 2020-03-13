@@ -1,7 +1,7 @@
 use crate::lang::ast::*;
+use atty::Stream;
 use pretty::termcolor::{Color, ColorChoice, ColorSpec, StandardStream};
 use pretty::RcDoc;
-use atty::Stream;
 use std::io;
 
 fn surround<'a, A>(
@@ -76,11 +76,13 @@ pub trait PrettyPrint {
         {
             let str = self.prettify(&arena);
             if atty::is(Stream::Stdout) {
-                str.render_colored(100, StandardStream::stdout(ColorChoice::Auto))
-                    .unwrap();
-                } else {
-                    str.render(100, &mut io::stdout())
-                        .unwrap();
+                str.render_colored(
+                    100,
+                    StandardStream::stdout(ColorChoice::Auto),
+                )
+                .unwrap();
+            } else {
+                str.render(100, &mut io::stdout()).unwrap();
             }
         }
         arena.reset();

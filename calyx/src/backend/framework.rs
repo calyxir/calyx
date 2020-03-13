@@ -1,5 +1,5 @@
 use crate::lang::ast;
-use crate::lang::ast::{ComponentDef, NamespaceDef, Port, Structure};
+use crate::lang::ast::ComponentDef;
 use crate::lang::library;
 use crate::lang::library::ast::Library;
 use std::collections::HashMap;
