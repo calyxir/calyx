@@ -4,7 +4,7 @@ use pretty::termcolor::{Color, ColorChoice, ColorSpec, StandardStream};
 use pretty::RcDoc;
 use std::io;
 
-fn surround<'a, A>(
+pub fn surround<'a, A>(
     pre: &'a str,
     doc: RcDoc<'a, A>,
     post: &'a str,
@@ -12,11 +12,11 @@ fn surround<'a, A>(
     RcDoc::text(pre).append(doc).append(RcDoc::text(post))
 }
 
-fn parens<A>(doc: RcDoc<A>) -> RcDoc<A> {
+pub fn parens<A>(doc: RcDoc<A>) -> RcDoc<A> {
     surround("(", doc, ")")
 }
 
-fn brackets<A>(doc: RcDoc<A>) -> RcDoc<A> {
+pub fn brackets<A>(doc: RcDoc<A>) -> RcDoc<A> {
     surround("[", doc, "]")
 }
 
@@ -128,6 +128,7 @@ impl<T: PrettyPrint, U: PrettyPrint> PrettyPrint for (T, U) {
             .append(RcDoc::line())
             .append(u.prettify(&arena))
             .nest(2)
+            .append(RcDoc::line())
     }
 }
 

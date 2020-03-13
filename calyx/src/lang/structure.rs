@@ -271,6 +271,39 @@ impl StructureGraph {
         }
     }
 
+    pub fn get_node_from_port(
+        &self,
+        port: &ast::Port,
+    ) -> Result<NodeIndex, errors::Error> {
+        match port {
+            ast::Port::Comp { component, .. } => self.get_inst_index(component),
+            ast::Port::This { port } => self.get_io_index(port),
+        }
+    }
+
+    pub fn get_wire_width(
+        &self,
+        src_node: NodeIndex,
+        src_port: &str,
+        dest_node: NodeIndex,
+        dest_port: &str,
+    ) -> Result<u64, errors::Error> {
+        let width = self.graph.find_edge(src_node, dest_node).and_then(|ei| {
+            self.graph.edge_weight(ei).and_then(|edge| {
+                if edge.src == src_port && edge.dest == dest_port {
+                    Some(edge.width)
+                } else {
+                    None
+                }
+            })
+        });
+
+        match width {
+            Some(w) => Ok(w),
+            None => Err(errors::Error::UndefinedWire),
+        }
+    }
+
     fn construct_port(&self, idx: NodeIndex, port: &str) -> ast::Port {
         use ast::Port;
         use NodeData::*;

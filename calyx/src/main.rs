@@ -26,7 +26,7 @@ fn main() -> Result<(), errors::Error> {
     passes::remove_if::RemoveIf::do_pass_default(&context)?;
 
     context.pretty_print();
-    let output = backend::rtl::gen::RtlBackend::emit(&context)?;
+    let output = backend::rtl::gen::RtlBackend::emit(context)?;
     println!("{}", output);
 
     // passes::test_pass::Test::do_pass(&context);

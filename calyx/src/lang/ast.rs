@@ -136,6 +136,15 @@ pub enum Port {
     },
 }
 
+impl Port {
+    pub fn port_name(&self) -> &str {
+        match self {
+            Port::Comp { port, .. } => port,
+            Port::This { port } => port,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
 #[sexpy(nohead)]
 pub struct Compinst {
