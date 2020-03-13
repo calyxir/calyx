@@ -1,5 +1,7 @@
 use crate::context;
 use crate::errors;
+use crate::lang::component;
+use pretty::RcDoc;
 
 /// All backends must implement this trait.
 /// `Backend::validate` should return `Ok(())` if the
@@ -9,8 +11,12 @@ use crate::errors;
 pub trait Backend {
     fn validate(prog: &context::Context) -> Result<(), errors::Error>;
     fn to_string(prog: &context::Context) -> String;
-    fn emit(prog: &context::Context) -> Result<String, errors::Error> {
-        Self::validate(prog)?;
-        Ok(Self::to_string(prog))
+    fn emit(prog: context::Context) -> Result<String, errors::Error> {
+        Self::validate(&prog)?;
+        Ok(Self::to_string(&prog))
     }
+}
+
+pub trait Emitable {
+    fn doc(&self, comp: &component::Component) -> RcDoc;
 }

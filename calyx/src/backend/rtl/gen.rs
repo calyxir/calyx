@@ -1,17 +1,15 @@
-use crate::backend::traits::Backend;
+use crate::backend::traits::{Backend, Emitable};
 use crate::context;
 use crate::errors;
-use crate::lang::ast;
-// use crate::lang::library::ast::ParamPortdef;
-// use itertools::Itertools;
-use pretty::RcDoc;
-use std::collections::HashMap;
+use crate::lang::{ast, component};
+use pretty::RcDoc as R;
 
 pub struct RtlBackend {}
 
 impl Backend for RtlBackend {
-    fn validate(prog: &context::Context) -> Result<(), errors::Error> {
-        prog.definitions_map(|_name, comp| {
+    fn validate(ctx: &context::Context) -> Result<(), errors::Error> {
+        let prog: ast::NamespaceDef = ctx.clone().into();
+        for comp in &prog.components {
             use ast::Control;
             match &comp.control {
                 Control::Seq { data } => {
@@ -21,15 +19,143 @@ impl Backend for RtlBackend {
                             _ => return Err(errors::Error::MalformedControl),
                         }
                     }
-                    Ok(())
                 }
-                _ => Err(errors::Error::MalformedControl),
+                _ => return Err(errors::Error::MalformedControl),
             }
-        })
+        }
+        Ok(())
     }
 
-    fn to_string(_: &context::Context) -> std::string::String {
-        "unimplemented backend!\n".to_string()
+    fn to_string(ctx: &context::Context) -> std::string::String {
+        let mut w = Vec::new();
+        let prog: ast::NamespaceDef = ctx.clone().into();
+        let docs = prog.components.iter().map(|c| {
+            let comp = ctx.get_component(&c.name).unwrap();
+            c.doc(&comp)
+        });
+        let doc = R::intersperse(docs, R::line());
+        doc.render(100, &mut w).unwrap();
+        String::from_utf8(w).unwrap()
+    }
+}
+
+impl Emitable for ast::ComponentDef {
+    fn doc(&self, comp: &component::Component) -> R {
+        use crate::lang::pretty_print::parens;
+        R::text("// Component Signature")
+            .append(R::line())
+            .append(R::text("module"))
+            .append(R::space())
+            .append(R::text(&self.name))
+            .append(R::line())
+            .append(parens(
+                R::line()
+                    .append(self.signature.doc(&comp))
+                    .nest(4)
+                    .append(R::line()),
+            ))
+            .append(R::text(";"))
+            .append(R::line())
+            .append(R::line())
+            .append(R::text("// Wire declarations"))
+            .append(R::line())
+            .append(wire_declarations(&self.structure, &comp))
+            // .append(RcDoc::line())
+            // .append(RcDoc::line())
+            // .append(RcDoc::text("// Subcomponent Instances"))
+            // .append(RcDoc::line())
+            // .append(instances(c))
+            // .append(RcDoc::line())
+            .append(R::line())
+            .append(R::text("endmodule"))
+    }
+}
+
+impl Emitable for ast::Signature {
+    fn doc(&self, comp: &component::Component) -> R {
+        let inputs = self.inputs.iter().map(|pd| {
+            R::text("input").append(R::space()).append(pd.doc(&comp))
+        });
+        let outputs = self.outputs.iter().map(|pd| {
+            R::text("output").append(R::space()).append(pd.doc(&comp))
+        });
+        R::intersperse(inputs.chain(outputs), R::text(",").append(R::line()))
+    }
+}
+
+impl Emitable for ast::Portdef {
+    fn doc(&self, ctx: &component::Component) -> R {
+        // XXX(Sam) why don't we use wires?
+        R::text("wire").append(R::space()).append(&self.name)
+    }
+}
+
+// //==========================================
+// //        Wire Declaration Functions
+// //==========================================
+fn wire_declarations<'a>(
+    structure: &'a [ast::Structure],
+    comp: &component::Component,
+) -> R<'a> {
+    let wire_names = structure
+        .iter()
+        // .unique_by(|wire| &wire.src) why is this here?
+        .filter_map(|st| {
+            if let ast::Structure::Wire { data } = st {
+                wire_string(&data, comp)
+            } else {
+                None
+            }
+        });
+    R::intersperse(wire_names, R::line())
+}
+
+// XXX(sam) get rid of use of unwrap
+fn wire_string<'a>(
+    wire: &'a ast::Wire,
+    comp: &component::Component,
+) -> Option<R<'a>> {
+    let src_node = comp.structure.get_node_from_port(&wire.src).unwrap();
+    let dest_node = comp.structure.get_node_from_port(&wire.dest).unwrap();
+
+    let width = comp
+        .structure
+        .get_wire_width(
+            src_node,
+            wire.src.port_name(),
+            dest_node,
+            wire.dest.port_name(),
+        )
+        .unwrap();
+    match &wire.src {
+        ast::Port::Comp { .. } => Some(
+            R::text("wire")
+                .append(R::space())
+                .append(bit_width(width))
+                .append(port_wire_id(&wire.src))
+                .append(R::text(";")),
+        ),
+        ast::Port::This { .. } => None,
+    }
+}
+
+pub fn bit_width<'a>(width: u64) -> R<'a> {
+    if width < 1 {
+        panic!("Invalid bit width!");
+    } else if width == 1 {
+        R::nil()
+    } else {
+        R::text(format!("[{}:0]", width - 1)).append(R::space())
+    }
+}
+
+///  Generates a string wirename for the provided Port object
+pub fn port_wire_id(p: &ast::Port) -> R {
+    match p {
+        ast::Port::Comp { component, port } => R::text(component)
+            .append(R::text("_"))
+            .append(R::text(port)),
+        ast::Port::This { port } => R::text(port),
     }
 }
 
@@ -119,47 +245,6 @@ impl Backend for RtlBackend {
 //         RcDoc::text(format!("[{}:0]", width - 1)).append(RcDoc::space())
 //     }
 // }
-
-// //==========================================
-// //        Wire Declaration Functions
-// //==========================================
-// fn wire_declarations(c: &Context) -> RcDoc<'_> {
-//     let wire_names = c
-//         .toplevel
-//         .get_wires()
-//         .into_iter()
-//         .unique_by(|wire| &wire.src)
-//         .filter_map(|wire| wire_string(&wire, c));
-//     RcDoc::intersperse(wire_names, RcDoc::line())
-// }
-
-// fn wire_string<'a>(wire: &'a Wire, c: &Context) -> Option<RcDoc<'a>> {
-//     None
-//     // let width = Context::port_width(&wire.src, &c.toplevel, c);
-//     // match &wire.src {
-//     //     Port::Comp { .. } => Some(
-//     //         RcDoc::text("logic")
-//     //             .append(RcDoc::space())
-//     //             .append(bit_width(width))
-//     //             .append(port_wire_id(&wire.src))
-//     //             .append(RcDoc::text(";")),
-//     //     ),
-//     //     Port::This { .. } => None,
-//     // }
-// }
-
-// /**
-//  * Generates a string wirename for the provided Port object
-//  */
-// pub fn port_wire_id(p: &Port) -> RcDoc<'_> {
-//     match p {
-//         Port::Comp { component, port } => RcDoc::text(component)
-//             .append(RcDoc::text("_"))
-//             .append(RcDoc::text(port)),
-//         Port::This { port } => RcDoc::text(port),
-//     }
-// }
-
 // //==========================================
 // //        Subcomponent Instance Functions
 // //==========================================

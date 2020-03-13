@@ -12,6 +12,7 @@ pub enum Error {
     WriteError,
     MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
     UndefinedPort(String),
+    UndefinedWire, // XXX(sam) add more info
     UndefinedComponent(ast::Id),
     SignatureResolutionFailed(ast::Id),
     MalformedControl, // XXX(sam) add more info to this
@@ -32,6 +33,7 @@ impl std::fmt::Debug for Error {
                 port1, w1, port2, w2
             ),
             UndefinedPort(port) => write!(f, "Use of undefined port: {}", port),
+            UndefinedWire => write!(f, "UndefinedWire"),
             UndefinedComponent(id) => {
                 write!(f, "Use of undefined component {:?}", id)
             }

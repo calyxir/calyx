@@ -66,8 +66,9 @@ impl Context {
         })
     }
 
-    /// Maps over the context definitions, giving mutable access the components
-    pub fn definitions_map(
+    // XXX(sam) maybe implement this as an iterator?
+    /// Iterates over the context definitions, giving mutable access the components
+    pub fn definitions_iter(
         &self,
         mut func: impl FnMut(&ast::Id, &mut Component) -> Result<(), errors::Error>,
     ) -> Result<(), errors::Error> {
@@ -88,7 +89,28 @@ impl Context {
         Ok(Component::from_signature(name, sig))
     }
 
+    pub fn get_component(
+        &self,
+        name: &ast::Id,
+    ) -> Result<Component, errors::Error> {
+        match self.definitions.borrow().get(name) {
+            Some(comp) => Ok(comp.clone()),
+            None => Err(errors::Error::UndefinedComponent(name.clone())),
+        }
+    }
+
     // XXX(sam) need a way to insert components
+}
+
+impl Into<ast::NamespaceDef> for Context {
+    fn into(self) -> ast::NamespaceDef {
+        let name = "placeholder".to_string();
+        let mut components: Vec<ast::ComponentDef> = vec![];
+        for comp in self.definitions.borrow().values() {
+            components.push(comp.clone().into())
+        }
+        ast::NamespaceDef { name, components }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -143,7 +165,7 @@ impl PrettyPrint for Context {
         RcDoc::intersperse(
             def.iter()
                 .map(|(k, v)| (k.clone(), v.clone()).prettify(&arena)),
-            RcDoc::hardline(),
+            RcDoc::line(),
         )
     }
 }

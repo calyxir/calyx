@@ -42,6 +42,7 @@ impl Component {
         self.signature.outputs.push(portdef);
     }
 
+    #[allow(unused)]
     pub fn add_instance(
         &mut self,
         id: &ast::Id,
