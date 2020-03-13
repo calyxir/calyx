@@ -119,84 +119,84 @@ impl ast::ComponentDef {
     //        Structure Helper Functions
     //==========================================
 
+    fn from_structure<F, T>(&self, to_data: F) -> Vec<&T>
+    where
+        F: FnMut(&ast::Structure) -> Option<&T>,
+    {
+        self.structure.iter().filter_map(to_data).collect()
+    }
+
+    /// Get all the wires in this Component.
     pub fn get_wires(&self) -> Vec<&ast::Wire> {
-        let mut v: Vec<&ast::Wire> = Vec::new();
-        for structure in self.structure.iter() {
-            if let ast::Structure::Wire { data } = structure {
-                v.push(data)
-            }
-        }
-        v
+        self.from_structure(|s| match s {
+            ast::Structure::Wire { data } => Some(data),
+            _ => None,
+        })
     }
 
+    /// Get all `Std` from this Component.
     pub fn get_std(&self) -> Vec<&ast::Std> {
-        let mut v: Vec<&ast::Std> = Vec::new();
-        for structure in self.structure.iter() {
-            if let ast::Structure::Std { data } = structure {
-                v.push(data)
-            }
-        }
-        v
+        self.from_structure(|s| match s {
+            ast::Structure::Std { data } => Some(data),
+            _ => None,
+        })
     }
 
+    /// Get all `Decl` from this Component.
     pub fn get_decl(&self) -> Vec<&ast::Decl> {
-        let mut v: Vec<&ast::Decl> = Vec::new();
-        for structure in self.structure.iter() {
-            if let ast::Structure::Decl { data } = structure {
-                v.push(data)
-            }
-        }
-        v
+        self.from_structure(|s| match s {
+            ast::Structure::Decl { data } => Some(data),
+            _ => None,
+        })
     }
 
+    /// Build a `CompStore` that contains a mapping from component and Decl
+    /// names to clones of the componenets.
     pub fn get_store(&self) -> CompStore {
-        let mut store: CompStore = HashMap::new();
-        let std = self.get_std();
-        let new = self.get_decl();
-        for inst in std {
-            store.insert(
-                inst.name.clone(),
-                ast::Structure::Std { data: inst.clone() },
-            );
-        }
-        for inst in new {
-            store.insert(
-                inst.name.clone(),
-                ast::Structure::Decl { data: inst.clone() },
-            );
-        }
-        store
+        self.structure
+            .iter()
+            .filter_map(|inst| match inst {
+                ast::Structure::Std { data } => {
+                    Some((data.name.clone(), inst.clone()))
+                }
+                ast::Structure::Decl { data } => {
+                    Some((data.name.clone(), inst.clone()))
+                }
+                _ => None,
+            })
+            .collect()
     }
 
+    /// Does this Component have an input port with name `port`.
     pub fn has_input_port(&self, port: String) -> bool {
-        for in_port in &self.signature.inputs {
-            if in_port.name == port {
-                return true;
-            }
-        }
-        false
+        self.signature
+            .inputs
+            .iter()
+            .any(|in_port| in_port.name == port)
     }
 
+    /// Does this Component have an output port with name `port`.
     pub fn has_output_port(&self, port: String) -> bool {
-        for out_port in &self.signature.outputs {
-            if out_port.name == port {
-                return true;
-            }
-        }
-        false
+        self.signature
+            .outputs
+            .iter()
+            .any(|out_port| out_port.name == port)
     }
 
+    /// Get the width for `port`.
     pub fn get_port_width(&self, port: &str) -> u64 {
-        for in_port in &self.signature.inputs {
-            if in_port.name == *port {
-                return in_port.width;
-            }
-        }
-        for out_port in &self.signature.outputs {
-            if out_port.name == *port {
-                return out_port.width;
-            }
-        }
-        panic!("Non-existent port: Port {}, Component {}", port, self.name)
+        self.signature
+            .inputs
+            .iter()
+            .chain(self.signature.outputs.iter())
+            .find(|this_port| this_port.name == *port)
+            .map(|this_port| this_port.width)
+            .expect(
+                format!(
+                    "Non-existent port: Port {}, Component {}",
+                    port, self.name
+                )
+                .as_str(),
+            )
     }
 }
