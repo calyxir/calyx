@@ -3,11 +3,13 @@ use crate::lang::{ast, component};
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::NodeIndex;
 use petgraph::stable_graph::StableDiGraph;
+use petgraph::Direction;
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 /// store the structure ast node so that we can reconstruct the ast
 #[derive(Clone, Debug)]
-enum NodeData {
+pub enum NodeData {
     Input(ast::Portdef),
     Output(ast::Portdef),
     Instance {
@@ -17,12 +19,22 @@ enum NodeData {
     },
 }
 
+impl NodeData {
+    pub fn get_name(&self) -> &str {
+        match self {
+            NodeData::Input(pd) => &pd.name,
+            NodeData::Output(pd) => &pd.name,
+            NodeData::Instance { name, .. } => &name,
+        }
+    }
+}
+
 /// store the src port and dst port on edge
 #[derive(Clone, Debug)]
-struct EdgeData {
-    src: String,
-    dest: String,
-    width: u64,
+pub struct EdgeData {
+    pub src: String,
+    pub dest: String,
+    pub width: u64,
 }
 
 /// private graph type. the data in the node is the identifier
@@ -40,7 +52,7 @@ pub struct StructureGraph {
     // port names and instance identifiers
     portdef_map: HashMap<String, NodeIndex>,
     inst_map: HashMap<ast::Id, NodeIndex>,
-    graph: StructG,
+    pub graph: StructG,
 }
 
 impl StructureGraph {
@@ -177,6 +189,67 @@ impl StructureGraph {
         Ok(())
     }
 
+    /// Returns an iterator over all the nodes in the structure graph
+    pub fn instances(
+        &self,
+    ) -> impl Iterator<Item = (NodeIndex, NodeData)> + '_ {
+        self.graph
+            .node_indices()
+            .map(move |ni| (ni, self.graph[ni].clone()))
+    }
+
+    fn connected_direction<'a>(
+        &'a self,
+        node: NodeIndex,
+        port: String,
+        direction: Direction,
+    ) -> impl Iterator<Item = (&'a NodeData, &'a EdgeData)> + 'a {
+        let edge_iter = self
+            .graph
+            .edges_directed(node, direction)
+            .map(|e| e.weight());
+        let node_iter = self
+            .graph
+            .neighbors_directed(node, direction)
+            .map(move |idx| &self.graph[idx]);
+        node_iter
+            .zip(edge_iter)
+            .filter_map(move |(nd, ed)| match direction {
+                Direction::Incoming => {
+                    if ed.dest == port {
+                        Some((nd, ed))
+                    } else {
+                        None
+                    }
+                }
+                Direction::Outgoing => {
+                    if ed.src == port {
+                        Some((nd, ed))
+                    } else {
+                        None
+                    }
+                }
+            })
+    }
+
+    /// Returns an iterator over edges and destination nodes connected to `node` at `port`
+    pub fn connected_to<'a>(
+        &'a self,
+        node: NodeIndex,
+        port: String,
+    ) -> impl Iterator<Item = (&'a NodeData, &'a EdgeData)> + 'a {
+        self.connected_direction(node, port, Direction::Outgoing)
+    }
+
+    /// Returns an iterator over edges and src nodes connected to `node` at `port`
+    pub fn connected_from<'a>(
+        &'a self,
+        node: NodeIndex,
+        port: String,
+    ) -> impl Iterator<Item = (&'a NodeData, &'a EdgeData)> + 'a {
+        self.connected_direction(node, port, Direction::Incoming)
+    }
+
     pub fn insert_input_port(&mut self, port: &ast::Portdef) {
         self.insert_io_port(&port, NodeData::Input)
     }
@@ -252,6 +325,10 @@ impl StructureGraph {
                 dest_width,
             ))
         }
+    }
+
+    pub fn get(&self, idx: NodeIndex) -> &NodeData {
+        &self.graph[idx]
     }
 
     pub fn get_inst_index(
