@@ -18,5 +18,5 @@ pub trait Backend {
 }
 
 pub trait Emitable {
-    fn doc(&self, comp: &component::Component) -> RcDoc;
+    fn doc<'a>(&'a self, comp: &'a component::Component) -> RcDoc<'a>;
 }
