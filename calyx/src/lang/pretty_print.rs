@@ -1,6 +1,9 @@
+use super::colors;
 use crate::lang::ast::*;
-use pretty::termcolor::{Color, ColorChoice, ColorSpec, StandardStream};
+use atty::Stream;
+use pretty::termcolor::{ColorChoice, ColorSpec, StandardStream};
 use pretty::RcDoc;
+use std::io;
 
 pub fn surround<'a, A>(
     pre: &'a str,
@@ -18,48 +21,21 @@ pub fn brackets<A>(doc: RcDoc<A>) -> RcDoc<A> {
     surround("[", doc, "]")
 }
 
-fn define(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
-    let mut c = ColorSpec::new();
-    c.set_fg(Some(Color::Blue)).set_bold(true);
-    doc.annotate(c)
-}
-
-fn port(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
-    let mut c = ColorSpec::new();
-    c.set_fg(Some(Color::Green));
-    doc.annotate(c)
-}
-
-fn keyword(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
-    let mut c = ColorSpec::new();
-    c.set_fg(Some(Color::Blue));
-    doc.annotate(c)
-}
-
-fn italic(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
-    let mut c = ColorSpec::new();
-    c.set_italic(true);
-    doc.annotate(c)
-}
-
-fn control(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
-    let mut c = ColorSpec::new();
-    c.set_fg(Some(Color::Green));
-    doc.annotate(c)
-}
-
-fn enable(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
-    let mut c = ColorSpec::new();
-    c.set_fg(Some(Color::Yellow));
-    doc.annotate(c)
-}
-
 fn small_vec<'a, T: PrettyPrint>(
     vec: &[T],
     arena: &'a bumpalo::Bump,
 ) -> RcDoc<'a, ColorSpec> {
     let docs = vec.iter().map(|s| s.prettify(&arena));
     RcDoc::intersperse(docs, RcDoc::space())
+}
+
+pub fn display(doc: RcDoc<ColorSpec>) {
+    if atty::is(Stream::Stdout) {
+        doc.render_colored(100, StandardStream::stdout(ColorChoice::Auto))
+            .unwrap();
+    } else {
+        doc.render(100, &mut io::stdout()).unwrap();
+    }
 }
 
 pub trait PrettyPrint {
@@ -134,9 +110,9 @@ impl<T: PrettyPrint, U: PrettyPrint> PrettyPrint for (T, U) {
 impl PrettyPrint for NamespaceDef {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         let comps = self.components.iter().map(|s| s.prettify(&arena));
-        let inner = define(RcDoc::text("define/namespace"))
+        let inner = colors::define(RcDoc::text("define/namespace"))
             .append(RcDoc::space())
-            .append(italic(RcDoc::text(self.name.clone())))
+            .append(colors::ident(RcDoc::text(self.name.clone())))
             .append(RcDoc::line())
             .append(RcDoc::intersperse(
                 comps,
@@ -149,9 +125,9 @@ impl PrettyPrint for NamespaceDef {
 
 impl PrettyPrint for ComponentDef {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = define(RcDoc::text("define/component"))
+        let inner = colors::define(RcDoc::text("define/component"))
             .append(RcDoc::space())
-            .append(italic(RcDoc::text(self.name.clone())))
+            .append(colors::ident(RcDoc::text(self.name.clone())))
             .append(RcDoc::line())
             .append(
                 parens(self.signature.inputs.prettify(&arena))
@@ -175,7 +151,7 @@ impl PrettyPrint for ComponentDef {
 
 impl PrettyPrint for Portdef {
     fn prettify<'a>(&self, _arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = port(RcDoc::text("port"))
+        let inner = colors::port(RcDoc::text("port"))
             .append(RcDoc::space())
             .append(RcDoc::text(self.name.clone()))
             .append(RcDoc::space())
@@ -198,9 +174,9 @@ impl PrettyPrint for Structure {
 
 impl PrettyPrint for Decl {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = keyword(RcDoc::text("new"))
+        let inner = colors::keyword(RcDoc::text("new"))
             .append(RcDoc::space())
-            .append(italic(self.name.prettify(&arena)))
+            .append(colors::ident(self.name.prettify(&arena)))
             .append(RcDoc::space())
             .append(self.component.prettify(&arena));
         brackets(inner)
@@ -209,9 +185,9 @@ impl PrettyPrint for Decl {
 
 impl PrettyPrint for Std {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = keyword(RcDoc::text("new-std"))
+        let inner = colors::keyword(RcDoc::text("new-std"))
             .append(RcDoc::space())
-            .append(italic(self.name.prettify(&arena)))
+            .append(colors::ident(self.name.prettify(&arena)))
             .append(RcDoc::space())
             .append(self.instance.prettify(&arena))
             .group();
@@ -265,7 +241,7 @@ impl PrettyPrint for Control {
 
 impl PrettyPrint for Seq {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = control(RcDoc::text("seq"))
+        let inner = colors::control(RcDoc::text("seq"))
             .append(RcDoc::hardline())
             .append(self.stmts.prettify(&arena))
             .nest(1);
@@ -275,7 +251,7 @@ impl PrettyPrint for Seq {
 
 impl PrettyPrint for Par {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = control(RcDoc::text("par"))
+        let inner = colors::control(RcDoc::text("par"))
             .append(RcDoc::hardline())
             .append(self.stmts.prettify(&arena))
             .nest(1);
@@ -285,7 +261,7 @@ impl PrettyPrint for Par {
 
 impl PrettyPrint for If {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = control(RcDoc::text("if"))
+        let inner = colors::control(RcDoc::text("if"))
             .append(RcDoc::space())
             .append(self.port.prettify(&arena))
             .append(RcDoc::space())
@@ -301,7 +277,7 @@ impl PrettyPrint for If {
 
 impl PrettyPrint for Ifen {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = control(RcDoc::text("ifen"))
+        let inner = colors::control(RcDoc::text("ifen"))
             .append(RcDoc::space())
             .append(self.port.prettify(&arena))
             .append(RcDoc::space())
@@ -317,7 +293,7 @@ impl PrettyPrint for Ifen {
 
 impl PrettyPrint for While {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = control(RcDoc::text("while"))
+        let inner = colors::control(RcDoc::text("while"))
             .append(RcDoc::space())
             .append(self.port.prettify(&arena))
             .append(RcDoc::space())
@@ -331,7 +307,7 @@ impl PrettyPrint for While {
 
 impl PrettyPrint for Print {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = enable(RcDoc::text("print"))
+        let inner = colors::enable(RcDoc::text("print"))
             .append(RcDoc::line())
             .append(self.var.prettify(&arena))
             .group();
@@ -341,7 +317,7 @@ impl PrettyPrint for Print {
 
 impl PrettyPrint for Enable {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = enable(RcDoc::text("enable"))
+        let inner = colors::enable(RcDoc::text("enable"))
             .append(RcDoc::line())
             .append(self.comps.prettify(&arena))
             .group();
@@ -351,7 +327,7 @@ impl PrettyPrint for Enable {
 
 impl PrettyPrint for Disable {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = enable(RcDoc::text("disable"))
+        let inner = colors::enable(RcDoc::text("disable"))
             .append(RcDoc::line())
             .append(self.comps.prettify(&arena))
             .group();
@@ -361,7 +337,7 @@ impl PrettyPrint for Disable {
 
 impl PrettyPrint for Empty {
     fn prettify<'a>(&self, _arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = enable(RcDoc::text("empty"));
+        let inner = colors::enable(RcDoc::text("empty"));
         parens(inner)
     }
 }
@@ -370,7 +346,7 @@ impl PrettyPrint for Port {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         match self {
             Port::Comp { component, port: p } => {
-                let inner = port(RcDoc::text("@"))
+                let inner = colors::port(RcDoc::text("@"))
                     .append(RcDoc::space())
                     .append(component.prettify(&arena))
                     .append(RcDoc::space())
@@ -378,9 +354,9 @@ impl PrettyPrint for Port {
                 parens(inner)
             }
             Port::This { port: p } => {
-                let inner = port(RcDoc::text("@"))
+                let inner = colors::port(RcDoc::text("@"))
                     .append(RcDoc::space())
-                    .append(keyword(RcDoc::text("this")))
+                    .append(colors::keyword(RcDoc::text("this")))
                     .append(RcDoc::space())
                     .append(p.prettify(&arena));
                 parens(inner)
