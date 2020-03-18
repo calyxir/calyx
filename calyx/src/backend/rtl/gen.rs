@@ -31,13 +31,14 @@ impl Backend for RtlBackend {
 
     fn emit(ctx: &context::Context) -> Result<(), errors::Error> {
         let prog: ast::NamespaceDef = ctx.clone().into();
-        // seems like I should be able to do this functionally. however, I
-        // need the lifetime of each component in `comps` to be longer than
-        // the life of docs.
-        let mut comps: Vec<(&ast::ComponentDef, component::Component)> = vec![];
-        for cd in prog.components.iter() {
-            comps.push((cd, ctx.get_component(&cd.name).unwrap()))
-        }
+
+        // build Vec of tuples first so that `comps` lifetime is longer than `docs` lifetime
+        let comps: Vec<(&ast::ComponentDef, component::Component)> = prog
+            .components
+            .iter()
+            .map(|cd| (cd, ctx.get_component(&cd.name).unwrap()))
+            .collect();
+
         let docs = comps.iter().map(|(cd, comp)| cd.doc(&comp));
         display(D::intersperse(docs, D::line()));
         Ok(())
@@ -78,7 +79,6 @@ impl Emitable for ast::ComponentDef {
 
 impl Emitable for ast::Signature {
     fn doc<'a>(&'a self, comp: &'a component::Component) -> D<'a, ColorSpec> {
-        // XXX(sam) do we need bitwidths?
         let inputs = self.inputs.iter().map(|pd| {
             colors::port(D::text("input"))
                 .append(D::space())
@@ -95,8 +95,10 @@ impl Emitable for ast::Signature {
 
 impl Emitable for ast::Portdef {
     fn doc(&self, _ctx: &component::Component) -> D<ColorSpec> {
-        // XXX(Sam) why would we not use wires?
+        // XXX(sam) why would we not use wires?
         colors::keyword(D::text("wire"))
+            .append(D::space())
+            .append(bit_width(self.width))
             .append(D::space())
             .append(&self.name)
     }
@@ -106,6 +108,9 @@ impl Emitable for ast::Portdef {
 //        Wire Declaration Functions
 //==========================================
 fn wire_declarations(comp: &component::Component) -> D<ColorSpec> {
+    // declare a wire for each instance, not input or output because they already have wires defined
+    // in the module signature. We only make a wire once for each instance output. This is because
+    // Verilog wires do not correspond exactly with Futil wires.
     let structure: &structure::StructureGraph = &comp.structure;
     let wires =
         structure
@@ -128,6 +133,7 @@ fn wire_string<'a>(
     idx: NodeIndex,
     name: &ast::Id,
 ) -> Option<D<'a, ColorSpec>> {
+    // build comment of the destinations of each wire declaration
     let dests: Vec<D<ColorSpec>> = structure
         .connected_to(idx, portdef.name.to_string())
         .map(|(node, edge)| {
@@ -136,9 +142,7 @@ fn wire_string<'a>(
                 .append(&edge.dest)
         })
         .collect();
-    if dests.is_empty() {
-        None
-    } else {
+    if !dests.is_empty() {
         let dest_comment =
             D::text("// ").append(D::intersperse(dests, D::text(", ")));
         let wire_name = format!("{}${}", &name, &portdef.name);
@@ -151,6 +155,8 @@ fn wire_string<'a>(
                 .append(D::space())
                 .append(dest_comment),
         )
+    } else {
+        None
     }
 }
 
@@ -255,8 +261,8 @@ fn signature_connections<'a>(
             let wire_name = format!("{}${}", &name, &portdef.name);
             Some(
                 D::text(".")
-                    .append(portdef.name.to_string())
-                    .append(parens(D::text(wire_name))),
+                    .append(colors::port(D::text(portdef.name.to_string())))
+                    .append(parens(colors::ident(D::text(wire_name)))),
             )
         } else {
             None

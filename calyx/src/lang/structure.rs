@@ -4,7 +4,6 @@ use petgraph::dot::{Config, Dot};
 use petgraph::graph::NodeIndex;
 use petgraph::stable_graph::StableDiGraph;
 use petgraph::Direction;
-use std::borrow::Cow;
 use std::collections::HashMap;
 
 /// store the structure ast node so that we can reconstruct the ast
