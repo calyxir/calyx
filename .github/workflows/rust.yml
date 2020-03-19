@@ -8,6 +8,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
+    - name: change directory
+      run: |
+        cd calyx
     - uses: actions-rs/cargo@v1
       with:
         command: build
