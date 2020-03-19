@@ -1,26 +1,25 @@
 ; git.status = dirty, build.date = Fri Dec 06 17:13:01 EST 2019, git.hash = 69c22b2
 (define/namespace prog
   (define/component main () ()
-    ((new-std x0 (register 16 0))
-     (-> (@ const0 out) (@ x0 in))
-     (new-std const0 (const 16 0))
-     (new-std const1 (const 16 1))
-     (-> (@ const1 out) (@ x0 in))
-     (new-std const2 (const 16 2))
-     (-> (@ const2 out) (@ x0 in))
-     (new-std gt0 (gt 16 ))
-     (-> (@ x0 out) (@ gt0 left))
-     (-> (@ const3 out) (@ gt0 right))
-     (new-std const3 (const 16 1))
-     (new-std const4 (const 16 2))
-     (-> (@ const4 out) (@ x0 in))
-     (new-std const5 (const 16 4))
-     (-> (@ const5 out) (@ x0 in)))
+    ([new-std x0 (std_reg 16 0)]
+     [-> (@ const0 out) (@ x0 in)]
+     [new-std const0 (std_const 16 0)]
+     [new-std const1 (std_const 16 1)]
+     [-> (@ const1 out) (@ x0 in)]
+     [new-std const2 (std_const 16 2)]
+     [-> (@ const2 out) (@ x0 in)]
+     [new-std gt0 (std_gt 16)]
+     [-> (@ x0 out) (@ gt0 left)]
+     [-> (@ const3 out) (@ gt0 right)]
+     [new-std const3 (std_const 16 1)]
+     [new-std const4 (std_const 16 2)]
+     [-> (@ const4 out) (@ x0 in)]
+     [new-std const5 (std_const 16 4)]
+     [-> (@ const5 out) (@ x0 in)])
     (seq
      (enable x0 const0)
      (enable x0 const1)
      (enable x0 const2)
-     (enable gt0 x0 const3)
-     (if (@ gt0 out)
+     (if (@ gt0 out) (gt0 x0 const3)
          (enable x0 const4)
          (enable x0 const5)))))

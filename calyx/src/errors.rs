@@ -38,7 +38,7 @@ impl std::fmt::Debug for Error {
             SignatureResolutionFailed(id) => {
                 write!(f, "Failed to resolve portdef: {:?}", id)
             }
-            MalformedControl => write!(f, "Malformed Control"),
+            MalformedControl => write!(f, "Malformed Control. Backend expected Control to be in a different form."),
             Misc(msg) => write!(f, "{}", msg),
         }
     }
