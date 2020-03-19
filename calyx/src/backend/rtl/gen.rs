@@ -1,13 +1,18 @@
-use crate::backend::traits::Backend;
+use crate::backend::traits::{Backend, Emitable};
 use crate::context;
 use crate::errors;
-use crate::lang::ast;
+use crate::lang::pretty_print::{display, parens};
+use crate::lang::{ast, colors, component, structure};
+use petgraph::graph::NodeIndex;
+use pretty::termcolor::ColorSpec;
+use pretty::RcDoc as D;
 
 pub struct RtlBackend {}
 
 impl Backend for RtlBackend {
-    fn validate(prog: &context::Context) -> Result<(), errors::Error> {
-        prog.definitions_map(|_name, comp| {
+    fn validate(ctx: &context::Context) -> Result<(), errors::Error> {
+        let prog: ast::NamespaceDef = ctx.clone().into();
+        for comp in &prog.components {
             use ast::Control;
             match &comp.control {
                 Control::Seq { data } => {
@@ -17,278 +22,252 @@ impl Backend for RtlBackend {
                             _ => return Err(errors::Error::MalformedControl),
                         }
                     }
-                    Ok(())
                 }
-                _ => Err(errors::Error::MalformedControl),
+                _ => return Err(errors::Error::MalformedControl),
             }
-        })
+        }
+        Ok(())
     }
 
-    fn to_string(_: &context::Context) -> std::string::String {
-        "unimplemented backend!\n".to_string()
+    fn emit(ctx: &context::Context) -> Result<(), errors::Error> {
+        let prog: ast::NamespaceDef = ctx.clone().into();
+
+        // build Vec of tuples first so that `comps` lifetime is longer than `docs` lifetime
+        let comps: Vec<(&ast::ComponentDef, component::Component)> = prog
+            .components
+            .iter()
+            .map(|cd| (cd, ctx.get_component(&cd.name).unwrap()))
+            .collect();
+
+        let docs = comps.iter().map(|(cd, comp)| cd.doc(&comp));
+        display(D::intersperse(docs, D::line()));
+        Ok(())
     }
 }
 
-// fn pretty_print(doc: RcDoc) -> String {
-//     let mut w = Vec::new();
-//     doc.render(80, &mut w).unwrap();
-//     String::from_utf8(w).unwrap()
-// }
+impl Emitable for ast::ComponentDef {
+    fn doc<'a>(&'a self, comp: &'a component::Component) -> D<'a, ColorSpec> {
+        D::text("// Component Signature")
+            .append(D::line())
+            .append(colors::define(D::text("module")))
+            .append(D::space())
+            .append(&self.name)
+            .append(D::line())
+            .append(parens(
+                D::line()
+                    .append(self.signature.doc(&comp))
+                    .nest(4)
+                    .append(D::line()),
+            ))
+            .append(";")
+            .append(D::line())
+            .append(D::line())
+            .append("// Wire declarations")
+            .append(D::line())
+            .append(wire_declarations(&comp))
+            .append(D::line())
+            .append(D::line())
+            .append("// Subcomponent Instances")
+            .append(D::line())
+            .append(subcomponent_instances(&comp))
+            .append(D::line())
+            .append(colors::define(D::text("endmodule")))
+            .append(D::space())
+            .append(format!("// end {}", &self.name))
+    }
+}
 
-// #[allow(unused)]
-// pub fn to_verilog(c: &Context) -> String {
-//     let doc: RcDoc = RcDoc::text("// Component Signature")
-//         .append(RcDoc::line())
-//         .append(RcDoc::text("module"))
-//         .append(RcDoc::space())
-//         .append(RcDoc::text(c.toplevel.name.clone()))
-//         .append(RcDoc::line())
-//         .append(RcDoc::text("("))
-//         .append(component_io(&c.toplevel).nest(4))
-//         .append(RcDoc::line())
-//         .append(RcDoc::text(");"))
-//         .append(RcDoc::line())
-//         .append(RcDoc::line())
-//         .append(RcDoc::text("// Wire declarations"))
-//         .append(RcDoc::line())
-//         .append(wire_declarations(c))
-//         .append(RcDoc::line())
-//         .append(RcDoc::line())
-//         .append(RcDoc::text("// Subcomponent Instances"))
-//         .append(RcDoc::line())
-//         .append(instances(c))
-//         .append(RcDoc::line())
-//         .append(RcDoc::line())
-//         .append(RcDoc::text("endmodule"));
-//     pretty_print(doc)
-// }
+impl Emitable for ast::Signature {
+    fn doc<'a>(&'a self, comp: &'a component::Component) -> D<'a, ColorSpec> {
+        let inputs = self.inputs.iter().map(|pd| {
+            colors::port(D::text("input"))
+                .append(D::space())
+                .append(pd.doc(&comp))
+        });
+        let outputs = self.outputs.iter().map(|pd| {
+            colors::port(D::text("output"))
+                .append(D::space())
+                .append(pd.doc(&comp))
+        });
+        D::intersperse(inputs.chain(outputs), D::text(",").append(D::line()))
+    }
+}
 
-// //==========================================
-// //        Component I/O Functions
-// //==========================================
+impl Emitable for ast::Portdef {
+    fn doc(&self, _ctx: &component::Component) -> D<ColorSpec> {
+        // XXX(sam) why would we not use wires?
+        colors::keyword(D::text("wire"))
+            .append(D::space())
+            .append(bit_width(self.width))
+            .append(D::space())
+            .append(&self.name)
+    }
+}
 
-// /**
-//  * Returns a string with the list of all of a component's i/o pins
-//  */
-// #[allow(unused)]
-// pub fn component_io(c: &ComponentDef) -> RcDoc<'_> {
-//     let mut inputs = c
-//         .signature
-//         .inputs
-//         .iter()
-//         .map(|pd| in_port(pd.width, &pd.name));
-//     let mut outputs = c
-//         .signature
-//         .outputs
-//         .iter()
-//         .map(|pd| out_port(pd.width, &pd.name));
-//     RcDoc::line().append(RcDoc::intersperse(
-//         inputs.chain(outputs),
-//         RcDoc::text(",").append(RcDoc::line()),
-//     ))
-// }
+//==========================================
+//        Wire Declaration Functions
+//==========================================
+fn wire_declarations(comp: &component::Component) -> D<ColorSpec> {
+    // declare a wire for each instance, not input or output because they already have wires defined
+    // in the module signature. We only make a wire once for each instance output. This is because
+    // Verilog wires do not correspond exactly with Futil wires.
+    let structure: &structure::StructureGraph = &comp.structure;
+    let wires =
+        structure
+            .instances()
+            .filter_map(|(idx, data)| match data {
+                structure::NodeData::Instance {
+                    name, signature, ..
+                } => Some(signature.outputs.into_iter().filter_map(
+                    move |portdef| wire_string(portdef, structure, idx, &name),
+                )),
+                _ => None,
+            })
+            .flatten();
+    D::intersperse(wires, D::line())
+}
 
-// pub fn in_port(width: u64, name: &str) -> RcDoc<'_> {
-//     RcDoc::text("input")
-//         .append(RcDoc::space())
-//         .append(RcDoc::text("logic"))
-//         .append(RcDoc::space())
-//         .append(bit_width(width))
-//         .append(RcDoc::text(name))
-// }
+fn wire_string<'a>(
+    portdef: ast::Portdef,
+    structure: &'a structure::StructureGraph,
+    idx: NodeIndex,
+    name: &ast::Id,
+) -> Option<D<'a, ColorSpec>> {
+    // build comment of the destinations of each wire declaration
+    let dests: Vec<D<ColorSpec>> = structure
+        .connected_to(idx, portdef.name.to_string())
+        .map(|(node, edge)| {
+            D::text(node.get_name().to_string())
+                .append(" @ ")
+                .append(&edge.dest)
+        })
+        .collect();
+    if !dests.is_empty() {
+        let dest_comment =
+            D::text("// ").append(D::intersperse(dests, D::text(", ")));
+        let wire_name = format!("{}${}", &name, &portdef.name);
+        Some(
+            colors::keyword(D::text("wire"))
+                .append(D::space())
+                .append(bit_width(portdef.width))
+                .append(colors::ident(D::text(wire_name)))
+                .append(";")
+                .append(D::space())
+                .append(dest_comment),
+        )
+    } else {
+        None
+    }
+}
 
-// pub fn out_port(width: u64, name: &str) -> RcDoc<'_> {
-//     RcDoc::text("output")
-//         .append(RcDoc::space())
-//         .append(RcDoc::text("logic"))
-//         .append(RcDoc::space())
-//         .append(bit_width(width))
-//         .append(RcDoc::text(name))
-// }
+pub fn bit_width<'a>(width: u64) -> D<'a, ColorSpec> {
+    use std::cmp::Ordering;
+    match width.cmp(&1) {
+        Ordering::Less => panic!("Invalid bit width!"),
+        Ordering::Equal => D::nil(),
+        Ordering::Greater => {
+            D::text(format!("[{}:0]", width - 1)).append(D::space())
+        }
+    }
+}
 
-// pub fn bit_width<'a>(width: u64) -> RcDoc<'a> {
-//     if width < 1 {
-//         panic!("Invalid bit width!");
-//     } else if width == 1 {
-//         RcDoc::text("".to_string())
-//     } else {
-//         RcDoc::text(format!("[{}:0]", width - 1)).append(RcDoc::space())
-//     }
-// }
+//==========================================
+//        Subcomponent Instance Functions
+//==========================================
+fn subcomponent_instances<'a>(comp: &component::Component) -> D<'a, ColorSpec> {
+    use crate::lang::structure::NodeData;
+    let subs = comp.structure.instances().filter_map(|(idx, data)| {
+        if let NodeData::Instance {
+            name,
+            structure,
+            signature,
+        } = data
+        {
+            let doc = subcomponent_sig(&name, &structure)
+                .append(D::space())
+                .append(parens(
+                    D::line()
+                        .append(signature_connections(
+                            &name, &signature, &comp, idx,
+                        ))
+                        .nest(4)
+                        .append(D::line()),
+                ))
+                .append(";");
+            Some(doc)
+        } else {
+            None
+        }
+    });
+    D::intersperse(subs, D::line().append(D::line()))
+}
 
-// //==========================================
-// //        Wire Declaration Functions
-// //==========================================
-// fn wire_declarations(c: &Context) -> RcDoc<'_> {
-//     let wire_names = c
-//         .toplevel
-//         .get_wires()
-//         .into_iter()
-//         .unique_by(|wire| &wire.src)
-//         .filter_map(|wire| wire_string(&wire, c));
-//     RcDoc::intersperse(wire_names, RcDoc::line())
-// }
+fn subcomponent_sig<'a>(
+    id: &ast::Id,
+    structure: &ast::Structure,
+) -> D<'a, ColorSpec> {
+    use ast::Structure;
+    let (name, params): (&str, &[u64]) = match structure {
+        Structure::Decl { data } => (&data.component, &[]),
+        Structure::Std { data } => (&data.instance.name, &data.instance.params),
+        Structure::Wire { .. } => {
+            panic!("Shouldn't have a wire in the structure graph")
+        }
+    };
 
-// fn wire_string<'a>(wire: &'a Wire, c: &Context) -> Option<RcDoc<'a>> {
-//     None
-//     // let width = Context::port_width(&wire.src, &c.toplevel, c);
-//     // match &wire.src {
-//     //     Port::Comp { .. } => Some(
-//     //         RcDoc::text("logic")
-//     //             .append(RcDoc::space())
-//     //             .append(bit_width(width))
-//     //             .append(port_wire_id(&wire.src))
-//     //             .append(RcDoc::text(";")),
-//     //     ),
-//     //     Port::This { .. } => None,
-//     // }
-// }
+    colors::ident(D::text(name.to_string()))
+        .append(D::line())
+        .append("#")
+        .append(parens(
+            D::intersperse(
+                params.iter().map(|param| D::text(param.to_string())),
+                D::text(",").append(D::line()),
+            )
+            .group(),
+        ))
+        .append(D::line())
+        .append(id.to_string())
+        .group()
+}
 
-// /**
-//  * Generates a string wirename for the provided Port object
-//  */
-// pub fn port_wire_id(p: &Port) -> RcDoc<'_> {
-//     match p {
-//         Port::Comp { component, port } => RcDoc::text(component)
-//             .append(RcDoc::text("_"))
-//             .append(RcDoc::text(port)),
-//         Port::This { port } => RcDoc::text(port),
-//     }
-// }
+fn signature_connections<'a>(
+    name: &ast::Id,
+    sig: &ast::Signature,
+    comp: &component::Component,
+    idx: NodeIndex,
+) -> D<'a, ColorSpec> {
+    let incoming = sig
+        .inputs
+        .iter()
+        .map(|portdef| {
+            comp.structure
+                .connected_from(idx, portdef.name.to_string())
+                .map(move |(src, edge)| {
+                    let wire_name =
+                        format!("{}${}", &src.get_name(), &edge.src);
+                    D::text(".")
+                        .append(colors::port(D::text(portdef.name.to_string())))
+                        .append(parens(colors::ident(D::text(wire_name))))
+                })
+        })
+        .flatten();
+    let outgoing = sig.outputs.iter().filter_map(|portdef| {
+        if comp
+            .structure
+            .connected_to(idx, portdef.name.to_string())
+            .count()
+            > 0
+        {
+            let wire_name = format!("{}${}", &name, &portdef.name);
+            Some(
+                D::text(".")
+                    .append(colors::port(D::text(portdef.name.to_string())))
+                    .append(parens(colors::ident(D::text(wire_name)))),
+            )
+        } else {
+            None
+        }
+    });
 
-// //==========================================
-// //        Subcomponent Instance Functions
-// //==========================================
-// // Intermediate data structures for string formatting
-// #[derive(Clone, Debug)]
-// pub struct RtlInst<'a> {
-//     pub comp_name: &'a String,
-//     pub id: &'a String,
-//     pub params: Vec<u64>,
-//     pub ports: HashMap<&'a String, String>, // Maps Port names to wires
-// }
-
-// fn instances(c: &Context) -> RcDoc<'_> {
-//     let decls = c
-//         .toplevel
-//         .get_decl()
-//         .into_iter()
-//         .map(|decl| component_to_inst(&decl, c))
-//         .map(inst_to_string);
-//     let prims = c
-//         .toplevel
-//         .get_std()
-//         .into_iter()
-//         .map(|prim| prim_to_inst(&prim, c))
-//         .map(inst_to_string);
-//     RcDoc::intersperse(decls, RcDoc::line().append(RcDoc::line()))
-//         .append(RcDoc::line())
-//         .append(RcDoc::intersperse(
-//             prims,
-//             RcDoc::line().append(RcDoc::line()),
-//         ))
-// }
-
-// fn component_to_inst<'a>(inst: &'a Decl, c: &'a Context) -> RtlInst<'a> {
-//     let comp = c.definitions.get(&inst.component).unwrap();
-//     let wires = c.toplevel.get_wires();
-//     let mut port_map: HashMap<&String, String> = HashMap::new();
-//     for w in wires {
-//         if let Port::Comp { component, port } = &w.src {
-//             if *component == inst.name {
-//                 // Note that all port_wire_ids are currently based off the source
-//                 port_map.insert(port, pretty_print(port_wire_id(&w.src)));
-//             }
-//         }
-//         if let Port::Comp { component, port } = &w.dest {
-//             if component.clone() == inst.name {
-//                 // Note that all port_wire_ids are currently based off the source
-//                 port_map.insert(port, pretty_print(port_wire_id(&w.src)));
-//             }
-//         }
-//     }
-//     // Fill up any remaining ports with empty string
-//     for Portdef { name, .. } in comp
-//         .signature
-//         .inputs
-//         .iter()
-//         .chain(comp.signature.outputs.iter())
-//     {
-//         if !port_map.contains_key(name) {
-//             port_map.insert(name, "".to_string());
-//         }
-//     }
-//     RtlInst {
-//         comp_name: &comp.name,
-//         id: &inst.name,
-//         params: vec![],
-//         ports: port_map,
-//     }
-// }
-
-// fn prim_to_inst<'a>(inst: &'a Std, c: &'a Context) -> RtlInst<'a> {
-//     let prim = c.library.get(&inst.instance.name).unwrap();
-//     let wires = c.toplevel.get_wires();
-//     let mut port_map: HashMap<&String, String> = HashMap::new();
-//     for w in wires {
-//         if let Port::Comp { component, port } = &w.src {
-//             if component.clone() == inst.name {
-//                 // Note that all port_wire_ids are currently based off the source
-//                 port_map.insert(port, pretty_print(port_wire_id(&w.src)));
-//             }
-//         }
-//         if let Port::Comp { component, port } = &w.dest {
-//             if component.clone() == inst.name {
-//                 // Note that all port_wire_ids are currently based off the source
-//                 port_map.insert(port, pretty_print(port_wire_id(&w.src)));
-//             }
-//         }
-//     }
-//     // Fill up any remaining ports with empty string
-//     for ParamPortdef { name, .. } in
-//         prim.signature.inputs().chain(prim.signature.outputs())
-//     {
-//         if !port_map.contains_key(name) {
-//             port_map.insert(name, "".to_string());
-//         }
-//     }
-//     RtlInst {
-//         comp_name: &prim.name,
-//         id: &inst.name,
-//         params: inst.instance.params.clone(),
-//         ports: port_map,
-//     }
-// }
-
-// pub fn inst_to_string(inst: RtlInst) -> RcDoc<'_> {
-//     let ports = inst.ports.into_iter().map(|(port, wire)| {
-//         RcDoc::text(".")
-//             .append(RcDoc::text(port))
-//             .append(RcDoc::text("("))
-//             .append(RcDoc::text(wire))
-//             .append(RcDoc::text(")"))
-//     });
-//     let params = inst.params.iter().map(|p| RcDoc::text(p.to_string()));
-//     RcDoc::text(inst.comp_name.clone())
-//         .append(RcDoc::space())
-//         .append(RcDoc::text("#("))
-//         .append(RcDoc::intersperse(
-//             params,
-//             RcDoc::text(",").append(RcDoc::space()).group(),
-//         ))
-//         .append(RcDoc::text(")"))
-//         .append(RcDoc::space())
-//         .append(RcDoc::text(inst.id.clone()))
-//         .append(RcDoc::space())
-//         .append(RcDoc::text("("))
-//         .append(
-//             RcDoc::line()
-//                 .append(RcDoc::intersperse(
-//                     ports,
-//                     RcDoc::text(",").append(RcDoc::line()),
-//                 ))
-//                 .nest(4),
-//         )
-//         .append(RcDoc::line())
-//         .append(RcDoc::text(");"))
-// }
+    D::intersperse(incoming.chain(outgoing), D::text(",").append(D::line()))
+}
