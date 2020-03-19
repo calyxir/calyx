@@ -173,13 +173,13 @@ impl StructureGraph {
                     // dest not found
                     (Some(_), None) => {
                         return Err(errors::Error::UndefinedComponent(
-                            data.dest.get_id().clone(),
+                            data.dest.port_name().to_string(),
                         ));
                     }
                     // either source or dest not found, report src as error
                     _ => {
                         return Err(errors::Error::UndefinedComponent(
-                            data.src.get_id().clone(),
+                            data.src.port_name().to_string(),
                         ))
                     }
                 }
@@ -326,10 +326,6 @@ impl StructureGraph {
         }
     }
 
-    pub fn get(&self, idx: NodeIndex) -> &NodeData {
-        &self.graph[idx]
-    }
-
     pub fn get_inst_index(
         &self,
         port: &ast::Id,
@@ -344,39 +340,6 @@ impl StructureGraph {
         match self.portdef_map.get(port) {
             Some(idx) => Ok(*idx),
             None => Err(errors::Error::UndefinedPort(port.to_string())),
-        }
-    }
-
-    pub fn get_node_from_port(
-        &self,
-        port: &ast::Port,
-    ) -> Result<NodeIndex, errors::Error> {
-        match port {
-            ast::Port::Comp { component, .. } => self.get_inst_index(component),
-            ast::Port::This { port } => self.get_io_index(port),
-        }
-    }
-
-    pub fn get_wire_width(
-        &self,
-        src_node: NodeIndex,
-        src_port: &str,
-        dest_node: NodeIndex,
-        dest_port: &str,
-    ) -> Result<u64, errors::Error> {
-        let width = self.graph.find_edge(src_node, dest_node).and_then(|ei| {
-            self.graph.edge_weight(ei).and_then(|edge| {
-                if edge.src == src_port && edge.dest == dest_port {
-                    Some(edge.width)
-                } else {
-                    None
-                }
-            })
-        });
-
-        match width {
-            Some(w) => Ok(w),
-            None => Err(errors::Error::UndefinedWire),
         }
     }
 
@@ -401,15 +364,6 @@ impl StructureGraph {
     pub fn visualize(&self) -> String {
         let config = &[Config::EdgeNoLabel];
         format!("{:?}", Dot::with_config(&self.graph, config))
-    }
-}
-
-impl ast::Port {
-    fn get_id(&self) -> &ast::Id {
-        match self {
-            ast::Port::Comp { component, .. } => component,
-            ast::Port::This { port } => port,
-        }
     }
 }
 
