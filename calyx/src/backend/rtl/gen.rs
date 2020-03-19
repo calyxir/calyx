@@ -23,6 +23,7 @@ impl Backend for RtlBackend {
                         }
                     }
                 }
+                Control::Enable { .. } => (),
                 _ => return Err(errors::Error::MalformedControl),
             }
         }
