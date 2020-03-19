@@ -67,7 +67,7 @@ pub trait Visitor {
     where
         Self: Sized,
     {
-        context.definitions_map(|_id, mut comp| {
+        context.definitions_iter(|_id, mut comp| {
             let _ = self
                 .start(&mut comp, context)?
                 .and_then(|| {
