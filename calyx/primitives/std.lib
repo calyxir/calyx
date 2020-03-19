@@ -9,6 +9,14 @@
      (port out_read_out 1)
      (port ready 1)))
 
+  (define/prim std_iterator (p_width p_start p_stop p_incr)
+    ((port valid 1)
+     (port clk 1))
+    ((port out p_width)
+     (port stop 1)
+     (port out_read_out 1)
+     (port ready 1)))
+
   (define/prim std_const (p_width p_value)
     ((port valid 1))
     ((port out p_width)
