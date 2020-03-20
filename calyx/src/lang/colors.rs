@@ -21,7 +21,7 @@ pub fn keyword(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
 
 pub fn ident(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
     let mut c = ColorSpec::new();
-    c.set_italic(true);
+    c.set_fg(Some(Color::Red));
     doc.annotate(c)
 }
 
