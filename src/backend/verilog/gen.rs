@@ -7,9 +7,9 @@ use petgraph::graph::NodeIndex;
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc as D;
 
-pub struct RtlBackend {}
+pub struct VerilogBackend {}
 
-impl Backend for RtlBackend {
+impl Backend for VerilogBackend {
     fn validate(ctx: &context::Context) -> Result<(), errors::Error> {
         let prog: ast::NamespaceDef = ctx.clone().into();
         for comp in &prog.components {
@@ -33,7 +33,8 @@ impl Backend for RtlBackend {
     fn emit(ctx: &context::Context) -> Result<(), errors::Error> {
         let prog: ast::NamespaceDef = ctx.clone().into();
 
-        // build Vec of tuples first so that `comps` lifetime is longer than `docs` lifetime
+        // build Vec of tuples first so that `comps` lifetime is longer than
+        // `docs` lifetime
         let comps: Vec<(&ast::ComponentDef, component::Component)> = prog
             .components
             .iter()
