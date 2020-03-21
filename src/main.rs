@@ -8,7 +8,6 @@ mod utils;
 use crate::backend::traits::Backend;
 use crate::cmdline::Opts;
 use crate::lang::context;
-use crate::lang::pretty_print::PrettyPrint;
 use crate::passes::visitor::Visitor;
 use structopt::StructOpt;
 
