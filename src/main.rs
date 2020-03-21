@@ -26,7 +26,6 @@ fn main() -> Result<(), errors::Error> {
     passes::remove_if::RemoveIf::do_pass_default(&context)?;
 
     passes::collapse_seq::CollapseSeq::do_pass_default(&context)?;
-    context.pretty_print();
     backend::rtl::gen::RtlBackend::run(&context)?;
 
     // passes::test_pass::Test::do_pass(&context);
