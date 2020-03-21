@@ -90,13 +90,14 @@ impl Visitor for RemoveIf {
 
 
                 let mut comps_seq = vec![];
-                let mut comps1 = vec![];
-                let mut comps2 = vec![];
-                comps1.append(&mut con.cond);
-                comps2.append(&mut tbranch.comps.clone());
-                comps2.append(&mut fbranch.comps.clone());
-                comps_seq.push(ast::Control::enable(comps1) );
-                comps_seq.push(ast::Control::enable(comps2) );
+                comps_seq.push(ast::Control::enable(con.cond.clone()) );
+
+                let branch_control: Vec<String> = tbranch.comps
+                    .clone()
+                    .into_iter()
+                    .chain(fbranch.comps.clone().into_iter())
+                    .collect();
+                comps_seq.push(ast::Control::enable(branch_control) );
 
 
                 Ok(Action::Change(ast::Control::seq(comps_seq)))
