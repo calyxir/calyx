@@ -13,7 +13,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: fmt
-        args: -- --check
+        args: --manifest-path=calyx/Cargo.toml -- --check
     - name: Build
       uses: actions-rs/cargo@v1
       with:
