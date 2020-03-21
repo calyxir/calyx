@@ -230,11 +230,9 @@ impl PrettyPrint for Control {
             Control::Seq { data } => data.prettify(&arena),
             Control::Par { data } => data.prettify(&arena),
             Control::If { data } => data.prettify(&arena),
-            Control::Ifen { data } => data.prettify(&arena),
             Control::While { data } => data.prettify(&arena),
             Control::Print { data } => data.prettify(&arena),
             Control::Enable { data } => data.prettify(&arena),
-            Control::Disable { data } => data.prettify(&arena),
             Control::Empty { data } => data.prettify(&arena),
         }
     }
@@ -276,22 +274,6 @@ impl PrettyPrint for If {
     }
 }
 
-impl PrettyPrint for Ifen {
-    fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = colors::control(RcDoc::text("ifen"))
-            .append(RcDoc::space())
-            .append(self.port.prettify(&arena))
-            .append(RcDoc::space())
-            .append(parens(small_vec(&self.cond, &arena)))
-            .append(RcDoc::line())
-            .append(self.tbranch.prettify(&arena))
-            .append(RcDoc::line())
-            .append(self.fbranch.prettify(&arena))
-            .nest(1);
-        parens(inner)
-    }
-}
-
 impl PrettyPrint for While {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         let inner = colors::control(RcDoc::text("while"))
@@ -319,16 +301,6 @@ impl PrettyPrint for Print {
 impl PrettyPrint for Enable {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         let inner = colors::enable(RcDoc::text("enable"))
-            .append(RcDoc::line())
-            .append(self.comps.prettify(&arena))
-            .group();
-        parens(inner)
-    }
-}
-
-impl PrettyPrint for Disable {
-    fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let inner = colors::enable(RcDoc::text("disable"))
             .append(RcDoc::line())
             .append(self.comps.prettify(&arena))
             .group();
