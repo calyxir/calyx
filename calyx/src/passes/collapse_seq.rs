@@ -19,7 +19,7 @@ use crate::passes::visitor::{Action, VisResult, Visitor};
 #[derive(Default)]
 pub struct CollapseSeq {}
 
-impl Visitor for CollapeSeq {
+impl Visitor for CollapseSeq {
     fn name(&self) -> String {
         "remove redudant seq".to_string()
     }
