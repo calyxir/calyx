@@ -13,4 +13,5 @@ pub mod lat_insensitive;
 // pub mod fsm_if;
 pub mod redundant_par;
 pub mod remove_if;
+pub mod collapse_seq;
 pub mod visitor;
