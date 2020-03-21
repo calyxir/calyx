@@ -1,44 +1,56 @@
 # Fuse Temporal Intermediate Language (FuTIL)
-An intermediate language for [Dahlia](https://github.com/cucapra/dahlia).
+An intermediate language for [Dahlia][].
 
-## Installing
-We are in the process of transitioning everything over to Rust. At the moment the interpreter is still in racket, although it hasn't been kept up to date with the syntax changes. `Calyx` is the name of the pass framework that we are writing. Instructions for installation are below.
+**Note**: We are in the process of transitioning everything over to Rust. At the moment the interpreter is still in racket, although it hasn't been kept up to date with the syntax changes. `Calyx` is the name of the pass framework that we are writing. Instructions for installation are below.
 
-### Install Calyx
-Once you have rust and cargo installed ([here](https://doc.rust-lang.org/cargo/getting-started/installation.html) are instructions), you should be
-able to go into the `calyx` directory and run `cargo build`. This will download and install
-all the dependencies.
+### Installation
+- Install [Rust][rust].
+- Run `cargo build` to download all dependencies and build calyx.
+- Run `./target/debug/calyx --help` to get options from the calyx binary.
 
-### Install Racket stuff
-This is old stuff that isn't working with the new version of FuTIL. You probably want to just install the calyx stuff.
+### Compiler Development
 
-## Running
-`cargo build` builds the Futil executable and places it in `target/debug/calyx`. I would recommend using `cargo run` directly.
-This builds and and runs the executable. You can pass in arguments to the Futil executable like this: `cargo run -- <path to input file> <args>`
+The compiler source lives under [src](src). While changing the compiler,
+use `cargo run -- <calyx options>` to rebuild the compiler and run files
+at the same time.
 
-#### \<path to input file\> -l \<path to library\>
-
-There are a series of Futil example programs in `calyx/examples`. All of these use primitive components. So to get them to run, you will need to pass in a library file. The most complete library file is located in `calyx/primitives/std.lib`. This is done with the `-l`. For example, this is how to run the `calyx/examples/simple.futil` program, assuming you are in the `calyx` directory:
+**Primitives Library**: FuTIL can use customizable libraries based on the
+backend. The libraries live under [primitives](primitives). You probably want
+to use `primitives/std/lib` with the `-l` flag.
 
 ```bash
 cargo run -- examples/simple.futil -l primitives/std.lib
 ```
 
-#### -d / --debug
-
-This flag shows Futil programs after each pass.
-
-## Compiler Development
-
-We use the [structopt](https://docs.rs/structopt/0.3.11/structopt/) library to implement the command line interface.
+**Debug mode**: The `-d` flag shows the FuTIL program after running a pass.
+Use this to debug outputs from passes.
 
 The general flow of the compiler is as follows:
  1) Build up `context::Context`
-    - Parse Futil files + library file specified in cli
+    - Parse FuTIL files + library file specified in CLI.
     - Build an in memory representation of each Component specified using
-    the primitives defined in the library file to resolve and instantiate 
-    subcomponents defined with `new-std` statements
+      the primitives defined in the library file to resolve and instantiate
+      subcomponents defined with `new-std` statements.
  2) Run passes that update the context. Passes are defined using the Visitor
- framework defined in `src/passes/visitor.rs`. For now the passes to run are just specified
- in `src/main.rs`
- 3) Use a backend to emit code from the context. Backends must implement `backend::traits::Backend`
+    framework defined in `src/passes/visitor.rs`. For now the passes to run are
+    just specified in `src/main.rs`
+ 3) Use a backend to emit code from the context. Backends must implement
+    `backend::traits::Backend`.
+
+We use the [structopt][] library to
+implement the command line interface.
+
+## Makefile
+
+`make [filename].futil`: Generate Futil program from Dahlia program. It
+requires to install [Dahlia][] first.
+
+`make [filename].v`: Generate Verilog RTL file from Futil program.
+
+`make [filename].vcd`: Generate vcd file from Verilog RTL file. One can use ventilator to visualize it.
+
+`make clean`: Deletes all generated files.
+
+[rust]: https://doc.rust-lang.org/cargo/getting-started/installation.html
+[dahlia]: https://github.com/cucapra/dahlia
+[structopt]: https://docs.rs/structopt/0.3.11/structopt/
