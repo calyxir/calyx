@@ -26,7 +26,7 @@ pub fn parse_file(file: &PathBuf) -> Result<NamespaceDef, Error> {
 #[derive(Clone, Debug, Hash, Sexpy)]
 #[sexpy(head = "define/namespace")]
 pub struct NamespaceDef {
-    pub name: String,
+    pub name: Id,
     pub components: Vec<ComponentDef>,
 }
 
@@ -85,16 +85,11 @@ impl Signature {
 #[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
 #[sexpy(head = "port")]
 pub struct Portdef {
-    pub name: String,
+    pub name: Id,
     pub width: u64,
 }
 
-impl From<(String, u64)> for Portdef {
-    fn from((name, width): (String, u64)) -> Self {
-        Portdef { name, width }
-    }
-}
-
+/// Helper to construct portdef from str and u64.
 impl From<(&str, u64)> for Portdef {
     fn from((name, width): (&str, u64)) -> Self {
         Portdef {
@@ -104,25 +99,16 @@ impl From<(&str, u64)> for Portdef {
     }
 }
 
-impl From<&(&str, u64)> for Portdef {
-    fn from((name, width): &(&str, u64)) -> Self {
-        Portdef {
-            name: (*name).to_string(),
-            width: *width,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Sexpy)]
 #[sexpy(head = "@")]
 pub enum Port {
     Comp {
         component: Id,
-        port: String,
+        port: Id,
     },
     #[sexpy(head = "this")]
     This {
-        port: String,
+        port: Id,
     },
 }
 
@@ -150,7 +136,7 @@ pub struct Compinst {
 #[sexpy(head = "new", nosurround)]
 pub struct Decl {
     pub name: Id,
-    pub component: String,
+    pub component: Id,
 }
 
 #[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
@@ -177,7 +163,7 @@ pub enum Structure {
 
 #[allow(unused)]
 impl Structure {
-    pub fn decl(name: Id, component: String) -> Structure {
+    pub fn decl(name: Id, component: Id) -> Structure {
         Structure::Decl {
             data: Decl { name, component },
         }
@@ -212,22 +198,28 @@ pub struct Par {
     pub stmts: Vec<Control>,
 }
 
+// If control node in the AST.
 #[derive(Debug, Clone, Hash, Sexpy)]
 #[sexpy(nosurround)]
 pub struct If {
+    // Port that connects the conditional check.
     pub port: Port,
     #[sexpy(surround)]
-    pub cond: Vec<String>,
+    // Modules that need to be enabled to send signal on `port`.
+    pub cond: Vec<Id>,
+    // Control for the true branch.
     pub tbranch: Box<Control>,
+    // Control for the true branch.
     pub fbranch: Box<Control>,
 }
 
+// XXX(rachit): Remove this AST node.
 #[derive(Debug, Clone, Hash, Sexpy)]
 #[sexpy(nosurround)]
 pub struct Ifen {
     pub port: Port,
     #[sexpy(surround)]
-    pub cond: Vec<String>,
+    pub cond: Vec<Id>,
     pub tbranch: Box<Control>,
     pub fbranch: Box<Control>,
 }
@@ -237,26 +229,27 @@ pub struct Ifen {
 pub struct While {
     pub port: Port,
     #[sexpy(surround)]
-    pub cond: Vec<String>,
+    pub cond: Vec<Id>,
     pub body: Box<Control>,
 }
 
 #[derive(Debug, Clone, Hash, Sexpy)]
 #[sexpy(nosurround)]
 pub struct Print {
-    pub var: String,
+    pub var: Id,
 }
 
 #[derive(Debug, Clone, Hash, Sexpy)]
 #[sexpy(nosurround)]
 pub struct Enable {
-    pub comps: Vec<String>,
+    pub comps: Vec<Id>,
 }
 
+// XXX(rachit): Remove this from the AST.
 #[derive(Debug, Clone, Hash, Sexpy)]
 #[sexpy(nosurround)]
 pub struct Disable {
-    pub comps: Vec<String>,
+    pub comps: Vec<Id>,
 }
 
 #[derive(Debug, Clone, Hash, Sexpy)]
@@ -293,7 +286,7 @@ impl Control {
 
     pub fn c_if(
         port: Port,
-        stmts: Vec<String>,
+        stmts: Vec<Id>,
         tbranch: Control,
         fbranch: Control,
     ) -> Control {
@@ -309,7 +302,7 @@ impl Control {
 
     pub fn ifen(
         port: Port,
-        stmts: Vec<String>,
+        stmts: Vec<Id>,
         tbranch: Control,
         fbranch: Control,
     ) -> Control {
@@ -323,7 +316,7 @@ impl Control {
         }
     }
 
-    pub fn c_while(port: Port, stmts: Vec<String>, body: Control) -> Control {
+    pub fn c_while(port: Port, stmts: Vec<Id>, body: Control) -> Control {
         Control::While {
             data: While {
                 port,
@@ -333,19 +326,19 @@ impl Control {
         }
     }
 
-    pub fn print(var: String) -> Control {
+    pub fn print(var: Id) -> Control {
         Control::Print {
             data: Print { var },
         }
     }
 
-    pub fn enable(comps: Vec<String>) -> Control {
+    pub fn enable(comps: Vec<Id>) -> Control {
         Control::Enable {
             data: Enable { comps },
         }
     }
 
-    pub fn disable(comps: Vec<String>) -> Control {
+    pub fn disable(comps: Vec<Id>) -> Control {
         Control::Disable {
             data: Disable { comps },
         }
