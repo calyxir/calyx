@@ -3,14 +3,14 @@ use crate::lang::ast;
 use crate::lang::component::Component;
 use crate::passes::visitor::{Action, VisResult, Visitor};
 
-/// Pass that collapses 
+/// Pass that collapses
 ///(seq
 ///    (seq (enable A B)
 ///         (enable C D))
 ///    (seq (enable E F)
 ///         (enable G H))
 /// ..)
-/// into 
+/// into
 /// (seq (enable A B)
 ///      (enable C D)
 ///      (enable E F)
@@ -41,6 +41,6 @@ impl Visitor for CollapseSeq {
                 _ => seqs.push(con.clone()),
             }
         }
-        Ok(Action::Change(ast::Control::seq (seqs)))
+        Ok(Action::Change(ast::Control::seq(seqs)))
     }
 }
