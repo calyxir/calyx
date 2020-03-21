@@ -1,7 +1,5 @@
-use crate::backend::framework::Context;
-// use crate::lang::ast::{Component, Decl, Port, Std, Wire};
-// use std::collections::HashMap;
+use crate::lang::context::Context;
 
 pub fn _eval(_c: &Context) {
-    panic!("Unimplemented");
+    unimplemented!("Interpreter is not implemeted.");
 }
