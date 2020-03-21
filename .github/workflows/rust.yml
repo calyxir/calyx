@@ -19,7 +19,7 @@ jobs:
       with:
         command: test
         args: --manifest-path=calyx/Cargo.toml
-  build:
+  format:
     name: Check Formatting
     runs-on: ubuntu-latest
     steps:
