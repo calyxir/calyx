@@ -155,24 +155,6 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    fn start_ifen(
-        &mut self,
-        _s: &mut Ifen,
-        _comp: &mut Component,
-        _c: &Context,
-    ) -> VisResult {
-        Ok(Action::Continue)
-    }
-
-    fn finish_ifen(
-        &mut self,
-        _s: &mut Ifen,
-        _comp: &mut Component,
-        _x: &Context,
-    ) -> VisResult {
-        Ok(Action::Continue)
-    }
-
     fn start_while(
         &mut self,
         _s: &mut While,
@@ -221,24 +203,6 @@ pub trait Visitor {
     fn finish_enable(
         &mut self,
         _s: &mut Enable,
-        _comp: &mut Component,
-        _x: &Context,
-    ) -> VisResult {
-        Ok(Action::Continue)
-    }
-
-    fn start_disable(
-        &mut self,
-        _s: &mut Disable,
-        _comp: &mut Component,
-        _x: &Context,
-    ) -> VisResult {
-        Ok(Action::Continue)
-    }
-
-    fn finish_disable(
-        &mut self,
-        _s: &mut Disable,
         _comp: &mut Component,
         _x: &Context,
     ) -> VisResult {
@@ -316,11 +280,6 @@ impl Visitable for Control {
                 .and_then(|| data.tbranch.visit(visitor, component, context))?
                 .and_then(|| data.fbranch.visit(visitor, component, context))?
                 .and_then(|| visitor.finish_if(data, component, context))?,
-            Control::Ifen { data } => visitor
-                .start_ifen(data, component, context)?
-                .and_then(|| data.tbranch.visit(visitor, component, context))?
-                .and_then(|| data.fbranch.visit(visitor, component, context))?
-                .and_then(|| visitor.finish_ifen(data, component, context))?,
             Control::While { data } => visitor
                 .start_while(data, component, context)?
                 .and_then(|| data.body.visit(visitor, component, context))?
@@ -331,11 +290,6 @@ impl Visitable for Control {
             Control::Enable { data } => visitor
                 .start_enable(data, component, context)?
                 .and_then(|| visitor.finish_enable(data, component, context))?,
-            Control::Disable { data } => {
-                visitor.start_disable(data, component, context)?.and_then(
-                    || visitor.finish_disable(data, component, context),
-                )?
-            }
             Control::Empty { data } => visitor
                 .start_empty(data, component, context)?
                 .and_then(|| visitor.finish_empty(data, component, context))?,

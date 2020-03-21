@@ -213,17 +213,6 @@ pub struct If {
     pub fbranch: Box<Control>,
 }
 
-// XXX(rachit): Remove this AST node.
-#[derive(Debug, Clone, Hash, Sexpy)]
-#[sexpy(nosurround)]
-pub struct Ifen {
-    pub port: Port,
-    #[sexpy(surround)]
-    pub cond: Vec<Id>,
-    pub tbranch: Box<Control>,
-    pub fbranch: Box<Control>,
-}
-
 #[derive(Debug, Clone, Hash, Sexpy)]
 #[sexpy(nosurround)]
 pub struct While {
@@ -245,13 +234,6 @@ pub struct Enable {
     pub comps: Vec<Id>,
 }
 
-// XXX(rachit): Remove this from the AST.
-#[derive(Debug, Clone, Hash, Sexpy)]
-#[sexpy(nosurround)]
-pub struct Disable {
-    pub comps: Vec<Id>,
-}
-
 #[derive(Debug, Clone, Hash, Sexpy)]
 #[sexpy(nosurround)]
 pub struct Empty {}
@@ -262,11 +244,9 @@ pub enum Control {
     Seq { data: Seq },
     Par { data: Par },
     If { data: If },
-    Ifen { data: Ifen },
     While { data: While },
     Print { data: Print },
     Enable { data: Enable },
-    Disable { data: Disable },
     Empty { data: Empty },
 }
 
@@ -300,22 +280,6 @@ impl Control {
         }
     }
 
-    pub fn ifen(
-        port: Port,
-        stmts: Vec<Id>,
-        tbranch: Control,
-        fbranch: Control,
-    ) -> Control {
-        Control::Ifen {
-            data: Ifen {
-                port,
-                cond: stmts,
-                tbranch: Box::new(tbranch),
-                fbranch: Box::new(fbranch),
-            },
-        }
-    }
-
     pub fn c_while(port: Port, stmts: Vec<Id>, body: Control) -> Control {
         Control::While {
             data: While {
@@ -335,12 +299,6 @@ impl Control {
     pub fn enable(comps: Vec<Id>) -> Control {
         Control::Enable {
             data: Enable { comps },
-        }
-    }
-
-    pub fn disable(comps: Vec<Id>) -> Control {
-        Control::Disable {
-            data: Disable { comps },
         }
     }
 
