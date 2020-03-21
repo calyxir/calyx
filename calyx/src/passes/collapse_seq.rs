@@ -17,7 +17,7 @@ use crate::passes::visitor::{Action, VisResult, Visitor};
 ///      (enable G H)
 ///  ..)
 #[derive(Default)]
-pub struct CollapeSeq {}
+pub struct CollapseSeq {}
 
 impl Visitor for CollapeSeq {
     fn name(&self) -> String {
