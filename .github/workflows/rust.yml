@@ -13,12 +13,10 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --manifest-path=calyx/Cargo.toml
     - name: Test
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --manifest-path=calyx/Cargo.toml
   format:
     name: Check Formatting
     runs-on: ubuntu-latest
@@ -29,4 +27,4 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: fmt
-        args: --manifest-path=calyx/Cargo.toml -- --check
+        args: -- --check
