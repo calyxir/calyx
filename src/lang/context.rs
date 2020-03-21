@@ -14,8 +14,11 @@ use std::collections::HashMap;
 /// interface.
 #[derive(Debug, Clone)]
 pub struct Context {
+    /// Maps Ids to in-memory representation of the component.
     definitions: RefCell<HashMap<ast::Id, Component>>,
+    /// Library containing primitive definitions.
     library_context: LibraryContext,
+    /// Enable debugging output.
     pub debug_mode: bool,
 }
 
@@ -114,6 +117,9 @@ impl Into<ast::NamespaceDef> for Context {
     }
 }
 
+/// Map library signatures to "real" Futil signatures. Since library components
+/// can have parameters while futil components cannot, we define helpers methods
+/// to make this easier.
 #[derive(Debug, Clone)]
 pub struct LibraryContext {
     definitions: HashMap<ast::Id, library::ast::Primitive>,

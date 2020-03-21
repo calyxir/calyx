@@ -1,5 +1,7 @@
 use crate::errors;
 use crate::lang::{ast, component};
+use component::Component;
+use errors::Error;
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::NodeIndex;
 use petgraph::stable_graph::StableDiGraph;
@@ -89,22 +91,40 @@ impl StructureGraph {
         idx
     }
 
+    pub fn add_primitive(
+        &mut self,
+        id: &ast::Id,
+        name: &str,
+        comp: &Component,
+        params: &[u64],
+    ) -> NodeIndex {
+        let structure = ast::Structure::std(
+            id.clone(),
+            ast::Compinst {
+                name: name.to_string(),
+                params: params.to_vec(),
+            },
+        );
+        self.add_instance(id, comp, structure)
+    }
+
     // XXX(sam) this is a bad name
     pub fn add_component_def(
         &mut self,
         compdef: &ast::ComponentDef,
         comp_sigs: &HashMap<ast::Id, ast::Signature>,
         prim_sigs: &HashMap<ast::Id, ast::Signature>,
-    ) -> Result<(), errors::Error> {
+    ) -> Result<(), Error> {
         self.add_signature(&compdef.signature);
 
-        // add vertices first, ignoring wires so that order of structure doesn't matter
+        // add vertices first, ignoring wires so that order of structure
+        // doesn't matter
         for stmt in &compdef.structure {
             match stmt {
                 ast::Structure::Decl { data } => {
                     let sig =
                         comp_sigs.get(&data.component).ok_or_else(|| {
-                            errors::Error::SignatureResolutionFailed(
+                            Error::SignatureResolutionFailed(
                                 data.component.clone(),
                             )
                         })?;
@@ -122,9 +142,7 @@ impl StructureGraph {
                     // resolve param signature and add it to hashmap so that
                     //  we keep a reference to it
                     let sig = prim_sigs.get(&data.name).ok_or_else(|| {
-                        errors::Error::SignatureResolutionFailed(
-                            data.name.clone(),
-                        )
+                        Error::SignatureResolutionFailed(data.name.clone())
                     })?;
                     let instance = NodeData::Instance {
                         name: data.name.clone(),
@@ -163,22 +181,18 @@ impl StructureGraph {
 
                 match (src_node, dest_node) {
                     // both nodes were found, this is a valid edge!
-                    (Some(s), Some(d)) => {
-                        // dereference s and d before their use because
-                        // otherwise the self is borrowed with `self.insert_edge`
-                        // before they are used
-                        let (s, d) = (*s, *d);
+                    (Some(&s), Some(&d)) => {
                         self.insert_edge(s, src_port, d, dest_port)?;
                     }
                     // dest not found
                     (Some(_), None) => {
-                        return Err(errors::Error::UndefinedComponent(
+                        return Err(Error::UndefinedComponent(
                             data.dest.port_name().to_string(),
                         ));
                     }
                     // either source or dest not found, report src as error
                     _ => {
-                        return Err(errors::Error::UndefinedComponent(
+                        return Err(Error::UndefinedComponent(
                             data.src.port_name().to_string(),
                         ))
                     }
@@ -275,7 +289,7 @@ impl StructureGraph {
         src_port: &str,
         dest_node: NodeIndex,
         dest_port: &str,
-    ) -> Result<(), errors::Error> {
+    ) -> Result<(), Error> {
         let find_width =
             |port_to_find: &str, portdefs: &[ast::Portdef]| match portdefs
                 .iter()
@@ -283,7 +297,7 @@ impl StructureGraph {
             {
                 Some(port) => Ok(port.width),
                 None => {
-                    Err(errors::Error::UndefinedPort(port_to_find.to_string()))
+                    Err(Error::UndefinedPort(port_to_find.to_string()))
                 }
             };
 
@@ -293,16 +307,16 @@ impl StructureGraph {
                 find_width(src_port, &signature.outputs)
             }
             Input(portdef) => Ok(portdef.width),
-            Output(_portdef) => {
-                Err(errors::Error::UndefinedPort(src_port.to_string()))
+            Output(_) => {
+                Err(Error::UndefinedPort(src_port.to_string()))
             }
         }?;
         let dest_width = match &self.graph[dest_node] {
             Instance { signature, .. } => {
                 find_width(dest_port, &signature.inputs)
             }
-            Input(_portdef) => {
-                Err(errors::Error::UndefinedPort(dest_port.to_string()))
+            Input(_) => {
+                Err(Error::UndefinedPort(dest_port.to_string()))
             }
             Output(portdef) => Ok(portdef.width),
         }?;
@@ -317,7 +331,7 @@ impl StructureGraph {
             self.graph.add_edge(src_node, dest_node, edge_data);
             Ok(())
         } else {
-            Err(errors::Error::MismatchedPortWidths(
+            Err(Error::MismatchedPortWidths(
                 self.construct_port(src_node, src_port),
                 src_width,
                 self.construct_port(dest_node, dest_port),
@@ -329,17 +343,18 @@ impl StructureGraph {
     pub fn get_inst_index(
         &self,
         port: &ast::Id,
-    ) -> Result<NodeIndex, errors::Error> {
+    ) -> Result<NodeIndex, Error> {
         match self.inst_map.get(port) {
             Some(idx) => Ok(*idx),
-            None => Err(errors::Error::UndefinedPort(port.to_string())),
+            None => Err(Error::UndefinedPort(port.to_string())),
         }
     }
 
-    pub fn get_io_index(&self, port: &str) -> Result<NodeIndex, errors::Error> {
+    /// Return the `NodeIndex` for a named port. If not present, return an Error.
+    pub fn get_io_index(&self, port: &str) -> Result<NodeIndex, Error> {
         match self.portdef_map.get(port) {
             Some(idx) => Ok(*idx),
-            None => Err(errors::Error::UndefinedPort(port.to_string())),
+            None => Err(Error::UndefinedPort(port.to_string())),
         }
     }
 

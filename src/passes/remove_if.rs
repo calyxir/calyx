@@ -35,17 +35,19 @@ impl Visitor for RemoveIf {
         use ast::Port;
         let (cmp_idx, cmp_port) = match &con.port {
             Port::Comp { component, port } => {
-                (this_comp.get_inst_index(&component)?, port)
+                (this_comp.structure.get_inst_index(&component)?, port)
             }
-            Port::This { port } => (this_comp.get_io_index(&port)?, port),
+            Port::This { port } => {
+                (this_comp.structure.get_io_index(&port)?, port)
+            }
         };
 
         let add_structure_tbranch =
             |this_comp: &mut Component, en_comp: &ast::Id| {
-                this_comp.add_wire(
+                this_comp.structure.insert_edge(
                     cmp_idx,
                     &cmp_port,
-                    this_comp.get_inst_index(en_comp)?,
+                    this_comp.structure.get_inst_index(en_comp)?,
                     "valid",
                 )
             };
@@ -59,13 +61,19 @@ impl Visitor for RemoveIf {
                     &"std_not".to_string(), // XXX(sam) this is silly
                     &[1],
                 )?;
-                let neg =
-                    this_comp.add_primitive(&name, "std_not", &neg_comp, &[1]);
-                this_comp.add_wire(cmp_idx, &cmp_port, neg, "in")?;
-                this_comp.add_wire(
+                let neg = this_comp.structure.add_primitive(
+                    &name,
+                    "std_not",
+                    &neg_comp,
+                    &[1],
+                );
+                this_comp
+                    .structure
+                    .insert_edge(cmp_idx, &cmp_port, neg, "in")?;
+                this_comp.structure.insert_edge(
                     neg,
                     "out",
-                    this_comp.get_inst_index(en_comp)?,
+                    this_comp.structure.get_inst_index(en_comp)?,
                     "valid",
                 )
             };
