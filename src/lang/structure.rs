@@ -296,9 +296,7 @@ impl StructureGraph {
                 .find(|x| x.name == port_to_find)
             {
                 Some(port) => Ok(port.width),
-                None => {
-                    Err(Error::UndefinedPort(port_to_find.to_string()))
-                }
+                None => Err(Error::UndefinedPort(port_to_find.to_string())),
             };
 
         use NodeData::{Input, Instance, Output};
@@ -307,17 +305,13 @@ impl StructureGraph {
                 find_width(src_port, &signature.outputs)
             }
             Input(portdef) => Ok(portdef.width),
-            Output(_) => {
-                Err(Error::UndefinedPort(src_port.to_string()))
-            }
+            Output(_) => Err(Error::UndefinedPort(src_port.to_string())),
         }?;
         let dest_width = match &self.graph[dest_node] {
             Instance { signature, .. } => {
                 find_width(dest_port, &signature.inputs)
             }
-            Input(_) => {
-                Err(Error::UndefinedPort(dest_port.to_string()))
-            }
+            Input(_) => Err(Error::UndefinedPort(dest_port.to_string())),
             Output(portdef) => Ok(portdef.width),
         }?;
 
@@ -340,10 +334,7 @@ impl StructureGraph {
         }
     }
 
-    pub fn get_inst_index(
-        &self,
-        port: &ast::Id,
-    ) -> Result<NodeIndex, Error> {
+    pub fn get_inst_index(&self, port: &ast::Id) -> Result<NodeIndex, Error> {
         match self.inst_map.get(port) {
             Some(idx) => Ok(*idx),
             None => Err(Error::UndefinedPort(port.to_string())),
