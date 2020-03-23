@@ -65,20 +65,6 @@ pub trait PrettyPrint {
 
 /* =============== Generic impls ================ */
 
-impl PrettyPrint for String {
-    fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let r = arena.alloc(self.clone());
-        RcDoc::text(&*r)
-    }
-}
-
-impl PrettyPrint for &String {
-    fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let r = arena.alloc((*self).clone());
-        RcDoc::text(&*r)
-    }
-}
-
 impl PrettyPrint for u64 {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         let r = arena.alloc(self.clone());
@@ -108,12 +94,18 @@ impl<T: PrettyPrint, U: PrettyPrint> PrettyPrint for (T, U) {
 
 /* =============== Toplevel ================ */
 
+impl PrettyPrint for Id {
+    fn prettify<'a>(&self, _arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
+        RcDoc::text(self.to_string())
+    }
+}
+
 impl PrettyPrint for NamespaceDef {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         let comps = self.components.iter().map(|s| s.prettify(&arena));
         let inner = colors::define(RcDoc::text("define/namespace"))
             .append(RcDoc::space())
-            .append(colors::ident(RcDoc::text(self.name.clone())))
+            .append(colors::ident(self.name.prettify(&arena)))
             .append(RcDoc::line())
             .append(RcDoc::intersperse(
                 comps,
@@ -128,7 +120,7 @@ impl PrettyPrint for ComponentDef {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         let inner = colors::define(RcDoc::text("define/component"))
             .append(RcDoc::space())
-            .append(colors::ident(RcDoc::text(self.name.clone())))
+            .append(colors::ident(self.name.prettify(&arena)))
             .append(RcDoc::line())
             .append(
                 parens(self.signature.inputs.prettify(&arena))
@@ -151,10 +143,10 @@ impl PrettyPrint for ComponentDef {
 }
 
 impl PrettyPrint for Portdef {
-    fn prettify<'a>(&self, _arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
+    fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         let inner = colors::port(RcDoc::text("port"))
             .append(RcDoc::space())
-            .append(RcDoc::text(self.name.clone()))
+            .append(self.name.prettify(&arena))
             .append(RcDoc::space())
             .append(RcDoc::text(self.width.to_string()));
         parens(inner)

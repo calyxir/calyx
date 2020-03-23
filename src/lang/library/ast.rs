@@ -24,7 +24,7 @@ pub struct Library {
 #[derive(Sexpy, Clone, Debug)]
 #[sexpy(head = "define/prim")]
 pub struct Primitive {
-    pub name: String,
+    pub name: Id,
     #[sexpy(surround)]
     pub params: Vec<Id>,
     pub signature: ParamSignature,

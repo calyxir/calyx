@@ -11,7 +11,43 @@ use std::path::PathBuf;
 // XXX(sam) Add location information to this type so that we can print
 // them out nicely
 /// Represents an identifier in a Futil program
-pub type Id = String;
+#[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq)]
+#[sexpy(nohead, nosurround)]
+pub struct Id {
+    id: String,
+}
+
+/* =================== Impls for Id to make them easier to use ============== */
+impl ToString for Id {
+    fn to_string(&self) -> String {
+        self.id.clone()
+    }
+}
+
+impl AsRef<str> for Id {
+    fn as_ref(&self) -> &str {
+        &self.id
+    }
+}
+
+impl From<&str> for Id {
+    fn from(s: &str) -> Self {
+        Id { id: s.to_string() }
+    }
+}
+
+impl From<String> for Id {
+    fn from(s: String) -> Self {
+        Id { id: s }
+    }
+}
+
+impl PartialEq<str> for Id {
+    fn eq(&self, other: &str) -> bool {
+        self.id == other
+    }
+}
+/* =================== Impls for Id to make them easier to use ============== */
 
 /// Parses a pathbuf into a NamespaceDef
 pub fn parse_file(file: &PathBuf) -> Result<NamespaceDef, Error> {
@@ -72,7 +108,7 @@ pub struct Signature {
 
 impl Signature {
     pub fn has_input(&self, name: &str) -> bool {
-        self.inputs.iter().any(|e| e.name == name)
+        self.inputs.iter().any(|e| &e.name == name)
     }
     // pub fn new(inputs: &[(&str, u64)], outputs: &[(&str, u64)]) -> Self {
     //     Signature {
@@ -93,7 +129,7 @@ pub struct Portdef {
 impl From<(&str, u64)> for Portdef {
     fn from((name, width): (&str, u64)) -> Self {
         Portdef {
-            name: name.to_string(),
+            name: name.into(),
             width,
         }
     }
@@ -113,7 +149,7 @@ pub enum Port {
 }
 
 impl Port {
-    pub fn port_name(&self) -> &str {
+    pub fn port_name(&self) -> &Id {
         match self {
             Port::Comp { port, .. } => port,
             Port::This { port } => port,
@@ -198,18 +234,21 @@ pub struct Par {
     pub stmts: Vec<Control>,
 }
 
-// If control node in the AST.
+/// If control node in the AST.
 #[derive(Debug, Clone, Hash, Sexpy)]
 #[sexpy(nosurround)]
 pub struct If {
-    // Port that connects the conditional check.
+    /// Port that connects the conditional check.
     pub port: Port,
+
     #[sexpy(surround)]
-    // Modules that need to be enabled to send signal on `port`.
+    /// Modules that need to be enabled to send signal on `port`.
     pub cond: Vec<Id>,
-    // Control for the true branch.
+
+    /// Control for the true branch.
     pub tbranch: Box<Control>,
-    // Control for the true branch.
+
+    /// Control for the true branch.
     pub fbranch: Box<Control>,
 }
 

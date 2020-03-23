@@ -21,7 +21,7 @@ impl Visitor for RedundantPar {
         _comp: &mut Component,
         _c: &Context,
     ) -> VisResult {
-        let mut enabled: Vec<String> = vec![];
+        let mut enabled: Vec<ast::Id> = vec![];
         for con in &s.stmts {
             match con {
                 ast::Control::Enable { data } => {

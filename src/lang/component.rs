@@ -19,12 +19,12 @@ pub struct Component {
 /// Methods over Components. Only define functions that cannot be methods
 /// on `Control`, `Signature`, or `Structure`.
 impl Component {
-    pub fn from_signature(name: &str, sig: ast::Signature) -> Self {
+    pub fn from_signature<S: AsRef<str>>(name: S, sig: ast::Signature) -> Self {
         let mut graph = StructureGraph::new();
         graph.add_signature(&sig);
 
         Component {
-            name: name.to_string(),
+            name: name.as_ref().into(),
             signature: sig,
             control: ast::Control::empty(),
             structure: graph,

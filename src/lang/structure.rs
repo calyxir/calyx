@@ -1,5 +1,6 @@
 use crate::errors;
 use crate::lang::{ast, component};
+use ast::Port;
 use component::Component;
 use errors::Error;
 use petgraph::dot::{Config, Dot};
@@ -21,7 +22,7 @@ pub enum NodeData {
 }
 
 impl NodeData {
-    pub fn get_name(&self) -> &str {
+    pub fn get_name(&self) -> &ast::Id {
         match self {
             NodeData::Input(pd) => &pd.name,
             NodeData::Output(pd) => &pd.name,
@@ -51,7 +52,7 @@ type StructG = StableDiGraph<NodeData, EdgeData>;
 pub struct StructureGraph {
     // portdef map separate from inst_map so that we don't have name clash between
     // port names and instance identifiers
-    portdef_map: HashMap<String, NodeIndex>,
+    portdef_map: HashMap<ast::Id, NodeIndex>,
     inst_map: HashMap<ast::Id, NodeIndex>,
     pub graph: StructG,
 }
@@ -87,21 +88,21 @@ impl StructureGraph {
             structure,
             signature: comp.signature.clone(),
         });
-        self.inst_map.insert(id.to_string(), idx);
+        self.inst_map.insert(id.clone(), idx);
         idx
     }
 
-    pub fn add_primitive(
+    pub fn add_primitive<S: AsRef<str>>(
         &mut self,
         id: &ast::Id,
-        name: &str,
+        name: S,
         comp: &Component,
         params: &[u64],
     ) -> NodeIndex {
         let structure = ast::Structure::std(
             id.clone(),
             ast::Compinst {
-                name: name.to_string(),
+                name: name.as_ref().into(),
                 params: params.to_vec(),
             },
         );
@@ -161,22 +162,20 @@ impl StructureGraph {
         // then add edges
         for stmt in &compdef.structure {
             if let ast::Structure::Wire { data } = stmt {
-                use ast::Port::{Comp, This};
-
                 // get src node in graph and src port
                 let (src_node, src_port) = match &data.src {
-                    Comp { component, port } => {
+                    Port::Comp { component, port } => {
                         (self.inst_map.get(component), port)
                     }
-                    This { port } => (self.portdef_map.get(port), port),
+                    Port::This { port } => (self.portdef_map.get(port), port),
                 };
 
                 // get dest node in graph and dest port
                 let (dest_node, dest_port) = match &data.dest {
-                    Comp { component, port } => {
+                    Port::Comp { component, port } => {
                         (self.inst_map.get(component), port)
                     }
-                    This { port } => (self.portdef_map.get(port), port),
+                    Port::This { port } => (self.portdef_map.get(port), port),
                 };
 
                 match (src_node, dest_node) {
@@ -187,13 +186,13 @@ impl StructureGraph {
                     // dest not found
                     (Some(_), None) => {
                         return Err(Error::UndefinedComponent(
-                            data.dest.port_name().to_string(),
+                            data.dest.port_name().clone(),
                         ));
                     }
                     // either source or dest not found, report src as error
                     _ => {
                         return Err(Error::UndefinedComponent(
-                            data.src.port_name().to_string(),
+                            data.src.port_name().clone(),
                         ))
                     }
                 }
@@ -283,17 +282,20 @@ impl StructureGraph {
     }
 
     /// Construct and insert an edge given two node indices
-    pub fn insert_edge(
+    pub fn insert_edge<S: AsRef<str>, U: AsRef<str>>(
         &mut self,
         src_node: NodeIndex,
-        src_port: &str,
+        src_port: S,
         dest_node: NodeIndex,
-        dest_port: &str,
+        dest_port: U,
     ) -> Result<(), Error> {
+        let src_port: &str = src_port.as_ref();
+        let dest_port: &str = dest_port.as_ref();
+
         let find_width =
             |port_to_find: &str, portdefs: &[ast::Portdef]| match portdefs
                 .iter()
-                .find(|x| x.name == port_to_find)
+                .find(|x| &x.name == port_to_find)
             {
                 Some(port) => Ok(port.width),
                 None => Err(Error::UndefinedPort(port_to_find.to_string())),
@@ -342,26 +344,28 @@ impl StructureGraph {
     }
 
     /// Return the `NodeIndex` for a named port. If not present, return an Error.
-    pub fn get_io_index(&self, port: &str) -> Result<NodeIndex, Error> {
-        match self.portdef_map.get(port) {
+    pub fn get_io_index<S: AsRef<str>>(
+        &self,
+        port: S,
+    ) -> Result<NodeIndex, Error> {
+        let port: &str = port.as_ref();
+        match self.portdef_map.get(&port.into()) {
             Some(idx) => Ok(*idx),
             None => Err(Error::UndefinedPort(port.to_string())),
         }
     }
 
     fn construct_port(&self, idx: NodeIndex, port: &str) -> ast::Port {
-        use ast::Port;
-        use NodeData::*;
         match &self.graph[idx] {
-            Input(portdef) => Port::This {
+            NodeData::Input(portdef) => Port::This {
                 port: portdef.name.clone(),
             },
-            Output(portdef) => Port::This {
+            NodeData::Output(portdef) => Port::This {
                 port: portdef.name.clone(),
             },
-            Instance { name, .. } => Port::Comp {
-                component: name.to_string(),
-                port: port.to_string(),
+            NodeData::Instance { name, .. } => Port::Comp {
+                component: name.clone(),
+                port: port.into(),
             },
         }
     }
