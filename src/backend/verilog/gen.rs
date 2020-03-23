@@ -10,6 +10,10 @@ use pretty::RcDoc as D;
 pub struct VerilogBackend {}
 
 impl Backend for VerilogBackend {
+    fn name() -> &'static str {
+        "verilog"
+    }
+
     fn validate(ctx: &context::Context) -> Result<(), errors::Error> {
         let prog: ast::NamespaceDef = ctx.clone().into();
         for comp in &prog.components {
