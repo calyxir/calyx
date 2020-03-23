@@ -17,7 +17,6 @@ fn main() -> Result<(), errors::Error> {
     // parse the command line arguments into Opts struct
     let opts: Opts = Opts::from_args();
 
-    // let mut names = NameGenerator::new();
     let context = context::Context::from_opts(&opts)?;
     passes::lat_insensitive::LatencyInsenstive::do_pass_default(&context)?;
     passes::redundant_par::RedundantPar::do_pass_default(&context)?;
