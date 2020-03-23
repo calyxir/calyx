@@ -5,7 +5,6 @@ mod lang;
 mod passes;
 mod utils;
 
-use crate::backend::traits::Backend;
 use crate::cmdline::Opts;
 use crate::lang::context;
 use crate::passes::visitor::Visitor;
@@ -23,9 +22,9 @@ fn main() -> Result<(), errors::Error> {
     passes::lat_insensitive::LatencyInsenstive::do_pass_default(&context)?;
     passes::redundant_par::RedundantPar::do_pass_default(&context)?;
     passes::remove_if::RemoveIf::do_pass_default(&context)?;
-
     passes::collapse_seq::CollapseSeq::do_pass_default(&context)?;
-    backend::verilog::gen::VerilogBackend::run(&context)?;
+
+    opts.backend.run(&context)?;
 
     Ok(())
 }
