@@ -36,6 +36,7 @@ pub struct Opts {
 
 // ================== Backend Variant and Parsing ===================== //
 
+/// Enumeration of valid backends
 #[derive(Debug, EnumIter)]
 pub enum BackendOpt {
     Verilog,
@@ -61,6 +62,7 @@ impl FromStr for BackendOpt {
     }
 }
 
+/// Convert `BackendOpt` to a string
 impl ToString for BackendOpt {
     fn to_string(&self) -> String {
         match self {
@@ -72,6 +74,7 @@ impl ToString for BackendOpt {
 }
 
 impl BackendOpt {
+    /// Given a context, calls the backend corresponding to the `BackendOpt` variant
     pub fn run(&self, context: &context::Context) -> Result<(), errors::Error> {
         match self {
             BackendOpt::Verilog => gen::VerilogBackend::run(&context),
