@@ -28,3 +28,8 @@ jobs:
       with:
         command: fmt
         args: -- --check
+    - name: Run clippy
+      uses: actions-rs/cargo@v1
+      with:
+        command: clippy
+        args: -- --deny warnings
