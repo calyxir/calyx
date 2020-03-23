@@ -11,7 +11,7 @@ benchmarks/*.futil
 *.out
 *.run*
 Cargo.lock
-target/*
+target
 *.bak
 .DS_Store
 *.png

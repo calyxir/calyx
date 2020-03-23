@@ -26,7 +26,8 @@ fn main() -> Result<(), errors::Error> {
     passes::remove_if::RemoveIf::do_pass_default(&context)?;
 
     passes::collapse_seq::CollapseSeq::do_pass_default(&context)?;
-    backend::rtl::gen::RtlBackend::run(&context)?;
+
+    opts.backend.run(&context)?;
 
     // passes::test_pass::Test::do_pass(&context);
     // let mut syntax = lang::ast::parse_file(&opts.file)?;
