@@ -5,7 +5,7 @@ use crate::lang::context;
 use itertools::Itertools;
 use std::path::PathBuf;
 use std::str::FromStr;
-use structopt::StructOpt;
+pub use structopt::StructOpt;
 
 // Definition of the command line interface. Uses the `structopt` derive macro
 #[derive(StructOpt, Debug)]

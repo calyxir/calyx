@@ -1,8 +1,6 @@
-use calyx::cmdline::Opts;
-use calyx::errors;
-use calyx::lang::context;
-use calyx::{backend, backend::traits::Backend};
-use calyx::{passes, passes::visitor::Visitor};
+use calyx::{
+    cmdline::Opts, errors, lang::context, passes, passes::visitor::Visitor,
+};
 use structopt::StructOpt;
 
 fn main() -> Result<(), errors::Error> {
