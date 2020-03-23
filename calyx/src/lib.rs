@@ -4,5 +4,3 @@ pub mod errors;
 pub mod lang;
 pub mod passes;
 pub mod utils;
-
-pub use structopt;
