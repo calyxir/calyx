@@ -55,14 +55,11 @@ impl Visitor for RemoveIf {
         let add_structure_fbranch =
             |this_comp: &mut Component, en_comp: &ast::Id| {
                 // XXX(sam) randomly generate this name
-                let name = format!("{}_not", en_comp);
-                let neg_comp = ctx.instantiate_primitive(
-                    &name,
-                    &"std_not".to_string(), // XXX(sam) this is silly
-                    &[1],
-                )?;
+                let name = format!("{}_not", en_comp.to_string());
+                let neg_comp =
+                    ctx.instantiate_primitive(&name, &"std_not".into(), &[1])?;
                 let neg = this_comp.structure.add_primitive(
-                    &name,
+                    &name.into(),
                     "std_not",
                     &neg_comp,
                     &[1],
@@ -99,7 +96,7 @@ impl Visitor for RemoveIf {
                 let mut comps_seq = vec![];
                 comps_seq.push(ast::Control::enable(con.cond.clone()));
 
-                let branch_control: Vec<String> = tbranch
+                let branch_control: Vec<ast::Id> = tbranch
                     .comps
                     .clone()
                     .into_iter()
@@ -116,11 +113,11 @@ impl Visitor for RemoveIf {
 
 fn resolve_signature<'a>(
     this_comp: &'a mut Component,
-    en_comp: &str,
+    en_comp: &ast::Id,
 ) -> Result<&'a ast::Signature, errors::Error> {
     let sig = this_comp.resolved_sigs.get(en_comp);
     match sig {
         Some(sig) => Ok(sig),
-        None => Err(errors::Error::UndefinedComponent(en_comp.to_string())),
+        None => Err(errors::Error::UndefinedComponent(en_comp.clone())),
     }
 }

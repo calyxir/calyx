@@ -83,9 +83,9 @@ impl Context {
             .collect()
     }
 
-    pub fn instantiate_primitive(
+    pub fn instantiate_primitive<S: AsRef<str>>(
         &self,
-        name: &str,
+        name: S,
         id: &ast::Id,
         params: &[u64],
     ) -> Result<Component, errors::Error> {
@@ -108,12 +108,15 @@ impl Context {
 
 impl Into<ast::NamespaceDef> for Context {
     fn into(self) -> ast::NamespaceDef {
-        let name = "placeholder".to_string();
+        let name = "placeholder";
         let mut components: Vec<ast::ComponentDef> = vec![];
         for comp in self.definitions.borrow().values() {
             components.push(comp.clone().into())
         }
-        ast::NamespaceDef { name, components }
+        ast::NamespaceDef {
+            name: name.into(),
+            components,
+        }
     }
 }
 
@@ -158,9 +161,7 @@ impl LibraryContext {
                 let outputs = outputs_res?;
                 Ok(ast::Signature { inputs, outputs })
             }
-            None => {
-                Err(errors::Error::SignatureResolutionFailed(id.to_string()))
-            }
+            None => Err(errors::Error::SignatureResolutionFailed(id.clone())),
         }
     }
 }

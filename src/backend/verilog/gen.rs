@@ -53,7 +53,7 @@ impl Emitable for ast::ComponentDef {
             .append(D::line())
             .append(colors::define(D::text("module")))
             .append(D::space())
-            .append(&self.name)
+            .append(self.name.as_ref())
             .append(D::line())
             .append(parens(
                 D::line()
@@ -75,7 +75,7 @@ impl Emitable for ast::ComponentDef {
             .append(D::line())
             .append(colors::define(D::text("endmodule")))
             .append(D::space())
-            .append(format!("// end {}", &self.name))
+            .append(format!("// end {}", self.name.as_ref()))
     }
 }
 
@@ -102,7 +102,7 @@ impl Emitable for ast::Portdef {
             .append(D::space())
             .append(bit_width(self.width))
             .append(D::space())
-            .append(&self.name)
+            .append(self.name.as_ref())
     }
 }
 
@@ -147,7 +147,8 @@ fn wire_string<'a>(
     if !dests.is_empty() {
         let dest_comment =
             D::text("// ").append(D::intersperse(dests, D::text(", ")));
-        let wire_name = format!("{}${}", &name, &portdef.name);
+        let wire_name =
+            format!("{}${}", &name.to_string(), &portdef.name.to_string());
         Some(
             colors::keyword(D::text("wire"))
                 .append(D::space())
@@ -209,7 +210,7 @@ fn subcomponent_sig<'a>(
     structure: &ast::Structure,
 ) -> D<'a, ColorSpec> {
     use ast::Structure;
-    let (name, params): (&str, &[u64]) = match structure {
+    let (name, params): (&ast::Id, &[u64]) = match structure {
         Structure::Decl { data } => (&data.component, &[]),
         Structure::Std { data } => (&data.instance.name, &data.instance.params),
         Structure::Wire { .. } => {
@@ -245,8 +246,11 @@ fn signature_connections<'a>(
             comp.structure
                 .connected_from(idx, portdef.name.to_string())
                 .map(move |(src, edge)| {
-                    let wire_name =
-                        format!("{}${}", &src.get_name(), &edge.src);
+                    let wire_name = format!(
+                        "{}${}",
+                        &src.get_name().to_string(),
+                        &edge.src
+                    );
                     D::text(".")
                         .append(colors::port(D::text(portdef.name.to_string())))
                         .append(parens(colors::ident(D::text(wire_name))))
@@ -260,7 +264,8 @@ fn signature_connections<'a>(
             .count()
             > 0
         {
-            let wire_name = format!("{}${}", &name, &portdef.name);
+            let wire_name =
+                format!("{}${}", &name.to_string(), &portdef.name.to_string());
             Some(
                 D::text(".")
                     .append(colors::port(D::text(portdef.name.to_string())))
