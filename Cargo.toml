@@ -14,8 +14,6 @@ sexpy = "~0.5"
 itertools = "~0.9"
 bumpalo = "3.2.0"
 atty = "~0.2"
-strum = "0.18.0"
-strum_macros = "0.18.0"
 
 [dependencies.pretty]
 version = "~0.9"

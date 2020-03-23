@@ -1,12 +1,11 @@
-use crate::backend::{traits::Backend, verilog::gen};
+use crate::backend::traits::Backend;
+use crate::backend::verilog::gen::VerilogBackend;
 use crate::errors;
 use crate::lang::context;
 use itertools::Itertools;
 use std::path::PathBuf;
 use std::str::FromStr;
 use structopt::StructOpt;
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
 
 // Definition of the command line interface. Uses the `structopt` derive macro
 #[derive(StructOpt, Debug)]
@@ -37,27 +36,42 @@ pub struct Opts {
 // ================== Backend Variant and Parsing ===================== //
 
 /// Enumeration of valid backends
-#[derive(Debug, EnumIter)]
+#[derive(Debug, Copy, Clone)]
 pub enum BackendOpt {
     Verilog,
     None,
 }
 
+fn backends() -> Vec<(&'static str, BackendOpt)> {
+    vec![
+        (VerilogBackend::name(), BackendOpt::Verilog),
+        ("none", BackendOpt::None),
+    ]
+}
+
 /// Command line parsing for the Backend enum
 impl FromStr for BackendOpt {
     type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "verilog" => Ok(Self::Verilog),
-            "none" => Ok(Self::None),
-            x => {
-                let backends =
-                    BackendOpt::iter().map(|v| v.to_string()).join(", ");
-                Err(format!(
-                    "`{}` is not a valid backend.\nValid backends: {}",
-                    x, backends
-                ))
-            }
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        // allocate a vector for the list of backends
+        let backends = backends();
+        // see if there is a backend for the string that we receive
+        let found_backend = backends
+            .iter()
+            .find(|(backend_name, _)| &input == backend_name);
+        if let Some((_, opt)) = found_backend {
+            // return the BackendOpt if we found one
+            Ok(*opt)
+        } else {
+            // build list of backends for error message
+            let backend_str = backends
+                .iter()
+                .map(|(name, _)| (*name).to_string())
+                .join(", ");
+            Err(format!(
+                "`{}` is not a valid backend.\nValid backends: {}",
+                input, backend_str
+            ))
         }
     }
 }
@@ -75,9 +89,9 @@ impl ToString for BackendOpt {
 
 impl BackendOpt {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
-    pub fn run(&self, context: &context::Context) -> Result<(), errors::Error> {
+    pub fn run(self, context: &context::Context) -> Result<(), errors::Error> {
         match self {
-            BackendOpt::Verilog => gen::VerilogBackend::run(&context),
+            BackendOpt::Verilog => VerilogBackend::run(&context),
             BackendOpt::None => Ok(()),
         }
     }
