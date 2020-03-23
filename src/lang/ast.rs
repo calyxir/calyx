@@ -234,21 +234,21 @@ pub struct Par {
     pub stmts: Vec<Control>,
 }
 
-/// If control node in the AST.
+// If control node in the AST.
 #[derive(Debug, Clone, Hash, Sexpy)]
 #[sexpy(nosurround)]
 pub struct If {
-    /// Port that connects the conditional check.
+    // Port that connects the conditional check.
     pub port: Port,
 
     #[sexpy(surround)]
-    /// Modules that need to be enabled to send signal on `port`.
+    // Modules that need to be enabled to send signal on `port`.
     pub cond: Vec<Id>,
 
-    /// Control for the true branch.
+    // Control for the true branch.
     pub tbranch: Box<Control>,
 
-    /// Control for the true branch.
+    // Control for the true branch.
     pub fbranch: Box<Control>,
 }
 
