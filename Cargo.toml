@@ -4,7 +4,6 @@ version = "0.1.0"
 authors = ["Samuel Thomas <sgt43@cornell.edu>", "Kenneth Fang <kwf37@cornell.edu>"]
 edition = "2018"
 build = false
-# build = "build.rs"
 
 [dependencies]
 structopt = "~0.3"
@@ -19,7 +18,3 @@ atty = "~0.2"
 [dependencies.pretty]
 version = "~0.9"
 features = ["termcolor"]
-
-# [build-dependencies]
-# clap = "2.33"
-# structopt = "~0.3"
