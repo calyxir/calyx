@@ -1,9 +1,12 @@
 use crate::backend::{traits::Backend, verilog::gen};
 use crate::errors;
 use crate::lang::context;
+use itertools::Itertools;
 use std::path::PathBuf;
 use std::str::FromStr;
 use structopt::StructOpt;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 // Definition of the command line interface. Uses the `structopt` derive macro
 #[derive(StructOpt, Debug)]
@@ -33,7 +36,7 @@ pub struct Opts {
 
 // ================== Backend Variant and Parsing ===================== //
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, EnumIter)]
 pub enum BackendOpt {
     Verilog,
     None,
@@ -46,7 +49,14 @@ impl FromStr for BackendOpt {
         match s {
             "verilog" => Ok(Self::Verilog),
             "none" => Ok(Self::None),
-            x => Err(format!("{} is not a valid backend.", x)),
+            x => {
+                let backends =
+                    BackendOpt::iter().map(|v| v.to_string()).join(", ");
+                Err(format!(
+                    "`{}` is not a valid backend.\nValid backends: {}",
+                    x, backends
+                ))
+            }
         }
     }
 }
