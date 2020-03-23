@@ -1,6 +1,5 @@
-use crate::context;
 use crate::errors;
-use crate::lang::component;
+use crate::lang::{component, context};
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc;
 

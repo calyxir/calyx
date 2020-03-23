@@ -49,7 +49,7 @@ impl Context {
         let mut definitions = HashMap::new();
         for comp in &namespace.components {
             let prim_sigs = comp.resolve_primitives(&libctx)?;
-            let mut graph = StructureGraph::new();
+            let mut graph = StructureGraph::default();
             graph.add_component_def(&comp, &signatures, &prim_sigs)?;
             definitions.insert(
                 comp.name.clone(),

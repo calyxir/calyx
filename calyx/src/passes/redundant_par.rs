@@ -1,6 +1,5 @@
-use crate::context::Context;
-use crate::lang::ast;
 use crate::lang::component::Component;
+use crate::lang::{ast, context::Context};
 use crate::passes::visitor::{Action, VisResult, Visitor};
 
 /// Pass that collapses `(par (enable A B) (enable C D))`
