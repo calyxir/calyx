@@ -57,15 +57,17 @@ pub struct StructureGraph {
     pub graph: StructG,
 }
 
-impl StructureGraph {
-    pub fn new() -> Self {
+impl Default for StructureGraph {
+    fn default() -> Self {
         StructureGraph {
             portdef_map: HashMap::new(),
             inst_map: HashMap::new(),
             graph: StructG::new(),
         }
     }
+}
 
+impl StructureGraph {
     // XXX(sam) bad name
     pub fn add_signature(&mut self, sig: &ast::Signature) {
         // add nodes for inputs and outputs

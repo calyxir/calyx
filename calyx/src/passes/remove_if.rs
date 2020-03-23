@@ -1,7 +1,5 @@
-use crate::context::Context;
 use crate::errors;
-use crate::lang::ast;
-use crate::lang::component::Component;
+use crate::lang::{ast, component::Component, context::Context};
 use crate::passes::visitor::{Action, VisResult, Visitor};
 
 /// Pass that removes if statments where both branches are enables:

@@ -1,5 +1,4 @@
-use crate::context::Context;
-use crate::lang::component::Component;
+use crate::lang::{component::Component, context::Context};
 use crate::passes::visitor::{Action, VisResult, Visitor};
 
 pub struct LatencyInsenstive {}

@@ -1,19 +1,11 @@
-mod backend;
-mod cmdline;
-mod errors;
-mod lang;
-mod passes;
-mod utils;
-
-use crate::cmdline::Opts;
-use crate::lang::context;
-use crate::passes::visitor::Visitor;
+use calyx::cmdline::Opts;
+use calyx::errors;
+use calyx::lang::context;
+use calyx::{backend, backend::traits::Backend};
+use calyx::{passes, passes::visitor::Visitor};
 use structopt::StructOpt;
 
 fn main() -> Result<(), errors::Error> {
-    // better stack traces
-    better_panic::install();
-
     // parse the command line arguments into Opts struct
     let opts: Opts = Opts::from_args();
 

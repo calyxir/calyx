@@ -1,8 +1,7 @@
 use crate::backend::traits::{Backend, Emitable};
-use crate::context;
 use crate::errors;
 use crate::lang::pretty_print::{display, parens};
-use crate::lang::{ast, colors, component, structure};
+use crate::lang::{ast, colors, component, context, structure};
 use petgraph::graph::NodeIndex;
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc as D;

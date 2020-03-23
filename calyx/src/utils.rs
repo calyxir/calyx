@@ -8,14 +8,16 @@ pub struct NameGenerator {
     name_hash: HashMap<String, i64>,
 }
 
-#[allow(unused)]
-impl NameGenerator {
-    pub fn new() -> Self {
+impl Default for NameGenerator {
+    fn default() -> Self {
         NameGenerator {
             name_hash: HashMap::new(),
         }
     }
+}
 
+#[allow(unused)]
+impl NameGenerator {
     pub fn gen_name(&mut self, name: &str) -> String {
         let count = match self.name_hash.get(name) {
             None => 0,
