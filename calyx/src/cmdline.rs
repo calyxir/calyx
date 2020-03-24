@@ -3,6 +3,7 @@ use crate::backend::verilog::gen::VerilogBackend;
 use crate::errors;
 use crate::lang::context;
 use itertools::Itertools;
+use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 pub use structopt::StructOpt;
@@ -89,9 +90,13 @@ impl ToString for BackendOpt {
 
 impl BackendOpt {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
-    pub fn run(self, context: &context::Context) -> Result<(), errors::Error> {
+    pub fn run<W: Write>(
+        self,
+        context: &context::Context,
+        file: W,
+    ) -> Result<(), errors::Error> {
         match self {
-            BackendOpt::Verilog => VerilogBackend::run(&context),
+            BackendOpt::Verilog => VerilogBackend::run(&context, file),
             BackendOpt::None => Ok(()),
         }
     }

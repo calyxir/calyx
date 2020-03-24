@@ -61,3 +61,9 @@ impl From<std::fmt::Error> for Error {
         Error::WriteError
     }
 }
+
+impl From<String> for Error {
+    fn from(s: String) -> Self {
+        Error::ParseError(s)
+    }
+}

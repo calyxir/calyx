@@ -7,7 +7,7 @@ build = false
 # build = "build.rs"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["rlib"]
 
 [dependencies]
 structopt = "~0.3"
