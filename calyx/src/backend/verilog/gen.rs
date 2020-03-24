@@ -5,6 +5,7 @@ use crate::lang::{ast, colors, component, context, structure};
 use petgraph::graph::NodeIndex;
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc as D;
+use std::io::Write;
 
 pub struct VerilogBackend {}
 
@@ -33,7 +34,10 @@ impl Backend for VerilogBackend {
         Ok(())
     }
 
-    fn emit(ctx: &context::Context) -> Result<(), errors::Error> {
+    fn emit<W: Write>(
+        ctx: &context::Context,
+        file: W,
+    ) -> Result<(), errors::Error> {
         let prog: ast::NamespaceDef = ctx.clone().into();
 
         // build Vec of tuples first so that `comps` lifetime is longer than
@@ -45,7 +49,7 @@ impl Backend for VerilogBackend {
             .collect();
 
         let docs = comps.iter().map(|(cd, comp)| cd.doc(&comp));
-        display(D::intersperse(docs, D::line()));
+        display(D::intersperse(docs, D::line()), Some(file));
         Ok(())
     }
 }

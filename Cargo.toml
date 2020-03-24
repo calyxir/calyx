@@ -10,3 +10,5 @@ structopt = "~0.3"
 calyx = { path = "calyx" }
 
 [workspace]
+members = ["calyx"]
+exclude = ["site"]

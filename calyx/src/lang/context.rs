@@ -2,7 +2,7 @@ use crate::cmdline::Opts;
 use crate::errors;
 use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::{
-    ast, component::Component, library, structure::StructureGraph,
+    ast, component::Component, library::ast as lib, structure::StructureGraph,
 };
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
@@ -23,16 +23,14 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn from_opts(opts: &Opts) -> Result<Self, errors::Error> {
-        // parse file
-        let namespace = ast::parse_file(&opts.file)?;
-
+    pub fn from_ast(
+        namespace: ast::NamespaceDef,
+        libs: &[lib::Library],
+    ) -> Result<Self, errors::Error> {
         // build hashmap for primitives in provided libraries
         let mut lib_definitions = HashMap::new();
-        let libs = &opts.libraries;
-        for filename in libs {
-            let def = library::ast::parse_file(&filename)?;
-            for prim in def.primitives {
+        for def in libs {
+            for prim in &def.primitives {
                 lib_definitions.insert(prim.name.clone(), prim.clone());
             }
         }
@@ -66,8 +64,28 @@ impl Context {
         Ok(Context {
             definitions: RefCell::new(definitions),
             library_context: libctx,
-            debug_mode: opts.enable_debug,
+            debug_mode: false,
         })
+    }
+
+    pub fn from_opts(opts: &Opts) -> Result<Self, errors::Error> {
+        // parse file
+        let namespace = ast::parse_file(&opts.file)?;
+
+        // parse library files
+        let libs: Vec<_> = opts
+            .libraries
+            .iter()
+            .map(lib::parse_file)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // build context
+        let mut context = Self::from_ast(namespace, &libs)?;
+
+        // set debug mode according to opts
+        context.debug_mode = opts.enable_debug;
+
+        Ok(context)
     }
 
     // XXX(sam) maybe implement this as an iterator?
@@ -125,7 +143,7 @@ impl Into<ast::NamespaceDef> for Context {
 /// to make this easier.
 #[derive(Debug, Clone)]
 pub struct LibraryContext {
-    definitions: HashMap<ast::Id, library::ast::Primitive>,
+    definitions: HashMap<ast::Id, lib::Primitive>,
 }
 
 impl LibraryContext {
