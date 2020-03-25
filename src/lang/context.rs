@@ -103,6 +103,18 @@ impl Context {
         }
     }
 
+    pub fn get_lib_component(
+        &self,
+        name: &ast::Id,
+        params: &[u64],
+    ) -> Result<ast::Signature, errors::Error> {
+        self.library_context.resolve(name, params)
+    }
+
+    pub fn is_lib(&self, name: &ast::Id) -> bool {
+        self.library_context.lib_contains(name)
+    }
+
     // XXX(sam) need a way to insert components
 }
 
@@ -163,6 +175,11 @@ impl LibraryContext {
             }
             None => Err(errors::Error::SignatureResolutionFailed(id.clone())),
         }
+    }
+
+    /// Checks whether a component type is in the library or not
+    fn lib_contains(&self, id: &ast::Id) -> bool {
+        self.definitions.contains_key(id)
     }
 }
 
