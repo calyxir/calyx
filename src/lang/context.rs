@@ -23,6 +23,15 @@ pub struct Context {
 }
 
 impl Context {
+    /// Generates a Context from command-line options.
+    /// Parses relevant library and source files and combines
+    /// the definitions into a single Context object.
+    ///
+    /// # Arguments
+    ///   * `opts` - command line options
+    /// # Returns
+    ///   Returns a Context object for the compilation unit,
+    ///   or an error.
     pub fn from_opts(opts: &Opts) -> Result<Self, errors::Error> {
         // parse file
         let namespace = ast::parse_file(&opts.file)?;
@@ -49,8 +58,7 @@ impl Context {
         let mut definitions = HashMap::new();
         for comp in &namespace.components {
             let prim_sigs = comp.resolve_primitives(&libctx)?;
-            let mut graph = StructureGraph::new();
-            graph.add_component_def(&comp, &signatures, &prim_sigs)?;
+            let graph = StructureGraph::new(&comp, &signatures, &prim_sigs)?;
             definitions.insert(
                 comp.name.clone(),
                 Component {
@@ -83,6 +91,17 @@ impl Context {
             .collect()
     }
 
+    /// Creates a concrete instance of a primitive component.
+    /// Because primitive components can take in parameters, this
+    /// function attempts to resolve supplied parameters with a
+    /// primitive component to create a concrete component.
+    ///
+    /// # Arguments
+    ///   * `name` - the type of primitive component to instance
+    ///   * `id` - the identifier for the instance
+    ///   * `params` - parameters to pass to the primitive component definition
+    /// # Returns
+    ///   Returns a concrete Component object or an error.
     pub fn instantiate_primitive<S: AsRef<str>>(
         &self,
         name: S,
@@ -93,13 +112,20 @@ impl Context {
         Ok(Component::from_signature(name, sig))
     }
 
+    /// Looks up the component for a component instance id.
+    /// Does not provide mutable access to the Context.
+    ///
+    /// # Arguments
+    ///   * `id` - the identifier for the instance
+    /// # Returns
+    ///   Returns the Component corresponding to `id` or an error.
     pub fn get_component(
         &self,
-        name: &ast::Id,
+        id: &ast::Id,
     ) -> Result<Component, errors::Error> {
-        match self.definitions.borrow().get(name) {
+        match self.definitions.borrow().get(id) {
             Some(comp) => Ok(comp.clone()),
-            None => Err(errors::Error::UndefinedComponent(name.clone())),
+            None => Err(errors::Error::UndefinedComponent(id.clone())),
         }
     }
 
