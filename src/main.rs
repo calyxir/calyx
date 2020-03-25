@@ -12,6 +12,7 @@ fn main() -> Result<(), errors::Error> {
     passes::redundant_par::RedundantPar::do_pass_default(&context)?;
     passes::remove_if::RemoveIf::do_pass_default(&context)?;
     passes::collapse_seq::CollapseSeq::do_pass_default(&context)?;
+    passes::connect_clock::ConnectClock::do_pass_default(&context)?;
 
     opts.backend.run(&context, std::io::stdout())?;
 

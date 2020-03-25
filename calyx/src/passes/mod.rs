@@ -6,12 +6,13 @@
 // pub mod fsm_par;
 // pub mod fsm_seq;
 // pub mod fsm_while;
+// pub mod fsm_if;
 // pub mod interfacing;
 // pub mod test_pass;
 // pub mod toplevel_component;
-pub mod lat_insensitive;
-// pub mod fsm_if;
 pub mod collapse_seq;
+pub mod connect_clock;
+pub mod lat_insensitive;
 pub mod redundant_par;
 pub mod remove_if;
 pub mod visitor;
