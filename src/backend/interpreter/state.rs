@@ -1,3 +1,6 @@
+use crate::lang::ast;
+use std::collections::HashMap;
+
 /// Recursively stores a component's state
 #[derive(Debug, Clone)]
 pub struct State {

@@ -37,6 +37,7 @@ pub struct EdgeData {
     pub src: String,
     pub dest: String,
     pub width: u64,
+    pub value: Option<i64>,
 }
 
 /// private graph type. the data in the node is the identifier
@@ -323,6 +324,7 @@ impl StructureGraph {
                 src: src_port.into(),
                 dest: dest_port.into(),
                 width: src_width,
+                value: None,
             };
             self.graph.add_edge(src_node, dest_node, edge_data);
             Ok(())
