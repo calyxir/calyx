@@ -3,9 +3,9 @@ use std::collections::HashMap;
 
 /// Recursively stores a component's state
 #[derive(Debug, Clone)]
-pub struct State {
+pub enum State {
     /// Mapping from instance Ids to states for user-defined subcomponents
-    comp_states: HashMap<ast::Id, State>,
-    /// Mapping from instance Ids to states for primitive subcomponents
-    prim_states: HashMap<ast::Id, Option<i64>>,
+    Component(HashMap<ast::Id, State>),
+    /// State for a primitive register component
+    Register(Option<i64>),
 }
