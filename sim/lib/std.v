@@ -96,6 +96,16 @@ module std_div
    assign ready = 1'd1;
 endmodule
 
+module std_not
+  #(parameter width = 32)
+   (input logic [width-1:0] in,
+    input logic             valid,
+    output logic            ready,
+    output logic [width-1:0] out);
+   assign out = ~in;
+   assign ready = 1'd1;
+endmodule
+
 module std_and
   #(parameter width = 32)
    (input logic [width-1:0] left,
