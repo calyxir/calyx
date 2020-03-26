@@ -30,17 +30,16 @@ impl Visitor for RedundantPar {
             })
             .collect();
 
-        // If the result wasn't an Err, do the transformation.
-        Ok(enabled
-            .map(|ens| ast::Enable {
-                comps: ens
-                    .iter()
-                    .cloned()
-                    .flat_map(|en| en.comps.clone())
-                    .collect(),
+        Ok(enabled.map_or(Action::Continue, |ens| {
+            let to_en = ens
+                .into_iter()
+                .map(|en| en.comps.clone())
+                .flatten()
+                .collect::<Vec<_>>();
+
+            Action::Change(ast::Control::Enable {
+                data: ast::Enable { comps: to_en },
             })
-            .map_or(Action::Continue, |en| {
-                Action::Change(ast::Control::Enable { data: en })
-            }))
+        }))
     }
 }
