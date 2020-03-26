@@ -17,19 +17,32 @@ impl Visitor for RedundantPar {
     fn finish_par(
         &mut self,
         s: &mut ast::Par,
-        _comp: &mut Component,
-        _c: &Context,
+        _: &mut Component,
+        _: &Context,
     ) -> VisResult {
-        let mut enabled: Vec<ast::Id> = vec![];
-        for con in &s.stmts {
-            match con {
-                ast::Control::Enable { data } => {
-                    enabled.append(&mut data.comps.clone());
-                }
-                _ => return Ok(Action::Continue),
-            }
-        }
-        let enable = ast::Enable { comps: enabled };
-        Ok(Action::Change(ast::Control::Enable { data: enable }))
+
+        // If any of the ast nodes was not an enable, returns an Err.
+        let enabled: Result<Vec<&ast::Enable>, ()> = s
+            .stmts
+            .iter()
+            .map(|control| match control {
+                ast::Control::Enable { data } => Ok(data),
+                _ => Err(()),
+            })
+            .collect();
+
+        // If the result wasn't an Err, do the transformation.
+        Ok(enabled
+            .map(|ens| ast::Enable {
+                comps: ens
+                    .iter()
+                    .cloned()
+                    .flat_map(|en| en.comps.clone())
+                    .collect(),
+            })
+            .map_or(Action::Continue, |en| {
+                Action::Change(ast::Control::Enable { data: en })
+            }))
+
     }
 }
