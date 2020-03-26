@@ -20,7 +20,6 @@ impl Visitor for RedundantPar {
         _: &mut Component,
         _: &Context,
     ) -> VisResult {
-
         // If any of the ast nodes was not an enable, returns an Err.
         let enabled: Result<Vec<&ast::Enable>, ()> = s
             .stmts
@@ -43,6 +42,5 @@ impl Visitor for RedundantPar {
             .map_or(Action::Continue, |en| {
                 Action::Change(ast::Control::Enable { data: en })
             }))
-
     }
 }
