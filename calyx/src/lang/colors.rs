@@ -15,13 +15,13 @@ pub fn port(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
 
 pub fn keyword(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
     let mut c = ColorSpec::new();
-    c.set_fg(Some(Color::Blue));
+    c.set_fg(Some(Color::Yellow));
     doc.annotate(c)
 }
 
 pub fn ident(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
     let mut c = ColorSpec::new();
-    c.set_fg(Some(Color::Red));
+    c.set_fg(Some(Color::Blue));
     doc.annotate(c)
 }
 
@@ -34,5 +34,11 @@ pub fn control(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
 pub fn enable(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
     let mut c = ColorSpec::new();
     c.set_fg(Some(Color::Yellow));
+    doc.annotate(c)
+}
+
+pub fn comment(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
+    let mut c = ColorSpec::new();
+    c.set_fg(Some(Color::Rgb(100, 100, 100)));
     doc.annotate(c)
 }

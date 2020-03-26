@@ -1,5 +1,6 @@
 use crate::errors;
 use crate::lang::{component, context};
+use bumpalo::Bump;
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc;
 use std::io::Write;
@@ -28,7 +29,8 @@ pub trait Backend {
 
 pub trait Emitable {
     fn doc<'a>(
-        &'a self,
-        comp: &'a component::Component,
+        &self,
+        arena: &'a Bump,
+        comp: &component::Component,
     ) -> RcDoc<'a, ColorSpec>;
 }
