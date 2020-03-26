@@ -1,5 +1,10 @@
 use crate::errors;
-use crate::lang::{ast, component::Component, context::Context};
+use crate::lang::{
+    ast,
+    ast::{Control, Port},
+    component::Component,
+    context::Context,
+};
 use crate::passes::visitor::{Action, VisResult, Visitor};
 
 /// Pass that removes if statments where both branches are enables:
@@ -30,7 +35,6 @@ impl Visitor for RemoveIf {
         ctx: &Context,
     ) -> VisResult {
         // get node and port for the comparison component
-        use ast::Port;
         let (cmp_idx, cmp_port) = match &con.port {
             Port::Comp { component, port } => {
                 (this_comp.structure.get_inst_index(&component)?, port)
@@ -53,7 +57,7 @@ impl Visitor for RemoveIf {
         let add_structure_fbranch =
             |this_comp: &mut Component, en_comp: &ast::Id| {
                 // XXX(sam) randomly generate this name
-                let name = format!("{}_not", en_comp.to_string());
+                let name = format!("{}_not", en_comp.as_ref());
                 let neg_comp =
                     ctx.instantiate_primitive(&name, &"std_not".into(), &[1])?;
                 let neg = this_comp.structure.add_primitive(
@@ -73,9 +77,11 @@ impl Visitor for RemoveIf {
                 )
             };
 
-        use ast::Control::Enable;
         match (&*con.tbranch, &*con.fbranch) {
-            (Enable { data: tbranch }, Enable { data: fbranch }) => {
+            (
+                Control::Enable { data: tbranch },
+                Control::Enable { data: fbranch },
+            ) => {
                 // if statement has the right form
                 for en_comp in &tbranch.comps {
                     let sig = resolve_signature(this_comp, en_comp)?;
@@ -91,18 +97,37 @@ impl Visitor for RemoveIf {
                     }
                 }
 
-                let mut comps_seq = vec![];
-                comps_seq.push(ast::Control::enable(con.cond.clone()));
-
-                let branch_control: Vec<ast::Id> = tbranch
+                let tbranch_control = tbranch.comps.clone().into_iter();
+                let fbranch_control = fbranch.comps.clone().into_iter();
+                let fbranch_not_control = fbranch
                     .comps
                     .clone()
                     .into_iter()
-                    .chain(fbranch.comps.clone().into_iter())
-                    .collect();
-                comps_seq.push(ast::Control::enable(branch_control));
+                    .filter_map(|comp| {
+                        resolve_signature(this_comp, &comp).map_or(
+                            None,
+                            |sig| {
+                                if sig.has_input("valid") {
+                                    Some(format!("{}_not", comp.as_ref()))
+                                } else {
+                                    None
+                                }
+                            },
+                        )
+                    })
+                    .map(|s| s.into());
 
-                Ok(Action::Change(ast::Control::seq(comps_seq)))
+                let branch_control: Vec<ast::Id> = tbranch_control
+                    .chain(fbranch_control)
+                    .chain(fbranch_not_control)
+                    .collect();
+
+                let comps_seq = vec![
+                    Control::enable(con.cond.clone()),
+                    Control::enable(branch_control),
+                ];
+
+                Ok(Action::Change(Control::seq(comps_seq)))
             }
             _ => Ok(Action::Continue),
         }
