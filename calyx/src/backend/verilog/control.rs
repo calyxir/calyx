@@ -30,19 +30,19 @@ impl Emitable for ast::Control {
     }
 }
 
-fn necessary_bits(control: &ast::Control) -> u64 {
+fn necessary_bits(control: &ast::Control) -> u32 {
     let state_num = match control {
         Control::Seq { data } => data.stmts.len(),
         Control::Enable { .. } => 1,
         _ => panic!("Should have been caught by validation check"),
     };
-    (state_num as f64).log2().ceil() as u64 - 1
+    (state_num as f32).log2().ceil() as u32
 }
 
-fn state_variables<'a>(bits: u64) -> D<'a, ColorSpec> {
+fn state_variables<'a>(bits: u32) -> D<'a, ColorSpec> {
     colors::keyword(D::text("logic"))
         .append(D::space())
-        .append(brackets(D::text(bits.to_string()).append(":0")))
+        .append(brackets(D::text((bits - 1).to_string()).append(":0")))
         .append(D::space())
         .append("state, next_state;")
 }
@@ -59,7 +59,7 @@ fn state_transition<'a>() -> D<'a, ColorSpec> {
             D::line()
                 .append(colors::keyword(D::text("if")))
                 .append(D::space())
-                .append("(reset)")
+                .append("(!valid)")
                 .append(D::line().append("state <= 0;").nest(2))
                 .append(D::line())
                 .append(colors::keyword(D::text("else")))
@@ -83,11 +83,11 @@ fn increment_state<'a>() -> D<'a, ColorSpec> {
 
 fn seq_fsm<'a>(
     arena: &'a Bump,
-    bits: u64,
+    bits: u32,
     control: &ast::Control,
 ) -> D<'a, ColorSpec> {
     let all = get_all_used(&arena, control);
-    let states = match control {
+    let (num_states, states) = match control {
         Control::Seq { data } => {
             let doc =
                 data.stmts.iter().enumerate().map(|(i, stmt)| match stmt {
@@ -108,9 +108,20 @@ fn seq_fsm<'a>(
                     }
                     _ => D::nil(),
                 });
-            D::intersperse(doc, D::line())
+            (data.stmts.len(), D::intersperse(doc, D::line()))
         }
-        _ => D::nil(),
+        _ => (0, D::nil()),
+    };
+
+    let default = if (num_states as u32) < 2u32.pow(bits) {
+        colors::keyword(D::text("default"))
+            .append(":")
+            .append(D::space())
+            .append(colors::keyword(D::text("begin")))
+            .append(D::space())
+            .append(colors::keyword(D::text("end")))
+    } else {
+        colors::comment(D::text("// all cases covered"))
     };
 
     colors::comment(D::text("// sequential fsm"))
@@ -124,6 +135,8 @@ fn seq_fsm<'a>(
                 .append(D::space())
                 .append("(state)")
                 .append(D::line().append(states).nest(2))
+                .append(D::line())
+                .append(default)
                 .append(D::line())
                 .append(colors::keyword(D::text("endcase")))
                 .nest(2),
