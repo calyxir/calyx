@@ -1,7 +1,12 @@
 use crate::backend::traits::{Backend, Emitable};
 use crate::errors;
-use crate::lang::pretty_print::{display, parens};
-use crate::lang::{ast, colors, component, context, structure};
+use crate::lang::pretty_print::{brackets, display, parens};
+use crate::lang::{
+    ast, ast::Control, colors, component, context, structure,
+    structure::NodeData,
+};
+use bumpalo::Bump;
+use itertools::Itertools;
 use petgraph::graph::NodeIndex;
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc as D;
@@ -17,7 +22,6 @@ impl Backend for VerilogBackend {
     fn validate(ctx: &context::Context) -> Result<(), errors::Error> {
         let prog: ast::NamespaceDef = ctx.clone().into();
         for comp in &prog.components {
-            use ast::Control;
             match &comp.control {
                 Control::Seq { data } => {
                     for con in &data.stmts {
@@ -48,77 +52,107 @@ impl Backend for VerilogBackend {
             .map(|cd| (cd, ctx.get_component(&cd.name).unwrap()))
             .collect();
 
-        let docs = comps.iter().map(|(cd, comp)| cd.doc(&comp));
-        display(D::intersperse(docs, D::line()), Some(file));
+        let mut arena = Bump::new();
+        let docs = comps.iter().map(|(cd, comp)| cd.doc(&arena, &comp));
+        display(
+            D::intersperse(docs, D::line().append(D::line())),
+            Some(file),
+        );
+        arena.reset();
         Ok(())
     }
 }
 
 impl Emitable for ast::ComponentDef {
-    fn doc<'a>(&'a self, comp: &'a component::Component) -> D<'a, ColorSpec> {
-        D::text("// Component Signature")
-            .append(D::line())
-            .append(colors::define(D::text("module")))
+    fn doc<'a>(
+        &self,
+        arena: &'a Bump,
+        comp: &component::Component,
+    ) -> D<'a, ColorSpec> {
+        let structure = D::nil()
             .append(D::space())
-            .append(self.name.as_ref())
+            .append(self.name.to_string())
             .append(D::line())
             .append(parens(
                 D::line()
-                    .append(self.signature.doc(&comp))
+                    .append(self.signature.doc(&arena, &comp))
                     .nest(4)
                     .append(D::line()),
             ))
             .append(";")
             .append(D::line())
             .append(D::line())
-            .append("// Wire declarations")
+            .append(colors::comment(D::text("// Wire declarations")))
             .append(D::line())
             .append(wire_declarations(&comp))
             .append(D::line())
             .append(D::line())
-            .append("// Subcomponent Instances")
+            .append(colors::comment(D::text("// Subcomponent Instances")))
             .append(D::line())
-            .append(subcomponent_instances(&comp))
+            .append(subcomponent_instances(&comp));
+        let control = self.control.doc(&arena, &comp);
+        let inner = structure
+            .append(D::line())
+            .append(D::line())
+            .append(control);
+
+        colors::comment(D::text("// Component Signature"))
+            .append(D::line())
+            .append(colors::define(D::text("module")))
+            .append(inner.nest(2))
             .append(D::line())
             .append(colors::define(D::text("endmodule")))
             .append(D::space())
-            .append(format!("// end {}", self.name.as_ref()))
+            .append(colors::comment(D::text(format!(
+                "// end {}",
+                self.name.to_string()
+            ))))
     }
 }
 
 impl Emitable for ast::Signature {
-    fn doc<'a>(&'a self, comp: &'a component::Component) -> D<'a, ColorSpec> {
+    fn doc<'a>(
+        &self,
+        arena: &'a Bump,
+        comp: &component::Component,
+    ) -> D<'a, ColorSpec> {
         let inputs = self.inputs.iter().map(|pd| {
             colors::port(D::text("input"))
                 .append(D::space())
-                .append(pd.doc(&comp))
+                .append(pd.doc(&arena, &comp))
         });
         let outputs = self.outputs.iter().map(|pd| {
             colors::port(D::text("output"))
                 .append(D::space())
-                .append(pd.doc(&comp))
+                .append(pd.doc(&arena, &comp))
         });
         D::intersperse(inputs.chain(outputs), D::text(",").append(D::line()))
     }
 }
 
 impl Emitable for ast::Portdef {
-    fn doc(&self, _ctx: &component::Component) -> D<ColorSpec> {
+    fn doc<'a>(
+        &self,
+        _arena: &'a Bump,
+        _ctx: &component::Component,
+    ) -> D<'a, ColorSpec> {
         // XXX(sam) why would we not use wires?
         colors::keyword(D::text("wire"))
             .append(D::space())
             .append(bit_width(self.width))
             .append(D::space())
-            .append(self.name.as_ref())
+            .append(self.name.to_string())
     }
 }
 
 //==========================================
 //        Wire Declaration Functions
 //==========================================
-fn wire_declarations(comp: &component::Component) -> D<ColorSpec> {
-    // declare a wire for each instance, not input or output because they already have wires defined
-    // in the module signature. We only make a wire once for each instance output. This is because
+fn wire_declarations<'a>(comp: &component::Component) -> D<'a, ColorSpec> {
+    // declare a wire for each instance, not input or output
+    // because they already have wires defined
+    // in the module signature. We only make a wire
+    // once for each instance output. This is because
     // Verilog wires do not correspond exactly with Futil wires.
     let structure: &structure::StructureGraph = &comp.structure;
     let wires =
@@ -138,7 +172,7 @@ fn wire_declarations(comp: &component::Component) -> D<ColorSpec> {
 
 fn wire_string<'a>(
     portdef: ast::Portdef,
-    structure: &'a structure::StructureGraph,
+    structure: &structure::StructureGraph,
     idx: NodeIndex,
     name: &ast::Id,
 ) -> Option<D<'a, ColorSpec>> {
@@ -148,12 +182,13 @@ fn wire_string<'a>(
         .map(|(node, edge)| {
             D::text(node.get_name().to_string())
                 .append(" @ ")
-                .append(&edge.dest)
+                .append(edge.dest.to_string())
         })
         .collect();
     if !dests.is_empty() {
-        let dest_comment =
-            D::text("// ").append(D::intersperse(dests, D::text(", ")));
+        let dest_comment = colors::comment(
+            D::text("// ").append(D::intersperse(dests, D::text(", "))),
+        );
         let wire_name =
             format!("{}${}", &name.to_string(), &portdef.name.to_string());
         Some(
@@ -253,11 +288,14 @@ fn signature_connections<'a>(
             comp.structure
                 .connected_from(idx, portdef.name.to_string())
                 .map(move |(src, edge)| {
-                    let wire_name = format!(
-                        "{}${}",
-                        &src.get_name().to_string(),
-                        &edge.src
-                    );
+                    let wire_name = match src {
+                        NodeData::Input(pd) | NodeData::Output(pd) => {
+                            pd.name.to_string()
+                        }
+                        NodeData::Instance { name, .. } => {
+                            format!("{}${}", name.to_string(), &edge.src)
+                        }
+                    };
                     D::text(".")
                         .append(colors::port(D::text(portdef.name.to_string())))
                         .append(parens(colors::ident(D::text(wire_name))))
@@ -284,4 +322,161 @@ fn signature_connections<'a>(
     });
 
     D::intersperse(incoming.chain(outgoing), D::text(",").append(D::line()))
+}
+
+//==========================================
+//        Control Generation
+//==========================================
+impl Emitable for ast::Control {
+    fn doc<'a>(
+        &self,
+        arena: &'a Bump,
+        comp: &component::Component,
+    ) -> D<'a, ColorSpec> {
+        let bits = necessary_bits(&comp.control);
+        state_variables(bits)
+            .append(D::line())
+            .append(D::line())
+            .append(state_transition())
+            .append(D::line())
+            .append(D::line())
+            .append(increment_state())
+            .append(D::line())
+            .append(D::line())
+            .append(seq_fsm(&arena, bits, &comp.control))
+    }
+}
+
+fn necessary_bits(control: &ast::Control) -> u64 {
+    let state_num = match control {
+        Control::Seq { data } => data.stmts.len(),
+        Control::Enable { .. } => 1,
+        _ => panic!("Should have been caught by validation check"),
+    };
+    (state_num as f64).log2().ceil() as u64 - 1
+}
+
+fn state_variables<'a>(bits: u64) -> D<'a, ColorSpec> {
+    colors::keyword(D::text("logic"))
+        .append(D::space())
+        .append(brackets(D::text(bits.to_string()).append(":0")))
+        .append(D::space())
+        .append("state, next_state;")
+}
+
+fn state_transition<'a>() -> D<'a, ColorSpec> {
+    colors::comment(D::text("// state transition (counter)"))
+        .append(D::line())
+        .append(colors::define(D::text("always_ff")))
+        .append(D::space())
+        .append("@(posedge clk)")
+        .append(D::space())
+        .append(colors::keyword(D::text("begin")))
+        .append(
+            D::line()
+                .append(colors::keyword(D::text("if")))
+                .append(D::space())
+                .append("(reset)")
+                .append(D::line().append("state <= 0;").nest(2))
+                .append(D::line())
+                .append(colors::keyword(D::text("else")))
+                .append(D::line().append("state <= next_state;").nest(2))
+                .nest(2),
+        )
+        .append(D::line())
+        .append(colors::keyword(D::text("end")))
+}
+
+fn increment_state<'a>() -> D<'a, ColorSpec> {
+    colors::comment(D::text("// next state logic"))
+        .append(D::line())
+        .append(colors::define(D::text("always_comb")))
+        .append(D::space())
+        .append(colors::keyword(D::text("begin")))
+        .append(D::line().append(D::text("next_state = state + 1;")).nest(2))
+        .append(D::line())
+        .append(colors::keyword(D::text("end")))
+}
+
+fn seq_fsm<'a>(
+    arena: &'a Bump,
+    bits: u64,
+    control: &ast::Control,
+) -> D<'a, ColorSpec> {
+    let all = get_all_used(&arena, control);
+    let states = match control {
+        Control::Seq { data } => {
+            let doc =
+                data.stmts.iter().enumerate().map(|(i, stmt)| match stmt {
+                    Control::Enable { data } => {
+                        D::text(format!("{}'d{}:", bits, i))
+                            .append(D::space())
+                            .append(colors::keyword(D::text("begin")))
+                            .append(
+                                D::line()
+                                    .append(fsm_output_state(
+                                        &all,
+                                        data.clone(),
+                                    ))
+                                    .nest(2),
+                            )
+                            .append(D::line())
+                            .append(colors::keyword(D::text("end")))
+                    }
+                    _ => D::nil(),
+                });
+            D::intersperse(doc, D::line())
+        }
+        _ => D::nil(),
+    };
+
+    colors::comment(D::text("// sequential fsm"))
+        .append(D::line())
+        .append(colors::define(D::text("always_comb")))
+        .append(D::space())
+        .append(colors::keyword(D::text("begin")))
+        .append(
+            D::line()
+                .append(colors::keyword(D::text("case")))
+                .append(D::space())
+                .append("(state)")
+                .append(D::line().append(states).nest(2))
+                .append(D::line())
+                .append(colors::keyword(D::text("endcase")))
+                .nest(2),
+        )
+        .append(D::line())
+        .append(colors::keyword(D::text("end")))
+}
+
+fn fsm_output_state(all_ids: &[ast::Id], enable: ast::Enable) -> D<ColorSpec> {
+    let docs = all_ids.iter().map(|id| {
+        if enable.comps.contains(id) {
+            D::text(id.as_ref()).append(D::space()).append("= 1;")
+        } else {
+            D::text(id.as_ref()).append(D::space()).append("= 0;")
+        }
+    });
+    D::intersperse(docs, D::line())
+}
+
+fn get_all_used<'a>(arena: &'a Bump, control: &ast::Control) -> &'a [ast::Id] {
+    let comps = match control {
+        Control::Enable { data } => data.comps.clone(),
+        Control::Seq { data } => data
+            .stmts
+            .iter()
+            .map(|stmt| {
+                if let Control::Enable { data } = stmt {
+                    data.comps.clone()
+                } else {
+                    vec![]
+                }
+            })
+            .flatten()
+            .unique()
+            .collect(),
+        _ => vec![],
+    };
+    arena.alloc(comps)
 }
