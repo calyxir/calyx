@@ -88,7 +88,7 @@ impl Emitable for ast::Portdef {
         _ctx: &component::Component,
     ) -> D<'a, ColorSpec> {
         // XXX(sam) why would we not use wires?
-        colors::keyword(D::text("wire"))
+        colors::keyword(D::text("logic"))
             .append(D::space())
             .append(bit_width(self.width))
             .append(D::space())
@@ -128,7 +128,7 @@ fn valid_declarations<'a>(
     let all = get_all_used(&arena, &comp.control);
     let docs = all.iter().map(|id| {
         let name = format!("{}$valid", id.as_ref());
-        colors::keyword(D::text("wire"))
+        colors::keyword(D::text("logic"))
             .append(D::space())
             .append(colors::ident(D::text(name)))
             .append(";")
@@ -291,6 +291,7 @@ fn signature_connections<'a>(
         .append(parens(colors::ident(D::text(valid_wire))));
 
     D::intersperse(incoming.chain(outgoing), D::text(",").append(D::line()))
+        .append(",")
         .append(D::line())
         .append(valid)
 }

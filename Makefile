@@ -6,10 +6,9 @@ clean:
 %.futil: %.fuse
 	fuse -b futil $< > $@
 
-%.v: examples/%.futil
+%.v: %.futil
 	echo '/* verilator lint_off PINMISSING */' > $@
-	echo '`include "sim/lib/std.v"' >> $@
-	echo '\n' >> $@
+	echo -e '`include "sim/lib/std.v"\n' >> $@
 	cargo run -- $< -l primitives/std.lib -b verilog >> $@
 
 %.vcd: %.v
