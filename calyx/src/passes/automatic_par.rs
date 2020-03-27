@@ -26,44 +26,68 @@ impl Visitor for AutomaticPar {
     fn finish_seq(
         &mut self,
         s: &mut ast::Seq,
-        _comp: &mut Component,
+        comp: &mut Component,
         _c: &Context,
     ) -> VisResult {
     
-        let prog: ast::NamespaceDef = _c.clone().into();
-        let mut wires = vec![];
-        for comp in &prog.components {
-            for stru in &comp.structure {
-                match stru {
-                    ast::Structure::Wire{data:d} => {
-                        wires.push(d.clone())
-                    }
-                    _ => continue,
-                }
-            }
-        }
+        let mut seqs = s.clone();
         let mut enabled: Vec<String> = vec![];
         let mut done = false;
         let mut i = 0;
         use ast::Control::Enable;
         while !done {
-            if i==&s.stmts.len()-2 {
+            if i==&seqs.stmts.len()-2 {
                 done = true;
             }
-            i += 1;
-            match (&s.stmts[i-1], &s.stmts[i]) {
-                (Enable { data: s1 }, Enable { data: s2 }) => {
-                    for en_comp in &s1.comps {
-                        print!("{:?}", en_comp);
+            match (&seqs.stmts[i], &seqs.stmts[i+1]) {
+                (Enable { data: enables1 }, Enable { data: enables2}) => {
+                    let mut en_index1 = vec![];
+                    let mut en_index2 = vec![];
+                    for en_comp in &enables1.comps {
+                        //print!("{:?}", en_comp);
+                        en_index1.push( (comp.structure.get_inst_index(en_comp)?).clone() );
+                        
                     }
-                    for en_comp in &s2.comps {
-                        print!("{:?}", en_comp);
+                    for en_comp in &enables2.comps {
+                        en_index2.push( (comp.structure.get_inst_index(en_comp)?).clone() );
                     }
-                    //seqs.append(&mut data.stmts.clone());
+                    let mut changeable = true;
+                    for e1 in &en_index1 {
+                        for e2 in &en_index2{
+                            if e1 == e2 {
+                                changeable=false;
+                                break
+                            }else{
+                                match comp.structure.graph.find_edge(*e1,*e2) {
+                                    Some(_) => {
+                                        changeable=false;
+                                        break;
+                                    }
+                                    None => continue,
+                                }
+                            }
+                        }
+                        if !changeable {
+                            break;
+                        }
+                    }
+                    if !changeable {
+                        i+=1;
+                    } else {
+                        let merge_enable: Vec<ast::Id> = enables1
+                                    .comps
+                                    .clone()
+                                    .into_iter()
+                                    .chain(enables2.comps.clone().into_iter())
+                                    .collect();
+                        seqs.stmts[i] = ast::Control::enable(merge_enable);
+                        seqs.stmts.remove(i+1);
+                    }
+                    
                 }
                 _ => continue,
             }
         }
-        Ok(Action::Continue)
+        Ok(Action::Change(ast::Control::Seq{data:seqs}))
     }
 }
