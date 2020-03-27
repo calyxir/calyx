@@ -2,12 +2,12 @@ use crate::lang::component::Component;
 use crate::lang::{ast, context::Context};
 use crate::passes::visitor::{Action, VisResult, Visitor};
 
-/// Pass that collapses 
+/// Pass that collapses
 ///(seq
 ///    (seq (enable A B)
 ///         (enable C D))
 /// ..)
-/// into 
+/// into
 /// (seq (enable A B C D)
 ///  ..)
 /// given that there are no edges between the sub-graphs induced by (enable A B) and (enable C D)
@@ -29,38 +29,39 @@ impl Visitor for AutomaticPar {
         comp: &mut Component,
         _c: &Context,
     ) -> VisResult {
-    
         let mut seqs = s.clone();
         let mut enabled: Vec<String> = vec![];
         let mut done = false;
         let mut i = 0;
         use ast::Control::Enable;
         while !done {
-            if i==&seqs.stmts.len()-2 {
+            if i == &seqs.stmts.len() - 2 {
                 done = true;
             }
-            match (&seqs.stmts[i], &seqs.stmts[i+1]) {
-                (Enable { data: enables1 }, Enable { data: enables2}) => {
+            match (&seqs.stmts[i], &seqs.stmts[i + 1]) {
+                (Enable { data: enables1 }, Enable { data: enables2 }) => {
                     let mut en_index1 = vec![];
                     let mut en_index2 = vec![];
                     for en_comp in &enables1.comps {
-                        //print!("{:?}", en_comp);
-                        en_index1.push( (comp.structure.get_inst_index(en_comp)?).clone() );
-                        
+                        en_index1.push(
+                            (comp.structure.get_inst_index(en_comp)?).clone(),
+                        );
                     }
                     for en_comp in &enables2.comps {
-                        en_index2.push( (comp.structure.get_inst_index(en_comp)?).clone() );
+                        en_index2.push(
+                            (comp.structure.get_inst_index(en_comp)?).clone(),
+                        );
                     }
                     let mut changeable = true;
                     for e1 in &en_index1 {
-                        for e2 in &en_index2{
+                        for e2 in &en_index2 {
                             if e1 == e2 {
-                                changeable=false;
-                                break
-                            }else{
-                                match comp.structure.graph.find_edge(*e1,*e2) {
+                                changeable = false;
+                                break;
+                            } else {
+                                match comp.structure.graph.find_edge(*e1, *e2) {
                                     Some(_) => {
-                                        changeable=false;
+                                        changeable = false;
                                         break;
                                     }
                                     None => continue,
@@ -72,22 +73,21 @@ impl Visitor for AutomaticPar {
                         }
                     }
                     if !changeable {
-                        i+=1;
+                        i += 1;
                     } else {
                         let merge_enable: Vec<ast::Id> = enables1
-                                    .comps
-                                    .clone()
-                                    .into_iter()
-                                    .chain(enables2.comps.clone().into_iter())
-                                    .collect();
+                            .comps
+                            .clone()
+                            .into_iter()
+                            .chain(enables2.comps.clone().into_iter())
+                            .collect();
                         seqs.stmts[i] = ast::Control::enable(merge_enable);
-                        seqs.stmts.remove(i+1);
+                        seqs.stmts.remove(i + 1);
                     }
-                    
                 }
                 _ => continue,
             }
         }
-        Ok(Action::Change(ast::Control::Seq{data:seqs}))
+        Ok(Action::Change(ast::Control::Seq { data: seqs }))
     }
 }
