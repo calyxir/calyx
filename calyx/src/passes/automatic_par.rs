@@ -30,7 +30,6 @@ impl Visitor for AutomaticPar {
         _c: &Context,
     ) -> VisResult {
         let mut seqs = s.clone();
-        let mut enabled: Vec<String> = vec![];
         let mut done = false;
         let mut i = 0;
         use ast::Control::Enable;
