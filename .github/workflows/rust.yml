@@ -12,7 +12,8 @@ jobs:
     - name: Install runt
       uses: actions-rs/cargo@v1
       with:
-        command: install runt
+        command: install
+        args: runt
     - name: Build
       uses: actions-rs/cargo@v1
       with:
