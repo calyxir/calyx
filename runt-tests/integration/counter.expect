@@ -1,5 +1,0 @@
----CODE---
-1
----STDOUT---
----STDERR---
-Error: Malformed Control. Backend expected Control to be in a different form.

@@ -1,6 +1,3 @@
----CODE---
-0
----STDOUT---
 // Component Signature
 module main
 (
@@ -28,4 +25,4 @@ std_reg #(4, 0) y0 (
 std_const #(4, 10) const1 (
     .out(const1$out)
 );
-endmodule // end main---STDERR---
+endmodule // end main

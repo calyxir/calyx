@@ -1,6 +1,3 @@
----CODE---
-0
----STDOUT---
 // Component Signature
 module main
 (
@@ -76,4 +73,4 @@ std_not #(1) const4_not (
     .in(gt0$out),
     .out(const4_not$out)
 );
-endmodule // end main---STDERR---
+endmodule // end main
