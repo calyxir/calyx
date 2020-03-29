@@ -1,0 +1,76 @@
+---CODE---
+0
+---STDOUT---
+// Component Signature
+module main
+(
+    input wire  valid,
+    output wire  ready
+);
+
+// Wire declarations
+wire [15:0] x0$out; // gt0 @ left
+wire [15:0] const0$out; // x0 @ in
+wire [15:0] const1$out; // x0 @ in
+wire [15:0] const2$out; // x0 @ in
+wire gt0$out; // const5_not @ in, x0_not @ in, const4 @ valid, x0 @ valid
+wire [15:0] const3$out; // gt0 @ right
+wire [15:0] const4$out; // x0 @ in
+wire [15:0] const5$out; // x0 @ in
+wire x0_not$out; // x0 @ valid
+wire const5_not$out; // const5 @ valid
+
+// Subcomponent Instances
+std_reg #(16, 0) x0 (
+    .in(const5$out),
+    .in(const4$out),
+    .in(const2$out),
+    .in(const1$out),
+    .in(const0$out),
+    .valid(x0_not$out),
+    .valid(gt0$out),
+    .out(x0$out)
+);
+
+std_const #(16, 0) const0 (
+    .out(const0$out)
+);
+
+std_const #(16, 1) const1 (
+    .out(const1$out)
+);
+
+std_const #(16, 2) const2 (
+    .out(const2$out)
+);
+
+std_gt #(16) gt0 (
+    .left(x0$out),
+    .right(const3$out),
+    .out(gt0$out)
+);
+
+std_const #(16, 1) const3 (
+    .out(const3$out)
+);
+
+std_const #(16, 2) const4 (
+    .valid(gt0$out),
+    .out(const4$out)
+);
+
+std_const #(16, 4) const5 (
+    .valid(const5_not$out),
+    .out(const5$out)
+);
+
+std_not #(1) x0_not (
+    .in(gt0$out),
+    .out(x0_not$out)
+);
+
+std_not #(1) const5_not (
+    .in(gt0$out),
+    .out(const5_not$out)
+);
+endmodule // end main---STDERR---

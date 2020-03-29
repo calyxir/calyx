@@ -5,6 +5,7 @@ An intermediate language for [Dahlia][].
 
 ### Installation
 - Install [Rust][rust].
+- Install [runt][] by running `cargo install runt`.
 - Run `cargo build` to download all dependencies and build calyx.
 - Run `./target/debug/calyx --help` to get options from the calyx binary.
 
@@ -54,3 +55,4 @@ requires to install [Dahlia][] first.
 [rust]: https://doc.rust-lang.org/cargo/getting-started/installation.html
 [dahlia]: https://github.com/cucapra/dahlia
 [structopt]: https://docs.rs/structopt/0.3.11/structopt/
+[runt]: https://github.com/rachitnigam/runt
