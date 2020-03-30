@@ -79,4 +79,12 @@
 
   (define/prim std_le (p_width)
     ((port left p_width) (port right p_width) (port valid 1))
-    ((port out 1) (port ready 1))))
+    ((port out 1) (port ready 1)))
+
+  (define/prim std_start_fsm ()
+    ((port valid 1) (port reset 1) (port clk 1))
+    ((port out 1)))
+
+  (define/prim std_fsm_state ()
+    ((port in 1) (port reset 1) (port clk 1))
+    ((port out 1))))

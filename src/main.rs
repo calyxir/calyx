@@ -11,12 +11,18 @@ fn main() -> Result<(), errors::Error> {
     let mut names: NameGenerator = NameGenerator::default();
 
     let context = context::Context::from_opts(&opts)?;
-    passes::lat_insensitive::LatencyInsenstive::do_pass_default(&context)?;
+
+    // optimizations
     passes::redundant_par::RedundantPar::do_pass_default(&context)?;
     passes::remove_if::RemoveIf::do_pass_default(&context)?;
     passes::collapse_seq::CollapseSeq::do_pass_default(&context)?;
-    passes::connect_clock::ConnectClock::do_pass_default(&context)?;
+
+    // fsm generation
     passes::fsm_seq::FsmSeq::new(&mut names).do_pass(&context)?;
+
+    // interfacing generation
+    passes::lat_insensitive::LatencyInsenstive::do_pass_default(&context)?;
+    passes::connect_clock::ConnectClock::do_pass_default(&context)?;
 
     opts.backend.run(&context, std::io::stdout())?;
 

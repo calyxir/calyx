@@ -27,20 +27,22 @@ impl<'a> FsmSeq<'a> {
         FsmSeq { names }
     }
 
-    fn add_state_comp(
+    /// Helper for constructing `fsm_expander` components.
+    fn add_state_expander(
         &mut self,
         this_comp: &mut Component,
         ctx: &Context,
         regs: &[(NodeIndex, &ast::Id)],
-    ) -> Result<(), errors::Error> {
+    ) -> Result<(NodeIndex, String), errors::Error> {
         // construct new component from signature
         let sig = ast::Signature {
-            inputs: vec![("valid", 1).into()],
+            inputs: vec![("valid", 1).into(), ("clk", 1).into()],
             outputs: regs
                 .iter()
                 .map(|(_, id)| (id.as_ref(), 1).into())
                 .collect(),
         };
+        let name = self.names.gen_name("fsm_expander");
         let mut new_comp =
             Component::from_signature(self.names.gen_name("fsm_expander"), sig);
 
@@ -70,7 +72,33 @@ impl<'a> FsmSeq<'a> {
         // add the new component to the namespace
         ctx.insert_component(new_comp);
 
-        Ok(())
+        Ok((new_idx, name))
+    }
+
+    /// Helper for constructing `fsm_expander` components.
+    fn add_fsm_state(
+        &mut self,
+        this_comp: &mut Component,
+        ctx: &Context,
+        expander: NodeIndex,
+    ) -> Result<(NodeIndex, String), errors::Error> {
+        // construct fsm state primitive
+        let name = self.names.gen_name("fsm_state");
+        let fsm_state_prim =
+            ctx.instantiate_primitive(&name, &"std_fsm_state".into(), &[])?;
+        let prim_idx = this_comp.structure.add_primitive(
+            &name.clone().into(),
+            "std_fsm_state",
+            &fsm_state_prim,
+            &[],
+        );
+
+        // add edges from state to component
+        this_comp
+            .structure
+            .insert_edge(prim_idx, "out", expander, "valid")?;
+
+        Ok((prim_idx, name))
     }
 }
 
@@ -115,10 +143,39 @@ impl Visitor for FsmSeq<'_> {
             })
             .collect::<Vec<_>>();
 
-        for reg in regs {
-            self.add_state_comp(comp, ctx, &reg)?;
+        // construct fsm start state
+        let name = self.names.gen_name("start_fsm");
+        let start_prim =
+            ctx.instantiate_primitive(&name, &"std_start_fsm".into(), &[])?;
+        let mut prev_idx = comp.structure.add_primitive(
+            &name.into(),
+            "std_start_fsm",
+            &start_prim,
+            &[],
+        );
+
+        let mut enable_names = vec![];
+
+        for reg in regs.iter() {
+            let (expander, ex_name) =
+                self.add_state_expander(comp, ctx, &reg)?;
+            let (state, st_name) = self.add_fsm_state(comp, ctx, expander)?;
+
+            enable_names.push(ex_name);
+            enable_names.push(st_name);
+
+            // add edge from prev_idx to new state
+            comp.structure.insert_edge(prev_idx, "out", state, "in")?;
+            prev_idx = state;
         }
 
-        Ok(Action::Continue)
+        Ok(Action::Change(Control::enable(
+            enable_names
+                .into_iter()
+                .map(|x| x.into())
+                .chain(regs.into_iter().flatten().map(|(_, x)| x.clone()))
+                .unique()
+                .collect(),
+        )))
     }
 }

@@ -213,8 +213,7 @@ impl PrettyPrint for Context {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         let def = self.definitions.borrow();
         RcDoc::intersperse(
-            def.iter()
-                .map(|(k, v)| (k.clone(), v.clone()).prettify(&arena)),
+            def.iter().map(|(_, v)| v.clone().prettify(&arena)),
             RcDoc::line(),
         )
     }
