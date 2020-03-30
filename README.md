@@ -7,7 +7,7 @@ An intermediate language for [Dahlia][].
 - Install [Rust][rust].
 - Install [runt][] by running `cargo install runt`.
 - Run `cargo build` to download all dependencies and build calyx.
-- Run `runt ./runt-tests` to run tests.
+- Run `runt` to run tests.
 - Run `./target/debug/calyx --help` to get options from the calyx binary.
 
 ### Compiler Development
