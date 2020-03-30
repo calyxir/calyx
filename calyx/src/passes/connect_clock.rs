@@ -3,12 +3,14 @@ use crate::lang::{
 };
 use crate::passes::visitor::{Action, VisResult, Visitor};
 
+/// Inserts wires from the `clk` input of each component
+/// to all subcomponents that have a `clk` input port.
 #[derive(Default)]
 pub struct ConnectClock {}
 
 impl Visitor for ConnectClock {
     fn name(&self) -> String {
-        "Latency Insenstive".to_string()
+        "Connect Clocks".to_string()
     }
 
     fn start(&mut self, comp: &mut Component, _c: &Context) -> VisResult {

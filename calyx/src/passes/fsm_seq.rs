@@ -1,107 +1,124 @@
-use crate::lang::ast::*;
-use crate::passes::visitor::{Changes, Visitor};
+use crate::errors;
+use crate::lang::{
+    ast, ast::Control, ast::Structure, component::Component, context::Context,
+};
+use crate::passes::visitor::{Action, VisResult, Visitor};
 use crate::utils::NameGenerator;
+use itertools::Itertools;
+use petgraph::stable_graph::NodeIndex;
 
+/// For Control of the form (top level seq with only enables as children):
+/// ```lisp
+/// (seq (enable A B)
+///      (enable B C)
+///       ...)
+/// ```
+/// this pass generates an FSM that simulates the behavior
+/// of the `seq` in structure. It works by generating a `state`
+/// component for each `enable` statement and generating
+/// signals that connect to the `write_en` port of each register
+/// in the `enable` sub-graph.
 pub struct FsmSeq<'a> {
     names: &'a mut NameGenerator,
 }
 
-impl FsmSeq<'_> {
-    pub fn new(names: &mut NameGenerator) -> FsmSeq {
+impl<'a> FsmSeq<'a> {
+    pub fn new(names: &'a mut NameGenerator) -> Self {
         FsmSeq { names }
+    }
+
+    fn add_state_comp(
+        &mut self,
+        this_comp: &mut Component,
+        ctx: &Context,
+        regs: &[(NodeIndex, &ast::Id)],
+    ) -> Result<(), errors::Error> {
+        // construct new component from signature
+        let sig = ast::Signature {
+            inputs: vec![("valid", 1).into()],
+            outputs: regs
+                .iter()
+                .map(|(_, id)| (id.as_ref(), 1).into())
+                .collect(),
+        };
+        let mut new_comp =
+            Component::from_signature(self.names.gen_name("fsm_expander"), sig);
+
+        // instantiate new fsm comp in this comp
+        let new_idx = this_comp.structure.add_instance(
+            &new_comp.name,
+            &new_comp,
+            Structure::decl(new_comp.name.clone(), new_comp.name.clone()),
+        );
+
+        // add internal edges to new component
+        let st = &mut new_comp.structure;
+        let valid_idx = st.get_io_index("valid")?;
+        for (idx, output) in regs.iter() {
+            st.insert_edge(
+                valid_idx,
+                "valid",
+                st.get_io_index(&output)?,
+                &output,
+            )?;
+
+            this_comp
+                .structure
+                .insert_edge(new_idx, &output, *idx, "write_en")?;
+        }
+
+        // add the new component to the namespace
+        ctx.insert_component(new_comp);
+
+        Ok(())
     }
 }
 
-impl Visitor<String> for FsmSeq<'_> {
+impl Visitor for FsmSeq<'_> {
     fn name(&self) -> String {
-        "FSM seq".to_string()
+        "Fsm Seq".to_string()
     }
 
-    fn start_seq(
+    fn finish_seq(
         &mut self,
-        seq: &mut Seq,
-        changes: &mut Changes,
-    ) -> Result<(), String> {
-        // make input ports for enable fsm component
-        let val = Portdef {
-            name: "valid".to_string(),
-            width: 1,
-        };
-        // make output ports for enable fsm component
-        let rdy = Portdef {
-            name: "ready".to_string(),
-            width: 1,
-        };
-
-        let component_name = self.names.gen_name("fsm_seq_");
-        println!("{}", component_name);
-
-        let mut inputs: Vec<Portdef> = vec![val];
-        let mut outputs: Vec<Portdef> = vec![rdy];
-
-        for con in &mut seq.stmts {
-            match con {
-                Control::Enable { data } => {
-                    if data.comps.len() != 1 {
-                        println!("nope!");
-                        return Ok(());
-                    }
-                    let comp = &data.comps[0];
-                    let ready = Portdef {
-                        name: format!("ready_{}", comp),
-                        width: 1,
-                    };
-                    let valid = Portdef {
-                        name: format!("valid_{}", comp),
-                        width: 1,
-                    };
-                    let ready_wire = Wire {
-                        src: Port::Comp {
-                            component: comp.to_string(),
-                            port: "ready".to_string(),
-                        },
-                        dest: Port::Comp {
-                            component: component_name.clone(),
-                            port: ready.name.clone(),
-                        },
-                    };
-                    let valid_wire = Wire {
-                        src: Port::Comp {
-                            component: component_name.clone(),
-                            port: valid.name.clone(),
-                        },
-                        dest: Port::Comp {
-                            component: comp.to_string(),
-                            port: "valid".to_string(),
-                        },
-                    };
-                    inputs.push(ready);
-                    outputs.push(valid);
-                    changes.add_structure(Structure::Wire { data: ready_wire });
-                    changes.add_structure(Structure::Wire { data: valid_wire });
-                }
-                _ => {
-                    println!("nope!");
-                    return Ok(());
-                }
+        s: &mut ast::Seq,
+        comp: &mut Component,
+        ctx: &Context,
+    ) -> VisResult {
+        let mut enables: Vec<ast::Enable> = vec![];
+        for stmt in &s.stmts {
+            match stmt {
+                Control::Enable { data } => enables.push(data.clone()),
+                _ => return Ok(Action::Continue),
             }
         }
 
-        let component = ComponentDef {
-            name: component_name.clone(),
-            signature: Signature { inputs, outputs },
-            structure: vec![],
-            control: Control::empty(),
-        };
+        let regs: Vec<_> = enables
+            .iter()
+            .map(|x| {
+                x.comps
+                    .iter()
+                    .map(|c| {
+                        let idx = comp.structure.get_inst_index(&c)?;
+                        if comp.structure.graph[idx].get_component_type()?
+                            == "std_reg"
+                        {
+                            Ok((idx, c))
+                        } else {
+                            Err(errors::Error::Misc(
+                                "thing not found".to_string(),
+                            ))
+                        }
+                    })
+                    .filter_map(Result::ok)
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
 
-        changes.add_structure(Structure::decl(
-            component.name.clone(),
-            component.name.clone(),
-        ));
+        for reg in regs {
+            self.add_state_comp(comp, ctx, &reg)?;
+        }
 
-        changes.add_component(component);
-        changes.change_node(Control::enable(vec![component_name]));
-        changes.commit();
-        Ok(())
+        Ok(Action::Continue)
     }
 }

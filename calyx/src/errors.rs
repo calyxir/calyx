@@ -15,8 +15,10 @@ pub enum Error {
     UndefinedComponent(ast::Id),
     SignatureResolutionFailed(ast::Id),
     MalformedControl, // XXX(sam) add more info to this
+    NotSubcomponent,
     #[allow(unused)]
     Misc(String),
+    Impossible,
 }
 
 impl std::fmt::Debug for Error {
@@ -39,7 +41,9 @@ impl std::fmt::Debug for Error {
                 write!(f, "Failed to resolve portdef: {:?}", id)
             }
             MalformedControl => write!(f, "Malformed Control. Backend expected Control to be in a different form."),
+            NotSubcomponent => write!(f, "Not a subcomponent"),
             Misc(msg) => write!(f, "{}", msg),
+            Impossible => write!(f, "This was supposed to be impossible.")
         }
     }
 }

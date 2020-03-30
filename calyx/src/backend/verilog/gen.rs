@@ -29,14 +29,14 @@ impl Backend for VerilogBackend {
         let prog: ast::NamespaceDef = ctx.clone().into();
         for comp in &prog.components {
             match &comp.control {
-                Control::Seq { data } => {
-                    for con in &data.stmts {
-                        match con {
-                            Control::Enable { .. } => (),
-                            _ => return Err(errors::Error::MalformedControl),
-                        }
-                    }
-                }
+                // Control::Seq { data } => {
+                //     for con in &data.stmts {
+                //         match con {
+                //             Control::Enable { .. } => (),
+                //             _ => return Err(errors::Error::MalformedControl),
+                //         }
+                //     }
+                // }
                 Control::Enable { .. } => (),
                 _ => return Err(errors::Error::MalformedControl),
             }

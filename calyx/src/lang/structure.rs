@@ -1,6 +1,6 @@
 use crate::errors;
 use crate::lang::{ast, component};
-use ast::Port;
+use ast::{Port, Structure};
 use component::Component;
 use errors::Error;
 use petgraph::dot::{Config, Dot};
@@ -27,6 +27,19 @@ impl NodeData {
             NodeData::Input(pd) => &pd.name,
             NodeData::Output(pd) => &pd.name,
             NodeData::Instance { name, .. } => &name,
+        }
+    }
+
+    pub fn get_component_type(&self) -> Result<&ast::Id, errors::Error> {
+        match self {
+            NodeData::Input { .. } | NodeData::Output { .. } => {
+                Err(errors::Error::NotSubcomponent)
+            }
+            NodeData::Instance { structure, .. } => match structure {
+                Structure::Wire { .. } => Err(errors::Error::Impossible),
+                Structure::Std { data } => Ok(&data.instance.name),
+                Structure::Decl { data } => Ok(&data.component),
+            },
         }
     }
 }
