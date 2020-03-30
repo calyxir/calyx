@@ -1,0 +1,4 @@
+[[tests]]
+name = "Integration tests"
+paths = [ "tests/integration/*.futil" ]
+cmd = "./target/debug/futil {} -l ./primitives/std.lib"

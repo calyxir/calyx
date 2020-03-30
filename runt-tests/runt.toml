@@ -1,6 +1,0 @@
-name = "FuTIL Tests"
-
-[[tests]]
-name = "Integration tests"
-paths = [ "integration/*.futil" ]
-cmd = "../target/debug/futil {} -l ../primitives/std.lib"
