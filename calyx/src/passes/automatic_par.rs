@@ -31,7 +31,7 @@ impl Visitor for AutomaticPar {
     ) -> VisResult {
         let st = &mut comp.structure;
 
-        // get first enable statement and it's index. this will act
+        // get first enable statement and its index. this will act
         // as the accumulator for the statement that we are collapsing
         // things into
         let (start, mut cmp_acc) = match seq.stmts.iter().enumerate().find_map(
@@ -44,6 +44,8 @@ impl Visitor for AutomaticPar {
             None => return Ok(Action::Continue),
         };
 
+        // vec of new control statements including all elements up to the first
+        // enable that we find
         let mut new_stmts: Vec<ast::Control> = seq.stmts[..start].to_vec();
 
         // start interation from the second item because the first
