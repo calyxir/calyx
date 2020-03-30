@@ -1,0 +1,28 @@
+// Component Signature
+module main
+(
+    input wire  valid,
+    output wire  ready
+);
+
+// Wire declarations
+wire [3:0] const0$out; // x0 @ in
+wire [3:0] const1$out; // y0 @ in
+
+// Subcomponent Instances
+std_reg #(4, 0) x0 (
+    .in(const0$out)
+);
+
+std_const #(4, 0) const0 (
+    .out(const0$out)
+);
+
+std_reg #(4, 0) y0 (
+    .in(const1$out)
+);
+
+std_const #(4, 10) const1 (
+    .out(const1$out)
+);
+endmodule // end main
