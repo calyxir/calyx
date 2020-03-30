@@ -29,23 +29,31 @@ impl Visitor for AutomaticPar {
         comp: &mut Component,
         _: &Context,
     ) -> VisResult {
-        let mut seqs = seq.clone();
-        let mut done = false;
-        let mut i = 0;
-
         let st = &mut comp.structure;
-        while !done {
-            if i == &seqs.stmts.len() - 2 {
-                done = true;
-            }
-            match (&seqs.stmts[i], &seqs.stmts[i + 1]) {
-                (
-                    Control::Enable { data: enables1 },
-                    Control::Enable { data: enables2 },
-                ) => {
+
+        // get first enable statement and it's index. this will act
+        // as the accumulator for the statement that we are collapsing
+        // things into
+        let (start, mut cmp_acc) = match seq.stmts.iter().enumerate().find_map(
+            |(i, stmt)| match stmt {
+                Control::Enable { data } => Some((i, data.clone())),
+                _ => None,
+            },
+        ) {
+            Some((s, c)) => (s, c),
+            None => return Ok(Action::Continue),
+        };
+
+        let mut new_stmts: Vec<ast::Control> = seq.stmts[..start].to_vec();
+
+        // start interation from the second item because the first
+        // is in `cmp_stmt`
+        for stmt in seq.stmts[start + 1..].iter() {
+            match stmt {
+                Control::Enable { data: enables2 } => {
                     let mut conflict = false;
                     // for every component in the first enable
-                    for en_comp in &enables1.comps {
+                    for en_comp in &cmp_acc.comps {
                         let idx = st.get_inst_index(en_comp)?;
                         // for every output, check if any incoming/outgoing edges
                         // contain a component in `enables2`
@@ -67,23 +75,18 @@ impl Visitor for AutomaticPar {
                             outgoing | incoming
                         });
                     }
-
                     if conflict {
-                        i += 1;
+                        new_stmts.push(Control::enable(cmp_acc.comps.clone()));
+                        // there was a conflict, set this to the new accumulator
+                        cmp_acc = enables2.clone();
                     } else {
-                        let merge_enable: Vec<ast::Id> = enables1
-                            .comps
-                            .clone()
-                            .into_iter()
-                            .chain(enables2.comps.clone().into_iter())
-                            .collect();
-                        seqs.stmts[i] = ast::Control::enable(merge_enable);
-                        seqs.stmts.remove(i + 1);
+                        cmp_acc.comps.append(&mut enables2.comps.clone());
                     }
                 }
-                _ => continue,
+                _ => new_stmts.push(stmt.clone()),
             }
         }
-        Ok(Action::Change(ast::Control::Seq { data: seqs }))
+        new_stmts.push(Control::enable(cmp_acc.comps));
+        Ok(Action::Change(Control::seq(new_stmts)))
     }
 }
