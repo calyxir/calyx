@@ -1,7 +1,7 @@
 use crate::backend::traits::{Backend, Emitable};
 use crate::errors;
-use crate::lang::pretty_print::{display, parens};
-use crate::lang::{ast, colors, component, context, structure};
+use crate::lang::pretty_print::{display, PrettyHelper};
+use crate::lang::{ast, colors::ColorHelper, component, context, structure};
 use petgraph::graph::NodeIndex;
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc as D;
@@ -58,16 +58,17 @@ impl Emitable for ast::ComponentDef {
     fn doc<'a>(&'a self, comp: &'a component::Component) -> D<'a, ColorSpec> {
         D::text("// Component Signature")
             .append(D::line())
-            .append(colors::define(D::text("module")))
+            .append(D::text("module").define_color())
             .append(D::space())
             .append(self.name.as_ref())
             .append(D::line())
-            .append(parens(
+            .append(
                 D::line()
                     .append(self.signature.doc(&comp))
                     .nest(4)
-                    .append(D::line()),
-            ))
+                    .append(D::line())
+                    .parens(),
+            )
             .append(";")
             .append(D::line())
             .append(D::line())
@@ -80,7 +81,7 @@ impl Emitable for ast::ComponentDef {
             .append(D::line())
             .append(subcomponent_instances(&comp))
             .append(D::line())
-            .append(colors::define(D::text("endmodule")))
+            .append(D::text("endmodule").define_color())
             .append(D::space())
             .append(format!("// end {}", self.name.as_ref()))
     }
@@ -89,12 +90,14 @@ impl Emitable for ast::ComponentDef {
 impl Emitable for ast::Signature {
     fn doc<'a>(&'a self, comp: &'a component::Component) -> D<'a, ColorSpec> {
         let inputs = self.inputs.iter().map(|pd| {
-            colors::port(D::text("input"))
+            D::text("input")
+                .port_color()
                 .append(D::space())
                 .append(pd.doc(&comp))
         });
         let outputs = self.outputs.iter().map(|pd| {
-            colors::port(D::text("output"))
+            D::text("output")
+                .port_color()
                 .append(D::space())
                 .append(pd.doc(&comp))
         });
@@ -105,7 +108,8 @@ impl Emitable for ast::Signature {
 impl Emitable for ast::Portdef {
     fn doc(&self, _ctx: &component::Component) -> D<ColorSpec> {
         // XXX(sam) why would we not use wires?
-        colors::keyword(D::text("wire"))
+        D::text("wire")
+            .keyword_color()
             .append(D::space())
             .append(bit_width(self.width))
             .append(D::space())
@@ -157,10 +161,11 @@ fn wire_string<'a>(
         let wire_name =
             format!("{}${}", &name.to_string(), &portdef.name.to_string());
         Some(
-            colors::keyword(D::text("wire"))
+            D::text("wire")
+                .keyword_color()
                 .append(D::space())
                 .append(bit_width(portdef.width))
-                .append(colors::ident(D::text(wire_name)))
+                .append(D::text(wire_name).ident_color())
                 .append(";")
                 .append(D::space())
                 .append(dest_comment),
@@ -195,14 +200,15 @@ fn subcomponent_instances<'a>(comp: &component::Component) -> D<'a, ColorSpec> {
         {
             let doc = subcomponent_sig(&name, &structure)
                 .append(D::space())
-                .append(parens(
+                .append(
                     D::line()
                         .append(signature_connections(
                             &name, &signature, &comp, idx,
                         ))
                         .nest(4)
-                        .append(D::line()),
-                ))
+                        .append(D::line())
+                        .parens(),
+                )
                 .append(";");
             Some(doc)
         } else {
@@ -225,16 +231,18 @@ fn subcomponent_sig<'a>(
         }
     };
 
-    colors::ident(D::text(name.to_string()))
+    D::text(name.to_string())
+        .ident_color()
         .append(D::line())
         .append("#")
-        .append(parens(
+        .append(
             D::intersperse(
                 params.iter().map(|param| D::text(param.to_string())),
                 D::text(",").append(D::line()),
             )
-            .group(),
-        ))
+            .group()
+            .parens(),
+        )
         .append(D::line())
         .append(id.to_string())
         .group()
@@ -259,8 +267,8 @@ fn signature_connections<'a>(
                         &edge.src
                     );
                     D::text(".")
-                        .append(colors::port(D::text(portdef.name.to_string())))
-                        .append(parens(colors::ident(D::text(wire_name))))
+                        .append(D::text(portdef.name.to_string()).port_color())
+                        .append(D::text(wire_name).port_color().parens())
                 })
         })
         .flatten();
@@ -275,8 +283,8 @@ fn signature_connections<'a>(
                 format!("{}${}", &name.to_string(), &portdef.name.to_string());
             Some(
                 D::text(".")
-                    .append(colors::port(D::text(portdef.name.to_string())))
-                    .append(parens(colors::ident(D::text(wire_name)))),
+                    .append(D::text(portdef.name.to_string()).port_color())
+                    .append(D::text(wire_name).ident_color().parens()),
             )
         } else {
             None

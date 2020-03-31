@@ -9,14 +9,17 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v1
+    - name: Install runt
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: runt
     - name: Build
       uses: actions-rs/cargo@v1
       with:
         command: build
     - name: Test
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
+      run: runt
   format:
     name: Check Formatting
     runs-on: ubuntu-latest
