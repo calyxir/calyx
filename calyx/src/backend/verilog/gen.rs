@@ -58,7 +58,7 @@ impl Emitable for ast::ComponentDef {
     fn doc<'a>(&'a self, comp: &'a component::Component) -> D<'a, ColorSpec> {
         D::text("// Component Signature")
             .append(D::line())
-            .append(D::text("module").define())
+            .append(D::text("module").define_color())
             .append(D::space())
             .append(self.name.as_ref())
             .append(D::line())
@@ -81,7 +81,7 @@ impl Emitable for ast::ComponentDef {
             .append(D::line())
             .append(subcomponent_instances(&comp))
             .append(D::line())
-            .append(D::text("endmodule").define())
+            .append(D::text("endmodule").define_color())
             .append(D::space())
             .append(format!("// end {}", self.name.as_ref()))
     }
@@ -91,13 +91,13 @@ impl Emitable for ast::Signature {
     fn doc<'a>(&'a self, comp: &'a component::Component) -> D<'a, ColorSpec> {
         let inputs = self.inputs.iter().map(|pd| {
             D::text("input")
-                .port()
+                .port_color()
                 .append(D::space())
                 .append(pd.doc(&comp))
         });
         let outputs = self.outputs.iter().map(|pd| {
             D::text("output")
-                .port()
+                .port_color()
                 .append(D::space())
                 .append(pd.doc(&comp))
         });
@@ -109,7 +109,7 @@ impl Emitable for ast::Portdef {
     fn doc(&self, _ctx: &component::Component) -> D<ColorSpec> {
         // XXX(sam) why would we not use wires?
         D::text("wire")
-            .keyword()
+            .keyword_color()
             .append(D::space())
             .append(bit_width(self.width))
             .append(D::space())
@@ -162,10 +162,10 @@ fn wire_string<'a>(
             format!("{}${}", &name.to_string(), &portdef.name.to_string());
         Some(
             D::text("wire")
-                .keyword()
+                .keyword_color()
                 .append(D::space())
                 .append(bit_width(portdef.width))
-                .append(D::text(wire_name).ident())
+                .append(D::text(wire_name).ident_color())
                 .append(";")
                 .append(D::space())
                 .append(dest_comment),
@@ -232,7 +232,7 @@ fn subcomponent_sig<'a>(
     };
 
     D::text(name.to_string())
-        .ident()
+        .ident_color()
         .append(D::line())
         .append("#")
         .append(
@@ -267,8 +267,8 @@ fn signature_connections<'a>(
                         &edge.src
                     );
                     D::text(".")
-                        .append(D::text(portdef.name.to_string()).port())
-                        .append(D::text(wire_name).port().parens())
+                        .append(D::text(portdef.name.to_string()).port_color())
+                        .append(D::text(wire_name).port_color().parens())
                 })
         })
         .flatten();
@@ -283,8 +283,8 @@ fn signature_connections<'a>(
                 format!("{}${}", &name.to_string(), &portdef.name.to_string());
             Some(
                 D::text(".")
-                    .append(D::text(portdef.name.to_string()).port())
-                    .append(D::text(wire_name).ident().parens()),
+                    .append(D::text(portdef.name.to_string()).port_color())
+                    .append(D::text(wire_name).ident_color().parens()),
             )
         } else {
             None
