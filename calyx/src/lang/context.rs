@@ -8,10 +8,21 @@ use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-/// Represents an entire Futil program. We use an unsafe `RefCell` for definitions
-/// so that we can provide inplace mutable access to the component for Visitors while
-/// also allowing Visitors to add definitions. We ensure safety through the Context
-/// interface.
+/// Represents an entire Futil program.  We are keeping all of the components in a `RefCell<HashMap>`.
+/// `RefCell` is a Rust mechanism that allows an immutable reference to be turned into
+/// a mutable reference. We use this to provide our desired visitor interface
+/// where each visitor gets mutable access to it's own component as well as immutable
+/// access to the global context to allow looking up definitions and primitives. Mutable
+/// access to it's own component is desirable because the structure is represented with a graph
+/// and graphs are ill-suited for functional style interfaces. We also need a way for
+/// visitors to add new component definitions to the context. However, we can't just give the visitor
+/// mutable access to the context, because we can't have mutable references to the context and mutable
+/// references to the component (part of the context) alive at the same time. We
+/// get around this restriction using `RefCell`s to give a mutable style interface
+/// to immutable references to the context. `RefCell`s in essence let us give controlled
+/// mutable access to the context. However, we give up on some of Rust's compile-time safety guarantees
+/// so we have to make sure to enforce these ourselves. (Note, `RefCell`s we only give up compile-time
+/// guarantees. `RefCell` checks the borrowing rules at run-time).
 #[derive(Debug, Clone)]
 pub struct Context {
     /// Enable debugging output.
