@@ -25,7 +25,7 @@ impl Visitor for RemoveIf {
 
     fn finish_if(
         &mut self,
-        con: &mut ast::If,
+        con: &ast::If,
         this_comp: &mut Component,
         ctx: &Context,
     ) -> VisResult {
