@@ -1,6 +1,6 @@
 use crate::lang::component::Component;
 use crate::lang::{ast, context::Context};
-use crate::passes::visitor::{Action, VisResult, Visitor};
+use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 
 /// Pass that collapses
 ///(seq
@@ -18,11 +18,17 @@ use crate::passes::visitor::{Action, VisResult, Visitor};
 #[derive(Default)]
 pub struct CollapseSeq {}
 
-impl Visitor for CollapseSeq {
-    fn name(&self) -> String {
-        "remove redudant seq".to_string()
+impl Named for CollapseSeq {
+    fn name() -> &'static str {
+        "collapse-seq"
     }
 
+    fn description() -> &'static str {
+        "removes redudant seq statements"
+    }
+}
+
+impl Visitor for CollapseSeq {
     // use finish_seq so that we collapse things on the way
     // back up the tree and potentially catch more cases
     fn finish_seq(
