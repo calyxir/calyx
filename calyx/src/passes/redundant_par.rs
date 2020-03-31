@@ -22,7 +22,7 @@ impl Visitor for RedundantPar {
     // back up the tree and potentially catch more cases
     fn finish_par(
         &mut self,
-        s: &mut ast::Par,
+        s: &ast::Par,
         _comp: &mut Component,
         _c: &Context,
     ) -> VisResult {

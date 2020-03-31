@@ -33,7 +33,7 @@ impl Visitor for CollapseSeq {
     // back up the tree and potentially catch more cases
     fn finish_seq(
         &mut self,
-        s: &mut ast::Seq,
+        s: &ast::Seq,
         _comp: &mut Component,
         _c: &Context,
     ) -> VisResult {

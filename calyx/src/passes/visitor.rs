@@ -116,7 +116,7 @@ pub trait Visitor {
 
     fn start_seq(
         &mut self,
-        _s: &mut Seq,
+        _s: &Seq,
         _comp: &mut Component,
         _c: &Context,
     ) -> VisResult {
@@ -125,7 +125,7 @@ pub trait Visitor {
 
     fn finish_seq(
         &mut self,
-        _s: &mut Seq,
+        _s: &Seq,
         _comp: &mut Component,
         _c: &Context,
     ) -> VisResult {
@@ -134,7 +134,7 @@ pub trait Visitor {
 
     fn start_par(
         &mut self,
-        _s: &mut Par,
+        _s: &Par,
         _comp: &mut Component,
         _c: &Context,
     ) -> VisResult {
@@ -143,7 +143,7 @@ pub trait Visitor {
 
     fn finish_par(
         &mut self,
-        _s: &mut Par,
+        _s: &Par,
         _comp: &mut Component,
         _x: &Context,
     ) -> VisResult {
@@ -152,7 +152,7 @@ pub trait Visitor {
 
     fn start_if(
         &mut self,
-        _s: &mut If,
+        _s: &If,
         _comp: &mut Component,
         _c: &Context,
     ) -> VisResult {
@@ -161,7 +161,7 @@ pub trait Visitor {
 
     fn finish_if(
         &mut self,
-        _s: &mut If,
+        _s: &If,
         _comp: &mut Component,
         _x: &Context,
     ) -> VisResult {
@@ -170,7 +170,7 @@ pub trait Visitor {
 
     fn start_while(
         &mut self,
-        _s: &mut While,
+        _s: &While,
         _comp: &mut Component,
         _c: &Context,
     ) -> VisResult {
@@ -179,7 +179,7 @@ pub trait Visitor {
 
     fn finish_while(
         &mut self,
-        _s: &mut While,
+        _s: &While,
         _comp: &mut Component,
         _x: &Context,
     ) -> VisResult {
@@ -188,7 +188,7 @@ pub trait Visitor {
 
     fn start_print(
         &mut self,
-        _s: &mut Print,
+        _s: &Print,
         _comp: &mut Component,
         _x: &Context,
     ) -> VisResult {
@@ -197,7 +197,7 @@ pub trait Visitor {
 
     fn finish_print(
         &mut self,
-        _s: &mut Print,
+        _s: &Print,
         _comp: &mut Component,
         _x: &Context,
     ) -> VisResult {
@@ -206,7 +206,7 @@ pub trait Visitor {
 
     fn start_enable(
         &mut self,
-        _s: &mut Enable,
+        _s: &Enable,
         _comp: &mut Component,
         _x: &Context,
     ) -> VisResult {
@@ -215,7 +215,7 @@ pub trait Visitor {
 
     fn finish_enable(
         &mut self,
-        _s: &mut Enable,
+        _s: &Enable,
         _comp: &mut Component,
         _x: &Context,
     ) -> VisResult {
@@ -224,7 +224,7 @@ pub trait Visitor {
 
     fn start_empty(
         &mut self,
-        _s: &mut Empty,
+        _s: &Empty,
         _comp: &mut Component,
         _x: &Context,
     ) -> VisResult {
@@ -233,7 +233,7 @@ pub trait Visitor {
 
     fn finish_empty(
         &mut self,
-        _s: &mut Empty,
+        _s: &Empty,
         _comp: &mut Component,
         _x: &Context,
     ) -> VisResult {
