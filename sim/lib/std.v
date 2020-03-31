@@ -234,10 +234,13 @@ module std_fsm_state
 
    logic        state;
 
-   assign out = state;
-
    always_ff @(posedge clk) begin
-      if (reset) state = 1'b0;
-      else state = in;
+      if (reset) state <= 1'b0;
+      else begin
+         state <= in;
+      end
    end
+
+   always_comb
+     out = state;
 endmodule
