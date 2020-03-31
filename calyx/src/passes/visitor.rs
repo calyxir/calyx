@@ -45,6 +45,20 @@ impl Action {
 
 pub type VisResult = Result<Action, errors::Error>;
 
+/// Trait that describes named things. Calling `do_pass` and `do_pass_default`
+/// require this to be implemented. This has to be a separate trait from `Visitor`
+/// because these methods don't recieve `self` which means that it is impossible
+/// to create dynamic trait objects.
+pub trait Named {
+    /// The name of a pass. Is used for identifying passes.
+    fn name() -> &'static str;
+
+    /// A short description of the pass.
+    fn description() -> &'static str {
+        "no description provided"
+    }
+}
+
 /// The `Visitor` trait parameterized on an `Error` type.
 /// For each node `x` in the Ast, there are the functions `start_x`
 /// and `finish_x`. The start functions are called at the beginning
@@ -52,11 +66,9 @@ pub type VisResult = Result<Action, errors::Error>;
 /// at the end of the traversal for each node. You can use the finish
 /// functions to wrap error with more information.
 pub trait Visitor {
-    fn name(&self) -> String;
-
     fn do_pass_default(context: &Context) -> Result<Self, errors::Error>
     where
-        Self: Default + Sized,
+        Self: Default + Sized + Named,
     {
         let mut visitor = Self::default();
         visitor.do_pass(&context)?;
@@ -65,7 +77,7 @@ pub trait Visitor {
 
     fn do_pass(&mut self, context: &Context) -> Result<(), errors::Error>
     where
-        Self: Sized,
+        Self: Sized + Named,
     {
         context.definitions_iter(|_id, mut comp| {
             let _ = self
@@ -85,7 +97,8 @@ pub trait Visitor {
 
         // Display intermediate futil program after running the pass.
         if context.debug_mode {
-            println!("=============== {} ==============", self.name());
+            println!("=============== {} ==============", Self::name());
+            println!("{}", Self::description());
             context.pretty_print();
             println!("================================================");
         }
