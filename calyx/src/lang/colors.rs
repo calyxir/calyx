@@ -1,38 +1,49 @@
 use pretty::termcolor::{Color, ColorSpec};
 use pretty::RcDoc;
 
-pub fn define(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
-    let mut c = ColorSpec::new();
-    c.set_fg(Some(Color::Blue)).set_bold(true);
-    doc.annotate(c)
+pub trait ColorHelper {
+    fn define(self) -> Self;
+    fn port(self) -> Self;
+    fn keyword(self) -> Self;
+    fn ident(self) -> Self;
+    fn control(self) -> Self;
+    fn enable(self) -> Self;
 }
 
-pub fn port(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
-    let mut c = ColorSpec::new();
-    c.set_fg(Some(Color::Green));
-    doc.annotate(c)
-}
+impl<'a> ColorHelper for RcDoc<'a, ColorSpec> {
+    fn define(self) -> Self {
+        let mut c = ColorSpec::new();
+        c.set_fg(Some(Color::Blue)).set_bold(true);
+        self.annotate(c)
+    }
 
-pub fn keyword(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
-    let mut c = ColorSpec::new();
-    c.set_fg(Some(Color::Blue));
-    doc.annotate(c)
-}
+    fn port(self) -> Self {
+        let mut c = ColorSpec::new();
+        c.set_fg(Some(Color::Green));
+        self.annotate(c)
+    }
 
-pub fn ident(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
-    let mut c = ColorSpec::new();
-    c.set_fg(Some(Color::Red));
-    doc.annotate(c)
-}
+    fn keyword(self) -> Self {
+        let mut c = ColorSpec::new();
+        c.set_fg(Some(Color::Yellow));
+        self.annotate(c)
+    }
 
-pub fn control(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
-    let mut c = ColorSpec::new();
-    c.set_fg(Some(Color::Green));
-    doc.annotate(c)
-}
+    fn ident(self) -> Self {
+        let mut c = ColorSpec::new();
+        c.set_fg(Some(Color::Blue));
+        self.annotate(c)
+    }
 
-pub fn enable(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
-    let mut c = ColorSpec::new();
-    c.set_fg(Some(Color::Yellow));
-    doc.annotate(c)
+    fn control(self) -> Self {
+        let mut c = ColorSpec::new();
+        c.set_fg(Some(Color::Green));
+        self.annotate(c)
+    }
+
+    fn enable(self) -> Self {
+        let mut c = ColorSpec::new();
+        c.set_fg(Some(Color::Yellow));
+        self.annotate(c)
+    }
 }
