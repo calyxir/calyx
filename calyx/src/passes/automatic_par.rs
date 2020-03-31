@@ -1,6 +1,6 @@
 use crate::lang::component::Component;
 use crate::lang::{ast, ast::Control, context::Context};
-use crate::passes::visitor::{Action, VisResult, Visitor};
+use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 
 /// Pass that collapses
 /// (seq
@@ -53,16 +53,22 @@ use crate::passes::visitor::{Action, VisResult, Visitor};
 #[derive(Default)]
 pub struct AutomaticPar {}
 
-impl Visitor for AutomaticPar {
-    fn name(&self) -> String {
-        "automatic parallelization".to_string()
+impl Named for AutomaticPar {
+    fn name() -> &'static str {
+        "automatic-par"
     }
 
+    fn description() -> &'static str {
+        "automatically parallelizes some sequential enables"
+    }
+}
+
+impl Visitor for AutomaticPar {
     // use finish_seq so that we collapse things on the way
     // back up the tree and potentially catch more cases
     fn finish_seq(
         &mut self,
-        seq: &mut ast::Seq,
+        seq: &ast::Seq,
         comp: &mut Component,
         _: &Context,
     ) -> VisResult {
