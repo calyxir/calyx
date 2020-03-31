@@ -3,16 +3,53 @@ use crate::lang::{ast, ast::Control, context::Context};
 use crate::passes::visitor::{Action, VisResult, Visitor};
 
 /// Pass that collapses
-///(seq
-///    (seq (enable A B)
-///         (enable C D))
+/// (seq
+/// (seq (enable A B)
+/// (enable C D))
 /// ..)
 /// into
 /// (seq (enable A B C D)
-///  ..)
+/// ..)
 /// given that there are no edges between the sub-graphs induced by (enable A B) and (enable C D)
 /// since in this case there is no way for these subgraphs to depend on each other
 /// XXX (zhijing): I think this pass need to be changed if we add `enable` CSP style components to futil semantics
+///
+/// For example, suppose that this were the structure graph of your component:
+/// ```
+/// ╭─╮    ╭─╮
+/// │A│    │C│
+/// ╰┬╯    ╰┬╯
+///  │      │
+///  │      │
+///  v      v
+/// ╭─╮    ╭─╮
+/// │B│    │D│
+/// ╰─╯    ╰─╯
+/// ```
+/// In this case, the program
+/// ```
+/// (seq (enable A B) (enable C D))
+/// ```
+/// is equivalent to
+/// ```
+/// (seq (enable A B C D))
+/// ```
+/// because there are no edges between the sub-graph induced by `A` and `B`
+/// and the sub-graph induced by `C` and `D`.
+///
+/// If instead this were your component graph:
+/// ```
+/// ╭─╮    ╭─╮
+/// │A│───>│C│
+/// ╰┬╯    ╰┬╯
+///  │      │
+///  │      │
+///  v      v
+/// ╭─╮    ╭─╮
+/// │B│    │D│
+/// ╰─╯    ╰─╯
+/// ```
+/// then you could not collapse the `seq`.
 #[derive(Default)]
 pub struct AutomaticPar {}
 
@@ -48,33 +85,30 @@ impl Visitor for AutomaticPar {
         // enable that we find
         let mut new_stmts: Vec<ast::Control> = seq.stmts[..start].to_vec();
 
-        // start interation from the second item because the first
+        // start interation from the start+1 because the start
         // is in `cmp_stmt`
         for stmt in seq.stmts[start + 1..].iter() {
             match stmt {
                 Control::Enable { data: enables2 } => {
                     let mut conflict = false;
-                    // for every component in the first enable
-                    for en_comp in &cmp_acc.comps {
+                    // for every component in the `enables2` we check if any
+                    // incoming/outgoing edge has an endpoint in `cmp_acc`
+                    for en_comp in &enables2.comps {
                         let idx = st.get_inst_index(en_comp)?;
-                        // for every output, check if any incoming/outgoing edges
-                        // contain a component in `enables2`
+                        // for every output port, check if any incoming/outgoing edges
+                        // contain a component in `cmp_acc`
                         conflict |= st.graph[idx].out_ports().any(|port| {
                             let outgoing = st
                                 .connected_to(idx, port.to_string())
                                 .any(|(node_data, _)| {
-                                    enables2
-                                        .comps
-                                        .contains(node_data.get_name())
+                                    cmp_acc.comps.contains(node_data.get_name())
                                 });
                             let incoming = st
                                 .connected_from(idx, port.to_string())
                                 .any(|(node_data, _)| {
-                                    enables2
-                                        .comps
-                                        .contains(node_data.get_name())
+                                    cmp_acc.comps.contains(node_data.get_name())
                                 });
-                            outgoing | incoming
+                            outgoing || incoming
                         });
                     }
                     if conflict {
