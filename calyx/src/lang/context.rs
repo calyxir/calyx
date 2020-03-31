@@ -14,12 +14,18 @@ use std::collections::HashMap;
 /// interface.
 #[derive(Debug, Clone)]
 pub struct Context {
-    /// Maps Ids to in-memory representation of the component.
-    definitions: RefCell<HashMap<ast::Id, Component>>,
-    /// Library containing primitive definitions.
-    library_context: LibraryContext,
     /// Enable debugging output.
     pub debug_mode: bool,
+    /// Library containing primitive definitions.
+    library_context: LibraryContext,
+    /// Maps Ids to in-memory representation of the component.
+    definitions: RefCell<HashMap<ast::Id, Component>>,
+    /// Keeps track of components that we need to insert. We need
+    /// this because `definitions_iter` allows multiple mutable
+    /// references to `self.definitions` to be given away. If we
+    /// insert components inside a call to `definitions_iter`, things
+    /// will break.
+    definitions_to_insert: RefCell<Vec<Component>>,
 }
 
 impl Context {
@@ -62,9 +68,10 @@ impl Context {
         }
 
         Ok(Context {
-            definitions: RefCell::new(definitions),
-            library_context: libctx,
             debug_mode: false,
+            library_context: libctx,
+            definitions: RefCell::new(definitions),
+            definitions_to_insert: RefCell::new(vec![]),
         })
     }
 
@@ -94,11 +101,21 @@ impl Context {
         &self,
         mut func: impl FnMut(&ast::Id, &mut Component) -> Result<(), errors::Error>,
     ) -> Result<(), errors::Error> {
-        self.definitions
-            .borrow_mut()
+        let mut definitions = self.definitions.borrow_mut();
+
+        // do main iteration
+        let ret = definitions
             .iter_mut()
             .map(|(id, comp)| func(id, comp))
-            .collect()
+            .collect();
+
+        // if there are new definitions to insert, insert them now
+        let mut defns_to_insert = self.definitions_to_insert.borrow_mut();
+        for new_defn in defns_to_insert.drain(..) {
+            definitions.insert(new_defn.name.clone(), new_defn);
+        }
+
+        ret
     }
 
     pub fn instantiate_primitive<S: AsRef<str>>(
@@ -121,7 +138,21 @@ impl Context {
         }
     }
 
-    // XXX(sam) need a way to insert components
+    /// Insert the component `comp` into `self`.
+    pub fn insert_component(&self, comp: Component) {
+        // It's possible that this method will be called inside the
+        // `definitions_iter` function. In that case, the borrow will
+        // fail and we temporarily move `comp` to `self.definitions.to_insert`.
+        // When the iteration finishes, `definitions_iter` is responsible for
+        // applying these changes. If we successfully borrow `self.definitions`
+        // we can insert immediately.
+        match self.definitions.try_borrow_mut() {
+            Ok(mut defns) => {
+                defns.insert(comp.name.clone(), comp);
+            }
+            Err(_) => self.definitions_to_insert.borrow_mut().push(comp),
+        };
+    }
 }
 
 impl Into<ast::NamespaceDef> for Context {
