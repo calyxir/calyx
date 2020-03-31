@@ -18,10 +18,10 @@ fn main() -> Result<(), errors::Error> {
     passes::collapse_seq::CollapseSeq::do_pass_default(&context)?;
 
     // fsm generation
+    passes::lat_insensitive::LatencyInsenstive::do_pass_default(&context)?;
     passes::fsm_seq::FsmSeq::new(&mut names).do_pass(&context)?;
 
     // interfacing generation
-    passes::lat_insensitive::LatencyInsenstive::do_pass_default(&context)?;
     passes::connect_clock::ConnectClock::do_pass_default(&context)?;
 
     opts.backend.run(&context, std::io::stdout())?;

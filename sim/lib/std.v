@@ -11,34 +11,21 @@ module std_const
 endmodule
 
 module std_reg
-  #(parameter width = 32,
-    parameter reset_val = 0)
+  #(parameter width = 32)
    (input logic  [width-1:0] in,
-    input logic                in_read_in,
-    input logic                valid,
+    input logic                write_en,
     input logic                clk,
     // output
-    output logic [width - 1:0] out,
-    output logic out_read_out,
-    output logic               ready);
+    output logic [width - 1:0] out);
 
    logic [width-1:0]           register;
    always_ff @(posedge clk) begin
-      if (valid && in_read_in) begin
+      if (write_en) begin
          register <= in;
       end
    end
 
    assign out = register;
-   always_comb begin
-      if (valid) begin
-         ready = 1'd1;
-         out_read_out = 1'd1;
-      end else begin
-         ready = 1'd0;
-         out_read_out = 1'd0;
-      end
-   end
 endmodule
 
 module std_add
@@ -214,4 +201,43 @@ module std_le
     output logic            out);
    assign out = left <= right;
    assign ready = 1'd1;
+endmodule
+
+module std_start_fsm
+  (input logic  valid,
+   input logic  reset,
+   input logic  clk,
+   output logic out);
+   logic        state;
+   always_ff @(posedge clk) begin
+      if (reset) begin
+         out <= 1'b0;
+         state <= 1'b0;
+      end else
+        case ({valid, state})
+          2'b00: out <= 1'b0;
+          2'b10: begin
+             state <= 1'b1;
+             out <= 1'b1;
+          end
+          2'b01: out <= 1'b0;
+          2'b11: out <= 1'b0;
+        endcase
+   end
+endmodule
+
+module std_fsm_state
+  (input logic  in,
+   input logic  reset,
+   input logic  clk,
+   output logic out);
+
+   logic        state;
+
+   assign out = state;
+
+   always_ff @(posedge clk) begin
+      if (reset) state = 1'b0;
+      else state = in;
+   end
 endmodule

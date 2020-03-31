@@ -126,6 +126,10 @@ impl Signature {
     pub fn has_input(&self, name: &str) -> bool {
         self.inputs.iter().any(|e| &e.name == name)
     }
+
+    pub fn has_output(&self, name: &str) -> bool {
+        self.outputs.iter().any(|e| &e.name == name)
+    }
 }
 
 /// The definition of an input/output port.

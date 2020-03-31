@@ -154,6 +154,10 @@ impl Visitor for FsmSeq<'_> {
             &[],
         );
 
+        let val = comp.structure.get_io_index("valid")?;
+        comp.structure
+            .insert_edge(val, "valid", prev_idx, "valid")?;
+
         let mut enable_names = vec![];
 
         for reg in regs.iter() {

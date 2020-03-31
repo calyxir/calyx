@@ -37,7 +37,7 @@ impl Backend for VerilogBackend {
                 //         }
                 //     }
                 // }
-                Control::Enable { .. } => (),
+                Control::Enable { .. } | Control::Empty { .. } => (),
                 _ => return Err(errors::Error::MalformedControl),
             }
         }

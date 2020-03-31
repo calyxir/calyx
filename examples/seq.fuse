@@ -1,8 +1,8 @@
 
-let x: bit<32> = 0;
+let x: bit<32> = 1;
 ---
-x := 1;
+let y: bit<32> = 2;
 ---
-x := 2;
+let z: bit<32> = 3;
 ---
-x := 3;
+let a: bit<32> = 4;

@@ -2,7 +2,7 @@ use crate::backend::traits::Emitable;
 use crate::backend::verilog::control::get_all_used;
 use crate::lang::{
     ast, colors, component, pretty_print::parens, structure,
-    structure::NodeData,
+    structure::EdgeData, structure::NodeData,
 };
 use bumpalo::Bump;
 use petgraph::graph::NodeIndex;
@@ -33,19 +33,19 @@ impl Emitable for ast::ComponentDef {
             .append(wire_declarations(&comp))
             .append(D::line())
             .append(D::line())
-            .append(colors::comment(D::text("// Valid wire declarations")))
-            .append(D::line())
-            .append(valid_declarations(&arena, &comp))
-            .append(D::line())
-            .append(D::line())
+            // .append(colors::comment(D::text("// Valid wire declarations")))
+            // .append(D::line())
+            // .append(valid_declarations(&arena, &comp))
+            // .append(D::line())
+            // .append(D::line())
             .append(colors::comment(D::text("// Subcomponent Instances")))
             .append(D::line())
             .append(subcomponent_instances(&comp));
-        let control = self.control.doc(&arena, &comp);
-        let inner = structure
-            .append(D::line())
-            .append(D::line())
-            .append(control);
+        // let control = self.control.doc(&arena, &comp);
+        let inner = structure;
+        // .append(D::line())
+        // .append(D::line())
+        // .append(control);
 
         colors::comment(D::text("// Component Signature"))
             .append(D::line())
@@ -106,35 +106,49 @@ fn wire_declarations<'a>(comp: &component::Component) -> D<'a, ColorSpec> {
     // once for each instance output. This is because
     // Verilog wires do not correspond exactly with Futil wires.
     let structure: &structure::StructureGraph = &comp.structure;
-    let wires =
-        structure
-            .instances()
-            .filter_map(|(idx, data)| match data {
-                structure::NodeData::Instance {
-                    name, signature, ..
-                } => Some(signature.outputs.into_iter().filter_map(
-                    move |portdef| wire_string(portdef, structure, idx, &name),
-                )),
-                _ => None,
-            })
-            .flatten();
+    let wires = structure
+        .instances()
+        .filter_map(|(idx, data)| match data {
+            structure::NodeData::Instance {
+                name, signature, ..
+            } => Some(
+                signature
+                    .outputs
+                    .into_iter()
+                    .filter_map(move |portdef| {
+                        wire_string(portdef, structure, idx, &name)
+                    })
+                    .collect::<Vec<_>>(),
+            ),
+            NodeData::Input(portdef) => Some(
+                structure
+                    .connected_to(idx, portdef.name.to_string())
+                    .filter_map(|(node, edge)| match node {
+                        NodeData::Output(_) => Some(alias(edge.clone())),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>(),
+            ),
+            _ => None,
+        })
+        .flatten();
     D::intersperse(wires, D::line())
 }
 
-fn valid_declarations<'a>(
-    arena: &'a Bump,
-    comp: &component::Component,
-) -> D<'a, ColorSpec> {
-    let all = get_all_used(&arena, &comp.control);
-    let docs = all.iter().map(|id| {
-        let name = format!("{}$valid", id.as_ref());
-        colors::keyword(D::text("logic"))
-            .append(D::space())
-            .append(colors::ident(D::text(name)))
-            .append(";")
-    });
-    D::intersperse(docs, D::line())
-}
+// fn valid_declarations<'a>(
+//     arena: &'a Bump,
+//     comp: &component::Component,
+// ) -> D<'a, ColorSpec> {
+//     let all = get_all_used(&arena, &comp.control);
+//     let docs = all.iter().map(|id| {
+//         let name = format!("{}$valid", id.as_ref());
+//         colors::keyword(D::text("logic"))
+//             .append(D::space())
+//             .append(colors::ident(D::text(name)))
+//             .append(";")
+//     });
+//     D::intersperse(docs, D::line())
+// }
 
 fn wire_string<'a>(
     portdef: ast::Portdef,
@@ -169,6 +183,15 @@ fn wire_string<'a>(
     } else {
         None
     }
+}
+
+fn alias<'a>(edge: EdgeData) -> D<'a, ColorSpec> {
+    colors::keyword(D::text("assign"))
+        .append(D::space())
+        .append(edge.dest)
+        .append(" = ")
+        .append(edge.src)
+        .append(";")
 }
 
 pub fn bit_width<'a>(width: u64) -> D<'a, ColorSpec> {
@@ -285,13 +308,13 @@ fn signature_connections<'a>(
             None
         }
     });
-    let valid_wire = format!("{}$valid", name.as_ref());
-    let valid = D::text(".")
-        .append(colors::port(D::text("valid")))
-        .append(parens(colors::ident(D::text(valid_wire))));
+    // let valid_wire = format!("{}$valid", name.as_ref());
+    // let valid = D::text(".")
+    //     .append(colors::port(D::text("valid")))
+    //     .append(parens(colors::ident(D::text(valid_wire))));
 
     D::intersperse(incoming.chain(outgoing), D::text(",").append(D::line()))
-        .append(",")
-        .append(D::line())
-        .append(valid)
+    // .append(",")
+    // .append(D::line())
+    // .append(valid)
 }
