@@ -73,8 +73,8 @@ impl Named for AutomaticPar {
 
 // Check if two given components have an edge between them.
 fn has_conflicts(
-    comps1: &Vec<ast::Id>,
-    comps2: &Vec<ast::Id>,
+    comps1: &[ast::Id],
+    comps2: &[ast::Id],
     st: &StructureGraph,
 ) -> Result<bool, errors::Error> {
     Ok(comps2
