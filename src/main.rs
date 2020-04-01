@@ -13,9 +13,10 @@ fn main() -> Result<(), errors::Error> {
     // parse the command line arguments into Opts struct
     let opts: Opts = Opts::from_args();
     let context = context::Context::from_opts(&opts)?;
+    type PassResult = Result<Box<dyn Visitor>, errors::Error>;
     let mut names: HashMap<
         String,
-        Box<dyn Fn() -> Result<Box<dyn Visitor>, errors::Error>>,
+        Box<dyn Fn() -> PassResult>,
     > = HashMap::new();
     names.insert(
         LatencyInsenstive::name().to_string(),
