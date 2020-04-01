@@ -35,11 +35,11 @@ pub struct Opts {
 
     ///choose a single pass
     #[structopt(short = "p", long = "pass", default_value = "all")]
-    pub pass : Vec<String>,
- 
+    pub pass: Vec<String>,
+  
     ///list all avaliable pass options
     #[structopt(long = "list-passes")]
-    pub listpasses : bool
+    pub listpasses: bool,
 }
 
 // ================== Backend Variant and Parsing ===================== //
