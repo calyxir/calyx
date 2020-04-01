@@ -88,14 +88,9 @@ fn has_conflicts(
             // for every output port, check if any incoming/outgoing edges
             // contain a component in `comps1`
             st.graph[idx].out_ports().any(|port| {
-                let outgoing = st.connected_to(idx, port.to_string()).any(
-                    |(node_data, _)| comps1.contains(node_data.get_name()),
-                );
-                let incoming = st.connected_from(idx, port.to_string()).any(
-                    |(node_data, _)| comps1.contains(node_data.get_name()),
-                );
-
-                outgoing || incoming
+                st.connected_to(idx, port.to_string())
+                    .chain(st.connected_from(idx, port.to_string()))
+                    .any(|(node_data, _)| comps1.contains(node_data.get_name()))
             })
         }))
 }
