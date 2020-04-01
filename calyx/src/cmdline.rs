@@ -51,13 +51,6 @@ pub enum BackendOpt {
     None,
 }
 
-// pub enum PassOpt {
-//     latencyInsenstive,
-//     redudantPar,
-//     removeIf,
-//     collapseSeq
-// }
-
 fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
         (VerilogBackend::name(), BackendOpt::Verilog),
