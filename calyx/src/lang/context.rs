@@ -8,21 +8,52 @@ use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-/// Represents an entire Futil program.  We are keeping all of the components in a `RefCell<HashMap>`.
-/// `RefCell` is a Rust mechanism that allows an immutable reference to be turned into
-/// a mutable reference. We use this to provide our desired visitor interface
+/// Represents an entire Futil program. We are keeping all of the components in a `RefCell<HashMap>`.
+/// We use the `RefCell` to provide our desired visitor interface
 /// where each visitor gets mutable access to it's own component as well as immutable
 /// access to the global context to allow looking up definitions and primitives. Mutable
 /// access to it's own component is desirable because the structure is represented with a graph
-/// and graphs are ill-suited for functional style interfaces. We also need a way for
-/// visitors to add new component definitions to the context. However, we can't just give the visitor
-/// mutable access to the context, because we can't have mutable references to the context and mutable
-/// references to the component (part of the context) alive at the same time. We
+/// and graphs are ill-suited for functional style interfaces.
+///
+/// However, we also need a way for visitors to add new component definitions to the context.
+/// We can't just give the visitor mutable access to the context, because we
+/// can't have mutable references to the context and mutable
+/// references to the component (owned by the context) alive at the same time. We
 /// get around this restriction using `RefCell`s to give a mutable style interface
-/// to immutable references to the context. `RefCell`s in essence let us give controlled
+/// to immutable references to the context.
+///
+/// `RefCell` is a Rust mechanism that allows an immutable reference to be turned into
+/// a mutable reference. For example if we assume that `definitions` doesn't use a `RefCell`,
+/// the following is disallowed by Rust:
+/// ```rust
+/// let mut context = Context::from_opts(&opts)?;
+/// let comp = &mut context.definitions["main"];
+/// // insert_comp borrows context mutably
+/// context.insert_comp(new_comp); // <---- compile time error! can't have two mutable references to the same data
+/// // mutate comp here
+/// ...
+/// ```
+///
+/// With a `RefCell`, the code looks like this:
+///
+/// ```rust
+/// let context = Context::from_opts(&opts)?; // not declared as mutable
+/// let comp = context.definitions.borrow_mut()["main"];
+/// // insert_comp borrows context immmutably and uses borrow_mut()
+/// // internally to gain mutably
+/// context.insert_comp(new_comp); // <---- compiles fine, potentially run time error!
+/// // mutate comp here
+/// ...
+/// ```
+///
+/// `RefCell`s in essence let us give controlled
 /// mutable access to the context. However, we give up on some of Rust's compile-time safety guarantees
-/// so we have to make sure to enforce these ourselves. (Note, `RefCell`s we only give up compile-time
-/// guarantees. `RefCell` checks the borrowing rules at run-time).
+/// so we have to make sure to enforce these ourselves. In particular, in `insert_component` we
+/// use `try_borrow_mut` to test if another mutable reference is alive. This will happen whenever
+/// we call this method from a pass because `definitions_iter` also borrows `definitions` mutably.
+/// If the borrow fails, then we put the new component
+/// in `definitions_to_insert` instead of putting it in the HashMap directly. After `definitions_iter`
+/// is done with it's mutable reference to `definitions`, then it inserts all the new components.
 #[derive(Debug, Clone)]
 pub struct Context {
     /// Enable debugging output.
