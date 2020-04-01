@@ -14,10 +14,8 @@ fn main() -> Result<(), errors::Error> {
     let opts: Opts = Opts::from_args();
     let context = context::Context::from_opts(&opts)?;
     type PassResult = Result<Box<dyn Visitor>, errors::Error>;
-    let mut names: HashMap<
-        String,
-        Box<dyn Fn() -> PassResult>,
-    > = HashMap::new();
+    let mut names: HashMap<String, Box<dyn Fn() -> PassResult>> =
+        HashMap::new();
     names.insert(
         LatencyInsenstive::name().to_string(),
         Box::new(|| {
