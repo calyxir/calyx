@@ -144,7 +144,15 @@ impl Visitor for AutomaticPar {
                         cmp_acc.comps.append(&mut enables2.comps.clone());
                     }
                 }
-                _ => new_stmts.push(stmt.clone()),
+                _ => {
+                    // Push the currently collected component accumulator.
+                    if !cmp_acc.comps.is_empty() {
+                        new_stmts.push(Control::enable(cmp_acc.comps.clone()));
+                    }
+                    new_stmts.push(stmt.clone());
+                    // Add a new cmp_acc.
+                    cmp_acc = ast::Enable { comps: Vec::new() };
+                },
             }
         }
 
