@@ -11,7 +11,7 @@ use std::path::PathBuf;
 // XXX(sam) Add location information to this type so that we can print
 // them out nicely
 /// Represents an identifier in a Futil program
-#[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq, PartialOrd, Ord)]
 #[sexpy(nohead, nosurround)]
 pub struct Id {
     id: String,
@@ -151,7 +151,7 @@ impl From<(&str, u64)> for Portdef {
 
 /// Statement that refers to a port on a subcomponent.
 /// This is distinct from a `Portdef` which defines a port.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Sexpy)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Sexpy, PartialOrd, Ord)]
 #[sexpy(head = "@")]
 pub enum Port {
     /// Refers to the port named `port` on the subcomponent
@@ -178,7 +178,7 @@ impl Port {
 
 /// Instantiates a subcomponent named `name` with
 /// paramters `params`.
-#[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
+#[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq, PartialOrd, Ord)]
 #[sexpy(nohead)]
 pub struct Compinst {
     /// Name of the subcomponent to instantiate.
@@ -193,7 +193,7 @@ pub struct Compinst {
 // ===================================
 
 /// Data for the `new` structure statement.
-#[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
+#[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq, PartialOrd, Ord)]
 #[sexpy(head = "new", nosurround)]
 pub struct Decl {
     /// Name of the variable being defined.
@@ -204,7 +204,7 @@ pub struct Decl {
 }
 
 /// Data for the `new-std` structure statement.
-#[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
+#[derive(Clone, Debug, Hash, Sexpy, Eq, PartialEq, PartialOrd, Ord)]
 #[sexpy(head = "new-std", nosurround)]
 pub struct Std {
     /// Name of the variable being defined.
@@ -215,7 +215,7 @@ pub struct Std {
 }
 
 /// Data for the `->` structure statement.
-#[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
+#[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq, PartialOrd, Ord)]
 #[sexpy(head = "->", nosurround)]
 pub struct Wire {
     /// Source of the wire.
@@ -226,7 +226,7 @@ pub struct Wire {
 }
 
 /// The Structure AST nodes.
-#[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
+#[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq, PartialOrd, Ord)]
 #[sexpy(nohead)]
 pub enum Structure {
     /// Node for instantiating user-defined components.
