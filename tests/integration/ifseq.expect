@@ -2,28 +2,28 @@
   ((port valid 1))
   ((port ready 1))
   ([new-std const0 (std_const 16 0)]
-   [new-std x0 (std_reg 16 0)]
-   [new-std const3 (std_const 16 1)]
-   [new-std x0_not (std_not 1)]
-   [new-std const5 (std_const 16 4)]
+   [new-std const1 (std_const 16 1)]
    [new-std const2 (std_const 16 2)]
+   [new-std const3 (std_const 16 1)]
+   [new-std const4 (std_const 16 2)]
+   [new-std const5 (std_const 16 4)]
    [new-std const5_not (std_not 1)]
    [new-std gt0 (std_gt 16)]
-   [new-std const1 (std_const 16 1)]
-   [new-std const4 (std_const 16 2)]
+   [new-std x0 (std_reg 16 0)]
+   [new-std x0_not (std_not 1)]
    [-> (@ const0 out) (@ x0 in)]
    [-> (@ const1 out) (@ x0 in)]
    [-> (@ const2 out) (@ x0 in)]
-   [-> (@ x0 out) (@ gt0 left)]
    [-> (@ const3 out) (@ gt0 right)]
    [-> (@ const4 out) (@ x0 in)]
    [-> (@ const5 out) (@ x0 in)]
-   [-> (@ gt0 out) (@ x0 valid)]
+   [-> (@ const5_not out) (@ const5 valid)]
    [-> (@ gt0 out) (@ const4 valid)]
-   [-> (@ gt0 out) (@ x0_not in)]
-   [-> (@ x0_not out) (@ x0 valid)]
    [-> (@ gt0 out) (@ const5_not in)]
-   [-> (@ const5_not out) (@ const5 valid)])
+   [-> (@ gt0 out) (@ x0 valid)]
+   [-> (@ gt0 out) (@ x0_not in)]
+   [-> (@ x0 out) (@ gt0 left)]
+   [-> (@ x0_not out) (@ x0 valid)])
   (seq
    (enable x0 const0)
    (enable x0 const1)
