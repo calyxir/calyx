@@ -66,15 +66,11 @@ fn main() -> Result<(), errors::Error> {
         return Ok(());
     }
     //run all passes specified by the command line
-    for pass in opts.pass {
-        match names.get(&pass) {
-            Some(pass) => {
-                pass()?;
-            }
-            None => (),
+    for name in opts.pass {
+        if let Some(pass) = names.get(&name) {
+            pass()?;
         }
     }
     opts.backend.run(&context, std::io::stdout())?;
-
     Ok(())
 }
