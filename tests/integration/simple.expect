@@ -1,76 +1,32 @@
-// Component Signature
-module main
-(
-    input wire  valid,
-    output wire  ready
-);
-
-// Wire declarations
-wire [31:0] a0$out; // gt0 @ left
-wire [31:0] const0$out; // a0 @ in
-wire [31:0] const1$out; // b0 @ in
-wire gt0$out; // const4_not @ in, z0_not @ in, const3 @ valid, y0 @ valid
-wire [31:0] const2$out; // gt0 @ right
-wire [31:0] const3$out; // y0 @ in
-wire [31:0] const4$out; // z0 @ in
-wire z0_not$out; // z0 @ valid
-wire const4_not$out; // const4 @ valid
-
-// Subcomponent Instances
-std_reg #(32, 0) a0 (
-    .in(const0$out),
-    .out(a0$out)
-);
-
-std_const #(32, 0) const0 (
-    .out(const0$out)
-);
-
-std_reg #(32, 0) b0 (
-    .in(const1$out)
-);
-
-std_const #(32, 1) const1 (
-    .out(const1$out)
-);
-
-std_gt #(32) gt0 (
-    .left(a0$out),
-    .right(const2$out),
-    .out(gt0$out)
-);
-
-std_const #(32, 1) const2 (
-    .out(const2$out)
-);
-
-std_reg #(32, 0) y0 (
-    .in(const3$out),
-    .valid(gt0$out)
-);
-
-std_const #(32, 2) const3 (
-    .valid(gt0$out),
-    .out(const3$out)
-);
-
-std_reg #(32, 0) z0 (
-    .in(const4$out),
-    .valid(z0_not$out)
-);
-
-std_const #(32, 4) const4 (
-    .valid(const4_not$out),
-    .out(const4$out)
-);
-
-std_not #(1) z0_not (
-    .in(gt0$out),
-    .out(z0_not$out)
-);
-
-std_not #(1) const4_not (
-    .in(gt0$out),
-    .out(const4_not$out)
-);
-endmodule // end main
+(define/component main
+  ((port valid 1))
+  ((port ready 1))
+  ([new-std a0 (std_reg 32 0)]
+   [new-std b0 (std_reg 32 0)]
+   [new-std const0 (std_const 32 0)]
+   [new-std const1 (std_const 32 1)]
+   [new-std const2 (std_const 32 1)]
+   [new-std const3 (std_const 32 2)]
+   [new-std const4 (std_const 32 4)]
+   [new-std const4_not (std_not 1)]
+   [new-std gt0 (std_gt 32)]
+   [new-std y0 (std_reg 32 0)]
+   [new-std z0 (std_reg 32 0)]
+   [new-std z0_not (std_not 1)]
+   [-> (@ a0 out) (@ gt0 left)]
+   [-> (@ const0 out) (@ a0 in)]
+   [-> (@ const1 out) (@ b0 in)]
+   [-> (@ const2 out) (@ gt0 right)]
+   [-> (@ const3 out) (@ y0 in)]
+   [-> (@ const4 out) (@ z0 in)]
+   [-> (@ const4_not out) (@ const4 valid)]
+   [-> (@ gt0 out) (@ const3 valid)]
+   [-> (@ gt0 out) (@ const4_not in)]
+   [-> (@ gt0 out) (@ y0 valid)]
+   [-> (@ gt0 out) (@ z0_not in)]
+   [-> (@ z0_not out) (@ z0 valid)])
+  (seq
+   (enable a0 const0 b0 const1)
+   (enable gt0 b0 const2)
+   (enable gt0 a0 const2)
+   (enable y0 const3 z0 const4)))
