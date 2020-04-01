@@ -1,18 +1,24 @@
+use crate::errors;
 use crate::lang::component::Component;
-use crate::lang::{ast, ast::Control, context::Context};
+use crate::lang::{
+    ast, ast::Control, context::Context, structure::StructureGraph,
+};
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 
 /// Pass that collapses
-/// (seq
+/// ```
 /// (seq (enable A B)
-/// (enable C D))
-/// ..)
+///      (enable C D))
+///      ..)
+/// ```
 /// into
+/// ```
 /// (seq (enable A B C D)
-/// ..)
-/// given that there are no edges between the sub-graphs induced by (enable A B) and (enable C D)
-/// since in this case there is no way for these subgraphs to depend on each other
-/// XXX (zhijing): I think this pass need to be changed if we add `enable` CSP style components to futil semantics
+///      ..)
+/// ```
+///
+/// when the sub-graphs induced by (enable A B) and (enable C D) have to common
+/// edges (i.e. cannot observe each other's computation).
 ///
 /// For example, suppose that this were the structure graph of your component:
 /// ```
@@ -50,6 +56,8 @@ use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 /// ╰─╯    ╰─╯
 /// ```
 /// then you could not collapse the `seq`.
+
+// XXX (zhijing): I think this pass need to be changed if we add `enable` CSP style components to futil semantics
 #[derive(Default)]
 pub struct AutomaticPar {}
 
@@ -63,6 +71,35 @@ impl Named for AutomaticPar {
     }
 }
 
+// Check if two given components have an edge between them.
+fn has_conflicts(
+    comps1: &Vec<ast::Id>,
+    comps2: &Vec<ast::Id>,
+    st: &StructureGraph,
+) -> Result<bool, errors::Error> {
+    Ok(comps2
+        .iter()
+        .map(|en_comp| st.get_inst_index(en_comp))
+        // If any of the get_inst_index failed, return the error.
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        // any is shortcircuiting. It returnrs on the first true.
+        .any(|idx| {
+            // for every output port, check if any incoming/outgoing edges
+            // contain a component in `comps1`
+            st.graph[idx].out_ports().any(|port| {
+                let outgoing = st.connected_to(idx, port.to_string()).any(
+                    |(node_data, _)| comps1.contains(node_data.get_name()),
+                );
+                let incoming = st.connected_from(idx, port.to_string()).any(
+                    |(node_data, _)| comps1.contains(node_data.get_name()),
+                );
+
+                outgoing || incoming
+            })
+        }))
+}
+
 impl Visitor for AutomaticPar {
     // use finish_seq so that we collapse things on the way
     // back up the tree and potentially catch more cases
@@ -72,8 +109,6 @@ impl Visitor for AutomaticPar {
         comp: &mut Component,
         _: &Context,
     ) -> VisResult {
-        let st = &mut comp.structure;
-
         // get first enable statement and its index. this will act
         // as the accumulator for the statement that we are collapsing
         // things into
@@ -91,44 +126,37 @@ impl Visitor for AutomaticPar {
         // enable that we find
         let mut new_stmts: Vec<ast::Control> = seq.stmts[..start].to_vec();
 
-        // start interation from the start+1 because the start
-        // is in `cmp_stmt`
+        // start interation from the start+1 because the start is in `cmp_stmt`.
+        // This loop will keep trying to merge adjacent sequences as long as
+        // there are no conflicts. When it detects a conflict, it attempts
+        // to merge the sequence after the conflicting node.
         for stmt in seq.stmts[start + 1..].iter() {
             match stmt {
                 Control::Enable { data: enables2 } => {
-                    let mut conflict = false;
                     // for every component in the `enables2` we check if any
                     // incoming/outgoing edge has an endpoint in `cmp_acc`
-                    for en_comp in &enables2.comps {
-                        let idx = st.get_inst_index(en_comp)?;
-                        // for every output port, check if any incoming/outgoing edges
-                        // contain a component in `cmp_acc`
-                        conflict |= st.graph[idx].out_ports().any(|port| {
-                            let outgoing = st
-                                .connected_to(idx, port.to_string())
-                                .any(|(node_data, _)| {
-                                    cmp_acc.comps.contains(node_data.get_name())
-                                });
-                            let incoming = st
-                                .connected_from(idx, port.to_string())
-                                .any(|(node_data, _)| {
-                                    cmp_acc.comps.contains(node_data.get_name())
-                                });
-                            outgoing || incoming
-                        });
-                    }
-                    if conflict {
+                    if has_conflicts(
+                        &cmp_acc.comps,
+                        &enables2.comps,
+                        &comp.structure,
+                    )? {
                         new_stmts.push(Control::enable(cmp_acc.comps.clone()));
-                        // there was a conflict, set this to the new accumulator
+                        // there was a conflict, start, a new accumulator.
                         cmp_acc = enables2.clone();
                     } else {
+                        // If there is no conflict, update the current
+                        // component accumulator.
                         cmp_acc.comps.append(&mut enables2.comps.clone());
                     }
                 }
                 _ => new_stmts.push(stmt.clone()),
             }
         }
-        new_stmts.push(Control::enable(cmp_acc.comps));
+
+        if !cmp_acc.comps.is_empty() {
+            new_stmts.push(Control::enable(cmp_acc.comps));
+        }
+
         Ok(Action::Change(Control::seq(new_stmts)))
     }
 }
