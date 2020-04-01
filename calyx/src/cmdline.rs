@@ -32,6 +32,14 @@ pub struct Opts {
     /// Select a backend.
     #[structopt(short = "b", long = "backend", default_value = "verilog")]
     pub backend: BackendOpt,
+
+    ///choose a single pass
+    #[structopt(short = "p", long = "pass", default_value = "all")]
+    pub pass : Vec<String>,
+ 
+    ///list all avaliable pass options
+    #[structopt(long = "list-passes")]
+    pub listpasses : bool
 }
 
 // ================== Backend Variant and Parsing ===================== //
@@ -42,6 +50,13 @@ pub enum BackendOpt {
     Verilog,
     None,
 }
+
+// pub enum PassOpt {
+//     latencyInsenstive,
+//     redudantPar,
+//     removeIf,
+//     collapseSeq
+// }
 
 fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
