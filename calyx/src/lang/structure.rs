@@ -433,6 +433,7 @@ impl Into<Vec<ast::Structure>> for StructureGraph {
             }
         }
 
+        ret.sort_by(|a, b| a.cmp(b));
         ret
     }
 }
