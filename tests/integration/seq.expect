@@ -1,25 +1,11 @@
-// Component Signature
-module main
-(
-    input wire  valid,
-    output wire  ready
-);
-
-// Wire declarations
-wire [31:0] const0$out; // x0 @ in
-wire [31:0] const1$out; // x0 @ in
-
-// Subcomponent Instances
-std_reg #(32, 0) x0 (
-    .in(const1$out),
-    .in(const0$out)
-);
-
-std_const #(32, 3) const0 (
-    .out(const0$out)
-);
-
-std_const #(32, 5) const1 (
-    .out(const1$out)
-);
-endmodule // end main
+(define/component main
+  ((port valid 1))
+  ((port ready 1))
+  ([new-std const0 (std_const 32 3)]
+   [new-std const1 (std_const 32 5)]
+   [new-std x0 (std_reg 32 0)]
+   [-> (@ const0 out) (@ x0 in)]
+   [-> (@ const1 out) (@ x0 in)])
+  (seq
+   (enable x0 const0)
+   (enable x0 const1)))

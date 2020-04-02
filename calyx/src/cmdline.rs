@@ -2,6 +2,7 @@ use crate::backend::traits::Backend;
 use crate::backend::verilog::gen::VerilogBackend;
 use crate::errors;
 use crate::lang::context;
+use crate::lang::pretty_print::PrettyPrint;
 use itertools::Itertools;
 use std::io::Write;
 use std::path::PathBuf;
@@ -30,7 +31,7 @@ pub struct Opts {
     pub enable_debug: bool,
 
     /// Select a backend.
-    #[structopt(short = "b", long = "backend", default_value = "verilog")]
+    #[structopt(short = "b", long = "backend", default_value)]
     pub backend: BackendOpt,
 
     ///choose a single pass
@@ -48,14 +49,22 @@ pub struct Opts {
 #[derive(Debug, Copy, Clone)]
 pub enum BackendOpt {
     Verilog,
+    Futil,
     None,
 }
 
 fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
         (VerilogBackend::name(), BackendOpt::Verilog),
+        ("futil", BackendOpt::Futil),
         ("none", BackendOpt::None),
     ]
+}
+
+impl Default for BackendOpt {
+    fn default() -> Self {
+        BackendOpt::Futil
+    }
 }
 
 /// Command line parsing for the Backend enum
@@ -90,6 +99,7 @@ impl ToString for BackendOpt {
     fn to_string(&self) -> String {
         match self {
             Self::Verilog => "verilog",
+            Self::Futil => "futil",
             Self::None => "none",
         }
         .to_string()
@@ -105,6 +115,10 @@ impl BackendOpt {
     ) -> Result<(), errors::Error> {
         match self {
             BackendOpt::Verilog => VerilogBackend::run(&context, file),
+            BackendOpt::Futil => {
+                context.pretty_print();
+                Ok(())
+            }
             BackendOpt::None => Ok(()),
         }
     }
