@@ -152,7 +152,7 @@ impl Visitor for AutomaticPar {
                     new_stmts.push(stmt.clone());
                     // Add a new cmp_acc.
                     cmp_acc = ast::Enable { comps: Vec::new() };
-                },
+                }
             }
         }
 
