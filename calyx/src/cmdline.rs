@@ -19,11 +19,11 @@ pub use structopt::StructOpt;
 #[allow(clippy::option_option)]
 pub struct Opts {
     /// Input futil program.
-    #[structopt(required = true, parse(from_os_str))]
-    pub file: PathBuf,
+    #[structopt(required_unless = "list-passes", parse(from_os_str))]
+    pub file: Option<PathBuf>,
 
     /// Path to the primitives library.
-    #[structopt(long, short, required = true)]
+    #[structopt(long, short, required_unless = "list-passes")]
     pub libraries: Vec<PathBuf>,
 
     /// Enable debug mode output.
@@ -40,7 +40,7 @@ pub struct Opts {
 
     ///list all avaliable pass options
     #[structopt(long = "list-passes")]
-    pub listpasses: bool,
+    pub list_passes: bool,
 }
 
 // ================== Backend Variant and Parsing ===================== //

@@ -1,9 +1,9 @@
 use crate::cmdline::Opts;
-use crate::errors;
 use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::{
     ast, component::Component, library::ast as lib, structure::StructureGraph,
 };
+use crate::{errors, errors::OptionHelper};
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -70,7 +70,8 @@ impl Context {
 
     pub fn from_opts(opts: &Opts) -> Result<Self, errors::Error> {
         // parse file
-        let namespace = ast::parse_file(&opts.file)?;
+        let file = opts.file.as_ref().to_err(errors::Error::InvalidFile)?;
+        let namespace = ast::parse_file(file)?;
 
         // parse library files
         let libs: Vec<_> = opts
