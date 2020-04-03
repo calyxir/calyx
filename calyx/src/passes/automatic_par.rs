@@ -77,22 +77,28 @@ fn has_conflicts(
     comps2: &[ast::Id],
     st: &StructureGraph,
 ) -> Result<bool, errors::Error> {
-    Ok(comps2
-        .iter()
-        .map(|en_comp| st.get_inst_index(en_comp))
-        // If any of the get_inst_index failed, return the error.
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        // any is shortcircuiting. It returnrs on the first true.
-        .any(|idx| {
-            // for every output port, check if any incoming/outgoing edges
-            // contain a component in `comps1`
-            st.graph[idx].out_ports().any(|port| {
-                st.connected_to(idx, port.to_string())
-                    .chain(st.connected_from(idx, port.to_string()))
-                    .any(|(node_data, _)| comps1.contains(node_data.get_name()))
-            })
-        }))
+    Ok(
+        // check if comps1 shows up in comps2 ever
+        comps1.iter().any(|id| comps2.contains(id))
+            || comps2
+                .iter()
+                .map(|en_comp| st.get_inst_index(en_comp))
+                // If any of the get_inst_index failed, return the error.
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                // any is shortcircuiting. It returnrs on the first true.
+                .any(|idx| {
+                    // for every output port, check if any incoming/outgoing edges
+                    // contain a component in `comps1`
+                    st.graph[idx].out_ports().any(|port| {
+                        st.connected_to(idx, port.to_string())
+                            .chain(st.connected_from(idx, port.to_string()))
+                            .any(|(node_data, _)| {
+                                comps1.contains(node_data.get_name())
+                            })
+                    })
+                }),
+    )
 }
 
 impl Visitor for AutomaticPar {
