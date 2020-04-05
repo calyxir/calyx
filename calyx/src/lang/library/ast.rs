@@ -1,7 +1,11 @@
 // Abstract Syntax Tree for library declarations in Futil
 use crate::errors::Error;
 use crate::lang::ast::{Id, Portdef};
-use sexpy::Sexpy;
+use sexpy::nom::{
+    bytes::complete::take_until, character::complete::char,
+    sequence::delimited, IResult,
+};
+use sexpy::{error::SexpyError, Sexpy};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -28,6 +32,8 @@ pub struct Primitive {
     #[sexpy(surround)]
     pub params: Vec<Id>,
     pub signature: ParamSignature,
+    #[sexpy(surround)]
+    pub implementation: Vec<Implementation>,
 }
 
 #[derive(Clone, Debug, Sexpy)]
@@ -85,5 +91,32 @@ impl ParamPortdef {
                 }
             },
         }
+    }
+}
+
+// Parsing for providing particular backend implementations for primitive definitions
+
+#[derive(Sexpy, Clone, Debug)]
+#[sexpy(nohead)]
+pub enum Implementation {
+    #[sexpy(head = "verilog")]
+    Verilog { data: Verilog },
+}
+
+#[derive(Clone, Debug)]
+pub struct Verilog {
+    code: String,
+}
+
+impl Sexpy for Verilog {
+    fn sexp_parse(input: &str) -> IResult<&str, Self, SexpyError<&str>> {
+        let (next, r) =
+            delimited(char('"'), take_until("\""), char('"'))(input)?;
+        Ok((
+            next,
+            Verilog {
+                code: r.to_string(),
+            },
+        ))
     }
 }
