@@ -1,5 +1,5 @@
 [package]
-name = "calyx"
+name = "futil"
 version = "0.1.0"
 authors = ["Samuel Thomas <sgt43@cornell.edu>", "Kenneth Fang <kwf37@cornell.edu>"]
 edition = "2018"
@@ -7,14 +7,8 @@ build = false
 
 [dependencies]
 structopt = "~0.3"
-quickcheck = "0.9.0"
-petgraph = "~0.5"
-better-panic = "~0.2"
-sexpy = "~0.5"
-itertools = "~0.9"
-bumpalo = "3.2.0"
-atty = "~0.2"
+calyx = { path = "calyx" }
 
-[dependencies.pretty]
-version = "~0.9"
-features = ["termcolor"]
+[workspace]
+members = ["calyx"]
+exclude = ["site"]
