@@ -2,7 +2,7 @@ use crate::errors;
 use crate::lang::{
     ast, ast::Control, ast::Structure, component::Component, context::Context,
 };
-use crate::passes::visitor::{Action, VisResult, Visitor};
+use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 use crate::utils::NameGenerator;
 use itertools::Itertools;
 use petgraph::stable_graph::NodeIndex;
@@ -102,14 +102,20 @@ impl<'a> FsmSeq<'a> {
     }
 }
 
-impl Visitor for FsmSeq<'_> {
-    fn name(&self) -> String {
-        "Fsm Seq".to_string()
+impl Named for FsmSeq<'_> {
+    fn name() -> &'static str {
+        "fsm-seq"
     }
 
+    fn description() -> &'static str {
+        "Generates an FSM for a seq of enables"
+    }
+}
+
+impl Visitor for FsmSeq<'_> {
     fn finish_seq(
         &mut self,
-        s: &mut ast::Seq,
+        s: &ast::Seq,
         comp: &mut Component,
         ctx: &Context,
     ) -> VisResult {

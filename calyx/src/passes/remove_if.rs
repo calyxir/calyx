@@ -1,11 +1,8 @@
 use crate::errors;
 use crate::lang::{
-    ast,
-    ast::{Control, Port},
-    component::Component,
-    context::Context,
+    ast, ast::Control, ast::Port, component::Component, context::Context,
 };
-use crate::passes::visitor::{Action, VisResult, Visitor};
+use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 
 /// Pass that removes if statments where both branches are enables:
 /// ```lisp
@@ -23,14 +20,20 @@ use crate::passes::visitor::{Action, VisResult, Visitor};
 #[derive(Default)]
 pub struct RemoveIf {}
 
-impl Visitor for RemoveIf {
-    fn name(&self) -> String {
-        "remove simple if statements".to_string()
+impl Named for RemoveIf {
+    fn name() -> &'static str {
+        "remove-if"
     }
 
+    fn description() -> &'static str {
+        "remove simple if statements"
+    }
+}
+
+impl Visitor for RemoveIf {
     fn finish_if(
         &mut self,
-        con: &mut ast::If,
+        con: &ast::If,
         this_comp: &mut Component,
         ctx: &Context,
     ) -> VisResult {

@@ -1,7 +1,13 @@
 [package]
 name = "calyx"
 version = "0.1.0"
-authors = ["Samuel Thomas <sgt43@cornell.edu>", "Kenneth Fang <kwf37@cornell.edu>"]
+authors = [
+  "Samuel Thomas <sgt43@cornell.edu>",
+  "Kenneth Fang <kwf37@cornell.edu>",
+  "Zhijing Li <zl679@cornell.edu>",
+  "Rachit Nigam <rnigam@cs.cornell.edu>",
+  "Adrian Sampson <asampson@cs.cornell.edu>",
+]
 edition = "2018"
 build = false
 # build = "build.rs"
@@ -10,17 +16,15 @@ build = false
 crate-type = ["rlib"]
 
 [dependencies]
-structopt = "~0.3"
-quickcheck = "0.9.0"
-petgraph = "~0.5"
-better-panic = "~0.2"
-sexpy = "~0.5"
-itertools = "~0.9"
-bumpalo = "3.2.0"
-atty = "~0.2"
+structopt = "0.3.12"
+petgraph = "0.5.0"
+sexpy = "0.5.3"
+itertools = "0.9.0"
+bumpalo = "3.2.1"
+atty = "0.2.14"
 
 [dependencies.pretty]
-version = "~0.9"
+version = "0.9.0"
 features = ["termcolor"]
 
 # [build-dependencies]
