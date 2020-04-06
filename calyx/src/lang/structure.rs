@@ -7,6 +7,7 @@ use petgraph::dot::{Config, Dot};
 use petgraph::graph::NodeIndex;
 use petgraph::stable_graph::StableDiGraph;
 use petgraph::Direction;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 /// store the structure ast node so that we can reconstruct the ast
@@ -19,6 +20,25 @@ pub enum NodeData {
         structure: ast::Structure,
         signature: ast::Signature,
     },
+}
+
+pub struct PortIter {
+    items: Vec<ast::Portdef>,
+}
+
+impl Iterator for PortIter {
+    type Item = ast::Id;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.items.len().cmp(&1) {
+            Ordering::Greater | Ordering::Equal => {
+                let ret = Some(self.items[0].name.clone());
+                self.items = (&self.items[1..]).to_vec();
+                ret
+            }
+            Ordering::Less => None,
+        }
+    }
 }
 
 impl NodeData {
@@ -39,6 +59,20 @@ impl NodeData {
                 Structure::Wire { .. } => Err(errors::Error::Impossible),
                 Structure::Std { data } => Ok(&data.instance.name),
                 Structure::Decl { data } => Ok(&data.component),
+            },
+        }
+    }
+
+    pub fn out_ports(&self) -> PortIter {
+        match self {
+            NodeData::Input(pd) => PortIter {
+                items: vec![pd.clone()],
+            },
+            NodeData::Output(pd) => PortIter {
+                items: vec![pd.clone()],
+            },
+            NodeData::Instance { signature, .. } => PortIter {
+                items: signature.outputs.clone(),
             },
         }
     }

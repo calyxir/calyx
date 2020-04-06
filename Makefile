@@ -7,8 +7,6 @@ clean:
 	fuse -b futil $< > $@
 
 %.v: %.futil
-	echo '/* verilator lint_off PINMISSING */' > $@
-	echo -e '`include "sim/lib/std.v"\n' >> $@
 	cargo run -- $< -l primitives/std.lib -b verilog >> $@
 
 %.vcd: %.v

@@ -9,6 +9,8 @@
 // pub mod interfacing;
 // pub mod test_pass;
 // pub mod toplevel_component;
+// pub mod fsm_if;
+pub mod automatic_par;
 pub mod collapse_seq;
 pub mod connect_clock;
 pub mod fsm_seq;

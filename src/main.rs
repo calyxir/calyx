@@ -16,6 +16,7 @@ fn main() -> Result<(), errors::Error> {
     passes::redundant_par::RedundantPar::do_pass_default(&context)?;
     passes::remove_if::RemoveIf::do_pass_default(&context)?;
     passes::collapse_seq::CollapseSeq::do_pass_default(&context)?;
+    passes::automatic_par::AutomaticPar::do_pass_default(&context)?;
 
     // fsm generation
     passes::lat_insensitive::LatencyInsenstive::do_pass_default(&context)?;

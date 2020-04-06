@@ -28,5 +28,4 @@
   (seq
    (enable a0 const0 b0 const1)
    (enable gt0 b0 const2)
-   (enable gt0 a0 const2)
-   (enable y0 const3 z0 const4)))
+   (enable gt0 a0 const2 y0 const3 z0 const4)))
