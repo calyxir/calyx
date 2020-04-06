@@ -105,7 +105,7 @@ pub enum Implementation {
 
 #[derive(Clone, Debug)]
 pub struct Verilog {
-    code: String,
+    pub code: String,
 }
 
 impl Sexpy for Verilog {

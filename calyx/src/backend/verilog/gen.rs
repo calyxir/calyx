@@ -1,7 +1,12 @@
 use crate::backend::traits::{Backend, Emitable};
 use crate::errors;
+use crate::lang::library::ast as lib;
 use crate::lang::pretty_print::{display, PrettyHelper};
-use crate::lang::{ast, colors::ColorHelper, component, context, structure};
+use crate::lang::{
+    ast, ast::Structure, colors::ColorHelper, component, context, structure,
+};
+use itertools::Itertools;
+use lib::Implementation;
 use petgraph::graph::NodeIndex;
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc as D;
@@ -49,9 +54,43 @@ impl Backend for VerilogBackend {
             .collect();
 
         let docs = comps.iter().map(|(cd, comp)| cd.doc(&comp));
-        display(D::intersperse(docs, D::line()), Some(file));
+        let prims = primitive_implemenations(&prog, ctx);
+        display(
+            prims
+                .append(D::line())
+                .append(D::line())
+                .append(D::intersperse(docs, D::line())),
+            Some(file),
+        );
         Ok(())
     }
+}
+
+fn primitive_implemenations<'a>(
+    prog: &ast::NamespaceDef,
+    context: &context::Context,
+) -> D<'a, ColorSpec> {
+    let docs = prog
+        .components
+        .iter()
+        .map(|c| c.structure.iter())
+        .flatten()
+        .filter_map(|s| match s {
+            Structure::Std { data } => Some(&data.instance.name),
+            _ => None,
+        })
+        .unique()
+        .filter_map(|name| {
+            context.library_context.definitions[&name]
+                .implementation
+                .iter()
+                .find_map(|im| match im {
+                    Implementation::Verilog { data } => {
+                        Some(D::text(data.code.to_string()))
+                    }
+                })
+        });
+    D::intersperse(docs, D::line().append(D::line()))
 }
 
 impl Emitable for ast::ComponentDef {
@@ -222,7 +261,6 @@ fn subcomponent_sig<'a>(
     id: &ast::Id,
     structure: &ast::Structure,
 ) -> D<'a, ColorSpec> {
-    use ast::Structure;
     let (name, params): (&ast::Id, &[u64]) = match structure {
         Structure::Decl { data } => (&data.component, &[]),
         Structure::Std { data } => (&data.instance.name, &data.instance.params),

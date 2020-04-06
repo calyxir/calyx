@@ -59,7 +59,7 @@ pub struct Context {
     /// Enable debugging output.
     pub debug_mode: bool,
     /// Library containing primitive definitions.
-    library_context: LibraryContext,
+    pub library_context: LibraryContext,
     /// Maps Ids to in-memory representation of the component.
     definitions: RefCell<HashMap<ast::Id, Component>>,
     /// Keeps track of components that we need to insert. We need
@@ -216,7 +216,7 @@ impl Into<ast::NamespaceDef> for Context {
 /// to make this easier.
 #[derive(Debug, Clone)]
 pub struct LibraryContext {
-    definitions: HashMap<ast::Id, lib::Primitive>,
+    pub definitions: HashMap<ast::Id, lib::Primitive>,
 }
 
 impl LibraryContext {
