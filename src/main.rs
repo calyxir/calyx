@@ -17,7 +17,16 @@ type PassResult = Result<Box<dyn Visitor>, errors::Error>;
 fn main() -> Result<(), errors::Error> {
     // parse the command line arguments into Opts struct
     let opts: Opts = Opts::from_args();
-
+    let mut passes = &opts.pass;
+    let all = vec![
+        LatencyInsenstive::name().to_string(),
+        CollapseSeq::name().to_string(),
+        RemoveIf::name().to_string(),
+        RedundantPar::name().to_string(),
+    ];
+    if passes.first() == Some(&"all".to_string()) {
+        passes = &all;
+    }
     let mut names: HashMap<String, Box<dyn Fn(&Context) -> PassResult>> =
         HashMap::new();
     names.insert(
@@ -48,16 +57,6 @@ fn main() -> Result<(), errors::Error> {
             Ok(Box::new(r))
         }),
     );
-    names.insert(
-        "all".to_string(),
-        Box::new(|ctx| {
-            LatencyInsenstive::do_pass_default(ctx)?;
-            RedundantPar::do_pass_default(ctx)?;
-            RemoveIf::do_pass_default(ctx)?;
-            let r = CollapseSeq::do_pass_default(ctx)?;
-            Ok(Box::new(r))
-        }),
-    );
     //list all the avaliable pass options when flag -listpasses is enabled
     if opts.list_passes {
         for key in names.keys() {
@@ -68,8 +67,8 @@ fn main() -> Result<(), errors::Error> {
 
     let context = Context::from_opts(&opts)?;
     //run all passes specified by the command line
-    for name in opts.pass {
-        if let Some(pass) = names.get(&name) {
+    for name in passes {
+        if let Some(pass) = names.get(name) {
             pass(&context)?;
         }
     }
