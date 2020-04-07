@@ -1,0 +1,12 @@
+(define/namespace prog
+  (define/component main () ()
+    ((new-std x0 (std_reg 32 0))
+     (-> (@ const0 out) (@ x0 in))
+     (new-std const0 (std_const 32 3))
+     (new-std y0 (std_reg 32 0))
+     (new-std const1 (std_const 32 5))
+     (-> (@ const1 out) (@ y0 in)))
+    (seq
+     (enable x0 const0)
+     (empty)
+     (enable y0 const1))))
