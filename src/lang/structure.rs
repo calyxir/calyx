@@ -1,3 +1,4 @@
+use crate::backend::interpreter::state::State;
 use crate::errors;
 use crate::lang::{ast, component};
 use ast::Port;
@@ -16,6 +17,7 @@ pub enum NodeData {
     Output(ast::Portdef),
     Instance {
         name: ast::Id,
+        component_type: ast::Id,
         structure: ast::Structure,
         signature: ast::Signature,
     },
@@ -99,6 +101,7 @@ impl StructureGraph {
                         })?;
                     let instance = NodeData::Instance {
                         name: data.name.clone(),
+                        component_type: data.component.clone(),
                         structure: stmt.clone(),
                         signature: sig.clone(),
                     };
@@ -115,6 +118,7 @@ impl StructureGraph {
                     })?;
                     let instance = NodeData::Instance {
                         name: data.name.clone(),
+                        component_type: data.instance.name.clone(),
                         structure: stmt.clone(),
                         signature: sig.clone(),
                     };
@@ -202,6 +206,7 @@ impl StructureGraph {
     ) -> NodeIndex {
         let idx = self.graph.add_node(NodeData::Instance {
             name: id.clone(),
+            component_type: comp.name.clone(),
             structure,
             signature: comp.signature.clone(),
         });
@@ -429,10 +434,10 @@ impl StructureGraph {
             match &self.graph[idx.clone()] {
                 NodeData::Input(_) => { /* Do nothing */ }
                 NodeData::Output(_) => { /* Do nothing */ }
-                NodeData::Instance { name, .. } => {
+                NodeData::Instance { component_type, .. } => {
                     // TODO fix how we determine if the component is a
                     // sequential primitive
-                    if name.to_string() == "std_reg" {
+                    if component_type.to_string() == "std_reg" {
                         // We have a sequential primitive- split into two nodes
                         self.split_node(idx.clone());
                     }
@@ -472,9 +477,9 @@ impl StructureGraph {
                     // Set values on all input port edges
                     match value {
                         Some(v) => self.drive_port(
-                            idx.clone(),
+                            idx,
                             portdef.name.to_string().clone(),
-                            *v,
+                            v,
                         ),
                         None => {
                             // TODO error handling
@@ -488,10 +493,65 @@ impl StructureGraph {
         std::mem::replace(&mut self.portdef_map, portdef_map);
     }
 
-    /// Helper function for drive_inputs
+    /// Helper function for setting the value of the outputs of a state port
+    pub fn drive_state(&mut self, state: &State) {
+        let inst_map =
+            std::mem::replace(&mut self.inst_map, HashMap::default());
+        for idx in inst_map.values() {
+            match &self.graph[idx.clone()].clone() {
+                NodeData::Input(_) => { /* Do nothing */ }
+                NodeData::Output(_) => { /* Do nothing */ }
+                NodeData::Instance {
+                    name,
+                    component_type,
+                    ..
+                } => {
+                    // TODO fix how we determine if the component is a
+                    // state primitive
+                    if component_type.to_string() == "std_reg" {
+                        // We have a state primitive- look up its value
+                        match state {
+                            State::Component(map) => {
+                                let st = map.get(name);
+                                match st {
+                                    Some(reg_st) => {
+                                        match reg_st {
+                                            State::Component(_) => { /* TODO malformed state */
+                                            }
+                                            State::Register(i) => {
+                                                self.drive_port(
+                                                    idx,
+                                                    "out".to_string(),
+                                                    i,
+                                                );
+                                            }
+                                        }
+                                    }
+                                    None => {
+                                        // TODO malformed state
+                                    }
+                                }
+                            }
+                            State::Register(_) => {
+                                //TODO malformed state
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        std::mem::replace(&mut self.inst_map, inst_map);
+    }
+
+    /// Helper function for setting values of ports
     /// Drives a specific port of a node with a provided value
     /// TODO make documentation clearer
-    fn drive_port(&mut self, idx: NodeIndex, port: String, value: Option<i64>) {
+    fn drive_port(
+        &mut self,
+        idx: &NodeIndex,
+        port: String,
+        value: &Option<i64>,
+    ) {
         let mut walker = self
             .graph
             .neighbors_directed(idx.clone(), Direction::Outgoing)
@@ -499,7 +559,7 @@ impl StructureGraph {
         while let Some(edge_idx) = walker.next_edge(&self.graph) {
             let edge_data = &mut self.graph[edge_idx];
             if edge_data.src == port {
-                edge_data.value = value;
+                edge_data.value = value.clone();
             }
         }
     }

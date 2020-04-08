@@ -119,6 +119,7 @@ pub fn eval_c(
             let mut graph = structure.clone();
             graph.split_seq_prims(); // Split sequential primitives to remove valid cycles
             graph.drive_inputs(inputs); // Initialize with input values
+            graph.drive_state(st); // Load values from State into graph
             return eval_s(&c, inputs, &mut graph, st, data.comps.clone());
         }
         Control::Empty { data: _ } => return st.clone(),
@@ -126,6 +127,8 @@ pub fn eval_c(
 }
 
 /// Simulates the structure of a component for `enable` statements
+/// Assumes component input values and state components are already
+/// initialized with values in `structure`.
 /// # Arguments
 ///   * `c` - is the context for the compilation unit
 ///   * `inputs` - is a map of input port names to values for passing
@@ -142,5 +145,5 @@ pub fn eval_s(
     st: &State,
     enabled: Vec<ast::Id>,
 ) -> State {
-    unimplemented!("Interpreter is not implemented.");
+    structure = 
 }

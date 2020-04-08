@@ -186,6 +186,7 @@ fn subcomponent_instances<'a>(comp: &component::Component) -> D<'a, ColorSpec> {
     let subs = comp.structure.instances().filter_map(|(idx, data)| {
         if let NodeData::Instance {
             name,
+            component_type,
             structure,
             signature,
         } = data
