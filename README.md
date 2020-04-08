@@ -6,6 +6,9 @@ An intermediate language for [Dahlia][].
 ### Installation
 - Install [Rust][rust].
 - Install [runt][] by running `cargo install runt`.
+- Install [vcdump][] by running `cargo install vcdump`
+- Install [jq][] with `sudo {pkg-manager} install jq` for Linux and `brew install jq` for Mac.
+[Here](https://stedolan.github.io/jq/download/) are the complete directions if those don't work for you.
 - Run `cargo build` to download all dependencies and build calyx.
 - Run `runt` to run tests.
 - Run `./target/debug/calyx --help` to get options from the calyx binary.

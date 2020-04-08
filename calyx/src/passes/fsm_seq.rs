@@ -179,6 +179,26 @@ impl Visitor for FsmSeq<'_> {
             prev_idx = state;
         }
 
+        let end_state_name = self.names.gen_name("end_state");
+        let end_state = ctx.instantiate_primitive(
+            &end_state_name,
+            &"std_fsm_state".into(),
+            &[],
+        )?;
+        let end_idx = comp.structure.add_primitive(
+            &end_state_name.into(),
+            "std_fsm_state",
+            &end_state,
+            &[],
+        );
+        comp.structure.insert_edge(prev_idx, "out", end_idx, "in")?;
+        comp.structure.insert_edge(
+            end_idx,
+            "out",
+            comp.structure.get_io_index("ready")?,
+            "ready",
+        )?;
+
         Ok(Action::Change(Control::enable(
             enable_names
                 .into_iter()

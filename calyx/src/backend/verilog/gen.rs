@@ -62,7 +62,8 @@ impl Backend for VerilogBackend {
         let docs = comps.iter().map(|(cd, comp)| cd.doc(&arena, &comp));
         let prims = primitive_implemenations(&prog, ctx);
         display(
-            prims
+            colors::comment(D::text("/* verilator lint_off PINMISSING */"))
+                .append(prims)
                 .append(D::line())
                 .append(D::line())
                 .append(D::intersperse(docs, D::line())),
@@ -125,11 +126,6 @@ impl Emitable for ast::ComponentDef {
             .append(wire_declarations(&comp))
             .append(D::line())
             .append(D::line())
-            // .append(colors::comment(D::text("// Valid wire declarations")))
-            // .append(D::line())
-            // .append(valid_declarations(&arena, &comp))
-            // .append(D::line())
-            // .append(D::line())
             .append(colors::comment(D::text("// Subcomponent Instances")))
             .append(D::line())
             .append(subcomponent_instances(&comp));
@@ -204,7 +200,7 @@ fn wire_declarations<'a>(comp: &component::Component) -> D<'a, ColorSpec> {
     let wires = structure
         .instances()
         .filter_map(|(idx, data)| match data {
-            structure::NodeData::Instance {
+            NodeData::Instance {
                 name, signature, ..
             } => Some(
                 signature
@@ -254,10 +250,13 @@ fn wire_string<'a>(
     // build comment of the destinations of each wire declaration
     let dests: Vec<D<ColorSpec>> = structure
         .connected_to(idx, portdef.name.to_string())
-        .map(|(node, edge)| {
-            D::text(node.get_name().to_string())
-                .append(" @ ")
-                .append(edge.dest.to_string())
+        .filter_map(|(node, edge)| match node {
+            NodeData::Input(..) | NodeData::Output(..) => None,
+            NodeData::Instance { name, .. } => Some(
+                D::text(name.to_string())
+                    .append(" @ ")
+                    .append(edge.dest.to_string()),
+            ),
         })
         .collect();
     if !dests.is_empty() {
@@ -391,31 +390,46 @@ fn signature_connections<'a>(
                 })
         })
         .flatten();
-    let outgoing = sig.outputs.iter().filter_map(|portdef| {
-        if comp
-            .structure
-            .connected_to(idx, portdef.name.to_string())
-            .count()
-            > 0
-        {
-            let wire_name =
-                format!("{}${}", &name.to_string(), &portdef.name.to_string());
-            Some(
-                D::text(".")
-                    .append(D::text(portdef.name.to_string()).port_color())
-                    .append(D::text(wire_name).ident_color().parens()),
-            )
-        } else {
-            None
-        }
-    });
-    // let valid_wire = format!("{}$valid", name.as_ref());
-    // let valid = D::text(".")
-    //     .append(colors::port(D::text("valid")))
-    //     .append(parens(colors::ident(D::text(valid_wire))));
+
+    // we need
+    //   x @ out -> y @ in
+    //   x @ out -> z @ in
+    //   x @ out -> this @ ready
+    // to generate the Verilog connections:
+    //   .out(x$out)
+    //   .out(ready)
+    // The second outgoing connection should not have a special
+    // statement in Verilog because it would look like
+    //   .out(x$out)
+    // which is identical to the first statement and thus redundant.
+    // That is what the unique stuff below is for
+    let outgoing = sig
+        .outputs
+        .iter()
+        .map(|portdef| {
+            comp.structure
+                .connected_to(idx, portdef.name.to_string())
+                .map(move |(dest, edge)| {
+                    let wire_name = match dest {
+                        NodeData::Input(pd) | NodeData::Output(pd) => {
+                            pd.name.to_string()
+                        }
+                        NodeData::Instance { .. } => {
+                            format!("{}${}", name.to_string(), &edge.src)
+                        }
+                    };
+                    // return tuple so that we can check uniqueness
+                    (portdef.name.to_string(), wire_name)
+                })
+                // call unique so that we only get connection per outgoing wire
+                .unique()
+                .map(|(port, wire)| {
+                    D::text(".")
+                        .append((D::text(port)).port_color())
+                        .append(D::text(wire).ident_color().parens())
+                })
+        })
+        .flatten();
 
     D::intersperse(incoming.chain(outgoing), D::text(",").append(D::line()))
-    // .append(",")
-    // .append(D::line())
-    // .append(valid)
 }

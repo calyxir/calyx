@@ -1,6 +1,7 @@
 #include "Vmain.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
+#include <stdio.h>
 int main(int argc, char **argv, char **env) {
   int i;
   int clk;
@@ -15,16 +16,24 @@ int main(int argc, char **argv, char **env) {
   // initialize simulation inputs
   top->clk = 1;
   top->valid = 1;
-  for (i = 0; i < 300; i++) {
+  int ready = 0;
+  printf("Starting simulation\n");
+  while (ready == 0) {
+    ready = top->ready;
     // dump variables into VCD file and toggle clock
     for (clk = 0; clk < 2; clk++) {
       tfp->dump(2 * i + clk);
       top->clk = !top->clk;
       top->eval();
     }
+
     if (Verilated::gotFinish())
       exit(0);
+
+    i++;
   }
+  printf("Simulated %i cycles\n", i);
+  top->final();
   tfp->close();
   exit(0);
 }
