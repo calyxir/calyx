@@ -1,9 +1,9 @@
 use crate::cmdline::Opts;
+use crate::errors;
 use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::{
     ast, component::Component, library::ast as lib, structure::StructureGraph,
 };
-use crate::errors;
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
 use std::collections::HashMap;
