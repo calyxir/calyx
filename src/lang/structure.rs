@@ -1,5 +1,8 @@
+use crate::backend::interpreter::eval;
+use crate::backend::interpreter::eval::EvalGraph;
 use crate::backend::interpreter::state::State;
 use crate::errors;
+use crate::lang::context::Context;
 use crate::lang::{ast, component};
 use ast::Port;
 use component::Component;
@@ -7,6 +10,7 @@ use errors::Error;
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::stable_graph::StableDiGraph;
+use petgraph::visit::Topo;
 use petgraph::Direction;
 use std::collections::HashMap;
 
@@ -416,7 +420,9 @@ impl StructureGraph {
         let config = &[Config::EdgeNoLabel];
         format!("{:?}", Dot::with_config(&self.graph, config))
     }
+}
 
+impl EvalGraph for StructureGraph {
     /// Splits sequential primitive component nodes into two separate nodes.
     /// Splitting sequential primitives into two nodes should turn all
     /// valid structure into a DAG for further analysis. One node will only have input wires,
@@ -427,7 +433,7 @@ impl StructureGraph {
     /// Perhaps should switch to using an iterator?
     /// std::mem::replace is used according to a response to this stack overflow post:
     /// https://stackoverflow.com/questions/35936995/mutating-one-field-while-iterating-over-another-immutable-field
-    pub fn split_seq_prims(&mut self) {
+    fn split_seq_prims(&mut self) {
         let inst_map =
             std::mem::replace(&mut self.inst_map, HashMap::default());
         for idx in inst_map.values() {
@@ -467,7 +473,7 @@ impl StructureGraph {
     }
 
     /// Set values for inputs
-    pub fn drive_inputs(&mut self, inputs: &HashMap<ast::Id, Option<i64>>) {
+    fn drive_inputs(&mut self, inputs: &HashMap<ast::Id, Option<i64>>) {
         let portdef_map =
             std::mem::replace(&mut self.portdef_map, HashMap::default());
         for idx in portdef_map.values() {
@@ -493,8 +499,29 @@ impl StructureGraph {
         std::mem::replace(&mut self.portdef_map, portdef_map);
     }
 
+    /// Set values for outputs
+    fn drive_outputs(
+        &mut self,
+        idx: &NodeIndex,
+        outputs: &HashMap<ast::Id, Option<i64>>,
+    ) {
+        for neighbor_idx in self
+            .graph
+            .neighbors_directed(idx.clone(), Direction::Outgoing)
+        {
+            if let Some(edge_idx) =
+                self.graph.find_edge(idx.clone(), neighbor_idx)
+            {
+                let mut edge_data = self.graph[edge_idx];
+                if let Some(v) = outputs.get(&ast::Id::from(edge_data.src)) {
+                    edge_data.value = v.clone();
+                }
+            }
+        }
+    }
+
     /// Helper function for setting the value of the outputs of a state port
-    pub fn drive_state(&mut self, state: &State) {
+    fn drive_state(&mut self, state: &State) {
         let inst_map =
             std::mem::replace(&mut self.inst_map, HashMap::default());
         for idx in inst_map.values() {
@@ -562,6 +589,89 @@ impl StructureGraph {
                 edge_data.value = value.clone();
             }
         }
+    }
+
+    fn toposort(&self) -> Result<Vec<NodeIndex>, Error> {
+        match petgraph::algo::toposort(&self.graph, None) {
+            Ok(v) => Ok(v),
+            Err(e) => Err(Error::StructureHasCycle),
+        }
+    }
+
+    fn input_values(&self, idx: &NodeIndex) -> HashMap<ast::Id, Option<i64>> {
+        let mut map = HashMap::new();
+        for neighbor_idx in self
+            .graph
+            .neighbors_directed(idx.clone(), Direction::Incoming)
+        {
+            if let Some(edge_idx) =
+                self.graph.find_edge(neighbor_idx, idx.clone())
+            {
+                let edge_data = self.graph[edge_idx];
+                map.insert(ast::Id::from(edge_data.dest), edge_data.value);
+            }
+        }
+        map
+    }
+
+    fn update(
+        &mut self,
+        c: &Context,
+        st: &State,
+        enabled: Vec<ast::Id>,
+    ) -> Result<State, Error> {
+        for idx in self.toposort()?.iter() {
+            match self.graph[idx.clone()] {
+                NodeData::Input(_) => { /* Do nothing */ }
+                NodeData::Output(_) => { /* Do nothing */ }
+                NodeData::Instance {
+                    name,
+                    component_type,
+                    ..
+                } => {
+                    // Check if component is enabled
+                    if enabled.contains(&name) {
+                        let input_map = self.input_values(idx);
+                        let (output_map, st_1) =
+                            eval::eval(c, st, &component_type, input_map)?;
+                        self.drive_outputs(&idx, &output_map);
+                    }
+                }
+            }
+        }
+
+        Err(Error::StructureHasCycle)
+    }
+
+    /// Read values from output ports
+    fn read_outputs(&mut self) -> HashMap<ast::Id, Option<i64>> {
+        let mut map = HashMap::new();
+        let portdef_map =
+            std::mem::replace(&mut self.portdef_map, HashMap::default());
+        for idx in portdef_map.values() {
+            match &self.graph[idx.clone()].clone() {
+                NodeData::Input(_) => { /* Do nothing */ }
+                NodeData::Output(portdef) => {
+                    for neighbor_idx in self
+                        .graph
+                        .neighbors_directed(idx.clone(), Direction::Incoming)
+                    {
+                        if let Some(edge_idx) =
+                            self.graph.find_edge(neighbor_idx, idx.clone())
+                        {
+                            let edge_data = self.graph[edge_idx];
+                            map.insert(
+                                ast::Id::from(edge_data.dest),
+                                edge_data.value,
+                            );
+                        }
+                    }
+                }
+                NodeData::Instance { .. } => { /* Do nothing */ }
+            }
+        }
+        std::mem::replace(&mut self.portdef_map, portdef_map);
+        map
     }
 }
 

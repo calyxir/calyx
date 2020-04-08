@@ -17,6 +17,8 @@ pub enum Error {
     MalformedControl, // XXX(sam) add more info to this
     #[allow(unused)]
     Misc(String),
+    // XXX(ken) interpreter errors
+    StructureHasCycle,
 }
 
 impl std::fmt::Debug for Error {
