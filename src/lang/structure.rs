@@ -4,7 +4,7 @@ use ast::Port;
 use component::Component;
 use errors::Error;
 use petgraph::dot::{Config, Dot};
-use petgraph::graph::NodeIndex;
+use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::stable_graph::StableDiGraph;
 use petgraph::Direction;
 use std::collections::HashMap;
@@ -245,7 +245,6 @@ impl StructureGraph {
             .node_indices()
             .map(move |ni| (ni, self.graph[ni].clone()))
     }
-
     fn connected_direction<'a>(
         &'a self,
         node: NodeIndex,
@@ -411,6 +410,55 @@ impl StructureGraph {
     pub fn visualize(&self) -> String {
         let config = &[Config::EdgeNoLabel];
         format!("{:?}", Dot::with_config(&self.graph, config))
+    }
+
+    /// Splits sequential primitive component nodes into two separate nodes.
+    /// Splitting sequential primitives into two nodes should turn all
+    /// valid structure into a DAG for further analysis. One node will only have input wires,
+    /// and the corresponding node will only have output wires.
+    ///
+    /// Instance map will tentatively point only to the input node.
+    ///
+    /// Perhaps should switch to using an iterator?
+    /// std::mem::replace is used according to a response to this stack overflow post:
+    /// https://stackoverflow.com/questions/35936995/mutating-one-field-while-iterating-over-another-immutable-field
+    pub fn split_seq_prims(&mut self) {
+        let inst_map =
+            std::mem::replace(&mut self.inst_map, HashMap::default());
+        for idx in inst_map.values() {
+            match &self.graph[idx.clone()] {
+                NodeData::Input(_) => { /* Do nothing */ }
+                NodeData::Output(_) => { /* Do nothing */ }
+                NodeData::Instance { name, .. } => {
+                    // TODO fix how we determine if the component is a
+                    // sequential primitive
+                    if name.to_string() == "std_reg" {
+                        // We have a sequential primitive- split into two nodes
+                        self.split_node(idx.clone());
+                    }
+                }
+            }
+        }
+        std::mem::replace(&mut self.inst_map, inst_map);
+    }
+
+    /// Helper function for split_seq_prims
+    /// Splits a given node into two nodes, one that has all incoming edges
+    /// and one that has all outgoing edges
+    fn split_node(&mut self, idx: NodeIndex) {
+        let node_data = &self.graph[idx.clone()];
+        let new_data = node_data.clone();
+        let new_idx = self.graph.add_node(new_data);
+
+        // Move output edges to the new node
+        let mut walker = self
+            .graph
+            .neighbors_directed(idx.clone(), Direction::Outgoing)
+            .detach();
+        while let Some((edge_idx, node_idx)) = walker.next(&self.graph) {
+            let edge_data = self.graph[edge_idx].clone();
+            self.graph.add_edge(new_idx, node_idx, edge_data);
+        }
     }
 }
 

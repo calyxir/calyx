@@ -1,8 +1,19 @@
 use crate::backend::interpreter::state::State;
+use crate::backend::traits::{Backend, Emitable};
 use crate::lang::ast;
 use crate::lang::context::Context;
 use crate::lang::structure::StructureGraph;
 use std::collections::HashMap;
+
+pub struct InterpreterBackend {}
+
+// impl Backend for InterpreterBackend {
+//     fn name() -> &'static str {
+//         "interpreter"
+//     }
+
+//     fn validate(prog: &Context) -> Result<(), errors::Error> {}
+// }
 
 /// Evaluates a component
 /// # Arguments
@@ -59,7 +70,7 @@ pub fn eval_lib(
 
 /// Simulates the control of a component
 /// # Arguments
-///   * `control` - is the control of the component
+///   * `control` - is the control statement to evaluate
 ///   * `structure` - is the graph of the structure
 ///   * `st` - is the state of the component
 ///   * `comp_name` - the name of the type of component to run
@@ -114,9 +125,9 @@ pub fn eval_c(
 /// # Returns
 ///   Returns the new component state
 pub fn eval_s(
-    _structure: &StructureGraph,
-    _st: &State,
-    _enabled: Vec<ast::Id>,
+    structure: &StructureGraph,
+    st: &State,
+    enabled: Vec<ast::Id>,
 ) -> State {
     unimplemented!("Interpreter is not implemented.");
 }
