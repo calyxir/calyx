@@ -460,6 +460,49 @@ impl StructureGraph {
             self.graph.add_edge(new_idx, node_idx, edge_data);
         }
     }
+
+    /// Set values for inputs
+    pub fn drive_inputs(&mut self, inputs: &HashMap<ast::Id, Option<i64>>) {
+        let portdef_map =
+            std::mem::replace(&mut self.portdef_map, HashMap::default());
+        for idx in portdef_map.values() {
+            match &self.graph[idx.clone()].clone() {
+                NodeData::Input(portdef) => {
+                    let value = inputs.get(&portdef.name);
+                    // Set values on all input port edges
+                    match value {
+                        Some(v) => self.drive_port(
+                            idx.clone(),
+                            portdef.name.to_string().clone(),
+                            *v,
+                        ),
+                        None => {
+                            // TODO error handling
+                        }
+                    }
+                }
+                NodeData::Output(_) => { /* Do nothing */ }
+                NodeData::Instance { .. } => { /* Do nothing */ }
+            }
+        }
+        std::mem::replace(&mut self.portdef_map, portdef_map);
+    }
+
+    /// Helper function for drive_inputs
+    /// Drives a specific port of a node with a provided value
+    /// TODO make documentation clearer
+    fn drive_port(&mut self, idx: NodeIndex, port: String, value: Option<i64>) {
+        let mut walker = self
+            .graph
+            .neighbors_directed(idx.clone(), Direction::Outgoing)
+            .detach();
+        while let Some(edge_idx) = walker.next_edge(&self.graph) {
+            let edge_data = &mut self.graph[edge_idx];
+            if edge_data.src == port {
+                edge_data.value = value;
+            }
+        }
+    }
 }
 
 // Implement conversion of graph back into a structure ast vector

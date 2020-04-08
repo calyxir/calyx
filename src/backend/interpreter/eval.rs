@@ -39,7 +39,7 @@ pub fn _eval(
     match c.get_component(comp_name) {
         Ok(comp) => {
             //  structure graph
-            let st_1 = eval_c(&comp.control, &comp.structure, st);
+            let st_1 = eval_c(&c, &inputs, &comp.control, &comp.structure, st);
         }
         Err(_e) => {
             //XXX(ken) errors
@@ -52,7 +52,7 @@ pub fn _eval(
 
 /// Evaluates a library component
 /// # Arguments
-///   * `c` - is the context for the file
+///   * `c` - is the context for the compilation unit
 ///   * `st` - is the state of the component
 ///   * `comp_name` - the name of the type of component to run
 ///   * `inputs` - is a map of input port names to values for passing
@@ -70,15 +70,18 @@ pub fn eval_lib(
 
 /// Simulates the control of a component
 /// # Arguments
+///   * `c` - is the context for the compilation unit
+///   * `inputs` - is a map of input port names to values for passing
+///                inputs to the component during evaluation
 ///   * `control` - is the control statement to evaluate
 ///   * `structure` - is the graph of the structure
 ///   * `st` - is the state of the component
 ///   * `comp_name` - the name of the type of component to run
-///   * `inputs` - is a map of input port names to values for passing
-///                inputs to the component during evaluation
 /// # Returns
 ///   Returns the new component state
 pub fn eval_c(
+    c: &Context,
+    inputs: &HashMap<ast::Id, Option<i64>>,
     control: &ast::Control,
     structure: &StructureGraph,
     st: &State,
@@ -90,12 +93,12 @@ pub fn eval_c(
                 return st.clone();
             } else {
                 let (head, tail) = data.stmts.split_at(1);
-                let st_1 = eval_c(&head[0], structure, st);
+                let st_1 = eval_c(&c, inputs, &head[0], structure, st);
                 let seq_1 = ast::Seq {
                     stmts: tail.to_vec(),
                 };
                 let control_1 = Control::Seq { data: seq_1 };
-                return eval_c(&control_1, structure, &st_1);
+                return eval_c(&c, inputs, &control_1, structure, &st_1);
             }
         }
         Control::Par { data } => {
@@ -111,7 +114,12 @@ pub fn eval_c(
             unimplemented!("Print");
         }
         Control::Enable { data } => {
-            return eval_s(structure, st, data.comps.clone())
+            // Create a fresh graph for evaluation so we don't impact the original structure
+            // It should have no values on the wires
+            let mut graph = structure.clone();
+            graph.split_seq_prims(); // Split sequential primitives to remove valid cycles
+            graph.drive_inputs(inputs); // Initialize with input values
+            return eval_s(&c, inputs, &mut graph, st, data.comps.clone());
         }
         Control::Empty { data: _ } => return st.clone(),
     }
@@ -119,13 +127,18 @@ pub fn eval_c(
 
 /// Simulates the structure of a component for `enable` statements
 /// # Arguments
+///   * `c` - is the context for the compilation unit
+///   * `inputs` - is a map of input port names to values for passing
+///                inputs to the component during evaluation
 ///   * `structure` - is the graph of the structure
 ///   * `st` - is the context for the file
 ///   * `enabled` - is a list of enabled components to simulate
 /// # Returns
 ///   Returns the new component state
 pub fn eval_s(
-    structure: &StructureGraph,
+    c: &Context,
+    inputs: &HashMap<ast::Id, Option<i64>>,
+    structure: &mut StructureGraph,
     st: &State,
     enabled: Vec<ast::Id>,
 ) -> State {
