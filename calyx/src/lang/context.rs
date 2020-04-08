@@ -3,7 +3,7 @@ use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::{
     ast, component::Component, library::ast as lib, structure::StructureGraph,
 };
-use crate::{errors, errors::OptionHelper};
+use crate::errors;
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -119,7 +119,7 @@ impl Context {
 
     pub fn from_opts(opts: &Opts) -> Result<Self, errors::Error> {
         // parse file
-        let file = opts.file.as_ref().to_err(errors::Error::InvalidFile)?;
+        let file = opts.file.as_ref().ok_or(errors::Error::InvalidFile)?;
         let namespace = ast::parse_file(file)?;
 
         // parse library files

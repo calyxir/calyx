@@ -68,17 +68,4 @@ impl From<String> for Error {
     }
 }
 
-pub trait OptionHelper {
-    type Inner;
-    fn to_err(self, e: Error) -> Result<Self::Inner, Error>;
-}
 
-impl<T> OptionHelper for Option<T> {
-    type Inner = T;
-    fn to_err(self, e: Error) -> Result<Self::Inner, Error> {
-        match self {
-            Some(t) => Ok(t),
-            None => Err(e),
-        }
-    }
-}
