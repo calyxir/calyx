@@ -7,7 +7,7 @@ use calyx::{
 };
 use passes::{
     automatic_par::AutomaticPar, collapse_seq::CollapseSeq,
-    lat_insensitive::LatencyInsenstive, redundant_par::RedundantPar,
+    lat_insensitive::LatencyInsensitive, redundant_par::RedundantPar,
     remove_if::RemoveIf,
 };
 use std::collections::HashMap;
@@ -19,9 +19,9 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
     let mut names: HashMap<String, Box<dyn Fn(&Context) -> PassResult>> =
         HashMap::new();
     names.insert(
-        LatencyInsenstive::name().to_string(),
+        LatencyInsensitive::name().to_string(),
         Box::new(|ctx| {
-            let r = LatencyInsenstive::do_pass_default(ctx)?;
+            let r = LatencyInsensitive::do_pass_default(ctx)?;
             Ok(Box::new(r))
         }),
     );
@@ -56,7 +56,7 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
     names.insert(
         "all".to_string(),
         Box::new(|ctx| {
-            LatencyInsenstive::do_pass_default(ctx)?;
+            LatencyInsensitive::do_pass_default(ctx)?;
             RedundantPar::do_pass_default(ctx)?;
             RemoveIf::do_pass_default(ctx)?;
             CollapseSeq::do_pass_default(ctx)?;

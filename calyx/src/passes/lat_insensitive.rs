@@ -1,15 +1,15 @@
 use crate::lang::{component::Component, context::Context};
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 
-pub struct LatencyInsenstive {}
+pub struct LatencyInsensitive {}
 
-impl Default for LatencyInsenstive {
+impl Default for LatencyInsensitive {
     fn default() -> Self {
-        LatencyInsenstive {}
+        LatencyInsensitive {}
     }
 }
 
-impl Named for LatencyInsenstive {
+impl Named for LatencyInsensitive {
     fn name() -> &'static str {
         "latency-insenstive"
     }
@@ -19,7 +19,7 @@ impl Named for LatencyInsenstive {
     }
 }
 
-impl Visitor for LatencyInsenstive {
+impl Visitor for LatencyInsensitive {
     fn start(&mut self, comp: &mut Component, _c: &Context) -> VisResult {
         comp.add_input(("valid", 1));
         comp.add_output(("ready", 1));
