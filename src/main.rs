@@ -5,17 +5,18 @@ use calyx::{
     passes,
     passes::visitor::{Named, Visitor},
 };
-use passes::{
-    automatic_par::AutomaticPar, collapse_seq::CollapseSeq,
-    lat_insensitive::LatencyInsensitive, redundant_par::RedundantPar,
-    remove_if::RemoveIf,
-};
 use std::collections::HashMap;
 use structopt::StructOpt;
 
 type PassResult = Result<Box<dyn Visitor>, errors::Error>;
 
 fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
+    use passes::{
+        automatic_par::AutomaticPar, collapse_seq::CollapseSeq,
+        lat_insensitive::LatencyInsensitive, redundant_par::RedundantPar,
+        remove_if::RemoveIf,
+    };
+
     let mut names: HashMap<String, Box<dyn Fn(&Context) -> PassResult>> =
         HashMap::new();
     names.insert(
@@ -97,6 +98,5 @@ fn main() -> Result<(), errors::Error> {
             return Err(errors::Error::UnknownPass(name, known_passes));
         }
     }
-    opts.backend.run(&context, std::io::stdout())?;
-    Ok(())
+    Ok(opts.backend.run(&context, std::io::stdout())?)
 }
