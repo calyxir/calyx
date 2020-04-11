@@ -7,6 +7,7 @@
 use crate::lang::ast;
 
 pub enum Error {
+    UnknownPass(String, String),
     InvalidFile,
     ParseError(String),
     WriteError,
@@ -23,6 +24,14 @@ impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use Error::*;
         match self {
+            UnknownPass(pass, known_passes) => {
+                write!(
+                    f,
+                    "Unknown pass: {}. Known passes: {}.",
+                    pass,
+                    known_passes
+                )
+            },
             InvalidFile => write!(f, "InvalidFile"),
             ParseError(msg) => write!(f, "{}", msg),
             WriteError => write!(f, "WriteError"),

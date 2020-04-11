@@ -9,7 +9,7 @@ pub struct RedundantPar {}
 
 impl Named for RedundantPar {
     fn name() -> &'static str {
-        "redudant-par"
+        "redundant-par"
     }
 
     fn description() -> &'static str {
