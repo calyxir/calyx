@@ -1,6 +1,6 @@
 - all
 - automatic-par
 - collapse-seq
-- latency-insenstive
+- latency-insensitive
 - redundant-par
 - remove-if
