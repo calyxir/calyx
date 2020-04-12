@@ -19,11 +19,10 @@ cmd = """
 
 [[tests]]
 name = "Latency Insensitive"
-paths = [ "tests/integration/seq.futil" ]
+paths = [ "tests/latency-insensitive/*.futil" ]
 cmd = """
   ./target/debug/futil {} -l ./primitives/std.lib -b futil -p latency-insensitive
 """
-expect_dir = "tests/latency-insensitive"
 
 [[tests]]
 name = "Automatic Par"
