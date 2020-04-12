@@ -11,6 +11,13 @@ paths = [ "tests/integration/*.futil" ]
 cmd = "./target/debug/futil {} -l ./primitives/std.lib -b futil"
 
 [[tests]]
+name = "Collapse Seq"
+paths = [ "tests/collapse-seq/*.futil" ]
+cmd = """
+  ./target/debug/futil {} -l ./primitives/std.lib -b futil -p collapse-seq
+"""
+
+[[tests]]
 name = "Latency Insensitive"
 paths = [ "tests/integration/seq.futil" ]
 cmd = """
