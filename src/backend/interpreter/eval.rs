@@ -68,13 +68,24 @@ pub trait EvalGraph {
 
 pub struct InterpreterBackend {}
 
-// impl Backend for InterpreterBackend {
-//     fn name() -> &'static str {
-//         "interpreter"
-//     }
+impl Backend for InterpreterBackend {
+    fn name() -> &'static str {
+        "interpreter"
+    }
 
-//     fn validate(prog: &Context) -> Result<(), errors::Error> {}
-// }
+    fn validate(prog: &Context) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn emit(prog: &Context) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn run(prog: &Context) -> Result<(), Error> {
+        //Self::validate(&prog)?;
+        Self::emit(prog)
+    }
+}
 
 /// Evaluates a component
 /// # Arguments

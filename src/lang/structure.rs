@@ -254,6 +254,7 @@ impl StructureGraph {
             .node_indices()
             .map(move |ni| (ni, self.graph[ni].clone()))
     }
+
     fn connected_direction<'a>(
         &'a self,
         node: NodeIndex,
