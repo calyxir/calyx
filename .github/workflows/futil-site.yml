@@ -1,0 +1,14 @@
+name: Update Futil Demo
+on: [push]
+
+jobs:
+  update:
+    name: Update Futil Demo Site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger futil-site deploy
+        run: |
+          curl -X POST https://api.github.com/repos/cucapra/futil-site/dispatches \
+          -u ${{ secrets.DEMO_DEPLOY_TOKEN }} \
+          -H 'Accept: application/vnd.github.everest-preview+json' \
+          --data '{"event_type": "deploy"}'
