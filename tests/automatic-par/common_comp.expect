@@ -1,0 +1,15 @@
+(define/component main
+  ()
+  ()
+  ([new-std a0 (std_reg 32)]
+   [new-std add0 (std_add 32)]
+   [new-std const0 (std_const 32 10)]
+   [new-std const1 (std_const 32 5)]
+   [new-std res0 (std_reg 32)]
+   [-> (@ a0 out) (@ add0 left)]
+   [-> (@ add0 out) (@ res0 in)]
+   [-> (@ const0 out) (@ a0 in)]
+   [-> (@ const1 out) (@ add0 right)])
+  (seq
+   (enable a0 const0)
+   (enable res0 add0 a0 const1)))
