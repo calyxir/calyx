@@ -119,7 +119,8 @@ impl Context {
 
     pub fn from_opts(opts: &Opts) -> Result<Self, errors::Error> {
         // parse file
-        let namespace = ast::parse_file(&opts.file)?;
+        let file = opts.file.as_ref().ok_or(errors::Error::InvalidFile)?;
+        let namespace = ast::parse_file(file)?;
 
         // parse library files
         let libs: Vec<_> = opts

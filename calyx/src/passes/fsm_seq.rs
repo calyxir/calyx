@@ -43,8 +43,7 @@ impl<'a> FsmSeq<'a> {
                 .collect(),
         };
         let name = self.names.gen_name("fsm_expander");
-        let mut new_comp =
-            Component::from_signature(self.names.gen_name("fsm_expander"), sig);
+        let mut new_comp = Component::from_signature(name.clone(), sig);
 
         // instantiate new fsm comp in this comp
         let new_idx = this_comp.structure.add_instance(
@@ -127,6 +126,7 @@ impl Visitor for FsmSeq<'_> {
             }
         }
 
+        // much hacky
         let regs: Vec<_> = enables
             .iter()
             .map(|x| {
@@ -136,6 +136,10 @@ impl Visitor for FsmSeq<'_> {
                         let idx = comp.structure.get_inst_index(&c)?;
                         if comp.structure.graph[idx].get_component_type()?
                             == "std_reg"
+                            && comp
+                                .structure
+                                .connected_from(idx, "in".to_string())
+                                .any(|(r, _)| x.comps.contains(r.get_name()))
                         {
                             Ok((idx, c))
                         } else {

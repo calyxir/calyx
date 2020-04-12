@@ -76,11 +76,11 @@ endmodule")))
    assign out = left - right;
 endmodule")))
 
-  (define/prim std_mul (p_width)
+  (define/prim std_mult (p_width)
    ((port left p_width) (port right p_width))
    ((port out p_width))
    ((verilog
-"module std_mul
+"module std_mult
   #(parameter width = 32)
    (input logic  [width-1:0] left,
     input logic  [width-1:0] right,
