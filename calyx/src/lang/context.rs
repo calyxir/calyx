@@ -208,6 +208,11 @@ impl Into<ast::NamespaceDef> for Context {
         ast::NamespaceDef {
             name: name.into(),
             components,
+            ///TODO: fix it later
+            library: Some(ast::ImportStatement{
+                libraries: vec![]
+            }
+          )
         }
     }
 }
