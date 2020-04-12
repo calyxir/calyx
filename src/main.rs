@@ -89,12 +89,8 @@ fn main() -> Result<(), errors::Error> {
         if let Some(pass) = names.get(&name) {
             pass(&context)?;
         } else {
-            let known_passes: String = names
-                .keys()
-                .into_iter()
-                .map(|p| p.clone())
-                .collect::<Vec<_>>()
-                .join(", ");
+            let known_passes: String =
+                names.keys().cloned().collect::<Vec<_>>().join(", ");
             return Err(errors::Error::UnknownPass(name, known_passes));
         }
     }
