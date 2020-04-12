@@ -15,7 +15,8 @@ pub enum Error {
     UndefinedPort(String),
     UndefinedComponent(ast::Id),
     SignatureResolutionFailed(ast::Id),
-    MalformedControl, // XXX(sam) add more info to this
+    MalformedControl,   // XXX(sam) add more info to this
+    Impossible(String), // Signal compiler errors that should never occur.
     #[allow(unused)]
     Misc(String),
 }
@@ -49,6 +50,7 @@ impl std::fmt::Debug for Error {
             }
             MalformedControl => write!(f, "Malformed Control. Backend expected Control to be in a different form."),
             Misc(msg) => write!(f, "{}", msg),
+            Impossible(msg) => write!(f, "Impossible: {}\nThis error should never occur. Report report this as a bug.", msg),
         }
     }
 }
