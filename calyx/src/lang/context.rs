@@ -74,13 +74,18 @@ pub struct Context {
 impl Context {
     pub fn from_ast(
         namespace: ast::NamespaceDef,
+        lib_path: PathBuf,
     ) -> Result<Self, errors::Error> {
         // Generate library objects from import statements
         let libs = match namespace.library {
             Some(import_stmt) => import_stmt
                 .libraries
                 .iter()
-                .map(PathBuf::from)
+                .map(|path| {
+                    let mut new_path = lib_path.clone();
+                    new_path.push(PathBuf::from(path));
+                    new_path
+                })
                 .map(|path| lib::parse_file(&path))
                 .collect::<Result<Vec<_>, _>>()?,
             None => vec![],
@@ -132,8 +137,14 @@ impl Context {
         let file = opts.file.as_ref().ok_or(errors::Error::InvalidFile)?;
         let namespace = ast::parse_file(file)?;
 
+        // set up library path
+        let lib_path = match &opts.lib_path {
+            Some(path) => path.canonicalize()?,
+            None => PathBuf::from("./"),
+        };
+
         // build context
-        let mut context = Self::from_ast(namespace)?;
+        let mut context = Self::from_ast(namespace, lib_path)?;
 
         // set debug mode according to opts
         context.debug_mode = opts.enable_debug;
