@@ -12,6 +12,7 @@ use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::stable_graph::StableDiGraph;
 use petgraph::visit::Topo;
 use petgraph::Direction;
+use std::cell::Cell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -77,7 +78,7 @@ pub struct EdgeData {
     pub src: String,
     pub dest: String,
     pub width: u64,
-    pub value: Option<i64>,
+    pub value: Cell<Option<i64>>,
 }
 
 /// private graph type. the data in the node is the identifier
@@ -402,7 +403,7 @@ impl StructureGraph {
                 src: src_port.into(),
                 dest: dest_port.into(),
                 width: src_width,
-                value: None,
+                value: Cell::new(None),
             };
             self.graph.add_edge(src_node, dest_node, edge_data);
             Ok(())
@@ -502,8 +503,12 @@ impl EvalGraph for StructureGraph {
             .neighbors_directed(idx.clone(), Direction::Outgoing)
             .detach();
         while let Some((edge_idx, node_idx)) = walker.next(&self.graph) {
+            // Add new edges
             let edge_data = self.graph[edge_idx].clone();
             self.graph.add_edge(new_idx, node_idx, edge_data);
+
+            // Remove old edges
+            self.graph.remove_edge(edge_idx);
         }
     }
 
@@ -540,16 +545,18 @@ impl EvalGraph for StructureGraph {
         idx: &NodeIndex,
         outputs: &HashMap<ast::Id, Option<i64>>,
     ) {
-        for neighbor_idx in self
+        let neighbors = self
             .graph
-            .neighbors_directed(idx.clone(), Direction::Outgoing)
-        {
+            .neighbors_directed(idx.clone(), Direction::Outgoing);
+        for neighbor_idx in neighbors {
             if let Some(edge_idx) =
                 self.graph.find_edge(idx.clone(), neighbor_idx)
             {
-                let mut edge_data = self.graph[edge_idx];
-                if let Some(v) = outputs.get(&ast::Id::from(edge_data.src)) {
-                    edge_data.value = v.clone();
+                let edge_data = &self.graph[edge_idx];
+                if let Some(v) =
+                    outputs.get(&ast::Id::from(edge_data.src.clone()))
+                {
+                    self.graph[edge_idx].value.set(v.clone());
                 }
             }
         }
@@ -621,7 +628,7 @@ impl EvalGraph for StructureGraph {
         while let Some(edge_idx) = walker.next_edge(&self.graph) {
             let edge_data = &mut self.graph[edge_idx];
             if edge_data.src == port {
-                edge_data.value = value.clone();
+                edge_data.value.set(value.clone());
             }
         }
     }
@@ -629,7 +636,7 @@ impl EvalGraph for StructureGraph {
     fn toposort(&self) -> Result<Vec<NodeIndex>, Error> {
         match petgraph::algo::toposort(&self.graph, None) {
             Ok(v) => Ok(v),
-            Err(e) => Err(Error::StructureHasCycle),
+            Err(_e) => Err(Error::StructureHasCycle),
         }
     }
 
@@ -642,8 +649,11 @@ impl EvalGraph for StructureGraph {
             if let Some(edge_idx) =
                 self.graph.find_edge(neighbor_idx, idx.clone())
             {
-                let edge_data = self.graph[edge_idx];
-                map.insert(ast::Id::from(edge_data.dest), edge_data.value);
+                let edge_data = &self.graph[edge_idx];
+                map.insert(
+                    ast::Id::from(edge_data.dest.clone()),
+                    edge_data.value.get(),
+                );
             }
         }
         map
@@ -656,7 +666,7 @@ impl EvalGraph for StructureGraph {
         enabled: Vec<ast::Id>,
     ) -> Result<State, Error> {
         for idx in self.toposort()?.iter() {
-            match self.graph[idx.clone()] {
+            match &self.graph[idx.clone()] {
                 NodeData::Input(_) => { /* Do nothing */ }
                 NodeData::Output(_) => { /* Do nothing */ }
                 NodeData::Instance {
@@ -667,7 +677,7 @@ impl EvalGraph for StructureGraph {
                     // Check if component is enabled
                     if enabled.contains(&name) {
                         let input_map = self.input_values(idx);
-                        let (output_map, st_1) =
+                        let (output_map, _st_1) =
                             eval::eval(c, st, &component_type, input_map)?;
                         self.drive_outputs(&idx, &output_map);
                     }
@@ -686,7 +696,7 @@ impl EvalGraph for StructureGraph {
         for idx in portdef_map.values() {
             match &self.graph[idx.clone()].clone() {
                 NodeData::Input(_) => { /* Do nothing */ }
-                NodeData::Output(portdef) => {
+                NodeData::Output(_portdef) => {
                     for neighbor_idx in self
                         .graph
                         .neighbors_directed(idx.clone(), Direction::Incoming)
@@ -694,10 +704,10 @@ impl EvalGraph for StructureGraph {
                         if let Some(edge_idx) =
                             self.graph.find_edge(neighbor_idx, idx.clone())
                         {
-                            let edge_data = self.graph[edge_idx];
+                            let edge_data = &self.graph[edge_idx];
                             map.insert(
-                                ast::Id::from(edge_data.dest),
-                                edge_data.value,
+                                ast::Id::from(edge_data.dest.clone()),
+                                edge_data.value.get(),
                             );
                         }
                     }
