@@ -7,6 +7,7 @@ use crate::lang::{
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 /// Represents an entire Futil program. We are keeping all of the components in a `RefCell<HashMap>`.
 /// We use the `RefCell` to provide our desired visitor interface
@@ -73,8 +74,17 @@ pub struct Context {
 impl Context {
     pub fn from_ast(
         namespace: ast::NamespaceDef,
-        libs: &[lib::Library],
     ) -> Result<Self, errors::Error> {
+        // Generate library objects from import statements
+        let libs = match namespace.library {
+            Some(import_stmt) => import_stmt
+                .libraries
+                .iter()
+                .map(PathBuf::from)
+                .map(|path| lib::parse_file(&path))
+                .collect::<Result<Vec<_>, _>>()?,
+            None => vec![],
+        };
         // build hashmap for primitives in provided libraries
         let mut lib_definitions = HashMap::new();
         for def in libs {
@@ -122,15 +132,8 @@ impl Context {
         let file = opts.file.as_ref().ok_or(errors::Error::InvalidFile)?;
         let namespace = ast::parse_file(file)?;
 
-        // parse library files
-        let libs: Vec<_> = opts
-            .libraries
-            .iter()
-            .map(lib::parse_file)
-            .collect::<Result<Vec<_>, _>>()?;
-
         // build context
-        let mut context = Self::from_ast(namespace, &libs)?;
+        let mut context = Self::from_ast(namespace)?;
 
         // set debug mode according to opts
         context.debug_mode = opts.enable_debug;
@@ -209,10 +212,7 @@ impl Into<ast::NamespaceDef> for Context {
             name: name.into(),
             components,
             ///TODO: fix it later
-            library: Some(ast::ImportStatement{
-                libraries: vec![]
-            }
-          )
+            library: Some(ast::ImportStatement { libraries: vec![] }),
         }
     }
 }
