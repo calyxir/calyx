@@ -19,7 +19,7 @@ jobs:
       with:
         command: build
     - name: Test
-      run: runt -d
+      run: runt -d -o fail
   format:
     name: Check Formatting
     runs-on: ubuntu-latest

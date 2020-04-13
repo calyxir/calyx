@@ -1,0 +1,35 @@
+(define/component main
+  ((port valid 1))
+  ((port ready 1))
+  ([new-std a0 (std_reg 32 0)]
+   [new-std add0 (std_add 32)]
+   [new-std add1 (std_add 32)]
+   [new-std b0 (std_reg 32 0)]
+   [new-std const0 (std_const 32 1)]
+   [new-std const1 (std_const 32 0)]
+   [new-std const2 (std_const 32 1)]
+   [new-std const3 (std_const 32 10)]
+   [new-std const4 (std_const 32 1)]
+   [new-std i0 (std_reg 32 0)]
+   [new-std lt0 (std_lt 32)]
+   [new-std tmp0 (std_reg 32 0)]
+   [-> (@ a0 out) (@ add1 left)]
+   [-> (@ add0 out) (@ i0 in)]
+   [-> (@ add1 out) (@ b0 in)]
+   [-> (@ b0 out) (@ tmp0 in)]
+   [-> (@ const0 out) (@ a0 in)]
+   [-> (@ const1 out) (@ i0 in)]
+   [-> (@ const2 out) (@ b0 in)]
+   [-> (@ const3 out) (@ lt0 right)]
+   [-> (@ const4 out) (@ add0 right)]
+   [-> (@ i0 out) (@ add0 left)]
+   [-> (@ i0 out) (@ lt0 left)]
+   [-> (@ tmp0 out) (@ a0 in)]
+   [-> (@ tmp0 out) (@ add1 right)])
+  (seq
+   (enable a0 const0 i0 const1 b0 const2)
+   (while (@ lt0 out) (lt0 i0 const3)
+    (seq
+     (enable tmp0 b0 i0 add0 const4)
+     (enable b0 add1 a0 tmp0)
+     (enable a0 tmp0)))))

@@ -1,0 +1,7 @@
+(define/namespace prog
+ (define/component main () ()
+  ()
+  (seq))
+ (define/component comp1 () ()
+  ()
+  (seq)))
