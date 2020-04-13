@@ -1,0 +1,15 @@
+(define/component main
+  ((port valid 1))
+  ((port ready 1))
+  ([new-std add (std_add 32)]
+   [new-std i0 (std_iterator 32 0 10 1)]
+   [new-std sum (std_reg 32)]
+   [new-std x0 (std_reg 32)]
+   [-> (@ add out) (@ sum in)]
+   [-> (@ i0 out) (@ add left)]
+   [-> (@ i0 out) (@ x0 in)]
+   [-> (@ x0 out) (@ add right)])
+  (while (@ i0 stop) (i0)
+   (seq
+    (enable sum add x0 i0)
+    (enable x0 i0))))
