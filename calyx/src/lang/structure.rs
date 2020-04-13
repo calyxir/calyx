@@ -419,12 +419,15 @@ impl StructureGraph {
         }?;
         // if widths match, add edge to the graph
         if src_width == dest_width {
-            match self.graph.find_edge(src_node, dest_node){
-                Some(edge)=>{
+            match self.graph.find_edge(src_node, dest_node) {
+                Some(edge) => {
                     self.graph.remove_edge(edge);
                     Ok(())
-                },
-                None =>  Err(Error::UndefinedEdge(src_port.to_string(), dest_port.to_string()) ),
+                }
+                None => Err(Error::UndefinedEdge(
+                    src_port.to_string(),
+                    dest_port.to_string(),
+                )),
             }
         } else {
             Err(Error::MismatchedPortWidths(
