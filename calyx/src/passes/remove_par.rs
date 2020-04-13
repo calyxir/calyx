@@ -5,7 +5,7 @@ use crate::lang::{
     ast, ast::Control, context::Context, structure::StructureGraph,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-
+use crate::passes::edge_remove::EdgeRemove;
 /// Pass that collapses
 /// ```
 /// (par (enable A B)
@@ -76,9 +76,15 @@ use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 /// ```
 /// (enable A id C)
 
-#[derive(Default)]
+
 pub struct RemovePar {
-    edge_clear: HashMap<ast::Id, Vec<ast::Id>>,
+    data: EdgeRemove,
+}
+
+impl RemovePar {
+  pub fn new(data: EdgeRemove) -> Self {
+    RemovePar { data }
+  }
 }
 
 impl Named for RemovePar {
@@ -198,7 +204,7 @@ impl Visitor for RemovePar {
                     // for every component in the `enables2` we check if any
                     // incoming/outgoing edge has an endpoint in `cmp_acc`
                     resolve_conflicts(
-                        &mut self.edge_clear,
+                        &mut self.data.edge_clear,
                         &cmp_acc.comps,
                         &enables2.comps,
                         &mut comp.structure,
@@ -218,25 +224,5 @@ impl Visitor for RemovePar {
         Ok(Action::Change(Control::par(new_stmts)))
     }
     
-    fn finish_enable(
-        &mut self,
-        enable: &ast::Enable,
-        _comp: &mut Component,
-        _ctx: &Context,
-    ) -> VisResult {
-
-        let new_comps: Vec<ast::Id> = enable.comps.clone();
-                println!("{:#?}",self.edge_clear);
-
-        for c1 in enable.comps.iter() {
-            if self.edge_clear.contains_key(&c1){
-                let _ids: Vec<ast::Id> = self.edge_clear.get(c1).unwrap().iter().filter(|c2|enable.comps.contains(c2)
-                    ).map(|c2| format!("{}_{}_id", c1.to_string(), c2.to_string()).into() ).collect();
-            }
-        }
-
-
-        Ok(Action::Change(Control::enable(new_comps)))
-    }
     
 }

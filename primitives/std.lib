@@ -23,6 +23,10 @@
      (port out_read_out 1)
      (port ready 1)))
 
+  (define/prim std_id (p_width)
+    ((port in p_width) (port valid 1))
+    ((port out p_width) (port ready 1)))
+
   (define/prim std_add (p_width)
     ((port left p_width) (port left_read_in 1)
                          (port right p_width) (port right_read_in 1)

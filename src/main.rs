@@ -15,6 +15,7 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
         automatic_par::AutomaticPar, collapse_seq::CollapseSeq,
         lat_insensitive::LatencyInsensitive, 
         remove_if::RemoveIf, remove_par::RemovePar,
+        control_id::ControlId, edge_remove::EdgeRemove,
     };
 
     let mut names: HashMap<String, Box<dyn Fn(&Context) -> PassResult>> =
@@ -50,8 +51,12 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
     names.insert(
         RemovePar::name().to_string(),
         Box::new(|ctx| {
-            let r = AutomaticPar::do_pass_default(ctx)?;
-            Ok(Box::new(r))
+            let mut edge_clear = EdgeRemove::default();
+            let mut remove_par = RemovePar::new(edge_clear);
+            remove_par.do_pass(ctx)?;
+            //let control_id = ControlId::new(edge_clear);
+            //let r = control_id::do_pass_default(ctx)?;
+            Ok(Box::new(remove_par))
         }),
     );
     //println!(" {:#?}", ctx);
@@ -59,11 +64,14 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
         "all".to_string(),
         Box::new(|ctx| {
             LatencyInsensitive::do_pass_default(ctx)?;
-            RemovePar::do_pass_default(ctx)?;
             RemoveIf::do_pass_default(ctx)?;
             CollapseSeq::do_pass_default(ctx)?;
-            let r = AutomaticPar::do_pass_default(ctx)?;
-            Ok(Box::new(r))
+            AutomaticPar::do_pass_default(ctx)?;
+            let mut edge_clear = EdgeRemove::default();
+            let mut remove_par = RemovePar::new(edge_clear);
+            remove_par.do_pass(ctx)?;
+            
+            Ok(Box::new(remove_par))
         }),
     );
     names
