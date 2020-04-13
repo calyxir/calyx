@@ -71,18 +71,22 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
 fn main() -> Result<(), errors::Error> {
     // parse the command line arguments into Opts struct
     let opts: Opts = Opts::from_args();
-    let context = Context::from_opts(&opts)?;
 
     // Construct pass manager.
     let names = pass_map();
 
     //list all the avaliable pass options when flag -listpasses is enabled
     if opts.list_passes {
-        for key in names.keys() {
+        let mut passes = names.keys().cloned().collect::<Vec<_>>();
+        passes.sort();
+        for key in passes {
             println!("- {}", key);
         }
         return Ok(());
     }
+
+    // Construct the context.
+    let context = Context::from_opts(&opts)?;
 
     //run all passes specified by the command line
     for name in opts.pass {

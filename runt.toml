@@ -1,9 +1,33 @@
+ver = "0.2.3"
+
+[[tests]]
+name = "List passes"
+paths = [ "tests/list-passes/out" ]
+cmd = "./target/debug/futil --list-passes"
+
 [[tests]]
 name = "Integration tests"
 paths = [ "tests/integration/*.futil" ]
 cmd = "./target/debug/futil {} -l ./primitives/std.lib -b futil"
 
 [[tests]]
-name = "Automatic Par tests"
+name = "Collapse Seq"
+paths = [ "tests/collapse-seq/*.futil" ]
+cmd = """
+  ./target/debug/futil {} -l ./primitives/std.lib -b futil -p collapse-seq
+"""
+
+[[tests]]
+name = "Latency Insensitive"
+paths = [ "tests/latency-insensitive/*.futil" ]
+cmd = """
+  ./target/debug/futil {} -l ./primitives/std.lib -b futil -p latency-insensitive
+"""
+
+[[tests]]
+name = "Automatic Par"
 paths = [ "tests/automatic-par/*.futil" ]
 cmd = "./target/debug/futil {} -l ./primitives/std.lib -b futil -p automatic-par"
+# This is just the default save directory. Use `expect_dir` when
+# using files from other test suites as input.
+expect_dir = "tests/automatic-par"
