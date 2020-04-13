@@ -46,7 +46,7 @@ impl<'a> FsmSeq<'a> {
         let mut new_comp = Component::from_signature(name.clone(), sig);
 
         // instantiate new fsm comp in this comp
-        let new_idx = this_comp.structure.add_instance(
+        let new_idx = this_comp.structure.add_subcomponent(
             &new_comp.name,
             &new_comp,
             Structure::decl(new_comp.name.clone(), new_comp.name.clone()),

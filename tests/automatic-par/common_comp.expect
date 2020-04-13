@@ -1,6 +1,6 @@
 (define/component main
-  ((port valid 1))
-  ((port ready 1))
+  ()
+  ()
   ([new-std a0 (std_reg 32)]
    [new-std add0 (std_add 32)]
    [new-std const0 (std_const 32 10)]

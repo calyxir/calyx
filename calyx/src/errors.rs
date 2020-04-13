@@ -7,6 +7,7 @@
 use crate::lang::ast;
 
 pub enum Error {
+    UnknownPass(String, String),
     InvalidFile,
     ParseError(String),
     WriteError,
@@ -14,17 +15,25 @@ pub enum Error {
     UndefinedPort(String),
     UndefinedComponent(ast::Id),
     SignatureResolutionFailed(ast::Id),
-    MalformedControl, // XXX(sam) add more info to this
+    MalformedControl,   // XXX(sam) add more info to this
+    Impossible(String), // Signal compiler errors that should never occur.
     NotSubcomponent,
     #[allow(unused)]
     Misc(String),
-    Impossible,
 }
 
 impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use Error::*;
         match self {
+            UnknownPass(pass, known_passes) => {
+                write!(
+                    f,
+                    "Unknown pass: {}. Known passes: {}.",
+                    pass,
+                    known_passes
+                )
+            },
             InvalidFile => write!(f, "InvalidFile"),
             ParseError(msg) => write!(f, "{}", msg),
             WriteError => write!(f, "WriteError"),
@@ -43,7 +52,7 @@ impl std::fmt::Debug for Error {
             MalformedControl => write!(f, "Malformed Control. Backend expected Control to be in a different form."),
             NotSubcomponent => write!(f, "Not a subcomponent"),
             Misc(msg) => write!(f, "{}", msg),
-            Impossible => write!(f, "This was supposed to be impossible.")
+            Impossible(msg) => write!(f, "Impossible: {}\nThis error should never occur. Report report this as a bug.", msg),
         }
     }
 }

@@ -2,11 +2,11 @@ use crate::lang::{component::Component, context::Context};
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 
 #[derive(Default)]
-pub struct LatencyInsenstive {}
+pub struct LatencyInsensitive {}
 
-impl Named for LatencyInsenstive {
+impl Named for LatencyInsensitive {
     fn name() -> &'static str {
-        "latency-insenstive"
+        "latency-insensitive"
     }
 
     fn description() -> &'static str {
@@ -14,7 +14,7 @@ impl Named for LatencyInsenstive {
     }
 }
 
-impl Visitor for LatencyInsenstive {
+impl Visitor for LatencyInsensitive {
     fn start(&mut self, comp: &mut Component, _c: &Context) -> VisResult {
         if !comp.signature.has_input("valid") {
             comp.add_input(("valid", 1));

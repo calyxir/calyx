@@ -56,7 +56,9 @@ impl NodeData {
                 Err(errors::Error::NotSubcomponent)
             }
             NodeData::Instance { structure, .. } => match structure {
-                Structure::Wire { .. } => Err(errors::Error::Impossible),
+                Structure::Wire { .. } => Err(Error::Impossible(
+                    "There should be no wires in nodes".to_string(),
+                )),
                 Structure::Std { data } => Ok(&data.instance.name),
                 Structure::Decl { data } => Ok(&data.component),
             },
@@ -115,57 +117,22 @@ impl Default for StructureGraph {
 }
 
 impl StructureGraph {
-    // XXX(sam) bad name
-    pub fn add_signature(&mut self, sig: &ast::Signature) {
-        // add nodes for inputs and outputs
-        for port in &sig.inputs {
-            self.insert_io_port(port, NodeData::Input);
-        }
-        for port in &sig.outputs {
-            self.insert_io_port(port, NodeData::Output);
-        }
-    }
+    /* ============= Constructor Functions ============= */
 
-    pub fn add_instance(
-        &mut self,
-        id: &ast::Id,
-        comp: &component::Component,
-        structure: ast::Structure,
-    ) -> NodeIndex {
-        let idx = self.graph.add_node(NodeData::Instance {
-            name: id.clone(),
-            structure,
-            signature: comp.signature.clone(),
-        });
-        self.inst_map.insert(id.clone(), idx);
-        idx
-    }
-
-    pub fn add_primitive<S: AsRef<str>>(
-        &mut self,
-        id: &ast::Id,
-        name: S,
-        comp: &Component,
-        params: &[u64],
-    ) -> NodeIndex {
-        let structure = ast::Structure::std(
-            id.clone(),
-            ast::Compinst {
-                name: name.as_ref().into(),
-                params: params.to_vec(),
-            },
-        );
-        self.add_instance(id, comp, structure)
-    }
-
-    // XXX(sam) this is a bad name
-    pub fn add_component_def(
-        &mut self,
+    /// Creates a new structure graph from a component definition
+    ///
+    /// # Arguments
+    ///   * `compdef` - the component definition
+    ///   * `comp_sigs` - map of component signatures
+    ///   * `prim_sigs` - map of primitive component signatures
+    pub fn new(
         compdef: &ast::ComponentDef,
         comp_sigs: &HashMap<ast::Id, ast::Signature>,
         prim_sigs: &HashMap<ast::Id, ast::Signature>,
-    ) -> Result<(), Error> {
-        self.add_signature(&compdef.signature);
+    ) -> Result<Self, Error> {
+        let mut structure = StructureGraph::default();
+
+        structure.add_signature(&compdef.signature);
 
         // add vertices first, ignoring wires so that order of structure
         // doesn't matter
@@ -183,9 +150,9 @@ impl StructureGraph {
                         structure: stmt.clone(),
                         signature: sig.clone(),
                     };
-                    self.inst_map.insert(
+                    structure.inst_map.insert(
                         data.name.clone(),
-                        self.graph.add_node(instance),
+                        structure.graph.add_node(instance),
                     );
                 }
                 ast::Structure::Std { data } => {
@@ -199,9 +166,9 @@ impl StructureGraph {
                         structure: stmt.clone(),
                         signature: sig.clone(),
                     };
-                    self.inst_map.insert(
+                    structure.inst_map.insert(
                         data.name.clone(),
-                        self.graph.add_node(instance),
+                        structure.graph.add_node(instance),
                     );
                 }
                 ast::Structure::Wire { .. } => (),
@@ -214,23 +181,27 @@ impl StructureGraph {
                 // get src node in graph and src port
                 let (src_node, src_port) = match &data.src {
                     Port::Comp { component, port } => {
-                        (self.inst_map.get(component), port)
+                        (structure.inst_map.get(component), port)
                     }
-                    Port::This { port } => (self.portdef_map.get(port), port),
+                    Port::This { port } => {
+                        (structure.portdef_map.get(port), port)
+                    }
                 };
 
                 // get dest node in graph and dest port
                 let (dest_node, dest_port) = match &data.dest {
                     Port::Comp { component, port } => {
-                        (self.inst_map.get(component), port)
+                        (structure.inst_map.get(component), port)
                     }
-                    Port::This { port } => (self.portdef_map.get(port), port),
+                    Port::This { port } => {
+                        (structure.portdef_map.get(port), port)
+                    }
                 };
 
                 match (src_node, dest_node) {
                     // both nodes were found, this is a valid edge!
                     (Some(&s), Some(&d)) => {
-                        self.insert_edge(s, src_port, d, dest_port)?;
+                        structure.insert_edge(s, src_port, d, dest_port)?;
                     }
                     // dest not found
                     (Some(_), None) => {
@@ -247,8 +218,72 @@ impl StructureGraph {
                 }
             }
         }
-        Ok(())
+        Ok(structure)
     }
+
+    /// Adds nodes for input and output ports to the structure graph.
+    /// Input/output ports are defined in the component signature.
+    ///
+    /// # Arguments
+    ///   * `sig` - the signature for the component
+    pub fn add_signature(&mut self, sig: &ast::Signature) {
+        // add nodes for inputs and outputs
+        for port in &sig.inputs {
+            self.insert_io_port(port, NodeData::Input);
+        }
+        for port in &sig.outputs {
+            self.insert_io_port(port, NodeData::Output);
+        }
+    }
+
+    /// Adds a subcomponent node to the structure graph.
+    ///
+    /// # Arguments
+    ///   * `id` - the subcomponent identifier
+    ///   * `comp` - the component object
+    ///   * `structure` - the AST structure of the subcomponent
+    pub fn add_subcomponent(
+        &mut self,
+        id: &ast::Id,
+        comp: &component::Component,
+        structure: ast::Structure,
+    ) -> NodeIndex {
+        let idx = self.graph.add_node(NodeData::Instance {
+            name: id.clone(),
+            structure,
+            signature: comp.signature.clone(),
+        });
+        self.inst_map.insert(id.clone(), idx);
+        idx
+    }
+
+    /// Adds a primitive component node to the structure graph.
+    /// XXX(ken): Perhaps change this to allow implicit conversion
+    /// to generate the primitive compinst?
+    ///
+    /// # Arguments
+    ///   * `id` - the subcomponent identifier
+    ///   * `name` - the subcomponent type
+    ///   * `comp` - the component object
+    ///   * `params` - the parameters for the component instance
+    ///   * `structure` - the AST structure of the subcomponent
+    pub fn add_primitive<S: AsRef<str>>(
+        &mut self,
+        id: &ast::Id,
+        name: S,
+        comp: &Component,
+        params: &[u64],
+    ) -> NodeIndex {
+        let structure = ast::Structure::std(
+            id.clone(),
+            ast::Compinst {
+                name: name.as_ref().into(),
+                params: params.to_vec(),
+            },
+        );
+        self.add_subcomponent(id, comp, structure)
+    }
+    /* ============= Helper Methods ============= */
 
     /// Returns an iterator over all the nodes in the structure graph
     pub fn instances(
