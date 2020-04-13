@@ -13,9 +13,9 @@ type PassResult = Result<Box<dyn Visitor>, errors::Error>;
 fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
     use passes::{
         automatic_par::AutomaticPar, collapse_seq::CollapseSeq,
-        lat_insensitive::LatencyInsensitive, 
-        remove_if::RemoveIf, remove_par::RemovePar,
-        control_id::ControlId, edge_remove::EdgeRemove,
+        control_id::ControlId, lat_insensitive::LatencyInsensitive,
+        redundant_par::RedundantPar, remove_if::RemoveIf,
+        remove_par::RemovePar,
     };
 
     let mut names: HashMap<String, Box<dyn Fn(&Context) -> PassResult>> =
@@ -49,14 +49,20 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
         }),
     );
     names.insert(
+        RedundantPar::name().to_string(),
+        Box::new(|ctx| {
+            let r = RedundantPar::do_pass_default(ctx)?;
+            Ok(Box::new(r))
+        }),
+    );
+    names.insert(
         RemovePar::name().to_string(),
         Box::new(|ctx| {
-            let mut edge_clear = EdgeRemove::default();
-            let mut remove_par = RemovePar::new(edge_clear);
+            let mut remove_par = RemovePar::default();
             remove_par.do_pass(ctx)?;
-            //let control_id = ControlId::new(edge_clear);
-            //let r = control_id::do_pass_default(ctx)?;
-            Ok(Box::new(remove_par))
+            let mut control_id = ControlId::new(remove_par);
+            control_id.do_pass(ctx)?;
+            Ok(Box::new(control_id))
         }),
     );
     //println!(" {:#?}", ctx);
@@ -64,14 +70,11 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
         "all".to_string(),
         Box::new(|ctx| {
             LatencyInsensitive::do_pass_default(ctx)?;
+            RedundantPar::do_pass_default(ctx)?;
             RemoveIf::do_pass_default(ctx)?;
             CollapseSeq::do_pass_default(ctx)?;
-            AutomaticPar::do_pass_default(ctx)?;
-            let mut edge_clear = EdgeRemove::default();
-            let mut remove_par = RemovePar::new(edge_clear);
-            remove_par.do_pass(ctx)?;
-            
-            Ok(Box::new(remove_par))
+            let r = AutomaticPar::do_pass_default(ctx)?;
+            Ok(Box::new(r))
         }),
     );
     names
