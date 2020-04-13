@@ -101,6 +101,68 @@ fn has_conflicts(
     )
 }
 
+fn merge_enables(
+    stmts: &[Control],
+    comp: &mut Component,
+) -> Result<Option<Vec<ast::Control>>, errors::Error> {
+    // get first enable statement and its index. this will act
+    // as the accumulator for the statement that we are collapsing
+    // things into
+    let (start, mut cmp_acc) =
+        match stmts.iter().enumerate().find_map(|(i, stmt)| match stmt {
+            Control::Enable { data } => Some((i, data.clone())),
+            _ => None,
+        }) {
+            Some((s, c)) => (s, c),
+            None => return Ok(None),
+        };
+
+    // vec of new control statements including all elements up to the first
+    // enable that we find
+    let mut new_stmts: Vec<ast::Control> = stmts[..start].to_vec();
+
+    // start interation from the start+1 because the start is in `cmp_stmt`.
+    // This loop will keep trying to merge adjacent sequences as long as
+    // there are no conflicts. When it detects a conflict, it attempts
+    // to merge the sequence after the conflicting node.
+    for stmt in stmts[start + 1..].iter() {
+        match stmt {
+            Control::Enable { data: enables2 } => {
+                // for every component in the `enables2` we check if any
+                // incoming/outgoing edge has an endpoint in `cmp_acc`
+                if has_conflicts(
+                    &cmp_acc.comps,
+                    &enables2.comps,
+                    &comp.structure,
+                )? {
+                    new_stmts.push(Control::enable(cmp_acc.comps.clone()));
+                    // there was a conflict, start, a new accumulator.
+                    cmp_acc = enables2.clone();
+                } else {
+                    // If there is no conflict, update the current
+                    // component accumulator.
+                    cmp_acc.comps.append(&mut enables2.comps.clone());
+                }
+            }
+            _ => {
+                // Push the currently collected component accumulator.
+                if !cmp_acc.comps.is_empty() {
+                    new_stmts.push(Control::enable(cmp_acc.comps.clone()));
+                }
+                new_stmts.push(stmt.clone());
+                // Add a new cmp_acc.
+                cmp_acc = ast::Enable { comps: Vec::new() };
+            }
+        }
+    }
+
+    if !cmp_acc.comps.is_empty() {
+        new_stmts.push(Control::enable(cmp_acc.comps));
+    }
+
+    Ok(Some(new_stmts))
+}
+
 impl Visitor for AutomaticPar {
     // use finish_seq so that we collapse things on the way
     // back up the tree and potentially catch more cases
@@ -110,62 +172,19 @@ impl Visitor for AutomaticPar {
         comp: &mut Component,
         _: &Context,
     ) -> VisResult {
-        // get first enable statement and its index. this will act
-        // as the accumulator for the statement that we are collapsing
-        // things into
-        let (start, mut cmp_acc) = match seq.stmts.iter().enumerate().find_map(
-            |(i, stmt)| match stmt {
-                Control::Enable { data } => Some((i, data.clone())),
-                _ => None,
-            },
-        ) {
-            Some((s, c)) => (s, c),
-            None => return Ok(Action::Continue),
-        };
+        Ok(merge_enables(&seq.stmts, comp)?
+            .map(|new_stmts| Action::Change(Control::seq(new_stmts)))
+            .unwrap_or_else(|| Action::Continue))
+    }
 
-        // vec of new control statements including all elements up to the first
-        // enable that we find
-        let mut new_stmts: Vec<ast::Control> = seq.stmts[..start].to_vec();
-
-        // start interation from the start+1 because the start is in `cmp_stmt`.
-        // This loop will keep trying to merge adjacent sequences as long as
-        // there are no conflicts. When it detects a conflict, it attempts
-        // to merge the sequence after the conflicting node.
-        for stmt in seq.stmts[start + 1..].iter() {
-            match stmt {
-                Control::Enable { data: enables2 } => {
-                    // for every component in the `enables2` we check if any
-                    // incoming/outgoing edge has an endpoint in `cmp_acc`
-                    if has_conflicts(
-                        &cmp_acc.comps,
-                        &enables2.comps,
-                        &comp.structure,
-                    )? {
-                        new_stmts.push(Control::enable(cmp_acc.comps.clone()));
-                        // there was a conflict, start, a new accumulator.
-                        cmp_acc = enables2.clone();
-                    } else {
-                        // If there is no conflict, update the current
-                        // component accumulator.
-                        cmp_acc.comps.append(&mut enables2.comps.clone());
-                    }
-                }
-                _ => {
-                    // Push the currently collected component accumulator.
-                    if !cmp_acc.comps.is_empty() {
-                        new_stmts.push(Control::enable(cmp_acc.comps.clone()));
-                    }
-                    new_stmts.push(stmt.clone());
-                    // Add a new cmp_acc.
-                    cmp_acc = ast::Enable { comps: Vec::new() };
-                }
-            }
-        }
-
-        if !cmp_acc.comps.is_empty() {
-            new_stmts.push(Control::enable(cmp_acc.comps));
-        }
-
-        Ok(Action::Change(Control::seq(new_stmts)))
+    fn finish_par(
+        &mut self,
+        par: &ast::Par,
+        comp: &mut Component,
+        _: &Context,
+    ) -> VisResult {
+        Ok(merge_enables(&par.stmts, comp)?
+            .map(|new_stmts| Action::Change(Control::seq(new_stmts)))
+            .unwrap_or_else(|| Action::Continue))
     }
 }
