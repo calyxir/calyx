@@ -288,20 +288,15 @@ impl LibraryContext {
 /* =============== Context Printing ================ */
 impl PrettyPrint for Context {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let ctx_map = self
-            .definitions
-            .borrow();
+        let ctx_map = self.definitions.borrow();
 
-        let mut defs = ctx_map
-            .values()
-            .clone()
-            .collect::<Vec<_>>();
+        let mut defs = ctx_map.values().clone().collect::<Vec<_>>();
 
         // Do this to make module printing deterministic.
         defs.sort_by(|comp1, comp2| comp1.name.cmp(&comp2.name));
 
         RcDoc::intersperse(
-            defs.iter().map(|x| x.clone().prettify(&arena)),
+            defs.iter().map(|x| x.prettify(&arena)),
             RcDoc::line(),
         )
     }
