@@ -52,6 +52,8 @@ impl NodeData {
 
     pub fn out_ports(&self) -> PortIter {
         match self {
+            //XXX(Zhijing): wired to have input here
+            // but node data requires exhaustive pattern matching
             NodeData::Input(pd) => PortIter {
                 items: vec![pd.clone()],
             },
@@ -60,6 +62,19 @@ impl NodeData {
             },
             NodeData::Instance { signature, .. } => PortIter {
                 items: signature.outputs.clone(),
+            },
+        }
+    }
+    pub fn in_ports(&self) -> PortIter {
+        match self {
+            NodeData::Input(pd) => PortIter {
+                items: vec![pd.clone()],
+            },
+            NodeData::Output(pd) => PortIter {
+                items: vec![pd.clone()],
+            },
+            NodeData::Instance { signature, .. } => PortIter {
+                items: signature.inputs.clone(),
             },
         }
     }
@@ -327,7 +342,6 @@ impl StructureGraph {
     ) -> Result<(), Error> {
         let src_port: &str = src_port.as_ref();
         let dest_port: &str = dest_port.as_ref();
-
         let find_width =
             |port_to_find: &str, portdefs: &[ast::Portdef]| match portdefs
                 .iter()
@@ -336,7 +350,6 @@ impl StructureGraph {
                 Some(port) => Ok(port.width),
                 None => Err(Error::UndefinedPort(port_to_find.to_string())),
             };
-
         use NodeData::{Input, Instance, Output};
         let src_width = match &self.graph[src_node] {
             Instance { signature, .. } => {
@@ -352,7 +365,6 @@ impl StructureGraph {
             Input(_) => Err(Error::UndefinedPort(dest_port.to_string())),
             Output(portdef) => Ok(portdef.width),
         }?;
-
         // if widths match, add edge to the graph
         if src_width == dest_width {
             let edge_data = EdgeData {
@@ -372,6 +384,57 @@ impl StructureGraph {
         }
     }
 
+    /// Construct and insert an edge given two node indices
+    pub fn remove_edge<S: AsRef<str>, U: AsRef<str>>(
+        &mut self,
+        src_node: NodeIndex,
+        src_port: S,
+        dest_node: NodeIndex,
+        dest_port: U,
+    ) -> Result<(), Error> {
+        let src_port: &str = src_port.as_ref();
+        let dest_port: &str = dest_port.as_ref();
+        let find_width =
+            |port_to_find: &str, portdefs: &[ast::Portdef]| match portdefs
+                .iter()
+                .find(|x| &x.name == port_to_find)
+            {
+                Some(port) => Ok(port.width),
+                None => Err(Error::UndefinedPort(port_to_find.to_string())),
+            };
+        use NodeData::{Input, Instance, Output};
+        let src_width = match &self.graph[src_node] {
+            Instance { signature, .. } => {
+                find_width(src_port, &signature.outputs)
+            }
+            Input(portdef) => Ok(portdef.width),
+            Output(_) => Err(Error::UndefinedPort(src_port.to_string())),
+        }?;
+        let dest_width = match &self.graph[dest_node] {
+            Instance { signature, .. } => {
+                find_width(dest_port, &signature.inputs)
+            }
+            Input(_) => Err(Error::UndefinedPort(dest_port.to_string())),
+            Output(portdef) => Ok(portdef.width),
+        }?;
+        // if widths match, add edge to the graph
+        if src_width == dest_width {
+            match self.graph.find_edge(src_node, dest_node){
+                Some(edge)=>{
+                    self.graph.remove_edge(edge);
+                    Ok(())
+                },
+                None =>  Err(Error::UndefinedEdge(src_port.to_string(), dest_port.to_string()) ),
+            }
+        } else {
+            Err(Error::MismatchedPortWidths(
+                self.construct_port(src_node, src_port),
+                src_width,
+                self.construct_port(dest_node, dest_port),
+                dest_width,
+            ))
+        }
+    }
     pub fn get_inst_index(&self, port: &ast::Id) -> Result<NodeIndex, Error> {
         match self.inst_map.get(port) {
             Some(idx) => Ok(*idx),

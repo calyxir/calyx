@@ -13,6 +13,7 @@ pub enum Error {
     WriteError,
     MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
     UndefinedPort(String),
+    UndefinedEdge(String, String),
     UndefinedComponent(ast::Id),
     SignatureResolutionFailed(ast::Id),
     MalformedControl, // XXX(sam) add more info to this
@@ -41,6 +42,7 @@ impl std::fmt::Debug for Error {
                 port1, w1, port2, w2
             ),
             UndefinedPort(port) => write!(f, "Use of undefined port: {}", port),
+            UndefinedEdge(src, dest) => write!(f, "Use of undefined edge: {}->{}", src, dest),
             UndefinedComponent(id) => {
                 write!(f, "Use of undefined component {:?}", id)
             }
