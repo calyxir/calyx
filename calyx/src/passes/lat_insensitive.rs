@@ -11,7 +11,7 @@ impl Default for LatencyInsensitive {
 
 impl Named for LatencyInsensitive {
     fn name() -> &'static str {
-        "latency-insenstive"
+        "latency-insensitive"
     }
 
     fn description() -> &'static str {
