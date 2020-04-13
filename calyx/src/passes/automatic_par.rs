@@ -92,7 +92,13 @@ fn has_conflicts(
                     // contain a component in `comps1`
                     st.graph[idx].out_ports().any(|port| {
                         st.connected_to(idx, port.to_string())
-                            .chain(st.connected_from(idx, port.to_string()))
+                            //.chain(st.connected_from(idx, port.to_string()))
+                            .any(|(node_data, _)| {
+                                comps1.contains(node_data.get_name())
+                            })
+                    }) || st.graph[idx].in_ports().any(|port| {
+                        st.connected_from(idx, port.to_string())
+                            //.chain(st.connected_from(idx, port.to_string()))
                             .any(|(node_data, _)| {
                                 comps1.contains(node_data.get_name())
                             })

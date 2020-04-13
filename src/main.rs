@@ -13,8 +13,8 @@ type PassResult = Result<Box<dyn Visitor>, errors::Error>;
 fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
     use passes::{
         automatic_par::AutomaticPar, collapse_seq::CollapseSeq,
-        lat_insensitive::LatencyInsensitive, redundant_par::RedundantPar,
-        remove_if::RemoveIf,
+        lat_insensitive::LatencyInsensitive, 
+        remove_if::RemoveIf, remove_par::RemovePar,
     };
 
     let mut names: HashMap<String, Box<dyn Fn(&Context) -> PassResult>> =
@@ -41,13 +41,6 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
         }),
     );
     names.insert(
-        RedundantPar::name().to_string(),
-        Box::new(|ctx| {
-            let r = RedundantPar::do_pass_default(ctx)?;
-            Ok(Box::new(r))
-        }),
-    );
-    names.insert(
         AutomaticPar::name().to_string(),
         Box::new(|ctx| {
             let r = AutomaticPar::do_pass_default(ctx)?;
@@ -55,10 +48,18 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
         }),
     );
     names.insert(
+        RemovePar::name().to_string(),
+        Box::new(|ctx| {
+            let r = AutomaticPar::do_pass_default(ctx)?;
+            Ok(Box::new(r))
+        }),
+    );
+    //println!(" {:#?}", ctx);
+    names.insert(
         "all".to_string(),
         Box::new(|ctx| {
             LatencyInsensitive::do_pass_default(ctx)?;
-            RedundantPar::do_pass_default(ctx)?;
+            RemovePar::do_pass_default(ctx)?;
             RemoveIf::do_pass_default(ctx)?;
             CollapseSeq::do_pass_default(ctx)?;
             let r = AutomaticPar::do_pass_default(ctx)?;

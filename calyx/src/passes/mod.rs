@@ -11,6 +11,7 @@
 // pub mod toplevel_component;
 pub mod lat_insensitive;
 // pub mod fsm_if;
+pub mod remove_par;
 pub mod automatic_par;
 pub mod collapse_seq;
 pub mod redundant_par;
