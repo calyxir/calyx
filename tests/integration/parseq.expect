@@ -1,0 +1,16 @@
+(define/component main
+  ((port valid 1))
+  ((port ready 1))
+  ([new-std const0 (std_const 4 0)]
+   [new-std const0_y0_id (std_id 4)]
+   [new-std const1 (std_const 4 10)]
+   [new-std x0 (std_reg 4 0)]
+   [new-std y0 (std_reg 4 0)]
+   [-> (@ const0 out) (@ const0_y0_id in)]
+   [-> (@ const0 out) (@ x0 in)]
+   [-> (@ const0_y0_id out) (@ y0 in)]
+   [-> (@ const1 out) (@ y0 in)])
+  (seq
+   (enable y0 const0)
+   (par
+    (enable x0 const0 y0 const1))))
