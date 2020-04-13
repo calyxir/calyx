@@ -36,6 +36,13 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
         }),
     );
     names.insert(
+        AutomaticPar::name().to_string(),
+        Box::new(|ctx| {
+            let r = AutomaticPar::do_pass_default(ctx)?;
+            Ok(Box::new(r))
+        }),
+    );
+    names.insert(
         RemoveIf::name().to_string(),
         Box::new(|ctx| {
             let r = RemoveIf::do_pass_default(ctx)?;

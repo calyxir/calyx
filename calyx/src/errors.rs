@@ -15,6 +15,7 @@ pub enum Error {
     UndefinedPort(String),
     UndefinedComponent(ast::Id),
     SignatureResolutionFailed(ast::Id),
+    DuplicatePort(ast::Id, ast::Portdef),
     MalformedControl,   // XXX(sam) add more info to this
     Impossible(String), // Signal compiler errors that should never occur.
     NotSubcomponent,
@@ -44,10 +45,13 @@ impl std::fmt::Debug for Error {
             ),
             UndefinedPort(port) => write!(f, "Use of undefined port: {}", port),
             UndefinedComponent(id) => {
-                write!(f, "Use of undefined component {:?}", id)
+                write!(f, "Use of undefined component {}", id.to_string())
             }
             SignatureResolutionFailed(id) => {
-                write!(f, "Failed to resolve portdef: {:?}", id)
+                write!(f, "Failed to resolve portdef: {}", id.to_string())
+            }
+            DuplicatePort(comp, portdef) => {
+                write!(f, "Attempted to add `{}` to component `{}`", portdef, comp.to_string())
             }
             MalformedControl => write!(f, "Malformed Control. Backend expected Control to be in a different form."),
             NotSubcomponent => write!(f, "Not a subcomponent"),
