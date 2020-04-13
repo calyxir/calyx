@@ -20,7 +20,7 @@ impl State {
         c: &Context,
     ) -> Result<Self, Error> {
         let mut map = HashMap::new();
-        for (idx, data) in comp.structure.instances() {
+        for (_idx, data) in comp.structure.instances() {
             match data {
                 NodeData::Input(_) => { /* do nothing */ }
                 NodeData::Output(_) => { /* do nothing */ }
