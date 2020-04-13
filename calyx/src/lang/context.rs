@@ -95,8 +95,8 @@ impl Context {
         let mut definitions = HashMap::new();
         for comp in &namespace.components {
             let prim_sigs = comp.resolve_primitives(&libctx)?;
-            let mut graph = StructureGraph::default();
-            graph.add_component_def(&comp, &signatures, &prim_sigs)?;
+            let mut graph =
+                StructureGraph::new(&comp, &signatures, &prim_sigs)?;
             definitions.insert(
                 comp.name.clone(),
                 Component {
@@ -119,9 +119,9 @@ impl Context {
 
     pub fn from_opts(opts: &Opts) -> Result<Self, errors::Error> {
         // parse file
-        let file = opts.file.as_ref().ok_or_else(|| errors::Error::Impossible(
-            "No input file provided.".to_string(),
-        ))?;
+        let file = opts.file.as_ref().ok_or_else(|| {
+            errors::Error::Impossible("No input file provided.".to_string())
+        })?;
         let namespace = ast::parse_file(file)?;
 
         // parse library files
@@ -198,6 +198,10 @@ impl Context {
             Err(_) => self.definitions_to_insert.borrow_mut().push(comp),
         };
     }
+
+    pub fn is_lib(&self, name: &ast::Id) -> bool {
+        self.library_context.lib_contains(name)
+    }
 }
 
 impl Into<ast::NamespaceDef> for Context {
@@ -257,6 +261,11 @@ impl LibraryContext {
             }
             None => Err(errors::Error::SignatureResolutionFailed(id.clone())),
         }
+    }
+
+    /// Checks whether a component type is in the library or not
+    fn lib_contains(&self, id: &ast::Id) -> bool {
+        self.definitions.contains_key(id)
     }
 }
 

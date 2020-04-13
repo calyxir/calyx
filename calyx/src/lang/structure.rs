@@ -109,7 +109,6 @@ impl Default for StructureGraph {
 }
 
 impl StructureGraph {
-<<<<<<< HEAD:src/lang/structure.rs
     /* ============= Constructor Functions ============= */
 
     /// Creates a new structure graph from a component definition
@@ -119,54 +118,6 @@ impl StructureGraph {
     ///   * `comp_sigs` - map of component signatures
     ///   * `prim_sigs` - map of primitive component signatures
     pub fn new(
-=======
-    // XXX(sam) bad name
-    pub fn add_signature(&mut self, sig: &ast::Signature) {
-        // add nodes for inputs and outputs
-        for port in &sig.inputs {
-            self.insert_io_port(port, NodeData::Input);
-        }
-        for port in &sig.outputs {
-            self.insert_io_port(port, NodeData::Output);
-        }
-    }
-
-    pub fn add_instance(
-        &mut self,
-        id: &ast::Id,
-        comp: &component::Component,
-        structure: ast::Structure,
-    ) -> NodeIndex {
-        let idx = self.graph.add_node(NodeData::Instance {
-            name: id.clone(),
-            structure,
-            signature: comp.signature.clone(),
-        });
-        self.inst_map.insert(id.clone(), idx);
-        idx
-    }
-
-    pub fn add_primitive<S: AsRef<str>>(
-        &mut self,
-        id: &ast::Id,
-        name: S,
-        comp: &Component,
-        params: &[u64],
-    ) -> NodeIndex {
-        let structure = ast::Structure::std(
-            id.clone(),
-            ast::Compinst {
-                name: name.as_ref().into(),
-                params: params.to_vec(),
-            },
-        );
-        self.add_instance(id, comp, structure)
-    }
-
-    // XXX(sam) this is a bad name
-    pub fn add_component_def(
-        &mut self,
->>>>>>> master:calyx/src/lang/structure.rs
         compdef: &ast::ComponentDef,
         comp_sigs: &HashMap<ast::Id, ast::Signature>,
         prim_sigs: &HashMap<ast::Id, ast::Signature>,
