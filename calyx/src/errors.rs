@@ -16,7 +16,8 @@ pub enum Error {
     UndefinedComponent(ast::Id),
     SignatureResolutionFailed(ast::Id),
     DuplicatePort(ast::Id, ast::Portdef),
-    MalformedControl,   // XXX(sam) add more info to this
+    MalformedControl(String),
+    MalformedStructure(String),
     Impossible(String), // Signal compiler errors that should never occur.
     NotSubcomponent,
     #[allow(unused)]
@@ -53,7 +54,8 @@ impl std::fmt::Debug for Error {
             DuplicatePort(comp, portdef) => {
                 write!(f, "Attempted to add `{}` to component `{}`", portdef, comp.to_string())
             }
-            MalformedControl => write!(f, "Malformed Control. Backend expected Control to be in a different form."),
+            MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
+            MalformedStructure(msg) => write!(f, "Malformed Structure: {}", msg),
             NotSubcomponent => write!(f, "Not a subcomponent"),
             Misc(msg) => write!(f, "{}", msg),
             Impossible(msg) => write!(f, "Impossible: {}\nThis error should never occur. Report report this as a bug.", msg),

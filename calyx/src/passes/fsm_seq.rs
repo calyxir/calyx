@@ -138,7 +138,7 @@ impl Visitor for FsmSeq<'_> {
                             == "std_reg"
                             && comp
                                 .structure
-                                .connected_from(idx, "in".to_string())
+                                .connected_incoming(idx, "in".to_string())
                                 .any(|(r, _)| x.comps.contains(r.get_name()))
                         {
                             Ok((idx, c))

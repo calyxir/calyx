@@ -1,5 +1,5 @@
 use crate::backend::traits::{Backend, Emitable};
-use crate::errors;
+use crate::errors::Error;
 use crate::lang::library::ast as lib;
 use crate::lang::pretty_print::{display, PrettyHelper};
 use crate::lang::{
@@ -28,26 +28,51 @@ use std::io::Write;
 /// ```
 pub struct VerilogBackend {}
 
+fn validate_structure(comp: &component::Component) -> Result<(), Error> {
+    let has_multiple_inputs = comp
+        .structure
+        .instances()
+        // get all incoming ports
+        .map(|(idx, node)| node.in_ports().map(move |pd| (idx, pd)))
+        .flatten()
+        // find if port had > 1 incoming edge
+        .any(|(idx, port)| {
+            comp.structure
+                .connected_incoming(idx, port.to_string())
+                .count()
+                > 1
+        });
+    if !has_multiple_inputs {
+        Ok(())
+    } else {
+        Err(Error::MalformedStructure(
+            "A port had multiple inputs.".to_string(),
+        ))
+    }
+}
+
+fn validate_control(comp: &component::Component) -> Result<(), Error> {
+    match &comp.control {
+        Control::Enable { .. } | Control::Empty { .. } => Ok(()),
+        _ => Err(Error::MalformedControl(
+            "Must either be a single enable or an empty statement".to_string(),
+        )),
+    }
+}
+
 impl Backend for VerilogBackend {
     fn name() -> &'static str {
         "verilog"
     }
 
-    fn validate(ctx: &context::Context) -> Result<(), errors::Error> {
-        let prog: ast::NamespaceDef = ctx.clone().into();
-        for comp in &prog.components {
-            match &comp.control {
-                Control::Enable { .. } | Control::Empty { .. } => (),
-                _ => return Err(errors::Error::MalformedControl),
-            }
-        }
-        Ok(())
+    fn validate(ctx: &context::Context) -> Result<(), Error> {
+        ctx.definitions_iter(|_, comp| {
+            validate_structure(comp)?;
+            validate_control(comp)
+        })
     }
 
-    fn emit<W: Write>(
-        ctx: &context::Context,
-        file: W,
-    ) -> Result<(), errors::Error> {
+    fn emit<W: Write>(ctx: &context::Context, file: W) -> Result<(), Error> {
         let prog: ast::NamespaceDef = ctx.clone().into();
 
         // build Vec of tuples first so that `comps` lifetime is longer than
@@ -213,7 +238,7 @@ fn wire_declarations<'a>(comp: &component::Component) -> D<'a, ColorSpec> {
             ),
             NodeData::Input(portdef) => Some(
                 structure
-                    .connected_to(idx, portdef.name.to_string())
+                    .connected_outgoing(idx, portdef.name.to_string())
                     .filter_map(|(node, edge)| match node {
                         NodeData::Output(_) => Some(alias(edge.clone())),
                         _ => None,
@@ -249,7 +274,7 @@ fn wire_string<'a>(
 ) -> Option<D<'a, ColorSpec>> {
     // build comment of the destinations of each wire declaration
     let dests: Vec<D<ColorSpec>> = structure
-        .connected_to(idx, portdef.name.to_string())
+        .connected_outgoing(idx, portdef.name.to_string())
         .filter_map(|(node, edge)| match node {
             NodeData::Input(..) | NodeData::Output(..) => None,
             NodeData::Instance { name, .. } => Some(
@@ -372,7 +397,7 @@ fn signature_connections<'a>(
         .iter()
         .map(|portdef| {
             comp.structure
-                .connected_from(idx, portdef.name.to_string())
+                .connected_incoming(idx, portdef.name.to_string())
                 .map(move |(src, edge)| {
                     let wire_name = match src {
                         NodeData::Input(pd) | NodeData::Output(pd) => {
@@ -408,7 +433,7 @@ fn signature_connections<'a>(
         .iter()
         .map(|portdef| {
             comp.structure
-                .connected_to(idx, portdef.name.to_string())
+                .connected_outgoing(idx, portdef.name.to_string())
                 .map(move |(dest, edge)| {
                     let wire_name = match dest {
                         NodeData::Input(pd) | NodeData::Output(pd) => {

@@ -65,14 +65,24 @@ impl NodeData {
         }
     }
 
+    pub fn in_ports(&self) -> PortIter {
+        match self {
+            NodeData::Input(_) => PortIter { items: vec![] },
+            NodeData::Output(pd) => PortIter {
+                items: vec![pd.clone()],
+            },
+            NodeData::Instance { signature, .. } => PortIter {
+                items: signature.inputs.clone(),
+            },
+        }
+    }
+
     pub fn out_ports(&self) -> PortIter {
         match self {
             NodeData::Input(pd) => PortIter {
                 items: vec![pd.clone()],
             },
-            NodeData::Output(pd) => PortIter {
-                items: vec![pd.clone()],
-            },
+            NodeData::Output(_) => PortIter { items: vec![] },
             NodeData::Instance { signature, .. } => PortIter {
                 items: signature.outputs.clone(),
             },
@@ -329,7 +339,7 @@ impl StructureGraph {
     }
 
     /// Returns an iterator over edges and destination nodes connected to `node` at `port`
-    pub fn connected_to<'a>(
+    pub fn connected_outgoing<'a>(
         &'a self,
         node: NodeIndex,
         port: String,
@@ -338,7 +348,7 @@ impl StructureGraph {
     }
 
     /// Returns an iterator over edges and src nodes connected to `node` at `port`
-    pub fn connected_from<'a>(
+    pub fn connected_incoming<'a>(
         &'a self,
         node: NodeIndex,
         port: String,
