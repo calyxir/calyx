@@ -1,0 +1,15 @@
+; git.status = clean, build.date = Wed Mar 25 10:45:07 PDT 2020, git.hash = d139061
+(define/namespace prog
+  (define/component main () ()
+    ([new-std a0 (std_reg 32)]
+     [-> (@ const0 out) (@ a0 in)]
+     [new-std const0 (std_const 32 10)]
+     [new-std res0 (std_reg 32)]
+     [-> (@ add0 out) (@ res0 in)]
+     [new-std add0 (std_add 32)]
+     [-> (@ a0 out) (@ add0 left)]
+     [-> (@ const1 out) (@ add0 right)]
+     [new-std const1 (std_const 32 5)])
+    (seq
+     (enable a0 const0)
+     (enable res0 add0 a0 const1))))

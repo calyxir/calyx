@@ -1,16 +1,18 @@
-# Fuse Temporal Intermediate Language (FuTIL)
+# Fused Temporal Intermediate Language (FuTIL)
 An intermediate language for [Dahlia][].
 
-**Note**: We are in the process of transitioning everything over to Rust. At the moment the interpreter is still in racket, although it hasn't been kept up to date with the syntax changes. `Calyx` is the name of the pass framework that we are writing. Instructions for installation are below.
+Calyx is the name of the visitor framework for FuTIL.
 
 ### Installation
 - Install [Rust][rust].
+- Install [runt][] by running `cargo install runt`.
 - Run `cargo build` to download all dependencies and build calyx.
+- Run `runt` to run tests.
 - Run `./target/debug/calyx --help` to get options from the calyx binary.
 
 ### Compiler Development
 
-The compiler source lives under [src](src). While changing the compiler,
+The compiler source lives under [calyx/src](calyx/src). While changing the compiler,
 use `cargo run -- <calyx options>` to rebuild the compiler and run files
 at the same time.
 
@@ -54,3 +56,4 @@ requires to install [Dahlia][] first.
 [rust]: https://doc.rust-lang.org/cargo/getting-started/installation.html
 [dahlia]: https://github.com/cucapra/dahlia
 [structopt]: https://docs.rs/structopt/0.3.11/structopt/
+[runt]: https://github.com/rachitnigam/runt
