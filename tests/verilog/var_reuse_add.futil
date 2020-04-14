@@ -8,11 +8,11 @@
      [-> (@ const1 out) (@ b0 in)]
      [new-std const1 (std_const 32 2)]
      [new-std c0 (std_reg 32)]
-     [-> (@ mult0 out) (@ c0 in)]
-     [new-std mult0 (std_mult 32)]
-     [-> (@ a0 out) (@ mult0 left)]
-     [-> (@ b0 out) (@ mult0 right)])
+     [-> (@ add0 out) (@ c0 in)]
+     [new-std add0 (std_add 32)]
+     [-> (@ a0 out) (@ add0 left)]
+     [-> (@ b0 out) (@ add0 right)])
     (seq
      (enable a0 const0)
      (enable b0 const1)
-     (enable c0 mult0 a0 b0))))
+     (enable c0 add0 a0 b0))))

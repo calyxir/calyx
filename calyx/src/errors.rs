@@ -18,6 +18,7 @@ pub enum Error {
     DuplicatePort(ast::Id, ast::Portdef),
     MalformedControl(String),
     MalformedStructure(String),
+    MissingImplementation(&'static str, ast::Id),
     Impossible(String), // Signal compiler errors that should never occur.
     NotSubcomponent,
     #[allow(unused)]
@@ -59,6 +60,7 @@ impl std::fmt::Debug for Error {
             NotSubcomponent => write!(f, "Not a subcomponent"),
             Misc(msg) => write!(f, "{}", msg),
             Impossible(msg) => write!(f, "Impossible: {}\nThis error should never occur. Report report this as a bug.", msg),
+            MissingImplementation(name, id) => write!(f, "Mising {} implementation for `{}`", name, id.to_string())
         }
     }
 }

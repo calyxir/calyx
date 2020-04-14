@@ -6,12 +6,12 @@ use crate::lang::{
     ast, ast::Control, ast::Structure, colors, colors::ColorHelper, component,
     context, structure, structure::EdgeData, structure::NodeData,
 };
-use bumpalo::Bump;
 use itertools::Itertools;
 use lib::Implementation;
 use petgraph::graph::NodeIndex;
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc as D;
+use std::cmp::Ordering;
 use std::io::Write;
 
 /// Implements a simple Verilog backend. The backend
@@ -28,6 +28,9 @@ use std::io::Write;
 /// ```
 pub struct VerilogBackend {}
 
+/// Returns `Ok` if every input on each subcomponent has at most
+/// one incoming wire. This is to ensure that we never generate
+/// Verilog that has two drivers for a single input.
 fn validate_structure(comp: &component::Component) -> Result<(), Error> {
     let has_multiple_inputs = comp
         .structure
@@ -51,6 +54,8 @@ fn validate_structure(comp: &component::Component) -> Result<(), Error> {
     }
 }
 
+/// Returns `Ok` if the control for `comp` is either a single `enable`
+/// or `empty`.
 fn validate_control(comp: &component::Component) -> Result<(), Error> {
     match &comp.control {
         Control::Enable { .. } | Control::Empty { .. } => Ok(()),
@@ -83,26 +88,30 @@ impl Backend for VerilogBackend {
             .map(|cd| (cd, ctx.get_component(&cd.name).unwrap()))
             .collect();
 
-        let mut arena = Bump::new();
-        let docs = comps.iter().map(|(cd, comp)| cd.doc(&arena, &comp));
-        let prims = primitive_implemenations(&prog, ctx);
+        let docs = comps
+            .iter()
+            .map(|(cd, comp)| cd.doc(&comp))
+            .collect::<Result<Vec<_>, _>>()?;
+        let prims = primitive_implemenations(&prog, ctx)?;
         display(
             colors::comment(D::text("/* verilator lint_off PINMISSING */"))
+                .append(D::line())
                 .append(prims)
                 .append(D::line())
                 .append(D::line())
                 .append(D::intersperse(docs, D::line())),
             Some(file),
         );
-        arena.reset();
         Ok(())
     }
 }
 
+/// Collects all of the Verilog implementations specified in the library
+/// file.
 fn primitive_implemenations<'a>(
     prog: &ast::NamespaceDef,
     context: &context::Context,
-) -> D<'a, ColorSpec> {
+) -> Result<D<'a, ColorSpec>, Error> {
     let docs = prog
         .components
         .iter()
@@ -113,7 +122,7 @@ fn primitive_implemenations<'a>(
             _ => None,
         })
         .unique()
-        .filter_map(|name| {
+        .map(|name| {
             context.library_context.definitions[&name]
                 .implementation
                 .iter()
@@ -122,23 +131,26 @@ fn primitive_implemenations<'a>(
                         Some(D::text(data.code.to_string()))
                     }
                 })
-        });
-    D::intersperse(docs, D::line().append(D::line()))
+                .ok_or_else(|| {
+                    Error::MissingImplementation("Verilog", name.clone())
+                })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(D::intersperse(docs, D::line().append(D::line())))
 }
 
 impl Emitable for ast::ComponentDef {
     fn doc<'a>(
         &self,
-        arena: &'a Bump,
         comp: &component::Component,
-    ) -> D<'a, ColorSpec> {
+    ) -> Result<D<'a, ColorSpec>, Error> {
         let structure = D::nil()
             .append(D::space())
             .append(self.name.to_string())
             .append(D::line())
             .append(
                 D::line()
-                    .append(self.signature.doc(&arena, &comp))
+                    .append(self.signature.doc(&comp)?)
                     .nest(4)
                     .append(D::line())
                     .parens(),
@@ -148,19 +160,15 @@ impl Emitable for ast::ComponentDef {
             .append(D::line())
             .append(colors::comment(D::text("// Structure wire declarations")))
             .append(D::line())
-            .append(wire_declarations(&comp))
+            .append(wire_declarations(&comp)?)
             .append(D::line())
             .append(D::line())
             .append(colors::comment(D::text("// Subcomponent Instances")))
             .append(D::line())
             .append(subcomponent_instances(&comp));
-        // let control = self.control.doc(&arena, &comp);
         let inner = structure;
-        // .append(D::line())
-        // .append(D::line())
-        // .append(control);
 
-        colors::comment(D::text("// Component Signature"))
+        Ok(colors::comment(D::text("// Component Signature"))
             .append(D::line())
             .append(D::text("module").define_color())
             .append(inner.nest(2))
@@ -170,57 +178,71 @@ impl Emitable for ast::ComponentDef {
             .append(colors::comment(D::text(format!(
                 "// end {}",
                 self.name.to_string()
-            ))))
+            )))))
     }
 }
 
 impl Emitable for ast::Signature {
     fn doc<'a>(
         &self,
-        arena: &'a Bump,
         comp: &component::Component,
-    ) -> D<'a, ColorSpec> {
-        let inputs = self.inputs.iter().map(|pd| {
-            D::text("input")
-                .port_color()
-                .append(D::space())
-                .append(pd.doc(&arena, &comp))
-        });
-        let outputs = self.outputs.iter().map(|pd| {
-            D::text("output")
-                .port_color()
-                .append(D::space())
-                .append(pd.doc(&arena, &comp))
-        });
-        D::intersperse(inputs.chain(outputs), D::text(",").append(D::line()))
+    ) -> Result<D<'a, ColorSpec>, Error> {
+        let inputs = self
+            .inputs
+            .iter()
+            .map(|pd| {
+                Ok(D::text("input")
+                    .port_color()
+                    .append(D::space())
+                    .append(pd.doc(&comp)?))
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        let outputs = self
+            .outputs
+            .iter()
+            .map(|pd| {
+                Ok(D::text("output")
+                    .port_color()
+                    .append(D::space())
+                    .append(pd.doc(&comp)?))
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        Ok(D::intersperse(
+            inputs.into_iter().chain(outputs.into_iter()),
+            D::text(",").append(D::line()),
+        ))
     }
 }
 
 impl Emitable for ast::Portdef {
     fn doc<'a>(
         &self,
-        _arena: &'a Bump,
         _ctx: &component::Component,
-    ) -> D<'a, ColorSpec> {
-        // XXX(sam) why would we not use wires?
-        D::text("logic")
+    ) -> Result<D<'a, ColorSpec>, Error> {
+        // XXX(sam) why would we use logic over wires?
+        Ok(D::text("wire")
             .keyword_color()
             .append(D::space())
-            .append(bit_width(self.width))
+            .append(bit_width(self.width)?)
             .append(D::space())
-            .append(self.name.to_string())
+            .append(self.name.to_string()))
     }
 }
 
 //==========================================
 //        Wire Declaration Functions
 //==========================================
-fn wire_declarations<'a>(comp: &component::Component) -> D<'a, ColorSpec> {
+/// Generate all the wire declarations for `comp`
+fn wire_declarations<'a>(
+    comp: &component::Component,
+) -> Result<D<'a, ColorSpec>, Error> {
     // declare a wire for each instance, not input or output
     // because they already have wires defined
-    // in the module signature. We only make a wire
-    // once for each instance output. This is because
-    // Verilog wires do not correspond exactly with Futil wires.
+    // in the module signature.
+
+    // We only make a wire once for each instance
+    // output. This is because Verilog wires do not
+    // correspond exactly with Futil wires.
     let structure: &structure::StructureGraph = &comp.structure;
     let wires = structure
         .instances()
@@ -232,96 +254,95 @@ fn wire_declarations<'a>(comp: &component::Component) -> D<'a, ColorSpec> {
                     .outputs
                     .into_iter()
                     .filter_map(move |portdef| {
-                        wire_string(portdef, structure, idx, &name)
+                        match wire_string(portdef, structure, idx, &name) {
+                            Ok(None) => None,
+                            Ok(Some(x)) => Some(Ok(x)),
+                            Err(x) => Some(Err(x)),
+                        }
                     })
                     .collect::<Vec<_>>(),
             ),
+            // if an input is connected directly to an output
+            // alias the two
             NodeData::Input(portdef) => Some(
                 structure
                     .connected_outgoing(idx, portdef.name.to_string())
                     .filter_map(|(node, edge)| match node {
-                        NodeData::Output(_) => Some(alias(edge.clone())),
+                        NodeData::Output(_) => Some(Ok(alias(&edge))),
                         _ => None,
                     })
                     .collect::<Vec<_>>(),
             ),
             _ => None,
         })
-        .flatten();
-    D::intersperse(wires, D::line())
+        .flatten()
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(D::intersperse(wires, D::line()))
 }
 
-// fn valid_declarations<'a>(
-//     arena: &'a Bump,
-//     comp: &component::Component,
-// ) -> D<'a, ColorSpec> {
-//     let all = get_all_used(&arena, &comp.control);
-//     let docs = all.iter().map(|id| {
-//         let name = format!("{}$valid", id.as_ref());
-//         colors::keyword(D::text("logic"))
-//             .append(D::space())
-//             .append(colors::ident(D::text(name)))
-//             .append(";")
-//     });
-//     D::intersperse(docs, D::line())
-// }
-
+/// Generates a verilog wire declaration for the provided
+/// node and port. Returns `None` if the port is never used.
 fn wire_string<'a>(
     portdef: ast::Portdef,
     structure: &structure::StructureGraph,
     idx: NodeIndex,
     name: &ast::Id,
-) -> Option<D<'a, ColorSpec>> {
+) -> Result<Option<D<'a, ColorSpec>>, Error> {
     // build comment of the destinations of each wire declaration
     let dests: Vec<D<ColorSpec>> = structure
         .connected_outgoing(idx, portdef.name.to_string())
-        .filter_map(|(node, edge)| match node {
-            NodeData::Input(..) | NodeData::Output(..) => None,
-            NodeData::Instance { name, .. } => Some(
-                D::text(name.to_string())
-                    .append(" @ ")
-                    .append(edge.dest.to_string()),
-            ),
+        .map(|(node, edge)| match node {
+            NodeData::Input(pd) | NodeData::Output(pd) => {
+                D::text(pd.name.to_string())
+            }
+            NodeData::Instance { name, .. } => D::text(name.to_string())
+                .append(" @ ")
+                .append(edge.dest.to_string()),
         })
         .collect();
+
+    // only declare the wire if it is actually used
     if !dests.is_empty() {
         let dest_comment = colors::comment(
             D::text("// ").append(D::intersperse(dests, D::text(", "))),
         );
         let wire_name =
             format!("{}${}", &name.to_string(), &portdef.name.to_string());
-        Some(
+        Ok(Some(
             D::text("wire")
                 .keyword_color()
                 .append(D::space())
-                .append(bit_width(portdef.width))
+                .append(bit_width(portdef.width)?)
                 .append(D::text(wire_name).ident_color())
                 .append(";")
                 .append(D::space())
                 .append(dest_comment),
-        )
+        ))
     } else {
-        None
+        Ok(None)
     }
 }
 
-fn alias<'a>(edge: EdgeData) -> D<'a, ColorSpec> {
+/// Uses Verilog assign to connect the two ends of `edge`.
+fn alias<'a>(edge: &EdgeData) -> D<'a, ColorSpec> {
     D::text("assign")
         .keyword_color()
         .append(D::space())
-        .append(edge.dest)
+        .append(edge.dest.to_string())
         .append(" = ")
-        .append(edge.src)
+        .append(edge.src.to_string())
         .append(";")
 }
 
-pub fn bit_width<'a>(width: u64) -> D<'a, ColorSpec> {
-    use std::cmp::Ordering;
+/// Turn u64 into a formatted Verilog bitwidth specifier.
+pub fn bit_width<'a>(width: u64) -> Result<D<'a, ColorSpec>, Error> {
     match width.cmp(&1) {
-        Ordering::Less => panic!("Invalid bit width!"),
-        Ordering::Equal => D::nil(),
+        Ordering::Less => {
+            Err(Error::Misc(format!("{} is an impossible bitwidth", width)))
+        }
+        Ordering::Equal => Ok(D::nil()),
         Ordering::Greater => {
-            D::text(format!("[{}:0]", width - 1)).append(D::space())
+            Ok(D::text(format!("[{}:0]", width - 1)).append(D::space()))
         }
     }
 }
@@ -329,6 +350,8 @@ pub fn bit_width<'a>(width: u64) -> D<'a, ColorSpec> {
 //==========================================
 //        Subcomponent Instance Functions
 //==========================================
+/// Generate Verilog for each subcomponent instanstiation and
+/// wire up all the ports.
 fn subcomponent_instances<'a>(comp: &component::Component) -> D<'a, ColorSpec> {
     let subs = comp.structure.instances().filter_map(|(idx, data)| {
         if let NodeData::Instance {
@@ -357,6 +380,8 @@ fn subcomponent_instances<'a>(comp: &component::Component) -> D<'a, ColorSpec> {
     D::intersperse(subs, D::line().append(D::line()))
 }
 
+/// Generates just the Verilog instanstiation code, but none
+/// of the connections.
 fn subcomponent_sig<'a>(
     id: &ast::Id,
     structure: &ast::Structure,
@@ -386,12 +411,14 @@ fn subcomponent_sig<'a>(
         .group()
 }
 
+/// Generates Verilog for connection ports to wires.
 fn signature_connections<'a>(
     name: &ast::Id,
     sig: &ast::Signature,
     comp: &component::Component,
     idx: NodeIndex,
 ) -> D<'a, ColorSpec> {
+    // wire up all the incoming edges
     let incoming = sig
         .inputs
         .iter()
@@ -423,11 +450,11 @@ fn signature_connections<'a>(
     // to generate the Verilog connections:
     //   .out(x$out)
     //   .out(ready)
-    // The second outgoing connection should not have a special
+    // The second outgoing connection in Futil should not have a
     // statement in Verilog because it would look like
     //   .out(x$out)
-    // which is identical to the first statement and thus redundant.
-    // That is what the unique stuff below is for
+    // which is identical to the first Verilog statement and thus redundant.
+    // That is what the `unique` is doing below.
     let outgoing = sig
         .outputs
         .iter()
