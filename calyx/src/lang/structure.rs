@@ -63,6 +63,7 @@ impl NodeData {
             },
         }
     }
+
     pub fn in_ports(&self) -> PortIter {
         match self {
             NodeData::Input(pd) => PortIter {
@@ -467,6 +468,7 @@ impl StructureGraph {
             ))
         }
     }
+
     pub fn get_inst_index(&self, port: &ast::Id) -> Result<NodeIndex, Error> {
         match self.inst_map.get(port) {
             Some(idx) => Ok(*idx),
