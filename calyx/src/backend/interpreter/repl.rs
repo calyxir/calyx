@@ -4,9 +4,9 @@ use crate::lang::context::Context;
 use linefeed::{Interface, ReadResult};
 
 pub fn repl(c: &Context) -> Result<(), Error> {
-    let mut interface = Interface::new("calyx_interpreter")?;
+    let interface = Interface::new("calyx_interpreter")?;
 
-    let mut interpreter = Interpreter::new(c);
+    let interpreter = Interpreter::new(c);
 
     interface.set_prompt("interpret>> ")?;
 
@@ -16,6 +16,26 @@ pub fn repl(c: &Context) -> Result<(), Error> {
     println!("Enter \"help\" for a list of commands.");
     println!("Press Ctrl-D or enter \"quit\" to exit.");
     println!("");
+    println!("First pick a component to simulate.");
+    println!("If you pick a library component you may need to provide additional parameters.");
+    println!("Here are the components you have loaded in the interpreter:");
+    println!("");
+    println!("User-defined components:");
+    let iter_wrapper = interpreter.context.comp_def_iter();
+    for (name, _comp_def) in iter_wrapper.into_iter() {
+        println!("{}", name.to_string());
+    }
+    println!("");
+    println!("Library-defined components:");
+    let iter = interpreter.context.lib_def_iter();
+    for (name, lib_def) in iter {
+        let mut params = String::new();
+        for param in &lib_def.params {
+            params.push_str(&param.to_string());
+            params.push(' ');
+        }
+        println!("{}, with params: {}", name.to_string(), params);
+    }
 
     while let ReadResult::Input(line) = interface.read_line()? {
         if !line.trim().is_empty() {

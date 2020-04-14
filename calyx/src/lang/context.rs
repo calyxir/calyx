@@ -5,7 +5,8 @@ use crate::lang::{
     ast, component::Component, library::ast as lib, structure::StructureGraph,
 };
 use pretty::{termcolor::ColorSpec, RcDoc};
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
+use std::collections::hash_map::Iter;
 use std::collections::HashMap;
 
 /// Represents an entire Futil program. We are keeping all of the components in a `RefCell<HashMap>`.
@@ -162,6 +163,21 @@ impl Context {
         ret
     }
 
+    /// Returns an iterator over user-defined components and their names
+    /// RefWrapper is a wrapper class that implements IntoIter, based off
+    /// this StackOverflow post:
+    /// https://stackoverflow.com/questions/33541492/returning-iterator-of-a-vec-in-a-refcell/33542412#33542412
+    pub fn comp_def_iter(&self) -> RefWrapper<ast::Id, Component> {
+        RefWrapper {
+            r: self.definitions.borrow(),
+        }
+    }
+
+    /// Returns an iterator over primitive library structs and their names
+    pub fn lib_def_iter(&self) -> Iter<ast::Id, lib::Primitive> {
+        self.library_context.iter()
+    }
+
     pub fn instantiate_primitive<S: AsRef<str>>(
         &self,
         name: S,
@@ -217,6 +233,19 @@ impl Into<ast::NamespaceDef> for Context {
     }
 }
 
+pub struct RefWrapper<'a, K: 'a, V: 'a> {
+    r: Ref<'a, HashMap<K, V>>,
+}
+
+impl<'a, 'b: 'a, K, V: 'a> IntoIterator for &'b RefWrapper<'a, K, V> {
+    type IntoIter = Iter<'a, K, V>;
+    type Item = (&'a K, &'a V);
+
+    fn into_iter(self) -> Iter<'a, K, V> {
+        self.r.iter()
+    }
+}
+
 /// Map library signatures to "real" Futil signatures. Since library components
 /// can have parameters while futil components cannot, we define helpers methods
 /// to make this easier.
@@ -265,6 +294,11 @@ impl LibraryContext {
     /// Checks whether a component type is in the library or not
     fn lib_contains(&self, id: &ast::Id) -> bool {
         self.definitions.contains_key(id)
+    }
+
+    /// Returns an iterator ovver all primitives and their names
+    fn iter(&self) -> Iter<ast::Id, lib::Primitive> {
+        self.definitions.iter()
     }
 }
 

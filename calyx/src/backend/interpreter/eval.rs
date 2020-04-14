@@ -114,17 +114,9 @@ impl Interpreter {
         }
 
         // User-defined components
-        match self.context.get_component(comp_name) {
-            Ok(comp) => {
-                //  structure graph
-                let st_1 =
-                    self.eval_c(&inputs, &comp.control, &comp.structure, st);
-            }
-            Err(_e) => {
-                //XXX(ken) errors
-                unimplemented!("Implement errors");
-            }
-        }
+        let comp = self.context.get_component(comp_name)?;
+        //  structure graph
+        let st_1 = self.eval_c(&inputs, &comp.control, &comp.structure, st);
 
         unimplemented!("Interpreter is not implemented.");
     }
