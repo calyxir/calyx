@@ -125,18 +125,31 @@ impl Interpreter {
     /// # Arguments
     ///   * `c` - is the context for the compilation unit
     ///   * `st` - is the state of the component
-    ///   * `comp_name` - the name of the type of component to run
+    ///   * `id` - the id of component to run
     ///   * `inputs` - is a map of input port names to values for passing
     ///                inputs to the component during evaluation
     /// # Returns
     ///   Returns a map of output port names to values
     pub fn eval_lib(
         &self,
-        _st: &State,
-        _comp_name: &ast::Id,
-        _inputs: HashMap<ast::Id, Option<i64>>,
+        st: &State,
+        id: &ast::Id,
+        inputs: HashMap<ast::Id, Option<i64>>,
     ) -> Result<(HashMap<ast::Id, Option<i64>>, State), Error> {
-        unimplemented!("Interpreter is not implemented.");
+        let comp = self.context.get_component(id)?;
+        let params = comp.params;
+        let outputs: HashMap<ast::Id, Option<i64>> = HashMap::new();
+
+        match comp.name.as_ref() {
+            "std_const" => {
+                let p_width = params.get(0);
+                let p_value = params.get(1);
+
+                outputs.insert(ast::Id::from("out"), Some(p_value));
+            }
+            _ => unimplemented!("Error handling"),
+        }
+        Ok((outputs, st.clone()))
     }
 
     /// Simulates the control of a component

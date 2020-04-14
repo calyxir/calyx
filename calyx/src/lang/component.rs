@@ -14,12 +14,17 @@ pub struct Component {
     /// Maps names of sub-component used in this component to fully
     /// resolved signatures.
     pub resolved_sigs: HashMap<ast::Id, ast::Signature>,
+    pub params: Vec<u64>,
 }
 
 /// Methods over Components. Only define functions that cannot be methods
 /// on `Control`, `Signature`, or `Structure`.
 impl Component {
-    pub fn from_signature<S: AsRef<str>>(name: S, sig: ast::Signature) -> Self {
+    pub fn from_signature<S: AsRef<str>>(
+        name: S,
+        sig: ast::Signature,
+        params: &[u64],
+    ) -> Self {
         let mut graph = StructureGraph::default();
         graph.add_signature(&sig);
 
@@ -29,6 +34,7 @@ impl Component {
             control: ast::Control::empty(),
             structure: graph,
             resolved_sigs: HashMap::new(),
+            params: params.to_vec(),
         }
     }
 

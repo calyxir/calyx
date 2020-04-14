@@ -1,5 +1,6 @@
 use super::eval::Interpreter;
 use crate::errors::Error;
+use crate::lang::component::Component;
 use crate::lang::context::Context;
 use linefeed::{DefaultTerminal, Interface, ReadResult};
 
@@ -65,6 +66,8 @@ fn get_component_to_interpret(
         }
         println!("{}, with params: {}", name.to_string(), params);
     }
+
+    unimplemented!("to be continued")
 
     // if let ReadResult::Input(line) = interface.read_line()? {
     //     Ok(line)

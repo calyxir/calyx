@@ -105,6 +105,7 @@ impl Context {
                     control: comp.control.clone(),
                     structure: graph,
                     resolved_sigs: prim_sigs,
+                    params: Vec::new(),
                 },
             );
         }
@@ -185,7 +186,7 @@ impl Context {
         params: &[u64],
     ) -> Result<Component, errors::Error> {
         let sig = self.library_context.resolve(id, params)?;
-        Ok(Component::from_signature(name, sig))
+        Ok(Component::from_signature(name, sig, params))
     }
 
     pub fn get_component(
