@@ -54,9 +54,7 @@ impl NodeData {
         match self {
             //XXX(Zhijing): wired to have input here
             // but node data requires exhaustive pattern matching
-            NodeData::Input(pd) => PortIter {
-                items: vec![pd.clone()],
-            },
+            NodeData::Input(_) => PortIter { items: vec![] },
             NodeData::Output(pd) => PortIter {
                 items: vec![pd.clone()],
             },
@@ -70,9 +68,7 @@ impl NodeData {
             NodeData::Input(pd) => PortIter {
                 items: vec![pd.clone()],
             },
-            NodeData::Output(pd) => PortIter {
-                items: vec![pd.clone()],
-            },
+            NodeData::Output(_) => PortIter { items: vec![] },
             NodeData::Instance { signature, .. } => PortIter {
                 items: signature.inputs.clone(),
             },
@@ -417,7 +413,7 @@ impl StructureGraph {
         }
     }
 
-    /// Construct and insert an edge given two node indices
+    /// Remove an edge given two node indices
     pub fn remove_edge<S: AsRef<str>, U: AsRef<str>>(
         &mut self,
         src_node: NodeIndex,
@@ -450,7 +446,7 @@ impl StructureGraph {
             Input(_) => Err(Error::UndefinedPort(dest_port.to_string())),
             Output(portdef) => Ok(portdef.width),
         }?;
-        // if widths match, add edge to the graph
+        // if widths match, remove edge from the graph
         if src_width == dest_width {
             match self.graph.find_edge(src_node, dest_node) {
                 Some(edge) => {

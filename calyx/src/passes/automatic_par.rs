@@ -88,14 +88,22 @@ fn has_conflicts(
                 .into_iter()
                 // any is shortcircuiting. It returnrs on the first true.
                 .any(|idx| {
-                    // for every output port, check if any incoming/outgoing edges
+                    // for every output port, check if any outgoing edges
                     // contain a component in `comps1`
                     st.graph[idx].out_ports().any(|port| {
-                        st.connected_to(idx, port.to_string())
-                            .chain(st.connected_from(idx, port.to_string()))
-                            .any(|(node_data, _)| {
+                        st.connected_to(idx, port.to_string()).any(
+                            |(node_data, _)| {
                                 comps1.contains(node_data.get_name())
-                            })
+                            },
+                        )
+                        // for every input port, check if any incoming edges
+                        // contain a component in `comps1`
+                    }) || st.graph[idx].in_ports().any(|port| {
+                        st.connected_from(idx, port.to_string()).any(
+                            |(node_data, _)| {
+                                comps1.contains(node_data.get_name())
+                            },
+                        )
                     })
                 }),
     )
