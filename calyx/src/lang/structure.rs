@@ -1,8 +1,7 @@
-use crate::backend::interpreter::eval;
 use crate::backend::interpreter::eval::EvalGraph;
+use crate::backend::interpreter::eval::Interpreter;
 use crate::backend::interpreter::state::State;
 use crate::errors;
-use crate::lang::context::Context;
 use crate::lang::{ast, component};
 use ast::Port;
 use component::Component;
@@ -660,7 +659,7 @@ impl EvalGraph for StructureGraph {
 
     fn update(
         &mut self,
-        c: &Context,
+        interpret: &Interpreter,
         st: &State,
         enabled: Vec<ast::Id>,
     ) -> Result<State, Error> {
@@ -677,7 +676,7 @@ impl EvalGraph for StructureGraph {
                     if enabled.contains(&name) {
                         let input_map = self.input_values(idx);
                         let (output_map, _st_1) =
-                            eval::eval(c, st, &component_type, input_map)?;
+                            interpret.eval(st, &component_type, input_map)?;
                         self.drive_outputs(&idx, &output_map);
                     }
                 }

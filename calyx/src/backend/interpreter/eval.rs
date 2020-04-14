@@ -1,11 +1,12 @@
 use crate::backend::interpreter::state::State;
-use crate::backend::traits::{Backend, Emitable};
+use crate::backend::traits::Backend;
 use crate::errors::Error;
 use crate::lang::ast;
 use crate::lang::context::Context;
 use crate::lang::structure::StructureGraph;
-use petgraph::graph::{EdgeIndex, NodeIndex};
+use petgraph::graph::NodeIndex;
 use std::collections::HashMap;
+use std::io::Write;
 
 pub trait EvalGraph {
     /// Splits sequential primitive component nodes into two separate nodes.
@@ -57,7 +58,7 @@ pub trait EvalGraph {
     /// Simulates every component once in topological sort order
     fn update(
         &mut self,
-        c: &Context,
+        interpret: &Interpreter,
         st: &State,
         enabled: Vec<ast::Id>,
     ) -> Result<State, Error>;
@@ -66,154 +67,161 @@ pub trait EvalGraph {
     fn read_outputs(&mut self) -> HashMap<ast::Id, Option<i64>>;
 }
 
-pub struct InterpreterBackend {}
+pub struct Interpreter {
+    pub context: Context,
+}
 
-// impl Backend for InterpreterBackend {
-//     fn name() -> &'static str {
-//         "interpreter"
-//     }
-
-//     fn validate(prog: &Context) -> Result<(), Error> {
-//         Ok(())
-//     }
-
-//     fn emit(prog: &Context) -> Result<(), Error> {
-//         Ok(())
-//     }
-
-//     fn run(prog: &Context) -> Result<(), Error> {
-//         //Self::validate(&prog)?;
-//         Self::emit(prog)
-//     }
-// }
-
-/// Evaluates a component
-/// # Arguments
-///   * `c` - is the context for the file
-///   * `st` - is the default starting state of the component
-///   * `comp_name` - the name of the type of component to run
-///   * `inputs` - is a map of input port names to values for passing
-///                inputs to the component during evaluation
-/// # Returns
-///   Returns a map of output port names to values
-pub fn eval(
-    c: &Context,
-    st: &State,
-    comp_name: &ast::Id,
-    inputs: HashMap<ast::Id, Option<i64>>,
-) -> Result<(HashMap<ast::Id, Option<i64>>, State), Error> {
-    if c.is_lib(comp_name) {
-        // Handle library components in a special case
-        return eval_lib(c, st, comp_name, inputs);
+impl Backend for Interpreter {
+    fn name() -> &'static str {
+        "interpreter"
     }
 
-    // User-defined components
-    match c.get_component(comp_name) {
-        Ok(comp) => {
-            //  structure graph
-            let st_1 = eval_c(&c, &inputs, &comp.control, &comp.structure, st);
-        }
-        Err(_e) => {
-            //XXX(ken) errors
-            unimplemented!("Implement errors");
+    fn validate(_ctx: &Context) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn emit<W: Write>(ctx: &Context, _file: W) -> Result<(), Error> {
+        super::repl::repl(ctx)
+    }
+}
+
+impl Interpreter {
+    /// Constructs a new interpreter object from a context
+    pub fn new(context: &Context) -> Self {
+        Interpreter {
+            context: context.clone(),
         }
     }
 
-    unimplemented!("Interpreter is not implemented.");
-}
+    /// Evaluates a component
+    /// # Arguments
+    ///   * `c` - is the context for the file
+    ///   * `st` - is the default starting state of the component
+    ///   * `comp_name` - the name of the type of component to run
+    ///   * `inputs` - is a map of input port names to values for passing
+    ///                inputs to the component during evaluation
+    /// # Returns
+    ///   Returns a map of output port names to values
+    pub fn eval(
+        &self,
+        st: &State,
+        comp_name: &ast::Id,
+        inputs: HashMap<ast::Id, Option<i64>>,
+    ) -> Result<(HashMap<ast::Id, Option<i64>>, State), Error> {
+        if self.context.is_lib(comp_name) {
+            // Handle library components in a special case
+            return self.eval_lib(st, comp_name, inputs);
+        }
 
-/// Evaluates a library component
-/// # Arguments
-///   * `c` - is the context for the compilation unit
-///   * `st` - is the state of the component
-///   * `comp_name` - the name of the type of component to run
-///   * `inputs` - is a map of input port names to values for passing
-///                inputs to the component during evaluation
-/// # Returns
-///   Returns a map of output port names to values
-pub fn eval_lib(
-    _c: &Context,
-    _st: &State,
-    _comp_name: &ast::Id,
-    _inputs: HashMap<ast::Id, Option<i64>>,
-) -> Result<(HashMap<ast::Id, Option<i64>>, State), Error> {
-    unimplemented!("Interpreter is not implemented.");
-}
-
-/// Simulates the control of a component
-/// # Arguments
-///   * `c` - is the context for the compilation unit
-///   * `inputs` - is a map of input port names to values for passing
-///                inputs to the component during evaluation
-///   * `control` - is the control statement to evaluate
-///   * `structure` - is the graph of the structure
-///   * `st` - is the state of the component
-///   * `comp_name` - the name of the type of component to run
-/// # Returns
-///   Returns the new component state
-pub fn eval_c(
-    c: &Context,
-    inputs: &HashMap<ast::Id, Option<i64>>,
-    control: &ast::Control,
-    structure: &StructureGraph,
-    st: &State,
-) -> Result<State, Error> {
-    use ast::Control;
-    match control {
-        Control::Seq { data } => {
-            if data.stmts.is_empty() {
-                return Ok(st.clone());
-            } else {
-                let (head, tail) = data.stmts.split_at(1);
-                let st_1 = eval_c(&c, inputs, &head[0], structure, st)?;
-                let seq_1 = ast::Seq {
-                    stmts: tail.to_vec(),
-                };
-                let control_1 = Control::Seq { data: seq_1 };
-                return eval_c(&c, inputs, &control_1, structure, &st_1);
+        // User-defined components
+        match self.context.get_component(comp_name) {
+            Ok(comp) => {
+                //  structure graph
+                let st_1 =
+                    self.eval_c(&inputs, &comp.control, &comp.structure, st);
+            }
+            Err(_e) => {
+                //XXX(ken) errors
+                unimplemented!("Implement errors");
             }
         }
-        Control::Par { data } => {
-            unimplemented!("Parallel");
-        }
-        Control::If { data } => {
-            unimplemented!("If");
-        }
-        Control::While { data } => {
-            unimplemented!("While");
-        }
-        Control::Print { data } => {
-            unimplemented!("Print");
-        }
-        Control::Enable { data } => {
-            return eval_s(&c, inputs, structure, st, data.comps.clone());
-        }
-        Control::Empty { data: _ } => return Ok(st.clone()),
-    }
-}
 
-/// Simulates the structure of a component for `enable` statements
-/// # Arguments
-///   * `c` - is the context for the compilation unit
-///   * `inputs` - is a map of input port names to values for passing
-///                inputs to the component during evaluation
-///   * `structure` - is the graph of the structure
-///   * `st` - is the context for the file
-///   * `enabled` - is a list of enabled components to simulate
-/// # Returns
-///   Returns the new component state
-pub fn eval_s(
-    c: &Context,
-    inputs: &HashMap<ast::Id, Option<i64>>,
-    structure: &StructureGraph,
-    st: &State,
-    enabled: Vec<ast::Id>,
-) -> Result<State, Error> {
-    // Create a fresh graph for evaluation so we don't impact the original structure
-    // It should have no values on the wires
-    let mut graph = structure.clone();
-    graph.split_seq_prims(); // Split sequential primitives to remove valid cycles
-    graph.drive_inputs(inputs); // Initialize with input values
-    graph.drive_state(st); // Load values from State into graph
-    graph.update(c, st, enabled) // Simulate the hardware
+        unimplemented!("Interpreter is not implemented.");
+    }
+
+    /// Evaluates a library component
+    /// # Arguments
+    ///   * `c` - is the context for the compilation unit
+    ///   * `st` - is the state of the component
+    ///   * `comp_name` - the name of the type of component to run
+    ///   * `inputs` - is a map of input port names to values for passing
+    ///                inputs to the component during evaluation
+    /// # Returns
+    ///   Returns a map of output port names to values
+    pub fn eval_lib(
+        &self,
+        _st: &State,
+        _comp_name: &ast::Id,
+        _inputs: HashMap<ast::Id, Option<i64>>,
+    ) -> Result<(HashMap<ast::Id, Option<i64>>, State), Error> {
+        unimplemented!("Interpreter is not implemented.");
+    }
+
+    /// Simulates the control of a component
+    /// # Arguments
+    ///   * `c` - is the context for the compilation unit
+    ///   * `inputs` - is a map of input port names to values for passing
+    ///                inputs to the component during evaluation
+    ///   * `control` - is the control statement to evaluate
+    ///   * `structure` - is the graph of the structure
+    ///   * `st` - is the state of the component
+    ///   * `comp_name` - the name of the type of component to run
+    /// # Returns
+    ///   Returns the new component state
+    pub fn eval_c(
+        &self,
+        inputs: &HashMap<ast::Id, Option<i64>>,
+        control: &ast::Control,
+        structure: &StructureGraph,
+        st: &State,
+    ) -> Result<State, Error> {
+        use ast::Control;
+        match control {
+            Control::Seq { data } => {
+                if data.stmts.is_empty() {
+                    return Ok(st.clone());
+                } else {
+                    let (head, tail) = data.stmts.split_at(1);
+                    let st_1 = self.eval_c(inputs, &head[0], structure, st)?;
+                    let seq_1 = ast::Seq {
+                        stmts: tail.to_vec(),
+                    };
+                    let control_1 = Control::Seq { data: seq_1 };
+                    return self.eval_c(inputs, &control_1, structure, &st_1);
+                }
+            }
+            Control::Par { data } => {
+                unimplemented!("Parallel");
+            }
+            Control::If { data } => {
+                unimplemented!("If");
+            }
+            Control::While { data } => {
+                unimplemented!("While");
+            }
+            Control::Print { data } => {
+                unimplemented!("Print");
+            }
+            Control::Enable { data } => {
+                return self.eval_s(inputs, structure, st, data.comps.clone());
+            }
+            Control::Empty { data: _ } => return Ok(st.clone()),
+        }
+    }
+
+    /// Simulates the structure of a component for `enable` statements
+    /// # Arguments
+    ///   * `c` - is the context for the compilation unit
+    ///   * `inputs` - is a map of input port names to values for passing
+    ///                inputs to the component during evaluation
+    ///   * `structure` - is the graph of the structure
+    ///   * `st` - is the context for the file
+    ///   * `enabled` - is a list of enabled components to simulate
+    /// # Returns
+    ///   Returns the new component state
+    pub fn eval_s(
+        &self,
+        inputs: &HashMap<ast::Id, Option<i64>>,
+        structure: &StructureGraph,
+        st: &State,
+        enabled: Vec<ast::Id>,
+    ) -> Result<State, Error> {
+        // Create a fresh graph for evaluation so we don't impact the original structure
+        // It should have no values on the wires
+        let mut graph = structure.clone();
+        graph.split_seq_prims(); // Split sequential primitives to remove valid cycles
+        graph.drive_inputs(inputs); // Initialize with input values
+        graph.drive_state(st); // Load values from State into graph
+        graph.update(&self, st, enabled) // Simulate the hardware
+    }
 }

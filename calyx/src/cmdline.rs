@@ -1,3 +1,4 @@
+use crate::backend::interpreter::eval::Interpreter;
 use crate::backend::traits::Backend;
 use crate::backend::verilog::gen::VerilogBackend;
 use crate::errors;
@@ -50,12 +51,14 @@ pub struct Opts {
 pub enum BackendOpt {
     Verilog,
     Futil,
+    Interpeter,
     None,
 }
 
 fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
         (VerilogBackend::name(), BackendOpt::Verilog),
+        (Interpreter::name(), BackendOpt::Interpeter),
         ("futil", BackendOpt::Futil),
         ("none", BackendOpt::None),
     ]
@@ -99,6 +102,7 @@ impl ToString for BackendOpt {
     fn to_string(&self) -> String {
         match self {
             Self::Verilog => "verilog",
+            Self::Interpeter => "interpreter",
             Self::Futil => "futil",
             Self::None => "none",
         }
@@ -115,6 +119,7 @@ impl BackendOpt {
     ) -> Result<(), errors::Error> {
         match self {
             BackendOpt::Verilog => VerilogBackend::run(&context, file),
+            BackendOpt::Interpeter => Interpreter::emit(&context, file),
             BackendOpt::Futil => {
                 context.pretty_print();
                 Ok(())
