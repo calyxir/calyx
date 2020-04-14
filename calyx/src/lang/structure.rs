@@ -52,14 +52,24 @@ impl NodeData {
 
     pub fn out_ports(&self) -> PortIter {
         match self {
-            NodeData::Input(pd) => PortIter {
-                items: vec![pd.clone()],
-            },
+            NodeData::Input(_) => PortIter { items: vec![] },
             NodeData::Output(pd) => PortIter {
                 items: vec![pd.clone()],
             },
             NodeData::Instance { signature, .. } => PortIter {
                 items: signature.outputs.clone(),
+            },
+        }
+    }
+
+    pub fn in_ports(&self) -> PortIter {
+        match self {
+            NodeData::Input(pd) => PortIter {
+                items: vec![pd.clone()],
+            },
+            NodeData::Output(_) => PortIter { items: vec![] },
+            NodeData::Instance { signature, .. } => PortIter {
+                items: signature.inputs.clone(),
             },
         }
     }
@@ -360,7 +370,6 @@ impl StructureGraph {
     ) -> Result<(), Error> {
         let src_port: &str = src_port.as_ref();
         let dest_port: &str = dest_port.as_ref();
-
         let find_width =
             |port_to_find: &str, portdefs: &[ast::Portdef]| match portdefs
                 .iter()
@@ -369,7 +378,6 @@ impl StructureGraph {
                 Some(port) => Ok(port.width),
                 None => Err(Error::UndefinedPort(port_to_find.to_string())),
             };
-
         use NodeData::{Input, Instance, Output};
         let src_width = match &self.graph[src_node] {
             Instance { signature, .. } => {
@@ -385,7 +393,6 @@ impl StructureGraph {
             Input(_) => Err(Error::UndefinedPort(dest_port.to_string())),
             Output(portdef) => Ok(portdef.width),
         }?;
-
         // if widths match, add edge to the graph
         if src_width == dest_width {
             let edge_data = EdgeData {
