@@ -19,3 +19,4 @@ target
 *.vcd
 *.sav
 node_modules
+*.json

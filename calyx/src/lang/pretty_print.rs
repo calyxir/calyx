@@ -304,8 +304,8 @@ impl PrettyPrint for Enable {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         RcDoc::text("enable")
             .enable_color()
-            .append(RcDoc::line())
-            .append(self.comps.prettify(&arena))
+            .append(RcDoc::space())
+            .append(self.comps.prettify(&arena).nest(8))
             .group()
             .parens()
     }

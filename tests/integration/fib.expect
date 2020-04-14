@@ -1,7 +1,30 @@
+(define/component fsm_expander0
+  ((port valid 1) (port clk 1))
+  ((port tmp0 1) (port i0 1))
+  ([-> (@ this valid) (@ this i0)] [-> (@ this valid) (@ this tmp0)])
+  (empty))
+
+(define/component fsm_expander1
+  ((port valid 1) (port clk 1))
+  ((port b0 1) (port a0 1) (port tmp0 1))
+  ([-> (@ this valid) (@ this a0)]
+   [-> (@ this valid) (@ this b0)]
+   [-> (@ this valid) (@ this tmp0)])
+  (empty))
+
+(define/component fsm_expander2
+  ((port valid 1) (port clk 1))
+  ((port a0 1))
+  ([-> (@ this valid) (@ this a0)])
+  (empty))
+
 (define/component main
-  ((port valid 1))
+  ((port valid 1) (port clk 1))
   ((port ready 1))
-  ([new-std a0 (std_reg 32 0)]
+  ([new fsm_expander0 fsm_expander0]
+   [new fsm_expander1 fsm_expander1]
+   [new fsm_expander2 fsm_expander2]
+   [new-std a0 (std_reg 32 0)]
    [new-std add0 (std_add 32)]
    [new-std add1 (std_add 32)]
    [new-std b0 (std_reg 32 0)]
@@ -10,8 +33,13 @@
    [new-std const2 (std_const 32 1)]
    [new-std const3 (std_const 32 10)]
    [new-std const4 (std_const 32 1)]
+   [new-std end_state0 (std_fsm_state)]
+   [new-std fsm_state0 (std_fsm_state)]
+   [new-std fsm_state1 (std_fsm_state)]
+   [new-std fsm_state2 (std_fsm_state)]
    [new-std i0 (std_reg 32 0)]
    [new-std lt0 (std_lt 32)]
+   [new-std start_fsm0 (std_start_fsm)]
    [new-std tmp0 (std_reg 32 0)]
    [-> (@ a0 out) (@ add1 left)]
    [-> (@ add0 out) (@ i0 in)]
@@ -22,14 +50,47 @@
    [-> (@ const2 out) (@ b0 in)]
    [-> (@ const3 out) (@ lt0 right)]
    [-> (@ const4 out) (@ add0 right)]
+   [-> (@ end_state0 out) (@ this ready)]
+   [-> (@ fsm_expander0 i0) (@ i0 write_en)]
+   [-> (@ fsm_expander0 tmp0) (@ tmp0 write_en)]
+   [-> (@ fsm_expander1 a0) (@ a0 write_en)]
+   [-> (@ fsm_expander1 b0) (@ b0 write_en)]
+   [-> (@ fsm_expander1 tmp0) (@ tmp0 write_en)]
+   [-> (@ fsm_expander2 a0) (@ a0 write_en)]
+   [-> (@ fsm_state0 out) (@ fsm_expander0 valid)]
+   [-> (@ fsm_state0 out) (@ fsm_state1 in)]
+   [-> (@ fsm_state1 out) (@ fsm_expander1 valid)]
+   [-> (@ fsm_state1 out) (@ fsm_state2 in)]
+   [-> (@ fsm_state2 out) (@ end_state0 in)]
+   [-> (@ fsm_state2 out) (@ fsm_expander2 valid)]
    [-> (@ i0 out) (@ add0 left)]
    [-> (@ i0 out) (@ lt0 left)]
+   [-> (@ start_fsm0 out) (@ fsm_state0 in)]
    [-> (@ tmp0 out) (@ a0 in)]
-   [-> (@ tmp0 out) (@ add1 right)])
+   [-> (@ tmp0 out) (@ add1 right)]
+   [-> (@ this clk) (@ a0 clk)]
+   [-> (@ this clk) (@ b0 clk)]
+   [-> (@ this clk) (@ end_state0 clk)]
+   [-> (@ this clk) (@ fsm_expander0 clk)]
+   [-> (@ this clk) (@ fsm_expander1 clk)]
+   [-> (@ this clk) (@ fsm_expander2 clk)]
+   [-> (@ this clk) (@ fsm_state0 clk)]
+   [-> (@ this clk) (@ fsm_state1 clk)]
+   [-> (@ this clk) (@ fsm_state2 clk)]
+   [-> (@ this clk) (@ i0 clk)]
+   [-> (@ this clk) (@ start_fsm0 clk)]
+   [-> (@ this clk) (@ tmp0 clk)]
+   [-> (@ this valid) (@ start_fsm0 valid)])
   (seq
    (enable a0 const0 i0 const1 b0 const2)
    (while (@ lt0 out) (lt0 i0 const3)
-    (seq
-     (enable tmp0 b0 i0 add0 const4)
-     (enable b0 add1 a0 tmp0)
-     (enable a0 tmp0)))))
+    (enable fsm_expander0
+            fsm_state0
+            fsm_expander1
+            fsm_state1
+            fsm_expander2
+            fsm_state2
+            tmp0
+            i0
+            b0
+            a0))))
