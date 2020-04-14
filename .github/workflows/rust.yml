@@ -14,6 +14,13 @@ jobs:
       with:
         command: install
         args: runt
+    - name: Install vcdump
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: vcdump
+    - name: Install verilator && jq
+      run: apt install verilator
     - name: Build
       uses: actions-rs/cargo@v1
       with:
