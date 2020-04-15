@@ -1,4 +1,4 @@
 .TOP.main |
 {
-  "comp":.comp.out | .[-1],
+  "comp":.comp.out | .[-1]
 }
