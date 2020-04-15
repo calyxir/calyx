@@ -1,12 +1,15 @@
+use super::inputs::{Inputs, Outputs};
 use crate::backend::interpreter::state::State;
 use crate::backend::traits::Backend;
 use crate::errors::Error;
 use crate::lang::ast;
+use crate::lang::component::Component;
 use crate::lang::context::Context;
 use crate::lang::structure::StructureGraph;
 use petgraph::graph::NodeIndex;
 use std::collections::HashMap;
 use std::io::Write;
+use std::path::PathBuf;
 
 pub trait EvalGraph {
     /// Splits sequential primitive component nodes into two separate nodes.
@@ -80,8 +83,9 @@ impl Backend for Interpreter {
         Ok(())
     }
 
-    fn emit<W: Write>(ctx: &Context, _file: W) -> Result<(), Error> {
-        super::repl::repl(ctx)
+    fn emit<W: Write>(_ctx: &Context, _file: W) -> Result<(), Error> {
+        //super::repl::repl(ctx)
+        Ok(())
     }
 }
 
@@ -91,6 +95,35 @@ impl Interpreter {
         Interpreter {
             context: context.clone(),
         }
+    }
+
+    pub fn run<W: Write>(
+        &self,
+        file: &mut W,
+        path: PathBuf,
+    ) -> Result<(), Error> {
+        // Read input JSON file
+        let inputs = Inputs::from_file(path)?;
+        let comp_name = inputs.component();
+
+        if self.context.is_lib(&comp_name) {
+            // Running primitive component
+            let prim = self.context.instantiate_primitive(
+                &comp_name,
+                &comp_name,
+                inputs.params().as_slice(),
+            )?;
+            self.context.insert_component(prim);
+        }
+
+        let comp = self.context.get_component(&comp_name)?;
+
+        let st = State::from_component(&comp, &self.context)?;
+
+        let (outputs, st_1) = self.eval(&st, &comp_name, inputs.inputs())?;
+        let json_out = serde_json::to_string(&Outputs::from(&outputs));
+        write!(file, "{:?}", inputs)?;
+        Ok(write!(file, "{:?}", json_out)?)
     }
 
     /// Evaluates a component
@@ -145,7 +178,7 @@ impl Interpreter {
                 let p_width = params.get(0);
                 let p_value = params.get(1);
 
-                outputs.insert(ast::Id::from("out"), Some(p_value));
+                // outputs.insert(ast::Id::from("out"), Some(p_value));
             }
             _ => unimplemented!("Error handling"),
         }

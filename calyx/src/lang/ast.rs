@@ -4,6 +4,7 @@ use sexpy::Sexpy;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 // Abstract Syntax Tree for Futil. See link below for the grammar
 // https://github.com/cucapra/futil/blob/master/grammar.md
@@ -39,6 +40,13 @@ impl From<&str> for Id {
 impl From<String> for Id {
     fn from(s: String) -> Self {
         Id { id: s }
+    }
+}
+
+impl FromStr for Id {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Id { id: s.to_owned() })
     }
 }
 

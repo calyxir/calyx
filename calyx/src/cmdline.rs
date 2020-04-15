@@ -2,6 +2,7 @@ use crate::backend::interpreter::eval::Interpreter;
 use crate::backend::traits::Backend;
 use crate::backend::verilog::gen::VerilogBackend;
 use crate::errors;
+use crate::lang::ast;
 use crate::lang::context;
 use crate::lang::pretty_print::PrettyPrint;
 use itertools::Itertools;
@@ -35,13 +36,21 @@ pub struct Opts {
     #[structopt(short = "b", long = "backend", default_value)]
     pub backend: BackendOpt,
 
-    ///choose a single pass
+    /// Choose a single pass
     #[structopt(short = "p", long = "pass", default_value = "all")]
     pub pass: Vec<String>,
 
     ///list all avaliable pass options
     #[structopt(long = "list-passes")]
     pub list_passes: bool,
+
+    /// Specifies an inputs file for simulation
+    #[structopt(
+        short = "i",
+        long = "component inputs",
+        required_if("backend", "interpreter")
+    )]
+    pub inputs: Option<PathBuf>,
 }
 
 // ================== Backend Variant and Parsing ===================== //
@@ -51,14 +60,14 @@ pub struct Opts {
 pub enum BackendOpt {
     Verilog,
     Futil,
-    Interpeter,
+    Interpreter,
     None,
 }
 
 fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
         (VerilogBackend::name(), BackendOpt::Verilog),
-        (Interpreter::name(), BackendOpt::Interpeter),
+        (Interpreter::name(), BackendOpt::Interpreter),
         ("futil", BackendOpt::Futil),
         ("none", BackendOpt::None),
     ]
@@ -67,6 +76,31 @@ fn backends() -> Vec<(&'static str, BackendOpt)> {
 impl Default for BackendOpt {
     fn default() -> Self {
         BackendOpt::Futil
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct InterpreterArgs {
+    pub component: ast::Id,
+    pub input_file: PathBuf,
+}
+
+/// Command line parsing for interpreter arguments
+impl FromStr for InterpreterArgs {
+    type Err = String;
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let mut iter = input.trim().split_whitespace();
+        if let Some(comp_name) = iter.next() {
+            if let Some(input_file) = iter.next() {
+                return Ok(InterpreterArgs {
+                    component: ast::Id::from(comp_name),
+                    input_file: PathBuf::from(input_file),
+                });
+            }
+        }
+        Err(format!(
+                "Incorrect usage: --interpreter flag expects the following arguments: <component_name> <input_file>",
+            ))
     }
 }
 
@@ -102,7 +136,7 @@ impl ToString for BackendOpt {
     fn to_string(&self) -> String {
         match self {
             Self::Verilog => "verilog",
-            Self::Interpeter => "interpreter",
+            Self::Interpreter => "interpreter",
             Self::Futil => "futil",
             Self::None => "none",
         }
@@ -119,7 +153,7 @@ impl BackendOpt {
     ) -> Result<(), errors::Error> {
         match self {
             BackendOpt::Verilog => VerilogBackend::run(&context, file),
-            BackendOpt::Interpeter => Interpreter::emit(&context, file),
+            BackendOpt::Interpreter => Interpreter::emit(&context, file),
             BackendOpt::Futil => {
                 context.pretty_print();
                 Ok(())

@@ -21,6 +21,7 @@ pub enum Error {
     Misc(String),
     // XXX(ken) interpreter errors
     StructureHasCycle,
+    InvalidInputJSON,
 }
 
 impl std::fmt::Debug for Error {
@@ -53,7 +54,8 @@ impl std::fmt::Debug for Error {
             MalformedControl => write!(f, "Malformed Control. Backend expected Control to be in a different form."),
             Misc(msg) => write!(f, "{}", msg),
             Impossible(msg) => write!(f, "Impossible: {}\nThis error should never occur. Report report this as a bug.", msg),
-            StructureHasCycle => write!(f, "Structure has a cycle that does not contain a sequential state component. This is undefined behavior.")
+            StructureHasCycle => write!(f, "Structure has a cycle that does not contain a sequential state component. This is undefined behavior."),
+            InvalidInputJSON => write!(f, "Error parsing input json file"),
         }
     }
 }

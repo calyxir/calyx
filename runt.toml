@@ -25,3 +25,11 @@ cmd = "./target/debug/futil {} -l ./primitives/std.lib -b futil -p automatic-par
 # This is just the default save directory. Use `expect_dir` when
 # using files from other test suites as input.
 expect_dir = "tests/automatic-par"
+
+[[tests]]
+name = "Interpreter"
+paths = [ "tests/interpreter/*.json" ]
+cmd = "./target/debug/futil ./tests/interpreter/counter.futil -l ./primitives/std.lib -b interpreter -i {}"
+# This is just the default save directory. Use `expect_dir` when
+# using files from other test suites as input.
+expect_dir = "tests/interpreter"

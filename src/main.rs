@@ -1,4 +1,5 @@
 use calyx::{
+    backend::interpreter::eval::Interpreter,
     cmdline::Opts,
     errors,
     lang::context::Context,
@@ -88,6 +89,15 @@ fn main() -> Result<(), errors::Error> {
     // Construct the context.
     let context = Context::from_opts(&opts)?;
 
+    // Run the interpreter if input file was specified
+    // TODO (ken) review whether this should check the backend enum
+    // Also check with others if this should prevent other
+    // backends from running
+    if let Some(path) = opts.inputs {
+        let interpreter = Interpreter::new(&context);
+        return interpreter.run(&mut std::io::stdout(), path);
+    }
+
     //run all passes specified by the command line
     for name in opts.pass {
         if let Some(pass) = names.get(&name) {
@@ -98,5 +108,6 @@ fn main() -> Result<(), errors::Error> {
             return Err(errors::Error::UnknownPass(name, known_passes));
         }
     }
+
     Ok(opts.backend.run(&context, std::io::stdout())?)
 }

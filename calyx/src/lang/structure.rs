@@ -592,6 +592,8 @@ impl EvalGraph for StructureGraph {
                                                     i,
                                                 );
                                             }
+                                            State::Empty => { /* TODO malformed state */
+                                            }
                                         }
                                     }
                                     None => {
@@ -600,6 +602,9 @@ impl EvalGraph for StructureGraph {
                                 }
                             }
                             State::Register(_) => {
+                                //TODO malformed state
+                            }
+                            State::Empty => {
                                 //TODO malformed state
                             }
                         }

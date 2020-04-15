@@ -1,0 +1,7 @@
+{
+    "component": "std_const",
+    "params": [16, 42],
+    "inputs": {
+        "valid": 1
+    }
+}

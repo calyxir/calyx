@@ -12,6 +12,7 @@ pub enum State {
     Component(HashMap<ast::Id, State>),
     /// State for a primitive register component
     Register(Option<i64>),
+    Empty,
 }
 
 impl State {
@@ -19,6 +20,15 @@ impl State {
         comp: &Component,
         c: &Context,
     ) -> Result<Self, Error> {
+        // Check if the component is a primitive
+        if c.is_lib(&comp.name) {
+            if comp.name.to_string() == "std_reg" {
+                return Ok(State::Register(None));
+            } else {
+                return Ok(State::Empty);
+            }
+        }
+
         let mut map = HashMap::new();
         for (_idx, data) in comp.structure.instances() {
             match data {
