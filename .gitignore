@@ -20,3 +20,4 @@ target
 *.sav
 node_modules
 *.json
+*.res

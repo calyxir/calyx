@@ -20,7 +20,7 @@ jobs:
         command: install
         args: vcdump
     - name: Install verilator and jq
-      run: sudo apt-get install verilator jq
+      run: sudo apt-get install verilator
     - name: Build
       uses: actions-rs/cargo@v1
       with:

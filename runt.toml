@@ -36,8 +36,18 @@ expect_dir = "tests/automatic-par"
 name = "Verilog tests"
 paths = [ "tests/verilog/*.futil" ]
 cmd = """
-full={}; \
-f=${full%.*}; \
-make $f.res 1>/dev/null 2>/dev/null; \
-cat $f.res; \
+full={}
+f=${full%.*}
+make $f.res 1>/dev/null 2>/dev/null
+cat $f.res
+rm $f.res"""
+
+[[tests]]
+name = "Primitive Component tests"
+paths = [ "tests/verilog-primitives/*.futil" ]
+cmd = """
+full={}
+f=${full%.*}
+make $f.res 1>/dev/null 2>/dev/null
+cat $f.res
 rm $f.res"""
