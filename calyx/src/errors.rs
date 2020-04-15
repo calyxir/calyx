@@ -21,6 +21,7 @@ pub enum Error {
     Misc(String),
     // XXX(ken) interpreter errors
     StructureHasCycle,
+    InvalidConstant(String, i64, u64) //the value of constant exceeds p-width
 }
 
 impl std::fmt::Debug for Error {
@@ -53,12 +54,13 @@ impl std::fmt::Debug for Error {
             MalformedControl => write!(f, "Malformed Control. Backend expected Control to be in a different form."),
             Misc(msg) => write!(f, "{}", msg),
             Impossible(msg) => write!(f, "Impossible: {}\nThis error should never occur. Report report this as a bug.", msg),
-            StructureHasCycle => write!(f, "Structure has a cycle that does not contain a sequential state component. This is undefined behavior.")
+            StructureHasCycle => write!(f, "Structure has a cycle that does not contain a sequential state component. This is undefined behavior."),
+            InvalidConstant(port, width, value) => write!(f, "")
         }
     }
 }
 
-impl From<std::io::Error> for Error {
+impl From<std::io::Error> for Error { 
     fn from(_err: std::io::Error) -> Self {
         Error::InvalidFile
     }

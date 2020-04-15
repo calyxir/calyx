@@ -138,14 +138,31 @@ impl Interpreter {
     ) -> Result<(HashMap<ast::Id, Option<i64>>, State), Error> {
         let comp = self.context.get_component(id)?;
         let params = comp.params;
-        let outputs: HashMap<ast::Id, Option<i64>> = HashMap::new();
+        let mut outputs: HashMap<ast::Id, Option<i64>> = HashMap::new();
 
         match comp.name.as_ref() {
             "std_const" => {
+            if let Some(Some(value)) = inputs.get(&ast::Id::from("valid")) {
+                    if *value == 0 {
+                        outputs.insert(ast::Id::from("out"),None); 
+                        outputs.insert(ast::Id::from("out_read_out"),None); 
+                        outputs.insert(ast::Id::from("ready"),None); 
+                    }
+                    return Ok((outputs, st.clone()))
+                }
                 let p_width = params.get(0);
                 let p_value = params.get(1);
-
-                outputs.insert(ast::Id::from("out"), Some(p_value));
+                let mut out_value = None;
+                if let (Some(value), Some(width)) = (p_value, p_width) {
+                    let v = *value as i64;
+                    let w = *width as i64;
+                    if v > 2^w -1 || v < -2^w  {
+                        return Err(Error::InvalidConstant(comp.name.to_string(), v, *width))
+                    }
+                    out_value = Some(v)
+                }  
+                outputs.insert(ast::Id::from("out"), out_value );
+                outputs.insert(ast::Id::from("ready"), Some(1));
             }
             _ => unimplemented!("Error handling"),
         }
