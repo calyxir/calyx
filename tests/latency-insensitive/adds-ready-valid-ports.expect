@@ -1,11 +1,11 @@
-(define/component main
+(define/component comp1
   ((port valid 1))
   ((port ready 1))
   ()
   (seq
    ))
 
-(define/component comp1
+(define/component main
   ((port valid 1))
   ((port ready 1))
   ()
