@@ -105,11 +105,10 @@ fn resolve_conflicts(
                              port2: &ast::Id,
                              width: u64| {
         let name = format!("{}_{}_id", comp1.to_string(), comp2.to_string());
-        //TODO: check if id already exists
+
         let id_comp =
             ctx.instantiate_primitive(&name, &"std_id".into(), &[width])?;
         let id = st.add_primitive(&name.into(), "std_id", &id_comp, &[width]);
-
         let idx1 = st.get_inst_index(comp1)?;
         let idx2 = st.get_inst_index(comp2)?;
 
@@ -123,6 +122,7 @@ fn resolve_conflicts(
         }
         st.remove_edge(idx1, port1, idx2, port2)
     };
+
     let st_origin = structure.clone();
     for idx2 in comps2
         .iter()
@@ -213,7 +213,6 @@ impl Visitor for RemovePar {
                 )?;
             }
         }
-
         Ok(Action::Continue)
     }
 }

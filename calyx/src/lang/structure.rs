@@ -466,6 +466,7 @@ impl StructureGraph {
             ))
         }
     }
+
     pub fn get_inst_index(&self, port: &ast::Id) -> Result<NodeIndex, Error> {
         match self.inst_map.get(port) {
             Some(idx) => Ok(*idx),
