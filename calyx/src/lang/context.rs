@@ -139,11 +139,7 @@ impl Context {
         })?;
         let namespace = ast::parse_file(file)?;
 
-        // set up library path
-        let lib_path = match &opts.lib_path {
-            Some(path) => path.canonicalize()?,
-            None => PathBuf::from("./"),
-        };
+        let lib_path = opts.lib_path.canonicalize()?;
 
         // build context
         let mut context = Self::from_ast(namespace, lib_path)?;
@@ -224,7 +220,7 @@ impl Into<ast::NamespaceDef> for Context {
         ast::NamespaceDef {
             name: name.into(),
             components,
-            ///TODO: fix it later
+            //TODO: replace the place holder for libraries with the import statements
             library: Some(ast::ImportStatement { libraries: vec![] }),
         }
     }
