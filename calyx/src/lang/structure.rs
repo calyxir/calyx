@@ -52,11 +52,7 @@ impl NodeData {
 
     pub fn out_ports(&self) -> PortIter {
         match self {
-            //XXX(Zhijing): wired to have input here
-            // but node data requires exhaustive pattern matching
-            NodeData::Input(pd) => PortIter {
-                items: vec![pd.clone()],
-            },
+            NodeData::Input(_) => PortIter { items: vec![] },
             NodeData::Output(pd) => PortIter {
                 items: vec![pd.clone()],
             },
@@ -65,14 +61,13 @@ impl NodeData {
             },
         }
     }
+
     pub fn in_ports(&self) -> PortIter {
         match self {
             NodeData::Input(pd) => PortIter {
                 items: vec![pd.clone()],
             },
-            NodeData::Output(pd) => PortIter {
-                items: vec![pd.clone()],
-            },
+            NodeData::Output(_) => PortIter { items: vec![] },
             NodeData::Instance { signature, .. } => PortIter {
                 items: signature.inputs.clone(),
             },
