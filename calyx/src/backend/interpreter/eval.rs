@@ -97,6 +97,8 @@ impl Interpreter {
         }
     }
 
+    /// Runs an individual component with input from a JSON file.
+    /// Used for testing.
     pub fn run<W: Write>(
         &self,
         file: &mut W,
@@ -121,9 +123,12 @@ impl Interpreter {
         let st = State::from_component(&comp, &self.context)?;
 
         let (outputs, st_1) = self.eval(&st, &comp_name, inputs.inputs())?;
-        let json_out = serde_json::to_string(&Outputs::from(&outputs));
-        write!(file, "{:?}", inputs)?;
-        Ok(write!(file, "{:?}", json_out)?)
+        if let Ok(json_out) = serde_json::to_string(&Outputs::from(&outputs)) {
+            Ok(write!(file, "{}", json_out)?)
+        } else {
+            // TODO fix this error message to be accurate
+            Err(Error::InvalidInputJSON)
+        }
     }
 
     /// Evaluates a component
@@ -171,18 +176,44 @@ impl Interpreter {
     ) -> Result<(HashMap<ast::Id, Option<i64>>, State), Error> {
         let comp = self.context.get_component(id)?;
         let params = comp.params;
-        let outputs: HashMap<ast::Id, Option<i64>> = HashMap::new();
+        let mut outputs: HashMap<ast::Id, Option<i64>> = HashMap::new();
 
-        match comp.name.as_ref() {
-            "std_const" => {
-                let p_width = params.get(0);
-                let p_value = params.get(1);
+        if comp.name.to_string() == "std_const" {
+            if let Some(Some(value)) = inputs.get(&ast::Id::from("valid")) {
+                if *value == 1 {
+                    let p_width = params.get(0);
+                    let p_value = params.get(1);
+                    let mut out_value = None;
+                    if let (Some(value), Some(width)) = (p_value, p_width) {
+                        let v = *value as i64;
+                        let w = *width as u32;
+                        let base: i64 = 2;
 
-                // outputs.insert(ast::Id::from("out"), Some(p_value));
+                        // Check that value is within bit width
+                        if v > base.pow(w - 1) - 1 || v < -base.pow(w - 1) {
+                            return Err(Error::InvalidConstant(
+                                comp.name.to_string(),
+                                v,
+                                *width,
+                            ));
+                        }
+                        out_value = Some(v)
+                    }
+
+                    outputs.insert(ast::Id::from("out"), out_value);
+                    outputs.insert(ast::Id::from("ready"), Some(1));
+                    return Ok((outputs, st.clone()));
+                }
             }
-            _ => unimplemented!("Error handling"),
+
+            // Valid not high- Default to outputting all None values
+            outputs.insert(ast::Id::from("out"), None);
+            outputs.insert(ast::Id::from("out_read_out"), None);
+            outputs.insert(ast::Id::from("ready"), None);
+            Ok((outputs, st.clone()))
+        } else {
+            Err(Error::UnimplementedPrimitive(comp.name))
         }
-        Ok((outputs, st.clone()))
     }
 
     /// Simulates the control of a component

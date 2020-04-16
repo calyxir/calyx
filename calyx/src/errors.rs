@@ -20,8 +20,10 @@ pub enum Error {
     #[allow(unused)]
     Misc(String),
     // XXX(ken) interpreter errors
-    StructureHasCycle,
-    InvalidInputJSON,
+    StructureHasCycle, // structure has an invalid cycle
+    InvalidInputJSON,  // invalid input json for interpreter
+    InvalidConstant(String, i64, u64), //the value of constant exceeds p-width
+    UnimplementedPrimitive(ast::Id), // primitve not found during interpretation
 }
 
 impl std::fmt::Debug for Error {
@@ -56,6 +58,8 @@ impl std::fmt::Debug for Error {
             Impossible(msg) => write!(f, "Impossible: {}\nThis error should never occur. Report report this as a bug.", msg),
             StructureHasCycle => write!(f, "Structure has a cycle that does not contain a sequential state component. This is undefined behavior."),
             InvalidInputJSON => write!(f, "Error parsing input json file"),
+            InvalidConstant(port, width, value) => write!(f, "Constant exceeds bitwidth"),
+            UnimplementedPrimitive(id) => write!(f, "Interpreter implementation for {:?} not found!", id), 
         }
     }
 }
