@@ -65,7 +65,8 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
             Ok(Box::new(control_id))
         }),
     );
-    //println!(" {:#?}", ctx);
+    //XXX(zhijing): cannot get into actual remove_par pass, don't know the reason
+    //  but individual pass works
     names.insert(
         "all".to_string(),
         Box::new(|ctx| {
@@ -73,8 +74,12 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
             RedundantPar::do_pass_default(ctx)?;
             RemoveIf::do_pass_default(ctx)?;
             CollapseSeq::do_pass_default(ctx)?;
-            let r = AutomaticPar::do_pass_default(ctx)?;
-            Ok(Box::new(r))
+            AutomaticPar::do_pass_default(ctx)?;
+            let mut remove_par = RemovePar::default();
+            remove_par.do_pass(ctx)?;
+            let mut control_id = ControlId::new(remove_par);
+            control_id.do_pass(ctx)?;
+            Ok(Box::new(control_id))
         }),
     );
     names

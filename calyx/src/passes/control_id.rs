@@ -133,7 +133,6 @@ impl Visitor for ControlId {
             }
         }
 
-        //        println!("{:#?}", self.edge_clear);
         if !cmp_acc.comps.is_empty() {
             new_stmts.push(Control::enable(cmp_acc.comps));
         }
@@ -149,23 +148,21 @@ impl Visitor for ControlId {
         let mut new_comps: Vec<ast::Id> = enable.comps.clone();
 
         for c1 in enable.comps.iter() {
-            if self.data.edge_clear.contains_key(&c1) {
-                let mut ids: Vec<ast::Id> = self
-                    .data
-                    .edge_clear
-                    .get(c1)
-                    .unwrap()
-                    .iter()
-                    .filter(|c2| enable.comps.contains(c2))
-                    .map(|c2| {
-                        format!("{}_{}_id", c1.to_string(), c2.to_string())
-                            .into()
-                    })
-                    .collect();
-                if !ids.is_empty() {
-                    new_comps.append(&mut ids);
+            match self.data.edge_clear.get(c1) {
+                Some(comp_vec) => {
+                    let mut ids: Vec<ast::Id> = comp_vec
+                        .iter()
+                        .filter(|c2| enable.comps.contains(c2))
+                        .map(|c2| {
+                            format!("{}_{}_id", c1.to_string(), c2.to_string())
+                                .into()
+                        })
+                        .collect();
+                    if !ids.is_empty() {
+                        new_comps.append(&mut ids);
+                    }
                 }
-                println!("{:#?}", new_comps);
+                None => continue,
             }
         }
 
