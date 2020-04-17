@@ -1,0 +1,8 @@
+(define/namespace prog
+  (define/component main () ()
+    ([new-std fsm (std_fsm_state)]
+     [new-std c (std_const 1 1)]
+     [new-std c_r (std_const 1 1)]
+     [-> (@ c out) (@ fsm in)])
+    (seq
+      (enable c fsm))))
