@@ -23,8 +23,8 @@ pub struct Opts {
     pub file: Option<PathBuf>,
 
     /// Path to the primitives library.
-    #[structopt(long, short, required_unless = "list-passes")]
-    pub libraries: Vec<PathBuf>,
+    #[structopt(long, short, default_value = ".")]
+    pub lib_path: PathBuf,
 
     /// Enable debug mode output.
     #[structopt(short = "d", long = "debug")]

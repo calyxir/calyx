@@ -1,4 +1,5 @@
 (define/namespace prog
+  (import primitives/std.lib)
   (define/component main () ()
     ([new-std i0 (std_iterator 32 0 10 1)]
      [new-std x0 (std_reg 32)]
