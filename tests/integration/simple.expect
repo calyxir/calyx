@@ -6,6 +6,12 @@
 
 (define/component fsm_expander1
   ((port valid 1) (port clk 1))
+  ()
+  ()
+  (empty))
+
+(define/component fsm_expander2
+  ((port valid 1) (port clk 1))
   ((port y0 1) (port z0 1))
   ([-> (@ this valid) (@ this y0)] [-> (@ this valid) (@ this z0)])
   (empty))
@@ -15,6 +21,7 @@
   ((port ready 1))
   ([new fsm_expander0 fsm_expander0]
    [new fsm_expander1 fsm_expander1]
+   [new fsm_expander2 fsm_expander2]
    [new-std a0 (std_reg 32)]
    [new-std b0 (std_reg 32)]
    [new-std const0 (std_const 32 10)]
@@ -26,6 +33,7 @@
    [new-std end_state0 (std_fsm_state)]
    [new-std fsm_state0 (std_fsm_state)]
    [new-std fsm_state1 (std_fsm_state)]
+   [new-std fsm_state2 (std_fsm_state)]
    [new-std gt0 (std_gt 32)]
    [new-std start_fsm0 (std_start_fsm)]
    [new-std y0 (std_reg 32)]
@@ -40,12 +48,14 @@
    [-> (@ end_state0 out) (@ this ready)]
    [-> (@ fsm_expander0 a0) (@ a0 write_en)]
    [-> (@ fsm_expander0 b0) (@ b0 write_en)]
-   [-> (@ fsm_expander1 y0) (@ y0 write_en)]
-   [-> (@ fsm_expander1 z0) (@ z0 write_en)]
+   [-> (@ fsm_expander2 y0) (@ y0 write_en)]
+   [-> (@ fsm_expander2 z0) (@ z0 write_en)]
    [-> (@ fsm_state0 out) (@ fsm_expander0 valid)]
    [-> (@ fsm_state0 out) (@ fsm_state1 in)]
-   [-> (@ fsm_state1 out) (@ end_state0 in)]
    [-> (@ fsm_state1 out) (@ fsm_expander1 valid)]
+   [-> (@ fsm_state1 out) (@ fsm_state2 in)]
+   [-> (@ fsm_state2 out) (@ end_state0 in)]
+   [-> (@ fsm_state2 out) (@ fsm_expander2 valid)]
    [-> (@ gt0 out) (@ const3 valid)]
    [-> (@ gt0 out) (@ const4_not in)]
    [-> (@ start_fsm0 out) (@ fsm_state0 in)]
@@ -54,10 +64,12 @@
    [-> (@ this clk) (@ end_state0 clk)]
    [-> (@ this clk) (@ fsm_expander0 clk)]
    [-> (@ this clk) (@ fsm_expander1 clk)]
+   [-> (@ this clk) (@ fsm_expander2 clk)]
    [-> (@ this clk) (@ fsm_state0 clk)]
    [-> (@ this clk) (@ fsm_state1 clk)]
+   [-> (@ this clk) (@ fsm_state2 clk)]
    [-> (@ this clk) (@ start_fsm0 clk)]
    [-> (@ this clk) (@ y0 clk)]
    [-> (@ this clk) (@ z0 clk)]
    [-> (@ this valid) (@ start_fsm0 valid)])
-  (enable fsm_expander0 fsm_state0 fsm_expander1 fsm_state1 a0 b0 y0 z0))
+  (enable fsm_expander0 fsm_state0 fsm_expander1 fsm_state1 fsm_expander2 fsm_state2 a0 b0 y0 z0))

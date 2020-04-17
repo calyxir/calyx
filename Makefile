@@ -11,7 +11,7 @@ clean:
 	dahlia -b futil $< > $@
 
 %.v: %.futil
-	./target/debug/futil $< -l primitives/std.lib -b verilog > $@
+	./target/debug/futil $< -b verilog > $@
 
 %.vcd: %.v
 	mkdir -p $*_objs

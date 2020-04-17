@@ -1,4 +1,5 @@
 (define/namespace prog
+  (import primitives/std.lib)
   (define/component main () ()
     ([new-std fsm (std_fsm_state)]
      [new-std c (std_const 1 1)]

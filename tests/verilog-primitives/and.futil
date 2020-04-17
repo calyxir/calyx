@@ -1,4 +1,5 @@
 (define/namespace prog
+  (import primitives/std.lib)
   (define/component main () ()
     ([new-std comp (std_and 32)]
      [new-std left (std_const 32 4)]
