@@ -1,5 +1,6 @@
 ; git.status = clean, build.date = Wed Mar 25 10:45:07 PDT 2020, git.hash = d139061
 (define/namespace prog
+  (import primitives/std.lib)
   (define/component main () ()
     ([new-std x0 (std_reg 32)]
      [-> (@ const0 out) (@ x0 in)]

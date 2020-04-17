@@ -52,21 +52,6 @@ impl NodeData {
 
     pub fn get_component_type(&self) -> Result<&ast::Id, errors::Error> {
         match self {
-            NodeData::Input { .. } | NodeData::Output { .. } => {
-                Err(errors::Error::NotSubcomponent)
-            }
-            NodeData::Instance { structure, .. } => match structure {
-                Structure::Wire { .. } => Err(Error::Impossible(
-                    "There should be no wires in nodes".to_string(),
-                )),
-                Structure::Std { data } => Ok(&data.instance.name),
-                Structure::Decl { data } => Ok(&data.component),
-            },
-        }
-    }
-
-    pub fn in_ports(&self) -> PortIter {
-        match self {
             NodeData::Input(_) => PortIter { items: vec![] },
             NodeData::Output(pd) => PortIter {
                 items: vec![pd.clone()],
@@ -85,6 +70,18 @@ impl NodeData {
             NodeData::Output(_) => PortIter { items: vec![] },
             NodeData::Instance { signature, .. } => PortIter {
                 items: signature.outputs.clone(),
+            },
+        }
+    }
+
+    pub fn in_ports(&self) -> PortIter {
+        match self {
+            NodeData::Input(pd) => PortIter {
+                items: vec![pd.clone()],
+            },
+            NodeData::Output(_) => PortIter { items: vec![] },
+            NodeData::Instance { signature, .. } => PortIter {
+                items: signature.inputs.clone(),
             },
         }
     }
@@ -385,7 +382,6 @@ impl StructureGraph {
     ) -> Result<(), Error> {
         let src_port: &str = src_port.as_ref();
         let dest_port: &str = dest_port.as_ref();
-
         let find_width =
             |port_to_find: &str, portdefs: &[ast::Portdef]| match portdefs
                 .iter()
@@ -394,7 +390,6 @@ impl StructureGraph {
                 Some(port) => Ok(port.width),
                 None => Err(Error::UndefinedPort(port_to_find.to_string())),
             };
-
         use NodeData::{Input, Instance, Output};
         let src_width = match &self.graph[src_node] {
             Instance { signature, .. } => {
@@ -410,7 +405,6 @@ impl StructureGraph {
             Input(_) => Err(Error::UndefinedPort(dest_port.to_string())),
             Output(portdef) => Ok(portdef.width),
         }?;
-
         // if widths match, add edge to the graph
         if src_width == dest_width {
             let edge_data = EdgeData {

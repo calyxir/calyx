@@ -65,8 +65,17 @@ pub fn parse_file(file: &PathBuf) -> Result<NamespaceDef, Error> {
 pub struct NamespaceDef {
     /// Name of the namespace.
     pub name: Id,
+    /// The path to libraries
+    pub library: Option<ImportStatement>,
     /// List of component definitions.
     pub components: Vec<ComponentDef>,
+}
+
+/// import statement
+#[derive(Clone, Debug, Hash, Sexpy)]
+#[sexpy(head = "import")]
+pub struct ImportStatement {
+    pub libraries: Vec<String>,
 }
 
 /// AST statement for defining components.
