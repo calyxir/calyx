@@ -95,8 +95,7 @@ fn has_conflicts(
                             .chain(st.connected_incoming(idx, port.to_string()))
                             .any(|(node_data, _)| {
                                 comps1.contains(node_data.get_name())
-                            },
-                        )
+                            })
                         // for every input port, check if any incoming edges
                         // contain a component in `comps1`
                     }) || st.graph[idx].in_ports().any(|port| {
