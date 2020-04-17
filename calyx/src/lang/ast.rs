@@ -238,6 +238,17 @@ pub struct Wire {
     pub dest: Port,
 }
 
+/// Group definition
+#[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq, PartialOrd, Ord)]
+#[sexpy(head = "->", nosurround)]
+pub struct Group {
+    /// Name of the group.
+    pub name: Id,
+    /// Subcomponents included in the group.
+    #[sexpy(surround)]
+    pub comps: Vec<Id>,
+}
+
 /// The Structure AST nodes.
 #[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq, PartialOrd, Ord)]
 #[sexpy(nohead)]
@@ -248,6 +259,8 @@ pub enum Structure {
     Std { data: Std },
     /// Node for connecting ports on different components.
     Wire { data: Wire },
+    /// Node for group definitions.
+    Group { data: Group }
 }
 
 /// Methods for constructing the structure AST nodes.

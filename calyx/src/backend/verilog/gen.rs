@@ -392,6 +392,9 @@ fn subcomponent_sig<'a>(
         Structure::Wire { .. } => {
             panic!("Shouldn't have a wire in the structure graph")
         }
+        Structure::Group { .. } => {
+            unimplemented!("Code generation for groups.")
+        }
     };
 
     D::text(name.to_string())

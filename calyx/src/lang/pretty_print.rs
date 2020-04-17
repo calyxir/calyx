@@ -164,6 +164,7 @@ impl PrettyPrint for Structure {
             Structure::Decl { data } => data.prettify(&arena),
             Structure::Std { data } => data.prettify(&arena),
             Structure::Wire { data } => data.prettify(&arena),
+            Structure::Group { data } => data.prettify(&arena)
         }
     }
 }
@@ -201,6 +202,18 @@ impl PrettyPrint for Wire {
             .append(self.src.prettify(&arena))
             .append(RcDoc::space())
             .append(self.dest.prettify(&arena))
+            .brackets()
+    }
+}
+
+impl PrettyPrint for Group {
+    fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
+        RcDoc::text("group")
+            .keyword_color()
+            .append(RcDoc::space())
+            .append(self.name.prettify(&arena))
+            .append(RcDoc::space())
+            .append(self.comps.prettify(&arena).parens())
             .brackets()
     }
 }

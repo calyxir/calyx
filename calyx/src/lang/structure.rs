@@ -61,6 +61,9 @@ impl NodeData {
                 )),
                 Structure::Std { data } => Ok(&data.instance.name),
                 Structure::Decl { data } => Ok(&data.component),
+                Structure::Group { .. } => Err(Error::Impossible(
+                    "There should be no wires in nodes".to_string(),
+                )),
             },
         }
     }
@@ -182,6 +185,7 @@ impl StructureGraph {
                     );
                 }
                 ast::Structure::Wire { .. } => (),
+                ast::Structure::Group { .. } => (),
             }
         }
 
