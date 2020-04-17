@@ -240,7 +240,7 @@ pub struct Wire {
 
 /// Group definition
 #[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq, PartialOrd, Ord)]
-#[sexpy(head = "->", nosurround)]
+#[sexpy(head = "group", nosurround)]
 pub struct Group {
     /// Name of the group.
     pub name: Id,
