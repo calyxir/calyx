@@ -1,7 +1,5 @@
-- all
-- automatic-par
-- collapse-seq
-- connect-clocks
-- latency-insensitive
-- redundant-par
-- remove-if
+---CODE---
+1
+---STDERR---
+Error: Impossible: No input file provided.
+This error should never occur. Report report this as a bug.
