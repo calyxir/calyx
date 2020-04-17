@@ -1,4 +1,5 @@
 use super::{ast, structure::StructureGraph};
+use crate::errors::Error;
 use crate::lang::pretty_print::PrettyPrint;
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::collections::HashMap;
@@ -33,17 +34,33 @@ impl Component {
     }
 
     // XXX(rachit): Document this function.
-    pub fn add_input(&mut self, portdef: impl Into<ast::Portdef>) {
+    pub fn add_input(
+        &mut self,
+        portdef: impl Into<ast::Portdef>,
+    ) -> Result<(), Error> {
         let portdef = portdef.into();
-        self.structure.insert_input_port(&portdef);
-        self.signature.inputs.push(portdef);
+        if !self.signature.has_input(portdef.name.as_ref()) {
+            self.structure.insert_input_port(&portdef);
+            self.signature.inputs.push(portdef);
+            Ok(())
+        } else {
+            Err(Error::DuplicatePort(self.name.clone(), portdef))
+        }
     }
 
     // XXX(rachit): Document this function.
-    pub fn add_output(&mut self, portdef: impl Into<ast::Portdef>) {
+    pub fn add_output(
+        &mut self,
+        portdef: impl Into<ast::Portdef>,
+    ) -> Result<(), Error> {
         let portdef = portdef.into();
-        self.structure.insert_output_port(&portdef);
-        self.signature.outputs.push(portdef);
+        if !self.signature.has_output(portdef.name.as_ref()) {
+            self.structure.insert_output_port(&portdef);
+            self.signature.outputs.push(portdef);
+            Ok(())
+        } else {
+            Err(Error::DuplicatePort(self.name.clone(), portdef))
+        }
     }
 }
 

@@ -1,4 +1,5 @@
 use crate::errors;
+use crate::errors::Error;
 use crate::lang::{component, context};
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc;
@@ -28,7 +29,7 @@ pub trait Backend {
 
 pub trait Emitable {
     fn doc<'a>(
-        &'a self,
-        comp: &'a component::Component,
-    ) -> RcDoc<'a, ColorSpec>;
+        &self,
+        comp: &component::Component,
+    ) -> Result<RcDoc<'a, ColorSpec>, Error>;
 }

@@ -1,5 +1,5 @@
 (define/component main
-  ((port valid 1))
+  ((port valid 1) (port clk 1))
   ((port ready 1))
   ([new-std add0 (std_add 32)]
    [new-std const0 (std_const 32 0)]
@@ -12,7 +12,8 @@
    [-> (@ const1 out) (@ lt0 right)]
    [-> (@ const2 out) (@ add0 right)]
    [-> (@ i0 out) (@ add0 left)]
-   [-> (@ i0 out) (@ lt0 left)])
+   [-> (@ i0 out) (@ lt0 left)]
+   [-> (@ this clk) (@ i0 clk)])
   (seq
    (enable i0 const0)
    (while (@ lt0 out) (lt0 i0 const1)

@@ -16,7 +16,6 @@ impl Default for NameGenerator {
     }
 }
 
-#[allow(unused)]
 impl NameGenerator {
     pub fn gen_name(&mut self, name: &str) -> String {
         let count = match self.name_hash.get(name) {

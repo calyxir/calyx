@@ -16,8 +16,12 @@ pub enum Error {
     UndefinedEdge(String, String),
     UndefinedComponent(ast::Id),
     SignatureResolutionFailed(ast::Id),
-    MalformedControl,   // XXX(sam) add more info to this
+    DuplicatePort(ast::Id, ast::Portdef),
+    MalformedControl(String),
+    MalformedStructure(String),
+    MissingImplementation(&'static str, ast::Id),
     Impossible(String), // Signal compiler errors that should never occur.
+    NotSubcomponent,
     #[allow(unused)]
     Misc(String),
 }
@@ -45,14 +49,20 @@ impl std::fmt::Debug for Error {
             UndefinedPort(port) => write!(f, "Use of undefined port: {}", port),
             UndefinedEdge(src, dest) => write!(f, "Use of undefined edge: {}->{}", src, dest),
             UndefinedComponent(id) => {
-                write!(f, "Use of undefined component {:?}", id)
+                write!(f, "Use of undefined component {}", id.to_string())
             }
             SignatureResolutionFailed(id) => {
-                write!(f, "Failed to resolve portdef: {:?}", id)
+                write!(f, "Failed to resolve portdef: {}", id.to_string())
             }
-            MalformedControl => write!(f, "Malformed Control. Backend expected Control to be in a different form."),
+            DuplicatePort(comp, portdef) => {
+                write!(f, "Attempted to add `{}` to component `{}`", portdef, comp.to_string())
+            }
+            MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
+            MalformedStructure(msg) => write!(f, "Malformed Structure: {}", msg),
+            NotSubcomponent => write!(f, "Not a subcomponent"),
             Misc(msg) => write!(f, "{}", msg),
             Impossible(msg) => write!(f, "Impossible: {}\nThis error should never occur. Report report this as a bug.", msg),
+            MissingImplementation(name, id) => write!(f, "Mising {} implementation for `{}`", name, id.to_string())
         }
     }
 }

@@ -1,29 +1,27 @@
-; git.status = dirty, build.date = Mon Dec 16 20:53:50 EST 2019, git.hash = 43be196
+; git.status = clean, build.date = Wed Mar 25 10:45:07 PDT 2020, git.hash = d139061
 (define/namespace prog
   (import primitives/std.lib)
   (define/component main () ()
-    (; structure
-     [new-std a0 (std_reg 32 0)]
-     [new-std const0 (std_const 32 0)]
-     [new-std b0 (std_reg 32 0)]
+    ([new-std a0 (std_reg 32)]
+     [-> (@ const0 out) (@ a0 in)]
+     [new-std const0 (std_const 32 10)]
+     [new-std b0 (std_reg 32)]
+     [-> (@ const1 out) (@ b0 in)]
      [new-std const1 (std_const 32 1)]
      [new-std gt0 (std_gt 32)]
-     [new-std const2 (std_const 32 1)]
-     [new-std y0 (std_reg 32 0)]
-     [new-std const3 (std_const 32 2)]
-     [new-std z0 (std_reg 32 0)]
-     [new-std const4 (std_const 32 4)]
-     [-> (@ const0 out) (@ a0 in)]
-     [-> (@ const1 out) (@ b0 in)]
      [-> (@ a0 out) (@ gt0 left)]
      [-> (@ const2 out) (@ gt0 right)]
+     [new-std const2 (std_const 32 5)]
+     [new-std y0 (std_reg 32)]
      [-> (@ const3 out) (@ y0 in)]
-     [-> (@ const4 out) (@ z0 in)])
+     [new-std const3 (std_const 32 20)]
+     [new-std z0 (std_reg 32)]
+     [-> (@ const4 out) (@ z0 in)]
+     [new-std const4 (std_const 32 40)])
     (seq
      (par
       (enable a0 const0)
       (enable b0 const1))
-     (enable gt0 b0 const2)
      (if (@ gt0 out) (gt0 a0 const2)
          (enable y0 const3)
          (enable z0 const4)))))

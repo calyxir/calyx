@@ -3,6 +3,8 @@ use crate::lang::ast::*;
 use atty::Stream;
 use pretty::termcolor::{ColorChoice, ColorSpec, StandardStream};
 use pretty::RcDoc;
+use std::fmt;
+use std::fmt::Display;
 use std::io;
 use std::io::Write;
 
@@ -302,8 +304,8 @@ impl PrettyPrint for Enable {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         RcDoc::text("enable")
             .enable_color()
-            .append(RcDoc::line())
-            .append(self.comps.prettify(&arena))
+            .append(RcDoc::space())
+            .append(self.comps.prettify(&arena).nest(8))
             .group()
             .parens()
     }
@@ -333,5 +335,11 @@ impl PrettyPrint for Port {
                 .append(p.prettify(&arena))
                 .parens(),
         }
+    }
+}
+
+impl Display for Portdef {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(port {} {})", self.name.to_string(), self.width)
     }
 }

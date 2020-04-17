@@ -1,0 +1,7 @@
+let a: bit<32> = 1;
+---
+let b: bit<32> = 2;
+---
+let c: bit<32> = 3;
+---
+let d: bit<32> = 4;

@@ -1,0 +1,10 @@
+(define/namespace prog
+  (import primitives/std.lib)
+  (define/component main () ()
+    ([new-std comp (std_mult 32)]
+     [new-std left (std_const 32 4)]
+     [new-std right (std_const 32 2)]
+     [-> (@ left out) (@ comp left)]
+     [-> (@ right out) (@ comp right)])
+    (seq
+     (enable comp left right))))

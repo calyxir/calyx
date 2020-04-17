@@ -4,6 +4,7 @@ use calyx::{
     lang::context::Context,
     passes,
     passes::visitor::{Named, Visitor},
+    utils::NameGenerator,
 };
 use std::collections::HashMap;
 use structopt::StructOpt;
@@ -13,6 +14,7 @@ type PassResult = Result<Box<dyn Visitor>, errors::Error>;
 fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
     use passes::{
         automatic_par::AutomaticPar, collapse_seq::CollapseSeq,
+        connect_clock::ConnectClock, fsm_seq::FsmSeq,
         lat_insensitive::LatencyInsensitive, redundant_par::RedundantPar,
         remove_if::RemoveIf,
     };
@@ -34,6 +36,13 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
         }),
     );
     names.insert(
+        AutomaticPar::name().to_string(),
+        Box::new(|ctx| {
+            let r = AutomaticPar::do_pass_default(ctx)?;
+            Ok(Box::new(r))
+        }),
+    );
+    names.insert(
         RemoveIf::name().to_string(),
         Box::new(|ctx| {
             let r = RemoveIf::do_pass_default(ctx)?;
@@ -48,20 +57,34 @@ fn pass_map() -> HashMap<String, Box<dyn Fn(&Context) -> PassResult>> {
         }),
     );
     names.insert(
-        AutomaticPar::name().to_string(),
+        ConnectClock::name().to_string(),
         Box::new(|ctx| {
-            let r = AutomaticPar::do_pass_default(ctx)?;
+            let r = ConnectClock::do_pass_default(ctx)?;
             Ok(Box::new(r))
         }),
     );
+    // names.insert(
+    //     FsmSeq::name().to_string(),
+    //     Box::new(move |ctx| {
+    //         let r = FsmSeq::new(&mut name_gen);
+    //         r.do_pass(ctx)?;
+    //         Ok(Box::new(r))
+    //     }),
+    // );
     names.insert(
         "all".to_string(),
-        Box::new(|ctx| {
-            LatencyInsensitive::do_pass_default(ctx)?;
+        Box::new(move |ctx| {
             RedundantPar::do_pass_default(ctx)?;
             RemoveIf::do_pass_default(ctx)?;
             CollapseSeq::do_pass_default(ctx)?;
-            let r = AutomaticPar::do_pass_default(ctx)?;
+            AutomaticPar::do_pass_default(ctx)?;
+            // fsm generation
+            LatencyInsensitive::do_pass_default(&ctx)?;
+            let mut name_gen = NameGenerator::default();
+            FsmSeq::new(&mut name_gen).do_pass(&ctx)?;
+
+            // interfacing generation
+            let r = ConnectClock::do_pass_default(&ctx)?;
             Ok(Box::new(r))
         }),
     );
@@ -75,7 +98,7 @@ fn main() -> Result<(), errors::Error> {
     // Construct pass manager.
     let names = pass_map();
 
-    //list all the avaliable pass options when flag -listpasses is enabled
+    // list all the avaliable pass options when flag --list-passes is enabled
     if opts.list_passes {
         let mut passes = names.keys().cloned().collect::<Vec<_>>();
         passes.sort();
@@ -87,8 +110,7 @@ fn main() -> Result<(), errors::Error> {
 
     // Construct the context.
     let context = Context::from_opts(&opts)?;
-
-    //run all passes specified by the command line
+    // run all passes specified by the command line
     for name in opts.pass {
         if let Some(pass) = names.get(&name) {
             pass(&context)?;

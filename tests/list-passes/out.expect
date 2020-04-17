@@ -1,6 +1,7 @@
 - all
 - automatic-par
 - collapse-seq
+- connect-clocks
 - latency-insensitive
 - redundant-par
 - remove-if

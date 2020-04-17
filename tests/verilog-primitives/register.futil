@@ -1,0 +1,10 @@
+(define/namespace prog
+  (import primitives/std.lib)
+  (define/component main () ()
+    ([new-std reg0 (std_reg 32)]
+     [new-std reg1 (std_reg 32)]
+     [new-std val (std_const 32 10)]
+     [-> (@ val out) (@ reg0 in)]
+     [-> (@ val out) (@ reg1 in)])
+    (seq
+     (enable reg0 val))))

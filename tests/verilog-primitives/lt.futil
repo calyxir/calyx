@@ -1,0 +1,24 @@
+(define/namespace prog
+  (import primitives/std.lib)
+  (define/component main () ()
+    ([new-std c1 (std_lt 32)]
+     [new-std l1 (std_const 32 4)]
+     [new-std r1 (std_const 32 2)]
+     [-> (@ l1 out) (@ c1 left)]
+     [-> (@ r1 out) (@ c1 right)]
+
+     [new-std c2 (std_lt 32)]
+     [new-std l2 (std_const 32 4)]
+     [new-std r2 (std_const 32 4)]
+     [-> (@ l2 out) (@ c2 left)]
+     [-> (@ r2 out) (@ c2 right)]
+
+     [new-std c3 (std_lt 32)]
+     [new-std l3 (std_const 32 2)]
+     [new-std r3 (std_const 32 4)]
+     [-> (@ l3 out) (@ c3 left)]
+     [-> (@ r3 out) (@ c3 right)])
+    (seq
+     (par (enable c1 l1 r1)
+          (enable c2 l2 r2)
+          (enable c3 l3 r3)))))

@@ -1,0 +1,5 @@
+(define/namespace prog
+  (import primitives/std.lib)
+  (define/component main () ()
+    ([new-std c (std_const 32 2)])
+    (seq)))
