@@ -52,12 +52,15 @@ impl NodeData {
 
     pub fn get_component_type(&self) -> Result<&ast::Id, errors::Error> {
         match self {
-            NodeData::Input(_) => PortIter { items: vec![] },
-            NodeData::Output(pd) => PortIter {
-                items: vec![pd.clone()],
-            },
-            NodeData::Instance { signature, .. } => PortIter {
-                items: signature.inputs.clone(),
+            NodeData::Input { .. } | NodeData::Output { .. } => {
+                Err(errors::Error::NotSubcomponent)
+            }
+            NodeData::Instance { structure, .. } => match structure {
+                Structure::Wire { .. } => Err(Error::Impossible(
+                    "There should be no wires in nodes".to_string(),
+                )),
+                Structure::Std { data } => Ok(&data.instance.name),
+                Structure::Decl { data } => Ok(&data.component),
             },
         }
     }
