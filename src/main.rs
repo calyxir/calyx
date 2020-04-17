@@ -93,21 +93,22 @@ fn main() -> Result<(), errors::Error> {
     // parse the command line arguments into Opts struct
     let opts: Opts = Opts::from_args();
 
-    // Construct the context.
-    let context = Context::from_opts(&opts)?;
-
-    // Construct pass manager.
-    let names = pass_map();
-
     // list all the avaliable pass options when flag --list-passes is enabled
     if opts.list_passes {
-        let mut passes = names.keys().cloned().collect::<Vec<_>>();
+        let names = pass_map();
+        let mut passes = names.keys().collect::<Vec<_>>();
         passes.sort();
         for key in passes {
             println!("- {}", key);
         }
         return Ok(());
     }
+
+    // Construct the context.
+    let context = Context::from_opts(&opts)?;
+
+    // Construct pass manager.
+    let names = pass_map();
 
     // Construct the name generator
     let mut name_gen = NameGenerator::default();
