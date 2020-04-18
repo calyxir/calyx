@@ -1,5 +1,9 @@
 #!/bin/sh
 
+### Simple helper script to run a verilog file using verilator and generate
+### VCD dumps. Used by our testing framework. Should probably *not* be used
+### in production designs.
+
 set -eux
 
 filename="$1"
