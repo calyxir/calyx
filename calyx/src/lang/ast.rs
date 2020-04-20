@@ -253,14 +253,14 @@ pub struct Group {
 #[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq, PartialOrd, Ord)]
 #[sexpy(nohead)]
 pub enum Structure {
-    /// Node for instantiating user-defined components.
-    Decl { data: Decl },
     /// Node for instantiating primitive components.
     Std { data: Std },
-    /// Node for connecting ports on different components.
-    Wire { data: Wire },
+    /// Node for instantiating user-defined components.
+    Decl { data: Decl },
     /// Node for group definitions.
     Group { data: Group },
+    /// Node for connecting ports on different components.
+    Wire { data: Wire },
 }
 
 /// Methods for constructing the structure AST nodes.
@@ -279,6 +279,13 @@ impl Structure {
     pub fn std(name: Id, instance: Compinst) -> Structure {
         Structure::Std {
             data: Std { name, instance },
+        }
+    }
+
+    /// Constructs `Structure::Group` with `name` and `comps` as arguments.
+    pub fn group(name: Id, comps: Vec<Id>) -> Structure {
+        Structure::Group {
+            data: Group { name, comps },
         }
     }
 

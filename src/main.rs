@@ -95,6 +95,7 @@ fn pass_map() -> HashMap<String, PassClosure> {
             Ok(())
         }),
     );
+    names.insert("none".to_string(), Box::new(|_, _| Ok(())));
     names
 }
 

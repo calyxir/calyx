@@ -211,9 +211,9 @@ impl PrettyPrint for Group {
         RcDoc::text("group")
             .keyword_color()
             .append(RcDoc::space())
-            .append(self.name.prettify(&arena))
+            .append(self.name.prettify(&arena).ident_color())
             .append(RcDoc::space())
-            .append(self.comps.prettify(&arena).parens())
+            .append(self.comps.prettify(&arena).group().parens())
             .brackets()
     }
 }

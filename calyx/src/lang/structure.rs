@@ -116,6 +116,7 @@ pub struct StructureGraph {
     // port names and instance identifiers
     portdef_map: HashMap<ast::Id, NodeIndex>,
     inst_map: HashMap<ast::Id, NodeIndex>,
+    group_map: HashMap<ast::Id, Vec<NodeIndex>>,
     pub graph: StructG,
 }
 
@@ -124,6 +125,7 @@ impl Default for StructureGraph {
         StructureGraph {
             portdef_map: HashMap::new(),
             inst_map: HashMap::new(),
+            group_map: HashMap::new(),
             graph: StructG::new(),
         }
     }
@@ -184,52 +186,67 @@ impl StructureGraph {
                         structure.graph.add_node(instance),
                     );
                 }
-                ast::Structure::Wire { .. } => (),
                 ast::Structure::Group { .. } => (),
+                ast::Structure::Wire { .. } => (),
             }
         }
 
-        // then add edges
+        // then add edges and groups
         for stmt in &compdef.structure {
-            if let ast::Structure::Wire { data } = stmt {
-                // get src node in graph and src port
-                let (src_node, src_port) = match &data.src {
-                    Port::Comp { component, port } => {
-                        (structure.inst_map.get(component), port)
-                    }
-                    Port::This { port } => {
-                        (structure.portdef_map.get(port), port)
-                    }
-                };
+            match stmt {
+                ast::Structure::Wire { data } => {
+                    // get src node in graph and src port
+                    let (src_node, src_port) = match &data.src {
+                        Port::Comp { component, port } => {
+                            (structure.inst_map.get(component), port)
+                        }
+                        Port::This { port } => {
+                            (structure.portdef_map.get(port), port)
+                        }
+                    };
 
-                // get dest node in graph and dest port
-                let (dest_node, dest_port) = match &data.dest {
-                    Port::Comp { component, port } => {
-                        (structure.inst_map.get(component), port)
-                    }
-                    Port::This { port } => {
-                        (structure.portdef_map.get(port), port)
-                    }
-                };
+                    // get dest node in graph and dest port
+                    let (dest_node, dest_port) = match &data.dest {
+                        Port::Comp { component, port } => {
+                            (structure.inst_map.get(component), port)
+                        }
+                        Port::This { port } => {
+                            (structure.portdef_map.get(port), port)
+                        }
+                    };
 
-                match (src_node, dest_node) {
-                    // both nodes were found, this is a valid edge!
-                    (Some(&s), Some(&d)) => {
-                        structure.insert_edge(s, src_port, d, dest_port)?;
-                    }
-                    // dest not found
-                    (Some(_), None) => {
-                        return Err(Error::UndefinedComponent(
-                            data.dest.port_name().clone(),
-                        ));
-                    }
-                    // either source or dest not found, report src as error
-                    _ => {
-                        return Err(Error::UndefinedComponent(
-                            data.src.port_name().clone(),
-                        ))
+                    match (src_node, dest_node) {
+                        // both nodes were found, this is a valid edge!
+                        (Some(&s), Some(&d)) => {
+                            structure.insert_edge(s, src_port, d, dest_port)?;
+                        }
+                        // dest not found
+                        (Some(_), None) => {
+                            return Err(Error::UndefinedComponent(
+                                data.dest.port_name().clone(),
+                            ));
+                        }
+                        // either source or dest not found, report src as error
+                        _ => {
+                            return Err(Error::UndefinedComponent(
+                                data.src.port_name().clone(),
+                            ))
+                        }
                     }
                 }
+                ast::Structure::Group { data } => {
+                    let indices = data
+                        .comps
+                        .iter()
+                        .map(|comp| {
+                            structure.inst_map.get(comp).copied().ok_or_else(
+                                || Error::UndefinedComponent(comp.clone()),
+                            )
+                        })
+                        .collect::<Result<Vec<_>, Error>>()?;
+                    structure.group_map.insert(data.name.clone(), indices);
+                }
+                _ => (),
             }
         }
         Ok(structure)
@@ -481,6 +498,21 @@ impl Into<Vec<ast::Structure>> for StructureGraph {
             if let NodeData::Instance { structure, .. } = &self.graph[*idx] {
                 ret.push(structure.clone());
             }
+        }
+
+        // add structure stmts for groups
+        for (name, indicies) in &self.group_map {
+            let ids = indicies
+                .iter()
+                .filter_map(|idx| {
+                    if let NodeData::Instance { name, .. } = &self.graph[*idx] {
+                        Some(name.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            ret.push(ast::Structure::group(name.clone(), ids))
         }
 
         // add wire structure stmts for edges
