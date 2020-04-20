@@ -260,7 +260,7 @@ pub enum Structure {
     /// Node for connecting ports on different components.
     Wire { data: Wire },
     /// Node for group definitions.
-    Group { data: Group }
+    Group { data: Group },
 }
 
 /// Methods for constructing the structure AST nodes.
@@ -356,8 +356,8 @@ pub struct Print {
 #[derive(Debug, Clone, Hash, Sexpy)]
 #[sexpy(nosurround)]
 pub struct Enable {
-    /// List of components to run.
-    pub comps: Vec<Id>,
+    /// Group Id to run
+    pub group: Id,
 }
 
 /// Data for the `empty` control statement.
@@ -432,9 +432,9 @@ impl Control {
         }
     }
 
-    pub fn enable(comps: Vec<Id>) -> Control {
+    pub fn enable(group: Id) -> Control {
         Control::Enable {
-            data: Enable { comps },
+            data: Enable { group },
         }
     }
 

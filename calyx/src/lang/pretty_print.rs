@@ -164,7 +164,7 @@ impl PrettyPrint for Structure {
             Structure::Decl { data } => data.prettify(&arena),
             Structure::Std { data } => data.prettify(&arena),
             Structure::Wire { data } => data.prettify(&arena),
-            Structure::Group { data } => data.prettify(&arena)
+            Structure::Group { data } => data.prettify(&arena),
         }
     }
 }
@@ -318,7 +318,7 @@ impl PrettyPrint for Enable {
         RcDoc::text("enable")
             .enable_color()
             .append(RcDoc::space())
-            .append(self.comps.prettify(&arena).nest(8))
+            .append(self.group.prettify(&arena))
             .group()
             .parens()
     }
