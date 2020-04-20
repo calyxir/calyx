@@ -14,12 +14,7 @@ clean:
 	./target/debug/futil $< -b verilog > $@
 
 %.vcd: %.v
-	mkdir -p $*_objs
-	cp sim/testbench.cpp $*_objs/testbench.cpp
-	verilator -cc --trace $< --exe testbench.cpp --top-module main --Mdir $*_objs
-	make -j -C $*_objs -f Vmain.mk Vmain
-	$*_objs/Vmain $@
-	rm -rf $*_objs
+	./bin/gen-vcd $<
 
 %.json: %.vcd
 	vcdump $< > $*.json

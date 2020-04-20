@@ -1,0 +1,28 @@
+#!/bin/sh
+
+### Simple helper script to run a verilog file using verilator and generate
+### VCD dumps. Used by our testing framework. Should probably *not* be used
+### in production designs.
+
+# -e: fail on first error.
+# -u: fail on unset variables.
+# -f: disable filename globbing.
+set -euf
+
+filename="$1"
+stem="${filename%.*}"
+
+# Create a temporary folder to store objects generated from verilator.
+tmp="$(mktemp -d)"
+cp sim/testbench.cpp "$tmp"/
+
+# Generate required objects for verilator run.
+verilator -cc --trace "$filename" \
+  --exe testbench.cpp --top-module main --Mdir "$tmp"
+
+# Generate and execute verilator C harness.
+make -j -C "$tmp" -f Vmain.mk Vmain
+"$tmp"/Vmain "$stem".vcd
+
+# Clean up temporary folder.
+rm -rf "$tmp"
