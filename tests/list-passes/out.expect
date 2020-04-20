@@ -2,6 +2,7 @@
 - automatic-par
 - collapse-seq
 - connect-clocks
+- fsm-seq
 - latency-insensitive
 - redundant-par
 - remove-if
