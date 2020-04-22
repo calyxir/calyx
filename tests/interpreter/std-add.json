@@ -1,0 +1,11 @@
+{
+    "component": "std_add",
+    "params": [16],
+    "inputs": {
+        "valid": 1,
+        "left":10,
+        "left_read_in": 1,
+        "right":5,
+        "right_read_in": 1
+    }
+}

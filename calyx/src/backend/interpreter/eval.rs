@@ -179,34 +179,58 @@ impl Interpreter {
         let mut outputs: HashMap<ast::Id, Option<i64>> = HashMap::new();
 
         if comp.name.to_string() == "std_const" {
-            if let Some(Some(value)) = inputs.get(&ast::Id::from("valid")) {
-                if *value == 1 {
-                    let p_width = params.get(0);
-                    let p_value = params.get(1);
-                    let mut out_value = None;
-                    if let (Some(value), Some(width)) = (p_value, p_width) {
-                        let v = *value as i64;
-                        let w = *width as u32;
-                        let base: i64 = 2;
+            let valid = unwrap_input(&inputs, &comp.name, "valid")?;
+            if valid == 1 {
+                let p_width = params.get(0);
+                let p_value = params.get(1);
+                let mut out_value = None;
+                if let (Some(value), Some(width)) = (p_value, p_width) {
+                    let v = *value as i64;
+                    let w = *width as u32;
+                    let base: i64 = 2;
 
-                        // Check that value is within bit width
-                        if v > base.pow(w - 1) - 1 || v < -base.pow(w - 1) {
-                            return Err(Error::InvalidConstant(
-                                comp.name.to_string(),
-                                v,
-                                *width,
-                            ));
-                        }
-                        out_value = Some(v)
+                    // Check that value is within bit width
+                    if v > base.pow(w - 1) - 1 || v < -base.pow(w - 1) {
+                        return Err(Error::InvalidConstant(
+                            comp.name.to_string(),
+                            v,
+                            *width,
+                        ));
                     }
-
-                    outputs.insert(ast::Id::from("out"), out_value);
-                    outputs.insert(ast::Id::from("ready"), Some(1));
-                    return Ok((outputs, st.clone()));
+                    out_value = Some(v)
                 }
+
+                outputs.insert(ast::Id::from("out"), out_value);
+                outputs.insert(ast::Id::from("ready"), Some(1));
+                return Ok((outputs, st.clone()));
             }
 
             // Valid not high- Default to outputting all None values
+            outputs.insert(ast::Id::from("out"), None);
+            outputs.insert(ast::Id::from("out_read_out"), None);
+            outputs.insert(ast::Id::from("ready"), None);
+            Ok((outputs, st.clone()))
+        } else if comp.name.to_string() == "std_add" {
+            let valid = unwrap_input(&inputs, &comp.name, "valid")?;
+            let left = unwrap_input(&inputs, &comp.name, "left")?;
+            let right = unwrap_input(&inputs, &comp.name, "left")?;
+            if valid == 1 {
+                let p_width = params.get(0);
+                let mut out_value = None;
+                if let Some(width) = p_width {
+                    let v = left + right;
+                    let w = *width as u32;
+                    let base: i64 = 2;
+                    // Check that value is within bit width
+                    if v > base.pow(w - 1) - 1 || v < -base.pow(w - 1) {
+                        return Err(Error::Overflow(comp.name.to_string()));
+                    }
+                    out_value = Some(v)
+                }
+                outputs.insert(ast::Id::from("out"), out_value);
+                outputs.insert(ast::Id::from("ready"), Some(1));
+                return Ok((outputs, st.clone()));
+            }
             outputs.insert(ast::Id::from("out"), None);
             outputs.insert(ast::Id::from("out_read_out"), None);
             outputs.insert(ast::Id::from("ready"), None);
@@ -293,4 +317,17 @@ impl Interpreter {
         graph.drive_state(st); // Load values from State into graph
         graph.update(&self, st, enabled) // Simulate the hardware
     }
+}
+
+/// helper function to unwrap the hashmap result
+fn unwrap_input(
+    inputs: &HashMap<ast::Id, Option<i64>>,
+    name: &ast::Id,
+    port: &str,
+) -> Result<i64, Error> {
+    let input = inputs.get(&ast::Id::from(port));
+    if let Some(Some(val)) = input {
+        return Ok(*val);
+    }
+    Err(Error::MissingInput(name.to_string(), port.to_string()))
 }
