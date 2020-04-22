@@ -16,6 +16,56 @@ pub enum State {
 }
 
 impl State {
+    /// Sets a register value in a component.
+    /// This function must be called from a
+    /// State::Component type, which are generated
+    /// automatically by `from_component`, and the
+    /// component with `id` must be a `std_reg`
+    pub fn set_reg(
+        self,
+        id: &ast::Id,
+        new_val: Option<i64>,
+    ) -> Result<Self, Error> {
+        // match self {
+        //     State::Component(mut map) => {
+        //         if let Some(next_state) = map.get(id) {
+        match self {
+            State::Register(_) => {
+                let new_reg = State::Register(new_val);
+                Ok(new_reg)
+            }
+            _ => Err(Error::MissingState),
+        }
+        //         } else {
+        //             Err(Error::MissingState)
+        //         }
+        //     }
+        //     _ => Err(Error::MissingState),
+        // }
+    }
+
+    /// Looks up a register value in a component.
+    /// This function must be called from a
+    /// State::Component type, which are generated
+    /// automatically by `from_component`, and the
+    /// component with `id` must be a `std_reg`
+    pub fn lookup_reg(&self, id: &ast::Id) -> Result<Option<i64>, Error> {
+        // match self {
+        //     State::Component(map) => {
+        //         if let Some(next_state) = map.get(id) {
+        match self {
+            State::Register(val) => Ok(val.clone()),
+            _ => Err(Error::MissingState),
+        }
+        //         } else {
+        //             Err(Error::MissingState)
+        //         }
+        //     }
+        //     _ => Err(Error::MissingState),
+        // }
+    }
+
+    /// Generates a state for a component
     pub fn from_component(
         comp: &Component,
         c: &Context,

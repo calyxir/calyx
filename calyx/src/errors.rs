@@ -24,6 +24,7 @@ pub enum Error {
     InvalidInputJSON,  // invalid input json for interpreter
     InvalidConstant(String, i64, u64), //the value of constant exceeds p-width
     UnimplementedPrimitive(ast::Id), // primitve not found during interpretation
+    MissingState,      // state.rs, lookup_reg
     MissingInput(String, String),
     Overflow(String),
 }
@@ -62,6 +63,7 @@ impl std::fmt::Debug for Error {
             InvalidInputJSON => write!(f, "Error parsing input json file"),
             InvalidConstant(port, width, value) => write!(f, "Constant exceeds bitwidth"),
             UnimplementedPrimitive(id) => write!(f, "Interpreter implementation for {:?} not found!", id), 
+            MissingState => write!(f, "Error looking up reg in state.rs, lookup_reg"),
             MissingInput(comp, port)=> write!(f, "missing port {:?} from component {:?}", port, comp),
             Overflow(comp) => write!(f, "overflow in component {}", comp)
         }

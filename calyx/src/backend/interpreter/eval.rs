@@ -122,7 +122,7 @@ impl Interpreter {
 
         let st = State::from_component(&comp, &self.context)?;
 
-        let (outputs, st_1) = self.eval(&st, &comp_name, inputs.inputs())?;
+        let (outputs, st_1) = self.eval(st, &comp_name, inputs.inputs())?;
         if let Ok(json_out) = serde_json::to_string(&Outputs::from(&outputs)) {
             Ok(write!(file, "{}", json_out)?)
         } else {
@@ -142,7 +142,7 @@ impl Interpreter {
     ///   Returns a map of output port names to values
     pub fn eval(
         &self,
-        st: &State,
+        st: State,
         comp_name: &ast::Id,
         inputs: HashMap<ast::Id, Option<i64>>,
     ) -> Result<(HashMap<ast::Id, Option<i64>>, State), Error> {
@@ -154,7 +154,7 @@ impl Interpreter {
         // User-defined components
         let comp = self.context.get_component(comp_name)?;
         //  structure graph
-        let st_1 = self.eval_c(&inputs, &comp.control, &comp.structure, st);
+        let st_1 = self.eval_c(&inputs, &comp.control, &comp.structure, &st);
 
         unimplemented!("Interpreter is not implemented.");
     }
@@ -170,7 +170,7 @@ impl Interpreter {
     ///   Returns a map of output port names to values
     pub fn eval_lib(
         &self,
-        st: &State,
+        st: State,
         id: &ast::Id,
         inputs: HashMap<ast::Id, Option<i64>>,
     ) -> Result<(HashMap<ast::Id, Option<i64>>, State), Error> {
@@ -235,6 +235,35 @@ impl Interpreter {
             outputs.insert(ast::Id::from("out_read_out"), None);
             outputs.insert(ast::Id::from("ready"), None);
             Ok((outputs, st.clone()))
+        } else if comp.name.to_string() == "std_reg" {
+            let valid = unwrap_input(&inputs, &comp.name, "valid")?;
+            let reg_in = unwrap_input(&inputs, &comp.name, "in")?;
+            // Read output of register
+            if valid == 1 {
+                let p_width = params.get(0);
+                let mut out_value = st.lookup_reg(id)?;
+                if let Some(width) = p_width {
+                    if let Some(v) = out_value {
+                        let w = *width as u32;
+                        let base: i64 = 2;
+                        // Check that value is within bit width
+                        if v > base.pow(w - 1) - 1 || v < -base.pow(w - 1) {
+                            return Err(Error::Overflow(comp.name.to_string()));
+                        }
+                        out_value = Some(v)
+                    }
+                }
+                println!("{:?}", out_value);
+                outputs.insert(ast::Id::from("out"), out_value);
+                outputs.insert(ast::Id::from("ready"), Some(1));
+                // Return new state
+                let st_1 = st.set_reg(id, Some(reg_in))?;
+                return Ok((outputs, st_1));
+            }
+            outputs.insert(ast::Id::from("out"), None);
+            outputs.insert(ast::Id::from("out_read_out"), None);
+            outputs.insert(ast::Id::from("ready"), None);
+            Ok((outputs, st))
         } else {
             Err(Error::UnimplementedPrimitive(comp.name))
         }
@@ -315,7 +344,9 @@ impl Interpreter {
         graph.split_seq_prims(); // Split sequential primitives to remove valid cycles
         graph.drive_inputs(inputs); // Initialize with input values
         graph.drive_state(st); // Load values from State into graph
-        graph.update(&self, st, enabled) // Simulate the hardware
+        let st_1 = graph.update(&self, st, enabled)?; // Simulate the hardware
+        let output_map = graph.read_outputs();
+        Ok(st_1)
     }
 }
 

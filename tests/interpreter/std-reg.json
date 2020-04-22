@@ -1,0 +1,12 @@
+{
+    "component": "std_reg",
+    "params": [
+        16
+    ],
+    "inputs": {
+        "valid": 1,
+        "in": 10,
+        "in_read_in": 1,
+        "clk": 1
+    }
+}

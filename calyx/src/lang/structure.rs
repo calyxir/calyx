@@ -680,8 +680,11 @@ impl EvalGraph for StructureGraph {
                     // Check if component is enabled
                     if enabled.contains(&name) {
                         let input_map = self.input_values(idx);
-                        let (output_map, _st_1) =
-                            interpret.eval(st, &component_type, input_map)?;
+                        let (output_map, _st_1) = interpret.eval(
+                            st.clone(),
+                            &component_type,
+                            input_map,
+                        )?;
                         self.drive_outputs(&idx, &output_map);
                     }
                 }
