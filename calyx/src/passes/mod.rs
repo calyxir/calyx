@@ -14,7 +14,7 @@
 // pub mod automatic_par;
 pub mod collapse_seq;
 pub mod connect_clock;
-// pub mod fsm_seq;
+pub mod fsm_seq;
 pub mod lat_insensitive;
 // pub mod redundant_par;
 // pub mod remove_if;

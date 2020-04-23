@@ -1,21 +1,25 @@
-; git.status = clean, build.date = Wed Mar 25 10:45:07 PDT 2020, git.hash = d139061
+; git.status = clean, build.date = Mon Apr 20 11:27:36 PDT 2020, git.hash = df25c71
 (define/namespace prog
   (import primitives/std.lib)
   (define/component main () ()
-    ([new-std x0 (std_reg 32)]
-     [-> (@ const0 out) (@ x0 in)]
+    ([new-std a (std_reg 32)]
      [new-std const0 (std_const 32 1)]
-     [new-std y0 (std_reg 32)]
-     [-> (@ const1 out) (@ y0 in)]
      [new-std const1 (std_const 32 2)]
-     [new-std z0 (std_reg 32)]
-     [-> (@ const2 out) (@ z0 in)]
      [new-std const2 (std_const 32 3)]
-     [new-std a0 (std_reg 32)]
-     [-> (@ const3 out) (@ a0 in)]
-     [new-std const3 (std_const 32 4)])
+     [new-std const3 (std_const 32 4)]
+     [new-std x (std_reg 32)]
+     [new-std y (std_reg 32)]
+     [new-std z (std_reg 32)]
+     [group group0 (x const0)]
+     [group group1 (y const1)]
+     [group group2 (z const2)]
+     [group group3 (a const3)]
+     [-> (@ const0 out) (@ x in)]
+     [-> (@ const1 out) (@ y in)]
+     [-> (@ const2 out) (@ z in)]
+     [-> (@ const3 out) (@ a in)])
     (seq
-     (enable x0 const0)
-     (enable y0 const1)
-     (enable z0 const2)
-     (enable a0 const3))))
+     (enable group0)
+     (enable group1)
+     (enable group2)
+     (enable group3))))

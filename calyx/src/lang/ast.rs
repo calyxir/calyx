@@ -119,7 +119,7 @@ impl ComponentDef {
 
 /// The signature for a component. Contains a list
 /// of input ports and a list of output ports.
-#[derive(Clone, Debug, Hash, Sexpy)]
+#[derive(Clone, Debug, Hash, Sexpy, Default)]
 #[sexpy(nohead, nosurround)]
 pub struct Signature {
     /// List of input ports.

@@ -16,9 +16,10 @@ fn pass_map() -> HashMap<String, PassClosure> {
     use passes::{
         // automatic_par::AutomaticPar,
         collapse_seq::CollapseSeq,
-        connect_clock::ConnectClock, // fsm_seq::FsmSeq,
+        connect_clock::ConnectClock,
+        fsm_seq::FsmSeq,
         lat_insensitive::LatencyInsensitive, // redundant_par::RedundantPar,
-                                     // remove_if::RemoveIf,
+                                             // remove_if::RemoveIf,
     };
 
     let mut names: HashMap<String, PassClosure> = HashMap::new();
@@ -81,17 +82,17 @@ fn pass_map() -> HashMap<String, PassClosure> {
     // );
     names.insert(
         "all".to_string(),
-        Box::new(|ctx, _name_gen| {
+        Box::new(|ctx, mut name_gen| {
             // RedundantPar::do_pass_default(ctx)?;
             // RemoveIf::do_pass_default(ctx)?;
             CollapseSeq::do_pass_default(ctx)?;
             // AutomaticPar::do_pass_default(ctx)?;
             // fsm generation
-            LatencyInsensitive::do_pass_default(&ctx)?;
-            // FsmSeq::new(&mut name_gen).do_pass(&ctx)?;
+            // LatencyInsensitive::do_pass_default(&ctx)?;
+            FsmSeq::new(&mut name_gen).do_pass(&ctx)?;
 
             // interfacing generation
-            ConnectClock::do_pass_default(&ctx)?;
+            // ConnectClock::do_pass_default(&ctx)?;
             Ok(())
         }),
     );

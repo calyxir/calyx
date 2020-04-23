@@ -1,5 +1,5 @@
-use crate::backend::traits::Backend;
-use crate::backend::verilog::gen::VerilogBackend;
+// use crate::backend::traits::Backend;
+// use crate::backend::verilog::gen::VerilogBackend;
 use crate::errors;
 use crate::lang::context;
 use crate::lang::pretty_print::PrettyPrint;
@@ -48,14 +48,14 @@ pub struct Opts {
 /// Enumeration of valid backends
 #[derive(Debug, Copy, Clone)]
 pub enum BackendOpt {
-    Verilog,
+    // Verilog,
     Futil,
     None,
 }
 
 fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
-        (VerilogBackend::name(), BackendOpt::Verilog),
+        // (VerilogBackend::name(), BackendOpt::Verilog),
         ("futil", BackendOpt::Futil),
         ("none", BackendOpt::None),
     ]
@@ -98,7 +98,7 @@ impl FromStr for BackendOpt {
 impl ToString for BackendOpt {
     fn to_string(&self) -> String {
         match self {
-            Self::Verilog => "verilog",
+            // Self::Verilog => "verilog",
             Self::Futil => "futil",
             Self::None => "none",
         }
@@ -114,7 +114,7 @@ impl BackendOpt {
         file: W,
     ) -> Result<(), errors::Error> {
         match self {
-            BackendOpt::Verilog => VerilogBackend::run(&context, file),
+            // BackendOpt::Verilog => VerilogBackend::run(&context, file),
             BackendOpt::Futil => {
                 context.pretty_print();
                 Ok(())
