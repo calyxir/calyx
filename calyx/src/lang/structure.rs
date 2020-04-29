@@ -203,7 +203,7 @@ impl StructureGraph {
                         ));
                     }
                     // either source or dest not found, report src as error
-                    (src, dest) => {
+                    (_src, _dest) => {
                         return Err(Error::UndefinedComponent(
                             data.src.port_name().clone(),
                         ));

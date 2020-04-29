@@ -194,7 +194,7 @@ impl Context {
         &self,
         name: &ast::Id,
     ) -> Result<Component, errors::Error> {
-        println!("Definitions: {:#?}", self.definitions);
+        //println!("Definitions: {:#?}", self.definitions);
         println!("Looking up {:#?}", name);
         match self.definitions.borrow().get(name) {
             Some(comp) => Ok(comp.clone()),

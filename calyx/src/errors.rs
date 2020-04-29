@@ -61,7 +61,7 @@ impl std::fmt::Debug for Error {
             Impossible(msg) => write!(f, "Impossible: {}\nThis error should never occur. Report report this as a bug.", msg),
             StructureHasCycle => write!(f, "Structure has a cycle that does not contain a sequential state component. This is undefined behavior."),
             InvalidInputJSON => write!(f, "Error parsing input json file"),
-            InvalidConstant(port, width, value) => write!(f, "Constant exceeds bitwidth"),
+            InvalidConstant(port, width, value) => write!(f, "Constant exceeds bitwidth. Port: {} bit-width: {}, value: {}", port, width, value),
             UnimplementedPrimitive(id) => write!(f, "Interpreter implementation for {:?} not found!", id), 
             MissingState => write!(f, "Error looking up reg in state.rs, lookup_reg"),
             MissingInput(comp, port)=> write!(f, "missing port {:?} from component {:?}", port, comp),
