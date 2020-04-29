@@ -96,6 +96,7 @@ impl Context {
         let mut definitions = HashMap::new();
         for comp in &namespace.components {
             let prim_sigs = comp.resolve_primitives(&libctx)?;
+            let prim_comps = comp.resolve_primitive_components(&libctx)?;
             let graph = StructureGraph::new(&comp, &signatures, &prim_sigs)?;
             definitions.insert(
                 comp.name.clone(),
@@ -104,7 +105,7 @@ impl Context {
                     signature: comp.signature.clone(),
                     control: comp.control.clone(),
                     structure: graph,
-                    resolved_sigs: prim_sigs,
+                    resolved_comps: prim_comps,
                     params: Vec::new(),
                 },
             );
@@ -193,6 +194,8 @@ impl Context {
         &self,
         name: &ast::Id,
     ) -> Result<Component, errors::Error> {
+        println!("Definitions: {:#?}", self.definitions);
+        println!("Looking up {:#?}", name);
         match self.definitions.borrow().get(name) {
             Some(comp) => Ok(comp.clone()),
             None => Err(errors::Error::UndefinedComponent(name.clone())),

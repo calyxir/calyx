@@ -13,7 +13,7 @@ pub struct Component {
     pub structure: StructureGraph,
     /// Maps names of sub-component used in this component to fully
     /// resolved signatures.
-    pub resolved_sigs: HashMap<ast::Id, ast::Signature>,
+    pub resolved_comps: HashMap<ast::Id, Component>,
     pub params: Vec<u64>,
 }
 
@@ -33,7 +33,7 @@ impl Component {
             signature: sig,
             control: ast::Control::empty(),
             structure: graph,
-            resolved_sigs: HashMap::new(),
+            resolved_comps: HashMap::new(),
             params: params.to_vec(),
         }
     }

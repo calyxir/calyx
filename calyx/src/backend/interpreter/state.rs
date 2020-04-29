@@ -89,11 +89,15 @@ impl State {
                     component_type,
                     ..
                 } => {
-                    if c.is_lib(&name)
+                    println!(
+                        "Generating instance State: {:#?} {:#?}",
+                        name, component_type
+                    );
+                    if c.is_lib(&component_type)
                         && component_type.to_string() == "std_reg"
                     {
                         map.insert(name, State::Register(None));
-                    } else if !c.is_lib(&name) {
+                    } else if !c.is_lib(&component_type) {
                         map.insert(
                             name,
                             State::from_component(

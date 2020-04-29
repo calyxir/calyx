@@ -1,4 +1,5 @@
 use crate::errors::Error;
+use crate::lang::component::Component;
 use crate::lang::context::LibraryContext;
 use sexpy::Sexpy;
 use std::collections::HashMap;
@@ -111,7 +112,27 @@ impl ComponentDef {
                 map.insert(data.name.clone(), sig);
             }
         }
+        Ok(map)
+    }
 
+    /// Given a Library Context, resolve all the primitive components
+    /// in `self` and return the primitive components in a HashMap
+    pub fn resolve_primitive_components(
+        &self,
+        libctx: &LibraryContext,
+    ) -> Result<HashMap<Id, Component>, Error> {
+        let mut map = HashMap::new();
+
+        for stmt in &self.structure {
+            if let Structure::Std { data } = stmt {
+                let sig = libctx
+                    .resolve(&data.instance.name, &data.instance.params)?;
+                let params = &data.instance.params;
+                let name = &data.instance.name;
+                let comp = Component::from_signature(name, sig, &params);
+                map.insert(data.name.clone(), comp);
+            }
+        }
         Ok(map)
     }
 }
@@ -162,14 +183,14 @@ impl From<(&str, u64)> for Portdef {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Sexpy, PartialOrd, Ord)]
 #[sexpy(head = "@")]
 pub enum Port {
-    /// Refers to the port named `port` on the subcomponent
-    /// `component`.
-    Comp { component: Id, port: Id },
-
     /// Refers to the port named `port` on the component
     /// currently being defined.
     #[sexpy(head = "this")]
     This { port: Id },
+
+    /// Refers to the port named `port` on the subcomponent
+    /// `component`.
+    Comp { component: Id, port: Id },
 }
 
 impl Port {

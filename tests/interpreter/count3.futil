@@ -1,0 +1,25 @@
+(define/namespace prog
+  (define/component main 
+    ((port valid 1)) 
+    ((port out 32))
+    (
+     (new-std reg (std_reg 32 0))
+     (new-std const (std_const 32 1))
+     (new-std init_const (std_const 32 0))
+     (new-std add (std_add 32))
+
+     (-> (@ this valid) (@ const valid))
+     (-> (@ this valid) (@ reg valid))
+     (-> (@ this valid) (@ add valid))
+     (-> (@ this valid) (@ init_const valid))
+     (-> (@ reg out) (@ this out))
+     (-> (@ reg out) (@ add left))
+     (-> (@ const out) (@ add right))
+     (-> (@ add out) (@ reg in))
+     (-> (@ init_const out) (@ reg in))
+     )
+    (seq
+     (enable init_const reg)
+     (enable reg add const)
+     (enable reg add const)
+     (enable reg add const))))

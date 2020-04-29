@@ -119,9 +119,9 @@ fn resolve_signature<'a>(
     this_comp: &'a mut Component,
     en_comp: &ast::Id,
 ) -> Result<&'a ast::Signature, errors::Error> {
-    let sig = this_comp.resolved_sigs.get(en_comp);
-    match sig {
-        Some(sig) => Ok(sig),
+    let comp = this_comp.resolved_comps.get(en_comp);
+    match comp {
+        Some(comp) => Ok(&comp.signature),
         None => Err(errors::Error::UndefinedComponent(en_comp.clone())),
     }
 }

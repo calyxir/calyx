@@ -61,7 +61,7 @@ pub trait EvalGraph {
     /// Simulates every component once in topological sort order
     fn update(
         &mut self,
-        interpret: &Interpreter,
+        interpret: &mut Interpreter,
         st: &State,
         enabled: Vec<ast::Id>,
     ) -> Result<State, Error>;
@@ -72,6 +72,7 @@ pub trait EvalGraph {
 
 pub struct Interpreter {
     pub context: Context,
+    pub last_graph: Option<StructureGraph>,
 }
 
 impl Backend for Interpreter {
@@ -94,19 +95,21 @@ impl Interpreter {
     pub fn new(context: &Context) -> Self {
         Interpreter {
             context: context.clone(),
+            last_graph: None,
         }
     }
 
     /// Runs an individual component with input from a JSON file.
     /// Used for testing.
     pub fn run<W: Write>(
-        &self,
+        &mut self,
         file: &mut W,
         path: PathBuf,
     ) -> Result<(), Error> {
         // Read input JSON file
         let inputs = Inputs::from_file(path)?;
         let comp_name = inputs.component();
+        println!("Input JSON File {:#?}", inputs);
 
         if self.context.is_lib(&comp_name) {
             // Running primitive component
@@ -118,9 +121,12 @@ impl Interpreter {
             self.context.insert_component(prim);
         }
 
+        println!("Looking up component: {:#?}", &comp_name);
         let comp = self.context.get_component(&comp_name)?;
 
+        println!("{:#?}", "Generating State");
         let st = State::from_component(&comp, &self.context)?;
+        println!("Generated State: {:#?}", st);
 
         let (outputs, st_1) = self.eval(st, &comp_name, inputs.inputs())?;
         if let Ok(json_out) = serde_json::to_string(&Outputs::from(&outputs)) {
@@ -141,12 +147,14 @@ impl Interpreter {
     /// # Returns
     ///   Returns a map of output port names to values
     pub fn eval(
-        &self,
+        &mut self,
         st: State,
         comp_name: &ast::Id,
         inputs: HashMap<ast::Id, Option<i64>>,
     ) -> Result<(HashMap<ast::Id, Option<i64>>, State), Error> {
+        println!("Evaluating {:#?}", comp_name);
         if self.context.is_lib(comp_name) {
+            println!("Evaluating lib component");
             // Handle library components in a special case
             return self.eval_lib(st, comp_name, inputs);
         }
@@ -154,9 +162,13 @@ impl Interpreter {
         // User-defined components
         let comp = self.context.get_component(comp_name)?;
         //  structure graph
-        let st_1 = self.eval_c(&inputs, &comp.control, &comp.structure, &st);
+        println!("Evaluating control");
+        let st_1 = self.eval_c(&inputs, &comp.control, &comp.structure, &st)?;
 
-        unimplemented!("Interpreter is not implemented.");
+        match &mut self.last_graph {
+            Some(graph) => Ok((graph.read_outputs(), st_1)),
+            None => Ok((HashMap::new(), st_1)),
+        }
     }
 
     /// Evaluates a library component
@@ -177,6 +189,7 @@ impl Interpreter {
         let comp = self.context.get_component(id)?;
         let params = comp.params;
         let mut outputs: HashMap<ast::Id, Option<i64>> = HashMap::new();
+        println!("Handling lib component");
 
         if comp.name.to_string() == "std_const" {
             let valid = unwrap_input(&inputs, &comp.name, "valid")?;
@@ -253,7 +266,6 @@ impl Interpreter {
                         out_value = Some(v)
                     }
                 }
-                println!("{:?}", out_value);
                 outputs.insert(ast::Id::from("out"), out_value);
                 outputs.insert(ast::Id::from("ready"), Some(1));
                 // Return new state
@@ -281,7 +293,7 @@ impl Interpreter {
     /// # Returns
     ///   Returns the new component state
     pub fn eval_c(
-        &self,
+        &mut self,
         inputs: &HashMap<ast::Id, Option<i64>>,
         control: &ast::Control,
         structure: &StructureGraph,
@@ -290,6 +302,7 @@ impl Interpreter {
         use ast::Control;
         match control {
             Control::Seq { data } => {
+                println!("Evaluating Seq");
                 if data.stmts.is_empty() {
                     return Ok(st.clone());
                 } else {
@@ -315,6 +328,7 @@ impl Interpreter {
                 unimplemented!("Print");
             }
             Control::Enable { data } => {
+                println!("Evaluating Enable");
                 return self.eval_s(inputs, structure, st, data.comps.clone());
             }
             Control::Empty { data: _ } => return Ok(st.clone()),
@@ -332,7 +346,7 @@ impl Interpreter {
     /// # Returns
     ///   Returns the new component state
     pub fn eval_s(
-        &self,
+        &mut self,
         inputs: &HashMap<ast::Id, Option<i64>>,
         structure: &StructureGraph,
         st: &State,
@@ -341,11 +355,16 @@ impl Interpreter {
         // Create a fresh graph for evaluation so we don't impact the original structure
         // It should have no values on the wires
         let mut graph = structure.clone();
+        println!("Splitting Sequential Prims");
         graph.split_seq_prims(); // Split sequential primitives to remove valid cycles
+        println!("Setting input values");
         graph.drive_inputs(inputs); // Initialize with input values
+        println!("Setting state values");
         graph.drive_state(st); // Load values from State into graph
-        let st_1 = graph.update(&self, st, enabled)?; // Simulate the hardware
-        let output_map = graph.read_outputs();
+        println!("Updating graph");
+        let st_1 = graph.update(self, st, enabled)?; // Simulate the hardware
+        self.last_graph = Some(graph);
+        println!("Returning State graph");
         Ok(st_1)
     }
 }

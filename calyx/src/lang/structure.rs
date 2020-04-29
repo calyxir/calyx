@@ -203,10 +203,10 @@ impl StructureGraph {
                         ));
                     }
                     // either source or dest not found, report src as error
-                    _ => {
+                    (src, dest) => {
                         return Err(Error::UndefinedComponent(
                             data.src.port_name().clone(),
-                        ))
+                        ));
                     }
                 }
             }
@@ -664,7 +664,7 @@ impl EvalGraph for StructureGraph {
 
     fn update(
         &mut self,
-        interpret: &Interpreter,
+        interpret: &mut Interpreter,
         st: &State,
         enabled: Vec<ast::Id>,
     ) -> Result<State, Error> {
@@ -680,11 +680,12 @@ impl EvalGraph for StructureGraph {
                     // Check if component is enabled
                     if enabled.contains(&name) {
                         let input_map = self.input_values(idx);
-                        let (output_map, _st_1) = interpret.eval(
-                            st.clone(),
-                            &component_type,
-                            input_map,
-                        )?;
+                        println!(
+                            "Evaluating subcomponent: {:#?} {:#?}",
+                            name, component_type
+                        );
+                        let (output_map, _st_1) =
+                            interpret.eval(st.clone(), &name, input_map)?;
                         self.drive_outputs(&idx, &output_map);
                     }
                 }

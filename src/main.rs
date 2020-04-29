@@ -88,13 +88,16 @@ fn main() -> Result<(), errors::Error> {
 
     // Construct the context.
     let context = Context::from_opts(&opts)?;
+    println!("{:?}", "Parsed Context");
 
     // Run the interpreter if input file was specified
     // TODO (ken) review whether this should check the backend enum
     // Also check with others if this should prevent other
     // backends from running
     if let Some(path) = opts.inputs {
-        let interpreter = Interpreter::new(&context);
+        println!("{:?}", "Creating new Interpreter");
+        let mut interpreter = Interpreter::new(&context);
+        println!("{:?}", "Running interpreter");
         return interpreter.run(&mut std::io::stdout(), path);
     }
 
