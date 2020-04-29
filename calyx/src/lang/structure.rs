@@ -94,6 +94,11 @@ pub struct StructureGraph {
     // port names and instance identifiers
     portdef_map: HashMap<ast::Id, NodeIndex>,
     inst_map: HashMap<ast::Id, NodeIndex>,
+    /// Maps original duplicate node indices -> original nodes indices created during splitting
+    /// The original nodes have all the input wires, and the duplicate nodes have
+    /// all the output wires
+    ///                    duplicates  originals
+    duplicate_map: HashMap<NodeIndex, NodeIndex>, // Duplicates created by split_seq_prim
     pub graph: StructG,
 }
 
@@ -102,6 +107,7 @@ impl Default for StructureGraph {
         StructureGraph {
             portdef_map: HashMap::new(),
             inst_map: HashMap::new(),
+            duplicate_map: HashMap::new(),
             graph: StructG::new(),
         }
     }
@@ -468,6 +474,7 @@ impl EvalGraph for StructureGraph {
     /// std::mem::replace is used according to a response to this stack overflow post:
     /// https://stackoverflow.com/questions/35936995/mutating-one-field-while-iterating-over-another-immutable-field
     fn split_seq_prims(&mut self) {
+        println!("{:#?}", self.inst_map);
         let inst_map =
             std::mem::replace(&mut self.inst_map, HashMap::default());
         for idx in inst_map.values() {
@@ -494,6 +501,9 @@ impl EvalGraph for StructureGraph {
         let node_data = &self.graph[idx.clone()];
         let new_data = node_data.clone();
         let new_idx = self.graph.add_node(new_data);
+
+        // Track the duplicate nodes
+        self.duplicate_map.insert(new_idx, idx.clone());
 
         // Move output edges to the new node
         let mut walker = self
@@ -551,10 +561,24 @@ impl EvalGraph for StructureGraph {
                 self.graph.find_edge(idx.clone(), neighbor_idx)
             {
                 let edge_data = &self.graph[edge_idx];
-                if let Some(v) =
+                if let Some(new_value) =
                     outputs.get(&ast::Id::from(edge_data.src.clone()))
                 {
-                    self.graph[edge_idx].value.set(v.clone());
+                    // Check if the edge has already been set
+                    // If it has, we have a conflict!
+                    let curr_value = self.graph[edge_idx].value.get();
+                    // println!("{:#?} {:#?}", idx, neighbor_idx);
+                    // println!("{:#?} {:#?}", edge_data.src, edge_data.dest);
+                    match (curr_value, new_value) {
+                        (None, _) => {
+                            // println!("Setting new value!");
+                            self.graph[edge_idx].value.set(new_value.clone())
+                        }
+                        (Some(v), None) => { /* Do nothing */ }
+                        (Some(_v1), Some(_v2)) => {
+                            unimplemented!("Handle this error");
+                        }
+                    }
                 }
             }
         }
@@ -562,9 +586,10 @@ impl EvalGraph for StructureGraph {
 
     /// Helper function for setting the value of the outputs of a state port
     fn drive_state(&mut self, state: &State) {
-        let inst_map =
-            std::mem::replace(&mut self.inst_map, HashMap::default());
-        for idx in inst_map.values() {
+        let duplicate_map =
+            std::mem::replace(&mut self.duplicate_map, HashMap::default());
+        println!("Setting up state");
+        for idx in duplicate_map.keys() {
             match &self.graph[idx.clone()].clone() {
                 NodeData::Input(_) => { /* Do nothing */ }
                 NodeData::Output(_) => { /* Do nothing */ }
@@ -573,6 +598,7 @@ impl EvalGraph for StructureGraph {
                     component_type,
                     ..
                 } => {
+                    println!("Checking for registers");
                     // TODO fix how we determine if the component is a
                     // state primitive
                     if component_type.to_string() == "std_reg" {
@@ -586,6 +612,9 @@ impl EvalGraph for StructureGraph {
                                             State::Component(_) => { /* TODO malformed state */
                                             }
                                             State::Register(i) => {
+                                                println!(
+                                                    "Driving a register state: index: {:#?} value: {:#?}"
+                                                , idx, i);
                                                 self.drive_port(
                                                     idx,
                                                     "out".to_string(),
@@ -612,7 +641,7 @@ impl EvalGraph for StructureGraph {
                 }
             }
         }
-        std::mem::replace(&mut self.inst_map, inst_map);
+        std::mem::replace(&mut self.duplicate_map, duplicate_map);
     }
 
     /// Helper function for setting values of ports
@@ -653,10 +682,29 @@ impl EvalGraph for StructureGraph {
                 self.graph.find_edge(neighbor_idx, idx.clone())
             {
                 let edge_data = &self.graph[edge_idx];
-                map.insert(
-                    ast::Id::from(edge_data.dest.clone()),
-                    edge_data.value.get(),
-                );
+                // println!("Reading input values for subcomponent");
+                // println!("{:#?} {:#?}", neighbor_idx, idx);
+                // println!("{:#?} {:#?}", edge_data.src, edge_data.dest);
+                // println!("{:#?}", edge_data.value.get());
+                // Check for duplicate input values
+                let port = ast::Id::from(edge_data.dest.clone());
+                if map.contains_key(&port) {
+                    let new_val = edge_data.value.get();
+                    let old_val = map.get(&port).unwrap();
+                    match (old_val, new_val) {
+                        (None, _) => {
+                            map.insert(port, new_val);
+                        }
+                        (Some(v), None) => { /* Do nothing */ }
+                        (Some(_v1), Some(_v2)) => {
+                            unimplemented!(
+                                "Need to catch this error in structure.rs- tried to set input port to two different values"
+                            );
+                        }
+                    }
+                } else {
+                    map.insert(port, edge_data.value.get());
+                }
             }
         }
         map
@@ -665,9 +713,11 @@ impl EvalGraph for StructureGraph {
     fn update(
         &mut self,
         interpret: &mut Interpreter,
+        comp: &Component,
         st: &State,
         enabled: Vec<ast::Id>,
     ) -> Result<State, Error> {
+        let mut next_st: State = st.clone();
         for idx in self.toposort()?.iter() {
             match &self.graph[idx.clone()] {
                 NodeData::Input(_) => { /* Do nothing */ }
@@ -678,21 +728,40 @@ impl EvalGraph for StructureGraph {
                     ..
                 } => {
                     // Check if component is enabled
-                    if enabled.contains(&name) {
+                    if enabled.contains(&name)
+                        && !self.duplicate_map.contains_key(idx)
+                    {
                         let input_map = self.input_values(idx);
-                        println!(
-                            "Evaluating subcomponent: {:#?} {:#?}",
-                            name, component_type
-                        );
-                        let (output_map, _st_1) =
-                            interpret.eval(st.clone(), &name, input_map)?;
-                        self.drive_outputs(&idx, &output_map);
+                        // println!(
+                        //     "Evaluating subcomponent: {:#?} {:#?}",
+                        //     name, component_type
+                        // );
+                        // Lookup component definition and run it
+                        if let Some(comp1) = comp.resolved_comps.get(name) {
+                            println!("{:#?}", next_st);
+                            let comp1_st = next_st.lookup_subcomp_st(name)?;
+                            let (output_map, st_1) =
+                                interpret.eval(comp1_st, comp1, input_map)?;
+                            println!(
+                                "Setting subcomponent state: {:#?} {:#?}",
+                                name, st_1
+                            );
+                            next_st.set_subcomp_st(name, st_1)?;
+                            println!(
+                                "Driving outputs: {:#?} {:#?}",
+                                idx, output_map
+                            );
+                            self.drive_outputs(&idx, &output_map);
+                        } else {
+                            return Err(Error::UndefinedComponent(
+                                name.clone(),
+                            ));
+                        }
                     }
                 }
             }
         }
-
-        Err(Error::StructureHasCycle)
+        Ok(next_st)
     }
 
     /// Read values from output ports

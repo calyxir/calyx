@@ -18,17 +18,8 @@ pub enum State {
 impl State {
     /// Sets a register value in a component.
     /// This function must be called from a
-    /// State::Component type, which are generated
-    /// automatically by `from_component`, and the
-    /// component with `id` must be a `std_reg`
-    pub fn set_reg(
-        self,
-        id: &ast::Id,
-        new_val: Option<i64>,
-    ) -> Result<Self, Error> {
-        // match self {
-        //     State::Component(mut map) => {
-        //         if let Some(next_state) = map.get(id) {
+    /// State::Register type
+    pub fn set_reg(self, new_val: Option<i64>) -> Result<Self, Error> {
         match self {
             State::Register(_) => {
                 let new_reg = State::Register(new_val);
@@ -36,33 +27,44 @@ impl State {
             }
             _ => Err(Error::MissingState),
         }
-        //         } else {
-        //             Err(Error::MissingState)
-        //         }
-        //     }
-        //     _ => Err(Error::MissingState),
-        // }
     }
 
     /// Looks up a register value in a component.
     /// This function must be called from a
-    /// State::Component type, which are generated
-    /// automatically by `from_component`, and the
-    /// component with `id` must be a `std_reg`
-    pub fn lookup_reg(&self, id: &ast::Id) -> Result<Option<i64>, Error> {
-        // match self {
-        //     State::Component(map) => {
-        //         if let Some(next_state) = map.get(id) {
+    /// State::Register type
+    pub fn lookup_reg(&self) -> Result<Option<i64>, Error> {
         match self {
             State::Register(val) => Ok(val.clone()),
             _ => Err(Error::MissingState),
         }
-        //         } else {
-        //             Err(Error::MissingState)
-        //         }
-        //     }
-        //     _ => Err(Error::MissingState),
-        // }
+    }
+
+    pub fn lookup_subcomp_st(&self, id: &ast::Id) -> Result<State, Error> {
+        match self {
+            // TODO remove unwrap
+            State::Component(map) => Ok(map.get(id).unwrap().clone()),
+            _ => Err(Error::InternalInterpreterError(
+                "Unable to lookup sub component state in state.rs!".to_owned(),
+            )),
+        }
+    }
+
+    pub fn set_subcomp_st(
+        &mut self,
+        id: &ast::Id,
+        st: State,
+    ) -> Result<(), Error> {
+        match self {
+            // TODO remove unwrap
+            State::Component(map) => {
+                map.insert(id.clone(), st);
+                Ok(())
+            }
+
+            _ => Err(Error::InternalInterpreterError(
+                "Unable to set sub component state in state.rs!".to_owned(),
+            )),
+        }
     }
 
     /// Generates a state for a component
@@ -105,6 +107,8 @@ impl State {
                                 c,
                             )?,
                         );
+                    } else {
+                        map.insert(name, State::Empty);
                     }
                 }
             }

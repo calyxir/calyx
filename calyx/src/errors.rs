@@ -27,6 +27,7 @@ pub enum Error {
     MissingState,      // state.rs, lookup_reg
     MissingInput(String, String),
     Overflow(String),
+    InternalInterpreterError(String), // Generic interpreter exceptions
 }
 
 impl std::fmt::Debug for Error {
@@ -65,7 +66,8 @@ impl std::fmt::Debug for Error {
             UnimplementedPrimitive(id) => write!(f, "Interpreter implementation for {:?} not found!", id), 
             MissingState => write!(f, "Error looking up reg in state.rs, lookup_reg"),
             MissingInput(comp, port)=> write!(f, "missing port {:?} from component {:?}", port, comp),
-            Overflow(comp) => write!(f, "overflow in component {}", comp)
+            Overflow(comp) => write!(f, "overflow in component {}", comp),
+            InternalInterpreterError(msg) => write!(f, "Error in Interpreter: {}", msg)
         }
     }
 }
