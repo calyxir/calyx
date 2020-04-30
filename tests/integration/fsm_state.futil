@@ -1,0 +1,9 @@
+(define/namespace prog
+  (import primitives/std.lib)
+  (define/component main () ()
+    ([new-std fsm_state (std_fsm_state)]
+     [group group1 (fsm_state)]
+     [-> (@ group1 valid) (@ fsm_state in)]
+     [-> (@ group1 clk) (@ fsm_state clk)]
+     [-> (@ fsm_state out) (@ group1 ready)])
+    (enable group1)))

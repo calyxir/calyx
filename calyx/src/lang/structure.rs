@@ -1,8 +1,7 @@
 use crate::errors;
 use crate::lang::{ast, component};
 use crate::utils::NameGenerator;
-use ast::Id;
-use ast::Port;
+use ast::{Id, Port, Structure};
 use component::Component;
 use errors::Error;
 use petgraph::dot::{Config, Dot};
@@ -13,7 +12,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
-enum NodeStructure {
+pub enum NodeData {
     Instance(ast::Structure),
     Group(Vec<ast::Id>),
     Port,
@@ -21,11 +20,10 @@ enum NodeStructure {
 
 /// store the structure ast node so that we can reconstruct the ast
 #[derive(Clone, Debug)]
-pub struct NodeData {
-    // XXX(sam) maybe remove this?
-    name: ast::Id,
-    structure: NodeStructure,
-    signature: ast::Signature,
+pub struct Node {
+    pub name: ast::Id,
+    pub data: NodeData,
+    pub signature: ast::Signature,
 }
 
 pub struct PortIter {
@@ -47,57 +45,37 @@ impl Iterator for PortIter {
     }
 }
 
-// impl NodeData {
-//     pub fn get_name(&self) -> &ast::Id {
-//         match self {
-//             NodeData::Input(pd) => &pd.name,
-//             NodeData::Output(pd) => &pd.name,
-//             NodeData::Instance { name, .. } => &name,
-//         }
-//     }
+impl Node {
+    pub fn get_component_type(&self) -> Result<&ast::Id, errors::Error> {
+        match &self.data {
+            NodeData::Port | NodeData::Group { .. } => {
+                Err(errors::Error::NotSubcomponent)
+            }
+            NodeData::Instance(structure) => match structure {
+                Structure::Wire { .. } => Err(Error::Impossible(
+                    "There should be no wires in nodes".to_string(),
+                )),
+                Structure::Std { data } => Ok(&data.instance.name),
+                Structure::Decl { data } => Ok(&data.component),
+                Structure::Group { .. } => Err(Error::Impossible(
+                    "There should be no wires in nodes".to_string(),
+                )),
+            },
+        }
+    }
 
-//     pub fn get_component_type(&self) -> Result<&ast::Id, errors::Error> {
-//         match self {
-//             NodeData::Input { .. } | NodeData::Output { .. } => {
-//                 Err(errors::Error::NotSubcomponent)
-//             }
-//             NodeData::Instance { structure, .. } => match structure {
-//                 Structure::Wire { .. } => Err(Error::Impossible(
-//                     "There should be no wires in nodes".to_string(),
-//                 )),
-//                 Structure::Std { data } => Ok(&data.instance.name),
-//                 Structure::Decl { data } => Ok(&data.component),
-//                 Structure::Group { .. } => Err(Error::Impossible(
-//                     "There should be no wires in nodes".to_string(),
-//                 )),
-//             },
-//         }
-//     }
+    pub fn out_ports(&self) -> PortIter {
+        PortIter {
+            items: self.signature.outputs.clone(),
+        }
+    }
 
-//     pub fn out_ports(&self) -> PortIter {
-//         match self {
-//             NodeData::Input(pd) => PortIter {
-//                 items: vec![pd.clone()],
-//             },
-//             NodeData::Output(_) => PortIter { items: vec![] },
-//             NodeData::Instance { signature, .. } => PortIter {
-//                 items: signature.outputs.clone(),
-//             },
-//         }
-//     }
-
-//     pub fn in_ports(&self) -> PortIter {
-//         match self {
-//             NodeData::Input(pd) => PortIter {
-//                 items: vec![pd.clone()],
-//             },
-//             NodeData::Output(_) => PortIter { items: vec![] },
-//             NodeData::Instance { signature, .. } => PortIter {
-//                 items: signature.inputs.clone(),
-//             },
-//         }
-//     }
-// }
+    pub fn in_ports(&self) -> PortIter {
+        PortIter {
+            items: self.signature.inputs.clone(),
+        }
+    }
+}
 
 /// store the src port and dst port on edge
 #[derive(Clone, Debug)]
@@ -111,7 +89,7 @@ pub struct EdgeData {
 /// for the corresponding component, and the data on the edge
 /// is (src port, dest port). Use stable graph so that NodeIndexes
 /// remain valid after removals. the graph is directed
-type StructG = StableDiGraph<NodeData, EdgeData>;
+type StructG = StableDiGraph<Node, EdgeData>;
 
 // I want to keep the fields of this struct private so that it is easy to swap
 // out implementations / add new ways of manipulating this
@@ -127,9 +105,9 @@ pub struct StructureGraph {
 impl Default for StructureGraph {
     fn default() -> Self {
         let mut graph = StructG::new();
-        let ports = graph.add_node(NodeData {
+        let ports = graph.add_node(Node {
             name: "this".into(),
-            structure: NodeStructure::Port,
+            data: NodeData::Port,
             signature: ast::Signature::default(),
         });
         StructureGraph {
@@ -185,9 +163,9 @@ impl StructureGraph {
                                 data.component.clone(),
                             )
                         })?;
-                    let instance = NodeData {
+                    let instance = Node {
                         name: data.name.clone(),
-                        structure: NodeStructure::Instance(stmt.clone()),
+                        data: NodeData::Instance(stmt.clone()),
                         signature: sig.clone(),
                     };
                     structure.nodes.insert(
@@ -201,9 +179,9 @@ impl StructureGraph {
                     let sig = prim_sigs.get(&data.name).ok_or_else(|| {
                         Error::SignatureResolutionFailed(data.name.clone())
                     })?;
-                    let instance = NodeData {
+                    let instance = Node {
                         name: data.name.clone(),
-                        structure: NodeStructure::Instance(stmt.clone()),
+                        data: NodeData::Instance(stmt.clone()),
                         signature: sig.clone(),
                     };
                     structure.nodes.insert(
@@ -212,9 +190,9 @@ impl StructureGraph {
                     );
                 }
                 ast::Structure::Group { data } => {
-                    let data = NodeData {
+                    let data = Node {
                         name: data.name.clone(),
-                        structure: NodeStructure::Group(data.comps.clone()),
+                        data: NodeData::Group(data.comps.clone()),
                         signature: group_signature(),
                     };
                     structure.nodes.insert(
@@ -229,6 +207,7 @@ impl StructureGraph {
         // then add edges
         for stmt in &compdef.structure {
             if let ast::Structure::Wire { data } = stmt {
+                println!("1");
                 // get src node in graph and src port
                 let (src_node, src_port) = match &data.src {
                     Port::Comp { component, port } => (
@@ -286,9 +265,9 @@ impl StructureGraph {
         comp: &component::Component,
         structure: ast::Structure,
     ) -> NodeIndex {
-        let idx = self.graph.add_node(NodeData {
+        let idx = self.graph.add_node(Node {
             name: id.clone(),
-            structure: NodeStructure::Instance(structure),
+            data: NodeData::Instance(structure),
             signature: comp.signature.clone(),
         });
         self.nodes.insert(id.clone(), idx);
@@ -336,9 +315,9 @@ impl StructureGraph {
         }
 
         // generate node for group
-        let data = NodeData {
+        let data = Node {
             name: name.into(),
-            structure: NodeStructure::Group(comps.to_vec()),
+            data: NodeData::Group(comps.to_vec()),
             signature: group_signature(),
         };
         let idx = self.graph.add_node(data);
@@ -349,7 +328,7 @@ impl StructureGraph {
     /* ============= Helper Methods ============= */
 
     /// Returns an iterator over all the nodes in the structure graph
-    pub fn nodes(&self) -> impl Iterator<Item = (NodeIndex, NodeData)> + '_ {
+    pub fn nodes(&self) -> impl Iterator<Item = (NodeIndex, Node)> + '_ {
         self.graph
             .node_indices()
             .map(move |ni| (ni, self.graph[ni].clone()))
@@ -358,12 +337,10 @@ impl StructureGraph {
     pub fn group_nodes(
         &self,
         group_id: &ast::Id,
-    ) -> impl Iterator<Item = (NodeIndex, NodeData)> + '_ {
+    ) -> impl Iterator<Item = (NodeIndex, Node)> + '_ {
         let group_comps =
             self.nodes.get(group_id).map_or(vec![], move |gr_idx| {
-                if let NodeStructure::Group(data) =
-                    &self.graph[*gr_idx].structure
-                {
+                if let NodeData::Group(data) = &self.graph[*gr_idx].data {
                     data.clone()
                 } else {
                     vec![]
@@ -379,9 +356,8 @@ impl StructureGraph {
     fn connected_direction<'a>(
         &'a self,
         node: NodeIndex,
-        port: String,
         direction: Direction,
-    ) -> impl Iterator<Item = (&'a NodeData, &'a EdgeData)> + 'a {
+    ) -> impl Iterator<Item = (&'a Node, &'a EdgeData)> + 'a {
         let edge_iter = self
             .graph
             .edges_directed(node, direction)
@@ -390,42 +366,47 @@ impl StructureGraph {
             .graph
             .neighbors_directed(node, direction)
             .map(move |idx| &self.graph[idx]);
-        node_iter
-            .zip(edge_iter)
-            .filter_map(move |(nd, ed)| match direction {
-                Direction::Incoming => {
-                    if ed.dest == port {
-                        Some((nd, ed))
-                    } else {
-                        None
-                    }
-                }
-                Direction::Outgoing => {
-                    if ed.src == port {
-                        Some((nd, ed))
-                    } else {
-                        None
-                    }
-                }
-            })
+        node_iter.zip(edge_iter)
     }
 
-    /// Returns an iterator over edges and destination nodes connected to `node` at `port`
-    pub fn connected_outgoing<'a>(
+    /// Returns a (Node, EdgeData) iterator for edges leaving `node`
+    /// i.e. edges that have `node` as a source. This iterator ignores ports.
+    pub fn outgoing_from_node<'a>(
         &'a self,
         node: NodeIndex,
-        port: String,
-    ) -> impl Iterator<Item = (&'a NodeData, &'a EdgeData)> + 'a {
-        self.connected_direction(node, port, Direction::Outgoing)
+    ) -> impl Iterator<Item = (&'a Node, &'a EdgeData)> + 'a {
+        self.connected_direction(node, Direction::Outgoing)
     }
 
-    /// Returns an iterator over edges and src nodes connected to `node` at `port`
-    pub fn connected_incoming<'a>(
+    /// Returns a (Node, EdgeData) iterator for edges coming into `node`
+    /// i.e. edges that have `node` as a destination. This iterator ignores ports.
+    pub fn incoming_to_node<'a>(
         &'a self,
         node: NodeIndex,
-        port: String,
-    ) -> impl Iterator<Item = (&'a NodeData, &'a EdgeData)> + 'a {
-        self.connected_direction(node, port, Direction::Incoming)
+    ) -> impl Iterator<Item = (&'a Node, &'a EdgeData)> + 'a {
+        self.connected_direction(node, Direction::Incoming)
+    }
+
+    /// Returns a (Node, EdgeData) iterator for edges leaving `node` at `port`
+    /// i.e. edges that have `(@ node port)` as a source.
+    pub fn outgoing_from_port<'a, S: 'a + PartialEq<String>>(
+        &'a self,
+        node: NodeIndex,
+        port: S,
+    ) -> impl Iterator<Item = (&'a Node, &'a EdgeData)> + 'a {
+        self.outgoing_from_node(node)
+            .filter(move |(_nd, ed)| port == ed.src)
+    }
+
+    /// Returns a (Node, EdgeData) iterator for edges coming into `node` at `port`
+    /// i.e. edges that have `(@ node port)` as a destination.
+    pub fn incoming_to_port<'a, S: 'a + PartialEq<String>>(
+        &'a self,
+        node: NodeIndex,
+        port: S,
+    ) -> impl Iterator<Item = (&'a Node, &'a EdgeData)> + 'a {
+        self.incoming_to_node(node)
+            .filter(move |(_nd, ed)| port == ed.dest)
     }
 
     pub fn insert_input_port(&mut self, port: &ast::Portdef) {
@@ -488,6 +469,25 @@ impl StructureGraph {
         }
     }
 
+    pub fn remove_edge<S: AsRef<str>, U: AsRef<str>>(
+        &mut self,
+        src_node: NodeIndex,
+        src_port: S,
+        dest_node: NodeIndex,
+        dest_port: U,
+    ) -> Result<(), Error> {
+        let edge_idx = self.graph.edge_indices()
+            .filter_map(|eidx| self.graph.edge_endpoints(eidx))
+            .filter(|(s, t)| s == &src_node && t == &dest_node)
+            .find(|(s, t)| );
+        Ok(())
+            // (src_node, dest_node).find()
+    }
+
+    pub fn get(&self, idx: NodeIndex) -> &Node {
+        &self.graph[idx]
+    }
+
     pub fn get_idx(&self, port: &ast::Id) -> Result<NodeIndex, Error> {
         match self.nodes.get(port) {
             Some(idx) => Ok(*idx),
@@ -495,29 +495,19 @@ impl StructureGraph {
         }
     }
 
-    // Return the `NodeIndex` for a named port. If not present, return an Error.
-    // pub fn get_io_index<S: AsRef<str>>(
-    //     &self,
-    //     port: S,
-    // ) -> Result<NodeIndex, Error> {
-    //     let port: &str = port.as_ref();
-    //     match self.portdef_map.get(&port.into()) {
-    //         Some(idx) => Ok(*idx),
-    //         None => Err(Error::UndefinedPort(port.to_string())),
-    //     }
-    // }
+    pub fn get_this(&self) -> NodeIndex {
+        self.ports
+    }
 
     /// Constructs a ast::Port from a NodeIndex for error reporting
     fn construct_port(&self, idx: NodeIndex, port: &str) -> ast::Port {
         let node = &self.graph[idx];
-        match node.structure {
-            NodeStructure::Port => Port::This { port: port.into() },
-            NodeStructure::Instance(..) | NodeStructure::Group(..) => {
-                Port::Comp {
-                    component: node.name.clone(),
-                    port: port.into(),
-                }
-            }
+        match node.data {
+            NodeData::Port => Port::This { port: port.into() },
+            NodeData::Instance(..) | NodeData::Group(..) => Port::Comp {
+                component: node.name.clone(),
+                port: port.into(),
+            },
         }
     }
 
@@ -534,11 +524,11 @@ impl Into<Vec<ast::Structure>> for StructureGraph {
         let mut ret: Vec<ast::Structure> = vec![];
         // add structure stmts for nodes
         for (name, idx) in &self.nodes {
-            match &self.graph[*idx].structure {
-                NodeStructure::Instance(data) => {
+            match &self.graph[*idx].data {
+                NodeData::Instance(data) => {
                     ret.push(data.clone());
                 }
-                NodeStructure::Group(comps) => ret
+                NodeData::Group(comps) => ret
                     .push(ast::Structure::group(name.clone(), comps.to_vec())),
                 _ => (),
             }

@@ -18,8 +18,8 @@ pub enum Action {
 impl Action {
     /// Monadic helper function that sequences actions
     /// that return a VisResult.
-    /// If `self` is `Continue` or `Change`, return the result of running `f`.
-    /// Pass `Stop` through
+    /// If `self` is `Continue`, return the result of running `f`.
+    /// Pass `Stop` or `Change` through
     fn and_then<F>(self, mut other: F) -> VisResult
     where
         F: FnMut() -> VisResult,
@@ -35,6 +35,7 @@ impl Action {
     fn apply_change(self, con: &mut Control) -> VisResult {
         match self {
             Action::Change(c) => {
+                println!("asdfasdfasdfa");
                 *con = c;
                 Ok(Action::Continue)
             }
@@ -91,7 +92,8 @@ pub trait Visitor {
                     comp.control = control;
                     Ok(Action::Continue)
                 })?
-                .and_then(|| self.finish(&mut comp, context))?;
+                .and_then(|| self.finish(&mut comp, context))?
+                .apply_change(&mut comp.control);
             Ok(())
         })?;
 

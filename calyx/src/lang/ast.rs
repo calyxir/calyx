@@ -167,14 +167,14 @@ impl From<(&str, u64)> for Portdef {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Sexpy, PartialOrd, Ord)]
 #[sexpy(head = "@")]
 pub enum Port {
-    /// Refers to the port named `port` on the subcomponent
-    /// `component`.
-    Comp { component: Id, port: Id },
-
     /// Refers to the port named `port` on the component
     /// currently being defined.
     #[sexpy(head = "this")]
     This { port: Id },
+
+    /// Refers to the port named `port` on the subcomponent
+    /// `component`.
+    Comp { component: Id, port: Id },
 }
 
 impl Port {

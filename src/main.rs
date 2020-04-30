@@ -65,21 +65,13 @@ fn pass_map() -> HashMap<String, PassClosure> {
             Ok(())
         }),
     );
-    // names.insert(
-    //     FsmSeq::name().to_string(),
-    //     Box::new(|ctx, mut name_gen| {
-    //         FsmSeq::new(&mut name_gen).do_pass(&ctx)?;
-    //         Ok(())
-    //     }),
-    // );
-    // names.insert(
-    //     FsmSeq::name().to_string(),
-    //     Box::new(move |ctx| {
-    //         let r = FsmSeq::new(&mut name_gen);
-    //         r.do_pass(ctx)?;
-    //         Ok(Box::new(r))
-    //     }),
-    // );
+    names.insert(
+        FsmSeq::name().to_string(),
+        Box::new(|ctx, mut name_gen| {
+            FsmSeq::new(&mut name_gen).do_pass(&ctx)?;
+            Ok(())
+        }),
+    );
     names.insert(
         "all".to_string(),
         Box::new(|ctx, mut name_gen| {

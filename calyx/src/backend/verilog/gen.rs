@@ -1,11 +1,15 @@
+use super::group_passthrough::GroupPassthrough;
+use super::interfacing::Interfacing;
 use crate::backend::traits::{Backend, Emitable};
 use crate::errors::Error;
 use crate::lang::library::ast as lib;
 use crate::lang::pretty_print::{display, PrettyHelper};
+use crate::lang::structure::Node;
 use crate::lang::{
     ast, ast::Control, ast::Structure, colors, colors::ColorHelper, component,
     context, structure, structure::EdgeData, structure::NodeData,
 };
+use crate::passes::visitor::Visitor;
 use itertools::Itertools;
 use lib::Implementation;
 use petgraph::graph::NodeIndex;
@@ -34,14 +38,14 @@ pub struct VerilogBackend {}
 fn validate_structure(comp: &component::Component) -> Result<(), Error> {
     let has_multiple_inputs = comp
         .structure
-        .instances()
+        .nodes()
         // get all incoming ports
         .map(|(idx, node)| node.in_ports().map(move |pd| (idx, pd)))
         .flatten()
         // find if port had > 1 incoming edge
         .any(|(idx, port)| {
             comp.structure
-                .connected_incoming(idx, port.to_string())
+                .incoming_to_port(idx, port.to_string())
                 .count()
                 > 1
         });
@@ -58,9 +62,9 @@ fn validate_structure(comp: &component::Component) -> Result<(), Error> {
 /// or `empty`.
 fn validate_control(comp: &component::Component) -> Result<(), Error> {
     match &comp.control {
-        Control::Enable { .. } | Control::Empty { .. } => Ok(()),
+        Control::Enable { .. } => Ok(()),
         _ => Err(Error::MalformedControl(
-            "Must either be a single enable or an empty statement".to_string(),
+            "Must be a single enable statement".to_string(),
         )),
     }
 }
@@ -78,6 +82,13 @@ impl Backend for VerilogBackend {
     }
 
     fn emit<W: Write>(ctx: &context::Context, file: W) -> Result<(), Error> {
+        // add interfacing to main module
+        Interfacing::do_pass_default(&ctx)?;
+        GroupPassthrough::do_pass_default(&ctx)?;
+
+        use crate::lang::pretty_print::PrettyPrint;
+        ctx.pretty_print();
+
         let prog: ast::NamespaceDef = ctx.clone().into();
 
         // build Vec of tuples first so that `comps` lifetime is longer than
@@ -245,59 +256,95 @@ fn wire_declarations<'a>(
     // correspond exactly with Futil wires.
     let structure: &structure::StructureGraph = &comp.structure;
     let wires = structure
-        .instances()
-        .filter_map(|(idx, data)| match data {
-            NodeData::Instance {
-                name, signature, ..
-            } => Some(
-                signature
-                    .outputs
-                    .into_iter()
-                    .filter_map(move |portdef| {
-                        match wire_string(portdef, structure, idx, &name) {
-                            Ok(None) => None,
-                            Ok(Some(x)) => Some(Ok(x)),
-                            Err(x) => Some(Err(x)),
-                        }
-                    })
-                    .collect::<Vec<_>>(),
-            ),
-            // if an input is connected directly to an output
-            // alias the two
-            NodeData::Input(portdef) => Some(
-                structure
-                    .connected_outgoing(idx, portdef.name.to_string())
-                    .filter_map(|(node, edge)| match node {
-                        NodeData::Output(_) => Some(Ok(alias(&edge))),
-                        _ => None,
-                    })
-                    .collect::<Vec<_>>(),
-            ),
-            _ => None,
+        .nodes()
+        .filter_map(|(idx, node)| {
+            match node.data {
+                NodeData::Port => None,
+                NodeData::Instance(..) => Some(
+                    structure
+                        .outgoing_from_node(idx)
+                        .map(|(_n, e)| {
+                            D::text("wire")
+                                .keyword_color()
+                                .append(D::space())
+                                .append(bit_width(e.width).unwrap())
+                                .append(
+                                    D::text(format!(
+                                        "{}${}",
+                                        node.name.as_ref(),
+                                        e.src
+                                    ))
+                                    .ident_color(),
+                                )
+                                .append(";")
+                        })
+                        .collect::<Vec<_>>(),
+                ),
+                NodeData::Group(..) => {
+                    let out =
+                        structure.outgoing_from_node(idx).map(|(_n, e)| {
+                            D::text("wire")
+                                .keyword_color()
+                                .append(D::space())
+                                .append(bit_width(e.width).unwrap())
+                                .append(
+                                    D::text(format!(
+                                        "{}${}-out",
+                                        node.name.as_ref(),
+                                        e.src
+                                    ))
+                                    .ident_color(),
+                                )
+                                .append(";")
+                        });
+                    let incoming =
+                        structure.incoming_to_node(idx).map(|(_n, e)| {
+                            D::text("wire")
+                                .keyword_color()
+                                .append(D::space())
+                                .append(bit_width(e.width).unwrap())
+                                .append(
+                                    D::text(format!(
+                                        "{}${}-in",
+                                        node.name.as_ref(),
+                                        e.src
+                                    ))
+                                    .ident_color(),
+                                )
+                                .append(";")
+                        });
+                    Some(out.chain(incoming).collect::<Vec<_>>())
+                }
+            }
+            // .collect::<Result<Vec<_>, Error>>()
         })
-        .flatten()
-        .collect::<Result<Vec<_>, _>>()?;
+        .flatten();
     Ok(D::intersperse(wires, D::line()))
 }
 
 /// Generates a verilog wire declaration for the provided
 /// node and port. Returns `None` if the port is never used.
 fn wire_string<'a>(
-    portdef: ast::Portdef,
+    portdef: &ast::Portdef,
     structure: &structure::StructureGraph,
     idx: NodeIndex,
     name: &ast::Id,
 ) -> Result<Option<D<'a, ColorSpec>>, Error> {
+    // don't want to declare a wire for ports, they already have wires declared
+    if let NodeData::Port = structure.get(idx).data {
+        return Ok(None);
+    };
+
     // build comment of the destinations of each wire declaration
     let dests: Vec<D<ColorSpec>> = structure
-        .connected_outgoing(idx, portdef.name.to_string())
-        .map(|(node, edge)| match node {
-            NodeData::Input(pd) | NodeData::Output(pd) => {
-                D::text(pd.name.to_string())
-            }
-            NodeData::Instance { name, .. } => D::text(name.to_string())
-                .append(" @ ")
-                .append(edge.dest.to_string()),
+        .outgoing_from_port(idx, portdef.name.to_string())
+        .filter_map(|(node, edge)| match node.data {
+            NodeData::Instance(..) | NodeData::Group(..) => Some(
+                D::text(node.name.to_string())
+                    .append(D::text(" @ "))
+                    .append(edge.dest.to_string()),
+            ),
+            NodeData::Port => None,
         })
         .collect();
 
@@ -324,13 +371,13 @@ fn wire_string<'a>(
 }
 
 /// Uses Verilog assign to connect the two ends of `edge`.
-fn alias<'a>(edge: &EdgeData) -> D<'a, ColorSpec> {
+fn alias<'a>(src_string: String, dest_string: String) -> D<'a, ColorSpec> {
     D::text("assign")
         .keyword_color()
         .append(D::space())
-        .append(edge.dest.to_string())
+        .append(src_string)
         .append(" = ")
-        .append(edge.src.to_string())
+        .append(dest_string)
         .append(";")
 }
 
@@ -353,28 +400,59 @@ pub fn bit_width<'a>(width: u64) -> Result<D<'a, ColorSpec>, Error> {
 /// Generate Verilog for each subcomponent instanstiation and
 /// wire up all the ports.
 fn subcomponent_instances<'a>(comp: &component::Component) -> D<'a, ColorSpec> {
-    let subs = comp.structure.instances().filter_map(|(idx, data)| {
-        if let NodeData::Instance {
-            name,
-            structure,
-            signature,
-        } = data
-        {
-            let doc = subcomponent_sig(&name, &structure)
+    let subs = comp.structure.nodes().map(|(idx, node)| match node.data {
+        NodeData::Instance(structure) => {
+            subcomponent_sig(&node.name, &structure)
                 .append(D::space())
                 .append(
                     D::line()
                         .append(signature_connections(
-                            &name, &signature, &comp, idx,
+                            &node.name,
+                            &node.signature,
+                            &comp,
+                            idx,
                         ))
                         .nest(4)
                         .append(D::line())
                         .parens(),
                 )
-                .append(";");
-            Some(doc)
-        } else {
-            None
+                .append(";")
+        }
+        NodeData::Group(..) => {
+            let doc =
+                comp.structure.outgoing_from_node(idx).filter_map(|(n, e)| {
+                    match n.data {
+                        NodeData::Port => None,
+                        NodeData::Group(..) | NodeData::Instance(..) => {
+                            Some(alias(
+                                format!("{}${}", node.name.as_ref(), e.src),
+                                format!("{}${}", n.name.as_ref(), e.dest),
+                            ))
+                        }
+                    }
+                });
+            colors::comment(D::text(format!(
+                "// Group {}",
+                node.name.to_string()
+            )))
+            .append(D::line())
+            .append(D::intersperse(doc, D::line()))
+        }
+        NodeData::Port => {
+            let doc = comp.structure.outgoing_from_node(idx).map(|(n, e)| {
+                match n.data {
+                    NodeData::Port => {
+                        alias(e.src.to_string(), e.dest.to_string())
+                    }
+                    NodeData::Group(..) | NodeData::Instance(..) => alias(
+                        e.src.to_string(),
+                        format!("{}${}", n.name.as_ref(), e.dest),
+                    ),
+                }
+            });
+            colors::comment(D::text("// Port connections".to_string()))
+                .append(D::line())
+                .append(D::intersperse(doc, D::line()))
         }
     });
     D::intersperse(subs, D::line().append(D::line()))
@@ -427,14 +505,12 @@ fn signature_connections<'a>(
         .iter()
         .map(|portdef| {
             comp.structure
-                .connected_incoming(idx, portdef.name.to_string())
+                .incoming_to_port(idx, portdef.name.to_string())
                 .map(move |(src, edge)| {
-                    let wire_name = match src {
-                        NodeData::Input(pd) | NodeData::Output(pd) => {
-                            pd.name.to_string()
-                        }
-                        NodeData::Instance { name, .. } => {
-                            format!("{}${}", name.to_string(), &edge.src)
+                    let wire_name = match src.data {
+                        NodeData::Port => src.name.to_string(),
+                        NodeData::Group(..) | NodeData::Instance(..) => {
+                            format!("{}${}", src.name.to_string(), &edge.src)
                         }
                     };
                     D::text(".")
@@ -463,14 +539,12 @@ fn signature_connections<'a>(
         .iter()
         .map(|portdef| {
             comp.structure
-                .connected_outgoing(idx, portdef.name.to_string())
+                .outgoing_from_port(idx, portdef.name.to_string())
                 .map(move |(dest, edge)| {
-                    let wire_name = match dest {
-                        NodeData::Input(pd) | NodeData::Output(pd) => {
-                            pd.name.to_string()
-                        }
-                        NodeData::Instance { .. } => {
-                            format!("{}${}", name.to_string(), &edge.src)
+                    let wire_name = match dest.data {
+                        NodeData::Port => dest.name.to_string(),
+                        NodeData::Group(..) | NodeData::Instance(..) => {
+                            format!("{}${}", dest.name.to_string(), &edge.dest)
                         }
                     };
                     // return tuple so that we can check uniqueness
