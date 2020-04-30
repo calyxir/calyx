@@ -82,25 +82,11 @@ impl Context {
     ///   or an error.
     pub fn from_ast(
         namespace: ast::NamespaceDef,
-        lib_path: PathBuf,
+        libraries: &[lib::Library],
     ) -> Result<Self, errors::Error> {
-        // Generate library objects from import statements
-        let libs = match namespace.library {
-            Some(import_stmt) => import_stmt
-                .libraries
-                .iter()
-                .map(|path| {
-                    let mut new_path = lib_path.clone();
-                    new_path.push(PathBuf::from(path));
-                    new_path
-                })
-                .map(|path| lib::parse_file(&path))
-                .collect::<Result<Vec<_>, _>>()?,
-            None => vec![],
-        };
         // build hashmap for primitives in provided libraries
         let mut lib_definitions = HashMap::new();
-        for def in libs {
+        for def in libraries {
             for prim in &def.primitives {
                 lib_definitions.insert(prim.name.clone(), prim.clone());
             }
@@ -146,10 +132,24 @@ impl Context {
         })?;
         let namespace = ast::parse_file(file)?;
 
+        // Generate library objects from import statements
         let lib_path = opts.lib_path.canonicalize()?;
+        let libs = match &namespace.library {
+            Some(import_stmt) => import_stmt
+                .libraries
+                .iter()
+                .map(|path| {
+                    let mut new_path = lib_path.clone();
+                    new_path.push(PathBuf::from(path));
+                    new_path
+                })
+                .map(|path| lib::parse_file(&path))
+                .collect::<Result<Vec<_>, _>>()?,
+            None => vec![],
+        };
 
         // build context
-        let mut context = Self::from_ast(namespace, lib_path)?;
+        let mut context = Self::from_ast(namespace, &libs)?;
 
         // set debug mode according to opts
         context.debug_mode = opts.enable_debug;
