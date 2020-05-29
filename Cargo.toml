@@ -8,6 +8,7 @@ build = false
 [dependencies]
 structopt = "~0.3"
 calyx = { path = "calyx" }
+pest = "2.0"
 
 [workspace]
 members = ["calyx"]

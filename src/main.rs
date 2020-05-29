@@ -1,12 +1,15 @@
 use calyx::{
     cmdline::Opts,
     errors,
+    frontend::syntax,
     lang::context::Context,
     passes,
     passes::visitor::{Named, Visitor},
     utils::NameGenerator,
 };
+use pest::Parser;
 use std::collections::HashMap;
+use std::fs;
 use structopt::StructOpt;
 
 type PassClosure =
@@ -105,23 +108,37 @@ fn main() -> Result<(), errors::Error> {
     }
 
     // Construct the context.
-    let context = Context::from_opts(&opts)?;
+    // let context = Context::from_opts(&opts)?;
 
     // Construct pass manager.
-    let names = pass_map();
+    // let names = pass_map();
 
     // Construct the name generator
-    let mut name_gen = NameGenerator::default();
+    // let mut name_gen = NameGenerator::default();
 
     // run all passes specified by the command line
-    for name in opts.pass {
-        if let Some(pass) = names.get(&name) {
-            pass(&context, &mut name_gen)?;
+    // for name in opts.pass {
+    //     if let Some(pass) = names.get(&name) {
+    //         pass(&context, &mut name_gen)?;
+    //     } else {
+    //         let known_passes: String =
+    //             names.keys().cloned().collect::<Vec<_>>().join(", ");
+    //         return Err(errors::Error::UnknownPass(name, known_passes));
+    //     }
+    // }
+    // Ok(opts.backend.run(&context, std::io::stdout())?)
+
+    if let Some(f) = opts.file {
+        let content = &fs::read(f)?;
+        let string_content = std::str::from_utf8(content)?;
+
+        let r = syntax::TestParser::parse(syntax::Rule::file, string_content);
+        if r.is_ok() {
+            println!("Parsed!!")
         } else {
-            let known_passes: String =
-                names.keys().cloned().collect::<Vec<_>>().join(", ");
-            return Err(errors::Error::UnknownPass(name, known_passes));
+            println!("{:#?}", r)
         }
     }
-    Ok(opts.backend.run(&context, std::io::stdout())?)
+
+    Ok(())
 }

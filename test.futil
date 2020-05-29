@@ -1,0 +1,37 @@
+component A(a: 32, b: 32) -> (c: 32) {
+  cells {
+    x = prim register(32, 32, 32, 32);
+    y = my_mult;
+  }
+
+  wires {
+    y.in = switch {
+      x.in => x.out;
+    }
+    group B  {
+      B[done] = 4;
+      x.out = switch {
+        abc.in == 4 & abc.out => 4;
+        abc.in == 4 & abc.out => 4;
+        abc.in == 4 & abc.out => 4;
+      }
+    }
+    y.in = x.out;
+  }
+
+  control {
+    seq {
+      A;
+      B;
+      seq { A; B; }
+      par { A; B; }
+      if x.out in G {
+         A;
+      } else if x.out in G {
+         B;
+      } else {
+         C;
+      }
+    }
+  }
+}

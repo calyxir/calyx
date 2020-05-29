@@ -1,0 +1,145 @@
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+
+ident_syms = { "_" | "-" | "'" }
+identifier = { ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA)* }
+
+bitwidth = { ASCII_DIGIT+ }
+num_lit = { ASCII_DIGIT+ } // TODO: add verilog style number literals
+
+// ====== toplevel ======
+
+component = {
+      "component" ~ identifier ~ signature?
+      ~ "{"
+      ~ (cells | wires | control)*
+      ~ "}"
+}
+
+file = {
+      SOI
+      ~ component+
+      ~ EOI
+}
+
+// ====== signature ======
+
+signature = {
+      "(" ~ io_ports? ~ ")" ~ ("->" ~ "(" ~ io_ports? ~ ")")?
+}
+
+io_port = {
+      identifier ~ ":" ~ bitwidth
+}
+
+io_ports = {
+      io_port ~ ("," ~ io_port)*
+}
+
+args = {
+      "(" ~ (bitwidth ~ ("," ~ bitwidth)*)? ~ ")"
+}
+
+// ====== cells ======
+
+primitive_cell = {
+      identifier ~ "=" ~ "prim" ~ identifier ~ args
+}
+
+component_cell = {
+      identifier ~ "=" ~ identifier
+}
+
+cells = {
+      "cells"
+      ~ "{" ~ ((primitive_cell | component_cell) ~ ";")* ~ "}"
+}
+
+// ====== wires ======
+
+port = {
+      (identifier ~ "." ~ identifier)
+}
+
+hole = {
+      identifier ~ "[" ~ identifier ~ "]"
+}
+
+LHS = { port | hole }
+expr = { LHS | num_lit }
+
+comparator = { "==" | "!=" | "<" | ">" | "<=" | ">=" }
+
+logic_binop = { "&" | "|" }
+
+guard_expr = {
+      (expr ~ comparator ~ expr) | expr
+}
+
+guard = {
+      guard_expr ~ (logic_binop ~ guard_expr)*
+}
+
+switch = {
+      "switch" ~ "{"
+      ~ (guard ~ "=>" ~ expr ~ ";")+
+      ~ "}"
+}
+
+wire = {
+      LHS ~ "=" ~ (switch | (expr ~ ";"))
+}
+
+group = {
+      "group" ~ identifier ~ "{"
+      ~ wire*
+      ~ "}"
+}
+
+wires = {
+      "wires"
+      ~ "{"
+      ~ (wire | group)*
+      ~ "}"
+}
+
+// ====== control ======
+
+enable = { identifier ~ ";" }
+
+seq = {
+      "seq" ~ "{"
+      ~ stmt*
+      ~ "}"
+}
+
+par = {
+      "par" ~ "{"
+      ~ stmt*
+      ~ "}"
+}
+
+block = {
+      "{" ~ stmt ~ "}"
+}
+
+if_stmt = {
+      "if" ~ port ~ ("with" ~ identifier)? ~ block ~ ("else" ~ (if_stmt | block))?
+}
+
+while_stmt = {
+      "while" ~ port ~ ("with" ~ identifier)? ~ block
+}
+
+stmt = {
+      enable
+    | (seq ~ ";"?)
+    | (par ~ ";"?)
+    | (if_stmt ~ ";"?)
+}
+
+control = {
+      "control"
+      ~ "{"
+      ~ stmt
+      ~ "}"
+}
