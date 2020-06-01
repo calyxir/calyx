@@ -1,17 +1,19 @@
 WHITESPACE = _{ " " | "\t" | NEWLINE }
 
-ident_syms = { "_" | "-" | "'" }
-identifier = { ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA)* }
+ident_syms = _{ "_" | "-" | "'" }
+identifier = @{ ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA)* }
 
-bitwidth = { ASCII_DIGIT+ }
-num_lit = { ASCII_DIGIT+ } // TODO: add verilog style number literals
+bitwidth = @{ ASCII_DIGIT+ }
+num_lit = @{ ASCII_DIGIT+ } // TODO: add verilog style number literals
 
 // ====== toplevel ======
 
 component = {
       "component" ~ identifier ~ signature?
       ~ "{"
-      ~ (cells | wires | control)*
+      ~ cells
+      ~ connections
+      ~ control
       ~ "}"
 }
 
@@ -56,32 +58,35 @@ cells = {
 
 // ====== wires ======
 
-port = {
-      (identifier ~ "." ~ identifier)
-}
-
 hole = {
       identifier ~ "[" ~ identifier ~ "]"
 }
 
-LHS = { port | hole }
+port = {
+      (identifier ~ "." ~ identifier)
+    | identifier
+}
+
+LHS = { hole | port }
 expr = { LHS | num_lit }
 
 comparator = { "==" | "!=" | "<" | ">" | "<=" | ">=" }
-
-logic_binop = { "&" | "|" }
 
 guard_expr = {
       (expr ~ comparator ~ expr) | expr
 }
 
 guard = {
-      guard_expr ~ (logic_binop ~ guard_expr)*
+      guard_expr ~ ("&" ~ guard_expr)*
+}
+
+switch_stmt = {
+      guard ~ "=>" ~ expr ~ ";"
 }
 
 switch = {
       "switch" ~ "{"
-      ~ (guard ~ "=>" ~ expr ~ ";")+
+      ~ switch_stmt+
       ~ "}"
 }
 
@@ -95,7 +100,7 @@ group = {
       ~ "}"
 }
 
-wires = {
+connections = {
       "wires"
       ~ "{"
       ~ (wire | group)*
@@ -118,12 +123,16 @@ par = {
       ~ "}"
 }
 
-block = {
+block = _{
       "{" ~ stmt ~ "}"
 }
 
+if_cond = {
+      ("with" ~ identifier)?
+}
+
 if_stmt = {
-      "if" ~ port ~ ("with" ~ identifier)? ~ block ~ ("else" ~ (if_stmt | block))?
+      "if" ~ port ~ if_cond ~ block ~ ("else" ~ (if_stmt | block))?
 }
 
 while_stmt = {
@@ -135,6 +144,7 @@ stmt = {
     | (seq ~ ";"?)
     | (par ~ ";"?)
     | (if_stmt ~ ";"?)
+    | (while_stmt ~ ";"?)
 }
 
 control = {

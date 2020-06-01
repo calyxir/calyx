@@ -1,111 +1,112 @@
 use calyx::{
     cmdline::Opts,
-    errors,
+    // errors,
     frontend::syntax,
-    lang::context::Context,
-    passes,
-    passes::visitor::{Named, Visitor},
-    utils::NameGenerator,
+    // lang::context::Context,
+    // passes,
+    // passes::visitor::{Named, Visitor},
+    // utils::NameGenerator,
 };
 use pest::Parser;
 use std::collections::HashMap;
 use std::fs;
 use structopt::StructOpt;
 
-type PassClosure =
-    Box<dyn Fn(&Context, &mut NameGenerator) -> Result<(), errors::Error>>;
+// type PassClosure =
+//     Box<dyn Fn(&Context, &mut NameGenerator) -> Result<(), errors::Error>>;
 
-fn pass_map() -> HashMap<String, PassClosure> {
-    use passes::{
-        automatic_par::AutomaticPar, collapse_seq::CollapseSeq,
-        connect_clock::ConnectClock, fsm_seq::FsmSeq,
-        lat_insensitive::LatencyInsensitive, redundant_par::RedundantPar,
-        remove_if::RemoveIf,
-    };
+// fn pass_map() -> HashMap<String, PassClosure> {
+//     use passes::{
+//         automatic_par::AutomaticPar, collapse_seq::CollapseSeq,
+//         connect_clock::ConnectClock, fsm_seq::FsmSeq,
+//         lat_insensitive::LatencyInsensitive, redundant_par::RedundantPar,
+//         remove_if::RemoveIf,
+//     };
 
-    let mut names: HashMap<String, PassClosure> = HashMap::new();
-    names.insert(
-        LatencyInsensitive::name().to_string(),
-        Box::new(|ctx, _| {
-            LatencyInsensitive::do_pass_default(ctx)?;
-            Ok(())
-        }),
-    );
-    names.insert(
-        CollapseSeq::name().to_string(),
-        Box::new(|ctx, _| {
-            CollapseSeq::do_pass_default(ctx)?;
-            Ok(())
-        }),
-    );
-    names.insert(
-        AutomaticPar::name().to_string(),
-        Box::new(|ctx, _| {
-            AutomaticPar::do_pass_default(ctx)?;
-            Ok(())
-        }),
-    );
-    names.insert(
-        RemoveIf::name().to_string(),
-        Box::new(|ctx, _| {
-            RemoveIf::do_pass_default(ctx)?;
-            Ok(())
-        }),
-    );
-    names.insert(
-        RedundantPar::name().to_string(),
-        Box::new(|ctx, _| {
-            RedundantPar::do_pass_default(ctx)?;
-            Ok(())
-        }),
-    );
-    names.insert(
-        ConnectClock::name().to_string(),
-        Box::new(|ctx, _| {
-            ConnectClock::do_pass_default(ctx)?;
-            Ok(())
-        }),
-    );
-    names.insert(
-        FsmSeq::name().to_string(),
-        Box::new(|ctx, mut name_gen| {
-            FsmSeq::new(&mut name_gen).do_pass(&ctx)?;
-            Ok(())
-        }),
-    );
-    names.insert(
-        "all".to_string(),
-        Box::new(|ctx, mut name_gen| {
-            RedundantPar::do_pass_default(ctx)?;
-            RemoveIf::do_pass_default(ctx)?;
-            CollapseSeq::do_pass_default(ctx)?;
-            AutomaticPar::do_pass_default(ctx)?;
-            // // fsm generation
-            LatencyInsensitive::do_pass_default(&ctx)?;
-            FsmSeq::new(&mut name_gen).do_pass(&ctx)?;
+//     let mut names: HashMap<String, PassClosure> = HashMap::new();
+//     names.insert(
+//         LatencyInsensitive::name().to_string(),
+//         Box::new(|ctx, _| {
+//             LatencyInsensitive::do_pass_default(ctx)?;
+//             Ok(())
+//         }),
+//     );
+//     names.insert(
+//         CollapseSeq::name().to_string(),
+//         Box::new(|ctx, _| {
+//             CollapseSeq::do_pass_default(ctx)?;
+//             Ok(())
+//         }),
+//     );
+//     names.insert(
+//         AutomaticPar::name().to_string(),
+//         Box::new(|ctx, _| {
+//             AutomaticPar::do_pass_default(ctx)?;
+//             Ok(())
+//         }),
+//     );
+//     names.insert(
+//         RemoveIf::name().to_string(),
+//         Box::new(|ctx, _| {
+//             RemoveIf::do_pass_default(ctx)?;
+//             Ok(())
+//         }),
+//     );
+//     names.insert(
+//         RedundantPar::name().to_string(),
+//         Box::new(|ctx, _| {
+//             RedundantPar::do_pass_default(ctx)?;
+//             Ok(())
+//         }),
+//     );
+//     names.insert(
+//         ConnectClock::name().to_string(),
+//         Box::new(|ctx, _| {
+//             ConnectClock::do_pass_default(ctx)?;
+//             Ok(())
+//         }),
+//     );
+//     names.insert(
+//         FsmSeq::name().to_string(),
+//         Box::new(|ctx, mut name_gen| {
+//             FsmSeq::new(&mut name_gen).do_pass(&ctx)?;
+//             Ok(())
+//         }),
+//     );
+//     names.insert(
+//         "all".to_string(),
+//         Box::new(|ctx, mut name_gen| {
+//             RedundantPar::do_pass_default(ctx)?;
+//             RemoveIf::do_pass_default(ctx)?;
+//             CollapseSeq::do_pass_default(ctx)?;
+//             AutomaticPar::do_pass_default(ctx)?;
+//             // // fsm generation
+//             LatencyInsensitive::do_pass_default(&ctx)?;
+//             FsmSeq::new(&mut name_gen).do_pass(&ctx)?;
 
-            // interfacing generation
-            ConnectClock::do_pass_default(&ctx)?;
-            Ok(())
-        }),
-    );
-    names
-}
+//             // interfacing generation
+//             ConnectClock::do_pass_default(&ctx)?;
+//             Ok(())
+//         }),
+//     );
+//     names
+// }
 
-fn main() -> Result<(), errors::Error> {
+// fn main() -> Result<(), errors::Error> {
+fn main() -> Result<(), ()> {
     // parse the command line arguments into Opts struct
     let opts: Opts = Opts::from_args();
 
     // list all the avaliable pass options when flag --list-passes is enabled
-    if opts.list_passes {
-        let names = pass_map();
-        let mut passes = names.keys().collect::<Vec<_>>();
-        passes.sort();
-        for key in passes {
-            println!("- {}", key);
-        }
-        return Ok(());
-    }
+    // if opts.list_passes {
+    //     let names = pass_map();
+    //     let mut passes = names.keys().collect::<Vec<_>>();
+    //     passes.sort();
+    //     for key in passes {
+    //         println!("- {}", key);
+    //     }
+    //     return Ok(());
+    // }
 
     // Construct the context.
     // let context = Context::from_opts(&opts)?;
@@ -129,15 +130,8 @@ fn main() -> Result<(), errors::Error> {
     // Ok(opts.backend.run(&context, std::io::stdout())?)
 
     if let Some(f) = opts.file {
-        let content = &fs::read(f)?;
-        let string_content = std::str::from_utf8(content)?;
-
-        let r = syntax::TestParser::parse(syntax::Rule::file, string_content);
-        if r.is_ok() {
-            println!("Parsed!!")
-        } else {
-            println!("{:#?}", r)
-        }
+        let r = syntax::FutilParser::from_file(&f);
+        println!("{:#?}", r)
     }
 
     Ok(())

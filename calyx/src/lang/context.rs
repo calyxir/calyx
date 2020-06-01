@@ -1,5 +1,6 @@
 use crate::cmdline::Opts;
 use crate::errors;
+use crate::frontend::syntax::FutilParser;
 use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::{
     ast, component::Component, library::ast as lib, structure::StructureGraph,
@@ -7,7 +8,6 @@ use crate::lang::{
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 /// Represents an entire Futil program. We are keeping all of the components in a `RefCell<HashMap>`.
 /// We use the `RefCell` to provide our desired visitor interface
@@ -130,23 +130,24 @@ impl Context {
         let file = opts.file.as_ref().ok_or_else(|| {
             errors::Error::Impossible("No input file provided.".to_string())
         })?;
-        let namespace = ast::parse_file(file)?;
+        let namespace = FutilParser::from_file(file).unwrap();
 
         // Generate library objects from import statements
         let lib_path = opts.lib_path.canonicalize()?;
-        let libs = match &namespace.library {
-            Some(import_stmt) => import_stmt
-                .libraries
-                .iter()
-                .map(|path| {
-                    let mut new_path = lib_path.clone();
-                    new_path.push(PathBuf::from(path));
-                    new_path
-                })
-                .map(|path| lib::parse_file(&path))
-                .collect::<Result<Vec<_>, _>>()?,
-            None => vec![],
-        };
+        let libs = vec![];
+        // let libs = match &namespace.library {
+        //     Some(import_stmt) => import_stmt
+        //         .libraries
+        //         .iter()
+        //         .map(|path| {
+        //             let mut new_path = lib_path.clone();
+        //             new_path.push(PathBuf::from(path));
+        //             new_path
+        //         })
+        //         .map(|path| lib::parse_file(&path))
+        //         .collect::<Result<Vec<_>, _>>()?,
+        //     None => vec![],
+        // };
 
         // build context
         let mut context = Self::from_ast(namespace, &libs)?;

@@ -9,9 +9,9 @@ component A(a: 32, b: 32) -> (c: 32) {
       x.in => x.out;
     }
     group B  {
-      B[done] = 4;
+      B[done] = 0 ;
       x.out = switch {
-        abc.in == 4 & abc.out => 4;
+        1 == 2 => a;
         abc.in == 4 & abc.out => 4;
         abc.in == 4 & abc.out => 4;
       }
@@ -25,9 +25,9 @@ component A(a: 32, b: 32) -> (c: 32) {
       B;
       seq { A; B; }
       par { A; B; }
-      if x.out in G {
+      if x.out with G {
          A;
-      } else if x.out in G {
+      } else if x.out with G {
          B;
       } else {
          C;

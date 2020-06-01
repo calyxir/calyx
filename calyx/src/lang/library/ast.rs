@@ -1,59 +1,34 @@
 // Abstract Syntax Tree for library declarations in Futil
 use crate::errors::Error;
 use crate::lang::ast::{Id, Portdef};
-use sexpy::nom::{
-    bytes::complete::take_until, character::complete::char,
-    sequence::delimited, IResult,
-};
-use sexpy::{error::SexpyError, Sexpy};
 use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
 
-pub fn parse_file(file: &PathBuf) -> Result<Library, Error> {
-    let content = &fs::read(file)?;
-    let string_content = std::str::from_utf8(content)?;
-    match Library::parse(string_content) {
-        Ok(ns) => Ok(ns),
-        Err(msg) => Err(Error::ParseError(msg)),
-    }
-}
-
-#[derive(Sexpy, Clone, Debug)]
-#[sexpy(head = "define/library")]
+#[derive(Clone, Debug)]
 pub struct Library {
     pub primitives: Vec<Primitive>,
 }
 
-#[derive(Sexpy, Clone, Debug)]
-#[sexpy(head = "define/prim")]
+#[derive(Clone, Debug)]
 pub struct Primitive {
     pub name: Id,
-    #[sexpy(surround)]
     pub params: Vec<Id>,
     pub signature: ParamSignature,
-    #[sexpy(surround)]
     pub implementation: Vec<Implementation>,
 }
 
-#[derive(Clone, Debug, Sexpy)]
-#[sexpy(nohead, nosurround)]
+#[derive(Clone, Debug)]
 pub struct ParamSignature {
-    #[sexpy(surround)]
     pub inputs: Vec<ParamPortdef>,
-    #[sexpy(surround)]
     pub outputs: Vec<ParamPortdef>,
 }
 
-#[derive(Sexpy, Clone, Debug)]
-#[sexpy(head = "port")]
+#[derive(Clone, Debug)]
 pub struct ParamPortdef {
     pub name: Id,
     pub width: Width,
 }
 
-#[derive(Sexpy, Clone, Debug)]
-#[sexpy(nohead, nosurround)]
+#[derive(Clone, Debug)]
 pub enum Width {
     Const { value: u64 },
     Param { value: Id },
@@ -96,27 +71,12 @@ impl ParamPortdef {
 
 // Parsing for providing particular backend implementations for primitive definitions
 
-#[derive(Sexpy, Clone, Debug)]
-#[sexpy(nohead)]
+#[derive(Clone, Debug)]
 pub enum Implementation {
-    #[sexpy(head = "verilog")]
     Verilog { data: Verilog },
 }
 
 #[derive(Clone, Debug)]
 pub struct Verilog {
     pub code: String,
-}
-
-impl Sexpy for Verilog {
-    fn sexp_parse(input: &str) -> IResult<&str, Self, SexpyError<&str>> {
-        let (next, r) =
-            delimited(char('"'), take_until("\""), char('"'))(input)?;
-        Ok((
-            next,
-            Verilog {
-                code: r.to_string(),
-            },
-        ))
-    }
 }
