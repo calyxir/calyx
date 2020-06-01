@@ -1,13 +1,12 @@
 use calyx::{
     cmdline::Opts,
-    // errors,
-    frontend::syntax,
+    errors::Result,
+    frontend::{pretty_print::PrettyPrint, syntax},
     // lang::context::Context,
     // passes,
     // passes::visitor::{Named, Visitor},
     // utils::NameGenerator,
 };
-use pest::Parser;
 use std::collections::HashMap;
 use std::fs;
 use structopt::StructOpt;
@@ -92,8 +91,7 @@ use structopt::StructOpt;
 //     names
 // }
 
-// fn main() -> Result<(), errors::Error> {
-fn main() -> Result<(), ()> {
+fn main() -> Result<()> {
     // parse the command line arguments into Opts struct
     let opts: Opts = Opts::from_args();
 
@@ -130,8 +128,8 @@ fn main() -> Result<(), ()> {
     // Ok(opts.backend.run(&context, std::io::stdout())?)
 
     if let Some(f) = opts.file {
-        let r = syntax::FutilParser::from_file(&f);
-        println!("{:#?}", r)
+        let r = syntax::FutilParser::from_file(&f)?;
+        r.pretty_print();
     }
 
     Ok(())

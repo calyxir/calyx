@@ -4,12 +4,13 @@
 
 // XXX(Sam) Add a proper printer for error types
 
+use crate::frontend::syntax::Rule;
 use crate::lang::ast;
 
 pub enum Error {
     UnknownPass(String, String),
     InvalidFile,
-    ParseError(String),
+    ParseError(pest_consume::Error<Rule>),
     WriteError,
     MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
     UndefinedPort(String),
@@ -25,6 +26,8 @@ pub enum Error {
     #[allow(unused)]
     Misc(String),
 }
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -55,7 +58,7 @@ impl std::fmt::Debug for Error {
                 write!(f, "Failed to resolve portdef: {}", id.to_string())
             }
             DuplicatePort(comp, portdef) => {
-                write!(f, "Attempted to add `{}` to component `{}`", portdef, comp.to_string())
+                write!(f, "Attempted to add `{:?}` to component `{}`", portdef, comp.to_string())
             }
             MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
             MalformedStructure(msg) => write!(f, "Malformed Structure: {}", msg),
@@ -85,8 +88,8 @@ impl From<std::fmt::Error> for Error {
     }
 }
 
-impl From<String> for Error {
-    fn from(s: String) -> Self {
-        Error::ParseError(s)
+impl From<pest_consume::Error<Rule>> for Error {
+    fn from(e: pest_consume::Error<Rule>) -> Self {
+        Error::ParseError(e)
     }
 }

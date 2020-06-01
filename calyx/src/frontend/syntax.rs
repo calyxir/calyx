@@ -1,9 +1,10 @@
 use crate::lang::ast;
+use crate::{errors, errors::Result};
 use pest_consume::{match_nodes, Error, Parser};
 use std::fs;
 use std::path::PathBuf;
 
-type Result<T> = std::result::Result<T, Error<Rule>>;
+type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
 const _GRAMMAR: &str = include_str!("grammar.pest");
@@ -14,26 +15,26 @@ pub struct FutilParser;
 
 #[pest_consume::parser]
 impl FutilParser {
-    fn EOI(_input: Node) -> Result<()> {
+    fn EOI(_input: Node) -> ParseResult<()> {
         Ok(())
     }
 
-    fn identifier(input: Node) -> Result<ast::Id> {
+    fn identifier(input: Node) -> ParseResult<ast::Id> {
         Ok(input.as_str().into())
     }
 
-    fn bitwidth(input: Node) -> Result<u64> {
+    fn bitwidth(input: Node) -> ParseResult<u64> {
         Ok(input.as_str().parse::<u64>().unwrap())
     }
 
-    fn num_lit(input: Node) -> Result<u64> {
+    fn num_lit(input: Node) -> ParseResult<u64> {
         Ok(match input.as_str().parse::<u64>() {
             Ok(x) => x,
             _ => panic!("Unable to parse '{}' as a u64", input.as_str()),
         })
     }
 
-    fn signature(input: Node) -> Result<ast::Signature> {
+    fn signature(input: Node) -> ParseResult<ast::Signature> {
         Ok(match_nodes!(
             input.into_children();
             [io_ports(ins), io_ports(outs)] => ast::Signature {
@@ -47,19 +48,19 @@ impl FutilParser {
         ))
     }
 
-    fn io_port(input: Node) -> Result<ast::Portdef> {
+    fn io_port(input: Node) -> ParseResult<ast::Portdef> {
         Ok(match_nodes![
             input.into_children();
             [identifier(id), bitwidth(bw)] => ast::Portdef { name: id, width: bw }])
     }
 
-    fn io_ports(input: Node) -> Result<Vec<ast::Portdef>> {
+    fn io_ports(input: Node) -> ParseResult<Vec<ast::Portdef>> {
         Ok(match_nodes![
             input.into_children();
             [io_port(p)..] => p.collect()])
     }
 
-    fn args(input: Node) -> Result<Vec<u64>> {
+    fn args(input: Node) -> ParseResult<Vec<u64>> {
         Ok(match_nodes!(
             input.into_children();
             [bitwidth(bw)..] => bw.collect(),
@@ -67,7 +68,7 @@ impl FutilParser {
         ))
     }
 
-    fn primitive_cell(input: Node) -> Result<ast::Cell> {
+    fn primitive_cell(input: Node) -> ParseResult<ast::Cell> {
         Ok(match_nodes!(
             input.into_children();
             [identifier(id), identifier(prim), args(args)] =>
@@ -75,7 +76,7 @@ impl FutilParser {
         ))
     }
 
-    fn component_cell(input: Node) -> Result<ast::Cell> {
+    fn component_cell(input: Node) -> ParseResult<ast::Cell> {
         Ok(match_nodes!(
             input.into_children();
             [identifier(id), identifier(name)] =>
@@ -83,7 +84,7 @@ impl FutilParser {
         ))
     }
 
-    fn cells(input: Node) -> Result<Vec<ast::Cell>> {
+    fn cells(input: Node) -> ParseResult<Vec<ast::Cell>> {
         input
             .into_children()
             .map(|node| match node.as_rule() {
@@ -94,7 +95,7 @@ impl FutilParser {
             .collect()
     }
 
-    fn port(input: Node) -> Result<ast::Port> {
+    fn port(input: Node) -> ParseResult<ast::Port> {
         Ok(match_nodes!(
             input.into_children();
             [identifier(component), identifier(port)] => ast::Port::Comp { component, port },
@@ -102,14 +103,14 @@ impl FutilParser {
         ))
     }
 
-    fn hole(input: Node) -> Result<ast::Port> {
+    fn hole(input: Node) -> ParseResult<ast::Port> {
         Ok(match_nodes!(
             input.into_children();
             [identifier(group), identifier(name)] => ast::Port::Hole { group, name }
         ))
     }
 
-    fn LHS(input: Node) -> Result<ast::Port> {
+    fn LHS(input: Node) -> ParseResult<ast::Port> {
         Ok(match_nodes!(
             input.into_children();
             [port(port)] => port,
@@ -117,7 +118,7 @@ impl FutilParser {
         ))
     }
 
-    fn expr(input: Node) -> Result<ast::Atom> {
+    fn expr(input: Node) -> ParseResult<ast::Atom> {
         Ok(match_nodes!(
             input.into_children();
             [LHS(port)] => ast::Atom::Port(port),
@@ -127,7 +128,7 @@ impl FutilParser {
 
     fn comparator(
         input: Node,
-    ) -> Result<impl Fn(ast::Atom, ast::Atom) -> ast::GuardExpr> {
+    ) -> ParseResult<impl Fn(ast::Atom, ast::Atom) -> ast::GuardExpr> {
         Ok(match input.as_str() {
             "==" => ast::GuardExpr::Eq,
             "!=" => ast::GuardExpr::Neq,
@@ -139,7 +140,7 @@ impl FutilParser {
         })
     }
 
-    fn guard_expr(input: Node) -> Result<ast::GuardExpr> {
+    fn guard_expr(input: Node) -> ParseResult<ast::GuardExpr> {
         Ok(match_nodes!(
             input.into_children();
             [expr(e1), comparator(c), expr(e2)] => c(e1, e2),
@@ -147,28 +148,28 @@ impl FutilParser {
         ))
     }
 
-    fn guard(input: Node) -> Result<ast::Guard> {
+    fn guard(input: Node) -> ParseResult<ast::Guard> {
         Ok(match_nodes!(
             input.into_children();
             [guard_expr(gs)..] => ast::Guard { exprs: gs.collect() }
         ))
     }
 
-    fn switch_stmt(input: Node) -> Result<(ast::Guard, ast::Atom)> {
+    fn switch_stmt(input: Node) -> ParseResult<(ast::Guard, ast::Atom)> {
         Ok(match_nodes!(
             input.into_children();
             [guard(guard), expr(expr)] => (guard, expr),
         ))
     }
 
-    fn switch(input: Node) -> Result<Vec<(ast::Guard, ast::Atom)>> {
+    fn switch(input: Node) -> ParseResult<Vec<(ast::Guard, ast::Atom)>> {
         Ok(match_nodes!(
             input.into_children();
             [switch_stmt(sw)..] => sw.collect(),
         ))
     }
 
-    fn wire(input: Node) -> Result<ast::Wire> {
+    fn wire(input: Node) -> ParseResult<ast::Wire> {
         Ok(match_nodes!(
             input.into_children();
             [LHS(dest), expr(expr)] => ast::Wire {
@@ -182,7 +183,7 @@ impl FutilParser {
         ))
     }
 
-    fn group(input: Node) -> Result<ast::Group> {
+    fn group(input: Node) -> ParseResult<ast::Group> {
         Ok(match_nodes!(
             input.into_children();
             [identifier(name), wire(wire)..] => ast::Group {
@@ -192,7 +193,7 @@ impl FutilParser {
         ))
     }
 
-    fn connections(input: Node) -> Result<Vec<ast::Connection>> {
+    fn connections(input: Node) -> ParseResult<Vec<ast::Connection>> {
         input
             .into_children()
             .map(|node| match node.as_rule() {
@@ -203,14 +204,14 @@ impl FutilParser {
             .collect()
     }
 
-    fn enable(input: Node) -> Result<ast::Enable> {
+    fn enable(input: Node) -> ParseResult<ast::Enable> {
         Ok(match_nodes!(
             input.into_children();
             [identifier(name)] => ast::Enable { comp: name }
         ))
     }
 
-    fn seq(input: Node) -> Result<ast::Seq> {
+    fn seq(input: Node) -> ParseResult<ast::Seq> {
         Ok(match_nodes!(
             input.into_children();
             [stmt(stmt)..] => ast::Seq {
@@ -219,7 +220,7 @@ impl FutilParser {
         ))
     }
 
-    fn par(input: Node) -> Result<ast::Par> {
+    fn par(input: Node) -> ParseResult<ast::Par> {
         Ok(match_nodes!(
             input.into_children();
             [stmt(stmt)..] => ast::Par {
@@ -228,7 +229,7 @@ impl FutilParser {
         ))
     }
 
-    fn if_cond(input: Node) -> Result<Option<ast::Id>> {
+    fn if_cond(input: Node) -> ParseResult<Option<ast::Id>> {
         Ok(match_nodes!(
             input.into_children();
             [identifier(cond)] => Some(cond),
@@ -236,7 +237,7 @@ impl FutilParser {
         ))
     }
 
-    fn if_stmt(input: Node) -> Result<ast::If> {
+    fn if_stmt(input: Node) -> ParseResult<ast::If> {
         Ok(match_nodes!(
             input.into_children();
             [port(port), if_cond(cond), stmt(stmt)] => ast::If {
@@ -261,7 +262,7 @@ impl FutilParser {
         ))
     }
 
-    fn while_stmt(input: Node) -> Result<ast::While> {
+    fn while_stmt(input: Node) -> ParseResult<ast::While> {
         Ok(match_nodes!(
             input.into_children();
             [port(port), stmt(stmt)] => ast::While {
@@ -277,7 +278,7 @@ impl FutilParser {
         ))
     }
 
-    fn stmt(input: Node) -> Result<ast::Control> {
+    fn stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
             [enable(data)] => ast::Control::Enable { data },
@@ -288,14 +289,14 @@ impl FutilParser {
         ))
     }
 
-    fn control(input: Node) -> Result<ast::Control> {
+    fn control(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
             [stmt(stmt)] => stmt
         ))
     }
 
-    fn component(input: Node) -> Result<ast::ComponentDef> {
+    fn component(input: Node) -> ParseResult<ast::ComponentDef> {
         Ok(match_nodes!(
         input.into_children();
         [identifier(id), signature(sig), cells(cells), connections(connections), control(control)] =>
@@ -320,7 +321,7 @@ impl FutilParser {
         ))
     }
 
-    fn file(input: Node) -> Result<ast::NamespaceDef> {
+    fn file(input: Node) -> ParseResult<ast::NamespaceDef> {
         Ok(ast::NamespaceDef {
             library: None,
             components: match_nodes!(
@@ -337,6 +338,6 @@ impl FutilParser {
         let string_content = std::str::from_utf8(content).unwrap();
         let inputs = FutilParser::parse(Rule::file, string_content)?;
         let input = inputs.single()?;
-        FutilParser::file(input)
+        Ok(FutilParser::file(input)?)
     }
 }
