@@ -4,13 +4,14 @@
 
 // XXX(Sam) Add a proper printer for error types
 
-use crate::frontend::syntax::Rule;
+use crate::frontend::{library_syntax, syntax};
 use crate::lang::ast;
 
 pub enum Error {
     UnknownPass(String, String),
     InvalidFile,
-    ParseError(pest_consume::Error<Rule>),
+    ParseError(pest_consume::Error<syntax::Rule>),
+    LibraryParseError(pest_consume::Error<library_syntax::Rule>),
     WriteError,
     MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
     UndefinedPort(String),
@@ -42,7 +43,8 @@ impl std::fmt::Debug for Error {
                 )
             },
             InvalidFile => write!(f, "InvalidFile"),
-            ParseError(msg) => write!(f, "{}", msg),
+            ParseError(err) => write!(f, "{}", err),
+            LibraryParseError(err) => write!(f, "{}", err),
             WriteError => write!(f, "WriteError"),
             MismatchedPortWidths(port1, w1, port2, w2) => write!(
                 f,
@@ -88,8 +90,14 @@ impl From<std::fmt::Error> for Error {
     }
 }
 
-impl From<pest_consume::Error<Rule>> for Error {
-    fn from(e: pest_consume::Error<Rule>) -> Self {
+impl From<pest_consume::Error<syntax::Rule>> for Error {
+    fn from(e: pest_consume::Error<syntax::Rule>) -> Self {
         Error::ParseError(e)
+    }
+}
+
+impl From<pest_consume::Error<library_syntax::Rule>> for Error {
+    fn from(e: pest_consume::Error<library_syntax::Rule>) -> Self {
+        Error::LibraryParseError(e)
     }
 }

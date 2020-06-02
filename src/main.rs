@@ -1,7 +1,7 @@
 use calyx::{
     cmdline::Opts,
     errors::Result,
-    frontend::{pretty_print::PrettyPrint, syntax},
+    frontend::{library_syntax, pretty_print::PrettyPrint, syntax},
     // lang::context::Context,
     // passes,
     // passes::visitor::{Named, Visitor},
@@ -128,8 +128,10 @@ fn main() -> Result<()> {
     // Ok(opts.backend.run(&context, std::io::stdout())?)
 
     if let Some(f) = opts.file {
-        let r = syntax::FutilParser::from_file(&f)?;
-        r.pretty_print();
+        // let r = syntax::FutilParser::from_file(&f)?;
+        let r = library_syntax::LibraryParser::from_file(&f)?;
+        println!("{:#?}", r);
+        // r.pretty_print();
     }
 
     Ok(())

@@ -7,10 +7,10 @@ use std::path::PathBuf;
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
-const _GRAMMAR: &str = include_str!("grammar.pest");
+const _GRAMMAR: &str = include_str!("futil_syntax.pest");
 
 #[derive(Parser)]
-#[grammar = "frontend/grammar.pest"]
+#[grammar = "frontend/futil_syntax.pest"]
 pub struct FutilParser;
 
 #[pest_consume::parser]

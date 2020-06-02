@@ -90,8 +90,7 @@ pub trait PrettyPrint {
 
 impl PrettyPrint for u64 {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let r = arena.alloc(self.clone());
-        RcDoc::text((*r).to_string())
+        RcDoc::text(self.to_string())
     }
 }
 
