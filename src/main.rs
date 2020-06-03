@@ -12,7 +12,6 @@ use cmdline::Opts;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::process::Termination;
 use structopt::StructOpt;
 
 // type PassClosure =
