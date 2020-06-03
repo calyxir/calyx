@@ -1,11 +1,12 @@
+use crate::errors::{Result, Span};
 use crate::lang::ast;
-use crate::{errors, errors::Result};
 use pest_consume::{match_nodes, Error, Parser};
 use std::fs;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
-type Node<'i> = pest_consume::Node<'i, Rule, ()>;
+type Node<'i> = pest_consume::Node<'i, Rule, Rc<String>>;
 
 const _GRAMMAR: &str = include_str!("futil_syntax.pest");
 
@@ -20,7 +21,10 @@ impl FutilParser {
     }
 
     fn identifier(input: Node) -> ParseResult<ast::Id> {
-        Ok(input.as_str().into())
+        Ok(ast::Id::new(
+            input.as_str(),
+            Some(Span::new(input.as_span(), Rc::clone(input.user_data()))),
+        ))
     }
 
     fn bitwidth(input: Node) -> ParseResult<u64> {
@@ -32,6 +36,17 @@ impl FutilParser {
             Ok(x) => x,
             _ => panic!("Unable to parse '{}' as a u64", input.as_str()),
         })
+    }
+
+    fn char(input: Node) -> ParseResult<&str> {
+        Ok(input.as_str())
+    }
+
+    fn string_lit(input: Node) -> ParseResult<String> {
+        Ok(match_nodes!(
+            input.into_children();
+            [char(c)..] => c.collect::<Vec<_>>().join("")
+        ))
     }
 
     fn signature(input: Node) -> ParseResult<ast::Signature> {
@@ -321,14 +336,21 @@ impl FutilParser {
         ))
     }
 
+    fn imports(input: Node) -> ParseResult<Vec<String>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [string_lit(path)..] => path.collect()
+        ))
+    }
+
     fn file(input: Node) -> ParseResult<ast::NamespaceDef> {
-        Ok(ast::NamespaceDef {
-            library: None,
-            components: match_nodes!(
-                input.into_children();
-                [component(comps).., _] => comps.collect()
-            ),
-        })
+        Ok(match_nodes!(
+            input.into_children();
+            [imports(imports), component(comps).., EOI] => ast::NamespaceDef {
+                libraries: imports,
+                components: comps.collect()
+            }
+        ))
     }
 }
 
@@ -336,7 +358,11 @@ impl FutilParser {
     pub fn from_file(path: &PathBuf) -> Result<ast::NamespaceDef> {
         let content = &fs::read(path).unwrap();
         let string_content = std::str::from_utf8(content).unwrap();
-        let inputs = FutilParser::parse(Rule::file, string_content)?;
+        let inputs = FutilParser::parse_with_userdata(
+            Rule::file,
+            string_content,
+            Rc::new(string_content.to_string()),
+        )?;
         let input = inputs.single()?;
         Ok(FutilParser::file(input)?)
     }

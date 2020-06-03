@@ -1,19 +1,53 @@
-// use crate::errors::Error;
-// use crate::lang::context::LibraryContext;
+// Abstract Syntax Tree for Futil
+use crate::errors::{Result, Span};
+use crate::lang::context::LibraryContext;
+use std::cmp::Ordering;
 use std::collections::HashMap;
-
-// Abstract Syntax Tree for Futil. See link below for the grammar
-// https://github.com/cucapra/futil/blob/master/grammar.md
+use std::hash::{Hash, Hasher};
 
 // XXX(sam) Add location information to this type so that we can print
 // them out nicely
 /// Represents an identifier in a Futil program
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialOrd, Ord)]
 pub struct Id {
     id: String,
+    span: Option<Span>,
 }
 
+impl Id {
+    pub fn new<S: ToString>(id: S, span: Option<Span>) -> Self {
+        Self {
+            id: id.to_string(),
+            span,
+        }
+    }
+
+    pub fn fmt_err(&self, err_msg: &str) -> String {
+        match &self.span {
+            Some(span) => span.format(err_msg),
+            None => err_msg.to_string(),
+        }
+    }
+}
+
+/* =================== Custom Hash / Eq for impl to exclude span from the check ============== */
+
+impl Hash for Id {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl PartialEq for Id {
+    fn eq(&self, other: &Id) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Id {}
+
 /* =================== Impls for Id to make them easier to use ============== */
+
 impl ToString for Id {
     fn to_string(&self) -> String {
         self.id.clone()
@@ -28,13 +62,16 @@ impl AsRef<str> for Id {
 
 impl From<&str> for Id {
     fn from(s: &str) -> Self {
-        Id { id: s.to_string() }
+        Id {
+            id: s.to_string(),
+            span: None,
+        }
     }
 }
 
 impl From<String> for Id {
     fn from(s: String) -> Self {
-        Id { id: s }
+        Id { id: s, span: None }
     }
 }
 
@@ -49,15 +86,9 @@ impl PartialEq<str> for Id {
 #[derive(Clone, Debug, Hash)]
 pub struct NamespaceDef {
     /// The path to libraries
-    pub library: Option<ImportStatement>,
+    pub libraries: Vec<String>,
     /// List of component definitions.
     pub components: Vec<ComponentDef>,
-}
-
-/// import statement
-#[derive(Clone, Debug, Hash)]
-pub struct ImportStatement {
-    pub libraries: Vec<String>,
 }
 
 /// AST statement for defining components.
@@ -79,26 +110,26 @@ pub struct ComponentDef {
     pub control: Control,
 }
 
-// impl ComponentDef {
-//     /// Given a Library Context, resolve all the primitive components
-//     /// in `self` and return the signatures in a HashMap
-//     pub fn resolve_primitives(
-//         &self,
-//         libctx: &LibraryContext,
-//     ) -> Result<HashMap<Id, Signature>, Error> {
-//         let mut map = HashMap::new();
+impl ComponentDef {
+    /// Given a Library Context, resolve all the primitive components
+    /// in `self` and return the signatures in a HashMap
+    pub fn resolve_primitives(
+        &self,
+        libctx: &LibraryContext,
+    ) -> Result<HashMap<Id, Signature>> {
+        let mut map = HashMap::new();
 
-//         for stmt in &self.cells {
-//             if let Cell::Prim { data } = stmt {
-//                 let sig = libctx
-//                     .resolve(&data.instance.name, &data.instance.params)?;
-//                 map.insert(data.name.clone(), sig);
-//             }
-//         }
+        for stmt in &self.cells {
+            if let Cell::Prim { data } = stmt {
+                let sig = libctx
+                    .resolve(&data.instance.name, &data.instance.params)?;
+                map.insert(data.name.clone(), sig);
+            }
+        }
 
-//         Ok(map)
-//     }
-// }
+        Ok(map)
+    }
+}
 
 /// The signature for a component. Contains a list
 /// of input ports and a list of output ports.

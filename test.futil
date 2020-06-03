@@ -1,20 +1,22 @@
+import "primitives/std.lib";
+
 component A(a: 32, b: 32) -> (c: 32) {
   cells {
-    x = prim register(32, 32, 32, 32);
+    x = prim std_reg(32, 32, 32, 32);
     y = my_mult;
   }
 
   wires {
     y.in = switch {
-      x.in => x.out;
-      x.in & 4 == 12 => x.out;
+      x.in -> x.out;
+      x.in & 4 == 12 -> x.out;
     }
     group B {
       B[done] = 0;
       x.out = switch {
-        1 == 2 => a;
-        abc.in == 4 & abc.out => 4;
-        abc.in == 4 & abc.out => 4;
+        1 == 2 -> a;
+        abc.in == 4 & abc.out -> 4;
+        abc.in == 4 & abc.out -> 4;
       }
     }
     y.in = x.out;

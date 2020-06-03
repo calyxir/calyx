@@ -1,14 +1,18 @@
+mod cmdline;
+
 use calyx::{
-    cmdline::Opts,
-    errors::Result,
+    errors::{Error, Result},
     frontend::{library_syntax, pretty_print::PrettyPrint, syntax},
-    // lang::context::Context,
+    lang::context::Context,
     // passes,
     // passes::visitor::{Named, Visitor},
     // utils::NameGenerator,
 };
+use cmdline::Opts;
 use std::collections::HashMap;
 use std::fs;
+use std::path::PathBuf;
+use std::process::Termination;
 use structopt::StructOpt;
 
 // type PassClosure =
@@ -107,7 +111,18 @@ fn main() -> Result<()> {
     // }
 
     // Construct the context.
-    // let context = Context::from_opts(&opts)?;
+    let namespace = opts.file.map_or(
+        Err(Error::Impossible("No input file".to_string())),
+        |file| syntax::FutilParser::from_file(&file),
+    )?;
+    let libraries: Vec<_> = namespace
+        .libraries
+        .iter()
+        .map(|path| {
+            library_syntax::LibraryParser::from_file(&PathBuf::from(path))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let context = Context::from_ast(namespace, &libraries, opts.enable_debug)?;
 
     // Construct pass manager.
     // let names = pass_map();
@@ -125,14 +140,5 @@ fn main() -> Result<()> {
     //         return Err(errors::Error::UnknownPass(name, known_passes));
     //     }
     // }
-    // Ok(opts.backend.run(&context, std::io::stdout())?)
-
-    if let Some(f) = opts.file {
-        // let r = syntax::FutilParser::from_file(&f)?;
-        let r = library_syntax::LibraryParser::from_file(&f)?;
-        println!("{:#?}", r);
-        // r.pretty_print();
-    }
-
-    Ok(())
+    Ok(opts.backend.run(&context, std::io::stdout())?)
 }

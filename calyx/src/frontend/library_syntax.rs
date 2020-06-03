@@ -1,6 +1,6 @@
+use crate::errors::Result;
 use crate::lang::ast;
 use crate::lang::library::ast as lib;
-use crate::{errors, errors::Result};
 use pest_consume::{match_nodes, Error, Parser};
 use std::fs;
 use std::path::PathBuf;

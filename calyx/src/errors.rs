@@ -6,6 +6,8 @@
 
 use crate::frontend::{library_syntax, syntax};
 use crate::lang::ast;
+use std::iter::repeat;
+use std::rc::Rc;
 
 pub enum Error {
     UnknownPass(String, String),
@@ -29,6 +31,52 @@ pub enum Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Span {
+    input: Rc<String>,
+    start: usize,
+    end: usize,
+}
+
+impl Span {
+    pub fn new(span: pest::Span, input: Rc<String>) -> Span {
+        Span {
+            input,
+            start: span.start(),
+            end: span.end(),
+        }
+    }
+
+    pub fn format(&self, err_msg: &str) -> String {
+        let lines = self.input.split('\n');
+        let mut buf: String = String::new();
+        let mut pos: usize = 0;
+        let mut linum: usize = 1;
+        for l in lines {
+            let new_pos = pos + l.len() + 1;
+            if self.start > pos && self.end < pos + (l.len()) {
+                let linum_text = format!("{} ", linum);
+                let linum_space: String =
+                    repeat(" ").take(linum_text.len()).collect();
+                let mark: String =
+                    repeat("-").take(self.end - self.start - 1).collect();
+                let space: String =
+                    repeat(" ").take(self.start - pos).collect();
+                buf += "\n";
+                buf += &format!("{}|{}\n", linum_text, l);
+                buf += &format!(
+                    "{}|{}^{} {}\n",
+                    linum_space, space, mark, err_msg
+                );
+                break;
+            }
+            pos = new_pos;
+            linum += 1;
+        }
+        buf
+    }
+}
 
 impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -57,7 +105,8 @@ impl std::fmt::Debug for Error {
                 write!(f, "Use of undefined component {}", id.to_string())
             }
             SignatureResolutionFailed(id) => {
-                write!(f, "Failed to resolve portdef: {}", id.to_string())
+                let msg = "Undefined identifier";
+                write!(f, "{}", id.fmt_err(msg))
             }
             DuplicatePort(comp, portdef) => {
                 write!(f, "Attempted to add `{:?}` to component `{}`", portdef, comp.to_string())

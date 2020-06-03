@@ -1,6 +1,6 @@
-use super::{ast, structure::StructureGraph};
+use super::ast;
 use crate::errors::Error;
-use crate::lang::pretty_print::PrettyPrint;
+use crate::frontend::pretty_print::PrettyPrint;
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::collections::HashMap;
 
@@ -11,7 +11,7 @@ pub struct Component {
     pub name: ast::Id,
     pub signature: ast::Signature,
     pub control: ast::Control,
-    pub structure: StructureGraph,
+    pub structure: (), // StructureGraph
     /// Maps names of sub-component used in this component to fully
     /// resolved signatures.
     pub resolved_sigs: HashMap<ast::Id, ast::Signature>,
@@ -21,14 +21,14 @@ pub struct Component {
 /// on `Control`, `Signature`, or `Structure`.
 impl Component {
     pub fn from_signature<S: AsRef<str>>(name: S, sig: ast::Signature) -> Self {
-        let mut graph = StructureGraph::default();
-        graph.add_signature(&sig);
+        // let mut graph = StructureGraph::default();
+        // graph.add_signature(&sig);
 
         Component {
             name: name.as_ref().into(),
             signature: sig,
             control: ast::Control::empty(),
-            structure: graph,
+            structure: (), // graph,
             resolved_sigs: HashMap::new(),
         }
     }
@@ -40,7 +40,7 @@ impl Component {
     ) -> Result<(), Error> {
         let portdef = portdef.into();
         if !self.signature.has_input(portdef.name.as_ref()) {
-            self.structure.insert_input_port(&portdef);
+            // self.structure.insert_input_port(&portdef);
             self.signature.inputs.push(portdef);
             Ok(())
         } else {
@@ -55,7 +55,7 @@ impl Component {
     ) -> Result<(), Error> {
         let portdef = portdef.into();
         if !self.signature.has_output(portdef.name.as_ref()) {
-            self.structure.insert_output_port(&portdef);
+            // self.structure.insert_output_port(&portdef);
             self.signature.outputs.push(portdef);
             Ok(())
         } else {
@@ -69,7 +69,8 @@ impl Into<ast::ComponentDef> for Component {
         ast::ComponentDef {
             name: self.name,
             signature: self.signature,
-            structure: self.structure.into(),
+            cells: vec![],
+            connections: vec![],
             control: self.control,
         }
     }

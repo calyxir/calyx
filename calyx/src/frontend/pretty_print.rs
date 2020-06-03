@@ -7,7 +7,6 @@ use std::fmt;
 use std::fmt::Display;
 use std::io;
 use std::io::Write;
-use std::vec::IntoIter;
 
 pub trait PrettyHelper<'a>: Sized {
     fn surround(self, pre: &'a str, post: &'a str) -> Self;
@@ -89,7 +88,7 @@ pub trait PrettyPrint {
 /* =============== Generic impls ================ */
 
 impl PrettyPrint for u64 {
-    fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
+    fn prettify<'a>(&self, _arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         RcDoc::text(self.to_string())
     }
 }
@@ -252,7 +251,7 @@ impl PrettyPrint for Wire {
                     guard
                         .prettify(&arena)
                         .append(RcDoc::space())
-                        .append(RcDoc::text("=>"))
+                        .append(RcDoc::text("->"))
                         .append(RcDoc::space())
                         .append(atom.prettify(&arena))
                 });

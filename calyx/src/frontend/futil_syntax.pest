@@ -7,6 +7,9 @@ identifier = @{ ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA)* }
 bitwidth = @{ ASCII_DIGIT+ }
 num_lit = @{ ASCII_DIGIT+ } // TODO: add verilog style number literals
 
+char = { !"\"" ~ ANY }
+string_lit = ${ "\"" ~ char* ~ "\"" }
+
 // ====== toplevel ======
 
 component = {
@@ -20,9 +23,17 @@ component = {
 
 file = {
       SOI
+      ~ imports
       ~ component+
       ~ EOI
 }
+
+import = _{
+      "import" ~ string_lit ~ ";"
+}
+
+imports = { import* }
+
 
 // ====== signature ======
 
@@ -82,7 +93,7 @@ guard = {
 }
 
 switch_stmt = {
-      guard ~ "=>" ~ expr ~ ";"
+      guard ~ "->" ~ expr ~ ";"
 }
 
 switch = {
