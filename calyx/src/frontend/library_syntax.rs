@@ -79,8 +79,15 @@ impl LibraryParser {
         ))
     }
 
+    fn inner_wrap(input: Node) -> ParseResult<String> {
+        Ok(input.as_str().to_string())
+    }
+
     fn block(input: Node) -> ParseResult<String> {
-        Ok(input.into_pair().as_str().to_string())
+        Ok(match_nodes!(
+            input.into_children();
+            [inner_wrap(text)] => text
+        ))
     }
 
     fn verilog_block(input: Node) -> ParseResult<lib::Verilog> {
@@ -110,6 +117,12 @@ impl LibraryParser {
             [identifier(name), params(p), signature(s), implementation(i)] => lib::Primitive {
                 name,
                 params: p,
+                signature: s,
+                implementation: i
+            },
+            [identifier(name), signature(s), implementation(i)] => lib::Primitive {
+                name,
+                params: vec![],
                 signature: s,
                 implementation: i
             }

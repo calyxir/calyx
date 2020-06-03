@@ -109,11 +109,13 @@ fn main() -> Result<()> {
     //     return Ok(());
     // }
 
-    // Construct the context.
+    // ==== Construct the context ====
+    // parse the file
     let namespace = opts.file.map_or(
         Err(Error::Impossible("No input file".to_string())),
         |file| syntax::FutilParser::from_file(&file),
     )?;
+    // parse libraries
     let libraries: Vec<_> = namespace
         .libraries
         .iter()
@@ -121,6 +123,7 @@ fn main() -> Result<()> {
             library_syntax::LibraryParser::from_file(&PathBuf::from(path))
         })
         .collect::<Result<Vec<_>>>()?;
+    // build context
     let context = Context::from_ast(namespace, &libraries, opts.enable_debug)?;
 
     // Construct pass manager.

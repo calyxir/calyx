@@ -1,6 +1,6 @@
 import "primitives/std.lib";
 
-component A(a: 32, b: 32) -> (c: 32) {
+component A_b_c(a: 32, b: 32) -> (c: 32) {
   cells {
     x = prim std_reg(32, 32, 32, 32);
     y = my_mult;

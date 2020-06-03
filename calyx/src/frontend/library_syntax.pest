@@ -25,7 +25,7 @@ file = {
 // ====== signature ======
 
 params = {
-      "[" ~ identifier ~ ("," ~ identifier)* ~ "]"
+      "[" ~ (identifier ~ ("," ~ identifier)*)? ~ "]"
 }
 
 signature = {
@@ -40,8 +40,15 @@ io_ports = {
       io_port ~ ("," ~ io_port)*
 }
 
+inner = _{
+      ("{" ~ PUSH((!"}" ~ ANY)*) ~ "}")
+    | (!"}" ~ ANY ~ inner*)
+}
+
+inner_wrap = { inner }
+
 block = {
-      "{" ~ (!"}" ~ ANY)* ~ "}"
+      "{" ~ inner_wrap ~ "}"
 }
 
 verilog_block = {
