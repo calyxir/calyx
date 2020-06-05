@@ -74,13 +74,15 @@ impl Node {
         }
     }
 
-    fn new_constant(namegen: &mut NameGenerator, val: u64) -> Self {
+    fn new_constant(namegen: &mut NameGenerator, num: &ast::BitNum) -> Self {
+        let name =
+            ast::Id::new(namegen.gen_name("$const"), Some(num.span.clone()));
         Node {
-            name: namegen.gen_name("$const").into(),
-            data: NodeData::Constant(val),
+            name,
+            data: NodeData::Constant(num.val),
             signature: ast::Signature {
                 inputs: vec![],
-                outputs: vec![("out", 32).into()],
+                outputs: vec![("out", num.width).into()],
             },
         }
     }
@@ -257,9 +259,10 @@ impl StructureGraph {
                 },
                 Atom::Num(n) => {
                     let constant_node =
-                        Node::new_constant(&mut structure.namegen, *n);
+                        Node::new_constant(&mut structure.namegen, n);
                     let idx = structure.graph.add_node(constant_node);
-                    (idx, "out".into())
+                    let port = ast::Id::new("out", Some(n.span.clone()));
+                    (idx, port)
                 }
             };
 

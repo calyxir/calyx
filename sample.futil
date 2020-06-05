@@ -6,7 +6,7 @@ component main(a: 1, b: 1) -> (out: 1) {
   wires {
     group A {
       out = A[go] ? a;
-      // A[done] = A[go] ? 1;
+      A[done] = A[go] ? 1'b0;
     }
 
     group B {

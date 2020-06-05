@@ -79,7 +79,6 @@ impl PartialEq<str> for Id {
         self.id == other
     }
 }
-/* =================== Impls for Id to make them easier to use ============== */
 
 /// Top level AST statement. This contains a list of Component definitions.
 #[derive(Clone, Debug, Hash)]
@@ -216,10 +215,27 @@ pub struct Compinst {
 // AST for wire guard expressions
 // ===================================
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum NumType {
+    Decimal,
+    Binary,
+    Octal,
+    Hex,
+}
+
+/// Custom bitwidth numbers
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct BitNum {
+    pub width: u64,
+    pub num_type: NumType,
+    pub val: u64,
+    pub span: Span,
+}
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Atom {
     Port(Port),
-    Num(u64),
+    Num(BitNum),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]

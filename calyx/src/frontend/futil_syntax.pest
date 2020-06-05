@@ -5,7 +5,13 @@ ident_syms = _{ "_" | "-" | "'" }
 identifier = @{ ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA)* }
 
 bitwidth = @{ ASCII_DIGIT+ }
-num_lit = @{ ASCII_DIGIT+ } // TODO: add verilog style number literals
+num_lit = @{
+      ASCII_DIGIT+ ~ "'"
+      ~ ( "d" ~ ASCII_DIGIT+
+        | "b" ~ ASCII_BIN_DIGIT+
+        | "x" ~ ASCII_HEX_DIGIT+
+        | "o" ~ ASCII_OCT_DIGIT+)
+}
 
 char = { !"\"" ~ ANY }
 string_lit = ${ "\"" ~ char* ~ "\"" }

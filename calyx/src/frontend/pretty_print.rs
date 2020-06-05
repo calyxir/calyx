@@ -311,6 +311,30 @@ impl PrettyPrint for Atom {
     }
 }
 
+impl PrettyPrint for NumType {
+    fn prettify<'a>(&self, _arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
+        match self {
+            NumType::Decimal => RcDoc::text("'d"),
+            NumType::Binary => RcDoc::text("'b"),
+            NumType::Octal => RcDoc::text("'o"),
+            NumType::Hex => RcDoc::text("'x"),
+        }
+    }
+}
+
+impl PrettyPrint for BitNum {
+    fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
+        RcDoc::text(self.width.to_string())
+            .append(self.num_type.prettify(&arena))
+            .append(RcDoc::text(match self.num_type {
+                NumType::Decimal => self.val.to_string(),
+                NumType::Binary => format!("{:b}", self.val),
+                NumType::Octal => format!("{:o}", self.val),
+                NumType::Hex => format!("{:x}", self.val),
+            }))
+    }
+}
+
 /* ============== Impls for Control ================= */
 
 impl PrettyPrint for Control {

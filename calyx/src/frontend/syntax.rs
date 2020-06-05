@@ -1,9 +1,13 @@
 use crate::errors::{Result, Span};
-use crate::lang::ast;
+use crate::lang::{
+    ast,
+    ast::{BitNum, NumType},
+};
 use pest_consume::{match_nodes, Error, Parser};
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::str::FromStr;
 
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 // user data is the input program so that we can create Ast::id's
@@ -45,14 +49,69 @@ impl FutilParser {
     }
 
     fn bitwidth(input: Node) -> ParseResult<u64> {
-        Ok(input.as_str().parse::<u64>().unwrap())
-    }
-
-    fn num_lit(input: Node) -> ParseResult<u64> {
         Ok(match input.as_str().parse::<u64>() {
             Ok(x) => x,
             _ => panic!("Unable to parse '{}' as a u64", input.as_str()),
         })
+    }
+
+    fn num_lit(input: Node) -> ParseResult<BitNum> {
+        let raw = input.as_str();
+        if raw.contains("'d") {
+            match raw.split("'d").collect::<Vec<_>>().as_slice() {
+                [bits, val] => Ok(BitNum {
+                    width: bits.parse().unwrap(),
+                    num_type: NumType::Decimal,
+                    val: val.parse().unwrap(),
+                    span: Span::new(
+                        input.as_span(),
+                        Rc::clone(input.user_data()),
+                    ),
+                }),
+                _ => unreachable!(),
+            }
+        } else if raw.contains("'b") {
+            match raw.split("'b").collect::<Vec<_>>().as_slice() {
+                [bits, val] => Ok(BitNum {
+                    width: bits.parse().unwrap(),
+                    num_type: NumType::Binary,
+                    val: u64::from_str_radix(val, 2).unwrap(),
+                    span: Span::new(
+                        input.as_span(),
+                        Rc::clone(input.user_data()),
+                    ),
+                }),
+                _ => unreachable!(),
+            }
+        } else if raw.contains("'x") {
+            match raw.split("'x").collect::<Vec<_>>().as_slice() {
+                [bits, val] => Ok(BitNum {
+                    width: bits.parse().unwrap(),
+                    num_type: NumType::Hex,
+                    val: u64::from_str_radix(val, 16).unwrap(),
+                    span: Span::new(
+                        input.as_span(),
+                        Rc::clone(input.user_data()),
+                    ),
+                }),
+                _ => unreachable!(),
+            }
+        } else if raw.contains("'o") {
+            match raw.split("'o").collect::<Vec<_>>().as_slice() {
+                [bits, val] => Ok(BitNum {
+                    width: bits.parse().unwrap(),
+                    num_type: NumType::Octal,
+                    val: u64::from_str_radix(val, 8).unwrap(),
+                    span: Span::new(
+                        input.as_span(),
+                        Rc::clone(input.user_data()),
+                    ),
+                }),
+                _ => unreachable!(),
+            }
+        } else {
+            unreachable!()
+        }
     }
 
     fn char(input: Node) -> ParseResult<&str> {
