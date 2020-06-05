@@ -49,6 +49,7 @@ impl ParamSignature {
 impl ParamPortdef {
     pub fn resolve(
         &self,
+        prim: &Id,
         val_map: &HashMap<&Id, u64>,
     ) -> Result<Portdef, Error> {
         match &self.width {
@@ -61,9 +62,10 @@ impl ParamPortdef {
                     name: self.name.clone(),
                     width: *width,
                 }),
-                None => {
-                    Err(Error::SignatureResolutionFailed(self.name.clone()))
-                }
+                None => Err(Error::SignatureResolutionFailed(
+                    prim.clone(),
+                    value.clone(),
+                )),
             },
         }
     }

@@ -111,7 +111,7 @@ impl BackendOpt {
     pub fn run<W: Write>(
         self,
         context: &context::Context,
-        file: W,
+        _file: W,
     ) -> Result<()> {
         match self {
             BackendOpt::Verilog => unimplemented!(), // VerilogBackend::run(&context, file)

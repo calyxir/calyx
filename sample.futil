@@ -1,0 +1,23 @@
+import "primitives/std.lib";
+
+component main(a: 1, b: 1) -> (out: 1) {
+  cells {}
+
+  wires {
+    group A {
+      out = A[go] ? a;
+      // A[done] = A[go] ? 1;
+    }
+
+    group B {
+      out = B[go] ? b;
+      out = A[done];
+    }
+  }
+
+  control {
+    seq {
+      A; B; C;
+    }
+  }
+}

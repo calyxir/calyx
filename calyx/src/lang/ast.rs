@@ -1,7 +1,6 @@
 // Abstract Syntax Tree for Futil
 use crate::errors::{Result, Span};
 use crate::lang::context::LibraryContext;
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
@@ -133,7 +132,7 @@ impl ComponentDef {
 
 /// The signature for a component. Contains a list
 /// of input ports and a list of output ports.
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, Default)]
 pub struct Signature {
     /// List of input ports.
     pub inputs: Vec<Portdef>,
@@ -236,7 +235,8 @@ pub enum GuardExpr {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Guard {
-    pub exprs: Vec<GuardExpr>,
+    pub guard: Vec<GuardExpr>,
+    pub expr: Atom,
 }
 
 // ===================================
@@ -313,7 +313,7 @@ pub struct Group {
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Wire {
     /// Source of the wire.
-    pub src: Vec<(Guard, Atom)>,
+    pub src: Guard,
 
     /// Guarded destinations of the wire.
     pub dest: Port,

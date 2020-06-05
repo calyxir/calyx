@@ -1,6 +1,7 @@
 use super::ast;
 use crate::errors::Error;
 use crate::frontend::pretty_print::PrettyPrint;
+use crate::lang::structure::StructureGraph;
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::collections::HashMap;
 
@@ -11,7 +12,7 @@ pub struct Component {
     pub name: ast::Id,
     pub signature: ast::Signature,
     pub control: ast::Control,
-    pub structure: (), // StructureGraph
+    pub structure: StructureGraph,
     /// Maps names of sub-component used in this component to fully
     /// resolved signatures.
     pub resolved_sigs: HashMap<ast::Id, ast::Signature>,
@@ -21,14 +22,14 @@ pub struct Component {
 /// on `Control`, `Signature`, or `Structure`.
 impl Component {
     pub fn from_signature<S: AsRef<str>>(name: S, sig: ast::Signature) -> Self {
-        // let mut graph = StructureGraph::default();
-        // graph.add_signature(&sig);
+        let mut graph = StructureGraph::default();
+        graph.add_signature(&sig);
 
         Component {
             name: name.as_ref().into(),
             signature: sig,
             control: ast::Control::empty(),
-            structure: (), // graph,
+            structure: graph,
             resolved_sigs: HashMap::new(),
         }
     }
@@ -66,11 +67,12 @@ impl Component {
 
 impl Into<ast::ComponentDef> for Component {
     fn into(self) -> ast::ComponentDef {
+        let (cells, connections) = self.structure.into();
         ast::ComponentDef {
             name: self.name,
             signature: self.signature,
-            cells: vec![],
-            connections: vec![],
+            cells,
+            connections,
             control: self.control,
         }
     }

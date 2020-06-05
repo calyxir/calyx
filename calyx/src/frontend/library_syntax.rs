@@ -1,13 +1,15 @@
-use crate::errors::Result;
+use crate::errors::{Result, Span};
 use crate::lang::ast;
 use crate::lang::library::ast as lib;
 use pest_consume::{match_nodes, Error, Parser};
 use std::fs;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
-type Node<'i> = pest_consume::Node<'i, Rule, ()>;
+type Node<'i> = pest_consume::Node<'i, Rule, Rc<String>>;
 
+// include the grammar file so that Cargo knows to rebuild this file on grammar changes
 const _GRAMMAR: &str = include_str!("library_syntax.pest");
 
 #[derive(Parser)]
@@ -15,10 +17,14 @@ const _GRAMMAR: &str = include_str!("library_syntax.pest");
 pub struct LibraryParser;
 
 impl LibraryParser {
-    pub fn from_file(path: &PathBuf) -> Result<lib::Library> {
-        let content = &fs::read(path).unwrap();
-        let string_content = std::str::from_utf8(content).unwrap();
-        let inputs = LibraryParser::parse(Rule::file, string_content)?;
+    pub fn parse_file(path: &PathBuf) -> Result<lib::Library> {
+        let content = &fs::read(path)?;
+        let string_content = std::str::from_utf8(content)?;
+        let inputs = LibraryParser::parse_with_userdata(
+            Rule::file,
+            string_content,
+            Rc::new(string_content.to_string()),
+        )?;
         let input = inputs.single()?;
         Ok(LibraryParser::file(input)?)
     }
@@ -31,7 +37,10 @@ impl LibraryParser {
     }
 
     fn identifier(input: Node) -> ParseResult<ast::Id> {
-        Ok(input.as_str().into())
+        Ok(ast::Id::new(
+            input.as_str(),
+            Some(Span::new(input.as_span(), Rc::clone(input.user_data()))),
+        ))
     }
 
     fn bitwidth(input: Node) -> ParseResult<u64> {

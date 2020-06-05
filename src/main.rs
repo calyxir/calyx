@@ -2,15 +2,14 @@ mod cmdline;
 
 use calyx::{
     errors::{Error, Result},
-    frontend::{library_syntax, pretty_print::PrettyPrint, syntax},
+    frontend::{library_syntax, syntax},
     lang::context::Context,
     // passes,
     // passes::visitor::{Named, Visitor},
     // utils::NameGenerator,
 };
 use cmdline::Opts;
-use std::collections::HashMap;
-use std::fs;
+// use std::collections::HashMap;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -113,14 +112,14 @@ fn main() -> Result<()> {
     // parse the file
     let namespace = opts.file.map_or(
         Err(Error::Impossible("No input file".to_string())),
-        |file| syntax::FutilParser::from_file(&file),
+        |file| syntax::FutilParser::parse_file(&file),
     )?;
     // parse libraries
     let libraries: Vec<_> = namespace
         .libraries
         .iter()
         .map(|path| {
-            library_syntax::LibraryParser::from_file(&PathBuf::from(path))
+            library_syntax::LibraryParser::parse_file(&PathBuf::from(path))
         })
         .collect::<Result<Vec<_>>>()?;
     // build context

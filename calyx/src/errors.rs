@@ -16,10 +16,10 @@ pub enum Error {
     LibraryParseError(pest_consume::Error<library_syntax::Rule>),
     WriteError,
     MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
-    UndefinedPort(String),
+    UndefinedPort(ast::Id),
     UndefinedEdge(String, String),
     UndefinedComponent(ast::Id),
-    SignatureResolutionFailed(ast::Id),
+    SignatureResolutionFailed(ast::Id, ast::Id),
     DuplicatePort(ast::Id, ast::Portdef),
     MalformedControl(String),
     MalformedStructure(String),
@@ -60,15 +60,13 @@ impl Span {
                 let linum_space: String =
                     repeat(" ").take(linum_text.len()).collect();
                 let mark: String =
-                    repeat("-").take(self.end - self.start - 1).collect();
+                    repeat("^").take(self.end - self.start).collect();
                 let space: String =
                     repeat(" ").take(self.start - pos).collect();
                 buf += "\n";
                 buf += &format!("{}|{}\n", linum_text, l);
-                buf += &format!(
-                    "{}|{}^{} {}\n",
-                    linum_space, space, mark, err_msg
-                );
+                buf +=
+                    &format!("{}|{}{} {}", linum_space, space, mark, err_msg);
                 break;
             }
             pos = new_pos;
@@ -94,19 +92,26 @@ impl std::fmt::Debug for Error {
             ParseError(err) => write!(f, "{}", err),
             LibraryParseError(err) => write!(f, "{}", err),
             WriteError => write!(f, "WriteError"),
-            MismatchedPortWidths(port1, w1, port2, w2) => write!(
-                f,
-                "Mismatched Port Widths: {:?} ({}) != {:?} ({})",
-                port1, w1, port2, w2
-            ),
-            UndefinedPort(port) => write!(f, "Use of undefined port: {}", port),
+            MismatchedPortWidths(port1, w1, port2, w2) => {
+                let msg1 = format!("This port has width: {}", w1);
+                let msg2 = format!("This port has width: {}", w2);
+                write!(f, "{}\nwhich doesn't match the width of '{}':{}",
+                       port1.port_name().fmt_err(&msg1),
+                       port2.port_name().to_string(),
+                       port2.port_name().fmt_err(&msg2))
+            }
+            UndefinedPort(port) => {
+                let msg = "Use of undefined port";
+                write!(f, "{}", port.fmt_err(msg))
+            }
             UndefinedEdge(src, dest) => write!(f, "Use of undefined edge: {}->{}", src, dest),
             UndefinedComponent(id) => {
-                write!(f, "Use of undefined component {}", id.to_string())
-            }
-            SignatureResolutionFailed(id) => {
-                let msg = "Undefined identifier";
+                let msg = "Use of undefined component";
                 write!(f, "{}", id.fmt_err(msg))
+            }
+            SignatureResolutionFailed(id, param_name) => {
+                let msg = format!("No value passed in for parameter: {}", param_name.to_string());
+                write!(f, "{}\nwhich is used here:{}", id.fmt_err(&msg), param_name.fmt_err(""))
             }
             DuplicatePort(comp, portdef) => {
                 write!(f, "Attempted to add `{:?}` to component `{}`", portdef, comp.to_string())

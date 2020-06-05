@@ -110,8 +110,20 @@ impl PrettyPrint for Id {
 
 impl PrettyPrint for NamespaceDef {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
+        println!("hi: {:?}", self.libraries);
+        let imports = self.libraries.iter().map(|l| {
+            RcDoc::text("import")
+                .append(RcDoc::space())
+                .append(RcDoc::text(l.to_string()))
+                .append(RcDoc::text(";"))
+        });
         let comps = self.components.iter().map(|s| s.prettify(&arena));
-        RcDoc::intersperse(comps, RcDoc::line().append(RcDoc::hardline()))
+        RcDoc::intersperse(imports, RcDoc::line())
+            .append(RcDoc::line())
+            .append(RcDoc::intersperse(
+                comps,
+                RcDoc::line().append(RcDoc::hardline()),
+            ))
     }
 }
 
@@ -243,20 +255,16 @@ impl PrettyPrint for Wire {
             .append(RcDoc::text("="))
             .append(RcDoc::space());
 
-        let rhs = match self.src.as_slice() {
-            [] => unreachable!(),
-            [(guard, atom)] if guard.exprs.is_empty() => atom.prettify(&arena),
-            rest => {
-                let body = rest.iter().map(|(guard, atom)| {
-                    guard
-                        .prettify(&arena)
-                        .append(RcDoc::space())
-                        .append(RcDoc::text("->"))
-                        .append(RcDoc::space())
-                        .append(atom.prettify(&arena))
-                });
-                block(RcDoc::text("switch").keyword_color(), stmt_vec(body))
-            }
+        let rhs = if self.src.guard.is_empty() {
+            self.src.expr.prettify(&arena)
+        } else {
+            self.src
+                .guard
+                .prettify(&arena)
+                .append(RcDoc::space())
+                .append(RcDoc::text("?"))
+                .append(RcDoc::space())
+                .append(self.src.expr.prettify(&arena))
         };
         lhs.append(rhs)
     }
@@ -265,7 +273,7 @@ impl PrettyPrint for Wire {
 impl PrettyPrint for Guard {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         RcDoc::intersperse(
-            self.exprs.iter().map(|x| x.prettify(&arena)),
+            self.guard.iter().map(|x| x.prettify(&arena)),
             RcDoc::space()
                 .append(RcDoc::text("&"))
                 .append(RcDoc::space()),

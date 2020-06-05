@@ -93,17 +93,11 @@ guard = {
 }
 
 switch_stmt = {
-      guard ~ "->" ~ expr ~ ";"
-}
-
-switch = {
-      "switch" ~ "{"
-      ~ switch_stmt+
-      ~ "}"
+      guard ~ "?" ~ expr
 }
 
 wire = {
-      LHS ~ "=" ~ (switch | (expr ~ ";"))
+      LHS ~ "=" ~ (switch_stmt | expr) ~ ";"
 }
 
 group = {

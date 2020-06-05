@@ -7,17 +7,14 @@ component A_b_c(a: 32, b: 32) -> (c: 32) {
   }
 
   wires {
-    y.in = switch {
-      x.in -> x.out;
-      x.in & 4 == 12 -> x.out;
-    }
+    y.in = x.in ? x.out;
+    y.in = x.in & 4 == 12 ? x.out;
+
     group B {
       B[done] = 0;
-      x.out = switch {
-        1 == 2 -> a;
-        abc.in == 4 & abc.out -> 4;
-        abc.in == 4 & abc.out -> 4;
-      }
+      x.out = 1 == 2 ? a;
+      x.out = abc.in == 4 & abc.out ? 4;
+      x.out = abc.in == 4 & abc.out ? 4;
     }
     y.in = x.out;
   }

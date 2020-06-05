@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 /// Structure to generate unique names that are somewhat readable
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct NameGenerator {
     name_hash: HashMap<String, i64>,
 }

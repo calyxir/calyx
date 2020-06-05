@@ -10,7 +10,7 @@ num_lit = @{ ASCII_DIGIT+ } // TODO: add verilog style number literals
 // ====== toplevel ======
 
 primitive = {
-      "prim" ~ identifier ~ params? ~ signature?
+      "primitive" ~ identifier ~ params? ~ signature?
       ~ "{"
       ~ implementation
       ~ "}"

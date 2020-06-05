@@ -6,13 +6,30 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
+// user data is the input program so that we can create Ast::id's
+// that have a reference to the input string
 type Node<'i> = pest_consume::Node<'i, Rule, Rc<String>>;
 
+// include the grammar file so that Cargo knows to rebuild this file on grammar changes
 const _GRAMMAR: &str = include_str!("futil_syntax.pest");
 
 #[derive(Parser)]
 #[grammar = "frontend/futil_syntax.pest"]
 pub struct FutilParser;
+
+impl FutilParser {
+    pub fn parse_file(path: &PathBuf) -> Result<ast::NamespaceDef> {
+        let content = &fs::read(path)?;
+        let string_content = std::str::from_utf8(content)?;
+        let inputs = FutilParser::parse_with_userdata(
+            Rule::file,
+            string_content,
+            Rc::new(string_content.to_string()),
+        )?;
+        let input = inputs.single()?;
+        Ok(FutilParser::file(input)?)
+    }
+}
 
 #[pest_consume::parser]
 impl FutilParser {
@@ -163,24 +180,17 @@ impl FutilParser {
         ))
     }
 
-    fn guard(input: Node) -> ParseResult<ast::Guard> {
+    fn guard(input: Node) -> ParseResult<Vec<ast::GuardExpr>> {
         Ok(match_nodes!(
             input.into_children();
-            [guard_expr(gs)..] => ast::Guard { exprs: gs.collect() }
+            [guard_expr(gs)..] =>  gs.collect()
         ))
     }
 
-    fn switch_stmt(input: Node) -> ParseResult<(ast::Guard, ast::Atom)> {
+    fn switch_stmt(input: Node) -> ParseResult<ast::Guard> {
         Ok(match_nodes!(
             input.into_children();
-            [guard(guard), expr(expr)] => (guard, expr),
-        ))
-    }
-
-    fn switch(input: Node) -> ParseResult<Vec<(ast::Guard, ast::Atom)>> {
-        Ok(match_nodes!(
-            input.into_children();
-            [switch_stmt(sw)..] => sw.collect(),
+            [guard(guard), expr(expr)] => ast::Guard { guard, expr },
         ))
     }
 
@@ -188,11 +198,11 @@ impl FutilParser {
         Ok(match_nodes!(
             input.into_children();
             [LHS(dest), expr(expr)] => ast::Wire {
-                src: vec![(ast::Guard { exprs: vec![] }, expr)],
+                src: ast::Guard { guard: vec![], expr },
                 dest
             },
-            [LHS(dest), switch(switch)] => ast::Wire {
-                src: switch,
+            [LHS(dest), switch_stmt(src)] => ast::Wire {
+                src,
                 dest
             }
         ))
@@ -351,19 +361,5 @@ impl FutilParser {
                 components: comps.collect()
             }
         ))
-    }
-}
-
-impl FutilParser {
-    pub fn from_file(path: &PathBuf) -> Result<ast::NamespaceDef> {
-        let content = &fs::read(path).unwrap();
-        let string_content = std::str::from_utf8(content).unwrap();
-        let inputs = FutilParser::parse_with_userdata(
-            Rule::file,
-            string_content,
-            Rc::new(string_content.to_string()),
-        )?;
-        let input = inputs.single()?;
-        Ok(FutilParser::file(input)?)
     }
 }

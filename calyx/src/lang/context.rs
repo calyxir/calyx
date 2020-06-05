@@ -1,10 +1,7 @@
 use crate::errors;
 use crate::frontend::pretty_print::PrettyPrint;
-use crate::frontend::syntax::FutilParser;
 use crate::lang::{
-    ast,
-    component::Component,
-    library::ast as lib, // structure::StructureGraph,
+    ast, component::Component, library::ast as lib, structure::StructureGraph,
 };
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
@@ -106,14 +103,14 @@ impl Context {
         let mut definitions = HashMap::new();
         for comp in &namespace.components {
             let prim_sigs = comp.resolve_primitives(&libctx)?;
-            // let graph = StructureGraph::new(&comp, &signatures, &prim_sigs)?;
+            let graph = StructureGraph::new(&comp, &signatures, &prim_sigs)?;
             definitions.insert(
                 comp.name.clone(),
                 Component {
                     name: comp.name.clone(),
                     signature: comp.signature.clone(),
                     control: comp.control.clone(),
-                    structure: (), // graph,
+                    structure: graph,
                     resolved_sigs: prim_sigs,
                 },
             );
@@ -126,39 +123,6 @@ impl Context {
             definitions_to_insert: RefCell::new(vec![]),
         })
     }
-
-    // pub fn from_opts(opts: &Opts) -> Result<Self, errors::Error> {
-    //     // parse file
-    //     let file = opts.file.as_ref().ok_or_else(|| {
-    //         errors::Error::Impossible("No input file provided.".to_string())
-    //     })?;
-    //     let namespace = FutilParser::from_file(file).unwrap();
-
-    //     // Generate library objects from import statements
-    //     let lib_path = opts.lib_path.canonicalize()?;
-    //     let libs = vec![];
-    //     // let libs = match &namespace.library {
-    //     //     Some(import_stmt) => import_stmt
-    //     //         .libraries
-    //     //         .iter()
-    //     //         .map(|path| {
-    //     //             let mut new_path = lib_path.clone();
-    //     //             new_path.push(PathBuf::from(path));
-    //     //             new_path
-    //     //         })
-    //     //         .map(|path| lib::parse_file(&path))
-    //     //         .collect::<Result<Vec<_>, _>>()?,
-    //     //     None => vec![],
-    //     // };
-
-    //     // build context
-    //     let mut context = Self::from_ast(namespace, &libs)?;
-
-    //     // set debug mode according to opts
-    //     context.debug_mode = opts.enable_debug;
-
-    //     Ok(context)
-    // }
 
     // XXX(sam) maybe implement this as an iterator?
     /// Iterates over the context definitions, giving mutable access the components
@@ -281,19 +245,19 @@ impl LibraryContext {
                 let inputs_res: Result<Vec<ast::Portdef>, errors::Error> = prim
                     .signature
                     .inputs()
-                    .map(|pd| pd.resolve(&param_map))
+                    .map(|pd| pd.resolve(&id, &param_map))
                     .collect();
                 // resolve outputs
                 let outputs_res: Result<Vec<ast::Portdef>, errors::Error> =
                     prim.signature
                         .outputs()
-                        .map(|pd| pd.resolve(&param_map))
+                        .map(|pd| pd.resolve(&id, &param_map))
                         .collect();
                 let inputs = inputs_res?;
                 let outputs = outputs_res?;
                 Ok(ast::Signature { inputs, outputs })
             }
-            None => Err(errors::Error::SignatureResolutionFailed(id.clone())),
+            None => Err(errors::Error::UndefinedComponent(id.clone())),
         }
     }
 }
