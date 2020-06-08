@@ -34,6 +34,7 @@ impl<'a> ColorHelper for RcDoc<'a, ColorSpec> {
     }
 }
 
+// temporarily commented out until we fix the Verilog backend
 // pub fn comment(doc: RcDoc<ColorSpec>) -> RcDoc<ColorSpec> {
 //     let mut c = ColorSpec::new();
 //     c.set_fg(Some(Color::Rgb(100, 100, 100)));

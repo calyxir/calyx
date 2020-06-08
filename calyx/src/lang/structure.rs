@@ -15,14 +15,16 @@ use std::fmt;
 /// store the structure ast node so that we can reconstruct the ast
 #[derive(Clone, Debug)]
 pub enum NodeData {
+    /// An instantiated subcomponent
     Cell(ast::Cell),
-    Group(ast::Group),
     Constant(u64),
-    /// Represents a go/done hole
+    /// A go/done hole
     Hole,
+    /// A port for this component
     Port,
 }
 
+/// The data that we store in each Petgraph Node
 #[derive(Clone, Debug)]
 pub struct Node {
     pub name: ast::Id,
@@ -30,6 +32,7 @@ pub struct Node {
     pub signature: ast::Signature,
 }
 
+/// Iterator for ports
 pub struct PortIter {
     items: Vec<ast::Portdef>,
 }
@@ -52,10 +55,9 @@ impl Iterator for PortIter {
 impl Node {
     pub fn get_component_type(&self) -> Result<&ast::Id> {
         match &self.data {
-            NodeData::Port
-            | NodeData::Group { .. }
-            | NodeData::Constant(_)
-            | NodeData::Hole => Err(errors::Error::NotSubcomponent),
+            NodeData::Port | NodeData::Constant(_) | NodeData::Hole => {
+                Err(errors::Error::NotSubcomponent)
+            }
             NodeData::Cell(structure) => match structure {
                 Cell::Prim { data } => Ok(&data.instance.name),
                 Cell::Decl { data } => Ok(&data.component),
@@ -75,6 +77,7 @@ impl Node {
         }
     }
 
+    /// Create a constant node for the number `num`
     fn new_constant(namegen: &mut NameGenerator, num: &ast::BitNum) -> Self {
         let name =
             ast::Id::new(namegen.gen_name("$const"), Some(num.span.clone()));
@@ -88,6 +91,7 @@ impl Node {
         }
     }
 
+    /// Create a new hole node for the group `name`
     fn new_hole(name: ast::Id) -> Self {
         Node {
             name,
@@ -110,9 +114,9 @@ pub struct EdgeData {
     pub guard: ast::Guard,
 }
 
-/// private graph type. the data in the node is the identifier
-/// for the corresponding component, and the data on the edge
-/// is (src port, dest port). Use stable graph so that NodeIndexes
+/// private graph type. the data in the node stores information
+/// for the corresponding node type, and the data on the edge
+/// is (src port, dest port, group, guard). We use stable graph so that NodeIndexes
 /// remain valid after removals. the graph is directed
 type StructG = StableDiGraph<Node, EdgeData>;
 
@@ -121,8 +125,13 @@ type StructG = StableDiGraph<Node, EdgeData>;
 /// Structure holds information about the structure of the current component
 #[derive(Clone, Debug)]
 pub struct StructureGraph {
+    /// The node that holds signature for this component
     io: NodeIndex,
+    /// Maps Ids to their corresponding node
     nodes: HashMap<ast::Id, NodeIndex>,
+    /// maps Ids to Vec<Edge> which represents the group
+    /// the set of edges belong to. None refers to edges
+    /// that are in no group.
     groups: HashMap<Option<ast::Id>, Vec<EdgeIndex>>,
     graph: StructG,
     namegen: NameGenerator,
@@ -131,6 +140,7 @@ pub struct StructureGraph {
 impl Default for StructureGraph {
     fn default() -> Self {
         let mut graph = StructG::new();
+        // add a node for the ports for this component. This starts out empty.
         let io = graph.add_node(Node {
             name: "this".into(),
             data: NodeData::Port,
@@ -217,12 +227,12 @@ impl StructureGraph {
                     // create group if it does not exist
                     if !structure.groups.contains_key(&Some(group.name.clone()))
                     {
-                        // create sub-graph for this group
+                        // create a new group
                         structure
                             .groups
                             .insert(Some(group.name.clone()), vec![]);
 
-                        // add go/done holes
+                        // add go/done hole
                         structure.nodes.insert(
                             group.name.clone(),
                             structure
@@ -356,33 +366,10 @@ impl StructureGraph {
         self.add_subcomponent(id, comp, structure)
     }
 
-    // pub fn add_group(
-    //     &mut self,
-    //     comps: &[ast::Id],
-    // ) -> Result<(ast::Id, NodeIndex)> {
-    //     let name: &str = &self.namegen.gen_name("gen");
-
-    //     // check to make sure that all the comps are well defined
-    //     for id in comps {
-    //         if !self.nodes.contains_key(id) {
-    //             return Err(Error::UndefinedComponent(id.clone()));
-    //         }
-    //     }
-
-    //     // generate node for group
-    //     let data = Node {
-    //         name: name.into(),
-    //         data: NodeData::Group(comps.to_vec()),
-    //         signature: group_signature(),
-    //     };
-    //     let idx = self.graph.add_node(data);
-    //     self.nodes.insert(name.into(), idx);
-
-    //     Ok((name.into(), idx))
-    // }
     /* ============= Helper Methods ============= */
 
-    /// Returns an iterator over all the nodes in the structure graph
+    // XXX(sam) reimplement these later
+    // Returns an iterator over all the nodes in the structure graph
     // pub fn nodes(&self) -> impl Iterator<Item = (NodeIndex, Node)> + '_ {
     //     self.graph
     //         .node_indices()
@@ -525,21 +512,6 @@ impl StructureGraph {
         }
     }
 
-    // pub fn remove_edge<S: AsRef<str>, U: AsRef<str>>(
-    //     &mut self,
-    //     src_node: NodeIndex,
-    //     src_port: S,
-    //     dest_node: NodeIndex,
-    //     dest_port: U,
-    // ) -> Result<()> {
-    //     let edge_idx = self.graph.edge_indices()
-    //         .filter_map(|eidx| self.graph.edge_endpoints(eidx))
-    //         .filter(|(s, t)| s == &src_node && t == &dest_node)
-    //         .find(|(s, t)| );
-    //     Ok(())
-    //         // (src_node, dest_node).find()
-    // }
-
     pub fn get(&self, idx: NodeIndex) -> &Node {
         &self.graph[idx]
     }
@@ -556,13 +528,12 @@ impl StructureGraph {
         let node = &self.graph[idx];
         match node.data {
             NodeData::Port => Port::This { port: port.clone() },
-            NodeData::Cell(..)
-            | NodeData::Group(..)
-            | NodeData::Constant(..)
-            | NodeData::Hole => Port::Comp {
-                component: node.name.clone(),
-                port: port.clone(),
-            },
+            NodeData::Cell(..) | NodeData::Constant(..) | NodeData::Hole => {
+                Port::Comp {
+                    component: node.name.clone(),
+                    port: port.clone(),
+                }
+            }
         }
     }
 

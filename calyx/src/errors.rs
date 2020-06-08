@@ -2,13 +2,12 @@
 //! `Error` enum represents a different type of error. For some types of errors, you
 //! might want to add a `From` impl so that the `?` syntax is more convienent.
 
-// XXX(Sam) Add a proper printer for error types
-
 use crate::frontend::{library_syntax, syntax};
 use crate::lang::ast;
 use std::iter::repeat;
 use std::rc::Rc;
 
+#[allow(clippy::large_enum_variant)]
 pub enum Error {
     UnknownPass(String, String),
     InvalidFile,
@@ -34,12 +33,16 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
+    // we use Rc<String> here so that we don't have tostore the entire
+    // input program for each identifier and Rc<String> has nicer lifetimes than &str.
     input: Rc<String>,
     start: usize,
     end: usize,
 }
 
 impl Span {
+    /// Create a new `Error::Span` from a `pest::Span` and
+    /// the input string.
     pub fn new(span: pest::Span, input: Rc<String>) -> Span {
         Span {
             input,
@@ -48,6 +51,7 @@ impl Span {
         }
     }
 
+    /// Format this Span with a the error message `err_msg`
     pub fn format(&self, err_msg: &str) -> String {
         let lines = self.input.split('\n');
         let mut buf: String = String::new();
@@ -125,6 +129,9 @@ impl std::fmt::Debug for Error {
         }
     }
 }
+
+// Conversions from other error types to our error type so that
+// we can use `?` in all the places.
 
 impl From<std::io::Error> for Error {
     fn from(_err: std::io::Error) -> Self {
