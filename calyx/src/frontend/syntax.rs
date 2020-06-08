@@ -7,7 +7,6 @@ use pest_consume::{match_nodes, Error, Parser};
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::str::FromStr;
 
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 // user data is the input program so that we can create Ast::id's
@@ -231,11 +230,19 @@ impl FutilParser {
         })
     }
 
+    fn not_expr(input: Node) -> ParseResult<ast::GuardExpr> {
+        Ok(match_nodes!(
+            input.into_children();
+            [expr(e)] => ast::GuardExpr::Not(e)
+        ))
+    }
+
     fn guard_expr(input: Node) -> ParseResult<ast::GuardExpr> {
         Ok(match_nodes!(
             input.into_children();
             [expr(e1), comparator(c), expr(e2)] => c(e1, e2),
-            [expr(e)] => ast::GuardExpr::Atom(e)
+            [expr(e)] => ast::GuardExpr::Atom(e),
+            [not_expr(e)] => e
         ))
     }
 

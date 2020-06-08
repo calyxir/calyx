@@ -1,4 +1,4 @@
-use crate::errors;
+use crate::errors::{Error, Result};
 use crate::frontend::pretty_print::PrettyPrint;
 use crate::lang::{
     ast, component::Component, library::ast as lib, structure::StructureGraph,
@@ -82,7 +82,7 @@ impl Context {
         namespace: ast::NamespaceDef,
         libraries: &[lib::Library],
         debug_mode: bool,
-    ) -> Result<Self, errors::Error> {
+    ) -> Result<Self> {
         // build hashmap for primitives in provided libraries
         let mut lib_definitions = HashMap::new();
         for def in libraries {
@@ -128,8 +128,8 @@ impl Context {
     /// Iterates over the context definitions, giving mutable access the components
     pub fn definitions_iter(
         &self,
-        mut func: impl FnMut(&ast::Id, &mut Component) -> Result<(), errors::Error>,
-    ) -> Result<(), errors::Error> {
+        mut func: impl FnMut(&ast::Id, &mut Component) -> Result<()>,
+    ) -> Result<()> {
         let mut definitions = self.definitions.borrow_mut();
 
         // do main iteration
@@ -163,7 +163,7 @@ impl Context {
         name: S,
         id: &ast::Id,
         params: &[u64],
-    ) -> Result<Component, errors::Error> {
+    ) -> Result<Component> {
         let sig = self.library_context.resolve(id, params)?;
         Ok(Component::from_signature(name, sig))
     }
@@ -175,13 +175,10 @@ impl Context {
     ///   * `id` - the identifier for the instance
     /// # Returns
     ///   Returns the Component corresponding to `id` or an error.
-    pub fn get_component(
-        &self,
-        id: &ast::Id,
-    ) -> Result<Component, errors::Error> {
+    pub fn get_component(&self, id: &ast::Id) -> Result<Component> {
         match self.definitions.borrow().get(id) {
             Some(comp) => Ok(comp.clone()),
-            None => Err(errors::Error::UndefinedComponent(id.clone())),
+            None => Err(Error::UndefinedComponent(id.clone())),
         }
     }
 
@@ -231,7 +228,7 @@ impl LibraryContext {
         &self,
         id: &ast::Id,
         params: &[u64],
-    ) -> Result<ast::Signature, errors::Error> {
+    ) -> Result<ast::Signature> {
         match self.definitions.get(id) {
             Some(prim) => {
                 // zip param ids with passed in params into hashmap
@@ -242,22 +239,22 @@ impl LibraryContext {
                     .map(|(id, &width)| (id, width))
                     .collect();
                 // resolve inputs
-                let inputs_res: Result<Vec<ast::Portdef>, errors::Error> = prim
+                let inputs_res: Result<Vec<ast::Portdef>> = prim
                     .signature
                     .inputs()
                     .map(|pd| pd.resolve(&id, &param_map))
                     .collect();
                 // resolve outputs
-                let outputs_res: Result<Vec<ast::Portdef>, errors::Error> =
-                    prim.signature
-                        .outputs()
-                        .map(|pd| pd.resolve(&id, &param_map))
-                        .collect();
+                let outputs_res: Result<Vec<ast::Portdef>> = prim
+                    .signature
+                    .outputs()
+                    .map(|pd| pd.resolve(&id, &param_map))
+                    .collect();
                 let inputs = inputs_res?;
                 let outputs = outputs_res?;
                 Ok(ast::Signature { inputs, outputs })
             }
-            None => Err(errors::Error::UndefinedComponent(id.clone())),
+            None => Err(Error::UndefinedComponent(id.clone())),
         }
     }
 }

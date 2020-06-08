@@ -44,8 +44,7 @@ fn block<'a>(
 fn stmt_vec<'a>(
     vec: impl Iterator<Item = RcDoc<'a, ColorSpec>>,
 ) -> RcDoc<'a, ColorSpec> {
-    let docs = vec.map(|s| s.append(RcDoc::text(";")));
-    RcDoc::intersperse(docs, RcDoc::line())
+    RcDoc::intersperse(vec, RcDoc::line())
 }
 
 pub fn display<W: Write>(doc: RcDoc<ColorSpec>, write: Option<W>) {
@@ -89,7 +88,7 @@ pub trait PrettyPrint {
 
 impl PrettyPrint for u64 {
     fn prettify<'a>(&self, _arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        RcDoc::text(self.to_string())
+        RcDoc::text(self.to_string()).literal_color()
     }
 }
 
@@ -110,7 +109,6 @@ impl PrettyPrint for Id {
 
 impl PrettyPrint for NamespaceDef {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        println!("hi: {:?}", self.libraries);
         let imports = self.libraries.iter().map(|l| {
             RcDoc::text("import")
                 .append(RcDoc::space())
@@ -132,23 +130,31 @@ impl PrettyPrint for ComponentDef {
         let name = RcDoc::text("component")
             .define_color()
             .append(RcDoc::space())
-            .append(self.name.prettify(&arena).ident_color())
+            .append(self.name.prettify(&arena))
             .append(self.signature.prettify(&arena));
         let body = RcDoc::nil()
             .append(block(
-                RcDoc::text("cells").keyword_color(),
-                stmt_vec(self.cells.iter().map(|x| x.prettify(&arena))),
+                RcDoc::text("cells").define_color(),
+                stmt_vec(
+                    self.cells
+                        .iter()
+                        .map(|x| x.prettify(&arena).append(RcDoc::text(";"))),
+                ),
             ))
             .append(RcDoc::line())
             .append(RcDoc::line())
             .append(block(
-                RcDoc::text("wires").keyword_color(),
-                stmt_vec(self.connections.iter().map(|x| x.prettify(&arena))),
+                RcDoc::text("wires").define_color(),
+                stmt_vec(
+                    self.connections
+                        .iter()
+                        .map(|x| x.prettify(&arena).append(RcDoc::text(";"))),
+                ),
             ))
             .append(RcDoc::line())
             .append(RcDoc::line())
             .append(block(
-                RcDoc::text("control").keyword_color(),
+                RcDoc::text("control").define_color(),
                 self.control.prettify(&arena),
             ));
         block(name, body)
@@ -171,10 +177,9 @@ impl PrettyPrint for Portdef {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         self.name
             .prettify(&arena)
-            .ident_color()
             .append(RcDoc::text(":"))
             .append(RcDoc::space())
-            .append(RcDoc::text(self.width.to_string()))
+            .append(self.width.prettify(&arena))
     }
 }
 
@@ -193,7 +198,6 @@ impl PrettyPrint for Decl {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         self.name
             .prettify(&arena)
-            .ident_color()
             .append(RcDoc::space())
             .append(RcDoc::text("="))
             .append(RcDoc::space())
@@ -205,7 +209,6 @@ impl PrettyPrint for Prim {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         self.name
             .prettify(&arena)
-            .ident_color()
             .append(RcDoc::space())
             .append(RcDoc::text("="))
             .append(RcDoc::space())
@@ -239,9 +242,13 @@ impl PrettyPrint for Group {
         let title = RcDoc::text("group")
             .keyword_color()
             .append(RcDoc::space())
-            .append(self.name.prettify(&arena).ident_color());
+            .append(self.name.prettify(&arena));
 
-        let body = stmt_vec(self.wires.iter().map(|x| x.prettify(&arena)));
+        let body = stmt_vec(
+            self.wires
+                .iter()
+                .map(|x| x.prettify(&arena).append(RcDoc::text(";"))),
+        );
         block(title, body)
     }
 }
@@ -259,7 +266,6 @@ impl PrettyPrint for Wire {
             self.src.expr.prettify(&arena)
         } else {
             self.src
-                .guard
                 .prettify(&arena)
                 .append(RcDoc::space())
                 .append(RcDoc::text("?"))
@@ -297,6 +303,7 @@ impl PrettyPrint for GuardExpr {
             GuardExpr::Lt(e1, e2) => binop(e1, "<", e2),
             GuardExpr::Geq(e1, e2) => binop(e1, ">=", e2),
             GuardExpr::Leq(e1, e2) => binop(e1, "<=", e2),
+            GuardExpr::Not(e) => RcDoc::text("!").append(e.prettify(&arena)),
             GuardExpr::Atom(e) => e.prettify(&arena),
         }
     }
@@ -306,7 +313,7 @@ impl PrettyPrint for Atom {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         match self {
             Atom::Port(p) => p.prettify(&arena),
-            Atom::Num(n) => n.prettify(&arena),
+            Atom::Num(n) => n.prettify(&arena).literal_color(),
         }
     }
 }
@@ -432,7 +439,7 @@ impl PrettyPrint for Print {
 
 impl PrettyPrint for Enable {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        self.comp.prettify(&arena)
+        self.comp.prettify(&arena).append(RcDoc::text(";"))
     }
 }
 

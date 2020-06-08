@@ -106,8 +106,8 @@ impl std::fmt::Debug for Error {
             }
             UndefinedEdge(src, dest) => write!(f, "Use of undefined edge: {}->{}", src, dest),
             UndefinedComponent(id) => {
-                let msg = "Use of undefined component";
-                write!(f, "{}", id.fmt_err(msg))
+                let msg = format!("Use of undefined component: {}", id.to_string());
+                write!(f, "{}", id.fmt_err(&msg))
             }
             SignatureResolutionFailed(id, param_name) => {
                 let msg = format!("No value passed in for parameter: {}", param_name.to_string());

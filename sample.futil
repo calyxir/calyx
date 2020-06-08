@@ -1,23 +1,55 @@
 import "primitives/std.lib";
 
-component main(a: 1, b: 1) -> (out: 1) {
-  cells {}
+component iterator(init: 32, step: 32, enable: 1, reset: 1) -> (output: 32) {
+  cells {
+    count = prim std_reg(32);
+    add = prim std_add(32);
+    init = prim std_reg(1);
+    and = prim std_and(1);
+    not = prim std_not(1);
+  }
 
   wires {
-    group A {
-      out = A[go] ? a;
-      A[done] = A[go] ? 1'b0;
+    // initialize count to `init`
+    group Init {
+      count.in = enable ? init;
+      init.in = 1'd1;
+      Init[done] =  1'd1;
     }
 
-    group B {
-      out = B[go] ? b;
-      out = A[done];
+    // increments `count` by `step`
+    group Incr {
+      count.in = enable & init ? add.out;
+      Incr[done] = 1'd1;
     }
+
+    // resets counter
+    group Reset {
+      init.in = 1'd0;
+    }
+
+    // hook up adder
+    add.left = step;
+    add.right = count.out;
+
+    not.in = init.out;
+    and.left = enable;
+    and.right = not.out;
   }
 
   control {
-    seq {
-      A; B; C;
+    par {
+      if reset {
+        seq {
+          Reset;
+        }
+      }
+      if and.out {
+        Init;
+      }
+      if enable {
+        Incr;
+      }
     }
   }
 }

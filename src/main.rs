@@ -110,7 +110,7 @@ fn main() -> Result<()> {
 
     // ==== Construct the context ====
     // parse the file
-    let namespace = opts.file.map_or(
+    let namespace = opts.file.as_ref().map_or(
         Err(Error::Impossible("No input file".to_string())),
         |file| syntax::FutilParser::parse_file(&file),
     )?;
@@ -141,5 +141,5 @@ fn main() -> Result<()> {
     //         return Err(errors::Error::UnknownPass(name, known_passes));
     //     }
     // }
-    Ok(opts.backend.run(&context, std::io::stdout())?)
+    Ok(opts.run(&context, &mut std::io::stdout())?)
 }

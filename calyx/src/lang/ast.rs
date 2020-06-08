@@ -4,8 +4,6 @@ use crate::lang::context::LibraryContext;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
-// XXX(sam) Add location information to this type so that we can print
-// them out nicely
 /// Represents an identifier in a Futil program
 #[derive(Clone, Debug, PartialOrd, Ord)]
 pub struct Id {
@@ -246,6 +244,7 @@ pub enum GuardExpr {
     Lt(Atom, Atom),
     Geq(Atom, Atom),
     Leq(Atom, Atom),
+    Not(Atom),
     Atom(Atom),
 }
 

@@ -10,6 +10,7 @@ use petgraph::stable_graph::StableDiGraph;
 use petgraph::Direction;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::fmt;
 
 /// store the structure ast node so that we can reconstruct the ast
 #[derive(Clone, Debug)]
@@ -565,10 +566,37 @@ impl StructureGraph {
         }
     }
 
-    #[allow(unused)]
     pub fn visualize(&self) -> String {
         let config = &[Config::EdgeNoLabel];
-        format!("{:?}", Dot::with_config(&self.graph, config))
+        format!(
+            "{}",
+            Dot::with_attr_getters(
+                &self.graph,
+                config,
+                &|_g, _edgeref| { "".to_string() },
+                &|_g, (_idx, node)| {
+                    match node.data {
+                        NodeData::Hole => "shape=diamond".to_string(),
+                        NodeData::Cell(..) => "shape=box".to_string(),
+                        _ => "".to_string(),
+                    }
+                }
+            )
+        )
+    }
+}
+
+// Define visualization for edges
+impl fmt::Display for EdgeData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.width)
+    }
+}
+
+// Define visualization for nodes
+impl fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name.to_string())
     }
 }
 

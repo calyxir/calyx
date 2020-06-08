@@ -34,6 +34,10 @@ pub struct Opts {
     #[structopt(short = "b", long = "backend", default_value)]
     pub backend: BackendOpt,
 
+    /// Toplevel component
+    #[structopt(short = "t", long = "toplevel", default_value = "main")]
+    pub toplevel: String,
+
     ///choose a single pass
     #[structopt(short = "p", long = "pass", default_value = "all")]
     pub pass: Vec<String>,
@@ -50,6 +54,7 @@ pub struct Opts {
 pub enum BackendOpt {
     Verilog,
     Futil,
+    Dot,
     None,
 }
 
@@ -57,6 +62,7 @@ fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
         // (VerilogBackend::name(), BackendOpt::Verilog),
         ("futil", BackendOpt::Futil),
+        ("dot", BackendOpt::Dot),
         ("none", BackendOpt::None),
     ]
 }
@@ -100,23 +106,35 @@ impl ToString for BackendOpt {
         match self {
             Self::Verilog => "verilog",
             Self::Futil => "futil",
+            Self::Dot => "dot",
             Self::None => "none",
         }
         .to_string()
     }
 }
 
-impl BackendOpt {
+impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
     pub fn run<W: Write>(
         self,
         context: &context::Context,
-        _file: W,
+        file: &mut W,
     ) -> Result<()> {
-        match self {
+        match self.backend {
             BackendOpt::Verilog => unimplemented!(), // VerilogBackend::run(&context, file)
             BackendOpt::Futil => {
                 context.pretty_print();
+                Ok(())
+            }
+            BackendOpt::Dot => {
+                write!(
+                    file,
+                    "{}",
+                    context
+                        .get_component(&self.toplevel.into())?
+                        .structure
+                        .visualize()
+                )?;
                 Ok(())
             }
             BackendOpt::None => Ok(()),
