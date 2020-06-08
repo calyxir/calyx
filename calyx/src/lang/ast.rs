@@ -1,23 +1,50 @@
-use crate::errors::Error;
+// Abstract Syntax Tree for Futil
+use crate::errors::{Result, Span};
 use crate::lang::context::LibraryContext;
-use sexpy::Sexpy;
 use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
+use std::hash::{Hash, Hasher};
 
-// Abstract Syntax Tree for Futil. See link below for the grammar
-// https://github.com/cucapra/futil/blob/master/grammar.md
-
-// XXX(sam) Add location information to this type so that we can print
-// them out nicely
 /// Represents an identifier in a Futil program
-#[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq, PartialOrd, Ord)]
-#[sexpy(nohead, nosurround)]
+#[derive(Clone, Debug, PartialOrd, Ord)]
 pub struct Id {
     id: String,
+    span: Option<Span>,
 }
 
+impl Id {
+    pub fn new<S: ToString>(id: S, span: Option<Span>) -> Self {
+        Self {
+            id: id.to_string(),
+            span,
+        }
+    }
+
+    pub fn fmt_err(&self, err_msg: &str) -> String {
+        match &self.span {
+            Some(span) => span.format(err_msg),
+            None => err_msg.to_string(),
+        }
+    }
+}
+
+/* =================== Custom Hash / Eq for impl to exclude span from the check ============== */
+
+impl Hash for Id {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl PartialEq for Id {
+    fn eq(&self, other: &Id) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Id {}
+
 /* =================== Impls for Id to make them easier to use ============== */
+
 impl ToString for Id {
     fn to_string(&self) -> String {
         self.id.clone()
@@ -32,13 +59,16 @@ impl AsRef<str> for Id {
 
 impl From<&str> for Id {
     fn from(s: &str) -> Self {
-        Id { id: s.to_string() }
+        Id {
+            id: s.to_string(),
+            span: None,
+        }
     }
 }
 
 impl From<String> for Id {
     fn from(s: String) -> Self {
-        Id { id: s }
+        Id { id: s, span: None }
     }
 }
 
@@ -47,40 +77,18 @@ impl PartialEq<str> for Id {
         self.id == other
     }
 }
-/* =================== Impls for Id to make them easier to use ============== */
-
-/// Parses a pathbuf into a NamespaceDef
-pub fn parse_file(file: &PathBuf) -> Result<NamespaceDef, Error> {
-    let content = &fs::read(file)?;
-    let string_content = std::str::from_utf8(content)?;
-    match NamespaceDef::parse(string_content) {
-        Ok(ns) => Ok(ns),
-        Err(msg) => Err(Error::ParseError(msg)),
-    }
-}
 
 /// Top level AST statement. This contains a list of Component definitions.
-#[derive(Clone, Debug, Hash, Sexpy)]
-#[sexpy(head = "define/namespace")]
+#[derive(Clone, Debug, Hash)]
 pub struct NamespaceDef {
-    /// Name of the namespace.
-    pub name: Id,
     /// The path to libraries
-    pub library: Option<ImportStatement>,
+    pub libraries: Vec<String>,
     /// List of component definitions.
     pub components: Vec<ComponentDef>,
 }
 
-/// import statement
-#[derive(Clone, Debug, Hash, Sexpy)]
-#[sexpy(head = "import")]
-pub struct ImportStatement {
-    pub libraries: Vec<String>,
-}
-
 /// AST statement for defining components.
-#[derive(Clone, Debug, Hash, Sexpy)]
-#[sexpy(head = "define/component")]
+#[derive(Clone, Debug, Hash)]
 pub struct ComponentDef {
     /// Name of the component.
     pub name: Id,
@@ -88,9 +96,11 @@ pub struct ComponentDef {
     /// Defines input and output ports.
     pub signature: Signature,
 
-    /// List of structure statements for this component.
-    #[sexpy(surround)]
-    pub structure: Vec<Structure>,
+    /// List of instantiated sub-components
+    pub cells: Vec<Cell>,
+
+    /// List of wires
+    pub connections: Vec<Connection>,
 
     /// Single control statement for this component.
     pub control: Control,
@@ -102,11 +112,11 @@ impl ComponentDef {
     pub fn resolve_primitives(
         &self,
         libctx: &LibraryContext,
-    ) -> Result<HashMap<Id, Signature>, Error> {
+    ) -> Result<HashMap<Id, Signature>> {
         let mut map = HashMap::new();
 
-        for stmt in &self.structure {
-            if let Structure::Std { data } = stmt {
+        for stmt in &self.cells {
+            if let Cell::Prim { data } = stmt {
                 let sig = libctx
                     .resolve(&data.instance.name, &data.instance.params)?;
                 map.insert(data.name.clone(), sig);
@@ -119,15 +129,12 @@ impl ComponentDef {
 
 /// The signature for a component. Contains a list
 /// of input ports and a list of output ports.
-#[derive(Clone, Debug, Hash, Sexpy)]
-#[sexpy(nohead, nosurround)]
+#[derive(Clone, Debug, Hash, Default)]
 pub struct Signature {
     /// List of input ports.
-    #[sexpy(surround)]
     pub inputs: Vec<Portdef>,
 
     /// List of output ports.
-    #[sexpy(surround)]
     pub outputs: Vec<Portdef>,
 }
 
@@ -142,8 +149,7 @@ impl Signature {
 }
 
 /// The definition of an input/output port.
-#[derive(Clone, Debug, Hash, Sexpy, PartialEq)]
-#[sexpy(head = "port")]
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub struct Portdef {
     /// The name of the port.
     pub name: Id,
@@ -164,8 +170,7 @@ impl From<(&str, u64)> for Portdef {
 
 /// Statement that refers to a port on a subcomponent.
 /// This is distinct from a `Portdef` which defines a port.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Sexpy, PartialOrd, Ord)]
-#[sexpy(head = "@")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Port {
     /// Refers to the port named `port` on the subcomponent
     /// `component`.
@@ -173,8 +178,11 @@ pub enum Port {
 
     /// Refers to the port named `port` on the component
     /// currently being defined.
-    #[sexpy(head = "this")]
     This { port: Id },
+
+    /// `group[name]` parses into `Hole { group, name }`
+    /// and is a hole named `name` on group `group`
+    Hole { group: Id, name: Id },
 }
 
 impl Port {
@@ -185,14 +193,14 @@ impl Port {
         match self {
             Port::Comp { port, .. } => port,
             Port::This { port } => port,
+            Port::Hole { name, .. } => name,
         }
     }
 }
 
 /// Instantiates a subcomponent named `name` with
 /// paramters `params`.
-#[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq, PartialOrd, Ord)]
-#[sexpy(nohead)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Compinst {
     /// Name of the subcomponent to instantiate.
     pub name: Id,
@@ -202,12 +210,56 @@ pub struct Compinst {
 }
 
 // ===================================
+// AST for wire guard expressions
+// ===================================
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum NumType {
+    Decimal,
+    Binary,
+    Octal,
+    Hex,
+}
+
+/// Custom bitwidth numbers
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct BitNum {
+    pub width: u64,
+    pub num_type: NumType,
+    pub val: u64,
+    pub span: Span,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Atom {
+    Port(Port),
+    Num(BitNum),
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum GuardExpr {
+    Eq(Atom, Atom),
+    Neq(Atom, Atom),
+    Gt(Atom, Atom),
+    Lt(Atom, Atom),
+    Geq(Atom, Atom),
+    Leq(Atom, Atom),
+    Not(Atom),
+    Atom(Atom),
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Guard {
+    pub guard: Vec<GuardExpr>,
+    pub expr: Atom,
+}
+
+// ===================================
 // Data definitions for Structure
 // ===================================
 
 /// Data for the `new` structure statement.
-#[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq, PartialOrd, Ord)]
-#[sexpy(head = "new", nosurround)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Decl {
     /// Name of the variable being defined.
     pub name: Id,
@@ -217,9 +269,8 @@ pub struct Decl {
 }
 
 /// Data for the `new-std` structure statement.
-#[derive(Clone, Debug, Hash, Sexpy, Eq, PartialEq, PartialOrd, Ord)]
-#[sexpy(head = "new-std", nosurround)]
-pub struct Std {
+#[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
+pub struct Prim {
     /// Name of the variable being defined.
     pub name: Id,
 
@@ -227,55 +278,60 @@ pub struct Std {
     pub instance: Compinst,
 }
 
-/// Data for the `->` structure statement.
-#[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq, PartialOrd, Ord)]
-#[sexpy(head = "->", nosurround)]
-pub struct Wire {
-    /// Source of the wire.
-    pub src: Port,
-
-    /// Destination of the wire.
-    pub dest: Port,
-}
-
-/// The Structure AST nodes.
-#[derive(Clone, Debug, Hash, Sexpy, PartialEq, Eq, PartialOrd, Ord)]
-#[sexpy(nohead)]
-pub enum Structure {
+/// The Cell AST nodes.
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Cell {
     /// Node for instantiating user-defined components.
     Decl { data: Decl },
     /// Node for instantiating primitive components.
-    Std { data: Std },
-    /// Node for connecting ports on different components.
-    Wire { data: Wire },
+    Prim { data: Prim },
 }
 
 /// Methods for constructing the structure AST nodes.
-#[allow(unused)]
-impl Structure {
+impl Cell {
     /// Constructs `Structure::Decl` with `name` and `component`
     /// as arguments.
-    pub fn decl(name: Id, component: Id) -> Structure {
-        Structure::Decl {
+    pub fn decl(name: Id, component: Id) -> Cell {
+        Cell::Decl {
             data: Decl { name, component },
         }
     }
 
     /// Constructs `Structure::Std` with `name` and `instance`
     /// as arguments.
-    pub fn std(name: Id, instance: Compinst) -> Structure {
-        Structure::Std {
-            data: Std { name, instance },
+    pub fn prim(var: Id, prim_name: Id, params: Vec<u64>) -> Cell {
+        Cell::Prim {
+            data: Prim {
+                name: var,
+                instance: Compinst {
+                    name: prim_name,
+                    params,
+                },
+            },
         }
     }
+}
 
-    /// Constructs `Structure::Wire` with `src` and `dest`
-    /// as arguments.
-    pub fn wire(src: Port, dest: Port) -> Structure {
-        Structure::Wire {
-            data: Wire { src, dest },
-        }
-    }
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Connection {
+    Group(Group),
+    Wire(Wire),
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Group {
+    pub name: Id,
+    pub wires: Vec<Wire>,
+}
+
+/// Data for the `->` structure statement.
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Wire {
+    /// Source of the wire.
+    pub src: Guard,
+
+    /// Guarded destinations of the wire.
+    pub dest: Port,
 }
 
 // ===================================
@@ -283,31 +339,27 @@ impl Structure {
 // ===================================
 
 /// Data for the `seq` control statement.
-#[derive(Debug, Clone, Hash, Sexpy)]
-#[sexpy(nosurround)]
+#[derive(Debug, Clone, Hash)]
 pub struct Seq {
     /// List of `Control` statements to run in sequence.
     pub stmts: Vec<Control>,
 }
 
 /// Data for the `par` control statement.
-#[derive(Debug, Clone, Hash, Sexpy)]
-#[sexpy(nosurround)]
+#[derive(Debug, Clone, Hash)]
 pub struct Par {
     /// List of `Control` statements to run in parallel.
     pub stmts: Vec<Control>,
 }
 
 /// Data for the `if` control statement.
-#[derive(Debug, Clone, Hash, Sexpy)]
-#[sexpy(nosurround)]
+#[derive(Debug, Clone, Hash)]
 pub struct If {
     /// Port that connects the conditional check.
     pub port: Port,
 
     /// Modules that need to be enabled to send signal on `port`.
-    #[sexpy(surround)]
-    pub cond: Vec<Id>,
+    pub cond: Option<Id>,
 
     /// Control for the true branch.
     pub tbranch: Box<Control>,
@@ -317,44 +369,38 @@ pub struct If {
 }
 
 /// Data for the `if` control statement.
-#[derive(Debug, Clone, Hash, Sexpy)]
-#[sexpy(nosurround)]
+#[derive(Debug, Clone, Hash)]
 pub struct While {
     /// Port that connects the conditional check.
     pub port: Port,
 
     /// Modules that need to be enabled to send signal on `port`.
-    #[sexpy(surround)]
-    pub cond: Vec<Id>,
+    pub cond: Option<Id>,
 
     /// Control for the loop body.
     pub body: Box<Control>,
 }
 
 /// Data for the `print` control statement.
-#[derive(Debug, Clone, Hash, Sexpy)]
-#[sexpy(nosurround)]
+#[derive(Debug, Clone, Hash)]
 pub struct Print {
     /// Name of the port to print.
     pub var: Port,
 }
 
 /// Data for the `enable` control statement.
-#[derive(Debug, Clone, Hash, Sexpy)]
-#[sexpy(nosurround)]
+#[derive(Debug, Clone, Hash)]
 pub struct Enable {
     /// List of components to run.
-    pub comps: Vec<Id>,
+    pub comp: Id,
 }
 
 /// Data for the `empty` control statement.
-#[derive(Debug, Clone, Hash, Sexpy)]
-#[sexpy(nosurround)]
+#[derive(Debug, Clone, Hash)]
 pub struct Empty {}
 
 /// Control AST nodes.
-#[derive(Debug, Clone, Hash, Sexpy)]
-#[sexpy(nohead)]
+#[derive(Debug, Clone, Hash)]
 pub enum Control {
     /// Represents sequential composition of control statements.
     Seq { data: Seq },
@@ -389,25 +435,25 @@ impl Control {
 
     pub fn c_if(
         port: Port,
-        stmts: Vec<Id>,
+        cond: Option<Id>,
         tbranch: Control,
         fbranch: Control,
     ) -> Control {
         Control::If {
             data: If {
                 port,
-                cond: stmts,
+                cond,
                 tbranch: Box::new(tbranch),
                 fbranch: Box::new(fbranch),
             },
         }
     }
 
-    pub fn c_while(port: Port, stmts: Vec<Id>, body: Control) -> Control {
+    pub fn c_while(port: Port, cond: Option<Id>, body: Control) -> Control {
         Control::While {
             data: While {
                 port,
-                cond: stmts,
+                cond,
                 body: Box::new(body),
             },
         }
@@ -419,9 +465,9 @@ impl Control {
         }
     }
 
-    pub fn enable(comps: Vec<Id>) -> Control {
+    pub fn enable(comp: Id) -> Control {
         Control::Enable {
-            data: Enable { comps },
+            data: Enable { comp },
         }
     }
 

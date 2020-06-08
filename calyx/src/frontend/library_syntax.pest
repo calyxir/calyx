@@ -1,0 +1,60 @@
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+COMMENT = _{ ("//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE) | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+
+ident_syms = _{ "_" | "-" | "'" }
+identifier = @{ ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA)* }
+
+bitwidth = @{ ASCII_DIGIT+ }
+num_lit = @{ ASCII_DIGIT+ } // TODO: add verilog style number literals
+
+// ====== toplevel ======
+
+primitive = {
+      "primitive" ~ identifier ~ params? ~ signature?
+      ~ "{"
+      ~ implementation
+      ~ "}"
+}
+
+file = {
+      SOI
+      ~ primitive+
+      ~ EOI
+}
+
+// ====== signature ======
+
+params = {
+      "[" ~ (identifier ~ ("," ~ identifier)*)? ~ "]"
+}
+
+signature = {
+      "(" ~ io_ports? ~ ")" ~ ("->" ~ "(" ~ io_ports? ~ ")")?
+}
+
+io_port = {
+      identifier ~ ":" ~ (bitwidth | identifier)
+}
+
+io_ports = {
+      io_port ~ ("," ~ io_port)*
+}
+
+inner = _{
+      ("{" ~ PUSH((!"}" ~ ANY)*) ~ "}")
+    | (!"}" ~ ANY ~ inner*)
+}
+
+inner_wrap = { inner }
+
+block = {
+      "{" ~ inner_wrap ~ "}"
+}
+
+verilog_block = {
+      "verilog" ~ block
+}
+
+implementation = {
+      verilog_block?
+}

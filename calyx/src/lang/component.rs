@@ -1,6 +1,7 @@
-use super::{ast, structure::StructureGraph};
-use crate::errors::Error;
-use crate::lang::pretty_print::PrettyPrint;
+use super::ast;
+use crate::errors::{Error, Result};
+use crate::frontend::pretty_print::PrettyPrint;
+use crate::lang::structure::StructureGraph;
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::collections::HashMap;
 
@@ -37,10 +38,10 @@ impl Component {
     pub fn add_input(
         &mut self,
         portdef: impl Into<ast::Portdef>,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let portdef = portdef.into();
         if !self.signature.has_input(portdef.name.as_ref()) {
-            self.structure.insert_input_port(&portdef);
+            // self.structure.insert_input_port(&portdef);
             self.signature.inputs.push(portdef);
             Ok(())
         } else {
@@ -52,10 +53,10 @@ impl Component {
     pub fn add_output(
         &mut self,
         portdef: impl Into<ast::Portdef>,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let portdef = portdef.into();
         if !self.signature.has_output(portdef.name.as_ref()) {
-            self.structure.insert_output_port(&portdef);
+            // self.structure.insert_output_port(&portdef);
             self.signature.outputs.push(portdef);
             Ok(())
         } else {
@@ -66,10 +67,12 @@ impl Component {
 
 impl Into<ast::ComponentDef> for Component {
     fn into(self) -> ast::ComponentDef {
+        let (cells, connections) = self.structure.into();
         ast::ComponentDef {
             name: self.name,
             signature: self.signature,
-            structure: self.structure.into(),
+            cells,
+            connections,
             control: self.control,
         }
     }

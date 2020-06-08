@@ -1,13 +1,11 @@
-use crate::cmdline::Opts;
-use crate::errors;
-use crate::lang::pretty_print::PrettyPrint;
+use crate::errors::{Error, Result};
+use crate::frontend::pretty_print::PrettyPrint;
 use crate::lang::{
     ast, component::Component, library::ast as lib, structure::StructureGraph,
 };
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 /// Represents an entire Futil program. We are keeping all of the components in a `RefCell<HashMap>`.
 /// We use the `RefCell` to provide our desired visitor interface
@@ -83,7 +81,8 @@ impl Context {
     pub fn from_ast(
         namespace: ast::NamespaceDef,
         libraries: &[lib::Library],
-    ) -> Result<Self, errors::Error> {
+        debug_mode: bool,
+    ) -> Result<Self> {
         // build hashmap for primitives in provided libraries
         let mut lib_definitions = HashMap::new();
         for def in libraries {
@@ -118,51 +117,19 @@ impl Context {
         }
 
         Ok(Context {
-            debug_mode: false,
+            debug_mode,
             library_context: libctx,
             definitions: RefCell::new(definitions),
             definitions_to_insert: RefCell::new(vec![]),
         })
     }
 
-    pub fn from_opts(opts: &Opts) -> Result<Self, errors::Error> {
-        // parse file
-        let file = opts.file.as_ref().ok_or_else(|| {
-            errors::Error::Impossible("No input file provided.".to_string())
-        })?;
-        let namespace = ast::parse_file(file)?;
-
-        // Generate library objects from import statements
-        let lib_path = opts.lib_path.canonicalize()?;
-        let libs = match &namespace.library {
-            Some(import_stmt) => import_stmt
-                .libraries
-                .iter()
-                .map(|path| {
-                    let mut new_path = lib_path.clone();
-                    new_path.push(PathBuf::from(path));
-                    new_path
-                })
-                .map(|path| lib::parse_file(&path))
-                .collect::<Result<Vec<_>, _>>()?,
-            None => vec![],
-        };
-
-        // build context
-        let mut context = Self::from_ast(namespace, &libs)?;
-
-        // set debug mode according to opts
-        context.debug_mode = opts.enable_debug;
-
-        Ok(context)
-    }
-
     // XXX(sam) maybe implement this as an iterator?
     /// Iterates over the context definitions, giving mutable access the components
     pub fn definitions_iter(
         &self,
-        mut func: impl FnMut(&ast::Id, &mut Component) -> Result<(), errors::Error>,
-    ) -> Result<(), errors::Error> {
+        mut func: impl FnMut(&ast::Id, &mut Component) -> Result<()>,
+    ) -> Result<()> {
         let mut definitions = self.definitions.borrow_mut();
 
         // do main iteration
@@ -196,7 +163,7 @@ impl Context {
         name: S,
         id: &ast::Id,
         params: &[u64],
-    ) -> Result<Component, errors::Error> {
+    ) -> Result<Component> {
         let sig = self.library_context.resolve(id, params)?;
         Ok(Component::from_signature(name, sig))
     }
@@ -208,13 +175,10 @@ impl Context {
     ///   * `id` - the identifier for the instance
     /// # Returns
     ///   Returns the Component corresponding to `id` or an error.
-    pub fn get_component(
-        &self,
-        id: &ast::Id,
-    ) -> Result<Component, errors::Error> {
+    pub fn get_component(&self, id: &ast::Id) -> Result<Component> {
         match self.definitions.borrow().get(id) {
             Some(comp) => Ok(comp.clone()),
-            None => Err(errors::Error::UndefinedComponent(id.clone())),
+            None => Err(Error::UndefinedComponent(id.clone())),
         }
     }
 
@@ -237,16 +201,14 @@ impl Context {
 
 impl Into<ast::NamespaceDef> for Context {
     fn into(self) -> ast::NamespaceDef {
-        let name = "placeholder";
         let mut components: Vec<ast::ComponentDef> = vec![];
         for comp in self.definitions.borrow().values() {
             components.push(comp.clone().into())
         }
         ast::NamespaceDef {
-            name: name.into(),
             components,
             //TODO: replace the place holder for libraries with the import statements
-            library: Some(ast::ImportStatement { libraries: vec![] }),
+            libraries: vec![],
         }
     }
 }
@@ -266,7 +228,7 @@ impl LibraryContext {
         &self,
         id: &ast::Id,
         params: &[u64],
-    ) -> Result<ast::Signature, errors::Error> {
+    ) -> Result<ast::Signature> {
         match self.definitions.get(id) {
             Some(prim) => {
                 // zip param ids with passed in params into hashmap
@@ -277,22 +239,22 @@ impl LibraryContext {
                     .map(|(id, &width)| (id, width))
                     .collect();
                 // resolve inputs
-                let inputs_res: Result<Vec<ast::Portdef>, errors::Error> = prim
+                let inputs_res: Result<Vec<ast::Portdef>> = prim
                     .signature
                     .inputs()
-                    .map(|pd| pd.resolve(&param_map))
+                    .map(|pd| pd.resolve(&id, &param_map))
                     .collect();
                 // resolve outputs
-                let outputs_res: Result<Vec<ast::Portdef>, errors::Error> =
-                    prim.signature
-                        .outputs()
-                        .map(|pd| pd.resolve(&param_map))
-                        .collect();
+                let outputs_res: Result<Vec<ast::Portdef>> = prim
+                    .signature
+                    .outputs()
+                    .map(|pd| pd.resolve(&id, &param_map))
+                    .collect();
                 let inputs = inputs_res?;
                 let outputs = outputs_res?;
                 Ok(ast::Signature { inputs, outputs })
             }
-            None => Err(errors::Error::SignatureResolutionFailed(id.clone())),
+            None => Err(Error::UndefinedComponent(id.clone())),
         }
     }
 }

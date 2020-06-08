@@ -1,0 +1,40 @@
+import "primitives/std.lib";
+
+component A_b_c(a: 32, b: 32) -> (c: 32) {
+  cells {
+    x = prim std_reg(32, 32, 32, 32);
+    y = my_mult;
+  }
+
+  wires {
+    y.in = x.in ? x.out;
+    y.in = x.in & 4 == 12 ? x.out;
+
+    group B {
+      B[done] = 0;
+      x.out = 1 == 2 ? a;
+      x.out = abc.in == 4 & abc.out ? 4;
+      x.out = abc.in == 4 & abc.out ? 4;
+    }
+    y.in = x.out;
+  }
+
+  control {
+    seq {
+      A;
+      B;
+      seq { A; B; }
+      par { A; B; }
+      if x.out with G {
+        A;
+      } else if x.out with G {
+        B;
+      } else {
+        C;
+      }
+      while x.out with G {
+        A;
+      }
+    }
+  }
+}

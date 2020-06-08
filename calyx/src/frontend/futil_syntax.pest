@@ -1,0 +1,169 @@
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+COMMENT = _{ ("//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE) | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+
+ident_syms = _{ "_" | "-" | "'" }
+identifier = @{ ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
+
+bitwidth = @{ ASCII_DIGIT+ }
+num_lit = @{
+      ASCII_DIGIT+ ~ "'"
+      ~ ( "d" ~ ASCII_DIGIT+
+        | "b" ~ ASCII_BIN_DIGIT+
+        | "x" ~ ASCII_HEX_DIGIT+
+        | "o" ~ ASCII_OCT_DIGIT+)
+}
+
+char = { !"\"" ~ ANY }
+string_lit = ${ "\"" ~ char* ~ "\"" }
+
+// ====== toplevel ======
+
+component = {
+      "component" ~ identifier ~ signature?
+      ~ "{"
+      ~ cells
+      ~ connections
+      ~ control
+      ~ "}"
+}
+
+file = {
+      SOI
+      ~ imports
+      ~ component+
+      ~ EOI
+}
+
+import = _{
+      "import" ~ string_lit ~ ";"
+}
+
+imports = { import* }
+
+
+// ====== signature ======
+
+signature = {
+      "(" ~ io_ports? ~ ")" ~ ("->" ~ "(" ~ io_ports? ~ ")")?
+}
+
+io_port = {
+      identifier ~ ":" ~ bitwidth
+}
+
+io_ports = {
+      io_port ~ ("," ~ io_port)*
+}
+
+args = {
+      "(" ~ (bitwidth ~ ("," ~ bitwidth)*)? ~ ")"
+}
+
+// ====== cells ======
+
+primitive_cell = {
+      identifier ~ "=" ~ "prim" ~ identifier ~ args
+}
+
+component_cell = {
+      identifier ~ "=" ~ identifier
+}
+
+cells = {
+      "cells"
+      ~ "{" ~ ((primitive_cell | component_cell) ~ ";")* ~ "}"
+}
+
+// ====== wires ======
+
+hole = {
+      identifier ~ "[" ~ identifier ~ "]"
+}
+
+port = {
+      (identifier ~ "." ~ identifier)
+    | identifier
+}
+
+LHS = { hole | port }
+expr = { LHS | num_lit }
+
+comparator = { "==" | "!=" | "<" | ">" | "<=" | ">=" }
+
+not_expr = { "!" ~ expr }
+
+guard_expr = {
+      (expr ~ comparator ~ expr) | expr | not_expr
+}
+
+guard = {
+      guard_expr ~ ("&" ~ guard_expr)*
+}
+
+switch_stmt = {
+      guard ~ "?" ~ expr
+}
+
+wire = {
+      LHS ~ "=" ~ (switch_stmt | expr) ~ ";"
+}
+
+group = {
+      "group" ~ identifier ~ "{"
+      ~ wire*
+      ~ "}"
+}
+
+connections = {
+      "wires"
+      ~ "{"
+      ~ (wire | group)*
+      ~ "}"
+}
+
+// ====== control ======
+
+enable = { identifier ~ ";" }
+
+seq = {
+      "seq" ~ "{"
+      ~ stmt*
+      ~ "}"
+}
+
+par = {
+      "par" ~ "{"
+      ~ stmt*
+      ~ "}"
+}
+
+block = _{
+      "{" ~ stmt ~ "}"
+}
+
+if_cond = {
+      ("with" ~ identifier)?
+}
+
+if_stmt = {
+      "if" ~ port ~ if_cond ~ block ~ ("else" ~ (if_stmt | block))?
+}
+
+while_stmt = {
+      "while" ~ port ~ ("with" ~ identifier)? ~ block
+}
+
+stmt = {
+      enable
+    | (seq ~ ";"?)
+    | (par ~ ";"?)
+    | (if_stmt ~ ";"?)
+    | (while_stmt ~ ";"?)
+}
+
+control = {
+      "control"
+      ~ "{"
+      ~ stmt
+      ~ "}"
+}

@@ -1,8 +1,8 @@
-use crate::backend::traits::Backend;
-use crate::backend::verilog::gen::VerilogBackend;
-use crate::errors;
-use crate::lang::context;
-use crate::lang::pretty_print::PrettyPrint;
+// use crate::backend::traits::Backend;
+// use crate::backend::verilog::gen::VerilogBackend;
+use calyx::{
+    errors::Result, frontend::pretty_print::PrettyPrint, lang::context,
+};
 use itertools::Itertools;
 use std::io::Write;
 use std::path::PathBuf;
@@ -34,6 +34,10 @@ pub struct Opts {
     #[structopt(short = "b", long = "backend", default_value)]
     pub backend: BackendOpt,
 
+    /// Toplevel component
+    #[structopt(short = "t", long = "toplevel", default_value = "main")]
+    pub toplevel: String,
+
     ///choose a single pass
     #[structopt(short = "p", long = "pass", default_value = "all")]
     pub pass: Vec<String>,
@@ -50,13 +54,15 @@ pub struct Opts {
 pub enum BackendOpt {
     Verilog,
     Futil,
+    Dot,
     None,
 }
 
 fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
-        (VerilogBackend::name(), BackendOpt::Verilog),
+        // (VerilogBackend::name(), BackendOpt::Verilog),
         ("futil", BackendOpt::Futil),
+        ("dot", BackendOpt::Dot),
         ("none", BackendOpt::None),
     ]
 }
@@ -70,7 +76,7 @@ impl Default for BackendOpt {
 /// Command line parsing for the Backend enum
 impl FromStr for BackendOpt {
     type Err = String;
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
+    fn from_str(input: &str) -> std::result::Result<Self, Self::Err> {
         // allocate a vector for the list of backends
         let backends = backends();
         // see if there is a backend for the string that we receive
@@ -100,23 +106,35 @@ impl ToString for BackendOpt {
         match self {
             Self::Verilog => "verilog",
             Self::Futil => "futil",
+            Self::Dot => "dot",
             Self::None => "none",
         }
         .to_string()
     }
 }
 
-impl BackendOpt {
+impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
     pub fn run<W: Write>(
         self,
         context: &context::Context,
-        file: W,
-    ) -> Result<(), errors::Error> {
-        match self {
-            BackendOpt::Verilog => VerilogBackend::run(&context, file),
+        file: &mut W,
+    ) -> Result<()> {
+        match self.backend {
+            BackendOpt::Verilog => unimplemented!(), // VerilogBackend::run(&context, file)
             BackendOpt::Futil => {
                 context.pretty_print();
+                Ok(())
+            }
+            BackendOpt::Dot => {
+                write!(
+                    file,
+                    "{}",
+                    context
+                        .get_component(&self.toplevel.into())?
+                        .structure
+                        .visualize()
+                )?;
                 Ok(())
             }
             BackendOpt::None => Ok(()),
