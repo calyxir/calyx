@@ -89,7 +89,28 @@ impl LibraryParser {
     }
 
     fn inner_wrap(input: Node) -> ParseResult<String> {
-        Ok(input.as_str().to_string())
+        // remove extra whitespace and indentation
+        let mut result = String::new();
+        let mut prefix: Option<usize> = None;
+        for line in input.as_str().lines() {
+            if !line.is_empty() && prefix.is_none() {
+                prefix = line.find(|s| !char::is_whitespace(s));
+            }
+
+            if prefix.is_some() {
+                result += prefix
+                    .map(|pre| {
+                        if line.len() > pre {
+                            line.split_at(pre).1
+                        } else {
+                            line
+                        }
+                    })
+                    .unwrap_or(line);
+                result += "\n";
+            }
+        }
+        Ok(result)
     }
 
     fn block(input: Node) -> ParseResult<String> {

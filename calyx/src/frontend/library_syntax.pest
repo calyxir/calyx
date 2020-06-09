@@ -47,7 +47,7 @@ inner = _{
 
 inner_wrap = { inner }
 
-block = {
+block = ${
       "{" ~ inner_wrap ~ "}"
 }
 

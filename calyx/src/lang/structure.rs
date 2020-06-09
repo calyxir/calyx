@@ -146,9 +146,11 @@ impl Default for StructureGraph {
             data: NodeData::Port,
             signature: ast::Signature::default(),
         });
+        let mut nodes = HashMap::new();
+        nodes.insert("this".into(), io);
         StructureGraph {
             io,
-            nodes: HashMap::new(),
+            nodes,
             groups: HashMap::new(),
             graph,
             namegen: NameGenerator::default(),
@@ -451,6 +453,24 @@ impl StructureGraph {
             .filter(move |(_nd, ed)| port == ed.dest.port_name().to_string())
     }
 
+    /// Returns an iterator over all the edges.
+    pub fn edges<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (EdgeIndex, &'a EdgeData)> + 'a {
+        self.groups
+            .values()
+            .flatten()
+            .map(move |idx| (*idx, &self.graph[*idx]))
+    }
+
+    pub fn nodes<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (NodeIndex, &'a Node)> + 'a {
+        self.nodes
+            .values()
+            .map(move |idx| (*idx, &self.graph[*idx]))
+    }
+
     pub fn insert_input_port(&mut self, port: &ast::Portdef) {
         let sig = &mut self.graph[self.io].signature;
         // add to outputs because was want to use input ports as sources for
@@ -510,6 +530,16 @@ impl StructureGraph {
                 dest_width,
             ))
         }
+    }
+
+    /// Returns the node representing this component
+    pub fn this(&self) -> &Node {
+        &self.graph[self.io]
+    }
+
+    /// Returns the idx for the node representing this component
+    pub fn this_idx(&self) -> NodeIndex {
+        self.io
     }
 
     pub fn get(&self, idx: NodeIndex) -> &Node {

@@ -1,5 +1,5 @@
-// use crate::backend::traits::Backend;
-// use crate::backend::verilog::gen::VerilogBackend;
+use calyx::backend::traits::Backend;
+use calyx::backend::verilog::gen::VerilogBackend;
 use calyx::{
     errors::Result, frontend::pretty_print::PrettyPrint, lang::context,
 };
@@ -60,7 +60,7 @@ pub enum BackendOpt {
 
 fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
-        // (VerilogBackend::name(), BackendOpt::Verilog),
+        (VerilogBackend::name(), BackendOpt::Verilog),
         ("futil", BackendOpt::Futil),
         ("dot", BackendOpt::Dot),
         ("none", BackendOpt::None),
@@ -121,7 +121,7 @@ impl Opts {
         file: &mut W,
     ) -> Result<()> {
         match self.backend {
-            BackendOpt::Verilog => unimplemented!(), // VerilogBackend::run(&context, file)
+            BackendOpt::Verilog => VerilogBackend::run(&context, file),
             BackendOpt::Futil => {
                 context.pretty_print();
                 Ok(())

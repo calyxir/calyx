@@ -164,6 +164,6 @@ stmt = {
 control = {
       "control"
       ~ "{"
-      ~ stmt
+      ~ stmt?
       ~ "}"
 }
