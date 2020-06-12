@@ -132,8 +132,8 @@ pub struct StructureGraph {
     /// maps Ids to Vec<Edge> which represents the group
     /// the set of edges belong to. None refers to edges
     /// that are in no group.
-    groups: HashMap<Option<ast::Id>, Vec<EdgeIndex>>,
-    graph: StructG,
+    pub groups: HashMap<Option<ast::Id>, Vec<EdgeIndex>>,
+    pub graph: StructG,
     namegen: NameGenerator,
 }
 
