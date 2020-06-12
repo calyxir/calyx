@@ -254,6 +254,52 @@ pub struct Guard {
     pub expr: Atom,
 }
 
+impl ToString for Atom {
+    fn to_string(&self) -> String {
+        match self {
+            Atom::Port(p) => p.port_name().to_string(),
+            Atom::Num(n) => n.val.to_string(),
+        }
+    }
+}
+
+impl ToString for GuardExpr {
+    fn to_string(&self) -> String {
+        match self {
+            GuardExpr::Eq(a, b) => {
+                format!("{}_eq_{}", a.to_string(), b.to_string())
+            }
+            GuardExpr::Neq(a, b) => {
+                format!("{}_neq_{}", a.to_string(), b.to_string())
+            }
+            GuardExpr::Gt(a, b) => {
+                format!("{}_gt_{}", a.to_string(), b.to_string())
+            }
+            GuardExpr::Lt(a, b) => {
+                format!("{}_lt_{}", a.to_string(), b.to_string())
+            }
+            GuardExpr::Geq(a, b) => {
+                format!("{}_geq_{}", a.to_string(), b.to_string())
+            }
+            GuardExpr::Leq(a, b) => {
+                format!("{}_leq_{}", a.to_string(), b.to_string())
+            }
+            GuardExpr::Not(a) => format!("!{}", a.to_string()),
+            GuardExpr::Atom(a) => a.to_string(),
+        }
+    }
+}
+
+impl ToString for Guard {
+    fn to_string(&self) -> String {
+        self.guard
+            .iter()
+            .map(GuardExpr::to_string)
+            .collect::<Vec<_>>()
+            .join("_")
+    }
+}
+
 // ===================================
 // Data definitions for Structure
 // ===================================

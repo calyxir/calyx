@@ -105,7 +105,7 @@ impl Node {
     }
 }
 /// store the src port and dst port on edge
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct EdgeData {
     pub src: Port,
     pub dest: Port,

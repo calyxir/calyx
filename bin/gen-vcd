@@ -10,10 +10,18 @@
 set -euf
 
 filename="$1"
-stem="${filename%.*}"
 
 # Create a temporary folder to store objects generated from verilator.
 tmp="$(mktemp -d)"
+
+if [ "$filename" = "-" ]; then
+    filename="$tmp"/source
+    cat <&0 > $filename
+fi
+
+# name for resulting vcd file
+stem=$(basename "${filename%.*}")
+
 cp sim/testbench.cpp "$tmp"/
 
 # Generate required objects for verilator run.
@@ -22,7 +30,8 @@ verilator -cc --trace "$filename" \
 
 # Generate and execute verilator C harness.
 make -j -C "$tmp" -f Vmain.mk Vmain
-"$tmp"/Vmain "$stem".vcd
+"$tmp"/Vmain "./$stem".vcd
+echo "wrote" "$stem".vcd
 
 # Clean up temporary folder.
 rm -rf "$tmp"

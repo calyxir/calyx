@@ -44,7 +44,11 @@ imports = { import* }
 // ====== signature ======
 
 signature = {
-      "(" ~ io_ports? ~ ")" ~ ("->" ~ "(" ~ io_ports? ~ ")")?
+      "(" ~ io_ports? ~ ")" ~ signature_return?
+}
+
+signature_return = {
+      "->" ~ "(" ~ io_ports? ~ ")"
 }
 
 io_port = {
@@ -88,7 +92,7 @@ port = {
 LHS = { hole | port }
 expr = { LHS | num_lit }
 
-comparator = { "==" | "!=" | "<" | ">" | "<=" | ">=" }
+comparator = { "==" | "!=" | "<=" | ">=" | "<" | ">" }
 
 not_expr = { "!" ~ expr }
 

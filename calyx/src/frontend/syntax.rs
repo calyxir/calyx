@@ -127,15 +127,25 @@ impl FutilParser {
     fn signature(input: Node) -> ParseResult<ast::Signature> {
         Ok(match_nodes!(
             input.into_children();
-            [io_ports(ins), io_ports(outs)] => ast::Signature {
-                inputs: ins,
-                outputs: outs
+            [io_ports(inputs), signature_return(outputs)] => ast::Signature {
+                inputs,
+                outputs
             },
-            [io_ports(ins)] => ast::Signature {
-                inputs: ins,
+            [io_ports(inputs)] => ast::Signature {
+                inputs,
                 outputs: vec![]
+            },
+            [signature_return(outputs)] => ast::Signature {
+                inputs: vec![],
+                outputs
             }
         ))
+    }
+
+    fn signature_return(input: Node) -> ParseResult<Vec<ast::Portdef>> {
+        Ok(match_nodes![
+            input.into_children();
+            [io_ports(p)] => p])
     }
 
     fn io_port(input: Node) -> ParseResult<ast::Portdef> {

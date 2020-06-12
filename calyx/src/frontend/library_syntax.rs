@@ -91,14 +91,17 @@ impl LibraryParser {
     fn inner_wrap(input: Node) -> ParseResult<String> {
         // remove extra whitespace and indentation
         let mut result = String::new();
-        let mut prefix: Option<usize> = None;
+        // records the base indentation level
+        let mut indent_level: Option<usize> = None;
         for line in input.as_str().lines() {
-            if !line.is_empty() && prefix.is_none() {
-                prefix = line.find(|s| !char::is_whitespace(s));
+            // find the first non-empty line
+            if !line.is_empty() && indent_level.is_none() {
+                indent_level = line.find(|s| !char::is_whitespace(s));
             }
 
-            if prefix.is_some() {
-                result += prefix
+            // if we have already found indent level
+            if indent_level.is_some() {
+                result += indent_level
                     .map(|pre| {
                         if line.len() > pre {
                             line.split_at(pre).1
@@ -106,11 +109,12 @@ impl LibraryParser {
                             line
                         }
                     })
-                    .unwrap_or(line);
+                    .unwrap_or(line)
+                    .trim_end();
                 result += "\n";
             }
         }
-        Ok(result)
+        Ok(result.trim_end().to_string())
     }
 
     fn block(input: Node) -> ParseResult<String> {
