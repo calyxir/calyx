@@ -134,7 +134,7 @@ pub struct StructureGraph {
     /// that are in no group.
     pub groups: HashMap<Option<ast::Id>, Vec<EdgeIndex>>,
     pub graph: StructG,
-    namegen: NameGenerator,
+    pub namegen: NameGenerator,
 }
 
 impl Default for StructureGraph {
@@ -299,7 +299,7 @@ impl StructureGraph {
                 &src_port,
                 dest_node,
                 &dest_port,
-                &group,
+                group.clone(),
                 wire.src.clone(),
             )?;
             structure
@@ -333,7 +333,7 @@ impl StructureGraph {
     ///   * `structure` - the AST structure of the subcomponent
     pub fn add_subcomponent(
         &mut self,
-        id: &ast::Id,
+        id: ast::Id,
         comp: &component::Component,
         cell: ast::Cell,
     ) -> NodeIndex {
@@ -342,7 +342,7 @@ impl StructureGraph {
             data: NodeData::Cell(cell),
             signature: comp.signature.clone(),
         });
-        self.nodes.insert(id.clone(), idx);
+        self.nodes.insert(id, idx);
         idx
     }
 
@@ -358,14 +358,14 @@ impl StructureGraph {
     ///   * `structure` - the AST structure of the subcomponent
     pub fn add_primitive<S: AsRef<str>>(
         &mut self,
-        id: &ast::Id,
+        id: ast::Id,
         name: S,
         comp: &Component,
         params: &[u64],
     ) -> NodeIndex {
-        let structure =
+        let cell =
             Cell::prim(id.clone(), name.as_ref().into(), params.to_vec());
-        self.add_subcomponent(id, comp, structure)
+        self.add_subcomponent(id, comp, cell)
     }
 
     /* ============= Helper Methods ============= */
@@ -485,6 +485,14 @@ impl StructureGraph {
         sig.inputs.push(port.clone())
     }
 
+    /// Add a new named group into the structure.
+    pub fn insert_group(
+        &mut self,
+        name: ast::Id
+    ) {
+        self.groups.insert(Some(name), Vec::new());
+    }
+
     /// Construct and insert an edge given two node indices with a group and a guard
     pub fn insert_edge(
         &mut self,
@@ -492,9 +500,15 @@ impl StructureGraph {
         src_port: &ast::Id,
         dest_node: NodeIndex,
         dest_port: &ast::Id,
-        group: &Option<ast::Id>,
+        group: Option<ast::Id>,
         guard: ast::Guard,
     ) -> Result<EdgeIndex> {
+        // If the group is not defined, error out.
+        if let Some(ref group_name) = group {
+            if !self.groups.contains_key(&group) {
+                return Err(errors::Error::UndefinedGroup(group_name.clone()));
+            }
+        }
         let find_width = |port_to_find: &ast::Id, portdefs: &[ast::Portdef]| {
             portdefs
                 .iter()
@@ -512,24 +526,25 @@ impl StructureGraph {
         let dest_width =
             find_width(dest_port, &self.graph[dest_node].signature.inputs)?;
 
-        // if widths match, add edge to the graph
-        if src_width == dest_width {
-            let edge_data = EdgeData {
-                src: self.construct_port(src_node, src_port),
-                dest: self.construct_port(dest_node, dest_port),
-                width: src_width,
-                group: group.clone(),
-                guard,
-            };
-            Ok(self.graph.add_edge(src_node, dest_node, edge_data))
-        } else {
-            Err(Error::MismatchedPortWidths(
+        // if widths dont match, throw error.
+        if src_width != dest_width {
+            return Err(Error::MismatchedPortWidths(
                 self.construct_port(src_node, src_port),
                 src_width,
                 self.construct_port(dest_node, dest_port),
                 dest_width,
             ))
         }
+
+        // Add edge data and update the groups mapping.
+        let edge_data = EdgeData {
+            src: self.construct_port(src_node, src_port),
+            dest: self.construct_port(dest_node, dest_port),
+            width: src_width,
+            group: group.clone(),
+            guard,
+        };
+        Ok(self.graph.add_edge(src_node, dest_node, edge_data))
     }
 
     /// Returns the node representing this component

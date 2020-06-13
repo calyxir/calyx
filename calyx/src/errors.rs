@@ -24,6 +24,8 @@ pub enum Error {
     MalformedStructure(String),
     MissingImplementation(&'static str, ast::Id),
     Impossible(String), // Signal compiler errors that should never occur.
+    /* Generated when the group is undefined.  */
+    UndefinedGroup(ast::Id),
     NotSubcomponent,
     #[allow(unused)]
     Misc(String),
@@ -84,6 +86,13 @@ impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use Error::*;
         match self {
+            UndefinedGroup(name) => {
+                write!(
+                    f,
+                    "Unknown group: {:?}",
+                    name
+                )
+            }
             UnknownPass(pass, known_passes) => {
                 write!(
                     f,

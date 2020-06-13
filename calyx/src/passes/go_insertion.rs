@@ -1,7 +1,6 @@
 use crate::lang::component::Component;
 use crate::lang::{ast, context::Context};
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct GoInsertion {}
@@ -18,6 +17,7 @@ impl Named for GoInsertion {
 
 impl Visitor for GoInsertion {
     fn start(&mut self, comp: &mut Component, _c: &Context) -> VisResult {
+        println!("{:#?}", comp.structure);
         let st = &mut comp.structure;
         let graph = &mut st.graph;
         for idx in st.groups.values().flatten() {

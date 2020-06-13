@@ -19,3 +19,4 @@
 //pub mod remove_if;
 pub mod visitor;
 pub mod go_insertion;
+pub mod compile_control;
