@@ -132,7 +132,7 @@ pub struct StructureGraph {
     /// maps Ids to Vec<Edge> which represents the group
     /// the set of edges belong to. None refers to edges
     /// that are in no group.
-    pub groups: HashMap<Option<ast::Id>, Vec<EdgeIndex>>,
+    groups: HashMap<Option<ast::Id>, Vec<EdgeIndex>>,
     pub graph: StructG,
     pub namegen: NameGenerator,
 }
@@ -330,7 +330,7 @@ impl StructureGraph {
     /// # Arguments
     ///   * `id` - the subcomponent identifier
     ///   * `comp` - the component object
-    ///   * `structure` - the AST structure of the subcomponent
+    ///   * `cell` - TODO
     pub fn add_subcomponent(
         &mut self,
         id: ast::Id,
@@ -355,7 +355,6 @@ impl StructureGraph {
     ///   * `name` - the subcomponent type
     ///   * `comp` - the component object
     ///   * `params` - the parameters for the component instance
-    ///   * `structure` - the AST structure of the subcomponent
     pub fn add_primitive<S: AsRef<str>>(
         &mut self,
         id: ast::Id,

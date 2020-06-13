@@ -17,11 +17,9 @@ impl Named for GoInsertion {
 
 impl Visitor for GoInsertion {
     fn start(&mut self, comp: &mut Component, _c: &Context) -> VisResult {
-        println!("{:#?}", comp.structure);
         let st = &mut comp.structure;
         let graph = &mut st.graph;
-        for idx in st.groups.values().flatten() {
-            let edge_data = &graph[*idx];
+        for edge_data in graph.edge_weights_mut() {
             if let Some(group_name) = &edge_data.group {
                 let group_go = ast::Port::Hole {
                     group: group_name.clone(),
@@ -29,7 +27,7 @@ impl Visitor for GoInsertion {
                 };
 
                 let go_guard = ast::GuardExpr::Atom(ast::Atom::Port(group_go));
-                graph[*idx].guard.guard.push(go_guard)
+                edge_data.guard.guard.push(go_guard)
             }
         }
 
