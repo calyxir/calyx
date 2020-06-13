@@ -80,7 +80,7 @@ impl Node {
     /// Create a constant node for the number `num`
     fn new_constant(namegen: &mut NameGenerator, num: &ast::BitNum) -> Self {
         let name =
-            ast::Id::new(namegen.gen_name("$const"), Some(num.span.clone()));
+            ast::Id::new(namegen.gen_name("$const"), num.span.clone());
         Node {
             name,
             data: NodeData::Constant(num.val),
@@ -274,7 +274,7 @@ impl StructureGraph {
                     let constant_node =
                         Node::new_constant(&mut structure.namegen, n);
                     let idx = structure.graph.add_node(constant_node);
-                    let port = ast::Id::new("out", Some(n.span.clone()));
+                    let port = ast::Id::new("out", n.span.clone());
                     (idx, port)
                 }
             };

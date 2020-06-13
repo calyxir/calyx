@@ -227,7 +227,7 @@ pub struct BitNum {
     pub width: u64,
     pub num_type: NumType,
     pub val: u64,
-    pub span: Span,
+    pub span: Option<Span>,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]

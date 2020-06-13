@@ -62,10 +62,10 @@ impl FutilParser {
                     width: bits.parse().unwrap(),
                     num_type: NumType::Decimal,
                     val: val.parse().unwrap(),
-                    span: Span::new(
+                    span: Some(Span::new(
                         input.as_span(),
                         Rc::clone(input.user_data()),
-                    ),
+                    )),
                 }),
                 _ => unreachable!(),
             }
@@ -75,10 +75,10 @@ impl FutilParser {
                     width: bits.parse().unwrap(),
                     num_type: NumType::Binary,
                     val: u64::from_str_radix(val, 2).unwrap(),
-                    span: Span::new(
+                    span: Some(Span::new(
                         input.as_span(),
                         Rc::clone(input.user_data()),
-                    ),
+                    )),
                 }),
                 _ => unreachable!(),
             }
@@ -88,10 +88,10 @@ impl FutilParser {
                     width: bits.parse().unwrap(),
                     num_type: NumType::Hex,
                     val: u64::from_str_radix(val, 16).unwrap(),
-                    span: Span::new(
+                    span: Some(Span::new(
                         input.as_span(),
                         Rc::clone(input.user_data()),
-                    ),
+                    )),
                 }),
                 _ => unreachable!(),
             }
@@ -101,10 +101,10 @@ impl FutilParser {
                     width: bits.parse().unwrap(),
                     num_type: NumType::Octal,
                     val: u64::from_str_radix(val, 8).unwrap(),
-                    span: Span::new(
+                    span: Some(Span::new(
                         input.as_span(),
                         Rc::clone(input.user_data()),
-                    ),
+                    )),
                 }),
                 _ => unreachable!(),
             }
