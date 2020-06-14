@@ -1,16 +1,20 @@
-use crate::lang::{ast, component};
-use crate::{errors, utils::NameGenerator};
+use super::structure_ext;
+use crate::{
+    errors,
+    lang::{ast, component},
+    utils::NameGenerator,
+};
 use ast::{Atom, Cell, Connection, Group, Port, Wire};
 use component::Component;
 use errors::{Error, Result};
 use itertools::Itertools;
-use petgraph::dot::{Config, Dot};
-use petgraph::graph::{EdgeIndex, NodeIndex};
-use petgraph::stable_graph::StableDiGraph;
-use petgraph::Direction;
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::fmt;
+use petgraph::{
+    graph::{EdgeIndex, NodeIndex},
+    stable_graph::{EdgeReference, StableDiGraph},
+    visit::IntoEdgeReferences,
+    Direction,
+};
+use std::{cmp::Ordering, collections::HashMap, fmt};
 
 /// store the structure ast node so that we can reconstruct the ast
 #[derive(Clone, Debug)]
@@ -79,8 +83,7 @@ impl Node {
 
     /// Create a constant node for the number `num`
     fn new_constant(namegen: &mut NameGenerator, num: &ast::BitNum) -> Self {
-        let name =
-            ast::Id::new(namegen.gen_name("$const"), num.span.clone());
+        let name = ast::Id::new(namegen.gen_name("$const"), num.span.clone());
         Node {
             name,
             data: NodeData::Constant(num.val),
@@ -419,22 +422,86 @@ impl StructureGraph {
             .filter(move |(_nd, ed)| port == ed.src.port_name().to_string())
     }
 
-    /// Returns an iterator over all the edges.
+    /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
+    pub fn edge_iterator<'a>(
+        &'a self,
+        iter_spec: structure_ext::EdgeIterationBuilder,
+    ) -> impl Iterator<Item = &'a EdgeData> {
+        let base: Box<dyn Iterator<Item = EdgeReference<EdgeData>>> =
+            match (iter_spec.from_node, iter_spec.direction) {
+                (Some(node), Some(dir)) => {
+                    Box::new(self.graph.edges_directed(node, dir.into()))
+                }
+                (Some(node), None) => Box::new(self.graph.edges(node)),
+                /* Iterate all edges and select port direction */
+                (None, Some(_)) | (None, None) => {
+                    Box::new(self.graph.edge_references())
+                }
+            };
+
+        base.map(|edge| edge.weight()).filter(move |ed| {
+            match (iter_spec.with_port.as_ref(), iter_spec.direction.as_ref()) {
+                (Some(port), Some(DataDirection::Read)) => {
+                    ed.src.port_name().to_string() == *port
+                }
+                (Some(port), Some(DataDirection::Write)) => {
+                    ed.dest.port_name().to_string() == *port
+                }
+                (Some(port), _) => {
+                    ed.dest.port_name().to_string() == *port
+                        || ed.src.port_name().to_string() == *port
+                }
+                (None, _) => true,
+            }
+        })
+    }
+
+    /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
+    pub fn edge_iterator_mut<'a>(
+        &'a mut self,
+        iter_spec: structure_ext::EdgeIterationBuilder,
+    ) -> Result<impl Iterator<Item = &'a mut EdgeData>> {
+        // XXX(rachit): Unfortunately couldn't find any good way to iterate
+        // over edges while filtering for a given node. The heavyweight approach
+        // would be to store the name of the Node inside the EdgeData.
+        if let Some(_) = iter_spec.from_node {
+            return Err(errors::Error::Impossible("Cannot create a mutable iterator over edges using a given node.".to_string()))
+        }
+
+        let it = self.graph.edge_weights_mut().filter(move |ed| {
+            match (iter_spec.with_port.as_ref(), iter_spec.direction.as_ref()) {
+                (Some(port), Some(DataDirection::Read)) => {
+                    ed.src.port_name().to_string() == *port
+                }
+                (Some(port), Some(DataDirection::Write)) => {
+                    ed.dest.port_name().to_string() == *port
+                }
+                (Some(port), _) => {
+                    ed.dest.port_name().to_string() == *port
+                        || ed.src.port_name().to_string() == *port
+                }
+                (None, _) => true,
+            }
+        });
+        Ok(it)
+    }
+
+    /// Returns an iterator over all the edges (connections).
     pub fn edges<'a>(
         &'a self,
     ) -> impl Iterator<Item = (EdgeIndex, &'a EdgeData)> + 'a {
-        self.groups
-            .values()
-            .flatten()
-            .map(move |idx| (*idx, &self.graph[*idx]))
+        self.graph
+            .edge_indices()
+            .map(move |idx| (idx, &self.graph[idx]))
     }
 
+    /// Returns an iterator over all the nodes (components).
     pub fn nodes<'a>(
         &'a self,
     ) -> impl Iterator<Item = (NodeIndex, &'a Node)> + 'a {
-        self.nodes
-            .values()
-            .map(move |idx| (*idx, &self.graph[*idx]))
+        self.graph
+            .node_indices()
+            .map(move |idx| (idx, &self.graph[idx]))
     }
 
     /// TODO(rachit): Sam, check if this documentation is correct.
@@ -456,13 +523,10 @@ impl StructureGraph {
     }
 
     /// Add a new named group into the structure.
-    pub fn insert_group(
-        &mut self,
-        name: ast::Id
-    ) -> Result<()> {
+    pub fn insert_group(&mut self, name: ast::Id) -> Result<()> {
         let key = Some(name.clone());
         if self.groups.contains_key(&key) {
-            return Err(errors::Error::DuplicateGroup(name))
+            return Err(errors::Error::DuplicateGroup(name));
         }
         self.groups.insert(key, Vec::new());
         Ok(())
@@ -508,7 +572,7 @@ impl StructureGraph {
                 src_width,
                 self.construct_port(dest_node, dest_port),
                 dest_width,
-            ))
+            ));
         }
 
         // Add edge data and update the groups mapping.
@@ -558,6 +622,7 @@ impl StructureGraph {
     }
 
     pub fn visualize(&self) -> String {
+        use petgraph::dot::{Config, Dot};
         let config = &[Config::EdgeNoLabel];
         format!(
             "{}",
