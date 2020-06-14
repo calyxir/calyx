@@ -10,6 +10,7 @@ use crate::lang::{
     ast,
     ast::{Atom, Cell, Control, GuardExpr, Port},
     component, context,
+    structure::DataDirection,
     structure::EdgeData,
     structure::NodeData,
 };
@@ -458,7 +459,11 @@ fn signature_connections<'a>(
                 vec![D::text(".").append("clk").append(D::text("clk").parens())]
             } else {
                 comp.structure
-                    .incoming_to_port(idx, portdef.name.to_string())
+                    .port_directed(
+                        DataDirection::Write,
+                        idx,
+                        portdef.name.to_string(),
+                    )
                     // we only want one connection per dest
                     .unique_by(|(_src, edge)| &edge.dest)
                     .map(move |(_src, edge)| {
@@ -478,7 +483,11 @@ fn signature_connections<'a>(
         .map(|portdef| {
             comp.structure
                 // find inuse edges that are coming out of this port
-                .outgoing_from_port(idx, portdef.name.to_string())
+                .port_directed(
+                    DataDirection::Read,
+                    idx,
+                    portdef.name.to_string(),
+                )
                 // we only want one connection per src
                 .unique_by(|(_, edge)| &edge.src)
                 .map(move |(_, edge)| {

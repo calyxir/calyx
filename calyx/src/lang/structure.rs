@@ -158,6 +158,26 @@ impl Default for StructureGraph {
     }
 }
 
+/// Represents flow of data to/from ports. Used to select edges from
+/// ports and nodes.
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[repr(usize)]
+pub enum DataDirection {
+    /// reads for this node/port.
+    Read = 0,
+    /// writes for this node/port.
+    Write = 1,
+}
+
+impl Into<petgraph::Direction> for DataDirection {
+    fn into(self) -> petgraph::Direction {
+        match self {
+            DataDirection::Read => Direction::Outgoing,
+            DataDirection::Write => Direction::Incoming,
+        }
+    }
+}
+
 impl StructureGraph {
     /* ============= Constructor Functions ============= */
 
@@ -369,87 +389,34 @@ impl StructureGraph {
 
     /* ============= Helper Methods ============= */
 
-    // XXX(sam) reimplement these later
-    // Returns an iterator over all the nodes in the structure graph
-    // pub fn nodes(&self) -> impl Iterator<Item = (NodeIndex, Node)> + '_ {
-    //     self.graph
-    //         .node_indices()
-    //         .map(move |ni| (ni, self.graph[ni].clone()))
-    // }
-
-    // pub fn group_nodes(
-    //     &self,
-    //     group_id: &ast::Id,
-    // ) -> impl Iterator<Item = (NodeIndex, Node)> + '_ {
-    //     let group_comps =
-    //         self.nodes.get(group_id).map_or(vec![], move |gr_idx| {
-    //             if let NodeData::Group(data) = &self.graph[*gr_idx].data {
-    //                 data.clone()
-    //             } else {
-    //                 vec![]
-    //             }
-    //         });
-
-    //     self.graph
-    //         .node_indices()
-    //         .filter(move |nidx| group_comps.contains(&self.graph[*nidx].name))
-    //         .map(move |nidx| (nidx, self.graph[nidx].clone()))
-    // }
-
-    fn connected_direction<'a>(
+    /// Returns a (Node, EdgeData) iterator for edges in a particular
+    /// petgraph::Direction
+    fn node_directed<'a>(
         &'a self,
+        direction: DataDirection,
         node: NodeIndex,
-        direction: Direction,
     ) -> impl Iterator<Item = (&'a Node, &'a EdgeData)> + 'a {
         let edge_iter = self
             .graph
-            .edges_directed(node, direction)
+            .edges_directed(node, direction.into())
             .map(|e| e.weight());
         let node_iter = self
             .graph
-            .neighbors_directed(node, direction)
+            .neighbors_directed(node, direction.into())
             .map(move |idx| &self.graph[idx]);
         node_iter.zip(edge_iter)
     }
 
-    /// Returns a (Node, EdgeData) iterator for edges leaving `node`
-    /// i.e. edges that have `node` as a source. This iterator ignores ports.
-    pub fn outgoing_from_node<'a>(
+    /// Returns a (Node, EdgeData) iterator for edges with `node.port` in
+    /// the given DataDirection.
+    pub fn port_directed<'a, S: 'a + PartialEq<String>>(
         &'a self,
-        node: NodeIndex,
-    ) -> impl Iterator<Item = (&'a Node, &'a EdgeData)> + 'a {
-        self.connected_direction(node, Direction::Outgoing)
-    }
-
-    /// Returns a (Node, EdgeData) iterator for edges coming into `node`
-    /// i.e. edges that have `node` as a destination. This iterator ignores ports.
-    pub fn incoming_to_node<'a>(
-        &'a self,
-        node: NodeIndex,
-    ) -> impl Iterator<Item = (&'a Node, &'a EdgeData)> + 'a {
-        self.connected_direction(node, Direction::Incoming)
-    }
-
-    /// Returns a (Node, EdgeData) iterator for edges leaving `node` at `port`
-    /// i.e. edges that have `node.port` as a source.
-    pub fn outgoing_from_port<'a, S: 'a + PartialEq<String>>(
-        &'a self,
+        direction: DataDirection,
         node: NodeIndex,
         port: S,
     ) -> impl Iterator<Item = (&'a Node, &'a EdgeData)> + 'a {
-        self.outgoing_from_node(node)
+        self.node_directed(direction, node)
             .filter(move |(_nd, ed)| port == ed.src.port_name().to_string())
-    }
-
-    /// Returns a (Node, EdgeData) iterator for edges coming into `node` at `port`
-    /// i.e. edges that have `node.port` as a destination.
-    pub fn incoming_to_port<'a, S: 'a + PartialEq<String>>(
-        &'a self,
-        node: NodeIndex,
-        port: S,
-    ) -> impl Iterator<Item = (&'a Node, &'a EdgeData)> + 'a {
-        self.incoming_to_node(node)
-            .filter(move |(_nd, ed)| port == ed.dest.port_name().to_string())
     }
 
     /// Returns an iterator over all the edges.
@@ -470,6 +437,8 @@ impl StructureGraph {
             .map(move |idx| (*idx, &self.graph[*idx]))
     }
 
+    /// TODO(rachit): Sam, check if this documentation is correct.
+    /// Add a new input port to the component that owns this Graph.
     pub fn insert_input_port(&mut self, port: &ast::Portdef) {
         let sig = &mut self.graph[self.io].signature;
         // add to outputs because was want to use input ports as sources for
@@ -477,6 +446,8 @@ impl StructureGraph {
         sig.outputs.push(port.clone())
     }
 
+    /// TODO(rachit): Sam, check if this documentation is correct.
+    /// Add a new output port to the component that owns this Graph.
     pub fn insert_output_port(&mut self, port: &ast::Portdef) {
         let sig = &mut self.graph[self.io].signature;
         // add to inputs because was want to use input ports as sources for
@@ -488,8 +459,13 @@ impl StructureGraph {
     pub fn insert_group(
         &mut self,
         name: ast::Id
-    ) {
-        self.groups.insert(Some(name), Vec::new());
+    ) -> Result<()> {
+        let key = Some(name.clone());
+        if self.groups.contains_key(&key) {
+            return Err(errors::Error::DuplicateGroup(name))
+        }
+        self.groups.insert(key, Vec::new());
+        Ok(())
     }
 
     /// Construct and insert an edge given two node indices with a group and a guard
