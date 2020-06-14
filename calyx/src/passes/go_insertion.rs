@@ -1,5 +1,5 @@
 use crate::lang::component::Component;
-use crate::lang::{ast, context::Context};
+use crate::lang::{ast, context::Context, structure_ext::EdgeIterationBuilder};
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 
 #[derive(Default)]
@@ -18,8 +18,8 @@ impl Named for GoInsertion {
 impl Visitor for GoInsertion {
     fn start(&mut self, comp: &mut Component, _c: &Context) -> VisResult {
         let st = &mut comp.structure;
-        let graph = &mut st.graph;
-        for edge_data in graph.edge_weights_mut() {
+        let iteration = EdgeIterationBuilder::default();
+        for edge_data in st.edge_iterator_mut(iteration)? {
             if let Some(group_name) = &edge_data.group {
                 let group_go = ast::Port::Hole {
                     group: group_name.clone(),

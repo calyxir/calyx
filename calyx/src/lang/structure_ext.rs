@@ -2,6 +2,7 @@ use super::structure::{DataDirection};
 use crate::errors;
 use petgraph::graph::{NodeIndex};
 
+#[derive(Clone, Debug)]
 pub struct EdgeIterationBuilder {
     /// Throw errors if trying to overwrite a field.
     guarded: bool,
@@ -28,43 +29,37 @@ impl Default for EdgeIterationBuilder {
 impl EdgeIterationBuilder {
     /// Iterate over set of edges that contain this edge.
     pub fn with_component(
-        &mut self,
+        mut self,
         component: NodeIndex,
-    ) -> Result<&mut Self, errors::Error> {
+    ) -> Self {
         if self.guarded && self.from_node.is_some() {
-            return Err(errors::Error::Impossible("Tried to overwrite with_component field in EdgeIterationBuilder".to_string()));
+            panic!("Tried to overwrite with_component field in EdgeIterationBuilder")
         }
         self.from_node = Some(component);
-        Ok(self)
+        self
     }
 
-    pub fn with_port(&mut self, port: String) -> Result<&mut Self, errors::Error> {
+    pub fn with_port(mut self, port: String) -> Self {
         if self.guarded && self.with_port.is_some() {
-            return Err(errors::Error::Impossible(
-                "Tried to overwrite with_port field in EdgeIterationBuilder"
-                    .to_string(),
-            ));
+            panic!("Tried to overwrite with_port field in EdgeIterationBuilder");
         }
         self.with_port = Some(port);
-        Ok(self)
+        self
     }
 
     pub fn in_direction(
-        &mut self,
+        mut self,
         direction: DataDirection,
-    ) -> Result<&mut Self, errors::Error> {
+    ) -> Self {
         if self.guarded && self.with_port.is_some() {
-            return Err(errors::Error::Impossible(
-                "Tried to overwrite direction field in EdgeIterationBuilder"
-                    .to_string(),
-            ));
+            panic!("Tried to overwrite direction field in EdgeIterationBuilder")
         }
         self.direction = Some(direction);
-        Ok(self)
+        self
     }
 
     /// Disable the guard checking for this iteration builder.
-    pub fn disable_guard(&mut self) -> &mut Self {
+    pub fn disable_guard(mut self) -> Self {
         self.guarded = false;
         self
     }

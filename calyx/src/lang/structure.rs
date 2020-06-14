@@ -392,36 +392,6 @@ impl StructureGraph {
 
     /* ============= Helper Methods ============= */
 
-    /// Returns a (Node, EdgeData) iterator for edges in a particular
-    /// petgraph::Direction
-    fn node_directed<'a>(
-        &'a self,
-        direction: DataDirection,
-        node: NodeIndex,
-    ) -> impl Iterator<Item = (&'a Node, &'a EdgeData)> + 'a {
-        let edge_iter = self
-            .graph
-            .edges_directed(node, direction.into())
-            .map(|e| e.weight());
-        let node_iter = self
-            .graph
-            .neighbors_directed(node, direction.into())
-            .map(move |idx| &self.graph[idx]);
-        node_iter.zip(edge_iter)
-    }
-
-    /// Returns a (Node, EdgeData) iterator for edges with `node.port` in
-    /// the given DataDirection.
-    pub fn port_directed<'a, S: 'a + PartialEq<String>>(
-        &'a self,
-        direction: DataDirection,
-        node: NodeIndex,
-        port: S,
-    ) -> impl Iterator<Item = (&'a Node, &'a EdgeData)> + 'a {
-        self.node_directed(direction, node)
-            .filter(move |(_nd, ed)| port == ed.src.port_name().to_string())
-    }
-
     /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
     pub fn edge_iterator<'a>(
         &'a self,
@@ -486,17 +456,8 @@ impl StructureGraph {
         Ok(it)
     }
 
-    /// Returns an iterator over all the edges (connections).
-    pub fn edges<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = (EdgeIndex, &'a EdgeData)> + 'a {
-        self.graph
-            .edge_indices()
-            .map(move |idx| (idx, &self.graph[idx]))
-    }
-
     /// Returns an iterator over all the nodes (components).
-    pub fn nodes<'a>(
+    pub fn component_iterator<'a>(
         &'a self,
     ) -> impl Iterator<Item = (NodeIndex, &'a Node)> + 'a {
         self.graph
