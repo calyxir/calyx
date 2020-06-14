@@ -136,7 +136,7 @@ pub struct StructureGraph {
     /// the set of edges belong to. None refers to edges
     /// that are in no group.
     groups: HashMap<Option<ast::Id>, Vec<EdgeIndex>>,
-    pub graph: StructG,
+    graph: StructG,
     pub namegen: NameGenerator,
 }
 
@@ -390,81 +390,6 @@ impl StructureGraph {
         self.add_subcomponent(id, comp, cell)
     }
 
-    /* ============= Helper Methods ============= */
-
-    /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
-    pub fn edge_iterator<'a>(
-        &'a self,
-        iter_spec: structure_ext::EdgeIterationBuilder,
-    ) -> impl Iterator<Item = &'a EdgeData> {
-        let base: Box<dyn Iterator<Item = EdgeReference<EdgeData>>> =
-            match (iter_spec.from_node, iter_spec.direction) {
-                (Some(node), Some(dir)) => {
-                    Box::new(self.graph.edges_directed(node, dir.into()))
-                }
-                (Some(node), None) => Box::new(self.graph.edges(node)),
-                /* Iterate all edges and select port direction */
-                (None, Some(_)) | (None, None) => {
-                    Box::new(self.graph.edge_references())
-                }
-            };
-
-        base.map(|edge| edge.weight()).filter(move |ed| {
-            match (iter_spec.with_port.as_ref(), iter_spec.direction.as_ref()) {
-                (Some(port), Some(DataDirection::Read)) => {
-                    ed.src.port_name().to_string() == *port
-                }
-                (Some(port), Some(DataDirection::Write)) => {
-                    ed.dest.port_name().to_string() == *port
-                }
-                (Some(port), _) => {
-                    ed.dest.port_name().to_string() == *port
-                        || ed.src.port_name().to_string() == *port
-                }
-                (None, _) => true,
-            }
-        })
-    }
-
-    /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
-    pub fn edge_iterator_mut<'a>(
-        &'a mut self,
-        iter_spec: structure_ext::EdgeIterationBuilder,
-    ) -> Result<impl Iterator<Item = &'a mut EdgeData>> {
-        // XXX(rachit): Unfortunately couldn't find any good way to iterate
-        // over edges while filtering for a given node. The heavyweight approach
-        // would be to store the name of the Node inside the EdgeData.
-        if let Some(_) = iter_spec.from_node {
-            return Err(errors::Error::Impossible("Cannot create a mutable iterator over edges using a given node.".to_string()))
-        }
-
-        let it = self.graph.edge_weights_mut().filter(move |ed| {
-            match (iter_spec.with_port.as_ref(), iter_spec.direction.as_ref()) {
-                (Some(port), Some(DataDirection::Read)) => {
-                    ed.src.port_name().to_string() == *port
-                }
-                (Some(port), Some(DataDirection::Write)) => {
-                    ed.dest.port_name().to_string() == *port
-                }
-                (Some(port), _) => {
-                    ed.dest.port_name().to_string() == *port
-                        || ed.src.port_name().to_string() == *port
-                }
-                (None, _) => true,
-            }
-        });
-        Ok(it)
-    }
-
-    /// Returns an iterator over all the nodes (components).
-    pub fn component_iterator<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = (NodeIndex, &'a Node)> + 'a {
-        self.graph
-            .node_indices()
-            .map(move |idx| (idx, &self.graph[idx]))
-    }
-
     /// TODO(rachit): Sam, check if this documentation is correct.
     /// Add a new input port to the component that owns this Graph.
     pub fn insert_input_port(&mut self, port: &ast::Portdef) {
@@ -547,41 +472,6 @@ impl StructureGraph {
         Ok(self.graph.add_edge(src_node, dest_node, edge_data))
     }
 
-    /// Returns the node representing this component
-    pub fn this(&self) -> &Node {
-        &self.graph[self.io]
-    }
-
-    /// Returns the idx for the node representing this component
-    pub fn this_idx(&self) -> NodeIndex {
-        self.io
-    }
-
-    pub fn get(&self, idx: NodeIndex) -> &Node {
-        &self.graph[idx]
-    }
-
-    pub fn get_idx(&self, port: &ast::Id) -> Result<NodeIndex> {
-        match self.nodes.get(port) {
-            Some(idx) => Ok(*idx),
-            None => Err(Error::UndefinedPort(port.clone())),
-        }
-    }
-
-    /// Constructs a ast::Port from a NodeIndex and Id
-    fn construct_port(&self, idx: NodeIndex, port: &ast::Id) -> ast::Port {
-        let node = &self.graph[idx];
-        match node.data {
-            NodeData::Port => Port::This { port: port.clone() },
-            NodeData::Cell(..) | NodeData::Constant(..) | NodeData::Hole => {
-                Port::Comp {
-                    component: node.name.clone(),
-                    port: port.clone(),
-                }
-            }
-        }
-    }
-
     pub fn visualize(&self) -> String {
         use petgraph::dot::{Config, Dot};
         let config = &[Config::EdgeNoLabel];
@@ -601,6 +491,96 @@ impl StructureGraph {
             )
         )
     }
+
+    /* ============= Helper Methods ============= */
+    /// Constructs a ast::Port from a NodeIndex and Id
+    fn construct_port(&self, idx: NodeIndex, port: &ast::Id) -> ast::Port {
+        let node = &self.graph[idx];
+        match node.data {
+            NodeData::Port => Port::This { port: port.clone() },
+            NodeData::Cell(..) | NodeData::Constant(..) | NodeData::Hole => {
+                Port::Comp {
+                    component: node.name.clone(),
+                    port: port.clone(),
+                }
+            }
+        }
+    }
+
+    /* ============= Iteration Methods ============= */
+    /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
+    pub fn edge_iterator<'a>(
+        &'a self,
+        iter_spec: structure_ext::EdgeIterationBuilder,
+    ) -> impl Iterator<Item = &'a EdgeData> {
+        let base: Box<dyn Iterator<Item = EdgeReference<EdgeData>>> =
+            match (iter_spec.from_node, iter_spec.direction) {
+                (Some(node), Some(dir)) => {
+                    Box::new(self.graph.edges_directed(node, dir.into()))
+                }
+                (Some(node), None) => Box::new(self.graph.edges(node)),
+                /* Iterate all edges and select port direction */
+                (None, Some(_)) | (None, None) => {
+                    Box::new(self.graph.edge_references())
+                }
+            };
+
+        base.map(|edge| edge.weight()).filter(move |ed| {
+            match (iter_spec.with_port.as_ref(), iter_spec.direction.as_ref()) {
+                (Some(port), Some(DataDirection::Read)) => {
+                    ed.src.port_name().to_string() == *port
+                }
+                (Some(port), Some(DataDirection::Write)) => {
+                    ed.dest.port_name().to_string() == *port
+                }
+                (Some(port), _) => {
+                    ed.dest.port_name().to_string() == *port
+                        || ed.src.port_name().to_string() == *port
+                }
+                (None, _) => true,
+            }
+        })
+    }
+
+    /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
+    pub fn edge_iterator_mut<'a>(
+        &'a mut self,
+        iter_spec: structure_ext::EdgeIterationBuilder,
+    ) -> Result<impl Iterator<Item = &'a mut EdgeData>> {
+        // XXX(rachit): Unfortunately couldn't find any good way to iterate
+        // over edges while filtering for a given node. The heavyweight approach
+        // would be to store the name of the Node inside the EdgeData.
+        if let Some(_) = iter_spec.from_node {
+            return Err(errors::Error::Impossible("Cannot create a mutable iterator over edges using a given node.".to_string()))
+        }
+
+        let it = self.graph.edge_weights_mut().filter(move |ed| {
+            match (iter_spec.with_port.as_ref(), iter_spec.direction.as_ref()) {
+                (Some(port), Some(DataDirection::Read)) => {
+                    ed.src.port_name().to_string() == *port
+                }
+                (Some(port), Some(DataDirection::Write)) => {
+                    ed.dest.port_name().to_string() == *port
+                }
+                (Some(port), _) => {
+                    ed.dest.port_name().to_string() == *port
+                        || ed.src.port_name().to_string() == *port
+                }
+                (None, _) => true,
+            }
+        });
+        Ok(it)
+    }
+
+    /// Returns an iterator over all the nodes (components).
+    pub fn component_iterator<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (NodeIndex, &'a Node)> + 'a {
+        self.graph
+            .node_indices()
+            .map(move |idx| (idx, &self.graph[idx]))
+    }
+
 }
 
 // Define visualization for edges
