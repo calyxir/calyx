@@ -13,7 +13,7 @@ use crate::lang::{
     structure::DataDirection,
     structure::EdgeData,
     structure::NodeData,
-    structure_ext::ConnectionIteration,
+    structure_iter::ConnectionIteration,
 };
 use itertools::Itertools;
 use lib::Implementation;

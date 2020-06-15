@@ -1,5 +1,5 @@
 use crate::lang::component::Component;
-use crate::lang::{ast, context::Context, structure_ext::ConnectionIteration};
+use crate::lang::{ast, context::Context, structure_iter::ConnectionIteration};
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 
 #[derive(Default)]

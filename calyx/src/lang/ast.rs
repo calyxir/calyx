@@ -230,9 +230,13 @@ pub struct BitNum {
     pub span: Option<Span>,
 }
 
+/// Atomic operations used in guard conditions and RHS of the
+/// guarded assignments.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Atom {
+    /// Accessing a particular port on a component.
     Port(Port),
+    /// A constant.
     Num(BitNum),
 }
 
@@ -248,6 +252,8 @@ pub enum GuardExpr {
     Atom(Atom),
 }
 
+/// A guard is a conditions in `guard_conj` which guard the value
+/// represented by `expr`.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Guard {
     pub guard: Vec<GuardExpr>,

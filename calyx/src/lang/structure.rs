@@ -1,4 +1,4 @@
-use super::structure_ext;
+use super::structure_iter;
 use crate::{
     errors,
     lang::{ast, component},
@@ -82,22 +82,26 @@ impl Node {
     }
 
     /// Create a constant node for the number `num`
-    fn new_constant(namegen: &mut NameGenerator, num: &ast::BitNum) -> Self {
+    pub fn new_constant(
+        namegen: &mut NameGenerator,
+        num: &ast::BitNum,
+    ) -> (ast::Id, Self) {
         let name = ast::Id::new(namegen.gen_name("$const"), num.span.clone());
-        Node {
-            name,
+        let node = Node {
+            name: name.clone(),
             data: NodeData::Constant(num.val),
             signature: ast::Signature {
                 inputs: vec![],
                 outputs: vec![("out", num.width).into()],
             },
-        }
+        };
+        (name, node)
     }
 
-    /// Create a new hole node for the group `name`
-    fn new_hole(name: ast::Id) -> Self {
+    /// Create a new hole node for the group `group_name`
+    fn new_hole(group_name: ast::Id) -> Self {
         Node {
-            name,
+            name: group_name,
             data: NodeData::Hole,
             signature: ast::Signature {
                 // include both go/done in input and output because you both write and read from these
@@ -128,7 +132,8 @@ type StructG = StableDiGraph<Node, EdgeData>;
 /// Structure holds information about the structure of the current component
 #[derive(Clone, Debug)]
 pub struct StructureGraph {
-    /// The node that holds signature for this component
+    /// The "fake" node that represents this component. It contains the
+    /// input output ports for this component.
     io: NodeIndex,
     /// Maps Ids to their corresponding node
     nodes: HashMap<ast::Id, NodeIndex>,
@@ -294,10 +299,11 @@ impl StructureGraph {
                     Port::This { port } => (structure.io, port.clone()),
                 },
                 Atom::Num(n) => {
-                    let constant_node =
+                    let (constant_name, constant_node) =
                         Node::new_constant(&mut structure.namegen, n);
                     let idx = structure.graph.add_node(constant_node);
                     let port = ast::Id::new("out", n.span.clone());
+                    structure.nodes.insert(constant_name, idx);
                     (idx, port)
                 }
             };
@@ -318,10 +324,8 @@ impl StructureGraph {
                 Port::This { port } => (structure.io, port.clone()),
             };
             let ed_idx = structure.insert_edge(
-                src_node,
-                &src_port,
-                dest_node,
-                &dest_port,
+                (src_node, &src_port),
+                (dest_node, &dest_port),
                 group.clone(),
                 wire.src.clone(),
             )?;
@@ -348,25 +352,34 @@ impl StructureGraph {
         };
     }
 
-    /// Adds a subcomponent node to the structure graph.
+    /// Adds a node to the structure graph.
+    /// # Arguments
+    ///   * `id` - the subcomponent identifier
+    ///   * `node` - the component object
+    pub fn add_node(&mut self, id: ast::Id, node: Node) -> NodeIndex {
+        let idx = self.graph.add_node(node);
+        self.nodes.insert(id, idx);
+        idx
+    }
+
+    /// Adds a cell node to the structure graph.
     ///
     /// # Arguments
     ///   * `id` - the subcomponent identifier
     ///   * `comp` - the component object
     ///   * `cell` - TODO
-    pub fn add_subcomponent(
+    pub fn add_cell(
         &mut self,
         id: ast::Id,
         comp: &component::Component,
         cell: ast::Cell,
     ) -> NodeIndex {
-        let idx = self.graph.add_node(Node {
+        let node = Node {
             name: id.clone(),
             data: NodeData::Cell(cell),
             signature: comp.signature.clone(),
-        });
-        self.nodes.insert(id, idx);
-        idx
+        };
+        self.add_node(id, node)
     }
 
     /// Adds a primitive component node to the structure graph.
@@ -387,7 +400,7 @@ impl StructureGraph {
     ) -> NodeIndex {
         let cell =
             Cell::prim(id.clone(), name.as_ref().into(), params.to_vec());
-        self.add_subcomponent(id, comp, cell)
+        self.add_cell(id, comp, cell)
     }
 
     /// TODO(rachit): Sam, check if this documentation is correct.
@@ -421,10 +434,8 @@ impl StructureGraph {
     /// Construct and insert an edge given two node indices with a group and a guard
     pub fn insert_edge(
         &mut self,
-        src_node: NodeIndex,
-        src_port: &ast::Id,
-        dest_node: NodeIndex,
-        dest_port: &ast::Id,
+        (src_node, src_port): (NodeIndex, &ast::Id),
+        (dest_node, dest_port): (NodeIndex, &ast::Id),
         group: Option<ast::Id>,
         guard: ast::Guard,
     ) -> Result<EdgeIndex> {
@@ -511,7 +522,7 @@ impl StructureGraph {
     /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
     pub fn edge_iterator<'a>(
         &'a self,
-        iter_spec: structure_ext::ConnectionIteration,
+        iter_spec: structure_iter::ConnectionIteration,
     ) -> impl Iterator<Item = &'a EdgeData> {
         let base: Box<dyn Iterator<Item = EdgeReference<EdgeData>>> =
             match (iter_spec.from_node, iter_spec.direction) {
@@ -545,7 +556,7 @@ impl StructureGraph {
     /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
     pub fn edge_iterator_mut<'a>(
         &'a mut self,
-        iter_spec: structure_ext::ConnectionIteration,
+        iter_spec: structure_iter::ConnectionIteration,
     ) -> Result<impl Iterator<Item = &'a mut EdgeData>> {
         // XXX(rachit): Unfortunately couldn't find any good way to iterate
         // over edges while filtering for a given node. The heavyweight approach
