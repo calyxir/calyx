@@ -2,6 +2,7 @@ use super::structure::{DataDirection};
 use crate::errors;
 use petgraph::graph::{NodeIndex};
 
+/// TODO(rachit): Implement filtering with group name.
 #[derive(Clone, Debug)]
 pub struct EdgeIterationBuilder {
     /// Throw errors if trying to overwrite a field.

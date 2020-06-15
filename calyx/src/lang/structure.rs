@@ -551,7 +551,7 @@ impl StructureGraph {
         // over edges while filtering for a given node. The heavyweight approach
         // would be to store the name of the Node inside the EdgeData.
         if let Some(_) = iter_spec.from_node {
-            return Err(errors::Error::Impossible("Cannot create a mutable iterator over edges using a given node.".to_string()))
+            return Err(errors::Error::Impossible("Cannot create a mutable iterator over edges using a given node.".to_string()));
         }
 
         let it = self.graph.edge_weights_mut().filter(move |ed| {
@@ -580,7 +580,6 @@ impl StructureGraph {
             .node_indices()
             .map(move |idx| (idx, &self.graph[idx]))
     }
-
 }
 
 // Define visualization for edges
