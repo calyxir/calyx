@@ -13,7 +13,7 @@ use crate::lang::{
     structure::DataDirection,
     structure::EdgeData,
     structure::NodeData,
-    structure_ext::EdgeIterationBuilder,
+    structure_ext::ConnectionIteration,
 };
 use itertools::Itertools;
 use lib::Implementation;
@@ -41,7 +41,7 @@ pub struct VerilogBackend {}
 
 /// Returns `Ok` if there are no groups defined.
 fn validate_structure(comp: &component::Component) -> Result<()> {
-    let builder = EdgeIterationBuilder::default();
+    let builder = ConnectionIteration::default();
     if comp
         .structure
         .edge_iterator(builder)
@@ -380,7 +380,7 @@ pub fn bitwidth<'a>(width: u64) -> Result<D<'a>> {
 //==========================================
 /// Generate wire connections
 fn connections<'a>(comp: &component::Component) -> D<'a> {
-    let builder = EdgeIterationBuilder::default();
+    let builder = ConnectionIteration::default();
     let doc = comp.structure.edge_iterator(builder).map(|data| {
         if data.guard.guard.is_empty() {
             alias(&data)
@@ -456,7 +456,7 @@ fn signature_connections<'a>(
     comp: &component::Component,
     idx: NodeIndex,
 ) -> D<'a> {
-    let builder = EdgeIterationBuilder::default().with_component(idx);
+    let builder = ConnectionIteration::default().with_component(idx);
     // wire up all the incoming edges
     let incoming = sig
         .inputs

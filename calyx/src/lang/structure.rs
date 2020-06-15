@@ -511,7 +511,7 @@ impl StructureGraph {
     /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
     pub fn edge_iterator<'a>(
         &'a self,
-        iter_spec: structure_ext::EdgeIterationBuilder,
+        iter_spec: structure_ext::ConnectionIteration,
     ) -> impl Iterator<Item = &'a EdgeData> {
         let base: Box<dyn Iterator<Item = EdgeReference<EdgeData>>> =
             match (iter_spec.from_node, iter_spec.direction) {
@@ -545,7 +545,7 @@ impl StructureGraph {
     /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
     pub fn edge_iterator_mut<'a>(
         &'a mut self,
-        iter_spec: structure_ext::EdgeIterationBuilder,
+        iter_spec: structure_ext::ConnectionIteration,
     ) -> Result<impl Iterator<Item = &'a mut EdgeData>> {
         // XXX(rachit): Unfortunately couldn't find any good way to iterate
         // over edges while filtering for a given node. The heavyweight approach

@@ -3,7 +3,7 @@ use petgraph::graph::{NodeIndex};
 
 /// TODO(rachit): Implement filtering with group name.
 #[derive(Clone, Debug)]
-pub struct EdgeIterationBuilder {
+pub struct ConnectionIteration {
     /// Throw errors if trying to overwrite a field.
     guarded: bool,
     /// Only iterate over edges that have this particular node.
@@ -15,9 +15,9 @@ pub struct EdgeIterationBuilder {
     pub direction: Option<DataDirection>,
 }
 
-impl Default for EdgeIterationBuilder {
+impl Default for ConnectionIteration {
     fn default() -> Self {
-        EdgeIterationBuilder {
+        ConnectionIteration {
             guarded: true,
             from_node: None,
             with_port: None,
@@ -26,7 +26,7 @@ impl Default for EdgeIterationBuilder {
     }
 }
 
-impl EdgeIterationBuilder {
+impl ConnectionIteration {
     /// Iterate over set of edges that contain this edge.
     pub fn with_component(
         mut self,
