@@ -1,8 +1,9 @@
-//use crate::errors;
+use crate::errors::Error;
 use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
+use ast::{Control, Enable, GuardExpr};
 
 #[derive(Default)]
 pub struct CompileControl {}
@@ -20,7 +21,7 @@ impl Named for CompileControl {
 impl Visitor for CompileControl {
     fn finish_seq(
         &mut self,
-        _s: &ast::Seq,
+        s: &ast::Seq,
         comp: &mut Component,
         ctx: &Context,
     ) -> VisResult {
@@ -30,31 +31,62 @@ impl Visitor for CompileControl {
         let seq_group: ast::Id = st.namegen.gen_name("seq").into();
         st.insert_group(&seq_group)?;
 
-        let reg = st.new_primitive(&ctx, "fsm", "std_reg", &[32])?;
-        let reg_port = st.port_ref(&reg, "in")?.clone();
-        let init_st = st.new_constant(0, 32)?;
+        let fsm_reg = st.new_primitive(&ctx, "fsm", "std_reg", &[32])?;
+        let fsm_in_port = st.port_ref(&fsm_reg, "in")?.clone();
+        let (num, num_port) = st.new_constant(0, 32)?;
         st.insert_edge(
-            (init_st.0, &init_st.1),
-            (reg, &reg_port),
-            Some(seq_group),
-            Vec::new()
+            (num, &num_port),
+            (fsm_reg, &fsm_in_port),
+            Some(seq_group.clone()),
+            Vec::new(),
         )?;
-        /*
-        let guard = ast::GuardExpr::Eq(
-            st.to_atom(reg, reg_port),
-            st.to_atom(reg, reg_port),
-        )
-        */
 
+        // Assigning 1 to tell groups to go.
+        let (signal_const, signal_const_port) = st.new_constant(1, 1)?;
 
-        //let fsm_reg = st.new
-
-        // Initial state of the FSM is 0
-        //let init_val = structure::Node::new_constant(&mut st.namegen, zero);
-
-        /*for con in &s.stmts {
+        let mut fsm_counter = 0;
+        for con in &s.stmts {
             match con {
-                ast::Control::Enable { data } => {}
+                Control::Enable {
+                    data: Enable { comp: group_name },
+                } => {
+                    /* group[go] = fsm.out == value(fsm_counter) ? 1 */
+                    let group = st.get_node_by_name(&group_name)
+                        .expect("Malformed AST. Group referenced in control is missing from structure")
+                        .clone();
+                    let group_port = st.port_ref(&group, "go")?.clone();
+
+                    let fsm_out_port = st.port_ref(&fsm_reg, "out")?.clone();
+                    let fsm_st_const = st.new_constant(fsm_counter, 32)?;
+
+                    let go_guard = GuardExpr::Eq(
+                        st.to_atom(&fsm_reg, fsm_out_port),
+                        st.to_atom(&fsm_st_const.0, fsm_st_const.1),
+                    );
+                    st.insert_edge(
+                        (signal_const.clone(), &signal_const_port),
+                        (group, &group_port),
+                        Some(seq_group.clone()),
+                        vec![go_guard],
+                    )?;
+
+                    fsm_counter += 1;
+
+                    /* fsm.in = group[done] ? 1 */
+                    let (new_state_const, new_state_port) =
+                        st.new_constant(fsm_counter, 32)?;
+                    let group_done_port = st.port_ref(&group, "done")?.clone();
+                    let done_guard = GuardExpr::Eq(
+                        st.to_atom(&group, group_done_port),
+                        st.to_atom(&signal_const, signal_const_port.clone()),
+                    );
+                    st.insert_edge(
+                        (fsm_reg, &fsm_in_port),
+                        (new_state_const, &new_state_port),
+                        Some(seq_group.clone()),
+                        vec![done_guard],
+                    )?;
+                }
                 _ => {
                     return Err(Error::MalformedControl(
                         "Cannot compile non-group statement inside sequence"
@@ -62,7 +94,7 @@ impl Visitor for CompileControl {
                     ))
                 }
             }
-        }*/
+        }
         Ok(Action::Continue)
     }
 }

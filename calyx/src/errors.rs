@@ -122,8 +122,8 @@ impl std::fmt::Debug for Error {
                        port2.port_name().fmt_err(&msg2))
             }
             UndefinedPort(port) => {
-                let msg = "Use of undefined port";
-                write!(f, "{}", port.fmt_err(msg))
+                let msg = format!("Use of undefined port: {}", port.to_string());
+                write!(f, "{}", port.fmt_err(&msg))
             }
             UndefinedEdge(src, dest) => write!(f, "Use of undefined edge: {}->{}", src, dest),
             UndefinedComponent(id) => {

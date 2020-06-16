@@ -560,6 +560,10 @@ impl StructureGraph {
         &self.graph[*idx]
     }
 
+    pub fn get_node_by_name(&self, name: &ast::Id) -> Option<&NodeIndex> {
+        self.nodes.get(name)
+    }
+
     /* ============= Helper Methods ============= */
     /// Constructs a ast::Port from a NodeIndex and Id
     fn construct_port(&self, idx: NodeIndex, port: &ast::Id) -> ast::Port {
