@@ -52,7 +52,7 @@ impl Visitor for CompileControl {
                     data: Enable { comp: group_name },
                 } => {
                     /* group[go] = fsm.out == value(fsm_counter) ? 1 */
-                    let group = *st.get_node_by_name(&group_name)
+                    let group = st.get_node_by_name(&group_name)
                         .expect("Malformed AST. Group referenced in control is missing from structure");
                     let group_port = st.port_ref(&group, "go")?.clone();
 
@@ -90,7 +90,7 @@ impl Visitor for CompileControl {
                     // If this is the last group, generate the done condition
                     // for the seq group.
                     if idx == s.stmts.len() - 1 {
-                        let seq_group_node = *st
+                        let seq_group_node = st
                             .get_node_by_name(&seq_group)
                             .expect("Impossible: Group doesnt have done holes");
                         let seq_group_done =

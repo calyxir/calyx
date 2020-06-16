@@ -156,9 +156,6 @@ pub struct StructureGraph {
     /// input output ports for this component.
     io: NodeIndex,
 
-    /// Maps Ids to their corresponding node
-    nodes: HashMap<ast::Id, NodeIndex>,
-
     /// Mapping for defined constants. This allows us to avoid defining
     /// duplicate nodes for pre-existing constants. Indexed by (val, width)
     /// tuple.
@@ -181,11 +178,8 @@ impl Default for StructureGraph {
             data: NodeData::Port,
             signature: ast::Signature::default(),
         });
-        let mut nodes = HashMap::new();
-        nodes.insert("this".into(), io);
         StructureGraph {
             io,
-            nodes,
             constants: HashMap::new(),
             groups: HashMap::new(),
             graph,
@@ -249,10 +243,7 @@ impl StructureGraph {
                         signature: sig.clone(),
                     };
                     // insert the node into the graph
-                    structure.nodes.insert(
-                        data.name.clone(),
-                        structure.graph.add_node(instance),
-                    );
+                    structure.graph.add_node(instance);
                 }
                 Cell::Prim { data } => {
                     // resolve param signature and add it to hashmap so that
@@ -267,10 +258,7 @@ impl StructureGraph {
                         signature: sig.clone(),
                     };
                     // insert the node into the graph
-                    structure.nodes.insert(
-                        data.name.clone(),
-                        structure.graph.add_node(instance),
-                    );
+                    structure.graph.add_node(instance);
                 }
             }
         }
@@ -316,7 +304,7 @@ impl StructureGraph {
                         group: c,
                         name: port,
                     } => (
-                        *structure.nodes.get(c).ok_or_else(|| {
+                        structure.get_node_by_name(c).ok_or_else(|| {
                             Error::UndefinedComponent(c.clone())
                         })?,
                         port.clone(),
@@ -332,9 +320,8 @@ impl StructureGraph {
                     group: c,
                     name: port,
                 } => (
-                    *structure
-                        .nodes
-                        .get(c)
+                    structure
+                        .get_node_by_name(c)
                         .ok_or_else(|| Error::UndefinedComponent(c.clone()))?,
                     port.clone(),
                 ),
@@ -368,10 +355,8 @@ impl StructureGraph {
     /// # Arguments
     ///   * `id` - the subcomponent identifier
     ///   * `node` - the component object
-    pub fn add_node(&mut self, id: ast::Id, node: Node) -> NodeIndex {
-        let idx = self.graph.add_node(node);
-        self.nodes.insert(id, idx);
-        idx
+    pub fn add_node(&mut self, node: Node) -> NodeIndex {
+        self.graph.add_node(node)
     }
 
     /// Adds a cell node to the structure graph.
@@ -387,11 +372,11 @@ impl StructureGraph {
         cell: ast::Cell,
     ) -> NodeIndex {
         let node = Node {
-            name: id.clone(),
+            name: id,
             data: NodeData::Cell(cell),
             signature: comp.signature.clone(),
         };
-        self.add_node(id, node)
+        self.add_node(node)
     }
 
     /// Adds a primitive component node to the structure graph.
@@ -438,8 +423,8 @@ impl StructureGraph {
             val,
             span: None,
         };
-        let (name, node) = Node::new_constant(&mut self.namegen, &bitnum);
-        let idx = self.add_node(name, node);
+        let (_, node) = Node::new_constant(&mut self.namegen, &bitnum);
+        let idx = self.add_node(node);
         self.constants.insert(*key, idx);
         Ok((idx, port))
     }
@@ -472,10 +457,7 @@ impl StructureGraph {
         self.groups.insert(key, Vec::new());
 
         // Create fake node for this group and add go/done holes
-        self.nodes.insert(
-            name.clone(),
-            self.graph.add_node(Node::new_hole(name.clone())),
-        );
+        self.graph.add_node(Node::new_hole(name.clone()));
         Ok(())
     }
 
@@ -558,8 +540,10 @@ impl StructureGraph {
         &self.graph[*idx]
     }
 
-    pub fn get_node_by_name(&self, name: &ast::Id) -> Option<&NodeIndex> {
-        self.nodes.get(name)
+    pub fn get_node_by_name(&self, name: &ast::Id) -> Option<NodeIndex> {
+        self.component_iterator()
+            .find(|(_, node)| node.name == *name)
+            .map(|(idx, _)| idx)
     }
 
     /* ============= Helper Methods ============= */
@@ -672,10 +656,9 @@ impl fmt::Display for Node {
 impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
     fn into(self) -> (Vec<ast::Cell>, Vec<ast::Connection>) {
         let cells = self
-            .nodes
-            .iter()
-            .filter_map(|(_name, idx)| {
-                if let NodeData::Cell(data) = &self.graph[*idx].data {
+            .component_iterator()
+            .filter_map(|(idx, _)| {
+                if let NodeData::Cell(data) = &self.graph[idx].data {
                     Some(data.clone())
                 } else {
                     None
