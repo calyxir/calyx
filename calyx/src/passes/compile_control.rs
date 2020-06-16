@@ -1,6 +1,7 @@
 //use crate::errors;
-use crate::lang::component::Component;
-use crate::lang::{ast, context::Context};
+use crate::lang::{
+    ast, component::Component, context::Context, structure_builder::ASTBuilder,
+};
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 
 #[derive(Default)]
@@ -23,29 +24,33 @@ impl Visitor for CompileControl {
         comp: &mut Component,
         ctx: &Context,
     ) -> VisResult {
-        //use ast::*;
         let st = &mut comp.structure;
-        // Create a register to store the FSM state.
-        let fsm_name = st.namegen.gen_name("fsm");
-        let fsm_prim = ctx.instantiate_primitive(
-            fsm_name.clone(),
-            &"std_reg".into(),
-            &[32],
-        )?;
-        st.add_primitive(
-            fsm_name.clone().into(),
-            "std_reg",
-            &fsm_prim,
-            &[32],
-        );
 
         // Create a new group for the seq related structure.
-        let seq_name = st.namegen.gen_name("seq");
-        st.insert_group(seq_name.into())?;
+        let seq_group: ast::Id = st.namegen.gen_name("seq").into();
+        st.insert_group(&seq_group)?;
+
+        let reg = st.new_primitive(&ctx, "fsm", "std_reg", &[32])?;
+        let reg_port = st.port_ref(&reg, "in")?.clone();
+        let init_st = st.new_constant(0, 32)?;
+        st.insert_edge(
+            (init_st.0, &init_st.1),
+            (reg, &reg_port),
+            Some(seq_group),
+            Vec::new()
+        )?;
+        /*
+        let guard = ast::GuardExpr::Eq(
+            st.to_atom(reg, reg_port),
+            st.to_atom(reg, reg_port),
+        )
+        */
+
+
+        //let fsm_reg = st.new
 
         // Initial state of the FSM is 0
         //let init_val = structure::Node::new_constant(&mut st.namegen, zero);
-
 
         /*for con in &s.stmts {
             match con {

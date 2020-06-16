@@ -93,7 +93,9 @@ impl Node {
 
     pub fn find_port<S: AsRef<str>>(&self, port_name: S) -> Option<&ast::Id> {
         let port_id: ast::Id = port_name.as_ref().into();
-        self.signature.inputs.iter()
+        self.signature
+            .inputs
+            .iter()
             .chain(self.signature.outputs.iter())
             .find(|portdef| portdef.name == port_id)
             .map(|portdef| &portdef.name)
@@ -286,7 +288,7 @@ impl StructureGraph {
                     if !structure.groups.contains_key(&key) {
                         // XXX(rachit): This is the wrong way to handle
                         // the Result<_> returned from insert_group.
-                        structure.insert_group(name.clone()).expect(
+                        structure.insert_group(&name).expect(
                             "Malformed input AST: Duplicate group names found.",
                         );
                     }
@@ -297,8 +299,15 @@ impl StructureGraph {
             .flatten()
             .collect();
 
+        // Create "default" group that contains all edges without a group.
+        structure.groups.insert(None, Vec::new());
         // then add edges
         for (group, wire) in wires {
+            if let Some(ref name) = group {
+                if !structure.groups.contains_key(&group) {
+                    structure.insert_group(name)?;
+                }
+            }
             // get src node and port in graph
             let (src_node, src_port) = match &wire.src.expr {
                 Atom::Port(p) => match p {
@@ -315,15 +324,9 @@ impl StructureGraph {
                     Port::This { port } => (structure.io, port.clone()),
                 },
                 Atom::Num(n) => {
-                    let (constant_name, constant_node) =
-                        Node::new_constant(&mut structure.namegen, n);
-                    let idx = structure.graph.add_node(constant_node);
-                    let port = ast::Id::new("out", n.span.clone());
-                    structure.nodes.insert(constant_name, idx);
-                    (idx, port)
+                    structure.new_constant(n.val, n.width)?
                 }
             };
-
             // get dest node and port in graph
             let (dest_node, dest_port) = match &wire.dest {
                 Port::Comp { component: c, port }
@@ -339,17 +342,12 @@ impl StructureGraph {
                 ),
                 Port::This { port } => (structure.io, port.clone()),
             };
-            let ed_idx = structure.insert_edge(
+            structure.insert_edge(
                 (src_node, &src_port),
                 (dest_node, &dest_port),
                 group.clone(),
                 wire.src.guard.clone(),
             )?;
-            structure
-                .groups
-                .entry(group)
-                .and_modify(|edges| edges.push(ed_idx))
-                .or_insert_with(|| vec![ed_idx]);
         }
         Ok(structure)
     }
@@ -467,10 +465,10 @@ impl StructureGraph {
     }
 
     /// Add a new named group into the structure.
-    pub fn insert_group(&mut self, name: ast::Id) -> Result<()> {
+    pub fn insert_group(&mut self, name: &ast::Id) -> Result<()> {
         let key = Some(name.clone());
         if self.groups.contains_key(&key) {
-            return Err(errors::Error::DuplicateGroup(name));
+            return Err(errors::Error::DuplicateGroup(name.clone()));
         }
         // create a new group
         self.groups.insert(key, Vec::new());
@@ -532,7 +530,9 @@ impl StructureGraph {
             group: group.clone(),
             guards,
         };
-        Ok(self.graph.add_edge(src_node, dest_node, edge_data))
+        let idx = self.graph.add_edge(src_node, dest_node, edge_data);
+        self.groups.get_mut(&group).unwrap().push(idx);
+        Ok(idx)
     }
 
     pub fn visualize(&self) -> String {
