@@ -81,8 +81,8 @@ impl Visitor for CompileControl {
                         st.to_atom(&signal_const, signal_const_port.clone()),
                     );
                     st.insert_edge(
-                        (fsm_reg, &fsm_in_port),
                         (new_state_const, &new_state_port),
+                        (fsm_reg, &fsm_in_port),
                         Some(seq_group.clone()),
                         vec![done_guard],
                     )?;
