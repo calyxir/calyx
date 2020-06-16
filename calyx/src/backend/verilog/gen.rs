@@ -277,7 +277,9 @@ fn wire_id_from_port<'a>(port: &Port) -> D<'a> {
         Port::Comp { component, port } => {
             D::text(format!("{}_{}", component.to_string(), port.to_string()))
         }
-        Port::Hole { .. } => unreachable!("Cannot transform programs with holes into Verilog."),
+        Port::Hole { .. } => {
+            unreachable!("Cannot transform programs with holes into Verilog.")
+        }
     }
 }
 

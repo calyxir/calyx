@@ -115,11 +115,17 @@ impl Visitor for CompileControl {
 
         // Replace the control with the seq group.
         let new_control = Control::Enable {
-            data: Enable {
-                comp: seq_group,
-            }
+            data: Enable { comp: seq_group },
         };
         Ok(Action::Change(new_control))
     }
 
+    fn finish_if(
+        &mut self,
+        s: &ast::If,
+        comp: &mut Component,
+        ctx: &Context,
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
 }

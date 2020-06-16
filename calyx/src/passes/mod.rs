@@ -17,6 +17,6 @@
 //pub mod lat_insensitive;
 //pub mod redundant_par;
 //pub mod remove_if;
-pub mod visitor;
-pub mod go_insertion;
 pub mod compile_control;
+pub mod go_insertion;
+pub mod visitor;
