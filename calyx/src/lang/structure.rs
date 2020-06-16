@@ -41,6 +41,14 @@ pub struct PortIter {
     items: Vec<ast::Portdef>,
 }
 
+/* TODO(rachit): Change the interface representation of ports to an opaque
+ * handler.
+/// Opaque handle to a port on a component. These can only be created by
+/// calling Node::port_handle method and forces uses of ports to make sure
+/// that they exist on the Node.
+struct PortHandle<'a>(&'a ast::Id);
+*/
+
 impl Iterator for PortIter {
     type Item = ast::Id;
 
@@ -69,6 +77,8 @@ impl Node {
         }
     }
 
+    // XXX(rachit): Why don't we return impl Iterator here instead of wrapping
+    // things in a PortIter.
     pub fn out_ports(&self) -> PortIter {
         PortIter {
             items: self.signature.outputs.clone(),
