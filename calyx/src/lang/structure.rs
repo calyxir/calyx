@@ -4,7 +4,7 @@ use crate::{
     lang::{ast, component},
     utils::NameGenerator,
 };
-use ast::{Atom, Cell, Connection, Group, Port, Wire};
+use ast::{Atom, BitNum, Cell, Connection, Group, Port, Wire};
 use component::Component;
 use errors::{Error, Result};
 use itertools::Itertools;
@@ -21,9 +21,9 @@ use std::{cmp::Ordering, collections::HashMap, fmt};
 pub enum NodeData {
     /// An instantiated subcomponent
     Cell(ast::Cell),
-    Constant(u64),
-    /// A go/done hole
-    Hole,
+    Constant(BitNum),
+    /// A go/done hole for group `ast::Id`
+    Hole(ast::Id),
     /// A port for this component
     Port,
 }
@@ -67,7 +67,7 @@ impl Iterator for PortIter {
 impl Node {
     pub fn get_component_type(&self) -> Result<&ast::Id> {
         match &self.data {
-            NodeData::Port | NodeData::Constant(_) | NodeData::Hole => {
+            NodeData::Port | NodeData::Constant(_) | NodeData::Hole(_) => {
                 Err(errors::Error::NotSubcomponent)
             }
             NodeData::Cell(structure) => match structure {
@@ -109,7 +109,7 @@ impl Node {
         let name = ast::Id::new(namegen.gen_name("$const"), num.span.clone());
         let node = Node {
             name: name.clone(),
-            data: NodeData::Constant(num.val),
+            data: NodeData::Constant(num.clone()),
             signature: ast::Signature {
                 inputs: vec![],
                 outputs: vec![("out", num.width).into()],
@@ -121,8 +121,8 @@ impl Node {
     /// Create a new hole node for the group `group_name`
     fn new_hole(group_name: ast::Id) -> Self {
         Node {
-            name: group_name,
-            data: NodeData::Hole,
+            name: group_name.clone(),
+            data: NodeData::Hole(group_name),
             signature: ast::Signature {
                 // include both go/done in input and output because you both write and read from these
                 inputs: vec![("go", 1).into(), ("done", 1).into()],
@@ -323,9 +323,7 @@ impl StructureGraph {
                     ),
                     Port::This { port } => (structure.io, port.clone()),
                 },
-                Atom::Num(n) => {
-                    structure.new_constant(n.val, n.width)?
-                }
+                Atom::Num(n) => structure.new_constant(n.val, n.width)?,
             };
             // get dest node and port in graph
             let (dest_node, dest_port) = match &wire.dest {
@@ -546,7 +544,7 @@ impl StructureGraph {
                 &|_g, _edgeref| { "".to_string() },
                 &|_g, (_idx, node)| {
                     match node.data {
-                        NodeData::Hole => "shape=diamond".to_string(),
+                        NodeData::Hole(..) => "shape=diamond".to_string(),
                         NodeData::Cell(..) => "shape=box".to_string(),
                         _ => "".to_string(),
                     }
@@ -568,14 +566,16 @@ impl StructureGraph {
     /// Constructs a ast::Port from a NodeIndex and Id
     fn construct_port(&self, idx: NodeIndex, port: &ast::Id) -> ast::Port {
         let node = &self.graph[idx];
-        match node.data {
+        match &node.data {
             NodeData::Port => Port::This { port: port.clone() },
-            NodeData::Cell(..) | NodeData::Constant(..) | NodeData::Hole => {
-                Port::Comp {
-                    component: node.name.clone(),
-                    port: port.clone(),
-                }
-            }
+            NodeData::Cell(..) | NodeData::Constant(..) => Port::Comp {
+                component: node.name.clone(),
+                port: port.clone(),
+            },
+            NodeData::Hole(group) => Port::Hole {
+                group: group.clone(),
+                name: port.clone(),
+            },
         }
     }
 

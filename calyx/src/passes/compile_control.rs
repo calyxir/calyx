@@ -51,9 +51,8 @@ impl Visitor for CompileControl {
                     data: Enable { comp: group_name },
                 } => {
                     /* group[go] = fsm.out == value(fsm_counter) ? 1 */
-                    let group = st.get_node_by_name(&group_name)
-                        .expect("Malformed AST. Group referenced in control is missing from structure")
-                        .clone();
+                    let group = *st.get_node_by_name(&group_name)
+                        .expect("Malformed AST. Group referenced in control is missing from structure");
                     let group_port = st.port_ref(&group, "go")?.clone();
 
                     let fsm_out_port = st.port_ref(&fsm_reg, "out")?.clone();
@@ -64,7 +63,7 @@ impl Visitor for CompileControl {
                         st.to_atom(&fsm_st_const.0, fsm_st_const.1),
                     );
                     st.insert_edge(
-                        (signal_const.clone(), &signal_const_port),
+                        (signal_const, &signal_const_port),
                         (group, &group_port),
                         Some(seq_group.clone()),
                         vec![go_guard],

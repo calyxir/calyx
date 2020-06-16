@@ -1,4 +1,9 @@
-use super::{ast, context::Context, structure::StructureGraph};
+use super::{
+    ast,
+    ast::{Atom, Port},
+    context::Context,
+    structure::{NodeData, StructureGraph},
+};
 use crate::errors;
 use petgraph::graph::{EdgeIndex, NodeIndex};
 
@@ -98,16 +103,23 @@ impl ASTBuilder for StructureGraph {
         port: S,
     ) -> errors::Result<&ast::Id> {
         let node = self.get_node(component);
-        node.find_port(&port).ok_or_else(|| {
-            errors::Error::UndefinedPort(port.as_ref().clone().into())
-        })
+        node.find_port(&port)
+            .ok_or_else(|| errors::Error::UndefinedPort(port.as_ref().into()))
     }
 
-    fn to_atom(&self, component: &NodeIndex, port: ast::Id) -> ast::Atom {
-        let comp = ast::Port::Comp {
-            component: self.get_node(component).name.clone(),
-            port,
-        };
-        ast::Atom::Port(comp)
+    fn to_atom(&self, component: &NodeIndex, port: ast::Id) -> Atom {
+        let node = self.get_node(component);
+        match &node.data {
+            NodeData::Cell(_) => Atom::Port(Port::Comp {
+                component: node.name.clone(),
+                port,
+            }),
+            NodeData::Constant(n) => Atom::Num(n.clone()),
+            NodeData::Hole(group) => Atom::Port(Port::Hole {
+                group: group.clone(),
+                name: port,
+            }),
+            NodeData::Port => Atom::Port(Port::This { port }),
+        }
     }
 }

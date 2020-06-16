@@ -4,8 +4,8 @@ use calyx::{
     errors::{Error, Result},
     frontend::{library_syntax, syntax},
     lang::context::Context,
-    passes::go_insertion,
     passes::compile_control,
+    passes::go_insertion,
     passes::visitor::Visitor,
     // utils::NameGenerator,
 };
