@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 /// Represents an identifier in a Futil program
-#[derive(Clone, Debug, PartialOrd, Ord)]
+#[derive(Clone, PartialOrd, Ord)]
 pub struct Id {
     id: String,
     span: Option<Span>,
@@ -24,6 +24,12 @@ impl Id {
             Some(span) => span.format(err_msg),
             None => err_msg.to_string(),
         }
+    }
+}
+
+impl std::fmt::Debug for Id {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("Id").field("id", &self.id).finish()
     }
 }
 

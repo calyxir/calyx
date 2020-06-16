@@ -1,3 +1,4 @@
+use super::structure_builder::ASTBuilder;
 use super::structure_iter;
 use crate::{
     errors,
@@ -709,9 +710,16 @@ impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
                         .iter()
                         .map(|ed| {
                             let edge = &self.graph[*ed];
+                            let (src_nidx, _) = self
+                                .graph
+                                .edge_endpoints(*ed)
+                                .unwrap_or_else(|| unreachable!());
                             let src = ast::Guard {
                                 guard: edge.guards.clone(),
-                                expr: Atom::Port(edge.src.clone()),
+                                expr: self.to_atom(
+                                    &src_nidx,
+                                    edge.src.port_name().clone(),
+                                ),
                             };
                             Wire {
                                 src,
