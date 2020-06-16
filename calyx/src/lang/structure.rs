@@ -317,7 +317,7 @@ impl StructureGraph {
                 (src_node, &src_port),
                 (dest_node, &dest_port),
                 group.clone(),
-                wire.src.clone(),
+                wire.src.guard.clone(),
             )?;
             structure
                 .groups
@@ -434,7 +434,7 @@ impl StructureGraph {
         (src_node, src_port): (NodeIndex, &ast::Id),
         (dest_node, dest_port): (NodeIndex, &ast::Id),
         group: Option<ast::Id>,
-        guard: ast::Guard,
+        guards: Vec<ast::GuardExpr>,
     ) -> Result<EdgeIndex> {
         // If the group is not defined, error out.
         if let Some(ref group_name) = group {
@@ -475,7 +475,7 @@ impl StructureGraph {
             dest: self.construct_port(dest_node, dest_port),
             width: src_width,
             group: group.clone(),
-            guards: guard.guard,
+            guards,
         };
         Ok(self.graph.add_edge(src_node, dest_node, edge_data))
     }
