@@ -1,5 +1,5 @@
-use super::structure::{DataDirection};
-use petgraph::graph::{NodeIndex};
+use super::structure::DataDirection;
+use petgraph::graph::NodeIndex;
 
 /// TODO(rachit): Implement filtering with group name.
 #[derive(Clone, Debug)]
@@ -28,10 +28,7 @@ impl Default for ConnectionIteration {
 
 impl ConnectionIteration {
     /// Iterate over set of edges that contain this edge.
-    pub fn with_component(
-        mut self,
-        component: NodeIndex,
-    ) -> Self {
+    pub fn with_component(mut self, component: NodeIndex) -> Self {
         if self.guarded && self.from_node.is_some() {
             panic!("Tried to overwrite with_component field in EdgeIterationBuilder")
         }
@@ -41,16 +38,15 @@ impl ConnectionIteration {
 
     pub fn with_port(mut self, port: String) -> Self {
         if self.guarded && self.with_port.is_some() {
-            panic!("Tried to overwrite with_port field in EdgeIterationBuilder");
+            panic!(
+                "Tried to overwrite with_port field in EdgeIterationBuilder"
+            );
         }
         self.with_port = Some(port);
         self
     }
 
-    pub fn in_direction(
-        mut self,
-        direction: DataDirection,
-    ) -> Self {
+    pub fn in_direction(mut self, direction: DataDirection) -> Self {
         if self.guarded && self.with_port.is_some() {
             panic!("Tried to overwrite direction field in EdgeIterationBuilder")
         }

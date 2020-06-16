@@ -2,38 +2,42 @@ import "primitives/std.lib";
 
 /**
 x = 1;
-x = 2;
-x = 3;
+if (x == 1) {
+  x = 2;
+} else {
+  x = 3;
+}
 */
 
 component iterator(init: 32, step: 32, enable: 1, reset: 1) -> (output: 32) {
   cells {
     x = prim std_reg(32);
+    cmp = prim std_eq(32);
   }
 
   wires {
-    group first_assign {
+    group one {
       x.write_en = 1'd1;
       x.in = 32'd1;
-      first_assign[done] = 1'd1;
+      one[done] = 1'd1;
     }
-    group second_assign {
+    group two {
       x.write_en = 1'd1;
       x.in = 32'd2;
-      second_assign[done] = 1'd1;
+      two[done] = 1'd1;
     }
-    group third_assign {
+    group three {
       x.write_en = 1'd1;
       x.in = 32'd3;
-      third_assign[done] = 1'd1;
+      three[done] = 1'd1;
     }
   }
 
   control {
     seq {
-      first_assign;
-      second_assign;
-      third_assign;
+      one;
+      two;
+      three;
     }
   }
 }

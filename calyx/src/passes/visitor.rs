@@ -2,9 +2,7 @@
 
 use crate::errors;
 use crate::frontend::pretty_print::PrettyPrint;
-use crate::lang::{
-    ast::*, component::Component, context::Context,
-};
+use crate::lang::{ast::*, component::Component, context::Context};
 
 pub enum Action {
     /// Continue AST traversal

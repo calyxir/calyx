@@ -44,14 +44,15 @@ impl Visitor for CompileControl {
         // Assigning 1 to tell groups to go.
         let (signal_const, signal_const_port) = st.new_constant(1, 1)?;
 
+        // Generate fsm to drive the sequence
         let mut fsm_counter = 0;
-        for con in &s.stmts {
+        for (idx, con) in s.stmts.iter().enumerate() {
             match con {
                 Control::Enable {
                     data: Enable { comp: group_name },
                 } => {
                     /* group[go] = fsm.out == value(fsm_counter) ? 1 */
-                    let group = *st.get_node_by_name(&group_name)
+                    let group = st.get_node_by_name(&group_name)
                         .expect("Malformed AST. Group referenced in control is missing from structure");
                     let group_port = st.port_ref(&group, "go")?.clone();
 
@@ -76,7 +77,7 @@ impl Visitor for CompileControl {
                         st.new_constant(fsm_counter, 32)?;
                     let group_done_port = st.port_ref(&group, "done")?.clone();
                     let done_guard = GuardExpr::Eq(
-                        st.to_atom(&group, group_done_port),
+                        st.to_atom(&group, group_done_port.clone()),
                         st.to_atom(&signal_const, signal_const_port.clone()),
                     );
                     st.insert_edge(
@@ -85,6 +86,22 @@ impl Visitor for CompileControl {
                         Some(seq_group.clone()),
                         vec![done_guard],
                     )?;
+
+                    // If this is the last group, generate the done condition
+                    // for the seq group.
+                    if idx == s.stmts.len() - 1 {
+                        let seq_group_node = st
+                            .get_node_by_name(&seq_group)
+                            .expect("Impossible: Group doesnt have done holes");
+                        let seq_group_done =
+                            st.port_ref(&seq_group_node, "done")?.clone();
+                        st.insert_edge(
+                            (group, &group_done_port),
+                            (seq_group_node, &seq_group_done),
+                            Some(seq_group.clone()),
+                            Vec::new(),
+                        )?;
+                    }
                 }
                 _ => {
                     return Err(Error::MalformedControl(
@@ -94,6 +111,11 @@ impl Visitor for CompileControl {
                 }
             }
         }
-        Ok(Action::Continue)
+
+        // Replace the control with the seq group.
+        let new_control = Control::Enable {
+            data: Enable { comp: seq_group },
+        };
+        Ok(Action::Change(new_control))
     }
 }
