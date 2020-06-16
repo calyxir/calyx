@@ -27,7 +27,7 @@ impl Visitor for GoInsertion {
                 };
 
                 let go_guard = ast::GuardExpr::Atom(ast::Atom::Port(group_go));
-                edge_data.guard.guard.push(go_guard)
+                edge_data.guards.push(go_guard)
             }
         }
 

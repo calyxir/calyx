@@ -118,7 +118,7 @@ pub struct EdgeData {
     pub dest: Port,
     pub width: u64,
     pub group: Option<ast::Id>,
-    pub guard: ast::Guard,
+    pub guards: Vec<ast::GuardExpr>,
 }
 
 /// private graph type. the data in the node stores information
@@ -255,27 +255,17 @@ impl StructureGraph {
                 Connection::Wire(wire) => vec![(None, wire)],
                 Connection::Group(group) => {
                     // create group if it does not exist
-                    if !structure.groups.contains_key(&Some(group.name.clone()))
-                    {
-                        // create a new group
-                        structure
-                            .groups
-                            .insert(Some(group.name.clone()), vec![]);
-
-                        // add go/done hole
-                        structure.nodes.insert(
-                            group.name.clone(),
-                            structure
-                                .graph
-                                .add_node(Node::new_hole(group.name.clone())),
+                    let name = group.name.clone();
+                    let key = Some(name.clone());
+                    if !structure.groups.contains_key(&key) {
+                        // XXX(rachit): This is the wrong way to handle
+                        // the Result<_> returned from insert_group.
+                        structure.insert_group(name.clone()).expect(
+                            "Malformed input AST: Duplicate group names found.",
                         );
                     }
 
-                    group
-                        .wires
-                        .iter()
-                        .map(|w| (Some(group.name.clone()), w))
-                        .collect()
+                    group.wires.iter().map(|w| (key.clone(), w)).collect()
                 }
             })
             .flatten()
@@ -427,7 +417,14 @@ impl StructureGraph {
         if self.groups.contains_key(&key) {
             return Err(errors::Error::DuplicateGroup(name));
         }
+        // create a new group
         self.groups.insert(key, Vec::new());
+
+        // Create fake node for this group and add go/done holes
+        self.nodes.insert(
+            name.clone(),
+            self.graph.add_node(Node::new_hole(name.clone())),
+        );
         Ok(())
     }
 
@@ -478,7 +475,7 @@ impl StructureGraph {
             dest: self.construct_port(dest_node, dest_port),
             width: src_width,
             group: group.clone(),
-            guard,
+            guards: guard.guard,
         };
         Ok(self.graph.add_edge(src_node, dest_node, edge_data))
     }
@@ -631,9 +628,14 @@ impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
                 None => group_wires
                     .iter()
                     .map(|ed| {
+                        let edge = &self.graph[*ed];
+                        let src = ast::Guard {
+                            guard: edge.guards.clone(),
+                            expr: Atom::Port(edge.src.clone()),
+                        };
                         Connection::Wire(Wire {
-                            src: self.graph[*ed].guard.clone(),
-                            dest: self.graph[*ed].dest.clone(),
+                            src,
+                            dest: edge.dest.clone(),
                         })
                     })
                     .collect(),
@@ -641,9 +643,16 @@ impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
                     name: name.clone(),
                     wires: group_wires
                         .iter()
-                        .map(|ed| Wire {
-                            src: self.graph[*ed].guard.clone(),
-                            dest: self.graph[*ed].dest.clone(),
+                        .map(|ed| {
+                            let edge = &self.graph[*ed];
+                            let src = ast::Guard {
+                                guard: edge.guards.clone(),
+                                expr: Atom::Port(edge.src.clone()),
+                            };
+                            Wire {
+                                src,
+                                dest: edge.dest.clone(),
+                            }
                         })
                         .collect(),
                 })],

@@ -277,7 +277,7 @@ fn wire_id_from_port<'a>(port: &Port) -> D<'a> {
         Port::Comp { component, port } => {
             D::text(format!("{}_{}", component.to_string(), port.to_string()))
         }
-        Port::Hole { .. } => unreachable!(),
+        Port::Hole { .. } => unreachable!("Cannot transform programs with holes into Verilog."),
     }
 }
 
@@ -296,7 +296,7 @@ fn alias<'a>(edge: &EdgeData) -> D<'a> {
                     D::nil().append(
                         wire_id_from_port(&edge.dest)
                             .append(D::text(" <= "))
-                            .append(atom(&edge.guard.expr))
+                            .append(wire_id_from_port(&edge.src))
                             .append(";"),
                     ),
                 )
@@ -308,7 +308,7 @@ fn alias<'a>(edge: &EdgeData) -> D<'a> {
 
 /// Converts a guarded edge into a Verilog string
 fn guard<'a>(edge: &EdgeData) -> D<'a> {
-    let guard_doc = edge.guard.guard.iter().map(|expr| match expr {
+    let guard_doc = edge.guards.iter().map(|expr| match expr {
         GuardExpr::Eq(a, b) => atom(a).append(" == ").append(atom(b)),
         GuardExpr::Neq(a, b) => atom(a).append(" != ").append(atom(b)),
         GuardExpr::Gt(a, b) => atom(a).append(" > ").append(atom(b)),
@@ -338,7 +338,7 @@ fn guard<'a>(edge: &EdgeData) -> D<'a> {
                         .append(
                             wire_id_from_port(&edge.dest)
                                 .append(D::text(" <= "))
-                                .append(atom(&edge.guard.expr))
+                                .append(wire_id_from_port(&edge.src))
                                 .append(";"),
                         ),
                 )
@@ -382,7 +382,7 @@ pub fn bitwidth<'a>(width: u64) -> Result<D<'a>> {
 fn connections<'a>(comp: &component::Component) -> D<'a> {
     let builder = ConnectionIteration::default();
     let doc = comp.structure.edge_iterator(builder).map(|data| {
-        if data.guard.guard.is_empty() {
+        if data.guards.is_empty() {
             alias(&data)
         } else {
             guard(&data)
