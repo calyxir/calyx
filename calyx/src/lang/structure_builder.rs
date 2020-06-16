@@ -45,6 +45,13 @@ pub trait ASTBuilder {
         width: u64,
     ) -> errors::Result<(Self::ComponentHandle, Self::PortRep)>;
 
+    /// Transform a (ComponentHandle, PortRep) pair into an ast::Atom to be
+    /// used for guard conditions.
+    fn to_atom(
+        &self,
+        component: Self::ComponentHandle,
+        port: Self::PortRep,
+    ) -> ast::Atom;
 }
 
 impl ASTBuilder for StructureGraph {
@@ -87,5 +94,13 @@ impl ASTBuilder for StructureGraph {
         let (name, node) = Node::new_constant(&mut self.namegen, &bitnum);
         let idx = self.add_node(name, node);
         Ok((idx, ast::Id::new("out", None)))
+    }
+
+    fn to_atom(&self, component: NodeIndex, port: ast::Id) -> ast::Atom {
+        let comp = ast::Port::Comp {
+            component: self.get_node(component).name.clone(),
+            port,
+        };
+        ast::Atom::Port(comp)
     }
 }
