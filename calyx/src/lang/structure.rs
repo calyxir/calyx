@@ -91,6 +91,14 @@ impl Node {
         }
     }
 
+    pub fn find_port<S: AsRef<str>>(&self, port_name: S) -> Option<&ast::Id> {
+        let port_id: ast::Id = port_name.as_ref().into();
+        self.signature.inputs.iter()
+            .chain(self.signature.outputs.iter())
+            .find(|portdef| portdef.name == port_id)
+            .map(|portdef| &portdef.name)
+    }
+
     /// Create a constant node for the number `num`
     fn new_constant(
         namegen: &mut NameGenerator,
@@ -548,8 +556,8 @@ impl StructureGraph {
     }
 
     /* ============= Getter Methods ============= */
-    pub fn get_node(&self, idx: NodeIndex) -> &Node {
-        &self.graph[idx]
+    pub fn get_node(&self, idx: &NodeIndex) -> &Node {
+        &self.graph[*idx]
     }
 
     /* ============= Helper Methods ============= */

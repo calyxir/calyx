@@ -1,8 +1,4 @@
-use super::{
-    ast,
-    context::Context,
-    structure::{StructureGraph},
-};
+use super::{ast, context::Context, structure::StructureGraph};
 use crate::errors;
 use petgraph::graph::{EdgeIndex, NodeIndex};
 
@@ -45,11 +41,19 @@ pub trait ASTBuilder {
         width: u64,
     ) -> errors::Result<(Self::ComponentHandle, Self::PortRep)>;
 
+    /// Given a `component` and a `port_name`, return the PortRep for the
+    /// port on the component if it exsits.
+    fn port_ref<S: AsRef<str>>(
+        &self,
+        component: &Self::ComponentHandle,
+        port_name: S,
+    ) -> errors::Result<&Self::PortRep>;
+
     /// Transform a (ComponentHandle, PortRep) pair into an ast::Atom to be
     /// used for guard conditions.
     fn to_atom(
         &self,
-        component: Self::ComponentHandle,
+        component: &Self::ComponentHandle,
         port: Self::PortRep,
     ) -> ast::Atom;
 }
@@ -88,7 +92,18 @@ impl ASTBuilder for StructureGraph {
         self.new_constant(val, width)
     }
 
-    fn to_atom(&self, component: NodeIndex, port: ast::Id) -> ast::Atom {
+    fn port_ref<S: AsRef<str>>(
+        &self,
+        component: &NodeIndex,
+        port: S,
+    ) -> errors::Result<&ast::Id> {
+        let node = self.get_node(component);
+        node.find_port(&port).ok_or_else(|| {
+            errors::Error::UndefinedPort(port.as_ref().clone().into())
+        })
+    }
+
+    fn to_atom(&self, component: &NodeIndex, port: ast::Id) -> ast::Atom {
         let comp = ast::Port::Comp {
             component: self.get_node(component).name.clone(),
             port,
