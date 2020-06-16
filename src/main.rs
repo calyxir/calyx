@@ -126,7 +126,7 @@ fn main() -> Result<()> {
     // build context
     let context = Context::from_ast(namespace, &libraries, opts.enable_debug)?;
     compile_control::CompileControl::do_pass_default(&context)?;
-    //go_insertion::GoInsertion::do_pass_default(&context)?;
+    go_insertion::GoInsertion::do_pass_default(&context)?;
 
     // Construct pass manager.
     // let names = pass_map();
