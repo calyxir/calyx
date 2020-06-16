@@ -90,10 +90,9 @@ impl Visitor for CompileControl {
                     // If this is the last group, generate the done condition
                     // for the seq group.
                     if idx == s.stmts.len() - 1 {
-                        let seq_group_node = st
+                        let seq_group_node = *st
                             .get_node_by_name(&seq_group)
-                            .expect("Impossible: Group doesnt have done holes")
-                            .clone();
+                            .expect("Impossible: Group doesnt have done holes");
                         let seq_group_done =
                             st.port_ref(&seq_group_node, "done")?.clone();
                         st.insert_edge(
@@ -118,14 +117,5 @@ impl Visitor for CompileControl {
             data: Enable { comp: seq_group },
         };
         Ok(Action::Change(new_control))
-    }
-
-    fn finish_if(
-        &mut self,
-        s: &ast::If,
-        comp: &mut Component,
-        ctx: &Context,
-    ) -> VisResult {
-        Ok(Action::Continue)
     }
 }
