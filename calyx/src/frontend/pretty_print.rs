@@ -396,12 +396,12 @@ impl PrettyPrint for If {
         } else if let Control::If { .. } = *self.fbranch {
             tbranch
                 .append(RcDoc::space())
-                .append(RcDoc::text("else"))
+                .append(RcDoc::text("else").control_color())
                 .append(RcDoc::space())
                 .append(self.fbranch.prettify(&arena))
         } else {
             tbranch.append(RcDoc::space()).append(block(
-                RcDoc::text("else"),
+                RcDoc::text("else").control_color(),
                 self.fbranch.prettify(&arena),
             ))
         }

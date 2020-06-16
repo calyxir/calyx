@@ -90,17 +90,17 @@ impl Visitor for CompileControl {
                     // If this is the last group, generate the done condition
                     // for the seq group.
                     if idx == s.stmts.len() - 1 {
-                        let seq_group_node = st.get_node_by_name(&seq_group)
+                        let seq_group_node = st
+                            .get_node_by_name(&seq_group)
                             .expect("Impossible: Group doesnt have done holes")
                             .clone();
-                        let seq_group_done = st
-                            .port_ref(&seq_group_node, "done")?
-                            .clone();
+                        let seq_group_done =
+                            st.port_ref(&seq_group_node, "done")?.clone();
                         st.insert_edge(
                             (group, &group_done_port),
                             (seq_group_node, &seq_group_done),
                             Some(seq_group.clone()),
-                            Vec::new()
+                            Vec::new(),
                         )?;
                     }
                 }
