@@ -82,7 +82,7 @@ impl Node {
     }
 
     /// Create a constant node for the number `num`
-    pub fn new_constant(
+    fn new_constant(
         namegen: &mut NameGenerator,
         num: &ast::BitNum,
     ) -> (ast::Id, Self) {
@@ -135,8 +135,15 @@ pub struct StructureGraph {
     /// The "fake" node that represents this component. It contains the
     /// input output ports for this component.
     io: NodeIndex,
+
     /// Maps Ids to their corresponding node
     nodes: HashMap<ast::Id, NodeIndex>,
+
+    /// Mapping for defined constants. This allows us to avoid defining
+    /// duplicate nodes for pre-existing constants. Indexed by (val, width)
+    /// tuple.
+    constants: HashMap<(u64, u64), NodeIndex>,
+
     /// maps Ids to Vec<Edge> which represents the group
     /// the set of edges belong to. None refers to edges
     /// that are in no group.
@@ -159,6 +166,7 @@ impl Default for StructureGraph {
         StructureGraph {
             io,
             nodes,
+            constants: HashMap::new(),
             groups: HashMap::new(),
             graph,
             namegen: NameGenerator::default(),
@@ -391,6 +399,35 @@ impl StructureGraph {
         let cell =
             Cell::prim(id.clone(), name.as_ref().into(), params.to_vec());
         self.add_cell(id, comp, cell)
+    }
+
+    /// Add a constant node into the structure graph. If the same (using
+    /// (val, width) tuple) constant has already been defined, return the
+    /// index of that node instead.
+    ///
+    /// Returns the NodeIndex for the constant node and the port on which it
+    /// outputs the value.
+    pub fn new_constant(
+        &mut self,
+        val: u64,
+        width: u64,
+    ) -> errors::Result<(NodeIndex, ast::Id)> {
+        let key = &(val, width);
+        let port = ast::Id::new("out", None);
+        if self.constants.contains_key(&key) {
+            return Ok((self.constants[key], port));
+        }
+        // If the given constant doesn't already exist, create it and add it.
+        let bitnum = ast::BitNum {
+            width,
+            num_type: ast::NumType::Decimal,
+            val,
+            span: None,
+        };
+        let (name, node) = Node::new_constant(&mut self.namegen, &bitnum);
+        let idx = self.add_node(name, node);
+        self.constants.insert(*key, idx);
+        Ok((idx, port))
     }
 
     /// TODO(rachit): Sam, check if this documentation is correct.

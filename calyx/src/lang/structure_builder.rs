@@ -1,7 +1,7 @@
 use super::{
     ast,
     context::Context,
-    structure::{Node, StructureGraph},
+    structure::{StructureGraph},
 };
 use crate::errors;
 use petgraph::graph::{EdgeIndex, NodeIndex};
@@ -85,15 +85,7 @@ impl ASTBuilder for StructureGraph {
         val: u64,
         width: u64,
     ) -> errors::Result<(NodeIndex, ast::Id)> {
-        let bitnum = ast::BitNum {
-            width,
-            num_type: ast::NumType::Decimal,
-            val,
-            span: None,
-        };
-        let (name, node) = Node::new_constant(&mut self.namegen, &bitnum);
-        let idx = self.add_node(name, node);
-        Ok((idx, ast::Id::new("out", None)))
+        self.new_constant(val, width)
     }
 
     fn to_atom(&self, component: NodeIndex, port: ast::Id) -> ast::Atom {
