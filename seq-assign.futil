@@ -1,0 +1,43 @@
+import "primitives/std.lib";
+
+/**
+x = 1;
+if (x == 1) {
+  x = 2;
+} else {
+  x = 3;
+}
+*/
+
+component iterator(init: 32, step: 32, enable: 1, reset: 1) -> (output: 32) {
+  cells {
+    x = prim std_reg(32);
+    cmp = prim std_eq(32);
+  }
+
+  wires {
+    group one {
+      x.write_en = 1'd1;
+      x.in = 32'd1;
+      one[done] = 1'd1;
+    }
+    group two {
+      x.write_en = 1'd1;
+      x.in = 32'd2;
+      two[done] = 1'd1;
+    }
+    group three {
+      x.write_en = 1'd1;
+      x.in = 32'd3;
+      three[done] = 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      one;
+      two;
+      three;
+    }
+  }
+}

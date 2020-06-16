@@ -4,8 +4,9 @@ use calyx::{
     errors::{Error, Result},
     frontend::{library_syntax, syntax},
     lang::context::Context,
-    // passes,
-    // passes::visitor::{Named, Visitor},
+    passes::compile_control,
+    passes::go_insertion,
+    passes::visitor::Visitor,
     // utils::NameGenerator,
 };
 use cmdline::Opts;
@@ -124,6 +125,8 @@ fn main() -> Result<()> {
         .collect::<Result<Vec<_>>>()?;
     // build context
     let context = Context::from_ast(namespace, &libraries, opts.enable_debug)?;
+    compile_control::CompileControl::do_pass_default(&context)?;
+    go_insertion::GoInsertion::do_pass_default(&context)?;
 
     // Construct pass manager.
     // let names = pass_map();

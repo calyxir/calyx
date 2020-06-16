@@ -15,14 +15,24 @@ pub enum Error {
     LibraryParseError(pest_consume::Error<library_syntax::Rule>),
     WriteError,
     MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
+
     UndefinedPort(ast::Id),
     UndefinedEdge(String, String),
     UndefinedComponent(ast::Id),
-    SignatureResolutionFailed(ast::Id, ast::Id),
+    /* Generated when the group is undefined.  */
+    UndefinedGroup(ast::Id),
+
+    /* Trying to bind new group to existing name.  */
+    DuplicateGroup(ast::Id),
     DuplicatePort(ast::Id, ast::Portdef),
+
+    SignatureResolutionFailed(ast::Id, ast::Id),
+
     MalformedControl(String),
     MalformedStructure(String),
+
     MissingImplementation(&'static str, ast::Id),
+
     Impossible(String), // Signal compiler errors that should never occur.
     NotSubcomponent,
     #[allow(unused)]
@@ -84,6 +94,13 @@ impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use Error::*;
         match self {
+            UndefinedGroup(name) => {
+                write!(
+                    f,
+                    "Unknown group: {:?}",
+                    name
+                )
+            }
             UnknownPass(pass, known_passes) => {
                 write!(
                     f,
@@ -105,8 +122,8 @@ impl std::fmt::Debug for Error {
                        port2.port_name().fmt_err(&msg2))
             }
             UndefinedPort(port) => {
-                let msg = "Use of undefined port";
-                write!(f, "{}", port.fmt_err(msg))
+                let msg = format!("Use of undefined port: {}", port.to_string());
+                write!(f, "{}", port.fmt_err(&msg))
             }
             UndefinedEdge(src, dest) => write!(f, "Use of undefined edge: {}->{}", src, dest),
             UndefinedComponent(id) => {
@@ -116,6 +133,9 @@ impl std::fmt::Debug for Error {
             SignatureResolutionFailed(id, param_name) => {
                 let msg = format!("No value passed in for parameter: {}", param_name.to_string());
                 write!(f, "{}\nwhich is used here:{}", id.fmt_err(&msg), param_name.fmt_err(""))
+            }
+            DuplicateGroup(group) => {
+                write!(f, "Attempted to duplicate group `{:?}`", group)
             }
             DuplicatePort(comp, portdef) => {
                 write!(f, "Attempted to add `{:?}` to component `{}`", portdef, comp.to_string())

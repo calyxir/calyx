@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 /// Represents an identifier in a Futil program
-#[derive(Clone, Debug, PartialOrd, Ord)]
+#[derive(Clone, PartialOrd, Ord)]
 pub struct Id {
     id: String,
     span: Option<Span>,
@@ -24,6 +24,12 @@ impl Id {
             Some(span) => span.format(err_msg),
             None => err_msg.to_string(),
         }
+    }
+}
+
+impl std::fmt::Debug for Id {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("Id").field("id", &self.id).finish()
     }
 }
 
@@ -227,12 +233,16 @@ pub struct BitNum {
     pub width: u64,
     pub num_type: NumType,
     pub val: u64,
-    pub span: Span,
+    pub span: Option<Span>,
 }
 
+/// Atomic operations used in guard conditions and RHS of the
+/// guarded assignments.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Atom {
+    /// Accessing a particular port on a component.
     Port(Port),
+    /// A constant.
     Num(BitNum),
 }
 
@@ -248,6 +258,8 @@ pub enum GuardExpr {
     Atom(Atom),
 }
 
+/// A guard is a conditions in `guard_conj` which guard the value
+/// represented by `expr`.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Guard {
     pub guard: Vec<GuardExpr>,
