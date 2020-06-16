@@ -113,6 +113,13 @@ impl Visitor for CompileControl {
             }
         }
 
-        Ok(Action::Continue)
+        // Replace the control with the seq group.
+        let new_control = Control::Enable {
+            data: Enable {
+                comp: seq_group,
+            }
+        };
+        Ok(Action::Change(new_control))
     }
+
 }
