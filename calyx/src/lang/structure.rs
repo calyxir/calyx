@@ -449,7 +449,7 @@ impl StructureGraph {
     }
 
     /// Add a new named group into the structure.
-    pub fn insert_group(&mut self, name: &ast::Id) -> Result<()> {
+    pub fn insert_group(&mut self, name: &ast::Id) -> Result<NodeIndex> {
         let key = Some(name.clone());
         if self.groups.contains_key(&key) {
             return Err(errors::Error::DuplicateGroup(name.clone()));
@@ -458,8 +458,8 @@ impl StructureGraph {
         self.groups.insert(key, Vec::new());
 
         // Create fake node for this group and add go/done holes
-        self.graph.add_node(Node::new_hole(name.clone()));
-        Ok(())
+        let idx = self.graph.add_node(Node::new_hole(name.clone()));
+        Ok(idx)
     }
 
     /// Construct and insert an edge given two node indices with a group and a guard

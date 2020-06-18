@@ -29,7 +29,7 @@ impl Visitor for CompileControl {
 
         // Create a new group for the seq related structure.
         let seq_group: ast::Id = st.namegen.gen_name("seq").into();
-        st.insert_group(&seq_group)?;
+        let seq_group_node = st.insert_group(&seq_group)?;
 
         let fsm_reg = st.new_primitive(&ctx, "fsm", "std_reg", &[32])?;
         let fsm_in_port = st.port_ref(&fsm_reg, "in")?.clone();
@@ -90,9 +90,6 @@ impl Visitor for CompileControl {
                     // If this is the last group, generate the done condition
                     // for the seq group.
                     if idx == s.stmts.len() - 1 {
-                        let seq_group_node = st
-                            .get_node_by_name(&seq_group)
-                            .expect("Impossible: Group doesnt have done holes");
                         let seq_group_done =
                             st.port_ref(&seq_group_node, "done")?.clone();
                         st.insert_edge(
@@ -115,6 +112,76 @@ impl Visitor for CompileControl {
         // Replace the control with the seq group.
         let new_control = Control::Enable {
             data: Enable { comp: seq_group },
+        };
+        Ok(Action::Change(new_control))
+    }
+
+    /// Compiling par is straightforward: Hook up the go signal
+    /// of the par group to the sub-groups and the done signal
+    /// par group is the conjunction of sub-groups.
+    fn finish_par(
+        &mut self,
+        s: &ast::Par,
+        comp: &mut Component,
+        _ctx: &Context,
+    ) -> VisResult {
+        let st = &mut comp.structure;
+
+        // Name of the parent group.
+        let par_group: ast::Id = st.namegen.gen_name("par").into();
+        let par_group_idx = st.insert_group(&par_group)?;
+        let par_group_go_port = st.port_ref(&par_group_idx, "go")?.clone();
+
+        let mut par_group_done: Vec<GuardExpr> = Vec::new();
+
+        for con in s.stmts.iter() {
+            match con {
+                Control::Enable {
+                    data: Enable { comp: group_name },
+                } => {
+                    let group_idx = st.get_node_by_name(&group_name).expect(
+                        "Malformed structure: Group node is not defined.",
+                    );
+                    let group_go_port = st.port_ref(&group_idx, "go")?.clone();
+                    // Hook up this group's go signal with parent's
+                    // go.
+                    st.insert_edge(
+                        (par_group_idx, &par_group_go_port),
+                        (group_idx, &group_go_port),
+                        Some(par_group.clone()),
+                        Vec::new(),
+                    )?;
+
+                    // Add this group's done signal to parent's
+                    // done signal.
+                    let group_done_port =
+                        st.port_ref(&group_idx, "done")?.clone();
+                    let guard = GuardExpr::Atom (
+                        st.to_atom(&group_idx, group_done_port),
+                    );
+                    par_group_done.push(guard);
+                }
+                _ => {
+                    return Err(Error::MalformedControl(
+                        "Cannot compile non-group statement inside sequence"
+                            .to_string(),
+                    ))
+                }
+            }
+        }
+
+        // Hook up parent's done signal to all children.
+        let (one, one_port) = st.new_constant(1, 1)?;
+        let par_group_done_port = st.port_ref(&par_group_idx, "done")?.clone();
+        st.insert_edge(
+            (one, &one_port),
+            (par_group_idx, &par_group_done_port),
+            Some(par_group.clone()),
+            par_group_done,
+        )?;
+
+        let new_control = Control::Enable {
+            data: Enable { comp: par_group },
         };
         Ok(Action::Change(new_control))
     }
