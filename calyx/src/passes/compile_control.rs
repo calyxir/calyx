@@ -3,7 +3,7 @@ use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use ast::{Control, Enable, GuardExpr};
+use ast::{Control, Enable, GuardExpr, Port};
 
 #[derive(Default)]
 pub struct CompileControl {}
@@ -19,6 +19,132 @@ impl Named for CompileControl {
 }
 
 impl Visitor for CompileControl {
+    fn finish_if(
+        &mut self,
+        cif: &ast::If,
+        comp: &mut Component,
+        ctx: &Context,
+    ) -> VisResult {
+        let st = &mut comp.structure;
+
+        // create a new group for if related structure
+        let if_group: ast::Id = st.namegen.gen_name("if").into();
+        let if_group_node = st.insert_group(&if_group)?;
+
+        let cond_group = cif.cond.as_ref().expect("Unimplemented");
+        let cond_group_node = st.get_node_by_name(cond_group).unwrap();
+        let (cond_node, cond_port) = match &cif.port {
+            Port::Comp { component, port } => {
+                Ok((st.get_node_by_name(component).unwrap(), port))
+            }
+            Port::This { port } => {
+                Ok((st.get_node_by_name(&"this".into()).unwrap(), port))
+            }
+            Port::Hole { .. } => Err(Error::MalformedControl(
+                "Can't use a hole as a condition.".to_string(),
+            )),
+        }?;
+
+        // extract group names from control statement
+        let (true_group, false_group) = match (&*cif.tbranch, &*cif.fbranch) {
+            (Control::Enable { data: t }, Control::Enable { data: f }) => {
+                Ok((&t.comp, &f.comp))
+            }
+            _ => Err(Error::MalformedControl(
+                "Both branches of an if must be an enable.".to_string(),
+            )),
+        }?;
+        let true_group_node = st.get_node_by_name(true_group).unwrap();
+        let false_group_node = st.get_node_by_name(false_group).unwrap();
+
+        // generate necessary hardware
+        let cond_computed_reg =
+            st.new_primitive(&ctx, "cond_computed", "std_reg", &[1])?;
+        let cond_stored_reg =
+            st.new_primitive(&ctx, "cond_stored", "std_reg", &[1])?;
+        let branch_or = st.new_primitive(&ctx, "if_or", "std_or", &[1])?;
+
+        // cond_computed.in = this[go] & cond[done] ? 1'b1;
+        let (cond_computed_node, cond_computed_port) = st.new_constant(1, 1)?;
+        let cond_computed_guard =
+            GuardExpr::Atom(st.to_atom(&cond_group_node, "done".into()));
+        st.insert_edge(
+            (cond_computed_node, &cond_computed_port),
+            (cond_computed_reg, &"in".into()),
+            Some(if_group.clone()),
+            vec![cond_computed_guard],
+        )?;
+
+        // cond_stored.in = cond[done] ? comp.out;
+        let cond_stored_guard =
+            GuardExpr::Atom(st.to_atom(&cond_group_node, "done".into()));
+        st.insert_edge(
+            (cond_node, cond_port),
+            (cond_stored_reg, &"in".into()),
+            Some(if_group.clone()),
+            vec![cond_stored_guard],
+        )?;
+
+        // cond[go] = !cond_computed.out ? 1'b1
+        let (cond_go_const_node, cond_go_const_port) = st.new_constant(1, 1)?;
+        let cond_go_guard =
+            GuardExpr::Not(st.to_atom(&cond_computed_reg, "out".into()));
+        st.insert_edge(
+            (cond_go_const_node, &cond_go_const_port),
+            (cond_group_node, &"go".into()),
+            Some(if_group.clone()),
+            vec![cond_go_guard],
+        )?;
+
+        // tbranch[go] = cond_computed.out & cond_stored.out ? 1'b1;
+        let (tbranch_const_node, tbranch_const_port) = st.new_constant(1, 1)?;
+        let tbranch_guard =
+            GuardExpr::Atom(st.to_atom(&cond_stored_reg, "out".into()));
+        st.insert_edge(
+            (tbranch_const_node, &tbranch_const_port),
+            (true_group_node, &"go".into()),
+            Some(if_group.clone()),
+            vec![tbranch_guard],
+        )?;
+
+        // fbranch[go] = cond_computed.out & !cond_stored.out ? 1'b1;
+        let (fbranch_const_node, fbranch_const_port) = st.new_constant(1, 1)?;
+        let fbranch_guard =
+            GuardExpr::Not(st.to_atom(&cond_stored_reg, "out".into()));
+        st.insert_edge(
+            (fbranch_const_node, &fbranch_const_port),
+            (false_group_node, &"go".into()),
+            Some(if_group.clone()),
+            vec![fbranch_guard],
+        )?;
+
+        // or.right = true[done];
+        st.insert_edge(
+            (true_group_node, &"done".into()),
+            (branch_or, &"left".into()),
+            Some(if_group.clone()),
+            vec![],
+        )?;
+
+        // or.left = false[done];
+        st.insert_edge(
+            (false_group_node, &"done".into()),
+            (branch_or, &"right".into()),
+            Some(if_group.clone()),
+            vec![],
+        )?;
+
+        // this[done] = or.out;
+        st.insert_edge(
+            (branch_or, &"out".into()),
+            (if_group_node, &"done".into()),
+            Some(if_group.clone()),
+            vec![],
+        )?;
+
+        Ok(Action::Change(Control::enable(if_group)))
+    }
+
     fn finish_seq(
         &mut self,
         s: &ast::Seq,
@@ -156,7 +282,7 @@ impl Visitor for CompileControl {
                     // done signal.
                     let group_done_port =
                         st.port_ref(&group_idx, "done")?.clone();
-                    let guard = GuardExpr::Atom (
+                    let guard = GuardExpr::Atom(
                         st.to_atom(&group_idx, group_done_port),
                     );
                     par_group_done.push(guard);
