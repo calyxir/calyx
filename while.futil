@@ -39,13 +39,8 @@ component main {
   }
 
   control {
-    seq {
-      init;
-      if lt.out with cond {
-        body;
-      } else {
-        body;
-      }
+    while lt.out with cond {
+      body;
     }
   }
 }

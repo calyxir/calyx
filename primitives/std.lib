@@ -149,7 +149,7 @@ primitive std_lt[p_width](left: p_width, right: p_width) -> (out: 1) {
   }
 }
 
-primitive std_eq [p_width](left: p_width, right: p_width) -> (out: 1) {
+primitive std_eq[p_width](left: p_width, right: p_width) -> (out: 1) {
   verilog {
     module std_eq
       #(parameter width = 32)

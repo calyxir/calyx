@@ -329,8 +329,8 @@ impl StructureGraph {
                 Port::This { port } => (structure.io, port.clone()),
             };
             structure.insert_edge(
-                (src_node, &src_port),
-                (dest_node, &dest_port),
+                (src_node, src_port),
+                (dest_node, dest_port),
                 group.clone(),
                 wire.src.guard.clone(),
             )?;
@@ -465,8 +465,8 @@ impl StructureGraph {
     /// Construct and insert an edge given two node indices with a group and a guard
     pub fn insert_edge(
         &mut self,
-        (src_node, src_port): (NodeIndex, &ast::Id),
-        (dest_node, dest_port): (NodeIndex, &ast::Id),
+        (src_node, src_port): (NodeIndex, ast::Id),
+        (dest_node, dest_port): (NodeIndex, ast::Id),
         group: Option<ast::Id>,
         guards: Vec<ast::GuardExpr>,
     ) -> Result<EdgeIndex> {
@@ -489,9 +489,9 @@ impl StructureGraph {
                 .ok_or_else(|| Error::UndefinedPort(port_to_find.clone()))
         };
         let src_width =
-            find_width(src_port, &self.graph[src_node].signature.outputs)?;
+            find_width(&src_port, &self.graph[src_node].signature.outputs)?;
         let dest_width =
-            find_width(dest_port, &self.graph[dest_node].signature.inputs)?;
+            find_width(&dest_port, &self.graph[dest_node].signature.inputs)?;
 
         // if widths dont match, throw error.
         if src_width != dest_width {
@@ -537,8 +537,8 @@ impl StructureGraph {
     }
 
     /* ============= Getter Methods ============= */
-    pub fn get_node(&self, idx: &NodeIndex) -> &Node {
-        &self.graph[*idx]
+    pub fn get_node(&self, idx: NodeIndex) -> &Node {
+        &self.graph[idx]
     }
 
     pub fn get_node_by_name(&self, name: &ast::Id) -> Option<NodeIndex> {
@@ -549,17 +549,17 @@ impl StructureGraph {
 
     /* ============= Helper Methods ============= */
     /// Constructs a ast::Port from a NodeIndex and Id
-    fn construct_port(&self, idx: NodeIndex, port: &ast::Id) -> ast::Port {
+    fn construct_port(&self, idx: NodeIndex, port: ast::Id) -> ast::Port {
         let node = &self.graph[idx];
         match &node.data {
-            NodeData::Port => Port::This { port: port.clone() },
+            NodeData::Port => Port::This { port },
             NodeData::Cell(..) | NodeData::Constant(..) => Port::Comp {
                 component: node.name.clone(),
-                port: port.clone(),
+                port,
             },
             NodeData::Hole(group) => Port::Hole {
                 group: group.clone(),
-                name: port.clone(),
+                name: port,
             },
         }
     }
@@ -700,7 +700,7 @@ impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
                             let src = ast::Guard {
                                 guard: edge.guards.clone(),
                                 expr: self.to_atom(
-                                    &src_nidx,
+                                    src_nidx,
                                     edge.src.port_name().clone(),
                                 ),
                             };

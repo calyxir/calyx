@@ -382,12 +382,10 @@ impl PrettyPrint for If {
             .control_color()
             .append(RcDoc::space())
             .append(self.port.prettify(&arena))
-            .append(self.cond.as_ref().map_or(RcDoc::nil(), |x| {
-                RcDoc::space()
-                    .append(RcDoc::text("with").control_color())
-                    .append(RcDoc::space())
-                    .append(x.prettify(&arena))
-            }));
+            .append(RcDoc::space())
+            .append(RcDoc::text("with").control_color())
+            .append(RcDoc::space())
+            .append(self.cond.prettify(&arena));
 
         let body = self.tbranch.prettify(&arena);
         let tbranch = block(title, body);
@@ -414,12 +412,10 @@ impl PrettyPrint for While {
             .control_color()
             .append(RcDoc::space())
             .append(self.port.prettify(&arena))
-            .append(self.cond.as_ref().map_or(RcDoc::nil(), |x| {
-                RcDoc::space()
-                    .append(RcDoc::text("with").control_color())
-                    .append(RcDoc::space())
-                    .append(x.prettify(&arena))
-            }));
+            .append(RcDoc::space())
+            .append(RcDoc::text("with").control_color())
+            .append(RcDoc::space())
+            .append(self.cond.prettify(&arena));
 
         let body = self.body.prettify(&arena);
         block(title, body)

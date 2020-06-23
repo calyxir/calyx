@@ -4,6 +4,7 @@
 
 use crate::frontend::{library_syntax, syntax};
 use crate::lang::ast;
+use petgraph::stable_graph::NodeIndex;
 use std::iter::repeat;
 use std::rc::Rc;
 
@@ -95,10 +96,11 @@ impl std::fmt::Debug for Error {
         use Error::*;
         match self {
             UndefinedGroup(name) => {
+                let msg = format!("Use of undefined group: {}", name.to_string());
                 write!(
                     f,
-                    "Unknown group: {:?}",
-                    name
+                    "{}",
+                    name.fmt_err(&msg)
                 )
             }
             UnknownPass(pass, known_passes) => {
@@ -180,5 +182,28 @@ impl From<pest_consume::Error<syntax::Rule>> for Error {
 impl From<pest_consume::Error<library_syntax::Rule>> for Error {
     fn from(e: pest_consume::Error<library_syntax::Rule>) -> Self {
         Error::LibraryParseError(e)
+    }
+}
+
+// Utility traits
+
+/// A generalized 'unwrapping' trait that extracts data from
+/// a container that can possible be an error and automatically
+/// generates the correct `Error` variant with the `ast::Id`.
+/// For example, `Extract<NodeIndex, NodeIndex>` can be implemented for
+/// `Option<NodeIndex>` to provide convienent error reporting for
+/// undefined components / groups.
+pub trait Extract<T, R> {
+    /// Unpacks `T` into `Result<R>` using `id: ast::Id`
+    /// for error reporting with locations.
+    fn extract(&self, id: ast::Id) -> Result<R>;
+}
+
+impl Extract<NodeIndex, NodeIndex> for Option<NodeIndex> {
+    fn extract(&self, id: ast::Id) -> Result<NodeIndex> {
+        match self {
+            Some(t) => Ok(*t),
+            None => Err(Error::UndefinedComponent(id)),
+        }
     }
 }
