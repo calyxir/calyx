@@ -138,14 +138,17 @@ impl FutilParser {
             [signature_return(outputs)] => ast::Signature {
                 inputs: vec![],
                 outputs
-            }
+            },
+            [] => ast::Signature { inputs: vec![], outputs: vec![] }
         ))
     }
 
     fn signature_return(input: Node) -> ParseResult<Vec<ast::Portdef>> {
-        Ok(match_nodes![
+        Ok(match_nodes!(
             input.into_children();
-            [io_ports(p)] => p])
+            [io_ports(p)] => p,
+            [] => vec![]
+        ))
     }
 
     fn io_port(input: Node) -> ParseResult<ast::Portdef> {
