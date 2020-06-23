@@ -330,30 +330,22 @@ impl FutilParser {
         ))
     }
 
-    fn if_cond(input: Node) -> ParseResult<Option<ast::Id>> {
-        Ok(match_nodes!(
-            input.into_children();
-            [identifier(cond)] => Some(cond),
-            [] => None
-        ))
-    }
-
     fn if_stmt(input: Node) -> ParseResult<ast::If> {
         Ok(match_nodes!(
             input.into_children();
-            [port(port), if_cond(cond), stmt(stmt)] => ast::If {
+            [port(port), identifier(cond), stmt(stmt)] => ast::If {
                 port,
                 cond,
                 tbranch: Box::new(stmt),
                 fbranch: Box::new(ast::Control::empty())
             },
-            [port(port), if_cond(cond), stmt(tbranch), stmt(fbranch)] => ast::If {
+            [port(port), identifier(cond), stmt(tbranch), stmt(fbranch)] => ast::If {
                 port,
                 cond,
                 tbranch: Box::new(tbranch),
                 fbranch: Box::new(fbranch)
             },
-            [port(port), if_cond(cond), stmt(tbranch), if_stmt(fbranch)] => ast::If {
+            [port(port), identifier(cond), stmt(tbranch), if_stmt(fbranch)] => ast::If {
                 port,
                 cond,
                 tbranch: Box::new(tbranch),
@@ -366,14 +358,9 @@ impl FutilParser {
     fn while_stmt(input: Node) -> ParseResult<ast::While> {
         Ok(match_nodes!(
             input.into_children();
-            [port(port), stmt(stmt)] => ast::While {
-                port,
-                cond: None,
-                body: Box::new(stmt),
-            },
             [port(port), identifier(cond), stmt(stmt)] => ast::While {
                 port,
-                cond: Some(cond),
+                cond,
                 body: Box::new(stmt),
             }
         ))

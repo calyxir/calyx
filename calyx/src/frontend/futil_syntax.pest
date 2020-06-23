@@ -145,16 +145,12 @@ block = _{
       "{" ~ stmt ~ "}"
 }
 
-if_cond = {
-      ("with" ~ identifier)?
-}
-
 if_stmt = {
-      "if" ~ port ~ if_cond ~ block ~ ("else" ~ (if_stmt | block))?
+      "if" ~ port ~ "with" ~ identifier ~ block ~ ("else" ~ (if_stmt | block))?
 }
 
 while_stmt = {
-      "while" ~ port ~ ("with" ~ identifier)? ~ block
+      "while" ~ port ~ "with" ~ identifier ~ block
 }
 
 stmt = {

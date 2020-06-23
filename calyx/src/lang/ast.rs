@@ -417,7 +417,7 @@ pub struct If {
     pub port: Port,
 
     /// Modules that need to be enabled to send signal on `port`.
-    pub cond: Option<Id>,
+    pub cond: Id,
 
     /// Control for the true branch.
     pub tbranch: Box<Control>,
@@ -433,7 +433,7 @@ pub struct While {
     pub port: Port,
 
     /// Modules that need to be enabled to send signal on `port`.
-    pub cond: Option<Id>,
+    pub cond: Id,
 
     /// Control for the loop body.
     pub body: Box<Control>,
@@ -493,7 +493,7 @@ impl Control {
 
     pub fn c_if(
         port: Port,
-        cond: Option<Id>,
+        cond: Id,
         tbranch: Control,
         fbranch: Control,
     ) -> Control {
@@ -507,7 +507,7 @@ impl Control {
         }
     }
 
-    pub fn c_while(port: Port, cond: Option<Id>, body: Control) -> Control {
+    pub fn c_while(port: Port, cond: Id, body: Control) -> Control {
         Control::While {
             data: While {
                 port,

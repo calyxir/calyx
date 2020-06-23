@@ -1,131 +1,96 @@
 import "primitives/std.lib";
 
-// x = 1;
-// if x == 1 {
-//   x = 2;
-// } else {
-//   x = 3;
+// i = 0;
+// x = 0;
+// while i < 10 {
+//   x = i + x;
+//   i = i + 1;
 // }
 
 component main {
   cells {
+    i = prim std_reg(32);
     x = prim std_reg(32);
-    comp = prim std_eq(32);
+    lt = prim std_lt(32);
+    adder = prim std_add(32);
+    incr = prim std_add(32);
   }
 
   wires {
     group init {
-      x.in = 32'd1;
-      init[done] = 1'b1;
+      i.in = 32'd0;
+      x.in = 32'd0;
     }
 
     group cond {
-      comp.right = x.out;
-      comp.left = 32'd1;
-      cond[done] = 1'b1;
+      lt.left = i.out;
+      lt.right = 32'd10;
     }
 
-    group true {
-      x.in = 32'd2;
-      true[done] = 1'b1;
-    }
+    group body {
+      adder.right = i.out;
+      adder.left = x.out;
+      x.in = adder.out;
 
-    group false {
-      x.in = 32'd3;
-      false[done] = 1'b1;
+      incr.right = i.out;
+      incr.left = 32'd1;
+      i.in = incr.out;
     }
   }
 
   control {
-    seq {
-      init;
-      if comp.out with cond {
-        true;
-      } else {
-        false;
-      }
+    while lt.out with cond {
+      body;
     }
   }
 }
 
 component compiled {
   cells {
+    i = prim std_reg(32);
     x = prim std_reg(32);
-    comp = prim std_eq(32);
+    lt = prim std_lt(32);
+    adder = prim std_add(32);
+    incr = prim std_add(32);
 
     // generated
-    or = prim std_or(1);
     cond_computed = prim std_reg(1);
-    cond_stored = prim std_reg(32);
+    cond_stored = prim std_reg(1);
   }
 
   wires {
     group init {
-      x.in = init[go] ? 32'd1;
-      init[done] = init[go] ? 1'b1;
+      i.in = init[go] ? 32'd0;
+      x.in = init[go] ? 32'd0;
     }
 
     group cond {
-      comp.right = cond[go] ? x.out;
-      comp.left = cond[go] ? 32'd1;
-      cond[done] = cond[go] ? 1'b1;
+      lt.left = cond[go] ? i.out;
+      lt.right = cond[go] ? 32'd10;
     }
 
-    group true {
-      x.in = true[go] ? 32'd2;
-      true[done] = true[go] ? 1'b1;
+    group body {
+      adder.right = body[go] ? i.out;
+      adder.left = body[go] ? x.out;
+      x.in = body[go] ? adder.out;
+
+      incr.right = body[go] ? i.out;
+      incr.left = body[go] ? 32'd1;
+      i.in = body[go] ? incr.out;
     }
 
-    group false {
-      x.in = false[go] ? 32'd3;
-      false[done] = false[go] ? 1'b1;
-    }
+    group while0 {
+      cond[go] = while0[go] & !cond_computed.out ? 1'b1;
+      cond_computed.in = while0[go] & cond[done] ? 1'b1;
+      cond_stored.in = while0[go] & cond[done] ? lt.out;
 
-    group ifcompiled {
-      cond_computed.in = ifcompiled[go] & cond[done] ? 1'b1;
-      cond_stored = cond[done] ? comp.out;
-      cond[go] = ifcompiled[go] & !cond_computed.out ? 1'b1;
-      true[go] = ifcompiled[go] & cond_computed.out & cond_stored.out ? 1'b1;
-      false[go] = ifcompiled[go] & cond_computed.out & !cond_stored.out ? 1'b1;
-      or.right = ifcompiled[go] ? true[done];
-      or.left = ifcompiled[go] ? false[done];
-      ifcompiled[done] = or.out;
+      body[go] = while0[go] & cond_computed.out & cond_stored.out ? 1'b1;
+      cond_computed.in = while0[go] & body[done] ? 1'b0;
+      while0[done] = while0[go] & cond_computed.out & !cond_stored.out ? 1'b1;
     }
   }
 
-  // this[go]           | 1 1
-  // this[done]         | x 1
-  // cond[go]           | 1 0
-  // cond[done]         | 1 x
-  // true[go]           | 0 1
-  // true[done]         | x 1
-  // false[go]          | 0 0
-  // false[done]        | x x
-  // or.right           | x 1
-  // or.left            | x x
-  // or.out             | x 1
-  // cond_computed.in   | 1 x
-  // cond_computed.out  | 0 1
-
-  // this[go]           | 1 1 1 1 1
-  // this[done]         | x 0 x x 1
-  // cond[go]           | 1 0 0 x x
-  // cond[done]         | 1 0 x x x
-  // true[go]           | 0 1 1 1 1
-  // true[done]         | x x x x 1
-  // false[go]          | 0 0 0 0 0
-  // false[done]        | x x x x x
-  // or.right           | x x x x 1
-  // or.left            | x x x x x
-  // or.out             | x x x x 1
-  // cond_computed.in   | 1 x x x x
-  // cond_computed.out  | 0 1 1 1 1
-  // cond_stored.out    | 1 1 1 1 1
-
   control {
-    seq {
-      init;
-      ifcompiled;
-    }
+    while0;
   }
 }

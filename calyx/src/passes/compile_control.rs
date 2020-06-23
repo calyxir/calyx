@@ -31,8 +31,7 @@ impl Visitor for CompileControl {
         let if_group: ast::Id = st.namegen.gen_name("if").into();
         let if_group_node = st.insert_group(&if_group)?;
 
-        let cond_group = cif.cond.as_ref().expect("Unimplemented");
-        let cond_group_node = st.get_node_by_name(cond_group).unwrap();
+        let cond_group_node = st.get_node_by_name(&cif.cond).unwrap();
         let (cond_node, cond_port) = match &cif.port {
             Port::Comp { component, port } => {
                 Ok((st.get_node_by_name(component).unwrap(), port))
@@ -155,6 +154,144 @@ impl Visitor for CompileControl {
         )?;
 
         Ok(Action::Change(Control::enable(if_group)))
+    }
+
+    fn finish_while(
+        &mut self,
+        ctrl: &ast::While,
+        comp: &mut Component,
+        ctx: &Context,
+    ) -> VisResult {
+        let st = &mut comp.structure;
+
+        // create group
+        let while_group = st.namegen.gen_name("while").into();
+        let while_group_node = st.insert_group(&while_group)?;
+
+        // cond group
+        let cond_group_node = st
+            .get_node_by_name(&ctrl.cond)
+            .expect("Condition group doesn't exist");
+        let (cond_node, cond_port) = match &ctrl.port {
+            Port::Comp { component, port } => {
+                Ok((st.get_node_by_name(component).unwrap(), port))
+            }
+            Port::This { port } => {
+                Ok((st.get_node_by_name(&"this".into()).unwrap(), port))
+            }
+            Port::Hole { .. } => Err(Error::MalformedControl(
+                "Can't use a hole as a condition.".to_string(),
+            )),
+        }?;
+
+        // extract group names from control statement
+        let body_group = match &*ctrl.body {
+            Control::Enable { data } => Ok(&data.comp),
+            _ => Err(Error::MalformedControl(
+                "The body of a while must be an enable.".to_string(),
+            )),
+        }?;
+        let body_group_node = st.get_node_by_name(body_group).unwrap();
+
+        // generate necessary hardware
+        let cond_computed_reg =
+            st.new_primitive(&ctx, "cond_computed", "std_reg", &[1])?;
+        let cond_stored_reg =
+            st.new_primitive(&ctx, "cond_stored", "std_reg", &[1])?;
+
+        // cond[go] = !cond_computed.out ? 1'b1;
+        let cond_go_guard = GuardExpr::Not(st.to_atom(
+            cond_computed_reg,
+            st.port_ref(cond_computed_reg, "out")?.clone(),
+        ));
+        let num = st.new_constant(1, 1)?;
+        st.insert_edge(
+            num,
+            (cond_group_node, st.port_ref(cond_group_node, "go")?.clone()),
+            Some(while_group.clone()),
+            vec![cond_go_guard],
+        )?;
+
+        // cond_computed.in = cond[done] ? 1'b1;
+        let cond_computed_guard = GuardExpr::Atom(st.to_atom(
+            cond_group_node,
+            st.port_ref(cond_group_node, "done")?.clone(),
+        ));
+        let num = st.new_constant(1, 1)?;
+        st.insert_edge(
+            num,
+            (
+                cond_computed_reg,
+                st.port_ref(cond_computed_reg, "in")?.clone(),
+            ),
+            Some(while_group.clone()),
+            vec![cond_computed_guard],
+        )?;
+
+        // cond_stored.in = cond[done] ? lt.out;
+        let cond_stored_guard = GuardExpr::Atom(st.to_atom(
+            cond_group_node,
+            st.port_ref(cond_group_node, "done")?.clone(),
+        ));
+        st.insert_edge(
+            (cond_node, cond_port.clone()),
+            (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
+            Some(while_group.clone()),
+            vec![cond_stored_guard],
+        )?;
+
+        // body[go] = cond_computed.out & cond_stored.out ? 1'b1;
+        let body_go_guard = GuardExpr::Atom(st.to_atom(
+            cond_stored_reg,
+            st.port_ref(cond_stored_reg, "out")?.clone(),
+        ));
+        let num = st.new_constant(1, 1)?;
+        st.insert_edge(
+            num,
+            (body_group_node, st.port_ref(body_group_node, "go")?.clone()),
+            Some(while_group.clone()),
+            vec![body_go_guard],
+        )?;
+
+        // cond_computed.in = body[done] ? 1'b0
+        let body_done_guard = GuardExpr::Atom(st.to_atom(
+            body_group_node,
+            st.port_ref(body_group_node, "done")?.clone(),
+        ));
+        let num = st.new_constant(0, 1)?;
+        st.insert_edge(
+            num,
+            (
+                cond_computed_reg,
+                st.port_ref(cond_computed_reg, "in")?.clone(),
+            ),
+            Some(while_group.clone()),
+            vec![body_done_guard],
+        )?;
+
+        // while0[done] = while0[go] & cond_computed.out & !cond_stored.out ? 1'b1;
+        let this_done_guard = vec![
+            GuardExpr::Atom(st.to_atom(
+                cond_computed_reg,
+                st.port_ref(cond_computed_reg, "out")?.clone(),
+            )),
+            GuardExpr::Not(st.to_atom(
+                cond_stored_reg,
+                st.port_ref(cond_stored_reg, "out")?.clone(),
+            )),
+        ];
+        let num = st.new_constant(1, 1)?;
+        st.insert_edge(
+            num,
+            (
+                while_group_node,
+                st.port_ref(while_group_node, "done")?.clone(),
+            ),
+            Some(while_group.clone()),
+            this_done_guard,
+        )?;
+
+        Ok(Action::Change(Control::enable(while_group)))
     }
 
     fn finish_seq(
