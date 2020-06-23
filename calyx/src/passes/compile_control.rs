@@ -1,4 +1,4 @@
-use crate::errors::Error;
+use crate::errors::{Error, Extract};
 use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
@@ -31,11 +31,13 @@ impl Visitor for CompileControl {
         let if_group: ast::Id = st.namegen.gen_name("if").into();
         let if_group_node = st.insert_group(&if_group)?;
 
-        let cond_group_node = st.get_node_by_name(&cif.cond).unwrap();
+        let cond_group_node =
+            st.get_node_by_name(&cif.cond).extract(cif.cond.clone())?;
         let (cond_node, cond_port) = match &cif.port {
-            Port::Comp { component, port } => {
-                Ok((st.get_node_by_name(component).unwrap(), port))
-            }
+            Port::Comp { component, port } => Ok((
+                st.get_node_by_name(component).extract(component.clone())?,
+                port,
+            )),
             Port::This { port } => {
                 Ok((st.get_node_by_name(&"this".into()).unwrap(), port))
             }
@@ -53,8 +55,12 @@ impl Visitor for CompileControl {
                 "Both branches of an if must be an enable.".to_string(),
             )),
         }?;
-        let true_group_node = st.get_node_by_name(true_group).unwrap();
-        let false_group_node = st.get_node_by_name(false_group).unwrap();
+        let true_group_node = st
+            .get_node_by_name(true_group)
+            .extract(true_group.clone())?;
+        let false_group_node = st
+            .get_node_by_name(false_group)
+            .extract(false_group.clone())?;
 
         // generate necessary hardware
         let cond_computed_reg =
@@ -171,11 +177,12 @@ impl Visitor for CompileControl {
         // cond group
         let cond_group_node = st
             .get_node_by_name(&ctrl.cond)
-            .expect("Condition group doesn't exist");
+            .ok_or_else(|| Error::UndefinedGroup(ctrl.cond.clone()))?;
         let (cond_node, cond_port) = match &ctrl.port {
-            Port::Comp { component, port } => {
-                Ok((st.get_node_by_name(component).unwrap(), port))
-            }
+            Port::Comp { component, port } => Ok((
+                st.get_node_by_name(component).extract(component.clone())?,
+                port,
+            )),
             Port::This { port } => {
                 Ok((st.get_node_by_name(&"this".into()).unwrap(), port))
             }
@@ -191,7 +198,9 @@ impl Visitor for CompileControl {
                 "The body of a while must be an enable.".to_string(),
             )),
         }?;
-        let body_group_node = st.get_node_by_name(body_group).unwrap();
+        let body_group_node = st
+            .get_node_by_name(body_group)
+            .extract(body_group.clone())?;
 
         // generate necessary hardware
         let cond_computed_reg =
@@ -326,8 +335,9 @@ impl Visitor for CompileControl {
                     data: Enable { comp: group_name },
                 } => {
                     /* group[go] = fsm.out == value(fsm_counter) ? 1 */
-                    let group = st.get_node_by_name(&group_name)
-                        .expect("Malformed AST. Group referenced in control is missing from structure");
+                    let group = st
+                        .get_node_by_name(&group_name)
+                        .extract(group_name.clone())?;
                     let group_port = st.port_ref(group, "go")?.clone();
 
                     let fsm_out_port = st.port_ref(fsm_reg, "out")?.clone();
@@ -413,9 +423,9 @@ impl Visitor for CompileControl {
                 Control::Enable {
                     data: Enable { comp: group_name },
                 } => {
-                    let group_idx = st.get_node_by_name(&group_name).expect(
-                        "Malformed structure: Group node is not defined.",
-                    );
+                    let group_idx = st
+                        .get_node_by_name(&group_name)
+                        .extract(group_name.clone())?;
                     let group_go_port = st.port_ref(group_idx, "go")?.clone();
                     // Hook up this group's go signal with parent's
                     // go.
