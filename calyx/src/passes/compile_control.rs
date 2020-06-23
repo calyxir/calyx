@@ -18,6 +18,21 @@ impl Named for CompileControl {
     }
 }
 
+macro_rules! port {
+    ($struct:ident, $node:ident.$port:ident) => {
+        ($node, $struct.port_ref($node, $port)?.clone())
+    };
+    ($struct:ident, $node:ident[$port:ident]) => {
+        ($node, $struct.port_ref($node, $port)?.clone())
+    };
+    ($struct:ident, $node:ident.$port:literal) => {
+        ($node, $struct.port_ref($node, $port)?.clone())
+    };
+    ($struct:ident, $node:ident[$port:literal]) => {
+        ($node, $struct.port_ref($node, $port)?.clone())
+    };
+}
+
 impl Visitor for CompileControl {
     /// This compiles `if` statements of the following form:
     /// ```C
@@ -111,10 +126,7 @@ impl Visitor for CompileControl {
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num,
-            (
-                cond_computed_reg,
-                st.port_ref(cond_computed_reg, "in")?.clone(),
-            ),
+            port!(st, cond_computed_reg."in"),
             Some(if_group.clone()),
             vec![cond_computed_guard],
         )?;
@@ -123,8 +135,10 @@ impl Visitor for CompileControl {
         let cond_stored_guard =
             GuardExpr::Atom(st.to_atom(cond_group_node, "done".into()));
         st.insert_edge(
-            (cond_node, cond_port.clone()),
-            (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
+            // port!(st, cond_node.cond_port),
+            (cond_node, cond_port),
+            port!(st, cond_stored_reg."in"),
+            // (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
             Some(if_group.clone()),
             vec![cond_stored_guard],
         )?;
@@ -135,7 +149,8 @@ impl Visitor for CompileControl {
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num,
-            (cond_group_node, st.port_ref(cond_group_node, "go")?.clone()),
+            // (cond_group_node, st.port_ref(cond_group_node, "go")?.clone()),
+            port!(st, cond_group_node["go"]),
             Some(if_group.clone()),
             vec![cond_go_guard],
         )?;
@@ -146,7 +161,8 @@ impl Visitor for CompileControl {
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num,
-            (true_group_node, st.port_ref(true_group_node, "go")?.clone()),
+            // (true_group_node, st.port_ref(true_group_node, "go")?.clone()),
+            port!(st, true_group_node["go"]),
             Some(if_group.clone()),
             vec![tbranch_guard],
         )?;
@@ -157,32 +173,37 @@ impl Visitor for CompileControl {
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num,
-            (
-                false_group_node,
-                st.port_ref(false_group_node, "go")?.clone(),
-            ),
+            port!(st, false_group_node["go"]),
+            // (
+            //     false_group_node,
+            //     st.port_ref(false_group_node, "go")?.clone(),
+            // ),
             Some(if_group.clone()),
             vec![fbranch_guard],
         )?;
 
         // or.right = true[done];
         st.insert_edge(
-            (
-                true_group_node,
-                st.port_ref(true_group_node, "done")?.clone(),
-            ),
-            (branch_or, st.port_ref(branch_or, "left")?.clone()),
+            port!(st, true_group_node["done"]),
+            // (
+            //     true_group_node,
+            //     st.port_ref(true_group_node, "done")?.clone(),
+            // ),
+            port!(st, branch_or."left"),
+            // (branch_or, st.port_ref(branch_or, "left")?.clone()),
             Some(if_group.clone()),
             vec![],
         )?;
 
         // or.left = false[done];
         st.insert_edge(
-            (
-                false_group_node,
-                st.port_ref(false_group_node, "done")?.clone(),
-            ),
-            (branch_or, st.port_ref(branch_or, "right")?.clone()),
+            port!(st, false_group_node["done"]),
+            // (
+            //     false_group_node,
+            //     st.port_ref(false_group_node, "done")?.clone(),
+            // ),
+            port!(st, branch_or."right"),
+            // (branch_or, st.port_ref(branch_or, "right")?.clone()),
             Some(if_group.clone()),
             vec![],
         )?;
