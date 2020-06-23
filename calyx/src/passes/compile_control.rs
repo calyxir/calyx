@@ -19,6 +19,42 @@ impl Named for CompileControl {
 }
 
 impl Visitor for CompileControl {
+    /// This compiles `if` statements of the following form:
+    /// ```C
+    /// if comp.out with cond {
+    ///   true;
+    /// } else {
+    ///   false;
+    /// }
+    /// ```
+    /// into the following group:
+    /// ```C
+    /// if0 {
+    ///   // compute the condition if we haven't computed it before
+    ///   cond[go] = if0[go] & !cond_computed.out ? 1'b1;
+    ///   // save whether we are done computing the condition
+    ///   cond_computed.in = if0[go] & cond[done] ? 1'b1;
+    ///   // when the cond is done, store the output of the condition
+    ///   cond_stored.in = cond[done] ? comp.out;
+    ///   // run the true branch if we have computed the condition and it was true
+    ///   true[go] = if0[go] & cond_computed.out & cond_stored.out ? 1'b1;
+    ///   // run the false branch if we have computed the condition and it was false
+    ///   false[go] = if0[go] & cond_computed.out & !cond_stored.out ? 1'b1;
+    ///   // this group is done if either branch is done
+    ///   or.right = if0[go] ? true[done];
+    ///   or.left = if0[go] ? false[done];
+    ///   if0[done] = or.out;
+    /// }
+    /// ```
+    /// with 2 generated registers, `cond_computed` and `cond_stored`.
+    /// `cond_computed` keeps track of whether the condition has been
+    /// computed or not. This ensures that we only compute the condition once.
+    /// `cond_stored` stores the output of the condition in a register so that
+    /// we can use it for any number of cycles.
+    ///
+    /// We also generate a logical `or` component with the `done` holes
+    /// of the two bodies as inputs. The generated `if0` group is `done`
+    /// when either branch is done.
     fn finish_if(
         &mut self,
         cif: &ast::If,
@@ -162,6 +198,36 @@ impl Visitor for CompileControl {
         Ok(Action::Change(Control::enable(if_group)))
     }
 
+    /// This compiles `while` statements of the following form:
+    /// ```C
+    /// while comp.out with cond {
+    ///   body;
+    /// }
+    /// ```
+    /// into the following group:
+    /// ```C
+    /// group while0 {
+    ///   // compute the condition if we haven't before or we are done with the body
+    ///   cond[go] = !cond_computed.out ? 1'b1;
+    ///   // save whether we have finished computing the condition
+    ///   cond_computed.in = cond[done] ? 1'b1;
+    ///   // save the result of the condition
+    ///   cond_stored.in = cond[done] ? lt.out;
+    ///
+    ///   // run the body if we have computed the condition and the condition was true
+    ///   body[go] = cond_computed.out & cond_stored.out ? 1'b1;
+    ///   // signal that we should recompute the condition when the body is done
+    ///   cond_computed.in = body[done] ? 1'b0;
+    ///   // this group is done when the condition is computed and it is false
+    ///   while0[done] = cond_computed.out & !cond_stored.out ? 1'b1;
+    /// }
+    /// ```
+    /// with 2 generated registers, `cond_computed` and `cond_stored`.
+    /// `cond_computed` tracks whether we have computed the condition. This
+    /// ensures that we don't recompute the condition when we are running the body.
+    /// `cond_stored` saves the result of the condition so that it is accessible
+    /// throughout the execution of `body`.
+    ///
     fn finish_while(
         &mut self,
         ctrl: &ast::While,

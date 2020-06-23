@@ -498,7 +498,7 @@ impl StructureGraph {
             return Err(Error::MismatchedPortWidths(
                 self.construct_port(src_node, src_port),
                 src_width,
-                self.construct_port(dest_node, dest_port.clone()),
+                self.construct_port(dest_node, dest_port),
                 dest_width,
             ));
         }
@@ -506,7 +506,7 @@ impl StructureGraph {
         // Add edge data and update the groups mapping.
         let edge_data = EdgeData {
             src: self.construct_port(src_node, src_port),
-            dest: self.construct_port(dest_node, dest_port.clone()),
+            dest: self.construct_port(dest_node, dest_port),
             width: src_width,
             group: group.clone(),
             guards,
