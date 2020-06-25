@@ -1,101 +1,93 @@
 import "primitives/std.lib";
 
-// i = 0;
-// x = 0;
-// while i < 10 {
-//   x = i + x;
-//   i = i + 1;
-// }
-
 component main {
   cells {
-    i = prim std_reg(32);
-    x = prim std_reg(32);
-    lt = prim std_lt(32);
-    adder = prim std_add(32);
-    incr = prim std_add(32);
+    x = prim std_reg(1);
+    y = prim std_reg(1);
   }
 
   wires {
-    group init {
-      i.in = 32'd0;
-      x.in = 32'd0;
+
+    group x-assign {
+      x.in = 1'd1;
+      x-assign[done] = 1'd1;
     }
 
-    group cond {
-      lt.left = i.out;
-      lt.right = 32'd10;
-    }
-
-    group body {
-      adder.right = i.out;
-      adder.left = x.out;
-      x.in = adder.out;
-
-      incr.right = i.out;
-      incr.left = 32'd1;
-      i.in = incr.out;
+    group y-assign {
+      y.in = 1'd0;
+      y-assign[done] = 1'd1;
     }
   }
 
   control {
-    seq {
-      init;
-      if lt.out with cond {
-        body;
-      } else {
-        body;
-      }
+    par {
+      x-assign; y-assign;
     }
   }
 }
 
-// component compiled {
+// component main(go: 1) -> (done: 1) {
 //   cells {
-//     i = prim std_reg(32);
-//     x = prim std_reg(32);
-//     lt = prim std_lt(32);
-//     adder = prim std_add(32);
-//     incr = prim std_add(32);
-
-//     // generated
-//     cond_computed = prim std_reg(1);
-//     cond_stored = prim std_reg(1);
+//     x = prim std_reg(2);
+//     y = prim std_reg(2);
 //   }
 
 //   wires {
-//     group init {
-//       i.in = init[go] ? 32'd0;
-//       x.in = init[go] ? 32'd0;
+//     group par0 {
+//       x-assign[go] = par0[go] ? 1'b1;
+//       y-assign[go] = par0[go] ? 1'b1;
+//       par0[done] = x-assign[done] & y-assign[done] & par0[go] ? 1'd1;
 //     }
-
-//     group cond {
-//       lt.left = cond[go] ? i.out;
-//       lt.right = cond[go] ? 32'd10;
+//     group x-assign {
+//       x.in = par0[go] ? 2'b10;
+//       x-assign[done] = 1'd1;
 //     }
-
-//     group body {
-//       adder.right = body[go] ? i.out;
-//       adder.left = body[go] ? x.out;
-//       x.in = body[go] ? adder.out;
-
-//       incr.right = body[go] ? i.out;
-//       incr.left = body[go] ? 32'd1;
-//       i.in = body[go] ? incr.out;
-//     }
-
-//     group while0 {
-//       cond[go] = while0[go] & !cond_computed.out ? 1'b1;
-//       cond_computed.in = while0[go] & cond[done] ? 1'b1;
-//       cond_stored.in = while0[go] & cond[done] ? lt.out;
-
-//       body[go] = while0[go] & cond_computed.out & cond_stored.out ? 1'b1;
-//       cond_computed.in = while0[go] & body[done] ? 1'b0;
-//       while0[done] = while0[go] & cond_computed.out & !cond_stored.out ? 1'b1;
+//     group y-assign {
+//       y.in = par0[go] ? 2'b01;
+//       y-assign[done] = 1'd1;
 //     }
 //   }
 
 //   control {
-//     while0;
+//     par0;
+//   }
+// }
+
+
+// component main {
+//   cells {
+//     x = prim std_reg(32);
+//     comp = prim std_eq(32);
+//   }
+
+//   wires {
+//     group init {
+//       x.in = 32'd1;
+//       init[done] = 1'b1;
+//     }
+
+//     group cond {
+//       comp.right = x.out;
+//       comp.left = 32'd1;
+//       cond[done] = 1'b1;
+//     }
+
+//     group true {
+//       x.in = 32'd2;
+//       true[done] = 1'b1;
+//     }
+
+//     group false {
+//       x.in = 32'd3;
+//       false[done] = 1'b1;
+//     }
+//   }
+
+//   control {
+//     if comp.out with cond {
+//       true;
+//     } else {
+//       false;
+//     }
 //   }
 // }

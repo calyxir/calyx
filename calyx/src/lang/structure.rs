@@ -12,10 +12,12 @@ use itertools::Itertools;
 use petgraph::{
     graph::{EdgeIndex, NodeIndex},
     stable_graph::{EdgeReference, StableDiGraph},
+    visit::EdgeRef,
     visit::IntoEdgeReferences,
     Direction,
 };
 use std::{cmp::Ordering, collections::HashMap, fmt};
+use structure_iter::{EdgeIndexIterator, NodeType};
 
 /// store the structure ast node so that we can reconstruct the ast
 #[derive(Clone, Debug)]
@@ -146,7 +148,7 @@ pub struct EdgeData {
 /// for the corresponding node type, and the data on the edge
 /// is (src port, dest port, group, guard). We use stable graph so that NodeIndexes
 /// remain valid after removals. the graph is directed
-type StructG = StableDiGraph<Node, EdgeData>;
+pub type StructG = StableDiGraph<Node, EdgeData>;
 
 // I want to keep the fields of this struct private so that it is easy to swap
 // out implementations / add new ways of manipulating this
@@ -166,7 +168,7 @@ pub struct StructureGraph {
     /// the set of edges belong to. None refers to edges
     /// that are in no group.
     groups: HashMap<Option<ast::Id>, Vec<EdgeIndex>>,
-    graph: StructG,
+    pub graph: StructG,
     pub namegen: NameGenerator,
 }
 
@@ -516,6 +518,16 @@ impl StructureGraph {
         Ok(idx)
     }
 
+    pub fn remove_edge(&mut self, edge: EdgeIndex) {
+        let data = self.graph.remove_edge(edge);
+        if let Some(data) = data {
+            self.groups
+                .get_mut(&data.group)
+                .unwrap()
+                .retain(|ed| *ed != edge)
+        }
+    }
+
     pub fn visualize(&self) -> String {
         use petgraph::dot::{Config, Dot};
         let config = &[Config::EdgeNoLabel];
@@ -547,6 +559,10 @@ impl StructureGraph {
             .map(|(idx, _)| idx)
     }
 
+    pub fn endpoints(&self, idx: EdgeIndex) -> (NodeIndex, NodeIndex) {
+        self.graph.edge_endpoints(idx).unwrap()
+    }
+
     /* ============= Helper Methods ============= */
     /// Constructs a ast::Port from a NodeIndex and Id
     fn construct_port(&self, idx: NodeIndex, port: ast::Id) -> ast::Port {
@@ -569,7 +585,7 @@ impl StructureGraph {
     pub fn edge_iterator(
         &self,
         iter_spec: structure_iter::ConnectionIteration,
-    ) -> impl Iterator<Item = &EdgeData> {
+    ) -> impl Iterator<Item = &EdgeData> + '_ {
         let base: Box<dyn Iterator<Item = EdgeReference<EdgeData>>> =
             match (iter_spec.from_node, iter_spec.direction) {
                 (Some(node), Some(dir)) => {
@@ -583,21 +599,126 @@ impl StructureGraph {
             };
 
         base.map(|edge| edge.weight()).filter(move |ed| {
-            match (iter_spec.with_port.as_ref(), iter_spec.direction.as_ref()) {
-                (Some(port), Some(DataDirection::Read)) => {
-                    ed.src.port_name().to_string() == *port
+            // factors out the direction matching logic
+            let direction_matcher: Box<
+                dyn Fn(Box<dyn Fn(&ast::Port) -> bool>) -> bool,
+            > = match &iter_spec.direction {
+                Some(DataDirection::Read) => {
+                    Box::new(|f: Box<dyn Fn(&ast::Port) -> bool>| f(&ed.src))
                 }
-                (Some(port), Some(DataDirection::Write)) => {
-                    ed.dest.port_name().to_string() == *port
+                Some(DataDirection::Write) => {
+                    Box::new(|f: Box<dyn Fn(&ast::Port) -> bool>| f(&ed.dest))
                 }
-                (Some(port), _) => {
-                    ed.dest.port_name().to_string() == *port
-                        || ed.src.port_name().to_string() == *port
-                }
-                (None, _) => true,
-            }
+                None => Box::new(|f: Box<dyn Fn(&ast::Port) -> bool>| {
+                    f(&ed.src) || f(&ed.dest)
+                }),
+            };
+            // let match_node_type = match &iter_spec.from_node_type {
+            //     Some(NodeType::Comp) => direction_matcher(Box::new(
+            //         |p| matches!(p, Port::Comp { .. }),
+            //     )),
+            //     Some(NodeType::This) => direction_matcher(Box::new(
+            //         |p| matches!(p, Port::This { .. }),
+            //     )),
+            //     Some(NodeType::Hole) => direction_matcher(Box::new(
+            //         |p| matches!(p, Port::Hole { .. }),
+            //     )),
+            //     None => true,
+            // };
+
+            let match_port = match &iter_spec.with_port {
+                Some(port) => direction_matcher(Box::new(move |p| {
+                    p.port_name() == port.as_str()
+                })),
+                None => true,
+            };
+
+            match_port
         })
     }
+
+    pub fn edge_idx(&self) -> EdgeIndexIterator {
+        EdgeIndexIterator::new(&self.graph, self.graph.edge_indices())
+    }
+
+    /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
+    pub fn test(
+        &self,
+        iter_spec: structure_iter::ConnectionIteration,
+    ) -> impl Iterator<Item = EdgeReference<EdgeData>> + '_ {
+        let base: Box<dyn Iterator<Item = EdgeReference<EdgeData>>> =
+            match (iter_spec.from_node, iter_spec.direction) {
+                (Some(node), Some(dir)) => {
+                    Box::new(self.graph.edges_directed(node, dir.into()))
+                }
+                (Some(node), None) => Box::new(self.graph.edges(node)),
+                /* Iterate all edges and select port direction */
+                (None, Some(_)) | (None, None) => {
+                    Box::new(self.graph.edge_references())
+                }
+            };
+
+        base.filter(move |edge| {
+            let ed = edge.weight();
+            // factors out the direction matching logic
+            let direction_matcher: Box<
+                dyn Fn(Box<dyn Fn(&ast::Port) -> bool>) -> bool,
+            > = match &iter_spec.direction {
+                Some(DataDirection::Read) => {
+                    Box::new(|f: Box<dyn Fn(&ast::Port) -> bool>| f(&ed.src))
+                }
+                Some(DataDirection::Write) => {
+                    Box::new(|f: Box<dyn Fn(&ast::Port) -> bool>| f(&ed.dest))
+                }
+                None => Box::new(|f: Box<dyn Fn(&ast::Port) -> bool>| {
+                    f(&ed.src) || f(&ed.dest)
+                }),
+            };
+            // let match_node_type = match &iter_spec.from_node_type {
+            //     Some(NodeType::Comp) => direction_matcher(Box::new(
+            //         |p| matches!(p, Port::Comp { .. }),
+            //     )),
+            //     Some(NodeType::This) => direction_matcher(Box::new(
+            //         |p| matches!(p, Port::This { .. }),
+            //     )),
+            //     Some(NodeType::Hole) => direction_matcher(Box::new(
+            //         |p| matches!(p, Port::Hole { .. }),
+            //     )),
+            //     None => true,
+            // };
+
+            let match_port = match &iter_spec.with_port {
+                Some(port) => direction_matcher(Box::new(move |p| {
+                    p.port_name() == port.as_str()
+                })),
+                None => true,
+            };
+
+            match_port
+        })
+    }
+
+    // pub fn test_mut<'a>(
+    //     &'a mut self,
+    //     iter_spec: structure_iter::ConnectionIteration,
+    // ) -> impl Iterator<Item = &'a mut EdgeData> + 'a {
+    //     self.graph
+    //         .edge_references()
+    //         .map(|ed_ref| &mut self.graph[ed_ref.id()])
+    //     // let base: Box<dyn Iterator<Item = EdgeReference<EdgeData>>> =
+    //     //     match (iter_spec.from_node, iter_spec.direction) {
+    //     //         (Some(node), Some(dir)) => {
+    //     //             Box::new(self.graph.edges_directed(node, dir.into()))
+    //     //         }
+    //     //         (Some(node), None) => Box::new(self.graph.edges(node)),
+    //     //         /* Iterate all edges and select port direction */
+    //     //         (None, Some(_)) | (None, None) => {
+    //     //             Box::new(self.graph.edge_references())
+    //     //         }
+    //     //     };
+
+    //     // base.map(|ed_ref| &mut self.graph[ed_ref.id()])
+    // }
 
     /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
     pub fn edge_iterator_mut<'a>(
@@ -699,10 +820,10 @@ impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
                                 .unwrap_or_else(|| unreachable!());
                             let src = ast::Guard {
                                 guard: edge.guards.clone(),
-                                expr: self.to_atom(
+                                expr: self.to_atom((
                                     src_nidx,
                                     edge.src.port_name().clone(),
-                                ),
+                                )),
                             };
                             Wire {
                                 src,

@@ -58,8 +58,7 @@ pub trait ASTBuilder {
     /// used for guard conditions.
     fn to_atom(
         &self,
-        component: Self::ComponentHandle,
-        port: Self::PortRep,
+        component_port_pair: (Self::ComponentHandle, Self::PortRep),
     ) -> ast::Atom;
 }
 
@@ -107,7 +106,7 @@ impl ASTBuilder for StructureGraph {
             .ok_or_else(|| errors::Error::UndefinedPort(port.as_ref().into()))
     }
 
-    fn to_atom(&self, component: NodeIndex, port: ast::Id) -> Atom {
+    fn to_atom(&self, (component, port): (NodeIndex, ast::Id)) -> Atom {
         let node = self.get_node(component);
         match &node.data {
             NodeData::Cell(_) => Atom::Port(Port::Comp {
