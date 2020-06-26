@@ -1,30 +1,30 @@
 import "primitives/std.lib";
 
-component main {
-  cells {
-    x = prim std_reg(1);
-    y = prim std_reg(1);
-  }
+// component main {
+//   cells {
+//     x = prim std_reg(1);
+//     y = prim std_reg(1);
+//   }
 
-  wires {
+//   wires {
 
-    group x-assign {
-      x.in = 1'd1;
-      x-assign[done] = 1'd1;
-    }
+//     group x-assign {
+//       x.in = 1'd1;
+//       x-assign[done] = 1'd1;
+//     }
 
-    group y-assign {
-      y.in = 1'd0;
-      y-assign[done] = 1'd1;
-    }
-  }
+//     group y-assign {
+//       y.in = 1'd0;
+//       y-assign[done] = 1'd1;
+//     }
+//   }
 
-  control {
-    par {
-      x-assign; y-assign;
-    }
-  }
-}
+//   control {
+//     par {
+//       x-assign; y-assign;
+//     }
+//   }
+// }
 
 // component main(go: 1) -> (done: 1) {
 //   cells {
@@ -56,38 +56,79 @@ component main {
 
 // component main {
 //   cells {
-//     x = prim std_reg(32);
-//     comp = prim std_eq(32);
+//     a = prim std_reg(32);
+//     b = prim std_reg(32);
+//     c = prim std_reg(32);
 //   }
 
 //   wires {
-//     group init {
-//       x.in = 32'd1;
-//       init[done] = 1'b1;
+//     group ar {
+//       a.in = 32'd1;
+//       ar[done] = 1'b1;
 //     }
-
-//     group cond {
-//       comp.right = x.out;
-//       comp.left = 32'd1;
-//       cond[done] = 1'b1;
+//     group br {
+//       b.in = 32'd2;
+//       br[done] = 1'b1;
 //     }
-
-//     group true {
-//       x.in = 32'd2;
-//       true[done] = 1'b1;
-//     }
-
-//     group false {
-//       x.in = 32'd3;
-//       false[done] = 1'b1;
+//     group cr {
+//       c.in = 32'd3;
+//       cr[done] = 1'b1;
 //     }
 //   }
 
 //   control {
-//     if comp.out with cond {
-//       true;
-//     } else {
-//       false;
+//     seq {
+//       ar;
+//       br;
+//       cr;
 //     }
 //   }
 // }
+
+
+component main {
+  cells {
+    x = prim std_reg(32);
+    comp = prim std_eq(32);
+    true_done = prim std_reg(1);
+    false_done = prim std_reg(1);
+    cond_done = prim std_reg(1);
+  }
+
+  wires {
+    // group init {
+    //   x.in = 32'd1;
+    //   init[done] = 1'b1;
+    // }
+
+    group cond {
+      comp.right = x.out;
+      comp.left = 32'd1;
+      cond_done.in = 1'b1;
+      cond[done] = cond_done.out;
+    }
+
+    group true {
+      x.in = 32'd2;
+      true_done.in = 1'b1;
+      true[done] = true_done.out;
+    }
+
+    group false {
+      x.in = 32'd3;
+      false_done.in = 1'b1;
+      false[done] = false_done.out;
+    }
+  }
+
+  control {
+    // seq {
+    //   init;
+      if comp.out with cond {
+        true;
+      } else {
+        false;
+      }
+    // }
+  }
+}

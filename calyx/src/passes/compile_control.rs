@@ -18,6 +18,7 @@ impl Named for CompileControl {
     }
 }
 
+#[macro_export]
 macro_rules! port {
     ($struct:expr; $node:ident.$port:ident) => {
         ($node, $struct.port_ref($node, $port)?.clone())
@@ -64,6 +65,7 @@ impl Visitor for CompileControl {
     ///   cond[go] = !cond_computed.out ? 1'b1;
     ///   // save whether we are done computing the condition
     ///   cond_computed.in = cond[done] ? 1'b1;
+    ///   cond_computed.write_en = cond[done] ? 1'b1;
     ///   // when the cond is done, store the output of the condition
     ///   cond_stored.in = cond[done] ? comp.out;
     ///   // run the true branch if we have computed the condition and it was true
@@ -201,20 +203,26 @@ impl Visitor for CompileControl {
             ],
         )?;
 
-        // or.right = true[done];
-        // or.left = false[done];
+        // or.right = true[done] ? 1'b1;
+        // or.left = false[done] ? 1'b1;
         // this[done] = or.out;
+        let num = st.new_constant(1, 1)?;
         st.insert_edge(
-            port!(st; true_group_node["done"]),
+            num,
             port!(st; branch_or."left"),
             Some(if_group.clone()),
-            vec![],
+            vec![GuardExpr::Atom(
+                st.to_atom(port!(st; true_group_node["done"])),
+            )],
         )?;
+        let num = st.new_constant(1, 1)?;
         st.insert_edge(
-            port!(st; false_group_node["done"]),
+            num,
             port!(st; branch_or."right"),
             Some(if_group.clone()),
-            vec![],
+            vec![GuardExpr::Atom(
+                st.to_atom(port!(st; false_group_node["done"])),
+            )],
         )?;
         st.insert_edge(
             (branch_or, st.port_ref(branch_or, "out")?.clone()),
@@ -444,9 +452,8 @@ impl Visitor for CompileControl {
                     let (new_state_const, new_state_port) =
                         st.new_constant(fsm_counter, 32)?;
                     let group_done_port = st.port_ref(group, "done")?.clone();
-                    let done_guard = GuardExpr::Eq(
+                    let done_guard = GuardExpr::Atom(
                         st.to_atom((group, group_done_port.clone())),
-                        st.to_atom(signal_const.clone()),
                     );
                     st.insert_edge(
                         (new_state_const, new_state_port),

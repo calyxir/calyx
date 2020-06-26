@@ -41,7 +41,7 @@ impl Component {
     ) -> Result<()> {
         let portdef = portdef.into();
         if !self.signature.has_input(portdef.name.as_ref()) {
-            // self.structure.insert_input_port(&portdef);
+            self.structure.insert_input_port(&portdef);
             self.signature.inputs.push(portdef);
             Ok(())
         } else {
@@ -56,7 +56,7 @@ impl Component {
     ) -> Result<()> {
         let portdef = portdef.into();
         if !self.signature.has_output(portdef.name.as_ref()) {
-            // self.structure.insert_output_port(&portdef);
+            self.structure.insert_output_port(&portdef);
             self.signature.outputs.push(portdef);
             Ok(())
         } else {

@@ -3,21 +3,19 @@ use crate::errors::{Error, Result};
 use crate::frontend::{
     colors,
     colors::ColorHelper,
-    pretty_print::{display, PrettyHelper},
+    pretty_print::{display, PrettyHelper, PrettyPrint},
 };
 use crate::lang::library::ast as lib;
 use crate::lang::{
     ast,
     ast::{Atom, Cell, Control, GuardExpr, Port},
     component, context,
-    structure::DataDirection,
-    structure::EdgeData,
-    structure::NodeData,
+    structure::{DataDirection, EdgeData, NodeData, StructureGraph},
     structure_iter::ConnectionIteration,
 };
 use itertools::Itertools;
 use lib::Implementation;
-use petgraph::graph::NodeIndex;
+use petgraph::graph::{EdgeIndex, NodeIndex};
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc;
 use std::cmp::Ordering;
@@ -203,7 +201,7 @@ impl Emitable for ast::Signature {
         let mut ports = vec![D::text("input")
             .keyword_color()
             .append(D::space())
-            .append(D::text("wire").keyword_color())
+            .append(D::text("logic").keyword_color())
             .append(D::space())
             .append("clk")];
         ports.append(&mut inputs);
@@ -284,7 +282,7 @@ fn wire_id_from_port<'a>(port: &Port) -> D<'a> {
 }
 
 /// Uses Verilog assign to connect the two ends of `edge`.
-fn alias<'a>(edge: &EdgeData) -> D<'a> {
+fn alias<'a>(st: &StructureGraph, idx: EdgeIndex, edge: &EdgeData) -> D<'a> {
     D::text("always_ff")
         .keyword_color()
         .append(D::space())
@@ -308,8 +306,17 @@ fn alias<'a>(edge: &EdgeData) -> D<'a> {
         .append(D::text("end").control_color())
 }
 
+fn test<'a>(data: &NodeData, port: &Port) -> D<'a> {
+    match data {
+        NodeData::Cell(..) | NodeData::Hole(..) | NodeData::Port => {
+            wire_id_from_port(port)
+        }
+        NodeData::Constant(n) => D::text(format!("{}'d{}", n.width, n.val)),
+    }
+}
+
 /// Converts a guarded edge into a Verilog string
-fn guard<'a>(edge: &EdgeData) -> D<'a> {
+fn guard<'a>(st: &StructureGraph, idx: EdgeIndex, edge: &EdgeData) -> D<'a> {
     let guard_doc = edge.guards.iter().map(|expr| match expr {
         GuardExpr::Eq(a, b) => atom(a).append(" == ").append(atom(b)),
         GuardExpr::Neq(a, b) => atom(a).append(" != ").append(atom(b)),
@@ -321,6 +328,8 @@ fn guard<'a>(edge: &EdgeData) -> D<'a> {
         GuardExpr::Atom(a) => atom(a),
     });
     let guard = D::intersperse(guard_doc, D::text(" & "));
+
+    let (src, dest) = st.endpoints(idx);
 
     D::text("always_ff")
         .keyword_color()
@@ -338,9 +347,9 @@ fn guard<'a>(edge: &EdgeData) -> D<'a> {
                         .append(guard.parens())
                         .append(D::space())
                         .append(
-                            wire_id_from_port(&edge.dest)
+                            test(&st.get_node(dest).data, &edge.dest)
                                 .append(D::text(" <= "))
-                                .append(wire_id_from_port(&edge.src))
+                                .append(test(&st.get_node(src).data, &edge.src))
                                 .append(";"),
                         ),
                 )
@@ -383,13 +392,21 @@ pub fn bitwidth<'a>(width: u64) -> Result<D<'a>> {
 /// Generate wire connections
 fn connections<'a>(comp: &component::Component) -> D<'a> {
     let builder = ConnectionIteration::default();
-    let doc = comp.structure.edge_iterator(builder).map(|data| {
+    let doc = comp.structure.edge_idx().map(|idx| {
+        let data = &comp.structure.graph[idx];
         if data.guards.is_empty() {
-            alias(&data)
+            alias(&comp.structure, idx, &data)
         } else {
-            guard(&data)
+            guard(&comp.structure, idx, &data)
         }
     });
+    // let doc = comp.structure.edge_iterator(builder).map(|data| {
+    //     if data.guards.is_empty() {
+    //         alias(&data)
+    //     } else {
+    //         guard(&data)
+    //     }
+    // });
     D::intersperse(doc, D::line())
 }
 
@@ -458,7 +475,6 @@ fn signature_connections<'a>(
     comp: &component::Component,
     idx: NodeIndex,
 ) -> D<'a> {
-    let builder = ConnectionIteration::default().with_component(idx);
     // wire up all the incoming edges
     let incoming = sig
         .inputs
@@ -468,8 +484,9 @@ fn signature_connections<'a>(
             if &portdef.name == "clk" {
                 vec![D::text(".").append("clk").append(D::text("clk").parens())]
             } else {
-                let iterator = builder
-                    .clone()
+                let iterator = ConnectionIteration::default()
+                    .disable_guard()
+                    .with_component(idx)
                     .with_port(portdef.name.to_string())
                     .in_direction(DataDirection::Write);
 
@@ -488,27 +505,32 @@ fn signature_connections<'a>(
         .flatten();
 
     // wire up outgoing edges
-    let outgoing = sig
-        .outputs
-        .iter()
-        .map(|portdef| {
-            // find inuse edges that are coming out of this port
-            let iterator = builder
-                .clone()
-                .with_port(portdef.name.to_string())
-                .in_direction(DataDirection::Read);
+    let outgoing = sig.outputs.iter().map(|portdef| {
+        // find inuse edges that are coming out of this port
+        // let iterator = ConnectionIteration::default()
+        // .disable_guard()
+        // .with_component(idx)
+        // .with_port(portdef.name.to_string());
+        // .in_direction(DataDirection::Read);
 
-            comp.structure
-                .edge_iterator(iterator)
-                // we only want one connection per src
-                .unique_by(|edge| &edge.src)
-                .map(move |edge| {
-                    D::text(".")
-                        .append(D::text(portdef.name.to_string()))
-                        .append(wire_id_from_port(&edge.src).parens())
-                })
-        })
-        .flatten();
+        D::text(".")
+            .append(D::text(portdef.name.to_string()))
+            .append(
+                D::text(format!(
+                    "{}_{}",
+                    comp.structure.get_node(idx).name.to_string(),
+                    portdef.name.to_string()
+                )) // wire_id_from_port(&edge.src).parens()
+                .parens(),
+            )
+        // comp.structure
+        //     .edge_iterator(iterator)
+        //     // we only want one connection per src
+        //     .unique_by(|edge| &edge.src)
+        //     .map(move |edge| {
+
+        //     })
+    });
 
     D::intersperse(incoming.chain(outgoing), D::text(",").append(D::line()))
 }

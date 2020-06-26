@@ -8,7 +8,10 @@ use calyx::{
     // utils::NameGenerator,
 };
 use cmdline::Opts;
-use passes::{compile_control, go_insertion, inliner, visitor::Visitor};
+use passes::{
+    compile_control, component_interface, go_insertion, inliner,
+    visitor::Visitor,
+};
 // use std::collections::HashMap;
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -126,6 +129,7 @@ fn main() -> Result<()> {
     let context = Context::from_ast(namespace, &libraries, opts.enable_debug)?;
     compile_control::CompileControl::do_pass_default(&context)?;
     go_insertion::GoInsertion::do_pass_default(&context)?;
+    component_interface::ComponentInterface::do_pass_default(&context)?;
     inliner::Inliner::do_pass_default(&context)?;
 
     // Construct pass manager.

@@ -15,9 +15,10 @@ int main(int argc, char **argv, char **env) {
   tfp->open(argv[1]);
   // initialize simulation inputs
   top->clk = 1;
+  top->go = 1;
   int done = 0;
   printf("Starting simulation\n");
-  while (done == 0) {
+  while (done == 0 && i < 500) {
     done = top->done;
     // dump variables into VCD file and toggle clock
     for (clk = 0; clk < 2; clk++) {
