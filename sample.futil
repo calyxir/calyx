@@ -90,9 +90,8 @@ component main {
   cells {
     x = prim std_reg(32);
     comp = prim std_eq(32);
-    true_done = prim std_reg(1);
-    false_done = prim std_reg(1);
-    cond_done = prim std_reg(1);
+    tw = prim std_reg(1);
+    fw = prim std_reg(1);
   }
 
   wires {
@@ -104,20 +103,24 @@ component main {
     group cond {
       comp.right = x.out;
       comp.left = 32'd1;
-      cond_done.in = 1'b1;
-      cond[done] = cond_done.out;
+      // cond_done.in = 1'b1;
+      cond[done] = 1'b1;
     }
 
     group true {
       x.in = 32'd2;
-      true_done.in = 1'b1;
-      true[done] = true_done.out;
+      x.write_en = 1'b1;
+      tw.in = 1'b1;
+      tw.write_en = 1'b1;
+      true[done] = tw.out ? 1'b1;
     }
 
     group false {
       x.in = 32'd3;
-      false_done.in = 1'b1;
-      false[done] = false_done.out;
+      x.write_en = 1'b1;
+      fw.in = 1'b1;
+      fw.write_en = 1'b1;
+      false[done] = fw.out ? 1'b1;
     }
   }
 

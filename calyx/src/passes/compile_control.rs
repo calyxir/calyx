@@ -157,23 +157,39 @@ impl Visitor for CompileControl {
         )?;
 
         // cond_computed.in = cond[done] ? 1'b1;
+        // cond_computed.write_en = cond[done] ? 1'b1;
         let cond_computed_guard =
             GuardExpr::Atom(st.to_atom(port!(st; cond_group_node["done"])));
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
-            num,
+            num.clone(),
             port!(st; cond_computed."in"),
+            Some(if_group.clone()),
+            vec![cond_computed_guard.clone()],
+        )?;
+        st.insert_edge(
+            num,
+            port!(st; cond_computed."write_en"),
             Some(if_group.clone()),
             vec![cond_computed_guard],
         )?;
 
         // cond_stored.in = cond[done] ? comp.out;
+        // cond_stored.write_en = cond[done] ? comp.out;
         let cond_stored_guard =
             GuardExpr::Atom(st.to_atom(port!(st; cond_group_node["done"])));
         st.insert_edge(
             port!(st; cond_node.cond_port),
             // (cond_node, cond_port),
             port!(st; cond_stored."in"),
+            // (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
+            Some(if_group.clone()),
+            vec![cond_stored_guard.clone()],
+        )?;
+        st.insert_edge(
+            port!(st; cond_node.cond_port),
+            // (cond_node, cond_port),
+            port!(st; cond_stored."write_en"),
             // (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
             Some(if_group.clone()),
             vec![cond_stored_guard],
