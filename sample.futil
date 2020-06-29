@@ -64,15 +64,18 @@ import "primitives/std.lib";
 //   wires {
 //     group ar {
 //       a.in = 32'd1;
-//       ar[done] = 1'b1;
+//       a.write_en = 1'b1;
+//       ar[done] = a.done ? 1'b1;
 //     }
 //     group br {
 //       b.in = 32'd2;
-//       br[done] = 1'b1;
+//       b.write_en = 1'b1;
+//       br[done] = b.done ? 1'b1;
 //     }
 //     group cr {
 //       c.in = 32'd3;
-//       cr[done] = 1'b1;
+//       c.write_en = 1'b1;
+//       cr[done] = c.done ? 1'b1;
 //     }
 //   }
 
@@ -86,52 +89,91 @@ import "primitives/std.lib";
 // }
 
 
+// component main {
+//   cells {
+//     x = prim std_reg(32);
+//     comp = prim std_eq(32);
+//   }
+
+//   wires {
+//     group init {
+//       x.in = 32'd1;
+//       x.write_en = 1'b1;
+//       init[done] = x.done ? 1'b1;
+//     }
+
+//     group cond {
+//       comp.right = x.out;
+//       comp.left = 32'd1;
+//       cond[done] = 1'b1;
+//     }
+
+//     group true {
+//       x.in = 32'd2;
+//       x.write_en = 1'b1;
+//       true[done] = x.done ? 1'b1;
+//     }
+
+//     group false {
+//       x.in = 32'd3;
+//       x.write_en = 1'b1;
+//       false[done] = x.done ? 1'b1;
+//     }
+//   }
+
+//   control {
+//     seq {
+//       init;
+//       if comp.out with cond {
+//         true;
+//       } else {
+//         false;
+//       }
+//     }
+//   }
+// }
+
+// fibonacci
 component main {
   cells {
-    x = prim std_reg(32);
-    comp = prim std_eq(32);
-    tw = prim std_reg(1);
-    fw = prim std_reg(1);
+    a = prim std_reg(32);
+    b = prim std_reg(32);
+    add = prim std_add(32);
+    comp = prim std_lt(32);
   }
 
   wires {
-    // group init {
-    //   x.in = 32'd1;
-    //   init[done] = 1'b1;
-    // }
+    group init {
+      a.in = 32'd1;
+      a.write_en = 1'b1;
+      b.in = 32'd1;
+      b.write_en = 1'b1;
+      init[done] = a.done & b.done ? 1'b1;
+    }
 
     group cond {
-      comp.right = x.out;
-      comp.left = 32'd1;
-      // cond_done.in = 1'b1;
+      comp.left = a.out;
+      comp.right = 32'd100;
       cond[done] = 1'b1;
     }
 
-    group true {
-      x.in = 32'd2;
-      x.write_en = 1'b1;
-      tw.in = 1'b1;
-      tw.write_en = 1'b1;
-      true[done] = tw.out ? 1'b1;
-    }
-
-    group false {
-      x.in = 32'd3;
-      x.write_en = 1'b1;
-      fw.in = 1'b1;
-      fw.write_en = 1'b1;
-      false[done] = fw.out ? 1'b1;
+    group body {
+      add.right = a.out;
+      add.left = b.out;
+      a.in = add.out;
+      a.write_en = 1'b1;
+      b.in = a.out;
+      b.write_en = 1'b1;
+      body[done] = a.done & b.done ? 1'b1;
     }
   }
 
   control {
-    // seq {
-    //   init;
-      if comp.out with cond {
-        true;
-      } else {
-        false;
+    seq {
+      init;
+      while comp.out with cond {
+        body;
       }
-    // }
+    }
   }
 }

@@ -1,4 +1,4 @@
-primitive std_reg[p_width](in: p_width, write_en: 1, clk: 1) -> (out: p_width) {
+primitive std_reg[p_width](in: p_width, write_en: 1, clk: 1) -> (out: p_width, done: 1) {
   verilog {
     module std_reg
       #(parameter width = 32,
@@ -7,16 +7,16 @@ primitive std_reg[p_width](in: p_width, write_en: 1, clk: 1) -> (out: p_width) {
         input wire write_en,
         input wire clk,
         // output
-        output wire [width - 1:0] out);
+        output logic [width - 1:0] out,
+        output logic done);
 
-      reg [width-1:0] register;
       always_ff @(posedge clk) begin
         if (write_en) begin
-          register <= in;
-        end
+          out <= in;
+          done <= 1'd1;
+        end else
+          done <= 1'd0;
       end
-
-      assign out = register;
     endmodule
   }
 }
