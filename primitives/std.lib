@@ -1,5 +1,5 @@
-primitive std_mem_d1[p_width, p_logsize](
-  addr: p_logsize,
+primitive std_mem_d1[p_width, p_size, p_idx_size](
+  addr0: p_idx_size,
   write_data: p_width,
   write_en: 1,
   clk: 1
@@ -9,7 +9,7 @@ primitive std_mem_d1[p_width, p_logsize](
       #(parameter width = 32,
         parameter size = 16,
         parameter idx_size = 4)
-       (input logic [idx_size-1:0] addr,
+       (input logic [idx_size-1:0] addr0,
         input logic [width-1:0]   write_data,
         input logic               write_en,
         input logic               clk,
@@ -17,10 +17,10 @@ primitive std_mem_d1[p_width, p_logsize](
 
       logic [width-1:0]  mem[size-1:0];
 
-      assign read_data = mem[addr];
+      assign read_data = mem[addr0];
       always_ff @(posedge clk) begin
         if (write_en) begin
-          mem[addr] <= write_data;
+          mem[addr0] <= write_data;
         end
       end
 
@@ -29,7 +29,7 @@ primitive std_mem_d1[p_width, p_logsize](
 }
 
 primitive std_logsize_mem_d1[p_width, p_logsize](
-  addr: p_logsize,
+  addr0: p_logsize,
   write_data: p_width,
   write_en: 1,
   clk: 1
@@ -38,7 +38,7 @@ primitive std_logsize_mem_d1[p_width, p_logsize](
     module std_logsize_mem_d1
       #(parameter width = 32,
         parameter logsize = 4)
-       (input logic [logsize-1:0] addr,
+       (input logic [logsize-1:0] addr0,
         input logic [width-1:0]   write_data,
         input logic               write_en,
         input logic               clk,
@@ -46,10 +46,10 @@ primitive std_logsize_mem_d1[p_width, p_logsize](
 
       logic [width-1:0]  mem[(1<<logsize)-1:0];
 
-      assign read_data = mem[addr];
+      assign read_data = mem[addr0];
       always_ff @(posedge clk) begin
         if (write_en) begin
-          mem[addr] <= write_data;
+          mem[addr0] <= write_data;
         end
       end
     endmodule
