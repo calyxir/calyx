@@ -24,41 +24,58 @@ impl Named for Inliner {
     }
 }
 
-fn apply_inlining_map(
-    guard: &GuardExpr,
-    map: &HashMap<Atom, (EdgeIndex, Vec<GuardExpr>)>,
-    inlined: &mut Vec<EdgeIndex>,
-) -> Vec<GuardExpr> {
+type GuardMap = HashMap<Atom, (EdgeIndex, GuardExpr)>;
+
+/// Walks the `GuardExpr` ast and replaces Atoms `a` with
+/// it's corresponding entry in `map` if one exists.
+fn tree_walk(
+    guard: GuardExpr,
+    map: &GuardMap,
+    edges_inlined: &mut Vec<EdgeIndex>,
+) -> GuardExpr {
     match guard {
         GuardExpr::Atom(a) => map
-            .get(a)
-            .map(|(idx, guards)| {
-                inlined.push(*idx);
-                guards
-                    .iter()
-                    .flat_map(|g| apply_inlining_map(g, map, inlined))
-                    .collect()
+            .get(&a)
+            .map(|(idx, g)| {
+                edges_inlined.push(*idx);
+                tree_walk(g.clone(), &map, edges_inlined)
             })
-            .unwrap_or_else(|| vec![guard.clone()]),
-        GuardExpr::Not(a) => {
-            // XXX(sam) this is not correct right now, we don't recurse or handle the general case
-            match map.get(a) {
-                Some((idx, guard)) if guard.len() == 1 => {
-                    inlined.push(*idx);
-                    match &guard[0] {
-                        GuardExpr::Atom(a) => vec![GuardExpr::Not(a.clone())],
-                        _ => unimplemented!(
-                            "ahh this will be annoying and break everything"
-                        ),
-                    }
-                }
-                Some(_) => unimplemented!(
-                    "ahh this will be annoying and break everything"
-                ),
-                None => vec![guard.clone()],
-            }
+            .unwrap_or(GuardExpr::Atom(a)),
+        GuardExpr::Not(inner) => {
+            GuardExpr::Not(Box::new(tree_walk(*inner, &map, edges_inlined)))
         }
-        _ => vec![guard.clone()],
+        GuardExpr::And(left, right) => GuardExpr::And(
+            Box::new(tree_walk(*left, &map, edges_inlined)),
+            Box::new(tree_walk(*right, &map, edges_inlined)),
+        ),
+        GuardExpr::Or(left, right) => GuardExpr::Or(
+            Box::new(tree_walk(*left, &map, edges_inlined)),
+            Box::new(tree_walk(*right, &map, edges_inlined)),
+        ),
+        GuardExpr::Eq(left, right) => GuardExpr::Eq(
+            Box::new(tree_walk(*left, &map, edges_inlined)),
+            Box::new(tree_walk(*right, &map, edges_inlined)),
+        ),
+        GuardExpr::Neq(left, right) => GuardExpr::Neq(
+            Box::new(tree_walk(*left, &map, edges_inlined)),
+            Box::new(tree_walk(*right, &map, edges_inlined)),
+        ),
+        GuardExpr::Gt(left, right) => GuardExpr::Gt(
+            Box::new(tree_walk(*left, &map, edges_inlined)),
+            Box::new(tree_walk(*right, &map, edges_inlined)),
+        ),
+        GuardExpr::Lt(left, right) => GuardExpr::Lt(
+            Box::new(tree_walk(*left, &map, edges_inlined)),
+            Box::new(tree_walk(*right, &map, edges_inlined)),
+        ),
+        GuardExpr::Geq(left, right) => GuardExpr::Geq(
+            Box::new(tree_walk(*left, &map, edges_inlined)),
+            Box::new(tree_walk(*right, &map, edges_inlined)),
+        ),
+        GuardExpr::Leq(left, right) => GuardExpr::Leq(
+            Box::new(tree_walk(*left, &map, edges_inlined)),
+            Box::new(tree_walk(*right, &map, edges_inlined)),
+        ),
     }
 }
 
@@ -70,7 +87,7 @@ fn apply_inlining_map(
 /// of `x[hole]` in a guard with `guards`.
 fn inline_hole(st: &mut StructureGraph, hole: String) {
     // a mapping from atoms -> (edge index, guard expressions)
-    let mut map: HashMap<Atom, (EdgeIndex, Vec<GuardExpr>)> = HashMap::new();
+    let mut guard_map: GuardMap = HashMap::new();
 
     // build up the mapping by mapping over all writes into holes
     for idx in st
@@ -81,47 +98,45 @@ fn inline_hole(st: &mut StructureGraph, hole: String) {
     {
         let ed = &st.graph[idx];
         let (src_idx, dest_idx) = st.endpoints(idx);
-        let mut guards = ed.guards.clone();
+        let mut guard_opt = ed.guard.clone();
         let atom = st.to_atom((src_idx, ed.src.port_name().clone()));
-        // check if atom is just the constant 1, if so we don't need to put it in the guard
+        // if atom is just the constant 1, we don't need to put it in the guard
         if !matches!(
             atom,
             Atom::Num(ast::BitNum {
                 width: 1, val: 1, ..
             })
         ) {
-            guards.push(GuardExpr::Atom(atom));
+            guard_opt = Some(match guard_opt {
+                Some(g) => g.and(GuardExpr::Atom(atom)),
+                None => GuardExpr::Atom(atom),
+            });
         }
         // insert a mapping from hole to guards
-        map.insert(
-            st.to_atom((dest_idx, ed.dest.port_name().clone())),
-            (idx, guards),
-        );
+        guard_opt.map(|guard| {
+            guard_map.insert(
+                st.to_atom((dest_idx, ed.dest.port_name().clone())),
+                (idx, guard),
+            )
+        });
     }
 
-    // store for all the edges that were actually inlined
+    // store for all the edges that were actually inlined so that we can remove them later
     let mut edges_inlined: Vec<EdgeIndex> = vec![];
 
     // iterate over all edges to replace holes with an expression
     for edidx in st.edge_idx().detach() {
-        let mut ed = &mut st.graph[edidx];
-        // for each guard, if the atom is in `map` then replace it with the expression
-        // found there and add the corresponding edge index to `edges_inlined`
-        ed.guards = ed
-            .guards
-            .iter()
-            // we use flat map because a single hole may be replaced with multiple expressions in general
-            .flat_map(|guard| {
-                apply_inlining_map(guard, &map, &mut edges_inlined)
-            })
-            // redundant expressions are useless when everything is just anded together
-            .unique()
-            .collect()
+        let mut ed_data = &mut st.graph[edidx];
+        // for the guard, recurse down the guard ast and replace any leaves with
+        // the expression in `guard_map` adding the corresponding edges to `edges_inlined`
+        ed_data.guard = ed_data.guard.as_ref().map(|guard| {
+            tree_walk(guard.clone(), &guard_map, &mut edges_inlined)
+        });
     }
 
     // remove all the edges that have been inlined
-    for idx in edges_inlined {
-        st.remove_edge(idx);
+    for idx in edges_inlined.iter().unique() {
+        st.remove_edge(*idx);
     }
 
     // flatten groups (maybe temporary)

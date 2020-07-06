@@ -262,7 +262,7 @@ impl PrettyPrint for Wire {
             .append(RcDoc::text("="))
             .append(RcDoc::space());
 
-        let rhs = if self.src.guard.is_empty() {
+        let rhs = if self.src.guard.is_none() {
             self.src.expr.prettify(&arena)
         } else {
             self.src
@@ -289,7 +289,7 @@ impl PrettyPrint for Guard {
 
 impl PrettyPrint for GuardExpr {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let binop = |e1: &Atom, sym: &'static str, e2: &Atom| {
+        let binop = |e1: &GuardExpr, sym: &'static str, e2: &GuardExpr| {
             e1.prettify(&arena)
                 .append(RcDoc::space())
                 .append(RcDoc::text(sym))
@@ -297,6 +297,8 @@ impl PrettyPrint for GuardExpr {
                 .append(e2.prettify(&arena))
         };
         match self {
+            GuardExpr::And(e1, e2) => binop(e1, "&", e2),
+            GuardExpr::Or(e1, e2) => binop(e1, "|", e2),
             GuardExpr::Eq(e1, e2) => binop(e1, "==", e2),
             GuardExpr::Neq(e1, e2) => binop(e1, "!=", e2),
             GuardExpr::Gt(e1, e2) => binop(e1, ">", e2),

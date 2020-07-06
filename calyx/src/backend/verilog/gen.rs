@@ -3,7 +3,7 @@ use crate::errors::{Error, Result};
 use crate::frontend::{
     colors,
     colors::ColorHelper,
-    pretty_print::{display, PrettyHelper, PrettyPrint},
+    pretty_print::{display, PrettyHelper},
 };
 use crate::lang::library::ast as lib;
 use crate::lang::structure::Node;
@@ -328,18 +328,20 @@ fn test<'a>(node: &Node, port: String) -> D<'a> {
 }
 
 /// Converts a guarded edge into a Verilog string
-fn guard<'a>(edge: &EdgeData) -> D<'a> {
-    let guard_doc = edge.guards.iter().map(|expr| match expr {
-        GuardExpr::Eq(a, b) => atom(a).append(" == ").append(atom(b)),
-        GuardExpr::Neq(a, b) => atom(a).append(" != ").append(atom(b)),
-        GuardExpr::Gt(a, b) => atom(a).append(" > ").append(atom(b)),
-        GuardExpr::Lt(a, b) => atom(a).append(" < ").append(atom(b)),
-        GuardExpr::Geq(a, b) => atom(a).append(" >= ").append(atom(b)),
-        GuardExpr::Leq(a, b) => atom(a).append(" <= ").append(atom(b)),
-        GuardExpr::Not(a) => D::text("!").append(atom(a)),
+fn guard<'a>(expr: &GuardExpr) -> D<'a> {
+    match expr {
+        GuardExpr::And(a, b) => guard(a).append(" & ").append(guard(b)),
+        GuardExpr::Or(a, b) => guard(a).append(" | ").append(guard(b)),
+        GuardExpr::Eq(a, b) => guard(a).append(" == ").append(guard(b)),
+        GuardExpr::Neq(a, b) => guard(a).append(" != ").append(guard(b)),
+        GuardExpr::Gt(a, b) => guard(a).append(" > ").append(guard(b)),
+        GuardExpr::Lt(a, b) => guard(a).append(" < ").append(guard(b)),
+        GuardExpr::Geq(a, b) => guard(a).append(" >= ").append(guard(b)),
+        GuardExpr::Leq(a, b) => guard(a).append(" <= ").append(guard(b)),
+        GuardExpr::Not(a) => D::text("!").append(guard(a)),
         GuardExpr::Atom(a) => atom(a),
-    });
-    D::intersperse(guard_doc, D::text(" & ")).parens()
+    }
+    // D::intersperse(guard_doc, D::text(" & ")).parens()
 
     // let (src, dest) = st.endpoints(idx);
 
@@ -448,7 +450,10 @@ fn connections<'a>(comp: &component::Component) -> D<'a> {
                         .append(edges.iter().rev().fold(
                             D::text("'0"),
                             |acc, (el, node)| {
-                                guard(el)
+                                el.guard
+                                    .as_ref()
+                                    .map(|g| guard(&g))
+                                    .unwrap_or(D::nil())
                                     .append(" ? ")
                                     .append(test(
                                         &node,

@@ -133,46 +133,94 @@ import "primitives/std.lib";
 //   }
 // }
 
-// fibonacci
+// i = 0;
+// while i < 10 {
+//   j = 0;
+//   while j < 10 {
+//     j++;
+//   }
+//   i++;
+// }
+
 component main {
   cells {
-    a = prim std_reg(32);
-    b = prim std_reg(32);
     add = prim std_add(32);
-    comp = prim std_lt(32);
+    i = prim std_reg(32);
   }
 
   wires {
-    group init {
-      a.in = 32'd1;
-      a.write_en = 1'b1;
-      b.in = 32'd1;
-      b.write_en = 1'b1;
-      init[done] = a.done & b.done ? 1'b1;
-    }
-
-    group cond {
-      comp.left = a.out;
-      comp.right = 32'd100;
-      cond[done] = 1'b1;
-    }
-
-    group body {
-      add.right = a.out;
-      add.left = b.out;
-      a.in = add.out;
-      a.write_en = 1'b1;
-      b.in = a.out;
-      b.write_en = 1'b1;
-      body[done] = a.done & b.done ? 1'b1;
+    group kazoo {
+      add.right = 32'd7;
+      add.left = i.out;
+      i.in = add.out;
+      i.write_en = 1'b1;
+      kazoo[done] = i.done ? 1'b1;
     }
   }
 
   control {
     seq {
-      init;
-      while comp.out with cond {
-        body;
+      kazoo;
+      kazoo;
+    }
+  }
+}
+
+// fibonacci
+component main {
+  cells {
+    i = prim std_reg(32);
+    j = prim std_reg(32);
+    add1 = prim std_add(32);
+    add2 = prim std_add(32);
+    lt1 = prim std_lt(32);
+    lt2 = prim std_lt(32);
+  }
+
+  wires {
+    group cond {
+      lt1.left = i.out;
+      lt1.right = 32'd10;
+      cond[done] = 1'b1;
+    }
+
+    group inner_cond {
+      lt2.left = j.out;
+      lt2.right = 32'd10;
+      inner_cond[done] = 1'b1;
+    }
+
+    group reset_j {
+      j.in = 32'd0;
+      j.write_en = 1'b1;
+      reset_j[done] = j.done ? 1'b1;
+    }
+
+    group incr_j {
+      add1.right = 32'b1;
+      add1.left = j.out;
+      j.in = add1.out;
+      j.write_en = !x ? 1'b1;
+      incr_j[done] = j.done ? 1'b1;
+    }
+
+    group incr_i {
+      add2.right = 32'b1;
+      add2.left = i.out;
+      i.in = add2.out;
+      i.write_en = 1'b1;
+      incr_i[done] = i.done ? 1'b1;
+    }
+  }
+
+  control {
+    while lt1.out with cond {
+      seq {
+        reset_j;
+        while lt2.out with inner_cond {
+          incr_j;
+        }
+        incr_i;
       }
     }
   }

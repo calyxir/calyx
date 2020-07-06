@@ -23,6 +23,7 @@ pest = "2.0"
 pest_derive = "2.0"
 pest_consume = "1.0.5"
 itertools = "0.9.0"
+lazy_static = "1.4.0"
 
 [dependencies.pretty]
 version = "0.9.0"

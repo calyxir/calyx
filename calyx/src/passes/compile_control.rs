@@ -18,6 +18,16 @@ impl Named for CompileControl {
     }
 }
 
+/// Simple macro that provides convienent syntax for
+/// constructing ports. The syntax is:
+/// ```
+/// port!(st; node."port-string")
+/// port!(st; node.port_var)
+/// port!(st; node["hole-string"])
+/// port!(st; node[hole-var])
+/// ```
+/// The main point of this macro is to make port
+/// construction easier to read, and thus easier to debug.
 #[macro_export]
 macro_rules! port {
     ($struct:expr; $node:ident.$port:ident) => {
@@ -130,61 +140,49 @@ impl Visitor for CompileControl {
             .get_node_by_name(false_group)
             .extract(false_group.clone())?;
 
-        // generate necessary hardware
-        // let cond_computed =
-        //     st.new_primitive(&ctx, "cond_computed", "std_reg", &[1])?;
-        // let cond_stored =
-        //     st.new_primitive(&ctx, "cond_stored", "std_reg", &[1])?;
-        // let branch_or = st.new_primitive(&ctx, "if_or", "std_or", &[1])?;
-
-        new_structure!(
-            st, &ctx,
+        new_structure!(st, &ctx,
             cond_computed = prim std_reg(1);
             cond_stored = prim std_reg(1);
             branch_or = prim std_or(1);
         );
 
         // cond[go] = !cond_computed.out ? 1'b1;
-        let cond_go_guard =
-            GuardExpr::Not(st.to_atom(port!(st; cond_computed."out")));
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num,
             // (cond_group_node, st.port_ref(cond_group_node, "go")?.clone()),
             port!(st; cond_group_node["go"]),
             Some(if_group.clone()),
-            vec![cond_go_guard],
+            Some(GuardExpr::Not(Box::new(
+                st.to_guard(port!(st; cond_computed."out")),
+            ))),
         )?;
 
         // cond_computed.in = cond[done] ? 1'b1;
         // cond_computed.write_en = cond[done] ? 1'b1;
-        let cond_computed_guard =
-            GuardExpr::Atom(st.to_atom(port!(st; cond_group_node["done"])));
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num.clone(),
             port!(st; cond_computed."in"),
             Some(if_group.clone()),
-            vec![cond_computed_guard.clone()],
+            Some(st.to_guard(port!(st; cond_group_node["done"]))),
         )?;
         st.insert_edge(
             num,
             port!(st; cond_computed."write_en"),
             Some(if_group.clone()),
-            vec![cond_computed_guard],
+            Some(st.to_guard(port!(st; cond_group_node["done"]))),
         )?;
 
         // cond_stored.in = cond[done] ? comp.out;
         // cond_stored.write_en = cond[done] ? comp.out;
-        let cond_stored_guard =
-            GuardExpr::Atom(st.to_atom(port!(st; cond_group_node["done"])));
         st.insert_edge(
             port!(st; cond_node.cond_port),
             // (cond_node, cond_port),
             port!(st; cond_stored."in"),
             // (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
             Some(if_group.clone()),
-            vec![cond_stored_guard.clone()],
+            Some(st.to_guard(port!(st; cond_group_node["done"]))),
         )?;
         st.insert_edge(
             port!(st; cond_node.cond_port),
@@ -192,7 +190,7 @@ impl Visitor for CompileControl {
             port!(st; cond_stored."write_en"),
             // (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
             Some(if_group.clone()),
-            vec![cond_stored_guard],
+            Some(st.to_guard(port!(st; cond_group_node["done"]))),
         )?;
 
         // true[go] = cond_computed.out & cond_stored.out ? 1'b1;
@@ -201,10 +199,10 @@ impl Visitor for CompileControl {
             num,
             port!(st; true_group_node["go"]),
             Some(if_group.clone()),
-            vec![
-                GuardExpr::Atom(st.to_atom(port!(st; cond_computed."out"))),
-                GuardExpr::Atom(st.to_atom(port!(st; cond_stored."out"))),
-            ],
+            Some(GuardExpr::And(
+                Box::new(st.to_guard(port!(st; cond_computed."out"))),
+                Box::new(st.to_guard(port!(st; cond_stored."out"))),
+            )),
         )?;
 
         // false[go] = cond_computed.out & !cond_stored.out ? 1'b1;
@@ -213,10 +211,12 @@ impl Visitor for CompileControl {
             num,
             port!(st; false_group_node["go"]),
             Some(if_group.clone()),
-            vec![
-                GuardExpr::Atom(st.to_atom(port!(st; cond_computed."out"))),
-                GuardExpr::Not(st.to_atom(port!(st; cond_stored."out"))),
-            ],
+            Some(GuardExpr::And(
+                Box::new(st.to_guard(port!(st; cond_computed."out"))),
+                Box::new(GuardExpr::Not(Box::new(
+                    st.to_guard(port!(st; cond_stored."out")),
+                ))),
+            )),
         )?;
 
         // or.right = true[done] ? 1'b1;
@@ -227,24 +227,20 @@ impl Visitor for CompileControl {
             num,
             port!(st; branch_or."left"),
             Some(if_group.clone()),
-            vec![GuardExpr::Atom(
-                st.to_atom(port!(st; true_group_node["done"])),
-            )],
+            Some(st.to_guard(port!(st; true_group_node["done"]))),
         )?;
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num,
             port!(st; branch_or."right"),
             Some(if_group.clone()),
-            vec![GuardExpr::Atom(
-                st.to_atom(port!(st; false_group_node["done"])),
-            )],
+            Some(st.to_guard(port!(st; false_group_node["done"]))),
         )?;
         st.insert_edge(
             (branch_or, st.port_ref(branch_or, "out")?.clone()),
             (if_group_node, st.port_ref(if_group_node, "done")?.clone()),
             Some(if_group.clone()),
-            vec![],
+            None,
         )?;
 
         Ok(Action::Change(Control::enable(if_group)))
@@ -272,6 +268,8 @@ impl Visitor for CompileControl {
     ///   cond_computed.in = body[done] ? 1'b0;
     ///   // this group is done when the condition is computed and it is false
     ///   while0[done] = cond_computed.out & !cond_stored.out ? 1'b1;
+    ///   cond_computed.in = while0[done] ? 1'b1;
+    ///   cond_computed.write_en = while0[done] ? 1'b1;
     /// }
     /// ```
     /// with 2 generated registers, `cond_computed` and `cond_stored`.
@@ -333,7 +331,9 @@ impl Visitor for CompileControl {
             // (cond_group_node, st.port_ref(cond_group_node, "go")?.clone()),
             port!(st; cond_group_node["go"]),
             Some(while_group.clone()),
-            vec![GuardExpr::Not(st.to_atom(port!(st; cond_computed."out")))],
+            Some(GuardExpr::Not(Box::new(
+                st.to_guard(port!(st; cond_computed."out")),
+            ))),
         )?;
 
         // cond_computed.in = cond[done] ? 1'b1;
@@ -347,17 +347,13 @@ impl Visitor for CompileControl {
             //     st.port_ref(cond_computed_reg, "in")?.clone(),
             // ),
             Some(while_group.clone()),
-            vec![GuardExpr::Atom(
-                st.to_atom(port!(st; cond_group_node["done"])),
-            )],
+            Some(st.to_guard(port!(st; cond_group_node["done"]))),
         )?;
         st.insert_edge(
             num,
             port!(st; cond_computed."write_en"),
             Some(while_group.clone()),
-            vec![GuardExpr::Atom(
-                st.to_atom(port!(st; cond_group_node["done"])),
-            )],
+            Some(st.to_guard(port!(st; cond_group_node["done"]))),
         )?;
 
         // cond_stored.in = cond[done] ? lt.out;
@@ -367,9 +363,7 @@ impl Visitor for CompileControl {
             // (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
             port!(st; cond_stored."in"),
             Some(while_group.clone()),
-            vec![GuardExpr::Atom(
-                st.to_atom(port!(st; cond_group_node["done"])),
-            )],
+            Some(st.to_guard(port!(st; cond_group_node["done"]))),
         )?;
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
@@ -378,13 +372,11 @@ impl Visitor for CompileControl {
             // (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
             port!(st; cond_stored."write_en"),
             Some(while_group.clone()),
-            vec![GuardExpr::Atom(
-                st.to_atom(port!(st; cond_group_node["done"])),
-            )],
+            Some(st.to_guard(port!(st; cond_group_node["done"]))),
         )?;
 
         // body[go] = cond_computed.out & cond_stored.out ? 1'b1;
-        // let body_go_guard = GuardExpr::Atom(st.to_atom(
+        // let body_go_guard = GuardExpr::Atom(st.to_guard(
         //     cond_stored_reg,
         //     st.port_ref(cond_stored_reg, "out")?.clone(),
         // ));
@@ -394,10 +386,10 @@ impl Visitor for CompileControl {
             // (body_group_node, st.port_ref(body_group_node, "go")?.clone()),
             port!(st; body_group_node["go"]),
             Some(while_group.clone()),
-            vec![
-                GuardExpr::Atom(st.to_atom(port!(st; cond_stored."out"))),
-                GuardExpr::Atom(st.to_atom(port!(st; cond_computed."out"))),
-            ],
+            Some(GuardExpr::And(
+                Box::new(st.to_guard(port!(st; cond_stored."out"))),
+                Box::new(st.to_guard(port!(st; cond_computed."out"))),
+            )),
         )?;
 
         // cond_computed.in = body[done] ? 1'b0
@@ -406,18 +398,14 @@ impl Visitor for CompileControl {
             num,
             port!(st; cond_computed."in"),
             Some(while_group.clone()),
-            vec![GuardExpr::Atom(st.to_atom(port!(st;
-                body_group_node["done"]
-            )))],
+            Some(st.to_guard(port!(st; body_group_node["done"]))),
         )?;
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num,
             port!(st; cond_computed."write_en"),
             Some(while_group.clone()),
-            vec![GuardExpr::Atom(
-                st.to_atom(port!(st; body_group_node["done"])),
-            )],
+            Some(st.to_guard(port!(st; body_group_node["done"]))),
         )?;
 
         // while0[done] = cond_computed.out & !cond_stored.out ? 1'b1;
@@ -430,10 +418,28 @@ impl Visitor for CompileControl {
             // ),
             port!(st; while_group_node["done"]),
             Some(while_group.clone()),
-            vec![
-                GuardExpr::Atom(st.to_atom(port!(st; cond_computed."out"))),
-                GuardExpr::Not(st.to_atom(port!(st; cond_stored."out"))),
-            ],
+            Some(GuardExpr::And(
+                Box::new(st.to_guard(port!(st; cond_computed."out"))),
+                Box::new(GuardExpr::Not(Box::new(
+                    st.to_guard(port!(st; cond_stored."out")),
+                ))),
+            )),
+        )?;
+        // cond_computed.in = while[done] ? 1'b1;
+        // cond_computed.write_en = while[done] ? 1'b1;
+        let num = st.new_constant(0, 1)?;
+        st.insert_edge(
+            num,
+            port!(st; cond_computed."in"),
+            Some(while_group.clone()),
+            Some(st.to_guard(port!(st; while_group_node["done"]))),
+        )?;
+        let num = st.new_constant(1, 1)?;
+        st.insert_edge(
+            num,
+            port!(st; cond_computed."write_en"),
+            Some(while_group.clone()),
+            Some(st.to_guard(port!(st; while_group_node["done"]))),
         )?;
 
         Ok(Action::Change(Control::enable(while_group)))
@@ -466,6 +472,26 @@ impl Visitor for CompileControl {
         //     Some(seq_group.clone()),
         //     Vec::new(),
         // )?;
+        let num = st.new_constant(0, 32)?;
+        st.insert_edge(
+            num,
+            (fsm_reg, st.port_ref(fsm_reg, "in")?.clone()),
+            Some(seq_group.clone()),
+            Some(st.to_guard((
+                seq_group_node,
+                st.port_ref(seq_group_node, "done")?.clone(),
+            ))),
+        )?;
+        let num = st.new_constant(1, 1)?;
+        st.insert_edge(
+            num,
+            (fsm_reg, st.port_ref(fsm_reg, "write_en")?.clone()),
+            Some(seq_group.clone()),
+            Some(st.to_guard((
+                seq_group_node,
+                st.port_ref(seq_group_node, "done")?.clone(),
+            ))),
+        )?;
 
         // Assigning 1 to tell groups to go.
         let signal_const = st.new_constant(1, 1)?;
@@ -477,24 +503,33 @@ impl Visitor for CompileControl {
                 Control::Enable {
                     data: Enable { comp: group_name },
                 } => {
-                    /* group[go] = fsm.out == value(fsm_counter) ? 1 */
+                    /* group[go] = fsm.out == value(fsm_counter) & !group[done] ? 1 */
                     let group = st
                         .get_node_by_name(&group_name)
                         .extract(group_name.clone())?;
-                    let group_port = st.port_ref(group, "go")?.clone();
 
                     let fsm_out_port = st.port_ref(fsm_reg, "out")?.clone();
                     let fsm_st_const = st.new_constant(fsm_counter, 32)?;
 
-                    let go_guard = GuardExpr::Eq(
-                        st.to_atom((fsm_reg, fsm_out_port)),
-                        st.to_atom(fsm_st_const.clone()),
-                    );
+                    let group_port = st.port_ref(group, "go")?.clone();
+
                     st.insert_edge(
                         signal_const.clone(),
                         (group, group_port),
                         Some(seq_group.clone()),
-                        vec![go_guard],
+                        Some(GuardExpr::Eq(
+                            Box::new(st.to_guard((fsm_reg, fsm_out_port))),
+                            Box::new(st.to_guard(fsm_st_const.clone())),
+                        )),
+                        // Some(GuardExpr::And(
+                        //     Box::new(GuardExpr::Eq(
+                        //         Box::new(st.to_guard((fsm_reg, fsm_out_port))),
+                        //         Box::new(st.to_guard(fsm_st_const.clone())),
+                        //     )),
+                        //     Box::new(GuardExpr::Not(Box::new(
+                        //         st.to_guard((group, group_port.clone())),
+                        //     ))),
+                        // )),
                     )?;
 
                     fsm_counter += 1;
@@ -502,21 +537,20 @@ impl Visitor for CompileControl {
                     /* fsm.in = group[done] ? 1 */
                     let num = st.new_constant(fsm_counter, 32)?;
                     let group_done_port = st.port_ref(group, "done")?.clone();
-                    let done_guard = GuardExpr::Atom(
-                        st.to_atom((group, group_done_port.clone())),
-                    );
+                    let done_guard =
+                        st.to_guard((group, group_done_port.clone()));
                     st.insert_edge(
                         num.clone(),
                         (fsm_reg, st.port_ref(fsm_reg, "in")?.clone()),
                         Some(seq_group.clone()),
-                        vec![done_guard.clone()],
+                        Some(done_guard.clone()),
                     )?;
                     let num = st.new_constant(1, 1)?;
                     st.insert_edge(
                         num,
                         (fsm_reg, st.port_ref(fsm_reg, "write_en")?.clone()),
                         Some(seq_group.clone()),
-                        vec![done_guard],
+                        Some(done_guard),
                     )?;
 
                     // If this is the last group, generate the done condition
@@ -528,7 +562,7 @@ impl Visitor for CompileControl {
                             (group, group_done_port),
                             (seq_group_node, seq_group_done),
                             Some(seq_group.clone()),
-                            Vec::new(),
+                            None,
                         )?;
                     }
                 }
@@ -560,7 +594,7 @@ impl Visitor for CompileControl {
         let par_group: ast::Id = st.namegen.gen_name("par").into();
         let par_group_idx = st.insert_group(&par_group)?;
 
-        let mut par_group_done: Vec<GuardExpr> = Vec::new();
+        let mut par_group_done: Option<GuardExpr> = None;
 
         for con in s.stmts.iter() {
             match con {
@@ -578,17 +612,26 @@ impl Visitor for CompileControl {
                         num,
                         (group_idx, group_go_port),
                         Some(par_group.clone()),
-                        Vec::new(),
+                        None,
                     )?;
 
                     // Add this group's done signal to parent's
                     // done signal.
                     let group_done_port =
                         st.port_ref(group_idx, "done")?.clone();
-                    let guard = GuardExpr::Atom(
-                        st.to_atom((group_idx, group_done_port)),
-                    );
-                    par_group_done.push(guard);
+                    let guard = st.to_guard((group_idx, group_done_port));
+                    // par_group_done.push(guard);
+                    par_group_done = Some(match par_group_done {
+                        Some(g) => g.and(guard),
+                        None => guard,
+                    });
+                    // par_group_done = Some(
+                    //     par_group_done
+                    //         .map(|g| {
+                    //             GuardExpr::And(Box::new(g), Box::new(guard))
+                    //         })
+                    //         .unwrap_or(guard),
+                    // );
                 }
                 _ => {
                     return Err(Error::MalformedControl(

@@ -3,6 +3,7 @@ use crate::lang::{
     ast,
     ast::{BitNum, NumType},
 };
+use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
 use std::fs;
 use std::path::PathBuf;
@@ -15,6 +16,23 @@ type Node<'i> = pest_consume::Node<'i, Rule, Rc<String>>;
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
 const _GRAMMAR: &str = include_str!("futil_syntax.pest");
+
+// Define the precedence of binary operations. We use `lazy_static` so that
+// this is only ever constructed once.
+lazy_static::lazy_static! {
+    static ref PRECCLIMBER: PrecClimber<Rule> = PrecClimber::new(
+        vec![
+            Operator::new(Rule::guard_eq, Assoc::Left),
+            Operator::new(Rule::guard_neq, Assoc::Left),
+            Operator::new(Rule::guard_leq, Assoc::Left),
+            Operator::new(Rule::guard_geq, Assoc::Left),
+            Operator::new(Rule::guard_lt, Assoc::Left),
+            Operator::new(Rule::guard_gt, Assoc::Left),
+            Operator::new(Rule::guard_or, Assoc::Left),
+            Operator::new(Rule::guard_and, Assoc::Left)
+        ]
+    );
+}
 
 #[derive(Parser)]
 #[grammar = "frontend/futil_syntax.pest"]
@@ -226,47 +244,50 @@ impl FutilParser {
         ))
     }
 
-    fn comparator(
-        input: Node,
-    ) -> ParseResult<impl Fn(ast::Atom, ast::Atom) -> ast::GuardExpr> {
-        Ok(match input.as_str() {
-            "==" => ast::GuardExpr::Eq,
-            "!=" => ast::GuardExpr::Neq,
-            "<" => ast::GuardExpr::Lt,
-            ">" => ast::GuardExpr::Gt,
-            "<=" => ast::GuardExpr::Leq,
-            ">=" => ast::GuardExpr::Geq,
-            _ => unreachable!(),
-        })
+    fn guard_not(_input: Node) -> ParseResult<()> {
+        Ok(())
     }
 
-    fn not_expr(input: Node) -> ParseResult<ast::GuardExpr> {
+    fn term(input: Node) -> ParseResult<ast::GuardExpr> {
         Ok(match_nodes!(
             input.into_children();
-            [expr(e)] => ast::GuardExpr::Not(e)
-        ))
-    }
-
-    fn guard_expr(input: Node) -> ParseResult<ast::GuardExpr> {
-        Ok(match_nodes!(
-            input.into_children();
-            [expr(e1), comparator(c), expr(e2)] => c(e1, e2),
             [expr(e)] => ast::GuardExpr::Atom(e),
-            [not_expr(e)] => e
+            [guard_expr(guard)] => guard,
+            [guard_not(_), guard_expr(e)] => ast::GuardExpr::Not(Box::new(e))
         ))
     }
 
-    fn guard(input: Node) -> ParseResult<Vec<ast::GuardExpr>> {
-        Ok(match_nodes!(
-            input.into_children();
-            [guard_expr(gs)..] =>  gs.collect()
-        ))
+    #[prec_climb(term, PRECCLIMBER)]
+    fn guard_expr(
+        l: ast::GuardExpr,
+        op: Node,
+        r: ast::GuardExpr,
+    ) -> ParseResult<ast::GuardExpr> {
+        match op.as_rule() {
+            Rule::guard_eq => Ok(ast::GuardExpr::Eq(Box::new(l), Box::new(r))),
+            Rule::guard_neq => {
+                Ok(ast::GuardExpr::Neq(Box::new(l), Box::new(r)))
+            }
+            Rule::guard_leq => {
+                Ok(ast::GuardExpr::Leq(Box::new(l), Box::new(r)))
+            }
+            Rule::guard_geq => {
+                Ok(ast::GuardExpr::Geq(Box::new(l), Box::new(r)))
+            }
+            Rule::guard_lt => Ok(ast::GuardExpr::Lt(Box::new(l), Box::new(r))),
+            Rule::guard_gt => Ok(ast::GuardExpr::Gt(Box::new(l), Box::new(r))),
+            Rule::guard_or => Ok(ast::GuardExpr::Or(Box::new(l), Box::new(r))),
+            Rule::guard_and => {
+                Ok(ast::GuardExpr::And(Box::new(l), Box::new(r)))
+            }
+            _ => unreachable!(),
+        }
     }
 
     fn switch_stmt(input: Node) -> ParseResult<ast::Guard> {
         Ok(match_nodes!(
             input.into_children();
-            [guard(guard), expr(expr)] => ast::Guard { guard, expr },
+            [guard_expr(guard), expr(expr)] => ast::Guard { guard: Some(guard), expr },
         ))
     }
 
@@ -274,7 +295,7 @@ impl FutilParser {
         Ok(match_nodes!(
             input.into_children();
             [LHS(dest), expr(expr)] => ast::Wire {
-                src: ast::Guard { guard: vec![], expr },
+                src: ast::Guard { guard: None, expr },
                 dest
             },
             [LHS(dest), switch_stmt(src)] => ast::Wire {

@@ -140,7 +140,18 @@ pub struct EdgeData {
     pub dest: Port,
     pub width: u64,
     pub group: Option<ast::Id>,
-    pub guards: Vec<ast::GuardExpr>,
+    pub guard: Option<ast::GuardExpr>,
+}
+
+impl EdgeData {
+    pub fn and_guard(&mut self, guard: ast::GuardExpr) {
+        self.guard = match &self.guard {
+            Some(g) => {
+                Some(ast::GuardExpr::And(Box::new(g.clone()), Box::new(guard)))
+            }
+            None => Some(guard),
+        };
+    }
 }
 
 /// private graph type. the data in the node stores information
@@ -467,7 +478,7 @@ impl StructureGraph {
         (src_node, src_port): (NodeIndex, ast::Id),
         (dest_node, dest_port): (NodeIndex, ast::Id),
         group: Option<ast::Id>,
-        guards: Vec<ast::GuardExpr>,
+        guard: Option<ast::GuardExpr>,
     ) -> Result<EdgeIndex> {
         // If the group is not defined, error out.
         if let Some(ref group_name) = group {
@@ -508,7 +519,7 @@ impl StructureGraph {
             dest: self.construct_port(dest_node, dest_port),
             width: src_width,
             group: group.clone(),
-            guards,
+            guard,
         };
         let idx = self.graph.add_edge(src_node, dest_node, edge_data);
         self.groups.get_mut(&group).unwrap().push(idx);
@@ -718,7 +729,7 @@ impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
                         let edge = &self.graph[*ed];
                         let (src_idx, _) = self.endpoints(*ed);
                         let src = ast::Guard {
-                            guard: edge.guards.clone(),
+                            guard: edge.guard.clone(),
                             expr: self.to_atom((
                                 src_idx,
                                 edge.src.port_name().clone(),
@@ -741,7 +752,7 @@ impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
                                 .edge_endpoints(*ed)
                                 .unwrap_or_else(|| unreachable!());
                             let src = ast::Guard {
-                                guard: edge.guards.clone(),
+                                guard: edge.guard.clone(),
                                 expr: self.to_atom((
                                     src_nidx,
                                     edge.src.port_name().clone(),

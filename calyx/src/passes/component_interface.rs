@@ -37,14 +37,14 @@ impl Visitor for ComponentInterface {
                 port!(st; this."go"),
                 port!(st; group["go"]),
                 None,
-                vec![],
+                None,
             )?;
             let num = st.new_constant(1, 1)?;
             st.insert_edge(
                 num,
                 port!(st; this."done"),
                 None,
-                vec![GuardExpr::Atom(st.to_atom(port!(st; group["done"])))],
+                Some(st.to_guard(port!(st; group["done"]))),
             )?;
 
             // this pass doesn't modify any control, so we can return immediately

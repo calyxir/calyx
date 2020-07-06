@@ -92,20 +92,30 @@ port = {
 LHS = { hole | port }
 expr = { LHS | num_lit }
 
-comparator = { "==" | "!=" | "<=" | ">=" | "<" | ">" }
-
-not_expr = { "!" ~ expr }
-
-guard_expr = {
-      (expr ~ comparator ~ expr) | expr | not_expr
+guard_eq = { "==" }
+guard_neq = { "!=" }
+guard_leq = { "<=" }
+guard_geq = { ">=" }
+guard_lt = { "<" }
+guard_gt = { ">" }
+guard_or = { "|" }
+guard_and = { "&" }
+guard_not = { "!" }
+operator = {
+      guard_eq | guard_neq | guard_leq | guard_geq
+    | guard_lt | guard_gt | guard_or | guard_and
 }
 
-guard = {
-      guard_expr ~ ("&" ~ guard_expr)*
+guard_expr = {
+      term ~ (operator ~ term)*
+}
+
+term = {
+      expr | "(" ~ guard_expr ~ ")" | guard_not ~ guard_expr
 }
 
 switch_stmt = {
-      guard ~ "?" ~ expr
+      guard_expr ~ "?" ~ expr
 }
 
 wire = {
