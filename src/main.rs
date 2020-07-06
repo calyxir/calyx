@@ -130,7 +130,7 @@ fn main() -> Result<()> {
     compile_control::CompileControl::do_pass_default(&context)?;
     go_insertion::GoInsertion::do_pass_default(&context)?;
     component_interface::ComponentInterface::do_pass_default(&context)?;
-    inliner::Inliner::do_pass_default(&context)?;
+    // inliner::Inliner::do_pass_default(&context)?;
 
     // Construct pass manager.
     // let names = pass_map();

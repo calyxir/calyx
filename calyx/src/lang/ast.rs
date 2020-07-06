@@ -267,6 +267,18 @@ impl GuardExpr {
     pub fn and(self, other: GuardExpr) -> Self {
         GuardExpr::And(Box::new(self), Box::new(other))
     }
+
+    pub fn or(self, other: GuardExpr) -> Self {
+        GuardExpr::Or(Box::new(self), Box::new(other))
+    }
+
+    pub fn eq(self, other: GuardExpr) -> Self {
+        GuardExpr::Eq(Box::new(self), Box::new(other))
+    }
+
+    pub fn not(self) -> Self {
+        GuardExpr::Not(Box::new(self))
+    }
 }
 
 /// A guard is a conditions in `guard_conj` which guard the value

@@ -38,18 +38,57 @@ type D<'a> = RcDoc<'a, ColorSpec>;
 /// ```
 pub struct VerilogBackend {}
 
+/// Checks to make sure that there are no holes being
+/// used in a guard.
+fn validate_guard(guard: &GuardExpr) -> bool {
+    match guard {
+        GuardExpr::And(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Or(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Eq(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Neq(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Gt(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Lt(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Geq(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Leq(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Not(inner) => validate_guard(inner),
+        GuardExpr::Atom(Atom::Port(p)) => {
+            matches!(p, Port::Comp { .. } | Port::This { .. })
+        }
+        GuardExpr::Atom(Atom::Num(_)) => true,
+    }
+}
+
 /// Returns `Ok` if there are no groups defined.
 fn validate_structure(comp: &component::Component) -> Result<()> {
-    let builder = ConnectionIteration::default();
-    if comp
-        .structure
-        .edge_iterator(builder)
-        .all(|edge| edge.group.is_none())
-    {
+    let valid = comp.structure.edge_idx().all(|idx| {
+        let edge = &comp.structure.graph[idx];
+        edge.guard
+            .as_ref()
+            .map(|g| validate_guard(g))
+            .unwrap_or(true)
+            && edge.group.is_none()
+    });
+    if valid {
         Ok(())
     } else {
         Err(Error::MalformedStructure(
-            "Groups can not be turned into Verilog".to_string(),
+            "Groups / Holes can not be turned into Verilog".to_string(),
         ))
     }
 }
@@ -330,14 +369,30 @@ fn test<'a>(node: &Node, port: String) -> D<'a> {
 /// Converts a guarded edge into a Verilog string
 fn guard<'a>(expr: &GuardExpr) -> D<'a> {
     match expr {
-        GuardExpr::And(a, b) => guard(a).append(" & ").append(guard(b)),
-        GuardExpr::Or(a, b) => guard(a).append(" | ").append(guard(b)),
-        GuardExpr::Eq(a, b) => guard(a).append(" == ").append(guard(b)),
-        GuardExpr::Neq(a, b) => guard(a).append(" != ").append(guard(b)),
-        GuardExpr::Gt(a, b) => guard(a).append(" > ").append(guard(b)),
-        GuardExpr::Lt(a, b) => guard(a).append(" < ").append(guard(b)),
-        GuardExpr::Geq(a, b) => guard(a).append(" >= ").append(guard(b)),
-        GuardExpr::Leq(a, b) => guard(a).append(" <= ").append(guard(b)),
+        GuardExpr::And(a, b) => D::nil()
+            .append(guard(a).append(" & ").append(guard(b)))
+            .parens(),
+        GuardExpr::Or(a, b) => D::nil()
+            .append(guard(a).append(" | ").append(guard(b)))
+            .parens(),
+        GuardExpr::Eq(a, b) => D::nil()
+            .append(guard(a).append(" == ").append(guard(b)))
+            .parens(),
+        GuardExpr::Neq(a, b) => D::nil()
+            .append(guard(a).append(" != ").append(guard(b)))
+            .parens(),
+        GuardExpr::Gt(a, b) => D::nil()
+            .append(guard(a).append(" > ").append(guard(b)))
+            .parens(),
+        GuardExpr::Lt(a, b) => D::nil()
+            .append(guard(a).append(" < ").append(guard(b)))
+            .parens(),
+        GuardExpr::Geq(a, b) => D::nil()
+            .append(guard(a).append(" >= ").append(guard(b)))
+            .parens(),
+        GuardExpr::Leq(a, b) => D::nil()
+            .append(guard(a).append(" <= ").append(guard(b)))
+            .parens(),
         GuardExpr::Not(a) => D::text("!").append(guard(a)),
         GuardExpr::Atom(a) => atom(a),
     }

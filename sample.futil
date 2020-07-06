@@ -96,11 +96,11 @@ import "primitives/std.lib";
 //   }
 
 //   wires {
-//     group init {
-//       x.in = 32'd1;
-//       x.write_en = 1'b1;
-//       init[done] = x.done ? 1'b1;
-//     }
+//     // group init {
+//     //   x.in = 32'd1;
+//     //   x.write_en = 1'b1;
+//     //   init[done] = x.done ? 1'b1;
+//     // }
 
 //     group cond {
 //       comp.right = x.out;
@@ -122,14 +122,14 @@ import "primitives/std.lib";
 //   }
 
 //   control {
-//     seq {
-//       init;
+//     // seq {
+//       // init;
 //       if comp.out with cond {
 //         true;
 //       } else {
 //         false;
 //       }
-//     }
+//     // }
 //   }
 // }
 
@@ -141,30 +141,6 @@ import "primitives/std.lib";
 //   }
 //   i++;
 // }
-
-component main {
-  cells {
-    add = prim std_add(32);
-    i = prim std_reg(32);
-  }
-
-  wires {
-    group kazoo {
-      add.right = 32'd7;
-      add.left = i.out;
-      i.in = add.out;
-      i.write_en = 1'b1;
-      kazoo[done] = i.done ? 1'b1;
-    }
-  }
-
-  control {
-    seq {
-      kazoo;
-      kazoo;
-    }
-  }
-}
 
 // fibonacci
 component main {
@@ -200,7 +176,7 @@ component main {
       add1.right = 32'b1;
       add1.left = j.out;
       j.in = add1.out;
-      j.write_en = !x ? 1'b1;
+      j.write_en = 1'b1;
       incr_j[done] = j.done ? 1'b1;
     }
 

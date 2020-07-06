@@ -143,7 +143,6 @@ impl Visitor for CompileControl {
         new_structure!(st, &ctx,
             cond_computed = prim std_reg(1);
             cond_stored = prim std_reg(1);
-            branch_or = prim std_or(1);
         );
 
         // cond[go] = !cond_computed.out ? 1'b1;
@@ -153,36 +152,43 @@ impl Visitor for CompileControl {
             // (cond_group_node, st.port_ref(cond_group_node, "go")?.clone()),
             port!(st; cond_group_node["go"]),
             Some(if_group.clone()),
-            Some(GuardExpr::Not(Box::new(
-                st.to_guard(port!(st; cond_computed."out")),
-            ))),
+            Some(st.to_guard(port!(st; cond_computed."out")).not()),
         )?;
 
-        // cond_computed.in = cond[done] ? 1'b1;
-        // cond_computed.write_en = cond[done] ? 1'b1;
+        // cond_computed.in = cond[go] & cond[done] ? 1'b1;
+        // cond_computed.write_en = cond[go] & cond[done] ? 1'b1;
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num.clone(),
             port!(st; cond_computed."in"),
             Some(if_group.clone()),
-            Some(st.to_guard(port!(st; cond_group_node["done"]))),
+            Some(
+                st.to_guard(port!(st; cond_group_node["go"]))
+                    .and(st.to_guard(port!(st; cond_group_node["done"]))),
+            ),
         )?;
         st.insert_edge(
             num,
             port!(st; cond_computed."write_en"),
             Some(if_group.clone()),
-            Some(st.to_guard(port!(st; cond_group_node["done"]))),
+            Some(
+                st.to_guard(port!(st; cond_group_node["go"]))
+                    .and(st.to_guard(port!(st; cond_group_node["done"]))),
+            ),
         )?;
 
-        // cond_stored.in = cond[done] ? comp.out;
-        // cond_stored.write_en = cond[done] ? comp.out;
+        // cond_stored.in = cond[go] & cond[done] ? comp.out;
+        // cond_stored.write_en = cond[go] & cond[done] ? comp.out;
         st.insert_edge(
             port!(st; cond_node.cond_port),
             // (cond_node, cond_port),
             port!(st; cond_stored."in"),
             // (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
             Some(if_group.clone()),
-            Some(st.to_guard(port!(st; cond_group_node["done"]))),
+            Some(
+                st.to_guard(port!(st; cond_group_node["go"]))
+                    .and(st.to_guard(port!(st; cond_group_node["done"]))),
+            ),
         )?;
         st.insert_edge(
             port!(st; cond_node.cond_port),
@@ -190,7 +196,10 @@ impl Visitor for CompileControl {
             port!(st; cond_stored."write_en"),
             // (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
             Some(if_group.clone()),
-            Some(st.to_guard(port!(st; cond_group_node["done"]))),
+            Some(
+                st.to_guard(port!(st; cond_group_node["go"]))
+                    .and(st.to_guard(port!(st; cond_group_node["done"]))),
+            ),
         )?;
 
         // true[go] = cond_computed.out & cond_stored.out ? 1'b1;
@@ -199,10 +208,10 @@ impl Visitor for CompileControl {
             num,
             port!(st; true_group_node["go"]),
             Some(if_group.clone()),
-            Some(GuardExpr::And(
-                Box::new(st.to_guard(port!(st; cond_computed."out"))),
-                Box::new(st.to_guard(port!(st; cond_stored."out"))),
-            )),
+            Some(
+                st.to_guard(port!(st; cond_computed."out"))
+                    .and(st.to_guard(port!(st; cond_stored."out"))),
+            ),
         )?;
 
         // false[go] = cond_computed.out & !cond_stored.out ? 1'b1;
@@ -211,36 +220,22 @@ impl Visitor for CompileControl {
             num,
             port!(st; false_group_node["go"]),
             Some(if_group.clone()),
-            Some(GuardExpr::And(
-                Box::new(st.to_guard(port!(st; cond_computed."out"))),
-                Box::new(GuardExpr::Not(Box::new(
-                    st.to_guard(port!(st; cond_stored."out")),
-                ))),
-            )),
+            Some(
+                st.to_guard(port!(st; cond_computed."out"))
+                    .and(st.to_guard(port!(st; cond_stored."out")).not()),
+            ),
         )?;
 
-        // or.right = true[done] ? 1'b1;
-        // or.left = false[done] ? 1'b1;
-        // this[done] = or.out;
+        // this[done] = true[done] | false[done] ? 1'b1;
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num,
-            port!(st; branch_or."left"),
+            port!(st; if_group_node["done"]),
             Some(if_group.clone()),
-            Some(st.to_guard(port!(st; true_group_node["done"]))),
-        )?;
-        let num = st.new_constant(1, 1)?;
-        st.insert_edge(
-            num,
-            port!(st; branch_or."right"),
-            Some(if_group.clone()),
-            Some(st.to_guard(port!(st; false_group_node["done"]))),
-        )?;
-        st.insert_edge(
-            (branch_or, st.port_ref(branch_or, "out")?.clone()),
-            (if_group_node, st.port_ref(if_group_node, "done")?.clone()),
-            Some(if_group.clone()),
-            None,
+            Some(
+                st.to_guard(port!(st; true_group_node["done"]))
+                    .or(st.to_guard(port!(st; false_group_node["done"]))),
+            ),
         )?;
 
         Ok(Action::Change(Control::enable(if_group)))
@@ -336,8 +331,8 @@ impl Visitor for CompileControl {
             ))),
         )?;
 
-        // cond_computed.in = cond[done] ? 1'b1;
-        // cond_computed.write_en = cond[done] ? 1'b1;
+        // cond_computed.in = cond[go] & cond[done] ? 1'b1;
+        // cond_computed.write_en = cond[go] & cond[done] ? 1'b1;
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num.clone(),
@@ -347,23 +342,32 @@ impl Visitor for CompileControl {
             //     st.port_ref(cond_computed_reg, "in")?.clone(),
             // ),
             Some(while_group.clone()),
-            Some(st.to_guard(port!(st; cond_group_node["done"]))),
+            Some(
+                st.to_guard(port!(st; cond_group_node["go"]))
+                    .and(st.to_guard(port!(st; cond_group_node["done"]))),
+            ),
         )?;
         st.insert_edge(
             num,
             port!(st; cond_computed."write_en"),
             Some(while_group.clone()),
-            Some(st.to_guard(port!(st; cond_group_node["done"]))),
+            Some(
+                st.to_guard(port!(st; cond_group_node["go"]))
+                    .and(st.to_guard(port!(st; cond_group_node["done"]))),
+            ),
         )?;
 
-        // cond_stored.in = cond[done] ? lt.out;
+        // cond_stored.in = cond[go] & cond[done] ? lt.out;
         st.insert_edge(
             // (cond_node, cond_port.clone()),
             port!(st; cond_node.cond_port),
             // (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
             port!(st; cond_stored."in"),
             Some(while_group.clone()),
-            Some(st.to_guard(port!(st; cond_group_node["done"]))),
+            Some(
+                st.to_guard(port!(st; cond_group_node["go"]))
+                    .and(st.to_guard(port!(st; cond_group_node["done"]))),
+            ),
         )?;
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
@@ -372,74 +376,78 @@ impl Visitor for CompileControl {
             // (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
             port!(st; cond_stored."write_en"),
             Some(while_group.clone()),
-            Some(st.to_guard(port!(st; cond_group_node["done"]))),
+            Some(
+                st.to_guard(port!(st; cond_group_node["go"]))
+                    .and(st.to_guard(port!(st; cond_group_node["done"]))),
+            ),
         )?;
 
         // body[go] = cond_computed.out & cond_stored.out ? 1'b1;
-        // let body_go_guard = GuardExpr::Atom(st.to_guard(
-        //     cond_stored_reg,
-        //     st.port_ref(cond_stored_reg, "out")?.clone(),
-        // ));
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num,
-            // (body_group_node, st.port_ref(body_group_node, "go")?.clone()),
             port!(st; body_group_node["go"]),
             Some(while_group.clone()),
-            Some(GuardExpr::And(
-                Box::new(st.to_guard(port!(st; cond_stored."out"))),
-                Box::new(st.to_guard(port!(st; cond_computed."out"))),
-            )),
+            Some(
+                st.to_guard(port!(st; cond_stored."out"))
+                    .and(st.to_guard(port!(st; cond_computed."out"))),
+            ),
         )?;
 
-        // cond_computed.in = body[done] ? 1'b0
+        // cond_computed.in = body[go] & body[done] ? 1'b0;
         let num = st.new_constant(0, 1)?;
         st.insert_edge(
             num,
             port!(st; cond_computed."in"),
             Some(while_group.clone()),
-            Some(st.to_guard(port!(st; body_group_node["done"]))),
+            Some(
+                st.to_guard(port!(st; body_group_node["go"]))
+                    .and(st.to_guard(port!(st; body_group_node["done"]))),
+            ),
         )?;
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num,
             port!(st; cond_computed."write_en"),
             Some(while_group.clone()),
-            Some(st.to_guard(port!(st; body_group_node["done"]))),
+            Some(
+                st.to_guard(port!(st; body_group_node["go"]))
+                    .and(st.to_guard(port!(st; body_group_node["done"]))),
+            ),
         )?;
 
         // while0[done] = cond_computed.out & !cond_stored.out ? 1'b1;
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num,
-            // (
-            //     while_group_node,
-            //     st.port_ref(while_group_node, "done")?.clone(),
-            // ),
             port!(st; while_group_node["done"]),
             Some(while_group.clone()),
-            Some(GuardExpr::And(
-                Box::new(st.to_guard(port!(st; cond_computed."out"))),
-                Box::new(GuardExpr::Not(Box::new(
-                    st.to_guard(port!(st; cond_stored."out")),
-                ))),
-            )),
+            Some(
+                st.to_guard(port!(st; cond_computed."out"))
+                    .and(st.to_guard(port!(st; cond_stored."out")).not()),
+            ),
         )?;
-        // cond_computed.in = while[done] ? 1'b1;
-        // cond_computed.write_en = while[done] ? 1'b1;
+        // cond_computed.in = !while[go] ? 1'b1;
+        // cond_computed.write_en = !while[go] ? 1'b1;
         let num = st.new_constant(0, 1)?;
         st.insert_edge(
             num,
             port!(st; cond_computed."in"),
             Some(while_group.clone()),
-            Some(st.to_guard(port!(st; while_group_node["done"]))),
+            Some(
+                st.to_guard(port!(st; while_group_node["go"]))
+                    .and(st.to_guard(port!(st; while_group_node["done"]))),
+            ),
         )?;
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num,
             port!(st; cond_computed."write_en"),
             Some(while_group.clone()),
-            Some(st.to_guard(port!(st; while_group_node["done"]))),
+            Some(
+                st.to_guard(port!(st; while_group_node["go"]))
+                    .and(st.to_guard(port!(st; while_group_node["done"]))),
+            ),
         )?;
 
         Ok(Action::Change(Control::enable(while_group)))
@@ -475,22 +483,32 @@ impl Visitor for CompileControl {
         let num = st.new_constant(0, 32)?;
         st.insert_edge(
             num,
-            (fsm_reg, st.port_ref(fsm_reg, "in")?.clone()),
+            // (fsm_reg, st.port_ref(fsm_reg, "in")?.clone()),
+            port!(st; fsm_reg."in"),
             Some(seq_group.clone()),
             Some(st.to_guard((
                 seq_group_node,
                 st.port_ref(seq_group_node, "done")?.clone(),
             ))),
+            // Some(
+            //     st.to_guard(port!(st; seq_group_node["go"]))
+            //         .and(st.to_guard(port!(st; seq_group_node["done"]))),
+            // ),
         )?;
         let num = st.new_constant(1, 1)?;
         st.insert_edge(
             num,
-            (fsm_reg, st.port_ref(fsm_reg, "write_en")?.clone()),
+            // (fsm_reg, st.port_ref(fsm_reg, "write_en")?.clone()),
+            port!(st; fsm_reg."write_en"),
             Some(seq_group.clone()),
             Some(st.to_guard((
                 seq_group_node,
                 st.port_ref(seq_group_node, "done")?.clone(),
             ))),
+            // Some(
+            //     st.to_guard(port!(st; seq_group_node["go"]))
+            //         .and(st.to_guard(port!(st; seq_group_node["done"]))),
+            // ),
         )?;
 
         // Assigning 1 to tell groups to go.
@@ -515,30 +533,28 @@ impl Visitor for CompileControl {
 
                     st.insert_edge(
                         signal_const.clone(),
-                        (group, group_port),
+                        (group, group_port.clone()),
                         Some(seq_group.clone()),
-                        Some(GuardExpr::Eq(
-                            Box::new(st.to_guard((fsm_reg, fsm_out_port))),
-                            Box::new(st.to_guard(fsm_st_const.clone())),
-                        )),
-                        // Some(GuardExpr::And(
-                        //     Box::new(GuardExpr::Eq(
-                        //         Box::new(st.to_guard((fsm_reg, fsm_out_port))),
-                        //         Box::new(st.to_guard(fsm_st_const.clone())),
-                        //     )),
-                        //     Box::new(GuardExpr::Not(Box::new(
-                        //         st.to_guard((group, group_port.clone())),
-                        //     ))),
-                        // )),
+                        // Some(
+                        //     st.to_guard((fsm_reg, fsm_out_port))
+                        //         .eq(st.to_guard(fsm_st_const.clone())),
+                        // ),
+                        Some(
+                            (st.to_guard((fsm_reg, fsm_out_port.clone()))
+                                .eq(st.to_guard(fsm_st_const.clone())))
+                            .and(st.to_guard(port!(st; group["done"])).not()),
+                        ),
                     )?;
 
                     fsm_counter += 1;
 
-                    /* fsm.in = group[done] ? 1 */
+                    /* fsm.in = fsm.out == value(fsm_counter) & group[done] ? 1 */
                     let num = st.new_constant(fsm_counter, 32)?;
                     let group_done_port = st.port_ref(group, "done")?.clone();
-                    let done_guard =
-                        st.to_guard((group, group_done_port.clone()));
+                    let done_guard = (st
+                        .to_guard((fsm_reg, fsm_out_port))
+                        .eq(st.to_guard(fsm_st_const.clone())))
+                    .and(st.to_guard(port!(st; group["done"])));
                     st.insert_edge(
                         num.clone(),
                         (fsm_reg, st.port_ref(fsm_reg, "in")?.clone()),

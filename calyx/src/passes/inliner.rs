@@ -101,17 +101,17 @@ fn inline_hole(st: &mut StructureGraph, hole: String) {
         let mut guard_opt = ed.guard.clone();
         let atom = st.to_atom((src_idx, ed.src.port_name().clone()));
         // if atom is just the constant 1, we don't need to put it in the guard
-        if !matches!(
-            atom,
-            Atom::Num(ast::BitNum {
-                width: 1, val: 1, ..
-            })
-        ) {
-            guard_opt = Some(match guard_opt {
-                Some(g) => g.and(GuardExpr::Atom(atom)),
-                None => GuardExpr::Atom(atom),
-            });
-        }
+        // if !matches!(
+        //     atom,
+        //     Atom::Num(ast::BitNum {
+        //         width: 1, val: 1, ..
+        //     })
+        // ) {
+        // }
+        guard_opt = Some(match guard_opt {
+            Some(g) => g.and(GuardExpr::Atom(atom)),
+            None => GuardExpr::Atom(atom),
+        });
         // insert a mapping from hole to guards
         guard_opt.map(|guard| {
             guard_map.insert(

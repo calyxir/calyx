@@ -1,7 +1,5 @@
 use super::ast;
-use super::structure::{
-    DataDirection, EdgeData, Node, NodeData, StructG, StructureGraph,
-};
+use super::structure::{DataDirection, NodeData, StructG};
 use petgraph::graph::{EdgeIndex, NodeIndex};
 
 pub struct EdgeIndexIterator<'a> {
