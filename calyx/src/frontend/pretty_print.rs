@@ -65,6 +65,17 @@ pub trait PrettyPrint {
     /// The RcDoc. Call `arena.alloc(obj)` to allocate `obj` and use the
     /// returned reference for printing.
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec>;
+    fn pretty_string(&self) -> String {
+        // XXX(sam) this leaks memory atm because we put vecs into this
+        let mut arena = bumpalo::Bump::new();
+        let mut buf = Vec::new();
+        {
+            let r = self.prettify(&arena);
+            r.render(100, &mut buf).unwrap();
+        }
+        arena.reset();
+        String::from_utf8(buf).unwrap()
+    }
     fn pretty_print(&self) {
         // XXX(sam) this leaks memory atm because we put vecs into this
         let mut arena = bumpalo::Bump::new();

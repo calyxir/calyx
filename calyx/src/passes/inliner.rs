@@ -109,7 +109,7 @@ fn inline_hole(st: &mut StructureGraph, hole: String) {
         // ) {
         // }
         guard_opt = Some(match guard_opt {
-            Some(g) => g.and(GuardExpr::Atom(atom)),
+            Some(g) => g & GuardExpr::Atom(atom),
             None => GuardExpr::Atom(atom),
         });
         // insert a mapping from hole to guards

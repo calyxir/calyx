@@ -1,11 +1,10 @@
 use crate::errors::{Error, Extract};
 use crate::lang::{
-    ast, component::Component, context::Context, structure,
-    structure_builder::ASTBuilder,
+    ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 use crate::port;
-use ast::{Control, GuardExpr};
+use ast::Control;
 
 #[derive(Default)]
 pub struct ComponentInterface;

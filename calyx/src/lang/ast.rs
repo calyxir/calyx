@@ -1,8 +1,9 @@
 // Abstract Syntax Tree for Futil
 use crate::errors::{Result, Span};
 use crate::lang::context::LibraryContext;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::ops::{BitAnd, BitOr, Not};
 
 /// Represents an identifier in a Futil program
 #[derive(Clone, PartialOrd, Ord)]
@@ -262,21 +263,41 @@ pub enum GuardExpr {
 }
 
 impl GuardExpr {
-    /// A convienent constructor for `GuardExpr::And`
-    /// that allows chaining construction `g.and(guard)`
-    pub fn and(self, other: GuardExpr) -> Self {
-        GuardExpr::And(Box::new(self), Box::new(other))
-    }
+    // /// A convienent constructor for `GuardExpr::And`
+    // /// that allows chaining construction `g.and(guard)`
+    // pub fn and(self, other: GuardExpr) -> Self {
+    //     GuardExpr::And(Box::new(self), Box::new(other))
+    // }
 
-    pub fn or(self, other: GuardExpr) -> Self {
-        GuardExpr::Or(Box::new(self), Box::new(other))
-    }
+    // pub fn or(self, other: GuardExpr) -> Self {
+    //     GuardExpr::Or(Box::new(self), Box::new(other))
+    // }
 
     pub fn eq(self, other: GuardExpr) -> Self {
         GuardExpr::Eq(Box::new(self), Box::new(other))
     }
+}
 
-    pub fn not(self) -> Self {
+impl BitAnd for GuardExpr {
+    type Output = Self;
+
+    fn bitand(self, other: Self) -> Self::Output {
+        GuardExpr::And(Box::new(self), Box::new(other))
+    }
+}
+
+impl BitOr for GuardExpr {
+    type Output = Self;
+
+    fn bitor(self, other: Self) -> Self::Output {
+        GuardExpr::Or(Box::new(self), Box::new(other))
+    }
+}
+
+impl Not for GuardExpr {
+    type Output = Self;
+
+    fn not(self) -> Self {
         GuardExpr::Not(Box::new(self))
     }
 }

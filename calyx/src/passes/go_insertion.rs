@@ -1,7 +1,7 @@
 use crate::lang::component::Component;
 use crate::lang::{ast, context::Context, structure};
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use structure::{DataDirection, NodeData};
+use structure::NodeData;
 
 #[derive(Default)]
 pub struct GoInsertion {}
@@ -34,7 +34,7 @@ impl Visitor for GoInsertion {
                     let go_guard =
                         ast::GuardExpr::Atom(ast::Atom::Port(group_go));
                     edge_data.guard = Some(match &edge_data.guard {
-                        Some(g) => g.clone().and(go_guard),
+                        Some(g) => g.clone() & go_guard,
                         None => go_guard,
                     });
                 }

@@ -11,12 +11,11 @@ use crate::lang::{
     ast,
     ast::{Atom, Cell, Control, GuardExpr, Port},
     component, context,
-    structure::{DataDirection, EdgeData, NodeData, StructureGraph},
-    structure_iter::ConnectionIteration,
+    structure::{DataDirection, NodeData},
 };
 use itertools::Itertools;
 use lib::Implementation;
-use petgraph::graph::{EdgeIndex, NodeIndex};
+use petgraph::graph::NodeIndex;
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc;
 use std::cmp::Ordering;
@@ -25,17 +24,7 @@ use std::io::Write;
 type D<'a> = RcDoc<'a, ColorSpec>;
 
 /// Implements a simple Verilog backend. The backend
-/// only accepts Futil programs with control that is
-/// a top level `seq` with only `enable`s as children:
-/// ```
-/// (seq (enable A B)
-///      (enable B C)
-///       ...)
-/// ```
-/// or control that is just a single `enable`.
-/// ```
-/// (enable A B)
-/// ```
+/// only accepts Futil programs with no control and no groups.
 pub struct VerilogBackend {}
 
 /// Checks to make sure that there are no holes being
@@ -271,10 +260,12 @@ fn wire_declarations<'a>(comp: &component::Component) -> Result<D<'a>> {
     let wires = comp
         .structure
         .component_iterator()
+        // filter for cells because we don't need to declare wires for ports
         .filter_map(|(_idx, node)| match &node.data {
             NodeData::Cell(_) => Some(node),
             _ => None,
         })
+        // extract name, portdef from input / output of signature
         .map(|node| {
             node.signature
                 .inputs
@@ -288,6 +279,7 @@ fn wire_declarations<'a>(comp: &component::Component) -> Result<D<'a>> {
                 )
         })
         .flatten()
+        // XXX(sam), definitely could use `test` here
         .map(|(name, portdef)| {
             Ok(D::text("wire")
                 .keyword_color()
@@ -314,49 +306,21 @@ fn wire_id_from_port<'a>(port: &Port) -> D<'a> {
         Port::Comp { component, port } => {
             D::text(format!("{}_{}", component.to_string(), port.to_string()))
         }
-        Port::Hole { .. } => {
-            unreachable!("Cannot transform programs with holes into Verilog.")
-        }
+        Port::Hole { .. } => unreachable!(
+            "This should have been caught in the validation checking"
+        ),
     }
 }
 
-/// Uses Verilog assign to connect the two ends of `edge`.
-fn alias<'a>(st: &StructureGraph, idx: EdgeIndex, edge: &EdgeData) -> D<'a> {
-    D::text("assign")
-        .keyword_color()
-        .append(D::space())
-        .append(wire_id_from_port(&edge.dest))
-        .append(" = ")
-        .append(wire_id_from_port(&edge.src))
-        .append(";")
-    // D::text("always_ff")
-    //     .keyword_color()
-    //     .append(D::space())
-    //     .append("@")
-    //     .append(D::text("posedge clk").parens())
-    //     .append(D::space())
-    //     .append(D::text("begin").control_color())
-    //     .append(
-    //         D::line()
-    //             .append(
-    //                 D::nil().append(
-    //                     wire_id_from_port(&edge.dest)
-    //                         .append(D::text(" <= "))
-    //                         .append(wire_id_from_port(&edge.src))
-    //                         .append(";"),
-    //                 ),
-    //             )
-    //             .nest(4)
-    //             .append(D::line()),
-    //     )
-    //     .append(D::text("end").control_color())
-}
-
-fn test<'a>(node: &Node, port: String) -> D<'a> {
+/// Generates a Verilog identifier for a (Node, String).
+///  * NodeData::Cell(..) => name_port
+///  * NodeData::Port => port
+///  * NodeData::Hole => impossible!
+///  * NodeData::Constant({width: w, value: v}) => w'dv
+fn wire_id_from_node<'a>(node: &Node, port: String) -> D<'a> {
     match &node.data {
         NodeData::Cell(..) => {
             D::text(format!("{}_{}", node.name.to_string(), port))
-            // wire_id_from_port(port)
         }
         NodeData::Port => D::text(port),
         NodeData::Hole(..) => unreachable!(
@@ -396,36 +360,6 @@ fn guard<'a>(expr: &GuardExpr) -> D<'a> {
         GuardExpr::Not(a) => D::text("!").append(guard(a)),
         GuardExpr::Atom(a) => atom(a),
     }
-    // D::intersperse(guard_doc, D::text(" & ")).parens()
-
-    // let (src, dest) = st.endpoints(idx);
-
-    // D::text("always_ff")
-    //     .keyword_color()
-    //     .append(D::space())
-    //     .append("@")
-    //     .append(D::text("posedge clk").parens())
-    //     .append(D::space())
-    //     .append(D::text("begin").control_color())
-    //     .append(
-    //         D::line()
-    //             .append(
-    //                 D::text("if")
-    //                     .control_color()
-    //                     .append(D::space())
-    //                     .append(guard.parens())
-    //                     .append(D::space())
-    //                     .append(
-    //                         test(&st.get_node(dest).data, &edge.dest)
-    //                             .append(D::text(" <= "))
-    //                             .append(test(&st.get_node(src).data, &edge.src))
-    //                             .append(";"),
-    //                     ),
-    //             )
-    //             .nest(4)
-    //             .append(D::line()),
-    //     )
-    //     .append(D::text("end").control_color())
 }
 
 /// Converts ast::Atom to a verilog string
@@ -438,7 +372,9 @@ fn atom<'a>(atom: &Atom) -> D<'a> {
                 port.to_string()
             )),
             Port::This { port } => D::text(port.to_string()),
-            Port::Hole { .. } => unreachable!(),
+            Port::Hole { .. } => unreachable!(
+                "Holes should be caught in the backend validation."
+            ),
         },
         Atom::Num(n) => D::text(format!("{}'d{}", n.width, n.val)),
     }
@@ -460,25 +396,19 @@ pub fn bitwidth<'a>(width: u64) -> Result<D<'a>> {
 //==========================================
 /// Generate wire connections
 fn connections<'a>(comp: &component::Component) -> D<'a> {
-    // let doc = comp.structure.edge_idx().map(|idx| {
-    //     let data = &comp.structure.graph[idx];
-    //     if data.guards.is_empty() {
-    //         alias(&comp.structure, idx, &data)
-    //     } else {
-    //         guard(&comp.structure, idx, &data)
-    //     }
-    // });
-
     let doc = comp
         .structure
         .component_iterator()
+        // for every component
         .map(|(idx, node)| {
             node.signature
                 .inputs
                 .iter()
+                // get all the edges writing into a port
                 .map(move |portdef| {
                     (
                         portdef.name.to_string(),
+                        // collect all edges writing into this node and port
                         comp.structure
                             .edge_idx()
                             .with_direction(DataDirection::Write)
@@ -495,12 +425,15 @@ fn connections<'a>(comp: &component::Component) -> D<'a> {
                             .collect::<Vec<_>>(),
                     )
                 })
+                // remove empty edges because we don't need to assign them anything
                 .filter(|(_, edges)| !edges.is_empty())
+                // fold all the edges into a single assign statement
+                // with nested ternary statements to implement muxing
                 .map(|(name, edges)| {
                     D::text("assign")
                         .keyword_color()
                         .append(D::space())
-                        .append(test(&node, name))
+                        .append(wire_id_from_node(&node, name))
                         .append(" = ")
                         .append(edges.iter().rev().fold(
                             D::text("'0"),
@@ -508,9 +441,9 @@ fn connections<'a>(comp: &component::Component) -> D<'a> {
                                 el.guard
                                     .as_ref()
                                     .map(|g| guard(&g))
-                                    .unwrap_or(D::nil())
+                                    .unwrap_or_else(D::nil)
                                     .append(" ? ")
-                                    .append(test(
+                                    .append(wire_id_from_node(
                                         &node,
                                         el.src.port_name().to_string(),
                                     ))
@@ -525,13 +458,6 @@ fn connections<'a>(comp: &component::Component) -> D<'a> {
         })
         .flatten();
 
-    // let doc = comp.structure.edge_iterator(builder).map(|data| {
-    //     if data.guards.is_empty() {
-    //         alias(&data)
-    //     } else {
-    //         guard(&data)
-    //     }
-    // });
     D::intersperse(doc, D::line())
 }
 
@@ -609,14 +535,13 @@ fn signature_connections<'a>(
             if &portdef.name == "clk" {
                 vec![D::text(".").append("clk").append(D::text("clk").parens())]
             } else {
-                let iterator = ConnectionIteration::default()
-                    .disable_guard()
-                    .with_component(idx)
-                    .with_port(portdef.name.to_string())
-                    .in_direction(DataDirection::Write);
-
                 comp.structure
-                    .edge_iterator(iterator)
+                    .edge_idx()
+                    .with_direction(DataDirection::Write)
+                    .with_node(idx)
+                    .with_port(portdef.name.to_string())
+                    .detach()
+                    .map(|edge_idx| &comp.structure.graph[edge_idx])
                     // we only want one connection per dest
                     .unique_by(|edge| &edge.dest)
                     .map(move |edge| {
@@ -631,13 +556,6 @@ fn signature_connections<'a>(
 
     // wire up outgoing edges
     let outgoing = sig.outputs.iter().map(|portdef| {
-        // find inuse edges that are coming out of this port
-        // let iterator = ConnectionIteration::default()
-        // .disable_guard()
-        // .with_component(idx)
-        // .with_port(portdef.name.to_string());
-        // .in_direction(DataDirection::Read);
-
         D::text(".")
             .append(D::text(portdef.name.to_string()))
             .append(
@@ -645,16 +563,9 @@ fn signature_connections<'a>(
                     "{}_{}",
                     comp.structure.get_node(idx).name.to_string(),
                     portdef.name.to_string()
-                )) // wire_id_from_port(&edge.src).parens()
+                ))
                 .parens(),
             )
-        // comp.structure
-        //     .edge_iterator(iterator)
-        //     // we only want one connection per src
-        //     .unique_by(|edge| &edge.src)
-        //     .map(move |edge| {
-
-        //     })
     });
 
     D::intersperse(incoming.chain(outgoing), D::text(",").append(D::line()))
