@@ -26,26 +26,34 @@ impl<'a> EdgeIndexIterator<'a> {
         }
     }
 
+    /// Modifies the target of other filters.
+    ///  * `DataDirection::Write` makes other filters reference the `dest` of an edge
+    ///  * `DataDirection::Read` makes other filters reference the `src` of an edge
     pub fn with_direction(mut self, direction: DataDirection) -> Self {
         self.direction = Some(direction);
         self
     }
 
+    /// Filters edges that have an `node` as an endpoint.
     pub fn with_node(mut self, node: NodeIndex) -> Self {
         self.node = Some(node);
         self
     }
 
+    /// Filters edges that have `port` as an endpoint.
     pub fn with_port(mut self, port: String) -> Self {
         self.port = Some(port);
         self
     }
 
+    /// Filters for nodes of `node_type: NodeType`.
     pub fn with_node_type(mut self, node_type: NodeType) -> Self {
         self.node_type = Some(node_type);
         self
     }
 
+    /// Detaches the iterator from it's reference to `StructG`
+    /// so that it is possible to get mutable references to `EdgeData`
     pub fn detach(self) -> impl Iterator<Item = EdgeIndex> {
         self.collect::<Vec<EdgeIndex>>().into_iter()
     }
@@ -79,25 +87,6 @@ impl Iterator for EdgeIndexIterator<'_> {
         // get endpoints
         let weight = &self.graph[idx];
         let dir = &self.direction;
-
-        // // create direction matcher
-        // let dir_match: Box<
-        //     dyn Fn(Box<dyn Fn(NodeIndex, ast::Port) -> bool>) -> bool,
-        // > = match self.direction {
-        //     Some(DataDirection::Read) => {
-        //         Box::new(|f: Box<dyn Fn(NodeIndex, ast::Port) -> bool>| {
-        //             f(*src, weight.src.clone())
-        //         })
-        //     }
-        //     Some(DataDirection::Write) => {
-        //         Box::new(|f: Box<dyn Fn(NodeIndex, ast::Port) -> bool>| {
-        //             f(*dest, weight.dest.clone())
-        //         })
-        //     }
-        //     None => Box::new(|f: Box<dyn Fn(NodeIndex, ast::Port) -> bool>| {
-        //         f(*src, weight.src.clone()) || f(*dest, weight.dest.clone())
-        //     }),
-        // };
 
         // compute conditions
         let node_cond = self
@@ -166,87 +155,17 @@ impl Iterator for EdgeIndexIterator<'_> {
 }
 
 /// Represents the type of a node for the purposes of filtering.
-/// Unfortunately this can't be the same as `ast::Port`
+/// Unfortunately this can't be the same as `NodeData`
 /// because we can't ask the user to construct fake data just for
 /// the purposes of filtering.
 #[derive(Clone, Debug)]
 pub enum NodeType {
-    /// Filters for `Port::Comp`
+    /// Filters for `NodeData::Comp`
     Cell,
-    /// Filters for `Port::This`
+    /// Filters for `NodeData::Constant`
     Constant,
-    /// Filters for `Port::Hole`
+    /// Filters for `NodeData::Hole`
     Hole,
+    /// Filters for `NodeData::Port`
     Port,
-}
-
-/// TODO(rachit): Implement filtering with group name.
-#[derive(Clone, Debug)]
-pub struct ConnectionIteration {
-    /// Throw errors if trying to overwrite a field.
-    guarded: bool,
-    /// Only iterate over edges that have this particular node.
-    pub from_node: Option<NodeIndex>,
-    /// Only iterate over edges that have this particular port.
-    pub with_port: Option<String>,
-    /// Only iterate over edges where data flows from a port in the given
-    /// direction.
-    pub direction: Option<DataDirection>,
-    /// Only iterate over edges incident to a cell.
-    pub from_node_type: Option<NodeType>,
-}
-
-impl Default for ConnectionIteration {
-    fn default() -> Self {
-        ConnectionIteration {
-            guarded: true,
-            from_node: None,
-            with_port: None,
-            direction: None,
-            from_node_type: None,
-        }
-    }
-}
-
-impl ConnectionIteration {
-    /// Iterate over set of edges that contain this edge.
-    pub fn with_component(mut self, component: NodeIndex) -> Self {
-        if self.guarded && self.from_node.is_some() {
-            panic!("Tried to overwrite with_component field in EdgeIterationBuilder")
-        }
-        self.from_node = Some(component);
-        self
-    }
-
-    pub fn with_port(mut self, port: String) -> Self {
-        if self.guarded && self.with_port.is_some() {
-            panic!(
-                "Tried to overwrite with_port field in EdgeIterationBuilder"
-            );
-        }
-        self.with_port = Some(port);
-        self
-    }
-
-    pub fn in_direction(mut self, direction: DataDirection) -> Self {
-        if self.guarded && self.with_port.is_some() {
-            panic!("Tried to overwrite direction field in EdgeIterationBuilder")
-        }
-        self.direction = Some(direction);
-        self
-    }
-
-    pub fn with_node_type(mut self, node_type: NodeType) -> Self {
-        if self.guarded && self.from_node_type.is_some() {
-            panic!("Tried to overwrite node type field in EdgeIterationBuilder")
-        }
-        self.from_node_type = Some(node_type);
-        self
-    }
-
-    /// Disable the guard checking for this iteration builder.
-    pub fn disable_guard(mut self) -> Self {
-        self.guarded = false;
-        self
-    }
 }

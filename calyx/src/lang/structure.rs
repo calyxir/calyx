@@ -596,96 +596,10 @@ impl StructureGraph {
         }
     }
 
-    /* ============= Iteration Methods ============= */
-    // /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
-    // pub fn edge_iterator(
-    //     &self,
-    //     iter_spec: structure_iter::ConnectionIteration,
-    // ) -> impl Iterator<Item = &EdgeData> + '_ {
-    //     let base: Box<dyn Iterator<Item = EdgeReference<EdgeData>>> =
-    //         match (iter_spec.from_node, iter_spec.direction) {
-    //             (Some(node), Some(dir)) => {
-    //                 Box::new(self.graph.edges_directed(node, dir.into()))
-    //             }
-    //             (Some(node), None) => Box::new(self.graph.edges(node)),
-    //             /* Iterate all edges and select port direction */
-    //             (None, Some(_)) | (None, None) => {
-    //                 Box::new(self.graph.edge_references())
-    //             }
-    //         };
-
-    //     base.map(|edge| edge.weight()).filter(move |ed| {
-    //         // factors out the direction matching logic
-    //         let direction_matcher: Box<
-    //             dyn Fn(Box<dyn Fn(&ast::Port) -> bool>) -> bool,
-    //         > = match &iter_spec.direction {
-    //             Some(DataDirection::Read) => {
-    //                 Box::new(|f: Box<dyn Fn(&ast::Port) -> bool>| f(&ed.src))
-    //             }
-    //             Some(DataDirection::Write) => {
-    //                 Box::new(|f: Box<dyn Fn(&ast::Port) -> bool>| f(&ed.dest))
-    //             }
-    //             None => Box::new(|f: Box<dyn Fn(&ast::Port) -> bool>| {
-    //                 f(&ed.src) || f(&ed.dest)
-    //             }),
-    //         };
-    //         // let match_node_type = match &iter_spec.from_node_type {
-    //         //     Some(NodeType::Comp) => direction_matcher(Box::new(
-    //         //         |p| matches!(p, Port::Comp { .. }),
-    //         //     )),
-    //         //     Some(NodeType::This) => direction_matcher(Box::new(
-    //         //         |p| matches!(p, Port::This { .. }),
-    //         //     )),
-    //         //     Some(NodeType::Hole) => direction_matcher(Box::new(
-    //         //         |p| matches!(p, Port::Hole { .. }),
-    //         //     )),
-    //         //     None => true,
-    //         // };
-
-    //         let match_port = match &iter_spec.with_port {
-    //             Some(port) => direction_matcher(Box::new(move |p| {
-    //                 p.port_name() == port.as_str()
-    //             })),
-    //             None => true,
-    //         };
-
-    //         match_port
-    //     })
-    // }
-
+    /// Returns an iterator over the edges of this structure.
     pub fn edge_idx(&self) -> EdgeIndexIterator {
         EdgeIndexIterator::new(&self.graph, self.graph.edge_indices())
     }
-
-    // /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
-    // pub fn edge_iterator_mut<'a>(
-    //     &'a mut self,
-    //     iter_spec: structure_iter::ConnectionIteration,
-    // ) -> Result<impl Iterator<Item = &'a mut EdgeData>> {
-    //     // XXX(rachit): Unfortunately couldn't find any good way to iterate
-    //     // over edges while filtering for a given node. The heavyweight approach
-    //     // would be to store the name of the Node inside the EdgeData.
-    //     if iter_spec.from_node.is_some() {
-    //         return Err(errors::Error::Impossible("Cannot create a mutable iterator over edges using a given node.".to_string()));
-    //     }
-
-    //     let it = self.graph.edge_weights_mut().filter(move |ed| {
-    //         match (iter_spec.with_port.as_ref(), iter_spec.direction.as_ref()) {
-    //             (Some(port), Some(DataDirection::Read)) => {
-    //                 ed.src.port_name().to_string() == *port
-    //             }
-    //             (Some(port), Some(DataDirection::Write)) => {
-    //                 ed.dest.port_name().to_string() == *port
-    //             }
-    //             (Some(port), _) => {
-    //                 ed.dest.port_name().to_string() == *port
-    //                     || ed.src.port_name().to_string() == *port
-    //             }
-    //             (None, _) => true,
-    //         }
-    //     });
-    //     Ok(it)
-    // }
 
     /// Returns an iterator over all the nodes (components).
     pub fn component_iterator<'a>(
