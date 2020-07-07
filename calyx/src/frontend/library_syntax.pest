@@ -2,7 +2,7 @@ WHITESPACE = _{ " " | "\t" | NEWLINE }
 COMMENT = _{ ("//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE) | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 ident_syms = _{ "_" | "-" | "'" }
-identifier = @{ ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA)* }
+identifier = @{ ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
 
 bitwidth = @{ ASCII_DIGIT+ }
 num_lit = @{ ASCII_DIGIT+ } // TODO: add verilog style number literals
