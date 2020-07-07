@@ -38,7 +38,7 @@ pub struct Opts {
     #[structopt(short = "t", long = "toplevel", default_value = "main")]
     pub toplevel: String,
 
-    ///choose a single pass
+    /// choose a single pass
     #[structopt(short = "p", long = "pass", default_value = "all")]
     pub pass: Vec<String>,
 

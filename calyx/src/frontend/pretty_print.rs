@@ -305,7 +305,9 @@ impl PrettyPrint for GuardExpr {
             GuardExpr::Lt(e1, e2) => binop(e1, "<", e2),
             GuardExpr::Geq(e1, e2) => binop(e1, ">=", e2),
             GuardExpr::Leq(e1, e2) => binop(e1, "<=", e2),
-            GuardExpr::Not(e) => RcDoc::text("!").append(e.prettify(&arena)),
+            GuardExpr::Not(e) => {
+                RcDoc::text("!").append(e.prettify(&arena).parens())
+            }
             GuardExpr::Atom(e) => e.prettify(&arena),
         }
     }
