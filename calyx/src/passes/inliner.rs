@@ -96,7 +96,7 @@ fn inline_hole(st: &mut StructureGraph, hole: String) {
         .with_node_type(NodeType::Hole)
         .with_port(hole)
     {
-        let ed = &st.graph[idx];
+        let ed = &st.get_edge(idx);
         let (src_idx, dest_idx) = st.endpoints(idx);
         let mut guard_opt = ed.guard.clone();
         let atom = st.to_atom((src_idx, ed.src.port_name().clone()));
@@ -126,7 +126,7 @@ fn inline_hole(st: &mut StructureGraph, hole: String) {
 
     // iterate over all edges to replace holes with an expression
     for edidx in st.edge_idx().detach() {
-        let mut ed_data = &mut st.graph[edidx];
+        let mut ed_data = st.get_edge_mut(edidx);
         // for the guard, recurse down the guard ast and replace any leaves with
         // the expression in `guard_map` adding the corresponding edges to `edges_inlined`
         ed_data.guard = ed_data.guard.as_ref().map(|guard| {
@@ -141,7 +141,7 @@ fn inline_hole(st: &mut StructureGraph, hole: String) {
 
     // flatten groups (maybe temporary)
     for idx in st.edge_idx().detach() {
-        st.graph[idx].group = None;
+        st.get_edge_mut(idx).group = None;
     }
     st.groups = HashMap::new();
     st.groups.insert(None, st.edge_idx().collect());

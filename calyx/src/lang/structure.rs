@@ -178,7 +178,7 @@ pub struct StructureGraph {
     /// that are in no group.
     pub groups: HashMap<Option<ast::Id>, Vec<EdgeIndex>>,
     // XXX(sam) make this not public, by making proper getters/setters
-    pub graph: StructG,
+    graph: StructG,
     pub namegen: NameGenerator,
 }
 
@@ -565,6 +565,14 @@ impl StructureGraph {
         self.component_iterator()
             .find(|(_, node)| node.name == *name)
             .map(|(idx, _)| idx)
+    }
+
+    pub fn get_edge(&self, idx: EdgeIndex) -> &EdgeData {
+        &self.graph[idx]
+    }
+
+    pub fn get_edge_mut(&mut self, idx: EdgeIndex) -> &mut EdgeData {
+        &mut self.graph[idx]
     }
 
     pub fn endpoints(&self, idx: EdgeIndex) -> (NodeIndex, NodeIndex) {

@@ -23,7 +23,7 @@ impl Visitor for GoInsertion {
         for edge_idx in st.edge_idx().detach() {
             let (_src, dest) = st.endpoints(edge_idx);
             let is_hole = matches!(st.get_node(dest).data, NodeData::Hole(..));
-            let edge_data = &mut st.graph[edge_idx];
+            let edge_data = st.get_edge_mut(edge_idx);
             if !(is_hole && edge_data.dest.port_name() == "done") {
                 if let Some(group_name) = &edge_data.group {
                     let group_go = ast::Port::Hole {

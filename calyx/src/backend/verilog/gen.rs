@@ -66,7 +66,7 @@ fn validate_guard(guard: &GuardExpr) -> bool {
 /// Returns `Ok` if there are no groups defined.
 fn validate_structure(comp: &component::Component) -> Result<()> {
     let valid = comp.structure.edge_idx().all(|idx| {
-        let edge = &comp.structure.graph[idx];
+        let edge = &comp.structure.get_edge(idx);
         edge.guard
             .as_ref()
             .map(|g| validate_guard(g))
@@ -416,7 +416,7 @@ fn connections<'a>(comp: &component::Component) -> D<'a> {
                             .with_port(portdef.name.to_string())
                             .map(|idx| {
                                 (
-                                    comp.structure.graph[idx].clone(),
+                                    comp.structure.get_edge(idx).clone(),
                                     comp.structure.get_node(
                                         comp.structure.endpoints(idx).0,
                                     ),
@@ -541,7 +541,7 @@ fn signature_connections<'a>(
                     .with_node(idx)
                     .with_port(portdef.name.to_string())
                     .detach()
-                    .map(|edge_idx| &comp.structure.graph[edge_idx])
+                    .map(|edge_idx| comp.structure.get_edge(edge_idx))
                     // we only want one connection per dest
                     .unique_by(|edge| &edge.dest)
                     .map(move |edge| {
