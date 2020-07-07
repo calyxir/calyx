@@ -1,101 +1,203 @@
 import "primitives/std.lib";
 
-// i = 0;
-// x = 0;
-// while i < 10 {
-//   x = i + x;
-//   i = i + 1;
-// }
-
-component main {
-  cells {
-    i = prim std_reg(32);
-    x = prim std_reg(32);
-    lt = prim std_lt(32);
-    adder = prim std_add(32);
-    incr = prim std_add(32);
-  }
-
-  wires {
-    group init {
-      i.in = 32'd0;
-      x.in = 32'd0;
-    }
-
-    group cond {
-      lt.left = i.out;
-      lt.right = 32'd10;
-    }
-
-    group body {
-      adder.right = i.out;
-      adder.left = x.out;
-      x.in = adder.out;
-
-      incr.right = i.out;
-      incr.left = 32'd1;
-      i.in = incr.out;
-    }
-  }
-
-  control {
-    seq {
-      init;
-      if lt.out with cond {
-        body;
-      } else {
-        body;
-      }
-    }
-  }
-}
-
-// component compiled {
+// component main {
 //   cells {
-//     i = prim std_reg(32);
-//     x = prim std_reg(32);
-//     lt = prim std_lt(32);
-//     adder = prim std_add(32);
-//     incr = prim std_add(32);
-
-//     // generated
-//     cond_computed = prim std_reg(1);
-//     cond_stored = prim std_reg(1);
+//     x = prim std_reg(1);
+//     y = prim std_reg(1);
 //   }
 
 //   wires {
-//     group init {
-//       i.in = init[go] ? 32'd0;
-//       x.in = init[go] ? 32'd0;
+
+//     group x-assign {
+//       x.in = 1'd1;
+//       x-assign[done] = 1'd1;
 //     }
 
-//     group cond {
-//       lt.left = cond[go] ? i.out;
-//       lt.right = cond[go] ? 32'd10;
-//     }
-
-//     group body {
-//       adder.right = body[go] ? i.out;
-//       adder.left = body[go] ? x.out;
-//       x.in = body[go] ? adder.out;
-
-//       incr.right = body[go] ? i.out;
-//       incr.left = body[go] ? 32'd1;
-//       i.in = body[go] ? incr.out;
-//     }
-
-//     group while0 {
-//       cond[go] = while0[go] & !cond_computed.out ? 1'b1;
-//       cond_computed.in = while0[go] & cond[done] ? 1'b1;
-//       cond_stored.in = while0[go] & cond[done] ? lt.out;
-
-//       body[go] = while0[go] & cond_computed.out & cond_stored.out ? 1'b1;
-//       cond_computed.in = while0[go] & body[done] ? 1'b0;
-//       while0[done] = while0[go] & cond_computed.out & !cond_stored.out ? 1'b1;
+//     group y-assign {
+//       y.in = 1'd0;
+//       y-assign[done] = 1'd1;
 //     }
 //   }
 
 //   control {
-//     while0;
+//     par {
+//       x-assign; y-assign;
+//     }
 //   }
 // }
+
+// component main(go: 1) -> (done: 1) {
+//   cells {
+//     x = prim std_reg(2);
+//     y = prim std_reg(2);
+//   }
+
+//   wires {
+//     group par0 {
+//       x-assign[go] = par0[go] ? 1'b1;
+//       y-assign[go] = par0[go] ? 1'b1;
+//       par0[done] = x-assign[done] & y-assign[done] & par0[go] ? 1'd1;
+//     }
+//     group x-assign {
+//       x.in = par0[go] ? 2'b10;
+//       x-assign[done] = 1'd1;
+//     }
+//     group y-assign {
+//       y.in = par0[go] ? 2'b01;
+//       y-assign[done] = 1'd1;
+//     }
+//   }
+
+//   control {
+//     par0;
+//   }
+// }
+
+
+// component main {
+//   cells {
+//     a = prim std_reg(32);
+//     b = prim std_reg(32);
+//     c = prim std_reg(32);
+//   }
+
+//   wires {
+//     group ar {
+//       a.in = 32'd1;
+//       a.write_en = 1'b1;
+//       ar[done] = a.done ? 1'b1;
+//     }
+//     group br {
+//       b.in = 32'd2;
+//       b.write_en = 1'b1;
+//       br[done] = b.done ? 1'b1;
+//     }
+//     group cr {
+//       c.in = 32'd3;
+//       c.write_en = 1'b1;
+//       cr[done] = c.done ? 1'b1;
+//     }
+//   }
+
+//   control {
+//     seq {
+//       ar;
+//       br;
+//       cr;
+//     }
+//   }
+// }
+
+
+// component main {
+//   cells {
+//     x = prim std_reg(32);
+//     comp = prim std_eq(32);
+//   }
+
+//   wires {
+//     // group init {
+//     //   x.in = 32'd1;
+//     //   x.write_en = 1'b1;
+//     //   init[done] = x.done ? 1'b1;
+//     // }
+
+//     group cond {
+//       comp.right = x.out;
+//       comp.left = 32'd1;
+//       cond[done] = 1'b1;
+//     }
+
+//     group true {
+//       x.in = 32'd2;
+//       x.write_en = 1'b1;
+//       true[done] = x.done ? 1'b1;
+//     }
+
+//     group false {
+//       x.in = 32'd3;
+//       x.write_en = 1'b1;
+//       false[done] = x.done ? 1'b1;
+//     }
+//   }
+
+//   control {
+//     // seq {
+//       // init;
+//       if comp.out with cond {
+//         true;
+//       } else {
+//         false;
+//       }
+//     // }
+//   }
+// }
+
+// i = 0;
+// while i < 10 {
+//   j = 0;
+//   while j < 10 {
+//     j++;
+//   }
+//   i++;
+// }
+
+// fibonacci
+component main {
+  cells {
+    i = prim std_reg(32);
+    j = prim std_reg(32);
+    add1 = prim std_add(32);
+    add2 = prim std_add(32);
+    lt1 = prim std_lt(32);
+    lt2 = prim std_lt(32);
+  }
+
+  wires {
+    group cond {
+      lt1.left = i.out;
+      lt1.right = 32'd10;
+      cond[done] = 1'b1;
+    }
+
+    group inner_cond {
+      lt2.left = j.out;
+      lt2.right = 32'd10;
+      inner_cond[done] = 1'b1;
+    }
+
+    group reset_j {
+      j.in = 32'd0;
+      j.write_en = 1'b1;
+      reset_j[done] = j.done ? 1'b1;
+    }
+
+    group incr_j {
+      add1.right = 32'b1;
+      add1.left = j.out;
+      j.in = add1.out;
+      j.write_en = 1'b1;
+      incr_j[done] = j.done ? 1'b1;
+    }
+
+    group incr_i {
+      add2.right = 32'b1;
+      add2.left = i.out;
+      i.in = add2.out;
+      i.write_en = 1'b1;
+      incr_i[done] = i.done ? 1'b1;
+    }
+  }
+
+  control {
+    while lt1.out with cond {
+      seq {
+        reset_j;
+        while lt2.out with inner_cond {
+          incr_j;
+        }
+        incr_i;
+      }
+    }
+  }
+}

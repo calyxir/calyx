@@ -3,6 +3,7 @@ use crate::errors::{Result, Span};
 use crate::lang::context::LibraryContext;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::ops::{BitAnd, BitOr, Not};
 
 /// Represents an identifier in a Futil program
 #[derive(Clone, PartialOrd, Ord)]
@@ -246,23 +247,66 @@ pub enum Atom {
     Num(BitNum),
 }
 
+/// The AST for GuardExprs
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum GuardExpr {
-    Eq(Atom, Atom),
-    Neq(Atom, Atom),
-    Gt(Atom, Atom),
-    Lt(Atom, Atom),
-    Geq(Atom, Atom),
-    Leq(Atom, Atom),
-    Not(Atom),
+    And(Box<GuardExpr>, Box<GuardExpr>),
+    Or(Box<GuardExpr>, Box<GuardExpr>),
+    Eq(Box<GuardExpr>, Box<GuardExpr>),
+    Neq(Box<GuardExpr>, Box<GuardExpr>),
+    Gt(Box<GuardExpr>, Box<GuardExpr>),
+    Lt(Box<GuardExpr>, Box<GuardExpr>),
+    Geq(Box<GuardExpr>, Box<GuardExpr>),
+    Leq(Box<GuardExpr>, Box<GuardExpr>),
+    Not(Box<GuardExpr>),
     Atom(Atom),
+}
+
+impl GuardExpr {
+    // /// A convienent constructor for `GuardExpr::And`
+    // /// that allows chaining construction `g.and(guard)`
+    // pub fn and(self, other: GuardExpr) -> Self {
+    //     GuardExpr::And(Box::new(self), Box::new(other))
+    // }
+
+    // pub fn or(self, other: GuardExpr) -> Self {
+    //     GuardExpr::Or(Box::new(self), Box::new(other))
+    // }
+
+    pub fn eq(self, other: GuardExpr) -> Self {
+        GuardExpr::Eq(Box::new(self), Box::new(other))
+    }
+}
+
+impl BitAnd for GuardExpr {
+    type Output = Self;
+
+    fn bitand(self, other: Self) -> Self::Output {
+        GuardExpr::And(Box::new(self), Box::new(other))
+    }
+}
+
+impl BitOr for GuardExpr {
+    type Output = Self;
+
+    fn bitor(self, other: Self) -> Self::Output {
+        GuardExpr::Or(Box::new(self), Box::new(other))
+    }
+}
+
+impl Not for GuardExpr {
+    type Output = Self;
+
+    fn not(self) -> Self {
+        GuardExpr::Not(Box::new(self))
+    }
 }
 
 /// A guard is a conditions in `guard_conj` which guard the value
 /// represented by `expr`.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Guard {
-    pub guard: Vec<GuardExpr>,
+    pub guard: Option<GuardExpr>,
     pub expr: Atom,
 }
 
@@ -278,6 +322,12 @@ impl ToString for Atom {
 impl ToString for GuardExpr {
     fn to_string(&self) -> String {
         match self {
+            GuardExpr::And(a, b) => {
+                format!("{}_and_{}", a.to_string(), b.to_string())
+            }
+            GuardExpr::Or(a, b) => {
+                format!("{}_or_{}", a.to_string(), b.to_string())
+            }
             GuardExpr::Eq(a, b) => {
                 format!("{}_eq_{}", a.to_string(), b.to_string())
             }

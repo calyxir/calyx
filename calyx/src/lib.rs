@@ -4,4 +4,3 @@ pub mod frontend;
 pub mod lang;
 pub mod passes;
 pub mod utils;
-//pub mod grouped_digraph;

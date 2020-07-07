@@ -65,6 +65,17 @@ pub trait PrettyPrint {
     /// The RcDoc. Call `arena.alloc(obj)` to allocate `obj` and use the
     /// returned reference for printing.
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec>;
+    fn pretty_string(&self) -> String {
+        // XXX(sam) this leaks memory atm because we put vecs into this
+        let mut arena = bumpalo::Bump::new();
+        let mut buf = Vec::new();
+        {
+            let r = self.prettify(&arena);
+            r.render(100, &mut buf).unwrap();
+        }
+        arena.reset();
+        String::from_utf8(buf).unwrap()
+    }
     fn pretty_print(&self) {
         // XXX(sam) this leaks memory atm because we put vecs into this
         let mut arena = bumpalo::Bump::new();
@@ -262,7 +273,7 @@ impl PrettyPrint for Wire {
             .append(RcDoc::text("="))
             .append(RcDoc::space());
 
-        let rhs = if self.src.guard.is_empty() {
+        let rhs = if self.src.guard.is_none() {
             self.src.expr.prettify(&arena)
         } else {
             self.src
@@ -289,7 +300,7 @@ impl PrettyPrint for Guard {
 
 impl PrettyPrint for GuardExpr {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let binop = |e1: &Atom, sym: &'static str, e2: &Atom| {
+        let binop = |e1: &GuardExpr, sym: &'static str, e2: &GuardExpr| {
             e1.prettify(&arena)
                 .append(RcDoc::space())
                 .append(RcDoc::text(sym))
@@ -297,13 +308,17 @@ impl PrettyPrint for GuardExpr {
                 .append(e2.prettify(&arena))
         };
         match self {
+            GuardExpr::And(e1, e2) => binop(e1, "&", e2),
+            GuardExpr::Or(e1, e2) => binop(e1, "|", e2),
             GuardExpr::Eq(e1, e2) => binop(e1, "==", e2),
             GuardExpr::Neq(e1, e2) => binop(e1, "!=", e2),
             GuardExpr::Gt(e1, e2) => binop(e1, ">", e2),
             GuardExpr::Lt(e1, e2) => binop(e1, "<", e2),
             GuardExpr::Geq(e1, e2) => binop(e1, ">=", e2),
             GuardExpr::Leq(e1, e2) => binop(e1, "<=", e2),
-            GuardExpr::Not(e) => RcDoc::text("!").append(e.prettify(&arena)),
+            GuardExpr::Not(e) => {
+                RcDoc::text("!").append(e.prettify(&arena).parens())
+            }
             GuardExpr::Atom(e) => e.prettify(&arena),
         }
     }

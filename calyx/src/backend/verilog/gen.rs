@@ -6,14 +6,12 @@ use crate::frontend::{
     pretty_print::{display, PrettyHelper},
 };
 use crate::lang::library::ast as lib;
+use crate::lang::structure::Node;
 use crate::lang::{
     ast,
     ast::{Atom, Cell, Control, GuardExpr, Port},
     component, context,
-    structure::DataDirection,
-    structure::EdgeData,
-    structure::NodeData,
-    structure_iter::ConnectionIteration,
+    structure::{DataDirection, NodeData},
 };
 use itertools::Itertools;
 use lib::Implementation;
@@ -26,31 +24,60 @@ use std::io::Write;
 type D<'a> = RcDoc<'a, ColorSpec>;
 
 /// Implements a simple Verilog backend. The backend
-/// only accepts Futil programs with control that is
-/// a top level `seq` with only `enable`s as children:
-/// ```
-/// (seq (enable A B)
-///      (enable B C)
-///       ...)
-/// ```
-/// or control that is just a single `enable`.
-/// ```
-/// (enable A B)
-/// ```
+/// only accepts Futil programs with no control and no groups.
 pub struct VerilogBackend {}
+
+/// Checks to make sure that there are no holes being
+/// used in a guard.
+fn validate_guard(guard: &GuardExpr) -> bool {
+    match guard {
+        GuardExpr::And(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Or(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Eq(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Neq(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Gt(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Lt(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Geq(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Leq(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
+        GuardExpr::Not(inner) => validate_guard(inner),
+        GuardExpr::Atom(Atom::Port(p)) => {
+            matches!(p, Port::Comp { .. } | Port::This { .. })
+        }
+        GuardExpr::Atom(Atom::Num(_)) => true,
+    }
+}
 
 /// Returns `Ok` if there are no groups defined.
 fn validate_structure(comp: &component::Component) -> Result<()> {
-    let builder = ConnectionIteration::default();
-    if comp
-        .structure
-        .edge_iterator(builder)
-        .all(|edge| edge.group.is_none())
-    {
+    let valid = comp.structure.edge_idx().all(|idx| {
+        let edge = &comp.structure.get_edge(idx);
+        edge.guard
+            .as_ref()
+            .map(|g| validate_guard(g))
+            .unwrap_or(true)
+            && edge.group.is_none()
+    });
+    if valid {
         Ok(())
     } else {
         Err(Error::MalformedStructure(
-            "Groups can not be turned into Verilog".to_string(),
+            "Groups / Holes can not be turned into Verilog".to_string(),
         ))
     }
 }
@@ -154,14 +181,14 @@ impl Emitable for ast::ComponentDef {
             .append(wire_declarations(&comp)?)
             .append(D::line())
             .append(D::line())
-            .append(colors::comment(D::text("// Input / output connections")))
-            .append(D::line())
-            .append(connections(&comp))
-            .append(D::line())
-            .append(D::line())
             .append(colors::comment(D::text("// Subcomponent Instances")))
             .append(D::line())
-            .append(subcomponent_instances(&comp));
+            .append(subcomponent_instances(&comp))
+            .append(D::line())
+            .append(D::line())
+            .append(colors::comment(D::text("// Input / output connections")))
+            .append(D::line())
+            .append(connections(&comp));
         let inner = structure;
 
         Ok(colors::comment(D::text("// Component Signature"))
@@ -217,8 +244,7 @@ impl Emitable for ast::Signature {
 
 impl Emitable for ast::Portdef {
     fn doc<'a>(&self, _ctx: &component::Component) -> Result<D<'a>> {
-        // XXX(sam) why would we use logic over wires?
-        Ok(D::text("logic")
+        Ok(D::text("wire")
             .keyword_color()
             .append(D::space())
             .append(bitwidth(self.width)?)
@@ -234,10 +260,12 @@ fn wire_declarations<'a>(comp: &component::Component) -> Result<D<'a>> {
     let wires = comp
         .structure
         .component_iterator()
+        // filter for cells because we don't need to declare wires for ports
         .filter_map(|(_idx, node)| match &node.data {
             NodeData::Cell(_) => Some(node),
             _ => None,
         })
+        // extract name, portdef from input / output of signature
         .map(|node| {
             node.signature
                 .inputs
@@ -251,8 +279,9 @@ fn wire_declarations<'a>(comp: &component::Component) -> Result<D<'a>> {
                 )
         })
         .flatten()
+        // XXX(sam), definitely could use `test` here
         .map(|(name, portdef)| {
-            Ok(D::text("logic")
+            Ok(D::text("wire")
                 .keyword_color()
                 .append(D::space())
                 .append(bitwidth(portdef.width)?)
@@ -277,77 +306,60 @@ fn wire_id_from_port<'a>(port: &Port) -> D<'a> {
         Port::Comp { component, port } => {
             D::text(format!("{}_{}", component.to_string(), port.to_string()))
         }
-        Port::Hole { .. } => {
-            unreachable!("Cannot transform programs with holes into Verilog.")
-        }
+        Port::Hole { .. } => unreachable!(
+            "This should have been caught in the validation checking"
+        ),
     }
 }
 
-/// Uses Verilog assign to connect the two ends of `edge`.
-fn alias<'a>(edge: &EdgeData) -> D<'a> {
-    D::text("always_ff")
-        .keyword_color()
-        .append(D::space())
-        .append("@")
-        .append(D::text("posedge clk").parens())
-        .append(D::space())
-        .append(D::text("begin").control_color())
-        .append(
-            D::line()
-                .append(
-                    D::nil().append(
-                        wire_id_from_port(&edge.dest)
-                            .append(D::text(" <= "))
-                            .append(wire_id_from_port(&edge.src))
-                            .append(";"),
-                    ),
-                )
-                .nest(4)
-                .append(D::line()),
-        )
-        .append(D::text("end").control_color())
+/// Generates a Verilog identifier for a (Node, String).
+///  * NodeData::Cell(..) => name_port
+///  * NodeData::Port => port
+///  * NodeData::Hole => impossible!
+///  * NodeData::Constant({width: w, value: v}) => w'dv
+fn wire_id_from_node<'a>(node: &Node, port: String) -> D<'a> {
+    match &node.data {
+        NodeData::Cell(..) => {
+            D::text(format!("{}_{}", node.name.to_string(), port))
+        }
+        NodeData::Port => D::text(port),
+        NodeData::Hole(..) => unreachable!(
+            "This should have been caught in the validation checking"
+        ),
+        NodeData::Constant(n) => D::text(format!("{}'d{}", n.width, n.val)),
+    }
 }
 
 /// Converts a guarded edge into a Verilog string
-fn guard<'a>(edge: &EdgeData) -> D<'a> {
-    let guard_doc = edge.guards.iter().map(|expr| match expr {
-        GuardExpr::Eq(a, b) => atom(a).append(" == ").append(atom(b)),
-        GuardExpr::Neq(a, b) => atom(a).append(" != ").append(atom(b)),
-        GuardExpr::Gt(a, b) => atom(a).append(" > ").append(atom(b)),
-        GuardExpr::Lt(a, b) => atom(a).append(" < ").append(atom(b)),
-        GuardExpr::Geq(a, b) => atom(a).append(" >= ").append(atom(b)),
-        GuardExpr::Leq(a, b) => atom(a).append(" <= ").append(atom(b)),
-        GuardExpr::Not(a) => D::text("!").append(atom(a)),
+fn guard<'a>(expr: &GuardExpr) -> D<'a> {
+    match expr {
+        GuardExpr::And(a, b) => D::nil()
+            .append(guard(a).append(" & ").append(guard(b)))
+            .parens(),
+        GuardExpr::Or(a, b) => D::nil()
+            .append(guard(a).append(" | ").append(guard(b)))
+            .parens(),
+        GuardExpr::Eq(a, b) => D::nil()
+            .append(guard(a).append(" == ").append(guard(b)))
+            .parens(),
+        GuardExpr::Neq(a, b) => D::nil()
+            .append(guard(a).append(" != ").append(guard(b)))
+            .parens(),
+        GuardExpr::Gt(a, b) => D::nil()
+            .append(guard(a).append(" > ").append(guard(b)))
+            .parens(),
+        GuardExpr::Lt(a, b) => D::nil()
+            .append(guard(a).append(" < ").append(guard(b)))
+            .parens(),
+        GuardExpr::Geq(a, b) => D::nil()
+            .append(guard(a).append(" >= ").append(guard(b)))
+            .parens(),
+        GuardExpr::Leq(a, b) => D::nil()
+            .append(guard(a).append(" <= ").append(guard(b)))
+            .parens(),
+        GuardExpr::Not(a) => D::text("!").append(guard(a)),
         GuardExpr::Atom(a) => atom(a),
-    });
-    let guard = D::intersperse(guard_doc, D::text(" & "));
-
-    D::text("always_ff")
-        .keyword_color()
-        .append(D::space())
-        .append("@")
-        .append(D::text("posedge clk").parens())
-        .append(D::space())
-        .append(D::text("begin").control_color())
-        .append(
-            D::line()
-                .append(
-                    D::text("if")
-                        .control_color()
-                        .append(D::space())
-                        .append(guard.parens())
-                        .append(D::space())
-                        .append(
-                            wire_id_from_port(&edge.dest)
-                                .append(D::text(" <= "))
-                                .append(wire_id_from_port(&edge.src))
-                                .append(";"),
-                        ),
-                )
-                .nest(4)
-                .append(D::line()),
-        )
-        .append(D::text("end").control_color())
+    }
 }
 
 /// Converts ast::Atom to a verilog string
@@ -360,7 +372,9 @@ fn atom<'a>(atom: &Atom) -> D<'a> {
                 port.to_string()
             )),
             Port::This { port } => D::text(port.to_string()),
-            Port::Hole { .. } => unreachable!(),
+            Port::Hole { .. } => unreachable!(
+                "Holes should be caught in the backend validation."
+            ),
         },
         Atom::Num(n) => D::text(format!("{}'d{}", n.width, n.val)),
     }
@@ -382,14 +396,68 @@ pub fn bitwidth<'a>(width: u64) -> Result<D<'a>> {
 //==========================================
 /// Generate wire connections
 fn connections<'a>(comp: &component::Component) -> D<'a> {
-    let builder = ConnectionIteration::default();
-    let doc = comp.structure.edge_iterator(builder).map(|data| {
-        if data.guards.is_empty() {
-            alias(&data)
-        } else {
-            guard(&data)
-        }
-    });
+    let doc = comp
+        .structure
+        .component_iterator()
+        // for every component
+        .map(|(idx, node)| {
+            node.signature
+                .inputs
+                .iter()
+                // get all the edges writing into a port
+                .map(move |portdef| {
+                    (
+                        portdef.name.to_string(),
+                        // collect all edges writing into this node and port
+                        comp.structure
+                            .edge_idx()
+                            .with_direction(DataDirection::Write)
+                            .with_node(idx)
+                            .with_port(portdef.name.to_string())
+                            .map(|idx| {
+                                (
+                                    comp.structure.get_edge(idx).clone(),
+                                    comp.structure.get_node(
+                                        comp.structure.endpoints(idx).0,
+                                    ),
+                                )
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                })
+                // remove empty edges because we don't need to assign them anything
+                .filter(|(_, edges)| !edges.is_empty())
+                // fold all the edges into a single assign statement
+                // with nested ternary statements to implement muxing
+                .map(|(name, edges)| {
+                    D::text("assign")
+                        .keyword_color()
+                        .append(D::space())
+                        .append(wire_id_from_node(&node, name))
+                        .append(" = ")
+                        .append(edges.iter().rev().fold(
+                            D::text("'0"),
+                            |acc, (el, node)| {
+                                el.guard
+                                    .as_ref()
+                                    .map(|g| guard(&g))
+                                    .unwrap_or_else(D::nil)
+                                    .append(" ? ")
+                                    .append(wire_id_from_node(
+                                        &node,
+                                        el.src.port_name().to_string(),
+                                    ))
+                                    .append(" : ")
+                                    .append(acc)
+                                    .parens()
+                            },
+                        ))
+                        .append(";")
+                })
+                .collect::<Vec<_>>()
+        })
+        .flatten();
+
     D::intersperse(doc, D::line())
 }
 
@@ -458,7 +526,6 @@ fn signature_connections<'a>(
     comp: &component::Component,
     idx: NodeIndex,
 ) -> D<'a> {
-    let builder = ConnectionIteration::default().with_component(idx);
     // wire up all the incoming edges
     let incoming = sig
         .inputs
@@ -468,13 +535,13 @@ fn signature_connections<'a>(
             if &portdef.name == "clk" {
                 vec![D::text(".").append("clk").append(D::text("clk").parens())]
             } else {
-                let iterator = builder
-                    .clone()
-                    .with_port(portdef.name.to_string())
-                    .in_direction(DataDirection::Write);
-
                 comp.structure
-                    .edge_iterator(iterator)
+                    .edge_idx()
+                    .with_direction(DataDirection::Write)
+                    .with_node(idx)
+                    .with_port(portdef.name.to_string())
+                    .detach()
+                    .map(|edge_idx| comp.structure.get_edge(edge_idx))
                     // we only want one connection per dest
                     .unique_by(|edge| &edge.dest)
                     .map(move |edge| {
@@ -488,27 +555,18 @@ fn signature_connections<'a>(
         .flatten();
 
     // wire up outgoing edges
-    let outgoing = sig
-        .outputs
-        .iter()
-        .map(|portdef| {
-            // find inuse edges that are coming out of this port
-            let iterator = builder
-                .clone()
-                .with_port(portdef.name.to_string())
-                .in_direction(DataDirection::Read);
-
-            comp.structure
-                .edge_iterator(iterator)
-                // we only want one connection per src
-                .unique_by(|edge| &edge.src)
-                .map(move |edge| {
-                    D::text(".")
-                        .append(D::text(portdef.name.to_string()))
-                        .append(wire_id_from_port(&edge.src).parens())
-                })
-        })
-        .flatten();
+    let outgoing = sig.outputs.iter().map(|portdef| {
+        D::text(".")
+            .append(D::text(portdef.name.to_string()))
+            .append(
+                D::text(format!(
+                    "{}_{}",
+                    comp.structure.get_node(idx).name.to_string(),
+                    portdef.name.to_string()
+                ))
+                .parens(),
+            )
+    });
 
     D::intersperse(incoming.chain(outgoing), D::text(",").append(D::line()))
 }

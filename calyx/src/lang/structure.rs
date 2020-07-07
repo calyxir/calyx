@@ -11,11 +11,11 @@ use errors::{Error, Result};
 use itertools::Itertools;
 use petgraph::{
     graph::{EdgeIndex, NodeIndex},
-    stable_graph::{EdgeReference, StableDiGraph},
-    visit::IntoEdgeReferences,
+    stable_graph::StableDiGraph,
     Direction,
 };
 use std::{cmp::Ordering, collections::HashMap, fmt};
+use structure_iter::EdgeIndexIterator;
 
 /// store the structure ast node so that we can reconstruct the ast
 #[derive(Clone, Debug)]
@@ -139,14 +139,25 @@ pub struct EdgeData {
     pub dest: Port,
     pub width: u64,
     pub group: Option<ast::Id>,
-    pub guards: Vec<ast::GuardExpr>,
+    pub guard: Option<ast::GuardExpr>,
+}
+
+impl EdgeData {
+    pub fn and_guard(&mut self, guard: ast::GuardExpr) {
+        self.guard = match &self.guard {
+            Some(g) => {
+                Some(ast::GuardExpr::And(Box::new(g.clone()), Box::new(guard)))
+            }
+            None => Some(guard),
+        };
+    }
 }
 
 /// private graph type. the data in the node stores information
 /// for the corresponding node type, and the data on the edge
 /// is (src port, dest port, group, guard). We use stable graph so that NodeIndexes
 /// remain valid after removals. the graph is directed
-type StructG = StableDiGraph<Node, EdgeData>;
+pub type StructG = StableDiGraph<Node, EdgeData>;
 
 // I want to keep the fields of this struct private so that it is easy to swap
 // out implementations / add new ways of manipulating this
@@ -165,7 +176,8 @@ pub struct StructureGraph {
     /// maps Ids to Vec<Edge> which represents the group
     /// the set of edges belong to. None refers to edges
     /// that are in no group.
-    groups: HashMap<Option<ast::Id>, Vec<EdgeIndex>>,
+    pub groups: HashMap<Option<ast::Id>, Vec<EdgeIndex>>,
+    // XXX(sam) make this not public, by making proper getters/setters
     graph: StructG,
     pub namegen: NameGenerator,
 }
@@ -430,7 +442,6 @@ impl StructureGraph {
         Ok((idx, port))
     }
 
-    /// TODO(rachit): Sam, check if this documentation is correct.
     /// Add a new input port to the component that owns this Graph.
     pub fn insert_input_port(&mut self, port: &ast::Portdef) {
         let sig = &mut self.graph[self.io].signature;
@@ -439,7 +450,6 @@ impl StructureGraph {
         sig.outputs.push(port.clone())
     }
 
-    /// TODO(rachit): Sam, check if this documentation is correct.
     /// Add a new output port to the component that owns this Graph.
     pub fn insert_output_port(&mut self, port: &ast::Portdef) {
         let sig = &mut self.graph[self.io].signature;
@@ -468,7 +478,7 @@ impl StructureGraph {
         (src_node, src_port): (NodeIndex, ast::Id),
         (dest_node, dest_port): (NodeIndex, ast::Id),
         group: Option<ast::Id>,
-        guards: Vec<ast::GuardExpr>,
+        guard: Option<ast::GuardExpr>,
     ) -> Result<EdgeIndex> {
         // If the group is not defined, error out.
         if let Some(ref group_name) = group {
@@ -509,11 +519,21 @@ impl StructureGraph {
             dest: self.construct_port(dest_node, dest_port),
             width: src_width,
             group: group.clone(),
-            guards,
+            guard,
         };
         let idx = self.graph.add_edge(src_node, dest_node, edge_data);
         self.groups.get_mut(&group).unwrap().push(idx);
         Ok(idx)
+    }
+
+    pub fn remove_edge(&mut self, edge: EdgeIndex) {
+        let data = self.graph.remove_edge(edge);
+        if let Some(data) = data {
+            self.groups
+                .get_mut(&data.group)
+                .unwrap()
+                .retain(|ed| *ed != edge)
+        }
     }
 
     pub fn visualize(&self) -> String {
@@ -547,6 +567,18 @@ impl StructureGraph {
             .map(|(idx, _)| idx)
     }
 
+    pub fn get_edge(&self, idx: EdgeIndex) -> &EdgeData {
+        &self.graph[idx]
+    }
+
+    pub fn get_edge_mut(&mut self, idx: EdgeIndex) -> &mut EdgeData {
+        &mut self.graph[idx]
+    }
+
+    pub fn endpoints(&self, idx: EdgeIndex) -> (NodeIndex, NodeIndex) {
+        self.graph.edge_endpoints(idx).unwrap()
+    }
+
     /* ============= Helper Methods ============= */
     /// Constructs a ast::Port from a NodeIndex and Id
     fn construct_port(&self, idx: NodeIndex, port: ast::Id) -> ast::Port {
@@ -564,69 +596,9 @@ impl StructureGraph {
         }
     }
 
-    /* ============= Iteration Methods ============= */
-    /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
-    pub fn edge_iterator(
-        &self,
-        iter_spec: structure_iter::ConnectionIteration,
-    ) -> impl Iterator<Item = &EdgeData> {
-        let base: Box<dyn Iterator<Item = EdgeReference<EdgeData>>> =
-            match (iter_spec.from_node, iter_spec.direction) {
-                (Some(node), Some(dir)) => {
-                    Box::new(self.graph.edges_directed(node, dir.into()))
-                }
-                (Some(node), None) => Box::new(self.graph.edges(node)),
-                /* Iterate all edges and select port direction */
-                (None, Some(_)) | (None, None) => {
-                    Box::new(self.graph.edge_references())
-                }
-            };
-
-        base.map(|edge| edge.weight()).filter(move |ed| {
-            match (iter_spec.with_port.as_ref(), iter_spec.direction.as_ref()) {
-                (Some(port), Some(DataDirection::Read)) => {
-                    ed.src.port_name().to_string() == *port
-                }
-                (Some(port), Some(DataDirection::Write)) => {
-                    ed.dest.port_name().to_string() == *port
-                }
-                (Some(port), _) => {
-                    ed.dest.port_name().to_string() == *port
-                        || ed.src.port_name().to_string() == *port
-                }
-                (None, _) => true,
-            }
-        })
-    }
-
-    /// Construct an immutable iteration pattern using an EdgeIterationBuilder.
-    pub fn edge_iterator_mut<'a>(
-        &'a mut self,
-        iter_spec: structure_iter::ConnectionIteration,
-    ) -> Result<impl Iterator<Item = &'a mut EdgeData>> {
-        // XXX(rachit): Unfortunately couldn't find any good way to iterate
-        // over edges while filtering for a given node. The heavyweight approach
-        // would be to store the name of the Node inside the EdgeData.
-        if iter_spec.from_node.is_some() {
-            return Err(errors::Error::Impossible("Cannot create a mutable iterator over edges using a given node.".to_string()));
-        }
-
-        let it = self.graph.edge_weights_mut().filter(move |ed| {
-            match (iter_spec.with_port.as_ref(), iter_spec.direction.as_ref()) {
-                (Some(port), Some(DataDirection::Read)) => {
-                    ed.src.port_name().to_string() == *port
-                }
-                (Some(port), Some(DataDirection::Write)) => {
-                    ed.dest.port_name().to_string() == *port
-                }
-                (Some(port), _) => {
-                    ed.dest.port_name().to_string() == *port
-                        || ed.src.port_name().to_string() == *port
-                }
-                (None, _) => true,
-            }
-        });
-        Ok(it)
+    /// Returns an iterator over the edges of this structure.
+    pub fn edge_idx(&self) -> EdgeIndexIterator {
+        EdgeIndexIterator::new(&self.graph, self.graph.edge_indices())
     }
 
     /// Returns an iterator over all the nodes (components).
@@ -677,9 +649,13 @@ impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
                     .iter()
                     .map(|ed| {
                         let edge = &self.graph[*ed];
+                        let (src_idx, _) = self.endpoints(*ed);
                         let src = ast::Guard {
-                            guard: edge.guards.clone(),
-                            expr: Atom::Port(edge.src.clone()),
+                            guard: edge.guard.clone(),
+                            expr: self.to_atom((
+                                src_idx,
+                                edge.src.port_name().clone(),
+                            )), // Atom::Port(edge.src.clone())
                         };
                         Connection::Wire(Wire {
                             src,
@@ -698,11 +674,11 @@ impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
                                 .edge_endpoints(*ed)
                                 .unwrap_or_else(|| unreachable!());
                             let src = ast::Guard {
-                                guard: edge.guards.clone(),
-                                expr: self.to_atom(
+                                guard: edge.guard.clone(),
+                                expr: self.to_atom((
                                     src_nidx,
                                     edge.src.port_name().clone(),
-                                ),
+                                )),
                             };
                             Wire {
                                 src,
