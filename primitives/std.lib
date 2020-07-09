@@ -58,7 +58,7 @@ primitive std_logsize_mem_d1[p_width, p_logsize](
   }
 }
 
-primitive std_reg[p_width](in: p_width, write_en: 1, clk: 1) -> (out: p_width) {
+primitive std_reg[p_width](in: p_width, write_en: 1, clk: 1) -> (out: p_width, done: 1) {
   verilog {
     module std_reg
       #(parameter width = 32,
