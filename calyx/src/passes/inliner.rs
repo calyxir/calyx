@@ -44,13 +44,13 @@ fn tree_walk(
         GuardExpr::Not(inner) => {
             GuardExpr::Not(Box::new(tree_walk(*inner, &map, edges_inlined)))
         }
-        GuardExpr::And(left, right) => GuardExpr::And(
-            Box::new(tree_walk(*left, &map, edges_inlined)),
-            Box::new(tree_walk(*right, &map, edges_inlined)),
+        GuardExpr::And(left, right) => GuardExpr::and(
+            tree_walk(*left, &map, edges_inlined),
+            tree_walk(*right, &map, edges_inlined),
         ),
-        GuardExpr::Or(left, right) => GuardExpr::Or(
-            Box::new(tree_walk(*left, &map, edges_inlined)),
-            Box::new(tree_walk(*right, &map, edges_inlined)),
+        GuardExpr::Or(left, right) => GuardExpr::or(
+            tree_walk(*left, &map, edges_inlined),
+            tree_walk(*right, &map, edges_inlined),
         ),
         GuardExpr::Eq(left, right) => GuardExpr::Eq(
             Box::new(tree_walk(*left, &map, edges_inlined)),
