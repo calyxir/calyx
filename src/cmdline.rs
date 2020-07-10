@@ -19,7 +19,7 @@ pub use structopt::StructOpt;
 #[allow(clippy::option_option)]
 pub struct Opts {
     /// Input futil program.
-    #[structopt(required_unless = "list-passes", parse(from_os_str))]
+    #[structopt(parse(from_os_str))]
     pub file: Option<PathBuf>,
 
     /// Path to the primitives library.
