@@ -31,11 +31,11 @@ pub struct VerilogBackend {}
 /// used in a guard.
 fn validate_guard(guard: &GuardExpr) -> bool {
     match guard {
-        GuardExpr::And(left, right) => {
-            validate_guard(left) && validate_guard(right)
+        GuardExpr::And(bs) => {
+            bs.iter().all(|b| validate_guard(b))
         }
-        GuardExpr::Or(left, right) => {
-            validate_guard(left) && validate_guard(right)
+        GuardExpr::Or(bs) => {
+            bs.iter().all(|b| validate_guard(b))
         }
         GuardExpr::Eq(left, right) => {
             validate_guard(left) && validate_guard(right)
@@ -333,12 +333,14 @@ fn wire_id_from_node<'a>(node: &Node, port: String) -> D<'a> {
 /// Converts a guarded edge into a Verilog string
 fn guard<'a>(expr: &GuardExpr) -> D<'a> {
     match expr {
-        GuardExpr::And(a, b) => D::nil()
-            .append(guard(a).append(" & ").append(guard(b)))
-            .parens(),
-        GuardExpr::Or(a, b) => D::nil()
-            .append(guard(a).append(" | ").append(guard(b)))
-            .parens(),
+        GuardExpr::And(bs) => D::intersperse(
+            bs.iter().map(|b| guard(b)).collect::<Vec<_>>(),
+            D::text(" & "),
+        ).parens(),
+        GuardExpr::Or(bs) => D::intersperse(
+            bs.iter().map(|b| guard(b)).collect::<Vec<_>>(),
+            D::text(" | "),
+        ).parens(),
         GuardExpr::Eq(a, b) => D::nil()
             .append(guard(a).append(" == ").append(guard(b)))
             .parens(),

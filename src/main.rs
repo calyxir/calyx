@@ -14,6 +14,7 @@ use passes::{
     component_interface::ComponentInterface,
     go_insertion::GoInsertion,
     inliner::Inliner,
+    merge_assign::MergeAssign,
     visitor::{Named, Visitor},
 };
 use std::collections::HashMap;
@@ -53,12 +54,20 @@ fn pass_map() -> HashMap<String, PassClosure> {
         }),
     );
     names.insert(
+        MergeAssign::name().to_string(),
+        Box::new(|ctx, _| {
+            MergeAssign::do_pass_default(&ctx)?;
+            Ok(())
+        }),
+    );
+    names.insert(
         "all".to_string(),
         Box::new(|ctx, _name_gen| {
             CompileControl::do_pass_default(ctx)?;
             GoInsertion::do_pass_default(ctx)?;
             ComponentInterface::do_pass_default(ctx)?;
             Inliner::do_pass_default(ctx)?;
+            MergeAssign::do_pass_default(ctx)?;
             Ok(())
         }),
     );

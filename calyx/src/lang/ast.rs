@@ -1,6 +1,7 @@
 // Abstract Syntax Tree for Futil
 use crate::errors::{Result, Span};
 use crate::lang::context::LibraryContext;
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::ops::{BitAnd, BitOr, Not};
@@ -250,8 +251,8 @@ pub enum Atom {
 /// The AST for GuardExprs
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum GuardExpr {
-    And(Box<GuardExpr>, Box<GuardExpr>),
-    Or(Box<GuardExpr>, Box<GuardExpr>),
+    And(Vec<Box<GuardExpr>>),
+    Or(Vec<Box<GuardExpr>>),
     Eq(Box<GuardExpr>, Box<GuardExpr>),
     Neq(Box<GuardExpr>, Box<GuardExpr>),
     Gt(Box<GuardExpr>, Box<GuardExpr>),
@@ -265,16 +266,58 @@ pub enum GuardExpr {
 impl GuardExpr {
     /// A convienent constructor for `GuardExpr::And`
     /// that allows chaining construction `g.and(guard)`
-    pub fn and(lhs: GuardExpr, rhs: GuardExpr) -> Self {
-        if lhs == rhs {
-            lhs
-        } else if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = lhs {
-            rhs
-        } else if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = rhs {
-            lhs
-        } else {
-            GuardExpr::And(Box::new(lhs), Box::new(rhs))
+    pub fn and_vec(atoms: Vec<GuardExpr>) -> Self {
+        // Flatten any nested `And` inside the atoms.
+        let mut flat_atoms: Vec<Box<GuardExpr>> =
+            Vec::with_capacity(atoms.len());
+        for atom in atoms {
+            match atom {
+                GuardExpr::And(mut bs) => flat_atoms.append(&mut bs),
+                _ => flat_atoms.push(Box::new(atom)),
+            }
         }
+
+        // Remove duplicate elements and any 1s.
+        let uniqs = flat_atoms
+            .into_iter()
+            .unique()
+            .filter(|atom| match **atom {
+                GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) => false,
+                _ => true,
+            })
+            .collect();
+
+        GuardExpr::And(uniqs)
+    }
+
+    /// A convienent constructor for `GuardExpr::And`
+    /// that allows chaining construction `g.and(guard)`
+    pub fn and(lhs: GuardExpr, rhs: GuardExpr) -> Self {
+        GuardExpr::and_vec(vec![lhs, rhs])
+    }
+
+    pub fn or_vec(atoms: Vec<GuardExpr>) -> Self {
+        // Flatten nested `Or`
+        let mut flat_atoms: Vec<Box<GuardExpr>> =
+            Vec::with_capacity(atoms.len());
+        for atom in atoms {
+            match atom {
+                GuardExpr::Or(mut bs) => flat_atoms.append(&mut bs),
+                _ => flat_atoms.push(Box::new(atom)),
+            }
+        }
+
+        // Remove duplicates and any 0s.
+        let uniqs = flat_atoms
+            .into_iter()
+            .unique()
+            .filter(|atom| match **atom {
+                GuardExpr::Atom(Atom::Num(BitNum { val: 0, .. })) => false,
+                _ => true,
+            })
+            .collect();
+
+        GuardExpr::Or(uniqs)
     }
 
     /// A convienent constructor for `GuardExpr::And`
@@ -285,7 +328,7 @@ impl GuardExpr {
         } else if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = rhs {
             rhs
         } else {
-            GuardExpr::Or(Box::new(lhs), Box::new(rhs))
+            GuardExpr::or(lhs, rhs)
         }
     }
 
@@ -338,12 +381,22 @@ impl ToString for Atom {
 impl ToString for GuardExpr {
     fn to_string(&self) -> String {
         match self {
-            GuardExpr::And(a, b) => {
-                format!("{}_and_{}", a.to_string(), b.to_string())
-            }
-            GuardExpr::Or(a, b) => {
-                format!("{}_or_{}", a.to_string(), b.to_string())
-            }
+            GuardExpr::And(branches) => format!(
+                "and({})",
+                branches
+                    .iter()
+                    .map(|b| b.to_string())
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            ),
+            GuardExpr::Or(branches) => format!(
+                "or({})",
+                branches
+                    .iter()
+                    .map(|b| b.to_string())
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            ),
             GuardExpr::Eq(a, b) => {
                 format!("{}_eq_{}", a.to_string(), b.to_string())
             }
