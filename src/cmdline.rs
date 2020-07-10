@@ -115,7 +115,7 @@ impl ToString for BackendOpt {
 
 impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
-    pub fn run<W: Write>(
+    pub fn run_backend<W: Write>(
         self,
         context: &context::Context,
         file: &mut W,
