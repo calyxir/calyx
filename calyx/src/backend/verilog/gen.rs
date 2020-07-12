@@ -226,7 +226,7 @@ impl Emitable for ast::Signature {
         let mut ports = vec![D::text("input")
             .keyword_color()
             .append(D::space())
-            .append(D::text("wire").keyword_color())
+            .append(D::text("logic").keyword_color())
             .append(D::space())
             .append("clk")];
         ports.append(&mut inputs);
@@ -240,7 +240,7 @@ impl Emitable for ast::Signature {
 
 impl Emitable for ast::Portdef {
     fn doc<'a>(&self, _ctx: &component::Component) -> Result<D<'a>> {
-        Ok(D::text("wire")
+        Ok(D::text("logic")
             .keyword_color()
             .append(D::space())
             .append(bitwidth(self.width)?)
@@ -277,7 +277,7 @@ fn wire_declarations<'a>(comp: &component::Component) -> Result<D<'a>> {
         .flatten()
         // XXX(sam), definitely could use `test` here
         .map(|(name, portdef)| {
-            Ok(D::text("wire")
+            Ok(D::text("logic")
                 .keyword_color()
                 .append(D::space())
                 .append(bitwidth(portdef.width)?)
@@ -476,35 +476,44 @@ fn connections<'a>(comp: &component::Component) -> D<'a> {
                 // fold all the edges into a single assign statement
                 // with nested ternary statements to implement muxing
                 .map(|(name, edges)| {
-                    D::text("assign")
-                        .keyword_color()
-                        .append(D::space())
-                        .append(wire_id_from_node(&node, name))
-                        .append(" = ")
-                        .append(edges.iter().rev().fold(
-                            D::text("'0"),
-                            |acc, (el, node)| {
-                                el.guard
-                                    .as_ref()
-                                    .map(|g| guard(&g, ParenCtx::NotCtx))
-                                    .unwrap_or_else(D::nil)
-                                    .append(" ? ")
-                                    .append(wire_id_from_node(
-                                        &node,
-                                        el.src.port_name().to_string(),
-                                    ))
-                                    .append(" : ")
-                                    .append(acc)
-                                    .parens()
-                            },
-                        ))
-                        .append(";")
+                    let pre = wire_id_from_node(&node, name).append(" = ");
+
+                    let default = D::line()
+                        .append(pre.clone().append("'0").append(";"))
+                        .append(D::line());
+
+                    edges.iter().rev().fold(default, |acc, (el, node)| {
+                        let cond = D::text("if ").keyword_color().append(
+                            el.guard
+                                .as_ref()
+                                .map(|g| guard(&g, ParenCtx::NotCtx))
+                                .unwrap_or_else(D::nil),
+                        );
+
+                        let assign = pre
+                            .clone()
+                            .append(wire_id_from_node(
+                                &node,
+                                el.src.port_name().to_string(),
+                            ))
+                            .append(";");
+
+                        cond.append(D::line())
+                            .append(assign.nest(2))
+                            .append(D::line())
+                            .append(D::text("else ").keyword_color())
+                            .append(acc)
+                    })
                 })
                 .collect::<Vec<_>>()
         })
         .flatten();
 
-    D::intersperse(doc, D::line())
+    D::text("always_comb begin")
+        .append(D::line())
+        .append(D::intersperse(doc, D::line()).nest(2))
+        .append(D::line())
+        .append(D::text("end"))
 }
 
 //==========================================
