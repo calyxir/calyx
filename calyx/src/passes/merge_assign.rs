@@ -1,5 +1,6 @@
 //use crate::errors::{Error, Extract};
-use crate::lang::ast::GuardExpr;
+use petgraph::graph::NodeIndex;
+use crate::lang::ast::{GuardExpr, Id};
 use crate::lang::{
     component::Component, context::Context, structure::DataDirection,
 };
@@ -22,19 +23,25 @@ impl Named for MergeAssign {
 impl Visitor for MergeAssign {
     fn start(&mut self, comp: &mut Component, _ctx: &Context) -> VisResult {
         //XXX(rachit): This code ignores groups.
-        let structure = &comp.structure;
-        let mut merged_edges = Vec::new();
+        let mut merged_edges: Vec<(
+            /* (dest, port) being written to */(NodeIndex, Id),
+            /* (src, port) and their guards */Vec<((NodeIndex, Id), GuardExpr)>,
+        )> = Vec::new();
 
+        let structure = &comp.structure;
         for (idx, node) in structure.component_iterator() {
             for portdef in node.signature.inputs.iter() {
-                // For each (node, port) being written into, collect all
-                // HashMap<rhs, Vec<(width, guards)>> values.
-                let combined_guard = comp
+                let iterator = comp
                     .structure
                     .edge_idx()
                     .with_node(idx)
                     .with_port(portdef.name.to_string())
                     .with_direction(DataDirection::Write)
+                    .detach();
+                // For each (node, port) being written into, collect all
+                // HashMap<rhs, Vec<(width, guards)>> values and remove
+                // the edges.
+                let combined_guard = iterator
                     .map(|idx| {
                         let ed = structure.get_edge(idx);
                         let (src_node, _) = structure.endpoints(idx);
@@ -55,7 +62,7 @@ impl Visitor for MergeAssign {
                     })
                     .collect::<Vec<_>>();
 
-                let dest = (idx, &portdef.name);
+                let dest = (idx, portdef.name.clone());
                 merged_edges.push((dest, combined_guard));
             }
         }
