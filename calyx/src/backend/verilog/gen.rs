@@ -31,12 +31,8 @@ pub struct VerilogBackend {}
 /// used in a guard.
 fn validate_guard(guard: &GuardExpr) -> bool {
     match guard {
-        GuardExpr::And(bs) => {
-            bs.iter().all(|b| validate_guard(b))
-        }
-        GuardExpr::Or(bs) => {
-            bs.iter().all(|b| validate_guard(b))
-        }
+        GuardExpr::And(bs) => bs.iter().all(|b| validate_guard(b)),
+        GuardExpr::Or(bs) => bs.iter().all(|b| validate_guard(b)),
         GuardExpr::Eq(left, right) => {
             validate_guard(left) && validate_guard(right)
         }
@@ -330,37 +326,85 @@ fn wire_id_from_node<'a>(node: &Node, port: String) -> D<'a> {
     }
 }
 
+/// Tracks the context in the guards to only generate parens when inside an
+/// operator with stronger binding.
+#[derive(Debug, Eq, PartialEq)]
+enum ParenCtx {
+    OpCtx,
+    NotCtx,
+    AndCtx,
+    OrCtx,
+}
+impl Ord for ParenCtx {
+    fn cmp(&self, other: &Self) -> Ordering {
+        use ParenCtx as P;
+        match (self, other) {
+            (P::NotCtx, _) => Ordering::Greater,
+            (P::OpCtx, P::NotCtx) => Ordering::Less,
+            (P::OpCtx, _) => Ordering::Greater,
+            (P::AndCtx, P::OpCtx) | (P::AndCtx, P::NotCtx) => Ordering::Less,
+            (P::AndCtx, _) => Ordering::Greater,
+            (P::OrCtx, _) => Ordering::Less,
+        }
+    }
+}
+impl PartialOrd for ParenCtx {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 /// Converts a guarded edge into a Verilog string
-fn guard<'a>(expr: &GuardExpr) -> D<'a> {
+fn guard<'a>(expr: &GuardExpr, ctx: ParenCtx) -> D<'a> {
+    use ParenCtx as P;
     match expr {
-        GuardExpr::And(bs) => D::intersperse(
-            bs.iter().map(|b| guard(b)).collect::<Vec<_>>(),
-            D::text(" & "),
-        ).parens(),
-        GuardExpr::Or(bs) => D::intersperse(
-            bs.iter().map(|b| guard(b)).collect::<Vec<_>>(),
-            D::text(" | "),
-        ).parens(),
-        GuardExpr::Eq(a, b) => D::nil()
-            .append(guard(a).append(" == ").append(guard(b)))
-            .parens(),
-        GuardExpr::Neq(a, b) => D::nil()
-            .append(guard(a).append(" != ").append(guard(b)))
-            .parens(),
-        GuardExpr::Gt(a, b) => D::nil()
-            .append(guard(a).append(" > ").append(guard(b)))
-            .parens(),
-        GuardExpr::Lt(a, b) => D::nil()
-            .append(guard(a).append(" < ").append(guard(b)))
-            .parens(),
-        GuardExpr::Geq(a, b) => D::nil()
-            .append(guard(a).append(" >= ").append(guard(b)))
-            .parens(),
-        GuardExpr::Leq(a, b) => D::nil()
-            .append(guard(a).append(" <= ").append(guard(b)))
-            .parens(),
-        GuardExpr::Not(a) => D::text("!").append(guard(a)),
         GuardExpr::Atom(a) => atom(a),
+        GuardExpr::Not(a) => {
+            let ret = D::text(expr.op_str()).append(guard(a, P::NotCtx));
+            if ctx > P::NotCtx {
+                ret.parens()
+            } else {
+                ret
+            }
+        }
+        GuardExpr::And(bs) => {
+            let ret = D::intersperse(
+                bs.iter().map(|b| guard(b, P::AndCtx)).collect::<Vec<_>>(),
+                D::text(" & "),
+            );
+            if ctx > P::AndCtx {
+                ret.parens()
+            } else {
+                ret
+            }
+        }
+        GuardExpr::Or(bs) => {
+            let ret = D::intersperse(
+                bs.iter().map(|b| guard(b, P::OrCtx)).collect::<Vec<_>>(),
+                D::text(" | "),
+            );
+            if ctx > P::OrCtx {
+                ret.parens()
+            } else {
+                ret
+            }
+        }
+        GuardExpr::Eq(a, b)
+        | GuardExpr::Neq(a, b)
+        | GuardExpr::Gt(a, b)
+        | GuardExpr::Lt(a, b)
+        | GuardExpr::Geq(a, b)
+        | GuardExpr::Leq(a, b) => {
+            let ret = D::nil().append(
+                guard(a, P::OpCtx)
+                    .append(format!(" {} ", expr.op_str()))
+                    .append(guard(b, P::OpCtx)),
+            );
+            if ctx > P::OpCtx {
+                ret.parens()
+            } else {
+                ret
+            }
+        }
     }
 }
 
@@ -442,7 +486,7 @@ fn connections<'a>(comp: &component::Component) -> D<'a> {
                             |acc, (el, node)| {
                                 el.guard
                                     .as_ref()
-                                    .map(|g| guard(&g))
+                                    .map(|g| guard(&g, ParenCtx::NotCtx))
                                     .unwrap_or_else(D::nil)
                                     .append(" ? ")
                                     .append(wire_id_from_node(
