@@ -335,6 +335,21 @@ impl GuardExpr {
     pub fn eq(self, other: GuardExpr) -> Self {
         GuardExpr::Eq(Box::new(self), Box::new(other))
     }
+
+    pub fn op_str(&self) -> String {
+        match self {
+            GuardExpr::And(_) => "&".to_string(),
+            GuardExpr::Or(_) => "|".to_string(),
+            GuardExpr::Eq(_, _) => "==".to_string(),
+            GuardExpr::Neq(_, _) => "!=".to_string(),
+            GuardExpr::Gt(_, _) => ">".to_string(),
+            GuardExpr::Lt(_, _) => "<".to_string(),
+            GuardExpr::Geq(_, _) => ">=".to_string(),
+            GuardExpr::Leq(_, _) => "<=".to_string(),
+            GuardExpr::Not(_) => "!".to_string(),
+            GuardExpr::Atom(_) => panic!("No operator string for Atom"),
+        }
+    }
 }
 
 impl BitAnd for GuardExpr {
