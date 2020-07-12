@@ -31,8 +31,7 @@ impl Visitor for MergeAssign {
         let structure = &comp.structure;
         for (idx, node) in structure.component_iterator() {
             for portdef in node.signature.inputs.iter() {
-                let iterator = comp
-                    .structure
+                let iterator = structure
                     .edge_idx()
                     .with_node(idx)
                     .with_port(portdef.name.to_string())
@@ -65,6 +64,10 @@ impl Visitor for MergeAssign {
                 let dest = (idx, portdef.name.clone());
                 merged_edges.push((dest, combined_guard));
             }
+        }
+
+        for e_idx in structure.edge_idx().detach() {
+            comp.structure.remove_edge(e_idx);
         }
 
         for ((dest_idx, dest_port), edges) in merged_edges {
