@@ -6,6 +6,7 @@ use crate::lang::{
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
 use std::fs;
+use std::io::Read;
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -46,6 +47,18 @@ impl FutilParser {
             Rule::file,
             string_content,
             Rc::new(string_content.to_string()),
+        )?;
+        let input = inputs.single()?;
+        Ok(FutilParser::file(input)?)
+    }
+
+    pub fn parse<R: Read>(mut r: R) -> Result<ast::NamespaceDef> {
+        let mut buf = String::new();
+        r.read_to_string(&mut buf)?;
+        let inputs = FutilParser::parse_with_userdata(
+            Rule::file,
+            &buf,
+            Rc::new(buf.to_string()),
         )?;
         let input = inputs.single()?;
         Ok(FutilParser::file(input)?)

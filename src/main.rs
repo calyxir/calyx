@@ -1,5 +1,6 @@
 mod cmdline;
 
+use atty::Stream;
 use calyx::{
     errors::{Error, Result},
     frontend::{library_syntax, syntax},
@@ -17,6 +18,7 @@ use passes::{
     visitor::{Named, Visitor},
 };
 use std::collections::HashMap;
+use std::io::stdin;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -99,10 +101,16 @@ fn main() -> Result<()> {
 
     // ==== Construct the context ====
     // parse the file
-    let namespace = opts.file.as_ref().map_or(
-        Err(Error::Impossible("No input file".to_string())),
-        |file| syntax::FutilParser::parse_file(&file),
-    )?;
+    let namespace = match &opts.file {
+        Some(file) => syntax::FutilParser::parse_file(&file),
+        None => {
+            if atty::isnt(Stream::Stdin) {
+                syntax::FutilParser::parse(stdin())
+            } else {
+                Err(Error::InvalidFile)
+            }
+        }
+    }?;
     // parse libraries
     let libraries: Vec<_> = namespace
         .libraries
