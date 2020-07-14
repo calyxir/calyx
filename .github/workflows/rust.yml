@@ -9,37 +9,52 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v2
+
     - name: Install runt
       uses: actions-rs/cargo@v1
       with:
         command: install
         args: runt
+
     - name: Install vcdump
       uses: actions-rs/cargo@v1
       with:
         command: install
         args: vcdump
+
     - name: Install verilator and jq
       run: sudo apt-get install verilator
+
     - name: Checkout Dahlia
       uses: actions/checkout@v2
       with:
         repository: cucapra/dahlia
         path: dahlia
+
     - name: Build Dahlia
       uses: lokkju/github-action-sbt@v0.2.2
       with:
         commands: assembly
         sbt_project_directory: ./dahlia
+
     - name: Install Dahlia
       run: |
+        ls
+        echo $(ls)
+        pwd
+        echo $(pwd)
+        ls ~/.local/bin/dahlia
+        echo $(ls ~/.local/bin/dahlia)
         ln -sf "$(pwd)/dahlia/target/scala-2.13/fuse.jar ~/.local/bin/dahlia"
+
     - name: Build
       uses: actions-rs/cargo@v1
       with:
         command: build
+
     - name: Test
       run: runt -d -o fail
+
   format:
     name: Check Formatting
     runs-on: ubuntu-latest
