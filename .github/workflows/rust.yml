@@ -51,12 +51,6 @@ jobs:
           ~/.sbt
         key: ${{ runner.os }}-sbt-${{ hashFiles('dahlia/build.sbt') }}
 
-    - name: Install Dahlia
-      run: |
-        mkdir -p ./dahlia/bin
-        ln -sf ./dahlia/target/scala-2.13/fuse.jar ./dahlia/bin/dahlia
-        export PATH=$PATH:./dahlia/bin
-
     - name: Build
       uses: actions-rs/cargo@v1
       with:
@@ -73,6 +67,8 @@ jobs:
 
     - name: Test
       run: runt -d -o fail
+      env:
+        DAHLIA_EXEC: ./dahlia/fuse
 
   format:
     name: Check Formatting
