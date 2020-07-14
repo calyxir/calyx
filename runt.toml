@@ -8,7 +8,7 @@ cmd = "./target/debug/futil --list-passes"
 [[tests]]
 name = "Dahlia frontend for Futil"
 paths = [ "tests/integration-dahlia-sources/*.fuse" ]
-cmd = "./bin/find-dahlia {} -b futil"
+cmd = "./bin/find-dahlia {} -b futil | tail -n+2"
 expect_dir = "tests/integration-futil/"
 
 [[tests]]

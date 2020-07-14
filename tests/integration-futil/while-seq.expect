@@ -1,4 +1,0 @@
----CODE---
-1
----STDERR---
-[[31mError[0m] for loops cannot be directly generated. Use the --lower flag to turn them into while loops.

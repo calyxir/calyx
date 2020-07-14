@@ -22,7 +22,7 @@ fi
 # name for resulting vcd file
 stem=$(basename "${filename%.*}")
 
-cp sim/testbench.cpp "$tmp"/
+cp $(dirname "$0")/../sim/testbench.cpp "$tmp"/
 
 # Generate required objects for verilator run.
 verilator -cc --trace "$filename" \
