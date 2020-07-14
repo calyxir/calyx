@@ -436,6 +436,7 @@ impl Cell {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Connection {
     Group(Group),
