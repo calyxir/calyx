@@ -33,7 +33,7 @@ jobs:
         sbt_project_directory: ./dahlia
     - name: Install Dahlia
       run: |
-        ln -s "$(pwd)/dahlia/target/scala-2.13/fuse.jar ~/.local/bin/dahlia"
+        ln -sf "$(pwd)/dahlia/target/scala-2.13/fuse.jar ~/.local/bin/dahlia"
     - name: Build
       uses: actions-rs/cargo@v1
       with:
