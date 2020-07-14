@@ -1,0 +1,83 @@
+// git.status = dirty, build.date = Thu Jul 09 11:46:50 PDT 2020, git.hash = 0124a95
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    a = prim std_reg(32);
+    add0 = prim std_add(32);
+    add1 = prim std_add(32);
+    b = prim std_reg(32);
+    const0 = prim std_const(32,1);
+    const1 = prim std_const(32,0);
+    const2 = prim std_const(32,1);
+    const3 = prim std_const(32,10);
+    const4 = prim std_const(32,1);
+    i = prim std_reg(32);
+    lt0 = prim std_lt(32);
+    tmp = prim std_reg(32);
+  }
+  wires {
+    group cond0 {
+      cond0[done] = 1'd1;
+      lt0.left = i.out;
+      lt0.right = const3.out;
+    }
+    group let0 {
+      a.in = const0.out;
+      a.write_en = 1'd1;
+      let0[done] = a.done;
+    }
+    group let1 {
+      i.in = const1.out;
+      i.write_en = 1'd1;
+      let1[done] = i.done;
+    }
+    group let2 {
+      b.in = const2.out;
+      b.write_en = 1'd1;
+      let2[done] = b.done;
+    }
+    group let3 {
+      tmp.in = b.out;
+      tmp.write_en = 1'd1;
+      let3[done] = tmp.done;
+    }
+    group upd0 {
+      i.write_en = 1'd1;
+      add0.left = i.out;
+      add0.right = const4.out;
+      i.in = add0.out;
+      upd0[done] = i.done;
+    }
+    group upd1 {
+      b.write_en = 1'd1;
+      add1.left = a.out;
+      add1.right = tmp.out;
+      b.in = add1.out;
+      upd1[done] = b.done;
+    }
+    group upd2 {
+      a.write_en = 1'd1;
+      a.in = tmp.out;
+      upd2[done] = a.done;
+    }
+  }
+  control {
+    seq {
+      seq {
+        let0;
+        let1;
+      }
+      let2;
+      while lt0.out with cond0 {
+        seq {
+          seq {
+            let3;
+            upd0;
+          }
+          upd1;
+          upd2;
+        }
+      }
+    }
+  }
+}

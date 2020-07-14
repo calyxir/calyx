@@ -1,0 +1,8 @@
+let a: bit<32> = (10 as bit<32>);
+let b: bit<32> = (1 as bit<32>);
+---
+if (a > (5 as bit<32>)) {
+	let y: bit<32> = (20 as bit<32>);
+} else {
+  let z: bit<32> = (40 as bit<32>);
+}
