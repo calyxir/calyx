@@ -23,7 +23,7 @@ jobs:
         args: vcdump
 
     - name: Cache Cargo install tools
-      uses: action/cache@v2
+      uses: actions/cache@v2
       with:
         path: ~/.cargo/bin/
         key: ${{ runner.os }}-cargo-tools
