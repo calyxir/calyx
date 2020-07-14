@@ -6,48 +6,41 @@ paths = [ "tests/list-passes/out" ]
 cmd = "./target/debug/futil --list-passes"
 
 [[tests]]
-name = "Integration tests"
-paths = [ "tests/integration/*.futil" ]
-cmd = "./target/debug/futil {} -b futil"
+name = "Dahlia frontend for Futil"
+paths = [ "tests/integration-dahlia-sources/*.fuse" ]
+cmd = "dahlia {} -b futil"
+expect_dir = "tests/integration-futil/"
 
 [[tests]]
-name = "Collapse Seq"
-paths = [ "tests/collapse-seq/*.futil" ]
-cmd = """
-  ./target/debug/futil {} -b futil -p collapse-seq
-"""
+name = "Futil lowering"
+paths = [ "tests/integration-futil/*.expect" ]
+cmd = "./target/debug/futil {}"
+expect_dir = "tests/integration-futil-lowered"
 
 [[tests]]
-name = "Latency Insensitive"
-paths = [ "tests/latency-insensitive/*.futil" ]
-cmd = """
-  ./target/debug/futil {} -b futil -p latency-insensitive
-"""
+name = "Verilog generation"
+paths = [ "tests/integration-futil/*.expect" ]
+cmd = "./target/debug/futil {} -b verilog"
+expect_dir = "tests/integration-verilog"
 
 [[tests]]
-name = "Automatic Par"
-paths = [ "tests/automatic-par/*.futil" ]
-cmd = "./target/debug/futil {} -b futil -p automatic-par"
-# This is just the default save directory. Use `expect_dir` when
-# using files from other test suites as input.
-expect_dir = "tests/automatic-par"
+name = "Verilog Simulation"
+paths = [ "tests/integration-verilog/*.expect" ]
+cmd = "./bin/gen-vcd {} 2>/dev/null | vcdump"
+expect_dir = "tests/integration-simulation"
 
-[[tests]]
-name = "Verilog tests"
-paths = [ "tests/verilog/*.futil" ]
-cmd = """
-full={}
-f=${full%.*}
-make $f.res 1>/dev/null 2>/dev/null
-cat $f.res
-rm $f.res"""
+# [[tests]]
+# name = "Full Integration"
+# paths = [ "tests/integration-dahlia-sources/*.fuse" ]
+# cmd = "dahlia {} -b futil | ./target/debug/futil -b verilog | ./bin/gen.vcd - | vcdump"
+# expect_dir = "tests/integration-full"
 
-[[tests]]
-name = "Primitive Component tests"
-paths = [ "tests/verilog-primitives/*.futil" ]
-cmd = """
-full={}
-f=${full%.*}
-make $f.res 1>/dev/null 2>/dev/null
-cat $f.res
-rm $f.res"""
+# [[tests]]
+# name = "Primitive Component tests"
+# paths = [ "tests/verilog-primitives/*.futil" ]
+# cmd = """
+# full={}
+# f=${full%.*}
+# make $f.res 1>/dev/null 2>/dev/null
+# cat $f.res
+# rm $f.res"""

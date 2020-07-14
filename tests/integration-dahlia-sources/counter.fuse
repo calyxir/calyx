@@ -1,0 +1,5 @@
+let i: bit<32> = (0 as bit<32>);
+---
+while (i < (10 as bit<32>)) {
+  i := i + (1 as bit<32>);
+}

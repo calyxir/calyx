@@ -1,0 +1,27 @@
+// git.status = dirty, build.date = Thu Jul 09 11:46:50 PDT 2020, git.hash = 0124a95
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    const0 = prim std_const(32,0);
+    const1 = prim std_const(32,1);
+    x = prim std_reg(32);
+  }
+  wires {
+    group let0 {
+      x.in = const0.out;
+      x.write_en = 1'd1;
+      let0[done] = x.done;
+    }
+    group upd0 {
+      x.write_en = 1'd1;
+      x.in = const1.out;
+      upd0[done] = x.done;
+    }
+  }
+  control {
+    seq {
+      let0;
+      upd0;
+    }
+  }
+}
