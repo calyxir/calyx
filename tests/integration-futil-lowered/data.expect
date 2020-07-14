@@ -7,16 +7,16 @@ component main(go: 1) -> (done: 1) {
   }
   
   wires {
-    x.in = fsm0.out == 32'd0 & !(x.done) & go & 1'd1 ? const0.out;
-    x.write_en = fsm0.out == 32'd0 & !(x.done) & go & 1'd1 ? 1'd1;
-    x.in = fsm0.out == 32'd1 & !(x.done) & go & 1'd1 ? const1.out;
-    x.write_en = fsm0.out == 32'd1 & !(x.done) & go & 1'd1 ? 1'd1;
+    x.in = fsm0.out == 32'd0 & !(x.done) & go ? const0.out;
+    x.write_en = fsm0.out == 32'd0 & !(x.done) & go ? 1'd1;
     fsm0.write_en = fsm0.out == 32'd0 & x.done & go ? 1'd1;
     fsm0.in = fsm0.out == 32'd0 & x.done & go ? 32'd1;
+    x.in = fsm0.out == 32'd1 & !(x.done) & go ? const1.out;
+    x.write_en = fsm0.out == 32'd1 & !(x.done) & go ? 1'd1;
     fsm0.write_en = fsm0.out == 32'd1 & x.done & go ? 1'd1;
     fsm0.in = fsm0.out == 32'd1 & x.done & go ? 32'd2;
-    done = fsm0.out == 32'd2 & 1'd1 ? 1'd1;
     fsm0.write_en = fsm0.out == 32'd2 ? 1'd1;
+    done = fsm0.out == 32'd2 ? 1'd1;
     fsm0.in = fsm0.out == 32'd2 ? 32'd0;
   }
   

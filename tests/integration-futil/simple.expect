@@ -1,4 +1,4 @@
-// git.status = dirty, build.date = Thu Jul 09 11:46:50 PDT 2020, git.hash = 0124a95
+// git.status = clean, build.date = Tue Jul 14 11:23:35 PDT 2020, git.hash = 68b0d0e
 import "primitives/std.lib";
 component main() -> () {
   cells {
