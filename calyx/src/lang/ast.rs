@@ -263,33 +263,31 @@ pub enum GuardExpr {
 }
 
 impl GuardExpr {
-     /// A convienent constructor for `GuardExpr::And`
-     /// that allows chaining construction `g.and(guard)`
-     pub fn and(lhs: GuardExpr, rhs: GuardExpr) -> Self {
-         if lhs == rhs {
-             lhs
-         }
-         else if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = lhs {
-             rhs
-         } else if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = rhs {
-             lhs
-         } else {
-             GuardExpr::And(Box::new(lhs), Box::new(rhs))
-         }
-     }
+    /// A convienent constructor for `GuardExpr::And`
+    /// that allows chaining construction `g.and(guard)`
+    pub fn and(lhs: GuardExpr, rhs: GuardExpr) -> Self {
+        if lhs == rhs {
+            lhs
+        } else if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = lhs {
+            rhs
+        } else if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = rhs {
+            lhs
+        } else {
+            GuardExpr::And(Box::new(lhs), Box::new(rhs))
+        }
+    }
 
-     /// A convienent constructor for `GuardExpr::And`
-     /// that allows chaining construction `g.and(guard)`
-     pub fn or(lhs: GuardExpr, rhs: GuardExpr) -> Self {
-         if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = lhs {
-             lhs
-         } else if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = rhs {
-             rhs
-         } else {
-             GuardExpr::Or(Box::new(lhs), Box::new(rhs))
-         }
-     }
-
+    /// A convienent constructor for `GuardExpr::And`
+    /// that allows chaining construction `g.and(guard)`
+    pub fn or(lhs: GuardExpr, rhs: GuardExpr) -> Self {
+        if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = lhs {
+            lhs
+        } else if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = rhs {
+            rhs
+        } else {
+            GuardExpr::Or(Box::new(lhs), Box::new(rhs))
+        }
+    }
 
     pub fn eq(self, other: GuardExpr) -> Self {
         GuardExpr::Eq(Box::new(self), Box::new(other))
@@ -300,7 +298,7 @@ impl BitAnd for GuardExpr {
     type Output = Self;
 
     fn bitand(self, other: Self) -> Self::Output {
-        GuardExpr::And(Box::new(self), Box::new(other))
+        GuardExpr::and(self, other)
     }
 }
 
@@ -308,7 +306,7 @@ impl BitOr for GuardExpr {
     type Output = Self;
 
     fn bitor(self, other: Self) -> Self::Output {
-        GuardExpr::Or(Box::new(self), Box::new(other))
+        GuardExpr::or(self, other)
     }
 }
 
