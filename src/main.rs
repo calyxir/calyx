@@ -18,7 +18,6 @@ use passes::{
 };
 use std::collections::HashMap;
 use std::io::stdin;
-use std::path::PathBuf;
 use structopt::StructOpt;
 
 type PassClosure = Box<dyn Fn(&Context, &mut NameGenerator) -> Result<()>>;
@@ -107,7 +106,7 @@ fn main() -> Result<()> {
         .libraries
         .iter()
         .map(|path| {
-            library_syntax::LibraryParser::parse_file(&PathBuf::from(path))
+            library_syntax::LibraryParser::parse_file(&opts.lib_path.join(path))
         })
         .collect::<Result<Vec<_>>>()?;
     // build context

@@ -2,7 +2,7 @@
 
 define(M, 8)
 define(N, 12)
-define(DATATYPE, float)
+define(DATATYPE, ubit<32>)
 
 // END macro definitions
 import "printer.cpp" {

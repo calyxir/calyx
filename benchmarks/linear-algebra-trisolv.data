@@ -1,9 +1,0 @@
-#lang racket/base
-(require futil)
-
-(generate-json
- "linear-algebra-trisolv.json"
- (random 1 50)
- (L 8 8)
- (x 8)
- (b 8))

@@ -1,7 +1,7 @@
 // BEGIN macro definitions
 
 define(N, 8)
-define(DATATYPE, float)
+define(DATATYPE, ubit<32>)
 
 // END macro definitions
 
@@ -16,7 +16,7 @@ import "printer.cpp" {
 decl A: DATATYPE[N][N];
 
 for (let i = 0..N) {
-  //j<i
+  // j < i
   let j = 0;
   while(j < i) {
     let k = 0;
