@@ -1,27 +1,27 @@
 ver = "0.2.5"
 
-[[tests]]
-name = "List passes"
-paths = [ "tests/list-passes/out" ]
-cmd = "./target/debug/futil --list-passes"
+#[[tests]]
+#name = "List passes"
+#paths = [ "tests/list-passes/out" ]
+#cmd = "./target/debug/futil --list-passes"
 
-[[tests]]
-name = "Dahlia frontend for Futil"
-paths = [ "tests/integration-dahlia-sources/*.fuse" ]
-cmd = "./bin/find-dahlia {} -b futil --lower -l error | tail -n+2"
-expect_dir = "tests/integration-futil/"
+#[[tests]]
+#name = "Dahlia frontend for Futil"
+#paths = [ "tests/integration-dahlia-sources/*.fuse" ]
+#cmd = "./bin/find-dahlia {} -b futil --lower -l error | tail -n+2"
+#expect_dir = "tests/integration-futil/"
 
-[[tests]]
-name = "Futil lowering"
-paths = [ "tests/integration-futil/*.expect" ]
-cmd = "./target/debug/futil {}"
-expect_dir = "tests/integration-futil-lowered"
+#[[tests]]
+#name = "Futil lowering"
+#paths = [ "tests/integration-futil/*.expect" ]
+#cmd = "./target/debug/futil {}"
+#expect_dir = "tests/integration-futil-lowered"
 
-[[tests]]
-name = "Verilog generation"
-paths = [ "tests/integration-futil/*.expect" ]
-cmd = "./target/debug/futil {} -b verilog"
-expect_dir = "tests/integration-verilog"
+#[[tests]]
+#name = "Verilog generation"
+#paths = [ "tests/integration-futil/*.expect" ]
+#cmd = "./target/debug/futil {} -b verilog"
+#expect_dir = "tests/integration-verilog"
 
 [[tests]]
  name = "Verilog Simulation"
