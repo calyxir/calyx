@@ -3,7 +3,7 @@
 #include "verilated_vcd_c.h"
 #include <stdio.h>
 int main(int argc, char **argv, char **env) {
-  int i;
+  int i = 0;
   int clk;
   Verilated::commandArgs(argc, argv);
   // init top verilog instance

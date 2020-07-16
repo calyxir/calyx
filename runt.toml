@@ -23,11 +23,11 @@ paths = [ "tests/integration-futil/*.expect" ]
 cmd = "./target/debug/futil {} -b verilog"
 expect_dir = "tests/integration-verilog"
 
-# [[tests]]
-# name = "Verilog Simulation"
-# paths = [ "tests/integration-verilog/*.expect" ]
-# cmd = "./bin/gen-vcd {} 2>/dev/null | vcdump"
-# expect_dir = "tests/integration-simulation"
+[[tests]]
+ name = "Verilog Simulation"
+ paths = [ "tests/integration-verilog/*.expect" ]
+ cmd = "./bin/gen-vcd {} 2>/dev/null | vcdump"
+ expect_dir = "tests/integration-simulation"
 
 # [[tests]]
 # name = "Full Integration"
