@@ -10,6 +10,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
+    - name: Cache Cargo install tools
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/bin/
+        key: ${{ runner.os }}-cargo-tools
+
     - name: Install runt
       uses: actions-rs/cargo@v1
       with:
@@ -22,14 +28,16 @@ jobs:
         command: install
         args: vcdump
 
-    - name: Cache Cargo install tools
+    - name: Install verilator
+      run: sudo apt-get install verilator
+
+    - name: Cache SBT
       uses: actions/cache@v2
       with:
-        path: ~/.cargo/bin/
-        key: ${{ runner.os }}-cargo-tools
-
-    - name: Install verilator and jq
-      run: sudo apt-get install verilator
+        path: |
+          ~/.ivy2/cache
+          ~/.sbt
+        key: ${{ runner.os }}-sbt-${{ hashFiles('dahlia/build.sbt') }}
 
     - name: Checkout Dahlia
       uses: actions/checkout@v2
@@ -43,19 +51,6 @@ jobs:
         commands: assembly
         sbt_project_directory: ./dahlia
 
-    - name: Cache SBT
-      uses: actions/cache@v2
-      with:
-        path: | 
-          ~/.ivy2/cache
-          ~/.sbt
-        key: ${{ runner.os }}-sbt-${{ hashFiles('dahlia/build.sbt') }}
-
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-
     - name: Cache Futil dependencies
       uses: actions/cache@v2
       with:
@@ -64,6 +59,11 @@ jobs:
           ~/.cargo/git
           target
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
 
     - name: Test
       run: runt -d -o fail
