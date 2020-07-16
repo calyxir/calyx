@@ -20,7 +20,7 @@ jobs:
     - name: Install vcdump
       uses: actions-rs/install@v0.1
       with:
-        args: vcdump
+        crate: vcdump
         version: latest
         use-tool-cache: true
 
