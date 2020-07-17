@@ -323,13 +323,7 @@ impl GuardExpr {
     /// A convienent constructor for `GuardExpr::And`
     /// that allows chaining construction `g.and(guard)`
     pub fn or(lhs: GuardExpr, rhs: GuardExpr) -> Self {
-        if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = lhs {
-            lhs
-        } else if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = rhs {
-            rhs
-        } else {
-            GuardExpr::or(lhs, rhs)
-        }
+        GuardExpr::or_vec(vec![lhs, rhs])
     }
 
     pub fn eq(self, other: GuardExpr) -> Self {
