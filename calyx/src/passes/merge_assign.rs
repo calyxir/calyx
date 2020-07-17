@@ -35,7 +35,7 @@ impl Visitor for MergeAssign {
     fn start(&mut self, comp: &mut Component, _ctx: &Context) -> VisResult {
         assert!(
             comp.structure.groups.len() == 1,
-            "The component has more than one group"
+            "MergeAssign: The component has more than one group."
         );
 
         type Assignments = Vec<(
