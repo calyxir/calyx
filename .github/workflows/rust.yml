@@ -50,6 +50,13 @@ jobs:
     - name: Install verilator, jq, and SBT
       run: sudo apt-get install verilator jq sbt
 
+    - name: Location of CLI tools
+      run: |
+        readlink $(which verilator)
+        readlink $(which jq)
+        readlink $(which sbt)
+      shell: bash
+
     - name: Cache SBT
       uses: actions/cache@v2
       with:
@@ -58,29 +65,25 @@ jobs:
           ~/.sbt
         key: ${{ runner.os }}-sbt-${{ hashFiles('dahlia/build.sbt') }}
 
-    # Don't rebuild Dahlia if HEAD hash hasn't changed.
-    #- name: Cache Dahlia
-      #id: dahlia-cache
-      #uses: actions/cache@v2
-      #with:
-        #path: ./dahlia
-        #key: dahlia-dir-${{ runner.os }}-${{ steps.versions.outputs.dahlia }}
+     Don't rebuild Dahlia if HEAD hash hasn't changed.
+    - name: Cache Dahlia
+      id: dahlia-cache
+      uses: actions/cache@v2
+      with:
+        path: ./dahlia
+        key: dahlia-dir-${{ runner.os }}-${{ steps.versions.outputs.dahlia }}
 
     - name: Checkout Dahlia
       uses: actions/checkout@v2
-      #if: steps.dahlia-cache.outputs.cache-hit != 'true'
+      if: steps.dahlia-cache.outputs.cache-hit != 'true'
       with:
         repository: cucapra/dahlia
         path: dahlia
 
     - name: Build Dahlia
-      #if: steps.dahlia-cache.outputs.cache-hit != 'true'
+      if: steps.dahlia-cache.outputs.cache-hit != 'true'
       run: |
         cd ./dahlia && sbt assembly
-      shell: bash
-
-    - name: Dahlia directory
-      run: ls ./dahlia
       shell: bash
 
     - name: Cache Futil dependencies
