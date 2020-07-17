@@ -1,6 +1,6 @@
-import tvm
-from tvm import ir, relay
+from tvm import relay
 from aot import compile
+import sys
 
 
 def identity():
@@ -12,12 +12,12 @@ def identity():
 
 
 def simple_example(func):
-    # Dump the Relay representation.
-    print(func)
-
-    # Compile the function.
-    cfunc = compile(func)
-    print(cfunc)
+    if '-r' in sys.argv[1:]:
+        # Dump the Relay representation (for educational purposes).
+        print(func)
+    else:
+        # Compile the function and print the FuTIL.
+        print(compile(func))
 
 
 if __name__ == '__main__':

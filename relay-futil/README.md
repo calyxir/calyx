@@ -44,6 +44,8 @@ Try this to run a simple example:
 
     PYTHONPATH=. python3 examples/example_simple.py
 
+Pass the `-r` flag to this script to see the Relay code. Otherwise, we just print the FuTIL code.
+
 
 [tvm]: https://tvm.apache.org
 [tvm-install]: https://tvm.apache.org/docs/install/from_source.html#developers-get-source-from-github
