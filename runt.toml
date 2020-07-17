@@ -1,9 +1,9 @@
 ver = "0.2.5"
 
-#[[tests]]
-#name = "List passes"
-#paths = [ "tests/list-passes/out" ]
-#cmd = "./target/debug/futil --list-passes"
+[[tests]]
+name = "List passes"
+paths = [ "tests/list-passes/out" ]
+cmd = "./target/debug/futil --list-passes"
 
 #[[tests]]
 #name = "Dahlia frontend for Futil"
