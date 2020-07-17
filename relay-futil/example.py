@@ -11,6 +11,12 @@ def identity():
     return f
 
 
+def const():
+    """A simple constant function in Relay.
+    """
+    return relay.Function([], relay.const(42))
+
+
 def simple_example(func):
     if '-r' in sys.argv[1:]:
         # Dump the Relay representation (for educational purposes).
@@ -21,4 +27,4 @@ def simple_example(func):
 
 
 if __name__ == '__main__':
-    simple_example(identity())
+    simple_example(const())
