@@ -29,6 +29,12 @@ ver = "0.2.5"
  cmd = "./bin/gen-vcd {} 2>/dev/null"
  expect_dir = "tests/integration-simulation"
 
+[[tests]]
+ name = "Verilog Simulation"
+ paths = [ "tests/integration-verilog/*.expect" ]
+ cmd = "./bin/gen-vcd {} 2>/dev/null"
+ expect_dir = "tests/integration-sim"
+
 # [[tests]]
 # name = "Full Integration"
 # paths = [ "tests/integration-dahlia-sources/*.fuse" ]
