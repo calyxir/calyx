@@ -10,24 +10,40 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
-    - name: Runt version
-      id: runt-ver
+    - name: Cargo tool versions
+      id: versions
       run: |
-        echo "::set-output name=ver::$(cargo search runt | head -n 1 | awk '{print $3}' | tr -d '"')"
+        echo "::set-output name=runt::$(./bin/cargo-ver runt)"
+        echo "::set-output name=vcdump::$(./bin/cargo-ver vcdump)"
       shell: bash
 
-    - name: Cache Cargo registry
+    - name: Cache runt
+      id: runt-cache
       uses: actions/cache@v2
       with:
-        path: ~/.cargo
-        key: runt-${{ runner.os }}-${{ steps.runt-ver.outputs.ver }}
+        path: ~/.cargo/bin/runt
+        key: runt-bin-${{ runner.os }}-${{ steps.versions.outputs.runt }}
 
     - name: Install runt
-      uses: actions-rs/install@v0.1
+      if: steps.runt-cache.outputs.cache-hit != 'true'
+      uses: actions-rs/cargo@v1
       with:
-        crate: runt
-        version: latest
-        use-tool-cache: true
+        command: install
+        args: runt
+
+    - name: Cache vcdump
+      id: vcdump-cache
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/bin/vcdump
+        key: vcdump-bin-${{ runner.os }}-${{ steps.versions.outputs.vcdump }}
+
+    - name: Install vcdump
+      if: steps.runt-cache.outputs.cache-hit != 'true'
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: vcdump
 
     #- name: Install vcdump
       #uses: actions-rs/install@v0.1
