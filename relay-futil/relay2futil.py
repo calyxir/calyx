@@ -53,6 +53,20 @@ class Relay2Futil(ExprFunctor):
 
         return '<read {}>'.format(name)
 
+    def visit_call(self, call):
+        # Visit the arguments to the call, emitting their control
+        # statements.
+        arg_stmts = [self.visit(arg) for arg in call.args]
+
+        if call.op.name == 'add':
+            # Create structure for an adder.
+            name = 'add{}'.format(len(self.cells))
+            self.cells[name] = 'prim std_add(32)'
+
+            return '\n'.join(arg_stmts + ['<run {}>'.format(name)])
+        else:
+            assert False, 'unsupported op: {}'.format(call.op.name)
+
     def visit_function(self, func):
         body = self.visit(func.body)
 
@@ -61,7 +75,8 @@ class Relay2Futil(ExprFunctor):
         # multiple functions as multiple components.
         cells = mk_block(
             'cells',
-            ''.join('{} = {};'.format(k, v) for k, v in self.cells.items()),
+            '\n'.join('{} = {};'.format(k, v)
+                      for k, v in self.cells.items()),
         )
         wires = mk_block('wires', '')
         control = mk_block('control', body)

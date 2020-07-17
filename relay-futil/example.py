@@ -17,6 +17,12 @@ def const():
     return relay.Function([], relay.const(42))
 
 
+def add():
+    """Add together two constants in Relay.
+    """
+    return relay.Function([], relay.add(relay.const(37), relay.const(5)))
+
+
 def simple_example(func):
     if '-r' in sys.argv[1:]:
         # Dump the Relay representation (for educational purposes).
@@ -27,4 +33,4 @@ def simple_example(func):
 
 
 if __name__ == '__main__':
-    simple_example(const())
+    simple_example(add())
