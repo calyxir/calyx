@@ -47,8 +47,8 @@ jobs:
         command: install
         args: vcdump
 
-    - name: Install verilator and jq
-      run: sudo apt-get install verilator jq
+    - name: Install verilator, jq, and SBT
+      run: sudo apt-get install verilator jq sbt
 
     - name: Cache SBT
       uses: actions/cache@v2
@@ -73,12 +73,16 @@ jobs:
         repository: cucapra/dahlia
         path: dahlia
 
-    - name: Build Dahlia
-      uses: lokkju/github-action-sbt@v0.2.2
-      if: steps.dahlia-cache.outputs.cache-hit != 'true'
-      with:
-        commands: assembly
-        sbt_project_directory: ./dahlia
+    #- name: Build Dahlia
+      #uses: lokkju/github-action-sbt@v0.2.2
+      #if: steps.dahlia-cache.outputs.cache-hit != 'true'
+      #with:
+        #commands: assembly
+        #sbt_project_directory: ./dahlia
+
+    - name: Dahlia directory
+      run: ls ./dahlia
+      shell: bash
 
     - name: Cache Futil dependencies
       uses: actions/cache@v2
