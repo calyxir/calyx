@@ -1,3 +1,0 @@
-for (let i = 0..10) {
-  let x: bit<32> = i;
-}

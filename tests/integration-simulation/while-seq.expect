@@ -1,8 +1,0 @@
----CODE---
-1
----STDERR---
-%Error: tests/integration-verilog/while-seq.expect:1: syntax error, unexpected --
----CODE---
-^~
-%Error: Exiting due to 1 error(s)
-Error: IoError(Custom { kind: UnexpectedEof, error: "unexpected end of VCD file before $enddefinitions" })

@@ -1,8 +1,0 @@
-(define/namespace prog
-  (import primitives/std.lib)
-  (define/component main () ()
-    ([new-std comp (std_not 32)]
-     [new-std val (std_const 32 4)]
-     [-> (@ val out) (@ comp in)])
-    (seq
-     (enable comp val))))

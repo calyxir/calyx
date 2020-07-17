@@ -19,7 +19,7 @@ component main() -> () {
     }
   }
   control {
-    seq {
+    par {
       let0;
       let1;
     }
