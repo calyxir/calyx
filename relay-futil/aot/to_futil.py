@@ -6,12 +6,6 @@ PREAMBLE = """
 import "primitives/std.lib";
 """
 
-# For now, components can only be emitted with the name `main`. Someday
-# we should actually allow multiple components!
-COMPONENT_FMT = """
-component main() -> () {}
-"""
-
 
 def mk_block(decl, contents, indent=2):
     """Formats a block like this:
@@ -49,7 +43,7 @@ class ToSource(ExprFunctor):
         return component
 
 
-def to_source(mod, program, gv_map, ctx, name) -> str:
+def to_source(program) -> str:
     convert = ToSource()
     src = convert.visit(program)
     return "{}\n{}".format(PREAMBLE.strip(), src)
