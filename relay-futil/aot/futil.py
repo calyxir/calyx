@@ -1,10 +1,11 @@
-
-from tvm.relay import Var, TypeVar
+from tvm.relay import Var
 from typing import Any, Optional, List, Tuple
 import attr
 
+
 class futilNode:
     pass
+
 
 @attr.s(auto_attribs=True)
 class Decl(futilNode):

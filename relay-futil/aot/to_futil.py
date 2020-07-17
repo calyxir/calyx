@@ -1,6 +1,5 @@
 from . import futil
 from tvm import relay
-from tvm.relay.prelude import Prelude
 
 
 class ExprWithStmt:
@@ -17,6 +16,7 @@ class ExprWithStmt:
 
     def __repr__(self):
         return self.__str__()
+
 
 class ToSource:
     def __init__(self, gv_map):
@@ -55,14 +55,13 @@ class ToSource:
         if isinstance(node, futil.FutilFunc):
             res = self.visit_futilFunc(node)
         else:
-          #  raise Exception(str(node))
-            res =ExprWithStmt("dummy", "")
+            # raise Exception(str(node))
+            res = ExprWithStmt("dummy", "")
         assert isinstance(res, ExprWithStmt)
         return res
 
     def visit_futilFunc(self, func):
         return ExprWithStmt("function", "")
-
 
     def mk_register_api(self, name: str, func) -> str:
         vf = self.visit(func, local=False)
@@ -89,15 +88,17 @@ class ToSource:
         """
         return source
 
+
 def mk_file(body, ctx):
     return f"""
     futil function
     {body}
     """
 
+
 def to_source(mod, program, gv_map, ctx, name) -> str:
     convert = ToSource(gv_map)
     ret = mk_file(convert.mk_register_api(name, program), ctx)
     # print([value for name, value in convert.input_const])
     # return [], "hello"
-    return [], ret
+    return ret

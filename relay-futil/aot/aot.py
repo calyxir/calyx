@@ -52,6 +52,5 @@ def compile(func, mod, ctx, tgt, name='default'):
     compiler = AoTCompiler(mod, tgt)
     func = compiler.optimize(func)
     func = compiler.visit(func)
-    constants, source_code = to_futil.to_source(mod, func, compiler.gv_map,
-                                                ctx, name)
+    source_code = to_futil.to_source(mod, func, compiler.gv_map, ctx, name)
     return source_code
