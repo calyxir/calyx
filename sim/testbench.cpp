@@ -18,7 +18,7 @@ int main(int argc, char **argv, char **env) {
   top->go = 1;
   int done = 0;
   printf("Starting simulation\n");
-  while (done == 0 && i < 500) {
+  while (done == 0 && i < 50000) {
     done = top->done;
     // dump variables into VCD file and toggle clock
     for (clk = 0; clk < 2; clk++) {

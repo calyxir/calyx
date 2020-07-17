@@ -22,6 +22,7 @@ fi
 # name for resulting vcd file
 stem=$(basename "${filename%.*}")
 
+# find testbench.cpp relative to this script
 cp $(dirname "$0")/../sim/testbench.cpp "$tmp"/
 
 # Generate required objects for verilator run.

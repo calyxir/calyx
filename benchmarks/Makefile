@@ -1,9 +1,9 @@
 .PHONY: clean all all-json all-fuse all-futil status
 
 JSON_URL:=https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp
-SOURCES:=$(wildcard *.json)
+SOURCES:=$(wildcard *.fuse)
 
-all: $(patsubst %.json,%.run,$(SOURCES))
+all: $(patsubst %.fuse,%.diff,$(SOURCES))
 
 status:
 	@echo "`ls -l *.run | wc -l`/`ls -l *.fuse | wc -l` successfully ran"
@@ -13,39 +13,38 @@ status:
 	@echo "succeeded:"
 	@grep "success" *.run | cut -f 1 -d ':' | cut -f 1 -d '.' | sed -e 's/^/ - /;'
 
-all-fuse: $(patsubst %.json,%.run-fuse,$(SOURCES))
-
-all-futil: $(patsubst %.json,%.run-futil,$(SOURCES))
-
-all-json: $(patsubst %.data,%.json,$(wildcard *.data))
-
-%.cpp: %.fuse.pre %.json
-	fuse run $< -o $@ -x "-Iprint_headers/"
+%.cpp: %.fuse
+	dahlia run $< -o $@
 	@if [ ! -f _headers/json.hpp ]; then wget $(JSON_URL) --directory-prefix _headers; fi
+	rm -f $@.o # remove extraneously generated file
 
-%.fuse.pre: %.fuse
-	m4 $< > $@
+%.cpp.o: %.fuse
+	dahlia run $< -o $*.cpp
+	@if [ ! -f _headers/json.hpp ]; then wget $(JSON_URL) --directory-prefix _headers; fi
+	rm -f $*.cpp # remove extraneously generated file
 
-%.futil: %.fuse.pre
-	fuse -b futil $< -o $@
+%.dahlia-out: %.cpp.o
+	./$< $*.data | jq -S . > $@
 
-%.run-fuse: %.cpp
-	./$(addsuffix .cpp.o,$*) $(addsuffix .json,$*) > $@
+%.futil: %.fuse
+	dahlia $< -o $@ --lower -b futil
 
-%.run-futil: %.futil
-	racket $< -c $(addsuffix .json,$*) > $@
+%.v: %.futil
+	cargo run -- $< -l .. -b verilog --meminit $*.meminit > $@
 
-%.json:
-	racket $(addsuffix .data,$*)
+%.meminit: %.data
+	../bin/json_to_dat.py --mode json --output $@ $<
 
-%.run: %.run-fuse %.run-futil
-	@if ./diff.py $?; then \
-		echo -e "[\e[32mBENCHMARK\e[0m] $* passed!"; \
-		echo success > $(addsuffix .run,$*); \
-	else \
-		echo -e "[\e[31mBENCHMARK\e[0m] $* failed!"; \
-		echo failure > $(addsuffix .run,$*); \
-	fi
+%.vcd: %.meminit %.v
+	../bin/gen-vcd $*.v > $@
+
+%.futil-out: %.meminit %.vcd
+	../bin/json_to_dat.py --mode dat --output $@.tmp $*.meminit
+	jq -S . $@.tmp > $@
+	rm $@.tmp
+
+%.diff: %.dahlia-out %.futil-out
+	diff $*.dahlia-out $*.futil-out > $@
 
 clean:
-	rm -rf *.cpp *.o _headers *.out *.run-fuse *.run-futil *.run *.futil *.pre
+	rm -rf *.cpp *.o *.run *.futil *.dahlia-out *.futil-out *.json *.v *.vcd _headers *.diff *.meminit

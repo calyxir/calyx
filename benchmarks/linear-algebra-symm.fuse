@@ -1,5 +1,5 @@
-decl alpha: ubit<32>;
-decl beta: ubit<32>;
+decl alpha: ubit<32>[1];
+decl beta: ubit<32>[1];
 decl C: ubit<32>[8][8];
 decl A: ubit<32>[8][8];
 decl B: ubit<32>[8][8];
@@ -14,7 +14,7 @@ for (let i: ubit<4> = 0..8) {
     while (k < i) {
       let C_k_j: ubit<32> = C[k][j];
       ---
-      C[k][j] := alpha * B[i][j] * A[i][k] + C_k_j;
+      C[k][j] := alpha[(0 as ubit<1>)] * B[i][j] * A[i][k] + C_k_j;
       ---
       temp2 := temp2 + B[k][j] * A[i][k];
 
@@ -24,6 +24,6 @@ for (let i: ubit<4> = 0..8) {
     ---
     let C_i_j: ubit<32> = C[i][j];
     ---
-    C[i][j] := beta * C_i_j + alpha*B[i][j] * A[i][i] + alpha * temp2;
+    C[i][j] := beta[(0 as ubit<1>)] * C_i_j + alpha[(0 as ubit<1>)]*B[i][j] * A[i][i] + alpha[(0 as ubit<1>)] * temp2;
   }
 }

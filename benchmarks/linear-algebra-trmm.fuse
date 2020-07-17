@@ -1,4 +1,4 @@
-decl alpha: ubit<32>;
+decl alpha: ubit<32>[1];
 decl A: ubit<32>[8][8];
 decl B: ubit<32>[8][12];
 
@@ -17,6 +17,6 @@ for (let i: ubit<4> = 0..8) {
     ---
     let B_i_j: ubit<32> = B[i][j];
     ---
-    B[i][j] := alpha * B_i_j;
+    B[i][j] := alpha[(0 as ubit<1>)] * B_i_j;
   }
 }
