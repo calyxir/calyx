@@ -46,8 +46,8 @@ jobs:
         command: install
         args: vcdump
 
-    - name: Install verilator
-      run: sudo apt-get install verilator
+    - name: Install verilator and jq
+      run: sudo apt-get install verilator jq
 
     #- name: Cache SBT
       #uses: actions/cache@v2

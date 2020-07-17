@@ -26,7 +26,7 @@ ver = "0.2.5"
 [[tests]]
  name = "Verilog Simulation"
  paths = [ "tests/integration-verilog/*.expect" ]
- cmd = "./bin/gen-vcd {} 2>/dev/null | vcdump | jq"
+ cmd = "RUST_BACKTRACE=1 ./bin/gen-vcd {} 2>/dev/null | vcdump | jq"
  expect_dir = "tests/integration-simulation"
 
 # [[tests]]
