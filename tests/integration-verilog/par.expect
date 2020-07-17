@@ -87,9 +87,9 @@ module main (
   );
   
   // Input / output connections
-  assign done = ((x_done & y_done) ? 1'd1 : '0);
-  assign x_in = (go ? const0_out : '0);
-  assign x_write_en = (go ? 1'd1 : '0);
-  assign y_in = (go ? const1_out : '0);
-  assign y_write_en = (go ? 1'd1 : '0);
+  assign done = (x_done & y_done) ? 1'd1 : '0;
+  assign x_in = (go) ? const0_out : '0;
+  assign x_write_en = (go) ? 1'd1 : '0;
+  assign y_in = (go) ? const1_out : '0;
+  assign y_write_en = (go) ? 1'd1 : '0;
 endmodule // end main

@@ -14,21 +14,17 @@ component main(go: 1) -> (done: 1) {
   wires {
     x.in = fsm0.out == 32'd0 & !(x.done) & go ? const0.out;
     x.write_en = fsm0.out == 32'd0 & !(x.done) & go ? 1'd1;
-    fsm0.write_en = fsm0.out == 32'd0 & x.done & go ? 1'd1;
     fsm0.in = fsm0.out == 32'd0 & x.done & go ? 32'd1;
+    fsm0.write_en = fsm0.out == 32'd0 & x.done & go | fsm0.out == 32'd1 & y.done & go | fsm0.out == 32'd2 & z.done & go | fsm0.out == 32'd3 & a.done & go | fsm0.out == 32'd4 ? 1'd1;
     y.in = fsm0.out == 32'd1 & !(y.done) & go ? const1.out;
     y.write_en = fsm0.out == 32'd1 & !(y.done) & go ? 1'd1;
-    fsm0.write_en = fsm0.out == 32'd1 & y.done & go ? 1'd1;
     fsm0.in = fsm0.out == 32'd1 & y.done & go ? 32'd2;
     z.in = fsm0.out == 32'd2 & !(z.done) & go ? const2.out;
     z.write_en = fsm0.out == 32'd2 & !(z.done) & go ? 1'd1;
-    fsm0.write_en = fsm0.out == 32'd2 & z.done & go ? 1'd1;
     fsm0.in = fsm0.out == 32'd2 & z.done & go ? 32'd3;
     a.in = fsm0.out == 32'd3 & !(a.done) & go ? const3.out;
     a.write_en = fsm0.out == 32'd3 & !(a.done) & go ? 1'd1;
-    fsm0.write_en = fsm0.out == 32'd3 & a.done & go ? 1'd1;
     fsm0.in = fsm0.out == 32'd3 & a.done & go ? 32'd4;
-    fsm0.write_en = fsm0.out == 32'd4 ? 1'd1;
     done = fsm0.out == 32'd4 ? 1'd1;
     fsm0.in = fsm0.out == 32'd4 ? 32'd0;
   }
