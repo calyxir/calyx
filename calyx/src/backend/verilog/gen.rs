@@ -330,21 +330,21 @@ fn wire_id_from_node<'a>(node: &Node, port: String) -> D<'a> {
 /// operator with stronger binding.
 #[derive(Debug, Eq, PartialEq)]
 enum ParenCtx {
-    OpCtx,
-    NotCtx,
-    AndCtx,
-    OrCtx,
+    Op,
+    Not,
+    And,
+    Or,
 }
 impl Ord for ParenCtx {
     fn cmp(&self, other: &Self) -> Ordering {
         use ParenCtx as P;
         match (self, other) {
-            (P::NotCtx, _) => Ordering::Greater,
-            (P::OpCtx, P::NotCtx) => Ordering::Less,
-            (P::OpCtx, _) => Ordering::Greater,
-            (P::AndCtx, P::OpCtx) | (P::AndCtx, P::NotCtx) => Ordering::Less,
-            (P::AndCtx, _) => Ordering::Greater,
-            (P::OrCtx, _) => Ordering::Less,
+            (P::Not, _) => Ordering::Greater,
+            (P::Op, P::Not) => Ordering::Less,
+            (P::Op, _) => Ordering::Greater,
+            (P::And, P::Op) | (P::And, P::Not) => Ordering::Less,
+            (P::And, _) => Ordering::Greater,
+            (P::Or, _) => Ordering::Less,
         }
     }
 }
@@ -359,8 +359,8 @@ fn guard<'a>(expr: &GuardExpr, ctx: ParenCtx) -> D<'a> {
     match expr {
         GuardExpr::Atom(a) => atom(a),
         GuardExpr::Not(a) => {
-            let ret = D::text(expr.op_str()).append(guard(a, P::NotCtx));
-            if ctx > P::NotCtx {
+            let ret = D::text(expr.op_str()).append(guard(a, P::Not));
+            if ctx > P::Not {
                 ret.parens()
             } else {
                 ret
@@ -368,10 +368,10 @@ fn guard<'a>(expr: &GuardExpr, ctx: ParenCtx) -> D<'a> {
         }
         GuardExpr::And(bs) => {
             let ret = D::intersperse(
-                bs.iter().map(|b| guard(b, P::AndCtx)).collect::<Vec<_>>(),
+                bs.iter().map(|b| guard(b, P::And)).collect::<Vec<_>>(),
                 D::text(" & "),
             );
-            if ctx > P::AndCtx {
+            if ctx > P::And {
                 ret.parens()
             } else {
                 ret
@@ -379,10 +379,10 @@ fn guard<'a>(expr: &GuardExpr, ctx: ParenCtx) -> D<'a> {
         }
         GuardExpr::Or(bs) => {
             let ret = D::intersperse(
-                bs.iter().map(|b| guard(b, P::OrCtx)).collect::<Vec<_>>(),
+                bs.iter().map(|b| guard(b, P::Or)).collect::<Vec<_>>(),
                 D::text(" | "),
             );
-            if ctx > P::OrCtx {
+            if ctx > P::Or {
                 ret.parens()
             } else {
                 ret
@@ -395,11 +395,11 @@ fn guard<'a>(expr: &GuardExpr, ctx: ParenCtx) -> D<'a> {
         | GuardExpr::Geq(a, b)
         | GuardExpr::Leq(a, b) => {
             let ret = D::nil().append(
-                guard(a, P::OpCtx)
+                guard(a, P::Op)
                     .append(format!(" {} ", expr.op_str()))
-                    .append(guard(b, P::OpCtx)),
+                    .append(guard(b, P::Op)),
             );
-            if ctx > P::OpCtx {
+            if ctx > P::Op {
                 ret.parens()
             } else {
                 ret
@@ -483,7 +483,7 @@ fn gen_assigns<'a>(
                 .fold(D::text("'0"), |acc, (el, node)| {
                     el.guard
                         .as_ref()
-                        .map(|g| guard(&g, ParenCtx::NotCtx))
+                        .map(|g| guard(&g, ParenCtx::Not))
                         .unwrap_or_else(D::nil)
                         .append(" ? ")
                         .append(wire_id_from_node(

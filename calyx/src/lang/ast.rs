@@ -251,8 +251,8 @@ pub enum Atom {
 /// The AST for GuardExprs
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum GuardExpr {
-    And(Vec<Box<GuardExpr>>),
-    Or(Vec<Box<GuardExpr>>),
+    And(Vec<GuardExpr>),
+    Or(Vec<GuardExpr>),
     Eq(Box<GuardExpr>, Box<GuardExpr>),
     Neq(Box<GuardExpr>, Box<GuardExpr>),
     Gt(Box<GuardExpr>, Box<GuardExpr>),
@@ -268,12 +268,11 @@ impl GuardExpr {
     /// that allows chaining construction `g.and(guard)`
     pub fn and_vec(atoms: Vec<GuardExpr>) -> Self {
         // Flatten any nested `And` inside the atoms.
-        let mut flat_atoms: Vec<Box<GuardExpr>> =
-            Vec::with_capacity(atoms.len());
+        let mut flat_atoms: Vec<GuardExpr> = Vec::with_capacity(atoms.len());
         for atom in atoms {
             match atom {
                 GuardExpr::And(mut bs) => flat_atoms.append(&mut bs),
-                _ => flat_atoms.push(Box::new(atom)),
+                _ => flat_atoms.push(atom),
             }
         }
 
@@ -281,7 +280,7 @@ impl GuardExpr {
         let uniqs = flat_atoms
             .into_iter()
             .unique()
-            .filter(|atom| match **atom {
+            .filter(|atom| match *atom {
                 GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) => false,
                 _ => true,
             })
@@ -298,12 +297,11 @@ impl GuardExpr {
 
     pub fn or_vec(atoms: Vec<GuardExpr>) -> Self {
         // Flatten nested `Or`
-        let mut flat_atoms: Vec<Box<GuardExpr>> =
-            Vec::with_capacity(atoms.len());
+        let mut flat_atoms: Vec<GuardExpr> = Vec::with_capacity(atoms.len());
         for atom in atoms {
             match atom {
                 GuardExpr::Or(mut bs) => flat_atoms.append(&mut bs),
-                _ => flat_atoms.push(Box::new(atom)),
+                _ => flat_atoms.push(atom),
             }
         }
 
@@ -311,7 +309,7 @@ impl GuardExpr {
         let uniqs = flat_atoms
             .into_iter()
             .unique()
-            .filter(|atom| match **atom {
+            .filter(|atom| match *atom {
                 GuardExpr::Atom(Atom::Num(BitNum { val: 0, .. })) => false,
                 _ => true,
             })

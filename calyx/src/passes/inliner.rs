@@ -46,12 +46,12 @@ fn tree_walk(
         }
         GuardExpr::And(bs) => GuardExpr::and_vec(
             bs.into_iter()
-                .map(|b| tree_walk(*b, &map, edges_inlined))
+                .map(|b| tree_walk(b, &map, edges_inlined))
                 .collect(),
         ),
         GuardExpr::Or(bs) => GuardExpr::or_vec(
             bs.into_iter()
-                .map(|b| tree_walk(*b, &map, edges_inlined))
+                .map(|b| tree_walk(b, &map, edges_inlined))
                 .collect(),
         ),
         GuardExpr::Eq(left, right) => GuardExpr::Eq(
