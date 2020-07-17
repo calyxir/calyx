@@ -50,13 +50,6 @@ jobs:
     - name: Install verilator, jq, and SBT
       run: sudo apt-get install verilator jq sbt
 
-    - name: Location of CLI tools
-      run: |
-        readlink $(which verilator)
-        readlink $(which jq)
-        readlink $(which sbt)
-      shell: bash
-
     - name: Cache SBT
       uses: actions/cache@v2
       with:
