@@ -62,7 +62,7 @@ jobs:
         command: build
 
     - name: Test
-      run: runt -d -o fail
+      run: runt -d
       env:
         DAHLIA_EXEC: ./dahlia/fuse
 
