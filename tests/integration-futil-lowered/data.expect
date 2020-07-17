@@ -8,14 +8,11 @@ component main(go: 1) -> (done: 1) {
   
   wires {
     x0.in = fsm0.out == 32'd0 & !(x0.done) & go ? const0.out;
-    x0.write_en = fsm0.out == 32'd0 & !(x0.done) & go ? 1'd1;
-    fsm0.write_en = fsm0.out == 32'd0 & x0.done & go ? 1'd1;
+    x0.write_en = fsm0.out == 32'd0 & !(x0.done) & go | fsm0.out == 32'd1 & !(x0.done) & go ? 1'd1;
     fsm0.in = fsm0.out == 32'd0 & x0.done & go ? 32'd1;
+    fsm0.write_en = fsm0.out == 32'd0 & x0.done & go | fsm0.out == 32'd1 & x0.done & go | fsm0.out == 32'd2 ? 1'd1;
     x0.in = fsm0.out == 32'd1 & !(x0.done) & go ? const1.out;
-    x0.write_en = fsm0.out == 32'd1 & !(x0.done) & go ? 1'd1;
-    fsm0.write_en = fsm0.out == 32'd1 & x0.done & go ? 1'd1;
     fsm0.in = fsm0.out == 32'd1 & x0.done & go ? 32'd2;
-    fsm0.write_en = fsm0.out == 32'd2 ? 1'd1;
     done = fsm0.out == 32'd2 ? 1'd1;
     fsm0.in = fsm0.out == 32'd2 ? 32'd0;
   }

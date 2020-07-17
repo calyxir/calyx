@@ -145,9 +145,7 @@ pub struct EdgeData {
 impl EdgeData {
     pub fn and_guard(&mut self, guard: ast::GuardExpr) {
         self.guard = match &self.guard {
-            Some(g) => {
-                Some(ast::GuardExpr::And(Box::new(g.clone()), Box::new(guard)))
-            }
+            Some(g) => Some(ast::GuardExpr::and(g.clone(), guard)),
             None => Some(guard),
         };
     }

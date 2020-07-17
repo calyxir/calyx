@@ -308,8 +308,14 @@ impl PrettyPrint for GuardExpr {
                 .append(e2.prettify(&arena))
         };
         match self {
-            GuardExpr::And(e1, e2) => binop(e1, "&", e2),
-            GuardExpr::Or(e1, e2) => binop(e1, "|", e2),
+            GuardExpr::And(bs) => RcDoc::intersperse(
+                bs.iter().map(|b| b.prettify(&arena)).collect::<Vec<_>>(),
+                RcDoc::text(" & "),
+            ),
+            GuardExpr::Or(bs) => RcDoc::intersperse(
+                bs.iter().map(|b| b.prettify(&arena)).collect::<Vec<_>>(),
+                RcDoc::text(" | "),
+            ),
             GuardExpr::Eq(e1, e2) => binop(e1, "==", e2),
             GuardExpr::Neq(e1, e2) => binop(e1, "!=", e2),
             GuardExpr::Gt(e1, e2) => binop(e1, ">", e2),
