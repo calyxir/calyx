@@ -1,30 +1,32 @@
 ver = "0.2.5"
 
+# NOTE(rachit): `name` should only use lower case words. This makes it easier
+# remember how to match specific test suite names.
 [[tests]]
-name = "List passes"
+name = "list passes"
 paths = [ "tests/list-passes/out" ]
 cmd = "./target/debug/futil --list-passes"
 
 [[tests]]
-name = "Dahlia frontend for Futil"
+name = "dahlia frontend for futil"
 paths = [ "tests/integration-dahlia-sources/*.fuse" ]
 cmd = "./bin/find-dahlia {} -b futil --lower -l error | tail -n+2"
 expect_dir = "tests/integration-futil/"
 
 [[tests]]
-name = "Futil lowering"
+name = "futil lowering"
 paths = [ "tests/integration-futil/*.expect" ]
 cmd = "./target/debug/futil {}"
 expect_dir = "tests/integration-futil-lowered"
 
 [[tests]]
-name = "Verilog generation"
+name = "verilog generation"
 paths = [ "tests/integration-futil/*.expect" ]
 cmd = "./target/debug/futil {} -b verilog"
 expect_dir = "tests/integration-verilog"
 
 [[tests]]
- name = "Verilog Simulation"
+ name = "verilog simulation"
  paths = [ "tests/integration-verilog/*.expect" ]
  cmd = """
  ./bin/gen-vcd {} 2>/dev/null | vcdump | jq "$(cat {}.jq)"
