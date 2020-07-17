@@ -2,23 +2,16 @@ component main(go: 1) -> (done: 1) {
   cells {
     const0 = prim std_const(32, 0);
     const1 = prim std_const(32, 10);
-    fsm0 = prim std_reg(32);
     x = prim std_reg(32);
     y = prim std_reg(32);
   }
   
   wires {
-    x.in = fsm0.out == 32'd0 & !(x.done) & go ? const0.out;
-    x.write_en = fsm0.out == 32'd0 & !(x.done) & go ? 1'd1;
-    fsm0.write_en = fsm0.out == 32'd0 & x.done & go ? 1'd1;
-    fsm0.in = fsm0.out == 32'd0 & x.done & go ? 32'd1;
-    y.in = fsm0.out == 32'd1 & !(y.done) & go ? const1.out;
-    y.write_en = fsm0.out == 32'd1 & !(y.done) & go ? 1'd1;
-    fsm0.write_en = fsm0.out == 32'd1 & y.done & go ? 1'd1;
-    fsm0.in = fsm0.out == 32'd1 & y.done & go ? 32'd2;
-    fsm0.write_en = fsm0.out == 32'd2 ? 1'd1;
-    done = fsm0.out == 32'd2 ? 1'd1;
-    fsm0.in = fsm0.out == 32'd2 ? 32'd0;
+    done = x.done & y.done ? 1'd1;
+    x.in = go ? const0.out;
+    y.in = go ? const1.out;
+    x.write_en = go ? 1'd1;
+    y.write_en = go ? 1'd1;
   }
   
   control {

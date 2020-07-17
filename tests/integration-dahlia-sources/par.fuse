@@ -1,2 +1,0 @@
-let x: bit<32> = (0 as bit<32>);
-let y: bit<32> = (10 as bit<32>);
