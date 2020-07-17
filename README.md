@@ -34,6 +34,9 @@ For RTL testing, you will need to install these things:
     - Mac: `brew install jq`
     - If none of these work, here are [the official install directions][jq-install].
 
+For the [Dahlia][] tests, build the Dahlia compiler.
+Then either make sure the executable is on your `$PATH` as `dahlia` or set the `$DAHLIA_EXEC` environment variable to point to it.
+
 ### Compiler Development
 
 The compiler source lives under [calyx/src](calyx/src). While changing the compiler,
