@@ -23,7 +23,18 @@ def add():
     return relay.Function([], relay.add(relay.const(37), relay.const(5)))
 
 
-def simple_example(func):
+ALL_FUNCS = [identity, const, add]
+
+
+def simple_example():
+    # See if the command line contains a function name.
+    for option in ALL_FUNCS:
+        if option.__name__ in sys.argv[1:]:
+            func = option()
+            break
+    else:
+        func = add()  # The default for no argument.
+
     if '-r' in sys.argv[1:]:
         # Dump the Relay representation (for educational purposes).
         print(func)
@@ -33,4 +44,4 @@ def simple_example(func):
 
 
 if __name__ == '__main__':
-    simple_example(add())
+    simple_example()
