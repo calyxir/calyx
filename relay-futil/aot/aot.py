@@ -14,8 +14,6 @@ from .futil import FutilFunc
 from . import to_futil
 from .convert import convert
 
-TVM_PATH = os.environ['TVM_HOME']
-
 def must_run_process(args):
     proc = subprocess.run(args)
     assert proc.returncode == 0
