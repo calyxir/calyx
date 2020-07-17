@@ -10,11 +10,17 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
+    - name: Runt version
+      id: runt-ver
+      run: |
+        echo "::set-output name=ver::$(cargo search runt | head -n 1 | awk '{print $3}' | tr -d '"')"
+      shell: bash
+
     - name: Cache Cargo registry
       uses: actions/cache@v2
       with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-cargo-tools
+        path: ~/.cargo
+        key: runt-${{ runner.os }}-${{ steps.runt-ver.outputs.ver }}
 
     - name: Install runt
       uses: actions-rs/install@v0.1
@@ -23,15 +29,15 @@ jobs:
         version: latest
         use-tool-cache: true
 
-    - name: Install vcdump
-      uses: actions-rs/install@v0.1
-      with:
-        crate: vcdump
-        version: latest
-        use-tool-cache: true
+    #- name: Install vcdump
+      #uses: actions-rs/install@v0.1
+      #with:
+        #crate: vcdump
+        #version: latest
+        #use-tool-cache: true
 
-    - name: Install verilator
-      run: sudo apt-get install verilator
+    #- name: Install verilator
+      #run: sudo apt-get install verilator
 
     #- name: Cache SBT
       #uses: actions/cache@v2
@@ -53,24 +59,24 @@ jobs:
         #commands: assembly
         #sbt_project_directory: ./dahlia
 
-    - name: Cache Futil dependencies
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    #- name: Cache Futil dependencies
+      #uses: actions/cache@v2
+      #with:
+        #path: |
+          #~/.cargo/registry
+          #~/.cargo/git
+          #target
+        #key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
+    #- name: Build
+      #uses: actions-rs/cargo@v1
+      #with:
+        #command: build
 
-    - name: Test
-      run: runt -d
-      env:
-        DAHLIA_EXEC: ./dahlia/fuse
+    #- name: Test
+      #run: runt -d
+      #env:
+        #DAHLIA_EXEC: ./dahlia/fuse
 
   format:
     name: Check Formatting
