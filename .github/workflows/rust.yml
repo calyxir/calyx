@@ -17,6 +17,7 @@ jobs:
         echo "::set-output name=vcdump::$(./bin/cargo-ver vcdump)"
       shell: bash
 
+    # Install cargo based tools and use some caching magic.
     - name: Cache runt
       id: runt-cache
       uses: actions/cache@v2
@@ -45,15 +46,8 @@ jobs:
         command: install
         args: vcdump
 
-    #- name: Install vcdump
-      #uses: actions-rs/install@v0.1
-      #with:
-        #crate: vcdump
-        #version: latest
-        #use-tool-cache: true
-
-    #- name: Install verilator
-      #run: sudo apt-get install verilator
+    - name: Install verilator
+      run: sudo apt-get install verilator
 
     #- name: Cache SBT
       #uses: actions/cache@v2
@@ -75,24 +69,24 @@ jobs:
         #commands: assembly
         #sbt_project_directory: ./dahlia
 
-    #- name: Cache Futil dependencies
-      #uses: actions/cache@v2
-      #with:
-        #path: |
-          #~/.cargo/registry
-          #~/.cargo/git
-          #target
-        #key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - name: Cache Futil dependencies
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    #- name: Build
-      #uses: actions-rs/cargo@v1
-      #with:
-        #command: build
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
 
-    #- name: Test
-      #run: runt -d
-      #env:
-        #DAHLIA_EXEC: ./dahlia/fuse
+    - name: Test
+      run: runt -d
+      env:
+        DAHLIA_EXEC: ./dahlia/fuse
 
   format:
     name: Check Formatting
