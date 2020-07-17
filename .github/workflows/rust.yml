@@ -65,7 +65,7 @@ jobs:
           ~/.sbt
         key: ${{ runner.os }}-sbt-${{ hashFiles('dahlia/build.sbt') }}
 
-     Don't rebuild Dahlia if HEAD hash hasn't changed.
+    # Don't rebuild Dahlia if HEAD hash hasn't changed.
     - name: Cache Dahlia
       id: dahlia-cache
       uses: actions/cache@v2
