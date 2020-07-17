@@ -1,7 +1,7 @@
 /* verilator lint_off PINMISSING */
+/* verilator lint_off WIDTH */
 module std_reg
-  #(parameter width = 32,
-    parameter reset_val = 0)
+  #(parameter width = 32)
    (input wire [width-1:0] in,
     input wire write_en,
     input wire clk,
@@ -144,6 +144,9 @@ module main (
       .out(fsm0_out),
       .done(fsm0_done)
   );
+  
+  // Memory initialization / finalization 
+  // no directory given
   
   // Input / output connections
   assign done = ((fsm0_out == 32'd4) ? 1'd1 : '0);

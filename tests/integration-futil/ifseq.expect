@@ -8,38 +8,38 @@ component main() -> () {
     const4 = prim std_const(32,2);
     const5 = prim std_const(32,4);
     gt0 = prim std_gt(32);
-    x = prim std_reg(32);
+    x0 = prim std_reg(32);
   }
   wires {
     group cond0 {
       cond0[done] = 1'd1;
-      gt0.left = x.out;
+      gt0.left = x0.out;
       gt0.right = const3.out;
     }
     group let0 {
-      x.in = const0.out;
-      x.write_en = 1'd1;
-      let0[done] = x.done;
+      x0.in = const0.out;
+      x0.write_en = 1'd1;
+      let0[done] = x0.done;
     }
     group upd0 {
-      x.write_en = 1'd1;
-      x.in = const1.out;
-      upd0[done] = x.done;
+      x0.write_en = 1'd1;
+      x0.in = const1.out;
+      upd0[done] = x0.done;
     }
     group upd1 {
-      x.write_en = 1'd1;
-      x.in = const2.out;
-      upd1[done] = x.done;
+      x0.write_en = 1'd1;
+      x0.in = const2.out;
+      upd1[done] = x0.done;
     }
     group upd2 {
-      x.write_en = 1'd1;
-      x.in = const4.out;
-      upd2[done] = x.done;
+      x0.write_en = 1'd1;
+      x0.in = const4.out;
+      upd2[done] = x0.done;
     }
     group upd3 {
-      x.write_en = 1'd1;
-      x.in = const5.out;
-      upd3[done] = x.done;
+      x0.write_en = 1'd1;
+      x0.in = const5.out;
+      upd3[done] = x0.done;
     }
   }
   control {
