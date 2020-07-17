@@ -11,17 +11,17 @@ ver = "0.2.5"
 #cmd = "./bin/find-dahlia {} -b futil --lower -l error | tail -n+2"
 #expect_dir = "tests/integration-futil/"
 
-#[[tests]]
-#name = "Futil lowering"
-#paths = [ "tests/integration-futil/*.expect" ]
-#cmd = "./target/debug/futil {}"
-#expect_dir = "tests/integration-futil-lowered"
+[[tests]]
+name = "Futil lowering"
+paths = [ "tests/integration-futil/*.expect" ]
+cmd = "./target/debug/futil {}"
+expect_dir = "tests/integration-futil-lowered"
 
-#[[tests]]
-#name = "Verilog generation"
-#paths = [ "tests/integration-futil/*.expect" ]
-#cmd = "./target/debug/futil {} -b verilog"
-#expect_dir = "tests/integration-verilog"
+[[tests]]
+name = "Verilog generation"
+paths = [ "tests/integration-futil/*.expect" ]
+cmd = "./target/debug/futil {} -b verilog"
+expect_dir = "tests/integration-verilog"
 
 [[tests]]
  name = "Verilog Simulation"
@@ -30,19 +30,3 @@ ver = "0.2.5"
  ./bin/gen-vcd {} 2>/dev/null | vcdump | jq "$(cat {}.jq)"
  """
  expect_dir = "tests/integration-simulation"
-
-# [[tests]]
-# name = "Full Integration"
-# paths = [ "tests/integration-dahlia-sources/*.fuse" ]
-# cmd = "dahlia {} -b futil | ./target/debug/futil -b verilog | ./bin/gen.vcd - | vcdump"
-# expect_dir = "tests/integration-full"
-
-# [[tests]]
-# name = "Primitive Component tests"
-# paths = [ "tests/verilog-primitives/*.futil" ]
-# cmd = """
-# full={}
-# f=${full%.*}
-# make $f.res 1>/dev/null 2>/dev/null
-# cat $f.res
-# rm $f.res"""
