@@ -1,4 +1,3 @@
-from tvm import relay
 from tvm.relay.expr_functor import ExprFunctor
 import textwrap
 
