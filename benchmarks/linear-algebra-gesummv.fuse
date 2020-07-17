@@ -1,5 +1,5 @@
-decl alpha: ubit<32>;
-decl beta: ubit<32>;
+decl alpha: ubit<32>[1];
+decl beta: ubit<32>[1];
 decl A: ubit<32>[8][8];
 decl B: ubit<32>[8][8];
 decl tmp: ubit<32>[8];
@@ -21,5 +21,5 @@ for (let i: ubit<4> = 0..8) {
   ---
   let y_i: ubit<32> = y[i];
   ---
-  y[i] := alpha * tmp[i] + beta * y_i;
+  y[i] := alpha[(0 as ubit<1>)] * tmp[i] + beta[(0 as ubit<1>)] * y_i;
 }

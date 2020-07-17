@@ -1,3 +1,5 @@
+// broken because of a divide by 0 resulting from turning everything to ints
+
 decl r: ubit<32>[8];
 decl y: ubit<32>[8];
 

@@ -1,8 +1,7 @@
 /* verilator lint_off PINMISSING */
 /* verilator lint_off WIDTH */
 module std_reg
-  #(parameter width = 32,
-    parameter reset_val = 0)
+  #(parameter width = 32)
    (input wire [width-1:0] in,
     input wire write_en,
     input wire clk,

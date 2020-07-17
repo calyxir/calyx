@@ -38,7 +38,7 @@ primitive std_mem_d2[p_width, d0_size, d1_size, d0_idx_size, d1_idx_size](
   clk: 1
 ) -> (read_data: p_width, done: 1) {
   verilog {
-    module std_mem_d1
+    module std_mem_d2
       #(parameter width = 32,
         parameter d0_size = 16,
         parameter d1_size = 16,
@@ -83,7 +83,7 @@ primitive std_mem_d3[
   clk: 1
 ) -> (read_data: p_width, done: 1) {
   verilog {
-    module std_mem_d1
+    module std_mem_d3
       #(parameter width = 32,
         parameter d0_size = 16,
         parameter d1_size = 16,
@@ -145,8 +145,7 @@ primitive std_logsize_mem_d1[p_width, p_logsize](
 primitive std_reg[p_width](in: p_width, write_en: 1, clk: 1) -> (out: p_width, done: 1) {
   verilog {
     module std_reg
-      #(parameter width = 32,
-        parameter reset_val = 0)
+      #(parameter width = 32)
        (input wire [width-1:0] in,
         input wire write_en,
         input wire clk,

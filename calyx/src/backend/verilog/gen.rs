@@ -114,11 +114,16 @@ impl Backend for VerilogBackend {
 
         let docs = comps
             .iter()
-            .map(|(cd, comp)| cd.doc(&comp))
+            .map(|(cd, comp)| cd.doc(&ctx, &comp))
             .collect::<Result<Vec<_>>>()?;
         let prims = primitive_implemenations(&prog, ctx)?;
         display(
             colors::comment(D::text("/* verilator lint_off PINMISSING */"))
+                .append(D::line())
+                .append(colors::comment(D::text(
+                    // XXX(sam) hack to deal with incorrect array index sizes
+                    "/* verilator lint_off WIDTH */",
+                )))
                 .append(D::line())
                 .append(prims)
                 .append(D::line())
@@ -164,11 +169,15 @@ fn primitive_implemenations<'a>(
 }
 
 impl Emitable for ast::ComponentDef {
-    fn doc<'a>(&self, comp: &component::Component) -> Result<D<'a>> {
+    fn doc<'a>(
+        &self,
+        ctx: &context::Context,
+        comp: &component::Component,
+    ) -> Result<D<'a>> {
         let structure = D::nil()
             .append(D::space())
             .append(self.name.to_string())
-            .append(self.signature.doc(&comp)?)
+            .append(self.signature.doc(&ctx, &comp)?)
             .append(";")
             .append(D::line())
             .append(D::line())
@@ -180,6 +189,13 @@ impl Emitable for ast::ComponentDef {
             .append(colors::comment(D::text("// Subcomponent Instances")))
             .append(D::line())
             .append(subcomponent_instances(&comp))
+            .append(D::line())
+            .append(D::line())
+            .append(colors::comment(D::text(
+                "// Memory initialization / finalization ",
+            )))
+            .append(D::line())
+            .append(memory_init(&ctx, &comp))
             .append(D::line())
             .append(D::line())
             .append(colors::comment(D::text("// Input / output connections")))
@@ -202,7 +218,11 @@ impl Emitable for ast::ComponentDef {
 }
 
 impl Emitable for ast::Signature {
-    fn doc<'a>(&self, comp: &component::Component) -> Result<D<'a>> {
+    fn doc<'a>(
+        &self,
+        ctx: &context::Context,
+        comp: &component::Component,
+    ) -> Result<D<'a>> {
         let mut inputs = self
             .inputs
             .iter()
@@ -210,7 +230,7 @@ impl Emitable for ast::Signature {
                 Ok(D::text("input")
                     .keyword_color()
                     .append(D::space())
-                    .append(pd.doc(&comp)?))
+                    .append(pd.doc(&ctx, &comp)?))
             })
             .collect::<Result<Vec<_>>>()?;
         let mut outputs = self
@@ -220,7 +240,7 @@ impl Emitable for ast::Signature {
                 Ok(D::text("output")
                     .keyword_color()
                     .append(D::space())
-                    .append(pd.doc(&comp)?))
+                    .append(pd.doc(&ctx, &comp)?))
             })
             .collect::<Result<Vec<_>>>()?;
         let mut ports = vec![D::text("input")
@@ -239,7 +259,11 @@ impl Emitable for ast::Signature {
 }
 
 impl Emitable for ast::Portdef {
-    fn doc<'a>(&self, _ctx: &component::Component) -> Result<D<'a>> {
+    fn doc<'a>(
+        &self,
+        _: &context::Context,
+        _comp: &component::Component,
+    ) -> Result<D<'a>> {
         Ok(D::text("wire")
             .keyword_color()
             .append(D::space())
@@ -632,4 +656,77 @@ fn signature_connections<'a>(
     });
 
     D::intersperse(incoming.chain(outgoing), D::text(",").append(D::line()))
+}
+
+//==========================================
+//        Memory init functions
+//==========================================
+fn memory_init<'a>(
+    ctx: &context::Context,
+    comp: &component::Component,
+) -> D<'a> {
+    match &ctx.meminit_directory {
+        Some(dir) => D::text("initial")
+            .append(D::space())
+            .append(memory_load_store(
+                "$readmemh",
+                "dat",
+                dir.to_str().unwrap(),
+                &comp,
+            ))
+            .append(D::line())
+            .append(D::line())
+            .append("final")
+            .append(D::space())
+            .append(memory_load_store(
+                "$writememh",
+                "out",
+                dir.to_str().unwrap(),
+                &comp,
+            )),
+        None => D::text("// no directory given"),
+    }
+}
+
+fn memory_load_store<'a>(
+    mem_f: &'static str,
+    ext: &'static str,
+    dir: &str,
+    comp: &component::Component,
+) -> D<'a> {
+    let doc = comp
+        .structure
+        .component_iterator()
+        .filter(|(_, node)| {
+            if let NodeData::Cell(Cell::Prim { data }) = &node.data {
+                data.instance.name.to_string().contains("mem")
+            } else {
+                false
+            }
+        })
+        .map(|(_, node)| {
+            D::text(mem_f)
+                .append(
+                    D::text(format!(
+                        "\"{}/{}.{}\"",
+                        dir,
+                        node.name.to_string(),
+                        ext
+                    ))
+                    .append(",")
+                    .append(D::space())
+                    .append(format!("{}.mem", node.name.to_string()))
+                    .parens(),
+                )
+                .append(";")
+        });
+
+    D::text("begin")
+        .append(
+            D::line()
+                .append(D::intersperse(doc, D::line()))
+                .nest(4)
+                .append(D::line()),
+        )
+        .append("end")
 }

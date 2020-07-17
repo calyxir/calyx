@@ -13,7 +13,7 @@ jobs:
     - name: Versions
       id: versions
       run: |
-        echo "::set-output name=runt::$(./bin/cargo-ver runt)"
+        echo "::set-output name=runt::$(grep ver runt.toml | awk '{print $3}' | tr -d '"')"
         echo "::set-output name=vcdump::$(./bin/cargo-ver vcdump)"
         echo "::set-output name=dahlia::$(git ls-remote https://github.com/cucapra/dahlia.git | awk '{print $1}')"
       shell: bash
@@ -31,7 +31,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: install
-        args: runt
+        args: runt --version ${{ steps.versions.outputs.runt }}
 
     - name: Cache vcdump
       id: vcdump-cache

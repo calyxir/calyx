@@ -1,3 +1,5 @@
+// broken because of compilation bug in Verilator
+
 decl A: ubit<32>[8][8][8];
 decl C4: ubit<32>[8][8];
 decl sum: ubit<32>[8];
