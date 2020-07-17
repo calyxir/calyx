@@ -10,6 +10,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
+    - name: Cache Cargo registry
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-tools
+
     - name: Install runt
       uses: actions-rs/install@v0.1
       with:
