@@ -8,21 +8,21 @@ component main(go: 1) -> (done: 1) {
     const2 = prim std_const(32, 1);
     done_reg0 = prim std_reg(1);
     fsm0 = prim std_reg(32);
-    i = prim std_reg(32);
+    i0 = prim std_reg(32);
     lt0 = prim std_lt(32);
   }
   
   wires {
-    i.in = cond_stored0.out & cond_computed0.out & !(i.done) & fsm0.out == 32'd1 & !(done_reg0.out) & go ? add0.out;
-    add0.right = cond_stored0.out & cond_computed0.out & !(i.done) & fsm0.out == 32'd1 & !(done_reg0.out) & go ? const2.out;
-    add0.left = cond_stored0.out & cond_computed0.out & !(i.done) & fsm0.out == 32'd1 & !(done_reg0.out) & go ? i.out;
-    i.write_en = cond_stored0.out & cond_computed0.out & !(i.done) & fsm0.out == 32'd1 & !(done_reg0.out) & go ? 1'd1;
-    cond_computed0.in = cond_stored0.out & cond_computed0.out & i.done & fsm0.out == 32'd1 & !(done_reg0.out) & go ? 1'd0;
-    cond_computed0.write_en = cond_stored0.out & cond_computed0.out & i.done & fsm0.out == 32'd1 & !(done_reg0.out) & go ? 1'd1;
-    i.in = fsm0.out == 32'd0 & !(i.done) & go ? const0.out;
-    i.write_en = fsm0.out == 32'd0 & !(i.done) & go ? 1'd1;
-    fsm0.write_en = fsm0.out == 32'd0 & i.done & go ? 1'd1;
-    fsm0.in = fsm0.out == 32'd0 & i.done & go ? 32'd1;
+    i0.in = cond_stored0.out & cond_computed0.out & !(i0.done) & fsm0.out == 32'd1 & !(done_reg0.out) & go ? add0.out;
+    add0.right = cond_stored0.out & cond_computed0.out & !(i0.done) & fsm0.out == 32'd1 & !(done_reg0.out) & go ? const2.out;
+    add0.left = cond_stored0.out & cond_computed0.out & !(i0.done) & fsm0.out == 32'd1 & !(done_reg0.out) & go ? i0.out;
+    i0.write_en = cond_stored0.out & cond_computed0.out & !(i0.done) & fsm0.out == 32'd1 & !(done_reg0.out) & go ? 1'd1;
+    cond_computed0.in = cond_stored0.out & cond_computed0.out & i0.done & fsm0.out == 32'd1 & !(done_reg0.out) & go ? 1'd0;
+    cond_computed0.write_en = cond_stored0.out & cond_computed0.out & i0.done & fsm0.out == 32'd1 & !(done_reg0.out) & go ? 1'd1;
+    i0.in = fsm0.out == 32'd0 & !(i0.done) & go ? const0.out;
+    i0.write_en = fsm0.out == 32'd0 & !(i0.done) & go ? 1'd1;
+    fsm0.write_en = fsm0.out == 32'd0 & i0.done & go ? 1'd1;
+    fsm0.in = fsm0.out == 32'd0 & i0.done & go ? 32'd1;
     fsm0.write_en = fsm0.out == 32'd1 & done_reg0.out & go ? 1'd1;
     fsm0.in = fsm0.out == 32'd1 & done_reg0.out & go ? 32'd2;
     cond_stored0.in = !(cond_computed0.out) & fsm0.out == 32'd1 & !(done_reg0.out) & go & fsm0.out == 32'd1 & !(done_reg0.out) & go ? lt0.out;
@@ -34,7 +34,7 @@ component main(go: 1) -> (done: 1) {
     done_reg0.in = cond_computed0.out & !(cond_stored0.out) & fsm0.out == 32'd1 & !(done_reg0.out) & go ? 1'd1;
     done_reg0.write_en = cond_computed0.out & !(cond_stored0.out) & fsm0.out == 32'd1 & !(done_reg0.out) & go ? 1'd1;
     lt0.right = !(cond_computed0.out) & fsm0.out == 32'd1 & !(done_reg0.out) & go ? const1.out;
-    lt0.left = !(cond_computed0.out) & fsm0.out == 32'd1 & !(done_reg0.out) & go ? i.out;
+    lt0.left = !(cond_computed0.out) & fsm0.out == 32'd1 & !(done_reg0.out) & go ? i0.out;
     fsm0.write_en = fsm0.out == 32'd2 ? 1'd1;
     done = fsm0.out == 32'd2 ? 1'd1;
     fsm0.in = fsm0.out == 32'd2 ? 32'd0;
