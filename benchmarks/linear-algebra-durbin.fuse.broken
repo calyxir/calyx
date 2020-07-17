@@ -1,0 +1,43 @@
+// broken because of a divide by 0 resulting from turning everything to ints
+
+decl r: ubit<32>[8];
+decl y: ubit<32>[8];
+
+// XXX(rachit): This should be a local array.
+decl z: ubit<32>[8];
+
+let alpha: ubit<32> = (0 as ubit<32>) - r[(0 as ubit<4>)];
+let beta: ubit<32> = (1 as ubit<32>);
+y[(0 as ubit<4>)] := alpha;
+---
+for (let k: ubit<4> = 1..8) {
+  beta := ((1 as ubit<32>) - alpha * alpha) * beta;
+
+  let sum: ubit<32> = (0 as ubit<32>);
+  let i: ubit<4> = (0 as ubit<4>);
+  while (i < k) {
+    sum := sum + r[k-i-(1 as ubit<4>)] * y[i];
+    // Update loop counter
+    i := i + (1 as ubit<4>);
+  }
+  ---
+  alpha := (0 as ubit<32>) - (r[k] + sum)/beta;
+
+  i := (0 as ubit<4>);
+  while(i < k) {
+    let y_i: ubit<32> = y[i];
+    ---
+    z[i] := y_i + alpha * y[k-i-(1 as ubit<4>)];
+    // Update loop counter
+    i := i + (1 as ubit<4>);
+  }
+  ---
+  i := (0 as ubit<4>);
+  while(i < k) {
+    y[i] := z[i];
+    // Update loop counter
+    i := i + (1 as ubit<4>);
+  }
+  ---
+  y[k] := alpha;
+}
