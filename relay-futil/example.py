@@ -1,5 +1,5 @@
 from tvm import relay
-from aot import compile
+import relay2futil
 import sys
 
 
@@ -17,7 +17,7 @@ def simple_example(func):
         print(func)
     else:
         # Compile the function and print the FuTIL.
-        print(compile(func))
+        print(relay2futil.compile(func))
 
 
 if __name__ == '__main__':

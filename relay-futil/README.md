@@ -42,7 +42,7 @@ Run an Example
 
 Try this to run a simple example:
 
-    PYTHONPATH=. python3 examples/example_simple.py
+    python3 example.py
 
 Pass the `-r` flag to this script to see the Relay code. Otherwise, we just print the FuTIL code.
 

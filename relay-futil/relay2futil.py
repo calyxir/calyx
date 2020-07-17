@@ -43,7 +43,7 @@ class ToSource(ExprFunctor):
         return component
 
 
-def to_source(program) -> str:
+def compile(program) -> str:
     convert = ToSource()
     src = convert.visit(program)
     return "{}\n{}".format(PREAMBLE.strip(), src)
