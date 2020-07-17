@@ -63,8 +63,8 @@ jobs:
       id: dahlia-cache
       uses: actions/cache@v2
       with:
-        path: ~/dahlia
-        key: dahlia-bin-${{ runner.os }}-${{ steps.versions.outputs.dahlia }}
+        path: ./dahlia
+        key: dahlia-dir-${{ runner.os }}-${{ steps.versions.outputs.dahlia }}
 
     - name: Checkout Dahlia
       uses: actions/checkout@v2
@@ -73,12 +73,12 @@ jobs:
         repository: cucapra/dahlia
         path: dahlia
 
-    #- name: Build Dahlia
-      #uses: lokkju/github-action-sbt@v0.2.2
-      #if: steps.dahlia-cache.outputs.cache-hit != 'true'
-      #with:
-        #commands: assembly
-        #sbt_project_directory: ./dahlia
+    - name: Build Dahlia
+      uses: lokkju/github-action-sbt@v0.2.2
+      if: steps.dahlia-cache.outputs.cache-hit != 'true'
+      with:
+        commands: assembly
+        sbt_project_directory: ./dahlia
 
     - name: Dahlia directory
       run: ls ./dahlia
