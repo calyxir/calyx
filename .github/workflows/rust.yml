@@ -50,6 +50,9 @@ jobs:
     - name: Install verilator, jq, and SBT
       run: sudo apt-get install verilator jq sbt
 
+    - name: Install numpy
+      run: pip3 install numpy
+
     - name: Cache SBT
       uses: actions/cache@v2
       with:
