@@ -1,30 +1,30 @@
 component main(go: 1) -> (done: 1) {
   cells {
-    a = prim std_reg(32);
+    a0 = prim std_reg(32);
     const0 = prim std_const(32, 1);
     const1 = prim std_const(32, 2);
     const2 = prim std_const(32, 3);
     const3 = prim std_const(32, 4);
     fsm0 = prim std_reg(32);
-    x = prim std_reg(32);
-    y = prim std_reg(32);
-    z = prim std_reg(32);
+    x0 = prim std_reg(32);
+    y0 = prim std_reg(32);
+    z0 = prim std_reg(32);
   }
   
   wires {
-    x.in = fsm0.out == 32'd0 & !(x.done) & go ? const0.out;
-    x.write_en = fsm0.out == 32'd0 & !(x.done) & go ? 1'd1;
-    fsm0.in = fsm0.out == 32'd0 & x.done & go ? 32'd1;
-    fsm0.write_en = fsm0.out == 32'd0 & x.done & go | fsm0.out == 32'd1 & y.done & go | fsm0.out == 32'd2 & z.done & go | fsm0.out == 32'd3 & a.done & go | fsm0.out == 32'd4 ? 1'd1;
-    y.in = fsm0.out == 32'd1 & !(y.done) & go ? const1.out;
-    y.write_en = fsm0.out == 32'd1 & !(y.done) & go ? 1'd1;
-    fsm0.in = fsm0.out == 32'd1 & y.done & go ? 32'd2;
-    z.in = fsm0.out == 32'd2 & !(z.done) & go ? const2.out;
-    z.write_en = fsm0.out == 32'd2 & !(z.done) & go ? 1'd1;
-    fsm0.in = fsm0.out == 32'd2 & z.done & go ? 32'd3;
-    a.in = fsm0.out == 32'd3 & !(a.done) & go ? const3.out;
-    a.write_en = fsm0.out == 32'd3 & !(a.done) & go ? 1'd1;
-    fsm0.in = fsm0.out == 32'd3 & a.done & go ? 32'd4;
+    x0.in = fsm0.out == 32'd0 & !(x0.done) & go ? const0.out;
+    x0.write_en = fsm0.out == 32'd0 & !(x0.done) & go ? 1'd1;
+    fsm0.in = fsm0.out == 32'd0 & x0.done & go ? 32'd1;
+    fsm0.write_en = fsm0.out == 32'd0 & x0.done & go | fsm0.out == 32'd1 & y0.done & go | fsm0.out == 32'd2 & z0.done & go | fsm0.out == 32'd3 & a0.done & go | fsm0.out == 32'd4 ? 1'd1;
+    y0.in = fsm0.out == 32'd1 & !(y0.done) & go ? const1.out;
+    y0.write_en = fsm0.out == 32'd1 & !(y0.done) & go ? 1'd1;
+    fsm0.in = fsm0.out == 32'd1 & y0.done & go ? 32'd2;
+    z0.in = fsm0.out == 32'd2 & !(z0.done) & go ? const2.out;
+    z0.write_en = fsm0.out == 32'd2 & !(z0.done) & go ? 1'd1;
+    fsm0.in = fsm0.out == 32'd2 & z0.done & go ? 32'd3;
+    a0.in = fsm0.out == 32'd3 & !(a0.done) & go ? const3.out;
+    a0.write_en = fsm0.out == 32'd3 & !(a0.done) & go ? 1'd1;
+    fsm0.in = fsm0.out == 32'd3 & a0.done & go ? 32'd4;
     done = fsm0.out == 32'd4 ? 1'd1;
     fsm0.in = fsm0.out == 32'd4 ? 32'd0;
   }

@@ -3,16 +3,16 @@ component main(go: 1) -> (done: 1) {
     const0 = prim std_const(32, 0);
     const1 = prim std_const(32, 1);
     fsm0 = prim std_reg(32);
-    x = prim std_reg(32);
+    x0 = prim std_reg(32);
   }
   
   wires {
-    x.in = fsm0.out == 32'd0 & !(x.done) & go ? const0.out;
-    x.write_en = fsm0.out == 32'd0 & !(x.done) & go | fsm0.out == 32'd1 & !(x.done) & go ? 1'd1;
-    fsm0.in = fsm0.out == 32'd0 & x.done & go ? 32'd1;
-    fsm0.write_en = fsm0.out == 32'd0 & x.done & go | fsm0.out == 32'd1 & x.done & go | fsm0.out == 32'd2 ? 1'd1;
-    x.in = fsm0.out == 32'd1 & !(x.done) & go ? const1.out;
-    fsm0.in = fsm0.out == 32'd1 & x.done & go ? 32'd2;
+    x0.in = fsm0.out == 32'd0 & !(x0.done) & go ? const0.out;
+    x0.write_en = fsm0.out == 32'd0 & !(x0.done) & go | fsm0.out == 32'd1 & !(x0.done) & go ? 1'd1;
+    fsm0.in = fsm0.out == 32'd0 & x0.done & go ? 32'd1;
+    fsm0.write_en = fsm0.out == 32'd0 & x0.done & go | fsm0.out == 32'd1 & x0.done & go | fsm0.out == 32'd2 ? 1'd1;
+    x0.in = fsm0.out == 32'd1 & !(x0.done) & go ? const1.out;
+    fsm0.in = fsm0.out == 32'd1 & x0.done & go ? 32'd2;
     done = fsm0.out == 32'd2 ? 1'd1;
     fsm0.in = fsm0.out == 32'd2 ? 32'd0;
   }
