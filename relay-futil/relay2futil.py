@@ -8,7 +8,7 @@ import "primitives/std.lib";
 
 
 def mk_block(decl, contents, indent=2):
-    """Formats a block like this:
+    """Format a block like this:
 
         decl {
           contents
@@ -19,9 +19,11 @@ def mk_block(decl, contents, indent=2):
     return decl + ' {\n' + textwrap.indent(contents, indent * ' ') + '\n}'
 
 
-class ToSource(ExprFunctor):
+class Relay2Futil(ExprFunctor):
+    """Our main compilation visitor.
+    """
     def __init__(self):
-        super(ToSource, self).__init__()
+        super(Relay2Futil, self).__init__()
 
     def visit_var(self, var):
         return "a variable called {}".format(var.name_hint)
@@ -44,6 +46,8 @@ class ToSource(ExprFunctor):
 
 
 def compile(program) -> str:
-    convert = ToSource()
-    src = convert.visit(program)
+    """Translate a Relay function to a FuTIL program (as a string).
+    """
+    visitor = Relay2Futil()
+    src = visitor.visit(program)
     return "{}\n{}".format(PREAMBLE.strip(), src)
