@@ -16,6 +16,7 @@ jobs:
         echo "::set-output name=runt::$(grep ver runt.toml | awk '{print $3}' | tr -d '"')"
         echo "::set-output name=vcdump::$(./bin/cargo-ver vcdump)"
         echo "::set-output name=dahlia::$(git ls-remote https://github.com/cucapra/dahlia.git | awk '{print $1}')"
+        echo "::set-output name=verilator::$(cat versions/verilator)"
       shell: bash
 
     # Install cargo based tools and use some caching magic.
@@ -50,7 +51,15 @@ jobs:
     - name: Install jq, and SBT
       run: sudo apt-get install jq sbt
 
-    - name: Install Verilator :(
+    - name: Cache Verilator
+      id: verilator-cache
+      uses: actions/cache@v2
+      with:
+        path: /usr/local/bin/verilator
+        key: verilator-bin-${{ runner.os }}-${{ steps.versions.outputs.verilator }}
+
+    - name: Install Verilator
+      if: steps.verilator-cache.outputs.cache-hit != 'true'
       run: |
         sudo apt-get install git make autoconf g++ flex bison libfl2 libfl-dev
         git clone https://github.com/verilator/verilator
