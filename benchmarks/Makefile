@@ -14,12 +14,12 @@ status:
 	@grep "success" *.run | cut -f 1 -d ':' | cut -f 1 -d '.' | sed -e 's/^/ - /;'
 
 %.cpp: %.fuse
-	dahlia run $< -o $@
+	../bin/find-dahlia run $< -o $@
 	@if [ ! -f _headers/json.hpp ]; then wget $(JSON_URL) --directory-prefix _headers; fi
 	rm -f $@.o # remove extraneously generated file
 
 %.cpp.o: %.fuse
-	dahlia run $< -o $*.cpp
+	../bin/find-dahlia run $< -o $*.cpp
 	@if [ ! -f _headers/json.hpp ]; then wget $(JSON_URL) --directory-prefix _headers; fi
 	rm -f $*.cpp # remove extraneously generated file
 
@@ -27,7 +27,7 @@ status:
 	./$< $*.data | jq -S . > $@
 
 %.futil: %.fuse
-	dahlia $< -o $@ --lower -b futil
+	../bin/find-dahlia $< -o $@ --lower -b futil
 
 %.v: %.futil
 	cargo run -- $< -l .. -b verilog --meminit $*.meminit > $@
