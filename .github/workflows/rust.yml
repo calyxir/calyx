@@ -98,13 +98,9 @@ jobs:
 
     - name: Test
       run: |
-        sudo apt install tree
-        tree ~
-        echo "---------"
-        tree .
         runt -d -o fail
       env:
-        DAHLIA_EXEC: ./dahlia/fuse
+        DAHLIA_EXEC: /home/runner/work/futil/dahlia/fuse
 
   format:
     name: Check Formatting
