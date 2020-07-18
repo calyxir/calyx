@@ -99,7 +99,7 @@ jobs:
     - name: Test
       run: runt -d -o fail
       env:
-        DAHLIA_EXEC: ~/dahlia/fuse
+        DAHLIA_EXEC: $GITHUB_WORKSPACE/dahlia/fuse
 
   format:
     name: Check Formatting
