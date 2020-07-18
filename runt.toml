@@ -39,7 +39,7 @@ paths = [ "benchmarks/*.fuse" ]
 cmd = """
 full=$(basename {})
 f=${full%.*}
-make -C benchmarks $f.futil-out 1>/dev/null 2>/dev/null
+make -C benchmarks $f.futil-out
 cat benchmarks/$f.futil-out
 rm benchmarks/$f.futil-out
 """
