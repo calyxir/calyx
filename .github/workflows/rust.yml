@@ -97,9 +97,13 @@ jobs:
         command: build
 
     - name: Test
-      run: runt -d -o fail
+      run: |
+        tree ~
+        echo "---------"
+        tree .
+        runt -d -o fail
       env:
-        DAHLIA_EXEC: $GITHUB_WORKSPACE/dahlia/fuse
+        DAHLIA_EXEC: ./dahlia/fuse
 
   format:
     name: Check Formatting
