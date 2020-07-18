@@ -47,8 +47,20 @@ jobs:
         command: install
         args: vcdump
 
-    - name: Install verilator, jq, and SBT
-      run: sudo apt-get install verilator jq sbt
+    - name: Install jq, and SBT
+      run: sudo apt-get install jq sbt
+
+    - name: Install Verilator :(
+      run: |
+        sudo apt-get install git make autoconf g++ flex bison libfl2 libfl-dev
+        git clone https://github.com/verilator/verilator
+        cd verilator
+        git pull
+        git checkout master
+        autoconf
+        ./configure
+        make
+        sudo make install
 
     - name: Install numpy
       run: pip3 install numpy
