@@ -7,10 +7,13 @@ identifier = @{ ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
 bitwidth = @{ ASCII_DIGIT+ }
 num_lit = @{ ASCII_DIGIT+ } // TODO: add verilog style number literals
 
+char = { !"\"" ~ ANY }
+string_lit = ${ "\"" ~ char* ~ "\"" }
+
 // ====== toplevel ======
 
 primitive = {
-      "primitive" ~ identifier ~ params? ~ signature?
+      "primitive" ~ identifier ~ attributes? ~ params? ~ signature?
       ~ "{"
       ~ implementation
       ~ "}"
@@ -23,6 +26,14 @@ file = {
 }
 
 // ====== signature ======
+
+key_value = {
+      string_lit ~ "=" ~ bitwidth
+}
+
+attributes = {
+      "<" ~ (key_value ~ ("," ~ key_value)*) ~ ">"
+}
 
 params = {
       "[" ~ (identifier ~ ("," ~ identifier)*)? ~ "]"
