@@ -1,7 +1,12 @@
 [package]
 name = "futil"
 version = "0.1.0"
-authors = ["Samuel Thomas <sgt43@cornell.edu>", "Kenneth Fang <kwf37@cornell.edu>"]
+authors = [
+  "Samuel Thomas <sgt43@cornell.edu>",
+  "Rachit Nigam <rnigam@cs.cornell.edu>",
+  "Kenneth Fang <kwf37@cornell.edu>",
+  "Adrian Sampson <asampson@cs.cornell.edu>",
+]
 edition = "2018"
 build = false
 

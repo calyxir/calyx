@@ -1,15 +1,20 @@
 // Abstract Syntax Tree for Futil
+use derivative::Derivative;
 use crate::errors::{Result, Span};
 use crate::lang::context::LibraryContext;
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
+use std::hash::{Hash};
 use std::ops::{BitAnd, BitOr, Not};
 
 /// Represents an identifier in a Futil program
+#[derive(Derivative)]
 #[derive(Clone, PartialOrd, Ord)]
+#[derivative(Hash, Eq, PartialEq)]
 pub struct Id {
     id: String,
+    #[derivative(Hash="ignore")]
+    #[derivative(PartialEq="ignore")]
     span: Option<Span>,
 }
 
@@ -34,22 +39,6 @@ impl std::fmt::Debug for Id {
         f.debug_struct("Id").field("id", &self.id).finish()
     }
 }
-
-/* =================== Custom Hash / Eq for impl to exclude span from the check ============== */
-
-impl Hash for Id {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-impl PartialEq for Id {
-    fn eq(&self, other: &Id) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for Id {}
 
 /* =================== Impls for Id to make them easier to use ============== */
 
