@@ -6,6 +6,7 @@ use crate::lang::{
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
 use std::fs;
+use std::collections::HashMap;
 use std::io::Read;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -319,11 +320,31 @@ impl FutilParser {
         ))
     }
 
+    fn key_value(input: Node) -> ParseResult<(String, u64)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [string_lit(key), bitwidth(num)] => (key, num)
+        ))
+    }
+
+    fn attributes(input: Node) -> ParseResult<HashMap<String, u64>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [key_value(kvs)..] => kvs.collect()
+        ))
+    }
+
     fn group(input: Node) -> ParseResult<ast::Group> {
         Ok(match_nodes!(
             input.into_children();
+            [identifier(name), attributes(attrs), wire(wire)..] => ast::Group {
+                name,
+                attributes: attrs,
+                wires: wire.collect()
+            },
             [identifier(name), wire(wire)..] => ast::Group {
                 name,
+                attributes: HashMap::new(),
                 wires: wire.collect()
             }
         ))

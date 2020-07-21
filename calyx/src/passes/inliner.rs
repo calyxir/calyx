@@ -146,7 +146,8 @@ fn inline_hole(st: &mut StructureGraph, hole: String) {
         st.get_edge_mut(idx).group = None;
     }
     st.groups = HashMap::new();
-    st.groups.insert(None, st.edge_idx().collect());
+    // XXX(rachit): Removing all attributes. Is this correct?
+    st.groups.insert(None, (HashMap::new(), st.edge_idx().collect()));
 }
 
 impl Visitor for Inliner {

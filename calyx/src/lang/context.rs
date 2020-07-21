@@ -101,15 +101,28 @@ impl Context {
         }
 
         let mut definitions = HashMap::new();
-        for comp in &namespace.components {
+        for comp in namespace.components {
             let prim_sigs = comp.resolve_primitives(&libctx)?;
-            let graph = StructureGraph::new(&comp, &signatures, &prim_sigs)?;
+            let ast::ComponentDef {
+                name,
+                signature,
+                cells,
+                connections,
+                control,
+            } = comp;
+            let graph = StructureGraph::new(
+                signature.clone(),
+                cells,
+                connections,
+                &signatures,
+                &prim_sigs,
+            )?;
             definitions.insert(
-                comp.name.clone(),
+                name.clone(),
                 Component {
-                    name: comp.name.clone(),
-                    signature: comp.signature.clone(),
-                    control: comp.control.clone(),
+                    name: name.clone(),
+                    signature: signature,
+                    control: control,
                     structure: graph,
                     resolved_sigs: prim_sigs,
                 },
