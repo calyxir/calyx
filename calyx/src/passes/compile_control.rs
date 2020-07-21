@@ -1,10 +1,14 @@
-use std::collections::HashMap;
+use crate::{port, new_structure};
 use crate::errors::{Error, Extract};
 use crate::lang::{
-    ast, component::Component, context::Context, structure_builder::ASTBuilder,
+    ast,
+    component::Component,
+    context::Context,
+    structure_builder::{ASTBuilder},
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 use ast::{Control, Enable, GuardExpr, Port};
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct CompileControl {}
@@ -16,47 +20,6 @@ impl Named for CompileControl {
 
     fn description() -> &'static str {
         "Compile away all control language constructs into structure"
-    }
-}
-
-/// Simple macro that provides convienent syntax for
-/// constructing ports. The syntax is:
-/// ```
-/// port!(st; node."port-string")
-/// port!(st; node.port_var)
-/// port!(st; node["hole-string"])
-/// port!(st; node[hole-var])
-/// ```
-/// The main point of this macro is to make port
-/// construction easier to read, and thus easier to debug.
-#[macro_export]
-macro_rules! port {
-    ($struct:expr; $node:ident.$port:expr) => {
-        (
-            $node,
-            $struct.port_ref($node, $port).expect("port!").clone(),
-        )
-    };
-    ($struct:expr; $node:ident[$port:expr]) => {
-        (
-            $node,
-            $struct.port_ref($node, $port).expect("port!").clone(),
-        )
-    };
-}
-
-macro_rules! new_structure {
-    ($struct:expr,
-     $ctx:expr,
-     $( $var:ident = prim $comp:ident( $($n:literal),* ) );* $(;)?) => {
-        $(
-            let $var = $struct.new_primitive(
-                $ctx,
-                stringify!($var),
-                stringify!($comp),
-                &[$($n),*]
-            )?;
-        )*
     }
 }
 
