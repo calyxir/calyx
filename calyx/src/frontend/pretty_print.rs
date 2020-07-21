@@ -250,10 +250,23 @@ impl PrettyPrint for Connection {
 
 impl PrettyPrint for Group {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
+        let attrs = self.attributes.iter().map(|(k, v)| {
+            RcDoc::text("\"")
+                .append(k.clone())
+                .append(RcDoc::text("\""))
+                .control_color()
+                .append(RcDoc::text("="))
+                .append(v.to_string())
+        });
         let title = RcDoc::text("group")
             .keyword_color()
             .append(RcDoc::space())
-            .append(self.name.prettify(&arena));
+            .append(self.name.prettify(&arena))
+            .append(
+                RcDoc::text("<")
+                    .append(RcDoc::intersperse(attrs, ", "))
+                    .append(">"),
+            );
 
         let body = stmt_vec(
             self.wires
