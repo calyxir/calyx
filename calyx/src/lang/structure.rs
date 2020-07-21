@@ -175,7 +175,6 @@ pub struct StructureGraph {
     /// the set of edges belong to. None refers to edges
     /// that are in no group.
     pub groups: HashMap<Option<ast::Id>, Vec<EdgeIndex>>,
-    // XXX(sam) make this not public, by making proper getters/setters
     graph: StructG,
     pub namegen: NameGenerator,
 }
