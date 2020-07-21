@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::errors::{Error, Extract};
 use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
@@ -107,7 +108,8 @@ impl Visitor for CompileControl {
 
         // create a new group for if related structure
         let if_group: ast::Id = st.namegen.gen_name("if").into();
-        let if_group_node = st.insert_group(&if_group)?;
+        // XXX(rachit): Not adding any new attributes. Is this correct?
+        let if_group_node = st.insert_group(&if_group, HashMap::new())?;
 
         let cond_group_node =
             st.get_node_by_name(&cif.cond).extract(cif.cond.clone())?;
@@ -283,7 +285,7 @@ impl Visitor for CompileControl {
 
         // create group
         let while_group = st.namegen.gen_name("while").into();
-        let while_group_node = st.insert_group(&while_group)?;
+        let while_group_node = st.insert_group(&while_group, HashMap::new())?;
 
         // cond group
         let cond_group_node = st
@@ -501,7 +503,7 @@ impl Visitor for CompileControl {
 
         // Create a new group for the seq related structure.
         let seq_group: ast::Id = st.namegen.gen_name("seq").into();
-        let seq_group_node = st.insert_group(&seq_group)?;
+        let seq_group_node = st.insert_group(&seq_group, HashMap::new())?;
 
         // new structure
         let fsm_reg = st.new_primitive(&ctx, "fsm", "std_reg", &[32])?;
@@ -618,7 +620,7 @@ impl Visitor for CompileControl {
 
         // Name of the parent group.
         let par_group: ast::Id = st.namegen.gen_name("par").into();
-        let par_group_idx = st.insert_group(&par_group)?;
+        let par_group_idx = st.insert_group(&par_group, HashMap::new())?;
 
         let mut par_group_done: Option<GuardExpr> = None;
 

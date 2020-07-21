@@ -492,10 +492,16 @@ pub enum Connection {
     Wire(Wire),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Derivative)]
+#[derive(Clone, Debug, Eq)]
+#[derivative(PartialEq, PartialOrd, Ord)]
 pub struct Group {
     pub name: Id,
     pub wires: Vec<Wire>,
+    #[derivative(PartialEq = "ignore")]
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
+    pub attributes: HashMap<String, u64>
 }
 
 /// Data for the `->` structure statement.

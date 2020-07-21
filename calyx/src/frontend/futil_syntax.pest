@@ -122,8 +122,16 @@ wire = {
       LHS ~ "=" ~ (switch_stmt | expr) ~ ";"
 }
 
+key_value = {
+      string_lit ~ "=" ~ bitwidth
+}
+
+attributes = {
+      "<" ~ (key_value ~ ("," ~ key_value)*) ~ ">"
+}
+
 group = {
-      "group" ~ identifier ~ "{"
+      "group" ~ identifier ~ attributes? ~ "{"
       ~ wire*
       ~ "}"
 }
