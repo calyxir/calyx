@@ -42,7 +42,11 @@ Run an Example
 
 Try this to run a simple example:
 
-    PYTHONPATH=. python3 examples/example_simple.py
+    python3 example.py
+
+Pass the `-r` flag to this script to see the Relay code. Otherwise, we just print the FuTIL code.
+
+You can specify the name of an example as a command-line argument. The current options are `identity`, `add`, and `const`.
 
 
 [tvm]: https://tvm.apache.org
