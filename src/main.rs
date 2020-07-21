@@ -15,6 +15,7 @@ use passes::{
     go_insertion::GoInsertion,
     inliner::Inliner,
     merge_assign::MergeAssign,
+    static_timing::StaticTiming,
     visitor::{Named, Visitor},
 };
 use std::collections::HashMap;
@@ -25,6 +26,13 @@ type PassClosure = Box<dyn Fn(&Context, &mut NameGenerator) -> Result<()>>;
 
 fn pass_map() -> HashMap<String, PassClosure> {
     let mut names: HashMap<String, PassClosure> = HashMap::new();
+    names.insert(
+        StaticTiming::name().to_string(),
+        Box::new(|ctx, _| {
+            StaticTiming::do_pass_default(&ctx)?;
+            Ok(())
+        }),
+    );
     names.insert(
         CompileControl::name().to_string(),
         Box::new(|ctx, _| {
@@ -74,6 +82,7 @@ fn pass_map() -> HashMap<String, PassClosure> {
     names.insert(
         "no-inline".to_string(),
         Box::new(|ctx, _name_gen| {
+            StaticTiming::do_pass_default(ctx)?;
             CompileControl::do_pass_default(ctx)?;
             GoInsertion::do_pass_default(ctx)?;
             ComponentInterface::do_pass_default(ctx)?;
