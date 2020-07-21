@@ -87,7 +87,7 @@ impl PartialEq<str> for Id {
 }
 
 /// Top level AST statement. This contains a list of Component definitions.
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub struct NamespaceDef {
     /// The path to libraries
     pub libraries: Vec<String>,
@@ -96,7 +96,7 @@ pub struct NamespaceDef {
 }
 
 /// AST statement for defining components.
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub struct ComponentDef {
     /// Name of the component.
     pub name: Id,
@@ -497,13 +497,13 @@ impl Cell {
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Connection {
     Group(Group),
     Wire(Wire),
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Group {
     pub name: Id,
     pub wires: Vec<Wire>,
