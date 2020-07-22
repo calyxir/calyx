@@ -12,7 +12,7 @@ pub struct MergeAssign {}
 
 impl Named for MergeAssign {
     fn name() -> &'static str {
-        "compile-control"
+        "merge-assign"
     }
 
     fn description() -> &'static str {
@@ -89,11 +89,11 @@ impl Visitor for MergeAssign {
             comp.structure.remove_edge(e_idx);
         }
 
-        for ((dest_idx, dest_port), edges) in merged_edges {
+        for (dst, edges) in merged_edges {
             for (src, guard) in edges {
                 comp.structure.insert_edge(
                     src,
-                    (dest_idx, dest_port.clone()),
+                    dst.clone(),
                     None,
                     Some(guard),
                 )?;

@@ -1,10 +1,11 @@
-use crate::{port, structure, add_wires};
 use crate::errors::Extract;
 use crate::lang::ast::{Control, Enable};
 use crate::lang::{
-    ast, component::Component, context::Context, structure_builder::ASTBuilder,
+    ast, component::Component, context::Context, structure::StructureGraph,
+    structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
+use crate::{add_wires, port, structure};
 //use itertools::Itertools;
 use std::collections::HashMap;
 //use petgraph::graph::NodeIndex;
@@ -107,11 +108,13 @@ impl Visitor for StaticTiming {
         );
         let done_guard =
             st.to_guard(port!(st; fsm_reg."out")).eq(st.to_guard(last));
+        let not_done_guard = !done_guard.clone();
 
         add_wires!(st, seq_group,
             incr["left"] = (one);
             incr["right"] = (fsm_reg["out"]);
-            fsm_reg["in"] = done_guard ? (incr["out"]);
+            fsm_reg["in"] = not_done_guard ? (incr["out"]);
+            fsm_reg["write_en"] = not_done_guard ? (signal_const.clone());
             seq_group_node["done"] = done_guard ? (signal_const);
         );
 
