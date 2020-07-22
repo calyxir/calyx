@@ -3,4 +3,6 @@
 - component-interface-inserter
 - go-insertion
 - hole-inliner
+- merge-assign
 - no-inline
+- static-timing
