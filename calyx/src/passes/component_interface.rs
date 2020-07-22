@@ -49,7 +49,7 @@ impl Visitor for ComponentInterface {
             // this pass doesn't modify any control, so we can return immediately
             Ok(Action::Stop)
         } else {
-            Err(Error::MalformedControl("terst".to_string()))
+            Err(Error::MalformedControl("ComponentInterface: Structure has more than one group".to_string()))
         }
     }
 }

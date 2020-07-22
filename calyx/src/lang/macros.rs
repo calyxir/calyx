@@ -64,7 +64,7 @@ macro_rules! add_wires {
         $struct.insert_edge(
             $src,
             $dst,
-            None,
+            Some($group.clone()),
             None
         )?;
         add_wires!($struct, $group, $($tail)*)

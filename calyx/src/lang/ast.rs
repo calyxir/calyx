@@ -12,7 +12,7 @@ use std::ops::{BitAnd, BitOr, Not};
 #[derive(Clone, PartialOrd, Ord)]
 #[derivative(Hash, Eq, PartialEq)]
 pub struct Id {
-    id: String,
+    pub id: String,
     #[derivative(Hash="ignore")]
     #[derivative(PartialEq="ignore")]
     span: Option<Span>,
