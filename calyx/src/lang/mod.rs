@@ -5,3 +5,4 @@ pub mod library;
 pub mod structure;
 pub mod structure_builder;
 pub mod structure_iter;
+pub mod macros;

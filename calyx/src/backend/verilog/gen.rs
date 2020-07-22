@@ -53,7 +53,9 @@ fn validate_guard(guard: &GuardExpr) -> bool {
         }
         GuardExpr::Not(inner) => validate_guard(inner),
         GuardExpr::Atom(Atom::Port(p)) => {
-            matches!(p, Port::Comp { .. } | Port::This { .. })
+            let ret = matches!(p, Port::Comp { .. } | Port::This { .. });
+            println!("{:?}: {}", p, ret);
+            ret
         }
         GuardExpr::Atom(Atom::Num(_)) => true,
     }
