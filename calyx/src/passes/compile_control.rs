@@ -280,7 +280,7 @@ impl Visitor for CompileControl {
             let cond_stored = prim std_reg(1);
             let done_reg = prim std_reg(1);
             let signal_on = constant(1, 1);
-            let signal_off = constant(1, 1);
+            let signal_off = constant(0, 1);
         );
 
         // cond[go] = !cond_computed.out ? 1'b1;
@@ -455,7 +455,7 @@ impl Visitor for CompileControl {
 
         // new structure
         structure!(st, &ctx,
-            let fsm_reg = prim std_reg(32);
+            let fsm = prim std_reg(32);
             let signal_const = constant(1, 1);
         );
 
@@ -478,7 +478,7 @@ impl Visitor for CompileControl {
                         port!(st; group["go"]),
                         Some(seq_group.clone()),
                         Some(
-                            (st.to_guard(port!(st; fsm_reg."out"))
+                            (st.to_guard(port!(st; fsm."out"))
                                 .eq(st.to_guard(fsm_st_const.clone())))
                                 & !st.to_guard(port!(st; group["done"])),
                         ),
@@ -489,19 +489,19 @@ impl Visitor for CompileControl {
                     /* fsm.in = fsm.out == value(fsm_counter) & group[done] ? 1 */
                     let fsm_num = st.new_constant(fsm_counter, 32)?;
                     let done_guard = (st
-                        .to_guard(port!(st; fsm_reg."out"))
+                        .to_guard(port!(st; fsm."out"))
                         .eq(st.to_guard(fsm_st_const.clone())))
                         & st.to_guard(port!(st; group["done"]));
                     st.insert_edge(
                         fsm_num.clone(),
-                        port!(st; fsm_reg."in"),
+                        port!(st; fsm."in"),
                         Some(seq_group.clone()),
                         Some(done_guard.clone()),
                     )?;
                     let num = st.new_constant(1, 1)?;
                     st.insert_edge(
                         num,
-                        port!(st; fsm_reg."write_en"),
+                        port!(st; fsm."write_en"),
                         Some(seq_group.clone()),
                         Some(done_guard),
                     )?;
@@ -518,26 +518,26 @@ impl Visitor for CompileControl {
                             port!(st; seq_group_node["done"]),
                             Some(seq_group.clone()),
                             Some(
-                                st.to_guard(port!(st; fsm_reg."out"))
+                                st.to_guard(port!(st; fsm."out"))
                                     .eq(st.to_guard(fsm_num.clone())),
                             ),
                         )?;
 
                         st.insert_edge(
                             signal_stop,
-                            port!(st; fsm_reg."in"),
+                            port!(st; fsm."in"),
                             None,
                             Some(
-                                st.to_guard(port!(st; fsm_reg."out"))
+                                st.to_guard(port!(st; fsm."out"))
                                     .eq(st.to_guard(fsm_num.clone())),
                             ),
                         )?;
                         st.insert_edge(
                             signal_go,
-                            port!(st; fsm_reg."write_en"),
+                            port!(st; fsm."write_en"),
                             None,
                             Some(
-                                st.to_guard(port!(st; fsm_reg."out"))
+                                st.to_guard(port!(st; fsm."out"))
                                     .eq(st.to_guard(fsm_num)),
                             ),
                         )?;
