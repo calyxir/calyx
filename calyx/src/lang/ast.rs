@@ -317,6 +317,10 @@ impl GuardExpr {
         GuardExpr::Eq(Box::new(self), Box::new(other))
     }
 
+    pub fn le(self, other: GuardExpr) -> Self {
+        GuardExpr::Leq(Box::new(self), Box::new(other))
+    }
+
     pub fn op_str(&self) -> String {
         match self {
             GuardExpr::And(_) => "&".to_string(),

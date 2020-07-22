@@ -166,17 +166,17 @@ module main (
   // no directory given
   
   // Input / output connections
-  assign done = (fsm0_out == 32'd4) ? 1'd1 : '0;
-  assign a0_in = (fsm0_out == 32'd3 & go) ? const3_out : '0;
-  assign a0_write_en = (fsm0_out == 32'd3 & go) ? 1'd1 : '0;
-  assign x0_in = (fsm0_out == 32'd0 & go) ? const0_out : '0;
-  assign x0_write_en = (fsm0_out == 32'd0 & go) ? 1'd1 : '0;
-  assign y0_in = (fsm0_out == 32'd1 & go) ? const1_out : '0;
-  assign y0_write_en = (fsm0_out == 32'd1 & go) ? 1'd1 : '0;
-  assign z0_in = (fsm0_out == 32'd2 & go) ? const2_out : '0;
-  assign z0_write_en = (fsm0_out == 32'd2 & go) ? 1'd1 : '0;
-  assign fsm0_in = (!(fsm0_out == 32'd4) & go) ? incr0_out : '0;
-  assign fsm0_write_en = (!(fsm0_out == 32'd4) & go) ? 1'd1 : '0;
+  assign done = (fsm0_out == 32'd1) ? 1'd1 : '0;
+  assign a0_in = (fsm0_out <= 32'd1 & go) ? const3_out : '0;
+  assign a0_write_en = (fsm0_out <= 32'd1 & go) ? 1'd1 : '0;
+  assign x0_in = (fsm0_out <= 32'd1 & go) ? const0_out : '0;
+  assign x0_write_en = (fsm0_out <= 32'd1 & go) ? 1'd1 : '0;
+  assign y0_in = (fsm0_out <= 32'd1 & go) ? const1_out : '0;
+  assign y0_write_en = (fsm0_out <= 32'd1 & go) ? 1'd1 : '0;
+  assign z0_in = (fsm0_out <= 32'd1 & go) ? const2_out : '0;
+  assign z0_write_en = (fsm0_out <= 32'd1 & go) ? 1'd1 : '0;
+  assign fsm0_in = (!(fsm0_out == 32'd1) & go) ? incr0_out : '0;
+  assign fsm0_write_en = (!(fsm0_out == 32'd1) & go) ? 1'd1 : '0;
   assign incr0_left = (go) ? 32'd1 : '0;
   assign incr0_right = (go) ? fsm0_out : '0;
 endmodule // end main

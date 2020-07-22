@@ -83,7 +83,7 @@ fn pass_map() -> HashMap<String, PassClosure> {
     names.insert(
         "no-inline".to_string(),
         Box::new(|ctx, _name_gen| {
-            StaticTiming::do_pass_default(ctx)?;
+            //StaticTiming::do_pass_default(ctx)?;
             CompileControl::do_pass_default(ctx)?;
             GoInsertion::do_pass_default(ctx)?;
             ComponentInterface::do_pass_default(ctx)?;
