@@ -88,7 +88,7 @@ impl Visitor for StaticTiming {
                 st.to_guard(port!(st; fsm."out")).eq(st.to_guard(last));
             let not_done_guard = !done_guard.clone();
 
-            add_wires!(st, par_group,
+            add_wires!(st, Some(par_group.clone()),
                 incr["left"] = (one);
                 incr["right"] = (fsm["out"]);
                 fsm["in"] = not_done_guard ? (incr["out"]);
@@ -214,7 +214,7 @@ impl Visitor for StaticTiming {
             st.to_guard(port!(st; fsm."out")).eq(st.to_guard(last));
         let not_done_guard = !done_guard.clone();
 
-        add_wires!(st, seq_group,
+        add_wires!(st, Some(seq_group.clone()),
             incr["left"] = (one);
             incr["right"] = (fsm["out"]);
             fsm["in"] = not_done_guard ? (incr["out"]);
