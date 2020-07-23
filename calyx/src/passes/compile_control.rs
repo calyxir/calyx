@@ -3,7 +3,7 @@ use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use crate::{port, structure, add_wires};
+use crate::{add_wires, port, structure};
 use ast::{Control, Enable, GuardExpr, Port};
 use std::collections::HashMap;
 
@@ -110,21 +110,17 @@ impl Visitor for CompileControl {
 
         // Guard definitions
         let cond_go = !st.to_guard(port!(st; cond_computed."out"));
-        let is_cond_computed =
-                st.to_guard(port!(st; cond_group_node["go"]))
-                    & st.to_guard(port!(st; cond_group_node["done"]));
-        let true_go =
-                st.to_guard(port!(st; cond_computed."out"))
-                    & st.to_guard(port!(st; cond_stored."out"));
-        let false_go =
-                st.to_guard(port!(st; cond_computed."out"))
-                    & !st.to_guard(port!(st; cond_stored."out"));
-        let done_guard =
-                st.to_guard(port!(st; true_group_node["done"]))
-                    | st.to_guard(port!(st; false_group_node["done"]));
+        let is_cond_computed = st.to_guard(port!(st; cond_group_node["go"]))
+            & st.to_guard(port!(st; cond_group_node["done"]));
+        let true_go = st.to_guard(port!(st; cond_computed."out"))
+            & st.to_guard(port!(st; cond_stored."out"));
+        let false_go = st.to_guard(port!(st; cond_computed."out"))
+            & !st.to_guard(port!(st; cond_stored."out"));
+        let done_guard = st.to_guard(port!(st; true_group_node["done"]))
+            | st.to_guard(port!(st; false_group_node["done"]));
 
         // New edges.
-        add_wires!(st, if_group,
+        add_wires!(st, Some(if_group.clone()),
             // Run the conditional group.
             cond_group_node["go"] = cond_go ? (signal_const.clone());
             cond_computed["in"] = is_cond_computed ? (signal_const.clone());
@@ -139,7 +135,6 @@ impl Visitor for CompileControl {
             // Done condition for this group.
             if_group_node["done"] = done_guard ? (signal_const);
         );
-
 
         Ok(Action::Change(Control::enable(if_group)))
     }
@@ -192,13 +187,13 @@ impl Visitor for CompileControl {
         let cond_group_node = st
             .get_node_by_name(&ctrl.cond)
             .ok_or_else(|| Error::UndefinedGroup(ctrl.cond.clone()))?;
-        let (cond_node, cond_port) = match &ctrl.port {
+        let cond = match &ctrl.port {
             Port::Comp { component, port } => Ok((
                 st.get_node_by_name(component).extract(component.clone())?,
-                port,
+                port.clone(),
             )),
             Port::This { port } => {
-                Ok((st.get_node_by_name(&"this".into()).unwrap(), port))
+                Ok((st.get_node_by_name(&"this".into()).unwrap(), port.clone()))
             }
             Port::Hole { .. } => Err(Error::MalformedControl(
                 "Can't use a hole as a condition.".to_string(),
@@ -225,160 +220,50 @@ impl Visitor for CompileControl {
             let signal_off = constant(0, 1);
         );
 
-        // cond[go] = !cond_computed.out ? 1'b1;
-        st.insert_edge(
-            signal_on.clone(),
-            // (cond_group_node, st.port_ref(cond_group_node, "go")?.clone()),
-            port!(st; cond_group_node["go"]),
-            Some(while_group.clone()),
-            Some(!st.to_guard(port!(st; cond_computed."out"))),
-        )?;
+        let cond_go = !st.to_guard(port!(st; cond_computed."out"));
+        let is_cond_computed = st.to_guard(port!(st; cond_group_node["go"]))
+            & st.to_guard(port!(st; cond_group_node["done"]));
+        let body_go = st.to_guard(port!(st; cond_stored."out"))
+            & st.to_guard(port!(st; cond_computed."out"))
+            & !st.to_guard(port!(st; body_group_node["done"]));
+        let cond_recompute = st.to_guard(port!(st; cond_stored."out"))
+            & st.to_guard(port!(st; cond_computed."out"))
+            & st.to_guard(port!(st; body_group_node["done"]));
+        let done_guard = st.to_guard(port!(st; cond_computed."out"))
+            & !st.to_guard(port!(st; cond_stored."out"));
+        let done_reg_high = st.to_guard(port!(st; done_reg."out"));
+        add_wires!(st, Some(while_group.clone()),
+            // Initially compute the condition
+            cond_group_node["go"] = cond_go ? (signal_on.clone());
+            cond_computed["in"] = is_cond_computed ? (signal_on.clone());
+            cond_computed["write_en"] = is_cond_computed ? (signal_on.clone());
+            cond_stored["in"] = is_cond_computed ? (cond);
+            cond_stored["write_en"] = is_cond_computed ? (signal_on.clone());
 
-        // cond_computed.in = cond[go] & cond[done] ? 1'b1;
-        // cond_computed.write_en = cond[go] & cond[done] ? 1'b1;
-        st.insert_edge(
-            signal_on.clone(),
-            port!(st; cond_computed."in"),
-            // (
-            //     cond_computed_reg,
-            //     st.port_ref(cond_computed_reg, "in")?.clone(),
-            // ),
-            Some(while_group.clone()),
-            Some(
-                st.to_guard(port!(st; cond_group_node["go"]))
-                    & st.to_guard(port!(st; cond_group_node["done"])),
-            ),
-        )?;
-        st.insert_edge(
-            signal_on.clone(),
-            port!(st; cond_computed."write_en"),
-            Some(while_group.clone()),
-            Some(
-                st.to_guard(port!(st; cond_group_node["go"]))
-                    & st.to_guard(port!(st; cond_group_node["done"])),
-            ),
-        )?;
+            // Enable the body
+            body_group_node["go"] = body_go ? (signal_on.clone());
 
-        // cond_stored.in = cond[go] & cond[done] ? lt.out;
-        st.insert_edge(
-            // (cond_node, cond_port.clone()),
-            port!(st; cond_node.cond_port),
-            // (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
-            port!(st; cond_stored."in"),
-            Some(while_group.clone()),
-            Some(
-                st.to_guard(port!(st; cond_group_node["go"]))
-                    & st.to_guard(port!(st; cond_group_node["done"])),
-            ),
-        )?;
-        st.insert_edge(
-            // (cond_node, cond_port.clone()),
-            signal_on.clone(),
-            // (cond_stored_reg, st.port_ref(cond_stored_reg, "in")?.clone()),
-            port!(st; cond_stored."write_en"),
-            Some(while_group.clone()),
-            Some(
-                st.to_guard(port!(st; cond_group_node["go"]))
-                    & st.to_guard(port!(st; cond_group_node["done"])),
-            ),
-        )?;
+            // Re-compute the condition after the body is done.
+            cond_computed["in"] = cond_recompute ? (signal_off.clone());
+            cond_computed["write_en"] = cond_recompute ? (signal_on.clone());
 
-        // body[go] = cond_computed.out & cond_stored.out & !body[done] ? 1'b1;
-        st.insert_edge(
-            signal_on.clone(),
-            port!(st; body_group_node["go"]),
-            Some(while_group.clone()),
-            Some(
-                st.to_guard(port!(st; cond_stored."out"))
-                    & st.to_guard(port!(st; cond_computed."out"))
-                    & !st.to_guard(port!(st; body_group_node["done"])),
-            ),
-        )?;
+            // Save done condition in done reg.
+            done_reg["in"] = done_guard ? (signal_on.clone());
+            done_reg["write_en"] = done_guard ? (signal_on.clone());
 
-        // cond_computed.in = cond_computed.out & cond_stored.out & body[done] ? 1'b0;
-        // cond_computed.write_en = cond_computed.out & cond_stored.out & body[done] ? 1'b1;
-        st.insert_edge(
-            signal_off.clone(),
-            port!(st; cond_computed."in"),
-            Some(while_group.clone()),
-            Some(
-                st.to_guard(port!(st; cond_stored."out"))
-                    & st.to_guard(port!(st; cond_computed."out"))
-                    & st.to_guard(port!(st; body_group_node["done"])),
-            ),
-        )?;
-        st.insert_edge(
-            signal_on.clone(),
-            port!(st; cond_computed."write_en"),
-            Some(while_group.clone()),
-            Some(
-                st.to_guard(port!(st; cond_stored."out"))
-                    & st.to_guard(port!(st; cond_computed."out"))
-                    & st.to_guard(port!(st; body_group_node["done"])),
-            ),
-        )?;
+            // While group is done when done register is high.
+            while_group_node["done"] = done_reg_high ? (signal_on.clone());
 
-        // done_reg.in = cond_computed.out & !cond_stored.out ? 1'b1;
-        // done_reg.write_en = cond_computed.out & !cond_stored.out ? 1'b1;
-        // while0[done] = done_reg.out ? 1'b1;
-        st.insert_edge(
-            signal_on.clone(),
-            port!(st; done_reg."in"),
-            Some(while_group.clone()),
-            Some(
-                st.to_guard(port!(st; cond_computed."out"))
-                    & !st.to_guard(port!(st; cond_stored."out")),
-            ),
-        )?;
-        st.insert_edge(
-            signal_on.clone(),
-            port!(st; done_reg."write_en"),
-            Some(while_group.clone()),
-            Some(
-                st.to_guard(port!(st; cond_computed."out"))
-                    & !st.to_guard(port!(st; cond_stored."out")),
-            ),
-        )?;
-        st.insert_edge(
-            signal_on.clone(),
-            port!(st; while_group_node["done"]),
-            Some(while_group.clone()),
-            Some(st.to_guard(port!(st; done_reg."out"))),
-        )?;
-        // cond_computed.in = done_reg.out ? 1'b0;
-        // cond_computed.write_en = done_reg.out ? 1'b1;
-        st.insert_edge(
-            signal_off.clone(),
-            port!(st; cond_computed."in"),
-            Some(while_group.clone()),
-            Some(
-                st.to_guard(port!(st; cond_computed."out"))
-                    & !st.to_guard(port!(st; cond_stored."out")),
-            ),
-        )?;
-        st.insert_edge(
-            signal_on.clone(),
-            port!(st; cond_computed."write_en"),
-            Some(while_group.clone()),
-            Some(
-                st.to_guard(port!(st; cond_computed."out"))
-                    & !st.to_guard(port!(st; cond_stored."out")),
-            ),
-        )?;
-        // done_reg.in = done_reg.out ? 1'b0;
-        // done_reg.write_en = done_reg.out ? 1'b1;
-        st.insert_edge(
-            signal_off,
-            port!(st; done_reg."in"),
-            None,
-            Some(st.to_guard(port!(st; done_reg."out"))),
-        )?;
-        st.insert_edge(
-            signal_on,
-            port!(st; done_reg."write_en"),
-            None,
-            Some(st.to_guard(port!(st; done_reg."out"))),
-        )?;
+            // CLEANUP: Reset cond register state when done.
+            cond_computed["in"] = done_guard ? (signal_off.clone());
+            cond_computed["write_en"] = done_guard ? (signal_on.clone());
+        );
+
+        // CLEANUP: done register resets one cycle after being high.
+        add_wires!(st, None,
+            done_reg["in"] = done_reg_high ? (signal_off);
+            done_reg["write_en"] = done_reg_high ? (signal_on);
+        );
 
         Ok(Action::Change(Control::enable(while_group)))
     }
