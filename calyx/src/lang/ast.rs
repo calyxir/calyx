@@ -1,20 +1,19 @@
 // Abstract Syntax Tree for Futil
-use derivative::Derivative;
 use crate::errors::{Result, Span};
 use crate::lang::context::LibraryContext;
+use derivative::Derivative;
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::hash::{Hash};
+use std::hash::Hash;
 use std::ops::{BitAnd, BitOr, Not};
 
 /// Represents an identifier in a Futil program
-#[derive(Derivative)]
-#[derive(Clone, PartialOrd, Ord)]
+#[derive(Derivative, Clone, PartialOrd, Ord)]
 #[derivative(Hash, Eq, PartialEq)]
 pub struct Id {
     pub id: String,
-    #[derivative(Hash="ignore")]
-    #[derivative(PartialEq="ignore")]
+    #[derivative(Hash = "ignore")]
+    #[derivative(PartialEq = "ignore")]
     span: Option<Span>,
 }
 
@@ -496,8 +495,7 @@ pub enum Connection {
     Wire(Wire),
 }
 
-#[derive(Derivative)]
-#[derive(Clone, Debug, Eq)]
+#[derive(Derivative, Clone, Debug, Eq)]
 #[derivative(PartialEq, PartialOrd, Ord)]
 pub struct Group {
     pub name: Id,
@@ -505,7 +503,7 @@ pub struct Group {
     #[derivative(PartialEq = "ignore")]
     #[derivative(PartialOrd = "ignore")]
     #[derivative(Ord = "ignore")]
-    pub attributes: HashMap<String, u64>
+    pub attributes: HashMap<String, u64>,
 }
 
 /// Data for the `->` structure statement.

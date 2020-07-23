@@ -5,8 +5,8 @@ use crate::lang::{
 };
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
-use std::fs;
 use std::collections::HashMap;
+use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
 use std::rc::Rc;
