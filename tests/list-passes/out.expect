@@ -1,8 +1,12 @@
-- all
+Passes:
 - compile-control
 - component-interface-inserter
 - go-insertion
 - hole-inliner
 - merge-assign
-- no-inline
 - static-timing
+
+Aliases:
+- all: static-timing, compile-control, go-insertion, component-interface-inserter, hole-inliner, merge-assign
+- no-inline: static-timing, compile-control, go-insertion, component-interface-inserter
+
