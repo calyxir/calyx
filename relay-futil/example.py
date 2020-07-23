@@ -22,8 +22,21 @@ def add():
     """
     return relay.Function([], relay.add(relay.const(37), relay.const(5)))
 
+def add_var():
+    """Add together two variables
+    """
+    x = relay.var('x', shape=())
+    y = relay.var('y', shape=())
+    return relay.Function([x, y], relay.add(x, y))
 
-ALL_FUNCS = [identity, const, add]
+def assign():
+    """Assign a const to a varible
+    """
+    x = relay.var('x', shape=())
+    v1 = relay.log(x)
+    v2 = relay.add (v1,x)
+    return relay.Function([x], v2)
+ALL_FUNCS = [identity, const, add, add_var, assign]
 
 
 def simple_example():

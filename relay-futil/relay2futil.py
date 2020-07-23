@@ -30,8 +30,9 @@ class Relay2Futil(ExprFunctor):
         # we would need to do something fancier if we wanted to support
         # different components with different sets of cells and wires.
         self.cells = {}  # Maps names to definitions.
-
+        self.groups = {}
     def visit_var(self, var):
+        self.cells[var.name_hint] = 'prim std_add(32)'
         return "<variable {}>".format(var.name_hint)
 
     def visit_constant(self, const):
@@ -50,19 +51,23 @@ class Relay2Futil(ExprFunctor):
             value,  # The constant integer value.
         )
 
-        return '<read {}>'.format(name)
+        return '<{}>'.format(name)
 
     def visit_call(self, call):
         # Visit the arguments to the call, emitting their control
         # statements.
         arg_stmts = [self.visit(arg) for arg in call.args]
-
+        #currently assume we only have 2 args to add
+        print (f"arg_stmts {arg_stmts}")
         if call.op.name == 'add':
             # Create structure for an adder.
-            name = 'add{}'.format(len(self.cells))
-            self.cells[name] = 'prim std_add(32)'
-
-            return '\n'.join(arg_stmts + ['<run {}>'.format(name)])
+            name_add = 'add{}'.format(len(self.cells))
+            name_out = '{}_out'.format(name_add)
+            self.cells[name_add] = 'prim std_add(32)'
+            self.cells[name_out] = 'prim std_reg(32)'
+            g_name = 'group{}'.format(len(self.groups))
+            self.groups[g_name] = f"\n{name_out}.in = {name_add}.out;\n{name_out}.write_en = 1'd1;\n{g_name}.done = {name_out}.done;\n{name_add}.left={arg_stmts[0]}.out;\n{name_add}.right={arg_stmts[1]}.out;\n"
+            return '\n'.join(arg_stmts + ['<run {}>'.format(g_name)])
         else:
             assert False, 'unsupported op: {}'.format(call.op.name)
 
@@ -77,7 +82,11 @@ class Relay2Futil(ExprFunctor):
             '\n'.join('{} = {};'.format(k, v)
                       for k, v in self.cells.items()),
         )
-        wires = mk_block('wires', '')
+        wires = mk_block(
+                'wires',            
+                '\n'.join('{}:{{{}}}'.format(k, v)
+                      for k, v in self.groups.items())
+                )
         control = mk_block('control', body)
         component = mk_block(
             'component main() -> ()',
