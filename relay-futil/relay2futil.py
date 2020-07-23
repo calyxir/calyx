@@ -1,9 +1,13 @@
 from tvm.relay.expr_functor import ExprFunctor
 import textwrap
+from collections import namedtuple
 
 PREAMBLE = """
 import "primitives/std.lib";
 """
+
+EmitResult = namedtuple('EmitResult',
+                        ['value', 'done', 'cells', 'wires'])
 
 
 def mk_block(decl, contents, indent=2):
@@ -23,17 +27,21 @@ class Relay2Futil(ExprFunctor):
     """
     def __init__(self):
         super(Relay2Futil, self).__init__()
+        self.next_id = 0
 
-        # The visit builds up pieces of the FuTIL component
-        # representation mutably: it adds to these data structures. This
-        # *really* means that we currently only support one component:
-        # we would need to do something fancier if we wanted to support
-        # different components with different sets of cells and wires.
-        self.cells = {}  # Maps names to definitions.
-        self.groups = {}
+    def fresh_id(self):
+        the_id = self.next_id
+        self.next_id += 1
+        return the_id
+
     def visit_var(self, var):
-        self.cells[var.name_hint] = 'prim std_add(32)'
-        return "<variable {}>".format(var.name_hint)
+        name = var.name_hint
+        return EmitResult(
+            f'{name}.out',  # Assuming variables are in registers.
+            f'{name}[done]',
+            [],
+            [],
+        )
 
     def visit_constant(self, const):
         # We only handle scalar integers for now.
@@ -45,13 +53,19 @@ class Relay2Futil(ExprFunctor):
         value = int(const.data.asnumpy())
 
         # Create structure for the constant.
-        name = 'const{}'.format(len(self.cells))
-        self.cells[name] = 'prim std_const({}, {})'.format(
+        name = 'const{}'.format(self.fresh_id())
+        cell = '{} = prim std_const({}, {});'.format(
+            name,
             32,     # Bit width.
             value,  # The constant integer value.
         )
 
-        return '<{}>'.format(name)
+        return EmitResult(
+            f'{name}.out',
+            None,
+            [cell],
+            [],
+        )
 
     def visit_call(self, call):
         # Visit the arguments to the call, emitting their control
@@ -74,20 +88,24 @@ class Relay2Futil(ExprFunctor):
     def visit_function(self, func):
         body = self.visit(func.body)
 
+        # Make registers for the arguments.
+        param_cells = []
+        for param in func.params:
+            # TODO: Check the types of the arguments, just like in the
+            # visit_var method above.
+            name = param.name_hint
+            param_cells.append(f'{name} = prim std_reg(32);')
+
+        # Create a group for the wires that run this expression.
+        group_name = 'group{}'.format(self.fresh_id())
+        group = mk_block(f'group {group_name}', '\n'.join(body.wires))
+
         # Construct a FuTIL component. For now, the component is
         # *always* called `main`. Someday, we should actually support
         # multiple functions as multiple components.
-        cells = mk_block(
-            'cells',
-            '\n'.join('{} = {};'.format(k, v)
-                      for k, v in self.cells.items()),
-        )
-        wires = mk_block(
-                'wires',            
-                '\n'.join('{}:{{{}}}'.format(k, v)
-                      for k, v in self.groups.items())
-                )
-        control = mk_block('control', body)
+        cells = mk_block('cells', '\n'.join(param_cells + body.cells))
+        wires = mk_block('wires', group)  # Just one group.
+        control = mk_block('control', group_name)  # Invoke the group.
         component = mk_block(
             'component main() -> ()',
             '\n'.join([cells, wires, control])
