@@ -45,10 +45,6 @@ pub struct Opts {
     /// list all avaliable pass options
     #[structopt(long = "list-passes")]
     pub list_passes: bool,
-
-    /// directory where meminit .dat files will be found
-    #[structopt(long = "meminit")]
-    pub meminit: Option<PathBuf>,
 }
 
 // ================== Backend Variant and Parsing ===================== //

@@ -55,10 +55,10 @@ jobs:
       id: verilator-cache
       uses: actions/cache@v2
       with:
-        path: /usr/local/bin/verilator
+        path: ./verilator
         key: verilator-bin-${{ runner.os }}-${{ steps.versions.outputs.verilator }}
 
-    - name: Install Verilator
+    - name: Build Verilator
       if: steps.verilator-cache.outputs.cache-hit != 'true'
       run: |
         sudo apt-get install git make autoconf g++ flex bison libfl2 libfl-dev
@@ -69,6 +69,11 @@ jobs:
         autoconf
         ./configure
         make
+        sudo make install
+
+    - name: Install Verilator
+      run: |
+        cd verilator
         sudo make install
 
     - name: Install numpy

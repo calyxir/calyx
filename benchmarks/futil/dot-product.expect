@@ -1,0 +1,71 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    A = prim std_mem_d1(32,8,4);
+    B = prim std_mem_d1(32,8,4);
+    add0 = prim std_add(32);
+    add1 = prim std_add(4);
+    const0 = prim std_const(32,0);
+    const1 = prim std_const(4,0);
+    const2 = prim std_const(4,7);
+    const3 = prim std_const(4,1);
+    dot0 = prim std_reg(32);
+    i0 = prim std_reg(4);
+    le0 = prim std_le(4);
+    mult0 = prim std_mult(32);
+    v0 = prim std_reg(32);
+  }
+  wires {
+    group cond0 {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const2.out;
+    }
+    group let0 {
+      dot0.in = const0.out;
+      dot0.write_en = 1'd1;
+      let0[done] = dot0.done;
+    }
+    group let1 {
+      i0.in = const1.out;
+      i0.write_en = 1'd1;
+      let1[done] = i0.done;
+    }
+    group let2 {
+      v0.in = mult0.out;
+      v0.write_en = 1'd1;
+      let2[done] = v0.done;
+      mult0.left = A.read_data;
+      mult0.right = B.read_data;
+      A.addr0 = i0.out;
+      B.addr0 = i0.out;
+    }
+    group upd0 {
+      dot0.write_en = 1'd1;
+      add0.left = dot0.out;
+      add0.right = v0.out;
+      dot0.in = add0.out;
+      upd0[done] = dot0.done;
+    }
+    group upd1 {
+      i0.write_en = 1'd1;
+      add1.left = i0.out;
+      add1.right = const3.out;
+      i0.in = add1.out;
+      upd1[done] = i0.done;
+    }
+  }
+  control {
+    seq {
+      let0;
+      let1;
+      while le0.out with cond0 {
+        seq {
+          let2;
+          upd0;
+          upd1;
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+#!/bin/bash
+
+set -euf
+
+# Name of the benchmark.
+benchmark="$1"
+# Location of the data.
+data="$2"
+
+meminit="$(mktemp -d)"
+# Create .meminit files from the input JSON file.
+./bin/json_to_dat.py --mode json --output "$meminit" "$data"
+
+
+# Run the benchmark
+tmp="$(mktemp -d)"
+DATA="$meminit" ./bin/gen-vcd "$benchmark" 2> /dev/null > "$tmp/out.vcd"
+
+# Translate the outputs back to a JSON filetmp
+./bin/json_to_dat.py --mode dat --output "$tmp/out.json" --read_ext out "$meminit"
+
+jq -S . "$tmp/out.json"
