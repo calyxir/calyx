@@ -328,7 +328,8 @@ fn wire_id_from_port<'a>(port: &Port) -> D<'a> {
             D::text(format!("{}_{}", component.to_string(), port.to_string()))
         }
         Port::Hole { group, name } => unreachable!(format!(
-            "Structure has a group hole: {}[{}]", group.id, name.id
+            "Structure has a group hole: {}[{}]",
+            group.id, name.id
         )),
     }
 }
@@ -344,9 +345,9 @@ fn wire_id_from_node<'a>(node: &Node, port: String) -> D<'a> {
             D::text(format!("{}_{}", node.name.to_string(), port))
         }
         NodeData::Port => D::text(port),
-        NodeData::Hole(name) => unreachable!(format!(
-            "Structure has a hole: {}", name.id
-        )),
+        NodeData::Hole(name) => {
+            unreachable!(format!("Structure has a hole: {}", name.id))
+        }
         NodeData::Constant(n) => D::text(format!("{}'d{}", n.width, n.val)),
     }
 }

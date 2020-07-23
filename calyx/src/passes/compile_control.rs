@@ -1,12 +1,9 @@
-use crate::{port, structure};
 use crate::errors::{Error, Extract};
 use crate::lang::{
-    ast,
-    component::Component,
-    context::Context,
-    structure_builder::{ASTBuilder},
+    ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
+use crate::{port, structure};
 use ast::{Control, Enable, GuardExpr, Port};
 use std::collections::HashMap;
 
