@@ -34,7 +34,7 @@ impl PassManager {
             return Err(Error::Misc(format!(
                 "Pass with name '{}' is already registered.",
                 name
-            )))
+            )));
         }
         self.passes.insert(name, pass_func);
         Ok(())
@@ -52,7 +52,7 @@ impl PassManager {
             return Err(Error::Misc(format!(
                 "Alias with name '{}'  already registered.",
                 name
-            )))
+            )));
         }
         self.aliases.insert(name, passes);
         Ok(())
