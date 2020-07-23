@@ -89,21 +89,29 @@ class Relay2Futil(ExprFunctor):
         body = self.visit(func.body)
 
         # Make registers for the arguments.
-        param_cells = []
+        func_cells = []
         for param in func.params:
             # TODO: Check the types of the arguments, just like in the
             # visit_var method above.
             name = param.name_hint
-            param_cells.append(f'{name} = prim std_reg(32);')
+            func_cells.append(f'{name} = prim std_reg(32);')
+
+        # Make a register for the return value.
+        func_cells.append('ret = prim std_reg(32);')
 
         # Create a group for the wires that run this expression.
         group_name = 'group{}'.format(self.fresh_id())
-        group = mk_block(f'group {group_name}', '\n'.join(body.wires))
+        group_wires = body.wires + [
+            f'ret.in = {body.value};',
+            f'ret.write_en = {body.done};',
+            f'{group_name}[done] = ret[done];',
+        ]
+        group = mk_block(f'group {group_name}', '\n'.join(group_wires))
 
         # Construct a FuTIL component. For now, the component is
         # *always* called `main`. Someday, we should actually support
         # multiple functions as multiple components.
-        cells = mk_block('cells', '\n'.join(param_cells + body.cells))
+        cells = mk_block('cells', '\n'.join(func_cells + body.cells))
         wires = mk_block('wires', group)  # Just one group.
         control = mk_block('control', group_name)  # Invoke the group.
         component = mk_block(
