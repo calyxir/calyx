@@ -277,7 +277,17 @@ module main (
   );
   
   // Memory initialization / finalization 
-  // no directory given
+  import "DPI-C" function string futil_getenv (input string env_var);
+  string DATA;
+   initial begin
+  DATA = futil_getenv("DATA");
+      $fdisplay(2, "DATA (path to meminit files): %s", DATA);
+      
+  end
+  
+   final begin
+      
+  end
   
   // Input / output connections
   assign done = (fsm3_out == 32'd3) ? 1'd1 : '0;

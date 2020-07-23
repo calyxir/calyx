@@ -30,13 +30,13 @@ status:
 	../bin/find-dahlia $< -o $@ --lower -b futil
 
 %.v: %.futil
-	cargo run -- $< -l .. -b verilog --meminit $*.meminit > $@
+	cargo run -- $< -l .. -b verilog > $@
 
 %.meminit: %.data
 	../bin/json_to_dat.py --mode json --output $@ $<
 
 %.vcd: %.meminit %.v
-	../bin/gen-vcd $*.v > $@
+	DATA=$*.meminit ../bin/gen-vcd $*.v > $@
 
 %.futil-out: %.meminit %.vcd
 	../bin/json_to_dat.py --mode dat --output $@.tmp $*.meminit

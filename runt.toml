@@ -8,7 +8,7 @@ paths = [ "tests/list-passes/out" ]
 cmd = "./target/debug/futil --list-passes"
 
 [[tests]]
-name = "dahlia frontend for futil"
+name = "dahlia frontend"
 paths = [ "tests/integration-dahlia-sources/*.fuse" ]
 cmd = "./bin/find-dahlia {} -b futil --lower -l error | tail -n+2"
 expect_dir = "tests/integration-futil/"
@@ -26,21 +26,39 @@ cmd = "./target/debug/futil {} -b verilog"
 expect_dir = "tests/integration-verilog"
 
 [[tests]]
- name = "verilog simulation"
- paths = [ "tests/integration-verilog/*.expect" ]
- cmd = """
- ./bin/gen-vcd {} 2>/dev/null | vcdump | jq "$(cat {}.jq)"
- """
- expect_dir = "tests/integration-simulation"
+name = "verilog simulation"
+paths = [ "tests/integration-verilog/*.expect" ]
+cmd = """
+./bin/gen-vcd {} 2>/dev/null | vcdump | jq "$(cat {}.jq)"
+"""
+expect_dir = "tests/integration-simulation"
+
+# ================ Polybench tests ====================== #
 
 [[tests]]
-name = "polybench"
+name = "polybench dahlia frontend"
 paths = [ "benchmarks/*.fuse" ]
 cmd = """
-full=$(basename {})
-f=${full%.*}
-make -C benchmarks $f.futil-out 1>/dev/null 2>/dev/null
-cat benchmarks/$f.futil-out
-rm benchmarks/$f.futil-out
+./bin/find-dahlia {} -b futil --lower -l error | tail -n+2
 """
-expect_dir = "benchmarks"
+expect_dir = "benchmarks/futil"
+
+[[tests]]
+name = "polybench verilog generation"
+paths = [ "benchmarks/futil/*.expect" ]
+cmd = """
+./target/debug/futil {} -b verilog
+"""
+expect_dir = "benchmarks/verilog"
+
+#[[tests]]
+#name = "polybench"
+#paths = [ "benchmarks/*.fuse" ]
+#cmd = """
+#full=$(basename {})
+#f=${full%.*}
+#make -C benchmarks $f.futil-out 1>/dev/null 2>/dev/null
+#cat benchmarks/$f.futil-out
+#rm benchmarks/$f.futil-out
+#"""
+#expect_dir = "benchmarks"

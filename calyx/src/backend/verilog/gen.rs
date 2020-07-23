@@ -682,7 +682,7 @@ fn memory_init<'a>(comp: &component::Component) -> D<'a> {
     const DATA_DECL: &str = "string DATA;";
     const DATA_GET: &str = "DATA = futil_getenv(\"DATA\");";
     const DATA_DISP: &str =
-        "$display(\"DATA (path to meminit files): %s\", DATA);";
+        "$fdisplay(2, \"DATA (path to meminit files): %s\", DATA);";
 
     let initial_block = D::text("initial begin")
         .append(D::line())

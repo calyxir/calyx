@@ -1,0 +1,393 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    A = prim std_mem_d2(32,8,8,4,4);
+    B = prim std_mem_d2(32,8,8,4,4);
+    C = prim std_mem_d2(32,8,8,4,4);
+    D = prim std_mem_d2(32,8,8,4,4);
+    E = prim std_mem_d2(32,8,8,4,4);
+    F = prim std_mem_d2(32,8,8,4,4);
+    G = prim std_mem_d2(32,8,8,4,4);
+    add0 = prim std_add(32);
+    add1 = prim std_add(4);
+    add10 = prim std_add(4);
+    add11 = prim std_add(4);
+    add2 = prim std_add(4);
+    add3 = prim std_add(4);
+    add4 = prim std_add(32);
+    add5 = prim std_add(4);
+    add6 = prim std_add(4);
+    add7 = prim std_add(4);
+    add8 = prim std_add(32);
+    add9 = prim std_add(4);
+    const0 = prim std_const(4,0);
+    const1 = prim std_const(4,7);
+    const10 = prim std_const(4,0);
+    const11 = prim std_const(4,7);
+    const12 = prim std_const(4,0);
+    const13 = prim std_const(4,7);
+    const14 = prim std_const(32,0);
+    const15 = prim std_const(4,0);
+    const16 = prim std_const(4,7);
+    const17 = prim std_const(4,1);
+    const18 = prim std_const(4,1);
+    const19 = prim std_const(4,1);
+    const2 = prim std_const(4,0);
+    const20 = prim std_const(4,0);
+    const21 = prim std_const(4,7);
+    const22 = prim std_const(4,0);
+    const23 = prim std_const(4,7);
+    const24 = prim std_const(32,0);
+    const25 = prim std_const(4,0);
+    const26 = prim std_const(4,7);
+    const27 = prim std_const(4,1);
+    const28 = prim std_const(4,1);
+    const29 = prim std_const(4,1);
+    const3 = prim std_const(4,7);
+    const4 = prim std_const(32,0);
+    const5 = prim std_const(4,0);
+    const6 = prim std_const(4,7);
+    const7 = prim std_const(4,1);
+    const8 = prim std_const(4,1);
+    const9 = prim std_const(4,1);
+    i0 = prim std_reg(4);
+    i1 = prim std_reg(4);
+    i2 = prim std_reg(4);
+    j0 = prim std_reg(4);
+    j1 = prim std_reg(4);
+    j2 = prim std_reg(4);
+    k0 = prim std_reg(4);
+    k1 = prim std_reg(4);
+    k2 = prim std_reg(4);
+    le0 = prim std_le(4);
+    le1 = prim std_le(4);
+    le2 = prim std_le(4);
+    le3 = prim std_le(4);
+    le4 = prim std_le(4);
+    le5 = prim std_le(4);
+    le6 = prim std_le(4);
+    le7 = prim std_le(4);
+    le8 = prim std_le(4);
+    mult0 = prim std_mult(32);
+    mult1 = prim std_mult(32);
+    mult2 = prim std_mult(32);
+    v0 = prim std_reg(32);
+    v1 = prim std_reg(32);
+    v2 = prim std_reg(32);
+  }
+  wires {
+    group cond0 {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group cond1 {
+      cond1[done] = 1'd1;
+      le1.left = j0.out;
+      le1.right = const3.out;
+    }
+    group cond2 {
+      cond2[done] = 1'd1;
+      le2.left = k0.out;
+      le2.right = const6.out;
+    }
+    group cond3 {
+      cond3[done] = 1'd1;
+      le3.left = i1.out;
+      le3.right = const11.out;
+    }
+    group cond4 {
+      cond4[done] = 1'd1;
+      le4.left = j1.out;
+      le4.right = const13.out;
+    }
+    group cond5 {
+      cond5[done] = 1'd1;
+      le5.left = k1.out;
+      le5.right = const16.out;
+    }
+    group cond6 {
+      cond6[done] = 1'd1;
+      le6.left = i2.out;
+      le6.right = const21.out;
+    }
+    group cond7 {
+      cond7[done] = 1'd1;
+      le7.left = j2.out;
+      le7.right = const23.out;
+    }
+    group cond8 {
+      cond8[done] = 1'd1;
+      le8.left = k2.out;
+      le8.right = const26.out;
+    }
+    group let0 {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1 {
+      j0.in = const2.out;
+      j0.write_en = 1'd1;
+      let1[done] = j0.done;
+    }
+    group let10 {
+      k2.in = const25.out;
+      k2.write_en = 1'd1;
+      let10[done] = k2.done;
+    }
+    group let11 {
+      v2.in = mult2.out;
+      v2.write_en = 1'd1;
+      let11[done] = v2.done;
+      mult2.left = E.read_data;
+      mult2.right = F.read_data;
+      E.addr1 = k2.out;
+      E.addr0 = i2.out;
+      F.addr1 = j2.out;
+      F.addr0 = k2.out;
+    }
+    group let2 {
+      k0.in = const5.out;
+      k0.write_en = 1'd1;
+      let2[done] = k0.done;
+    }
+    group let3 {
+      v0.in = mult0.out;
+      v0.write_en = 1'd1;
+      let3[done] = v0.done;
+      mult0.left = A.read_data;
+      mult0.right = B.read_data;
+      A.addr1 = k0.out;
+      A.addr0 = i0.out;
+      B.addr1 = j0.out;
+      B.addr0 = k0.out;
+    }
+    group let4 {
+      i1.in = const10.out;
+      i1.write_en = 1'd1;
+      let4[done] = i1.done;
+    }
+    group let5 {
+      j1.in = const12.out;
+      j1.write_en = 1'd1;
+      let5[done] = j1.done;
+    }
+    group let6 {
+      k1.in = const15.out;
+      k1.write_en = 1'd1;
+      let6[done] = k1.done;
+    }
+    group let7 {
+      v1.in = mult1.out;
+      v1.write_en = 1'd1;
+      let7[done] = v1.done;
+      mult1.left = C.read_data;
+      mult1.right = D.read_data;
+      C.addr1 = k1.out;
+      C.addr0 = i1.out;
+      D.addr1 = j1.out;
+      D.addr0 = k1.out;
+    }
+    group let8 {
+      i2.in = const20.out;
+      i2.write_en = 1'd1;
+      let8[done] = i2.done;
+    }
+    group let9 {
+      j2.in = const22.out;
+      j2.write_en = 1'd1;
+      let9[done] = j2.done;
+    }
+    group upd0 {
+      E.addr1 = j0.out;
+      E.addr0 = i0.out;
+      E.write_en = 1'd1;
+      E.write_data = const4.out;
+      upd0[done] = E.done;
+    }
+    group upd1 {
+      E.addr1 = j0.out;
+      E.addr0 = i0.out;
+      E.write_en = 1'd1;
+      add0.left = E.read_data;
+      add0.right = v0.out;
+      E.addr1 = j0.out;
+      E.addr0 = i0.out;
+      E.write_data = add0.out;
+      upd1[done] = E.done;
+    }
+    group upd10 {
+      G.addr1 = j2.out;
+      G.addr0 = i2.out;
+      G.write_en = 1'd1;
+      G.write_data = const24.out;
+      upd10[done] = G.done;
+    }
+    group upd11 {
+      G.addr1 = j2.out;
+      G.addr0 = i2.out;
+      G.write_en = 1'd1;
+      add8.left = G.read_data;
+      add8.right = v2.out;
+      G.addr1 = j2.out;
+      G.addr0 = i2.out;
+      G.write_data = add8.out;
+      upd11[done] = G.done;
+    }
+    group upd12 {
+      k2.write_en = 1'd1;
+      add9.left = k2.out;
+      add9.right = const27.out;
+      k2.in = add9.out;
+      upd12[done] = k2.done;
+    }
+    group upd13 {
+      j2.write_en = 1'd1;
+      add10.left = j2.out;
+      add10.right = const28.out;
+      j2.in = add10.out;
+      upd13[done] = j2.done;
+    }
+    group upd14 {
+      i2.write_en = 1'd1;
+      add11.left = i2.out;
+      add11.right = const29.out;
+      i2.in = add11.out;
+      upd14[done] = i2.done;
+    }
+    group upd2 {
+      k0.write_en = 1'd1;
+      add1.left = k0.out;
+      add1.right = const7.out;
+      k0.in = add1.out;
+      upd2[done] = k0.done;
+    }
+    group upd3 {
+      j0.write_en = 1'd1;
+      add2.left = j0.out;
+      add2.right = const8.out;
+      j0.in = add2.out;
+      upd3[done] = j0.done;
+    }
+    group upd4 {
+      i0.write_en = 1'd1;
+      add3.left = i0.out;
+      add3.right = const9.out;
+      i0.in = add3.out;
+      upd4[done] = i0.done;
+    }
+    group upd5 {
+      F.addr1 = j1.out;
+      F.addr0 = i1.out;
+      F.write_en = 1'd1;
+      F.write_data = const14.out;
+      upd5[done] = F.done;
+    }
+    group upd6 {
+      F.addr1 = j1.out;
+      F.addr0 = i1.out;
+      F.write_en = 1'd1;
+      add4.left = F.read_data;
+      add4.right = v1.out;
+      F.addr1 = j1.out;
+      F.addr0 = i1.out;
+      F.write_data = add4.out;
+      upd6[done] = F.done;
+    }
+    group upd7 {
+      k1.write_en = 1'd1;
+      add5.left = k1.out;
+      add5.right = const17.out;
+      k1.in = add5.out;
+      upd7[done] = k1.done;
+    }
+    group upd8 {
+      j1.write_en = 1'd1;
+      add6.left = j1.out;
+      add6.right = const18.out;
+      j1.in = add6.out;
+      upd8[done] = j1.done;
+    }
+    group upd9 {
+      i1.write_en = 1'd1;
+      add7.left = i1.out;
+      add7.right = const19.out;
+      i1.in = add7.out;
+      upd9[done] = i1.done;
+    }
+  }
+  control {
+    seq {
+      seq {
+        seq {
+          let0;
+          while le0.out with cond0 {
+            seq {
+              let1;
+              while le1.out with cond1 {
+                seq {
+                  upd0;
+                  let2;
+                  while le2.out with cond2 {
+                    seq {
+                      let3;
+                      upd1;
+                      upd2;
+                    }
+                  }
+                  upd3;
+                }
+              }
+              upd4;
+            }
+          }
+        }
+        seq {
+          let4;
+          while le3.out with cond3 {
+            seq {
+              let5;
+              while le4.out with cond4 {
+                seq {
+                  upd5;
+                  let6;
+                  while le5.out with cond5 {
+                    seq {
+                      let7;
+                      upd6;
+                      upd7;
+                    }
+                  }
+                  upd8;
+                }
+              }
+              upd9;
+            }
+          }
+        }
+      }
+      let8;
+      while le6.out with cond6 {
+        seq {
+          let9;
+          while le7.out with cond7 {
+            seq {
+              upd10;
+              let10;
+              while le8.out with cond8 {
+                seq {
+                  let11;
+                  upd11;
+                  upd12;
+                }
+              }
+              upd13;
+            }
+          }
+          upd14;
+        }
+      }
+    }
+  }
+}
