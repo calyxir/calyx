@@ -134,4 +134,4 @@ def compile(program) -> str:
 if __name__ == '__main__':
     import sys
     relay_func = relay.fromtext(sys.stdin.read())
-    sys.stdout.write(compile(relay_func))
+    print(compile(relay_func))
