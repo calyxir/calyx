@@ -119,11 +119,7 @@ fn main() -> Result<()> {
         })
         .collect::<Result<Vec<_>>>()?;
     // build context
-    let context = Context::from_ast(
-        namespace,
-        &libraries,
-        opts.enable_debug,
-    )?;
+    let context = Context::from_ast(namespace, &libraries, opts.enable_debug)?;
 
     // Construct pass manager.
     let names = pass_map();
