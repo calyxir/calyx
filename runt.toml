@@ -51,14 +51,11 @@ cmd = """
 """
 expect_dir = "benchmarks/verilog"
 
-#[[tests]]
-#name = "polybench"
-#paths = [ "benchmarks/*.fuse" ]
-#cmd = """
-#full=$(basename {})
-#f=${full%.*}
-#make -C benchmarks $f.futil-out 1>/dev/null 2>/dev/null
-#cat benchmarks/$f.futil-out
-#rm benchmarks/$f.futil-out
-#"""
-#expect_dir = "benchmarks"
+[[tests]]
+name = "polybench simulation"
+paths = [ "benchmarks/verilog/*.expect" ]
+cmd = """
+base=$(basename -s .expect {})
+./bin/run-benchmark {} benchmarks/data/$base.data
+"""
+expect_dir = "benchmarks/simulation/"
