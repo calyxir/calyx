@@ -113,7 +113,7 @@ class Relay2Futil(ExprFunctor):
         # multiple functions as multiple components.
         cells = mk_block('cells', '\n'.join(func_cells + body.cells))
         wires = mk_block('wires', group)  # Just one group.
-        control = mk_block('control', group_name)  # Invoke the group.
+        control = mk_block('control', f'{group_name};')  # Invoke the group.
         component = mk_block(
             'component main() -> ()',
             '\n'.join([cells, wires, control])
