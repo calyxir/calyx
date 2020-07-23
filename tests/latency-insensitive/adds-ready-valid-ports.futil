@@ -1,8 +1,0 @@
-(define/namespace prog
- (import primitives/std.lib)
- (define/component main () ()
-  ()
-  (seq))
- (define/component comp1 () ()
-  ()
-  (seq)))

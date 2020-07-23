@@ -1,0 +1,20 @@
+component main(go: 1) -> (done: 1) {
+  cells {
+    const0 = prim std_const(32, 0);
+    const1 = prim std_const(32, 10);
+    x = prim std_reg(32);
+    y = prim std_reg(32);
+  }
+  
+  wires {
+    done = x.done & y.done ? 1'd1;
+    x.in = go ? const0.out;
+    y.in = go ? const1.out;
+    x.write_en = go ? 1'd1;
+    y.write_en = go ? 1'd1;
+  }
+  
+  control {
+    (empty)
+  }
+}

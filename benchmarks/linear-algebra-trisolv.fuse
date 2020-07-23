@@ -1,34 +1,21 @@
-// BEGIN macro definitions
+decl L: ubit<32>[8][8];
+decl x: ubit<32>[8];
+decl b: ubit<32>[8];
 
-define(N, 8)
-define(DATATYPE, float)
-
-// END macro definitions
-
-import "printer.cpp" {
-  def print_vec(x: DATATYPE[N]);
-}
-
-decl L: DATATYPE[N][N];
-decl x: DATATYPE[N];
-decl b: DATATYPE[N];
-
-for (let i = 0..N) {
+for (let i: ubit<4> = 0..8) {
   x[i] := b[i];
   ---
-  let j = 0;
+  let j: ubit<4> = (0 as ubit<4>);
   while (j < i) {
-    let x_j = x[j];
+    let x_j: ubit<32> = x[j];
     ---
     x[i] := L[i][j] * x_j;
 
     // Update loop counter
-    j := j + 1;
+    j := j + (1 as ubit<4>);
   }
   ---
-  let x_i = x[i];
+  let x_i: ubit<32> = x[i];
   ---
   x[i] := x_i / L[i][i];
 }
----
-print_vec(x);

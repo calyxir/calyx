@@ -1,39 +1,25 @@
-// BEGIN macro definitions
-
-define(N, 8)
-define(DATATYPE, float)
-
-// END macro definitions
-import "printer.cpp" {
-  def print_vec(v: DATATYPE[N]);
-}
-
-decl alpha: DATATYPE;
-decl beta: DATATYPE;
-decl A: DATATYPE[N][N];
-decl B: DATATYPE[N][N];
-decl tmp: DATATYPE[N];
-decl x: DATATYPE[N];
-decl y: DATATYPE[N];
+decl alpha: ubit<32>[1];
+decl beta: ubit<32>[1];
+decl A: ubit<32>[8][8];
+decl B: ubit<32>[8][8];
+decl tmp: ubit<32>[8];
+decl x: ubit<32>[8];
+decl y: ubit<32>[8];
 
 
-for (let i = 0..N) {
-  tmp[i] := 0.0;
-  y[i] := 0.0;
+for (let i: ubit<4> = 0..8) {
+  tmp[i] := (0 as ubit<32>);
+  y[i] := (0 as ubit<32>);
   ---
-  for (let j = 0..N) {
-    let tmp_i = tmp[i];
-    let y_i = y[i];
+  for (let j: ubit<4> = 0..8) {
+    let tmp_i: ubit<32> = tmp[i];
+    let y_i: ubit<32> = y[i];
     ---
     tmp[i] := A[i][j] * x[j] + tmp_i;
     y[i] := B[i][j] * x[j] + y_i;
   }
   ---
-  let y_i = y[i];
+  let y_i: ubit<32> = y[i];
   ---
-  y[i] := alpha * tmp[i] + beta * y_i;
+  y[i] := alpha[(0 as ubit<1>)] * tmp[i] + beta[(0 as ubit<1>)] * y_i;
 }
-
----
-print_vec(tmp);
-print_vec(y);

@@ -1,41 +1,26 @@
-// BEGIN macro definitions
+decl A: ubit<32>[8][8];
+decl x: ubit<32>[8];
+decl y: ubit<32>[8];
+decl tmp: ubit<32>[8];
 
-define(M, 8)
-define(N, 8)
-define(DATATYPE, float)
-
-// END macro definitions
-
-import "printer.cpp" {
-  def print_vec(x: DATATYPE[N]);
-}
-
-decl A: DATATYPE[M][N];
-decl x: DATATYPE[N];
-decl y: DATATYPE[N];
-decl tmp: DATATYPE[M];
-
-for (let i = 0..N) {
-  y[i] := 0.0;
+for (let i: ubit<4> = 0..8) {
+  y[i] := (0 as ubit<32>);
 }
 
 ---
 
-for (let i = 0..M) {
-  tmp[i] := 0.0;
+for (let i: ubit<4> = 0..8) {
+  tmp[i] := (0 as ubit<32>);
   ---
-  for (let j = 0..N) {
-    let t = tmp[i];
+  for (let j: ubit<4> = 0..8) {
+    let t: ubit<32> = tmp[i];
     ---
     tmp[i] := t + A[i][j] * x[j];
   }
   ---
-  for (let j = 0..N) {
-    let y0 = y[j];
+  for (let j: ubit<4> = 0..8) {
+    let y0: ubit<32> = y[j];
     ---
     y[j] := y0 + A[i][j] * tmp[i];
   }
 }
----
-print_vec(tmp);
-print_vec(y);

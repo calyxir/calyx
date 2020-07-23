@@ -1,37 +1,22 @@
-// BEGIN macro definition
+decl alpha: ubit<32>[1];
+decl A: ubit<32>[8][8];
+decl B: ubit<32>[8][12];
 
-define(M, 8)
-define(N, 12)
-define(DATATYPE, float)
-
-// END macro definition
-import "printer.cpp" {
-  def print_vec_2d(v: DATATYPE[M][N]);
-}
-
-decl alpha: DATATYPE;
-decl A: DATATYPE[M][M];
-decl B: DATATYPE[M][N];
-
-
-for (let i = 0..M) {
-  for (let j = 0..N) {
-    let k = i + 1;
-    while (k < M) {
-      let B_i_j = B[i][j];
+for (let i: ubit<4> = 0..8) {
+  for (let j: ubit<4> = 0..12) {
+    let k: ubit<4> = i + (1 as ubit<4>);
+    while (k < (8 as ubit<4>)) {
+      let B_i_j: ubit<32> = B[i][j];
       ---
-      let B_k_j = B[k][j];
+      let B_k_j: ubit<32> = B[k][j];
       ---
       B[i][j] := A[k][i] * B_k_j + B_i_j;
       // Update loop counter
-      k := k + 1;
+      k := k + (1 as ubit<4>);
     }
     ---
-    let B_i_j = B[i][j];
+    let B_i_j: ubit<32> = B[i][j];
     ---
-    B[i][j] := alpha * B_i_j;
+    B[i][j] := alpha[(0 as ubit<1>)] * B_i_j;
   }
 }
-
----
-print_vec_2d(B);

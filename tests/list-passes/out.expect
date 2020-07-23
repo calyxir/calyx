@@ -1,8 +1,6 @@
 - all
-- automatic-par
-- collapse-seq
-- connect-clocks
-- fsm-seq
-- latency-insensitive
-- redundant-par
-- remove-if
+- compile-control
+- component-interface-inserter
+- go-insertion
+- hole-inliner
+- no-inline

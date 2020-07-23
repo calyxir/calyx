@@ -1,19 +1,9 @@
-
-import "printer.cpp" {
-  def print_vec(v: float[1]);
-}
-
-decl A: float[8];
-decl B: float[8];
-decl dot: float[1];
-
-dot[0] := 0.0;
+decl A: ubit<32>[8];
+decl B: ubit<32>[8];
+let dot: ubit<32> = (0 as ubit<32>);
 ---
-for (let i = 0..8) {
-  let v = A[i] * B[i];
+for (let i: ubit<4> = 0..8) {
+  let v: ubit<32> = A[i] * B[i];
 } combine {
-  dot[0] += v;
+  dot += v;
 }
-
----
-print_vec(dot);

@@ -23,6 +23,7 @@ pub trait Backend {
 pub trait Emitable {
     fn doc<'a>(
         &self,
+        ctx: &context::Context,
         comp: &component::Component,
     ) -> Result<RcDoc<'a, ColorSpec>>;
 }

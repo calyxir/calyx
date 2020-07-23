@@ -19,7 +19,7 @@ pub use structopt::StructOpt;
 #[allow(clippy::option_option)]
 pub struct Opts {
     /// Input futil program.
-    #[structopt(required_unless = "list-passes", parse(from_os_str))]
+    #[structopt(parse(from_os_str))]
     pub file: Option<PathBuf>,
 
     /// Path to the primitives library.
@@ -42,9 +42,13 @@ pub struct Opts {
     #[structopt(short = "p", long = "pass", default_value = "all")]
     pub pass: Vec<String>,
 
-    ///list all avaliable pass options
+    /// list all avaliable pass options
     #[structopt(long = "list-passes")]
     pub list_passes: bool,
+
+    /// directory where meminit .dat files will be found
+    #[structopt(long = "meminit")]
+    pub meminit: Option<PathBuf>,
 }
 
 // ================== Backend Variant and Parsing ===================== //
@@ -115,7 +119,7 @@ impl ToString for BackendOpt {
 
 impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
-    pub fn run<W: Write>(
+    pub fn run_backend<W: Write>(
         self,
         context: &context::Context,
         file: &mut W,

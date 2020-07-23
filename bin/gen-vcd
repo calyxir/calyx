@@ -22,16 +22,19 @@ fi
 # name for resulting vcd file
 stem=$(basename "${filename%.*}")
 
-cp sim/testbench.cpp "$tmp"/
+# find testbench.cpp relative to this script
+cp $(dirname "$0")/../sim/testbench.cpp "$tmp"/
 
 # Generate required objects for verilator run.
 verilator -cc --trace "$filename" \
   --exe testbench.cpp --top-module main --Mdir "$tmp"
 
 # Generate and execute verilator C harness.
-make -j -C "$tmp" -f Vmain.mk Vmain
-"$tmp"/Vmain "./$stem".vcd
-echo "wrote" "$stem".vcd
+make -j -C "$tmp" -f Vmain.mk Vmain 1>&2
+
+# run generated C++ and print output vcd to stdout
+"$tmp"/Vmain "$tmp"/output.vcd 1>&2
+cat "$tmp"/output.vcd
 
 # Clean up temporary folder.
 rm -rf "$tmp"
