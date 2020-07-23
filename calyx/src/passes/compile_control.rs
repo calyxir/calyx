@@ -231,7 +231,7 @@ impl Visitor for CompileControl {
         let cond_recompute = st.to_guard(port!(st; cond_stored."out"))
             & st.to_guard(port!(st; cond_computed."out"))
             & st.to_guard(port!(st; body_group_node["done"]));
-        let done_guard = st.to_guard(port!(st; cond_computed."out"))
+        let is_cond_false = st.to_guard(port!(st; cond_computed."out"))
             & !st.to_guard(port!(st; cond_stored."out"));
         let done_reg_high = st.to_guard(port!(st; done_reg."out"));
         add_wires!(st, Some(while_group.clone()),
@@ -250,15 +250,15 @@ impl Visitor for CompileControl {
             cond_computed["write_en"] = cond_recompute ? (signal_on.clone());
 
             // Save done condition in done reg.
-            done_reg["in"] = done_guard ? (signal_on.clone());
-            done_reg["write_en"] = done_guard ? (signal_on.clone());
+            done_reg["in"] = is_cond_false ? (signal_on.clone());
+            done_reg["write_en"] = is_cond_false ? (signal_on.clone());
 
             // While group is done when done register is high.
             while_group_node["done"] = done_reg_high ? (signal_on.clone());
 
             // CLEANUP: Reset cond register state when done.
-            cond_computed["in"] = done_guard ? (signal_off.clone());
-            cond_computed["write_en"] = done_guard ? (signal_on.clone());
+            cond_computed["in"] = is_cond_false ? (signal_off.clone());
+            cond_computed["write_en"] = is_cond_false ? (signal_on.clone());
         );
 
         // CLEANUP: done register resets one cycle after being high.
