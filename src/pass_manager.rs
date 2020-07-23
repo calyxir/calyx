@@ -31,14 +31,13 @@ impl PassManager {
         pass_func: PassClosure,
     ) -> Result<()> {
         if self.passes.contains_key(&name) {
-            Err(Error::Misc(format!(
+            return Err(Error::Misc(format!(
                 "Pass with name '{}' is already registered.",
                 name
             )))
-        } else {
-            self.passes.insert(name, pass_func);
-            Ok(())
         }
+        self.passes.insert(name, pass_func);
+        Ok(())
     }
 
     /// Adds a new alias for groups of passes. An alias is a list of strings
@@ -50,14 +49,13 @@ impl PassManager {
         passes: Vec<String>,
     ) -> Result<()> {
         if self.aliases.contains_key(&name) {
-            Err(Error::Misc(format!(
+            return Err(Error::Misc(format!(
                 "Alias with name '{}'  already registered.",
                 name
             )))
-        } else {
-            self.aliases.insert(name, passes);
-            Ok(())
         }
+        self.aliases.insert(name, passes);
+        Ok(())
     }
 
     /// Return a string representation to show all available passes and aliases.
@@ -94,27 +92,27 @@ impl PassManager {
     /// aliases.
     fn create_plan(
         &self,
-        incls: &Vec<String>,
-        excls: &Vec<String>,
+        incls: &[String],
+        excls: &[String],
     ) -> (Vec<String>, HashSet<String>) {
         // Incls and excls can both have aliases in them. Resolve them.
         let passes = incls
-            .into_iter()
+            .iter()
             .flat_map(|maybe_alias| {
                 self.aliases
                     .get(maybe_alias)
-                    .map(|x| x.clone())
-                    .unwrap_or(vec![maybe_alias.clone()])
+                    .cloned()
+                    .unwrap_or_else(|| vec![maybe_alias.clone()])
             })
             .collect::<Vec<_>>();
 
         let excl_set = excls
-            .into_iter()
+            .iter()
             .flat_map(|maybe_alias| {
                 self.aliases
                     .get(maybe_alias)
-                    .map(|x| x.clone())
-                    .unwrap_or(vec![maybe_alias.clone()])
+                    .cloned()
+                    .unwrap_or_else(|| vec![maybe_alias.clone()])
             })
             .collect::<HashSet<String>>();
 
@@ -126,8 +124,8 @@ impl PassManager {
         &self,
         ctx: Context,
         mut name_gen: NameGenerator,
-        incl: &Vec<String>,
-        excl: &Vec<String>,
+        incl: &[String],
+        excl: &[String],
     ) -> Result<Context> {
         let (passes, excl_set) = self.create_plan(incl, excl);
         for name in passes {

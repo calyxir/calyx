@@ -27,7 +27,7 @@ impl Named for StaticTiming {
 /// Returns None if any of of the Control statements is a compound statement.
 fn accumulate_static_time<F>(
     st: &StructureGraph,
-    stmts: &Vec<Control>,
+    stmts: &[Control],
     acc: F,
 ) -> Option<u64>
 where
