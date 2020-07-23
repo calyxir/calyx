@@ -23,75 +23,6 @@ use passes::{
 use std::io::stdin;
 use structopt::StructOpt;
 
-/*fn pass_map() -> HashMap<String, PassClosure> {
-    let mut names: HashMap<String, PassClosure> = HashMap::new();
-    names.insert(
-        StaticTiming::name().to_string(),
-        Box::new(|ctx, _| {
-            StaticTiming::do_pass_default(&ctx)?;
-            Ok(())
-        }),
-    );
-    names.insert(
-        CompileControl::name().to_string(),
-        Box::new(|ctx, _| {
-            CompileControl::do_pass_default(&ctx)?;
-            Ok(())
-        }),
-    );
-    names.insert(
-        GoInsertion::name().to_string(),
-        Box::new(|ctx, _| {
-            GoInsertion::do_pass_default(&ctx)?;
-            Ok(())
-        }),
-    );
-    names.insert(
-        ComponentInterface::name().to_string(),
-        Box::new(|ctx, _| {
-            ComponentInterface::do_pass_default(&ctx)?;
-            Ok(())
-        }),
-    );
-    names.insert(
-        Inliner::name().to_string(),
-        Box::new(|ctx, _| {
-            Inliner::do_pass_default(&ctx)?;
-            Ok(())
-        }),
-    );
-    names.insert(
-        MergeAssign::name().to_string(),
-        Box::new(|ctx, _| {
-            MergeAssign::do_pass_default(&ctx)?;
-            Ok(())
-        }),
-    );
-    names.insert(
-        "all".to_string(),
-        Box::new(|ctx, _name_gen| {
-            StaticTiming::do_pass_default(ctx)?;
-            CompileControl::do_pass_default(ctx)?;
-            GoInsertion::do_pass_default(ctx)?;
-            ComponentInterface::do_pass_default(ctx)?;
-            Inliner::do_pass_default(ctx)?;
-            MergeAssign::do_pass_default(ctx)?;
-            Ok(())
-        }),
-    );
-    names.insert(
-        "no-inline".to_string(),
-        Box::new(|ctx, _name_gen| {
-            StaticTiming::do_pass_default(ctx)?;
-            CompileControl::do_pass_default(ctx)?;
-            GoInsertion::do_pass_default(ctx)?;
-            ComponentInterface::do_pass_default(ctx)?;
-            Ok(())
-        }),
-    );
-    names
-}*/
-
 /// Construct the pass manager by registering all passes and aliases used
 /// by the command line.
 fn construct_pass_manager() -> Result<PassManager> {
@@ -173,8 +104,8 @@ fn main() -> Result<()> {
     let name_gen = NameGenerator::default();
 
     // run all passes specified by the command line
-    println!("{:?}", opts.pass);
-    let context = pm.execute_plan(context, name_gen, &opts.pass, &vec![])?;
+    let context =
+        pm.execute_plan(context, name_gen, &opts.pass, &opts.disable_pass)?;
 
     Ok(opts.run_backend(&context, &mut std::io::stdout())?)
 }
