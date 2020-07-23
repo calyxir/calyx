@@ -123,7 +123,6 @@ fn main() -> Result<()> {
         namespace,
         &libraries,
         opts.enable_debug,
-        opts.meminit.clone(),
     )?;
 
     // Construct pass manager.

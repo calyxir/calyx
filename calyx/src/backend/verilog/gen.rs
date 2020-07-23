@@ -195,7 +195,7 @@ impl Emitable for ast::ComponentDef {
                 "// Memory initialization / finalization ",
             )))
             .append(D::line())
-            .append(memory_init(&ctx, &comp))
+            .append(memory_init(&comp))
             .append(D::line())
             .append(D::line())
             .append(colors::comment(D::text("// Input / output connections")))
@@ -661,37 +661,61 @@ fn signature_connections<'a>(
 //==========================================
 //        Memory init functions
 //==========================================
-fn memory_init<'a>(
-    ctx: &context::Context,
-    comp: &component::Component,
-) -> D<'a> {
-    match &ctx.meminit_directory {
-        Some(dir) => D::text("initial")
-            .append(D::space())
-            .append(memory_load_store(
-                "$readmemh",
-                "dat",
-                dir.to_str().unwrap(),
-                &comp,
-            ))
-            .append(D::line())
-            .append(D::line())
-            .append("final")
-            .append(D::space())
-            .append(memory_load_store(
-                "$writememh",
-                "out",
-                dir.to_str().unwrap(),
-                &comp,
-            )),
-        None => D::text("// no directory given"),
-    }
+// Generates code of the form:
+// ```
+// import "DPI-C" function string futil_getenv (input string env_var);
+// string DATA;
+// initial begin
+//   DATA = futil_getenv("DATA");
+//   $display("DATA: %s", DATA);
+//   $readmemh({DATA, "/<mem_name>.out"}, <mem_name>.mem);
+//   ...
+// end
+// final begin
+//   $writememh({DATA, "/<mem_name>.out"}, <mem_name>.mem);
+// end
+// ```
+fn memory_init<'a>(comp: &component::Component) -> D<'a> {
+    // Import futil helper library.
+    const IMPORT_STMT: &str =
+        "import \"DPI-C\" function string futil_getenv (input string env_var);";
+    const DATA_DECL: &str = "string DATA;";
+    const DATA_GET: &str = "DATA = futil_getenv(\"DATA\");";
+    const DATA_DISP: &str =
+        "$display(\"DATA (path to meminit files): %s\", DATA);";
+
+    let initial_block = D::text("initial begin")
+        .append(D::line())
+        .append(
+            (D::text(DATA_GET)
+                .append(D::line())
+                .append(DATA_DISP)
+                .append(memory_load_store("$readmemh", "dat", &comp)))
+            .nest(4),
+        )
+        .append(D::line())
+        .append("end");
+
+    let final_block = D::text("final begin")
+        .append(memory_load_store("$writememh", "out", &comp).nest(4))
+        .append(D::line())
+        .append("end");
+
+    D::text(IMPORT_STMT)
+        .append(D::line())
+        .append(DATA_DECL)
+        .append(D::line())
+        .append(D::space())
+        .append(initial_block)
+        .append(D::line())
+        .append(D::line())
+        .append(D::space())
+        .append(final_block)
 }
 
 fn memory_load_store<'a>(
     mem_f: &'static str,
     ext: &'static str,
-    dir: &str,
     comp: &component::Component,
 ) -> D<'a> {
     let doc = comp
@@ -708,8 +732,7 @@ fn memory_load_store<'a>(
             D::text(mem_f)
                 .append(
                     D::text(format!(
-                        "\"{}/{}.{}\"",
-                        dir,
+                        "{{ DATA, \"/{}.{}\" }}",
                         node.name.to_string(),
                         ext
                     ))
@@ -721,12 +744,5 @@ fn memory_load_store<'a>(
                 .append(";")
         });
 
-    D::text("begin")
-        .append(
-            D::line()
-                .append(D::intersperse(doc, D::line()))
-                .nest(4)
-                .append(D::line()),
-        )
-        .append("end")
+    D::line().append(D::intersperse(doc, D::line()))
 }

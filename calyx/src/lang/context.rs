@@ -6,7 +6,6 @@ use crate::lang::{
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 /// Represents an entire Futil program. We are keeping all of the components in a `RefCell<HashMap>`.
 /// We use the `RefCell` to provide our desired visitor interface
@@ -58,8 +57,6 @@ use std::path::PathBuf;
 pub struct Context {
     /// Enable debugging output.
     pub debug_mode: bool,
-    /// Directory to find meminit files for initializing memories.
-    pub meminit_directory: Option<PathBuf>,
     /// Library containing primitive definitions.
     pub library_context: LibraryContext,
     /// Maps Ids to in-memory representation of the component.
@@ -85,7 +82,6 @@ impl Context {
         namespace: ast::NamespaceDef,
         libraries: &[lib::Library],
         debug_mode: bool,
-        meminit_directory: Option<PathBuf>,
     ) -> Result<Self> {
         // build hashmap for primitives in provided libraries
         let mut lib_definitions = HashMap::new();
@@ -122,7 +118,6 @@ impl Context {
 
         Ok(Context {
             debug_mode,
-            meminit_directory,
             library_context: libctx,
             definitions: RefCell::new(definitions),
             definitions_to_insert: RefCell::new(vec![]),
