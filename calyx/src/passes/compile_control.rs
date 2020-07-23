@@ -139,38 +139,40 @@ impl Visitor for CompileControl {
         Ok(Action::Change(Control::enable(if_group)))
     }
 
-    /// This compiles `while` statements of the following form:
-    /// ```C
-    /// while comp.out with cond {
-    ///   body;
-    /// }
-    /// ```
-    /// into the following group:
-    /// ```C
-    /// group while0 {
-    ///   // compute the condition if we haven't before or we are done with the body
-    ///   cond[go] = !cond_computed.out ? 1'b1;
-    ///   // save whether we have finished computing the condition
-    ///   cond_computed.in = cond[done] ? 1'b1;
-    ///   // save the result of the condition
-    ///   cond_stored.in = cond[done] ? lt.out;
-    ///
-    ///   // run the body if we have computed the condition and the condition was true
-    ///   body[go] = cond_computed.out & cond_stored.out ? 1'b1;
-    ///   // signal that we should recompute the condition when the body is done
-    ///   cond_computed.in = body[done] ? 1'b0;
-    ///   // this group is done when the condition is computed and it is false
-    ///   while0[done] = cond_computed.out & !cond_stored.out ? 1'b1;
-    ///   cond_computed.in = while0[done] ? 1'b1;
-    ///   cond_computed.write_en = while0[done] ? 1'b1;
-    /// }
-    /// ```
-    /// with 2 generated registers, `cond_computed` and `cond_stored`.
-    /// `cond_computed` tracks whether we have computed the condition. This
-    /// ensures that we don't recompute the condition when we are running the body.
-    /// `cond_stored` saves the result of the condition so that it is accessible
-    /// throughout the execution of `body`.
-    ///
+    /// XXX(rachit): The explanation is not consistent with the code.
+    /// Specifically, explain what the `done_reg` stuff is doing.
+    // This compiles `while` statements of the following form:
+    // ```C
+    // while comp.out with cond {
+    //   body;
+    // }
+    // ```
+    // into the following group:
+    // ```C
+    // group while0 {
+    //   // compute the condition if we haven't before or we are done with the body
+    //   cond[go] = !cond_computed.out ? 1'b1;
+    //   // save whether we have finished computing the condition
+    //   cond_computed.in = cond[done] ? 1'b1;
+    //   // save the result of the condition
+    //   cond_stored.in = cond[done] ? lt.out;
+    //
+    //   // run the body if we have computed the condition and the condition was true
+    //   body[go] = cond_computed.out & cond_stored.out ? 1'b1;
+    //   // signal that we should recompute the condition when the body is done
+    //   cond_computed.in = body[done] ? 1'b0;
+    //   // this group is done when the condition is computed and it is false
+    //   while0[done] = cond_computed.out & !cond_stored.out ? 1'b1;
+    //   cond_computed.in = while0[done] ? 1'b1;
+    //   cond_computed.write_en = while0[done] ? 1'b1;
+    // }
+    // ```
+    // with 2 generated registers, `cond_computed` and `cond_stored`.
+    // `cond_computed` tracks whether we have computed the condition. This
+    // ensures that we don't recompute the condition when we are running the body.
+    // `cond_stored` saves the result of the condition so that it is accessible
+    // throughout the execution of `body`.
+    //
     fn finish_while(
         &mut self,
         ctrl: &ast::While,
