@@ -1,4 +1,5 @@
 mod cmdline;
+mod pass_manager;
 
 use atty::Stream;
 use calyx::{
@@ -9,6 +10,7 @@ use calyx::{
     utils::NameGenerator,
 };
 use cmdline::Opts;
+use pass_manager::PassManager;
 use passes::{
     compile_control::CompileControl,
     component_interface::ComponentInterface,
@@ -18,13 +20,10 @@ use passes::{
     static_timing::StaticTiming,
     visitor::{Named, Visitor},
 };
-use std::collections::HashMap;
 use std::io::stdin;
 use structopt::StructOpt;
 
-type PassClosure = Box<dyn Fn(&Context, &mut NameGenerator) -> Result<()>>;
-
-fn pass_map() -> HashMap<String, PassClosure> {
+/*fn pass_map() -> HashMap<String, PassClosure> {
     let mut names: HashMap<String, PassClosure> = HashMap::new();
     names.insert(
         StaticTiming::name().to_string(),
@@ -83,7 +82,7 @@ fn pass_map() -> HashMap<String, PassClosure> {
     names.insert(
         "no-inline".to_string(),
         Box::new(|ctx, _name_gen| {
-            //StaticTiming::do_pass_default(ctx)?;
+            StaticTiming::do_pass_default(ctx)?;
             CompileControl::do_pass_default(ctx)?;
             GoInsertion::do_pass_default(ctx)?;
             ComponentInterface::do_pass_default(ctx)?;
@@ -91,20 +90,59 @@ fn pass_map() -> HashMap<String, PassClosure> {
         }),
     );
     names
+}*/
+
+/// Construct the pass manager by registering all passes and aliases used
+/// by the command line.
+fn construct_pass_manager() -> Result<PassManager> {
+    // Construct the pass manager and register all passes.
+    let mut pm = PassManager::new();
+
+    // Register passes.
+    register_pass!(pm, StaticTiming);
+    register_pass!(pm, CompileControl);
+    register_pass!(pm, GoInsertion);
+    register_pass!(pm, ComponentInterface);
+    register_pass!(pm, Inliner);
+    register_pass!(pm, MergeAssign);
+
+    // Register aliases
+    register_alias!(
+        pm,
+        "all",
+        [
+            StaticTiming,
+            CompileControl,
+            GoInsertion,
+            ComponentInterface,
+            Inliner,
+            MergeAssign
+        ]
+    );
+
+    register_alias!(
+        pm,
+        "no-inline",
+        [
+            StaticTiming,
+            CompileControl,
+            GoInsertion,
+            ComponentInterface,
+        ]
+    );
+
+    Ok(pm)
 }
 
 fn main() -> Result<()> {
+    let pm = construct_pass_manager()?;
+
     // parse the command line arguments into Opts struct
     let opts: Opts = Opts::from_args();
 
     // list all the avaliable pass options when flag --list-passes is enabled
     if opts.list_passes {
-        let names = pass_map();
-        let mut passes = names.keys().collect::<Vec<_>>();
-        passes.sort();
-        for key in passes {
-            println!("- {}", key);
-        }
+        println!("{}", pm.show_names());
         return Ok(());
     }
 
@@ -131,22 +169,12 @@ fn main() -> Result<()> {
     // build context
     let context = Context::from_ast(namespace, &libraries, opts.enable_debug)?;
 
-    // Construct pass manager.
-    let names = pass_map();
-
     // Construct the name generator
-    let mut name_gen = NameGenerator::default();
+    let name_gen = NameGenerator::default();
 
     // run all passes specified by the command line
-    for name in &opts.pass {
-        if let Some(pass) = names.get(name) {
-            pass(&context, &mut name_gen)?;
-        } else {
-            // construct known passes for error message
-            let known_passes: String =
-                names.keys().cloned().collect::<Vec<_>>().join(", ");
-            return Err(Error::UnknownPass(name.to_string(), known_passes));
-        }
-    }
+    println!("{:?}", opts.pass);
+    let context = pm.execute_plan(context, name_gen, &opts.pass, &vec![])?;
+
     Ok(opts.run_backend(&context, &mut std::io::stdout())?)
 }
