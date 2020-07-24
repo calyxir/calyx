@@ -15,13 +15,13 @@ expect_dir = "tests/integration-futil/"
 
 [[tests]]
 name = "futil lowering"
-paths = [ "tests/integration-futil/*.expect" ]
+paths = [ "tests/integration-futil/*.expect", "tests/futil-sources/*.expect" ]
 cmd = "./target/debug/futil {}"
 expect_dir = "tests/integration-futil-lowered"
 
 [[tests]]
 name = "verilog generation"
-paths = [ "tests/integration-futil/*.expect" ]
+paths = [ "tests/integration-futil/*.expect", "tests/futil-sources/*.expect" ]
 cmd = "./target/debug/futil {} -b verilog"
 expect_dir = "tests/integration-verilog"
 
