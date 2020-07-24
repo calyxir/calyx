@@ -1,4 +1,4 @@
-ver = "0.2.6"
+ver = "0.2.7"
 
 # NOTE(rachit): `name` should only use lower case words. This makes it easier
 # remember how to match specific test suite names.
