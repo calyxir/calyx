@@ -184,22 +184,7 @@ impl Visitor for StaticTiming {
                     .get_node_by_name(&group_name)
                     .extract(group_name.clone())?;
 
-                // group[go] = fsm.out == cur_cyle ? 1;
-                structure!(st, &ctx,
-                    let state_const = constant(cur_cycle, fsm_size);
-                );
-                let go_guard = st
-                    .to_guard(port!(st; fsm."out"))
-                    .eq(st.to_guard(state_const));
-                st.insert_edge(
-                    signal_const.clone(),
-                    port!(st; group["go"]),
-                    Some(seq_group.clone()),
-                    Some(go_guard),
-                )?;
-
-                // Update `cur_cycle` to the cycle on which this group
-                // finishes executing.
+                // Static time of the group.
                 let static_time: u64 = *st
                     .groups
                     .get(&Some(group_name.clone()))
@@ -209,6 +194,33 @@ impl Visitor for StaticTiming {
                     .expect(
                         "Impossible: Group doesn't have \"static\" attribute",
                     );
+
+                structure!(st, &ctx,
+                    let start_st = constant(cur_cycle, fsm_size);
+                    let end_st = constant(cur_cycle + static_time, fsm_size);
+                );
+
+                // group[go] = fsm.out >= start_st & fsm.out < end_st ? 1;
+                // NOTE(rachit): Do not generate fsm.out >= 0. Because fsm
+                // contains unsigned values, it will always be true and
+                // Verilator will generate %Warning-UNSIGNED.
+                let go_guard = if static_time == 1 {
+                    st.to_guard(port!(st; fsm."out")).eq(st.to_guard(start_st))
+                } else if cur_cycle == 0 {
+                    st.to_guard(port!(st; fsm."out")).le(st.to_guard(end_st))
+                } else {
+                    st.to_guard(port!(st; fsm."out")).ge(st.to_guard(start_st))
+                        & st.to_guard(port!(st; fsm."out"))
+                            .lt(st.to_guard(end_st))
+                };
+
+                st.insert_edge(
+                    signal_const.clone(),
+                    port!(st; group["go"]),
+                    Some(seq_group.clone()),
+                    Some(go_guard),
+                )?;
+
                 cur_cycle += static_time;
             }
         }
