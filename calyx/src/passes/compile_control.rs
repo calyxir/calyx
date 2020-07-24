@@ -387,6 +387,7 @@ impl Visitor for CompileControl {
                         .extract(group_name.clone())?;
                     let group_go_port =
                         st.port_ref(group_idx, "go").unwrap().clone();
+
                     // Hook up this group's go signal with parent's go.
                     let num = st.new_constant(1, 1)?;
                     st.insert_edge(
@@ -398,10 +399,7 @@ impl Visitor for CompileControl {
 
                     // Add this group's done signal to parent's
                     // done signal.
-                    let group_done_port =
-                        st.port_ref(group_idx, "done").unwrap().clone();
-                    let guard = st.to_guard((group_idx, group_done_port));
-                    // par_group_done.push(guard);
+                    let guard = st.to_guard(port!(st; group_idx."done"));
                     par_group_done = Some(match par_group_done {
                         Some(g) => g & guard,
                         None => guard,
