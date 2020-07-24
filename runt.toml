@@ -56,6 +56,6 @@ name = "polybench simulation"
 paths = [ "benchmarks/verilog/*.expect" ]
 cmd = """
 base=$(basename -s .expect {})
-./bin/run-benchmark {} benchmarks/data/$base.data
+./bin/run-benchmark {} benchmarks/data/$base.data | tail -n+2
 """
 expect_dir = "benchmarks/simulation/"
