@@ -320,6 +320,18 @@ impl GuardExpr {
         GuardExpr::Leq(Box::new(self), Box::new(other))
     }
 
+    pub fn lt(self, other: GuardExpr) -> Self {
+        GuardExpr::Lt(Box::new(self), Box::new(other))
+    }
+
+    pub fn ge(self, other: GuardExpr) -> Self {
+        GuardExpr::Geq(Box::new(self), Box::new(other))
+    }
+
+    pub fn gt(self, other: GuardExpr) -> Self {
+        GuardExpr::Gt(Box::new(self), Box::new(other))
+    }
+
     pub fn op_str(&self) -> String {
         match self {
             GuardExpr::And(_) => "&".to_string(),
