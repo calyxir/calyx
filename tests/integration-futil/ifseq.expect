@@ -11,32 +11,32 @@ component main() -> () {
     x0 = prim std_reg(32);
   }
   wires {
-    group cond0 {
+    group cond0<"static"=1> {
       cond0[done] = 1'd1;
       gt0.left = x0.out;
       gt0.right = const3.out;
     }
-    group let0 {
+    group let0<"static"=1> {
       x0.in = const0.out;
       x0.write_en = 1'd1;
       let0[done] = x0.done;
     }
-    group upd0 {
+    group upd0<"static"=1> {
       x0.write_en = 1'd1;
       x0.in = const1.out;
       upd0[done] = x0.done;
     }
-    group upd1 {
+    group upd1<"static"=1> {
       x0.write_en = 1'd1;
       x0.in = const2.out;
       upd1[done] = x0.done;
     }
-    group upd2 {
+    group upd2<"static"=1> {
       x0.write_en = 1'd1;
       x0.in = const4.out;
       upd2[done] = x0.done;
     }
-    group upd3 {
+    group upd3<"static"=1> {
       x0.write_en = 1'd1;
       x0.in = const5.out;
       upd3[done] = x0.done;

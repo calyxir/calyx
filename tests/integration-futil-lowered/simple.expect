@@ -12,22 +12,24 @@ component main(go: 1) -> (done: 1) {
     fsm0 = prim std_reg(32);
     fsm1 = prim std_reg(32);
     gt0 = prim std_gt(32);
+    incr0 = prim std_add(32);
     y0 = prim std_reg(32);
     z0 = prim std_reg(32);
   }
   
   wires {
-    a0.in = fsm0.out == 32'd0 & !(a0.done) & fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go ? const0.out;
-    a0.write_en = fsm0.out == 32'd0 & !(a0.done) & fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go ? 1'd1;
-    fsm0.in = fsm0.out == 32'd0 & a0.done & fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go ? 32'd1;
-    fsm0.write_en = fsm0.out == 32'd0 & a0.done & fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go | fsm0.out == 32'd1 & b0.done & fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go | fsm0.out == 32'd2 ? 1'd1;
-    b0.in = fsm0.out == 32'd1 & !(b0.done) & fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go ? const1.out;
-    b0.write_en = fsm0.out == 32'd1 & !(b0.done) & fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go ? 1'd1;
-    fsm0.in = fsm0.out == 32'd1 & b0.done & fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go ? 32'd2;
+    a0.in = fsm0.out == 32'd0 & fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go ? const0.out;
+    a0.write_en = fsm0.out == 32'd0 & fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go ? 1'd1;
+    b0.in = fsm0.out == 32'd1 & fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go ? const1.out;
+    b0.write_en = fsm0.out == 32'd1 & fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go ? 1'd1;
     fsm1.in = fsm1.out == 32'd0 & fsm0.out == 32'd2 & go ? 32'd1;
     fsm1.write_en = fsm1.out == 32'd0 & fsm0.out == 32'd2 & go | fsm1.out == 32'd1 & y0.done | z0.done & go | fsm1.out == 32'd2 ? 1'd1;
+    incr0.right = fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go ? fsm0.out;
+    incr0.left = fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go ? 32'd1;
     fsm1.in = fsm1.out == 32'd1 & y0.done | z0.done & go ? 32'd2;
     done = fsm1.out == 32'd2 ? 1'd1;
+    fsm0.in = !(fsm0.out == 32'd2) & fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go ? incr0.out;
+    fsm0.write_en = !(fsm0.out == 32'd2) & fsm1.out == 32'd0 & !(fsm0.out == 32'd2) & go | fsm0.out == 32'd2 ? 1'd1;
     gt0.left = !(cond_computed0.out) & fsm1.out == 32'd1 & !(y0.done | z0.done) & go ? a0.out;
     gt0.right = !(cond_computed0.out) & fsm1.out == 32'd1 & !(y0.done | z0.done) & go ? const2.out;
     cond_stored0.in = !(cond_computed0.out) & fsm1.out == 32'd1 & !(y0.done | z0.done) & go ? gt0.out;

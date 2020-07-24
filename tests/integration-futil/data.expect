@@ -6,12 +6,12 @@ component main() -> () {
     x0 = prim std_reg(32);
   }
   wires {
-    group let0 {
+    group let0<"static"=1> {
       x0.in = const0.out;
       x0.write_en = 1'd1;
       let0[done] = x0.done;
     }
-    group upd0 {
+    group upd0<"static"=1> {
       x0.write_en = 1'd1;
       x0.in = const1.out;
       upd0[done] = x0.done;

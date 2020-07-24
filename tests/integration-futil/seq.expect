@@ -11,22 +11,22 @@ component main() -> () {
     z0 = prim std_reg(32);
   }
   wires {
-    group let0 {
+    group let0<"static"=1> {
       x0.in = const0.out;
       x0.write_en = 1'd1;
       let0[done] = x0.done;
     }
-    group let1 {
+    group let1<"static"=1> {
       y0.in = const1.out;
       y0.write_en = 1'd1;
       let1[done] = y0.done;
     }
-    group let2 {
+    group let2<"static"=1> {
       z0.in = const2.out;
       z0.write_en = 1'd1;
       let2[done] = z0.done;
     }
-    group let3 {
+    group let3<"static"=1> {
       a0.in = const3.out;
       a0.write_en = 1'd1;
       let3[done] = a0.done;
