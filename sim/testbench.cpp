@@ -14,7 +14,7 @@ int main(int argc, char **argv, char **env) {
   top->trace(tfp, 99);
   tfp->open(argv[1]);
   // initialize simulation inputs
-  top->clk = 1;
+  top->clk = 0;
   top->go = 1;
   int done = 0;
   printf("Starting simulation\n");
