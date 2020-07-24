@@ -130,6 +130,15 @@ impl Visitor for StaticTiming {
                 }
             }
 
+            // CLEANUP: Reset the FSM to initial state.
+            structure!(st, &ctx,
+                let reset_val = constant(0, fsm_size);
+            );
+            add_wires!(st, None,
+                fsm["in"] = done_guard ? (reset_val);
+                fsm["write_en"] = done_guard ? (signal_const);
+            );
+
             Ok(Action::Change(Control::enable(par_group)))
         } else {
             Ok(Action::Continue)
