@@ -340,7 +340,7 @@ impl Visitor for CompileControl {
                     if idx == s.stmts.len() - 1 {
                         structure!(st, &ctx,
                             let signal_go = constant(1, 1);
-                            let signal_stop = constant(0, 32);
+                            let reset_val = constant(0, 32);
                         );
                         st.insert_edge(
                             signal_go.clone(),
@@ -353,7 +353,7 @@ impl Visitor for CompileControl {
                         )?;
 
                         st.insert_edge(
-                            signal_stop,
+                            reset_val,
                             port!(st; fsm."in"),
                             None,
                             Some(

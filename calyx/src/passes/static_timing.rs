@@ -209,6 +209,7 @@ impl Visitor for StaticTiming {
             let incr = prim std_add(fsm_size);
             let one = constant(1, fsm_size);
             let last = constant(cur_cycle, fsm_size);
+            let reset_val = constant(0, fsm_size);
         );
         let done_guard =
             st.to_guard(port!(st; fsm."out")).eq(st.to_guard(last));
@@ -219,7 +220,13 @@ impl Visitor for StaticTiming {
             incr["right"] = (fsm["out"]);
             fsm["in"] = not_done_guard ? (incr["out"]);
             fsm["write_en"] = not_done_guard ? (signal_const.clone());
-            seq_group_node["done"] = done_guard ? (signal_const);
+            seq_group_node["done"] = done_guard ? (signal_const.clone());
+        );
+
+        // CLEANUP: Reset the fsm to initial state once it's done.
+        add_wires!(st, None,
+            fsm["in"] = done_guard ? (reset_val);
+            fsm["write_en"] = done_guard ? (signal_const);
         );
 
         // Add static attribute to this group.
