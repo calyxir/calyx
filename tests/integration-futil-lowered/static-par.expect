@@ -23,7 +23,8 @@ component main(go: 1) -> (done: 1) {
     y0.write_en = fsm0.out <= 32'd1 & go ? 1'd1;
     z0.write_en = fsm0.out <= 32'd1 & go ? 1'd1;
     fsm0.in = !(fsm0.out == 32'd1) & go ? incr0.out;
-    fsm0.write_en = !(fsm0.out == 32'd1) & go ? 1'd1;
+    fsm0.write_en = !(fsm0.out == 32'd1) & go | fsm0.out == 32'd1 ? 1'd1;
+    fsm0.in = fsm0.out == 32'd1 ? 32'd0;
     incr0.right = go ? fsm0.out;
     incr0.left = go ? 32'd1;
   }
