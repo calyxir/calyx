@@ -1,8 +1,9 @@
 // Abstract Syntax Tree for Futil
-use crate::errors::{Result, Span};
-use crate::lang::context::LibraryContext;
+use crate::errors::{Error, Extract, Result, Span};
+use crate::lang::{context::LibraryContext, structure::StructureGraph};
 use derivative::Derivative;
 use itertools::Itertools;
+use petgraph::graph::NodeIndex;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::{BitAnd, BitOr, Not};
@@ -190,6 +191,22 @@ impl Port {
             Port::Comp { port, .. } => port,
             Port::This { port } => port,
             Port::Hole { name, .. } => name,
+        }
+    }
+
+    /// Returns the edge corresponding to this port in the StructureGraph.
+    pub fn get_edge(&self, st: &StructureGraph) -> Result<(NodeIndex, Id)> {
+        match self {
+            Port::Comp { component, port } => Ok((
+                st.get_node_by_name(component).extract(component.clone())?,
+                port.clone(),
+            )),
+            Port::This { port } => {
+                Ok((st.get_node_by_name(&"this".into()).unwrap(), port.clone()))
+            }
+            Port::Hole { .. } => Err(Error::MalformedControl(
+                "Can't use a hole as a condition.".to_string(),
+            )),
         }
     }
 }
