@@ -4,7 +4,7 @@ use crate::lang::{
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 use crate::{add_wires, port, structure};
-use ast::{Control, Enable, GuardExpr, Port};
+use ast::{Control, Enable, GuardExpr};
 use std::collections::HashMap;
 use std::convert::TryInto;
 
@@ -74,18 +74,7 @@ impl Visitor for CompileControl {
 
         let cond_group_node =
             st.get_node_by_name(&cif.cond).extract(cif.cond.clone())?;
-        let cond = match &cif.port {
-            Port::Comp { component, port } => Ok((
-                st.get_node_by_name(component).extract(component.clone())?,
-                port.clone(),
-            )),
-            Port::This { port } => {
-                Ok((st.get_node_by_name(&"this".into()).unwrap(), port.clone()))
-            }
-            Port::Hole { .. } => Err(Error::MalformedControl(
-                "Can't use a hole as a condition.".to_string(),
-            )),
-        }?;
+        let cond = cif.port.get_edge(st)?;
 
         // extract group names from control statement
         let (true_group, false_group) = match (&*cif.tbranch, &*cif.fbranch) {
@@ -190,18 +179,8 @@ impl Visitor for CompileControl {
         let cond_group_node = st
             .get_node_by_name(&ctrl.cond)
             .ok_or_else(|| Error::UndefinedGroup(ctrl.cond.clone()))?;
-        let cond = match &ctrl.port {
-            Port::Comp { component, port } => Ok((
-                st.get_node_by_name(component).extract(component.clone())?,
-                port.clone(),
-            )),
-            Port::This { port } => {
-                Ok((st.get_node_by_name(&"this".into()).unwrap(), port.clone()))
-            }
-            Port::Hole { .. } => Err(Error::MalformedControl(
-                "Can't use a hole as a condition.".to_string(),
-            )),
-        }?;
+
+        let cond = ctrl.port.get_edge(&*st)?;
 
         // extract group names from control statement
         let body_group = match &*ctrl.body {
@@ -342,7 +321,7 @@ impl Visitor for CompileControl {
         );
         let seq_done = st
             .to_guard(port!(st; fsm."out"))
-            .eq(st.to_guard(fsm_final_state.clone()));
+            .eq(st.to_guard(fsm_final_state));
 
         // Condition for the seq group being done.
         add_wires!(st, Some(seq_group.clone()),
@@ -354,7 +333,6 @@ impl Visitor for CompileControl {
             fsm["in"] = seq_done ? (reset_val);
             fsm["write_en"] = seq_done ? (signal_on);
         );
-
 
         // Replace the control with the seq group.
         Ok(Action::Change(Control::enable(seq_group)))
