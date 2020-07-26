@@ -7,7 +7,7 @@ use crate::{
 };
 use ast::{Atom, BitNum, Cell, Connection, Group, Port, Wire};
 use component::Component;
-use errors::{Error, Result, Extract};
+use errors::{Error, Extract, Result};
 use itertools::Itertools;
 use petgraph::{
     graph::{EdgeIndex, NodeIndex},
@@ -309,10 +309,7 @@ impl StructureGraph {
                     | Port::Hole {
                         group: c,
                         name: port,
-                    } => (
-                        structure.get_node_by_name(c)?,
-                        port.clone(),
-                    ),
+                    } => (structure.get_node_by_name(c)?, port.clone()),
                     Port::This { port } => (structure.io, port.clone()),
                 },
                 Atom::Num(n) => structure.new_constant(n.val, n.width)?,
@@ -323,11 +320,7 @@ impl StructureGraph {
                 | Port::Hole {
                     group: c,
                     name: port,
-                } => (
-                    structure
-                        .get_node_by_name(c)?,
-                    port.clone(),
-                ),
+                } => (structure.get_node_by_name(c)?, port.clone()),
                 Port::This { port } => (structure.io, port.clone()),
             };
             structure.insert_edge(
