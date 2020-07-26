@@ -197,7 +197,6 @@ pub trait Extract<T, R> {
     /// Unpacks `T` into `Result<R>` using `id: ast::Id`
     /// for error reporting with locations.
     fn extract(&self, id: &ast::Id) -> Result<R>;
-
 }
 
 impl Extract<NodeIndex, NodeIndex> for Option<NodeIndex> {

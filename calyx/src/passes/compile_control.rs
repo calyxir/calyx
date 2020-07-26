@@ -1,4 +1,4 @@
-use crate::errors::{Error};
+use crate::errors::Error;
 use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
@@ -71,8 +71,7 @@ impl Visitor for CompileControl {
         let if_group: ast::Id = st.namegen.gen_name("if").into();
         let if_group_node = st.insert_group(&if_group, HashMap::new())?;
 
-        let cond_group_node =
-            st.get_node_by_name(&cif.cond)?;
+        let cond_group_node = st.get_node_by_name(&cif.cond)?;
         let cond = cif.port.get_edge(st)?;
 
         // extract group names from control statement
@@ -84,10 +83,8 @@ impl Visitor for CompileControl {
                 "Both branches of an if must be an enable.".to_string(),
             )),
         }?;
-        let true_group_node = st
-            .get_node_by_name(true_group)?;
-        let false_group_node = st
-            .get_node_by_name(false_group)?;
+        let true_group_node = st.get_node_by_name(true_group)?;
+        let false_group_node = st.get_node_by_name(false_group)?;
 
         structure!(st, &ctx,
             let cond_computed = prim std_reg(1);
@@ -173,8 +170,7 @@ impl Visitor for CompileControl {
         let while_group_node = st.insert_group(&while_group, HashMap::new())?;
 
         // cond group
-        let cond_group_node = st
-            .get_node_by_name(&ctrl.cond)?;
+        let cond_group_node = st.get_node_by_name(&ctrl.cond)?;
 
         let cond = ctrl.port.get_edge(&*st)?;
 
@@ -185,8 +181,7 @@ impl Visitor for CompileControl {
                 "The body of a while must be an enable.".to_string(),
             )),
         }?;
-        let body_group_node = st
-            .get_node_by_name(body_group)?;
+        let body_group_node = st.get_node_by_name(body_group)?;
 
         // generate necessary hardware
         structure!(st, &ctx,
@@ -272,8 +267,7 @@ impl Visitor for CompileControl {
                 } => {
                     let my_idx: u64 = idx.try_into().unwrap();
                     /* group[go] = fsm.out == idx & !group[done] ? 1 */
-                    let group = st
-                        .get_node_by_name(&group_name)?;
+                    let group = st.get_node_by_name(&group_name)?;
 
                     structure!(st, &ctx,
                         let fsm_cur_state = constant(my_idx, fsm_size);
@@ -311,8 +305,7 @@ impl Visitor for CompileControl {
             let reset_val = constant(0, fsm_size);
             let fsm_final_state = constant(final_state_val, fsm_size);
         );
-        let seq_done = guard!(st; fsm["out"])
-            .eq(st.to_guard(fsm_final_state));
+        let seq_done = guard!(st; fsm["out"]).eq(st.to_guard(fsm_final_state));
 
         // Condition for the seq group being done.
         add_wires!(st, Some(seq_group.clone()),
@@ -351,8 +344,7 @@ impl Visitor for CompileControl {
                 Control::Enable {
                     data: Enable { comp: group_name },
                 } => {
-                    let group_idx = st
-                        .get_node_by_name(&group_name)?;
+                    let group_idx = st.get_node_by_name(&group_name)?;
                     let group_go_port =
                         st.port_ref(group_idx, "go").unwrap().clone();
 

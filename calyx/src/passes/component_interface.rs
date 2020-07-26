@@ -1,9 +1,9 @@
-use crate::errors::{Error};
+use crate::errors::Error;
 use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use crate::{guard, structure, port, add_wires};
+use crate::{add_wires, guard, port, structure};
 use ast::Control;
 
 #[derive(Default)]
@@ -29,8 +29,7 @@ impl Visitor for ComponentInterface {
         let this = st.get_node_by_name(&"this".into()).unwrap();
 
         if let Control::Enable { data } = &comp.control {
-            let group =
-                st.get_node_by_name(&data.comp)?;
+            let group = st.get_node_by_name(&data.comp)?;
 
             structure!(st, &ctx,
                 let num = constant(1, 1);
