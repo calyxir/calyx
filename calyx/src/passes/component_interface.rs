@@ -3,7 +3,7 @@ use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use crate::port;
+use crate::{guard, structure, port, add_wires};
 use ast::Control;
 
 #[derive(Default)]
@@ -32,19 +32,14 @@ impl Visitor for ComponentInterface {
             let group =
                 st.get_node_by_name(&data.comp).extract(data.comp.clone())?;
 
-            st.insert_edge(
-                port!(st; this["go"]),
-                port!(st; group["go"]),
-                None,
-                None,
-            )?;
-            let num = st.new_constant(1, 1)?;
-            st.insert_edge(
-                num,
-                port!(st; this["done"]),
-                None,
-                Some(st.to_guard(port!(st; group["done"]))),
-            )?;
+            structure!(st, &ctx,
+                let num = constant(1, 1);
+            );
+            let group_done = guard!(st; group["done"]);
+            add_wires!(st, None,
+                group["go"] = (this["go"]);
+                this["done"] = group_done ? (num);
+            );
 
             // this pass doesn't modify any control, so we can return immediately
             Ok(Action::Stop)

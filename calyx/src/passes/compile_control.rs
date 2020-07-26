@@ -3,7 +3,7 @@ use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use crate::{add_wires, port, structure, guard};
+use crate::{add_wires, guard, port, structure};
 use ast::{Control, Enable, GuardExpr};
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -101,10 +101,10 @@ impl Visitor for CompileControl {
         let cond_go = !guard!(st; cond_computed["out"]);
         let is_cond_computed = guard!(st; cond_group_node["go"])
             & guard!(st; cond_group_node["done"]);
-        let true_go = guard!(st; cond_computed["out"])
-            & guard!(st; cond_stored["out"]);
-        let false_go = guard!(st; cond_computed["out"])
-            & !guard!(st; cond_stored["out"]);
+        let true_go =
+            guard!(st; cond_computed["out"]) & guard!(st; cond_stored["out"]);
+        let false_go =
+            guard!(st; cond_computed["out"]) & !guard!(st; cond_stored["out"]);
         let done_guard = guard!(st; true_group_node["done"])
             | guard!(st; false_group_node["done"]);
 
@@ -210,8 +210,8 @@ impl Visitor for CompileControl {
         let cond_recompute = guard!(st; cond_stored["out"])
             & guard!(st; cond_computed["out"])
             & guard!(st; body_group_node["done"]);
-        let is_cond_false = guard!(st; cond_computed["out"])
-            & !guard!(st; cond_stored["out"]);
+        let is_cond_false =
+            guard!(st; cond_computed["out"]) & !guard!(st; cond_stored["out"]);
         let done_reg_high = guard!(st; done_reg["out"]);
         add_wires!(st, Some(while_group.clone()),
             // Initially compute the condition
@@ -285,13 +285,11 @@ impl Visitor for CompileControl {
                         let fsm_nxt_state = constant(my_idx + 1, fsm_size);
                     );
 
-                    let group_go = (st
-                        .to_guard(port!(st; fsm["out"]))
+                    let group_go = (guard!(st; fsm["out"])
                         .eq(st.to_guard(fsm_cur_state.clone())))
                         & !guard!(st; group["done"]);
 
-                    let group_done = (st
-                        .to_guard(port!(st; fsm["out"]))
+                    let group_done = (guard!(st; fsm["out"])
                         .eq(st.to_guard(fsm_cur_state.clone())))
                         & guard!(st; group["done"]);
 
@@ -318,8 +316,7 @@ impl Visitor for CompileControl {
             let reset_val = constant(0, fsm_size);
             let fsm_final_state = constant(final_state_val, fsm_size);
         );
-        let seq_done = st
-            .to_guard(port!(st; fsm["out"]))
+        let seq_done = guard!(st; fsm["out"])
             .eq(st.to_guard(fsm_final_state));
 
         // Condition for the seq group being done.

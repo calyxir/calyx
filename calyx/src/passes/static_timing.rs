@@ -151,7 +151,7 @@ impl Visitor for StaticTiming {
                 let last = constant(max_time, fsm_size);
             );
             let done_guard =
-                st.to_guard(port!(st; fsm["out"])).eq(st.to_guard(last));
+                guard!(st; fsm["out"]).eq(st.to_guard(last));
             let not_done_guard = !done_guard.clone();
 
             add_wires!(st, Some(par_group.clone()),
@@ -184,15 +184,11 @@ impl Visitor for StaticTiming {
                     structure!(st, &ctx,
                         let state_const = constant(static_time, fsm_size);
                     );
-                    let go_guard = st
-                        .to_guard(port!(st; fsm["out"]))
+                    let go_guard = guard!(st; fsm["out"])
                         .le(st.to_guard(state_const));
-                    st.insert_edge(
-                        signal_const.clone(),
-                        port!(st; group["go"]),
-                        Some(par_group.clone()),
-                        Some(go_guard),
-                    )?;
+                    add_wires!(st, Some(par_group.clone()),
+                      group["go"] = go_guard ? (signal_const.clone());
+                    );
                 }
             }
 
@@ -280,12 +276,9 @@ impl Visitor for StaticTiming {
                             .lt(st.to_guard(end_st))
                 };
 
-                st.insert_edge(
-                    signal_const.clone(),
-                    port!(st; group["go"]),
-                    Some(seq_group.clone()),
-                    Some(go_guard),
-                )?;
+                add_wires!(st, Some(seq_group.clone()),
+                    group["go"] = go_guard ? (signal_const.clone());
+                );
 
                 cur_cycle += static_time;
             }
