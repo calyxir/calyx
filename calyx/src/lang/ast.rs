@@ -1,5 +1,5 @@
 // Abstract Syntax Tree for Futil
-use crate::errors::{Error, Extract, Result, Span};
+use crate::errors::{Error, Result, Span};
 use crate::lang::{context::LibraryContext, structure::StructureGraph};
 use derivative::Derivative;
 use itertools::Itertools;
@@ -198,7 +198,7 @@ impl Port {
     pub fn get_edge(&self, st: &StructureGraph) -> Result<(NodeIndex, Id)> {
         match self {
             Port::Comp { component, port } => Ok((
-                st.get_node_by_name(component).extract(component.clone())?,
+                st.get_node_by_name(component)?,
                 port.clone(),
             )),
             Port::This { port } => {
