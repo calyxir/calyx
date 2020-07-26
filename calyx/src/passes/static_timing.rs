@@ -90,6 +90,7 @@ impl Visitor for StaticTiming {
                     let one = constant(1, fsm_size);
                     let signal_on = constant(1, 1);
                     let cond_stored = prim std_reg(1);
+                    let reset_val = constant(0, fsm_size);
 
                     let cond_time_const = constant(ctime, fsm_size);
                     let cond_done_time_const = constant(ctime - 1, fsm_size);
@@ -149,7 +150,13 @@ impl Visitor for StaticTiming {
                     false_group["go"] = false_go ? (signal_on.clone());
 
                     // Group is done when we've counted up to max.
-                    if_group_node["done"] = done_guard ? (signal_on);
+                    if_group_node["done"] = done_guard ? (signal_on.clone());
+                );
+
+                // CLEANUP: Reset FSM to 0 when computation is finished.
+                add_wires!(st, None,
+                    fsm["in"] = done_guard ? (reset_val);
+                    fsm["write_en"] = done_guard ? (signal_on);
                 );
 
                 return Ok(Action::Change(Control::enable(if_group)));
