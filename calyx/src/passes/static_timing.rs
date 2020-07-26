@@ -80,7 +80,7 @@ impl Visitor for StaticTiming {
             if let (Some(&ctime), Some(&ttime), Some(&ftime)) =
                 (maybe_cond_time, maybe_true_time, maybe_false_time)
             {
-                let if_group: ast::Id = st.namegen.gen_name("if").into();
+                let if_group: ast::Id = st.namegen.gen_name("static_if").into();
                 let if_group_node =
                     st.insert_group(&if_group, HashMap::new())?;
 
