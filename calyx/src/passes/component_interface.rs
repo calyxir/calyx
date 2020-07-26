@@ -1,4 +1,4 @@
-use crate::errors::{Error, Extract};
+use crate::errors::{Error};
 use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
@@ -30,7 +30,7 @@ impl Visitor for ComponentInterface {
 
         if let Control::Enable { data } = &comp.control {
             let group =
-                st.get_node_by_name(&data.comp).extract(data.comp.clone())?;
+                st.get_node_by_name(&data.comp)?;
 
             structure!(st, &ctx,
                 let num = constant(1, 1);

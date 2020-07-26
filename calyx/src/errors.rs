@@ -196,14 +196,15 @@ impl From<pest_consume::Error<library_syntax::Rule>> for Error {
 pub trait Extract<T, R> {
     /// Unpacks `T` into `Result<R>` using `id: ast::Id`
     /// for error reporting with locations.
-    fn extract(&self, id: ast::Id) -> Result<R>;
+    fn extract(&self, id: &ast::Id) -> Result<R>;
+
 }
 
 impl Extract<NodeIndex, NodeIndex> for Option<NodeIndex> {
-    fn extract(&self, id: ast::Id) -> Result<NodeIndex> {
+    fn extract(&self, id: &ast::Id) -> Result<NodeIndex> {
         match self {
             Some(t) => Ok(*t),
-            None => Err(Error::UndefinedComponent(id)),
+            None => Err(Error::UndefinedComponent(id.clone())),
         }
     }
 }

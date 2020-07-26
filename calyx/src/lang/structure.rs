@@ -7,7 +7,7 @@ use crate::{
 };
 use ast::{Atom, BitNum, Cell, Connection, Group, Port, Wire};
 use component::Component;
-use errors::{Error, Result};
+use errors::{Error, Result, Extract};
 use itertools::Itertools;
 use petgraph::{
     graph::{EdgeIndex, NodeIndex},
@@ -310,9 +310,7 @@ impl StructureGraph {
                         group: c,
                         name: port,
                     } => (
-                        structure.get_node_by_name(c).ok_or_else(|| {
-                            Error::UndefinedComponent(c.clone())
-                        })?,
+                        structure.get_node_by_name(c)?,
                         port.clone(),
                     ),
                     Port::This { port } => (structure.io, port.clone()),
@@ -327,8 +325,7 @@ impl StructureGraph {
                     name: port,
                 } => (
                     structure
-                        .get_node_by_name(c)
-                        .ok_or_else(|| Error::UndefinedComponent(c.clone()))?,
+                        .get_node_by_name(c)?,
                     port.clone(),
                 ),
                 Port::This { port } => (structure.io, port.clone()),
@@ -559,10 +556,11 @@ impl StructureGraph {
         &self.graph[idx]
     }
 
-    pub fn get_node_by_name(&self, name: &ast::Id) -> Option<NodeIndex> {
+    pub fn get_node_by_name(&self, name: &ast::Id) -> Result<NodeIndex> {
         self.component_iterator()
             .find(|(_, node)| node.name == *name)
             .map(|(idx, _)| idx)
+            .extract(name)
     }
 
     pub fn get_edge(&self, idx: EdgeIndex) -> &EdgeData {

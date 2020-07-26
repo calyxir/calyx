@@ -1,4 +1,4 @@
-use crate::errors::{Error, Extract};
+use crate::errors::{Error};
 use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
@@ -72,7 +72,7 @@ impl Visitor for CompileControl {
         let if_group_node = st.insert_group(&if_group, HashMap::new())?;
 
         let cond_group_node =
-            st.get_node_by_name(&cif.cond).extract(cif.cond.clone())?;
+            st.get_node_by_name(&cif.cond)?;
         let cond = cif.port.get_edge(st)?;
 
         // extract group names from control statement
@@ -85,11 +85,9 @@ impl Visitor for CompileControl {
             )),
         }?;
         let true_group_node = st
-            .get_node_by_name(true_group)
-            .extract(true_group.clone())?;
+            .get_node_by_name(true_group)?;
         let false_group_node = st
-            .get_node_by_name(false_group)
-            .extract(false_group.clone())?;
+            .get_node_by_name(false_group)?;
 
         structure!(st, &ctx,
             let cond_computed = prim std_reg(1);
@@ -176,8 +174,7 @@ impl Visitor for CompileControl {
 
         // cond group
         let cond_group_node = st
-            .get_node_by_name(&ctrl.cond)
-            .ok_or_else(|| Error::UndefinedGroup(ctrl.cond.clone()))?;
+            .get_node_by_name(&ctrl.cond)?;
 
         let cond = ctrl.port.get_edge(&*st)?;
 
@@ -189,8 +186,7 @@ impl Visitor for CompileControl {
             )),
         }?;
         let body_group_node = st
-            .get_node_by_name(body_group)
-            .extract(body_group.clone())?;
+            .get_node_by_name(body_group)?;
 
         // generate necessary hardware
         structure!(st, &ctx,
@@ -277,8 +273,7 @@ impl Visitor for CompileControl {
                     let my_idx: u64 = idx.try_into().unwrap();
                     /* group[go] = fsm.out == idx & !group[done] ? 1 */
                     let group = st
-                        .get_node_by_name(&group_name)
-                        .extract(group_name.clone())?;
+                        .get_node_by_name(&group_name)?;
 
                     structure!(st, &ctx,
                         let fsm_cur_state = constant(my_idx, fsm_size);
@@ -357,8 +352,7 @@ impl Visitor for CompileControl {
                     data: Enable { comp: group_name },
                 } => {
                     let group_idx = st
-                        .get_node_by_name(&group_name)
-                        .extract(group_name.clone())?;
+                        .get_node_by_name(&group_name)?;
                     let group_go_port =
                         st.port_ref(group_idx, "go").unwrap().clone();
 

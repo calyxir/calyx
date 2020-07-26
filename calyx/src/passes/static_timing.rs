@@ -1,11 +1,10 @@
-use crate::errors::Extract;
 use crate::lang::ast::{Control, Enable};
 use crate::lang::{
     ast, component::Component, context::Context, structure::StructureGraph,
     structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use crate::{guard, add_wires, port, structure};
+use crate::{add_wires, guard, port, structure};
 use std::cmp;
 use std::collections::HashMap;
 
@@ -54,7 +53,7 @@ where
 }
 
 impl Visitor for StaticTiming {
-    /*fn finish_if(
+    fn finish_if(
         &mut self,
         s: &ast::If,
         comp: &mut Component,
@@ -67,6 +66,10 @@ impl Visitor for StaticTiming {
             Control::Enable { data: fdata },
         ) = (&*s.tbranch, &*s.fbranch)
         {
+            let cond_group = st.get_node_by_name(&s.cond)?;
+            let true_group = st.get_node_by_name(&tdata.comp)?;
+            let false_group = st.get_node_by_name(&fdata.comp)?;
+
             let maybe_cond_time =
                 st.groups[&Some(s.cond.clone())].0.get("static");
             let maybe_true_time =
@@ -78,7 +81,8 @@ impl Visitor for StaticTiming {
                 (maybe_cond_time, maybe_true_time, maybe_false_time)
             {
                 let if_group: ast::Id = st.namegen.gen_name("if").into();
-                let if_group_node = st.insert_group(&if_group, HashMap::new());
+                let if_group_node =
+                    st.insert_group(&if_group, HashMap::new())?;
 
                 let fsm_size = 32;
                 structure!(st, &ctx,
@@ -88,6 +92,8 @@ impl Visitor for StaticTiming {
                     let cond_stored = prim std_reg(1);
 
                     let cond_time_const = constant(ctime, fsm_size);
+                    let cond_done_time_const = constant(ctime - 1, fsm_size);
+
                     let true_time_const = constant(ttime, fsm_size);
                     let false_time_const = constant(ftime, fsm_size);
 
@@ -95,30 +101,63 @@ impl Visitor for StaticTiming {
                 );
 
                 let max_const = if ttime > ftime {
-                    true_time_const
+                    true_time_const.clone()
                 } else {
-                    false_time_const
+                    false_time_const.clone()
                 };
 
                 // The group is done when we count up to the max.
-                let done_guard = st
-                    .to_guard(port!(st; fsm["out"]))
-                    .eq(st.to_guard(max_const));
-                let not_done_guard = !done_guard;
+                let done_guard =
+                    guard!(st; fsm["out"]).eq(st.to_guard(max_const));
+                let not_done_guard = !done_guard.clone();
 
-                add_wires!(st,
-                    // Increment fsm every cycle till end.
-                    add["left"] = (fsm["out"]);
-                    add["right"] = (one);
+                // Guard for computing the conditional.
+                let cond_go = guard!(st; fsm["out"])
+                    .lt(st.to_guard(cond_time_const.clone()));
+
+                // Guard for when the conditional value is available on the
+                // port.
+                let cond_done = guard!(st; fsm["out"])
+                    .eq(st.to_guard(cond_done_time_const));
+
+                // Guard for branches
+                let true_go = guard!(st; fsm["out"])
+                    .ge(st.to_guard(cond_time_const.clone()))
+                    & guard!(st; fsm["out"]).lt(st.to_guard(true_time_const))
+                    & guard!(st; cond_stored["out"]);
+
+                let false_go = guard!(st; fsm["out"])
+                    .ge(st.to_guard(cond_time_const))
+                    & guard!(st; fsm["out"]).lt(st.to_guard(false_time_const))
+                    & !guard!(st; cond_stored["out"]);
+
+                add_wires!(st, Some(if_group.clone()),
+                    // Increment fsm every cycle till end
+                    incr["left"] = (fsm["out"]);
+                    incr["right"] = (one);
                     fsm["in"] = not_done_guard ? (incr["out"]);
 
                     // Compute the cond group
+                    cond_group["go"] = cond_go ? (signal_on.clone());
+
+                    // Store the value of the conditional
+                    cond_stored["write_en"] = cond_done ? (signal_on.clone());
+                    cond_stored["in"] = cond_done ? (s.port.get_edge(st)?);
+
+                    // Enable one of the branches
+                    true_group["go"] = true_go ? (signal_on.clone());
+                    false_group["go"] = false_go ? (signal_on.clone());
+
+                    // Group is done when we've counted up to max.
+                    if_group_node["done"] = done_guard ? (signal_on);
                 );
+
+                return Ok(Action::Change(Control::enable(if_group)));
             }
         }
 
         Ok(Action::Continue)
-    }*/
+    }
 
     fn finish_par(
         &mut self,
@@ -150,8 +189,7 @@ impl Visitor for StaticTiming {
                 let one = constant(1, fsm_size);
                 let last = constant(max_time, fsm_size);
             );
-            let done_guard =
-                guard!(st; fsm["out"]).eq(st.to_guard(last));
+            let done_guard = guard!(st; fsm["out"]).eq(st.to_guard(last));
             let not_done_guard = !done_guard.clone();
 
             add_wires!(st, Some(par_group.clone()),
@@ -166,9 +204,7 @@ impl Visitor for StaticTiming {
                     data: Enable { comp: group_name },
                 } = con
                 {
-                    let group = st
-                        .get_node_by_name(&group_name)
-                        .extract(group_name.clone())?;
+                    let group = st.get_node_by_name(&group_name)?;
 
                     let static_time: u64 = *st
                     .groups
@@ -184,8 +220,8 @@ impl Visitor for StaticTiming {
                     structure!(st, &ctx,
                         let state_const = constant(static_time, fsm_size);
                     );
-                    let go_guard = guard!(st; fsm["out"])
-                        .le(st.to_guard(state_const));
+                    let go_guard =
+                        guard!(st; fsm["out"]).le(st.to_guard(state_const));
                     add_wires!(st, Some(par_group.clone()),
                       group["go"] = go_guard ? (signal_const.clone());
                     );
@@ -242,9 +278,7 @@ impl Visitor for StaticTiming {
                 data: Enable { comp: group_name },
             } = con
             {
-                let group = st
-                    .get_node_by_name(&group_name)
-                    .extract(group_name.clone())?;
+                let group = st.get_node_by_name(&group_name)?;
 
                 // Static time of the group.
                 let static_time: u64 = *st
@@ -272,8 +306,7 @@ impl Visitor for StaticTiming {
                     guard!(st; fsm["out"]).le(st.to_guard(end_st))
                 } else {
                     guard!(st; fsm["out"]).ge(st.to_guard(start_st))
-                        & guard!(st; fsm["out"])
-                            .lt(st.to_guard(end_st))
+                        & guard!(st; fsm["out"]).lt(st.to_guard(end_st))
                 };
 
                 add_wires!(st, Some(seq_group.clone()),
@@ -291,8 +324,7 @@ impl Visitor for StaticTiming {
             let last = constant(cur_cycle, fsm_size);
             let reset_val = constant(0, fsm_size);
         );
-        let done_guard =
-            guard!(st; fsm["out"]).eq(st.to_guard(last));
+        let done_guard = guard!(st; fsm["out"]).eq(st.to_guard(last));
         let not_done_guard = !done_guard.clone();
 
         add_wires!(st, Some(seq_group.clone()),
