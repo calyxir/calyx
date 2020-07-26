@@ -1,8 +1,6 @@
 /// Simple macro that provides convienent syntax for
 /// constructing ports. The syntax is:
 /// ```
-/// port!(st; node."port-string")
-/// port!(st; node.port_var)
 /// port!(st; node["hole-string"])
 /// port!(st; node[hole_var])
 /// ```
@@ -10,17 +8,18 @@
 /// construction easier to read, and thus easier to debug.
 #[macro_export]
 macro_rules! port {
-    ($struct:expr; $node:ident.$port:expr) => {
-        (
-            $node,
-            $struct.port_ref($node, $port).expect("port!").clone(),
-        )
-    };
     ($struct:expr; $node:ident[$port:expr]) => {
         (
             $node,
             $struct.port_ref($node, $port).expect("port!").clone(),
         )
+    };
+}
+
+#[macro_export]
+macro_rules! guard {
+    ($struct:expr; $node:ident[$port:expr]) => {
+        st.to_guard(port!($struct, $node[$port]))
     };
 }
 

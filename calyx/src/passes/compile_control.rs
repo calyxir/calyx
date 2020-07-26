@@ -69,7 +69,6 @@ impl Visitor for CompileControl {
 
         // create a new group for if related structure
         let if_group: ast::Id = st.namegen.gen_name("if").into();
-        // XXX(rachit): Not adding any new attributes. Is this correct?
         let if_group_node = st.insert_group(&if_group, HashMap::new())?;
 
         let cond_group_node =
@@ -99,13 +98,13 @@ impl Visitor for CompileControl {
         );
 
         // Guard definitions
-        let cond_go = !st.to_guard(port!(st; cond_computed."out"));
+        let cond_go = !st.to_guard(port!(st; cond_computed["out"]));
         let is_cond_computed = st.to_guard(port!(st; cond_group_node["go"]))
             & st.to_guard(port!(st; cond_group_node["done"]));
-        let true_go = st.to_guard(port!(st; cond_computed."out"))
-            & st.to_guard(port!(st; cond_stored."out"));
-        let false_go = st.to_guard(port!(st; cond_computed."out"))
-            & !st.to_guard(port!(st; cond_stored."out"));
+        let true_go = st.to_guard(port!(st; cond_computed["out"]))
+            & st.to_guard(port!(st; cond_stored["out"]));
+        let false_go = st.to_guard(port!(st; cond_computed["out"]))
+            & !st.to_guard(port!(st; cond_stored["out"]));
         let done_guard = st.to_guard(port!(st; true_group_node["done"]))
             | st.to_guard(port!(st; false_group_node["done"]));
 
@@ -202,18 +201,18 @@ impl Visitor for CompileControl {
             let signal_off = constant(0, 1);
         );
 
-        let cond_go = !st.to_guard(port!(st; cond_computed."out"));
+        let cond_go = !st.to_guard(port!(st; cond_computed["out"]));
         let is_cond_computed = st.to_guard(port!(st; cond_group_node["go"]))
             & st.to_guard(port!(st; cond_group_node["done"]));
-        let body_go = st.to_guard(port!(st; cond_stored."out"))
-            & st.to_guard(port!(st; cond_computed."out"))
+        let body_go = st.to_guard(port!(st; cond_stored["out"]))
+            & st.to_guard(port!(st; cond_computed["out"]))
             & !st.to_guard(port!(st; body_group_node["done"]));
-        let cond_recompute = st.to_guard(port!(st; cond_stored."out"))
-            & st.to_guard(port!(st; cond_computed."out"))
+        let cond_recompute = st.to_guard(port!(st; cond_stored["out"]))
+            & st.to_guard(port!(st; cond_computed["out"]))
             & st.to_guard(port!(st; body_group_node["done"]));
-        let is_cond_false = st.to_guard(port!(st; cond_computed."out"))
-            & !st.to_guard(port!(st; cond_stored."out"));
-        let done_reg_high = st.to_guard(port!(st; done_reg."out"));
+        let is_cond_false = st.to_guard(port!(st; cond_computed["out"]))
+            & !st.to_guard(port!(st; cond_stored["out"]));
+        let done_reg_high = st.to_guard(port!(st; done_reg["out"]));
         add_wires!(st, Some(while_group.clone()),
             // Initially compute the condition
             cond_group_node["go"] = cond_go ? (signal_on.clone());
@@ -287,12 +286,12 @@ impl Visitor for CompileControl {
                     );
 
                     let group_go = (st
-                        .to_guard(port!(st; fsm."out"))
+                        .to_guard(port!(st; fsm["out"]))
                         .eq(st.to_guard(fsm_cur_state.clone())))
                         & !st.to_guard(port!(st; group["done"]));
 
                     let group_done = (st
-                        .to_guard(port!(st; fsm."out"))
+                        .to_guard(port!(st; fsm["out"]))
                         .eq(st.to_guard(fsm_cur_state.clone())))
                         & st.to_guard(port!(st; group["done"]));
 
@@ -320,7 +319,7 @@ impl Visitor for CompileControl {
             let fsm_final_state = constant(final_state_val, fsm_size);
         );
         let seq_done = st
-            .to_guard(port!(st; fsm."out"))
+            .to_guard(port!(st; fsm["out"]))
             .eq(st.to_guard(fsm_final_state));
 
         // Condition for the seq group being done.
@@ -377,7 +376,7 @@ impl Visitor for CompileControl {
 
                     // Add this group's done signal to parent's
                     // done signal.
-                    let guard = st.to_guard(port!(st; group_idx."done"));
+                    let guard = st.to_guard(port!(st; group_idx["done"]));
                     par_group_done = Some(match par_group_done {
                         Some(g) => g & guard,
                         None => guard,

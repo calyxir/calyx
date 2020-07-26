@@ -33,7 +33,7 @@ impl Visitor for ComponentInterface {
                 st.get_node_by_name(&data.comp).extract(data.comp.clone())?;
 
             st.insert_edge(
-                port!(st; this."go"),
+                port!(st; this["go"]),
                 port!(st; group["go"]),
                 None,
                 None,
@@ -41,7 +41,7 @@ impl Visitor for ComponentInterface {
             let num = st.new_constant(1, 1)?;
             st.insert_edge(
                 num,
-                port!(st; this."done"),
+                port!(st; this["done"]),
                 None,
                 Some(st.to_guard(port!(st; group["done"]))),
             )?;
