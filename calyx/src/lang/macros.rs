@@ -19,7 +19,7 @@ macro_rules! port {
 #[macro_export]
 macro_rules! guard {
     ($struct:expr; $node:ident[$port:expr]) => {
-        st.to_guard(port!($struct, $node[$port]))
+        $struct.to_guard(port!($struct; $node[$port]))
     };
 }
 

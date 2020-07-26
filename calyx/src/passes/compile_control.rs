@@ -3,7 +3,7 @@ use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use crate::{add_wires, port, structure};
+use crate::{add_wires, port, structure, guard};
 use ast::{Control, Enable, GuardExpr};
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -98,15 +98,15 @@ impl Visitor for CompileControl {
         );
 
         // Guard definitions
-        let cond_go = !st.to_guard(port!(st; cond_computed["out"]));
-        let is_cond_computed = st.to_guard(port!(st; cond_group_node["go"]))
-            & st.to_guard(port!(st; cond_group_node["done"]));
-        let true_go = st.to_guard(port!(st; cond_computed["out"]))
-            & st.to_guard(port!(st; cond_stored["out"]));
-        let false_go = st.to_guard(port!(st; cond_computed["out"]))
-            & !st.to_guard(port!(st; cond_stored["out"]));
-        let done_guard = st.to_guard(port!(st; true_group_node["done"]))
-            | st.to_guard(port!(st; false_group_node["done"]));
+        let cond_go = !guard!(st; cond_computed["out"]);
+        let is_cond_computed = guard!(st; cond_group_node["go"])
+            & guard!(st; cond_group_node["done"]);
+        let true_go = guard!(st; cond_computed["out"])
+            & guard!(st; cond_stored["out"]);
+        let false_go = guard!(st; cond_computed["out"])
+            & !guard!(st; cond_stored["out"]);
+        let done_guard = guard!(st; true_group_node["done"])
+            | guard!(st; false_group_node["done"]);
 
         // New edges.
         add_wires!(st, Some(if_group.clone()),
@@ -201,18 +201,18 @@ impl Visitor for CompileControl {
             let signal_off = constant(0, 1);
         );
 
-        let cond_go = !st.to_guard(port!(st; cond_computed["out"]));
-        let is_cond_computed = st.to_guard(port!(st; cond_group_node["go"]))
-            & st.to_guard(port!(st; cond_group_node["done"]));
-        let body_go = st.to_guard(port!(st; cond_stored["out"]))
-            & st.to_guard(port!(st; cond_computed["out"]))
-            & !st.to_guard(port!(st; body_group_node["done"]));
-        let cond_recompute = st.to_guard(port!(st; cond_stored["out"]))
-            & st.to_guard(port!(st; cond_computed["out"]))
-            & st.to_guard(port!(st; body_group_node["done"]));
-        let is_cond_false = st.to_guard(port!(st; cond_computed["out"]))
-            & !st.to_guard(port!(st; cond_stored["out"]));
-        let done_reg_high = st.to_guard(port!(st; done_reg["out"]));
+        let cond_go = !guard!(st; cond_computed["out"]);
+        let is_cond_computed = guard!(st; cond_group_node["go"])
+            & guard!(st; cond_group_node["done"]);
+        let body_go = guard!(st; cond_stored["out"])
+            & guard!(st; cond_computed["out"])
+            & !guard!(st; body_group_node["done"]);
+        let cond_recompute = guard!(st; cond_stored["out"])
+            & guard!(st; cond_computed["out"])
+            & guard!(st; body_group_node["done"]);
+        let is_cond_false = guard!(st; cond_computed["out"])
+            & !guard!(st; cond_stored["out"]);
+        let done_reg_high = guard!(st; done_reg["out"]);
         add_wires!(st, Some(while_group.clone()),
             // Initially compute the condition
             cond_group_node["go"] = cond_go ? (signal_on.clone());
@@ -288,12 +288,12 @@ impl Visitor for CompileControl {
                     let group_go = (st
                         .to_guard(port!(st; fsm["out"]))
                         .eq(st.to_guard(fsm_cur_state.clone())))
-                        & !st.to_guard(port!(st; group["done"]));
+                        & !guard!(st; group["done"]);
 
                     let group_done = (st
                         .to_guard(port!(st; fsm["out"]))
                         .eq(st.to_guard(fsm_cur_state.clone())))
-                        & st.to_guard(port!(st; group["done"]));
+                        & guard!(st; group["done"]);
 
                     add_wires!(st, Some(seq_group.clone()),
                         // Turn this group on.
@@ -376,7 +376,7 @@ impl Visitor for CompileControl {
 
                     // Add this group's done signal to parent's
                     // done signal.
-                    let guard = st.to_guard(port!(st; group_idx["done"]));
+                    let guard = guard!(st; group_idx["done"]);
                     par_group_done = Some(match par_group_done {
                         Some(g) => g & guard,
                         None => guard,

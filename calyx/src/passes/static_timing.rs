@@ -5,7 +5,7 @@ use crate::lang::{
     structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use crate::{add_wires, port, structure};
+use crate::{guard, add_wires, port, structure};
 use std::cmp;
 use std::collections::HashMap;
 
@@ -271,12 +271,12 @@ impl Visitor for StaticTiming {
                 // contains unsigned values, it will always be true and
                 // Verilator will generate %Warning-UNSIGNED.
                 let go_guard = if static_time == 1 {
-                    st.to_guard(port!(st; fsm["out"])).eq(st.to_guard(start_st))
+                    guard!(st; fsm["out"]).eq(st.to_guard(start_st))
                 } else if cur_cycle == 0 {
-                    st.to_guard(port!(st; fsm["out"])).le(st.to_guard(end_st))
+                    guard!(st; fsm["out"]).le(st.to_guard(end_st))
                 } else {
-                    st.to_guard(port!(st; fsm["out"])).ge(st.to_guard(start_st))
-                        & st.to_guard(port!(st; fsm["out"]))
+                    guard!(st; fsm["out"]).ge(st.to_guard(start_st))
+                        & guard!(st; fsm["out"])
                             .lt(st.to_guard(end_st))
                 };
 
@@ -299,7 +299,7 @@ impl Visitor for StaticTiming {
             let reset_val = constant(0, fsm_size);
         );
         let done_guard =
-            st.to_guard(port!(st; fsm["out"])).eq(st.to_guard(last));
+            guard!(st; fsm["out"]).eq(st.to_guard(last));
         let not_done_guard = !done_guard.clone();
 
         add_wires!(st, Some(seq_group.clone()),
