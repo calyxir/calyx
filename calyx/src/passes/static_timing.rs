@@ -53,6 +53,104 @@ where
 }
 
 impl Visitor for StaticTiming {
+    fn finish_while(
+        &mut self,
+        s: &ast::While,
+        comp: &mut Component,
+        ctx: &Context,
+    ) -> VisResult {
+        let st = &mut comp.structure;
+
+        if let Control::Enable { data } = &*s.body {
+            let maybe_cond_time =
+                st.groups[&Some(s.cond.clone())].0.get("static");
+            let maybe_body_time =
+                st.groups[&Some(data.comp.clone())].0.get("static");
+
+            // The group is statically compilable.
+            if let (Some(&ctime), Some(&btime)) =
+                (maybe_cond_time, maybe_body_time)
+            {
+                let cond_group = st.get_node_by_name(&s.cond)?;
+                let body_group = st.get_node_by_name(&data.comp)?;
+
+                let while_group: ast::Id =
+                    st.namegen.gen_name("static_while").into();
+                let while_group_node =
+                    st.insert_group(&while_group, HashMap::new())?;
+
+                let fsm_size = 32;
+                structure!(st, &ctx,
+                    let fsm = prim std_reg(fsm_size);
+                    let cond_stored = prim std_reg(1);
+                    let fsm_reset_val = constant(0, fsm_size);
+                    let fsm_one = constant(1, fsm_size);
+                    let incr = prim std_add(fsm_size);
+
+                    let signal_on = constant(1, 1);
+
+                    let cond_time_const = constant(ctime, fsm_size);
+                    let cond_end_const = constant(ctime - 1, fsm_size);
+                    let body_end_const = constant(ctime + btime , fsm_size);
+                );
+
+                // Cond is computed on this cycle.
+                let cond_computed = guard!(st; fsm["out"])
+                    .eq(st.to_guard(cond_end_const.clone()));
+
+                let body_done = guard!(st; fsm["out"])
+                    .eq(st.to_guard(body_end_const.clone()));
+                // Should we increment the FSM this cycle.
+                let fsm_incr = !body_done.clone();
+
+                // Compute the cond group
+                let cond_go = guard!(st; fsm["out"])
+                    .lt(st.to_guard(cond_time_const.clone()));
+
+                let body_go = guard!(st; cond_stored["out"])
+                    & !cond_go.clone()
+                    & guard!(st; fsm["out"]).lt(st.to_guard(body_end_const));
+
+                let done = guard!(st; fsm["out"])
+                    .eq(st.to_guard(cond_time_const))
+                    & !guard!(st; cond_stored["out"]);
+
+                add_wires!(st, Some(while_group.clone()),
+                    // Increment the FSM when needed
+                    incr["left"] = (fsm["out"]);
+                    incr["right"] = (fsm_one);
+                    fsm["in"] = fsm_incr ? (incr["out"]);
+                    fsm["write_en"] = fsm_incr ? (signal_on.clone());
+
+                    // Compute the cond group and save the result
+                    cond_group["go"] = cond_go ? (signal_on.clone());
+                    cond_stored["in"] = cond_computed ? (s.port.get_edge(st)?);
+                    cond_stored["write_en"] = cond_computed ? (signal_on.clone());
+
+                    // Compute the body
+                    body_group["go"] = body_go ? (signal_on.clone());
+
+                    // Reset the FSM when the body is done.
+                    fsm["in"] = body_done ? (fsm_reset_val.clone());
+                    fsm["write_en"] = body_done ? (signal_on.clone());
+
+                    // This group is done when cond is false.
+                    while_group_node["done"] = done ? (signal_on.clone());
+                );
+
+                // CLEANUP: Reset the FSM state.
+                add_wires!(st, None,
+                    fsm["in"] = done ? (fsm_reset_val);
+                    fsm["write_en"] = done ? (signal_on);
+                );
+
+                return Ok(Action::Change(Control::enable(while_group)));
+            }
+        }
+
+        Ok(Action::Continue)
+    }
+
     fn finish_if(
         &mut self,
         s: &ast::If,
