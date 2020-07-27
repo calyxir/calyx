@@ -271,18 +271,18 @@ module main (
   assign y0_write_en = (fsm1_out >= 32'd1 & fsm1_out < 32'd2 & cond_stored0_out & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? 1'd1 : '0;
   assign z0_in = (fsm1_out >= 32'd1 & fsm1_out < 32'd2 & !cond_stored0_out & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? const4_out : '0;
   assign z0_write_en = (fsm1_out >= 32'd1 & fsm1_out < 32'd2 & !cond_stored0_out & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? 1'd1 : '0;
-  assign fsm0_in = (!(fsm0_out == 32'd2) & fsm2_out <= 32'd2 & go) ? incr0_out : (fsm0_out == 32'd2) ? 32'd0 : '0;
-  assign fsm0_write_en = (!(fsm0_out == 32'd2) & fsm2_out <= 32'd2 & go | fsm0_out == 32'd2) ? 1'd1 : '0;
+  assign fsm0_in = (fsm0_out != 32'd2 & fsm2_out <= 32'd2 & go) ? incr0_out : (fsm0_out == 32'd2) ? 32'd0 : '0;
+  assign fsm0_write_en = (fsm0_out != 32'd2 & fsm2_out <= 32'd2 & go | fsm0_out == 32'd2) ? 1'd1 : '0;
   assign incr0_left = (fsm2_out <= 32'd2 & go) ? 32'd1 : '0;
   assign incr0_right = (fsm2_out <= 32'd2 & go) ? fsm0_out : '0;
-  assign fsm1_in = (!(fsm1_out == 32'd2) & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? incr1_out : (fsm1_out == 32'd2) ? 32'd0 : '0;
-  assign fsm1_write_en = (!(fsm1_out == 32'd2) & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go | fsm1_out == 32'd2) ? 1'd1 : '0;
+  assign fsm1_in = (fsm1_out != 32'd2 & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? incr1_out : (fsm1_out == 32'd2) ? 32'd0 : '0;
+  assign fsm1_write_en = (fsm1_out != 32'd2 & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go | fsm1_out == 32'd2) ? 1'd1 : '0;
   assign cond_stored0_in = (fsm1_out == 32'd0 & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? gt0_out : '0;
   assign cond_stored0_write_en = (fsm1_out == 32'd0 & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? 1'd1 : '0;
   assign incr1_left = (fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? fsm1_out : '0;
   assign incr1_right = (fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? 32'd1 : '0;
-  assign fsm2_in = (!(fsm2_out == 32'd4) & go) ? incr2_out : (fsm2_out == 32'd4) ? 32'd0 : '0;
-  assign fsm2_write_en = (!(fsm2_out == 32'd4) & go | fsm2_out == 32'd4) ? 1'd1 : '0;
+  assign fsm2_in = (fsm2_out != 32'd4 & go) ? incr2_out : (fsm2_out == 32'd4) ? 32'd0 : '0;
+  assign fsm2_write_en = (fsm2_out != 32'd4 & go | fsm2_out == 32'd4) ? 1'd1 : '0;
   assign incr2_left = (go) ? 32'd1 : '0;
   assign incr2_right = (go) ? fsm2_out : '0;
 endmodule // end main

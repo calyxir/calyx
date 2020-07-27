@@ -66,10 +66,6 @@ impl Visitor for StaticTiming {
             Control::Enable { data: fdata },
         ) = (&*s.tbranch, &*s.fbranch)
         {
-            let cond_group = st.get_node_by_name(&s.cond)?;
-            let true_group = st.get_node_by_name(&tdata.comp)?;
-            let false_group = st.get_node_by_name(&fdata.comp)?;
-
             let maybe_cond_time =
                 st.groups[&Some(s.cond.clone())].0.get("static");
             let maybe_true_time =
@@ -80,6 +76,10 @@ impl Visitor for StaticTiming {
             if let (Some(&ctime), Some(&ttime), Some(&ftime)) =
                 (maybe_cond_time, maybe_true_time, maybe_false_time)
             {
+                let cond_group = st.get_node_by_name(&s.cond)?;
+                let true_group = st.get_node_by_name(&tdata.comp)?;
+                let false_group = st.get_node_by_name(&fdata.comp)?;
+
                 let if_group: ast::Id = st.namegen.gen_name("static_if").into();
 
                 let mut attrs = HashMap::new();

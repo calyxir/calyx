@@ -27,6 +27,12 @@ component main(go: 1) -> (done: 1) {
     cond_stored0.in = fsm1.out == 32'd0 & fsm2.out >= 32'd2 & fsm2.out < 32'd4 & go ? gt0.out;
     cond_stored0.write_en = fsm1.out == 32'd0 & fsm2.out >= 32'd2 & fsm2.out < 32'd4 & go ? 1'd1;
     done = fsm2.out == 32'd4 ? 1'd1;
+    fsm0.in = fsm0.out != 32'd2 & fsm2.out <= 32'd2 & go ? incr0.out;
+    fsm0.write_en = fsm0.out != 32'd2 & fsm2.out <= 32'd2 & go | fsm0.out == 32'd2 ? 1'd1;
+    fsm1.in = fsm1.out != 32'd2 & fsm2.out >= 32'd2 & fsm2.out < 32'd4 & go ? incr1.out;
+    fsm1.write_en = fsm1.out != 32'd2 & fsm2.out >= 32'd2 & fsm2.out < 32'd4 & go | fsm1.out == 32'd2 ? 1'd1;
+    fsm2.in = fsm2.out != 32'd4 & go ? incr2.out;
+    fsm2.write_en = fsm2.out != 32'd4 & go | fsm2.out == 32'd4 ? 1'd1;
     gt0.left = fsm1.out < 32'd1 & fsm2.out >= 32'd2 & fsm2.out < 32'd4 & go ? a0.out;
     gt0.right = fsm1.out < 32'd1 & fsm2.out >= 32'd2 & fsm2.out < 32'd4 & go ? const2.out;
     z0.in = fsm1.out >= 32'd1 & fsm1.out < 32'd2 & !(cond_stored0.out) & fsm2.out >= 32'd2 & fsm2.out < 32'd4 & go ? const4.out;
@@ -37,12 +43,6 @@ component main(go: 1) -> (done: 1) {
     incr1.right = fsm2.out >= 32'd2 & fsm2.out < 32'd4 & go ? 32'd1;
     incr0.right = fsm2.out <= 32'd2 & go ? fsm0.out;
     incr0.left = fsm2.out <= 32'd2 & go ? 32'd1;
-    fsm0.in = !(fsm0.out == 32'd2) & fsm2.out <= 32'd2 & go ? incr0.out;
-    fsm0.write_en = !(fsm0.out == 32'd2) & fsm2.out <= 32'd2 & go | fsm0.out == 32'd2 ? 1'd1;
-    fsm1.in = !(fsm1.out == 32'd2) & fsm2.out >= 32'd2 & fsm2.out < 32'd4 & go ? incr1.out;
-    fsm1.write_en = !(fsm1.out == 32'd2) & fsm2.out >= 32'd2 & fsm2.out < 32'd4 & go | fsm1.out == 32'd2 ? 1'd1;
-    fsm2.in = !(fsm2.out == 32'd4) & go ? incr2.out;
-    fsm2.write_en = !(fsm2.out == 32'd4) & go | fsm2.out == 32'd4 ? 1'd1;
     fsm0.in = fsm0.out == 32'd2 ? 32'd0;
     fsm1.in = fsm1.out == 32'd2 ? 32'd0;
     fsm2.in = fsm2.out == 32'd4 ? 32'd0;
