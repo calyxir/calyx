@@ -316,7 +316,7 @@ primitive std_neq[p_width](left: p_width, right: p_width) -> (out: 1) {
   }
 }
 
-primitive std_ge[p_width](left: p_width, right: p_width) -> (out: p_width) {
+primitive std_ge[p_width](left: p_width, right: p_width) -> (out: 1) {
   verilog {
     module std_ge
       #(parameter width = 32)
