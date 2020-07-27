@@ -384,7 +384,16 @@ impl Not for GuardExpr {
     type Output = Self;
 
     fn not(self) -> Self {
-        GuardExpr::Not(Box::new(self))
+        match self {
+            GuardExpr::Eq(lhs, rhs) => GuardExpr::Neq(lhs, rhs),
+            GuardExpr::Neq(lhs, rhs) => GuardExpr::Eq(lhs, rhs),
+            GuardExpr::Gt(lhs, rhs) => GuardExpr::Leq(lhs, rhs),
+            GuardExpr::Lt(lhs, rhs) => GuardExpr::Geq(lhs, rhs),
+            GuardExpr::Geq(lhs, rhs) => GuardExpr::Lt(lhs, rhs),
+            GuardExpr::Leq(lhs, rhs) => GuardExpr::Gt(lhs, rhs),
+            GuardExpr::Not(expr) => *expr,
+            _ => GuardExpr::Not(Box::new(self)),
+        }
     }
 }
 

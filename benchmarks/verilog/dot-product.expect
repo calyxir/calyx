@@ -335,8 +335,8 @@ module main (
   assign mult0_right = (fsm0_out == 32'd0 & cond_stored0_out & cond_computed0_out & !(fsm0_out == 32'd3) & fsm1_out == 32'd2 & !(done_reg0_out) & go) ? B_read_data : '0;
   assign v0_in = (fsm0_out == 32'd0 & cond_stored0_out & cond_computed0_out & !(fsm0_out == 32'd3) & fsm1_out == 32'd2 & !(done_reg0_out) & go) ? mult0_out : '0;
   assign v0_write_en = (fsm0_out == 32'd0 & cond_stored0_out & cond_computed0_out & !(fsm0_out == 32'd3) & fsm1_out == 32'd2 & !(done_reg0_out) & go) ? 1'd1 : '0;
-  assign fsm0_in = (!(fsm0_out == 32'd3) & cond_stored0_out & cond_computed0_out & !(fsm0_out == 32'd3) & fsm1_out == 32'd2 & !(done_reg0_out) & go) ? incr0_out : (fsm0_out == 32'd3) ? 32'd0 : '0;
-  assign fsm0_write_en = (!(fsm0_out == 32'd3) & cond_stored0_out & cond_computed0_out & !(fsm0_out == 32'd3) & fsm1_out == 32'd2 & !(done_reg0_out) & go | fsm0_out == 32'd3) ? 1'd1 : '0;
+  assign fsm0_in = (fsm0_out != 32'd3 & cond_stored0_out & cond_computed0_out & !(fsm0_out == 32'd3) & fsm1_out == 32'd2 & !(done_reg0_out) & go) ? incr0_out : (fsm0_out == 32'd3) ? 32'd0 : '0;
+  assign fsm0_write_en = (fsm0_out != 32'd3 & cond_stored0_out & cond_computed0_out & !(fsm0_out == 32'd3) & fsm1_out == 32'd2 & !(done_reg0_out) & go | fsm0_out == 32'd3) ? 1'd1 : '0;
   assign incr0_left = (cond_stored0_out & cond_computed0_out & !(fsm0_out == 32'd3) & fsm1_out == 32'd2 & !(done_reg0_out) & go) ? 32'd1 : '0;
   assign incr0_right = (cond_stored0_out & cond_computed0_out & !(fsm0_out == 32'd3) & fsm1_out == 32'd2 & !(done_reg0_out) & go) ? fsm0_out : '0;
   assign cond_computed0_in = (cond_stored0_out & cond_computed0_out & fsm0_out == 32'd3 & fsm1_out == 32'd2 & !(done_reg0_out) & go | cond_computed0_out & !cond_stored0_out & fsm1_out == 32'd2 & !(done_reg0_out) & go) ? 1'd0 : (!cond_computed0_out & fsm1_out == 32'd2 & !(done_reg0_out) & go) ? 1'd1 : '0;
