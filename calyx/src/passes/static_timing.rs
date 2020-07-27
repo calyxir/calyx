@@ -81,8 +81,14 @@ impl Visitor for StaticTiming {
                 (maybe_cond_time, maybe_true_time, maybe_false_time)
             {
                 let if_group: ast::Id = st.namegen.gen_name("static_if").into();
-                let if_group_node =
-                    st.insert_group(&if_group, HashMap::new())?;
+
+                let mut attrs = HashMap::new();
+                attrs.insert(
+                    "static".to_string(),
+                    ctime + cmp::max(ttime, ftime),
+                );
+
+                let if_group_node = st.insert_group(&if_group, attrs)?;
 
                 let fsm_size = 32;
                 structure!(st, &ctx,
@@ -95,16 +101,16 @@ impl Visitor for StaticTiming {
                     let cond_time_const = constant(ctime, fsm_size);
                     let cond_done_time_const = constant(ctime - 1, fsm_size);
 
-                    let true_time_const = constant(ttime, fsm_size);
-                    let false_time_const = constant(ftime, fsm_size);
+                    let true_end_const = constant(ttime + ctime, fsm_size);
+                    let false_end_const = constant(ftime + ctime, fsm_size);
 
                     let incr = prim std_add(fsm_size);
                 );
 
                 let max_const = if ttime > ftime {
-                    true_time_const.clone()
+                    true_end_const.clone()
                 } else {
-                    false_time_const.clone()
+                    false_end_const.clone()
                 };
 
                 // The group is done when we count up to the max.
@@ -124,12 +130,12 @@ impl Visitor for StaticTiming {
                 // Guard for branches
                 let true_go = guard!(st; fsm["out"])
                     .ge(st.to_guard(cond_time_const.clone()))
-                    & guard!(st; fsm["out"]).lt(st.to_guard(true_time_const))
+                    & guard!(st; fsm["out"]).lt(st.to_guard(true_end_const))
                     & guard!(st; cond_stored["out"]);
 
                 let false_go = guard!(st; fsm["out"])
                     .ge(st.to_guard(cond_time_const))
-                    & guard!(st; fsm["out"]).lt(st.to_guard(false_time_const))
+                    & guard!(st; fsm["out"]).lt(st.to_guard(false_end_const))
                     & !guard!(st; cond_stored["out"]);
 
                 add_wires!(st, Some(if_group.clone()),
@@ -137,6 +143,7 @@ impl Visitor for StaticTiming {
                     incr["left"] = (fsm["out"]);
                     incr["right"] = (one);
                     fsm["in"] = not_done_guard ? (incr["out"]);
+                    fsm["write_en"] = not_done_guard ? (signal_on.clone());
 
                     // Compute the cond group
                     cond_group["go"] = cond_go ? (signal_on.clone());
