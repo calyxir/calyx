@@ -209,6 +209,18 @@ primitive std_sub[p_width](left: p_width, right: p_width) -> (out: p_width) {
   }
 }
 
+primitive std_mod[p_width](left: p_width, right: p_width) -> (out: p_width) {
+  verilog {
+    module std_mod
+      #(parameter width = 32)
+      (input  logic [width-1:0] left,
+        input  logic [width-1:0] right,
+        output logic [width-1:0] out);
+      assign out = left % right;
+    endmodule
+  }
+}
+
 primitive std_mult[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
     module std_mult
