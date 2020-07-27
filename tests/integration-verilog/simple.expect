@@ -105,21 +105,27 @@ module main (
   wire [31:0] incr0_left;
   wire [31:0] incr0_right;
   wire [31:0] incr0_out;
-  wire cond_computed0_in;
-  wire cond_computed0_write_en;
-  wire cond_computed0_clk;
-  wire cond_computed0_out;
-  wire cond_computed0_done;
-  wire cond_stored0_in;
-  wire cond_stored0_write_en;
-  wire cond_stored0_clk;
-  wire cond_stored0_out;
-  wire cond_stored0_done;
   wire [31:0] fsm1_in;
   wire fsm1_write_en;
   wire fsm1_clk;
   wire [31:0] fsm1_out;
   wire fsm1_done;
+  wire cond_stored0_in;
+  wire cond_stored0_write_en;
+  wire cond_stored0_clk;
+  wire cond_stored0_out;
+  wire cond_stored0_done;
+  wire [31:0] incr1_left;
+  wire [31:0] incr1_right;
+  wire [31:0] incr1_out;
+  wire [31:0] fsm2_in;
+  wire fsm2_write_en;
+  wire fsm2_clk;
+  wire [31:0] fsm2_out;
+  wire fsm2_done;
+  wire [31:0] incr2_left;
+  wire [31:0] incr2_right;
+  wire [31:0] incr2_out;
   
   // Subcomponent Instances
   std_reg #(32) a0 (
@@ -204,12 +210,12 @@ module main (
       .out(incr0_out)
   );
   
-  std_reg #(1) cond_computed0 (
-      .in(cond_computed0_in),
-      .write_en(cond_computed0_write_en),
+  std_reg #(32) fsm1 (
+      .in(fsm1_in),
+      .write_en(fsm1_write_en),
       .clk(clk),
-      .out(cond_computed0_out),
-      .done(cond_computed0_done)
+      .out(fsm1_out),
+      .done(fsm1_done)
   );
   
   std_reg #(1) cond_stored0 (
@@ -220,12 +226,24 @@ module main (
       .done(cond_stored0_done)
   );
   
-  std_reg #(32) fsm1 (
-      .in(fsm1_in),
-      .write_en(fsm1_write_en),
+  std_add #(32) incr1 (
+      .left(incr1_left),
+      .right(incr1_right),
+      .out(incr1_out)
+  );
+  
+  std_reg #(32) fsm2 (
+      .in(fsm2_in),
+      .write_en(fsm2_write_en),
       .clk(clk),
-      .out(fsm1_out),
-      .done(fsm1_done)
+      .out(fsm2_out),
+      .done(fsm2_done)
+  );
+  
+  std_add #(32) incr2 (
+      .left(incr2_left),
+      .right(incr2_right),
+      .out(incr2_out)
   );
   
   // Memory initialization / finalization 
@@ -242,25 +260,29 @@ module main (
   end
   
   // Input / output connections
-  assign done = (fsm1_out == 32'd2) ? 1'd1 : '0;
-  assign a0_in = (fsm0_out == 32'd0 & fsm1_out == 32'd0 & !(fsm0_out == 32'd2) & go) ? const0_out : '0;
-  assign a0_write_en = (fsm0_out == 32'd0 & fsm1_out == 32'd0 & !(fsm0_out == 32'd2) & go) ? 1'd1 : '0;
-  assign b0_in = (fsm0_out == 32'd1 & fsm1_out == 32'd0 & !(fsm0_out == 32'd2) & go) ? const1_out : '0;
-  assign b0_write_en = (fsm0_out == 32'd1 & fsm1_out == 32'd0 & !(fsm0_out == 32'd2) & go) ? 1'd1 : '0;
-  assign gt0_left = (!cond_computed0_out & fsm1_out == 32'd1 & !((y0_done | z0_done)) & go) ? a0_out : '0;
-  assign gt0_right = (!cond_computed0_out & fsm1_out == 32'd1 & !((y0_done | z0_done)) & go) ? const2_out : '0;
-  assign y0_in = (cond_computed0_out & cond_stored0_out & fsm1_out == 32'd1 & !((y0_done | z0_done)) & go) ? const3_out : '0;
-  assign y0_write_en = (cond_computed0_out & cond_stored0_out & fsm1_out == 32'd1 & !((y0_done | z0_done)) & go) ? 1'd1 : '0;
-  assign z0_in = (cond_computed0_out & !cond_stored0_out & fsm1_out == 32'd1 & !((y0_done | z0_done)) & go) ? const4_out : '0;
-  assign z0_write_en = (cond_computed0_out & !cond_stored0_out & fsm1_out == 32'd1 & !((y0_done | z0_done)) & go) ? 1'd1 : '0;
-  assign fsm0_in = (!(fsm0_out == 32'd2) & fsm1_out == 32'd0 & !(fsm0_out == 32'd2) & go) ? incr0_out : (fsm0_out == 32'd2) ? 32'd0 : '0;
-  assign fsm0_write_en = (!(fsm0_out == 32'd2) & fsm1_out == 32'd0 & !(fsm0_out == 32'd2) & go | fsm0_out == 32'd2) ? 1'd1 : '0;
-  assign incr0_left = (fsm1_out == 32'd0 & !(fsm0_out == 32'd2) & go) ? 32'd1 : '0;
-  assign incr0_right = (fsm1_out == 32'd0 & !(fsm0_out == 32'd2) & go) ? fsm0_out : '0;
-  assign cond_computed0_in = (!cond_computed0_out & fsm1_out == 32'd1 & !((y0_done | z0_done)) & go) ? 1'd1 : '0;
-  assign cond_computed0_write_en = (!cond_computed0_out & fsm1_out == 32'd1 & !((y0_done | z0_done)) & go) ? 1'd1 : '0;
-  assign cond_stored0_in = (!cond_computed0_out & fsm1_out == 32'd1 & !((y0_done | z0_done)) & go) ? gt0_out : '0;
-  assign cond_stored0_write_en = (!cond_computed0_out & fsm1_out == 32'd1 & !((y0_done | z0_done)) & go) ? gt0_out : '0;
-  assign fsm1_in = (fsm1_out == 32'd1 & (y0_done | z0_done) & go) ? 32'd2 : (fsm1_out == 32'd0 & fsm0_out == 32'd2 & go) ? 32'd1 : (fsm1_out == 32'd2) ? 32'd0 : '0;
-  assign fsm1_write_en = (fsm1_out == 32'd0 & fsm0_out == 32'd2 & go | fsm1_out == 32'd1 & (y0_done | z0_done) & go | fsm1_out == 32'd2) ? 1'd1 : '0;
+  assign done = (fsm2_out == 32'd4) ? 1'd1 : '0;
+  assign a0_in = (fsm0_out == 32'd0 & fsm2_out <= 32'd2 & go) ? const0_out : '0;
+  assign a0_write_en = (fsm0_out == 32'd0 & fsm2_out <= 32'd2 & go) ? 1'd1 : '0;
+  assign b0_in = (fsm0_out == 32'd1 & fsm2_out <= 32'd2 & go) ? const1_out : '0;
+  assign b0_write_en = (fsm0_out == 32'd1 & fsm2_out <= 32'd2 & go) ? 1'd1 : '0;
+  assign gt0_left = (fsm1_out < 32'd1 & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? a0_out : '0;
+  assign gt0_right = (fsm1_out < 32'd1 & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? const2_out : '0;
+  assign y0_in = (fsm1_out >= 32'd1 & fsm1_out < 32'd2 & cond_stored0_out & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? const3_out : '0;
+  assign y0_write_en = (fsm1_out >= 32'd1 & fsm1_out < 32'd2 & cond_stored0_out & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? 1'd1 : '0;
+  assign z0_in = (fsm1_out >= 32'd1 & fsm1_out < 32'd2 & !cond_stored0_out & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? const4_out : '0;
+  assign z0_write_en = (fsm1_out >= 32'd1 & fsm1_out < 32'd2 & !cond_stored0_out & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? 1'd1 : '0;
+  assign fsm0_in = (!(fsm0_out == 32'd2) & fsm2_out <= 32'd2 & go) ? incr0_out : (fsm0_out == 32'd2) ? 32'd0 : '0;
+  assign fsm0_write_en = (!(fsm0_out == 32'd2) & fsm2_out <= 32'd2 & go | fsm0_out == 32'd2) ? 1'd1 : '0;
+  assign incr0_left = (fsm2_out <= 32'd2 & go) ? 32'd1 : '0;
+  assign incr0_right = (fsm2_out <= 32'd2 & go) ? fsm0_out : '0;
+  assign fsm1_in = (!(fsm1_out == 32'd2) & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? incr1_out : (fsm1_out == 32'd2) ? 32'd0 : '0;
+  assign fsm1_write_en = (!(fsm1_out == 32'd2) & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go | fsm1_out == 32'd2) ? 1'd1 : '0;
+  assign cond_stored0_in = (fsm1_out == 32'd0 & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? gt0_out : '0;
+  assign cond_stored0_write_en = (fsm1_out == 32'd0 & fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? 1'd1 : '0;
+  assign incr1_left = (fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? fsm1_out : '0;
+  assign incr1_right = (fsm2_out >= 32'd2 & fsm2_out < 32'd4 & go) ? 32'd1 : '0;
+  assign fsm2_in = (!(fsm2_out == 32'd4) & go) ? incr2_out : (fsm2_out == 32'd4) ? 32'd0 : '0;
+  assign fsm2_write_en = (!(fsm2_out == 32'd4) & go | fsm2_out == 32'd4) ? 1'd1 : '0;
+  assign incr2_left = (go) ? 32'd1 : '0;
+  assign incr2_right = (go) ? fsm2_out : '0;
 endmodule // end main
