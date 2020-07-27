@@ -42,7 +42,7 @@ jobs:
         key: vcdump-bin-${{ runner.os }}-${{ steps.versions.outputs.vcdump }}
 
     - name: Install vcdump
-      if: steps.runt-cache.outputs.cache-hit != 'true'
+      if: steps.vcdump-cache.outputs.cache-hit != 'true'
       uses: actions-rs/cargo@v1
       with:
         command: install
