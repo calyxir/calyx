@@ -95,8 +95,8 @@ impl Visitor for StaticTiming {
                 );
 
                 // Cond is computed on this cycle.
-                let cond_computed = guard!(st; fsm["out"])
-                    .eq(st.to_guard(cond_end_const.clone()));
+                let cond_computed =
+                    guard!(st; fsm["out"]).eq(st.to_guard(cond_end_const));
 
                 let body_done = guard!(st; fsm["out"])
                     .eq(st.to_guard(body_end_const.clone()));
