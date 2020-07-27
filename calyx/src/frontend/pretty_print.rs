@@ -324,11 +324,13 @@ impl PrettyPrint for GuardExpr {
             GuardExpr::And(bs) => RcDoc::intersperse(
                 bs.iter().map(|b| b.prettify(&arena)).collect::<Vec<_>>(),
                 RcDoc::text(" & "),
-            ),
+            )
+            .parens(),
             GuardExpr::Or(bs) => RcDoc::intersperse(
                 bs.iter().map(|b| b.prettify(&arena)).collect::<Vec<_>>(),
                 RcDoc::text(" | "),
-            ),
+            )
+            .parens(),
             GuardExpr::Eq(e1, e2) => binop(e1, "==", e2),
             GuardExpr::Neq(e1, e2) => binop(e1, "!=", e2),
             GuardExpr::Gt(e1, e2) => binop(e1, ">", e2),
