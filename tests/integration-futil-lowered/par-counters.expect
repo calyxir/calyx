@@ -21,12 +21,13 @@ component main(go: 1) -> (done: 1) {
     x0.in = ((fsm0.out == 32'd0 & !(x0.done) & go)) ? const0.out;
     x0.write_en = ((fsm0.out == 32'd0 & !(x0.done) & go) | (cond_stored0.out & cond_computed0.out & !((x0.done & y0.done)) & fsm0.out == 32'd2 & !((done_reg0.out)) & go)) ? 1'd1;
     fsm0.in = ((fsm0.out == 32'd0 & x0.done & go)) ? 32'd1;
-    fsm0.write_en = ((fsm0.out == 32'd0 & x0.done & go) | (fsm0.out == 32'd1 & y0.done & go) | (fsm0.out == 32'd2 & done_reg0.out & go) | fsm0.out == 32'd3) ? 1'd1;
+    fsm0.write_en = ((fsm0.out == 32'd0 & x0.done & go) | (fsm0.out == 32'd1 & y0.done & go) | (fsm0.out == 32'd2 & done_reg0.out & go) | (fsm0.out == 32'd3 & go)) ? 1'd1;
     y0.in = ((fsm0.out == 32'd1 & !(y0.done) & go)) ? const1.out;
     y0.write_en = ((fsm0.out == 32'd1 & !(y0.done) & go) | (cond_stored0.out & cond_computed0.out & !((x0.done & y0.done)) & fsm0.out == 32'd2 & !((done_reg0.out)) & go)) ? 1'd1;
     fsm0.in = ((fsm0.out == 32'd1 & y0.done & go)) ? 32'd2;
     fsm0.in = ((fsm0.out == 32'd2 & done_reg0.out & go)) ? 32'd3;
     done = ((fsm0.out == 32'd3)) ? 1'd1;
+    fsm0.in = ((fsm0.out == 32'd3 & go)) ? 32'd0;
     lt0.right = ((!(cond_computed0.out) & fsm0.out == 32'd2 & !((done_reg0.out)) & go)) ? const2.out;
     cond_stored0.in = ((!(cond_computed0.out) & fsm0.out == 32'd2 & !((done_reg0.out)) & go)) ? lt0.out;
     lt0.left = ((!(cond_computed0.out) & fsm0.out == 32'd2 & !((done_reg0.out)) & go)) ? x0.out;
@@ -34,7 +35,7 @@ component main(go: 1) -> (done: 1) {
     cond_stored0.write_en = ((!(cond_computed0.out) & fsm0.out == 32'd2 & !((done_reg0.out)) & go)) ? 1'd1;
     cond_computed0.write_en = ((!(cond_computed0.out) & fsm0.out == 32'd2 & !((done_reg0.out)) & go) | (cond_stored0.out & cond_computed0.out & x0.done & y0.done & fsm0.out == 32'd2 & !((done_reg0.out)) & go) | (cond_computed0.out & !(cond_stored0.out) & fsm0.out == 32'd2 & !((done_reg0.out)) & go)) ? 1'd1;
     done_reg0.in = ((cond_computed0.out & !(cond_stored0.out) & fsm0.out == 32'd2 & !((done_reg0.out)) & go)) ? 1'd1;
-    done_reg0.write_en = ((cond_computed0.out & !(cond_stored0.out) & fsm0.out == 32'd2 & !((done_reg0.out)) & go) | done_reg0.out) ? 1'd1;
+    done_reg0.write_en = ((cond_computed0.out & !(cond_stored0.out) & fsm0.out == 32'd2 & !((done_reg0.out)) & go) | (done_reg0.out & go)) ? 1'd1;
     x0.in = ((cond_stored0.out & cond_computed0.out & !((x0.done & y0.done)) & fsm0.out == 32'd2 & !((done_reg0.out)) & go)) ? add0.out;
     y0.in = ((cond_stored0.out & cond_computed0.out & !((x0.done & y0.done)) & fsm0.out == 32'd2 & !((done_reg0.out)) & go)) ? add1.out;
     add0.right = ((cond_stored0.out & cond_computed0.out & !((x0.done & y0.done)) & fsm0.out == 32'd2 & !((done_reg0.out)) & go)) ? const3.out;
@@ -42,8 +43,7 @@ component main(go: 1) -> (done: 1) {
     add0.left = ((cond_stored0.out & cond_computed0.out & !((x0.done & y0.done)) & fsm0.out == 32'd2 & !((done_reg0.out)) & go)) ? x0.out;
     add1.left = ((cond_stored0.out & cond_computed0.out & !((x0.done & y0.done)) & fsm0.out == 32'd2 & !((done_reg0.out)) & go)) ? y0.out;
     cond_computed0.in = ((cond_stored0.out & cond_computed0.out & x0.done & y0.done & fsm0.out == 32'd2 & !((done_reg0.out)) & go) | (cond_computed0.out & !(cond_stored0.out) & fsm0.out == 32'd2 & !((done_reg0.out)) & go)) ? 1'd0;
-    fsm0.in = (fsm0.out == 32'd3) ? 32'd0;
-    done_reg0.in = (done_reg0.out) ? 1'd0;
+    done_reg0.in = ((done_reg0.out & go)) ? 1'd0;
   }
   
   control {

@@ -23,9 +23,9 @@ component main(go: 1) -> (done: 1) {
     a0.in = ((fsm0.out == 32'd3 & go)) ? const3.out;
     a0.write_en = ((fsm0.out == 32'd3 & go)) ? 1'd1;
     done = ((fsm0.out == 32'd4)) ? 1'd1;
+    fsm0.in = ((fsm0.out == 32'd4 & go)) ? 32'd0;
     fsm0.in = ((fsm0.out != 32'd4 & go)) ? incr0.out;
-    fsm0.write_en = ((fsm0.out != 32'd4 & go) | fsm0.out == 32'd4) ? 1'd1;
-    fsm0.in = (fsm0.out == 32'd4) ? 32'd0;
+    fsm0.write_en = ((fsm0.out != 32'd4 & go) | (fsm0.out == 32'd4 & go)) ? 1'd1;
     incr0.right = (go) ? fsm0.out;
     incr0.left = (go) ? 32'd1;
   }
