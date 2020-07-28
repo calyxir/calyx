@@ -57,6 +57,8 @@ use std::collections::HashMap;
 pub struct Context {
     /// Enable debugging output.
     pub debug_mode: bool,
+    /// Enable Verilator mode. This tells the backend to generate additional code for loading in memories.
+    pub verilator_mode: bool,
     /// Library containing primitive definitions.
     pub library_context: LibraryContext,
     /// Maps Ids to in-memory representation of the component.
@@ -82,6 +84,7 @@ impl Context {
         namespace: ast::NamespaceDef,
         libraries: &[lib::Library],
         debug_mode: bool,
+        verilator_mode: bool
     ) -> Result<Self> {
         // build hashmap for primitives in provided libraries
         let mut lib_definitions = HashMap::new();
@@ -118,6 +121,7 @@ impl Context {
 
         Ok(Context {
             debug_mode,
+            verilator_mode,
             library_context: libctx,
             definitions: RefCell::new(definitions),
             definitions_to_insert: RefCell::new(vec![]),

@@ -27,16 +27,16 @@ status:
 	./$< $*.data | jq -S . > $@
 
 %.futil: %.fuse
-	../bin/find-dahlia $< -o $@ --lower -b futil
+	../bin/find-dahlia $< --lower -b futil | sed 's/<"static"=1>//g' > $@
 
-%.v: %.futil
-	cargo run -- $< -l .. -b verilog > $@
+%.sv: %.futil
+	cargo run -- $< -l .. -b verilog --verilator > $@
 
-%.meminit: %.data
+%.meminit: data/%.data
 	../bin/json_to_dat.py --mode json --output $@ $<
 
-%.vcd: %.meminit %.v
-	DATA=$*.meminit ../bin/gen-vcd $*.v > $@
+%.vcd: %.meminit %.sv
+	DATA=$*.meminit ../bin/gen-vcd $*.sv > $@
 
 %.futil-out: %.meminit %.vcd
 	../bin/json_to_dat.py --mode dat --output $@.tmp $*.meminit
@@ -47,4 +47,4 @@ status:
 	diff $*.dahlia-out $*.futil-out > $@
 
 clean:
-	rm -rf *.cpp *.o *.run *.futil *.dahlia-out *.futil-out *.json *.v *.vcd _headers *.diff *.meminit
+	rm -rf *.cpp *.o *.run *.futil *.dahlia-out *.futil-out *.json *.sv *.vcd _headers *.diff *.meminit

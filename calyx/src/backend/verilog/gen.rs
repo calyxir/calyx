@@ -174,6 +174,16 @@ impl Emitable for ast::ComponentDef {
         ctx: &context::Context,
         comp: &component::Component,
     ) -> Result<D<'a>> {
+        let memory_init_doc = if ctx.verilator_mode {
+            colors::comment(D::text("// Memory initialization / finalization "))
+                .append(D::line())
+                .append(memory_init(&comp))
+                .append(D::line())
+                .append(D::line())
+        } else {
+            D::nil()
+        };
+
         let structure = D::nil()
             .append(D::space())
             .append(self.name.to_string())
@@ -191,13 +201,7 @@ impl Emitable for ast::ComponentDef {
             .append(subcomponent_instances(&comp))
             .append(D::line())
             .append(D::line())
-            .append(colors::comment(D::text(
-                "// Memory initialization / finalization ",
-            )))
-            .append(D::line())
-            .append(memory_init(&comp))
-            .append(D::line())
-            .append(D::line())
+            .append(memory_init_doc)
             .append(colors::comment(D::text("// Input / output connections")))
             .append(D::line())
             .append(connections(&comp));

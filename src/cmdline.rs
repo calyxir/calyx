@@ -30,6 +30,10 @@ pub struct Opts {
     #[structopt(short = "d", long = "debug")]
     pub enable_debug: bool,
 
+    /// Enable Verilator mode.
+    #[structopt(long = "verilator")]
+    pub enable_verilator: bool,
+
     /// Select a backend.
     #[structopt(short = "b", long = "backend", default_value)]
     pub backend: BackendOpt,
