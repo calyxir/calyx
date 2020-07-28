@@ -75,19 +75,26 @@ class Relay2Futil(ExprFunctor):
         print (f"arg_stmts {arg_stmts}")
         if call.op.name == 'add':
             # Create structure for an adder.
-            name_add = 'add{}'.format(len(self.cells))
-            name_out = '{}_out'.format(name_add)
-            self.cells[name_add] = 'prim std_add(32)'
-            self.cells[name_out] = 'prim std_reg(32)'
-            g_name = 'group{}'.format(len(self.groups))
-            self.groups[g_name] = f"\n{name_out}.in = {name_add}.out;\n{name_out}.write_en = 1'd1;\n{g_name}.done = {name_out}.done;\n{name_add}.left={arg_stmts[0]}.out;\n{name_add}.right={arg_stmts[1]}.out;\n"
-            return '\n'.join(arg_stmts + ['<run {}>'.format(g_name)])
-        else:
-            assert False, 'unsupported op: {}'.format(call.op.name)
+            adder_name = f'add{self.fresh_id()}'
+            cell = '{} = prim std_add({});'.format(
+                adder_name,
+                32,     # Bit width.
+             )
+            structures = [item for arg in arg_stmts for item in arg.cells]
+            structures.append(cell)
+            wires = [
+                    f'{adder_name}.left = {arg_stmts[0].value}',
+                    f'{adder_name}.right = {arg_stmts[1].value}' 
+                    ]
+            return EmitResult(
+                    f'{adder_name}.out',
+                    None,
+                    structures,
+                    wires
+                )
 
     def visit_function(self, func):
         body = self.visit(func.body)
-
         # Make registers for the arguments.
         func_cells = []
         for param in func.params:
