@@ -85,7 +85,9 @@ fn main() -> Result<()> {
             if atty::isnt(Stream::Stdin) {
                 syntax::FutilParser::parse(stdin())
             } else {
-                Err(Error::InvalidFile("No file provided and terminal not a TTY".to_string()))
+                Err(Error::InvalidFile(
+                    "No file provided and terminal not a TTY".to_string(),
+                ))
             }
         }
     }?;
