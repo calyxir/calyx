@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -eu
+
+benchmarks=./benchmarks/verilog/*.expect
+
+for bench in $benchmarks; do
+  base="$(basename -s .expect $bench)"
+  ./bin/run-benchmark $bench benchmarks/data/"$base".data | head -n 1
+done

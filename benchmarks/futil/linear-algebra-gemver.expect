@@ -73,102 +73,102 @@ component main() -> () {
     z = prim std_mem_d1(32,8,4);
   }
   wires {
-    group cond0 {
+    group cond0<"static"=1> {
       cond0[done] = 1'd1;
       le0.left = i0.out;
       le0.right = const1.out;
     }
-    group cond1 {
+    group cond1<"static"=1> {
       cond1[done] = 1'd1;
       le1.left = j0.out;
       le1.right = const3.out;
     }
-    group cond2 {
+    group cond2<"static"=1> {
       cond2[done] = 1'd1;
       le2.left = i1.out;
       le2.right = const7.out;
     }
-    group cond3 {
+    group cond3<"static"=1> {
       cond3[done] = 1'd1;
       le3.left = j1.out;
       le3.right = const9.out;
     }
-    group cond4 {
+    group cond4<"static"=1> {
       cond4[done] = 1'd1;
       le4.left = i2.out;
       le4.right = const14.out;
     }
-    group cond5 {
+    group cond5<"static"=1> {
       cond5[done] = 1'd1;
       le5.left = i3.out;
       le5.right = const17.out;
     }
-    group cond6 {
+    group cond6<"static"=1> {
       cond6[done] = 1'd1;
       le6.left = j2.out;
       le6.right = const19.out;
     }
-    group let0 {
+    group let0<"static"=1> {
       i0.in = const0.out;
       i0.write_en = 1'd1;
       let0[done] = i0.done;
     }
-    group let1 {
+    group let1<"static"=1> {
       j0.in = const2.out;
       j0.write_en = 1'd1;
       let1[done] = j0.done;
     }
-    group let10 {
+    group let10<"static"=1> {
       w_i0.in = w.read_data;
       w_i0.write_en = 1'd1;
       let10[done] = w_i0.done;
       w.addr0 = i3.out;
     }
-    group let2 {
+    group let2<"static"=1> {
       A_i_j0.in = A.read_data;
       A_i_j0.write_en = 1'd1;
       let2[done] = A_i_j0.done;
       A.addr1 = j0.out;
       A.addr0 = i0.out;
     }
-    group let3 {
+    group let3<"static"=1> {
       i1.in = const6.out;
       i1.write_en = 1'd1;
       let3[done] = i1.done;
     }
-    group let4 {
+    group let4<"static"=1> {
       j1.in = const8.out;
       j1.write_en = 1'd1;
       let4[done] = j1.done;
     }
-    group let5 {
+    group let5<"static"=1> {
       x_i0.in = x.read_data;
       x_i0.write_en = 1'd1;
       let5[done] = x_i0.done;
       x.addr0 = i1.out;
     }
-    group let6 {
+    group let6<"static"=1> {
       i2.in = const13.out;
       i2.write_en = 1'd1;
       let6[done] = i2.done;
     }
-    group let7 {
+    group let7<"static"=1> {
       x_i1.in = x.read_data;
       x_i1.write_en = 1'd1;
       let7[done] = x_i1.done;
       x.addr0 = i2.out;
     }
-    group let8 {
+    group let8<"static"=1> {
       i3.in = const16.out;
       i3.write_en = 1'd1;
       let8[done] = i3.done;
     }
-    group let9 {
+    group let9<"static"=1> {
       j2.in = const18.out;
       j2.write_en = 1'd1;
       let9[done] = j2.done;
     }
-    group upd0 {
+    group upd0<"static"=1> {
       A.addr1 = j0.out;
       A.addr0 = i0.out;
       A.write_en = 1'd1;
@@ -187,28 +187,28 @@ component main() -> () {
       A.write_data = add1.out;
       upd0[done] = A.done;
     }
-    group upd1 {
+    group upd1<"static"=1> {
       j0.write_en = 1'd1;
       add2.left = j0.out;
       add2.right = const4.out;
       j0.in = add2.out;
       upd1[done] = j0.done;
     }
-    group upd10 {
+    group upd10<"static"=1> {
       i3.write_en = 1'd1;
       add11.left = i3.out;
       add11.right = const22.out;
       i3.in = add11.out;
       upd10[done] = i3.done;
     }
-    group upd2 {
+    group upd2<"static"=1> {
       i0.write_en = 1'd1;
       add3.left = i0.out;
       add3.right = const5.out;
       i0.in = add3.out;
       upd2[done] = i0.done;
     }
-    group upd3 {
+    group upd3<"static"=1> {
       x.addr0 = i1.out;
       x.write_en = 1'd1;
       add4.left = x_i0.out;
@@ -224,21 +224,21 @@ component main() -> () {
       x.write_data = add4.out;
       upd3[done] = x.done;
     }
-    group upd4 {
+    group upd4<"static"=1> {
       j1.write_en = 1'd1;
       add5.left = j1.out;
       add5.right = const11.out;
       j1.in = add5.out;
       upd4[done] = j1.done;
     }
-    group upd5 {
+    group upd5<"static"=1> {
       i1.write_en = 1'd1;
       add6.left = i1.out;
       add6.right = const12.out;
       i1.in = add6.out;
       upd5[done] = i1.done;
     }
-    group upd6 {
+    group upd6<"static"=1> {
       x.addr0 = i2.out;
       x.write_en = 1'd1;
       add7.left = x_i1.out;
@@ -247,14 +247,14 @@ component main() -> () {
       x.write_data = add7.out;
       upd6[done] = x.done;
     }
-    group upd7 {
+    group upd7<"static"=1> {
       i2.write_en = 1'd1;
       add8.left = i2.out;
       add8.right = const15.out;
       i2.in = add8.out;
       upd7[done] = i2.done;
     }
-    group upd8 {
+    group upd8<"static"=1> {
       w.addr0 = i3.out;
       w.write_en = 1'd1;
       add9.left = w_i0.out;
@@ -270,7 +270,7 @@ component main() -> () {
       w.write_data = add9.out;
       upd8[done] = w.done;
     }
-    group upd9 {
+    group upd9<"static"=1> {
       j2.write_en = 1'd1;
       add10.left = j2.out;
       add10.right = const21.out;

@@ -1,4 +1,4 @@
-ver = "0.2.5"
+ver = "0.2.7"
 
 # NOTE(rachit): `name` should only use lower case words. This makes it easier
 # remember how to match specific test suite names.
@@ -8,6 +8,11 @@ paths = [ "tests/list-passes/out" ]
 cmd = "./target/debug/futil --list-passes"
 
 [[tests]]
+name = "unit tests"
+paths = [ "tests/unit/*.futil" ]
+cmd = "./target/debug/futil {} -b verilog --verilator"
+
+[[tests]]
 name = "dahlia frontend"
 paths = [ "tests/integration-dahlia-sources/*.fuse" ]
 cmd = "./bin/find-dahlia {} -b futil --lower -l error | tail -n+2"
@@ -15,14 +20,14 @@ expect_dir = "tests/integration-futil/"
 
 [[tests]]
 name = "futil lowering"
-paths = [ "tests/integration-futil/*.expect" ]
+paths = [ "tests/integration-futil/*.expect", "tests/futil-sources/*.expect" ]
 cmd = "./target/debug/futil {}"
 expect_dir = "tests/integration-futil-lowered"
 
 [[tests]]
 name = "verilog generation"
-paths = [ "tests/integration-futil/*.expect" ]
-cmd = "./target/debug/futil {} -b verilog"
+paths = [ "tests/integration-futil/*.expect", "tests/futil-sources/*.expect" ]
+cmd = "./target/debug/futil {} -b verilog --verilator"
 expect_dir = "tests/integration-verilog"
 
 [[tests]]
@@ -47,7 +52,7 @@ expect_dir = "benchmarks/futil"
 name = "polybench verilog generation"
 paths = [ "benchmarks/futil/*.expect" ]
 cmd = """
-./target/debug/futil {} -b verilog
+./target/debug/futil {} -b verilog --verilator
 """
 expect_dir = "benchmarks/verilog"
 
@@ -56,6 +61,6 @@ name = "polybench simulation"
 paths = [ "benchmarks/verilog/*.expect" ]
 cmd = """
 base=$(basename -s .expect {})
-./bin/run-benchmark {} benchmarks/data/$base.data
+./bin/run-benchmark {} benchmarks/data/$base.data | tail -n+2
 """
 expect_dir = "benchmarks/simulation/"

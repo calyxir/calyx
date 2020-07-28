@@ -1,0 +1,115 @@
+import "primitives/std.lib";
+component main(go: 1) -> (done: 1) {
+  cells {
+    add0 = prim std_add(4);
+    add1 = prim std_add(4);
+    add2 = prim std_add(4);
+    add3 = prim std_add(4);
+    add4 = prim std_add(4);
+    cond_stored0 = prim std_reg(1);
+    cond_stored1 = prim std_reg(1);
+    const0 = prim std_const(4, 0);
+    const1 = prim std_const(4, 0);
+    const10 = prim std_const(4, 1);
+    const11 = prim std_const(4, 1);
+    const2 = prim std_const(4, 0);
+    const3 = prim std_const(4, 0);
+    const4 = prim std_const(4, 10);
+    const5 = prim std_const(4, 2);
+    const6 = prim std_const(4, 0);
+    const7 = prim std_const(4, 1);
+    const8 = prim std_const(4, 1);
+    const9 = prim std_const(4, 1);
+    eq0 = prim std_eq(4);
+    fsm0 = prim std_reg(32);
+    fsm1 = prim std_reg(32);
+    fsm2 = prim std_reg(32);
+    fsm3 = prim std_reg(32);
+    fsm4 = prim std_reg(32);
+    fsm5 = prim std_reg(32);
+    i0 = prim std_reg(4);
+    incr0 = prim std_add(32);
+    incr1 = prim std_add(32);
+    incr2 = prim std_add(32);
+    incr3 = prim std_add(32);
+    incr4 = prim std_add(32);
+    lt0 = prim std_lt(4);
+    mod0 = prim std_mod(4);
+    x0 = prim std_reg(4);
+    y0 = prim std_reg(4);
+    z0 = prim std_reg(4);
+  }
+  
+  wires {
+    x0.in = ((fsm0.out == 32'd0 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & cond_stored0.out & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? add0.out;
+    add0.right = ((fsm0.out == 32'd0 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & cond_stored0.out & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? const7.out;
+    add0.left = ((fsm0.out == 32'd0 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & cond_stored0.out & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? x0.out;
+    x0.in = ((fsm0.out == 32'd1 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & cond_stored0.out & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? add1.out;
+    add1.right = ((fsm0.out == 32'd1 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & cond_stored0.out & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? const8.out;
+    add1.left = ((fsm0.out == 32'd1 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & cond_stored0.out & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? x0.out;
+    y0.in = ((fsm1.out == 32'd0 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & !(cond_stored0.out) & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? add2.out;
+    add2.right = ((fsm1.out == 32'd0 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & !(cond_stored0.out) & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? const9.out;
+    add2.left = ((fsm1.out == 32'd0 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & !(cond_stored0.out) & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? y0.out;
+    z0.in = ((fsm1.out == 32'd1 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & !(cond_stored0.out) & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? add3.out;
+    add3.right = ((fsm1.out == 32'd1 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & !(cond_stored0.out) & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? const10.out;
+    add3.left = ((fsm1.out == 32'd1 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & !(cond_stored0.out) & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? z0.out;
+    cond_stored0.in = ((fsm2.out == 32'd0 & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? eq0.out;
+    cond_stored0.write_en = ((fsm2.out == 32'd0 & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? 1'd1;
+    i0.in = ((fsm3.out == 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? add4.out;
+    add4.right = ((fsm3.out == 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? const11.out;
+    add4.left = ((fsm3.out == 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? i0.out;
+    cond_stored1.in = ((fsm4.out == 32'd0 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? lt0.out;
+    cond_stored1.write_en = ((fsm4.out == 32'd0 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? 1'd1;
+    fsm4.in = ((fsm4.out == 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go) | (fsm4.out == 32'd1 & !(cond_stored1.out))) ? 32'd0;
+    i0.in = ((fsm5.out == 32'd0 & !(i0.done) & go)) ? const0.out;
+    i0.write_en = ((fsm5.out == 32'd0 & !(i0.done) & go) | (fsm3.out == 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? 1'd1;
+    fsm5.in = ((fsm5.out == 32'd0 & i0.done & go)) ? 32'd1;
+    fsm5.write_en = ((fsm5.out == 32'd0 & i0.done & go) | (fsm5.out == 32'd1 & x0.done & go) | (fsm5.out == 32'd2 & y0.done & go) | (fsm5.out == 32'd3 & z0.done & go) | (fsm5.out == 32'd4 & fsm4.out == 32'd1 & !(cond_stored1.out) & go) | fsm5.out == 32'd5) ? 1'd1;
+    x0.in = ((fsm5.out == 32'd1 & !(x0.done) & go)) ? const1.out;
+    x0.write_en = ((fsm5.out == 32'd1 & !(x0.done) & go) | (fsm0.out == 32'd0 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & cond_stored0.out & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go) | (fsm0.out == 32'd1 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & cond_stored0.out & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? 1'd1;
+    fsm5.in = ((fsm5.out == 32'd1 & x0.done & go)) ? 32'd2;
+    y0.in = ((fsm5.out == 32'd2 & !(y0.done) & go)) ? const2.out;
+    y0.write_en = ((fsm5.out == 32'd2 & !(y0.done) & go) | (fsm1.out == 32'd0 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & !(cond_stored0.out) & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? 1'd1;
+    fsm5.in = ((fsm5.out == 32'd2 & y0.done & go)) ? 32'd3;
+    z0.in = ((fsm5.out == 32'd3 & !(z0.done) & go)) ? const3.out;
+    z0.write_en = ((fsm5.out == 32'd3 & !(z0.done) & go) | (fsm1.out == 32'd1 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & !(cond_stored0.out) & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? 1'd1;
+    fsm5.in = ((fsm5.out == 32'd3 & z0.done & go)) ? 32'd4;
+    fsm5.in = ((fsm5.out == 32'd4 & fsm4.out == 32'd1 & !(cond_stored1.out) & go)) ? 32'd5;
+    incr4.left = ((fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? fsm4.out;
+    incr4.right = ((fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? 32'd1;
+    done = ((fsm5.out == 32'd5)) ? 1'd1;
+    fsm0.in = ((fsm0.out != 32'd2 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & cond_stored0.out & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? incr0.out;
+    fsm0.write_en = ((fsm0.out != 32'd2 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & cond_stored0.out & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go) | fsm0.out == 32'd2) ? 1'd1;
+    fsm1.in = ((fsm1.out != 32'd2 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & !(cond_stored0.out) & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? incr1.out;
+    fsm1.write_en = ((fsm1.out != 32'd2 & fsm2.out >= 32'd1 & fsm2.out < 32'd3 & !(cond_stored0.out) & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go) | fsm1.out == 32'd2) ? 1'd1;
+    fsm2.in = ((fsm2.out != 32'd3 & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? incr2.out;
+    fsm2.write_en = ((fsm2.out != 32'd3 & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go) | fsm2.out == 32'd3) ? 1'd1;
+    fsm3.in = ((fsm3.out != 32'd4 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? incr3.out;
+    fsm3.write_en = ((fsm3.out != 32'd4 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go) | fsm3.out == 32'd4) ? 1'd1;
+    fsm4.in = ((fsm4.out != 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? incr4.out;
+    fsm4.write_en = ((fsm4.out != 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go) | (fsm4.out == 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go) | (fsm4.out == 32'd1 & !(cond_stored1.out))) ? 1'd1;
+    mod0.right = ((fsm2.out < 32'd1 & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? const5.out;
+    eq0.right = ((fsm2.out < 32'd1 & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? const6.out;
+    mod0.left = ((fsm2.out < 32'd1 & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? i0.out;
+    eq0.left = ((fsm2.out < 32'd1 & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? mod0.out;
+    lt0.right = ((fsm4.out < 32'd1 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? const4.out;
+    lt0.left = ((fsm4.out < 32'd1 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? i0.out;
+    incr1.right = ((fsm2.out >= 32'd1 & fsm2.out < 32'd3 & !(cond_stored0.out) & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? fsm1.out;
+    incr1.left = ((fsm2.out >= 32'd1 & fsm2.out < 32'd3 & !(cond_stored0.out) & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? 32'd1;
+    incr0.right = ((fsm2.out >= 32'd1 & fsm2.out < 32'd3 & cond_stored0.out & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? fsm0.out;
+    incr0.left = ((fsm2.out >= 32'd1 & fsm2.out < 32'd3 & cond_stored0.out & fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? 32'd1;
+    incr2.left = ((fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? fsm2.out;
+    incr2.right = ((fsm3.out <= 32'd3 & cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? 32'd1;
+    incr3.right = ((cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? fsm3.out;
+    incr3.left = ((cond_stored1.out & fsm4.out >= 32'd1 & fsm4.out < 32'd5 & fsm5.out == 32'd4 & !((fsm4.out == 32'd1 & !(cond_stored1.out))) & go)) ? 32'd1;
+    fsm0.in = (fsm0.out == 32'd2) ? 32'd0;
+    fsm1.in = (fsm1.out == 32'd2) ? 32'd0;
+    fsm2.in = (fsm2.out == 32'd3) ? 32'd0;
+    fsm3.in = (fsm3.out == 32'd4) ? 32'd0;
+    fsm5.in = (fsm5.out == 32'd5) ? 32'd0;
+  }
+  
+  control {
+    
+  }
+}

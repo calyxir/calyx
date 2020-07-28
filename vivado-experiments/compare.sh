@@ -40,7 +40,6 @@ dahlia $fuse_file > $workdir/"$benchmark_name.cpp"
 # generate system verilog file
 # HACK: temporarily remove <static="1"> annotations so futil is happy
 dahlia $fuse_file -b futil --lower \
-    | sed 's/<"static"=1>//g ' \
     | cargo run -- -b verilog -l "$script_dir/.." \
           > $workdir/"$benchmark_name.sv"
 

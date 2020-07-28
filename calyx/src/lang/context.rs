@@ -69,6 +69,8 @@ pub struct Context {
     /// insert components inside a call to `definitions_iter`, things
     /// will break.
     definitions_to_insert: RefCell<Vec<Component>>,
+    /// Paths to the import statements. Used by the FuTIL pretty printer.
+    imports: Vec<String>,
 }
 
 impl Context {
@@ -104,17 +106,30 @@ impl Context {
         }
 
         let mut definitions = HashMap::new();
-        for comp in &namespace.components {
-            let prim_sigs = comp.resolve_primitives(&libctx)?;
-            let graph = StructureGraph::new(&comp, &signatures, &prim_sigs)?;
+        for comp in namespace.components {
+            let resolved_sigs = comp.resolve_primitives(&libctx)?;
+            let ast::ComponentDef {
+                name,
+                signature,
+                cells,
+                connections,
+                control,
+            } = comp;
+            let structure = StructureGraph::new(
+                signature.clone(),
+                cells,
+                connections,
+                &signatures,
+                &resolved_sigs,
+            )?;
             definitions.insert(
-                comp.name.clone(),
+                name.clone(),
                 Component {
-                    name: comp.name.clone(),
-                    signature: comp.signature.clone(),
-                    control: comp.control.clone(),
-                    structure: graph,
-                    resolved_sigs: prim_sigs,
+                    name: name.clone(),
+                    signature,
+                    control,
+                    structure,
+                    resolved_sigs,
                 },
             );
         }
@@ -125,6 +140,7 @@ impl Context {
             library_context: libctx,
             definitions: RefCell::new(definitions),
             definitions_to_insert: RefCell::new(vec![]),
+            imports: namespace.libraries,
         })
     }
 
@@ -211,8 +227,7 @@ impl Into<ast::NamespaceDef> for Context {
         }
         ast::NamespaceDef {
             components,
-            //TODO: replace the place holder for libraries with the import statements
-            libraries: vec![],
+            libraries: self.imports,
         }
     }
 }
@@ -266,16 +281,7 @@ impl LibraryContext {
 /* =============== Context Printing ================ */
 impl PrettyPrint for Context {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let ctx_map = self.definitions.borrow();
-
-        let mut defs = ctx_map.values().clone().collect::<Vec<_>>();
-
-        // Do this to make module printing deterministic.
-        defs.sort_by(|comp1, comp2| comp1.name.cmp(&comp2.name));
-
-        RcDoc::intersperse(
-            defs.iter().map(|x| x.prettify(&arena)),
-            RcDoc::line(),
-        )
+        let namespace: ast::NamespaceDef = self.clone().into();
+        namespace.prettify(&arena)
     }
 }

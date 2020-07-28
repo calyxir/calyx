@@ -1,15 +1,20 @@
 // Abstract Syntax Tree for Futil
-use crate::errors::{Result, Span};
-use crate::lang::context::LibraryContext;
+use crate::errors::{Error, Result, Span};
+use crate::lang::{context::LibraryContext, structure::StructureGraph};
+use derivative::Derivative;
 use itertools::Itertools;
+use petgraph::graph::NodeIndex;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::ops::{BitAnd, BitOr, Not};
 
 /// Represents an identifier in a Futil program
-#[derive(Clone, PartialOrd, Ord)]
+#[derive(Derivative, Clone, PartialOrd, Ord)]
+#[derivative(Hash, Eq, PartialEq)]
 pub struct Id {
-    id: String,
+    pub id: String,
+    #[derivative(Hash = "ignore")]
+    #[derivative(PartialEq = "ignore")]
     span: Option<Span>,
 }
 
@@ -34,22 +39,6 @@ impl std::fmt::Debug for Id {
         f.debug_struct("Id").field("id", &self.id).finish()
     }
 }
-
-/* =================== Custom Hash / Eq for impl to exclude span from the check ============== */
-
-impl Hash for Id {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-impl PartialEq for Id {
-    fn eq(&self, other: &Id) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for Id {}
 
 /* =================== Impls for Id to make them easier to use ============== */
 
@@ -87,7 +76,7 @@ impl PartialEq<str> for Id {
 }
 
 /// Top level AST statement. This contains a list of Component definitions.
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub struct NamespaceDef {
     /// The path to libraries
     pub libraries: Vec<String>,
@@ -96,7 +85,7 @@ pub struct NamespaceDef {
 }
 
 /// AST statement for defining components.
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub struct ComponentDef {
     /// Name of the component.
     pub name: Id,
@@ -202,6 +191,21 @@ impl Port {
             Port::Comp { port, .. } => port,
             Port::This { port } => port,
             Port::Hole { name, .. } => name,
+        }
+    }
+
+    /// Returns the edge corresponding to this port in the StructureGraph.
+    pub fn get_edge(&self, st: &StructureGraph) -> Result<(NodeIndex, Id)> {
+        match self {
+            Port::Comp { component, port } => {
+                Ok((st.get_node_by_name(component)?, port.clone()))
+            }
+            Port::This { port } => {
+                Ok((st.get_node_by_name(&"this".into()).unwrap(), port.clone()))
+            }
+            Port::Hole { .. } => Err(Error::MalformedControl(
+                "Can't use a hole as a condition.".to_string(),
+            )),
         }
     }
 }
@@ -328,6 +332,22 @@ impl GuardExpr {
         GuardExpr::Eq(Box::new(self), Box::new(other))
     }
 
+    pub fn le(self, other: GuardExpr) -> Self {
+        GuardExpr::Leq(Box::new(self), Box::new(other))
+    }
+
+    pub fn lt(self, other: GuardExpr) -> Self {
+        GuardExpr::Lt(Box::new(self), Box::new(other))
+    }
+
+    pub fn ge(self, other: GuardExpr) -> Self {
+        GuardExpr::Geq(Box::new(self), Box::new(other))
+    }
+
+    pub fn gt(self, other: GuardExpr) -> Self {
+        GuardExpr::Gt(Box::new(self), Box::new(other))
+    }
+
     pub fn op_str(&self) -> String {
         match self {
             GuardExpr::And(_) => "&".to_string(),
@@ -364,7 +384,16 @@ impl Not for GuardExpr {
     type Output = Self;
 
     fn not(self) -> Self {
-        GuardExpr::Not(Box::new(self))
+        match self {
+            GuardExpr::Eq(lhs, rhs) => GuardExpr::Neq(lhs, rhs),
+            GuardExpr::Neq(lhs, rhs) => GuardExpr::Eq(lhs, rhs),
+            GuardExpr::Gt(lhs, rhs) => GuardExpr::Leq(lhs, rhs),
+            GuardExpr::Lt(lhs, rhs) => GuardExpr::Geq(lhs, rhs),
+            GuardExpr::Geq(lhs, rhs) => GuardExpr::Lt(lhs, rhs),
+            GuardExpr::Leq(lhs, rhs) => GuardExpr::Gt(lhs, rhs),
+            GuardExpr::Not(expr) => *expr,
+            _ => GuardExpr::Not(Box::new(self)),
+        }
     }
 }
 
@@ -497,16 +526,21 @@ impl Cell {
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Connection {
     Group(Group),
     Wire(Wire),
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Derivative, Clone, Debug, Eq)]
+#[derivative(PartialEq, PartialOrd, Ord)]
 pub struct Group {
     pub name: Id,
     pub wires: Vec<Wire>,
+    #[derivative(PartialEq = "ignore")]
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
+    pub attributes: HashMap<String, u64>,
 }
 
 /// Data for the `->` structure statement.

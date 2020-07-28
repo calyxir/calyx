@@ -23,7 +23,7 @@ pub struct Component {
 impl Component {
     pub fn from_signature<S: AsRef<str>>(name: S, sig: ast::Signature) -> Self {
         let mut graph = StructureGraph::default();
-        graph.add_signature(&sig);
+        graph.add_signature(sig.clone());
 
         Component {
             name: name.as_ref().into(),

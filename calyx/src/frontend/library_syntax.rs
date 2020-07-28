@@ -2,6 +2,7 @@ use crate::errors::{Result, Span};
 use crate::lang::ast;
 use crate::lang::library::ast as lib;
 use pest_consume::{match_nodes, Error, Parser};
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -34,6 +35,17 @@ impl LibraryParser {
 impl LibraryParser {
     fn EOI(_input: Node) -> ParseResult<()> {
         Ok(())
+    }
+
+    fn char(input: Node) -> ParseResult<&str> {
+        Ok(input.as_str())
+    }
+
+    fn string_lit(input: Node) -> ParseResult<String> {
+        Ok(match_nodes!(
+            input.into_children();
+            [char(c)..] => c.collect::<Vec<_>>().join("")
+        ))
     }
 
     fn identifier(input: Node) -> ParseResult<ast::Id> {
@@ -71,6 +83,20 @@ impl LibraryParser {
         Ok(match_nodes!(
             input.into_children();
             [identifier(id)..] => id.collect()
+        ))
+    }
+
+    fn key_value(input: Node) -> ParseResult<(String, u64)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [string_lit(key), bitwidth(num)] => (key, num)
+        ))
+    }
+
+    fn attributes(input: Node) -> ParseResult<HashMap<String, u64>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [key_value(kvs)..] => kvs.collect()
         ))
     }
 
@@ -148,16 +174,32 @@ impl LibraryParser {
     fn primitive(input: Node) -> ParseResult<lib::Primitive> {
         Ok(match_nodes!(
             input.into_children();
+            [identifier(name), attributes(attrs), params(p), signature(s), implementation(i)] => lib::Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: attrs,
+                implementation: i
+            },
+            [identifier(name), attributes(attrs), signature(s), implementation(i)] => lib::Primitive {
+                name,
+                params: vec![],
+                signature: s,
+                attributes: attrs,
+                implementation: i
+            },
             [identifier(name), params(p), signature(s), implementation(i)] => lib::Primitive {
                 name,
                 params: p,
                 signature: s,
+                attributes: HashMap::new(),
                 implementation: i
             },
             [identifier(name), signature(s), implementation(i)] => lib::Primitive {
                 name,
                 params: vec![],
                 signature: s,
+                attributes: HashMap::new(),
                 implementation: i
             }
         ))

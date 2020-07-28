@@ -27,7 +27,7 @@ status:
 	./$< $*.data | jq -S . > $@
 
 %.futil: %.fuse
-	../bin/find-dahlia $< --lower -b futil | sed 's/<"static"=1>//g' > $@
+	../bin/find-dahlia $< --lower -b futil > $@
 
 %.sv: %.futil
 	cargo run -- $< -l .. -b verilog --verilator > $@

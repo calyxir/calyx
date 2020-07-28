@@ -7,7 +7,7 @@ use crate::{
 };
 use ast::{Atom, BitNum, Cell, Connection, Group, Port, Wire};
 use component::Component;
-use errors::{Error, Result};
+use errors::{Error, Extract, Result};
 use itertools::Itertools;
 use petgraph::{
     graph::{EdgeIndex, NodeIndex},
@@ -151,6 +151,8 @@ impl EdgeData {
     }
 }
 
+pub type Attributes = HashMap<String, u64>;
+
 /// private graph type. the data in the node stores information
 /// for the corresponding node type, and the data on the edge
 /// is (src port, dest port, group, guard). We use stable graph so that NodeIndexes
@@ -174,8 +176,7 @@ pub struct StructureGraph {
     /// maps Ids to Vec<Edge> which represents the group
     /// the set of edges belong to. None refers to edges
     /// that are in no group.
-    pub groups: HashMap<Option<ast::Id>, Vec<EdgeIndex>>,
-    // XXX(sam) make this not public, by making proper getters/setters
+    pub groups: HashMap<Option<ast::Id>, (Attributes, Vec<EdgeIndex>)>,
     graph: StructG,
     pub namegen: NameGenerator,
 }
@@ -229,19 +230,21 @@ impl StructureGraph {
     ///   * `comp_sigs` - map of component signatures
     ///   * `prim_sigs` - map of primitive component signatures
     pub fn new(
-        compdef: &ast::ComponentDef,
+        signature: ast::Signature,
+        cells: Vec<ast::Cell>,
+        connections: Vec<ast::Connection>,
         comp_sigs: &HashMap<ast::Id, ast::Signature>,
         prim_sigs: &HashMap<ast::Id, ast::Signature>,
     ) -> Result<Self> {
         let mut structure = StructureGraph::default();
 
-        structure.add_signature(&compdef.signature);
+        structure.add_signature(signature);
 
         // add vertices first, ignoring wires so that order of structure
         // doesn't matter
-        for stmt in &compdef.cells {
+        for stmt in cells {
             match stmt {
-                Cell::Decl { data } => {
+                Cell::Decl { ref data } => {
                     // lookup signature for data.component
                     let sig =
                         comp_sigs.get(&data.component).ok_or_else(|| {
@@ -256,7 +259,7 @@ impl StructureGraph {
                     // insert the node into the graph
                     structure.graph.add_node(instance);
                 }
-                Cell::Prim { data } => {
+                Cell::Prim { ref data } => {
                     // resolve param signature and add it to hashmap so that
                     //  we keep a reference to it
                     let sig = prim_sigs.get(&data.name).ok_or_else(|| {
@@ -275,38 +278,30 @@ impl StructureGraph {
         }
 
         // flatten connections into Vec<(group_name: Option<Id>, wire: Wire)>
-        let wires: Vec<_> = compdef
-            .connections
-            .iter()
+        let wires: Vec<_> = connections
+            .into_iter()
             .map(|stmt| match stmt {
                 Connection::Wire(wire) => vec![(None, wire)],
                 Connection::Group(group) => {
                     // create group if it does not exist
                     let name = group.name.clone();
                     let key = Some(name.clone());
-                    if !structure.groups.contains_key(&key) {
-                        // XXX(rachit): This is the wrong way to handle
-                        // the Result<_> returned from insert_group.
-                        structure.insert_group(&name).expect(
-                            "Malformed input AST: Duplicate group names found.",
-                        );
-                    }
+                    // XXX(rachit): This is the wrong way to handle
+                    // the Result<_> returned from insert_group.
+                    structure.insert_group(&name, group.attributes).expect(
+                        "Malformed input AST: Duplicate group names found.",
+                    );
 
-                    group.wires.iter().map(|w| (key.clone(), w)).collect()
+                    group.wires.into_iter().map(|w| (key.clone(), w)).collect()
                 }
             })
             .flatten()
             .collect();
 
         // Create "default" group that contains all edges without a group.
-        structure.groups.insert(None, Vec::new());
+        structure.groups.insert(None, (HashMap::new(), Vec::new()));
         // then add edges
         for (group, wire) in wires {
-            if let Some(ref name) = group {
-                if !structure.groups.contains_key(&group) {
-                    structure.insert_group(name)?;
-                }
-            }
             // get src node and port in graph
             let (src_node, src_port) = match &wire.src.expr {
                 Atom::Port(p) => match p {
@@ -314,12 +309,7 @@ impl StructureGraph {
                     | Port::Hole {
                         group: c,
                         name: port,
-                    } => (
-                        structure.get_node_by_name(c).ok_or_else(|| {
-                            Error::UndefinedComponent(c.clone())
-                        })?,
-                        port.clone(),
-                    ),
+                    } => (structure.get_node_by_name(c)?, port.clone()),
                     Port::This { port } => (structure.io, port.clone()),
                 },
                 Atom::Num(n) => structure.new_constant(n.val, n.width)?,
@@ -330,12 +320,7 @@ impl StructureGraph {
                 | Port::Hole {
                     group: c,
                     name: port,
-                } => (
-                    structure
-                        .get_node_by_name(c)
-                        .ok_or_else(|| Error::UndefinedComponent(c.clone()))?,
-                    port.clone(),
-                ),
+                } => (structure.get_node_by_name(c)?, port.clone()),
                 Port::This { port } => (structure.io, port.clone()),
             };
             structure.insert_edge(
@@ -353,9 +338,9 @@ impl StructureGraph {
     ///
     /// # Arguments
     ///   * `sig` - the signature for the component
-    pub fn add_signature(&mut self, sig: &ast::Signature) {
+    pub fn add_signature(&mut self, sig: ast::Signature) {
         let mut data = &mut self.graph[self.io];
-        let (inputs, outputs) = (sig.inputs.clone(), sig.outputs.clone());
+        let (inputs, outputs) = (sig.inputs, sig.outputs);
         data.signature = ast::Signature {
             inputs: outputs,
             outputs: inputs,
@@ -457,13 +442,17 @@ impl StructureGraph {
     }
 
     /// Add a new named group into the structure.
-    pub fn insert_group(&mut self, name: &ast::Id) -> Result<NodeIndex> {
+    pub fn insert_group(
+        &mut self,
+        name: &ast::Id,
+        attrs: Attributes,
+    ) -> Result<NodeIndex> {
         let key = Some(name.clone());
         if self.groups.contains_key(&key) {
             return Err(errors::Error::DuplicateGroup(name.clone()));
         }
         // create a new group
-        self.groups.insert(key, Vec::new());
+        self.groups.insert(key, (attrs, Vec::new()));
 
         // Create fake node for this group and add go/done holes
         let idx = self.graph.add_node(Node::new_hole(name.clone()));
@@ -520,7 +509,7 @@ impl StructureGraph {
             guard,
         };
         let idx = self.graph.add_edge(src_node, dest_node, edge_data);
-        self.groups.get_mut(&group).unwrap().push(idx);
+        self.groups.get_mut(&group).unwrap().1.push(idx);
         Ok(idx)
     }
 
@@ -530,6 +519,7 @@ impl StructureGraph {
             self.groups
                 .get_mut(&data.group)
                 .unwrap()
+                .1
                 .retain(|ed| *ed != edge)
         }
     }
@@ -559,10 +549,11 @@ impl StructureGraph {
         &self.graph[idx]
     }
 
-    pub fn get_node_by_name(&self, name: &ast::Id) -> Option<NodeIndex> {
+    pub fn get_node_by_name(&self, name: &ast::Id) -> Result<NodeIndex> {
         self.component_iterator()
             .find(|(_, node)| node.name == *name)
             .map(|(idx, _)| idx)
+            .extract(name)
     }
 
     pub fn get_edge(&self, idx: EdgeIndex) -> &EdgeData {
@@ -642,7 +633,7 @@ impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
         let connections = self
             .groups
             .iter()
-            .map(|(name, group_wires)| match name {
+            .map(|(name, (attrs, group_wires))| match name {
                 None => group_wires
                     .iter()
                     .map(|ed| {
@@ -663,6 +654,7 @@ impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
                     .collect(),
                 Some(name) => vec![Connection::Group(Group {
                     name: name.clone(),
+                    attributes: attrs.clone(),
                     wires: group_wires
                         .iter()
                         .map(|ed| {

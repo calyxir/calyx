@@ -11,7 +11,7 @@ use std::rc::Rc;
 #[allow(clippy::large_enum_variant)]
 pub enum Error {
     UnknownPass(String, String),
-    InvalidFile,
+    InvalidFile(String),
     ParseError(pest_consume::Error<syntax::Rule>),
     LibraryParseError(pest_consume::Error<library_syntax::Rule>),
     WriteError,
@@ -111,7 +111,7 @@ impl std::fmt::Debug for Error {
                     known_passes
                 )
             },
-            InvalidFile => write!(f, "InvalidFile"),
+            InvalidFile(err) => write!(f, "InvalidFile: {}", err),
             ParseError(err) => write!(f, "{}", err),
             LibraryParseError(err) => write!(f, "{}", err),
             WriteError => write!(f, "WriteError"),
@@ -156,14 +156,14 @@ impl std::fmt::Debug for Error {
 // we can use `?` in all the places.
 
 impl From<std::io::Error> for Error {
-    fn from(_err: std::io::Error) -> Self {
-        Error::InvalidFile
+    fn from(err: std::io::Error) -> Self {
+        Error::InvalidFile(err.to_string())
     }
 }
 
 impl From<std::str::Utf8Error> for Error {
-    fn from(_err: std::str::Utf8Error) -> Self {
-        Error::InvalidFile
+    fn from(err: std::str::Utf8Error) -> Self {
+        Error::InvalidFile(err.to_string())
     }
 }
 
@@ -196,14 +196,14 @@ impl From<pest_consume::Error<library_syntax::Rule>> for Error {
 pub trait Extract<T, R> {
     /// Unpacks `T` into `Result<R>` using `id: ast::Id`
     /// for error reporting with locations.
-    fn extract(&self, id: ast::Id) -> Result<R>;
+    fn extract(&self, id: &ast::Id) -> Result<R>;
 }
 
 impl Extract<NodeIndex, NodeIndex> for Option<NodeIndex> {
-    fn extract(&self, id: ast::Id) -> Result<NodeIndex> {
+    fn extract(&self, id: &ast::Id) -> Result<NodeIndex> {
         match self {
             Some(t) => Ok(*t),
-            None => Err(Error::UndefinedComponent(id)),
+            None => Err(Error::UndefinedComponent(id.clone())),
         }
     }
 }

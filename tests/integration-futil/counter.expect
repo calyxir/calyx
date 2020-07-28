@@ -9,17 +9,17 @@ component main() -> () {
     lt0 = prim std_lt(32);
   }
   wires {
-    group cond0 {
+    group cond0<"static"=1> {
       cond0[done] = 1'd1;
       lt0.left = i0.out;
       lt0.right = const1.out;
     }
-    group let0 {
+    group let0<"static"=1> {
       i0.in = const0.out;
       i0.write_en = 1'd1;
       let0[done] = i0.done;
     }
-    group upd0 {
+    group upd0<"static"=1> {
       i0.write_en = 1'd1;
       add0.left = i0.out;
       add0.right = const2.out;

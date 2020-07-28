@@ -4,8 +4,6 @@ use crate::lang::{
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 use ast::{Atom, Control, GuardExpr};
-use itertools::Itertools;
-use petgraph::graph::EdgeIndex;
 use std::collections::HashMap;
 use structure::{DataDirection, StructureGraph};
 use structure_builder::ASTBuilder;
@@ -24,59 +22,48 @@ impl Named for Inliner {
     }
 }
 
-type GuardMap = HashMap<Atom, (EdgeIndex, GuardExpr)>;
+type GuardMap = HashMap<Atom, GuardExpr>;
 
 /// Walks the `GuardExpr` ast and replaces Atoms `a` with
 /// it's corresponding entry in `map` if one exists.
-fn tree_walk(
-    guard: GuardExpr,
-    map: &GuardMap,
-    edges_inlined: &mut Vec<EdgeIndex>,
-) -> GuardExpr {
+fn tree_walk(guard: GuardExpr, map: &GuardMap) -> GuardExpr {
     match guard {
         GuardExpr::Atom(a) => map
             .get(&a)
-            .map(|(idx, g)| {
-                edges_inlined.push(*idx);
-                tree_walk(g.clone(), &map, edges_inlined)
-            })
+            .map(|g| tree_walk(g.clone(), &map))
             .unwrap_or(GuardExpr::Atom(a)),
         GuardExpr::Not(inner) => {
-            GuardExpr::Not(Box::new(tree_walk(*inner, &map, edges_inlined)))
+            GuardExpr::Not(Box::new(tree_walk(*inner, &map)))
         }
         GuardExpr::And(bs) => GuardExpr::and_vec(
-            bs.into_iter()
-                .map(|b| tree_walk(b, &map, edges_inlined))
-                .collect(),
+            bs.into_iter().map(|b| tree_walk(b, &map)).collect(),
         ),
         GuardExpr::Or(bs) => GuardExpr::or_vec(
-            bs.into_iter()
-                .map(|b| tree_walk(b, &map, edges_inlined))
-                .collect(),
+            bs.into_iter().map(|b| tree_walk(b, &map)).collect(),
         ),
         GuardExpr::Eq(left, right) => GuardExpr::Eq(
-            Box::new(tree_walk(*left, &map, edges_inlined)),
-            Box::new(tree_walk(*right, &map, edges_inlined)),
+            Box::new(tree_walk(*left, &map)),
+            Box::new(tree_walk(*right, &map)),
         ),
         GuardExpr::Neq(left, right) => GuardExpr::Neq(
-            Box::new(tree_walk(*left, &map, edges_inlined)),
-            Box::new(tree_walk(*right, &map, edges_inlined)),
+            Box::new(tree_walk(*left, &map)),
+            Box::new(tree_walk(*right, &map)),
         ),
         GuardExpr::Gt(left, right) => GuardExpr::Gt(
-            Box::new(tree_walk(*left, &map, edges_inlined)),
-            Box::new(tree_walk(*right, &map, edges_inlined)),
+            Box::new(tree_walk(*left, &map)),
+            Box::new(tree_walk(*right, &map)),
         ),
         GuardExpr::Lt(left, right) => GuardExpr::Lt(
-            Box::new(tree_walk(*left, &map, edges_inlined)),
-            Box::new(tree_walk(*right, &map, edges_inlined)),
+            Box::new(tree_walk(*left, &map)),
+            Box::new(tree_walk(*right, &map)),
         ),
         GuardExpr::Geq(left, right) => GuardExpr::Geq(
-            Box::new(tree_walk(*left, &map, edges_inlined)),
-            Box::new(tree_walk(*right, &map, edges_inlined)),
+            Box::new(tree_walk(*left, &map)),
+            Box::new(tree_walk(*right, &map)),
         ),
         GuardExpr::Leq(left, right) => GuardExpr::Leq(
-            Box::new(tree_walk(*left, &map, edges_inlined)),
-            Box::new(tree_walk(*right, &map, edges_inlined)),
+            Box::new(tree_walk(*left, &map)),
+            Box::new(tree_walk(*right, &map)),
         ),
     }
 }
@@ -96,20 +83,13 @@ fn inline_hole(st: &mut StructureGraph, hole: String) {
         .edge_idx()
         .with_direction(DataDirection::Write)
         .with_node_type(NodeType::Hole)
-        .with_port(hole)
+        .with_port(hole.clone())
     {
         let ed = &st.get_edge(idx);
         let (src_idx, dest_idx) = st.endpoints(idx);
         let mut guard_opt = ed.guard.clone();
         let atom = st.to_atom((src_idx, ed.src.port_name().clone()));
         // if atom is just the constant 1, we don't need to put it in the guard
-        // if !matches!(
-        //     atom,
-        //     Atom::Num(ast::BitNum {
-        //         width: 1, val: 1, ..
-        //     })
-        // ) {
-        // }
         guard_opt = Some(match guard_opt {
             Some(g) => g & GuardExpr::Atom(atom),
             None => GuardExpr::Atom(atom),
@@ -118,27 +98,31 @@ fn inline_hole(st: &mut StructureGraph, hole: String) {
         guard_opt.map(|guard| {
             guard_map.insert(
                 st.to_atom((dest_idx, ed.dest.port_name().clone())),
-                (idx, guard),
+                guard,
             )
         });
     }
 
-    // store for all the edges that were actually inlined so that we can remove them later
-    let mut edges_inlined: Vec<EdgeIndex> = vec![];
-
     // iterate over all edges to replace holes with an expression
-    for edidx in st.edge_idx().detach() {
-        let mut ed_data = st.get_edge_mut(edidx);
-        // for the guard, recurse down the guard ast and replace any leaves with
+    for ed_idx in st.edge_idx().detach() {
+        let mut ed_data = st.get_edge_mut(ed_idx);
+        // for the guard, recur down the guard ast and replace any leaves with
         // the expression in `guard_map` adding the corresponding edges to `edges_inlined`
-        ed_data.guard = ed_data.guard.as_ref().map(|guard| {
-            tree_walk(guard.clone(), &guard_map, &mut edges_inlined)
-        });
+        ed_data.guard = ed_data
+            .guard
+            .as_ref()
+            .map(|guard| tree_walk(guard.clone(), &guard_map));
     }
 
-    // remove all the edges that have been inlined
-    for idx in edges_inlined.iter().unique() {
-        st.remove_edge(*idx);
+    // remove all the edges that have no reads from them.
+    for idx in st
+        .edge_idx()
+        .with_direction(DataDirection::Write)
+        .with_node_type(NodeType::Hole)
+        .with_port(hole)
+        .detach()
+    {
+        st.remove_edge(idx);
     }
 
     // flatten groups (maybe temporary)
@@ -146,7 +130,8 @@ fn inline_hole(st: &mut StructureGraph, hole: String) {
         st.get_edge_mut(idx).group = None;
     }
     st.groups = HashMap::new();
-    st.groups.insert(None, st.edge_idx().collect());
+    st.groups
+        .insert(None, (HashMap::new(), st.edge_idx().collect()));
 }
 
 impl Visitor for Inliner {
