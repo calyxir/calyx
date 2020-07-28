@@ -8,6 +8,11 @@ paths = [ "tests/list-passes/out" ]
 cmd = "./target/debug/futil --list-passes"
 
 [[tests]]
+name = "unit tests"
+paths = [ "tests/unit/*.futil" ]
+cmd = "./target/debug/futil {} -b verilog"
+
+[[tests]]
 name = "dahlia frontend"
 paths = [ "tests/integration-dahlia-sources/*.fuse" ]
 cmd = "./bin/find-dahlia {} -b futil --lower -l error | tail -n+2"
