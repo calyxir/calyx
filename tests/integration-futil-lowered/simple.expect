@@ -1,3 +1,4 @@
+import "primitives/std.lib";
 component main(go: 1) -> (done: 1) {
   cells {
     a0 = prim std_reg(32);
@@ -51,6 +52,6 @@ component main(go: 1) -> (done: 1) {
   }
   
   control {
-    (empty)
+    
   }
 }

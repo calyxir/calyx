@@ -1,3 +1,4 @@
+import "primitives/std.lib";
 component main(go: 1) -> (done: 1) {
   cells {
     cond_stored0 = prim std_reg(1);
@@ -40,6 +41,6 @@ component main(go: 1) -> (done: 1) {
   }
   
   control {
-    (empty)
+    
   }
 }

@@ -19,6 +19,9 @@ pub trait PrettyHelper<'a>: Sized {
     fn braces(self) -> Self {
         self.surround("{", "}")
     }
+    fn quotes(self) -> Self {
+        self.surround("\"", "\"")
+    }
 }
 
 impl<'a, A> PrettyHelper<'a> for RcDoc<'a, A> {
@@ -122,8 +125,9 @@ impl PrettyPrint for NamespaceDef {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         let imports = self.libraries.iter().map(|l| {
             RcDoc::text("import")
+                .keyword_color()
                 .append(RcDoc::space())
-                .append(RcDoc::text(l.to_string()))
+                .append(RcDoc::text(l.to_string()).quotes().control_color())
                 .append(RcDoc::text(";"))
         });
         let comps = self.components.iter().map(|s| s.prettify(&arena));
@@ -156,11 +160,7 @@ impl PrettyPrint for ComponentDef {
             .append(RcDoc::line())
             .append(block(
                 RcDoc::text("wires").define_color(),
-                stmt_vec(
-                    self.connections
-                        .iter()
-                        .map(|x| x.prettify(&arena).append(RcDoc::text(";"))),
-                ),
+                stmt_vec(self.connections.iter().map(|x| x.prettify(&arena))),
             ))
             .append(RcDoc::line())
             .append(RcDoc::line())
@@ -243,7 +243,7 @@ impl PrettyPrint for Connection {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         match self {
             Connection::Group(g) => g.prettify(&arena),
-            Connection::Wire(w) => w.prettify(&arena),
+            Connection::Wire(w) => w.prettify(&arena).append(RcDoc::text(";")),
         }
     }
 }
@@ -251,9 +251,8 @@ impl PrettyPrint for Connection {
 impl PrettyPrint for Group {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
         let attrs = self.attributes.iter().map(|(k, v)| {
-            RcDoc::text("\"")
-                .append(k.clone())
-                .append(RcDoc::text("\""))
+            RcDoc::text(k.clone())
+                .quotes()
                 .control_color()
                 .append(RcDoc::text("="))
                 .append(v.to_string())
@@ -477,7 +476,7 @@ impl PrettyPrint for Enable {
 
 impl PrettyPrint for Empty {
     fn prettify<'a>(&self, _arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        RcDoc::text("empty").control_color().parens()
+        RcDoc::nil()
     }
 }
 
