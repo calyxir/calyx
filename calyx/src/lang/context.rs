@@ -86,7 +86,7 @@ impl Context {
         namespace: ast::NamespaceDef,
         libraries: &[lib::Library],
         debug_mode: bool,
-        verilator_mode: bool
+        verilator_mode: bool,
     ) -> Result<Self> {
         // build hashmap for primitives in provided libraries
         let mut lib_definitions = HashMap::new();

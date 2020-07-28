@@ -100,7 +100,12 @@ fn main() -> Result<()> {
         })
         .collect::<Result<Vec<_>>>()?;
     // build context
-    let context = Context::from_ast(namespace, &libraries, opts.enable_debug, opts.enable_verilator)?;
+    let context = Context::from_ast(
+        namespace,
+        &libraries,
+        opts.enable_debug,
+        opts.enable_verilator,
+    )?;
 
     // Construct the name generator
     let name_gen = NameGenerator::default();
