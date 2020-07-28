@@ -1,0 +1,142 @@
+/* verilator lint_off PINMISSING */
+/* verilator lint_off WIDTH */
+module std_const
+  #(parameter width = 32,
+    parameter value = 0)
+   (input logic                valid,
+    output logic               ready,
+    output logic [width - 1:0] out,
+    output logic               out_read_out);
+  assign out = value;
+  assign ready = valid;
+  assign out_read_out = valid;
+endmodule
+
+module std_reg
+  #(parameter width = 32)
+   (input wire [width-1:0] in,
+    input wire write_en,
+    input wire clk,
+    // output
+    output logic [width - 1:0] out,
+    output logic done);
+
+  always_ff @(posedge clk) begin
+    if (write_en) begin
+      out <= in;
+      done <= 1'd1;
+    end else
+      done <= 1'd0;
+  end
+endmodule
+
+module std_add
+  #(parameter width = 32)
+  (input  logic [width-1:0] left,
+    input  logic [width-1:0] right,
+    output logic [width-1:0] out);
+  assign out = left + right;
+endmodule
+
+// Component Signature
+module main (
+      input wire clk,
+      input wire go,
+      output wire done
+  );
+  
+  // Structure wire declarations
+  wire const0_valid;
+  wire [31:0] const0_out;
+  wire const0_out_read_out;
+  wire const0_ready;
+  wire const1_valid;
+  wire [31:0] const1_out;
+  wire const1_out_read_out;
+  wire const1_ready;
+  wire [31:0] fsm0_in;
+  wire fsm0_write_en;
+  wire fsm0_clk;
+  wire [31:0] fsm0_out;
+  wire fsm0_done;
+  wire [31:0] incr0_left;
+  wire [31:0] incr0_right;
+  wire [31:0] incr0_out;
+  wire [31:0] x0_in;
+  wire x0_write_en;
+  wire x0_clk;
+  wire [31:0] x0_out;
+  wire x0_done;
+  wire [31:0] y0_in;
+  wire y0_write_en;
+  wire y0_clk;
+  wire [31:0] y0_out;
+  wire y0_done;
+  
+  // Subcomponent Instances
+  std_const #(32, 1) const0 (
+      .out(const0_out),
+      .out_read_out(const0_out_read_out),
+      .ready(const0_ready)
+  );
+  
+  std_const #(32, 2) const1 (
+      .out(const1_out),
+      .out_read_out(const1_out_read_out),
+      .ready(const1_ready)
+  );
+  
+  std_reg #(32) fsm0 (
+      .in(fsm0_in),
+      .write_en(fsm0_write_en),
+      .clk(clk),
+      .out(fsm0_out),
+      .done(fsm0_done)
+  );
+  
+  std_add #(32) incr0 (
+      .left(incr0_left),
+      .right(incr0_right),
+      .out(incr0_out)
+  );
+  
+  std_reg #(32) x0 (
+      .in(x0_in),
+      .write_en(x0_write_en),
+      .clk(clk),
+      .out(x0_out),
+      .done(x0_done)
+  );
+  
+  std_reg #(32) y0 (
+      .in(y0_in),
+      .write_en(y0_write_en),
+      .clk(clk),
+      .out(y0_out),
+      .done(y0_done)
+  );
+  
+  // Memory initialization / finalization 
+  import "DPI-C" function string futil_getenv (input string env_var);
+  string DATA;
+   initial begin
+  DATA = futil_getenv("DATA");
+      $fdisplay(2, "DATA (path to meminit files): %s", DATA);
+      
+  end
+  
+   final begin
+      
+  end
+  
+  // Input / output connections
+  assign done = (fsm0_out) ? 1'd1 : '0;
+  assign fsm0_in = (fsm0_out & go) ? incr0_out : (fsm0_out) ? 32'd0 : '0;
+  assign fsm0_write_en = (fsm0_out & go | fsm0_out) ? 1'd1 : '0;
+  assign incr0_left = (go) ? 32'd1 : '0;
+  assign incr0_right = (go) ? fsm0_out : '0;
+  assign x0_in = (fsm0_out & go) ? const0_out : '0;
+  assign x0_write_en = (fsm0_out & go) ? 1'd1 : '0;
+  assign y0_in = (fsm0_out & go) ? const1_out : '0;
+  assign y0_write_en = (fsm0_out & go) ? 1'd1 : '0;
+endmodule // end main
