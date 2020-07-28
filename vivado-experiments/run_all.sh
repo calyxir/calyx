@@ -8,6 +8,22 @@
 # -f: disable filename globbing.
 set -euf
 
+usage="$(basename $0) [-h] <benchmark list file>
+Runs 'compare.sh' on every benchmark in the provided file and stores
+the results in 'results/<date>'"
+
+while getopts 'h' option; do
+    case "$option" in
+        h) echo "$usage"
+           exit
+           ;;
+        \?) printf "illegal option: -%s\n" "$OPTARG" >&2
+            echo "$usage" >&2
+            exit 1
+            ;;
+    esac
+done
+
 # setup variables
 script_dir=$(dirname "$0")
 benchmark_file="$1"

@@ -5,6 +5,22 @@
 # -f: disable filename globbing.
 set -euf
 
+usage="$(basename $0) [-h] <fuse src> <benchmark name> <result dir>
+Generates synthesis results from <fuse src> using both 'vivado_hls'
+and 'vivado' and stores the results in <result dir>"
+
+while getopts 'h' option; do
+    case "$option" in
+        h) echo "$usage"
+           exit
+           ;;
+        \?) printf "illegal option: -%s\n" "$OPTARG" >&2
+            echo "$usage" >&2
+            exit 1
+            ;;
+    esac
+done
+
 fuse_file="$1"
 benchmark_name="$2"
 result_dir="$3"
@@ -28,7 +44,7 @@ cleanup() {
     fi
 
     echo "Cleaning up $workdir"
-    # rm -rf "$workdir"
+    rm -rf "$workdir"
 }
 trap cleanup EXIT
 
@@ -38,7 +54,6 @@ trap cleanup EXIT
 dahlia $fuse_file > $workdir/"$benchmark_name.cpp"
 
 # generate system verilog file
-# HACK: temporarily remove <static="1"> annotations so futil is happy
 dahlia $fuse_file -b futil --lower \
     | cargo run -- -b verilog -l "$script_dir/.." \
           > $workdir/"$benchmark_name.sv"

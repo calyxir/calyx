@@ -5,6 +5,29 @@
 # -f: disable filename globbing.
 set -euf
 
+usage="$(basename $0) [-h] <futil|hls> <cpp or sv src> <dest dir>
+Requires env variable: \$SERVER to be set to a server with Vivado installed.
+
+In 'futil' mode, script copies the .sv source along with
+relevant .tcl and .xdc files and runs synthesis with 'vivado'.
+
+In 'hls' mode, script copies the .cpp source along with
+relevant .tcl files and runs synthesis with 'vivado_hls'.
+
+For both modes, the results are copied back to <dest dir>."
+
+while getopts 'h' option; do
+    case "$option" in
+        h) echo "$usage"
+           exit
+           ;;
+        \?) printf "illegal option: -%s\n" "$OPTARG" >&2
+            echo "$usage" >&2
+            exit 1
+            ;;
+    esac
+done
+
 # local sources to send to server
 script_dir=$(dirname "$0") # gets the directory of the script
 futil_sources="$script_dir/device.xdc $script_dir/synth.tcl"
