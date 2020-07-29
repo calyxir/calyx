@@ -155,12 +155,6 @@ impl std::fmt::Debug for Error {
 // Conversions from other error types to our error type so that
 // we can use `?` in all the places.
 
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
-        Error::InvalidFile(err.to_string())
-    }
-}
-
 impl From<std::str::Utf8Error> for Error {
     fn from(err: std::str::Utf8Error) -> Self {
         Error::InvalidFile(err.to_string())

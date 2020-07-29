@@ -1,7 +1,9 @@
 use calyx::backend::traits::Backend;
 use calyx::backend::verilog::gen::VerilogBackend;
 use calyx::{
-    errors::Result, frontend::pretty_print::PrettyPrint, lang::context,
+    errors::{Error, Result},
+    frontend::pretty_print::PrettyPrint,
+    lang::context,
 };
 use itertools::Itertools;
 use std::io::Write;
@@ -135,14 +137,20 @@ impl Opts {
                 Ok(())
             }
             BackendOpt::Dot => {
-                write!(
+                let write_result = write!(
                     file,
                     "{}",
                     context
                         .get_component(&self.toplevel.into())?
                         .structure
                         .visualize()
-                )?;
+                );
+                write_result.map_err(|err| {
+                    Error::InvalidFile(format!(
+                        "Failed to write: {}",
+                        err.to_string()
+                    ))
+                })?;
                 Ok(())
             }
             BackendOpt::None => Ok(()),
