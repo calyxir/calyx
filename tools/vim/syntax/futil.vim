@@ -37,6 +37,7 @@ hi link futilOperator Operator
 
 " Comments
 syntax match futilComment "\v//.*$"
+syn region futilComment start=/\v\/\*/ skip=/\v\\./ end=/\v\*\//
 hi link futilComment  Comment
 
 let b:current_syntax = "futil"
