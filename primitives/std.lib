@@ -246,11 +246,6 @@ primitive std_shift_reg[p_width, p_depth](in: p_width, write_en: 1, clk: 1) -> (
   }
 }
 
-primitive std_iterator[p_width, p_start, p_stop, p_incr]
-    (valid: 1, clk: 1)
-    -> (out: p_width, stop: 1, out_read_out: 1, ready: 1)
-  {}
-
 primitive std_const[p_width, p_value](valid: 1) -> (out: p_width, out_read_out: 1, ready: 1) {
   verilog {
     module std_const
@@ -430,59 +425,6 @@ primitive std_le[p_width](left: p_width, right: p_width) -> (out: 1) {
        input logic [width-1:0] right,
        output logic            out);
       assign out = left <= right;
-    endmodule
-  }
-}
-
-primitive std_start_fsm(valid: 1, reset: 1, clk: 1) -> (out: 1) {
-  verilog {
-    module std_start_fsm
-     (input logic  valid,
-      input logic  reset,
-      input logic  clk,
-      // outputs
-      output logic out);
-
-      logic        state;
-      always_ff @(posedge clk) begin
-      if (reset) begin
-        out <= 1'b0;
-        state <= 1'b0;
-      end else
-        case ({valid, state})
-          2'b00: out <= 1'b0;
-          2'b10: begin
-            state <= 1'b1;
-            out <= 1'b1;
-          end
-          2'b01: out <= 1'b0;
-          2'b11: out <= 1'b0;
-        endcase
-      end
-    endmodule
-  }
-}
-
-primitive std_fsm_state(in: 1, reset: 1, clk: 1) -> (out: 1) {
- verilog {
-    module std_fsm_state
-      (input logic  in,
-       input logic  reset,
-       input logic  clk,
-       // outputs
-       output logic out);
-
-      logic        state;
-
-      always_ff @(posedge clk) begin
-        if (reset) state <= 1'b0;
-        else begin
-          state <= in;
-        end
-      end
-
-      always_comb
-        out = state;
     endmodule
   }
 }
