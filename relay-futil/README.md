@@ -49,7 +49,23 @@ Pass the `-r` flag to this script to see the Relay code. Otherwise, we just prin
 You can specify the name of an example as a command-line argument. The current options are `identity`, `add`, and `const`.
 
 
+Run the Tests
+-------------
+
+The Relay-to-FuTIL compiler has [Runt][] tests in the `tests` directory.
+To use them, install Runt:
+
+    cargo install runt
+
+The Relay text format parser requires ANTLR, so also do this:
+
+    pip3 install --user antlr4-python3-runtime==4.7.2
+
+Then, just type `runt` to run the tests.
+
+
 [tvm]: https://tvm.apache.org
 [tvm-install]: https://tvm.apache.org/docs/install/from_source.html#developers-get-source-from-github
 [relay]: https://tvm.apache.org/docs/api/python/relay/index.html
 [wheel]: https://packaging.python.org/guides/distributing-packages-using-setuptools/#wheels
+[runt]: https://github.com/rachitnigam/runt
