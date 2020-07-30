@@ -1,70 +1,122 @@
 import "primitives/std.lib";
 
-// An ACC unit receives a value from the top, adds it to the accumulation
-// registers, and puts the value on the down wire on the next cycle.
-component mac_pe(top: 32, left:32) -> (down: 32, right: 32) {
+// A MAC pipelined MAC that performs an add in the first cycle and multiply
+// in the next. It immediately (combinationally) forwards the left signal to
+// right and top to down.
+component mac_pe(go: 1, top: 32, left: 32) -> (done: 1, down: 32, right: 32) {
   cells {
     // Storage
     acc = prim std_reg(32);
-    mac = prim std_reg(32);
+    mul_reg = prim std_reg(32);
     // Computation
     add = prim std_add(32);
     mul = prim std_mult(32);
-    // Register to buffer the value for one cycle.
-    down_reg = prim std_reg(32);
-    right_reg = prim std_reg(32);
   }
 
   wires {
 
-    group do_add<"static"=1> {
+    group do_mul {
+      mul.left = top;
+      mul.right = left;
+      mul_reg.in = mul.out;
+      mul_reg.write_en = 1'd1;
+      do_mul[done] = mul_reg.done;
+    }
+
+    group do_add {
       add.left = acc.out;
-      add.right = top;
+      add.right = mul.out;
       acc.in = add.out;
       acc.write_en = 1'd1;
       do_add[done] = acc.done;
     }
 
-    group do_mul<"static"=1> {
-      mul.left = acc.out;
-      mul.right = left;
-      mac.in = mul.out;
-      mac.write_en = 1'd1;
-      do_mul[done] = mac.done;
-    }
-
-    group move_down<"static"=1> {
-      down_reg.in = top;
-      down_reg.write_en = 1'd1;
-      move_down[done] = down_reg.done;
-    }
-
-    group move_right<"static"=1> {
-      right_reg.in = top;
-      right_reg.write_en = 1'd1;
-      move_right[done] = right_reg.done;
-    }
-
-    // The value forwarded is always from the down_reg
-    down = down_reg.out;
-    right = right_reg.out;
+    down = top;
+    right = left;
   }
 
   control {
-    par {
-      move_down; move_right;
-      seq { do_add; do_mul; }
-    }
+    seq { do_mul; do_add; }
   }
 }
 
+// Uses a ready/valid interface to read/write values from the other context.
 component main() -> () {
   cells {
-    pe1 = mac_pe;
+    // Local array storage
+    t0 = prim std_mem_d1(32,4,3);
+    l0 = prim std_mem_d1(32,4,3);
+
+    add0 = prim std_add(3);
+    i0 = prim std_reg(3);
+    le0 = prim std_le(3);
+
+    // Buffer registers
+    /// Rows
+    reg_r0 = prim std_reg(32);
+    reg_r1 = prim std_reg(32);
+    /// Cols
+    reg_c0 = prim std_reg(32);
+    reg_c1 = prim std_reg(32);
+
+    pe00 = mac_pe;
   }
 
   wires {
+    // incrementing logic
+    group cond0 {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = 3'd3;
+    }
+    group let0 {
+      i0.in = 3'd0;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group upd0 {
+      i0.write_en = 1'd1;
+      add0.left = i0.out;
+      add0.right = 3'd1;
+      i0.in = add0.out;
+      upd0[done] = i0.done;
+    }
+
+    // Groups to enable each PE.
+    group en_p00 {
+      // Enable the PE.
+      pe00.go = !pe00.done ? 1'd1;
+
+      // get the current t0 value
+      pe00.top = t0.read_data;
+      t0.addr0 = i0.out;
+
+      // get the current l0 value
+      pe00.left = l0.read_data;
+      l0.addr0 = i0.out;
+
+      // Once the PE is done processing, write the value into registers.
+      reg_r0.in = pe00.done ? pe00.right;
+      reg_c0.in = pe00.done ? pe00.down;
+      reg_r0.write_en = pe00.done;
+      reg_c0.write_en = pe00.done;
+
+      // The group is done when the write finishes.
+      en_p00[done] = reg_c0.done & reg_r0.done ? 1'd1;
+    }
+
+    group dummy {}
   }
 
-  control {}
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          upd0;
+          en_p00;
+        }
+      }
+    }
+  }
 }
