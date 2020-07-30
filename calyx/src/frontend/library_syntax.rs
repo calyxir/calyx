@@ -1,4 +1,4 @@
-use crate::errors::{Result, Span};
+use crate::errors::{self, Result, Span};
 use crate::lang::ast;
 use crate::lang::library::ast as lib;
 use pest_consume::{match_nodes, Error, Parser};
@@ -19,7 +19,13 @@ pub struct LibraryParser;
 
 impl LibraryParser {
     pub fn parse_file(path: &PathBuf) -> Result<lib::Library> {
-        let content = &fs::read(path)?;
+        let content = &fs::read(path).map_err(|err| {
+            errors::Error::InvalidFile(format!(
+                "Failed to read {}: {}",
+                path.to_string_lossy(),
+                err.to_string()
+            ))
+        })?;
         let string_content = std::str::from_utf8(content)?;
         let inputs = LibraryParser::parse_with_userdata(
             Rule::file,

@@ -1,4 +1,4 @@
-use crate::errors::{Result, Span};
+use crate::errors::{self, Result, Span};
 use crate::lang::{
     ast,
     ast::{BitNum, NumType},
@@ -42,7 +42,13 @@ pub struct FutilParser;
 
 impl FutilParser {
     pub fn parse_file(path: &PathBuf) -> Result<ast::NamespaceDef> {
-        let content = &fs::read(path)?;
+        let content = &fs::read(path).map_err(|err| {
+            errors::Error::InvalidFile(format!(
+                "Failed to read {}: {}",
+                path.to_string_lossy(),
+                err.to_string()
+            ))
+        })?;
         let string_content = std::str::from_utf8(content)?;
         let inputs = FutilParser::parse_with_userdata(
             Rule::file,
@@ -55,7 +61,12 @@ impl FutilParser {
 
     pub fn parse<R: Read>(mut r: R) -> Result<ast::NamespaceDef> {
         let mut buf = String::new();
-        r.read_to_string(&mut buf)?;
+        r.read_to_string(&mut buf).map_err(|err| {
+            errors::Error::InvalidFile(format!(
+                "Failed to parse buffer: {}",
+                err.to_string()
+            ))
+        })?;
         let inputs = FutilParser::parse_with_userdata(
             Rule::file,
             &buf,
