@@ -21,9 +21,15 @@ impl Named for ComponentInterface {
 
 impl Visitor for ComponentInterface {
     fn start(&mut self, comp: &mut Component, _c: &Context) -> VisResult {
-        // add go/done signals XXX(sam) this is temporary until we have a more structured sol
-        comp.add_input(("go", 1))?;
-        comp.add_output(("done", 1))?;
+        // add go/done signals
+        // XXX(sam) this is temporary until we have a more structured sol
+        // XXX(rachit): HACK don't add port if they already exist.
+        if !comp.signature.has_input("go") {
+            comp.add_input(("go", 1))?;
+        }
+        if !comp.signature.has_output("done") {
+            comp.add_output(("done", 1))?;
+        }
 
         let st = &mut comp.structure;
         let this = st.get_node_by_name(&"this".into()).unwrap();
