@@ -35,6 +35,7 @@ class Relay2Futil(ExprFunctor):
         return the_id
 
     def visit_var(self, var):
+        print("visit var\n")
         name = var.name_hint
         return EmitResult(
             f'{name}.out',  # Assuming variables are in registers.
@@ -43,7 +44,8 @@ class Relay2Futil(ExprFunctor):
             [],
         )
 
-    def visit_constant(self, const):
+    def visit_constant(self,const):
+        print('visit const\n')
         # We only handle scalar integers for now.
         assert const.data.dtype == 'int32', \
             "unsupported constant: {}".format(const.data.dtype)
@@ -68,32 +70,38 @@ class Relay2Futil(ExprFunctor):
         )
 
     def visit_call(self, call):
+        print('visit call\n')
         # Visit the arguments to the call, emitting their control
         # statements.
         arg_stmts = [self.visit(arg) for arg in call.args]
         #currently assume we only have 2 args to add
         print (f"arg_stmts {arg_stmts}")
-        if call.op.name == 'add':
+        structures = [item for arg in arg_stmts for item in arg.cells]
+        wires = [item for arg in arg_stmts for item in arg.wires]
+        if call.op.name == 'add' or call.op.name == 'subtract':
+            hw_type = 'add' if call.op.name == 'add' else sub
             # Create structure for an adder.
-            adder_name = f'add{self.fresh_id()}'
-            cell = '{} = prim std_add({});'.format(
-                adder_name,
+            cell_name = f'{hw_type}{self.fresh_id()}'
+            cell = '{} = prim std_{}({});'.format(
+                cell_name,
+                hw_type,
                 32,     # Bit width.
              )
-            structures = [item for arg in arg_stmts for item in arg.cells]
             structures.append(cell)
-            wires = [
-                    f'{adder_name}.left = {arg_stmts[0].value}',
-                    f'{adder_name}.right = {arg_stmts[1].value}' 
-                    ]
+            wires.extend([
+                    f'{cell_name}.left = {arg_stmts[0].value}',
+                    f'{cell_name}.right = {arg_stmts[1].value}' 
+                    ])
             return EmitResult(
-                    f'{adder_name}.out',
+                    f'{cell_name}.out',
                     None,
                     structures,
                     wires
                 )
+        
 
     def visit_function(self, func):
+        print('visit func\n')
         body = self.visit(func.body)
         # Make registers for the arguments.
         func_cells = []
