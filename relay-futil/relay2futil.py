@@ -1,3 +1,4 @@
+from tvm import relay
 from tvm.relay.expr_functor import ExprFunctor
 import textwrap
 from collections import namedtuple
@@ -143,3 +144,9 @@ def compile(program) -> str:
     visitor = Relay2Futil()
     src = visitor.visit(program)
     return "{}\n{}".format(PREAMBLE.strip(), src)
+
+
+if __name__ == '__main__':
+    import sys
+    relay_func = relay.fromtext(sys.stdin.read())
+    print(compile(relay_func))
