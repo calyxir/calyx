@@ -131,7 +131,7 @@ class RPTParser:
                 start = idx + off
 
                 # If start doesn't point to valid header, continue searching
-                if self.lines[start].strip()[0] != '+':
+                if self.lines[start].strip() == "" or self.lines[start].strip()[0] != '+':
                     continue
 
                 end = start

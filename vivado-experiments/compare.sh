@@ -5,14 +5,18 @@
 # -f: disable filename globbing.
 set -euf
 
-usage="$(basename $0) [-h] <fuse src> <benchmark name> <result dir>
+usage="$(basename $0) [-h -d] <fuse src> <benchmark name> <result dir>
 Generates synthesis results from <fuse src> using both 'vivado_hls'
 and 'vivado' and stores the results in <result dir>"
 
-while getopts 'h' option; do
+debug=0
+while getopts 'hd' option; do
     case "$option" in
         h) echo "$usage"
            exit
+           ;;
+        d) debug=1
+           shift $((OPTIND -1))
            ;;
         \?) printf "illegal option: -%s\n" "$OPTARG" >&2
             echo "$usage" >&2
@@ -25,7 +29,6 @@ fuse_file="$1"
 benchmark_name="$2"
 result_dir="$3"
 script_dir=$(dirname "$0")
-debug=0
 
 # temporary directory
 workdir=$(mktemp -d)
@@ -54,7 +57,7 @@ trap cleanup EXIT
 dahlia $fuse_file > $workdir/"$benchmark_name.cpp"
 
 # generate system verilog file
-dahlia $fuse_file -b futil --lower \
+dahlia $fuse_file -b futil --lower -l error \
     | cargo run -- -b verilog -l "$script_dir/.." \
           > $workdir/"$benchmark_name.sv"
 
@@ -67,10 +70,11 @@ $script_dir/vivado.sh 'hls' "$workdir/$benchmark_name.cpp" "$workdir/hls"
 # copy back the files we need
 mkdir -p "$result_dir"
 cp $workdir/futil/FutilBuild.runs/synth_1/main_utilization_synth.rpt "$result_dir/"
+cp $workdir/futil/FutilBuild.runs/impl_1/main_utilization_placed.rpt "$result_dir/"
 cp $workdir/hls/solution1/syn/report/kernel_csynth.rpt "$result_dir/"
 
 # extract data into json files
-$script_dir/extract.py futil "$result_dir"/main_utilization_synth.rpt \
+$script_dir/extract.py futil "$result_dir"/main_utilization_placed.rpt \
                        > "$result_dir"/futil.json
 $script_dir/extract.py hls "$result_dir"/kernel_csynth.rpt \
                        > "$result_dir"/hls.json

@@ -12,8 +12,27 @@ def main():
         if f.is_dir():
           hls = json.load((f / "hls.json").open())
           futil = json.load((f / "futil.json").open())
-          data.append({'benchmark': f.stem, 'type': 'hls', 'value': hls['LUT'], 'source': directory})
-          data.append({'benchmark': f.stem, 'type': 'futil', 'value': futil['LUT'], 'source': directory})
+          data.append({
+            'benchmark': f.stem,
+            'type': 'hls',
+            'lut': hls['LUT'],
+            'dsp': hls['DSP'],
+            'source': directory
+          })
+          data.append({
+            'benchmark': f.stem,
+            'type': 'hls_total',
+            'lut': hls['TOTAL_LUT'],
+            'dsp': hls['DSP'],
+            'source': directory
+          })
+          data.append({
+            'benchmark': f.stem,
+            'type': 'futil',
+            'lut': futil['LUT'],
+            'dsp': futil['DSP'],
+            'source': directory
+          })
   df = pd.DataFrame(data)
   print(df.to_csv(index=False))
 

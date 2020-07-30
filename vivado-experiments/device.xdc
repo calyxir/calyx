@@ -14,7 +14,8 @@ set_property IOSTANDARD LVCMOS18 [get_ports clk]
 # Connect the clock. This is where we determine the target frequency for the
 # design, which of course is super important! Just sticking with 50 ns, which
 # translates to 20 MHz (which is very slow!!).
-create_clock -period 50.000 -name clk -waveform {0.000 25.000} [get_ports clk]
+# create_clock -period 50.000 -name clk -waveform {0.000 25.000} [get_ports clk]
+create_clock -period 7.00 -name clk -waveform {0.000 5.000} [get_ports clk]
 
 # Go port.
 set_property PACKAGE_PIN F21 [get_ports go]
