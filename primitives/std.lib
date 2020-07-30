@@ -187,7 +187,7 @@ primitive std_const[p_width, p_value](valid: 1) -> (out: p_width, out_read_out: 
 
 primitive std_add[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
-    module std_add
+    (* use_dsp = "yes" *) module std_add
       #(parameter width = 32)
       (input  logic [width-1:0] left,
         input  logic [width-1:0] right,
@@ -199,7 +199,7 @@ primitive std_add[p_width](left: p_width, right: p_width) -> (out: p_width) {
 
 primitive std_sub[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
-    module std_sub
+    (* use_dsp = "yes" *) module std_sub
       #(parameter width = 32)
       (input  logic [width-1:0] left,
         input  logic [width-1:0] right,
@@ -211,7 +211,7 @@ primitive std_sub[p_width](left: p_width, right: p_width) -> (out: p_width) {
 
 primitive std_mod[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
-    module std_mod
+    (* use_dsp = "yes" *) module std_mod
       #(parameter width = 32)
       (input  logic [width-1:0] left,
         input  logic [width-1:0] right,
@@ -223,7 +223,7 @@ primitive std_mod[p_width](left: p_width, right: p_width) -> (out: p_width) {
 
 primitive std_mult[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
-    module std_mult
+    (* use_dsp = "yes" *) module std_mult
       #(parameter width = 32)
       (input logic  [width-1:0] left,
         input logic  [width-1:0] right,
@@ -235,7 +235,7 @@ primitive std_mult[p_width](left: p_width, right: p_width) -> (out: p_width) {
 
 primitive std_div[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
-    module std_div
+    (* use_dsp = "yes" *) module std_div
       #(parameter width = 32)
       (input logic  [width-1:0] left,
         input logic  [width-1:0] right,
