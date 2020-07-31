@@ -5,10 +5,11 @@ Passes:
 - go-insertion
 - hole-inliner
 - merge-assign
+- remove-external-memories
 - static-timing
 
 Aliases:
-- all: static-timing, compile-control, go-insertion, component-interface-inserter, hole-inliner, merge-assign
+- all: remove-external-memories, static-timing, compile-control, go-insertion, component-interface-inserter, hole-inliner, merge-assign
 - external: static-timing, compile-control, go-insertion, component-interface-inserter, hole-inliner, merge-assign, externalize
-- no-inline: static-timing, compile-control, go-insertion, component-interface-inserter
+- no-inline: remove-external-memories, static-timing, compile-control, go-insertion, component-interface-inserter
 

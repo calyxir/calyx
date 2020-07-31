@@ -4,5 +4,6 @@ pub mod externalize;
 pub mod go_insertion;
 pub mod inliner;
 pub mod merge_assign;
+pub mod remove_external_memories;
 pub mod static_timing;
 pub mod visitor;

@@ -553,6 +553,10 @@ impl StructureGraph {
         &self.graph[idx]
     }
 
+    pub fn get_node_mut(&mut self, idx: NodeIndex) -> &mut Node {
+        &mut self.graph[idx]
+    }
+
     pub fn get_node_by_name(&self, name: &ast::Id) -> Result<NodeIndex> {
         self.component_iterator()
             .find(|(_, node)| node.name == *name)

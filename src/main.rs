@@ -18,6 +18,7 @@ use passes::{
     go_insertion::GoInsertion,
     inliner::Inliner,
     merge_assign::MergeAssign,
+    remove_external_memories::RemoveExternalMemories,
     static_timing::StaticTiming,
     visitor::{Named, Visitor},
 };
@@ -38,18 +39,20 @@ fn construct_pass_manager() -> Result<PassManager> {
     register_pass!(pm, Inliner);
     register_pass!(pm, MergeAssign);
     register_pass!(pm, Externalize);
+    register_pass!(pm, RemoveExternalMemories);
 
     // Register aliases
     register_alias!(
         pm,
         "all",
         [
+            RemoveExternalMemories,
             StaticTiming,
             CompileControl,
             GoInsertion,
             ComponentInterface,
             Inliner,
-            MergeAssign
+            MergeAssign,
         ]
     );
 
@@ -57,6 +60,7 @@ fn construct_pass_manager() -> Result<PassManager> {
         pm,
         "no-inline",
         [
+            RemoveExternalMemories,
             StaticTiming,
             CompileControl,
             GoInsertion,

@@ -2,6 +2,16 @@
 
 set -euf
 
+cleanup() {
+    if [ $? -ne 0 ]; then
+        cat "$tmp/log"
+    fi
+
+    # cleanup tmp dirs
+    rm -r $tmp $meminit
+}
+trap cleanup EXIT
+
 # Name of the benchmark.
 benchmark="$1"
 # Location of the data.
