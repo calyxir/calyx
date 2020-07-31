@@ -1,4 +1,3 @@
-/* verilator lint_off PINMISSING */
 /* verilator lint_off WIDTH */
 module std_add
   #(parameter width = 32)
@@ -29,13 +28,8 @@ endmodule
 module std_const
   #(parameter width = 32,
     parameter value = 0)
-   (input logic                valid,
-    output logic               ready,
-    output logic [width - 1:0] out,
-    output logic               out_read_out);
+   (output logic [width - 1:0] out);
   assign out = value;
-  assign ready = valid;
-  assign out_read_out = valid;
 endmodule
 
 module std_lt
@@ -60,30 +54,12 @@ module main (
   wire [31:0] add1_left;
   wire [31:0] add1_right;
   wire [31:0] add1_out;
-  wire const0_valid;
   wire [31:0] const0_out;
-  wire const0_out_read_out;
-  wire const0_ready;
-  wire const1_valid;
   wire [31:0] const1_out;
-  wire const1_out_read_out;
-  wire const1_ready;
-  wire const2_valid;
   wire [31:0] const2_out;
-  wire const2_out_read_out;
-  wire const2_ready;
-  wire const3_valid;
   wire [31:0] const3_out;
-  wire const3_out_read_out;
-  wire const3_ready;
-  wire const4_valid;
   wire [31:0] const4_out;
-  wire const4_out_read_out;
-  wire const4_ready;
-  wire const5_valid;
   wire [31:0] const5_out;
-  wire const5_out_read_out;
-  wire const5_ready;
   wire [31:0] lt0_left;
   wire [31:0] lt0_right;
   wire lt0_out;
@@ -150,39 +126,27 @@ module main (
   );
   
   std_const #(32, 0) const0 (
-      .out(const0_out),
-      .out_read_out(const0_out_read_out),
-      .ready(const0_ready)
+      .out(const0_out)
   );
   
   std_const #(32, 0) const1 (
-      .out(const1_out),
-      .out_read_out(const1_out_read_out),
-      .ready(const1_ready)
+      .out(const1_out)
   );
   
   std_const #(32, 10) const2 (
-      .out(const2_out),
-      .out_read_out(const2_out_read_out),
-      .ready(const2_ready)
+      .out(const2_out)
   );
   
   std_const #(32, 1) const3 (
-      .out(const3_out),
-      .out_read_out(const3_out_read_out),
-      .ready(const3_ready)
+      .out(const3_out)
   );
   
   std_const #(32, 10) const4 (
-      .out(const4_out),
-      .out_read_out(const4_out_read_out),
-      .ready(const4_ready)
+      .out(const4_out)
   );
   
   std_const #(32, 1) const5 (
-      .out(const5_out),
-      .out_read_out(const5_out_read_out),
-      .ready(const5_ready)
+      .out(const5_out)
   );
   
   std_lt #(32) lt0 (

@@ -1,4 +1,3 @@
-/* verilator lint_off PINMISSING */
 /* verilator lint_off WIDTH */
 module std_mem_d2
   #(parameter width = 32,
@@ -78,13 +77,8 @@ endmodule
 module std_const
   #(parameter width = 32,
     parameter value = 0)
-   (input logic                valid,
-    output logic               ready,
-    output logic [width - 1:0] out,
-    output logic               out_read_out);
+   (output logic [width - 1:0] out);
   assign out = value;
-  assign ready = valid;
-  assign out_read_out = valid;
 endmodule
 
 module std_le
@@ -164,62 +158,20 @@ module main (
   wire beta_clk;
   wire [31:0] beta_read_data;
   wire beta_done;
-  wire const0_valid;
   wire [3:0] const0_out;
-  wire const0_out_read_out;
-  wire const0_ready;
-  wire const1_valid;
   wire [3:0] const1_out;
-  wire const1_out_read_out;
-  wire const1_ready;
-  wire const10_valid;
   wire const10_out;
-  wire const10_out_read_out;
-  wire const10_ready;
-  wire const11_valid;
   wire [3:0] const11_out;
-  wire const11_out_read_out;
-  wire const11_ready;
-  wire const12_valid;
   wire [3:0] const12_out;
-  wire const12_out_read_out;
-  wire const12_ready;
-  wire const13_valid;
   wire [3:0] const13_out;
-  wire const13_out_read_out;
-  wire const13_ready;
-  wire const2_valid;
   wire [3:0] const2_out;
-  wire const2_out_read_out;
-  wire const2_ready;
-  wire const3_valid;
   wire [3:0] const3_out;
-  wire const3_out_read_out;
-  wire const3_ready;
-  wire const4_valid;
   wire const4_out;
-  wire const4_out_read_out;
-  wire const4_ready;
-  wire const5_valid;
   wire [3:0] const5_out;
-  wire const5_out_read_out;
-  wire const5_ready;
-  wire const6_valid;
   wire [3:0] const6_out;
-  wire const6_out_read_out;
-  wire const6_ready;
-  wire const7_valid;
   wire [3:0] const7_out;
-  wire const7_out_read_out;
-  wire const7_ready;
-  wire const8_valid;
   wire [3:0] const8_out;
-  wire const8_out_read_out;
-  wire const8_ready;
-  wire const9_valid;
   wire [3:0] const9_out;
-  wire const9_out_read_out;
-  wire const9_ready;
   wire [3:0] i0_in;
   wire i0_write_en;
   wire i0_clk;
@@ -358,6 +310,8 @@ module main (
   std_mem_d2 #(32, 8, 8, 4, 4) A (
       .addr0(A_addr0),
       .addr1(A_addr1),
+      .write_data(A_write_data),
+      .write_en(A_write_en),
       .clk(clk),
       .read_data(A_read_data),
       .done(A_done)
@@ -366,6 +320,8 @@ module main (
   std_mem_d2 #(32, 8, 8, 4, 4) B (
       .addr0(B_addr0),
       .addr1(B_addr1),
+      .write_data(B_write_data),
+      .write_en(B_write_en),
       .clk(clk),
       .read_data(B_read_data),
       .done(B_done)
@@ -421,6 +377,8 @@ module main (
   
   std_mem_d1 #(32, 1, 1) alpha (
       .addr0(alpha_addr0),
+      .write_data(alpha_write_data),
+      .write_en(alpha_write_en),
       .clk(clk),
       .read_data(alpha_read_data),
       .done(alpha_done)
@@ -428,93 +386,67 @@ module main (
   
   std_mem_d1 #(32, 1, 1) beta (
       .addr0(beta_addr0),
+      .write_data(beta_write_data),
+      .write_en(beta_write_en),
       .clk(clk),
       .read_data(beta_read_data),
       .done(beta_done)
   );
   
   std_const #(4, 0) const0 (
-      .out(const0_out),
-      .out_read_out(const0_out_read_out),
-      .ready(const0_ready)
+      .out(const0_out)
   );
   
   std_const #(4, 7) const1 (
-      .out(const1_out),
-      .out_read_out(const1_out_read_out),
-      .ready(const1_ready)
+      .out(const1_out)
   );
   
   std_const #(1, 0) const10 (
-      .out(const10_out),
-      .out_read_out(const10_out_read_out),
-      .ready(const10_ready)
+      .out(const10_out)
   );
   
   std_const #(4, 1) const11 (
-      .out(const11_out),
-      .out_read_out(const11_out_read_out),
-      .ready(const11_ready)
+      .out(const11_out)
   );
   
   std_const #(4, 1) const12 (
-      .out(const12_out),
-      .out_read_out(const12_out_read_out),
-      .ready(const12_ready)
+      .out(const12_out)
   );
   
   std_const #(4, 1) const13 (
-      .out(const13_out),
-      .out_read_out(const13_out_read_out),
-      .ready(const13_ready)
+      .out(const13_out)
   );
   
   std_const #(4, 0) const2 (
-      .out(const2_out),
-      .out_read_out(const2_out_read_out),
-      .ready(const2_ready)
+      .out(const2_out)
   );
   
   std_const #(4, 7) const3 (
-      .out(const3_out),
-      .out_read_out(const3_out_read_out),
-      .ready(const3_ready)
+      .out(const3_out)
   );
   
   std_const #(1, 0) const4 (
-      .out(const4_out),
-      .out_read_out(const4_out_read_out),
-      .ready(const4_ready)
+      .out(const4_out)
   );
   
   std_const #(4, 1) const5 (
-      .out(const5_out),
-      .out_read_out(const5_out_read_out),
-      .ready(const5_ready)
+      .out(const5_out)
   );
   
   std_const #(4, 0) const6 (
-      .out(const6_out),
-      .out_read_out(const6_out_read_out),
-      .ready(const6_ready)
+      .out(const6_out)
   );
   
   std_const #(4, 7) const7 (
-      .out(const7_out),
-      .out_read_out(const7_out_read_out),
-      .ready(const7_ready)
+      .out(const7_out)
   );
   
   std_const #(4, 0) const8 (
-      .out(const8_out),
-      .out_read_out(const8_out_read_out),
-      .ready(const8_ready)
+      .out(const8_out)
   );
   
   std_const #(4, 7) const9 (
-      .out(const9_out),
-      .out_read_out(const9_out_read_out),
-      .ready(const9_ready)
+      .out(const9_out)
   );
   
   std_reg #(4) i0 (
