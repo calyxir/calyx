@@ -318,23 +318,6 @@ fn wire_declarations<'a>(comp: &component::Component) -> Result<D<'a>> {
     Ok(D::intersperse(wires, D::line()))
 }
 
-/// Generates a Verilog identifier for a Port.
-///   * `Port::This(port)` => port
-///   * `Port::Comp(comp, port)` => comp_port
-///   * `Port::Hole` => unreachable!
-fn wire_id_from_port<'a>(port: &Port) -> D<'a> {
-    match port {
-        Port::This { port } => D::text(port.to_string()),
-        Port::Comp { component, port } => {
-            D::text(format!("{}_{}", component.to_string(), port.to_string()))
-        }
-        Port::Hole { group, name } => unreachable!(format!(
-            "Structure has a group hole: {}[{}]",
-            group.id, name.id
-        )),
-    }
-}
-
 /// Generates a Verilog identifier for a (Node, String).
 ///  * NodeData::Cell(..) => name_port
 ///  * NodeData::Port => port
