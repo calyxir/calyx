@@ -246,18 +246,13 @@ primitive std_shift_reg[p_width, p_depth](in: p_width, write_en: 1, clk: 1) -> (
   }
 }
 
-primitive std_const[p_width, p_value](valid: 1) -> (out: p_width, out_read_out: 1, ready: 1) {
+primitive std_const[p_width, p_value]() -> (out: p_width) {
   verilog {
     module std_const
       #(parameter width = 32,
         parameter value = 0)
-       (input logic                valid,
-        output logic               ready,
-        output logic [width - 1:0] out,
-        output logic               out_read_out);
+       (output logic [width - 1:0] out);
       assign out = value;
-      assign ready = valid;
-      assign out_read_out = valid;
     endmodule
   }
 }
