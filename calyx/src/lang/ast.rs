@@ -143,6 +143,20 @@ impl Signature {
     pub fn has_output(&self, name: &str) -> bool {
         self.outputs.iter().any(|e| &e.name == name)
     }
+
+    pub fn add_input(&mut self, name: &str, width: u64) -> () {
+        if self.has_input(name) {
+            panic!("signature already has input port: {}", name)
+        }
+        self.inputs.push((name, width).into());
+    }
+
+    pub fn add_output(&mut self, name: &str, width: u64) -> () {
+        if self.has_output(name) {
+            panic!("signature already has output port: {}", name)
+        }
+        self.outputs.push((name, width).into());
+    }
 }
 
 /// The definition of an input/output port.

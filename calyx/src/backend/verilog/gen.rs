@@ -245,12 +245,7 @@ impl Emitable for ast::Signature {
                     .append(pd.doc(&ctx, &comp)?))
             })
             .collect::<Result<Vec<_>>>()?;
-        let mut ports = vec![D::text("input")
-            .keyword_color()
-            .append(D::space())
-            .append(D::text("wire").keyword_color())
-            .append(D::space())
-            .append("clk")];
+        let mut ports = vec![];
         ports.append(&mut inputs);
         ports.append(&mut outputs);
         let doc =
