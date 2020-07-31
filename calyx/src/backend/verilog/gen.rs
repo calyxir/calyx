@@ -474,31 +474,60 @@ fn gen_assigns<'a>(
     port: String,
     edges: Vec<(EdgeData, &Node)>,
 ) -> D<'a> {
+    let unguarded_drivers = edges
+        .iter()
+        .filter(|(ed, _)| {
+            ed.guard.is_none() || ed.guard.as_ref().unwrap().provably_true()
+        })
+        .count();
+
+    // Error if there is more than one unguarded driver.
+    if unguarded_drivers > 1 {
+        panic!(
+            "Multiple unguarded drivers for {}.{}",
+            node.name.to_string(),
+            port
+        );
+    }
+
+    // Error if there is an unguarded driver along with other guarded drivers.
+    if unguarded_drivers == 1 && edges.len() > 1 {
+        panic!(
+            "{}.{} driven by both unguarded and guarded drivers",
+            node.name.to_string(),
+            port
+        );
+    }
+
+    let edge_assignment = if unguarded_drivers == 1 {
+        let (el, node) = &edges[0];
+        wire_id_from_node(node, el.src.port_name().to_string())
+    } else {
+        edges
+            .iter()
+            // Sort by the destination port names. This is required for
+            // deterministic outputs.
+            .sorted_by(|e1, e2| Ord::cmp(&e1.0.src, &e2.0.src))
+            .fold(D::text("'0"), |acc, (el, node)| {
+                el.guard
+                    .as_ref()
+                    .map(|g| guard(&g, ParenCtx::Not))
+                    .unwrap_or_else(D::nil)
+                    .append(" ? ")
+                    .append(wire_id_from_node(
+                        node,
+                        el.src.port_name().to_string(),
+                    ))
+                    .append(" : ")
+                    .append(acc)
+            })
+    };
     D::text("assign")
         .keyword_color()
         .append(D::space())
         .append(wire_id_from_node(node, port))
         .append(" = ")
-        .append(
-            edges
-                .iter()
-                // Sort by the destination port names. This is required for
-                // deterministic outputs.
-                .sorted_by(|e1, e2| Ord::cmp(&e1.0.src, &e2.0.src))
-                .fold(D::text("'0"), |acc, (el, node)| {
-                    el.guard
-                        .as_ref()
-                        .map(|g| guard(&g, ParenCtx::Not))
-                        .unwrap_or_else(D::nil)
-                        .append(" ? ")
-                        .append(wire_id_from_node(
-                            node,
-                            el.src.port_name().to_string(),
-                        ))
-                        .append(" : ")
-                        .append(acc)
-                }),
-        )
+        .append(edge_assignment)
         .append(";")
 }
 

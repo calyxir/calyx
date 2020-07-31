@@ -282,6 +282,16 @@ pub enum GuardExpr {
 }
 
 impl GuardExpr {
+
+    /// Returns true when this guard is equivalent to the empty guard (true).
+    /// Since guards can be arbitrarily complex, this is conservative.
+    pub fn provably_true(&self) -> bool {
+        match self {
+            GuardExpr::Or(es) => es.len() == 0,
+            GuardExpr::And(es) => es.len() == 0,
+            _ => false
+        }
+    }
     /// A convienent constructor for `GuardExpr::And`
     /// that allows chaining construction `g.and(guard)`
     pub fn and_vec(atoms: Vec<GuardExpr>) -> Self {
