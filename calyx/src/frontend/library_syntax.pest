@@ -40,7 +40,7 @@ params = {
 }
 
 signature = {
-      "(" ~ io_ports? ~ ")" ~ ("->" ~ "(" ~ io_ports? ~ ")")?
+      "(" ~ io_ports? ~ ")" ~ "->" ~ "(" ~ io_ports? ~ ")"
 }
 
 io_port = {
@@ -48,7 +48,7 @@ io_port = {
 }
 
 io_ports = {
-      io_port ~ ("," ~ io_port)*
+      (io_port ~ ("," ~ io_port)*)?
 }
 
 inner = _{

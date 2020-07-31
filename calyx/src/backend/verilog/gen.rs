@@ -118,17 +118,15 @@ impl Backend for VerilogBackend {
             .collect::<Result<Vec<_>>>()?;
         let prims = primitive_implemenations(&prog, ctx)?;
         display(
-            colors::comment(D::text("/* verilator lint_off PINMISSING */"))
-                .append(D::line())
-                .append(colors::comment(D::text(
-                    // XXX(sam) hack to deal with incorrect array index sizes
-                    "/* verilator lint_off WIDTH */",
-                )))
-                .append(D::line())
-                .append(prims)
-                .append(D::line())
-                .append(D::line())
-                .append(D::intersperse(docs, D::line())),
+            colors::comment(D::text(
+                // XXX(sam) hack to deal with incorrect array index sizes
+                "/* verilator lint_off WIDTH */",
+            ))
+            .append(D::line())
+            .append(prims)
+            .append(D::line())
+            .append(D::line())
+            .append(D::intersperse(docs, D::line())),
             Some(file),
         );
         Ok(())
@@ -619,48 +617,25 @@ fn signature_connections<'a>(
     idx: NodeIndex,
 ) -> D<'a> {
     // wire up all the incoming edges
-    let incoming = sig
-        .inputs
-        .iter()
-        .map(|portdef| {
-            // if portdef is named `clk`, wire up `clk`
-            if &portdef.name == "clk" {
-                vec![D::text(".").append("clk").append(D::text("clk").parens())]
-            } else {
-                comp.structure
-                    .edge_idx()
-                    .with_direction(DataDirection::Write)
-                    .with_node(idx)
-                    .with_port(portdef.name.to_string())
-                    .detach()
-                    .map(|edge_idx| comp.structure.get_edge(edge_idx))
-                    // we only want one connection per dest
-                    .unique_by(|edge| &edge.dest)
-                    .map(move |edge| {
-                        D::text(".")
-                            .append(D::text(portdef.name.to_string()))
-                            .append(wire_id_from_port(&edge.dest).parens())
-                    })
-                    .collect::<Vec<_>>()
-            }
-        })
-        .flatten();
-
-    // wire up outgoing edges
-    let outgoing = sig.outputs.iter().map(|portdef| {
-        D::text(".")
-            .append(D::text(portdef.name.to_string()))
-            .append(
-                D::text(format!(
-                    "{}_{}",
-                    comp.structure.get_node(idx).name.to_string(),
-                    portdef.name.to_string()
-                ))
-                .parens(),
-            )
+    let all = sig.inputs.iter().chain(sig.outputs.iter()).map(|portdef| {
+        // if portdef is named `clk`, wire up `clk`
+        if &portdef.name == "clk" {
+            D::text(".").append("clk").append(D::text("clk").parens())
+        } else {
+            D::text(".")
+                .append(D::text(portdef.name.to_string()))
+                .append(
+                    D::text(format!(
+                        "{}_{}",
+                        comp.structure.get_node(idx).name.to_string(),
+                        portdef.name.to_string()
+                    ))
+                    .parens(),
+                )
+        }
     });
 
-    D::intersperse(incoming.chain(outgoing), D::text(",").append(D::line()))
+    D::intersperse(all, D::text(",").append(D::line()))
 }
 
 //==========================================
