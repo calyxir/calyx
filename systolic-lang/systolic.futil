@@ -3,7 +3,7 @@ import "primitives/std.lib";
 // A MAC pipelined MAC that performs an add in the first cycle and multiply
 // in the next. It immediately (combinationally) forwards the left signal to
 // right and top to down.
-component mac_pe(go: 1, top: 32, left: 32) -> (done: 1, down: 32, right: 32) {
+component mac_pe(top: 32, left: 32) -> (down: 32, right: 32) {
   cells {
     // Storage
     acc = prim std_reg(32);
@@ -25,7 +25,7 @@ component mac_pe(go: 1, top: 32, left: 32) -> (done: 1, down: 32, right: 32) {
 
     group do_add {
       add.left = acc.out;
-      add.right = mul.out;
+      add.right = mul_reg.out;
       acc.in = add.out;
       acc.write_en = 1'd1;
       do_add[done] = acc.done;
@@ -105,7 +105,6 @@ component main() -> () {
       en_p00[done] = reg_c0.done & reg_r0.done ? 1'd1;
     }
 
-    group dummy {}
   }
 
   control {
@@ -113,8 +112,8 @@ component main() -> () {
       let0;
       while le0.out with cond0 {
         seq {
-          upd0;
           en_p00;
+          upd0;
         }
       }
     }
