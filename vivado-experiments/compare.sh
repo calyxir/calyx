@@ -54,11 +54,11 @@ trap cleanup EXIT
 
 #### Generate the files #####
 # generate vivado_hls file
-dahlia $fuse_file > $workdir/"$benchmark_name.cpp"
+dahlia $fuse_file --memory-interface ap_memory > $workdir/"$benchmark_name.cpp"
 
 # generate system verilog file
 dahlia $fuse_file -b futil --lower -l error \
-    | cargo run -- -b verilog -l "$script_dir/.." \
+    | "$script_dir/../target/debug/futil" -p external -b verilog -l "$script_dir/.." \
           > $workdir/"$benchmark_name.sv"
 
 #### Synthesis ####

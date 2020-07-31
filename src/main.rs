@@ -18,6 +18,7 @@ use passes::{
     inliner::Inliner,
     merge_assign::MergeAssign,
     static_timing::StaticTiming,
+    externalize::Externalize,
     visitor::{Named, Visitor},
 };
 use std::io::stdin;
@@ -36,6 +37,7 @@ fn construct_pass_manager() -> Result<PassManager> {
     register_pass!(pm, ComponentInterface);
     register_pass!(pm, Inliner);
     register_pass!(pm, MergeAssign);
+    register_pass!(pm, Externalize);
 
     // Register aliases
     register_alias!(
@@ -59,6 +61,20 @@ fn construct_pass_manager() -> Result<PassManager> {
             CompileControl,
             GoInsertion,
             ComponentInterface,
+        ]
+    );
+
+    register_alias!(
+        pm,
+        "external",
+        [
+            StaticTiming,
+            CompileControl,
+            GoInsertion,
+            ComponentInterface,
+            Inliner,
+            MergeAssign,
+            Externalize,
         ]
     );
 

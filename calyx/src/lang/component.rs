@@ -67,10 +67,10 @@ impl Component {
 
 impl Into<ast::ComponentDef> for Component {
     fn into(self) -> ast::ComponentDef {
-        let (cells, connections) = self.structure.into();
+        let (signature, cells, connections) = self.structure.into();
         ast::ComponentDef {
             name: self.name,
-            signature: self.signature,
+            signature,
             cells,
             connections,
             control: self.control,

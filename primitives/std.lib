@@ -30,6 +30,14 @@ primitive std_mem_d1[p_width, p_size, p_idx_size](
   }
 }
 
+// Represents an external memory
+primitive std_mem_d1_ext[p_width, p_size, p_idx_size](
+  addr0: p_idx_size,
+  write_data: p_width,
+  write_en: 1
+) -> (read_data: p_width, done: 1) {}
+
+
 primitive std_mem_d2[p_width, d0_size, d1_size, d0_idx_size, d1_idx_size](
   addr0: d0_idx_size,
   addr1: d1_idx_size,
@@ -65,6 +73,13 @@ primitive std_mem_d2[p_width, d0_size, d1_size, d0_idx_size, d1_idx_size](
     endmodule
   }
 }
+
+primitive std_mem_d2_ext[p_width, d0_size, d1_size, d0_idx_size, d1_idx_size](
+  addr0: d0_idx_size,
+  addr1: d1_idx_size,
+  write_data: p_width,
+  write_en: 1
+) -> (read_data: p_width, done: 1) {}
 
 primitive std_mem_d3[
     p_width,
@@ -113,6 +128,22 @@ primitive std_mem_d3[
     endmodule
   }
 }
+
+primitive std_mem_d3_ext[
+    p_width,
+    d0_size,
+    d1_size,
+    d2_size,
+    d0_idx_size,
+    d1_idx_size,
+    d2_idx_size
+] (
+  addr0: d0_idx_size,
+  addr1: d1_idx_size,
+  addr2: d2_idx_size,
+  write_data: p_width,
+  write_en: 1
+) -> (read_data: p_width, done: 1) {}
 
 primitive std_logsize_mem_d1[p_width, p_logsize](
   addr0: p_logsize,
@@ -187,7 +218,7 @@ primitive std_const[p_width, p_value](valid: 1) -> (out: p_width, out_read_out: 
 
 primitive std_add[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
-    (* use_dsp = "yes" *) module std_add
+    module std_add
       #(parameter width = 32)
       (input  logic [width-1:0] left,
         input  logic [width-1:0] right,
@@ -199,7 +230,7 @@ primitive std_add[p_width](left: p_width, right: p_width) -> (out: p_width) {
 
 primitive std_sub[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
-    (* use_dsp = "yes" *) module std_sub
+    module std_sub
       #(parameter width = 32)
       (input  logic [width-1:0] left,
         input  logic [width-1:0] right,
@@ -211,7 +242,7 @@ primitive std_sub[p_width](left: p_width, right: p_width) -> (out: p_width) {
 
 primitive std_mod[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
-    (* use_dsp = "yes" *) module std_mod
+    module std_mod
       #(parameter width = 32)
       (input  logic [width-1:0] left,
         input  logic [width-1:0] right,
@@ -223,7 +254,7 @@ primitive std_mod[p_width](left: p_width, right: p_width) -> (out: p_width) {
 
 primitive std_mult[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
-    (* use_dsp = "yes" *) module std_mult
+    module std_mult
       #(parameter width = 32)
       (input logic  [width-1:0] left,
         input logic  [width-1:0] right,
@@ -235,7 +266,7 @@ primitive std_mult[p_width](left: p_width, right: p_width) -> (out: p_width) {
 
 primitive std_div[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
-    (* use_dsp = "yes" *) module std_div
+    module std_div
       #(parameter width = 32)
       (input logic  [width-1:0] left,
         input logic  [width-1:0] right,

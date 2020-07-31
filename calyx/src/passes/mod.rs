@@ -5,3 +5,4 @@ pub mod inliner;
 pub mod merge_assign;
 pub mod static_timing;
 pub mod visitor;
+pub mod externalize;

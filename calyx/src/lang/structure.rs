@@ -524,6 +524,10 @@ impl StructureGraph {
         }
     }
 
+    pub fn remove_node(&mut self, node: NodeIndex) {
+        self.graph.remove_node(node);
+    }
+
     pub fn visualize(&self) -> String {
         use petgraph::dot::{Config, Dot};
         let config = &[Config::EdgeNoLabel];
@@ -562,6 +566,10 @@ impl StructureGraph {
 
     pub fn get_edge_mut(&mut self, idx: EdgeIndex) -> &mut EdgeData {
         &mut self.graph[idx]
+    }
+
+    pub fn get_this_idx(&self) -> NodeIndex {
+        self.io
     }
 
     pub fn endpoints(&self, idx: EdgeIndex) -> (NodeIndex, NodeIndex) {
@@ -615,8 +623,8 @@ impl fmt::Display for Node {
 }
 
 // Implement conversion of graph back into a structure ast vector
-impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
-    fn into(self) -> (Vec<ast::Cell>, Vec<ast::Connection>) {
+impl Into<(ast::Signature, Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
+    fn into(self) -> (ast::Signature, Vec<ast::Cell>, Vec<ast::Connection>) {
         let cells = self
             .component_iterator()
             .filter_map(|(idx, _)| {
@@ -658,6 +666,7 @@ impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
                     wires: group_wires
                         .iter()
                         .map(|ed| {
+                            println!("{:?}", name);
                             let edge = &self.graph[*ed];
                             let (src_nidx, _) = self
                                 .graph
@@ -682,6 +691,11 @@ impl Into<(Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
             .sorted()
             .collect();
 
-        (cells, connections)
+        let signature = self.graph[self.io].signature.clone();
+        let sig_flipped = ast::Signature {
+            inputs: signature.outputs,
+            outputs: signature.inputs
+        };
+        (sig_flipped, cells, connections)
     }
 }

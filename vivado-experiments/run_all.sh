@@ -33,4 +33,5 @@ result_dir="results/$(date +%Y_%m_%d_%H_%M)"
 mkdir -p $result_dir
 
 # run all the benchmarks in parallel
+cargo build
 cat $benchmark_file | parallel --bar ${*:2} "$script_dir/compare.sh -d {} {/.} $result_dir/{/.}"

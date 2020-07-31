@@ -23,14 +23,17 @@ add_files [glob ./*.sv]
 add_files -fileset constrs_1 [glob ./*.xdc]
 set_property top main [current_fileset]
 
+# Switch the project to "out-of-context" mode, which frees us from the need to
+# hook up every input & output wire to a physical device pin.
+set_property -name {STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS} -value {-mode out_of_context} -objects [get_runs synth_1]
+
 # Run synthesis. This is enough to generate the utilization report mentioned
 # above but does not include timing information.
 launch_runs synth_1
 wait_on_run synth_1
 
-# Run implementation to generate a bitstream. This also produces the timing
+# Run implementation to do place & route. This also produces the timing
 # report mentioned above. Removing this step makes things go quite a bit
 # faster if you just need the resource report!
-set_property STEPS.PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
-launch_runs impl_1 -to_step write_bitstream
+launch_runs impl_1 -to_step route_design
 wait_on_run impl_1
