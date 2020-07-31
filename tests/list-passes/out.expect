@@ -1,6 +1,7 @@
 Passes:
 - compile-control
 - component-interface-inserter
+- externalize
 - go-insertion
 - hole-inliner
 - merge-assign
@@ -8,5 +9,6 @@ Passes:
 
 Aliases:
 - all: static-timing, compile-control, go-insertion, component-interface-inserter, hole-inliner, merge-assign
+- external: static-timing, compile-control, go-insertion, component-interface-inserter, hole-inliner, merge-assign, externalize
 - no-inline: static-timing, compile-control, go-insertion, component-interface-inserter
 

@@ -623,7 +623,9 @@ impl fmt::Display for Node {
 }
 
 // Implement conversion of graph back into a structure ast vector
-impl Into<(ast::Signature, Vec<ast::Cell>, Vec<ast::Connection>)> for StructureGraph {
+impl Into<(ast::Signature, Vec<ast::Cell>, Vec<ast::Connection>)>
+    for StructureGraph
+{
     fn into(self) -> (ast::Signature, Vec<ast::Cell>, Vec<ast::Connection>) {
         let cells = self
             .component_iterator()
@@ -694,7 +696,7 @@ impl Into<(ast::Signature, Vec<ast::Cell>, Vec<ast::Connection>)> for StructureG
         let signature = self.graph[self.io].signature.clone();
         let sig_flipped = ast::Signature {
             inputs: signature.outputs,
-            outputs: signature.inputs
+            outputs: signature.inputs,
         };
         (sig_flipped, cells, connections)
     }

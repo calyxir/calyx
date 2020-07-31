@@ -14,11 +14,11 @@ use pass_manager::PassManager;
 use passes::{
     compile_control::CompileControl,
     component_interface::ComponentInterface,
+    externalize::Externalize,
     go_insertion::GoInsertion,
     inliner::Inliner,
     merge_assign::MergeAssign,
     static_timing::StaticTiming,
-    externalize::Externalize,
     visitor::{Named, Visitor},
 };
 use std::io::stdin;

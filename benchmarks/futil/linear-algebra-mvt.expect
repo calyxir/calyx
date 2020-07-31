@@ -1,7 +1,7 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    A = prim std_mem_d2(32,8,8,4,4);
+    A = prim std_mem_d2_ext(32,8,8,4,4);
     add0 = prim std_add(32);
     add1 = prim std_add(4);
     add2 = prim std_add(4);
@@ -30,12 +30,12 @@ component main() -> () {
     le3 = prim std_le(4);
     mult0 = prim std_mult(32);
     mult1 = prim std_mult(32);
-    x1 = prim std_mem_d1(32,8,4);
+    x1 = prim std_mem_d1_ext(32,8,4);
     x1_t0 = prim std_reg(32);
-    x2 = prim std_mem_d1(32,8,4);
+    x2 = prim std_mem_d1_ext(32,8,4);
     x2_t0 = prim std_reg(32);
-    y1 = prim std_mem_d1(32,8,4);
-    y2 = prim std_mem_d1(32,8,4);
+    y1 = prim std_mem_d1_ext(32,8,4);
+    y2 = prim std_mem_d1_ext(32,8,4);
   }
   wires {
     group cond0<"static"=1> {

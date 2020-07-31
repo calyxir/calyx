@@ -1,4 +1,4 @@
-use crate::lang::ast::{Portdef, Cell};
+use crate::lang::ast::{Cell, Portdef};
 use crate::lang::component::Component;
 use crate::lang::context::Context;
 use crate::lang::structure::{DataDirection, Node, NodeData};
@@ -26,8 +26,9 @@ impl Visitor for Externalize {
             .component_iterator()
             .filter_map(|(idx, node)| {
                 if let NodeData::Cell(Cell::Prim { data }) = &node.data {
-                    if data.instance.name.as_ref().starts_with("std_mem") &&
-                        data.instance.name.as_ref().ends_with("ext") {
+                    if data.instance.name.as_ref().starts_with("std_mem")
+                        && data.instance.name.as_ref().ends_with("ext")
+                    {
                         Some((idx, node.clone()))
                     } else {
                         None
@@ -40,10 +41,11 @@ impl Visitor for Externalize {
 
         for (idx, node) in indicies {
             for portdef in &node.signature.inputs {
-                let portname = format!("{}_{}", node.name.as_ref(), portdef.name.as_ref());
+                let portname =
+                    format!("{}_{}", node.name.as_ref(), portdef.name.as_ref());
                 let new_portdef = Portdef {
                     name: portname.into(),
-                    width: portdef.width
+                    width: portdef.width,
                 };
                 st.insert_output_port(&new_portdef);
                 for edidx in st
@@ -69,10 +71,11 @@ impl Visitor for Externalize {
             }
 
             for portdef in &node.signature.outputs {
-                let portname = format!("{}_{}", node.name.as_ref(), portdef.name.as_ref());
+                let portname =
+                    format!("{}_{}", node.name.as_ref(), portdef.name.as_ref());
                 let new_portdef = Portdef {
                     name: portname.into(),
-                    width: portdef.width
+                    width: portdef.width,
                 };
                 st.insert_input_port(&new_portdef);
                 for edidx in st

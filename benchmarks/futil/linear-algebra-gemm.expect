@@ -1,17 +1,17 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    A = prim std_mem_d2(32,8,8,4,4);
-    B = prim std_mem_d2(32,8,8,4,4);
-    C = prim std_mem_d2(32,8,8,4,4);
+    A = prim std_mem_d2_ext(32,8,8,4,4);
+    B = prim std_mem_d2_ext(32,8,8,4,4);
+    C = prim std_mem_d2_ext(32,8,8,4,4);
     C_i_j0 = prim std_reg(32);
     add0 = prim std_add(4);
     add1 = prim std_add(32);
     add2 = prim std_add(4);
     add3 = prim std_add(4);
     add4 = prim std_add(4);
-    alpha = prim std_mem_d1(32,1,1);
-    beta = prim std_mem_d1(32,1,1);
+    alpha = prim std_mem_d1_ext(32,1,1);
+    beta = prim std_mem_d1_ext(32,1,1);
     const0 = prim std_const(4,0);
     const1 = prim std_const(4,7);
     const10 = prim std_const(1,0);
