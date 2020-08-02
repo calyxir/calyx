@@ -355,7 +355,8 @@ impl Visitor for CompileControl {
                         let par_done_reg = prim std_reg(1);
                     );
 
-                    let group_go = !guard!(st; par_done_reg["out"]);
+                    let group_go = !(guard!(st; par_done_reg["out"])
+                        | guard!(st; group_idx["done"]));
                     let group_done = guard!(st; group_idx["done"]);
 
                     add_wires!(st, Some(par_group.clone()),
