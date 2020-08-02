@@ -163,7 +163,11 @@ component main() -> () {
             let1;
             while le1.out with cond1 {
               seq {
-                let2;
+                seq {
+                  seq {
+                  }
+                  let2;
+                }
                 seq {
                   upd0;
                   upd1;
@@ -179,6 +183,8 @@ component main() -> () {
                 while le3.out with cond3 {
                   seq {
                     seq {
+                      seq {
+                      }
                       let5;
                       let6;
                     }
