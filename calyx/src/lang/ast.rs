@@ -144,14 +144,14 @@ impl Signature {
         self.outputs.iter().any(|e| &e.name == name)
     }
 
-    pub fn add_input(&mut self, name: &str, width: u64) -> () {
+    pub fn add_input(&mut self, name: &str, width: u64) {
         if self.has_input(name) {
             panic!("signature already has input port: {}", name)
         }
         self.inputs.push((name, width).into());
     }
 
-    pub fn add_output(&mut self, name: &str, width: u64) -> () {
+    pub fn add_output(&mut self, name: &str, width: u64) {
         if self.has_output(name) {
             panic!("signature already has output port: {}", name)
         }
@@ -287,14 +287,20 @@ impl GuardExpr {
     /// Since guards can be arbitrarily complex, this is conservative.
     pub fn provably_true(&self) -> bool {
         match self {
-            GuardExpr::Or(es) => es.len() == 0,
-            GuardExpr::And(es) => es.len() == 0,
+            GuardExpr::Or(es) => es.is_empty(),
+            GuardExpr::And(es) => es.is_empty(),
             _ => false
         }
     }
+
     /// A convienent constructor for `GuardExpr::And`
     /// that allows chaining construction `g.and(guard)`
-    pub fn and_vec(atoms: Vec<GuardExpr>) -> Self {
+    pub fn and_vec(mut atoms: Vec<GuardExpr>) -> Self {
+        // Early return if this is a trivial vector.
+        if atoms.len() == 1 {
+            return atoms.remove(0);
+        }
+
         // Flatten any nested `And` inside the atoms.
         let mut flat_atoms: Vec<GuardExpr> = Vec::with_capacity(atoms.len());
         for atom in atoms {
@@ -323,7 +329,12 @@ impl GuardExpr {
         GuardExpr::and_vec(vec![lhs, rhs])
     }
 
-    pub fn or_vec(atoms: Vec<GuardExpr>) -> Self {
+    pub fn or_vec(mut atoms: Vec<GuardExpr>) -> Self {
+        // Early return if this is a trivial vector.
+        if atoms.len() == 1 {
+            return atoms.remove(0);
+        }
+
         // Flatten nested `Or`
         let mut flat_atoms: Vec<GuardExpr> = Vec::with_capacity(atoms.len());
         for atom in atoms {
