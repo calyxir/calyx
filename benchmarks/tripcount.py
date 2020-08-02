@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 
 class TripCount():
     def __init__(self, name):
@@ -19,6 +20,16 @@ class TripCount():
         print(f'{self.name}:')
         print(f'\tdecor "#pragma HLS loop_tripcount min={mn} max={mx} avg={avg}"')
         # print(f'\t{self.account}')
+
+#### Durbin ####
+while1 = TripCount('while')
+for k in range(1, 8):
+    i = 0
+    while (i < k):
+        while1.incr()
+        i += 1
+    while1.reset()
+while1.output()
 
 #### Trisolv ####
 # while1 = TripCount('while1')
