@@ -4,6 +4,7 @@ import rpt
 import sys
 import re
 import json
+from pathlib import Path
 
 def find_row(table, colname, key):
     for row in table:
@@ -17,7 +18,8 @@ def to_int(s):
     else:
         return int(s)
 
-def futil_extract(parser):
+def futil_extract(directory):
+    parser = rpt.RPTParser(directory / "main_utilization_placed.rpt")
     slice_logic = parser.get_table(re.compile(r'1\. Slice Logic'), 2)
     dsp_table = parser.get_table(re.compile(r'4\. DSP'), 2)
 
@@ -26,28 +28,30 @@ def futil_extract(parser):
         'DSP': find_row(dsp_table, 'Site Type', 'DSPs')['Used']
     }
 
-def hls_extract(parser):
+def hls_extract(directory):
+    parser = rpt.RPTParser(directory / "kernel_csynth.rpt")
     summary_table = parser.get_table(re.compile(r'== Utilization Estimates'), 2)
     instance_table = parser.get_table(re.compile(r'\* Instance:'), 0)
 
-    total_row = find_row(summary_table, 'Name', 'Total')
-    # instance_row = find_row(summary_table, 'Name', 'Instance')
+    solution_data = json.load((directory / "solution1_data.json").open())
+    latency = solution_data['ModuleInfo']['Metrics']['kernel']['Latency']
 
+    total_row = find_row(summary_table, 'Name', 'Total')
     s_axi_row = find_row(instance_table, 'Instance', 'kernel_control_s_axi_U')
 
     return {
         'TOTAL_LUT': to_int(total_row['LUT']),
         'INSTANCE_LUT': to_int(s_axi_row['LUT']),
         'LUT': to_int(total_row['LUT']) - to_int(s_axi_row['LUT']),
-        'DSP': to_int(total_row['DSP48E']) - to_int(s_axi_row['DSP48E'])
+        'DSP': to_int(total_row['DSP48E']) - to_int(s_axi_row['DSP48E']),
+        'AVG_LATENCY': latency['LatencyAvg'],
+        'BEST_LATENCY': latency['LatencyBest'],
+        'WORST_LATENCY': latency['LatencyWorst'],
     }
 
-def main(style, filename):
-    parser = rpt.RPTParser(filename)
-    if style == 'futil':
-        print(json.dumps(futil_extract(parser)))
-    elif style == 'hls':
-        print(json.dumps(hls_extract(parser)))
-
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    directory = sys.argv[1]
+    print(json.dumps({
+        "futil": futil_extract(Path(directory)),
+        "hls": hls_extract(Path(directory))
+    }))

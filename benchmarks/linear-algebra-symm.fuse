@@ -9,9 +9,10 @@ let temp2: ubit<32> = (0 as ubit<32>);
 for (let i: ubit<4> = 0..8) {
   for (let j: ubit<4> = 0..8) {
     temp2 := (0 as ubit<32>);
-    let k: ubit<4> = (0 as ubit<4>);
     // This is a 'for' loop in the original source
+    let k: ubit<4> = (0 as ubit<4>);
     while (k < i) {
+      decor "#pragma HLS loop_tripcount min=0 max=7 avg=4"
       let C_k_j: ubit<32> = C[k][j];
       ---
       C[k][j] := alpha[(0 as ubit<1>)] * B[i][j] * A[i][k] + C_k_j;

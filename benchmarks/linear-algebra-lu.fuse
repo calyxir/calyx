@@ -3,8 +3,10 @@ decl A: ubit<32>[8][8];
 for (let i: ubit<4> = 0..8) {
   let j = (0 as ubit<4>);
   while (j < i) {
+    decor "#pragma HLS loop_tripcount min=0 max=7 avg=4"
     let k: ubit<4> = (0 as ubit<4>);
     while(k < j) {
+      decor "#pragma HLS loop_tripcount min=0 max=6 avg=2"
       let A_i_j = A[i][j];
       ---
       let A_i_k = A[i][k];
@@ -27,10 +29,12 @@ for (let i: ubit<4> = 0..8) {
     j := j + (1 as ubit<4>);
   }
   ---
-  let j2: ubit<4> = i;
+  j := i;
   while (j < (8 as ubit<4>)) {
+    decor "#pragma HLS loop_tripcount min=1 max=8 avg=4"
     let k = (0 as ubit<4>);
     while (k < i) {
+      decor "#pragma HLS loop_tripcount min=0 max=7 avg=2"
       let A_i_j = A[i][j];
       ---
       let A_i_k = A[i][k];
