@@ -1,8 +1,21 @@
 import textwrap
+import math
 
 # Global constant for the current bitwidth.
 BITWIDTH = 32
 PE_NAME = 'mac_pe'
+
+# Naming scheme for generated groups. Used to keep group names consistent
+# across structure and control.
+NAME_SCHEME = {
+    'index name': '{prefix}_idx',
+    'index init': '{prefix}_idx_init',
+    'index update': '{prefix}_idx_update',
+    'memory move': '{prefix}_move'
+}
+
+def create_adder(name, width):
+    return f'{name} = prim std_add({width});'
 
 
 def create_register(name, width):
@@ -10,15 +23,92 @@ def create_register(name, width):
 
 
 def create_memory(name, bitwidth, size):
+    """
+    Defines a 1D memory.
+    Returns (cells, idx_size)
+    """
     idx_width = math.floor(math.log(size, 2)) + 1
-    return f'{name} = prim std_mem_d1({bitwidth}, {size}, {idx_width});'
+    return (
+        f'{name} = prim std_mem_d1({bitwidth}, {size}, {idx_width});',
+        idx_width
+    )
 
-def instantiate_top_memory(idx):
+
+def instantiate_indexor(prefix, width):
     """
-    Instantiate a top memory, its indexor, the indexors update structure,
-    and structure to move data from memory to read registers.
+    Instantiate an indexor for accessing memory with name `prefix`.
+    Generates structure to initialize and update the indexor.
+    Returns (cells, structure)
     """
-    return ""
+    name = NAME_SCHEME['index name'].format(prefix=prefix)
+    add_name = f'{prefix}_add'
+    cells = [
+        create_register(name, width),
+        create_adder(add_name, width),
+    ]
+
+    init_name = NAME_SCHEME['index init'].format(prefix=prefix)
+    init_group = f"""
+        group {init_name} {{
+            {name}.in = {width}'d0;
+            {name}.write_en = 1'd1;
+            {init_name}[done] = {name}.done;
+        }}
+    """
+
+    upd_name = NAME_SCHEME['index update'].format(prefix=prefix)
+    upd_group = f"""
+        group {upd_name} {{
+            {add_name}.left = {width}'d1;
+            {add_name}.right = {name}.out;
+            {name}.in = {add_name}.out;
+            {name}.write_en = 1'd1;
+            {upd_name}[done] = {name}.done;
+        }}
+    """
+
+    return (
+        '\n'.join(cells),
+        (init_group + '\n' + upd_group)
+    )
+
+def instantiate_memory(top_or_left, idx, size):
+    """
+    Instantiates:
+    - top memory
+    - structure to move data from memory to read registers.
+
+    Returns (cells, structure) tuple.
+    """
+    if top_or_left == 'top':
+        name = f't{idx}'
+        target_reg = f'top_0{idx}_read'
+    elif top_or_left == 'left':
+        name = f'l{idx}'
+        target_reg = f'left_{idx}0_read'
+    else:
+        raise f'Invalid top_or_left: {top_or_left}'
+
+    name = f'{name}'
+    idx_name = NAME_SCHEME["index name"].format(prefix=name)
+    group_name = NAME_SCHEME['memory move'].format(prefix=name)
+    structure = f"""
+    group {group_name} {{
+        {name}.addr0 = {idx_name}.out;
+        {target_reg}.in = {name}.read_data;
+        {target_reg}.write_en = 1'd1;
+        {group_name}[done] = {target_reg}.done;
+    }}"""
+
+    # Instantiate the memory
+    (cell, idx_width) = create_memory(f'{name}', BITWIDTH, size)
+    # Instantiate the indexor
+    (idx_cells, idx_structure) = instantiate_indexor(name, idx_width)
+    return (
+        idx_cells + '\n' + cell,
+        idx_structure + '\n' + structure
+    )
+
 
 def instantiate_pe(row, col, right_edge=False, down_edge=False):
     """
@@ -31,7 +121,7 @@ def instantiate_pe(row, col, right_edge=False, down_edge=False):
     cells = [
         f'{pe} = {PE_NAME};',
         create_register(f'top_{row}{col}_read', BITWIDTH),
-        create_register(f'lef_{row}{col}_read', BITWIDTH),
+        create_register(f'left_{row}{col}_read', BITWIDTH),
     ]
     if not right_edge:
         cells.append(create_register(f'right_{row}{col}_write', BITWIDTH))
@@ -40,8 +130,8 @@ def instantiate_pe(row, col, right_edge=False, down_edge=False):
 
     structure_stmts = f"""
             {pe}.go = !{pe}.done ? 1'd1;
-            {pe}.top = top_{row}{col}_read;
-            {pe}.left = left_{row}{col}_read;"""
+            {pe}.top = top_{row}{col}_read.out;
+            {pe}.left = left_{row}{col}_read.out;"""
 
     # Ports guarding the done condition for this group.
     done_guards = []
@@ -102,6 +192,12 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
     wires = []
     control = []
 
+    # Instantiate all the memories
+    for r in range(top_length):
+        (c, s) = instantiate_memory('top', r, top_depth)
+        cells.append(c)
+        wires.append(s)
+
     # Instantiate all the PEs
     for r in range(left_length):
         for c in range(top_length):
@@ -113,8 +209,15 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
     cells_str = '\n'.join(cells)
     wires_str = '\n'.join(wires)
     control_str = '\n'.join(control)
+
+
     return textwrap.dedent(f"""
     import "primitives/std.lib";
+    component {PE_NAME}(top: {BITWIDTH}, left: {BITWIDTH}) -> (down: {BITWIDTH}, right: {BITWIDTH}) {{
+        cells {{}}
+        wires {{}}
+        control {{}}
+    }}
     component main() -> () {{
         cells {{
             {textwrap.indent(cells_str, " "*10)}
