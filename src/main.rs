@@ -82,11 +82,7 @@ fn construct_pass_manager() -> Result<PassManager> {
         ]
     );
 
-    register_alias!(
-        pm,
-        "none",
-        []
-    );
+    register_alias!(pm, "none", []);
 
     Ok(pm)
 }
