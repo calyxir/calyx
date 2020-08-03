@@ -13,6 +13,7 @@ NAME_SCHEME = {
     'index init': '{prefix}_idx_init',
     'index update': '{prefix}_idx_update',
     'memory move': '{prefix}_move',
+    'pe compute': 'pe_{row}{col}_compute',
     'register move down': '{pe}_down_move',
     'register move right': '{pe}_right_move',
 }
@@ -120,7 +121,7 @@ def instantiate_pe(row, col, right_edge=False, down_edge=False):
     """
     # Add all the required cells.
     pe = f'pe_{row}{col}'
-    group = f'{pe}_compute'
+    group = NAME_SCHEME['pe compute'].format(row=row, col=col)
     cells = [
         f'{pe} = {PE_NAME};',
         create_register(f'top_{row}{col}_read', BITWIDTH),
@@ -293,12 +294,14 @@ def index_update_at(row, col):
     Returns the name of the group that is abstractly at the location (row, col)
     in the "col data mover" matrix.
     """
+    updates = []
     if row == 0:
-        return NAME_SCHEME['index update'].format(prefix=f't{col}')
-    elif col == 0:
-        return NAME_SCHEME['index update'].format(prefix=f'l{row}')
-    else:
-        raise f'No index update at ({row}, {col})'
+        updates.append(NAME_SCHEME['index update'].format(prefix=f't{col}'))
+
+    if col == 0:
+        updates.append(NAME_SCHEME['index update'].format(prefix=f'l{row}'))
+
+    return updates
 
 
 def generate_control(top_length, top_depth, left_length, left_depth):
@@ -340,12 +343,15 @@ def generate_control(top_length, top_depth, left_length, left_depth):
         if idx < len(sch) - 1:
             next_elements = sch[idx+1]
             upd_memory = [
-                index_update_at(r, c)
+                upd
                 for (r, c) in next_elements if (r == 0 or c == 0)
+                for upd in index_update_at(r, c)
             ]
             more_control += upd_memory
         # Enable the PEs
-        more_control += [f'pe_{r}{c}' for (r, c) in elements]
+        more_control += [
+            NAME_SCHEME['pe compute'].format(row=r, col=c) for (r, c) in elements
+        ]
 
         more_control_str = textwrap.indent(textwrap.dedent(f'''
         par {{
@@ -426,4 +432,5 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
 
 
 if __name__ == '__main__':
-    print(create_systolic_array(2, 2, 2, 2))
+    out = create_systolic_array(1, 2, 1, 2)
+    print(out)
