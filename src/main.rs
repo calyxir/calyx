@@ -19,11 +19,11 @@ use passes::{
     go_insertion::GoInsertion,
     inliner::Inliner,
     merge_assign::MergeAssign,
+    papercut::Papercut,
     remove_external_memories::RemoveExternalMemories,
     static_timing::StaticTiming,
     visitor::{Named, Visitor},
     well_formed::WellFormed,
-    papercut::Papercut,
 };
 use std::io::stdin;
 use structopt::StructOpt;
