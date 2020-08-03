@@ -338,9 +338,12 @@ impl Visitor for CompileControl {
         let par_group_idx = st.insert_group(&par_group, HashMap::new())?;
         let mut par_group_done: Vec<GuardExpr> =
             Vec::with_capacity(s.stmts.len());
+        let mut par_done_regs = Vec::with_capacity(s.stmts.len());
 
         structure!(st, &ctx,
             let signal_on = constant(1, 1);
+            let signal_off = constant(0, 1);
+            let par_reset = prim std_reg(1);
         );
 
         for con in s.stmts.iter() {
@@ -366,6 +369,7 @@ impl Visitor for CompileControl {
                         par_done_reg["write_en"] = group_done ? (signal_on.clone());
                     );
 
+                    par_done_regs.push(par_done_reg);
                     // Add this group's done signal to parent's
                     // done signal.
                     par_group_done.push(guard!(st; par_done_reg["out"]));
@@ -381,9 +385,24 @@ impl Visitor for CompileControl {
 
         // Hook up parent's done signal to all children.
         let par_done = GuardExpr::and_vec(par_group_done);
+        let par_reset_out = guard!(st; par_reset["out"]);
         add_wires!(st, Some(par_group.clone()),
-            par_group_idx["done"] = par_done ? (signal_on);
+            par_reset["in"] = par_done ? (signal_on.clone());
+            par_reset["write_en"] = par_done ? (signal_on.clone());
+            par_group_idx["done"] = par_reset_out ? (signal_on.clone());
         );
+
+        // reset wires
+        add_wires!(st, None,
+            par_reset["in"] = par_reset_out ? (signal_off.clone());
+            par_reset["write_en"] = par_reset_out ? (signal_on.clone());
+        );
+        for par_done_reg in par_done_regs {
+            add_wires!(st, None,
+                       par_done_reg["in"] = par_reset_out ? (signal_off.clone());
+                       par_done_reg["write_en"] = par_reset_out ? (signal_on.clone());
+            );
+        }
 
         let new_control = Control::Enable {
             data: Enable { comp: par_group },

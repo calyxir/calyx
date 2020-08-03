@@ -44,6 +44,11 @@ module main (
   wire y_clk;
   wire [31:0] y_out;
   wire y_done;
+  wire par_reset0_in;
+  wire par_reset0_write_en;
+  wire par_reset0_clk;
+  wire par_reset0_out;
+  wire par_reset0_done;
   wire par_done_reg0_in;
   wire par_done_reg0_write_en;
   wire par_done_reg0_clk;
@@ -80,6 +85,14 @@ module main (
       .done(y_done)
   );
   
+  std_reg #(1) par_reset0 (
+      .in(par_reset0_in),
+      .write_en(par_reset0_write_en),
+      .clk(clk),
+      .out(par_reset0_out),
+      .done(par_reset0_done)
+  );
+  
   std_reg #(1) par_done_reg0 (
       .in(par_done_reg0_in),
       .write_en(par_done_reg0_write_en),
@@ -110,13 +123,15 @@ module main (
   end
   
   // Input / output connections
-  assign done = (par_done_reg0_out & par_done_reg1_out) ? 1'd1 : '0;
+  assign done = par_reset0_out ? 1'd1 : '0;
   assign x_in = (!(par_done_reg0_out | x_done) & go) ? const0_out : '0;
   assign x_write_en = (!(par_done_reg0_out | x_done) & go) ? 1'd1 : '0;
   assign y_in = (!(par_done_reg1_out | y_done) & go) ? const1_out : '0;
   assign y_write_en = (!(par_done_reg1_out | y_done) & go) ? 1'd1 : '0;
-  assign par_done_reg0_in = (x_done & go) ? 1'd1 : '0;
-  assign par_done_reg0_write_en = (x_done & go) ? 1'd1 : '0;
-  assign par_done_reg1_in = (y_done & go) ? 1'd1 : '0;
-  assign par_done_reg1_write_en = (y_done & go) ? 1'd1 : '0;
+  assign par_reset0_in = par_reset0_out ? 1'd0 : (par_done_reg0_out & par_done_reg1_out & go) ? 1'd1 : '0;
+  assign par_reset0_write_en = (par_done_reg0_out & par_done_reg1_out & go | par_reset0_out) ? 1'd1 : '0;
+  assign par_done_reg0_in = par_reset0_out ? 1'd0 : (x_done & go) ? 1'd1 : '0;
+  assign par_done_reg0_write_en = (x_done & go | par_reset0_out) ? 1'd1 : '0;
+  assign par_done_reg1_in = par_reset0_out ? 1'd0 : (y_done & go) ? 1'd1 : '0;
+  assign par_done_reg1_write_en = (y_done & go | par_reset0_out) ? 1'd1 : '0;
 endmodule // end main
