@@ -13,8 +13,8 @@ component main() -> () {
     }
     group upd0<"static"=1> {
       x0.write_en = 1'd1;
-      x0.in = const1.out;
-      upd0[done] = x0.done;
+      x0.in = 1'd1 ? const1.out;
+      upd0[done] = x0.done ? 1'd1;
     }
   }
   control {

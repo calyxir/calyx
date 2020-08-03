@@ -23,23 +23,23 @@ component main() -> () {
     }
     group upd0<"static"=1> {
       x0.write_en = 1'd1;
-      x0.in = const1.out;
-      upd0[done] = x0.done;
+      x0.in = 1'd1 ? const1.out;
+      upd0[done] = x0.done ? 1'd1;
     }
     group upd1<"static"=1> {
       x0.write_en = 1'd1;
-      x0.in = const2.out;
-      upd1[done] = x0.done;
+      x0.in = 1'd1 ? const2.out;
+      upd1[done] = x0.done ? 1'd1;
     }
     group upd2<"static"=1> {
       x0.write_en = 1'd1;
-      x0.in = const4.out;
-      upd2[done] = x0.done;
+      x0.in = 1'd1 ? const4.out;
+      upd2[done] = x0.done ? 1'd1;
     }
     group upd3<"static"=1> {
       x0.write_en = 1'd1;
-      x0.in = const5.out;
-      upd3[done] = x0.done;
+      x0.in = 1'd1 ? const5.out;
+      upd3[done] = x0.done ? 1'd1;
     }
   }
   control {

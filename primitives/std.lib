@@ -423,3 +423,104 @@ primitive std_le[p_width](left: p_width, right: p_width) -> (out: 1) {
     endmodule
   }
 }
+
+// XXX(sam): parameterize input and output width
+primitive std_sqrt(in: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
+  verilog {
+    module std_sqrt
+      (input logic [31:0]  in,
+       input logic         go,
+       input logic         clk,
+       output logic [31:0] out,
+       output logic        done);
+      // declare the variables
+      reg [31:0] a;
+      reg [15:0] q;
+      reg [17:0] left,right,r;
+      integer i;
+
+      always_ff @(posedge clk) begin
+        // initialize all the variables.
+        a = in;
+        q = 0;
+        i = 0;
+        left = 0;   // input to adder/sub
+        right = 0;  // input to adder/sub
+        r = 0;      // remainder
+
+        // run the calculations for 16 iterations.
+        for(i=0;i<16;i=i+1) begin
+            right = {q,r[17],1'b1};
+            left = {r[15:0],a[31:30]};
+            a = {a[29:0],2'b00};    //left shift by 2 bits.
+            if (r[17] == 1) //add if r is negative
+                r = left + right;
+            else    //subtract if r is positive
+                r = left - right;
+            q = {q[14:0],!r[17]};
+        end
+        out = {16'd0,q};   //final assignment of output.
+      end
+
+      always_ff @(posedge clk) begin
+        if (go) begin
+          done <= 1'd1;
+        end else
+          done <= 1'd0;
+      end
+    endmodule
+  }
+}
+
+primitive std_start_fsm(valid: 1, reset: 1, clk: 1) -> (out: 1) {
+  verilog {
+    module std_start_fsm
+     (input logic  valid,
+      input logic  reset,
+      input logic  clk,
+      // outputs
+      output logic out);
+
+      logic        state;
+      always_ff @(posedge clk) begin
+      if (reset) begin
+        out <= 1'b0;
+        state <= 1'b0;
+      end else
+        case ({valid, state})
+          2'b00: out <= 1'b0;
+          2'b10: begin
+            state <= 1'b1;
+            out <= 1'b1;
+          end
+          2'b01: out <= 1'b0;
+          2'b11: out <= 1'b0;
+        endcase
+      end
+    endmodule
+  }
+}
+
+primitive std_fsm_state(in: 1, reset: 1, clk: 1) -> (out: 1) {
+ verilog {
+    module std_fsm_state
+      (input logic  in,
+       input logic  reset,
+       input logic  clk,
+       // outputs
+       output logic out);
+
+      logic        state;
+
+      always_ff @(posedge clk) begin
+        if (reset) state <= 1'b0;
+        else begin
+          state <= in;
+        end
+      end
+
+      always_comb
+        out = state;
+    endmodule
+  }
+}

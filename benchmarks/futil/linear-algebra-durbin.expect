@@ -118,8 +118,8 @@ component main() -> () {
     group upd0<"static"=1> {
       y.addr0 = const3.out;
       y.write_en = 1'd1;
-      y.write_data = alpha0.out;
-      upd0[done] = y.done;
+      y.write_data = 1'd1 ? alpha0.out;
+      upd0[done] = y.done ? 1'd1;
     }
     group upd1<"static"=1> {
       beta0.write_en = 1'd1;
@@ -129,35 +129,35 @@ component main() -> () {
       sub1.right = mult0.out;
       mult0.left = alpha0.out;
       mult0.right = alpha0.out;
-      beta0.in = mult1.out;
-      upd1[done] = beta0.done;
+      beta0.in = 1'd1 ? mult1.out;
+      upd1[done] = beta0.done ? 1'd1;
     }
     group upd10<"static"=1> {
       y.addr0 = i0.out;
       y.write_en = 1'd1;
       z.addr0 = i0.out;
-      y.write_data = z.read_data;
-      upd10[done] = y.done;
+      y.write_data = 1'd1 ? z.read_data;
+      upd10[done] = y.done ? 1'd1;
     }
     group upd11<"static"=1> {
       i0.write_en = 1'd1;
       add5.left = i0.out;
       add5.right = const18.out;
-      i0.in = add5.out;
-      upd11[done] = i0.done;
+      i0.in = 1'd1 ? add5.out;
+      upd11[done] = i0.done ? 1'd1;
     }
     group upd12<"static"=1> {
       y.addr0 = k0.out;
       y.write_en = 1'd1;
-      y.write_data = alpha0.out;
-      upd12[done] = y.done;
+      y.write_data = 1'd1 ? alpha0.out;
+      upd12[done] = y.done ? 1'd1;
     }
     group upd13<"static"=1> {
       k0.write_en = 1'd1;
       add6.left = k0.out;
       add6.right = const19.out;
-      k0.in = add6.out;
-      upd13[done] = k0.done;
+      k0.in = 1'd1 ? add6.out;
+      upd13[done] = k0.done ? 1'd1;
     }
     group upd2<"static"=1> {
       sum0.write_en = 1'd1;
@@ -171,15 +171,15 @@ component main() -> () {
       sub2.left = k0.out;
       sub2.right = i0.out;
       y.addr0 = i0.out;
-      sum0.in = add0.out;
-      upd2[done] = sum0.done;
+      sum0.in = 1'd1 ? add0.out;
+      upd2[done] = sum0.done ? 1'd1;
     }
     group upd3<"static"=1> {
       i0.write_en = 1'd1;
       add1.left = i0.out;
       add1.right = const10.out;
-      i0.in = add1.out;
-      upd3[done] = i0.done;
+      i0.in = 1'd1 ? add1.out;
+      upd3[done] = i0.done ? 1'd1;
     }
     group upd4<"static"=1> {
       alpha0.write_en = 1'd1;
@@ -190,18 +190,18 @@ component main() -> () {
       add2.left = r.read_data;
       add2.right = sum0.out;
       r.addr0 = k0.out;
-      alpha0.in = sub4.out;
-      upd4[done] = alpha0.done;
+      alpha0.in = 1'd1 ? sub4.out;
+      upd4[done] = alpha0.done ? 1'd1;
     }
     group upd5<"static"=1> {
       alpha0.write_en = 1'd1;
-      alpha0.in = const13.out;
-      upd5[done] = alpha0.done;
+      alpha0.in = 1'd1 ? const13.out;
+      upd5[done] = alpha0.done ? 1'd1;
     }
     group upd6<"static"=1> {
       i0.write_en = 1'd1;
-      i0.in = const14.out;
-      upd6[done] = i0.done;
+      i0.in = 1'd1 ? const14.out;
+      upd6[done] = i0.done ? 1'd1;
     }
     group upd7<"static"=1> {
       z.addr0 = i0.out;
@@ -215,20 +215,20 @@ component main() -> () {
       sub6.right = const15.out;
       sub5.left = k0.out;
       sub5.right = i0.out;
-      z.write_data = add3.out;
-      upd7[done] = z.done;
+      z.write_data = 1'd1 ? add3.out;
+      upd7[done] = z.done ? 1'd1;
     }
     group upd8<"static"=1> {
       i0.write_en = 1'd1;
       add4.left = i0.out;
       add4.right = const16.out;
-      i0.in = add4.out;
-      upd8[done] = i0.done;
+      i0.in = 1'd1 ? add4.out;
+      upd8[done] = i0.done ? 1'd1;
     }
     group upd9<"static"=1> {
       i0.write_en = 1'd1;
-      i0.in = const17.out;
-      upd9[done] = i0.done;
+      i0.in = 1'd1 ? const17.out;
+      upd9[done] = i0.done ? 1'd1;
     }
   }
   control {

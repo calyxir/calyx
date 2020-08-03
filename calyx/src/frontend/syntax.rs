@@ -24,14 +24,16 @@ const _GRAMMAR: &str = include_str!("futil_syntax.pest");
 lazy_static::lazy_static! {
     static ref PRECCLIMBER: PrecClimber<Rule> = PrecClimber::new(
         vec![
-            Operator::new(Rule::guard_eq, Assoc::Left),
-            Operator::new(Rule::guard_neq, Assoc::Left),
+            // loosest binding
+            Operator::new(Rule::guard_or, Assoc::Left),
+            Operator::new(Rule::guard_and, Assoc::Left),
             Operator::new(Rule::guard_leq, Assoc::Left),
             Operator::new(Rule::guard_geq, Assoc::Left),
             Operator::new(Rule::guard_lt, Assoc::Left),
             Operator::new(Rule::guard_gt, Assoc::Left),
-            Operator::new(Rule::guard_or, Assoc::Left),
-            Operator::new(Rule::guard_and, Assoc::Left)
+            Operator::new(Rule::guard_eq, Assoc::Left),
+            Operator::new(Rule::guard_neq, Assoc::Left),
+            // tighest binding
         ]
     );
 }
@@ -276,15 +278,6 @@ impl FutilParser {
         Ok(())
     }
 
-    fn term(input: Node) -> ParseResult<ast::GuardExpr> {
-        Ok(match_nodes!(
-            input.into_children();
-            [expr(e)] => ast::GuardExpr::Atom(e),
-            [guard_expr(guard)] => guard,
-            [guard_not(_), guard_expr(e)] => ast::GuardExpr::Not(Box::new(e))
-        ))
-    }
-
     #[prec_climb(term, PRECCLIMBER)]
     fn guard_expr(
         l: ast::GuardExpr,
@@ -305,10 +298,22 @@ impl FutilParser {
             Rule::guard_lt => Ok(ast::GuardExpr::Lt(Box::new(l), Box::new(r))),
             Rule::guard_gt => Ok(ast::GuardExpr::Gt(Box::new(l), Box::new(r))),
             Rule::guard_or => Ok(ast::GuardExpr::Or(vec![l, r])),
-            Rule::guard_and => Ok(ast::GuardExpr::And(vec![l, r])),
+            Rule::guard_and => {
+                Ok(ast::GuardExpr::And(vec![l, r]))
+            },
             _ => unreachable!(),
         }
     }
+
+    fn term(input: Node) -> ParseResult<ast::GuardExpr> {
+        Ok(match_nodes!(
+            input.into_children();
+            [guard_expr(guard)] => guard,
+            [expr(e)] => ast::GuardExpr::Atom(e),
+            [guard_not(_), guard_expr(e)] => ast::GuardExpr::Not(Box::new(e))
+        ))
+    }
+
 
     fn switch_stmt(input: Node) -> ParseResult<ast::Guard> {
         Ok(match_nodes!(

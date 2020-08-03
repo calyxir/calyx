@@ -67,8 +67,72 @@ impl Visitor for StaticTiming {
             let maybe_body_time =
                 st.groups[&Some(data.comp.clone())].0.get("static");
 
+            // The group is statically compilable with combinational condition.
+            if let (Some(&0), Some(&btime)) = (maybe_cond_time, maybe_body_time) {
+                let cond_group = st.get_node_by_name(&s.cond)?;
+                let body_group = st.get_node_by_name(&data.comp)?;
+
+                let while_group: ast::Id =
+                    st.namegen.gen_name("static_while_comb").into();
+                let while_group_node =
+                    st.insert_group(&while_group, HashMap::new())?;
+
+                let fsm_size = 32;
+                structure!(st, &ctx,
+                    let fsm = prim std_reg(fsm_size);
+                    let fsm_reset_val = constant(0, fsm_size);
+                    let fsm_one = constant(1, fsm_size);
+                    let incr = prim std_add(fsm_size);
+
+                    let signal_on = constant(1, 1);
+
+                    let body_end_const = constant(btime, fsm_size);
+                );
+
+                let cond_val = st.to_guard(s.port.get_edge(st)?);
+
+                let body_done = guard!(st; fsm["out"])
+                    .eq(st.to_guard(body_end_const.clone()));
+                // Should we increment the FSM this cycle.
+                let fsm_incr = !body_done.clone();
+
+                let body_go = cond_val.clone() & guard!(st; fsm["out"]).lt(st.to_guard(body_end_const));
+
+                let done = guard!(st; fsm["out"])
+                    .eq(st.to_guard(fsm_reset_val.clone()))
+                    & !cond_val;
+
+                add_wires!(st, Some(while_group.clone()),
+                    // Increment the FSM when needed
+                    incr["left"] = (fsm["out"]);
+                    incr["right"] = (fsm_one);
+                    fsm["in"] = fsm_incr ? (incr["out"]);
+                    fsm["write_en"] = fsm_incr ? (signal_on.clone());
+
+                    // Compute the cond group and save the result
+                    cond_group["go"] = (signal_on.clone());
+
+                    // Compute the body
+                    body_group["go"] = body_go ? (signal_on.clone());
+
+                    // Reset the FSM when the body is done.
+                    fsm["in"] = body_done ? (fsm_reset_val.clone());
+                    fsm["write_en"] = body_done ? (signal_on.clone());
+
+                    // This group is done when cond is false.
+                    while_group_node["done"] = done ? (signal_on.clone());
+                );
+
+                // CLEANUP: Reset the FSM state.
+                add_wires!(st, None,
+                    fsm["in"] = done ? (fsm_reset_val);
+                    fsm["write_en"] = done ? (signal_on);
+                );
+
+                return Ok(Action::Change(Control::enable(while_group)));
+            }
             // The group is statically compilable.
-            if let (Some(&ctime), Some(&btime)) =
+            else if let (Some(&ctime), Some(&btime)) =
                 (maybe_cond_time, maybe_body_time)
             {
                 let cond_group = st.get_node_by_name(&s.cond)?;
@@ -90,13 +154,13 @@ impl Visitor for StaticTiming {
                     let signal_on = constant(1, 1);
 
                     let cond_time_const = constant(ctime, fsm_size);
-                    let cond_end_const = constant(ctime - 1, fsm_size);
-                    let body_end_const = constant(ctime + btime , fsm_size);
+                    // let cond_end_const = constant(ctime - 1, fsm_size);
+                    let body_end_const = constant(ctime + btime, fsm_size);
                 );
 
                 // Cond is computed on this cycle.
                 let cond_computed =
-                    guard!(st; fsm["out"]).eq(st.to_guard(cond_end_const));
+                    guard!(st; fsm["out"]).lt(st.to_guard(cond_time_const.clone()));
 
                 let body_done = guard!(st; fsm["out"])
                     .eq(st.to_guard(body_end_const.clone()));

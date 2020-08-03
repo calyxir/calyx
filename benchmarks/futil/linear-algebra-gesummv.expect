@@ -77,14 +77,14 @@ component main() -> () {
     group upd0<"static"=1> {
       tmp.addr0 = i0.out;
       tmp.write_en = 1'd1;
-      tmp.write_data = const2.out;
-      upd0[done] = tmp.done;
+      tmp.write_data = 1'd1 ? const2.out;
+      upd0[done] = tmp.done ? 1'd1;
     }
     group upd1<"static"=1> {
       y.addr0 = i0.out;
       y.write_en = 1'd1;
-      y.write_data = const3.out;
-      upd1[done] = y.done;
+      y.write_data = 1'd1 ? const3.out;
+      upd1[done] = y.done ? 1'd1;
     }
     group upd2<"static"=1> {
       tmp.addr0 = i0.out;
@@ -96,8 +96,8 @@ component main() -> () {
       A.addr1 = j0.out;
       A.addr0 = i0.out;
       x.addr0 = j0.out;
-      tmp.write_data = add0.out;
-      upd2[done] = tmp.done;
+      tmp.write_data = 1'd1 ? add0.out;
+      upd2[done] = tmp.done ? 1'd1;
     }
     group upd3<"static"=1> {
       y.addr0 = i0.out;
@@ -109,15 +109,15 @@ component main() -> () {
       B.addr1 = j0.out;
       B.addr0 = i0.out;
       x.addr0 = j0.out;
-      y.write_data = add1.out;
-      upd3[done] = y.done;
+      y.write_data = 1'd1 ? add1.out;
+      upd3[done] = y.done ? 1'd1;
     }
     group upd4<"static"=1> {
       j0.write_en = 1'd1;
       add2.left = j0.out;
       add2.right = const6.out;
-      j0.in = add2.out;
-      upd4[done] = j0.done;
+      j0.in = 1'd1 ? add2.out;
+      upd4[done] = j0.done ? 1'd1;
     }
     group upd5<"static"=1> {
       y.addr0 = i0.out;
@@ -131,15 +131,15 @@ component main() -> () {
       mult3.left = beta.read_data;
       mult3.right = y_i1.out;
       beta.addr0 = const8.out;
-      y.write_data = add3.out;
-      upd5[done] = y.done;
+      y.write_data = 1'd1 ? add3.out;
+      upd5[done] = y.done ? 1'd1;
     }
     group upd6<"static"=1> {
       i0.write_en = 1'd1;
       add4.left = i0.out;
       add4.right = const9.out;
-      i0.in = add4.out;
-      upd6[done] = i0.done;
+      i0.in = 1'd1 ? add4.out;
+      upd6[done] = i0.done ? 1'd1;
     }
   }
   control {

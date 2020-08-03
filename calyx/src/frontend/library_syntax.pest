@@ -52,7 +52,7 @@ io_ports = {
 }
 
 inner = _{
-      ("{" ~ PUSH((!"}" ~ ANY)*) ~ "}")
+      ("{" ~ inner* ~ "}")
     | (!"}" ~ ANY ~ inner*)
 }
 
