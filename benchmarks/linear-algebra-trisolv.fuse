@@ -7,6 +7,7 @@ for (let i: ubit<4> = 0..8) {
   ---
   let j: ubit<4> = (0 as ubit<4>);
   while (j < i) {
+    decor "#pragma HLS loop_tripcount min=0 max=7 avg=4"
     let x_j: ubit<32> = x[j];
     ---
     x[i] := L[i][j] * x_j;

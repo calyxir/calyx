@@ -72,9 +72,6 @@ mkdir -p "$result_dir"
 cp $workdir/futil/FutilBuild.runs/synth_1/main_utilization_synth.rpt "$result_dir/"
 cp $workdir/futil/FutilBuild.runs/impl_1/main_utilization_placed.rpt "$result_dir/"
 cp $workdir/hls/solution1/syn/report/kernel_csynth.rpt "$result_dir/"
+cp $workdir/hls/solution1/solution1_data.json "$result_dir/"
 
-# extract data into json files
-$script_dir/extract.py futil "$result_dir"/main_utilization_placed.rpt \
-                       > "$result_dir"/futil.json
-$script_dir/extract.py hls "$result_dir"/kernel_csynth.rpt \
-                       > "$result_dir"/hls.json
+$script_dir/extract.py "$result_dir" > "$result_dir/data.json"

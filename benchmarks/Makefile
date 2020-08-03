@@ -14,20 +14,20 @@ status:
 	@grep "success" *.run | cut -f 1 -d ':' | cut -f 1 -d '.' | sed -e 's/^/ - /;'
 
 %.cpp: %.fuse
-	../bin/find-dahlia run $< -o $@
+	../bin/find-dahlia run $< -o $@ -l error
 	@if [ ! -f _headers/json.hpp ]; then wget $(JSON_URL) --directory-prefix _headers; fi
 	rm -f $@.o # remove extraneously generated file
 
 %.cpp.o: %.fuse
-	../bin/find-dahlia run $< -o $*.cpp
+	../bin/find-dahlia run $< -o $*.cpp -l error
 	@if [ ! -f _headers/json.hpp ]; then wget $(JSON_URL) --directory-prefix _headers; fi
 	rm -f $*.cpp # remove extraneously generated file
 
 %.dahlia-out: %.cpp.o
-	./$< $*.data | jq -S . > $@
+	./$< data/$*.data | jq -S . > $@
 
 %.futil: %.fuse
-	../bin/find-dahlia $< --lower -b futil > $@
+	../bin/find-dahlia $< --lower -b futil -l error > $@
 
 %.sv: %.futil
 	cargo run -- $< -l .. -b verilog --verilator > $@
