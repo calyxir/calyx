@@ -1,4 +1,3 @@
-import "primitives/std.lib";
 
 // A MAC pipelined MAC that performs an add in the first cycle and multiply
 // in the next. It immediately (combinationally) forwards the left signal to

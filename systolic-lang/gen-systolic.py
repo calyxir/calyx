@@ -5,6 +5,43 @@ import numpy as np
 # Global constant for the current bitwidth.
 BITWIDTH = 32
 PE_NAME = 'mac_pe'
+PE_DEF = """
+component mac_pe(top: 32, left: 32) -> (down: 32, right: 32) {
+  cells {
+    // Storage
+    acc = prim std_reg(32);
+    mul_reg = prim std_reg(32);
+    // Computation
+    add = prim std_add(32);
+    mul = prim std_mult(32);
+  }
+
+  wires {
+
+    group do_mul {
+      mul.left = top;
+      mul.right = left;
+      mul_reg.in = mul.out;
+      mul_reg.write_en = 1'd1;
+      do_mul[done] = mul_reg.done;
+    }
+
+    group do_add {
+      add.left = acc.out;
+      add.right = mul_reg.out;
+      acc.in = add.out;
+      acc.write_en = 1'd1;
+      do_add[done] = acc.done;
+    }
+
+    down = top;
+    right = left;
+  }
+
+  control {
+    seq { do_mul; do_add; }
+  }
+}"""
 
 # Naming scheme for generated groups. Used to keep group names consistent
 # across structure and control.
@@ -412,11 +449,7 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
 
     return textwrap.dedent(f"""
     import "primitives/std.lib";
-    component {PE_NAME}(top: {BITWIDTH}, left: {BITWIDTH}) -> (down: {BITWIDTH}, right: {BITWIDTH}) {{
-        cells {{}}
-        wires {{}}
-        control {{}}
-    }}
+    {PE_DEF}
     component main() -> () {{
         cells {{
             {textwrap.indent(cells_str, " "*10)}
@@ -432,5 +465,5 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
 
 
 if __name__ == '__main__':
-    out = create_systolic_array(1, 2, 1, 2)
+    out = create_systolic_array(1, 4, 1, 4)
     print(out)
