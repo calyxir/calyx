@@ -29,7 +29,6 @@ component main() -> () {
     div0 = prim std_div(32);
     i0 = prim std_reg(4);
     j0 = prim std_reg(4);
-    j20 = prim std_reg(4);
     k0 = prim std_reg(4);
     k1 = prim std_reg(4);
     le0 = prim std_le(4);
@@ -79,23 +78,16 @@ component main() -> () {
       let1[done] = j0.done;
     }
     group let10<"static"=1> {
-      A_i_j2.in = A.read_data;
-      A_i_j2.write_en = 1'd1;
-      let10[done] = A_i_j2.done;
-      A.addr1 = j0.out;
-      A.addr0 = i0.out;
-    }
-    group let11<"static"=1> {
       A_i_k1.in = A.read_data;
       A_i_k1.write_en = 1'd1;
-      let11[done] = A_i_k1.done;
+      let10[done] = A_i_k1.done;
       A.addr1 = k1.out;
       A.addr0 = i0.out;
     }
-    group let12<"static"=1> {
+    group let11<"static"=1> {
       A_k_j1.in = A.read_data;
       A_k_j1.write_en = 1'd1;
-      let12[done] = A_k_j1.done;
+      let11[done] = A_k_j1.done;
       A.addr1 = j0.out;
       A.addr0 = k1.out;
     }
@@ -140,14 +132,16 @@ component main() -> () {
       A.addr0 = j0.out;
     }
     group let8<"static"=1> {
-      j20.in = i0.out;
-      j20.write_en = 1'd1;
-      let8[done] = j20.done;
-    }
-    group let9<"static"=1> {
       k1.in = const7.out;
       k1.write_en = 1'd1;
-      let9[done] = k1.done;
+      let8[done] = k1.done;
+    }
+    group let9<"static"=1> {
+      A_i_j2.in = A.read_data;
+      A_i_j2.write_en = 1'd1;
+      let9[done] = A_i_j2.done;
+      A.addr1 = j0.out;
+      A.addr0 = i0.out;
     }
     group upd0<"static"=1> {
       A.addr1 = j0.out;
@@ -184,6 +178,11 @@ component main() -> () {
       upd3[done] = j0.done;
     }
     group upd4<"static"=1> {
+      j0.write_en = 1'd1;
+      j0.in = i0.out;
+      upd4[done] = j0.done;
+    }
+    group upd5<"static"=1> {
       A.addr1 = j0.out;
       A.addr0 = i0.out;
       A.write_en = 1'd1;
@@ -192,28 +191,28 @@ component main() -> () {
       mult1.left = A_i_k1.out;
       mult1.right = A_k_j1.out;
       A.write_data = sub1.out;
-      upd4[done] = A.done;
+      upd5[done] = A.done;
     }
-    group upd5<"static"=1> {
+    group upd6<"static"=1> {
       k1.write_en = 1'd1;
       add2.left = k1.out;
       add2.right = const8.out;
       k1.in = add2.out;
-      upd5[done] = k1.done;
+      upd6[done] = k1.done;
     }
-    group upd6<"static"=1> {
+    group upd7<"static"=1> {
       j0.write_en = 1'd1;
       add3.left = j0.out;
       add3.right = const9.out;
       j0.in = add3.out;
-      upd6[done] = j0.done;
+      upd7[done] = j0.done;
     }
-    group upd7<"static"=1> {
+    group upd8<"static"=1> {
       i0.write_en = 1'd1;
       add4.left = i0.out;
       add4.right = const10.out;
       i0.in = add4.out;
-      upd7[done] = i0.done;
+      upd8[done] = i0.done;
     }
   }
   control {
@@ -226,10 +225,16 @@ component main() -> () {
             while lt0.out with cond1 {
               seq {
                 seq {
+                  seq {
+                  }
                   let2;
                   while lt1.out with cond2 {
                     seq {
-                      let3;
+                      seq {
+                        seq {
+                        }
+                        let3;
+                      }
                       let4;
                       let5;
                       seq {
@@ -249,26 +254,32 @@ component main() -> () {
             }
           }
           seq {
-            let8;
+            upd4;
             while lt2.out with cond3 {
               seq {
-                let9;
+                seq {
+                }
+                let8;
                 while lt3.out with cond4 {
                   seq {
+                    seq {
+                      seq {
+                      }
+                      let9;
+                    }
                     let10;
                     let11;
-                    let12;
                     seq {
-                      upd4;
                       upd5;
+                      upd6;
                     }
                   }
                 }
-                upd6;
+                upd7;
               }
             }
           }
-          upd7;
+          upd8;
         }
       }
     }

@@ -193,7 +193,11 @@ component main() -> () {
                   let3;
                   while lt0.out with cond2 {
                     seq {
-                      let4;
+                      seq {
+                        seq {
+                        }
+                        let4;
+                      }
                       upd1;
                       seq {
                         upd2;

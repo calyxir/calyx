@@ -1,3 +1,4 @@
+/* verilator lint_off PINMISSING */
 /* verilator lint_off WIDTH */
 module std_mem_d1
   #(parameter width = 32,
@@ -51,8 +52,13 @@ endmodule
 module std_const
   #(parameter width = 32,
     parameter value = 0)
-   (output logic [width - 1:0] out);
+   (input logic                valid,
+    output logic               ready,
+    output logic [width - 1:0] out,
+    output logic               out_read_out);
   assign out = value;
+  assign ready = valid;
+  assign out_read_out = valid;
 endmodule
 
 module std_le
@@ -97,10 +103,30 @@ module main (
   wire [3:0] add1_left;
   wire [3:0] add1_right;
   wire [3:0] add1_out;
+  wire const0_valid;
   wire [31:0] const0_out;
+  wire const0_out_read_out;
+  wire const0_ready;
+  wire const1_valid;
   wire [3:0] const1_out;
+  wire const1_out_read_out;
+  wire const1_ready;
+  wire const2_valid;
   wire [3:0] const2_out;
-  wire [3:0] const3_out;
+  wire const2_out_read_out;
+  wire const2_ready;
+  wire const3_valid;
+  wire const3_out;
+  wire const3_out_read_out;
+  wire const3_ready;
+  wire const4_valid;
+  wire const4_out;
+  wire const4_out_read_out;
+  wire const4_ready;
+  wire const5_valid;
+  wire [3:0] const5_out;
+  wire const5_out_read_out;
+  wire const5_ready;
   wire [31:0] dot0_in;
   wire dot0_write_en;
   wire dot0_clk;
@@ -117,11 +143,12 @@ module main (
   wire [31:0] mult0_left;
   wire [31:0] mult0_right;
   wire [31:0] mult0_out;
-  wire [31:0] v0_in;
-  wire v0_write_en;
-  wire v0_clk;
-  wire [31:0] v0_out;
-  wire v0_done;
+  wire v_addr0;
+  wire [31:0] v_write_data;
+  wire v_write_en;
+  wire v_clk;
+  wire [31:0] v_read_data;
+  wire v_done;
   wire [31:0] fsm0_in;
   wire fsm0_write_en;
   wire fsm0_clk;
@@ -152,8 +179,6 @@ module main (
   // Subcomponent Instances
   std_mem_d1 #(32, 8, 4) A (
       .addr0(A_addr0),
-      .write_data(A_write_data),
-      .write_en(A_write_en),
       .clk(clk),
       .read_data(A_read_data),
       .done(A_done)
@@ -161,8 +186,6 @@ module main (
   
   std_mem_d1 #(32, 8, 4) B (
       .addr0(B_addr0),
-      .write_data(B_write_data),
-      .write_en(B_write_en),
       .clk(clk),
       .read_data(B_read_data),
       .done(B_done)
@@ -181,19 +204,39 @@ module main (
   );
   
   std_const #(32, 0) const0 (
-      .out(const0_out)
+      .out(const0_out),
+      .out_read_out(const0_out_read_out),
+      .ready(const0_ready)
   );
   
   std_const #(4, 0) const1 (
-      .out(const1_out)
+      .out(const1_out),
+      .out_read_out(const1_out_read_out),
+      .ready(const1_ready)
   );
   
   std_const #(4, 7) const2 (
-      .out(const2_out)
+      .out(const2_out),
+      .out_read_out(const2_out_read_out),
+      .ready(const2_ready)
   );
   
-  std_const #(4, 1) const3 (
-      .out(const3_out)
+  std_const #(1, 0) const3 (
+      .out(const3_out),
+      .out_read_out(const3_out_read_out),
+      .ready(const3_ready)
+  );
+  
+  std_const #(1, 0) const4 (
+      .out(const4_out),
+      .out_read_out(const4_out_read_out),
+      .ready(const4_ready)
+  );
+  
+  std_const #(4, 1) const5 (
+      .out(const5_out),
+      .out_read_out(const5_out_read_out),
+      .ready(const5_ready)
   );
   
   std_reg #(32) dot0 (
@@ -224,12 +267,13 @@ module main (
       .out(mult0_out)
   );
   
-  std_reg #(32) v0 (
-      .in(v0_in),
-      .write_en(v0_write_en),
+  std_mem_d1 #(32, 1, 1) v (
+      .addr0(v_addr0),
+      .write_data(v_write_data),
+      .write_en(v_write_en),
       .clk(clk),
-      .out(v0_out),
-      .done(v0_done)
+      .read_data(v_read_data),
+      .done(v_done)
   );
   
   std_reg #(32) fsm0 (
@@ -284,11 +328,13 @@ module main (
       $fdisplay(2, "DATA (path to meminit files): %s", DATA);
       $readmemh({ DATA, "/A.dat" }, A.mem);
       $readmemh({ DATA, "/B.dat" }, B.mem);
+      $readmemh({ DATA, "/v.dat" }, v.mem);
   end
   
    final begin
       $writememh({ DATA, "/A.out" }, A.mem);
       $writememh({ DATA, "/B.out" }, B.mem);
+      $writememh({ DATA, "/v.out" }, v.mem);
   end
   
   // Input / output connections
@@ -296,9 +342,9 @@ module main (
   assign A_addr0 = (fsm0_out == 32'd0 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? i0_out : '0;
   assign B_addr0 = (fsm0_out == 32'd0 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? i0_out : '0;
   assign add0_left = (fsm0_out == 32'd1 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? dot0_out : '0;
-  assign add0_right = (fsm0_out == 32'd1 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? v0_out : '0;
+  assign add0_right = (fsm0_out == 32'd1 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? v_read_data : '0;
   assign add1_left = (fsm0_out == 32'd2 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? i0_out : '0;
-  assign add1_right = (fsm0_out == 32'd2 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? const3_out : '0;
+  assign add1_right = (fsm0_out == 32'd2 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? const5_out : '0;
   assign dot0_in = (fsm2_out == 32'd0 & !dot0_done & go) ? const0_out : (fsm0_out == 32'd1 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? add0_out : '0;
   assign dot0_write_en = (fsm2_out == 32'd0 & !dot0_done & go | fsm0_out == 32'd1 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? 1'd1 : '0;
   assign i0_in = (fsm2_out == 32'd1 & !i0_done & go) ? const1_out : (fsm0_out == 32'd2 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? add1_out : '0;
@@ -307,8 +353,9 @@ module main (
   assign le0_right = (fsm1_out < 32'd1 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? const2_out : '0;
   assign mult0_left = (fsm0_out == 32'd0 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? A_read_data : '0;
   assign mult0_right = (fsm0_out == 32'd0 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? B_read_data : '0;
-  assign v0_in = (fsm0_out == 32'd0 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? mult0_out : '0;
-  assign v0_write_en = (fsm0_out == 32'd0 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? 1'd1 : '0;
+  assign v_addr0 = (fsm0_out == 32'd1 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? const4_out : (fsm0_out == 32'd0 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? const3_out : '0;
+  assign v_write_data = (fsm0_out == 32'd0 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? mult0_out : '0;
+  assign v_write_en = (fsm0_out == 32'd0 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? 1'd1 : '0;
   assign fsm0_in = (fsm0_out != 32'd3 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? incr0_out : (fsm0_out == 32'd3 & go) ? 32'd0 : '0;
   assign fsm0_write_en = (fsm0_out != 32'd3 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go | fsm0_out == 32'd3 & go) ? 1'd1 : '0;
   assign incr0_left = (cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go) ? 32'd1 : '0;
