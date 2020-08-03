@@ -1,5 +1,7 @@
 use crate::errors::Error;
-use crate::lang::{ast, component::Component, context::Context};
+use crate::lang::{
+    ast, component::Component, context::Context, structure::NodeData,
+};
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 use ast::Enable;
 use std::collections::HashSet;
@@ -42,11 +44,15 @@ impl Visitor for WellFormed {
                 return Err(Error::ReservedName(node.name.clone()));
             }
 
-            if comp.structure.groups.contains_key(&Some(node.name.clone())) {
-                return Err(Error::AlreadyBound(
-                    node.name.clone(),
-                    "group".to_string(),
-                ));
+            // If this is a cell, check for clash with group name.
+            if let NodeData::Cell(_) = &node.data {
+                if comp.structure.groups.contains_key(&Some(node.name.clone()))
+                {
+                    return Err(Error::AlreadyBound(
+                        node.name.clone(),
+                        "group".to_string(),
+                    ));
+                }
             }
         }
         Ok(Action::Continue)

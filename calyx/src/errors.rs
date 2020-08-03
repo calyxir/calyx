@@ -98,16 +98,12 @@ impl std::fmt::Debug for Error {
         use Error::*;
         match self {
             AlreadyBound(name, bound_by) => {
-                write!(
-                    f, "Name already bound by {}: {}", bound_by.to_string(), name.to_string()
-                )
+                let msg = format!("Name already bound by {}", bound_by.to_string());
+                write!(f, "{}", name.fmt_err(&msg))
             }
             ReservedName(name) => {
                 let msg = format!("Use of reserved keyword: {}", name.to_string());
-            write!(
-                f,
-                "{}", name.fmt_err(&msg)
-                )
+                write!(f, "{}", name.fmt_err(&msg))
             }
             UndefinedGroup(name) => {
                 let msg = format!("Use of undefined group: {}", name.to_string());
