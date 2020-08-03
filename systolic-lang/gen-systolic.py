@@ -53,23 +53,21 @@ def instantiate_indexor(prefix, width):
 
     init_name = NAME_SCHEME['index init'].format(prefix=prefix)
     init_group = f"""
-        group {init_name} {{
-            {name}.in = {width}'d0;
-            {name}.write_en = 1'd1;
-            {init_name}[done] = {name}.done;
-        }}
-    """
+    group {init_name} {{
+        {name}.in = {width}'d0;
+        {name}.write_en = 1'd1;
+        {init_name}[done] = {name}.done;
+    }}"""
 
     upd_name = NAME_SCHEME['index update'].format(prefix=prefix)
     upd_group = f"""
-        group {upd_name} {{
-            {add_name}.left = {width}'d1;
-            {add_name}.right = {name}.out;
-            {name}.in = {add_name}.out;
-            {name}.write_en = 1'd1;
-            {upd_name}[done] = {name}.done;
-        }}
-    """
+    group {upd_name} {{
+        {add_name}.left = {width}'d1;
+        {add_name}.right = {name}.out;
+        {name}.in = {add_name}.out;
+        {name}.write_en = 1'd1;
+        {upd_name}[done] = {name}.done;
+    }}"""
 
     return (
         '\n'.join(cells),
@@ -174,6 +172,42 @@ def instantiate_pe(row, col, right_edge=False, down_edge=False):
     return ('\n'.join(cells), textwrap.dedent(structure))
 
 
+def instantiate_data_move(row, col, right_edge, down_edge):
+    """
+    Generates groups for "data movers" which are groups that move data
+    from the `write` register of the PE at (row, col) to the read register
+    of the PEs at (row+1, col) and (row, col+1)
+    """
+    name = f'pe_{row}{col}'
+    structures = []
+
+    if not right_edge:
+        group_name = NAME_SCHEME['register move right'].format(pe=name)
+        src_reg = f'right_{row}{col}_write'
+        dst_reg = f'left_{row}{col+1}_read'
+        mover = textwrap.indent(textwrap.dedent(f'''
+        group {group_name} {{
+            {dst_reg}.in = {src_reg}.out;
+            {dst_reg}.write_en = 1'd1;
+            {group_name}[done] = {dst_reg}.done;
+        }}'''), " " * 4)
+        structures.append(mover)
+
+    if not down_edge:
+        group_name = NAME_SCHEME['register move down'].format(pe=name)
+        src_reg = f'down_{row}{col}_write'
+        dst_reg = f'top_{row+1}{col}_read'
+        mover = textwrap.indent(textwrap.dedent(f'''
+        group {group_name} {{
+            {dst_reg}.in = {src_reg}.out;
+            {dst_reg}.write_en = 1'd1;
+            {group_name}[done] = {dst_reg}.done;
+        }}'''), " "*4)
+        structures.append(mover)
+
+    return '\n'.join(structures)
+
+
 def generate_schedule(top_length, top_depth, left_length, left_depth):
     """
     Generate the *schedule* for each PE and data mover. A schedule is the
@@ -240,7 +274,7 @@ def row_data_mover_at(row, col):
     if row == 0:
         return NAME_SCHEME['memory move'].format(prefix=f't{col}')
     else:
-        return NAME_SCHEME['register move down'].format(pe=f'pe_{row}{col}')
+        return NAME_SCHEME['register move down'].format(pe=f'pe_{row-1}{col}')
 
 
 def col_data_mover_at(row, col):
@@ -251,7 +285,7 @@ def col_data_mover_at(row, col):
     if col == 0:
         return NAME_SCHEME['memory move'].format(prefix=f'l{row}')
     else:
-        return NAME_SCHEME['register move right'].format(pe=f'pe_{row}{col}')
+        return NAME_SCHEME['register move right'].format(pe=f'pe_{row}{col-1}')
 
 
 def index_update_at(row, col):
@@ -315,7 +349,7 @@ def generate_control(top_length, top_depth, left_length, left_depth):
 
         more_control_str = textwrap.indent(textwrap.dedent(f'''
         par {{
-            {"; ". join(more_control)}
+            {"; ". join(more_control)};
         }}'''), " " * 4)
 
         control.append(more_control_str)
@@ -339,7 +373,6 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
 
     cells = []
     wires = []
-    control = []
 
     # Instantiate all the memories
     for r in range(top_length):
@@ -353,16 +386,23 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
         wires.append(s)
 
     # Instantiate all the PEs
-    for r in range(left_length):
-        for c in range(top_length):
+    for row in range(left_length):
+        for col in range(top_length):
+            # Instantiate the PEs
             (c, s) = instantiate_pe(
-                r, c, r == left_length - 1, c == top_length - 1)
+                row, col, col == top_length - 1, row == left_length - 1)
             cells.append(c)
+            wires.append(s)
+
+            # Instantiate the mover fabric
+            s = instantiate_data_move(
+                row, col, col == top_length - 1, row == left_length - 1)
             wires.append(s)
 
     cells_str = '\n'.join(cells)
     wires_str = '\n'.join(wires)
-    control_str = '\n'.join(control)
+    control_str = generate_control(
+        top_length, top_depth, left_length, left_depth)
 
     return textwrap.dedent(f"""
     import "primitives/std.lib";
@@ -379,11 +419,11 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
             {textwrap.indent(wires_str, " "*10)}
         }}
         control {{
-            {control_str}
+            {textwrap.indent(control_str, " "*10)}
         }}
     }}
     """)
 
 
 if __name__ == '__main__':
-    print(generate_control(2, 2, 2, 2))
+    print(create_systolic_array(2, 2, 2, 2))
