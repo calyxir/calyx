@@ -178,18 +178,20 @@ def instantiate_pe(row, col, right_edge=False, down_edge=False):
     done_guards = []
 
     if not right_edge:
-        done_guards.append(f"right_{row}{col}_write.done")
+        dst_reg = f'right_{row}{col}_write'
+        done_guards.append(f"{dst_reg}.done")
         structure_stmts += f"""
 
-            right_{row}{col}_write.in = {pe}.done ? {pe}.right;
-            right_{row}{col}_write.write_en = {pe}.done ? 1'd1;"""
+            {dst_reg}.in = {pe}.done ? {pe}.right;
+            {dst_reg}.write_en = {pe}.done ? 1'd1;"""
 
     if not down_edge:
-        done_guards.append(f"top_{row}{col}_write.done")
+        dst_reg = f'down_{row}{col}_write'
+        done_guards.append(f"{dst_reg}.done")
         structure_stmts += f"""
 
-            down_{row}{col}_write.in = {pe}.done ? {pe}.down;
-            down_{row}{col}_write.write_en = {pe}.done ? 1'd1;"""
+            {dst_reg}.in = {pe}.done ? {pe}.down;
+            {dst_reg}.write_en = {pe}.done ? 1'd1;"""
 
     # Special case: If there is no write register guard, guard using the
     # the PE.
@@ -465,5 +467,5 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
 
 
 if __name__ == '__main__':
-    out = create_systolic_array(1, 4, 1, 4)
+    out = create_systolic_array(2, 2, 2, 2)
     print(out)
