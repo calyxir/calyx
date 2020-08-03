@@ -81,6 +81,28 @@ impl Visitor for WellFormed {
         Ok(Action::Continue)
     }
 
+    fn finish_if(
+        &mut self,
+        s: &ast::If,
+        _comp: &mut Component,
+        _x: &Context,
+    ) -> VisResult {
+        // Add cond group as a used port.
+        self.used_groups.insert(s.cond.clone());
+        Ok(Action::Continue)
+    }
+
+    fn finish_while(
+        &mut self,
+        s: &ast::While,
+        _comp: &mut Component,
+        _x: &Context,
+    ) -> VisResult {
+        // Add cond group as a used port.
+        self.used_groups.insert(s.cond.clone());
+        Ok(Action::Continue)
+    }
+
     /// Check if all defined groups were used in the control
     fn finish(&mut self, comp: &mut Component, _x: &Context) -> VisResult {
         for (group, _) in comp.structure.groups.iter() {
