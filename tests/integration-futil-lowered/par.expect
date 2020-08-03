@@ -1,18 +1,24 @@
 import "primitives/std.lib";
-component main(go: 1) -> (done: 1) {
+component main(go: 1, clk: 1) -> (done: 1) {
   cells {
     const0 = prim std_const(32, 0);
     const1 = prim std_const(32, 10);
+    par_done_reg0 = prim std_reg(1);
+    par_done_reg1 = prim std_reg(1);
     x = prim std_reg(32);
     y = prim std_reg(32);
   }
   
   wires {
-    done = ((x.done & y.done)) ? 1'd1;
-    x.in = ((go)) ? const0.out;
-    y.in = ((go)) ? const1.out;
-    x.write_en = ((go)) ? 1'd1;
-    y.write_en = ((go)) ? 1'd1;
+    x.in = (!((par_done_reg0.out | x.done)) & go) ? const0.out;
+    x.write_en = (!((par_done_reg0.out | x.done)) & go) ? 1'd1;
+    y.in = (!((par_done_reg1.out | y.done)) & go) ? const1.out;
+    y.write_en = (!((par_done_reg1.out | y.done)) & go) ? 1'd1;
+    done = (par_done_reg0.out & par_done_reg1.out) ? 1'd1;
+    par_done_reg0.in = (x.done & go) ? 1'd1;
+    par_done_reg0.write_en = (x.done & go) ? 1'd1;
+    par_done_reg1.in = (y.done & go) ? 1'd1;
+    par_done_reg1.write_en = (y.done & go) ? 1'd1;
   }
   
   control {
