@@ -86,7 +86,7 @@ impl Visitor for WellFormed {
         for (group, _) in comp.structure.groups.iter() {
             if let Some(group_name) = group {
                 if !self.used_groups.contains(group_name) {
-                    return Err(Error::UnusedGroup(group_name.clone()))
+                    return Err(Error::UnusedGroup(group_name.clone()));
                 }
             }
         }
