@@ -10,20 +10,22 @@ use std::rc::Rc;
 
 #[allow(clippy::large_enum_variant)]
 pub enum Error {
-    UnknownPass(String, String),
-    InvalidFile(String),
     ParseError(pest_consume::Error<syntax::Rule>),
     LibraryParseError(pest_consume::Error<library_syntax::Rule>),
+    ReservedName(ast::Id),
+
+    UnknownPass(String, String),
+    InvalidFile(String),
     WriteError,
     MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
 
     UndefinedPort(ast::Id),
     UndefinedEdge(String, String),
     UndefinedComponent(ast::Id),
-    /* Generated when the group is undefined.  */
     UndefinedGroup(ast::Id),
 
     /* Trying to bind new group to existing name.  */
+    AlreadyBound(ast::Id, String),
     DuplicateGroup(ast::Id),
     DuplicatePort(ast::Id, ast::Portdef),
 
@@ -95,6 +97,18 @@ impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use Error::*;
         match self {
+            AlreadyBound(name, bound_by) => {
+                write!(
+                    f, "Name already bound by {}: {}", bound_by.to_string(), name.to_string()
+                )
+            }
+            ReservedName(name) => {
+                let msg = format!("Use of reserved keyword: {}", name.to_string());
+            write!(
+                f,
+                "{}", name.fmt_err(&msg)
+                )
+            }
             UndefinedGroup(name) => {
                 let msg = format!("Use of undefined group: {}", name.to_string());
                 write!(

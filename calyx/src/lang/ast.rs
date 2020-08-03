@@ -282,14 +282,13 @@ pub enum GuardExpr {
 }
 
 impl GuardExpr {
-
     /// Returns true when this guard is equivalent to the empty guard (true).
     /// Since guards can be arbitrarily complex, this is conservative.
     pub fn provably_true(&self) -> bool {
         match self {
             GuardExpr::Or(es) => es.is_empty(),
             GuardExpr::And(es) => es.is_empty(),
-            _ => false
+            _ => false,
         }
     }
 
