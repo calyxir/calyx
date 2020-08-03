@@ -9,6 +9,9 @@ use std::collections::HashSet;
 pub struct WellFormed {
     /// Set of names that components and cells are not allowed to have.
     reserved_names: HashSet<String>,
+
+    /// Names of the groups that have been used in the control.
+    used_groups: HashSet<ast::Id>,
 }
 
 impl Default for WellFormed {
@@ -21,7 +24,10 @@ impl Default for WellFormed {
         .map(|s| s.to_string())
         .collect();
 
-        WellFormed { reserved_names }
+        WellFormed {
+            reserved_names,
+            used_groups: HashSet::new(),
+        }
     }
 }
 
@@ -69,6 +75,22 @@ impl Visitor for WellFormed {
         if !st.groups.contains_key(&Some(s.comp.clone())) {
             return Err(Error::UndefinedGroup(s.comp.clone()));
         }
+        // Add the name of this group to set of used groups.
+        self.used_groups.insert(s.comp.clone());
+
+        Ok(Action::Continue)
+    }
+
+    /// Check if all defined groups were used in the control
+    fn finish(&mut self, comp: &mut Component, _x: &Context) -> VisResult {
+        for (group, _) in comp.structure.groups.iter() {
+            if let Some(group_name) = group {
+                if !self.used_groups.contains(group_name) {
+                    return Err(Error::UnusedGroup(group_name.clone()))
+                }
+            }
+        }
+
         Ok(Action::Continue)
     }
 }

@@ -24,6 +24,8 @@ pub enum Error {
     UndefinedComponent(ast::Id),
     UndefinedGroup(ast::Id),
 
+    UnusedGroup(ast::Id),
+
     /* Trying to bind new group to existing name.  */
     AlreadyBound(ast::Id, String),
     DuplicateGroup(ast::Id),
@@ -97,6 +99,13 @@ impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use Error::*;
         match self {
+            UnusedGroup(name) => {
+                write!(
+                    f,
+                    "{}",
+                    name.fmt_err("Group not used in control")
+                )
+            }
             AlreadyBound(name, bound_by) => {
                 let msg = format!("Name already bound by {}", bound_by.to_string());
                 write!(f, "{}", name.fmt_err(&msg))
