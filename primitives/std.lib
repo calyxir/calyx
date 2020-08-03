@@ -195,23 +195,64 @@ primitive std_reg<"static"=1>[p_width](in: p_width, write_en: 1, clk: 1) -> (out
   }
 }
 
-primitive std_iterator[p_width, p_start, p_stop, p_incr]
-    (valid: 1, clk: 1)
-    -> (out: p_width, stop: 1, out_read_out: 1, ready: 1)
-  {}
+primitive std_shift_reg[p_width, p_depth](in: p_width, write_en: 1, clk: 1) -> (out: p_width, done: 1) {
+  verilog {
+    module std_shift_reg
+      #(parameter WIDTH = 32,
+        parameter DEPTH = 1)
+       (// inputs
+        input logic [WIDTH-1:0] in,
+        input logic write_en,
+        // clock
+        input logic clk,
+        // outputs
+        output logic [WIDTH-1:0] out,
+        output logic done);
 
-primitive std_const[p_width, p_value](valid: 1) -> (out: p_width, out_read_out: 1, ready: 1) {
+      // Register file to store values being shifted.
+      logic [WIDTH-1:0] shift_reg[0:DEPTH-1];
+      // Local variable to shift the register with.
+      logic [WIDTH-1:0] push_in;
+
+      // The output is always the right-most value.
+      assign out = shift_reg[DEPTH-1];
+
+      // Select what value needs to be pushed in this cycle.
+      always_comb begin
+        if (write_en)
+          push_in = in;
+        else
+          push_in = '0;
+      end
+
+      // Shift all the value to the right.
+      genvar i;
+      generate for (i=0; i<DEPTH - 1; i=i+1)
+      always_ff @(posedge clk)
+        shift_reg[i+1] <= shift_reg[i];
+      endgenerate
+
+      always_ff @(posedge clk) begin
+        // If a value was written, send the done signal.
+        if (write_en) begin
+          done <= 1'd1;
+        end else
+          done <= 1'd0;
+
+        // Push new value into the register
+        shift_reg[0] <= push_in;
+      end
+    endmodule
+  }
+}
+
+primitive std_const[p_width, p_value]() -> (out: p_width) {
   verilog {
     module std_const
       #(parameter width = 32,
         parameter value = 0)
-       (input logic                valid,
-        output logic               ready,
-        output logic [width - 1:0] out,
-        output logic               out_read_out);
+       (output logic [width - 1:0] out);
       assign out = value;
-      assign ready = valid;
-      assign out_read_out = valid;
     endmodule
   }
 }
@@ -379,59 +420,6 @@ primitive std_le[p_width](left: p_width, right: p_width) -> (out: 1) {
        input logic [width-1:0] right,
        output logic            out);
       assign out = left <= right;
-    endmodule
-  }
-}
-
-primitive std_start_fsm(valid: 1, reset: 1, clk: 1) -> (out: 1) {
-  verilog {
-    module std_start_fsm
-     (input logic  valid,
-      input logic  reset,
-      input logic  clk,
-      // outputs
-      output logic out);
-
-      logic        state;
-      always_ff @(posedge clk) begin
-      if (reset) begin
-        out <= 1'b0;
-        state <= 1'b0;
-      end else
-        case ({valid, state})
-          2'b00: out <= 1'b0;
-          2'b10: begin
-            state <= 1'b1;
-            out <= 1'b1;
-          end
-          2'b01: out <= 1'b0;
-          2'b11: out <= 1'b0;
-        endcase
-      end
-    endmodule
-  }
-}
-
-primitive std_fsm_state(in: 1, reset: 1, clk: 1) -> (out: 1) {
- verilog {
-    module std_fsm_state
-      (input logic  in,
-       input logic  reset,
-       input logic  clk,
-       // outputs
-       output logic out);
-
-      logic        state;
-
-      always_ff @(posedge clk) begin
-        if (reset) state <= 1'b0;
-        else begin
-          state <= in;
-        end
-      end
-
-      always_comb
-        out = state;
     endmodule
   }
 }

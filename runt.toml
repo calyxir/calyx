@@ -10,7 +10,7 @@ cmd = "./target/debug/futil --list-passes"
 [[tests]]
 name = "unit tests"
 paths = [ "tests/unit/*.futil" ]
-cmd = "./target/debug/futil {} -b verilog --verilator"
+cmd = "./target/debug/futil {} -d well-formed -b verilog --verilator"
 
 [[tests]]
 name = "dahlia frontend"

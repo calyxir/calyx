@@ -118,17 +118,15 @@ impl Backend for VerilogBackend {
             .collect::<Result<Vec<_>>>()?;
         let prims = primitive_implemenations(&prog, ctx)?;
         display(
-            colors::comment(D::text("/* verilator lint_off PINMISSING */"))
-                .append(D::line())
-                .append(colors::comment(D::text(
-                    // XXX(sam) hack to deal with incorrect array index sizes
-                    "/* verilator lint_off WIDTH */",
-                )))
-                .append(D::line())
-                .append(prims)
-                .append(D::line())
-                .append(D::line())
-                .append(D::intersperse(docs, D::line())),
+            colors::comment(D::text(
+                // XXX(sam) hack to deal with incorrect array index sizes
+                "/* verilator lint_off WIDTH */",
+            ))
+            .append(D::line())
+            .append(prims)
+            .append(D::line())
+            .append(D::line())
+            .append(D::intersperse(docs, D::line())),
             Some(file),
         );
         Ok(())
@@ -247,12 +245,7 @@ impl Emitable for ast::Signature {
                     .append(pd.doc(&ctx, &comp)?))
             })
             .collect::<Result<Vec<_>>>()?;
-        let mut ports = vec![D::text("input")
-            .keyword_color()
-            .append(D::space())
-            .append(D::text("wire").keyword_color())
-            .append(D::space())
-            .append("clk")];
+        let mut ports = vec![];
         ports.append(&mut inputs);
         ports.append(&mut outputs);
         let doc =
@@ -318,23 +311,6 @@ fn wire_declarations<'a>(comp: &component::Component) -> Result<D<'a>> {
         })
         .collect::<Result<Vec<_>>>()?;
     Ok(D::intersperse(wires, D::line()))
-}
-
-/// Generates a Verilog identifier for a Port.
-///   * `Port::This(port)` => port
-///   * `Port::Comp(comp, port)` => comp_port
-///   * `Port::Hole` => unreachable!
-fn wire_id_from_port<'a>(port: &Port) -> D<'a> {
-    match port {
-        Port::This { port } => D::text(port.to_string()),
-        Port::Comp { component, port } => {
-            D::text(format!("{}_{}", component.to_string(), port.to_string()))
-        }
-        Port::Hole { group, name } => unreachable!(format!(
-            "Structure has a group hole: {}[{}]",
-            group.id, name.id
-        )),
-    }
 }
 
 /// Generates a Verilog identifier for a (Node, String).
@@ -498,31 +474,60 @@ fn gen_assigns<'a>(
     port: String,
     edges: Vec<(EdgeData, &Node)>,
 ) -> D<'a> {
+    let unguarded_drivers = edges
+        .iter()
+        .filter(|(ed, _)| {
+            ed.guard.is_none() || ed.guard.as_ref().unwrap().provably_true()
+        })
+        .count();
+
+    // Error if there is more than one unguarded driver.
+    if unguarded_drivers > 1 {
+        panic!(
+            "Multiple unguarded drivers for {}.{}",
+            node.name.to_string(),
+            port
+        );
+    }
+
+    // Error if there is an unguarded driver along with other guarded drivers.
+    if unguarded_drivers == 1 && edges.len() > 1 {
+        panic!(
+            "{}.{} driven by both unguarded and guarded drivers",
+            node.name.to_string(),
+            port
+        );
+    }
+
+    let edge_assignment = if unguarded_drivers == 1 {
+        let (el, node) = &edges[0];
+        wire_id_from_node(node, el.src.port_name().to_string())
+    } else {
+        edges
+            .iter()
+            // Sort by the destination port names. This is required for
+            // deterministic outputs.
+            .sorted_by(|e1, e2| Ord::cmp(&e1.0.src, &e2.0.src))
+            .fold(D::text("'0"), |acc, (el, node)| {
+                el.guard
+                    .as_ref()
+                    .map(|g| guard(&g, ParenCtx::Not))
+                    .unwrap_or_else(D::nil)
+                    .append(" ? ")
+                    .append(wire_id_from_node(
+                        node,
+                        el.src.port_name().to_string(),
+                    ))
+                    .append(" : ")
+                    .append(acc)
+            })
+    };
     D::text("assign")
         .keyword_color()
         .append(D::space())
         .append(wire_id_from_node(node, port))
         .append(" = ")
-        .append(
-            edges
-                .iter()
-                // Sort by the destination port names. This is required for
-                // deterministic outputs.
-                .sorted_by(|e1, e2| Ord::cmp(&e1.0.src, &e2.0.src))
-                .fold(D::text("'0"), |acc, (el, node)| {
-                    el.guard
-                        .as_ref()
-                        .map(|g| guard(&g, ParenCtx::Not))
-                        .unwrap_or_else(D::nil)
-                        .append(" ? ")
-                        .append(wire_id_from_node(
-                            node,
-                            el.src.port_name().to_string(),
-                        ))
-                        .append(" : ")
-                        .append(acc)
-                }),
-        )
+        .append(edge_assignment)
         .append(";")
 }
 
@@ -619,48 +624,25 @@ fn signature_connections<'a>(
     idx: NodeIndex,
 ) -> D<'a> {
     // wire up all the incoming edges
-    let incoming = sig
-        .inputs
-        .iter()
-        .map(|portdef| {
-            // if portdef is named `clk`, wire up `clk`
-            if &portdef.name == "clk" {
-                vec![D::text(".").append("clk").append(D::text("clk").parens())]
-            } else {
-                comp.structure
-                    .edge_idx()
-                    .with_direction(DataDirection::Write)
-                    .with_node(idx)
-                    .with_port(portdef.name.to_string())
-                    .detach()
-                    .map(|edge_idx| comp.structure.get_edge(edge_idx))
-                    // we only want one connection per dest
-                    .unique_by(|edge| &edge.dest)
-                    .map(move |edge| {
-                        D::text(".")
-                            .append(D::text(portdef.name.to_string()))
-                            .append(wire_id_from_port(&edge.dest).parens())
-                    })
-                    .collect::<Vec<_>>()
-            }
-        })
-        .flatten();
-
-    // wire up outgoing edges
-    let outgoing = sig.outputs.iter().map(|portdef| {
-        D::text(".")
-            .append(D::text(portdef.name.to_string()))
-            .append(
-                D::text(format!(
-                    "{}_{}",
-                    comp.structure.get_node(idx).name.to_string(),
-                    portdef.name.to_string()
-                ))
-                .parens(),
-            )
+    let all = sig.inputs.iter().chain(sig.outputs.iter()).map(|portdef| {
+        // if portdef is named `clk`, wire up `clk`
+        if &portdef.name == "clk" {
+            D::text(".").append("clk").append(D::text("clk").parens())
+        } else {
+            D::text(".")
+                .append(D::text(portdef.name.to_string()))
+                .append(
+                    D::text(format!(
+                        "{}_{}",
+                        comp.structure.get_node(idx).name.to_string(),
+                        portdef.name.to_string()
+                    ))
+                    .parens(),
+                )
+        }
     });
 
-    D::intersperse(incoming.chain(outgoing), D::text(",").append(D::line()))
+    D::intersperse(all, D::text(",").append(D::line()))
 }
 
 //==========================================

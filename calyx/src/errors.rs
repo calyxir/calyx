@@ -10,20 +10,24 @@ use std::rc::Rc;
 
 #[allow(clippy::large_enum_variant)]
 pub enum Error {
-    UnknownPass(String, String),
-    InvalidFile(String),
     ParseError(pest_consume::Error<syntax::Rule>),
     LibraryParseError(pest_consume::Error<library_syntax::Rule>),
+    ReservedName(ast::Id),
+
+    UnknownPass(String, String),
+    InvalidFile(String),
     WriteError,
     MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
 
     UndefinedPort(ast::Id),
     UndefinedEdge(String, String),
     UndefinedComponent(ast::Id),
-    /* Generated when the group is undefined.  */
     UndefinedGroup(ast::Id),
 
+    UnusedGroup(ast::Id),
+
     /* Trying to bind new group to existing name.  */
+    AlreadyBound(ast::Id, String),
     DuplicateGroup(ast::Id),
     DuplicatePort(ast::Id, ast::Portdef),
 
@@ -95,6 +99,21 @@ impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use Error::*;
         match self {
+            UnusedGroup(name) => {
+                write!(
+                    f,
+                    "{}",
+                    name.fmt_err("Group not used in control")
+                )
+            }
+            AlreadyBound(name, bound_by) => {
+                let msg = format!("Name already bound by {}", bound_by.to_string());
+                write!(f, "{}", name.fmt_err(&msg))
+            }
+            ReservedName(name) => {
+                let msg = format!("Use of reserved keyword: {}", name.to_string());
+                write!(f, "{}", name.fmt_err(&msg))
+            }
             UndefinedGroup(name) => {
                 let msg = format!("Use of undefined group: {}", name.to_string());
                 write!(
@@ -112,8 +131,8 @@ impl std::fmt::Debug for Error {
                 )
             },
             InvalidFile(err) => write!(f, "InvalidFile: {}", err),
-            ParseError(err) => write!(f, "{}", err),
-            LibraryParseError(err) => write!(f, "{}", err),
+            ParseError(err) => write!(f, "FuTIL Parser: {}", err),
+            LibraryParseError(err) => write!(f, "FuTIL Library Parser: {}", err),
             WriteError => write!(f, "WriteError"),
             MismatchedPortWidths(port1, w1, port2, w2) => {
                 let msg1 = format!("This port has width: {}", w1);
@@ -137,10 +156,10 @@ impl std::fmt::Debug for Error {
                 write!(f, "{}\nwhich is used here:{}", id.fmt_err(&msg), param_name.fmt_err(""))
             }
             DuplicateGroup(group) => {
-                write!(f, "Attempted to duplicate group `{:?}`", group)
+                write!(f, "Attempted to duplicate group `{}`", group.to_string())
             }
             DuplicatePort(comp, portdef) => {
-                write!(f, "Attempted to add `{:?}` to component `{}`", portdef, comp.to_string())
+                write!(f, "Attempted to add duplicate port `{}` to component `{}`", portdef.to_string(), comp.to_string())
             }
             MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
             MalformedStructure(msg) => write!(f, "Malformed Structure: {}", msg),

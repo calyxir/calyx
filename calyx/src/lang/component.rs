@@ -34,7 +34,7 @@ impl Component {
         }
     }
 
-    // XXX(rachit): Document this function.
+    /// Add a new input port to this component.
     pub fn add_input(
         &mut self,
         portdef: impl Into<ast::Portdef>,
@@ -49,7 +49,7 @@ impl Component {
         }
     }
 
-    // XXX(rachit): Document this function.
+    /// Add a new output port to this component.
     pub fn add_output(
         &mut self,
         portdef: impl Into<ast::Portdef>,

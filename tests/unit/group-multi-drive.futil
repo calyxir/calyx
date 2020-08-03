@@ -1,0 +1,26 @@
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    r = prim std_reg(32);
+    add = prim std_add(32);
+  }
+  wires {
+    group do_update {
+      add.left = 32'd1;
+      add.right = r.out;
+
+      r.in = add.out;
+      r.write_en = 1'd1;
+
+      do_update[done] = r.done;
+    }
+  }
+
+  control {
+    seq {
+      do_update;
+      do_update;
+    }
+  }
+}

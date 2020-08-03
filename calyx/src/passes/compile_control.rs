@@ -322,22 +322,29 @@ impl Visitor for CompileControl {
         Ok(Action::Change(Control::enable(seq_group)))
     }
 
-    /// Compiling par is straightforward: Hook up the go signal
-    /// of the par group to the sub-groups and the done signal
-    /// par group is the conjunction of sub-groups.
+    /// Par compilation generates 1-bit registers to hold `done` values
+    /// for each group and generates go signals that are guarded by these
+    /// `done` registers being low.
     fn finish_par(
         &mut self,
         s: &ast::Par,
         comp: &mut Component,
-        _ctx: &Context,
+        ctx: &Context,
     ) -> VisResult {
         let st = &mut comp.structure;
 
         // Name of the parent group.
         let par_group: ast::Id = st.namegen.gen_name("par").into();
         let par_group_idx = st.insert_group(&par_group, HashMap::new())?;
+        let mut par_group_done: Vec<GuardExpr> =
+            Vec::with_capacity(s.stmts.len());
+        let mut par_done_regs = Vec::with_capacity(s.stmts.len());
 
-        let mut par_group_done: Option<GuardExpr> = None;
+        structure!(st, &ctx,
+            let signal_on = constant(1, 1);
+            let signal_off = constant(0, 1);
+            let par_reset = prim std_reg(1);
+        );
 
         for con in s.stmts.iter() {
             match con {
@@ -345,25 +352,27 @@ impl Visitor for CompileControl {
                     data: Enable { comp: group_name },
                 } => {
                     let group_idx = st.get_node_by_name(&group_name)?;
-                    let group_go_port =
-                        st.port_ref(group_idx, "go").unwrap().clone();
 
-                    // Hook up this group's go signal with parent's go.
-                    let num = st.new_constant(1, 1)?;
-                    st.insert_edge(
-                        num,
-                        (group_idx, group_go_port),
-                        Some(par_group.clone()),
-                        None,
-                    )?;
+                    // Create register to hold this group's done signal.
+                    structure!(st, &ctx,
+                        let par_done_reg = prim std_reg(1);
+                    );
 
+                    let group_go = !(guard!(st; par_done_reg["out"])
+                        | guard!(st; group_idx["done"]));
+                    let group_done = guard!(st; group_idx["done"]);
+
+                    add_wires!(st, Some(par_group.clone()),
+                        group_idx["go"] = group_go ? (signal_on.clone());
+
+                        par_done_reg["in"] = group_done ? (signal_on.clone());
+                        par_done_reg["write_en"] = group_done ? (signal_on.clone());
+                    );
+
+                    par_done_regs.push(par_done_reg);
                     // Add this group's done signal to parent's
                     // done signal.
-                    let guard = guard!(st; group_idx["done"]);
-                    par_group_done = Some(match par_group_done {
-                        Some(g) => g & guard,
-                        None => guard,
-                    });
+                    par_group_done.push(guard!(st; par_done_reg["out"]));
                 }
                 _ => {
                     return Err(Error::MalformedControl(
@@ -375,15 +384,25 @@ impl Visitor for CompileControl {
         }
 
         // Hook up parent's done signal to all children.
-        let par_group_done_port =
-            st.port_ref(par_group_idx, "done").unwrap().clone();
-        let num = st.new_constant(1, 1)?;
-        st.insert_edge(
-            num,
-            (par_group_idx, par_group_done_port),
-            Some(par_group.clone()),
-            par_group_done,
-        )?;
+        let par_done = GuardExpr::and_vec(par_group_done);
+        let par_reset_out = guard!(st; par_reset["out"]);
+        add_wires!(st, Some(par_group.clone()),
+            par_reset["in"] = par_done ? (signal_on.clone());
+            par_reset["write_en"] = par_done ? (signal_on.clone());
+            par_group_idx["done"] = par_reset_out ? (signal_on.clone());
+        );
+
+        // reset wires
+        add_wires!(st, None,
+            par_reset["in"] = par_reset_out ? (signal_off.clone());
+            par_reset["write_en"] = par_reset_out ? (signal_on.clone());
+        );
+        for par_done_reg in par_done_regs {
+            add_wires!(st, None,
+                       par_done_reg["in"] = par_reset_out ? (signal_off.clone());
+                       par_done_reg["write_en"] = par_reset_out ? (signal_on.clone());
+            );
+        }
 
         let new_control = Control::Enable {
             data: Enable { comp: par_group },

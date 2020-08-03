@@ -21,6 +21,7 @@ use passes::{
     remove_external_memories::RemoveExternalMemories,
     static_timing::StaticTiming,
     visitor::{Named, Visitor},
+    well_formed::WellFormed,
 };
 use std::io::stdin;
 use structopt::StructOpt;
@@ -32,6 +33,7 @@ fn construct_pass_manager() -> Result<PassManager> {
     let mut pm = PassManager::new();
 
     // Register passes.
+    register_pass!(pm, WellFormed);
     register_pass!(pm, StaticTiming);
     register_pass!(pm, CompileControl);
     register_pass!(pm, GoInsertion);
@@ -46,6 +48,7 @@ fn construct_pass_manager() -> Result<PassManager> {
         pm,
         "all",
         [
+            WellFormed,
             RemoveExternalMemories,
             StaticTiming,
             CompileControl,

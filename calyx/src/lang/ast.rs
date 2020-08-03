@@ -85,21 +85,30 @@ pub struct NamespaceDef {
 }
 
 /// AST statement for defining components.
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Derivative)]
+#[derivative(PartialOrd, Ord)]
 pub struct ComponentDef {
     /// Name of the component.
     pub name: Id,
 
     /// Defines input and output ports.
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
     pub signature: Signature,
 
     /// List of instantiated sub-components
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
     pub cells: Vec<Cell>,
 
     /// List of wires
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
     pub connections: Vec<Connection>,
 
     /// Single control statement for this component.
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
     pub control: Control,
 }
 
@@ -126,7 +135,7 @@ impl ComponentDef {
 
 /// The signature for a component. Contains a list
 /// of input ports and a list of output ports.
-#[derive(Clone, Debug, Hash, Default)]
+#[derive(Clone, Debug, Hash, Default, PartialEq, Eq)]
 pub struct Signature {
     /// List of input ports.
     pub inputs: Vec<Portdef>,
@@ -143,10 +152,24 @@ impl Signature {
     pub fn has_output(&self, name: &str) -> bool {
         self.outputs.iter().any(|e| &e.name == name)
     }
+
+    pub fn add_input(&mut self, name: &str, width: u64) {
+        if self.has_input(name) {
+            panic!("signature already has input port: {}", name)
+        }
+        self.inputs.push((name, width).into());
+    }
+
+    pub fn add_output(&mut self, name: &str, width: u64) {
+        if self.has_output(name) {
+            panic!("signature already has output port: {}", name)
+        }
+        self.outputs.push((name, width).into());
+    }
 }
 
 /// The definition of an input/output port.
-#[derive(Clone, Debug, Hash, PartialEq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Portdef {
     /// The name of the port.
     pub name: Id,
@@ -268,9 +291,24 @@ pub enum GuardExpr {
 }
 
 impl GuardExpr {
+    /// Returns true when this guard is equivalent to the empty guard (true).
+    /// Since guards can be arbitrarily complex, this is conservative.
+    pub fn provably_true(&self) -> bool {
+        match self {
+            GuardExpr::Or(es) => es.is_empty(),
+            GuardExpr::And(es) => es.is_empty(),
+            _ => false,
+        }
+    }
+
     /// A convienent constructor for `GuardExpr::And`
     /// that allows chaining construction `g.and(guard)`
-    pub fn and_vec(atoms: Vec<GuardExpr>) -> Self {
+    pub fn and_vec(mut atoms: Vec<GuardExpr>) -> Self {
+        // Early return if this is a trivial vector.
+        if atoms.len() == 1 {
+            return atoms.remove(0);
+        }
+
         // Flatten any nested `And` inside the atoms.
         let mut flat_atoms: Vec<GuardExpr> = Vec::with_capacity(atoms.len());
         for atom in atoms {
@@ -299,7 +337,12 @@ impl GuardExpr {
         GuardExpr::and_vec(vec![lhs, rhs])
     }
 
-    pub fn or_vec(atoms: Vec<GuardExpr>) -> Self {
+    pub fn or_vec(mut atoms: Vec<GuardExpr>) -> Self {
+        // Early return if this is a trivial vector.
+        if atoms.len() == 1 {
+            return atoms.remove(0);
+        }
+
         // Flatten nested `Or`
         let mut flat_atoms: Vec<GuardExpr> = Vec::with_capacity(atoms.len());
         for atom in atoms {
@@ -558,21 +601,21 @@ pub struct Wire {
 // ===================================
 
 /// Data for the `seq` control statement.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Seq {
     /// List of `Control` statements to run in sequence.
     pub stmts: Vec<Control>,
 }
 
 /// Data for the `par` control statement.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Par {
     /// List of `Control` statements to run in parallel.
     pub stmts: Vec<Control>,
 }
 
 /// Data for the `if` control statement.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct If {
     /// Port that connects the conditional check.
     pub port: Port,
@@ -588,7 +631,7 @@ pub struct If {
 }
 
 /// Data for the `if` control statement.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct While {
     /// Port that connects the conditional check.
     pub port: Port,
@@ -601,25 +644,25 @@ pub struct While {
 }
 
 /// Data for the `print` control statement.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Print {
     /// Name of the port to print.
     pub var: Port,
 }
 
 /// Data for the `enable` control statement.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Enable {
     /// List of components to run.
     pub comp: Id,
 }
 
 /// Data for the `empty` control statement.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Empty {}
 
 /// Control AST nodes.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Control {
     /// Represents sequential composition of control statements.
     Seq { data: Seq },

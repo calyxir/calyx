@@ -1,4 +1,3 @@
-/* verilator lint_off PINMISSING */
 /* verilator lint_off WIDTH */
 module std_reg
   #(parameter width = 32)
@@ -21,13 +20,8 @@ endmodule
 module std_const
   #(parameter width = 32,
     parameter value = 0)
-   (input logic                valid,
-    output logic               ready,
-    output logic [width - 1:0] out,
-    output logic               out_read_out);
+   (output logic [width - 1:0] out);
   assign out = value;
-  assign ready = valid;
-  assign out_read_out = valid;
 endmodule
 
 module std_add
@@ -40,8 +34,8 @@ endmodule
 
 // Component Signature
 module main (
-      input wire clk,
       input wire go,
+      input wire clk,
       output wire done
   );
   
@@ -51,22 +45,10 @@ module main (
   wire a0_clk;
   wire [31:0] a0_out;
   wire a0_done;
-  wire const0_valid;
   wire [31:0] const0_out;
-  wire const0_out_read_out;
-  wire const0_ready;
-  wire const1_valid;
   wire [31:0] const1_out;
-  wire const1_out_read_out;
-  wire const1_ready;
-  wire const2_valid;
   wire [31:0] const2_out;
-  wire const2_out_read_out;
-  wire const2_ready;
-  wire const3_valid;
   wire [31:0] const3_out;
-  wire const3_out_read_out;
-  wire const3_ready;
   wire [31:0] x0_in;
   wire x0_write_en;
   wire x0_clk;
@@ -101,27 +83,19 @@ module main (
   );
   
   std_const #(32, 1) const0 (
-      .out(const0_out),
-      .out_read_out(const0_out_read_out),
-      .ready(const0_ready)
+      .out(const0_out)
   );
   
   std_const #(32, 2) const1 (
-      .out(const1_out),
-      .out_read_out(const1_out_read_out),
-      .ready(const1_ready)
+      .out(const1_out)
   );
   
   std_const #(32, 3) const2 (
-      .out(const2_out),
-      .out_read_out(const2_out_read_out),
-      .ready(const2_ready)
+      .out(const2_out)
   );
   
   std_const #(32, 4) const3 (
-      .out(const3_out),
-      .out_read_out(const3_out_read_out),
-      .ready(const3_ready)
+      .out(const3_out)
   );
   
   std_reg #(32) x0 (
@@ -185,8 +159,8 @@ module main (
   assign y0_write_en = (fsm0_out == 32'd1 & go) ? 1'd1 : '0;
   assign z0_in = (fsm0_out == 32'd2 & go) ? const2_out : '0;
   assign z0_write_en = (fsm0_out == 32'd2 & go) ? 1'd1 : '0;
-  assign fsm0_in = (fsm0_out != 32'd4 & go) ? incr0_out : (fsm0_out == 32'd4 & go) ? 32'd0 : '0;
-  assign fsm0_write_en = (fsm0_out != 32'd4 & go | fsm0_out == 32'd4 & go) ? 1'd1 : '0;
-  assign incr0_left = (go) ? 32'd1 : '0;
-  assign incr0_right = (go) ? fsm0_out : '0;
+  assign fsm0_in = (fsm0_out != 32'd4 & go) ? incr0_out : (fsm0_out == 32'd4) ? 32'd0 : '0;
+  assign fsm0_write_en = (fsm0_out != 32'd4 & go | fsm0_out == 32'd4) ? 1'd1 : '0;
+  assign incr0_left = go ? 32'd1 : '0;
+  assign incr0_right = go ? fsm0_out : '0;
 endmodule // end main

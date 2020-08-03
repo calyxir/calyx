@@ -1,7 +1,8 @@
 use crate::errors::{Error, Result};
 use crate::frontend::pretty_print::PrettyPrint;
 use crate::lang::{
-    ast, component::Component, library::ast as lib, structure::StructureGraph,
+    ast, ast::Signature, component::Component, library::ast as lib,
+    structure::StructureGraph,
 };
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
@@ -72,6 +73,13 @@ pub struct Context {
     /// Paths to the import statements. Used by the FuTIL pretty printer.
     imports: Vec<String>,
 }
+/// Add `go`/`done`/`clk` ports to a signature.
+fn extend_sig(mut sig: Signature) -> Signature {
+    sig.add_input("go", 1);
+    sig.add_input("clk", 1);
+    sig.add_output("done", 1);
+    sig
+}
 
 impl Context {
     /// Generates a Context from a namespace and slice of libraries.
@@ -102,7 +110,8 @@ impl Context {
         // gather signatures from all components
         let mut signatures = HashMap::new();
         for comp in &namespace.components {
-            signatures.insert(comp.name.clone(), comp.signature.clone());
+            signatures
+                .insert(comp.name.clone(), extend_sig(comp.signature.clone()));
         }
 
         let mut definitions = HashMap::new();
@@ -115,8 +124,9 @@ impl Context {
                 connections,
                 control,
             } = comp;
+            let extended_sig = extend_sig(signature);
             let structure = StructureGraph::new(
-                signature.clone(),
+                extended_sig.clone(),
                 cells,
                 connections,
                 &signatures,
@@ -126,7 +136,7 @@ impl Context {
                 name.clone(),
                 Component {
                     name: name.clone(),
-                    signature,
+                    signature: extended_sig,
                     control,
                     structure,
                     resolved_sigs,
@@ -225,6 +235,7 @@ impl Into<ast::NamespaceDef> for Context {
         for comp in self.definitions.borrow().values() {
             components.push(comp.clone().into())
         }
+        components.sort();
         ast::NamespaceDef {
             components,
             libraries: self.imports,

@@ -22,6 +22,8 @@ impl Named for Inliner {
     }
 }
 
+/// A mapping from destination ports to the guard expressions that write
+/// into them.
 type GuardMap = HashMap<Atom, GuardExpr>;
 
 /// Walks the `GuardExpr` ast and replaces Atoms `a` with
@@ -75,8 +77,9 @@ fn tree_walk(guard: GuardExpr, map: &GuardMap) -> GuardExpr {
 /// The second pass considers every edge and uses the map to replace every instance
 /// of `x[hole]` in a guard with `guards`.
 fn inline_hole(st: &mut StructureGraph, hole: String) {
-    // a mapping from atoms -> (edge index, guard expressions)
-    let mut guard_map: GuardMap = HashMap::new();
+    // a mapping from atoms (dst) -> Vec<GuardExpr> (sources) that write
+    // into the atom.
+    let mut multi_guard_map: HashMap<Atom, Vec<GuardExpr>> = HashMap::new();
 
     // build up the mapping by mapping over all writes into holes
     for idx in st
@@ -87,21 +90,28 @@ fn inline_hole(st: &mut StructureGraph, hole: String) {
     {
         let ed = &st.get_edge(idx);
         let (src_idx, dest_idx) = st.endpoints(idx);
-        let mut guard_opt = ed.guard.clone();
+        let guard_opt = ed.guard.clone();
         let atom = st.to_atom((src_idx, ed.src.port_name().clone()));
-        // if atom is just the constant 1, we don't need to put it in the guard
-        guard_opt = Some(match guard_opt {
+
+        // ASSUMES: The values being assigned into holes are one-bit.
+        // Transform `x[hole] = src` into `x[hole] = src ? 1`;
+        let guard = match guard_opt {
             Some(g) => g & GuardExpr::Atom(atom),
             None => GuardExpr::Atom(atom),
-        });
-        // insert a mapping from hole to guards
-        guard_opt.map(|guard| {
-            guard_map.insert(
-                st.to_atom((dest_idx, ed.dest.port_name().clone())),
-                guard,
-            )
-        });
+        };
+
+        // Add this guard to the guard map.
+        let key = st.to_atom((dest_idx, ed.dest.port_name().clone()));
+        let guards = multi_guard_map.entry(key).or_insert_with(Vec::new);
+        guards.push(guard);
     }
+
+    // Create a GuardMap but creating guard edges that `or` together
+    // individual guards collected in multi_guard_map.
+    let guard_map: GuardMap = multi_guard_map
+        .into_iter()
+        .map(|(k, v)| (k, GuardExpr::or_vec(v)))
+        .collect();
 
     // iterate over all edges to replace holes with an expression
     for ed_idx in st.edge_idx().detach() {
