@@ -131,8 +131,8 @@ impl std::fmt::Debug for Error {
                 )
             },
             InvalidFile(err) => write!(f, "InvalidFile: {}", err),
-            ParseError(err) => write!(f, "{}", err),
-            LibraryParseError(err) => write!(f, "{}", err),
+            ParseError(err) => write!(f, "FuTIL Parser: {}", err),
+            LibraryParseError(err) => write!(f, "FuTIL Library Parser: {}", err),
             WriteError => write!(f, "WriteError"),
             MismatchedPortWidths(port1, w1, port2, w2) => {
                 let msg1 = format!("This port has width: {}", w1);
