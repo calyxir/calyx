@@ -235,6 +235,7 @@ impl Into<ast::NamespaceDef> for Context {
         for comp in self.definitions.borrow().values() {
             components.push(comp.clone().into())
         }
+        components.sort();
         ast::NamespaceDef {
             components,
             libraries: self.imports,
