@@ -92,23 +92,23 @@ pub struct ComponentDef {
     pub name: Id,
 
     /// Defines input and output ports.
-    #[derivative(PartialOrd="ignore")]
-    #[derivative(Ord="ignore")]
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
     pub signature: Signature,
 
     /// List of instantiated sub-components
-    #[derivative(PartialOrd="ignore")]
-    #[derivative(Ord="ignore")]
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
     pub cells: Vec<Cell>,
 
     /// List of wires
-    #[derivative(PartialOrd="ignore")]
-    #[derivative(Ord="ignore")]
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
     pub connections: Vec<Connection>,
 
     /// Single control statement for this component.
-    #[derivative(PartialOrd="ignore")]
-    #[derivative(Ord="ignore")]
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
     pub control: Control,
 }
 
