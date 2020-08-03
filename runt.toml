@@ -10,7 +10,7 @@ cmd = "./target/debug/futil --list-passes"
 [[tests]]
 name = "unit tests"
 paths = [ "tests/unit/*.futil" ]
-cmd = "./target/debug/futil {} -b verilog --verilator"
+cmd = "./target/debug/futil {} -d well-formed -b verilog --verilator"
 
 [[tests]]
 name = "dahlia frontend"
@@ -21,13 +21,13 @@ expect_dir = "tests/integration-futil/"
 [[tests]]
 name = "futil lowering"
 paths = [ "tests/integration-futil/*.expect", "tests/futil-sources/*.expect" ]
-cmd = "./target/debug/futil {}"
+cmd = "./target/debug/futil {} -d well-formed"
 expect_dir = "tests/integration-futil-lowered"
 
 [[tests]]
 name = "verilog generation"
 paths = [ "tests/integration-futil/*.expect", "tests/futil-sources/*.expect" ]
-cmd = "./target/debug/futil {} -b verilog --verilator"
+cmd = "./target/debug/futil {} -d well-formed -b verilog --verilator"
 expect_dir = "tests/integration-verilog"
 
 [[tests]]
@@ -52,7 +52,7 @@ expect_dir = "benchmarks/futil"
 name = "polybench verilog generation"
 paths = [ "benchmarks/futil/*.expect" ]
 cmd = """
-./target/debug/futil {} -b verilog --verilator
+./target/debug/futil {} -d well-formed -b verilog --verilator
 """
 expect_dir = "benchmarks/verilog"
 
