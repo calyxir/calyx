@@ -1,0 +1,4 @@
+fn (%x: float32) {
+  let %v1 = log(%x);
+  add(%v1, %v1);
+}

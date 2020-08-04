@@ -36,7 +36,7 @@ class Relay2Futil(ExprFunctor):
         return the_id
 
     def visit_var(self, var):
-        print("visit var\n")
+        print("visit var")
         name = var.name_hint
         return EmitResult(
             f'{name}.out',  # Assuming variables are in registers.
@@ -70,6 +70,16 @@ class Relay2Futil(ExprFunctor):
             [],
         )
 
+    def visit_let(self, let):
+        print(f'value \n{let.value}')
+        print(f'body \n{let.body}')
+        print(f'var \n{let.var.name_hint}')
+        return EmitResult(
+            f'let',
+            None,
+            [],
+            [],
+        )
     def visit_call(self, call):
         print('visit call\n')
         # Visit the arguments to the call, emitting their control
