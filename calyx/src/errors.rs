@@ -19,7 +19,7 @@ pub enum Error {
     WriteError,
     MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
 
-    UndefinedPort(ast::Id),
+    UndefinedPort(ast::Id, String),
     UndefinedEdge(String, String),
     UndefinedComponent(ast::Id),
     UndefinedGroup(ast::Id),
@@ -142,8 +142,8 @@ impl std::fmt::Debug for Error {
                        port2.port_name().to_string(),
                        port2.port_name().fmt_err(&msg2))
             }
-            UndefinedPort(port) => {
-                let msg = format!("Use of undefined port: {}", port.to_string());
+            UndefinedPort(port, port_kind) => {
+                let msg = format!("Use of undefined {} port: {}", port_kind, port.to_string());
                 write!(f, "{}", port.fmt_err(&msg))
             }
             UndefinedEdge(src, dest) => write!(f, "Use of undefined edge: {}->{}", src, dest),

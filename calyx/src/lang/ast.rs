@@ -291,6 +291,27 @@ pub enum GuardExpr {
 }
 
 impl GuardExpr {
+    /// Returns all the atoms at the leaves of the guard expression.
+    pub fn all_atoms(&self) -> Vec<&Atom> {
+        match self {
+            GuardExpr::Atom(a) => vec![a],
+            GuardExpr::Or(gs) | GuardExpr::And(gs) => {
+                gs.iter().map(|g| g.all_atoms()).flatten().collect()
+            }
+            GuardExpr::Eq(l, r)
+            | GuardExpr::Neq(l, r)
+            | GuardExpr::Gt(l, r)
+            | GuardExpr::Lt(l, r)
+            | GuardExpr::Leq(l, r)
+            | GuardExpr::Geq(l, r) => {
+                let mut atoms = l.all_atoms();
+                atoms.append(&mut r.all_atoms());
+                atoms
+            }
+            GuardExpr::Not(g) => g.all_atoms(),
+        }
+    }
+
     /// Returns true when this guard is equivalent to the empty guard (true).
     /// Since guards can be arbitrarily complex, this is conservative.
     pub fn provably_true(&self) -> bool {

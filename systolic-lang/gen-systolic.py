@@ -80,6 +80,11 @@ def instantiate_indexor(prefix, width):
     """
     Instantiate an indexor for accessing memory with name `prefix`.
     Generates structure to initialize and update the indexor.
+
+    The initializor starts sets the memories to their maximum value
+    because we expect all indices to be incremented once before
+    being used.
+
     Returns (cells, structure)
     """
     name = NAME_SCHEME['index name'].format(prefix=prefix)
@@ -92,7 +97,7 @@ def instantiate_indexor(prefix, width):
     init_name = NAME_SCHEME['index init'].format(prefix=prefix)
     init_group = f"""
     group {init_name} {{
-        {name}.in = {width}'d0;
+        {name}.in = {width}'d{2**width-1};
         {name}.write_en = 1'd1;
         {init_name}[done] = {name}.done;
     }}"""
@@ -355,6 +360,8 @@ def generate_control(top_length, top_depth, left_length, left_depth):
     sch = schedule_to_timesteps(generate_schedule(
         top_length, top_depth, left_length, left_depth))
 
+    # print(sch)
+
     control = []
 
     # Initialize all memories.
@@ -365,6 +372,15 @@ def generate_control(top_length, top_depth, left_length, left_depth):
     control.append(f'''
     par {{
         {"; ".join(init_indices)};
+    }}''')
+
+    # Increment memories for PE_00 before computing with it.
+    upd_pe00_mem = []
+    upd_pe00_mem.append(NAME_SCHEME['index update'].format(prefix=f't0'))
+    upd_pe00_mem.append(NAME_SCHEME['index update'].format(prefix=f'l0'))
+    control.append(f'''
+    par {{
+        {"; ".join(upd_pe00_mem)};
     }}''')
 
     for (idx, elements) in enumerate(sch):
@@ -387,6 +403,7 @@ def generate_control(top_length, top_depth, left_length, left_depth):
                 for upd in index_update_at(r, c)
             ]
             more_control += upd_memory
+
         # Enable the PEs
         more_control += [
             NAME_SCHEME['pe compute'].format(row=r, col=c) for (r, c) in elements
@@ -467,5 +484,5 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
 
 
 if __name__ == '__main__':
-    out = create_systolic_array(2, 2, 2, 2)
+    out = create_systolic_array(8, 8, 8, 8)
     print(out)
