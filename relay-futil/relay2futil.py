@@ -74,11 +74,21 @@ class Relay2Futil(ExprFunctor):
         print(f'value \n{let.value}')
         print(f'body \n{let.body}')
         print(f'var \n{let.var.name_hint}')
+        # construct a cell for the variable
+        name_var = let.var.name_hint
+        cell = [f'{name_var} = prim std_reg(32);']
+        # visit value expr
+        expr_value = self.visit(let.value)
+        print(f'expr_val{expr_value}')
+        # add a wire from value.out to name_var
+        wires = [f'{name_var}.in = {expr_value.value}'] + expr_value.wires
+        # visit the body
+        body_value = self.visit(let.body)
         return EmitResult(
-            f'let',
+            body_value.value,
             None,
-            [],
-            [],
+            body_value.cells + expr_value.cells + cell,
+            wires + body_value.wires,
         )
     def visit_call(self, call):
         print('visit call\n')
