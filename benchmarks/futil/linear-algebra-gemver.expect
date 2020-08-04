@@ -73,37 +73,37 @@ component main() -> () {
     z = prim std_mem_d1_ext(32,8,4);
   }
   wires {
-    group cond0<"static"=1> {
+    group cond0<"static"=0> {
       cond0[done] = 1'd1;
       le0.left = i0.out;
       le0.right = const1.out;
     }
-    group cond1<"static"=1> {
+    group cond1<"static"=0> {
       cond1[done] = 1'd1;
       le1.left = j0.out;
       le1.right = const3.out;
     }
-    group cond2<"static"=1> {
+    group cond2<"static"=0> {
       cond2[done] = 1'd1;
       le2.left = i1.out;
       le2.right = const7.out;
     }
-    group cond3<"static"=1> {
+    group cond3<"static"=0> {
       cond3[done] = 1'd1;
       le3.left = j1.out;
       le3.right = const9.out;
     }
-    group cond4<"static"=1> {
+    group cond4<"static"=0> {
       cond4[done] = 1'd1;
       le4.left = i2.out;
       le4.right = const14.out;
     }
-    group cond5<"static"=1> {
+    group cond5<"static"=0> {
       cond5[done] = 1'd1;
       le5.left = i3.out;
       le5.right = const17.out;
     }
-    group cond6<"static"=1> {
+    group cond6<"static"=0> {
       cond6[done] = 1'd1;
       le6.left = j2.out;
       le6.right = const19.out;
@@ -184,29 +184,29 @@ component main() -> () {
       mult1.right = v2.read_data;
       u2.addr0 = i0.out;
       v2.addr0 = j0.out;
-      A.write_data = add1.out;
-      upd0[done] = A.done;
+      A.write_data = 1'd1 ? add1.out;
+      upd0[done] = A.done ? 1'd1;
     }
     group upd1<"static"=1> {
       j0.write_en = 1'd1;
       add2.left = j0.out;
       add2.right = const4.out;
-      j0.in = add2.out;
-      upd1[done] = j0.done;
+      j0.in = 1'd1 ? add2.out;
+      upd1[done] = j0.done ? 1'd1;
     }
     group upd10<"static"=1> {
       i3.write_en = 1'd1;
       add11.left = i3.out;
       add11.right = const22.out;
-      i3.in = add11.out;
-      upd10[done] = i3.done;
+      i3.in = 1'd1 ? add11.out;
+      upd10[done] = i3.done ? 1'd1;
     }
     group upd2<"static"=1> {
       i0.write_en = 1'd1;
       add3.left = i0.out;
       add3.right = const5.out;
-      i0.in = add3.out;
-      upd2[done] = i0.done;
+      i0.in = 1'd1 ? add3.out;
+      upd2[done] = i0.done ? 1'd1;
     }
     group upd3<"static"=1> {
       x.addr0 = i1.out;
@@ -221,22 +221,22 @@ component main() -> () {
       A.addr1 = i1.out;
       A.addr0 = j1.out;
       y.addr0 = j1.out;
-      x.write_data = add4.out;
-      upd3[done] = x.done;
+      x.write_data = 1'd1 ? add4.out;
+      upd3[done] = x.done ? 1'd1;
     }
     group upd4<"static"=1> {
       j1.write_en = 1'd1;
       add5.left = j1.out;
       add5.right = const11.out;
-      j1.in = add5.out;
-      upd4[done] = j1.done;
+      j1.in = 1'd1 ? add5.out;
+      upd4[done] = j1.done ? 1'd1;
     }
     group upd5<"static"=1> {
       i1.write_en = 1'd1;
       add6.left = i1.out;
       add6.right = const12.out;
-      i1.in = add6.out;
-      upd5[done] = i1.done;
+      i1.in = 1'd1 ? add6.out;
+      upd5[done] = i1.done ? 1'd1;
     }
     group upd6<"static"=1> {
       x.addr0 = i2.out;
@@ -244,15 +244,15 @@ component main() -> () {
       add7.left = x_i1.out;
       add7.right = z.read_data;
       z.addr0 = i2.out;
-      x.write_data = add7.out;
-      upd6[done] = x.done;
+      x.write_data = 1'd1 ? add7.out;
+      upd6[done] = x.done ? 1'd1;
     }
     group upd7<"static"=1> {
       i2.write_en = 1'd1;
       add8.left = i2.out;
       add8.right = const15.out;
-      i2.in = add8.out;
-      upd7[done] = i2.done;
+      i2.in = 1'd1 ? add8.out;
+      upd7[done] = i2.done ? 1'd1;
     }
     group upd8<"static"=1> {
       w.addr0 = i3.out;
@@ -267,15 +267,15 @@ component main() -> () {
       A.addr1 = j2.out;
       A.addr0 = i3.out;
       x.addr0 = j2.out;
-      w.write_data = add9.out;
-      upd8[done] = w.done;
+      w.write_data = 1'd1 ? add9.out;
+      upd8[done] = w.done ? 1'd1;
     }
     group upd9<"static"=1> {
       j2.write_en = 1'd1;
       add10.left = j2.out;
       add10.right = const21.out;
-      j2.in = add10.out;
-      upd9[done] = j2.done;
+      j2.in = 1'd1 ? add10.out;
+      upd9[done] = j2.done ? 1'd1;
     }
   }
   control {

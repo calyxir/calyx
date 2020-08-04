@@ -32,17 +32,17 @@ component main() -> () {
     mult1 = prim std_mult(32);
   }
   wires {
-    group cond0<"static"=1> {
+    group cond0<"static"=0> {
       cond0[done] = 1'd1;
       le0.left = i0.out;
       le0.right = const1.out;
     }
-    group cond1<"static"=1> {
+    group cond1<"static"=0> {
       cond1[done] = 1'd1;
       le1.left = j0.out;
       le1.right = const3.out;
     }
-    group cond2<"static"=1> {
+    group cond2<"static"=0> {
       cond2[done] = 1'd1;
       lt0.left = k0.out;
       lt0.right = const5.out;
@@ -95,15 +95,15 @@ component main() -> () {
       mult0.right = B_k_j0.out;
       A.addr1 = i0.out;
       A.addr0 = k0.out;
-      B.write_data = add1.out;
-      upd0[done] = B.done;
+      B.write_data = 1'd1 ? add1.out;
+      upd0[done] = B.done ? 1'd1;
     }
     group upd1<"static"=1> {
       k0.write_en = 1'd1;
       add2.left = k0.out;
       add2.right = const6.out;
-      k0.in = add2.out;
-      upd1[done] = k0.done;
+      k0.in = 1'd1 ? add2.out;
+      upd1[done] = k0.done ? 1'd1;
     }
     group upd2<"static"=1> {
       B.addr1 = j0.out;
@@ -112,22 +112,22 @@ component main() -> () {
       mult1.left = alpha.read_data;
       mult1.right = B_i_j1.out;
       alpha.addr0 = const7.out;
-      B.write_data = mult1.out;
-      upd2[done] = B.done;
+      B.write_data = 1'd1 ? mult1.out;
+      upd2[done] = B.done ? 1'd1;
     }
     group upd3<"static"=1> {
       j0.write_en = 1'd1;
       add3.left = j0.out;
       add3.right = const8.out;
-      j0.in = add3.out;
-      upd3[done] = j0.done;
+      j0.in = 1'd1 ? add3.out;
+      upd3[done] = j0.done ? 1'd1;
     }
     group upd4<"static"=1> {
       i0.write_en = 1'd1;
       add4.left = i0.out;
       add4.right = const9.out;
-      i0.in = add4.out;
-      upd4[done] = i0.done;
+      i0.in = 1'd1 ? add4.out;
+      upd4[done] = i0.done ? 1'd1;
     }
   }
   control {
