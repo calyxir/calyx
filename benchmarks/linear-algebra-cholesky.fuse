@@ -1,27 +1,16 @@
 // broken because uses sqrt
 
-// BEGIN macro definitions
-
-define(N, 8)
-define(DATATYPE, ubit<32>)
-
-// END macro definitions
-
 import "math.h" {
-  defsqrt(x: DATATYPE);
+  def sqrt(x: ubit<32>);
 }
 
-import "printer.cpp" {
-  def print_vec_2d(v: DATATYPE[N][N]);
-}
+decl A: ubit<32>[8][8];
 
-decl A: DATATYPE[N][N];
-
-for (let i = 0..N) {
+for (let i: ubit<4> = 0..8) {
   // j < i
-  let j = 0;
+  let j = (0 as ubit<4>);
   while(j < i) {
-    let k = 0;
+    let k = (0 as ubit<4>);
     while(k < j) {
       let A_i_j = A[i][j];
       ---
@@ -31,7 +20,7 @@ for (let i = 0..N) {
       ---
       A[i][j] := A_i_j - A_i_k * A_j_k;
       // Update loop counter
-      k := k + 1;
+      k := k + (1 as ubit<4>);
     }
     ---
     let A_j_j = A[j][j];
@@ -41,12 +30,12 @@ for (let i = 0..N) {
     A[i][j] := A_i_j / A_j_j;
 
     // Update loop counter
-    j := j + 1;
+    j := j + (1 as ubit<4>);
   }
 
   ---
   // i==j case
-  let k = 0;
+  let k = (0 as ubit<4>);
   while(k < i) {
     let A_i_k = A[i][k];
     ---
@@ -55,15 +44,12 @@ for (let i = 0..N) {
     A[i][i] := A_i_i - A_i_k * A_i_k;
 
     // Update loop counter
-    k := k + 1;
+    k := k + (1 as ubit<4>);
   }
   ---
   let A_i_i = A[i][i];
   ---
   // This is a dumb hack we have to do since Fuse assumes all functions returns
   // void.
-  A[i][i] := (sqrt(A_i_i) as float);
+  A[i][i] := (sqrt(A_i_i) as ubit<32>);
 }
-
----
-print_vec_2d(A);

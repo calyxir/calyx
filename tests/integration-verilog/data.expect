@@ -40,13 +40,13 @@ module main (
   );
   
   // Structure wire declarations
-  wire [31:0] const0_out;
-  wire [31:0] const1_out;
   wire [31:0] x0_in;
   wire x0_write_en;
   wire x0_clk;
   wire [31:0] x0_out;
   wire x0_done;
+  wire [31:0] const1_out;
+  wire [31:0] const0_out;
   wire [31:0] fsm0_in;
   wire fsm0_write_en;
   wire fsm0_clk;
@@ -57,20 +57,20 @@ module main (
   wire [31:0] incr0_out;
   
   // Subcomponent Instances
-  std_const #(32, 0) const0 (
-      .out(const0_out)
-  );
-  
-  std_const #(32, 1) const1 (
-      .out(const1_out)
-  );
-  
   std_reg #(32) x0 (
       .in(x0_in),
       .write_en(x0_write_en),
       .clk(clk),
       .out(x0_out),
       .done(x0_done)
+  );
+  
+  std_const #(32, 1) const1 (
+      .out(const1_out)
+  );
+  
+  std_const #(32, 0) const0 (
+      .out(const0_out)
   );
   
   std_reg #(32) fsm0 (

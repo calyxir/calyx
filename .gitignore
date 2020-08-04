@@ -21,3 +21,5 @@ target
 node_modules
 *.json
 *.res
+*.ipynb_checkpoints
+*.old

@@ -101,7 +101,7 @@ guard_gt = { ">" }
 guard_or = { "|" }
 guard_and = { "&" }
 guard_not = { "!" }
-operator = {
+operator = _{
       guard_eq | guard_neq | guard_leq | guard_geq
     | guard_lt | guard_gt | guard_or | guard_and
 }

@@ -721,7 +721,6 @@ impl Into<(ast::Signature, Vec<ast::Cell>, Vec<ast::Connection>)>
                     wires: group_wires
                         .iter()
                         .map(|ed| {
-                            println!("{:?}", name);
                             let edge = &self.graph[*ed];
                             let (src_nidx, _) = self
                                 .graph

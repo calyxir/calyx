@@ -17,20 +17,20 @@ component main(go: 1, clk: 1) -> (done: 1) {
   }
   
   wires {
+    gt0.right = (fsm0.out == 32'd0 & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) ? const3.out;
     cond_stored0.in = (fsm0.out == 32'd0 & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) ? gt0.out;
+    gt0.left = (fsm0.out == 32'd0 & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) ? x0.out;
     cond_stored0.write_en = (fsm0.out == 32'd0 & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) ? 1'd1;
     x0.in = (fsm1.out == 32'd0 & go) ? const0.out;
     x0.in = (fsm1.out == 32'd1 & go) ? const1.out;
     x0.in = (fsm1.out == 32'd2 & go) ? const2.out;
     fsm0.in = (fsm0.out != 32'd2 & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) ? incr0.out;
     fsm1.in = (fsm1.out != 32'd5 & go) ? incr1.out;
-    gt0.right = (fsm0.out < 32'd1 & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) ? const3.out;
-    gt0.left = (fsm0.out < 32'd1 & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) ? x0.out;
-    x0.in = (fsm0.out >= 32'd1 & fsm0.out < 32'd2 & !(cond_stored0.out) & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) ? const5.out;
-    x0.in = (fsm0.out >= 32'd1 & fsm0.out < 32'd2 & cond_stored0.out & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) ? const4.out;
+    x0.in = (fsm0.out > 32'd0 & fsm0.out < 32'd2 & !(cond_stored0.out) & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) ? const5.out;
+    x0.in = (fsm0.out > 32'd0 & fsm0.out < 32'd2 & cond_stored0.out & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) ? const4.out;
     incr0.left = (fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) ? fsm0.out;
     incr0.right = (fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) ? 32'd1;
-    x0.write_en = ((fsm1.out == 32'd0 & go) | (fsm1.out == 32'd1 & go) | (fsm1.out == 32'd2 & go) | (fsm0.out >= 32'd1 & fsm0.out < 32'd2 & cond_stored0.out & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) | (fsm0.out >= 32'd1 & fsm0.out < 32'd2 & !(cond_stored0.out) & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go)) ? 1'd1;
+    x0.write_en = ((fsm1.out == 32'd0 & go) | (fsm1.out == 32'd1 & go) | (fsm1.out == 32'd2 & go) | (fsm0.out > 32'd0 & fsm0.out < 32'd2 & cond_stored0.out & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) | (fsm0.out > 32'd0 & fsm0.out < 32'd2 & !(cond_stored0.out) & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go)) ? 1'd1;
     fsm0.write_en = ((fsm0.out != 32'd2 & fsm1.out >= 32'd3 & fsm1.out < 32'd5 & go) | fsm0.out == 32'd2) ? 1'd1;
     fsm1.write_en = ((fsm1.out != 32'd5 & go) | fsm1.out == 32'd5) ? 1'd1;
     fsm0.in = fsm0.out == 32'd2 ? 32'd0;

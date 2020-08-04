@@ -396,6 +396,10 @@ impl GuardExpr {
         GuardExpr::Eq(Box::new(self), Box::new(other))
     }
 
+    pub fn neq(self, other: GuardExpr) -> Self {
+        GuardExpr::Neq(Box::new(self), Box::new(other))
+    }
+
     pub fn le(self, other: GuardExpr) -> Self {
         GuardExpr::Leq(Box::new(self), Box::new(other))
     }

@@ -67,8 +67,107 @@ impl Visitor for StaticTiming {
             let maybe_body_time =
                 st.groups[&Some(data.comp.clone())].0.get("static");
 
+            // The group is statically compilable with combinational condition.
+            if let (Some(&0), Some(&btime)) = (maybe_cond_time, maybe_body_time)
+            {
+                // FSM Encoding:
+                //   0:   init state. we haven't started loop iterations
+                //        and haven't checked the loop body
+                //   1-n: body compute states. cond was true. compute the body
+                //   n+1: loop exit. we've finished running the body and the condition is false.
+                // Transitions:
+                //   0 -> 1:   when cond == true
+                //   0 -> n+1: when cond == false
+                //   i -> i+1: when i != 0 & i != n
+                //   n -> 1:   when cond == true
+                //   n -> n+1: when cond == false
+
+                let cond_group = st.get_node_by_name(&s.cond)?;
+                let body_group = st.get_node_by_name(&data.comp)?;
+
+                let while_group: ast::Id =
+                    st.namegen.gen_name("static_while_comb").into();
+                let while_group_node =
+                    st.insert_group(&while_group, HashMap::new())?;
+
+                let fsm_size = 32;
+                structure!(st, &ctx,
+                    let fsm = prim std_reg(fsm_size);
+
+                    let fsm_init_state = constant(0, fsm_size);
+                    let fsm_loop_enter_state = constant(1, fsm_size);
+                    let fsm_loop_exit_state = constant(btime + 2, fsm_size);
+
+                    let fsm_one = constant(1, fsm_size);
+                    let incr = prim std_add(fsm_size);
+
+                    let signal_on = constant(1, 1);
+
+                    let body_end_const = constant(btime + 1, fsm_size);
+                );
+
+                // port of the cond group
+                let cond_val = st.to_guard(s.port.get_edge(st)?);
+
+                // init state guards
+                let init_state = guard!(st; fsm["out"])
+                    .eq(st.to_guard(fsm_init_state.clone()));
+                let init_enter = init_state.clone() & cond_val.clone();
+                let init_exit = init_state.clone() & !cond_val.clone();
+
+                let body_done = guard!(st; fsm["out"])
+                    .eq(st.to_guard(body_end_const.clone()));
+                let body_done_repeat = body_done.clone() & cond_val.clone();
+                let body_done_exit = body_done.clone() & !cond_val;
+                // Should we increment the FSM this cycle.
+                let fsm_incr = !body_done.clone()
+                    & guard!(st; fsm["out"])
+                        .neq(st.to_guard(fsm_init_state.clone()));
+
+                let body_go = guard!(st; fsm["out"])
+                    .gt(st.to_guard(fsm_init_state.clone()))
+                    & guard!(st; fsm["out"]).lt(st.to_guard(body_end_const));
+
+                let done = guard!(st; fsm["out"])
+                    .eq(st.to_guard(fsm_loop_exit_state.clone()));
+
+                add_wires!(st, Some(while_group.clone()),
+                    // Increment the FSM when needed
+                    incr["left"] = (fsm["out"]);
+                    incr["right"] = (fsm_one);
+                    fsm["in"] = fsm_incr ? (incr["out"]);
+                    fsm["write_en"] = fsm_incr ? (signal_on.clone());
+
+                    // move out of init state
+                    fsm["in"] = init_enter ? (fsm_loop_enter_state.clone());
+                    fsm["in"] = init_exit ? (fsm_loop_exit_state.clone());
+                    fsm["write_en"] = init_state ? (signal_on.clone());
+
+                    // Compute the cond group and save the result
+                    cond_group["go"] = (signal_on.clone());
+
+                    // Compute the body
+                    body_group["go"] = body_go ? (signal_on.clone());
+
+                    // Reset the FSM when the body is done.
+                    fsm["in"] = body_done_repeat ? (fsm_loop_enter_state);
+                    fsm["in"] = body_done_exit ? (fsm_loop_exit_state);
+                    fsm["write_en"] = body_done ? (signal_on.clone());
+
+                    // This group is done when cond is false.
+                    while_group_node["done"] = done ? (signal_on.clone());
+                );
+
+                // CLEANUP: Reset the FSM state.
+                add_wires!(st, None,
+                    fsm["in"] = done ? (fsm_init_state);
+                    fsm["write_en"] = done ? (signal_on);
+                );
+
+                return Ok(Action::Change(Control::enable(while_group)));
+            }
             // The group is statically compilable.
-            if let (Some(&ctime), Some(&btime)) =
+            else if let (Some(&ctime), Some(&btime)) =
                 (maybe_cond_time, maybe_body_time)
             {
                 let cond_group = st.get_node_by_name(&s.cond)?;
@@ -90,13 +189,13 @@ impl Visitor for StaticTiming {
                     let signal_on = constant(1, 1);
 
                     let cond_time_const = constant(ctime, fsm_size);
-                    let cond_end_const = constant(ctime - 1, fsm_size);
-                    let body_end_const = constant(ctime + btime , fsm_size);
+                    // let cond_end_const = constant(ctime - 1, fsm_size);
+                    let body_end_const = constant(ctime + btime, fsm_size);
                 );
 
                 // Cond is computed on this cycle.
-                let cond_computed =
-                    guard!(st; fsm["out"]).eq(st.to_guard(cond_end_const));
+                let cond_computed = guard!(st; fsm["out"])
+                    .lt(st.to_guard(cond_time_const.clone()));
 
                 let body_done = guard!(st; fsm["out"])
                     .eq(st.to_guard(body_end_const.clone()));
@@ -171,6 +270,7 @@ impl Visitor for StaticTiming {
             let maybe_false_time =
                 st.groups[&Some(fdata.comp.clone())].0.get("static");
 
+            // combinational condition
             if let (Some(&ctime), Some(&ttime), Some(&ftime)) =
                 (maybe_cond_time, maybe_true_time, maybe_false_time)
             {
@@ -183,7 +283,7 @@ impl Visitor for StaticTiming {
                 let mut attrs = HashMap::new();
                 attrs.insert(
                     "static".to_string(),
-                    ctime + cmp::max(ttime, ftime),
+                    ctime + 1 + cmp::max(ttime, ftime),
                 );
 
                 let if_group_node = st.insert_group(&if_group, attrs)?;
@@ -197,10 +297,10 @@ impl Visitor for StaticTiming {
                     let reset_val = constant(0, fsm_size);
 
                     let cond_time_const = constant(ctime, fsm_size);
-                    let cond_done_time_const = constant(ctime - 1, fsm_size);
+                    let cond_done_time_const = constant(ctime, fsm_size);
 
-                    let true_end_const = constant(ttime + ctime, fsm_size);
-                    let false_end_const = constant(ftime + ctime, fsm_size);
+                    let true_end_const = constant(ttime + ctime + 1, fsm_size);
+                    let false_end_const = constant(ftime + ctime + 1, fsm_size);
 
                     let incr = prim std_add(fsm_size);
                 );
@@ -217,8 +317,13 @@ impl Visitor for StaticTiming {
                 let not_done_guard = !done_guard.clone();
 
                 // Guard for computing the conditional.
-                let cond_go = guard!(st; fsm["out"])
-                    .lt(st.to_guard(cond_time_const.clone()));
+                let cond_go = if ctime == 0 {
+                    guard!(st; fsm["out"])
+                        .eq(st.to_guard(cond_time_const.clone()))
+                } else {
+                    guard!(st; fsm["out"])
+                        .lt(st.to_guard(cond_time_const.clone()))
+                };
 
                 // Guard for when the conditional value is available on the
                 // port.
@@ -227,12 +332,12 @@ impl Visitor for StaticTiming {
 
                 // Guard for branches
                 let true_go = guard!(st; fsm["out"])
-                    .ge(st.to_guard(cond_time_const.clone()))
+                    .gt(st.to_guard(cond_time_const.clone()))
                     & guard!(st; fsm["out"]).lt(st.to_guard(true_end_const))
                     & guard!(st; cond_stored["out"]);
 
                 let false_go = guard!(st; fsm["out"])
-                    .ge(st.to_guard(cond_time_const))
+                    .gt(st.to_guard(cond_time_const))
                     & guard!(st; fsm["out"]).lt(st.to_guard(false_end_const))
                     & !guard!(st; cond_stored["out"]);
 
