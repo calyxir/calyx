@@ -9,3 +9,4 @@ pub mod remove_external_memories;
 pub mod static_timing;
 pub mod visitor;
 pub mod well_formed;
+pub mod papercut;

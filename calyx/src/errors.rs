@@ -38,6 +38,8 @@ pub enum Error {
 
     MissingImplementation(&'static str, ast::Id),
 
+    Papercut(String, ast::Id),
+
     Impossible(String), // Signal compiler errors that should never occur.
     NotSubcomponent,
     #[allow(unused)]
@@ -99,6 +101,9 @@ impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use Error::*;
         match self {
+            Papercut(msg, id) => {
+                write!(f, "{}", id.fmt_err(&("[Papercut] ".to_string() + msg)))
+            }
             UnusedGroup(name) => {
                 write!(
                     f,

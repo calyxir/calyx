@@ -23,6 +23,7 @@ use passes::{
     static_timing::StaticTiming,
     visitor::{Named, Visitor},
     well_formed::WellFormed,
+    papercut::Papercut,
 };
 use std::io::stdin;
 use structopt::StructOpt;
@@ -44,6 +45,7 @@ fn construct_pass_manager() -> Result<PassManager> {
     register_pass!(pm, Externalize);
     register_pass!(pm, RemoveExternalMemories);
     register_pass!(pm, CollapseControl);
+    register_pass!(pm, Papercut);
 
     // Register aliases
     register_alias!(
@@ -51,6 +53,7 @@ fn construct_pass_manager() -> Result<PassManager> {
         "all",
         [
             WellFormed,
+            Papercut,
             RemoveExternalMemories,
             CollapseControl,
             StaticTiming,

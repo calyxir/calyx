@@ -6,12 +6,13 @@ Passes:
 - go-insertion
 - hole-inliner
 - merge-assign
+- papercut
 - remove-external-memories
 - static-timing
 - well-formed
 
 Aliases:
-- all: well-formed, remove-external-memories, collapse-control, static-timing, compile-control, go-insertion, component-interface-inserter, hole-inliner, merge-assign
+- all: well-formed, papercut, remove-external-memories, collapse-control, static-timing, compile-control, go-insertion, component-interface-inserter, hole-inliner, merge-assign
 - external: well-formed, static-timing, compile-control, go-insertion, component-interface-inserter, hole-inliner, merge-assign, externalize
 - no-inline: remove-external-memories, static-timing, compile-control, go-insertion, component-interface-inserter
 - none: 
