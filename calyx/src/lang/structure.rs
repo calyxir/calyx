@@ -242,7 +242,23 @@ impl StructureGraph {
 
         // add vertices first, ignoring wires so that order of structure
         // doesn't matter
-        for stmt in cells {
+        let mut cell_map: Vec<(ast::Id, ast::Cell)> = cells
+            .into_iter()
+            .map(|c| match c {
+                Cell::Decl {
+                    data: ast::Decl { ref name, .. },
+                }
+                | Cell::Prim {
+                    data: ast::Prim { ref name, .. },
+                } => (name.clone(), c),
+            })
+            .collect();
+
+        while let Some((id, stmt)) = cell_map.pop() {
+            // Error if this cell name is already bound.
+            if cell_map.iter().any(|(i, _)| *i == id) {
+                return Err(Error::AlreadyBound(id, "cell".to_string()));
+            }
             match stmt {
                 Cell::Decl { ref data } => {
                     // lookup signature for data.component
