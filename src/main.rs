@@ -12,6 +12,7 @@ use calyx::{
 use cmdline::Opts;
 use pass_manager::PassManager;
 use passes::{
+    collapse_control::CollapseControl,
     compile_control::CompileControl,
     component_interface::ComponentInterface,
     externalize::Externalize,
@@ -22,7 +23,6 @@ use passes::{
     static_timing::StaticTiming,
     visitor::{Named, Visitor},
     well_formed::WellFormed,
-    collapse_control::CollapseControl,
 };
 use std::io::stdin;
 use structopt::StructOpt;
