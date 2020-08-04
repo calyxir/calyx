@@ -79,52 +79,52 @@ module main (
   );
   
   // Structure wire declarations
-  wire [3:0] A_addr0;
-  wire [31:0] A_write_data;
-  wire A_write_en;
-  wire A_clk;
-  wire [31:0] A_read_data;
-  wire A_done;
-  wire [3:0] B_addr0;
-  wire [31:0] B_write_data;
-  wire B_write_en;
-  wire B_clk;
-  wire [31:0] B_read_data;
-  wire B_done;
-  wire [31:0] add0_left;
-  wire [31:0] add0_right;
-  wire [31:0] add0_out;
-  wire [3:0] add1_left;
-  wire [3:0] add1_right;
-  wire [3:0] add1_out;
-  wire [31:0] const0_out;
-  wire [3:0] const1_out;
-  wire [3:0] const2_out;
-  wire const3_out;
-  wire const4_out;
-  wire [3:0] const5_out;
-  wire [31:0] dot0_in;
-  wire dot0_write_en;
-  wire dot0_clk;
-  wire [31:0] dot0_out;
-  wire dot0_done;
-  wire [3:0] i0_in;
-  wire i0_write_en;
-  wire i0_clk;
-  wire [3:0] i0_out;
-  wire i0_done;
-  wire [3:0] le0_left;
-  wire [3:0] le0_right;
-  wire le0_out;
-  wire [31:0] mult0_left;
-  wire [31:0] mult0_right;
-  wire [31:0] mult0_out;
   wire v_addr0;
   wire [31:0] v_write_data;
   wire v_write_en;
   wire v_clk;
   wire [31:0] v_read_data;
   wire v_done;
+  wire [31:0] mult0_left;
+  wire [31:0] mult0_right;
+  wire [31:0] mult0_out;
+  wire [3:0] le0_left;
+  wire [3:0] le0_right;
+  wire le0_out;
+  wire [3:0] i0_in;
+  wire i0_write_en;
+  wire i0_clk;
+  wire [3:0] i0_out;
+  wire i0_done;
+  wire [31:0] dot0_in;
+  wire dot0_write_en;
+  wire dot0_clk;
+  wire [31:0] dot0_out;
+  wire dot0_done;
+  wire [3:0] const5_out;
+  wire const4_out;
+  wire const3_out;
+  wire [3:0] const2_out;
+  wire [3:0] const1_out;
+  wire [31:0] const0_out;
+  wire [3:0] add1_left;
+  wire [3:0] add1_right;
+  wire [3:0] add1_out;
+  wire [31:0] add0_left;
+  wire [31:0] add0_right;
+  wire [31:0] add0_out;
+  wire [3:0] B_addr0;
+  wire [31:0] B_write_data;
+  wire B_write_en;
+  wire B_clk;
+  wire [31:0] B_read_data;
+  wire B_done;
+  wire [3:0] A_addr0;
+  wire [31:0] A_write_data;
+  wire A_write_en;
+  wire A_clk;
+  wire [31:0] A_read_data;
+  wire A_done;
   wire [31:0] fsm0_in;
   wire fsm0_write_en;
   wire fsm0_clk;
@@ -148,13 +148,77 @@ module main (
   wire fsm2_done;
   
   // Subcomponent Instances
-  std_mem_d1 #(32, 8, 4) A (
-      .addr0(A_addr0),
-      .write_data(A_write_data),
-      .write_en(A_write_en),
+  std_mem_d1 #(32, 1, 1) v (
+      .addr0(v_addr0),
+      .write_data(v_write_data),
+      .write_en(v_write_en),
       .clk(clk),
-      .read_data(A_read_data),
-      .done(A_done)
+      .read_data(v_read_data),
+      .done(v_done)
+  );
+  
+  std_mult #(32) mult0 (
+      .left(mult0_left),
+      .right(mult0_right),
+      .out(mult0_out)
+  );
+  
+  std_le #(4) le0 (
+      .left(le0_left),
+      .right(le0_right),
+      .out(le0_out)
+  );
+  
+  std_reg #(4) i0 (
+      .in(i0_in),
+      .write_en(i0_write_en),
+      .clk(clk),
+      .out(i0_out),
+      .done(i0_done)
+  );
+  
+  std_reg #(32) dot0 (
+      .in(dot0_in),
+      .write_en(dot0_write_en),
+      .clk(clk),
+      .out(dot0_out),
+      .done(dot0_done)
+  );
+  
+  std_const #(4, 1) const5 (
+      .out(const5_out)
+  );
+  
+  std_const #(1, 0) const4 (
+      .out(const4_out)
+  );
+  
+  std_const #(1, 0) const3 (
+      .out(const3_out)
+  );
+  
+  std_const #(4, 7) const2 (
+      .out(const2_out)
+  );
+  
+  std_const #(4, 0) const1 (
+      .out(const1_out)
+  );
+  
+  std_const #(32, 0) const0 (
+      .out(const0_out)
+  );
+  
+  std_add #(4) add1 (
+      .left(add1_left),
+      .right(add1_right),
+      .out(add1_out)
+  );
+  
+  std_add #(32) add0 (
+      .left(add0_left),
+      .right(add0_right),
+      .out(add0_out)
   );
   
   std_mem_d1 #(32, 8, 4) B (
@@ -166,77 +230,13 @@ module main (
       .done(B_done)
   );
   
-  std_add #(32) add0 (
-      .left(add0_left),
-      .right(add0_right),
-      .out(add0_out)
-  );
-  
-  std_add #(4) add1 (
-      .left(add1_left),
-      .right(add1_right),
-      .out(add1_out)
-  );
-  
-  std_const #(32, 0) const0 (
-      .out(const0_out)
-  );
-  
-  std_const #(4, 0) const1 (
-      .out(const1_out)
-  );
-  
-  std_const #(4, 7) const2 (
-      .out(const2_out)
-  );
-  
-  std_const #(1, 0) const3 (
-      .out(const3_out)
-  );
-  
-  std_const #(1, 0) const4 (
-      .out(const4_out)
-  );
-  
-  std_const #(4, 1) const5 (
-      .out(const5_out)
-  );
-  
-  std_reg #(32) dot0 (
-      .in(dot0_in),
-      .write_en(dot0_write_en),
+  std_mem_d1 #(32, 8, 4) A (
+      .addr0(A_addr0),
+      .write_data(A_write_data),
+      .write_en(A_write_en),
       .clk(clk),
-      .out(dot0_out),
-      .done(dot0_done)
-  );
-  
-  std_reg #(4) i0 (
-      .in(i0_in),
-      .write_en(i0_write_en),
-      .clk(clk),
-      .out(i0_out),
-      .done(i0_done)
-  );
-  
-  std_le #(4) le0 (
-      .left(le0_left),
-      .right(le0_right),
-      .out(le0_out)
-  );
-  
-  std_mult #(32) mult0 (
-      .left(mult0_left),
-      .right(mult0_right),
-      .out(mult0_out)
-  );
-  
-  std_mem_d1 #(32, 1, 1) v (
-      .addr0(v_addr0),
-      .write_data(v_write_data),
-      .write_en(v_write_en),
-      .clk(clk),
-      .read_data(v_read_data),
-      .done(v_done)
+      .read_data(A_read_data),
+      .done(A_done)
   );
   
   std_reg #(32) fsm0 (
@@ -281,36 +281,36 @@ module main (
    initial begin
   DATA = futil_getenv("DATA");
       $fdisplay(2, "DATA (path to meminit files): %s", DATA);
-      $readmemh({ DATA, "/A.dat" }, A.mem);
-      $readmemh({ DATA, "/B.dat" }, B.mem);
       $readmemh({ DATA, "/v.dat" }, v.mem);
+      $readmemh({ DATA, "/B.dat" }, B.mem);
+      $readmemh({ DATA, "/A.dat" }, A.mem);
   end
   
    final begin
-      $writememh({ DATA, "/A.out" }, A.mem);
-      $writememh({ DATA, "/B.out" }, B.mem);
       $writememh({ DATA, "/v.out" }, v.mem);
+      $writememh({ DATA, "/B.out" }, B.mem);
+      $writememh({ DATA, "/A.out" }, A.mem);
   end
   
   // Input / output connections
   assign done = (fsm2_out == 32'd3) ? 1'd1 : '0;
-  assign A_addr0 = (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? i0_out : '0;
-  assign B_addr0 = (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? i0_out : '0;
-  assign add0_left = (fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? dot0_out : '0;
-  assign add0_right = (fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? v_read_data : '0;
-  assign add1_left = (fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? i0_out : '0;
-  assign add1_right = (fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? const5_out : '0;
-  assign dot0_in = (fsm2_out == 32'd0 & !dot0_done & go) ? const0_out : (fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? add0_out : '0;
-  assign dot0_write_en = (fsm2_out == 32'd0 & !dot0_done & go | fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? 1'd1 : '0;
-  assign i0_in = (fsm2_out == 32'd1 & !i0_done & go) ? const1_out : (fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? add1_out : '0;
-  assign i0_write_en = (fsm2_out == 32'd1 & !i0_done & go | fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? 1'd1 : '0;
-  assign le0_left = (fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? i0_out : '0;
-  assign le0_right = (fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? const2_out : '0;
-  assign mult0_left = (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? A_read_data : '0;
-  assign mult0_right = (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? B_read_data : '0;
   assign v_addr0 = (fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? const4_out : (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? const3_out : '0;
   assign v_write_data = (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? mult0_out : '0;
   assign v_write_en = (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? 1'd1 : '0;
+  assign mult0_left = (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? A_read_data : '0;
+  assign mult0_right = (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? B_read_data : '0;
+  assign le0_left = (fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? i0_out : '0;
+  assign le0_right = (fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? const2_out : '0;
+  assign i0_in = (fsm2_out == 32'd1 & !i0_done & go) ? const1_out : (fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? add1_out : '0;
+  assign i0_write_en = (fsm2_out == 32'd1 & !i0_done & go | fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? 1'd1 : '0;
+  assign dot0_in = (fsm2_out == 32'd0 & !dot0_done & go) ? const0_out : (fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? add0_out : '0;
+  assign dot0_write_en = (fsm2_out == 32'd0 & !dot0_done & go | fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? 1'd1 : '0;
+  assign add1_left = (fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? i0_out : '0;
+  assign add1_right = (fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? const5_out : '0;
+  assign add0_left = (fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? dot0_out : '0;
+  assign add0_right = (fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? v_read_data : '0;
+  assign B_addr0 = (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? i0_out : '0;
+  assign A_addr0 = (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? i0_out : '0;
   assign fsm0_in = (fsm0_out != 32'd3 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? incr0_out : (fsm0_out == 32'd3) ? 32'd0 : '0;
   assign fsm0_write_en = (fsm0_out != 32'd3 & fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go | fsm0_out == 32'd3) ? 1'd1 : '0;
   assign incr0_left = (fsm1_out > 32'd0 & fsm1_out < 32'd4 & fsm2_out == 32'd2 & !(fsm1_out == 32'd5) & go) ? 32'd1 : '0;
