@@ -118,7 +118,7 @@ impl Visitor for StaticTiming {
                 let body_done = guard!(st; fsm["out"])
                     .eq(st.to_guard(body_end_const.clone()));
                 let body_done_repeat = body_done.clone() & cond_val.clone();
-                let body_done_exit = body_done.clone() & !cond_val.clone();
+                let body_done_exit = body_done.clone() & !cond_val;
                 // Should we increment the FSM this cycle.
                 let fsm_incr = !body_done.clone()
                     & guard!(st; fsm["out"])
