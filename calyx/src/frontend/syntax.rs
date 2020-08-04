@@ -298,9 +298,7 @@ impl FutilParser {
             Rule::guard_lt => Ok(ast::GuardExpr::Lt(Box::new(l), Box::new(r))),
             Rule::guard_gt => Ok(ast::GuardExpr::Gt(Box::new(l), Box::new(r))),
             Rule::guard_or => Ok(ast::GuardExpr::Or(vec![l, r])),
-            Rule::guard_and => {
-                Ok(ast::GuardExpr::And(vec![l, r]))
-            },
+            Rule::guard_and => Ok(ast::GuardExpr::And(vec![l, r])),
             _ => unreachable!(),
         }
     }
@@ -313,7 +311,6 @@ impl FutilParser {
             [guard_not(_), guard_expr(e)] => ast::GuardExpr::Not(Box::new(e))
         ))
     }
-
 
     fn switch_stmt(input: Node) -> ParseResult<ast::Guard> {
         Ok(match_nodes!(
