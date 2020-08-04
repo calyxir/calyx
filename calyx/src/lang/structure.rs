@@ -283,7 +283,6 @@ impl StructureGraph {
             .map(|stmt| match stmt {
                 Connection::Wire(wire) => vec![(None, wire)],
                 Connection::Group(group) => {
-                    // create group if it does not exist
                     let name = group.name.clone();
                     let key = Some(name.clone());
                     // XXX(rachit): This is the wrong way to handle
@@ -473,7 +472,9 @@ impl StructureGraph {
                 return Err(errors::Error::UndefinedGroup(group_name.clone()));
             }
         }
-        let find_width = |port_to_find: &ast::Id, portdefs: &[ast::Portdef]| {
+        let find_width = |port_to_find: &ast::Id,
+                          portdefs: &[ast::Portdef],
+                          port_kind: &str| {
             portdefs
                 .iter()
                 .find_map(|x| {
@@ -483,12 +484,23 @@ impl StructureGraph {
                         None
                     }
                 })
-                .ok_or_else(|| Error::UndefinedPort(port_to_find.clone()))
+                .ok_or_else(|| {
+                    Error::UndefinedPort(
+                        port_to_find.clone(),
+                        port_kind.to_string(),
+                    )
+                })
         };
-        let src_width =
-            find_width(&src_port, &self.graph[src_node].signature.outputs)?;
-        let dest_width =
-            find_width(&dest_port, &self.graph[dest_node].signature.inputs)?;
+        let src_width = find_width(
+            &src_port,
+            &self.graph[src_node].signature.outputs,
+            "output",
+        )?;
+        let dest_width = find_width(
+            &dest_port,
+            &self.graph[dest_node].signature.inputs,
+            "input",
+        )?;
 
         // if widths dont match, throw error.
         if src_width != dest_width {
@@ -498,6 +510,27 @@ impl StructureGraph {
                 self.construct_port(dest_node, dest_port),
                 dest_width,
             ));
+        }
+
+        // Validate the guard: Guard leaves can only use defined components
+        if let Some(guard_expr) = &guard {
+            for guard in guard_expr.all_atoms().into_iter() {
+                match guard {
+                    Atom::Port(Port::Comp {
+                        component: c,
+                        port: p,
+                    })
+                    | Atom::Port(Port::Hole { group: c, name: p }) => {
+                        let node = self.get_node_by_name(c)?;
+                        find_width(
+                            &p,
+                            &self.graph[node].signature.outputs,
+                            "output",
+                        )?;
+                    }
+                    _ => (),
+                }
+            }
         }
 
         // Add edge data and update the groups mapping.

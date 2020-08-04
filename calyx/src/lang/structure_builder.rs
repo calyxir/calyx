@@ -111,8 +111,12 @@ impl ASTBuilder for StructureGraph {
         port: S,
     ) -> errors::Result<&ast::Id> {
         let node = self.get_node(component);
-        node.find_port(&port)
-            .ok_or_else(|| errors::Error::UndefinedPort(port.as_ref().into()))
+        node.find_port(&port).ok_or_else(|| {
+            errors::Error::UndefinedPort(
+                port.as_ref().into(),
+                "input/output".to_string(),
+            )
+        })
     }
 
     fn to_atom(&self, (component, port): (NodeIndex, ast::Id)) -> ast::Atom {
