@@ -12,6 +12,7 @@ use calyx::{
 use cmdline::Opts;
 use pass_manager::PassManager;
 use passes::{
+    collapse_control::CollapseControl,
     compile_control::CompileControl,
     component_interface::ComponentInterface,
     externalize::Externalize,
@@ -42,6 +43,7 @@ fn construct_pass_manager() -> Result<PassManager> {
     register_pass!(pm, MergeAssign);
     register_pass!(pm, Externalize);
     register_pass!(pm, RemoveExternalMemories);
+    register_pass!(pm, CollapseControl);
 
     // Register aliases
     register_alias!(
@@ -50,6 +52,7 @@ fn construct_pass_manager() -> Result<PassManager> {
         [
             WellFormed,
             RemoveExternalMemories,
+            CollapseControl,
             StaticTiming,
             CompileControl,
             GoInsertion,

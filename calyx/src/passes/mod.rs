@@ -1,3 +1,4 @@
+pub mod collapse_control;
 pub mod compile_control;
 pub mod component_interface;
 pub mod externalize;
