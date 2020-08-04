@@ -42,27 +42,27 @@ component main() -> () {
     sub1 = prim std_sub(32);
   }
   wires {
-    group cond0<"static"=1> {
+    group cond0<"static"=0> {
       cond0[done] = 1'd1;
       le0.left = i0.out;
       le0.right = const1.out;
     }
-    group cond1<"static"=1> {
+    group cond1<"static"=0> {
       cond1[done] = 1'd1;
       lt0.left = j0.out;
       lt0.right = i0.out;
     }
-    group cond2<"static"=1> {
+    group cond2<"static"=0> {
       cond2[done] = 1'd1;
       lt1.left = k0.out;
       lt1.right = j0.out;
     }
-    group cond3<"static"=1> {
+    group cond3<"static"=0> {
       cond3[done] = 1'd1;
       lt2.left = j0.out;
       lt2.right = const6.out;
     }
-    group cond4<"static"=1> {
+    group cond4<"static"=0> {
       cond4[done] = 1'd1;
       lt3.left = k1.out;
       lt3.right = i0.out;

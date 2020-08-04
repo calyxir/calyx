@@ -39,22 +39,22 @@ component main() -> () {
     y00 = prim std_reg(32);
   }
   wires {
-    group cond0<"static"=1> {
+    group cond0<"static"=0> {
       cond0[done] = 1'd1;
       le0.left = i0.out;
       le0.right = const1.out;
     }
-    group cond1<"static"=1> {
+    group cond1<"static"=0> {
       cond1[done] = 1'd1;
       le1.left = i1.out;
       le1.right = const5.out;
     }
-    group cond2<"static"=1> {
+    group cond2<"static"=0> {
       cond2[done] = 1'd1;
       le2.left = j0.out;
       le2.right = const8.out;
     }
-    group cond3<"static"=1> {
+    group cond3<"static"=0> {
       cond3[done] = 1'd1;
       le3.left = j1.out;
       le3.right = const11.out;

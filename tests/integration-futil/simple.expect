@@ -13,7 +13,7 @@ component main() -> () {
     z0 = prim std_reg(32);
   }
   wires {
-    group cond0<"static"=1> {
+    group cond0<"static"=0> {
       cond0[done] = 1'd1;
       gt0.left = a0.out;
       gt0.right = const2.out;

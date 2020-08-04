@@ -18,7 +18,7 @@ component main() -> () {
     v = prim std_mem_d1_ext(32,1,1);
   }
   wires {
-    group cond0<"static"=1> {
+    group cond0<"static"=0> {
       cond0[done] = 1'd1;
       le0.left = i0.out;
       le0.right = const2.out;

@@ -58,32 +58,32 @@ component main() -> () {
     v10 = prim std_reg(32);
   }
   wires {
-    group cond0<"static"=1> {
+    group cond0<"static"=0> {
       cond0[done] = 1'd1;
       le0.left = i0.out;
       le0.right = const1.out;
     }
-    group cond1<"static"=1> {
+    group cond1<"static"=0> {
       cond1[done] = 1'd1;
       le1.left = j0.out;
       le1.right = const3.out;
     }
-    group cond2<"static"=1> {
+    group cond2<"static"=0> {
       cond2[done] = 1'd1;
       le2.left = k0.out;
       le2.right = const6.out;
     }
-    group cond3<"static"=1> {
+    group cond3<"static"=0> {
       cond3[done] = 1'd1;
       le3.left = i10.out;
       le3.right = const12.out;
     }
-    group cond4<"static"=1> {
+    group cond4<"static"=0> {
       cond4[done] = 1'd1;
       le4.left = j10.out;
       le4.right = const14.out;
     }
-    group cond5<"static"=1> {
+    group cond5<"static"=0> {
       cond5[done] = 1'd1;
       le5.left = k10.out;
       le5.right = const17.out;

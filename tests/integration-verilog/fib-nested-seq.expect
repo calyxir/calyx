@@ -311,8 +311,8 @@ module main (
   assign incr2_right = (cond_stored0_out & fsm3_out >= 32'd1 & fsm3_out < 32'd5 & fsm4_out == 32'd2 & !(fsm3_out == 32'd1 & !cond_stored0_out) & go) ? fsm2_out : '0;
   assign fsm3_in = (fsm3_out != 32'd5 & fsm4_out == 32'd2 & !(fsm3_out == 32'd1 & !cond_stored0_out) & go) ? incr3_out : (fsm3_out == 32'd5 & fsm4_out == 32'd2 & !(fsm3_out == 32'd1 & !cond_stored0_out) & go | fsm3_out == 32'd1 & !cond_stored0_out) ? 32'd0 : '0;
   assign fsm3_write_en = (fsm3_out != 32'd5 & fsm4_out == 32'd2 & !(fsm3_out == 32'd1 & !cond_stored0_out) & go | fsm3_out == 32'd5 & fsm4_out == 32'd2 & !(fsm3_out == 32'd1 & !cond_stored0_out) & go | fsm3_out == 32'd1 & !cond_stored0_out) ? 1'd1 : '0;
-  assign cond_stored0_in = (fsm3_out == 32'd0 & fsm4_out == 32'd2 & !(fsm3_out == 32'd1 & !cond_stored0_out) & go) ? lt0_out : '0;
-  assign cond_stored0_write_en = (fsm3_out == 32'd0 & fsm4_out == 32'd2 & !(fsm3_out == 32'd1 & !cond_stored0_out) & go) ? 1'd1 : '0;
+  assign cond_stored0_in = (fsm3_out < 32'd1 & fsm4_out == 32'd2 & !(fsm3_out == 32'd1 & !cond_stored0_out) & go) ? lt0_out : '0;
+  assign cond_stored0_write_en = (fsm3_out < 32'd1 & fsm4_out == 32'd2 & !(fsm3_out == 32'd1 & !cond_stored0_out) & go) ? 1'd1 : '0;
   assign incr3_left = (fsm4_out == 32'd2 & !(fsm3_out == 32'd1 & !cond_stored0_out) & go) ? fsm3_out : '0;
   assign incr3_right = (fsm4_out == 32'd2 & !(fsm3_out == 32'd1 & !cond_stored0_out) & go) ? 32'd1 : '0;
   assign fsm4_in = (fsm4_out == 32'd2 & fsm3_out == 32'd1 & !cond_stored0_out & go) ? 32'd3 : (fsm4_out == 32'd1 & b0_done & go) ? 32'd2 : (fsm4_out == 32'd0 & fsm0_out == 32'd2 & go) ? 32'd1 : (fsm4_out == 32'd3) ? 32'd0 : '0;

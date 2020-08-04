@@ -73,37 +73,37 @@ component main() -> () {
     z = prim std_mem_d1_ext(32,8,4);
   }
   wires {
-    group cond0<"static"=1> {
+    group cond0<"static"=0> {
       cond0[done] = 1'd1;
       le0.left = i0.out;
       le0.right = const1.out;
     }
-    group cond1<"static"=1> {
+    group cond1<"static"=0> {
       cond1[done] = 1'd1;
       le1.left = j0.out;
       le1.right = const3.out;
     }
-    group cond2<"static"=1> {
+    group cond2<"static"=0> {
       cond2[done] = 1'd1;
       le2.left = i1.out;
       le2.right = const7.out;
     }
-    group cond3<"static"=1> {
+    group cond3<"static"=0> {
       cond3[done] = 1'd1;
       le3.left = j1.out;
       le3.right = const9.out;
     }
-    group cond4<"static"=1> {
+    group cond4<"static"=0> {
       cond4[done] = 1'd1;
       le4.left = i2.out;
       le4.right = const14.out;
     }
-    group cond5<"static"=1> {
+    group cond5<"static"=0> {
       cond5[done] = 1'd1;
       le5.left = i3.out;
       le5.right = const17.out;
     }
-    group cond6<"static"=1> {
+    group cond6<"static"=0> {
       cond6[done] = 1'd1;
       le6.left = j2.out;
       le6.right = const19.out;
