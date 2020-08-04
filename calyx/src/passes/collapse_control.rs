@@ -1,7 +1,7 @@
-use crate::lang::context::Context;
 use crate::lang::ast;
 use crate::lang::component::Component;
-use crate::passes::visitor::{Named, Action, VisResult, Visitor};
+use crate::lang::context::Context;
+use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 
 #[derive(Default)]
 pub struct CollapseControl {}
