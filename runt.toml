@@ -64,3 +64,29 @@ base=$(basename -s .expect {})
 ./bin/run-benchmark {} benchmarks/data/$base.data | tail -n+2
 """
 expect_dir = "benchmarks/simulation/"
+
+# ================ Systolic array tests ====================== #
+[[tests]]
+name = "systolic array frontend"
+paths = [ "systolic-lang/tests/sizes/array-*" ]
+cmd = """
+./systolic-lang/gen-systolic.py $(cat {})
+"""
+expect_dir = "systolic-lang/tests/futil/"
+
+[[tests]]
+name = "systolic array verilog generation"
+paths = [ "systolic-lang/tests/futil/*.expect" ]
+cmd = """
+./target/debug/futil {} -b verilog --verilator
+"""
+expect_dir = "systolic-lang/tests/verilog/"
+
+[[tests]]
+name = "systolic array simulation"
+paths = [ "systolic-lang/tests/verilog/*.expect" ]
+cmd = """
+DATA=./systolic-lang/tests/data ./bin/gen-vcd {} 2>/dev/null | vcdump | jq "$(cat {}.jq)"
+
+"""
+expect_dir = "systolic-lang/tests/simulation/"
