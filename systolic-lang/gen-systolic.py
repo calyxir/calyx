@@ -1,6 +1,9 @@
+#!/usr/bin/env python3
+
 import textwrap
 import math
 import numpy as np
+import argparse
 
 # Global constant for the current bitwidth.
 BITWIDTH = 32
@@ -214,7 +217,7 @@ def instantiate_pe(row, col, right_edge=False, down_edge=False):
         {textwrap.indent(textwrap.dedent(structure_stmts), 6*" ")}
     }}"""
 
-    return ('\n'.join(cells), textwrap.dedent(structure))
+    return ('\n'.join(cells), structure)
 
 
 def instantiate_data_move(row, col, right_edge, down_edge):
@@ -466,23 +469,41 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
     control_str = generate_control(
         top_length, top_depth, left_length, left_depth)
 
-    return textwrap.dedent(f"""
-    import "primitives/std.lib";
-    {PE_DEF}
+    main = textwrap.dedent(f"""
     component main() -> () {{
         cells {{
-            {textwrap.indent(cells_str, " "*10)}
+{textwrap.indent(cells_str, " "*10)}
         }}
         wires {{
-            {textwrap.indent(wires_str, " "*10)}
+{textwrap.indent(wires_str, " "*6)}
         }}
         control {{
-            {textwrap.indent(control_str, " "*10)}
+{textwrap.indent(control_str, " "*10)}
         }}
     }}
     """)
 
+    return textwrap.dedent(f"""
+import "primitives/std.lib";
+    {PE_DEF}
+    {main}
+    """)
+
 
 if __name__ == '__main__':
-    out = create_systolic_array(8, 8, 8, 8)
+    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser.add_argument('-tl', '--top-length', type=int, required=True)
+    parser.add_argument('-td', '--top-depth', type=int, required=True)
+    parser.add_argument('-ll', '--left-length', type=int, required=True)
+    parser.add_argument('-ld', '--left-depth', type=int, required=True)
+
+    args = parser.parse_args()
+
+    out = create_systolic_array(
+        top_length=args.top_length,
+        top_depth=args.top_depth,
+        left_length=args.left_length,
+        left_depth=args.left_depth,
+    )
+
     print(out)
