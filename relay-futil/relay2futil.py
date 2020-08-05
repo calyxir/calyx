@@ -8,7 +8,7 @@ import "primitives/std.lib";
 """
 
 EmitResult = namedtuple('EmitResult',
-                        ['value', 'done', 'cells', 'wires'])
+                        ['value', 'done', 'cells', 'wires', 'groups','controls'])
 
 
 def mk_block(decl, contents, indent=2):
@@ -36,17 +36,17 @@ class Relay2Futil(ExprFunctor):
         return the_id
 
     def visit_var(self, var):
-        print("visit var")
         name = var.name_hint
         return EmitResult(
             f'{name}.out',  # Assuming variables are in registers.
             f'{name}[done]',
             [],
             [],
+            {},
+            []
         )
 
     def visit_constant(self,const):
-        print('visit const\n')
         # We only handle scalar integers for now.
         assert const.data.dtype == 'int32', \
             "unsupported constant: {}".format(const.data.dtype)
@@ -68,35 +68,37 @@ class Relay2Futil(ExprFunctor):
             None,
             [cell],
             [],
+            {},
+            []
         )
 
     def visit_let(self, let):
-        print(f'value \n{let.value}')
-        print(f'body \n{let.body}')
-        print(f'var \n{let.var.name_hint}')
         # construct a cell for the variable
         name_var = let.var.name_hint
         cell = [f'{name_var} = prim std_reg(32);']
+        # start a new group
+        group_name = f'group{self.fresh_id()}'
         # visit value expr
         expr_value = self.visit(let.value)
-        print(f'expr_val{expr_value}')
         # add a wire from value.out to name_var
         wires = [f'{name_var}.in = {expr_value.value}'] + expr_value.wires
         # visit the body
         body_value = self.visit(let.body)
+        body_value.groups[group_name] = wires
         return EmitResult(
             body_value.value,
-            None,
+            body_value.done,
             body_value.cells + expr_value.cells + cell,
-            wires + body_value.wires,
+            body_value.wires,
+            body_value.groups,
+            body_value.controls + [f'{group_name}']
         )
+
     def visit_call(self, call):
-        print('visit call\n')
         # Visit the arguments to the call, emitting their control
         # statements.
         arg_stmts = [self.visit(arg) for arg in call.args]
         #currently assume we only have 2 args to add
-        print (f"arg_stmts {arg_stmts}")
         structures = [item for arg in arg_stmts for item in arg.cells]
         wires = [item for arg in arg_stmts for item in arg.wires]
         if call.op.name == 'add' or call.op.name == 'subtract':
@@ -117,12 +119,13 @@ class Relay2Futil(ExprFunctor):
                     f'{cell_name}.out',
                     None,
                     structures,
-                    wires
+                    wires,
+                    {},
+                    []
                 )
         
 
     def visit_function(self, func):
-        print('visit func\n')
         body = self.visit(func.body)
         # Make registers for the arguments.
         func_cells = []
@@ -142,19 +145,21 @@ class Relay2Futil(ExprFunctor):
             f'ret.write_en = {body.done};',
             f'{group_name}[done] = ret[done];',
         ]
-        group = mk_block(f'group {group_name}', '\n'.join(group_wires))
-
+        
+        groups = mk_block(f'group {group_name}', '\n'.join(group_wires))
+        for group in body.groups.keys():
+            groups += '\n' + mk_block(f'group {group}', '\n'.join(body.groups[group]))
         # Construct a FuTIL component. For now, the component is
         # *always* called `main`. Someday, we should actually support
         # multiple functions as multiple components.
         cells = mk_block('cells', '\n'.join(func_cells + body.cells))
-        wires = mk_block('wires', group)  # Just one group.
-        control = mk_block('control', f'{group_name};')  # Invoke the group.
+        wires = mk_block('wires', groups)  # Just one group.
+        control = mk_block('control', '\n'.join(body.controls + [f'{group_name}']))  # Invoke the group.
         component = mk_block(
             'component main() -> ()',
             '\n'.join([cells, wires, control])
         )
-
+        
         return component
 
 
