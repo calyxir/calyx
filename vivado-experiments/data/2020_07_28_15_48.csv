@@ -1,8 +1,0 @@
-benchmark,type,lut,dsp,source
-linear-algebra-3mm,hls,727,0,results/2020_07_28_15_48/
-linear-algebra-3mm,hls_total,914,0,results/2020_07_28_15_48/
-linear-algebra-3mm,futil,443,0,results/2020_07_28_15_48/
-linear-algebra-2mm,hls,535,0,results/2020_07_28_15_48/
-linear-algebra-2mm,hls_total,771,0,results/2020_07_28_15_48/
-linear-algebra-2mm,futil,306,0,results/2020_07_28_15_48/
-

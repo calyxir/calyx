@@ -1,6 +1,6 @@
 // broken because uses sqrt
 
-import "math.h" {
+import "fxp_sqrt.h" {
   def sqrt(x: ubit<32>);
 }
 
@@ -27,6 +27,7 @@ for (let k: ubit<4> = 0..12) {
   ---
   let j: ubit<4> = k + (1 as ubit<4>);
   while (j < (12 as ubit<4>)) {
+    decor "#pragma HLS loop_tripcount min=0 max=11 avg=6"
     R[k][j] := (0 as ubit<32>);
     ---
     for (let i: ubit<4> = 0..8) {

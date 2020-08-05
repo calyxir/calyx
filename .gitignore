@@ -6,6 +6,7 @@ compiled/
 README.html
 *.o
 benchmarks/_headers/
+!benchmarks/_headers/fxp_sqrt.h
 benchmarks/*.futil
 *.pre
 *.out
