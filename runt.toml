@@ -18,25 +18,42 @@ paths = [ "tests/integration-dahlia-sources/*.fuse" ]
 cmd = "./bin/find-dahlia {} -b futil --lower -l error | tail -n+2"
 expect_dir = "tests/integration-futil/"
 
-[[tests]]
-name = "futil lowering"
-paths = [ "tests/integration-futil/*.expect", "tests/futil-sources/*.expect" ]
+[[test]]
+name = "futil source lowering"
+paths = [ "tests/futil-sources/*.expect" ]
 cmd = "./target/debug/futil {}"
 expect_dir = "tests/integration-futil-lowered"
 
 [[tests]]
-name = "verilog generation"
-paths = [ "tests/integration-futil/*.expect", "tests/futil-sources/*.expect" ]
+name = "futil integration lowering"
+paths = [ "tests/integration-dahlia-sources/*.fuse" ]
+cmd = "./bin/find-dahlia {} -b futil --lower -l error | ./target/debug/futil"
+expect_dir = "tests/integration-futil-lowered"
+
+[[tests]]
+name = "futil source verilog generation"
+paths = [ "tests/futil-sources/*.expect" ]
 cmd = "./target/debug/futil {} -b verilog --verilator"
 expect_dir = "tests/integration-verilog"
 
 [[tests]]
-name = "verilog simulation"
-paths = [ "tests/integration-verilog/*.expect" ]
-cmd = """
-./bin/gen-vcd {} 2>/dev/null | vcdump | jq "$(cat {}.jq)"
-"""
+name = "verilog generation"
+paths = [ "tests/integration-dahlia-sources/*.fuse" ]
+cmd = "./bin/find-dahlia {} -b futil --lower -l error | ./target/debug/futil -b verilog --verilator"
+expect_dir = "tests/integration-verilog"
+
+[[tests]]
+name = "integration verilog simulation"
+paths = [ "tests/integration-dahlia-sources/*.fuse" ]
+cmd = "./bin/dahlia-jq-simulation {}"
 expect_dir = "tests/integration-simulation"
+
+[[tests]]
+name = "futil source verilog simulation"
+paths = [ "tests/futil-sources/*.expect" ]
+cmd = "./bin/futil-jq-simulation {}"
+expect_dir = "tests/integration-simulation"
+
 
 # ================ Polybench tests ====================== #
 
@@ -58,7 +75,7 @@ expect_dir = "benchmarks/verilog"
 
 [[tests]]
 name = "polybench simulation"
-paths = [ "benchmarks/verilog/*.expect" ]
+paths = [ "benchmarks/futil/*.expect" ]
 cmd = """
 base=$(basename -s .expect {})
 ./bin/run-benchmark {} benchmarks/data/$base.data | tail -n+2

@@ -24,7 +24,8 @@ meminit="$(mktemp -d)"
 
 # Run the benchmark
 tmp="$(mktemp -d)"
-DATA="$meminit" ./bin/gen-vcd "$benchmark" 2> "$tmp/log" > "$tmp/out.vcd"
+./target/debug/futil "$benchmark" -b verilog --verilator \
+    | DATA="$meminit" ./bin/gen-vcd - 2> "$tmp/log" > "$tmp/out.vcd"
 
 # Translate the outputs back to a JSON filetmp
 ./bin/json_to_dat.py --mode dat --output "$tmp/out.json" --read_ext out "$meminit"
