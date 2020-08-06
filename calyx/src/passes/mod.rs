@@ -1,6 +1,7 @@
 pub mod collapse_control;
 pub mod compile_control;
 pub mod component_interface;
+pub mod dsp_reg_insertion;
 pub mod externalize;
 pub mod go_insertion;
 pub mod inliner;
@@ -8,5 +9,6 @@ pub mod merge_assign;
 pub mod papercut;
 pub mod remove_external_memories;
 pub mod static_timing;
+// mod unit_pass;
 pub mod visitor;
 pub mod well_formed;
