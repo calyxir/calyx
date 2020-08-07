@@ -82,7 +82,7 @@ class Relay2Futil(ExprFunctor):
         # visit value expr
         expr_value = self.visit(let.value)
         # add a wire from value.out to name_var
-        wires = [f'{name_var}.in = {expr_value.value}'] + expr_value.wires
+        wires = [f'{name_var}.in = {expr_value.value}', f"{name_var}.write_en = 1'd1", f'{group_name}[done] = {name_var}.done'] + expr_value.wires
         # visit the body
         body_value = self.visit(let.body)
         body_value.groups[group_name] = wires
@@ -139,14 +139,18 @@ class Relay2Futil(ExprFunctor):
         false_branch_name = f'branch{self.fresh_id()}'
         # Update groups map
         result_name = f'res{self.fresh_id()}'
-
+        result_cell = '{} = prim std_reg({});'.format(
+            result_name,
+            32,     # Bit width.
+        )
+    
         groups = {**true_branch_value.groups, **false_branch_value.groups} 
-        groups[cond_name] = cond_value.wires
-        groups[true_branch_name] = true_branch_value.wires + [f'{result_name}.in = {true_branch_value.value}']
-        groups[false_branch_name] = false_branch_value.wires + [f'{result_name}.in = {false_branch_value.value}']
+        groups[cond_name] = cond_value.wires + [f"{cond_name}[done]= 1'd1"]
+        groups[true_branch_name] = true_branch_value.wires + [f'{result_name}.in = {true_branch_value.value}', f'{true_branch_name}[done] = {result_name}.done']
+        groups[false_branch_name] = false_branch_value.wires + [f'{result_name}.in = {false_branch_value.value}', f'{false_branch_name}[done] = {result_name}.done']
 
         structures  = cond_value.cells + true_branch_value.cells +  false_branch_value.cells
-
+        structures.append(result_cell)
         
         true_branch_name 
         return EmitResult(
@@ -192,7 +196,7 @@ class Relay2Futil(ExprFunctor):
         # *always* called `main`. Someday, we should actually support
         # multiple functions as multiple components.
         cells = mk_block('cells', '\n'.join(func_cells + body.cells))
-        wires = mk_block('wires', groups)  # Just one group.
+        wires = mk_block('wires', groups)
         control = mk_block('control', mk_block('seq', '\n'.join(body.controls + [f'{group_name}'])))  # Invoke the group.
         component = mk_block(
             'component main() -> ()',
