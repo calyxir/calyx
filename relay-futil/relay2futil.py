@@ -1,5 +1,6 @@
 from tvm import relay
 from tvm.relay.expr_functor import ExprFunctor
+from tvm.relay.function import Function
 import textwrap
 from collections import namedtuple
 
@@ -192,7 +193,7 @@ class Relay2Futil(ExprFunctor):
         # multiple functions as multiple components.
         cells = mk_block('cells', '\n'.join(func_cells + body.cells))
         wires = mk_block('wires', groups)  # Just one group.
-        control = mk_block('control', '\n'.join(body.controls + [f'{group_name}']))  # Invoke the group.
+        control = mk_block('control', mk_block('seq', '\n'.join(body.controls + [f'{group_name}'])))  # Invoke the group.
         component = mk_block(
             'component main() -> ()',
             '\n'.join([cells, wires, control])
@@ -200,10 +201,17 @@ class Relay2Futil(ExprFunctor):
         
         return component
 
+def optimize(expr: Function) -> Function:
+    opts = tvm.transform.Sequential([relay.transform.FuseOps(),relay.transform.ToANormalForm()])
+    self.mod['main'] = expr
+    self.mod = opts(self.mod)
+    ret = self.mod['main']
+    return ret
 
 def compile(program) -> str:
     """Translate a Relay function to a FuTIL program (as a string).
     """
+
     visitor = Relay2Futil()
     src = visitor.visit(program)
     return "{}\n{}".format(PREAMBLE.strip(), src)

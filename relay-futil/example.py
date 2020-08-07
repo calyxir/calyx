@@ -1,4 +1,5 @@
 from tvm import relay
+from tvm.relay import parser
 import relay2futil
 import sys
 
@@ -14,7 +15,7 @@ def identity():
 def const():
     """A simple constant function in Relay.
     """
-    return relay.Function([], relay.const(42))
+    return parser.fromtext('fn(){42}') 
 
 
 def add():
@@ -36,9 +37,16 @@ def assign():
     v1 = relay.log(x)
     v2 = relay.add (v1,x)
     return relay.Function([x], v2)
-ALL_FUNCS = [identity, const, add, add_var, assign]
+
+def conv2d( weight=None, **kwargs):
+    name = 'test'
+    if not weight:
+        weight = relay.var(name + "_weight")
+    data = relay.var("data", relay.TensorType((5, 5), "float32"))
+    return relay.Function([data, weight], relay.nn.conv2d(data, weight, **kwargs))
 
 
+ALL_FUNCS = [identity, const, add, add_var, assign, conv2d]
 def simple_example():
     # See if the command line contains a function name.
     for option in ALL_FUNCS:
