@@ -1,3 +1,4 @@
+import tvm
 from tvm import relay
 from tvm.relay import parser
 import relay2futil
@@ -62,6 +63,19 @@ def simple_example():
             break
     else:
         func = add()  # The default for no argument.
+
+    if '-o' in sys.argv[1:]:
+        # Try optimizing the Relay IR with a few built-in passes.
+        seq = tvm.transform.Sequential([
+            relay.transform.SimplifyInference(),
+            relay.transform.FuseOps(0),
+            relay.transform.ToANormalForm(),
+            relay.transform.InferType(),
+        ])
+
+        mod = tvm.IRModule.from_expr(func)
+        seq(mod)
+        func = mod['main']
 
     if '-r' in sys.argv[1:]:
         # Dump the Relay representation (for educational purposes).
