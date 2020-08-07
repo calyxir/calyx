@@ -101,8 +101,10 @@ class Relay2Futil(ExprFunctor):
         #currently assume we only have 2 args to add
         structures = [item for arg in arg_stmts for item in arg.cells]
         wires = [item for arg in arg_stmts for item in arg.wires]
-        if call.op.name == 'add' or call.op.name == 'subtract':
-            hw_type = 'add' if call.op.name == 'add' else sub
+        #map standard relay call to hw name in futil
+        built_in_calls = {'add':'add', 'subtract':'sub', 'equal':'eq'}
+        if built_in_calls[call.op.name]:
+            hw_type = built_in_calls[call.op.name]
             # Create structure for an adder.
             cell_name = f'{hw_type}{self.fresh_id()}'
             cell = '{} = prim std_{}({});'.format(
@@ -123,6 +125,42 @@ class Relay2Futil(ExprFunctor):
                     {},
                     []
                 )
+
+    def visit_if(self, if_else):
+        # Process conditions
+        cond_value = self.visit(if_else.cond)
+        cond_name = f'cond{self.fresh_id()}'
+        # Process true branch
+        true_branch_value = self.visit(if_else.true_branch)
+        true_branch_name = f'branch{self.fresh_id()}'
+        # Process false branch
+        false_branch_value = self.visit(if_else.false_branch)
+        false_branch_name = f'branch{self.fresh_id()}'
+        # Update groups map
+        result_name = f'res{self.fresh_id()}'
+
+        groups = {**true_branch_value.groups, **false_branch_value.groups} 
+        groups[cond_name] = cond_value.wires
+        groups[true_branch_name] = true_branch_value.wires + [f'{result_name}.in = {true_branch_value.value}']
+        groups[false_branch_name] = false_branch_value.wires + [f'{result_name}.in = {false_branch_value.value}']
+
+        structures  = cond_value.cells + true_branch_value.cells +  false_branch_value.cells
+
+        
+        true_branch_name 
+        return EmitResult(
+                f'{result_name}.out',
+                None,
+                structures,
+                [],
+                groups,
+                [mk_block(f'if {cond_value.value} with {cond_name}',
+                    '\n'.join(true_branch_value.controls + 
+                    [f'{true_branch_name}'])) + 
+                    mk_block('else', '\n'.join(false_branch_value.controls + 
+                    [f'{false_branch_name}'])) 
+                ]
+            )
         
 
     def visit_function(self, func):
