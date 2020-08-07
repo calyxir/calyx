@@ -104,7 +104,7 @@ class Relay2Futil(ExprFunctor):
         wires = [item for arg in arg_stmts for item in arg.wires]
         #map standard relay call to hw name in futil
         built_in_calls = {'add':'add', 'subtract':'sub', 'equal':'eq'}
-        if built_in_calls[call.op.name]:
+        if call.op.name in built_in_calls.keys():
             hw_type = built_in_calls[call.op.name]
             # Create structure for an adder.
             cell_name = f'{hw_type}{self.fresh_id()}'
