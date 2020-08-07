@@ -67,15 +67,14 @@ def simple_example():
     if '-o' in sys.argv[1:]:
         # Try optimizing the Relay IR with a few built-in passes.
         seq = tvm.transform.Sequential([
+            relay.transform.SimplifyExpr(),
             relay.transform.SimplifyInference(),
-            relay.transform.FuseOps(0),
             relay.transform.ToANormalForm(),
-            relay.transform.InferType(),
         ])
 
         mod = tvm.IRModule.from_expr(func)
-        seq(mod)
-        func = mod['main']
+        mod_opt = seq(mod)
+        func = mod_opt['main']
 
     if '-r' in sys.argv[1:]:
         # Dump the Relay representation (for educational purposes).
