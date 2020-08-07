@@ -1,4 +1,5 @@
 from tvm import relay
+from tvm import te
 from tvm.relay import parser
 import relay2futil
 import sys
@@ -44,6 +45,32 @@ def conv2d( weight=None, **kwargs):
         weight = relay.var(name + "_weight")
     data = relay.var("data", relay.TensorType((5, 5), "float32"))
     return relay.Function([data, weight], relay.nn.conv2d(data, weight, **kwargs))
+
+
+def broadcast_add(a_shape=(4, 1), b_shape=(4, 4)):
+    """The `broadcast_add` example from the "D2L book," which adds a
+    vector to every column of a matrix.
+    """
+    # https://tvm.d2l.ai/chapter_common_operators/broadcast_add.html
+    assert len(a_shape) == 2 and len(b_shape) == 2, \
+        "broadcast tensors should both be 2-dimension"
+    for i in range(len(a_shape)):
+        assert a_shape[i] == b_shape[i] \
+            or a_shape[i] == 1 or b_shape[i] == 1, \
+            "tensor shapes do not fit for broadcasting"
+    A = te.placeholder(a_shape, name='A')
+    B = te.placeholder(b_shape, name='B')
+    m = a_shape[0] if b_shape[0] == 1 else b_shape[0]
+    n = a_shape[1] if b_shape[1] == 1 else b_shape[1]
+
+    def f(x, y):
+        return A[0 if a_shape[0] == 1 else x,
+                 0 if a_shape[1] == 1 else y] + \
+               B[0 if b_shape[0] == 1 else x,
+                 0 if b_shape[1] == 1 else y]
+
+    C = te.compute((m, n), f, name='C')
+    return A, B, C
 
 
 ALL_FUNCS = [identity, const, add, add_var, assign, conv2d]
