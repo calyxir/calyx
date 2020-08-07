@@ -1,3 +1,4 @@
+import tvm
 from tvm import relay
 from tvm.relay import parser
 import relay2futil
@@ -46,7 +47,14 @@ def conv2d( weight=None, **kwargs):
     return relay.Function([data, weight], relay.nn.conv2d(data, weight, **kwargs))
 
 
-ALL_FUNCS = [identity, const, add, add_var, assign, conv2d]
+def mlp_net():
+    """The MLP test from Relay.
+    """
+    from tvm.relay.testing import mlp
+    return mlp.get_net(1)
+
+
+ALL_FUNCS = [identity, const, add, add_var, assign, conv2d, mlp_net]
 def simple_example():
     # See if the command line contains a function name.
     for option in ALL_FUNCS:
@@ -55,6 +63,18 @@ def simple_example():
             break
     else:
         func = add()  # The default for no argument.
+
+    if '-o' in sys.argv[1:]:
+        # Try optimizing the Relay IR with a few built-in passes.
+        seq = tvm.transform.Sequential([
+            relay.transform.SimplifyExpr(),
+            relay.transform.SimplifyInference(),
+            relay.transform.ToANormalForm(),
+        ])
+
+        mod = tvm.IRModule.from_expr(func)
+        mod_opt = seq(mod)
+        func = mod_opt['main']
 
     if '-r' in sys.argv[1:]:
         # Dump the Relay representation (for educational purposes).

@@ -44,7 +44,7 @@ Try this to run a simple example:
 
     python3 example.py
 
-Pass the `-r` flag to this script to see the Relay code. Otherwise, we just print the FuTIL code.
+Pass the `-r` flag to this script to see the Relay code. Otherwise, we just print the FuTIL code. There is also an `-o` flag to try optimizing the Relay code a little bit.
 
 You can specify the name of an example as a command-line argument. The current options are `identity`, `add`, and `const`.
 
