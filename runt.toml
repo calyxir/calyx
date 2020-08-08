@@ -1,32 +1,109 @@
-ver = "0.2.5"
+ver = "0.2.7"
 
+# NOTE(rachit): `name` should only use lower case words. This makes it easier
+# remember how to match specific test suite names.
 [[tests]]
-name = "List passes"
+name = "list passes"
 paths = [ "tests/list-passes/out" ]
 cmd = "./target/debug/futil --list-passes"
 
 [[tests]]
-name = "Dahlia frontend for Futil"
+name = "unit tests"
+paths = [ "tests/unit/*.futil" ]
+cmd = "./target/debug/futil {} -d well-formed -b verilog --verilator"
+
+[[tests]]
+name = "dahlia frontend"
 paths = [ "tests/integration-dahlia-sources/*.fuse" ]
 cmd = "./bin/find-dahlia {} -b futil --lower -l error | tail -n+2"
 expect_dir = "tests/integration-futil/"
 
-[[tests]]
-name = "Futil lowering"
-paths = [ "tests/integration-futil/*.expect" ]
+[[test]]
+name = "futil source lowering"
+paths = [ "tests/futil-sources/*.expect" ]
 cmd = "./target/debug/futil {}"
 expect_dir = "tests/integration-futil-lowered"
 
 [[tests]]
-name = "Verilog generation"
-paths = [ "tests/integration-futil/*.expect" ]
-cmd = "./target/debug/futil {} -b verilog"
+name = "futil integration lowering"
+paths = [ "tests/integration-dahlia-sources/*.fuse" ]
+cmd = "./bin/find-dahlia {} -b futil --lower -l error | ./target/debug/futil"
+expect_dir = "tests/integration-futil-lowered"
+
+[[tests]]
+name = "futil source verilog generation"
+paths = [ "tests/futil-sources/*.expect" ]
+cmd = "./target/debug/futil {} -b verilog --verilator"
 expect_dir = "tests/integration-verilog"
 
 [[tests]]
- name = "Verilog Simulation"
- paths = [ "tests/integration-verilog/*.expect" ]
- cmd = """
- ./bin/gen-vcd {} 2>/dev/null | vcdump | jq "$(cat {}.jq)"
- """
- expect_dir = "tests/integration-simulation"
+name = "verilog generation"
+paths = [ "tests/integration-dahlia-sources/*.fuse" ]
+cmd = "./bin/find-dahlia {} -b futil --lower -l error | ./target/debug/futil -b verilog --verilator"
+expect_dir = "tests/integration-verilog"
+
+[[tests]]
+name = "integration verilog simulation"
+paths = [ "tests/integration-dahlia-sources/*.fuse" ]
+cmd = "./bin/dahlia-jq-simulation {}"
+expect_dir = "tests/integration-simulation"
+
+[[tests]]
+name = "futil source verilog simulation"
+paths = [ "tests/futil-sources/*.expect" ]
+cmd = "./bin/futil-jq-simulation {}"
+expect_dir = "tests/integration-simulation"
+
+
+# ================ Polybench tests ====================== #
+
+[[tests]]
+name = "polybench dahlia frontend"
+paths = [ "benchmarks/*.fuse" ]
+cmd = """
+./bin/find-dahlia {} -b futil --lower -l error | tail -n+2
+"""
+expect_dir = "benchmarks/futil"
+
+[[tests]]
+name = "polybench verilog generation"
+paths = [ "benchmarks/futil/*.expect" ]
+cmd = """
+./target/debug/futil {} -b verilog --verilator
+"""
+expect_dir = "benchmarks/verilog"
+
+[[tests]]
+name = "polybench simulation"
+paths = [ "benchmarks/futil/*.expect" ]
+cmd = """
+base=$(basename -s .expect {})
+./bin/run-benchmark {} benchmarks/data/$base.data | tail -n+2
+"""
+expect_dir = "benchmarks/simulation/"
+
+# ================ Systolic array tests ====================== #
+[[tests]]
+name = "systolic array frontend"
+paths = [ "systolic-lang/tests/sizes/array-*" ]
+cmd = """
+./systolic-lang/gen-systolic.py $(cat {})
+"""
+expect_dir = "systolic-lang/tests/futil/"
+
+[[tests]]
+name = "systolic array verilog generation"
+paths = [ "systolic-lang/tests/futil/*.expect" ]
+cmd = """
+./target/debug/futil {} -b verilog --verilator
+"""
+expect_dir = "systolic-lang/tests/verilog/"
+
+[[tests]]
+name = "systolic array simulation"
+paths = [ "systolic-lang/tests/verilog/*.expect" ]
+cmd = """
+DATA=./systolic-lang/tests/data ./bin/gen-vcd {} 2>/dev/null | vcdump | jq "$(cat {}.jq)"
+
+"""
+expect_dir = "systolic-lang/tests/simulation/"

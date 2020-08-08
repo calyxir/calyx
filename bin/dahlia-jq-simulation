@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -euf
+
+file=$1
+base="$(basename $file)"
+
+./bin/find-dahlia "$file" -b futil --lower -l error \
+    | ./target/debug/futil -b verilog --verilator \
+    | ./bin/gen-vcd - 2>/dev/null \
+    | vcdump \
+    | jq -f "./tests/integration-simulation/$base.jq"

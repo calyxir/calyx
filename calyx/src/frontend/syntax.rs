@@ -1,10 +1,11 @@
-use crate::errors::{Result, Span};
+use crate::errors::{self, Result, Span};
 use crate::lang::{
     ast,
     ast::{BitNum, NumType},
 };
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
+use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
@@ -23,14 +24,16 @@ const _GRAMMAR: &str = include_str!("futil_syntax.pest");
 lazy_static::lazy_static! {
     static ref PRECCLIMBER: PrecClimber<Rule> = PrecClimber::new(
         vec![
-            Operator::new(Rule::guard_eq, Assoc::Left),
-            Operator::new(Rule::guard_neq, Assoc::Left),
+            // loosest binding
+            Operator::new(Rule::guard_or, Assoc::Left),
+            Operator::new(Rule::guard_and, Assoc::Left),
             Operator::new(Rule::guard_leq, Assoc::Left),
             Operator::new(Rule::guard_geq, Assoc::Left),
             Operator::new(Rule::guard_lt, Assoc::Left),
             Operator::new(Rule::guard_gt, Assoc::Left),
-            Operator::new(Rule::guard_or, Assoc::Left),
-            Operator::new(Rule::guard_and, Assoc::Left)
+            Operator::new(Rule::guard_eq, Assoc::Left),
+            Operator::new(Rule::guard_neq, Assoc::Left),
+            // tighest binding
         ]
     );
 }
@@ -41,7 +44,13 @@ pub struct FutilParser;
 
 impl FutilParser {
     pub fn parse_file(path: &PathBuf) -> Result<ast::NamespaceDef> {
-        let content = &fs::read(path)?;
+        let content = &fs::read(path).map_err(|err| {
+            errors::Error::InvalidFile(format!(
+                "Failed to read {}: {}",
+                path.to_string_lossy(),
+                err.to_string()
+            ))
+        })?;
         let string_content = std::str::from_utf8(content)?;
         let inputs = FutilParser::parse_with_userdata(
             Rule::file,
@@ -54,7 +63,12 @@ impl FutilParser {
 
     pub fn parse<R: Read>(mut r: R) -> Result<ast::NamespaceDef> {
         let mut buf = String::new();
-        r.read_to_string(&mut buf)?;
+        r.read_to_string(&mut buf).map_err(|err| {
+            errors::Error::InvalidFile(format!(
+                "Failed to parse buffer: {}",
+                err.to_string()
+            ))
+        })?;
         let inputs = FutilParser::parse_with_userdata(
             Rule::file,
             &buf,
@@ -264,15 +278,6 @@ impl FutilParser {
         Ok(())
     }
 
-    fn term(input: Node) -> ParseResult<ast::GuardExpr> {
-        Ok(match_nodes!(
-            input.into_children();
-            [expr(e)] => ast::GuardExpr::Atom(e),
-            [guard_expr(guard)] => guard,
-            [guard_not(_), guard_expr(e)] => ast::GuardExpr::Not(Box::new(e))
-        ))
-    }
-
     #[prec_climb(term, PRECCLIMBER)]
     fn guard_expr(
         l: ast::GuardExpr,
@@ -292,12 +297,19 @@ impl FutilParser {
             }
             Rule::guard_lt => Ok(ast::GuardExpr::Lt(Box::new(l), Box::new(r))),
             Rule::guard_gt => Ok(ast::GuardExpr::Gt(Box::new(l), Box::new(r))),
-            Rule::guard_or => Ok(ast::GuardExpr::Or(Box::new(l), Box::new(r))),
-            Rule::guard_and => {
-                Ok(ast::GuardExpr::And(Box::new(l), Box::new(r)))
-            }
+            Rule::guard_or => Ok(ast::GuardExpr::Or(vec![l, r])),
+            Rule::guard_and => Ok(ast::GuardExpr::And(vec![l, r])),
             _ => unreachable!(),
         }
+    }
+
+    fn term(input: Node) -> ParseResult<ast::GuardExpr> {
+        Ok(match_nodes!(
+            input.into_children();
+            [guard_expr(guard)] => guard,
+            [expr(e)] => ast::GuardExpr::Atom(e),
+            [guard_not(_), guard_expr(e)] => ast::GuardExpr::Not(Box::new(e))
+        ))
     }
 
     fn switch_stmt(input: Node) -> ParseResult<ast::Guard> {
@@ -321,11 +333,31 @@ impl FutilParser {
         ))
     }
 
+    fn key_value(input: Node) -> ParseResult<(String, u64)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [string_lit(key), bitwidth(num)] => (key, num)
+        ))
+    }
+
+    fn attributes(input: Node) -> ParseResult<HashMap<String, u64>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [key_value(kvs)..] => kvs.collect()
+        ))
+    }
+
     fn group(input: Node) -> ParseResult<ast::Group> {
         Ok(match_nodes!(
             input.into_children();
+            [identifier(name), attributes(attrs), wire(wire)..] => ast::Group {
+                name,
+                attributes: attrs,
+                wires: wire.collect()
+            },
             [identifier(name), wire(wire)..] => ast::Group {
                 name,
+                attributes: HashMap::new(),
                 wires: wire.collect()
             }
         ))

@@ -1,12 +1,12 @@
 use crate::errors::{Error, Result};
 use crate::frontend::pretty_print::PrettyPrint;
 use crate::lang::{
-    ast, component::Component, library::ast as lib, structure::StructureGraph,
+    ast, ast::Signature, component::Component, library::ast as lib,
+    structure::StructureGraph,
 };
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 /// Represents an entire Futil program. We are keeping all of the components in a `RefCell<HashMap>`.
 /// We use the `RefCell` to provide our desired visitor interface
@@ -58,8 +58,8 @@ use std::path::PathBuf;
 pub struct Context {
     /// Enable debugging output.
     pub debug_mode: bool,
-    /// Directory to find meminit files for initializing memories.
-    pub meminit_directory: Option<PathBuf>,
+    /// Enable Verilator mode. This tells the backend to generate additional code for loading in memories.
+    pub verilator_mode: bool,
     /// Library containing primitive definitions.
     pub library_context: LibraryContext,
     /// Maps Ids to in-memory representation of the component.
@@ -70,6 +70,15 @@ pub struct Context {
     /// insert components inside a call to `definitions_iter`, things
     /// will break.
     definitions_to_insert: RefCell<Vec<Component>>,
+    /// Paths to the import statements. Used by the FuTIL pretty printer.
+    imports: Vec<String>,
+}
+/// Add `go`/`done`/`clk` ports to a signature.
+fn extend_sig(mut sig: Signature) -> Signature {
+    sig.add_input("go", 1);
+    sig.add_input("clk", 1);
+    sig.add_output("done", 1);
+    sig
 }
 
 impl Context {
@@ -85,7 +94,7 @@ impl Context {
         namespace: ast::NamespaceDef,
         libraries: &[lib::Library],
         debug_mode: bool,
-        meminit_directory: Option<PathBuf>,
+        verilator_mode: bool,
     ) -> Result<Self> {
         // build hashmap for primitives in provided libraries
         let mut lib_definitions = HashMap::new();
@@ -101,31 +110,47 @@ impl Context {
         // gather signatures from all components
         let mut signatures = HashMap::new();
         for comp in &namespace.components {
-            signatures.insert(comp.name.clone(), comp.signature.clone());
+            signatures
+                .insert(comp.name.clone(), extend_sig(comp.signature.clone()));
         }
 
         let mut definitions = HashMap::new();
-        for comp in &namespace.components {
-            let prim_sigs = comp.resolve_primitives(&libctx)?;
-            let graph = StructureGraph::new(&comp, &signatures, &prim_sigs)?;
+        for comp in namespace.components {
+            let resolved_sigs = comp.resolve_primitives(&libctx)?;
+            let ast::ComponentDef {
+                name,
+                signature,
+                cells,
+                connections,
+                control,
+            } = comp;
+            let extended_sig = extend_sig(signature);
+            let structure = StructureGraph::new(
+                extended_sig.clone(),
+                cells,
+                connections,
+                &signatures,
+                &resolved_sigs,
+            )?;
             definitions.insert(
-                comp.name.clone(),
+                name.clone(),
                 Component {
-                    name: comp.name.clone(),
-                    signature: comp.signature.clone(),
-                    control: comp.control.clone(),
-                    structure: graph,
-                    resolved_sigs: prim_sigs,
+                    name: name.clone(),
+                    signature: extended_sig,
+                    control,
+                    structure,
+                    resolved_sigs,
                 },
             );
         }
 
         Ok(Context {
             debug_mode,
-            meminit_directory,
+            verilator_mode,
             library_context: libctx,
             definitions: RefCell::new(definitions),
             definitions_to_insert: RefCell::new(vec![]),
+            imports: namespace.libraries,
         })
     }
 
@@ -210,10 +235,10 @@ impl Into<ast::NamespaceDef> for Context {
         for comp in self.definitions.borrow().values() {
             components.push(comp.clone().into())
         }
+        components.sort();
         ast::NamespaceDef {
             components,
-            //TODO: replace the place holder for libraries with the import statements
-            libraries: vec![],
+            libraries: self.imports,
         }
     }
 }
@@ -267,16 +292,7 @@ impl LibraryContext {
 /* =============== Context Printing ================ */
 impl PrettyPrint for Context {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let ctx_map = self.definitions.borrow();
-
-        let mut defs = ctx_map.values().clone().collect::<Vec<_>>();
-
-        // Do this to make module printing deterministic.
-        defs.sort_by(|comp1, comp2| comp1.name.cmp(&comp2.name));
-
-        RcDoc::intersperse(
-            defs.iter().map(|x| x.prettify(&arena)),
-            RcDoc::line(),
-        )
+        let namespace: ast::NamespaceDef = self.clone().into();
+        namespace.prettify(&arena)
     }
 }

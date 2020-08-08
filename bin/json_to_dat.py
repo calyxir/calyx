@@ -92,12 +92,7 @@ def main():
     parser = make_parser()
     args = parser.parse_args()
 
-    if sys.stdin.isatty():
-        # crash if no input file is provided
-        if args.input == None:
-            parser.print_help(sys.stderr)
-            sys.exit(1)
-
+    if args.input != None:
         if args.mode == 'json':
             output_dir = Path(args.output)
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -108,12 +103,17 @@ def main():
         elif args.mode == 'dat':
             convert2json(Path(args.input), Path(args.output), args.read_ext)
     else:
-        if args.mode == 'json':
-            output_dir = Path(args.output)
-            output_dir.mkdir(parents=True, exist_ok=True)
-            convert2dat(output_dir, json.load(sys.stdin), args.write_ext)
-        elif args.mode == 'dat':
-            raise Exception("`dat` mode does not work over stdin.")
+        if sys.stdin.isatty():
+            # no input file and nothing piped in over stdin
+            parser.print_help(sys.stderr)
+            sys.exit(1)
+        else:
+            if args.mode == 'json':
+                output_dir = Path(args.output)
+                output_dir.mkdir(parents=True, exist_ok=True)
+                convert2dat(output_dir, json.load(sys.stdin), args.write_ext)
+            elif args.mode == 'dat':
+                raise Exception("`dat` mode does not work over stdin.")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,56 @@
+import "fxp_sqrt.h" {
+  def sqrt(x: ubit<32>);
+}
+
+decl A: ubit<32>[8][8];
+
+for (let i: ubit<4> = 0..8) {
+  // j < i
+  let j = (0 as ubit<4>);
+  while(j < i) {
+    decor "#pragma HLS loop_tripcount min=0 max=7 avg=4"
+    let k = (0 as ubit<4>);
+    while(k < j) {
+      decor "#pragma HLS loop_tripcount min=0 max=6 avg=2"
+      let A_i_j = A[i][j];
+      ---
+      let A_i_k = A[i][k];
+      ---
+      let A_j_k = A[j][k];
+      ---
+      A[i][j] := A_i_j - A_i_k * A_j_k;
+      // Update loop counter
+      k := k + (1 as ubit<4>);
+    }
+    ---
+    let A_j_j = A[j][j];
+    ---
+    let A_i_j = A[i][j];
+    ---
+    A[i][j] := A_i_j / A_j_j;
+
+    // Update loop counter
+    j := j + (1 as ubit<4>);
+  }
+
+  ---
+  // i==j case
+  let k = (0 as ubit<4>);
+  while(k < i) {
+    decor "#pragma HLS loop_tripcount min=0 max=7 avg=4"
+    let A_i_k = A[i][k];
+    ---
+    let A_i_i = A[i][i];
+    ---
+    A[i][i] := A_i_i - A_i_k * A_i_k;
+
+    // Update loop counter
+    k := k + (1 as ubit<4>);
+  }
+  ---
+  let A_i_i = A[i][i];
+  ---
+  // This is a dumb hack we have to do since Fuse assumes all functions returns
+  // void.
+  A[i][i] := (sqrt(A_i_i) as ubit<32>);
+}

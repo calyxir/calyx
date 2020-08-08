@@ -30,6 +30,14 @@ primitive std_mem_d1[p_width, p_size, p_idx_size](
   }
 }
 
+// Represents an external memory
+primitive std_mem_d1_ext[p_width, p_size, p_idx_size](
+  addr0: p_idx_size,
+  write_data: p_width,
+  write_en: 1
+) -> (read_data: p_width, done: 1) {}
+
+
 primitive std_mem_d2[p_width, d0_size, d1_size, d0_idx_size, d1_idx_size](
   addr0: d0_idx_size,
   addr1: d1_idx_size,
@@ -65,6 +73,13 @@ primitive std_mem_d2[p_width, d0_size, d1_size, d0_idx_size, d1_idx_size](
     endmodule
   }
 }
+
+primitive std_mem_d2_ext[p_width, d0_size, d1_size, d0_idx_size, d1_idx_size](
+  addr0: d0_idx_size,
+  addr1: d1_idx_size,
+  write_data: p_width,
+  write_en: 1
+) -> (read_data: p_width, done: 1) {}
 
 primitive std_mem_d3[
     p_width,
@@ -114,6 +129,22 @@ primitive std_mem_d3[
   }
 }
 
+primitive std_mem_d3_ext[
+    p_width,
+    d0_size,
+    d1_size,
+    d2_size,
+    d0_idx_size,
+    d1_idx_size,
+    d2_idx_size
+] (
+  addr0: d0_idx_size,
+  addr1: d1_idx_size,
+  addr2: d2_idx_size,
+  write_data: p_width,
+  write_en: 1
+) -> (read_data: p_width, done: 1) {}
+
 primitive std_logsize_mem_d1[p_width, p_logsize](
   addr0: p_logsize,
   write_data: p_width,
@@ -142,7 +173,7 @@ primitive std_logsize_mem_d1[p_width, p_logsize](
   }
 }
 
-primitive std_reg[p_width](in: p_width, write_en: 1, clk: 1) -> (out: p_width, done: 1) {
+primitive std_reg<"static"=1>[p_width](in: p_width, write_en: 1, clk: 1) -> (out: p_width, done: 1) {
   verilog {
     module std_reg
       #(parameter width = 32)
@@ -164,23 +195,64 @@ primitive std_reg[p_width](in: p_width, write_en: 1, clk: 1) -> (out: p_width, d
   }
 }
 
-primitive std_iterator[p_width, p_start, p_stop, p_incr]
-    (valid: 1, clk: 1)
-    -> (out: p_width, stop: 1, out_read_out: 1, ready: 1)
-  {}
+primitive std_shift_reg[p_width, p_depth](in: p_width, write_en: 1, clk: 1) -> (out: p_width, done: 1) {
+  verilog {
+    module std_shift_reg
+      #(parameter WIDTH = 32,
+        parameter DEPTH = 1)
+       (// inputs
+        input logic [WIDTH-1:0] in,
+        input logic write_en,
+        // clock
+        input logic clk,
+        // outputs
+        output logic [WIDTH-1:0] out,
+        output logic done);
 
-primitive std_const[p_width, p_value](valid: 1) -> (out: p_width, out_read_out: 1, ready: 1) {
+      // Register file to store values being shifted.
+      logic [WIDTH-1:0] shift_reg[0:DEPTH-1];
+      // Local variable to shift the register with.
+      logic [WIDTH-1:0] push_in;
+
+      // The output is always the right-most value.
+      assign out = shift_reg[DEPTH-1];
+
+      // Select what value needs to be pushed in this cycle.
+      always_comb begin
+        if (write_en)
+          push_in = in;
+        else
+          push_in = '0;
+      end
+
+      // Shift all the value to the right.
+      genvar i;
+      generate for (i=0; i<DEPTH - 1; i=i+1)
+      always_ff @(posedge clk)
+        shift_reg[i+1] <= shift_reg[i];
+      endgenerate
+
+      always_ff @(posedge clk) begin
+        // If a value was written, send the done signal.
+        if (write_en) begin
+          done <= 1'd1;
+        end else
+          done <= 1'd0;
+
+        // Push new value into the register
+        shift_reg[0] <= push_in;
+      end
+    endmodule
+  }
+}
+
+primitive std_const[p_width, p_value]() -> (out: p_width) {
   verilog {
     module std_const
       #(parameter width = 32,
         parameter value = 0)
-       (input logic                valid,
-        output logic               ready,
-        output logic [width - 1:0] out,
-        output logic               out_read_out);
+       (output logic [width - 1:0] out);
       assign out = value;
-      assign ready = valid;
-      assign out_read_out = valid;
     endmodule
   }
 }
@@ -205,6 +277,18 @@ primitive std_sub[p_width](left: p_width, right: p_width) -> (out: p_width) {
         input  logic [width-1:0] right,
         output logic [width-1:0] out);
       assign out = left - right;
+    endmodule
+  }
+}
+
+primitive std_mod[p_width](left: p_width, right: p_width) -> (out: p_width) {
+  verilog {
+    module std_mod
+      #(parameter width = 32)
+      (input  logic [width-1:0] left,
+        input  logic [width-1:0] right,
+        output logic [width-1:0] out);
+      assign out = left % right;
     endmodule
   }
 }
@@ -316,7 +400,7 @@ primitive std_neq[p_width](left: p_width, right: p_width) -> (out: 1) {
   }
 }
 
-primitive std_ge[p_width](left: p_width, right: p_width) -> (out: p_width) {
+primitive std_ge[p_width](left: p_width, right: p_width) -> (out: 1) {
   verilog {
     module std_ge
       #(parameter width = 32)
@@ -336,6 +420,54 @@ primitive std_le[p_width](left: p_width, right: p_width) -> (out: 1) {
        input logic [width-1:0] right,
        output logic            out);
       assign out = left <= right;
+    endmodule
+  }
+}
+
+// XXX(sam): parameterize input and output width
+primitive std_sqrt(in: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
+  verilog {
+    module std_sqrt
+      (input logic [31:0]  in,
+       input logic         go,
+       input logic         clk,
+       output logic [31:0] out,
+       output logic        done);
+      // declare the variables
+      reg [31:0] a;
+      reg [15:0] q;
+      reg [17:0] left,right,r;
+      integer i;
+
+      always_ff @(posedge clk) begin
+        // initialize all the variables.
+        a = in;
+        q = 0;
+        i = 0;
+        left = 0;   // input to adder/sub
+        right = 0;  // input to adder/sub
+        r = 0;      // remainder
+
+        // run the calculations for 16 iterations.
+        for(i=0;i<16;i=i+1) begin
+            right = {q,r[17],1'b1};
+            left = {r[15:0],a[31:30]};
+            a = {a[29:0],2'b00};    //left shift by 2 bits.
+            if (r[17] == 1) //add if r is negative
+                r = left + right;
+            else    //subtract if r is positive
+                r = left - right;
+            q = {q[14:0],!r[17]};
+        end
+        out = {16'd0,q};   //final assignment of output.
+      end
+
+      always_ff @(posedge clk) begin
+        if (go) begin
+          done <= 1'd1;
+        end else
+          done <= 1'd0;
+      end
     endmodule
   }
 }

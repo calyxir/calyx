@@ -1,0 +1,323 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    A = prim std_mem_d2_ext(32,8,12,4,4);
+    A_i_j0 = prim std_reg(32);
+    A_i_k0 = prim std_reg(32);
+    Q = prim std_mem_d2_ext(32,8,12,4,4);
+    R = prim std_mem_d2_ext(32,12,12,4,4);
+    add0 = prim std_add(32);
+    add1 = prim std_add(4);
+    add2 = prim std_add(4);
+    add3 = prim std_add(4);
+    add4 = prim std_add(32);
+    add5 = prim std_add(4);
+    add6 = prim std_add(4);
+    add7 = prim std_add(4);
+    add8 = prim std_add(4);
+    const0 = prim std_const(4,0);
+    const1 = prim std_const(4,11);
+    const10 = prim std_const(4,12);
+    const11 = prim std_const(32,0);
+    const12 = prim std_const(4,0);
+    const13 = prim std_const(4,7);
+    const14 = prim std_const(4,1);
+    const15 = prim std_const(4,0);
+    const16 = prim std_const(4,7);
+    const17 = prim std_const(4,1);
+    const18 = prim std_const(4,1);
+    const19 = prim std_const(4,1);
+    const2 = prim std_const(32,0);
+    const3 = prim std_const(4,0);
+    const4 = prim std_const(4,7);
+    const5 = prim std_const(4,1);
+    const6 = prim std_const(4,0);
+    const7 = prim std_const(4,7);
+    const8 = prim std_const(4,1);
+    const9 = prim std_const(4,1);
+    div0 = prim std_div(32);
+    i0 = prim std_reg(4);
+    i1 = prim std_reg(4);
+    i2 = prim std_reg(4);
+    i3 = prim std_reg(4);
+    j0 = prim std_reg(4);
+    k0 = prim std_reg(4);
+    le0 = prim std_le(4);
+    le1 = prim std_le(4);
+    le2 = prim std_le(4);
+    le3 = prim std_le(4);
+    le4 = prim std_le(4);
+    lt0 = prim std_lt(4);
+    mult0 = prim std_mult(32);
+    mult1 = prim std_mult(32);
+    mult2 = prim std_mult(32);
+    nrm0 = prim std_reg(32);
+    sqrt0 = prim std_sqrt();
+    sub0 = prim std_sub(32);
+    v0 = prim std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = k0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = i0.out;
+      le1.right = const4.out;
+    }
+    group cond2<"static"=0> {
+      cond2[done] = 1'd1;
+      le2.left = i1.out;
+      le2.right = const7.out;
+    }
+    group cond3<"static"=0> {
+      cond3[done] = 1'd1;
+      lt0.left = j0.out;
+      lt0.right = const10.out;
+    }
+    group cond4<"static"=0> {
+      cond4[done] = 1'd1;
+      le3.left = i2.out;
+      le3.right = const13.out;
+    }
+    group cond5<"static"=0> {
+      cond5[done] = 1'd1;
+      le4.left = i3.out;
+      le4.right = const16.out;
+    }
+    group let0<"static"=1> {
+      k0.in = const0.out;
+      k0.write_en = 1'd1;
+      let0[done] = k0.done;
+    }
+    group let1<"static"=1> {
+      nrm0.in = const2.out;
+      nrm0.write_en = 1'd1;
+      let1[done] = nrm0.done;
+    }
+    group let2<"static"=1> {
+      i0.in = const3.out;
+      i0.write_en = 1'd1;
+      let2[done] = i0.done;
+    }
+    group let3<"static"=1> {
+      A_i_k0.in = A.read_data;
+      A_i_k0.write_en = 1'd1;
+      let3[done] = A_i_k0.done;
+      A.addr1 = k0.out;
+      A.addr0 = i0.out;
+    }
+    group let4<"static"=1> {
+      i1.in = const6.out;
+      i1.write_en = 1'd1;
+      let4[done] = i1.done;
+    }
+    group let5<"static"=1> {
+      j0.in = add3.out;
+      j0.write_en = 1'd1;
+      let5[done] = j0.done;
+      add3.left = k0.out;
+      add3.right = const9.out;
+    }
+    group let6<"static"=1> {
+      i2.in = const12.out;
+      i2.write_en = 1'd1;
+      let6[done] = i2.done;
+    }
+    group let7<"static"=1> {
+      v0.in = mult1.out;
+      v0.write_en = 1'd1;
+      let7[done] = v0.done;
+      mult1.left = Q.read_data;
+      mult1.right = A.read_data;
+      Q.addr1 = k0.out;
+      Q.addr0 = i2.out;
+      A.addr1 = j0.out;
+      A.addr0 = i2.out;
+    }
+    group let8<"static"=1> {
+      i3.in = const15.out;
+      i3.write_en = 1'd1;
+      let8[done] = i3.done;
+    }
+    group let9<"static"=1> {
+      A_i_j0.in = A.read_data;
+      A_i_j0.write_en = 1'd1;
+      let9[done] = A_i_j0.done;
+      A.addr1 = j0.out;
+      A.addr0 = i3.out;
+    }
+    group upd0<"static"=1> {
+      nrm0.write_en = 1'd1;
+      add0.left = nrm0.out;
+      add0.right = mult0.out;
+      mult0.left = A_i_k0.out;
+      mult0.right = A_i_k0.out;
+      nrm0.in = 1'd1 ? add0.out;
+      upd0[done] = nrm0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      i0.write_en = 1'd1;
+      add1.left = i0.out;
+      add1.right = const5.out;
+      i0.in = 1'd1 ? add1.out;
+      upd1[done] = i0.done ? 1'd1;
+    }
+    group upd10<"static"=1> {
+      j0.write_en = 1'd1;
+      add7.left = j0.out;
+      add7.right = const18.out;
+      j0.in = 1'd1 ? add7.out;
+      upd10[done] = j0.done ? 1'd1;
+    }
+    group upd11<"static"=1> {
+      k0.write_en = 1'd1;
+      add8.left = k0.out;
+      add8.right = const19.out;
+      k0.in = 1'd1 ? add8.out;
+      upd11[done] = k0.done ? 1'd1;
+    }
+    group upd2<"static"=2> {
+      R.addr1 = k0.out;
+      R.addr0 = k0.out;
+      R.write_en = sqrt0.done;
+      sqrt0.in = nrm0.out;
+      sqrt0.go = 1'd1;
+      R.write_data = sqrt0.done ? sqrt0.out;
+      upd2[done] = R.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      Q.addr1 = k0.out;
+      Q.addr0 = i1.out;
+      Q.write_en = 1'd1;
+      div0.left = A.read_data;
+      div0.right = R.read_data;
+      A.addr1 = k0.out;
+      A.addr0 = i1.out;
+      R.addr1 = k0.out;
+      R.addr0 = k0.out;
+      Q.write_data = 1'd1 ? div0.out;
+      upd3[done] = Q.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      i1.write_en = 1'd1;
+      add2.left = i1.out;
+      add2.right = const8.out;
+      i1.in = 1'd1 ? add2.out;
+      upd4[done] = i1.done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      R.addr1 = j0.out;
+      R.addr0 = k0.out;
+      R.write_en = 1'd1;
+      R.write_data = 1'd1 ? const11.out;
+      upd5[done] = R.done ? 1'd1;
+    }
+    group upd6<"static"=1> {
+      R.addr1 = j0.out;
+      R.addr0 = k0.out;
+      R.write_en = 1'd1;
+      add4.left = R.read_data;
+      add4.right = v0.out;
+      R.addr1 = j0.out;
+      R.addr0 = k0.out;
+      R.write_data = 1'd1 ? add4.out;
+      upd6[done] = R.done ? 1'd1;
+    }
+    group upd7<"static"=1> {
+      i2.write_en = 1'd1;
+      add5.left = i2.out;
+      add5.right = const14.out;
+      i2.in = 1'd1 ? add5.out;
+      upd7[done] = i2.done ? 1'd1;
+    }
+    group upd8<"static"=1> {
+      A.addr1 = j0.out;
+      A.addr0 = i3.out;
+      A.write_en = 1'd1;
+      sub0.left = A_i_j0.out;
+      sub0.right = mult2.out;
+      mult2.left = Q.read_data;
+      mult2.right = R.read_data;
+      Q.addr1 = k0.out;
+      Q.addr0 = i3.out;
+      R.addr1 = j0.out;
+      R.addr0 = k0.out;
+      A.write_data = 1'd1 ? sub0.out;
+      upd8[done] = A.done ? 1'd1;
+    }
+    group upd9<"static"=1> {
+      i3.write_en = 1'd1;
+      add6.left = i3.out;
+      add6.right = const17.out;
+      i3.in = 1'd1 ? add6.out;
+      upd9[done] = i3.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          seq {
+            let1;
+            seq {
+              let2;
+              while le1.out with cond1 {
+                seq {
+                  let3;
+                  upd0;
+                  upd1;
+                }
+              }
+            }
+            upd2;
+          }
+          let4;
+          while le2.out with cond2 {
+            seq {
+              upd3;
+              upd4;
+            }
+          }
+          seq {
+            let5;
+            while lt0.out with cond3 {
+              seq {
+                seq {
+                  seq {
+                  }
+                  upd5;
+                }
+                let6;
+                while le3.out with cond4 {
+                  seq {
+                    let7;
+                    upd6;
+                    upd7;
+                  }
+                }
+                seq {
+                  seq {
+                    let8;
+                    while le4.out with cond5 {
+                      seq {
+                        let9;
+                        upd8;
+                        upd9;
+                      }
+                    }
+                  }
+                  upd10;
+                }
+              }
+            }
+          }
+          upd11;
+        }
+      }
+    }
+  }
+}

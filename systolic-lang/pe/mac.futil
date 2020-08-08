@@ -1,0 +1,41 @@
+import "primitives/std.lib";
+
+// A MAC pipelined MAC that performs an add in the first cycle and multiply
+// in the next. It immediately (combinationally) forwards the left signal to
+// right and top to down.
+component mac_pe(top: 32, left: 32) -> (down: 32, right: 32) {
+  cells {
+    // Storage
+    acc = prim std_reg(32);
+    mul_reg = prim std_reg(32);
+    // Computation
+    add = prim std_add(32);
+    mul = prim std_mult(32);
+  }
+
+  wires {
+
+    group do_mul {
+      mul.left = top;
+      mul.right = left;
+      mul_reg.in = mul.out;
+      mul_reg.write_en = 1'd1;
+      do_mul[done] = mul_reg.done;
+    }
+
+    group do_add {
+      add.left = acc.out;
+      add.right = mul_reg.out;
+      acc.in = add.out;
+      acc.write_en = 1'd1;
+      do_add[done] = acc.done;
+    }
+
+    down = top;
+    right = left;
+  }
+
+  control {
+    seq { do_mul; do_add; }
+  }
+}

@@ -1,0 +1,275 @@
+
+import "primitives/std.lib";
+
+component mac_pe(top: 32, left: 32) -> (down: 32, right: 32) {
+  cells {
+    // Storage
+    acc = prim std_reg(32);
+    mul_reg = prim std_reg(32);
+    // Computation
+    add = prim std_add(32);
+    mul = prim std_mult(32);
+  }
+
+  wires {
+
+    group do_mul {
+      mul.left = top;
+      mul.right = left;
+      mul_reg.in = mul.out;
+      mul_reg.write_en = 1'd1;
+      do_mul[done] = mul_reg.done;
+    }
+
+    group do_add {
+      add.left = acc.out;
+      add.right = mul_reg.out;
+      acc.in = add.out;
+      acc.write_en = 1'd1;
+      do_add[done] = acc.done;
+    }
+
+    down = top;
+    right = left;
+  }
+
+  control {
+    seq { do_mul; do_add; }
+  }
+}
+
+component main() -> () {
+    cells {
+      t0_idx = prim std_reg(2);
+      t0_add = prim std_add(2);
+      t0 = prim std_mem_d1(32, 3, 2);
+      t1_idx = prim std_reg(2);
+      t1_add = prim std_add(2);
+      t1 = prim std_mem_d1(32, 3, 2);
+      l0_idx = prim std_reg(2);
+      l0_add = prim std_add(2);
+      l0 = prim std_mem_d1(32, 3, 2);
+      l1_idx = prim std_reg(2);
+      l1_add = prim std_add(2);
+      l1 = prim std_mem_d1(32, 3, 2);
+      pe_00 = mac_pe;
+      top_00_read = prim std_reg(32);
+      left_00_read = prim std_reg(32);
+      right_00_write = prim std_reg(32);
+      down_00_write = prim std_reg(32);
+      pe_01 = mac_pe;
+      top_01_read = prim std_reg(32);
+      left_01_read = prim std_reg(32);
+      down_01_write = prim std_reg(32);
+      pe_10 = mac_pe;
+      top_10_read = prim std_reg(32);
+      left_10_read = prim std_reg(32);
+      right_10_write = prim std_reg(32);
+      pe_11 = mac_pe;
+      top_11_read = prim std_reg(32);
+      left_11_read = prim std_reg(32);
+    }
+    wires {
+
+      group t0_idx_init {
+          t0_idx.in = 2'd3;
+          t0_idx.write_en = 1'd1;
+          t0_idx_init[done] = t0_idx.done;
+      }
+
+      group t0_idx_update {
+          t0_add.left = 2'd1;
+          t0_add.right = t0_idx.out;
+          t0_idx.in = t0_add.out;
+          t0_idx.write_en = 1'd1;
+          t0_idx_update[done] = t0_idx.done;
+      }
+
+      group t0_move {
+          t0.addr0 = t0_idx.out;
+          top_00_read.in = t0.read_data;
+          top_00_read.write_en = 1'd1;
+          t0_move[done] = top_00_read.done;
+      }
+
+      group t1_idx_init {
+          t1_idx.in = 2'd3;
+          t1_idx.write_en = 1'd1;
+          t1_idx_init[done] = t1_idx.done;
+      }
+
+      group t1_idx_update {
+          t1_add.left = 2'd1;
+          t1_add.right = t1_idx.out;
+          t1_idx.in = t1_add.out;
+          t1_idx.write_en = 1'd1;
+          t1_idx_update[done] = t1_idx.done;
+      }
+
+      group t1_move {
+          t1.addr0 = t1_idx.out;
+          top_01_read.in = t1.read_data;
+          top_01_read.write_en = 1'd1;
+          t1_move[done] = top_01_read.done;
+      }
+
+      group l0_idx_init {
+          l0_idx.in = 2'd3;
+          l0_idx.write_en = 1'd1;
+          l0_idx_init[done] = l0_idx.done;
+      }
+
+      group l0_idx_update {
+          l0_add.left = 2'd1;
+          l0_add.right = l0_idx.out;
+          l0_idx.in = l0_add.out;
+          l0_idx.write_en = 1'd1;
+          l0_idx_update[done] = l0_idx.done;
+      }
+
+      group l0_move {
+          l0.addr0 = l0_idx.out;
+          left_00_read.in = l0.read_data;
+          left_00_read.write_en = 1'd1;
+          l0_move[done] = left_00_read.done;
+      }
+
+      group l1_idx_init {
+          l1_idx.in = 2'd3;
+          l1_idx.write_en = 1'd1;
+          l1_idx_init[done] = l1_idx.done;
+      }
+
+      group l1_idx_update {
+          l1_add.left = 2'd1;
+          l1_add.right = l1_idx.out;
+          l1_idx.in = l1_add.out;
+          l1_idx.write_en = 1'd1;
+          l1_idx_update[done] = l1_idx.done;
+      }
+
+      group l1_move {
+          l1.addr0 = l1_idx.out;
+          left_10_read.in = l1.read_data;
+          left_10_read.write_en = 1'd1;
+          l1_move[done] = left_10_read.done;
+      }
+
+      group pe_00_compute {
+
+        pe_00.go = !pe_00.done ? 1'd1;
+        pe_00.top = top_00_read.out;
+        pe_00.left = left_00_read.out;
+
+        right_00_write.in = pe_00.done ? pe_00.right;
+        right_00_write.write_en = pe_00.done ? 1'd1;
+
+        down_00_write.in = pe_00.done ? pe_00.down;
+        down_00_write.write_en = pe_00.done ? 1'd1;
+
+        pe_00_compute[done] = right_00_write.done & down_00_write.done ? 1'd1;
+      }
+
+      group pe_00_right_move {
+          left_01_read.in = right_00_write.out;
+          left_01_read.write_en = 1'd1;
+          pe_00_right_move[done] = left_01_read.done;
+      }
+
+      group pe_00_down_move {
+          top_10_read.in = down_00_write.out;
+          top_10_read.write_en = 1'd1;
+          pe_00_down_move[done] = top_10_read.done;
+      }
+
+      group pe_01_compute {
+
+        pe_01.go = !pe_01.done ? 1'd1;
+        pe_01.top = top_01_read.out;
+        pe_01.left = left_01_read.out;
+
+        down_01_write.in = pe_01.done ? pe_01.down;
+        down_01_write.write_en = pe_01.done ? 1'd1;
+
+        pe_01_compute[done] = down_01_write.done ? 1'd1;
+      }
+
+      group pe_01_down_move {
+          top_11_read.in = down_01_write.out;
+          top_11_read.write_en = 1'd1;
+          pe_01_down_move[done] = top_11_read.done;
+      }
+
+      group pe_10_compute {
+
+        pe_10.go = !pe_10.done ? 1'd1;
+        pe_10.top = top_10_read.out;
+        pe_10.left = left_10_read.out;
+
+        right_10_write.in = pe_10.done ? pe_10.right;
+        right_10_write.write_en = pe_10.done ? 1'd1;
+
+        pe_10_compute[done] = right_10_write.done ? 1'd1;
+      }
+
+      group pe_10_right_move {
+          left_11_read.in = right_10_write.out;
+          left_11_read.write_en = 1'd1;
+          pe_10_right_move[done] = left_11_read.done;
+      }
+
+      group pe_11_compute {
+
+        pe_11.go = !pe_11.done ? 1'd1;
+        pe_11.top = top_11_read.out;
+        pe_11.left = left_11_read.out;
+
+        pe_11_compute[done] = pe_11.done ? 1'd1;
+      }
+
+    }
+    control {
+
+      seq {
+
+        par {
+            t0_idx_init; t1_idx_init; l0_idx_init; l1_idx_init;
+        }
+        par {
+            t0_idx_update; l0_idx_update;
+        }
+        par {
+            t0_move; l0_move;
+        }
+        par {
+            t0_idx_update; l0_idx_update; t1_idx_update; l1_idx_update; pe_00_compute;
+        }
+        par {
+            t0_move; t1_move; pe_00_down_move; l0_move; pe_00_right_move; l1_move;
+        }
+        par {
+            t0_idx_update; l0_idx_update; t1_idx_update; l1_idx_update; pe_00_compute; pe_01_compute; pe_10_compute;
+        }
+        par {
+            t0_move; t1_move; pe_00_down_move; pe_01_down_move; l0_move; pe_00_right_move; l1_move; pe_10_right_move;
+        }
+        par {
+            t1_idx_update; l1_idx_update; pe_00_compute; pe_01_compute; pe_10_compute; pe_11_compute;
+        }
+        par {
+            t1_move; pe_00_down_move; pe_01_down_move; pe_00_right_move; l1_move; pe_10_right_move;
+        }
+        par {
+            pe_01_compute; pe_10_compute; pe_11_compute;
+        }
+        par {
+            pe_01_down_move; pe_10_right_move;
+        }
+        par {
+            pe_11_compute;
+        }
+      }
+    }
+}
+
+

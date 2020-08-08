@@ -6,6 +6,7 @@ for (let i: ubit<4> = 0..8) {
   for (let j: ubit<4> = 0..12) {
     let k: ubit<4> = i + (1 as ubit<4>);
     while (k < (8 as ubit<4>)) {
+      decor "#pragma HLS loop_tripcount min=0 max=7 avg=4"
       let B_i_j: ubit<32> = B[i][j];
       ---
       let B_k_j: ubit<32> = B[k][j];

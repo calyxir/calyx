@@ -3,18 +3,18 @@ component main() -> () {
   cells {
     const0 = prim std_const(32,0);
     const1 = prim std_const(32,1);
-    x = prim std_reg(32);
+    x0 = prim std_reg(32);
   }
   wires {
-    group let0 {
-      x.in = const0.out;
-      x.write_en = 1'd1;
-      let0[done] = x.done;
+    group let0<"static"=1> {
+      x0.in = const0.out;
+      x0.write_en = 1'd1;
+      let0[done] = x0.done;
     }
-    group upd0 {
-      x.write_en = 1'd1;
-      x.in = const1.out;
-      upd0[done] = x.done;
+    group upd0<"static"=1> {
+      x0.write_en = 1'd1;
+      x0.in = 1'd1 ? const1.out;
+      upd0[done] = x0.done ? 1'd1;
     }
   }
   control {

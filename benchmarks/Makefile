@@ -14,29 +14,29 @@ status:
 	@grep "success" *.run | cut -f 1 -d ':' | cut -f 1 -d '.' | sed -e 's/^/ - /;'
 
 %.cpp: %.fuse
-	dahlia run $< -o $@
+	../bin/find-dahlia run $< -o $@ -l error
 	@if [ ! -f _headers/json.hpp ]; then wget $(JSON_URL) --directory-prefix _headers; fi
 	rm -f $@.o # remove extraneously generated file
 
 %.cpp.o: %.fuse
-	dahlia run $< -o $*.cpp
+	../bin/find-dahlia run $< -o $*.cpp -l error
 	@if [ ! -f _headers/json.hpp ]; then wget $(JSON_URL) --directory-prefix _headers; fi
 	rm -f $*.cpp # remove extraneously generated file
 
 %.dahlia-out: %.cpp.o
-	./$< $*.data | jq -S . > $@
+	./$< data/$*.data | jq -S . > $@
 
 %.futil: %.fuse
-	dahlia $< -o $@ --lower -b futil
+	../bin/find-dahlia $< --lower -b futil -l error > $@
 
-%.v: %.futil
-	cargo run -- $< -l .. -b verilog --meminit $*.meminit > $@
+%.sv: %.futil
+	cargo run -- $< -l .. -b verilog --verilator > $@
 
-%.meminit: %.data
+%.meminit: data/%.data
 	../bin/json_to_dat.py --mode json --output $@ $<
 
-%.vcd: %.meminit %.v
-	../bin/gen-vcd $*.v > $@
+%.vcd: %.meminit %.sv
+	DATA=$*.meminit ../bin/gen-vcd $*.sv > $@
 
 %.futil-out: %.meminit %.vcd
 	../bin/json_to_dat.py --mode dat --output $@.tmp $*.meminit
@@ -47,4 +47,4 @@ status:
 	diff $*.dahlia-out $*.futil-out > $@
 
 clean:
-	rm -rf *.cpp *.o *.run *.futil *.dahlia-out *.futil-out *.json *.v *.vcd _headers *.diff *.meminit
+	rm -rf *.cpp *.o *.run *.futil *.dahlia-out *.futil-out *.json *.sv *.vcd _headers *.diff *.meminit

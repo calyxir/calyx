@@ -1,14 +1,20 @@
 // Abstract Syntax Tree for Futil
-use crate::errors::{Result, Span};
-use crate::lang::context::LibraryContext;
+use crate::errors::{Error, Result, Span};
+use crate::lang::{context::LibraryContext, structure::StructureGraph};
+use derivative::Derivative;
+use itertools::Itertools;
+use petgraph::graph::NodeIndex;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::ops::{BitAnd, BitOr, Not};
 
 /// Represents an identifier in a Futil program
-#[derive(Clone, PartialOrd, Ord)]
+#[derive(Derivative, Clone, PartialOrd, Ord)]
+#[derivative(Hash, Eq, PartialEq)]
 pub struct Id {
-    id: String,
+    pub id: String,
+    #[derivative(Hash = "ignore")]
+    #[derivative(PartialEq = "ignore")]
     span: Option<Span>,
 }
 
@@ -33,22 +39,6 @@ impl std::fmt::Debug for Id {
         f.debug_struct("Id").field("id", &self.id).finish()
     }
 }
-
-/* =================== Custom Hash / Eq for impl to exclude span from the check ============== */
-
-impl Hash for Id {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-impl PartialEq for Id {
-    fn eq(&self, other: &Id) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for Id {}
 
 /* =================== Impls for Id to make them easier to use ============== */
 
@@ -86,7 +76,7 @@ impl PartialEq<str> for Id {
 }
 
 /// Top level AST statement. This contains a list of Component definitions.
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub struct NamespaceDef {
     /// The path to libraries
     pub libraries: Vec<String>,
@@ -95,21 +85,30 @@ pub struct NamespaceDef {
 }
 
 /// AST statement for defining components.
-#[derive(Clone, Debug, Hash)]
+#[derive(PartialEq, Eq, Clone, Debug, Derivative)]
+#[derivative(PartialOrd, Ord)]
 pub struct ComponentDef {
     /// Name of the component.
     pub name: Id,
 
     /// Defines input and output ports.
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
     pub signature: Signature,
 
     /// List of instantiated sub-components
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
     pub cells: Vec<Cell>,
 
     /// List of wires
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
     pub connections: Vec<Connection>,
 
     /// Single control statement for this component.
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
     pub control: Control,
 }
 
@@ -136,7 +135,7 @@ impl ComponentDef {
 
 /// The signature for a component. Contains a list
 /// of input ports and a list of output ports.
-#[derive(Clone, Debug, Hash, Default)]
+#[derive(Clone, Debug, Hash, Default, PartialEq, Eq)]
 pub struct Signature {
     /// List of input ports.
     pub inputs: Vec<Portdef>,
@@ -153,10 +152,24 @@ impl Signature {
     pub fn has_output(&self, name: &str) -> bool {
         self.outputs.iter().any(|e| &e.name == name)
     }
+
+    pub fn add_input(&mut self, name: &str, width: u64) {
+        if self.has_input(name) {
+            panic!("signature already has input port: {}", name)
+        }
+        self.inputs.push((name, width).into());
+    }
+
+    pub fn add_output(&mut self, name: &str, width: u64) {
+        if self.has_output(name) {
+            panic!("signature already has output port: {}", name)
+        }
+        self.outputs.push((name, width).into());
+    }
 }
 
 /// The definition of an input/output port.
-#[derive(Clone, Debug, Hash, PartialEq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Portdef {
     /// The name of the port.
     pub name: Id,
@@ -201,6 +214,21 @@ impl Port {
             Port::Comp { port, .. } => port,
             Port::This { port } => port,
             Port::Hole { name, .. } => name,
+        }
+    }
+
+    /// Returns the edge corresponding to this port in the StructureGraph.
+    pub fn get_edge(&self, st: &StructureGraph) -> Result<(NodeIndex, Id)> {
+        match self {
+            Port::Comp { component, port } => {
+                Ok((st.get_node_by_name(component)?, port.clone()))
+            }
+            Port::This { port } => {
+                Ok((st.get_node_by_name(&"this".into()).unwrap(), port.clone()))
+            }
+            Port::Hole { .. } => Err(Error::MalformedControl(
+                "Can't use a hole as a condition.".to_string(),
+            )),
         }
     }
 }
@@ -250,8 +278,8 @@ pub enum Atom {
 /// The AST for GuardExprs
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum GuardExpr {
-    And(Box<GuardExpr>, Box<GuardExpr>),
-    Or(Box<GuardExpr>, Box<GuardExpr>),
+    And(Vec<GuardExpr>),
+    Or(Vec<GuardExpr>),
     Eq(Box<GuardExpr>, Box<GuardExpr>),
     Neq(Box<GuardExpr>, Box<GuardExpr>),
     Gt(Box<GuardExpr>, Box<GuardExpr>),
@@ -263,34 +291,144 @@ pub enum GuardExpr {
 }
 
 impl GuardExpr {
+    /// Returns all the atoms at the leaves of the guard expression.
+    pub fn all_atoms(&self) -> Vec<&Atom> {
+        match self {
+            GuardExpr::Atom(a) => vec![a],
+            GuardExpr::Or(gs) | GuardExpr::And(gs) => {
+                gs.iter().map(|g| g.all_atoms()).flatten().collect()
+            }
+            GuardExpr::Eq(l, r)
+            | GuardExpr::Neq(l, r)
+            | GuardExpr::Gt(l, r)
+            | GuardExpr::Lt(l, r)
+            | GuardExpr::Leq(l, r)
+            | GuardExpr::Geq(l, r) => {
+                let mut atoms = l.all_atoms();
+                atoms.append(&mut r.all_atoms());
+                atoms
+            }
+            GuardExpr::Not(g) => g.all_atoms(),
+        }
+    }
+
+    /// Returns true when this guard is equivalent to the empty guard (true).
+    /// Since guards can be arbitrarily complex, this is conservative.
+    pub fn provably_true(&self) -> bool {
+        match self {
+            GuardExpr::Or(es) => es.is_empty(),
+            GuardExpr::And(es) => es.is_empty(),
+            _ => false,
+        }
+    }
+
+    /// A convienent constructor for `GuardExpr::And`
+    /// that allows chaining construction `g.and(guard)`
+    pub fn and_vec(mut atoms: Vec<GuardExpr>) -> Self {
+        // Early return if this is a trivial vector.
+        if atoms.len() == 1 {
+            return atoms.remove(0);
+        }
+
+        // Flatten any nested `And` inside the atoms.
+        let mut flat_atoms: Vec<GuardExpr> = Vec::with_capacity(atoms.len());
+        for atom in atoms {
+            match atom {
+                GuardExpr::And(mut bs) => flat_atoms.append(&mut bs),
+                _ => flat_atoms.push(atom),
+            }
+        }
+
+        // Remove duplicate elements and any 1s.
+        let uniqs = flat_atoms
+            .into_iter()
+            .unique()
+            .filter(|atom| match *atom {
+                GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) => false,
+                _ => true,
+            })
+            .collect();
+
+        GuardExpr::And(uniqs)
+    }
+
     /// A convienent constructor for `GuardExpr::And`
     /// that allows chaining construction `g.and(guard)`
     pub fn and(lhs: GuardExpr, rhs: GuardExpr) -> Self {
-        if lhs == rhs {
-            lhs
-        } else if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = lhs {
-            rhs
-        } else if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = rhs {
-            lhs
-        } else {
-            GuardExpr::And(Box::new(lhs), Box::new(rhs))
+        GuardExpr::and_vec(vec![lhs, rhs])
+    }
+
+    pub fn or_vec(mut atoms: Vec<GuardExpr>) -> Self {
+        // Early return if this is a trivial vector.
+        if atoms.len() == 1 {
+            return atoms.remove(0);
         }
+
+        // Flatten nested `Or`
+        let mut flat_atoms: Vec<GuardExpr> = Vec::with_capacity(atoms.len());
+        for atom in atoms {
+            match atom {
+                GuardExpr::Or(mut bs) => flat_atoms.append(&mut bs),
+                _ => flat_atoms.push(atom),
+            }
+        }
+
+        // Remove duplicates and any 0s.
+        let uniqs = flat_atoms
+            .into_iter()
+            .unique()
+            .filter(|atom| match *atom {
+                GuardExpr::Atom(Atom::Num(BitNum { val: 0, .. })) => false,
+                _ => true,
+            })
+            .collect();
+
+        GuardExpr::Or(uniqs)
     }
 
     /// A convienent constructor for `GuardExpr::And`
     /// that allows chaining construction `g.and(guard)`
     pub fn or(lhs: GuardExpr, rhs: GuardExpr) -> Self {
-        if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = lhs {
-            lhs
-        } else if let GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) = rhs {
-            rhs
-        } else {
-            GuardExpr::Or(Box::new(lhs), Box::new(rhs))
-        }
+        GuardExpr::or_vec(vec![lhs, rhs])
     }
 
     pub fn eq(self, other: GuardExpr) -> Self {
         GuardExpr::Eq(Box::new(self), Box::new(other))
+    }
+
+    pub fn neq(self, other: GuardExpr) -> Self {
+        GuardExpr::Neq(Box::new(self), Box::new(other))
+    }
+
+    pub fn le(self, other: GuardExpr) -> Self {
+        GuardExpr::Leq(Box::new(self), Box::new(other))
+    }
+
+    pub fn lt(self, other: GuardExpr) -> Self {
+        GuardExpr::Lt(Box::new(self), Box::new(other))
+    }
+
+    pub fn ge(self, other: GuardExpr) -> Self {
+        GuardExpr::Geq(Box::new(self), Box::new(other))
+    }
+
+    pub fn gt(self, other: GuardExpr) -> Self {
+        GuardExpr::Gt(Box::new(self), Box::new(other))
+    }
+
+    pub fn op_str(&self) -> String {
+        match self {
+            GuardExpr::And(_) => "&".to_string(),
+            GuardExpr::Or(_) => "|".to_string(),
+            GuardExpr::Eq(_, _) => "==".to_string(),
+            GuardExpr::Neq(_, _) => "!=".to_string(),
+            GuardExpr::Gt(_, _) => ">".to_string(),
+            GuardExpr::Lt(_, _) => "<".to_string(),
+            GuardExpr::Geq(_, _) => ">=".to_string(),
+            GuardExpr::Leq(_, _) => "<=".to_string(),
+            GuardExpr::Not(_) => "!".to_string(),
+            GuardExpr::Atom(_) => panic!("No operator string for Atom"),
+        }
     }
 }
 
@@ -314,7 +452,16 @@ impl Not for GuardExpr {
     type Output = Self;
 
     fn not(self) -> Self {
-        GuardExpr::Not(Box::new(self))
+        match self {
+            GuardExpr::Eq(lhs, rhs) => GuardExpr::Neq(lhs, rhs),
+            GuardExpr::Neq(lhs, rhs) => GuardExpr::Eq(lhs, rhs),
+            GuardExpr::Gt(lhs, rhs) => GuardExpr::Leq(lhs, rhs),
+            GuardExpr::Lt(lhs, rhs) => GuardExpr::Geq(lhs, rhs),
+            GuardExpr::Geq(lhs, rhs) => GuardExpr::Lt(lhs, rhs),
+            GuardExpr::Leq(lhs, rhs) => GuardExpr::Gt(lhs, rhs),
+            GuardExpr::Not(expr) => *expr,
+            _ => GuardExpr::Not(Box::new(self)),
+        }
     }
 }
 
@@ -338,12 +485,22 @@ impl ToString for Atom {
 impl ToString for GuardExpr {
     fn to_string(&self) -> String {
         match self {
-            GuardExpr::And(a, b) => {
-                format!("{}_and_{}", a.to_string(), b.to_string())
-            }
-            GuardExpr::Or(a, b) => {
-                format!("{}_or_{}", a.to_string(), b.to_string())
-            }
+            GuardExpr::And(branches) => format!(
+                "and({})",
+                branches
+                    .iter()
+                    .map(|b| b.to_string())
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            ),
+            GuardExpr::Or(branches) => format!(
+                "or({})",
+                branches
+                    .iter()
+                    .map(|b| b.to_string())
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            ),
             GuardExpr::Eq(a, b) => {
                 format!("{}_eq_{}", a.to_string(), b.to_string())
             }
@@ -437,16 +594,21 @@ impl Cell {
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Connection {
     Group(Group),
     Wire(Wire),
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Derivative, Clone, Debug, Eq)]
+#[derivative(PartialEq, PartialOrd, Ord)]
 pub struct Group {
     pub name: Id,
     pub wires: Vec<Wire>,
+    #[derivative(PartialEq = "ignore")]
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
+    pub attributes: HashMap<String, u64>,
 }
 
 /// Data for the `->` structure statement.
@@ -464,21 +626,21 @@ pub struct Wire {
 // ===================================
 
 /// Data for the `seq` control statement.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Seq {
     /// List of `Control` statements to run in sequence.
     pub stmts: Vec<Control>,
 }
 
 /// Data for the `par` control statement.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Par {
     /// List of `Control` statements to run in parallel.
     pub stmts: Vec<Control>,
 }
 
 /// Data for the `if` control statement.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct If {
     /// Port that connects the conditional check.
     pub port: Port,
@@ -494,7 +656,7 @@ pub struct If {
 }
 
 /// Data for the `if` control statement.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct While {
     /// Port that connects the conditional check.
     pub port: Port,
@@ -507,25 +669,25 @@ pub struct While {
 }
 
 /// Data for the `print` control statement.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Print {
     /// Name of the port to print.
     pub var: Port,
 }
 
 /// Data for the `enable` control statement.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Enable {
     /// List of components to run.
     pub comp: Id,
 }
 
 /// Data for the `empty` control statement.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Empty {}
 
 /// Control AST nodes.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Control {
     /// Represents sequential composition of control statements.
     Seq { data: Seq },

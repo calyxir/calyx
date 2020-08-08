@@ -1,0 +1,47 @@
+// broken because uses sqrt
+
+import "fxp_sqrt.h" {
+  def sqrt(x: ubit<32>);
+}
+
+decl A: ubit<32>[8][12];
+decl R: ubit<32>[12][12];
+decl Q: ubit<32>[8][12];
+
+for (let k: ubit<4> = 0..12) {
+  let nrm = (0 as ubit<32>);
+
+  for (let i: ubit<4> = 0..8) {
+    let A_i_k = A[i][k];
+    ---
+    nrm := nrm + A_i_k * A_i_k;
+  }
+
+  // This is a dumb hack we have to since Fuse assumes all functions return
+  // void.
+  R[k][k] := (sqrt(nrm) as ubit<32>);
+  ---
+  for (let i: ubit<4> = 0..8) {
+    Q[i][k] := A[i][k] / R[k][k];
+  }
+  ---
+  let j: ubit<4> = k + (1 as ubit<4>);
+  while (j < (12 as ubit<4>)) {
+    decor "#pragma HLS loop_tripcount min=0 max=11 avg=6"
+    R[k][j] := (0 as ubit<32>);
+    ---
+    for (let i: ubit<4> = 0..8) {
+      let v: ubit<32> = Q[i][k] * A[i][j];
+    } combine {
+      R[k][j] += v;
+    }
+    ---
+    for (let i: ubit<4> = 0..8) {
+      let A_i_j = A[i][j];
+      ---
+      A[i][j] := A_i_j - Q[i][k] * R[k][j];
+    }
+    // Update loop counter
+    j := j + (1 as ubit<4>);
+  }
+}

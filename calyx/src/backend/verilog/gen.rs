@@ -11,7 +11,7 @@ use crate::lang::{
     ast,
     ast::{Atom, Cell, Control, GuardExpr, Port},
     component, context,
-    structure::{DataDirection, NodeData},
+    structure::{DataDirection, EdgeData, NodeData},
 };
 use itertools::Itertools;
 use lib::Implementation;
@@ -31,12 +31,8 @@ pub struct VerilogBackend {}
 /// used in a guard.
 fn validate_guard(guard: &GuardExpr) -> bool {
     match guard {
-        GuardExpr::And(left, right) => {
-            validate_guard(left) && validate_guard(right)
-        }
-        GuardExpr::Or(left, right) => {
-            validate_guard(left) && validate_guard(right)
-        }
+        GuardExpr::And(bs) => bs.iter().all(|b| validate_guard(b)),
+        GuardExpr::Or(bs) => bs.iter().all(|b| validate_guard(b)),
         GuardExpr::Eq(left, right) => {
             validate_guard(left) && validate_guard(right)
         }
@@ -122,17 +118,15 @@ impl Backend for VerilogBackend {
             .collect::<Result<Vec<_>>>()?;
         let prims = primitive_implemenations(&prog, ctx)?;
         display(
-            colors::comment(D::text("/* verilator lint_off PINMISSING */"))
-                .append(D::line())
-                .append(colors::comment(D::text(
-                    // XXX(sam) hack to deal with incorrect array index sizes
-                    "/* verilator lint_off WIDTH */",
-                )))
-                .append(D::line())
-                .append(prims)
-                .append(D::line())
-                .append(D::line())
-                .append(D::intersperse(docs, D::line())),
+            colors::comment(D::text(
+                // XXX(sam) hack to deal with incorrect array index sizes
+                "/* verilator lint_off WIDTH */",
+            ))
+            .append(D::line())
+            .append(prims)
+            .append(D::line())
+            .append(D::line())
+            .append(D::intersperse(docs, D::line())),
             Some(file),
         );
         Ok(())
@@ -178,6 +172,16 @@ impl Emitable for ast::ComponentDef {
         ctx: &context::Context,
         comp: &component::Component,
     ) -> Result<D<'a>> {
+        let memory_init_doc = if ctx.verilator_mode {
+            colors::comment(D::text("// Memory initialization / finalization "))
+                .append(D::line())
+                .append(memory_init(&comp))
+                .append(D::line())
+                .append(D::line())
+        } else {
+            D::nil()
+        };
+
         let structure = D::nil()
             .append(D::space())
             .append(self.name.to_string())
@@ -195,13 +199,7 @@ impl Emitable for ast::ComponentDef {
             .append(subcomponent_instances(&comp))
             .append(D::line())
             .append(D::line())
-            .append(colors::comment(D::text(
-                "// Memory initialization / finalization ",
-            )))
-            .append(D::line())
-            .append(memory_init(&ctx, &comp))
-            .append(D::line())
-            .append(D::line())
+            .append(memory_init_doc)
             .append(colors::comment(D::text("// Input / output connections")))
             .append(D::line())
             .append(connections(&comp));
@@ -247,12 +245,7 @@ impl Emitable for ast::Signature {
                     .append(pd.doc(&ctx, &comp)?))
             })
             .collect::<Result<Vec<_>>>()?;
-        let mut ports = vec![D::text("input")
-            .keyword_color()
-            .append(D::space())
-            .append(D::text("wire").keyword_color())
-            .append(D::space())
-            .append("clk")];
+        let mut ports = vec![];
         ports.append(&mut inputs);
         ports.append(&mut outputs);
         let doc =
@@ -320,22 +313,6 @@ fn wire_declarations<'a>(comp: &component::Component) -> Result<D<'a>> {
     Ok(D::intersperse(wires, D::line()))
 }
 
-/// Generates a Verilog identifier for a Port.
-///   * `Port::This(port)` => port
-///   * `Port::Comp(comp, port)` => comp_port
-///   * `Port::Hole` => unreachable!
-fn wire_id_from_port<'a>(port: &Port) -> D<'a> {
-    match port {
-        Port::This { port } => D::text(port.to_string()),
-        Port::Comp { component, port } => {
-            D::text(format!("{}_{}", component.to_string(), port.to_string()))
-        }
-        Port::Hole { .. } => unreachable!(
-            "This should have been caught in the validation checking"
-        ),
-    }
-}
-
 /// Generates a Verilog identifier for a (Node, String).
 ///  * NodeData::Cell(..) => name_port
 ///  * NodeData::Port => port
@@ -347,42 +324,92 @@ fn wire_id_from_node<'a>(node: &Node, port: String) -> D<'a> {
             D::text(format!("{}_{}", node.name.to_string(), port))
         }
         NodeData::Port => D::text(port),
-        NodeData::Hole(..) => unreachable!(
-            "This should have been caught in the validation checking"
-        ),
+        NodeData::Hole(name) => {
+            unreachable!(format!("Structure has a hole: {}", name.id))
+        }
         NodeData::Constant(n) => D::text(format!("{}'d{}", n.width, n.val)),
     }
 }
 
+/// Tracks the context in the guards to only generate parens when inside an
+/// operator with stronger binding.
+#[derive(Debug, Eq, PartialEq)]
+enum ParenCtx {
+    Op,
+    Not,
+    And,
+    Or,
+}
+impl Ord for ParenCtx {
+    fn cmp(&self, other: &Self) -> Ordering {
+        use ParenCtx as P;
+        match (self, other) {
+            (P::Not, _) => Ordering::Greater,
+            (P::Op, P::Not) => Ordering::Less,
+            (P::Op, _) => Ordering::Greater,
+            (P::And, P::Op) | (P::And, P::Not) => Ordering::Less,
+            (P::And, _) => Ordering::Greater,
+            (P::Or, _) => Ordering::Less,
+        }
+    }
+}
+impl PartialOrd for ParenCtx {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 /// Converts a guarded edge into a Verilog string
-fn guard<'a>(expr: &GuardExpr) -> D<'a> {
+fn guard<'a>(expr: &GuardExpr, ctx: ParenCtx) -> D<'a> {
+    use ParenCtx as P;
     match expr {
-        GuardExpr::And(a, b) => D::nil()
-            .append(guard(a).append(" & ").append(guard(b)))
-            .parens(),
-        GuardExpr::Or(a, b) => D::nil()
-            .append(guard(a).append(" | ").append(guard(b)))
-            .parens(),
-        GuardExpr::Eq(a, b) => D::nil()
-            .append(guard(a).append(" == ").append(guard(b)))
-            .parens(),
-        GuardExpr::Neq(a, b) => D::nil()
-            .append(guard(a).append(" != ").append(guard(b)))
-            .parens(),
-        GuardExpr::Gt(a, b) => D::nil()
-            .append(guard(a).append(" > ").append(guard(b)))
-            .parens(),
-        GuardExpr::Lt(a, b) => D::nil()
-            .append(guard(a).append(" < ").append(guard(b)))
-            .parens(),
-        GuardExpr::Geq(a, b) => D::nil()
-            .append(guard(a).append(" >= ").append(guard(b)))
-            .parens(),
-        GuardExpr::Leq(a, b) => D::nil()
-            .append(guard(a).append(" <= ").append(guard(b)))
-            .parens(),
-        GuardExpr::Not(a) => D::text("!").append(guard(a)),
         GuardExpr::Atom(a) => atom(a),
+        GuardExpr::Not(a) => {
+            let ret = D::text(expr.op_str()).append(guard(a, P::Not));
+            if ctx > P::Not {
+                ret.parens()
+            } else {
+                ret
+            }
+        }
+        GuardExpr::And(bs) => {
+            let ret = D::intersperse(
+                bs.iter().map(|b| guard(b, P::And)).collect::<Vec<_>>(),
+                D::text(" & "),
+            );
+            if ctx > P::And {
+                ret.parens()
+            } else {
+                ret
+            }
+        }
+        GuardExpr::Or(bs) => {
+            let ret = D::intersperse(
+                bs.iter().map(|b| guard(b, P::Or)).collect::<Vec<_>>(),
+                D::text(" | "),
+            );
+            if ctx > P::Or {
+                ret.parens()
+            } else {
+                ret
+            }
+        }
+        GuardExpr::Eq(a, b)
+        | GuardExpr::Neq(a, b)
+        | GuardExpr::Gt(a, b)
+        | GuardExpr::Lt(a, b)
+        | GuardExpr::Geq(a, b)
+        | GuardExpr::Leq(a, b) => {
+            let ret = D::nil().append(
+                guard(a, P::Op)
+                    .append(format!(" {} ", expr.op_str()))
+                    .append(guard(b, P::Op)),
+            );
+            if ctx > P::Op {
+                ret.parens()
+            } else {
+                ret
+            }
+        }
     }
 }
 
@@ -415,6 +442,95 @@ pub fn bitwidth<'a>(width: u64) -> Result<D<'a>> {
     }
 }
 
+/// Get all the assignments to a given (node, port) pair.
+fn get_all_edges(
+    comp: &component::Component,
+    node: NodeIndex,
+    port: String,
+) -> (String, Vec<(EdgeData, &Node)>) {
+    // collect all edges writing into this node and port
+    let edges = comp
+        .structure
+        .edge_idx()
+        .with_direction(DataDirection::Write)
+        .with_node(node)
+        .with_port(port.clone())
+        .map(|idx| {
+            (
+                comp.structure.get_edge(idx).clone(),
+                comp.structure.get_node(comp.structure.endpoints(idx).0),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    (port, edges)
+}
+
+/// Generate a sequence of ternary assignments into the (node, port) using
+/// edges. Generated code looks like:
+/// node.port = g1 ? n1.p1 : g2 ? n2.p2 ...
+fn gen_assigns<'a>(
+    node: &Node,
+    port: String,
+    edges: Vec<(EdgeData, &Node)>,
+) -> D<'a> {
+    let unguarded_drivers = edges
+        .iter()
+        .filter(|(ed, _)| {
+            ed.guard.is_none() || ed.guard.as_ref().unwrap().provably_true()
+        })
+        .count();
+
+    // Error if there is more than one unguarded driver.
+    if unguarded_drivers > 1 {
+        panic!(
+            "Multiple unguarded drivers for {}.{}",
+            node.name.to_string(),
+            port
+        );
+    }
+
+    // Error if there is an unguarded driver along with other guarded drivers.
+    if unguarded_drivers == 1 && edges.len() > 1 {
+        panic!(
+            "{}.{} driven by both unguarded and guarded drivers",
+            node.name.to_string(),
+            port
+        );
+    }
+
+    let edge_assignment = if unguarded_drivers == 1 {
+        let (el, node) = &edges[0];
+        wire_id_from_node(node, el.src.port_name().to_string())
+    } else {
+        edges
+            .iter()
+            // Sort by the destination port names. This is required for
+            // deterministic outputs.
+            .sorted_by(|e1, e2| Ord::cmp(&e1.0.src, &e2.0.src))
+            .fold(D::text("'0"), |acc, (el, node)| {
+                el.guard
+                    .as_ref()
+                    .map(|g| guard(&g, ParenCtx::Not))
+                    .unwrap_or_else(D::nil)
+                    .append(" ? ")
+                    .append(wire_id_from_node(
+                        node,
+                        el.src.port_name().to_string(),
+                    ))
+                    .append(" : ")
+                    .append(acc)
+            })
+    };
+    D::text("assign")
+        .keyword_color()
+        .append(D::space())
+        .append(wire_id_from_node(node, port))
+        .append(" = ")
+        .append(edge_assignment)
+        .append(";")
+}
+
 //==========================================
 //        Connection Functions
 //==========================================
@@ -429,55 +545,12 @@ fn connections<'a>(comp: &component::Component) -> D<'a> {
                 .inputs
                 .iter()
                 // get all the edges writing into a port
-                .map(move |portdef| {
-                    (
-                        portdef.name.to_string(),
-                        // collect all edges writing into this node and port
-                        comp.structure
-                            .edge_idx()
-                            .with_direction(DataDirection::Write)
-                            .with_node(idx)
-                            .with_port(portdef.name.to_string())
-                            .map(|idx| {
-                                (
-                                    comp.structure.get_edge(idx).clone(),
-                                    comp.structure.get_node(
-                                        comp.structure.endpoints(idx).0,
-                                    ),
-                                )
-                            })
-                            .collect::<Vec<_>>(),
-                    )
+                .map(|portdef| {
+                    get_all_edges(&comp, idx, portdef.name.to_string())
                 })
-                // remove empty edges because we don't need to assign them anything
+                // remove empty edges
                 .filter(|(_, edges)| !edges.is_empty())
-                // fold all the edges into a single assign statement
-                // with nested ternary statements to implement muxing
-                .map(|(name, edges)| {
-                    D::text("assign")
-                        .keyword_color()
-                        .append(D::space())
-                        .append(wire_id_from_node(&node, name))
-                        .append(" = ")
-                        .append(edges.iter().rev().fold(
-                            D::text("'0"),
-                            |acc, (el, node)| {
-                                el.guard
-                                    .as_ref()
-                                    .map(|g| guard(&g))
-                                    .unwrap_or_else(D::nil)
-                                    .append(" ? ")
-                                    .append(wire_id_from_node(
-                                        &node,
-                                        el.src.port_name().to_string(),
-                                    ))
-                                    .append(" : ")
-                                    .append(acc)
-                                    .parens()
-                            },
-                        ))
-                        .append(";")
-                })
+                .map(|(port, edges)| gen_assigns(node, port, edges))
                 .collect::<Vec<_>>()
         })
         .flatten();
@@ -551,84 +624,85 @@ fn signature_connections<'a>(
     idx: NodeIndex,
 ) -> D<'a> {
     // wire up all the incoming edges
-    let incoming = sig
-        .inputs
-        .iter()
-        .map(|portdef| {
-            // if portdef is named `clk`, wire up `clk`
-            if &portdef.name == "clk" {
-                vec![D::text(".").append("clk").append(D::text("clk").parens())]
-            } else {
-                comp.structure
-                    .edge_idx()
-                    .with_direction(DataDirection::Write)
-                    .with_node(idx)
-                    .with_port(portdef.name.to_string())
-                    .detach()
-                    .map(|edge_idx| comp.structure.get_edge(edge_idx))
-                    // we only want one connection per dest
-                    .unique_by(|edge| &edge.dest)
-                    .map(move |edge| {
-                        D::text(".")
-                            .append(D::text(portdef.name.to_string()))
-                            .append(wire_id_from_port(&edge.dest).parens())
-                    })
-                    .collect::<Vec<_>>()
-            }
-        })
-        .flatten();
-
-    // wire up outgoing edges
-    let outgoing = sig.outputs.iter().map(|portdef| {
-        D::text(".")
-            .append(D::text(portdef.name.to_string()))
-            .append(
-                D::text(format!(
-                    "{}_{}",
-                    comp.structure.get_node(idx).name.to_string(),
-                    portdef.name.to_string()
-                ))
-                .parens(),
-            )
+    let all = sig.inputs.iter().chain(sig.outputs.iter()).map(|portdef| {
+        // if portdef is named `clk`, wire up `clk`
+        if &portdef.name == "clk" {
+            D::text(".").append("clk").append(D::text("clk").parens())
+        } else {
+            D::text(".")
+                .append(D::text(portdef.name.to_string()))
+                .append(
+                    D::text(format!(
+                        "{}_{}",
+                        comp.structure.get_node(idx).name.to_string(),
+                        portdef.name.to_string()
+                    ))
+                    .parens(),
+                )
+        }
     });
 
-    D::intersperse(incoming.chain(outgoing), D::text(",").append(D::line()))
+    D::intersperse(all, D::text(",").append(D::line()))
 }
 
 //==========================================
 //        Memory init functions
 //==========================================
-fn memory_init<'a>(
-    ctx: &context::Context,
-    comp: &component::Component,
-) -> D<'a> {
-    match &ctx.meminit_directory {
-        Some(dir) => D::text("initial")
-            .append(D::space())
-            .append(memory_load_store(
-                "$readmemh",
-                "dat",
-                dir.to_str().unwrap(),
-                &comp,
-            ))
-            .append(D::line())
-            .append(D::line())
-            .append("final")
-            .append(D::space())
-            .append(memory_load_store(
-                "$writememh",
-                "out",
-                dir.to_str().unwrap(),
-                &comp,
-            )),
-        None => D::text("// no directory given"),
-    }
+// Generates code of the form:
+// ```
+// import "DPI-C" function string futil_getenv (input string env_var);
+// string DATA;
+// initial begin
+//   DATA = futil_getenv("DATA");
+//   $display("DATA: %s", DATA);
+//   $readmemh({DATA, "/<mem_name>.out"}, <mem_name>.mem);
+//   ...
+// end
+// final begin
+//   $writememh({DATA, "/<mem_name>.out"}, <mem_name>.mem);
+// end
+// ```
+fn memory_init<'a>(comp: &component::Component) -> D<'a> {
+    // Import futil helper library.
+    const IMPORT_STMT: &str =
+        "import \"DPI-C\" function string futil_getenv (input string env_var);";
+    const DATA_DECL: &str = "string DATA;";
+    const DATA_GET: &str = "DATA = futil_getenv(\"DATA\");";
+    const DATA_DISP: &str =
+        "$fdisplay(2, \"DATA (path to meminit files): %s\", DATA);";
+
+    let initial_block = D::text("initial begin")
+        .append(D::line())
+        .append(
+            (D::text(DATA_GET)
+                .append(D::line())
+                .append(DATA_DISP)
+                .append(memory_load_store("$readmemh", "dat", &comp)))
+            .nest(4),
+        )
+        .append(D::line())
+        .append("end");
+
+    let final_block = D::text("final begin")
+        .append(memory_load_store("$writememh", "out", &comp).nest(4))
+        .append(D::line())
+        .append("end");
+
+    D::text(IMPORT_STMT)
+        .append(D::line())
+        .append(DATA_DECL)
+        .append(D::line())
+        .append(D::space())
+        .append(initial_block)
+        .append(D::line())
+        .append(D::line())
+        .append(D::space())
+        .append(final_block)
 }
 
 fn memory_load_store<'a>(
     mem_f: &'static str,
     ext: &'static str,
-    dir: &str,
     comp: &component::Component,
 ) -> D<'a> {
     let doc = comp
@@ -645,8 +719,7 @@ fn memory_load_store<'a>(
             D::text(mem_f)
                 .append(
                     D::text(format!(
-                        "\"{}/{}.{}\"",
-                        dir,
+                        "{{ DATA, \"/{}.{}\" }}",
                         node.name.to_string(),
                         ext
                     ))
@@ -658,12 +731,5 @@ fn memory_load_store<'a>(
                 .append(";")
         });
 
-    D::text("begin")
-        .append(
-            D::line()
-                .append(D::intersperse(doc, D::line()))
-                .nest(4)
-                .append(D::line()),
-        )
-        .append("end")
+    D::line().append(D::intersperse(doc, D::line()))
 }
