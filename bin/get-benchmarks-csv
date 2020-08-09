@@ -2,9 +2,18 @@
 
 set -eu
 
-benchmarks=./benchmarks/verilog/*.expect
+cleanup() {
+    rm -r $tmp
+}
+trap cleanup EXIT
 
+benchmarks=./benchmarks/*.fuse
+
+echo "benchmark,latency"
+tmp="$(mktemp -d)"
 for bench in $benchmarks; do
-  base="$(basename -s .expect $bench)"
-  ./bin/run-benchmark $bench benchmarks/data/"$base".data | head -n 1
+  base="$(basename -s .fuse $bench)"
+
+  ./bin/find-dahlia "$bench" -l error -b futil --lower > "$tmp/$base.futil"
+  ./bin/run-benchmark "$tmp/$base.futil" ./benchmarks/data/"$base".data | head -n 1
 done

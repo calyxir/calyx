@@ -22,7 +22,8 @@ for (let k: ubit<4> = 1..8) {
   ---
   // modification to prevent div by 0
   if (beta != (0 as ubit<32>)) {
-    alpha := (0 as ubit<32>) - (r[k] + sum)/beta;
+    let tmp: ubit<32> = (0 as ubit<32>) - (r[k] + sum);
+    alpha := tmp/beta;
   } else {
     alpha := (0 as ubit<32>);
   }

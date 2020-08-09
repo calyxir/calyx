@@ -25,8 +25,16 @@ for (let i: ubit<4> = 0..12) {
       let B_i_k: ubit<32> = B[i][k];
       let A_j2_k: ubit<32> = A[j2][k]
       ---
-      C[i][j2] := A_j2_k * alpha[(0 as ubit<1>)] * B_i_k +
-                  B[j2][k] * alpha[(0 as ubit<1>)] * A[i][k] + C_i_j2;
+      let tmp0: ubit<32> = A_j2_k * alpha[(0 as ubit<1>)];
+      let tmp1: ubit<32> = tmp0 * B_i_k;
+
+      let tmp2 = B[j2][k] * alpha[(0 as ubit<1>)];
+      let tmp3 = tmp2 * A[i][k];
+
+      let tmp4 = tmp1 + tmp3;
+      C[i][j2] := tmp4 + C_i_j2;
+      // C[i][j2] := A_j2_k * alpha[(0 as ubit<1>)] * B_i_k +
+      //             B[j2][k] * alpha[(0 as ubit<1>)] * A[i][k] + C_i_j2;
       // Update loop counter
       j2 := j2 + (1 as ubit<4>);
     }

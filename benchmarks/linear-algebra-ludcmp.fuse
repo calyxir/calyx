@@ -1,0 +1,90 @@
+// BEGIN macro definition
+
+
+
+
+// END macro definition
+
+decl A: ubit<32>[40][40];
+decl b: ubit<32>[40];
+decl x: ubit<32>[40];
+decl y: ubit<32>[40];
+
+// outer 1
+for (let i: ubit<6> = 0..40) {
+  // inner 1.1
+  let j: ubit<6> = (0 as ubit<6>);
+  while (j < i) {
+    let w: ubit<32> = A[i][j];
+    ---
+    // inner 1.1.1
+    let k: ubit<6> = (0 as ubit<6>);
+    while (k < j) {
+      let A_i_k: ubit<32> = A[i][k];
+      ---
+      w := w - (A_i_k * A[k][j]);
+      k := k + (1 as ubit<6>);
+    }
+    ---
+    let A_j_j: ubit<32> = A[j][j];
+    ---
+    if (A_j_j != (0 as ubit<32>)) {
+      A[i][j] := w / A_j_j;
+    }
+    j := j + (1 as ubit<6>);
+  }
+
+  ---
+
+  // inner 1.2
+  j := i;
+  while(j < (40 as ubit<6>)) {
+    let w: ubit<32> = A[i][j];
+    ---
+    // inner 1.2.1
+    let k: ubit<6> = (0 as ubit<6>);
+    while(k < i) {
+      let A_i_k: ubit<32> = A[i][k];
+      ---
+      w := w - (A_i_k * A[k][j]);
+      k := k + (1 as ubit<6>);
+    }
+    ---
+    A[i][j] := w;
+
+    j := j + (1 as ubit<6>);
+  }
+}
+
+---
+
+// outer 2
+for (let i: ubit<6> = 0..40) {
+  let w: ubit<32> = b[i];
+  // inner 2.1
+  let j: ubit<6> = (0 as ubit<6>);
+  while (j < i) {
+    w := w - (A[i][j] * y[j]);
+    j := j + (1 as ubit<6>);
+  }
+  ---
+  y[i] := w;
+}
+---
+
+// outer 3
+let i: ubit<6> = (40 as ubit<6>) - (1 as ubit<6>);
+while (i >= (0 as ubit<6>) && i < (40 as ubit<6>)) {
+  let w: ubit<32> = y[i];
+  // inner 3.1
+  let j: ubit<6> = i + (1 as ubit<6>);
+  while (j < (40 as ubit<6>)) {
+    w := w - (A[i][j] * x[j]);
+    j := j + (1 as ubit<6>);
+  }
+  ---
+  if (A[i][i] != (0 as ubit<32>)) {
+    x[i] := w / A[i][i];
+  }
+  i := i - (1 as ubit<6>);
+}

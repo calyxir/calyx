@@ -22,6 +22,7 @@ impl Visitor for Externalize {
     fn start(&mut self, comp: &mut Component, _c: &Context) -> VisResult {
         let st = &mut comp.structure;
 
+        // collect all the external memory nodes and their indicies
         let indicies = st
             .component_iterator()
             .filter_map(|(idx, node)| {
@@ -47,14 +48,18 @@ impl Visitor for Externalize {
                     name: portname.into(),
                     width: portdef.width,
                 };
-                st.insert_output_port(&new_portdef);
-                for edidx in st
+                let iterator = st
                     .edge_idx()
                     .with_node(idx)
                     .with_port(portdef.name.to_string())
                     .with_direction(DataDirection::Write)
-                    .detach()
-                {
+                    .collect::<Vec<_>>();
+                // if iterator.is_empty() {
+                //     continue;
+                // }
+                // abort early if there are no writes
+                st.insert_output_port(&new_portdef);
+                for edidx in iterator {
                     let edge = st.get_edge(edidx).clone();
                     let src_port = edge.src.port_name().clone();
                     let (src_node, _) = st.endpoints(edidx);
@@ -77,14 +82,18 @@ impl Visitor for Externalize {
                     name: portname.into(),
                     width: portdef.width,
                 };
-                st.insert_input_port(&new_portdef);
-                for edidx in st
+                let iterator = st
                     .edge_idx()
                     .with_node(idx)
                     .with_port(portdef.name.to_string())
                     .with_direction(DataDirection::Read)
-                    .detach()
-                {
+                    .collect::<Vec<_>>();
+                // abort early if there are no reads
+                // if iterator.is_empty() {
+                //     continue;
+                // }
+                st.insert_input_port(&new_portdef);
+                for edidx in iterator {
                     let edge = st.get_edge(edidx).clone();
                     let dest_port = edge.dest.port_name().clone();
                     let (_, dest_node) = st.endpoints(edidx);

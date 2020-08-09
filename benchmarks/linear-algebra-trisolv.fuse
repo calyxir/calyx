@@ -1,11 +1,18 @@
-decl L: ubit<32>[8][8];
-decl x: ubit<32>[8];
-decl b: ubit<32>[8];
+// BEGIN macro definition
 
-for (let i: ubit<4> = 0..8) {
+
+
+
+// END macro definition
+
+decl L: ubit<32>[40][40];
+decl x: ubit<32>[40];
+decl b: ubit<32>[40];
+
+for (let i: ubit<6> = 0..40) {
   x[i] := b[i];
   ---
-  let j: ubit<4> = (0 as ubit<4>);
+  let j: ubit<6> = (0 as ubit<6>);
   while (j < i) {
     decor "#pragma HLS loop_tripcount min=0 max=7 avg=4"
     let x_j: ubit<32> = x[j];
@@ -13,10 +20,12 @@ for (let i: ubit<4> = 0..8) {
     x[i] := L[i][j] * x_j;
 
     // Update loop counter
-    j := j + (1 as ubit<4>);
+    j := j + (1 as ubit<6>);
   }
   ---
   let x_i: ubit<32> = x[i];
   ---
-  x[i] := x_i / L[i][i];
+  if (L[i][i] != (0 as ubit<32>)) {
+    x[i] := x_i / L[i][i];
+  }
 }

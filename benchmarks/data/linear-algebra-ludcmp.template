@@ -1,0 +1,18 @@
+{
+  "A": {
+    "data": [40, 40],
+    "bitwidth": 32
+  },
+  "b": {
+    "data": 40,
+    "bitwidth": 32
+  },
+  "x": {
+    "data": 40,
+    "bitwidth": 32
+  },
+  "y": {
+    "data": 40,
+    "bitwidth": 32
+  }
+}

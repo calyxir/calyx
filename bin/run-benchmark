@@ -21,7 +21,6 @@ meminit="$(mktemp -d)"
 # Create .meminit files from the input JSON file.
 ./bin/json_to_dat.py --mode json --output "$meminit" "$data"
 
-
 # Run the benchmark
 tmp="$(mktemp -d)"
 ./target/debug/futil "$benchmark" -b verilog --verilator \
@@ -30,6 +29,6 @@ tmp="$(mktemp -d)"
 # Translate the outputs back to a JSON filetmp
 ./bin/json_to_dat.py --mode dat --output "$tmp/out.json" --read_ext out "$meminit"
 
-echo -n "$(basename -s .expect $benchmark),"
+echo -n "$(basename -s .futil $benchmark),"
 cat "$tmp/log" | grep cycles | awk '{print $2}'
 jq -S . "$tmp/out.json"

@@ -195,6 +195,23 @@ primitive std_reg<"static"=1>[p_width](in: p_width, write_en: 1, clk: 1) -> (out
   }
 }
 
+primitive std_reg_no_done<"static"=1>[p_width](in: p_width, clk: 1) -> (out: p_width) {
+  verilog {
+    module std_reg_no_done
+      #(parameter width = 32)
+       (input wire [width-1:0] in,
+        input wire clk,
+        // output
+        output logic [width - 1:0] out);
+
+      always_ff @(posedge clk) begin
+        out <= in;
+      end
+    endmodule
+  }
+}
+
+
 primitive std_shift_reg[p_width, p_depth](in: p_width, write_en: 1, clk: 1) -> (out: p_width, done: 1) {
   verilog {
     module std_shift_reg
@@ -298,10 +315,49 @@ primitive std_mult[p_width](left: p_width, right: p_width) -> (out: p_width) {
     module std_mult
       #(parameter width = 32)
       (input logic  [width-1:0] left,
-        input logic  [width-1:0] right,
-        output logic [width-1:0] out);
+       input logic  [width-1:0] right,
+       output logic [width-1:0] out);
       assign out = left * right;
     endmodule
+  }
+}
+
+primitive std_mult_pipe[p_width](left: p_width, right: p_width, go: 1, clk: 1) -> (out: p_width, done: 1) {
+  verilog {
+    module std_mult_pipe
+      #(parameter width = 32)
+       (input logic [width-1:0] left,
+        input logic [width-1:0] right,
+        input logic go,
+        input logic clk,
+        output logic [width-1:0] out,
+        output logic done);
+       logic [width-1:0] rtmp;
+       logic [width-1:0] ltmp;
+       logic [width-1:0] out_tmp;
+       reg done_buf[1:0];
+       always_ff @(posedge clk) begin
+         if (go) begin
+           rtmp <= right;
+           ltmp <= left;
+           out_tmp <= rtmp * ltmp;
+           out <= out_tmp;
+
+           done <= done_buf[1];
+           done_buf[0] <= 1'b1;
+           done_buf[1] <= done_buf[0];
+         end else begin
+           rtmp <= 0;
+           ltmp <= 0;
+           out_tmp <= 0;
+           out <= 0;
+
+           done <= 0;
+           done_buf[0] <= 0;
+           done_buf[1] <= 0;
+         end
+       end
+     endmodule
   }
 }
 
@@ -313,6 +369,60 @@ primitive std_div[p_width](left: p_width, right: p_width) -> (out: p_width) {
         input logic  [width-1:0] right,
         output logic [width-1:0] out);
       assign out = left / right;
+    endmodule
+  }
+}
+
+primitive std_div_pipe[width]
+(clk: 1, reset: 1, go: 1, left: 32, right: 32)
+-> (out: 32, done: 1) {
+  verilog {
+    module std_div_pipe
+              #(parameter width = 32)
+                (input             clk, reset,
+                input             go,
+                input [31:0]      left,
+                input [31:0]      right,
+                output reg [31:0] out,
+                output reg        done);
+
+      wire start = go && !running && !reset;
+
+      reg [31:0] dividend;
+      reg [62:0] divisor;
+      reg [31:0] quotient;
+      reg [31:0] quotient_msk;
+      reg        running;
+
+      always @(posedge clk) begin
+          if (reset || !go) begin
+            running <= 0;
+            done <= 0;
+            out <= 0;
+          end else
+           if (start && left == 0) begin
+              out <= 0;
+              done <= 1;
+           end if (start) begin
+              running <= 1;
+              dividend <= left;
+              divisor <= right << 31;
+              quotient <= 0;
+              quotient_msk <= 1 << 31;
+            end else
+              if (!quotient_msk && running) begin
+                running <= 0;
+                done <= 1;
+                out <= quotient;
+              end else begin
+                if (divisor <= dividend) begin
+                    dividend <= dividend - divisor;
+                    quotient <= quotient | quotient_msk;
+                end
+                divisor <= divisor >> 1;
+                quotient_msk <= quotient_msk >> 1;
+              end
+      end
     endmodule
   }
 }
@@ -424,7 +534,6 @@ primitive std_le[p_width](left: p_width, right: p_width) -> (out: 1) {
   }
 }
 
-// XXX(sam): parameterize input and output width
 primitive std_sqrt(in: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
   verilog {
     module std_sqrt
@@ -438,35 +547,41 @@ primitive std_sqrt(in: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
       reg [15:0] q;
       reg [17:0] left,right,r;
       integer i;
-
       always_ff @(posedge clk) begin
-        // initialize all the variables.
-        a = in;
-        q = 0;
-        i = 0;
-        left = 0;   // input to adder/sub
-        right = 0;  // input to adder/sub
-        r = 0;      // remainder
-
+        if (go && i == 0) begin
+          // initialize all the variables.
+          a = in;
+          q = 0;
+          i = 1;
+          left = 0;   // input to adder/sub
+          right = 0;  // input to adder/sub
+          r = 0;      // remainder
         // run the calculations for 16 iterations.
-        for(i=0;i<16;i=i+1) begin
-            right = {q,r[17],1'b1};
-            left = {r[15:0],a[31:30]};
-            a = {a[29:0],2'b00};    //left shift by 2 bits.
-            if (r[17] == 1) //add if r is negative
-                r = left + right;
-            else    //subtract if r is positive
-                r = left - right;
-            q = {q[14:0],!r[17]};
+        end else if (go && i <= 16) begin
+          right = {q,r[17],1'b1};
+          left = {r[15:0],a[31:30]};
+          a = {a[29:0],2'b00};    //left shift by 2 bits.
+          if (r[17] == 1) //add if r is negative
+              r = left + right;
+          else    //subtract if r is positive
+              r = left - right;
+          q = {q[14:0],!r[17]};
+          if (i == 16) begin
+            out = {16'd0,q};   //final assignment of output.
+            i = 0;
+            done = 1;
+          end else
+            i = i + 1;
+        end else begin
+          // initialize all the variables.
+          a = in;
+          q = 0;
+          i = 0;
+          left = 0;   // input to adder/sub
+          right = 0;  // input to adder/sub
+          r = 0;      // remainder
+          done = 0;
         end
-        out = {16'd0,q};   //final assignment of output.
-      end
-
-      always_ff @(posedge clk) begin
-        if (go) begin
-          done <= 1'd1;
-        end else
-          done <= 1'd0;
       end
     endmodule
   }

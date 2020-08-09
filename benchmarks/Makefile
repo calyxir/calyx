@@ -13,6 +13,9 @@ status:
 	@echo "succeeded:"
 	@grep "success" *.run | cut -f 1 -d ':' | cut -f 1 -d '.' | sed -e 's/^/ - /;'
 
+%.fuse: %.fuse.pre
+	m4 $< > $@
+
 %.cpp: %.fuse
 	../bin/find-dahlia run $< -o $@ -l error
 	@if [ ! -f _headers/json.hpp ]; then wget $(JSON_URL) --directory-prefix _headers; fi
@@ -31,6 +34,9 @@ status:
 
 %.sv: %.futil
 	cargo run -- $< -l .. -b verilog --verilator > $@
+
+data/%.data: data/%.template
+	../bin/gen_data.py $< > $@
 
 %.meminit: data/%.data
 	../bin/json_to_dat.py --mode json --output $@ $<

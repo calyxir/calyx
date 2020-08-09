@@ -20,6 +20,7 @@ use passes::{
     go_insertion::GoInsertion,
     inliner::Inliner,
     merge_assign::MergeAssign,
+    move_hole_to_guard::MoveHoleToGuard,
     papercut::Papercut,
     remove_external_memories::RemoveExternalMemories,
     static_timing::StaticTiming,
@@ -48,6 +49,7 @@ fn construct_pass_manager() -> Result<PassManager> {
     register_pass!(pm, CollapseControl);
     register_pass!(pm, Papercut);
     register_pass!(pm, DspRegInsertion);
+    register_pass!(pm, MoveHoleToGuard);
 
     // Register aliases
     register_alias!(
@@ -57,12 +59,12 @@ fn construct_pass_manager() -> Result<PassManager> {
             WellFormed,
             Papercut,
             RemoveExternalMemories,
-            DspRegInsertion,
             CollapseControl,
             StaticTiming,
             CompileControl,
             GoInsertion,
             ComponentInterface,
+            MoveHoleToGuard,
             Inliner,
             MergeAssign,
         ]
@@ -74,12 +76,12 @@ fn construct_pass_manager() -> Result<PassManager> {
         [
             WellFormed,
             Papercut,
-            DspRegInsertion,
             CollapseControl,
             StaticTiming,
             CompileControl,
             GoInsertion,
             ComponentInterface,
+            MoveHoleToGuard,
             Inliner,
             MergeAssign,
             Externalize
