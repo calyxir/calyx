@@ -1,6 +1,7 @@
 v0.0.4
 fn (%x: float32) {
-   if (%x == 1){
+  let %v = add(%x, 1);
+  if (%v == 42){
       %x
    }else{
       42	

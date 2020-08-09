@@ -12,6 +12,8 @@ component main() -> () {
     }
   }
   control {
-    group0;
+    seq {
+      group0
+    }
   }
 }
