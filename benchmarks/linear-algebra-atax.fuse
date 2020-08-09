@@ -1,7 +1,40 @@
-decl A: ubit<32>[8][8];
-decl x: ubit<32>[8];
-decl y: ubit<32>[8];
-decl tmp: ubit<32>[8];
+// #  ifdef MINI_DATASET
+// #   define M 38
+// #   define N 42
+// #  endif
+
+// #  ifdef SMALL_DATASET
+// #   define M 116
+// #   define N 124
+// #  endif
+
+// #  ifdef MEDIUM_DATASET
+// #   define M 390
+// #   define N 410
+// #  endif
+
+// #  ifdef LARGE_DATASET
+// #   define M 1900
+// #   define N 2100
+// #  endif
+
+// #  ifdef EXTRALARGE_DATASET
+// #   define M 1800
+// #   define N 2200
+// #  endif
+
+// BEGIN macro definitions
+
+
+
+
+
+// END macro definitions
+
+decl A: float[8][8];
+decl x: float[8];
+decl y: float[8];
+decl tmp: float[8];
 
 for (let i: ubit<4> = 0..8) {
   y[i] := (0 as ubit<32>);

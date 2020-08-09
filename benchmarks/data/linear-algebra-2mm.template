@@ -1,0 +1,49 @@
+{
+  "alpha": {
+    "data": [
+      1
+    ],
+    "bitwidth": 32
+  },
+  "beta": {
+    "data": [
+      1
+    ],
+    "bitwidth": 32
+  },
+  "tmp": {
+    "data": [
+      8,
+      8
+    ],
+    "bitwidth": 32
+  },
+  "A": {
+    "data": [
+      8,
+      8
+    ],
+    "bitwidth": 32
+  },
+  "B": {
+    "data": [
+      8,
+      8
+    ],
+    "bitwidth": 32
+  },
+  "C": {
+    "data": [
+      8,
+      8
+    ],
+    "bitwidth": 32
+  },
+  "D": {
+    "data": [
+      8,
+      8
+    ],
+    "bitwidth": 32
+  }
+}

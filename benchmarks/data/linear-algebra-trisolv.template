@@ -1,14 +1,17 @@
 {
   "x": {
-    "data": 40,
+    "data": 8,
     "bitwidth": 32
   },
   "b": {
-    "data": 40,
+    "data": 8,
     "bitwidth": 32
   },
-  "L":{
-    "data": [40, 40],
+  "L": {
+    "data": [
+      8,
+      8
+    ],
     "bitwidth": 32
   }
 }

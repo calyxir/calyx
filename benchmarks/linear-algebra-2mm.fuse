@@ -1,3 +1,51 @@
+// #  ifdef MINI_DATASET
+// #   define NI 16
+// #   define NJ 18
+// #   define NK 22
+// #   define NL 24
+// #  endif
+
+// #  ifdef SMALL_DATASET
+// #   define NI 40
+// #   define NJ 50
+// #   define NK 70
+// #   define NL 80
+// #  endif
+
+// #  ifdef MEDIUM_DATASET
+// #   define NI 180
+// #   define NJ 190
+// #   define NK 210
+// #   define NL 220
+// #  endif
+
+// #  ifdef LARGE_DATASET
+// #   define NI 800
+// #   define NJ 900
+// #   define NK 1100
+// #   define NL 1200
+// #  endif
+
+// #  ifdef EXTRALARGE_DATASET
+// #   define NI 1600
+// #   define NJ 1800
+// #   define NK 2200
+// #   define NL 2400
+// #  endif
+
+// BEGIN macro definition
+
+
+
+
+
+
+
+
+
+
+// END macro definition
+
 decl alpha: ubit<32>[1];
 decl beta: ubit<32>[1];
 decl tmp: ubit<32>[8][8];
@@ -20,16 +68,16 @@ for (let i: ubit<4> = 0..8) {
 
 ---
 
-for (let i1: ubit<4> = 0..8) {
-  for (let j1: ubit<4> = 0..8) {
-    let d_tmp: ubit<32> = D[i1][j1];
+for (let i: ubit<4> = 0..8) {
+  for (let j: ubit<4> = 0..8) {
+    let d_tmp: ubit<32> = D[i][j];
     ---
-    D[i1][j1] := beta[(0 as ubit<1>)] * d_tmp;
+    D[i][j] := beta[(0 as ubit<1>)] * d_tmp;
     ---
     for (let k1: ubit<4> = 0..8) {
-      let v1: ubit<32> = tmp[i1][k1] * C[k1][j1]
+      let v1: ubit<32> = tmp[i][k1] * C[k1][j]
     } combine {
-      D[i1][j1] += v1;
+      D[i][j] += v1;
     }
   }
 }

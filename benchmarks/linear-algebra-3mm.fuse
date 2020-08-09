@@ -1,10 +1,61 @@
-decl E: ubit<32>[8][8];
-decl A: ubit<32>[8][8];
-decl B: ubit<32>[8][8];
-decl F: ubit<32>[8][8];
-decl C: ubit<32>[8][8];
-decl D: ubit<32>[8][8];
-decl G: ubit<32>[8][8];
+// #  ifdef MINI_DATASET
+// #   define NI 16
+// #   define NJ 18
+// #   define NK 20
+// #   define NL 22
+// #   define NM 24
+// #  endif
+
+// #  ifdef SMALL_DATASET
+// #   define NI 40
+// #   define NJ 50
+// #   define NK 60
+// #   define NL 70
+// #   define NM 80
+// #  endif
+
+// #  ifdef MEDIUM_DATASET
+// #   define NI 180
+// #   define NJ 190
+// #   define NK 200
+// #   define NL 210
+// #   define NM 220
+// #  endif
+
+// #  ifdef LARGE_DATASET
+// #   define NI 800
+// #   define NJ 900
+// #   define NK 1000
+// #   define NL 1100
+// #   define NM 1200
+// #  endif
+
+// #  ifdef EXTRALARGE_DATASET
+// #   define NI 1600
+// #   define NJ 1800
+// #   define NK 2000
+// #   define NL 2200
+// #   define NM 2400
+// #  endif
+
+// BEGIN macro definition
+
+
+
+
+
+
+
+
+// END macro definition
+
+decl E: DATATYPE[8][8];
+decl A: DATATYPE[8][8];
+decl B: DATATYPE[8][8];
+decl F: DATATYPE[8][8];
+decl C: DATATYPE[8][8];
+decl D: DATATYPE[8][8];
+decl G: DATATYPE[8][8];
 
 for (let i: ubit<4> = 0..8) {
   for (let j: ubit<4> = 0..8) {
