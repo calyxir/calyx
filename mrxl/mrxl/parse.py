@@ -12,7 +12,7 @@ stmt: CNAME ":=" (map | reduce)
 map: "map" INT binding block
 reduce: "reduce" INT binding litexpr block
 ?block: "{" expr "}"
-binding: "(" bindlist ")"
+?binding: "(" bindlist ")"
 
 ?expr: binexpr | litexpr | varexpr
 binexpr: expr binop expr
@@ -23,10 +23,11 @@ binop: "+" -> add
      | "*" -> mul
      | "/" -> div
 
-?bindlist: (bind ("," bind)*)?
-bind: CNAME "<-" CNAME
+bindlist: (bind ("," bind)*)?
+bind: varlist "<-" CNAME
+varlist: (CNAME ("," CNAME)*)?
 
-type: basetype "[" INT "]"
+type: basetype ("[" INT "]")?
 basetype: "float" -> float
         | "int"   -> int
 
@@ -60,7 +61,7 @@ class ConstructAST(lark.Transformer):
 
     def reduce(self, args):
         par, bind, init, block = args
-        return ast.Map(int(par), bind.children, int(init), block)
+        return ast.Reduce(int(par), bind.children, init, block)
 
     def binexpr(self, args):
         lhs, op, rhs = args
@@ -75,12 +76,16 @@ class ConstructAST(lark.Transformer):
         return ast.VarExpr(str(name))
 
     def type(self, args):
-        base, size = args
-        return ast.Type(str(base), int(size))
+        base = str(args[0])
+        if len(args) == 2:
+            size = int(args[1])
+        else:
+            size = None
+        return ast.Type(base, size)
 
     def bind(self, args):
         dest, src = args
-        return ast.Bind([str(dest)], str(src))
+        return ast.Bind([str(d) for d in dest.children], str(src))
 
 
 def parse(txt: str) -> ast.Prog:
