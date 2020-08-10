@@ -23,7 +23,7 @@ binop: "+" -> add
      | "*" -> mul
      | "/" -> div
 
-bindlist: (bind ("," bind)*)?
+?bindlist: (bind ("," bind)*)?
 bind: CNAME "<-" CNAME
 
 type: basetype "[" INT "]"
@@ -56,11 +56,11 @@ class ConstructAST(lark.Transformer):
 
     def map(self, args):
         par, bind, block = args
-        return ast.Map(int(par), bind.children, str(block))
+        return ast.Map(int(par), bind.children, block)
 
     def reduce(self, args):
         par, bind, init, block = args
-        return ast.Map(int(par), bind.children, int(init), str(block))
+        return ast.Map(int(par), bind.children, int(init), block)
 
     def binexpr(self, args):
         lhs, op, rhs = args
