@@ -19,7 +19,7 @@ component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
     mul_reg = prim std_reg(32);
     // Computation
     add = prim std_add(32);
-    mul = prim std_mult(32);
+    mul = prim std_mult_pipe(32);
   }
 
   wires {
@@ -27,8 +27,9 @@ component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
     group do_mul {
       mul.left = top;
       mul.right = left;
-      mul_reg.in = mul.out;
-      mul_reg.write_en = 1'd1;
+      mul.go = !mul.done ? 1'd1;
+      mul_reg.in = mul.done ? mul.out;
+      mul_reg.write_en = mul.done ? 1'd1;
       do_mul[done] = mul_reg.done;
     }
 
