@@ -2,6 +2,7 @@ from .parse import parse
 from . import ast
 import sys
 import json
+from functools import reduce
 
 
 class InterpError(Exception):
@@ -51,23 +52,44 @@ def interp(prog: ast.Prog, data):
 
     for stmt in prog.stmts:
         if isinstance(stmt.op, ast.Map):
-            bind_data = {}
+            map_data = {}
             for bind in stmt.op.bind:
                 if len(bind.dest) != 1:
                     raise InterpError("map binds are unary")
                 try:
-                    bind_data[bind.dest[0]] = env[bind.src]
+                    map_data[bind.dest[0]] = env[bind.src]
                 except KeyError:
                     raise InterpError(f"source `{bind.src}` for map not found")
 
             # Compute the map.
             env[stmt.dest] = [
                 interp_expr(stmt.op.body, env)
-                for env in _dict_zip(bind_data)
+                for env in _dict_zip(map_data)
             ]
 
         elif isinstance(stmt.op, ast.Reduce):
-            raise InterpError("reduce unsupported")
+            if len(stmt.op.bind) != 1:
+                raise InterpError("reduce needs only one bind")
+            bind = stmt.op.bind[0]
+            if len(bind.dest) != 2:
+                raise InterpError("reduce requires a binary bind")
+
+            try:
+                red_data = env[bind.src]
+            except KeyError:
+                raise InterpError(f"source `{bind.src}` for reduce not found")
+
+            init = interp_expr(stmt.op.init, {})
+
+            # Compute the reduce.
+            env[stmt.dest] = reduce(
+                lambda x, y: interp_expr(
+                    stmt.op.body,
+                    {bind.dest[0]: x, bind.dest[1]: y},
+                ),
+                red_data,
+                init,
+            )
 
         else:
             raise InterpError(f"unknown op {type(stmt.op)}")
