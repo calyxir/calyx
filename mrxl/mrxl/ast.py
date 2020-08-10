@@ -3,10 +3,16 @@ from typing import List, Union
 
 
 @dataclass
+class Type:
+    base: str
+    size: int
+
+
+@dataclass
 class Decl:
     input: bool  # Otherwise, output.
     name: str
-    type: str  # TODO
+    type: Type
 
 
 @dataclass

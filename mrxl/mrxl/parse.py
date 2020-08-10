@@ -23,7 +23,10 @@ binop: "+" -> add
      | "*" -> mul
      | "/" -> div
 
-type: CNAME
+type: basetype "[" INT "]"
+basetype: "float" -> float
+        | "int"   -> int
+
 qual: "input" -> input | "output" -> output
 
 %import common.INT
@@ -67,6 +70,10 @@ class ConstructAST(lark.Transformer):
     def varexpr(self, args):
         name, = args
         return ast.VarExpr(str(name))
+
+    def type(self, args):
+        base, size = args
+        return ast.Type(str(base), int(size))
 
 
 def parse(txt: str) -> ast.Prog:
