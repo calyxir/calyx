@@ -55,16 +55,26 @@ def interp(prog: ast.Prog, data):
                 raise InterpError(f"source `{bind.src}` for map not found")
 
             # Compute the map.
-            out = [
+            env[stmt.dest] = [
                 interp_expr(stmt.op.body, {bind.dest[0]: val})
                 for val in src_data
             ]
-            env[stmt.dest] = out
 
         elif isinstance(stmt.op, ast.Reduce):
             raise InterpError("reduce unsupported")
 
-    print(env)
+        else:
+            raise InterpError(f"unknown op {type(stmt.op)}")
+
+    # Emit the output values.
+    out = {}
+    for decl in prog.decls:
+        if not decl.input:
+            try:
+                out[decl.name] = env[decl.name]
+            except KeyError:
+                raise InterpError(f"output value `{decl.name}` not found")
+    return out
 
 
 def main():
@@ -75,10 +85,12 @@ def main():
     ast = parse(txt)
 
     try:
-        interp(ast, data)
+        out = interp(ast, data)
     except InterpError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(1)
+
+    print(json.dumps(out, sort_keys=True, indent=2))
 
 
 if __name__ == '__main__':
