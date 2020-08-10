@@ -52,7 +52,7 @@ class Map:
 class Reduce:
     par: int
     bind: List[Bind]
-    init: int
+    init: Expr
     body: Expr
 
 
