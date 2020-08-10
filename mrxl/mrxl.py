@@ -1,4 +1,6 @@
 import lark
+from dataclasses import dataclass
+from typing import List, Union
 
 
 GRAMMAR = """
@@ -25,23 +27,78 @@ qual: "input" -> input | "output" -> output
 """.strip()
 
 
-def interp(prog):
-    decls, stmts = prog.children
+# AST classes.
 
-    for decl in decls.children:
-        qual, name, typ = decl.children
-        print(qual.data, str(name))
+@dataclass
+class Decl:
+    input: bool  # Otherwise, output.
+    name: str
+    type: str  # TODO
+
+
+@dataclass
+class Map:
+    par: int
+    bind: str  # TODO
+    body: str  # TODO expr
+
+
+@dataclass
+class Reduce:
+    par: int
+    bind: str  # TODO
+    init: int
+    body: str  # TODO expr
+
+
+@dataclass
+class Stmt:
+    dest: str
+    op: Union[Map, Reduce]
+
+
+@dataclass
+class Prog:
+    decls: List[Decl]
+    stmts: List[str]
+
+
+class ConstructAST(lark.Transformer):
+    def decl(self, args):
+        qual, name, typ = args
+        return Decl(qual.data == "input", str(name), repr(typ))
+
+    def start(self, args):
+        decls, stmts = args
+        return Prog(decls.children, stmts.children)
+
+    def stmt(self, args):
+        dest, op = args
+        return Stmt(str(dest), op)
+
+    def map(self, args):
+        par, bind, block = args
+        return Map(int(par), str(bind), str(block))
+
+    def reduce(self, args):
+        par, bind, init, block = args
+        return Map(int(par), str(bind), int(init), str(block))
+
+
+def interp(prog: Prog):
+    for decl in prog.decls:
+        print(decl.input, decl.name)
 
 
 def main():
     parser = lark.Lark(GRAMMAR)
     tree = parser.parse("""
     input foo: bar
-    input foo2: bar2
+    output foo2: bar2
     baz := map 5 (5) {5}
     """)
-    print(tree.pretty())
-    interp(tree)
+    ast = ConstructAST().transform(tree)
+    interp(ast)
 
 
 if __name__ == '__main__':
