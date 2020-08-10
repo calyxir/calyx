@@ -36,16 +36,22 @@ Expr = Union[BinExpr, LitExpr, VarExpr]
 
 
 @dataclass
+class Bind:
+    dest: List[str]
+    src: str
+
+
+@dataclass
 class Map:
     par: int
-    bind: str  # TODO
+    bind: List[Bind]
     body: Expr
 
 
 @dataclass
 class Reduce:
     par: int
-    bind: str  # TODO
+    bind: List[Bind]
     init: int
     body: Expr
 

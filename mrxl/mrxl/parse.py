@@ -9,10 +9,10 @@ stmts: stmt*
 
 decl: qual CNAME ":" type
 stmt: CNAME ":=" (map | reduce)
-map: "map" INT bind block
-reduce: "reduce" INT bind litexpr block
+map: "map" INT binding block
+reduce: "reduce" INT binding litexpr block
 ?block: "{" expr "}"
-bind: "(" expr ")"
+binding: "(" bindlist ")"
 
 ?expr: binexpr | litexpr | varexpr
 binexpr: expr binop expr
@@ -22,6 +22,9 @@ binop: "+" -> add
      | "-" -> sub
      | "*" -> mul
      | "/" -> div
+
+bindlist: (bind ("," bind)*)?
+bind: CNAME "<-" CNAME
 
 type: basetype "[" INT "]"
 basetype: "float" -> float
@@ -53,11 +56,11 @@ class ConstructAST(lark.Transformer):
 
     def map(self, args):
         par, bind, block = args
-        return ast.Map(int(par), str(bind), str(block))
+        return ast.Map(int(par), bind.children, str(block))
 
     def reduce(self, args):
         par, bind, init, block = args
-        return ast.Map(int(par), str(bind), int(init), str(block))
+        return ast.Map(int(par), bind.children, int(init), str(block))
 
     def binexpr(self, args):
         lhs, op, rhs = args
@@ -74,6 +77,10 @@ class ConstructAST(lark.Transformer):
     def type(self, args):
         base, size = args
         return ast.Type(str(base), int(size))
+
+    def bind(self, args):
+        dest, src = args
+        return ast.Bind([str(dest)], str(src))
 
 
 def parse(txt: str) -> ast.Prog:

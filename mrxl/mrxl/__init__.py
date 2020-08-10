@@ -19,7 +19,10 @@ def interp(prog: ast.Prog, data):
             env[decl.name] = data[decl.name]
 
     for stmt in prog.stmts:
-        print(stmt.dest, stmt.op.body)
+        print(stmt.dest)
+        print(stmt.op)
+
+    print(env)
 
 
 def main():
