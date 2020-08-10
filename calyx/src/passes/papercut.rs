@@ -39,6 +39,6 @@ impl Visitor for Papercut {
             }
         }
 
-        return Ok(Action::Continue);
+        Ok(Action::Continue)
     }
 }
