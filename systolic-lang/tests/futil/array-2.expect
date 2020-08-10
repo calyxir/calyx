@@ -1,7 +1,7 @@
 
 import "primitives/std.lib";
 
-component mac_pe(top: 32, left: 32) -> (down: 32, right: 32) {
+component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
   cells {
     // Storage
     acc = prim std_reg(32);
@@ -29,6 +29,7 @@ component mac_pe(top: 32, left: 32) -> (down: 32, right: 32) {
       do_add[done] = acc.done;
     }
 
+    out = acc.out;
     down = top;
     right = left;
   }
@@ -52,6 +53,7 @@ component main() -> () {
       l1_idx = prim std_reg(2);
       l1_add = prim std_add(2);
       l1 = prim std_mem_d1(32, 3, 2);
+      out_mem = prim std_mem_d2_ext(32, 2, 2, 2, 2);
       pe_00 = mac_pe;
       top_00_read = prim std_reg(32);
       left_00_read = prim std_reg(32);
@@ -182,6 +184,14 @@ component main() -> () {
           pe_00_down_move[done] = top_10_read.done;
       }
 
+      group pe_00_out_write {
+          out_mem.addr0 = 2'd0;
+          out_mem.addr1 = 2'd0;
+          out_mem.write_data = pe_00.out;
+          out_mem.write_en = 1'd1;
+          pe_00_out_write[done] = out_mem.done;
+      }
+
       group pe_01_compute {
 
         pe_01.go = !pe_01.done ? 1'd1;
@@ -198,6 +208,14 @@ component main() -> () {
           top_11_read.in = down_01_write.out;
           top_11_read.write_en = 1'd1;
           pe_01_down_move[done] = top_11_read.done;
+      }
+
+      group pe_01_out_write {
+          out_mem.addr0 = 2'd0;
+          out_mem.addr1 = 2'd1;
+          out_mem.write_data = pe_01.out;
+          out_mem.write_en = 1'd1;
+          pe_01_out_write[done] = out_mem.done;
       }
 
       group pe_10_compute {
@@ -218,6 +236,14 @@ component main() -> () {
           pe_10_right_move[done] = left_11_read.done;
       }
 
+      group pe_10_out_write {
+          out_mem.addr0 = 2'd1;
+          out_mem.addr1 = 2'd0;
+          out_mem.write_data = pe_10.out;
+          out_mem.write_en = 1'd1;
+          pe_10_out_write[done] = out_mem.done;
+      }
+
       group pe_11_compute {
 
         pe_11.go = !pe_11.done ? 1'd1;
@@ -227,6 +253,14 @@ component main() -> () {
         pe_11_compute[done] = pe_11.done ? 1'd1;
       }
 
+
+      group pe_11_out_write {
+          out_mem.addr0 = 2'd1;
+          out_mem.addr1 = 2'd1;
+          out_mem.write_data = pe_11.out;
+          out_mem.write_en = 1'd1;
+          pe_11_out_write[done] = out_mem.done;
+      }
     }
     control {
 
@@ -267,6 +301,9 @@ component main() -> () {
         }
         par {
             pe_11_compute;
+        }
+        seq {
+            pe_00_out_write; pe_01_out_write; pe_10_out_write; pe_11_out_write;
         }
       }
     }

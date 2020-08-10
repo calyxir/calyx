@@ -56,6 +56,32 @@ module std_mem_d1
   end
 endmodule
 
+module std_mem_d2
+  #(parameter width = 32,
+    parameter d0_size = 16,
+    parameter d1_size = 16,
+    parameter d0_idx_size = 4,
+    parameter d1_idx_size = 4)
+   (input logic [d0_idx_size-1:0] addr0,
+    input logic [d1_idx_size-1:0] addr1,
+    input logic [width-1:0]   write_data,
+    input logic               write_en,
+    input logic               clk,
+    output logic [width-1:0]  read_data,
+    output logic done);
+
+  logic [width-1:0]  mem[d0_size-1:0][d1_size-1:0];
+
+  assign read_data = mem[addr0][addr1];
+  always_ff @(posedge clk) begin
+    if (write_en) begin
+      mem[addr0][addr1] <= write_data;
+      done <= 1'd1;
+    end else
+      done <= 1'd0;
+  end
+endmodule
+
 // Component Signature
 module mac_pe (
       input wire [31:0] top,
@@ -64,6 +90,7 @@ module mac_pe (
       input wire clk,
       output wire [31:0] down,
       output wire [31:0] right,
+      output wire [31:0] out,
       output wire done
   );
   
@@ -143,6 +170,7 @@ module mac_pe (
   // Input / output connections
   assign down = top;
   assign right = left;
+  assign out = acc_out;
   assign done = (fsm0_out == 32'd2) ? 1'd1 : '0;
   assign mul_left = (fsm0_out == 32'd0 & !mul_reg_done & go) ? top : '0;
   assign mul_right = (fsm0_out == 32'd0 & !mul_reg_done & go) ? left : '0;
@@ -179,6 +207,7 @@ module main (
   wire pe_11_clk;
   wire [31:0] pe_11_down;
   wire [31:0] pe_11_right;
+  wire [31:0] pe_11_out;
   wire pe_11_done;
   wire [31:0] right_10_write_in;
   wire right_10_write_write_en;
@@ -201,6 +230,7 @@ module main (
   wire pe_10_clk;
   wire [31:0] pe_10_down;
   wire [31:0] pe_10_right;
+  wire [31:0] pe_10_out;
   wire pe_10_done;
   wire [31:0] down_01_write_in;
   wire down_01_write_write_en;
@@ -223,6 +253,7 @@ module main (
   wire pe_01_clk;
   wire [31:0] pe_01_down;
   wire [31:0] pe_01_right;
+  wire [31:0] pe_01_out;
   wire pe_01_done;
   wire [31:0] down_00_write_in;
   wire down_00_write_write_en;
@@ -250,7 +281,15 @@ module main (
   wire pe_00_clk;
   wire [31:0] pe_00_down;
   wire [31:0] pe_00_right;
+  wire [31:0] pe_00_out;
   wire pe_00_done;
+  wire [1:0] out_mem_addr0;
+  wire [1:0] out_mem_addr1;
+  wire [31:0] out_mem_write_data;
+  wire out_mem_write_en;
+  wire out_mem_clk;
+  wire [31:0] out_mem_read_data;
+  wire out_mem_done;
   wire [1:0] l1_addr0;
   wire [31:0] l1_write_data;
   wire l1_write_en;
@@ -657,6 +696,7 @@ module main (
       .clk(clk),
       .down(pe_11_down),
       .right(pe_11_right),
+      .out(pe_11_out),
       .done(pe_11_done)
   );
   
@@ -691,6 +731,7 @@ module main (
       .clk(clk),
       .down(pe_10_down),
       .right(pe_10_right),
+      .out(pe_10_out),
       .done(pe_10_done)
   );
   
@@ -725,6 +766,7 @@ module main (
       .clk(clk),
       .down(pe_01_down),
       .right(pe_01_right),
+      .out(pe_01_out),
       .done(pe_01_done)
   );
   
@@ -767,7 +809,18 @@ module main (
       .clk(clk),
       .down(pe_00_down),
       .right(pe_00_right),
+      .out(pe_00_out),
       .done(pe_00_done)
+  );
+  
+  std_mem_d2 #(32, 2, 2, 2, 2) out_mem (
+      .addr0(out_mem_addr0),
+      .addr1(out_mem_addr1),
+      .write_data(out_mem_write_data),
+      .write_en(out_mem_write_en),
+      .clk(clk),
+      .read_data(out_mem_read_data),
+      .done(out_mem_done)
   );
   
   std_mem_d1 #(32, 3, 2) l1 (
@@ -1388,6 +1441,7 @@ module main (
    initial begin
   DATA = futil_getenv("DATA");
       $fdisplay(2, "DATA (path to meminit files): %s", DATA);
+      $readmemh({ DATA, "/out_mem.dat" }, out_mem.mem);
       $readmemh({ DATA, "/l1.dat" }, l1.mem);
       $readmemh({ DATA, "/l0.dat" }, l0.mem);
       $readmemh({ DATA, "/t1.dat" }, t1.mem);
@@ -1395,6 +1449,7 @@ module main (
   end
   
    final begin
+      $writememh({ DATA, "/out_mem.out" }, out_mem.mem);
       $writememh({ DATA, "/l1.out" }, l1.mem);
       $writememh({ DATA, "/l0.out" }, l0.mem);
       $writememh({ DATA, "/t1.out" }, t1.mem);
@@ -1402,7 +1457,7 @@ module main (
   end
   
   // Input / output connections
-  assign done = (fsm0_out == 32'd12) ? 1'd1 : '0;
+  assign done = (fsm0_out == 32'd16) ? 1'd1 : '0;
   assign left_11_read_in = (!(par_done_reg33_out | left_11_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go | !(par_done_reg45_out | left_11_read_done) & fsm0_out == 32'd8 & !par_reset8_out & go | !(par_done_reg50_out | left_11_read_done) & fsm0_out == 32'd10 & !par_reset10_out & go) ? right_10_write_out : '0;
   assign left_11_read_write_en = (!(par_done_reg33_out | left_11_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go | !(par_done_reg45_out | left_11_read_done) & fsm0_out == 32'd8 & !par_reset8_out & go | !(par_done_reg50_out | left_11_read_done) & fsm0_out == 32'd10 & !par_reset10_out & go) ? 1'd1 : '0;
   assign top_11_read_in = (!(par_done_reg29_out | top_11_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go | !(par_done_reg42_out | top_11_read_done) & fsm0_out == 32'd8 & !par_reset8_out & go | !(par_done_reg49_out | top_11_read_done) & fsm0_out == 32'd10 & !par_reset10_out & go) ? down_01_write_out : '0;
@@ -1439,6 +1494,10 @@ module main (
   assign pe_00_top = (!(par_done_reg12_out | right_00_write_done & down_00_write_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg23_out | right_00_write_done & down_00_write_done) & fsm0_out == 32'd5 & !par_reset5_out & go | !(par_done_reg36_out | right_00_write_done & down_00_write_done) & fsm0_out == 32'd7 & !par_reset7_out & go) ? top_00_read_out : '0;
   assign pe_00_left = (!(par_done_reg12_out | right_00_write_done & down_00_write_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg23_out | right_00_write_done & down_00_write_done) & fsm0_out == 32'd5 & !par_reset5_out & go | !(par_done_reg36_out | right_00_write_done & down_00_write_done) & fsm0_out == 32'd7 & !par_reset7_out & go) ? left_00_read_out : '0;
   assign pe_00_go = (!pe_00_done & (!(par_done_reg12_out | right_00_write_done & down_00_write_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg23_out | right_00_write_done & down_00_write_done) & fsm0_out == 32'd5 & !par_reset5_out & go | !(par_done_reg36_out | right_00_write_done & down_00_write_done) & fsm0_out == 32'd7 & !par_reset7_out & go)) ? 1'd1 : '0;
+  assign out_mem_addr0 = (fsm0_out == 32'd12 & !out_mem_done & go | fsm0_out == 32'd13 & !out_mem_done & go) ? 2'd0 : (fsm0_out == 32'd14 & !out_mem_done & go | fsm0_out == 32'd15 & !out_mem_done & go) ? 2'd1 : '0;
+  assign out_mem_addr1 = (fsm0_out == 32'd12 & !out_mem_done & go | fsm0_out == 32'd14 & !out_mem_done & go) ? 2'd0 : (fsm0_out == 32'd13 & !out_mem_done & go | fsm0_out == 32'd15 & !out_mem_done & go) ? 2'd1 : '0;
+  assign out_mem_write_data = (fsm0_out == 32'd15 & !out_mem_done & go) ? pe_11_out : (fsm0_out == 32'd14 & !out_mem_done & go) ? pe_10_out : (fsm0_out == 32'd13 & !out_mem_done & go) ? pe_01_out : (fsm0_out == 32'd12 & !out_mem_done & go) ? pe_00_out : '0;
+  assign out_mem_write_en = (fsm0_out == 32'd12 & !out_mem_done & go | fsm0_out == 32'd13 & !out_mem_done & go | fsm0_out == 32'd14 & !out_mem_done & go | fsm0_out == 32'd15 & !out_mem_done & go) ? 1'd1 : '0;
   assign l1_addr0 = (!(par_done_reg18_out | left_10_read_done) & fsm0_out == 32'd4 & !par_reset4_out & go | !(par_done_reg32_out | left_10_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go | !(par_done_reg44_out | left_10_read_done) & fsm0_out == 32'd8 & !par_reset8_out & go) ? l1_idx_out : '0;
   assign l1_add_left = (!(par_done_reg11_out | l1_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg22_out | l1_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go | !(par_done_reg35_out | l1_idx_done) & fsm0_out == 32'd7 & !par_reset7_out & go) ? 2'd1 : '0;
   assign l1_add_right = (!(par_done_reg11_out | l1_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg22_out | l1_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go | !(par_done_reg35_out | l1_idx_done) & fsm0_out == 32'd7 & !par_reset7_out & go) ? l1_idx_out : '0;
@@ -1587,6 +1646,6 @@ module main (
   assign par_reset11_write_en = (par_done_reg51_out & fsm0_out == 32'd11 & !par_reset11_out & go | par_reset11_out) ? 1'd1 : '0;
   assign par_done_reg51_in = par_reset11_out ? 1'd0 : (pe_11_done & fsm0_out == 32'd11 & !par_reset11_out & go) ? 1'd1 : '0;
   assign par_done_reg51_write_en = (pe_11_done & fsm0_out == 32'd11 & !par_reset11_out & go | par_reset11_out) ? 1'd1 : '0;
-  assign fsm0_in = (fsm0_out == 32'd4 & par_reset4_out & go) ? 32'd5 : (fsm0_out == 32'd3 & par_reset3_out & go) ? 32'd4 : (fsm0_out == 32'd2 & par_reset2_out & go) ? 32'd3 : (fsm0_out == 32'd1 & par_reset1_out & go) ? 32'd2 : (fsm0_out == 32'd0 & par_reset0_out & go) ? 32'd1 : (fsm0_out == 32'd12) ? 32'd0 : (fsm0_out == 32'd11 & par_reset11_out & go) ? 32'd12 : (fsm0_out == 32'd10 & par_reset10_out & go) ? 32'd11 : (fsm0_out == 32'd9 & par_reset9_out & go) ? 32'd10 : (fsm0_out == 32'd8 & par_reset8_out & go) ? 32'd9 : (fsm0_out == 32'd7 & par_reset7_out & go) ? 32'd8 : (fsm0_out == 32'd6 & par_reset6_out & go) ? 32'd7 : (fsm0_out == 32'd5 & par_reset5_out & go) ? 32'd6 : '0;
-  assign fsm0_write_en = (fsm0_out == 32'd0 & par_reset0_out & go | fsm0_out == 32'd1 & par_reset1_out & go | fsm0_out == 32'd2 & par_reset2_out & go | fsm0_out == 32'd3 & par_reset3_out & go | fsm0_out == 32'd4 & par_reset4_out & go | fsm0_out == 32'd5 & par_reset5_out & go | fsm0_out == 32'd6 & par_reset6_out & go | fsm0_out == 32'd7 & par_reset7_out & go | fsm0_out == 32'd8 & par_reset8_out & go | fsm0_out == 32'd9 & par_reset9_out & go | fsm0_out == 32'd10 & par_reset10_out & go | fsm0_out == 32'd11 & par_reset11_out & go | fsm0_out == 32'd12) ? 1'd1 : '0;
+  assign fsm0_in = (fsm0_out == 32'd3 & par_reset3_out & go) ? 32'd4 : (fsm0_out == 32'd2 & par_reset2_out & go) ? 32'd3 : (fsm0_out == 32'd1 & par_reset1_out & go) ? 32'd2 : (fsm0_out == 32'd0 & par_reset0_out & go) ? 32'd1 : (fsm0_out == 32'd16) ? 32'd0 : (fsm0_out == 32'd15 & out_mem_done & go) ? 32'd16 : (fsm0_out == 32'd14 & out_mem_done & go) ? 32'd15 : (fsm0_out == 32'd13 & out_mem_done & go) ? 32'd14 : (fsm0_out == 32'd12 & out_mem_done & go) ? 32'd13 : (fsm0_out == 32'd11 & par_reset11_out & go) ? 32'd12 : (fsm0_out == 32'd10 & par_reset10_out & go) ? 32'd11 : (fsm0_out == 32'd9 & par_reset9_out & go) ? 32'd10 : (fsm0_out == 32'd8 & par_reset8_out & go) ? 32'd9 : (fsm0_out == 32'd7 & par_reset7_out & go) ? 32'd8 : (fsm0_out == 32'd6 & par_reset6_out & go) ? 32'd7 : (fsm0_out == 32'd5 & par_reset5_out & go) ? 32'd6 : (fsm0_out == 32'd4 & par_reset4_out & go) ? 32'd5 : '0;
+  assign fsm0_write_en = (fsm0_out == 32'd0 & par_reset0_out & go | fsm0_out == 32'd1 & par_reset1_out & go | fsm0_out == 32'd2 & par_reset2_out & go | fsm0_out == 32'd3 & par_reset3_out & go | fsm0_out == 32'd4 & par_reset4_out & go | fsm0_out == 32'd5 & par_reset5_out & go | fsm0_out == 32'd6 & par_reset6_out & go | fsm0_out == 32'd7 & par_reset7_out & go | fsm0_out == 32'd8 & par_reset8_out & go | fsm0_out == 32'd9 & par_reset9_out & go | fsm0_out == 32'd10 & par_reset10_out & go | fsm0_out == 32'd11 & par_reset11_out & go | fsm0_out == 32'd12 & out_mem_done & go | fsm0_out == 32'd13 & out_mem_done & go | fsm0_out == 32'd14 & out_mem_done & go | fsm0_out == 32'd15 & out_mem_done & go | fsm0_out == 32'd16) ? 1'd1 : '0;
 endmodule // end main
