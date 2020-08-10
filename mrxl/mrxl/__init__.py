@@ -8,6 +8,14 @@ class InterpError(Exception):
     pass
 
 
+def _dict_zip(d):
+    """Given a dict of lists, generate a sequence of dicts with the same
+    keys---each associated with one "slice" of the lists.
+    """
+    for i in range(len(next(iter(d.values())))):
+        yield {k: v[i] for k, v in d.items()}
+
+
 def interp_expr(expr: ast.Expr, env):
     if isinstance(expr, ast.LitExpr):
         return expr.value
@@ -43,21 +51,19 @@ def interp(prog: ast.Prog, data):
 
     for stmt in prog.stmts:
         if isinstance(stmt.op, ast.Map):
-            if len(stmt.op.bind) != 1:
-                raise InterpError("only one-input maps are supported")
-            bind = stmt.op.bind[0]
-            if len(bind.dest) != 1:
-                raise InterpError("map binds are unary")
-
-            try:
-                src_data = env[bind.src]
-            except KeyError:
-                raise InterpError(f"source `{bind.src}` for map not found")
+            bind_data = {}
+            for bind in stmt.op.bind:
+                if len(bind.dest) != 1:
+                    raise InterpError("map binds are unary")
+                try:
+                    bind_data[bind.dest[0]] = env[bind.src]
+                except KeyError:
+                    raise InterpError(f"source `{bind.src}` for map not found")
 
             # Compute the map.
             env[stmt.dest] = [
-                interp_expr(stmt.op.body, {bind.dest[0]: val})
-                for val in src_data
+                interp_expr(stmt.op.body, env)
+                for env in _dict_zip(bind_data)
             ]
 
         elif isinstance(stmt.op, ast.Reduce):
