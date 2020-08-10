@@ -3,7 +3,8 @@ from functools import reduce
 
 
 class InterpError(Exception):
-    pass
+    """Interpretation failed unrecoverably.
+    """
 
 
 def _dict_zip(d):
@@ -15,6 +16,8 @@ def _dict_zip(d):
 
 
 def interp_expr(expr: ast.Expr, env):
+    """Interpret a MrXL expression to a scalar value.
+    """
     if isinstance(expr, ast.LitExpr):
         return expr.value
     elif isinstance(expr, ast.VarExpr):
@@ -37,6 +40,9 @@ def interp_expr(expr: ast.Expr, env):
 
 
 def interp(prog: ast.Prog, data):
+    """Interpret a MrXL program, starting with some values for the input
+    variables and producing some values for the output variables.
+    """
     env = {}
 
     # Load input data into environment.
