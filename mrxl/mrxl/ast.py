@@ -1,11 +1,11 @@
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Union, Optional
 
 
 @dataclass
 class Type:
     base: str
-    size: int
+    size: Optional[int]
 
 
 @dataclass
