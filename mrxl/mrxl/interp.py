@@ -1,5 +1,13 @@
-from . import ast
 from functools import reduce
+from typing import List, Dict, Union
+from . import ast
+
+
+Scalar = Union[float, int]
+Array = Union[List[float], List[int]]
+Value = Union[Scalar, Array]
+Env = Dict[str, Value]
+ScalarEnv = Dict[str, Scalar]
 
 
 class InterpError(Exception):
@@ -15,7 +23,7 @@ def _dict_zip(d):
         yield {k: v[i] for k, v in d.items()}
 
 
-def interp_expr(expr: ast.Expr, env):
+def interp_expr(expr: ast.Expr, env: ScalarEnv) -> Scalar:
     """Interpret a MrXL expression to a scalar value.
     """
     if isinstance(expr, ast.LitExpr):
@@ -39,7 +47,7 @@ def interp_expr(expr: ast.Expr, env):
         raise InterpError(f"unhandled expression: {type(expr)}")
 
 
-def interp_map(op: ast.Map, env):
+def interp_map(op: ast.Map, env: Env) -> Array:
     """Run a map operation and produce a result array.
     """
     map_data = {}
@@ -58,7 +66,7 @@ def interp_map(op: ast.Map, env):
     ]
 
 
-def interp_reduce(op: ast.Reduce, env):
+def interp_reduce(op: ast.Reduce, env: Env) -> Scalar:
     """Run a map operation and produce a result scalar.
     """
     if len(op.bind) != 1:
@@ -71,6 +79,8 @@ def interp_reduce(op: ast.Reduce, env):
         red_data = env[bind.src]
     except KeyError:
         raise InterpError(f"source `{bind.src}` for reduce not found")
+    if not isinstance(red_data, list):
+        raise InterpError("reduce data must be an array")
 
     init = interp_expr(op.init, {})
 
@@ -85,7 +95,7 @@ def interp_reduce(op: ast.Reduce, env):
     )
 
 
-def interp(prog: ast.Prog, data):
+def interp(prog: ast.Prog, data: Env) -> Env:
     """Interpret a MrXL program, starting with some values for the input
     variables and producing some values for the output variables.
     """
