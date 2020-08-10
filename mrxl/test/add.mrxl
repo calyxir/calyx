@@ -1,3 +1,3 @@
 input foo: int[4]
 output baz: int[4]
-baz := map 5 (5) { a + 5 }
+baz := map 5 (a <- input) { a + 5 }
