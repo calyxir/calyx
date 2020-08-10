@@ -11,12 +11,19 @@ stmts: stmt*
 decl: qual CNAME ":" type
 stmt: CNAME ":=" (map | reduce)
 map: "map" INT bind block
-reduce: "reduce" INT bind literal block
-block: "{" expr "}"
+reduce: "reduce" INT bind litexpr block
+?block: "{" expr "}"
 bind: "(" expr ")"
 
-expr: literal
-literal: INT
+?expr: binexpr | litexpr | varexpr
+binexpr: expr binop expr
+litexpr: INT
+varexpr: CNAME
+binop: "+" -> add
+     | "-" -> sub
+     | "*" -> mul
+     | "/" -> div
+
 type: CNAME
 qual: "input" -> input | "output" -> output
 
@@ -37,10 +44,30 @@ class Decl:
 
 
 @dataclass
+class BinExpr:
+    op: str
+    lhs: "Expr"
+    rhs: "Expr"
+
+
+@dataclass
+class LitExpr:
+    value: int
+
+
+@dataclass
+class VarExpr:
+    name: str
+
+
+Expr = Union[BinExpr, LitExpr, VarExpr]
+
+
+@dataclass
 class Map:
     par: int
     bind: str  # TODO
-    body: str  # TODO expr
+    body: Expr
 
 
 @dataclass
@@ -48,7 +75,7 @@ class Reduce:
     par: int
     bind: str  # TODO
     init: int
-    body: str  # TODO expr
+    body: Expr
 
 
 @dataclass
@@ -60,8 +87,10 @@ class Stmt:
 @dataclass
 class Prog:
     decls: List[Decl]
-    stmts: List[str]
+    stmts: List[Stmt]
 
+
+# Transform parse tree to AST.
 
 class ConstructAST(lark.Transformer):
     def decl(self, args):
@@ -84,10 +113,27 @@ class ConstructAST(lark.Transformer):
         par, bind, init, block = args
         return Map(int(par), str(bind), int(init), str(block))
 
+    def binexpr(self, args):
+        lhs, op, rhs = args
+        return BinExpr(op.data, lhs, rhs)
+
+    def litexpr(self, args):
+        value, = args
+        return LitExpr(int(value))
+
+    def varexpr(self, args):
+        name, = args
+        return VarExpr(str(name))
+
+
+# Interpreter.
 
 def interp(prog: Prog):
     for decl in prog.decls:
         print(decl.input, decl.name)
+
+    for stmt in prog.stmts:
+        print(stmt.dest, stmt.op.body)
 
 
 def main():
@@ -95,7 +141,7 @@ def main():
     tree = parser.parse("""
     input foo: bar
     output foo2: bar2
-    baz := map 5 (5) {5}
+    baz := map 5 (5) { a + 5 }
     """)
     ast = ConstructAST().transform(tree)
     interp(ast)
