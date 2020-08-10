@@ -39,6 +39,52 @@ def interp_expr(expr: ast.Expr, env):
         raise InterpError(f"unhandled expression: {type(expr)}")
 
 
+def interp_map(op: ast.Map, env):
+    """Run a map operation and produce a result array.
+    """
+    map_data = {}
+    for bind in op.bind:
+        if len(bind.dest) != 1:
+            raise InterpError("map binds are unary")
+        try:
+            map_data[bind.dest[0]] = env[bind.src]
+        except KeyError:
+            raise InterpError(f"source `{bind.src}` for map not found")
+
+    # Compute the map.
+    return [
+        interp_expr(op.body, env)
+        for env in _dict_zip(map_data)
+    ]
+
+
+def interp_reduce(op: ast.Reduce, env):
+    """Run a map operation and produce a result scalar.
+    """
+    if len(op.bind) != 1:
+        raise InterpError("reduce needs only one bind")
+    bind = op.bind[0]
+    if len(bind.dest) != 2:
+        raise InterpError("reduce requires a binary bind")
+
+    try:
+        red_data = env[bind.src]
+    except KeyError:
+        raise InterpError(f"source `{bind.src}` for reduce not found")
+
+    init = interp_expr(op.init, {})
+
+    # Compute the reduce.
+    return reduce(
+        lambda x, y: interp_expr(
+            op.body,
+            {bind.dest[0]: x, bind.dest[1]: y},
+        ),
+        red_data,
+        init,
+    )
+
+
 def interp(prog: ast.Prog, data):
     """Interpret a MrXL program, starting with some values for the input
     variables and producing some values for the output variables.
@@ -53,47 +99,12 @@ def interp(prog: ast.Prog, data):
             except KeyError:
                 raise InterpError(f"input data for `{decl.name}` not found")
 
+    # Run the program.
     for stmt in prog.stmts:
         if isinstance(stmt.op, ast.Map):
-            map_data = {}
-            for bind in stmt.op.bind:
-                if len(bind.dest) != 1:
-                    raise InterpError("map binds are unary")
-                try:
-                    map_data[bind.dest[0]] = env[bind.src]
-                except KeyError:
-                    raise InterpError(f"source `{bind.src}` for map not found")
-
-            # Compute the map.
-            env[stmt.dest] = [
-                interp_expr(stmt.op.body, env)
-                for env in _dict_zip(map_data)
-            ]
-
+            env[stmt.dest] = interp_map(stmt.op, env)
         elif isinstance(stmt.op, ast.Reduce):
-            if len(stmt.op.bind) != 1:
-                raise InterpError("reduce needs only one bind")
-            bind = stmt.op.bind[0]
-            if len(bind.dest) != 2:
-                raise InterpError("reduce requires a binary bind")
-
-            try:
-                red_data = env[bind.src]
-            except KeyError:
-                raise InterpError(f"source `{bind.src}` for reduce not found")
-
-            init = interp_expr(stmt.op.init, {})
-
-            # Compute the reduce.
-            env[stmt.dest] = reduce(
-                lambda x, y: interp_expr(
-                    stmt.op.body,
-                    {bind.dest[0]: x, bind.dest[1]: y},
-                ),
-                red_data,
-                init,
-            )
-
+            env[stmt.dest] = interp_reduce(stmt.op, env)
         else:
             raise InterpError(f"unknown op {type(stmt.op)}")
 
