@@ -1,5 +1,6 @@
 from .parse import parse
 from . import ast
+import sys
 
 
 # Interpreter.
@@ -13,11 +14,9 @@ def interp(prog: ast.Prog):
 
 
 def main():
-    ast = parse("""
-    input foo: bar
-    output foo2: bar2
-    baz := map 5 (5) { a + 5 }
-    """)
+    with open(sys.argv[1]) as f:
+        txt = f.read()
+    ast = parse(txt)
     interp(ast)
 
 
