@@ -1,0 +1,3 @@
+input foo: bar
+output foo2: bar2
+baz := map 5 (5) { a + 5 }
