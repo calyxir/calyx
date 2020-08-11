@@ -1,7 +1,9 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    A = prim std_mem_d2_ext(32,8,8,4,4);
+    A0_0 = prim std_mem_d2_ext(32,8,8,4,4);
+    A_read0_0 = prim std_reg(32);
+    A_read1_0 = prim std_reg(32);
     add0 = prim std_add(32);
     add1 = prim std_add(4);
     add2 = prim std_add(4);
@@ -30,12 +32,14 @@ component main() -> () {
     le3 = prim std_le(4);
     mult0 = prim std_mult(32);
     mult1 = prim std_mult(32);
-    x1 = prim std_mem_d1_ext(32,8,4);
-    x1_t0 = prim std_reg(32);
-    x2 = prim std_mem_d1_ext(32,8,4);
-    x2_t0 = prim std_reg(32);
-    y1 = prim std_mem_d1_ext(32,8,4);
-    y2 = prim std_mem_d1_ext(32,8,4);
+    x10 = prim std_mem_d1_ext(32,8,4);
+    x1_t_0 = prim std_reg(32);
+    x20 = prim std_mem_d1_ext(32,8,4);
+    x2_t_0 = prim std_reg(32);
+    y10 = prim std_mem_d1_ext(32,8,4);
+    y1_read0_0 = prim std_reg(32);
+    y20 = prim std_mem_d1_ext(32,8,4);
+    y2_read0_0 = prim std_reg(32);
   }
   wires {
     group cond0<"static"=0> {
@@ -69,80 +73,100 @@ component main() -> () {
       let1[done] = j0.done;
     }
     group let2<"static"=1> {
-      x1_t0.in = x1.read_data;
-      x1_t0.write_en = 1'd1;
-      let2[done] = x1_t0.done;
-      x1.addr0 = i0.out;
-    }
-    group let3<"static"=1> {
       i1.in = const6.out;
       i1.write_en = 1'd1;
-      let3[done] = i1.done;
+      let2[done] = i1.done;
     }
-    group let4<"static"=1> {
+    group let3<"static"=1> {
       j1.in = const8.out;
       j1.write_en = 1'd1;
-      let4[done] = j1.done;
-    }
-    group let5<"static"=1> {
-      x2_t0.in = x2.read_data;
-      x2_t0.write_en = 1'd1;
-      let5[done] = x2_t0.done;
-      x2.addr0 = i1.out;
+      let3[done] = j1.done;
     }
     group upd0<"static"=1> {
-      x1.addr0 = i0.out;
-      x1.write_en = 1'd1;
-      add0.left = x1_t0.out;
-      add0.right = mult0.out;
-      mult0.left = A.read_data;
-      mult0.right = y1.read_data;
-      A.addr1 = j0.out;
-      A.addr0 = i0.out;
-      y1.addr0 = j0.out;
-      x1.write_data = 1'd1 ? add0.out;
-      upd0[done] = x1.done ? 1'd1;
+      x1_t_0.write_en = 1'd1;
+      x10.addr0 = i0.out;
+      x1_t_0.in = 1'd1 ? x10.read_data;
+      upd0[done] = x1_t_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
-      j0.write_en = 1'd1;
-      add1.left = j0.out;
-      add1.right = const4.out;
-      j0.in = 1'd1 ? add1.out;
-      upd1[done] = j0.done ? 1'd1;
+      A_read0_0.write_en = 1'd1;
+      A0_0.addr1 = j0.out;
+      A0_0.addr0 = i0.out;
+      A_read0_0.in = 1'd1 ? A0_0.read_data;
+      upd1[done] = A_read0_0.done ? 1'd1;
     }
-    group upd2<"static"=1> {
-      i0.write_en = 1'd1;
-      add2.left = i0.out;
-      add2.right = const5.out;
-      i0.in = 1'd1 ? add2.out;
-      upd2[done] = i0.done ? 1'd1;
-    }
-    group upd3<"static"=1> {
-      x2.addr0 = i1.out;
-      x2.write_en = 1'd1;
-      add3.left = x2_t0.out;
-      add3.right = mult1.out;
-      mult1.left = A.read_data;
-      mult1.right = y2.read_data;
-      A.addr1 = i1.out;
-      A.addr0 = j1.out;
-      y2.addr0 = j1.out;
-      x2.write_data = 1'd1 ? add3.out;
-      upd3[done] = x2.done ? 1'd1;
-    }
-    group upd4<"static"=1> {
+    group upd10<"static"=1> {
       j1.write_en = 1'd1;
       add4.left = j1.out;
       add4.right = const10.out;
       j1.in = 1'd1 ? add4.out;
-      upd4[done] = j1.done ? 1'd1;
+      upd10[done] = j1.done ? 1'd1;
     }
-    group upd5<"static"=1> {
+    group upd11<"static"=1> {
       i1.write_en = 1'd1;
       add5.left = i1.out;
       add5.right = const11.out;
       i1.in = 1'd1 ? add5.out;
-      upd5[done] = i1.done ? 1'd1;
+      upd11[done] = i1.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      y1_read0_0.write_en = 1'd1;
+      y10.addr0 = j0.out;
+      y1_read0_0.in = 1'd1 ? y10.read_data;
+      upd2[done] = y1_read0_0.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      x10.addr0 = i0.out;
+      x10.write_en = 1'd1;
+      add0.left = x1_t_0.out;
+      add0.right = mult0.out;
+      mult0.left = A_read0_0.out;
+      mult0.right = y1_read0_0.out;
+      x10.write_data = 1'd1 ? add0.out;
+      upd3[done] = x10.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      j0.write_en = 1'd1;
+      add1.left = j0.out;
+      add1.right = const4.out;
+      j0.in = 1'd1 ? add1.out;
+      upd4[done] = j0.done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      i0.write_en = 1'd1;
+      add2.left = i0.out;
+      add2.right = const5.out;
+      i0.in = 1'd1 ? add2.out;
+      upd5[done] = i0.done ? 1'd1;
+    }
+    group upd6<"static"=1> {
+      x2_t_0.write_en = 1'd1;
+      x20.addr0 = i1.out;
+      x2_t_0.in = 1'd1 ? x20.read_data;
+      upd6[done] = x2_t_0.done ? 1'd1;
+    }
+    group upd7<"static"=1> {
+      A_read1_0.write_en = 1'd1;
+      A0_0.addr1 = i1.out;
+      A0_0.addr0 = j1.out;
+      A_read1_0.in = 1'd1 ? A0_0.read_data;
+      upd7[done] = A_read1_0.done ? 1'd1;
+    }
+    group upd8<"static"=1> {
+      y2_read0_0.write_en = 1'd1;
+      y20.addr0 = j1.out;
+      y2_read0_0.in = 1'd1 ? y20.read_data;
+      upd8[done] = y2_read0_0.done ? 1'd1;
+    }
+    group upd9<"static"=1> {
+      x20.addr0 = i1.out;
+      x20.write_en = 1'd1;
+      add3.left = x2_t_0.out;
+      add3.right = mult1.out;
+      mult1.left = A_read1_0.out;
+      mult1.right = y2_read0_0.out;
+      x20.write_data = 1'd1 ? add3.out;
+      upd9[done] = x20.done ? 1'd1;
     }
   }
   control {
@@ -153,26 +177,34 @@ component main() -> () {
           let1;
           while le1.out with cond1 {
             seq {
-              let2;
               upd0;
-              upd1;
-            }
-          }
-          upd2;
-        }
-      }
-      let3;
-      while le2.out with cond2 {
-        seq {
-          let4;
-          while le3.out with cond3 {
-            seq {
-              let5;
-              upd3;
+              seq {
+                upd1;
+                upd2;
+                upd3;
+              }
               upd4;
             }
           }
           upd5;
+        }
+      }
+      let2;
+      while le2.out with cond2 {
+        seq {
+          let3;
+          while le3.out with cond3 {
+            seq {
+              upd6;
+              seq {
+                upd7;
+                upd8;
+                upd9;
+              }
+              upd10;
+            }
+          }
+          upd11;
         }
       }
     }
