@@ -196,26 +196,20 @@ component main() -> () {
             seq {
               upd2;
               upd3;
-              seq {
-                upd4;
-                upd5;
-                upd6;
-              }
-              seq {
-                upd7;
-                upd8;
-                upd9;
-              }
+              upd4;
+              upd5;
+              upd6;
+              upd7;
+              upd8;
+              upd9;
               upd10;
             }
           }
           upd11;
-          seq {
-            upd12;
-            upd13;
-            upd14;
-            upd15;
-          }
+          upd12;
+          upd13;
+          upd14;
+          upd15;
           upd16;
         }
       }

@@ -1,5 +1,5 @@
 import "fxp_sqrt.h" {
-  def sqrt(x: ubit<32>);
+  def sqrt(x: ubit<32>): ubit<32>;
 }
 
 decl A: ubit<32>[8][8];

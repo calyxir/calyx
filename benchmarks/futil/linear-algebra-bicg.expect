@@ -171,14 +171,10 @@ component main() -> () {
               upd3;
               upd4;
               upd5;
-              seq {
-                upd6;
-                upd7;
-              }
-              seq {
-                upd8;
-                upd9;
-              }
+              upd6;
+              upd7;
+              upd8;
+              upd9;
               upd10;
             }
           }

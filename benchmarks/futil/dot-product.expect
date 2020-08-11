@@ -83,15 +83,11 @@ component main() -> () {
       let1;
       while le0.out with cond0 {
         seq {
-          seq {
-            upd0;
-            upd1;
-            upd2;
-          }
-          seq {
-            upd3;
-            upd4;
-          }
+          upd0;
+          upd1;
+          upd2;
+          upd3;
+          upd4;
           upd5;
         }
       }
