@@ -25,7 +25,7 @@ impl Visitor for CollapseControl {
         _c: &Context,
     ) -> VisResult {
         if s.stmts.is_empty() {
-            return Ok(Action::Change(ast::Control::empty()))
+            return Ok(Action::Change(ast::Control::empty()));
         }
         let mut seqs: Vec<ast::Control> = vec![];
         for con in &s.stmts {
@@ -47,7 +47,7 @@ impl Visitor for CollapseControl {
         _c: &Context,
     ) -> VisResult {
         if s.stmts.is_empty() {
-            return Ok(Action::Change(ast::Control::empty()))
+            return Ok(Action::Change(ast::Control::empty()));
         }
         let mut pars: Vec<ast::Control> = vec![];
         for con in &s.stmts {
