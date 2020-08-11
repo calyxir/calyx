@@ -269,10 +269,8 @@ component main() -> () {
   }
   control {
     seq {
-      seq {
-        upd0;
-        let0;
-      }
+      upd0;
+      let0;
       let1;
       upd1;
       let2;
@@ -283,11 +281,9 @@ component main() -> () {
           let4;
           while lt0.out with cond1 {
             seq {
-              seq {
-                upd3;
-                upd4;
-                upd5;
-              }
+              upd3;
+              upd4;
+              upd5;
               upd6;
             }
           }
@@ -303,20 +299,16 @@ component main() -> () {
           while lt1.out with cond3 {
             seq {
               upd11;
-              seq {
-                upd12;
-                upd13;
-              }
+              upd12;
+              upd13;
               upd14;
             }
           }
           upd15;
           while lt2.out with cond4 {
             seq {
-              seq {
-                upd16;
-                upd17;
-              }
+              upd16;
+              upd17;
               upd18;
             }
           }

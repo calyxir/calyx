@@ -1,7 +1,5 @@
-// broken because uses sqrt
-
 import "fxp_sqrt.h" {
-  def sqrt(x: ubit<32>);
+  def sqrt(x: ubit<32>): ubit<32>;
 }
 
 decl A: ubit<32>[8][12];
@@ -17,8 +15,6 @@ for (let k: ubit<4> = 0..12) {
     nrm := nrm + A_i_k * A_i_k;
   }
 
-  // This is a dumb hack we have to since Fuse assumes all functions return
-  // void.
   R[k][k] := (sqrt(nrm) as ubit<32>);
   ---
   for (let i: ubit<4> = 0..8) {
