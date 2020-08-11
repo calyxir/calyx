@@ -425,10 +425,7 @@ impl Visitor for CompileControl {
             );
         }
 
-        let new_control = Control::Enable {
-            data: Enable { comp: par_group },
-        };
-        Ok(Action::Change(new_control))
+        Ok(Action::Change(Control::enable(par_group)))
     }
 
     fn finish_empty(
@@ -441,7 +438,7 @@ impl Visitor for CompileControl {
         // Create a group that always outputs done if it doesn't exist.
         let empty_group: ast::Id = CompileControl::EMPTY_GROUP.into();
         // Try to get the empty group.
-        if let Err(_) = st.get_node_by_name(&empty_group) {
+        if st.get_node_by_name(&empty_group).is_err() {
             let empty_group_node =
                 st.insert_group(&empty_group, HashMap::new())?;
 
