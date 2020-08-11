@@ -27,7 +27,7 @@ Interpreter
 
 To run the interpreter, do this:
 
-    poetry run <program> <indata>
+    poetry run mrxl <program> <indata>
 
 where `<program>` is a MrXL source code file and `<indata>` is a JSON file containing values for all the variables declared as `input` in the program. The interpreter dumps the `output` variables as JSON to stdout.
 
