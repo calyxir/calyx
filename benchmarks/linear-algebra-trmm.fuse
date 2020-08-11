@@ -4,8 +4,8 @@ decl B: ubit<32>[8][12];
 
 for (let i: ubit<4> = 0..8) {
   for (let j: ubit<4> = 0..12) {
-    let k: ubit<4> = i + (1 as ubit<4>);
-    while (k < (8 as ubit<4>)) {
+    let k: ubit<4> = i + 1;
+    while (k < 8) {
       decor "#pragma HLS loop_tripcount min=0 max=7 avg=4"
       let B_i_j: ubit<32> = B[i][j];
       ---
@@ -13,11 +13,11 @@ for (let i: ubit<4> = 0..8) {
       ---
       B[i][j] := A[k][i] * B_k_j + B_i_j;
       // Update loop counter
-      k := k + (1 as ubit<4>);
+      k := k + 1;
     }
     ---
     let B_i_j: ubit<32> = B[i][j];
     ---
-    B[i][j] := alpha[(0 as ubit<1>)] * B_i_j;
+    B[i][j] := alpha[0] * B_i_j;
   }
 }

@@ -8,7 +8,7 @@ for (let i: ubit<4>  = 0..8) {
   for (let j: ubit<4> = 0..8) {
     let C_i_j: ubit<32> = C[i][j];
     ---
-    C[i][j] := C_i_j * beta[(0 as ubit<1>)];
+    C[i][j] := C_i_j * beta[0];
   }
 
   ---
@@ -17,7 +17,7 @@ for (let i: ubit<4>  = 0..8) {
   // block otherwise.
   for (let j: ubit<4> = 0..8) {
     for (let k: ubit<4> = 0..8) {
-      let v: ubit<32> = alpha[(0 as ubit<1>)] * A[i][k] * B[k][j];
+      let v: ubit<32> = alpha[0] * A[i][k] * B[k][j];
     } combine {
       C[i][j] += v;
     }
