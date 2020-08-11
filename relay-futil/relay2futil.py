@@ -1,8 +1,9 @@
-from tvm import relay
+from tvm import relay, ir
 from tvm.relay.expr_functor import ExprFunctor
 from tvm.relay.function import Function
 import textwrap
 from collections import namedtuple
+import math
 
 PREAMBLE = """
 import "primitives/std.lib";
@@ -23,6 +24,11 @@ def mk_block(decl, contents, indent=2):
     """
     return decl + ' {\n' + textwrap.indent(contents, indent * ' ') + '\n}'
 
+def extract_tensor_params(tensor_type):
+    dimension = tensor_type.shape
+    mem_size_params = ",".join([str(d) for d in dimension])
+    mem_index_params = ",".join([str(int(math.log2(d.__int__()))) for d in dimension])
+    return len(dimension), mem_size_params, mem_index_params
 
 class Relay2Futil(ExprFunctor):
     """Our main compilation visitor.
@@ -166,7 +172,7 @@ class Relay2Futil(ExprFunctor):
                     [f'{false_branch_name}'])) 
                 ]
             )
-        
+    
 
     def visit_function(self, func):
         body = self.visit(func.body)
@@ -176,10 +182,20 @@ class Relay2Futil(ExprFunctor):
             # TODO: Check the types of the arguments, just like in the
             # visit_var method above.
             name = param.name_hint
-            func_cells.append(f'{name} = prim std_reg(32);')
+            param_type = param.type_annotation
+            dimension, mem_size, mem_index = extract_tensor_params(param_type)
+            if dimension == 0:
+                func_cells.append(f'{name} = prim std_reg(32);')
+            else:
+                func_cells.append(f'{name} = prim std_mem_d{dimension}(32, {mem_size}, {mem_index});')
 
         # Make a register for the return value.
-        func_cells.append('ret = prim std_reg(32);')
+        dimension, mem_size, mem_index = extract_tensor_params(func.ret_type)
+        if dimension == 0:
+            func_cells.append('ret = prim std_reg(32);')
+        else:
+            func_cells.append(f'ret  = prim std_mem_d{dimension}(32, {mem_size}, {mem_index});')
+
 
         # Create a group for the wires that run this expression.
         group_name = 'group{}'.format(self.fresh_id())
@@ -205,17 +221,18 @@ class Relay2Futil(ExprFunctor):
         
         return component
 
-def optimize(expr: Function) -> Function:
-    opts = tvm.transform.Sequential([relay.transform.FuseOps(),relay.transform.ToANormalForm()])
-    self.mod['main'] = expr
-    self.mod = opts(self.mod)
-    ret = self.mod['main']
+def infer_type(expr: Function) -> Function:
+    opts = relay.transform.InferType()
+    mod = ir.IRModule()
+    mod['main'] = expr
+    mod = opts(mod)
+    ret = mod['main']
     return ret
 
 def compile(program) -> str:
     """Translate a Relay function to a FuTIL program (as a string).
     """
-
+    program = infer_type(program)
     visitor = Relay2Futil()
     src = visitor.visit(program)
     return "{}\n{}".format(PREAMBLE.strip(), src)
