@@ -258,11 +258,20 @@ primitive std_const[p_width, p_value]() -> (out: p_width) {
 }
 
 primitive std_slice[p_in_width, p_out_width](in: p_in_width) -> (out: p_out_width) {
+  verilog {
+    module std_slice
+      #(parameter IN_WIDTH = 32,
+        parameter OUT_WIDTH = 32)
+      (input  logic [IN_WIDTH-1:0] in,
+       output logic [OUT_WIDTH-1:0] out);
+      assign out = in[OUT_WIDTH-1:0];
+    endmodule
+  }
 }
 
 primitive std_lsh[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
-    module std_add
+    module std_lsh
       #(parameter width = 32)
       (input  logic [width-1:0] left,
         input  logic [width-1:0] right,
@@ -274,7 +283,7 @@ primitive std_lsh[p_width](left: p_width, right: p_width) -> (out: p_width) {
 
 primitive std_rsh[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
-    module std_add
+    module std_rsh
       #(parameter width = 32)
       (input  logic [width-1:0] left,
         input  logic [width-1:0] right,
