@@ -257,6 +257,30 @@ primitive std_const[p_width, p_value]() -> (out: p_width) {
   }
 }
 
+primitive std_lsh[p_width](left: p_width, right: p_width) -> (out: p_width) {
+  verilog {
+    module std_add
+      #(parameter width = 32)
+      (input  logic [width-1:0] left,
+        input  logic [width-1:0] right,
+        output logic [width-1:0] out);
+      assign out = left << right;
+    endmodule
+  }
+}
+
+primitive std_rsh[p_width](left: p_width, right: p_width) -> (out: p_width) {
+  verilog {
+    module std_add
+      #(parameter width = 32)
+      (input  logic [width-1:0] left,
+        input  logic [width-1:0] right,
+        output logic [width-1:0] out);
+      assign out = left >> right;
+    endmodule
+  }
+}
+
 primitive std_add[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
     module std_add
