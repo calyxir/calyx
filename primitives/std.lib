@@ -257,6 +257,9 @@ primitive std_const[p_width, p_value]() -> (out: p_width) {
   }
 }
 
+primitive std_slice[p_in_width, p_out_width](in: p_in_width) -> (out: p_out_width) {
+}
+
 primitive std_lsh[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
     module std_add
