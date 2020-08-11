@@ -33,6 +33,7 @@ lazy_static::lazy_static! {
             Operator::new(Rule::guard_gt, Assoc::Left),
             Operator::new(Rule::guard_eq, Assoc::Left),
             Operator::new(Rule::guard_neq, Assoc::Left),
+            Operator::new(Rule::guard_not, Assoc::Right)
             // tighest binding
         ]
     );
@@ -308,7 +309,8 @@ impl FutilParser {
             input.into_children();
             [guard_expr(guard)] => guard,
             [expr(e)] => ast::GuardExpr::Atom(e),
-            [guard_not(_), guard_expr(e)] => ast::GuardExpr::Not(Box::new(e))
+            [guard_not(_), guard_expr(e)] => ast::GuardExpr::Not(Box::new(e)),
+            [guard_not(_), expr(e)] => ast::GuardExpr::Not(Box::new(ast::GuardExpr::Atom(e)))
         ))
     }
 

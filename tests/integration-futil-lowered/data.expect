@@ -5,14 +5,14 @@ component main(go: 1, clk: 1) -> (done: 1) {
     const1 = prim std_const(32, 1);
     fsm0 = prim std_reg(32);
     incr0 = prim std_add(32);
-    x0 = prim std_reg(32);
+    x_0 = prim std_reg(32);
   }
   
   wires {
-    x0.in = (fsm0.out == 32'd0 & go) ? const0.out;
-    x0.in = (fsm0.out == 32'd1 & go) ? const1.out;
+    x_0.in = (fsm0.out == 32'd0 & go) ? const0.out;
+    x_0.in = (fsm0.out == 32'd1 & go) ? const1.out;
     fsm0.in = (fsm0.out != 32'd2 & go) ? incr0.out;
-    x0.write_en = ((fsm0.out == 32'd0 & go) | (fsm0.out == 32'd1 & go)) ? 1'd1;
+    x_0.write_en = ((fsm0.out == 32'd0 & go) | (fsm0.out == 32'd1 & go)) ? 1'd1;
     fsm0.write_en = ((fsm0.out != 32'd2 & go) | fsm0.out == 32'd2) ? 1'd1;
     done = fsm0.out == 32'd2 ? 1'd1;
     fsm0.in = fsm0.out == 32'd2 ? 32'd0;

@@ -48,40 +48,40 @@ module main (
   );
   
   // Structure wire declarations
-  wire [31:0] tmp0_in;
-  wire tmp0_write_en;
-  wire tmp0_clk;
-  wire [31:0] tmp0_out;
-  wire tmp0_done;
+  wire [31:0] tmp_0_in;
+  wire tmp_0_write_en;
+  wire tmp_0_clk;
+  wire [31:0] tmp_0_out;
+  wire tmp_0_done;
   wire [31:0] lt0_left;
   wire [31:0] lt0_right;
   wire lt0_out;
-  wire [31:0] i0_in;
-  wire i0_write_en;
-  wire i0_clk;
-  wire [31:0] i0_out;
-  wire i0_done;
+  wire [31:0] i_0_in;
+  wire i_0_write_en;
+  wire i_0_clk;
+  wire [31:0] i_0_out;
+  wire i_0_done;
   wire [31:0] const4_out;
   wire [31:0] const3_out;
   wire [31:0] const2_out;
   wire [31:0] const1_out;
   wire [31:0] const0_out;
-  wire [31:0] b0_in;
-  wire b0_write_en;
-  wire b0_clk;
-  wire [31:0] b0_out;
-  wire b0_done;
+  wire [31:0] b_0_in;
+  wire b_0_write_en;
+  wire b_0_clk;
+  wire [31:0] b_0_out;
+  wire b_0_done;
   wire [31:0] add1_left;
   wire [31:0] add1_right;
   wire [31:0] add1_out;
   wire [31:0] add0_left;
   wire [31:0] add0_right;
   wire [31:0] add0_out;
-  wire [31:0] a0_in;
-  wire a0_write_en;
-  wire a0_clk;
-  wire [31:0] a0_out;
-  wire a0_done;
+  wire [31:0] a_0_in;
+  wire a_0_write_en;
+  wire a_0_clk;
+  wire [31:0] a_0_out;
+  wire a_0_done;
   wire [31:0] fsm0_in;
   wire fsm0_write_en;
   wire fsm0_clk;
@@ -105,12 +105,12 @@ module main (
   wire fsm2_done;
   
   // Subcomponent Instances
-  std_reg #(32) tmp0 (
-      .in(tmp0_in),
-      .write_en(tmp0_write_en),
+  std_reg #(32) tmp_0 (
+      .in(tmp_0_in),
+      .write_en(tmp_0_write_en),
       .clk(clk),
-      .out(tmp0_out),
-      .done(tmp0_done)
+      .out(tmp_0_out),
+      .done(tmp_0_done)
   );
   
   std_lt #(32) lt0 (
@@ -119,12 +119,12 @@ module main (
       .out(lt0_out)
   );
   
-  std_reg #(32) i0 (
-      .in(i0_in),
-      .write_en(i0_write_en),
+  std_reg #(32) i_0 (
+      .in(i_0_in),
+      .write_en(i_0_write_en),
       .clk(clk),
-      .out(i0_out),
-      .done(i0_done)
+      .out(i_0_out),
+      .done(i_0_done)
   );
   
   std_const #(32, 1) const4 (
@@ -147,12 +147,12 @@ module main (
       .out(const0_out)
   );
   
-  std_reg #(32) b0 (
-      .in(b0_in),
-      .write_en(b0_write_en),
+  std_reg #(32) b_0 (
+      .in(b_0_in),
+      .write_en(b_0_write_en),
       .clk(clk),
-      .out(b0_out),
-      .done(b0_done)
+      .out(b_0_out),
+      .done(b_0_done)
   );
   
   std_add #(32) add1 (
@@ -167,12 +167,12 @@ module main (
       .out(add0_out)
   );
   
-  std_reg #(32) a0 (
-      .in(a0_in),
-      .write_en(a0_write_en),
+  std_reg #(32) a_0 (
+      .in(a_0_in),
+      .write_en(a_0_write_en),
       .clk(clk),
-      .out(a0_out),
-      .done(a0_done)
+      .out(a_0_out),
+      .done(a_0_done)
   );
   
   std_reg #(32) fsm0 (
@@ -226,20 +226,20 @@ module main (
   
   // Input / output connections
   assign done = (fsm2_out == 32'd4) ? 1'd1 : '0;
-  assign tmp0_in = (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? b0_out : '0;
-  assign tmp0_write_en = (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? 1'd1 : '0;
-  assign lt0_left = (fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? i0_out : '0;
+  assign tmp_0_in = (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? b_0_out : '0;
+  assign tmp_0_write_en = (fsm0_out == 32'd0 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? 1'd1 : '0;
+  assign lt0_left = (fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? i_0_out : '0;
   assign lt0_right = (fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? const3_out : '0;
-  assign i0_in = (fsm2_out == 32'd1 & !i0_done & go) ? const1_out : (fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? add0_out : '0;
-  assign i0_write_en = (fsm2_out == 32'd1 & !i0_done & go | fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? 1'd1 : '0;
-  assign b0_in = (fsm2_out == 32'd2 & !b0_done & go) ? const2_out : (fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? add1_out : '0;
-  assign b0_write_en = (fsm2_out == 32'd2 & !b0_done & go | fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? 1'd1 : '0;
-  assign add1_left = (fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? a0_out : '0;
-  assign add1_right = (fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? tmp0_out : '0;
-  assign add0_left = (fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? i0_out : '0;
+  assign i_0_in = (fsm2_out == 32'd1 & !i_0_done & go) ? const1_out : (fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? add0_out : '0;
+  assign i_0_write_en = (fsm2_out == 32'd1 & !i_0_done & go | fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? 1'd1 : '0;
+  assign b_0_in = (fsm2_out == 32'd2 & !b_0_done & go) ? const2_out : (fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? add1_out : '0;
+  assign b_0_write_en = (fsm2_out == 32'd2 & !b_0_done & go | fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? 1'd1 : '0;
+  assign add1_left = (fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? a_0_out : '0;
+  assign add1_right = (fsm0_out == 32'd2 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? tmp_0_out : '0;
+  assign add0_left = (fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? i_0_out : '0;
   assign add0_right = (fsm0_out == 32'd1 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? const4_out : '0;
-  assign a0_in = (fsm0_out == 32'd3 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? tmp0_out : (fsm2_out == 32'd0 & !a0_done & go) ? const0_out : '0;
-  assign a0_write_en = (fsm2_out == 32'd0 & !a0_done & go | fsm0_out == 32'd3 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? 1'd1 : '0;
+  assign a_0_in = (fsm0_out == 32'd3 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? tmp_0_out : (fsm2_out == 32'd0 & !a_0_done & go) ? const0_out : '0;
+  assign a_0_write_en = (fsm2_out == 32'd0 & !a_0_done & go | fsm0_out == 32'd3 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? 1'd1 : '0;
   assign fsm0_in = (fsm0_out != 32'd4 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? incr0_out : (fsm0_out == 32'd4) ? 32'd0 : '0;
   assign fsm0_write_en = (fsm0_out != 32'd4 & fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go | fsm0_out == 32'd4) ? 1'd1 : '0;
   assign incr0_left = (fsm1_out > 32'd0 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? 32'd1 : '0;
@@ -248,6 +248,6 @@ module main (
   assign fsm1_write_en = (fsm1_out != 32'd5 & fsm1_out != 32'd0 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go | fsm1_out == 32'd0 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go | fsm1_out == 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go | fsm1_out == 32'd6) ? 1'd1 : '0;
   assign incr1_left = (fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? fsm1_out : '0;
   assign incr1_right = (fsm2_out == 32'd3 & !(fsm1_out == 32'd6) & go) ? 32'd1 : '0;
-  assign fsm2_in = (fsm2_out == 32'd3 & fsm1_out == 32'd6 & go) ? 32'd4 : (fsm2_out == 32'd2 & b0_done & go) ? 32'd3 : (fsm2_out == 32'd1 & i0_done & go) ? 32'd2 : (fsm2_out == 32'd0 & a0_done & go) ? 32'd1 : (fsm2_out == 32'd4) ? 32'd0 : '0;
-  assign fsm2_write_en = (fsm2_out == 32'd0 & a0_done & go | fsm2_out == 32'd1 & i0_done & go | fsm2_out == 32'd2 & b0_done & go | fsm2_out == 32'd3 & fsm1_out == 32'd6 & go | fsm2_out == 32'd4) ? 1'd1 : '0;
+  assign fsm2_in = (fsm2_out == 32'd3 & fsm1_out == 32'd6 & go) ? 32'd4 : (fsm2_out == 32'd2 & b_0_done & go) ? 32'd3 : (fsm2_out == 32'd1 & i_0_done & go) ? 32'd2 : (fsm2_out == 32'd0 & a_0_done & go) ? 32'd1 : (fsm2_out == 32'd4) ? 32'd0 : '0;
+  assign fsm2_write_en = (fsm2_out == 32'd0 & a_0_done & go | fsm2_out == 32'd1 & i_0_done & go | fsm2_out == 32'd2 & b_0_done & go | fsm2_out == 32'd3 & fsm1_out == 32'd6 & go | fsm2_out == 32'd4) ? 1'd1 : '0;
 endmodule // end main

@@ -1,14 +1,14 @@
 
 import "primitives/std.lib";
 
-component mac_pe(top: 32, left: 32) -> (down: 32, right: 32) {
+component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
   cells {
     // Storage
     acc = prim std_reg(32);
     mul_reg = prim std_reg(32);
     // Computation
     add = prim std_add(32);
-    mul = prim std_mult(32);
+    mul = prim std_mult_pipe(32);
   }
 
   wires {
@@ -16,8 +16,9 @@ component mac_pe(top: 32, left: 32) -> (down: 32, right: 32) {
     group do_mul {
       mul.left = top;
       mul.right = left;
-      mul_reg.in = mul.out;
-      mul_reg.write_en = 1'd1;
+      mul.go = !mul.done ? 1'd1;
+      mul_reg.in = mul.done ? mul.out;
+      mul_reg.write_en = mul.done ? 1'd1;
       do_mul[done] = mul_reg.done;
     }
 
@@ -29,6 +30,7 @@ component mac_pe(top: 32, left: 32) -> (down: 32, right: 32) {
       do_add[done] = acc.done;
     }
 
+    out = acc.out;
     down = top;
     right = left;
   }
@@ -46,6 +48,7 @@ component main() -> () {
       l0_idx = prim std_reg(2);
       l0_add = prim std_add(2);
       l0 = prim std_mem_d1(32, 3, 2);
+      out_mem = prim std_mem_d2_ext(32, 1, 1, 1, 1);
       pe_00 = mac_pe;
       top_00_read = prim std_reg(32);
       left_00_read = prim std_reg(32);
@@ -103,6 +106,14 @@ component main() -> () {
         pe_00_compute[done] = pe_00.done ? 1'd1;
       }
 
+
+      group pe_00_out_write {
+          out_mem.addr0 = 1'd0;
+          out_mem.addr1 = 1'd0;
+          out_mem.write_data = pe_00.out;
+          out_mem.write_en = 1'd1;
+          pe_00_out_write[done] = out_mem.done;
+      }
     }
     control {
 
@@ -131,6 +142,9 @@ component main() -> () {
         }
         par {
             pe_00_compute;
+        }
+        seq {
+            pe_00_out_write;
         }
       }
     }

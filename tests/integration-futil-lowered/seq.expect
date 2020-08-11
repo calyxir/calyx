@@ -1,27 +1,27 @@
 import "primitives/std.lib";
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
-    a0 = prim std_reg(32);
+    a_0 = prim std_reg(32);
     const0 = prim std_const(32, 1);
     const1 = prim std_const(32, 2);
     const2 = prim std_const(32, 3);
     const3 = prim std_const(32, 4);
     fsm0 = prim std_reg(32);
     incr0 = prim std_add(32);
-    x0 = prim std_reg(32);
-    y0 = prim std_reg(32);
-    z0 = prim std_reg(32);
+    x_0 = prim std_reg(32);
+    y_0 = prim std_reg(32);
+    z_0 = prim std_reg(32);
   }
   
   wires {
-    x0.in = (fsm0.out == 32'd0 & go) ? const0.out;
-    x0.write_en = (fsm0.out == 32'd0 & go) ? 1'd1;
-    y0.in = (fsm0.out == 32'd1 & go) ? const1.out;
-    y0.write_en = (fsm0.out == 32'd1 & go) ? 1'd1;
-    z0.in = (fsm0.out == 32'd2 & go) ? const2.out;
-    z0.write_en = (fsm0.out == 32'd2 & go) ? 1'd1;
-    a0.in = (fsm0.out == 32'd3 & go) ? const3.out;
-    a0.write_en = (fsm0.out == 32'd3 & go) ? 1'd1;
+    x_0.in = (fsm0.out == 32'd0 & go) ? const0.out;
+    x_0.write_en = (fsm0.out == 32'd0 & go) ? 1'd1;
+    y_0.in = (fsm0.out == 32'd1 & go) ? const1.out;
+    y_0.write_en = (fsm0.out == 32'd1 & go) ? 1'd1;
+    z_0.in = (fsm0.out == 32'd2 & go) ? const2.out;
+    z_0.write_en = (fsm0.out == 32'd2 & go) ? 1'd1;
+    a_0.in = (fsm0.out == 32'd3 & go) ? const3.out;
+    a_0.write_en = (fsm0.out == 32'd3 & go) ? 1'd1;
     fsm0.in = (fsm0.out != 32'd4 & go) ? incr0.out;
     fsm0.write_en = ((fsm0.out != 32'd4 & go) | fsm0.out == 32'd4) ? 1'd1;
     done = fsm0.out == 32'd4 ? 1'd1;
