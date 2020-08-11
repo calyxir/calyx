@@ -4,45 +4,45 @@ decl y: ubit<32>[8];
 // XXX(rachit): This should be a local array.
 decl z: ubit<32>[8];
 
-let alpha: ubit<32> = (0 as ubit<32>) - r[(0 as ubit<4>)];
-let beta: ubit<32> = (1 as ubit<32>);
-y[(0 as ubit<4>)] := alpha;
+let alpha: ubit<32> = 0 - r[0];
+let beta: ubit<32> = 1;
+y[0] := alpha;
 ---
 for (let k: ubit<4> = 1..8) {
-  beta := ((1 as ubit<32>) - alpha * alpha) * beta;
+  beta := (1 - alpha * alpha) * beta;
 
-  let sum: ubit<32> = (0 as ubit<32>);
-  let i: ubit<4> = (0 as ubit<4>);
+  let sum: ubit<32> = 0;
+  let i: ubit<4> = 0;
   while (i < k) {
     decor "#pragma HLS loop_tripcount min=1 max=7 avg=4"
-    sum := sum + r[k-i-(1 as ubit<4>)] * y[i];
+    sum := sum + r[k-i-1] * y[i];
     // Update loop counter
-    i := i + (1 as ubit<4>);
+    i := i + 1;
   }
   ---
   // modification to prevent div by 0
-  if (beta != (0 as ubit<32>)) {
-    alpha := (0 as ubit<32>) - (r[k] + sum)/beta;
+  if (beta != 0) {
+    alpha := 0 - (r[k] + sum)/beta;
   } else {
-    alpha := (0 as ubit<32>);
+    alpha := 0;
   }
 
-  i := (0 as ubit<4>);
+  i := 0;
   while(i < k) {
     decor "#pragma HLS loop_tripcount min=1 max=7 avg=4"
     let y_i: ubit<32> = y[i];
     ---
-    z[i] := y_i + alpha * y[k-i-(1 as ubit<4>)];
+    z[i] := y_i + alpha * y[k-i-1];
     // Update loop counter
-    i := i + (1 as ubit<4>);
+    i := i + 1;
   }
   ---
-  i := (0 as ubit<4>);
+  i := 0;
   while(i < k) {
     decor "#pragma HLS loop_tripcount min=1 max=7 avg=4"
     y[i] := z[i];
     // Update loop counter
-    i := i + (1 as ubit<4>);
+    i := i + 1;
   }
   ---
   y[k] := alpha;

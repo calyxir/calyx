@@ -8,8 +8,8 @@ decl y: ubit<32>[8];
 
 
 for (let i: ubit<4> = 0..8) {
-  tmp[i] := (0 as ubit<32>);
-  y[i] := (0 as ubit<32>);
+  tmp[i] := 0;
+  y[i] := 0;
   ---
   for (let j: ubit<4> = 0..8) {
     let tmp_i: ubit<32> = tmp[i];
@@ -21,5 +21,5 @@ for (let i: ubit<4> = 0..8) {
   ---
   let y_i: ubit<32> = y[i];
   ---
-  y[i] := alpha[(0 as ubit<1>)] * tmp[i] + beta[(0 as ubit<1>)] * y_i;
+  y[i] := alpha[0] * tmp[i] + beta[0] * y_i;
 }

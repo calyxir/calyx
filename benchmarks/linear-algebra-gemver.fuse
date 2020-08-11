@@ -23,7 +23,7 @@ for (let i: ubit<4> = 0..8) {
   for (let j: ubit<4> = 0..8) {
     let x_i: ubit<32> = x[i];
     ---
-    x[i] := x_i + beta[(0 as ubit<1>)] * A[j][i] * y[j];
+    x[i] := x_i + beta[0] * A[j][i] * y[j];
   }
 }
 ---
@@ -38,6 +38,6 @@ for (let i: ubit<4> = 0..8) {
   for (let j: ubit<4> = 0..8) {
     let w_i = w[i];
     ---
-    w[i] := w_i +  alpha[(0 as ubit<1>)] * A[i][j] * x[j];
+    w[i] := w_i +  alpha[0] * A[i][j] * x[j];
   }
 }
