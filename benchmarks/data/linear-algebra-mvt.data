@@ -27,52 +27,20 @@
     "bitwidth": 32
   },
 
-  "y10": {
-    "data": [],
-    "bitwidth": 32
-  },
-  "y11": {
-    "data": [],
-    "bitwidth": 32
-  },
-  "y20": {
-    "data": [],
-    "bitwidth": 32
-  },
-  "y21": {
-    "data": [],
-    "bitwidth": 32
-  },
-  "A0_0": {
-    "data": [],
-    "bitwidth": 32
-  },
-  "A0_1": {
-    "data": [],
-    "bitwidth": 32
-  },
-  "A1_0": {
-    "data": [],
-    "bitwidth": 32
-  },
-  "A1_1": {
-    "data": [],
-    "bitwidth": 32
-  },
-  "x10": {
-    "data": [],
-    "bitwidth": 32
-  },
-  "x11": {
-    "data": [],
-    "bitwidth": 32
-  },
-  "x20": {
-    "data": [],
-    "bitwidth": 32
-  },
-  "x21": {
-    "data": [],
-    "bitwidth": 32
-  }
+  "y10": { "data": [], "bitwidth": 32 },
+  "y11": { "data": [], "bitwidth": 32 },
+
+  "y20": { "data": [], "bitwidth": 32 },
+  "y21": { "data": [], "bitwidth": 32 },
+
+  "A0_0": { "data": [], "bitwidth": 32 },
+  "A0_1": { "data": [], "bitwidth": 32 },
+  "A1_0": { "data": [], "bitwidth": 32 },
+  "A1_1": { "data": [], "bitwidth": 32 },
+
+  "x10": { "data": [], "bitwidth": 32 },
+  "x11": { "data": [], "bitwidth": 32 },
+
+  "x20": { "data": [], "bitwidth": 32 },
+  "x21": { "data": [], "bitwidth": 32 }
 }
