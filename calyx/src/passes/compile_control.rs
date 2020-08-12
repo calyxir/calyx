@@ -11,10 +11,6 @@ use std::convert::TryInto;
 #[derive(Default)]
 pub struct CompileControl {}
 
-impl CompileControl {
-    const EMPTY_GROUP: &'static str = "_empty";
-}
-
 impl Named for CompileControl {
     fn name() -> &'static str {
         "compile-control"
@@ -433,31 +429,5 @@ impl Visitor for CompileControl {
         }
 
         Ok(Action::Change(Control::enable(par_group)))
-    }
-
-    fn finish_empty(
-        &mut self,
-        _s: &ast::Empty,
-        comp: &mut Component,
-        _x: &Context,
-    ) -> VisResult {
-        let st = &mut comp.structure;
-        // Create a group that always outputs done if it doesn't exist.
-        let empty_group: ast::Id = CompileControl::EMPTY_GROUP.into();
-        // Try to get the empty group.
-        if st.get_node_by_name(&empty_group).is_err() {
-            let empty_group_node =
-                st.insert_group(&empty_group, HashMap::new())?;
-
-            structure!(st, &ctx,
-                let signal_on = constant(1, 1);
-            );
-
-            add_wires!(
-                st, Some(empty_group.clone()),
-                empty_group_node["done"] = (signal_on);
-            );
-        }
-        Ok(Action::Change(Control::enable(empty_group)))
     }
 }
