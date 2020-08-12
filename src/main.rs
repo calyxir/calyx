@@ -14,6 +14,7 @@ use pass_manager::PassManager;
 use passes::{
     collapse_control::CollapseControl,
     compile_control::CompileControl,
+    compile_empty::CompileEmpty,
     component_interface::ComponentInterface,
     externalize::Externalize,
     go_insertion::GoInsertion,
@@ -45,6 +46,7 @@ fn construct_pass_manager() -> Result<PassManager> {
     register_pass!(pm, Externalize);
     register_pass!(pm, RemoveExternalMemories);
     register_pass!(pm, CollapseControl);
+    register_pass!(pm, CompileEmpty);
     register_pass!(pm, Papercut);
 
     // Register aliases
@@ -55,6 +57,7 @@ fn construct_pass_manager() -> Result<PassManager> {
             WellFormed,
             Papercut,
             RemoveExternalMemories,
+            CompileEmpty,
             CollapseControl,
             StaticTiming,
             CompileControl,
@@ -70,6 +73,7 @@ fn construct_pass_manager() -> Result<PassManager> {
         "no-inline",
         [
             RemoveExternalMemories,
+            CompileEmpty,
             StaticTiming,
             CompileControl,
             GoInsertion,
@@ -82,6 +86,8 @@ fn construct_pass_manager() -> Result<PassManager> {
         "external",
         [
             WellFormed,
+            Papercut,
+            CompileControl,
             StaticTiming,
             CompileControl,
             GoInsertion,

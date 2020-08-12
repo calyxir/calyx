@@ -1,5 +1,6 @@
 pub mod collapse_control;
 pub mod compile_control;
+pub mod compile_empty;
 pub mod component_interface;
 pub mod externalize;
 pub mod go_insertion;
