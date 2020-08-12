@@ -6,9 +6,9 @@ decl A_int: ubit<32>[8][12];
 decl R_int: ubit<32>[12][12];
 decl Q_int: ubit<32>[8][12];
 
-let A: ubit<32>[8][12];
+let A: ubit<32>[8 bank 4][12];
 let R: ubit<32>[12][12];
-let Q: ubit<32>[8][12];
+let Q: ubit<32>[8 bank 4][12];
 
 view A_sh = A[_: bank 1][_: bank 1];
 view Q_sh = Q[_: bank 1][_: bank 1];
@@ -32,7 +32,7 @@ for (let i0: ubit<4> = 0..8) {
 for (let k: ubit<4> = 0..12) {
   let nrm: ubit<32> = 0;
 
-  for (let i: ubit<4> = 0..8) {
+  for (let i: ubit<4> = 0..8) unroll 4 {
     let A_i_k = A[i][k];
   } combine {
     nrm += A_i_k * A_i_k;
@@ -40,7 +40,7 @@ for (let k: ubit<4> = 0..12) {
 
   R[k][k] := sqrt(nrm);
   ---
-  for (let i: ubit<4> = 0..8) {
+  for (let i: ubit<4> = 0..8) unroll 4 {
     Q[i][k] := A[i][k] / R[k][k];
   }
   ---
@@ -49,13 +49,13 @@ for (let k: ubit<4> = 0..12) {
     decor "#pragma HLS loop_tripcount min=0 max=11 avg=6"
     R[k][j] := 0;
     ---
-    for (let i: ubit<4> = 0..8) {
+    for (let i: ubit<4> = 0..8) unroll 4 {
       let v: ubit<32> = Q[i][k] * A[i][j];
     } combine {
       R[k][j] += v;
     }
     ---
-    for (let i: ubit<4> = 0..8) {
+    for (let i: ubit<4> = 0..8) unroll 4 {
       let A_i_j = A[i][j];
       ---
       A[i][j] := A_i_j - Q[i][k] * R[k][j];

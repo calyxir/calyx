@@ -13,17 +13,21 @@ cleanup() {
 trap cleanup EXIT
 
 # Name of the benchmark.
-benchmark="$1"
+input="$1"
 # Location of the data.
 data="$2"
+
+# Run the benchmark
+tmp="$(mktemp -d)"
+# Name of the output file.
+benchmark="$tmp/$(basename -s .fuse $input)"
 
 meminit="$(mktemp -d)"
 # Create .meminit files from the input JSON file.
 ./bin/json_to_dat.py --mode json --output "$meminit" "$data"
 
+./bin/find-dahlia $input --lower -b futil -l error > "$benchmark"
 
-# Run the benchmark
-tmp="$(mktemp -d)"
 ./target/debug/futil "$benchmark" -b verilog --verilator \
     | DATA="$meminit" ./bin/gen-vcd - 2> "$tmp/log" > "$tmp/out.vcd"
 

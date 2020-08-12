@@ -86,18 +86,29 @@ cmd = """
 expect_dir = "benchmarks/futil"
 
 [[tests]]
-name = "(polybench) verilog generation"
-paths = [ "benchmarks/futil/*.expect" ]
+name = "(polybench) simulation"
+paths = [ "benchmarks/*.fuse" ]
 cmd = """
-./target/debug/futil {} -b verilog --verilator
+base=$(basename -s .fuse {})
+./bin/run-benchmark {} benchmarks/data/$base.data | tail -n+2
 """
-expect_dir = "benchmarks/verilog"
+expect_dir = "benchmarks/simulation/"
+
+# =============== Polybench unrolled tests ====================
 
 [[tests]]
-name = "(polybench) simulation"
-paths = [ "benchmarks/futil/*.expect" ]
+name = "(polybench) (dahlia) frontend unroll"
+paths = [ "benchmarks/unrolled/*.fuse" ]
 cmd = """
-base=$(basename -s .expect {})
+./bin/find-dahlia {} -b futil --lower -l error | tail -n+2
+"""
+expect_dir = "benchmarks/futil-unrolled/"
+
+[[tests]]
+name = "(polybench) unroll simulation"
+paths = [ "benchmarks/unrolled/*.fuse" ]
+cmd = """
+base=$(basename -s .fuse {})
 ./bin/run-benchmark {} benchmarks/data/$base.data | tail -n+2
 """
 expect_dir = "benchmarks/simulation/"
