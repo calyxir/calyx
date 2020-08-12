@@ -87,6 +87,7 @@ fn construct_pass_manager() -> Result<PassManager> {
         [
             WellFormed,
             Papercut,
+            CompileEmpty,
             CompileControl,
             StaticTiming,
             CompileControl,
