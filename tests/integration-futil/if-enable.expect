@@ -1,0 +1,42 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    add0 = prim std_add(4);
+    const0 = prim std_const(4,0);
+    const1 = prim std_const(4,2);
+    const2 = prim std_const(4,0);
+    const3 = prim std_const(4,1);
+    eq0 = prim std_eq(4);
+    mod0 = prim std_mod(4);
+    x_0 = prim std_reg(4);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      eq0.left = mod0.out;
+      eq0.right = const2.out;
+      mod0.left = x_0.out;
+      mod0.right = const1.out;
+    }
+    group let0<"static"=1> {
+      x_0.in = const0.out;
+      x_0.write_en = 1'd1;
+      let0[done] = x_0.done;
+    }
+    group upd0<"static"=1> {
+      x_0.write_en = 1'd1;
+      add0.left = x_0.out;
+      add0.right = const3.out;
+      x_0.in = 1'd1 ? add0.out;
+      upd0[done] = x_0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      if eq0.out with cond0 {
+        upd0;
+      }
+    }
+  }
+}
