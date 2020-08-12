@@ -6,9 +6,9 @@ decl A: ubit<32>[8][8];
 
 for (let i: ubit<4> = 0..8) {
   for (let j: ubit<4> = 0..8) {
-    let x1_t: ubit<32> = x1[i];
-    ---
-    x1[i] := x1_t + A[i][j] * y1[j];
+    let tmp = A[i][j] * y1[j];
+  } combine {
+    x1[i] += tmp;
   }
 }
 
@@ -16,8 +16,8 @@ for (let i: ubit<4> = 0..8) {
 
 for (let i: ubit<4> = 0..8) {
   for (let j: ubit<4> = 0..8) {
-    let x2_t: ubit<32> = x2[i];
-    ---
-    x2[i] := x2_t + A[j][i] * y2[j];
+    let tmp2 = A[j][i] * y2[j];
+  } combine {
+    x2[i] += tmp2;
   }
 }

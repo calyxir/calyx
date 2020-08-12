@@ -6,8 +6,10 @@ for (let i: ubit<4> = 0..8) {
   x[i] := b[i];
   ---
   let j: ubit<4> = 0;
+  // XXX: Try rewriting this as a for loop.
   while (j < i) {
     decor "#pragma HLS loop_tripcount min=0 max=7 avg=4"
+    // XXX: This is a reduction pattern.
     let x_j: ubit<32> = x[j];
     ---
     x[i] := L[i][j] * x_j;
