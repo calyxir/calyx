@@ -1,29 +1,30 @@
 decl alpha: ubit<32>[1];
 decl beta: ubit<32>[1];
-decl A: ubit<32>[8][8];
-decl u1: ubit<32>[8];
-decl v1: ubit<32>[8];
-decl u2: ubit<32>[8];
-decl v2: ubit<32>[8];
-decl w: ubit<32>[8];
-decl x: ubit<32>[8];
-decl y: ubit<32>[8];
-decl z: ubit<32>[8];
+decl A: ubit<32>[8 bank 2][8 bank 2];
+decl u1: ubit<32>[8 bank 2];
+decl v1: ubit<32>[8 bank 2];
+decl u2: ubit<32>[8 bank 2];
+decl v2: ubit<32>[8 bank 2];
+decl w: ubit<32>[8 bank 2];
+decl x: ubit<32>[8 bank 2];
+decl y: ubit<32>[8 bank 2];
+decl z: ubit<32>[8 bank 2];
 
 // Scalar inputs.
 let alpha_ = alpha[0];
 let beta_ = beta[0];
 
-for (let i: ubit<4> = 0..8) {
-  for (let j: ubit<4> = 0..8) {
+for (let i: ubit<4> = 0..8) unroll 2 {
+  for (let j: ubit<4> = 0..8) unroll 2 {
     let tmp1 = u1[i] * v1[j] + u2[i] * v2[j];
-  } combine {
-    A[i][j] += tmp1;
+    let old = A[i][j];
+    ---
+    A[i][j] := old + tmp1;
   }
 }
 ---
-for (let i: ubit<4> = 0..8) {
-  for (let j: ubit<4> = 0..8) {
+for (let i: ubit<4> = 0..8) unroll 2 {
+  for (let j: ubit<4> = 0..8) unroll 2 {
     let tmp2 = beta_ * A[j][i] * y[j];
   } combine {
     x[i] += tmp2;
@@ -31,14 +32,15 @@ for (let i: ubit<4> = 0..8) {
 }
 ---
 // We could've moved this up and parallelized with loop1.
-for (let i: ubit<4> = 0..8) {
+for (let i: ubit<4> = 0..8) unroll 2 {
   let tmp3 = z[i];
-} combine {
-  x[i] += tmp3;
+  let old = x[i];
+  ---
+  x[i] := old + tmp3;
 }
 ---
-for (let i: ubit<4> = 0..8) {
-  for (let j: ubit<4> = 0..8) {
+for (let i: ubit<4> = 0..8) unroll 2 {
+  for (let j: ubit<4> = 0..8) unroll 2 {
     let tmp4 = alpha_ * A[i][j] * x[j];
   } combine {
     w[i] += tmp4;
