@@ -126,7 +126,7 @@ jobs:
       run: |
         runt -d -o fail
       env:
-        DAHLIA_EXEC: /home/runner/work/futil/futil/dahlia/fuse
+        DAHLIA: /home/runner/work/futil/futil/dahlia/fuse
 
   format:
     name: Check Formatting
