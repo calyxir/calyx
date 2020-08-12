@@ -113,9 +113,8 @@ impl Visitor for CompileControl {
         let false_go =
             !guard!(st; false_group_node["done"]) & false_turn.clone();
 
-        let done_guard = (true_turn.clone()
-            & guard!(st; true_group_node["done"]))
-            | (false_turn.clone() & guard!(st; false_group_node["done"]));
+        let done_guard = (true_turn & guard!(st; true_group_node["done"]))
+            | (false_turn & guard!(st; false_group_node["done"]));
         let done_reg_high = guard!(st; done_reg["out"]);
 
         // New edges.
