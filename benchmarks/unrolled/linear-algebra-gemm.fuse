@@ -1,11 +1,30 @@
 decl alpha: ubit<32>[1];
 decl beta: ubit<32>[1];
-decl C: ubit<32>[8 bank 2][8 bank 2];
-decl A: ubit<32>[8 bank 2][8 bank 2];
-decl B: ubit<32>[8 bank 2][8 bank 2];
+decl C_int: ubit<32>[8][8];
+decl A_int: ubit<32>[8][8];
+decl B_int: ubit<32>[8][8];
+
+let C: ubit<32>[8 bank 2][8 bank 2];
+let A: ubit<32>[8 bank 2][8 bank 2];
+let B: ubit<32>[8 bank 2][8 bank 2];
+
+view C_sh = C[_: bank 1][_: bank 1];
+view A_sh = A[_: bank 1][_: bank 1];
+view B_sh = B[_: bank 1][_: bank 1];
 
 let alpha_ = alpha[0];
 let beta_ = beta[0];
+
+// Input interface.
+for (let i: ubit<4> = 0..8) {
+  for (let j: ubit<4> = 0..8) {
+    A_sh[i][j] := A_int[i][j];
+    B_sh[i][j] := B_int[i][j];
+    C_sh[i][j] := C_int[i][j];
+  }
+}
+
+---
 
 for (let i: ubit<4> = 0..8) unroll 2 {
   for (let j: ubit<4> = 0..8) unroll 2 {
@@ -24,5 +43,15 @@ for (let i: ubit<4> = 0..8) unroll 2 {
     } combine {
       C[i][j] += v;
     }
+  }
+}
+
+---
+
+// Output interface.
+
+for (let i: ubit<4> = 0..8) {
+  for (let j: ubit<4> = 0..8) {
+    C_int[i][j] := C_sh[i][j];
   }
 }
