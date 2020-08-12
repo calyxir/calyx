@@ -6,11 +6,11 @@ decl B_int: ubit<32>[8][8];
 decl x_int: ubit<32>[8];
 decl y_int: ubit<32>[8];
 
-let tmp: ubit<32>[8];
-let A: ubit<32>[8][8];
-let B: ubit<32>[8][8];
-let x: ubit<32>[8];
-let y: ubit<32>[8];
+let tmp: ubit<32>[8 bank 2];
+let A: ubit<32>[8 bank 2][8 bank 2];
+let B: ubit<32>[8 bank 2][8 bank 2];
+let x: ubit<32>[8 bank 2];
+let y: ubit<32>[8 bank 2];
 
 view tmp_sh = tmp[_: bank 1];
 view A_sh = A[_: bank 1][_: bank 1];
@@ -33,11 +33,11 @@ for (let i0: ubit<4> = 0..8) {
 
 ---
 
-for (let i: ubit<4> = 0..8) {
+for (let i: ubit<4> = 0..8) unroll 2 {
   tmp[i] := 0;
   y[i] := 0;
   ---
-  for (let j: ubit<4> = 0..8) {
+  for (let j: ubit<4> = 0..8) unroll 2 {
     let t1 = A[i][j] * x[j];
     let t2 = B[i][j] * x[j];
   } combine {
