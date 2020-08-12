@@ -36,6 +36,7 @@ class Relay2Futil(ExprFunctor):
     def __init__(self):
         super(Relay2Futil, self).__init__()
         self.next_id = 0
+        self.structures = set()
 
     def fresh_id(self):
         the_id = self.next_id
@@ -44,8 +45,10 @@ class Relay2Futil(ExprFunctor):
 
     def visit_var(self, var):
         name = var.name_hint
+        dimension, mem_size, mem_index = extract_tensor_params(var.type_annotation)
+        value = f'{name}.out' if dimension == 0 else str(name)
         return EmitResult(
-            f'{name}.out',  # Assuming variables are in registers.
+            value,  # Assuming variables are in registers.
             f'{name}[done]',
             [],
             [],
@@ -108,30 +111,114 @@ class Relay2Futil(ExprFunctor):
         #currently assume we only have 2 args to add
         structures = [item for arg in arg_stmts for item in arg.cells]
         wires = [item for arg in arg_stmts for item in arg.wires]
+        controls = [item for arg in arg_stmts for item in arg.controls]
+        groups = {}
+        for arg in arg_stmts:
+            groups.update(arg.groups)
         #map standard relay call to hw name in futil
         built_in_calls = {'add':'add', 'subtract':'sub', 'equal':'eq'}
-        if call.op.name in built_in_calls.keys():
+        if call.op.name in built_in_calls:
+            arg1_type = call.args[0].checked_type
+            arg2_type = call.args[1].checked_type
+            dimension_arg1, mem_size_arg1, mem_index_arg1 = extract_tensor_params(arg1_type)
+            dimension_arg2, mem_size_arg2, mem_index_arg2 = extract_tensor_params(arg2_type)
+            #make sure the left and right of add have the same dimensions
+            assert dimension_arg1 == dimension_arg2 and mem_size_arg1 == mem_size_arg2
+            # handle the scalar case
+            if dimension_arg1 == 0:
+                hw_type = built_in_calls[call.op.name]
+                # Create structure for an adder.
+                cell_name = f'{hw_type}{self.fresh_id()}'
+                cell = '{} = prim std_{}({});'.format(
+                    cell_name,
+                    hw_type,
+                    32,     # Bit width.
+                 )
+                structures.append(cell)
+                wires.extend([
+                        f'{cell_name}.left = {arg_stmts[0].value}',
+                        f'{cell_name}.right = {arg_stmts[1].value}' 
+                        ])
+                return EmitResult(
+                        f'{cell_name}.out',
+                        None,
+                        structures,
+                        wires,
+                        groups,
+                        []
+                    )
+            #build a return memory
+            mem_cell_name = f'mem{self.fresh_id()}'
+            mem_cell = f'{mem_cell_name} = prim std_mem_d{dimension_arg1}(32, {mem_size_arg1}, {mem_index_arg1})'
             hw_type = built_in_calls[call.op.name]
-            # Create structure for an adder.
-            cell_name = f'{hw_type}{self.fresh_id()}'
-            cell = '{} = prim std_{}({});'.format(
-                cell_name,
+            hw_cell_name = f'{hw_type}{self.fresh_id()}'
+            hw_cell = '{} = prim std_{}({});'.format(
+                hw_cell_name,
                 hw_type,
                 32,     # Bit width.
-             )
-            structures.append(cell)
-            wires.extend([
-                    f'{cell_name}.left = {arg_stmts[0].value}',
-                    f'{cell_name}.right = {arg_stmts[1].value}' 
-                    ])
+            )
+            const_mem_size_name = f'const{self.fresh_id()}'
+            const_mem_size = f'{const_mem_size_name} = prim std_const(32, {mem_size_arg1})'
+
+            index_reg_name = f'i{self.fresh_id()}'
+            index_reg = f'{index_reg_name} = prim std_reg(32)'
+            
+            update_adder_name = f'add{self.fresh_id()}'
+            update_adder = '{} = prim std_add({});'.format(
+                hw_cell_name,
+                32,     # Bit width.
+            )
+
+            less_comparator_name = f'le{self.fresh_id()}'
+            less_comparator = f'{less_comparator_name} = prim std_le(32)'
+            structures.extend([hw_cell, mem_cell, const_mem_size, index_reg, less_comparator])
+            
+            condition_name = f'cond{self.fresh_id()}'
+            groups[condition_name] = [
+                    f"{condition_name}[done] = 1'd1",
+                    f"{less_comparator_name}.left = {index_reg_name}.out",
+                    f"{less_comparator_name}.left = {const_mem_size_name}.out"
+                    ]
+            initialization_name = f'initalize{self.fresh_id()}'
+            groups[initialization_name] = [
+                    f"{index_reg_name}.in = constant0.out",
+                    f"{index_reg_name}.write_en = 1'd1",
+                    f"{initialization_name}[done] = {index_reg_name}.done"
+                    ]
+            add_body_name = f'body{self.fresh_id()}'
+            groups[add_body_name] = [
+                    f"{mem_cell_name}.addr0 = {index_reg_name}.out",
+                    f"{mem_cell_name}.write_en = 1'd1",
+                    f"{hw_cell_name}.left = {arg_stmts[0].value}.read_data",
+                    f"{hw_cell_name}.right = {arg_stmts[1].value}.read_data",
+                    f"{arg_stmts[0].value}.addr0 = {index_reg_name}.out",
+                    f"{arg_stmts[1].value}.addr0 = {index_reg_name}.out",
+                    f"{mem_cell_name}.write_data = 1'd1 ? {hw_cell_name}.out",
+                    f"{add_body_name}[done] = {mem_cell_name}.done ? 1'd1"
+                    ]
+
+            update_name = f'update{self.fresh_id()}'
+            groups[update_name] = [
+                    f"{index_reg_name}.write_en = 1'd1",
+                    f"{update_adder_name}.left = {index_reg_name}.out",
+                    f"{update_adder_name}.right = constant1.out",
+                    f"{index_reg_name}.in = 1'd1 ? {update_adder_name}.out",
+                    f"{update_name}[done] = {index_reg_name}.done ? 1'd1"
+                    ]
+            
+            seq_block = mk_block("seq", "\n".join([add_body_name, update_name]))
+            mem_control =  mk_block(f"while le0.out with cond0", f'{initialization_name}\n{seq_block}')
+            controls.append(mem_control)
             return EmitResult(
-                    f'{cell_name}.out',
+                    f'{mem_cell_name}',
                     None,
                     structures,
                     wires,
-                    {},
-                    []
+                    groups,
+                    controls
                 )
+            
+
 
     def visit_if(self, if_else):
         # Process conditions
@@ -194,6 +281,8 @@ class Relay2Futil(ExprFunctor):
         if dimension == 0:
             func_cells.append('ret = prim std_reg(32);')
         else:
+            func_cells.append(f'constant0 = prim std_const(32, 0)')
+            func_cells.append(f'constant1 = prim std_const(32, 1)')
             func_cells.append(f'ret  = prim std_mem_d{dimension}(32, {mem_size}, {mem_index});')
 
 
