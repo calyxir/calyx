@@ -4,11 +4,11 @@ decl y1_int: ubit<32>[8];
 decl y2_int: ubit<32>[8];
 decl A_int: ubit<32>[8][8];
 
-let x1: ubit<32>[8];
-let x2: ubit<32>[8];
-let y1: ubit<32>[8];
-let y2: ubit<32>[8];
-let A: ubit<32>[8][8];
+let x1: ubit<32>[8 bank 2];
+let x2: ubit<32>[8 bank 2];
+let y1: ubit<32>[8 bank 2];
+let y2: ubit<32>[8 bank 2];
+let A: ubit<32>[8 bank 2][8 bank 2];
 
 view x1_sh = x1[_: bank 1];
 view x2_sh = x2[_: bank 1];
@@ -31,8 +31,8 @@ for (let i: ubit<4> = 0..8) {
 
 ---
 
-for (let i: ubit<4> = 0..8) {
-  for (let j: ubit<4> = 0..8) {
+for (let i: ubit<4> = 0..8) unroll 2 {
+  for (let j: ubit<4> = 0..8) unroll 2 {
     let tmp = A[i][j] * y1[j];
   } combine {
     x1[i] += tmp;
@@ -41,8 +41,8 @@ for (let i: ubit<4> = 0..8) {
 
 ---
 
-for (let i: ubit<4> = 0..8) {
-  for (let j: ubit<4> = 0..8) {
+for (let i: ubit<4> = 0..8) unroll 2 {
+  for (let j: ubit<4> = 0..8) unroll 2 {
     let tmp2 = A[j][i] * y2[j];
   } combine {
     x2[i] += tmp2;
