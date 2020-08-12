@@ -10,6 +10,9 @@ decl x: ubit<32>[8];
 decl y: ubit<32>[8];
 decl z: ubit<32>[8];
 
+// Scalar inputs.
+let alpha_ = alpha[0];
+let beta_ = beta[0];
 
 for (let i: ubit<4> = 0..8) {
   for (let j: ubit<4> = 0..8) {
@@ -21,7 +24,7 @@ for (let i: ubit<4> = 0..8) {
 ---
 for (let i: ubit<4> = 0..8) {
   for (let j: ubit<4> = 0..8) {
-    let tmp2 = beta[0] * A[j][i] * y[j];
+    let tmp2 = beta_ * A[j][i] * y[j];
   } combine {
     x[i] += tmp2;
   }
@@ -36,7 +39,7 @@ for (let i: ubit<4> = 0..8) {
 ---
 for (let i: ubit<4> = 0..8) {
   for (let j: ubit<4> = 0..8) {
-    let tmp4 = alpha[0] * A[i][j] * x[j];
+    let tmp4 = alpha_ * A[i][j] * x[j];
   } combine {
     w[i] += tmp4;
   }
