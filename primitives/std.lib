@@ -329,6 +329,60 @@ primitive std_mod[p_width](left: p_width, right: p_width) -> (out: p_width) {
   }
 }
 
+primitive std_mod_pipe[width]
+(clk: 1, reset: 1, go: 1, left: width, right: width)
+-> (out: width, done: 1) {
+  verilog {
+    module std_mod_pipe
+              #(parameter width = 32)
+                (input            clk, reset,
+                input                  go,
+                input [width-1:0]      left,
+                input [width-1:0]      right,
+                output reg [width-1:0] out,
+                output reg             done);
+
+      wire start = go && !running && !reset;
+
+      reg [width-1:0]     dividend;
+      reg [(width-1)*2:0] divisor;
+      reg [width-1:0]     quotient;
+      reg [width-1:0]     quotient_msk;
+      reg                 running;
+
+      always @(posedge clk) begin
+          if (reset || !go) begin
+            running <= 0;
+            done <= 0;
+            out <= 0;
+          end else
+           if (start && left == 0) begin
+              out <= 0;
+              done <= 1;
+           end if (start) begin
+              running <= 1;
+              dividend <= left;
+              divisor <= right << width-1;
+              quotient <= 0;
+              quotient_msk <= 1 << width-1;
+            end else
+              if (!quotient_msk && running) begin
+                running <= 0;
+                done <= 1;
+                out <= dividend;
+              end else begin
+                if (divisor <= dividend) begin
+                    dividend <= dividend - divisor;
+                    quotient <= quotient | quotient_msk;
+                end
+                divisor <= divisor >> 1;
+                quotient_msk <= quotient_msk >> 1;
+              end
+      end
+    endmodule
+  }
+}
+
 primitive std_mult[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
     module std_mult
@@ -393,25 +447,25 @@ primitive std_div[p_width](left: p_width, right: p_width) -> (out: p_width) {
 }
 
 primitive std_div_pipe[width]
-(clk: 1, reset: 1, go: 1, left: 32, right: 32)
--> (out: 32, done: 1) {
+(clk: 1, reset: 1, go: 1, left: width, right: width)
+-> (out: width, done: 1) {
   verilog {
     module std_div_pipe
               #(parameter width = 32)
                 (input             clk, reset,
-                input             go,
-                input [31:0]      left,
-                input [31:0]      right,
-                output reg [31:0] out,
-                output reg        done);
+                input                  go,
+                input [width-1:0]      left,
+                input [width-1:0]      right,
+                output reg [width-1:0] out,
+                output reg             done);
 
       wire start = go && !running && !reset;
 
-      reg [31:0] dividend;
-      reg [62:0] divisor;
-      reg [31:0] quotient;
-      reg [31:0] quotient_msk;
-      reg        running;
+      reg [width-1:0]     dividend;
+      reg [(width-1)*2:0] divisor;
+      reg [width-1:0]     quotient;
+      reg [width-1:0]     quotient_msk;
+      reg                 running;
 
       always @(posedge clk) begin
           if (reset || !go) begin
@@ -425,9 +479,9 @@ primitive std_div_pipe[width]
            end if (start) begin
               running <= 1;
               dividend <= left;
-              divisor <= right << 31;
+              divisor <= right << width-1;
               quotient <= 0;
-              quotient_msk <= 1 << 31;
+              quotient_msk <= 1 << width-1;
             end else
               if (!quotient_msk && running) begin
                 running <= 0;

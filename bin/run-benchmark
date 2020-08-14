@@ -5,10 +5,12 @@ set -euf
 cleanup() {
     if [ $? -ne 0 ]; then
         cat "$tmp/log"
+    else
+        rm -r $tmp
     fi
 
     # cleanup tmp dirs
-    rm -r $tmp $meminit
+    rm -r $meminit
 }
 trap cleanup EXIT
 
@@ -16,6 +18,8 @@ trap cleanup EXIT
 input="$1"
 # Location of the data.
 data="$2"
+# script directory
+script_dir=$(dirname "$0")
 
 # Run the benchmark
 tmp="$(mktemp -d)"
@@ -24,15 +28,15 @@ benchmark="$tmp/$(basename -s .fuse $input)"
 
 meminit="$(mktemp -d)"
 # Create .meminit files from the input JSON file.
-./bin/json_to_dat.py --mode json --output "$meminit" "$data"
+$script_dir/json_to_dat.py --mode json --output "$meminit" "$data"
 
-./bin/find-dahlia $input --lower -b futil -l error > "$benchmark"
+$script_dir/find-dahlia $input --lower -b futil -l error > "$benchmark"
 
-./target/debug/futil "$benchmark" -b verilog --verilator \
-    | DATA="$meminit" ./bin/gen-vcd - 2> "$tmp/log" > "$tmp/out.vcd"
+$script_dir/../target/debug/futil "$benchmark" -b verilog --verilator -d static-timing -l $script_dir/.. \
+    | DATA="$meminit" $script_dir/gen-vcd - 2> "$tmp/log" > "$tmp/out.vcd"
 
 # Translate the outputs back to a JSON filetmp
-./bin/json_to_dat.py --mode dat --output "$tmp/out.json" --read_ext out "$meminit"
+$script_dir/json_to_dat.py --mode dat --output "$tmp/out.json" --read_ext out "$meminit"
 
 echo -n "$(basename -s .expect $benchmark),"
 cat "$tmp/log" | grep cycles | awk '{print $2}'

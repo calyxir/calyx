@@ -8,6 +8,8 @@ component main() -> () {
     add2 = prim std_add(32);
     add3 = prim std_add(4);
     add4 = prim std_add(4);
+    bin_read0_0 = prim std_reg(32);
+    bin_read1_0 = prim std_reg(32);
     const0 = prim std_const(4,0);
     const1 = prim std_const(4,7);
     const10 = prim std_const(4,1);
@@ -25,8 +27,8 @@ component main() -> () {
     le0 = prim std_le(4);
     le1 = prim std_le(4);
     le2 = prim std_le(4);
-    mult0 = prim std_mult(32);
-    mult1 = prim std_mult(32);
+    mult_pipe0 = prim std_mult_pipe(32);
+    mult_pipe1 = prim std_mult_pipe(32);
     p_int0 = prim std_mem_d1_ext(32,8,4);
     p_int_read0_0 = prim std_reg(32);
     q0_0 = prim std_reg(32);
@@ -66,6 +68,22 @@ component main() -> () {
       j0.in = const7.out;
       j0.write_en = 1'd1;
       let2[done] = j0.done;
+    }
+    group let3<"static"=4> {
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      let3[done] = bin_read0_0.done;
+      mult_pipe0.left = r_int_read0_0.out;
+      mult_pipe0.right = A_i_j_0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group let4<"static"=4> {
+      bin_read1_0.in = mult_pipe1.out;
+      bin_read1_0.write_en = mult_pipe1.done;
+      let4[done] = bin_read1_0.done;
+      mult_pipe1.left = A_i_j_0.out;
+      mult_pipe1.right = p_int_read0_0.out;
+      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
     }
     group upd0<"static"=1> {
       s_int0.addr0 = i0.out;
@@ -129,9 +147,7 @@ component main() -> () {
       s_int0.addr0 = j0.out;
       s_int0.write_en = 1'd1;
       add1.left = s0_0.out;
-      add1.right = mult0.out;
-      mult0.left = r_int_read0_0.out;
-      mult0.right = A_i_j_0.out;
+      add1.right = bin_read0_0.out;
       s_int0.write_data = 1'd1 ? add1.out;
       upd7[done] = s_int0.done ? 1'd1;
     }
@@ -145,9 +161,7 @@ component main() -> () {
       q_int0.addr0 = i1.out;
       q_int0.write_en = 1'd1;
       add2.left = q0_0.out;
-      add2.right = mult1.out;
-      mult1.left = A_i_j_0.out;
-      mult1.right = p_int_read0_0.out;
+      add2.right = bin_read1_0.out;
       q_int0.write_data = 1'd1 ? add2.out;
       upd9[done] = q_int0.done ? 1'd1;
     }
@@ -172,8 +186,10 @@ component main() -> () {
               upd4;
               upd5;
               upd6;
+              let3;
               upd7;
               upd8;
+              let4;
               upd9;
               upd10;
             }

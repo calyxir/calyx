@@ -93,14 +93,6 @@ cmd = """
 """
 expect_dir = "benchmarks/small_simulation/"
 
-# [[tests]]
-# name = "(polybench) (large) simulation"
-# paths = [ "benchmarks/large_polybench/*.fuse" ]
-# cmd = """
-# ./bin/run-benchmark {} {}.data | tail -n+2
-# """
-# expect_dir = "benchmarks/large_simulation/"
-
 # =============== Polybench unrolled tests ====================
 
 [[tests]]

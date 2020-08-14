@@ -1,5 +1,0 @@
----STDERR---
-[[31mError[0m] [Line 0, Column 0] Cast expressions that imply zero-padding
-<undefined position>
- This feature is not yet implemented. Please open a feature request for it.
-cat: /tmp/tmp.2dCGY1pd14/log: No such file or directory

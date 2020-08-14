@@ -3,6 +3,7 @@ component main() -> () {
   cells {
     add0 = prim std_add(4);
     add1 = prim std_add(4);
+    bin_read0_0 = prim std_reg(4);
     const0 = prim std_const(4,0);
     const1 = prim std_const(4,0);
     const2 = prim std_const(4,10);
@@ -13,7 +14,7 @@ component main() -> () {
     eq0 = prim std_eq(4);
     i_0 = prim std_reg(4);
     lt0 = prim std_lt(4);
-    mod0 = prim std_mod(4);
+    mod_pipe0 = prim std_mod_pipe(4);
     x_0 = prim std_reg(4);
   }
   wires {
@@ -24,10 +25,8 @@ component main() -> () {
     }
     group cond1<"static"=0> {
       cond1[done] = 1'd1;
-      eq0.left = mod0.out;
+      eq0.left = bin_read0_0.out;
       eq0.right = const4.out;
-      mod0.left = i_0.out;
-      mod0.right = const3.out;
     }
     group let0<"static"=1> {
       i_0.in = const0.out;
@@ -38,6 +37,14 @@ component main() -> () {
       x_0.in = const1.out;
       x_0.write_en = 1'd1;
       let1[done] = x_0.done;
+    }
+    group let2 {
+      bin_read0_0.in = mod_pipe0.out;
+      bin_read0_0.write_en = mod_pipe0.done;
+      let2[done] = bin_read0_0.done;
+      mod_pipe0.left = i_0.out;
+      mod_pipe0.right = const3.out;
+      mod_pipe0.go = !mod_pipe0.done ? 1'd1;
     }
     group upd0<"static"=1> {
       x_0.write_en = 1'd1;
@@ -60,6 +67,7 @@ component main() -> () {
       let1;
       while lt0.out with cond0 {
         seq {
+          let2;
           if eq0.out with cond1 {
             upd0;
           }

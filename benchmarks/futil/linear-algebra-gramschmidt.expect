@@ -38,6 +38,10 @@ component main() -> () {
     add7 = prim std_add(4);
     add8 = prim std_add(32);
     add9 = prim std_add(4);
+    bin_read0_0 = prim std_reg(32);
+    bin_read1_0 = prim std_reg(32);
+    bin_read2_0 = prim std_reg(32);
+    bin_read3_0 = prim std_reg(32);
     const0 = prim std_const(4,0);
     const1 = prim std_const(4,11);
     const10 = prim std_const(4,0);
@@ -94,7 +98,7 @@ component main() -> () {
     const7 = prim std_const(4,1);
     const8 = prim std_const(4,0);
     const9 = prim std_const(4,7);
-    div0 = prim std_div(32);
+    div_pipe0 = prim std_div_pipe(32);
     i0 = prim std_reg(4);
     i00 = prim std_reg(4);
     i01 = prim std_reg(4);
@@ -123,9 +127,9 @@ component main() -> () {
     le8 = prim std_le(4);
     le9 = prim std_le(4);
     lt0 = prim std_lt(4);
-    mult0 = prim std_mult(32);
-    mult1 = prim std_mult(32);
-    mult2 = prim std_mult(32);
+    mult_pipe0 = prim std_mult_pipe(32);
+    mult_pipe1 = prim std_mult_pipe(32);
+    mult_pipe2 = prim std_mult_pipe(32);
     nrm_0 = prim std_reg(32);
     rsh0 = prim std_rsh(4);
     rsh1 = prim std_rsh(4);
@@ -225,36 +229,62 @@ component main() -> () {
       let1[done] = init10.done;
     }
     group let10<"static"=1> {
-      v_0.in = mult1.out;
-      v_0.write_en = 1'd1;
-      let10[done] = v_0.done;
-      mult1.left = Q_read0_0.out;
-      mult1.right = A_read1_0.out;
+      j_0.in = add7.out;
+      j_0.write_en = 1'd1;
+      let10[done] = j_0.done;
+      add7.left = k0.out;
+      add7.right = const27.out;
     }
     group let11<"static"=1> {
-      i3.in = const33.out;
-      i3.write_en = 1'd1;
-      let11[done] = i3.done;
+      i2.in = const30.out;
+      i2.write_en = 1'd1;
+      let11[done] = i2.done;
     }
-    group let12<"static"=1> {
-      init01.in = const38.out;
-      init01.write_en = 1'd1;
-      let12[done] = init01.done;
+    group let12<"static"=4> {
+      bin_read2_0.in = mult_pipe1.out;
+      bin_read2_0.write_en = mult_pipe1.done;
+      let12[done] = bin_read2_0.done;
+      mult_pipe1.left = Q_read0_0.out;
+      mult_pipe1.right = A_read1_0.out;
+      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
     }
     group let13<"static"=1> {
-      init11.in = const40.out;
-      init11.write_en = 1'd1;
-      let13[done] = init11.done;
+      v_0.in = bin_read2_0.out;
+      v_0.write_en = 1'd1;
+      let13[done] = v_0.done;
     }
     group let14<"static"=1> {
+      i3.in = const33.out;
+      i3.write_en = 1'd1;
+      let14[done] = i3.done;
+    }
+    group let15<"static"=4> {
+      bin_read3_0.in = mult_pipe2.out;
+      bin_read3_0.write_en = mult_pipe2.done;
+      let15[done] = bin_read3_0.done;
+      mult_pipe2.left = Q_read1_0.out;
+      mult_pipe2.right = R_read1_0.out;
+      mult_pipe2.go = !mult_pipe2.done ? 1'd1;
+    }
+    group let16<"static"=1> {
+      init01.in = const38.out;
+      init01.write_en = 1'd1;
+      let16[done] = init01.done;
+    }
+    group let17<"static"=1> {
+      init11.in = const40.out;
+      init11.write_en = 1'd1;
+      let17[done] = init11.done;
+    }
+    group let18<"static"=1> {
       i01.in = const46.out;
       i01.write_en = 1'd1;
-      let14[done] = i01.done;
+      let18[done] = i01.done;
     }
-    group let15<"static"=1> {
+    group let19<"static"=1> {
       j01.in = const48.out;
       j01.write_en = 1'd1;
-      let15[done] = j01.done;
+      let19[done] = j01.done;
     }
     group let2<"static"=1> {
       i00.in = const8.out;
@@ -281,22 +311,26 @@ component main() -> () {
       i0.write_en = 1'd1;
       let6[done] = i0.done;
     }
-    group let7<"static"=1> {
-      i1.in = const24.out;
-      i1.write_en = 1'd1;
-      let7[done] = i1.done;
+    group let7<"static"=4> {
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      let7[done] = bin_read0_0.done;
+      mult_pipe0.left = A_i_k_0.out;
+      mult_pipe0.right = A_i_k_0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
     group let8<"static"=1> {
-      j_0.in = add7.out;
-      j_0.write_en = 1'd1;
-      let8[done] = j_0.done;
-      add7.left = k0.out;
-      add7.right = const27.out;
+      i1.in = const24.out;
+      i1.write_en = 1'd1;
+      let8[done] = i1.done;
     }
-    group let9<"static"=1> {
-      i2.in = const30.out;
-      i2.write_en = 1'd1;
-      let9[done] = i2.done;
+    group let9 {
+      bin_read1_0.in = div_pipe0.out;
+      bin_read1_0.write_en = div_pipe0.done;
+      let9[done] = bin_read1_0.done;
+      div_pipe0.left = A_read0_0.out;
+      div_pipe0.right = R_read0_0.out;
+      div_pipe0.go = !div_pipe0.done ? 1'd1;
     }
     group upd0<"static"=1> {
       R_int_read0_0.write_en = 1'd1;
@@ -326,9 +360,7 @@ component main() -> () {
     group upd11<"static"=1> {
       nrm_0.write_en = 1'd1;
       add4.left = nrm_0.out;
-      add4.right = mult0.out;
-      mult0.left = A_i_k_0.out;
-      mult0.right = A_i_k_0.out;
+      add4.right = bin_read0_0.out;
       nrm_0.in = 1'd1 ? add4.out;
       upd11[done] = nrm_0.done ? 1'd1;
     }
@@ -339,12 +371,12 @@ component main() -> () {
       i0.in = 1'd1 ? add5.out;
       upd12[done] = i0.done ? 1'd1;
     }
-    group upd13<"static"=2> {
+    group upd13<"static"=18> {
       R0_0.addr1 = k0.out;
       R0_0.addr0 = k0.out;
       R0_0.write_en = sqrt0.done;
       sqrt0.in = nrm_0.out;
-      sqrt0.go = 1'd1;
+      sqrt0.go = !sqrt0.done ? 1'd1;
       R0_0.write_data = sqrt0.done ? sqrt0.out;
       upd13[done] = R0_0.done ? 1'd1;
     }
@@ -366,9 +398,7 @@ component main() -> () {
       Q0_0.addr1 = k0.out;
       Q0_0.addr0 = i1.out;
       Q0_0.write_en = 1'd1;
-      div0.left = A_read0_0.out;
-      div0.right = R_read0_0.out;
-      Q0_0.write_data = 1'd1 ? div0.out;
+      Q0_0.write_data = 1'd1 ? bin_read1_0.out;
       upd16[done] = Q0_0.done ? 1'd1;
     }
     group upd17<"static"=1> {
@@ -450,9 +480,7 @@ component main() -> () {
       A0_0.addr0 = i3.out;
       A0_0.write_en = 1'd1;
       sub0.left = A_i_j_0.out;
-      sub0.right = mult2.out;
-      mult2.left = Q_read1_0.out;
-      mult2.right = R_read1_0.out;
+      sub0.right = bin_read3_0.out;
       A0_0.write_data = 1'd1 ? sub0.out;
       upd26[done] = A0_0.done ? 1'd1;
     }
@@ -657,40 +685,44 @@ component main() -> () {
           while le5.out with cond5 {
             seq {
               upd10;
+              let7;
               upd11;
               upd12;
             }
           }
           upd13;
-          let7;
+          let8;
           while le6.out with cond6 {
             seq {
               upd14;
               upd15;
+              let9;
               upd16;
               upd17;
             }
           }
-          let8;
+          let10;
           while lt0.out with cond7 {
             seq {
               upd18;
-              let9;
+              let11;
               while le7.out with cond8 {
                 seq {
                   upd19;
                   upd20;
-                  let10;
+                  let12;
+                  let13;
                   upd21;
                   upd22;
                 }
               }
-              let11;
+              let14;
               while le8.out with cond9 {
                 seq {
                   upd23;
                   upd24;
                   upd25;
+                  let15;
                   upd26;
                   upd27;
                 }
@@ -701,10 +733,10 @@ component main() -> () {
           upd29;
         }
       }
-      let12;
+      let16;
       while le9.out with cond10 {
         seq {
-          let13;
+          let17;
           while le10.out with cond11 {
             seq {
               upd30;
@@ -715,10 +747,10 @@ component main() -> () {
           upd33;
         }
       }
-      let14;
+      let18;
       while le11.out with cond12 {
         seq {
-          let15;
+          let19;
           while le12.out with cond13 {
             seq {
               upd34;

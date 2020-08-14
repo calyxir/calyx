@@ -35,7 +35,11 @@ for (let i: ubit<4> = 0..8) {
     ---
     let A_i_j = A_int[i][j];
     ---
-    A_int[i][j] := A_i_j / A_j_j;
+    if (A_j_j != 0) {
+      A_int[i][j] := A_i_j / A_j_j;
+    } else {
+      A_int[i][j] := 0;
+    }
 
     // Update loop counter
     j := j + 1;
