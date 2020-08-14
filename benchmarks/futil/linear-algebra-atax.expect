@@ -72,8 +72,8 @@ component main() -> () {
     rsh6 = prim std_rsh(4);
     rsh7 = prim std_rsh(4);
     t_0 = prim std_reg(32);
-    tmp0 = prim std_mem_d1_ext(32,8,4);
-    tmp_read0_0 = prim std_reg(32);
+    tmp_int0 = prim std_mem_d1_ext(32,8,4);
+    tmp_int_read0_0 = prim std_reg(32);
     x0 = prim std_mem_d1(32,8,4);
     x_int0 = prim std_mem_d1_ext(32,8,4);
     x_int_read0_0 = prim std_reg(32);
@@ -177,13 +177,13 @@ component main() -> () {
       upd1[done] = x_int_read0_0.done ? 1'd1;
     }
     group upd10<"static"=1> {
-      tmp0.addr0 = i0.out;
-      tmp0.write_en = 1'd1;
-      add2.left = tmp0.read_data;
+      tmp_int0.addr0 = i0.out;
+      tmp_int0.write_en = 1'd1;
+      add2.left = tmp_int0.read_data;
       add2.right = t_0.out;
-      tmp0.addr0 = i0.out;
-      tmp0.write_data = 1'd1 ? add2.out;
-      upd10[done] = tmp0.done ? 1'd1;
+      tmp_int0.addr0 = i0.out;
+      tmp_int0.write_data = 1'd1 ? add2.out;
+      upd10[done] = tmp_int0.done ? 1'd1;
     }
     group upd11<"static"=1> {
       j0.write_en = 1'd1;
@@ -206,10 +206,10 @@ component main() -> () {
       upd13[done] = A_read1_0.done ? 1'd1;
     }
     group upd14<"static"=1> {
-      tmp_read0_0.write_en = 1'd1;
-      tmp0.addr0 = i0.out;
-      tmp_read0_0.in = 1'd1 ? tmp0.read_data;
-      upd14[done] = tmp_read0_0.done ? 1'd1;
+      tmp_int_read0_0.write_en = 1'd1;
+      tmp_int0.addr0 = i0.out;
+      tmp_int_read0_0.in = 1'd1 ? tmp_int0.read_data;
+      upd14[done] = tmp_int_read0_0.done ? 1'd1;
     }
     group upd15<"static"=1> {
       y0.addr0 = j1.out;
@@ -217,7 +217,7 @@ component main() -> () {
       add4.left = y0_0.out;
       add4.right = mult1.out;
       mult1.left = A_read1_0.out;
-      mult1.right = tmp_read0_0.out;
+      mult1.right = tmp_int_read0_0.out;
       y0.write_data = 1'd1 ? add4.out;
       upd15[done] = y0.done ? 1'd1;
     }
@@ -336,10 +336,10 @@ component main() -> () {
       upd6[done] = i00.done ? 1'd1;
     }
     group upd7<"static"=1> {
-      tmp0.addr0 = i0.out;
-      tmp0.write_en = 1'd1;
-      tmp0.write_data = 1'd1 ? const13.out;
-      upd7[done] = tmp0.done ? 1'd1;
+      tmp_int0.addr0 = i0.out;
+      tmp_int0.write_en = 1'd1;
+      tmp_int0.write_data = 1'd1 ? const13.out;
+      upd7[done] = tmp_int0.done ? 1'd1;
     }
     group upd8<"static"=1> {
       A_read0_0.write_en = 1'd1;

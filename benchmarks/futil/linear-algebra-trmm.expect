@@ -1,19 +1,19 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    A0_0 = prim std_mem_d2_ext(32,8,8,4,4);
-    A_read0_0 = prim std_reg(32);
-    B0_0 = prim std_mem_d2_ext(32,8,12,4,4);
+    A_int0_0 = prim std_mem_d2_ext(32,8,8,4,4);
+    A_int_read0_0 = prim std_reg(32);
     B_i_j_0 = prim std_reg(32);
     B_i_j_1 = prim std_reg(32);
+    B_int0_0 = prim std_mem_d2_ext(32,8,12,4,4);
     B_k_j_0 = prim std_reg(32);
     add0 = prim std_add(4);
     add1 = prim std_add(32);
     add2 = prim std_add(4);
     add3 = prim std_add(4);
     add4 = prim std_add(4);
-    alpha0 = prim std_mem_d1_ext(32,1,1);
-    alpha_read0_0 = prim std_reg(32);
+    alpha_int0 = prim std_mem_d1_ext(32,1,1);
+    alpha_int_read0_0 = prim std_reg(32);
     const0 = prim std_const(4,0);
     const1 = prim std_const(4,7);
     const2 = prim std_const(4,0);
@@ -68,35 +68,35 @@ component main() -> () {
     }
     group upd0<"static"=1> {
       B_i_j_0.write_en = 1'd1;
-      B0_0.addr1 = j0.out;
-      B0_0.addr0 = i0.out;
-      B_i_j_0.in = 1'd1 ? B0_0.read_data;
+      B_int0_0.addr1 = j0.out;
+      B_int0_0.addr0 = i0.out;
+      B_i_j_0.in = 1'd1 ? B_int0_0.read_data;
       upd0[done] = B_i_j_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
       B_k_j_0.write_en = 1'd1;
-      B0_0.addr1 = j0.out;
-      B0_0.addr0 = k_0.out;
-      B_k_j_0.in = 1'd1 ? B0_0.read_data;
+      B_int0_0.addr1 = j0.out;
+      B_int0_0.addr0 = k_0.out;
+      B_k_j_0.in = 1'd1 ? B_int0_0.read_data;
       upd1[done] = B_k_j_0.done ? 1'd1;
     }
     group upd2<"static"=1> {
-      A_read0_0.write_en = 1'd1;
-      A0_0.addr1 = i0.out;
-      A0_0.addr0 = k_0.out;
-      A_read0_0.in = 1'd1 ? A0_0.read_data;
-      upd2[done] = A_read0_0.done ? 1'd1;
+      A_int_read0_0.write_en = 1'd1;
+      A_int0_0.addr1 = i0.out;
+      A_int0_0.addr0 = k_0.out;
+      A_int_read0_0.in = 1'd1 ? A_int0_0.read_data;
+      upd2[done] = A_int_read0_0.done ? 1'd1;
     }
     group upd3<"static"=1> {
-      B0_0.addr1 = j0.out;
-      B0_0.addr0 = i0.out;
-      B0_0.write_en = 1'd1;
+      B_int0_0.addr1 = j0.out;
+      B_int0_0.addr0 = i0.out;
+      B_int0_0.write_en = 1'd1;
       add1.left = mult0.out;
       add1.right = B_i_j_0.out;
-      mult0.left = A_read0_0.out;
+      mult0.left = A_int_read0_0.out;
       mult0.right = B_k_j_0.out;
-      B0_0.write_data = 1'd1 ? add1.out;
-      upd3[done] = B0_0.done ? 1'd1;
+      B_int0_0.write_data = 1'd1 ? add1.out;
+      upd3[done] = B_int0_0.done ? 1'd1;
     }
     group upd4<"static"=1> {
       k_0.write_en = 1'd1;
@@ -107,25 +107,25 @@ component main() -> () {
     }
     group upd5<"static"=1> {
       B_i_j_1.write_en = 1'd1;
-      B0_0.addr1 = j0.out;
-      B0_0.addr0 = i0.out;
-      B_i_j_1.in = 1'd1 ? B0_0.read_data;
+      B_int0_0.addr1 = j0.out;
+      B_int0_0.addr0 = i0.out;
+      B_i_j_1.in = 1'd1 ? B_int0_0.read_data;
       upd5[done] = B_i_j_1.done ? 1'd1;
     }
     group upd6<"static"=1> {
-      alpha_read0_0.write_en = 1'd1;
-      alpha0.addr0 = const7.out;
-      alpha_read0_0.in = 1'd1 ? alpha0.read_data;
-      upd6[done] = alpha_read0_0.done ? 1'd1;
+      alpha_int_read0_0.write_en = 1'd1;
+      alpha_int0.addr0 = const7.out;
+      alpha_int_read0_0.in = 1'd1 ? alpha_int0.read_data;
+      upd6[done] = alpha_int_read0_0.done ? 1'd1;
     }
     group upd7<"static"=1> {
-      B0_0.addr1 = j0.out;
-      B0_0.addr0 = i0.out;
-      B0_0.write_en = 1'd1;
-      mult1.left = alpha_read0_0.out;
+      B_int0_0.addr1 = j0.out;
+      B_int0_0.addr0 = i0.out;
+      B_int0_0.write_en = 1'd1;
+      mult1.left = alpha_int_read0_0.out;
       mult1.right = B_i_j_1.out;
-      B0_0.write_data = 1'd1 ? mult1.out;
-      upd7[done] = B0_0.done ? 1'd1;
+      B_int0_0.write_data = 1'd1 ? mult1.out;
+      upd7[done] = B_int0_0.done ? 1'd1;
     }
     group upd8<"static"=1> {
       j0.write_en = 1'd1;

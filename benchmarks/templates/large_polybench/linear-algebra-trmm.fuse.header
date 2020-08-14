@@ -1,0 +1,8 @@
+// BEGIN macro definition
+
+define(M, 60)
+define(N, 80)
+define(M_bw, ubit<6>)
+define(N_bw, ubit<7>)
+
+// END macro definition

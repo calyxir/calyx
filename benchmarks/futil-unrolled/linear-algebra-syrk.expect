@@ -1,22 +1,22 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    A0_0 = prim std_mem_d2(32,8,3,4,2);
-    A0_1 = prim std_mem_d2(32,8,3,4,2);
-    A0_2 = prim std_mem_d2(32,8,3,4,2);
-    A0_3 = prim std_mem_d2(32,8,3,4,2);
+    A0_0 = prim std_mem_d2(32,12,2,4,2);
+    A0_1 = prim std_mem_d2(32,12,2,4,2);
+    A0_2 = prim std_mem_d2(32,12,2,4,2);
+    A0_3 = prim std_mem_d2(32,12,2,4,2);
     A_i_k_00 = prim std_reg(32);
     A_i_k_10 = prim std_reg(32);
     A_i_k_20 = prim std_reg(32);
     A_i_k_30 = prim std_reg(32);
-    A_int0_0 = prim std_mem_d2_ext(32,8,12,4,4);
+    A_int0_0 = prim std_mem_d2_ext(32,12,8,4,4);
     A_int_read0_0 = prim std_reg(32);
     A_read0_00 = prim std_reg(32);
     A_read0_10 = prim std_reg(32);
     A_read0_20 = prim std_reg(32);
     A_read0_30 = prim std_reg(32);
     A_sh_read0_0 = prim std_reg(32);
-    C0_0 = prim std_mem_d2_ext(32,8,8,4,4);
+    C0_0 = prim std_mem_d2_ext(32,12,12,4,4);
     C_i_j_0 = prim std_reg(32);
     add0 = prim std_add(4);
     add1 = prim std_add(4);
@@ -30,11 +30,11 @@ component main() -> () {
     add7 = prim std_add(4);
     add8 = prim std_add(4);
     add9 = prim std_add(4);
-    alpha0 = prim std_mem_d1_ext(32,1,1);
-    alpha_read0_00 = prim std_reg(32);
-    alpha_read0_10 = prim std_reg(32);
-    alpha_read0_20 = prim std_reg(32);
-    alpha_read0_30 = prim std_reg(32);
+    alpha_int0 = prim std_mem_d1_ext(32,1,1);
+    alpha_int_read0_00 = prim std_reg(32);
+    alpha_int_read0_10 = prim std_reg(32);
+    alpha_int_read0_20 = prim std_reg(32);
+    alpha_int_read0_30 = prim std_reg(32);
     and0 = prim std_and(4);
     and1 = prim std_and(4);
     and10 = prim std_and(4);
@@ -59,10 +59,10 @@ component main() -> () {
     and7 = prim std_and(4);
     and8 = prim std_and(1);
     and9 = prim std_and(4);
-    beta0 = prim std_mem_d1_ext(32,1,1);
-    beta_read0_0 = prim std_reg(32);
+    beta_int0 = prim std_mem_d1_ext(32,1,1);
+    beta_int_read0_0 = prim std_reg(32);
     const0 = prim std_const(4,0);
-    const1 = prim std_const(4,7);
+    const1 = prim std_const(4,11);
     const10 = prim std_const(4,3);
     const11 = prim std_const(4,1);
     const12 = prim std_const(4,0);
@@ -84,15 +84,15 @@ component main() -> () {
     const27 = prim std_const(4,2);
     const28 = prim std_const(4,1);
     const29 = prim std_const(4,1);
-    const3 = prim std_const(4,11);
+    const3 = prim std_const(4,7);
     const30 = prim std_const(4,0);
-    const31 = prim std_const(4,7);
+    const31 = prim std_const(4,11);
     const32 = prim std_const(4,0);
     const33 = prim std_const(1,0);
     const34 = prim std_const(4,1);
     const35 = prim std_const(4,0);
     const36 = prim std_const(4,0);
-    const37 = prim std_const(4,2);
+    const37 = prim std_const(4,1);
     const38 = prim std_const(1,0);
     const39 = prim std_const(1,0);
     const4 = prim std_const(4,3);
@@ -102,9 +102,9 @@ component main() -> () {
     const43 = prim std_const(4,1);
     const44 = prim std_const(4,1);
     const45 = prim std_const(4,0);
-    const46 = prim std_const(4,7);
+    const46 = prim std_const(4,11);
     const47 = prim std_const(4,0);
-    const48 = prim std_const(4,11);
+    const48 = prim std_const(4,7);
     const49 = prim std_const(4,3);
     const5 = prim std_const(4,0);
     const50 = prim std_const(4,0);
@@ -405,7 +405,7 @@ component main() -> () {
       let6[done] = t_00.done;
       mult2.left = mult1.out;
       mult2.right = A_read0_00.out;
-      mult1.left = alpha_read0_00.out;
+      mult1.left = alpha_int_read0_00.out;
       mult1.right = A_i_k_00.out;
     }
     group let7<"static"=1> {
@@ -414,7 +414,7 @@ component main() -> () {
       let7[done] = t_10.done;
       mult4.left = mult3.out;
       mult4.right = A_read0_10.out;
-      mult3.left = alpha_read0_10.out;
+      mult3.left = alpha_int_read0_10.out;
       mult3.right = A_i_k_10.out;
     }
     group let8<"static"=1> {
@@ -423,7 +423,7 @@ component main() -> () {
       let8[done] = t_20.done;
       mult6.left = mult5.out;
       mult6.right = A_read0_20.out;
-      mult5.left = alpha_read0_20.out;
+      mult5.left = alpha_int_read0_20.out;
       mult5.right = A_i_k_20.out;
     }
     group let9<"static"=1> {
@@ -432,7 +432,7 @@ component main() -> () {
       let9[done] = t_30.done;
       mult8.left = mult7.out;
       mult8.right = A_read0_30.out;
-      mult7.left = alpha_read0_30.out;
+      mult7.left = alpha_int_read0_30.out;
       mult7.right = A_i_k_30.out;
     }
     group upd0<"static"=1> {
@@ -494,28 +494,28 @@ component main() -> () {
       upd14[done] = A_i_k_30.done ? 1'd1;
     }
     group upd15<"static"=1> {
-      alpha_read0_00.write_en = 1'd1;
-      alpha0.addr0 = const38.out;
-      alpha_read0_00.in = 1'd1 ? alpha0.read_data;
-      upd15[done] = alpha_read0_00.done ? 1'd1;
+      alpha_int_read0_00.write_en = 1'd1;
+      alpha_int0.addr0 = const38.out;
+      alpha_int_read0_00.in = 1'd1 ? alpha_int0.read_data;
+      upd15[done] = alpha_int_read0_00.done ? 1'd1;
     }
     group upd16<"static"=1> {
-      alpha_read0_10.write_en = 1'd1;
-      alpha0.addr0 = const39.out;
-      alpha_read0_10.in = 1'd1 ? alpha0.read_data;
-      upd16[done] = alpha_read0_10.done ? 1'd1;
+      alpha_int_read0_10.write_en = 1'd1;
+      alpha_int0.addr0 = const39.out;
+      alpha_int_read0_10.in = 1'd1 ? alpha_int0.read_data;
+      upd16[done] = alpha_int_read0_10.done ? 1'd1;
     }
     group upd17<"static"=1> {
-      alpha_read0_20.write_en = 1'd1;
-      alpha0.addr0 = const40.out;
-      alpha_read0_20.in = 1'd1 ? alpha0.read_data;
-      upd17[done] = alpha_read0_20.done ? 1'd1;
+      alpha_int_read0_20.write_en = 1'd1;
+      alpha_int0.addr0 = const40.out;
+      alpha_int_read0_20.in = 1'd1 ? alpha_int0.read_data;
+      upd17[done] = alpha_int_read0_20.done ? 1'd1;
     }
     group upd18<"static"=1> {
-      alpha_read0_30.write_en = 1'd1;
-      alpha0.addr0 = const41.out;
-      alpha_read0_30.in = 1'd1 ? alpha0.read_data;
-      upd18[done] = alpha_read0_30.done ? 1'd1;
+      alpha_int_read0_30.write_en = 1'd1;
+      alpha_int0.addr0 = const41.out;
+      alpha_int_read0_30.in = 1'd1 ? alpha_int0.read_data;
+      upd18[done] = alpha_int_read0_30.done ? 1'd1;
     }
     group upd19<"static"=1> {
       A_read0_00.write_en = 1'd1;
@@ -714,17 +714,17 @@ component main() -> () {
       upd7[done] = C_i_j_0.done ? 1'd1;
     }
     group upd8<"static"=1> {
-      beta_read0_0.write_en = 1'd1;
-      beta0.addr0 = const33.out;
-      beta_read0_0.in = 1'd1 ? beta0.read_data;
-      upd8[done] = beta_read0_0.done ? 1'd1;
+      beta_int_read0_0.write_en = 1'd1;
+      beta_int0.addr0 = const33.out;
+      beta_int_read0_0.in = 1'd1 ? beta_int0.read_data;
+      upd8[done] = beta_int_read0_0.done ? 1'd1;
     }
     group upd9<"static"=1> {
       C0_0.addr1 = j_0.out;
       C0_0.addr0 = i0.out;
       C0_0.write_en = 1'd1;
       mult0.left = C_i_j_0.out;
-      mult0.right = beta_read0_0.out;
+      mult0.right = beta_int_read0_0.out;
       C0_0.write_data = 1'd1 ? mult0.out;
       upd9[done] = C0_0.done ? 1'd1;
     }

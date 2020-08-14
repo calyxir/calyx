@@ -1,0 +1,9 @@
+// BEGIN macro definitions
+
+define(M, 60)
+define(N, 80)
+define(M_bw, ubit<7>)
+define(N_bw, ubit<7>)
+define(SQRT_HEADER, "math.h") // "fxp_sqrt.h"
+
+// END macro definitions

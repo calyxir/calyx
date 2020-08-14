@@ -1,0 +1,108 @@
+{
+  "key": {
+    "C": 1,
+    "N": 8
+  },
+  "memory": {
+    "alpha_int": {
+      "data": ["C"],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "beta_int": {
+      "data": ["C"],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "A_int": {
+      "data": ["N", "N"],
+      "banks": [1, 1],
+      "bitwidth": 32
+    },
+    "A": {
+      "data": [],
+      "banks": [2, 2],
+      "bitwidth": 32
+    },
+    "u1_int": {
+      "data": ["N"],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "u1": {
+      "data": [],
+      "banks": [2],
+      "bitwidth": 32
+    },
+    "v1_int": {
+      "data": ["N"],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "v1": {
+      "data": [],
+      "banks": [2],
+      "bitwidth": 32
+    },
+    "u2_int": {
+      "data": ["N"],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "u2": {
+      "data": [],
+      "banks": [2],
+      "bitwidth": 32
+    },
+    "v2_int": {
+      "data": ["N"],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "v2": {
+      "data": [],
+      "banks": [2],
+      "bitwidth": 32
+    },
+    "w_int": {
+      "data": ["N"],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "w": {
+      "data": [],
+      "banks": [2],
+      "bitwidth": 32
+    },
+    "x_int": {
+      "data": ["N"],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "x": {
+      "data": [],
+      "banks": [2],
+      "bitwidth": 32
+    },
+    "y_int": {
+      "data": ["N"],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "y": {
+      "data": [],
+      "banks": [2],
+      "bitwidth": 32
+    },
+    "z_int": {
+      "data": ["N"],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "z": {
+      "data": [],
+      "banks": [2],
+      "bitwidth": 32
+    }
+  }
+}

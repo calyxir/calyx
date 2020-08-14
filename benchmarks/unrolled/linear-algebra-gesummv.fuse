@@ -1,5 +1,5 @@
-decl alpha: ubit<32>[1];
-decl beta: ubit<32>[1];
+decl alpha_int: ubit<32>[1];
+decl beta_int: ubit<32>[1];
 decl tmp_int: ubit<32>[8];
 decl A_int: ubit<32>[8][8];
 decl B_int: ubit<32>[8][8];
@@ -18,8 +18,8 @@ view B_sh = B[_: bank 1][_: bank 1];
 view x_sh = x[_: bank 1];
 view y_sh = y[_: bank 1];
 
-let alpha_ = alpha[0];
-let beta_ = beta[0];
+let alpha_ = alpha_int[0];
+let beta_ = beta_int[0];
 
 for (let i0: ubit<4> = 0..8) {
   tmp_sh[i0] := tmp_int[i0];

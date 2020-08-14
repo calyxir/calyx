@@ -1,8 +1,8 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    A0_0 = prim std_mem_d2_ext(32,8,8,4,4);
     A_i_j_0 = prim std_reg(32);
+    A_int0_0 = prim std_mem_d2_ext(32,8,8,4,4);
     add0 = prim std_add(4);
     add1 = prim std_add(32);
     add2 = prim std_add(32);
@@ -27,14 +27,14 @@ component main() -> () {
     le2 = prim std_le(4);
     mult0 = prim std_mult(32);
     mult1 = prim std_mult(32);
-    p0 = prim std_mem_d1_ext(32,8,4);
-    p_read0_0 = prim std_reg(32);
-    q0 = prim std_mem_d1_ext(32,8,4);
+    p_int0 = prim std_mem_d1_ext(32,8,4);
+    p_int_read0_0 = prim std_reg(32);
     q0_0 = prim std_reg(32);
-    r0 = prim std_mem_d1_ext(32,8,4);
-    r_read0_0 = prim std_reg(32);
-    s0 = prim std_mem_d1_ext(32,8,4);
+    q_int0 = prim std_mem_d1_ext(32,8,4);
+    r_int0 = prim std_mem_d1_ext(32,8,4);
+    r_int_read0_0 = prim std_reg(32);
     s0_0 = prim std_reg(32);
+    s_int0 = prim std_mem_d1_ext(32,8,4);
   }
   wires {
     group cond0<"static"=0> {
@@ -68,10 +68,10 @@ component main() -> () {
       let2[done] = j0.done;
     }
     group upd0<"static"=1> {
-      s0.addr0 = i0.out;
-      s0.write_en = 1'd1;
-      s0.write_data = 1'd1 ? const2.out;
-      upd0[done] = s0.done ? 1'd1;
+      s_int0.addr0 = i0.out;
+      s_int0.write_en = 1'd1;
+      s_int0.write_data = 1'd1 ? const2.out;
+      upd0[done] = s_int0.done ? 1'd1;
     }
     group upd1<"static"=1> {
       i0.write_en = 1'd1;
@@ -95,61 +95,61 @@ component main() -> () {
       upd11[done] = i1.done ? 1'd1;
     }
     group upd2<"static"=1> {
-      q0.addr0 = i1.out;
-      q0.write_en = 1'd1;
-      q0.write_data = 1'd1 ? const6.out;
-      upd2[done] = q0.done ? 1'd1;
+      q_int0.addr0 = i1.out;
+      q_int0.write_en = 1'd1;
+      q_int0.write_data = 1'd1 ? const6.out;
+      upd2[done] = q_int0.done ? 1'd1;
     }
     group upd3<"static"=1> {
       s0_0.write_en = 1'd1;
-      s0.addr0 = j0.out;
-      s0_0.in = 1'd1 ? s0.read_data;
+      s_int0.addr0 = j0.out;
+      s0_0.in = 1'd1 ? s_int0.read_data;
       upd3[done] = s0_0.done ? 1'd1;
     }
     group upd4<"static"=1> {
       q0_0.write_en = 1'd1;
-      q0.addr0 = i1.out;
-      q0_0.in = 1'd1 ? q0.read_data;
+      q_int0.addr0 = i1.out;
+      q0_0.in = 1'd1 ? q_int0.read_data;
       upd4[done] = q0_0.done ? 1'd1;
     }
     group upd5<"static"=1> {
       A_i_j_0.write_en = 1'd1;
-      A0_0.addr1 = j0.out;
-      A0_0.addr0 = i1.out;
-      A_i_j_0.in = 1'd1 ? A0_0.read_data;
+      A_int0_0.addr1 = j0.out;
+      A_int0_0.addr0 = i1.out;
+      A_i_j_0.in = 1'd1 ? A_int0_0.read_data;
       upd5[done] = A_i_j_0.done ? 1'd1;
     }
     group upd6<"static"=1> {
-      r_read0_0.write_en = 1'd1;
-      r0.addr0 = i1.out;
-      r_read0_0.in = 1'd1 ? r0.read_data;
-      upd6[done] = r_read0_0.done ? 1'd1;
+      r_int_read0_0.write_en = 1'd1;
+      r_int0.addr0 = i1.out;
+      r_int_read0_0.in = 1'd1 ? r_int0.read_data;
+      upd6[done] = r_int_read0_0.done ? 1'd1;
     }
     group upd7<"static"=1> {
-      s0.addr0 = j0.out;
-      s0.write_en = 1'd1;
+      s_int0.addr0 = j0.out;
+      s_int0.write_en = 1'd1;
       add1.left = s0_0.out;
       add1.right = mult0.out;
-      mult0.left = r_read0_0.out;
+      mult0.left = r_int_read0_0.out;
       mult0.right = A_i_j_0.out;
-      s0.write_data = 1'd1 ? add1.out;
-      upd7[done] = s0.done ? 1'd1;
+      s_int0.write_data = 1'd1 ? add1.out;
+      upd7[done] = s_int0.done ? 1'd1;
     }
     group upd8<"static"=1> {
-      p_read0_0.write_en = 1'd1;
-      p0.addr0 = j0.out;
-      p_read0_0.in = 1'd1 ? p0.read_data;
-      upd8[done] = p_read0_0.done ? 1'd1;
+      p_int_read0_0.write_en = 1'd1;
+      p_int0.addr0 = j0.out;
+      p_int_read0_0.in = 1'd1 ? p_int0.read_data;
+      upd8[done] = p_int_read0_0.done ? 1'd1;
     }
     group upd9<"static"=1> {
-      q0.addr0 = i1.out;
-      q0.write_en = 1'd1;
+      q_int0.addr0 = i1.out;
+      q_int0.write_en = 1'd1;
       add2.left = q0_0.out;
       add2.right = mult1.out;
       mult1.left = A_i_j_0.out;
-      mult1.right = p_read0_0.out;
-      q0.write_data = 1'd1 ? add2.out;
-      upd9[done] = q0.done ? 1'd1;
+      mult1.right = p_int_read0_0.out;
+      q_int0.write_data = 1'd1 ? add2.out;
+      upd9[done] = q_int0.done ? 1'd1;
     }
   }
   control {

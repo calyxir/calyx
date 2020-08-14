@@ -1,5 +1,5 @@
-decl alpha: ubit<32>[1];
-decl beta: ubit<32>[1];
+decl alpha_int: ubit<32>[1];
+decl beta_int: ubit<32>[1];
 decl A_int: ubit<32>[8][8];
 decl u1_int: ubit<32>[8];
 decl v1_int: ubit<32>[8];
@@ -31,8 +31,8 @@ view y_sh = y[_: bank 1];
 view z_sh = z[_: bank 1];
 
 // Scalar inputs.
-let alpha_ = alpha[0];
-let beta_ = beta[0];
+let alpha_ = alpha_int[0];
+let beta_ = beta_int[0];
 
 // Input interfaces.
 for (let i: ubit<4> = 0..8) {

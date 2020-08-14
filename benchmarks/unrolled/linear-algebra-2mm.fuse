@@ -1,5 +1,5 @@
-decl alpha: ubit<32>[1];
-decl beta: ubit<32>[1];
+decl alpha_int: ubit<32>[1];
+decl beta_int: ubit<32>[1];
 decl tmp_int: ubit<32>[8][8];
 decl A_int:   ubit<32>[8][8];
 decl B_int:   ubit<32>[8][8];
@@ -35,7 +35,7 @@ for (let i: ubit<4> = 0..8) unroll 2 {
     tmp[i][j] := 0;
     ---
     for (let k: ubit<4> = 0..8) unroll 2 {
-      let v: ubit<32> = alpha[0] * A[i][k] * B[k][j]
+      let v: ubit<32> = alpha_int[0] * A[i][k] * B[k][j]
     } combine {
       tmp[i][j] += v;
     }
@@ -48,7 +48,7 @@ for (let i1: ubit<4> = 0..8) unroll 2 {
   for (let j1: ubit<4> = 0..8) unroll 2 {
     let d_tmp: ubit<32> = D[i1][j1];
     ---
-    D[i1][j1] := beta[0] * d_tmp;
+    D[i1][j1] := beta_int[0] * d_tmp;
     ---
     for (let k1: ubit<4> = 0..8) unroll 2 {
       let v1: ubit<32> = tmp[i1][k1] * C[k1][j1]

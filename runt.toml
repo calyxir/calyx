@@ -78,21 +78,28 @@ expect_dir = "tests/dynamic-static"
 # ================ Polybench tests ====================== #
 
 [[tests]]
-name = "(polybench) (dahlia) frontend"
-paths = [ "benchmarks/*.fuse" ]
+name = "(polybench) (small) (dahlia) frontend"
+paths = [ "benchmarks/small_polybench/*.fuse" ]
 cmd = """
 ./bin/find-dahlia {} -b futil --lower -l error | tail -n+2
 """
-expect_dir = "benchmarks/futil"
+expect_dir = "benchmarks/futil/"
 
 [[tests]]
-name = "(polybench) simulation"
-paths = [ "benchmarks/*.fuse" ]
+name = "(polybench) (small) simulation"
+paths = [ "benchmarks/small_polybench/*.fuse" ]
 cmd = """
-base=$(basename -s .fuse {})
-./bin/run-benchmark {} benchmarks/data/$base.data | tail -n+2
+./bin/run-benchmark {} {}.data | tail -n+2
 """
-expect_dir = "benchmarks/simulation/"
+expect_dir = "benchmarks/small_simulation/"
+
+# [[tests]]
+# name = "(polybench) (large) simulation"
+# paths = [ "benchmarks/large_polybench/*.fuse" ]
+# cmd = """
+# ./bin/run-benchmark {} {}.data | tail -n+2
+# """
+# expect_dir = "benchmarks/large_simulation/"
 
 # =============== Polybench unrolled tests ====================
 
@@ -109,9 +116,9 @@ name = "(polybench) unroll simulation"
 paths = [ "benchmarks/unrolled/*.fuse" ]
 cmd = """
 base=$(basename -s .fuse {})
-./bin/run-benchmark {} benchmarks/data/$base.data | tail -n+2
+./bin/run-benchmark {} benchmarks/small_polybench/$base.fuse.data | tail -n+2
 """
-expect_dir = "benchmarks/simulation/"
+expect_dir = "benchmarks/small_simulation/"
 
 # ================ Systolic array tests ====================== #
 [[tests]]

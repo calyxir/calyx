@@ -81,8 +81,13 @@ def convert2json(input_dir, output_file, extension):
     for f in input_dir.glob(f'*.{extension}'):
         arr = parse_dat(f)
         if shape_json != None and shape_json.get(f.stem) != None and shape_json[f.stem]["shape"] != [0]:
-            arr = arr.reshape(tuple(shape_json[f.stem]["shape"]))
-            data[f.stem] = arr.tolist()
+            try:
+                arr = arr.reshape(tuple(shape_json[f.stem]["shape"]))
+            except:
+                raise Exception(f.stem)
+            name = f.stem
+            if '_int' in name:
+                data[name] = arr.tolist()
 
     # dump data
     with output_file.open('w') as f:

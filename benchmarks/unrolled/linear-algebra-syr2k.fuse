@@ -1,11 +1,11 @@
-decl alpha: ubit<32>[1];
-decl beta: ubit<32>[1];
-decl C: ubit<32>[12][12];
+decl alpha_int: ubit<32>[1];
+decl beta_int: ubit<32>[1];
+decl C_int: ubit<32>[12][12];
 decl A_int: ubit<32>[12][8];
 decl B_int: ubit<32>[12][8];
 
-let alpha_ = alpha[0];
-let beta_ = beta[0];
+let alpha_ = alpha_int[0];
+let beta_ = beta_int[0];
 let A: ubit<32>[12][8 bank 2];
 let B: ubit<32>[12][8 bank 2];
 
@@ -25,9 +25,9 @@ for (let i: ubit<4> = 0..12) {
   let j: ubit<4> = 0;
   while (j <= i) {
     decor "#pragma HLS loop_tripcount min=1 max=12 avg=6"
-    let C_i_j: ubit<32> = C[i][j];
+    let C_i_j: ubit<32> = C_int[i][j];
     ---
-    C[i][j] := C_i_j * beta_;
+    C_int[i][j] := C_i_j * beta_;
 
     // Update loop counter
     j := j + 1;
@@ -43,7 +43,7 @@ for (let i: ubit<4> = 0..12) {
       let t = A_j2_k * alpha_ * B_i_k + B[j2][k] * alpha_ * A[i][k];
       // Update loop counter
     } combine {
-      C[i][j2] += t;
+      C_int[i][j2] += t;
     }
     j2 := j2 + 1;
   }

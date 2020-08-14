@@ -1,16 +1,16 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    A0_0 = prim std_mem_d2_ext(32,8,8,4,4);
-    A_read0_0 = prim std_reg(32);
-    A_read1_0 = prim std_reg(32);
-    A_read2_0 = prim std_reg(32);
-    B0_0 = prim std_mem_d2_ext(32,8,8,4,4);
-    B_read0_0 = prim std_reg(32);
-    B_read1_0 = prim std_reg(32);
-    B_read2_0 = prim std_reg(32);
-    C0_0 = prim std_mem_d2_ext(32,8,8,4,4);
+    A_int0_0 = prim std_mem_d2_ext(32,8,8,4,4);
+    A_int_read0_0 = prim std_reg(32);
+    A_int_read1_0 = prim std_reg(32);
+    A_int_read2_0 = prim std_reg(32);
+    B_int0_0 = prim std_mem_d2_ext(32,8,12,4,4);
+    B_int_read0_0 = prim std_reg(32);
+    B_int_read1_0 = prim std_reg(32);
+    B_int_read2_0 = prim std_reg(32);
     C_i_j_0 = prim std_reg(32);
+    C_int0_0 = prim std_mem_d2_ext(32,8,12,4,4);
     C_k_j_0 = prim std_reg(32);
     add0 = prim std_add(32);
     add1 = prim std_add(32);
@@ -19,11 +19,11 @@ component main() -> () {
     add4 = prim std_add(32);
     add5 = prim std_add(4);
     add6 = prim std_add(4);
-    alpha0 = prim std_mem_d1_ext(32,1,1);
-    alpha_read0_0 = prim std_reg(32);
-    alpha_read1_0 = prim std_reg(32);
-    beta0 = prim std_mem_d1_ext(32,1,1);
-    beta_read0_0 = prim std_reg(32);
+    alpha_int0 = prim std_mem_d1_ext(32,1,1);
+    alpha_int_read0_0 = prim std_reg(32);
+    alpha_int_read1_0 = prim std_reg(32);
+    beta_int0 = prim std_mem_d1_ext(32,1,1);
+    beta_int_read0_0 = prim std_reg(32);
     const0 = prim std_const(32,0);
     const1 = prim std_const(4,0);
     const10 = prim std_const(1,0);
@@ -31,7 +31,7 @@ component main() -> () {
     const12 = prim std_const(4,1);
     const2 = prim std_const(4,7);
     const3 = prim std_const(4,0);
-    const4 = prim std_const(4,7);
+    const4 = prim std_const(4,11);
     const5 = prim std_const(32,0);
     const6 = prim std_const(4,0);
     const7 = prim std_const(1,0);
@@ -95,62 +95,62 @@ component main() -> () {
     }
     group upd1<"static"=1> {
       C_k_j_0.write_en = 1'd1;
-      C0_0.addr1 = j0.out;
-      C0_0.addr0 = k_0.out;
-      C_k_j_0.in = 1'd1 ? C0_0.read_data;
+      C_int0_0.addr1 = j0.out;
+      C_int0_0.addr0 = k_0.out;
+      C_k_j_0.in = 1'd1 ? C_int0_0.read_data;
       upd1[done] = C_k_j_0.done ? 1'd1;
     }
     group upd10<"static"=1> {
       C_i_j_0.write_en = 1'd1;
-      C0_0.addr1 = j0.out;
-      C0_0.addr0 = i0.out;
-      C_i_j_0.in = 1'd1 ? C0_0.read_data;
+      C_int0_0.addr1 = j0.out;
+      C_int0_0.addr0 = i0.out;
+      C_i_j_0.in = 1'd1 ? C_int0_0.read_data;
       upd10[done] = C_i_j_0.done ? 1'd1;
     }
     group upd11<"static"=1> {
-      beta_read0_0.write_en = 1'd1;
-      beta0.addr0 = const9.out;
-      beta_read0_0.in = 1'd1 ? beta0.read_data;
-      upd11[done] = beta_read0_0.done ? 1'd1;
+      beta_int_read0_0.write_en = 1'd1;
+      beta_int0.addr0 = const9.out;
+      beta_int_read0_0.in = 1'd1 ? beta_int0.read_data;
+      upd11[done] = beta_int_read0_0.done ? 1'd1;
     }
     group upd12<"static"=1> {
-      alpha_read1_0.write_en = 1'd1;
-      alpha0.addr0 = const10.out;
-      alpha_read1_0.in = 1'd1 ? alpha0.read_data;
-      upd12[done] = alpha_read1_0.done ? 1'd1;
+      alpha_int_read1_0.write_en = 1'd1;
+      alpha_int0.addr0 = const10.out;
+      alpha_int_read1_0.in = 1'd1 ? alpha_int0.read_data;
+      upd12[done] = alpha_int_read1_0.done ? 1'd1;
     }
     group upd13<"static"=1> {
-      B_read2_0.write_en = 1'd1;
-      B0_0.addr1 = j0.out;
-      B0_0.addr0 = i0.out;
-      B_read2_0.in = 1'd1 ? B0_0.read_data;
-      upd13[done] = B_read2_0.done ? 1'd1;
+      B_int_read2_0.write_en = 1'd1;
+      B_int0_0.addr1 = j0.out;
+      B_int0_0.addr0 = i0.out;
+      B_int_read2_0.in = 1'd1 ? B_int0_0.read_data;
+      upd13[done] = B_int_read2_0.done ? 1'd1;
     }
     group upd14<"static"=1> {
-      A_read2_0.write_en = 1'd1;
-      A0_0.addr1 = i0.out;
-      A0_0.addr0 = i0.out;
-      A_read2_0.in = 1'd1 ? A0_0.read_data;
-      upd14[done] = A_read2_0.done ? 1'd1;
+      A_int_read2_0.write_en = 1'd1;
+      A_int0_0.addr1 = i0.out;
+      A_int0_0.addr0 = i0.out;
+      A_int_read2_0.in = 1'd1 ? A_int0_0.read_data;
+      upd14[done] = A_int_read2_0.done ? 1'd1;
     }
     group upd15<"static"=1> {
-      C0_0.addr1 = j0.out;
-      C0_0.addr0 = i0.out;
-      C0_0.write_en = 1'd1;
+      C_int0_0.addr1 = j0.out;
+      C_int0_0.addr0 = i0.out;
+      C_int0_0.write_en = 1'd1;
       add4.left = add3.out;
       add4.right = mult6.out;
       add3.left = mult3.out;
       add3.right = mult5.out;
-      mult3.left = beta_read0_0.out;
+      mult3.left = beta_int_read0_0.out;
       mult3.right = C_i_j_0.out;
       mult5.left = mult4.out;
-      mult5.right = A_read2_0.out;
-      mult4.left = alpha_read1_0.out;
-      mult4.right = B_read2_0.out;
-      mult6.left = alpha_read1_0.out;
+      mult5.right = A_int_read2_0.out;
+      mult4.left = alpha_int_read1_0.out;
+      mult4.right = B_int_read2_0.out;
+      mult6.left = alpha_int_read1_0.out;
       mult6.right = temp2_0.out;
-      C0_0.write_data = 1'd1 ? add4.out;
-      upd15[done] = C0_0.done ? 1'd1;
+      C_int0_0.write_data = 1'd1 ? add4.out;
+      upd15[done] = C_int0_0.done ? 1'd1;
     }
     group upd16<"static"=1> {
       j0.write_en = 1'd1;
@@ -167,58 +167,58 @@ component main() -> () {
       upd17[done] = i0.done ? 1'd1;
     }
     group upd2<"static"=1> {
-      alpha_read0_0.write_en = 1'd1;
-      alpha0.addr0 = const7.out;
-      alpha_read0_0.in = 1'd1 ? alpha0.read_data;
-      upd2[done] = alpha_read0_0.done ? 1'd1;
+      alpha_int_read0_0.write_en = 1'd1;
+      alpha_int0.addr0 = const7.out;
+      alpha_int_read0_0.in = 1'd1 ? alpha_int0.read_data;
+      upd2[done] = alpha_int_read0_0.done ? 1'd1;
     }
     group upd3<"static"=1> {
-      B_read0_0.write_en = 1'd1;
-      B0_0.addr1 = j0.out;
-      B0_0.addr0 = i0.out;
-      B_read0_0.in = 1'd1 ? B0_0.read_data;
-      upd3[done] = B_read0_0.done ? 1'd1;
+      B_int_read0_0.write_en = 1'd1;
+      B_int0_0.addr1 = j0.out;
+      B_int0_0.addr0 = i0.out;
+      B_int_read0_0.in = 1'd1 ? B_int0_0.read_data;
+      upd3[done] = B_int_read0_0.done ? 1'd1;
     }
     group upd4<"static"=1> {
-      A_read0_0.write_en = 1'd1;
-      A0_0.addr1 = k_0.out;
-      A0_0.addr0 = i0.out;
-      A_read0_0.in = 1'd1 ? A0_0.read_data;
-      upd4[done] = A_read0_0.done ? 1'd1;
+      A_int_read0_0.write_en = 1'd1;
+      A_int0_0.addr1 = k_0.out;
+      A_int0_0.addr0 = i0.out;
+      A_int_read0_0.in = 1'd1 ? A_int0_0.read_data;
+      upd4[done] = A_int_read0_0.done ? 1'd1;
     }
     group upd5<"static"=1> {
-      C0_0.addr1 = j0.out;
-      C0_0.addr0 = k_0.out;
-      C0_0.write_en = 1'd1;
+      C_int0_0.addr1 = j0.out;
+      C_int0_0.addr0 = k_0.out;
+      C_int0_0.write_en = 1'd1;
       add0.left = mult1.out;
       add0.right = C_k_j_0.out;
       mult1.left = mult0.out;
-      mult1.right = A_read0_0.out;
-      mult0.left = alpha_read0_0.out;
-      mult0.right = B_read0_0.out;
-      C0_0.write_data = 1'd1 ? add0.out;
-      upd5[done] = C0_0.done ? 1'd1;
+      mult1.right = A_int_read0_0.out;
+      mult0.left = alpha_int_read0_0.out;
+      mult0.right = B_int_read0_0.out;
+      C_int0_0.write_data = 1'd1 ? add0.out;
+      upd5[done] = C_int0_0.done ? 1'd1;
     }
     group upd6<"static"=1> {
-      B_read1_0.write_en = 1'd1;
-      B0_0.addr1 = j0.out;
-      B0_0.addr0 = k_0.out;
-      B_read1_0.in = 1'd1 ? B0_0.read_data;
-      upd6[done] = B_read1_0.done ? 1'd1;
+      B_int_read1_0.write_en = 1'd1;
+      B_int0_0.addr1 = j0.out;
+      B_int0_0.addr0 = k_0.out;
+      B_int_read1_0.in = 1'd1 ? B_int0_0.read_data;
+      upd6[done] = B_int_read1_0.done ? 1'd1;
     }
     group upd7<"static"=1> {
-      A_read1_0.write_en = 1'd1;
-      A0_0.addr1 = k_0.out;
-      A0_0.addr0 = i0.out;
-      A_read1_0.in = 1'd1 ? A0_0.read_data;
-      upd7[done] = A_read1_0.done ? 1'd1;
+      A_int_read1_0.write_en = 1'd1;
+      A_int0_0.addr1 = k_0.out;
+      A_int0_0.addr0 = i0.out;
+      A_int_read1_0.in = 1'd1 ? A_int0_0.read_data;
+      upd7[done] = A_int_read1_0.done ? 1'd1;
     }
     group upd8<"static"=1> {
       temp2_0.write_en = 1'd1;
       add1.left = temp2_0.out;
       add1.right = mult2.out;
-      mult2.left = B_read1_0.out;
-      mult2.right = A_read1_0.out;
+      mult2.left = B_int_read1_0.out;
+      mult2.right = A_int_read1_0.out;
       temp2_0.in = 1'd1 ? add1.out;
       upd8[done] = temp2_0.done ? 1'd1;
     }

@@ -32,10 +32,10 @@ component main() -> () {
     add7 = prim std_add(4);
     add8 = prim std_add(4);
     add9 = prim std_add(4);
-    alpha0 = prim std_mem_d1_ext(32,1,1);
-    alpha_read0_0 = prim std_reg(32);
-    beta0 = prim std_mem_d1_ext(32,1,1);
-    beta_read0_0 = prim std_reg(32);
+    alpha_int0 = prim std_mem_d1_ext(32,1,1);
+    alpha_int_read0_0 = prim std_reg(32);
+    beta_int0 = prim std_mem_d1_ext(32,1,1);
+    beta_int_read0_0 = prim std_reg(32);
     const0 = prim std_const(4,0);
     const1 = prim std_const(4,7);
     const10 = prim std_const(4,0);
@@ -234,7 +234,7 @@ component main() -> () {
       let5[done] = v_0.done;
       mult1.left = mult0.out;
       mult1.right = B_read0_0.out;
-      mult0.left = alpha_read0_0.out;
+      mult0.left = alpha_int_read0_0.out;
       mult0.right = A_read0_0.out;
     }
     group let6<"static"=1> {
@@ -299,10 +299,10 @@ component main() -> () {
       upd12[done] = tmp0_0.done ? 1'd1;
     }
     group upd13<"static"=1> {
-      alpha_read0_0.write_en = 1'd1;
-      alpha0.addr0 = const23.out;
-      alpha_read0_0.in = 1'd1 ? alpha0.read_data;
-      upd13[done] = alpha_read0_0.done ? 1'd1;
+      alpha_int_read0_0.write_en = 1'd1;
+      alpha_int0.addr0 = const23.out;
+      alpha_int_read0_0.in = 1'd1 ? alpha_int0.read_data;
+      upd13[done] = alpha_int_read0_0.done ? 1'd1;
     }
     group upd14<"static"=1> {
       A_read0_0.write_en = 1'd1;
@@ -365,16 +365,16 @@ component main() -> () {
       upd20[done] = d_tmp_0.done ? 1'd1;
     }
     group upd21<"static"=1> {
-      beta_read0_0.write_en = 1'd1;
-      beta0.addr0 = const31.out;
-      beta_read0_0.in = 1'd1 ? beta0.read_data;
-      upd21[done] = beta_read0_0.done ? 1'd1;
+      beta_int_read0_0.write_en = 1'd1;
+      beta_int0.addr0 = const31.out;
+      beta_int_read0_0.in = 1'd1 ? beta_int0.read_data;
+      upd21[done] = beta_int_read0_0.done ? 1'd1;
     }
     group upd22<"static"=1> {
       D0_0.addr1 = j10.out;
       D0_0.addr0 = i10.out;
       D0_0.write_en = 1'd1;
-      mult2.left = beta_read0_0.out;
+      mult2.left = beta_int_read0_0.out;
       mult2.right = d_tmp_0.out;
       D0_0.write_data = 1'd1 ? mult2.out;
       upd22[done] = D0_0.done ? 1'd1;

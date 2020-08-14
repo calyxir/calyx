@@ -39,8 +39,8 @@ component main() -> () {
     add7 = prim std_add(32);
     add8 = prim std_add(32);
     add9 = prim std_add(32);
-    alpha0 = prim std_mem_d1_ext(32,1,1);
     alpha__0 = prim std_reg(32);
+    alpha_int0 = prim std_mem_d1_ext(32,1,1);
     and0 = prim std_and(4);
     and1 = prim std_and(4);
     and10 = prim std_and(4);
@@ -101,8 +101,8 @@ component main() -> () {
     and7 = prim std_and(4);
     and8 = prim std_and(1);
     and9 = prim std_and(4);
-    beta0 = prim std_mem_d1_ext(32,1,1);
     beta__0 = prim std_reg(32);
+    beta_int0 = prim std_mem_d1_ext(32,1,1);
     const0 = prim std_const(1,0);
     const1 = prim std_const(1,0);
     const10 = prim std_const(4,1);
@@ -904,14 +904,14 @@ component main() -> () {
     }
     group upd0<"static"=1> {
       alpha__0.write_en = 1'd1;
-      alpha0.addr0 = const0.out;
-      alpha__0.in = 1'd1 ? alpha0.read_data;
+      alpha_int0.addr0 = const0.out;
+      alpha__0.in = 1'd1 ? alpha_int0.read_data;
       upd0[done] = alpha__0.done ? 1'd1;
     }
     group upd1<"static"=1> {
       beta__0.write_en = 1'd1;
-      beta0.addr0 = const1.out;
-      beta__0.in = 1'd1 ? beta0.read_data;
+      beta_int0.addr0 = const1.out;
+      beta__0.in = 1'd1 ? beta_int0.read_data;
       upd1[done] = beta__0.done ? 1'd1;
     }
     group upd10<"static"=1> {
