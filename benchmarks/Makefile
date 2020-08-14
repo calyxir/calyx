@@ -20,33 +20,33 @@ large_polybench/%.fuse.data: templates/large_polybench/%.template
 	@if [ ! -f _headers/json.hpp ]; then wget $(JSON_URL) --directory-prefix _headers; fi
 	rm -f $@.o # remove extraneously generated file
 
-%.cpp.o: %.fuse
-	../bin/find-dahlia run $< -o $*.cpp -l error --lower
+small_polybench/%.cpp.o: small_polybench/%.fuse
+	../bin/find-dahlia run $< -o small_polybench/$*.cpp -l error --lower
 	@if [ ! -f _headers/json.hpp ]; then wget $(JSON_URL) --directory-prefix _headers; fi
-	rm -f $*.cpp # remove extraneously generated file
+	rm -f small_polybench/$*.cpp # remove extraneously generated file
 
-%.dahlia-out: %.cpp.o %.data
-	./$< $*.data | jq -S . > $@
+small_polybench/%.dahlia-out: small_polybench/%.cpp.o small_polybench/%.fuse.data
+	./$< small_polybench/$*.fuse.data | jq -S . > $@
 
-small_polybench/%.meminit: small_polybench/%.data
+small_polybench/%.meminit: small_polybench/%.fuse.data
 	../bin/json_to_dat.py --mode json --output $@ $<
 
-%.futil: %.fuse
+small_polybench/%.futil: small_polybench/%.fuse
 	../bin/find-dahlia $< --lower -b futil -l error > $@
 
-%.sv: %.futil
+small_polybench/%.sv: small_polybench/%.futil
 	cargo run -- $< -l .. -b verilog --verilator > $@
 
-%.vcd: %.meminit %.sv
-	DATA=$*.meminit ../bin/gen-vcd $*.sv > $@
+small_polybench/%.vcd: small_polybench/%.meminit small_polybench/%.sv
+	DATA=small_polybench/$*.meminit ../bin/gen-vcd small_polybench/$*.sv > $@
 
-%.futil-out: %.meminit %.vcd
-	../bin/json_to_dat.py --mode dat --output $@.tmp $*.meminit
+small_polybench/%.futil-out: small_polybench/%.meminit small_polybench/%.vcd
+	../bin/json_to_dat.py --mode dat --output $@.tmp small_polybench/$*.meminit
 	jq -S . $@.tmp > $@
 	rm $@.tmp
 
-%.diff: %.dahlia-out %.futil-out
-	diff $*.dahlia-out $*.futil-out > $@
+small_polybench/%.diff: small_polybench/%.dahlia-out small_polybench/%.futil-out
+	diff small_polybench/$*.dahlia-out small_polybench/$*.futil-out > $@
 
 clean:
-	rm -rf *.cpp *.o *.run *.futil *.dahlia-out *.futil-out *.json *.sv *.vcd *.diff *.meminit *.data
+	rm -rf small_polybench/*.cpp small_polybench/*.o small_polybench/*.futil small_polybench/*.dahlia-out small_polybench/*.futil-out small_polybench/*.sv small_polybench/*.vcd small_polybench/*.diff small_polybench/*.meminit
