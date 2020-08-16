@@ -89,6 +89,7 @@ fn construct_pass_manager() -> Result<PassManager> {
             Papercut,
             CompileEmpty,
             CompileControl,
+            CollapseControl,
             StaticTiming,
             CompileControl,
             GoInsertion,

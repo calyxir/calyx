@@ -5,5 +5,6 @@ define(N, 12)
 define(M_bw, ubit<4>)
 define(N_bw, ubit<4>)
 define(SQRT_HEADER, "math.h") // "fxp_sqrt.h"
+define(WHILE0, min=0 max=11 avg=6)
 
 // END macro definitions
