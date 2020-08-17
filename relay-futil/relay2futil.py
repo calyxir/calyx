@@ -36,7 +36,7 @@ class Relay2Futil(ExprFunctor):
     def __init__(self):
         super(Relay2Futil, self).__init__()
         self.next_id = 0
-        self.structures = set()
+        self.is_ret = True
 
     def fresh_id(self):
         the_id = self.next_id
@@ -83,6 +83,7 @@ class Relay2Futil(ExprFunctor):
         )
 
     def visit_let(self, let):
+        self.is_ret = False
         # construct a cell for the variable
         name_var = let.var.name_hint
         cell = [f'{name_var} = prim std_reg(32);']
@@ -93,6 +94,7 @@ class Relay2Futil(ExprFunctor):
         # add a wire from value.out to name_var
         wires = [f'{name_var}.in = {expr_value.value}', f"{name_var}.write_en = 1'd1", f'{group_name}[done] = {name_var}.done'] + expr_value.wires
         # visit the body
+        self.is_ret = True
         body_value = self.visit(let.body)
         body_value.groups[group_name] = wires
         return EmitResult(
@@ -148,7 +150,7 @@ class Relay2Futil(ExprFunctor):
                         []
                     )
             #build a return memory
-            mem_cell_name = f'mem{self.fresh_id()}'
+            mem_cell_name = 'ret' if self.is_ret else  f'mem{self.fresh_id()}'
             mem_cell = f'{mem_cell_name} = prim std_mem_d{dimension_arg1}(32, {mem_size_arg1}, {mem_index_arg1})'
             hw_type = built_in_calls[call.op.name]
             hw_cell_name = f'{hw_type}{self.fresh_id()}'
@@ -285,12 +287,13 @@ class Relay2Futil(ExprFunctor):
             func_cells.append(f'constant1 = prim std_const(32, 1)')
             func_cells.append(f'ret  = prim std_mem_d{dimension}(32, {mem_size}, {mem_index});')
 
-
+        
         # Create a group for the wires that run this expression.
         group_name = 'group{}'.format(self.fresh_id())
+        write_enable = body.done if body.wires else f'{group_name}[go]'
         group_wires = body.wires + [
             f'ret.in = {body.value};',
-            f'ret.write_en = {body.done};',
+            f'ret.write_en = {write_enable};',
             f'{group_name}[done] = ret[done];',
         ]
         
@@ -311,10 +314,13 @@ class Relay2Futil(ExprFunctor):
         return component
 
 def infer_type(expr: Function) -> Function:
-    opts = relay.transform.InferType()
+    infer_types_pass = relay.transform.InferType()
+    fuse_op__pass = relay.transform.FuseOps()
+    to_normal_pass = relay.transform.ToANormalForm()
     mod = ir.IRModule()
     mod['main'] = expr
-    mod = opts(mod)
+   # mod = fuse_op__pass(mod)
+    mod = infer_types_pass(mod)
     ret = mod['main']
     return ret
 
