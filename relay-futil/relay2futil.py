@@ -151,6 +151,7 @@ class Relay2Futil(ExprFunctor):
                     )
             #build a return memory
             mem_cell_name = 'ret' if self.is_ret else  f'mem{self.fresh_id()}'
+            if self.is_ret: self.is_ret = False
             mem_cell = f'{mem_cell_name} = prim std_mem_d{dimension_arg1}(32, {mem_size_arg1}, {mem_index_arg1})'
             hw_type = built_in_calls[call.op.name]
             hw_cell_name = f'{hw_type}{self.fresh_id()}'

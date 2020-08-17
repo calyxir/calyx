@@ -7,7 +7,7 @@ component main() -> () {
   wires {
     group group0 {
       ret.in = x.out;
-      ret.write_en = x[done];
+      ret.write_en = group0[go];
       group0[done] = ret[done];
     }
   }
