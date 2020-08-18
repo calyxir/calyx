@@ -1,0 +1,34 @@
+{
+  "l0": {
+    "data": [
+      83,
+      40
+    ],
+    "bitwidth": 32
+  },
+  "l1": {
+    "data": [
+      5,
+      57
+    ],
+    "bitwidth": 32
+  },
+  "t0": {
+    "data": [
+      64,
+      91
+    ],
+    "bitwidth": 32
+  },
+  "t1": {
+    "data": [
+      98,
+      86
+    ],
+    "bitwidth": 32
+  },
+  "out_mem": {
+    "data": 95,
+    "bitwidth": 32
+  }
+}

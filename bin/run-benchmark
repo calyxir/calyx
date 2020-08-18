@@ -32,7 +32,7 @@ $script_dir/json_to_dat.py --mode json --output "$meminit" "$data"
 
 $script_dir/find-dahlia $input --lower -b futil -l error > "$benchmark"
 
-$script_dir/../target/debug/futil "$benchmark" -b verilog --verilator -d static-timing -l $script_dir/.. \
+$script_dir/../target/debug/futil "$benchmark" -b verilog --verilator -l $script_dir/.. \
     | DATA="$meminit" $script_dir/gen-vcd - 2> "$tmp/log" > "$tmp/out.vcd"
 
 # Translate the outputs back to a JSON filetmp

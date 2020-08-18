@@ -26,14 +26,20 @@ def modulate_size(size, banks):
     else:
         return [0]
 
-def main(path):
+def replace(mapping, key):
+    if type(key) == int:
+        return key
+    else:
+        return mapping[key]
+
+def main(path, all_random):
     template = json.load(path.open())
     mapping = template['key']
     memory = template['memory']
     result = {}
     for key in memory:
-        size = [mapping[key] for key in memory[key]['data']]
-        banks = memory[key]['banks']
+        size = [replace(mapping, key) for key in memory[key]['data']]
+        banks = [replace(mapping, key) for key in memory[key]['banks']]
         variants = [""] # include empty string so that we have the empty variant
         if 'variants' in memory[key]:
             variants += memory[key]['variants']
@@ -42,13 +48,19 @@ def main(path):
         for var in variants:
             # result[f'{key}{var}'] = data # include unbanked for Dahlia
             for b in generate_bank_strings(banks):
-                result[f'{key}{var}{b}'] = data
+                if all_random:
+                    result[f'{key}{var}{b}'] = generate(modulate_size(size, banks), bitwidth)
+                else:
+                    result[f'{key}{var}{b}'] = data
     print(json.dumps(result, indent=2))
 
 if __name__ == "__main__":
     filename = Path(sys.argv[1])
+    all_random = False
+    if len(sys.argv) > 2:
+        all_random = True
     if filename.exists():
-        main(filename)
+        main(filename, all_random)
     else:
         print(f"{filename} doesn't exist.")
         exit(1)

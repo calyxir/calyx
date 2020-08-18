@@ -5,6 +5,9 @@
 
 
 
+
+
+
 // END macro definition
 
 decl alpha_int: ubit<32>[1];
@@ -13,10 +16,10 @@ decl B_int: ubit<32>[60][80];
 
 for (let i: ubit<6> = 0..60) {
   for (let j: ubit<7> = 0..80) {
-    let k: ubit<6> = i + 1;
+    let k: ubit<6> = i + (1 as ubit<6>);
     // XXX: Try rewriting this as a 'for' loop
     while (k < 60) {
-      decor "#pragma HLS loop_tripcount min=0 max=7 avg=4"
+      decor "#pragma HLS loop_tripcount WHILE0"
       let B_i_j: ubit<32> = B_int[i][j];
       ---
       let B_k_j: ubit<32> = B_int[k][j];

@@ -134,6 +134,5 @@ name = "(systolic array) simulation"
 paths = [ "systolic-lang/tests/verilog/*.expect" ]
 cmd = """
 DATA=./systolic-lang/tests/data ./bin/gen-vcd {} 2>/dev/null | vcdump | jq -f {}.jq
-
 """
 expect_dir = "systolic-lang/tests/simulation/"
