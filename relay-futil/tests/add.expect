@@ -8,16 +8,16 @@ component main() -> () {
   }
   wires {
     group group2 {
-      add1.left = x.out
-      add1.right = const0.out
+      add1.left = x.out;
+      add1.right = const0.out;
       ret.in = add1.out;
-      ret.write_en = None;
-      group2[done] = ret[done];
+      ret.write_en = 1'd1;
+      group2[done] = ret.done;
     }
   }
   control {
     seq {
-      group2
+      group2;
     }
   }
 }

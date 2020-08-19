@@ -92,7 +92,7 @@ class Relay2Futil(ExprFunctor):
         # visit value expr
         expr_value = self.visit(let.value)
         # add a wire from value.out to name_var
-        wires = [f'{name_var}.in = {expr_value.value}', f"{name_var}.write_en = 1'd1", f'{group_name}[done] = {name_var}.done'] + expr_value.wires
+        wires = [f'{name_var}.in = {expr_value.value};', f"{name_var}.write_en = 1'd1;", f'{group_name}[done] = {name_var}.done;'] + expr_value.wires
         # visit the body
         self.is_ret = True
         body_value = self.visit(let.body)
@@ -103,7 +103,7 @@ class Relay2Futil(ExprFunctor):
             body_value.cells + expr_value.cells + cell,
             body_value.wires,
             body_value.groups,
-            body_value.controls + [f'{group_name}']
+            body_value.controls + [f'{group_name};']
         )
 
     def visit_call(self, call):
@@ -138,12 +138,12 @@ class Relay2Futil(ExprFunctor):
                  )
                 structures.append(cell)
                 wires.extend([
-                        f'{cell_name}.left = {arg_stmts[0].value}',
-                        f'{cell_name}.right = {arg_stmts[1].value}' 
+                        f'{cell_name}.left = {arg_stmts[0].value};',
+                        f'{cell_name}.right = {arg_stmts[1].value};' 
                         ])
                 return EmitResult(
                         f'{cell_name}.out',
-                        None,
+                        f"1'd1",
                         structures,
                         wires,
                         groups,
@@ -151,8 +151,11 @@ class Relay2Futil(ExprFunctor):
                     )
             #build a return memory
             mem_cell_name = 'ret' if self.is_ret else  f'mem{self.fresh_id()}'
-            if self.is_ret: self.is_ret = False
-            mem_cell = f'{mem_cell_name} = prim std_mem_d{dimension_arg1}(32, {mem_size_arg1}, {mem_index_arg1})'
+            if self.is_ret:
+                self.is_ret = False
+            else:
+                mem_cell = f'{mem_cell_name} = prim std_mem_d{dimension_arg1}(32, {mem_size_arg1}, {mem_index_arg1})'
+                structures.append(mem_cell)
             hw_type = built_in_calls[call.op.name]
             hw_cell_name = f'{hw_type}{self.fresh_id()}'
             hw_cell = '{} = prim std_{}({});'.format(
@@ -161,10 +164,10 @@ class Relay2Futil(ExprFunctor):
                 32,     # Bit width.
             )
             const_mem_size_name = f'const{self.fresh_id()}'
-            const_mem_size = f'{const_mem_size_name} = prim std_const(32, {mem_size_arg1})'
+            const_mem_size = f'{const_mem_size_name} = prim std_const(32, {mem_size_arg1});'
 
             index_reg_name = f'i{self.fresh_id()}'
-            index_reg = f'{index_reg_name} = prim std_reg(32)'
+            index_reg = f'{index_reg_name} = prim std_reg(32);'
             
             update_adder_name = f'add{self.fresh_id()}'
             update_adder = '{} = prim std_add({});'.format(
@@ -173,44 +176,44 @@ class Relay2Futil(ExprFunctor):
             )
 
             less_comparator_name = f'le{self.fresh_id()}'
-            less_comparator = f'{less_comparator_name} = prim std_le(32)'
-            structures.extend([hw_cell, mem_cell, const_mem_size, index_reg, less_comparator])
+            less_comparator = f'{less_comparator_name} = prim std_le(32);'
+            structures.extend([hw_cell, const_mem_size, index_reg, less_comparator])
             
             condition_name = f'cond{self.fresh_id()}'
             groups[condition_name] = [
-                    f"{condition_name}[done] = 1'd1",
-                    f"{less_comparator_name}.left = {index_reg_name}.out",
-                    f"{less_comparator_name}.left = {const_mem_size_name}.out"
+                    f"{condition_name}[done] = 1'd1;",
+                    f"{less_comparator_name}.left = {index_reg_name}.out;",
+                    f"{less_comparator_name}.left = {const_mem_size_name}.out;"
                     ]
             initialization_name = f'initalize{self.fresh_id()}'
             groups[initialization_name] = [
-                    f"{index_reg_name}.in = constant0.out",
-                    f"{index_reg_name}.write_en = 1'd1",
-                    f"{initialization_name}[done] = {index_reg_name}.done"
+                    f"{index_reg_name}.in = constant0.out;",
+                    f"{index_reg_name}.write_en = 1'd1;",
+                    f"{initialization_name}[done] = {index_reg_name}.done;"
                     ]
             add_body_name = f'body{self.fresh_id()}'
             groups[add_body_name] = [
-                    f"{mem_cell_name}.addr0 = {index_reg_name}.out",
-                    f"{mem_cell_name}.write_en = 1'd1",
-                    f"{hw_cell_name}.left = {arg_stmts[0].value}.read_data",
-                    f"{hw_cell_name}.right = {arg_stmts[1].value}.read_data",
-                    f"{arg_stmts[0].value}.addr0 = {index_reg_name}.out",
-                    f"{arg_stmts[1].value}.addr0 = {index_reg_name}.out",
-                    f"{mem_cell_name}.write_data = 1'd1 ? {hw_cell_name}.out",
-                    f"{add_body_name}[done] = {mem_cell_name}.done ? 1'd1"
+                    f"{mem_cell_name}.addr0 = {index_reg_name}.out;",
+                    f"{mem_cell_name}.write_en = 1'd1;",
+                    f"{hw_cell_name}.left = {arg_stmts[0].value}.read_data;",
+                    f"{hw_cell_name}.right = {arg_stmts[1].value}.read_data;",
+                    f"{arg_stmts[0].value}.addr0 = {index_reg_name}.out;",
+                    f"{arg_stmts[1].value}.addr0 = {index_reg_name}.out;",
+                    f"{mem_cell_name}.write_data = 1'd1 ? {hw_cell_name}.out;",
+                    f"{add_body_name}[done] = {mem_cell_name}.done ? 1'd1;"
                     ]
 
             update_name = f'update{self.fresh_id()}'
             groups[update_name] = [
-                    f"{index_reg_name}.write_en = 1'd1",
-                    f"{update_adder_name}.left = {index_reg_name}.out",
-                    f"{update_adder_name}.right = constant1.out",
-                    f"{index_reg_name}.in = 1'd1 ? {update_adder_name}.out",
-                    f"{update_name}[done] = {index_reg_name}.done ? 1'd1"
+                    f"{index_reg_name}.write_en = 1'd1;",
+                    f"{update_adder_name}.left = {index_reg_name}.out;",
+                    f"{update_adder_name}.right = constant1.out;",
+                    f"{index_reg_name}.in = 1'd1 ? {update_adder_name}.out;",
+                    f"{update_name}[done] = {index_reg_name}.done ? 1'd1;"
                     ]
             
-            seq_block = mk_block("seq", "\n".join([add_body_name, update_name]))
-            mem_control =  mk_block(f"while le0.out with cond0", f'{initialization_name}\n{seq_block}')
+            seq_block = mk_block("seq", "\n".join([f'{add_body_name};', f'{update_name};']))
+            mem_control =  mk_block(f"while le0.out with cond0", f'{initialization_name};\n{seq_block}')
             controls.append(mem_control)
             return EmitResult(
                     f'{mem_cell_name}',
@@ -241,9 +244,9 @@ class Relay2Futil(ExprFunctor):
         )
     
         groups = {**true_branch_value.groups, **false_branch_value.groups} 
-        groups[cond_name] = cond_value.wires + [f"{cond_name}[done]= 1'd1"]
-        groups[true_branch_name] = true_branch_value.wires + [f'{result_name}.in = {true_branch_value.value}', f'{true_branch_name}[done] = {result_name}.done']
-        groups[false_branch_name] = false_branch_value.wires + [f'{result_name}.in = {false_branch_value.value}', f'{false_branch_name}[done] = {result_name}.done']
+        groups[cond_name] = cond_value.wires + [f"{cond_name}[done]= 1'd1;"]
+        groups[true_branch_name] = true_branch_value.wires + [f'{result_name}.in = {true_branch_value.value};', f'{true_branch_name}[done] = {result_name}.done;']
+        groups[false_branch_name] = false_branch_value.wires + [f'{result_name}.in = {false_branch_value.value};', f'{false_branch_name}[done] = {result_name}.done;']
 
         structures  = cond_value.cells + true_branch_value.cells +  false_branch_value.cells
         structures.append(result_cell)
@@ -257,9 +260,9 @@ class Relay2Futil(ExprFunctor):
                 groups,
                 [mk_block(f'if {cond_value.value} with {cond_name}',
                     '\n'.join(true_branch_value.controls + 
-                    [f'{true_branch_name}'])) + 
+                    [f'{true_branch_name};'])) + 
                     mk_block('else', '\n'.join(false_branch_value.controls + 
-                    [f'{false_branch_name}'])) 
+                    [f'{false_branch_name};'])) 
                 ]
             )
     
@@ -284,8 +287,8 @@ class Relay2Futil(ExprFunctor):
         if dimension == 0:
             func_cells.append('ret = prim std_reg(32);')
         else:
-            func_cells.append(f'constant0 = prim std_const(32, 0)')
-            func_cells.append(f'constant1 = prim std_const(32, 1)')
+            func_cells.append(f'constant0 = prim std_const(32, 0);')
+            func_cells.append(f'constant1 = prim std_const(32, 1);')
             func_cells.append(f'ret  = prim std_mem_d{dimension}(32, {mem_size}, {mem_index});')
 
         
@@ -295,7 +298,7 @@ class Relay2Futil(ExprFunctor):
         group_wires = body.wires + [
             f'ret.in = {body.value};',
             f'ret.write_en = {write_enable};',
-            f'{group_name}[done] = ret[done];',
+            f'{group_name}[done] = ret.done;',
         ]
         
         groups = mk_block(f'group {group_name}', '\n'.join(group_wires))
@@ -306,7 +309,7 @@ class Relay2Futil(ExprFunctor):
         # multiple functions as multiple components.
         cells = mk_block('cells', '\n'.join(func_cells + body.cells))
         wires = mk_block('wires', groups)
-        control = mk_block('control', mk_block('seq', '\n'.join(body.controls + [f'{group_name}'])))  # Invoke the group.
+        control = mk_block('control', mk_block('seq', '\n'.join(body.controls + [f'{group_name};'])))  # Invoke the group.
         component = mk_block(
             'component main() -> ()',
             '\n'.join([cells, wires, control])

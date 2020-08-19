@@ -8,12 +8,12 @@ component main() -> () {
     group group0 {
       ret.in = x.out;
       ret.write_en = group0[go];
-      group0[done] = ret[done];
+      group0[done] = ret.done;
     }
   }
   control {
     seq {
-      group0
+      group0;
     }
   }
 }

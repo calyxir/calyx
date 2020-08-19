@@ -15,38 +15,38 @@ component main() -> () {
     group group10 {
       ret.in = res9.out;
       ret.write_en = group10[go];
-      group10[done] = ret[done];
+      group10[done] = ret.done;
     }
     group cond5 {
-      eq4.left = v.out
-      eq4.right = const3.out
-      cond5[done]= 1'd1
+      eq4.left = v.out;
+      eq4.right = const3.out;
+      cond5[done]= 1'd1;
     }
     group branch6 {
-      res9.in = x.out
-      branch6[done] = res9.done
+      res9.in = x.out;
+      branch6[done] = res9.done;
     }
     group branch8 {
-      res9.in = const7.out
-      branch8[done] = res9.done
+      res9.in = const7.out;
+      branch8[done] = res9.done;
     }
     group group0 {
-      v.in = add2.out
-      v.write_en = 1'd1
-      group0[done] = v.done
-      add2.left = x.out
-      add2.right = const1.out
+      v.in = add2.out;
+      v.write_en = 1'd1;
+      group0[done] = v.done;
+      add2.left = x.out;
+      add2.right = const1.out;
     }
   }
   control {
     seq {
       if eq4.out with cond5 {
-        branch6
+        branch6;
       }else {
-        branch8
+        branch8;
       }
-      group0
-      group10
+      group0;
+      group10;
     }
   }
 }
