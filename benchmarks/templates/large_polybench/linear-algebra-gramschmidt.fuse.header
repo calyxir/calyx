@@ -1,0 +1,10 @@
+// BEGIN macro definitions
+
+define(M, 60)
+define(N, 80)
+define(M_bw, ubit<7>)
+define(N_bw, ubit<7>)
+define(SQRT_HEADER, "math.h") // "fxp_sqrt.h"
+define(WHILE0, min=0 max=79 avg=40)
+
+// END macro definitions

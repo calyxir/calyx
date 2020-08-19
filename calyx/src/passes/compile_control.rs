@@ -99,13 +99,18 @@ impl Visitor for CompileControl {
         let cond_go = !guard!(st; cond_computed["out"]);
         let is_cond_computed = guard!(st; cond_group_node["go"])
             & guard!(st; cond_group_node["done"]);
-        let true_go =
+
+        let true_turn =
             guard!(st; cond_computed["out"]) & guard!(st; cond_stored["out"]);
-        let false_go =
+        let true_go = !guard!(st; true_group_node["done"]) & true_turn.clone();
+
+        let false_turn =
             guard!(st; cond_computed["out"]) & !guard!(st; cond_stored["out"]);
-        let done_guard = (true_go.clone()
-            & guard!(st; true_group_node["done"]))
-            | (false_go.clone() & guard!(st; false_group_node["done"]));
+        let false_go =
+            !guard!(st; false_group_node["done"]) & false_turn.clone();
+
+        let done_guard = (true_turn & guard!(st; true_group_node["done"]))
+            | (false_turn & guard!(st; false_group_node["done"]));
         let done_reg_high = guard!(st; done_reg["out"]);
 
         // New edges.
@@ -133,8 +138,10 @@ impl Visitor for CompileControl {
             st, None,
             done_reg["in"] = done_reg_high ? (signal_off.clone());
             done_reg["write_en"] = done_reg_high ? (signal_const.clone());
-            cond_computed["in"] = done_reg_high ? (signal_off);
-            cond_computed["write_en"] = done_reg_high ? (signal_const);
+            cond_computed["in"] = done_reg_high ? (signal_off.clone());
+            cond_computed["write_en"] = done_reg_high ? (signal_const.clone());
+            cond_stored["in"] = done_reg_high ? (signal_off);
+            cond_stored["write_en"] = done_reg_high ? (signal_const);
         );
 
         Ok(Action::Change(Control::enable(if_group)))
@@ -421,9 +428,6 @@ impl Visitor for CompileControl {
             );
         }
 
-        let new_control = Control::Enable {
-            data: Enable { comp: par_group },
-        };
-        Ok(Action::Change(new_control))
+        Ok(Action::Change(Control::enable(par_group)))
     }
 }

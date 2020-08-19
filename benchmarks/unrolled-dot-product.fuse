@@ -1,0 +1,22 @@
+decl a_int: ubit<32>[6];
+decl b_int: ubit<32>[6];
+decl result: ubit<32>[1];
+
+let a: ubit<32>[6 bank 2];
+let b: ubit<32>[6 bank 2];
+
+view a_sh = a[_: bank 1];
+view b_sh = b[_: bank 1];
+
+for (let i: bit<3> = 0..6) {
+  a_sh[i] := a_int[i];
+  b_sh[i] := b_int[i];
+}
+
+---
+
+for (let i: bit<3> = 0..6) unroll 2 {
+  let v = a[i] * b[i];
+} combine {
+  result[0] += v;
+}

@@ -1,0 +1,70 @@
+{
+  "key": {
+    "C": 1,
+    "NI": 64,
+    "NJ": 64,
+    "NK": 64,
+    "NL": 64
+  },
+  "memory": {
+    "alpha_int": {
+      "data": [
+        "C"
+      ],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "beta_int": {
+      "data": [
+        "C"
+      ],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "tmp": {
+      "data": [
+        "NI",
+        "NJ"
+      ],
+      "bitwidth": 32,
+      "banks": [1, 1],
+      "variants": ["_int"]
+    },
+    "A": {
+      "data": [
+        "NI",
+        "NK"
+      ],
+      "bitwidth": 32,
+      "banks": [1, 1],
+      "variants": ["_int"]
+    },
+    "B": {
+      "data": [
+        "NK",
+        "NJ"
+      ],
+      "bitwidth": 32,
+      "banks": [1, 1],
+      "variants": ["_int"]
+    },
+    "C": {
+      "data": [
+        "NJ",
+        "NL"
+      ],
+      "bitwidth": 32,
+      "banks": [1, 1],
+      "variants": ["_int"]
+    },
+    "D": {
+      "data": [
+        "NI",
+        "NL"
+      ],
+      "bitwidth": 32,
+      "banks": [1, 1],
+      "variants": ["_int"]
+    }
+  }
+}

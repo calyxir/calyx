@@ -1,0 +1,52 @@
+{
+  "key": {
+    "M": 8,
+    "N": 8
+  },
+  "memory": {
+    "A_int": {
+      "data": [
+        "M",
+        "N"
+      ],
+      "banks": [1, 1],
+      "bitwidth": 32
+    },
+    "A": {
+      "data": [],
+      "banks": [2, 2],
+      "bitwidth": 32
+    },
+    "x_int": {
+      "data": [
+        "N"
+      ],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "x": {
+      "data": [],
+      "banks": [2],
+      "bitwidth": 32
+    },
+    "y_int": {
+      "data": [
+        "N"
+      ],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "y": {
+      "data": [],
+      "banks": [2],
+      "bitwidth": 32
+    },
+    "tmp_int": {
+      "data": [
+        "M"
+      ],
+      "banks": [1],
+      "bitwidth": 32
+    }
+  }
+}

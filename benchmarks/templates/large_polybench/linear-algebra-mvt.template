@@ -1,0 +1,48 @@
+{
+  "key": {
+    "N": 64
+  },
+  "memory": {
+    "x1": {
+      "data": [
+        "N"
+      ],
+      "banks": [1],
+      "variants": ["_int"],
+      "bitwidth": 32
+    },
+    "x2": {
+      "data": [
+        "N"
+      ],
+      "banks": [1],
+      "variants": ["_int"],
+      "bitwidth": 32
+    },
+    "y1": {
+      "data": [
+        "N"
+      ],
+      "banks": [1],
+      "variants": ["_int"],
+      "bitwidth": 32
+    },
+    "y2": {
+      "data": [
+        "N"
+      ],
+      "banks": [1],
+      "variants": ["_int"],
+      "bitwidth": 32
+    },
+    "A": {
+      "data": [
+        "N",
+        "N"
+      ],
+      "banks": [1, 1],
+      "variants": ["_int"],
+      "bitwidth": 32
+    }
+  }
+}

@@ -10,8 +10,8 @@
 # -f: disable filename globbing.
 set -ef
 
-if [ -z $DAHLIA_EXEC ]; then
+if [ -z $DAHLIA ]; then
     dahlia "$@"
 else
-    $DAHLIA_EXEC "$@"
+    $DAHLIA "$@"
 fi

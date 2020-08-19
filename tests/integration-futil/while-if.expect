@@ -6,6 +6,7 @@ component main() -> () {
     add2 = prim std_add(4);
     add3 = prim std_add(4);
     add4 = prim std_add(4);
+    bin_read0_0 = prim std_reg(4);
     const0 = prim std_const(4,0);
     const1 = prim std_const(4,0);
     const10 = prim std_const(4,1);
@@ -21,7 +22,7 @@ component main() -> () {
     eq0 = prim std_eq(4);
     i_0 = prim std_reg(4);
     lt0 = prim std_lt(4);
-    mod0 = prim std_mod(4);
+    mod_pipe0 = prim std_mod_pipe(4);
     x_0 = prim std_reg(4);
     y_0 = prim std_reg(4);
     z_0 = prim std_reg(4);
@@ -34,10 +35,8 @@ component main() -> () {
     }
     group cond1<"static"=0> {
       cond1[done] = 1'd1;
-      eq0.left = mod0.out;
+      eq0.left = bin_read0_0.out;
       eq0.right = const6.out;
-      mod0.left = i_0.out;
-      mod0.right = const5.out;
     }
     group let0<"static"=1> {
       i_0.in = const0.out;
@@ -58,6 +57,14 @@ component main() -> () {
       z_0.in = const3.out;
       z_0.write_en = 1'd1;
       let3[done] = z_0.done;
+    }
+    group let4 {
+      bin_read0_0.in = mod_pipe0.out;
+      bin_read0_0.write_en = mod_pipe0.done;
+      let4[done] = bin_read0_0.done;
+      mod_pipe0.left = i_0.out;
+      mod_pipe0.right = const5.out;
+      mod_pipe0.go = !mod_pipe0.done ? 1'd1;
     }
     group upd0<"static"=1> {
       x_0.write_en = 1'd1;
@@ -103,6 +110,7 @@ component main() -> () {
       let3;
       while lt0.out with cond0 {
         seq {
+          let4;
           if eq0.out with cond1 {
             seq {
               upd0;
