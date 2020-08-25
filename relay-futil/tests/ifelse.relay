@@ -1,5 +1,5 @@
 v0.0.4
-fn (%x: float32) {
+fn (%x: int32) {
   let %v = add(%x, 1);
   if (%v == 42){
       %x

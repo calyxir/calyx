@@ -11,30 +11,30 @@ component main() -> () {
   }
   wires {
     group group5 {
-      add4.left = v1.out
-      add4.right = v2.out
+      add4.left = v1.out;
+      add4.right = v2.out;
       ret.in = add4.out;
-      ret.write_en = None;
-      group5[done] = ret[done];
+      ret.write_en = 1'd1;
+      group5[done] = ret.done;
     }
     group group3 {
-      v2.in = x.out
-      v2.write_en = 1'd1
-      group3[done] = v2.done
+      v2.in = x.out;
+      v2.write_en = 1'd1;
+      group3[done] = v2.done;
     }
     group group0 {
-      v1.in = add2.out
-      v1.write_en = 1'd1
-      group0[done] = v1.done
-      add2.left = x.out
-      add2.right = const1.out
+      v1.in = add2.out;
+      v1.write_en = 1'd1;
+      group0[done] = v1.done;
+      add2.left = x.out;
+      add2.right = const1.out;
     }
   }
   control {
     seq {
-      group3
-      group0
-      group5
+      group3;
+      group0;
+      group5;
     }
   }
 }

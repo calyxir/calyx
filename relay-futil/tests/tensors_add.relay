@@ -1,0 +1,6 @@
+v0.0.4
+fn (%x: Tensor[(4), int32], %y: Tensor[(4), int32]) 
+	-> Tensor[(4), int32] {
+   let %v = add(1, 1);
+   add(%x, %y)
+}
