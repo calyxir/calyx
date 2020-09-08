@@ -117,7 +117,7 @@ primitive std_mem_d3[
 
       logic [width-1:0]  mem[d0_size-1:0][d1_size-1:0][d2_size-1:0];
 
-      assign read_data = mem[addr0][addr1];
+      assign read_data = mem[addr0][addr1][addr2];
       always_ff @(posedge clk) begin
         if (write_en) begin
           mem[addr0][addr1][addr2] <= write_data;

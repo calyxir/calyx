@@ -6,9 +6,10 @@
 
  // "fxp_sqrt.h"
 
+
 // END macro definitions
 
-import "math.h" {
+import "fxp_sqrt.h" {
   def sqrt(x: ubit<32>): ubit<32>;
 }
 
@@ -54,7 +55,7 @@ for (let k: ubit<4> = 0..12) {
     Q[i][k] := A[i][k] / R[k][k];
   }
   ---
-  let j: ubit<4> = k + 1;
+  let j: ubit<4> = k + (1 as ubit<4>);
   while (j < 12) {
     decor "#pragma HLS loop_tripcount min=0 max=11 avg=6"
     R[k][j] := 0;
@@ -71,7 +72,7 @@ for (let k: ubit<4> = 0..12) {
       A[i][j] := A_i_j - Q[i][k] * R[k][j];
     }
     // Update loop counter
-    j := j + 1;
+    j := j + (1 as ubit<4>);
   }
 }
 ---

@@ -6,7 +6,7 @@
 
 // END macro definitions
 
-import "math.h" {
+import "fxp_sqrt.h" {
   def sqrt(x: ubit<32>): ubit<32>;
 }
 

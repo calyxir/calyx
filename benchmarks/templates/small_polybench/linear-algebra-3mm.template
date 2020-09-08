@@ -15,12 +15,22 @@
       "banks": [1, 1],
       "bitwidth": 32
     },
+    "E": {
+      "data": [],
+      "banks": [2, 2],
+      "bitwidth": 32
+    },
     "A_int": {
       "data": [
         "NI",
         "NK"
       ],
       "banks": [1, 1],
+      "bitwidth": 32
+    },
+    "A": {
+      "data": [],
+      "banks": [2, 2],
       "bitwidth": 32
     },
     "B_int": {
@@ -31,12 +41,22 @@
       "banks": [1, 1],
       "bitwidth": 32
     },
+    "B": {
+      "data": [],
+      "banks": [2, 2],
+      "bitwidth": 32
+    },
     "F_int": {
       "data": [
         "NJ",
         "NL"
       ],
       "banks": [1, 1],
+      "bitwidth": 32
+    },
+    "F": {
+      "data": [],
+      "banks": [2, 2],
       "bitwidth": 32
     },
     "C_int": {
@@ -47,6 +67,11 @@
       "banks": [1, 1],
       "bitwidth": 32
     },
+    "C": {
+      "data": [],
+      "banks": [2, 2],
+      "bitwidth": 32
+    },
     "D_int": {
       "data": [
         "NM",
@@ -55,12 +80,22 @@
       "banks": [1, 1],
       "bitwidth": 32
     },
+    "D": {
+      "data": [],
+      "banks": [2, 2],
+      "bitwidth": 32
+    },
     "G_int": {
       "data": [
         "NI",
         "NL"
       ],
       "banks": [1, 1],
+      "bitwidth": 32
+    },
+    "G": {
+      "data": [],
+      "banks": [2, 2],
       "bitwidth": 32
     }
   }

@@ -188,5 +188,61 @@ if __name__ == "__main__":
         while1_1.output()
         while2.output()
         while2_1.output()
+
+    elif benchmark == "ludcmp":
+        while1_1 = TripCount('while1_1')
+        while1_1_1 = TripCount('while1_1_1')
+        while1_2 = TripCount('while1_2')
+        while1_2_1 = TripCount('while1_2_1')
+        while2_1 = TripCount('while2_1')
+        while3 = TripCount('while3')
+        while3_1 = TripCount('while3_1')
+        for i in range(t['N']):
+            j = 0
+            while (j < i):
+                while1_1.incr()
+                k = 0
+                while (k < j):
+                    while1_1_1.incr()
+                    k += 1
+                while1_1_1.reset()
+                j += 1
+            while1_1.reset()
+            j = i
+            while (j < t['N']):
+                while1_2.incr()
+                k = 0
+                while (k < i):
+                    while1_2_1.incr()
+                    k += 1
+                while1_2_1.reset()
+                j += 1
+            while1_2.reset()
+        for i in range(t['N']):
+            j = 0
+            while (j < i):
+                while2_1.incr()
+                j += 1
+            while2_1.reset()
+
+        i = t['N'] - 1
+        while (i >= 0 and i < t['N']):
+            while3.incr()
+            j = i + 1
+            while (j < t['N']):
+                while3_1.incr()
+                j += 1
+            while3_1.reset()
+            i -= 1
+        while3.reset()
+
+        while1_1.output()
+        while1_1_1.output()
+        while1_2.output()
+        while1_2_1.output()
+        while2_1.output()
+        while3.output()
+        while3_1.output()
+
     else:
         print(f"{benchmark} has no tripcount registered.")

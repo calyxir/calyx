@@ -17,7 +17,7 @@ for (let i: ubit<4> = 0..8) {
     let k: ubit<4> = i + (1 as ubit<4>);
     // XXX: Try rewriting this as a 'for' loop
     while (k < 8) {
-      decor "#pragma HLS loop_tripcount WHILE0"
+      decor "#pragma HLS loop_tripcount min=0 max=7 avg=4"
       let B_i_j: ubit<32> = B_int[i][j];
       ---
       let B_k_j: ubit<32> = B_int[k][j];
@@ -26,7 +26,7 @@ for (let i: ubit<4> = 0..8) {
       // XXX: This is reduction pattern
       B_int[i][j] := A_int[k][i] * B_k_j + B_i_j;
       // Update loop counter
-      k := k + 1;
+      k := k + (1 as ubit<4>);
     }
     ---
     // XXX: This is reduction pattern

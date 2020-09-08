@@ -28,7 +28,7 @@ for (let i: ubit<6> = 0..60) {
       // XXX: This is reduction pattern
       B_int[i][j] := A_int[k][i] * B_k_j + B_i_j;
       // Update loop counter
-      k := k + 1;
+      k := k + (1 as ubit<4>);
     }
     ---
     // XXX: This is reduction pattern
