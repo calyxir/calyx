@@ -14,7 +14,7 @@ Passes:
 
 Aliases:
 - all: well-formed, papercut, remove-external-memories, compile-empty, collapse-control, static-timing, compile-control, go-insertion, component-interface-inserter, hole-inliner, merge-assign
-- external: well-formed, papercut, compile-empty, compile-control, static-timing, compile-control, go-insertion, component-interface-inserter, hole-inliner, merge-assign, externalize
+- external: well-formed, papercut, compile-empty, collapse-control, compile-control, static-timing, compile-control, go-insertion, component-interface-inserter, hole-inliner, merge-assign, externalize
 - no-inline: remove-external-memories, compile-empty, static-timing, compile-control, go-insertion, component-interface-inserter
 - none: 
 
