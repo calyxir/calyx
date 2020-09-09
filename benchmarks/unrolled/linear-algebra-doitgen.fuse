@@ -13,7 +13,7 @@ view sum_sh = sum[_: bank 1];
 for (let r: ubit<4> = 0..8) {
   for (let q: ubit<4> = 0..8) {
     for (let s: ubit<4> = 0..8) {
-      A_sh[r][q][r] := A_int[r][q][s];
+      A_sh[r][q][s] := A_int[r][q][s];
     }
     C4_sh[r][q] := C4_int[r][q];
   }
@@ -45,7 +45,7 @@ for (let r: ubit<4> = 0..8) {
 for (let r: ubit<4> = 0..8) {
   for (let q: ubit<4> = 0..8) {
     for (let s: ubit<4> = 0..8) {
-      A_int[r][q][r] := A_sh[r][q][s];
+      A_int[r][q][s] := A_sh[r][q][s];
     }
     C4_int[r][q] := C4_sh[r][q];
   }
