@@ -513,7 +513,7 @@ component main() -> () {
       and4.right = and3.out;
       eq0.left = and0.out;
       eq0.right = const7.out;
-      and0.left = r0.out;
+      and0.left = s0.out;
       and0.right = const6.out;
       and3.left = eq1.out;
       and3.right = eq2.out;
@@ -532,7 +532,7 @@ component main() -> () {
       and9.right = and8.out;
       eq3.left = and5.out;
       eq3.right = const16.out;
-      and5.left = r0.out;
+      and5.left = s0.out;
       and5.right = const15.out;
       and8.left = eq4.out;
       and8.right = eq5.out;
@@ -720,7 +720,7 @@ component main() -> () {
     group upd1<"static"=1> {
       A0_0_0.addr2 = slice0.out;
       slice0.in = rsh2.out;
-      rsh2.left = r0.out;
+      rsh2.left = s0.out;
       rsh2.right = const14.out;
       A0_0_0.addr1 = rsh1.out;
       rsh1.left = q0.out;
@@ -819,7 +819,7 @@ component main() -> () {
     group upd2<"static"=1> {
       A0_0_1.addr2 = slice1.out;
       slice1.in = rsh5.out;
-      rsh5.left = r0.out;
+      rsh5.left = s0.out;
       rsh5.right = const23.out;
       A0_0_1.addr1 = rsh4.out;
       rsh4.left = q0.out;
@@ -971,7 +971,7 @@ component main() -> () {
       upd33[done] = A_sh_read0_0.done ? 1'd1;
     }
     group upd34<"static"=1> {
-      A_int0_0_0.addr2 = r2.out;
+      A_int0_0_0.addr2 = s2.out;
       A_int0_0_0.addr1 = q2.out;
       A_int0_0_0.addr0 = r2.out;
       A_int0_0_0.write_en = 1'd1;
