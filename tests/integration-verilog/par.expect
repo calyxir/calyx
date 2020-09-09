@@ -26,39 +26,39 @@ endmodule
 
 // Component Signature
 module main (
-      input wire go,
-      input wire clk,
-      output wire done
+      input logic go,
+      input logic clk,
+      output logic done
   );
   
   // Structure wire declarations
-  wire [31:0] y_in;
-  wire y_write_en;
-  wire y_clk;
-  wire [31:0] y_out;
-  wire y_done;
-  wire [31:0] x_in;
-  wire x_write_en;
-  wire x_clk;
-  wire [31:0] x_out;
-  wire x_done;
-  wire [31:0] const1_out;
-  wire [31:0] const0_out;
-  wire par_reset0_in;
-  wire par_reset0_write_en;
-  wire par_reset0_clk;
-  wire par_reset0_out;
-  wire par_reset0_done;
-  wire par_done_reg0_in;
-  wire par_done_reg0_write_en;
-  wire par_done_reg0_clk;
-  wire par_done_reg0_out;
-  wire par_done_reg0_done;
-  wire par_done_reg1_in;
-  wire par_done_reg1_write_en;
-  wire par_done_reg1_clk;
-  wire par_done_reg1_out;
-  wire par_done_reg1_done;
+  logic [31:0] y_in;
+  logic y_write_en;
+  logic y_clk;
+  logic [31:0] y_out;
+  logic y_done;
+  logic [31:0] x_in;
+  logic x_write_en;
+  logic x_clk;
+  logic [31:0] x_out;
+  logic x_done;
+  logic [31:0] const1_out;
+  logic [31:0] const0_out;
+  logic par_reset0_in;
+  logic par_reset0_write_en;
+  logic par_reset0_clk;
+  logic par_reset0_out;
+  logic par_reset0_done;
+  logic par_done_reg0_in;
+  logic par_done_reg0_write_en;
+  logic par_done_reg0_clk;
+  logic par_done_reg0_out;
+  logic par_done_reg0_done;
+  logic par_done_reg1_in;
+  logic par_done_reg1_write_en;
+  logic par_done_reg1_clk;
+  logic par_done_reg1_out;
+  logic par_done_reg1_done;
   
   // Subcomponent Instances
   std_reg #(32) y (
@@ -123,15 +123,67 @@ module main (
   end
   
   // Input / output connections
-  assign done = par_reset0_out ? 1'd1 : '0;
-  assign y_in = (!(par_done_reg1_out | y_done) & go) ? const1_out : '0;
-  assign y_write_en = (!(par_done_reg1_out | y_done) & go) ? 1'd1 : '0;
-  assign x_in = (!(par_done_reg0_out | x_done) & go) ? const0_out : '0;
-  assign x_write_en = (!(par_done_reg0_out | x_done) & go) ? 1'd1 : '0;
-  assign par_reset0_in = par_reset0_out ? 1'd0 : (par_done_reg0_out & par_done_reg1_out & go) ? 1'd1 : '0;
-  assign par_reset0_write_en = (par_done_reg0_out & par_done_reg1_out & go | par_reset0_out) ? 1'd1 : '0;
-  assign par_done_reg0_in = par_reset0_out ? 1'd0 : (x_done & go) ? 1'd1 : '0;
-  assign par_done_reg0_write_en = (x_done & go | par_reset0_out) ? 1'd1 : '0;
-  assign par_done_reg1_in = par_reset0_out ? 1'd0 : (y_done & go) ? 1'd1 : '0;
-  assign par_done_reg1_write_en = (y_done & go | par_reset0_out) ? 1'd1 : '0;
+  always_comb begin
+    if (par_reset0_out)
+      done = 1'd1;
+    else 
+      done = '0;
+    
+    if ((!(par_done_reg1_out | y_done) & go))
+      y_in = const1_out;
+    else 
+      y_in = '0;
+    
+    if ((!(par_done_reg1_out | y_done) & go))
+      y_write_en = 1'd1;
+    else 
+      y_write_en = '0;
+    
+    if ((!(par_done_reg0_out | x_done) & go))
+      x_in = const0_out;
+    else 
+      x_in = '0;
+    
+    if ((!(par_done_reg0_out | x_done) & go))
+      x_write_en = 1'd1;
+    else 
+      x_write_en = '0;
+    
+    if (par_reset0_out)
+      par_reset0_in = 1'd0;
+    else if ((par_done_reg0_out & par_done_reg1_out & go))
+      par_reset0_in = 1'd1;
+    else 
+      par_reset0_in = '0;
+    
+    if ((par_done_reg0_out & par_done_reg1_out & go | par_reset0_out))
+      par_reset0_write_en = 1'd1;
+    else 
+      par_reset0_write_en = '0;
+    
+    if (par_reset0_out)
+      par_done_reg0_in = 1'd0;
+    else if ((x_done & go))
+      par_done_reg0_in = 1'd1;
+    else 
+      par_done_reg0_in = '0;
+    
+    if ((x_done & go | par_reset0_out))
+      par_done_reg0_write_en = 1'd1;
+    else 
+      par_done_reg0_write_en = '0;
+    
+    if (par_reset0_out)
+      par_done_reg1_in = 1'd0;
+    else if ((y_done & go))
+      par_done_reg1_in = 1'd1;
+    else 
+      par_done_reg1_in = '0;
+    
+    if ((y_done & go | par_reset0_out))
+      par_done_reg1_write_en = 1'd1;
+    else 
+      par_done_reg1_write_en = '0;
+    
+  end
 endmodule // end main

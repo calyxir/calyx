@@ -27,25 +27,25 @@ endmodule
 
 // Component Signature
 module main (
-      input wire go,
-      input wire clk,
-      output wire done
+      input logic go,
+      input logic clk,
+      output logic done
   );
   
   // Structure wire declarations
-  wire [31:0] add_left;
-  wire [31:0] add_right;
-  wire [31:0] add_out;
-  wire [31:0] r_in;
-  wire r_write_en;
-  wire r_clk;
-  wire [31:0] r_out;
-  wire r_done;
-  wire [31:0] fsm0_in;
-  wire fsm0_write_en;
-  wire fsm0_clk;
-  wire [31:0] fsm0_out;
-  wire fsm0_done;
+  logic [31:0] add_left;
+  logic [31:0] add_right;
+  logic [31:0] add_out;
+  logic [31:0] r_in;
+  logic r_write_en;
+  logic r_clk;
+  logic [31:0] r_out;
+  logic r_done;
+  logic [31:0] fsm0_in;
+  logic fsm0_write_en;
+  logic fsm0_clk;
+  logic [31:0] fsm0_out;
+  logic fsm0_done;
   
   // Subcomponent Instances
   std_add #(32) add (
@@ -84,11 +84,45 @@ module main (
   end
   
   // Input / output connections
-  assign done = (fsm0_out == 32'd2) ? 1'd1 : '0;
-  assign add_left = (fsm0_out == 32'd0 & !r_done & go | fsm0_out == 32'd1 & !r_done & go) ? 32'd1 : '0;
-  assign add_right = (fsm0_out == 32'd0 & !r_done & go | fsm0_out == 32'd1 & !r_done & go) ? r_out : '0;
-  assign r_in = (fsm0_out == 32'd0 & !r_done & go | fsm0_out == 32'd1 & !r_done & go) ? add_out : '0;
-  assign r_write_en = (fsm0_out == 32'd0 & !r_done & go | fsm0_out == 32'd1 & !r_done & go) ? 1'd1 : '0;
-  assign fsm0_in = (fsm0_out == 32'd1 & r_done & go) ? 32'd2 : (fsm0_out == 32'd2) ? 32'd0 : (fsm0_out == 32'd0 & r_done & go) ? 32'd1 : '0;
-  assign fsm0_write_en = (fsm0_out == 32'd0 & r_done & go | fsm0_out == 32'd1 & r_done & go | fsm0_out == 32'd2) ? 1'd1 : '0;
+  always_comb begin
+    if ((fsm0_out == 32'd2))
+      done = 1'd1;
+    else 
+      done = '0;
+    
+    if ((fsm0_out == 32'd0 & !r_done & go | fsm0_out == 32'd1 & !r_done & go))
+      add_left = 32'd1;
+    else 
+      add_left = '0;
+    
+    if ((fsm0_out == 32'd0 & !r_done & go | fsm0_out == 32'd1 & !r_done & go))
+      add_right = r_out;
+    else 
+      add_right = '0;
+    
+    if ((fsm0_out == 32'd0 & !r_done & go | fsm0_out == 32'd1 & !r_done & go))
+      r_in = add_out;
+    else 
+      r_in = '0;
+    
+    if ((fsm0_out == 32'd0 & !r_done & go | fsm0_out == 32'd1 & !r_done & go))
+      r_write_en = 1'd1;
+    else 
+      r_write_en = '0;
+    
+    if ((fsm0_out == 32'd1 & r_done & go))
+      fsm0_in = 32'd2;
+    else if ((fsm0_out == 32'd2))
+      fsm0_in = 32'd0;
+    else if ((fsm0_out == 32'd0 & r_done & go))
+      fsm0_in = 32'd1;
+    else 
+      fsm0_in = '0;
+    
+    if ((fsm0_out == 32'd0 & r_done & go | fsm0_out == 32'd1 & r_done & go | fsm0_out == 32'd2))
+      fsm0_write_en = 1'd1;
+    else 
+      fsm0_write_en = '0;
+    
+  end
 endmodule // end main

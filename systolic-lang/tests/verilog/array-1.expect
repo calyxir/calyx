@@ -111,41 +111,41 @@ endmodule
 
 // Component Signature
 module mac_pe (
-      input wire [31:0] top,
-      input wire [31:0] left,
-      input wire go,
-      input wire clk,
-      output wire [31:0] down,
-      output wire [31:0] right,
-      output wire [31:0] out,
-      output wire done
+      input logic [31:0] top,
+      input logic [31:0] left,
+      input logic go,
+      input logic clk,
+      output logic [31:0] down,
+      output logic [31:0] right,
+      output logic [31:0] out,
+      output logic done
   );
   
   // Structure wire declarations
-  wire [31:0] mul_left;
-  wire [31:0] mul_right;
-  wire mul_go;
-  wire mul_clk;
-  wire [31:0] mul_out;
-  wire mul_done;
-  wire [31:0] add_left;
-  wire [31:0] add_right;
-  wire [31:0] add_out;
-  wire [31:0] mul_reg_in;
-  wire mul_reg_write_en;
-  wire mul_reg_clk;
-  wire [31:0] mul_reg_out;
-  wire mul_reg_done;
-  wire [31:0] acc_in;
-  wire acc_write_en;
-  wire acc_clk;
-  wire [31:0] acc_out;
-  wire acc_done;
-  wire [31:0] fsm0_in;
-  wire fsm0_write_en;
-  wire fsm0_clk;
-  wire [31:0] fsm0_out;
-  wire fsm0_done;
+  logic [31:0] mul_left;
+  logic [31:0] mul_right;
+  logic mul_go;
+  logic mul_clk;
+  logic [31:0] mul_out;
+  logic mul_done;
+  logic [31:0] add_left;
+  logic [31:0] add_right;
+  logic [31:0] add_out;
+  logic [31:0] mul_reg_in;
+  logic mul_reg_write_en;
+  logic mul_reg_clk;
+  logic [31:0] mul_reg_out;
+  logic mul_reg_done;
+  logic [31:0] acc_in;
+  logic acc_write_en;
+  logic acc_clk;
+  logic [31:0] acc_out;
+  logic acc_done;
+  logic [31:0] fsm0_in;
+  logic fsm0_write_en;
+  logic fsm0_clk;
+  logic [31:0] fsm0_out;
+  logic fsm0_done;
   
   // Subcomponent Instances
   std_mult_pipe #(32) mul (
@@ -201,213 +201,267 @@ module mac_pe (
   end
   
   // Input / output connections
-  assign down = top;
-  assign right = left;
-  assign out = acc_out;
-  assign done = (fsm0_out == 32'd2) ? 1'd1 : '0;
-  assign mul_left = (fsm0_out == 32'd0 & !mul_reg_done & go) ? top : '0;
-  assign mul_right = (fsm0_out == 32'd0 & !mul_reg_done & go) ? left : '0;
-  assign mul_go = (!mul_done & fsm0_out == 32'd0 & !mul_reg_done & go) ? 1'd1 : '0;
-  assign add_left = (fsm0_out == 32'd1 & !acc_done & go) ? acc_out : '0;
-  assign add_right = (fsm0_out == 32'd1 & !acc_done & go) ? mul_reg_out : '0;
-  assign mul_reg_in = (mul_done & fsm0_out == 32'd0 & !mul_reg_done & go) ? mul_out : '0;
-  assign mul_reg_write_en = (mul_done & fsm0_out == 32'd0 & !mul_reg_done & go) ? 1'd1 : '0;
-  assign acc_in = (fsm0_out == 32'd1 & !acc_done & go) ? add_out : '0;
-  assign acc_write_en = (fsm0_out == 32'd1 & !acc_done & go) ? 1'd1 : '0;
-  assign fsm0_in = (fsm0_out == 32'd1 & acc_done & go) ? 32'd2 : (fsm0_out == 32'd0 & mul_reg_done & go) ? 32'd1 : (fsm0_out == 32'd2) ? 32'd0 : '0;
-  assign fsm0_write_en = (fsm0_out == 32'd0 & mul_reg_done & go | fsm0_out == 32'd1 & acc_done & go | fsm0_out == 32'd2) ? 1'd1 : '0;
+  always_comb begin
+    top
+    left
+    acc_out
+    if ((fsm0_out == 32'd2))
+      done = 1'd1;
+    else 
+      done = '0;
+    
+    if ((fsm0_out == 32'd0 & !mul_reg_done & go))
+      mul_left = top;
+    else 
+      mul_left = '0;
+    
+    if ((fsm0_out == 32'd0 & !mul_reg_done & go))
+      mul_right = left;
+    else 
+      mul_right = '0;
+    
+    if ((!mul_done & fsm0_out == 32'd0 & !mul_reg_done & go))
+      mul_go = 1'd1;
+    else 
+      mul_go = '0;
+    
+    if ((fsm0_out == 32'd1 & !acc_done & go))
+      add_left = acc_out;
+    else 
+      add_left = '0;
+    
+    if ((fsm0_out == 32'd1 & !acc_done & go))
+      add_right = mul_reg_out;
+    else 
+      add_right = '0;
+    
+    if ((mul_done & fsm0_out == 32'd0 & !mul_reg_done & go))
+      mul_reg_in = mul_out;
+    else 
+      mul_reg_in = '0;
+    
+    if ((mul_done & fsm0_out == 32'd0 & !mul_reg_done & go))
+      mul_reg_write_en = 1'd1;
+    else 
+      mul_reg_write_en = '0;
+    
+    if ((fsm0_out == 32'd1 & !acc_done & go))
+      acc_in = add_out;
+    else 
+      acc_in = '0;
+    
+    if ((fsm0_out == 32'd1 & !acc_done & go))
+      acc_write_en = 1'd1;
+    else 
+      acc_write_en = '0;
+    
+    if ((fsm0_out == 32'd1 & acc_done & go))
+      fsm0_in = 32'd2;
+    else if ((fsm0_out == 32'd0 & mul_reg_done & go))
+      fsm0_in = 32'd1;
+    else if ((fsm0_out == 32'd2))
+      fsm0_in = 32'd0;
+    else 
+      fsm0_in = '0;
+    
+    if ((fsm0_out == 32'd0 & mul_reg_done & go | fsm0_out == 32'd1 & acc_done & go | fsm0_out == 32'd2))
+      fsm0_write_en = 1'd1;
+    else 
+      fsm0_write_en = '0;
+    
+  end
 endmodule // end mac_pe
 // Component Signature
 module main (
-      input wire go,
-      input wire clk,
-      output wire done
+      input logic go,
+      input logic clk,
+      output logic done
   );
   
   // Structure wire declarations
-  wire [31:0] left_00_read_in;
-  wire left_00_read_write_en;
-  wire left_00_read_clk;
-  wire [31:0] left_00_read_out;
-  wire left_00_read_done;
-  wire [31:0] top_00_read_in;
-  wire top_00_read_write_en;
-  wire top_00_read_clk;
-  wire [31:0] top_00_read_out;
-  wire top_00_read_done;
-  wire [31:0] pe_00_top;
-  wire [31:0] pe_00_left;
-  wire pe_00_go;
-  wire pe_00_clk;
-  wire [31:0] pe_00_down;
-  wire [31:0] pe_00_right;
-  wire [31:0] pe_00_out;
-  wire pe_00_done;
-  wire out_mem_addr0;
-  wire out_mem_addr1;
-  wire [31:0] out_mem_write_data;
-  wire out_mem_write_en;
-  wire out_mem_clk;
-  wire [31:0] out_mem_read_data;
-  wire out_mem_done;
-  wire [1:0] l0_addr0;
-  wire [31:0] l0_write_data;
-  wire l0_write_en;
-  wire l0_clk;
-  wire [31:0] l0_read_data;
-  wire l0_done;
-  wire [1:0] l0_add_left;
-  wire [1:0] l0_add_right;
-  wire [1:0] l0_add_out;
-  wire [1:0] l0_idx_in;
-  wire l0_idx_write_en;
-  wire l0_idx_clk;
-  wire [1:0] l0_idx_out;
-  wire l0_idx_done;
-  wire [1:0] t0_addr0;
-  wire [31:0] t0_write_data;
-  wire t0_write_en;
-  wire t0_clk;
-  wire [31:0] t0_read_data;
-  wire t0_done;
-  wire [1:0] t0_add_left;
-  wire [1:0] t0_add_right;
-  wire [1:0] t0_add_out;
-  wire [1:0] t0_idx_in;
-  wire t0_idx_write_en;
-  wire t0_idx_clk;
-  wire [1:0] t0_idx_out;
-  wire t0_idx_done;
-  wire par_reset0_in;
-  wire par_reset0_write_en;
-  wire par_reset0_clk;
-  wire par_reset0_out;
-  wire par_reset0_done;
-  wire par_done_reg0_in;
-  wire par_done_reg0_write_en;
-  wire par_done_reg0_clk;
-  wire par_done_reg0_out;
-  wire par_done_reg0_done;
-  wire par_done_reg1_in;
-  wire par_done_reg1_write_en;
-  wire par_done_reg1_clk;
-  wire par_done_reg1_out;
-  wire par_done_reg1_done;
-  wire par_reset1_in;
-  wire par_reset1_write_en;
-  wire par_reset1_clk;
-  wire par_reset1_out;
-  wire par_reset1_done;
-  wire par_done_reg2_in;
-  wire par_done_reg2_write_en;
-  wire par_done_reg2_clk;
-  wire par_done_reg2_out;
-  wire par_done_reg2_done;
-  wire par_done_reg3_in;
-  wire par_done_reg3_write_en;
-  wire par_done_reg3_clk;
-  wire par_done_reg3_out;
-  wire par_done_reg3_done;
-  wire par_reset2_in;
-  wire par_reset2_write_en;
-  wire par_reset2_clk;
-  wire par_reset2_out;
-  wire par_reset2_done;
-  wire par_done_reg4_in;
-  wire par_done_reg4_write_en;
-  wire par_done_reg4_clk;
-  wire par_done_reg4_out;
-  wire par_done_reg4_done;
-  wire par_done_reg5_in;
-  wire par_done_reg5_write_en;
-  wire par_done_reg5_clk;
-  wire par_done_reg5_out;
-  wire par_done_reg5_done;
-  wire par_reset3_in;
-  wire par_reset3_write_en;
-  wire par_reset3_clk;
-  wire par_reset3_out;
-  wire par_reset3_done;
-  wire par_done_reg6_in;
-  wire par_done_reg6_write_en;
-  wire par_done_reg6_clk;
-  wire par_done_reg6_out;
-  wire par_done_reg6_done;
-  wire par_done_reg7_in;
-  wire par_done_reg7_write_en;
-  wire par_done_reg7_clk;
-  wire par_done_reg7_out;
-  wire par_done_reg7_done;
-  wire par_done_reg8_in;
-  wire par_done_reg8_write_en;
-  wire par_done_reg8_clk;
-  wire par_done_reg8_out;
-  wire par_done_reg8_done;
-  wire par_reset4_in;
-  wire par_reset4_write_en;
-  wire par_reset4_clk;
-  wire par_reset4_out;
-  wire par_reset4_done;
-  wire par_done_reg9_in;
-  wire par_done_reg9_write_en;
-  wire par_done_reg9_clk;
-  wire par_done_reg9_out;
-  wire par_done_reg9_done;
-  wire par_done_reg10_in;
-  wire par_done_reg10_write_en;
-  wire par_done_reg10_clk;
-  wire par_done_reg10_out;
-  wire par_done_reg10_done;
-  wire par_reset5_in;
-  wire par_reset5_write_en;
-  wire par_reset5_clk;
-  wire par_reset5_out;
-  wire par_reset5_done;
-  wire par_done_reg11_in;
-  wire par_done_reg11_write_en;
-  wire par_done_reg11_clk;
-  wire par_done_reg11_out;
-  wire par_done_reg11_done;
-  wire par_done_reg12_in;
-  wire par_done_reg12_write_en;
-  wire par_done_reg12_clk;
-  wire par_done_reg12_out;
-  wire par_done_reg12_done;
-  wire par_done_reg13_in;
-  wire par_done_reg13_write_en;
-  wire par_done_reg13_clk;
-  wire par_done_reg13_out;
-  wire par_done_reg13_done;
-  wire par_reset6_in;
-  wire par_reset6_write_en;
-  wire par_reset6_clk;
-  wire par_reset6_out;
-  wire par_reset6_done;
-  wire par_done_reg14_in;
-  wire par_done_reg14_write_en;
-  wire par_done_reg14_clk;
-  wire par_done_reg14_out;
-  wire par_done_reg14_done;
-  wire par_done_reg15_in;
-  wire par_done_reg15_write_en;
-  wire par_done_reg15_clk;
-  wire par_done_reg15_out;
-  wire par_done_reg15_done;
-  wire par_reset7_in;
-  wire par_reset7_write_en;
-  wire par_reset7_clk;
-  wire par_reset7_out;
-  wire par_reset7_done;
-  wire par_done_reg16_in;
-  wire par_done_reg16_write_en;
-  wire par_done_reg16_clk;
-  wire par_done_reg16_out;
-  wire par_done_reg16_done;
-  wire [31:0] fsm0_in;
-  wire fsm0_write_en;
-  wire fsm0_clk;
-  wire [31:0] fsm0_out;
-  wire fsm0_done;
+  logic [31:0] left_00_read_in;
+  logic left_00_read_write_en;
+  logic left_00_read_clk;
+  logic [31:0] left_00_read_out;
+  logic left_00_read_done;
+  logic [31:0] top_00_read_in;
+  logic top_00_read_write_en;
+  logic top_00_read_clk;
+  logic [31:0] top_00_read_out;
+  logic top_00_read_done;
+  logic [31:0] pe_00_top;
+  logic [31:0] pe_00_left;
+  logic pe_00_go;
+  logic pe_00_clk;
+  logic [31:0] pe_00_down;
+  logic [31:0] pe_00_right;
+  logic [31:0] pe_00_out;
+  logic pe_00_done;
+  logic out_mem_addr0;
+  logic out_mem_addr1;
+  logic [31:0] out_mem_write_data;
+  logic out_mem_write_en;
+  logic out_mem_clk;
+  logic [31:0] out_mem_read_data;
+  logic out_mem_done;
+  logic [1:0] l0_addr0;
+  logic [31:0] l0_write_data;
+  logic l0_write_en;
+  logic l0_clk;
+  logic [31:0] l0_read_data;
+  logic l0_done;
+  logic [1:0] l0_add_left;
+  logic [1:0] l0_add_right;
+  logic [1:0] l0_add_out;
+  logic [1:0] l0_idx_in;
+  logic l0_idx_write_en;
+  logic l0_idx_clk;
+  logic [1:0] l0_idx_out;
+  logic l0_idx_done;
+  logic [1:0] t0_addr0;
+  logic [31:0] t0_write_data;
+  logic t0_write_en;
+  logic t0_clk;
+  logic [31:0] t0_read_data;
+  logic t0_done;
+  logic [1:0] t0_add_left;
+  logic [1:0] t0_add_right;
+  logic [1:0] t0_add_out;
+  logic [1:0] t0_idx_in;
+  logic t0_idx_write_en;
+  logic t0_idx_clk;
+  logic [1:0] t0_idx_out;
+  logic t0_idx_done;
+  logic par_reset0_in;
+  logic par_reset0_write_en;
+  logic par_reset0_clk;
+  logic par_reset0_out;
+  logic par_reset0_done;
+  logic par_done_reg0_in;
+  logic par_done_reg0_write_en;
+  logic par_done_reg0_clk;
+  logic par_done_reg0_out;
+  logic par_done_reg0_done;
+  logic par_done_reg1_in;
+  logic par_done_reg1_write_en;
+  logic par_done_reg1_clk;
+  logic par_done_reg1_out;
+  logic par_done_reg1_done;
+  logic par_reset1_in;
+  logic par_reset1_write_en;
+  logic par_reset1_clk;
+  logic par_reset1_out;
+  logic par_reset1_done;
+  logic par_done_reg2_in;
+  logic par_done_reg2_write_en;
+  logic par_done_reg2_clk;
+  logic par_done_reg2_out;
+  logic par_done_reg2_done;
+  logic par_done_reg3_in;
+  logic par_done_reg3_write_en;
+  logic par_done_reg3_clk;
+  logic par_done_reg3_out;
+  logic par_done_reg3_done;
+  logic par_reset2_in;
+  logic par_reset2_write_en;
+  logic par_reset2_clk;
+  logic par_reset2_out;
+  logic par_reset2_done;
+  logic par_done_reg4_in;
+  logic par_done_reg4_write_en;
+  logic par_done_reg4_clk;
+  logic par_done_reg4_out;
+  logic par_done_reg4_done;
+  logic par_done_reg5_in;
+  logic par_done_reg5_write_en;
+  logic par_done_reg5_clk;
+  logic par_done_reg5_out;
+  logic par_done_reg5_done;
+  logic par_reset3_in;
+  logic par_reset3_write_en;
+  logic par_reset3_clk;
+  logic par_reset3_out;
+  logic par_reset3_done;
+  logic par_done_reg6_in;
+  logic par_done_reg6_write_en;
+  logic par_done_reg6_clk;
+  logic par_done_reg6_out;
+  logic par_done_reg6_done;
+  logic par_done_reg7_in;
+  logic par_done_reg7_write_en;
+  logic par_done_reg7_clk;
+  logic par_done_reg7_out;
+  logic par_done_reg7_done;
+  logic par_done_reg8_in;
+  logic par_done_reg8_write_en;
+  logic par_done_reg8_clk;
+  logic par_done_reg8_out;
+  logic par_done_reg8_done;
+  logic par_reset4_in;
+  logic par_reset4_write_en;
+  logic par_reset4_clk;
+  logic par_reset4_out;
+  logic par_reset4_done;
+  logic par_done_reg9_in;
+  logic par_done_reg9_write_en;
+  logic par_done_reg9_clk;
+  logic par_done_reg9_out;
+  logic par_done_reg9_done;
+  logic par_done_reg10_in;
+  logic par_done_reg10_write_en;
+  logic par_done_reg10_clk;
+  logic par_done_reg10_out;
+  logic par_done_reg10_done;
+  logic par_reset5_in;
+  logic par_reset5_write_en;
+  logic par_reset5_clk;
+  logic par_reset5_out;
+  logic par_reset5_done;
+  logic par_done_reg11_in;
+  logic par_done_reg11_write_en;
+  logic par_done_reg11_clk;
+  logic par_done_reg11_out;
+  logic par_done_reg11_done;
+  logic par_done_reg12_in;
+  logic par_done_reg12_write_en;
+  logic par_done_reg12_clk;
+  logic par_done_reg12_out;
+  logic par_done_reg12_done;
+  logic par_done_reg13_in;
+  logic par_done_reg13_write_en;
+  logic par_done_reg13_clk;
+  logic par_done_reg13_out;
+  logic par_done_reg13_done;
+  logic par_reset6_in;
+  logic par_reset6_write_en;
+  logic par_reset6_clk;
+  logic par_reset6_out;
+  logic par_reset6_done;
+  logic par_done_reg14_in;
+  logic par_done_reg14_write_en;
+  logic par_done_reg14_clk;
+  logic par_done_reg14_out;
+  logic par_done_reg14_done;
+  logic par_done_reg15_in;
+  logic par_done_reg15_write_en;
+  logic par_done_reg15_clk;
+  logic par_done_reg15_out;
+  logic par_done_reg15_done;
+  logic par_reset7_in;
+  logic par_reset7_write_en;
+  logic par_reset7_clk;
+  logic par_reset7_out;
+  logic par_reset7_done;
+  logic par_done_reg16_in;
+  logic par_done_reg16_write_en;
+  logic par_done_reg16_clk;
+  logic par_done_reg16_out;
+  logic par_done_reg16_done;
+  logic [31:0] fsm0_in;
+  logic fsm0_write_en;
+  logic fsm0_clk;
+  logic [31:0] fsm0_out;
+  logic fsm0_done;
   
   // Subcomponent Instances
   std_reg #(32) left_00_read (
@@ -719,78 +773,448 @@ module main (
   end
   
   // Input / output connections
-  assign done = (fsm0_out == 32'd9) ? 1'd1 : '0;
-  assign left_00_read_in = (!(par_done_reg5_out | left_00_read_done) & fsm0_out == 32'd2 & !par_reset2_out & go | !(par_done_reg10_out | left_00_read_done) & fsm0_out == 32'd4 & !par_reset4_out & go | !(par_done_reg15_out | left_00_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go) ? l0_read_data : '0;
-  assign left_00_read_write_en = (!(par_done_reg5_out | left_00_read_done) & fsm0_out == 32'd2 & !par_reset2_out & go | !(par_done_reg10_out | left_00_read_done) & fsm0_out == 32'd4 & !par_reset4_out & go | !(par_done_reg15_out | left_00_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go) ? 1'd1 : '0;
-  assign top_00_read_in = (!(par_done_reg4_out | top_00_read_done) & fsm0_out == 32'd2 & !par_reset2_out & go | !(par_done_reg9_out | top_00_read_done) & fsm0_out == 32'd4 & !par_reset4_out & go | !(par_done_reg14_out | top_00_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go) ? t0_read_data : '0;
-  assign top_00_read_write_en = (!(par_done_reg4_out | top_00_read_done) & fsm0_out == 32'd2 & !par_reset2_out & go | !(par_done_reg9_out | top_00_read_done) & fsm0_out == 32'd4 & !par_reset4_out & go | !(par_done_reg14_out | top_00_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go) ? 1'd1 : '0;
-  assign pe_00_top = (!(par_done_reg8_out | pe_00_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg13_out | pe_00_done) & fsm0_out == 32'd5 & !par_reset5_out & go | !(par_done_reg16_out | pe_00_done) & fsm0_out == 32'd7 & !par_reset7_out & go) ? top_00_read_out : '0;
-  assign pe_00_left = (!(par_done_reg8_out | pe_00_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg13_out | pe_00_done) & fsm0_out == 32'd5 & !par_reset5_out & go | !(par_done_reg16_out | pe_00_done) & fsm0_out == 32'd7 & !par_reset7_out & go) ? left_00_read_out : '0;
-  assign pe_00_go = (!pe_00_done & (!(par_done_reg8_out | pe_00_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg13_out | pe_00_done) & fsm0_out == 32'd5 & !par_reset5_out & go | !(par_done_reg16_out | pe_00_done) & fsm0_out == 32'd7 & !par_reset7_out & go)) ? 1'd1 : '0;
-  assign out_mem_addr0 = (fsm0_out == 32'd8 & !out_mem_done & go) ? 1'd0 : '0;
-  assign out_mem_addr1 = (fsm0_out == 32'd8 & !out_mem_done & go) ? 1'd0 : '0;
-  assign out_mem_write_data = (fsm0_out == 32'd8 & !out_mem_done & go) ? pe_00_out : '0;
-  assign out_mem_write_en = (fsm0_out == 32'd8 & !out_mem_done & go) ? 1'd1 : '0;
-  assign l0_addr0 = (!(par_done_reg5_out | left_00_read_done) & fsm0_out == 32'd2 & !par_reset2_out & go | !(par_done_reg10_out | left_00_read_done) & fsm0_out == 32'd4 & !par_reset4_out & go | !(par_done_reg15_out | left_00_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go) ? l0_idx_out : '0;
-  assign l0_add_left = (!(par_done_reg3_out | l0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg7_out | l0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg12_out | l0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go) ? 2'd1 : '0;
-  assign l0_add_right = (!(par_done_reg3_out | l0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg7_out | l0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg12_out | l0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go) ? l0_idx_out : '0;
-  assign l0_idx_in = (!(par_done_reg3_out | l0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg7_out | l0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg12_out | l0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go) ? l0_add_out : (!(par_done_reg1_out | l0_idx_done) & fsm0_out == 32'd0 & !par_reset0_out & go) ? 2'd3 : '0;
-  assign l0_idx_write_en = (!(par_done_reg1_out | l0_idx_done) & fsm0_out == 32'd0 & !par_reset0_out & go | !(par_done_reg3_out | l0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg7_out | l0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg12_out | l0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go) ? 1'd1 : '0;
-  assign t0_addr0 = (!(par_done_reg4_out | top_00_read_done) & fsm0_out == 32'd2 & !par_reset2_out & go | !(par_done_reg9_out | top_00_read_done) & fsm0_out == 32'd4 & !par_reset4_out & go | !(par_done_reg14_out | top_00_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go) ? t0_idx_out : '0;
-  assign t0_add_left = (!(par_done_reg2_out | t0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg6_out | t0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg11_out | t0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go) ? 2'd1 : '0;
-  assign t0_add_right = (!(par_done_reg2_out | t0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg6_out | t0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg11_out | t0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go) ? t0_idx_out : '0;
-  assign t0_idx_in = (!(par_done_reg2_out | t0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg6_out | t0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg11_out | t0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go) ? t0_add_out : (!(par_done_reg0_out | t0_idx_done) & fsm0_out == 32'd0 & !par_reset0_out & go) ? 2'd3 : '0;
-  assign t0_idx_write_en = (!(par_done_reg0_out | t0_idx_done) & fsm0_out == 32'd0 & !par_reset0_out & go | !(par_done_reg2_out | t0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg6_out | t0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg11_out | t0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go) ? 1'd1 : '0;
-  assign par_reset0_in = par_reset0_out ? 1'd0 : (par_done_reg0_out & par_done_reg1_out & fsm0_out == 32'd0 & !par_reset0_out & go) ? 1'd1 : '0;
-  assign par_reset0_write_en = (par_done_reg0_out & par_done_reg1_out & fsm0_out == 32'd0 & !par_reset0_out & go | par_reset0_out) ? 1'd1 : '0;
-  assign par_done_reg0_in = par_reset0_out ? 1'd0 : (t0_idx_done & fsm0_out == 32'd0 & !par_reset0_out & go) ? 1'd1 : '0;
-  assign par_done_reg0_write_en = (t0_idx_done & fsm0_out == 32'd0 & !par_reset0_out & go | par_reset0_out) ? 1'd1 : '0;
-  assign par_done_reg1_in = par_reset0_out ? 1'd0 : (l0_idx_done & fsm0_out == 32'd0 & !par_reset0_out & go) ? 1'd1 : '0;
-  assign par_done_reg1_write_en = (l0_idx_done & fsm0_out == 32'd0 & !par_reset0_out & go | par_reset0_out) ? 1'd1 : '0;
-  assign par_reset1_in = par_reset1_out ? 1'd0 : (par_done_reg2_out & par_done_reg3_out & fsm0_out == 32'd1 & !par_reset1_out & go) ? 1'd1 : '0;
-  assign par_reset1_write_en = (par_done_reg2_out & par_done_reg3_out & fsm0_out == 32'd1 & !par_reset1_out & go | par_reset1_out) ? 1'd1 : '0;
-  assign par_done_reg2_in = par_reset1_out ? 1'd0 : (t0_idx_done & fsm0_out == 32'd1 & !par_reset1_out & go) ? 1'd1 : '0;
-  assign par_done_reg2_write_en = (t0_idx_done & fsm0_out == 32'd1 & !par_reset1_out & go | par_reset1_out) ? 1'd1 : '0;
-  assign par_done_reg3_in = par_reset1_out ? 1'd0 : (l0_idx_done & fsm0_out == 32'd1 & !par_reset1_out & go) ? 1'd1 : '0;
-  assign par_done_reg3_write_en = (l0_idx_done & fsm0_out == 32'd1 & !par_reset1_out & go | par_reset1_out) ? 1'd1 : '0;
-  assign par_reset2_in = par_reset2_out ? 1'd0 : (par_done_reg4_out & par_done_reg5_out & fsm0_out == 32'd2 & !par_reset2_out & go) ? 1'd1 : '0;
-  assign par_reset2_write_en = (par_done_reg4_out & par_done_reg5_out & fsm0_out == 32'd2 & !par_reset2_out & go | par_reset2_out) ? 1'd1 : '0;
-  assign par_done_reg4_in = par_reset2_out ? 1'd0 : (top_00_read_done & fsm0_out == 32'd2 & !par_reset2_out & go) ? 1'd1 : '0;
-  assign par_done_reg4_write_en = (top_00_read_done & fsm0_out == 32'd2 & !par_reset2_out & go | par_reset2_out) ? 1'd1 : '0;
-  assign par_done_reg5_in = par_reset2_out ? 1'd0 : (left_00_read_done & fsm0_out == 32'd2 & !par_reset2_out & go) ? 1'd1 : '0;
-  assign par_done_reg5_write_en = (left_00_read_done & fsm0_out == 32'd2 & !par_reset2_out & go | par_reset2_out) ? 1'd1 : '0;
-  assign par_reset3_in = par_reset3_out ? 1'd0 : (par_done_reg6_out & par_done_reg7_out & par_done_reg8_out & fsm0_out == 32'd3 & !par_reset3_out & go) ? 1'd1 : '0;
-  assign par_reset3_write_en = (par_done_reg6_out & par_done_reg7_out & par_done_reg8_out & fsm0_out == 32'd3 & !par_reset3_out & go | par_reset3_out) ? 1'd1 : '0;
-  assign par_done_reg6_in = par_reset3_out ? 1'd0 : (t0_idx_done & fsm0_out == 32'd3 & !par_reset3_out & go) ? 1'd1 : '0;
-  assign par_done_reg6_write_en = (t0_idx_done & fsm0_out == 32'd3 & !par_reset3_out & go | par_reset3_out) ? 1'd1 : '0;
-  assign par_done_reg7_in = par_reset3_out ? 1'd0 : (l0_idx_done & fsm0_out == 32'd3 & !par_reset3_out & go) ? 1'd1 : '0;
-  assign par_done_reg7_write_en = (l0_idx_done & fsm0_out == 32'd3 & !par_reset3_out & go | par_reset3_out) ? 1'd1 : '0;
-  assign par_done_reg8_in = par_reset3_out ? 1'd0 : (pe_00_done & fsm0_out == 32'd3 & !par_reset3_out & go) ? 1'd1 : '0;
-  assign par_done_reg8_write_en = (pe_00_done & fsm0_out == 32'd3 & !par_reset3_out & go | par_reset3_out) ? 1'd1 : '0;
-  assign par_reset4_in = par_reset4_out ? 1'd0 : (par_done_reg9_out & par_done_reg10_out & fsm0_out == 32'd4 & !par_reset4_out & go) ? 1'd1 : '0;
-  assign par_reset4_write_en = (par_done_reg9_out & par_done_reg10_out & fsm0_out == 32'd4 & !par_reset4_out & go | par_reset4_out) ? 1'd1 : '0;
-  assign par_done_reg9_in = par_reset4_out ? 1'd0 : (top_00_read_done & fsm0_out == 32'd4 & !par_reset4_out & go) ? 1'd1 : '0;
-  assign par_done_reg9_write_en = (top_00_read_done & fsm0_out == 32'd4 & !par_reset4_out & go | par_reset4_out) ? 1'd1 : '0;
-  assign par_done_reg10_in = par_reset4_out ? 1'd0 : (left_00_read_done & fsm0_out == 32'd4 & !par_reset4_out & go) ? 1'd1 : '0;
-  assign par_done_reg10_write_en = (left_00_read_done & fsm0_out == 32'd4 & !par_reset4_out & go | par_reset4_out) ? 1'd1 : '0;
-  assign par_reset5_in = par_reset5_out ? 1'd0 : (par_done_reg11_out & par_done_reg12_out & par_done_reg13_out & fsm0_out == 32'd5 & !par_reset5_out & go) ? 1'd1 : '0;
-  assign par_reset5_write_en = (par_done_reg11_out & par_done_reg12_out & par_done_reg13_out & fsm0_out == 32'd5 & !par_reset5_out & go | par_reset5_out) ? 1'd1 : '0;
-  assign par_done_reg11_in = par_reset5_out ? 1'd0 : (t0_idx_done & fsm0_out == 32'd5 & !par_reset5_out & go) ? 1'd1 : '0;
-  assign par_done_reg11_write_en = (t0_idx_done & fsm0_out == 32'd5 & !par_reset5_out & go | par_reset5_out) ? 1'd1 : '0;
-  assign par_done_reg12_in = par_reset5_out ? 1'd0 : (l0_idx_done & fsm0_out == 32'd5 & !par_reset5_out & go) ? 1'd1 : '0;
-  assign par_done_reg12_write_en = (l0_idx_done & fsm0_out == 32'd5 & !par_reset5_out & go | par_reset5_out) ? 1'd1 : '0;
-  assign par_done_reg13_in = par_reset5_out ? 1'd0 : (pe_00_done & fsm0_out == 32'd5 & !par_reset5_out & go) ? 1'd1 : '0;
-  assign par_done_reg13_write_en = (pe_00_done & fsm0_out == 32'd5 & !par_reset5_out & go | par_reset5_out) ? 1'd1 : '0;
-  assign par_reset6_in = par_reset6_out ? 1'd0 : (par_done_reg14_out & par_done_reg15_out & fsm0_out == 32'd6 & !par_reset6_out & go) ? 1'd1 : '0;
-  assign par_reset6_write_en = (par_done_reg14_out & par_done_reg15_out & fsm0_out == 32'd6 & !par_reset6_out & go | par_reset6_out) ? 1'd1 : '0;
-  assign par_done_reg14_in = par_reset6_out ? 1'd0 : (top_00_read_done & fsm0_out == 32'd6 & !par_reset6_out & go) ? 1'd1 : '0;
-  assign par_done_reg14_write_en = (top_00_read_done & fsm0_out == 32'd6 & !par_reset6_out & go | par_reset6_out) ? 1'd1 : '0;
-  assign par_done_reg15_in = par_reset6_out ? 1'd0 : (left_00_read_done & fsm0_out == 32'd6 & !par_reset6_out & go) ? 1'd1 : '0;
-  assign par_done_reg15_write_en = (left_00_read_done & fsm0_out == 32'd6 & !par_reset6_out & go | par_reset6_out) ? 1'd1 : '0;
-  assign par_reset7_in = par_reset7_out ? 1'd0 : (par_done_reg16_out & fsm0_out == 32'd7 & !par_reset7_out & go) ? 1'd1 : '0;
-  assign par_reset7_write_en = (par_done_reg16_out & fsm0_out == 32'd7 & !par_reset7_out & go | par_reset7_out) ? 1'd1 : '0;
-  assign par_done_reg16_in = par_reset7_out ? 1'd0 : (pe_00_done & fsm0_out == 32'd7 & !par_reset7_out & go) ? 1'd1 : '0;
-  assign par_done_reg16_write_en = (pe_00_done & fsm0_out == 32'd7 & !par_reset7_out & go | par_reset7_out) ? 1'd1 : '0;
-  assign fsm0_in = (fsm0_out == 32'd4 & par_reset4_out & go) ? 32'd5 : (fsm0_out == 32'd3 & par_reset3_out & go) ? 32'd4 : (fsm0_out == 32'd2 & par_reset2_out & go) ? 32'd3 : (fsm0_out == 32'd1 & par_reset1_out & go) ? 32'd2 : (fsm0_out == 32'd0 & par_reset0_out & go) ? 32'd1 : (fsm0_out == 32'd9) ? 32'd0 : (fsm0_out == 32'd8 & out_mem_done & go) ? 32'd9 : (fsm0_out == 32'd7 & par_reset7_out & go) ? 32'd8 : (fsm0_out == 32'd6 & par_reset6_out & go) ? 32'd7 : (fsm0_out == 32'd5 & par_reset5_out & go) ? 32'd6 : '0;
-  assign fsm0_write_en = (fsm0_out == 32'd0 & par_reset0_out & go | fsm0_out == 32'd1 & par_reset1_out & go | fsm0_out == 32'd2 & par_reset2_out & go | fsm0_out == 32'd3 & par_reset3_out & go | fsm0_out == 32'd4 & par_reset4_out & go | fsm0_out == 32'd5 & par_reset5_out & go | fsm0_out == 32'd6 & par_reset6_out & go | fsm0_out == 32'd7 & par_reset7_out & go | fsm0_out == 32'd8 & out_mem_done & go | fsm0_out == 32'd9) ? 1'd1 : '0;
+  always_comb begin
+    if ((fsm0_out == 32'd9))
+      done = 1'd1;
+    else 
+      done = '0;
+    
+    if ((!(par_done_reg5_out | left_00_read_done) & fsm0_out == 32'd2 & !par_reset2_out & go | !(par_done_reg10_out | left_00_read_done) & fsm0_out == 32'd4 & !par_reset4_out & go | !(par_done_reg15_out | left_00_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go))
+      left_00_read_in = l0_read_data;
+    else 
+      left_00_read_in = '0;
+    
+    if ((!(par_done_reg5_out | left_00_read_done) & fsm0_out == 32'd2 & !par_reset2_out & go | !(par_done_reg10_out | left_00_read_done) & fsm0_out == 32'd4 & !par_reset4_out & go | !(par_done_reg15_out | left_00_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go))
+      left_00_read_write_en = 1'd1;
+    else 
+      left_00_read_write_en = '0;
+    
+    if ((!(par_done_reg4_out | top_00_read_done) & fsm0_out == 32'd2 & !par_reset2_out & go | !(par_done_reg9_out | top_00_read_done) & fsm0_out == 32'd4 & !par_reset4_out & go | !(par_done_reg14_out | top_00_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go))
+      top_00_read_in = t0_read_data;
+    else 
+      top_00_read_in = '0;
+    
+    if ((!(par_done_reg4_out | top_00_read_done) & fsm0_out == 32'd2 & !par_reset2_out & go | !(par_done_reg9_out | top_00_read_done) & fsm0_out == 32'd4 & !par_reset4_out & go | !(par_done_reg14_out | top_00_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go))
+      top_00_read_write_en = 1'd1;
+    else 
+      top_00_read_write_en = '0;
+    
+    if ((!(par_done_reg8_out | pe_00_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg13_out | pe_00_done) & fsm0_out == 32'd5 & !par_reset5_out & go | !(par_done_reg16_out | pe_00_done) & fsm0_out == 32'd7 & !par_reset7_out & go))
+      pe_00_top = top_00_read_out;
+    else 
+      pe_00_top = '0;
+    
+    if ((!(par_done_reg8_out | pe_00_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg13_out | pe_00_done) & fsm0_out == 32'd5 & !par_reset5_out & go | !(par_done_reg16_out | pe_00_done) & fsm0_out == 32'd7 & !par_reset7_out & go))
+      pe_00_left = left_00_read_out;
+    else 
+      pe_00_left = '0;
+    
+    if ((!pe_00_done & (!(par_done_reg8_out | pe_00_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg13_out | pe_00_done) & fsm0_out == 32'd5 & !par_reset5_out & go | !(par_done_reg16_out | pe_00_done) & fsm0_out == 32'd7 & !par_reset7_out & go)))
+      pe_00_go = 1'd1;
+    else 
+      pe_00_go = '0;
+    
+    if ((fsm0_out == 32'd8 & !out_mem_done & go))
+      out_mem_addr0 = 1'd0;
+    else 
+      out_mem_addr0 = '0;
+    
+    if ((fsm0_out == 32'd8 & !out_mem_done & go))
+      out_mem_addr1 = 1'd0;
+    else 
+      out_mem_addr1 = '0;
+    
+    if ((fsm0_out == 32'd8 & !out_mem_done & go))
+      out_mem_write_data = pe_00_out;
+    else 
+      out_mem_write_data = '0;
+    
+    if ((fsm0_out == 32'd8 & !out_mem_done & go))
+      out_mem_write_en = 1'd1;
+    else 
+      out_mem_write_en = '0;
+    
+    if ((!(par_done_reg5_out | left_00_read_done) & fsm0_out == 32'd2 & !par_reset2_out & go | !(par_done_reg10_out | left_00_read_done) & fsm0_out == 32'd4 & !par_reset4_out & go | !(par_done_reg15_out | left_00_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go))
+      l0_addr0 = l0_idx_out;
+    else 
+      l0_addr0 = '0;
+    
+    if ((!(par_done_reg3_out | l0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg7_out | l0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg12_out | l0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go))
+      l0_add_left = 2'd1;
+    else 
+      l0_add_left = '0;
+    
+    if ((!(par_done_reg3_out | l0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg7_out | l0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg12_out | l0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go))
+      l0_add_right = l0_idx_out;
+    else 
+      l0_add_right = '0;
+    
+    if ((!(par_done_reg3_out | l0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg7_out | l0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg12_out | l0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go))
+      l0_idx_in = l0_add_out;
+    else if ((!(par_done_reg1_out | l0_idx_done) & fsm0_out == 32'd0 & !par_reset0_out & go))
+      l0_idx_in = 2'd3;
+    else 
+      l0_idx_in = '0;
+    
+    if ((!(par_done_reg1_out | l0_idx_done) & fsm0_out == 32'd0 & !par_reset0_out & go | !(par_done_reg3_out | l0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg7_out | l0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg12_out | l0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go))
+      l0_idx_write_en = 1'd1;
+    else 
+      l0_idx_write_en = '0;
+    
+    if ((!(par_done_reg4_out | top_00_read_done) & fsm0_out == 32'd2 & !par_reset2_out & go | !(par_done_reg9_out | top_00_read_done) & fsm0_out == 32'd4 & !par_reset4_out & go | !(par_done_reg14_out | top_00_read_done) & fsm0_out == 32'd6 & !par_reset6_out & go))
+      t0_addr0 = t0_idx_out;
+    else 
+      t0_addr0 = '0;
+    
+    if ((!(par_done_reg2_out | t0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg6_out | t0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg11_out | t0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go))
+      t0_add_left = 2'd1;
+    else 
+      t0_add_left = '0;
+    
+    if ((!(par_done_reg2_out | t0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg6_out | t0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg11_out | t0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go))
+      t0_add_right = t0_idx_out;
+    else 
+      t0_add_right = '0;
+    
+    if ((!(par_done_reg2_out | t0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg6_out | t0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg11_out | t0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go))
+      t0_idx_in = t0_add_out;
+    else if ((!(par_done_reg0_out | t0_idx_done) & fsm0_out == 32'd0 & !par_reset0_out & go))
+      t0_idx_in = 2'd3;
+    else 
+      t0_idx_in = '0;
+    
+    if ((!(par_done_reg0_out | t0_idx_done) & fsm0_out == 32'd0 & !par_reset0_out & go | !(par_done_reg2_out | t0_idx_done) & fsm0_out == 32'd1 & !par_reset1_out & go | !(par_done_reg6_out | t0_idx_done) & fsm0_out == 32'd3 & !par_reset3_out & go | !(par_done_reg11_out | t0_idx_done) & fsm0_out == 32'd5 & !par_reset5_out & go))
+      t0_idx_write_en = 1'd1;
+    else 
+      t0_idx_write_en = '0;
+    
+    if (par_reset0_out)
+      par_reset0_in = 1'd0;
+    else if ((par_done_reg0_out & par_done_reg1_out & fsm0_out == 32'd0 & !par_reset0_out & go))
+      par_reset0_in = 1'd1;
+    else 
+      par_reset0_in = '0;
+    
+    if ((par_done_reg0_out & par_done_reg1_out & fsm0_out == 32'd0 & !par_reset0_out & go | par_reset0_out))
+      par_reset0_write_en = 1'd1;
+    else 
+      par_reset0_write_en = '0;
+    
+    if (par_reset0_out)
+      par_done_reg0_in = 1'd0;
+    else if ((t0_idx_done & fsm0_out == 32'd0 & !par_reset0_out & go))
+      par_done_reg0_in = 1'd1;
+    else 
+      par_done_reg0_in = '0;
+    
+    if ((t0_idx_done & fsm0_out == 32'd0 & !par_reset0_out & go | par_reset0_out))
+      par_done_reg0_write_en = 1'd1;
+    else 
+      par_done_reg0_write_en = '0;
+    
+    if (par_reset0_out)
+      par_done_reg1_in = 1'd0;
+    else if ((l0_idx_done & fsm0_out == 32'd0 & !par_reset0_out & go))
+      par_done_reg1_in = 1'd1;
+    else 
+      par_done_reg1_in = '0;
+    
+    if ((l0_idx_done & fsm0_out == 32'd0 & !par_reset0_out & go | par_reset0_out))
+      par_done_reg1_write_en = 1'd1;
+    else 
+      par_done_reg1_write_en = '0;
+    
+    if (par_reset1_out)
+      par_reset1_in = 1'd0;
+    else if ((par_done_reg2_out & par_done_reg3_out & fsm0_out == 32'd1 & !par_reset1_out & go))
+      par_reset1_in = 1'd1;
+    else 
+      par_reset1_in = '0;
+    
+    if ((par_done_reg2_out & par_done_reg3_out & fsm0_out == 32'd1 & !par_reset1_out & go | par_reset1_out))
+      par_reset1_write_en = 1'd1;
+    else 
+      par_reset1_write_en = '0;
+    
+    if (par_reset1_out)
+      par_done_reg2_in = 1'd0;
+    else if ((t0_idx_done & fsm0_out == 32'd1 & !par_reset1_out & go))
+      par_done_reg2_in = 1'd1;
+    else 
+      par_done_reg2_in = '0;
+    
+    if ((t0_idx_done & fsm0_out == 32'd1 & !par_reset1_out & go | par_reset1_out))
+      par_done_reg2_write_en = 1'd1;
+    else 
+      par_done_reg2_write_en = '0;
+    
+    if (par_reset1_out)
+      par_done_reg3_in = 1'd0;
+    else if ((l0_idx_done & fsm0_out == 32'd1 & !par_reset1_out & go))
+      par_done_reg3_in = 1'd1;
+    else 
+      par_done_reg3_in = '0;
+    
+    if ((l0_idx_done & fsm0_out == 32'd1 & !par_reset1_out & go | par_reset1_out))
+      par_done_reg3_write_en = 1'd1;
+    else 
+      par_done_reg3_write_en = '0;
+    
+    if (par_reset2_out)
+      par_reset2_in = 1'd0;
+    else if ((par_done_reg4_out & par_done_reg5_out & fsm0_out == 32'd2 & !par_reset2_out & go))
+      par_reset2_in = 1'd1;
+    else 
+      par_reset2_in = '0;
+    
+    if ((par_done_reg4_out & par_done_reg5_out & fsm0_out == 32'd2 & !par_reset2_out & go | par_reset2_out))
+      par_reset2_write_en = 1'd1;
+    else 
+      par_reset2_write_en = '0;
+    
+    if (par_reset2_out)
+      par_done_reg4_in = 1'd0;
+    else if ((top_00_read_done & fsm0_out == 32'd2 & !par_reset2_out & go))
+      par_done_reg4_in = 1'd1;
+    else 
+      par_done_reg4_in = '0;
+    
+    if ((top_00_read_done & fsm0_out == 32'd2 & !par_reset2_out & go | par_reset2_out))
+      par_done_reg4_write_en = 1'd1;
+    else 
+      par_done_reg4_write_en = '0;
+    
+    if (par_reset2_out)
+      par_done_reg5_in = 1'd0;
+    else if ((left_00_read_done & fsm0_out == 32'd2 & !par_reset2_out & go))
+      par_done_reg5_in = 1'd1;
+    else 
+      par_done_reg5_in = '0;
+    
+    if ((left_00_read_done & fsm0_out == 32'd2 & !par_reset2_out & go | par_reset2_out))
+      par_done_reg5_write_en = 1'd1;
+    else 
+      par_done_reg5_write_en = '0;
+    
+    if (par_reset3_out)
+      par_reset3_in = 1'd0;
+    else if ((par_done_reg6_out & par_done_reg7_out & par_done_reg8_out & fsm0_out == 32'd3 & !par_reset3_out & go))
+      par_reset3_in = 1'd1;
+    else 
+      par_reset3_in = '0;
+    
+    if ((par_done_reg6_out & par_done_reg7_out & par_done_reg8_out & fsm0_out == 32'd3 & !par_reset3_out & go | par_reset3_out))
+      par_reset3_write_en = 1'd1;
+    else 
+      par_reset3_write_en = '0;
+    
+    if (par_reset3_out)
+      par_done_reg6_in = 1'd0;
+    else if ((t0_idx_done & fsm0_out == 32'd3 & !par_reset3_out & go))
+      par_done_reg6_in = 1'd1;
+    else 
+      par_done_reg6_in = '0;
+    
+    if ((t0_idx_done & fsm0_out == 32'd3 & !par_reset3_out & go | par_reset3_out))
+      par_done_reg6_write_en = 1'd1;
+    else 
+      par_done_reg6_write_en = '0;
+    
+    if (par_reset3_out)
+      par_done_reg7_in = 1'd0;
+    else if ((l0_idx_done & fsm0_out == 32'd3 & !par_reset3_out & go))
+      par_done_reg7_in = 1'd1;
+    else 
+      par_done_reg7_in = '0;
+    
+    if ((l0_idx_done & fsm0_out == 32'd3 & !par_reset3_out & go | par_reset3_out))
+      par_done_reg7_write_en = 1'd1;
+    else 
+      par_done_reg7_write_en = '0;
+    
+    if (par_reset3_out)
+      par_done_reg8_in = 1'd0;
+    else if ((pe_00_done & fsm0_out == 32'd3 & !par_reset3_out & go))
+      par_done_reg8_in = 1'd1;
+    else 
+      par_done_reg8_in = '0;
+    
+    if ((pe_00_done & fsm0_out == 32'd3 & !par_reset3_out & go | par_reset3_out))
+      par_done_reg8_write_en = 1'd1;
+    else 
+      par_done_reg8_write_en = '0;
+    
+    if (par_reset4_out)
+      par_reset4_in = 1'd0;
+    else if ((par_done_reg9_out & par_done_reg10_out & fsm0_out == 32'd4 & !par_reset4_out & go))
+      par_reset4_in = 1'd1;
+    else 
+      par_reset4_in = '0;
+    
+    if ((par_done_reg9_out & par_done_reg10_out & fsm0_out == 32'd4 & !par_reset4_out & go | par_reset4_out))
+      par_reset4_write_en = 1'd1;
+    else 
+      par_reset4_write_en = '0;
+    
+    if (par_reset4_out)
+      par_done_reg9_in = 1'd0;
+    else if ((top_00_read_done & fsm0_out == 32'd4 & !par_reset4_out & go))
+      par_done_reg9_in = 1'd1;
+    else 
+      par_done_reg9_in = '0;
+    
+    if ((top_00_read_done & fsm0_out == 32'd4 & !par_reset4_out & go | par_reset4_out))
+      par_done_reg9_write_en = 1'd1;
+    else 
+      par_done_reg9_write_en = '0;
+    
+    if (par_reset4_out)
+      par_done_reg10_in = 1'd0;
+    else if ((left_00_read_done & fsm0_out == 32'd4 & !par_reset4_out & go))
+      par_done_reg10_in = 1'd1;
+    else 
+      par_done_reg10_in = '0;
+    
+    if ((left_00_read_done & fsm0_out == 32'd4 & !par_reset4_out & go | par_reset4_out))
+      par_done_reg10_write_en = 1'd1;
+    else 
+      par_done_reg10_write_en = '0;
+    
+    if (par_reset5_out)
+      par_reset5_in = 1'd0;
+    else if ((par_done_reg11_out & par_done_reg12_out & par_done_reg13_out & fsm0_out == 32'd5 & !par_reset5_out & go))
+      par_reset5_in = 1'd1;
+    else 
+      par_reset5_in = '0;
+    
+    if ((par_done_reg11_out & par_done_reg12_out & par_done_reg13_out & fsm0_out == 32'd5 & !par_reset5_out & go | par_reset5_out))
+      par_reset5_write_en = 1'd1;
+    else 
+      par_reset5_write_en = '0;
+    
+    if (par_reset5_out)
+      par_done_reg11_in = 1'd0;
+    else if ((t0_idx_done & fsm0_out == 32'd5 & !par_reset5_out & go))
+      par_done_reg11_in = 1'd1;
+    else 
+      par_done_reg11_in = '0;
+    
+    if ((t0_idx_done & fsm0_out == 32'd5 & !par_reset5_out & go | par_reset5_out))
+      par_done_reg11_write_en = 1'd1;
+    else 
+      par_done_reg11_write_en = '0;
+    
+    if (par_reset5_out)
+      par_done_reg12_in = 1'd0;
+    else if ((l0_idx_done & fsm0_out == 32'd5 & !par_reset5_out & go))
+      par_done_reg12_in = 1'd1;
+    else 
+      par_done_reg12_in = '0;
+    
+    if ((l0_idx_done & fsm0_out == 32'd5 & !par_reset5_out & go | par_reset5_out))
+      par_done_reg12_write_en = 1'd1;
+    else 
+      par_done_reg12_write_en = '0;
+    
+    if (par_reset5_out)
+      par_done_reg13_in = 1'd0;
+    else if ((pe_00_done & fsm0_out == 32'd5 & !par_reset5_out & go))
+      par_done_reg13_in = 1'd1;
+    else 
+      par_done_reg13_in = '0;
+    
+    if ((pe_00_done & fsm0_out == 32'd5 & !par_reset5_out & go | par_reset5_out))
+      par_done_reg13_write_en = 1'd1;
+    else 
+      par_done_reg13_write_en = '0;
+    
+    if (par_reset6_out)
+      par_reset6_in = 1'd0;
+    else if ((par_done_reg14_out & par_done_reg15_out & fsm0_out == 32'd6 & !par_reset6_out & go))
+      par_reset6_in = 1'd1;
+    else 
+      par_reset6_in = '0;
+    
+    if ((par_done_reg14_out & par_done_reg15_out & fsm0_out == 32'd6 & !par_reset6_out & go | par_reset6_out))
+      par_reset6_write_en = 1'd1;
+    else 
+      par_reset6_write_en = '0;
+    
+    if (par_reset6_out)
+      par_done_reg14_in = 1'd0;
+    else if ((top_00_read_done & fsm0_out == 32'd6 & !par_reset6_out & go))
+      par_done_reg14_in = 1'd1;
+    else 
+      par_done_reg14_in = '0;
+    
+    if ((top_00_read_done & fsm0_out == 32'd6 & !par_reset6_out & go | par_reset6_out))
+      par_done_reg14_write_en = 1'd1;
+    else 
+      par_done_reg14_write_en = '0;
+    
+    if (par_reset6_out)
+      par_done_reg15_in = 1'd0;
+    else if ((left_00_read_done & fsm0_out == 32'd6 & !par_reset6_out & go))
+      par_done_reg15_in = 1'd1;
+    else 
+      par_done_reg15_in = '0;
+    
+    if ((left_00_read_done & fsm0_out == 32'd6 & !par_reset6_out & go | par_reset6_out))
+      par_done_reg15_write_en = 1'd1;
+    else 
+      par_done_reg15_write_en = '0;
+    
+    if (par_reset7_out)
+      par_reset7_in = 1'd0;
+    else if ((par_done_reg16_out & fsm0_out == 32'd7 & !par_reset7_out & go))
+      par_reset7_in = 1'd1;
+    else 
+      par_reset7_in = '0;
+    
+    if ((par_done_reg16_out & fsm0_out == 32'd7 & !par_reset7_out & go | par_reset7_out))
+      par_reset7_write_en = 1'd1;
+    else 
+      par_reset7_write_en = '0;
+    
+    if (par_reset7_out)
+      par_done_reg16_in = 1'd0;
+    else if ((pe_00_done & fsm0_out == 32'd7 & !par_reset7_out & go))
+      par_done_reg16_in = 1'd1;
+    else 
+      par_done_reg16_in = '0;
+    
+    if ((pe_00_done & fsm0_out == 32'd7 & !par_reset7_out & go | par_reset7_out))
+      par_done_reg16_write_en = 1'd1;
+    else 
+      par_done_reg16_write_en = '0;
+    
+    if ((fsm0_out == 32'd4 & par_reset4_out & go))
+      fsm0_in = 32'd5;
+    else if ((fsm0_out == 32'd3 & par_reset3_out & go))
+      fsm0_in = 32'd4;
+    else if ((fsm0_out == 32'd2 & par_reset2_out & go))
+      fsm0_in = 32'd3;
+    else if ((fsm0_out == 32'd1 & par_reset1_out & go))
+      fsm0_in = 32'd2;
+    else if ((fsm0_out == 32'd0 & par_reset0_out & go))
+      fsm0_in = 32'd1;
+    else if ((fsm0_out == 32'd9))
+      fsm0_in = 32'd0;
+    else if ((fsm0_out == 32'd8 & out_mem_done & go))
+      fsm0_in = 32'd9;
+    else if ((fsm0_out == 32'd7 & par_reset7_out & go))
+      fsm0_in = 32'd8;
+    else if ((fsm0_out == 32'd6 & par_reset6_out & go))
+      fsm0_in = 32'd7;
+    else if ((fsm0_out == 32'd5 & par_reset5_out & go))
+      fsm0_in = 32'd6;
+    else 
+      fsm0_in = '0;
+    
+    if ((fsm0_out == 32'd0 & par_reset0_out & go | fsm0_out == 32'd1 & par_reset1_out & go | fsm0_out == 32'd2 & par_reset2_out & go | fsm0_out == 32'd3 & par_reset3_out & go | fsm0_out == 32'd4 & par_reset4_out & go | fsm0_out == 32'd5 & par_reset5_out & go | fsm0_out == 32'd6 & par_reset6_out & go | fsm0_out == 32'd7 & par_reset7_out & go | fsm0_out == 32'd8 & out_mem_done & go | fsm0_out == 32'd9))
+      fsm0_write_en = 1'd1;
+    else 
+      fsm0_write_en = '0;
+    
+  end
 endmodule // end main

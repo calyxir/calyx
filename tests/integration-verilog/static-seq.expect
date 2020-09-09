@@ -34,44 +34,44 @@ endmodule
 
 // Component Signature
 module main (
-      input wire go,
-      input wire clk,
-      output wire done
+      input logic go,
+      input logic clk,
+      output logic done
   );
   
   // Structure wire declarations
-  wire [31:0] z0_in;
-  wire z0_write_en;
-  wire z0_clk;
-  wire [31:0] z0_out;
-  wire z0_done;
-  wire [31:0] y0_in;
-  wire y0_write_en;
-  wire y0_clk;
-  wire [31:0] y0_out;
-  wire y0_done;
-  wire [31:0] x0_in;
-  wire x0_write_en;
-  wire x0_clk;
-  wire [31:0] x0_out;
-  wire x0_done;
-  wire [31:0] const3_out;
-  wire [31:0] const2_out;
-  wire [31:0] const1_out;
-  wire [31:0] const0_out;
-  wire [31:0] a0_in;
-  wire a0_write_en;
-  wire a0_clk;
-  wire [31:0] a0_out;
-  wire a0_done;
-  wire [31:0] fsm0_in;
-  wire fsm0_write_en;
-  wire fsm0_clk;
-  wire [31:0] fsm0_out;
-  wire fsm0_done;
-  wire [31:0] incr0_left;
-  wire [31:0] incr0_right;
-  wire [31:0] incr0_out;
+  logic [31:0] z0_in;
+  logic z0_write_en;
+  logic z0_clk;
+  logic [31:0] z0_out;
+  logic z0_done;
+  logic [31:0] y0_in;
+  logic y0_write_en;
+  logic y0_clk;
+  logic [31:0] y0_out;
+  logic y0_done;
+  logic [31:0] x0_in;
+  logic x0_write_en;
+  logic x0_clk;
+  logic [31:0] x0_out;
+  logic x0_done;
+  logic [31:0] const3_out;
+  logic [31:0] const2_out;
+  logic [31:0] const1_out;
+  logic [31:0] const0_out;
+  logic [31:0] a0_in;
+  logic a0_write_en;
+  logic a0_clk;
+  logic [31:0] a0_out;
+  logic a0_done;
+  logic [31:0] fsm0_in;
+  logic fsm0_write_en;
+  logic fsm0_clk;
+  logic [31:0] fsm0_out;
+  logic fsm0_done;
+  logic [31:0] incr0_left;
+  logic [31:0] incr0_right;
+  logic [31:0] incr0_out;
   
   // Subcomponent Instances
   std_reg #(32) z0 (
@@ -150,17 +150,73 @@ module main (
   end
   
   // Input / output connections
-  assign done = (fsm0_out == 32'd4) ? 1'd1 : '0;
-  assign z0_in = (fsm0_out == 32'd2 & go) ? const2_out : '0;
-  assign z0_write_en = (fsm0_out == 32'd2 & go) ? 1'd1 : '0;
-  assign y0_in = (fsm0_out == 32'd1 & go) ? const1_out : '0;
-  assign y0_write_en = (fsm0_out == 32'd1 & go) ? 1'd1 : '0;
-  assign x0_in = (fsm0_out == 32'd0 & go) ? const0_out : '0;
-  assign x0_write_en = (fsm0_out == 32'd0 & go) ? 1'd1 : '0;
-  assign a0_in = (fsm0_out == 32'd3 & go) ? const3_out : '0;
-  assign a0_write_en = (fsm0_out == 32'd3 & go) ? 1'd1 : '0;
-  assign fsm0_in = (fsm0_out != 32'd4 & go) ? incr0_out : (fsm0_out == 32'd4) ? 32'd0 : '0;
-  assign fsm0_write_en = (fsm0_out != 32'd4 & go | fsm0_out == 32'd4) ? 1'd1 : '0;
-  assign incr0_left = go ? 32'd1 : '0;
-  assign incr0_right = go ? fsm0_out : '0;
+  always_comb begin
+    if ((fsm0_out == 32'd4))
+      done = 1'd1;
+    else 
+      done = '0;
+    
+    if ((fsm0_out == 32'd2 & go))
+      z0_in = const2_out;
+    else 
+      z0_in = '0;
+    
+    if ((fsm0_out == 32'd2 & go))
+      z0_write_en = 1'd1;
+    else 
+      z0_write_en = '0;
+    
+    if ((fsm0_out == 32'd1 & go))
+      y0_in = const1_out;
+    else 
+      y0_in = '0;
+    
+    if ((fsm0_out == 32'd1 & go))
+      y0_write_en = 1'd1;
+    else 
+      y0_write_en = '0;
+    
+    if ((fsm0_out == 32'd0 & go))
+      x0_in = const0_out;
+    else 
+      x0_in = '0;
+    
+    if ((fsm0_out == 32'd0 & go))
+      x0_write_en = 1'd1;
+    else 
+      x0_write_en = '0;
+    
+    if ((fsm0_out == 32'd3 & go))
+      a0_in = const3_out;
+    else 
+      a0_in = '0;
+    
+    if ((fsm0_out == 32'd3 & go))
+      a0_write_en = 1'd1;
+    else 
+      a0_write_en = '0;
+    
+    if ((fsm0_out != 32'd4 & go))
+      fsm0_in = incr0_out;
+    else if ((fsm0_out == 32'd4))
+      fsm0_in = 32'd0;
+    else 
+      fsm0_in = '0;
+    
+    if ((fsm0_out != 32'd4 & go | fsm0_out == 32'd4))
+      fsm0_write_en = 1'd1;
+    else 
+      fsm0_write_en = '0;
+    
+    if (go)
+      incr0_left = 32'd1;
+    else 
+      incr0_left = '0;
+    
+    if (go)
+      incr0_right = fsm0_out;
+    else 
+      incr0_right = '0;
+    
+  end
 endmodule // end main
