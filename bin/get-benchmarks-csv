@@ -2,9 +2,9 @@
 
 set -eu
 
-benchmarks=./benchmarks/verilog/*.expect
+benchmarks=./benchmarks/small_polybench/*.fuse
 
+echo "benchmark,latency"
 for bench in $benchmarks; do
-  base="$(basename -s .expect $bench)"
-  ./bin/run-benchmark $bench benchmarks/data/"$base".data | head -n 1
+    ./bin/run-benchmark $bench "$bench".data | head -n 1
 done

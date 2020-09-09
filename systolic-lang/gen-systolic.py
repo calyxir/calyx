@@ -9,15 +9,17 @@ import argparse
 # Global constant for the current bitwidth.
 BITWIDTH = 32
 PE_NAME = 'mac_pe'
+# Name of the ouput array
+OUT_MEM = 'out_mem'
 PE_DEF = """
-component mac_pe(top: 32, left: 32) -> (down: 32, right: 32) {
+component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
   cells {
     // Storage
     acc = prim std_reg(32);
     mul_reg = prim std_reg(32);
     // Computation
     add = prim std_add(32);
-    mul = prim std_mult(32);
+    mul = prim std_mult_pipe(32);
   }
 
   wires {
@@ -25,8 +27,9 @@ component mac_pe(top: 32, left: 32) -> (down: 32, right: 32) {
     group do_mul {
       mul.left = top;
       mul.right = left;
-      mul_reg.in = mul.out;
-      mul_reg.write_en = 1'd1;
+      mul.go = !mul.done ? 1'd1;
+      mul_reg.in = mul.done ? mul.out;
+      mul_reg.write_en = mul.done ? 1'd1;
       do_mul[done] = mul_reg.done;
     }
 
@@ -38,6 +41,7 @@ component mac_pe(top: 32, left: 32) -> (down: 32, right: 32) {
       do_add[done] = acc.done;
     }
 
+    out = acc.out;
     down = top;
     right = left;
   }
@@ -57,7 +61,11 @@ NAME_SCHEME = {
     'pe compute': 'pe_{row}{col}_compute',
     'register move down': '{pe}_down_move',
     'register move right': '{pe}_right_move',
+    'out mem move': '{pe}_out_write',
 }
+
+def bits_needed(num):
+    return math.floor(math.log(num, 2)) + 1
 
 
 def create_adder(name, width):
@@ -73,7 +81,7 @@ def create_memory(name, bitwidth, size):
     Defines a 1D memory.
     Returns (cells, idx_size)
     """
-    idx_width = math.floor(math.log(size, 2)) + 1
+    idx_width = bits_needed(size)
     return (
         f'{name} = prim std_mem_d1({bitwidth}, {size}, {idx_width});',
         idx_width
@@ -257,6 +265,21 @@ def instantiate_data_move(row, col, right_edge, down_edge):
     return '\n'.join(structures)
 
 
+def instantiate_output_move(row, col, row_idx_bitwidth, col_idx_bitwidth):
+    """
+    Generates groups to move the final value from a PE into the output array.
+    """
+    group_name = NAME_SCHEME['out mem move'].format(pe=f'pe_{row}{col}')
+    return textwrap.indent(textwrap.dedent(f'''
+    group {group_name} {{
+        {OUT_MEM}.addr0 = {row_idx_bitwidth}'d{row};
+        {OUT_MEM}.addr1 = {col_idx_bitwidth}'d{col};
+        {OUT_MEM}.write_data = pe_{row}{col}.out;
+        {OUT_MEM}.write_en = 1'd1;
+        {group_name}[done] = {OUT_MEM}.done;
+    }}'''), " " * 4)
+
+
 def generate_schedule(top_length, top_depth, left_length, left_depth):
     """
     Generate the *schedule* for each PE and data mover. A schedule is the
@@ -420,6 +443,18 @@ def generate_control(top_length, top_depth, left_length, left_depth):
 
         control.append(more_control_str)
 
+    ## Move all the results into output memory
+    mover_groups = []
+    for row in range(left_length):
+        for col in range(top_length):
+            g = NAME_SCHEME['out mem move'].format(pe=f'pe_{row}{col}')
+            mover_groups.append(g)
+    mover_control_str = textwrap.indent(textwrap.dedent(f'''
+    seq {{
+        {"; ". join(mover_groups)};
+    }}'''), " " * 4)
+    control.append(mover_control_str)
+
     all_control = "".join(control)
     return textwrap.dedent(f'''
     seq {{
@@ -451,6 +486,12 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
         cells.append(c)
         wires.append(s)
 
+    # Instantiate output memory
+    out_ridx_size = bits_needed(left_length)
+    out_cidx_size = bits_needed(top_length)
+    o_mem = f'{OUT_MEM} = prim std_mem_d2_ext({BITWIDTH}, {left_length}, {top_length}, {out_ridx_size}, {out_cidx_size});'
+    cells.append(o_mem)
+
     # Instantiate all the PEs
     for row in range(left_length):
         for col in range(top_length):
@@ -463,6 +504,10 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
             # Instantiate the mover fabric
             s = instantiate_data_move(
                 row, col, col == top_length - 1, row == left_length - 1)
+            wires.append(s)
+
+            # Instantiate output movement structure
+            s = instantiate_output_move(row, col, out_ridx_size, out_cidx_size)
             wires.append(s)
 
     cells_str = '\n'.join(cells)

@@ -1,0 +1,7 @@
+// BEGIN macro defintions
+
+define(N, 8)
+define(N_ur, 8)
+define(N_bw, ubit<4>)
+
+// END macro definitions

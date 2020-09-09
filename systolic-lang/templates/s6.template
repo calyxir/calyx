@@ -1,0 +1,23 @@
+{
+  "key": {
+    "N": 36,
+    "B": 6
+  },
+  "memory": {
+    "l": {
+      "data": ["N"],
+      "bitwidth": 32,
+      "banks": ["B"]
+    },
+    "t": {
+      "data": ["N"],
+      "bitwidth": 32,
+      "banks": ["B"]
+    },
+    "out_mem": {
+      "data": [],
+      "bitwidth": 32,
+      "banks": []
+    }
+  }
+}

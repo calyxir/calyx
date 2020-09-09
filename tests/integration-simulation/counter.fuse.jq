@@ -1,3 +1,3 @@
 .TOP.main
 | ({"cycles":.clk | add,
-    "i":.i0.out | .[-1]})
+    "i":.i_0.out | .[-1]})

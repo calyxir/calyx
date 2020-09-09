@@ -1,0 +1,6 @@
+// BEGIN macro definitions
+
+define(N, 64)
+define(N_bw, ubit<7>)
+
+// END macro definitions

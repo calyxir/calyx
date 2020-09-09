@@ -124,9 +124,10 @@ jobs:
 
     - name: Test
       run: |
+        unset JAVA_TOOL_OPTIONS
         runt -d -o fail
       env:
-        DAHLIA_EXEC: /home/runner/work/futil/futil/dahlia/fuse
+        DAHLIA: /home/runner/work/futil/futil/dahlia/fuse
 
   format:
     name: Check Formatting

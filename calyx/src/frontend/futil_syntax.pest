@@ -104,6 +104,7 @@ guard_not = { "!" }
 operator = _{
       guard_eq | guard_neq | guard_leq | guard_geq
     | guard_lt | guard_gt | guard_or | guard_and
+    | guard_not
 }
 
 guard_expr = {
@@ -111,7 +112,7 @@ guard_expr = {
 }
 
 term = {
-      expr | "(" ~ guard_expr ~ ")" | guard_not ~ guard_expr
+      guard_not ~ expr | guard_not ~ guard_expr | "(" ~ guard_expr ~ ")" | expr
 }
 
 switch_stmt = {

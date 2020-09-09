@@ -86,25 +86,36 @@ impl Visitor for CompileControl {
         let true_group_node = st.get_node_by_name(true_group)?;
         let false_group_node = st.get_node_by_name(false_group)?;
 
-        structure!(st, &ctx,
+        structure!(
+            st, &ctx,
             let cond_computed = prim std_reg(1);
             let cond_stored = prim std_reg(1);
             let signal_const = constant(1, 1);
+            let signal_off = constant(0, 1);
+            let done_reg = prim std_reg(1);
         );
 
         // Guard definitions
         let cond_go = !guard!(st; cond_computed["out"]);
         let is_cond_computed = guard!(st; cond_group_node["go"])
             & guard!(st; cond_group_node["done"]);
-        let true_go =
+
+        let true_turn =
             guard!(st; cond_computed["out"]) & guard!(st; cond_stored["out"]);
-        let false_go =
+        let true_go = !guard!(st; true_group_node["done"]) & true_turn.clone();
+
+        let false_turn =
             guard!(st; cond_computed["out"]) & !guard!(st; cond_stored["out"]);
-        let done_guard = guard!(st; true_group_node["done"])
-            | guard!(st; false_group_node["done"]);
+        let false_go =
+            !guard!(st; false_group_node["done"]) & false_turn.clone();
+
+        let done_guard = (true_turn & guard!(st; true_group_node["done"]))
+            | (false_turn & guard!(st; false_group_node["done"]));
+        let done_reg_high = guard!(st; done_reg["out"]);
 
         // New edges.
-        add_wires!(st, Some(if_group.clone()),
+        add_wires!(
+            st, Some(if_group.clone()),
             // Run the conditional group.
             cond_group_node["go"] = cond_go ? (signal_const.clone());
             cond_computed["in"] = is_cond_computed ? (signal_const.clone());
@@ -117,7 +128,20 @@ impl Visitor for CompileControl {
             false_group_node["go"] = false_go ? (signal_const.clone());
 
             // Done condition for this group.
-            if_group_node["done"] = done_guard ? (signal_const);
+            done_reg["in"] = done_guard ? (signal_const.clone());
+            done_reg["write_en"] = done_guard ? (signal_const.clone());
+            if_group_node["done"] = done_reg_high ? (signal_const.clone());
+        );
+
+        // CLEANUP: done register resets one cycle after being high.
+        add_wires!(
+            st, None,
+            done_reg["in"] = done_reg_high ? (signal_off.clone());
+            done_reg["write_en"] = done_reg_high ? (signal_const.clone());
+            cond_computed["in"] = done_reg_high ? (signal_off.clone());
+            cond_computed["write_en"] = done_reg_high ? (signal_const.clone());
+            cond_stored["in"] = done_reg_high ? (signal_off);
+            cond_stored["write_en"] = done_reg_high ? (signal_const);
         );
 
         Ok(Action::Change(Control::enable(if_group)))
@@ -404,9 +428,6 @@ impl Visitor for CompileControl {
             );
         }
 
-        let new_control = Control::Enable {
-            data: Enable { comp: par_group },
-        };
-        Ok(Action::Change(new_control))
+        Ok(Action::Change(Control::enable(par_group)))
     }
 }

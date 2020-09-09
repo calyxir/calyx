@@ -1,13 +1,13 @@
 {
-  "u2": {
+  "u2_int0": {
     "data": [46,15,25,36,3,25,41,20],
     "bitwidth": 32
   },
-  "v2": {
+  "v2_int0": {
     "data": [10,37,34,24,1,13,24,24],
     "bitwidth": 32
   },
-  "A": {
+  "A_int0_0": {
     "data": [[27,11,19,25,34,47,43,10],
              [10,3,18,4,1,12,23,16],
              [15,40,7,30,14,10,29,46],
@@ -18,36 +18,65 @@
              [36,49,48,45,19,39,31,8]],
     "bitwidth": 32
   },
-  "x": {
+  "x_int0": {
     "data": [5,37,42,31,31,12,46,32],
     "bitwidth": 32
   },
-  "y": {
+  "y_int0": {
     "data": [34,22,18,27,15,24,5,44],
     "bitwidth": 32
   },
-  "alpha": {
+  "alpha0": {
     "data": [29],
     "bitwidth": 32
   },
-  "u1": {
+  "u1_int0": {
     "data": [13,33,15,43,48,17,44,23],
     "bitwidth": 32
   },
-  "v1": {
+  "v1_int0": {
     "data": [36,14,25,2,42,25,39,37],
     "bitwidth": 32
   },
-  "w": {
+  "w_int0": {
     "data": [1,5,11,32,47,5,39,36],
     "bitwidth": 32
   },
-  "z": {
+  "z_int0": {
     "data": [7,23,43,7,39,38,16,21],
     "bitwidth": 32
   },
-  "beta":{
+  "beta0":{
     "data": [4],
     "bitwidth": 32
-  }
+  },
+
+  "u10": { "data": [], "bitwidth": 32 },
+  "u11": { "data": [], "bitwidth": 32 },
+
+  "u20": { "data": [], "bitwidth": 32 },
+  "u21": { "data": [], "bitwidth": 32 },
+
+  "v10": { "data": [], "bitwidth": 32 },
+  "v11": { "data": [], "bitwidth": 32 },
+
+  "v20": { "data": [], "bitwidth": 32 },
+  "v21": { "data": [], "bitwidth": 32 },
+
+  "w0": { "data": [], "bitwidth": 32 },
+  "w1": { "data": [], "bitwidth": 32 },
+
+  "x0": { "data": [], "bitwidth": 32 },
+  "x1": { "data": [], "bitwidth": 32 },
+
+  "y0": { "data": [], "bitwidth": 32 },
+  "y1": { "data": [], "bitwidth": 32 },
+
+  "z0": { "data": [], "bitwidth": 32 },
+  "z1": { "data": [], "bitwidth": 32 },
+
+  "A0_0": { "data": [], "bitwidth": 32 },
+  "A0_1": { "data": [], "bitwidth": 32 },
+  "A1_0": { "data": [], "bitwidth": 32 },
+  "A1_1": { "data": [], "bitwidth": 32 }
 }

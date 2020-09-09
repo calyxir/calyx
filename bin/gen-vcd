@@ -14,6 +14,16 @@ filename="$1"
 # Create a temporary folder to store objects generated from verilator.
 tmp="$(mktemp -d)"
 
+cleanup() {
+    if  [ $? -eq 0 ]; then
+        # rm -r $tmp
+        echo "$tmp" 1>&2
+    else
+        echo "$tmp"
+    fi
+}
+trap cleanup EXIT
+
 if [ "$filename" = "-" ]; then
     filename="$tmp"/source
     cat <&0 > $filename
@@ -37,4 +47,4 @@ make -j -C "$tmp" -f Vmain.mk Vmain 1>&2
 cat "$tmp"/output.vcd
 
 # Clean up temporary folder.
-rm -rf "$tmp"
+# rm -rf "$tmp"

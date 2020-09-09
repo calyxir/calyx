@@ -8,38 +8,38 @@ component main() -> () {
     const4 = prim std_const(32,2);
     const5 = prim std_const(32,4);
     gt0 = prim std_gt(32);
-    x0 = prim std_reg(32);
+    x_0 = prim std_reg(32);
   }
   wires {
     group cond0<"static"=0> {
       cond0[done] = 1'd1;
-      gt0.left = x0.out;
+      gt0.left = x_0.out;
       gt0.right = const3.out;
     }
     group let0<"static"=1> {
-      x0.in = const0.out;
-      x0.write_en = 1'd1;
-      let0[done] = x0.done;
+      x_0.in = const0.out;
+      x_0.write_en = 1'd1;
+      let0[done] = x_0.done;
     }
     group upd0<"static"=1> {
-      x0.write_en = 1'd1;
-      x0.in = 1'd1 ? const1.out;
-      upd0[done] = x0.done ? 1'd1;
+      x_0.write_en = 1'd1;
+      x_0.in = 1'd1 ? const1.out;
+      upd0[done] = x_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
-      x0.write_en = 1'd1;
-      x0.in = 1'd1 ? const2.out;
-      upd1[done] = x0.done ? 1'd1;
+      x_0.write_en = 1'd1;
+      x_0.in = 1'd1 ? const2.out;
+      upd1[done] = x_0.done ? 1'd1;
     }
     group upd2<"static"=1> {
-      x0.write_en = 1'd1;
-      x0.in = 1'd1 ? const4.out;
-      upd2[done] = x0.done ? 1'd1;
+      x_0.write_en = 1'd1;
+      x_0.in = 1'd1 ? const4.out;
+      upd2[done] = x_0.done ? 1'd1;
     }
     group upd3<"static"=1> {
-      x0.write_en = 1'd1;
-      x0.in = 1'd1 ? const5.out;
-      upd3[done] = x0.done ? 1'd1;
+      x_0.write_en = 1'd1;
+      x_0.in = 1'd1 ? const5.out;
+      upd3[done] = x_0.done ? 1'd1;
     }
   }
   control {

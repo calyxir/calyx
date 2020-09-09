@@ -1,0 +1,16 @@
+{
+  "key": {
+    "N": 64
+  },
+  "memory": {
+    "A_int": {
+      "data": [
+        "N",
+        "N"
+      ],
+      "banks": [1, 1],
+      "variants": ["_int"],
+      "bitwidth": 32
+    }
+  }
+}
