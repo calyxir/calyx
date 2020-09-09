@@ -14,11 +14,11 @@ int main(int argc, char **argv, char **env) {
   top->trace(tfp, 99);
   tfp->open(argv[1]);
   // initialize simulation inputs
-  top->clk = 1;
+  top->clk = 0;
   top->go = 1;
   int done = 0;
   printf("Starting simulation\n");
-  while (done == 0 && i < 500) {
+  while (done == 0 && i < 5e8) {
     done = top->done;
     // dump variables into VCD file and toggle clock
     for (clk = 0; clk < 2; clk++) {

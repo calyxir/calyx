@@ -13,6 +13,7 @@ pub struct Primitive {
     pub name: Id,
     pub params: Vec<Id>,
     pub signature: ParamSignature,
+    pub attributes: HashMap<String, u64>,
     pub implementation: Vec<Implementation>,
 }
 

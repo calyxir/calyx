@@ -1,0 +1,64 @@
+import "primitives/std.lib";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    add0 = prim std_add(32);
+    add1 = prim std_add(32);
+    cond_computed0 = prim std_reg(1);
+    cond_stored0 = prim std_reg(1);
+    const0 = prim std_const(32, 0);
+    const1 = prim std_const(32, 0);
+    const2 = prim std_const(32, 10);
+    const3 = prim std_const(32, 1);
+    const4 = prim std_const(32, 1);
+    done_reg0 = prim std_reg(1);
+    fsm0 = prim std_reg(32);
+    lt0 = prim std_lt(32);
+    par_done_reg0 = prim std_reg(1);
+    par_done_reg1 = prim std_reg(1);
+    par_reset0 = prim std_reg(1);
+    x0 = prim std_reg(32);
+    y0 = prim std_reg(32);
+  }
+  
+  wires {
+    x0.in = (fsm0.out == 32'd0 & !(x0.done) & go) ? const0.out;
+    fsm0.in = (fsm0.out == 32'd0 & x0.done & go) ? 32'd1;
+    y0.in = (fsm0.out == 32'd1 & !(y0.done) & go) ? const1.out;
+    fsm0.in = (fsm0.out == 32'd1 & y0.done & go) ? 32'd2;
+    fsm0.in = (fsm0.out == 32'd2 & done_reg0.out & go) ? 32'd3;
+    x0.in = (!((par_done_reg0.out | x0.done)) & cond_stored0.out & cond_computed0.out & !(par_reset0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? add0.out;
+    add0.right = (!((par_done_reg0.out | x0.done)) & cond_stored0.out & cond_computed0.out & !(par_reset0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? const3.out;
+    add0.left = (!((par_done_reg0.out | x0.done)) & cond_stored0.out & cond_computed0.out & !(par_reset0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? x0.out;
+    y0.in = (!((par_done_reg1.out | y0.done)) & cond_stored0.out & cond_computed0.out & !(par_reset0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? add1.out;
+    add1.right = (!((par_done_reg1.out | y0.done)) & cond_stored0.out & cond_computed0.out & !(par_reset0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? const4.out;
+    add1.left = (!((par_done_reg1.out | y0.done)) & cond_stored0.out & cond_computed0.out & !(par_reset0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? y0.out;
+    lt0.right = (!(cond_computed0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? const2.out;
+    cond_stored0.in = (!(cond_computed0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? lt0.out;
+    lt0.left = (!(cond_computed0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? x0.out;
+    cond_computed0.in = (!(cond_computed0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? 1'd1;
+    cond_stored0.write_en = (!(cond_computed0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? 1'd1;
+    done_reg0.in = (cond_computed0.out & !(cond_stored0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? 1'd1;
+    par_reset0.in = (par_done_reg0.out & par_done_reg1.out & cond_stored0.out & cond_computed0.out & !(par_reset0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? 1'd1;
+    par_done_reg0.in = (x0.done & cond_stored0.out & cond_computed0.out & !(par_reset0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? 1'd1;
+    par_done_reg1.in = (y0.done & cond_stored0.out & cond_computed0.out & !(par_reset0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) ? 1'd1;
+    x0.write_en = ((fsm0.out == 32'd0 & !(x0.done) & go) | (!((par_done_reg0.out | x0.done)) & cond_stored0.out & cond_computed0.out & !(par_reset0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go)) ? 1'd1;
+    fsm0.write_en = ((fsm0.out == 32'd0 & x0.done & go) | (fsm0.out == 32'd1 & y0.done & go) | (fsm0.out == 32'd2 & done_reg0.out & go) | fsm0.out == 32'd3) ? 1'd1;
+    y0.write_en = ((fsm0.out == 32'd1 & !(y0.done) & go) | (!((par_done_reg1.out | y0.done)) & cond_stored0.out & cond_computed0.out & !(par_reset0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go)) ? 1'd1;
+    cond_computed0.write_en = ((!(cond_computed0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) | (cond_stored0.out & cond_computed0.out & par_reset0.out & fsm0.out == 32'd2 & !(done_reg0.out) & go) | (cond_computed0.out & !(cond_stored0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go)) ? 1'd1;
+    done_reg0.write_en = ((cond_computed0.out & !(cond_stored0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) | done_reg0.out) ? 1'd1;
+    cond_computed0.in = ((cond_stored0.out & cond_computed0.out & par_reset0.out & fsm0.out == 32'd2 & !(done_reg0.out) & go) | (cond_computed0.out & !(cond_stored0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go)) ? 1'd0;
+    par_reset0.write_en = ((par_done_reg0.out & par_done_reg1.out & cond_stored0.out & cond_computed0.out & !(par_reset0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) | par_reset0.out) ? 1'd1;
+    par_done_reg0.write_en = ((x0.done & cond_stored0.out & cond_computed0.out & !(par_reset0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) | par_reset0.out) ? 1'd1;
+    par_done_reg1.write_en = ((y0.done & cond_stored0.out & cond_computed0.out & !(par_reset0.out) & fsm0.out == 32'd2 & !(done_reg0.out) & go) | par_reset0.out) ? 1'd1;
+    done = fsm0.out == 32'd3 ? 1'd1;
+    fsm0.in = fsm0.out == 32'd3 ? 32'd0;
+    done_reg0.in = done_reg0.out ? 1'd0;
+    par_done_reg0.in = par_reset0.out ? 1'd0;
+    par_done_reg1.in = par_reset0.out ? 1'd0;
+    par_reset0.in = par_reset0.out ? 1'd0;
+  }
+  
+  control {
+    
+  }
+}

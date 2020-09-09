@@ -1,0 +1,16 @@
+name,cycles
+dot-product,73
+linear-algebra-2mm,9884
+linear-algebra-3mm,14636
+linear-algebra-atax,1212
+linear-algebra-bicg,1172
+linear-algebra-gemm,5303
+linear-algebra-gemver,1838
+linear-algebra-gesummv,1047
+linear-algebra-lu,2755
+linear-algebra-mvt,1180
+linear-algebra-symm,3570
+linear-algebra-syr2k,10585
+linear-algebra-syrk,6595
+linear-algebra-trisolv,387
+linear-algebra-trmm,5119

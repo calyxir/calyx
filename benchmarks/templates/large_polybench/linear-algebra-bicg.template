@@ -1,0 +1,44 @@
+{
+  "key": {
+    "M": 64,
+    "N": 64
+  },
+  "memory": {
+    "A_int": {
+      "data": [
+        "N",
+        "M"
+      ],
+      "banks": [1, 1],
+      "bitwidth": 32
+    },
+    "s_int": {
+      "data": [
+        "M"
+      ],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "q_int": {
+      "data": [
+        "N"
+      ],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "p_int": {
+      "data": [
+        "M"
+      ],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "r_int": {
+      "data": [
+        "N"
+      ],
+      "banks": [1],
+      "bitwidth": 32
+    }
+  }
+}

@@ -1,9 +1,0 @@
-#lang racket/base
-(require futil)
-
-(generate-json
- "linear-algebra-trmm.json"
- (random 1 50)
- (alpha)
- (A 8 8)
- (B 8 12))

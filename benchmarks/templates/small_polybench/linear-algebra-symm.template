@@ -1,0 +1,47 @@
+{
+  "key": {
+    "C": 1,
+    "M": 8,
+    "N": 12
+  },
+  "memory": {
+    "alpha_int": {
+      "data": [
+        "C"
+      ],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "beta_int": {
+      "data": [
+        "C"
+      ],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "C_int": {
+      "data": [
+        "M",
+        "N"
+      ],
+      "banks": [1, 1],
+      "bitwidth": 32
+    },
+    "A_int": {
+      "data": [
+        "M",
+        "M"
+      ],
+      "banks": [1, 1],
+      "bitwidth": 32
+    },
+    "B_int": {
+      "data": [
+        "M",
+        "N"
+      ],
+      "banks": [1, 1],
+      "bitwidth": 32
+    }
+  }
+}

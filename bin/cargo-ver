@@ -1,0 +1,11 @@
+#!/bin/sh
+
+### Helper script to get the version of the given crate from cargo.
+set -euf
+
+crate="$1"
+
+cargo search "$crate" | \
+  head -n 1 | \
+  awk '{print $3}' | \
+  tr -d '"'

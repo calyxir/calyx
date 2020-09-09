@@ -1,18 +1,18 @@
 //use crate::errors::{Error, Extract};
-use petgraph::graph::NodeIndex;
 use crate::lang::ast::{GuardExpr, Id};
 use crate::lang::{
     component::Component, context::Context, structure::DataDirection,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 use itertools::Itertools;
+use petgraph::graph::NodeIndex;
 
 #[derive(Default)]
 pub struct MergeAssign {}
 
 impl Named for MergeAssign {
     fn name() -> &'static str {
-        "compile-control"
+        "merge-assign"
     }
 
     fn description() -> &'static str {
@@ -20,13 +20,32 @@ impl Named for MergeAssign {
     }
 }
 
+/// Merge assignments of the form:
+/// ```
+/// n.p = g1 ? x;
+/// n.p = g2 ? x;
+/// n.p = g3 ? y;
+/// ```
+/// into:
+/// ```
+/// n.p = g1 | g2 ? x;
+/// n.p = g3 ? y;
+/// ```
 impl Visitor for MergeAssign {
     fn start(&mut self, comp: &mut Component, _ctx: &Context) -> VisResult {
-        //XXX(rachit): This code ignores groups.
-        let mut merged_edges: Vec<(
-            /* (dest, port) being written to */(NodeIndex, Id),
-            /* (src, port) and their guards */Vec<((NodeIndex, Id), GuardExpr)>,
-        )> = Vec::new();
+        assert!(
+            comp.structure.groups.len() == 1,
+            "MergeAssign: The component has more than one group."
+        );
+
+        type Assignments = Vec<(
+            /* (dest, port) being written to */
+            (NodeIndex, Id),
+            /* (src, port) and their guards */
+            Vec<((NodeIndex, Id), GuardExpr)>,
+        )>;
+
+        let mut merged_edges: Assignments = Vec::new();
 
         let structure = &comp.structure;
         for (idx, node) in structure.component_iterator() {
@@ -70,11 +89,11 @@ impl Visitor for MergeAssign {
             comp.structure.remove_edge(e_idx);
         }
 
-        for ((dest_idx, dest_port), edges) in merged_edges {
+        for (dst, edges) in merged_edges {
             for (src, guard) in edges {
                 comp.structure.insert_edge(
                     src,
-                    (dest_idx, dest_port.clone()),
+                    dst.clone(),
                     None,
                     Some(guard),
                 )?;

@@ -1,9 +1,0 @@
-#lang racket/base
-(require futil)
-
-(generate-json
- "dot-product.json"
- (random 1 100)
- (A 8)
- (B 8)
- (dot 1))

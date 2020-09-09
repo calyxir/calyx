@@ -7,12 +7,22 @@
 # -e: fail on first error.
 # -u: fail on unset variables.
 # -f: disable filename globbing.
-set -euf
+set -eu
 
 filename="$1"
 
 # Create a temporary folder to store objects generated from verilator.
 tmp="$(mktemp -d)"
+
+cleanup() {
+    if  [ $? -eq 0 ]; then
+        # rm -r $tmp
+        echo "$tmp" 1>&2
+    else
+        echo "$tmp"
+    fi
+}
+trap cleanup EXIT
 
 if [ "$filename" = "-" ]; then
     filename="$tmp"/source
@@ -22,21 +32,19 @@ fi
 # name for resulting vcd file
 stem=$(basename "${filename%.*}")
 
-cp sim/testbench.cpp "$tmp"/
+# find testbench.cpp relative to this script
+cp $(dirname "$0")/../sim/*.cpp "$tmp"/
 
 # Generate required objects for verilator run.
 verilator -cc --trace "$filename" \
-  --exe testbench.cpp --top-module main --Mdir "$tmp"
+  --exe testbench.cpp --exe wrapper.cpp --top-module main --Mdir "$tmp"
 
 # Generate and execute verilator C harness.
 make -j -C "$tmp" -f Vmain.mk Vmain 1>&2
-if [ "$1" = "-" ]; then
-    "$tmp"/Vmain "$tmp"/output.vcd 1>&2
-    cat "$tmp"/output.vcd
-else
-    "$tmp"/Vmain "./$stem".vcd
-    echo "wrote" "$stem".vcd
-fi
+
+# run generated C++ and print output vcd to stdout
+"$tmp"/Vmain "$tmp"/output.vcd 1>&2
+cat "$tmp"/output.vcd
 
 # Clean up temporary folder.
-rm -rf "$tmp"
+# rm -rf "$tmp"

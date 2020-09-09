@@ -101,9 +101,10 @@ guard_gt = { ">" }
 guard_or = { "|" }
 guard_and = { "&" }
 guard_not = { "!" }
-operator = {
+operator = _{
       guard_eq | guard_neq | guard_leq | guard_geq
     | guard_lt | guard_gt | guard_or | guard_and
+    | guard_not
 }
 
 guard_expr = {
@@ -111,7 +112,7 @@ guard_expr = {
 }
 
 term = {
-      expr | "(" ~ guard_expr ~ ")" | guard_not ~ guard_expr
+      guard_not ~ expr | guard_not ~ guard_expr | "(" ~ guard_expr ~ ")" | expr
 }
 
 switch_stmt = {
@@ -122,8 +123,16 @@ wire = {
       LHS ~ "=" ~ (switch_stmt | expr) ~ ";"
 }
 
+key_value = {
+      string_lit ~ "=" ~ bitwidth
+}
+
+attributes = {
+      "<" ~ (key_value ~ ("," ~ key_value)*) ~ ">"
+}
+
 group = {
-      "group" ~ identifier ~ "{"
+      "group" ~ identifier ~ attributes? ~ "{"
       ~ wire*
       ~ "}"
 }

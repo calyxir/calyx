@@ -1,0 +1,40 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    x = prim std_reg(32);
+    ret = prim std_reg(32);
+    add4 = prim std_add(32);
+    v2 = prim std_reg(32);
+    const1 = prim std_const(32, 42);
+    add2 = prim std_add(32);
+    v1 = prim std_reg(32);
+  }
+  wires {
+    group group5 {
+      add4.left = v1.out;
+      add4.right = v2.out;
+      ret.in = add4.out;
+      ret.write_en = 1'd1;
+      group5[done] = ret.done;
+    }
+    group group3 {
+      v2.in = x.out;
+      v2.write_en = 1'd1;
+      group3[done] = v2.done;
+    }
+    group group0 {
+      v1.in = add2.out;
+      v1.write_en = 1'd1;
+      group0[done] = v1.done;
+      add2.left = x.out;
+      add2.right = const1.out;
+    }
+  }
+  control {
+    seq {
+      group3;
+      group0;
+      group5;
+    }
+  }
+}

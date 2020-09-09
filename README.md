@@ -1,32 +1,41 @@
 # Fused Temporal Intermediate Language (FuTIL)
+
 An intermediate language for [Dahlia][].
 
 Calyx is the name of the visitor framework for FuTIL.
 
-### Installation
-- Install [Rust][rust].
+### Install & Run
 
-The core compiler can be built and installed with:
-- Run `cargo build` to download all dependencies and build calyx.
-- Run `./target/debug/calyx --help` to get options from the calyx binary.
+First, install [Rust][rust].
 
-We are using [runt][] for testing. Install it with:
+Then, build the compiler:
+
+- Run `cargo build` to download all dependencies and build FuTIL.
+- Run `./target/debug/futil --help` to get options from the `futil` binary.
+
+#### Tests
+
+We are using [runt][] for testing. If you want to run the tests:
+
 - Install [runt][] by running `cargo install runt`.
-- Run `runt` to run tests.
+- Type `runt` to run tests.
 
-For Verilator testing, install:
-- [verilator][]
-  - Ubuntu: `sudo apt install verilator`
-  - Fedora: `sudo dnf install verilator`
-  - Mac: `brew install verilator`
-  - If none of these work for you, I defer you to the official Verilator install
-  instructions: [https://www.veripool.org/projects/verilator/wiki/Installing][]
+For RTL testing, you will need to install these things:
+
+- [Verilator][]:
+    - Ubuntu: `sudo apt install verilator`
+    - Fedora: `sudo dnf install verilator`
+    - Mac: `brew install verilator`
+    - If none of these work for you, I refer you to the [official Verilator install instructions][verilator-install].
 - [vcdump][] by running `cargo install vcdump`
-- [jq][]
-  - Ubuntu: `sudo apt install jq`
-  - Fedora: `sudo dnf install jq`
-  - Mac: `brew install jq`
-  - If none of these work, [here](https://stedolan.github.io/jq/download/) are the official install directions.
+- [jq][]:
+    - Ubuntu: `sudo apt install jq`
+    - Fedora: `sudo dnf install jq`
+    - Mac: `brew install jq`
+    - If none of these work, here are [the official install directions][jq-install].
+
+For the [Dahlia][] tests, build the Dahlia compiler.
+Then either make sure the executable is on your `$PATH` as `dahlia` or set the `$DAHLIA_EXEC` environment variable to point to it.
 
 ### Compiler Development
 
@@ -98,3 +107,6 @@ requires to install [Dahlia][] first.
 [runt]: https://github.com/rachitnigam/runt
 [vcdump]: https://github.com/sgpthomas/vcdump
 [verilator]: https://www.veripool.org/wiki/verilator
+[verilator-install]: https://www.veripool.org/projects/verilator/wiki/Installing
+[jq]: https://stedolan.github.io/jq/
+[jq-install]: https://stedolan.github.io/jq/

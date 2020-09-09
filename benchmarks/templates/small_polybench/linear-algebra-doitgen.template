@@ -1,0 +1,48 @@
+{
+  "key": {
+    "NR": 8,
+    "NQ": 8,
+    "NP": 8
+  },
+  "memory": {
+    "A_int": {
+      "data": [
+        "NR",
+        "NQ",
+        "NP"
+      ],
+      "bitwidth": 32,
+      "banks": [1, 1, 1]
+    },
+    "A": {
+      "data": [],
+      "bitwidth": 32,
+      "banks": [1, 1, 2]
+    },
+    "C4_int": {
+      "data": [
+        "NP",
+        "NP"
+      ],
+      "bitwidth": 32,
+      "banks": [1, 1]
+    },
+    "C4": {
+      "data": [],
+      "bitwidth": 32,
+      "banks": [2, 2]
+    },
+    "sum_int": {
+      "data": [
+        "NP"
+      ],
+      "bitwidth": 32,
+      "banks": [1]
+    },
+    "sum": {
+      "data": [],
+      "bitwidth": 32,
+      "banks": [2]
+    }
+  }
+}

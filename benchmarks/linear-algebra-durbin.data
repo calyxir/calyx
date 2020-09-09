@@ -1,9 +1,0 @@
-#lang racket/base
-(require futil)
-
-(generate-json
- "linear-algebra-durbin.json"
- (random 1000 5000)
- (r 8)
- (y 8)
- (z 8))

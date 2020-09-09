@@ -1,0 +1,90 @@
+{
+  "key": {
+    "C": 1,
+    "NI": 8,
+    "NJ": 8,
+    "NK": 8,
+    "NL": 8
+  },
+  "memory": {
+    "alpha_int": {
+      "data": [
+        "C"
+      ],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "beta_int": {
+      "data": [
+        "C"
+      ],
+      "banks": [1],
+      "bitwidth": 32
+    },
+    "tmp_int": {
+      "data": [
+        "NI",
+        "NJ"
+      ],
+      "bitwidth": 32,
+      "banks": [1, 1]
+    },
+    "tmp": {
+      "data": [],
+      "bitwidth": 32,
+      "banks": [2, 2]
+    },
+    "A_int": {
+      "data": [
+        "NI",
+        "NK"
+      ],
+      "bitwidth": 32,
+      "banks": [1, 1]
+    },
+    "A": {
+      "data": [],
+      "bitwidth": 32,
+      "banks": [2, 2]
+    },
+    "B_int": {
+      "data": [
+        "NK",
+        "NJ"
+      ],
+      "bitwidth": 32,
+      "banks": [1, 1]
+    },
+    "B": {
+      "data": [],
+      "bitwidth": 32,
+      "banks": [2, 2]
+    },
+    "C_int": {
+      "data": [
+        "NJ",
+        "NL"
+      ],
+      "bitwidth": 32,
+      "banks": [1, 1]
+    },
+    "C": {
+      "data": [],
+      "bitwidth": 32,
+      "banks": [2, 2]
+    },
+    "D_int": {
+      "data": [
+        "NI",
+        "NL"
+      ],
+      "bitwidth": 32,
+      "banks": [1, 1]
+    },
+    "D": {
+      "data": [],
+      "bitwidth": 32,
+      "banks": [2, 2]
+    }
+  }
+}

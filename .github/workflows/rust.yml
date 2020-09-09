@@ -8,25 +8,127 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
+
+    - name: Versions
+      id: versions
+      run: |
+        echo "::set-output name=runt::$(grep ver runt.toml | awk '{print $3}' | tr -d '"')"
+        echo "::set-output name=vcdump::$(./bin/cargo-ver vcdump)"
+        echo "::set-output name=dahlia::$(git ls-remote https://github.com/cucapra/dahlia.git | awk '{print $1}')"
+        echo "::set-output name=verilator::$(cat versions/verilator)"
+      shell: bash
+
+    # Install cargo based tools and use some caching magic.
+    - name: Cache runt
+      id: runt-cache
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/bin/runt
+        key: runt-bin-${{ runner.os }}-${{ steps.versions.outputs.runt }}
+
     - name: Install runt
+      if: steps.runt-cache.outputs.cache-hit != 'true'
       uses: actions-rs/cargo@v1
       with:
         command: install
-        args: runt
+        args: runt --version ${{ steps.versions.outputs.runt }}
+
+    - name: Cache vcdump
+      id: vcdump-cache
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/bin/vcdump
+        key: vcdump-bin-${{ runner.os }}-${{ steps.versions.outputs.vcdump }}
+
     - name: Install vcdump
+      if: steps.vcdump-cache.outputs.cache-hit != 'true'
       uses: actions-rs/cargo@v1
       with:
         command: install
         args: vcdump
-    - name: Install verilator and jq
-      run: sudo apt-get install verilator
+
+    - name: Install jq, and SBT
+      run: sudo apt-get install jq sbt
+
+    - name: Cache Verilator
+      id: verilator-cache
+      uses: actions/cache@v2
+      with:
+        path: ./verilator
+        key: verilator-bin-${{ runner.os }}-${{ steps.versions.outputs.verilator }}
+
+    - name: Build Verilator
+      if: steps.verilator-cache.outputs.cache-hit != 'true'
+      run: |
+        sudo apt-get install git make autoconf g++ flex bison libfl2 libfl-dev
+        git clone https://github.com/verilator/verilator
+        cd verilator
+        git pull
+        git checkout master
+        autoconf
+        ./configure
+        make
+        sudo make install
+
+    - name: Install Verilator
+      run: |
+        cd verilator
+        sudo make install
+
+    - name: Install numpy
+      run: pip3 install numpy
+
+    - name: Cache SBT
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.ivy2/cache
+          ~/.sbt
+        key: ${{ runner.os }}-sbt-${{ hashFiles('dahlia/build.sbt') }}
+
+    # Don't rebuild Dahlia if HEAD hash hasn't changed.
+    - name: Cache Dahlia
+      id: dahlia-cache
+      uses: actions/cache@v2
+      with:
+        path: ./dahlia
+        key: dahlia-dir-${{ runner.os }}-${{ steps.versions.outputs.dahlia }}
+
+    - name: Checkout Dahlia
+      uses: actions/checkout@v2
+      if: steps.dahlia-cache.outputs.cache-hit != 'true'
+      with:
+        repository: cucapra/dahlia
+        path: dahlia
+
+    - name: Build Dahlia
+      if: steps.dahlia-cache.outputs.cache-hit != 'true'
+      run: |
+        cd ./dahlia && sbt assembly
+      shell: bash
+
+    - name: Cache Futil dependencies
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
     - name: Build
       uses: actions-rs/cargo@v1
       with:
         command: build
+
     - name: Test
-      run: runt -d -o fail
+      run: |
+        unset JAVA_TOOL_OPTIONS
+        runt -d -o fail
+      env:
+        DAHLIA: /home/runner/work/futil/futil/dahlia/fuse
+
   format:
     name: Check Formatting
     runs-on: ubuntu-latest

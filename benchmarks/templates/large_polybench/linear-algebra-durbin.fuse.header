@@ -1,0 +1,9 @@
+// BEGIN macro definitions
+
+define(N, 64)
+define(N_bw, ubit<7>)
+define(WHILE0, min=1 max=63 avg=32)
+define(WHILE1, min=1 max=63 avg=32)
+define(WHILE2, min=1 max=63 avg=32)
+
+// END macro definitions

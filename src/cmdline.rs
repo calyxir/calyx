@@ -1,7 +1,9 @@
 use calyx::backend::traits::Backend;
 use calyx::backend::verilog::gen::VerilogBackend;
 use calyx::{
-    errors::Result, frontend::pretty_print::PrettyPrint, lang::context,
+    errors::{Error, Result},
+    frontend::pretty_print::PrettyPrint,
+    lang::context,
 };
 use itertools::Itertools;
 use std::io::Write;
@@ -18,17 +20,21 @@ pub use structopt::StructOpt;
 )]
 #[allow(clippy::option_option)]
 pub struct Opts {
-    /// Input futil program.
+    /// Input futil program
     #[structopt(parse(from_os_str))]
     pub file: Option<PathBuf>,
 
-    /// Path to the primitives library.
+    /// Path to the primitives library
     #[structopt(long, short, default_value = ".")]
     pub lib_path: PathBuf,
 
-    /// Enable debug mode output.
-    #[structopt(short = "d", long = "debug")]
+    /// Enable debug mode output
+    #[structopt(long = "debug")]
     pub enable_debug: bool,
+
+    /// Enable Verilator mode.
+    #[structopt(long = "verilator")]
+    pub enable_verilator: bool,
 
     /// Select a backend.
     #[structopt(short = "b", long = "backend", default_value)]
@@ -38,11 +44,15 @@ pub struct Opts {
     #[structopt(short = "t", long = "toplevel", default_value = "main")]
     pub toplevel: String,
 
-    /// choose a single pass
+    /// Run this pass during execution
     #[structopt(short = "p", long = "pass", default_value = "all")]
     pub pass: Vec<String>,
 
-    ///list all avaliable pass options
+    /// Disable pass during execution
+    #[structopt(short = "d", long = "disable-pass")]
+    pub disable_pass: Vec<String>,
+
+    /// list all avaliable pass options
     #[structopt(long = "list-passes")]
     pub list_passes: bool,
 }
@@ -127,14 +137,20 @@ impl Opts {
                 Ok(())
             }
             BackendOpt::Dot => {
-                write!(
+                let write_result = write!(
                     file,
                     "{}",
                     context
                         .get_component(&self.toplevel.into())?
                         .structure
                         .visualize()
-                )?;
+                );
+                write_result.map_err(|err| {
+                    Error::InvalidFile(format!(
+                        "Failed to write: {}",
+                        err.to_string()
+                    ))
+                })?;
                 Ok(())
             }
             BackendOpt::None => Ok(()),

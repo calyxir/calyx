@@ -23,7 +23,7 @@ pub struct Component {
 impl Component {
     pub fn from_signature<S: AsRef<str>>(name: S, sig: ast::Signature) -> Self {
         let mut graph = StructureGraph::default();
-        graph.add_signature(&sig);
+        graph.add_signature(sig.clone());
 
         Component {
             name: name.as_ref().into(),
@@ -34,7 +34,7 @@ impl Component {
         }
     }
 
-    // XXX(rachit): Document this function.
+    /// Add a new input port to this component.
     pub fn add_input(
         &mut self,
         portdef: impl Into<ast::Portdef>,
@@ -49,7 +49,7 @@ impl Component {
         }
     }
 
-    // XXX(rachit): Document this function.
+    /// Add a new output port to this component.
     pub fn add_output(
         &mut self,
         portdef: impl Into<ast::Portdef>,
@@ -67,10 +67,10 @@ impl Component {
 
 impl Into<ast::ComponentDef> for Component {
     fn into(self) -> ast::ComponentDef {
-        let (cells, connections) = self.structure.into();
+        let (signature, cells, connections) = self.structure.into();
         ast::ComponentDef {
             name: self.name,
-            signature: self.signature,
+            signature,
             cells,
             connections,
             control: self.control,

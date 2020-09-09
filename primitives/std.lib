@@ -30,6 +30,121 @@ primitive std_mem_d1[p_width, p_size, p_idx_size](
   }
 }
 
+// Represents an external memory
+primitive std_mem_d1_ext[p_width, p_size, p_idx_size](
+  addr0: p_idx_size,
+  write_data: p_width,
+  write_en: 1
+) -> (read_data: p_width, done: 1) {}
+
+
+primitive std_mem_d2[p_width, d0_size, d1_size, d0_idx_size, d1_idx_size](
+  addr0: d0_idx_size,
+  addr1: d1_idx_size,
+  write_data: p_width,
+  write_en: 1,
+  clk: 1
+) -> (read_data: p_width, done: 1) {
+  verilog {
+    module std_mem_d2
+      #(parameter width = 32,
+        parameter d0_size = 16,
+        parameter d1_size = 16,
+        parameter d0_idx_size = 4,
+        parameter d1_idx_size = 4)
+       (input logic [d0_idx_size-1:0] addr0,
+        input logic [d1_idx_size-1:0] addr1,
+        input logic [width-1:0]   write_data,
+        input logic               write_en,
+        input logic               clk,
+        output logic [width-1:0]  read_data,
+        output logic done);
+
+      logic [width-1:0]  mem[d0_size-1:0][d1_size-1:0];
+
+      assign read_data = mem[addr0][addr1];
+      always_ff @(posedge clk) begin
+        if (write_en) begin
+          mem[addr0][addr1] <= write_data;
+          done <= 1'd1;
+        end else
+          done <= 1'd0;
+      end
+    endmodule
+  }
+}
+
+primitive std_mem_d2_ext[p_width, d0_size, d1_size, d0_idx_size, d1_idx_size](
+  addr0: d0_idx_size,
+  addr1: d1_idx_size,
+  write_data: p_width,
+  write_en: 1
+) -> (read_data: p_width, done: 1) {}
+
+primitive std_mem_d3[
+    p_width,
+    d0_size,
+    d1_size,
+    d2_size,
+    d0_idx_size,
+    d1_idx_size,
+    d2_idx_size
+] (
+  addr0: d0_idx_size,
+  addr1: d1_idx_size,
+  addr2: d2_idx_size,
+  write_data: p_width,
+  write_en: 1,
+  clk: 1
+) -> (read_data: p_width, done: 1) {
+  verilog {
+    module std_mem_d3
+      #(parameter width = 32,
+        parameter d0_size = 16,
+        parameter d1_size = 16,
+        parameter d2_size = 16,
+        parameter d0_idx_size = 4,
+        parameter d1_idx_size = 4,
+        parameter d2_idx_size = 4)
+       (input logic [d0_idx_size-1:0] addr0,
+        input logic [d1_idx_size-1:0] addr1,
+        input logic [d2_idx_size-1:0] addr2,
+        input logic [width-1:0]   write_data,
+        input logic               write_en,
+        input logic               clk,
+        output logic [width-1:0]  read_data,
+        output logic done);
+
+      logic [width-1:0]  mem[d0_size-1:0][d1_size-1:0][d2_size-1:0];
+
+      assign read_data = mem[addr0][addr1][addr2];
+      always_ff @(posedge clk) begin
+        if (write_en) begin
+          mem[addr0][addr1][addr2] <= write_data;
+          done <= 1'd1;
+        end else
+          done <= 1'd0;
+      end
+    endmodule
+  }
+}
+
+primitive std_mem_d3_ext[
+    p_width,
+    d0_size,
+    d1_size,
+    d2_size,
+    d0_idx_size,
+    d1_idx_size,
+    d2_idx_size
+] (
+  addr0: d0_idx_size,
+  addr1: d1_idx_size,
+  addr2: d2_idx_size,
+  write_data: p_width,
+  write_en: 1
+) -> (read_data: p_width, done: 1) {}
+
 primitive std_logsize_mem_d1[p_width, p_logsize](
   addr0: p_logsize,
   write_data: p_width,
@@ -58,11 +173,10 @@ primitive std_logsize_mem_d1[p_width, p_logsize](
   }
 }
 
-primitive std_reg[p_width](in: p_width, write_en: 1, clk: 1) -> (out: p_width, done: 1) {
+primitive std_reg<"static"=1>[p_width](in: p_width, write_en: 1, clk: 1) -> (out: p_width, done: 1) {
   verilog {
     module std_reg
-      #(parameter width = 32,
-        parameter reset_val = 0)
+      #(parameter width = 32)
        (input wire [width-1:0] in,
         input wire write_en,
         input wire clk,
@@ -81,23 +195,100 @@ primitive std_reg[p_width](in: p_width, write_en: 1, clk: 1) -> (out: p_width, d
   }
 }
 
-primitive std_iterator[p_width, p_start, p_stop, p_incr]
-    (valid: 1, clk: 1)
-    -> (out: p_width, stop: 1, out_read_out: 1, ready: 1)
-  {}
+primitive std_shift_reg[p_width, p_depth](in: p_width, write_en: 1, clk: 1) -> (out: p_width, done: 1) {
+  verilog {
+    module std_shift_reg
+      #(parameter WIDTH = 32,
+        parameter DEPTH = 1)
+       (// inputs
+        input logic [WIDTH-1:0] in,
+        input logic write_en,
+        // clock
+        input logic clk,
+        // outputs
+        output logic [WIDTH-1:0] out,
+        output logic done);
 
-primitive std_const[p_width, p_value](valid: 1) -> (out: p_width, out_read_out: 1, ready: 1) {
+      // Register file to store values being shifted.
+      logic [WIDTH-1:0] shift_reg[0:DEPTH-1];
+      // Local variable to shift the register with.
+      logic [WIDTH-1:0] push_in;
+
+      // The output is always the right-most value.
+      assign out = shift_reg[DEPTH-1];
+
+      // Select what value needs to be pushed in this cycle.
+      always_comb begin
+        if (write_en)
+          push_in = in;
+        else
+          push_in = '0;
+      end
+
+      // Shift all the value to the right.
+      genvar i;
+      generate for (i=0; i<DEPTH - 1; i=i+1)
+      always_ff @(posedge clk)
+        shift_reg[i+1] <= shift_reg[i];
+      endgenerate
+
+      always_ff @(posedge clk) begin
+        // If a value was written, send the done signal.
+        if (write_en) begin
+          done <= 1'd1;
+        end else
+          done <= 1'd0;
+
+        // Push new value into the register
+        shift_reg[0] <= push_in;
+      end
+    endmodule
+  }
+}
+
+primitive std_const[p_width, p_value]() -> (out: p_width) {
   verilog {
     module std_const
       #(parameter width = 32,
         parameter value = 0)
-       (input logic                valid,
-        output logic               ready,
-        output logic [width - 1:0] out,
-        output logic               out_read_out);
+       (output logic [width - 1:0] out);
       assign out = value;
-      assign ready = valid;
-      assign out_read_out = valid;
+    endmodule
+  }
+}
+
+primitive std_slice[p_in_width, p_out_width](in: p_in_width) -> (out: p_out_width) {
+  verilog {
+    module std_slice
+      #(parameter IN_WIDTH = 32,
+        parameter OUT_WIDTH = 32)
+      (input  logic [IN_WIDTH-1:0] in,
+       output logic [OUT_WIDTH-1:0] out);
+      assign out = in[OUT_WIDTH-1:0];
+    endmodule
+  }
+}
+
+primitive std_lsh[p_width](left: p_width, right: p_width) -> (out: p_width) {
+  verilog {
+    module std_lsh
+      #(parameter width = 32)
+      (input  logic [width-1:0] left,
+        input  logic [width-1:0] right,
+        output logic [width-1:0] out);
+      assign out = left << right;
+    endmodule
+  }
+}
+
+primitive std_rsh[p_width](left: p_width, right: p_width) -> (out: p_width) {
+  verilog {
+    module std_rsh
+      #(parameter width = 32)
+      (input  logic [width-1:0] left,
+        input  logic [width-1:0] right,
+        output logic [width-1:0] out);
+      assign out = left >> right;
     endmodule
   }
 }
@@ -126,6 +317,72 @@ primitive std_sub[p_width](left: p_width, right: p_width) -> (out: p_width) {
   }
 }
 
+primitive std_mod[p_width](left: p_width, right: p_width) -> (out: p_width) {
+  verilog {
+    module std_mod
+      #(parameter width = 32)
+      (input  logic [width-1:0] left,
+        input  logic [width-1:0] right,
+        output logic [width-1:0] out);
+      assign out = left % right;
+    endmodule
+  }
+}
+
+primitive std_mod_pipe[width]
+(clk: 1, reset: 1, go: 1, left: width, right: width)
+-> (out: width, done: 1) {
+  verilog {
+    module std_mod_pipe
+              #(parameter width = 32)
+                (input            clk, reset,
+                input                  go,
+                input [width-1:0]      left,
+                input [width-1:0]      right,
+                output reg [width-1:0] out,
+                output reg             done);
+
+      wire start = go && !running && !reset;
+
+      reg [width-1:0]     dividend;
+      reg [(width-1)*2:0] divisor;
+      reg [width-1:0]     quotient;
+      reg [width-1:0]     quotient_msk;
+      reg                 running;
+
+      always @(posedge clk) begin
+          if (reset || !go) begin
+            running <= 0;
+            done <= 0;
+            out <= 0;
+          end else
+           if (start && left == 0) begin
+              out <= 0;
+              done <= 1;
+           end if (start) begin
+              running <= 1;
+              dividend <= left;
+              divisor <= right << width-1;
+              quotient <= 0;
+              quotient_msk <= 1 << width-1;
+            end else
+              if (!quotient_msk && running) begin
+                running <= 0;
+                done <= 1;
+                out <= dividend;
+              end else begin
+                if (divisor <= dividend) begin
+                    dividend <= dividend - divisor;
+                    quotient <= quotient | quotient_msk;
+                end
+                divisor <= divisor >> 1;
+                quotient_msk <= quotient_msk >> 1;
+              end
+      end
+    endmodule
+  }
+}
+
 primitive std_mult[p_width](left: p_width, right: p_width) -> (out: p_width) {
   verilog {
     module std_mult
@@ -135,6 +392,45 @@ primitive std_mult[p_width](left: p_width, right: p_width) -> (out: p_width) {
         output logic [width-1:0] out);
       assign out = left * right;
     endmodule
+  }
+}
+
+primitive std_mult_pipe[p_width](left: p_width, right: p_width, go: 1, clk: 1) -> (out: p_width, done: 1) {
+  verilog {
+    module std_mult_pipe
+      #(parameter width = 32)
+       (input logic [width-1:0] left,
+        input logic [width-1:0] right,
+        input logic go,
+        input logic clk,
+        output logic [width-1:0] out,
+        output logic done);
+       logic [width-1:0] rtmp;
+       logic [width-1:0] ltmp;
+       logic [width-1:0] out_tmp;
+       reg done_buf[1:0];
+       always_ff @(posedge clk) begin
+         if (go) begin
+           rtmp <= right;
+           ltmp <= left;
+           out_tmp <= rtmp * ltmp;
+           out <= out_tmp;
+
+           done <= done_buf[1];
+           done_buf[0] <= 1'b1;
+           done_buf[1] <= done_buf[0];
+         end else begin
+           rtmp <= 0;
+           ltmp <= 0;
+           out_tmp <= 0;
+           out <= 0;
+
+           done <= 0;
+           done_buf[0] <= 0;
+           done_buf[1] <= 0;
+         end
+       end
+     endmodule
   }
 }
 
@@ -149,6 +445,61 @@ primitive std_div[p_width](left: p_width, right: p_width) -> (out: p_width) {
     endmodule
   }
 }
+
+primitive std_div_pipe[width]
+(clk: 1, reset: 1, go: 1, left: width, right: width)
+-> (out: width, done: 1) {
+  verilog {
+    module std_div_pipe
+              #(parameter width = 32)
+                (input             clk, reset,
+                input                  go,
+                input [width-1:0]      left,
+                input [width-1:0]      right,
+                output reg [width-1:0] out,
+                output reg             done);
+
+      wire start = go && !running && !reset;
+
+      reg [width-1:0]     dividend;
+      reg [(width-1)*2:0] divisor;
+      reg [width-1:0]     quotient;
+      reg [width-1:0]     quotient_msk;
+      reg                 running;
+
+      always @(posedge clk) begin
+          if (reset || !go) begin
+            running <= 0;
+            done <= 0;
+            out <= 0;
+          end else
+           if (start && left == 0) begin
+              out <= 0;
+              done <= 1;
+           end if (start) begin
+              running <= 1;
+              dividend <= left;
+              divisor <= right << width-1;
+              quotient <= 0;
+              quotient_msk <= 1 << width-1;
+            end else
+              if (!quotient_msk && running) begin
+                running <= 0;
+                done <= 1;
+                out <= quotient;
+              end else begin
+                if (divisor <= dividend) begin
+                    dividend <= dividend - divisor;
+                    quotient <= quotient | quotient_msk;
+                end
+                divisor <= divisor >> 1;
+                quotient_msk <= quotient_msk >> 1;
+              end
+      end
+    endmodule
+  }
+}
+
 
 primitive std_not[p_width](in: p_width) -> (out: p_width) {
   verilog {
@@ -233,7 +584,7 @@ primitive std_neq[p_width](left: p_width, right: p_width) -> (out: 1) {
   }
 }
 
-primitive std_ge[p_width](left: p_width, right: p_width) -> (out: p_width) {
+primitive std_ge[p_width](left: p_width, right: p_width) -> (out: 1) {
   verilog {
     module std_ge
       #(parameter width = 32)
@@ -253,6 +604,59 @@ primitive std_le[p_width](left: p_width, right: p_width) -> (out: 1) {
        input logic [width-1:0] right,
        output logic            out);
       assign out = left <= right;
+    endmodule
+  }
+}
+
+primitive std_sqrt(in: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
+  verilog {
+    module std_sqrt
+      (input logic [31:0]  in,
+       input logic         go,
+       input logic         clk,
+       output logic [31:0] out,
+       output logic        done);
+      // declare the variables
+      reg [31:0] a;
+      reg [15:0] q;
+      reg [17:0] left,right,r;
+      integer i;
+      always_ff @(posedge clk) begin
+        if (go && i == 0) begin
+          // initialize all the variables.
+          a = in;
+          q = 0;
+          i = 1;
+          left = 0;   // input to adder/sub
+          right = 0;  // input to adder/sub
+          r = 0;      // remainder
+        // run the calculations for 16 iterations.
+        end else if (go && i <= 16) begin
+          right = {q,r[17],1'b1};
+          left = {r[15:0],a[31:30]};
+          a = {a[29:0],2'b00};    //left shift by 2 bits.
+          if (r[17] == 1) //add if r is negative
+              r = left + right;
+          else    //subtract if r is positive
+              r = left - right;
+          q = {q[14:0],!r[17]};
+          if (i == 16) begin
+            out = {16'd0,q};   //final assignment of output.
+            i = 0;
+            done = 1;
+          end else
+            i = i + 1;
+        end else begin
+          // initialize all the variables.
+          a = in;
+          q = 0;
+          i = 0;
+          left = 0;   // input to adder/sub
+          right = 0;  // input to adder/sub
+          r = 0;      // remainder
+          done = 0;
+        end
+      end
     endmodule
   }
 }

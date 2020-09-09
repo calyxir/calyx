@@ -10,20 +10,24 @@ use std::rc::Rc;
 
 #[allow(clippy::large_enum_variant)]
 pub enum Error {
-    UnknownPass(String, String),
-    InvalidFile,
     ParseError(pest_consume::Error<syntax::Rule>),
     LibraryParseError(pest_consume::Error<library_syntax::Rule>),
+    ReservedName(ast::Id),
+
+    UnknownPass(String, String),
+    InvalidFile(String),
     WriteError,
     MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
 
-    UndefinedPort(ast::Id),
+    UndefinedPort(ast::Id, String),
     UndefinedEdge(String, String),
     UndefinedComponent(ast::Id),
-    /* Generated when the group is undefined.  */
     UndefinedGroup(ast::Id),
 
+    UnusedGroup(ast::Id),
+
     /* Trying to bind new group to existing name.  */
+    AlreadyBound(ast::Id, String),
     DuplicateGroup(ast::Id),
     DuplicatePort(ast::Id, ast::Portdef),
 
@@ -33,6 +37,8 @@ pub enum Error {
     MalformedStructure(String),
 
     MissingImplementation(&'static str, ast::Id),
+
+    Papercut(String, ast::Id),
 
     Impossible(String), // Signal compiler errors that should never occur.
     NotSubcomponent,
@@ -95,6 +101,24 @@ impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use Error::*;
         match self {
+            Papercut(msg, id) => {
+                write!(f, "{}", id.fmt_err(&("[Papercut] ".to_string() + msg)))
+            }
+            UnusedGroup(name) => {
+                write!(
+                    f,
+                    "{}",
+                    name.fmt_err("Group not used in control")
+                )
+            }
+            AlreadyBound(name, bound_by) => {
+                let msg = format!("Name already bound by {}", bound_by.to_string());
+                write!(f, "{}", name.fmt_err(&msg))
+            }
+            ReservedName(name) => {
+                let msg = format!("Use of reserved keyword: {}", name.to_string());
+                write!(f, "{}", name.fmt_err(&msg))
+            }
             UndefinedGroup(name) => {
                 let msg = format!("Use of undefined group: {}", name.to_string());
                 write!(
@@ -111,9 +135,9 @@ impl std::fmt::Debug for Error {
                     known_passes
                 )
             },
-            InvalidFile => write!(f, "InvalidFile"),
-            ParseError(err) => write!(f, "{}", err),
-            LibraryParseError(err) => write!(f, "{}", err),
+            InvalidFile(err) => write!(f, "InvalidFile: {}", err),
+            ParseError(err) => write!(f, "FuTIL Parser: {}", err),
+            LibraryParseError(err) => write!(f, "FuTIL Library Parser: {}", err),
             WriteError => write!(f, "WriteError"),
             MismatchedPortWidths(port1, w1, port2, w2) => {
                 let msg1 = format!("This port has width: {}", w1);
@@ -123,8 +147,8 @@ impl std::fmt::Debug for Error {
                        port2.port_name().to_string(),
                        port2.port_name().fmt_err(&msg2))
             }
-            UndefinedPort(port) => {
-                let msg = format!("Use of undefined port: {}", port.to_string());
+            UndefinedPort(port, port_kind) => {
+                let msg = format!("Use of undefined {} port: {}", port_kind, port.to_string());
                 write!(f, "{}", port.fmt_err(&msg))
             }
             UndefinedEdge(src, dest) => write!(f, "Use of undefined edge: {}->{}", src, dest),
@@ -137,10 +161,10 @@ impl std::fmt::Debug for Error {
                 write!(f, "{}\nwhich is used here:{}", id.fmt_err(&msg), param_name.fmt_err(""))
             }
             DuplicateGroup(group) => {
-                write!(f, "Attempted to duplicate group `{:?}`", group)
+                write!(f, "Attempted to duplicate group `{}`", group.to_string())
             }
             DuplicatePort(comp, portdef) => {
-                write!(f, "Attempted to add `{:?}` to component `{}`", portdef, comp.to_string())
+                write!(f, "Attempted to add duplicate port `{}` to component `{}`", portdef.to_string(), comp.to_string())
             }
             MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
             MalformedStructure(msg) => write!(f, "Malformed Structure: {}", msg),
@@ -155,15 +179,9 @@ impl std::fmt::Debug for Error {
 // Conversions from other error types to our error type so that
 // we can use `?` in all the places.
 
-impl From<std::io::Error> for Error {
-    fn from(_err: std::io::Error) -> Self {
-        Error::InvalidFile
-    }
-}
-
 impl From<std::str::Utf8Error> for Error {
-    fn from(_err: std::str::Utf8Error) -> Self {
-        Error::InvalidFile
+    fn from(err: std::str::Utf8Error) -> Self {
+        Error::InvalidFile(err.to_string())
     }
 }
 
@@ -196,14 +214,14 @@ impl From<pest_consume::Error<library_syntax::Rule>> for Error {
 pub trait Extract<T, R> {
     /// Unpacks `T` into `Result<R>` using `id: ast::Id`
     /// for error reporting with locations.
-    fn extract(&self, id: ast::Id) -> Result<R>;
+    fn extract(&self, id: &ast::Id) -> Result<R>;
 }
 
 impl Extract<NodeIndex, NodeIndex> for Option<NodeIndex> {
-    fn extract(&self, id: ast::Id) -> Result<NodeIndex> {
+    fn extract(&self, id: &ast::Id) -> Result<NodeIndex> {
         match self {
             Some(t) => Ok(*t),
-            None => Err(Error::UndefinedComponent(id)),
+            None => Err(Error::UndefinedComponent(id.clone())),
         }
     }
 }

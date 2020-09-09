@@ -1,9 +1,9 @@
-use crate::errors::{Error, Extract};
+use crate::errors::Error;
 use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use crate::port;
+use crate::{add_wires, guard, port, structure};
 use ast::Control;
 
 #[derive(Default)]
@@ -21,35 +21,30 @@ impl Named for ComponentInterface {
 
 impl Visitor for ComponentInterface {
     fn start(&mut self, comp: &mut Component, _c: &Context) -> VisResult {
-        // add go/done signals XXX(sam) this is temporary until we have a more structured sol
-        comp.add_input(("go", 1))?;
-        comp.add_output(("done", 1))?;
-
         let st = &mut comp.structure;
         let this = st.get_node_by_name(&"this".into()).unwrap();
 
         if let Control::Enable { data } = &comp.control {
-            let group =
-                st.get_node_by_name(&data.comp).extract(data.comp.clone())?;
+            let group = st.get_node_by_name(&data.comp)?;
 
-            st.insert_edge(
-                port!(st; this."go"),
-                port!(st; group["go"]),
-                None,
-                None,
-            )?;
-            let num = st.new_constant(1, 1)?;
-            st.insert_edge(
-                num,
-                port!(st; this."done"),
-                None,
-                Some(st.to_guard(port!(st; group["done"]))),
-            )?;
+            structure!(st, &ctx,
+                let num = constant(1, 1);
+            );
+            let group_done = guard!(st; group["done"]);
+            add_wires!(st, None,
+                group["go"] = (this["go"]);
+                this["done"] = group_done ? (num);
+            );
 
             // this pass doesn't modify any control, so we can return immediately
             Ok(Action::Stop)
+        } else if let Control::Empty { .. } = &comp.control {
+            Ok(Action::Stop)
         } else {
-            Err(Error::MalformedControl("terst".to_string()))
+            Err(Error::MalformedControl(
+                "ComponentInterface: Structure has more than one group"
+                    .to_string(),
+            ))
         }
     }
 }
