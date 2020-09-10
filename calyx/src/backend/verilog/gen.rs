@@ -506,7 +506,7 @@ fn gen_assigns<'a>(
             .append(wire_id_from_node(src_node, el.src.port_name().to_string()))
             .append(";")
     } else {
-        let pre = wire_id_from_node(&node, port.clone()).append(" = ");
+        let pre = wire_id_from_node(&node, port).append(" = ");
         let default = D::line()
             .nest(2)
             .append(pre.clone().append("'0").append(";"))
