@@ -500,8 +500,11 @@ fn gen_assigns<'a>(
     }
 
     if unguarded_drivers == 1 {
-        let (el, node) = &edges[0];
-        wire_id_from_node(node, el.src.port_name().to_string())
+        let (el, src_node) = &edges[0];
+        let dest = wire_id_from_node(node, port);
+        dest.append(" = ")
+            .append(wire_id_from_node(src_node, el.src.port_name().to_string()))
+            .append(";")
     } else {
         let pre = wire_id_from_node(&node, port.clone()).append(" = ");
         let default = D::line()

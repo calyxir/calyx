@@ -202,9 +202,9 @@ module mac_pe (
   
   // Input / output connections
   always_comb begin
-    top
-    left
-    acc_out
+    down = top;
+    right = left;
+    out = acc_out;
     if ((fsm0_out == 32'd2))
       done = 1'd1;
     else 
