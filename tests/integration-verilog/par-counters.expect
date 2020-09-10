@@ -42,71 +42,71 @@ endmodule
 
 // Component Signature
 module main (
-      input wire go,
-      input wire clk,
-      output wire done
+      input logic go,
+      input logic clk,
+      output logic done
   );
   
   // Structure wire declarations
-  wire [31:0] y0_in;
-  wire y0_write_en;
-  wire y0_clk;
-  wire [31:0] y0_out;
-  wire y0_done;
-  wire [31:0] x0_in;
-  wire x0_write_en;
-  wire x0_clk;
-  wire [31:0] x0_out;
-  wire x0_done;
-  wire [31:0] lt0_left;
-  wire [31:0] lt0_right;
-  wire lt0_out;
-  wire [31:0] const4_out;
-  wire [31:0] const3_out;
-  wire [31:0] const2_out;
-  wire [31:0] const1_out;
-  wire [31:0] const0_out;
-  wire [31:0] add1_left;
-  wire [31:0] add1_right;
-  wire [31:0] add1_out;
-  wire [31:0] add0_left;
-  wire [31:0] add0_right;
-  wire [31:0] add0_out;
-  wire par_reset0_in;
-  wire par_reset0_write_en;
-  wire par_reset0_clk;
-  wire par_reset0_out;
-  wire par_reset0_done;
-  wire par_done_reg0_in;
-  wire par_done_reg0_write_en;
-  wire par_done_reg0_clk;
-  wire par_done_reg0_out;
-  wire par_done_reg0_done;
-  wire par_done_reg1_in;
-  wire par_done_reg1_write_en;
-  wire par_done_reg1_clk;
-  wire par_done_reg1_out;
-  wire par_done_reg1_done;
-  wire cond_computed0_in;
-  wire cond_computed0_write_en;
-  wire cond_computed0_clk;
-  wire cond_computed0_out;
-  wire cond_computed0_done;
-  wire cond_stored0_in;
-  wire cond_stored0_write_en;
-  wire cond_stored0_clk;
-  wire cond_stored0_out;
-  wire cond_stored0_done;
-  wire done_reg0_in;
-  wire done_reg0_write_en;
-  wire done_reg0_clk;
-  wire done_reg0_out;
-  wire done_reg0_done;
-  wire [31:0] fsm0_in;
-  wire fsm0_write_en;
-  wire fsm0_clk;
-  wire [31:0] fsm0_out;
-  wire fsm0_done;
+  logic [31:0] y0_in;
+  logic y0_write_en;
+  logic y0_clk;
+  logic [31:0] y0_out;
+  logic y0_done;
+  logic [31:0] x0_in;
+  logic x0_write_en;
+  logic x0_clk;
+  logic [31:0] x0_out;
+  logic x0_done;
+  logic [31:0] lt0_left;
+  logic [31:0] lt0_right;
+  logic lt0_out;
+  logic [31:0] const4_out;
+  logic [31:0] const3_out;
+  logic [31:0] const2_out;
+  logic [31:0] const1_out;
+  logic [31:0] const0_out;
+  logic [31:0] add1_left;
+  logic [31:0] add1_right;
+  logic [31:0] add1_out;
+  logic [31:0] add0_left;
+  logic [31:0] add0_right;
+  logic [31:0] add0_out;
+  logic par_reset0_in;
+  logic par_reset0_write_en;
+  logic par_reset0_clk;
+  logic par_reset0_out;
+  logic par_reset0_done;
+  logic par_done_reg0_in;
+  logic par_done_reg0_write_en;
+  logic par_done_reg0_clk;
+  logic par_done_reg0_out;
+  logic par_done_reg0_done;
+  logic par_done_reg1_in;
+  logic par_done_reg1_write_en;
+  logic par_done_reg1_clk;
+  logic par_done_reg1_out;
+  logic par_done_reg1_done;
+  logic cond_computed0_in;
+  logic cond_computed0_write_en;
+  logic cond_computed0_clk;
+  logic cond_computed0_out;
+  logic cond_computed0_done;
+  logic cond_stored0_in;
+  logic cond_stored0_write_en;
+  logic cond_stored0_clk;
+  logic cond_stored0_out;
+  logic cond_stored0_done;
+  logic done_reg0_in;
+  logic done_reg0_write_en;
+  logic done_reg0_clk;
+  logic done_reg0_out;
+  logic done_reg0_done;
+  logic [31:0] fsm0_in;
+  logic fsm0_write_en;
+  logic fsm0_clk;
+  logic [31:0] fsm0_out;
+  logic fsm0_done;
   
   // Subcomponent Instances
   std_reg #(32) y0 (
@@ -233,29 +233,151 @@ module main (
   end
   
   // Input / output connections
-  assign done = (fsm0_out == 32'd3) ? 1'd1 : '0;
-  assign y0_in = (fsm0_out == 32'd1 & !y0_done & go) ? const1_out : (!(par_done_reg1_out | y0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? add1_out : '0;
-  assign y0_write_en = (fsm0_out == 32'd1 & !y0_done & go | !(par_done_reg1_out | y0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? 1'd1 : '0;
-  assign x0_in = (fsm0_out == 32'd0 & !x0_done & go) ? const0_out : (!(par_done_reg0_out | x0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? add0_out : '0;
-  assign x0_write_en = (fsm0_out == 32'd0 & !x0_done & go | !(par_done_reg0_out | x0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? 1'd1 : '0;
-  assign lt0_left = (!cond_computed0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? x0_out : '0;
-  assign lt0_right = (!cond_computed0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? const2_out : '0;
-  assign add1_left = (!(par_done_reg1_out | y0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? y0_out : '0;
-  assign add1_right = (!(par_done_reg1_out | y0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? const4_out : '0;
-  assign add0_left = (!(par_done_reg0_out | x0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? x0_out : '0;
-  assign add0_right = (!(par_done_reg0_out | x0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? const3_out : '0;
-  assign par_reset0_in = par_reset0_out ? 1'd0 : (par_done_reg0_out & par_done_reg1_out & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? 1'd1 : '0;
-  assign par_reset0_write_en = (par_done_reg0_out & par_done_reg1_out & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go | par_reset0_out) ? 1'd1 : '0;
-  assign par_done_reg0_in = par_reset0_out ? 1'd0 : (x0_done & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? 1'd1 : '0;
-  assign par_done_reg0_write_en = (x0_done & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go | par_reset0_out) ? 1'd1 : '0;
-  assign par_done_reg1_in = par_reset0_out ? 1'd0 : (y0_done & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? 1'd1 : '0;
-  assign par_done_reg1_write_en = (y0_done & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go | par_reset0_out) ? 1'd1 : '0;
-  assign cond_computed0_in = (cond_stored0_out & cond_computed0_out & par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go | cond_computed0_out & !cond_stored0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? 1'd0 : (!cond_computed0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? 1'd1 : '0;
-  assign cond_computed0_write_en = (!cond_computed0_out & fsm0_out == 32'd2 & !done_reg0_out & go | cond_stored0_out & cond_computed0_out & par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go | cond_computed0_out & !cond_stored0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? 1'd1 : '0;
-  assign cond_stored0_in = (!cond_computed0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? lt0_out : '0;
-  assign cond_stored0_write_en = (!cond_computed0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? 1'd1 : '0;
-  assign done_reg0_in = done_reg0_out ? 1'd0 : (cond_computed0_out & !cond_stored0_out & fsm0_out == 32'd2 & !done_reg0_out & go) ? 1'd1 : '0;
-  assign done_reg0_write_en = (cond_computed0_out & !cond_stored0_out & fsm0_out == 32'd2 & !done_reg0_out & go | done_reg0_out) ? 1'd1 : '0;
-  assign fsm0_in = (fsm0_out == 32'd2 & done_reg0_out & go) ? 32'd3 : (fsm0_out == 32'd1 & y0_done & go) ? 32'd2 : (fsm0_out == 32'd0 & x0_done & go) ? 32'd1 : (fsm0_out == 32'd3) ? 32'd0 : '0;
-  assign fsm0_write_en = (fsm0_out == 32'd0 & x0_done & go | fsm0_out == 32'd1 & y0_done & go | fsm0_out == 32'd2 & done_reg0_out & go | fsm0_out == 32'd3) ? 1'd1 : '0;
+  always_comb begin
+    if ((fsm0_out == 32'd3))
+      done = 1'd1;
+    else 
+      done = '0;
+    
+    if ((fsm0_out == 32'd1 & !y0_done & go))
+      y0_in = const1_out;
+    else if ((!(par_done_reg1_out | y0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      y0_in = add1_out;
+    else 
+      y0_in = '0;
+    
+    if ((fsm0_out == 32'd1 & !y0_done & go | !(par_done_reg1_out | y0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      y0_write_en = 1'd1;
+    else 
+      y0_write_en = '0;
+    
+    if ((fsm0_out == 32'd0 & !x0_done & go))
+      x0_in = const0_out;
+    else if ((!(par_done_reg0_out | x0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      x0_in = add0_out;
+    else 
+      x0_in = '0;
+    
+    if ((fsm0_out == 32'd0 & !x0_done & go | !(par_done_reg0_out | x0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      x0_write_en = 1'd1;
+    else 
+      x0_write_en = '0;
+    
+    if ((!cond_computed0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      lt0_left = x0_out;
+    else 
+      lt0_left = '0;
+    
+    if ((!cond_computed0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      lt0_right = const2_out;
+    else 
+      lt0_right = '0;
+    
+    if ((!(par_done_reg1_out | y0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      add1_left = y0_out;
+    else 
+      add1_left = '0;
+    
+    if ((!(par_done_reg1_out | y0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      add1_right = const4_out;
+    else 
+      add1_right = '0;
+    
+    if ((!(par_done_reg0_out | x0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      add0_left = x0_out;
+    else 
+      add0_left = '0;
+    
+    if ((!(par_done_reg0_out | x0_done) & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      add0_right = const3_out;
+    else 
+      add0_right = '0;
+    
+    if (par_reset0_out)
+      par_reset0_in = 1'd0;
+    else if ((par_done_reg0_out & par_done_reg1_out & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      par_reset0_in = 1'd1;
+    else 
+      par_reset0_in = '0;
+    
+    if ((par_done_reg0_out & par_done_reg1_out & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go | par_reset0_out))
+      par_reset0_write_en = 1'd1;
+    else 
+      par_reset0_write_en = '0;
+    
+    if (par_reset0_out)
+      par_done_reg0_in = 1'd0;
+    else if ((x0_done & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      par_done_reg0_in = 1'd1;
+    else 
+      par_done_reg0_in = '0;
+    
+    if ((x0_done & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go | par_reset0_out))
+      par_done_reg0_write_en = 1'd1;
+    else 
+      par_done_reg0_write_en = '0;
+    
+    if (par_reset0_out)
+      par_done_reg1_in = 1'd0;
+    else if ((y0_done & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      par_done_reg1_in = 1'd1;
+    else 
+      par_done_reg1_in = '0;
+    
+    if ((y0_done & cond_stored0_out & cond_computed0_out & !par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go | par_reset0_out))
+      par_done_reg1_write_en = 1'd1;
+    else 
+      par_done_reg1_write_en = '0;
+    
+    if ((cond_stored0_out & cond_computed0_out & par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go | cond_computed0_out & !cond_stored0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      cond_computed0_in = 1'd0;
+    else if ((!cond_computed0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      cond_computed0_in = 1'd1;
+    else 
+      cond_computed0_in = '0;
+    
+    if ((!cond_computed0_out & fsm0_out == 32'd2 & !done_reg0_out & go | cond_stored0_out & cond_computed0_out & par_reset0_out & fsm0_out == 32'd2 & !done_reg0_out & go | cond_computed0_out & !cond_stored0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      cond_computed0_write_en = 1'd1;
+    else 
+      cond_computed0_write_en = '0;
+    
+    if ((!cond_computed0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      cond_stored0_in = lt0_out;
+    else 
+      cond_stored0_in = '0;
+    
+    if ((!cond_computed0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      cond_stored0_write_en = 1'd1;
+    else 
+      cond_stored0_write_en = '0;
+    
+    if (done_reg0_out)
+      done_reg0_in = 1'd0;
+    else if ((cond_computed0_out & !cond_stored0_out & fsm0_out == 32'd2 & !done_reg0_out & go))
+      done_reg0_in = 1'd1;
+    else 
+      done_reg0_in = '0;
+    
+    if ((cond_computed0_out & !cond_stored0_out & fsm0_out == 32'd2 & !done_reg0_out & go | done_reg0_out))
+      done_reg0_write_en = 1'd1;
+    else 
+      done_reg0_write_en = '0;
+    
+    if ((fsm0_out == 32'd2 & done_reg0_out & go))
+      fsm0_in = 32'd3;
+    else if ((fsm0_out == 32'd1 & y0_done & go))
+      fsm0_in = 32'd2;
+    else if ((fsm0_out == 32'd0 & x0_done & go))
+      fsm0_in = 32'd1;
+    else if ((fsm0_out == 32'd3))
+      fsm0_in = 32'd0;
+    else 
+      fsm0_in = '0;
+    
+    if ((fsm0_out == 32'd0 & x0_done & go | fsm0_out == 32'd1 & y0_done & go | fsm0_out == 32'd2 & done_reg0_out & go | fsm0_out == 32'd3))
+      fsm0_write_en = 1'd1;
+    else 
+      fsm0_write_en = '0;
+    
+  end
 endmodule // end main

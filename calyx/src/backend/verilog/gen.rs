@@ -261,7 +261,7 @@ impl Emitable for ast::Portdef {
         _: &context::Context,
         _comp: &component::Component,
     ) -> Result<D<'a>> {
-        Ok(D::text("wire")
+        Ok(D::text("logic")
             .keyword_color()
             .append(D::space())
             .append(bitwidth(self.width)?)
@@ -298,7 +298,7 @@ fn wire_declarations<'a>(comp: &component::Component) -> Result<D<'a>> {
         .flatten()
         // XXX(sam), definitely could use `test` here
         .map(|(name, portdef)| {
-            Ok(D::text("wire")
+            Ok(D::text("logic")
                 .keyword_color()
                 .append(D::space())
                 .append(bitwidth(portdef.width)?)
@@ -499,36 +499,43 @@ fn gen_assigns<'a>(
         );
     }
 
-    let edge_assignment = if unguarded_drivers == 1 {
-        let (el, node) = &edges[0];
-        wire_id_from_node(node, el.src.port_name().to_string())
+    if unguarded_drivers == 1 {
+        let (el, src_node) = &edges[0];
+        let dest = wire_id_from_node(node, port);
+        dest.append(" = ")
+            .append(wire_id_from_node(src_node, el.src.port_name().to_string()))
+            .append(";")
     } else {
+        let pre = wire_id_from_node(&node, port).append(" = ");
+        let default = D::line()
+            .nest(2)
+            .append(pre.clone().append("'0").append(";"))
+            .append(D::line());
         edges
             .iter()
             // Sort by the destination port names. This is required for
             // deterministic outputs.
             .sorted_by(|e1, e2| Ord::cmp(&e1.0.src, &e2.0.src))
-            .fold(D::text("'0"), |acc, (el, node)| {
-                el.guard
-                    .as_ref()
-                    .map(|g| guard(&g, ParenCtx::Not))
-                    .unwrap_or_else(D::nil)
-                    .append(" ? ")
+            .fold(default, |acc, (el, node)| {
+                let cond = D::text("if ").keyword_color().append(
+                    el.guard
+                        .as_ref()
+                        .map(|g| guard(&g, ParenCtx::Not).parens())
+                        .unwrap_or_else(D::nil),
+                );
+                let assign = pre
+                    .clone()
                     .append(wire_id_from_node(
-                        node,
+                        &node,
                         el.src.port_name().to_string(),
                     ))
-                    .append(" : ")
+                    .append(";");
+                cond.append(D::line().nest(2).append(assign))
+                    .append(D::line())
+                    .append(D::text("else ").keyword_color())
                     .append(acc)
             })
-    };
-    D::text("assign")
-        .keyword_color()
-        .append(D::space())
-        .append(wire_id_from_node(node, port))
-        .append(" = ")
-        .append(edge_assignment)
-        .append(";")
+    }
 }
 
 //==========================================
@@ -555,7 +562,10 @@ fn connections<'a>(comp: &component::Component) -> D<'a> {
         })
         .flatten();
 
-    D::intersperse(doc, D::line())
+    D::text("always_comb begin")
+        .append(D::line().append(D::intersperse(doc, D::line())).nest(2))
+        .append(D::line())
+        .append(D::text("end"))
 }
 
 //==========================================
