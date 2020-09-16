@@ -386,8 +386,10 @@ component main() -> () {
               let2;
               while le2.out with cond2 {
                 seq {
-                  upd1;
-                  upd2;
+                  par {
+                    upd1;
+                    upd2;
+                  }
                   let3;
                   let4;
                   upd3;
@@ -410,8 +412,10 @@ component main() -> () {
               let7;
               while le5.out with cond5 {
                 seq {
-                  upd8;
-                  upd9;
+                  par {
+                    upd8;
+                    upd9;
+                  }
                   let8;
                   let9;
                   upd10;
@@ -434,8 +438,10 @@ component main() -> () {
               let12;
               while le8.out with cond8 {
                 seq {
-                  upd15;
-                  upd16;
+                  par {
+                    upd15;
+                    upd16;
+                  }
                   let13;
                   let14;
                   upd17;

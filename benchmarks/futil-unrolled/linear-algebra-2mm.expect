@@ -3183,8 +3183,8 @@ component main() -> () {
                 if and11.out with cond5 {
                   upd4;
                 }
+                upd5;
               }
-              upd5;
               par {
                 if and14.out with cond6 {
                   upd6;
@@ -3198,8 +3198,8 @@ component main() -> () {
                 if and23.out with cond9 {
                   upd9;
                 }
+                upd10;
               }
-              upd10;
               par {
                 if and26.out with cond10 {
                   upd11;
@@ -3213,8 +3213,8 @@ component main() -> () {
                 if and35.out with cond13 {
                   upd14;
                 }
+                upd15;
               }
-              upd15;
               par {
                 if and38.out with cond14 {
                   upd16;
@@ -3228,8 +3228,8 @@ component main() -> () {
                 if and47.out with cond17 {
                   upd19;
                 }
+                upd20;
               }
-              upd20;
               par {
                 if and50.out with cond18 {
                   upd21;
@@ -3274,8 +3274,6 @@ component main() -> () {
                     upd36;
                     upd37;
                     upd38;
-                  }
-                  par {
                     upd39;
                     upd40;
                     upd41;
@@ -3284,8 +3282,6 @@ component main() -> () {
                     upd44;
                     upd45;
                     upd46;
-                  }
-                  par {
                     upd47;
                     upd48;
                     upd49;
@@ -3400,8 +3396,6 @@ component main() -> () {
                     upd79;
                     upd80;
                     upd81;
-                  }
-                  par {
                     upd82;
                     upd83;
                     upd84;
@@ -3480,8 +3474,8 @@ component main() -> () {
                   upd100;
                 }
               }
-              upd101;
               par {
+                upd101;
                 if and74.out with cond34 {
                   upd102;
                 }
@@ -3495,8 +3489,8 @@ component main() -> () {
                   upd105;
                 }
               }
-              upd106;
               par {
+                upd106;
                 if and86.out with cond38 {
                   upd107;
                 }
@@ -3510,8 +3504,8 @@ component main() -> () {
                   upd110;
                 }
               }
-              upd111;
               par {
+                upd111;
                 if and98.out with cond42 {
                   upd112;
                 }
@@ -3525,8 +3519,8 @@ component main() -> () {
                   upd115;
                 }
               }
-              upd116;
               par {
+                upd116;
                 if and110.out with cond46 {
                   upd117;
                 }

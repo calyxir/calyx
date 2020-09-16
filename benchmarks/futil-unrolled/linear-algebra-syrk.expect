@@ -851,8 +851,6 @@ component main() -> () {
                     upd16;
                     upd17;
                     upd18;
-                  }
-                  par {
                     upd19;
                     upd20;
                     upd21;

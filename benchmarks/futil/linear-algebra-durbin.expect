@@ -305,36 +305,50 @@ component main() -> () {
   control {
     seq {
       upd0;
-      let0;
-      let1;
+      par {
+        let0;
+        let1;
+      }
       upd1;
       let2;
       while le0.out with cond0 {
         seq {
-          let3;
-          let4;
-          upd2;
-          let5;
-          let6;
+          par {
+            seq {
+              let3;
+              let4;
+              upd2;
+            }
+            let5;
+            let6;
+          }
           while lt0.out with cond1 {
             seq {
-              upd3;
-              upd4;
-              let7;
-              upd5;
-              upd6;
+              par {
+                upd3;
+                upd4;
+              }
+              par {
+                seq {
+                  let7;
+                  upd5;
+                }
+                upd6;
+              }
             }
           }
-          if neq0.out with cond2 {
-            seq {
-              upd7;
-              let8;
-              upd8;
+          par {
+            if neq0.out with cond2 {
+              seq {
+                upd7;
+                let8;
+                upd8;
+              }
+            } else {
+              upd9;
             }
-          } else {
-            upd9;
+            upd10;
           }
-          upd10;
           while lt1.out with cond3 {
             seq {
               upd11;

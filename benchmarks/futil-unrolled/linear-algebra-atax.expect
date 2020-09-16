@@ -750,8 +750,8 @@ component main() -> () {
             if eq1.out with cond2 {
               upd1;
             }
+            upd2;
           }
-          upd2;
           par {
             if eq2.out with cond3 {
               upd3;
@@ -759,20 +759,22 @@ component main() -> () {
             if eq3.out with cond4 {
               upd4;
             }
-          }
-          let1;
-          while le1.out with cond5 {
             seq {
-              upd5;
-              par {
-                if and6.out with cond6 {
-                  upd6;
-                }
-                if and9.out with cond7 {
-                  upd7;
+              let1;
+              while le1.out with cond5 {
+                seq {
+                  upd5;
+                  par {
+                    if and6.out with cond6 {
+                      upd6;
+                    }
+                    if and9.out with cond7 {
+                      upd7;
+                    }
+                  }
+                  upd8;
                 }
               }
-              upd8;
             }
           }
           upd9;
@@ -788,8 +790,6 @@ component main() -> () {
               par {
                 upd11;
                 upd12;
-              }
-              par {
                 upd13;
                 upd14;
               }
@@ -817,8 +817,6 @@ component main() -> () {
               par {
                 upd19;
                 upd20;
-              }
-              par {
                 upd21;
                 upd22;
               }
@@ -849,8 +847,8 @@ component main() -> () {
               upd28;
             }
           }
-          upd29;
           par {
+            upd29;
             if eq10.out with cond14 {
               upd30;
             }
@@ -858,20 +856,24 @@ component main() -> () {
               upd31;
             }
           }
-          upd32;
-          let12;
-          while le6.out with cond16 {
+          par {
+            upd32;
             seq {
-              par {
-                if and16.out with cond17 {
-                  upd33;
-                }
-                if and19.out with cond18 {
-                  upd34;
+              let12;
+              while le6.out with cond16 {
+                seq {
+                  par {
+                    if and16.out with cond17 {
+                      upd33;
+                    }
+                    if and19.out with cond18 {
+                      upd34;
+                    }
+                  }
+                  upd35;
+                  upd36;
                 }
               }
-              upd35;
-              upd36;
             }
           }
           upd37;

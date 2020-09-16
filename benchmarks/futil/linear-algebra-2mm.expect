@@ -632,14 +632,22 @@ component main() -> () {
           while le1.out with cond1 {
             seq {
               upd0;
-              upd1;
-              upd2;
-              upd3;
-              upd4;
-              upd5;
-              upd6;
-              upd7;
-              upd8;
+              par {
+                upd1;
+                upd2;
+              }
+              par {
+                upd3;
+                upd4;
+              }
+              par {
+                upd5;
+                upd6;
+              }
+              par {
+                upd7;
+                upd8;
+              }
               upd9;
               upd10;
             }
@@ -657,9 +665,11 @@ component main() -> () {
               let4;
               while le4.out with cond4 {
                 seq {
-                  upd13;
-                  upd14;
-                  upd15;
+                  par {
+                    upd13;
+                    upd14;
+                    upd15;
+                  }
                   let5;
                   let6;
                   let7;
@@ -686,8 +696,10 @@ component main() -> () {
               let11;
               while le7.out with cond7 {
                 seq {
-                  upd23;
-                  upd24;
+                  par {
+                    upd23;
+                    upd24;
+                  }
                   let12;
                   let13;
                   upd25;
@@ -707,14 +719,22 @@ component main() -> () {
           while le9.out with cond9 {
             seq {
               upd29;
-              upd30;
-              upd31;
-              upd32;
-              upd33;
-              upd34;
-              upd35;
-              upd36;
-              upd37;
+              par {
+                upd30;
+                upd31;
+              }
+              par {
+                upd32;
+                upd33;
+              }
+              par {
+                upd34;
+                upd35;
+              }
+              par {
+                upd36;
+                upd37;
+              }
               upd38;
               upd39;
             }

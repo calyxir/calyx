@@ -2410,111 +2410,117 @@ component main() -> () {
   }
   control {
     seq {
-      upd0;
-      upd1;
-      let0;
-      while le0.out with cond0 {
+      par {
+        upd0;
+        upd1;
         seq {
-          upd2;
-          par {
-            if eq0.out with cond1 {
-              upd3;
-            }
-            if eq1.out with cond2 {
-              upd4;
-            }
-          }
-          upd5;
-          par {
-            if eq2.out with cond3 {
-              upd6;
-            }
-            if eq3.out with cond4 {
-              upd7;
-            }
-          }
-          upd8;
-          par {
-            if eq4.out with cond5 {
-              upd9;
-            }
-            if eq5.out with cond6 {
-              upd10;
-            }
-          }
-          upd11;
-          par {
-            if eq6.out with cond7 {
-              upd12;
-            }
-            if eq7.out with cond8 {
-              upd13;
-            }
-          }
-          upd14;
-          par {
-            if eq8.out with cond9 {
-              upd15;
-            }
-            if eq9.out with cond10 {
-              upd16;
-            }
-          }
-          upd17;
-          par {
-            if eq10.out with cond11 {
-              upd18;
-            }
-            if eq11.out with cond12 {
-              upd19;
-            }
-          }
-          upd20;
-          par {
-            if eq12.out with cond13 {
-              upd21;
-            }
-            if eq13.out with cond14 {
-              upd22;
-            }
-          }
-          upd23;
-          par {
-            if eq14.out with cond15 {
-              upd24;
-            }
-            if eq15.out with cond16 {
-              upd25;
-            }
-          }
-          upd26;
-        }
-      }
-      let1;
-      while le1.out with cond17 {
-        seq {
-          let2;
-          while le2.out with cond18 {
+          let0;
+          while le0.out with cond0 {
             seq {
-              upd27;
+              upd2;
               par {
-                if and18.out with cond19 {
-                  upd28;
+                if eq0.out with cond1 {
+                  upd3;
                 }
-                if and21.out with cond20 {
-                  upd29;
+                if eq1.out with cond2 {
+                  upd4;
                 }
-                if and24.out with cond21 {
-                  upd30;
+                upd5;
+              }
+              par {
+                if eq2.out with cond3 {
+                  upd6;
                 }
-                if and27.out with cond22 {
-                  upd31;
+                if eq3.out with cond4 {
+                  upd7;
+                }
+                upd8;
+              }
+              par {
+                if eq4.out with cond5 {
+                  upd9;
+                }
+                if eq5.out with cond6 {
+                  upd10;
+                }
+                upd11;
+              }
+              par {
+                if eq6.out with cond7 {
+                  upd12;
+                }
+                if eq7.out with cond8 {
+                  upd13;
+                }
+                upd14;
+              }
+              par {
+                if eq8.out with cond9 {
+                  upd15;
+                }
+                if eq9.out with cond10 {
+                  upd16;
+                }
+                upd17;
+              }
+              par {
+                if eq10.out with cond11 {
+                  upd18;
+                }
+                if eq11.out with cond12 {
+                  upd19;
+                }
+                upd20;
+              }
+              par {
+                if eq12.out with cond13 {
+                  upd21;
+                }
+                if eq13.out with cond14 {
+                  upd22;
+                }
+                upd23;
+              }
+              par {
+                if eq14.out with cond15 {
+                  upd24;
+                }
+                if eq15.out with cond16 {
+                  upd25;
                 }
               }
-              upd32;
+              upd26;
             }
           }
-          upd33;
+        }
+        seq {
+          let1;
+          while le1.out with cond17 {
+            seq {
+              let2;
+              while le2.out with cond18 {
+                seq {
+                  upd27;
+                  par {
+                    if and18.out with cond19 {
+                      upd28;
+                    }
+                    if and21.out with cond20 {
+                      upd29;
+                    }
+                    if and24.out with cond21 {
+                      upd30;
+                    }
+                    if and27.out with cond22 {
+                      upd31;
+                    }
+                  }
+                  upd32;
+                }
+              }
+              upd33;
+            }
+          }
         }
       }
       let3;
@@ -2528,20 +2534,14 @@ component main() -> () {
                 upd35;
                 upd36;
                 upd37;
-              }
-              par {
                 upd38;
                 upd39;
                 upd40;
                 upd41;
-              }
-              par {
                 upd42;
                 upd43;
                 upd44;
                 upd45;
-              }
-              par {
                 upd46;
                 upd47;
                 upd48;
@@ -2568,8 +2568,6 @@ component main() -> () {
                   let15;
                   let16;
                 }
-              }
-              par {
                 upd50;
                 upd51;
                 upd52;
@@ -2598,8 +2596,6 @@ component main() -> () {
                 upd61;
                 upd62;
                 upd63;
-              }
-              par {
                 upd64;
                 upd65;
                 upd66;
@@ -2643,8 +2639,6 @@ component main() -> () {
           par {
             upd72;
             upd73;
-          }
-          par {
             upd74;
             upd75;
           }
@@ -2666,8 +2660,6 @@ component main() -> () {
                 upd80;
                 upd81;
                 upd82;
-              }
-              par {
                 upd83;
                 upd84;
                 upd85;
@@ -2705,109 +2697,115 @@ component main() -> () {
           upd90;
         }
       }
-      let46;
-      while le10.out with cond30 {
+      par {
         seq {
-          par {
-            if eq24.out with cond31 {
-              upd91;
-            }
-            if eq25.out with cond32 {
-              upd92;
-            }
-          }
-          upd93;
-          par {
-            if eq26.out with cond33 {
-              upd94;
-            }
-            if eq27.out with cond34 {
-              upd95;
-            }
-          }
-          upd96;
-          par {
-            if eq28.out with cond35 {
-              upd97;
-            }
-            if eq29.out with cond36 {
-              upd98;
-            }
-          }
-          upd99;
-          par {
-            if eq30.out with cond37 {
-              upd100;
-            }
-            if eq31.out with cond38 {
-              upd101;
-            }
-          }
-          upd102;
-          par {
-            if eq32.out with cond39 {
-              upd103;
-            }
-            if eq33.out with cond40 {
-              upd104;
-            }
-          }
-          upd105;
-          par {
-            if eq34.out with cond41 {
-              upd106;
-            }
-            if eq35.out with cond42 {
-              upd107;
-            }
-          }
-          upd108;
-          par {
-            if eq36.out with cond43 {
-              upd109;
-            }
-            if eq37.out with cond44 {
-              upd110;
-            }
-          }
-          upd111;
-          par {
-            if eq38.out with cond45 {
-              upd112;
-            }
-            if eq39.out with cond46 {
-              upd113;
-            }
-          }
-          upd114;
-          upd115;
-        }
-      }
-      let47;
-      while le11.out with cond47 {
-        seq {
-          let48;
-          while le12.out with cond48 {
+          let46;
+          while le10.out with cond30 {
             seq {
               par {
-                if and46.out with cond49 {
-                  upd116;
+                if eq24.out with cond31 {
+                  upd91;
                 }
-                if and49.out with cond50 {
-                  upd117;
-                }
-                if and52.out with cond51 {
-                  upd118;
-                }
-                if and55.out with cond52 {
-                  upd119;
+                if eq25.out with cond32 {
+                  upd92;
                 }
               }
-              upd120;
-              upd121;
+              par {
+                upd93;
+                if eq26.out with cond33 {
+                  upd94;
+                }
+                if eq27.out with cond34 {
+                  upd95;
+                }
+              }
+              par {
+                upd96;
+                if eq28.out with cond35 {
+                  upd97;
+                }
+                if eq29.out with cond36 {
+                  upd98;
+                }
+              }
+              par {
+                upd99;
+                if eq30.out with cond37 {
+                  upd100;
+                }
+                if eq31.out with cond38 {
+                  upd101;
+                }
+              }
+              par {
+                upd102;
+                if eq32.out with cond39 {
+                  upd103;
+                }
+                if eq33.out with cond40 {
+                  upd104;
+                }
+              }
+              par {
+                upd105;
+                if eq34.out with cond41 {
+                  upd106;
+                }
+                if eq35.out with cond42 {
+                  upd107;
+                }
+              }
+              par {
+                upd108;
+                if eq36.out with cond43 {
+                  upd109;
+                }
+                if eq37.out with cond44 {
+                  upd110;
+                }
+              }
+              par {
+                upd111;
+                if eq38.out with cond45 {
+                  upd112;
+                }
+                if eq39.out with cond46 {
+                  upd113;
+                }
+              }
+              upd114;
+              upd115;
             }
           }
-          upd122;
+        }
+        seq {
+          let47;
+          while le11.out with cond47 {
+            seq {
+              let48;
+              while le12.out with cond48 {
+                seq {
+                  par {
+                    if and46.out with cond49 {
+                      upd116;
+                    }
+                    if and49.out with cond50 {
+                      upd117;
+                    }
+                    if and52.out with cond51 {
+                      upd118;
+                    }
+                    if and55.out with cond52 {
+                      upd119;
+                    }
+                  }
+                  upd120;
+                  upd121;
+                }
+              }
+              upd122;
+            }
+          }
         }
       }
     }
