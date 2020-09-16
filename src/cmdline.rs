@@ -24,6 +24,10 @@ pub struct Opts {
     #[structopt(parse(from_os_str))]
     pub file: Option<PathBuf>,
 
+    /// Output file
+    #[structopt(long = "output", short = "o", parse(from_os_str))]
+    pub output: Option<PathBuf>,
+
     /// Path to the primitives library
     #[structopt(long, short, default_value = ".")]
     pub lib_path: PathBuf,
@@ -133,7 +137,7 @@ impl Opts {
         match self.backend {
             BackendOpt::Verilog => VerilogBackend::run(&context, file),
             BackendOpt::Futil => {
-                context.pretty_print();
+                write!(file, "{}", context.pretty_string())?;
                 Ok(())
             }
             BackendOpt::Dot => {
