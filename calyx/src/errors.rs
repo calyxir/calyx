@@ -203,6 +203,12 @@ impl From<pest_consume::Error<library_syntax::Rule>> for Error {
     }
 }
 
+impl From<std::io::Error> for Error {
+    fn from(_e: std::io::Error) -> Self {
+        Error::WriteError
+    }
+}
+
 // Utility traits
 
 /// A generalized 'unwrapping' trait that extracts data from

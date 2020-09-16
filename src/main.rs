@@ -26,7 +26,10 @@ use passes::{
     visitor::{Named, Visitor},
     well_formed::WellFormed,
 };
-use std::io::stdin;
+use std::{
+    io::{stdin, Write},
+    path::PathBuf,
+};
 use structopt::StructOpt;
 
 /// Construct the pass manager by registering all passes and aliases used
@@ -131,6 +134,7 @@ fn main() -> Result<()> {
             }
         }
     }?;
+
     // parse libraries
     let libraries: Vec<_> = namespace
         .libraries
@@ -139,6 +143,7 @@ fn main() -> Result<()> {
             library_syntax::LibraryParser::parse_file(&opts.lib_path.join(path))
         })
         .collect::<Result<Vec<_>>>()?;
+
     // build context
     let context = Context::from_ast(
         namespace,
@@ -154,5 +159,11 @@ fn main() -> Result<()> {
     let context =
         pm.execute_plan(context, name_gen, &opts.pass, &opts.disable_pass)?;
 
-    Ok(opts.run_backend(&context, &mut std::io::stdout())?)
+    // decide where to write the results from running the backend
+    match opts.output.clone() {
+        Some(path) => {
+            opts.run_backend(&context, &mut std::fs::File::create(path)?)
+        }
+        None => opts.run_backend(&context, &mut std::io::stdout()),
+    }
 }
