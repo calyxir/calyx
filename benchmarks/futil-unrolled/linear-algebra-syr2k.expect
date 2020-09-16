@@ -775,36 +775,40 @@ component main() -> () {
   }
   control {
     seq {
-      upd0;
-      upd1;
-      let0;
-      while le0.out with cond0 {
+      par {
+        upd0;
+        upd1;
         seq {
-          let1;
-          while le1.out with cond1 {
+          let0;
+          while le0.out with cond0 {
             seq {
-              upd2;
-              par {
-                if and2.out with cond2 {
-                  upd3;
-                }
-                if and5.out with cond3 {
-                  upd4;
+              let1;
+              while le1.out with cond1 {
+                seq {
+                  upd2;
+                  par {
+                    if and2.out with cond2 {
+                      upd3;
+                    }
+                    if and5.out with cond3 {
+                      upd4;
+                    }
+                    upd5;
+                  }
+                  par {
+                    if and8.out with cond4 {
+                      upd6;
+                    }
+                    if and11.out with cond5 {
+                      upd7;
+                    }
+                  }
+                  upd8;
                 }
               }
-              upd5;
-              par {
-                if and8.out with cond4 {
-                  upd6;
-                }
-                if and11.out with cond5 {
-                  upd7;
-                }
-              }
-              upd8;
+              upd9;
             }
           }
-          upd9;
         }
       }
       let2;
@@ -828,16 +832,12 @@ component main() -> () {
                   par {
                     upd13;
                     upd14;
-                  }
-                  par {
                     upd15;
                     upd16;
                   }
                   par {
                     upd17;
                     upd18;
-                  }
-                  par {
                     upd19;
                     upd20;
                   }
@@ -881,8 +881,8 @@ component main() -> () {
                   upd26;
                 }
               }
-              upd27;
               par {
+                upd27;
                 if and20.out with cond14 {
                   upd28;
                 }

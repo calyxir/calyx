@@ -41,8 +41,10 @@ component main() -> () {
   }
   control {
     seq {
-      let0;
-      let1;
+      par {
+        let0;
+        let1;
+      }
       if gt0.out with cond0 {
         let2;
       } else {

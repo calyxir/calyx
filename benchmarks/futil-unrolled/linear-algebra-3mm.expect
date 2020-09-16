@@ -4148,8 +4148,8 @@ component main() -> () {
                 if and11.out with cond5 {
                   upd4;
                 }
+                upd5;
               }
-              upd5;
               par {
                 if and14.out with cond6 {
                   upd6;
@@ -4163,8 +4163,8 @@ component main() -> () {
                 if and23.out with cond9 {
                   upd9;
                 }
+                upd10;
               }
-              upd10;
               par {
                 if and26.out with cond10 {
                   upd11;
@@ -4178,8 +4178,8 @@ component main() -> () {
                 if and35.out with cond13 {
                   upd14;
                 }
+                upd15;
               }
-              upd15;
               par {
                 if and38.out with cond14 {
                   upd16;
@@ -4193,8 +4193,8 @@ component main() -> () {
                 if and47.out with cond17 {
                   upd19;
                 }
+                upd20;
               }
-              upd20;
               par {
                 if and50.out with cond18 {
                   upd21;
@@ -4208,8 +4208,8 @@ component main() -> () {
                 if and59.out with cond21 {
                   upd24;
                 }
+                upd25;
               }
-              upd25;
               par {
                 if and62.out with cond22 {
                   upd26;
@@ -4223,8 +4223,8 @@ component main() -> () {
                 if and71.out with cond25 {
                   upd29;
                 }
+                upd30;
               }
-              upd30;
               par {
                 if and74.out with cond26 {
                   upd31;
@@ -4269,8 +4269,6 @@ component main() -> () {
                     upd46;
                     upd47;
                     upd48;
-                  }
-                  par {
                     upd49;
                     upd50;
                     upd51;
@@ -4353,8 +4351,6 @@ component main() -> () {
                     upd73;
                     upd74;
                     upd75;
-                  }
-                  par {
                     upd76;
                     upd77;
                     upd78;
@@ -4437,8 +4433,6 @@ component main() -> () {
                     upd100;
                     upd101;
                     upd102;
-                  }
-                  par {
                     upd103;
                     upd104;
                     upd105;
@@ -4517,8 +4511,8 @@ component main() -> () {
                   upd121;
                 }
               }
-              upd122;
               par {
+                upd122;
                 if and98.out with cond45 {
                   upd123;
                 }
@@ -4532,8 +4526,8 @@ component main() -> () {
                   upd126;
                 }
               }
-              upd127;
               par {
+                upd127;
                 if and110.out with cond49 {
                   upd128;
                 }
@@ -4547,8 +4541,8 @@ component main() -> () {
                   upd131;
                 }
               }
-              upd132;
               par {
+                upd132;
                 if and122.out with cond53 {
                   upd133;
                 }
@@ -4562,8 +4556,8 @@ component main() -> () {
                   upd136;
                 }
               }
-              upd137;
               par {
+                upd137;
                 if and134.out with cond57 {
                   upd138;
                 }
@@ -4577,8 +4571,8 @@ component main() -> () {
                   upd141;
                 }
               }
-              upd142;
               par {
+                upd142;
                 if and146.out with cond61 {
                   upd143;
                 }
@@ -4592,8 +4586,8 @@ component main() -> () {
                   upd146;
                 }
               }
-              upd147;
               par {
+                upd147;
                 if and158.out with cond65 {
                   upd148;
                 }

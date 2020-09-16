@@ -288,29 +288,41 @@ component main() -> () {
           let2;
           while le1.out with cond1 {
             seq {
-              upd0;
-              let3;
+              par {
+                upd0;
+                let3;
+              }
               while lt0.out with cond2 {
                 seq {
                   upd1;
-                  upd2;
-                  upd3;
-                  upd4;
+                  par {
+                    upd2;
+                    upd3;
+                    upd4;
+                  }
                   let4;
                   let5;
                   upd5;
-                  upd6;
-                  upd7;
-                  let6;
-                  upd8;
-                  upd9;
+                  par {
+                    upd6;
+                    upd7;
+                  }
+                  par {
+                    seq {
+                      let6;
+                      upd8;
+                    }
+                    upd9;
+                  }
                 }
               }
               upd10;
-              upd11;
-              upd12;
-              upd13;
-              upd14;
+              par {
+                upd11;
+                upd12;
+                upd13;
+                upd14;
+              }
               let7;
               let8;
               let9;

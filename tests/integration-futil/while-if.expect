@@ -104,22 +104,26 @@ component main() -> () {
   }
   control {
     seq {
-      let0;
-      let1;
-      let2;
-      let3;
+      par {
+        let0;
+        let1;
+        let2;
+        let3;
+      }
       while lt0.out with cond0 {
-        seq {
-          let4;
-          if eq0.out with cond1 {
-            seq {
-              upd0;
-              upd1;
-            }
-          } else {
-            seq {
-              upd2;
-              upd3;
+        par {
+          seq {
+            let4;
+            if eq0.out with cond1 {
+              seq {
+                upd0;
+                upd1;
+              }
+            } else {
+              par {
+                upd2;
+                upd3;
+              }
             }
           }
           upd4;

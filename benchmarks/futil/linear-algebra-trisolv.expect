@@ -139,9 +139,13 @@ component main() -> () {
             seq {
               upd2;
               upd3;
-              let2;
-              upd4;
-              upd5;
+              par {
+                seq {
+                  let2;
+                  upd4;
+                }
+                upd5;
+              }
             }
           }
           upd6;

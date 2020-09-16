@@ -1157,22 +1157,26 @@ component main() -> () {
           let1;
           while le1.out with cond1 {
             seq {
-              let2;
-              while le2.out with cond2 {
+              par {
                 seq {
-                  upd0;
-                  par {
-                    if and4.out with cond3 {
-                      upd1;
-                    }
-                    if and9.out with cond4 {
-                      upd2;
+                  let2;
+                  while le2.out with cond2 {
+                    seq {
+                      upd0;
+                      par {
+                        if and4.out with cond3 {
+                          upd1;
+                        }
+                        if and9.out with cond4 {
+                          upd2;
+                        }
+                      }
+                      upd3;
                     }
                   }
-                  upd3;
                 }
+                upd4;
               }
-              upd4;
               par {
                 if and12.out with cond5 {
                   upd5;
@@ -1214,8 +1218,6 @@ component main() -> () {
                         upd14;
                         upd15;
                         upd16;
-                      }
-                      par {
                         upd17;
                         upd18;
                         upd19;
@@ -1272,43 +1274,47 @@ component main() -> () {
       let16;
       while le8.out with cond14 {
         seq {
-          let17;
-          while le9.out with cond15 {
+          par {
             seq {
-              let18;
-              while le10.out with cond16 {
+              let17;
+              while le9.out with cond15 {
                 seq {
                   par {
-                    if and26.out with cond17 {
-                      upd32;
+                    seq {
+                      let18;
+                      while le10.out with cond16 {
+                        seq {
+                          par {
+                            if and26.out with cond17 {
+                              upd32;
+                            }
+                            if and31.out with cond18 {
+                              upd33;
+                            }
+                          }
+                          upd34;
+                          upd35;
+                        }
+                      }
                     }
-                    if and31.out with cond18 {
-                      upd33;
+                    if and34.out with cond19 {
+                      upd36;
+                    }
+                    if and37.out with cond20 {
+                      upd37;
+                    }
+                    if and40.out with cond21 {
+                      upd38;
+                    }
+                    if and43.out with cond22 {
+                      upd39;
                     }
                   }
-                  upd34;
-                  upd35;
+                  upd40;
+                  upd41;
                 }
               }
-              par {
-                if and34.out with cond19 {
-                  upd36;
-                }
-                if and37.out with cond20 {
-                  upd37;
-                }
-                if and40.out with cond21 {
-                  upd38;
-                }
-                if and43.out with cond22 {
-                  upd39;
-                }
-              }
-              upd40;
-              upd41;
             }
-          }
-          par {
             if eq28.out with cond23 {
               upd42;
             }

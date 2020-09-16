@@ -485,9 +485,13 @@ component main() -> () {
                 seq {
                   upd1;
                   upd2;
-                  let3;
-                  upd3;
-                  upd4;
+                  par {
+                    seq {
+                      let3;
+                      upd3;
+                    }
+                    upd4;
+                  }
                 }
               }
               upd5;
@@ -509,9 +513,13 @@ component main() -> () {
                 seq {
                   upd10;
                   upd11;
-                  let6;
-                  upd12;
-                  upd13;
+                  par {
+                    seq {
+                      let6;
+                      upd12;
+                    }
+                    upd13;
+                  }
                 }
               }
               upd14;
@@ -524,15 +532,23 @@ component main() -> () {
       let7;
       while le1.out with cond6 {
         seq {
-          upd17;
-          let8;
+          par {
+            upd17;
+            let8;
+          }
           while lt4.out with cond7 {
             seq {
-              upd18;
-              upd19;
-              let9;
-              upd20;
-              upd21;
+              par {
+                upd18;
+                upd19;
+              }
+              par {
+                seq {
+                  let9;
+                  upd20;
+                }
+                upd21;
+              }
             }
           }
           upd22;
@@ -542,15 +558,23 @@ component main() -> () {
       let10;
       while and0.out with cond8 {
         seq {
-          upd24;
-          let11;
+          par {
+            upd24;
+            let11;
+          }
           while lt6.out with cond9 {
             seq {
-              upd25;
-              upd26;
-              let12;
-              upd27;
-              upd28;
+              par {
+                upd25;
+                upd26;
+              }
+              par {
+                seq {
+                  let12;
+                  upd27;
+                }
+                upd28;
+              }
             }
           }
           upd29;

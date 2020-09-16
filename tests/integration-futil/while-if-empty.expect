@@ -63,8 +63,10 @@ component main() -> () {
   }
   control {
     seq {
-      let0;
-      let1;
+      par {
+        let0;
+        let1;
+      }
       while lt0.out with cond0 {
         seq {
           let2;
