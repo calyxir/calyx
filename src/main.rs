@@ -26,10 +26,7 @@ use passes::{
     visitor::{Named, Visitor},
     well_formed::WellFormed,
 };
-use std::{
-    io::{stdin, Write},
-    path::PathBuf,
-};
+use std::io::stdin;
 use structopt::StructOpt;
 
 /// Construct the pass manager by registering all passes and aliases used
@@ -159,11 +156,5 @@ fn main() -> Result<()> {
     let context =
         pm.execute_plan(context, name_gen, &opts.pass, &opts.disable_pass)?;
 
-    // decide where to write the results from running the backend
-    match opts.output.clone() {
-        Some(path) => {
-            opts.run_backend(&context, &mut std::fs::File::create(path)?)
-        }
-        None => opts.run_backend(&context, &mut std::io::stdout()),
-    }
+    opts.run_backend(&context)
 }

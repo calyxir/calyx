@@ -1,8 +1,10 @@
 use crate::errors::Result;
-use crate::lang::{component, context};
+use crate::{
+    lang::{component, context},
+    utils::OutputFile,
+};
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc;
-use std::io::Write;
 
 /// All backends must implement this trait.
 /// `Backend::name` returns the name of this backend.
@@ -13,8 +15,8 @@ use std::io::Write;
 pub trait Backend {
     fn name() -> &'static str;
     fn validate(prog: &context::Context) -> Result<()>;
-    fn emit<W: Write>(prog: &context::Context, write: W) -> Result<()>;
-    fn run<W: Write>(prog: &context::Context, file: W) -> Result<()> {
+    fn emit(prog: &context::Context, write: OutputFile) -> Result<()>;
+    fn run(prog: &context::Context, file: OutputFile) -> Result<()> {
         Self::validate(&prog)?;
         Self::emit(prog, file)
     }
