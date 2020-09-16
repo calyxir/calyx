@@ -4,7 +4,7 @@ mod pass_manager;
 use atty::Stream;
 use calyx::{
     errors::{Error, Result},
-    frontend::{library_syntax, syntax},
+    frontend::syntax,
     lang::context::Context,
     passes,
     utils::NameGenerator,
@@ -119,7 +119,7 @@ fn main() -> Result<()> {
 
     // ==== Construct the context ====
     // parse the file
-    let namespace = match &opts.file {
+    let mut namespace = match &opts.file {
         Some(file) => syntax::FutilParser::parse_file(&file),
         None => {
             if atty::isnt(Stream::Stdin) {
@@ -132,20 +132,20 @@ fn main() -> Result<()> {
         }
     }?;
     // parse libraries
-    let libraries: Vec<_> = namespace
-        .libraries
+    let imported: Vec<_> = namespace
+        .imports
         .iter()
-        .map(|path| {
-            library_syntax::LibraryParser::parse_file(&opts.lib_path.join(path))
-        })
-        .collect::<Result<Vec<_>>>()?;
+        .map(|path| syntax::FutilParser::parse_file(&opts.lib_path.join(path)))
+        .collect::<Result<_>>()?;
+
+    for mut file in imported {
+        namespace.components.append(&mut file.components);
+        namespace.primitives.append(&mut file.primitives);
+    }
+
     // build context
-    let context = Context::from_ast(
-        namespace,
-        &libraries,
-        opts.enable_debug,
-        opts.enable_verilator,
-    )?;
+    let context =
+        Context::from_ast(namespace, opts.enable_debug, opts.enable_verilator)?;
 
     // Construct the name generator
     let name_gen = NameGenerator::default();

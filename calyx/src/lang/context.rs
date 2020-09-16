@@ -92,16 +92,14 @@ impl Context {
     ///   or an error.
     pub fn from_ast(
         namespace: ast::NamespaceDef,
-        libraries: &[lib::Library],
+        // libraries: &[lib::Primitive],
         debug_mode: bool,
         verilator_mode: bool,
     ) -> Result<Self> {
         // build hashmap for primitives in provided libraries
         let mut lib_definitions = HashMap::new();
-        for def in libraries {
-            for prim in &def.primitives {
-                lib_definitions.insert(prim.name.clone(), prim.clone());
-            }
+        for prim in namespace.primitives {
+            lib_definitions.insert(prim.name.clone(), prim.clone());
         }
         let libctx = LibraryContext {
             definitions: lib_definitions,
@@ -150,7 +148,7 @@ impl Context {
             library_context: libctx,
             definitions: RefCell::new(definitions),
             definitions_to_insert: RefCell::new(vec![]),
-            imports: namespace.libraries,
+            imports: namespace.imports,
         })
     }
 
@@ -237,8 +235,9 @@ impl Into<ast::NamespaceDef> for Context {
         }
         components.sort();
         ast::NamespaceDef {
+            imports: self.imports,
             components,
-            libraries: self.imports,
+            primitives: Vec::new(),
         }
     }
 }

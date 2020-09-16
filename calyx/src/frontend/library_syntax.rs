@@ -18,7 +18,7 @@ const _GRAMMAR: &str = include_str!("library_syntax.pest");
 pub struct LibraryParser;
 
 impl LibraryParser {
-    pub fn parse_file(path: &PathBuf) -> Result<lib::Library> {
+    pub fn parse_file(path: &PathBuf) -> Result<Vec<lib::Primitive>> {
         let content = &fs::read(path).map_err(|err| {
             errors::Error::InvalidFile(format!(
                 "Failed to read {}: {}",
@@ -83,13 +83,6 @@ impl LibraryParser {
         Ok(match_nodes!(
             input.into_children();
             [io_port(p)..] => p.collect()))
-    }
-
-    fn params(input: Node) -> ParseResult<Vec<ast::Id>> {
-        Ok(match_nodes!(
-            input.into_children();
-            [identifier(id)..] => id.collect()
-        ))
     }
 
     fn key_value(input: Node) -> ParseResult<(String, u64)> {
@@ -211,12 +204,10 @@ impl LibraryParser {
         ))
     }
 
-    fn file(input: Node) -> ParseResult<lib::Library> {
+    fn file(input: Node) -> ParseResult<Vec<lib::Primitive>> {
         Ok(match_nodes!(
             input.into_children();
-            [primitive(p).., _] => lib::Library {
-                primitives: p.collect()
-            }
+            [primitive(p).., _] => p.collect()
         ))
     }
 }

@@ -123,7 +123,7 @@ impl PrettyPrint for Id {
 
 impl PrettyPrint for NamespaceDef {
     fn prettify<'a>(&self, arena: &'a bumpalo::Bump) -> RcDoc<'a, ColorSpec> {
-        let imports = self.libraries.iter().map(|l| {
+        let imports = self.imports.iter().map(|l| {
             RcDoc::text("import")
                 .keyword_color()
                 .append(RcDoc::space())

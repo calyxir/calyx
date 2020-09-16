@@ -1,12 +1,10 @@
 // Abstract Syntax Tree for library declarations in Futil
 use crate::errors::{Error, Result};
-use crate::lang::ast::{Id, Portdef};
+use crate::lang::{
+    ast,
+    ast::{Id, Portdef},
+};
 use std::collections::HashMap;
-
-#[derive(Clone, Debug)]
-pub struct Library {
-    pub primitives: Vec<Primitive>,
-}
 
 #[derive(Clone, Debug)]
 pub struct Primitive {
@@ -44,6 +42,37 @@ impl ParamSignature {
     /// Returns an iterator over the outputs of signature
     pub fn outputs(&self) -> std::slice::Iter<ParamPortdef> {
         self.outputs.iter()
+    }
+
+    /// Returns an `ast::Signature` if there are no params in self.
+    pub fn to_signature(self) -> Result<ast::Signature> {
+        let inputs: Vec<_> = self
+            .inputs
+            .into_iter()
+            .map(|param| match param.width {
+                Width::Const { value } => Ok(ast::Portdef {
+                    name: param.name,
+                    width: value,
+                }),
+                Width::Param { value } => unimplemented!(
+                    "proper error for param being in a place it shouldn't be"
+                ),
+            })
+            .collect::<Result<_>>()?;
+        let outputs: Vec<_> = self
+            .outputs
+            .into_iter()
+            .map(|param| match param.width {
+                Width::Const { value } => Ok(ast::Portdef {
+                    name: param.name,
+                    width: value,
+                }),
+                Width::Param { value } => unimplemented!(
+                    "proper error for param being in a place it shouldn't be"
+                ),
+            })
+            .collect::<Result<_>>()?;
+        Ok(ast::Signature { inputs, outputs })
     }
 }
 

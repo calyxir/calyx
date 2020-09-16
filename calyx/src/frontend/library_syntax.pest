@@ -12,12 +12,6 @@ string_lit = ${ "\"" ~ char* ~ "\"" }
 
 // ====== toplevel ======
 
-primitive = {
-      "primitive" ~ identifier ~ attributes? ~ params? ~ signature?
-      ~ "{"
-      ~ implementation
-      ~ "}"
-}
 
 file = {
       SOI
@@ -35,9 +29,6 @@ attributes = {
       "<" ~ (key_value ~ ("," ~ key_value)*) ~ ">"
 }
 
-params = {
-      "[" ~ (identifier ~ ("," ~ identifier)*)? ~ "]"
-}
 
 signature = {
       "(" ~ io_ports? ~ ")" ~ "->" ~ "(" ~ io_ports? ~ ")"
@@ -49,23 +40,4 @@ io_port = {
 
 io_ports = {
       (io_port ~ ("," ~ io_port)*)?
-}
-
-inner = _{
-      ("{" ~ inner* ~ "}")
-    | (!"}" ~ ANY ~ inner*)
-}
-
-inner_wrap = { inner }
-
-block = ${
-      "{" ~ inner_wrap ~ "}"
-}
-
-verilog_block = {
-      "verilog" ~ block
-}
-
-implementation = {
-      verilog_block?
 }

@@ -1,4 +1,5 @@
 use crate::errors::{self, Result, Span};
+use crate::lang::library::ast as lib;
 use crate::lang::{
     ast,
     ast::{BitNum, NumType},
@@ -170,26 +171,26 @@ impl FutilParser {
         ))
     }
 
-    fn signature(input: Node) -> ParseResult<ast::Signature> {
+    fn signature(input: Node) -> ParseResult<lib::ParamSignature> {
         Ok(match_nodes!(
             input.into_children();
-            [io_ports(inputs), signature_return(outputs)] => ast::Signature {
+            [io_ports(inputs), signature_return(outputs)] => lib::ParamSignature {
                 inputs,
                 outputs
             },
-            [io_ports(inputs)] => ast::Signature {
+            [io_ports(inputs)] => lib::ParamSignature {
                 inputs,
                 outputs: vec![]
             },
-            [signature_return(outputs)] => ast::Signature {
+            [signature_return(outputs)] => lib::ParamSignature {
                 inputs: vec![],
                 outputs
             },
-            [] => ast::Signature { inputs: vec![], outputs: vec![] }
+            [] => lib::ParamSignature { inputs: vec![], outputs: vec![] }
         ))
     }
 
-    fn signature_return(input: Node) -> ParseResult<Vec<ast::Portdef>> {
+    fn signature_return(input: Node) -> ParseResult<Vec<lib::ParamPortdef>> {
         Ok(match_nodes!(
             input.into_children();
             [io_ports(p)] => p,
@@ -197,13 +198,21 @@ impl FutilParser {
         ))
     }
 
-    fn io_port(input: Node) -> ParseResult<ast::Portdef> {
-        Ok(match_nodes![
+    fn io_port(input: Node) -> ParseResult<lib::ParamPortdef> {
+        Ok(match_nodes!(
             input.into_children();
-            [identifier(id), bitwidth(bw)] => ast::Portdef { name: id, width: bw }])
+            [identifier(id), bitwidth(bw)] => lib::ParamPortdef {
+                name: id,
+                width: lib::Width::Const { value: bw }
+            },
+            [identifier(id), identifier(param)] => lib::ParamPortdef {
+                name: id,
+                width: lib::Width::Param { value: param }
+            }
+        ))
     }
 
-    fn io_ports(input: Node) -> ParseResult<Vec<ast::Portdef>> {
+    fn io_ports(input: Node) -> ParseResult<Vec<lib::ParamPortdef>> {
         Ok(match_nodes![
             input.into_children();
             [io_port(p)..] => p.collect()])
@@ -349,6 +358,13 @@ impl FutilParser {
         ))
     }
 
+    fn params(input: Node) -> ParseResult<Vec<ast::Id>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(id)..] => id.collect()
+        ))
+    }
+
     fn group(input: Node) -> ParseResult<ast::Group> {
         Ok(match_nodes!(
             input.into_children();
@@ -372,6 +388,63 @@ impl FutilParser {
                 Rule::wire => Ok(ast::Connection::Wire(Self::wire(node)?)),
                 Rule::group => Ok(ast::Connection::Group(Self::group(node)?)),
                 _ => unreachable!(),
+            })
+            .collect()
+    }
+
+    fn inner_wrap(input: Node) -> ParseResult<String> {
+        // remove extra whitespace and indentation
+        let mut result = String::new();
+        // records the base indentation level
+        let mut indent_level: Option<usize> = None;
+        for line in input.as_str().lines() {
+            // find the first non-empty line
+            if !line.is_empty() && indent_level.is_none() {
+                indent_level = line.find(|s| !char::is_whitespace(s));
+            }
+
+            // if we have already found indent level
+            if indent_level.is_some() {
+                result += indent_level
+                    .map(|pre| {
+                        if line.len() > pre {
+                            line.split_at(pre).1
+                        } else {
+                            line
+                        }
+                    })
+                    .unwrap_or(line)
+                    .trim_end();
+                result += "\n";
+            }
+        }
+        Ok(result.trim_end().to_string())
+    }
+
+    fn prim_block(input: Node) -> ParseResult<String> {
+        Ok(match_nodes!(
+            input.into_children();
+            [inner_wrap(text)] => text
+        ))
+    }
+
+    fn verilog_block(input: Node) -> ParseResult<lib::Verilog> {
+        Ok(match_nodes!(
+            input.into_children();
+            [prim_block(code)] => lib::Verilog { code }
+        ))
+    }
+
+    fn implementation(input: Node) -> ParseResult<Vec<lib::Implementation>> {
+        input
+            .into_children()
+            .map(|node| {
+                Ok(match node.as_rule() {
+                    Rule::verilog_block => lib::Implementation::Verilog {
+                        data: Self::verilog_block(node)?,
+                    },
+                    _ => unreachable!(),
+                })
             })
             .collect()
     }
@@ -462,7 +535,7 @@ impl FutilParser {
         [identifier(id), signature(sig), cells(cells), connections(connections), control(control)] =>
             ast::ComponentDef {
                 name: id,
-                signature: sig,
+                signature: sig.to_signature().unwrap(),
                 cells,
                 connections,
                 control,
@@ -481,6 +554,48 @@ impl FutilParser {
         ))
     }
 
+    fn primitive(input: Node) -> ParseResult<lib::Primitive> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(name), attributes(attrs), params(p), signature(s), implementation(i)] => lib::Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: attrs,
+                implementation: i
+            },
+            [identifier(name), attributes(attrs), signature(s), implementation(i)] => lib::Primitive {
+                name,
+                params: vec![],
+                signature: s,
+                attributes: attrs,
+                implementation: i
+            },
+            [identifier(name), params(p), signature(s), implementation(i)] => lib::Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: HashMap::new(),
+                implementation: i
+            },
+            [identifier(name), signature(s), implementation(i)] => lib::Primitive {
+                name,
+                params: vec![],
+                signature: s,
+                attributes: HashMap::new(),
+                implementation: i
+            }
+        ))
+    }
+
+    fn definition(input: Node) -> ParseResult<ast::Definition> {
+        Ok(match_nodes!(
+            input.into_children();
+            [component(c)] => ast::Definition::Component(c),
+            [primitive(p)] => ast::Definition::Primitive(p)
+        ))
+    }
+
     fn imports(input: Node) -> ParseResult<Vec<String>> {
         Ok(match_nodes!(
             input.into_children();
@@ -491,9 +606,20 @@ impl FutilParser {
     fn file(input: Node) -> ParseResult<ast::NamespaceDef> {
         Ok(match_nodes!(
             input.into_children();
-            [imports(imports), component(comps).., EOI] => ast::NamespaceDef {
-                libraries: imports,
-                components: comps.collect()
+            [imports(imports), definition(defns).., EOI] => {
+                let mut primitives = Vec::new();
+                let mut components = Vec::new();
+                for def in defns {
+                    match def {
+                        ast::Definition::Primitive(p) => primitives.push(p),
+                        ast::Definition::Component(c) => components.push(c),
+                    }
+                }
+                ast::NamespaceDef {
+                    imports: imports,
+                    components,
+                    primitives
+                }
             }
         ))
     }

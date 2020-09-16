@@ -18,6 +18,17 @@ string_lit = ${ "\"" ~ char* ~ "\"" }
 
 // ====== toplevel ======
 
+definition = {
+      component | primitive
+}
+
+primitive = {
+      "primitive" ~ identifier ~ attributes? ~ params? ~ signature?
+      ~ "{"
+      ~ implementation
+      ~ "}"
+}
+
 component = {
       "component" ~ identifier ~ signature?
       ~ "{"
@@ -30,7 +41,7 @@ component = {
 file = {
       SOI
       ~ imports
-      ~ component+
+      ~ definition+
       ~ EOI
 }
 
@@ -51,8 +62,12 @@ signature_return = {
       "->" ~ "(" ~ io_ports? ~ ")"
 }
 
+params = {
+      "[" ~ (identifier ~ ("," ~ identifier)*)? ~ "]"
+}
+
 io_port = {
-      identifier ~ ":" ~ bitwidth
+      identifier ~ ":" ~ (bitwidth | identifier)
 }
 
 io_ports = {
@@ -185,4 +200,25 @@ control = {
       ~ "{"
       ~ stmt?
       ~ "}"
+}
+
+// ====== primitive body ======
+
+inner = _{
+      ("{" ~ inner* ~ "}")
+    | (!"}" ~ ANY ~ inner*)
+}
+
+inner_wrap = { inner }
+
+prim_block = ${
+      "{" ~ inner_wrap ~ "}"
+}
+
+verilog_block = {
+      "verilog" ~ prim_block
+}
+
+implementation = {
+      verilog_block?
 }

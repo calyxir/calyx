@@ -1,4 +1,5 @@
 // Abstract Syntax Tree for Futil
+use super::library::ast::Primitive;
 use crate::errors::{Error, Result, Span};
 use crate::lang::{context::LibraryContext, structure::StructureGraph};
 use derivative::Derivative;
@@ -75,13 +76,22 @@ impl PartialEq<str> for Id {
     }
 }
 
+/// Encapsulates all types of definitions.
+#[derive(Clone, Debug)]
+pub enum Definition {
+    Component(ComponentDef),
+    Primitive(Primitive),
+}
+
 /// Top level AST statement. This contains a list of Component definitions.
 #[derive(Clone, Debug)]
 pub struct NamespaceDef {
     /// The path to libraries
-    pub libraries: Vec<String>,
+    pub imports: Vec<String>,
     /// List of component definitions.
     pub components: Vec<ComponentDef>,
+    /// List of primitive definitions.
+    pub primitives: Vec<Primitive>,
 }
 
 /// AST statement for defining components.

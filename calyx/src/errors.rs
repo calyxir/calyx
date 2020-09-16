@@ -2,7 +2,7 @@
 //! `Error` enum represents a different type of error. For some types of errors, you
 //! might want to add a `From` impl so that the `?` syntax is more convienent.
 
-use crate::frontend::{library_syntax, syntax};
+use crate::frontend::syntax;
 use crate::lang::ast;
 use petgraph::stable_graph::NodeIndex;
 use std::iter::repeat;
@@ -11,7 +11,6 @@ use std::rc::Rc;
 #[allow(clippy::large_enum_variant)]
 pub enum Error {
     ParseError(pest_consume::Error<syntax::Rule>),
-    LibraryParseError(pest_consume::Error<library_syntax::Rule>),
     ReservedName(ast::Id),
 
     UnknownPass(String, String),
@@ -137,7 +136,6 @@ impl std::fmt::Debug for Error {
             },
             InvalidFile(err) => write!(f, "InvalidFile: {}", err),
             ParseError(err) => write!(f, "FuTIL Parser: {}", err),
-            LibraryParseError(err) => write!(f, "FuTIL Library Parser: {}", err),
             WriteError => write!(f, "WriteError"),
             MismatchedPortWidths(port1, w1, port2, w2) => {
                 let msg1 = format!("This port has width: {}", w1);
@@ -194,12 +192,6 @@ impl From<std::fmt::Error> for Error {
 impl From<pest_consume::Error<syntax::Rule>> for Error {
     fn from(e: pest_consume::Error<syntax::Rule>) -> Self {
         Error::ParseError(e)
-    }
-}
-
-impl From<pest_consume::Error<library_syntax::Rule>> for Error {
-    fn from(e: pest_consume::Error<library_syntax::Rule>) -> Self {
-        Error::LibraryParseError(e)
     }
 }
 
