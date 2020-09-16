@@ -250,9 +250,13 @@ component main() -> () {
                   upd0;
                   upd1;
                   upd2;
-                  let3;
-                  upd3;
-                  upd4;
+                  par {
+                    seq {
+                      let3;
+                      upd3;
+                    }
+                    upd4;
+                  }
                 }
               }
               upd5;
@@ -271,9 +275,13 @@ component main() -> () {
                   upd10;
                   upd11;
                   upd12;
-                  let6;
-                  upd13;
-                  upd14;
+                  par {
+                    seq {
+                      let6;
+                      upd13;
+                    }
+                    upd14;
+                  }
                 }
               }
               upd15;

@@ -1061,73 +1061,79 @@ component main() -> () {
   }
   control {
     seq {
-      let0;
-      while le0.out with cond0 {
+      par {
         seq {
-          upd0;
-          par {
-            if eq0.out with cond1 {
-              upd1;
-            }
-            if eq1.out with cond2 {
-              upd2;
-            }
-          }
-          upd3;
-          par {
-            if eq2.out with cond3 {
-              upd4;
-            }
-            if eq3.out with cond4 {
-              upd5;
-            }
-          }
-          upd6;
-          par {
-            if eq4.out with cond5 {
-              upd7;
-            }
-            if eq5.out with cond6 {
-              upd8;
-            }
-          }
-          upd9;
-          par {
-            if eq6.out with cond7 {
-              upd10;
-            }
-            if eq7.out with cond8 {
-              upd11;
-            }
-          }
-          upd12;
-        }
-      }
-      let1;
-      while le1.out with cond9 {
-        seq {
-          let2;
-          while le2.out with cond10 {
+          let0;
+          while le0.out with cond0 {
             seq {
-              upd13;
+              upd0;
               par {
-                if and10.out with cond11 {
-                  upd14;
+                if eq0.out with cond1 {
+                  upd1;
                 }
-                if and13.out with cond12 {
-                  upd15;
+                if eq1.out with cond2 {
+                  upd2;
                 }
-                if and16.out with cond13 {
-                  upd16;
+                upd3;
+              }
+              par {
+                if eq2.out with cond3 {
+                  upd4;
                 }
-                if and19.out with cond14 {
-                  upd17;
+                if eq3.out with cond4 {
+                  upd5;
+                }
+                upd6;
+              }
+              par {
+                if eq4.out with cond5 {
+                  upd7;
+                }
+                if eq5.out with cond6 {
+                  upd8;
+                }
+                upd9;
+              }
+              par {
+                if eq6.out with cond7 {
+                  upd10;
+                }
+                if eq7.out with cond8 {
+                  upd11;
                 }
               }
-              upd18;
+              upd12;
             }
           }
-          upd19;
+        }
+        seq {
+          let1;
+          while le1.out with cond9 {
+            seq {
+              let2;
+              while le2.out with cond10 {
+                seq {
+                  upd13;
+                  par {
+                    if and10.out with cond11 {
+                      upd14;
+                    }
+                    if and13.out with cond12 {
+                      upd15;
+                    }
+                    if and16.out with cond13 {
+                      upd16;
+                    }
+                    if and19.out with cond14 {
+                      upd17;
+                    }
+                  }
+                  upd18;
+                }
+              }
+              upd19;
+            }
+          }
         }
       }
       let3;
@@ -1141,8 +1147,6 @@ component main() -> () {
                 upd21;
                 upd22;
                 upd23;
-              }
-              par {
                 upd24;
                 upd25;
                 upd26;
@@ -1187,8 +1191,6 @@ component main() -> () {
                 upd33;
                 upd34;
                 upd35;
-              }
-              par {
                 upd36;
                 upd37;
                 upd38;
@@ -1233,8 +1235,8 @@ component main() -> () {
               upd45;
             }
           }
-          upd46;
           par {
+            upd46;
             if eq18.out with cond22 {
               upd47;
             }

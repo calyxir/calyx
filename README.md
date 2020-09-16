@@ -1,41 +1,56 @@
 # Fused Temporal Intermediate Language (FuTIL)
 
-An intermediate language for [Dahlia][].
+Intermediate language and compiler construction kit for hardware accelerators.
 
-Calyx is the name of the visitor framework for FuTIL.
+### Prerequisites
 
-### Install & Run
+**Compiler dependencies**:
+- Install [Rust][rust] (it should automatically install `cargo`).
 
-First, install [Rust][rust].
-
-Then, build the compiler:
-
-- Run `cargo build` to download all dependencies and build FuTIL.
-- Run `./target/debug/futil --help` to get options from the `futil` binary.
-
-#### Tests
-
-We are using [runt][] for testing. If you want to run the tests:
-
-- Install [runt][] by running `cargo install runt`.
-- Type `runt` to run tests.
-
-For RTL testing, you will need to install these things:
-
+**Testing dependencies**:
+- [runt][] by running `cargo install runt`
+- [vcdump][] by running `cargo install vcdump`
 - [Verilator][]:
     - Ubuntu: `sudo apt install verilator`
     - Fedora: `sudo dnf install verilator`
     - Mac: `brew install verilator`
     - If none of these work for you, I refer you to the [official Verilator install instructions][verilator-install].
-- [vcdump][] by running `cargo install vcdump`
 - [jq][]:
     - Ubuntu: `sudo apt install jq`
     - Fedora: `sudo dnf install jq`
     - Mac: `brew install jq`
     - If none of these work, here are [the official install directions][jq-install].
 
-For the [Dahlia][] tests, build the Dahlia compiler.
-Then either make sure the executable is on your `$PATH` as `dahlia` or set the `$DAHLIA_EXEC` environment variable to point to it.
+**Dahlia dependencies**:
+- Install [Dahlia][].
+- Point the `DAHLIA` environment variable to the Dahlia compiler binary
+
+          export DAHLIA=<path-to-dahlia>/fuse
+
+### Building and Testing
+
+Build the compiler:
+
+- Run `cargo build` to build the compiler.
+- Run `./target/debug/futil --help` to get options from the `futil` binary.
+
+Run the integration tests:
+
+- Run `runt -x dahlia`
+
+(Optional) Run the full test suite (requires installation of the Dahlia compiler):
+
+- Run `runt`
+
+### Using the Compiler
+
+The compiler can be run in two ways:
+1. `cargo run -- <options>`: Rebuild compiler and run the CLI.
+2. `./target/debug/futil <options>`: Run the compiler without rebuilding the CLI.
+
+Compile a FuTIL program to Verilog for Verilator simulation
+
+          cargo run -- <file> -b verilog --verilator -l primitives/std.lib
 
 ### Compiler Development
 
@@ -73,14 +88,14 @@ implement the command line interface.
 The `tests/verilog` folder is dedicated to Verilator correctness testing.
 A `.futil` in this directory defines a new test. To get output we run the following steps:
  - Use `verilog` backend to generate a Verilog file
- - Run Verilator using `sim/testbench.cpp` as the testbench. 
+ - Run Verilator using `sim/testbench.cpp` as the testbench.
    - This expects a toplevel component in Futil named `main`
    - We drive the `main` component by pulsing the `clk` port on `main`
    - We simulate until the `ready` port on `main` is high.
  - Convert the generated `vcd` file to `json`
  - Use `{filename}.jq` to choose a subset of signals to test
  - Compare this generated file to `{filename.expect}`
- 
+
 Concretely, the things to do to create a new test are:
  - make a new `{filename}.futil` file
  - make a `{filename}.jq` file to select the signals you are interested in testing.

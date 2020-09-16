@@ -647,55 +647,69 @@ component main() -> () {
   }
   control {
     seq {
-      let0;
-      while le0.out with cond0 {
+      par {
         seq {
-          let1;
-          while le1.out with cond1 {
+          let0;
+          while le0.out with cond0 {
             seq {
-              upd0;
-              upd1;
-              upd2;
+              let1;
+              while le1.out with cond1 {
+                seq {
+                  upd0;
+                  upd1;
+                  upd2;
+                }
+              }
+              upd3;
             }
           }
-          upd3;
         }
-      }
-      let2;
-      while le2.out with cond2 {
         seq {
-          let3;
-          while le3.out with cond3 {
+          let2;
+          while le2.out with cond2 {
             seq {
-              upd4;
-              upd5;
-              upd6;
-              upd7;
-              upd8;
+              let3;
+              while le3.out with cond3 {
+                seq {
+                  upd4;
+                  par {
+                    upd5;
+                    upd6;
+                  }
+                  upd7;
+                  upd8;
+                }
+              }
+              upd9;
             }
           }
-          upd9;
         }
       }
       let4;
       while le4.out with cond4 {
         seq {
-          let5;
-          let6;
-          while le5.out with cond5 {
+          par {
+            let5;
             seq {
-              upd10;
-              let7;
-              upd11;
-              upd12;
+              let6;
+              while le5.out with cond5 {
+                seq {
+                  upd10;
+                  let7;
+                  upd11;
+                  upd12;
+                }
+              }
             }
           }
           upd13;
           let8;
           while le6.out with cond6 {
             seq {
-              upd14;
-              upd15;
+              par {
+                upd14;
+                upd15;
+              }
               let9;
               upd16;
               upd17;
@@ -708,8 +722,10 @@ component main() -> () {
               let11;
               while le7.out with cond8 {
                 seq {
-                  upd19;
-                  upd20;
+                  par {
+                    upd19;
+                    upd20;
+                  }
                   let12;
                   let13;
                   upd21;
@@ -720,8 +736,10 @@ component main() -> () {
               while le8.out with cond9 {
                 seq {
                   upd23;
-                  upd24;
-                  upd25;
+                  par {
+                    upd24;
+                    upd25;
+                  }
                   let15;
                   upd26;
                   upd27;
@@ -733,34 +751,42 @@ component main() -> () {
           upd29;
         }
       }
-      let16;
-      while le9.out with cond10 {
+      par {
         seq {
-          let17;
-          while le10.out with cond11 {
+          let16;
+          while le9.out with cond10 {
             seq {
-              upd30;
-              upd31;
-              upd32;
+              let17;
+              while le10.out with cond11 {
+                seq {
+                  upd30;
+                  upd31;
+                  upd32;
+                }
+              }
+              upd33;
             }
           }
-          upd33;
         }
-      }
-      let18;
-      while le11.out with cond12 {
         seq {
-          let19;
-          while le12.out with cond13 {
+          let18;
+          while le11.out with cond12 {
             seq {
-              upd34;
-              upd35;
-              upd36;
-              upd37;
-              upd38;
+              let19;
+              while le12.out with cond13 {
+                seq {
+                  upd34;
+                  par {
+                    upd35;
+                    upd36;
+                  }
+                  upd37;
+                  upd38;
+                }
+              }
+              upd39;
             }
           }
-          upd39;
         }
       }
     }
