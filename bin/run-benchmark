@@ -28,7 +28,7 @@ benchmark="$tmp/$(basename -s .fuse $input)"
 
 meminit="$(mktemp -d)"
 # Create .meminit files from the input JSON file.
-$script_dir/json_to_dat.py --mode json --output "$meminit" "$data"
+$script_dir/json_to_dat.py --from json --output "$meminit" "$data"
 
 $script_dir/find-dahlia $input --lower -b futil -l error > "$benchmark"
 
@@ -36,7 +36,7 @@ $script_dir/../target/debug/futil "$benchmark" -b verilog --verilator -l $script
     | DATA="$meminit" $script_dir/gen-vcd - 2> "$tmp/log" > "$tmp/out.vcd"
 
 # Translate the outputs back to a JSON filetmp
-$script_dir/json_to_dat.py --mode dat --output "$tmp/out.json" --read_ext out "$meminit"
+$script_dir/json_to_dat.py --from dat --output "$tmp/out.json" --read_ext out "$meminit"
 
 echo -n "$(basename -s .expect $benchmark),"
 cat "$tmp/log" | grep cycles | awk '{print $2}'

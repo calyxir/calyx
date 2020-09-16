@@ -18,7 +18,7 @@ def make_parser():
         help='The json file to convert. If excluded, pass in a file over stdin.'
     )
     parser.add_argument(
-        '--mode',
+        '--from',
         default='json',
         choices=['json', 'dat'],
         help='The `json` mode converts json->{dat} and `dat` converts {dat}->json'

@@ -29,7 +29,7 @@ small_polybench/%.dahlia-out: small_polybench/%.cpp.o small_polybench/%.fuse.dat
 	./$< small_polybench/$*.fuse.data | jq -S . > $@
 
 small_polybench/%.meminit: small_polybench/%.fuse.data
-	../bin/json_to_dat.py --mode json --output $@ $<
+	../bin/json_to_dat.py --from json --output $@ $<
 
 small_polybench/%.futil: small_polybench/%.fuse
 	../bin/find-dahlia $< --lower -b futil -l error > $@
@@ -41,7 +41,7 @@ small_polybench/%.vcd: small_polybench/%.meminit small_polybench/%.sv
 	DATA=small_polybench/$*.meminit ../bin/gen-vcd small_polybench/$*.sv > $@
 
 small_polybench/%.futil-out: small_polybench/%.meminit small_polybench/%.vcd
-	../bin/json_to_dat.py --mode dat --output $@.tmp small_polybench/$*.meminit
+	../bin/json_to_dat.py --from dat --output $@.tmp small_polybench/$*.meminit
 	jq -S . $@.tmp > $@
 	rm $@.tmp
 
