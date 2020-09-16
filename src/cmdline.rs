@@ -4,6 +4,7 @@ use calyx::{
     errors::{Error, Result},
     frontend::pretty_print::PrettyPrint,
     lang::context,
+    utils::OutputFile,
 };
 use itertools::Itertools;
 use std::io::Write;
@@ -25,8 +26,8 @@ pub struct Opts {
     pub file: Option<PathBuf>,
 
     /// Output file
-    #[structopt(long = "output", short = "o", parse(from_os_str))]
-    pub output: Option<PathBuf>,
+    #[structopt(long = "output", short = "o", default_value)]
+    pub output: OutputFile,
 
     /// Path to the primitives library
     #[structopt(long, short, default_value = ".")]
@@ -129,20 +130,24 @@ impl ToString for BackendOpt {
 
 impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
-    pub fn run_backend<W: Write>(
-        self,
-        context: &context::Context,
-        file: &mut W,
-    ) -> Result<()> {
+    pub fn run_backend(self, context: &context::Context) -> Result<()> {
         match self.backend {
-            BackendOpt::Verilog => VerilogBackend::run(&context, file),
+            BackendOpt::Verilog => VerilogBackend::run(&context, self.output),
             BackendOpt::Futil => {
-                write!(file, "{}", context.pretty_string())?;
+                if self.output.isatty() {
+                    context.pretty_print();
+                } else {
+                    write!(
+                        self.output.get_write(),
+                        "{}",
+                        context.pretty_string()
+                    )?;
+                }
                 Ok(())
             }
             BackendOpt::Dot => {
                 let write_result = write!(
-                    file,
+                    self.output.get_write(),
                     "{}",
                     context
                         .get_component(&self.toplevel.into())?
