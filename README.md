@@ -42,18 +42,15 @@ Run the integration tests:
 
 - Run `runt`
 
-### Command Line Interface (CLI)
+### Using the Compiler
 
-The compiler can be executed in two ways:
+The compiler can be run in two ways:
 1. `cargo run -- <options>`: Rebuild compiler and run the CLI.
 2. `./target/debug/futil <options>`: Run the compiler without rebuilding the CLI.
 
-##### Quick reference
-Compile FuTIL to Verilog for Verilator simulation
+Compile a FuTIL program to Verilog for Verilator simulation
 
           cargo run -- <file> -b verilog --verilator -l primitives/std.lib
-
-
 
 ### Compiler Development
 
