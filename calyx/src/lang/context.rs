@@ -92,14 +92,31 @@ impl Context {
     ///   or an error.
     pub fn from_ast(
         namespace: ast::NamespaceDef,
-        // libraries: &[lib::Primitive],
+        imports: &[ast::NamespaceDef],
         debug_mode: bool,
         verilator_mode: bool,
     ) -> Result<Self> {
         // build hashmap for primitives in provided libraries
         let mut lib_definitions = HashMap::new();
         for prim in namespace.primitives {
-            lib_definitions.insert(prim.name.clone(), prim.clone());
+            lib_definitions.insert(
+                prim.name.clone(),
+                ast::Definition::Primitive(prim.clone()),
+            );
+        }
+        for names in imports {
+            for prim in &names.primitives {
+                lib_definitions.insert(
+                    prim.name.clone(),
+                    ast::Definition::Primitive(prim.clone()),
+                );
+            }
+            for comp in &names.components {
+                lib_definitions.insert(
+                    comp.name.clone(),
+                    ast::Definition::Component(comp.clone()),
+                );
+            }
         }
         let libctx = LibraryContext {
             definitions: lib_definitions,
@@ -110,6 +127,14 @@ impl Context {
         for comp in &namespace.components {
             signatures
                 .insert(comp.name.clone(), extend_sig(comp.signature.clone()));
+        }
+        for defn in libctx.definitions.values() {
+            if let ast::Definition::Component(comp) = defn {
+                signatures.insert(
+                    comp.name.clone(),
+                    extend_sig(comp.signature.clone()),
+                );
+            }
         }
 
         let mut definitions = HashMap::new();
@@ -247,7 +272,7 @@ impl Into<ast::NamespaceDef> for Context {
 /// to make this easier.
 #[derive(Debug, Clone)]
 pub struct LibraryContext {
-    pub definitions: HashMap<ast::Id, lib::Primitive>,
+    pub definitions: HashMap<ast::Id, ast::Definition>,
 }
 
 impl LibraryContext {
@@ -259,7 +284,10 @@ impl LibraryContext {
         params: &[u64],
     ) -> Result<ast::Signature> {
         match self.definitions.get(id) {
-            Some(prim) => {
+            Some(ast::Definition::Component(comp)) => {
+                Ok(comp.signature.clone())
+            }
+            Some(ast::Definition::Primitive(prim)) => {
                 // zip param ids with passed in params into hashmap
                 let param_map: HashMap<&ast::Id, u64> = prim
                     .params

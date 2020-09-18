@@ -119,7 +119,7 @@ fn main() -> Result<()> {
 
     // ==== Construct the context ====
     // parse the file
-    let mut namespace = match &opts.file {
+    let namespace = match &opts.file {
         Some(file) => syntax::FutilParser::parse_file(&file),
         None => {
             if atty::isnt(Stream::Stdin) {
@@ -138,14 +138,13 @@ fn main() -> Result<()> {
         .map(|path| syntax::FutilParser::parse_file(&opts.lib_path.join(path)))
         .collect::<Result<_>>()?;
 
-    for mut file in imported {
-        namespace.components.append(&mut file.components);
-        namespace.primitives.append(&mut file.primitives);
-    }
-
     // build context
-    let context =
-        Context::from_ast(namespace, opts.enable_debug, opts.enable_verilator)?;
+    let context = Context::from_ast(
+        namespace,
+        &imported,
+        opts.enable_debug,
+        opts.enable_verilator,
+    )?;
 
     // Construct the name generator
     let name_gen = NameGenerator::default();

@@ -149,8 +149,8 @@ fn primitive_implemenations<'a>(
             _ => None,
         })
         .unique()
-        .map(|name| {
-            context.library_context.definitions[&name]
+        .map(|name| match &context.library_context.definitions[&name] {
+            ast::Definition::Primitive(prim) => prim
                 .implementation
                 .iter()
                 .find_map(|im| match im {
@@ -160,7 +160,10 @@ fn primitive_implemenations<'a>(
                 })
                 .ok_or_else(|| {
                     Error::MissingImplementation("Verilog", name.clone())
-                })
+                }),
+            ast::Definition::Component(comp) => {
+                todo!("write error message for this")
+            }
         })
         .collect::<Result<Vec<_>>>()?;
     Ok(D::intersperse(docs, D::line().append(D::line())))
