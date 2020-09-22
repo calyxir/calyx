@@ -147,7 +147,7 @@ class VerilatorStage(Stage):
             proc.wait()
 
             out = proc.stdout
-            if data != None:
+            if data != None and not self.vcd:
                 mem = convert2json(tmpdir, "out")
                 if output_source.source_type == SourceType.Path:
                     json.dump(mem, output_source.data, sort_keys=True, indent=2)
@@ -183,5 +183,4 @@ class VcdumpStage(Stage):
                 stderr=subprocess.PIPE
             )
             proc.wait()
-            print(b'\n'.join(proc.stderr.readlines()))
         return (proc.stdout, proc.stderr, proc.returncode)

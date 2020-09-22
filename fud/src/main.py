@@ -8,6 +8,7 @@ import sys
 from src.stages import *
 from src.config import Configuration
 from src.utils import debug
+from src.registry import Registry
 
 def discover_implied_stage(filename, config):
     suffix = Path(filename).suffix
@@ -19,39 +20,18 @@ def discover_implied_stage(filename, config):
     # no stages corresponding with this file extension where found
     return None
 
-class Registry:
-    def __init__(self, config):
-        self.config = config
+def register_stages(registry, config):
+    dahlia = DahliaStage(config)
+    futil = FutilStage(config)
+    verilator_vcd = VerilatorStage(config, 'vcd')
+    verilator_dat = VerilatorStage(config, 'dat')
+    vcdump = VcdumpStage(config)
 
-        # construct stage objects
-        dahlia = DahliaStage(self.config)
-        futil = FutilStage(self.config)
-        verilator_vcd = VerilatorStage(self.config, 'vcd')
-        verilator_dat = VerilatorStage(self.config, 'dat')
-        vcdump = VcdumpStage(self.config)
-
-        # make registry
-        # TODO: assuming there is only a single path
-        self.registry = {
-            dahlia.name: (dahlia.target_stage, dahlia),
-            futil.name: (futil.target_stage, futil),
-            verilator_vcd.name: (verilator_vcd.target_stage, verilator_vcd),
-            verilator_dat.name: (verilator_dat.target_stage, verilator_dat),
-            vcdump.name: (vcdump.target_stage, vcdump),
-        }
-
-        debug(self.registry)
-
-    def make_path(self, start, dest):
-        path = []
-        curr = start
-        while curr != dest:
-            (tar, stage) = self.registry[curr]
-            path.append((tar, stage))
-            curr = tar
-
-        debug(path)
-        return(path)
+    registry.register(dahlia.name, dahlia.target_stage, dahlia)
+    registry.register(futil.name, futil.target_stage, futil)
+    registry.register(verilator_vcd.name, verilator_vcd.target_stage, verilator_vcd)
+    registry.register(verilator_dat.name, verilator_dat.target_stage, verilator_dat)
+    registry.register(vcdump.name, vcdump.target_stage, vcdump)
 
 def run(args, config):
 
@@ -61,6 +41,7 @@ def run(args, config):
             update(config.config['stages'], key.split('.'), value)
 
     registry = Registry(config)
+    register_stages(registry, config)
 
     # find source
     source = args.source
@@ -82,15 +63,15 @@ def run(args, config):
                 print(line, end='')
     else:
         inp = Source(args.input_file, SourceType.Path)
-        for (dest, stage) in path:
-            debug(f"Going to {dest} with {stage.name}")
+        for ed in path:
+            debug(f"Going to {ed.dest} with {ed.stage.name}")
             out = None
-            if dest == target:
+            if ed.dest == target:
                 out = Source(None, SourceType.Nothing)
             else:
                 out = Source(subprocess.PIPE, SourceType.Pipe)
 
-            (result, stderr, retcode) = stage.transform(inp, out)
+            (result, stderr, retcode) = ed.stage.transform(inp, out)
 
             if retcode != 0:
                 debug(b''.join(stderr.readlines()).decode('ascii'))
@@ -139,7 +120,7 @@ def main():
     parser = argparse.ArgumentParser(description="Fear, Uncertainty, Doubt. Beware of the FuTIL driver.")
     subparsers = parser.add_subparsers()
 
-    config_run(subparsers.add_parser('run', aliases=['r']))
+    config_run(subparsers.add_parser('exec', aliases=['e', 'ex']))
     config_config(subparsers.add_parser('config', aliases=['c']))
 
     config = Configuration()
