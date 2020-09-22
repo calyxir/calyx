@@ -11,6 +11,9 @@ from src.utils import debug
 from src.registry import Registry
 
 def discover_implied_stage(filename, config):
+    if filename == None:
+        raise Exception('TODO: No filename or type provided.')
+
     suffix = Path(filename).suffix
     for (name, stage) in config['stages'].items():
         for ext in stage['file_extensions']:
@@ -18,7 +21,7 @@ def discover_implied_stage(filename, config):
                 return name
 
     # no stages corresponding with this file extension where found
-    return None
+    raise Exception(f"TODO: real message: {filename} doesn't correspond to a known extension.")
 
 def register_stages(registry, config):
     dahlia = DahliaStage(config)
@@ -34,7 +37,6 @@ def register_stages(registry, config):
     registry.register(vcdump.name, vcdump.target_stage, vcdump)
 
 def run(args, config):
-
     # update the stages config with arguments provided via cmdline
     if args.dynamic_config != None:
         for key, value in args.dynamic_config:
@@ -53,8 +55,14 @@ def run(args, config):
     if target == None:
         target = discover_implied_stage(args.output_file, config.config)
 
-    debug(f"{source} -> {target}")
     path = registry.make_path(source, target)
+
+    # if we are doing a dry run, print out stages and exit
+    if args.dry_run:
+        print("Stages to run:")
+        for p in path:
+            print(f" [+] {p.stage.cmd}: {p.stage.name} -> {p.stage.target_stage}")
+        return
 
     if len(path) == 0:
         # TODO: deal with case where input_file doesn't exist
@@ -67,7 +75,10 @@ def run(args, config):
             debug(f"Going to {ed.dest} with {ed.stage.name}")
             out = None
             if ed.dest == target:
-                out = Source(None, SourceType.Nothing)
+                if args.output_file != None:
+                    out = Source(args.output_file, SourceType.Path)
+                else:
+                    out = Source(None, SourceType.Nothing)
             else:
                 out = Source(subprocess.PIPE, SourceType.Pipe)
 
@@ -138,6 +149,8 @@ def config_run(parser):
     parser.add_argument('--to', dest='dest')
     parser.add_argument('-o', dest='output_file')
     parser.add_argument('-s', nargs=2, metavar=('key', 'value'), dest='dynamic_config', action='append')
+    parser.add_argument('--dry-run', action='store_true', dest='dry_run')
+    parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('input_file')
     parser.set_defaults(func=run)
 

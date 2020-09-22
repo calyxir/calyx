@@ -25,6 +25,12 @@ DEFAULT_CONFIGURATION = {
         'vcd': {
             'exec': 'vcdump',
             'file_extensions': ['.vcd']
+        },
+        'vcd_json': {
+            'file_extensions': ['.json']
+        },
+        'dat': {
+            'file_extensions': ['.dat']
         }
     }
 }

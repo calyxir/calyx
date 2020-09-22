@@ -3,6 +3,7 @@ from enum import Enum
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 import json
 from io import StringIO
+from pathlib import Path
 
 from src.utils import debug
 from src.json_to_dat import convert2dat, convert2json
@@ -20,12 +21,14 @@ class Source:
 
     def to_pipe(self):
         if self.source_type == SourceType.Path:
-            self.data = open(self.data, 'r')
+            Path(self.data).touch()
+            self.data = open(self.data, 'r+')
             self.source_type = SourceType.Pipe
         elif self.source_type == SourceType.Pipe:
             pass
         elif self.source_type == SourceType.Nothing:
-            raise Exception('TODO: wronge source type error')
+            # explain why we can pass here
+            pass
 
     def to_path(self):
         if self.source_type == SourceType.Path:
@@ -37,7 +40,7 @@ class Source:
                 self.data = tmpfile.name
                 self.source_type = SourceType.Path
         elif self.source_type == SourceType.Nothing:
-            raise Exception('TODO: wronge source type error')
+            pass
 
 class Stage:
     def __init__(self, name, target_stage, config):
@@ -74,8 +77,9 @@ class FutilStage(Stage):
     def transform(self, input_source, output_source):
         debug(f"Running {self.name}")
 
-        if input_source.source_type == SourceType.Path:
-            input_source.to_pipe()
+        # convert sources to correct forms
+        input_source.to_pipe()
+        output_source.to_pipe()
 
         proc = subprocess.Popen(
             f'{self.cmd} -b verilog -l {self.stage_config["stdlib"]} --verilator',
@@ -98,8 +102,9 @@ class VerilatorStage(Stage):
     def transform(self, input_source, output_source):
         debug(f"Running {self.name}")
 
-        if input_source.source_type == SourceType.Pipe:
-            input_source.to_path()
+        # convert sources to correct forms
+        input_source.to_path()
+        output_source.to_pipe()
 
         exe_string = "--exe " + " --exe ".join(self.stage_config['testbench_files'])
 
@@ -149,13 +154,11 @@ class VerilatorStage(Stage):
             out = proc.stdout
             if data != None and not self.vcd:
                 mem = convert2json(tmpdir, "out")
-                if output_source.source_type == SourceType.Path:
-                    json.dump(mem, output_source.data, sort_keys=True, indent=2)
-                elif output_source.source_type == SourceType.Pipe:
-                    out = StringIO(json.dumps(mem, sort_keys=True, indent=2))
-                elif output_source.source_type == SourceType.Nothing:
+                if output_source.source_type == SourceType.Nothing:
                     print(json.dumps(mem, sort_keys=True, indent=2))
                     out = None
+                else:
+                    json.dump(mem, output_source.data, sort_keys=True, indent=2)
 
             return (out, proc.stderr, proc.returncode)
 
@@ -165,6 +168,10 @@ class VcdumpStage(Stage):
 
     def transform(self, inp, out):
         debug(f"Running {self.name}")
+
+        # convert sources to correct form
+        out.to_pipe()
+
         if inp.source_type == SourceType.Path:
             proc = subprocess.Popen(
                 f'{self.cmd} {inp.data}',
