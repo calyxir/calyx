@@ -24,3 +24,8 @@ node_modules
 *.res
 *.ipynb_checkpoints
 *.old
+
+# fud ignore
+fud/dist
+fud/build
+*.egg-info
