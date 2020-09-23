@@ -59,36 +59,33 @@ def run(args, config):
 
     # if we are doing a dry run, print out stages and exit
     if args.dry_run:
-        print("Stages to run:")
-        for p in path:
-            print(f" [+] {p.stage.cmd}: {p.stage.name} -> {p.stage.target_stage}")
-        return
+        debug("Stages to run:")
 
     if len(path) == 0:
         # TODO: deal with case where input_file doesn't exist
         with open(args.input_file, 'r') as f:
-            for line in f.readlines():
-                print(line, end='')
+            print(f.read())
     else:
         inp = Source(args.input_file, SourceType.Path)
         for ed in path:
-            debug(f"Going to {ed.dest} with {ed.stage.name}")
+            # debug(f"Going to {ed.dest} with {ed.stage.name}")
             out = None
             if ed.dest == target:
                 if args.output_file != None:
                     out = Source(args.output_file, SourceType.Path)
                 else:
-                    out = Source(None, SourceType.Nothing)
+                    out = Source(sys.stdout, SourceType.File)
             else:
-                out = Source(subprocess.PIPE, SourceType.Pipe)
+                out = Source.pipe()
 
-            (result, stderr, retcode) = ed.stage.transform(inp, out)
+            debug(f" [+] {ed.stage.name} -> {ed.stage.target_stage}")
+            (result, stderr, retcode) = ed.stage.transform(inp, out, dry_run=args.dry_run)
 
             if retcode != 0:
                 debug(b''.join(stderr.readlines()).decode('ascii'))
                 exit(retcode)
 
-            inp = Source(result, SourceType.Pipe)
+            inp = result
 
 # TODO: is there a nice way to merge update and find?
 def update(d, path, val):
