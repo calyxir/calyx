@@ -7,8 +7,8 @@ from pathlib import Path
 import sys
 import os
 
-from src.utils import debug
-from src.json_to_dat import convert2dat, convert2json
+from fud.utils import debug
+from fud.json_to_dat import convert2dat, convert2json
 
 class SourceType(Enum):
     Path = 1,

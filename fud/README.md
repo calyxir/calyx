@@ -4,12 +4,29 @@ of calling FuTIL frontends, the FuTIL compiler, and any backends that may
 be needed to simulate/execute a program.
 
 ## Installation
-You can install `fud` with `./setup.py install --user`.
+You need [Flit](https://flit.readthedocs.io/en/latest/) to install `fud`.
+Install it with `pip3 install flit`.
+
+Once that's installed, install `fud` with:
+```bash
+flit install
+```
+
+If you are working on `fud` itself, you can install it with a symlink with:
+```bash
+flit install --symlink
+```
 
 ### Installation of external tools
 #### Dahlia
+Dahlia is one of the frontends we support. Installation instructions are here: [Install Dahlia](https://github.com/cucapra/dahlia)
+
 #### Verilator
+We use the open source [Verilator](https://www.veripool.org/wiki/verilator) tool to simulate
+FuTIL generated verilog. Installation instructions are here: [Install Verilator](https://www.veripool.org/projects/verilator/wiki/Installing)
+
 #### Vcdump
+Vcdump is a tool for converting `vcd` (Value Change Dump) files to json for easier
 
 ## Usage
 ### Quickstart
@@ -27,7 +44,8 @@ fud exec mat-add.futil -o mat-add.vcd -s verilog.data data/mat-add.json
 # it can not be guessed from the extension
 fud exec tests/par.expect --from futil --to verilog
 
-#
+# dry run of simulatining a Dahlia dot-product implementation. This will print
+# the commands that will be run, but not do anything.
 fud exec dot-product.fuse --to dat -s verilog.data data/dot-product.json --dry-run
 ```
 

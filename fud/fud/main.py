@@ -5,10 +5,10 @@ from enum import Enum
 import toml
 import sys
 
-from src.stages import *
-from src.config import Configuration
-from src.utils import debug
-from src.registry import Registry
+from fud.stages import *
+from fud.config import Configuration
+from fud.utils import debug
+from fud.registry import Registry
 
 def discover_implied_stage(filename, config):
     if filename == None:
