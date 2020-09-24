@@ -9,6 +9,8 @@ import logging as log
 from fud.stages import *
 from fud.config import Configuration
 from fud.registry import Registry
+from fud.utils import eprint
+from fud.errors import *
 
 def discover_implied_stage(filename, config):
     if filename == None:
@@ -21,30 +23,25 @@ def discover_implied_stage(filename, config):
                 return name
 
     # no stages corresponding with this file extension where found
-    raise Exception(f"TODO: real message: {filename} doesn't correspond to a known extension.")
+    raise UnknownExtension(filename)
 
 def register_stages(registry, config):
-    dahlia = DahliaStage(config)
-    futil = FutilStage(config)
-    verilator_vcd = VerilatorStage(config, 'vcd')
-    verilator_dat = VerilatorStage(config, 'dat')
-    vcdump = VcdumpStage(config)
-
-    registry.register(dahlia.name, dahlia.target_stage, dahlia)
-    registry.register(futil.name, futil.target_stage, futil)
-    registry.register(verilator_vcd.name, verilator_vcd.target_stage, verilator_vcd)
-    registry.register(verilator_dat.name, verilator_dat.target_stage, verilator_dat)
-    registry.register(vcdump.name, vcdump.target_stage, vcdump)
+    registry.register(DahliaStage(config))
+    registry.register(FutilStage(config))
+    registry.register(VerilatorStage(config, 'vcd'))
+    registry.register(VerilatorStage(config, 'dat'))
+    registry.register(VcdumpStage(config))
 
 def run(args, config):
     # set verbosity level
-    l = log.getLogger()
+    level = None
     if args.verbose <= 0:
-        l.setLevel(log.WARNING)
+        level = log.WARNING
     elif args.verbose <= 1:
-        l.setLevel(log.INFO)
+        level = log.INFO
     elif args.verbose <= 2:
-        l.setLevel(log.DEBUG)
+        level = log.DEBUG
+    log.basicConfig(format="%(message)s", level=level)
 
     # update the stages config with arguments provided via cmdline
     if args.dynamic_config != None:
@@ -70,12 +67,16 @@ def run(args, config):
     if args.dry_run:
         print("Stages to run:")
 
+    # check if input_file exists
+    input_file = Path(args.input_file)
+    if not input_file.exists():
+        raise FileNotFoundError(input_file)
+
     if len(path) == 0:
-        # TODO: deal with case where input_file doesn't exist
-        with open(args.input_file, 'r') as f:
+        with input_file.open('r') as f:
             print(f.read())
     else:
-        inp = Source(args.input_file, SourceType.Path)
+        inp = Source(str(input_file), SourceType.Path)
         for ed in path:
             out = None
             if ed.dest == target:
@@ -86,7 +87,7 @@ def run(args, config):
             else:
                 out = Source.pipe()
 
-            print(f" [+] {ed.stage.name} -> {ed.stage.target_stage}")
+            log.info(f" [+] {ed.stage.name} -> {ed.stage.target_stage}")
             (result, stderr, retcode) = ed.stage.transform(inp, out, dry_run=args.dry_run)
 
             if retcode != 0:
@@ -130,6 +131,11 @@ def config(args, config):
             else:
                 raise Exception("NYI: Can't update anything besides exec yet")
 
+def info(args, config):
+    registry = Registry(config)
+    register_stages(registry, config)
+    print(registry)
+
 def main():
     """Builds the command line argument parser, parses the arguments, and returns the results."""
     parser = argparse.ArgumentParser(description="Fear, Uncertainty, Doubt. Beware of the FuTIL driver.")
@@ -137,6 +143,7 @@ def main():
 
     config_run(subparsers.add_parser('exec', aliases=['e', 'ex']))
     config_config(subparsers.add_parser('config', aliases=['c']))
+    config_info(subparsers.add_parser('info', aliases=['i']))
 
     config = Configuration()
 
@@ -164,3 +171,7 @@ def config_config(parser):
     parser.add_argument('key', help='The key to perform an action on.', nargs='?')
     parser.add_argument('value', help='The value to write.', nargs='?')
     parser.set_defaults(func=config)
+
+def config_info(parser):
+    # TODO: add help for all these options
+    parser.set_defaults(func=info)

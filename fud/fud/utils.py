@@ -1,4 +1,4 @@
 import sys
 
-def debug(*args, **kwargs):
+def eprint(*args, **kwargs):
     print(*args, **kwargs, file=sys.stderr)

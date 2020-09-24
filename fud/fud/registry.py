@@ -9,7 +9,12 @@ class Registry:
 
         self.nodes = {}
 
-    def register(self, src, tar, stage):
+    def register(self, stage, src=None, tar=None):
+        if src == None:
+            src = stage.name
+        if tar == None:
+            tar = stage.target_stage
+
         # check if this node is already in the graph
         if src in self.nodes:
             self.nodes[src].append(Edge(tar, stage))

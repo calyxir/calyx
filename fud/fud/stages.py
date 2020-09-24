@@ -108,7 +108,6 @@ class Step:
         def f(inp, out, ctx):
             nonlocal cmd
             proc = None
-            log.debug('cmd: {} {}'.format(inp, out))
             if inp.source_type == SourceType.Path:
                 ctx['input_path'] = inp.data
                 log.debug('  - [*] {}'.format(cmd.format(ctx=ctx)))
@@ -128,6 +127,7 @@ class Step:
                     stderr=subprocess.PIPE,
                 )
             proc.wait()
+            log.debug(proc.stderr.read().decode('UTF-8'))
             return (Source(proc.stdout, SourceType.File), proc.stderr, proc.returncode)
         self.func = f
         self.description = cmd
