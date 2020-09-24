@@ -6,8 +6,8 @@ from io import StringIO, BufferedRWPair
 from pathlib import Path
 import sys
 import os
+import logging as log
 
-from fud.utils import debug
 from fud.json_to_dat import convert2dat, convert2json
 
 class SourceType(Enum):
@@ -72,14 +72,10 @@ class Stage:
         prev_out = input_src
         # loop until last step
         for step in steps[:-1]:
-            # debug('  - [*] {step.description}')
             res = step.run(prev_out, Source.pipe(), ctx=ctx, dry_run=dry_run)
-            # debug('result: ', res)
             (prev_out, err, ret) = res
 
-        # debug(f'  - [*] {steps[-1].description}')
         res = steps[-1].run(prev_out, output_src, ctx=ctx, dry_run=dry_run)
-        # debug('result: ', res)
         return res
 
 class Step:
@@ -91,7 +87,7 @@ class Step:
 
     def run(self, input_src, output_src, ctx={}, dry_run=False):
         if dry_run:
-            debug(f'     - {self.description}')
+            log.info(f'     - {self.description}')
             return (None, None, 0)
         else:
             # convert input type to desired input type
@@ -112,24 +108,24 @@ class Step:
         def f(inp, out, ctx):
             nonlocal cmd
             proc = None
-            debug('cmd: ', inp, out)
+            log.debug('cmd: {} {}'.format(inp, out))
             if inp.source_type == SourceType.Path:
                 ctx['input_path'] = inp.data
-                debug('  - [*] {}'.format(cmd.format(ctx=ctx)))
+                log.debug('  - [*] {}'.format(cmd.format(ctx=ctx)))
                 proc = subprocess.Popen(
                     cmd.format(ctx=ctx),
                     shell=True,
                     stdout=out.data,
-                    # stderr=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                 )
             else:
-                debug('  - [*] {}'.format(cmd.format(ctx=ctx)))
+                log.debug('  - [*] {}'.format(cmd.format(ctx=ctx)))
                 proc = subprocess.Popen(
                     cmd.format(ctx=ctx),
                     shell=True,
                     stdin=inp.data,
                     stdout=out.data,
-                    # stderr=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                 )
             proc.wait()
             return (Source(proc.stdout, SourceType.File), proc.stderr, proc.returncode)
@@ -138,7 +134,7 @@ class Step:
 
     def set_func(self, func, description):
         def f(inp, out, ctx):
-            debug(description)
+            log.debug(description)
             if out.source_type == SourceType.CreatePipe:
                 out.data = TemporaryFile('r+')
                 out.source_type = SourceType.File

@@ -4,10 +4,10 @@ import argparse
 from enum import Enum
 import toml
 import sys
+import logging as log
 
 from fud.stages import *
 from fud.config import Configuration
-from fud.utils import debug
 from fud.registry import Registry
 
 def discover_implied_stage(filename, config):
@@ -59,7 +59,7 @@ def run(args, config):
 
     # if we are doing a dry run, print out stages and exit
     if args.dry_run:
-        debug("Stages to run:")
+        log.info("Stages to run:")
 
     if len(path) == 0:
         # TODO: deal with case where input_file doesn't exist
@@ -68,7 +68,6 @@ def run(args, config):
     else:
         inp = Source(args.input_file, SourceType.Path)
         for ed in path:
-            # debug(f"Going to {ed.dest} with {ed.stage.name}")
             out = None
             if ed.dest == target:
                 if args.output_file != None:
@@ -78,11 +77,11 @@ def run(args, config):
             else:
                 out = Source.pipe()
 
-            debug(f" [+] {ed.stage.name} -> {ed.stage.target_stage}")
+            log.info(f" [+] {ed.stage.name} -> {ed.stage.target_stage}")
             (result, stderr, retcode) = ed.stage.transform(inp, out, dry_run=args.dry_run)
 
             if retcode != 0:
-                debug(b''.join(stderr.readlines()).decode('ascii'))
+                log.info(b''.join(stderr.readlines()).decode('ascii'))
                 exit(retcode)
 
             inp = result
@@ -112,16 +111,15 @@ def config(args, config):
             # print out values
             res = find(config.config, path)
             if isinstance(res, dict):
-                debug(toml.dumps(res))
+                log.info(toml.dumps(res))
             else:
-                debug(res)
+                log.info(res)
         else:
             if path[-1] == 'exec':
                 update(config.config, args.key.split("."), args.value)
                 config.commit()
             else:
                 raise Exception("NYI: Can't update anything besides exec yet")
-
 
 def main():
     """Builds the command line argument parser, parses the arguments, and returns the results."""
@@ -134,6 +132,16 @@ def main():
     config = Configuration()
 
     args = parser.parse_args()
+
+    # set verbosity level
+    l = log.getLogger()
+    if args.verbose <= 0:
+        l.setLevel(log.WARNING)
+    elif args.verbose <= 1:
+        l.setLevel(log.INFO)
+    elif args.verbose <= 2:
+        l.setLevel(log.DEBUG)
+
     if 'func' in args:
         args.func(args, config)
     else:
@@ -147,7 +155,7 @@ def config_run(parser):
     parser.add_argument('-o', dest='output_file')
     parser.add_argument('-s', nargs=2, metavar=('key', 'value'), dest='dynamic_config', action='append')
     parser.add_argument('--dry-run', action='store_true', dest='dry_run')
-    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('-v', '--verbose', action='count', default=0)
     parser.add_argument('input_file')
     parser.set_defaults(func=run)
 
