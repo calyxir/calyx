@@ -64,9 +64,9 @@ to use `primitives/std/lib` with the `-l` flag, which tells the compiler to look
 You'll need to explicitly pass the flag if you're not in the root directory.
 
 ```bash
-$ cargo run -- examples/simples.futil       # In the root directory.
+$ cargo run -- examples/simples.futil    # In the root directory.
 
-$ cd futil/benchmarks
+$ cd benchmarks                          # Not in the root directory.
 $ cargo run -- ../benchmarks/examples/simple.futil -l ..
 ```
 
