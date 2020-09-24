@@ -24,3 +24,4 @@ node_modules
 *.res
 *.ipynb_checkpoints
 *.old
+book/
