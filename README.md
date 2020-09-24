@@ -60,10 +60,14 @@ at the same time.
 
 **Primitives Library**: FuTIL can use customizable libraries based on the
 backend. The libraries live under [primitives](primitives). You probably want
-to use `primitives/std/lib` with the `-l` flag.
+to use `primitives/std/lib` with the `-l` flag, which tells the compiler to look for ```primitives/primitives/std.lib```.
+You'll need to explicitly pass the flag if you're not in the root directory.
 
 ```bash
-cargo run -- examples/simple.futil -l primitives/std.lib
+$ cargo run -- examples/simples.futil       # In the root directory.
+
+$ cd futil/benchmarks
+$ cargo run -- ../benchmarks/examples/simple.futil -l ..
 ```
 
 **Debug mode**: The `-d` flag shows the FuTIL program after running a pass.
