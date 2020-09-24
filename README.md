@@ -67,7 +67,7 @@ You'll need to explicitly pass the flag if you're not in the root directory.
 $ cargo run -- examples/simples.futil    # In the root directory.
 
 $ cd benchmarks                          # Not in the root directory.
-$ cargo run -- ../benchmarks/examples/simple.futil -l ..
+$ cargo run -- ../examples/simple.futil -l ..
 ```
 
 **Debug mode**: The `-d` flag shows the FuTIL program after running a pass.
