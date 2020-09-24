@@ -26,7 +26,11 @@ We use the open source [Verilator](https://www.veripool.org/wiki/verilator) tool
 FuTIL generated verilog. Installation instructions are here: [Install Verilator](https://www.veripool.org/projects/verilator/wiki/Installing)
 
 #### Vcdump
-Vcdump is a tool for converting `vcd` (Value Change Dump) files to json for easier
+Vcdump is a tool for converting `vcd` (Value Change Dump) files to json for easier analysis with the command line.
+Install it with:
+```bash
+cargo install vcd
+```
 
 ## Usage
 ### Quickstart
