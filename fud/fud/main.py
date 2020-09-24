@@ -37,6 +37,15 @@ def register_stages(registry, config):
     registry.register(vcdump.name, vcdump.target_stage, vcdump)
 
 def run(args, config):
+    # set verbosity level
+    l = log.getLogger()
+    if args.verbose <= 0:
+        l.setLevel(log.WARNING)
+    elif args.verbose <= 1:
+        l.setLevel(log.INFO)
+    elif args.verbose <= 2:
+        l.setLevel(log.DEBUG)
+
     # update the stages config with arguments provided via cmdline
     if args.dynamic_config != None:
         for key, value in args.dynamic_config:
@@ -59,7 +68,7 @@ def run(args, config):
 
     # if we are doing a dry run, print out stages and exit
     if args.dry_run:
-        log.info("Stages to run:")
+        print("Stages to run:")
 
     if len(path) == 0:
         # TODO: deal with case where input_file doesn't exist
@@ -77,11 +86,11 @@ def run(args, config):
             else:
                 out = Source.pipe()
 
-            log.info(f" [+] {ed.stage.name} -> {ed.stage.target_stage}")
+            print(f" [+] {ed.stage.name} -> {ed.stage.target_stage}")
             (result, stderr, retcode) = ed.stage.transform(inp, out, dry_run=args.dry_run)
 
             if retcode != 0:
-                log.info(b''.join(stderr.readlines()).decode('ascii'))
+                print(b''.join(stderr.readlines()).decode('ascii'))
                 exit(retcode)
 
             inp = result
@@ -111,9 +120,9 @@ def config(args, config):
             # print out values
             res = find(config.config, path)
             if isinstance(res, dict):
-                log.info(toml.dumps(res))
+                print(toml.dumps(res))
             else:
-                log.info(res)
+                print(res)
         else:
             if path[-1] == 'exec':
                 update(config.config, args.key.split("."), args.value)
@@ -132,15 +141,6 @@ def main():
     config = Configuration()
 
     args = parser.parse_args()
-
-    # set verbosity level
-    l = log.getLogger()
-    if args.verbose <= 0:
-        l.setLevel(log.WARNING)
-    elif args.verbose <= 1:
-        l.setLevel(log.INFO)
-    elif args.verbose <= 2:
-        l.setLevel(log.DEBUG)
 
     if 'func' in args:
         args.func(args, config)

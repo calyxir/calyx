@@ -87,7 +87,7 @@ class Step:
 
     def run(self, input_src, output_src, ctx={}, dry_run=False):
         if dry_run:
-            log.info(f'     - {self.description}')
+            print(f'     - {self.description}')
             return (None, None, 0)
         else:
             # convert input type to desired input type
