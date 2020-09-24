@@ -65,9 +65,9 @@ You'll need to explicitly pass the flag if you're not in the root directory. Ass
 
 ```bash
 $ cargo run -- examples/simple.futil -l primitives      # WRONG: "Failed to read primitives/primitives/std.lib"
-$ cargo run -- examples/simples.futil                   # RIGHT
+$ cargo run -- examples/simple.futil                    # RIGHT
 
-$ cd benchmarks                                         # Outside root directory 
+$ cd benchmarks                                         # Outside root directory.
 $ cargo run -- ../examples/simple.futil -l ..           # RIGHT
 ```
 
