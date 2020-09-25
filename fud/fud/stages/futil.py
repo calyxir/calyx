@@ -1,4 +1,5 @@
-from fud.stages import Stage, Step, SourceType, Source
+from fud.stages import Stage, Step, SourceType
+
 
 class FutilStage(Stage):
     def __init__(self, config, destination, flags):
@@ -7,5 +8,5 @@ class FutilStage(Stage):
 
     def define(self):
         main = Step(SourceType.File)
-        main.set_cmd(f'{self.cmd} -l {self.stage_config["stdlib"]} {self.flags}')
+        main.set_cmd(f'{self.cmd} -l {self.global_config["futil_directory"]} {self.flags}')
         return [main]

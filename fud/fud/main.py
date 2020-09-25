@@ -131,7 +131,7 @@ def find(d, path):
 
 def config(args, config):
     if args.key is None:
-        print(config.path)
+        print(config.config_file)
         print()
         config.display()
     else:

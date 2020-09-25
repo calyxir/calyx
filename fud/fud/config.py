@@ -4,12 +4,18 @@ import toml
 import sys
 from pprint import PrettyPrinter
 
+wizard_data = {
+    'global': {
+        'futil_directory': 'FuTIL Root Directory',
+    }
+}
+
 DEFAULT_CONFIGURATION = {
+    'global': {},
     'stages': {
         'futil': {
             'exec': 'futil',
             'file_extensions': ['.futil'],
-            'stdlib': '~/Research/futil'
         },
         'dahlia': {
             'exec': 'dahlia',
@@ -18,10 +24,6 @@ DEFAULT_CONFIGURATION = {
         'verilog': {
             'exec': 'verilator',
             'file_extensions': ['.v', '.sv'],
-            'testbench_files': [
-                '~/Research/futil/sim/testbench.cpp',
-                '~/Research/futil/sim/wrapper.cpp'
-            ],
             'cycle_limit': '5e8',
             'data': None  # look for data in current directory by default
         },
@@ -39,6 +41,14 @@ DEFAULT_CONFIGURATION = {
 }
 
 
+def wizard(table, data):
+    for key in data.keys():
+        if key not in table:
+            answer = input(f'{data[key]} is unset: ')
+            table[key] = answer
+    return table
+
+
 class Configuration:
     def __init__(self):
         """Find the configuration file."""
@@ -51,6 +61,7 @@ class Configuration:
         # load the configuration file
         self.config = toml.load(self.config_file)
         self.fill_missing(DEFAULT_CONFIGURATION, self.config)
+        self.launch_wizard()
         self.commit()
 
     def commit(self):
@@ -69,6 +80,11 @@ class Configuration:
                 else:
                     config[key] = self.fill_missing(default[key], config[key])
         return config
+
+    def launch_wizard(self):
+        for key in self.config.keys():
+            if key in wizard_data.keys():
+                self.config[key] = wizard(self.config[key], wizard_data[key])
 
     def find(self, path, pointer=None, total_path=None):
         # initiate pointer

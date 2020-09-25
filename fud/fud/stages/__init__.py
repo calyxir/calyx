@@ -57,6 +57,7 @@ class Stage:
     def __init__(self, name, target_stage, config):
         self.name = name
         self.target_stage = target_stage
+        self.global_config = config.config['global']
         self.stage_config = config.find(['stages', self.name])
         self.cmd = self.stage_config['exec']
 
@@ -144,9 +145,6 @@ class Step:
     def set_func(self, func, description):
         def f(inp, ctx):
             log.debug(description)
-            # if out.source_type == SourceType.CreatePipe:
-            #     out.data = TemporaryFile('r+')
-            #     out.source_type = SourceType.File
             return func(inp, ctx)
         self.func = f
         self.description = description

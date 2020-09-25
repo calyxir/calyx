@@ -43,11 +43,15 @@ class VerilatorStage(Stage):
         data.set_func(f, "Convert json data to directory of .dat files.")
 
         verilator = Step(SourceType.Path)
+        testbench_files = [
+            str(Path(self.global_config['futil_directory']) / 'sim' / 'testbench.cpp'),
+            str(Path(self.global_config['futil_directory']) / 'sim' / 'wrapper.cpp'),
+        ]
         verilator.set_cmd(" ".join([
             self.cmd,
             '-cc', '--trace',
             '{ctx[input_path]}',
-            "--exe " + " --exe ".join(self.stage_config['testbench_files']),
+            "--exe " + " --exe ".join(testbench_files),
             '--top-module main',  # TODO: make this use dynamic config
             '--Mdir',
             '{ctx[tmpdir]}',
