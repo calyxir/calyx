@@ -1,15 +1,15 @@
 from pathlib import Path
 import argparse
 import toml
-import sys
 import logging as log
+import sys
+# from yaspin import yaspin
 
 from .stages import Source, SourceType
 from .config import Configuration
 from .registry import Registry
 from . import errors
 from .stages import dahlia, futil, verilator, vcdump
-from .utils import eprint
 
 
 def discover_implied_stage(filename, config):
@@ -81,7 +81,9 @@ def run(args, config):
             print(f.read())
     else:
         inp = Source(str(input_file), SourceType.Path)
+        # with yaspin() as sp:
         for ed in path:
+            # sp.text = f"{ed.stage.name} -> {ed.stage.target_stage}"
             out = None
             if ed.dest == target:
                 if args.output_file is not None:
@@ -97,16 +99,11 @@ def run(args, config):
                 out,
                 dry_run=args.dry_run
             )
-            log.info(f"     - exited with {retcode}")
-            if retcode != 0:
-                msg = f"Stage '{ed.stage.name}' had a non-zero exit code."
-                n_dashes = (len(msg) - len(' stderr ')) // 2
-                eprint(msg)
-                eprint("-" * n_dashes, 'stderr', '-' * n_dashes)
-                eprint(stderr, end='')
-                exit(retcode)
+            # log.info(f"     - exited with {retcode}")
 
             inp = result
+            # sp.ok("✓")
+            # sp.stop()
 
 
 # TODO: is there a nice way to merge update and find?

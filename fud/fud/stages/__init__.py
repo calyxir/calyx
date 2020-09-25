@@ -7,6 +7,8 @@ from pathlib import Path
 import sys
 import logging as log
 
+from ..utils import eprint
+
 
 class SourceType(Enum):
     Path = 1,
@@ -71,9 +73,20 @@ class Stage:
         for step in steps[:-1]:
             res = step.run(prev_out, Source.pipe(), ctx=ctx, dry_run=dry_run)
             (prev_out, err, ret) = res
+            self.check_exit(ret, err)
 
-        res = steps[-1].run(prev_out, output_src, ctx=ctx, dry_run=dry_run)
-        return res
+        (out, err, ret) = steps[-1].run(prev_out, output_src, ctx=ctx, dry_run=dry_run)
+        self.check_exit(ret, err)
+        return (out, err, ret)
+
+    def check_exit(self, retcode, stderr):
+        if retcode != 0:
+            msg = f"Stage '{self.name}' had a non-zero exit code."
+            n_dashes = (len(msg) - len(' stderr ')) // 2
+            eprint(msg)
+            eprint("-" * n_dashes, 'stderr', '-' * n_dashes)
+            eprint(stderr, end='')
+            exit(retcode)
 
 
 class Step:

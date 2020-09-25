@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fud.stages import Stage, Step, SourceType
 from ..json_to_dat import convert2dat, convert2json
+from .. import errors
 
 
 class VerilatorStage(Stage):
@@ -32,7 +33,7 @@ class VerilatorStage(Stage):
                 with open(inp.data, 'r') as verilog_src:
                     # the verilog expects data, but none has been provided
                     if 'readmemh' in verilog_src.read():
-                        raise Exception("'verilog.data' needs to be set")
+                        raise errors.MissingDynamicConfiguration('verilog.data')
             else:
                 with open(data_path) as f:
                     convert2dat(ctx['tmpdir'], json.load(f), 'dat')
