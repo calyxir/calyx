@@ -1,8 +1,9 @@
 from tempfile import TemporaryDirectory
 import json
 from pathlib import Path
+from io import BytesIO
 
-from fud.stages import Stage, Step, SourceType
+from fud.stages import Stage, Step, SourceType, Source
 from ..json_to_dat import convert2dat, convert2json
 from .. import errors
 
@@ -16,19 +17,19 @@ class VerilatorStage(Stage):
             raise Exception("mem has to be 'vcd' or 'dat'")
 
     def define(self):
-        mktmp = Step(SourceType.Nothing, SourceType.Nothing)
+        mktmp = Step(SourceType.Nothing)
 
-        def f(inp, out, ctx):
+        def f(inp, ctx):
             tmpdir = TemporaryDirectory()
             ctx['tmpdir'] = tmpdir.name
             ctx['tmpdir_obj'] = tmpdir
             return (inp, None, 0)
         mktmp.set_func(f, "Make temporary directory.")
 
-        data = Step(SourceType.Path, SourceType.Nothing)
+        data = Step(SourceType.Path)
         data_path = self.stage_config['data']
 
-        def f(inp, out, ctx):
+        def f(inp, ctx):
             if data_path is None:
                 with open(inp.data, 'r') as verilog_src:
                     # the verilog expects data, but none has been provided
@@ -41,7 +42,7 @@ class VerilatorStage(Stage):
             return (inp, None, 0)
         data.set_func(f, "Convert json data to directory of .dat files.")
 
-        verilator = Step(SourceType.Path, SourceType.Nothing)
+        verilator = Step(SourceType.Path)
         verilator.set_cmd(" ".join([
             self.cmd,
             '-cc', '--trace',
@@ -53,45 +54,32 @@ class VerilatorStage(Stage):
             '1>&2'
         ]))
 
-        make = Step(SourceType.Nothing, SourceType.Nothing)
+        make = Step(SourceType.Nothing)
         make.set_cmd("make -j -C {ctx[tmpdir]} -f Vmain.mk Vmain 1>&2")
 
-        run = Step(SourceType.Nothing, SourceType.Nothing)
+        run = Step(SourceType.Nothing)
         run.set_cmd("{ctx[data_prefix]} {ctx[tmpdir]}/Vmain {ctx[tmpdir]}/output.vcd 1>&2")
 
         # switch later stages based on whether we are outputing vcd or mem files
-        extract = Step(SourceType.Nothing, SourceType.File)
+        extract = Step(SourceType.Nothing)
         if self.vcd:
-            def f(_inp, out, ctx):
-                f = (Path(ctx['tmpdir']) / 'output.vcd').open('r')
-                out.data.write(f.read())
-                out.data.seek(0)
-                return (out, None, 0)
+            def f(_inp, ctx):
+                # f = (Path(ctx['tmpdir']) / 'output.vcd').open('rb')
+                path = Path(ctx['tmpdir']) / 'output.vcd'
+                return (Source(str(path), SourceType.Path), None, 0)
             extract.set_func(f, "Read output.vcd.")
         else:
-            def f(_inp, out, ctx):
+            def f(_inp, ctx):
                 mem = convert2json(ctx['tmpdir'], 'out')
-                out.data.write(json.dumps(mem, indent=2))
-                out.data.seek(0)
-                return (out, None, 0)
+                buf = BytesIO(json.dumps(mem, indent=2).encode('UTF-8'))
+                return (Source(buf, SourceType.File), None, 0)
             extract.set_func(f, "Convert output memories to json.")
 
-        cleanup = Step(SourceType.File, SourceType.File)
+        cleanup = Step(SourceType.File)
 
-        def f(inp, out, ctx):
+        def f(inp, ctx):
             ctx['tmpdir_obj'].cleanup()
             return (inp, None, 0)
         cleanup.set_func(f, "Cleanup tmp directory.")
 
-        output = Step(SourceType.File, SourceType.File)
-
-        def f(inp, out, ctx):
-            out.data.write(inp.data.read())
-            # TODO: figure out how to unify unseekable files (stdin/stdout) with seekable files
-            # I probably want to do something different for connecting the end of a chain of steps with
-            # an output source
-            if out.data.seekable():
-                out.data.seek(0)
-            return(out, None, 0)
-        output.set_func(f, "Output file.")
-        return [mktmp, data, verilator, make, run, extract, cleanup, output]
+        return [mktmp, data, verilator, make, run, extract, cleanup]

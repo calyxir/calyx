@@ -3,7 +3,7 @@ import argparse
 import toml
 import logging as log
 import sys
-# from yaspin import yaspin
+from yaspin import yaspin
 
 from .stages import Source, SourceType
 from .config import Configuration
@@ -33,7 +33,7 @@ def register_stages(registry, config):
     registry.register(futil.FutilStage(config, 'futil-noinline', '-b futil -p no-inline'))
     registry.register(verilator.VerilatorStage(config, 'vcd'))
     registry.register(verilator.VerilatorStage(config, 'dat'))
-    registry.register(vcdump.VcdumpStage(config))
+    # registry.register(vcdump.VcdumpStage(config))
 
 
 def run(args, config):
@@ -81,29 +81,33 @@ def run(args, config):
             print(f.read())
     else:
         inp = Source(str(input_file), SourceType.Path)
-        # with yaspin() as sp:
-        for ed in path:
-            # sp.text = f"{ed.stage.name} -> {ed.stage.target_stage}"
-            out = None
-            if ed.dest == target:
-                if args.output_file is not None:
-                    out = Source(args.output_file, SourceType.Path)
-                else:
-                    out = Source(sys.stdout, SourceType.File)
-            else:
-                out = Source.pipe()
+        with yaspin() as sp:
+            for ed in path:
+                sp.text = f"{ed.stage.name} -> {ed.stage.target_stage}"
+                # out = None
+                # if ed.dest == target:
+                #     if args.output_file is not None:
+                #         out = Source(args.output_file, SourceType.Path)
+                #     else:
+                #         out = Source(sys.stdout, SourceType.File)
+                # else:
+                #     out = Source.pipe()
 
-            log.info(f" [+] {ed.stage.name} -> {ed.stage.target_stage}")
-            (result, stderr, retcode) = ed.stage.transform(
-                inp,
-                out,
-                dry_run=args.dry_run
-            )
-            # log.info(f"     - exited with {retcode}")
+                # log.info(f" [+] {ed.stage.name} -> {ed.stage.target_stage}")
+                (result, stderr, retcode) = ed.stage.transform(
+                    inp,
+                    dry_run=args.dry_run
+                )
+                # log.info(f"     - exited with {retcode}")
 
-            inp = result
+                inp = result
             # sp.ok("✓")
-            # sp.stop()
+            sp.stop()
+        if args.output_file is not None:
+            with Path(args.output_file).open('w') as f:
+                f.write(inp.data.read())
+        else:
+            print(inp.data.read().decode('UTF-8'))
 
 
 # TODO: is there a nice way to merge update and find?

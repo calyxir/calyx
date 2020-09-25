@@ -64,20 +64,20 @@ class Stage:
         """Not meant to be called by a user."""
         return None
 
-    def transform(self, input_src, output_src, dry_run=False):
+    def transform(self, input_src, dry_run=False):
         steps = self.define()
         ctx = {}
 
         prev_out = input_src
+        err = None
+        ret = None
         # loop until last step
-        for step in steps[:-1]:
-            res = step.run(prev_out, Source.pipe(), ctx=ctx, dry_run=dry_run)
+        for step in steps:
+            res = step.run(prev_out, ctx=ctx, dry_run=dry_run)
             (prev_out, err, ret) = res
             self.check_exit(ret, err)
 
-        (out, err, ret) = steps[-1].run(prev_out, output_src, ctx=ctx, dry_run=dry_run)
-        self.check_exit(ret, err)
-        return (out, err, ret)
+        return (prev_out, err, ret)
 
     def check_exit(self, retcode, stderr):
         if retcode != 0:
@@ -90,13 +90,12 @@ class Stage:
 
 
 class Step:
-    def __init__(self, desired_input_type, desired_output_type):
+    def __init__(self, desired_input_type):
         self.func = None
         self.description = "No description provided."
         self.desired_input_type = desired_input_type
-        self.desired_output_type = desired_output_type
 
-    def run(self, input_src, output_src, ctx={}, dry_run=False):
+    def run(self, input_src, ctx={}, dry_run=False):
         if dry_run:
             print(f'     - {self.description}')
             return (None, None, 0)
@@ -107,35 +106,28 @@ class Step:
             elif self.desired_input_type == SourceType.File:
                 input_src.to_pipe()
 
-            # convert output type to desired output type
-            if self.desired_output_type == SourceType.Path:
-                output_src.to_path()
-            elif self.desired_output_type == SourceType.File:
-                output_src.to_pipe()
-
-            return self.func(input_src, output_src, ctx)
+            return self.func(input_src, ctx)
 
     def set_cmd(self, cmd):
-        def f(inp, out, ctx):
+        def f(inp, ctx):
             nonlocal cmd
             proc = None
-            log.debug(f'{cmd.split()[0]}')
             if inp.source_type == SourceType.Path:
                 ctx['input_path'] = inp.data
                 log.debug('  - [*] {}'.format(cmd.format(ctx=ctx)))
                 proc = subprocess.Popen(
                     cmd.format(ctx=ctx),
                     shell=True,
-                    stdout=out.data,
+                    stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
             else:
-                log.debug('  - [*] {}'.format(cmd.format(ctx=ctx)))
+                log.debug('  - [*] pipe: {}'.format(cmd.format(ctx=ctx)))
                 proc = subprocess.Popen(
                     cmd.format(ctx=ctx),
                     shell=True,
                     stdin=inp.data,
-                    stdout=out.data,
+                    stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
             proc.wait()
@@ -150,11 +142,11 @@ class Step:
         self.description = cmd
 
     def set_func(self, func, description):
-        def f(inp, out, ctx):
+        def f(inp, ctx):
             log.debug(description)
-            if out.source_type == SourceType.CreatePipe:
-                out.data = TemporaryFile('r+')
-                out.source_type = SourceType.File
-            return func(inp, out, ctx)
+            # if out.source_type == SourceType.CreatePipe:
+            #     out.data = TemporaryFile('r+')
+            #     out.source_type = SourceType.File
+            return func(inp, ctx)
         self.func = f
         self.description = description
