@@ -18,9 +18,12 @@ DEFAULT_CONFIGURATION = {
         'verilog': {
             'exec': 'verilator',
             'file_extensions': ['.v', '.sv'],
-            'testbench_files': ['~/Research/futil/sim/testbench.cpp', '~/Research/futil/sim/wrapper.cpp'],
+            'testbench_files': [
+                '~/Research/futil/sim/testbench.cpp',
+                '~/Research/futil/sim/wrapper.cpp'
+            ],
             'cycle_limit': '5e8',
-            'data': None # look for data in current directory by default
+            'data': None  # look for data in current directory by default
         },
         'vcd': {
             'exec': 'vcdump',
@@ -34,7 +37,6 @@ DEFAULT_CONFIGURATION = {
         }
     }
 }
-
 
 
 class Configuration:
@@ -70,10 +72,10 @@ class Configuration:
 
     def find(self, path, pointer=None, total_path=None):
         # initiate pointer
-        if pointer == None:
+        if pointer is None:
             pointer = self.config
 
-        if total_path == None:
+        if total_path is None:
             total_path = path.copy()
 
         if len(path) == 0:
@@ -81,7 +83,11 @@ class Configuration:
         else:
             key = path.pop(0)
             if key in pointer:
-                return self.find(path, pointer=pointer[key], total_path=total_path)
+                return self.find(
+                    path,
+                    pointer=pointer[key],
+                    total_path=total_path
+                )
             else:
                 p = '.'.join(total_path)
                 raise Exception(f"'{p}' not found")

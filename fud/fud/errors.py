@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 class UnknownExtension(Exception):
     def __init__(self, filename):
         path = Path(filename)

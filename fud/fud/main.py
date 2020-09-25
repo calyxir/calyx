@@ -1,19 +1,19 @@
 from pathlib import Path
-import subprocess
 import argparse
-from enum import Enum
 import toml
 import sys
 import logging as log
 
-from fud.stages import *
-from fud.config import Configuration
-from fud.registry import Registry
-from fud.utils import eprint
-from fud.errors import *
+from .stages import Source, SourceType
+from .config import Configuration
+from .registry import Registry
+from . import errors
+from .stages import dahlia, futil, verilator, vcdump
+from .utils import eprint
+
 
 def discover_implied_stage(filename, config):
-    if filename == None:
+    if filename is None:
         raise Exception('TODO: No filename or type provided.')
 
     suffix = Path(filename).suffix
@@ -23,14 +23,18 @@ def discover_implied_stage(filename, config):
                 return name
 
     # no stages corresponding with this file extension where found
-    raise UnknownExtension(filename)
+    raise errors.UnknownExtension(filename)
+
 
 def register_stages(registry, config):
-    registry.register(DahliaStage(config))
-    registry.register(FutilStage(config))
-    registry.register(VerilatorStage(config, 'vcd'))
-    registry.register(VerilatorStage(config, 'dat'))
-    registry.register(VcdumpStage(config))
+    registry.register(dahlia.DahliaStage(config))
+    registry.register(futil.FutilStage(config, 'verilog', '-b verilog --verilator'))
+    registry.register(futil.FutilStage(config, 'futil-lowered', '-b futil'))
+    registry.register(futil.FutilStage(config, 'futil-noinline', '-b futil -p no-inline'))
+    registry.register(verilator.VerilatorStage(config, 'vcd'))
+    registry.register(verilator.VerilatorStage(config, 'dat'))
+    registry.register(vcdump.VcdumpStage(config))
+
 
 def run(args, config):
     # set verbosity level
@@ -44,7 +48,7 @@ def run(args, config):
     log.basicConfig(format="%(message)s", level=level)
 
     # update the stages config with arguments provided via cmdline
-    if args.dynamic_config != None:
+    if args.dynamic_config is not None:
         for key, value in args.dynamic_config:
             update(config.config['stages'], key.split('.'), value)
 
@@ -53,12 +57,12 @@ def run(args, config):
 
     # find source
     source = args.source
-    if source == None:
+    if source is None:
         source = discover_implied_stage(args.input_file, config.config)
 
     # find target
     target = args.dest
-    if target == None:
+    if target is None:
         target = discover_implied_stage(args.output_file, config.config)
 
     path = registry.make_path(source, target)
@@ -80,7 +84,7 @@ def run(args, config):
         for ed in path:
             out = None
             if ed.dest == target:
-                if args.output_file != None:
+                if args.output_file is not None:
                     out = Source(args.output_file, SourceType.Path)
                 else:
                     out = Source(sys.stdout, SourceType.File)
@@ -88,36 +92,48 @@ def run(args, config):
                 out = Source.pipe()
 
             log.info(f" [+] {ed.stage.name} -> {ed.stage.target_stage}")
-            (result, stderr, retcode) = ed.stage.transform(inp, out, dry_run=args.dry_run)
-
+            (result, stderr, retcode) = ed.stage.transform(
+                inp,
+                out,
+                dry_run=args.dry_run
+            )
+            log.info(f"     - exited with {retcode}")
             if retcode != 0:
-                print(b''.join(stderr.readlines()).decode('ascii'))
+                msg = f"Stage '{ed.stage.name}' had a non-zero exit code."
+                n_dashes = (len(msg) - len(' stderr ')) // 2
+                eprint(msg)
+                eprint("-" * n_dashes, 'stderr', '-' * n_dashes)
+                eprint(stderr, end='')
                 exit(retcode)
 
             inp = result
+
 
 # TODO: is there a nice way to merge update and find?
 def update(d, path, val):
     if len(path) == 0:
         d = val
     else:
-        key = path.pop(0) # get first element in path
+        key = path.pop(0)  # get first element in path
         d[key] = update(d[key], path, val)
     return d
 
+
+# TODO: get rid of this function
 def find(d, path):
     if len(path) == 0:
         return d
     else:
-        key = path.pop(0) # get first element in path
+        key = path.pop(0)  # get first element in path
         return find(d[key], path)
 
+
 def config(args, config):
-    if args.key == None:
+    if args.key is None:
         config.display()
     else:
         path = args.key.split(".")
-        if args.value == None:
+        if args.value is None:
             # print out values
             res = find(config.config, path)
             if isinstance(res, dict):
@@ -131,14 +147,19 @@ def config(args, config):
             else:
                 raise Exception("NYI: Can't update anything besides exec yet")
 
+
 def info(args, config):
     registry = Registry(config)
     register_stages(registry, config)
     print(registry)
 
+
 def main():
-    """Builds the command line argument parser, parses the arguments, and returns the results."""
-    parser = argparse.ArgumentParser(description="Fear, Uncertainty, Doubt. Beware of the FuTIL driver.")
+    """Builds the command line argument parser,
+    parses the arguments, and returns the results."""
+    parser = argparse.ArgumentParser(
+        description="Fear, Uncertainty, Doubt. Beware of the FuTIL driver."
+    )
     subparsers = parser.add_subparsers()
 
     config_run(subparsers.add_parser('exec', aliases=['e', 'ex']))
@@ -155,22 +176,39 @@ def main():
         parser.print_help()
         exit(-1)
 
+
 def config_run(parser):
     # TODO: add help for all of these options
     parser.add_argument('--from', dest='source')
     parser.add_argument('--to', dest='dest')
     parser.add_argument('-o', dest='output_file')
-    parser.add_argument('-s', nargs=2, metavar=('key', 'value'), dest='dynamic_config', action='append')
+    parser.add_argument(
+        '-s',
+        nargs=2,
+        metavar=('key', 'value'),
+        dest='dynamic_config',
+        action='append'
+    )
     parser.add_argument('--dry-run', action='store_true', dest='dry_run')
     parser.add_argument('-v', '--verbose', action='count', default=0)
     parser.add_argument('input_file')
     parser.set_defaults(func=run)
 
+
 def config_config(parser):
     # TODO: add help for all of these options
-    parser.add_argument('key', help='The key to perform an action on.', nargs='?')
-    parser.add_argument('value', help='The value to write.', nargs='?')
+    parser.add_argument(
+        'key',
+        help='The key to perform an action on.',
+        nargs='?'
+    )
+    parser.add_argument(
+        'value',
+        help='The value to write.',
+        nargs='?'
+    )
     parser.set_defaults(func=config)
+
 
 def config_info(parser):
     # TODO: add help for all these options

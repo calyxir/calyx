@@ -1,6 +1,8 @@
 from collections import namedtuple
 
+
 Edge = namedtuple('Edge', ['dest', 'stage'])
+
 
 # TODO: assuming there is only a single path
 class Registry:
@@ -10,9 +12,9 @@ class Registry:
         self.nodes = {}
 
     def register(self, stage, src=None, tar=None):
-        if src == None:
+        if src is None:
             src = stage.name
-        if tar == None:
+        if tar is None:
             tar = stage.target_stage
 
         # check if this node is already in the graph
@@ -33,7 +35,7 @@ class Registry:
 
                 for edge in self.nodes[start]:
                     path = self.make_path(edge.dest, dest)
-                    if path != None:
+                    if path is not None:
                         path.insert(0, edge)
                         return path
 
@@ -42,6 +44,6 @@ class Registry:
     def __str__(self):
         output = []
         for k, v in self.nodes.items():
-            vals = [ x.dest for x in v ]
+            vals = [x.dest for x in v]
             output.append(f"{k} -> {vals}")
         return '\n'.join(output)

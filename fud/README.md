@@ -19,7 +19,15 @@ flit install --symlink
 
 ### Installation of external tools
 #### Dahlia
-Dahlia is one of the frontends we support. Installation instructions are here: [Install Dahlia](https://github.com/cucapra/dahlia)
+Dahlia is one of the frontends we support.
+Compilation instructions are here: [Install Dahlia](https://github.com/cucapra/dahlia).
+Once Dahlia is compiled, you need to configure `fud` so that it knows where to find
+the binary.
+In the Dahlia directory run:
+```bash
+fud config stages.exec.dahlia `pwd`/fuse
+```
+
 
 #### Verilator
 We use the open source [Verilator](https://www.veripool.org/wiki/verilator) tool to simulate
