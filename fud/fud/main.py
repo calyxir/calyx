@@ -131,6 +131,8 @@ def find(d, path):
 
 def config(args, config):
     if args.key is None:
+        print(config.path)
+        print()
         config.display()
     else:
         path = args.key.split(".")
@@ -142,11 +144,11 @@ def config(args, config):
             else:
                 print(res)
         else:
-            if path[-1] == 'exec':
-                update(config.config, args.key.split("."), args.value)
+            if not isinstance(find(config.config, path), list):
+                update(config.config, path, args.value)
                 config.commit()
             else:
-                raise Exception("NYI: Can't update anything besides exec yet")
+                raise Exception("NYI: supporting updating lists")
 
 
 def info(args, config):

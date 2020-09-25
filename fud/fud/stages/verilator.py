@@ -64,9 +64,8 @@ class VerilatorStage(Stage):
         extract = Step(SourceType.Nothing)
         if self.vcd:
             def f(_inp, ctx):
-                # f = (Path(ctx['tmpdir']) / 'output.vcd').open('rb')
-                path = Path(ctx['tmpdir']) / 'output.vcd'
-                return (Source(str(path), SourceType.Path), None, 0)
+                f = (Path(ctx['tmpdir']) / 'output.vcd').open('rb')
+                return (Source(f, SourceType.File), None, 0)
             extract.set_func(f, "Read output.vcd.")
         else:
             def f(_inp, ctx):
