@@ -3,7 +3,7 @@
 
 template <typename T>
 void print_vec(const std::vector<T> &input) {
-  for (const auto &i : input) {
+  for (const auto i : input) {
     printf("%.4f\n", i);
   }
 }
