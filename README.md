@@ -48,9 +48,13 @@ The compiler can be run in two ways:
 1. `cargo run -- <options>`: Rebuild compiler and run the CLI.
 2. `./target/debug/futil <options>`: Run the compiler without rebuilding the CLI.
 
+Compile an example FuTIL program: [examples/simple.futil](examples/simple.futil)
+          
+          cargo run -- examples/simple.futil
+          
 Compile a FuTIL program to Verilog for Verilator simulation
 
-          cargo run -- <file> -b verilog --verilator -l primitives/std.lib
+          cargo run -- <file> -b verilog --verilator
 
 ### Compiler Development
 
@@ -64,10 +68,11 @@ to use `primitives/std.lib` with the `-l` flag, which tells the compiler to look
 You'll need to explicitly pass the flag if you're not in the root directory. Assuming the import statement is ```import primitives/std.lib```:
 
 ```bash
+$ cd futil                                              # Inside root directory.
 $ cargo run -- examples/simple.futil -l primitives      # WRONG: "Failed to read primitives/primitives/std.lib"
-$ cargo run -- examples/simples.futil                   # RIGHT
+$ cargo run -- examples/simple.futil                    # RIGHT
 
-$ cd benchmarks                                         # Outside root directory 
+$ cd benchmarks                                         # Outside root directory.
 $ cargo run -- ../examples/simple.futil -l ..           # RIGHT
 ```
 
