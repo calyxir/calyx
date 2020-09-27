@@ -25,3 +25,4 @@ node_modules
 *.ipynb_checkpoints
 *.old
 book/
+mlir/build/
