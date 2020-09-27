@@ -131,6 +131,7 @@ fn main() -> Result<()> {
             }
         }
     }?;
+
     // parse libraries
     let libraries: Vec<_> = namespace
         .libraries
@@ -139,6 +140,7 @@ fn main() -> Result<()> {
             library_syntax::LibraryParser::parse_file(&opts.lib_path.join(path))
         })
         .collect::<Result<Vec<_>>>()?;
+
     // build context
     let context = Context::from_ast(
         namespace,
@@ -154,5 +156,5 @@ fn main() -> Result<()> {
     let context =
         pm.execute_plan(context, name_gen, &opts.pass, &opts.disable_pass)?;
 
-    Ok(opts.run_backend(&context, &mut std::io::stdout())?)
+    opts.run_backend(&context)
 }

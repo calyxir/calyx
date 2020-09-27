@@ -1,12 +1,11 @@
 use super::colors::ColorHelper;
-use crate::lang::ast::*;
+use crate::{lang::ast::*, utils::OutputFile};
 use atty::Stream;
 use pretty::termcolor::{ColorChoice, ColorSpec, StandardStream};
 use pretty::RcDoc;
 use std::fmt;
 use std::fmt::Display;
 use std::io;
-use std::io::Write;
 
 pub trait PrettyHelper<'a>: Sized {
     fn surround(self, pre: &'a str, post: &'a str) -> Self;
@@ -50,14 +49,21 @@ fn stmt_vec<'a>(
     RcDoc::intersperse(vec, RcDoc::line())
 }
 
-pub fn display<W: Write>(doc: RcDoc<ColorSpec>, write: Option<W>) {
-    if atty::is(Stream::Stdout) {
-        doc.render_colored(100, StandardStream::stdout(ColorChoice::Auto))
-            .unwrap();
-    } else {
-        match write {
-            Some(mut w) => doc.render(100, &mut w).unwrap(),
-            None => doc.render(100, &mut std::io::stdout()).unwrap(),
+pub fn display(doc: RcDoc<ColorSpec>, write: OutputFile) {
+    match write {
+        OutputFile::Stdout => {
+            if write.isatty() {
+                doc.render_colored(
+                    100,
+                    StandardStream::stdout(ColorChoice::Auto),
+                )
+                .unwrap();
+            } else {
+                doc.render(100, &mut std::io::stdout()).unwrap();
+            }
+        }
+        OutputFile::File(_) => {
+            doc.render(100, &mut write.get_write()).unwrap();
         }
     }
 }

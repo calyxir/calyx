@@ -7,11 +7,14 @@ use crate::frontend::{
 };
 use crate::lang::library::ast as lib;
 use crate::lang::structure::Node;
-use crate::lang::{
-    ast,
-    ast::{Atom, Cell, Control, GuardExpr, Port},
-    component, context,
-    structure::{DataDirection, EdgeData, NodeData},
+use crate::{
+    lang::{
+        ast,
+        ast::{Atom, Cell, Control, GuardExpr, Port},
+        component, context,
+        structure::{DataDirection, EdgeData, NodeData},
+    },
+    utils::OutputFile,
 };
 use itertools::Itertools;
 use lib::Implementation;
@@ -19,7 +22,6 @@ use petgraph::graph::NodeIndex;
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc;
 use std::cmp::Ordering;
-use std::io::Write;
 
 type D<'a> = RcDoc<'a, ColorSpec>;
 
@@ -101,7 +103,7 @@ impl Backend for VerilogBackend {
         })
     }
 
-    fn emit<W: Write>(ctx: &context::Context, file: W) -> Result<()> {
+    fn emit(ctx: &context::Context, file: OutputFile) -> Result<()> {
         let prog: ast::NamespaceDef = ctx.clone().into();
 
         // build Vec of tuples first so that `comps` lifetime is longer than
@@ -127,7 +129,7 @@ impl Backend for VerilogBackend {
             .append(D::line())
             .append(D::line())
             .append(D::intersperse(docs, D::line())),
-            Some(file),
+            file,
         );
         Ok(())
     }
