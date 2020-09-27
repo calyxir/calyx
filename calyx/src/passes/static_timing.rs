@@ -17,7 +17,7 @@ impl Named for StaticTiming {
     }
 
     fn description() -> &'static str {
-        "Opportunisitcally compile timed groups and generate timing information when possible."
+        "Opportunistically compile timed groups and generate timing information when possible."
     }
 }
 
