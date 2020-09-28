@@ -167,13 +167,25 @@ def main():
     """Builds the command line argument parser,
     parses the arguments, and returns the results."""
     parser = argparse.ArgumentParser(
-        description="Fear, Uncertainty, Doubt. Beware of the FuTIL driver."
+        description="Driver to execute FuTIL and supporting toolchains"
     )
     subparsers = parser.add_subparsers()
 
-    config_run(subparsers.add_parser('exec', aliases=['e', 'ex']))
-    config_config(subparsers.add_parser('config', aliases=['c']))
-    config_info(subparsers.add_parser('info', aliases=['i']))
+    config_run(subparsers.add_parser(
+        'exec',
+        help="Execute one of the FuTIL-related tools",
+        description="Execute one of the FuTIL-related tools",
+        aliases=['e', 'ex']))
+    config_config(subparsers.add_parser(
+        'config',
+        help="Configure environment variables for the driver",
+        description="Configure environment variables for the driver",
+        aliases=['c']))
+    config_info(subparsers.add_parser(
+        'info',
+        help="Show information about execution stages",
+        description="Show information about execution stages",
+        aliases=['i']))
 
     config = Configuration()
 
@@ -188,19 +200,25 @@ def main():
 
 def config_run(parser):
     # TODO: add help for all of these options
-    parser.add_argument('--from', dest='source')
-    parser.add_argument('--to', dest='dest')
-    parser.add_argument('-o', dest='output_file')
+    parser.add_argument('--from', dest='source',
+                        help='Name of the start stage')
+    parser.add_argument('--to', dest='dest',
+                        help='Name of the final stage')
+    parser.add_argument('-o', dest='output_file',
+                        help='Name of the outpfule file (default: STDOUT)')
     parser.add_argument(
         '-s',
+        help='Override configuration key-value pairs for this run',
         nargs=2,
         metavar=('key', 'value'),
         dest='dynamic_config',
         action='append'
     )
-    parser.add_argument('--dry-run', action='store_true', dest='dry_run')
-    parser.add_argument('-v', '--verbose', action='count', default=0)
-    parser.add_argument('input_file')
+    parser.add_argument('--dry-run', action='store_true', dest='dry_run',
+                        help='Show the execution stages and exit')
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help='Enable verbose logging')
+    parser.add_argument('input_file', help='Path to the input file')
     parser.set_defaults(func=run)
 
 
