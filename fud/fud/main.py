@@ -94,7 +94,7 @@ def run(args, config):
                 enabled=not utils.is_debug()) as sp:
             inp = Source(str(input_file), SourceType.Path)
             for ed in path:
-                sp.start(f"stage: {ed.stage.name} -> {ed.stage.target_stage}")
+                sp.start(f"{ed.stage.name} → {ed.stage.target_stage}")
                 (result, stderr, retcode) = ed.stage.transform(
                     inp,
                     dry_run=args.dry_run
