@@ -1,0 +1,6 @@
+[book]
+authors = ["Capra Lab"]
+language = "en"
+multilingual = false
+src = "docs"
+title = "FuTIL Documentation"
