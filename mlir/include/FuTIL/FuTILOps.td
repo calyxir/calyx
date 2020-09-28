@@ -6,30 +6,26 @@
 include "FuTILDialect.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
-def FuTIL_FooOp : FuTIL_Op<"foo", [NoSideEffect,
+def FuTIL_AddOp : FuTIL_Op<"add", [Commutative, NoSideEffect,
                                              SameOperandsAndResultType]> {
-    let summary = "Illustrates how to define an operation.";
+    let summary = "Add operation.";
     let description = [{
-        The `futil.foo` operation illustrates how to define a new
-        operation in a dialect. It uses an operation trait to declare that it
-        has no side effects.
-
-        This operation takes an integer argument and returns an integer.
-
+        Takes in two integers and adds them together, returning an
+        integer of the same type.
         Example:
 
         ```mlir
-        %0 = constant 2 : i32
-        // Apply the foo operation to %0
-        %1 = futil.foo %0 : i32
+        %c0 = constant 1 : i32
+        %c1 = constant 2 : i32
+        %res = futil.add %c0, %c1 : (i32, i32) -> i32
         ```
     }];
 
-    let arguments = (ins I32:$input);
-    let results = (outs I32:$res);
+    let arguments = (ins AnyType:$lhs, AnyType:$rhs);
+    let results = (outs AnyType:$result);
 
     let assemblyFormat = [{
-        $input attr-dict `:` type($input)
+        $lhs `,` $rhs attr-dict `:`  `(` type($lhs) `,` type($rhs) `)`  `->` type($result)
     }];
 }
 

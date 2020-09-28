@@ -1,6 +1,6 @@
 # MLIR Dialect for FuTIL
 
-This is a dialect for FUTIL along with a standalone `opt`-like tool to operate on that dialect.
+This is a dialect for FuTIL along with a standalone `opt`-like tool to operate on that dialect.
 
 ## Building
 
@@ -16,3 +16,7 @@ cmake --build . --target mlir-doc
 ```
 **Note**: Make sure to pass `-DLLVM_INSTALL_UTILS=ON` when building LLVM with CMake in order to install `FileCheck` to the chosen installation prefix.
 
+## Running the test suite
+```sh
+ninja check-futil
+```

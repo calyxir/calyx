@@ -13,9 +13,9 @@ def FuTIL_Dialect : Dialect {
     let name = "futil";
     let summary = "A FuTIL out-of-tree MLIR dialect.";
     let description = [{
-       This dialect defines the `futil` dialect, which is used to lower from
-       Dahlia to Verilog.  For more information, see the
-           [FuTIL GitHub page](https://github.com/cucapra/futil).
+       This dialect defines the `futil` dialect, which is an intermediate
+       language and compiler construction kit for hardware accelerators.
+       This will be eventually lowered to Verilog.
     }];
     let cppNamespace = "futil";
 }
