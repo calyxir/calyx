@@ -2,14 +2,13 @@ from pathlib import Path
 import argparse
 import toml
 import logging as log
-import sys
-from yaspin import yaspin
 
 from .stages import Source, SourceType
 from .config import Configuration
 from .registry import Registry
 from . import errors
 from .stages import dahlia, futil, verilator, vcdump
+from .utils import eprint
 
 
 def discover_implied_stage(filename, config):
@@ -28,12 +27,16 @@ def discover_implied_stage(filename, config):
 
 def register_stages(registry, config):
     registry.register(dahlia.DahliaStage(config))
-    registry.register(futil.FutilStage(config, 'verilog', '-b verilog --verilator'))
+    registry.register(
+        futil.FutilStage(config, 'verilog', '-b verilog --verilator')
+    )
     registry.register(futil.FutilStage(config, 'futil-lowered', '-b futil'))
-    registry.register(futil.FutilStage(config, 'futil-noinline', '-b futil -p no-inline'))
+    registry.register(
+        futil.FutilStage(config, 'futil-noinline', '-b futil -p no-inline')
+    )
     registry.register(verilator.VerilatorStage(config, 'vcd'))
     registry.register(verilator.VerilatorStage(config, 'dat'))
-    # registry.register(vcdump.VcdumpStage(config))
+    registry.register(vcdump.VcdumpStage(config))
 
 
 def run(args, config):
@@ -66,6 +69,8 @@ def run(args, config):
         target = discover_implied_stage(args.output_file, config.config)
 
     path = registry.make_path(source, target)
+    if path is None:
+        raise errors.NoPathFound(source, target)
 
     # if we are doing a dry run, print out stages and exit
     if args.dry_run:
@@ -81,28 +86,14 @@ def run(args, config):
             print(f.read())
     else:
         inp = Source(str(input_file), SourceType.Path)
-        with yaspin() as sp:
-            for ed in path:
-                sp.text = f"{ed.stage.name} -> {ed.stage.target_stage}"
-                # out = None
-                # if ed.dest == target:
-                #     if args.output_file is not None:
-                #         out = Source(args.output_file, SourceType.Path)
-                #     else:
-                #         out = Source(sys.stdout, SourceType.File)
-                # else:
-                #     out = Source.pipe()
+        for ed in path:
+            log.info(f" [+] Stage: {ed.stage.name} -> {ed.stage.target_stage}")
+            (result, stderr, retcode) = ed.stage.transform(
+                inp,
+                dry_run=args.dry_run
+            )
+            inp = result
 
-                # log.info(f" [+] {ed.stage.name} -> {ed.stage.target_stage}")
-                (result, stderr, retcode) = ed.stage.transform(
-                    inp,
-                    dry_run=args.dry_run
-                )
-                # log.info(f"     - exited with {retcode}")
-
-                inp = result
-            # sp.ok("✓")
-            sp.stop()
         if args.output_file is not None:
             with Path(args.output_file).open('w') as f:
                 f.write(inp.data.read())
@@ -144,7 +135,7 @@ def config(args, config):
             else:
                 print(res)
         else:
-            if not isinstance(find(config.config, path), list):
+            if not isinstance(find(config.config, path.copy()), list):
                 update(config.config, path, args.value)
                 config.commit()
             else:

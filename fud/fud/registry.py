@@ -25,20 +25,24 @@ class Registry:
 
     def make_path(self, start, dest):
         if start == dest:
+            # we have reached the destination, start a list
             return []
         else:
             if start not in self.nodes:
+                # if start no in nodes, then there is no
+                # path from start to dest
                 return None
             else:
-                if start not in self.nodes:
-                    return None
-
+                # go through edges in self.nodes[start]
+                # recursively calling self.make_path and
+                # and only keeping non-none paths
                 for edge in self.nodes[start]:
                     path = self.make_path(edge.dest, dest)
                     if path is not None:
                         path.insert(0, edge)
                         return path
 
+                # if we haven't found a path, return none
                 return None
 
     def __str__(self):

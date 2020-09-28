@@ -7,5 +7,5 @@ class VcdumpStage(Stage):
 
     def define(self):
         main = Step(SourceType.File)
-        main.set_cmd(f'{self.cmd}')
+        main.set_cmd(f'{self.cmd} --pretty')
         return [main]

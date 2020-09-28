@@ -12,8 +12,7 @@ description-file = "README.md"
 requires-python = ">=3.4"
 requires = [
          "appdirs",
-         "toml",
-         "yaspin"
+         "toml"
 ]
 
 [tool.flit.scripts]

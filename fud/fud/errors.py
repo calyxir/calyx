@@ -11,4 +11,12 @@ class UnknownExtension(Exception):
 
 class MissingDynamicConfiguration(Exception):
     def __init__(self, variable):
-        super().__init__(f"'{variable}' needs to be set. Try again with: '-s {variable} <value>'.")
+        msg = f"'{variable}' needs to be set. " + \
+            "Try again with: '-s {variable} <value>'."
+        super().__init__(msg)
+
+
+class NoPathFound(Exception):
+    def __init__(self, source, destination):
+        msg = f"No path found from {source} to {destination}."
+        super().__init__(msg)
