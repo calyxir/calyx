@@ -24,6 +24,7 @@ node_modules
 *.res
 *.ipynb_checkpoints
 *.old
+book/
 
 # fud ignore
 fud/dist
