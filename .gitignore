@@ -25,3 +25,9 @@ node_modules
 *.ipynb_checkpoints
 *.old
 book/
+
+# fud ignore
+fud/dist
+fud/build
+*.egg-info
+__pycache__

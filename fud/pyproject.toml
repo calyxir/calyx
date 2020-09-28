@@ -1,0 +1,20 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.metadata]
+module = "fud"
+author = "Samuel Thomas"
+author-email = "sgt43@cornell.edu"
+home-page = "https://github.com/cucapra/futil/tree/fud/fud"
+classifiers = ["License :: OSI Approved :: MIT License"]
+description-file = "README.md"
+requires-python = ">=3.4"
+requires = [
+         "appdirs",
+         "toml",
+         "halo"
+]
+
+[tool.flit.scripts]
+fud = "fud.main:main"
