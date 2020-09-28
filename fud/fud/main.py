@@ -120,7 +120,6 @@ def run(args, config):
                 print(inp.data.read().decode('UTF-8'))
 
 
-# TODO: is there a nice way to merge update and find?
 def update(d, path, val):
     if len(path) == 0:
         d = val
@@ -128,15 +127,6 @@ def update(d, path, val):
         key = path.pop(0)  # get first element in path
         d[key] = update(d[key], path, val)
     return d
-
-
-# TODO: get rid of this function
-def find(d, path):
-    if len(path) == 0:
-        return d
-    else:
-        key = path.pop(0)  # get first element in path
-        return find(d[key], path)
 
 
 def config(args, config):
@@ -148,13 +138,13 @@ def config(args, config):
         path = args.key.split(".")
         if args.value is None:
             # print out values
-            res = find(config.config, path)
+            res = config.find(path)
             if isinstance(res, dict):
                 print(toml.dumps(res))
             else:
                 print(res)
         else:
-            if not isinstance(find(config.config, path.copy()), list):
+            if not isinstance(config.find(path.copy()), list):
                 update(config.config, path, args.value)
                 config.commit()
             else:

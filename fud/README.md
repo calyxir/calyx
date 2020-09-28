@@ -37,7 +37,7 @@ FuTIL generated verilog. Installation instructions are here: [Install Verilator]
 Vcdump is a tool for converting `vcd` (Value Change Dump) files to json for easier analysis with the command line.
 Install it with:
 ```bash
-cargo install vcd
+cargo install vcdump
 ```
 
 ## Usage
