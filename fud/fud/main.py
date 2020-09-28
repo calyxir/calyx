@@ -2,13 +2,15 @@ from pathlib import Path
 import argparse
 import toml
 import logging as log
+from halo import Halo
+import sys
 
 from .stages import Source, SourceType
 from .config import Configuration
 from .registry import Registry
 from . import errors
 from .stages import dahlia, futil, verilator, vcdump
-from .utils import eprint
+from . import utils
 
 
 def discover_implied_stage(filename, config):
@@ -85,20 +87,37 @@ def run(args, config):
         with input_file.open('r') as f:
             print(f.read())
     else:
-        inp = Source(str(input_file), SourceType.Path)
-        for ed in path:
-            log.info(f" [+] Stage: {ed.stage.name} -> {ed.stage.target_stage}")
-            (result, stderr, retcode) = ed.stage.transform(
-                inp,
-                dry_run=args.dry_run
-            )
-            inp = result
+        with Halo(
+                spinner='dots',
+                color='cyan',
+                stream=sys.stderr,
+                enabled=not utils.is_debug()) as sp:
+            inp = Source(str(input_file), SourceType.Path)
+            for ed in path:
+                sp.start(f"stage: {ed.stage.name} -> {ed.stage.target_stage}")
+                (result, stderr, retcode) = ed.stage.transform(
+                    inp,
+                    dry_run=args.dry_run
+                )
+                inp = result
 
-        if args.output_file is not None:
-            with Path(args.output_file).open('w') as f:
-                f.write(inp.data.read())
-        else:
-            print(inp.data.read().decode('UTF-8'))
+                if retcode == 0:
+                    if log.getLogger().level <= log.INFO:
+                        sp.succeed()
+                else:
+                    if log.getLogger().level <= log.INFO:
+                        sp.fail()
+                    else:
+                        sp.stop()
+                    utils.eprint(stderr)
+                    exit(retcode)
+            sp.stop()
+
+            if args.output_file is not None:
+                with Path(args.output_file).open('w') as f:
+                    f.write(inp.data.read())
+            else:
+                print(inp.data.read().decode('UTF-8'))
 
 
 # TODO: is there a nice way to merge update and find?

@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 import logging as log
 
-from ..utils import eprint
+from ..utils import eprint, is_debug
 
 
 class SourceType(Enum):
@@ -72,7 +72,10 @@ class Stage:
         for step in steps:
             res = step.run(prev_out, ctx=ctx, dry_run=dry_run)
             (prev_out, err, ret) = res
-            self.check_exit(ret, err)
+            err_msg = self.check_exit(ret, err)
+            if err_msg is not None:
+                err = err_msg
+                break
 
         return (prev_out, err, ret)
 
@@ -80,10 +83,10 @@ class Stage:
         if retcode != 0:
             msg = f"Stage '{self.name}' had a non-zero exit code."
             n_dashes = (len(msg) - len(' stderr ')) // 2
-            eprint(msg)
-            eprint("-" * n_dashes, 'stderr', '-' * n_dashes)
-            eprint(stderr, end='')
-            exit(retcode)
+            dashes = "-" * n_dashes + ' stderr ' + '-' * n_dashes
+            return '\n'.join([msg, dashes, stderr])
+
+        return None
 
 
 class Step:
@@ -110,7 +113,9 @@ class Step:
             nonlocal cmd
             proc = None
             stdout = TemporaryFile()
-            stderr = TemporaryFile()
+            stderr = None
+            if not is_debug():
+                stderr = TemporaryFile()
             if inp.source_type == SourceType.Path:
                 ctx['input_path'] = inp.data
                 log.debug('  - [*] {}'.format(cmd.format(ctx=ctx)))
@@ -133,13 +138,15 @@ class Step:
             proc.wait()
             # move read pointers back to the beginning
             stdout.seek(0)
-            stderr.seek(0)
 
-            stderr = stderr.read().decode('UTF-8')
-            log.debug(stderr)
+            stderr_text = ''
+            if not is_debug():
+                stderr.seek(0)
+                stderr_text = stderr.read().decode('UTF-8')
+
             return (
                 Source(stdout, SourceType.File),
-                stderr,
+                stderr_text,
                 proc.returncode
             )
         self.func = f
