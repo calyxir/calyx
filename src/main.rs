@@ -147,6 +147,7 @@ fn main() -> Result<()> {
         &libraries,
         opts.enable_debug,
         opts.enable_verilator,
+        opts.color,
     )?;
 
     // Construct the name generator

@@ -50,7 +50,7 @@ class Source:
 
 
 class Stage:
-    def __init__(self, name, target_stage, config):
+    def __init__(self, name, target_stage, config, force_color=None):
         self.name = name
         self.target_stage = target_stage
         self.global_config = config.config['global']
@@ -61,16 +61,17 @@ class Stage:
         """Not meant to be called by a user."""
         return None
 
-    def transform(self, input_src, dry_run=False):
+    def transform(self, input_src, dry_run=False, last=False):
         steps = self.define()
         ctx = {}
 
         prev_out = input_src
-        err = None
         ret = None
+        err = None
         # loop until last step
-        for step in steps:
-            res = step.run(prev_out, ctx=ctx, dry_run=dry_run)
+        for i, step in enumerate(steps):
+            last = last and i == len(steps) - 1
+            res = step.run(prev_out, ctx=ctx, dry_run=dry_run, last=last)
             (prev_out, err, ret) = res
             err_msg = self.check_exit(ret, err)
             if err_msg is not None:
@@ -90,12 +91,13 @@ class Stage:
 
 
 class Step:
-    def __init__(self, desired_input_type):
+    def __init__(self, desired_input_type, last_context={}):
         self.func = None
         self.description = "No description provided."
         self.desired_input_type = desired_input_type
+        self.last_context = last_context
 
-    def run(self, input_src, ctx={}, dry_run=False):
+    def run(self, input_src, ctx={}, dry_run=False, last=False):
         if dry_run:
             print(f'     - {self.description}')
             return (None, None, 0)
@@ -105,6 +107,14 @@ class Step:
                 input_src.to_path()
             elif self.desired_input_type == SourceType.File:
                 input_src.to_pipe()
+
+            # update context with step specific items
+            if last:
+                for key, value in self.last_context.items():
+                    ctx[key] = value
+            else:
+                for key in self.last_context.keys():
+                    ctx[key] = ''
 
             return self.func(input_src, ctx)
 

@@ -87,17 +87,19 @@ def run(args, config):
         with input_file.open('r') as f:
             print(f.read())
     else:
+        spinner_enabled = not (utils.is_debug() or args.dry_run)
         with Halo(
                 spinner='dots',
                 color='cyan',
                 stream=sys.stderr,
-                enabled=not utils.is_debug()) as sp:
+                enabled=spinner_enabled) as sp:
             inp = Source(str(input_file), SourceType.Path)
-            for ed in path:
+            for i, ed in enumerate(path):
                 sp.start(f"{ed.stage.name} → {ed.stage.target_stage}")
                 (result, stderr, retcode) = ed.stage.transform(
                     inp,
-                    dry_run=args.dry_run
+                    dry_run=args.dry_run,
+                    last=i == len(path) - 1
                 )
                 inp = result
 
@@ -112,6 +114,10 @@ def run(args, config):
                     utils.eprint(stderr)
                     exit(retcode)
             sp.stop()
+
+            # return early when there's a dry run
+            if args.dry_run:
+                return
 
             if args.output_file is not None:
                 with Path(args.output_file).open('w') as f:

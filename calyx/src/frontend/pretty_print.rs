@@ -1,6 +1,5 @@
 use super::colors::ColorHelper;
-use crate::{lang::ast::*, utils::OutputFile};
-use atty::Stream;
+use crate::{lang::ast::*, lang::context::Context, utils::OutputFile};
 use pretty::termcolor::{ColorChoice, ColorSpec, StandardStream};
 use pretty::RcDoc;
 use std::fmt;
@@ -49,10 +48,10 @@ fn stmt_vec<'a>(
     RcDoc::intersperse(vec, RcDoc::line())
 }
 
-pub fn display(doc: RcDoc<ColorSpec>, write: OutputFile) {
+pub fn display(doc: RcDoc<ColorSpec>, write: OutputFile, ctx: &Context) {
     match write {
         OutputFile::Stdout => {
-            if write.isatty() {
+            if ctx.force_color || write.isatty() {
                 doc.render_colored(
                     100,
                     StandardStream::stdout(ColorChoice::Auto),
@@ -90,15 +89,16 @@ pub trait PrettyPrint {
         let mut arena = bumpalo::Bump::new();
         {
             let str = self.prettify(&arena);
-            if atty::is(Stream::Stdout) {
-                str.render_colored(
-                    100,
-                    StandardStream::stdout(ColorChoice::Auto),
-                )
+            str.render(100, &mut io::stdout()).unwrap();
+        }
+        arena.reset();
+    }
+    fn pretty_print_color(&self) {
+        let mut arena = bumpalo::Bump::new();
+        {
+            let str = self.prettify(&arena);
+            str.render_colored(100, StandardStream::stdout(ColorChoice::Auto))
                 .unwrap();
-            } else {
-                str.render(100, &mut io::stdout()).unwrap();
-            }
         }
         arena.reset();
     }

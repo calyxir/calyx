@@ -29,6 +29,9 @@ pub struct Opts {
     #[structopt(long = "output", short = "o", default_value)]
     pub output: OutputFile,
 
+    #[structopt(long = "force-color")]
+    pub color: bool,
+
     /// Path to the primitives library
     #[structopt(long, short, default_value = ".")]
     pub lib_path: PathBuf,
@@ -134,8 +137,9 @@ impl Opts {
         match self.backend {
             BackendOpt::Verilog => VerilogBackend::run(&context, self.output),
             BackendOpt::Futil => {
-                if self.output.isatty() {
-                    context.pretty_print();
+                if self.color || self.output.isatty() {
+                    eprintln!("color!");
+                    context.pretty_print_color();
                 } else {
                     write!(
                         self.output.get_write(),

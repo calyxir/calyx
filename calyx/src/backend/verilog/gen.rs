@@ -130,6 +130,7 @@ impl Backend for VerilogBackend {
             .append(D::line())
             .append(D::intersperse(docs, D::line())),
             file,
+            ctx,
         );
         Ok(())
     }
