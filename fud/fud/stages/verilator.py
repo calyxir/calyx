@@ -34,6 +34,7 @@ class VerilatorStage(Stage):
                     # the verilog expects data, but none has been provided
                     if 'readmemh' in verilog_src.read():
                         raise errors.MissingDynamicConfiguration('verilog.data')
+                    ctx['data_prefix'] = ''
             else:
                 with open(data_path) as f:
                     convert2dat(ctx['tmpdir'], json.load(f), 'dat')
