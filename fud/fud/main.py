@@ -40,16 +40,22 @@ def register_stages(registry, config):
 
     # FuTIL
     registry.register(
-        futil.FutilStage(config, 'verilog', '-b verilog --verilator')
-    )
-    registry.register(futil.FutilStage(config, 'futil-lowered', '-b futil'))
+        futil.FutilStage(config, 'verilog', '-b verilog --verilator',
+                         'Compile FuTIL to Verilog instrumented for simulation'))
     registry.register(
-        futil.FutilStage(config, 'futil-noinline', '-b futil -p no-inline')
-    )
+        futil.FutilStage(config, 'futil-lowered', '-b futil',
+                         'Compile FuTIL to FuTIL to remove all control and inline groups'))
+    registry.register(
+        futil.FutilStage(config, 'futil-noinline', '-b futil -p no-inline',
+                         'Compile FuTIL to FuTIL to remove all control and inline groups'))
 
     # Verilator
-    registry.register(verilator.VerilatorStage(config, 'vcd'))
-    registry.register(verilator.VerilatorStage(config, 'dat'))
+    registry.register(
+        verilator.VerilatorStage(config, 'vcd',
+                                 'Generate a VCD file from Verilog simulation'))
+    registry.register(
+        verilator.VerilatorStage(config, 'dat',
+                                 'Generate a JSON file with final state of all memories'))
 
     # Vcdump
     registry.register(vcdump.VcdumpStage(config))

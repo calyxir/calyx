@@ -2,9 +2,9 @@ from fud.stages import Stage, Step, SourceType
 
 
 class FutilStage(Stage):
-    def __init__(self, config, destination, flags):
+    def __init__(self, config, destination, flags, desc):
         self.flags = flags
-        super().__init__('futil', destination, config)
+        super().__init__('futil', destination, config, desc)
 
     def define(self):
         main = Step(SourceType.File)

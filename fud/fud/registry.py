@@ -46,11 +46,19 @@ class Registry:
                 return None
 
     def __str__(self):
-        output = []
+        transforms = []
+        legend = []
         for k, v in self.nodes.items():
             vals = [x.dest for x in v]
-            output.append(f"{k} -> {', '.join(vals)}")
-        prologue = """List of possible stage transformations:
+            legend += [(k, x.dest, x.stage.description) for x in v]
+            transforms.append(f"{k} → {', '.join(vals)}")
 
+        all_transforms = '\n'.join(transforms)
+        all_stages = '\n'.join([ f"{s} → {e}: {d}" for (s,e,d) in legend ])
+
+        return f"""List of possible stage transformations:
+{all_transforms}
+
+Legend:
+{all_stages}
 """
-        return prologue + '\n'.join(output)
