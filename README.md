@@ -48,9 +48,9 @@ The compiler can be run in two ways:
 1. `cargo run -- <options>`: Rebuild compiler and run the CLI.
 2. `./target/debug/futil <options>`: Run the compiler without rebuilding the CLI.
 
-Compile an example FuTIL program: [examples/simple.futil](examples/simple.futil)
+Compile an example FuTIL program: [examples/futil/simple.futil](examples/futil/simple.futil)
           
-          cargo run -- examples/simple.futil
+          cargo run -- examples/futil/simple.futil
           
 Compile a FuTIL program to Verilog for Verilator simulation
 
