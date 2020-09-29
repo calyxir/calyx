@@ -4,9 +4,11 @@ import toml
 import sys
 from pprint import PrettyPrinter
 
+from .utils import eprint
+
 wizard_data = {
     'global': {
-        'futil_directory': 'FuTIL Root Directory',
+        'futil_directory': 'Root Directory of FuTIL repository',
     }
 }
 
@@ -43,9 +45,19 @@ DEFAULT_CONFIGURATION = {
 
 def wizard(table, data):
     for key in data.keys():
+        if not isinstance(table, dict):
+            table = {}
+
         if key not in table:
-            answer = input(f'{data[key]} is unset: ')
-            table[key] = answer
+            while True:
+                answer = input(f'{data[key]} is unset: ')
+                path = Path(answer)
+                if path.exists():
+                    table[key] = str(path.resolve())
+                    break
+                else:
+                    eprint(f"{path} doesn't exist.")
+
     return table
 
 
