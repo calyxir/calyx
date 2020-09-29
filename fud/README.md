@@ -59,7 +59,7 @@ $ fud exec examples/dahlia/dot-product.fuse --to dat -s verilog.data examples/da
 # ========== output:  v-add.vcd
 $ fud exec examples/futil/vectorized-add.futil -o v-add.vcd -s verilog.data examples/data/vectorized-add.data
 
-# Compile FuTIL source in the test vectorized-add.expect to Verilog
+# Compile FuTIL source in the test vectorized-add.expect to Verilog.
 # We must explicitly specify the input file type because it can not 
 # be guessed from the extension.
 $ fud exec examples/tests/vectorized-add.expect --from futil --to verilog
