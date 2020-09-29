@@ -120,7 +120,7 @@ def run(args, config):
                 return
 
             if args.output_file is not None:
-                with Path(args.output_file).open('w') as f:
+                with Path(args.output_file).open('wb') as f:
                     f.write(inp.data.read())
             else:
                 print(inp.data.read().decode('UTF-8'))
