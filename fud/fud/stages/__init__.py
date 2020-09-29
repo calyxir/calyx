@@ -68,6 +68,8 @@ class Stage:
         prev_out = input_src
         ret = None
         err = None
+        if dry_run:
+            print(f'   + {self.name}')
         # loop until last step
         for i, step in enumerate(steps):
             last = last and i == len(steps) - 1

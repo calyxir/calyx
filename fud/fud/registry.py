@@ -49,5 +49,8 @@ class Registry:
         output = []
         for k, v in self.nodes.items():
             vals = [x.dest for x in v]
-            output.append(f"{k} -> {vals}")
-        return '\n'.join(output)
+            output.append(f"{k} -> {', '.join(vals)}")
+        prologue = """List of possible stage transformations:
+
+"""
+        return prologue + '\n'.join(output)

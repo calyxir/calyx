@@ -14,6 +14,10 @@ from . import utils
 
 
 def discover_implied_stage(filename, config):
+    """
+    Use the mapping from filename extensions to stages to figure out which
+    stage was implied.
+    """
     if filename is None:
         raise Exception('TODO: No filename or type provided.')
 
@@ -28,7 +32,13 @@ def discover_implied_stage(filename, config):
 
 
 def register_stages(registry, config):
+    """
+    Register stages and command line flags required to generate the results.
+    """
+    # Dahlia
     registry.register(dahlia.DahliaStage(config))
+
+    # FuTIL
     registry.register(
         futil.FutilStage(config, 'verilog', '-b verilog --verilator')
     )
@@ -36,12 +46,21 @@ def register_stages(registry, config):
     registry.register(
         futil.FutilStage(config, 'futil-noinline', '-b futil -p no-inline')
     )
+
+    # Verilator
     registry.register(verilator.VerilatorStage(config, 'vcd'))
     registry.register(verilator.VerilatorStage(config, 'dat'))
+
+    # Vcdump
     registry.register(vcdump.VcdumpStage(config))
 
 
 def run(args, config):
+    # check if input_file exists
+    input_file = Path(args.input_file)
+    if not input_file.exists():
+        raise FileNotFoundError(input_file)
+
     # set verbosity level
     level = None
     if args.verbose <= 0:
@@ -74,56 +93,53 @@ def run(args, config):
     if path is None:
         raise errors.NoPathFound(source, target)
 
+    # If the path doesn't execute anything, it is probably an error.
+    if len(path) == 0:
+        raise errors.TrivialPath(source)
+
     # if we are doing a dry run, print out stages and exit
     if args.dry_run:
-        print("Stages to run:")
+        print("fud will perform the following steps:")
 
-    # check if input_file exists
-    input_file = Path(args.input_file)
-    if not input_file.exists():
-        raise FileNotFoundError(input_file)
+    # Pretty spinner.
+    spinner_enabled = not (utils.is_debug() or args.dry_run)
+    # Execute the path transformation specification.
+    with Halo(
+            spinner='dots',
+            color='cyan',
+            stream=sys.stderr,
+            enabled=spinner_enabled) as sp:
+        inp = Source(str(input_file), SourceType.Path)
+        for i, ed in enumerate(path):
+            sp.start(f"{ed.stage.name} → {ed.stage.target_stage}")
+            (result, stderr, retcode) = ed.stage.transform(
+                inp,
+                dry_run=args.dry_run,
+                last = (i == (len(path) - 1))
+            )
+            inp = result
 
-    if len(path) == 0:
-        with input_file.open('r') as f:
-            print(f.read())
-    else:
-        spinner_enabled = not (utils.is_debug() or args.dry_run)
-        with Halo(
-                spinner='dots',
-                color='cyan',
-                stream=sys.stderr,
-                enabled=spinner_enabled) as sp:
-            inp = Source(str(input_file), SourceType.Path)
-            for i, ed in enumerate(path):
-                sp.start(f"{ed.stage.name} → {ed.stage.target_stage}")
-                (result, stderr, retcode) = ed.stage.transform(
-                    inp,
-                    dry_run=args.dry_run,
-                    last=i == len(path) - 1
-                )
-                inp = result
-
-                if retcode == 0:
-                    if log.getLogger().level <= log.INFO:
-                        sp.succeed()
-                else:
-                    if log.getLogger().level <= log.INFO:
-                        sp.fail()
-                    else:
-                        sp.stop()
-                    utils.eprint(stderr)
-                    exit(retcode)
-            sp.stop()
-
-            # return early when there's a dry run
-            if args.dry_run:
-                return
-
-            if args.output_file is not None:
-                with Path(args.output_file).open('wb') as f:
-                    f.write(inp.data.read())
+            if retcode == 0:
+                if log.getLogger().level <= log.INFO:
+                    sp.succeed()
             else:
-                print(inp.data.read().decode('UTF-8'))
+                if log.getLogger().level <= log.INFO:
+                    sp.fail()
+                else:
+                    sp.stop()
+                utils.eprint(stderr)
+                exit(retcode)
+        sp.stop()
+
+        # return early when there's a dry run
+        if args.dry_run:
+            return
+
+        if args.output_file is not None:
+            with Path(args.output_file).open('wb') as f:
+                f.write(inp.data.read())
+        else:
+            print(inp.data.read().decode('UTF-8'))
 
 
 def update(d, path, val):
@@ -192,7 +208,10 @@ def main():
     args = parser.parse_args()
 
     if 'func' in args:
-        args.func(args, config)
+        try:
+            args.func(args, config)
+        except errors.FudError as e:
+            print('Error: ' + str(e))
     else:
         parser.print_help()
         exit(-1)
@@ -214,7 +233,8 @@ def config_run(parser):
         dest='dynamic_config',
         action='append'
     )
-    parser.add_argument('--dry-run', action='store_true', dest='dry_run',
+    parser.add_argument('-n', '--dry-run',
+                        action='store_true', dest='dry_run',
                         help='Show the execution stages and exit')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Enable verbose logging')
