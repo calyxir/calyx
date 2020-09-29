@@ -9,12 +9,11 @@ from .. import errors
 
 
 class VerilatorStage(Stage):
-    def __init__(self, config, mem):
-        if mem == 'vcd' or mem == 'dat':
-            self.vcd = mem == 'vcd'
-            super().__init__('verilog', mem, config)
-        else:
+    def __init__(self, config, mem, desc):
+        if mem not in ['vcd', 'dat']:
             raise Exception("mem has to be 'vcd' or 'dat'")
+        self.vcd = mem == 'vcd'
+        super().__init__('verilog', mem, config, desc)
 
     def define(self):
         mktmp = Step(SourceType.Nothing)
@@ -35,6 +34,7 @@ class VerilatorStage(Stage):
                     # the verilog expects data, but none has been provided
                     if 'readmemh' in verilog_src.read():
                         raise errors.MissingDynamicConfiguration('verilog.data')
+                    ctx['data_prefix'] = ''
             else:
                 with open(data_path) as f:
                     convert2dat(ctx['tmpdir'], json.load(f), 'dat')

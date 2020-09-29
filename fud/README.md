@@ -25,7 +25,7 @@ Once Dahlia is compiled, you need to configure `fud` so that it knows where to f
 the binary.
 In the Dahlia directory run:
 ```bash
-fud config stages.exec.dahlia `pwd`/fuse
+fud config dahlia.stages.exec `pwd`/fuse
 ```
 
 

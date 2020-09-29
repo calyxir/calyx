@@ -50,12 +50,18 @@ class Source:
 
 
 class Stage:
-    def __init__(self, name, target_stage, config, force_color=None):
+    def __init__(self,
+                 name,
+                 target_stage,
+                 config,
+                 description,
+                 force_color=None):
         self.name = name
         self.target_stage = target_stage
         self.global_config = config.config['global']
         self.stage_config = config.find(['stages', self.name])
         self.cmd = self.stage_config['exec']
+        self.description = description
 
     def define(self):
         """Not meant to be called by a user."""
@@ -68,6 +74,8 @@ class Stage:
         prev_out = input_src
         ret = None
         err = None
+        if dry_run:
+            print(f'   + {self.name}')
         # loop until last step
         for i, step in enumerate(steps):
             last = last and i == len(steps) - 1
