@@ -1,0 +1,7 @@
+decl A: ubit<32>[8];
+decl B: ubit<32>[8];
+decl Sum: ubit<32>[8];
+
+for (let i: ubit<4> = 0..8) {
+  Sum[i] := A[i] + B[i];
+}

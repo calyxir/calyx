@@ -1,0 +1,9 @@
+decl A: ubit<32>[8];
+decl B: ubit<32>[8];
+decl v: ubit<32>[1];
+
+for (let i: ubit<4> = 0..8) {
+  let dot = A[i] * B[i];
+} combine {
+  v[0] += dot;
+}

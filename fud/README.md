@@ -41,24 +41,32 @@ cargo install vcdump
 ```
 
 ## Usage
-### Quickstart
+### Examples
 
 ```bash
-# compile and simulate a Dahlia dot-produce implementation using the data in data/dot-product.json
-fud exec dot-product.fuse --to dat -s verilog.data data/dot-product.json
+# These commands will assume you're in the root directory for FuTIL.
+$ cd futil
 
-# compile and simulate a matrix add implementation in Futil and dump the vcd for debugging
-# using data in data/mat-add.json for simulation
-fud exec mat-add.futil -o mat-add.vcd -s verilog.data data/mat-add.json
+# Compile a Dahlia dot product implementation and simulate in verilog using the data provided.
+# ========== Dahlia: examples/dahlia/dot-product.fuse
+# ========== data:   examples/data/dot-product.data (`.data` is used as an extension alias for `.json`)
+$ fud exec examples/dahlia/dot-product.fuse --to dat -s verilog.data examples/data/dot-product.data
 
-# compile Futil source in par.expect to Verilog
-# we explicilty specify the input file type because
-# it can not be guessed from the extension
-fud exec tests/par.expect --from futil --to verilog
+# Compile and simulate a vectorized add implementation in FuTIL using the data provided,
+# then dump the vcd into a new file for debugging.
+# ========== FuTIL:   examples/futil/vectorized-add.futil
+# ========== data:    examples/data/vectorized-add.data 
+# ========== output:  v-add.vcd
+$ fud exec examples/futil/vectorized-add.futil -o v-add.vcd -s verilog.data examples/data/vectorized-add.data
 
-# dry run of simulatining a Dahlia dot-product implementation. This will print
-# the commands that will be run, but not do anything.
-fud exec dot-product.fuse --to dat -s verilog.data data/dot-product.json --dry-run
+# Compile FuTIL source in the test vectorized-add.expect to Verilog.
+# We must explicitly specify the input file type because it can not 
+# be guessed from the extension.
+$ fud exec examples/tests/vectorized-add.expect --from futil --to verilog
+
+# Dry run of compiling the Dahlia dot product file to FuTIL. 
+# As expected, this will *only* print the stages that will be run.
+$ fud exec examples/dahlia/dot-product.fuse --to futil --dry-run
 ```
 
 ### Stages
