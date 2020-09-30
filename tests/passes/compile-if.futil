@@ -1,0 +1,39 @@
+// -p compile-control
+
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    t = prim std_reg(1);
+    f = prim std_reg(1);
+    lt = prim std_lt(1);
+  }
+
+  wires {
+    group true {
+      t.in = 1'b1;
+      t.write_en = 1'b1;
+      true[done] = t.done;
+    }
+
+    group false {
+      f.in = 1'b1;
+      f.write_en = 1'b1;
+      false[done] = f.done;
+    }
+
+    group cond {
+      lt.left = 1'b1;
+      lt.right = 1'b0;
+      cond[done] = 1'b1;
+    }
+  }
+
+  control {
+    if lt.out with cond {
+      true;
+    } else {
+      false;
+    }
+  }
+}

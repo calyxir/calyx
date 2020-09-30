@@ -1,0 +1,21 @@
+// -p merge-assign
+
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    add = prim std_add(32);
+  }
+
+  wires {
+    add.left = 4'd0 == 4'd0 ? 32'd32;
+    add.left = 4'd0 == 4'd1 ? 32'd32;
+    add.left = 4'd0 == 4'd3 ? 32'd32;
+    add.left = 4'd1 == 4'd0 ? 32'd4;
+    add.left = 4'd1 == 4'd1 ? 32'd4;
+
+    add.right = 32'd4;
+  }
+
+  control {}
+}
