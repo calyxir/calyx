@@ -45,7 +45,7 @@ qual: "input" -> input | "output" -> output
 class ConstructAST(lark.Transformer):
     def decl(self, args):
         qual, name, typ = args
-        return ast.Decl(qual.data == "input", str(name), repr(typ))
+        return ast.Decl(qual.data == "input", str(name), typ)
 
     def start(self, args):
         decls, stmts = args
