@@ -157,7 +157,7 @@ jobs:
       - name: mdbook
         run: mdbook build
       - name: rsync
-        if: ${{github.event_name=='push' && github.ref=='refs/heads/master'}}
+        #if: ${{github.event_name=='push' && github.ref=='refs/heads/master'}}
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
@@ -167,7 +167,7 @@ jobs:
           DEPLOY_SRC: ./book/
           DEPLOY_DEST: sync/bril-book
           DEPLOY_2_HOST: courses
-          DEPLOY_2_DEST: coursewww/capra.cs.cornell.edu/htdocs/bril
+          DEPLOY_2_DEST: coursewww/capra.cs.cornell.edu/htdocs/calyx
         run: |
           echo "$DEPLOY_KEY" > pk
           echo "$DEPLOY_KNOWN_HOSTS" > kh
