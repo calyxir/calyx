@@ -164,8 +164,8 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          DEPLOY_SRC: ./book/
-          DEPLOY_DEST: sync/bril-book
+          DEPLOY_SRC: ./docs/
+          DEPLOY_DEST: sync/calyx-docs
           DEPLOY_2_HOST: courses
           DEPLOY_2_DEST: coursewww/capra.cs.cornell.edu/htdocs/calyx
         run: |
