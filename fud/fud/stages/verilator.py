@@ -49,7 +49,9 @@ class VerilatorStage(Stage):
         ]
         verilator.set_cmd(" ".join([
             self.cmd,
-            '-cc', '--trace',
+            '-cc',
+            # Don't trace if we're only looking at memory outputs
+            '--trace' if self.vcd else '',
             '{ctx[input_path]}',
             "--exe " + " --exe ".join(testbench_files),
             '--top-module main',  # TODO: make this use dynamic config
