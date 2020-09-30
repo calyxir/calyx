@@ -1,5 +1,7 @@
 import "primitives/std.lib";
 
+// *NOTE*: This was hand-written, and does not demonstrate the capabilities of FuTIL or Calyx.
+
 // A simple example that takes the sum and product of two constants,
 // and places each in its own register.
 component main() -> () {
