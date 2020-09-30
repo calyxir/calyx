@@ -43,8 +43,8 @@ verilator -cc --trace "$filename" \
 make -j -C "$tmp" -f Vmain.mk Vmain 1>&2
 
 # run generated C++ and print output vcd to stdout
-"$tmp"/Vmain "$tmp"/output.vcd 1>&2
+"$tmp"/Vmain "$tmp"/output.vcd --trace 1>&2
 cat "$tmp"/output.vcd
 
 # Clean up temporary folder.
-# rm -rf "$tmp"
+rm -rf "$tmp"
