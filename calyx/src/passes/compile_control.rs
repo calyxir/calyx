@@ -3,10 +3,12 @@ use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
+use crate::passes::math_utilities::log2_ceil;
 use crate::{add_wires, guard, port, structure};
 use ast::{Control, Enable, GuardExpr};
 use std::collections::HashMap;
 use std::convert::TryInto;
+
 
 #[derive(Default)]
 pub struct CompileControl {}
@@ -275,7 +277,7 @@ impl Visitor for CompileControl {
         // Create a new group for the seq related structure.
         let seq_group: ast::Id = st.namegen.gen_name("seq").into();
         let seq_group_node = st.insert_group(&seq_group, HashMap::new())?;
-        let fsm_size = 1 + (s.stmts.len() as f64).log2() as u64;
+        let fsm_size = log2_ceil(s.stmts.len() as u64);
 
         // new structure
         structure!(st, &ctx,

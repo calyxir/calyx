@@ -4,6 +4,7 @@ use crate::lang::{
     structure_builder::ASTBuilder,
 };
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
+use crate::passes::math_utilities::log2_ceil;
 use crate::{add_wires, guard, port, structure};
 use std::cmp;
 use std::collections::HashMap;
@@ -29,8 +30,8 @@ fn accumulate_static_time<F>(
     stmts: &[Control],
     acc: F,
 ) -> Option<u64>
-where
-    F: FnMut(u64, &u64) -> u64,
+    where
+        F: FnMut(u64, &u64) -> u64,
 {
     let timing: Result<Vec<&u64>, ()> = stmts
         .iter()
@@ -90,7 +91,7 @@ impl Visitor for StaticTiming {
                 let while_group_node =
                     st.insert_group(&while_group, HashMap::new())?;
 
-                let fsm_size = 1 + (2_f64 + btime as f64).log2() as u64;
+                let fsm_size = log2_ceil(2_u64 + btime);
                 structure!(st, &ctx,
                     let fsm = prim std_reg(fsm_size);
 
@@ -122,7 +123,7 @@ impl Visitor for StaticTiming {
                 // Should we increment the FSM this cycle.
                 let fsm_incr = !body_done.clone()
                     & guard!(st; fsm["out"])
-                        .neq(st.to_guard(fsm_init_state.clone()));
+                    .neq(st.to_guard(fsm_init_state.clone()));
 
                 let body_go = guard!(st; fsm["out"])
                     .gt(st.to_guard(fsm_init_state.clone()))
@@ -168,7 +169,7 @@ impl Visitor for StaticTiming {
             }
             // The group is statically compilable.
             else if let (Some(&ctime), Some(&btime)) =
-                (maybe_cond_time, maybe_body_time)
+            (maybe_cond_time, maybe_body_time)
             {
                 let cond_group = st.get_node_by_name(&s.cond)?;
                 let body_group = st.get_node_by_name(&data.comp)?;
@@ -178,7 +179,7 @@ impl Visitor for StaticTiming {
                 let while_group_node =
                     st.insert_group(&while_group, HashMap::new())?;
 
-                let fsm_size = 1 + ((ctime + btime) as f64).log2() as u64;
+                let fsm_size = log2_ceil(ctime + btime) as u64;
                 structure!(st, &ctx,
                     let fsm = prim std_reg(fsm_size);
                     let cond_stored = prim std_reg(1);
@@ -272,7 +273,7 @@ impl Visitor for StaticTiming {
 
             // combinational condition
             if let (Some(&ctime), Some(&ttime), Some(&ftime)) =
-                (maybe_cond_time, maybe_true_time, maybe_false_time)
+            (maybe_cond_time, maybe_true_time, maybe_false_time)
             {
                 let cond_group = st.get_node_by_name(&s.cond)?;
                 let true_group = st.get_node_by_name(&tdata.comp)?;
@@ -288,8 +289,7 @@ impl Visitor for StaticTiming {
 
                 let if_group_node = st.insert_group(&if_group, attrs)?;
 
-                let max_end_time = std::cmp::max(ttime, ftime);
-                let fsm_size = 1 + (1_f64 + (ctime + max_end_time) as f64).log2() as u64;
+                let fsm_size = log2_ceil(1_u64 + ctime + std::cmp::max(ttime, ftime)) as u64;
                 structure!(st, &ctx,
                     let fsm = prim std_reg(fsm_size);
                     let one = constant(1, fsm_size);
@@ -398,7 +398,7 @@ impl Visitor for StaticTiming {
             let par_group: ast::Id = st.namegen.gen_name("static_par").into();
             let par_group_node = st.insert_group(&par_group, attrs)?;
 
-            let fsm_size = 1 + (s.stmts.len() as f64).log2() as u64;
+            let fsm_size = log2_ceil(s.stmts.len() as u64);
             structure!(st, &ctx,
                 let fsm = prim std_reg(fsm_size);
                 let signal_const = constant(1, 1);
@@ -424,14 +424,14 @@ impl Visitor for StaticTiming {
                     let group = st.get_node_by_name(&group_name)?;
 
                     let static_time: u64 = *st
-                    .groups
-                    .get(&Some(group_name.clone()))
-                    .expect("Group missing from structure")
-                    .0
-                    .get("static")
-                    .expect(
-                        "Impossible: Group doesn't have \"static\" attribute",
-                    );
+                        .groups
+                        .get(&Some(group_name.clone()))
+                        .expect("Group missing from structure")
+                        .0
+                        .get("static")
+                        .expect(
+                            "Impossible: Group doesn't have \"static\" attribute",
+                        );
 
                     // group[go] = fsm.out <= static_time ? 1;
                     structure!(st, &ctx,
@@ -478,7 +478,7 @@ impl Visitor for StaticTiming {
 
         let st = &mut comp.structure;
 
-        let fsm_size = 1 + (s.stmts.len() as f64).log2() as u64;
+        let fsm_size = log2_ceil(s.stmts.len() as u64);
         // Create new group for compiling this seq.
         let seq_group: ast::Id = st.namegen.gen_name("static_seq").into();
         let seq_group_node = st.insert_group(&seq_group, HashMap::new())?;
