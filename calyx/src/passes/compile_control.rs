@@ -275,7 +275,7 @@ impl Visitor for CompileControl {
         // Create a new group for the seq related structure.
         let seq_group: ast::Id = st.namegen.gen_name("seq").into();
         let seq_group_node = st.insert_group(&seq_group, HashMap::new())?;
-        let fsm_size = 32;
+        let fsm_size = 1 + (s.stmts.len() as f64).log2() as u64;
 
         // new structure
         structure!(st, &ctx,

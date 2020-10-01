@@ -90,7 +90,7 @@ impl Visitor for StaticTiming {
                 let while_group_node =
                     st.insert_group(&while_group, HashMap::new())?;
 
-                let fsm_size = 32;
+                let fsm_size = 1 + (2_f64 + btime as f64).log2() as u64;
                 structure!(st, &ctx,
                     let fsm = prim std_reg(fsm_size);
 
@@ -178,7 +178,7 @@ impl Visitor for StaticTiming {
                 let while_group_node =
                     st.insert_group(&while_group, HashMap::new())?;
 
-                let fsm_size = 32;
+                let fsm_size = 1 + ((ctime + btime) as f64).log2() as u64;
                 structure!(st, &ctx,
                     let fsm = prim std_reg(fsm_size);
                     let cond_stored = prim std_reg(1);
@@ -288,7 +288,8 @@ impl Visitor for StaticTiming {
 
                 let if_group_node = st.insert_group(&if_group, attrs)?;
 
-                let fsm_size = 32;
+                let max_end_time = std::cmp::max(ttime + ctime, ftime + ctime);
+                let fsm_size = 1 + (1_f64 + max_end_time as f64).log2() as u64;
                 structure!(st, &ctx,
                     let fsm = prim std_reg(fsm_size);
                     let one = constant(1, fsm_size);
@@ -397,8 +398,7 @@ impl Visitor for StaticTiming {
             let par_group: ast::Id = st.namegen.gen_name("static_par").into();
             let par_group_node = st.insert_group(&par_group, attrs)?;
 
-            // XXX(rachit): Calculate the precise number of states required.
-            let fsm_size = 32;
+            let fsm_size = 1 + (s.stmts.len() as f64).log2() as u64;
             structure!(st, &ctx,
                 let fsm = prim std_reg(fsm_size);
                 let signal_const = constant(1, 1);
@@ -477,8 +477,8 @@ impl Visitor for StaticTiming {
         }
 
         let st = &mut comp.structure;
-        // TODO(rachit): Resize FSM by pre-calculating max value.
-        let fsm_size = 32;
+
+        let fsm_size = 1 + (s.stmts.len() as f64).log2() as u64;
         // Create new group for compiling this seq.
         let seq_group: ast::Id = st.namegen.gen_name("static_seq").into();
         let seq_group_node = st.insert_group(&seq_group, HashMap::new())?;
