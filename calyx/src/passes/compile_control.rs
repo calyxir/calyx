@@ -319,7 +319,7 @@ impl Visitor for CompileControl {
                     return Err(Error::MalformedControl(
                         "Cannot compile non-group statement inside sequence"
                             .to_string(),
-                    ))
+                    ));
                 }
             }
         }
@@ -402,7 +402,7 @@ impl Visitor for CompileControl {
                     return Err(Error::MalformedControl(
                         "Cannot compile non-group statement inside sequence"
                             .to_string(),
-                    ))
+                    ));
                 }
             }
         }
