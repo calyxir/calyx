@@ -121,7 +121,7 @@ def run(args, config):
             (result, stderr, retcode) = ed.stage.transform(
                 inp,
                 dry_run=args.dry_run,
-                last = (i == (len(path) - 1))
+                last=i == (len(path) - 1)
             )
             inp = result
 

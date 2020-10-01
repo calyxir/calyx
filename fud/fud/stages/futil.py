@@ -6,7 +6,7 @@ class FutilStage(Stage):
         self.flags = flags
         super().__init__('futil', destination, config, desc)
 
-    def define(self):
+    def _define(self):
         main = Step(SourceType.File)
         main.set_cmd(f'{self.cmd} -l {self.global_config["futil_directory"]} {self.flags} {{ctx[last]}}')
         main.last_context = {

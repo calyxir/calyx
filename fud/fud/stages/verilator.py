@@ -15,7 +15,7 @@ class VerilatorStage(Stage):
         self.vcd = mem == 'vcd'
         super().__init__('verilog', mem, config, desc)
 
-    def define(self):
+    def _define(self):
         mktmp = Step(SourceType.Nothing)
 
         def f(inp, ctx):
@@ -49,7 +49,9 @@ class VerilatorStage(Stage):
         ]
         verilator.set_cmd(" ".join([
             self.cmd,
-            '-cc', '--trace',
+            '-cc',
+            # Don't trace if we're only looking at memory outputs
+            '--trace',
             '{ctx[input_path]}',
             "--exe " + " --exe ".join(testbench_files),
             '--top-module main',  # TODO: make this use dynamic config
@@ -62,7 +64,13 @@ class VerilatorStage(Stage):
         make.set_cmd("make -j -C {ctx[tmpdir]} -f Vmain.mk Vmain 1>&2")
 
         run = Step(SourceType.Nothing)
-        run.set_cmd("{ctx[data_prefix]} {ctx[tmpdir]}/Vmain {ctx[tmpdir]}/output.vcd 1>&2")
+        run.set_cmd(" ".join([
+            '{ctx[data_prefix]}',
+            '{ctx[tmpdir]}/Vmain',
+            '{ctx[tmpdir]}/output.vcd',
+            '--trace' if self.vcd else '',
+            '1>&2'
+        ]))
 
         # switch later stages based on whether we are outputing vcd or mem files
         extract = Step(SourceType.Nothing)

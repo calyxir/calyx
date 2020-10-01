@@ -1,0 +1,396 @@
+/* verilator lint_off WIDTH */
+module std_reg
+  #(parameter width = 32)
+   (input wire [width-1:0] in,
+    input wire write_en,
+    input wire clk,
+    // output
+    output logic [width - 1:0] out,
+    output logic done);
+
+  always_ff @(posedge clk) begin
+    if (write_en) begin
+      out <= in;
+      done <= 1'd1;
+    end else
+      done <= 1'd0;
+  end
+endmodule
+
+module std_add
+  #(parameter width = 32)
+  (input  logic [width-1:0] left,
+    input  logic [width-1:0] right,
+    output logic [width-1:0] out);
+  assign out = left + right;
+endmodule
+
+module std_const
+  #(parameter width = 32,
+    parameter value = 0)
+   (output logic [width - 1:0] out);
+  assign out = value;
+endmodule
+
+module std_lt
+  #(parameter width = 32)
+  (input logic [width-1:0] left,
+    input logic [width-1:0] right,
+    output logic            out);
+  assign out = left < right;
+endmodule
+
+// Component Signature
+module main (
+      input logic go,
+      input logic clk,
+      output logic done
+  );
+  
+  // Structure wire declarations
+  logic [31:0] tmp0_in;
+  logic tmp0_write_en;
+  logic tmp0_clk;
+  logic [31:0] tmp0_out;
+  logic tmp0_done;
+  logic [31:0] lt0_left;
+  logic [31:0] lt0_right;
+  logic lt0_out;
+  logic [31:0] i0_in;
+  logic i0_write_en;
+  logic i0_clk;
+  logic [31:0] i0_out;
+  logic i0_done;
+  logic [31:0] const4_out;
+  logic [31:0] const3_out;
+  logic [31:0] const2_out;
+  logic [31:0] const1_out;
+  logic [31:0] const0_out;
+  logic [31:0] b0_in;
+  logic b0_write_en;
+  logic b0_clk;
+  logic [31:0] b0_out;
+  logic b0_done;
+  logic [31:0] add1_left;
+  logic [31:0] add1_right;
+  logic [31:0] add1_out;
+  logic [31:0] add0_left;
+  logic [31:0] add0_right;
+  logic [31:0] add0_out;
+  logic [31:0] a0_in;
+  logic a0_write_en;
+  logic a0_clk;
+  logic [31:0] a0_out;
+  logic a0_done;
+  logic [31:0] fsm0_in;
+  logic fsm0_write_en;
+  logic fsm0_clk;
+  logic [31:0] fsm0_out;
+  logic fsm0_done;
+  logic [31:0] incr0_left;
+  logic [31:0] incr0_right;
+  logic [31:0] incr0_out;
+  logic [31:0] fsm1_in;
+  logic fsm1_write_en;
+  logic fsm1_clk;
+  logic [31:0] fsm1_out;
+  logic fsm1_done;
+  logic cond_stored0_in;
+  logic cond_stored0_write_en;
+  logic cond_stored0_clk;
+  logic cond_stored0_out;
+  logic cond_stored0_done;
+  logic [31:0] incr1_left;
+  logic [31:0] incr1_right;
+  logic [31:0] incr1_out;
+  logic [31:0] fsm2_in;
+  logic fsm2_write_en;
+  logic fsm2_clk;
+  logic [31:0] fsm2_out;
+  logic fsm2_done;
+  
+  // Subcomponent Instances
+  std_reg #(32) tmp0 (
+      .in(tmp0_in),
+      .write_en(tmp0_write_en),
+      .clk(clk),
+      .out(tmp0_out),
+      .done(tmp0_done)
+  );
+  
+  std_lt #(32) lt0 (
+      .left(lt0_left),
+      .right(lt0_right),
+      .out(lt0_out)
+  );
+  
+  std_reg #(32) i0 (
+      .in(i0_in),
+      .write_en(i0_write_en),
+      .clk(clk),
+      .out(i0_out),
+      .done(i0_done)
+  );
+  
+  std_const #(32, 1) const4 (
+      .out(const4_out)
+  );
+  
+  std_const #(32, 10) const3 (
+      .out(const3_out)
+  );
+  
+  std_const #(32, 1) const2 (
+      .out(const2_out)
+  );
+  
+  std_const #(32, 0) const1 (
+      .out(const1_out)
+  );
+  
+  std_const #(32, 1) const0 (
+      .out(const0_out)
+  );
+  
+  std_reg #(32) b0 (
+      .in(b0_in),
+      .write_en(b0_write_en),
+      .clk(clk),
+      .out(b0_out),
+      .done(b0_done)
+  );
+  
+  std_add #(32) add1 (
+      .left(add1_left),
+      .right(add1_right),
+      .out(add1_out)
+  );
+  
+  std_add #(32) add0 (
+      .left(add0_left),
+      .right(add0_right),
+      .out(add0_out)
+  );
+  
+  std_reg #(32) a0 (
+      .in(a0_in),
+      .write_en(a0_write_en),
+      .clk(clk),
+      .out(a0_out),
+      .done(a0_done)
+  );
+  
+  std_reg #(32) fsm0 (
+      .in(fsm0_in),
+      .write_en(fsm0_write_en),
+      .clk(clk),
+      .out(fsm0_out),
+      .done(fsm0_done)
+  );
+  
+  std_add #(32) incr0 (
+      .left(incr0_left),
+      .right(incr0_right),
+      .out(incr0_out)
+  );
+  
+  std_reg #(32) fsm1 (
+      .in(fsm1_in),
+      .write_en(fsm1_write_en),
+      .clk(clk),
+      .out(fsm1_out),
+      .done(fsm1_done)
+  );
+  
+  std_reg #(1) cond_stored0 (
+      .in(cond_stored0_in),
+      .write_en(cond_stored0_write_en),
+      .clk(clk),
+      .out(cond_stored0_out),
+      .done(cond_stored0_done)
+  );
+  
+  std_add #(32) incr1 (
+      .left(incr1_left),
+      .right(incr1_right),
+      .out(incr1_out)
+  );
+  
+  std_reg #(32) fsm2 (
+      .in(fsm2_in),
+      .write_en(fsm2_write_en),
+      .clk(clk),
+      .out(fsm2_out),
+      .done(fsm2_done)
+  );
+  
+  // Memory initialization / finalization 
+  import "DPI-C" function string futil_getenv (input string env_var);
+  string DATA;
+   initial begin
+  DATA = futil_getenv("DATA");
+      $fdisplay(2, "DATA (path to meminit files): %s", DATA);
+      
+  end
+  
+   final begin
+      
+  end
+  
+  // Input / output connections
+  always_comb begin
+    if ((fsm2_out == 32'd4))
+      done = 1'd1;
+    else 
+      done = '0;
+    
+    if ((fsm0_out == 32'd0 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      tmp0_in = b0_out;
+    else 
+      tmp0_in = '0;
+    
+    if ((fsm0_out == 32'd0 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      tmp0_write_en = 1'd1;
+    else 
+      tmp0_write_en = '0;
+    
+    if ((fsm1_out < 32'd1 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      lt0_left = i0_out;
+    else 
+      lt0_left = '0;
+    
+    if ((fsm1_out < 32'd1 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      lt0_right = const3_out;
+    else 
+      lt0_right = '0;
+    
+    if ((fsm2_out == 32'd1 & !i0_done & go))
+      i0_in = const1_out;
+    else if ((fsm0_out == 32'd1 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      i0_in = add0_out;
+    else 
+      i0_in = '0;
+    
+    if ((fsm2_out == 32'd1 & !i0_done & go | fsm0_out == 32'd1 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      i0_write_en = 1'd1;
+    else 
+      i0_write_en = '0;
+    
+    if ((fsm2_out == 32'd2 & !b0_done & go))
+      b0_in = const2_out;
+    else if ((fsm0_out == 32'd2 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      b0_in = add1_out;
+    else 
+      b0_in = '0;
+    
+    if ((fsm2_out == 32'd2 & !b0_done & go | fsm0_out == 32'd2 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      b0_write_en = 1'd1;
+    else 
+      b0_write_en = '0;
+    
+    if ((fsm0_out == 32'd2 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      add1_left = a0_out;
+    else 
+      add1_left = '0;
+    
+    if ((fsm0_out == 32'd2 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      add1_right = tmp0_out;
+    else 
+      add1_right = '0;
+    
+    if ((fsm0_out == 32'd1 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      add0_left = i0_out;
+    else 
+      add0_left = '0;
+    
+    if ((fsm0_out == 32'd1 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      add0_right = const4_out;
+    else 
+      add0_right = '0;
+    
+    if ((fsm0_out == 32'd3 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      a0_in = tmp0_out;
+    else if ((fsm2_out == 32'd0 & !a0_done & go))
+      a0_in = const0_out;
+    else 
+      a0_in = '0;
+    
+    if ((fsm2_out == 32'd0 & !a0_done & go | fsm0_out == 32'd3 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      a0_write_en = 1'd1;
+    else 
+      a0_write_en = '0;
+    
+    if ((fsm0_out != 32'd4 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      fsm0_in = incr0_out;
+    else if ((fsm0_out == 32'd4))
+      fsm0_in = 32'd0;
+    else 
+      fsm0_in = '0;
+    
+    if ((fsm0_out != 32'd4 & cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go | fsm0_out == 32'd4))
+      fsm0_write_en = 1'd1;
+    else 
+      fsm0_write_en = '0;
+    
+    if ((cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      incr0_left = 32'd1;
+    else 
+      incr0_left = '0;
+    
+    if ((cond_stored0_out & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      incr0_right = fsm0_out;
+    else 
+      incr0_right = '0;
+    
+    if ((fsm1_out != 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      fsm1_in = incr1_out;
+    else if ((fsm1_out == 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go | fsm1_out == 32'd1 & !cond_stored0_out))
+      fsm1_in = 32'd0;
+    else 
+      fsm1_in = '0;
+    
+    if ((fsm1_out != 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go | fsm1_out == 32'd5 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go | fsm1_out == 32'd1 & !cond_stored0_out))
+      fsm1_write_en = 1'd1;
+    else 
+      fsm1_write_en = '0;
+    
+    if ((fsm1_out < 32'd1 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      cond_stored0_in = lt0_out;
+    else 
+      cond_stored0_in = '0;
+    
+    if ((fsm1_out < 32'd1 & fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      cond_stored0_write_en = 1'd1;
+    else 
+      cond_stored0_write_en = '0;
+    
+    if ((fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      incr1_left = fsm1_out;
+    else 
+      incr1_left = '0;
+    
+    if ((fsm2_out == 32'd3 & !(fsm1_out == 32'd1 & !cond_stored0_out) & go))
+      incr1_right = 32'd1;
+    else 
+      incr1_right = '0;
+    
+    if ((fsm2_out == 32'd3 & fsm1_out == 32'd1 & !cond_stored0_out & go))
+      fsm2_in = 32'd4;
+    else if ((fsm2_out == 32'd2 & b0_done & go))
+      fsm2_in = 32'd3;
+    else if ((fsm2_out == 32'd1 & i0_done & go))
+      fsm2_in = 32'd2;
+    else if ((fsm2_out == 32'd0 & a0_done & go))
+      fsm2_in = 32'd1;
+    else if ((fsm2_out == 32'd4))
+      fsm2_in = 32'd0;
+    else 
+      fsm2_in = '0;
+    
+    if ((fsm2_out == 32'd0 & a0_done & go | fsm2_out == 32'd1 & i0_done & go | fsm2_out == 32'd2 & b0_done & go | fsm2_out == 32'd3 & fsm1_out == 32'd1 & !cond_stored0_out & go | fsm2_out == 32'd4))
+      fsm2_write_en = 1'd1;
+    else 
+      fsm2_write_en = '0;
+    
+  end
+endmodule // end main
