@@ -38,8 +38,8 @@ In the root of the repository, run the following:
 2. Run `./target/debug/futil --help` to get options from the `futil` binary.
   Alternatively, run `cargo run -- --help` which rebuilds and runs the compiler.
 
-3. (Optional) run the tests:
-```
+3. Run the tests:
+```bash
 runt -x dahlia
 ```
 
