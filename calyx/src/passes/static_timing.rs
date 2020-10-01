@@ -288,8 +288,8 @@ impl Visitor for StaticTiming {
 
                 let if_group_node = st.insert_group(&if_group, attrs)?;
 
-                let max_end_time = std::cmp::max(ttime + ctime, ftime + ctime);
-                let fsm_size = 1 + (1_f64 + max_end_time as f64).log2() as u64;
+                let max_end_time = std::cmp::max(ttime, ftime);
+                let fsm_size = 1 + (1_f64 + (ctime + max_end_time) as f64).log2() as u64;
                 structure!(st, &ctx,
                     let fsm = prim std_reg(fsm_size);
                     let one = constant(1, fsm_size);
