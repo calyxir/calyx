@@ -3,8 +3,8 @@ use crate::lang::{
     ast, component::Component, context::Context, structure::StructureGraph,
     structure_builder::ASTBuilder,
 };
-use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 use crate::passes::math_utilities::log2_ceil;
+use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 use crate::{add_wires, guard, port, structure};
 use std::cmp;
 use std::collections::HashMap;
@@ -30,8 +30,8 @@ fn accumulate_static_time<F>(
     stmts: &[Control],
     acc: F,
 ) -> Option<u64>
-    where
-        F: FnMut(u64, &u64) -> u64,
+where
+    F: FnMut(u64, &u64) -> u64,
 {
     let timing: Result<Vec<&u64>, ()> = stmts
         .iter()
@@ -123,7 +123,7 @@ impl Visitor for StaticTiming {
                 // Should we increment the FSM this cycle.
                 let fsm_incr = !body_done.clone()
                     & guard!(st; fsm["out"])
-                    .neq(st.to_guard(fsm_init_state.clone()));
+                        .neq(st.to_guard(fsm_init_state.clone()));
 
                 let body_go = guard!(st; fsm["out"])
                     .gt(st.to_guard(fsm_init_state.clone()))
@@ -169,7 +169,7 @@ impl Visitor for StaticTiming {
             }
             // The group is statically compilable.
             else if let (Some(&ctime), Some(&btime)) =
-            (maybe_cond_time, maybe_body_time)
+                (maybe_cond_time, maybe_body_time)
             {
                 let cond_group = st.get_node_by_name(&s.cond)?;
                 let body_group = st.get_node_by_name(&data.comp)?;
@@ -273,7 +273,7 @@ impl Visitor for StaticTiming {
 
             // combinational condition
             if let (Some(&ctime), Some(&ttime), Some(&ftime)) =
-            (maybe_cond_time, maybe_true_time, maybe_false_time)
+                (maybe_cond_time, maybe_true_time, maybe_false_time)
             {
                 let cond_group = st.get_node_by_name(&s.cond)?;
                 let true_group = st.get_node_by_name(&tdata.comp)?;
@@ -289,7 +289,9 @@ impl Visitor for StaticTiming {
 
                 let if_group_node = st.insert_group(&if_group, attrs)?;
 
-                let fsm_size = log2_ceil(1_u64 + ctime + std::cmp::max(ttime, ftime)) as u64;
+                let fsm_size =
+                    log2_ceil(1_u64 + ctime + std::cmp::max(ttime, ftime))
+                        as u64;
                 structure!(st, &ctx,
                     let fsm = prim std_reg(fsm_size);
                     let one = constant(1, fsm_size);

@@ -2,13 +2,12 @@ use crate::errors::Error;
 use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
-use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 use crate::passes::math_utilities::log2_ceil;
+use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 use crate::{add_wires, guard, port, structure};
 use ast::{Control, Enable, GuardExpr};
 use std::collections::HashMap;
 use std::convert::TryInto;
-
 
 #[derive(Default)]
 pub struct CompileControl {}
