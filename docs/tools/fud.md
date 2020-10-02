@@ -1,17 +1,38 @@
-# FUD: FuTIL Driver
+# FUD: The FuTIL Driver
+
 This is the FuTIL driver. It is a tool that automates the process
 of calling FuTIL frontends, the FuTIL compiler, and any backends that may
-be needed to simulate/execute a program.
+be needed to simulate/execute a destination stage.
+
+Working with FuTIL involves a lot of command-line tools. For example, an
+incomplete yet daunting list of CLI tools used by FuTIL is:
+
+- The Dahlia & the systolic array compilers
+- FuTIL compiler and its various command line tools
+- Verilator, the Verilog simulation framework used to test FuTIL-generated designs.
+- Waveform viewers to see the results of simulation
+
+`fud` aims to provide a simple interface for using these toolchains and
+executing them in a pipeline.
+
+The repository for `fud` is [here](https://github.com/cucapra/futil/tree/master/fud).
 
 ## Installation
-You need [Flit](https://flit.readthedocs.io/en/latest/) to install `fud`.
-Install it with `pip3 install flit`. (`pip3` should have a version >= 20 in order to use `flit install`)
+You need [Flit](https://flit.readthedocs.io/en/latest/) to install `fud`. Install it with `pip3 install flit`.
 
-Once that's installed, install `fud` with:
+You can then install `fud` with
+
 ```bash
 flit install
 ```
+(If using this method to install `fud`, `pip3` should be version >= 20)
 
+You can also install `fud` with 
+
+```bash
+flit build
+pip3 install dist/fud-0.1.0-py3-none-any.whl
+```
 
 If you are working on `fud` itself, you can install it with a symlink with:
 ```bash
