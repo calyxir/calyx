@@ -1,9 +1,5 @@
 # FUD: The FuTIL Driver
 
-This is the FuTIL driver. It is a tool that automates the process
-of calling FuTIL frontends, the FuTIL compiler, and any backends that may
-be needed to simulate/execute a destination stage.
-
 Working with FuTIL involves a lot of command-line tools. For example, an
 incomplete yet daunting list of CLI tools used by FuTIL is:
 
