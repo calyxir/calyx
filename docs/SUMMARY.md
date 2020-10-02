@@ -13,3 +13,5 @@
 - [Compiler Development](./dev/index.md)
   - [Program Context](./dev/context.md)
   - [Writing a Test](./dev/test.md)
+----
+[Contributors](./contributors.md)
