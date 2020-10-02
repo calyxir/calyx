@@ -5,12 +5,13 @@ be needed to simulate/execute a program.
 
 ## Installation
 You need [Flit](https://flit.readthedocs.io/en/latest/) to install `fud`.
-Install it with `pip3 install flit`.
+Install it with `pip3 install flit`. (`pip3` should have a version >= 20 in order to use `flit install`)
 
 Once that's installed, install `fud` with:
 ```bash
 flit install
 ```
+
 
 If you are working on `fud` itself, you can install it with a symlink with:
 ```bash
