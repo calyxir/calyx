@@ -2,7 +2,7 @@ use crate::errors::Error;
 use crate::lang::{
     ast, component::Component, context::Context, structure_builder::ASTBuilder,
 };
-use crate::passes::math_utilities::log2_ceil;
+use crate::passes::math_utilities::get_bit_width_from;
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 use crate::{add_wires, guard, port, structure};
 use ast::{Control, Enable, GuardExpr};
@@ -276,7 +276,7 @@ impl Visitor for CompileControl {
         // Create a new group for the seq related structure.
         let seq_group: ast::Id = st.namegen.gen_name("seq").into();
         let seq_group_node = st.insert_group(&seq_group, HashMap::new())?;
-        let fsm_size = log2_ceil(s.stmts.len() as u64);
+        let fsm_size = get_bit_width_from(s.stmts.len() as u64);
 
         // new structure
         structure!(st, &ctx,

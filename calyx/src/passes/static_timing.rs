@@ -3,7 +3,7 @@ use crate::lang::{
     ast, component::Component, context::Context, structure::StructureGraph,
     structure_builder::ASTBuilder,
 };
-use crate::passes::math_utilities::log2_ceil;
+use crate::passes::math_utilities::get_bit_width_from;
 use crate::passes::visitor::{Action, Named, VisResult, Visitor};
 use crate::{add_wires, guard, port, structure};
 use std::cmp;
@@ -91,7 +91,7 @@ impl Visitor for StaticTiming {
                 let while_group_node =
                     st.insert_group(&while_group, HashMap::new())?;
 
-                let fsm_size = log2_ceil(2_u64 + btime);
+                let fsm_size = get_bit_width_from(2_u64 + btime);
                 structure!(st, &ctx,
                     let fsm = prim std_reg(fsm_size);
 
@@ -179,7 +179,7 @@ impl Visitor for StaticTiming {
                 let while_group_node =
                     st.insert_group(&while_group, HashMap::new())?;
 
-                let fsm_size = log2_ceil(ctime + btime) as u64;
+                let fsm_size = get_bit_width_from(ctime + btime) as u64;
                 structure!(st, &ctx,
                     let fsm = prim std_reg(fsm_size);
                     let cond_stored = prim std_reg(1);
@@ -289,9 +289,9 @@ impl Visitor for StaticTiming {
 
                 let if_group_node = st.insert_group(&if_group, attrs)?;
 
-                let fsm_size =
-                    log2_ceil(1_u64 + ctime + std::cmp::max(ttime, ftime))
-                        as u64;
+                let fsm_size = get_bit_width_from(
+                    1_u64 + ctime + std::cmp::max(ttime, ftime),
+                ) as u64;
                 structure!(st, &ctx,
                     let fsm = prim std_reg(fsm_size);
                     let one = constant(1, fsm_size);
@@ -400,7 +400,7 @@ impl Visitor for StaticTiming {
             let par_group: ast::Id = st.namegen.gen_name("static_par").into();
             let par_group_node = st.insert_group(&par_group, attrs)?;
 
-            let fsm_size = log2_ceil(s.stmts.len() as u64);
+            let fsm_size = get_bit_width_from(s.stmts.len() as u64);
             structure!(st, &ctx,
                 let fsm = prim std_reg(fsm_size);
                 let signal_const = constant(1, 1);
@@ -480,7 +480,7 @@ impl Visitor for StaticTiming {
 
         let st = &mut comp.structure;
 
-        let fsm_size = log2_ceil(s.stmts.len() as u64);
+        let fsm_size = get_bit_width_from(s.stmts.len() as u64);
         // Create new group for compiling this seq.
         let seq_group: ast::Id = st.namegen.gen_name("static_seq").into();
         let seq_group_node = st.insert_group(&seq_group, HashMap::new())?;
