@@ -6,11 +6,8 @@
 /// `get_bit_width_from(5)` == 3 // 5 states requires a minimum of 3 bits.
 #[inline(always)]
 pub fn get_bit_width_from(n: u64) -> u64 {
-    if n == 0_u64 {
-        return 0_u64;
-    }
-    if n == 1_u64 {
-        return 1_u64;
+    if n == 0_u64 || n == 1_u64 {
+        return n;
     }
     for index in 0u8..63 {
         let x = (63 - index) as u64;
