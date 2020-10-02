@@ -41,6 +41,7 @@ The command-line provides two options to control the execution of passes:
 For example, we can run the following to disable the `static-timing` pass from
 the default execution alias `all`:
 
-```
-cargo run -- simple/futil/simple.futil -p all -d static-timing
+```bash
+cd futil
+cargo run -- examples/futil/simple.futil -p all -d static-timing
 ```

@@ -9,7 +9,7 @@
 - [Language Reference](./lang.md)
 - [Frontend Compilers](./frontends/index.md)
     - [Dahlia](./frontends/dahlia.md)
-    - [Systolic Array](./frontends/systolic-array.md)
+    - [Systolic Array Generator](./frontends/systolic-array.md)
 - [Compiler Development](./dev/index.md)
   - [Program Context](./dev/context.md)
   - [Writing a Test](./dev/test.md)

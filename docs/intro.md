@@ -17,14 +17,14 @@ Install [Rust][rust] (it should automatically install `cargo`).
 ### Testing dependencies
 The compiler uses expectation tests as well as hardware simulation tests.
 
-- [runt][] by running `cargo install runt`
-- [vcdump][] by running `cargo install vcdump`
-- [Verilator][]:
+1. [runt][] by running `cargo install runt`
+2. [vcdump][] by running `cargo install vcdump`
+3. [Verilator][]:
     - Ubuntu: `sudo apt install verilator`
     - Fedora: `sudo dnf install verilator`
     - Mac: `brew install verilator`
     - Other platforms: [Verilator installation][verilator-install].
-- [jq][]:
+4. [jq][]:
     - Ubuntu: `sudo apt install jq`
     - Fedora: `sudo dnf install jq`
     - Mac: `brew install jq`
@@ -34,26 +34,26 @@ The compiler uses expectation tests as well as hardware simulation tests.
 
 In the root of the repository, run the following:
 
-- Run `cargo build` to build the compiler.
-- Run `./target/debug/futil --help` to get options from the `futil` binary.
+1. Run `cargo build` to build the compiler.
+2. Run `./target/debug/futil --help` to get options from the `futil` binary.
   Alternatively, run `cargo run -- --help` which rebuilds and runs the compiler.
 
-Run the tests:
-```
+3. Run the tests:
+```bash
 runt -x dahlia
 ```
 
 ### Running an Example Program
 
-In order to run a FuTIL program, the run following from the repository:
+In order to run a FuTIL program, execute the following command from the repository:
 
 ```bash
 cargo run -- examples/futil/simple.futil
 ```
 
-This will run the FuTIL compiler on the input file `examples/futil/simple.futil`
-and generate a FuTIL program without no control constructs.
-In order to generate SystemVerilog, run the following:
+This will run the FuTIL compiler with input file `examples/futil/simple.futil`, 
+and generate a FuTIL program without control constructs.
+In order to generate SystemVerilog, execute the following:
 
 ```bash
 cargo run -- examples/futil/simple.futil -b verilog
