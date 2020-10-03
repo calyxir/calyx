@@ -716,12 +716,13 @@ primitive std_fsm_state(in: 1, reset: 1, clk: 1) -> (out: 1) {
 
 /////// fixed_point primitive ///////////
 
-primitive fixed_p_std_const[p_width, p_int_width, p_value1, p_value2] () -> (out: p_width){
+primitive fixed_p_std_const[p_width, p_int_width, p_fract_width, p_value1, p_value2] () -> (out: p_width){
     verilog {
         module fixed_p_std_const
             #(parameter width=32,
             parameter int_width = 8,
-            parameter value1 = 0
+            parameter fract_width= 24,
+            parameter value1 = 0,
             parameter value2 = 0)
 
         (output logic [width-1:0] out);
@@ -742,30 +743,7 @@ primitive fixed_p_std_add[p_width, p_int_width, p_fract_width] (left: p_width, r
         input logic [width-1:0] right, 
         output logic [width-1:0] out);
 
-        logic [width-1:width-int_width] l_int, r_int, out_int, scaled_int; 
-        logic [width-int_width-1:0] l_scale, r_scale, scale_factor;
-
-        assign {l_int, l_scale} = left;
-        assign {r_int, r_scale} = right;
-
-        always_comb begin
-            if (l_scale == r_scale) begin
-                out_int = l_int + r_int;
-                out = {out_int, r_scale};
-            end else begin
-                if (l_scale > r_scale) begin
-                    scale_factor = (l_scale/r_scale);
-                    scaled_int = r_int * scale_factor;
-                    out_int = l_int + scaled_int;
-                    out = {out_int, l_scale};
-                end else begin
-                    scale_factor = (r_scale / l_scale); 
-                    scaled_int = l_int * scale_factor;
-                    out_int = r_int + scaled_int;
-                    out = {out_int, r_scale};
-                end
-            end
-        end
+        assign out = left + right;
       endmodule
     }
 }
@@ -781,35 +759,13 @@ primitive fixed_p_std_sub[p_width, p_int_width, p_fract_width] (left: p_width, r
         input logic [width-1:0] right, 
         output logic [width-1:0] out);
 
-        logic [width-1:width-int_width] l_int, r_int, out_int, scaled_int; 
-        logic [width-int_width-1:0] l_scale, r_scale, scale_factor;
 
-        assign {l_int, l_scale} = left;
-        assign {r_int, r_scale} = right;
-
-        always_comb begin
-            if (l_scale == r_scale) begin
-                out_int = l_int - r_int;
-                out = {out_int, r_scale};
-            end else begin
-                if (l_scale > r_scale) begin
-                    scale_factor = (l_scale/r_scale);
-                    scaled_int = r_int * scale_factor;
-                    out_int = l_int - scaled_int;
-                    out = {out_int, l_scale};
-                end else begin
-                    scale_factor = (r_scale / l_scale); 
-                    scaled_int = l_int * scale_factor;
-                    out_int = r_int - scaled_int;
-                    out = {out_int, r_scale};
-                end
-            end
-        end
+        out = left -right;
         endmodule
     }
 }
 
-primitive fixed_p_std_mult[p_width, p_int_width, p_fract_width](left: p_width, right: p_width)->(out: p_width){
+primitive fixed_p_std_mult[p_width, p_int_width, p_fract_width, out_width](left: p_width, right: p_width)->(out: p_width){
     verilog {
       module fixed_p_std_mult
         #(parameter width= 32,
@@ -820,26 +776,12 @@ primitive fixed_p_std_mult[p_width, p_int_width, p_fract_width](left: p_width, r
         input logic [width-1:0] right, 
         output logic [width-1:0] out);
 
-        logic [width-1:width-int_width] l_int, r_int, out_int, scaled_int; 
-        logic [width-int_width-1:0] l_scale, r_scale, new_scale;
+        logic [2*width-2:0] result;
 
-        assign {l_int, l_scale} = left;
-        assign {r_int, r_scale} = right;
+        assign result = left * right;
+        assign out = result[width+fract_width-1:fract_width];
 
-        always_comb begin
-          if (l_scale == r_scale) begin
-            out_int = l_int * r_int;
-            // x = out_int * l_scale;
-            // scaled_int = x[fract_width-1:fract_width-int_width];
-            scaled_int = out_int * l_scale;
-            out = {scaled_int, l_scale};
 
-          end else begin
-            out_int = l_int * r_int;
-            new_scale = l_scale * r_scale;
-            out = {out_int, new_scale};
-          end
-        end
         endmodule
 
     }
@@ -855,30 +797,13 @@ primitive fixed_p_std_div[p_width, p_int_width, p_fract_width](left: p_width, ri
         input logic [width-1:0] right, 
         output logic [width-1:0] out);
 
-        logic [width-1:width-int_width] l_int, r_int; 
-        logic [width-int_width-1:0] l_scale, r_scale, new_scale, x;
-        logic [width-1:width-int_width] out_int, scaled_int;
+        logic [2*width-2:0] result;
 
-        assign {l_int, l_scale} = left;
-        assign {r_int, r_scale} = right;
+        assign result = left / right;
+        assign out = result[width+fract_width-1:fract_width];
 
-        always_comb begin
-          if (l_scale == r_scale) begin
-            out_int = l_int / r_int;
-            // x = out_int / l_scale;
-            // scaled_int = x[fract_width-1:fract_width-int_width];
-            scaled_int = out_int / l_scale;
-            out = {scaled_int, l_scale};
 
-          end else begin
-            out_int = l_int / r_int;
-            new_scale = l_scale / r_scale;
-            out = {out_int, new_scale};
-          end
-        end
-
-      endmodule 
+        endmodule
 
     }
 }
-
