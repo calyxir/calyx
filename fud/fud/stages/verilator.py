@@ -82,7 +82,7 @@ class VerilatorStage(Stage):
         else:
             def f(_inp, ctx):
                 mem = convert2json(ctx['tmpdir'], 'out')
-                buf = BytesIO(json.dumps(mem, indent=2).encode('UTF-8'))
+                buf = BytesIO(json.dumps(mem, indent=2, sort_keys=True).encode('UTF-8'))
                 return (Source(buf, SourceType.File), None, 0)
             extract.set_func(f, "Convert output memories to json.")
 
