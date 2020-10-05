@@ -76,9 +76,8 @@ class Stage:
                  description):
         self.name = name
         self.target_stage = target_stage
-        self.global_config = config.config['global']
-        self.stage_config = config.find(['stages', self.name])
-        self.cmd = self.stage_config['exec']
+        self.config = config
+        self.cmd = self.config['stages', self.name, 'exec']
         self.description = description
 
     def _define(self):

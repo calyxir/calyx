@@ -130,7 +130,7 @@ jobs:
         cd fud
         echo $PATH
         flit install
-        fud config global '/home/runner/work/futil/futil'
+        fud config global.futil_directory '/home/runner/work/futil/futil'
         fud config stages.dahlia.exec '/home/runner/work/futil/futil/dahlia/fuse'
 
     - name: Test

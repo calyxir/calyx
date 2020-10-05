@@ -11,9 +11,9 @@ class FutilStage(Stage):
         main = Step(SourceType.File)
         main.set_cmd(' '.join([
             self.cmd,
-            '-l', self.global_config["futil_directory"],
+            '-l', self.config['global', "futil_directory"],
             self.flags,
-            unwrap_or(self.stage_config['flags'], ''),
+            unwrap_or(self.config['stages', self.name, 'flags'], ''),
             '{ctx[last]}'
 
         ]))

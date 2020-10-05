@@ -67,6 +67,8 @@ def run(args, config):
     if not input_file.exists():
         raise FileNotFoundError(input_file)
 
+    config.launch_wizard()
+
     # set verbosity level
     level = None
     if args.verbose <= 0:
@@ -80,7 +82,7 @@ def run(args, config):
     # update the stages config with arguments provided via cmdline
     if args.dynamic_config is not None:
         for key, value in args.dynamic_config:
-            update(config.config['stages'], key.split('.'), value)
+            config[['stages'] + key.split('.')] = value
 
     registry = Registry(config)
     register_stages(registry, config)
@@ -88,12 +90,12 @@ def run(args, config):
     # find source
     source = args.source
     if source is None:
-        source = discover_implied_stage(args.input_file, config.config)
+        source = discover_implied_stage(args.input_file, config)
 
     # find target
     target = args.dest
     if target is None:
-        target = discover_implied_stage(args.output_file, config.config)
+        target = discover_implied_stage(args.output_file, config)
 
     path = registry.make_path(source, target)
     if path is None:
@@ -148,15 +150,6 @@ def run(args, config):
             print(inp.data.read().decode('UTF-8'))
 
 
-def update(d, path, val):
-    if len(path) == 0:
-        d = val
-    else:
-        key = path.pop(0)  # get first element in path
-        d[key] = update(d[key], path, val)
-    return d
-
-
 def config(args, config):
     if args.key is None:
         print(config.config_file)
@@ -166,14 +159,15 @@ def config(args, config):
         path = args.key.split(".")
         if args.value is None:
             # print out values
-            res = config.find(path)
+            res = config[path]
             if isinstance(res, dict):
                 print(toml.dumps(res))
             else:
                 print(res)
         else:
-            if not isinstance(config.find(path.copy()), list):
-                update(config.config, path, args.value)
+            config.touch(path)
+            if not isinstance(config[path], list):
+                config[path] = args.value
                 config.commit()
             else:
                 raise Exception("NYI: supporting updating lists")
