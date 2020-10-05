@@ -122,7 +122,7 @@ impl Visitor for Papercut<'_> {
             // driven.
             let mut drives: HashMap<(&str, &str), Vec<&Id>> = HashMap::new();
 
-            for eidx in edge_indices.into_iter() {
+            for eidx in edge_indices.iter() {
                 let edge = st.get_edge(*eidx);
                 let (_, dst) = st.endpoints(*eidx);
 
@@ -131,12 +131,11 @@ impl Visitor for Papercut<'_> {
                     data: ast::Prim { instance, .. },
                 }) = &st.get_node(dst).data
                 {
-                    match &edge.dest {
-                        Port::Comp { component, port } => drives
+                    if let Port::Comp { component, port } = &edge.dest {
+                        drives
                             .entry((&component.id, &instance.name.id))
-                            .or_insert(vec![])
-                            .push(&port),
-                        _ => (),
+                            .or_insert_with(Vec::new)
+                            .push(&port)
                     }
                 }
             }
@@ -154,7 +153,7 @@ impl Visitor for Papercut<'_> {
                         {
                             let msg = format!(
                             "Required signal not driven inside the group.\nWhen driving the signal `{}.{}' the signal `{}.{}' must also be driven. The primitive type `{}' requires this invariant.",
-                            inst.clone(),
+                            inst,
                             first,
                             inst,
                             second,
