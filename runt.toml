@@ -15,6 +15,7 @@ paths = [ "tests/correctness/*.futil" ]
 cmd = """
 fud exec -s futil.exec './target/debug/futil' \
          -s verilog.data {}.data \
+         -s verilog.cycle_limit 500 \
          {} --to dat \
          -q
 """
@@ -38,6 +39,13 @@ cmd = """
 fud exec -s futil.exec './target/debug/futil' \
          {} --to verilog \
          -q
+"""
+
+[[tests]]
+name = "dahlia frontend"
+paths = [ "tests/frontend/dahlia/*.fuse" ]
+cmd = """
+fud e {} --to futil -q
 """
 
 # # NOTE(rachit): `name` should only use lower case words. This makes it easier

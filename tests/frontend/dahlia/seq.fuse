@@ -1,0 +1,3 @@
+let x: ubit<32> = 4;
+---
+let y: ubit<32> = 5;
