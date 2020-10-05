@@ -163,11 +163,11 @@ fud e {} --to futil -q | tail -n+2
 # # ================ Systolic array tests ====================== #
 [[tests]]
 name = "(systolic array) frontend"
-paths = [ "systolic-lang/tests/sizes/array-*" ]
+paths = [ "tests/frontend/systolic/array-*.txt" ]
 cmd = """
 ./systolic-lang/gen-systolic.py $(cat {})
 """
-expect_dir = "systolic-lang/tests/futil/"
+# expect_dir = "systolic-lang/tests/futil/"
 
 # [[tests]]
 # name = "(systolic array) verilog generation"
