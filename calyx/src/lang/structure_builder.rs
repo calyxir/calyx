@@ -131,7 +131,7 @@ impl ASTBuilder for StructureGraph {
                 group: group.clone(),
                 name: port,
             }),
-            NodeData::Port => Atom::Port(Port::This { port }),
+            NodeData::ThisPort => Atom::Port(Port::This { port }),
         }
     }
 }
