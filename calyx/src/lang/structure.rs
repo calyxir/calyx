@@ -26,7 +26,7 @@ pub enum NodeData {
     /// A go/done hole for group `ast::Id`
     Hole(ast::Id),
     /// A port for this component
-    Port,
+    ThisPort,
 }
 
 /// The data that we store in each Petgraph Node
@@ -68,7 +68,7 @@ impl Iterator for PortIter {
 impl Node {
     pub fn get_component_type(&self) -> Result<&ast::Id> {
         match &self.data {
-            NodeData::Port | NodeData::Constant(_) | NodeData::Hole(_) => {
+            NodeData::ThisPort | NodeData::Constant(_) | NodeData::Hole(_) => {
                 Err(errors::Error::NotSubcomponent)
             }
             NodeData::Cell(structure) => match structure {
@@ -187,7 +187,7 @@ impl Default for StructureGraph {
         // add a node for the ports for this component. This starts out empty.
         let io = graph.add_node(Node {
             name: "this".into(),
-            data: NodeData::Port,
+            data: NodeData::ThisPort,
             signature: ast::Signature::default(),
         });
         StructureGraph {
@@ -634,7 +634,7 @@ impl StructureGraph {
     fn construct_port(&self, idx: NodeIndex, port: ast::Id) -> ast::Port {
         let node = &self.graph[idx];
         match &node.data {
-            NodeData::Port => Port::This { port },
+            NodeData::ThisPort => Port::This { port },
             NodeData::Cell(..) | NodeData::Constant(..) => Port::Comp {
                 component: node.name.clone(),
                 port,
