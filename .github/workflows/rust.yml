@@ -76,8 +76,11 @@ jobs:
         cd verilator
         sudo make install
 
-    - name: Install numpy
-      run: pip3 install numpy
+    - name: Setup Python
+      uses: actions/setup-python@v2
+
+    - name: Install numpy and  flit
+      run: pip3 install numpy flit
 
     - name: Cache SBT
       uses: actions/cache@v2
@@ -123,11 +126,7 @@ jobs:
         command: build
 
     - name: Install fud
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
       run: |
-        pip3 install flit --user
         cd fud
         echo $PATH
         flit install
