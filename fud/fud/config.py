@@ -18,6 +18,7 @@ DEFAULT_CONFIGURATION = {
         'futil': {
             'exec': 'futil',
             'file_extensions': ['.futil'],
+            'flags': None
         },
         'dahlia': {
             'exec': 'dahlia',
@@ -27,7 +28,7 @@ DEFAULT_CONFIGURATION = {
             'exec': 'verilator',
             'file_extensions': ['.v', '.sv'],
             'cycle_limit': '5e8',
-            'data': None  # look for data in current directory by default
+            'data': None
         },
         'vcd': {
             'exec': 'vcdump',

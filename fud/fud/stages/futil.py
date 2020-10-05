@@ -1,4 +1,5 @@
 from fud.stages import Stage, Step, SourceType
+from ..utils import unwrap_or
 
 
 class FutilStage(Stage):
@@ -8,7 +9,14 @@ class FutilStage(Stage):
 
     def _define(self):
         main = Step(SourceType.File)
-        main.set_cmd(f'{self.cmd} -l {self.global_config["futil_directory"]} {self.flags} {{ctx[last]}}')
+        main.set_cmd(' '.join([
+            self.cmd,
+            '-l', self.global_config["futil_directory"],
+            self.flags,
+            unwrap_or(self.stage_config['flags'], ''),
+            '{ctx[last]}'
+
+        ]))
         main.last_context = {
             'last': '--force-color'
         }

@@ -9,6 +9,28 @@ flags=$(head {} -n 1 | cut -c 3-)
 ./target/debug/futil {} $flags
 """
 
+[[tests]]
+name = "correctness dynamic"
+paths = [ "tests/correctness/*.futil" ]
+cmd = """
+fud exec -s futil.exec './target/debug/futil' \
+         -s verilog.data {}.data \
+         {} --to dat \
+         -q
+"""
+
+[[tests]]
+name = "correctness static timing"
+paths = [ "tests/correctness/*.futil" ]
+cmd = """
+fud exec -s futil.exec './target/debug/futil' \
+         -s futil.flags '-d static-timing' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         {} --to dat \
+         -q
+"""
+
 # # NOTE(rachit): `name` should only use lower case words. This makes it easier
 # # remember how to match specific test suite names.
 # [[tests]]

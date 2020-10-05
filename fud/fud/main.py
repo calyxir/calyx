@@ -108,7 +108,7 @@ def run(args, config):
         print("fud will perform the following steps:")
 
     # Pretty spinner.
-    spinner_enabled = not (utils.is_debug() or args.dry_run)
+    spinner_enabled = not (utils.is_debug() or args.dry_run or args.quiet)
     # Execute the path transformation specification.
     with Halo(
             spinner='dots',
@@ -244,6 +244,7 @@ def config_run(parser):
                         help='Show the execution stages and exit')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Enable verbose logging')
+    parser.add_argument('-q', '--quiet', action='store_true')
     parser.add_argument('input_file', help='Path to the input file')
     parser.set_defaults(func=run)
 

@@ -6,6 +6,7 @@ from tempfile import NamedTemporaryFile, TemporaryFile
 from pathlib import Path
 import sys
 import logging as log
+import os
 
 from ..utils import is_debug
 
@@ -168,6 +169,7 @@ class Step:
                     shell=True,
                     stdout=stdout,
                     stderr=stderr,
+                    env=os.environ
                 )
             else:
                 log.debug('  - [*] pipe: {}'.format(cmd.format(ctx=ctx)))
@@ -176,7 +178,8 @@ class Step:
                     shell=True,
                     stdin=inp.data,
                     stdout=stdout,
-                    stderr=stderr
+                    stderr=stderr,
+                    env=os.environ
                 )
 
             proc.wait()
