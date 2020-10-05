@@ -124,8 +124,9 @@ jobs:
 
     - name: Install fud
       run: |
-        pip3 install flit
+        pip3 install flit --user
         cd fud
+        echo $PATH
         flit install
         fud config global '/home/runner/work/futil/futil'
         fud config stages.dahlia.exec '/home/runner/work/futil/futil/dahlia/fuse'
