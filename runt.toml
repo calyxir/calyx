@@ -45,7 +45,7 @@ fud exec -s futil.exec './target/debug/futil' \
 name = "dahlia frontend"
 paths = [ "tests/frontend/dahlia/*.fuse" ]
 cmd = """
-fud e {} --to futil -q
+fud e {} --to futil -q | tail -n+2
 """
 
 # # NOTE(rachit): `name` should only use lower case words. This makes it easier
@@ -161,13 +161,13 @@ fud e {} --to futil -q
 # expect_dir = "benchmarks/small_simulation/"
 
 # # ================ Systolic array tests ====================== #
-# [[tests]]
-# name = "(systolic array) frontend"
-# paths = [ "systolic-lang/tests/sizes/array-*" ]
-# cmd = """
-# ./systolic-lang/gen-systolic.py $(cat {})
-# """
-# expect_dir = "systolic-lang/tests/futil/"
+[[tests]]
+name = "(systolic array) frontend"
+paths = [ "systolic-lang/tests/sizes/array-*" ]
+cmd = """
+./systolic-lang/gen-systolic.py $(cat {})
+"""
+expect_dir = "systolic-lang/tests/futil/"
 
 # [[tests]]
 # name = "(systolic array) verilog generation"
