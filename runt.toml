@@ -31,6 +31,15 @@ fud exec -s futil.exec './target/debug/futil' \
          -q
 """
 
+[[tests]]
+name = "verilog backend"
+paths = [ "tests/backend/verilog/*.futil" ]
+cmd = """
+fud exec -s futil.exec './target/debug/futil' \
+         {} --to verilog \
+         -q
+"""
+
 # # NOTE(rachit): `name` should only use lower case words. This makes it easier
 # # remember how to match specific test suite names.
 # [[tests]]
