@@ -138,7 +138,6 @@ impl Opts {
             BackendOpt::Verilog => VerilogBackend::run(&context, self.output),
             BackendOpt::Futil => {
                 if self.color || self.output.isatty() {
-                    eprintln!("color!");
                     context.pretty_print_color();
                 } else {
                     write!(

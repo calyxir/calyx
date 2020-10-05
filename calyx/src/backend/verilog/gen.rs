@@ -326,7 +326,7 @@ fn wire_id_from_node<'a>(node: &Node, port: String) -> D<'a> {
         NodeData::Cell(..) => {
             D::text(format!("{}_{}", node.name.to_string(), port))
         }
-        NodeData::Port => D::text(port),
+        NodeData::ThisPort => D::text(port),
         NodeData::Hole(name) => {
             unreachable!(format!("Structure has a hole: {}", name.id))
         }
