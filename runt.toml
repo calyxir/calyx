@@ -1,5 +1,7 @@
 ver = "0.2.7"
 
+##### Compilation Tests ######
+## Test each pass in isolation. Gets the pass flags from a comment on the first line of the file
 [[tests]]
 name = "passes"
 paths = [ "tests/passes/*.futil" ]
@@ -9,56 +11,46 @@ flags=$(head {} -n 1 | cut -c 3-)
 ./target/debug/futil {} $flags
 """
 
+## Test to make sure that particular cases are covered. Runs all passes.
+## These should be tests that test the composition of passes, not just a single pass.
+[[tests]]
+name = "unit"
+paths = [ "tests/unit/*.futil" ]
+cmd = """
+./target/debug/futil {} -d static-timing -d well-formed -d papercut
+"""
+
+## Same as unit except runs with static-timing
+[[tests]]
+name = "unit static"
+paths = [ "tests/unit/*.futil" ]
+cmd = """
+./target/debug/futil {} -d well-formed -d papercut
+"""
+
+##### Correctness Tests #####
+## Tests that ensure that individual control constructs have correct
+## behavior when compiled.
 [[tests]]
 name = "correctness dynamic"
 paths = [ "tests/correctness/*.futil" ]
 cmd = """
-fud exec -s futil.exec './target/debug/futil' \
-         -s verilog.data {}.data \
+fud exec -s verilog.data {}.data \
+         -s futil.flags '-d static-timing' \
          -s verilog.cycle_limit 500 \
          {} --to dat \
          -q
 """
 
+## Same as correctness dynamic but runes with static-timing
 [[tests]]
 name = "correctness static timing"
 paths = [ "tests/correctness/*.futil" ]
 cmd = """
-fud exec -s futil.exec './target/debug/futil' \
-         -s futil.flags '-d static-timing' \
-         -s verilog.cycle_limit 500 \
+fud exec -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          {} --to dat \
          -q
-"""
-
-[[tests]]
-name = "verilog backend"
-paths = [ "tests/backend/verilog/*.futil" ]
-cmd = """
-fud exec -s futil.exec './target/debug/futil' \
-         {} --to verilog \
-         -q
-"""
-
-[[tests]]
-name = "dahlia frontend"
-paths = [ "tests/frontend/dahlia/*.fuse" ]
-cmd = """
-fud e {} --to futil -q | tail -n+2
-"""
-
-# [[tests]]
-# name = "unit tests"
-# paths = [ "tests/unit/*.futil" ]
-# cmd = "./target/debug/futil {} -d well-formed -b verilog --verilator"
-
-# # ================ Systolic array tests ====================== #
-[[tests]]
-name = "systolic array frontend"
-paths = [ "tests/frontend/systolic/array-*.txt" ]
-cmd = """
-./systolic-lang/gen-systolic.py $(cat {})
 """
 
 [[tests]]
@@ -72,3 +64,28 @@ fud e --from systolic --to vcd_json \
       | jq -f {}.jq
 
 """
+
+##### Backend Tests #####
+[[tests]]
+name = "verilog backend"
+paths = [ "tests/backend/verilog/*.futil" ]
+cmd = """
+fud exec {} --to verilog -q
+"""
+
+
+##### Frontend Tests #####
+[[tests]]
+name = "dahlia frontend"
+paths = [ "tests/frontend/dahlia/*.fuse" ]
+cmd = """
+fud e {} --to futil -q | tail -n+2
+"""
+
+[[tests]]
+name = "systolic array frontend"
+paths = [ "tests/frontend/systolic/array-*.txt" ]
+cmd = """
+./systolic-lang/gen-systolic.py $(cat {})
+"""
+

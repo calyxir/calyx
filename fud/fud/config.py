@@ -27,7 +27,7 @@ DEFAULT_CONFIGURATION = {
         'verilog': {
             'exec': 'verilator',
             'file_extensions': ['.v', '.sv'],
-            'cycle_limit': '5e8',
+            'cycle_limit': int(5e8),
             'data': None
         },
         'vcd': {
