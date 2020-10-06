@@ -139,10 +139,16 @@ class Configuration:
         return config
 
     def launch_wizard(self):
+        changed = False
         for key in self.config.data.keys():
             if key in self.wizard_data.data.keys():
-                self.config.data[key] = wizard(self.config[key], wizard_data[key])
-        self.commit()
+                self.config.data[key] = wizard(
+                    self.config[key],
+                    wizard_data[key]
+                )
+                changed = True
+        if changed:
+            self.commit()
 
     def touch(self, path):
         if path in self.config:
