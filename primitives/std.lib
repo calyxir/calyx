@@ -779,6 +779,8 @@ primitive fixed_p_std_mult[p_width, p_int_width, p_fract_width, out_width](left:
         logic [2*width-2:0] result;
 
         assign result = left * right;
+        // result bit= 2*width, 1 is placed at fract_width, 
+        //the valid bit would be width amount of bits starting at fract_width
         assign out = result[width+fract_width-1:fract_width];
 
 
@@ -800,6 +802,8 @@ primitive fixed_p_std_div[p_width, p_int_width, p_fract_width](left: p_width, ri
         logic [2*width-2:0] result;
 
         assign result = left / right;
+        // result bit= 2*width, 1 is placed at fract_width, 
+        //the valid bit would be width amount of bits starting at fract_width
         assign out = result[width+fract_width-1:fract_width];
 
 

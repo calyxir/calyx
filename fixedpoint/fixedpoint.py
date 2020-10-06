@@ -13,7 +13,13 @@ def decimal_to_fixed_p (num, width, int_bit, frac_bit):
     int_b = np.binary_repr(int(intg), width = int_bit)
     frac = "0."+frac
     # multiply fractional part with 2**frac_bit to turn into integer
-    frac= int(float(frac) * float(2**frac_bit))
+    # frac= int(float(frac) * float(2**frac_bit))
+    frac = float(frac) * float(2**frac_bit)
+    _, f = str(frac).split(".") 
+    # raises Exception when the number can't be represented as fixed numbers
+    if f != "0":
+        raise Exception("number can't be represented as fixedpoint numbers")
+    frac = int(frac)
     frac_b = np.binary_repr(frac, width = frac_bit)
     r = int_b + frac_b 
     return r
