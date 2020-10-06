@@ -4,6 +4,8 @@ import toml
 import logging as log
 from halo import Halo
 import sys
+import shutil
+from termcolor import colored, cprint
 
 from .stages import Source, SourceType
 from .config import Configuration
@@ -72,7 +74,7 @@ def run(args, config):
         if not input_file.exists():
             raise FileNotFoundError(input_file)
 
-    config.launch_wizard()
+    # config.launch_wizard()
 
     # set verbosity level
     level = None
@@ -184,6 +186,46 @@ def info(args, config):
     print(registry)
 
 
+def check(args, config):
+    config.launch_wizard()
+
+    # check global
+    futil_root = Path(config['global', 'futil_directory'])
+    futil_str = colored(str(futil_root), 'yellow')
+    cprint('global:', attrs=['bold'])
+    if futil_root.exists():
+        cprint(" ✔", 'green', end=' ')
+        print(f"{futil_str} exists.")
+    else:
+        cprint(" ✖", 'red', end=' ')
+        print(f"{futil_str} doesn't exist.")
+    print()
+
+    uninstalled = []
+    # check executables in stages
+    for name, stage in config['stages'].items():
+        if 'exec' in stage:
+            cprint(f'stages.{name}.exec:', attrs=['bold'])
+            exec_path = shutil.which(stage['exec'])
+            exec_name = colored(stage['exec'], 'yellow')
+            if exec_path is not None or stage['exec'].startswith('cargo run'):
+                cprint(" ✔", 'green', end=' ')
+                print(f"{exec_name} installed.")
+                if exec_path is not None and not Path(exec_path).is_absolute():
+                    print(f"   {exec_name} is a relative path and will not work from every directory.")
+            else:
+                uninstalled.append(name)
+                cprint(" ✖", 'red', end=' ')
+                print(f"{exec_name} not installed.")
+            print()
+    if len(uninstalled) > 0:
+        bad_stages = colored(', '.join(uninstalled), 'red')
+        verb = 'were' if len(uninstalled) > 1 else 'was'
+        print(f"{bad_stages} {verb} not installed correctly.")
+        print("Configuration instructions: https://capra.cs.cornell.edu/calyx/tools/fud.html#configuration")
+        exit(-1)
+
+
 def main():
     """Builds the command line argument parser,
     parses the arguments, and returns the results."""
@@ -207,6 +249,10 @@ def main():
         help="Show information about execution stages",
         description="Show information about execution stages",
         aliases=['i']))
+    config_check(subparsers.add_parser(
+        'check',
+        help="Check to make sure configuration is valid.",
+        description="Check to make sure configuration is valid."))
 
     config = Configuration()
 
@@ -266,3 +312,7 @@ def config_config(parser):
 def config_info(parser):
     # TODO: add help for all these options
     parser.set_defaults(func=info)
+
+
+def config_check(parser):
+    parser.set_defaults(func=check)

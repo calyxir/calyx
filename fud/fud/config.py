@@ -5,6 +5,7 @@ import sys
 from pprint import PrettyPrinter
 
 from .utils import eprint
+from . import errors
 
 wizard_data = {
     'global': {
@@ -16,7 +17,7 @@ DEFAULT_CONFIGURATION = {
     'global': {},
     'stages': {
         'futil': {
-            'exec': 'futil',
+            'exec': './target/debug/futil',
             'file_extensions': ['.futil'],
             'flags': None
         },
@@ -89,7 +90,7 @@ def wizard(table, data):
 
         if key not in table:
             while True:
-                answer = input(f'{data[key]} is unset: ')
+                answer = input(f'{data[key]} is unset (relative paths ok): ')
                 path = Path(answer)
                 if path.exists():
                     table[key] = str(path.resolve())
@@ -161,7 +162,10 @@ class Configuration:
                 self.config[path[:i]] = rest_of_path(path[i:])
 
     def __getitem__(self, keys):
-        return self.config[keys]
+        try:
+            return self.config[keys]
+        except KeyError:
+            raise errors.UnsetConfiguration(keys)
 
     def __setitem__(self, keys, val):
         self.config[keys] = val

@@ -12,5 +12,6 @@ Here is a list of all the people who have worked on FuTIL:
 - Chris Gyurgyik
 - Zhijing Li
 - [Yuwei Ye](https://www.viviyye.com/)
+- Karen Zhang
 
 If you're missing from this list, please open a PR!
