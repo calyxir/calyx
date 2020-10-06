@@ -1,9 +1,0 @@
-let i: ubit<4> = 0;
-let x: ubit<4> = 0;
-
-while (i < (10 as ubit<4>)) {
-  if (i % 2 == 0) {
-    x := x + 1;
-  }
-  i := i + 1;
-}

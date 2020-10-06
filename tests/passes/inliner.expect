@@ -1,0 +1,21 @@
+import "primitives/std.lib";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    fsm = prim std_reg(1);
+    r1 = prim std_reg(32);
+    r2 = prim std_reg(32);
+  }
+  
+  wires {
+    r1.write_en = (fsm.out == 1'b0 & go) ? 1'd1;
+    r1.in = (fsm.out == 1'b0 & go) ? 32'd1;
+    r2.in = (fsm.out == 1'b1 & go) ? r1.out;
+    r2.write_en = (fsm.out == 1'b1 & go) ? 1'd1;
+    fsm.in = (r1.done & go) ? 1'd1;
+    done = r2.done ? 1'd1;
+  }
+  
+  control {
+    
+  }
+}

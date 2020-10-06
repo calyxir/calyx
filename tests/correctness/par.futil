@@ -1,0 +1,40 @@
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    a = prim std_mem_d1(32, 1, 1);
+    b = prim std_mem_d1(32, 1, 1);
+    c = prim std_mem_d1(32, 1, 1);
+  }
+
+  wires {
+    group wr_a {
+      a.addr0 = 1'b0;
+      a.write_en = 1'b1;
+      a.write_data = 32'd1;
+      wr_a[done] = a.done;
+    }
+
+    group wr_b {
+      b.addr0 = 1'b0;
+      b.write_en = 1'b1;
+      b.write_data = 32'd1;
+      wr_b[done] = b.done;
+    }
+
+    group wr_c {
+      c.addr0 = 1'b0;
+      c.write_en = 1'b1;
+      c.write_data = 32'd1;
+      wr_c[done] = c.done;
+    }
+  }
+
+  control {
+    par {
+      wr_a;
+      wr_b;
+      wr_c;
+    }
+  }
+}

@@ -1,138 +1,91 @@
 ver = "0.2.7"
 
-# NOTE(rachit): `name` should only use lower case words. This makes it easier
-# remember how to match specific test suite names.
+##### Compilation Tests ######
+## Test each pass in isolation. Gets the pass flags from a comment on the first line of the file
 [[tests]]
-name = "list passes"
-paths = [ "tests/list-passes/out" ]
-cmd = "./target/debug/futil --list-passes"
+name = "passes"
+paths = [ "tests/passes/*.futil" ]
+# gets the pass flags a comment on the first line of the test file
+cmd = """
+flags=$(head {} -n 1 | cut -c 3-)
+./target/debug/futil {} $flags
+"""
 
+## Test to make sure that particular cases are covered. Runs all passes.
+## These should be tests that test the composition of passes, not just a single pass.
 [[tests]]
-name = "unit tests"
+name = "unit"
 paths = [ "tests/unit/*.futil" ]
-cmd = "./target/debug/futil {} -d well-formed -b verilog --verilator"
-
-# =============== FuTIL tests ==================
-
-[[test]]
-name = "(futil) source lowering"
-paths = [ "tests/futil-sources/*.expect" ]
-cmd = "./target/debug/futil {}"
-expect_dir = "tests/integration-futil-lowered"
-
-[[tests]]
-name = "(futil) verilog generation"
-paths = [ "tests/futil-sources/*.expect" ]
-cmd = "./target/debug/futil {} -b verilog --verilator"
-expect_dir = "tests/integration-verilog"
-
-[[tests]]
-name = "(futil) verilog simulation"
-paths = [ "tests/futil-sources/*.expect" ]
-cmd = "./bin/futil-jq-simulation {}"
-expect_dir = "tests/integration-simulation"
-
-
-# ============ Dahlia tests ==================
-
-[[tests]]
-name = "(dahlia) frontend"
-paths = [ "tests/integration-dahlia-sources/*.fuse" ]
-cmd = "./bin/find-dahlia {} -b futil --lower -l error | tail -n+2"
-expect_dir = "tests/integration-futil/"
-
-[[tests]]
-name = "(dahlia) lowering"
-paths = [ "tests/integration-dahlia-sources/*.fuse" ]
-cmd = "./bin/find-dahlia {} -b futil --lower -l error | ./target/debug/futil"
-expect_dir = "tests/integration-futil-lowered"
-
-[[tests]]
-name = "(dahlia) verilog generation"
-paths = [ "tests/integration-dahlia-sources/*.fuse" ]
-cmd = "./bin/find-dahlia {} -b futil --lower -l error | ./target/debug/futil -b verilog --verilator"
-expect_dir = "tests/integration-verilog"
-
-[[tests]]
-name = "(dahlia) verilog simulation"
-paths = [ "tests/integration-dahlia-sources/*.fuse" ]
-cmd = "./bin/dahlia-jq-simulation {} ''"
-expect_dir = "tests/integration-simulation"
-
-[[tests]]
-name = "(dahlia) dynamic verilog simulation"
-paths = [ "tests/integration-dahlia-sources/*.fuse" ]
-cmd = "./bin/dahlia-jq-simulation {} '-d static-timing'"
-expect_dir = "tests/dynamic-simulation"
-
-[[tests]]
-name = "dynamic comparison"
-paths = [ "tests/dynamic-simulation/*.expect" ]
-cmd = """#!/bin/bash
-name=$(basename {})
-/bin/bash -c "diff <(jq -S 'del(.cycles)' tests/dynamic-simulation/$name) <(jq -S 'del(.cycles)' tests/integration-simulation/$name)"
-"""
-expect_dir = "tests/dynamic-static"
-
-
-# ================ Polybench tests ====================== #
-
-[[tests]]
-name = "(polybench) (small) (dahlia) frontend"
-paths = [ "benchmarks/small_polybench/*.fuse" ]
 cmd = """
-./bin/find-dahlia {} -b futil --lower -l error | tail -n+2
+./target/debug/futil {} -d static-timing -d well-formed -d papercut
 """
-expect_dir = "benchmarks/futil/"
 
+## Same as unit except runs with static-timing
 [[tests]]
-name = "(polybench) (small) simulation"
-paths = [ "benchmarks/small_polybench/*.fuse" ]
+name = "unit static"
+paths = [ "tests/unit/*.futil" ]
 cmd = """
-./bin/run-benchmark {} {}.data | tail -n+2
+./target/debug/futil {} -d well-formed -d papercut
 """
-expect_dir = "benchmarks/small_simulation/"
 
-# =============== Polybench unrolled tests ====================
-
+##### Correctness Tests #####
+## Tests that ensure that individual control constructs have correct
+## behavior when compiled.
 [[tests]]
-name = "(polybench) (dahlia) frontend unroll"
-paths = [ "benchmarks/unrolled/*.fuse" ]
+name = "correctness dynamic"
+paths = [ "tests/correctness/*.futil" ]
 cmd = """
-./bin/find-dahlia {} -b futil --lower -l error | tail -n+2
+fud exec -s verilog.data {}.data \
+         -s futil.flags '-d static-timing' \
+         -s verilog.cycle_limit 500 \
+         {} --to dat \
+         -q
 """
-expect_dir = "benchmarks/futil-unrolled/"
 
+## Same as correctness dynamic but runes with static-timing
 [[tests]]
-name = "(polybench) unroll simulation"
-paths = [ "benchmarks/unrolled/*.fuse" ]
+name = "correctness static timing"
+paths = [ "tests/correctness/*.futil" ]
 cmd = """
-base=$(basename -s .fuse {})
-./bin/run-benchmark {} benchmarks/small_polybench/$base.fuse.data | tail -n+2
+fud exec -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         {} --to dat \
+         -q
 """
-expect_dir = "benchmarks/small_simulation/"
 
-# ================ Systolic array tests ====================== #
 [[tests]]
-name = "(systolic array) frontend"
-paths = [ "systolic-lang/tests/sizes/array-*" ]
+name = "systolic array correctness"
+paths = [ "tests/correctness/systolic/*.txt" ]
+cmd = """
+fud e --from systolic --to vcd_json \
+      -s systolic.flags "$(cat {})" \
+      -s verilog.data {}.data \
+      -q \
+      | jq -f {}.jq
+
+"""
+
+##### Backend Tests #####
+[[tests]]
+name = "verilog backend"
+paths = [ "tests/backend/verilog/*.futil" ]
+cmd = """
+fud exec {} --to verilog -q
+"""
+
+
+##### Frontend Tests #####
+[[tests]]
+name = "dahlia frontend"
+paths = [ "tests/frontend/dahlia/*.fuse" ]
+cmd = """
+fud e {} --to futil -q | tail -n+2
+"""
+
+[[tests]]
+name = "systolic array frontend"
+paths = [ "tests/frontend/systolic/array-*.txt" ]
 cmd = """
 ./systolic-lang/gen-systolic.py $(cat {})
 """
-expect_dir = "systolic-lang/tests/futil/"
 
-[[tests]]
-name = "(systolic array) verilog generation"
-paths = [ "systolic-lang/tests/futil/*.expect" ]
-cmd = """
-./target/debug/futil {} -b verilog --verilator
-"""
-expect_dir = "systolic-lang/tests/verilog/"
-
-[[tests]]
-name = "(systolic array) simulation"
-paths = [ "systolic-lang/tests/verilog/*.expect" ]
-cmd = """
-DATA=./systolic-lang/tests/data ./bin/gen-vcd {} 2>/dev/null | vcdump | jq -f {}.jq
-"""
-expect_dir = "systolic-lang/tests/simulation/"

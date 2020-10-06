@@ -6,6 +6,7 @@ from tempfile import NamedTemporaryFile, TemporaryFile
 from pathlib import Path
 import sys
 import logging as log
+import os
 
 from ..utils import is_debug
 
@@ -75,9 +76,11 @@ class Stage:
                  description):
         self.name = name
         self.target_stage = target_stage
-        self.global_config = config.config['global']
-        self.stage_config = config.find(['stages', self.name])
-        self.cmd = self.stage_config['exec']
+        self.config = config
+        if ['stages', self.name, 'exec'] in self.config:
+            self.cmd = self.config['stages', self.name, 'exec']
+        else:
+            self.cmd = None
         self.description = description
 
     def _define(self):
@@ -168,6 +171,7 @@ class Step:
                     shell=True,
                     stdout=stdout,
                     stderr=stderr,
+                    env=os.environ
                 )
             else:
                 log.debug('  - [*] pipe: {}'.format(cmd.format(ctx=ctx)))
@@ -176,7 +180,8 @@ class Step:
                     shell=True,
                     stdin=inp.data,
                     stdout=stdout,
-                    stderr=stderr
+                    stderr=stderr,
+                    env=os.environ
                 )
 
             proc.wait()

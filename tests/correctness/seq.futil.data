@@ -1,0 +1,14 @@
+{
+  "in": {
+    "data": [
+      4
+    ],
+    "bitwidth": 32
+  },
+  "out": {
+    "data": [
+      6
+    ],
+    "bitwidth": 32
+  }
+}
