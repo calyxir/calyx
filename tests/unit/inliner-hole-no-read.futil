@@ -3,8 +3,8 @@ component main() -> () {
   cells {
     const0 = prim std_const(32, 1);
     const1 = prim std_const(32, 2);
-    fsm0 = prim std_reg(32);
-    incr0 = prim std_add(32);
+    fsm0 = prim std_reg(2);
+    incr0 = prim std_add(2);
     x0 = prim std_reg(32);
     y0 = prim std_reg(32);
   }
@@ -21,16 +21,16 @@ component main() -> () {
       let1[done] = y0.done;
     }
     group static_seq0<"static"=2> {
-      let0[go] = fsm0.out == 32'd0 ? 1'd1;
-      let1[go] = fsm0.out == 32'd1 ? 1'd1;
-      incr0.left = 32'd1;
+      let0[go] = fsm0.out == 2'd0 ? 1'd1;
+      let1[go] = fsm0.out == 2'd1 ? 1'd1;
+      incr0.left = 2'd1;
       incr0.right = fsm0.out;
-      fsm0.in = fsm0.out != 32'd2 ? incr0.out;
-      fsm0.write_en = fsm0.out != 32'd2 ? 1'd1;
-      static_seq0[done] = fsm0.out == 32'd2 ? 1'd1;
+      fsm0.in = fsm0.out != 2'd2 ? incr0.out;
+      fsm0.write_en = fsm0.out != 2'd2 ? 1'd1;
+      static_seq0[done] = fsm0.out == 2'd2 ? 1'd1;
     }
-    fsm0.write_en = fsm0.out == 32'd2 ? 1'd1;
-    fsm0.in = fsm0.out == 32'd2 ? 32'd0;
+    fsm0.write_en = fsm0.out == 2'd2 ? 1'd1;
+    fsm0.in = fsm0.out == 2'd2 ? 2'd0;
   }
   
   control {
