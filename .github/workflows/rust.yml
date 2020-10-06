@@ -132,6 +132,7 @@ jobs:
         flit install
         fud config global.futil_directory '/home/runner/work/futil/futil'
         fud config stages.dahlia.exec '/home/runner/work/futil/futil/dahlia/fuse'
+        fud config stages.futil.exec './target/debug/futil'
         fud config
 
     - name: Test
