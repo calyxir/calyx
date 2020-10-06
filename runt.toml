@@ -37,6 +37,7 @@ paths = [ "tests/correctness/*.futil" ]
 cmd = """
 fud exec -s verilog.data {}.data \
          -s futil.flags '-d static-timing' \
+         -s futil.exec './target/debug/futil' \
          -s verilog.cycle_limit 500 \
          {} --to dat \
          -q
@@ -49,6 +50,7 @@ paths = [ "tests/correctness/*.futil" ]
 cmd = """
 fud exec -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
+         -s futil.exec './target/debug/futil' \
          {} --to dat \
          -q
 """
@@ -60,6 +62,7 @@ cmd = """
 fud e --from systolic --to vcd_json \
       -s systolic.flags "$(cat {})" \
       -s verilog.data {}.data \
+      -s futil.exec './target/debug/futil' \
       -q \
       | jq -f {}.jq
 
@@ -70,7 +73,8 @@ fud e --from systolic --to vcd_json \
 name = "verilog backend"
 paths = [ "tests/backend/verilog/*.futil" ]
 cmd = """
-fud exec {} --to verilog -q
+fud exec {} --to verilog -q \
+            -s futil.exec './target/debug/futil'
 """
 
 
@@ -79,7 +83,9 @@ fud exec {} --to verilog -q
 name = "dahlia frontend"
 paths = [ "tests/frontend/dahlia/*.fuse" ]
 cmd = """
-fud e {} --to futil -q | tail -n+2
+fud e {} --to futil -q \
+          -s futil.exec './target/debug/futil' \
+        | tail -n+2
 """
 
 [[tests]]
