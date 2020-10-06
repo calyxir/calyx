@@ -90,7 +90,7 @@ def wizard(table, data):
 
         if key not in table:
             while True:
-                answer = input(f'{data[key]} is unset: ')
+                answer = input(f'{data[key]} is unset (relative paths ok): ')
                 path = Path(answer)
                 if path.exists():
                     table[key] = str(path.resolve())
@@ -142,17 +142,17 @@ class Configuration:
                     config[key] = self.fill_missing(default[key], config[key])
         return config
 
-    # def launch_wizard(self):
-    #     changed = False
-    #     for key in self.config.data.keys():
-    #         if key in self.wizard_data.data.keys():
-    #             self.config.data[key] = wizard(
-    #                 self.config[key],
-    #                 wizard_data[key]
-    #             )
-    #             changed = True
-    #     if changed:
-    #         self.commit()
+    def launch_wizard(self):
+        changed = False
+        for key in self.config.data.keys():
+            if key in self.wizard_data.data.keys():
+                self.config.data[key] = wizard(
+                    self.config[key],
+                    wizard_data[key]
+                )
+                changed = True
+        if changed:
+            self.commit()
 
     def touch(self, path):
         if path in self.config:
