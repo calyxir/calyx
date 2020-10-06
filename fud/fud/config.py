@@ -162,9 +162,9 @@ class Configuration:
                 self.config[path[:i]] = rest_of_path(path[i:])
 
     def __getitem__(self, keys):
-        if keys in self.config:
+        try:
             return self.config[keys]
-        else:
+        except KeyError:
             raise errors.UnsetConfiguration(keys)
 
     def __setitem__(self, keys, val):

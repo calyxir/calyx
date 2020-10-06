@@ -207,6 +207,10 @@ def main():
         help="Show information about execution stages",
         description="Show information about execution stages",
         aliases=['i']))
+    config_check(subparsers.add_parser(
+        'check',
+        help="Check to make sure configuration is valid.",
+        description="Check to make sure configuration is valid."))
 
     config = Configuration()
 
@@ -266,3 +270,7 @@ def config_config(parser):
 def config_info(parser):
     # TODO: add help for all these options
     parser.set_defaults(func=info)
+
+
+def config_check(parser):
+    pass
