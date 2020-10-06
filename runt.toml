@@ -162,20 +162,23 @@ fud e {} --to futil -q | tail -n+2
 
 # # ================ Systolic array tests ====================== #
 [[tests]]
-name = "(systolic array) frontend"
+name = "systolic array frontend"
 paths = [ "tests/frontend/systolic/array-*.txt" ]
 cmd = """
 ./systolic-lang/gen-systolic.py $(cat {})
 """
-# expect_dir = "systolic-lang/tests/futil/"
 
-# [[tests]]
-# name = "(systolic array) verilog generation"
-# paths = [ "systolic-lang/tests/futil/*.expect" ]
-# cmd = """
-# ./target/debug/futil {} -b verilog --verilator
-# """
-# expect_dir = "systolic-lang/tests/verilog/"
+[[tests]]
+name = "systolic array correctness"
+paths = [ "tests/correctness/systolic/*.txt" ]
+cmd = """
+fud e --from systolic --to vcd_json \
+      -s systolic.flags "$(cat {})" \
+      -s verilog.data {}.data \
+      -q \
+      | jq -f {}.jq
+
+"""
 
 # [[tests]]
 # name = "(systolic array) simulation"
