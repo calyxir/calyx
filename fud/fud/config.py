@@ -39,6 +39,9 @@ DEFAULT_CONFIGURATION = {
         },
         'dat': {
             'file_extensions': ['.dat']
+        },
+        'systolic': {
+            'flags': None
         }
     }
 }

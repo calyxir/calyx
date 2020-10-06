@@ -77,7 +77,10 @@ class Stage:
         self.name = name
         self.target_stage = target_stage
         self.config = config
-        self.cmd = self.config['stages', self.name, 'exec']
+        if ['stages', self.name, 'exec'] in self.config:
+            self.cmd = self.config['stages', self.name, 'exec']
+        else:
+            self.cmd = None
         self.description = description
 
     def _define(self):

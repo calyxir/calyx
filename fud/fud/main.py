@@ -9,7 +9,7 @@ from .stages import Source, SourceType
 from .config import Configuration
 from .registry import Registry
 from . import errors
-from .stages import dahlia, futil, verilator, vcdump
+from .stages import dahlia, futil, verilator, vcdump, systolic
 from . import utils
 
 
@@ -38,6 +38,9 @@ def register_stages(registry, config):
     # Dahlia
     registry.register(dahlia.DahliaStage(config))
 
+    # Systolic Array
+    registry.register(systolic.SystolicStage(config))
+
     # FuTIL
     registry.register(
         futil.FutilStage(config, 'verilog', '-b verilog --verilator',
@@ -63,9 +66,11 @@ def register_stages(registry, config):
 
 def run(args, config):
     # check if input_file exists
-    input_file = Path(args.input_file)
-    if not input_file.exists():
-        raise FileNotFoundError(input_file)
+    input_file = None
+    if args.input_file is not None:
+        input_file = Path(args.input_file)
+        if not input_file.exists():
+            raise FileNotFoundError(input_file)
 
     config.launch_wizard()
 
@@ -239,7 +244,7 @@ def config_run(parser):
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Enable verbose logging')
     parser.add_argument('-q', '--quiet', action='store_true')
-    parser.add_argument('input_file', help='Path to the input file')
+    parser.add_argument('input_file', help='Path to the input file', nargs='?')
     parser.set_defaults(func=run)
 
 
