@@ -122,7 +122,7 @@ class Configuration:
         self.config = DynamicDict(toml.load(self.config_file))
         self.wizard_data = DynamicDict(wizard_data)
         self.fill_missing(DEFAULT_CONFIGURATION, self.config.data)
-        self.commit()
+        # self.commit()
 
     def commit(self):
         toml.dump(self.config.data, self.config_file.open('w'))
