@@ -1,0 +1,16 @@
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    r = prim std_reg(32);
+  }
+  wires {
+    group no_drive {
+      r.in = 32'd1;
+      no_drive[done] = r.done;
+    }
+  }
+  control {
+    no_drive;
+  }
+}
