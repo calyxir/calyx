@@ -72,7 +72,7 @@ def run(args, config):
         if not input_file.exists():
             raise FileNotFoundError(input_file)
 
-    config.launch_wizard()
+    # config.launch_wizard()
 
     # set verbosity level
     level = None

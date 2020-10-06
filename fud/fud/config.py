@@ -5,6 +5,7 @@ import sys
 from pprint import PrettyPrinter
 
 from .utils import eprint
+from . import errors
 
 wizard_data = {
     'global': {
@@ -141,17 +142,17 @@ class Configuration:
                     config[key] = self.fill_missing(default[key], config[key])
         return config
 
-    def launch_wizard(self):
-        changed = False
-        for key in self.config.data.keys():
-            if key in self.wizard_data.data.keys():
-                self.config.data[key] = wizard(
-                    self.config[key],
-                    wizard_data[key]
-                )
-                changed = True
-        if changed:
-            self.commit()
+    # def launch_wizard(self):
+    #     changed = False
+    #     for key in self.config.data.keys():
+    #         if key in self.wizard_data.data.keys():
+    #             self.config.data[key] = wizard(
+    #                 self.config[key],
+    #                 wizard_data[key]
+    #             )
+    #             changed = True
+    #     if changed:
+    #         self.commit()
 
     def touch(self, path):
         if path in self.config:
@@ -161,7 +162,10 @@ class Configuration:
                 self.config[path[:i]] = rest_of_path(path[i:])
 
     def __getitem__(self, keys):
-        return self.config[keys]
+        if keys in self.config:
+            return self.config[keys]
+        else:
+            raise errors.UnsetConfiguration(keys)
 
     def __setitem__(self, keys, val):
         self.config[keys] = val
