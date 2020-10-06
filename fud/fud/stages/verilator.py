@@ -44,8 +44,8 @@ class VerilatorStage(Stage):
 
         verilator = Step(SourceType.Path)
         testbench_files = [
-            str(Path(self.config['global', 'futil_directory']) / 'sim' / 'testbench.cpp'),
-            str(Path(self.config['global', 'futil_directory']) / 'sim' / 'wrapper.cpp'),
+            str(Path(self.config['global', 'futil_directory']) / 'fud' / 'sim' / 'testbench.cpp'),
+            str(Path(self.config['global', 'futil_directory']) / 'fud' / 'sim' / 'wrapper.cpp'),
         ]
         verilator.set_cmd(" ".join([
             self.cmd,

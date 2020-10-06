@@ -1,9 +1,0 @@
-// BEGIN macro definitions
-
-define(N, 8)
-define(N_bw, ubit<4>)
-define(WHILE0, min=1 max=7 avg=4)
-define(WHILE1, min=1 max=7 avg=4)
-define(WHILE2, min=1 max=7 avg=4)
-
-// END macro definitions

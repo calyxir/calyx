@@ -11,7 +11,7 @@ class SystolicStage(Stage):
 
     def _define(self):
         main = Step(SourceType.Nothing)
-        script = Path(self.config['global', 'futil_directory']) / 'systolic-lang' / 'gen-systolic.py'
+        script = Path(self.config['global', 'futil_directory']) / 'frontends' / 'systolic-lang' / 'gen-systolic.py'
         flags = '-tl 2 -td 2 -ll 2 -ld 2'
         if self.config['stages', self.name, 'flags'] is not None:
             flags = self.config['stages', self.name, 'flags']

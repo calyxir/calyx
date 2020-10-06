@@ -1,8 +1,0 @@
-// BEGIN macro definitions
-
-define(M, 64)
-define(N, 64)
-define(M_bw, ubit<7>)
-define(N_bw, ubit<7>)
-
-// END macro definitions

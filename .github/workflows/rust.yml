@@ -14,7 +14,7 @@ jobs:
       id: versions
       run: |
         echo "::set-output name=runt::$(grep ver runt.toml | awk '{print $3}' | tr -d '"')"
-        echo "::set-output name=vcdump::$(./bin/cargo-ver vcdump)"
+        echo "::set-output name=vcdump::$(cargo search vcdump | awk '{print $3}' | tr -d '"')"
         echo "::set-output name=dahlia::$(git ls-remote https://github.com/cucapra/dahlia.git | awk '{print $1}')"
         echo "::set-output name=verilator::$(cat versions/verilator)"
       shell: bash
