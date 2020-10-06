@@ -1,0 +1,21 @@
+// -p collapse-control
+
+component main() -> () {
+  cells {}
+  wires {}
+  control {
+    seq {
+      seq { A; B; seq { C; D; }}
+      A-------;
+      par { A; par { B; C; }; D; }
+      A-------;
+      seq { A; seq { B; } C; }
+      A--------;
+      par { A; par { B; } C; }
+      A--------;
+      par { A; seq { B; C; }; D; }
+      A--------;
+      seq { A; par { B; C; }; D; }
+    }
+  }
+}

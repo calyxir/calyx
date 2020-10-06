@@ -1,9 +1,0 @@
-// BEGIN macro definition
-
-define(M, 60)
-define(N, 80)
-define(M_bw, ubit<7>)
-define(N_bw, ubit<7>)
-define(WHILE0, min=0 max=59 avg=30)
-
-// END macro definition

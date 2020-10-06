@@ -1,0 +1,106 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    A0 = prim std_mem_d1_ext(32,2,2);
+    A1 = prim std_mem_d1_ext(32,2,2);
+    A2 = prim std_mem_d1_ext(32,2,2);
+    A3 = prim std_mem_d1_ext(32,2,2);
+    acc_00 = prim std_reg(32);
+    acc_10 = prim std_reg(32);
+    acc_20 = prim std_reg(32);
+    acc_30 = prim std_reg(32);
+    add0 = prim std_add(32);
+    add1 = prim std_add(32);
+    add2 = prim std_add(32);
+    add3 = prim std_add(32);
+    add4 = prim std_add(4);
+    const0 = prim std_const(4,0);
+    const1 = prim std_const(4,1);
+    const2 = prim std_const(4,1);
+    i0 = prim std_reg(4);
+    le0 = prim std_le(4);
+    res_0 = prim std_reg(32);
+    slice0 = prim std_slice(4,2);
+    slice1 = prim std_slice(4,2);
+    slice2 = prim std_slice(4,2);
+    slice3 = prim std_slice(4,2);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group upd0<"static"=1> {
+      acc_00.write_en = 1'd1;
+      A0.addr0 = slice0.out;
+      slice0.in = i0.out;
+      acc_00.in = 1'd1 ? A0.read_data;
+      upd0[done] = acc_00.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      acc_10.write_en = 1'd1;
+      A1.addr0 = slice1.out;
+      slice1.in = i0.out;
+      acc_10.in = 1'd1 ? A1.read_data;
+      upd1[done] = acc_10.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      acc_20.write_en = 1'd1;
+      A2.addr0 = slice2.out;
+      slice2.in = i0.out;
+      acc_20.in = 1'd1 ? A2.read_data;
+      upd2[done] = acc_20.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      acc_30.write_en = 1'd1;
+      A3.addr0 = slice3.out;
+      slice3.in = i0.out;
+      acc_30.in = 1'd1 ? A3.read_data;
+      upd3[done] = acc_30.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      res_0.write_en = 1'd1;
+      add3.left = res_0.out;
+      add3.right = add2.out;
+      add2.left = add1.out;
+      add2.right = acc_30.out;
+      add1.left = add0.out;
+      add1.right = acc_20.out;
+      add0.left = acc_00.out;
+      add0.right = acc_10.out;
+      res_0.in = 1'd1 ? add3.out;
+      upd4[done] = res_0.done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      i0.write_en = 1'd1;
+      add4.left = i0.out;
+      add4.right = const2.out;
+      i0.in = 1'd1 ? add4.out;
+      upd5[done] = i0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          par {
+            upd0;
+            upd1;
+            upd2;
+            upd3;
+          }
+          upd4;
+          upd5;
+        }
+      }
+    }
+  }
+}
+

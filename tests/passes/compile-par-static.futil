@@ -1,0 +1,35 @@
+// -p static-timing
+
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    a = prim std_reg(2);
+    b = prim std_reg(2);
+    c = prim std_reg(2);
+  }
+
+  wires {
+    group A<"static"=1> {
+      a.in = 2'd0;
+      a.write_en = 1'b1;
+      A[done] = a.done;
+    }
+
+    group B<"static"=1> {
+      b.in = 2'd1;
+      b.write_en = 1'b1;
+      B[done] = b.done;
+    }
+
+    group C<"static"=1> {
+      c.in = 2'd2;
+      c.write_en = 1'b1;
+      C[done] = c.done;
+    }
+  }
+
+  control {
+    par { A; B; C; }
+  }
+}

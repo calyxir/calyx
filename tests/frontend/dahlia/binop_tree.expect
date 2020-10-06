@@ -1,0 +1,89 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    a_0 = prim std_reg(32);
+    add0 = prim std_add(32);
+    add1 = prim std_add(32);
+    b_0 = prim std_reg(32);
+    bin_read0_0 = prim std_reg(32);
+    bin_read1_0 = prim std_reg(32);
+    c_0 = prim std_reg(32);
+    const0 = prim std_const(32,1);
+    const1 = prim std_const(32,2);
+    const2 = prim std_const(32,3);
+    const3 = prim std_const(32,4);
+    const4 = prim std_const(32,2);
+    d_0 = prim std_reg(32);
+    div_pipe0 = prim std_div_pipe(32);
+    e_0 = prim std_reg(32);
+    mult_pipe0 = prim std_mult_pipe(32);
+    x_0 = prim std_reg(32);
+  }
+  wires {
+    group let0<"static"=1> {
+      a_0.in = const0.out;
+      a_0.write_en = 1'd1;
+      let0[done] = a_0.done;
+    }
+    group let1<"static"=1> {
+      b_0.in = const1.out;
+      b_0.write_en = 1'd1;
+      let1[done] = b_0.done;
+    }
+    group let2<"static"=1> {
+      c_0.in = const2.out;
+      c_0.write_en = 1'd1;
+      let2[done] = c_0.done;
+    }
+    group let3<"static"=1> {
+      d_0.in = const3.out;
+      d_0.write_en = 1'd1;
+      let3[done] = d_0.done;
+    }
+    group let4<"static"=1> {
+      e_0.in = const4.out;
+      e_0.write_en = 1'd1;
+      let4[done] = e_0.done;
+    }
+    group let5<"static"=4> {
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      let5[done] = bin_read0_0.done;
+      mult_pipe0.left = b_0.out;
+      mult_pipe0.right = c_0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group let6 {
+      bin_read1_0.in = div_pipe0.out;
+      bin_read1_0.write_en = div_pipe0.done;
+      let6[done] = bin_read1_0.done;
+      div_pipe0.left = d_0.out;
+      div_pipe0.right = e_0.out;
+      div_pipe0.go = !div_pipe0.done ? 1'd1;
+    }
+    group let7<"static"=1> {
+      x_0.in = add1.out;
+      x_0.write_en = 1'd1;
+      let7[done] = x_0.done;
+      add1.left = add0.out;
+      add1.right = bin_read1_0.out;
+      add0.left = a_0.out;
+      add0.right = bin_read0_0.out;
+    }
+  }
+  control {
+    seq {
+      par {
+        let0;
+        let1;
+        let2;
+        let3;
+        let4;
+      }
+      let5;
+      let6;
+      let7;
+    }
+  }
+}
+

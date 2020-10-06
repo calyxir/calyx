@@ -18,6 +18,7 @@ DEFAULT_CONFIGURATION = {
         'futil': {
             'exec': 'futil',
             'file_extensions': ['.futil'],
+            'flags': None
         },
         'dahlia': {
             'exec': 'dahlia',
@@ -26,8 +27,8 @@ DEFAULT_CONFIGURATION = {
         'verilog': {
             'exec': 'verilator',
             'file_extensions': ['.v', '.sv'],
-            'cycle_limit': '5e8',
-            'data': None  # look for data in current directory by default
+            'cycle_limit': int(5e8),
+            'data': None
         },
         'vcd': {
             'exec': 'vcdump',
@@ -38,9 +39,47 @@ DEFAULT_CONFIGURATION = {
         },
         'dat': {
             'file_extensions': ['.dat']
+        },
+        'systolic': {
+            'flags': None
         }
     }
 }
+
+
+class DynamicDict:
+    """Dynamically get/set nested dictionary keys of 'data' dict"""
+
+    def __init__(self, data: dict):
+        self.data = data
+
+    def __getitem__(self, keys):
+        if isinstance(keys, str):
+            keys = (keys,)
+
+        data = self.data
+        for k in keys:
+            data = data[k]
+        return data
+
+    def __setitem__(self, keys, val):
+        if isinstance(keys, str):
+            keys = (keys,)
+
+        data = self.data
+        lastkey = keys[-1]
+        for k in keys[:-1]:  # when assigning drill down to *second* last key
+            data = data[k]
+        data[lastkey] = val
+
+    def __contains__(self, keys):
+        data = self.data
+        for k in keys:
+            if k in data:
+                data = data[k]
+            else:
+                return False
+        return True
 
 
 def wizard(table, data):
@@ -61,6 +100,15 @@ def wizard(table, data):
     return table
 
 
+def rest_of_path(path):
+    d = None
+    for p in reversed(path):
+        d = {
+            p: d
+        }
+    return d
+
+
 class Configuration:
     def __init__(self):
         """Find the configuration file."""
@@ -71,16 +119,16 @@ class Configuration:
         self.config_file.touch()
 
         # load the configuration file
-        self.config = toml.load(self.config_file)
-        self.fill_missing(DEFAULT_CONFIGURATION, self.config)
-        self.launch_wizard()
-        self.commit()
+        self.config = DynamicDict(toml.load(self.config_file))
+        self.wizard_data = DynamicDict(wizard_data)
+        self.fill_missing(DEFAULT_CONFIGURATION, self.config.data)
+        # self.commit()
 
     def commit(self):
-        toml.dump(self.config, self.config_file.open('w'))
+        toml.dump(self.config.data, self.config_file.open('w'))
 
     def display(self):
-        toml.dump(self.config, sys.stdout)
+        toml.dump(self.config.data, sys.stdout)
 
     def fill_missing(self, default, config):
         if isinstance(default, dict):
@@ -94,31 +142,32 @@ class Configuration:
         return config
 
     def launch_wizard(self):
-        for key in self.config.keys():
-            if key in wizard_data.keys():
-                self.config[key] = wizard(self.config[key], wizard_data[key])
-
-    def find(self, path, pointer=None, total_path=None):
-        # initiate pointer
-        if pointer is None:
-            pointer = self.config
-
-        if total_path is None:
-            total_path = path.copy()
-
-        if len(path) == 0:
-            return pointer
-        else:
-            key = path.pop(0)
-            if key in pointer:
-                return self.find(
-                    path,
-                    pointer=pointer[key],
-                    total_path=total_path
+        changed = False
+        for key in self.config.data.keys():
+            if key in self.wizard_data.data.keys():
+                self.config.data[key] = wizard(
+                    self.config[key],
+                    wizard_data[key]
                 )
-            else:
-                p = '.'.join(total_path)
-                raise Exception(f"'{p}' not found")
+                changed = True
+        if changed:
+            self.commit()
+
+    def touch(self, path):
+        if path in self.config:
+            return
+        for i in range(len(path), 0, -1):
+            if path[:i] in self.config:
+                self.config[path[:i]] = rest_of_path(path[i:])
+
+    def __getitem__(self, keys):
+        return self.config[keys]
+
+    def __setitem__(self, keys, val):
+        self.config[keys] = val
+
+    def __contains__(self, keys):
+        return keys in self.config
 
     def __str__(self):
         pp = PrettyPrinter(indent=2)

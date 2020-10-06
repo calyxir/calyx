@@ -1,0 +1,6 @@
+let a: ubit<32> = 1;
+let b: ubit<32> = 2;
+let c: ubit<32> = 3;
+let d: ubit<32> = 4;
+let e: ubit<32> = 2;
+let x: ubit<32> = a + b * c + d / e;

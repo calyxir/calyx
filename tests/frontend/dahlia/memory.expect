@@ -1,0 +1,48 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    A0 = prim std_mem_d1_ext(32,8,4);
+    B0_0 = prim std_mem_d2_ext(32,8,8,4,4);
+    C0_0_0 = prim std_mem_d3_ext(32,8,8,8,4,4,4);
+    const0 = prim std_const(32,1);
+    const1 = prim std_const(4,0);
+    const2 = prim std_const(32,1);
+    const3 = prim std_const(4,0);
+    const4 = prim std_const(4,0);
+    const5 = prim std_const(32,1);
+    const6 = prim std_const(4,0);
+    const7 = prim std_const(4,0);
+    const8 = prim std_const(4,0);
+  }
+  wires {
+    group upd0<"static"=1> {
+      A0.addr0 = const1.out;
+      A0.write_en = 1'd1;
+      A0.write_data = 1'd1 ? const0.out;
+      upd0[done] = A0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      B0_0.addr1 = const4.out;
+      B0_0.addr0 = const3.out;
+      B0_0.write_en = 1'd1;
+      B0_0.write_data = 1'd1 ? const2.out;
+      upd1[done] = B0_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      C0_0_0.addr2 = const8.out;
+      C0_0_0.addr1 = const7.out;
+      C0_0_0.addr0 = const6.out;
+      C0_0_0.write_en = 1'd1;
+      C0_0_0.write_data = 1'd1 ? const5.out;
+      upd2[done] = C0_0_0.done ? 1'd1;
+    }
+  }
+  control {
+    par {
+      upd0;
+      upd1;
+      upd2;
+    }
+  }
+}
+

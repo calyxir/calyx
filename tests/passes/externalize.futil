@@ -1,0 +1,27 @@
+// -p externalize
+
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    A = prim std_mem_d1_ext(32, 16, 4);
+    B = prim std_mem_d1(32, 16, 4);
+    state = prim std_reg(32);
+  }
+  wires {
+    group wr_A {
+      A.write_en = 1'b1;
+      A.write_data = 32'd4;
+      state.in = A.read_data;
+      wr_A[done] = A.done;
+    }
+
+    group wr_B {
+      B.write_en = 1'b1;
+      B.write_data = 32'd4;
+      state.in = B.read_data;
+      wr_B[done] = B.done;
+    }
+  }
+  control {}
+}

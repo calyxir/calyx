@@ -1,0 +1,7 @@
+// -p compile-empty
+
+component main() -> () {
+  cells {}
+  wires {}
+  control {}
+}

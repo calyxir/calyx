@@ -16,3 +16,10 @@ def is_info():
 
 def is_debug():
     return log.getLogger().level <= log.DEBUG
+
+
+def unwrap_or(val, default):
+    if val is not None:
+        return val
+    else:
+        return default

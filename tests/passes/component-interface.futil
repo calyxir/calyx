@@ -1,0 +1,13 @@
+// -p component-interface-inserter
+
+component main() -> () {
+  cells {}
+  wires {
+    group A {
+      A[done] = 1'b1;
+    }
+  }
+  control {
+    A;
+  }
+}
