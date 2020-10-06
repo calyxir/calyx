@@ -139,8 +139,6 @@ jobs:
       run: |
         unset JAVA_TOOL_OPTIONS
         runt -d -o fail
-      # env:
-        # DAHLIA: /home/runner/work/futil/futil/dahlia/fuse
 
   format:
     name: Check Formatting

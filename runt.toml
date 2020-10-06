@@ -48,117 +48,10 @@ cmd = """
 fud e {} --to futil -q | tail -n+2
 """
 
-# # NOTE(rachit): `name` should only use lower case words. This makes it easier
-# # remember how to match specific test suite names.
-# [[tests]]
-# name = "list passes"
-# paths = [ "tests/list-passes/out" ]
-# cmd = "./target/debug/futil --list-passes"
-
 # [[tests]]
 # name = "unit tests"
 # paths = [ "tests/unit/*.futil" ]
 # cmd = "./target/debug/futil {} -d well-formed -b verilog --verilator"
-
-# # =============== FuTIL tests ==================
-
-# [[test]]
-# name = "(futil) source lowering"
-# paths = [ "tests/futil-sources/*.expect" ]
-# cmd = "./target/debug/futil {}"
-# expect_dir = "tests/integration-futil-lowered"
-
-# [[tests]]
-# name = "(futil) verilog generation"
-# paths = [ "tests/futil-sources/*.expect" ]
-# cmd = "./target/debug/futil {} -b verilog --verilator"
-# expect_dir = "tests/integration-verilog"
-
-# [[tests]]
-# name = "(futil) verilog simulation"
-# paths = [ "tests/futil-sources/*.expect" ]
-# cmd = "./bin/futil-jq-simulation {}"
-# expect_dir = "tests/integration-simulation"
-
-
-# # ============ Dahlia tests ==================
-
-# [[tests]]
-# name = "(dahlia) frontend"
-# paths = [ "tests/integration-dahlia-sources/*.fuse" ]
-# cmd = "./bin/find-dahlia {} -b futil --lower -l error | tail -n+2"
-# expect_dir = "tests/integration-futil/"
-
-# [[tests]]
-# name = "(dahlia) lowering"
-# paths = [ "tests/integration-dahlia-sources/*.fuse" ]
-# cmd = "./bin/find-dahlia {} -b futil --lower -l error | ./target/debug/futil"
-# expect_dir = "tests/integration-futil-lowered"
-
-# [[tests]]
-# name = "(dahlia) verilog generation"
-# paths = [ "tests/integration-dahlia-sources/*.fuse" ]
-# cmd = "./bin/find-dahlia {} -b futil --lower -l error | ./target/debug/futil -b verilog --verilator"
-# expect_dir = "tests/integration-verilog"
-
-# [[tests]]
-# name = "(dahlia) verilog simulation"
-# paths = [ "tests/integration-dahlia-sources/*.fuse" ]
-# cmd = "./bin/dahlia-jq-simulation {} ''"
-# expect_dir = "tests/integration-simulation"
-
-# [[tests]]
-# name = "(dahlia) dynamic verilog simulation"
-# paths = [ "tests/integration-dahlia-sources/*.fuse" ]
-# cmd = "./bin/dahlia-jq-simulation {} '-d static-timing'"
-# expect_dir = "tests/dynamic-simulation"
-
-# [[tests]]
-# name = "dynamic comparison"
-# paths = [ "tests/dynamic-simulation/*.expect" ]
-# cmd = """#!/bin/bash
-# name=$(basename {})
-# /bin/bash -c "diff <(jq -S 'del(.cycles)' tests/dynamic-simulation/$name) <(jq -S 'del(.cycles)' tests/integration-simulation/$name)"
-# """
-# expect_dir = "tests/dynamic-static"
-
-
-# # ================ Polybench tests ====================== #
-
-# [[tests]]
-# name = "(polybench) (small) (dahlia) frontend"
-# paths = [ "benchmarks/small_polybench/*.fuse" ]
-# cmd = """
-# ./bin/find-dahlia {} -b futil --lower -l error | tail -n+2
-# """
-# expect_dir = "benchmarks/futil/"
-
-# [[tests]]
-# name = "(polybench) (small) simulation"
-# paths = [ "benchmarks/small_polybench/*.fuse" ]
-# cmd = """
-# ./bin/run-benchmark {} {}.data | tail -n+2
-# """
-# expect_dir = "benchmarks/small_simulation/"
-
-# # =============== Polybench unrolled tests ====================
-
-# [[tests]]
-# name = "(polybench) (dahlia) frontend unroll"
-# paths = [ "benchmarks/unrolled/*.fuse" ]
-# cmd = """
-# ./bin/find-dahlia {} -b futil --lower -l error | tail -n+2
-# """
-# expect_dir = "benchmarks/futil-unrolled/"
-
-# [[tests]]
-# name = "(polybench) unroll simulation"
-# paths = [ "benchmarks/unrolled/*.fuse" ]
-# cmd = """
-# base=$(basename -s .fuse {})
-# ./bin/run-benchmark {} benchmarks/small_polybench/$base.fuse.data | tail -n+2
-# """
-# expect_dir = "benchmarks/small_simulation/"
 
 # # ================ Systolic array tests ====================== #
 [[tests]]
@@ -179,11 +72,3 @@ fud e --from systolic --to vcd_json \
       | jq -f {}.jq
 
 """
-
-# [[tests]]
-# name = "(systolic array) simulation"
-# paths = [ "systolic-lang/tests/verilog/*.expect" ]
-# cmd = """
-# DATA=./systolic-lang/tests/data ./bin/gen-vcd {} 2>/dev/null | vcdump | jq -f {}.jq
-# """
-# expect_dir = "systolic-lang/tests/simulation/"
