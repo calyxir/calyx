@@ -76,6 +76,14 @@ Install it with:
 cargo install vcdump
 ```
 
+**Check.**
+Fud can automatically check if your configuration is valid and can help you set
+certain variables. Perform this check with:
+```bash
+fud check
+```
+
+
 ## Usage
 These commands will assume you're in the root directory of the FuTIL
 repository.
