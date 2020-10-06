@@ -19,7 +19,6 @@ impl Named for GoInsertion {
 impl Visitor for GoInsertion {
     fn start(&mut self, comp: &mut Component, _c: &Context) -> VisResult {
         let st = &mut comp.structure;
-        // let iteration = ConnectionIteration::default();
         for edge_idx in st.edge_idx().detach() {
             let (_src, dest) = st.endpoints(edge_idx);
             let is_hole = matches!(st.get_node(dest).data, NodeData::Hole(..));

@@ -1,0 +1,38 @@
+// -p go-insertion -p hole-inliner
+
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    r1 = prim std_reg(32);
+    r2 = prim std_reg(32);
+    fsm = prim std_reg(1);
+  }
+
+  wires {
+    group write_r1 {
+      r1.in = 32'd1;
+      r1.write_en = 1'b1;
+      write_r1[done] = r1.done;
+    }
+
+    group write_r2 {
+      r2.in = r1.out;
+      r2.write_en = 1'b1;
+      write_r2[done] = r2.done;
+    }
+
+    group seq0 {
+      write_r1[go] = fsm.out == 1'b0 ? 1'b1;
+      write_r2[go] = fsm.out == 1'b1 ? 1'b1;
+      fsm.in = write_r1[done] ? 1'b1;
+      seq0[done] = write_r2[done];
+    }
+
+    seq0[go] = go;
+    done = seq0[done] ? 1'b1;
+  }
+
+  control {}
+
+}

@@ -1,0 +1,18 @@
+// -p go-insertion
+
+import "primitives/std.lib";
+
+component main() {
+  cells {
+    add = prim std_add(32);
+  }
+
+  wires {
+    group do_add {
+      add.right = 32'd4;
+      add.left = 32'd4;
+      do_add[done] = 1'b1;
+    }
+  }
+  control {}
+}

@@ -9,7 +9,7 @@ from .stages import Source, SourceType
 from .config import Configuration
 from .registry import Registry
 from . import errors
-from .stages import dahlia, futil, verilator, vcdump
+from .stages import dahlia, futil, verilator, vcdump, systolic
 from . import utils
 
 
@@ -38,6 +38,9 @@ def register_stages(registry, config):
     # Dahlia
     registry.register(dahlia.DahliaStage(config))
 
+    # Systolic Array
+    registry.register(systolic.SystolicStage(config))
+
     # FuTIL
     registry.register(
         futil.FutilStage(config, 'verilog', '-b verilog --verilator',
@@ -63,9 +66,13 @@ def register_stages(registry, config):
 
 def run(args, config):
     # check if input_file exists
-    input_file = Path(args.input_file)
-    if not input_file.exists():
-        raise FileNotFoundError(input_file)
+    input_file = None
+    if args.input_file is not None:
+        input_file = Path(args.input_file)
+        if not input_file.exists():
+            raise FileNotFoundError(input_file)
+
+    config.launch_wizard()
 
     # set verbosity level
     level = None
@@ -80,7 +87,7 @@ def run(args, config):
     # update the stages config with arguments provided via cmdline
     if args.dynamic_config is not None:
         for key, value in args.dynamic_config:
-            update(config.config['stages'], key.split('.'), value)
+            config[['stages'] + key.split('.')] = value
 
     registry = Registry(config)
     register_stages(registry, config)
@@ -88,12 +95,12 @@ def run(args, config):
     # find source
     source = args.source
     if source is None:
-        source = discover_implied_stage(args.input_file, config.config)
+        source = discover_implied_stage(args.input_file, config)
 
     # find target
     target = args.dest
     if target is None:
-        target = discover_implied_stage(args.output_file, config.config)
+        target = discover_implied_stage(args.output_file, config)
 
     path = registry.make_path(source, target)
     if path is None:
@@ -108,7 +115,7 @@ def run(args, config):
         print("fud will perform the following steps:")
 
     # Pretty spinner.
-    spinner_enabled = not (utils.is_debug() or args.dry_run)
+    spinner_enabled = not (utils.is_debug() or args.dry_run or args.quiet)
     # Execute the path transformation specification.
     with Halo(
             spinner='dots',
@@ -148,15 +155,6 @@ def run(args, config):
             print(inp.data.read().decode('UTF-8'))
 
 
-def update(d, path, val):
-    if len(path) == 0:
-        d = val
-    else:
-        key = path.pop(0)  # get first element in path
-        d[key] = update(d[key], path, val)
-    return d
-
-
 def config(args, config):
     if args.key is None:
         print(config.config_file)
@@ -166,14 +164,15 @@ def config(args, config):
         path = args.key.split(".")
         if args.value is None:
             # print out values
-            res = config.find(path)
+            res = config[path]
             if isinstance(res, dict):
                 print(toml.dumps(res))
             else:
                 print(res)
         else:
-            if not isinstance(config.find(path.copy()), list):
-                update(config.config, path, args.value)
+            config.touch(path)
+            if not isinstance(config[path], list):
+                config[path] = args.value
                 config.commit()
             else:
                 raise Exception("NYI: supporting updating lists")
@@ -244,7 +243,8 @@ def config_run(parser):
                         help='Show the execution stages and exit')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Enable verbose logging')
-    parser.add_argument('input_file', help='Path to the input file')
+    parser.add_argument('-q', '--quiet', action='store_true')
+    parser.add_argument('input_file', help='Path to the input file', nargs='?')
     parser.set_defaults(func=run)
 
 

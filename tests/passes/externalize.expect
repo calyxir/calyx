@@ -1,0 +1,26 @@
+import "primitives/std.lib";
+component main(go: 1, clk: 1, A_read_data: 32, A_done: 1) -> (done: 1, A_addr0: 4, A_write_data: 32, A_write_en: 1) {
+  cells {
+    B = prim std_mem_d1(32, 16, 4);
+    state = prim std_reg(32);
+  }
+  
+  wires {
+    group wr_A<> {
+      A_write_data = 32'd4;
+      A_write_en = 1'd1;
+      state.in = A_read_data;
+      wr_A[done] = A_done;
+    }
+    group wr_B<> {
+      B.write_en = 1'd1;
+      B.write_data = 32'd4;
+      state.in = B.read_data;
+      wr_B[done] = B.done;
+    }
+  }
+  
+  control {
+    
+  }
+}
