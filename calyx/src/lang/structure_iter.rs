@@ -139,7 +139,7 @@ impl Iterator for EdgeIndexIterator<'_> {
                     dir_match!(dir, *src, *dest, weight, |node, _| {
                         matches!(
                             self.graph.node_weight(node).unwrap().data,
-                            NodeData::Port
+                            NodeData::ThisPort
                         )
                     })
                 }
@@ -166,6 +166,6 @@ pub enum NodeType {
     Constant,
     /// Filters for `NodeData::Hole`
     Hole,
-    /// Filters for `NodeData::Port`
+    /// Filters for `NodeData::ThisPort
     Port,
 }
