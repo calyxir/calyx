@@ -16,7 +16,7 @@ DEFAULT_CONFIGURATION = {
     'global': {},
     'stages': {
         'futil': {
-            'exec': 'futil',
+            'exec': './target/debug/futil',
             'file_extensions': ['.futil'],
             'flags': None
         },
