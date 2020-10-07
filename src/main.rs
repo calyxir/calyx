@@ -25,6 +25,7 @@ use passes::{
     static_timing::StaticTiming,
     visitor::{Named, Visitor},
     well_formed::WellFormed,
+    resource_sharing::ResourceSharing,
 };
 use std::io::stdin;
 use structopt::StructOpt;
@@ -48,6 +49,7 @@ fn construct_pass_manager() -> Result<PassManager> {
     register_pass!(pm, CollapseControl);
     register_pass!(pm, CompileEmpty);
     register_pass!(pm, Papercut);
+    register_pass!(pm, ResourceSharing);
 
     // Register aliases
     register_alias!(

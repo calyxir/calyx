@@ -8,6 +8,7 @@ pub mod inliner;
 pub mod merge_assign;
 pub mod papercut;
 pub mod remove_external_memories;
+pub mod resource_sharing;
 pub mod static_timing;
 pub mod visitor;
 pub mod well_formed;
