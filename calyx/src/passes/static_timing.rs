@@ -73,15 +73,16 @@ impl Visitor for StaticTiming {
             {
                 // FSM Encoding:
                 //   0:   init state. we haven't started loop iterations
-                //        and haven't checked the loop body
-                //   1-n: body compute states. cond was true. compute the body
-                //   n+1: loop exit. we've finished running the body and the condition is false.
+                //        and haven't checked the loop body.
+                //   1-n: body compute states. cond was true. compute the body.
+                //   n+1: check condition again.
+                //   n+2: loop exit. we've finished running the body and the condition is false.
                 // Transitions:
-                //   0 -> 1:   when cond == true
-                //   0 -> n+1: when cond == false
-                //   i -> i+1: when i != 0 & i != n
-                //   n -> 1:   when cond == true
-                //   n -> n+1: when cond == false
+                //   0   -> 1:   when cond == true
+                //   0   -> n+2: when cond == false
+                //   i   -> i+1: when i != 0 & i != n
+                //   n+1 -> 1:   when cond == true
+                //   n+1 -> n+2: when cond == false
 
                 let cond_group = st.get_node_by_name(&s.cond)?;
                 let body_group = st.get_node_by_name(&data.comp)?;
@@ -91,14 +92,15 @@ impl Visitor for StaticTiming {
                 let while_group_node =
                     st.insert_group(&while_group, HashMap::new())?;
 
-                // `0` state + (2 + btime) states, where (2 + btime) == fsm_loop_exit_state
-                let fsm_size = get_bit_width_from(3 + btime);
+                let fsm_loop_exit_time = 2 + btime;
+                // `0` state + (2 + btime) states
+                let fsm_size = get_bit_width_from(1 + fsm_loop_exit_time);
                 structure!(st, &ctx,
                     let fsm = prim std_reg(fsm_size);
 
                     let fsm_init_state = constant(0, fsm_size);
                     let fsm_loop_enter_state = constant(1, fsm_size);
-                    let fsm_loop_exit_state = constant(btime + 2, fsm_size);
+                    let fsm_loop_exit_state = constant(fsm_loop_exit_time, fsm_size);
 
                     let fsm_one = constant(1, fsm_size);
                     let incr = prim std_add(fsm_size);
@@ -180,8 +182,9 @@ impl Visitor for StaticTiming {
                 let while_group_node =
                     st.insert_group(&while_group, HashMap::new())?;
 
-                // `0` state + (ctime + btime) states, where (ctime + btime) == body_end_const
-                let fsm_size = get_bit_width_from(ctime + btime + 1) as u64;
+                let body_end_time = ctime + btime;
+                // `0` state + (ctime + btime) states.
+                let fsm_size = get_bit_width_from(body_end_time + 1) as u64;
                 structure!(st, &ctx,
                     let fsm = prim std_reg(fsm_size);
                     let cond_stored = prim std_reg(1);
@@ -193,7 +196,7 @@ impl Visitor for StaticTiming {
 
                     let cond_time_const = constant(ctime, fsm_size);
                     // let cond_end_const = constant(ctime - 1, fsm_size);
-                    let body_end_const = constant(ctime + btime, fsm_size);
+                    let body_end_const = constant(body_end_time, fsm_size);
                 );
 
                 // Cond is computed on this cycle.
@@ -291,11 +294,12 @@ impl Visitor for StaticTiming {
 
                 let if_group_node = st.insert_group(&if_group, attrs)?;
 
-                // `0` state + (ctime + max(ttime, ftime) + 1) states, where
-                // (ctime + ...) == cond_done_time_const
-                let fsm_size =
-                    get_bit_width_from(2 + ctime + cmp::max(ttime, ftime))
-                        as u64;
+                let end_true_time = ttime + ctime + 1;
+                let end_false_time = ftime + ctime + 1;
+                // `0` state + (ctime + max(ttime, ftime) + 1) states.
+                let fsm_size = get_bit_width_from(
+                    1 + cmp::max(end_true_time, end_false_time),
+                ) as u64;
                 structure!(st, &ctx,
                     let fsm = prim std_reg(fsm_size);
                     let one = constant(1, fsm_size);
@@ -306,8 +310,8 @@ impl Visitor for StaticTiming {
                     let cond_time_const = constant(ctime, fsm_size);
                     let cond_done_time_const = constant(ctime, fsm_size);
 
-                    let true_end_const = constant(ttime + ctime + 1, fsm_size);
-                    let false_end_const = constant(ftime + ctime + 1, fsm_size);
+                    let true_end_const = constant(end_true_time, fsm_size);
+                    let false_end_const = constant(end_false_time, fsm_size);
 
                     let incr = prim std_add(fsm_size);
                 );
@@ -404,8 +408,8 @@ impl Visitor for StaticTiming {
             let par_group: ast::Id = st.namegen.gen_name("static_par").into();
             let par_group_node = st.insert_group(&par_group, attrs)?;
 
-            // `0` state + ('stmts' length) states.
-            let fsm_size = get_bit_width_from(1 + s.stmts.len() as u64);
+            // `0` state + (max_time) states.
+            let fsm_size = get_bit_width_from(1 + max_time as u64);
             structure!(st, &ctx,
                 let fsm = prim std_reg(fsm_size);
                 let signal_const = constant(1, 1);
