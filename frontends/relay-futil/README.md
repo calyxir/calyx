@@ -18,7 +18,7 @@ You will need to install TVM—and we depend on the latest source (unreleased ch
 
         mkdir build
         cd build
-        cp ../cmake/config.cmake .`
+        cp ../cmake/config.cmake .
 
 4. Build (takes about 9 minutes on my MacBook Pro):
 
