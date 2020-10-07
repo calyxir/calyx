@@ -408,7 +408,7 @@ impl Visitor for StaticTiming {
             let par_group: ast::Id = st.namegen.gen_name("static_par").into();
             let par_group_node = st.insert_group(&par_group, attrs)?;
 
-            // `0` state + (s.stmts.length()) states.
+            // `0` state + (s.stmts.len()) states.
             let fsm_size = get_bit_width_from(1 + s.stmts.len() as u64);
             structure!(st, &ctx,
                 let fsm = prim std_reg(fsm_size);
