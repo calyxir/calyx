@@ -251,6 +251,13 @@ pub trait Visitable {
         component: &mut Component,
         context: &Context,
     ) -> VisResult;
+
+    fn visit_immutable(
+        &self,
+        visitor: &mut dyn Visitor,
+        component: &mut Component,
+        context: &Context,
+    ) -> VisResult;
 }
 
 // Blanket impl for Vectors of Visitables
@@ -263,6 +270,21 @@ impl<V: Visitable> Visitable for Vec<V> {
     ) -> VisResult {
         for t in self {
             match t.visit(visitor, component, context)? {
+                Action::Continue | Action::Change(_) => continue,
+                Action::Stop => return Ok(Action::Stop),
+            };
+        }
+        Ok(Action::Continue)
+    }
+
+    fn visit_immutable(
+        &self,
+        visitor: &mut dyn Visitor,
+        component: &mut Component,
+        context: &Context,
+    ) -> VisResult {
+        for t in self {
+            match t.visit_immutable(visitor, component, context)? {
                 Action::Continue | Action::Change(_) => continue,
                 Action::Stop => return Ok(Action::Stop),
             };
@@ -305,7 +327,43 @@ impl Visitable for Control {
             Control::Empty { data } => visitor
                 .start_empty(data, component, context)?
                 .and_then(|| visitor.finish_empty(data, component, context))?,
-        }
-        .apply_change(self)
+        }.apply_change(self)
+    }
+
+    fn visit_immutable(
+        &self,
+        visitor: &mut dyn Visitor,
+        component: &mut Component,
+        context: &Context,
+    ) -> VisResult {
+        let result = match self {
+            Control::Seq { data } => visitor
+                .start_seq(data, component, context)?
+                .and_then(|| data.stmts.visit_immutable(visitor, component, context))?
+                .and_then(|| visitor.finish_seq(data, component, context))?,
+            Control::Par { data } => visitor
+                .start_par(data, component, context)?
+                .and_then(|| data.stmts.visit_immutable(visitor, component, context))?
+                .and_then(|| visitor.finish_par(data, component, context))?,
+            Control::If { data } => visitor
+                .start_if(data, component, context)?
+                .and_then(|| data.tbranch.visit_immutable(visitor, component, context))?
+                .and_then(|| data.fbranch.visit_immutable(visitor, component, context))?
+                .and_then(|| visitor.finish_if(data, component, context))?,
+            Control::While { data } => visitor
+                .start_while(data, component, context)?
+                .and_then(|| data.body.visit_immutable(visitor, component, context))?
+                .and_then(|| visitor.finish_while(data, component, context))?,
+            Control::Print { data } => visitor
+                .start_print(data, component, context)?
+                .and_then(|| visitor.finish_print(data, component, context))?,
+            Control::Enable { data } => visitor
+                .start_enable(data, component, context)?
+                .and_then(|| visitor.finish_enable(data, component, context))?,
+            Control::Empty { data } => visitor
+                .start_empty(data, component, context)?
+                .and_then(|| visitor.finish_empty(data, component, context))?,
+        };
+        Ok(result)
     }
 }
