@@ -294,24 +294,23 @@ impl StructureGraph {
         }
 
         // flatten connections into Vec<(group_name: Option<Id>, wire: Wire)>
-        let wires: Vec<_> = connections
-            .into_iter()
-            .map(|stmt| match stmt {
-                Connection::Wire(wire) => vec![(None, wire)],
+        let mut wires = Vec::new();
+        for conn in connections {
+            match conn {
                 Connection::Group(group) => {
                     let name = group.name.clone();
                     let key = Some(name.clone());
-                    // XXX(rachit): This is the wrong way to handle
-                    // the Result<_> returned from insert_group.
-                    structure.insert_group(&name, group.attributes).expect(
-                        "Malformed input AST: Duplicate group names found.",
-                    );
-
-                    group.wires.into_iter().map(|w| (key.clone(), w)).collect()
-                }
-            })
-            .flatten()
-            .collect();
+                    structure.insert_group(&name, group.attributes)?;
+                    let mut group_wires = group
+                        .wires
+                        .into_iter()
+                        .map(|w| (key.clone(), w))
+                        .collect::<Vec<_>>();
+                    wires.append(&mut group_wires);
+                },
+                Connection::Wire(wire) => wires.push((None, wire)),
+            }
+        }
 
         // Create "default" group that contains all edges without a group.
         structure.groups.insert(None, (HashMap::new(), Vec::new()));
@@ -465,6 +464,14 @@ impl StructureGraph {
         let key = Some(name.clone());
         if self.groups.contains_key(&key) {
             return Err(errors::Error::DuplicateGroup(name.clone()));
+        }
+        // If this name is already in the graph, then the cell has the same
+        // name.
+        if let Ok(_) = self.get_node_by_name(name) {
+            return Err(errors::Error::AlreadyBound(
+                name.clone(),
+                "cell".to_string(),
+            ));
         }
         // create a new group
         self.groups.insert(key, (attrs, Vec::new()));
