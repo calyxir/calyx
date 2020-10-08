@@ -169,34 +169,34 @@ module main (
   logic A0_clk;
   logic [31:0] A0_read_data;
   logic A0_done;
-  logic [31:0] fsm0_in;
+  logic [1:0] fsm0_in;
   logic fsm0_write_en;
   logic fsm0_clk;
-  logic [31:0] fsm0_out;
+  logic [1:0] fsm0_out;
   logic fsm0_done;
-  logic [31:0] incr0_left;
-  logic [31:0] incr0_right;
-  logic [31:0] incr0_out;
-  logic [31:0] fsm1_in;
+  logic [1:0] incr0_left;
+  logic [1:0] incr0_right;
+  logic [1:0] incr0_out;
+  logic [2:0] fsm1_in;
   logic fsm1_write_en;
   logic fsm1_clk;
-  logic [31:0] fsm1_out;
+  logic [2:0] fsm1_out;
   logic fsm1_done;
-  logic [31:0] incr1_left;
-  logic [31:0] incr1_right;
-  logic [31:0] incr1_out;
-  logic [31:0] fsm2_in;
+  logic [2:0] incr1_left;
+  logic [2:0] incr1_right;
+  logic [2:0] incr1_out;
+  logic [3:0] fsm2_in;
   logic fsm2_write_en;
   logic fsm2_clk;
-  logic [31:0] fsm2_out;
+  logic [3:0] fsm2_out;
   logic fsm2_done;
-  logic [31:0] incr2_left;
-  logic [31:0] incr2_right;
-  logic [31:0] incr2_out;
-  logic [31:0] fsm3_in;
+  logic [3:0] incr2_left;
+  logic [3:0] incr2_right;
+  logic [3:0] incr2_out;
+  logic [1:0] fsm3_in;
   logic fsm3_write_en;
   logic fsm3_clk;
-  logic [31:0] fsm3_out;
+  logic [1:0] fsm3_out;
   logic fsm3_done;
   
   // Subcomponent Instances
@@ -314,7 +314,7 @@ module main (
       .done(A0_done)
   );
   
-  std_reg #(32) fsm0 (
+  std_reg #(2) fsm0 (
       .in(fsm0_in),
       .write_en(fsm0_write_en),
       .clk(clk),
@@ -322,13 +322,13 @@ module main (
       .done(fsm0_done)
   );
   
-  std_add #(32) incr0 (
+  std_add #(2) incr0 (
       .left(incr0_left),
       .right(incr0_right),
       .out(incr0_out)
   );
   
-  std_reg #(32) fsm1 (
+  std_reg #(3) fsm1 (
       .in(fsm1_in),
       .write_en(fsm1_write_en),
       .clk(clk),
@@ -336,13 +336,13 @@ module main (
       .done(fsm1_done)
   );
   
-  std_add #(32) incr1 (
+  std_add #(3) incr1 (
       .left(incr1_left),
       .right(incr1_right),
       .out(incr1_out)
   );
   
-  std_reg #(32) fsm2 (
+  std_reg #(4) fsm2 (
       .in(fsm2_in),
       .write_en(fsm2_write_en),
       .clk(clk),
@@ -350,13 +350,13 @@ module main (
       .done(fsm2_done)
   );
   
-  std_add #(32) incr2 (
+  std_add #(4) incr2 (
       .left(incr2_left),
       .right(incr2_right),
       .out(incr2_out)
   );
   
-  std_reg #(32) fsm3 (
+  std_reg #(2) fsm3 (
       .in(fsm3_in),
       .write_en(fsm3_write_en),
       .clk(clk),
@@ -383,215 +383,215 @@ module main (
   
   // Input / output connections
   always_comb begin
-    if ((fsm3_out == 32'd2))
+    if ((fsm3_out == 2'd2))
       done = 1'd1;
     else 
       done = '0;
     
-    if ((fsm1_out == 32'd6 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out == 3'd6 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       v0_addr0 = const3_out;
-    else if ((fsm1_out == 32'd6 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    else if ((fsm1_out == 3'd6 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       v0_addr0 = const2_out;
     else 
       v0_addr0 = '0;
     
-    if ((fsm1_out == 32'd6 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out == 3'd6 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       v0_write_data = add0_out;
     else 
       v0_write_data = '0;
     
-    if ((fsm1_out == 32'd6 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out == 3'd6 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       v0_write_en = 1'd1;
     else 
       v0_write_en = '0;
     
-    if ((fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out >= 3'd1 & fsm1_out < 3'd5 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       mult_pipe0_left = A_read0_0_out;
     else 
       mult_pipe0_left = '0;
     
-    if ((fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out >= 3'd1 & fsm1_out < 3'd5 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       mult_pipe0_right = B_read0_0_out;
     else 
       mult_pipe0_right = '0;
     
-    if ((!mult_pipe0_done & fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((!mult_pipe0_done & fsm1_out >= 3'd1 & fsm1_out < 3'd5 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       mult_pipe0_go = 1'd1;
     else 
       mult_pipe0_go = '0;
     
-    if ((fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       le0_left = i0_out;
     else 
       le0_left = '0;
     
-    if ((fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       le0_right = const1_out;
     else 
       le0_right = '0;
     
-    if ((fsm3_out == 32'd0 & !i0_done & go))
+    if ((fsm3_out == 2'd0 & !i0_done & go))
       i0_in = const0_out;
-    else if ((fsm1_out == 32'd7 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    else if ((fsm1_out == 3'd7 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       i0_in = add1_out;
     else 
       i0_in = '0;
     
-    if ((fsm3_out == 32'd0 & !i0_done & go | fsm1_out == 32'd7 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm3_out == 2'd0 & !i0_done & go | fsm1_out == 3'd7 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       i0_write_en = 1'd1;
     else 
       i0_write_en = '0;
     
-    if ((fsm1_out == 32'd5 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out == 3'd5 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       dot_0_in = bin_read0_0_out;
     else 
       dot_0_in = '0;
     
-    if ((fsm1_out == 32'd5 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out == 3'd5 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       dot_0_write_en = 1'd1;
     else 
       dot_0_write_en = '0;
     
-    if ((fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out >= 3'd1 & fsm1_out < 3'd5 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       bin_read0_0_in = mult_pipe0_out;
     else 
       bin_read0_0_in = '0;
     
-    if ((fsm1_out >= 32'd1 & fsm1_out < 32'd5 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out >= 3'd1 & fsm1_out < 3'd5 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       bin_read0_0_write_en = mult_pipe0_done;
     else 
       bin_read0_0_write_en = '0;
     
-    if ((fsm1_out == 32'd7 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out == 3'd7 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       add1_left = i0_out;
     else 
       add1_left = '0;
     
-    if ((fsm1_out == 32'd7 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out == 3'd7 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       add1_right = const4_out;
     else 
       add1_right = '0;
     
-    if ((fsm1_out == 32'd6 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out == 3'd6 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       add0_left = v0_read_data;
     else 
       add0_left = '0;
     
-    if ((fsm1_out == 32'd6 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out == 3'd6 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       add0_right = dot_0_out;
     else 
       add0_right = '0;
     
-    if ((fsm0_out <= 32'd1 & fsm1_out == 32'd0 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm0_out <= 2'd1 & fsm1_out == 3'd0 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       B_read0_0_in = B0_read_data;
     else 
       B_read0_0_in = '0;
     
-    if ((fsm0_out <= 32'd1 & fsm1_out == 32'd0 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm0_out <= 2'd1 & fsm1_out == 3'd0 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       B_read0_0_write_en = 1'd1;
     else 
       B_read0_0_write_en = '0;
     
-    if ((fsm0_out <= 32'd1 & fsm1_out == 32'd0 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm0_out <= 2'd1 & fsm1_out == 3'd0 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       B0_addr0 = i0_out;
     else 
       B0_addr0 = '0;
     
-    if ((fsm0_out <= 32'd1 & fsm1_out == 32'd0 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm0_out <= 2'd1 & fsm1_out == 3'd0 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       A_read0_0_in = A0_read_data;
     else 
       A_read0_0_in = '0;
     
-    if ((fsm0_out <= 32'd1 & fsm1_out == 32'd0 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm0_out <= 2'd1 & fsm1_out == 3'd0 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       A_read0_0_write_en = 1'd1;
     else 
       A_read0_0_write_en = '0;
     
-    if ((fsm0_out <= 32'd1 & fsm1_out == 32'd0 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm0_out <= 2'd1 & fsm1_out == 3'd0 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       A0_addr0 = i0_out;
     else 
       A0_addr0 = '0;
     
-    if ((fsm0_out != 32'd1 & fsm1_out == 32'd0 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm0_out != 2'd1 & fsm1_out == 3'd0 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       fsm0_in = incr0_out;
-    else if ((fsm0_out == 32'd1))
-      fsm0_in = 32'd0;
+    else if ((fsm0_out == 2'd1))
+      fsm0_in = 2'd0;
     else 
       fsm0_in = '0;
     
-    if ((fsm0_out != 32'd1 & fsm1_out == 32'd0 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go | fsm0_out == 32'd1))
+    if ((fsm0_out != 2'd1 & fsm1_out == 3'd0 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go | fsm0_out == 2'd1))
       fsm0_write_en = 1'd1;
     else 
       fsm0_write_en = '0;
     
-    if ((fsm1_out == 32'd0 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
-      incr0_left = 32'd1;
+    if ((fsm1_out == 3'd0 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
+      incr0_left = 2'd1;
     else 
       incr0_left = '0;
     
-    if ((fsm1_out == 32'd0 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out == 3'd0 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       incr0_right = fsm0_out;
     else 
       incr0_right = '0;
     
-    if ((fsm1_out != 32'd8 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm1_out != 3'd8 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       fsm1_in = incr1_out;
-    else if ((fsm1_out == 32'd8))
-      fsm1_in = 32'd0;
+    else if ((fsm1_out == 3'd8))
+      fsm1_in = 3'd0;
     else 
       fsm1_in = '0;
     
-    if ((fsm1_out != 32'd8 & fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go | fsm1_out == 32'd8))
+    if ((fsm1_out != 3'd8 & fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go | fsm1_out == 3'd8))
       fsm1_write_en = 1'd1;
     else 
       fsm1_write_en = '0;
     
-    if ((fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
-      incr1_left = 32'd1;
+    if ((fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
+      incr1_left = 3'd1;
     else 
       incr1_left = '0;
     
-    if ((fsm2_out > 32'd0 & fsm2_out < 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm2_out > 4'd0 & fsm2_out < 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       incr1_right = fsm1_out;
     else 
       incr1_right = '0;
     
-    if ((fsm2_out != 32'd9 & fsm2_out != 32'd0 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm2_out != 4'd9 & fsm2_out != 4'd0 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       fsm2_in = incr2_out;
-    else if ((fsm2_out == 32'd0 & !le0_out & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go | fsm2_out == 32'd9 & !le0_out & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
-      fsm2_in = 32'd10;
-    else if ((fsm2_out == 32'd10))
-      fsm2_in = 32'd0;
-    else if ((fsm2_out == 32'd0 & le0_out & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go | fsm2_out == 32'd9 & le0_out & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
-      fsm2_in = 32'd1;
+    else if ((fsm2_out == 4'd10))
+      fsm2_in = 4'd0;
+    else if ((fsm2_out == 4'd0 & !le0_out & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go | fsm2_out == 4'd9 & !le0_out & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
+      fsm2_in = 4'd10;
+    else if ((fsm2_out == 4'd0 & le0_out & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go | fsm2_out == 4'd9 & le0_out & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
+      fsm2_in = 4'd1;
     else 
       fsm2_in = '0;
     
-    if ((fsm2_out != 32'd9 & fsm2_out != 32'd0 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go | fsm2_out == 32'd0 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go | fsm2_out == 32'd9 & fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go | fsm2_out == 32'd10))
+    if ((fsm2_out != 4'd9 & fsm2_out != 4'd0 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go | fsm2_out == 4'd0 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go | fsm2_out == 4'd9 & fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go | fsm2_out == 4'd10))
       fsm2_write_en = 1'd1;
     else 
       fsm2_write_en = '0;
     
-    if ((fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
+    if ((fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
       incr2_left = fsm2_out;
     else 
       incr2_left = '0;
     
-    if ((fsm3_out == 32'd1 & !(fsm2_out == 32'd10) & go))
-      incr2_right = 32'd1;
+    if ((fsm3_out == 2'd1 & !(fsm2_out == 4'd10) & go))
+      incr2_right = 4'd1;
     else 
       incr2_right = '0;
     
-    if ((fsm3_out == 32'd1 & fsm2_out == 32'd10 & go))
-      fsm3_in = 32'd2;
-    else if ((fsm3_out == 32'd2))
-      fsm3_in = 32'd0;
-    else if ((fsm3_out == 32'd0 & i0_done & go))
-      fsm3_in = 32'd1;
+    if ((fsm3_out == 2'd2))
+      fsm3_in = 2'd0;
+    else if ((fsm3_out == 2'd1 & fsm2_out == 4'd10 & go))
+      fsm3_in = 2'd2;
+    else if ((fsm3_out == 2'd0 & i0_done & go))
+      fsm3_in = 2'd1;
     else 
       fsm3_in = '0;
     
-    if ((fsm3_out == 32'd0 & i0_done & go | fsm3_out == 32'd1 & fsm2_out == 32'd10 & go | fsm3_out == 32'd2))
+    if ((fsm3_out == 2'd0 & i0_done & go | fsm3_out == 2'd1 & fsm2_out == 4'd10 & go | fsm3_out == 2'd2))
       fsm3_write_en = 1'd1;
     else 
       fsm3_write_en = '0;
