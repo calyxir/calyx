@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: 
+9 |    group incr {
+  |          ^^^^ Name already bound by cell

@@ -1,0 +1,19 @@
+import "primitives/std.lib";
+
+component main() {
+  cells {
+    incr = prim std_add(32);
+  }
+
+  wires {
+    group incr {
+      incr.right = 32'd1;
+      incr.left = 32'd1;
+      incr[done] = 1'b1;
+    }
+  }
+
+  control {
+    incr;
+  }
+}
