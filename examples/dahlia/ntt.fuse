@@ -38,7 +38,7 @@ while (span != 0) {
     ---
     real[even] := temp_r;
     img[even] := temp_i;
-    let rootindex = (even << log) & (1024 - 1);
+    let rootindex = (even << log) & (1023 as ubit<32>);
     ---
     if (rootindex != 0) {
       img_odd := img[odd] * powers[rootindex] % mod_number;
