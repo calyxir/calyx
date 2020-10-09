@@ -21,8 +21,6 @@ while (i != 512) {
 while (span != 0) {
   let odd = span;
   while (odd < 1024) {
-    // based on baseline software, but check for rewrites
-    decor "#pragma HLS loop_tripcount avg=512"
     odd := odd | span;
     let even = odd ^ span;
     let real_odd = real[odd];
