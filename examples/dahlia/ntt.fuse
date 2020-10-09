@@ -9,14 +9,16 @@ decl powers:bit<32>[512];
 let span:bit<32> = 1024 >> 1;
 let log:bit<32> = 0;
 
-let pow = 1;
-let i = 0;
+let pow: bit<32> = 1;
+let i: bit<32> = 0;
 
 while (i != 512) {
   powers[i] := pow;
   pow := pow * root % mod_number;
   i := i + 1;
 }
+
+---
 
 while (span != 0) {
   let odd = span;
