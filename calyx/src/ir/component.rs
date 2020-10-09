@@ -1,4 +1,5 @@
-use super::{common::Id, control::Control};
+use crate::lang::ast::Id;
+use super::{control::Control};
 use derivative::Derivative;
 use std::collections::HashMap;
 use std::rc::Weak;
@@ -12,13 +13,13 @@ pub enum Direction {
 /// Represents a port on a cell.
 pub struct Port {
     /// Name of the port
-    id: Id,
+    pub id: Id,
     /// Width of the port
-    width: u32,
+    pub width: u64,
     /// Direction of the port
-    direction: Direction,
+    pub direction: Direction,
     /// Weak pointer to this port's parent
-    cell: Weak<Cell>,
+    pub cell: Weak<Cell>,
 }
 
 /// The type for a Cell
@@ -35,9 +36,9 @@ pub enum CellType {
 // XXX(rachit): Each port should probably have a weak pointer to its parent.
 pub struct Cell {
     /// Ports on this cell
-    ports: Vec<Port>,
+    pub ports: Vec<Port>,
     /// Underlying type for this cell
-    prototype: CellType,
+    pub prototype: CellType,
 }
 
 /// A guard which has pointers to the various ports from which it reads.

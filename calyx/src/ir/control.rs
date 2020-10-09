@@ -1,5 +1,5 @@
+use crate::lang::ast::Id;
 use super::{
-    common::Id,
     component::{Group, Port},
 };
 

@@ -1,10 +1,11 @@
-use super::component::{Cell, Component};
+use super::component::{Cell, Component, CellType, Direction, Port};
 use crate::{
     errors::{Error, Result},
     lang::ast,
     lang::library,
 };
 use std::collections::HashMap;
+use std::rc::Rc;
 
 struct TransformCtx {
     /// Mapping from component names to signatures
@@ -31,7 +32,7 @@ fn into_component<'a>(comp: ast::ComponentDef) -> Result<Component<'a>> {
 
 fn into_cell(cell: ast::Cell, ctx: &TransformCtx) -> Result<Cell> {
     // Get the name, inputs, and outputs.
-    let (name, inputs, outputs) = match cell {
+    let (name, typ, inputs, outputs) = match cell {
         ast::Cell::Decl {
             data: ast::Decl { name, component },
         } => {
@@ -41,6 +42,7 @@ fn into_cell(cell: ast::Cell, ctx: &TransformCtx) -> Result<Cell> {
                 .ok_or_else(|| Error::UndefinedComponent(name.clone()))?;
             (
                 name,
+                CellType::Component,
                 sig.inputs
                     .iter()
                     .cloned()
@@ -83,8 +85,24 @@ fn into_cell(cell: ast::Cell, ctx: &TransformCtx) -> Result<Cell> {
                 };
             let inputs = instantiate_ports(&prim_sig.signature.inputs);
             let outputs = instantiate_ports(&prim_sig.signature.outputs);
-            (name, inputs, outputs)
+            (name, CellType::Primitive, inputs, outputs)
         }
     };
-    unimplemented!()
+    // Construct the Cell
+    let mut cell = Rc::new(Cell {
+        ports: vec![],
+        prototype: typ,
+    });
+    // Construct ports
+    for (name, width) in inputs {
+        let port = Port {
+            id: name,
+            width: width,
+            direction: Direction::Input,
+            cell: Rc::downgrade(&Rc::clone(&cell)),
+        };
+        cell.ports.push(port);
+    }
+
+    Ok(cell)
 }
