@@ -40,8 +40,10 @@ Run an Example
 --------------
 
 Try this to run a simple example:
-
-    python3 example.py
+```bash
+cd futil/frontends/relay-futil
+python3 example.py
+```     
 
 Pass the `-r` flag to this script to see the Relay code. Otherwise, we just print the FuTIL code. There is also an `-o` flag to try optimizing the Relay code a little bit.
 
