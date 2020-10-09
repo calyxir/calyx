@@ -1,16 +1,16 @@
-decl real: bit<32>[1024];
-decl img: bit<32>[1024];
-decl real_twid: bit<32>[512];
-decl img_twid: bit<32>[512];
-decl mod_number: bit<32>;
-decl root: bit<32>;
-decl powers:bit<32>[512];
+decl real: ubit<32>[1024];
+decl img: ubit<32>[1024];
+decl real_twid: ubit<32>[512];
+decl img_twid: ubit<32>[512];
+decl mod_number: ubit<32>;
+decl root: ubit<32>;
+decl powers: ubit<32>[512];
 
-let span:bit<32> = 1024 >> 1;
-let log:bit<32> = 0;
+let span: ubit<32> = 512;
+let log: ubit<32> = 0;
 
-let pow: bit<32> = 1;
-let i: bit<32> = 0;
+let pow: ubit<32> = 1;
+let i: ubit<32> = 0;
 
 while (i != 512) {
   powers[i] := pow;
