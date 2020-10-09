@@ -1,0 +1,55 @@
+decl real: bit<32>[1024];
+decl img: bit<32>[1024];
+decl real_twid: bit<32>[512];
+decl img_twid: bit<32>[512];
+decl mod_number: bit<32>;
+decl root: bit<32>;
+decl powers:bit<32>[512];
+
+let span:bit<32> = 1024 >> 1;
+let log:bit<32> = 0;
+
+let pow = 1;
+let i = 0;
+
+while(i != 512) {
+  powers[i] = pow;
+  pow := pow * root % mod_number;
+  i := i + 1;
+}
+
+while (span != 0) {
+  let odd = span;
+  while (odd < 1024) {
+    // based on baseline software, but check for rewrites
+    decor "#pragma HLS loop_tripcount avg=512"
+    odd := odd | span;
+    let even = odd ^ span;
+    let real_odd = real[odd];
+    let img_odd = img[odd];
+    ---
+    let real_even = real[even];
+    let img_even = img[even];
+    let temp_r = real_even + real_odd;
+    let temp_i = img_even + img_odd;
+    ---
+    real[odd] := real_even - real_odd;
+    img[odd] := img_even - img_odd;
+    ---
+    real[even] := temp_r;
+    img[even] := temp_i;
+    let rootindex = (even << log) & (1024 - 1);
+    ---
+    if (rootindex != 0) {
+      img_odd = img[odd] * powers[rootindex] % mod_number
+      let temp = (real_twid[rootindex] * real[odd] - img_twid[rootindex] * img_odd + mod_number) % mod_number;
+      ---
+      img[odd] := (real_twid[rootindex] * img_odd + img_twid[rootindex] * real[odd]) % mod_number;
+      ---
+      real[odd] := temp;
+    }
+    odd := odd + 1;
+  }
+  span := span >> 1;
+  log := log + 1;
+}
