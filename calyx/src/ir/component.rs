@@ -1,12 +1,9 @@
+use super::{Control, Guard, RRC, WRC};
 use crate::lang::ast::Id;
-use super::{control::Control};
 use derivative::Derivative;
-use std::collections::HashMap;
-use std::rc::{Weak, Rc};
 use std::cell::RefCell;
-
-pub type WRC<T> = Weak<RefCell<T>>;
-pub type RRC<T> = Rc<RefCell<T>>;
+use std::collections::HashMap;
+use std::rc::{Rc, Weak};
 
 /// Direction of a port on a cell.
 pub enum Direction {
@@ -45,12 +42,6 @@ pub struct Cell {
     pub ports: Vec<RRC<Port>>,
     /// Underlying type for this cell
     pub prototype: CellType,
-}
-
-/// A guard which has pointers to the various ports from which it reads.
-pub struct Guard {
-    // TODO
-    val: RRC<Port>,
 }
 
 /// Represents a guarded assignment in the program

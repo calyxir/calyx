@@ -1,7 +1,5 @@
+use super::{Group, Port};
 use crate::lang::ast::Id;
-use super::{
-    component::{Group, Port},
-};
 
 /// Data for the `seq` control statement.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]

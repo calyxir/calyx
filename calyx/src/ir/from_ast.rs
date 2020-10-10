@@ -1,7 +1,5 @@
-use super::component::{
-    Assignment, Cell, CellType, Component, Direction, Group, Guard, Port, RRC,
-    WRC,
-};
+use super::{Assignment, Cell, CellType, Component, Direction, Group, Port};
+use super::{Guard, RRC, WRC};
 use crate::{
     errors::{Error, Result},
     lang::ast,
@@ -40,13 +38,15 @@ fn into_component<'a>(comp: ast::ComponentDef) -> Result<Component<'a>> {
         .collect::<Result<Vec<_>>>()?;
 
     // Build Groups and Assignments using Connections.
-    let (mut groups, mut continuous_assigns) = (vec![], vec![]);
+    let (mut ast_groups, mut continuous_assigns) = (vec![], vec![]);
     for conn in comp.connections.into_iter() {
         match conn {
-            ast::Connection::Group(g) => groups.push(g),
+            ast::Connection::Group(g) => ast_groups.push(g),
             ast::Connection::Wire(w) => continuous_assigns.push(w),
         }
     }
+
+    let groups = ast_groups.into_iter().map(|g| build_group(g, &mut ctx));
 
     // Build the Control ast using ast::Control.
     unimplemented!()
@@ -168,8 +168,17 @@ fn build_constant(
     Ok(cell)
 }
 
+/// Build an IR group using the AST Group.
 fn build_group(group: ast::Group, ctx: &mut TransformCtx) -> Result<Group> {
-    unimplemented!()
+    let assigns = group
+        .wires
+        .into_iter()
+        .map(|w| build_assignment(w, ctx))
+        .collect::<Result<Vec<_>>>()?;
+    Ok(Group {
+        name: group.name,
+        assignments: assigns,
+    })
 }
 
 fn get_port(port: ast::Port, ctx: &TransformCtx) -> Result<RRC<Port>> {
@@ -194,6 +203,10 @@ fn get_port(port: ast::Port, ctx: &TransformCtx) -> Result<RRC<Port>> {
     ))
 }
 
+/// Get an port using an ast::Atom.
+/// If the atom is a number and the context doesn't already contain a cell
+/// for this constant, instantiate the constant node and get the "out" port
+/// from it.
 fn atom_to_port(atom: ast::Atom, ctx: &mut TransformCtx) -> Result<RRC<Port>> {
     match atom {
         ast::Atom::Num(n) => {
