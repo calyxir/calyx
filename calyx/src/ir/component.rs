@@ -2,7 +2,11 @@ use crate::lang::ast::Id;
 use super::{control::Control};
 use derivative::Derivative;
 use std::collections::HashMap;
-use std::rc::Weak;
+use std::rc::{Weak, Rc};
+use std::cell::RefCell;
+
+pub type WRC<T> = Weak<RefCell<T>>;
+pub type RRC<T> = Rc<RefCell<T>>;
 
 /// Direction of a port on a cell.
 pub enum Direction {
@@ -19,7 +23,7 @@ pub struct Port {
     /// Direction of the port
     pub direction: Direction,
     /// Weak pointer to this port's parent
-    pub cell: Weak<Cell>,
+    pub cell: WRC<Cell>,
 }
 
 /// The type for a Cell
@@ -30,41 +34,43 @@ pub enum CellType {
     Component,
     /// This cell represents the current component
     ThisComponent,
+    /// Cell representing a Constant
+    Constant,
 }
 
 /// Represents an instantiated cell.
 // XXX(rachit): Each port should probably have a weak pointer to its parent.
 pub struct Cell {
     /// Ports on this cell
-    pub ports: Vec<Port>,
+    pub ports: Vec<RRC<Port>>,
     /// Underlying type for this cell
     pub prototype: CellType,
 }
 
 /// A guard which has pointers to the various ports from which it reads.
-pub struct Guard<'a> {
+pub struct Guard {
     // TODO
-    val: &'a Port,
+    val: RRC<Port>,
 }
 
 /// Represents a guarded assignment in the program
-pub struct Assignment<'a> {
+pub struct Assignment {
     /// The destination for the assignment.
-    dst: &'a Port,
+    pub dst: RRC<Port>,
 
     /// The source for the assignment.
-    src: &'a Port,
+    pub src: RRC<Port>,
 
     /// The guard for this assignment.
-    guard: Guard<'a>,
+    pub guard: Option<Guard>,
 }
 
-pub struct Group<'a> {
+pub struct Group {
     /// Name of this group
     pub name: Id,
 
     /// The assignments used in this group
-    pub assignments: Vec<Assignment<'a>>,
+    pub assignments: Vec<Assignment>,
 }
 
 /// In memory representation of a Component.
@@ -78,7 +84,7 @@ pub struct Component<'a> {
     pub cells: Vec<Cell>,
     ///// Groups of assignment wires.
     ///// Maps the name of a group to the assignments in it.
-    pub groups: Vec<Group<'a>>,
+    pub groups: Vec<Group>,
     ///// The set of "continuous assignments", i.e., assignments that are always
     ///// active.
     //pub continuous_assignments: Vec<Assignment>,

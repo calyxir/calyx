@@ -50,7 +50,7 @@ pub struct While<'a> {
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Enable<'a> {
     /// List of components to run.
-    pub comp: &'a Group<'a>,
+    pub comp: &'a Group,
 }
 
 /// Data for the `empty` control statement.
