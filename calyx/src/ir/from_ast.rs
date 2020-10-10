@@ -266,15 +266,9 @@ fn build_group(
     group: ast::Group,
     ctx: &mut TransformCtx,
 ) -> Result<RRC<Group>> {
-    let assigns = group
-        .wires
-        .into_iter()
-        .map(|w| build_assignment(w, ctx))
-        .collect::<Result<Vec<_>>>()?;
-
     let ir_group = Rc::new(RefCell::new(Group {
         name: group.name.clone(),
-        assignments: assigns,
+        assignments: vec![],
         holes: vec![],
     }));
 
@@ -289,8 +283,18 @@ fn build_group(
         ir_group.borrow_mut().holes.push(hole);
     }
 
-    // Add this group to the group map.
+    // Add this group to the group map. We need to do this before constructing
+    // the assignments since an assignments might use this group's holes.
     ctx.group_map.insert(group.name, Rc::clone(&ir_group));
+
+    // Add assignemnts to the group
+    for wire in group.wires {
+        let assign = build_assignment(wire, ctx)?;
+        ir_group
+            .borrow_mut()
+            .assignments
+            .push(assign)
+    }
 
     Ok(ir_group)
 }
