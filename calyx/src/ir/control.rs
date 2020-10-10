@@ -1,5 +1,4 @@
 use super::{Group, Port, RRC};
-use crate::lang::ast::Id;
 
 /// Data for the `seq` control statement.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]

@@ -1,9 +1,5 @@
 use super::{Control, Guard, RRC, WRC};
 use crate::lang::ast::Id;
-use derivative::Derivative;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::{Rc, Weak};
 
 /// Direction of a port on a cell.
 pub enum Direction {
@@ -38,6 +34,8 @@ pub enum CellType {
 /// Represents an instantiated cell.
 // XXX(rachit): Each port should probably have a weak pointer to its parent.
 pub struct Cell {
+    /// Name of this cell.
+    pub name: Id,
     /// Ports on this cell
     pub ports: Vec<RRC<Port>>,
     /// Underlying type for this cell
@@ -69,13 +67,13 @@ pub struct Group {
 pub struct Component {
     /// Name of the component.
     pub name: Id,
-    ///// The input/output signature of this component.
-    pub signature: Cell,
+    /// The input/output signature of this component.
+    pub signature: RRC<Cell>,
     /// The cells instantiated for this component.
-    pub cells: Vec<Cell>,
+    pub cells: Vec<RRC<Cell>>,
     ///// Groups of assignment wires.
     ///// Maps the name of a group to the assignments in it.
-    pub groups: Vec<Group>,
+    pub groups: Vec<RRC<Group>>,
     ///// The set of "continuous assignments", i.e., assignments that are always
     ///// active.
     //pub continuous_assignments: Vec<Assignment>,
