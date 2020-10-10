@@ -1,5 +1,7 @@
-use super::{Assignment, Cell, CellType, Component, Direction, Group, Port};
-use super::{Guard, RRC, WRC};
+use super::{
+    Assignment, Cell, CellType, Component, Control, Direction, Empty, Enable,
+    Group, Guard, Par, Port, Seq, While, RRC, WRC,
+};
 use crate::{
     errors::{Error, Result},
     lang::ast,
@@ -19,14 +21,17 @@ struct TransformCtx {
 
     /// Mapping from Id to Cells
     cell_map: HashMap<ast::Id, RRC<Cell>>,
+
+    /// Mapping from Id to Groups
+    group_map: HashMap<ast::Id, RRC<Group>>,
 }
 
-pub fn ast_to_ir<'a>(namespace: ast::NamespaceDef) -> Result<Component<'a>> {
+pub fn ast_to_ir<'a>(namespace: ast::NamespaceDef) -> Result<Component> {
     unimplemented!()
 }
 
 /// Build an `ir::component::Component` using an `lang::ast::ComponentDef`.
-fn into_component<'a>(comp: ast::ComponentDef) -> Result<Component<'a>> {
+fn build_component<'a>(comp: ast::ComponentDef) -> Result<Component> {
     let mut ctx = TransformCtx::default();
 
     // For each ast::Cell, build an Cell that contains all the
@@ -51,6 +56,8 @@ fn into_component<'a>(comp: ast::ComponentDef) -> Result<Component<'a>> {
     // Build the Control ast using ast::Control.
     unimplemented!()
 }
+
+///////////////// Cell Construction /////////////////////////
 
 fn build_cell(cell: ast::Cell, ctx: &mut TransformCtx) -> Result<RRC<Cell>> {
     // Get the name, inputs, and outputs.
@@ -168,6 +175,8 @@ fn build_constant(
     Ok(cell)
 }
 
+///////////////// Wires Construction /////////////////////////
+
 /// Build an IR group using the AST Group.
 fn build_group(group: ast::Group, ctx: &mut TransformCtx) -> Result<Group> {
     let assigns = group
@@ -181,7 +190,8 @@ fn build_group(group: ast::Group, ctx: &mut TransformCtx) -> Result<Group> {
     })
 }
 
-fn get_port(port: ast::Port, ctx: &TransformCtx) -> Result<RRC<Port>> {
+/// Get the pointer to the Port represented by `port`.
+fn get_port_ref(port: ast::Port, ctx: &TransformCtx) -> Result<RRC<Port>> {
     let (comp, port) = match port {
         ast::Port::Comp { component, port } => (component, port),
         ast::Port::This { port } => ("this".into(), port),
@@ -228,16 +238,18 @@ fn atom_to_port(atom: ast::Atom, ctx: &mut TransformCtx) -> Result<RRC<Port>> {
 
             Ok(Rc::clone(&port))
         }
-        ast::Atom::Port(p) => get_port(p, ctx),
+        ast::Atom::Port(p) => get_port_ref(p, ctx),
     }
 }
 
+/// Build an ir::Assignment from ast::Wire.
+/// The Assignment contains pointers to the relevant ports.
 fn build_assignment(
     wire: ast::Wire,
     ctx: &mut TransformCtx,
 ) -> Result<Assignment> {
     let src_port: RRC<Port> = atom_to_port(wire.src.expr, ctx)?;
-    let dst_port: RRC<Port> = get_port(wire.dest, ctx)?;
+    let dst_port: RRC<Port> = get_port_ref(wire.dest, ctx)?;
     let guard = match wire.src.guard {
         Some(g) => Some(build_guard(g, ctx)?),
         None => None,
@@ -250,6 +262,7 @@ fn build_assignment(
     })
 }
 
+/// Transform an ast::GuardExpr to an ir::Guard.
 fn build_guard(guard: ast::GuardExpr, ctx: &mut TransformCtx) -> Result<Guard> {
     use ast::GuardExpr as GE;
 
@@ -288,5 +301,69 @@ fn build_guard(guard: ast::GuardExpr, ctx: &mut TransformCtx) -> Result<Guard> {
             Guard::Leq(into_box_guard(l, ctx)?, into_box_guard(r, ctx)?)
         }
         GE::Not(g) => Guard::Not(into_box_guard(g, ctx)?),
+    })
+}
+
+///////////////// Control Construction /////////////////////////
+
+/// Transform ast::Control to ir::Control.
+fn build_control(control: ast::Control, ctx: &TransformCtx) -> Result<Control> {
+    Ok(match control {
+        ast::Control::Enable {
+            data: ast::Enable { comp },
+        } => Control::enable(Rc::clone(
+            ctx.group_map
+                .get(&comp)
+                .ok_or_else(|| Error::UndefinedGroup(comp.clone()))?,
+        )),
+        ast::Control::Seq {
+            data: ast::Seq { stmts },
+        } => Control::seq(
+            stmts
+                .into_iter()
+                .map(|c| build_control(c, ctx))
+                .collect::<Result<Vec<_>>>()?,
+        ),
+        ast::Control::Par {
+            data: ast::Par { stmts },
+        } => Control::par(
+            stmts
+                .into_iter()
+                .map(|c| build_control(c, ctx))
+                .collect::<Result<Vec<_>>>()?,
+        ),
+        ast::Control::If {
+            data:
+                ast::If {
+                    port,
+                    cond,
+                    tbranch,
+                    fbranch,
+                },
+        } => Control::if_(
+            get_port_ref(port, ctx)?,
+            Rc::clone(
+                ctx.group_map
+                    .get(&cond)
+                    .ok_or_else(|| Error::UndefinedGroup(cond.clone()))?,
+            ),
+            Box::new(build_control(*tbranch, ctx)?),
+            Box::new(build_control(*fbranch, ctx)?),
+        ),
+        ast::Control::While {
+            data: ast::While { port, cond, body },
+        } => Control::while_(
+            get_port_ref(port, ctx)?,
+            Rc::clone(
+                ctx.group_map
+                    .get(&cond)
+                    .ok_or_else(|| Error::UndefinedGroup(cond.clone()))?,
+            ),
+            Box::new(build_control(*body, ctx)?),
+        ),
+        ast::Control::Empty { .. } => Control::empty(),
+        ast::Control::Print { .. } => {
+            unreachable!("Print statements are not supported by the IR.")
+        }
     })
 }

@@ -66,7 +66,7 @@ pub struct Group {
 
 /// In memory representation of a Component.
 //#[derive(Debug, Clone)]
-pub struct Component<'a> {
+pub struct Component {
     /// Name of the component.
     pub name: Id,
     ///// The input/output signature of this component.
@@ -80,5 +80,5 @@ pub struct Component<'a> {
     ///// active.
     //pub continuous_assignments: Vec<Assignment>,
     ///// The control program for this component.
-    pub control: Control<'a>,
+    pub control: Control,
 }

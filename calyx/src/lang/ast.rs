@@ -680,7 +680,7 @@ pub struct Print {
 /// Data for the `enable` control statement.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Enable {
-    /// List of components to run.
+    /// Group to be enabled
     pub comp: Id,
 }
 

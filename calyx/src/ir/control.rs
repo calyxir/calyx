@@ -1,54 +1,54 @@
-use super::{Group, Port};
+use super::{Group, Port, RRC};
 use crate::lang::ast::Id;
 
 /// Data for the `seq` control statement.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Seq<'a> {
+pub struct Seq {
     /// List of `Control` statements to run in sequence.
-    pub stmts: Vec<Control<'a>>,
+    pub stmts: Vec<Control>,
 }
 
 /// Data for the `par` control statement.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Par<'a> {
+pub struct Par {
     /// List of `Control` statements to run in parallel.
-    pub stmts: Vec<Control<'a>>,
+    pub stmts: Vec<Control>,
 }
 
 /// Data for the `if` control statement.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct If<'a> {
+pub struct If {
     /// Port that connects the conditional check.
-    pub port: &'a Port,
+    pub port: RRC<Port>,
 
-    /// Modules that need to be enabled to send signal on `port`.
-    pub cond: Id,
-
-    /// Control for the true branch.
-    pub tbranch: Box<Control<'a>>,
+    /// Group that makes the signal on the conditional port valid.
+    pub group: RRC<Group>,
 
     /// Control for the true branch.
-    pub fbranch: Box<Control<'a>>,
+    pub tbranch: Box<Control>,
+
+    /// Control for the true branch.
+    pub fbranch: Box<Control>,
 }
 
 /// Data for the `if` control statement.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct While<'a> {
+pub struct While {
     /// Port that connects the conditional check.
-    pub port: &'a Port,
+    pub port: RRC<Port>,
 
-    /// Modules that need to be enabled to send signal on `port`.
-    pub cond: Id,
+    /// Group that makes the signal on the conditional port valid.
+    pub group: RRC<Group>,
 
     /// Control for the loop body.
-    pub body: Box<Control<'a>>,
+    pub body: Box<Control>,
 }
 
 /// Data for the `enable` control statement.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Enable<'a> {
+pub struct Enable {
     /// List of components to run.
-    pub comp: &'a Group,
+    pub group: RRC<Group>,
 }
 
 /// Data for the `empty` control statement.
@@ -57,17 +57,63 @@ pub struct Empty {}
 
 /// Control AST nodes.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum Control<'a> {
+pub enum Control {
     /// Represents sequential composition of control statements.
-    Seq { data: Seq<'a> },
+    Seq(Seq),
     /// Represents parallel composition of control statements.
-    Par { data: Par<'a> },
+    Par(Par),
     /// Standard imperative if statement
-    If { data: If<'a> },
+    If(If),
     /// Standard imperative while statement
-    While { data: While<'a> },
+    While(While),
     /// Runs the control for a list of subcomponents.
-    Enable { data: Enable<'a> },
+    Enable(Enable),
     /// Control statement that does nothing.
-    Empty { data: Empty },
+    Empty(Empty),
+}
+
+impl Control {
+    /// Convience constructor for empty.
+    pub fn empty() -> Self {
+        Control::Empty(Empty {})
+    }
+
+    /// Convience constructor for seq.
+    pub fn seq(stmts: Vec<Control>) -> Self {
+        Control::Seq(Seq { stmts })
+    }
+
+    /// Convience constructor for par.
+    pub fn par(stmts: Vec<Control>) -> Self {
+        Control::Par(Par { stmts })
+    }
+
+    /// Convience constructor for par.
+    pub fn enable(group: RRC<Group>) -> Self {
+        Control::Enable(Enable { group })
+    }
+
+    /// Convience constructor for if
+    pub fn if_(
+        port: RRC<Port>,
+        group: RRC<Group>,
+        tbranch: Box<Control>,
+        fbranch: Box<Control>,
+    ) -> Self {
+        Control::If(If {
+            port,
+            group,
+            tbranch,
+            fbranch,
+        })
+    }
+
+    /// Convience constructor for while
+    pub fn while_(
+        port: RRC<Port>,
+        group: RRC<Group>,
+        body: Box<Control>,
+    ) -> Self {
+        Control::While(While { port, group, body })
+    }
 }
