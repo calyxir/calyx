@@ -3,20 +3,30 @@ use crate::lang::ast::Id;
 
 /// Direction of a port on a cell.
 pub enum Direction {
+    /// Input port.
     Input,
+    /// Output port.
     Output,
+    /// Input-Output "port". Should only be used by holes.
+    Inout,
+}
+
+/// Ports can come from Cells or Groups
+pub enum PortParent {
+    Cell(WRC<Cell>),
+    Group(WRC<Group>),
 }
 
 /// Represents a port on a cell.
 pub struct Port {
     /// Name of the port
-    pub id: Id,
+    pub name: Id,
     /// Width of the port
     pub width: u64,
     /// Direction of the port
     pub direction: Direction,
     /// Weak pointer to this port's parent
-    pub cell: WRC<Cell>,
+    pub parent: PortParent,
 }
 
 /// The type for a Cell
@@ -60,6 +70,9 @@ pub struct Group {
 
     /// The assignments used in this group
     pub assignments: Vec<Assignment>,
+
+    /// Holes for this group
+    pub holes: Vec<RRC<Port>>
 }
 
 /// In memory representation of a Component.

@@ -1,6 +1,6 @@
 use super::{
     Assignment, Cell, CellType, Component, Control, Direction, Group, Guard,
-    Port, RRC
+    Port, PortParent, RRC,
 };
 use crate::{
     errors::{Error, Result},
@@ -146,19 +146,19 @@ fn cell_from_signature(
     // Construct ports
     for (name, width) in inputs {
         let port = Rc::new(RefCell::new(Port {
-            id: name,
-            width: width,
+            name,
+            width,
             direction: Direction::Input,
-            cell: Rc::downgrade(&cell),
+            parent: PortParent::Cell(Rc::downgrade(&cell)),
         }));
         cell.borrow_mut().ports.push(port);
     }
     for (name, width) in outputs {
         let port = Rc::new(RefCell::new(Port {
-            id: name,
-            width: width,
+            name,
+            width,
             direction: Direction::Output,
-            cell: Rc::downgrade(&cell),
+            parent: PortParent::Cell(Rc::downgrade(&cell)),
         }));
         cell.borrow_mut().ports.push(port);
     }
@@ -259,7 +259,7 @@ fn build_constant(
     Ok(cell)
 }
 
-///////////////// Wires Construction /////////////////////////
+///////////////// Group Construction /////////////////////////
 
 /// Build an IR group using the AST Group.
 fn build_group(
@@ -275,7 +275,19 @@ fn build_group(
     let ir_group = Rc::new(RefCell::new(Group {
         name: group.name.clone(),
         assignments: assigns,
+        holes: vec![],
     }));
+
+    // Add default holes to this Group
+    for (name, width) in vec![("go", 1), ("done", 1)] {
+        let hole = Rc::new(RefCell::new(Port {
+            name: name.into(),
+            width,
+            direction: Direction::Inout,
+            parent: PortParent::Group(Rc::downgrade(&ir_group)),
+        }));
+        ir_group.borrow_mut().holes.push(hole);
+    }
 
     // Add this group to the group map.
     ctx.group_map.insert(group.name, Rc::clone(&ir_group));
@@ -283,27 +295,45 @@ fn build_group(
     Ok(ir_group)
 }
 
+///////////////// Assignment Construction /////////////////////////
+
 /// Get the pointer to the Port represented by `port`.
 fn get_port_ref(port: ast::Port, ctx: &TransformCtx) -> Result<RRC<Port>> {
-    let (comp, port) = match port {
-        ast::Port::Comp { component, port } => (component, port),
-        ast::Port::This { port } => (THIS_ID.into(), port),
-        ast::Port::Hole { .. } => unimplemented!(),
-    };
-    let cell = ctx
-        .cell_map
-        .get(&comp)
-        .ok_or_else(|| Error::UndefinedComponent(comp.clone()))?;
-
-    Ok(Rc::clone(
-        cell.borrow()
-            .ports
+    let find_and_clone_port = |comp: &ast::Id,
+                               port_name: ast::Id,
+                               all_ports: &[RRC<Port>]|
+     -> Result<RRC<Port>> {
+        all_ports
             .iter()
-            .find(|p| p.borrow().id == port)
+            .find(|p| p.borrow().name == port_name)
+            .map(|p| Rc::clone(p))
             .ok_or_else(|| {
-                Error::UndefinedPort(comp.clone(), port.to_string())
-            })?,
-    ))
+                Error::UndefinedPort(comp.clone(), port_name.to_string())
+            })
+    };
+
+    match port {
+        ast::Port::Comp { component, port } => {
+            let cell = ctx
+                .cell_map
+                .get(&component)
+                .ok_or_else(|| Error::UndefinedComponent(component.clone()))?
+                .borrow();
+            find_and_clone_port(&component, port, &cell.ports)
+        }
+        ast::Port::This { port } => {
+            let cell = ctx.cell_map.get(&THIS_ID.into()).unwrap().borrow();
+            find_and_clone_port(&THIS_ID.into(), port, &cell.ports)
+        }
+        ast::Port::Hole { group, name } => {
+            let group_ref = ctx
+                .group_map
+                .get(&group)
+                .ok_or_else(|| Error::UndefinedGroup(group.clone()))?
+                .borrow();
+            find_and_clone_port(&group, name, &group_ref.holes)
+        }
+    }
 }
 
 /// Get an port using an ast::Atom.
@@ -326,7 +356,7 @@ fn atom_to_port(atom: ast::Atom, ctx: &mut TransformCtx) -> Result<RRC<Port>> {
             let port = borrowed_cell
                 .ports
                 .iter()
-                .find(|p| p.borrow().id == port_name)
+                .find(|p| p.borrow().name == port_name)
                 .expect("Constant doesn't have the out port.");
 
             Ok(Rc::clone(&port))
