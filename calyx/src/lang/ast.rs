@@ -278,6 +278,8 @@ pub enum Atom {
 /// The AST for GuardExprs
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum GuardExpr {
+    // TODO(rachit): Go back to the simpler, two children AST representation.
+    // Use the IR to merge And nodes.
     And(Vec<GuardExpr>),
     Or(Vec<GuardExpr>),
     Eq(Box<GuardExpr>, Box<GuardExpr>),

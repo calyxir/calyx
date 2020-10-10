@@ -250,6 +250,43 @@ fn build_assignment(
     })
 }
 
-fn build_guard(guard: ast::GuardExpr, ctx: &TransformCtx) -> Result<Guard> {
-    unimplemented!()
+fn build_guard(guard: ast::GuardExpr, ctx: &mut TransformCtx) -> Result<Guard> {
+    use ast::GuardExpr as GE;
+
+    let into_box_guard = |g: Box<GE>, ctx: &mut TransformCtx| -> Result<_> {
+        Ok(Box::new(build_guard(*g, ctx)?))
+    };
+
+    Ok(match guard {
+        GE::Atom(atom) => Guard::Port(atom_to_port(atom, ctx)?),
+        GE::And(gs) => Guard::And(
+            gs.into_iter()
+                .map(|g| into_box_guard(Box::new(g), ctx).map(|b| *b))
+                .collect::<Result<Vec<_>>>()?,
+        ),
+        GE::Or(gs) => Guard::Or(
+            gs.into_iter()
+                .map(|g| into_box_guard(Box::new(g), ctx).map(|b| *b))
+                .collect::<Result<Vec<_>>>()?,
+        ),
+        GE::Eq(l, r) => {
+            Guard::Eq(into_box_guard(l, ctx)?, into_box_guard(r, ctx)?)
+        }
+        GE::Neq(l, r) => {
+            Guard::Neq(into_box_guard(l, ctx)?, into_box_guard(r, ctx)?)
+        }
+        GE::Gt(l, r) => {
+            Guard::Gt(into_box_guard(l, ctx)?, into_box_guard(r, ctx)?)
+        }
+        GE::Lt(l, r) => {
+            Guard::Lt(into_box_guard(l, ctx)?, into_box_guard(r, ctx)?)
+        }
+        GE::Geq(l, r) => {
+            Guard::Geq(into_box_guard(l, ctx)?, into_box_guard(r, ctx)?)
+        }
+        GE::Leq(l, r) => {
+            Guard::Leq(into_box_guard(l, ctx)?, into_box_guard(r, ctx)?)
+        }
+        GE::Not(g) => Guard::Not(into_box_guard(g, ctx)?),
+    })
 }
