@@ -1,5 +1,5 @@
-use std::rc::{Rc, Weak};
 use std::cell::RefCell;
+use std::rc::{Rc, Weak};
 
 /// Alias for a RefCell contained in a Weak reference.
 pub type WRC<T> = Weak<RefCell<T>>;

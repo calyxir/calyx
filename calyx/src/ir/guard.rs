@@ -1,4 +1,4 @@
-use super::{RRC, Port};
+use super::{Port, RRC};
 
 /// An assignment guard which has pointers to the various ports from which it reads.
 pub enum Guard {
@@ -16,8 +16,6 @@ pub enum Guard {
 
 /// Helper functions for the guard.
 impl Guard {
-
     // TODO(rachit): Implement a tree walking function.
     // fn for_each
-
 }

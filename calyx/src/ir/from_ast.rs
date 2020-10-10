@@ -290,10 +290,7 @@ fn build_group(
     // Add assignemnts to the group
     for wire in group.wires {
         let assign = build_assignment(wire, ctx)?;
-        ir_group
-            .borrow_mut()
-            .assignments
-            .push(assign)
+        ir_group.borrow_mut().assignments.push(assign)
     }
 
     Ok(ir_group)

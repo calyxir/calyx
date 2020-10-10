@@ -72,7 +72,7 @@ pub struct Group {
     pub assignments: Vec<Assignment>,
 
     /// Holes for this group
-    pub holes: Vec<RRC<Port>>
+    pub holes: Vec<RRC<Port>>,
 }
 
 /// In memory representation of a Component.
