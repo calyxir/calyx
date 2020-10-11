@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-const THIS_ID: &'static str = "this";
+const THIS_ID: &str = "this";
 
 /// Context to store the signature information for all defined primitives and
 /// components.
@@ -151,7 +151,7 @@ fn cell_from_signature(
     outputs: Vec<(ast::Id, u64)>,
 ) -> RRC<Cell> {
     let cell = Rc::new(RefCell::new(Cell {
-        name: name.clone(),
+        name,
         ports: vec![],
         prototype: typ,
     }));
@@ -401,7 +401,7 @@ fn build_assignment(
     Ok(Assignment {
         dst: dst_port,
         src: src_port,
-        guard: guard,
+        guard,
     })
 }
 

@@ -93,9 +93,14 @@ impl Visitor for WellFormed {
     }
 
     fn finish(&mut self, _comp: &mut Component) -> VisResult {
-        for group in self.all_groups.difference(&self.used_groups) {
-            return Err(Error::UnusedGroup(group.clone()));
+        let unused_group = self
+            .all_groups
+            .difference(&self.used_groups)
+            .into_iter()
+            .next();
+        match unused_group {
+            Some(group) => Err(Error::UnusedGroup(group.clone())),
+            None => Ok(Action::Continue),
         }
-        Ok(Action::Continue)
     }
 }
