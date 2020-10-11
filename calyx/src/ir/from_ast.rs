@@ -105,17 +105,22 @@ fn build_component(
 
     // Build Groups and Assignments using Connections.
     // TODO(rachit): The continuous assignments are ignored.
-    let (mut ast_groups, mut continuous_assigns) = (vec![], vec![]);
+    let (mut ast_groups, mut continuous) = (vec![], vec![]);
     for conn in comp.connections.into_iter() {
         match conn {
             ast::Connection::Group(g) => ast_groups.push(g),
-            ast::Connection::Wire(w) => continuous_assigns.push(w),
+            ast::Connection::Wire(w) => continuous.push(w),
         }
     }
 
     let groups = ast_groups
         .into_iter()
         .map(|g| build_group(g, &mut ctx))
+        .collect::<FutilResult<Vec<_>>>()?;
+
+    let continuous_assignments = continuous
+        .into_iter()
+        .map(|w| build_assignment(w, &mut ctx))
         .collect::<FutilResult<Vec<_>>>()?;
 
     // Build the Control ast using ast::Control.
@@ -126,6 +131,7 @@ fn build_component(
         signature,
         cells,
         groups,
+        continuous_assignments,
         control,
     })
 }
