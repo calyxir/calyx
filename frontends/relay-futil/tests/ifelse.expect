@@ -14,7 +14,7 @@ component main() -> () {
   wires {
     group group10 {
       ret.in = res9.out;
-      ret.write_en = group10[go] ? 1'd1;
+      ret.write_en = 1'd1;
       group10[done] = ret.done;
     }
     group cond5 {
