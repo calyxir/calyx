@@ -22,7 +22,8 @@ def tensor_add():
     """Add together two 1-dimensional tensors in Relay.
     """
     x = relay.var("x", relay.TensorType((1, 4), "int32"))
-    return relay.Function([x],  relay.add(x, x))
+    y = relay.var("y", relay.TensorType((1, 4), "int32"))
+    return relay.Function([x, y], relay.add(x, y))
 
 def add():
     """Add together two constants in Relay.
