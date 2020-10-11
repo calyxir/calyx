@@ -32,7 +32,7 @@ pub trait ASTBuilder {
         name_prefix: S,
         prim: S,
         params: &[u64],
-    ) -> errors::Result<Self::ComponentHandle>;
+    ) -> errors::FutilResult<Self::ComponentHandle>;
 
     /// Create a new constant with value `val` and width `width` and add
     /// it to the structure graph. All numbers are represented using
@@ -44,7 +44,7 @@ pub trait ASTBuilder {
         &mut self,
         val: u64,
         width: u64,
-    ) -> errors::Result<(Self::ComponentHandle, Self::PortRep)>;
+    ) -> errors::FutilResult<(Self::ComponentHandle, Self::PortRep)>;
 
     /// Given a `component` and a `port_name`, return the PortRep for the
     /// port on the component if it exsits.
@@ -52,7 +52,7 @@ pub trait ASTBuilder {
         &self,
         component: Self::ComponentHandle,
         port_name: S,
-    ) -> errors::Result<&Self::PortRep>;
+    ) -> errors::FutilResult<&Self::PortRep>;
 
     /// Transform a (ComponentHandle, PortRep) pair into an ast::Guard to be
     /// used for guard conditions.
@@ -82,7 +82,7 @@ impl ASTBuilder for StructureGraph {
         name_prefix: S,
         prim: S,
         params: &[u64],
-    ) -> errors::Result<NodeIndex> {
+    ) -> errors::FutilResult<NodeIndex> {
         let prim_name = self.namegen.gen_name(name_prefix.as_ref());
         let prim_comp = ctx.instantiate_primitive(
             prim_name.clone(),
@@ -101,7 +101,7 @@ impl ASTBuilder for StructureGraph {
         &mut self,
         val: u64,
         width: u64,
-    ) -> errors::Result<(NodeIndex, ast::Id)> {
+    ) -> errors::FutilResult<(NodeIndex, ast::Id)> {
         self.new_constant(val, width)
     }
 
@@ -109,7 +109,7 @@ impl ASTBuilder for StructureGraph {
         &self,
         component: NodeIndex,
         port: S,
-    ) -> errors::Result<&ast::Id> {
+    ) -> errors::FutilResult<&ast::Id> {
         let node = self.get_node(component);
         node.find_port(&port).ok_or_else(|| {
             errors::Error::UndefinedPort(

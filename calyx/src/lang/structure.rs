@@ -7,7 +7,7 @@ use crate::{
 };
 use ast::{Atom, BitNum, Cell, Connection, Group, Port, Wire};
 use component::Component;
-use errors::{Error, Extract, Result};
+use errors::{Error, Extract, FutilResult};
 use itertools::Itertools;
 use petgraph::{
     graph::{EdgeIndex, NodeIndex},
@@ -66,7 +66,7 @@ impl Iterator for PortIter {
 }
 
 impl Node {
-    pub fn get_component_type(&self) -> Result<&ast::Id> {
+    pub fn get_component_type(&self) -> FutilResult<&ast::Id> {
         match &self.data {
             NodeData::ThisPort | NodeData::Constant(_) | NodeData::Hole(_) => {
                 Err(errors::Error::NotSubcomponent)
@@ -235,7 +235,7 @@ impl StructureGraph {
         connections: Vec<ast::Connection>,
         comp_sigs: &HashMap<ast::Id, ast::Signature>,
         prim_sigs: &HashMap<ast::Id, ast::Signature>,
-    ) -> Result<Self> {
+    ) -> FutilResult<Self> {
         let mut structure = StructureGraph::default();
 
         structure.add_signature(signature);
@@ -420,7 +420,7 @@ impl StructureGraph {
         &mut self,
         val: u64,
         width: u64,
-    ) -> errors::Result<(NodeIndex, ast::Id)> {
+    ) -> errors::FutilResult<(NodeIndex, ast::Id)> {
         let key = &(val, width);
         let port = ast::Id::new("out", None);
         if self.constants.contains_key(&key) {
@@ -460,7 +460,7 @@ impl StructureGraph {
         &mut self,
         name: &ast::Id,
         attrs: Attributes,
-    ) -> Result<NodeIndex> {
+    ) -> FutilResult<NodeIndex> {
         let key = Some(name.clone());
         if self.groups.contains_key(&key) {
             return Err(errors::Error::DuplicateGroup(name.clone()));
@@ -488,7 +488,7 @@ impl StructureGraph {
         (dest_node, dest_port): (NodeIndex, ast::Id),
         group: Option<ast::Id>,
         guard: Option<ast::GuardExpr>,
-    ) -> Result<EdgeIndex> {
+    ) -> FutilResult<EdgeIndex> {
         // If the group is not defined, error out.
         if let Some(ref group_name) = group {
             if !self.groups.contains_key(&group) {
@@ -613,7 +613,7 @@ impl StructureGraph {
         &mut self.graph[idx]
     }
 
-    pub fn get_node_by_name(&self, name: &ast::Id) -> Result<NodeIndex> {
+    pub fn get_node_by_name(&self, name: &ast::Id) -> FutilResult<NodeIndex> {
         self.component_iterator()
             .find(|(_, node)| node.name == *name)
             .map(|(idx, _)| idx)

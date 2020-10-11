@@ -3,7 +3,7 @@ use super::{
     Port, PortParent, RRC,
 };
 use crate::{
-    errors::{Error, Result},
+    errors::{Error, FutilResult},
     lang::ast,
     lang::library,
 };
@@ -39,7 +39,7 @@ struct TransformCtx<'a> {
 pub fn ast_to_ir(
     components: Vec<ast::ComponentDef>,
     libraries: &[library::ast::Library],
-) -> Result<Vec<Component>> {
+) -> FutilResult<Vec<Component>> {
     // Build the signature context
     let mut sig_ctx = SigCtx::default();
 
@@ -70,7 +70,7 @@ pub fn ast_to_ir(
 fn build_component(
     comp: ast::ComponentDef,
     sig_ctx: &SigCtx,
-) -> Result<Component> {
+) -> FutilResult<Component> {
     let mut ctx = TransformCtx {
         sig_ctx,
         cell_map: HashMap::new(),
@@ -101,7 +101,7 @@ fn build_component(
         .cells
         .into_iter()
         .map(|cell| build_cell(cell, &mut ctx))
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<FutilResult<Vec<_>>>()?;
 
     // Build Groups and Assignments using Connections.
     // TODO(rachit): The continuous assignments are ignored.
@@ -116,7 +116,7 @@ fn build_component(
     let groups = ast_groups
         .into_iter()
         .map(|g| build_group(g, &mut ctx))
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<FutilResult<Vec<_>>>()?;
 
     // Build the Control ast using ast::Control.
     let control = build_control(comp.control, &ctx)?;
@@ -167,7 +167,7 @@ fn cell_from_signature(
 
 ///////////////// Cell Construction /////////////////////////
 
-fn build_cell(cell: ast::Cell, ctx: &mut TransformCtx) -> Result<RRC<Cell>> {
+fn build_cell(cell: ast::Cell, ctx: &mut TransformCtx) -> FutilResult<RRC<Cell>> {
     // Get the name, inputs, and outputs.
     let (name, typ, inputs, outputs) =
         match cell {
@@ -238,7 +238,7 @@ fn build_cell(cell: ast::Cell, ctx: &mut TransformCtx) -> Result<RRC<Cell>> {
 fn build_constant(
     num: ast::BitNum,
     ctx: &mut TransformCtx,
-) -> Result<RRC<Cell>> {
+) -> FutilResult<RRC<Cell>> {
     // XXX(rachit): This is an ad-hoc way to expose the name. We should probably
     // expose a function that transforms a constant into the relevant cell.
     let name: ast::Id = ("_".to_string() + &num.val.to_string()).into();
@@ -265,7 +265,7 @@ fn build_constant(
 fn build_group(
     group: ast::Group,
     ctx: &mut TransformCtx,
-) -> Result<RRC<Group>> {
+) -> FutilResult<RRC<Group>> {
     let ir_group = Rc::new(RefCell::new(Group {
         name: group.name.clone(),
         assignments: vec![],
@@ -299,11 +299,11 @@ fn build_group(
 ///////////////// Assignment Construction /////////////////////////
 
 /// Get the pointer to the Port represented by `port`.
-fn get_port_ref(port: ast::Port, ctx: &TransformCtx) -> Result<RRC<Port>> {
+fn get_port_ref(port: ast::Port, ctx: &TransformCtx) -> FutilResult<RRC<Port>> {
     let find_and_clone_port = |comp: &ast::Id,
                                port_name: ast::Id,
                                all_ports: &[RRC<Port>]|
-     -> Result<RRC<Port>> {
+     -> FutilResult<RRC<Port>> {
         all_ports
             .iter()
             .find(|p| p.borrow().name == port_name)
@@ -341,7 +341,7 @@ fn get_port_ref(port: ast::Port, ctx: &TransformCtx) -> Result<RRC<Port>> {
 /// If the atom is a number and the context doesn't already contain a cell
 /// for this constant, instantiate the constant node and get the "out" port
 /// from it.
-fn atom_to_port(atom: ast::Atom, ctx: &mut TransformCtx) -> Result<RRC<Port>> {
+fn atom_to_port(atom: ast::Atom, ctx: &mut TransformCtx) -> FutilResult<RRC<Port>> {
     match atom {
         ast::Atom::Num(n) => {
             let key: ast::Id = n.val.to_string().into();
@@ -371,7 +371,7 @@ fn atom_to_port(atom: ast::Atom, ctx: &mut TransformCtx) -> Result<RRC<Port>> {
 fn build_assignment(
     wire: ast::Wire,
     ctx: &mut TransformCtx,
-) -> Result<Assignment> {
+) -> FutilResult<Assignment> {
     let src_port: RRC<Port> = atom_to_port(wire.src.expr, ctx)?;
     let dst_port: RRC<Port> = get_port_ref(wire.dest, ctx)?;
     let guard = match wire.src.guard {
@@ -387,10 +387,10 @@ fn build_assignment(
 }
 
 /// Transform an ast::GuardExpr to an ir::Guard.
-fn build_guard(guard: ast::GuardExpr, ctx: &mut TransformCtx) -> Result<Guard> {
+fn build_guard(guard: ast::GuardExpr, ctx: &mut TransformCtx) -> FutilResult<Guard> {
     use ast::GuardExpr as GE;
 
-    let into_box_guard = |g: Box<GE>, ctx: &mut TransformCtx| -> Result<_> {
+    let into_box_guard = |g: Box<GE>, ctx: &mut TransformCtx| -> FutilResult<_> {
         Ok(Box::new(build_guard(*g, ctx)?))
     };
 
@@ -399,12 +399,12 @@ fn build_guard(guard: ast::GuardExpr, ctx: &mut TransformCtx) -> Result<Guard> {
         GE::And(gs) => Guard::And(
             gs.into_iter()
                 .map(|g| into_box_guard(Box::new(g), ctx).map(|b| *b))
-                .collect::<Result<Vec<_>>>()?,
+                .collect::<FutilResult<Vec<_>>>()?,
         ),
         GE::Or(gs) => Guard::Or(
             gs.into_iter()
                 .map(|g| into_box_guard(Box::new(g), ctx).map(|b| *b))
-                .collect::<Result<Vec<_>>>()?,
+                .collect::<FutilResult<Vec<_>>>()?,
         ),
         GE::Eq(l, r) => {
             Guard::Eq(into_box_guard(l, ctx)?, into_box_guard(r, ctx)?)
@@ -431,7 +431,7 @@ fn build_guard(guard: ast::GuardExpr, ctx: &mut TransformCtx) -> Result<Guard> {
 ///////////////// Control Construction /////////////////////////
 
 /// Transform ast::Control to ir::Control.
-fn build_control(control: ast::Control, ctx: &TransformCtx) -> Result<Control> {
+fn build_control(control: ast::Control, ctx: &TransformCtx) -> FutilResult<Control> {
     Ok(match control {
         ast::Control::Enable {
             data: ast::Enable { comp },
@@ -446,7 +446,7 @@ fn build_control(control: ast::Control, ctx: &TransformCtx) -> Result<Control> {
             stmts
                 .into_iter()
                 .map(|c| build_control(c, ctx))
-                .collect::<Result<Vec<_>>>()?,
+                .collect::<FutilResult<Vec<_>>>()?,
         ),
         ast::Control::Par {
             data: ast::Par { stmts },
@@ -454,7 +454,7 @@ fn build_control(control: ast::Control, ctx: &TransformCtx) -> Result<Control> {
             stmts
                 .into_iter()
                 .map(|c| build_control(c, ctx))
-                .collect::<Result<Vec<_>>>()?,
+                .collect::<FutilResult<Vec<_>>>()?,
         ),
         ast::Control::If {
             data:

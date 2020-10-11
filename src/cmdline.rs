@@ -1,7 +1,7 @@
 use calyx::backend::traits::Backend;
 use calyx::backend::verilog::VerilogBackend;
 use calyx::{
-    errors::{Error, Result},
+    errors::{Error, FutilResult},
     lang::pretty_print::PrettyPrint,
     lang::context,
     utils::OutputFile,
@@ -94,7 +94,7 @@ impl Default for BackendOpt {
 /// Command line parsing for the Backend enum
 impl FromStr for BackendOpt {
     type Err = String;
-    fn from_str(input: &str) -> std::result::Result<Self, Self::Err> {
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         // allocate a vector for the list of backends
         let backends = backends();
         // see if there is a backend for the string that we receive
@@ -133,7 +133,7 @@ impl ToString for BackendOpt {
 
 impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
-    pub fn run_backend(self, context: &context::Context) -> Result<()> {
+    pub fn run_backend(self, context: &context::Context) -> FutilResult<()> {
         match self.backend {
             BackendOpt::Verilog => VerilogBackend::run(&context, self.output),
             BackendOpt::Futil => {

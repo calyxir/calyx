@@ -1,5 +1,5 @@
 // Abstract Syntax Tree for library declarations in Futil
-use crate::errors::{Error, Result};
+use crate::errors::{Error, FutilResult};
 use crate::lang::ast::{Id, Portdef};
 use std::collections::HashMap;
 
@@ -52,7 +52,7 @@ impl ParamPortdef {
         &self,
         prim: &Id,
         val_map: &HashMap<&Id, u64>,
-    ) -> Result<Portdef> {
+    ) -> FutilResult<Portdef> {
         match &self.width {
             Width::Const { value } => Ok(Portdef {
                 name: self.name.clone(),

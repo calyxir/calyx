@@ -46,7 +46,7 @@ pub enum Error {
     Misc(String),
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type FutilResult<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
@@ -218,13 +218,13 @@ impl From<std::io::Error> for Error {
 /// `Option<NodeIndex>` to provide convienent error reporting for
 /// undefined components / groups.
 pub trait Extract<T, R> {
-    /// Unpacks `T` into `Result<R>` using `id: ast::Id`
+    /// Unpacks `T` into `FutilResult<R>` using `id: ast::Id`
     /// for error reporting with locations.
-    fn extract(&self, id: &ast::Id) -> Result<R>;
+    fn extract(&self, id: &ast::Id) -> FutilResult<R>;
 }
 
 impl Extract<NodeIndex, NodeIndex> for Option<NodeIndex> {
-    fn extract(&self, id: &ast::Id) -> Result<NodeIndex> {
+    fn extract(&self, id: &ast::Id) -> FutilResult<NodeIndex> {
         match self {
             Some(t) => Ok(*t),
             None => Err(Error::UndefinedComponent(id.clone())),

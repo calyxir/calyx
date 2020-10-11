@@ -3,7 +3,7 @@ mod pass_manager;
 
 use atty::Stream;
 use calyx::{
-    errors::{Error, Result},
+    errors::{Error, FutilResult},
     frontend::{library_parser, parser},
     ir,
     lang::context::Context,
@@ -32,7 +32,7 @@ use structopt::StructOpt;
 
 /// Construct the pass manager by registering all passes and aliases used
 /// by the command line.
-fn construct_pass_manager() -> Result<PassManager> {
+fn construct_pass_manager() -> FutilResult<PassManager> {
     // Construct the pass manager and register all passes.
     let mut pm = PassManager::new();
 
@@ -106,7 +106,7 @@ fn construct_pass_manager() -> Result<PassManager> {
     Ok(pm)
 }
 
-fn main() -> Result<()> {
+fn main() -> FutilResult<()> {
     let pm = construct_pass_manager()?;
 
     // parse the command line arguments into Opts struct
@@ -140,7 +140,7 @@ fn main() -> Result<()> {
         .map(|path| {
             library_parser::LibraryParser::parse_file(&opts.lib_path.join(path))
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<FutilResult<Vec<_>>>()?;
 
     // build context
     let context = Context::from_ast(

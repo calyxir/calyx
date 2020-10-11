@@ -1,6 +1,6 @@
 use super::{colors, colors::ColorHelper};
 use crate::backend::traits::{Backend, Emitable};
-use crate::errors::{Error, Result};
+use crate::errors::{Error, FutilResult};
 use crate::lang::library::ast as lib;
 use crate::lang::structure::Node;
 use crate::{
@@ -59,7 +59,7 @@ fn validate_guard(guard: &GuardExpr) -> bool {
 }
 
 /// Returns `Ok` if there are no groups defined.
-fn validate_structure(comp: &component::Component) -> Result<()> {
+fn validate_structure(comp: &component::Component) -> FutilResult<()> {
     let valid = comp.structure.edge_idx().all(|idx| {
         let edge = &comp.structure.get_edge(idx);
         edge.guard
@@ -79,7 +79,7 @@ fn validate_structure(comp: &component::Component) -> Result<()> {
 
 /// Returns `Ok` if the control for `comp` is either a single `enable`
 /// or `empty`.
-fn validate_control(comp: &component::Component) -> Result<()> {
+fn validate_control(comp: &component::Component) -> FutilResult<()> {
     match &comp.control {
         Control::Empty { .. } => Ok(()),
         _ => Err(Error::MalformedControl(
@@ -93,14 +93,14 @@ impl Backend for VerilogBackend {
         "verilog"
     }
 
-    fn validate(ctx: &context::Context) -> Result<()> {
+    fn validate(ctx: &context::Context) -> FutilResult<()> {
         ctx.definitions_iter(|_, comp| {
             validate_structure(comp)?;
             validate_control(comp)
         })
     }
 
-    fn emit(ctx: &context::Context, file: OutputFile) -> Result<()> {
+    fn emit(ctx: &context::Context, file: OutputFile) -> FutilResult<()> {
         let prog: ast::NamespaceDef = ctx.clone().into();
 
         // build Vec of tuples first so that `comps` lifetime is longer than
@@ -114,7 +114,7 @@ impl Backend for VerilogBackend {
         let docs = comps
             .iter()
             .map(|(cd, comp)| cd.doc(&ctx, &comp))
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<FutilResult<Vec<_>>>()?;
         let prims = primitive_implemenations(&prog, ctx)?;
         display(
             colors::comment(D::text(
@@ -138,7 +138,7 @@ impl Backend for VerilogBackend {
 fn primitive_implemenations<'a>(
     prog: &ast::NamespaceDef,
     context: &context::Context,
-) -> Result<D<'a>> {
+) -> FutilResult<D<'a>> {
     let docs = prog
         .components
         .iter()
@@ -162,7 +162,7 @@ fn primitive_implemenations<'a>(
                     Error::MissingImplementation("Verilog", name.clone())
                 })
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<FutilResult<Vec<_>>>()?;
     Ok(D::intersperse(docs, D::line().append(D::line())))
 }
 
@@ -171,7 +171,7 @@ impl Emitable for ast::ComponentDef {
         &self,
         ctx: &context::Context,
         comp: &component::Component,
-    ) -> Result<D<'a>> {
+    ) -> FutilResult<D<'a>> {
         let memory_init_doc = if ctx.verilator_mode {
             colors::comment(D::text("// Memory initialization / finalization "))
                 .append(D::line())
@@ -224,7 +224,7 @@ impl Emitable for ast::Signature {
         &self,
         ctx: &context::Context,
         comp: &component::Component,
-    ) -> Result<D<'a>> {
+    ) -> FutilResult<D<'a>> {
         let mut inputs = self
             .inputs
             .iter()
@@ -234,7 +234,7 @@ impl Emitable for ast::Signature {
                     .append(D::space())
                     .append(pd.doc(&ctx, &comp)?))
             })
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<FutilResult<Vec<_>>>()?;
         let mut outputs = self
             .outputs
             .iter()
@@ -244,7 +244,7 @@ impl Emitable for ast::Signature {
                     .append(D::space())
                     .append(pd.doc(&ctx, &comp)?))
             })
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<FutilResult<Vec<_>>>()?;
         let mut ports = vec![];
         ports.append(&mut inputs);
         ports.append(&mut outputs);
@@ -260,7 +260,7 @@ impl Emitable for ast::Portdef {
         &self,
         _: &context::Context,
         _comp: &component::Component,
-    ) -> Result<D<'a>> {
+    ) -> FutilResult<D<'a>> {
         Ok(D::text("logic")
             .keyword_color()
             .append(D::space())
@@ -273,7 +273,7 @@ impl Emitable for ast::Portdef {
 //        Wire Declaration Functions
 //==========================================
 /// Generate all the wire declarations for `comp`
-fn wire_declarations<'a>(comp: &component::Component) -> Result<D<'a>> {
+fn wire_declarations<'a>(comp: &component::Component) -> FutilResult<D<'a>> {
     let wires = comp
         .structure
         .component_iterator()
@@ -309,7 +309,7 @@ fn wire_declarations<'a>(comp: &component::Component) -> Result<D<'a>> {
                 ))
                 .append(";"))
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<FutilResult<Vec<_>>>()?;
     Ok(D::intersperse(wires, D::line()))
 }
 
@@ -432,7 +432,7 @@ fn atom<'a>(atom: &Atom) -> D<'a> {
 }
 
 /// Turn u64 into a formatted Verilog bitwidth specifier.
-pub fn bitwidth<'a>(width: u64) -> Result<D<'a>> {
+pub fn bitwidth<'a>(width: u64) -> FutilResult<D<'a>> {
     match width.cmp(&1) {
         Ordering::Less => unreachable!(),
         Ordering::Equal => Ok(D::nil()),

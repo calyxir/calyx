@@ -1,4 +1,4 @@
-use crate::errors::{self, Result, Span};
+use crate::errors::{self, FutilResult, Span};
 use crate::lang::ast;
 use crate::lang::library::ast as lib;
 use pest_consume::{match_nodes, Error, Parser};
@@ -7,7 +7,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-type ParseResult<T> = std::result::Result<T, Error<Rule>>;
+type ParseResult<T> = Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, Rc<String>>;
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
@@ -18,7 +18,7 @@ const _GRAMMAR: &str = include_str!("library_syntax.pest");
 pub struct LibraryParser;
 
 impl LibraryParser {
-    pub fn parse_file(path: &PathBuf) -> Result<lib::Library> {
+    pub fn parse_file(path: &PathBuf) -> FutilResult<lib::Library> {
         let content = &fs::read(path).map_err(|err| {
             errors::Error::InvalidFile(format!(
                 "Failed to read {}: {}",
@@ -122,7 +122,7 @@ impl LibraryParser {
 
     fn inner_wrap(input: Node) -> ParseResult<String> {
         // remove extra whitespace and indentation
-        let mut result = String::new();
+        let mut FutilResult = String::new();
         // records the base indentation level
         let mut indent_level: Option<usize> = None;
         for line in input.as_str().lines() {
@@ -133,7 +133,7 @@ impl LibraryParser {
 
             // if we have already found indent level
             if indent_level.is_some() {
-                result += indent_level
+                FutilResult += indent_level
                     .map(|pre| {
                         if line.len() > pre {
                             line.split_at(pre).1
@@ -143,10 +143,10 @@ impl LibraryParser {
                     })
                     .unwrap_or(line)
                     .trim_end();
-                result += "\n";
+                FutilResult += "\n";
             }
         }
-        Ok(result.trim_end().to_string())
+        Ok(FutilResult.trim_end().to_string())
     }
 
     fn block(input: Node) -> ParseResult<String> {

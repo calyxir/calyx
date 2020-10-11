@@ -1,11 +1,11 @@
 use calyx::{
-    errors::{Error, Result},
+    errors::{Error, FutilResult},
     lang::context::Context,
     utils::NameGenerator,
 };
 use std::collections::{HashMap, HashSet};
 
-pub type PassClosure = Box<dyn Fn(&Context, &mut NameGenerator) -> Result<()>>;
+pub type PassClosure = Box<dyn Fn(&Context, &mut NameGenerator) -> FutilResult<()>>;
 
 /// Structure that tracks all registered passes for the compiler.
 pub struct PassManager {
@@ -29,7 +29,7 @@ impl PassManager {
         &mut self,
         name: String,
         pass_func: PassClosure,
-    ) -> Result<()> {
+    ) -> FutilResult<()> {
         if self.passes.contains_key(&name) {
             return Err(Error::Misc(format!(
                 "Pass with name '{}' is already registered.",
@@ -47,7 +47,7 @@ impl PassManager {
         &mut self,
         name: String,
         passes: Vec<String>,
-    ) -> Result<()> {
+    ) -> FutilResult<()> {
         if self.aliases.contains_key(&name) {
             return Err(Error::Misc(format!(
                 "Alias with name '{}'  already registered.",
@@ -126,7 +126,7 @@ impl PassManager {
         mut name_gen: NameGenerator,
         incl: &[String],
         excl: &[String],
-    ) -> Result<Context> {
+    ) -> FutilResult<Context> {
         let (passes, excl_set) = self.create_plan(incl, excl);
         for name in passes {
             if let Some(pass) = self.passes.get(&name) {

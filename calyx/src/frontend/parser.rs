@@ -1,4 +1,4 @@
-use crate::errors::{self, Result, Span};
+use crate::errors::{self, FutilResult, Span};
 use crate::lang::{
     ast,
     ast::{BitNum, NumType},
@@ -11,7 +11,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-type ParseResult<T> = std::result::Result<T, Error<Rule>>;
+type ParseResult<T> = Result<T, Error<Rule>>;
 // user data is the input program so that we can create Ast::id's
 // that have a reference to the input string
 type Node<'i> = pest_consume::Node<'i, Rule, Rc<String>>;
@@ -44,7 +44,7 @@ lazy_static::lazy_static! {
 pub struct FutilParser;
 
 impl FutilParser {
-    pub fn parse_file(path: &PathBuf) -> Result<ast::NamespaceDef> {
+    pub fn parse_file(path: &PathBuf) -> FutilResult<ast::NamespaceDef> {
         let content = &fs::read(path).map_err(|err| {
             errors::Error::InvalidFile(format!(
                 "Failed to read {}: {}",
@@ -62,7 +62,7 @@ impl FutilParser {
         Ok(FutilParser::file(input)?)
     }
 
-    pub fn parse<R: Read>(mut r: R) -> Result<ast::NamespaceDef> {
+    pub fn parse<R: Read>(mut r: R) -> FutilResult<ast::NamespaceDef> {
         let mut buf = String::new();
         r.read_to_string(&mut buf).map_err(|err| {
             errors::Error::InvalidFile(format!(

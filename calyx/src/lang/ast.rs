@@ -1,5 +1,5 @@
 // Abstract Syntax Tree for Futil
-use crate::errors::{Error, Result, Span};
+use crate::errors::{Error, FutilResult, Span};
 use crate::lang::{context::LibraryContext, structure::StructureGraph};
 use derivative::Derivative;
 use itertools::Itertools;
@@ -118,7 +118,7 @@ impl ComponentDef {
     pub fn resolve_primitives(
         &self,
         libctx: &LibraryContext,
-    ) -> Result<HashMap<Id, Signature>> {
+    ) -> FutilResult<HashMap<Id, Signature>> {
         let mut map = HashMap::new();
 
         for stmt in &self.cells {
@@ -218,7 +218,7 @@ impl Port {
     }
 
     /// Returns the edge corresponding to this port in the StructureGraph.
-    pub fn get_edge(&self, st: &StructureGraph) -> Result<(NodeIndex, Id)> {
+    pub fn get_edge(&self, st: &StructureGraph) -> FutilResult<(NodeIndex, Id)> {
         match self {
             Port::Comp { component, port } => {
                 Ok((st.get_node_by_name(component)?, port.clone()))

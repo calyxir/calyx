@@ -1,4 +1,4 @@
-use crate::errors::Result;
+use crate::errors::FutilResult;
 use crate::{
     lang::{component, context},
     utils::OutputFile,
@@ -12,12 +12,12 @@ pub trait Backend {
     fn name() -> &'static str;
     /// Validate this program for emitting using this backend. Returns an
     /// Err(..) if the program has unexpected constructs.
-    fn validate(prog: &context::Context) -> Result<()>;
+    fn validate(prog: &context::Context) -> FutilResult<()>;
     /// Transforms the program into a formatted string representing a valid
     /// and write it to `write`.
-    fn emit(prog: &context::Context, write: OutputFile) -> Result<()>;
+    fn emit(prog: &context::Context, write: OutputFile) -> FutilResult<()>;
     /// Convience function to validate and emit the program.
-    fn run(prog: &context::Context, file: OutputFile) -> Result<()> {
+    fn run(prog: &context::Context, file: OutputFile) -> FutilResult<()> {
         Self::validate(&prog)?;
         Self::emit(prog, file)
     }
@@ -29,5 +29,5 @@ pub trait Emitable {
         &self,
         ctx: &context::Context,
         comp: &component::Component,
-    ) -> Result<RcDoc<'a, ColorSpec>>;
+    ) -> FutilResult<RcDoc<'a, ColorSpec>>;
 }

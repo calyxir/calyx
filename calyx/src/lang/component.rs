@@ -1,5 +1,5 @@
 use super::{ast, pretty_print::PrettyPrint};
-use crate::errors::{Error, Result};
+use crate::errors::{Error, FutilResult};
 use crate::lang::structure::StructureGraph;
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::collections::HashMap;
@@ -37,7 +37,7 @@ impl Component {
     pub fn add_input(
         &mut self,
         portdef: impl Into<ast::Portdef>,
-    ) -> Result<()> {
+    ) -> FutilResult<()> {
         let portdef = portdef.into();
         if !self.signature.has_input(portdef.name.as_ref()) {
             self.structure.insert_input_port(&portdef);
@@ -52,7 +52,7 @@ impl Component {
     pub fn add_output(
         &mut self,
         portdef: impl Into<ast::Portdef>,
-    ) -> Result<()> {
+    ) -> FutilResult<()> {
         let portdef = portdef.into();
         if !self.signature.has_output(portdef.name.as_ref()) {
             self.structure.insert_output_port(&portdef);

@@ -1,4 +1,4 @@
-use crate::errors::{Error, Result};
+use crate::errors::{Error, FutilResult};
 use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::{
     ast, ast::Signature, component::Component, library::ast as lib,
@@ -98,7 +98,7 @@ impl Context {
         debug_mode: bool,
         verilator_mode: bool,
         force_color: bool,
-    ) -> Result<Self> {
+    ) -> FutilResult<Self> {
         // build hashmap for primitives in provided libraries
         let mut lib_definitions = HashMap::new();
         for def in libraries {
@@ -162,8 +162,8 @@ impl Context {
     /// Iterates over the context definitions, giving mutable access the components
     pub fn definitions_iter(
         &self,
-        mut func: impl FnMut(&ast::Id, &mut Component) -> Result<()>,
-    ) -> Result<()> {
+        mut func: impl FnMut(&ast::Id, &mut Component) -> FutilResult<()>,
+    ) -> FutilResult<()> {
         let mut definitions = self.definitions.borrow_mut();
 
         // do main iteration
@@ -197,7 +197,7 @@ impl Context {
         name: S,
         id: &ast::Id,
         params: &[u64],
-    ) -> Result<Component> {
+    ) -> FutilResult<Component> {
         let sig = self.library_context.resolve(id, params)?;
         Ok(Component::from_signature(name, sig))
     }
@@ -209,7 +209,7 @@ impl Context {
     ///   * `id` - the identifier for the instance
     /// # Returns
     ///   Returns the Component corresponding to `id` or an error.
-    pub fn get_component(&self, id: &ast::Id) -> Result<Component> {
+    pub fn get_component(&self, id: &ast::Id) -> FutilResult<Component> {
         match self.definitions.borrow().get(id) {
             Some(comp) => Ok(comp.clone()),
             None => Err(Error::UndefinedComponent(id.clone())),
@@ -262,7 +262,7 @@ impl LibraryContext {
         &self,
         id: &ast::Id,
         params: &[u64],
-    ) -> Result<ast::Signature> {
+    ) -> FutilResult<ast::Signature> {
         match self.definitions.get(id) {
             Some(prim) => {
                 // zip param ids with passed in params into hashmap
@@ -273,13 +273,13 @@ impl LibraryContext {
                     .map(|(id, &width)| (id, width))
                     .collect();
                 // resolve inputs
-                let inputs_res: Result<Vec<ast::Portdef>> = prim
+                let inputs_res: FutilResult<Vec<ast::Portdef>> = prim
                     .signature
                     .inputs()
                     .map(|pd| pd.resolve(&id, &param_map))
                     .collect();
                 // resolve outputs
-                let outputs_res: Result<Vec<ast::Portdef>> = prim
+                let outputs_res: FutilResult<Vec<ast::Portdef>> = prim
                     .signature
                     .outputs()
                     .map(|pd| pd.resolve(&id, &param_map))
