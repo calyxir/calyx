@@ -1,3 +1,6 @@
+//! Implements a visitor for `ir::Control` programs.
+//! Program passes implemented as the Visitor are directly invoked on
+//! `ir::Context` to compile every `ir::Component` using the pass.
 use super::action::{Action, VisResult};
 use crate::errors::FutilResult;
 use crate::ir::{self, Component, Context, Control};
@@ -171,7 +174,7 @@ pub trait Visitor {
 /// It calls `Visitor::start_*` on the way down, and `Visitor::finish_*` on
 /// the way up.
 pub trait Visitable {
-    /// Start the traversal.
+    /// Perform the traversal.
     fn visit(
         &mut self,
         visitor: &mut dyn Visitor,
