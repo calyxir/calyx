@@ -1,6 +1,6 @@
 use super::{
     Assignment, Cell, CellType, Component, Control, Direction, Group, Guard,
-    Port, PortParent, RRC,
+    Port, PortParent, RRC, Context
 };
 use crate::{
     errors::{Error, FutilResult},
@@ -36,10 +36,12 @@ struct TransformCtx<'a> {
     group_map: HashMap<ast::Id, RRC<Group>>,
 }
 
+/// Construct an IR representation using a parsed AST and command line options.
 pub fn ast_to_ir(
     components: Vec<ast::ComponentDef>,
     libraries: &[library::ast::Library],
-) -> FutilResult<Vec<Component>> {
+    debug_mode: bool,
+) -> FutilResult<Context> {
     // Build the signature context
     let mut sig_ctx = SigCtx::default();
 
@@ -60,10 +62,15 @@ pub fn ast_to_ir(
             .insert(comp.name.clone(), comp.signature.clone());
     }
 
-    components
+    let comps = components
         .into_iter()
         .map(|comp| build_component(comp, &sig_ctx))
-        .collect()
+        .collect::<Result<_, _>>()?;
+
+    Ok(Context {
+        components: comps,
+        debug_mode
+    })
 }
 
 /// Build an `ir::component::Component` using an `lang::ast::ComponentDef`.

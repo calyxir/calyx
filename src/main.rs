@@ -6,13 +6,16 @@ use calyx::{
     errors::{Error, FutilResult},
     frontend::{library_parser, parser},
     ir,
-    lang::context::Context,
-    passes,
-    utils::NameGenerator,
+    //lang::context::Context,
+    new_passes,
+    //passes,
+    //utils::NameGenerator,
 };
 use cmdline::Opts;
-use pass_manager::PassManager;
-use passes::{
+use new_passes::WellFormed;
+use crate::ir::traversal::Visitor;
+//use pass_manager::PassManager;
+/*use passes::{
     collapse_control::CollapseControl,
     compile_control::CompileControl,
     compile_empty::CompileEmpty,
@@ -26,13 +29,13 @@ use passes::{
     static_timing::StaticTiming,
     visitor::{Named, Visitor},
     well_formed::WellFormed,
-};
+};*/
 use std::io::stdin;
 use structopt::StructOpt;
 
 /// Construct the pass manager by registering all passes and aliases used
 /// by the command line.
-fn construct_pass_manager() -> FutilResult<PassManager> {
+/*fn construct_pass_manager() -> FutilResult<PassManager> {
     // Construct the pass manager and register all passes.
     let mut pm = PassManager::new();
 
@@ -104,19 +107,19 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
     register_alias!(pm, "none", []);
 
     Ok(pm)
-}
+}*/
 
 fn main() -> FutilResult<()> {
-    let pm = construct_pass_manager()?;
+    //let pm = construct_pass_manager()?;
 
     // parse the command line arguments into Opts struct
     let opts: Opts = Opts::from_args();
 
     // list all the avaliable pass options when flag --list-passes is enabled
-    if opts.list_passes {
+    /*if opts.list_passes {
         println!("{}", pm.show_names());
         return Ok(());
-    }
+    }*/
 
     // ==== Construct the context ====
     // parse the file
@@ -143,14 +146,24 @@ fn main() -> FutilResult<()> {
         .collect::<FutilResult<Vec<_>>>()?;
 
     // build context
-    let context = Context::from_ast(
+    /*let context = Context::from_ast(
         namespace,
         &libraries,
         opts.enable_debug,
         opts.enable_verilator,
         opts.color,
+    )?;*/
+
+    // Build the IR representation
+    let mut rep = ir::from_ast::ast_to_ir(
+        namespace.components,
+        &libraries,
+        opts.enable_debug,
     )?;
 
+    WellFormed::do_pass_default(&mut rep)?;
+
+    /*
     // Construct the name generator
     let name_gen = NameGenerator::default();
 
@@ -158,5 +171,6 @@ fn main() -> FutilResult<()> {
     let context =
         pm.execute_plan(context, name_gen, &opts.pass, &opts.disable_pass)?;
 
-    opts.run_backend(&context)
+    opts.run_backend(&context)*/
+    Ok(())
 }
