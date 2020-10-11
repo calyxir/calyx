@@ -5,56 +5,61 @@ component main() -> () {
     y = prim std_mem_d1(32, 4, 2);
     constant0 = prim std_const(32, 0);
     constant1 = prim std_const(32, 1);
-    ret  = prim std_mem_d1(32, 4, 2);
+    ret = prim std_mem_d1(32, 4, 2);
     add0 = prim std_add(32);
-    const1 = prim std_const(32, 4);
-    i2 = prim std_reg(32);
-    le4 = prim std_le(32);
+    mem_size_const1 = prim std_const(32, 4);
+    i = prim std_reg(2);
+    le = prim std_le(2);
+    address_add = prim std_add(2);
+    begin_array_const = prim std_const(2, 0);
+    end_array_const = prim std_const(2, 3);
+    incr = prim std_const(2, 1);
   }
   wires {
-    group group9 {
-      ret.in = ret;
+    group group6 {
+      group6[done] = ret.done;
+    }
+    group cond2 {
+      cond2[done] = 1'd1;
+      le.left = i.out;
+      le.right = end_array_const.out;
+    }
+    group let3 {
+      i.in = begin_array_const.out;
+      i.write_en = 1'd1;
+      let3[done] = i.done;
+    }
+    group body4 {
+      ret.addr0 = i.out;
       ret.write_en = 1'd1;
-      group9[done] = ret.done;
-    }
-    group cond5 {
-      cond5[done] = 1'd1;
-      le4.left = i2.out;
-      le4.left = const1.out;
-    }
-    group initalize6 {
-      i2.in = constant0.out;
-      i2.write_en = 1'd1;
-      initalize6[done] = i2.done;
-    }
-    group body7 {
-      ret.addr0 = i2.out;
-      ret.write_en = 1'd1;
-      add0.left = x.read_data;
-      add0.right = y.read_data;
-      x.addr0 = i2.out;
-      y.addr0 = i2.out;
+      add0.left = 1'd1 ? x.read_data;
+      add0.right = 1'd1 ? y.read_data;
+      x.addr0 = i.out;
+      y.addr0 = i.out;
       ret.write_data = 1'd1 ? add0.out;
-      body7[done] = ret.done ? 1'd1;
+      body4[done] = ret.done ? 1'd1;
     }
-    group update8 {
-      i2.write_en = 1'd1;
-      add3.left = i2.out;
-      add3.right = constant1.out;
-      i2.in = 1'd1 ? add3.out;
-      update8[done] = i2.done ? 1'd1;
+    group update5 {
+      ret.addr0 = i.out;
+      ret.write_en = 1'd1;
+      ret.write_data = 1'd1 ? add0.out;
+      i.write_en = 1'd1;
+      address_add.left = i.out;
+      address_add.right = incr.out;
+      i.in = 1'd1 ? address_add.out;
+      update5[done] = i.done ? 1'd1;
     }
   }
   control {
     seq {
-      while le0.out with cond0 {
-        initalize6;
+      let3;
+      while le.out with cond2 {
         seq {
-          body7;
-          update8;
+          body4;
+          update5;
         }
       }
-      group9;
+      group6;
     }
   }
 }

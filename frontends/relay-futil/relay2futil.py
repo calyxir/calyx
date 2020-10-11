@@ -33,15 +33,17 @@ def mk_block(decl, contents, indent=2):
 #   mem_index:       2
 #
 # TODO(cgyurgyik): Currently, bitwidth is defaulted to 32. Add bitwidth in a follow-up CL.
-def extract_1D_tensor_params(tensor_type):
+def extract_tensor_params(tensor_type):
     dimension = tensor_type.shape
     type = tensor_type.dtype
-    assert(dimension[0] ==  1), "This should be tensor of rank 1, i.e. a vector."
+    if len(dimension) == 0: # Scalar.
+        return 0, "", ""
 
+    assert(dimension[0] == 1), "This should be tensor of rank 1, i.e. a vector."
     mem_size = dimension[1] # Number of columns
     mem_index = str(int(math.log2(dimension[1].__int__())))
     assert(int(''.join(filter(str.isdigit, type))) == 32), "Bitwidths are currently hardcoded to 32."
-    return 1, mem_size, mem_index #, bitwidth
+    return dimension[0], mem_size, mem_index #, bitwidth
 
 class Relay2Futil(ExprFunctor):
     """Our main compilation visitor.
@@ -58,7 +60,7 @@ class Relay2Futil(ExprFunctor):
 
     def visit_var(self, var):
         name = var.name_hint
-        dimension, mem_size, mem_index = extract_1D_tensor_params(var.type_annotation)
+        dimension, mem_size, mem_index = extract_tensor_params(var.type_annotation)
         value = f'{name}.out' if dimension == 0 else str(name)
         return EmitResult(
             value,  # Assuming variables are in registers.
@@ -135,8 +137,8 @@ class Relay2Futil(ExprFunctor):
         if call.op.name in built_in_calls:
             arg1_type = call.args[0].checked_type
             arg2_type = call.args[1].checked_type
-            dimension_arg1, mem_size_arg1, mem_index_arg1 = extract_1D_tensor_params(arg1_type)
-            dimension_arg2, mem_size_arg2, mem_index_arg2 = extract_1D_tensor_params(arg2_type)
+            dimension_arg1, mem_size_arg1, mem_index_arg1 = extract_tensor_params(arg1_type)
+            dimension_arg2, mem_size_arg2, mem_index_arg2 = extract_tensor_params(arg2_type)
             # Verify left and right of add have the same dimensions.
             assert dimension_arg1 == dimension_arg2 and mem_size_arg1 == mem_size_arg2
             # Scalar case.
@@ -144,11 +146,7 @@ class Relay2Futil(ExprFunctor):
                 hw_type = built_in_calls[call.op.name]
                 # Create structure for an adder.
                 cell_name = f'{hw_type}{self.fresh_id()}'
-                cell = '{} = prim std_{}({});'.format(
-                    cell_name,
-                    hw_type,
-                    32,     # Bit width.
-                )
+                cell = f'{cell_name} = prim std_{hw_type}({32});'
                 structures.append(cell)
                 wires.extend([
                     f'{cell_name}.left = {arg_stmts[0].value};',
@@ -171,9 +169,9 @@ class Relay2Futil(ExprFunctor):
                 mem_cell = f'{mem_cell_name} = prim std_mem_d{dimension_arg1}(32, {mem_size_arg1}, {mem_index_arg1})'
                 structures.append(mem_cell)
 
-            hw_type = built_in_calls[call.op.name]
-            hw_cell_name = f'{hw_type}{self.fresh_id()}'
-            hw_cell = f'{hw_cell_name} = prim std_{hw_type}({32});'
+            hw_op_type = built_in_calls[call.op.name]
+            hw_op_cell_name = f'{hw_op_type}{self.fresh_id()}'
+            hw_op_cell = f'{hw_op_cell_name} = prim std_{hw_op_type}({32});'
 
             const_mem_size_name = f'mem_size_const{self.fresh_id()}'
             const_mem_size = f'{const_mem_size_name} = prim std_const({32}, {mem_size_arg1});'
@@ -187,8 +185,6 @@ class Relay2Futil(ExprFunctor):
             index_reg_name = f'i'
             index_reg = f'{index_reg_name} = prim std_reg({mem_index_arg1});'
 
-            update_adder_name = f'add'
-            update_adder = f'{update_adder_name} = prim std_add({mem_index_arg1});'
 
             const_increment_name = f'incr'
             const_increment = f'{const_increment_name} = prim std_const({mem_index_arg1}, {1});'
@@ -198,7 +194,7 @@ class Relay2Futil(ExprFunctor):
 
             less_comparator_name = f'le'
             less_comparator = f'{less_comparator_name} = prim std_le({mem_index_arg1});'
-            structures.extend([hw_cell, const_mem_size, index_reg, less_comparator, update_address,
+            structures.extend([hw_op_cell, const_mem_size, index_reg, less_comparator, update_address,
                                const_begin_of_array_addr, const_end_of_array_addr, const_increment])
 
             condition_name = f'cond{self.fresh_id()}'
@@ -217,21 +213,24 @@ class Relay2Futil(ExprFunctor):
             groups[add_body_name] = [
                 f"{mem_cell_name}.addr0 = {index_reg_name}.out;",
                 f"{mem_cell_name}.write_en = 1'd1;",
-                f"{hw_cell_name}.left = 1'd1 ? {arg_stmts[0].value}.read_data;",
-                f"{hw_cell_name}.right = 1'd1 ? {arg_stmts[1].value}.read_data;",
+                f"{hw_op_cell_name}.left = 1'd1 ? {arg_stmts[0].value}.read_data;",
+                f"{hw_op_cell_name}.right = 1'd1 ? {arg_stmts[1].value}.read_data;",
                 f"{arg_stmts[0].value}.addr0 = {index_reg_name}.out;",
                 f"{arg_stmts[1].value}.addr0 = {index_reg_name}.out;",
-                f"{mem_cell_name}.write_data = 1'd1 ? {hw_cell_name}.out;",
+                f"{mem_cell_name}.write_data = 1'd1 ? {hw_op_cell_name}.out;",
                 f"{add_body_name}[done] = {mem_cell_name}.done ? 1'd1;"
             ]
 
             update_name = f'update{self.fresh_id()}'
             groups[update_name] = [
+                f"ret.addr0 = {index_reg_name}.out;",
+                f"ret.write_en = 1'd1;",
+                f"ret.write_data = 1'd1 ? {hw_op_cell_name}.out;",
                 f"{index_reg_name}.write_en = 1'd1;",
                 f"{update_address_name}.left = {index_reg_name}.out;",
                 f"{update_address_name}.right = {const_increment_name}.out;",
                 f"{index_reg_name}.in = 1'd1 ? {update_address_name}.out;",
-                f"{update_name}[done] = {index_reg_name}.done ? 1'd1;"
+                f"{update_name}[done] = {index_reg_name}.done ? 1'd1;",
             ]
 
             seq_block = mk_block("seq", "\n".join([f'{add_body_name};', f'{update_name};']))
@@ -299,30 +298,35 @@ class Relay2Futil(ExprFunctor):
             # visit_var method above.
             name = param.name_hint
             param_type = param.type_annotation
-            dimension, mem_size, mem_index = extract_1D_tensor_params(param_type)
+            dimension, mem_size, mem_index = extract_tensor_params(param_type)
             if dimension == 0:
                 func_cells.append(f'{name} = prim std_reg(32);')
             else:
                 func_cells.append(f'{name} = prim std_mem_d{dimension}(32, {mem_size}, {mem_index});')
 
         # Make a register for the return value.
-        dimension, mem_size, mem_index = extract_1D_tensor_params(func.ret_type)
+        dimension, mem_size, mem_index = extract_tensor_params(func.ret_type)
         if dimension == 0:
             func_cells.append('ret = prim std_reg(32);')
         else:
             func_cells.append(f'constant0 = prim std_const(32, 0);')
             func_cells.append(f'constant1 = prim std_const(32, 1);')
-            func_cells.append(f'ret  = prim std_mem_d{dimension}(32, {mem_size}, {mem_index});')
+            func_cells.append(f'ret = prim std_mem_d{dimension}(32, {mem_size}, {mem_index});')
 
 
         # Create a group for the wires that run this expression.
         group_name = 'group{}'.format(self.fresh_id())
         write_enable = body.done if body.wires else f'{group_name}[go]'
-        group_wires = body.wires + [
-            # f'ret.in = {body.value};', # FIX
-            # f'ret.write_en = 1\'d1;',
-            f'{group_name}[done] = ret.done;',
-        ]
+        if dimension == 0:
+            group_wires = body.wires + [
+                f'ret.in = {body.value};',        # FIXME. This works for a single value, but doesn't translate well for
+                f'ret.write_en = 1\'d1;',         #        a while loop or similar where values are updated on the go.
+                f'{group_name}[done] = ret.done;',
+            ]
+        else:
+            group_wires = body.wires + [
+                f'{group_name}[done] = ret.done;',
+            ]
 
         groups = mk_block(f'group {group_name}', '\n'.join(group_wires))
         for group in body.groups.keys():
