@@ -1,12 +1,15 @@
-pub mod collapse_control;
-pub mod compile_control;
-pub mod compile_empty;
-pub mod component_interface;
-pub mod externalize;
-pub mod go_insertion;
-pub mod inliner;
-pub mod merge_assign;
-pub mod papercut;
-pub mod remove_external_memories;
-pub mod static_timing;
-pub mod visitor;
+mod well_formed;
+//mod collapse_control;
+//mod compile_control;
+//mod compile_empty;
+//mod component_interface;
+//mod externalize;
+//mod go_insertion;
+//mod inliner;
+//mod merge_assign;
+//mod papercut;
+//mod remove_external_memories;
+//mod static_timing;
+//mod visitor;
+
+pub use well_formed::WellFormed;

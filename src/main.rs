@@ -8,12 +8,12 @@ use calyx::{
     frontend::{library_parser, parser},
     ir,
     //lang::context::Context,
-    new_passes,
+    passes,
     //passes,
     //utils::NameGenerator,
 };
 use cmdline::Opts;
-use new_passes::WellFormed;
+use passes::WellFormed;
 //use pass_manager::PassManager;
 /*use passes::{
     collapse_control::CollapseControl,
