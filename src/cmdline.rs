@@ -1,5 +1,5 @@
 use calyx::backend::traits::Backend;
-use calyx::backend::verilog::gen::VerilogBackend;
+use calyx::backend::verilog::VerilogBackend;
 use calyx::{
     errors::{Error, Result},
     frontend::pretty_print::PrettyPrint,
