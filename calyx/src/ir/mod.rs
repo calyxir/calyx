@@ -18,5 +18,8 @@ pub use component::{
 pub use control::{Control, Empty, Enable, If, Par, Seq, While};
 pub use guard::Guard;
 
+/// Visitor to traverse a control program.
+pub mod traversal;
+
 /// Module to transform AST programs into IR.
 pub mod from_ast;
