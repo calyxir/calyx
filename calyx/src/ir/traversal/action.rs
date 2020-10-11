@@ -21,29 +21,38 @@ pub enum Action {
 }
 
 impl Action {
-    /// Monadic helper function that sequences actions
-    /// that return a VisResult.
-    /// If `self` is `Continue` or `Change`, return the result of running `f`.
-    /// Pass `Stop` through
-    fn and_then<F>(self, mut other: F) -> VisResult
+    /// Run the traversal specified by `next` if this traversal succeeds.
+    /// If the result of this traversal is not `Action::Continue`, do not
+    /// run `next()`.
+    pub(super) fn and_then<F>(self, mut next: F) -> VisResult
     where
         F: FnMut() -> VisResult,
     {
         match self {
-            Action::Continue => other(),
-            x => Ok(x),
+            Action::Continue => next(),
+            Action::Change(_) | Action::Stop | Action::SkipChildren => Ok(self),
         }
     }
 
     /// Applies the Change action if `self` is a Change action.
     /// Otherwise passes the action through unchanged
-    fn apply_change(self, con: &mut Control) -> VisResult {
+    pub(super) fn apply_change(self, con: &mut Control) -> VisResult {
         match self {
             Action::Change(c) => {
                 *con = c;
                 Ok(Action::Continue)
             }
             x => Ok(x),
+        }
+    }
+
+    /// Changes a Action::SkipChildren to Action::Continue.
+    /// Should be called to indicate the boundary of traversing the children
+    /// of a node.
+    pub(super) fn pop(self) -> Self {
+        match self {
+            Action::SkipChildren => Action::Continue,
+            x => x,
         }
     }
 }
