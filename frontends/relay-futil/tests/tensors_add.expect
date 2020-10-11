@@ -16,13 +16,11 @@ component main() -> () {
     incr = prim std_const(2, 1);
   }
   wires {
-    group group6 {
-      group6[done] = ret.done;
-    }
+
     group cond2 {
-      cond2[done] = 1'd1;
       le.left = i.out;
       le.right = end_array_const.out;
+      cond2[done] = 1'd1;
     }
     group let3 {
       i.in = begin_array_const.out;
@@ -32,17 +30,14 @@ component main() -> () {
     group body4 {
       ret.addr0 = i.out;
       ret.write_en = 1'd1;
-      add0.left = 1'd1 ? x.read_data;
-      add0.right = 1'd1 ? y.read_data;
       x.addr0 = i.out;
       y.addr0 = i.out;
-      ret.write_data = 1'd1 ? add0.out;
+      add0.left = 1'd1 ? x.read_data;
+      add0.right = 1'd1 ? y.read_data;
+      ret.write_data = add0.out;
       body4[done] = ret.done ? 1'd1;
     }
     group update5 {
-      ret.addr0 = i.out;
-      ret.write_en = 1'd1;
-      ret.write_data = 1'd1 ? add0.out;
       i.write_en = 1'd1;
       address_add.left = i.out;
       address_add.right = incr.out;
@@ -59,7 +54,6 @@ component main() -> () {
           update5;
         }
       }
-      group6;
     }
   }
 }

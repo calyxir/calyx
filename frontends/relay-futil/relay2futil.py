@@ -199,9 +199,9 @@ class Relay2Futil(ExprFunctor):
 
             condition_name = f'cond{self.fresh_id()}'
             groups[condition_name] = [
-                f"{condition_name}[done] = 1'd1;",
                 f"{less_comparator_name}.left = {index_reg_name}.out;",
-                f"{less_comparator_name}.right = {const_end_array_address_name}.out;"
+                f"{less_comparator_name}.right = {const_end_array_address_name}.out;",
+                f"{condition_name}[done] = 1'd1;"
             ]
             initialization_name = f'let{self.fresh_id()}'
             groups[initialization_name] = [
@@ -213,19 +213,16 @@ class Relay2Futil(ExprFunctor):
             groups[add_body_name] = [
                 f"{mem_cell_name}.addr0 = {index_reg_name}.out;",
                 f"{mem_cell_name}.write_en = 1'd1;",
-                f"{hw_op_cell_name}.left = 1'd1 ? {arg_stmts[0].value}.read_data;",
-                f"{hw_op_cell_name}.right = 1'd1 ? {arg_stmts[1].value}.read_data;",
                 f"{arg_stmts[0].value}.addr0 = {index_reg_name}.out;",
                 f"{arg_stmts[1].value}.addr0 = {index_reg_name}.out;",
-                f"{mem_cell_name}.write_data = 1'd1 ? {hw_op_cell_name}.out;",
+                f"{hw_op_cell_name}.left = 1'd1 ? {arg_stmts[0].value}.read_data;",
+                f"{hw_op_cell_name}.right = 1'd1 ? {arg_stmts[1].value}.read_data;",
+                f"{mem_cell_name}.write_data = {hw_op_cell_name}.out;",
                 f"{add_body_name}[done] = {mem_cell_name}.done ? 1'd1;"
             ]
 
             update_name = f'update{self.fresh_id()}'
             groups[update_name] = [
-                f"ret.addr0 = {index_reg_name}.out;",
-                f"ret.write_en = 1'd1;",
-                f"ret.write_data = 1'd1 ? {hw_op_cell_name}.out;",
                 f"{index_reg_name}.write_en = 1'd1;",
                 f"{update_address_name}.left = {index_reg_name}.out;",
                 f"{update_address_name}.right = {const_increment_name}.out;",
@@ -319,24 +316,26 @@ class Relay2Futil(ExprFunctor):
         write_enable = body.done if body.wires else f'{group_name}[go]'
         if dimension == 0:
             group_wires = body.wires + [
-                f'ret.in = {body.value};',        # FIXME. This works for a single value, but doesn't translate well for
+                f'ret.in = {body.value};',        # FIXME: This works for a single value, but doesn't translate well for
                 f'ret.write_en = 1\'d1;',         #        a while loop or similar where values are updated on the go.
                 f'{group_name}[done] = ret.done;',
             ]
+            groups = mk_block(f'group {group_name}', '\n'.join(group_wires))
         else:
-            group_wires = body.wires + [
-                f'{group_name}[done] = ret.done;',
-            ]
+            groups = '';
 
-        groups = mk_block(f'group {group_name}', '\n'.join(group_wires))
         for group in body.groups.keys():
             groups += '\n' + mk_block(f'group {group}', '\n'.join(body.groups[group]))
         # Construct a FuTIL component. For now, the component is
         # *always* called `main`. Someday, we should actually support
         # multiple functions as multiple components.
         cells = mk_block('cells', '\n'.join(func_cells + body.cells))
-        wires = mk_block('wires', groups)
-        control = mk_block('control', mk_block('seq', '\n'.join(body.controls + [f'{group_name};'])))  # Invoke the group.
+        if dimension == 0:
+            wires = mk_block('wires', groups)
+            control = mk_block('control', mk_block('seq', '\n'.join(body.controls + [f'{group_name};'])))  # Invoke the group.
+        else:
+            wires = mk_block('wires', groups)
+            control = mk_block('control', mk_block('seq', '\n'.join(body.controls)))
         component = mk_block(
             'component main() -> ()',
             '\n'.join([cells, wires, control])
