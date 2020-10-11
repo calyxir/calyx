@@ -1,3 +1,6 @@
+//! SystemVerilog backend for the FuTIL compiler.
+//! Transforms an `ir::Context` into a formatted string that represents a
+//! valid SystemVerilog program.
 use super::{colors, colors::ColorHelper};
 use crate::backend::traits::{Backend, Emitable};
 use crate::errors::{Error, FutilResult};

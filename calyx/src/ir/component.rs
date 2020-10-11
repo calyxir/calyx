@@ -65,6 +65,7 @@ pub struct Assignment {
     pub guard: Option<Guard>,
 }
 
+/// A Group of assignments that perform a logical action.
 pub struct Group {
     /// Name of this group
     pub name: Id,

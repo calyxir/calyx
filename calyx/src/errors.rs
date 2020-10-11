@@ -1,4 +1,4 @@
-//! This file contains the centralized error handling for FuTIL. Each variant of the
+//! Centralized error handling for FuTIL. Each variant of the
 //! `Error` enum represents a different type of error. For some types of errors, you
 //! might want to add a `From` impl so that the `?` syntax is more convienent.
 
@@ -66,14 +66,18 @@ pub enum Error {
     Misc(String),
 }
 
+/// Convience wrapper to represent success or meaningul compiler error.
 pub type FutilResult<T> = std::result::Result<T, Error>;
 
+/// A span of the input program.
+/// Used for reporting location-based errors.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
-    // we use Rc<String> here so that we don't have tostore the entire
-    // input program for each identifier and Rc<String> has nicer lifetimes than &str.
+    /// Reference to input program source.
     input: Rc<String>,
+    /// The start of the span.
     start: usize,
+    /// The end of the span.
     end: usize,
 }
 

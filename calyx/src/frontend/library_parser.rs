@@ -1,3 +1,4 @@
+//! Parser for FuTIL libraries.
 use crate::errors::{self, FutilResult, Span};
 use crate::lang::ast;
 use crate::lang::library::ast as lib;
@@ -18,6 +19,7 @@ const _GRAMMAR: &str = include_str!("library_syntax.pest");
 pub struct LibraryParser;
 
 impl LibraryParser {
+    /// Parses a FuTIL library into an AST representation.
     pub fn parse_file(path: &PathBuf) -> FutilResult<lib::Library> {
         let content = &fs::read(path).map_err(|err| {
             errors::Error::InvalidFile(format!(

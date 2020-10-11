@@ -1,7 +1,7 @@
 //! Internal representation for the FuTIL compiler. The representation is
 //! generated from the frontend AST.
 //! The key differences between the frontend AST and the IR are:
-//! 1. The IR uses pointers instead of Id's to refer to things like Ports and
+//! 1. The IR uses pointers instead of `Id`s to refer to things like Ports and
 //!    Groups.
 //! 2. The IR attempts to represent similar concepts in a homogeneous manner.
 

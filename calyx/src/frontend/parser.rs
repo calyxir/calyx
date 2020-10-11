@@ -1,3 +1,4 @@
+//! Parser for FuTIL programs.
 use crate::errors::{self, FutilResult, Span};
 use crate::lang::{
     ast,
@@ -44,6 +45,7 @@ lazy_static::lazy_static! {
 pub struct FutilParser;
 
 impl FutilParser {
+    /// Parse a FuTIL program into an AST representation.
     pub fn parse_file(path: &PathBuf) -> FutilResult<ast::NamespaceDef> {
         let content = &fs::read(path).map_err(|err| {
             errors::Error::InvalidFile(format!(
