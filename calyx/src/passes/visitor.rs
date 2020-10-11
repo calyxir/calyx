@@ -1,7 +1,7 @@
 // Inspired by this blog post: http://thume.ca/2019/04/18/writing-a-compiler-in-rust/
 
 use crate::errors;
-use crate::frontend::pretty_print::PrettyPrint;
+use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::{ast::*, component::Component, context::Context};
 
 pub enum Action {

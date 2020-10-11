@@ -1,6 +1,5 @@
-use super::ast;
+use super::{ast, pretty_print::PrettyPrint};
 use crate::errors::{Error, Result};
-use crate::frontend::pretty_print::PrettyPrint;
 use crate::lang::structure::StructureGraph;
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::collections::HashMap;

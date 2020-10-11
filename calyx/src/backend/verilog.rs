@@ -1,10 +1,6 @@
+use super::{colors, colors::ColorHelper};
 use crate::backend::traits::{Backend, Emitable};
 use crate::errors::{Error, Result};
-use crate::frontend::{
-    colors,
-    colors::ColorHelper,
-    pretty_print::{display, PrettyHelper},
-};
 use crate::lang::library::ast as lib;
 use crate::lang::structure::Node;
 use crate::{
@@ -12,6 +8,7 @@ use crate::{
         ast,
         ast::{Atom, Cell, Control, GuardExpr, Port},
         component, context,
+        pretty_print::{display, PrettyHelper},
         structure::{DataDirection, EdgeData, NodeData},
     },
     utils::OutputFile,

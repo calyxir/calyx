@@ -1,5 +1,5 @@
 use crate::errors::{Error, Result};
-use crate::frontend::pretty_print::PrettyPrint;
+use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::{
     ast, ast::Signature, component::Component, library::ast as lib,
     structure::StructureGraph,

@@ -2,7 +2,7 @@ use calyx::backend::traits::Backend;
 use calyx::backend::verilog::VerilogBackend;
 use calyx::{
     errors::{Error, Result},
-    frontend::pretty_print::PrettyPrint,
+    lang::pretty_print::PrettyPrint,
     lang::context,
     utils::OutputFile,
 };
