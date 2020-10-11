@@ -8,40 +8,60 @@ use petgraph::stable_graph::NodeIndex;
 use std::iter::repeat;
 use std::rc::Rc;
 
+/// Standard error type for FuTIL errors.
 #[allow(clippy::large_enum_variant)]
 pub enum Error {
+    /// Error while parsing a FuTIL program.
     ParseError(pest_consume::Error<parser::Rule>),
+    /// Error while parsing a FuTIL library.
     LibraryParseError(pest_consume::Error<library_parser::Rule>),
+    /// Using a reserved keyword as a program identifier.
     ReservedName(ast::Id),
 
+    /// The given string does not correspond to any known pass.
     UnknownPass(String, String),
+    /// The input file is invalid (does not exist).
     InvalidFile(String),
+    /// Failed to write the output
     WriteError,
+
+    /// The control program is malformed.
+    MalformedControl(String),
+
+    /// The connections are malformed.
+    MalformedStructure(String),
+    /// The port widths don't match up on an edge.
     MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
-
+    /// Port not found on the given component.
     UndefinedPort(ast::Id, String),
-    UndefinedEdge(String, String),
+    /// The component has not been defined.
     UndefinedComponent(ast::Id),
+    /// The group has not been defined
     UndefinedGroup(ast::Id),
-
+    /// The group was not used in the program.
     UnusedGroup(ast::Id),
 
-    /* Trying to bind new group to existing name.  */
+    /// The name has already been bound.
     AlreadyBound(ast::Id, String),
+    /// The group has already been bound.
     DuplicateGroup(ast::Id),
+    /// The port has already been defined.
     DuplicatePort(ast::Id, ast::Portdef),
 
+    /// No value provided for a primitive parameter.
     SignatureResolutionFailed(ast::Id, ast::Id),
 
-    MalformedControl(String),
-    MalformedStructure(String),
-
+    /// An implementation is missing.
     MissingImplementation(&'static str, ast::Id),
 
+    /// Papercut error: signals a commonly made mistake in FuTIL program.
     Papercut(String, ast::Id),
 
+    /// Internal compiler error that should never occur.
     Impossible(String), // Signal compiler errors that should never occur.
     NotSubcomponent,
+
+    /// A miscellaneous error. Should be replaced with a more precise error.
     #[allow(unused)]
     Misc(String),
 }
@@ -151,7 +171,6 @@ impl std::fmt::Debug for Error {
                 let msg = format!("Use of undefined {} port: {}", port_kind, port.to_string());
                 write!(f, "{}", port.fmt_err(&msg))
             }
-            UndefinedEdge(src, dest) => write!(f, "Use of undefined edge: {}->{}", src, dest),
             UndefinedComponent(id) => {
                 let msg = format!("Use of undefined component: {}", id.to_string());
                 write!(f, "{}", id.fmt_err(&msg))
