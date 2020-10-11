@@ -2,7 +2,7 @@
 //! `Error` enum represents a different type of error. For some types of errors, you
 //! might want to add a `From` impl so that the `?` syntax is more convienent.
 
-use crate::frontend::{library_syntax, parser};
+use crate::frontend::{library_parser, parser};
 use crate::lang::ast;
 use petgraph::stable_graph::NodeIndex;
 use std::iter::repeat;
@@ -11,7 +11,7 @@ use std::rc::Rc;
 #[allow(clippy::large_enum_variant)]
 pub enum Error {
     ParseError(pest_consume::Error<parser::Rule>),
-    LibraryParseError(pest_consume::Error<library_syntax::Rule>),
+    LibraryParseError(pest_consume::Error<library_parser::Rule>),
     ReservedName(ast::Id),
 
     UnknownPass(String, String),
@@ -197,8 +197,8 @@ impl From<pest_consume::Error<parser::Rule>> for Error {
     }
 }
 
-impl From<pest_consume::Error<library_syntax::Rule>> for Error {
-    fn from(e: pest_consume::Error<library_syntax::Rule>) -> Self {
+impl From<pest_consume::Error<library_parser::Rule>> for Error {
+    fn from(e: pest_consume::Error<library_parser::Rule>) -> Self {
         Error::LibraryParseError(e)
     }
 }

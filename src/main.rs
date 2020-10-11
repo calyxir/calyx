@@ -4,7 +4,8 @@ mod pass_manager;
 use atty::Stream;
 use calyx::{
     errors::{Error, Result},
-    frontend::{library_syntax, syntax},
+    frontend::{library_parser, parser},
+    ir,
     lang::context::Context,
     passes,
     utils::NameGenerator,
@@ -120,10 +121,10 @@ fn main() -> Result<()> {
     // ==== Construct the context ====
     // parse the file
     let namespace = match &opts.file {
-        Some(file) => syntax::FutilParser::parse_file(&file),
+        Some(file) => parser::FutilParser::parse_file(&file),
         None => {
             if atty::isnt(Stream::Stdin) {
-                syntax::FutilParser::parse(stdin())
+                parser::FutilParser::parse(stdin())
             } else {
                 Err(Error::InvalidFile(
                     "No file provided and terminal not a TTY".to_string(),
@@ -137,7 +138,7 @@ fn main() -> Result<()> {
         .libraries
         .iter()
         .map(|path| {
-            library_syntax::LibraryParser::parse_file(&opts.lib_path.join(path))
+            library_parser::LibraryParser::parse_file(&opts.lib_path.join(path))
         })
         .collect::<Result<Vec<_>>>()?;
 
