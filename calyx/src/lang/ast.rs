@@ -218,7 +218,10 @@ impl Port {
     }
 
     /// Returns the edge corresponding to this port in the StructureGraph.
-    pub fn get_edge(&self, st: &StructureGraph) -> FutilResult<(NodeIndex, Id)> {
+    pub fn get_edge(
+        &self,
+        st: &StructureGraph,
+    ) -> FutilResult<(NodeIndex, Id)> {
         match self {
             Port::Comp { component, port } => {
                 Ok((st.get_node_by_name(component)?, port.clone()))

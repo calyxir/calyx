@@ -173,7 +173,10 @@ fn cell_from_signature(
 
 ///////////////// Cell Construction /////////////////////////
 
-fn build_cell(cell: ast::Cell, ctx: &mut TransformCtx) -> FutilResult<RRC<Cell>> {
+fn build_cell(
+    cell: ast::Cell,
+    ctx: &mut TransformCtx,
+) -> FutilResult<RRC<Cell>> {
     // Get the name, inputs, and outputs.
     let (name, typ, inputs, outputs) =
         match cell {
@@ -347,7 +350,10 @@ fn get_port_ref(port: ast::Port, ctx: &TransformCtx) -> FutilResult<RRC<Port>> {
 /// If the atom is a number and the context doesn't already contain a cell
 /// for this constant, instantiate the constant node and get the "out" port
 /// from it.
-fn atom_to_port(atom: ast::Atom, ctx: &mut TransformCtx) -> FutilResult<RRC<Port>> {
+fn atom_to_port(
+    atom: ast::Atom,
+    ctx: &mut TransformCtx,
+) -> FutilResult<RRC<Port>> {
     match atom {
         ast::Atom::Num(n) => {
             let key: ast::Id = n.val.to_string().into();
@@ -393,12 +399,16 @@ fn build_assignment(
 }
 
 /// Transform an ast::GuardExpr to an ir::Guard.
-fn build_guard(guard: ast::GuardExpr, ctx: &mut TransformCtx) -> FutilResult<Guard> {
+fn build_guard(
+    guard: ast::GuardExpr,
+    ctx: &mut TransformCtx,
+) -> FutilResult<Guard> {
     use ast::GuardExpr as GE;
 
-    let into_box_guard = |g: Box<GE>, ctx: &mut TransformCtx| -> FutilResult<_> {
-        Ok(Box::new(build_guard(*g, ctx)?))
-    };
+    let into_box_guard =
+        |g: Box<GE>, ctx: &mut TransformCtx| -> FutilResult<_> {
+            Ok(Box::new(build_guard(*g, ctx)?))
+        };
 
     Ok(match guard {
         GE::Atom(atom) => Guard::Port(atom_to_port(atom, ctx)?),
@@ -437,7 +447,10 @@ fn build_guard(guard: ast::GuardExpr, ctx: &mut TransformCtx) -> FutilResult<Gua
 ///////////////// Control Construction /////////////////////////
 
 /// Transform ast::Control to ir::Control.
-fn build_control(control: ast::Control, ctx: &TransformCtx) -> FutilResult<Control> {
+fn build_control(
+    control: ast::Control,
+    ctx: &TransformCtx,
+) -> FutilResult<Control> {
     Ok(match control {
         ast::Control::Enable {
             data: ast::Enable { comp },

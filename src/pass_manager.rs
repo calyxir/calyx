@@ -5,7 +5,8 @@ use calyx::{
 };
 use std::collections::{HashMap, HashSet};
 
-pub type PassClosure = Box<dyn Fn(&Context, &mut NameGenerator) -> FutilResult<()>>;
+pub type PassClosure =
+    Box<dyn Fn(&Context, &mut NameGenerator) -> FutilResult<()>>;
 
 /// Structure that tracks all registered passes for the compiler.
 pub struct PassManager {

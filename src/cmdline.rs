@@ -2,8 +2,8 @@ use calyx::backend::traits::Backend;
 use calyx::backend::verilog::VerilogBackend;
 use calyx::{
     errors::{Error, FutilResult},
-    lang::pretty_print::PrettyPrint,
     lang::context,
+    lang::pretty_print::PrettyPrint,
     utils::OutputFile,
 };
 use itertools::Itertools;
