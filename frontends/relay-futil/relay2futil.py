@@ -5,9 +5,10 @@ import textwrap
 from collections import namedtuple
 import math
 
-PREAMBLE = """
-import "primitives/std.lib";
-"""
+PREAMBLE = """import "primitives/std.lib";"""
+
+# Map standard relay call to respective hardware name in FuTIL.
+BuiltInCalls = {'add': 'add', 'subtract': 'sub', 'equal': 'eq'}
 
 EmitResult = namedtuple('EmitResult',
                         ['value', 'done', 'cells', 'wires', 'groups','controls'])
@@ -33,6 +34,8 @@ def mk_block(decl, contents, indent=2):
 #   mem_index:       2
 #
 # TODO(cgyurgyik): Currently, bitwidth is defaulted to 32. Add bitwidth in a follow-up CL.
+#                  Hit N-dimensional case. I believe we're limited to 3?
+#                  Generalize this for 0-dimensional tensors as well (i.e. scalars).
 def extract_tensor_params(tensor_type):
     dimension = tensor_type.shape
     type = tensor_type.dtype
@@ -54,6 +57,7 @@ class Relay2Futil(ExprFunctor):
         self.is_ret = True
 
     def fresh_id(self):
+        # TODO(cgyurgyik): Produce fresh ids for different ops, types.
         the_id = self.next_id
         self.next_id += 1
         return the_id
@@ -132,9 +136,7 @@ class Relay2Futil(ExprFunctor):
         groups = {}
         for arg in arg_stmts:
             groups.update(arg.groups)
-        #map standard relay call to hw name in futil
-        built_in_calls = {'add':'add', 'subtract':'sub', 'equal':'eq'}
-        if call.op.name in built_in_calls:
+        if call.op.name in BuiltInCalls:
             arg1_type = call.args[0].checked_type
             arg2_type = call.args[1].checked_type
             dimension_arg1, mem_size_arg1, mem_index_arg1 = extract_tensor_params(arg1_type)
@@ -143,7 +145,7 @@ class Relay2Futil(ExprFunctor):
             assert dimension_arg1 == dimension_arg2 and mem_size_arg1 == mem_size_arg2
             # Scalar case.
             if dimension_arg1 == 0:
-                hw_type = built_in_calls[call.op.name]
+                hw_type = BuiltInCalls[call.op.name]
                 # Create structure for an adder.
                 cell_name = f'{hw_type}{self.fresh_id()}'
                 cell = f'{cell_name} = prim std_{hw_type}({32});'
@@ -169,7 +171,7 @@ class Relay2Futil(ExprFunctor):
                 mem_cell = f'{mem_cell_name} = prim std_mem_d{dimension_arg1}(32, {mem_size_arg1}, {mem_index_arg1})'
                 structures.append(mem_cell)
 
-            hw_op_type = built_in_calls[call.op.name]
+            hw_op_type = BuiltInCalls[call.op.name]
             hw_op_cell_name = f'{hw_op_type}{self.fresh_id()}'
             hw_op_cell = f'{hw_op_cell_name} = prim std_{hw_op_type}({32});'
 
