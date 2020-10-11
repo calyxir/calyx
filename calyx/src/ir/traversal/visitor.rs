@@ -1,6 +1,7 @@
-use super::action::VisResult;
+use super::action::{Action, VisResult};
 use crate::errors::FutilResult;
-use crate::ir::Control;
+use crate::ir::{self, Component, Context, Control};
+use std::rc::Rc;
 
 /// Trait that describes named things. Calling `do_pass` and `do_pass_default`
 /// require this to be implemented. This has to be a separate trait from `Visitor`
@@ -14,254 +15,226 @@ pub trait Named {
     fn description() -> &'static str;
 }
 
-/// The `Visitor` trait parameterized on an `Error` type.
-/// For each node `x` in the Ast, there are the functions `start_x`
-/// and `finish_x`. The start functions are called at the beginning
-/// of the traversal for each node, and the finish functions are called
-/// at the end of the traversal for each node. You can use the finish
-/// functions to wrap error with more information.
+/// The visiting interface for a `ir::Control` program.
+/// Contains two kinds of functions:
+/// 1. start_<node>: Called when visiting <node> top-down.
+/// 2. finish_<node>: Called when visiting <node> bottow-up.
+///
+/// The function do not provide mutable references to the Component itself.
+/// The idiomatic way to mutating is the Component is using its helper methods
+/// or getting an internally mutable reference to it.
+///
+/// A pass will usually override one or more function and rely on the default
+/// visitors to automatically visit the children.
 pub trait Visitor {
-    /*fn do_pass_default(context: &Context) -> FutilResult<Self>
+    /// Instantiate this pass using the default() method and run it on the
+    /// context.
+    fn do_pass_default(context: &mut Context) -> FutilResult<Self>
     where
         Self: Default + Sized + Named,
     {
         let mut visitor = Self::default();
-        visitor.do_pass(&context)?;
+        visitor.do_pass(context)?;
         Ok(visitor)
-    }*/
+    }
 
-    /*fn do_pass(&mut self, context: &Context) -> FutilResult<()>
+    /// Run the visitor on the program Context.
+    /// The function makes complex use of interior mutability. See inline
+    /// comments for an explanation.
+    fn do_pass(&mut self, context: &mut Context) -> FutilResult<()>
     where
         Self: Sized + Named,
     {
-        context.definitions_iter(|_id, mut comp| {
-            let _ = self
-                .start(&mut comp, context)?
-                .and_then(|| {
-                    // clone component control so that we can visit the control and provide
-                    // mutable access to the component
-                    let mut control = comp.control.clone();
-                    control.visit(self, &mut comp, context)?;
-                    // replace component control with the control we visited
-                    comp.control = control;
-                    Ok(Action::Continue)
-                })?
-                .and_then(|| self.finish(&mut comp, context))?;
-            Ok(())
-        })?;
-
-        // Display intermediate futil program after running the pass.
-        if context.debug_mode {
-            println!("=============== {} ==============", Self::name());
-            println!("{}", Self::description());
-            context.pretty_print();
-            println!("================================================");
-        }
+        context
+            .components
+            // Mutably borrow the components in the context
+            .iter_mut()
+            .map(|mut comp| {
+                self.start(&mut comp)?
+                    .and_then(|| {
+                        // Create a clone of the reference to the Control
+                        // program.
+                        let control_ref = Rc::clone(&comp.control);
+                        // Borrow the control program mutably and visit it.
+                        let _ =
+                            control_ref.borrow_mut().visit(self, &mut comp)?;
+                        // Never skip the .finish method.
+                        Ok(Action::Continue)
+                    })?
+                    .and_then(|| self.finish(&mut comp))?;
+                Ok(())
+            })
+            .collect::<FutilResult<_>>()?;
 
         Ok(())
-    }*/
+    }
 
-    /*fn start(&mut self, _comp: &mut Component, _c: &Context) -> VisResult {
-        Ok(Action::Continue)
-    }*/
-
-    /*fn finish(&mut self, _comp: &mut Component, _c: &Context) -> VisResult {
+    /// Exceuted before the traversal begins.
+    fn start(&mut self, _comp: &mut Component) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn start_seq(
-        &mut self,
-        _s: &Seq,
-        _comp: &mut Component,
-        _c: &Context,
-    ) -> VisResult {
+    /// Exceuted after the traversal ends.
+    /// This method is always invoked regardless of the `Action` returned from
+    /// the children.
+    fn finish(&mut self, _comp: &mut Component) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn finish_seq(
-        &mut self,
-        _s: &Seq,
-        _comp: &mut Component,
-        _c: &Context,
-    ) -> VisResult {
+    /// Excecuted before visiting the children of a `ir::Seq` node.
+    fn start_seq(&mut self, _s: &ir::Seq, _comp: &mut Component) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn start_par(
-        &mut self,
-        _s: &Par,
-        _comp: &mut Component,
-        _c: &Context,
-    ) -> VisResult {
+    /// Excecuted after visiting the children of a `ir::Seq` node.
+    fn finish_seq(&mut self, _s: &ir::Seq, _comp: &mut Component) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn finish_par(
-        &mut self,
-        _s: &Par,
-        _comp: &mut Component,
-        _x: &Context,
-    ) -> VisResult {
+    /// Excecuted before visiting the children of a `ir::Par` node.
+    fn start_par(&mut self, _s: &ir::Par, _comp: &mut Component) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn start_if(
-        &mut self,
-        _s: &If,
-        _comp: &mut Component,
-        _c: &Context,
-    ) -> VisResult {
+    /// Excecuted after visiting the children of a `ir::Par` node.
+    fn finish_par(&mut self, _s: &ir::Par, _comp: &mut Component) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn finish_if(
-        &mut self,
-        _s: &If,
-        _comp: &mut Component,
-        _x: &Context,
-    ) -> VisResult {
+    /// Excecuted before visiting the children of a `ir::If` node.
+    fn start_if(&mut self, _s: &ir::If, _comp: &mut Component) -> VisResult {
         Ok(Action::Continue)
     }
 
+    /// Excecuted after visiting the children of a `ir::If` node.
+    fn finish_if(&mut self, _s: &ir::If, _comp: &mut Component) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    /// Excecuted before visiting the children of a `ir::If` node.
     fn start_while(
         &mut self,
-        _s: &While,
+        _s: &ir::While,
         _comp: &mut Component,
-        _c: &Context,
     ) -> VisResult {
         Ok(Action::Continue)
     }
 
+    /// Excecuted after visiting the children of a `ir::If` node.
     fn finish_while(
         &mut self,
-        _s: &While,
+        _s: &ir::While,
         _comp: &mut Component,
-        _x: &Context,
     ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    fn start_print(
-        &mut self,
-        _s: &Print,
-        _comp: &mut Component,
-        _x: &Context,
-    ) -> VisResult {
-        Ok(Action::Continue)
-    }
-
-    fn finish_print(
-        &mut self,
-        _s: &Print,
-        _comp: &mut Component,
-        _x: &Context,
-    ) -> VisResult {
-        Ok(Action::Continue)
-    }
-
+    /// Excecuted before visiting the children of a `ir::Enable` node.
     fn start_enable(
         &mut self,
-        _s: &Enable,
+        _s: &ir::Enable,
         _comp: &mut Component,
-        _x: &Context,
     ) -> VisResult {
         Ok(Action::Continue)
     }
 
+    /// Excecuted after visiting the children of a `ir::Enable` node.
     fn finish_enable(
         &mut self,
-        _s: &Enable,
+        _s: &ir::Enable,
         _comp: &mut Component,
-        _x: &Context,
     ) -> VisResult {
         Ok(Action::Continue)
     }
 
+    /// Excecuted before visiting the children of a `ir::Empty` node.
     fn start_empty(
         &mut self,
-        _s: &Empty,
+        _s: &ir::Empty,
         _comp: &mut Component,
-        _x: &Context,
     ) -> VisResult {
         Ok(Action::Continue)
     }
 
+    /// Excecuted after visiting the children of a `ir::Empty` node.
     fn finish_empty(
         &mut self,
-        _s: &Empty,
+        _s: &ir::Empty,
         _comp: &mut Component,
-        _x: &Context,
     ) -> VisResult {
         Ok(Action::Continue)
-    }*/
+    }
 }
 
-/*/// `Visitable` describes types that can be visited by things implementing `Visitor`.
+/// `Visitable` describes types that can be visited by things implementing `Visitor`.
 /// This performs a recursive walk of the tree.
 /// It calls `Visitor::start_*` on the way down, and `Visitor::finish_*` on
 /// the way up.
 pub trait Visitable {
+    /// Start the traversal.
     fn visit(
         &mut self,
         visitor: &mut dyn Visitor,
         component: &mut Component,
-        context: &Context,
     ) -> VisResult;
-}*/
+}
 
-// Blanket impl for Vectors of Visitables
-/*impl<V: Visitable> Visitable for Vec<V> {
+impl Visitable for Control {
     fn visit(
         &mut self,
         visitor: &mut dyn Visitor,
         component: &mut Component,
-        context: &Context,
+    ) -> VisResult {
+        match self {
+            Control::Seq(data) => visitor
+                .start_seq(data, component)?
+                .and_then(|| data.stmts.visit(visitor, component))?
+                .pop()
+                .and_then(|| visitor.finish_seq(data, component))?,
+            Control::Par(data) => visitor
+                .start_par(data, component)?
+                .and_then(|| data.stmts.visit(visitor, component))?
+                .pop()
+                .and_then(|| visitor.finish_par(data, component))?,
+            Control::If(data) => visitor
+                .start_if(data, component)?
+                .and_then(|| data.tbranch.visit(visitor, component))?
+                .and_then(|| data.fbranch.visit(visitor, component))?
+                .pop()
+                .and_then(|| visitor.finish_if(data, component))?,
+            Control::While(data) => visitor
+                .start_while(data, component)?
+                .and_then(|| data.body.visit(visitor, component))?
+                .pop()
+                .and_then(|| visitor.finish_while(data, component))?,
+            Control::Enable(data) => visitor
+                .start_enable(data, component)?
+                .pop()
+                .and_then(|| visitor.finish_enable(data, component))?,
+            Control::Empty(data) => visitor
+                .start_empty(data, component)?
+                .pop()
+                .and_then(|| visitor.finish_empty(data, component))?,
+        }
+        .apply_change(self)
+    }
+}
+
+/// Blanket implementation for Vectors of Visitables
+impl<V: Visitable> Visitable for Vec<V> {
+    fn visit(
+        &mut self,
+        visitor: &mut dyn Visitor,
+        component: &mut Component,
     ) -> VisResult {
         for t in self {
-            match t.visit(visitor, component, context)? {
-                Action::Continue | Action::Change(_) => continue,
+            match t.visit(visitor, component)? {
+                Action::Continue | Action::SkipChildren | Action::Change(_) => {
+                    continue
+                }
                 Action::Stop => return Ok(Action::Stop),
             };
         }
         Ok(Action::Continue)
     }
-}*/
-
-/*impl Visitable for Control {
-    fn visit(
-        &mut self,
-        visitor: &mut dyn Visitor,
-        component: &mut Component,
-        context: &Context,
-    ) -> VisResult {
-        match self {
-            Control::Seq { data } => visitor
-                .start_seq(data, component, context)?
-                .and_then(|| data.stmts.visit(visitor, component, context))?
-                .and_then(|| visitor.finish_seq(data, component, context))?,
-            Control::Par { data } => visitor
-                .start_par(data, component, context)?
-                .and_then(|| data.stmts.visit(visitor, component, context))?
-                .and_then(|| visitor.finish_par(data, component, context))?,
-            Control::If { data } => visitor
-                .start_if(data, component, context)?
-                .and_then(|| data.tbranch.visit(visitor, component, context))?
-                .and_then(|| data.fbranch.visit(visitor, component, context))?
-                .and_then(|| visitor.finish_if(data, component, context))?,
-            Control::While { data } => visitor
-                .start_while(data, component, context)?
-                .and_then(|| data.body.visit(visitor, component, context))?
-                .and_then(|| visitor.finish_while(data, component, context))?,
-            Control::Print { data } => visitor
-                .start_print(data, component, context)?
-                .and_then(|| visitor.finish_print(data, component, context))?,
-            Control::Enable { data } => visitor
-                .start_enable(data, component, context)?
-                .and_then(|| visitor.finish_enable(data, component, context))?,
-            Control::Empty { data } => visitor
-                .start_empty(data, component, context)?
-                .and_then(|| visitor.finish_empty(data, component, context))?,
-        }
-        .apply_change(self)
-    }
-}*/
+}

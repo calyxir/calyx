@@ -104,7 +104,6 @@ fn build_component(
         .collect::<FutilResult<Vec<_>>>()?;
 
     // Build Groups and Assignments using Connections.
-    // TODO(rachit): The continuous assignments are ignored.
     let (mut ast_groups, mut continuous) = (vec![], vec![]);
     for conn in comp.connections.into_iter() {
         match conn {
@@ -124,7 +123,7 @@ fn build_component(
         .collect::<FutilResult<Vec<_>>>()?;
 
     // Build the Control ast using ast::Control.
-    let control = build_control(comp.control, &ctx)?;
+    let control = Rc::new(RefCell::new(build_control(comp.control, &ctx)?));
 
     Ok(Component {
         name: comp.name,

@@ -94,5 +94,5 @@ pub struct Component {
     /// active.
     pub continuous_assignments: Vec<Assignment>,
     /// The control program for this component.
-    pub control: Control,
+    pub control: RRC<Control>,
 }

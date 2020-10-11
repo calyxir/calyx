@@ -7,7 +7,7 @@ use super::Component;
 /// The IR Context
 pub struct Context {
     /// The components for this program.
-    components: Vec<Component>,
+    pub components: Vec<Component>,
     /// Enable debug mode logging.
-    debug_mode: bool,
+    pub debug_mode: bool,
 }
