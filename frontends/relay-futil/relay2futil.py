@@ -11,7 +11,7 @@ PREAMBLE = """import "primitives/std.lib";"""
 BuiltInCalls = {'add': 'add', 'subtract': 'sub', 'equal': 'eq'}
 
 EmitResult = namedtuple('EmitResult',
-                        ['value', 'done', 'cells', 'wires', 'groups','controls'])
+                        ['value', 'done', 'cells', 'wires', 'groups', 'controls'])
 
 
 def mk_block(decl, contents, indent=2):
@@ -22,6 +22,7 @@ def mk_block(decl, contents, indent=2):
     where `decl` is one line but contents can be multiple lines.
     """
     return decl + ' {\n' + textwrap.indent(contents, indent * ' ') + '\n}'
+
 
 # Extracts 1-dimensional tensor parameters.
 # dimension should contain two parameters R, C where R == 1.
@@ -39,28 +40,31 @@ def mk_block(decl, contents, indent=2):
 def extract_tensor_params(tensor_type):
     dimension = tensor_type.shape
     type = tensor_type.dtype
-    if len(dimension) == 0: # Scalar.
+    if len(dimension) == 0:  # Scalar.
         return 0, "", ""
 
-    assert(dimension[0] == 1), "This should be tensor of rank 1, i.e. a vector."
-    mem_size = dimension[1] # Number of columns
+    assert (dimension[0] == 1), "This should be tensor of rank 1, i.e. a vector."
+    mem_size = dimension[1]  # Number of columns
     mem_index = str(int(math.log2(dimension[1].__int__())))
-    assert(int(''.join(filter(str.isdigit, type))) == 32), "Bitwidths are currently hardcoded to 32."
-    return dimension[0], mem_size, mem_index #, bitwidth
+    assert (int(''.join(filter(str.isdigit, type))) == 32), "Bitwidths are currently hardcoded to 32."
+    return dimension[0], mem_size, mem_index  # , bitwidth
+
 
 class Relay2Futil(ExprFunctor):
     """Our main compilation visitor.
     """
+
     def __init__(self):
         super(Relay2Futil, self).__init__()
-        self.next_id = 0
+        self.id_dictionary = {'cond': 0, 'const': 0, 'control': 0, 'group': 0, 'let': 0, 'seq': 0, 'std_add': 0,
+                              'std_le': 0, 'std_mem_d1': 0, 'std_mem_d2': 0, 'std_mem_d3': 0, 'std_reg': 0, }
         self.is_ret = True
 
-    def fresh_id(self):
-        # TODO(cgyurgyik): Produce fresh ids for different ops, types.
-        the_id = self.next_id
-        self.next_id += 1
-        return the_id
+    def fresh_id(self, element):
+        assert (element in self.id_dictionary), 'Add this element to the id_dictionary.'
+        id = self.id_dictionary[element]
+        self.id_dictionary[element] += 1
+        return id
 
     def visit_var(self, var):
         name = var.name_hint
@@ -75,7 +79,7 @@ class Relay2Futil(ExprFunctor):
             []
         )
 
-    def visit_constant(self,const):
+    def visit_constant(self, const):
         # We only handle scalar integers for now.
         assert const.data.dtype == 'int32', \
             "unsupported constant: {}".format(const.data.dtype)
@@ -85,10 +89,10 @@ class Relay2Futil(ExprFunctor):
         value = int(const.data.asnumpy())
 
         # Create structure for the constant.
-        name = 'const{}'.format(self.fresh_id())
+        name = 'const{}'.format(self.fresh_id('const'))
         cell = '{} = prim std_const({}, {});'.format(
             name,
-            32,     # Bit width.
+            32,  # Bit width.
             value,  # The constant integer value.
         )
 
@@ -107,11 +111,12 @@ class Relay2Futil(ExprFunctor):
         name_var = let.var.name_hint
         cell = [f'{name_var} = prim std_reg(32);']
         # start a new group
-        group_name = f'group{self.fresh_id()}'
+        group_name = f'group{self.fresh_id("group")}'
         # visit value expr
         expr_value = self.visit(let.value)
         # add a wire from value.out to name_var
-        wires = [f'{name_var}.in = {expr_value.value};', f"{name_var}.write_en = 1'd1;", f'{group_name}[done] = {name_var}.done;'] + expr_value.wires
+        wires = [f'{name_var}.in = {expr_value.value};', f"{name_var}.write_en = 1'd1;",
+                 f'{group_name}[done] = {name_var}.done;'] + expr_value.wires
         # visit the body
         self.is_ret = True
         body_value = self.visit(let.body)
@@ -129,7 +134,7 @@ class Relay2Futil(ExprFunctor):
         # Visit the arguments to the call, emitting their control
         # statements.
         arg_stmts = [self.visit(arg) for arg in call.args]
-        #currently assume we only have 2 args to add
+        # currently assume we only have 2 args to add
         structures = [item for arg in arg_stmts for item in arg.cells]
         wires = [item for arg in arg_stmts for item in arg.wires]
         controls = [item for arg in arg_stmts for item in arg.controls]
@@ -147,7 +152,7 @@ class Relay2Futil(ExprFunctor):
             if dimension_arg1 == 0:
                 hw_type = BuiltInCalls[call.op.name]
                 # Create structure for an adder.
-                cell_name = f'{hw_type}{self.fresh_id()}'
+                cell_name = f'{hw_type}{self.fresh_id("std_add")}'
                 cell = f'{cell_name} = prim std_{hw_type}({32});'
                 structures.append(cell)
                 wires.extend([
@@ -164,7 +169,7 @@ class Relay2Futil(ExprFunctor):
                 )
             # 1-D tensor case.
             # Build a return memory
-            mem_cell_name = 'ret' if self.is_ret else  f'mem{self.fresh_id()}'
+            mem_cell_name = 'ret' if self.is_ret else f'mem{self.fresh_id("std_mem_d1")}'
             if self.is_ret:
                 self.is_ret = False
             else:
@@ -172,10 +177,10 @@ class Relay2Futil(ExprFunctor):
                 structures.append(mem_cell)
 
             hw_op_type = BuiltInCalls[call.op.name]
-            hw_op_cell_name = f'{hw_op_type}{self.fresh_id()}'
+            hw_op_cell_name = f'{hw_op_type}{self.fresh_id("std_" + hw_op_type)}'
             hw_op_cell = f'{hw_op_cell_name} = prim std_{hw_op_type}({32});'
 
-            const_mem_size_name = f'mem_size_const{self.fresh_id()}'
+            const_mem_size_name = f'mem_size_const{self.fresh_id("const")}'
             const_mem_size = f'{const_mem_size_name} = prim std_const({32}, {mem_size_arg1});'
 
             const_begin_array_address_name = f'begin_array_const'
@@ -186,7 +191,6 @@ class Relay2Futil(ExprFunctor):
 
             index_reg_name = f'i'
             index_reg = f'{index_reg_name} = prim std_reg({mem_index_arg1});'
-
 
             const_increment_name = f'incr'
             const_increment = f'{const_increment_name} = prim std_const({mem_index_arg1}, {1});'
@@ -199,19 +203,19 @@ class Relay2Futil(ExprFunctor):
             structures.extend([hw_op_cell, const_mem_size, index_reg, less_comparator, update_address,
                                const_begin_of_array_addr, const_end_of_array_addr, const_increment])
 
-            condition_name = f'cond{self.fresh_id()}'
+            condition_name = f'cond{self.fresh_id("cond")}'
             groups[condition_name] = [
                 f"{less_comparator_name}.left = {index_reg_name}.out;",
                 f"{less_comparator_name}.right = {const_end_array_address_name}.out;",
                 f"{condition_name}[done] = 1'd1;"
             ]
-            initialization_name = f'let{self.fresh_id()}'
+            initialization_name = f'let{self.fresh_id("let")}'
             groups[initialization_name] = [
                 f"{index_reg_name}.in = {const_begin_array_address_name}.out;",
                 f"{index_reg_name}.write_en = 1'd1;",
                 f"{initialization_name}[done] = {index_reg_name}.done;"
             ]
-            add_body_name = f'body{self.fresh_id()}'
+            add_body_name = f'body{self.fresh_id("group")}'
             groups[add_body_name] = [
                 f"{mem_cell_name}.addr0 = {index_reg_name}.out;",
                 f"{mem_cell_name}.write_en = 1'd1;",
@@ -223,7 +227,7 @@ class Relay2Futil(ExprFunctor):
                 f"{add_body_name}[done] = {mem_cell_name}.done ? 1'd1;"
             ]
 
-            update_name = f'update{self.fresh_id()}'
+            update_name = f'update{self.fresh_id("group")}'
             groups[update_name] = [
                 f"{index_reg_name}.write_en = 1'd1;",
                 f"{update_address_name}.left = {index_reg_name}.out;",
@@ -233,7 +237,7 @@ class Relay2Futil(ExprFunctor):
             ]
 
             seq_block = mk_block("seq", "\n".join([f'{add_body_name};', f'{update_name};']))
-            mem_control =  mk_block(f"while {less_comparator_name}.out with {condition_name}", f'{seq_block}')
+            mem_control = mk_block(f"while {less_comparator_name}.out with {condition_name}", f'{seq_block}')
             controls.append(f'{initialization_name};')
             controls.append(mem_control)
             return EmitResult(
@@ -245,31 +249,30 @@ class Relay2Futil(ExprFunctor):
                 controls
             )
 
-
-
     def visit_if(self, if_else):
         # Process conditions
         cond_value = self.visit(if_else.cond)
-        cond_name = f'cond{self.fresh_id()}'
+        cond_name = f'cond{self.fresh_id("cond")}'
         # Process true branch
         true_branch_value = self.visit(if_else.true_branch)
-        true_branch_name = f'branch{self.fresh_id()}'
+        true_branch_name = f'branch{self.fresh_id("group")}'
         # Process false branch
         false_branch_value = self.visit(if_else.false_branch)
-        false_branch_name = f'branch{self.fresh_id()}'
+        false_branch_name = f'branch{self.fresh_id("group")}'
         # Update groups map
-        result_name = f'res{self.fresh_id()}'
-        result_cell = '{} = prim std_reg({});'.format(
-            result_name,
-            32,     # Bit width.
-        )
+        result_name = f'res{self.fresh_id("std_reg")}'
+        result_cell = f'{result_name} = prim std_reg({32});'
 
         groups = {**true_branch_value.groups, **false_branch_value.groups}
         groups[cond_name] = cond_value.wires + [f"{cond_name}[done]= 1'd1;"]
-        groups[true_branch_name] = true_branch_value.wires + [f'{result_name}.in = {true_branch_value.value};', f'{result_name}.write_en = 1\'d1;', f'{true_branch_name}[done] = {result_name}.done;']
-        groups[false_branch_name] = false_branch_value.wires + [f'{result_name}.in = {false_branch_value.value};', f'{result_name}.write_en = 1\'d1;', f'{false_branch_name}[done] = {result_name}.done;']
+        groups[true_branch_name] = true_branch_value.wires + [f'{result_name}.in = {true_branch_value.value};',
+                                                              f'{result_name}.write_en = 1\'d1;',
+                                                              f'{true_branch_name}[done] = {result_name}.done;']
+        groups[false_branch_name] = false_branch_value.wires + [f'{result_name}.in = {false_branch_value.value};',
+                                                                f'{result_name}.write_en = 1\'d1;',
+                                                                f'{false_branch_name}[done] = {result_name}.done;']
 
-        structures  = cond_value.cells + true_branch_value.cells +  false_branch_value.cells
+        structures = cond_value.cells + true_branch_value.cells + false_branch_value.cells
         structures.append(result_cell)
 
         true_branch_name
@@ -286,7 +289,6 @@ class Relay2Futil(ExprFunctor):
                                         [f'{false_branch_name};']))
              ]
         )
-
 
     def visit_function(self, func):
         body = self.visit(func.body)
@@ -312,14 +314,13 @@ class Relay2Futil(ExprFunctor):
             func_cells.append(f'constant1 = prim std_const(32, 1);')
             func_cells.append(f'ret = prim std_mem_d{dimension}(32, {mem_size}, {mem_index});')
 
-
         # Create a group for the wires that run this expression.
-        group_name = 'group{}'.format(self.fresh_id())
+        group_name = 'group{}'.format(self.fresh_id("group"))
         write_enable = body.done if body.wires else f'{group_name}[go]'
         if dimension == 0:
             group_wires = body.wires + [
-                f'ret.in = {body.value};',        # FIXME: This works for a single value, but doesn't translate well for
-                f'ret.write_en = 1\'d1;',         #        a while loop or similar where values are updated on the go.
+                f'ret.in = {body.value};',  # FIXME: This works for a single value, but doesn't translate well for
+                f'ret.write_en = 1\'d1;',  # a while loop or similar where values are updated on the go.
                 f'{group_name}[done] = ret.done;',
             ]
             groups = mk_block(f'group {group_name}', '\n'.join(group_wires))
@@ -334,7 +335,8 @@ class Relay2Futil(ExprFunctor):
         cells = mk_block('cells', '\n'.join(func_cells + body.cells))
         if dimension == 0:
             wires = mk_block('wires', groups)
-            control = mk_block('control', mk_block('seq', '\n'.join(body.controls + [f'{group_name};'])))  # Invoke the group.
+            control = mk_block('control',
+                               mk_block('seq', '\n'.join(body.controls + [f'{group_name};'])))  # Invoke the group.
         else:
             wires = mk_block('wires', groups)
             control = mk_block('control', mk_block('seq', '\n'.join(body.controls)))
@@ -344,6 +346,7 @@ class Relay2Futil(ExprFunctor):
         )
 
         return component
+
 
 def infer_type(expr: Function) -> Function:
     infer_types_pass = relay.transform.InferType()
@@ -356,6 +359,7 @@ def infer_type(expr: Function) -> Function:
     ret = mod['main']
     return ret
 
+
 def compile(program) -> str:
     """Translate a Relay function to a FuTIL program (as a string).
     """
@@ -367,5 +371,6 @@ def compile(program) -> str:
 
 if __name__ == '__main__':
     import sys
+
     relay_func = relay.fromtext(sys.stdin.read())
     print(compile(relay_func))

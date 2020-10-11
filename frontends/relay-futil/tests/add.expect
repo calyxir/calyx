@@ -4,20 +4,20 @@ component main() -> () {
     x = prim std_reg(32);
     ret = prim std_reg(32);
     const0 = prim std_const(32, 10);
-    add1 = prim std_add(32);
+    add0 = prim std_add(32);
   }
   wires {
-    group group2 {
-      add1.left = x.out;
-      add1.right = const0.out;
-      ret.in = add1.out;
+    group group0 {
+      add0.left = x.out;
+      add0.right = const0.out;
+      ret.in = add0.out;
       ret.write_en = 1'd1;
-      group2[done] = ret.done;
+      group0[done] = ret.done;
     }
   }
   control {
     seq {
-      group2;
+      group0;
     }
   }
 }

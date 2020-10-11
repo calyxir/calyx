@@ -7,7 +7,7 @@ component main() -> () {
     constant1 = prim std_const(32, 1);
     ret = prim std_mem_d1(32, 4, 2);
     add0 = prim std_add(32);
-    mem_size_const1 = prim std_const(32, 4);
+    mem_size_const0 = prim std_const(32, 4);
     i = prim std_reg(2);
     le = prim std_le(2);
     address_add = prim std_add(2);
@@ -17,17 +17,17 @@ component main() -> () {
   }
   wires {
 
-    group cond2 {
+    group cond0 {
       le.left = i.out;
       le.right = end_array_const.out;
-      cond2[done] = 1'd1;
+      cond0[done] = 1'd1;
     }
-    group let3 {
+    group let0 {
       i.in = begin_array_const.out;
       i.write_en = 1'd1;
-      let3[done] = i.done;
+      let0[done] = i.done;
     }
-    group body4 {
+    group body0 {
       ret.addr0 = i.out;
       ret.write_en = 1'd1;
       x.addr0 = i.out;
@@ -35,23 +35,23 @@ component main() -> () {
       add0.left = 1'd1 ? x.read_data;
       add0.right = 1'd1 ? y.read_data;
       ret.write_data = add0.out;
-      body4[done] = ret.done ? 1'd1;
+      body0[done] = ret.done ? 1'd1;
     }
-    group update5 {
+    group update1 {
       i.write_en = 1'd1;
       address_add.left = i.out;
       address_add.right = incr.out;
       i.in = 1'd1 ? address_add.out;
-      update5[done] = i.done ? 1'd1;
+      update1[done] = i.done ? 1'd1;
     }
   }
   control {
     seq {
-      let3;
-      while le.out with cond2 {
+      let0;
+      while le.out with cond0 {
         seq {
-          body4;
-          update5;
+          body0;
+          update1;
         }
       }
     }
