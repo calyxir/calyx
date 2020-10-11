@@ -279,6 +279,7 @@ fn build_group(
         name: group.name.clone(),
         assignments: vec![],
         holes: vec![],
+        attributes: group.attributes,
     }));
 
     // Add default holes to this Group

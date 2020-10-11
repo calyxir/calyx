@@ -1,5 +1,6 @@
 use super::{Control, Guard, RRC, WRC};
 use crate::lang::ast::Id;
+use std::collections::HashMap;
 
 /// Direction of a port on a cell.
 pub enum Direction {
@@ -73,6 +74,9 @@ pub struct Group {
 
     /// Holes for this group
     pub holes: Vec<RRC<Port>>,
+
+    /// Attributes for this group.
+    pub attributes: HashMap<String, u64>,
 }
 
 /// In memory representation of a Component.
