@@ -307,7 +307,7 @@ impl StructureGraph {
                         .map(|w| (key.clone(), w))
                         .collect::<Vec<_>>();
                     wires.append(&mut group_wires);
-                },
+                }
                 Connection::Wire(wire) => wires.push((None, wire)),
             }
         }
