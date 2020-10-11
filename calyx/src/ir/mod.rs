@@ -8,18 +8,18 @@
 /// Modules defining internal structures.
 mod common;
 mod component;
+mod context;
 mod control;
 mod guard;
-mod context;
 
 /// Re-export types at the module level.
 pub use common::{RRC, WRC};
 pub use component::{
     Assignment, Cell, CellType, Component, Direction, Group, Port, PortParent,
 };
+pub use context::Context;
 pub use control::{Control, Empty, Enable, If, Par, Seq, While};
 pub use guard::Guard;
-pub use context::Context;
 
 /// Visitor to traverse a control program.
 pub mod traversal;

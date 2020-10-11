@@ -1,6 +1,7 @@
 mod cmdline;
 //mod pass_manager;
 
+use crate::ir::traversal::Visitor;
 use atty::Stream;
 use calyx::{
     errors::{Error, FutilResult},
@@ -13,7 +14,6 @@ use calyx::{
 };
 use cmdline::Opts;
 use new_passes::WellFormed;
-use crate::ir::traversal::Visitor;
 //use pass_manager::PassManager;
 /*use passes::{
     collapse_control::CollapseControl,

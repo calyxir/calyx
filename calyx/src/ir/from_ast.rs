@@ -1,6 +1,6 @@
 use super::{
-    Assignment, Cell, CellType, Component, Control, Direction, Group, Guard,
-    Port, PortParent, RRC, Context
+    Assignment, Cell, CellType, Component, Context, Control, Direction, Group,
+    Guard, Port, PortParent, RRC,
 };
 use crate::{
     errors::{Error, FutilResult},
@@ -69,7 +69,7 @@ pub fn ast_to_ir(
 
     Ok(Context {
         components: comps,
-        debug_mode
+        debug_mode,
     })
 }
 

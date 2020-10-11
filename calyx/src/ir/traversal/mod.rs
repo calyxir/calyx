@@ -1,5 +1,5 @@
 mod action;
 mod visitor;
 
-pub use visitor::{Visitor, Named};
-pub use action::{VisResult,Action};
+pub use action::{Action, VisResult};
+pub use visitor::{Named, Visitor};

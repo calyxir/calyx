@@ -76,11 +76,7 @@ impl Visitor for WellFormed {
         Ok(Action::Continue)
     }
 
-    fn finish_if(
-        &mut self,
-        s: &ir::If,
-        _comp: &mut Component,
-    ) -> VisResult {
+    fn finish_if(&mut self, s: &ir::If, _comp: &mut Component) -> VisResult {
         // Add cond group as a used port.
         self.used_groups.insert(s.cond.borrow().name.clone());
         Ok(Action::Continue)
@@ -96,7 +92,7 @@ impl Visitor for WellFormed {
         Ok(Action::Continue)
     }
 
-    fn finish(&mut self, comp: &mut Component) -> VisResult {
+    fn finish(&mut self, _comp: &mut Component) -> VisResult {
         for group in self.all_groups.difference(&self.used_groups) {
             return Err(Error::UnusedGroup(group.clone()));
         }
