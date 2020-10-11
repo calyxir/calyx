@@ -21,7 +21,7 @@ pub struct If {
     pub port: RRC<Port>,
 
     /// Group that makes the signal on the conditional port valid.
-    pub group: RRC<Group>,
+    pub cond: RRC<Group>,
 
     /// Control for the true branch.
     pub tbranch: Box<Control>,
@@ -37,7 +37,7 @@ pub struct While {
     pub port: RRC<Port>,
 
     /// Group that makes the signal on the conditional port valid.
-    pub group: RRC<Group>,
+    pub cond: RRC<Group>,
 
     /// Control for the loop body.
     pub body: Box<Control>,
@@ -95,13 +95,13 @@ impl Control {
     /// Convience constructor for if
     pub fn if_(
         port: RRC<Port>,
-        group: RRC<Group>,
+        cond: RRC<Group>,
         tbranch: Box<Control>,
         fbranch: Box<Control>,
     ) -> Self {
         Control::If(If {
             port,
-            group,
+            cond,
             tbranch,
             fbranch,
         })
@@ -110,9 +110,9 @@ impl Control {
     /// Convience constructor for while
     pub fn while_(
         port: RRC<Port>,
-        group: RRC<Group>,
+        cond: RRC<Group>,
         body: Box<Control>,
     ) -> Self {
-        Control::While(While { port, group, body })
+        Control::While(While { port, cond, body })
     }
 }

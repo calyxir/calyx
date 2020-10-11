@@ -1,5 +1,5 @@
 mod cmdline;
-mod pass_manager;
+//mod pass_manager;
 
 use atty::Stream;
 use calyx::{
