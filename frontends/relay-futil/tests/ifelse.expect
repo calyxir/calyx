@@ -14,7 +14,7 @@ component main() -> () {
   wires {
     group group10 {
       ret.in = res9.out;
-      ret.write_en = group10[go];
+      ret.write_en = group10[go] ? 1'd1;
       group10[done] = ret.done;
     }
     group cond5 {
@@ -24,10 +24,12 @@ component main() -> () {
     }
     group branch6 {
       res9.in = x.out;
+      res9.write_en = 1'd1;
       branch6[done] = res9.done;
     }
     group branch8 {
       res9.in = const7.out;
+      res9.write_en = 1'd1;
       branch8[done] = res9.done;
     }
     group group0 {
