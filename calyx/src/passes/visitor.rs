@@ -1,6 +1,6 @@
 // Inspired by this blog post: http://thume.ca/2019/04/18/writing-a-compiler-in-rust/
 
-use crate::errors;
+use crate::errors::FutilResult;
 use crate::lang::pretty_print::PrettyPrint;
 use crate::lang::{ast::*, component::Component, context::Context};
 
@@ -42,7 +42,7 @@ impl Action {
     }
 }
 
-pub type VisResult = Result<Action, errors::Error>;
+pub type VisResult = FutilResult<Action>;
 
 /// Trait that describes named things. Calling `do_pass` and `do_pass_default`
 /// require this to be implemented. This has to be a separate trait from `Visitor`
@@ -65,7 +65,7 @@ pub trait Named {
 /// at the end of the traversal for each node. You can use the finish
 /// functions to wrap error with more information.
 pub trait Visitor {
-    fn do_pass_default(context: &Context) -> Result<Self, errors::Error>
+    fn do_pass_default(context: &Context) -> FutilResult<Self>
     where
         Self: Default + Sized + Named,
     {
@@ -74,7 +74,7 @@ pub trait Visitor {
         Ok(visitor)
     }
 
-    fn do_pass(&mut self, context: &Context) -> Result<(), errors::Error>
+    fn do_pass(&mut self, context: &Context) -> FutilResult<()>
     where
         Self: Sized + Named,
     {
