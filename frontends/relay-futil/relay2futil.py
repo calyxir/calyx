@@ -243,19 +243,16 @@ class Relay2Futil(ExprFunctor):
         # Make a register for the return value.
         dimension, mem_size, mem_index, bitwidth = ExtractTensorTypes(func.ret_type)
         if dimension == 0:
+            # TODO(cgyurgyik): Fix this.
             func_cells.append(f'ret = prim std_reg({bitwidth});')
-        else:
-            func_cells.append(f'constant0 = prim std_const({bitwidth}, 0);')
-            func_cells.append(f'constant1 = prim std_const({bitwidth}, 1);')
-            func_cells.append(f'ret = prim std_mem_d{dimension}({bitwidth}, {mem_size}, {mem_index});')
 
         # Create a group for the wires that run this expression.
         group_name = 'group{}'.format(id("group"))
         write_enable = body.done if body.wires else f'{group_name}[go]'
         if dimension == 0:
             group_wires = body.wires + [
-                f'ret.in = {body.value};',  # FIXME: This works for a single value, but doesn't translate well for
-                f'ret.write_en = 1\'d1;',  # a while loop or similar where values are updated on the go.
+                f'ret.in = {body.value};',  # TODO(cgyurgyik): This works for a single value, but doesn't translate
+                f'ret.write_en = 1\'d1;',   # well for a while loop or similar where values are updated on the go.
                 f'{group_name}[done] = ret.done;',
             ]
             groups = mk_block(f'group {group_name}', '\n'.join(group_wires))

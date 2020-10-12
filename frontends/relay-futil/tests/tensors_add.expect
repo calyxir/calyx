@@ -3,9 +3,6 @@ component main() -> () {
   cells {
     x = prim std_mem_d1(32, 4, 2);
     y = prim std_mem_d1(32, 4, 2);
-    constant0 = prim std_const(32, 0);
-    constant1 = prim std_const(32, 1);
-    ret = prim std_mem_d1(32, 4, 2);
     add0 = prim std_add(32);
     add1 = prim std_add(2);
     le0 = prim std_le(2);
