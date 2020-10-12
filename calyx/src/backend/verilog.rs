@@ -1,19 +1,19 @@
 //! SystemVerilog backend for the FuTIL compiler.
 //! Transforms an `ir::Context` into a formatted string that represents a
 //! valid SystemVerilog program.
-use super::{colors, colors::ColorHelper};
+//use super::{colors, colors::ColorHelper};
 use crate::{
-    backend::traits::{Backend, Emitable},
+    backend::traits::{Backend},
     errors::{Error, FutilResult},
-    frontend::library::ast as lib,
+    //frontend::library::ast as lib,
     ir,
     utils::OutputFile,
 };
 use ir::{Control, Group, Guard, RRC};
-use lib::Implementation;
+//use lib::Implementation;
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc;
-use std::cmp::Ordering;
+//use std::cmp::Ordering;
 
 type D<'a> = RcDoc<'a, ColorSpec>;
 
