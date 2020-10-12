@@ -1,14 +1,14 @@
 use calyx::backend::traits::Backend;
 use calyx::backend::verilog::VerilogBackend;
 use calyx::{
-    errors::{Error, FutilResult},
+    errors::FutilResult,
     ir,
-    lang::context,
-    lang::pretty_print::PrettyPrint,
+    //lang::context,
+    //lang::pretty_print::PrettyPrint,
     utils::OutputFile,
 };
 use itertools::Itertools;
-use std::io::Write;
+//use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 pub use structopt::StructOpt;

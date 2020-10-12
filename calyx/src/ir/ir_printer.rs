@@ -40,6 +40,7 @@ impl IRPrinter {
         write!(f, "  cells {{\n")?;
         for cell in &comp.cells {
             Self::write_cell(&cell.borrow(), 4, f)?;
+            write!(f, "\n")?;
         }
         write!(f, "  }}\n")?;
 
@@ -47,6 +48,7 @@ impl IRPrinter {
         write!(f, "  wires {{\n")?;
         for group in &comp.groups {
             Self::write_group(&group.borrow(), 4, f)?;
+            write!(f, "\n")?;
         }
         write!(f, "  }}\n")?;
 
@@ -62,23 +64,26 @@ impl IRPrinter {
         indent_level: usize,
         f: &mut F,
     ) -> io::Result<()> {
-        write!(f, "{}", " ".repeat(indent_level))?;
-        write!(f, "{} = ", cell.name.id)?;
         match &cell.prototype {
             ir::CellType::Primitive {
                 name,
                 param_binding,
                 ..
-            } => write!(
-                f,
-                "{}({});",
-                name.id,
-                param_binding
-                    .iter()
-                    .map(|(_, v)| v.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
+            } => {
+                write!(f, "{}", " ".repeat(indent_level))?;
+                write!(f, "{} = prim ", cell.name.id)?;
+                write!(
+                    f,
+                    "{}({});",
+                    name.id,
+                    param_binding
+                        .iter()
+                        .map(|(_, v)| v.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            ir::CellType::Constant { .. } => Ok(()),
             _ => unimplemented!(),
         }
     }
@@ -199,27 +204,33 @@ impl IRPrinter {
     /// Get the port access expression.
     fn get_port_access(port: &ir::Port) -> String {
         match &port.parent {
-            ir::PortParent::Cell(cell_wref) => format!(
-                "{}.{}",
-                cell_wref
-                    .upgrade()
-                    .expect(format!(
+            ir::PortParent::Cell(cell_wref) => {
+                let cell_ref = cell_wref.upgrade().expect(
+                    format!(
                         "Malformed AST: No reference to Cell for port `{:#?}'",
                         port
-                    ).as_str())
-                    .borrow()
-                    .name
-                    .id,
-                port.name.id
-            ),
+                    )
+                    .as_str(),
+                );
+                let cell = cell_ref.borrow();
+                match cell.prototype {
+                    ir::CellType::Constant { val, width } => {
+                        format!("{}'d{}", val, width)
+                    }
+                    _ => format!("{}.{}", cell.name.id, port.name.id),
+                }
+            }
             ir::PortParent::Group(group_wref) => format!(
                 "{}[{}]",
                 group_wref
                     .upgrade()
-                    .expect(format!(
+                    .expect(
+                        format!(
                         "Malformed AST: No reference to Group for port `{:#?}'",
                         port
-                    ).as_str())
+                    )
+                        .as_str()
+                    )
                     .borrow()
                     .name
                     .id,
