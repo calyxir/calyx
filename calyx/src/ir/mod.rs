@@ -11,15 +11,17 @@ mod component;
 mod context;
 mod control;
 mod guard;
+mod structure;
 
 /// Re-export types at the module level.
 pub use common::{RRC, WRC};
-pub use component::{
-    Assignment, Cell, CellType, Component, Direction, Group, Port, PortParent,
-};
+pub use component::Component;
 pub use context::Context;
 pub use control::{Control, Empty, Enable, If, Par, Seq, While};
 pub use guard::Guard;
+pub use structure::{
+    Assignment, Cell, CellType, Direction, Group, Port, PortParent,
+};
 
 /// Visitor to traverse a control program.
 pub mod traversal;
