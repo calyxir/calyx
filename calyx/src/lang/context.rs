@@ -1,9 +1,8 @@
 use crate::errors::{Error, FutilResult};
+use crate::frontend::ast::{self, Signature};
 use crate::frontend::library::ast as lib;
 use crate::lang::pretty_print::PrettyPrint;
-use crate::lang::{
-    ast, ast::Signature, component::Component, structure::StructureGraph,
-};
+use crate::lang::{component::Component, structure::StructureGraph};
 use pretty::{termcolor::ColorSpec, RcDoc};
 use std::cell::RefCell;
 use std::collections::HashMap;

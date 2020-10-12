@@ -1,5 +1,5 @@
 use super::{Guard, WRC, RRC};
-use crate::lang::ast::Id;
+use crate::frontend::ast::Id;
 use std::collections::HashMap;
 use std::rc::Rc;
 

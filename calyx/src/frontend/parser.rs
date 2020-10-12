@@ -1,9 +1,6 @@
 //! Parser for FuTIL programs.
+use super::ast::{self, BitNum, NumType};
 use crate::errors::{self, FutilResult, Span};
-use crate::lang::{
-    ast,
-    ast::{BitNum, NumType},
-};
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
 use std::collections::HashMap;

@@ -1,5 +1,5 @@
-use super::ast;
 use super::structure::{DataDirection, NodeData, StructG};
+use crate::frontend::ast;
 use petgraph::graph::{EdgeIndex, NodeIndex};
 
 pub struct EdgeIndexIterator<'a> {

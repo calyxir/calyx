@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     errors::{Error, FutilResult},
-    lang::ast,
+    frontend::ast,
     frontend::library,
 };
 use std::cell::RefCell;
@@ -73,7 +73,7 @@ pub fn ast_to_ir(
     })
 }
 
-/// Build an `ir::component::Component` using an `lang::ast::ComponentDef`.
+/// Build an `ir::component::Component` using an `frontend::ast::ComponentDef`.
 fn build_component(
     comp: ast::ComponentDef,
     sig_ctx: &SigCtx,

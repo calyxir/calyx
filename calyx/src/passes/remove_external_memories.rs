@@ -1,4 +1,4 @@
-use crate::lang::ast;
+use crate::frontend::ast;
 use crate::lang::component::Component;
 use crate::lang::context::Context;
 use crate::lang::structure::{Node, NodeData};

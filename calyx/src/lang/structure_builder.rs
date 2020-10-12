@@ -1,10 +1,9 @@
 use super::{
-    ast,
-    ast::{Atom, Port},
     context::Context,
     structure::{NodeData, StructureGraph},
 };
 use crate::errors;
+use crate::frontend::ast::{self, Atom, Port};
 use petgraph::graph::{EdgeIndex, NodeIndex};
 
 /// Implements convience functions to build commonly used ast nodes and

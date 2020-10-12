@@ -1,11 +1,9 @@
 use super::structure_builder::ASTBuilder;
 use super::structure_iter;
-use crate::{
-    errors,
-    lang::{ast, component},
-    utils::NameGenerator,
+use crate::frontend::ast::{
+    self, Atom, BitNum, Cell, Connection, Group, Port, Wire,
 };
-use ast::{Atom, BitNum, Cell, Connection, Group, Port, Wire};
+use crate::{errors, lang::component, utils::NameGenerator};
 use component::Component;
 use errors::{Error, Extract, FutilResult};
 use itertools::Itertools;

@@ -4,7 +4,7 @@
 use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Component};
-use crate::lang::ast;
+use crate::frontend::ast;
 use std::collections::HashSet;
 
 pub struct WellFormed {

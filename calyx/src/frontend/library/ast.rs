@@ -1,6 +1,6 @@
 // Abstract Syntax Tree for library declarations in Futil
 use crate::errors::{Error, FutilResult};
-use crate::lang::ast::{Id, Portdef};
+use crate::frontend::ast::{Id, Portdef};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]

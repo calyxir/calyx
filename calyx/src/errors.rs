@@ -2,8 +2,7 @@
 //! `Error` enum represents a different type of error. For some types of errors, you
 //! might want to add a `From` impl so that the `?` syntax is more convienent.
 
-use crate::frontend::{library, parser};
-use crate::lang::ast;
+use crate::frontend::{ast, library, parser};
 use petgraph::stable_graph::NodeIndex;
 use std::iter::repeat;
 use std::rc::Rc;
