@@ -110,7 +110,7 @@ impl Component {
 
     /// Construct a cell from input/output signature.
     /// Input and output port definition in the form (name, width).
-    fn cell_from_signature(
+    pub(super) fn cell_from_signature(
         name: Id,
         typ: CellType,
         inputs: Vec<(Id, u64)>,

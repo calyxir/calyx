@@ -85,7 +85,7 @@ fn build_component(
     };
 
     // Cell to represent the signature of this component
-    let signature = cell_from_signature(
+    let signature = Component::cell_from_signature(
         THIS_ID.into(),
         CellType::ThisComponent,
         comp.signature
@@ -140,41 +140,6 @@ fn build_component(
         continuous_assignments,
         control,
     })
-}
-
-/// Construct a cell from input/output signature.
-/// Input and output port definition in the form (name, width).
-fn cell_from_signature(
-    name: ast::Id,
-    typ: CellType,
-    inputs: Vec<(ast::Id, u64)>,
-    outputs: Vec<(ast::Id, u64)>,
-) -> RRC<Cell> {
-    let cell = Rc::new(RefCell::new(Cell {
-        name,
-        ports: vec![],
-        prototype: typ,
-    }));
-    // Construct ports
-    for (name, width) in inputs {
-        let port = Rc::new(RefCell::new(Port {
-            name,
-            width,
-            direction: Direction::Input,
-            parent: PortParent::Cell(Rc::downgrade(&cell)),
-        }));
-        cell.borrow_mut().ports.push(port);
-    }
-    for (name, width) in outputs {
-        let port = Rc::new(RefCell::new(Port {
-            name,
-            width,
-            direction: Direction::Output,
-            parent: PortParent::Cell(Rc::downgrade(&cell)),
-        }));
-        cell.borrow_mut().ports.push(port);
-    }
-    cell
 }
 
 ///////////////// Cell Construction /////////////////////////
@@ -242,7 +207,7 @@ fn build_cell(
             }
         };
     // Construct the Cell
-    let cell = cell_from_signature(name.clone(), typ, inputs, outputs);
+    let cell = Component::cell_from_signature(name.clone(), typ, inputs, outputs);
 
     // Add this cell to context
     ctx.cell_map.insert(name, Rc::clone(&cell));
@@ -255,7 +220,7 @@ fn build_constant(
     ctx: &mut TransformCtx,
 ) -> FutilResult<RRC<Cell>> {
     let name: ast::Id = Cell::constant_name(num.val, num.width);
-    let cell = cell_from_signature(
+    let cell = Component::cell_from_signature(
         name.clone(),
         CellType::Constant,
         vec![],
