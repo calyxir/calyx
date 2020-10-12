@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "mrxl"
+version = "0.1.0"
+description = "map/reduce accelerator DSL"
+authors = ["Adrian Sampson <asampson@cs.cornell.edu>"]
+
+[tool.poetry.dependencies]
+lark-parser = "^0.9.0"
+
+[tool.poetry.scripts]
+mrxl = "mrxl:main"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
