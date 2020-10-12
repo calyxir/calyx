@@ -1,6 +1,7 @@
 use super::{Guard, WRC, RRC};
 use crate::lang::ast::Id;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// Direction of a port on a cell.
 pub enum Direction {
@@ -52,6 +53,16 @@ pub struct Cell {
     pub prototype: CellType,
 }
 
+impl Cell {
+    /// Get a reference to the named port if it exists.
+    pub fn find_port(&self, name: Id) -> Option<RRC<Port>> {
+        self.ports
+            .iter()
+            .find(|&g| g.borrow().name == name)
+            .map(|r| Rc::clone(r))
+    }
+}
+
 /// Represents a guarded assignment in the program
 pub struct Assignment {
     /// The destination for the assignment.
@@ -77,6 +88,16 @@ pub struct Group {
 
     /// Attributes for this group.
     pub attributes: HashMap<String, u64>,
+}
+
+impl Group {
+    /// Get a reference to the named hole if it exists.
+    pub fn find_hole(&self, name: Id) -> Option<RRC<Port>> {
+        self.holes
+            .iter()
+            .find(|&g| g.borrow().name == name)
+            .map(|r| Rc::clone(r))
+    }
 }
 
 

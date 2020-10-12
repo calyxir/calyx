@@ -1,6 +1,6 @@
 use super::{
     Assignment, Cell, CellType, Control, Direction, Group, Port, PortParent,
-    RRC,
+    RRC, Guard
 };
 use crate::lang::ast::Id;
 use std::cell::RefCell;
@@ -26,12 +26,31 @@ pub struct Component {
 
 /// Builder methods for extracting and construction IR nodes.
 /// The naming scheme for methods is consistent:
+/// - find_<construct>: Returns a reference to the construct with the given
+///   name.
 /// - build_<construct>: Create and return a reference to the
 ///   construct.
 impl Component {
+    /// Return a reference to the group with `name` if present.
+    pub fn find_group(&self, name: Id) -> Option<RRC<Group>> {
+        self.groups
+            .iter()
+            .find(|&g| g.borrow().name == name)
+            .map(|r| Rc::clone(r))
+    }
+
+    /// Return a reference to the cell with `name` if present.
+    pub fn find_cell(&self, name: Id) -> Option<RRC<Cell>> {
+        self.cells
+            .iter()
+            .find(|&g| g.borrow().name == name)
+            .map(|r| Rc::clone(r))
+    }
+
     /// Construct a new group using `name` and `attributes`.
     /// Returns a reference to the group.
     pub fn build_group(
+        &self,
         name: String,
         attributes: HashMap<String, u64>,
     ) -> RRC<Group> {
@@ -54,6 +73,16 @@ impl Component {
         }
 
         group
+    }
+
+    /// Construct an assignment.
+    pub fn build_assignment(
+        &self,
+        dst: RRC<Port>,
+        src: RRC<Port>,
+        guard: Option<Guard>,
+    ) -> Assignment {
+        Assignment { dst, src, guard }
     }
 
     /// Return reference for a constant cell associated with the (val, width)
