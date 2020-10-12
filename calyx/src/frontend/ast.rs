@@ -75,6 +75,12 @@ impl PartialEq<str> for Id {
     }
 }
 
+impl PartialEq<String> for Id {
+    fn eq(&self, other: &String) -> bool {
+        self.id == *other
+    }
+}
+
 /// Top level AST statement. This contains a list of Component definitions.
 #[derive(Clone, Debug)]
 pub struct NamespaceDef {
