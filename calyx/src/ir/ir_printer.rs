@@ -1,6 +1,7 @@
 //! Implements a formatter for the in-memory representation of Components.
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
+use crate::errors::Error;
 use crate::ir;
 use std::io;
 
@@ -200,12 +201,28 @@ impl IRPrinter {
         match &port.parent {
             ir::PortParent::Cell(cell_wref) => format!(
                 "{}.{}",
-                cell_wref.upgrade().unwrap().borrow().name.id,
+                cell_wref
+                    .upgrade()
+                    .expect(format!(
+                        "Malformed AST: No reference to Cell for port `{:#?}'",
+                        port
+                    ).as_str())
+                    .borrow()
+                    .name
+                    .id,
                 port.name.id
             ),
             ir::PortParent::Group(group_wref) => format!(
                 "{}[{}]",
-                group_wref.upgrade().unwrap().borrow().name.id,
+                group_wref
+                    .upgrade()
+                    .expect(format!(
+                        "Malformed AST: No reference to Group for port `{:#?}'",
+                        port
+                    ).as_str())
+                    .borrow()
+                    .name
+                    .id,
                 port.name.id
             ),
         }

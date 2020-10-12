@@ -89,7 +89,7 @@ impl Component {
     /// Return reference for a constant cell associated with the (val, width)
     /// pair.
     /// If the constant does not exist, it is added to the Context.
-    pub fn build_constant(&self, val: u64, width: u64) -> RRC<Cell> {
+    pub fn build_constant(&mut self, val: u64, width: u64) -> RRC<Cell> {
         let name = Cell::constant_name(val, width);
         // If this constant has already been instantiated, return the relevant
         // cell.
@@ -105,6 +105,9 @@ impl Component {
             vec![],
             vec![("out".into(), width)],
         );
+
+        // Add constant to the Component.
+        self.cells.push(Rc::clone(&cell));
 
         cell
     }
