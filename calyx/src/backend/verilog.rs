@@ -11,11 +11,11 @@ use crate::{
 };
 use ir::{Control, Group, Guard, RRC};
 //use lib::Implementation;
-use pretty::termcolor::ColorSpec;
-use pretty::RcDoc;
+//use pretty::termcolor::ColorSpec;
+//use pretty::RcDoc;
 //use std::cmp::Ordering;
 
-type D<'a> = RcDoc<'a, ColorSpec>;
+//type D<'a> = RcDoc<'a, ColorSpec>;
 
 /// Implements a simple Verilog backend. The backend
 /// only accepts Futil programs with no control and no groups.
