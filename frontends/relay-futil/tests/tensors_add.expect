@@ -3,70 +3,54 @@ component main() -> () {
   cells {
     x = prim std_mem_d1(32, 4, 2);
     y = prim std_mem_d1(32, 4, 2);
-    constant0 = prim std_const(32, 0);
-    constant1 = prim std_const(32, 1);
-    ret  = prim std_mem_d1(32, 4, 2);
-    add4 = prim std_add(32);
-    const5 = prim std_const(32, 4);
-    i6 = prim std_reg(32);
-    le8 = prim std_le(32);
-    const1 = prim std_const(32, 1);
-    const2 = prim std_const(32, 1);
-    add3 = prim std_add(32);
-    v = prim std_reg(32);
+    add0 = prim std_add(32);
+    add1 = prim std_add(2);
+    le0 = prim std_le(2);
+    const0 = prim std_const(2, 0);
+    const1 = prim std_const(2, 3);
+    incr0 = prim std_const(2, 1);
+    index0 = prim std_reg(2);
+    tensor1D_0 = prim std_mem_d1(32, 4, 2);
   }
   wires {
-    group group13 {
-      ret.in = ret;
-      ret.write_en = group13[go];
-      group13[done] = ret.done;
+
+    group cond0 {
+      le0.left = index0.out;
+      le0.right = const1.out;
+      cond0[done] = 1'd1;
     }
-    group cond9 {
-      cond9[done] = 1'd1;
-      le8.left = i6.out;
-      le8.left = const5.out;
+    group let0 {
+      index0.in = const0.out;
+      index0.write_en = 1'd1;
+      let0[done] = index0.done;
     }
-    group initalize10 {
-      i6.in = constant0.out;
-      i6.write_en = 1'd1;
-      initalize10[done] = i6.done;
+    group body0 {
+      tensor1D_0.addr0 = index0.out;
+      tensor1D_0.write_en = 1'd1;
+      x.addr0 = index0.out;
+      y.addr0 = index0.out;
+      add0.left = 1'd1 ? x.read_data;
+      add0.right = 1'd1 ? y.read_data;
+      tensor1D_0.write_data = add0.out;
+      body0[done] = tensor1D_0.done ? 1'd1;
     }
-    group body11 {
-      ret.addr0 = i6.out;
-      ret.write_en = 1'd1;
-      add4.left = x.read_data;
-      add4.right = y.read_data;
-      x.addr0 = i6.out;
-      y.addr0 = i6.out;
-      ret.write_data = 1'd1 ? add4.out;
-      body11[done] = ret.done ? 1'd1;
-    }
-    group update12 {
-      i6.write_en = 1'd1;
-      add7.left = i6.out;
-      add7.right = constant1.out;
-      i6.in = 1'd1 ? add7.out;
-      update12[done] = i6.done ? 1'd1;
-    }
-    group group0 {
-      v.in = add3.out;
-      v.write_en = 1'd1;
-      group0[done] = v.done;
-      add3.left = const1.out;
-      add3.right = const2.out;
+    group update1 {
+      index0.write_en = 1'd1;
+      add1.left = index0.out;
+      add1.right = incr0.out;
+      index0.in = 1'd1 ? add1.out;
+      update1[done] = index0.done ? 1'd1;
     }
   }
   control {
     seq {
+      let0;
       while le0.out with cond0 {
-        initalize10;
         seq {
-          body11;
-          update12;
+          body0;
+          update1;
         }
       }
-      group0;
-      group13;
     }
   }
 }

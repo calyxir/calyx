@@ -3,50 +3,52 @@ component main() -> () {
   cells {
     x = prim std_reg(32);
     ret = prim std_reg(32);
-    const3 = prim std_const(32, 42);
-    eq4 = prim std_eq(32);
-    const7 = prim std_const(32, 42);
-    res9 = prim std_reg(32);
-    const1 = prim std_const(32, 1);
-    add2 = prim std_add(32);
+    const1 = prim std_const(32, 42);
+    eq0 = prim std_eq(32);
+    const2 = prim std_const(32, 42);
+    res0 = prim std_reg(32);
+    const0 = prim std_const(32, 1);
+    add0 = prim std_add(32);
     v = prim std_reg(32);
   }
   wires {
-    group group10 {
-      ret.in = res9.out;
-      ret.write_en = group10[go];
-      group10[done] = ret.done;
+    group group3 {
+      ret.in = res0.out;
+      ret.write_en = 1'd1;
+      group3[done] = ret.done;
     }
-    group cond5 {
-      eq4.left = v.out;
-      eq4.right = const3.out;
-      cond5[done]= 1'd1;
+    group cond0 {
+      eq0.left = v.out;
+      eq0.right = const1.out;
+      cond0[done]= 1'd1;
     }
-    group branch6 {
-      res9.in = x.out;
-      branch6[done] = res9.done;
+    group branch1 {
+      res0.in = x.out;
+      res0.write_en = 1'd1;
+      branch1[done] = res0.done;
     }
-    group branch8 {
-      res9.in = const7.out;
-      branch8[done] = res9.done;
+    group branch2 {
+      res0.in = const2.out;
+      res0.write_en = 1'd1;
+      branch2[done] = res0.done;
     }
     group group0 {
-      v.in = add2.out;
+      v.in = add0.out;
       v.write_en = 1'd1;
       group0[done] = v.done;
-      add2.left = x.out;
-      add2.right = const1.out;
+      add0.left = x.out;
+      add0.right = const0.out;
     }
   }
   control {
     seq {
-      if eq4.out with cond5 {
-        branch6;
+      if eq0.out with cond0 {
+        branch1;
       }else {
-        branch8;
+        branch2;
       }
       group0;
-      group10;
+      group3;
     }
   }
 }
