@@ -13,7 +13,8 @@ requires-python = ">=3.4"
 requires = [
          "appdirs",
          "toml",
-         "halo"
+         "halo",
+         "termcolor"
 ]
 
 [tool.flit.scripts]

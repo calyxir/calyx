@@ -5,6 +5,7 @@ pub mod component_interface;
 pub mod externalize;
 pub mod go_insertion;
 pub mod inliner;
+pub mod math_utilities;
 pub mod merge_assign;
 pub mod papercut;
 pub mod remove_external_memories;

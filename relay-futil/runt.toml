@@ -1,6 +1,0 @@
-ver = "0.2.5"
-
-[[tests]]
-name = "Relay to Futil"
-paths = [ "tests/*.relay" ]
-cmd = "python3 relay2futil.py < {}"

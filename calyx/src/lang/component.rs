@@ -13,7 +13,7 @@ pub struct Component {
     pub signature: ast::Signature,
     pub control: ast::Control,
     pub structure: StructureGraph,
-    /// Maps names of sub-component used in this component to fully
+    /// Maps names of cells used in this component to fully
     /// resolved signatures.
     pub resolved_sigs: HashMap<ast::Id, ast::Signature>,
 }

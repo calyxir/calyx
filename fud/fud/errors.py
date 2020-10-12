@@ -1,7 +1,9 @@
 from pathlib import Path
 
+
 class FudError(Exception):
     pass
+
 
 class UnknownExtension(FudError):
     """
@@ -13,6 +15,16 @@ class UnknownExtension(FudError):
         ext = path.suffix
         # TODO: suggest related suffixes
         super().__init__(f"`{ext}' does not correspond to any known stage. Please provide an explicit stage using --to or --from.")
+
+
+class UnsetConfiguration(FudError):
+    """
+    Execution of a stage requires some configuration. Thrown when missing configuration.
+    """
+    def __init__(self, path):
+        path_str = ".".join(path)
+        msg = f"'{path_str}' is not set. Use `fud config {path_str} <val>` to set it."
+        super().__init__(msg)
 
 
 class MissingDynamicConfiguration(FudError):

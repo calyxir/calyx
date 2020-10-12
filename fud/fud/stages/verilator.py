@@ -26,7 +26,7 @@ class VerilatorStage(Stage):
         mktmp.set_func(f, "Make temporary directory.")
 
         data = Step(SourceType.Path)
-        data_path = self.stage_config['data']
+        data_path = self.config['stages', self.name, 'data']
 
         def f(inp, ctx):
             if data_path is None:
@@ -44,8 +44,8 @@ class VerilatorStage(Stage):
 
         verilator = Step(SourceType.Path)
         testbench_files = [
-            str(Path(self.global_config['futil_directory']) / 'sim' / 'testbench.cpp'),
-            str(Path(self.global_config['futil_directory']) / 'sim' / 'wrapper.cpp'),
+            str(Path(self.config['global', 'futil_directory']) / 'fud' / 'sim' / 'testbench.cpp'),
+            str(Path(self.config['global', 'futil_directory']) / 'fud' / 'sim' / 'wrapper.cpp'),
         ]
         verilator.set_cmd(" ".join([
             self.cmd,
@@ -82,7 +82,7 @@ class VerilatorStage(Stage):
         else:
             def f(_inp, ctx):
                 mem = convert2json(ctx['tmpdir'], 'out')
-                buf = BytesIO(json.dumps(mem, indent=2).encode('UTF-8'))
+                buf = BytesIO(json.dumps(mem, indent=2, sort_keys=True).encode('UTF-8'))
                 return (Source(buf, SourceType.File), None, 0)
             extract.set_func(f, "Convert output memories to json.")
 

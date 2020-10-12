@@ -1,0 +1,44 @@
+import "primitives/std.lib";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    a = prim std_reg(2);
+    b = prim std_reg(2);
+    c = prim std_reg(2);
+    fsm0 = prim std_reg(2);
+    incr0 = prim std_add(2);
+  }
+  
+  wires {
+    group A<"static"=1> {
+      a.in = 2'd0;
+      a.write_en = 1'd1;
+      A[done] = a.done;
+    }
+    group B<"static"=1> {
+      b.in = 2'd1;
+      b.write_en = 1'd1;
+      B[done] = b.done;
+    }
+    group C<"static"=1> {
+      c.in = 2'd2;
+      c.write_en = 1'd1;
+      C[done] = c.done;
+    }
+    group static_par0<"static"=1> {
+      incr0.left = 2'd1;
+      incr0.right = fsm0.out;
+      fsm0.in = fsm0.out != 2'd1 ? incr0.out;
+      fsm0.write_en = fsm0.out != 2'd1 ? 1'd1;
+      static_par0[done] = fsm0.out == 2'd1 ? 1'd1;
+      A[go] = fsm0.out <= 2'd1 ? 1'd1;
+      B[go] = fsm0.out <= 2'd1 ? 1'd1;
+      C[go] = fsm0.out <= 2'd1 ? 1'd1;
+    }
+    fsm0.write_en = fsm0.out == 2'd1 ? 1'd1;
+    fsm0.in = fsm0.out == 2'd1 ? 2'd0;
+  }
+  
+  control {
+    static_par0;
+  }
+}

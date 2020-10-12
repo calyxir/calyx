@@ -1,0 +1,20 @@
+{
+  "a": {
+    "data": [
+      0
+    ],
+    "bitwidth": 32
+  },
+  "b": {
+    "data": [
+      0
+    ],
+    "bitwidth": 32
+  },
+  "c": {
+    "data": [
+      0
+    ],
+    "bitwidth": 32
+  }
+}

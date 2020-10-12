@@ -1,0 +1,38 @@
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    mem = prim std_mem_d1(32, 1, 1);
+    lt = prim std_lt(32);
+  }
+
+  wires {
+    group cond {
+      lt.left = 32'd5;
+      lt.right = 32'd9;
+      cond[done] = 1'b1;
+    }
+
+    group true {
+      mem.addr0 = 1'b0;
+      mem.write_data = 32'd32;
+      mem.write_en = 1'b1;
+      true[done] = mem.done;
+    }
+
+    group false {
+      mem.addr0 = 1'b0;
+      mem.write_data = 32'b0;
+      mem.write_en = 1'b1;
+      false[done] = mem.done;
+    }
+  }
+
+  control {
+    if lt.out with cond {
+      true;
+    } else {
+      false;
+    }
+  }
+}

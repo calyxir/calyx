@@ -1,9 +1,0 @@
-ver = "0.2.7"
-
-[[tests]]
-name = "[polybench] [large] simulation"
-paths = [ "*.fuse" ]
-cmd = """
-../../bin/run-benchmark {} {}.data | tail -n+2
-"""
-expect_dir = "simulation"

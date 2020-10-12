@@ -1,0 +1,45 @@
+import "primitives/std.lib";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    a = prim std_reg(2);
+    b = prim std_reg(2);
+    c = prim std_reg(2);
+    fsm0 = prim std_reg(2);
+  }
+  
+  wires {
+    group A<> {
+      a.in = 2'd0;
+      a.write_en = 1'd1;
+      A[done] = a.done;
+    }
+    group B<> {
+      b.in = 2'd1;
+      b.write_en = 1'd1;
+      B[done] = b.done;
+    }
+    group C<> {
+      c.in = 2'd2;
+      c.write_en = 1'd1;
+      C[done] = c.done;
+    }
+    group seq0<> {
+      A[go] = (fsm0.out == 2'd0 & !(A[done])) ? 1'd1;
+      fsm0.in = (fsm0.out == 2'd0 & A[done]) ? 2'd1;
+      fsm0.write_en = (fsm0.out == 2'd0 & A[done]) ? 1'd1;
+      B[go] = (fsm0.out == 2'd1 & !(B[done])) ? 1'd1;
+      fsm0.in = (fsm0.out == 2'd1 & B[done]) ? 2'd2;
+      fsm0.write_en = (fsm0.out == 2'd1 & B[done]) ? 1'd1;
+      C[go] = (fsm0.out == 2'd2 & !(C[done])) ? 1'd1;
+      fsm0.in = (fsm0.out == 2'd2 & C[done]) ? 2'd3;
+      fsm0.write_en = (fsm0.out == 2'd2 & C[done]) ? 1'd1;
+      seq0[done] = fsm0.out == 2'd3 ? 1'd1;
+    }
+    fsm0.write_en = fsm0.out == 2'd3 ? 1'd1;
+    fsm0.in = fsm0.out == 2'd3 ? 2'd0;
+  }
+  
+  control {
+    seq0;
+  }
+}

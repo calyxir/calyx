@@ -14,7 +14,7 @@ jobs:
       id: versions
       run: |
         echo "::set-output name=runt::$(grep ver runt.toml | awk '{print $3}' | tr -d '"')"
-        echo "::set-output name=vcdump::$(./bin/cargo-ver vcdump)"
+        echo "::set-output name=vcdump::$(cargo search vcdump | awk '{print $3}' | tr -d '"')"
         echo "::set-output name=dahlia::$(git ls-remote https://github.com/cucapra/dahlia.git | awk '{print $1}')"
         echo "::set-output name=verilator::$(cat versions/verilator)"
       shell: bash
@@ -76,8 +76,11 @@ jobs:
         cd verilator
         sudo make install
 
-    - name: Install numpy
-      run: pip3 install numpy
+    - name: Setup Python
+      uses: actions/setup-python@v2
+
+    - name: Install numpy and  flit
+      run: pip3 install numpy flit
 
     - name: Cache SBT
       uses: actions/cache@v2
@@ -122,12 +125,20 @@ jobs:
       with:
         command: build
 
+    - name: Install fud
+      run: |
+        cd fud
+        echo $PATH
+        flit install
+        fud config global.futil_directory '/home/runner/work/futil/futil'
+        fud config stages.dahlia.exec '/home/runner/work/futil/futil/dahlia/fuse'
+        fud config stages.futil.exec './target/debug/futil'
+        fud config
+
     - name: Test
       run: |
         unset JAVA_TOOL_OPTIONS
         runt -d -o fail
-      env:
-        DAHLIA: /home/runner/work/futil/futil/dahlia/fuse
 
   format:
     name: Check Formatting

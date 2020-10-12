@@ -1,0 +1,8 @@
+decl A: ubit<32>[8 bank 4];
+let res: ubit<32>;
+
+for (let i: ubit<4> = 0..8) unroll 4 {
+  let acc = A[i];
+} combine {
+  res += acc;
+}

@@ -30,6 +30,12 @@ The compiler uses expectation tests as well as hardware simulation tests.
     - Mac: `brew install jq`
     - Other platforms: [JQ installation][jq-install].
 
+### Install the FuTIL Driver
+
+[The FuTIL driver](./tools/fud.md) is required to run the various tests.
+Follow the [installation instructions](./tools/fud.html#installation).
+
+
 ### Building and Testing
 
 In the root of the repository, run the following:
@@ -38,9 +44,9 @@ In the root of the repository, run the following:
 2. Run `./target/debug/futil --help` to get options from the `futil` binary.
   Alternatively, run `cargo run -- --help` which rebuilds and runs the compiler.
 
-3. Run the tests:
+3. Run the tests (excluding the test for the frontend compilers):
 ```bash
-runt -x dahlia
+runt --exclude frontend
 ```
 
 ### Running an Example Program
@@ -51,7 +57,7 @@ In order to run a FuTIL program, execute the following command from the reposito
 cargo run -- examples/futil/simple.futil
 ```
 
-This will run the FuTIL compiler with input file `examples/futil/simple.futil`, 
+This will run the FuTIL compiler with input file `examples/futil/simple.futil`,
 and generate a FuTIL program without control constructs.
 In order to generate SystemVerilog, execute the following:
 
