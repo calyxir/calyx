@@ -7,48 +7,48 @@ component main() -> () {
     constant1 = prim std_const(32, 1);
     ret = prim std_mem_d1(32, 4, 2);
     add0 = prim std_add(32);
-    mem_size_const0 = prim std_const(32, 4);
-    i = prim std_reg(2);
-    le = prim std_le(2);
-    address_add = prim std_add(2);
-    begin_array_const = prim std_const(2, 0);
-    end_array_const = prim std_const(2, 3);
-    incr = prim std_const(2, 1);
+    index0 = prim std_reg(2);
+    le0 = prim std_le(2);
+    add1 = prim std_add(2);
+    const0 = prim std_const(2, 0);
+    const1 = prim std_const(2, 3);
+    incr0 = prim std_const(2, 1);
+    1D_tensor0 = prim std_mem_d1(32, 4, 2);
   }
   wires {
 
     group cond0 {
-      le.left = i.out;
-      le.right = end_array_const.out;
+      le0.left = index0.out;
+      le0.right = const1.out;
       cond0[done] = 1'd1;
     }
     group let0 {
-      i.in = begin_array_const.out;
-      i.write_en = 1'd1;
-      let0[done] = i.done;
+      index0.in = const0.out;
+      index0.write_en = 1'd1;
+      let0[done] = index0.done;
     }
     group body0 {
-      ret.addr0 = i.out;
-      ret.write_en = 1'd1;
-      x.addr0 = i.out;
-      y.addr0 = i.out;
+      1D_tensor0.addr0 = index0.out;
+      1D_tensor0.write_en = 1'd1;
+      x.addr0 = index0.out;
+      y.addr0 = index0.out;
       add0.left = 1'd1 ? x.read_data;
       add0.right = 1'd1 ? y.read_data;
-      ret.write_data = add0.out;
-      body0[done] = ret.done ? 1'd1;
+      1D_tensor0.write_data = add0.out;
+      body0[done] = 1D_tensor0.done ? 1'd1;
     }
     group update1 {
-      i.write_en = 1'd1;
-      address_add.left = i.out;
-      address_add.right = incr.out;
-      i.in = 1'd1 ? address_add.out;
-      update1[done] = i.done ? 1'd1;
+      index0.write_en = 1'd1;
+      add1.left = index0.out;
+      add1.right = incr0.out;
+      index0.in = 1'd1 ? add1.out;
+      update1[done] = index0.done ? 1'd1;
     }
   }
   control {
     seq {
       let0;
-      while le.out with cond0 {
+      while le0.out with cond0 {
         seq {
           body0;
           update1;
