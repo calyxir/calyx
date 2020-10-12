@@ -208,7 +208,7 @@ fn build_cell(
                     name.clone(),
                     CellType::Primitive {
                         name,
-                        param_binding,
+                        param_binding: param_binding.into_iter().collect(),
                     },
                     inputs,
                     outputs,

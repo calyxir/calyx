@@ -1,3 +1,4 @@
+//! Representation for structure (wires and cells) in a FuTIL program.
 use super::{Guard, RRC, WRC};
 use crate::frontend::ast::Id;
 use std::collections::HashMap;
@@ -48,8 +49,8 @@ pub enum CellType {
     Primitive {
         /// Name of the primitive cell used to instantiate this cell.
         name: Id,
-        /// Bindings for the parameters.
-        param_binding: HashMap<Id, u64>,
+        /// Bindings for the parameters. Uses Vec to retain the input order.
+        param_binding: Vec<(Id, u64)>,
     },
     /// Cell constructed using a FuTIL component
     Component,
