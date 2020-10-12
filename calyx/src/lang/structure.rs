@@ -467,7 +467,7 @@ impl StructureGraph {
         }
         // If this name is already in the graph, then the cell has the same
         // name.
-        if let Ok(_) = self.get_node_by_name(name) {
+        if self.get_node_by_name(name).is_ok() {
             return Err(errors::Error::AlreadyBound(
                 name.clone(),
                 "cell".to_string(),
