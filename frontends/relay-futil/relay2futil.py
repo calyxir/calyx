@@ -31,7 +31,6 @@ class Relay2Futil(ExprFunctor):
 
     def __init__(self):
         super(Relay2Futil, self).__init__()
-        self.is_ret = True
 
     def visit_var(self, var):
         name = var.name_hint
@@ -73,7 +72,6 @@ class Relay2Futil(ExprFunctor):
         )
 
     def visit_let(self, let):
-        self.is_ret = False
         # construct a cell for the variable
         name_var = let.var.name_hint
         cell = [f'{name_var} = prim std_reg(32);']
@@ -85,7 +83,6 @@ class Relay2Futil(ExprFunctor):
         wires = [f'{name_var}.in = {expr_value.value};', f"{name_var}.write_en = 1'd1;",
                  f'{group_name}[done] = {name_var}.done;'] + expr_value.wires
         # visit the body
-        self.is_ret = True
         body_value = self.visit(let.body)
         body_value.groups[group_name] = wires
         return EmitResult(
