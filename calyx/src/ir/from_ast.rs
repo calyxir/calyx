@@ -1,6 +1,6 @@
 use super::{
     Assignment, Cell, CellType, Component, Context, Control, Direction, Group,
-    Guard, Port, PortParent, RRC,
+    Guard, Port, PortParent, RRC, Builder
 };
 use crate::{
     errors::{Error, FutilResult},
@@ -85,7 +85,7 @@ fn build_component(
     };
 
     // Cell to represent the signature of this component
-    let signature = Component::cell_from_signature(
+    let signature = Builder::cell_from_signature(
         THIS_ID.into(),
         CellType::ThisComponent,
         comp.signature
@@ -217,7 +217,7 @@ fn build_cell(
         };
     // Construct the Cell
     let cell =
-        Component::cell_from_signature(name.clone(), typ, inputs, outputs);
+        Builder::cell_from_signature(name.clone(), typ, inputs, outputs);
 
     // Add this cell to context
     ctx.cell_map.insert(name, Rc::clone(&cell));
@@ -230,7 +230,7 @@ fn build_constant(
     ctx: &mut TransformCtx,
 ) -> FutilResult<RRC<Cell>> {
     let name: ast::Id = Cell::constant_name(num.val, num.width);
-    let cell = Component::cell_from_signature(
+    let cell = Builder::cell_from_signature(
         name.clone(),
         CellType::Constant { val: num.val, width: num.width },
         vec![],
@@ -337,7 +337,7 @@ fn atom_to_port(
             let cell = if ctx.cell_map.contains_key(&key) {
                 Rc::clone(&ctx.cell_map[&key])
             } else {
-                // XXX(rachit): This is never added to the Component.
+                // XXX(rachit): This is never added to the constant
                 build_constant(n, ctx)?
             };
 

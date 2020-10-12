@@ -1,4 +1,5 @@
 use super::{Port, RRC};
+use std::rc::Rc;
 
 /// An assignment guard which has pointers to the various ports from which it reads.
 #[derive(Debug)]
@@ -17,8 +18,26 @@ pub enum Guard {
 
 /// Helper functions for the guard.
 impl Guard {
-    // TODO(rachit): Implement a tree walking function.
-    // fn for_each
+    /// Returns all the ports used by this guard.
+    pub fn all_ports(&self) -> Vec<RRC<Port>> {
+        match self {
+            Guard::Port(a) => vec![Rc::clone(a)],
+            Guard::Or(gs) | Guard::And(gs) => {
+                gs.iter().map(|g| g.all_ports()).flatten().collect()
+            }
+            Guard::Eq(l, r)
+            | Guard::Neq(l, r)
+            | Guard::Gt(l, r)
+            | Guard::Lt(l, r)
+            | Guard::Leq(l, r)
+            | Guard::Geq(l, r) => {
+                let mut atoms = l.all_ports();
+                atoms.append(&mut r.all_ports());
+                atoms
+            }
+            Guard::Not(g) => g.all_ports(),
+        }
+    }
 
     /// Return the string corresponding to the guard operation.
     pub fn op_str(&self) -> String {

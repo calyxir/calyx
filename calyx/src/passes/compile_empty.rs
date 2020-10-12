@@ -28,24 +28,24 @@ impl Visitor for CompileEmpty {
         _s: &ir::Empty,
         comp: &mut Component,
     ) -> VisResult {
-        let group_ref = match comp.find_group(CompileEmpty::EMPTY_GROUP.into())
+        let group_ref = match comp.find_group(&CompileEmpty::EMPTY_GROUP.into())
         {
             Some(g) => g,
             None => {
+                let mut builder = ir::Builder::from(comp, false);
                 // Create a group that always outputs done if it doesn't exist.
                 let mut attrs = HashMap::new();
                 attrs.insert("static".to_string(), 0);
 
-                // Create a new group
-                let empty_group = comp
-                    .build_group(CompileEmpty::EMPTY_GROUP.to_string(), attrs);
-                comp.groups.push(Rc::clone(&empty_group));
+                // Add the new group
+                let empty_group = builder
+                    .add_group(CompileEmpty::EMPTY_GROUP.to_string(), attrs);
 
                 // Add this signal empty_group[done] = 1'd1;
-                let signal_on = comp.build_constant(1, 1);
-                let done_assign = comp.build_assignment(
-                    empty_group.borrow().find_hole("done".into()).unwrap(),
-                    signal_on.borrow().find_port("out".into()).unwrap(),
+                let signal_on = builder.add_constant(1, 1);
+                let done_assign = builder.build_assignment(
+                    empty_group.borrow().get_hole(&"done".into()),
+                    signal_on.borrow().get_port(&"out".into()),
                     None,
                 );
                 empty_group.borrow_mut().assignments.push(done_assign);

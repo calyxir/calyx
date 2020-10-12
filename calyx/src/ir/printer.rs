@@ -1,7 +1,6 @@
 //! Implements a formatter for the in-memory representation of Components.
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
-use crate::errors::Error;
 use crate::ir;
 use std::io;
 

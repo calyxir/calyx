@@ -78,11 +78,20 @@ pub struct Cell {
 
 impl Cell {
     /// Get a reference to the named port if it exists.
-    pub fn find_port(&self, name: Id) -> Option<RRC<Port>> {
+    pub fn find_port(&self, name: &Id) -> Option<RRC<Port>> {
         self.ports
             .iter()
-            .find(|&g| g.borrow().name == name)
+            .find(|&g| g.borrow().name == *name)
             .map(|r| Rc::clone(r))
+    }
+
+    /// Get a reference to the named port and throw an error if it doesn't
+    /// exist.
+    pub fn get_port(&self, name: &Id) -> RRC<Port> {
+        self.find_port(name).expect(format!(
+            "Port `{}' not found on group `{}'",
+            name.to_string(), self.name.to_string()
+        ).as_str())
     }
 }
 
@@ -117,11 +126,19 @@ pub struct Group {
 
 impl Group {
     /// Get a reference to the named hole if it exists.
-    pub fn find_hole(&self, name: Id) -> Option<RRC<Port>> {
+    pub fn find_hole(&self, name: &Id) -> Option<RRC<Port>> {
         self.holes
             .iter()
-            .find(|&g| g.borrow().name == name)
+            .find(|&g| g.borrow().name == *name)
             .map(|r| Rc::clone(r))
+    }
+
+    /// Get a reference to the named hole or panic.
+    pub fn get_hole(&self, name: &Id) -> RRC<Port> {
+        self.find_hole(name).expect(format!(
+            "Hole `{}' not found on group `{}'",
+            name.to_string(), self.name.to_string()
+        ).as_str())
     }
 }
 

@@ -13,6 +13,7 @@ mod control;
 mod guard;
 mod structure;
 mod printer;
+mod builder;
 
 /// Re-export types at the module level.
 pub use common::{RRC, WRC};
@@ -24,6 +25,7 @@ pub use structure::{
     Assignment, Cell, CellType, Direction, Group, Port, PortParent,
 };
 pub use printer::IRPrinter;
+pub use builder::Builder;
 
 /// Visitor to traverse a control program.
 pub mod traversal;
