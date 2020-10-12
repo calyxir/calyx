@@ -232,7 +232,7 @@ fn build_constant(
     let name: ast::Id = Cell::constant_name(num.val, num.width);
     let cell = Component::cell_from_signature(
         name.clone(),
-        CellType::Constant,
+        CellType::Constant { val: num.val, width: num.width },
         vec![],
         vec![("out".into(), num.width)],
     );

@@ -101,7 +101,7 @@ impl Component {
         // Construct this cell if it's not already present in the context.
         let cell = Component::cell_from_signature(
             name.clone(),
-            CellType::Constant,
+            CellType::Constant { val, width },
             vec![],
             vec![("out".into(), width)],
         );

@@ -57,7 +57,12 @@ pub enum CellType {
     /// This cell represents the current component
     ThisComponent,
     /// Cell representing a Constant
-    Constant,
+    Constant {
+        /// Value of this constant
+        val: u64,
+        /// Width of this constant
+        width: u64,
+    },
 }
 
 /// Represents an instantiated cell.
