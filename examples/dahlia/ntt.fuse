@@ -2,8 +2,8 @@ decl real: ubit<32>[1024];
 decl img: ubit<32>[1024];
 decl real_twid: ubit<32>[512];
 decl img_twid: ubit<32>[512];
-decl mod_number: ubit<32>;
-decl root: ubit<32>;
+decl mod_number: ubit<32>[1];
+decl root: ubit<32>[1];
 decl powers: ubit<32>[512];
 
 let span: ubit<32> = 512;
@@ -14,7 +14,7 @@ let i: ubit<32> = 0;
 
 while (i != 512) {
   powers[i] := pow;
-  pow := pow * root % mod_number;
+  pow := pow * root[0] % mod_number[0];
   i := i + 1;
 }
 
@@ -41,10 +41,12 @@ while (span != 0) {
     let rootindex = (even << log) & (1023 as ubit<32>);
     ---
     if (rootindex != 0) {
-      img_odd := img[odd] * powers[rootindex] % mod_number;
-      let temp = (real_twid[rootindex] * real[odd] - img_twid[rootindex] * img_odd + mod_number) % mod_number;
+      img_odd := img[odd] * powers[rootindex] % mod_number[0];
+      let temp = (real_twid[rootindex] * real[odd] - img_twid[rootindex] *
+          img_odd + mod_number[0]) % mod_number[0];
       ---
-      img[odd] := (real_twid[rootindex] * img_odd + img_twid[rootindex] * real[odd]) % mod_number;
+      img[odd] := (real_twid[rootindex] * img_odd + img_twid[rootindex] *
+          real[odd]) % mod_number[0];
       ---
       real[odd] := temp;
     }
