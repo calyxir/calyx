@@ -34,7 +34,12 @@ pub struct Port {
 /// The type for a Cell
 pub enum CellType {
     /// Cell constructed using a primitive definition
-    Primitive,
+    Primitive {
+        /// Name of the primitive cell used to instantiate this cell.
+        name: Id,
+        /// Bindings for the parameters.
+        param_binding: HashMap<Id, u64>,
+    },
     /// Cell constructed using a FuTIL component
     Component,
     /// This cell represents the current component

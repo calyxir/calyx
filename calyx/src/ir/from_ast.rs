@@ -181,11 +181,12 @@ fn build_cell(
                     ctx.sig_ctx.lib_sigs.get(&prim_name).ok_or_else(|| {
                         Error::UndefinedComponent(name.clone())
                     })?;
-                let param_bindings = prim_sig
+                let param_binding = prim_sig
                     .params
                     .iter()
+                    .cloned()
                     .zip(instance.params)
-                    .collect::<HashMap<&ast::Id, u64>>();
+                    .collect::<HashMap<ast::Id, u64>>();
                 let instantiate_ports =
                     |ports: &Vec<library::ast::ParamPortdef>| {
                         ports
@@ -196,18 +197,27 @@ fn build_cell(
                                     (ppd.name, value)
                                 }
                                 library::ast::Width::Param { value } => {
-                                    (ppd.name, param_bindings[&value])
+                                    (ppd.name, param_binding[&value])
                                 }
                             })
                             .collect::<Vec<_>>()
                     };
                 let inputs = instantiate_ports(&prim_sig.signature.inputs);
                 let outputs = instantiate_ports(&prim_sig.signature.outputs);
-                (name, CellType::Primitive, inputs, outputs)
+                (
+                    name.clone(),
+                    CellType::Primitive {
+                        name,
+                        param_binding,
+                    },
+                    inputs,
+                    outputs,
+                )
             }
         };
     // Construct the Cell
-    let cell = Component::cell_from_signature(name.clone(), typ, inputs, outputs);
+    let cell =
+        Component::cell_from_signature(name.clone(), typ, inputs, outputs);
 
     // Add this cell to context
     ctx.cell_map.insert(name, Rc::clone(&cell));
@@ -229,8 +239,7 @@ fn build_constant(
 
     // Add this constant to cell_map mapping a string for this constant
     // to this cell.
-    ctx.cell_map
-        .insert(name, Rc::clone(&cell));
+    ctx.cell_map.insert(name, Rc::clone(&cell));
 
     Ok(cell)
 }
