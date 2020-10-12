@@ -7,7 +7,6 @@ import math
 
 from relay2futil_utilities import *
 
-
 PREAMBLE = """import "primitives/std.lib";"""
 
 # Map standard relay call to respective hardware name in FuTIL.
@@ -15,6 +14,7 @@ BuiltInBinaryCalls = {'add': 'add', 'subtract': 'sub', 'equal': 'eq'}
 
 EmitResult = namedtuple('EmitResult',
                         ['value', 'done', 'cells', 'wires', 'groups', 'controls'])
+
 
 def mk_block(decl, contents, indent=2):
     """Format a block like this:
@@ -126,8 +126,6 @@ class Relay2Futil(ExprFunctor):
                     groups,
                     []
                 )
-            ret_cell = Tensor1D(bitwidth=32, memory_size=memory_size, index_size=memory_index)
-
             op = BinaryOp(bitwidth=32, op=BuiltInBinaryCalls[call.op.name])
             array_indexing = BinaryOp(bitwidth=memory_index, op="add")
             le_comparator = BinaryOp(bitwidth=memory_index, op="le")
@@ -138,8 +136,11 @@ class Relay2Futil(ExprFunctor):
 
             index = Register(name='index', bitwidth=memory_index)
 
-            structures.extend([op.construct(), index.construct(), le_comparator.construct(), array_indexing.construct(),
-                               begin_array.construct(), end_array.construct(), increment.construct(), ret_cell.construct()])
+            ret_cell = Tensor1D(bitwidth=32, memory_size=memory_size, index_size=memory_index)
+
+            structures.extend([op.construct(), array_indexing.construct(), le_comparator.construct(),
+                               begin_array.construct(), end_array.construct(), increment.construct(), index.construct(),
+                               ret_cell.construct()])
 
             condition_name = f'cond{id("cond")}'
             groups[condition_name] = [

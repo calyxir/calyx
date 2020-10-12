@@ -7,12 +7,12 @@ component main() -> () {
     constant1 = prim std_const(32, 1);
     ret = prim std_mem_d1(32, 4, 2);
     add0 = prim std_add(32);
-    index0 = prim std_reg(2);
-    le0 = prim std_le(2);
     add1 = prim std_add(2);
+    le0 = prim std_le(2);
     const0 = prim std_const(2, 0);
     const1 = prim std_const(2, 3);
     incr0 = prim std_const(2, 1);
+    index0 = prim std_reg(2);
     1D_tensor0 = prim std_mem_d1(32, 4, 2);
   }
   wires {
