@@ -4,7 +4,7 @@
 use super::{colors, colors::ColorHelper};
 use crate::backend::traits::{Backend, Emitable};
 use crate::errors::{Error, FutilResult};
-use crate::lang::library::ast as lib;
+use crate::frontend::library::ast as lib;
 use crate::lang::structure::Node;
 use crate::{
     lang::{

@@ -1,7 +1,7 @@
 //! Parser for FuTIL libraries.
+use super::ast as lib;
 use crate::errors::{self, FutilResult, Span};
 use crate::lang::ast;
-use crate::lang::library::ast as lib;
 use pest_consume::{match_nodes, Error, Parser};
 use std::collections::HashMap;
 use std::fs;

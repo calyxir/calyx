@@ -5,7 +5,7 @@ use super::{
 use crate::{
     errors::{Error, FutilResult},
     lang::ast,
-    lang::library,
+    frontend::library,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
