@@ -1,9 +1,10 @@
-use super::{Guard, WRC, RRC};
+use super::{Guard, RRC, WRC};
 use crate::frontend::ast::Id;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Direction of a port on a cell.
+#[derive(Debug)]
 pub enum Direction {
     /// Input port.
     Input,
@@ -14,12 +15,14 @@ pub enum Direction {
 }
 
 /// Ports can come from Cells or Groups
+#[derive(Debug)]
 pub enum PortParent {
     Cell(WRC<Cell>),
     Group(WRC<Group>),
 }
 
 /// Represents a port on a cell.
+#[derive(Debug)]
 pub struct Port {
     /// Name of the port
     pub name: Id,
@@ -31,7 +34,15 @@ pub struct Port {
     pub parent: PortParent,
 }
 
+impl Port {
+    /// Checks if this port is a hole
+    pub fn is_hole(&self) -> bool {
+        matches!(&self.parent, PortParent::Group(_))
+    }
+}
+
 /// The type for a Cell
+#[derive(Debug)]
 pub enum CellType {
     /// Cell constructed using a primitive definition
     Primitive,
@@ -44,6 +55,7 @@ pub enum CellType {
 }
 
 /// Represents an instantiated cell.
+#[derive(Debug)]
 pub struct Cell {
     /// Name of this cell.
     pub name: Id,
@@ -64,6 +76,7 @@ impl Cell {
 }
 
 /// Represents a guarded assignment in the program
+#[derive(Debug)]
 pub struct Assignment {
     /// The destination for the assignment.
     pub dst: RRC<Port>,
@@ -76,6 +89,7 @@ pub struct Assignment {
 }
 
 /// A Group of assignments that perform a logical action.
+#[derive(Debug)]
 pub struct Group {
     /// Name of this group
     pub name: Id,
@@ -99,7 +113,6 @@ impl Group {
             .map(|r| Rc::clone(r))
     }
 }
-
 
 impl Cell {
     /// Return the canonical name for the cell generated to represent this

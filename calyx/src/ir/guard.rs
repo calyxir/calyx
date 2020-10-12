@@ -1,6 +1,7 @@
 use super::{Port, RRC};
 
 /// An assignment guard which has pointers to the various ports from which it reads.
+#[derive(Debug)]
 pub enum Guard {
     And(Vec<Guard>),
     Or(Vec<Guard>),

@@ -1,6 +1,6 @@
 use super::{
-    Assignment, Cell, CellType, Control, Direction, Group, Port, PortParent,
-    RRC, Guard
+    Assignment, Cell, CellType, Control, Direction, Group, Guard, Port,
+    PortParent, RRC,
 };
 use crate::frontend::ast::Id;
 use std::cell::RefCell;
@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 /// In memory representation of a Component.
+#[derive(Debug)]
 pub struct Component {
     /// Name of the component.
     pub name: Id,

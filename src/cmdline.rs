@@ -2,6 +2,7 @@ use calyx::backend::traits::Backend;
 use calyx::backend::verilog::VerilogBackend;
 use calyx::{
     errors::{Error, FutilResult},
+    ir,
     lang::context,
     lang::pretty_print::PrettyPrint,
     utils::OutputFile,
@@ -72,7 +73,7 @@ pub struct Opts {
 pub enum BackendOpt {
     Verilog,
     Futil,
-    Dot,
+    // Dot,
     None,
 }
 
@@ -80,7 +81,7 @@ fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
         (VerilogBackend::name(), BackendOpt::Verilog),
         ("futil", BackendOpt::Futil),
-        ("dot", BackendOpt::Dot),
+        // ("dot", BackendOpt::Dot),
         ("none", BackendOpt::None),
     ]
 }
@@ -124,7 +125,7 @@ impl ToString for BackendOpt {
         match self {
             Self::Verilog => "verilog",
             Self::Futil => "futil",
-            Self::Dot => "dot",
+            // Self::Dot => "dot",
             Self::None => "none",
         }
         .to_string()
@@ -133,38 +134,39 @@ impl ToString for BackendOpt {
 
 impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
-    pub fn run_backend(self, context: &context::Context) -> FutilResult<()> {
+    pub fn run_backend(self, context: &ir::Context) -> FutilResult<()> {
         match self.backend {
             BackendOpt::Verilog => VerilogBackend::run(&context, self.output),
             BackendOpt::Futil => {
-                if self.color || self.output.isatty() {
-                    context.pretty_print_color();
-                } else {
-                    write!(
-                        self.output.get_write(),
-                        "{}",
-                        context.pretty_string()
-                    )?;
-                }
+                println!("{:#?}", context);
+                // if self.color || self.output.isatty() {
+                //     context.pretty_print_color();
+                // } else {
+                //     write!(
+                //         self.output.get_write(),
+                //         "{}",
+                //         context.pretty_string()
+                //     )?;
+                // }
                 Ok(())
             }
-            BackendOpt::Dot => {
-                let write_result = write!(
-                    self.output.get_write(),
-                    "{}",
-                    context
-                        .get_component(&self.toplevel.into())?
-                        .structure
-                        .visualize()
-                );
-                write_result.map_err(|err| {
-                    Error::InvalidFile(format!(
-                        "Failed to write: {}",
-                        err.to_string()
-                    ))
-                })?;
-                Ok(())
-            }
+            // BackendOpt::Dot => {
+            //     let write_result = write!(
+            //         self.output.get_write(),
+            //         "{}",
+            //         context
+            //             .get_component(&self.toplevel.into())?
+            //             .structure
+            //             .visualize()
+            //     );
+            //     write_result.map_err(|err| {
+            //         Error::InvalidFile(format!(
+            //             "Failed to write: {}",
+            //             err.to_string()
+            //         ))
+            //     })?;
+            //     Ok(())
+            // }
             BackendOpt::None => Ok(()),
         }
     }

@@ -157,7 +157,7 @@ fn main() -> FutilResult<()> {
     )?;*/
 
     // Build the IR representation
-    let mut rep = ir::from_ast::ast_to_ir(
+    let mut rep: ir::Context = ir::from_ast::ast_to_ir(
         namespace.components,
         &libraries,
         opts.enable_debug,
@@ -166,14 +166,13 @@ fn main() -> FutilResult<()> {
     WellFormed::do_pass_default(&mut rep)?;
     CompileEmpty::do_pass_default(&mut rep)?;
 
-    /*
-    // Construct the name generator
-    let name_gen = NameGenerator::default();
+    // // Construct the name generator
+    // let name_gen = NameGenerator::default();
 
-    // run all passes specified by the command line
-    let context =
-        pm.execute_plan(context, name_gen, &opts.pass, &opts.disable_pass)?;
+    // // run all passes specified by the command line
+    // let context =
+    //     pm.execute_plan(context, name_gen, &opts.pass, &opts.disable_pass)?;
 
-    opts.run_backend(&context)*/
+    opts.run_backend(&rep)?;
     Ok(())
 }

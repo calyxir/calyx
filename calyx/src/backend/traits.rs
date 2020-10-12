@@ -1,8 +1,4 @@
-use crate::errors::FutilResult;
-use crate::{
-    lang::{component, context},
-    utils::OutputFile,
-};
+use crate::{errors::FutilResult, ir, lang::component, utils::OutputFile};
 use pretty::termcolor::ColorSpec;
 use pretty::RcDoc;
 
@@ -12,12 +8,12 @@ pub trait Backend {
     fn name() -> &'static str;
     /// Validate this program for emitting using this backend. Returns an
     /// Err(..) if the program has unexpected constructs.
-    fn validate(prog: &context::Context) -> FutilResult<()>;
+    fn validate(prog: &ir::Context) -> FutilResult<()>;
     /// Transforms the program into a formatted string representing a valid
     /// and write it to `write`.
-    fn emit(prog: &context::Context, write: OutputFile) -> FutilResult<()>;
+    fn emit(prog: &ir::Context, write: OutputFile) -> FutilResult<()>;
     /// Convience function to validate and emit the program.
-    fn run(prog: &context::Context, file: OutputFile) -> FutilResult<()> {
+    fn run(prog: &ir::Context, file: OutputFile) -> FutilResult<()> {
         Self::validate(&prog)?;
         Self::emit(prog, file)
     }
@@ -27,7 +23,7 @@ pub trait Backend {
 pub trait Emitable {
     fn doc<'a>(
         &self,
-        ctx: &context::Context,
+        ctx: &ir::Context,
         comp: &component::Component,
     ) -> FutilResult<RcDoc<'a, ColorSpec>>;
 }

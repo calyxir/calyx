@@ -2,6 +2,7 @@ use super::{Group, Port, RRC};
 
 /// Data for the `seq` control statement.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Seq {
     /// List of `Control` statements to run in sequence.
     pub stmts: Vec<Control>,
@@ -9,6 +10,7 @@ pub struct Seq {
 
 /// Data for the `par` control statement.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Par {
     /// List of `Control` statements to run in parallel.
     pub stmts: Vec<Control>,
@@ -16,6 +18,7 @@ pub struct Par {
 
 /// Data for the `if` control statement.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct If {
     /// Port that connects the conditional check.
     pub port: RRC<Port>,
@@ -32,6 +35,7 @@ pub struct If {
 
 /// Data for the `if` control statement.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct While {
     /// Port that connects the conditional check.
     pub port: RRC<Port>,
@@ -45,6 +49,7 @@ pub struct While {
 
 /// Data for the `enable` control statement.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Enable {
     /// List of components to run.
     pub group: RRC<Group>,
@@ -52,10 +57,12 @@ pub struct Enable {
 
 /// Data for the `empty` control statement.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Empty {}
 
 /// Control AST nodes.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum Control {
     /// Represents sequential composition of control statements.
     Seq(Seq),

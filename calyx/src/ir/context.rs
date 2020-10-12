@@ -5,6 +5,7 @@
 use super::Component;
 
 /// The IR Context
+#[derive(Debug)]
 pub struct Context {
     /// The components for this program.
     pub components: Vec<Component>,
