@@ -8,33 +8,55 @@ use std::fmt;
 pub struct IRPrinter {}
 
 impl IRPrinter {
-    /// Format a given Component into a printable string.
-    pub fn print(comp: &ir::Component) -> fmt::Result {
-        unimplemented!()
+    /// Formats and writes the Component to the formatter.
+    pub fn write_component(
+        comp: &ir::Component,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
+        let sig = comp.signature.borrow();
+        let (inputs, outputs): (Vec<_>, Vec<_>) =
+            sig.ports.iter().partition(|p| {
+                matches!(p.borrow().direction, ir::Direction::Input)
+            });
+
+        write!(
+            f,
+            "component {}({}) -> ({}) {{\n",
+            comp.name.id,
+            inputs
+                .iter()
+                .map(|p| p.borrow().name.id.clone())
+                .collect::<Vec<_>>()
+                .join(", "),
+            outputs
+                .iter()
+                .map(|p| p.borrow().name.id.clone())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )?;
+
+        // Add the cells
+        write!(f, "  cells {{\n")?;
+        for cell in &comp.cells {
+            Self::write_cell(&cell.borrow(), 4, f)?;
+        }
+        write!(f, "  }}\n")?;
+
+        // Add the wires
+        write!(f, "  wires {{\n")?;
+        for group in &comp.groups {
+            Self::write_group(&group.borrow(), 4, f)?;
+        }
+        write!(f, "  }}\n")?;
+
+        // Add the control program
+        write!(f, "  control {{\n")?;
+        Self::write_control(&comp.control.borrow(), 4, f)?;
+        write!(f, "  }}\n")
     }
 
-    /// Format a given cell into a printable string.
-    pub fn print_cell(cell: &ir::Cell) -> fmt::Result {
-        unimplemented!()
-    }
-
-    /// Format a given assignment into a printable string.
-    pub fn print_assignment(assign: &ir::Assignment) -> fmt::Result {
-        unimplemented!()
-    }
-
-    /// Format a given group into a printable string.
-    pub fn print_group(group: &ir::Group) -> fmt::Result {
-        unimplemented!()
-    }
-
-    /// Format a control program into a printable string.
-    pub fn print_control(control: &ir::Control) -> fmt::Result {
-        unimplemented!()
-    }
-
-    ///////////////////// Internal methods //////////////////////
-    fn write_cell(
+    /// Format and write a cell.
+    pub fn write_cell(
         cell: &ir::Cell,
         indent_level: usize,
         f: &mut fmt::Formatter,
@@ -60,6 +82,94 @@ impl IRPrinter {
         }
     }
 
+    /// Format and write an assignment.
+    pub fn write_assignment(
+        assign: &ir::Assignment,
+        indent_level: usize,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
+        write!(f, "{}", " ".repeat(indent_level))?;
+        write!(f, "{} = ", Self::get_port_access(&assign.dst.borrow()))?;
+        if let Some(g) = &assign.guard {
+            write!(f, "{} ?", Self::guard_str(&g))?;
+        }
+        write!(f, "{};", Self::get_port_access(&assign.src.borrow()))
+    }
+
+    /// Format and write a group.
+    pub fn write_group(
+        group: &ir::Group,
+        indent_level: usize,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
+        write!(f, "{}", " ".repeat(indent_level))?;
+        write!(f, "group {} {{\n", group.name.id)?;
+        for assign in &group.assignments {
+            Self::write_assignment(assign, indent_level + 2, f)?;
+            write!(f, "\n")?;
+        }
+        write!(f, "{}}}", " ".repeat(indent_level))
+    }
+
+    /// Format and write a control program
+    pub fn write_control(
+        control: &ir::Control,
+        indent_level: usize,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
+        write!(f, "{}", " ".repeat(indent_level))?;
+        match control {
+            ir::Control::Enable(ir::Enable { group }) => {
+                write!(f, "{};\n", group.borrow().name.id)
+            }
+            ir::Control::Seq(ir::Seq { stmts }) => {
+                write!(f, "seq {{\n")?;
+                for stmt in stmts {
+                    Self::write_control(stmt, indent_level + 2, f)?;
+                }
+                write!(f, "{}}}", " ".repeat(indent_level))
+            }
+            ir::Control::Par(ir::Par { stmts }) => {
+                write!(f, "par {{\n")?;
+                for stmt in stmts {
+                    Self::write_control(stmt, indent_level + 2, f)?;
+                }
+                write!(f, "{}}}", " ".repeat(indent_level))
+            }
+            ir::Control::If(ir::If {
+                port,
+                cond,
+                tbranch,
+                fbranch,
+            }) => {
+                write!(
+                    f,
+                    "if {} with {} {{\n",
+                    Self::get_port_access(&port.borrow()),
+                    cond.borrow().name.id
+                )?;
+                Self::write_control(tbranch, indent_level + 2, f)?;
+                write!(f, "{}}}", " ".repeat(indent_level))?;
+                // TODO(rachit): don't print else when its empty
+                write!(f, "else {}{{", " ".repeat(indent_level))?;
+                Self::write_control(fbranch, indent_level + 2, f)?;
+                write!(f, "{}}}", " ".repeat(indent_level))
+            }
+            ir::Control::While(ir::While { port, cond, body }) => {
+                write!(
+                    f,
+                    "while {} with {} {{\n",
+                    Self::get_port_access(&port.borrow()),
+                    cond.borrow().name.id
+                )?;
+                Self::write_control(body, indent_level + 2, f)?;
+                write!(f, "{}}}", " ".repeat(indent_level))
+            }
+            ir::Control::Empty(_) => write!(f, ""),
+        }
+    }
+
+    /// Generate a String-based representation for a guard.
     fn guard_str(guard: &ir::Guard) -> String {
         match guard {
             ir::Guard::And(gs) | ir::Guard::Or(gs) => gs
@@ -98,92 +208,6 @@ impl IRPrinter {
                 group_wref.upgrade().unwrap().borrow().name.id,
                 port.name.id
             ),
-        }
-    }
-
-    fn write_assignment(
-        assign: &ir::Assignment,
-        indent_level: usize,
-        f: &mut fmt::Formatter,
-    ) -> fmt::Result {
-        write!(f, "{}", " ".repeat(indent_level))?;
-        write!(f, "{} = ", Self::get_port_access(&assign.dst.borrow()))?;
-        if let Some(g) = &assign.guard {
-            write!(f, "{} ?", Self::guard_str(&g))?;
-        }
-        write!(f, "{};", Self::get_port_access(&assign.src.borrow()))
-    }
-
-    fn write_group(
-        group: &ir::Group,
-        indent_level: usize,
-        f: &mut fmt::Formatter,
-    ) -> fmt::Result {
-        write!(f, "{}", " ".repeat(indent_level))?;
-        write!(f, "group {} {{\n", group.name.id)?;
-        for assign in &group.assignments {
-            Self::write_assignment(assign, indent_level + 2, f)?;
-            write!(f, "\n")?;
-        }
-        write!(f, "{}}}", " ".repeat(indent_level))
-    }
-
-    fn write_control(
-        control: &ir::Control,
-        indent_level: usize,
-        f: &mut fmt::Formatter,
-    ) -> fmt::Result {
-        write!(f, "{}", " ".repeat(indent_level))?;
-        match control {
-            ir::Control::Enable(ir::Enable { group }) => {
-                write!(f, "{};\n", group.borrow().name.id)
-            }
-            ir::Control::Seq(ir::Seq { stmts }) => {
-                write!(f, "seq {{\n");
-                for stmt in stmts {
-                    Self::write_control(stmt, indent_level + 2, f)?;
-                }
-                write!(f, "{}}}", " ".repeat(indent_level))
-            }
-            ir::Control::Par(ir::Par { stmts }) => {
-                write!(f, "par {{\n");
-                for stmt in stmts {
-                    Self::write_control(stmt, indent_level + 2, f)?;
-                }
-                write!(f, "{}}}", " ".repeat(indent_level))
-            }
-            ir::Control::If(ir::If {
-                port,
-                cond,
-                tbranch,
-                fbranch,
-            }) => {
-                write!(
-                    f,
-                    "if {} with {} {{\n",
-                    Self::get_port_access(&port.borrow()),
-                    cond.borrow().name.id
-                )?;
-                Self::write_control(tbranch, indent_level + 2, f)?;
-                write!(f, "{}}}", " ".repeat(indent_level))?;
-                // TODO(rachit): don't print else when its empty
-                write!(f, "else {}{{", " ".repeat(indent_level))?;
-                Self::write_control(fbranch, indent_level + 2, f)?;
-                write!(f, "{}}}", " ".repeat(indent_level))
-            }
-            ir::Control::While(ir::While { port, cond, body }) => {
-                write!(
-                    f,
-                    "while {} with {} {{\n",
-                    Self::get_port_access(&port.borrow()),
-                    cond.borrow().name.id
-                )?;
-                Self::write_control(body, indent_level + 2, f)?;
-                write!(f, "{}}}", " ".repeat(indent_level))
-            }
-            ir::Control::Empty(Empty) => {
-                write!(f, "")
-            }
         }
     }
 }
