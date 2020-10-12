@@ -12,7 +12,7 @@ mod context;
 mod control;
 mod guard;
 mod structure;
-mod ir_printer;
+mod printer;
 
 /// Re-export types at the module level.
 pub use common::{RRC, WRC};
@@ -23,7 +23,7 @@ pub use guard::Guard;
 pub use structure::{
     Assignment, Cell, CellType, Direction, Group, Port, PortParent,
 };
-pub use ir_printer::IRPrinter;
+pub use printer::IRPrinter;
 
 /// Visitor to traverse a control program.
 pub mod traversal;
