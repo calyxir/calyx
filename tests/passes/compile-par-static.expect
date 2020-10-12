@@ -4,8 +4,8 @@ component main(go: 1, clk: 1) -> (done: 1) {
     a = prim std_reg(2);
     b = prim std_reg(2);
     c = prim std_reg(2);
-    fsm0 = prim std_reg(32);
-    incr0 = prim std_add(32);
+    fsm0 = prim std_reg(2);
+    incr0 = prim std_add(2);
   }
   
   wires {
@@ -25,17 +25,17 @@ component main(go: 1, clk: 1) -> (done: 1) {
       C[done] = c.done;
     }
     group static_par0<"static"=1> {
-      incr0.left = 32'd1;
+      incr0.left = 2'd1;
       incr0.right = fsm0.out;
-      fsm0.in = fsm0.out != 32'd1 ? incr0.out;
-      fsm0.write_en = fsm0.out != 32'd1 ? 1'd1;
-      static_par0[done] = fsm0.out == 32'd1 ? 1'd1;
-      A[go] = fsm0.out <= 32'd1 ? 1'd1;
-      B[go] = fsm0.out <= 32'd1 ? 1'd1;
-      C[go] = fsm0.out <= 32'd1 ? 1'd1;
+      fsm0.in = fsm0.out != 2'd1 ? incr0.out;
+      fsm0.write_en = fsm0.out != 2'd1 ? 1'd1;
+      static_par0[done] = fsm0.out == 2'd1 ? 1'd1;
+      A[go] = fsm0.out <= 2'd1 ? 1'd1;
+      B[go] = fsm0.out <= 2'd1 ? 1'd1;
+      C[go] = fsm0.out <= 2'd1 ? 1'd1;
     }
-    fsm0.write_en = fsm0.out == 32'd1 ? 1'd1;
-    fsm0.in = fsm0.out == 32'd1 ? 32'd0;
+    fsm0.write_en = fsm0.out == 2'd1 ? 1'd1;
+    fsm0.in = fsm0.out == 2'd1 ? 2'd0;
   }
   
   control {

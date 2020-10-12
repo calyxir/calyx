@@ -12,17 +12,16 @@ You will need to install TVM—and we depend on the latest source (unreleased ch
 1. Clone the TVM repository (success was once attained with revision `ccacb1ec1`):
 
         git clone --recursive git@github.com:apache/incubator-tvm.git
-        cd incubator-tvm
+        cd incubator-tvm && git reset --hard ccacb1ec1
 
 2. Set up to build (the default configuration is fine because we don't need any fancy backends like LLVM or CUDA):
 
-        mkdir build
-        cd build
+        mkdir build && cd build
         cp ../cmake/config.cmake .
 
 4. Build (takes about 9 minutes on my MacBook Pro):
 
-        cmake -G Ninja .. ; ninja
+        cmake -G Ninja .. && ninja
 
 5. Install the `tvm` Python package by building a [wheel][]:
 
@@ -41,8 +40,10 @@ Run an Example
 --------------
 
 Try this to run a simple example:
-
-    python3 example.py
+```bash
+cd futil/frontends/relay-futil
+python3 example.py
+```     
 
 Pass the `-r` flag to this script to see the Relay code. Otherwise, we just print the FuTIL code. There is also an `-o` flag to try optimizing the Relay code a little bit.
 
