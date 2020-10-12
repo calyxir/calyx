@@ -254,11 +254,9 @@ fn build_constant(
     num: ast::BitNum,
     ctx: &mut TransformCtx,
 ) -> FutilResult<RRC<Cell>> {
-    // XXX(rachit): This is an ad-hoc way to expose the name. We should probably
-    // expose a function that transforms a constant into the relevant cell.
-    let name: ast::Id = ("_".to_string() + &num.val.to_string()).into();
+    let name: ast::Id = Cell::constant_name(num.val, num.width);
     let cell = cell_from_signature(
-        name,
+        name.clone(),
         CellType::Constant,
         vec![],
         vec![("out".into(), num.width)],
@@ -269,7 +267,7 @@ fn build_constant(
     // XXX(rachit): This is doubly bad because the name doesn't correspond to
     // the cell name.
     ctx.cell_map
-        .insert(num.val.to_string().into(), Rc::clone(&cell));
+        .insert(name, Rc::clone(&cell));
 
     Ok(cell)
 }
@@ -363,7 +361,7 @@ fn atom_to_port(
 ) -> FutilResult<RRC<Port>> {
     match atom {
         ast::Atom::Num(n) => {
-            let key: ast::Id = n.val.to_string().into();
+            let key: ast::Id = Cell::constant_name(n.val, n.width);
             let cell = if ctx.cell_map.contains_key(&key) {
                 Rc::clone(&ctx.cell_map[&key])
             } else {

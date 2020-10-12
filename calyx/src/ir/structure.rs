@@ -43,7 +43,6 @@ pub enum CellType {
 }
 
 /// Represents an instantiated cell.
-// XXX(rachit): Each port should probably have a weak pointer to its parent.
 pub struct Cell {
     /// Name of this cell.
     pub name: Id,
@@ -80,3 +79,11 @@ pub struct Group {
     pub attributes: HashMap<String, u64>,
 }
 
+
+impl Cell {
+    /// Return the canonical name for the cell generated to represent this
+    /// (val, width) constant.
+    pub(super) fn constant_name(val: u64, width: u64) -> Id {
+        format!("_{}_{}", val, width).into()
+    }
+}
