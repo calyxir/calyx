@@ -1,7 +1,7 @@
 mod well_formed;
 //mod collapse_control;
 //mod compile_control;
-//mod compile_empty;
+mod compile_empty;
 //mod component_interface;
 //mod externalize;
 //mod go_insertion;
@@ -13,3 +13,4 @@ mod well_formed;
 //mod visitor;
 
 pub use well_formed::WellFormed;
+pub use compile_empty::CompileEmpty;

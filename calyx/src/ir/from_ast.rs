@@ -264,8 +264,6 @@ fn build_constant(
 
     // Add this constant to cell_map mapping a string for this constant
     // to this cell.
-    // XXX(rachit): This is doubly bad because the name doesn't correspond to
-    // the cell name.
     ctx.cell_map
         .insert(name, Rc::clone(&cell));
 

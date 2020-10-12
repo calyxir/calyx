@@ -1,10 +1,9 @@
-use crate::lang::{
-    ast, component::Component, context::Context, structure_builder::ASTBuilder,
-};
-use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use crate::{add_wires, port, structure};
-use ast::Control;
+//! Compiles away all `empty` statements in a FuTIL program to a group that is
+//! always active.
+use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::ir::{self, Component, Control};
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Default)]
 pub struct CompileEmpty {}
@@ -26,28 +25,34 @@ impl Named for CompileEmpty {
 impl Visitor for CompileEmpty {
     fn finish_empty(
         &mut self,
-        _s: &ast::Empty,
+        _s: &ir::Empty,
         comp: &mut Component,
-        _x: &Context,
     ) -> VisResult {
-        let st = &mut comp.structure;
-        // Create a group that always outputs done if it doesn't exist.
-        let empty_group: ast::Id = CompileEmpty::EMPTY_GROUP.into();
-        let mut attrs = HashMap::new();
-        attrs.insert("static".to_string(), 0);
-        // Try to get the empty group.
-        if st.get_node_by_name(&empty_group).is_err() {
-            let empty_group_node = st.insert_group(&empty_group, attrs)?;
+        let group_ref = match comp.find_group(CompileEmpty::EMPTY_GROUP.into())
+        {
+            Some(g) => g,
+            None => {
+                // Create a group that always outputs done if it doesn't exist.
+                let mut attrs = HashMap::new();
+                attrs.insert("static".to_string(), 0);
 
-            structure!(st, &ctx,
-                let signal_on = constant(1, 1);
-            );
+                // Create a new group
+                let empty_group = comp
+                    .build_group(CompileEmpty::EMPTY_GROUP.to_string(), attrs);
+                comp.groups.push(Rc::clone(&empty_group));
 
-            add_wires!(
-                st, Some(empty_group.clone()),
-                empty_group_node["done"] = (signal_on);
-            );
-        }
-        Ok(Action::Change(Control::enable(empty_group)))
+                // Add this signal empty_group[done] = 1'd1;
+                let signal_on = comp.build_constant(1, 1);
+                let done_assign = comp.build_assignment(
+                    empty_group.borrow().find_hole("done".into()).unwrap(),
+                    signal_on.borrow().find_port("out".into()).unwrap(),
+                    None,
+                );
+                empty_group.borrow_mut().assignments.push(done_assign);
+                empty_group
+            }
+        };
+
+        return Ok(Action::Change(Control::enable(Rc::clone(&group_ref))));
     }
 }
