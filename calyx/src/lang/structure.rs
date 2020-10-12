@@ -132,6 +132,7 @@ impl Node {
         }
     }
 }
+
 /// store the src port and dst port on edge
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct EdgeData {
@@ -599,7 +600,7 @@ impl StructureGraph {
                         NodeData::Cell(..) => "shape=box".to_string(),
                         _ => "".to_string(),
                     }
-                }
+                },
             )
         )
     }
