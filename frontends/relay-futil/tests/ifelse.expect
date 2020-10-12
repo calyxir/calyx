@@ -4,7 +4,7 @@ component main() -> () {
     x = prim std_reg(32);
     ret = prim std_reg(32);
     const1 = prim std_const(32, 42);
-    eq1 = prim std_eq(32);
+    eq0 = prim std_eq(32);
     const2 = prim std_const(32, 42);
     res0 = prim std_reg(32);
     const0 = prim std_const(32, 1);
@@ -18,8 +18,8 @@ component main() -> () {
       group3[done] = ret.done;
     }
     group cond0 {
-      eq1.left = v.out;
-      eq1.right = const1.out;
+      eq0.left = v.out;
+      eq0.right = const1.out;
       cond0[done]= 1'd1;
     }
     group branch1 {
@@ -42,7 +42,7 @@ component main() -> () {
   }
   control {
     seq {
-      if eq1.out with cond0 {
+      if eq0.out with cond0 {
         branch1;
       }else {
         branch2;

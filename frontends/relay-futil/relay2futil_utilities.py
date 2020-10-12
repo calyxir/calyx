@@ -2,7 +2,8 @@ import math
 from dataclasses import dataclass
 
 IdDictionary = {'cond': 0, 'std_const': 0, 'control': 0, 'group': 0, 'incr': 0, 'index': 0, 'incr': 0, 'let': 0,
-                'seq': 0, 'std_add': 0, 'std_le': 0, 'std_mem_d1': 0, 'std_mem_d2': 0, 'std_mem_d3': 0, 'std_reg': 0}
+                'seq': 0, 'std_add': 0, 'std_eq': 0, 'std_le': 0, 'std_mem_d1': 0, 'std_mem_d2': 0, 'std_mem_d3': 0,
+                'std_reg': 0}
 
 
 def id(element):
@@ -34,6 +35,7 @@ class Register:
     def construct(self):
         return f'{self.name} = prim {self.primitive_type}({self.bitwidth});'
 
+
 @dataclass
 class Const:
     bitwidth: int
@@ -53,6 +55,7 @@ class Const:
     def construct(self):
         return f'{self.name} = prim {self.primitive_type}({self.bitwidth}, {self.value});'
 
+
 @dataclass
 class BinaryOp:
     bitwidth: int
@@ -70,15 +73,16 @@ class BinaryOp:
     def construct(self):
         return f'{self.name} = prim {self.primitive_type}({self.bitwidth});'
 
+
 @dataclass
 class Tensor1D:
     bitwidth: int
     memory_size: int
-    index_size: int
+    index_bitwidth: int
     name: str
     primitive_type: str = 'std_mem_d1'
 
-    def __init__(self, bitwidth: int, memory_size: int, index_size: int, name: str = '1D_tensor'):
+    def __init__(self, bitwidth: int, memory_size: int, index_bitwidth: int, name: str = '1D_tensor'):
         if name != "1D_tensor":
             assert (name in IdDictionary), f'Named value `{name}` must be in the IdDictionary.'
             self.name = name + str(id(name))
@@ -86,41 +90,46 @@ class Tensor1D:
             self.name = name + str(id('std_mem_d1'))
             self.bitwidth = bitwidth
             self.memory_size = memory_size
-            self.index_size = index_size
+            self.index_bitwidth = index_bitwidth
 
     def construct(self):
-        return f'{self.name} = prim {self.primitive_type}({self.bitwidth}, {self.memory_size}, {self.index_size});'
+        return f'{self.name} = prim {self.primitive_type}({self.bitwidth}, {self.memory_size}, {self.index_bitwidth});'
 
 
 def ExtractTensorTypes(tensor_type):
     '''
     Extracts information from the tensor type.
+    dimensions: The number of dimensions in the tensor. This must be N where 0 <= N <= 3.
+    bitwidth: The bitwidth of the values in the tensor.
+    memory_size: The number of elements in the tensor.
+    memory_index_bitwidth: The bitwidth of the index used to increment the size.
+                           This will be equivalent to log2(memory_size).
     '''
     dimension = tensor_type.shape
     type = tensor_type.dtype
     bitwidth = int(''.join(filter(str.isdigit, type)))
 
     number_of_dimensions = len(dimension)
-    assert(number_of_dimensions >= 0 and number_of_dimensions <= 3), "Dimensional count N must be 0 <= N <= 3"
+    assert (number_of_dimensions >= 0 and number_of_dimensions <= 3), "Dimensional count N must be 0 <= N <= 3"
 
     if number_of_dimensions == 0:
         # Scalar
-        return 0, "", "", bitwidth
+        return 0, 0, 0, bitwidth
 
     elif number_of_dimensions == 2 and dimension[0] == 1:
         # 1-dimensional tensor
         dimensions = dimension[0]
         mem_size = dimension[1].__int__()
-        mem_index_size = str(int(math.log2(mem_size)))
+        mem_index_bitwidth = str(int(math.log2(mem_size)))
 
     elif number_of_dimensions == 2:
         # 2-dimensional tensor
-        assert(False), "Unimplemented."
+        assert (False), "Unimplemented."
     else:
-        assert(False), "Unimplemented."
+        assert (False), "Unimplemented."
         # 3-dimensional tensor
 
-    return dimension[0], mem_size, mem_index_size, bitwidth
+    return dimensions, mem_size, mem_index_bitwidth, bitwidth
 
 
 def ExtractBinaryArgumentTypes(a1, a2):

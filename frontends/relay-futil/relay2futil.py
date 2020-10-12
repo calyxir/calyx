@@ -107,86 +107,85 @@ class Relay2Futil(ExprFunctor):
         for arg in arg_stmts:
             groups.update(arg.groups)
         if call.op.name in BuiltInBinaryCalls:
-            dimension, memory_size, index_size, bitwidth = ExtractBinaryArgumentTypes(call.args[0], call.args[1])
-            if dimension == 0:  # 0-dimensional tensor.
-                op_type = BuiltInBinaryCalls[call.op.name]
+            dimension, memory_size, index_bitwidth, bitwidth = ExtractBinaryArgumentTypes(call.args[0], call.args[1])
+            if dimension == 0:  # 0-dimensional tensor, or scalar.
                 # Create structure for an adder.
-                cell_name = f'{op_type}{id("std_add")}'
-                cell = f'{cell_name} = prim std_{op_type}({bitwidth});'
-                structures.append(cell)
+                op = BinaryOp(bitwidth=bitwidth, op=BuiltInBinaryCalls[call.op.name])
+                structures.append(op.construct())
                 wires.extend([
-                    f'{cell_name}.left = {arg_stmts[0].value};',
-                    f'{cell_name}.right = {arg_stmts[1].value};'
+                    f'{op.name}.left = {arg_stmts[0].value};',
+                    f'{op.name}.right = {arg_stmts[1].value};'
                 ])
                 return EmitResult(
-                    f'{cell_name}.out',
+                    f'{op.name}.out',
                     f"1'd1",
                     structures,
                     wires,
                     groups,
                     []
                 )
-            op = BinaryOp(bitwidth=bitwidth, op=BuiltInBinaryCalls[call.op.name])
-            array_indexing = BinaryOp(bitwidth=index_size, op="add")
-            le_comparator = BinaryOp(bitwidth=index_size, op="le")
+            elif dimension == 1:  # 1-dimensional tensor, or vector.
+                op = BinaryOp(bitwidth=bitwidth, op=BuiltInBinaryCalls[call.op.name])
+                array_indexing = BinaryOp(bitwidth=index_bitwidth, op="add")
+                le_comparator = BinaryOp(bitwidth=index_bitwidth, op="le")
+                begin_array = Const(bitwidth=index_bitwidth, value=0)
+                end_array = Const(bitwidth=index_bitwidth, value=memory_size - 1)
+                increment = Const(name="incr", bitwidth=index_bitwidth, value=1)
+                index = Register(name='index', bitwidth=index_bitwidth)
+                ret_cell = Tensor1D(bitwidth=bitwidth, memory_size=memory_size, index_bitwidth=index_bitwidth)
+                structures.extend([op.construct(), array_indexing.construct(), le_comparator.construct(),
+                                   begin_array.construct(), end_array.construct(), increment.construct(),
+                                   index.construct(), ret_cell.construct()])
 
-            begin_array = Const(bitwidth=index_size, value=0)
-            end_array = Const(bitwidth=index_size, value=memory_size - 1)
-            increment = Const(name="incr", bitwidth=index_size, value=1)
+                condition_name = f'cond{id("cond")}'
+                groups[condition_name] = [
+                    f"{le_comparator.name}.left = {index.name}.out;",
+                    f"{le_comparator.name}.right = {end_array.name}.out;",
+                    f"{condition_name}[done] = 1'd1;"
+                ]
+                initialization_name = f'let{id("let")}'
+                groups[initialization_name] = [
+                    f"{index.name}.in = {begin_array.name}.out;",
+                    f"{index.name}.write_en = 1'd1;",
+                    f"{initialization_name}[done] = {index.name}.done;"
+                ]
+                add_body_name = f'body{id("group")}'
+                groups[add_body_name] = [
+                    f"{ret_cell.name}.addr0 = {index.name}.out;",
+                    f"{ret_cell.name}.write_en = 1'd1;",
+                    f"{arg_stmts[0].value}.addr0 = {index.name}.out;",
+                    f"{arg_stmts[1].value}.addr0 = {index.name}.out;",
+                    f"{op.name}.left = 1'd1 ? {arg_stmts[0].value}.read_data;",
+                    f"{op.name}.right = 1'd1 ? {arg_stmts[1].value}.read_data;",
+                    f"{ret_cell.name}.write_data = {op.name}.out;",
+                    f"{add_body_name}[done] = {ret_cell.name}.done ? 1'd1;"
+                ]
 
-            index = Register(name='index', bitwidth=index_size)
+                update_name = f'update{id("group")}'
+                groups[update_name] = [
+                    f"{index.name}.write_en = 1'd1;",
+                    f"{array_indexing.name}.left = {index.name}.out;",
+                    f"{array_indexing.name}.right = {increment.name}.out;",
+                    f"{index.name}.in = 1'd1 ? {array_indexing.name}.out;",
+                    f"{update_name}[done] = {index.name}.done ? 1'd1;",
+                ]
 
-            ret_cell = Tensor1D(bitwidth=bitwidth, memory_size=memory_size, index_size=index_size)
-
-            structures.extend([op.construct(), array_indexing.construct(), le_comparator.construct(),
-                               begin_array.construct(), end_array.construct(), increment.construct(), index.construct(),
-                               ret_cell.construct()])
-
-            condition_name = f'cond{id("cond")}'
-            groups[condition_name] = [
-                f"{le_comparator.name}.left = {index.name}.out;",
-                f"{le_comparator.name}.right = {end_array.name}.out;",
-                f"{condition_name}[done] = 1'd1;"
-            ]
-            initialization_name = f'let{id("let")}'
-            groups[initialization_name] = [
-                f"{index.name}.in = {begin_array.name}.out;",
-                f"{index.name}.write_en = 1'd1;",
-                f"{initialization_name}[done] = {index.name}.done;"
-            ]
-            add_body_name = f'body{id("group")}'
-            groups[add_body_name] = [
-                f"{ret_cell.name}.addr0 = {index.name}.out;",
-                f"{ret_cell.name}.write_en = 1'd1;",
-                f"{arg_stmts[0].value}.addr0 = {index.name}.out;",
-                f"{arg_stmts[1].value}.addr0 = {index.name}.out;",
-                f"{op.name}.left = 1'd1 ? {arg_stmts[0].value}.read_data;",
-                f"{op.name}.right = 1'd1 ? {arg_stmts[1].value}.read_data;",
-                f"{ret_cell.name}.write_data = {op.name}.out;",
-                f"{add_body_name}[done] = {ret_cell.name}.done ? 1'd1;"
-            ]
-
-            update_name = f'update{id("group")}'
-            groups[update_name] = [
-                f"{index.name}.write_en = 1'd1;",
-                f"{array_indexing.name}.left = {index.name}.out;",
-                f"{array_indexing.name}.right = {increment.name}.out;",
-                f"{index.name}.in = 1'd1 ? {array_indexing.name}.out;",
-                f"{update_name}[done] = {index.name}.done ? 1'd1;",
-            ]
-
-            seq_block = mk_block("seq", "\n".join([f'{add_body_name};', f'{update_name};']))
-            mem_control = mk_block(f"while {le_comparator.name}.out with {condition_name}", f'{seq_block}')
-            controls.append(f'{initialization_name};')
-            controls.append(mem_control)
-            return EmitResult(
-                f'{ret_cell.name}',
-                None,
-                structures,
-                wires,
-                groups,
-                controls
-            )
+                seq_block = mk_block("seq", "\n".join([f'{add_body_name};', f'{update_name};']))
+                mem_control = mk_block(f"while {le_comparator.name}.out with {condition_name}", f'{seq_block}')
+                controls.append(f'{initialization_name};')
+                controls.append(mem_control)
+                return EmitResult(
+                    f'{ret_cell.name}',
+                    None,
+                    structures,
+                    wires,
+                    groups,
+                    controls
+                )
+            elif dimension == 2:  # 2-dimensional tensor.
+                assert(False), "Unimplemented."
+            elif dimension == 3:  # 3-dimensional tensor.
+                assert(False), "Unimplemented."
 
     def visit_if(self, if_else):
         # Process conditions
