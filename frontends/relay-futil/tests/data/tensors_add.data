@@ -17,7 +17,7 @@
     ],
     "bitwidth": 32
   },
-    "ret": {
+    "tensor1D_0": {
       "data": [
         0,
         0,

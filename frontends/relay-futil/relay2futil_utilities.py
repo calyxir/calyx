@@ -82,8 +82,8 @@ class Tensor1D:
     name: str
     primitive_type: str = 'std_mem_d1'
 
-    def __init__(self, bitwidth: int, memory_size: int, index_bitwidth: int, name: str = '1D_tensor'):
-        if name != "1D_tensor":
+    def __init__(self, bitwidth: int, memory_size: int, index_bitwidth: int, name: str = 'tensor1D_'):
+        if name != "tensor1D_":
             assert (name in IdDictionary), f'Named value `{name}` must be in the IdDictionary.'
             self.name = name + str(id(name))
         else:

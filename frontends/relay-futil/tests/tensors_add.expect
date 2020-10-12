@@ -10,7 +10,7 @@ component main() -> () {
     const1 = prim std_const(2, 3);
     incr0 = prim std_const(2, 1);
     index0 = prim std_reg(2);
-    1D_tensor0 = prim std_mem_d1(32, 4, 2);
+    tensor1D_0 = prim std_mem_d1(32, 4, 2);
   }
   wires {
 
@@ -25,14 +25,14 @@ component main() -> () {
       let0[done] = index0.done;
     }
     group body0 {
-      1D_tensor0.addr0 = index0.out;
-      1D_tensor0.write_en = 1'd1;
+      tensor1D_0.addr0 = index0.out;
+      tensor1D_0.write_en = 1'd1;
       x.addr0 = index0.out;
       y.addr0 = index0.out;
       add0.left = 1'd1 ? x.read_data;
       add0.right = 1'd1 ? y.read_data;
-      1D_tensor0.write_data = add0.out;
-      body0[done] = 1D_tensor0.done ? 1'd1;
+      tensor1D_0.write_data = add0.out;
+      body0[done] = tensor1D_0.done ? 1'd1;
     }
     group update1 {
       index0.write_en = 1'd1;
