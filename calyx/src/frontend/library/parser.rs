@@ -12,10 +12,10 @@ type ParseResult<T> = Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, Rc<String>>;
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
-const _GRAMMAR: &str = include_str!("library_syntax.pest");
+const _GRAMMAR: &str = include_str!("syntax.pest");
 
 #[derive(Parser)]
-#[grammar = "frontend/library_syntax.pest"]
+#[grammar = "frontend/library/syntax.pest"]
 pub struct LibraryParser;
 
 impl LibraryParser {

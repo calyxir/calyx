@@ -5,7 +5,7 @@ use crate::ir::traversal::Visitor;
 use atty::Stream;
 use calyx::{
     errors::{Error, FutilResult},
-    frontend::{library_parser, parser},
+    frontend::{library, parser},
     ir,
     //lang::context::Context,
     passes,
@@ -141,7 +141,9 @@ fn main() -> FutilResult<()> {
         .libraries
         .iter()
         .map(|path| {
-            library_parser::LibraryParser::parse_file(&opts.lib_path.join(path))
+            library::parser::LibraryParser::parse_file(
+                &opts.lib_path.join(path),
+            )
         })
         .collect::<FutilResult<Vec<_>>>()?;
 

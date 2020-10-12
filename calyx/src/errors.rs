@@ -2,7 +2,7 @@
 //! `Error` enum represents a different type of error. For some types of errors, you
 //! might want to add a `From` impl so that the `?` syntax is more convienent.
 
-use crate::frontend::{library_parser, parser};
+use crate::frontend::{library, parser};
 use crate::lang::ast;
 use petgraph::stable_graph::NodeIndex;
 use std::iter::repeat;
@@ -14,7 +14,7 @@ pub enum Error {
     /// Error while parsing a FuTIL program.
     ParseError(pest_consume::Error<parser::Rule>),
     /// Error while parsing a FuTIL library.
-    LibraryParseError(pest_consume::Error<library_parser::Rule>),
+    LibraryParseError(pest_consume::Error<library::parser::Rule>),
     /// Using a reserved keyword as a program identifier.
     ReservedName(ast::Id),
 
@@ -220,8 +220,8 @@ impl From<pest_consume::Error<parser::Rule>> for Error {
     }
 }
 
-impl From<pest_consume::Error<library_parser::Rule>> for Error {
-    fn from(e: pest_consume::Error<library_parser::Rule>) -> Self {
+impl From<pest_consume::Error<library::parser::Rule>> for Error {
+    fn from(e: pest_consume::Error<library::parser::Rule>) -> Self {
         Error::LibraryParseError(e)
     }
 }
