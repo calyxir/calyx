@@ -1,8 +1,13 @@
-use super::{Assignment, Cell, Control, Group, RRC};
+use super::{
+    Assignment, Cell, CellType, Control, Direction, Group, Port, PortParent,
+    RRC,
+};
 use crate::lang::ast::Id;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 /// In memory representation of a Component.
-//#[derive(Debug, Clone)]
 pub struct Component {
     /// Name of the component.
     pub name: Id,
@@ -17,4 +22,95 @@ pub struct Component {
     pub continuous_assignments: Vec<Assignment>,
     /// The control program for this component.
     pub control: RRC<Control>,
+}
+
+/// Builder methods for extracting and construction IR nodes.
+/// The naming scheme for methods is consistent:
+/// - build_<construct>: Create and return a reference to the
+///   construct.
+impl Component {
+    /// Construct a new group using `name` and `attributes`.
+    /// Returns a reference to the group.
+    pub fn build_group(
+        name: String,
+        attributes: HashMap<String, u64>,
+    ) -> RRC<Group> {
+        let group = Rc::new(RefCell::new(Group {
+            name: name.into(),
+            attributes,
+            holes: vec![],
+            assignments: vec![],
+        }));
+
+        // Add default holes to the group.
+        for (name, width) in vec![("go", 1), ("done", 1)] {
+            let hole = Rc::new(RefCell::new(Port {
+                name: name.into(),
+                width,
+                direction: Direction::Inout,
+                parent: PortParent::Group(Rc::downgrade(&group)),
+            }));
+            group.borrow_mut().holes.push(hole);
+        }
+
+        group
+    }
+
+    /// Return reference for a constant cell associated with the (val, width)
+    /// pair.
+    /// If the constant does not exist, it is added to the Context.
+    pub fn build_constant(&self, val: u64, width: u64) -> RRC<Cell> {
+        let name = Cell::constant_name(val, width);
+        // If this constant has already been instantiated, return the relevant
+        // cell.
+        if let Some(cell) = self.cells.iter().find(|&c| c.borrow().name == name)
+        {
+            return Rc::clone(cell);
+        }
+
+        // Construct this cell if it's not already present in the context.
+        let cell = Component::cell_from_signature(
+            name.clone(),
+            CellType::Constant,
+            vec![],
+            vec![("out".into(), width)],
+        );
+
+        cell
+    }
+
+    /// Construct a cell from input/output signature.
+    /// Input and output port definition in the form (name, width).
+    fn cell_from_signature(
+        name: Id,
+        typ: CellType,
+        inputs: Vec<(Id, u64)>,
+        outputs: Vec<(Id, u64)>,
+    ) -> RRC<Cell> {
+        let cell = Rc::new(RefCell::new(Cell {
+            name,
+            ports: vec![],
+            prototype: typ,
+        }));
+        // Construct ports
+        for (name, width) in inputs {
+            let port = Rc::new(RefCell::new(Port {
+                name,
+                width,
+                direction: Direction::Input,
+                parent: PortParent::Cell(Rc::downgrade(&cell)),
+            }));
+            cell.borrow_mut().ports.push(port);
+        }
+        for (name, width) in outputs {
+            let port = Rc::new(RefCell::new(Port {
+                name,
+                width,
+                direction: Direction::Output,
+                parent: PortParent::Cell(Rc::downgrade(&cell)),
+            }));
+            cell.borrow_mut().ports.push(port);
+        }
+        cell
+    }
 }
