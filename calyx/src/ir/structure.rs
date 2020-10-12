@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Direction of a port on a cell.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Direction {
     /// Input port.
     Input,

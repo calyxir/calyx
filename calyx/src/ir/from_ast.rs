@@ -1,6 +1,6 @@
 use super::{
-    Assignment, Cell, CellType, Component, Context, Control, Direction, Group,
-    Guard, Port, PortParent, RRC, Builder
+    Assignment, Builder, Cell, CellType, Component, Context, Control,
+    Direction, Group, Guard, Port, PortParent, RRC,
 };
 use crate::{
     errors::{Error, FutilResult},
@@ -202,8 +202,13 @@ fn build_cell(
                             })
                             .collect::<Vec<_>>()
                     };
-                let inputs = instantiate_ports(&prim_sig.signature.inputs);
-                let outputs = instantiate_ports(&prim_sig.signature.outputs);
+                let (prim_inps, prim_outs) = &prim_sig
+                    .signature
+                    .iter()
+                    .cloned()
+                    .partition(|sig| sig.direction == Direction::Input);
+                let inputs = instantiate_ports(prim_inps);
+                let outputs = instantiate_ports(prim_outs);
                 (
                     name.clone(),
                     CellType::Primitive {
@@ -216,8 +221,7 @@ fn build_cell(
             }
         };
     // Construct the Cell
-    let cell =
-        Builder::cell_from_signature(name.clone(), typ, inputs, outputs);
+    let cell = Builder::cell_from_signature(name.clone(), typ, inputs, outputs);
 
     // Add this cell to context
     ctx.cell_map.insert(name, Rc::clone(&cell));
@@ -232,7 +236,10 @@ fn build_constant(
     let name: ast::Id = Cell::constant_name(num.val, num.width);
     let cell = Builder::cell_from_signature(
         name.clone(),
-        CellType::Constant { val: num.val, width: num.width },
+        CellType::Constant {
+            val: num.val,
+            width: num.width,
+        },
         vec![],
         vec![("out".into(), num.width)],
     );

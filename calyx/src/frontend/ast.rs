@@ -1,9 +1,7 @@
 // Abstract Syntax Tree for Futil
-use crate::errors::{Error, FutilResult, Span};
-use crate::lang::{context::LibraryContext, structure::StructureGraph};
+use crate::errors::Span;
 use derivative::Derivative;
 use itertools::Itertools;
-use petgraph::graph::NodeIndex;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::{BitAnd, BitOr, Not};
@@ -118,27 +116,6 @@ pub struct ComponentDef {
     pub control: Control,
 }
 
-impl ComponentDef {
-    /// Given a Library Context, resolve all the primitive components
-    /// in `self` and return the signatures in a HashMap
-    pub fn resolve_primitives(
-        &self,
-        libctx: &LibraryContext,
-    ) -> FutilResult<HashMap<Id, Signature>> {
-        let mut map = HashMap::new();
-
-        for stmt in &self.cells {
-            if let Cell::Prim { data } = stmt {
-                let sig = libctx
-                    .resolve(&data.instance.name, &data.instance.params)?;
-                map.insert(data.name.clone(), sig);
-            }
-        }
-
-        Ok(map)
-    }
-}
-
 /// The signature for a component. Contains a list
 /// of input ports and a list of output ports.
 #[derive(Clone, Debug, Hash, Default, PartialEq, Eq)]
@@ -220,24 +197,6 @@ impl Port {
             Port::Comp { port, .. } => port,
             Port::This { port } => port,
             Port::Hole { name, .. } => name,
-        }
-    }
-
-    /// Returns the edge corresponding to this port in the StructureGraph.
-    pub fn get_edge(
-        &self,
-        st: &StructureGraph,
-    ) -> FutilResult<(NodeIndex, Id)> {
-        match self {
-            Port::Comp { component, port } => {
-                Ok((st.get_node_by_name(component)?, port.clone()))
-            }
-            Port::This { port } => {
-                Ok((st.get_node_by_name(&"this".into()).unwrap(), port.clone()))
-            }
-            Port::Hole { .. } => Err(Error::MalformedControl(
-                "Can't use a hole as a condition.".to_string(),
-            )),
         }
     }
 }

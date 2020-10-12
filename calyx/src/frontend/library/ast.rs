@@ -1,4 +1,5 @@
-// Abstract Syntax Tree for library declarations in Futil
+//! Abstract Syntax Tree for library declarations in FuTIL
+use crate::ir;
 use crate::errors::{Error, FutilResult};
 use crate::frontend::ast::{Id, Portdef};
 use std::collections::HashMap;
@@ -12,39 +13,22 @@ pub struct Library {
 pub struct Primitive {
     pub name: Id,
     pub params: Vec<Id>,
-    pub signature: ParamSignature,
+    pub signature: Vec<ParamPortdef>,
     pub attributes: HashMap<String, u64>,
     pub implementation: Vec<Implementation>,
-}
-
-#[derive(Clone, Debug)]
-pub struct ParamSignature {
-    pub inputs: Vec<ParamPortdef>,
-    pub outputs: Vec<ParamPortdef>,
 }
 
 #[derive(Clone, Debug)]
 pub struct ParamPortdef {
     pub name: Id,
     pub width: Width,
+    pub direction: ir::Direction,
 }
 
 #[derive(Clone, Debug)]
 pub enum Width {
     Const { value: u64 },
     Param { value: Id },
-}
-
-impl ParamSignature {
-    /// Returns an iterator over the inputs of signature
-    pub fn inputs(&self) -> std::slice::Iter<ParamPortdef> {
-        self.inputs.iter()
-    }
-
-    /// Returns an iterator over the outputs of signature
-    pub fn outputs(&self) -> std::slice::Iter<ParamPortdef> {
-        self.outputs.iter()
-    }
 }
 
 impl ParamPortdef {
