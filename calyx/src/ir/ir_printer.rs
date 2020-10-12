@@ -2,17 +2,17 @@
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
 use crate::ir;
-use std::fmt;
+use std::io;
 
 /// Printer for the IR.
 pub struct IRPrinter {}
 
 impl IRPrinter {
     /// Formats and writes the Component to the formatter.
-    pub fn write_component(
+    pub fn write_component<F: io::Write>(
         comp: &ir::Component,
-        f: &mut fmt::Formatter,
-    ) -> fmt::Result {
+        f: &mut F,
+    ) -> io::Result<()> {
         let sig = comp.signature.borrow();
         let (inputs, outputs): (Vec<_>, Vec<_>) =
             sig.ports.iter().partition(|p| {
@@ -56,11 +56,11 @@ impl IRPrinter {
     }
 
     /// Format and write a cell.
-    pub fn write_cell(
+    pub fn write_cell<F: io::Write>(
         cell: &ir::Cell,
         indent_level: usize,
-        f: &mut fmt::Formatter,
-    ) -> fmt::Result {
+        f: &mut F,
+    ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
         write!(f, "{} = ", cell.name.id)?;
         match &cell.prototype {
@@ -83,11 +83,11 @@ impl IRPrinter {
     }
 
     /// Format and write an assignment.
-    pub fn write_assignment(
+    pub fn write_assignment<F: io::Write>(
         assign: &ir::Assignment,
         indent_level: usize,
-        f: &mut fmt::Formatter,
-    ) -> fmt::Result {
+        f: &mut F,
+    ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
         write!(f, "{} = ", Self::get_port_access(&assign.dst.borrow()))?;
         if let Some(g) = &assign.guard {
@@ -97,11 +97,11 @@ impl IRPrinter {
     }
 
     /// Format and write a group.
-    pub fn write_group(
+    pub fn write_group<F: io::Write>(
         group: &ir::Group,
         indent_level: usize,
-        f: &mut fmt::Formatter,
-    ) -> fmt::Result {
+        f: &mut F,
+    ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
         write!(f, "group {} {{\n", group.name.id)?;
         for assign in &group.assignments {
@@ -112,11 +112,11 @@ impl IRPrinter {
     }
 
     /// Format and write a control program
-    pub fn write_control(
+    pub fn write_control<F: io::Write>(
         control: &ir::Control,
         indent_level: usize,
-        f: &mut fmt::Formatter,
-    ) -> fmt::Result {
+        f: &mut F,
+    ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
         match control {
             ir::Control::Enable(ir::Enable { group }) => {
