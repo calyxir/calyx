@@ -35,7 +35,7 @@ class Relay2Futil(ExprFunctor):
 
     def visit_var(self, var):
         name = var.name_hint
-        dimension, mem_size, mem_index = ExtractTensorTypes(var.type_annotation)
+        dimension, mem_size, mem_index, bitwidth = ExtractTensorTypes(var.type_annotation)
         value = f'{name}.out' if dimension == 0 else str(name)
         return EmitResult(
             value,  # Assuming variables are in registers.
@@ -107,12 +107,12 @@ class Relay2Futil(ExprFunctor):
         for arg in arg_stmts:
             groups.update(arg.groups)
         if call.op.name in BuiltInBinaryCalls:
-            dimension, memory_size, memory_index = ExtractBinaryArgumentTypes(call.args[0], call.args[1])
+            dimension, memory_size, index_size, bitwidth = ExtractBinaryArgumentTypes(call.args[0], call.args[1])
             if dimension == 0:  # 0-dimensional tensor.
                 op_type = BuiltInBinaryCalls[call.op.name]
                 # Create structure for an adder.
                 cell_name = f'{op_type}{id("std_add")}'
-                cell = f'{cell_name} = prim std_{op_type}({32});'
+                cell = f'{cell_name} = prim std_{op_type}({bitwidth});'
                 structures.append(cell)
                 wires.extend([
                     f'{cell_name}.left = {arg_stmts[0].value};',
@@ -126,17 +126,17 @@ class Relay2Futil(ExprFunctor):
                     groups,
                     []
                 )
-            op = BinaryOp(bitwidth=32, op=BuiltInBinaryCalls[call.op.name])
-            array_indexing = BinaryOp(bitwidth=memory_index, op="add")
-            le_comparator = BinaryOp(bitwidth=memory_index, op="le")
+            op = BinaryOp(bitwidth=bitwidth, op=BuiltInBinaryCalls[call.op.name])
+            array_indexing = BinaryOp(bitwidth=index_size, op="add")
+            le_comparator = BinaryOp(bitwidth=index_size, op="le")
 
-            begin_array = Const(bitwidth=memory_index, value=0)
-            end_array = Const(bitwidth=memory_index, value=memory_size - 1)
-            increment = Const(name="incr", bitwidth=memory_index, value=1)
+            begin_array = Const(bitwidth=index_size, value=0)
+            end_array = Const(bitwidth=index_size, value=memory_size - 1)
+            increment = Const(name="incr", bitwidth=index_size, value=1)
 
-            index = Register(name='index', bitwidth=memory_index)
+            index = Register(name='index', bitwidth=index_size)
 
-            ret_cell = Tensor1D(bitwidth=32, memory_size=memory_size, index_size=memory_index)
+            ret_cell = Tensor1D(bitwidth=bitwidth, memory_size=memory_size, index_size=index_size)
 
             structures.extend([op.construct(), array_indexing.construct(), le_comparator.construct(),
                                begin_array.construct(), end_array.construct(), increment.construct(), index.construct(),
@@ -238,20 +238,20 @@ class Relay2Futil(ExprFunctor):
             # visit_var method above.
             name = param.name_hint
             param_type = param.type_annotation
-            dimension, mem_size, mem_index = ExtractTensorTypes(param_type)
+            dimension, mem_size, mem_index, bitwidth = ExtractTensorTypes(param_type)
             if dimension == 0:
-                func_cells.append(f'{name} = prim std_reg(32);')
+                func_cells.append(f'{name} = prim std_reg({bitwidth});')
             else:
-                func_cells.append(f'{name} = prim std_mem_d{dimension}(32, {mem_size}, {mem_index});')
+                func_cells.append(f'{name} = prim std_mem_d{dimension}({bitwidth}, {mem_size}, {mem_index});')
 
         # Make a register for the return value.
-        dimension, mem_size, mem_index = ExtractTensorTypes(func.ret_type)
+        dimension, mem_size, mem_index, bitwidth = ExtractTensorTypes(func.ret_type)
         if dimension == 0:
-            func_cells.append('ret = prim std_reg(32);')
+            func_cells.append(f'ret = prim std_reg({bitwidth});')
         else:
-            func_cells.append(f'constant0 = prim std_const(32, 0);')
-            func_cells.append(f'constant1 = prim std_const(32, 1);')
-            func_cells.append(f'ret = prim std_mem_d{dimension}(32, {mem_size}, {mem_index});')
+            func_cells.append(f'constant0 = prim std_const({bitwidth}, 0);')
+            func_cells.append(f'constant1 = prim std_const({bitwidth}, 1);')
+            func_cells.append(f'ret = prim std_mem_d{dimension}({bitwidth}, {mem_size}, {mem_index});')
 
         # Create a group for the wires that run this expression.
         group_name = 'group{}'.format(id("group"))

@@ -91,30 +91,36 @@ class Tensor1D:
     def construct(self):
         return f'{self.name} = prim {self.primitive_type}({self.bitwidth}, {self.memory_size}, {self.index_size});'
 
-# Extracts 1-dimensional tensor parameters.
-# dimension should contain two parameters R, C where R == 1.
-#
-# Example:
-# x = relay.var("x", relay.TensorType((1, 4), "int32"))
-# extract_1D_tensor_params(x) ->
-#   len(dimension):  2
-#   mem_size:        4
-#   mem_index:       2
-#
-# TODO(cgyurgyik): Currently, bitwidth is defaulted to 32. Add bitwidth in a follow-up CL.
-#                  Hit N-dimensional case. I believe we're limited to 3?
-#                  Generalize this for 0-dimensional tensors as well (i.e. scalars).
+
 def ExtractTensorTypes(tensor_type):
+    '''
+    Extracts information from the tensor type.
+    '''
     dimension = tensor_type.shape
     type = tensor_type.dtype
-    if len(dimension) == 0:  # Scalar.
-        return 0, "", ""
+    bitwidth = int(''.join(filter(str.isdigit, type)))
 
-    assert (dimension[0] == 1), "This should be tensor of rank 1, i.e. a vector."
-    mem_size = dimension[1]  # Number of columns
-    mem_index = str(int(math.log2(dimension[1].__int__())))
-    assert (int(''.join(filter(str.isdigit, type))) == 32), "Bitwidths are currently hardcoded to 32."
-    return dimension[0], mem_size, mem_index  # , bitwidth
+    number_of_dimensions = len(dimension)
+    assert(number_of_dimensions >= 0 and number_of_dimensions <= 3), "Dimensional count N must be 0 <= N <= 3"
+
+    if number_of_dimensions == 0:
+        # Scalar
+        return 0, "", "", bitwidth
+
+    elif number_of_dimensions == 2 and dimension[0] == 1:
+        # 1-dimensional tensor
+        dimensions = dimension[0]
+        mem_size = dimension[1].__int__()
+        mem_index_size = str(int(math.log2(mem_size)))
+
+    elif number_of_dimensions == 2:
+        # 2-dimensional tensor
+        assert(False), "Unimplemented."
+    else:
+        assert(False), "Unimplemented."
+        # 3-dimensional tensor
+
+    return dimension[0], mem_size, mem_index_size, bitwidth
 
 
 def ExtractBinaryArgumentTypes(a1, a2):
@@ -123,11 +129,12 @@ def ExtractBinaryArgumentTypes(a1, a2):
     """
     arg1_type = a1.checked_type
     arg2_type = a2.checked_type
-    dimension_arg1, mem_size_arg1, mem_index_arg1 = ExtractTensorTypes(arg1_type)
-    dimension_arg2, mem_size_arg2, mem_index_arg2 = ExtractTensorTypes(arg2_type)
+    dimension_arg1, mem_size_arg1, mem_index_arg1, bitwidth1 = ExtractTensorTypes(arg1_type)
+    dimension_arg2, mem_size_arg2, mem_index_arg2, bitwidth2 = ExtractTensorTypes(arg2_type)
 
+    assert bitwidth1 == bitwidth2, f'The arguments for {call.op.name} have different bitwidths.'
     assert dimension_arg1 == dimension_arg2, f'The arguments for {call.op.name} have different dimensions.'
     assert mem_size_arg1 == mem_size_arg2, f'The arguments for {call.op.name} have different memory sizes.'
     assert mem_index_arg1 == mem_index_arg2, f'The arguments for {call.op.name} have different index sizes.'
 
-    return dimension_arg1, mem_size_arg1, mem_index_arg1
+    return dimension_arg1, mem_size_arg1, mem_index_arg1, bitwidth1
