@@ -337,6 +337,7 @@ fn atom_to_port(
             let cell = if ctx.cell_map.contains_key(&key) {
                 Rc::clone(&ctx.cell_map[&key])
             } else {
+                // XXX(rachit): This is never added to the Component.
                 build_constant(n, ctx)?
             };
 
