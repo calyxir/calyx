@@ -1,79 +1,7 @@
-// Abstract Syntax Tree for Futil
+/// Abstract Syntax Tree for Futil
 use crate::errors::Span;
-use derivative::Derivative;
+use crate::ir;
 use std::collections::HashMap;
-
-/// Represents an identifier in a Futil program
-#[derive(Derivative, Clone, PartialOrd, Ord)]
-#[derivative(Hash, Eq)]
-pub struct Id {
-    pub id: String,
-    #[derivative(Hash = "ignore")]
-    span: Option<Span>,
-}
-
-impl Id {
-    pub fn new<S: ToString>(id: S, span: Option<Span>) -> Self {
-        Self {
-            id: id.to_string(),
-            span,
-        }
-    }
-
-    pub fn fmt_err(&self, err_msg: &str) -> String {
-        match &self.span {
-            Some(span) => span.format(err_msg),
-            None => err_msg.to_string(),
-        }
-    }
-}
-
-impl std::fmt::Debug for Id {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("Id").field("id", &self.id).finish()
-    }
-}
-
-/* =================== Impls for Id to make them easier to use ============== */
-
-impl ToString for Id {
-    fn to_string(&self) -> String {
-        self.id.clone()
-    }
-}
-
-impl AsRef<str> for Id {
-    fn as_ref(&self) -> &str {
-        &self.id
-    }
-}
-
-impl From<&str> for Id {
-    fn from(s: &str) -> Self {
-        Id {
-            id: s.to_string(),
-            span: None,
-        }
-    }
-}
-
-impl From<String> for Id {
-    fn from(s: String) -> Self {
-        Id { id: s, span: None }
-    }
-}
-
-impl PartialEq<str> for Id {
-    fn eq(&self, other: &str) -> bool {
-        self.id == other
-    }
-}
-
-impl<S: AsRef<str>> PartialEq<S> for Id {
-    fn eq(&self, other: &S) -> bool {
-        self.id == other.as_ref()
-    }
-}
 
 /// Top level AST statement. This contains a list of Component definitions.
 #[derive(Debug)]
@@ -88,7 +16,7 @@ pub struct NamespaceDef {
 #[derive(Debug)]
 pub struct ComponentDef {
     /// Name of the component.
-    pub name: Id,
+    pub name: ir::Id,
 
     /// Defines input and output ports.
     pub signature: Signature,
@@ -118,7 +46,7 @@ pub struct Signature {
 #[derive(Clone, Debug)]
 pub struct Portdef {
     /// The name of the port.
-    pub name: Id,
+    pub name: ir::Id,
 
     /// The width of the port.
     pub width: u64,
@@ -130,22 +58,22 @@ pub struct Portdef {
 pub enum Port {
     /// Refers to the port named `port` on the subcomponent
     /// `component`.
-    Comp { component: Id, port: Id },
+    Comp { component: ir::Id, port: ir::Id },
 
     /// Refers to the port named `port` on the component
     /// currently being defined.
-    This { port: Id },
+    This { port: ir::Id },
 
     /// `group[name]` parses into `Hole { group, name }`
     /// and is a hole named `name` on group `group`
-    Hole { group: Id, name: Id },
+    Hole { group: ir::Id, name: ir::Id },
 }
 
 impl Port {
     /// Returns the name of the port being referenced.
     ///  - `(@ comp A)` returns `A`
     ///  - `(@ this B)` returns `B`
-    pub fn port_name(&self) -> &Id {
+    pub fn port_name(&self) -> &ir::Id {
         match self {
             Port::Comp { port, .. } => port,
             Port::This { port } => port,
@@ -159,7 +87,7 @@ impl Port {
 #[derive(Debug)]
 pub struct Compinst {
     /// Name of the subcomponent to instantiate.
-    pub name: Id,
+    pub name: ir::Id,
 
     /// List of parameters.
     pub params: Vec<u64>,
@@ -229,17 +157,17 @@ pub struct Guard {
 #[derive(Debug)]
 pub struct Decl {
     /// Name of the variable being defined.
-    pub name: Id,
+    pub name: ir::Id,
 
     /// Name of the component being instantiated.
-    pub component: Id,
+    pub component: ir::Id,
 }
 
 /// Data for the `new-std` structure statement.
 #[derive(Debug)]
 pub struct Prim {
     /// Name of the variable being defined.
-    pub name: Id,
+    pub name: ir::Id,
 
     /// Data for instantiating the library component.
     pub instance: Compinst,
@@ -258,7 +186,7 @@ pub enum Cell {
 impl Cell {
     /// Constructs `Structure::Decl` with `name` and `component`
     /// as arguments.
-    pub fn decl(name: Id, component: Id) -> Cell {
+    pub fn decl(name: ir::Id, component: ir::Id) -> Cell {
         Cell::Decl {
             data: Decl { name, component },
         }
@@ -266,7 +194,7 @@ impl Cell {
 
     /// Constructs `Structure::Std` with `name` and `instance`
     /// as arguments.
-    pub fn prim(var: Id, prim_name: Id, params: Vec<u64>) -> Cell {
+    pub fn prim(var: ir::Id, prim_name: ir::Id, params: Vec<u64>) -> Cell {
         Cell::Prim {
             data: Prim {
                 name: var,
@@ -288,7 +216,7 @@ pub enum Connection {
 
 #[derive(Debug)]
 pub struct Group {
-    pub name: Id,
+    pub name: ir::Id,
     pub wires: Vec<Wire>,
     pub attributes: HashMap<String, u64>,
 }
@@ -322,7 +250,7 @@ pub enum Control {
         port: Port,
 
         /// Modules that need to be enabled to send signal on `port`.
-        cond: Id,
+        cond: ir::Id,
 
         /// Control for the true branch.
         tbranch: Box<Control>,
@@ -336,7 +264,7 @@ pub enum Control {
         port: Port,
 
         /// Modules that need to be enabled to send signal on `port`.
-        cond: Id,
+        cond: ir::Id,
 
         /// Control for the loop body.
         body: Box<Control>,
@@ -344,7 +272,7 @@ pub enum Control {
     /// Runs the control for a list of subcomponents.
     Enable {
         /// Group to be enabled
-        comp: Id,
+        comp: ir::Id,
     },
     /// Control statement that does nothing.
     Empty {},

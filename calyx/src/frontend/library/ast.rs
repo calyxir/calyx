@@ -1,10 +1,9 @@
 //! Abstract Syntax Tree for library declarations in FuTIL
 use crate::errors::{Error, FutilResult};
-use crate::frontend::ast::Id;
 use crate::ir;
 use std::collections::HashMap;
 
-pub type LibrarySignatures = HashMap<Id, Primitive>;
+pub type LibrarySignatures = HashMap<ir::Id, Primitive>;
 
 /// A FuTIL library.
 #[derive(Clone, Debug)]
@@ -17,9 +16,9 @@ pub struct Library {
 #[derive(Clone, Debug)]
 pub struct Primitive {
     /// Name of this primitive.
-    pub name: Id,
+    pub name: ir::Id,
     /// Paramters for this primitive.
-    pub params: Vec<Id>,
+    pub params: Vec<ir::Id>,
     /// The input/output signature for this primitive.
     pub signature: Vec<ParamPortdef>,
     /// Key-value attributes for this primitive.
@@ -34,13 +33,14 @@ impl Primitive {
     pub fn resolve(
         &self,
         parameters: &[u64],
-    ) -> FutilResult<(Vec<(Id, u64)>, Vec<(Id, u64)>, Vec<(Id, u64)>)> {
+    ) -> FutilResult<(Vec<(ir::Id, u64)>, Vec<(ir::Id, u64)>, Vec<(ir::Id, u64)>)>
+    {
         let bindings = self
             .params
             .iter()
             .cloned()
             .zip(parameters.iter().cloned())
-            .collect::<HashMap<Id, u64>>();
+            .collect::<HashMap<ir::Id, u64>>();
 
         let (input, output): (Vec<ParamPortdef>, Vec<ParamPortdef>) = self
             .signature
@@ -64,7 +64,7 @@ impl Primitive {
 /// A parameter port definition.
 #[derive(Clone, Debug)]
 pub struct ParamPortdef {
-    pub name: Id,
+    pub name: ir::Id,
     pub width: Width,
     pub direction: ir::Direction,
 }
@@ -75,14 +75,14 @@ pub enum Width {
     /// The width is a constant.
     Const { value: u64 },
     /// The width is a parameter.
-    Param { value: Id },
+    Param { value: ir::Id },
 }
 
 impl ParamPortdef {
     pub fn resolve(
         &self,
-        val_map: &HashMap<Id, u64>,
-    ) -> FutilResult<(Id, u64)> {
+        val_map: &HashMap<ir::Id, u64>,
+    ) -> FutilResult<(ir::Id, u64)> {
         match &self.width {
             Width::Const { value } => Ok((self.name.clone(), *value)),
             Width::Param { value } => match val_map.get(&value) {

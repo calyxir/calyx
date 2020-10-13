@@ -1,6 +1,6 @@
 use super::{
     Assignment, Builder, Cell, CellType, Component, Context, Control, Guard,
-    Port, RRC,
+    Port, RRC, Id,
 };
 use crate::{
     errors::{Error, FutilResult},
@@ -18,10 +18,10 @@ const THIS_ID: &str = "this";
 #[derive(Default)]
 struct SigCtx {
     /// Mapping from component names to signatures
-    comp_sigs: HashMap<ast::Id, ast::Signature>,
+    comp_sigs: HashMap<Id, ast::Signature>,
 
     /// Mapping from library functions to signatures
-    lib_sigs: HashMap<ast::Id, library::ast::Primitive>,
+    lib_sigs: HashMap<Id, library::ast::Primitive>,
 }
 
 /// Construct an IR representation using a parsed AST and command line options.
@@ -135,7 +135,7 @@ fn build_component(
 
 fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
     // Get the name, inputs, and outputs.
-    let res: FutilResult<(ast::Id, CellType, Vec<_>, Vec<_>)> = match cell {
+    let res: FutilResult<(Id, CellType, Vec<_>, Vec<_>)> = match cell {
         ast::Cell::Decl {
             data: ast::Decl { name, component },
         } => {
@@ -205,8 +205,8 @@ fn build_group(group: ast::Group, builder: &mut Builder) -> FutilResult<()> {
 
 /// Get the pointer to the Port represented by `port`.
 fn get_port_ref(port: ast::Port, comp: &Component) -> FutilResult<RRC<Port>> {
-    let find_and_clone_port = |comp: &ast::Id,
-                               port_name: ast::Id,
+    let find_and_clone_port = |comp: &Id,
+                               port_name: Id,
                                all_ports: &[RRC<Port>]|
      -> FutilResult<RRC<Port>> {
         all_ports

@@ -3,6 +3,7 @@
 //! might want to add a `From` impl so that the `?` syntax is more convienent.
 
 use crate::frontend::{ast, library, parser};
+use crate::ir;
 use petgraph::stable_graph::NodeIndex;
 use std::iter::repeat;
 use std::rc::Rc;
@@ -15,7 +16,7 @@ pub enum Error {
     /// Error while parsing a FuTIL library.
     LibraryParseError(pest_consume::Error<library::parser::Rule>),
     /// Using a reserved keyword as a program identifier.
-    ReservedName(ast::Id),
+    ReservedName(ir::Id),
 
     /// The given string does not correspond to any known pass.
     UnknownPass(String, String),
@@ -32,29 +33,29 @@ pub enum Error {
     /// The port widths don't match up on an edge.
     MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
     /// Port not found on the given component.
-    UndefinedPort(ast::Id, String),
+    UndefinedPort(ir::Id, String),
     /// The component has not been defined.
-    UndefinedComponent(ast::Id),
+    UndefinedComponent(ir::Id),
     /// The group has not been defined
-    UndefinedGroup(ast::Id),
+    UndefinedGroup(ir::Id),
     /// The group was not used in the program.
-    UnusedGroup(ast::Id),
+    UnusedGroup(ir::Id),
 
     /// The name has already been bound.
-    AlreadyBound(ast::Id, String),
+    AlreadyBound(ir::Id, String),
     /// The group has already been bound.
-    DuplicateGroup(ast::Id),
+    DuplicateGroup(ir::Id),
     /// The port has already been defined.
-    DuplicatePort(ast::Id, ast::Portdef),
+    DuplicatePort(ir::Id, ast::Portdef),
 
     /// No value provided for a primitive parameter.
-    SignatureResolutionFailed(ast::Id, ast::Id),
+    SignatureResolutionFailed(ir::Id, ir::Id),
 
     /// An implementation is missing.
-    MissingImplementation(&'static str, ast::Id),
+    MissingImplementation(&'static str, ir::Id),
 
     /// Papercut error: signals a commonly made mistake in FuTIL program.
-    Papercut(String, ast::Id),
+    Papercut(String, ir::Id),
 
     /// Internal compiler error that should never occur.
     Impossible(String), // Signal compiler errors that should never occur.
@@ -235,18 +236,18 @@ impl From<std::io::Error> for Error {
 
 /// A generalized 'unwrapping' trait that extracts data from
 /// a container that can possible be an error and automatically
-/// generates the correct `Error` variant with the `ast::Id`.
+/// generates the correct `Error` variant with the `ir::Id`.
 /// For example, `Extract<NodeIndex, NodeIndex>` can be implemented for
 /// `Option<NodeIndex>` to provide convienent error reporting for
 /// undefined components / groups.
 pub trait Extract<T, R> {
-    /// Unpacks `T` into `FutilResult<R>` using `id: ast::Id`
+    /// Unpacks `T` into `FutilResult<R>` using `id: ir::Id`
     /// for error reporting with locations.
-    fn extract(&self, id: &ast::Id) -> FutilResult<R>;
+    fn extract(&self, id: &ir::Id) -> FutilResult<R>;
 }
 
 impl Extract<NodeIndex, NodeIndex> for Option<NodeIndex> {
-    fn extract(&self, id: &ast::Id) -> FutilResult<NodeIndex> {
+    fn extract(&self, id: &ir::Id) -> FutilResult<NodeIndex> {
         match self {
             Some(t) => Ok(*t),
             None => Err(Error::UndefinedComponent(id.clone())),

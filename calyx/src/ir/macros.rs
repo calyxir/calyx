@@ -9,7 +9,7 @@ macro_rules! guard {
         crate::ir::Guard::from(
             $node
                 .borrow()
-                .get(&crate::frontend::ast::Id::from($port)),
+                .get(&crate::ir::Id::from($port)),
         )
     };
 }
@@ -30,8 +30,8 @@ macro_rules! structure {
     ($builder:expr;
      let $var:ident = prim $comp:ident( $($n:expr),* ); $($tail:tt)*) => {
         let $var = $builder.add_primitive(
-            crate::frontend::ast::Id::from(stringify!($var)),
-            crate::frontend::ast::Id::from(stringify!($comp)),
+            crate::ir::Id::from(stringify!($var)),
+            crate::ir::Id::from(stringify!($comp)),
             &[$($n),*]
         );
         structure!($builder; $($tail)*)
@@ -60,9 +60,9 @@ macro_rules! build_assignments {
      $dst_node:ident[$dst_port:expr] = ? $src_node:ident[$src_port:expr]) => {
         $builder.build_assignment(
             $dst_node.borrow().get(
-                &crate::frontend::ast::Id::from($dst_port)),
+                &crate::ir::Id::from($dst_port)),
             $src_node.borrow().get(
-                &crate::frontend::ast::Id::from($src_port)),
+                &crate::ir::Id::from($src_port)),
             None)
     };
 
@@ -73,9 +73,9 @@ macro_rules! build_assignments {
         $src_node:ident[$src_port:expr]) => {
         $builder.build_assignment(
             $dst_node.borrow().get(
-                &crate::frontend::ast::Id::from($dst_port)),
+                &crate::ir::Id::from($dst_port)),
             $src_node.borrow().get(
-                &crate::frontend::ast::Id::from($src_port)),
+                &crate::ir::Id::from($src_port)),
             Some($guard.clone()))
     };
 

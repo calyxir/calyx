@@ -1,6 +1,5 @@
 //! Representation for structure (wires and cells) in a FuTIL program.
-use super::{Guard, RRC, WRC};
-use crate::frontend::ast::Id;
+use super::{Guard, RRC, WRC, Id};
 use std::collections::HashMap;
 use std::rc::Rc;
 

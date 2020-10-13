@@ -2,7 +2,6 @@
 //! 1. Programs that use reserved SystemVerilog keywords as identifiers.
 //! 2. Programs that don't use a defined group.
 use crate::errors::Error;
-use crate::frontend::ast;
 use crate::frontend::library::ast::LibrarySignatures;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Component};
@@ -13,10 +12,10 @@ pub struct WellFormed {
     reserved_names: HashSet<String>,
 
     /// Names of the groups that have been used in the control.
-    used_groups: HashSet<ast::Id>,
+    used_groups: HashSet<ir::Id>,
 
     /// All of the groups used in the program.
-    all_groups: HashSet<ast::Id>,
+    all_groups: HashSet<ir::Id>,
 }
 
 impl Default for WellFormed {

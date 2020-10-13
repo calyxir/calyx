@@ -1,5 +1,4 @@
-use super::{Assignment, Cell, Control, Group, RRC};
-use crate::frontend::ast::Id;
+use super::{Assignment, Cell, Control, Group, RRC, Id};
 use std::rc::Rc;
 
 /// In memory representation of a Component.

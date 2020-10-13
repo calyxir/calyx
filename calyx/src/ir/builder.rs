@@ -1,6 +1,6 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
-use crate::frontend::{ast::Id, library::ast::LibrarySignatures};
+use crate::frontend::{library::ast::LibrarySignatures};
 use crate::ir::{self, RRC};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -56,7 +56,7 @@ impl<'a> Builder<'a> {
             }
         }
         let group = Rc::new(RefCell::new(ir::Group {
-            name: Id::from(name.as_ref()),
+            name: ir::Id::from(name.as_ref()),
             attributes,
             holes: vec![],
             assignments: vec![],
@@ -121,8 +121,8 @@ impl<'a> Builder<'a> {
     /// ```
     pub fn add_primitive(
         &mut self,
-        name: Id,
-        primitive: Id,
+        name: ir::Id,
+        primitive: ir::Id,
         param_values: &[u64],
     ) -> RRC<ir::Cell> {
         let prim = &self.lib_sigs[&primitive];
@@ -188,10 +188,10 @@ impl<'a> Builder<'a> {
     /// Construct a cell from input/output signature.
     /// Input and output port definition in the form (name, width).
     pub(super) fn cell_from_signature(
-        name: Id,
+        name: ir::Id,
         typ: ir::CellType,
-        inputs: Vec<(Id, u64)>,
-        outputs: Vec<(Id, u64)>,
+        inputs: Vec<(ir::Id, u64)>,
+        outputs: Vec<(ir::Id, u64)>,
     ) -> RRC<ir::Cell> {
         let cell = Rc::new(RefCell::new(ir::Cell {
             name,

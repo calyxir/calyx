@@ -1,6 +1,7 @@
 //! Parser for FuTIL programs.
 use super::ast::{self, BitNum, NumType};
 use crate::errors::{self, FutilResult, Span};
+use crate::ir;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
 use std::collections::HashMap;
@@ -10,7 +11,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 type ParseResult<T> = Result<T, Error<Rule>>;
-// user data is the input program so that we can create Ast::id's
+// user data is the input program so that we can create ir::Id's
 // that have a reference to the input string
 type Node<'i> = pest_consume::Node<'i, Rule, Rc<String>>;
 
@@ -85,8 +86,8 @@ impl FutilParser {
         Ok(())
     }
 
-    fn identifier(input: Node) -> ParseResult<ast::Id> {
-        Ok(ast::Id::new(
+    fn identifier(input: Node) -> ParseResult<ir::Id> {
+        Ok(ir::Id::new(
             input.as_str(),
             Some(Span::new(input.as_span(), Rc::clone(input.user_data()))),
         ))
