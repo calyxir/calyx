@@ -2,6 +2,7 @@
 use super::ast as lib;
 use crate::errors::{self, FutilResult, Span};
 use crate::frontend::ast;
+use crate::ir::Direction;
 use pest_consume::{match_nodes, Error, Parser};
 use std::collections::HashMap;
 use std::fs;
@@ -72,11 +73,13 @@ impl LibraryParser {
             input.into_children();
             [identifier(id), bitwidth(bw)] => lib::ParamPortdef {
                 name: id,
-                width: lib::Width::Const { value: bw }
+                width: lib::Width::Const { value: bw },
+                direction: Direction::Input,
             },
             [identifier(id), identifier(param)] => lib::ParamPortdef {
                 name: id,
-                width: lib::Width::Param { value: param }
+                width: lib::Width::Param { value: param },
+                direction: Direction::Input,
             }
         ))
     }
@@ -108,16 +111,14 @@ impl LibraryParser {
         ))
     }
 
-    fn signature(input: Node) -> ParseResult<lib::ParamSignature> {
+    fn signature(input: Node) -> ParseResult<Vec<lib::ParamPortdef>> {
         Ok(match_nodes!(
             input.into_children();
-            [io_ports(ins), io_ports(outs)] => lib::ParamSignature {
-                inputs: ins,
-                outputs: outs
+            [io_ports(ins), io_ports(outs)] => {
+                ins.into_iter().chain(outs.into_iter()).collect()
             },
-            [io_ports(ins)] => lib::ParamSignature {
-                inputs: ins,
-                outputs: vec![]
+            [io_ports(ins)] => {
+                ins
             }
         ))
     }

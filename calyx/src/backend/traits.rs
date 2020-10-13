@@ -1,6 +1,6 @@
-use crate::{errors::FutilResult, ir, lang::component, utils::OutputFile};
-use pretty::termcolor::ColorSpec;
-use pretty::RcDoc;
+use crate::{errors::FutilResult, ir, utils::OutputFile};
+//use pretty::termcolor::ColorSpec;
+//use pretty::RcDoc;
 
 /// A backend for FuTIL.
 pub trait Backend {
@@ -19,11 +19,11 @@ pub trait Backend {
     }
 }
 
-/// Represents something that can be transformed in to a RcDoc.
+/*/// Represents something that can be transformed in to a RcDoc.
 pub trait Emitable {
     fn doc<'a>(
         &self,
         ctx: &ir::Context,
         comp: &component::Component,
     ) -> FutilResult<RcDoc<'a, ColorSpec>>;
-}
+}*/

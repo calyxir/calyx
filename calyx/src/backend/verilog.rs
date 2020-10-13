@@ -39,6 +39,7 @@ fn validate_guard(guard: &ir::Guard) -> bool {
         }
         Guard::Not(inner) => validate_guard(inner),
         Guard::Port(port) => !port.borrow().is_hole(),
+        Guard::True => true,
     }
 }
 

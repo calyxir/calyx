@@ -131,16 +131,12 @@ impl Opts {
         match self.backend {
             BackendOpt::Verilog => VerilogBackend::run(&context, self.output),
             BackendOpt::Futil => {
-                println!("{:#?}", context);
-                // if self.color || self.output.isatty() {
-                //     context.pretty_print_color();
-                // } else {
-                //     write!(
-                //         self.output.get_write(),
-                //         "{}",
-                //         context.pretty_string()
-                //     )?;
-                // }
+                for comp in &context.components {
+                    ir::IRPrinter::write_component(
+                        comp,
+                        &mut self.output.get_write(),
+                    )?;
+                }
                 Ok(())
             }
             // BackendOpt::Dot => {

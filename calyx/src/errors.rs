@@ -186,7 +186,7 @@ impl std::fmt::Debug for Error {
                 write!(f, "Attempted to duplicate group `{}`", group.to_string())
             }
             DuplicatePort(comp, portdef) => {
-                write!(f, "Attempted to add duplicate port `{}` to component `{}`", portdef.to_string(), comp.to_string())
+                write!(f, "Attempted to add duplicate port `{:?}` to component `{}`", portdef, comp.to_string())
             }
             MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
             MalformedStructure(msg) => write!(f, "Malformed Structure: {}", msg),

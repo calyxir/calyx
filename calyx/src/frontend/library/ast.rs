@@ -1,70 +1,94 @@
-// Abstract Syntax Tree for library declarations in Futil
+//! Abstract Syntax Tree for library declarations in FuTIL
 use crate::errors::{Error, FutilResult};
-use crate::frontend::ast::{Id, Portdef};
+use crate::frontend::ast::Id;
+use crate::ir;
 use std::collections::HashMap;
 
+pub type LibrarySignatures = HashMap<Id, Primitive>;
+
+/// A FuTIL library.
 #[derive(Clone, Debug)]
 pub struct Library {
+    /// The primitives defined by this library.
     pub primitives: Vec<Primitive>,
 }
 
+/// Representation of a Primitive.
 #[derive(Clone, Debug)]
 pub struct Primitive {
+    /// Name of this primitive.
     pub name: Id,
+    /// Paramters for this primitive.
     pub params: Vec<Id>,
-    pub signature: ParamSignature,
+    /// The input/output signature for this primitive.
+    pub signature: Vec<ParamPortdef>,
+    /// Key-value attributes for this primitive.
     pub attributes: HashMap<String, u64>,
+    /// Available implementations for this primitive.
     pub implementation: Vec<Implementation>,
 }
 
-#[derive(Clone, Debug)]
-pub struct ParamSignature {
-    pub inputs: Vec<ParamPortdef>,
-    pub outputs: Vec<ParamPortdef>,
+impl Primitive {
+    /// Retuns the bindings for all the paramters, the input ports and the
+    /// output ports.
+    pub fn resolve(
+        &self,
+        parameters: &[u64],
+    ) -> FutilResult<(Vec<(Id, u64)>, Vec<(Id, u64)>, Vec<(Id, u64)>)> {
+        let bindings = self
+            .params
+            .iter()
+            .cloned()
+            .zip(parameters.iter().cloned())
+            .collect::<HashMap<Id, u64>>();
+
+        let (input, output): (Vec<ParamPortdef>, Vec<ParamPortdef>) = self
+            .signature
+            .iter()
+            .cloned()
+            .partition(|ppd| ppd.direction == ir::Direction::Input);
+
+        let inps = input
+            .iter()
+            .map(|ppd| ppd.resolve(&bindings))
+            .collect::<FutilResult<_>>()?;
+        let outs = output
+            .iter()
+            .map(|ppd| ppd.resolve(&bindings))
+            .collect::<FutilResult<_>>()?;
+
+        Ok((bindings.into_iter().collect(), inps, outs))
+    }
 }
 
+/// A parameter port definition.
 #[derive(Clone, Debug)]
 pub struct ParamPortdef {
     pub name: Id,
     pub width: Width,
+    pub direction: ir::Direction,
 }
 
+/// Represents an abstract width of a primitive signature.
 #[derive(Clone, Debug)]
 pub enum Width {
+    /// The width is a constant.
     Const { value: u64 },
+    /// The width is a parameter.
     Param { value: Id },
-}
-
-impl ParamSignature {
-    /// Returns an iterator over the inputs of signature
-    pub fn inputs(&self) -> std::slice::Iter<ParamPortdef> {
-        self.inputs.iter()
-    }
-
-    /// Returns an iterator over the outputs of signature
-    pub fn outputs(&self) -> std::slice::Iter<ParamPortdef> {
-        self.outputs.iter()
-    }
 }
 
 impl ParamPortdef {
     pub fn resolve(
         &self,
-        prim: &Id,
-        val_map: &HashMap<&Id, u64>,
-    ) -> FutilResult<Portdef> {
+        val_map: &HashMap<Id, u64>,
+    ) -> FutilResult<(Id, u64)> {
         match &self.width {
-            Width::Const { value } => Ok(Portdef {
-                name: self.name.clone(),
-                width: *value,
-            }),
+            Width::Const { value } => Ok((self.name.clone(), *value)),
             Width::Param { value } => match val_map.get(&value) {
-                Some(width) => Ok(Portdef {
-                    name: self.name.clone(),
-                    width: *width,
-                }),
+                Some(width) => Ok((self.name.clone(), *width)),
                 None => Err(Error::SignatureResolutionFailed(
-                    prim.clone(),
+                    self.name.clone(),
                     value.clone(),
                 )),
             },

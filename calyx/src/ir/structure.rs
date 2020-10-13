@@ -1,10 +1,11 @@
+//! Representation for structure (wires and cells) in a FuTIL program.
 use super::{Guard, RRC, WRC};
 use crate::frontend::ast::Id;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Direction of a port on a cell.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Direction {
     /// Input port.
     Input,
@@ -15,14 +16,14 @@ pub enum Direction {
 }
 
 /// Ports can come from Cells or Groups
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PortParent {
     Cell(WRC<Cell>),
     Group(WRC<Group>),
 }
 
 /// Represents a port on a cell.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Port {
     /// Name of the port
     pub name: Id,
@@ -30,6 +31,8 @@ pub struct Port {
     pub width: u64,
     /// Direction of the port
     pub direction: Direction,
+    /// Name of parent
+    pub parent_name: Id,
     /// Weak pointer to this port's parent
     pub parent: PortParent,
 }
@@ -51,6 +54,11 @@ impl Port {
             }
         }
     }
+
+    /// Gets a key usable in a hashmap from a port
+    pub fn key(&self) -> (Id, Id) {
+        (self.get_parent_name().clone(), self.name.clone())
+    }
 }
 
 /// The type for a Cell
@@ -60,15 +68,20 @@ pub enum CellType {
     Primitive {
         /// Name of the primitive cell used to instantiate this cell.
         name: Id,
-        /// Bindings for the parameters.
-        param_binding: HashMap<Id, u64>,
+        /// Bindings for the parameters. Uses Vec to retain the input order.
+        param_binding: Vec<(Id, u64)>,
     },
     /// Cell constructed using a FuTIL component
     Component,
     /// This cell represents the current component
     ThisComponent,
     /// Cell representing a Constant
-    Constant,
+    Constant {
+        /// Value of this constant
+        val: u64,
+        /// Width of this constant
+        width: u64,
+    },
 }
 
 /// Represents an instantiated cell.
@@ -84,11 +97,24 @@ pub struct Cell {
 
 impl Cell {
     /// Get a reference to the named port if it exists.
-    pub fn find_port(&self, name: Id) -> Option<RRC<Port>> {
+    pub fn find_port(&self, name: &Id) -> Option<RRC<Port>> {
         self.ports
             .iter()
-            .find(|&g| g.borrow().name == name)
+            .find(|&g| g.borrow().name == *name)
             .map(|r| Rc::clone(r))
+    }
+
+    /// Get a reference to the named port and throw an error if it doesn't
+    /// exist.
+    pub fn get_port(&self, name: &Id) -> RRC<Port> {
+        self.find_port(name).expect(
+            format!(
+                "Port `{}' not found on group `{}'",
+                name.to_string(),
+                self.name.to_string()
+            )
+            .as_str(),
+        )
     }
 }
 
@@ -123,11 +149,23 @@ pub struct Group {
 
 impl Group {
     /// Get a reference to the named hole if it exists.
-    pub fn find_hole(&self, name: Id) -> Option<RRC<Port>> {
+    pub fn find_hole(&self, name: &Id) -> Option<RRC<Port>> {
         self.holes
             .iter()
-            .find(|&g| g.borrow().name == name)
+            .find(|&g| g.borrow().name == *name)
             .map(|r| Rc::clone(r))
+    }
+
+    /// Get a reference to the named hole or panic.
+    pub fn get_hole(&self, name: &Id) -> RRC<Port> {
+        self.find_hole(name).expect(
+            format!(
+                "Hole `{}' not found on group `{}'",
+                name.to_string(),
+                self.name.to_string()
+            )
+            .as_str(),
+        )
     }
 }
 
