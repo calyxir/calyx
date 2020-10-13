@@ -29,13 +29,13 @@ impl NameGenerator {
     /// namegen.gen_name("seq");  // Generates "seq0"
     /// namegen.gen_name("seq");  // Generates "seq1"
     /// ```
-    pub fn gen_name(&mut self, prefix: String) -> String {
+    pub fn gen_name<S: ToString + Clone>(&mut self, prefix: S) -> String {
         // Insert default value for this prefix if there is no entry.
-        let count = self.name_hash.entry(prefix.clone())
+        let count = self.name_hash.entry(prefix.to_string().clone())
             .and_modify(|v| *v += 1)
             .or_default();
 
-        format!("{}{}", prefix, count)
+        format!("{}{}", prefix.to_string(), count)
     }
 }
 
