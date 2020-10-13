@@ -7,31 +7,39 @@ use std::{
     str::FromStr,
 };
 
-/// Structure to generate unique names that are somewhat readable
-#[derive(Clone, Debug)]
+/// Simple HashMap-based name generator that generates new names for each
+/// prefix.
+/// **Note**: The name generator is *not* hygienic!
+/// For example:
+/// ```
+/// namegen.gen_name("seq");  // Generates "seq0"
+/// ... // 8 more calls.
+/// namegen.gen_name("seq");  // Generates "seq10"
+/// namegen.gen_name("seq1"); // CONFLICT! Generates "seq10".
+/// ```
+#[derive(Clone, Debug, Default)]
 pub struct NameGenerator {
     name_hash: HashMap<String, i64>,
 }
 
-impl Default for NameGenerator {
-    fn default() -> Self {
-        NameGenerator {
-            name_hash: HashMap::new(),
-        }
-    }
-}
-
 impl NameGenerator {
-    pub fn gen_name(&mut self, name: &str) -> String {
-        let count = match self.name_hash.get(name) {
-            None => 0,
-            Some(c) => *c,
-        };
-        self.name_hash.insert(name.to_string(), count + 1);
-        format!("{}{}", name, count)
+    /// Returns a new String that starts with `prefix`.
+    /// For example:
+    /// ```
+    /// namegen.gen_name("seq");  // Generates "seq0"
+    /// namegen.gen_name("seq");  // Generates "seq1"
+    /// ```
+    pub fn gen_name(&mut self, prefix: String) -> String {
+        // Insert default value for this prefix if there is no entry.
+        let count = self.name_hash.entry(prefix.clone())
+            .and_modify(|v| *v += 1)
+            .or_default();
+
+        format!("{}{}", prefix, count)
     }
 }
 
+/// TODO(rachit): Document this.
 #[derive(Debug)]
 pub enum OutputFile {
     Stdout,
