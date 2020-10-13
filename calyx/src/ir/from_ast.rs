@@ -112,6 +112,9 @@ fn build_component(
 
     let mut builder =
         Builder::from(&mut ir_component, &sig_ctx.lib_sigs, false);
+    // XXX(rachit): Explicitly disabling the name generator.
+    builder.disable_namegen = true;
+
     ast_groups
         .into_iter()
         .map(|g| build_group(g, &mut builder))

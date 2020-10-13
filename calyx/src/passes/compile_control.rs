@@ -4,15 +4,12 @@ use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
 };
-use crate::utils;
 use crate::{build_assignments, guard, structure};
 use std::collections::HashMap;
 use std::convert::TryInto;
 
 #[derive(Default)]
-pub struct CompileControl {
-    pub namegen: utils::NameGenerator,
-}
+pub struct CompileControl { }
 
 impl Named for CompileControl {
     fn name() -> &'static str {
@@ -276,17 +273,14 @@ impl Visitor for CompileControl {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // Create a new group for the seq related structure.
-        let name = self.namegen.gen_name("seq");
-        let seq_group = builder.add_group(name, HashMap::new());
+        let seq_group = builder.add_group("seq", HashMap::new());
         let fsm_size = 32;
 
         // new structure
-        let fsm = builder.add_primitive(
-            self.namegen.gen_name("fsm"),
-            "std_reg",
-            &[32],
+        structure!(builder;
+            let fsm = prim std_reg(fsm_size);
+            let signal_on = constant(1, 1);
         );
-        let signal_on = builder.add_constant(1, 1);
 
         // Generate fsm to drive the sequence
         for (idx, con) in s.stmts.iter().enumerate() {
@@ -362,8 +356,7 @@ impl Visitor for CompileControl {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // Name of the parent group.
-        let name = self.namegen.gen_name("par");
-        let par_group = builder.add_group(name, HashMap::new());
+        let par_group = builder.add_group("par", HashMap::new());
 
         let mut par_group_done: Vec<ir::Guard> =
             Vec::with_capacity(s.stmts.len());
@@ -378,13 +371,14 @@ impl Visitor for CompileControl {
         for con in s.stmts.iter() {
             match con {
                 ir::Control::Enable(ir::Enable { group }) => {
+
                     // Create register to hold this group's done signal.
                     structure!(builder;
                         let par_done_reg = prim std_reg(1);
                     );
 
-                    let group_go =
-                        !(guard!(par_done_reg["out"]) | guard!(group["done"]));
+                    let group_go = !(guard!(par_done_reg["out"])
+                        | guard!(group["done"]));
                     let group_done = guard!(group["done"]);
 
                     let mut assigns = build_assignments!(builder;
@@ -424,19 +418,13 @@ impl Visitor for CompileControl {
             par_reset["in"] = par_reset_out ? signal_off["out"];
             par_reset["write_en"] = par_reset_out ? signal_on["out"];
         );
-        builder
-            .component
-            .continuous_assignments
-            .append(&mut assigns);
+        builder.component.continuous_assignments.append(&mut assigns);
         for par_done_reg in par_done_regs {
             let mut assigns = build_assignments!(builder;
                par_done_reg["in"] = par_reset_out ? signal_off["out"];
                par_done_reg["write_en"] = par_reset_out ? signal_on["out"];
             );
-            builder
-                .component
-                .continuous_assignments
-                .append(&mut assigns);
+            builder.component.continuous_assignments.append(&mut assigns);
         }
 
         Ok(Action::Change(ir::Control::enable(par_group)))

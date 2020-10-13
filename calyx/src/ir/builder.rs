@@ -18,8 +18,14 @@ pub struct Builder<'a> {
     /// Enable validation of components.
     /// Useful for debugging malformed AST errors.
     pub validate: bool,
-    /// Internal name generator.
+    /// Internal name generator used to generate non-conflicting name
+    /// from the prefix.
     namegen: utils::NameGenerator,
+    /// Disables the name generator and treats prefixes as names.
+    /// XXX(rachit): This hack is needed because `ir::from_ast` needs to
+    /// use the exact identifiers. The right approach is to have a Trie
+    /// based name generator that only adds suffixes if there are conflicts.
+    pub(super) disable_namegen: bool,
 }
 
 impl<'a> Builder<'a> {
@@ -34,6 +40,7 @@ impl<'a> Builder<'a> {
             lib_sigs,
             validate,
             namegen: utils::NameGenerator::default(),
+            disable_namegen: false,
         }
     }
 
@@ -45,7 +52,11 @@ impl<'a> Builder<'a> {
         prefix: S,
         attributes: HashMap<String, u64>,
     ) -> RRC<ir::Group> {
-        let name = self.namegen.gen_name(prefix.as_ref());
+        let name = if !self.disable_namegen {
+            self.namegen.gen_name(prefix.as_ref())
+        } else {
+            prefix.as_ref().to_string()
+        };
 
         // Check if there is a group with the same name.
         let group = Rc::new(RefCell::new(ir::Group {
@@ -128,7 +139,11 @@ impl<'a> Builder<'a> {
             .resolve(param_values)
             .expect("Failed to add primitive.");
 
-        let name = self.namegen.gen_name(prefix.as_ref()).into();
+        let name = if !self.disable_namegen {
+            self.namegen.gen_name(prefix.as_ref())
+        } else {
+            prefix.as_ref().to_string()
+        }.into();
         let cell = Self::cell_from_signature(
             name,
             ir::CellType::Primitive {
