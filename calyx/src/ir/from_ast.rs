@@ -69,6 +69,7 @@ pub fn ast_to_ir(
 
     Ok(Context {
         components: comps,
+        lib_sigs: sig_ctx.lib_sigs,
         debug_mode,
     })
 }
@@ -181,32 +182,18 @@ fn build_cell(
                     ctx.sig_ctx.lib_sigs.get(&prim_name).ok_or_else(|| {
                         Error::UndefinedComponent(name.clone())
                     })?;
+                let (inputs, outputs) = prim_sig.resolve(&instance.params)?;
                 let param_binding = prim_sig
                     .params
                     .iter()
                     .cloned()
                     .zip(instance.params)
-                    .collect::<HashMap<ast::Id, u64>>();
-                let instantiate_ports =
-                    |ports: &Vec<library::ast::ParamPortdef>| -> FutilResult<_> {
-                        ports
-                            .iter()
-                            .cloned()
-                            .map(|ppd| ppd.resolve(&param_binding))
-                            .collect::<FutilResult<_>>()
-                    };
-                let (prim_inps, prim_outs) = &prim_sig
-                    .signature
-                    .iter()
-                    .cloned()
-                    .partition(|sig| sig.direction == Direction::Input);
-                let inputs = instantiate_ports(prim_inps)?;
-                let outputs = instantiate_ports(prim_outs)?;
+                    .collect();
                 Ok((
                     name.clone(),
                     CellType::Primitive {
                         name: prim_name,
-                        param_binding: param_binding.into_iter().collect(),
+                        param_binding,
                     },
                     inputs,
                     outputs,

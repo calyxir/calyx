@@ -1,7 +1,7 @@
 //! Abstract Syntax Tree for library declarations in FuTIL
-use crate::ir;
 use crate::errors::{Error, FutilResult};
 use crate::frontend::ast::Id;
+use crate::ir;
 use std::collections::HashMap;
 
 /// A FuTIL library.
@@ -24,6 +24,38 @@ pub struct Primitive {
     pub attributes: HashMap<String, u64>,
     /// Available implementations for this primitive.
     pub implementation: Vec<Implementation>,
+}
+
+impl Primitive {
+    /// Generate an (input, output) binding using the Primitive signature.
+    pub fn resolve(
+        &self,
+        parameters: &[u64],
+    ) -> FutilResult<(Vec<(Id, u64)>, Vec<(Id, u64)>)> {
+        let bindings = self
+            .params
+            .iter()
+            .cloned()
+            .zip(parameters.iter().cloned())
+            .collect();
+
+        let (input, output): (Vec<ParamPortdef>, Vec<ParamPortdef>) = self
+            .signature
+            .iter()
+            .cloned()
+            .partition(|ppd| ppd.direction == ir::Direction::Input);
+
+        Ok((
+            input
+                .iter()
+                .map(|ppd| ppd.resolve(&bindings))
+                .collect::<FutilResult<_>>()?,
+            output
+                .iter()
+                .map(|ppd| ppd.resolve(&bindings))
+                .collect::<FutilResult<_>>()?,
+        ))
+    }
 }
 
 /// A parameter port definition.
