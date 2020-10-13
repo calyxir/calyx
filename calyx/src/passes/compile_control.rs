@@ -4,12 +4,15 @@ use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
 };
+use crate::utils;
 use crate::{build_assignments, guard, structure};
 use std::collections::HashMap;
 use std::convert::TryInto;
 
 #[derive(Default)]
-pub struct CompileControl {}
+pub struct CompileControl {
+    pub namegen: utils::NameGenerator,
+}
 
 impl Named for CompileControl {
     fn name() -> &'static str {
@@ -273,7 +276,8 @@ impl Visitor for CompileControl {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // Create a new group for the seq related structure.
-        let seq_group = builder.add_group("seq", HashMap::new());
+        let name = self.namegen.gen_name("seq");
+        let seq_group = builder.add_group(name, HashMap::new());
         let fsm_size = 32;
 
         // new structure
