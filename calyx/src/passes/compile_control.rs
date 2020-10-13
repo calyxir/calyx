@@ -7,9 +7,10 @@ use crate::ir::{
 use crate::{build_assignments, guard, structure};
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::rc::Rc;
 
 #[derive(Default)]
-pub struct CompileControl { }
+pub struct CompileControl {}
 
 impl Named for CompileControl {
     fn name() -> &'static str {
@@ -22,130 +23,135 @@ impl Named for CompileControl {
 }
 
 impl Visitor for CompileControl {
-    // This compiles `if` statements of the following form:
-    // ```C
-    // if comp.out with cond {
-    //   true;
-    // } else {
-    //   false;
-    // }
-    // ```
-    // into the following group:
-    // ```C
-    // if0 {
-    //   // compute the condition if we haven't computed it before
-    //   cond[go] = !cond_computed.out ? 1'b1;
-    //   // save whether we are done computing the condition
-    //   cond_computed.in = cond[done] ? 1'b1;
-    //   cond_computed.write_en = cond[done] ? 1'b1;
-    //   // when the cond is done, store the output of the condition
-    //   cond_stored.in = cond[done] ? comp.out;
-    //   // run the true branch if we have computed the condition and it was true
-    //   true[go] = cond_computed.out & cond_stored.out ? 1'b1;
-    //   // run the false branch if we have computed the condition and it was false
-    //   false[go] = cond_computed.out & !cond_stored.out ? 1'b1;
-    //   // this group is done if either branch is done
-    //   or.right = true[done];
-    //   or.left = false[done];
-    //   if0[done] = or.out;
-    // }
-    // ```
-    // with 2 generated registers, `cond_computed` and `cond_stored`.
-    // `cond_computed` keeps track of whether the condition has been
-    // computed or not. This ensures that we only compute the condition once.
-    // `cond_stored` stores the output of the condition in a register so that
-    // we can use it for any number of cycles.
-    //
-    // We also generate a logical `or` component with the `done` holes
-    // of the two bodies as inputs. The generated `if0` group is `done`
-    // when either branch is done.
-    /*fn finish_if(
+    /// This compiles `if` statements of the following form:
+    /// ```C
+    /// if comp.out with cond {
+    ///   true;
+    /// } else {
+    ///   false;
+    /// }
+    /// ```
+    /// into the following group:
+    /// ```C
+    /// if0 {
+    ///   // compute the condition if we haven't computed it before
+    ///   cond[go] = !cond_computed.out ? 1'b1;
+    ///   // save whether we are done computing the condition
+    ///   cond_computed.in = cond[done] ? 1'b1;
+    ///   cond_computed.write_en = cond[done] ? 1'b1;
+    ///   // when the cond is done, store the output of the condition
+    ///   cond_stored.in = cond[done] ? comp.out;
+    ///   // run the true branch if we have computed the condition and it was true
+    ///   true[go] = cond_computed.out & cond_stored.out ? 1'b1;
+    ///   // run the false branch if we have computed the condition and it was false
+    ///   false[go] = cond_computed.out & !cond_stored.out ? 1'b1;
+    ///   // this group is done if either branch is done
+    ///   or.right = true[done];
+    ///   or.left = false[done];
+    ///   if0[done] = or.out;
+    /// }
+    /// ```
+    /// with 2 generated registers, `cond_computed` and `cond_stored`.
+    /// `cond_computed` keeps track of whether the condition has been
+    /// computed or not. This ensures that we only compute the condition once.
+    /// `cond_stored` stores the output of the condition in a register so that
+    /// we can use it for any number of cycles.
+    ///
+    /// We also generate a logical `or` component with the `done` holes
+    /// of the two bodies as inputs. The generated `if0` group is `done`
+    /// when either branch is done.
+    fn finish_if(
         &mut self,
-        cif: &ast::If,
-        comp: &mut Component,
-        ctx: &Context,
+        cif: &ir::If,
+        comp: &mut ir::Component,
+        ctx: &lib::LibrarySignatures,
     ) -> VisResult {
-        let st = &mut comp.structure;
+        let mut builder = ir::Builder::from(comp, ctx, false);
 
         // create a new group for if related structure
-        let if_group: ast::Id = st.namegen.gen_name("if").into();
-        let if_group_node = st.insert_group(&if_group, HashMap::new())?;
+        let if_group = builder.add_group("if", HashMap::new());
 
-        let cond_group_node = st.get_node_by_name(&cif.cond)?;
-        let cond = cif.port.get_edge(st)?;
+        let cond_group = Rc::clone(&cif.cond);
+        let cond = Rc::clone(&cif.port);
 
         // extract group names from control statement
-        let (true_group, false_group) = match (&*cif.tbranch, &*cif.fbranch) {
-            (Control::Enable { data: t }, Control::Enable { data: f }) => {
-                Ok((&t.comp, &f.comp))
+        let (tru, fal) = match (&*cif.tbranch, &*cif.fbranch) {
+            (ir::Control::Enable(t), ir::Control::Enable(f)) => {
+                Ok((Rc::clone(&t.group), Rc::clone(&f.group)))
             }
             _ => Err(Error::MalformedControl(
                 "Both branches of an if must be an enable.".to_string(),
             )),
         }?;
-        let true_group_node = st.get_node_by_name(true_group)?;
-        let false_group_node = st.get_node_by_name(false_group)?;
 
-        structure!(
-            st, &ctx,
+        structure!(builder;
+            let signal_on = constant(1, 1);
+            let signal_off = constant(0, 1);
             let cond_computed = prim std_reg(1);
             let cond_stored = prim std_reg(1);
-            let signal_const = constant(1, 1);
-            let signal_off = constant(0, 1);
             let done_reg = prim std_reg(1);
         );
 
         // Guard definitions
-        let cond_go = !guard!(st; cond_computed["out"]);
-        let is_cond_computed = guard!(st; cond_group_node["go"])
-            & guard!(st; cond_group_node["done"]);
+        let cond_go = !guard!(cond_computed["out"]);
+        let is_cond_computed =
+            guard!(cond_group["go"]) & guard!(cond_group["done"]);
 
         let true_turn =
-            guard!(st; cond_computed["out"]) & guard!(st; cond_stored["out"]);
-        let true_go = !guard!(st; true_group_node["done"]) & true_turn.clone();
+            guard!(cond_computed["out"]) & guard!(cond_stored["out"]);
+        let true_go = !guard!(tru["done"]) & true_turn.clone();
 
         let false_turn =
-            guard!(st; cond_computed["out"]) & !guard!(st; cond_stored["out"]);
-        let false_go =
-            !guard!(st; false_group_node["done"]) & false_turn.clone();
+            guard!(cond_computed["out"]) & !guard!(cond_stored["out"]);
+        let false_go = !guard!(fal["done"]) & false_turn.clone();
 
-        let done_guard = (true_turn & guard!(st; true_group_node["done"]))
-            | (false_turn & guard!(st; false_group_node["done"]));
-        let done_reg_high = guard!(st; done_reg["out"]);
+        let done_guard = (true_turn & guard!(tru["done"]))
+            | (false_turn & guard!(fal["done"]));
+        let done_reg_high = guard!(done_reg["out"]);
 
-        // New edges.
-        add_wires!(
-            st, Some(if_group.clone()),
+        let mut cond_save_assigns = vec![
+            builder.build_assignment(
+                cond_stored.borrow().get("in"),
+                Rc::clone(&cond),
+                Some(is_cond_computed.clone()),
+            ),
+            builder.build_assignment(
+                cond_stored.borrow().get("write_en"),
+                Rc::clone(&cond),
+                Some(is_cond_computed.clone()),
+            ),
+        ];
+        if_group.borrow_mut().assignments.append(&mut cond_save_assigns);
+        let mut group_assigns = build_assignments!(builder;
             // Run the conditional group.
-            cond_group_node["go"] = cond_go ? (signal_const.clone());
-            cond_computed["in"] = is_cond_computed ? (signal_const.clone());
-            cond_computed["write_en"] = is_cond_computed ? (signal_const.clone());
-            cond_stored["in"] = is_cond_computed ? (cond.clone());
-            cond_stored["write_en"] = is_cond_computed ? (cond);
+            cond_group["go"] = cond_go ? signal_on["out"];
+            cond_computed["in"] = is_cond_computed ? signal_on["out"];
+            cond_computed["write_en"] = is_cond_computed ? signal_on["out"];
 
             // Run a branch
-            true_group_node["go"] = true_go ? (signal_const.clone());
-            false_group_node["go"] = false_go ? (signal_const.clone());
+            tru["go"] = true_go ? signal_on["out"];
+            fal["go"] = false_go ? signal_on["out"];
 
             // Done condition for this group.
-            done_reg["in"] = done_guard ? (signal_const.clone());
-            done_reg["write_en"] = done_guard ? (signal_const.clone());
-            if_group_node["done"] = done_reg_high ? (signal_const.clone());
+            done_reg["in"] = done_guard ? signal_on["out"];
+            done_reg["write_en"] = done_guard ? signal_on["out"];
+            if_group["done"] = done_reg_high ? signal_on["out"];
         );
+        if_group.borrow_mut().assignments.append(&mut group_assigns);
 
         // CLEANUP: done register resets one cycle after being high.
-        add_wires!(
-            st, None,
-            done_reg["in"] = done_reg_high ? (signal_off.clone());
-            done_reg["write_en"] = done_reg_high ? (signal_const.clone());
-            cond_computed["in"] = done_reg_high ? (signal_off.clone());
-            cond_computed["write_en"] = done_reg_high ? (signal_const.clone());
-            cond_stored["in"] = done_reg_high ? (signal_off);
-            cond_stored["write_en"] = done_reg_high ? (signal_const);
+        let mut cleanup_assigns = build_assignments!(builder;
+            done_reg["in"] = done_reg_high ? signal_off["out"];
+            done_reg["write_en"] = done_reg_high ? signal_on["out"];
+            cond_computed["in"] = done_reg_high ? signal_off["out"];
+            cond_computed["write_en"] = done_reg_high ? signal_on["out"];
+            cond_stored["in"] = done_reg_high ? signal_off["out"];
+            cond_stored["write_en"] = done_reg_high ? signal_on["out"];
         );
+        comp.continuous_assignments.append(&mut cleanup_assigns);
 
-        Ok(Action::Change(Control::enable(if_group)))
-    }*/
+        Ok(Action::Change(ir::Control::enable(if_group)))
+    }
 
     // XXX(rachit): The explanation is not consistent with the code.
     // Specifically, explain what the `done_reg` stuff is doing.
@@ -371,14 +377,13 @@ impl Visitor for CompileControl {
         for con in s.stmts.iter() {
             match con {
                 ir::Control::Enable(ir::Enable { group }) => {
-
                     // Create register to hold this group's done signal.
                     structure!(builder;
                         let par_done_reg = prim std_reg(1);
                     );
 
-                    let group_go = !(guard!(par_done_reg["out"])
-                        | guard!(group["done"]));
+                    let group_go =
+                        !(guard!(par_done_reg["out"]) | guard!(group["done"]));
                     let group_done = guard!(group["done"]);
 
                     let mut assigns = build_assignments!(builder;
@@ -418,13 +423,19 @@ impl Visitor for CompileControl {
             par_reset["in"] = par_reset_out ? signal_off["out"];
             par_reset["write_en"] = par_reset_out ? signal_on["out"];
         );
-        builder.component.continuous_assignments.append(&mut assigns);
+        builder
+            .component
+            .continuous_assignments
+            .append(&mut assigns);
         for par_done_reg in par_done_regs {
             let mut assigns = build_assignments!(builder;
                par_done_reg["in"] = par_reset_out ? signal_off["out"];
                par_done_reg["write_en"] = par_reset_out ? signal_on["out"];
             );
-            builder.component.continuous_assignments.append(&mut assigns);
+            builder
+                .component
+                .continuous_assignments
+                .append(&mut assigns);
         }
 
         Ok(Action::Change(ir::Control::enable(par_group)))
