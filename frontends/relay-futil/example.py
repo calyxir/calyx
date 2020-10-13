@@ -18,11 +18,18 @@ def const():
     """
     return parser.fromtext('fn(){42}') 
 
-def tensor_add():
+def tensor_1d_add():
     """Add together two 1-dimensional tensors in Relay.
     """
     x = relay.var("x", relay.TensorType((1, 4), "int32"))
     y = relay.var("y", relay.TensorType((1, 4), "int32"))
+    return relay.Function([x, y], relay.add(x, y))
+
+def tensor_2d_add():
+    """Add together two 1-dimensional tensors in Relay.
+    """
+    x = relay.var("x", relay.TensorType((2, 4), "int32"))
+    y = relay.var("y", relay.TensorType((2, 4), "int32"))
     return relay.Function([x, y], relay.add(x, y))
 
 def add():
@@ -60,7 +67,7 @@ def mlp_net():
     return mlp.get_net(1)
 
 
-ALL_FUNCS = [identity, const, add, tensor_add, add_var, assign, conv2d, mlp_net]
+ALL_FUNCS = [identity, const, add, tensor_1d_add, tensor_2d_add, add_var, assign, conv2d, mlp_net]
 def simple_example():
     # See if the command line contains a function name.
     for option in ALL_FUNCS:

@@ -1,9 +1,8 @@
 import math
 from dataclasses import dataclass
+from collections import defaultdict
 
-IdDictionary = {'cond': 0, 'std_const': 0, 'control': 0, 'group': 0, 'incr': 0, 'index': 0, 'incr': 0, 'let': 0,
-                'seq': 0, 'std_add': 0, 'std_eq': 0, 'std_le': 0, 'std_mem_d1': 0, 'std_mem_d2': 0, 'std_mem_d3': 0,
-                'std_reg': 0}
+IdDictionary = defaultdict(int)
 
 
 def id(element):
@@ -12,7 +11,6 @@ def id(element):
     This provides an identification system to produce unique variable names. While some of these are members of the
     standard library, others are commonly found names such as `cond` for branches, and `let` for loops.
     """
-    assert (element in IdDictionary), 'Add this element to the id_dictionary.'
     id_number = IdDictionary[element]
     IdDictionary[element] += 1
     return id_number
@@ -24,12 +22,8 @@ class Register:
     name: str
     primitive_type: str = 'std_reg'
 
-    def __init__(self, bitwidth: int, name: str = 'reg'):
-        if name != "reg":
-            assert (name in IdDictionary), f'Named value `{name}` must be in the IdDictionary.'
-            self.name = name + str(id(name))
-        else:
-            self.name = name + str(id('std_reg'))
+    def __init__(self, bitwidth: int, name: str = 'reg', is_function_argument: bool = False):
+        self.name = name if is_function_argument else name + str(id(name))
         self.bitwidth = bitwidth
 
     def construct(self):
@@ -44,11 +38,22 @@ class Const:
     primitive_type: str = 'std_const'
 
     def __init__(self, bitwidth: int, value: int, name: str = 'const'):
-        if name != "const":
-            assert (name in IdDictionary), f'Named value `{name}` must be in the IdDictionary.'
-            self.name = name + str(id(name))
-        else:
-            self.name = name + str(id('std_const'))
+        self.name = name + str(id(name))
+        self.bitwidth = bitwidth
+        self.value = value
+
+    def construct(self):
+        return f'{self.name} = prim {self.primitive_type}({self.bitwidth}, {self.value});'
+
+@dataclass
+class Slice:
+    bitwidth: int
+    value: int
+    name: str
+    primitive_type: str = 'std_slice'
+
+    def __init__(self, bitwidth: int, value: int, name: str = 'slice'):
+        self.name = name + str(id(name))
         self.bitwidth = bitwidth
         self.value = value
 
@@ -64,7 +69,6 @@ class BinaryOp:
 
     def __init__(self, bitwidth: int, op: str):
         op_id = "std_" + op
-        assert (op_id in IdDictionary), f'Op value `{op_id}` must be in the IdDictionary.'
         self.name = op + str(id(op_id))
         self.bitwidth = bitwidth
         self.primitive_type = op_id
@@ -82,18 +86,35 @@ class Tensor1D:
     name: str
     primitive_type: str = 'std_mem_d1'
 
-    def __init__(self, bitwidth: int, memory_size: int, index_bitwidth: int, name: str = 'tensor1D_'):
-        if name != "tensor1D_":
-            assert (name in IdDictionary), f'Named value `{name}` must be in the IdDictionary.'
-            self.name = name + str(id(name))
-        else:
-            self.name = name + str(id('std_mem_d1'))
-            self.bitwidth = bitwidth
-            self.memory_size = memory_size
-            self.index_bitwidth = index_bitwidth
+    def __init__(self, bitwidth: int, memory_size: int, index_bitwidth: int, name: str = 'tensor1D_',
+                 is_function_argument: bool = False):
+        self.name = name if is_function_argument else name + str(id(name))
+        self.bitwidth = bitwidth
+        self.memory_size = memory_size
+        self.index_bitwidth = index_bitwidth
 
     def construct(self):
         return f'{self.name} = prim {self.primitive_type}({self.bitwidth}, {self.memory_size}, {self.index_bitwidth});'
+
+
+@dataclass
+class Tensor2D:
+    bitwidth: int
+    memory_sizes: (int, int)
+    index_bitwidths: (int, int)
+    name: str
+    primitive_type: str = 'std_mem_d2'
+
+    def __init__(self, bitwidth: int, memory_sizes: (int, int), index_bitwidths: (int, int), name: str = 'tensor2D_',
+                 is_function_argument: bool = False):
+        self.name = name if is_function_argument else name + str(id(name))
+        self.bitwidth = bitwidth
+        self.memory_sizes = memory_sizes
+        self.index_bitwidths = index_bitwidths
+
+    def construct(self):
+        return f'{self.name} = prim {self.primitive_type}({self.bitwidth}, {self.memory_sizes[0]},' \
+               f' {self.memory_sizes[1]}, {self.index_bitwidths[0]}, {self.index_bitwidths[1]});'
 
 
 def ExtractTensorTypes(tensor_type):
@@ -120,11 +141,13 @@ def ExtractTensorTypes(tensor_type):
         # 1-dimensional tensor
         dimensions = dimension[0]
         mem_size = dimension[1].__int__()
-        mem_index_bitwidth = str(int(math.log2(mem_size)))
+        mem_index_bitwidth = int(math.log2(mem_size))
 
     elif number_of_dimensions == 2:
         # 2-dimensional tensor
-        assert (False), "Unimplemented."
+        dimensions = number_of_dimensions
+        mem_size = (dimension[0].__int__(), dimension[1].__int__())
+        mem_index_bitwidth = (int(math.log2(mem_size[0])), int(math.log2(mem_size[1])))
     else:
         assert (False), "Unimplemented."
         # 3-dimensional tensor

@@ -1,0 +1,88 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    x = prim std_mem_d2(32, 2, 4, 1, 2);
+    y = prim std_mem_d2(32, 2, 4, 1, 2);
+    add0 = prim std_add(32);
+    add1 = prim std_add(1);
+    add2 = prim std_add(2);
+    le0 = prim std_le(1);
+    le1 = prim std_le(2);
+    const0 = prim std_const(1, 0);
+    const1 = prim std_const(2, 0);
+    const2 = prim std_const(1, 1);
+    const3 = prim std_const(2, 3);
+    incr0 = prim std_const(1, 1);
+    incr1 = prim std_const(2, 1);
+    i0 = prim std_reg(1);
+    j0 = prim std_reg(2);
+    tensor2D_0 = prim std_mem_d2(32, 2, 4, 1, 2);
+  }
+  wires {
+
+    group cond0 {
+      le0.left = i0.out;
+      le0.right = const2.out;
+      cond0[done] = 1'd1;
+    }
+    group cond1 {
+      le1.left = j0.out;
+      le1.right = const3.out;
+      cond1[done] = 1'd1;
+    }
+    group let0 {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1 {
+      j0.in = const1.out;
+      j0.write_en = 1'd1;
+      let1[done] = j0.done;
+    }
+    group body0 {
+      tensor2D_0.addr0 = i0.out;
+      tensor2D_0.addr1 = j0.out;
+      tensor2D_0.write_en = 1'd1;
+      x.addr0 = i0.out;
+      x.addr1 = j0.out;
+      y.addr0 = i0.out;
+      y.addr1 = j0.out;
+      add0.left = 1'd1 ? x.read_data;
+      add0.right = 1'd1 ? y.read_data;
+      tensor2D_0.write_data = add0.out;
+      body0[done] = tensor2D_0.done ? 1'd1;
+    }
+    group update1 {
+      i0.write_en = 1'd1;
+      add1.left = i0.out;
+      add1.right = incr0.out;
+      i0.in = 1'd1 ? add1.out;
+      update1[done] = i0.done ? 1'd1;
+    }
+    group update2 {
+      j0.write_en = 1'd1;
+      add2.left = j0.out;
+      add2.right = incr1.out;
+      j0.in = 1'd1 ? add2.out;
+      update2[done] = j0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          let1;
+          while le1.out with cond1 {
+            seq {
+              body0;
+              update2;
+            }
+          }
+          update1;
+        }
+      }
+    }
+  }
+}
