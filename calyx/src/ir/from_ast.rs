@@ -326,37 +326,28 @@ fn build_control(
     comp: &Component,
 ) -> FutilResult<Control> {
     Ok(match control {
-        ast::Control::Enable {
-            data: ast::Enable { comp: component },
-        } => Control::enable(Rc::clone(
+        ast::Control::Enable { comp: component } => Control::enable(Rc::clone(
             &comp
                 .find_group(&component)
                 .ok_or_else(|| Error::UndefinedGroup(component.clone()))?,
         )),
-        ast::Control::Seq {
-            data: ast::Seq { stmts },
-        } => Control::seq(
+        ast::Control::Seq { stmts } => Control::seq(
             stmts
                 .into_iter()
                 .map(|c| build_control(c, comp))
                 .collect::<FutilResult<Vec<_>>>()?,
         ),
-        ast::Control::Par {
-            data: ast::Par { stmts },
-        } => Control::par(
+        ast::Control::Par { stmts } => Control::par(
             stmts
                 .into_iter()
                 .map(|c| build_control(c, comp))
                 .collect::<FutilResult<Vec<_>>>()?,
         ),
         ast::Control::If {
-            data:
-                ast::If {
-                    port,
-                    cond,
-                    tbranch,
-                    fbranch,
-                },
+            port,
+            cond,
+            tbranch,
+            fbranch,
         } => Control::if_(
             get_port_ref(port, comp)?,
             Rc::clone(
@@ -367,9 +358,7 @@ fn build_control(
             Box::new(build_control(*tbranch, comp)?),
             Box::new(build_control(*fbranch, comp)?),
         ),
-        ast::Control::While {
-            data: ast::While { port, cond, body },
-        } => Control::while_(
+        ast::Control::While { port, cond, body } => Control::while_(
             get_port_ref(port, comp)?,
             Rc::clone(
                 &comp
@@ -379,8 +368,5 @@ fn build_control(
             Box::new(build_control(*body, comp)?),
         ),
         ast::Control::Empty { .. } => Control::empty(),
-        ast::Control::Print { .. } => {
-            unreachable!("Print statements are not supported by the IR.")
-        }
     })
 }

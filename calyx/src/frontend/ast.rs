@@ -1,10 +1,7 @@
 // Abstract Syntax Tree for Futil
 use crate::errors::Span;
 use derivative::Derivative;
-use itertools::Itertools;
 use std::collections::HashMap;
-use std::hash::Hash;
-use std::ops::{BitAnd, BitOr, Not};
 
 /// Represents an identifier in a Futil program
 #[derive(Derivative, Clone, PartialOrd, Ord)]
@@ -79,7 +76,7 @@ impl<S: AsRef<str>> PartialEq<S> for Id {
 }
 
 /// Top level AST statement. This contains a list of Component definitions.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct NamespaceDef {
     /// The path to libraries
     pub libraries: Vec<String>,
@@ -88,36 +85,27 @@ pub struct NamespaceDef {
 }
 
 /// AST statement for defining components.
-#[derive(PartialEq, Eq, Clone, Debug, Derivative)]
-#[derivative(PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct ComponentDef {
     /// Name of the component.
     pub name: Id,
 
     /// Defines input and output ports.
-    #[derivative(PartialOrd = "ignore")]
-    #[derivative(Ord = "ignore")]
     pub signature: Signature,
 
     /// List of instantiated sub-components
-    #[derivative(PartialOrd = "ignore")]
-    #[derivative(Ord = "ignore")]
     pub cells: Vec<Cell>,
 
     /// List of wires
-    #[derivative(PartialOrd = "ignore")]
-    #[derivative(Ord = "ignore")]
     pub connections: Vec<Connection>,
 
     /// Single control statement for this component.
-    #[derivative(PartialOrd = "ignore")]
-    #[derivative(Ord = "ignore")]
     pub control: Control,
 }
 
 /// The signature for a component. Contains a list
 /// of input ports and a list of output ports.
-#[derive(Clone, Debug, Hash, Default, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct Signature {
     /// List of input ports.
     pub inputs: Vec<Portdef>,
@@ -126,32 +114,8 @@ pub struct Signature {
     pub outputs: Vec<Portdef>,
 }
 
-impl Signature {
-    pub fn has_input(&self, name: &str) -> bool {
-        self.inputs.iter().any(|e| &e.name == name)
-    }
-
-    pub fn has_output(&self, name: &str) -> bool {
-        self.outputs.iter().any(|e| &e.name == name)
-    }
-
-    pub fn add_input(&mut self, name: &str, width: u64) {
-        if self.has_input(name) {
-            panic!("signature already has input port: {}", name)
-        }
-        self.inputs.push((name, width).into());
-    }
-
-    pub fn add_output(&mut self, name: &str, width: u64) {
-        if self.has_output(name) {
-            panic!("signature already has output port: {}", name)
-        }
-        self.outputs.push((name, width).into());
-    }
-}
-
 /// The definition of an input/output port.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct Portdef {
     /// The name of the port.
     pub name: Id,
@@ -160,19 +124,9 @@ pub struct Portdef {
     pub width: u64,
 }
 
-/// Helper to construct portdef from str and u64.
-impl From<(&str, u64)> for Portdef {
-    fn from((name, width): (&str, u64)) -> Self {
-        Portdef {
-            name: name.into(),
-            width,
-        }
-    }
-}
-
 /// Statement that refers to a port on a subcomponent.
 /// This is distinct from a `Portdef` which defines a port.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug)]
 pub enum Port {
     /// Refers to the port named `port` on the subcomponent
     /// `component`.
@@ -202,7 +156,7 @@ impl Port {
 
 /// Instantiates a subcomponent named `name` with
 /// paramters `params`.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct Compinst {
     /// Name of the subcomponent to instantiate.
     pub name: Id,
@@ -215,7 +169,7 @@ pub struct Compinst {
 // AST for wire guard expressions
 // ===================================
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug)]
 pub enum NumType {
     Decimal,
     Binary,
@@ -224,7 +178,7 @@ pub enum NumType {
 }
 
 /// Custom bitwidth numbers
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct BitNum {
     pub width: u64,
     pub num_type: NumType,
@@ -234,7 +188,7 @@ pub struct BitNum {
 
 /// Atomic operations used in guard conditions and RHS of the
 /// guarded assignments.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub enum Atom {
     /// Accessing a particular port on a component.
     Port(Port),
@@ -243,7 +197,7 @@ pub enum Atom {
 }
 
 /// The AST for GuardExprs
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub enum GuardExpr {
     // TODO(rachit): Go back to the simpler, two children AST representation.
     // Use the IR to merge And nodes.
@@ -259,249 +213,12 @@ pub enum GuardExpr {
     Atom(Atom),
 }
 
-impl GuardExpr {
-    /// Returns all the atoms at the leaves of the guard expression.
-    pub fn all_atoms(&self) -> Vec<&Atom> {
-        match self {
-            GuardExpr::Atom(a) => vec![a],
-            GuardExpr::Or(gs) | GuardExpr::And(gs) => {
-                gs.iter().map(|g| g.all_atoms()).flatten().collect()
-            }
-            GuardExpr::Eq(l, r)
-            | GuardExpr::Neq(l, r)
-            | GuardExpr::Gt(l, r)
-            | GuardExpr::Lt(l, r)
-            | GuardExpr::Leq(l, r)
-            | GuardExpr::Geq(l, r) => {
-                let mut atoms = l.all_atoms();
-                atoms.append(&mut r.all_atoms());
-                atoms
-            }
-            GuardExpr::Not(g) => g.all_atoms(),
-        }
-    }
-
-    /// Returns true when this guard is equivalent to the empty guard (true).
-    /// Since guards can be arbitrarily complex, this is conservative.
-    pub fn provably_true(&self) -> bool {
-        match self {
-            GuardExpr::Or(es) => es.is_empty(),
-            GuardExpr::And(es) => es.is_empty(),
-            _ => false,
-        }
-    }
-
-    /// A convienent constructor for `GuardExpr::And`
-    /// that allows chaining construction `g.and(guard)`
-    pub fn and_vec(mut atoms: Vec<GuardExpr>) -> Self {
-        // Early return if this is a trivial vector.
-        if atoms.len() == 1 {
-            return atoms.remove(0);
-        }
-
-        // Flatten any nested `And` inside the atoms.
-        let mut flat_atoms: Vec<GuardExpr> = Vec::with_capacity(atoms.len());
-        for atom in atoms {
-            match atom {
-                GuardExpr::And(mut bs) => flat_atoms.append(&mut bs),
-                _ => flat_atoms.push(atom),
-            }
-        }
-
-        // Remove duplicate elements and any 1s.
-        let uniqs = flat_atoms
-            .into_iter()
-            .unique()
-            .filter(|atom| match *atom {
-                GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) => false,
-                _ => true,
-            })
-            .collect();
-
-        GuardExpr::And(uniqs)
-    }
-
-    /// A convienent constructor for `GuardExpr::And`
-    /// that allows chaining construction `g.and(guard)`
-    pub fn and(lhs: GuardExpr, rhs: GuardExpr) -> Self {
-        GuardExpr::and_vec(vec![lhs, rhs])
-    }
-
-    pub fn or_vec(mut atoms: Vec<GuardExpr>) -> Self {
-        // Early return if this is a trivial vector.
-        if atoms.len() == 1 {
-            return atoms.remove(0);
-        }
-
-        // Flatten nested `Or`
-        let mut flat_atoms: Vec<GuardExpr> = Vec::with_capacity(atoms.len());
-        for atom in atoms {
-            match atom {
-                GuardExpr::Or(mut bs) => flat_atoms.append(&mut bs),
-                _ => flat_atoms.push(atom),
-            }
-        }
-
-        // Remove duplicates and any 0s.
-        let uniqs = flat_atoms
-            .into_iter()
-            .unique()
-            .filter(|atom| match *atom {
-                GuardExpr::Atom(Atom::Num(BitNum { val: 0, .. })) => false,
-                _ => true,
-            })
-            .collect();
-
-        GuardExpr::Or(uniqs)
-    }
-
-    /// A convienent constructor for `GuardExpr::And`
-    /// that allows chaining construction `g.and(guard)`
-    pub fn or(lhs: GuardExpr, rhs: GuardExpr) -> Self {
-        GuardExpr::or_vec(vec![lhs, rhs])
-    }
-
-    pub fn eq(self, other: GuardExpr) -> Self {
-        GuardExpr::Eq(Box::new(self), Box::new(other))
-    }
-
-    pub fn neq(self, other: GuardExpr) -> Self {
-        GuardExpr::Neq(Box::new(self), Box::new(other))
-    }
-
-    pub fn le(self, other: GuardExpr) -> Self {
-        GuardExpr::Leq(Box::new(self), Box::new(other))
-    }
-
-    pub fn lt(self, other: GuardExpr) -> Self {
-        GuardExpr::Lt(Box::new(self), Box::new(other))
-    }
-
-    pub fn ge(self, other: GuardExpr) -> Self {
-        GuardExpr::Geq(Box::new(self), Box::new(other))
-    }
-
-    pub fn gt(self, other: GuardExpr) -> Self {
-        GuardExpr::Gt(Box::new(self), Box::new(other))
-    }
-
-    pub fn op_str(&self) -> String {
-        match self {
-            GuardExpr::And(_) => "&".to_string(),
-            GuardExpr::Or(_) => "|".to_string(),
-            GuardExpr::Eq(_, _) => "==".to_string(),
-            GuardExpr::Neq(_, _) => "!=".to_string(),
-            GuardExpr::Gt(_, _) => ">".to_string(),
-            GuardExpr::Lt(_, _) => "<".to_string(),
-            GuardExpr::Geq(_, _) => ">=".to_string(),
-            GuardExpr::Leq(_, _) => "<=".to_string(),
-            GuardExpr::Not(_) => "!".to_string(),
-            GuardExpr::Atom(_) => panic!("No operator string for Atom"),
-        }
-    }
-}
-
-impl BitAnd for GuardExpr {
-    type Output = Self;
-
-    fn bitand(self, other: Self) -> Self::Output {
-        GuardExpr::and(self, other)
-    }
-}
-
-impl BitOr for GuardExpr {
-    type Output = Self;
-
-    fn bitor(self, other: Self) -> Self::Output {
-        GuardExpr::or(self, other)
-    }
-}
-
-impl Not for GuardExpr {
-    type Output = Self;
-
-    fn not(self) -> Self {
-        match self {
-            GuardExpr::Eq(lhs, rhs) => GuardExpr::Neq(lhs, rhs),
-            GuardExpr::Neq(lhs, rhs) => GuardExpr::Eq(lhs, rhs),
-            GuardExpr::Gt(lhs, rhs) => GuardExpr::Leq(lhs, rhs),
-            GuardExpr::Lt(lhs, rhs) => GuardExpr::Geq(lhs, rhs),
-            GuardExpr::Geq(lhs, rhs) => GuardExpr::Lt(lhs, rhs),
-            GuardExpr::Leq(lhs, rhs) => GuardExpr::Gt(lhs, rhs),
-            GuardExpr::Not(expr) => *expr,
-            _ => GuardExpr::Not(Box::new(self)),
-        }
-    }
-}
-
 /// A guard is a conditions in `guard_conj` which guard the value
 /// represented by `expr`.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct Guard {
     pub guard: Option<GuardExpr>,
     pub expr: Atom,
-}
-
-impl ToString for Atom {
-    fn to_string(&self) -> String {
-        match self {
-            Atom::Port(p) => p.port_name().to_string(),
-            Atom::Num(n) => n.val.to_string(),
-        }
-    }
-}
-
-impl ToString for GuardExpr {
-    fn to_string(&self) -> String {
-        match self {
-            GuardExpr::And(branches) => format!(
-                "and({})",
-                branches
-                    .iter()
-                    .map(|b| b.to_string())
-                    .collect::<Vec<String>>()
-                    .join(" ")
-            ),
-            GuardExpr::Or(branches) => format!(
-                "or({})",
-                branches
-                    .iter()
-                    .map(|b| b.to_string())
-                    .collect::<Vec<String>>()
-                    .join(" ")
-            ),
-            GuardExpr::Eq(a, b) => {
-                format!("{}_eq_{}", a.to_string(), b.to_string())
-            }
-            GuardExpr::Neq(a, b) => {
-                format!("{}_neq_{}", a.to_string(), b.to_string())
-            }
-            GuardExpr::Gt(a, b) => {
-                format!("{}_gt_{}", a.to_string(), b.to_string())
-            }
-            GuardExpr::Lt(a, b) => {
-                format!("{}_lt_{}", a.to_string(), b.to_string())
-            }
-            GuardExpr::Geq(a, b) => {
-                format!("{}_geq_{}", a.to_string(), b.to_string())
-            }
-            GuardExpr::Leq(a, b) => {
-                format!("{}_leq_{}", a.to_string(), b.to_string())
-            }
-            GuardExpr::Not(a) => format!("!{}", a.to_string()),
-            GuardExpr::Atom(a) => a.to_string(),
-        }
-    }
-}
-
-impl ToString for Guard {
-    fn to_string(&self) -> String {
-        self.guard
-            .iter()
-            .map(GuardExpr::to_string)
-            .collect::<Vec<_>>()
-            .join("_")
-    }
 }
 
 // ===================================
@@ -509,7 +226,7 @@ impl ToString for Guard {
 // ===================================
 
 /// Data for the `new` structure statement.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct Decl {
     /// Name of the variable being defined.
     pub name: Id,
@@ -519,7 +236,7 @@ pub struct Decl {
 }
 
 /// Data for the `new-std` structure statement.
-#[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct Prim {
     /// Name of the variable being defined.
     pub name: Id,
@@ -529,7 +246,7 @@ pub struct Prim {
 }
 
 /// The Cell AST nodes.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub enum Cell {
     /// Node for instantiating user-defined components.
     Decl { data: Decl },
@@ -563,25 +280,21 @@ impl Cell {
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub enum Connection {
     Group(Group),
     Wire(Wire),
 }
 
-#[derive(Derivative, Clone, Debug, Eq)]
-#[derivative(PartialEq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct Group {
     pub name: Id,
     pub wires: Vec<Wire>,
-    #[derivative(PartialEq = "ignore")]
-    #[derivative(PartialOrd = "ignore")]
-    #[derivative(Ord = "ignore")]
     pub attributes: HashMap<String, u64>,
 }
 
 /// Data for the `->` structure statement.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct Wire {
     /// Source of the wire.
     pub src: Guard,
@@ -590,144 +303,49 @@ pub struct Wire {
     pub dest: Port,
 }
 
-// ===================================
-// Data definitions for Control Ast
-// ===================================
-
-/// Data for the `seq` control statement.
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Seq {
-    /// List of `Control` statements to run in sequence.
-    pub stmts: Vec<Control>,
-}
-
-/// Data for the `par` control statement.
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Par {
-    /// List of `Control` statements to run in parallel.
-    pub stmts: Vec<Control>,
-}
-
-/// Data for the `if` control statement.
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct If {
-    /// Port that connects the conditional check.
-    pub port: Port,
-
-    /// Modules that need to be enabled to send signal on `port`.
-    pub cond: Id,
-
-    /// Control for the true branch.
-    pub tbranch: Box<Control>,
-
-    /// Control for the true branch.
-    pub fbranch: Box<Control>,
-}
-
-/// Data for the `if` control statement.
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct While {
-    /// Port that connects the conditional check.
-    pub port: Port,
-
-    /// Modules that need to be enabled to send signal on `port`.
-    pub cond: Id,
-
-    /// Control for the loop body.
-    pub body: Box<Control>,
-}
-
-/// Data for the `print` control statement.
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Print {
-    /// Name of the port to print.
-    pub var: Port,
-}
-
-/// Data for the `enable` control statement.
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Enable {
-    /// Group to be enabled
-    pub comp: Id,
-}
-
-/// Data for the `empty` control statement.
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Empty {}
-
 /// Control AST nodes.
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum Control {
     /// Represents sequential composition of control statements.
-    Seq { data: Seq },
+    Seq {
+        /// List of `Control` statements to run in sequence.
+        stmts: Vec<Control>,
+    },
     /// Represents parallel composition of control statements.
-    Par { data: Par },
+    Par {
+        /// List of `Control` statements to run in sequence.
+        stmts: Vec<Control>,
+    },
     /// Standard imperative if statement
-    If { data: If },
-    /// Standard imperative while statement
-    While { data: While },
-    /// Statement that prints out the value of a port during simulation.
-    Print { data: Print },
-    /// Runs the control for a list of subcomponents.
-    Enable { data: Enable },
-    /// Control statement that does nothing.
-    Empty { data: Empty },
-}
-
-/// Methods for constructing control AST nodes.
-#[allow(unused)]
-impl Control {
-    pub fn seq(stmts: Vec<Control>) -> Control {
-        Control::Seq {
-            data: Seq { stmts },
-        }
-    }
-
-    pub fn par(stmts: Vec<Control>) -> Control {
-        Control::Par {
-            data: Par { stmts },
-        }
-    }
-
-    pub fn c_if(
+    If {
+        /// Port that connects the conditional check.
         port: Port,
+
+        /// Modules that need to be enabled to send signal on `port`.
         cond: Id,
-        tbranch: Control,
-        fbranch: Control,
-    ) -> Control {
-        Control::If {
-            data: If {
-                port,
-                cond,
-                tbranch: Box::new(tbranch),
-                fbranch: Box::new(fbranch),
-            },
-        }
-    }
 
-    pub fn c_while(port: Port, cond: Id, body: Control) -> Control {
-        Control::While {
-            data: While {
-                port,
-                cond,
-                body: Box::new(body),
-            },
-        }
-    }
+        /// Control for the true branch.
+        tbranch: Box<Control>,
 
-    pub fn print(var: Port) -> Control {
-        Control::Print {
-            data: Print { var },
-        }
-    }
+        /// Control for the true branch.
+        fbranch: Box<Control>,
+    },
+    /// Standard imperative while statement
+    While {
+        /// Port that connects the conditional check.
+        port: Port,
 
-    pub fn enable(comp: Id) -> Control {
-        Control::Enable {
-            data: Enable { comp },
-        }
-    }
+        /// Modules that need to be enabled to send signal on `port`.
+        cond: Id,
 
-    pub fn empty() -> Control {
-        Control::Empty { data: Empty {} }
-    }
+        /// Control for the loop body.
+        body: Box<Control>,
+    },
+    /// Runs the control for a list of subcomponents.
+    Enable {
+        /// Group to be enabled
+        comp: Id,
+    },
+    /// Control statement that does nothing.
+    Empty {},
 }
