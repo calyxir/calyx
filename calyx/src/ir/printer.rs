@@ -227,7 +227,7 @@ impl IRPrinter {
                 let cell = cell_ref.borrow();
                 match cell.prototype {
                     ir::CellType::Constant { val, width } => {
-                        format!("{}'d{}", val, width)
+                        format!("{}'d{}", width, val)
                     }
                     _ => format!("{}.{}", cell.name.id, port.name.id),
                 }
