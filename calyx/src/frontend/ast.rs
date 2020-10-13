@@ -75,6 +75,12 @@ impl PartialEq<str> for Id {
     }
 }
 
+impl PartialEq<&str> for Id {
+    fn eq(&self, other: &&str) -> bool {
+        self.id == *other
+    }
+}
+
 impl PartialEq<String> for Id {
     fn eq(&self, other: &String) -> bool {
         self.id == *other

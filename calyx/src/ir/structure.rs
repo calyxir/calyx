@@ -39,6 +39,18 @@ impl Port {
     pub fn is_hole(&self) -> bool {
         matches!(&self.parent, PortParent::Group(_))
     }
+
+    /// Gets name of parent object.
+    pub fn get_parent_name<'a>(&'a self) -> Id {
+        match &self.parent {
+            PortParent::Cell(cell) => {
+                cell.upgrade().unwrap().borrow().name.clone()
+            }
+            PortParent::Group(group) => {
+                group.upgrade().unwrap().borrow().name.clone()
+            }
+        }
+    }
 }
 
 /// The type for a Cell
