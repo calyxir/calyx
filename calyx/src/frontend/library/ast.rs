@@ -1,7 +1,7 @@
 //! Abstract Syntax Tree for library declarations in FuTIL
 use crate::ir;
 use crate::errors::{Error, FutilResult};
-use crate::frontend::ast::{Id, Portdef};
+use crate::frontend::ast::Id;
 use std::collections::HashMap;
 
 /// A FuTIL library.
@@ -46,18 +46,12 @@ pub enum Width {
 impl ParamPortdef {
     pub fn resolve(
         &self,
-        val_map: &HashMap<&Id, u64>,
-    ) -> FutilResult<Portdef> {
+        val_map: &HashMap<Id, u64>,
+    ) -> FutilResult<(Id, u64)> {
         match &self.width {
-            Width::Const { value } => Ok(Portdef {
-                name: self.name.clone(),
-                width: *value,
-            }),
+            Width::Const { value } => Ok((self.name.clone(), *value)),
             Width::Param { value } => match val_map.get(&value) {
-                Some(width) => Ok(Portdef {
-                    name: self.name.clone(),
-                    width: *width,
-                }),
+                Some(width) => Ok((self.name.clone(), *width)),
                 None => Err(Error::SignatureResolutionFailed(
                     self.name.clone(),
                     value.clone(),

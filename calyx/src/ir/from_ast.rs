@@ -149,7 +149,7 @@ fn build_cell(
     ctx: &mut TransformCtx,
 ) -> FutilResult<RRC<Cell>> {
     // Get the name, inputs, and outputs.
-    let (name, typ, inputs, outputs) =
+    let res: FutilResult<(ast::Id, CellType, Vec<_>, Vec<_>)> =
         match cell {
             ast::Cell::Decl {
                 data: ast::Decl { name, component },
@@ -158,7 +158,7 @@ fn build_cell(
                     ctx.sig_ctx.comp_sigs.get(&component).ok_or_else(|| {
                         Error::UndefinedComponent(name.clone())
                     })?;
-                (
+                Ok((
                     name,
                     CellType::Component,
                     sig.inputs
@@ -171,7 +171,7 @@ fn build_cell(
                         .cloned()
                         .map(|pd| (pd.name, pd.width))
                         .collect::<Vec<_>>(),
-                )
+                ))
             }
             ast::Cell::Prim {
                 data: ast::Prim { name, instance },
@@ -188,28 +188,21 @@ fn build_cell(
                     .zip(instance.params)
                     .collect::<HashMap<ast::Id, u64>>();
                 let instantiate_ports =
-                    |ports: &Vec<library::ast::ParamPortdef>| {
+                    |ports: &Vec<library::ast::ParamPortdef>| -> FutilResult<_> {
                         ports
                             .iter()
                             .cloned()
-                            .map(|ppd| match ppd.width {
-                                library::ast::Width::Const { value } => {
-                                    (ppd.name, value)
-                                }
-                                library::ast::Width::Param { value } => {
-                                    (ppd.name, param_binding[&value])
-                                }
-                            })
-                            .collect::<Vec<_>>()
+                            .map(|ppd| ppd.resolve(&param_binding))
+                            .collect::<FutilResult<_>>()
                     };
                 let (prim_inps, prim_outs) = &prim_sig
                     .signature
                     .iter()
                     .cloned()
                     .partition(|sig| sig.direction == Direction::Input);
-                let inputs = instantiate_ports(prim_inps);
-                let outputs = instantiate_ports(prim_outs);
-                (
+                let inputs = instantiate_ports(prim_inps)?;
+                let outputs = instantiate_ports(prim_outs)?;
+                Ok((
                     name.clone(),
                     CellType::Primitive {
                         name: prim_name,
@@ -217,9 +210,10 @@ fn build_cell(
                     },
                     inputs,
                     outputs,
-                )
+                ))
             }
         };
+    let (name, typ, inputs, outputs) = res?;
     // Construct the Cell
     let cell = Builder::cell_from_signature(name.clone(), typ, inputs, outputs);
 
