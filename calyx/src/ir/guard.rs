@@ -55,3 +55,10 @@ impl Guard {
         }
     }
 }
+
+/// Construct guards from ports
+impl From<RRC<Port>> for Guard {
+    fn from(port: RRC<Port>) -> Self {
+        Guard::Port(Rc::clone(&port))
+    }
+}
