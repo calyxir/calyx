@@ -1,6 +1,6 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
-use crate::frontend::ast::Id;
+use crate::frontend::{ast::Id, library::ast::LibrarySignatures};
 use crate::ir::{self, RRC};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -12,6 +12,8 @@ use std::rc::Rc;
 pub struct Builder<'a> {
     /// Component for which this builder is constructing.
     pub component: &'a mut ir::Component,
+    /// Library signatures.
+    pub lib_sigs: &'a LibrarySignatures,
     /// Enable validation of components.
     /// Useful for debugging malformed AST errors.
     pub validate: bool,
@@ -19,9 +21,14 @@ pub struct Builder<'a> {
 
 impl<'a> Builder<'a> {
     /// Instantiate a new builder using for a component.
-    pub fn from(component: &'a mut ir::Component, validate: bool) -> Self {
+    pub fn from(
+        component: &'a mut ir::Component,
+        lib_sigs: &'a LibrarySignatures,
+        validate: bool,
+    ) -> Self {
         Self {
             component,
+            lib_sigs,
             validate,
         }
     }
@@ -112,13 +119,27 @@ impl<'a> Builder<'a> {
     /// // Construct a std_reg.
     /// builder.add_primitive("fsm", "std_reg", vec![32]);
     /// ```
-    pub fn add_primitive<N: Into<Id>, P: Into<Id>>(
+    pub fn add_primitive(
         &mut self,
-        name: N,
-        primitive: P,
-        param_binding: &[u64],
+        name: Id,
+        primitive: Id,
+        param_values: &[u64],
     ) -> RRC<ir::Cell> {
-        unimplemented!()
+        let prim = &self.lib_sigs[&primitive];
+        let (param_binding, inputs, outputs) = prim
+            .resolve(param_values)
+            .expect("Failed to add primitive.");
+        let cell = Self::cell_from_signature(
+            name,
+            ir::CellType::Primitive {
+                name: primitive,
+                param_binding,
+            },
+            inputs,
+            outputs,
+        );
+        self.component.cells.push(Rc::clone(&cell));
+        cell
     }
 
     /// Construct an assignment.

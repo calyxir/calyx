@@ -1,6 +1,6 @@
 use super::{
-    Assignment, Builder, Cell, CellType, Component, Context, Control,
-    Guard, Port, RRC,
+    Assignment, Builder, Cell, CellType, Component, Context, Control, Guard,
+    Port, RRC,
 };
 use crate::{
     errors::{Error, FutilResult},
@@ -110,7 +110,8 @@ fn build_component(
         }
     }
 
-    let mut builder = Builder::from(&mut ir_component, false);
+    let mut builder =
+        Builder::from(&mut ir_component, &sig_ctx.lib_sigs, false);
     ast_groups
         .into_iter()
         .map(|g| build_group(g, &mut builder))
@@ -165,13 +166,8 @@ fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
                 .lib_sigs
                 .get(&prim_name)
                 .ok_or_else(|| Error::UndefinedComponent(name.clone()))?;
-            let (inputs, outputs) = prim_sig.resolve(&instance.params)?;
-            let param_binding = prim_sig
-                .params
-                .iter()
-                .cloned()
-                .zip(instance.params)
-                .collect();
+            let (param_binding, inputs, outputs) =
+                prim_sig.resolve(&instance.params)?;
             Ok((
                 name.clone(),
                 CellType::Primitive {
@@ -193,10 +189,7 @@ fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
 ///////////////// Group Construction /////////////////////////
 
 /// Build an IR group using the AST Group.
-fn build_group(
-    group: ast::Group,
-    builder: &mut Builder,
-) -> FutilResult<()> {
+fn build_group(group: ast::Group, builder: &mut Builder) -> FutilResult<()> {
     let ir_group = builder.add_group(group.name.id, group.attributes);
 
     // Add assignemnts to the group

@@ -4,6 +4,8 @@ use crate::frontend::ast::Id;
 use crate::ir;
 use std::collections::HashMap;
 
+pub type LibrarySignatures = HashMap<Id, Primitive>;
+
 /// A FuTIL library.
 #[derive(Clone, Debug)]
 pub struct Library {
@@ -27,17 +29,18 @@ pub struct Primitive {
 }
 
 impl Primitive {
-    /// Generate an (input, output) binding using the Primitive signature.
+    /// Retuns the bindings for all the paramters, the input ports and the
+    /// output ports.
     pub fn resolve(
         &self,
         parameters: &[u64],
-    ) -> FutilResult<(Vec<(Id, u64)>, Vec<(Id, u64)>)> {
+    ) -> FutilResult<(Vec<(Id, u64)>, Vec<(Id, u64)>, Vec<(Id, u64)>)> {
         let bindings = self
             .params
             .iter()
             .cloned()
             .zip(parameters.iter().cloned())
-            .collect();
+            .collect::<HashMap<Id, u64>>();
 
         let (input, output): (Vec<ParamPortdef>, Vec<ParamPortdef>) = self
             .signature
@@ -45,16 +48,16 @@ impl Primitive {
             .cloned()
             .partition(|ppd| ppd.direction == ir::Direction::Input);
 
-        Ok((
-            input
-                .iter()
-                .map(|ppd| ppd.resolve(&bindings))
-                .collect::<FutilResult<_>>()?,
-            output
-                .iter()
-                .map(|ppd| ppd.resolve(&bindings))
-                .collect::<FutilResult<_>>()?,
-        ))
+        let inps = input
+            .iter()
+            .map(|ppd| ppd.resolve(&bindings))
+            .collect::<FutilResult<_>>()?;
+        let outs = output
+            .iter()
+            .map(|ppd| ppd.resolve(&bindings))
+            .collect::<FutilResult<_>>()?;
+
+        Ok((bindings.into_iter().collect(), inps, outs))
     }
 }
 

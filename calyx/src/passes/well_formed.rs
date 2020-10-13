@@ -2,9 +2,10 @@
 //! 1. Programs that use reserved SystemVerilog keywords as identifiers.
 //! 2. Programs that don't use a defined group.
 use crate::errors::Error;
+use crate::frontend::ast;
+use crate::frontend::library::ast::LibrarySignatures;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Component};
-use crate::frontend::ast;
 use std::collections::HashSet;
 
 pub struct WellFormed {
@@ -47,7 +48,11 @@ impl Named for WellFormed {
 }
 
 impl Visitor for WellFormed {
-    fn start(&mut self, comp: &mut Component) -> VisResult {
+    fn start(
+        &mut self,
+        comp: &mut Component,
+        _s: &LibrarySignatures,
+    ) -> VisResult {
         for group_ref in &comp.groups {
             self.all_groups.insert(group_ref.borrow().name.clone());
         }
@@ -71,12 +76,18 @@ impl Visitor for WellFormed {
         &mut self,
         s: &ir::Enable,
         _comp: &mut Component,
+        _s: &LibrarySignatures,
     ) -> VisResult {
         self.used_groups.insert(s.group.borrow().name.clone());
         Ok(Action::Continue)
     }
 
-    fn finish_if(&mut self, s: &ir::If, _comp: &mut Component) -> VisResult {
+    fn finish_if(
+        &mut self,
+        s: &ir::If,
+        _comp: &mut Component,
+        _s: &LibrarySignatures,
+    ) -> VisResult {
         // Add cond group as a used port.
         self.used_groups.insert(s.cond.borrow().name.clone());
         Ok(Action::Continue)
@@ -86,13 +97,18 @@ impl Visitor for WellFormed {
         &mut self,
         s: &ir::While,
         _comp: &mut Component,
+        _s: &LibrarySignatures,
     ) -> VisResult {
         // Add cond group as a used port.
         self.used_groups.insert(s.cond.borrow().name.clone());
         Ok(Action::Continue)
     }
 
-    fn finish(&mut self, _comp: &mut Component) -> VisResult {
+    fn finish(
+        &mut self,
+        _comp: &mut Component,
+        _s: &LibrarySignatures,
+    ) -> VisResult {
         let unused_group = self
             .all_groups
             .difference(&self.used_groups)

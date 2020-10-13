@@ -1,5 +1,6 @@
 //! Compiles away all `empty` statements in a FuTIL program to a group that is
 //! always active.
+use crate::frontend::library::ast::LibrarySignatures;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Component, Control};
 use std::collections::HashMap;
@@ -27,12 +28,13 @@ impl Visitor for CompileEmpty {
         &mut self,
         _s: &ir::Empty,
         comp: &mut Component,
+        sigs: &LibrarySignatures,
     ) -> VisResult {
         let group_ref = match comp.find_group(&CompileEmpty::EMPTY_GROUP.into())
         {
             Some(g) => g,
             None => {
-                let mut builder = ir::Builder::from(comp, false);
+                let mut builder = ir::Builder::from(comp, sigs, false);
                 // Create a group that always outputs done if it doesn't exist.
                 let mut attrs = HashMap::new();
                 attrs.insert("static".to_string(), 0);
