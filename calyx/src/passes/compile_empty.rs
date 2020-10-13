@@ -1,5 +1,6 @@
 //! Compiles away all `empty` statements in a FuTIL program to a group that is
 //! always active.
+use crate::{structure, build_assignments};
 use crate::frontend::library::ast::LibrarySignatures;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Component, Control};
@@ -44,13 +45,13 @@ impl Visitor for CompileEmpty {
                     .add_group(CompileEmpty::EMPTY_GROUP.to_string(), attrs);
 
                 // Add this signal empty_group[done] = 1'd1;
-                let signal_on = builder.add_constant(1, 1);
-                let done_assign = builder.build_assignment(
-                    empty_group.borrow().get_hole(&"done".into()),
-                    signal_on.borrow().get_port(&"out".into()),
-                    None,
+                structure!(builder;
+                    let signal_on = constant(1, 1);
                 );
-                empty_group.borrow_mut().assignments.push(done_assign);
+                let mut assigns: Vec<_> = build_assignments!(builder;
+                    empty_group["done"] = ? signal_on["out"];
+                );
+                empty_group.borrow_mut().assignments.append(&mut assigns);
                 empty_group
             }
         };
