@@ -348,25 +348,26 @@ impl Visitor for CompileControl {
         Ok(Action::Change(ir::Control::enable(seq_group)))
     }
 
-    // Par compilation generates 1-bit registers to hold `done` values
-    // for each group and generates go signals that are guarded by these
-    // `done` registers being low.
-    /*fn finish_par(
+    /// Par compilation generates 1-bit registers to hold `done` values
+    /// for each group and generates go signals that are guarded by these
+    /// `done` registers being low.
+    fn finish_par(
         &mut self,
-        s: &ast::Par,
-        comp: &mut Component,
-        ctx: &Context,
+        s: &ir::Par,
+        comp: &mut ir::Component,
+        ctx: &lib::LibrarySignatures,
     ) -> VisResult {
-        let st = &mut comp.structure;
+        let mut builder = ir::Builder::from(comp, ctx, false);
 
         // Name of the parent group.
-        let par_group: ast::Id = st.namegen.gen_name("par").into();
-        let par_group_idx = st.insert_group(&par_group, HashMap::new())?;
-        let mut par_group_done: Vec<GuardExpr> =
+        let name = self.namegen.gen_name("par");
+        let par_group = builder.add_group(name, HashMap::new());
+
+        let mut par_group_done: Vec<ir::Guard> =
             Vec::with_capacity(s.stmts.len());
         let mut par_done_regs = Vec::with_capacity(s.stmts.len());
 
-        structure!(st, &ctx,
+        structure!(builder;
             let signal_on = constant(1, 1);
             let signal_off = constant(0, 1);
             let par_reset = prim std_reg(1);
@@ -374,31 +375,29 @@ impl Visitor for CompileControl {
 
         for con in s.stmts.iter() {
             match con {
-                Control::Enable {
-                    data: Enable { comp: group_name },
-                } => {
-                    let group_idx = st.get_node_by_name(&group_name)?;
+                ir::Control::Enable(ir::Enable { group }) => {
 
                     // Create register to hold this group's done signal.
-                    structure!(st, &ctx,
+                    structure!(builder;
                         let par_done_reg = prim std_reg(1);
                     );
 
-                    let group_go = !(guard!(st; par_done_reg["out"])
-                        | guard!(st; group_idx["done"]));
-                    let group_done = guard!(st; group_idx["done"]);
+                    let group_go = !(guard!(par_done_reg["out"])
+                        | guard!(group["done"]));
+                    let group_done = guard!(group["done"]);
 
-                    add_wires!(st, Some(par_group.clone()),
-                        group_idx["go"] = group_go ? (signal_on.clone());
+                    let mut assigns = build_assignments!(builder;
+                        group["go"] = group_go ? signal_on["out"];
 
-                        par_done_reg["in"] = group_done ? (signal_on.clone());
-                        par_done_reg["write_en"] = group_done ? (signal_on.clone());
+                        par_done_reg["in"] = group_done ? signal_on["out"];
+                        par_done_reg["write_en"] = group_done ? signal_on["out"];
                     );
+                    par_group.borrow_mut().assignments.append(&mut assigns);
 
-                    par_done_regs.push(par_done_reg);
                     // Add this group's done signal to parent's
                     // done signal.
-                    par_group_done.push(guard!(st; par_done_reg["out"]));
+                    par_group_done.push(guard!(par_done_reg["out"]));
+                    par_done_regs.push(par_done_reg);
                 }
                 _ => {
                     return Err(Error::MalformedControl(
@@ -410,26 +409,29 @@ impl Visitor for CompileControl {
         }
 
         // Hook up parent's done signal to all children.
-        let par_done = GuardExpr::and_vec(par_group_done);
-        let par_reset_out = guard!(st; par_reset["out"]);
-        add_wires!(st, Some(par_group.clone()),
-            par_reset["in"] = par_done ? (signal_on.clone());
-            par_reset["write_en"] = par_done ? (signal_on.clone());
-            par_group_idx["done"] = par_reset_out ? (signal_on.clone());
+        let par_done = ir::Guard::And(par_group_done);
+        let par_reset_out = guard!(par_reset["out"]);
+        let mut assigns = build_assignments!(builder;
+            par_reset["in"] = par_done ? signal_on["out"];
+            par_reset["write_en"] = par_done ? signal_on["out"];
+            par_group["done"] = par_reset_out ? signal_on["out"];
         );
+        par_group.borrow_mut().assignments.append(&mut assigns);
 
         // reset wires
-        add_wires!(st, None,
-            par_reset["in"] = par_reset_out ? (signal_off.clone());
-            par_reset["write_en"] = par_reset_out ? (signal_on.clone());
+        let mut assigns = build_assignments!(builder;
+            par_reset["in"] = par_reset_out ? signal_off["out"];
+            par_reset["write_en"] = par_reset_out ? signal_on["out"];
         );
+        builder.component.continuous_assignments.append(&mut assigns);
         for par_done_reg in par_done_regs {
-            add_wires!(st, None,
-                       par_done_reg["in"] = par_reset_out ? (signal_off.clone());
-                       par_done_reg["write_en"] = par_reset_out ? (signal_on.clone());
+            let mut assigns = build_assignments!(builder;
+               par_done_reg["in"] = par_reset_out ? signal_off["out"];
+               par_done_reg["write_en"] = par_reset_out ? signal_on["out"];
             );
+            builder.component.continuous_assignments.append(&mut assigns);
         }
 
-        Ok(Action::Change(Control::enable(par_group)))
-    }*/
+        Ok(Action::Change(ir::Control::enable(par_group)))
+    }
 }
