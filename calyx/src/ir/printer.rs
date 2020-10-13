@@ -39,7 +39,6 @@ impl IRPrinter {
         write!(f, "  cells {{\n")?;
         for cell in &comp.cells {
             Self::write_cell(&cell.borrow(), 4, f)?;
-            write!(f, "\n")?;
         }
         write!(f, "  }}\n")?;
 
@@ -54,7 +53,9 @@ impl IRPrinter {
         // Add the control program
         write!(f, "  control {{\n")?;
         Self::write_control(&comp.control.borrow(), 4, f)?;
-        write!(f, "  }}\n")
+        write!(f, "  }}\n")?;
+
+        write!(f, "}}\n")
     }
 
     /// Format and write a cell.
@@ -73,7 +74,7 @@ impl IRPrinter {
                 write!(f, "{} = prim ", cell.name.id)?;
                 write!(
                     f,
-                    "{}({});",
+                    "{}({});\n",
                     name.id,
                     param_binding
                         .iter()
@@ -108,7 +109,19 @@ impl IRPrinter {
         f: &mut F,
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
-        write!(f, "group {} {{\n", group.name.id)?;
+        write!(f, "group {}", group.name.id)?;
+        write!(
+            f,
+            "<{}>",
+            group
+                .attributes
+                .iter()
+                .map(|(k, v)| { format!("\"{}\"={}", k, v) })
+                .collect::<Vec<_>>()
+                .join(", ")
+        )?;
+        write!(f, " {{\n")?;
+
         for assign in &group.assignments {
             Self::write_assignment(assign, indent_level + 2, f)?;
             write!(f, "\n")?;
@@ -156,9 +169,9 @@ impl IRPrinter {
                 Self::write_control(tbranch, indent_level + 2, f)?;
                 write!(f, "{}}}", " ".repeat(indent_level))?;
                 // TODO(rachit): don't print else when its empty
-                write!(f, "else {}{{", " ".repeat(indent_level))?;
+                write!(f, " else {{\n")?;
                 Self::write_control(fbranch, indent_level + 2, f)?;
-                write!(f, "{}}}", " ".repeat(indent_level))
+                write!(f, "{}}}\n", " ".repeat(indent_level))
             }
             ir::Control::While(ir::While { port, cond, body }) => {
                 write!(

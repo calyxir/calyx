@@ -1,6 +1,6 @@
 use super::{
     Assignment, Builder, Cell, CellType, Component, Context, Control,
-    Direction, Group, Guard, Port, PortParent, RRC,
+    Guard, Port, RRC,
 };
 use crate::{
     errors::{Error, FutilResult},
@@ -22,18 +22,6 @@ struct SigCtx {
 
     /// Mapping from library functions to signatures
     lib_sigs: HashMap<ast::Id, library::ast::Primitive>,
-}
-
-/// Component-specific transformation context.
-struct TransformCtx<'a> {
-    /// Immutable reference top the global signature context.
-    sig_ctx: &'a SigCtx,
-
-    /// Mapping from Id to Cells
-    cell_map: HashMap<ast::Id, RRC<Cell>>,
-
-    /// Mapping from Id to Groups
-    group_map: HashMap<ast::Id, RRC<Group>>,
 }
 
 /// Construct an IR representation using a parsed AST and command line options.
@@ -79,12 +67,6 @@ fn build_component(
     comp: ast::ComponentDef,
     sig_ctx: &SigCtx,
 ) -> FutilResult<Component> {
-    let mut ctx = TransformCtx {
-        sig_ctx,
-        cell_map: HashMap::new(),
-        group_map: HashMap::new(),
-    };
-
     // Cell to represent the signature of this component
     let signature = Builder::cell_from_signature(
         THIS_ID.into(),
@@ -100,16 +82,24 @@ fn build_component(
             .map(|pd| (pd.name, pd.width))
             .collect(),
     );
-    // Add signature to the context
-    ctx.cell_map.insert(THIS_ID.into(), Rc::clone(&signature));
+
+    let mut ir_component = Component {
+        name: comp.name,
+        signature,
+        cells: vec![],
+        groups: vec![],
+        continuous_assignments: vec![],
+        control: Rc::new(RefCell::new(Control::empty())),
+    };
 
     // For each ast::Cell, build an Cell that contains all the
     // required information.
     let cells = comp
         .cells
         .into_iter()
-        .map(|cell| build_cell(cell, &mut ctx))
+        .map(|cell| build_cell(cell, &sig_ctx))
         .collect::<FutilResult<Vec<_>>>()?;
+    ir_component.cells = cells;
 
     // Build Groups and Assignments using Connections.
     let (mut ast_groups, mut continuous) = (vec![], vec![]);
@@ -120,114 +110,82 @@ fn build_component(
         }
     }
 
-    let groups = ast_groups
+    let mut builder = Builder::from(&mut ir_component, false);
+    ast_groups
         .into_iter()
-        .map(|g| build_group(g, &mut ctx))
-        .collect::<FutilResult<Vec<_>>>()?;
+        .map(|g| build_group(g, &mut builder))
+        .collect::<FutilResult<()>>()?;
 
     let continuous_assignments = continuous
         .into_iter()
-        .map(|w| build_assignment(w, &mut ctx))
+        .map(|w| build_assignment(w, &mut builder))
         .collect::<FutilResult<Vec<_>>>()?;
+    ir_component.continuous_assignments = continuous_assignments;
 
     // Build the Control ast using ast::Control.
-    let control = Rc::new(RefCell::new(build_control(comp.control, &ctx)?));
+    let control =
+        Rc::new(RefCell::new(build_control(comp.control, &ir_component)?));
+    ir_component.control = control;
 
-    Ok(Component {
-        name: comp.name,
-        signature,
-        cells,
-        groups,
-        continuous_assignments,
-        control,
-    })
+    Ok(ir_component)
 }
 
 ///////////////// Cell Construction /////////////////////////
 
-fn build_cell(
-    cell: ast::Cell,
-    ctx: &mut TransformCtx,
-) -> FutilResult<RRC<Cell>> {
+fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
     // Get the name, inputs, and outputs.
-    let res: FutilResult<(ast::Id, CellType, Vec<_>, Vec<_>)> =
-        match cell {
-            ast::Cell::Decl {
-                data: ast::Decl { name, component },
-            } => {
-                let sig =
-                    ctx.sig_ctx.comp_sigs.get(&component).ok_or_else(|| {
-                        Error::UndefinedComponent(name.clone())
-                    })?;
-                Ok((
-                    name,
-                    CellType::Component,
-                    sig.inputs
-                        .iter()
-                        .cloned()
-                        .map(|pd| (pd.name, pd.width))
-                        .collect::<Vec<_>>(),
-                    sig.outputs
-                        .iter()
-                        .cloned()
-                        .map(|pd| (pd.name, pd.width))
-                        .collect::<Vec<_>>(),
-                ))
-            }
-            ast::Cell::Prim {
-                data: ast::Prim { name, instance },
-            } => {
-                let prim_name = instance.name;
-                let prim_sig =
-                    ctx.sig_ctx.lib_sigs.get(&prim_name).ok_or_else(|| {
-                        Error::UndefinedComponent(name.clone())
-                    })?;
-                let (inputs, outputs) = prim_sig.resolve(&instance.params)?;
-                let param_binding = prim_sig
-                    .params
+    let res: FutilResult<(ast::Id, CellType, Vec<_>, Vec<_>)> = match cell {
+        ast::Cell::Decl {
+            data: ast::Decl { name, component },
+        } => {
+            let sig = sig_ctx
+                .comp_sigs
+                .get(&component)
+                .ok_or_else(|| Error::UndefinedComponent(name.clone()))?;
+            Ok((
+                name,
+                CellType::Component,
+                sig.inputs
                     .iter()
                     .cloned()
-                    .zip(instance.params)
-                    .collect();
-                Ok((
-                    name.clone(),
-                    CellType::Primitive {
-                        name: prim_name,
-                        param_binding,
-                    },
-                    inputs,
-                    outputs,
-                ))
-            }
-        };
+                    .map(|pd| (pd.name, pd.width))
+                    .collect::<Vec<_>>(),
+                sig.outputs
+                    .iter()
+                    .cloned()
+                    .map(|pd| (pd.name, pd.width))
+                    .collect::<Vec<_>>(),
+            ))
+        }
+        ast::Cell::Prim {
+            data: ast::Prim { name, instance },
+        } => {
+            let prim_name = instance.name;
+            let prim_sig = sig_ctx
+                .lib_sigs
+                .get(&prim_name)
+                .ok_or_else(|| Error::UndefinedComponent(name.clone()))?;
+            let (inputs, outputs) = prim_sig.resolve(&instance.params)?;
+            let param_binding = prim_sig
+                .params
+                .iter()
+                .cloned()
+                .zip(instance.params)
+                .collect();
+            Ok((
+                name.clone(),
+                CellType::Primitive {
+                    name: prim_name,
+                    param_binding,
+                },
+                inputs,
+                outputs,
+            ))
+        }
+    };
     let (name, typ, inputs, outputs) = res?;
     // Construct the Cell
     let cell = Builder::cell_from_signature(name.clone(), typ, inputs, outputs);
-
-    // Add this cell to context
-    ctx.cell_map.insert(name, Rc::clone(&cell));
-    Ok(cell)
-}
-
-/// Build a Cell representing a number.
-fn build_constant(
-    num: ast::BitNum,
-    ctx: &mut TransformCtx,
-) -> FutilResult<RRC<Cell>> {
-    let name: ast::Id = Cell::constant_name(num.val, num.width);
-    let cell = Builder::cell_from_signature(
-        name.clone(),
-        CellType::Constant {
-            val: num.val,
-            width: num.width,
-        },
-        vec![],
-        vec![("out".into(), num.width)],
-    );
-
-    // Add this constant to cell_map mapping a string for this constant
-    // to this cell.
-    ctx.cell_map.insert(name, Rc::clone(&cell));
 
     Ok(cell)
 }
@@ -237,43 +195,23 @@ fn build_constant(
 /// Build an IR group using the AST Group.
 fn build_group(
     group: ast::Group,
-    ctx: &mut TransformCtx,
-) -> FutilResult<RRC<Group>> {
-    let ir_group = Rc::new(RefCell::new(Group {
-        name: group.name.clone(),
-        assignments: vec![],
-        holes: vec![],
-        attributes: group.attributes,
-    }));
-
-    // Add default holes to this Group
-    for (name, width) in vec![("go", 1), ("done", 1)] {
-        let hole = Rc::new(RefCell::new(Port {
-            name: name.into(),
-            width,
-            direction: Direction::Inout,
-            parent: PortParent::Group(Rc::downgrade(&ir_group)),
-        }));
-        ir_group.borrow_mut().holes.push(hole);
-    }
-
-    // Add this group to the group map. We need to do this before constructing
-    // the assignments since an assignments might use this group's holes.
-    ctx.group_map.insert(group.name, Rc::clone(&ir_group));
+    builder: &mut Builder,
+) -> FutilResult<()> {
+    let ir_group = builder.add_group(group.name.id, group.attributes);
 
     // Add assignemnts to the group
     for wire in group.wires {
-        let assign = build_assignment(wire, ctx)?;
+        let assign = build_assignment(wire, builder)?;
         ir_group.borrow_mut().assignments.push(assign)
     }
 
-    Ok(ir_group)
+    Ok(())
 }
 
 ///////////////// Assignment Construction /////////////////////////
 
 /// Get the pointer to the Port represented by `port`.
-fn get_port_ref(port: ast::Port, ctx: &TransformCtx) -> FutilResult<RRC<Port>> {
+fn get_port_ref(port: ast::Port, comp: &Component) -> FutilResult<RRC<Port>> {
     let find_and_clone_port = |comp: &ast::Id,
                                port_name: ast::Id,
                                all_ports: &[RRC<Port>]|
@@ -289,24 +227,22 @@ fn get_port_ref(port: ast::Port, ctx: &TransformCtx) -> FutilResult<RRC<Port>> {
 
     match port {
         ast::Port::Comp { component, port } => {
-            let cell = ctx
-                .cell_map
-                .get(&component)
-                .ok_or_else(|| Error::UndefinedComponent(component.clone()))?
-                .borrow();
+            let cell_ref = comp
+                .find_cell(&component)
+                .ok_or_else(|| Error::UndefinedComponent(component.clone()))?;
+            let cell = &cell_ref.borrow();
             find_and_clone_port(&component, port, &cell.ports)
         }
         ast::Port::This { port } => {
-            let cell = ctx.cell_map.get(&THIS_ID.into()).unwrap().borrow();
+            let cell = comp.signature.borrow();
             find_and_clone_port(&THIS_ID.into(), port, &cell.ports)
         }
         ast::Port::Hole { group, name } => {
-            let group_ref = ctx
-                .group_map
-                .get(&group)
-                .ok_or_else(|| Error::UndefinedGroup(group.clone()))?
-                .borrow();
-            find_and_clone_port(&group, name, &group_ref.holes)
+            let group_ref = comp
+                .find_group(&group)
+                .ok_or_else(|| Error::UndefinedGroup(group.clone()))?;
+            let g = group_ref.borrow();
+            find_and_clone_port(&group, name, &g.holes)
         }
     }
 }
@@ -317,30 +253,17 @@ fn get_port_ref(port: ast::Port, ctx: &TransformCtx) -> FutilResult<RRC<Port>> {
 /// from it.
 fn atom_to_port(
     atom: ast::Atom,
-    ctx: &mut TransformCtx,
+    builder: &mut Builder,
 ) -> FutilResult<RRC<Port>> {
     match atom {
         ast::Atom::Num(n) => {
-            let key: ast::Id = Cell::constant_name(n.val, n.width);
-            let cell = if ctx.cell_map.contains_key(&key) {
-                Rc::clone(&ctx.cell_map[&key])
-            } else {
-                // XXX(rachit): This is never added to the constant
-                build_constant(n, ctx)?
-            };
-
-            let port_name: ast::Id = "out".into();
-
-            let borrowed_cell = cell.borrow();
-            let port = borrowed_cell
-                .ports
-                .iter()
-                .find(|p| p.borrow().name == port_name)
-                .expect("Constant doesn't have the out port.");
-
+            let port = builder
+                .add_constant(n.val, n.width)
+                .borrow()
+                .get_port(&"out".into());
             Ok(Rc::clone(&port))
         }
-        ast::Atom::Port(p) => get_port_ref(p, ctx),
+        ast::Atom::Port(p) => get_port_ref(p, &builder.component),
     }
 }
 
@@ -348,65 +271,57 @@ fn atom_to_port(
 /// The Assignment contains pointers to the relevant ports.
 fn build_assignment(
     wire: ast::Wire,
-    ctx: &mut TransformCtx,
+    builder: &mut Builder,
 ) -> FutilResult<Assignment> {
-    let src_port: RRC<Port> = atom_to_port(wire.src.expr, ctx)?;
-    let dst_port: RRC<Port> = get_port_ref(wire.dest, ctx)?;
+    let src_port: RRC<Port> = atom_to_port(wire.src.expr, builder)?;
+    let dst_port: RRC<Port> = get_port_ref(wire.dest, &builder.component)?;
     let guard = match wire.src.guard {
-        Some(g) => Some(build_guard(g, ctx)?),
+        Some(g) => Some(build_guard(g, builder)?),
         None => None,
     };
 
-    Ok(Assignment {
-        dst: dst_port,
-        src: src_port,
-        guard,
-    })
+    Ok(builder.build_assignment(dst_port, src_port, guard))
 }
 
 /// Transform an ast::GuardExpr to an ir::Guard.
-fn build_guard(
-    guard: ast::GuardExpr,
-    ctx: &mut TransformCtx,
-) -> FutilResult<Guard> {
+fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> FutilResult<Guard> {
     use ast::GuardExpr as GE;
 
-    let into_box_guard =
-        |g: Box<GE>, ctx: &mut TransformCtx| -> FutilResult<_> {
-            Ok(Box::new(build_guard(*g, ctx)?))
-        };
+    let into_box_guard = |g: Box<GE>, bd: &mut Builder| -> FutilResult<_> {
+        Ok(Box::new(build_guard(*g, bd)?))
+    };
 
     Ok(match guard {
-        GE::Atom(atom) => Guard::Port(atom_to_port(atom, ctx)?),
+        GE::Atom(atom) => Guard::Port(atom_to_port(atom, bd)?),
         GE::And(gs) => Guard::And(
             gs.into_iter()
-                .map(|g| into_box_guard(Box::new(g), ctx).map(|b| *b))
+                .map(|g| into_box_guard(Box::new(g), bd).map(|b| *b))
                 .collect::<FutilResult<Vec<_>>>()?,
         ),
         GE::Or(gs) => Guard::Or(
             gs.into_iter()
-                .map(|g| into_box_guard(Box::new(g), ctx).map(|b| *b))
+                .map(|g| into_box_guard(Box::new(g), bd).map(|b| *b))
                 .collect::<FutilResult<Vec<_>>>()?,
         ),
         GE::Eq(l, r) => {
-            Guard::Eq(into_box_guard(l, ctx)?, into_box_guard(r, ctx)?)
+            Guard::Eq(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
         }
         GE::Neq(l, r) => {
-            Guard::Neq(into_box_guard(l, ctx)?, into_box_guard(r, ctx)?)
+            Guard::Neq(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
         }
         GE::Gt(l, r) => {
-            Guard::Gt(into_box_guard(l, ctx)?, into_box_guard(r, ctx)?)
+            Guard::Gt(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
         }
         GE::Lt(l, r) => {
-            Guard::Lt(into_box_guard(l, ctx)?, into_box_guard(r, ctx)?)
+            Guard::Lt(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
         }
         GE::Geq(l, r) => {
-            Guard::Geq(into_box_guard(l, ctx)?, into_box_guard(r, ctx)?)
+            Guard::Geq(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
         }
         GE::Leq(l, r) => {
-            Guard::Leq(into_box_guard(l, ctx)?, into_box_guard(r, ctx)?)
+            Guard::Leq(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
         }
-        GE::Not(g) => Guard::Not(into_box_guard(g, ctx)?),
+        GE::Not(g) => Guard::Not(into_box_guard(g, bd)?),
     })
 }
 
@@ -415,22 +330,22 @@ fn build_guard(
 /// Transform ast::Control to ir::Control.
 fn build_control(
     control: ast::Control,
-    ctx: &TransformCtx,
+    comp: &Component,
 ) -> FutilResult<Control> {
     Ok(match control {
         ast::Control::Enable {
-            data: ast::Enable { comp },
+            data: ast::Enable { comp: component },
         } => Control::enable(Rc::clone(
-            ctx.group_map
-                .get(&comp)
-                .ok_or_else(|| Error::UndefinedGroup(comp.clone()))?,
+            &comp
+                .find_group(&component)
+                .ok_or_else(|| Error::UndefinedGroup(component.clone()))?,
         )),
         ast::Control::Seq {
             data: ast::Seq { stmts },
         } => Control::seq(
             stmts
                 .into_iter()
-                .map(|c| build_control(c, ctx))
+                .map(|c| build_control(c, comp))
                 .collect::<FutilResult<Vec<_>>>()?,
         ),
         ast::Control::Par {
@@ -438,7 +353,7 @@ fn build_control(
         } => Control::par(
             stmts
                 .into_iter()
-                .map(|c| build_control(c, ctx))
+                .map(|c| build_control(c, comp))
                 .collect::<FutilResult<Vec<_>>>()?,
         ),
         ast::Control::If {
@@ -450,25 +365,25 @@ fn build_control(
                     fbranch,
                 },
         } => Control::if_(
-            get_port_ref(port, ctx)?,
+            get_port_ref(port, comp)?,
             Rc::clone(
-                ctx.group_map
-                    .get(&cond)
+                &comp
+                    .find_group(&cond)
                     .ok_or_else(|| Error::UndefinedGroup(cond.clone()))?,
             ),
-            Box::new(build_control(*tbranch, ctx)?),
-            Box::new(build_control(*fbranch, ctx)?),
+            Box::new(build_control(*tbranch, comp)?),
+            Box::new(build_control(*fbranch, comp)?),
         ),
         ast::Control::While {
             data: ast::While { port, cond, body },
         } => Control::while_(
-            get_port_ref(port, ctx)?,
+            get_port_ref(port, comp)?,
             Rc::clone(
-                ctx.group_map
-                    .get(&cond)
+                &comp
+                    .find_group(&cond)
                     .ok_or_else(|| Error::UndefinedGroup(cond.clone()))?,
             ),
-            Box::new(build_control(*body, ctx)?),
+            Box::new(build_control(*body, comp)?),
         ),
         ast::Control::Empty { .. } => Control::empty(),
         ast::Control::Print { .. } => {

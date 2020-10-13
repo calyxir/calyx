@@ -11,7 +11,7 @@ use std::rc::Rc;
 /// constructs when needed.
 pub struct Builder<'a> {
     /// Component for which this builder is constructing.
-    component: &'a mut ir::Component,
+    pub component: &'a mut ir::Component,
     /// Enable validation of components.
     /// Useful for debugging malformed AST errors.
     pub validate: bool,
