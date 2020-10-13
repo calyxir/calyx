@@ -26,7 +26,7 @@ def tensor_1d_add():
     return relay.Function([x, y], relay.add(x, y))
 
 def tensor_2d_add():
-    """Add together two 1-dimensional tensors in Relay.
+    """Add together two 2-dimensional tensors in Relay.
     """
     x = relay.var("x", relay.TensorType((2, 4), "int32"))
     y = relay.var("y", relay.TensorType((2, 4), "int32"))
