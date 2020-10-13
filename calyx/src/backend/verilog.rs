@@ -3,7 +3,7 @@
 //! valid SystemVerilog program.
 //use super::{colors, colors::ColorHelper};
 use crate::{
-    backend::traits::{Backend},
+    backend::traits::Backend,
     errors::{Error, FutilResult},
     //frontend::library::ast as lib,
     ir,

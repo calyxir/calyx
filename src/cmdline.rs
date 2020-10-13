@@ -141,7 +141,7 @@ impl Opts {
                 for comp in &context.components {
                     ir::IRPrinter::write_component(
                         comp,
-                        &mut self.output.get_write()
+                        &mut self.output.get_write(),
                     )?;
                 }
                 Ok(())

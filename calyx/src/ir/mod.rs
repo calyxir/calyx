@@ -5,27 +5,27 @@
 //!    Groups.
 //! 2. The IR attempts to represent similar concepts in a homogeneous manner.
 
+mod builder;
 /// Modules defining internal structures.
 mod common;
 mod component;
 mod context;
 mod control;
 mod guard;
-mod structure;
 mod printer;
-mod builder;
+mod structure;
 
+pub use builder::Builder;
 /// Re-export types at the module level.
 pub use common::{RRC, WRC};
 pub use component::Component;
 pub use context::Context;
 pub use control::{Control, Empty, Enable, If, Par, Seq, While};
 pub use guard::Guard;
+pub use printer::IRPrinter;
 pub use structure::{
     Assignment, Cell, CellType, Direction, Group, Port, PortParent,
 };
-pub use printer::IRPrinter;
-pub use builder::Builder;
 
 /// Visitor to traverse a control program.
 pub mod traversal;

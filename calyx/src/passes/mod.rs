@@ -12,5 +12,5 @@ mod compile_empty;
 //mod static_timing;
 //mod visitor;
 
-pub use well_formed::WellFormed;
 pub use compile_empty::CompileEmpty;
+pub use well_formed::WellFormed;

@@ -33,9 +33,7 @@ pub trait Named {
 pub trait Visitor {
     /// Instantiate this pass using the default() method and run it on the
     /// context.
-    fn do_pass_default(
-        context: &mut Context,
-    ) -> FutilResult<Self>
+    fn do_pass_default(context: &mut Context) -> FutilResult<Self>
     where
         Self: Default + Sized + Named,
     {
@@ -47,10 +45,7 @@ pub trait Visitor {
     /// Run the visitor on the program Context.
     /// The function makes complex use of interior mutability. See inline
     /// comments for an explanation.
-    fn do_pass(
-        &mut self,
-        context: &mut Context,
-    ) -> FutilResult<()>
+    fn do_pass(&mut self, context: &mut Context) -> FutilResult<()>
     where
         Self: Sized + Named,
     {

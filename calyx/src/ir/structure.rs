@@ -88,10 +88,14 @@ impl Cell {
     /// Get a reference to the named port and throw an error if it doesn't
     /// exist.
     pub fn get_port(&self, name: &Id) -> RRC<Port> {
-        self.find_port(name).expect(format!(
-            "Port `{}' not found on group `{}'",
-            name.to_string(), self.name.to_string()
-        ).as_str())
+        self.find_port(name).expect(
+            format!(
+                "Port `{}' not found on group `{}'",
+                name.to_string(),
+                self.name.to_string()
+            )
+            .as_str(),
+        )
     }
 }
 
@@ -135,10 +139,14 @@ impl Group {
 
     /// Get a reference to the named hole or panic.
     pub fn get_hole(&self, name: &Id) -> RRC<Port> {
-        self.find_hole(name).expect(format!(
-            "Hole `{}' not found on group `{}'",
-            name.to_string(), self.name.to_string()
-        ).as_str())
+        self.find_hole(name).expect(
+            format!(
+                "Hole `{}' not found on group `{}'",
+                name.to_string(),
+                self.name.to_string()
+            )
+            .as_str(),
+        )
     }
 }
 
