@@ -6,11 +6,7 @@
 #[macro_export]
 macro_rules! guard {
     ($node:ident[$port:expr]) => {
-        crate::ir::Guard::from(
-            $node
-                .borrow()
-                .get(&crate::ir::Id::from($port)),
-        )
+        crate::ir::Guard::from($node.borrow().get(&crate::ir::Id::from($port)))
     };
 }
 
@@ -30,8 +26,8 @@ macro_rules! structure {
     ($builder:expr;
      let $var:ident = prim $comp:ident( $($n:expr),* ); $($tail:tt)*) => {
         let $var = $builder.add_primitive(
-            crate::ir::Id::from(stringify!($var)),
-            crate::ir::Id::from(stringify!($comp)),
+            stringify!($var),
+            stringify!($comp),
             &[$($n),*]
         );
         structure!($builder; $($tail)*)

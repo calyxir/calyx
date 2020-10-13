@@ -1,9 +1,9 @@
 //! Compiles away all `empty` statements in a FuTIL program to a group that is
 //! always active.
-use crate::{structure, build_assignments};
 use crate::frontend::library::ast::LibrarySignatures;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Component, Control};
+use crate::{build_assignments, structure};
 use std::collections::HashMap;
 use std::rc::Rc;
 

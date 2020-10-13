@@ -143,5 +143,7 @@ impl BitOr for Guard {
 impl Not for Guard {
     type Output = Self;
 
-    fn not(self) -> Self { self.not() }
+    fn not(self) -> Self {
+        self.not()
+    }
 }

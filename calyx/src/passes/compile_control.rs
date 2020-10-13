@@ -281,10 +281,12 @@ impl Visitor for CompileControl {
         let fsm_size = 32;
 
         // new structure
-        structure!(builder;
-            let fsm = prim std_reg(fsm_size);
-            let signal_on = constant(1, 1);
+        let fsm = builder.add_primitive(
+            self.namegen.gen_name("fsm"),
+            "std_reg",
+            &[32],
         );
+        let signal_on = builder.add_constant(1, 1);
 
         // Generate fsm to drive the sequence
         for (idx, con) in s.stmts.iter().enumerate() {
@@ -376,14 +378,13 @@ impl Visitor for CompileControl {
         for con in s.stmts.iter() {
             match con {
                 ir::Control::Enable(ir::Enable { group }) => {
-
                     // Create register to hold this group's done signal.
                     structure!(builder;
                         let par_done_reg = prim std_reg(1);
                     );
 
-                    let group_go = !(guard!(par_done_reg["out"])
-                        | guard!(group["done"]));
+                    let group_go =
+                        !(guard!(par_done_reg["out"]) | guard!(group["done"]));
                     let group_done = guard!(group["done"]);
 
                     let mut assigns = build_assignments!(builder;
@@ -423,13 +424,19 @@ impl Visitor for CompileControl {
             par_reset["in"] = par_reset_out ? signal_off["out"];
             par_reset["write_en"] = par_reset_out ? signal_on["out"];
         );
-        builder.component.continuous_assignments.append(&mut assigns);
+        builder
+            .component
+            .continuous_assignments
+            .append(&mut assigns);
         for par_done_reg in par_done_regs {
             let mut assigns = build_assignments!(builder;
                par_done_reg["in"] = par_reset_out ? signal_off["out"];
                par_done_reg["write_en"] = par_reset_out ? signal_on["out"];
             );
-            builder.component.continuous_assignments.append(&mut assigns);
+            builder
+                .component
+                .continuous_assignments
+                .append(&mut assigns);
         }
 
         Ok(Action::Change(ir::Control::enable(par_group)))

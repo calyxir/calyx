@@ -1,4 +1,4 @@
-use super::{Assignment, Cell, Control, Group, RRC, Id};
+use super::{Assignment, Cell, Control, Group, Id, RRC};
 use std::rc::Rc;
 
 /// In memory representation of a Component.

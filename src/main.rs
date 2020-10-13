@@ -13,7 +13,7 @@ use calyx::{
     //utils::NameGenerator,
 };
 use cmdline::Opts;
-use passes::{CompileEmpty, WellFormed, CompileControl};
+use passes::{CompileControl, CompileEmpty, WellFormed};
 //use pass_manager::PassManager;
 /*use passes::{
     collapse_control::CollapseControl,

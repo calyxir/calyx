@@ -31,7 +31,9 @@ impl NameGenerator {
     /// ```
     pub fn gen_name<S: ToString + Clone>(&mut self, prefix: S) -> String {
         // Insert default value for this prefix if there is no entry.
-        let count = self.name_hash.entry(prefix.to_string().clone())
+        let count = self
+            .name_hash
+            .entry(prefix.to_string().clone())
             .and_modify(|v| *v += 1)
             .or_default();
 

@@ -1,8 +1,8 @@
 //! An IR context. This is the top-level object for an IR and contains all information
 //! need to transform, lower, an emit a program.
 //! Passes usually have transform/analyze the components in the IR.
-use super::{Id, Component};
-use crate::frontend::{library};
+use super::{Component, Id};
+use crate::frontend::library;
 use std::collections::HashMap;
 
 /// The IR Context

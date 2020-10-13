@@ -1,6 +1,6 @@
 use super::{
     Assignment, Builder, Cell, CellType, Component, Context, Control, Guard,
-    Port, RRC, Id,
+    Id, Port, RRC,
 };
 use crate::{
     errors::{Error, FutilResult},

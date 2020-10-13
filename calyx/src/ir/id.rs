@@ -67,4 +67,3 @@ impl<S: AsRef<str>> PartialEq<S> for Id {
         self.id == other.as_ref()
     }
 }
-
