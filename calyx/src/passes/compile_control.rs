@@ -1,10 +1,10 @@
 use crate::errors::Error;
-use crate::lang::{
-    ast, component::Component, context::Context, structure_builder::ASTBuilder,
+use crate::frontend::library::ast as lib;
+use crate::ir::{
+    self,
+    traversal::{Action, Named, VisResult, Visitor},
 };
-use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use crate::{add_wires, guard, port, structure};
-use ast::{Control, Enable, GuardExpr};
+use crate::{build_assignments, guard, structure};
 use std::collections::HashMap;
 use std::convert::TryInto;
 
@@ -22,44 +22,44 @@ impl Named for CompileControl {
 }
 
 impl Visitor for CompileControl {
-    /// This compiles `if` statements of the following form:
-    /// ```C
-    /// if comp.out with cond {
-    ///   true;
-    /// } else {
-    ///   false;
-    /// }
-    /// ```
-    /// into the following group:
-    /// ```C
-    /// if0 {
-    ///   // compute the condition if we haven't computed it before
-    ///   cond[go] = !cond_computed.out ? 1'b1;
-    ///   // save whether we are done computing the condition
-    ///   cond_computed.in = cond[done] ? 1'b1;
-    ///   cond_computed.write_en = cond[done] ? 1'b1;
-    ///   // when the cond is done, store the output of the condition
-    ///   cond_stored.in = cond[done] ? comp.out;
-    ///   // run the true branch if we have computed the condition and it was true
-    ///   true[go] = cond_computed.out & cond_stored.out ? 1'b1;
-    ///   // run the false branch if we have computed the condition and it was false
-    ///   false[go] = cond_computed.out & !cond_stored.out ? 1'b1;
-    ///   // this group is done if either branch is done
-    ///   or.right = true[done];
-    ///   or.left = false[done];
-    ///   if0[done] = or.out;
-    /// }
-    /// ```
-    /// with 2 generated registers, `cond_computed` and `cond_stored`.
-    /// `cond_computed` keeps track of whether the condition has been
-    /// computed or not. This ensures that we only compute the condition once.
-    /// `cond_stored` stores the output of the condition in a register so that
-    /// we can use it for any number of cycles.
-    ///
-    /// We also generate a logical `or` component with the `done` holes
-    /// of the two bodies as inputs. The generated `if0` group is `done`
-    /// when either branch is done.
-    fn finish_if(
+    // This compiles `if` statements of the following form:
+    // ```C
+    // if comp.out with cond {
+    //   true;
+    // } else {
+    //   false;
+    // }
+    // ```
+    // into the following group:
+    // ```C
+    // if0 {
+    //   // compute the condition if we haven't computed it before
+    //   cond[go] = !cond_computed.out ? 1'b1;
+    //   // save whether we are done computing the condition
+    //   cond_computed.in = cond[done] ? 1'b1;
+    //   cond_computed.write_en = cond[done] ? 1'b1;
+    //   // when the cond is done, store the output of the condition
+    //   cond_stored.in = cond[done] ? comp.out;
+    //   // run the true branch if we have computed the condition and it was true
+    //   true[go] = cond_computed.out & cond_stored.out ? 1'b1;
+    //   // run the false branch if we have computed the condition and it was false
+    //   false[go] = cond_computed.out & !cond_stored.out ? 1'b1;
+    //   // this group is done if either branch is done
+    //   or.right = true[done];
+    //   or.left = false[done];
+    //   if0[done] = or.out;
+    // }
+    // ```
+    // with 2 generated registers, `cond_computed` and `cond_stored`.
+    // `cond_computed` keeps track of whether the condition has been
+    // computed or not. This ensures that we only compute the condition once.
+    // `cond_stored` stores the output of the condition in a register so that
+    // we can use it for any number of cycles.
+    //
+    // We also generate a logical `or` component with the `done` holes
+    // of the two bodies as inputs. The generated `if0` group is `done`
+    // when either branch is done.
+    /*fn finish_if(
         &mut self,
         cif: &ast::If,
         comp: &mut Component,
@@ -145,10 +145,10 @@ impl Visitor for CompileControl {
         );
 
         Ok(Action::Change(Control::enable(if_group)))
-    }
+    }*/
 
-    /// XXX(rachit): The explanation is not consistent with the code.
-    /// Specifically, explain what the `done_reg` stuff is doing.
+    // XXX(rachit): The explanation is not consistent with the code.
+    // Specifically, explain what the `done_reg` stuff is doing.
     // This compiles `while` statements of the following form:
     // ```C
     // while comp.out with cond {
@@ -181,7 +181,7 @@ impl Visitor for CompileControl {
     // `cond_stored` saves the result of the condition so that it is accessible
     // throughout the execution of `body`.
     //
-    fn finish_while(
+    /*fn finish_while(
         &mut self,
         ctrl: &ast::While,
         comp: &mut Component,
@@ -262,23 +262,22 @@ impl Visitor for CompileControl {
         );
 
         Ok(Action::Change(Control::enable(while_group)))
-    }
+    }*/
 
     fn finish_seq(
         &mut self,
-        s: &ast::Seq,
-        comp: &mut Component,
-        ctx: &Context,
+        s: &ir::Seq,
+        comp: &mut ir::Component,
+        ctx: &lib::LibrarySignatures,
     ) -> VisResult {
-        let st = &mut comp.structure;
+        let mut builder = ir::Builder::from(comp, ctx, false);
 
         // Create a new group for the seq related structure.
-        let seq_group: ast::Id = st.namegen.gen_name("seq").into();
-        let seq_group_node = st.insert_group(&seq_group, HashMap::new())?;
+        let seq_group = builder.add_group("seq", HashMap::new());
         let fsm_size = 32;
 
         // new structure
-        structure!(st, &ctx,
+        structure!(builder;
             let fsm = prim std_reg(fsm_size);
             let signal_on = constant(1, 1);
         );
@@ -286,34 +285,31 @@ impl Visitor for CompileControl {
         // Generate fsm to drive the sequence
         for (idx, con) in s.stmts.iter().enumerate() {
             match con {
-                Control::Enable {
-                    data: Enable { comp: group_name },
-                } => {
+                ir::Control::Enable(ir::Enable { group }) => {
                     let my_idx: u64 = idx.try_into().unwrap();
                     /* group[go] = fsm.out == idx & !group[done] ? 1 */
-                    let group = st.get_node_by_name(&group_name)?;
-
-                    structure!(st, &ctx,
+                    structure!(builder;
                         let fsm_cur_state = constant(my_idx, fsm_size);
                         let fsm_nxt_state = constant(my_idx + 1, fsm_size);
                     );
 
-                    let group_go = (guard!(st; fsm["out"])
-                        .eq(st.to_guard(fsm_cur_state.clone())))
-                        & !guard!(st; group["done"]);
+                    let group_go = guard!(fsm["out"])
+                        .eq(guard!(fsm_cur_state["out"]))
+                        .and(guard!(group["done"]).not());
 
-                    let group_done = (guard!(st; fsm["out"])
-                        .eq(st.to_guard(fsm_cur_state.clone())))
-                        & guard!(st; group["done"]);
+                    let group_done = guard!(fsm["out"])
+                        .eq(guard!(fsm_cur_state["out"]))
+                        .and(guard!(group["done"]));
 
-                    add_wires!(st, Some(seq_group.clone()),
+                    let mut assigns = build_assignments!(builder;
                         // Turn this group on.
-                        group["go"] = group_go ? (signal_on.clone());
+                        group["go"] = group_go ? signal_on["out"];
 
                         // Update the FSM state when this group is done.
-                        fsm["in"] = group_done ? (fsm_nxt_state.clone());
-                        fsm["write_en"] = group_done ? (signal_on.clone());
+                        fsm["in"] = group_done ? fsm_nxt_state["out"];
+                        fsm["write_en"] = group_done ? signal_on["out"];
                     );
+                    seq_group.borrow_mut().assignments.append(&mut assigns);
                 }
                 _ => {
                     return Err(Error::MalformedControl(
@@ -325,31 +321,33 @@ impl Visitor for CompileControl {
         }
 
         let final_state_val: u64 = s.stmts.len().try_into().unwrap();
-        structure!(st, &ctx,
+        structure!(builder;
             let reset_val = constant(0, fsm_size);
             let fsm_final_state = constant(final_state_val, fsm_size);
         );
-        let seq_done = guard!(st; fsm["out"]).eq(st.to_guard(fsm_final_state));
+        let seq_done = guard!(fsm["out"]).eq(guard!(fsm_final_state["out"]));
 
         // Condition for the seq group being done.
-        add_wires!(st, Some(seq_group.clone()),
-            seq_group_node["done"] = seq_done ? (signal_on.clone());
+        let mut assigns = build_assignments!(builder;
+            seq_group["done"] = seq_done ? signal_on["out"];
         );
+        seq_group.borrow_mut().assignments.append(&mut assigns);
 
         // CLEANUP: Reset the FSM state one cycle after the done signal is high.
-        add_wires!(st, None,
-            fsm["in"] = seq_done ? (reset_val);
-            fsm["write_en"] = seq_done ? (signal_on);
+        let mut assigns = build_assignments!(builder;
+            fsm["in"] = seq_done ? reset_val["out"];
+            fsm["write_en"] = seq_done ? signal_on["out"];
         );
+        comp.continuous_assignments.append(&mut assigns);
 
         // Replace the control with the seq group.
-        Ok(Action::Change(Control::enable(seq_group)))
+        Ok(Action::Change(ir::Control::enable(seq_group)))
     }
 
-    /// Par compilation generates 1-bit registers to hold `done` values
-    /// for each group and generates go signals that are guarded by these
-    /// `done` registers being low.
-    fn finish_par(
+    // Par compilation generates 1-bit registers to hold `done` values
+    // for each group and generates go signals that are guarded by these
+    // `done` registers being low.
+    /*fn finish_par(
         &mut self,
         s: &ast::Par,
         comp: &mut Component,
@@ -429,5 +427,5 @@ impl Visitor for CompileControl {
         }
 
         Ok(Action::Change(Control::enable(par_group)))
-    }
+    }*/
 }

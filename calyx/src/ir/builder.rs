@@ -36,9 +36,9 @@ impl<'a> Builder<'a> {
     /// Construct a new group using `name` and `attributes` and add it to the
     /// underlying component.
     /// Returns a reference to the group.
-    pub fn add_group(
+    pub fn add_group<S: std::fmt::Display + Clone + AsRef<str>>(
         &mut self,
-        name: String,
+        name: S,
         attributes: HashMap<String, u64>,
     ) -> RRC<ir::Group> {
         // Check if there is a group with the same name.
@@ -56,7 +56,7 @@ impl<'a> Builder<'a> {
             }
         }
         let group = Rc::new(RefCell::new(ir::Group {
-            name: name.into(),
+            name: Id::from(name.as_ref()),
             attributes,
             holes: vec![],
             assignments: vec![],

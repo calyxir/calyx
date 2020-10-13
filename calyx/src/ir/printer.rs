@@ -97,7 +97,7 @@ impl IRPrinter {
         write!(f, "{}", " ".repeat(indent_level))?;
         write!(f, "{} = ", Self::get_port_access(&assign.dst.borrow()))?;
         if let Some(g) = &assign.guard {
-            write!(f, "{} ?", Self::guard_str(&g))?;
+            write!(f, "{} ? ", Self::guard_str(&g))?;
         }
         write!(f, "{};", Self::get_port_access(&assign.src.borrow()))
     }
@@ -194,7 +194,7 @@ impl IRPrinter {
                 .iter()
                 .map(|g| Self::guard_str(g))
                 .collect::<Vec<_>>()
-                .join(&guard.op_str()),
+                .join(&format!(" {} ", guard.op_str()).to_string()),
             ir::Guard::Eq(l, r)
             | ir::Guard::Neq(l, r)
             | ir::Guard::Gt(l, r)

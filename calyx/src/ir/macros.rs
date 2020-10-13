@@ -1,3 +1,19 @@
+/// Convinience macro to get a port and turn it into an ir::Guard.
+/// Example:
+/// ```
+/// let fsm_out = guard!(fsm["out"]);
+/// ```
+#[macro_export]
+macro_rules! guard {
+    ($node:ident[$port:expr]) => {
+        crate::ir::Guard::from(
+            $node
+                .borrow()
+                .get(&crate::frontend::ast::Id::from($port)),
+        )
+    };
+}
+
 /// Add primitives and constants to the component and `let`-bind the
 /// references.
 /// Example:
@@ -12,10 +28,10 @@ macro_rules! structure {
     ($builder:expr;) => { };
 
     ($builder:expr;
-     let $var:pat = prim $comp:ident( $($n:expr),* ); $($tail:tt)*) => {
+     let $var:ident = prim $comp:ident( $($n:expr),* ); $($tail:tt)*) => {
         let $var = $builder.add_primitive(
-            stringify!($var),
-            stringify!($comp),
+            crate::frontend::ast::Id::from(stringify!($var)),
+            crate::frontend::ast::Id::from(stringify!($comp)),
             &[$($n),*]
         );
         structure!($builder; $($tail)*)
@@ -29,6 +45,7 @@ macro_rules! structure {
 }
 
 /// Build guarded assignment statements and return a vector containing them.
+/// **Note**: Guards used in the assignments are `cloned`.
 /// The macro accepts two forms:
 /// ```
 /// build_assignments!(builder;
@@ -39,8 +56,7 @@ macro_rules! structure {
 #[macro_export]
 macro_rules! build_assignments {
     // Unguarded assignment.
-    (@base
-     $builder:expr;
+    (@base $builder:expr;
      $dst_node:ident[$dst_port:expr] = ? $src_node:ident[$src_port:expr]) => {
         $builder.build_assignment(
             $dst_node.borrow().get(
@@ -51,23 +67,26 @@ macro_rules! build_assignments {
     };
 
     // Guarded assignment.
-    (@base
-     $builder:expr;
-     $dst_node:ident[$dst_port:expr] = $guard:ident ? $src_node:ident[$src_port:expr]) => {
+    (@base $builder:expr;
+     $dst_node:ident[$dst_port:expr] =
+        $guard:ident ?
+        $src_node:ident[$src_port:expr]) => {
         $builder.build_assignment(
             $dst_node.borrow().get(
                 &crate::frontend::ast::Id::from($dst_port)),
             $src_node.borrow().get(
                 &crate::frontend::ast::Id::from($src_port)),
-            Some(guard))
+            Some($guard.clone()))
     };
 
     ($builder:expr;
-     $($dst_node:ident[$dst_port:expr] = $($guard:ident)? ? $src_node:ident[$src_port:expr];)*)  => {
+     $($dst_node:ident[$dst_port:expr] =
+         $($guard:ident)? ?
+         $src_node:ident[$src_port:expr];)*)  => {
         vec![$(
             build_assignments!(@base $builder;
                 $dst_node[$dst_port] = $($guard)? ? $src_node[$src_port])
-        )*,]
+        ),*]
 
     };
 }

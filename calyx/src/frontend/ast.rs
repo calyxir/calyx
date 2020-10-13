@@ -8,11 +8,10 @@ use std::ops::{BitAnd, BitOr, Not};
 
 /// Represents an identifier in a Futil program
 #[derive(Derivative, Clone, PartialOrd, Ord)]
-#[derivative(Hash, Eq, PartialEq)]
+#[derivative(Hash, Eq)]
 pub struct Id {
     pub id: String,
     #[derivative(Hash = "ignore")]
-    #[derivative(PartialEq = "ignore")]
     span: Option<Span>,
 }
 
@@ -73,9 +72,9 @@ impl PartialEq<str> for Id {
     }
 }
 
-impl PartialEq<String> for Id {
-    fn eq(&self, other: &String) -> bool {
-        self.id == *other
+impl<S: AsRef<str>> PartialEq<S> for Id {
+    fn eq(&self, other: &S) -> bool {
+        self.id == other.as_ref()
     }
 }
 
