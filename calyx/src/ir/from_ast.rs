@@ -256,7 +256,7 @@ fn atom_to_port(
             let port = builder
                 .add_constant(n.val, n.width)
                 .borrow()
-                .get(&"out".into());
+                .get("out");
             Ok(Rc::clone(&port))
         }
         ast::Atom::Port(p) => get_port_ref(p, &builder.component),

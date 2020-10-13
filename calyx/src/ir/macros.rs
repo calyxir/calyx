@@ -6,7 +6,7 @@
 #[macro_export]
 macro_rules! guard {
     ($node:ident[$port:expr]) => {
-        crate::ir::Guard::from($node.borrow().get(&crate::ir::Id::from($port)))
+        crate::ir::Guard::from($node.borrow().get($port))
     };
 }
 
@@ -55,10 +55,8 @@ macro_rules! build_assignments {
     (@base $builder:expr;
      $dst_node:ident[$dst_port:expr] = ? $src_node:ident[$src_port:expr]) => {
         $builder.build_assignment(
-            $dst_node.borrow().get(
-                &crate::ir::Id::from($dst_port)),
-            $src_node.borrow().get(
-                &crate::ir::Id::from($src_port)),
+            $dst_node.borrow().get($dst_port),
+            $src_node.borrow().get($src_port),
             None)
     };
 
@@ -68,10 +66,8 @@ macro_rules! build_assignments {
         $guard:ident ?
         $src_node:ident[$src_port:expr]) => {
         $builder.build_assignment(
-            $dst_node.borrow().get(
-                &crate::ir::Id::from($dst_port)),
-            $src_node.borrow().get(
-                &crate::ir::Id::from($src_port)),
+            $dst_node.borrow().get($dst_port),
+            $src_node.borrow().get($src_port),
             Some($guard.clone()))
     };
 

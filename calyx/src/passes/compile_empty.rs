@@ -31,7 +31,7 @@ impl Visitor for CompileEmpty {
         comp: &mut Component,
         sigs: &LibrarySignatures,
     ) -> VisResult {
-        let group_ref = match comp.find_group(&CompileEmpty::EMPTY_GROUP.into())
+        let group_ref = match comp.find_group(&CompileEmpty::EMPTY_GROUP)
         {
             Some(g) => g,
             None => {

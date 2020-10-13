@@ -77,17 +77,23 @@ pub struct Cell {
 
 impl Cell {
     /// Get a reference to the named port if it exists.
-    pub fn find(&self, name: &Id) -> Option<RRC<Port>> {
+    pub fn find<S>(&self, name: &S) -> Option<RRC<Port>>
+    where
+        S: std::fmt::Display + Clone + AsRef<str>,
+    {
         self.ports
             .iter()
-            .find(|&g| g.borrow().name == *name)
+            .find(|&g| g.borrow().name == name)
             .map(|r| Rc::clone(r))
     }
 
     /// Get a reference to the named port and throw an error if it doesn't
     /// exist.
-    pub fn get(&self, name: &Id) -> RRC<Port> {
-        self.find(name).expect(
+    pub fn get<S>(&self, name: S) -> RRC<Port>
+    where
+        S: std::fmt::Display + Clone + AsRef<str>,
+    {
+        self.find(&name).expect(
             format!(
                 "Port `{}' not found on group `{}'",
                 name.to_string(),
@@ -129,16 +135,22 @@ pub struct Group {
 
 impl Group {
     /// Get a reference to the named hole if it exists.
-    pub fn find(&self, name: &Id) -> Option<RRC<Port>> {
+    pub fn find<S>(&self, name: &S) -> Option<RRC<Port>>
+    where
+        S: std::fmt::Display + Clone + AsRef<str>,
+    {
         self.holes
             .iter()
-            .find(|&g| g.borrow().name == *name)
+            .find(|&g| g.borrow().name == name)
             .map(|r| Rc::clone(r))
     }
 
     /// Get a reference to the named hole or panic.
-    pub fn get(&self, name: &Id) -> RRC<Port> {
-        self.find(name).expect(
+    pub fn get<S>(&self, name: S) -> RRC<Port>
+    where
+        S: std::fmt::Display + Clone + AsRef<str>,
+    {
+        self.find(&name).expect(
             format!(
                 "Hole `{}' not found on group `{}'",
                 name.to_string(),

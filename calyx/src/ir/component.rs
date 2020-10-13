@@ -25,7 +25,10 @@ pub struct Component {
 ///   name.
 impl Component {
     /// Return a reference to the group with `name` if present.
-    pub fn find_group(&self, name: &Id) -> Option<RRC<Group>> {
+    pub fn find_group<S>(&self, name: &S) -> Option<RRC<Group>>
+    where
+        S: Clone + AsRef<str>,
+    {
         self.groups
             .iter()
             .find(|&g| g.borrow().name == *name)
@@ -33,7 +36,10 @@ impl Component {
     }
 
     /// Return a reference to the cell with `name` if present.
-    pub fn find_cell(&self, name: &Id) -> Option<RRC<Cell>> {
+    pub fn find_cell<S>(&self, name: &S) -> Option<RRC<Cell>>
+    where
+        S: Clone + AsRef<str>,
+    {
         self.cells
             .iter()
             .find(|&g| g.borrow().name == *name)
