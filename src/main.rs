@@ -13,7 +13,7 @@ use calyx::{
     //utils::NameGenerator,
 };
 use cmdline::Opts;
-use passes::{CompileControl, CompileEmpty, WellFormed};
+use passes::{CompileControl, CompileEmpty, Inliner, WellFormed};
 //use pass_manager::PassManager;
 /*use passes::{
     collapse_control::CollapseControl,
@@ -164,6 +164,7 @@ fn main() -> FutilResult<()> {
     )?;
 
     WellFormed::do_pass_default(&mut rep)?;
+    Inliner::do_pass_default(&mut rep)?;
     CompileEmpty::do_pass_default(&mut rep)?;
     CompileControl::do_pass_default(&mut rep)?;
 

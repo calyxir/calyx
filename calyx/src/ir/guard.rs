@@ -19,6 +19,44 @@ pub enum Guard {
 
 /// Helper functions for the guard.
 impl Guard {
+    /// Mutates a guard by calling `f` on every leaf in the
+    /// guard tree and replacing the leaf with the guard that `f`
+    /// returns.
+    pub fn for_each<F>(&mut self, f: &F)
+    where
+        F: Fn(RRC<Port>) -> Guard,
+    {
+        match self {
+            Guard::And(ands) => {
+                ands.iter_mut().for_each(|guard| guard.for_each(f))
+            }
+            Guard::Or(ors) => {
+                ors.iter_mut().for_each(|guard| guard.for_each(f))
+            }
+            // Guard::Eq(l, r) => {
+            //     Guard::Eq(Box::new(l.for_each(f)), Box::new(r.for_each(f)))
+            // }
+            // Guard::Neq(l, r) => {
+            //     Guard::Neq(Box::new(l.for_each(f)), Box::new(r.for_each(f)))
+            // }
+            // Guard::Gt(l, r) => {
+            //     Guard::Gt(Box::new(l.for_each(f)), Box::new(r.for_each(f)))
+            // }
+            // Guard::Lt(l, r) => {
+            //     Guard::Lt(Box::new(l.for_each(f)), Box::new(r.for_each(f)))
+            // }
+            // Guard::Geq(l, r) => {
+            //     Guard::Geq(Box::new(l.for_each(f)), Box::new(r.for_each(f)))
+            // }
+            // Guard::Leq(l, r) => {
+            //     Guard::Leq(Box::new(l.for_each(f)), Box::new(r.for_each(f)))
+            // }
+            // Guard::Not(inner) => Guard::Not(Box::new(inner.for_each(f))),
+            Guard::Port(port) => *self = f(Rc::clone(port)),
+            _ => unimplemented!(),
+        }
+    }
+
     /// Returns all the ports used by this guard.
     pub fn all_ports(&self) -> Vec<RRC<Port>> {
         match self {
@@ -57,8 +95,20 @@ impl Guard {
     }
 
     ////////////// Convinience constructors ///////////////////
-    pub fn and(self, other: Guard) -> Self {
-        Guard::And(vec![self, other])
+    pub fn and_vec(&self, guards: &mut Vec<Guard>) -> Self {
+        if let Guard::And(inner) = &self {
+            let mut new: Vec<_> = inner.clone();
+            new.append(guards);
+            Guard::And(new)
+        } else {
+            let mut new: Vec<Guard> = vec![self.clone()];
+            new.append(guards);
+            Guard::And(new)
+        }
+    }
+
+    pub fn and(&self, rhs: Guard) -> Self {
+        self.and_vec(&mut vec![rhs])
     }
 
     pub fn or(self, other: Guard) -> Self {
