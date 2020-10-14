@@ -1,14 +1,8 @@
 use crate::errors::Error;
-use crate::lang::component::Component;
-use crate::lang::{
-    ast,
-    ast::{Id, Port},
-    context::Context,
-    structure::NodeData,
-    structure_iter::NodeType,
-};
-use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use std::collections::HashMap;
+use crate::frontend::library::ast as lib;
+use crate::ir;
+use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use std::collections::{HashMap, HashSet};
 
 /// Pass to check for common errors such as missing assignments to `done' holes
 /// of groups.
@@ -88,27 +82,41 @@ impl Named for Papercut<'_> {
 }
 
 impl Visitor for Papercut<'_> {
-    fn start(&mut self, comp: &mut Component, _ctx: &Context) -> VisResult {
-        let st = &comp.structure;
+    fn start(
+        &mut self,
+        comp: &mut ir::Component,
+        _ctx: &lib::LibrarySignatures,
+    ) -> VisResult {
+        //let st = &comp.structure;
         // For each group, check if there is at least one write to the done
         // signal of that group.
-        for maybe_group in st.groups.keys() {
-            if let Some(group) = maybe_group {
-                let done_writes = st
-                    .edge_idx()
-                    .with_node(st.get_node_by_name(group)?)
-                    .with_node_type(NodeType::Hole)
-                    .with_port("done".to_string())
-                    .detach()
-                    .count();
-                if done_writes == 0 {
-                    return Err(Error::Papercut(
-                        "No writes to the `done' hole for this group"
-                            .to_string(),
-                        group.clone(),
-                    ));
+        // Names of the groups whose `done` hole has been written to.
+        let mut hole_writes = HashSet::new();
+        for group in &comp.groups {
+            for assign_ref in &group.borrow().assignments {
+                let assign = assign_ref.dst.borrow();
+                if assign.is_hole() && assign.name == "done" {
+                    if let ir::PortParent::Group(group_ref) = &assign.parent {
+                        hole_writes.insert(
+                            group_ref.upgrade().unwrap().borrow().name.clone(),
+                        );
+                    }
                 }
             }
+        }
+
+        let no_done_group = comp
+            .groups
+            .iter()
+            .find(|g| !hole_writes.contains(&g.borrow().name))
+            .map(|g| g.borrow().name.clone());
+
+        // If there is a group that hasn't been assigned to, throw an error.
+        if let Some(g) = no_done_group {
+            return Err(Error::Papercut(format!(
+                "No writes to the `done' hole for group `{}'",
+                g.to_string()
+            )));
         }
 
         // For each component that's being driven in a group, make
@@ -117,58 +125,56 @@ impl Visitor for Papercut<'_> {
         // For example, for a register, both the `.in' port and the
         // `.write_en' port need to be driven.
 
-        for (_, (_, edge_indices)) in st.groups.iter() {
-            // 1. Build a map from (instance_name, type) to the signals being
-            // driven.
-            let mut drives: HashMap<(&str, &str), Vec<&Id>> = HashMap::new();
+        /*for (_, (_, edge_indices)) in st.groups.iter() {
+        // 1. Build a map from (instance_name, type) to the signals being
+        // driven.
+        let mut drives: HashMap<(&str, &str), Vec<&Id>> = HashMap::new();
 
-            for eidx in edge_indices.iter() {
-                let edge = st.get_edge(*eidx);
-                let (_, dst) = st.endpoints(*eidx);
+        for eidx in edge_indices.iter() {
+            let edge = st.get_edge(*eidx);
+            let (_, dst) = st.endpoints(*eidx);
 
-                // Get the type of this Cell. Ignores non-primitive cells.
-                if let NodeData::Cell(ast::Cell::Prim {
-                    data: ast::Prim { instance, .. },
-                }) = &st.get_node(dst).data
-                {
-                    if let Port::Comp { component, port } = &edge.dest {
-                        drives
-                            .entry((&component.id, &instance.name.id))
-                            .or_insert_with(Vec::new)
-                            .push(&port)
+            // Get the type of this Cell. Ignores non-primitive cells.
+            if let NodeData::Cell(ast::Cell::Prim {
+                data: ast::Prim { instance, .. },
+            }) = &st.get_node(dst).data
+            {
+                if let Port::Comp { component, port } = &edge.dest {
+                    drives
+                        .entry((&component.id, &instance.name.id))
+                        .or_insert_with(Vec::new)
+                        .push(&port)
+                }
+            }
+        }*/
+
+        // 2. Check if this matches the `drive_together' specification.
+        /*for ((inst, comp_type), signals) in drives {
+            if let Some(spec) = self.drive_together.get(comp_type) {
+                for (first, second) in spec {
+                    let first_id: Id = (**first).into();
+                    let second_id: Id = (**second).into();
+                    // If the first signal is driven, the second must also be
+                    /https://joebiden.com/immigration/#/ driven.
+                    if signals.contains(&&first_id)
+                        && !signals.contains(&&second_id)
+                    {
+                        let msg = format!(
+                        "Required signal not driven inside the group.\nWhen driving the signal `{}.{}' the signal `{}.{}' must also be driven. The primitive type `{}' requires this invariant.",
+                        inst,
+                        first,
+                        inst,
+                        second,
+                        comp_type);
+                        let loc_id = signals
+                            .into_iter()
+                            .find(|&id| id == &first_id)
+                            .expect("Contained ID is missing.");
+                        return Err(Error::Papercut(msg, loc_id.clone()));
                     }
                 }
             }
-
-            // 2. Check if this matches the `drive_together' specification.
-            for ((inst, comp_type), signals) in drives {
-                if let Some(spec) = self.drive_together.get(comp_type) {
-                    for (first, second) in spec {
-                        let first_id: Id = (**first).into();
-                        let second_id: Id = (**second).into();
-                        // If the first signal is driven, the second must also be
-                        // driven.
-                        if signals.contains(&&first_id)
-                            && !signals.contains(&&second_id)
-                        {
-                            let msg = format!(
-                            "Required signal not driven inside the group.\nWhen driving the signal `{}.{}' the signal `{}.{}' must also be driven. The primitive type `{}' requires this invariant.",
-                            inst,
-                            first,
-                            inst,
-                            second,
-                            comp_type);
-                            let loc_id = signals
-                                .into_iter()
-                                .find(|&id| id == &first_id)
-                                .expect("Contained ID is missing.");
-                            return Err(Error::Papercut(msg, loc_id.clone()));
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(Action::Continue)
+        }*/
+        Ok(Action::Stop)
     }
 }
