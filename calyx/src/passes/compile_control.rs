@@ -121,7 +121,10 @@ impl Visitor for CompileControl {
                 Some(is_cond_computed.clone()),
             ),
         ];
-        if_group.borrow_mut().assignments.append(&mut cond_save_assigns);
+        if_group
+            .borrow_mut()
+            .assignments
+            .append(&mut cond_save_assigns);
         let mut group_assigns = build_assignments!(builder;
             // Run the conditional group.
             cond_group["go"] = cond_go ? signal_on["out"];
@@ -153,68 +156,34 @@ impl Visitor for CompileControl {
         Ok(Action::Change(ir::Control::enable(if_group)))
     }
 
-    // XXX(rachit): The explanation is not consistent with the code.
-    // Specifically, explain what the `done_reg` stuff is doing.
-    // This compiles `while` statements of the following form:
-    // ```C
-    // while comp.out with cond {
-    //   body;
-    // }
-    // ```
-    // into the following group:
-    // ```C
-    // group while0 {
-    //   // compute the condition if we haven't before or we are done with the body
-    //   cond[go] = !cond_computed.out ? 1'b1;
-    //   // save whether we have finished computing the condition
-    //   cond_computed.in = cond[done] ? 1'b1;
-    //   // save the result of the condition
-    //   cond_stored.in = cond[done] ? lt.out;
-    //
-    //   // run the body if we have computed the condition and the condition was true
-    //   body[go] = cond_computed.out & cond_stored.out ? 1'b1;
-    //   // signal that we should recompute the condition when the body is done
-    //   cond_computed.in = body[done] ? 1'b0;
-    //   // this group is done when the condition is computed and it is false
-    //   while0[done] = cond_computed.out & !cond_stored.out ? 1'b1;
-    //   cond_computed.in = while0[done] ? 1'b1;
-    //   cond_computed.write_en = while0[done] ? 1'b1;
-    // }
-    // ```
-    // with 2 generated registers, `cond_computed` and `cond_stored`.
-    // `cond_computed` tracks whether we have computed the condition. This
-    // ensures that we don't recompute the condition when we are running the body.
-    // `cond_stored` saves the result of the condition so that it is accessible
-    // throughout the execution of `body`.
-    //
-    /*fn finish_while(
+    /// XXX(rachit): The explanation is not consistent with the code.
+    /// Specifically, explain what the `done_reg` stuff is doing.
+    /// This compiles `while` statements of the following form:
+    fn finish_while(
         &mut self,
-        ctrl: &ast::While,
-        comp: &mut Component,
-        ctx: &Context,
+        wh: &ir::While,
+        comp: &mut ir::Component,
+        ctx: &lib::LibrarySignatures,
     ) -> VisResult {
-        let st = &mut comp.structure;
+        let mut builder = ir::Builder::from(comp, ctx, false);
 
         // create group
-        let while_group = st.namegen.gen_name("while").into();
-        let while_group_node = st.insert_group(&while_group, HashMap::new())?;
+        let while_group = builder.add_group("while", HashMap::new());
 
         // cond group
-        let cond_group_node = st.get_node_by_name(&ctrl.cond)?;
-
-        let cond = ctrl.port.get_edge(&*st)?;
+        let cond_group = Rc::clone(&wh.cond);
+        let cond = Rc::clone(&wh.port);
 
         // extract group names from control statement
-        let body_group = match &*ctrl.body {
-            Control::Enable { data } => Ok(&data.comp),
+        let body_group = match &*wh.body {
+            ir::Control::Enable(data) => Ok(&data.group),
             _ => Err(Error::MalformedControl(
                 "The body of a while must be an enable.".to_string(),
             )),
         }?;
-        let body_group_node = st.get_node_by_name(body_group)?;
 
         // generate necessary hardware
-        structure!(st, &ctx,
+        structure!(builder;
             let cond_computed = prim std_reg(1);
             let cond_stored = prim std_reg(1);
             let done_reg = prim std_reg(1);
@@ -222,53 +191,64 @@ impl Visitor for CompileControl {
             let signal_off = constant(0, 1);
         );
 
-        let cond_go = !guard!(st; cond_computed["out"]);
-        let is_cond_computed = guard!(st; cond_group_node["go"])
-            & guard!(st; cond_group_node["done"]);
-        let body_go = guard!(st; cond_stored["out"])
-            & guard!(st; cond_computed["out"])
-            & !guard!(st; body_group_node["done"]);
-        let cond_recompute = guard!(st; cond_stored["out"])
-            & guard!(st; cond_computed["out"])
-            & guard!(st; body_group_node["done"]);
+        let cond_go = !guard!(cond_computed["out"]);
+        let is_cond_computed =
+            guard!(cond_group["go"]) & guard!(cond_group["done"]);
+        let body_go = guard!(cond_stored["out"])
+            & guard!(cond_computed["out"])
+            & !guard!(body_group["done"]);
+        let cond_recompute = guard!(cond_stored["out"])
+            & guard!(cond_computed["out"])
+            & guard!(body_group["done"]);
         let is_cond_false =
-            guard!(st; cond_computed["out"]) & !guard!(st; cond_stored["out"]);
-        let done_reg_high = guard!(st; done_reg["out"]);
-        add_wires!(st, Some(while_group.clone()),
+            guard!(cond_computed["out"]) & !guard!(cond_stored["out"]);
+        let done_reg_high = guard!(done_reg["out"]);
+
+        let cond_val_assign = builder.build_assignment(
+            cond_stored.borrow().get("in"),
+            cond,
+            Some(is_cond_computed.clone()),
+        );
+        while_group.borrow_mut().assignments.push(cond_val_assign);
+        let mut while_assigns = build_assignments!(builder;
             // Initially compute the condition
-            cond_group_node["go"] = cond_go ? (signal_on.clone());
-            cond_computed["in"] = is_cond_computed ? (signal_on.clone());
-            cond_computed["write_en"] = is_cond_computed ? (signal_on.clone());
-            cond_stored["in"] = is_cond_computed ? (cond);
-            cond_stored["write_en"] = is_cond_computed ? (signal_on.clone());
+            cond_group["go"] = cond_go ? signal_on["out"];
+            cond_computed["in"] = is_cond_computed ? signal_on["out"];
+            cond_computed["write_en"] = is_cond_computed ? signal_on["out"];
+            cond_stored["write_en"] = is_cond_computed ? signal_on["out"];
 
             // Enable the body
-            body_group_node["go"] = body_go ? (signal_on.clone());
+            body_group["go"] = body_go ? signal_on["out"];
 
             // Re-compute the condition after the body is done.
-            cond_computed["in"] = cond_recompute ? (signal_off.clone());
-            cond_computed["write_en"] = cond_recompute ? (signal_on.clone());
+            cond_computed["in"] = cond_recompute ? signal_off["out"];
+            cond_computed["write_en"] = cond_recompute ? signal_on["out"];
 
             // Save done condition in done reg.
-            done_reg["in"] = is_cond_false ? (signal_on.clone());
-            done_reg["write_en"] = is_cond_false ? (signal_on.clone());
+            done_reg["in"] = is_cond_false ? signal_on["out"];
+            done_reg["write_en"] = is_cond_false ? signal_on["out"];
 
             // While group is done when done register is high.
-            while_group_node["done"] = done_reg_high ? (signal_on.clone());
+            while_group["done"] = done_reg_high ? signal_on["out"];
 
             // CLEANUP: Reset cond register state when done.
-            cond_computed["in"] = is_cond_false ? (signal_off.clone());
-            cond_computed["write_en"] = is_cond_false ? (signal_on.clone());
+            cond_computed["in"] = is_cond_false ? signal_off["out"];
+            cond_computed["write_en"] = is_cond_false ? signal_on["out"];
         );
+        while_group
+            .borrow_mut()
+            .assignments
+            .append(&mut while_assigns);
 
         // CLEANUP: done register resets one cycle after being high.
-        add_wires!(st, None,
-            done_reg["in"] = done_reg_high ? (signal_off);
-            done_reg["write_en"] = done_reg_high ? (signal_on);
+        let mut clean_assigns = build_assignments!(builder;
+            done_reg["in"] = done_reg_high ? signal_off["out"];
+            done_reg["write_en"] = done_reg_high ? signal_on["out"];
         );
+        comp.continuous_assignments.append(&mut clean_assigns);
 
-        Ok(Action::Change(Control::enable(while_group)))
-    }*/
+        Ok(Action::Change(ir::Control::enable(while_group)))
+    }
 
     fn finish_seq(
         &mut self,
