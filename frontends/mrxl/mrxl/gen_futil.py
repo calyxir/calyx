@@ -28,7 +28,7 @@ group cond{2}{0} {{
     '''.format(suffix, arr_size, bank_suffix)
 
 
-def emit_idx_group(suffix, s_idx, b=None):
+def emit_idx_group(s_idx, b=None):
     bank_suffix = "_b" + str(b) + "_" if b is not None else ""
     return '''
 group incr_idx{1}{0} {{
@@ -43,7 +43,7 @@ group incr_idx{1}{0} {{
     '''.format(s_idx, bank_suffix)
 
 
-def emit_compute_op(exp, op, dest, name2arr, bank_suffix):
+def emit_compute_op(exp, op, dest, name2arr, suffix, bank_suffix):
     if isinstance(exp, ast.VarExpr):
         if isinstance(op, ast.Map):
             return "{}{}.read_data".format(name2arr[exp.name], bank_suffix)
@@ -75,11 +75,11 @@ def emit_eval_body_group(suffix, stmt, b=None):
         )
 
     compute_left_op = emit_compute_op(
-        stmt.op.body.lhs, stmt.op, stmt.dest, name2arr, bank_suffix
+        stmt.op.body.lhs, stmt.op, stmt.dest, name2arr, suffix, bank_suffix
     )
 
     compute_right_op = emit_compute_op(
-        stmt.op.body.rhs, stmt.op, stmt.dest, name2arr, bank_suffix
+        stmt.op.body.rhs, stmt.op, stmt.dest, name2arr, suffix, bank_suffix
     )
 
     if isinstance(stmt.op, ast.Map):
@@ -126,12 +126,12 @@ def gen_reduce_impl(stmt, arr_size, s_idx):
     wires = []
     wires.append(emit_cond_group(s_idx, arr_size))
     wires.append(emit_idx_group(s_idx))
-    wires.append(emit_eval_body_group(s_idx, stmt))
+    wires.append(emit_eval_body_group(s_idx, stmt, 0))
 
     control = []
     control.append('''
-while le{}.out with cond{} {{
-  seq {{ eval_body{}; incr_idx{}; }}
+while le{0}.out with cond{0} {{
+  seq {{ eval_body{0}; incr_idx{0}; }}
 }}
     '''.format(s_idx))
 
@@ -189,6 +189,7 @@ def emit(prog):
     wires = []
     control = []
 
+    print(prog)
     # All arrays must be the same size. The first array we see determines the
     # size that we'll assume for the rest of the program's arrays.
     arr_size = None
