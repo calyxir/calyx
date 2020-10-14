@@ -1,0 +1,109 @@
+
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    foo_b0 = prim std_mem_d1(32, 2, 32);
+foo_b1 = prim std_mem_d1(32, 2, 32);
+ baz_b0 = prim std_mem_d1(32, 2, 32);
+baz_b1 = prim std_mem_d1(32, 2, 32);
+ le_b0_0 = prim std_lt(32);
+ idx_b0_0 = prim std_reg(32);
+ adder_idx_b0_0 = prim std_add(32);
+ le_b1_0 = prim std_lt(32);
+ idx_b1_0 = prim std_reg(32);
+ adder_idx_b1_0 = prim std_add(32);
+ adder_op_b0_0 = prim std_add(32);
+ adder_op_b1_0 = prim std_add(32);
+  }
+
+  wires {
+    
+group cond_b0_0 {
+  le_b0_0.left = idx_b0_0.out;
+  le_b0_0.right = 32'd2;
+
+  cond_b0_0.done = 1'b1;
+}
+    
+ 
+group cond_b1_0 {
+  le_b1_0.left = idx_b1_0.out;
+  le_b1_0.right = 32'd2;
+
+  cond_b1_0.done = 1'b1;
+}
+    
+ 
+group incr_idx_b0_0 {
+  adder_idx_b0_0.left = idx_b0_0.out;
+  adder_idx_b0_0.right = 32'b1;
+
+  idx_b0_0.write_en = 1'b1;
+  idx_b0_0.in = adder_idx_b0_0.out;
+
+  incr_idx_b0_0[done] = idx_b0_0.done;
+}
+    
+ 
+group incr_idx_b1_0 {
+  adder_idx_b1_0.left = idx_b1_0.out;
+  adder_idx_b1_0.right = 32'b1;
+
+  idx_b1_0.write_en = 1'b1;
+  idx_b1_0.in = adder_idx_b1_0.out;
+
+  incr_idx_b1_0[done] = idx_b1_0.done;
+}
+    
+ 
+group eval_body_b0_0 {
+  baz_b0.write_en = 1'b1;
+
+  foo_b0.addr0 = idx_b0_0.out;
+baz_b0.addr0 = idx_b0_0.out;
+
+  adder_op_b0_0.left = foo_b0.read_data;
+  adder_op_b0_0.right = 32'd5;
+
+  baz_b0.write_data = adder_op_b0_0.out;
+
+  eval_body_b0_0[done] = baz_b0.done;
+}
+    
+ 
+group eval_body_b1_0 {
+  baz_b1.write_en = 1'b1;
+
+  foo_b1.addr0 = idx_b1_0.out;
+baz_b1.addr0 = idx_b1_0.out;
+
+  adder_op_b1_0.left = foo_b1.read_data;
+  adder_op_b1_0.right = 32'd5;
+
+  baz_b1.write_data = adder_op_b1_0.out;
+
+  eval_body_b1_0[done] = baz_b1.done;
+}
+    
+  }
+
+  control {
+    seq {
+      
+    par {
+      
+        while le_b0_0.out with cond_b0_0 {
+          seq { eval_body_b0_0; incr_idx_b0_0; }
+        }
+        
+
+        while le_b1_0.out with cond_b1_0 {
+          seq { eval_body_b1_0; incr_idx_b1_0; }
+        }
+         
+    }
+    
+    }
+  }
+}
+
