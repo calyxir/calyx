@@ -10,8 +10,6 @@ prodvec := map 16 (a <- avec, b <- bvec) { a * b }
 dot := reduce 4 (a, b <- prodvec) 0 { a + b }
 ```
 
-You can try out the intepreter here.
-
 This guide will walk you through the steps to build a program that compiles MrXL programs to FuTIL code. To simplify things, we'll make a few assumptions:
 - Every array in a MrXL program has the same length.
 - Every integer in our generated hardware will be 32 bits.
