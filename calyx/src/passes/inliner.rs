@@ -1,4 +1,5 @@
 use crate::{
+    errors::Error,
     frontend::library::ast::LibrarySignatures,
     ir::{
         analysis::Analysis,
@@ -43,7 +44,11 @@ impl Visitor for Inliner {
         // get the only group in the enable
         let top_level = match &*comp.control.borrow() {
             Control::Enable(en) => Rc::clone(&en.group),
-            _ => panic!("need single enable"),
+            _ => return Err(
+                Error::MalformedControl(
+                    "The hole inliner requires control to be a single enable. Try running `compile_control` before inlining.".to_string()
+                )
+            )
         };
 
         // borrow these first so that we can use the builder
@@ -77,11 +82,14 @@ impl Visitor for Inliner {
         // if subgraph has cycles, error out
         if subgraph.has_cycles() {
             // XXX use topo sort to find where the cycle is
-            panic!("uh oh, hole cycle")
+            return Err(Error::MalformedStructure(
+                "Cyclic hole definition.".to_string(),
+            ));
         }
 
         // map of holes to their guard expressions
         let mut map = HashMap::new();
+        let mut assignments = vec![];
         for group in &comp.groups {
             // compute write closure
             for hole in &group.borrow().holes {
@@ -91,33 +99,18 @@ impl Visitor for Inliner {
                 );
             }
 
+            // remove all assignments from group, taking ownership
             let mut group = group.borrow_mut();
-            // remove edges that write to a hole
-            group
-                .assignments
-                .retain(|asgn| !asgn.dst.borrow().is_hole());
-
-            let mut assignments: Vec<_> = group.assignments.drain(..).collect();
-            // replace reads from a hole with the value in the map
-            for asgn in &mut assignments {
-                asgn.guard.as_mut().map(|guard| {
-                    guard.for_each(&|port| {
-                        if port.is_hole() {
-                            Some(map[&port.key()].clone())
-                        } else {
-                            None
-                        }
-                    })
-                });
-            }
-            group.assignments = assignments;
+            assignments.append(&mut group.assignments.drain(..).collect());
         }
-        // remove edges that write to a hole
-        comp.continuous_assignments
-            .retain(|asgn| !asgn.dst.borrow().is_hole());
 
-        let mut assignments: Vec<_> =
-            comp.continuous_assignments.drain(..).collect();
+        // add the continuous assignment edges
+        assignments
+            .append(&mut comp.continuous_assignments.drain(..).collect());
+
+        // remove edges that write to a hole
+        assignments.retain(|asgn| !asgn.dst.borrow().is_hole());
+
         // replace reads from a hole with the value in the map
         for asgn in &mut assignments {
             asgn.guard.as_mut().map(|guard| {
@@ -131,6 +124,9 @@ impl Visitor for Inliner {
             });
         }
         comp.continuous_assignments = assignments;
+
+        // remove all groups
+        comp.groups = vec![];
 
         // remove group from control
         Ok(Action::Change(Control::empty()))
