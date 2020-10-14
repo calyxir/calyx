@@ -1,0 +1,30 @@
+{
+    "foo_b0": {
+      "data": [
+        1,
+        2
+      ],
+      "bitwidth": 32
+    },
+    "foo_b1": {
+      "data": [
+        3,
+	4
+      ],
+      "bitwidth": 32
+    },
+    "baz_b0": {
+      "data": [
+        0,
+        0
+      ],
+      "bitwidth": 32
+    },
+    "baz_b1": {
+      "data": [
+        0,
+	0
+      ],
+      "bitwidth": 32
+    }
+}

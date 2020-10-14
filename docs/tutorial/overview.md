@@ -14,6 +14,7 @@ We're going to first write a naive compiler with some simplifying assumptions:
 - Every array in a MrXL program has the same length.
 - Every integer in our generated hardware will be 32 bits.
 - Our generated hardware will not have any parallelism.
+- Every `map` and `reduce` body will be either a multiplication or addition of either an array element or an integer.
 
 Once we've got this simplified compiler working, we can improve it to not require these assumptions any more.
 
@@ -54,6 +55,7 @@ while le0.out with cond0 {
 ```
 
 
+### Scheduling
 
 
 
