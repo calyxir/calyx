@@ -18,6 +18,16 @@ pub enum Guard {
     True,
 }
 
+fn flatten_and(ands: &mut Vec<Guard>) {
+    *ands = ands
+        .iter()
+        .flat_map(|g| match g {
+            Guard::And(v) => v.to_vec(),
+            x => vec![x.clone()],
+        })
+        .collect();
+}
+
 /// Helper functions for the guard.
 impl Guard {
     /// Mutates a guard by calling `f` on every leaf in the
@@ -110,32 +120,30 @@ impl Guard {
         }
     }
 
-    ////////////// Convinience constructors ///////////////////
     pub fn and_vec(&self, guards: &mut Vec<Guard>) -> Self {
+        flatten_and(guards);
         let mut new;
         if let Guard::And(inner) = &self {
             new = inner.clone();
+            flatten_and(guards);
             new.append(guards);
         } else {
             new = vec![self.clone()];
             new.append(guards);
         }
         // filter out redundant guards
-        // XXX fix this filter. it was filtering out too much
-        // new.retain(|guard| {
-        //     if !matches!(guard, Guard::True) {
-        //         return true;
-        //     }
+        new.retain(|guard| {
+            if matches!(guard, Guard::True) {
+                return false;
+            }
 
-        //     println!("c {:?}", guard);
-        //     if let Guard::Port(p) = guard {
-        //         if p.borrow().is_constant(1, 1) {
-        //             println!("p {:?}", p.borrow());
-        //             return true;
-        //         }
-        //     }
-        //     true
-        // });
+            if let Guard::Port(p) = guard {
+                if p.borrow().is_constant(1, 1) {
+                    return false;
+                }
+            }
+            true
+        });
         Guard::And(new)
     }
 
