@@ -1,5 +1,5 @@
 mod well_formed;
-//mod collapse_control;
+mod collapse_control;
 mod compile_control;
 mod compile_empty;
 //mod component_interface;

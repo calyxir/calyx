@@ -73,7 +73,7 @@ impl Visitor for WellFormed {
 
     fn start_enable(
         &mut self,
-        s: &ir::Enable,
+        s: &mut ir::Enable,
         _comp: &mut Component,
         _s: &LibrarySignatures,
     ) -> VisResult {
@@ -83,7 +83,7 @@ impl Visitor for WellFormed {
 
     fn finish_if(
         &mut self,
-        s: &ir::If,
+        s: &mut ir::If,
         _comp: &mut Component,
         _s: &LibrarySignatures,
     ) -> VisResult {
@@ -94,7 +94,7 @@ impl Visitor for WellFormed {
 
     fn finish_while(
         &mut self,
-        s: &ir::While,
+        s: &mut ir::While,
         _comp: &mut Component,
         _s: &LibrarySignatures,
     ) -> VisResult {

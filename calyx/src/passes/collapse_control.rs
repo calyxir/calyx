@@ -1,7 +1,6 @@
-use crate::lang::ast;
-use crate::lang::component::Component;
-use crate::lang::context::Context;
-use crate::passes::visitor::{Action, Named, VisResult, Visitor};
+use crate::frontend::library::ast as lib;
+use crate::ir;
+use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 
 #[derive(Default)]
 pub struct CollapseControl {}
@@ -20,44 +19,44 @@ impl Visitor for CollapseControl {
     /// Collapse seq { seq { A }; B } into seq { A; B }.
     fn finish_seq(
         &mut self,
-        s: &ast::Seq,
-        _comp: &mut Component,
-        _c: &Context,
+        s: &mut ir::Seq,
+        _comp: &mut ir::Component,
+        _c: &lib::LibrarySignatures,
     ) -> VisResult {
         if s.stmts.is_empty() {
-            return Ok(Action::Change(ast::Control::empty()));
+            return Ok(Action::Change(ir::Control::empty()));
         }
-        let mut seqs: Vec<ast::Control> = vec![];
-        for con in &s.stmts {
+        let mut seqs: Vec<ir::Control> = vec![];
+        for con in s.stmts.drain(..) {
             match con {
-                ast::Control::Seq { data } => {
-                    seqs.append(&mut data.stmts.clone());
+                ir::Control::Seq(mut data) => {
+                    seqs.append(&mut data.stmts);
                 }
-                _ => seqs.push(con.clone()),
+                _ => seqs.push(con),
             }
         }
-        Ok(Action::Change(ast::Control::seq(seqs)))
+        Ok(Action::Change(ir::Control::seq(seqs)))
     }
 
     /// Collapse par { par { A }; B } into par { A; B }.
     fn finish_par(
         &mut self,
-        s: &ast::Par,
-        _comp: &mut Component,
-        _c: &Context,
+        s: &mut ir::Par,
+        _comp: &mut ir::Component,
+        _c: &lib::LibrarySignatures,
     ) -> VisResult {
         if s.stmts.is_empty() {
-            return Ok(Action::Change(ast::Control::empty()));
+            return Ok(Action::Change(ir::Control::empty()));
         }
-        let mut pars: Vec<ast::Control> = vec![];
-        for con in &s.stmts {
+        let mut pars: Vec<ir::Control> = vec![];
+        for con in s.stmts.drain(..) {
             match con {
-                ast::Control::Par { data } => {
-                    pars.append(&mut data.stmts.clone());
+                ir::Control::Par(mut data) => {
+                    pars.append(&mut data.stmts);
                 }
-                _ => pars.push(con.clone()),
+                _ => pars.push(con),
             }
         }
-        Ok(Action::Change(ast::Control::par(pars)))
+        Ok(Action::Change(ir::Control::par(pars)))
     }
 }

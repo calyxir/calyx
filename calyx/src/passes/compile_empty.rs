@@ -27,7 +27,7 @@ impl Named for CompileEmpty {
 impl Visitor for CompileEmpty {
     fn finish_empty(
         &mut self,
-        _s: &ir::Empty,
+        _s: &mut ir::Empty,
         comp: &mut Component,
         sigs: &LibrarySignatures,
     ) -> VisResult {

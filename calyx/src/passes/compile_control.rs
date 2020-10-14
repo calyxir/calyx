@@ -62,7 +62,7 @@ impl Visitor for CompileControl {
     /// when either branch is done.
     fn finish_if(
         &mut self,
-        cif: &ir::If,
+        cif: &mut ir::If,
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
     ) -> VisResult {
@@ -161,7 +161,7 @@ impl Visitor for CompileControl {
     /// This compiles `while` statements of the following form:
     fn finish_while(
         &mut self,
-        wh: &ir::While,
+        wh: &mut ir::While,
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
     ) -> VisResult {
@@ -252,7 +252,7 @@ impl Visitor for CompileControl {
 
     fn finish_seq(
         &mut self,
-        s: &ir::Seq,
+        s: &mut ir::Seq,
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
     ) -> VisResult {
@@ -335,7 +335,7 @@ impl Visitor for CompileControl {
     /// `done` registers being low.
     fn finish_par(
         &mut self,
-        s: &ir::Par,
+        s: &mut ir::Par,
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
     ) -> VisResult {
