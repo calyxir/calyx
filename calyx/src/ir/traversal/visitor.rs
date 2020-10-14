@@ -33,9 +33,7 @@ pub trait Named {
 pub trait Visitor {
     /// Instantiate this pass using the default() method and run it on the
     /// context.
-    fn do_pass_default(
-        context: &mut Context,
-    ) -> FutilResult<Self>
+    fn do_pass_default(context: &mut Context) -> FutilResult<Self>
     where
         Self: Default + Sized + Named,
     {
@@ -47,10 +45,7 @@ pub trait Visitor {
     /// Run the visitor on the program Context.
     /// The function makes complex use of interior mutability. See inline
     /// comments for an explanation.
-    fn do_pass(
-        &mut self,
-        context: &mut Context,
-    ) -> FutilResult<()>
+    fn do_pass(&mut self, context: &mut Context) -> FutilResult<()>
     where
         Self: Sized + Named,
     {
@@ -103,7 +98,7 @@ pub trait Visitor {
     /// Excecuted before visiting the children of a `ir::Seq` node.
     fn start_seq(
         &mut self,
-        _s: &ir::Seq,
+        _s: &mut ir::Seq,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
@@ -113,7 +108,7 @@ pub trait Visitor {
     /// Excecuted after visiting the children of a `ir::Seq` node.
     fn finish_seq(
         &mut self,
-        _s: &ir::Seq,
+        _s: &mut ir::Seq,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
@@ -123,7 +118,7 @@ pub trait Visitor {
     /// Excecuted before visiting the children of a `ir::Par` node.
     fn start_par(
         &mut self,
-        _s: &ir::Par,
+        _s: &mut ir::Par,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
@@ -133,7 +128,7 @@ pub trait Visitor {
     /// Excecuted after visiting the children of a `ir::Par` node.
     fn finish_par(
         &mut self,
-        _s: &ir::Par,
+        _s: &mut ir::Par,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
@@ -143,7 +138,7 @@ pub trait Visitor {
     /// Excecuted before visiting the children of a `ir::If` node.
     fn start_if(
         &mut self,
-        _s: &ir::If,
+        _s: &mut ir::If,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
@@ -153,7 +148,7 @@ pub trait Visitor {
     /// Excecuted after visiting the children of a `ir::If` node.
     fn finish_if(
         &mut self,
-        _s: &ir::If,
+        _s: &mut ir::If,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
@@ -163,7 +158,7 @@ pub trait Visitor {
     /// Excecuted before visiting the children of a `ir::If` node.
     fn start_while(
         &mut self,
-        _s: &ir::While,
+        _s: &mut ir::While,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
@@ -173,7 +168,7 @@ pub trait Visitor {
     /// Excecuted after visiting the children of a `ir::If` node.
     fn finish_while(
         &mut self,
-        _s: &ir::While,
+        _s: &mut ir::While,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
@@ -183,7 +178,7 @@ pub trait Visitor {
     /// Excecuted before visiting the children of a `ir::Enable` node.
     fn start_enable(
         &mut self,
-        _s: &ir::Enable,
+        _s: &mut ir::Enable,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
@@ -193,7 +188,7 @@ pub trait Visitor {
     /// Excecuted after visiting the children of a `ir::Enable` node.
     fn finish_enable(
         &mut self,
-        _s: &ir::Enable,
+        _s: &mut ir::Enable,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
@@ -203,7 +198,7 @@ pub trait Visitor {
     /// Excecuted before visiting the children of a `ir::Empty` node.
     fn start_empty(
         &mut self,
-        _s: &ir::Empty,
+        _s: &mut ir::Empty,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
@@ -213,7 +208,7 @@ pub trait Visitor {
     /// Excecuted after visiting the children of a `ir::Empty` node.
     fn finish_empty(
         &mut self,
-        _s: &ir::Empty,
+        _s: &mut ir::Empty,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {

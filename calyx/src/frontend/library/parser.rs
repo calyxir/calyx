@@ -1,8 +1,7 @@
 //! Parser for FuTIL libraries.
 use super::ast as lib;
 use crate::errors::{self, FutilResult, Span};
-use crate::frontend::ast;
-use crate::ir::Direction;
+use crate::ir::{self, Direction};
 use pest_consume::{match_nodes, Error, Parser};
 use std::collections::HashMap;
 use std::fs;
@@ -57,8 +56,8 @@ impl LibraryParser {
         ))
     }
 
-    fn identifier(input: Node) -> ParseResult<ast::Id> {
-        Ok(ast::Id::new(
+    fn identifier(input: Node) -> ParseResult<ir::Id> {
+        Ok(ir::Id::new(
             input.as_str(),
             Some(Span::new(input.as_span(), Rc::clone(input.user_data()))),
         ))
@@ -90,7 +89,7 @@ impl LibraryParser {
             [io_port(p)..] => p.collect()))
     }
 
-    fn params(input: Node) -> ParseResult<Vec<ast::Id>> {
+    fn params(input: Node) -> ParseResult<Vec<ir::Id>> {
         Ok(match_nodes!(
             input.into_children();
             [identifier(id)..] => id.collect()

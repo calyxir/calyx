@@ -1,7 +1,4 @@
-use crate::{
-    frontend::ast::Id,
-    ir::{Assignment, Component, Direction, Port, RRC},
-};
+use crate::ir::{Assignment, Component, Direction, Id, Port, RRC};
 use petgraph::{
     algo,
     graph::{DiGraph, NodeIndex},

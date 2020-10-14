@@ -1,4 +1,5 @@
 use super::{Port, RRC};
+use std::ops::{BitAnd, BitOr, Not};
 use std::rc::Rc;
 
 /// An assignment guard which has pointers to the various ports from which it reads.
@@ -19,27 +20,9 @@ pub enum Guard {
 
 /// Helper functions for the guard.
 impl Guard {
-    pub fn and_vec(&self, guards: &mut Vec<Guard>) -> Self {
-        let mut new: Vec<_>;
-        if let Guard::And(inner) = &self {
-            new = inner.clone();
-            new.append(guards);
-        } else {
-            new = vec![self.clone()];
-            new.append(guards);
-        }
-        Guard::And(
-            new.into_iter()
-                .filter(|x| !matches!(x, Guard::True))
-                .collect(),
-        )
-    }
-
-    pub fn and(&self, rhs: Guard) -> Self {
-        self.and_vec(&mut vec![rhs])
-    }
-    // TODO(rachit): Implement a tree walking function.
-    // fn for_each
+    /// Mutates a guard by calling `f` on every leaf in the
+    /// guard tree and replacing the leaf with the guard that `f`
+    /// returns.
     pub fn for_each<F>(&mut self, f: &F)
     where
         F: Fn(RRC<Port>) -> Guard,
@@ -113,5 +96,108 @@ impl Guard {
                 panic!("No operator string for Guard::Port")
             }
         }
+    }
+
+    ////////////// Convinience constructors ///////////////////
+    pub fn and_vec(&self, guards: &mut Vec<Guard>) -> Self {
+        if let Guard::And(inner) = &self {
+            let mut new: Vec<_> = inner.clone();
+            new.append(guards);
+            Guard::And(new)
+        } else {
+            let mut new: Vec<Guard> = vec![self.clone()];
+            new.append(guards);
+            Guard::And(new)
+        }
+    }
+
+    pub fn and(&self, rhs: Guard) -> Self {
+        self.and_vec(&mut vec![rhs])
+    }
+
+    pub fn or(self, other: Guard) -> Self {
+        Guard::Or(vec![self, other])
+    }
+
+    pub fn eq(self, other: Guard) -> Self {
+        Guard::Eq(Box::new(self), Box::new(other))
+    }
+
+    pub fn neq(self, other: Guard) -> Self {
+        Guard::Neq(Box::new(self), Box::new(other))
+    }
+
+    pub fn le(self, other: Guard) -> Self {
+        Guard::Leq(Box::new(self), Box::new(other))
+    }
+
+    pub fn lt(self, other: Guard) -> Self {
+        Guard::Lt(Box::new(self), Box::new(other))
+    }
+
+    pub fn ge(self, other: Guard) -> Self {
+        Guard::Geq(Box::new(self), Box::new(other))
+    }
+
+    pub fn gt(self, other: Guard) -> Self {
+        Guard::Gt(Box::new(self), Box::new(other))
+    }
+
+    pub fn not(self) -> Self {
+        match self {
+            Guard::Eq(lhs, rhs) => Guard::Neq(lhs, rhs),
+            Guard::Neq(lhs, rhs) => Guard::Eq(lhs, rhs),
+            Guard::Gt(lhs, rhs) => Guard::Leq(lhs, rhs),
+            Guard::Lt(lhs, rhs) => Guard::Geq(lhs, rhs),
+            Guard::Geq(lhs, rhs) => Guard::Lt(lhs, rhs),
+            Guard::Leq(lhs, rhs) => Guard::Gt(lhs, rhs),
+            Guard::Not(expr) => *expr,
+            _ => Guard::Not(Box::new(self)),
+        }
+    }
+}
+
+/// Construct guards from ports
+impl From<RRC<Port>> for Guard {
+    fn from(port: RRC<Port>) -> Self {
+        Guard::Port(Rc::clone(&port))
+    }
+}
+
+/////////////// Sugar for convience constructors /////////////
+
+/// Construct a Guard::And:
+/// ```
+/// let and_guard = g1 & g2;
+/// ```
+impl BitAnd for Guard {
+    type Output = Self;
+
+    fn bitand(self, other: Self) -> Self::Output {
+        Guard::And(vec![self, other])
+    }
+}
+
+/// Construct a Guard::Or:
+/// ```
+/// let or_guard = g1 | g2;
+/// ```
+impl BitOr for Guard {
+    type Output = Self;
+
+    fn bitor(self, other: Self) -> Self::Output {
+        Guard::Or(vec![self, other])
+    }
+}
+
+/// Construct a Guard::Or:
+/// ```
+/// let not_guard = !g1;
+/// ```
+impl Not for Guard {
+    type Output = Self;
+
+    fn not(self) -> Self {
+        self.not()
     }
 }

@@ -47,14 +47,14 @@ impl Visitor for Inliner {
 
         // add top_level[go] = this.go
         let go_asgn = Assignment {
-            src: comp.signature.borrow().get_port(&"go".into()),
-            dst: top_level.borrow().get_hole(&"go".into()),
+            src: comp.signature.borrow().get("go"),
+            dst: top_level.borrow().get("go"),
             guard: None,
         };
         // add this.done = top_level[done]
         let done_asgn = Assignment {
-            src: top_level.borrow().get_hole(&"done".into()),
-            dst: comp.signature.borrow().get_port(&"done".into()),
+            src: top_level.borrow().get("done"),
+            dst: comp.signature.borrow().get("done"),
             guard: None,
         };
         comp.continuous_assignments.push(go_asgn);

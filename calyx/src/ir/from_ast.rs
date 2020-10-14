@@ -1,6 +1,6 @@
 use super::{
     Assignment, Builder, Cell, CellType, Component, Context, Control, Guard,
-    Port, RRC,
+    Id, Port, RRC,
 };
 use crate::{
     errors::{Error, FutilResult},
@@ -18,10 +18,10 @@ const THIS_ID: &str = "this";
 #[derive(Default)]
 struct SigCtx {
     /// Mapping from component names to signatures
-    comp_sigs: HashMap<ast::Id, ast::Signature>,
+    comp_sigs: HashMap<Id, ast::Signature>,
 
     /// Mapping from library functions to signatures
-    lib_sigs: HashMap<ast::Id, library::ast::Primitive>,
+    lib_sigs: HashMap<Id, library::ast::Primitive>,
 }
 
 /// Construct an IR representation using a parsed AST and command line options.
@@ -112,6 +112,9 @@ fn build_component(
 
     let mut builder =
         Builder::from(&mut ir_component, &sig_ctx.lib_sigs, false);
+    // XXX(rachit): Explicitly disabling the name generator.
+    builder.disable_namegen = true;
+
     ast_groups
         .into_iter()
         .map(|g| build_group(g, &mut builder))
@@ -135,7 +138,7 @@ fn build_component(
 
 fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
     // Get the name, inputs, and outputs.
-    let res: FutilResult<(ast::Id, CellType, Vec<_>, Vec<_>)> = match cell {
+    let res: FutilResult<(Id, CellType, Vec<_>, Vec<_>)> = match cell {
         ast::Cell::Decl {
             data: ast::Decl { name, component },
         } => {
@@ -205,8 +208,8 @@ fn build_group(group: ast::Group, builder: &mut Builder) -> FutilResult<()> {
 
 /// Get the pointer to the Port represented by `port`.
 fn get_port_ref(port: ast::Port, comp: &Component) -> FutilResult<RRC<Port>> {
-    let find_and_clone_port = |comp: &ast::Id,
-                               port_name: ast::Id,
+    let find_and_clone_port = |comp: &Id,
+                               port_name: Id,
                                all_ports: &[RRC<Port>]|
      -> FutilResult<RRC<Port>> {
         all_ports
@@ -253,7 +256,7 @@ fn atom_to_port(
             let port = builder
                 .add_constant(n.val, n.width)
                 .borrow()
-                .get_port(&"out".into());
+                .get("out");
             Ok(Rc::clone(&port))
         }
         ast::Atom::Port(p) => get_port_ref(p, &builder.component),
@@ -326,37 +329,28 @@ fn build_control(
     comp: &Component,
 ) -> FutilResult<Control> {
     Ok(match control {
-        ast::Control::Enable {
-            data: ast::Enable { comp: component },
-        } => Control::enable(Rc::clone(
+        ast::Control::Enable { comp: component } => Control::enable(Rc::clone(
             &comp
                 .find_group(&component)
                 .ok_or_else(|| Error::UndefinedGroup(component.clone()))?,
         )),
-        ast::Control::Seq {
-            data: ast::Seq { stmts },
-        } => Control::seq(
+        ast::Control::Seq { stmts } => Control::seq(
             stmts
                 .into_iter()
                 .map(|c| build_control(c, comp))
                 .collect::<FutilResult<Vec<_>>>()?,
         ),
-        ast::Control::Par {
-            data: ast::Par { stmts },
-        } => Control::par(
+        ast::Control::Par { stmts } => Control::par(
             stmts
                 .into_iter()
                 .map(|c| build_control(c, comp))
                 .collect::<FutilResult<Vec<_>>>()?,
         ),
         ast::Control::If {
-            data:
-                ast::If {
-                    port,
-                    cond,
-                    tbranch,
-                    fbranch,
-                },
+            port,
+            cond,
+            tbranch,
+            fbranch,
         } => Control::if_(
             get_port_ref(port, comp)?,
             Rc::clone(
@@ -367,9 +361,7 @@ fn build_control(
             Box::new(build_control(*tbranch, comp)?),
             Box::new(build_control(*fbranch, comp)?),
         ),
-        ast::Control::While {
-            data: ast::While { port, cond, body },
-        } => Control::while_(
+        ast::Control::While { port, cond, body } => Control::while_(
             get_port_ref(port, comp)?,
             Rc::clone(
                 &comp
@@ -379,8 +371,5 @@ fn build_control(
             Box::new(build_control(*body, comp)?),
         ),
         ast::Control::Empty { .. } => Control::empty(),
-        ast::Control::Print { .. } => {
-            unreachable!("Print statements are not supported by the IR.")
-        }
     })
 }

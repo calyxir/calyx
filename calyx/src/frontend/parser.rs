@@ -1,6 +1,7 @@
 //! Parser for FuTIL programs.
 use super::ast::{self, BitNum, NumType};
 use crate::errors::{self, FutilResult, Span};
+use crate::ir;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
 use std::collections::HashMap;
@@ -10,7 +11,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 type ParseResult<T> = Result<T, Error<Rule>>;
-// user data is the input program so that we can create Ast::id's
+// user data is the input program so that we can create ir::Id's
 // that have a reference to the input string
 type Node<'i> = pest_consume::Node<'i, Rule, Rc<String>>;
 
@@ -85,8 +86,8 @@ impl FutilParser {
         Ok(())
     }
 
-    fn identifier(input: Node) -> ParseResult<ast::Id> {
-        Ok(ast::Id::new(
+    fn identifier(input: Node) -> ParseResult<ir::Id> {
+        Ok(ir::Id::new(
             input.as_str(),
             Some(Span::new(input.as_span(), Rc::clone(input.user_data()))),
         ))
@@ -375,60 +376,60 @@ impl FutilParser {
             .collect()
     }
 
-    fn enable(input: Node) -> ParseResult<ast::Enable> {
+    fn enable(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(name)] => ast::Enable { comp: name }
+            [identifier(name)] => ast::Control::Enable { comp: name }
         ))
     }
 
-    fn seq(input: Node) -> ParseResult<ast::Seq> {
+    fn seq(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [stmt(stmt)..] => ast::Seq {
+            [stmt(stmt)..] => ast::Control::Seq {
                 stmts: stmt.collect()
             }
         ))
     }
 
-    fn par(input: Node) -> ParseResult<ast::Par> {
+    fn par(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [stmt(stmt)..] => ast::Par {
+            [stmt(stmt)..] => ast::Control::Par {
                 stmts: stmt.collect()
             }
         ))
     }
 
-    fn if_stmt(input: Node) -> ParseResult<ast::If> {
+    fn if_stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [port(port), identifier(cond), stmt(stmt)] => ast::If {
+            [port(port), identifier(cond), stmt(stmt)] => ast::Control::If {
                 port,
                 cond,
                 tbranch: Box::new(stmt),
-                fbranch: Box::new(ast::Control::empty())
+                fbranch: Box::new(ast::Control::Empty{})
             },
-            [port(port), identifier(cond), stmt(tbranch), stmt(fbranch)] => ast::If {
+            [port(port), identifier(cond), stmt(tbranch), stmt(fbranch)] => ast::Control::If {
                 port,
                 cond,
                 tbranch: Box::new(tbranch),
                 fbranch: Box::new(fbranch)
             },
-            [port(port), identifier(cond), stmt(tbranch), if_stmt(fbranch)] => ast::If {
+            [port(port), identifier(cond), stmt(tbranch), if_stmt(fbranch)] => ast::Control::If {
                 port,
                 cond,
                 tbranch: Box::new(tbranch),
-                fbranch: Box::new(ast::Control::If { data: fbranch } )
+                fbranch: Box::new(fbranch)
             },
 
         ))
     }
 
-    fn while_stmt(input: Node) -> ParseResult<ast::While> {
+    fn while_stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [port(port), identifier(cond), stmt(stmt)] => ast::While {
+            [port(port), identifier(cond), stmt(stmt)] => ast::Control::While {
                 port,
                 cond,
                 body: Box::new(stmt),
@@ -439,11 +440,11 @@ impl FutilParser {
     fn stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [enable(data)] => ast::Control::Enable { data },
-            [seq(data)] => ast::Control::Seq { data },
-            [par(data)] => ast::Control::Par { data },
-            [if_stmt(data)] => ast::Control::If { data },
-            [while_stmt(data)] => ast::Control::While { data },
+            [enable(data)] => data,
+            [seq(data)] => data,
+            [par(data)] => data,
+            [if_stmt(data)] => data,
+            [while_stmt(data)] => data,
         ))
     }
 
@@ -451,7 +452,7 @@ impl FutilParser {
         Ok(match_nodes!(
             input.into_children();
             [stmt(stmt)] => stmt,
-            [] => ast::Control::empty()
+            [] => ast::Control::Empty{}
         ))
     }
 

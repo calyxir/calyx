@@ -1,6 +1,7 @@
 //! SystemVerilog backend for the FuTIL compiler.
 //! Transforms an `ir::Context` into a formatted string that represents a
 //! valid SystemVerilog program.
+
 use crate::{
     backend::traits::Backend,
     errors::{Error, FutilResult},

@@ -1,7 +1,8 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
-use crate::frontend::{ast::Id, library::ast::LibrarySignatures};
+use crate::frontend::library::ast::LibrarySignatures;
 use crate::ir::{self, RRC};
+use crate::utils;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -17,6 +18,14 @@ pub struct Builder<'a> {
     /// Enable validation of components.
     /// Useful for debugging malformed AST errors.
     pub validate: bool,
+    /// Internal name generator used to generate non-conflicting name
+    /// from the prefix.
+    namegen: utils::NameGenerator,
+    /// Disables the name generator and treats prefixes as names.
+    /// XXX(rachit): This hack is needed because `ir::from_ast` needs to
+    /// use the exact identifiers. The right approach is to have a Trie
+    /// based name generator that only adds suffixes if there are conflicts.
+    pub(super) disable_namegen: bool,
 }
 
 impl<'a> Builder<'a> {
@@ -30,33 +39,28 @@ impl<'a> Builder<'a> {
             component,
             lib_sigs,
             validate,
+            namegen: utils::NameGenerator::default(),
+            disable_namegen: false,
         }
     }
 
-    /// Construct a new group using `name` and `attributes` and add it to the
-    /// underlying component.
+    /// Construct a new group and add it to the Component.
+    /// The group is guaranteed to start with `prefix`.
     /// Returns a reference to the group.
-    pub fn add_group(
+    pub fn add_group<S: std::fmt::Display + Clone + AsRef<str>>(
         &mut self,
-        name: String,
+        prefix: S,
         attributes: HashMap<String, u64>,
     ) -> RRC<ir::Group> {
+        let name = if !self.disable_namegen {
+            self.namegen.gen_name(prefix.as_ref())
+        } else {
+            prefix.as_ref().to_string()
+        };
+
         // Check if there is a group with the same name.
-        if self.validate {
-            if let Some(_) = self
-                .component
-                .groups
-                .iter()
-                .find(|&g| g.borrow().name == name)
-            {
-                panic!(
-                    "Group with name `{}' already exists in component",
-                    name.clone()
-                )
-            }
-        }
         let group = Rc::new(RefCell::new(ir::Group {
-            name: name.clone().into(),
+            name: ir::Id::from(name.as_ref()),
             attributes,
             holes: vec![],
             assignments: vec![],
@@ -110,8 +114,8 @@ impl<'a> Builder<'a> {
         cell
     }
 
-    /// Consturcts a primitive cell of type `primitive` with the name
-    /// prefix `name` and paramter bindings `param_bindings`.
+    /// Consturcts a primitive cell of type `primitive`.
+    /// The name of the cell is guaranteed to start with `prefix`.
     /// Adds this cell to the underlying component and returns a reference
     /// to the Cell.
     ///
@@ -120,20 +124,32 @@ impl<'a> Builder<'a> {
     /// // Construct a std_reg.
     /// builder.add_primitive("fsm", "std_reg", vec![32]);
     /// ```
-    pub fn add_primitive(
+    pub fn add_primitive<S, P>(
         &mut self,
-        name: Id,
-        primitive: Id,
+        prefix: S,
+        primitive: P,
         param_values: &[u64],
-    ) -> RRC<ir::Cell> {
-        let prim = &self.lib_sigs[&primitive];
+    ) -> RRC<ir::Cell>
+    where
+        S: std::fmt::Display + Clone + AsRef<str>,
+        P: std::fmt::Display + Clone + AsRef<str>,
+    {
+        let prim_id = ir::Id::from(primitive.as_ref());
+        let prim = &self.lib_sigs[&prim_id];
         let (param_binding, inputs, outputs) = prim
             .resolve(param_values)
             .expect("Failed to add primitive.");
+
+        let name = if !self.disable_namegen {
+            self.namegen.gen_name(prefix.as_ref())
+        } else {
+            prefix.as_ref().to_string()
+        }
+        .into();
         let cell = Self::cell_from_signature(
             name,
             ir::CellType::Primitive {
-                name: primitive,
+                name: prim_id,
                 param_binding,
             },
             inputs,
@@ -189,10 +205,10 @@ impl<'a> Builder<'a> {
     /// Construct a cell from input/output signature.
     /// Input and output port definition in the form (name, width).
     pub(super) fn cell_from_signature(
-        name: Id,
+        name: ir::Id,
         typ: ir::CellType,
-        inputs: Vec<(Id, u64)>,
-        outputs: Vec<(Id, u64)>,
+        inputs: Vec<(ir::Id, u64)>,
+        outputs: Vec<(ir::Id, u64)>,
     ) -> RRC<ir::Cell> {
         let cell = Rc::new(RefCell::new(ir::Cell {
             name: name.clone(),

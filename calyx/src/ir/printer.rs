@@ -48,10 +48,9 @@ impl IRPrinter {
             Self::write_group(&group.borrow(), 4, f)?;
             write!(f, "\n")?;
         }
-
-        // add the continuous assignments
-        for asgn in &comp.continuous_assignments {
-            Self::write_assignment(asgn, 4, f)?;
+        // Write the continuous assignments
+        for assign in &comp.continuous_assignments {
+            Self::write_assignment(assign, 4, f)?;
             write!(f, "\n")?;
         }
         write!(f, "  }}\n")?;
@@ -195,12 +194,12 @@ impl IRPrinter {
 
     /// Generate a String-based representation for a guard.
     fn guard_str(guard: &ir::Guard) -> String {
-        match guard {
+        let op = match guard {
             ir::Guard::And(gs) | ir::Guard::Or(gs) => gs
                 .iter()
                 .map(|g| Self::guard_str(g))
                 .collect::<Vec<_>>()
-                .join(&format!(" {} ", guard.op_str())),
+                .join(&format!(" {} ", guard.op_str()).to_string()),
             ir::Guard::Eq(l, r)
             | ir::Guard::Neq(l, r)
             | ir::Guard::Gt(l, r)
@@ -217,6 +216,10 @@ impl IRPrinter {
                 Self::get_port_access(&port_ref.borrow())
             }
             ir::Guard::True => format!("1'b1"),
+        };
+        match guard {
+            ir::Guard::Port(_) => op,
+            _ => format!("({})", op),
         }
     }
 

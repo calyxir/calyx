@@ -1,6 +1,5 @@
 //! Representation for structure (wires and cells) in a FuTIL program.
-use super::{Guard, RRC, WRC};
-use crate::frontend::ast::Id;
+use super::{Guard, Id, RRC, WRC};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -97,17 +96,23 @@ pub struct Cell {
 
 impl Cell {
     /// Get a reference to the named port if it exists.
-    pub fn find_port(&self, name: &Id) -> Option<RRC<Port>> {
+    pub fn find<S>(&self, name: &S) -> Option<RRC<Port>>
+    where
+        S: std::fmt::Display + Clone + AsRef<str>,
+    {
         self.ports
             .iter()
-            .find(|&g| g.borrow().name == *name)
+            .find(|&g| g.borrow().name == name)
             .map(|r| Rc::clone(r))
     }
 
     /// Get a reference to the named port and throw an error if it doesn't
     /// exist.
-    pub fn get_port(&self, name: &Id) -> RRC<Port> {
-        self.find_port(name).expect(
+    pub fn get<S>(&self, name: S) -> RRC<Port>
+    where
+        S: std::fmt::Display + Clone + AsRef<str>,
+    {
+        self.find(&name).expect(
             format!(
                 "Port `{}' not found on group `{}'",
                 name.to_string(),
@@ -149,16 +154,22 @@ pub struct Group {
 
 impl Group {
     /// Get a reference to the named hole if it exists.
-    pub fn find_hole(&self, name: &Id) -> Option<RRC<Port>> {
+    pub fn find<S>(&self, name: &S) -> Option<RRC<Port>>
+    where
+        S: std::fmt::Display + Clone + AsRef<str>,
+    {
         self.holes
             .iter()
-            .find(|&g| g.borrow().name == *name)
+            .find(|&g| g.borrow().name == name)
             .map(|r| Rc::clone(r))
     }
 
     /// Get a reference to the named hole or panic.
-    pub fn get_hole(&self, name: &Id) -> RRC<Port> {
-        self.find_hole(name).expect(
+    pub fn get<S>(&self, name: S) -> RRC<Port>
+    where
+        S: std::fmt::Display + Clone + AsRef<str>,
+    {
+        self.find(&name).expect(
             format!(
                 "Hole `{}' not found on group `{}'",
                 name.to_string(),
