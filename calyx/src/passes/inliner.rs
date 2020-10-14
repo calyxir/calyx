@@ -111,6 +111,18 @@ impl Visitor for Inliner {
         // remove edges that write to a hole
         assignments.retain(|asgn| !asgn.dst.borrow().is_hole());
 
+        // move direct reads from holes into the guard so they can be inlined
+        let mut builder = Builder::from(comp, sigs, false);
+        assignments.iter_mut().for_each(|mut asgn| {
+            if asgn.src.borrow().is_hole() {
+                asgn.guard = Some(match &asgn.guard {
+                    Some(g) => g.and(Guard::Port(Rc::clone(&asgn.src))),
+                    None => Guard::Port(Rc::clone(&asgn.src)),
+                });
+                asgn.src = builder.add_constant(1, 1).borrow().get("out");
+            }
+        });
+
         // replace reads from a hole with the value in the map
         for asgn in &mut assignments {
             asgn.guard.as_mut().map(|guard| {

@@ -164,9 +164,9 @@ fn main() -> FutilResult<()> {
     )?;
 
     WellFormed::do_pass_default(&mut rep)?;
-    Inliner::do_pass_default(&mut rep)?;
     CompileEmpty::do_pass_default(&mut rep)?;
     CompileControl::do_pass_default(&mut rep)?;
+    Inliner::do_pass_default(&mut rep)?;
 
     // // Construct the name generator
     // let name_gen = NameGenerator::default();
