@@ -72,7 +72,6 @@ impl<'a> Builder<'a> {
                 name: port_name.into(),
                 width,
                 direction: ir::Direction::Inout,
-                parent_name: name.clone().into(),
                 parent: ir::PortParent::Group(Rc::downgrade(&group)),
             }));
             group.borrow_mut().holes.push(hole);
@@ -221,7 +220,6 @@ impl<'a> Builder<'a> {
                 name: port_name,
                 width,
                 direction: ir::Direction::Input,
-                parent_name: name.clone(),
                 parent: ir::PortParent::Cell(Rc::downgrade(&cell)),
             }));
             cell.borrow_mut().ports.push(port);
@@ -231,7 +229,6 @@ impl<'a> Builder<'a> {
                 name: port_name,
                 width,
                 direction: ir::Direction::Output,
-                parent_name: name.clone(),
                 parent: ir::PortParent::Cell(Rc::downgrade(&cell)),
             }));
             cell.borrow_mut().ports.push(port);

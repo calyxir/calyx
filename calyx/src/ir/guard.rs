@@ -25,7 +25,7 @@ impl Guard {
     /// returns.
     pub fn for_each<F>(&mut self, f: &F)
     where
-        F: Fn(RRC<Port>) -> Guard,
+        F: Fn(&Port) -> Option<Guard>,
     {
         match self {
             Guard::And(ands) => {
@@ -34,27 +34,39 @@ impl Guard {
             Guard::Or(ors) => {
                 ors.iter_mut().for_each(|guard| guard.for_each(f))
             }
-            // Guard::Eq(l, r) => {
-            //     Guard::Eq(Box::new(l.for_each(f)), Box::new(r.for_each(f)))
-            // }
-            // Guard::Neq(l, r) => {
-            //     Guard::Neq(Box::new(l.for_each(f)), Box::new(r.for_each(f)))
-            // }
-            // Guard::Gt(l, r) => {
-            //     Guard::Gt(Box::new(l.for_each(f)), Box::new(r.for_each(f)))
-            // }
-            // Guard::Lt(l, r) => {
-            //     Guard::Lt(Box::new(l.for_each(f)), Box::new(r.for_each(f)))
-            // }
-            // Guard::Geq(l, r) => {
-            //     Guard::Geq(Box::new(l.for_each(f)), Box::new(r.for_each(f)))
-            // }
-            // Guard::Leq(l, r) => {
-            //     Guard::Leq(Box::new(l.for_each(f)), Box::new(r.for_each(f)))
-            // }
-            // Guard::Not(inner) => Guard::Not(Box::new(inner.for_each(f))),
-            Guard::Port(port) => *self = f(Rc::clone(port)),
-            _ => unimplemented!(),
+            Guard::Eq(l, r) => {
+                l.for_each(f);
+                r.for_each(f);
+            }
+            Guard::Neq(l, r) => {
+                l.for_each(f);
+                r.for_each(f);
+            }
+            Guard::Gt(l, r) => {
+                l.for_each(f);
+                r.for_each(f);
+            }
+            Guard::Lt(l, r) => {
+                l.for_each(f);
+                r.for_each(f);
+            }
+            Guard::Geq(l, r) => {
+                l.for_each(f);
+                r.for_each(f);
+            }
+            Guard::Leq(l, r) => {
+                l.for_each(f);
+                r.for_each(f);
+            }
+            Guard::Not(inner) => {
+                inner.for_each(f);
+            }
+            Guard::Port(port) => {
+                let guard =
+                    f(&port.borrow()).unwrap_or(Guard::Port(Rc::clone(port)));
+                *self = guard;
+            }
+            Guard::True => {}
         }
     }
 
@@ -100,15 +112,31 @@ impl Guard {
 
     ////////////// Convinience constructors ///////////////////
     pub fn and_vec(&self, guards: &mut Vec<Guard>) -> Self {
+        let mut new;
         if let Guard::And(inner) = &self {
-            let mut new: Vec<_> = inner.clone();
+            new = inner.clone();
             new.append(guards);
-            Guard::And(new)
         } else {
-            let mut new: Vec<Guard> = vec![self.clone()];
+            new = vec![self.clone()];
             new.append(guards);
-            Guard::And(new)
         }
+        // filter out redundant guards
+        // XXX fix this filter. it was filtering out too much
+        // new.retain(|guard| {
+        //     if !matches!(guard, Guard::True) {
+        //         return true;
+        //     }
+
+        //     println!("c {:?}", guard);
+        //     if let Guard::Port(p) = guard {
+        //         if p.borrow().is_constant(1, 1) {
+        //             println!("p {:?}", p.borrow());
+        //             return true;
+        //         }
+        //     }
+        //     true
+        // });
+        Guard::And(new)
     }
 
     pub fn and(&self, rhs: Guard) -> Self {

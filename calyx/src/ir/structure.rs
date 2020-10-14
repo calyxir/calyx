@@ -30,8 +30,6 @@ pub struct Port {
     pub width: u64,
     /// Direction of the port
     pub direction: Direction,
-    /// Name of parent
-    pub parent_name: Id,
     /// Weak pointer to this port's parent
     pub parent: PortParent,
 }
@@ -40,6 +38,19 @@ impl Port {
     /// Checks if this port is a hole
     pub fn is_hole(&self) -> bool {
         matches!(&self.parent, PortParent::Group(_))
+    }
+
+    pub fn is_constant(&self, val: u64, width: u64) -> bool {
+        if let PortParent::Cell(cell) = &self.parent {
+            match cell.upgrade().unwrap().borrow().prototype {
+                CellType::Constant { val: v, width: w } => {
+                    v == val && w == width
+                }
+                _ => false,
+            }
+        } else {
+            false
+        }
     }
 
     /// Gets name of parent object.
@@ -52,11 +63,6 @@ impl Port {
                 group.upgrade().unwrap().borrow().name.clone()
             }
         }
-    }
-
-    /// Gets a key usable in a hashmap from a port
-    pub fn key(&self) -> (Id, Id) {
-        (self.get_parent_name().clone(), self.name.clone())
     }
 }
 

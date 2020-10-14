@@ -1,4 +1,7 @@
-use crate::ir::{Assignment, Component, Direction, Id, Port, RRC};
+use crate::{
+    ir::{Assignment, Component, Direction, Id, Port, RRC},
+    utils::Keyable,
+};
 use petgraph::{
     algo,
     graph::{DiGraph, NodeIndex},
@@ -12,6 +15,15 @@ type Edge = ();
 
 pub type CellGraph = DiGraph<Node, Edge>;
 
+impl Keyable for Port {
+    type Key = (Id, Id);
+    fn key(&self) -> Self::Key {
+        (self.get_parent_name().clone(), self.name.clone())
+    }
+}
+
+/// An Analysis constructor for a component. The component is internally represented
+/// as a graph which makes certain types of queries more efficient to answer.
 #[derive(Clone)]
 pub struct Analysis {
     nodes: HashMap<(Id, Id), NodeIndex>,
@@ -19,6 +31,7 @@ pub struct Analysis {
 }
 
 impl Analysis {
+    /// Start an analysis from a component.
     pub fn from(component: &Component) -> Self {
         let mut graph = CellGraph::new();
         let mut nodes = HashMap::new();
@@ -61,6 +74,8 @@ impl Analysis {
         Analysis { nodes, graph }
     }
 
+    /// Returns an iterator over all the reads from a port. Returns an empty iterator
+    /// if this is an Input port.
     pub fn reads_from(
         &self,
         port: &Port,
@@ -78,6 +93,8 @@ impl Analysis {
         }
     }
 
+    /// Returns an iterator over all the writes to this port. Returns an empty iterator
+    /// if this is an Output port.
     pub fn writes_to(
         &self,
         port: &Port,
@@ -95,6 +112,8 @@ impl Analysis {
         }
     }
 
+    /// Restricts the graph of the analysis using a filter
+    /// function that specifies which edges to keep.
     pub fn edge_induced_subgraph<F>(self, mut f: F) -> Self
     where
         F: FnMut(&Port, &Port) -> bool,
@@ -114,6 +133,7 @@ impl Analysis {
         Self { graph, nodes }
     }
 
+    /// Checks if there are sub-graphs in the analysis graph.
     pub fn has_cycles(&self) -> bool {
         algo::is_cyclic_directed(&self.graph)
     }

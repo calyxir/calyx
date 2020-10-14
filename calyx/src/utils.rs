@@ -91,6 +91,11 @@ impl OutputFile {
     }
 }
 
+pub trait Keyable {
+    type Key;
+    fn key(&self) -> Self::Key;
+}
+
 /// Calculates the hash of hashable trait using the default hasher
 #[allow(unused)]
 pub fn calculate_hash<T: Hash>(t: &T) -> u64 {

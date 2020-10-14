@@ -3,8 +3,9 @@ use crate::{
     ir::{
         analysis::Analysis,
         traversal::{Action, Named, VisResult, Visitor},
-        Assignment, Component, Control, Guard, Port,
+        Assignment, Builder, Component, Control, Guard, Port,
     },
+    utils::Keyable,
 };
 use std::{collections::HashMap, rc::Rc};
 
@@ -37,7 +38,7 @@ impl Visitor for Inliner {
     fn start(
         &mut self,
         comp: &mut Component,
-        _sigs: &LibrarySignatures,
+        sigs: &LibrarySignatures,
     ) -> VisResult {
         // get the only group in the enable
         let top_level = match &*comp.control.borrow() {
@@ -45,17 +46,24 @@ impl Visitor for Inliner {
             _ => panic!("need single enable"),
         };
 
+        // borrow these first so that we can use the builder
+        let go_sig = comp.signature.borrow().get("go");
+        let done_rig = comp.signature.borrow().get("done");
+
+        // make a builder for constructing constants
+        let mut builder = Builder::from(comp, sigs, false);
+
         // add top_level[go] = this.go
         let go_asgn = Assignment {
-            src: comp.signature.borrow().get("go"),
+            src: builder.add_constant(1, 1).borrow().get("out"),
             dst: top_level.borrow().get("go"),
-            guard: None,
+            guard: Some(Guard::Port(go_sig)),
         };
         // add this.done = top_level[done]
         let done_asgn = Assignment {
-            src: top_level.borrow().get("done"),
-            dst: comp.signature.borrow().get("done"),
-            guard: None,
+            src: builder.add_constant(1, 1).borrow().get("out"),
+            dst: done_rig,
+            guard: Some(Guard::Port(top_level.borrow().get("done"))),
         };
         comp.continuous_assignments.push(go_asgn);
         comp.continuous_assignments.push(done_asgn);
@@ -88,34 +96,41 @@ impl Visitor for Inliner {
             group
                 .assignments
                 .retain(|asgn| !asgn.dst.borrow().is_hole());
+
+            let mut assignments: Vec<_> = group.assignments.drain(..).collect();
             // replace reads from a hole with the value in the map
-            for asgn in &mut group.assignments {
+            for asgn in &mut assignments {
                 asgn.guard.as_mut().map(|guard| {
                     guard.for_each(&|port| {
-                        if port.borrow().is_hole() {
-                            map[&port.borrow().key()].clone()
+                        if port.is_hole() {
+                            Some(map[&port.key()].clone())
                         } else {
-                            Guard::Port(port)
+                            None
                         }
                     })
                 });
             }
+            group.assignments = assignments;
         }
         // remove edges that write to a hole
         comp.continuous_assignments
             .retain(|asgn| !asgn.dst.borrow().is_hole());
+
+        let mut assignments: Vec<_> =
+            comp.continuous_assignments.drain(..).collect();
         // replace reads from a hole with the value in the map
-        for asgn in &mut comp.continuous_assignments {
+        for asgn in &mut assignments {
             asgn.guard.as_mut().map(|guard| {
                 guard.for_each(&|port| {
-                    if port.borrow().is_hole() {
-                        map[&port.borrow().key()].clone()
+                    if port.is_hole() {
+                        Some(map[&port.key()].clone())
                     } else {
-                        Guard::Port(port)
+                        None
                     }
                 })
             });
         }
+        comp.continuous_assignments = assignments;
 
         // remove group from control
         Ok(Action::Change(Control::empty()))
