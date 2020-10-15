@@ -10,6 +10,7 @@ mod inliner;
 mod papercut;
 //mod remove_external_memories;
 mod go_insertion;
+mod remove_external_memories;
 mod static_timing;
 
 pub use collapse_control::CollapseControl;
@@ -18,5 +19,6 @@ pub use compile_empty::CompileEmpty;
 pub use go_insertion::GoInsertion;
 pub use inliner::Inliner;
 pub use papercut::Papercut;
+pub use remove_external_memories::RemoveExternalMemories;
 pub use static_timing::StaticTiming;
 pub use well_formed::WellFormed;
