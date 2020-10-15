@@ -91,8 +91,11 @@ impl OutputFile {
     }
 }
 
+/// Utility trait for transforming a type into a key usable
+/// in a hashmap.
 pub trait Keyable {
     type Key;
+    /// Transform `self` into a hash key.
     fn key(&self) -> Self::Key;
 }
 

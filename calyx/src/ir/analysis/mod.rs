@@ -1,3 +1,3 @@
 mod graph;
 
-pub use graph::Analysis;
+pub use graph::GraphAnalysis;

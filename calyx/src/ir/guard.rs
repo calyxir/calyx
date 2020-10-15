@@ -120,34 +120,29 @@ impl Guard {
         }
     }
 
-    pub fn and_vec(&self, guards: &mut Vec<Guard>) -> Self {
+    pub fn and_vec(self, guards: &mut Vec<Guard>) -> Self {
         flatten_and(guards);
-        let mut new;
-        if let Guard::And(inner) = &self {
-            new = inner.clone();
+        let mut new: Vec<Guard>;
+        if let Guard::And(inner) = self {
+            new = inner;
             flatten_and(guards);
             new.append(guards);
         } else {
-            new = vec![self.clone()];
+            new = vec![self];
             new.append(guards);
         }
         // filter out redundant guards
         new.retain(|guard| {
-            if matches!(guard, Guard::True) {
-                return false;
+            if let Guard::Port(p) = guard {
+                return !p.borrow().is_constant(1, 1);
             }
 
-            if let Guard::Port(p) = guard {
-                if p.borrow().is_constant(1, 1) {
-                    return false;
-                }
-            }
-            true
+            return !matches!(guard, Guard::True);
         });
         Guard::And(new)
     }
 
-    pub fn and(&self, rhs: Guard) -> Self {
+    pub fn and(self, rhs: Guard) -> Self {
         self.and_vec(&mut vec![rhs])
     }
 

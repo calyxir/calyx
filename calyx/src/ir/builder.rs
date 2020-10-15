@@ -210,23 +210,23 @@ impl<'a> Builder<'a> {
         outputs: Vec<(ir::Id, u64)>,
     ) -> RRC<ir::Cell> {
         let cell = Rc::new(RefCell::new(ir::Cell {
-            name: name.clone(),
+            name,
             ports: vec![],
             prototype: typ,
         }));
         // Construct ports
-        for (port_name, width) in inputs {
+        for (name, width) in inputs {
             let port = Rc::new(RefCell::new(ir::Port {
-                name: port_name,
+                name,
                 width,
                 direction: ir::Direction::Input,
                 parent: ir::PortParent::Cell(Rc::downgrade(&cell)),
             }));
             cell.borrow_mut().ports.push(port);
         }
-        for (port_name, width) in outputs {
+        for (name, width) in outputs {
             let port = Rc::new(RefCell::new(ir::Port {
-                name: port_name,
+                name,
                 width,
                 direction: ir::Direction::Output,
                 parent: ir::PortParent::Cell(Rc::downgrade(&cell)),

@@ -40,6 +40,7 @@ impl Port {
         matches!(&self.parent, PortParent::Group(_))
     }
 
+    /// Checks if this port is a constant of value: `val` and width: `width`.
     pub fn is_constant(&self, val: u64, width: u64) -> bool {
         if let PortParent::Cell(cell) = &self.parent {
             match cell.upgrade().unwrap().borrow().prototype {

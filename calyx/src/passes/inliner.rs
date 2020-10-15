@@ -1,11 +1,13 @@
 use crate::{
+    build_assignments,
     errors::Error,
     frontend::library::ast::LibrarySignatures,
+    ir,
     ir::{
-        analysis::Analysis,
+        analysis::GraphAnalysis,
         traversal::{Action, Named, VisResult, Visitor},
-        Assignment, Builder, Component, Control, Guard, Port,
     },
+    structure,
     utils::Keyable,
 };
 use std::{collections::HashMap, rc::Rc};
@@ -25,12 +27,12 @@ impl Named for Inliner {
 
 /// Find the closure of everything that writes into `hole`
 /// and merge them into a single guard.
-fn write_closure(analysis: &Analysis, hole: &Port) -> Guard {
-    analysis.writes_to(hole).fold(Guard::True, |acc, port| {
+fn write_closure(analysis: &GraphAnalysis, hole: &ir::Port) -> ir::Guard {
+    analysis.writes_to(hole).fold(ir::Guard::True, |acc, port| {
         if port.borrow().is_hole() {
             acc.and(write_closure(&analysis, &port.borrow()))
         } else {
-            acc.and(Guard::Port(port))
+            acc.and(ir::Guard::Port(port))
         }
     })
 }
@@ -38,12 +40,12 @@ fn write_closure(analysis: &Analysis, hole: &Port) -> Guard {
 impl Visitor for Inliner {
     fn start(
         &mut self,
-        comp: &mut Component,
+        comp: &mut ir::Component,
         sigs: &LibrarySignatures,
     ) -> VisResult {
         // get the only group in the enable
         let top_level = match &*comp.control.borrow() {
-            Control::Enable(en) => Rc::clone(&en.group),
+            ir::Control::Enable(en) => Rc::clone(&en.group),
             _ => return Err(
                 Error::MalformedControl(
                     "The hole inliner requires control to be a single enable. Try running `compile_control` before inlining.".to_string()
@@ -51,30 +53,24 @@ impl Visitor for Inliner {
             )
         };
 
-        // borrow these first so that we can use the builder
-        let go_sig = comp.signature.borrow().get("go");
-        let done_rig = comp.signature.borrow().get("done");
+        // make a builder for constructing constants. Introduce new scope
+        // for builder so that it only holds its mutable reference to
+        // `comp` for the duration of this scope
+        {
+            let this_comp = Rc::clone(&comp.signature);
+            let builder = ir::Builder::from(comp, sigs, false);
 
-        // make a builder for constructing constants
-        let mut builder = Builder::from(comp, sigs, false);
-
-        // add top_level[go] = this.go
-        let go_asgn = Assignment {
-            src: builder.add_constant(1, 1).borrow().get("out"),
-            dst: top_level.borrow().get("go"),
-            guard: Some(Guard::Port(go_sig)),
-        };
-        // add this.done = top_level[done]
-        let done_asgn = Assignment {
-            src: builder.add_constant(1, 1).borrow().get("out"),
-            dst: done_rig,
-            guard: Some(Guard::Port(top_level.borrow().get("done"))),
-        };
-        comp.continuous_assignments.push(go_asgn);
-        comp.continuous_assignments.push(done_asgn);
+            // add top_level[go] = this.go
+            let mut asgns = build_assignments!(
+                builder;
+                top_level["go"] = ? this_comp["go"];
+                this_comp["done"] = ? top_level["done"];
+            );
+            comp.continuous_assignments.append(&mut asgns);
+        }
 
         // construct analysis graph and find sub-graph of all edges that include a hole
-        let analysis = Analysis::from(&comp);
+        let analysis = GraphAnalysis::from(&comp);
         let subgraph = analysis
             .clone()
             .edge_induced_subgraph(|src, dst| src.is_hole() || dst.is_hole());
@@ -112,16 +108,25 @@ impl Visitor for Inliner {
         assignments.retain(|asgn| !asgn.dst.borrow().is_hole());
 
         // move direct reads from holes into the guard so they can be inlined
-        let mut builder = Builder::from(comp, sigs, false);
-        assignments.iter_mut().for_each(|mut asgn| {
-            if asgn.src.borrow().is_hole() {
-                asgn.guard = Some(match &asgn.guard {
-                    Some(g) => g.and(Guard::Port(Rc::clone(&asgn.src))),
-                    None => Guard::Port(Rc::clone(&asgn.src)),
-                });
-                asgn.src = builder.add_constant(1, 1).borrow().get("out");
-            }
-        });
+        // introduce scope for builder
+        {
+            let mut builder = ir::Builder::from(comp, sigs, false);
+            structure!(
+                builder;
+                let signal_on = constant(1, 1);
+            );
+            assignments.iter_mut().for_each(|mut asgn| {
+                if asgn.src.borrow().is_hole() {
+                    asgn.guard = Some(match &asgn.guard {
+                        Some(g) => {
+                            g.clone().and(ir::Guard::Port(Rc::clone(&asgn.src)))
+                        }
+                        None => ir::Guard::Port(Rc::clone(&asgn.src)),
+                    });
+                    asgn.src = signal_on.borrow().get("out");
+                }
+            });
+        }
 
         // replace reads from a hole with the value in the map
         for asgn in &mut assignments {
@@ -138,9 +143,9 @@ impl Visitor for Inliner {
         comp.continuous_assignments = assignments;
 
         // remove all groups
-        comp.groups = vec![];
+        comp.groups.clear();
 
         // remove group from control
-        Ok(Action::Change(Control::empty()))
+        Ok(Action::Change(ir::Control::empty()))
     }
 }
