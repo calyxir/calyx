@@ -108,8 +108,9 @@ impl Visitor for Inliner {
         assignments.retain(|asgn| !asgn.dst.borrow().is_hole());
 
         // move direct reads from holes into the guard so they can be inlined
-        // introduce scope for builder
+        //   e.g. s.in = G[go]; => s.in G[go] ? 1'b1;
         {
+            // introduce scope for builder
             let mut builder = ir::Builder::from(comp, sigs, false);
             structure!(
                 builder;
