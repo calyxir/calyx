@@ -143,7 +143,8 @@ impl<'a> Builder<'a> {
             self.namegen.gen_name(prefix.as_ref())
         } else {
             prefix.as_ref().to_string()
-        }.into();
+        }
+        .into();
         let cell = Self::cell_from_signature(
             name,
             ir::CellType::Primitive {

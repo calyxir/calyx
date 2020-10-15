@@ -15,10 +15,71 @@ pub enum Guard {
     Leq(Box<Guard>, Box<Guard>),
     Not(Box<Guard>),
     Port(RRC<Port>),
+    True,
+}
+
+fn flatten_and(ands: &mut Vec<Guard>) {
+    *ands = ands
+        .iter()
+        .flat_map(|g| match g {
+            Guard::And(v) => v.to_vec(),
+            x => vec![x.clone()],
+        })
+        .collect();
 }
 
 /// Helper functions for the guard.
 impl Guard {
+    /// Mutates a guard by calling `f` on every leaf in the
+    /// guard tree and replacing the leaf with the guard that `f`
+    /// returns.
+    pub fn for_each<F>(&mut self, f: &F)
+    where
+        F: Fn(&Port) -> Option<Guard>,
+    {
+        match self {
+            Guard::And(ands) => {
+                ands.iter_mut().for_each(|guard| guard.for_each(f))
+            }
+            Guard::Or(ors) => {
+                ors.iter_mut().for_each(|guard| guard.for_each(f))
+            }
+            Guard::Eq(l, r) => {
+                l.for_each(f);
+                r.for_each(f);
+            }
+            Guard::Neq(l, r) => {
+                l.for_each(f);
+                r.for_each(f);
+            }
+            Guard::Gt(l, r) => {
+                l.for_each(f);
+                r.for_each(f);
+            }
+            Guard::Lt(l, r) => {
+                l.for_each(f);
+                r.for_each(f);
+            }
+            Guard::Geq(l, r) => {
+                l.for_each(f);
+                r.for_each(f);
+            }
+            Guard::Leq(l, r) => {
+                l.for_each(f);
+                r.for_each(f);
+            }
+            Guard::Not(inner) => {
+                inner.for_each(f);
+            }
+            Guard::Port(port) => {
+                let guard =
+                    f(&port.borrow()).unwrap_or(Guard::Port(Rc::clone(port)));
+                *self = guard;
+            }
+            Guard::True => {}
+        }
+    }
+
     /// Returns all the ports used by this guard.
     pub fn all_ports(&self) -> Vec<RRC<Port>> {
         match self {
@@ -37,6 +98,7 @@ impl Guard {
                 atoms
             }
             Guard::Not(g) => g.all_ports(),
+            Guard::True => vec![],
         }
     }
 
@@ -52,13 +114,36 @@ impl Guard {
             Guard::Geq(_, _) => ">=".to_string(),
             Guard::Leq(_, _) => "<=".to_string(),
             Guard::Not(_) => "!".to_string(),
-            Guard::Port(_) => panic!("No operator string for Guard::Port"),
+            Guard::Port(_) | Guard::True => {
+                panic!("No operator string for Guard::Port")
+            }
         }
     }
 
-    ////////////// Convinience constructors ///////////////////
-    pub fn and(self, other: Guard) -> Self {
-        Guard::And(vec![self, other])
+    pub fn and_vec(self, guards: &mut Vec<Guard>) -> Self {
+        flatten_and(guards);
+        let mut new: Vec<Guard>;
+        if let Guard::And(inner) = self {
+            new = inner;
+            flatten_and(guards);
+            new.append(guards);
+        } else {
+            new = vec![self];
+            new.append(guards);
+        }
+        // filter out redundant guards
+        new.retain(|guard| {
+            if let Guard::Port(p) = guard {
+                return !p.borrow().is_constant(1, 1);
+            }
+
+            return !matches!(guard, Guard::True);
+        });
+        Guard::And(new)
+    }
+
+    pub fn and(self, rhs: Guard) -> Self {
+        self.and_vec(&mut vec![rhs])
     }
 
     pub fn or(self, other: Guard) -> Self {

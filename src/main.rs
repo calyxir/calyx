@@ -13,7 +13,9 @@ use calyx::{
     //utils::NameGenerator,
 };
 use cmdline::Opts;
-use passes::{CompileControl, CompileEmpty, GoInsertion, Papercut, WellFormed};
+use passes::{
+    CompileControl, CompileEmpty, GoInsertion, Inliner, Papercut, WellFormed,
+};
 //use pass_manager::PassManager;
 /*use passes::{
     collapse_control::CollapseControl,
@@ -168,6 +170,7 @@ fn main() -> FutilResult<()> {
     CompileEmpty::do_pass_default(&mut rep)?;
     CompileControl::do_pass_default(&mut rep)?;
     GoInsertion::do_pass_default(&mut rep)?;
+    Inliner::do_pass_default(&mut rep)?;
 
     // // Construct the name generator
     // let name_gen = NameGenerator::default();

@@ -5,7 +5,7 @@ use crate::ir;
 use std::io;
 
 /// Printer for the IR.
-pub struct IRPrinter {}
+pub struct IRPrinter;
 
 impl IRPrinter {
     /// Formats and writes the Component to the formatter.
@@ -215,6 +215,7 @@ impl IRPrinter {
             ir::Guard::Port(port_ref) => {
                 Self::get_port_access(&port_ref.borrow())
             }
+            ir::Guard::True => format!("1'b1"),
         };
         match guard {
             ir::Guard::Port(_) => op,

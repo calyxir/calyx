@@ -91,6 +91,14 @@ impl OutputFile {
     }
 }
 
+/// Utility trait for transforming a type into a key usable
+/// in a hashmap.
+pub trait Keyable {
+    type Key;
+    /// Transform `self` into a hash key.
+    fn key(&self) -> Self::Key;
+}
+
 /// Calculates the hash of hashable trait using the default hasher
 #[allow(unused)]
 pub fn calculate_hash<T: Hash>(t: &T) -> u64 {

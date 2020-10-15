@@ -1,21 +1,20 @@
 //! SystemVerilog backend for the FuTIL compiler.
 //! Transforms an `ir::Context` into a formatted string that represents a
 //! valid SystemVerilog program.
-//use super::{colors, colors::ColorHelper};
+
 use crate::{
     backend::traits::Backend,
     errors::{Error, FutilResult},
-    //frontend::library::ast as lib,
+    // frontend::library::ast as lib,
     ir,
     utils::OutputFile,
 };
 use ir::{Control, Group, Guard, RRC};
-//use lib::Implementation;
-//use pretty::termcolor::ColorSpec;
-//use pretty::RcDoc;
-//use std::cmp::Ordering;
+// use lib::Implementation;
+// use pretty::termcolor::ColorSpec;
+// use pretty::RcDoc;
 
-//type D<'a> = RcDoc<'a, ColorSpec>;
+// type D<'a> = RcDoc<'a, ColorSpec>;
 
 /// Implements a simple Verilog backend. The backend
 /// only accepts Futil programs with no control and no groups.
@@ -41,6 +40,7 @@ fn validate_guard(guard: &ir::Guard) -> bool {
         }
         Guard::Not(inner) => validate_guard(inner),
         Guard::Port(port) => !port.borrow().is_hole(),
+        Guard::True => true,
     }
 }
 
@@ -96,7 +96,7 @@ impl Backend for VerilogBackend {
         // })
     }
 
-    fn emit(ctx: &ir::Context, file: OutputFile) -> FutilResult<()> {
+    fn emit(_ctx: &ir::Context, _file: OutputFile) -> FutilResult<()> {
         // let prog: ast::NamespaceDef = ctx.clone().into();
 
         // build Vec of tuples first so that `comps` lifetime is longer than

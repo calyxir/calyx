@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Direction of a port on a cell.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Direction {
     /// Input port.
     Input,
@@ -15,14 +15,14 @@ pub enum Direction {
 }
 
 /// Ports can come from Cells or Groups
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PortParent {
     Cell(WRC<Cell>),
     Group(WRC<Group>),
 }
 
 /// Represents a port on a cell.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Port {
     /// Name of the port
     pub name: Id,
@@ -38,6 +38,32 @@ impl Port {
     /// Checks if this port is a hole
     pub fn is_hole(&self) -> bool {
         matches!(&self.parent, PortParent::Group(_))
+    }
+
+    /// Checks if this port is a constant of value: `val` and width: `width`.
+    pub fn is_constant(&self, val: u64, width: u64) -> bool {
+        if let PortParent::Cell(cell) = &self.parent {
+            match cell.upgrade().unwrap().borrow().prototype {
+                CellType::Constant { val: v, width: w } => {
+                    v == val && w == width
+                }
+                _ => false,
+            }
+        } else {
+            false
+        }
+    }
+
+    /// Gets name of parent object.
+    pub fn get_parent_name<'a>(&'a self) -> Id {
+        match &self.parent {
+            PortParent::Cell(cell) => {
+                cell.upgrade().unwrap().borrow().name.clone()
+            }
+            PortParent::Group(group) => {
+                group.upgrade().unwrap().borrow().name.clone()
+            }
+        }
     }
 }
 
