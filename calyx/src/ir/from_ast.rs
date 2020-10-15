@@ -212,6 +212,8 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> FutilResult<RRC<Port>> {
                                port_name: Id,
                                all_ports: &[RRC<Port>]|
      -> FutilResult<RRC<Port>> {
+    // XXX(rachit): Use the find_ methods on the cells instead of manually
+    // searching the ports.
         all_ports
             .iter()
             .find(|p| p.borrow().name == port_name)
