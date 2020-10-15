@@ -14,7 +14,8 @@ use calyx::{
 };
 use cmdline::Opts;
 use passes::{
-    CompileControl, CompileEmpty, GoInsertion, Inliner, Papercut, WellFormed,
+    CompileControl, CompileEmpty, GoInsertion, Inliner, Papercut, StaticTiming,
+    WellFormed,
 };
 //use pass_manager::PassManager;
 /*use passes::{
@@ -167,6 +168,7 @@ fn main() -> FutilResult<()> {
 
     WellFormed::do_pass_default(&mut rep)?;
     Papercut::do_pass_default(&mut rep)?;
+    StaticTiming::do_pass_default(&mut rep)?;
     CompileEmpty::do_pass_default(&mut rep)?;
     CompileControl::do_pass_default(&mut rep)?;
     GoInsertion::do_pass_default(&mut rep)?;
