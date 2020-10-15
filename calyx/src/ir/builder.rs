@@ -67,9 +67,9 @@ impl<'a> Builder<'a> {
         }));
 
         // Add default holes to the group.
-        for (port_name, width) in vec![("go", 1), ("done", 1)] {
+        for (name, width) in vec![("go", 1), ("done", 1)] {
             let hole = Rc::new(RefCell::new(ir::Port {
-                name: port_name.into(),
+                name: name.into(),
                 width,
                 direction: ir::Direction::Inout,
                 parent: ir::PortParent::Group(Rc::downgrade(&group)),
