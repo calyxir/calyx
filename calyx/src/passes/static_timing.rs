@@ -48,187 +48,166 @@ where
 impl Visitor for StaticTiming {
     /*fn finish_while(
         &mut self,
-        s: &ast::While,
-        comp: &mut Component,
-        ctx: &Context,
+        s: &mut ir::While,
+        comp: &mut ir::Component,
+        ctx: &lib::LibrarySignatures,
     ) -> VisResult {
         let st = &mut comp.structure;
 
-        if let Control::Enable { data } = &*s.body {
-            let maybe_cond_time =
-                st.groups[&Some(s.cond.clone())].0.get("static");
-            let maybe_body_time =
-                st.groups[&Some(data.comp.clone())].0.get("static");
+        if let Control::Enable(data) = &*s.body {
+            let cond = &c.cond;
+            let body = &data.group;
+            let mut builder = ir::Builder::from(comp, ctx, false);
 
             // The group is statically compilable with combinational condition.
-            if let (Some(&0), Some(&btime)) = (maybe_cond_time, maybe_body_time)
-            {
-                // FSM Encoding:
-                //   0:   init state. we haven't started loop iterations
-                //        and haven't checked the loop body
-                //   1-n: body compute states. cond was true. compute the body
-                //   n+1: loop exit. we've finished running the body and the condition is false.
-                // Transitions:
-                //   0 -> 1:   when cond == true
-                //   0 -> n+1: when cond == false
-                //   i -> i+1: when i != 0 & i != n
-                //   n -> 1:   when cond == true
-                //   n -> n+1: when cond == false
-
-                let cond_group = st.get_node_by_name(&s.cond)?;
-                let body_group = st.get_node_by_name(&data.comp)?;
-
-                let while_group: ast::Id =
-                    st.namegen.gen_name("static_while_comb").into();
-                let while_group_node =
-                    st.insert_group(&while_group, HashMap::new())?;
-
-                let fsm_size = 32;
-                structure!(st, &ctx,
-                    let fsm = prim std_reg(fsm_size);
-
-                    let fsm_init_state = constant(0, fsm_size);
-                    let fsm_loop_enter_state = constant(1, fsm_size);
-                    let fsm_loop_exit_state = constant(btime + 2, fsm_size);
-
-                    let fsm_one = constant(1, fsm_size);
-                    let incr = prim std_add(fsm_size);
-
-                    let signal_on = constant(1, 1);
-
-                    let body_end_const = constant(btime + 1, fsm_size);
-                );
-
-                // port of the cond group
-                let cond_val = st.to_guard(s.port.get_edge(st)?);
-
-                // init state guards
-                let init_state = guard!(st; fsm["out"])
-                    .eq(st.to_guard(fsm_init_state.clone()));
-                let init_enter = init_state.clone() & cond_val.clone();
-                let init_exit = init_state.clone() & !cond_val.clone();
-
-                let body_done = guard!(st; fsm["out"])
-                    .eq(st.to_guard(body_end_const.clone()));
-                let body_done_repeat = body_done.clone() & cond_val.clone();
-                let body_done_exit = body_done.clone() & !cond_val;
-                // Should we increment the FSM this cycle.
-                let fsm_incr = !body_done.clone()
-                    & guard!(st; fsm["out"])
-                        .neq(st.to_guard(fsm_init_state.clone()));
-
-                let body_go = guard!(st; fsm["out"])
-                    .gt(st.to_guard(fsm_init_state.clone()))
-                    & guard!(st; fsm["out"]).lt(st.to_guard(body_end_const));
-
-                let done = guard!(st; fsm["out"])
-                    .eq(st.to_guard(fsm_loop_exit_state.clone()));
-
-                add_wires!(st, Some(while_group.clone()),
-                    // Increment the FSM when needed
-                    incr["left"] = (fsm["out"]);
-                    incr["right"] = (fsm_one);
-                    fsm["in"] = fsm_incr ? (incr["out"]);
-                    fsm["write_en"] = fsm_incr ? (signal_on.clone());
-
-                    // move out of init state
-                    fsm["in"] = init_enter ? (fsm_loop_enter_state.clone());
-                    fsm["in"] = init_exit ? (fsm_loop_exit_state.clone());
-                    fsm["write_en"] = init_state ? (signal_on.clone());
-
-                    // Compute the cond group and save the result
-                    cond_group["go"] = (signal_on.clone());
-
-                    // Compute the body
-                    body_group["go"] = body_go ? (signal_on.clone());
-
-                    // Reset the FSM when the body is done.
-                    fsm["in"] = body_done_repeat ? (fsm_loop_enter_state);
-                    fsm["in"] = body_done_exit ? (fsm_loop_exit_state);
-                    fsm["write_en"] = body_done ? (signal_on.clone());
-
-                    // This group is done when cond is false.
-                    while_group_node["done"] = done ? (signal_on.clone());
-                );
-
-                // CLEANUP: Reset the FSM state.
-                add_wires!(st, None,
-                    fsm["in"] = done ? (fsm_init_state);
-                    fsm["write_en"] = done ? (signal_on);
-                );
-
-                return Ok(Action::Change(Control::enable(while_group)));
-            }
-            // The group is statically compilable.
-            else if let (Some(&ctime), Some(&btime)) =
+            if let (Some(&ctime), Some(&btime)) =
                 (maybe_cond_time, maybe_body_time)
             {
-                let cond_group = st.get_node_by_name(&s.cond)?;
-                let body_group = st.get_node_by_name(&data.comp)?;
+                let while_group = if ctime == 0 {
+                    // FSM Encoding:
+                    //   0:   init state. we haven't started loop iterations
+                    //        and haven't checked the loop body
+                    //   1-n: body compute states. cond was true. compute the body
+                    //   n+1: loop exit. we've finished running the body and the condition is false.
+                    // Transitions:
+                    //   0 -> 1:   when cond == true
+                    //   0 -> n+1: when cond == false
+                    //   i -> i+1: when i != 0 & i != n
+                    //   n -> 1:   when cond == true
+                    //   n -> n+1: when cond == false
 
-                let while_group: ast::Id =
-                    st.namegen.gen_name("static_while").into();
-                let while_group_node =
-                    st.insert_group(&while_group, HashMap::new())?;
+                    let while_group = builder.add_group("static_while_comb");
 
-                let fsm_size = 32;
-                structure!(st, &ctx,
-                    let fsm = prim std_reg(fsm_size);
-                    let cond_stored = prim std_reg(1);
-                    let fsm_reset_val = constant(0, fsm_size);
-                    let fsm_one = constant(1, fsm_size);
-                    let incr = prim std_add(fsm_size);
+                    let fsm_size = 32;
+                    structure!(builder;
+                        let fsm = prim std_reg(fsm_size);
 
-                    let signal_on = constant(1, 1);
+                        let fsm_init_state = constant(0, fsm_size);
+                        let fsm_loop_enter_state = constant(1, fsm_size);
+                        let fsm_loop_exit_state = constant(btime + 2, fsm_size);
 
-                    let cond_time_const = constant(ctime, fsm_size);
-                    // let cond_end_const = constant(ctime - 1, fsm_size);
-                    let body_end_const = constant(ctime + btime, fsm_size);
-                );
+                        let fsm_one = constant(1, fsm_size);
+                        let incr = prim std_add(fsm_size);
 
-                // Cond is computed on this cycle.
-                let cond_computed = guard!(st; fsm["out"])
-                    .lt(st.to_guard(cond_time_const.clone()));
+                        let signal_on = constant(1, 1);
 
-                let body_done = guard!(st; fsm["out"])
-                    .eq(st.to_guard(body_end_const.clone()));
-                // Should we increment the FSM this cycle.
-                let fsm_incr = !body_done.clone();
+                        let body_end_const = constant(btime + 1, fsm_size);
+                    );
 
-                // Compute the cond group
-                let cond_go = guard!(st; fsm["out"])
-                    .lt(st.to_guard(cond_time_const.clone()));
+                    // port of the cond group
+                    let cond_val = ir::Guard::from(s.port);
 
-                let body_go = guard!(st; cond_stored["out"])
-                    & !cond_go.clone()
-                    & guard!(st; fsm["out"]).lt(st.to_guard(body_end_const));
+                    // init state guards
+                    let init_state =
+                        guard!(fsm["out"]).eq(guard!(fsm_init_state["out"]));
+                    let init_enter = init_state.clone() & cond_val.clone();
+                    let init_exit = init_state.clone() & !cond_val.clone();
 
-                let done = guard!(st; fsm["out"])
-                    .eq(st.to_guard(cond_time_const))
-                    & !guard!(st; cond_stored["out"]);
+                    let body_done =
+                        guard!(fsm["out"]).eq(guard!(body_end_const["out"]));
+                    let body_done_repeat = body_done.clone() & cond_val.clone();
+                    let body_done_exit = body_done.clone() & !cond_val;
+                    // Should we increment the FSM this cycle.
+                    let fsm_incr = !body_done.clone()
+                        & guard!(fsm["out"]).neq(guard!(fsm_init_state["out"]));
 
-                add_wires!(st, Some(while_group.clone()),
-                    // Increment the FSM when needed
-                    incr["left"] = (fsm["out"]);
-                    incr["right"] = (fsm_one);
-                    fsm["in"] = fsm_incr ? (incr["out"]);
-                    fsm["write_en"] = fsm_incr ? (signal_on.clone());
+                    let body_go = guard!(fsm["out"])
+                        .gt(guard!(fsm_init_state["out"]))
+                        & guard!(fsm["out"]).lt(sguard!(body_end_const["out"]));
 
-                    // Compute the cond group and save the result
-                    cond_group["go"] = cond_go ? (signal_on.clone());
-                    cond_stored["in"] = cond_computed ? (s.port.get_edge(st)?);
-                    cond_stored["write_en"] = cond_computed ? (signal_on.clone());
+                    let done = guard!(fsm["out"])
+                        .eq(guard!(fsm_loop_exit_state["out"]));
 
-                    // Compute the body
-                    body_group["go"] = body_go ? (signal_on.clone());
+                    let mut assigns = build_assignments!(builder;
+                        // Increment the FSM when needed
+                        incr["left"] = fsm["out"];
+                        incr["right"] = fsm_one["out"];
+                        fsm["in"] = fsm_incr ? incr["out"];
+                        fsm["write_en"] = fsm_incr ? signal_on["out"];
 
-                    // Reset the FSM when the body is done.
-                    fsm["in"] = body_done ? (fsm_reset_val.clone());
-                    fsm["write_en"] = body_done ? (signal_on.clone());
+                        // move out of init state
+                        fsm["in"] = init_enter ? fsm_loop_enter_state["out"];
+                        fsm["in"] = init_exit ? fsm_loop_exit_state["out"];
+                        fsm["write_en"] = init_state ? signal_on["out"];
 
-                    // This group is done when cond is false.
-                    while_group_node["done"] = done ? (signal_on.clone());
-                );
+                        // Compute the cond group and save the result
+                        cond_group["go"] = signal_on["out"];
+
+                        // Compute the body
+                        body["go"] = body_go ? signal_on["out"];
+
+                        // Reset the FSM when the body is done.
+                        fsm["in"] = body_done_repeat ? fsm_loop_enter_state["out"];
+                        fsm["in"] = body_done_exit ? fsm_loop_exit_state["out"];
+                        fsm["write_en"] = body_done ? signal_on["out"];
+
+                        // This group is done when cond is false.
+                        while_group["done"] = done ? signal_on["out"];
+                    );
+
+                    while_group
+                } else {
+                    let while_group = builder.add_group("static_while");
+
+                    let fsm_size = 32;
+                    structure!(builder;
+                        let fsm = prim std_reg(fsm_size);
+                        let cond_stored = prim std_reg(1);
+                        let fsm_reset_val = constant(0, fsm_size);
+                        let fsm_one = constant(1, fsm_size);
+                        let incr = prim std_add(fsm_size);
+
+                        let signal_on = constant(1, 1);
+
+                        let cond_time_const = constant(ctime, fsm_size);
+                        // let cond_end_const = constant(ctime - 1, fsm_size);
+                        let body_end_const = constant(ctime + btime, fsm_size);
+                    );
+
+                    // Cond is computed on this cycle.
+                    let cond_computed =
+                        guard!(fsm["out"]).lt(guard!(cond_time_const["out"]));
+
+                    let body_done =
+                        guard!(st; fsm["out"]).eq(guard!(body_end_const["out"]));
+                    // Should we increment the FSM this cycle.
+                    let fsm_incr = !body_done.clone();
+
+                    // Compute the cond group
+                    let cond_go =
+                        guard!(fsm["out"]).lt(guard!(cond_time_const["out"]));
+
+                    let body_go = guard!(cond_stored["out"])
+                        & !cond_go.clone()
+                        & guard!(fsm["out"]).lt(guard!(body_end_const["out"]));
+
+                    let done = guard!(st; fsm["out"])
+                        .eq(guard!(cond_time_const["out"]))
+                        & !guard!(cond_stored["out"]);
+
+                    add_wires!(st, Some(while_group.clone()),
+                        // Increment the FSM when needed
+                        incr["left"] = fsm["out"];
+                        incr["right"] = fsm_one;
+                        fsm["in"] = fsm_incr ? incr["out"];
+                        fsm["write_en"] = fsm_incr ? signal_on["out"];
+
+                        // Compute the cond group and save the result
+                        cond["go"] = cond_go ? signal_on["out"];
+                        cond_stored["in"] = cond_computed ? (s.port.get_edge(st)?);
+                        cond_stored["write_en"] = cond_computed ? signal_on["out"];
+
+                        // Compute the body
+                        body_group["go"] = body_go ? signal_on["out"];
+
+                        // Reset the FSM when the body is done.
+                        fsm["in"] = body_done ? fsm_reset_val["out"];
+                        fsm["write_en"] = body_done ? signal_on["out"];
+
+                        // This group is done when cond is false.
+                        while_group_node["done"] = done ? signal_on["out"];
+                    );
+                }
 
                 // CLEANUP: Reset the FSM state.
                 add_wires!(st, None,
