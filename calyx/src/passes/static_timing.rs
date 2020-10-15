@@ -125,7 +125,6 @@ impl Visitor for StaticTiming {
 
                     // Compute the cond group and save the result
                     cond["go"] = cond_go ? signal_on["out"];
-                    // cond_stored["in"] = cond_computed ? port;
                     cond_stored["write_en"] = cond_computed ? signal_on["out"];
 
                     // Compute the body
@@ -143,80 +142,6 @@ impl Visitor for StaticTiming {
                     Rc::clone(&port),
                     Some(cond_computed.clone()),
                 ));
-                // let while_group = if ctime == 0 {
-
-                //     let while_group = builder.add_group("static_while_comb");
-
-                //     let fsm_size = 32;
-                //     structure!(builder;
-                //         let fsm = prim std_reg(fsm_size);
-
-                //         let fsm_init_state = constant(0, fsm_size);
-                //         let fsm_loop_enter_state = constant(1, fsm_size);
-                //         let fsm_loop_exit_state = constant(btime + 2, fsm_size);
-
-                //         let fsm_one = constant(1, fsm_size);
-                //         let incr = prim std_add(fsm_size);
-
-                //         let signal_on = constant(1, 1);
-
-                //         let body_end_const = constant(btime + 1, fsm_size);
-                //     );
-
-                //     // port of the cond group
-                //     let cond_val = ir::Guard::from(s.port);
-
-                //     // init state guards
-                //     let init_state =
-                //         guard!(fsm["out"]).eq(guard!(fsm_init_state["out"]));
-                //     let init_enter = init_state.clone() & cond_val.clone();
-                //     let init_exit = init_state.clone() & !cond_val.clone();
-
-                //     let body_done =
-                //         guard!(fsm["out"]).eq(guard!(body_end_const["out"]));
-                //     let body_done_repeat = body_done.clone() & cond_val.clone();
-                //     let body_done_exit = body_done.clone() & !cond_val;
-                //     // Should we increment the FSM this cycle.
-                //     let fsm_incr = !body_done.clone()
-                //         & guard!(fsm["out"]).neq(guard!(fsm_init_state["out"]));
-
-                //     let body_go = guard!(fsm["out"])
-                //         .gt(guard!(fsm_init_state["out"]))
-                //         & guard!(fsm["out"]).lt(sguard!(body_end_const["out"]));
-
-                //     let done = guard!(fsm["out"])
-                //         .eq(guard!(fsm_loop_exit_state["out"]));
-
-                //     let mut assigns = build_assignments!(builder;
-                //         // Increment the FSM when needed
-                //         incr["left"] = fsm["out"];
-                //         incr["right"] = fsm_one["out"];
-                //         fsm["in"] = fsm_incr ? incr["out"];
-                //         fsm["write_en"] = fsm_incr ? signal_on["out"];
-
-                //         // move out of init state
-                //         fsm["in"] = init_enter ? fsm_loop_enter_state["out"];
-                //         fsm["in"] = init_exit ? fsm_loop_exit_state["out"];
-                //         fsm["write_en"] = init_state ? signal_on["out"];
-
-                //         // Compute the cond group and save the result
-                //         cond_group["go"] = signal_on["out"];
-
-                //         // Compute the body
-                //         body["go"] = body_go ? signal_on["out"];
-
-                //         // Reset the FSM when the body is done.
-                //         fsm["in"] = body_done_repeat ? fsm_loop_enter_state["out"];
-                //         fsm["in"] = body_done_exit ? fsm_loop_exit_state["out"];
-                //         fsm["write_en"] = body_done ? signal_on["out"];
-
-                //         // This group is done when cond is false.
-                //         while_group["done"] = done ? signal_on["out"];
-                //     );
-
-                //     while_group
-                // } else {
-                // }
 
                 while_group
                     .borrow_mut()
