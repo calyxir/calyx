@@ -4,6 +4,7 @@ use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::{build_assignments, guard, structure};
 use std::cmp;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Default)]
 pub struct StaticTiming {}
@@ -242,46 +243,35 @@ impl Visitor for StaticTiming {
         Ok(Action::Continue)
     }*/
 
-    /*fn finish_if(
+    fn finish_if(
         &mut self,
-        s: &ast::If,
-        comp: &mut Component,
-        ctx: &Context,
+        s: &mut ir::If,
+        comp: &mut ir::Component,
+        ctx: &lib::LibrarySignatures,
     ) -> VisResult {
-        let st = &mut comp.structure;
-
-        if let (
-            Control::Enable { data: tdata },
-            Control::Enable { data: fdata },
-        ) = (&*s.tbranch, &*s.fbranch)
+        if let (ir::Control::Enable(tdata), ir::Control::Enable(fdata)) =
+            (&*s.tbranch, &*s.fbranch)
         {
-            let maybe_cond_time =
-                st.groups[&Some(s.cond.clone())].0.get("static");
-            let maybe_true_time =
-                st.groups[&Some(tdata.comp.clone())].0.get("static");
-            let maybe_false_time =
-                st.groups[&Some(fdata.comp.clone())].0.get("static");
+            let cond = &s.cond;
+            let tru = &tdata.group;
+            let fal = &fdata.group;
 
             // combinational condition
-            if let (Some(&ctime), Some(&ttime), Some(&ftime)) =
-                (maybe_cond_time, maybe_true_time, maybe_false_time)
-            {
-                let cond_group = st.get_node_by_name(&s.cond)?;
-                let true_group = st.get_node_by_name(&tdata.comp)?;
-                let false_group = st.get_node_by_name(&fdata.comp)?;
-
-                let if_group: ast::Id = st.namegen.gen_name("static_if").into();
-
+            if let (Some(&ctime), Some(&ttime), Some(&ftime)) = (
+                cond.borrow().attributes.get("static"),
+                tru.borrow().attributes.get("static"),
+                fal.borrow().attributes.get("static"),
+            ) {
+                let mut builder = ir::Builder::from(comp, ctx, false);
                 let mut attrs = HashMap::new();
                 attrs.insert(
                     "static".to_string(),
                     ctime + 1 + cmp::max(ttime, ftime),
                 );
-
-                let if_group_node = st.insert_group(&if_group, attrs)?;
+                let if_group = builder.add_group("static_if", attrs);
 
                 let fsm_size = 32;
-                structure!(st, &ctx,
+                structure!(builder;
                     let fsm = prim std_reg(fsm_size);
                     let one = constant(1, fsm_size);
                     let signal_on = constant(1, 1);
@@ -305,68 +295,73 @@ impl Visitor for StaticTiming {
 
                 // The group is done when we count up to the max.
                 let done_guard =
-                    guard!(st; fsm["out"]).eq(st.to_guard(max_const));
+                    guard!(fsm["out"]).eq(guard!(max_const["out"]));
                 let not_done_guard = !done_guard.clone();
 
                 // Guard for computing the conditional.
                 let cond_go = if ctime == 0 {
-                    guard!(st; fsm["out"])
-                        .eq(st.to_guard(cond_time_const.clone()))
+                    guard!(fsm["out"]).eq(guard!(cond_time_const["out"]))
                 } else {
-                    guard!(st; fsm["out"])
-                        .lt(st.to_guard(cond_time_const.clone()))
+                    guard!(fsm["out"]).lt(guard!(cond_time_const["out"]))
                 };
 
                 // Guard for when the conditional value is available on the
                 // port.
-                let cond_done = guard!(st; fsm["out"])
-                    .eq(st.to_guard(cond_done_time_const));
+                let cond_done =
+                    guard!(fsm["out"]).eq(guard!(cond_done_time_const["out"]));
 
                 // Guard for branches
-                let true_go = guard!(st; fsm["out"])
-                    .gt(st.to_guard(cond_time_const.clone()))
-                    & guard!(st; fsm["out"]).lt(st.to_guard(true_end_const))
-                    & guard!(st; cond_stored["out"]);
+                let true_go = guard!(fsm["out"])
+                    .gt(guard!(cond_time_const["out"]))
+                    & guard!(fsm["out"]).lt(guard!(true_end_const["out"]))
+                    & guard!(cond_stored["out"]);
 
-                let false_go = guard!(st; fsm["out"])
-                    .gt(st.to_guard(cond_time_const))
-                    & guard!(st; fsm["out"]).lt(st.to_guard(false_end_const))
-                    & !guard!(st; cond_stored["out"]);
+                let false_go = guard!(fsm["out"])
+                    .gt(guard!(cond_time_const["out"]))
+                    & guard!(fsm["out"]).lt(guard!(false_end_const["out"]))
+                    & !guard!(cond_stored["out"]);
 
-                add_wires!(st, Some(if_group.clone()),
+                let save_cond = builder.build_assignment(
+                    cond_stored.borrow().get("in"),
+                    Rc::clone(&s.port),
+                    Some(cond_done.clone()),
+                );
+                let mut assigns = build_assignments!(builder;
                     // Increment fsm every cycle till end
-                    incr["left"] = (fsm["out"]);
-                    incr["right"] = (one);
-                    fsm["in"] = not_done_guard ? (incr["out"]);
-                    fsm["write_en"] = not_done_guard ? (signal_on.clone());
+                    incr["left"] = ? fsm["out"];
+                    incr["right"] = ? one["out"];
+                    fsm["in"] = not_done_guard ? incr["out"];
+                    fsm["write_en"] = not_done_guard ? signal_on["out"];
 
                     // Compute the cond group
-                    cond_group["go"] = cond_go ? (signal_on.clone());
+                    cond["go"] = cond_go ? signal_on["out"];
 
                     // Store the value of the conditional
-                    cond_stored["write_en"] = cond_done ? (signal_on.clone());
-                    cond_stored["in"] = cond_done ? (s.port.get_edge(st)?);
+                    cond_stored["write_en"] = cond_done ? signal_on["out"];
 
                     // Enable one of the branches
-                    true_group["go"] = true_go ? (signal_on.clone());
-                    false_group["go"] = false_go ? (signal_on.clone());
+                    tru["go"] = true_go ? signal_on["out"];
+                    fal["go"] = false_go ? signal_on["out"];
 
                     // Group is done when we've counted up to max.
-                    if_group_node["done"] = done_guard ? (signal_on.clone());
+                    if_group["done"] = done_guard ? signal_on["out"];
                 );
+                if_group.borrow_mut().assignments.append(&mut assigns);
+                if_group.borrow_mut().assignments.push(save_cond);
 
                 // CLEANUP: Reset FSM to 0 when computation is finished.
-                add_wires!(st, None,
-                    fsm["in"] = done_guard ? (reset_val);
-                    fsm["write_en"] = done_guard ? (signal_on);
+                let mut clean_assigns = build_assignments!(builder;
+                    fsm["in"] = done_guard ? reset_val["out"];
+                    fsm["write_en"] = done_guard ? signal_on["out"];
                 );
+                comp.continuous_assignments.append(&mut clean_assigns);
 
-                return Ok(Action::Change(Control::enable(if_group)));
+                return Ok(Action::Change(ir::Control::enable(if_group)));
             }
         }
 
         Ok(Action::Continue)
-    }*/
+    }
 
     fn finish_par(
         &mut self,
@@ -530,7 +525,9 @@ impl Visitor for StaticTiming {
         comp.continuous_assignments.append(&mut cleanup_assigns);
 
         // Add static attribute to this group.
-        seq_group.borrow_mut().attributes
+        seq_group
+            .borrow_mut()
+            .attributes
             .insert("static".to_string(), cur_cycle);
 
         // Replace the control with the seq group.
