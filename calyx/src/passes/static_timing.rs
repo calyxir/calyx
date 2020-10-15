@@ -409,8 +409,7 @@ impl Visitor for StaticTiming {
             for con in s.stmts.iter() {
                 if let ir::Control::Enable(data) = con {
                     let group = &data.group;
-                    let static_time: u64 =
-                        group.borrow().attributes["static"];
+                    let static_time: u64 = group.borrow().attributes["static"];
 
                     // group[go] = fsm.out <= static_time ? 1;
                     structure!(builder;
@@ -442,55 +441,42 @@ impl Visitor for StaticTiming {
         }
     }
 
-    /*fn finish_seq(
+    fn finish_seq(
         &mut self,
-        s: &ast::Seq,
-        comp: &mut Component,
-        ctx: &Context,
+        s: &mut ir::Seq,
+        comp: &mut ir::Component,
+        ctx: &lib::LibrarySignatures,
     ) -> VisResult {
         // If this sequence only contains groups with the "static" attribute,
         // compile it using a statically timed FSM.
-        let total_time =
-            accumulate_static_time(&comp.structure, &s.stmts, |acc, x| acc + x);
+        let total_time = accumulate_static_time(&s.stmts, |acc, x| acc + x);
 
         // Early return if this group is not compilable.
         if total_time.is_none() {
             return Ok(Action::Continue);
         }
 
-        let st = &mut comp.structure;
+        let mut builder = ir::Builder::from(comp, ctx, false);
         // TODO(rachit): Resize FSM by pre-calculating max value.
         let fsm_size = 32;
         // Create new group for compiling this seq.
-        let seq_group: ast::Id = st.namegen.gen_name("static_seq").into();
-        let seq_group_node = st.insert_group(&seq_group, HashMap::new())?;
+        let seq_group = builder.add_group("static_seq", HashMap::new());
 
         // Add FSM register
-        structure!(st, &ctx,
+        structure!(builder;
             let fsm = prim std_reg(fsm_size);
             let signal_const = constant(1, 1);
         );
 
         let mut cur_cycle = 0;
         for con in s.stmts.iter() {
-            if let Control::Enable {
-                data: Enable { comp: group_name },
-            } = con
-            {
-                let group = st.get_node_by_name(&group_name)?;
+            if let ir::Control::Enable(data) = con {
+                let group = &data.group;
 
                 // Static time of the group.
-                let static_time: u64 = *st
-                    .groups
-                    .get(&Some(group_name.clone()))
-                    .expect("Group missing from structure")
-                    .0
-                    .get("static")
-                    .expect(
-                        "Impossible: Group doesn't have \"static\" attribute",
-                    );
+                let static_time: u64 = group.borrow().attributes["static"];
 
-                structure!(st, &ctx,
+                structure!(builder;
                     let start_st = constant(cur_cycle, fsm_size);
                     let end_st = constant(cur_cycle + static_time, fsm_size);
                 );
@@ -500,54 +486,54 @@ impl Visitor for StaticTiming {
                 // contains unsigned values, it will always be true and
                 // Verilator will generate %Warning-UNSIGNED.
                 let go_guard = if static_time == 1 {
-                    guard!(st; fsm["out"]).eq(st.to_guard(start_st))
+                    guard!(fsm["out"]).eq(guard!(start_st["out"]))
                 } else if cur_cycle == 0 {
-                    guard!(st; fsm["out"]).le(st.to_guard(end_st))
+                    guard!(fsm["out"]).le(guard!(end_st["out"]))
                 } else {
-                    guard!(st; fsm["out"]).ge(st.to_guard(start_st))
-                        & guard!(st; fsm["out"]).lt(st.to_guard(end_st))
+                    guard!(fsm["out"]).ge(guard!(start_st["out"]))
+                        & guard!(fsm["out"]).lt(guard!(end_st["out"]))
                 };
 
-                add_wires!(st, Some(seq_group.clone()),
-                    group["go"] = go_guard ? (signal_const.clone());
+                let mut assigns = build_assignments!(builder;
+                    group["go"] = go_guard ? signal_const["out"];
                 );
+                seq_group.borrow_mut().assignments.append(&mut assigns);
 
                 cur_cycle += static_time;
             }
         }
 
         // Add self incrementing logic for the FSM.
-        structure!(st, &ctx,
+        structure!(builder;
             let incr = prim std_add(fsm_size);
             let one = constant(1, fsm_size);
             let last = constant(cur_cycle, fsm_size);
             let reset_val = constant(0, fsm_size);
         );
-        let done_guard = guard!(st; fsm["out"]).eq(st.to_guard(last));
+        let done_guard = guard!(fsm["out"]).eq(guard!(last["out"]));
         let not_done_guard = !done_guard.clone();
 
-        add_wires!(st, Some(seq_group.clone()),
-            incr["left"] = (one);
-            incr["right"] = (fsm["out"]);
-            fsm["in"] = not_done_guard ? (incr["out"]);
-            fsm["write_en"] = not_done_guard ? (signal_const.clone());
-            seq_group_node["done"] = done_guard ? (signal_const.clone());
+        let mut incr_assigns = build_assignments!(builder;
+            incr["left"] = ? one["out"];
+            incr["right"] = ? fsm["out"];
+            fsm["in"] = not_done_guard ? incr["out"];
+            fsm["write_en"] = not_done_guard ? signal_const["out"];
+            seq_group["done"] = done_guard ? signal_const["out"];
         );
+        seq_group.borrow_mut().assignments.append(&mut incr_assigns);
 
         // CLEANUP: Reset the fsm to initial state once it's done.
-        add_wires!(st, None,
-            fsm["in"] = done_guard ? (reset_val);
-            fsm["write_en"] = done_guard ? (signal_const);
+        let mut cleanup_assigns = build_assignments!(builder;
+            fsm["in"] = done_guard ? reset_val["out"];
+            fsm["write_en"] = done_guard ? signal_const["out"];
         );
+        comp.continuous_assignments.append(&mut cleanup_assigns);
 
         // Add static attribute to this group.
-        st.groups
-            .get_mut(&Some(seq_group.clone()))
-            .expect("Missing group")
-            .0
+        seq_group.borrow_mut().attributes
             .insert("static".to_string(), cur_cycle);
 
         // Replace the control with the seq group.
-        Ok(Action::Change(Control::enable(seq_group)))
-    }*/
+        Ok(Action::Change(ir::Control::enable(seq_group)))
+    }
 }
