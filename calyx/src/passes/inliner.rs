@@ -53,24 +53,22 @@ impl Visitor for Inliner {
             )
         };
 
+        let this_comp = Rc::clone(&comp.signature);
+        let mut builder = ir::Builder::from(comp, sigs, false);
         // make a builder for constructing constants. Introduce new scope
         // for builder so that it only holds its mutable reference to
         // `comp` for the duration of this scope
-        {
-            let this_comp = Rc::clone(&comp.signature);
-            let builder = ir::Builder::from(comp, sigs, false);
 
-            // add top_level[go] = this.go
-            let mut asgns = build_assignments!(
-                builder;
-                top_level["go"] = ? this_comp["go"];
-                this_comp["done"] = ? top_level["done"];
-            );
-            comp.continuous_assignments.append(&mut asgns);
-        }
+        // add top_level[go] = this.go
+        let mut asgns = build_assignments!(
+            builder;
+            top_level["go"] = ? this_comp["go"];
+            this_comp["done"] = ? top_level["done"];
+        );
+        builder.component.continuous_assignments.append(&mut asgns);
 
         // construct analysis graph and find sub-graph of all edges that include a hole
-        let analysis = GraphAnalysis::from(&comp);
+        let analysis = GraphAnalysis::from(&builder.component);
         let subgraph = analysis
             .clone()
             .edge_induced_subgraph(|src, dst| src.is_hole() || dst.is_hole());
@@ -86,7 +84,7 @@ impl Visitor for Inliner {
         // map of holes to their guard expressions
         let mut map = HashMap::new();
         let mut assignments = vec![];
-        for group in &comp.groups {
+        for group in &builder.component.groups {
             // compute write closure
             for hole in &group.borrow().holes {
                 map.insert(
@@ -101,33 +99,30 @@ impl Visitor for Inliner {
         }
 
         // add the continuous assignment edges
-        assignments
-            .append(&mut comp.continuous_assignments.drain(..).collect());
+        assignments.append(
+            &mut builder.component.continuous_assignments.drain(..).collect(),
+        );
 
         // remove edges that write to a hole
         assignments.retain(|asgn| !asgn.dst.borrow().is_hole());
 
         // move direct reads from holes into the guard so they can be inlined
         //   e.g. s.in = G[go]; => s.in G[go] ? 1'b1;
-        {
-            // introduce scope for builder
-            let mut builder = ir::Builder::from(comp, sigs, false);
-            structure!(
-                builder;
-                let signal_on = constant(1, 1);
-            );
-            assignments.iter_mut().for_each(|mut asgn| {
-                if asgn.src.borrow().is_hole() {
-                    asgn.guard = Some(match &asgn.guard {
-                        Some(g) => {
-                            g.clone().and(ir::Guard::Port(Rc::clone(&asgn.src)))
-                        }
-                        None => ir::Guard::Port(Rc::clone(&asgn.src)),
-                    });
-                    asgn.src = signal_on.borrow().get("out");
-                }
-            });
-        }
+        structure!(
+            builder;
+            let signal_on = constant(1, 1);
+        );
+        assignments.iter_mut().for_each(|mut asgn| {
+            if asgn.src.borrow().is_hole() {
+                asgn.guard = Some(match &asgn.guard {
+                    Some(g) => {
+                        g.clone().and(ir::Guard::Port(Rc::clone(&asgn.src)))
+                    }
+                    None => ir::Guard::Port(Rc::clone(&asgn.src)),
+                });
+                asgn.src = signal_on.borrow().get("out");
+            }
+        });
 
         // replace reads from a hole with the value in the map
         for asgn in &mut assignments {
