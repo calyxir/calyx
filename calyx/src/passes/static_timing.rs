@@ -1,10 +1,7 @@
-use crate::lang::ast::{Control, Enable};
-use crate::lang::{
-    ast, component::Component, context::Context, structure::StructureGraph,
-    structure_builder::ASTBuilder,
-};
-use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use crate::{add_wires, guard, port, structure};
+use crate::frontend::library::ast as lib;
+use crate::ir;
+use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::{build_assignments, guard, structure};
 use std::cmp;
 use std::collections::HashMap;
 
@@ -24,24 +21,19 @@ impl Named for StaticTiming {
 /// Function to iterate over a vector of control statements and collect
 /// the "static" attribute using the `acc` function.
 /// Returns None if any of of the Control statements is a compound statement.
-fn accumulate_static_time<F>(
-    st: &StructureGraph,
-    stmts: &[Control],
-    acc: F,
-) -> Option<u64>
+fn accumulate_static_time<F>(stmts: &[ir::Control], acc: F) -> Option<u64>
 where
-    F: FnMut(u64, &u64) -> u64,
+    F: FnMut(u64, u64) -> u64,
 {
-    let timing: Result<Vec<&u64>, ()> = stmts
+    let timing: Result<Vec<u64>, ()> = stmts
         .iter()
         .map(|con| {
-            if let Control::Enable {
-                data: Enable { comp: group },
-            } = con
-            {
-                st.groups[&Some(group.clone())]
-                    .0
+            if let ir::Control::Enable(data) = con {
+                data.group
+                    .borrow()
+                    .attributes
                     .get("static")
+                    .map(|v| v.clone())
                     .ok_or_else(|| ())
             } else {
                 Err(())
@@ -53,7 +45,7 @@ where
 }
 
 impl Visitor for StaticTiming {
-    fn finish_while(
+    /*fn finish_while(
         &mut self,
         s: &ast::While,
         comp: &mut Component,
@@ -248,9 +240,9 @@ impl Visitor for StaticTiming {
         }
 
         Ok(Action::Continue)
-    }
+    }*/
 
-    fn finish_if(
+    /*fn finish_if(
         &mut self,
         s: &ast::If,
         comp: &mut Component,
@@ -374,93 +366,83 @@ impl Visitor for StaticTiming {
         }
 
         Ok(Action::Continue)
-    }
+    }*/
 
     fn finish_par(
         &mut self,
-        s: &ast::Par,
-        comp: &mut Component,
-        ctx: &Context,
+        s: &mut ir::Par,
+        comp: &mut ir::Component,
+        ctx: &lib::LibrarySignatures,
     ) -> VisResult {
         let maybe_max_time =
-            accumulate_static_time(&comp.structure, &s.stmts, |acc, x| {
-                cmp::max(acc, *x)
-            });
+            accumulate_static_time(&s.stmts, |acc, x| cmp::max(acc, x));
 
         // Early return if this group is not compilable.
         if let Some(max_time) = maybe_max_time {
-            let st = &mut comp.structure;
+            let mut builder = ir::Builder::from(comp, ctx, false);
 
             let mut attrs = HashMap::new();
             attrs.insert("static".to_string(), max_time);
 
-            let par_group: ast::Id = st.namegen.gen_name("static_par").into();
-            let par_group_node = st.insert_group(&par_group, attrs)?;
+            let par_group = builder.add_group("static_par", attrs);
 
             // XXX(rachit): Calculate the precise number of states required.
             let fsm_size = 32;
-            structure!(st, &ctx,
+            structure!(builder;
                 let fsm = prim std_reg(fsm_size);
                 let signal_const = constant(1, 1);
                 let incr = prim std_add(fsm_size);
                 let one = constant(1, fsm_size);
                 let last = constant(max_time, fsm_size);
             );
-            let done_guard = guard!(st; fsm["out"]).eq(st.to_guard(last));
+            let done_guard = guard!(fsm["out"]).eq(guard!(last["out"]));
             let not_done_guard = !done_guard.clone();
 
-            add_wires!(st, Some(par_group.clone()),
-                incr["left"] = (one);
-                incr["right"] = (fsm["out"]);
-                fsm["in"] = not_done_guard ? (incr["out"]);
-                fsm["write_en"] = not_done_guard ? (signal_const.clone());
-                par_group_node["done"] = done_guard ? (signal_const.clone());
+            let mut assigns = build_assignments!(builder;
+                incr["left"] = ? one["out"];
+                incr["right"] = ? fsm["out"];
+                fsm["in"] = not_done_guard ? incr["out"];
+                fsm["write_en"] = not_done_guard ? signal_const["out"];
+                par_group["done"] = done_guard ? signal_const["out"];
             );
+            par_group.borrow_mut().assignments.append(&mut assigns);
             for con in s.stmts.iter() {
-                if let Control::Enable {
-                    data: Enable { comp: group_name },
-                } = con
-                {
-                    let group = st.get_node_by_name(&group_name)?;
-
-                    let static_time: u64 = *st
-                    .groups
-                    .get(&Some(group_name.clone()))
-                    .expect("Group missing from structure")
-                    .0
-                    .get("static")
-                    .expect(
-                        "Impossible: Group doesn't have \"static\" attribute",
-                    );
+                if let ir::Control::Enable(data) = con {
+                    let group = &data.group;
+                    let static_time: u64 =
+                        group.borrow().attributes["static"];
 
                     // group[go] = fsm.out <= static_time ? 1;
-                    structure!(st, &ctx,
+                    structure!(builder;
                         let state_const = constant(static_time, fsm_size);
                     );
                     let go_guard =
-                        guard!(st; fsm["out"]).le(st.to_guard(state_const));
-                    add_wires!(st, Some(par_group.clone()),
-                      group["go"] = go_guard ? (signal_const.clone());
+                        guard!(fsm["out"]).le(guard!(state_const["out"]));
+
+                    let mut assigns = build_assignments!(builder;
+                      group["go"] = go_guard ? signal_const["out"];
                     );
+                    par_group.borrow_mut().assignments.append(&mut assigns);
                 }
             }
 
             // CLEANUP: Reset the FSM to initial state.
-            structure!(st, &ctx,
+            structure!(builder;
                 let reset_val = constant(0, fsm_size);
             );
-            add_wires!(st, None,
-                fsm["in"] = done_guard ? (reset_val);
-                fsm["write_en"] = done_guard ? (signal_const);
+            let mut cleanup_assigns = build_assignments!(builder;
+                fsm["in"] = done_guard ? reset_val["out"];
+                fsm["write_en"] = done_guard ? signal_const["out"];
             );
+            comp.continuous_assignments.append(&mut cleanup_assigns);
 
-            Ok(Action::Change(Control::enable(par_group)))
+            Ok(Action::Change(ir::Control::enable(par_group)))
         } else {
             Ok(Action::Continue)
         }
     }
 
-    fn finish_seq(
+    /*fn finish_seq(
         &mut self,
         s: &ast::Seq,
         comp: &mut Component,
@@ -567,5 +549,5 @@ impl Visitor for StaticTiming {
 
         // Replace the control with the seq group.
         Ok(Action::Change(Control::enable(seq_group)))
-    }
+    }*/
 }

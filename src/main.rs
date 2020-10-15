@@ -163,8 +163,8 @@ fn main() -> FutilResult<()> {
         opts.enable_debug,
     )?;
 
-    //WellFormed::do_pass_default(&mut rep)?;
-    //Papercut::do_pass_default(&mut rep)?;
+    WellFormed::do_pass_default(&mut rep)?;
+    Papercut::do_pass_default(&mut rep)?;
     CompileEmpty::do_pass_default(&mut rep)?;
     CompileControl::do_pass_default(&mut rep)?;
     GoInsertion::do_pass_default(&mut rep)?;

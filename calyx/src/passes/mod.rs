@@ -9,11 +9,12 @@ mod go_insertion;
 //mod merge_assign;
 mod papercut;
 //mod remove_external_memories;
-//mod static_timing;
+mod static_timing;
 
 pub use collapse_control::CollapseControl;
 pub use compile_control::CompileControl;
 pub use compile_empty::CompileEmpty;
-pub use well_formed::WellFormed;
-pub use papercut::Papercut;
 pub use go_insertion::GoInsertion;
+pub use papercut::Papercut;
+pub use well_formed::WellFormed;
+pub use static_timing::StaticTiming;
