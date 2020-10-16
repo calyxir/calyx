@@ -7,10 +7,11 @@ use crate::{
     errors::{Error, FutilResult},
     // frontend::library::ast as lib,
     ir,
-    utils::OutputFile,
+    utils::{Keyable, OutputFile},
 };
 use ir::{Control, Group, Guard, RRC};
-use std::rc::Rc;
+use itertools::Itertools;
+use std::{collections::HashMap, rc::Rc};
 use vast::v17::ast as v;
 // use lib::Implementation;
 // use pretty::termcolor::ColorSpec;
@@ -153,28 +154,72 @@ fn emit_component(comp: &ir::Component) -> v::Module {
             ir::Direction::Inout => todo!("error message"),
         }
     }
-    let seq_stmts = comp
-        .continuous_assignments
-        .iter()
-        .map(|asgn| emit_assignment(&asgn))
+
+    // gather assignments keyed by destination
+    let mut map: HashMap<_, (RRC<ir::Port>, Vec<_>)> = HashMap::new();
+    for asgn in &comp.continuous_assignments {
+        map.entry(asgn.dst.borrow().key())
+            .and_modify(|(_, v)| v.push(asgn))
+            .or_insert((Rc::clone(&asgn.dst), vec![asgn]));
+    }
+
+    let seq_stmts = map
+        .values()
+        .sorted_by_key(|(port, _)| port.borrow().name.to_string())
+        .map(|asgns| emit_assignment(asgns))
         .collect::<Vec<_>>();
     module.add_always_comb(v::AlwaysComb { body: seq_stmts });
     module
 }
 
-fn emit_assignment(assignment: &ir::Assignment) -> v::Sequential {
-    v::Sequential::SeqAssign(
-        port_to_ref(Rc::clone(&assignment.dst)),
-        guard_to_expr(assignment.guard.as_ref().unwrap()),
+fn emit_assignment(
+    (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
+) -> v::Sequential {
+    let dst = dst_ref.borrow();
+    let init = v::Sequential::SeqAssign(
+        port_to_ref(Rc::clone(&dst_ref)),
+        v::Expr::new_ulit_dec(dst.width as u32, &0.to_string()),
         v::AssignTy::NonBlocking,
-    )
+    );
+    assignments.iter().rfold(init, |acc, e| match &e.guard {
+        Some(g) => {
+            let guard = guard_to_expr(g);
+            v::Sequential::If(
+                guard,
+                vec![v::Sequential::SeqAssign(
+                    port_to_ref(Rc::clone(&e.dst)),
+                    port_to_ref(Rc::clone(&e.src)),
+                    v::AssignTy::NonBlocking,
+                )],
+                vec![acc],
+            )
+        }
+        None => unimplemented!(),
+    })
 }
 
 fn port_to_ref(port_ref: RRC<ir::Port>) -> v::Expr {
     let port = port_ref.borrow();
-    let id =
-        format!("{}_{}", port.get_parent_name().as_ref(), port.name.as_ref());
-    v::Expr::Ref(id)
+    match &port.parent {
+        ir::PortParent::Cell(cell) => {
+            let parent_ref = cell.upgrade().unwrap();
+            let parent = parent_ref.borrow();
+            match parent.prototype {
+                ir::CellType::Constant { val, width } => {
+                    v::Expr::new_ulit_dec(width as u32, &val.to_string())
+                }
+                ir::CellType::ThisComponent => {
+                    v::Expr::Ref(port.name.to_string())
+                }
+                _ => v::Expr::Ref(format!(
+                    "{}_{}",
+                    parent.name.as_ref(),
+                    port.name.as_ref()
+                )),
+            }
+        }
+        ir::PortParent::Group(_) => unreachable!(),
+    }
 }
 
 fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
@@ -187,9 +232,7 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
         Guard::Lt(_, _) => v::Binop::Lt,
         Guard::Geq(_, _) => v::Binop::Geq,
         Guard::Leq(_, _) => v::Binop::Leq,
-        Guard::Not(_) | Guard::Port(_) | Guard::True => {
-            panic!("No binop for this guard.")
-        }
+        Guard::Not(_) | Guard::Port(_) | Guard::True => unreachable!(),
     };
 
     match guard {
