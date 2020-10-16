@@ -1,9 +1,27 @@
-use crate::lang::ast::{Cell, Portdef};
-use crate::lang::component::Component;
-use crate::lang::context::Context;
-use crate::lang::structure::{DataDirection, Node, NodeData};
-use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use petgraph::graph::NodeIndex;
+//! Pass to externalize input/output ports for "external" cells.
+//! The input ports of these cells are exposed through the ports of the
+//! component containing them.
+//! For example:
+//! ```
+//! component main() -> () {
+//!     cells {
+//!         // Inputs: addr0, write_data, write_en
+//!         // Outputs: read_data, done
+//!         m1 = prim std_mem_d1_ext(32, 10, 4);
+//!     }
+//! }
+//! ```
+//! is transformed into:
+//! ```
+//! component main(m1_add0, m1_write_data, m1_write_en) -> (m1_read_data, m1_done) {
+//!     cells {
+//!         mem1 = prim std_mem_d1_ext(32, 10, 4);
+//!     }
+//! }
+//! ```
+use crate::frontend::library::ast as lib;
+use crate::ir;
+use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 
 #[derive(Default)]
 pub struct Externalize;
@@ -14,32 +32,40 @@ impl Named for Externalize {
     }
 
     fn description() -> &'static str {
-        "externalize the interfaces of _ext memories"
+        "Externalize the interfaces of _ext memories"
+    }
+}
+
+impl Externalize {
+    /// Is this primitive and external
+    pub fn is_external_cell(name: &str) -> bool {
+        name.starts_with("std_mem") && name.ends_with("ext")
+    }
+
+    /// Generate a string given the name of the component and the port.
+    pub fn port_name(comp: &str, port: &str) -> ir::Id {
+        format!("{}_{}", comp, port).into()
     }
 }
 
 impl Visitor for Externalize {
-    fn start(&mut self, comp: &mut Component, _c: &Context) -> VisResult {
-        let st = &mut comp.structure;
+    fn start(
+        &mut self,
+        comp: &mut ir::Component,
+        _c: &lib::LibrarySignatures,
+    ) -> VisResult {
+        //let st = &mut comp.structure;
 
-        let indicies = st
-            .component_iterator()
-            .filter_map(|(idx, node)| {
-                if let NodeData::Cell(Cell::Prim { data }) = &node.data {
-                    if data.instance.name.as_ref().starts_with("std_mem")
-                        && data.instance.name.as_ref().ends_with("ext")
-                    {
-                        Some((idx, node.clone()))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<(NodeIndex, Node)>>();
+        /*for cell_ref in comp.cells {
+            let cell = cell_ref.borrow_mut();
+            if let ir::CellType::Primitive { name, .. } = cell.prototype {
+                // If this cell is an "external" cell, expose the ports
+                // on the component signatures.
+                if name.starts_with("std_mem") && name.ends_with("ext") {}
+            }
+        }*/
 
-        for (idx, node) in indicies {
+        /*for (idx, node) in indicies {
             for portdef in &node.signature.inputs {
                 let portname =
                     format!("{}_{}", node.name.as_ref(), portdef.name.as_ref());
@@ -101,7 +127,7 @@ impl Visitor for Externalize {
             }
 
             st.remove_node(idx);
-        }
+        }*/
 
         // Stop traversal, we don't need to traverse over control ast
         Ok(Action::Stop)
