@@ -155,6 +155,13 @@ fn emit_component(comp: &ir::Component) -> v::Module {
         }
     }
 
+    // structure wire declarations
+    &comp
+        .cells
+        .iter()
+        .flat_map(|cell| wire_decls(&cell.borrow()))
+        .for_each(|decl| module.add_decl(decl));
+
     // gather assignments keyed by destination
     let mut map: HashMap<_, (RRC<ir::Port>, Vec<_>)> = HashMap::new();
     for asgn in &comp.continuous_assignments {
@@ -168,8 +175,36 @@ fn emit_component(comp: &ir::Component) -> v::Module {
         .sorted_by_key(|(port, _)| port.borrow().name.to_string())
         .map(|asgns| emit_assignment(asgns))
         .collect::<Vec<_>>();
+
     module.add_always_comb(v::AlwaysComb { body: seq_stmts });
     module
+}
+
+fn wire_decls(cell: &ir::Cell) -> Vec<v::Decl> {
+    cell.ports
+        .iter()
+        .filter_map(|port| match &port.borrow().parent {
+            ir::PortParent::Cell(cell) => {
+                let parent_ref = cell.upgrade().unwrap();
+                let parent = parent_ref.borrow();
+                match parent.prototype {
+                    ir::CellType::Component
+                    | ir::CellType::Primitive { .. } => {
+                        Some(v::Decl::new_logic(
+                            format!(
+                                "{}_{}",
+                                parent.name.as_ref(),
+                                port.borrow().name.as_ref()
+                            ),
+                            port.borrow().width,
+                        ))
+                    }
+                    _ => None,
+                }
+            }
+            ir::PortParent::Group(_) => unreachable!(),
+        })
+        .collect()
 }
 
 fn emit_assignment(
@@ -179,20 +214,19 @@ fn emit_assignment(
     let init = v::Sequential::SeqAssign(
         port_to_ref(Rc::clone(&dst_ref)),
         v::Expr::new_ulit_dec(dst.width as u32, &0.to_string()),
-        v::AssignTy::NonBlocking,
+        v::AssignTy::Blocking,
     );
     assignments.iter().rfold(init, |acc, e| match &e.guard {
         Some(g) => {
             let guard = guard_to_expr(g);
-            v::Sequential::If(
-                guard,
-                vec![v::Sequential::SeqAssign(
-                    port_to_ref(Rc::clone(&e.dst)),
-                    port_to_ref(Rc::clone(&e.src)),
-                    v::AssignTy::NonBlocking,
-                )],
-                vec![acc],
-            )
+            let mut if_s = v::SequentialIfElse::new(guard);
+            let asgn = v::Sequential::new_blk_assign(
+                port_to_ref(Rc::clone(&e.dst)),
+                port_to_ref(Rc::clone(&e.src)),
+            );
+            if_s.add_true_seq(asgn);
+            if_s.add_false_seq(acc);
+            if_s.into()
         }
         None => unimplemented!(),
     })
@@ -208,9 +242,7 @@ fn port_to_ref(port_ref: RRC<ir::Port>) -> v::Expr {
                 ir::CellType::Constant { val, width } => {
                     v::Expr::new_ulit_dec(width as u32, &val.to_string())
                 }
-                ir::CellType::ThisComponent => {
-                    v::Expr::Ref(port.name.to_string())
-                }
+                ir::CellType::ThisComponent => v::Expr::new_ref(&port.name),
                 _ => v::Expr::Ref(format!(
                     "{}_{}",
                     parent.name.as_ref(),
@@ -224,14 +256,14 @@ fn port_to_ref(port_ref: RRC<ir::Port>) -> v::Expr {
 
 fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
     let op = |g: &ir::Guard| match g {
-        Guard::Or(_) => v::Binop::LogOr,
-        Guard::And(_) => v::Binop::LogAnd,
-        Guard::Eq(_, _) => v::Binop::Equal,
-        Guard::Neq(_, _) => v::Binop::NotEqual,
-        Guard::Gt(_, _) => v::Binop::Gt,
-        Guard::Lt(_, _) => v::Binop::Lt,
-        Guard::Geq(_, _) => v::Binop::Geq,
-        Guard::Leq(_, _) => v::Binop::Leq,
+        Guard::Or(_) => v::Expr::new_logical_or,
+        Guard::And(_) => v::Expr::new_logical_and,
+        Guard::Eq(_, _) => v::Expr::new_eq,
+        Guard::Neq(_, _) => v::Expr::new_neq,
+        Guard::Gt(_, _) => v::Expr::new_gt,
+        Guard::Lt(_, _) => v::Expr::new_lt,
+        Guard::Geq(_, _) => v::Expr::new_geq,
+        Guard::Leq(_, _) => v::Expr::new_leq,
         Guard::Not(_) | Guard::Port(_) | Guard::True => unreachable!(),
     };
 
@@ -240,27 +272,18 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
             .iter()
             .map(guard_to_expr)
             .fold(None, |acc, r| {
-                acc.map(|l| {
-                    v::Expr::Binop(op(guard), Rc::new(l), Rc::new(r.clone()))
-                })
-                .or(Some(r))
+                acc.map(|l| op(guard)(l, r.clone())).or(Some(r))
             })
-            .unwrap_or(v::Expr::ULit(1, v::Radix::Bin, 1.to_string())),
+            .unwrap_or(v::Expr::new_ulit_bin(1, &1.to_string())),
         Guard::Eq(l, r)
         | Guard::Neq(l, r)
         | Guard::Gt(l, r)
         | Guard::Lt(l, r)
         | Guard::Geq(l, r)
-        | Guard::Leq(l, r) => v::Expr::Binop(
-            op(guard),
-            Rc::new(guard_to_expr(l)),
-            Rc::new(guard_to_expr(r)),
-        ),
-        Guard::Not(o) => {
-            v::Expr::Unop(v::Unop::LogNot, Rc::new(guard_to_expr(o)))
-        }
+        | Guard::Leq(l, r) => op(guard)(guard_to_expr(l), guard_to_expr(r)),
+        Guard::Not(o) => v::Expr::new_not(guard_to_expr(o)),
         Guard::Port(p) => port_to_ref(Rc::clone(p)),
-        Guard::True => v::Expr::ULit(1, v::Radix::Bin, 1.to_string()),
+        Guard::True => v::Expr::new_ulit_bin(1, &1.to_string()),
     }
 }
 
