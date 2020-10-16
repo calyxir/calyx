@@ -219,6 +219,18 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
         Some(ty_name) => {
             let mut inst =
                 v::Instance::new(cell.name.as_ref(), ty_name.as_ref());
+
+            if let ir::CellType::Primitive { param_binding, .. } =
+                &cell.prototype
+            {
+                param_binding.iter().for_each(|(name, width)| {
+                    inst.add_param(
+                        name.as_ref(),
+                        v::Expr::new_int(*width as i32),
+                    )
+                })
+            }
+
             for port in &cell.ports {
                 inst.connect(
                     port.borrow().name.as_ref(),
