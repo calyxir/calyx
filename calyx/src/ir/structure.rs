@@ -139,6 +139,16 @@ impl Cell {
             .as_str(),
         )
     }
+
+    /// Returns the name of the component that is this cells type.
+    pub fn type_name(&self) -> Option<&Id> {
+        match &self.prototype {
+            CellType::Primitive { name, .. } => Some(name),
+            CellType::Component => todo!(),
+            CellType::ThisComponent => Some(&self.name),
+            CellType::Constant { .. } => None,
+        }
+    }
 }
 
 /// Represents a guarded assignment in the program

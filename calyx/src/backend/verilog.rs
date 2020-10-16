@@ -162,6 +162,13 @@ fn emit_component(comp: &ir::Component) -> v::Module {
         .flat_map(|cell| wire_decls(&cell.borrow()))
         .for_each(|decl| module.add_decl(decl));
 
+    // cell instances
+    &comp
+        .cells
+        .iter()
+        .filter_map(|cell| cell_instance(&cell.borrow()))
+        .for_each(|instance| module.add_instance(instance));
+
     // gather assignments keyed by destination
     let mut map: HashMap<_, (RRC<ir::Port>, Vec<_>)> = HashMap::new();
     for asgn in &comp.continuous_assignments {
@@ -205,6 +212,23 @@ fn wire_decls(cell: &ir::Cell) -> Vec<v::Decl> {
             ir::PortParent::Group(_) => unreachable!(),
         })
         .collect()
+}
+
+fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
+    match cell.type_name() {
+        Some(ty_name) => {
+            let mut inst =
+                v::Instance::new(cell.name.as_ref(), ty_name.as_ref());
+            for port in &cell.ports {
+                inst.connect(
+                    port.borrow().name.as_ref(),
+                    port_to_ref(Rc::clone(port)),
+                );
+            }
+            Some(inst)
+        }
+        None => None,
+    }
 }
 
 fn emit_assignment(
