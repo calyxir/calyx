@@ -9,13 +9,24 @@
 //!         // Outputs: read_data, done
 //!         m1 = prim std_mem_d1_ext(32, 10, 4);
 //!     }
+//!     wires {
+//!         m1.addr0 = 1'd1;
+//!         x.in = m1.read_data;
+//!     }
 //! }
 //! ```
 //! is transformed into:
 //! ```
-//! component main(m1_add0, m1_write_data, m1_write_en) -> (m1_read_data, m1_done) {
+//! component main(
+//!     m1_read_data: 32,
+//!     m1_done: 1
+//! ) -> (m1_add0: 4, m1_write_data: 32, m1_write_en: 1) {
 //!     cells {
-//!         mem1 = prim std_mem_d1_ext(32, 10, 4);
+//!         // m1 removed.
+//!     }
+//!     wires {
+//!         m1_add0 = 1'd1;
+//!         x.in = m1_read_data;
 //!     }
 //! }
 //! ```
