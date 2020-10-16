@@ -1,3 +1,8 @@
+//! Removes all groups and inlines reads and writes from holes.
+//! After running this pass, there are no groups left in the `wires` section
+//! of the program.
+//! All remaining wires are continuous assignments which can be transformed
+//! into wires in a hardware description language.
 use crate::{
     build_assignments,
     errors::Error,
