@@ -25,12 +25,20 @@ impl IRPrinter {
             comp.name.id,
             inputs
                 .iter()
-                .map(|p| p.borrow().name.id.clone())
+                .map(|p| format!(
+                    "{}: {}",
+                    p.borrow().name.id.to_string(),
+                    p.borrow().width
+                ))
                 .collect::<Vec<_>>()
                 .join(", "),
             outputs
                 .iter()
-                .map(|p| p.borrow().name.id.clone())
+                .map(|p| format!(
+                    "{}: {}",
+                    p.borrow().name.id.to_string(),
+                    p.borrow().width
+                ))
                 .collect::<Vec<_>>()
                 .join(", ")
         )?;
@@ -56,9 +64,13 @@ impl IRPrinter {
         write!(f, "  }}\n")?;
 
         // Add the control program
-        write!(f, "  control {{\n")?;
-        Self::write_control(&comp.control.borrow(), 4, f)?;
-        write!(f, "  }}\n")?;
+        if matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
+            write!(f, "  control {{}}\n")?;
+        } else {
+            write!(f, "  control {{\n")?;
+            Self::write_control(&comp.control.borrow(), 4, f)?;
+            write!(f, "  }}\n")?;
+        }
 
         write!(f, "}}\n")
     }
@@ -188,16 +200,24 @@ impl IRPrinter {
                 Self::write_control(body, indent_level + 2, f)?;
                 write!(f, "{}}}", " ".repeat(indent_level))
             }
-            ir::Control::Empty(_) => write!(f, ""),
+            ir::Control::Empty(_) => writeln!(f, ""),
         }
     }
 
     /// Generate a String-based representation for a guard.
     fn guard_str(guard: &ir::Guard) -> String {
-        let op = match guard {
+        match guard {
             ir::Guard::And(gs) | ir::Guard::Or(gs) => gs
                 .iter()
-                .map(|g| Self::guard_str(g))
+                .map(|g| {
+                    let s = Self::guard_str(g);
+                    if g > guard {
+                        format!("({})", s)
+                    } else {
+                        s
+                    }
+                })
+                .filter(|s| s != "")
                 .collect::<Vec<_>>()
                 .join(&format!(" {} ", guard.op_str()).to_string()),
             ir::Guard::Eq(l, r)
@@ -205,21 +225,31 @@ impl IRPrinter {
             | ir::Guard::Gt(l, r)
             | ir::Guard::Lt(l, r)
             | ir::Guard::Geq(l, r)
-            | ir::Guard::Leq(l, r) => format!(
-                "{} {} {}",
-                Self::guard_str(l),
-                &guard.op_str(),
-                Self::guard_str(r)
-            ),
-            ir::Guard::Not(g) => format!("!{}", Self::guard_str(g)),
+            | ir::Guard::Leq(l, r) => {
+                let left = if &**l > guard {
+                    format!("({})", Self::guard_str(l))
+                } else {
+                    Self::guard_str(l)
+                };
+                let right = if &**r > guard {
+                    format!("({})", Self::guard_str(r))
+                } else {
+                    Self::guard_str(r)
+                };
+                format!("{} {} {}", left, &guard.op_str(), right)
+            }
+            ir::Guard::Not(g) => {
+                let s = if &**g > guard {
+                    format!("({})", Self::guard_str(g))
+                } else {
+                    Self::guard_str(g)
+                };
+                format!("!{}", s)
+            }
             ir::Guard::Port(port_ref) => {
                 Self::get_port_access(&port_ref.borrow())
             }
             ir::Guard::True => format!("1'b1"),
-        };
-        match guard {
-            ir::Guard::Port(_) => op,
-            _ => format!("({})", op),
         }
     }
 
@@ -239,6 +269,7 @@ impl IRPrinter {
                     ir::CellType::Constant { val, width } => {
                         format!("{}'d{}", width, val)
                     }
+                    ir::CellType::ThisComponent => port.name.to_string(),
                     _ => format!("{}.{}", cell.name.id, port.name.id),
                 }
             }

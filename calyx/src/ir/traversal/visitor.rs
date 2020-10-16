@@ -67,7 +67,8 @@ pub trait Visitor {
                         // Never skip the .finish method.
                         Ok(Action::Continue)
                     })?
-                    .and_then(|| self.finish(&mut comp, signatures))?;
+                    .and_then(|| self.finish(&mut comp, signatures))?
+                    .apply_change(&mut comp.control.borrow_mut())?;
                 Ok(())
             })
             .collect::<FutilResult<_>>()?;

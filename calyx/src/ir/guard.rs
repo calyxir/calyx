@@ -1,12 +1,12 @@
 use super::{Port, RRC};
 use std::ops::{BitAnd, BitOr, Not};
-use std::rc::Rc;
+use std::{cmp::Ordering, rc::Rc};
 
 /// An assignment guard which has pointers to the various ports from which it reads.
 #[derive(Debug, Clone)]
 pub enum Guard {
-    And(Vec<Guard>),
     Or(Vec<Guard>),
+    And(Vec<Guard>),
     Eq(Box<Guard>, Box<Guard>),
     Neq(Box<Guard>, Box<Guard>),
     Gt(Box<Guard>, Box<Guard>),
@@ -192,6 +192,66 @@ impl Guard {
 impl From<RRC<Port>> for Guard {
     fn from(port: RRC<Port>) -> Self {
         Guard::Port(Rc::clone(&port))
+    }
+}
+
+impl PartialEq for Guard {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Guard::Or(_), Guard::Or(_)) => true,
+            (Guard::And(_), Guard::And(_)) => true,
+            (Guard::Eq(_, _), Guard::Eq(_, _)) => true,
+            (Guard::Neq(_, _), Guard::Neq(_, _)) => true,
+            (Guard::Gt(_, _), Guard::Gt(_, _)) => true,
+            (Guard::Lt(_, _), Guard::Lt(_, _)) => true,
+            (Guard::Geq(_, _), Guard::Geq(_, _)) => true,
+            (Guard::Leq(_, _), Guard::Leq(_, _)) => true,
+            (Guard::Not(_), Guard::Not(_)) => true,
+            (Guard::Port(_), Guard::Port(_)) => true,
+            (Guard::True, Guard::True) => true,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for Guard {}
+
+/// Define order on guards
+impl PartialOrd for Guard {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Guard {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self == other {
+            Ordering::Equal
+        } else {
+            match (self, other) {
+                (Guard::Or(_), _) => Ordering::Greater,
+                (_, Guard::Or(_)) => Ordering::Less,
+                (Guard::And(_), _) => Ordering::Greater,
+                (_, Guard::And(_)) => Ordering::Less,
+                (Guard::Leq(..), _) => Ordering::Greater,
+                (_, Guard::Leq(..)) => Ordering::Less,
+                (Guard::Geq(..), _) => Ordering::Greater,
+                (_, Guard::Geq(..)) => Ordering::Less,
+                (Guard::Lt(..), _) => Ordering::Greater,
+                (_, Guard::Lt(..)) => Ordering::Less,
+                (Guard::Gt(..), _) => Ordering::Greater,
+                (_, Guard::Gt(..)) => Ordering::Less,
+                (Guard::Eq(..), _) => Ordering::Greater,
+                (_, Guard::Eq(..)) => Ordering::Less,
+                (Guard::Neq(..), _) => Ordering::Greater,
+                (_, Guard::Neq(..)) => Ordering::Less,
+                (Guard::Not(..), _) => Ordering::Greater,
+                (_, Guard::Not(..)) => Ordering::Less,
+                (Guard::Port(..), _) => Ordering::Greater,
+                (_, Guard::Port(..)) => Ordering::Less,
+                (Guard::True, _) => Ordering::Greater,
+            }
+        }
     }
 }
 
