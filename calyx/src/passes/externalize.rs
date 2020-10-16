@@ -22,6 +22,7 @@
 use crate::frontend::library::ast as lib;
 use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Default)]
 pub struct Externalize;
@@ -36,98 +37,53 @@ impl Named for Externalize {
     }
 }
 
-impl Externalize {
-    /// Is this primitive and external
-    pub fn is_external_cell(name: &str) -> bool {
-        name.starts_with("std_mem") && name.ends_with("ext")
-    }
+/// Is this primitive and external
+fn is_external_cell(name: &ir::Id) -> bool {
+    name.as_ref().starts_with("std_mem") && name.as_ref().ends_with("ext")
+}
 
-    /// Generate a string given the name of the component and the port.
-    pub fn port_name(comp: &str, port: &str) -> ir::Id {
-        format!("{}_{}", comp, port).into()
-    }
+/// Generate a string given the name of the component and the port.
+fn format_port_name(comp: &ir::Id, port: &ir::Id) -> ir::Id {
+    format!("{}_{}", comp.id, port.id).into()
 }
 
 impl Visitor for Externalize {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _c: &lib::LibrarySignatures,
+        _ctx: &lib::LibrarySignatures,
     ) -> VisResult {
-        //let st = &mut comp.structure;
-
-        /*for cell_ref in comp.cells {
-            let cell = cell_ref.borrow_mut();
-            if let ir::CellType::Primitive { name, .. } = cell.prototype {
-                // If this cell is an "external" cell, expose the ports
-                // on the component signatures.
-                if name.starts_with("std_mem") && name.ends_with("ext") {}
-            }
-        }*/
-
-        /*for (idx, node) in indicies {
-            for portdef in &node.signature.inputs {
-                let portname =
-                    format!("{}_{}", node.name.as_ref(), portdef.name.as_ref());
-                let new_portdef = Portdef {
-                    name: portname.into(),
-                    width: portdef.width,
-                };
-                st.insert_output_port(&new_portdef);
-                for edidx in st
-                    .edge_idx()
-                    .with_node(idx)
-                    .with_port(portdef.name.to_string())
-                    .with_direction(DataDirection::Write)
-                    .detach()
-                {
-                    let edge = st.get_edge(edidx).clone();
-                    let src_port = edge.src.port_name().clone();
-                    let (src_node, _) = st.endpoints(edidx);
-
-                    st.insert_edge(
-                        (src_node, src_port),
-                        (st.get_this_idx(), new_portdef.name.clone()),
-                        edge.group,
-                        edge.guard,
-                    )?;
-
-                    st.remove_edge(edidx);
+        // Extract external cells.
+        let (ext_cells, cells): (Vec<_>, Vec<_>) =
+            comp.cells.drain(..).into_iter().partition(|cr| {
+                let cell = cr.borrow();
+                if let ir::CellType::Primitive { name, .. } = &cell.prototype {
+                    return is_external_cell(name);
                 }
+                false
+            });
+
+        // Re-add non-external cells.
+        comp.cells = cells;
+
+        // Detach the port from the component's cell and attach it to the
+        // component's signature.
+        // By doing this, we don't need to change the assignments since they
+        // refer to this port. All we have done is change the port's parent
+        // which automatically changes the assignments.
+        for cell_ref in ext_cells {
+            let mut cell = cell_ref.borrow_mut();
+            let name = cell.name.clone();
+            for port_ref in cell.ports.drain(..) {
+                let port_name = port_ref.borrow().name.clone();
+                // Change the name and the parent of this port.
+                port_ref.borrow_mut().name =
+                    format_port_name(&name, &port_name);
+                port_ref.borrow_mut().parent =
+                    ir::PortParent::Cell(Rc::downgrade(&comp.signature));
+                comp.signature.borrow_mut().ports.push(port_ref);
             }
-
-            for portdef in &node.signature.outputs {
-                let portname =
-                    format!("{}_{}", node.name.as_ref(), portdef.name.as_ref());
-                let new_portdef = Portdef {
-                    name: portname.into(),
-                    width: portdef.width,
-                };
-                st.insert_input_port(&new_portdef);
-                for edidx in st
-                    .edge_idx()
-                    .with_node(idx)
-                    .with_port(portdef.name.to_string())
-                    .with_direction(DataDirection::Read)
-                    .detach()
-                {
-                    let edge = st.get_edge(edidx).clone();
-                    let dest_port = edge.dest.port_name().clone();
-                    let (_, dest_node) = st.endpoints(edidx);
-
-                    st.insert_edge(
-                        (st.get_this_idx(), new_portdef.name.clone()),
-                        (dest_node, dest_port),
-                        edge.group,
-                        edge.guard,
-                    )?;
-
-                    st.remove_edge(edidx);
-                }
-            }
-
-            st.remove_node(idx);
-        }*/
+        }
 
         // Stop traversal, we don't need to traverse over control ast
         Ok(Action::Stop)

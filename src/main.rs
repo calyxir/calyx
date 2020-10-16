@@ -14,8 +14,8 @@ use cmdline::Opts;
 use pass_manager::PassManager;
 use passes::{
     CollapseControl, CompileControl, CompileEmpty, ComponentInterface,
-    GoInsertion, Inliner, Papercut, RemoveExternalMemories, StaticTiming,
-    WellFormed,
+    Externalize, GoInsertion, Inliner, Papercut, RemoveExternalMemories,
+    StaticTiming, WellFormed,
 };
 use std::io::stdin;
 use structopt::StructOpt;
@@ -34,7 +34,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
     register_pass!(pm, ComponentInterface);
     register_pass!(pm, Inliner);
     //register_pass!(pm, MergeAssign);
-    //register_pass!(pm, Externalize);
+    register_pass!(pm, Externalize);
     register_pass!(pm, RemoveExternalMemories);
     register_pass!(pm, CollapseControl);
     register_pass!(pm, CompileEmpty);
@@ -74,7 +74,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
             ComponentInterface,
             Inliner,
             //MergeAssign,
-            //Externalize,
+            Externalize,
         ]
     );
 
