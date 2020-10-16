@@ -20,3 +20,4 @@ pub use papercut::Papercut;
 pub use remove_external_memories::RemoveExternalMemories;
 pub use static_timing::StaticTiming;
 pub use well_formed::WellFormed;
+pub use component_interface::ComponentInterface;

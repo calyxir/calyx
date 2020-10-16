@@ -1,5 +1,5 @@
 mod cmdline;
-//mod pass_manager;
+mod pass_manager;
 
 use crate::ir::traversal::Visitor;
 use atty::Stream;
@@ -7,38 +7,22 @@ use calyx::{
     errors::{Error, FutilResult},
     frontend::{library, parser},
     ir,
-    //lang::context::Context,
+    ir::traversal::Named,
     passes,
-    //passes,
-    //utils::NameGenerator,
 };
 use cmdline::Opts;
+use pass_manager::PassManager;
 use passes::{
-    CompileControl, CompileEmpty, GoInsertion, Inliner, Papercut, StaticTiming,
+    CollapseControl, CompileControl, CompileEmpty, ComponentInterface,
+    GoInsertion, Inliner, Papercut, RemoveExternalMemories, StaticTiming,
     WellFormed,
 };
-//use pass_manager::PassManager;
-/*use passes::{
-    collapse_control::CollapseControl,
-    compile_control::CompileControl,
-    compile_empty::CompileEmpty,
-    component_interface::ComponentInterface,
-    externalize::Externalize,
-    go_insertion::GoInsertion,
-    inliner::Inliner,
-    merge_assign::MergeAssign,
-    papercut::Papercut,
-    remove_external_memories::RemoveExternalMemories,
-    static_timing::StaticTiming,
-    visitor::{Named, Visitor},
-    well_formed::WellFormed,
-};*/
 use std::io::stdin;
 use structopt::StructOpt;
 
 /// Construct the pass manager by registering all passes and aliases used
 /// by the command line.
-/*fn construct_pass_manager() -> FutilResult<PassManager> {
+fn construct_pass_manager() -> FutilResult<PassManager> {
     // Construct the pass manager and register all passes.
     let mut pm = PassManager::new();
 
@@ -49,8 +33,8 @@ use structopt::StructOpt;
     register_pass!(pm, GoInsertion);
     register_pass!(pm, ComponentInterface);
     register_pass!(pm, Inliner);
-    register_pass!(pm, MergeAssign);
-    register_pass!(pm, Externalize);
+    //register_pass!(pm, MergeAssign);
+    //register_pass!(pm, Externalize);
     register_pass!(pm, RemoveExternalMemories);
     register_pass!(pm, CollapseControl);
     register_pass!(pm, CompileEmpty);
@@ -71,20 +55,7 @@ use structopt::StructOpt;
             GoInsertion,
             ComponentInterface,
             Inliner,
-            MergeAssign,
-        ]
-    );
-
-    register_alias!(
-        pm,
-        "no-inline",
-        [
-            RemoveExternalMemories,
-            CompileEmpty,
-            StaticTiming,
-            CompileControl,
-            GoInsertion,
-            ComponentInterface,
+            //MergeAssign,
         ]
     );
 
@@ -102,27 +73,27 @@ use structopt::StructOpt;
             GoInsertion,
             ComponentInterface,
             Inliner,
-            MergeAssign,
-            Externalize,
+            //MergeAssign,
+            //Externalize,
         ]
     );
 
     register_alias!(pm, "none", []);
 
     Ok(pm)
-}*/
+}
 
 fn main() -> FutilResult<()> {
-    //let pm = construct_pass_manager()?;
+    let pm = construct_pass_manager()?;
 
     // parse the command line arguments into Opts struct
     let opts: Opts = Opts::from_args();
 
     // list all the avaliable pass options when flag --list-passes is enabled
-    /*if opts.list_passes {
+    if opts.list_passes {
         println!("{}", pm.show_names());
         return Ok(());
-    }*/
+    }
 
     // ==== Construct the context ====
     // parse the file
@@ -150,15 +121,6 @@ fn main() -> FutilResult<()> {
         })
         .collect::<FutilResult<Vec<_>>>()?;
 
-    // build context
-    /*let context = Context::from_ast(
-        namespace,
-        &libraries,
-        opts.enable_debug,
-        opts.enable_verilator,
-        opts.color,
-    )?;*/
-
     // Build the IR representation
     let mut rep: ir::Context = ir::from_ast::ast_to_ir(
         namespace.components,
@@ -166,20 +128,8 @@ fn main() -> FutilResult<()> {
         opts.enable_debug,
     )?;
 
-    WellFormed::do_pass_default(&mut rep)?;
-    Papercut::do_pass_default(&mut rep)?;
-    StaticTiming::do_pass_default(&mut rep)?;
-    CompileEmpty::do_pass_default(&mut rep)?;
-    CompileControl::do_pass_default(&mut rep)?;
-    GoInsertion::do_pass_default(&mut rep)?;
-    Inliner::do_pass_default(&mut rep)?;
-
-    // // Construct the name generator
-    // let name_gen = NameGenerator::default();
-
-    // // run all passes specified by the command line
-    // let context =
-    //     pm.execute_plan(context, name_gen, &opts.pass, &opts.disable_pass)?;
+    // Run all passes specified by the command line
+    pm.execute_plan(&mut rep, &opts.pass, &opts.disable_pass)?;
 
     opts.run_backend(&rep)?;
     Ok(())
