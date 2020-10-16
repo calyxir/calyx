@@ -52,7 +52,6 @@ impl Visitor for ComponentInterface {
         let control = control_ref.borrow();
 
         if let ir::Control::Enable(data) = &*control {
-
             let this = Rc::clone(&comp.signature);
             let mut builder = ir::Builder::from(comp, ctx, false);
             let group = &data.group;

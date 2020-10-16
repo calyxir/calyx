@@ -289,8 +289,7 @@ impl Visitor for StaticTiming {
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
     ) -> VisResult {
-        let maybe_max_time =
-            accumulate_static_time(&s.stmts, cmp::max);
+        let maybe_max_time = accumulate_static_time(&s.stmts, cmp::max);
 
         // Early return if this group is not compilable.
         if let Some(max_time) = maybe_max_time {
