@@ -73,12 +73,16 @@ impl LibraryParser {
             [identifier(id), bitwidth(bw)] => lib::ParamPortdef {
                 name: id,
                 width: lib::Width::Const { value: bw },
+                // XXX(rachit): FAKE Direction. `io_ports` assigns the
+                // correct directions.
                 direction: Direction::Input,
             },
             [identifier(id), identifier(param)] => lib::ParamPortdef {
                 name: id,
                 width: lib::Width::Param { value: param },
-                direction: Direction::Output,
+                // XXX(rachit): FAKE Direction. `io_ports` assigns the
+                // correct directions.
+                direction: Direction::Input,
             }
         ))
     }
@@ -113,7 +117,9 @@ impl LibraryParser {
     fn signature(input: Node) -> ParseResult<Vec<lib::ParamPortdef>> {
         Ok(match_nodes!(
             input.into_children();
-            [io_ports(ins), io_ports(outs)] => {
+            [io_ports(mut ins), io_ports(mut outs)] => {
+                ins.iter_mut().for_each(|i| i.direction = Direction::Input);
+                outs.iter_mut().for_each(|i| i.direction = Direction::Output);
                 ins.into_iter().chain(outs.into_iter()).collect()
             },
             [io_ports(ins)] => {
