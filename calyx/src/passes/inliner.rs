@@ -126,7 +126,7 @@ impl Visitor for Inliner {
 
         // replace reads from a hole with the value in the map
         for asgn in &mut assignments {
-            asgn.guard.as_mut().map(|guard| {
+            if let Some(guard) = asgn.guard.as_mut() {
                 guard.for_each(&|port| {
                     if port.is_hole() {
                         Some(map[&port.key()].clone())
@@ -134,7 +134,7 @@ impl Visitor for Inliner {
                         None
                     }
                 })
-            });
+            }
         }
         comp.continuous_assignments = assignments;
 

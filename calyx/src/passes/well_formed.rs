@@ -50,7 +50,7 @@ impl Visitor for WellFormed {
     fn start(
         &mut self,
         comp: &mut Component,
-        _s: &LibrarySignatures,
+        _ctx: &LibrarySignatures,
     ) -> VisResult {
         for group_ref in &comp.groups {
             self.all_groups.insert(group_ref.borrow().name.clone());
@@ -75,7 +75,7 @@ impl Visitor for WellFormed {
         &mut self,
         s: &mut ir::Enable,
         _comp: &mut Component,
-        _s: &LibrarySignatures,
+        _ctx: &LibrarySignatures,
     ) -> VisResult {
         self.used_groups.insert(s.group.borrow().name.clone());
         Ok(Action::Continue)
@@ -85,7 +85,7 @@ impl Visitor for WellFormed {
         &mut self,
         s: &mut ir::If,
         _comp: &mut Component,
-        _s: &LibrarySignatures,
+        _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Add cond group as a used port.
         self.used_groups.insert(s.cond.borrow().name.clone());
@@ -96,7 +96,7 @@ impl Visitor for WellFormed {
         &mut self,
         s: &mut ir::While,
         _comp: &mut Component,
-        _s: &LibrarySignatures,
+        _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Add cond group as a used port.
         self.used_groups.insert(s.cond.borrow().name.clone());
@@ -106,7 +106,7 @@ impl Visitor for WellFormed {
     fn finish(
         &mut self,
         _comp: &mut Component,
-        _s: &LibrarySignatures,
+        _ctx: &LibrarySignatures,
     ) -> VisResult {
         let unused_group = self
             .all_groups

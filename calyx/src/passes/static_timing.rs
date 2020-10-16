@@ -34,7 +34,7 @@ where
                     .borrow()
                     .attributes
                     .get("static")
-                    .map(|v| v.clone())
+                    .copied()
                     .ok_or_else(|| ())
             } else {
                 Err(())
@@ -140,7 +140,7 @@ impl Visitor for StaticTiming {
                 assignments.push(builder.build_assignment(
                     cond_stored.borrow().get("in"),
                     Rc::clone(&port),
-                    Some(cond_computed.clone()),
+                    Some(cond_computed),
                 ));
 
                 while_group
@@ -290,7 +290,7 @@ impl Visitor for StaticTiming {
         ctx: &lib::LibrarySignatures,
     ) -> VisResult {
         let maybe_max_time =
-            accumulate_static_time(&s.stmts, |acc, x| cmp::max(acc, x));
+            accumulate_static_time(&s.stmts, cmp::max);
 
         // Early return if this group is not compilable.
         if let Some(max_time) = maybe_max_time {

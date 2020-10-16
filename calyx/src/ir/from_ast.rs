@@ -184,7 +184,7 @@ fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
     };
     let (name, typ, inputs, outputs) = res?;
     // Construct the Cell
-    let cell = Builder::cell_from_signature(name.clone(), typ, inputs, outputs);
+    let cell = Builder::cell_from_signature(name, typ, inputs, outputs);
 
     Ok(cell)
 }

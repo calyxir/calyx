@@ -137,7 +137,7 @@ impl Guard {
                 return !p.borrow().is_constant(1, 1);
             }
 
-            return !matches!(guard, Guard::True);
+            !matches!(guard, Guard::True)
         });
         Guard::And(new)
     }

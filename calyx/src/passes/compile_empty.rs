@@ -55,6 +55,6 @@ impl Visitor for CompileEmpty {
             }
         };
 
-        return Ok(Action::Change(Control::enable(Rc::clone(&group_ref))));
+        Ok(Action::Change(Control::enable(Rc::clone(&group_ref))))
     }
 }

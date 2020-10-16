@@ -200,7 +200,7 @@ impl IRPrinter {
                 Self::write_control(body, indent_level + 2, f)?;
                 write!(f, "{}}}", " ".repeat(indent_level))
             }
-            ir::Control::Empty(_) => writeln!(f, ""),
+            ir::Control::Empty(_) => writeln!(f),
         }
     }
 

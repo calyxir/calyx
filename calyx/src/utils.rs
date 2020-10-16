@@ -33,7 +33,7 @@ impl NameGenerator {
         // Insert default value for this prefix if there is no entry.
         let count = self
             .name_hash
-            .entry(prefix.to_string().clone())
+            .entry(prefix.to_string())
             .and_modify(|v| *v += 1)
             .or_default();
 

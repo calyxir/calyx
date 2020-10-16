@@ -19,7 +19,7 @@ pub type CellGraph = DiGraph<Node, Edge>;
 impl Keyable for Port {
     type Key = (Id, Id);
     fn key(&self) -> Self::Key {
-        (self.get_parent_name().clone(), self.name.clone())
+        (self.get_parent_name(), self.name.clone())
     }
 }
 
@@ -59,10 +59,10 @@ impl GraphAnalysis {
             let dst_key = asgn.dst.borrow().key();
             nodes
                 .entry(src_key.clone())
-                .or_insert(graph.add_node(Rc::clone(&asgn.src)));
+                .or_insert_with(|| graph.add_node(Rc::clone(&asgn.src)));
             nodes
                 .entry(dst_key.clone())
-                .or_insert(graph.add_node(Rc::clone(&asgn.dst)));
+                .or_insert_with(|| graph.add_node(Rc::clone(&asgn.dst)));
             // add edge for the assignment
             let src_node = nodes[&src_key];
             let dst_node = nodes[&dst_key];
@@ -74,7 +74,7 @@ impl GraphAnalysis {
                     let guard_key = port.borrow().key();
                     nodes
                         .entry(guard_key.clone())
-                        .or_insert(graph.add_node(Rc::clone(&port)));
+                        .or_insert_with(|| graph.add_node(Rc::clone(&port)));
                     graph.add_edge(nodes[&guard_key], dst_node, ());
                 }
             };
