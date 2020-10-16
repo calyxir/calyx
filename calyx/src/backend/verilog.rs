@@ -5,7 +5,7 @@
 use crate::{
     backend::traits::Backend,
     errors::{Error, FutilResult},
-    // frontend::library::ast as lib,
+    frontend::library,
     ir,
     utils::{Keyable, OutputFile},
 };
@@ -14,14 +14,10 @@ use itertools::Itertools;
 use std::{collections::HashMap, rc::Rc};
 use vast::v17::ast as v;
 // use lib::Implementation;
-// use pretty::termcolor::ColorSpec;
-// use pretty::RcDoc;
-
-// type D<'a> = RcDoc<'a, ColorSpec>;
 
 /// Implements a simple Verilog backend. The backend
 /// only accepts Futil programs with no control and no groups.
-pub struct VerilogBackend {}
+pub struct VerilogBackend;
 
 /// Checks to make sure that there are no holes being
 /// used in a guard.
@@ -82,6 +78,14 @@ fn validate_control(ctrl: &ir::Control) -> FutilResult<()> {
     }
 }
 
+impl From<library::ast::Implementation> for library::ast::Verilog {
+    fn from(imp: library::ast::Implementation) -> Self {
+        match imp {
+            library::ast::Implementation::Verilog(v) => v,
+        }
+    }
+}
+
 impl Backend for VerilogBackend {
     fn name() -> &'static str {
         "verilog"
@@ -93,15 +97,20 @@ impl Backend for VerilogBackend {
             validate_control(&component.control.borrow())?;
         }
         Ok(())
-        // ctx.definitions_iter(|_, comp| {
-        //     validate_structure(comp)?;
-        //     validate_control(comp)
-        // })
     }
 
-    fn emit(ctx: &ir::Context, file: OutputFile) -> FutilResult<()> {
-        // let prog: ast::NamespaceDef = ctx.clone().into();
+    fn emit_primitives(
+        prims: Vec<&library::ast::Implementation>,
+        file: &mut OutputFile,
+    ) -> FutilResult<()> {
+        for prim in prims {
+            let library::ast::Implementation::Verilog(v) = prim;
+            writeln!(file.get_write(), "{}", v.code)?;
+        }
+        Ok(())
+    }
 
+    fn emit(ctx: &ir::Context, file: &mut OutputFile) -> FutilResult<()> {
         let modules = &ctx
             .components
             .iter()
@@ -109,32 +118,6 @@ impl Backend for VerilogBackend {
             .collect::<Vec<_>>();
 
         write!(file.get_write(), "{}", modules.join("\n"))?;
-        // build Vec of tuples first so that `comps` lifetime is longer than
-        // `docs` lifetime
-        // let comps: Vec<(&ast::ComponentDef, component::Component)> = prog
-        //     .components
-        //     .iter()
-        //     .map(|cd| (cd, ctx.get_component(&cd.name).unwrap()))
-        //     .collect();
-
-        // let docs = comps
-        //     .iter()
-        //     .map(|(cd, comp)| cd.doc(&ctx, &comp))
-        //     .collect::<FutilResult<Vec<_>>>()?;
-        // let prims = primitive_implemenations(&prog, ctx)?;
-        // display(
-        //     colors::comment(D::text(
-        //         // XXX(sam) hack to deal with incorrect array index sizes
-        //         "/* verilator lint_off WIDTH */",
-        //     ))
-        //     .append(D::line())
-        //     .append(prims)
-        //     .append(D::line())
-        //     .append(D::line())
-        //     .append(D::intersperse(docs, D::line())),
-        //     file,
-        //     ctx,
-        // );
         Ok(())
     }
 }

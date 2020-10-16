@@ -176,9 +176,9 @@ impl LibraryParser {
             .into_children()
             .map(|node| {
                 Ok(match node.as_rule() {
-                    Rule::verilog_block => lib::Implementation::Verilog {
-                        data: Self::verilog_block(node)?,
-                    },
+                    Rule::verilog_block => {
+                        lib::Implementation::Verilog(Self::verilog_block(node)?)
+                    }
                     _ => unreachable!(),
                 })
             })

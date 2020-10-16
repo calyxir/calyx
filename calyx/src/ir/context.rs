@@ -2,7 +2,7 @@
 //! need to transform, lower, an emit a program.
 //! Passes usually have transform/analyze the components in the IR.
 use super::{Component, Id};
-use crate::frontend::library;
+use crate::{frontend::library, ir};
 use std::collections::HashMap;
 
 /// The IR Context
@@ -14,4 +14,21 @@ pub struct Context {
     pub lib_sigs: HashMap<Id, library::ast::Primitive>,
     /// Enable debug mode logging.
     pub debug_mode: bool,
+}
+
+impl Context {
+    /// Returns the primitives that are used by this context.
+    pub fn used_primitives(&self) -> Vec<&library::ast::Primitive> {
+        let mut used = HashMap::new();
+        for comp in &self.components {
+            for cell in &comp.cells {
+                if let ir::CellType::Primitive { name, .. } =
+                    &cell.borrow().prototype
+                {
+                    used.insert(name.clone(), &self.lib_sigs[&name]);
+                }
+            }
+        }
+        used.drain().map(|(_, v)| v).collect()
+    }
 }

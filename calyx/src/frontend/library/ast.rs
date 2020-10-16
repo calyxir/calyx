@@ -100,7 +100,7 @@ impl ParamPortdef {
 
 #[derive(Clone, Debug)]
 pub enum Implementation {
-    Verilog { data: Verilog },
+    Verilog(Verilog),
 }
 
 #[derive(Clone, Debug)]
