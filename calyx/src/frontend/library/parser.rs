@@ -78,7 +78,7 @@ impl LibraryParser {
             [identifier(id), identifier(param)] => lib::ParamPortdef {
                 name: id,
                 width: lib::Width::Param { value: param },
-                direction: Direction::Input,
+                direction: Direction::Output,
             }
         ))
     }
