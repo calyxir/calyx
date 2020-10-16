@@ -10,6 +10,8 @@ use crate::{
     utils::OutputFile,
 };
 use ir::{Control, Group, Guard, RRC};
+use std::rc::Rc;
+use vast::v17::ast as v;
 // use lib::Implementation;
 // use pretty::termcolor::ColorSpec;
 // use pretty::RcDoc;
@@ -96,9 +98,16 @@ impl Backend for VerilogBackend {
         // })
     }
 
-    fn emit(_ctx: &ir::Context, _file: OutputFile) -> FutilResult<()> {
+    fn emit(ctx: &ir::Context, file: OutputFile) -> FutilResult<()> {
         // let prog: ast::NamespaceDef = ctx.clone().into();
 
+        let modules = &ctx
+            .components
+            .iter()
+            .map(|comp| emit_component(&comp).to_string())
+            .collect::<Vec<_>>();
+
+        write!(file.get_write(), "{}", modules.join("\n"))?;
         // build Vec of tuples first so that `comps` lifetime is longer than
         // `docs` lifetime
         // let comps: Vec<(&ast::ComponentDef, component::Component)> = prog
@@ -126,6 +135,89 @@ impl Backend for VerilogBackend {
         //     ctx,
         // );
         Ok(())
+    }
+}
+
+fn emit_component(comp: &ir::Component) -> v::Module {
+    let mut module = v::Module::new(comp.name.as_ref());
+    let sig = comp.signature.borrow();
+    for port_ref in &sig.ports {
+        let port = port_ref.borrow();
+        match port.direction {
+            ir::Direction::Input => {
+                module.add_input(port.name.as_ref(), port.width)
+            }
+            ir::Direction::Output => {
+                module.add_output(port.name.as_ref(), port.width)
+            }
+            ir::Direction::Inout => todo!("error message"),
+        }
+    }
+    let seq_stmts = comp
+        .continuous_assignments
+        .iter()
+        .map(|asgn| emit_assignment(&asgn))
+        .collect::<Vec<_>>();
+    module.add_always_comb(v::AlwaysComb { body: seq_stmts });
+    module
+}
+
+fn emit_assignment(assignment: &ir::Assignment) -> v::Sequential {
+    v::Sequential::SeqAssign(
+        port_to_ref(Rc::clone(&assignment.dst)),
+        guard_to_expr(assignment.guard.as_ref().unwrap()),
+        v::AssignTy::NonBlocking,
+    )
+}
+
+fn port_to_ref(port_ref: RRC<ir::Port>) -> v::Expr {
+    let port = port_ref.borrow();
+    let id =
+        format!("{}_{}", port.get_parent_name().as_ref(), port.name.as_ref());
+    v::Expr::Ref(id)
+}
+
+fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
+    let op = |g: &ir::Guard| match g {
+        Guard::Or(_) => v::Binop::LogOr,
+        Guard::And(_) => v::Binop::LogAnd,
+        Guard::Eq(_, _) => v::Binop::Equal,
+        Guard::Neq(_, _) => v::Binop::NotEqual,
+        Guard::Gt(_, _) => v::Binop::Gt,
+        Guard::Lt(_, _) => v::Binop::Lt,
+        Guard::Geq(_, _) => v::Binop::Geq,
+        Guard::Leq(_, _) => v::Binop::Leq,
+        Guard::Not(_) | Guard::Port(_) | Guard::True => {
+            panic!("No binop for this guard.")
+        }
+    };
+
+    match guard {
+        Guard::Or(ops) | Guard::And(ops) => ops
+            .iter()
+            .map(guard_to_expr)
+            .fold(None, |acc, r| {
+                acc.map(|l| {
+                    v::Expr::Binop(op(guard), Rc::new(l), Rc::new(r.clone()))
+                })
+                .or(Some(r))
+            })
+            .unwrap_or(v::Expr::ULit(1, v::Radix::Bin, 1.to_string())),
+        Guard::Eq(l, r)
+        | Guard::Neq(l, r)
+        | Guard::Gt(l, r)
+        | Guard::Lt(l, r)
+        | Guard::Geq(l, r)
+        | Guard::Leq(l, r) => v::Expr::Binop(
+            op(guard),
+            Rc::new(guard_to_expr(l)),
+            Rc::new(guard_to_expr(r)),
+        ),
+        Guard::Not(o) => {
+            v::Expr::Unop(v::Unop::LogNot, Rc::new(guard_to_expr(o)))
+        }
+        Guard::Port(p) => port_to_ref(Rc::clone(p)),
+        Guard::True => v::Expr::ULit(1, v::Radix::Bin, 1.to_string()),
     }
 }
 
