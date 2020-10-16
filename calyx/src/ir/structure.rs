@@ -14,6 +14,17 @@ pub enum Direction {
     Inout,
 }
 
+impl Direction {
+    /// Return the direction opposite to the current direction
+    pub fn reverse(&self) -> Self {
+        match self {
+            Direction::Input => Direction::Output,
+            Direction::Output => Direction::Input,
+            Direction::Inout => Direction::Inout,
+        }
+    }
+}
+
 /// Ports can come from Cells or Groups
 #[derive(Debug, Clone)]
 pub enum PortParent {

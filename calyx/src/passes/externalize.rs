@@ -22,7 +22,7 @@
 use crate::frontend::library::ast as lib;
 use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 #[derive(Default)]
 pub struct Externalize;
@@ -79,6 +79,10 @@ impl Visitor for Externalize {
                 // Change the name and the parent of this port.
                 port_ref.borrow_mut().name =
                     format_port_name(&name, &port_name);
+                // Flip the direction of the port.
+                let new_dir = port_ref.borrow().direction.reverse();
+                port_ref.borrow_mut().direction = new_dir;
+                // Point to the signature cell as its parent
                 port_ref.borrow_mut().parent =
                     ir::PortParent::Cell(Rc::downgrade(&comp.signature));
                 comp.signature.borrow_mut().ports.push(port_ref);
