@@ -48,7 +48,8 @@ impl IRPrinter {
         for cell in &comp.cells {
             Self::write_cell(&cell.borrow(), 4, f)?;
         }
-        write!(f, "  }}\n")?;
+        // TODO(rachit): Trailing spaces added for test faithfulness
+        writeln!(f, "  }}\n  ")?;
 
         // Add the wires
         write!(f, "  wires {{\n")?;
@@ -61,7 +62,8 @@ impl IRPrinter {
             Self::write_assignment(assign, 4, f)?;
             write!(f, "\n")?;
         }
-        write!(f, "  }}\n")?;
+        // TODO(rachit): Trailing spaces added for test faithfulness
+        writeln!(f, "  }}\n  ")?;
 
         // Add the control program
         //if matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
