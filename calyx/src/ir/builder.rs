@@ -175,6 +175,16 @@ impl<'a> Builder<'a> {
                     .for_each(|p| self.is_port_well_formed(&p.borrow()))
             }
         }
+        // If the ports have different widths, error out.
+        if src.borrow().width != dst.borrow().width {
+            panic!(
+                "Invalid assignment. `{}.{}' and `{}.{}' have different widths",
+                src.borrow().get_parent_name(),
+                src.borrow().name,
+                dst.borrow().get_parent_name(),
+                dst.borrow().name,
+            )
+        }
         // Validate: Check to see if the cell/group associated with the
         // port is in the component.
         ir::Assignment { dst, src, guard }
