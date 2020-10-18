@@ -75,11 +75,15 @@ fn build_component(
             .inputs
             .into_iter()
             .map(|pd| (pd.name, pd.width))
+            // Add the go and clk ports.
+            .chain(vec![(Id::from("go"), 1), (Id::from("clk"), 1)].into_iter())
             .collect(),
         comp.signature
             .outputs
             .into_iter()
             .map(|pd| (pd.name, pd.width))
+            // Add the go and clk ports.
+            .chain(vec![(Id::from("done"), 1)].into_iter())
             .collect(),
     );
 
