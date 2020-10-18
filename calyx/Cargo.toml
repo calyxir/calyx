@@ -26,7 +26,7 @@ pest_consume = "1.0.5"
 itertools = "0.9.0"
 lazy_static = "1.4.0"
 # temporary until I get changes merged
-vast = { git = "https://github.com/sgpthomas/vast.git", branch = 'master' }
+vast = { git = "https://github.com/cucapra/vast.git", branch = 'master' }
 
 [dependencies.pretty]
 version = "0.9.0"
