@@ -29,9 +29,12 @@ impl Id {
 
 /* =================== Impls for Id to make them easier to use ============== */
 
-impl ToString for Id {
-    fn to_string(&self) -> String {
-        self.id.clone()
+impl std::fmt::Display for Id {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
+        write!(f, "{}", self.id)
     }
 }
 
