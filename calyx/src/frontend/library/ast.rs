@@ -57,7 +57,17 @@ impl Primitive {
             .map(|ppd| ppd.resolve(&bindings))
             .collect::<FutilResult<_>>()?;
 
-        Ok((bindings.into_iter().collect(), inps, outs))
+        Ok((
+            // XXX: Recreating the binding so that they have deterministic
+            // order.
+            self.params
+                .iter()
+                .cloned()
+                .zip(parameters.iter().cloned())
+                .collect(),
+            inps,
+            outs,
+        ))
     }
 }
 

@@ -64,13 +64,13 @@ impl IRPrinter {
         write!(f, "  }}\n")?;
 
         // Add the control program
-        if matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
-            write!(f, "  control {{}}\n")?;
-        } else {
-            write!(f, "  control {{\n")?;
-            Self::write_control(&comp.control.borrow(), 4, f)?;
-            write!(f, "  }}\n")?;
-        }
+        //if matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
+            //write!(f, "  control {{}}\n")?;
+        //} else {
+        write!(f, "  control {{\n")?;
+        Self::write_control(&comp.control.borrow(), 4, f)?;
+        write!(f, "  }}\n")?;
+        //}
 
         write!(f, "}}\n")
     }
