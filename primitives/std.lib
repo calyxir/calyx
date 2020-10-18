@@ -1,9 +1,16 @@
-primitive std_mem_d1[p_width, p_size, p_idx_size](
-  addr0: p_idx_size,
-  write_data: p_width,
+/**
+ * The FuTIL standard library.
+ * Implement verilog primitives that are unrepresentable in FuTIL.
+ * Conventions:
+ * - All parameter names must be SNAKE_CASE and all caps.
+ * - Port names must be snake_case, no caps.
+ */
+primitive std_mem_d1[width, size, idx_size](
+  addr0: idx_size,
+  write_data: width,
   write_en: 1,
   clk: 1
-) -> (read_data: p_width, done: 1) {
+) -> (read_data: width, done: 1) {
   verilog {
     module std_mem_d1
       #(parameter width = 32,
@@ -31,20 +38,20 @@ primitive std_mem_d1[p_width, p_size, p_idx_size](
 }
 
 // Represents an external memory
-primitive std_mem_d1_ext[p_width, p_size, p_idx_size](
-  addr0: p_idx_size,
-  write_data: p_width,
+primitive std_mem_d1_ext[width, size, idx_size](
+  addr0: idx_size,
+  write_data: width,
   write_en: 1
-) -> (read_data: p_width, done: 1) {}
+) -> (read_data: width, done: 1) {}
 
 
-primitive std_mem_d2[p_width, d0_size, d1_size, d0_idx_size, d1_idx_size](
+primitive std_mem_d2[width, d0_size, d1_size, d0_idx_size, d1_idx_size](
   addr0: d0_idx_size,
   addr1: d1_idx_size,
-  write_data: p_width,
+  write_data: width,
   write_en: 1,
   clk: 1
-) -> (read_data: p_width, done: 1) {
+) -> (read_data: width, done: 1) {
   verilog {
     module std_mem_d2
       #(parameter width = 32,
@@ -74,15 +81,15 @@ primitive std_mem_d2[p_width, d0_size, d1_size, d0_idx_size, d1_idx_size](
   }
 }
 
-primitive std_mem_d2_ext[p_width, d0_size, d1_size, d0_idx_size, d1_idx_size](
+primitive std_mem_d2_ext[width, d0_size, d1_size, d0_idx_size, d1_idx_size](
   addr0: d0_idx_size,
   addr1: d1_idx_size,
-  write_data: p_width,
+  write_data: width,
   write_en: 1
-) -> (read_data: p_width, done: 1) {}
+) -> (read_data: width, done: 1) {}
 
 primitive std_mem_d3[
-    p_width,
+    width,
     d0_size,
     d1_size,
     d2_size,
@@ -93,10 +100,10 @@ primitive std_mem_d3[
   addr0: d0_idx_size,
   addr1: d1_idx_size,
   addr2: d2_idx_size,
-  write_data: p_width,
+  write_data: width,
   write_en: 1,
   clk: 1
-) -> (read_data: p_width, done: 1) {
+) -> (read_data: width, done: 1) {
   verilog {
     module std_mem_d3
       #(parameter width = 32,
@@ -130,7 +137,7 @@ primitive std_mem_d3[
 }
 
 primitive std_mem_d3_ext[
-    p_width,
+    width,
     d0_size,
     d1_size,
     d2_size,
@@ -141,16 +148,16 @@ primitive std_mem_d3_ext[
   addr0: d0_idx_size,
   addr1: d1_idx_size,
   addr2: d2_idx_size,
-  write_data: p_width,
+  write_data: width,
   write_en: 1
-) -> (read_data: p_width, done: 1) {}
+) -> (read_data: width, done: 1) {}
 
-primitive std_logsize_mem_d1[p_width, p_logsize](
-  addr0: p_logsize,
-  write_data: p_width,
+primitive std_logsize_mem_d1[width, logsize](
+  addr0: logsize,
+  write_data: width,
   write_en: 1,
   clk: 1
-) -> (read_data: p_width) {
+) -> (read_data: width) {
   verilog {
     module std_logsize_mem_d1
       #(parameter width = 32,
@@ -173,7 +180,7 @@ primitive std_logsize_mem_d1[p_width, p_logsize](
   }
 }
 
-primitive std_reg<"static"=1>[p_width](in: p_width, write_en: 1, clk: 1) -> (out: p_width, done: 1) {
+primitive std_reg<"static"=1>[width](in: width, write_en: 1, clk: 1) -> (out: width, done: 1) {
   verilog {
     module std_reg
       #(parameter width = 32)
@@ -195,7 +202,7 @@ primitive std_reg<"static"=1>[p_width](in: p_width, write_en: 1, clk: 1) -> (out
   }
 }
 
-primitive std_shift_reg[p_width, p_depth](in: p_width, write_en: 1, clk: 1) -> (out: p_width, done: 1) {
+primitive std_shift_reg[width, depth](in: width, write_en: 1, clk: 1) -> (out: width, done: 1) {
   verilog {
     module std_shift_reg
       #(parameter WIDTH = 32,
@@ -246,7 +253,7 @@ primitive std_shift_reg[p_width, p_depth](in: p_width, write_en: 1, clk: 1) -> (
   }
 }
 
-primitive std_const[p_width, p_value]() -> (out: p_width) {
+primitive std_const[width, value]() -> (out: width) {
   verilog {
     module std_const
       #(parameter width = 32,
@@ -257,7 +264,7 @@ primitive std_const[p_width, p_value]() -> (out: p_width) {
   }
 }
 
-primitive std_slice[p_in_width, p_out_width](in: p_in_width) -> (out: p_out_width) {
+primitive std_slice[in_width, out_width](in: in_width) -> (out: out_width) {
   verilog {
     module std_slice
       #(parameter IN_WIDTH = 32,
@@ -269,7 +276,7 @@ primitive std_slice[p_in_width, p_out_width](in: p_in_width) -> (out: p_out_widt
   }
 }
 
-primitive std_lsh[p_width](left: p_width, right: p_width) -> (out: p_width) {
+primitive std_lsh[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_lsh
       #(parameter width = 32)
@@ -281,7 +288,7 @@ primitive std_lsh[p_width](left: p_width, right: p_width) -> (out: p_width) {
   }
 }
 
-primitive std_rsh[p_width](left: p_width, right: p_width) -> (out: p_width) {
+primitive std_rsh[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_rsh
       #(parameter width = 32)
@@ -293,7 +300,7 @@ primitive std_rsh[p_width](left: p_width, right: p_width) -> (out: p_width) {
   }
 }
 
-primitive std_add[p_width](left: p_width, right: p_width) -> (out: p_width) {
+primitive std_add[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_add
       #(parameter width = 32)
@@ -305,7 +312,7 @@ primitive std_add[p_width](left: p_width, right: p_width) -> (out: p_width) {
   }
 }
 
-primitive std_sub[p_width](left: p_width, right: p_width) -> (out: p_width) {
+primitive std_sub[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_sub
       #(parameter width = 32)
@@ -317,7 +324,7 @@ primitive std_sub[p_width](left: p_width, right: p_width) -> (out: p_width) {
   }
 }
 
-primitive std_mod[p_width](left: p_width, right: p_width) -> (out: p_width) {
+primitive std_mod[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_mod
       #(parameter width = 32)
@@ -383,7 +390,7 @@ primitive std_mod_pipe[width]
   }
 }
 
-primitive std_mult[p_width](left: p_width, right: p_width) -> (out: p_width) {
+primitive std_mult[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_mult
       #(parameter width = 32)
@@ -395,7 +402,7 @@ primitive std_mult[p_width](left: p_width, right: p_width) -> (out: p_width) {
   }
 }
 
-primitive std_mult_pipe[p_width](left: p_width, right: p_width, go: 1, clk: 1) -> (out: p_width, done: 1) {
+primitive std_mult_pipe[width](left: width, right: width, go: 1, clk: 1) -> (out: width, done: 1) {
   verilog {
     module std_mult_pipe
       #(parameter width = 32)
@@ -434,7 +441,7 @@ primitive std_mult_pipe[p_width](left: p_width, right: p_width, go: 1, clk: 1) -
   }
 }
 
-primitive std_div[p_width](left: p_width, right: p_width) -> (out: p_width) {
+primitive std_div[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_div
       #(parameter width = 32)
@@ -501,7 +508,7 @@ primitive std_div_pipe[width]
 }
 
 
-primitive std_not[p_width](in: p_width) -> (out: p_width) {
+primitive std_not[width](in: width) -> (out: width) {
   verilog {
     module std_not
       #(parameter width = 32)
@@ -512,7 +519,7 @@ primitive std_not[p_width](in: p_width) -> (out: p_width) {
   }
 }
 
-primitive std_and[p_width](left: p_width, right: p_width) -> (out: p_width) {
+primitive std_and[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_and
       #(parameter width = 32)
@@ -524,7 +531,7 @@ primitive std_and[p_width](left: p_width, right: p_width) -> (out: p_width) {
   }
 }
 
-primitive std_or[p_width](left: p_width, right: p_width) -> (out: p_width) {
+primitive std_or[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_or
       #(parameter width = 32)
@@ -536,7 +543,7 @@ primitive std_or[p_width](left: p_width, right: p_width) -> (out: p_width) {
   }
 }
 
-primitive std_gt[p_width](left: p_width, right: p_width) -> (out: 1) {
+primitive std_gt[width](left: width, right: width) -> (out: 1) {
   verilog {
     module std_gt
       #(parameter width = 32)
@@ -548,7 +555,7 @@ primitive std_gt[p_width](left: p_width, right: p_width) -> (out: 1) {
   }
 }
 
-primitive std_lt[p_width](left: p_width, right: p_width) -> (out: 1) {
+primitive std_lt[width](left: width, right: width) -> (out: 1) {
   verilog {
     module std_lt
       #(parameter width = 32)
@@ -560,7 +567,7 @@ primitive std_lt[p_width](left: p_width, right: p_width) -> (out: 1) {
   }
 }
 
-primitive std_eq[p_width](left: p_width, right: p_width) -> (out: 1) {
+primitive std_eq[width](left: width, right: width) -> (out: 1) {
   verilog {
     module std_eq
       #(parameter width = 32)
@@ -572,7 +579,7 @@ primitive std_eq[p_width](left: p_width, right: p_width) -> (out: 1) {
   }
 }
 
-primitive std_neq[p_width](left: p_width, right: p_width) -> (out: 1) {
+primitive std_neq[width](left: width, right: width) -> (out: 1) {
   verilog {
     module std_neq
       #(parameter width = 32)
@@ -584,7 +591,7 @@ primitive std_neq[p_width](left: p_width, right: p_width) -> (out: 1) {
   }
 }
 
-primitive std_ge[p_width](left: p_width, right: p_width) -> (out: 1) {
+primitive std_ge[width](left: width, right: width) -> (out: 1) {
   verilog {
     module std_ge
       #(parameter width = 32)
@@ -596,7 +603,7 @@ primitive std_ge[p_width](left: p_width, right: p_width) -> (out: 1) {
   }
 }
 
-primitive std_le[p_width](left: p_width, right: p_width) -> (out: 1) {
+primitive std_le[width](left: width, right: width) -> (out: 1) {
   verilog {
     module std_le
       #(parameter width = 32)
@@ -716,7 +723,7 @@ primitive std_fsm_state(in: 1, reset: 1, clk: 1) -> (out: 1) {
 
 /////// fixed_point primitive ///////////
 
-primitive fixed_p_std_const[p_width, p_int_width, p_fract_width, p_value1, p_value2] () -> (out: p_width){
+primitive fixed_p_std_const[width, int_width, fract_width, value1, value2] () -> (out: width){
     verilog {
         module fixed_p_std_const
             #(parameter width=32,
@@ -732,15 +739,15 @@ primitive fixed_p_std_const[p_width, p_int_width, p_fract_width, p_value1, p_val
 }
 
 
-primitive fixed_p_std_add[p_width, p_int_width, p_fract_width] (left: p_width, right: p_width) ->(out: p_width){
+primitive fixed_p_std_add[width, int_width, fract_width] (left: width, right: width) ->(out: width){
     verilog{
       module fixed_p_std_add
         #(parameter width= 32,
-        parameter int_width= 8, 
+        parameter int_width= 8,
         parameter fract_width= 24)
 
-        (input logic [width-1:0] left, 
-        input logic [width-1:0] right, 
+        (input logic [width-1:0] left,
+        input logic [width-1:0] right,
         output logic [width-1:0] out);
 
         assign out = left + right;
@@ -748,15 +755,15 @@ primitive fixed_p_std_add[p_width, p_int_width, p_fract_width] (left: p_width, r
     }
 }
 
-primitive fixed_p_std_sub[p_width, p_int_width, p_fract_width] (left: p_width, right: p_width)->(out: p_width){
+primitive fixed_p_std_sub[width, int_width, fract_width] (left: width, right: width)->(out: width){
     verilog{
         module fixed_p_std_sub
         #(parameter width= 32,
-        parameter int_width= 8, 
+        parameter int_width= 8,
         parameter fract_width= 24)
 
-        (input logic [width-1:0] left, 
-        input logic [width-1:0] right, 
+        (input logic [width-1:0] left,
+        input logic [width-1:0] right,
         output logic [width-1:0] out);
 
 
@@ -765,21 +772,21 @@ primitive fixed_p_std_sub[p_width, p_int_width, p_fract_width] (left: p_width, r
     }
 }
 
-primitive fixed_p_std_mult[p_width, p_int_width, p_fract_width, out_width](left: p_width, right: p_width)->(out: p_width){
+primitive fixed_p_std_mult[width, int_width, fract_width, out_width](left: width, right: width)->(out: width){
     verilog {
       module fixed_p_std_mult
         #(parameter width= 32,
-        parameter int_width= 8, 
+        parameter int_width= 8,
         parameter fract_width= 24)
 
-        (input logic [width-1:0] left, 
-        input logic [width-1:0] right, 
+        (input logic [width-1:0] left,
+        input logic [width-1:0] right,
         output logic [width-1:0] out);
 
         logic [2*width-2:0] result;
 
         assign result = left * right;
-        // result bit= 2*width, 1 is placed at fract_width, 
+        // result bit= 2*width, 1 is placed at fract_width,
         //the valid bit would be width amount of bits starting at fract_width
         assign out = result[width+fract_width-1:fract_width];
 
@@ -789,24 +796,22 @@ primitive fixed_p_std_mult[p_width, p_int_width, p_fract_width, out_width](left:
     }
 }
 
-primitive fixed_p_std_div[p_width, p_int_width, p_fract_width](left: p_width, right: p_width)->(out: p_width){
+primitive fixed_p_std_div[width, int_width, fract_width](left: width, right: width)->(out: width){
     verilog{
         module fixed_p_std_div
-        #(parameter width= 32,
-        parameter int_width= 8, 
-        parameter fract_width= 24)
-        (input logic [width-1:0] left, 
-        input logic [width-1:0] right, 
-        output logic [width-1:0] out);
+          #(parameter width= 32,
+            parameter int_width= 8,
+            parameter fract_width= 24)
+          (input logic [width-1:0] left,
+           input logic [width-1:0] right,
+           output logic [width-1:0] out);
 
-        logic [2*width-2:0] result;
+          logic [2*width-2:0] result;
 
-        assign result = left / right;
-        // result bit= 2*width, 1 is placed at fract_width, 
-        //the valid bit would be width amount of bits starting at fract_width
-        assign out = result[width+fract_width-1:fract_width];
-
-
+          assign result = left / right;
+          // result bit= 2*width, 1 is placed at fract_width,
+          //the valid bit would be width amount of bits starting at fract_width
+          assign out = result[width+fract_width-1:fract_width];
         endmodule
 
     }
