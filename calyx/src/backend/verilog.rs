@@ -243,8 +243,8 @@ fn emit_assignment(
                 port_to_ref(Rc::clone(&e.dst)),
                 port_to_ref(Rc::clone(&e.src)),
             );
-            if_s.add_true_seq(asgn);
-            if_s.add_false_seq(acc);
+            if_s.add_seq(asgn);
+            if_s.set_else(acc);
             if_s.into()
         }
         None => unimplemented!(),
