@@ -13,9 +13,11 @@ use std::{collections::HashMap, rc::Rc};
 type Node = RRC<Port>;
 type Edge = ();
 
+/// A petgraph::DiGraph where ports are the nodes and edges contain no
+/// information.
 pub type CellGraph = DiGraph<Node, Edge>;
 
-// Implement keyable for port
+/// Implement keyable for port
 impl Keyable for Port {
     type Key = (Id, Id);
     fn key(&self) -> Self::Key {
@@ -28,7 +30,7 @@ impl Keyable for Port {
 ///
 /// For example:
 ///  ```
-///  c.in = G[done] & b.done = add.out
+///  c.in = G[done] & b.done ? add.out
 ///  ```
 /// creates the edges:
 ///   ```
@@ -94,8 +96,8 @@ impl GraphAnalysis {
         GraphAnalysis { nodes, graph }
     }
 
-    /// Returns an iterator over all the reads from a port. Returns an empty iterator
-    /// if this is an Input port.
+    /// Returns an iterator over all the reads from a port.
+    /// Returns an empty iterator if this is an Input port.
     pub fn reads_from(&self, port: &Port) -> PortIterator<'_> {
         let idx = self.nodes[&port.key()];
         match port.direction {
@@ -112,8 +114,8 @@ impl GraphAnalysis {
         }
     }
 
-    /// Returns an iterator over all the writes to this port. Returns an empty iterator
-    /// if this is an Output port.
+    /// Returns an iterator over all the writes to this port.
+    /// Returns an empty iterator if this is an Output port.
     pub fn writes_to(&self, port: &Port) -> PortIterator<'_> {
         let idx = self.nodes[&port.key()];
         match port.direction {
