@@ -7,7 +7,6 @@ cmd = "python3 relay2futil.py < {}"
 
 
 # TODO(cgyurgyik): Test behavior of the program. For example,
-
-# fud exec --from futil frontends/relay-futil/tests/tensors_add.expect \
-# --to dat -s verilog.data frontends/relay-futil/tests/data/tensors_add.dat
+# fud exec --from futil frontends/relay-futil/tests/add_tensor_2d.expect \
+# --to dat -s verilog.data frontends/relay-futil/tests/data/add_tensor_2d.dat
 
