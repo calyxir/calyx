@@ -28,6 +28,7 @@ struct SigCtx {
 pub fn ast_to_ir(
     components: Vec<ast::ComponentDef>,
     libraries: &[library::ast::Library],
+    import_statements: Vec<String>,
     debug_mode: bool,
 ) -> FutilResult<Context> {
     // Build the signature context
@@ -58,6 +59,7 @@ pub fn ast_to_ir(
     Ok(Context {
         components: comps,
         lib_sigs: sig_ctx.lib_sigs,
+        import_statements,
         debug_mode,
     })
 }

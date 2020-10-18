@@ -125,6 +125,7 @@ fn main() -> FutilResult<()> {
     let mut rep: ir::Context = ir::from_ast::ast_to_ir(
         namespace.components,
         &libraries,
+        namespace.libraries,
         opts.enable_debug,
     )?;
 

@@ -1,11 +1,18 @@
-
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
-    
   }
   
   wires {
-    
+    group A<> {
+    }
+    group B<> {
+    }
+    group C<> {
+    }
+    group D<> {
+    }
+    group A___<> {
+    }
   }
   
   control {
@@ -14,24 +21,24 @@ component main(go: 1, clk: 1) -> (done: 1) {
       B;
       C;
       D;
-      A-------;
+      A___;
       par {
         A;
         B;
         C;
         D;
       }
-      A-------;
+      A___;
       A;
       B;
       C;
-      A--------;
+      A___;
       par {
         A;
         B;
         C;
       }
-      A--------;
+      A___;
       par {
         A;
         seq {
@@ -40,7 +47,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
         }
         D;
       }
-      A--------;
+      A___;
       A;
       par {
         B;

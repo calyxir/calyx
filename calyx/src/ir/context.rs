@@ -10,6 +10,8 @@ use std::collections::HashMap;
 pub struct Context {
     /// The components for this program.
     pub components: Vec<Component>,
+    /// Import statements for the file.
+    pub import_statements: Vec<String>,
     /// Mapping from library functions to signatures
     pub lib_sigs: HashMap<Id, library::ast::Primitive>,
     /// Enable debug mode logging.

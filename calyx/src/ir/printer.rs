@@ -71,10 +71,10 @@ impl IRPrinter {
         //} else {
         write!(f, "  control {{\n")?;
         Self::write_control(&comp.control.borrow(), 4, f)?;
-        write!(f, "  }}\n")?;
+        writeln!(f, "  }}")?;
         //}
 
-        write!(f, "}}\n")
+        write!(f, "}}")
     }
 
     /// Format and write a cell.
@@ -164,14 +164,14 @@ impl IRPrinter {
                 for stmt in stmts {
                     Self::write_control(stmt, indent_level + 2, f)?;
                 }
-                write!(f, "{}}}", " ".repeat(indent_level))
+                writeln!(f, "{}}}", " ".repeat(indent_level))
             }
             ir::Control::Par(ir::Par { stmts }) => {
                 write!(f, "par {{\n")?;
                 for stmt in stmts {
                     Self::write_control(stmt, indent_level + 2, f)?;
                 }
-                write!(f, "{}}}", " ".repeat(indent_level))
+                writeln!(f, "{}}}", " ".repeat(indent_level))
             }
             ir::Control::If(ir::If {
                 port,
@@ -190,7 +190,7 @@ impl IRPrinter {
                 // TODO(rachit): don't print else when its empty
                 write!(f, " else {{\n")?;
                 Self::write_control(fbranch, indent_level + 2, f)?;
-                write!(f, "{}}}\n", " ".repeat(indent_level))
+                writeln!(f, "{}}}", " ".repeat(indent_level))
             }
             ir::Control::While(ir::While { port, cond, body }) => {
                 write!(
@@ -200,7 +200,7 @@ impl IRPrinter {
                     cond.borrow().name.id
                 )?;
                 Self::write_control(body, indent_level + 2, f)?;
-                write!(f, "{}}}", " ".repeat(indent_level))
+                writeln!(f, "{}}}", " ".repeat(indent_level))
             }
             ir::Control::Empty(_) => writeln!(f),
         }
