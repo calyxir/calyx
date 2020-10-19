@@ -6,11 +6,19 @@ int main(int argc, char **argv, char **env) {
   int i = 0;
   int clk;
   Verilated::commandArgs(argc, argv);
+
   // init top verilog instance
   Vmain *top = new Vmain;
+
+  // get cycles to simulate
+  int n_cycles = 5e8;
+  if (argc >= 3) {
+    n_cycles = std::stoi(argv[2]);
+  }
+
   // init trace dump
   bool trace = false;
-  if (argc >= 3) {
+  if (argc >= 4) {
     trace = std::strcmp(argv[2], "--trace") == 0;
   }
   printf("Tracing: %d\n", trace);
@@ -21,12 +29,13 @@ int main(int argc, char **argv, char **env) {
     top->trace(tfp, 99);
     tfp->open(argv[1]);
   }
+
   // initialize simulation inputs
   top->clk = 0;
   top->go = 1;
   int done = 0;
   printf("Starting simulation\n");
-  while (done == 0 && i < 5e8) {
+  while (done == 0 && i < n_cycles) {
     done = top->done;
     // dump variables into VCD file and toggle clock
     for (clk = 0; clk < 2; clk++) {
@@ -42,10 +51,12 @@ int main(int argc, char **argv, char **env) {
 
     i++;
   }
+
   printf("Simulated %i cycles\n", i);
   top->final();
   if (trace) {
     tfp->close();
   }
+
   exit(0);
 }
