@@ -166,7 +166,10 @@ fn emit_component(comp: &ir::Component) -> v::Module {
         .map(|asgns| emit_assignment(asgns))
         .collect::<Vec<_>>();
 
-    module.add_always_comb(v::AlwaysComb { body: seq_stmts });
+    let mut always_comb = v::ParallelProcess::new_always_comb();
+    always_comb.body = seq_stmts;
+
+    module.add_process(always_comb);
     module
 }
 
