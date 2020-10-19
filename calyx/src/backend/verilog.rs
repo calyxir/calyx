@@ -287,8 +287,8 @@ fn port_to_ref(port_ref: RRC<ir::Port>) -> v::Expr {
 
 fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
     let op = |g: &ir::Guard| match g {
-        Guard::Or(_) => v::Expr::new_logical_or,
-        Guard::And(_) => v::Expr::new_logical_and,
+        Guard::Or(_) => v::Expr::new_bit_or,
+        Guard::And(_) => v::Expr::new_bit_and,
         Guard::Eq(_, _) => v::Expr::new_eq,
         Guard::Neq(_, _) => v::Expr::new_neq,
         Guard::Gt(_, _) => v::Expr::new_gt,
