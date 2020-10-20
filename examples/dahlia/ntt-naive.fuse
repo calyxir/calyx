@@ -7,9 +7,9 @@ let p = prime[0];
 
 ---
 
-for (let i: ubit<5> = 0..32) {
-  for (let j: ubit<5> = 0..32) {
-    let oidx = ((i * j) as ubit<5>);  // (i * j) % 32
+for (let i: ubit<6> = 0..32) {
+  for (let j: ubit<6> = 0..32) {
+    let oidx: ubit<6> = ((i * j) as ubit<6>) % 32;
     ret[i] := (ret[i] + inp[j] * omegas[oidx]) % p;
   }
 }
