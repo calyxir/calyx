@@ -44,27 +44,12 @@ impl Guard {
             Guard::Or(ors) => {
                 ors.iter_mut().for_each(|guard| guard.for_each(f))
             }
-            Guard::Eq(l, r) => {
-                l.for_each(f);
-                r.for_each(f);
-            }
-            Guard::Neq(l, r) => {
-                l.for_each(f);
-                r.for_each(f);
-            }
-            Guard::Gt(l, r) => {
-                l.for_each(f);
-                r.for_each(f);
-            }
-            Guard::Lt(l, r) => {
-                l.for_each(f);
-                r.for_each(f);
-            }
-            Guard::Geq(l, r) => {
-                l.for_each(f);
-                r.for_each(f);
-            }
-            Guard::Leq(l, r) => {
+            Guard::Eq(l, r)
+            | Guard::Neq(l, r)
+            | Guard::Gt(l, r)
+            | Guard::Lt(l, r)
+            | Guard::Geq(l, r)
+            | Guard::Leq(l, r) => {
                 l.for_each(f);
                 r.for_each(f);
             }
@@ -72,8 +57,8 @@ impl Guard {
                 inner.for_each(f);
             }
             Guard::Port(port) => {
-                let guard =
-                    f(&port.borrow()).unwrap_or(Guard::Port(Rc::clone(port)));
+                let guard = f(&port.borrow())
+                    .unwrap_or_else(|| Guard::Port(Rc::clone(port)));
                 *self = guard;
             }
             Guard::True => {}
