@@ -1,12 +1,13 @@
 import "primitives/std.lib";
 
-component fn0 (x: 32) -> (out: 32) {
+component fn0 () -> (out: 32) {
   cells {
+    const0 = prim std_const(32, 42);
     ret = prim std_reg(32);
   }
   wires {
     group save_return_value {
-      ret.in = x;
+      ret.in = const0.out;
       ret.write_en = 1'd1;
       save_return_value[done] = ret.done;
     }
@@ -21,12 +22,10 @@ component fn0 (x: 32) -> (out: 32) {
 
 component main () -> () {
   cells {
-    x0 = prim std_reg(32);
     f0 = fn0;
     ret = prim std_reg(32);
   }
   wires {
-    f0.x = x0.out;
     f0.go = 1'd1;
     ret.write_en = 1'd1;
     ret.in = f0.done ? f0.out;

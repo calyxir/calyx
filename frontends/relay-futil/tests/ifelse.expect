@@ -2,40 +2,40 @@ import "primitives/std.lib";
 component main() -> () {
   cells {
     x = prim std_reg(32);
-    ret = prim std_reg(32);
+    ret0 = prim std_reg(32);
     const1 = prim std_const(32, 42);
     eq0 = prim std_eq(32);
     const2 = prim std_const(32, 42);
     res0 = prim std_reg(32);
     const0 = prim std_const(32, 1);
     add0 = prim std_add(32);
-    v = prim std_reg(32);
+    v0 = prim std_reg(32);
   }
   wires {
-    group group3 {
-      ret.in = res0.out;
-      ret.write_en = 1'd1;
-      group3[done] = ret.done;
+    group group1 {
+      ret0.in = res0.out;
+      ret0.write_en = 1'd1;
+      group1[done] = ret0.done;
     }
     group cond0 {
       eq0.left = v.out;
       eq0.right = const1.out;
       cond0[done]= 1'd1;
     }
-    group branch1 {
+    group branch0 {
       res0.in = x.out;
+      res0.write_en = 1'd1;
+      branch0[done] = res0.done;
+    }
+    group branch1 {
+      res0.in = const2.out;
       res0.write_en = 1'd1;
       branch1[done] = res0.done;
     }
-    group branch2 {
-      res0.in = const2.out;
-      res0.write_en = 1'd1;
-      branch2[done] = res0.done;
-    }
     group group0 {
-      v.in = add0.out;
-      v.write_en = 1'd1;
-      group0[done] = v.done;
+      v0.in = add0.out;
+      v0.write_en = 1'd1;
+      group0[done] = v0.done;
       add0.left = x.out;
       add0.right = const0.out;
     }
@@ -43,12 +43,12 @@ component main() -> () {
   control {
     seq {
       if eq0.out with cond0 {
-        branch1;
+        branch0;
       }else {
-        branch2;
+        branch1;
       }
       group0;
-      group3;
+      group1;
     }
   }
 }

@@ -1,6 +1,12 @@
 ver = "0.2.7"
 
 [[tests]]
-name = "Relay to Futil"
+name = "Relay to FuTIL"
 paths = [ "tests/*.relay" ]
-cmd = "python3 relay2futil.py < {}"
+cmd = "python3 compiler.py < {}"
+
+
+# TODO(cgyurgyik): Test behavior of the program. For example,
+# fud exec --from futil frontends/relay-futil/tests/add_tensor_2d.expect \
+# --to dat -s verilog.data frontends/relay-futil/tests/data/add_tensor_2d.dat
+

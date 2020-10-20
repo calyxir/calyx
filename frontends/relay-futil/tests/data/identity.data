@@ -1,0 +1,10 @@
+{
+  "x0": {
+    "data": [22],
+    "bitwidth": 32
+  },
+    "ret": {
+      "data": [0],
+      "bitwidth": 32
+    }
+}
