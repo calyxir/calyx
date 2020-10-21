@@ -56,14 +56,11 @@ fn validate_structure(groups: &[RRC<Group>]) -> FutilResult<()> {
             }
 
             // validate guard
-            if let Some(guard) = &asgn.guard {
-                if !validate_guard(guard) {
-                    return Err(Error::MalformedStructure(
-                        "Groups / Holes can not be turned into Verilog"
-                            .to_string(),
-                    ));
-                };
-            }
+            if !validate_guard(&asgn.guard) {
+                return Err(Error::MalformedStructure(
+                    "Groups / Holes can not be turned into Verilog".to_string(),
+                ));
+            };
         }
     }
     Ok(())
@@ -248,7 +245,8 @@ fn emit_assignment(
         v::AssignTy::Blocking,
     );
     assignments.iter().rfold(init, |acc, e| match &e.guard {
-        Some(g) => {
+        ir::Guard::True => unimplemented!(),
+        g => {
             let guard = guard_to_expr(g);
             let mut if_s = v::SequentialIfElse::new(guard);
             let asgn = v::Sequential::new_blk_assign(
@@ -259,7 +257,6 @@ fn emit_assignment(
             if_s.set_else(acc);
             if_s.into()
         }
-        None => unimplemented!(),
     })
 }
 
@@ -356,7 +353,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
             v::Expr::new_call("futil_getenv", vec![v::Expr::new_ref("DATA")]),
         ))
         // log the path to the data
-        .add_seq(v::Sequential::new_exprstmt(v::Expr::new_call(
+        .add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$fdisplay",
             vec![
                 v::Expr::new_int(2),
@@ -374,7 +371,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
     });
 
     memories.clone().for_each(|name| {
-        initial_block.add_seq(v::Sequential::new_exprstmt(v::Expr::new_call(
+        initial_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$readmemh",
             vec![
                 v::Expr::Concat(v::ExprConcat {
@@ -390,7 +387,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
 
     let mut final_block = v::ParallelProcess::new_final();
     memories.for_each(|name| {
-        final_block.add_seq(v::Sequential::new_exprstmt(v::Expr::new_call(
+        final_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$writememh",
             vec![
                 v::Expr::Concat(v::ExprConcat {

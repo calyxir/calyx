@@ -71,15 +71,13 @@ impl GraphAnalysis {
             graph.add_edge(src_node, dst_node, ());
             // add edges for guards that read from the port in the guard
             // and write to the dst of the assignment
-            if let Some(guard) = &asgn.guard {
-                for port in guard.all_ports() {
-                    let guard_key = port.borrow().key();
-                    nodes
-                        .entry(guard_key.clone())
-                        .or_insert_with(|| graph.add_node(Rc::clone(&port)));
-                    graph.add_edge(nodes[&guard_key], dst_node, ());
-                }
-            };
+            for port in &asgn.guard.all_ports() {
+                let guard_key = port.borrow().key();
+                nodes
+                    .entry(guard_key.clone())
+                    .or_insert_with(|| graph.add_node(Rc::clone(&port)));
+                graph.add_edge(nodes[&guard_key], dst_node, ());
+            }
         };
 
         // add edges and nodes for continuous assignments

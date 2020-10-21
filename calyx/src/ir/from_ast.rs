@@ -277,8 +277,8 @@ fn build_assignment(
     let src_port: RRC<Port> = atom_to_port(wire.src.expr, builder)?;
     let dst_port: RRC<Port> = get_port_ref(wire.dest, &builder.component)?;
     let guard = match wire.src.guard {
-        Some(g) => Some(build_guard(g, builder)?),
-        None => None,
+        Some(g) => build_guard(g, builder)?,
+        None => Guard::True,
     };
 
     Ok(builder.build_assignment(dst_port, src_port, guard))

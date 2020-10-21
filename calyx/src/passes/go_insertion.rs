@@ -41,12 +41,9 @@ impl Visitor for GoInsertion {
             let group_go = guard!(group["go"]);
             let mut group = group.borrow_mut();
             for assign in group.assignments.iter_mut() {
-                if !assign.dst.borrow().is_hole() {
-                    let cur_guard = assign.guard.take();
-                    assign.guard = match cur_guard {
-                        None => Some(group_go.clone()),
-                        Some(g) => Some(g & group_go.clone()),
-                    };
+                let dst = assign.dst.borrow();
+                if !(dst.is_hole() && dst.name == "done") {
+                    assign.guard = assign.guard.clone() & group_go.clone();
                 }
             }
         }

@@ -140,7 +140,7 @@ impl Visitor for StaticTiming {
                 assignments.push(builder.build_assignment(
                     cond_stored.borrow().get("in"),
                     Rc::clone(&port),
-                    Some(cond_computed),
+                    cond_computed,
                 ));
 
                 while_group
@@ -244,7 +244,7 @@ impl Visitor for StaticTiming {
                 let save_cond = builder.build_assignment(
                     cond_stored.borrow().get("in"),
                     Rc::clone(&s.port),
-                    Some(cond_done.clone()),
+                    cond_done.clone(),
                 );
                 let mut assigns = build_assignments!(builder;
                     // Increment fsm every cycle till end

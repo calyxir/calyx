@@ -15,6 +15,7 @@ use crate::{
     structure,
     utils::Keyable,
 };
+use ir::RRC;
 use std::{collections::HashMap, rc::Rc};
 
 #[derive(Default)]
@@ -30,16 +31,54 @@ impl Named for Inliner {
     }
 }
 
-/// Find the closure of everything that writes into `hole`
-/// and merge them into a single guard.
-fn write_closure(analysis: &GraphAnalysis, hole: &ir::Port) -> ir::Guard {
-    analysis.writes_to(hole).fold(ir::Guard::True, |acc, port| {
-        if port.borrow().is_hole() {
-            acc.and(write_closure(&analysis, &port.borrow()))
-        } else {
-            acc.and(ir::Guard::Port(port))
+fn fixed_point(
+    graph: &GraphAnalysis,
+    map: &mut HashMap<(ir::Id, ir::Id), (RRC<ir::Port>, ir::Guard)>,
+) {
+    // keeps track of next holes we can inline
+    let mut worklist = Vec::new();
+
+    let has_holes = |guard: &ir::Guard| {
+        guard
+            .all_ports()
+            .iter()
+            .map(|p| p.borrow().is_hole())
+            .fold(false, |acc, e| acc || e)
+    };
+
+    // initialize the worklist to have guards that have no holes
+    for (key, (_, guard)) in map.iter() {
+        println!("key: {:?}", key);
+        if !has_holes(&guard) {
+            worklist.push(key.clone())
         }
-    })
+    }
+
+    while !worklist.is_empty() {
+        let hole_key = worklist.pop().unwrap_or_else(|| unreachable!());
+        let (hole, new_guard) = map[&hole_key].clone();
+
+        println!("{:?}", worklist);
+
+        for read in graph
+            .reads_from(&hole.borrow())
+            .filter(|p| p.borrow().is_hole())
+        {
+            let key = read.borrow().key();
+            map.entry(read.borrow().key()).and_modify(|(_, guard)| {
+                guard.for_each(&|port: &ir::Port| {
+                    if port.key() == hole_key {
+                        Some(new_guard.clone())
+                    } else {
+                        None
+                    }
+                })
+            });
+            if !has_holes(&map[&key].1) {
+                worklist.push(key)
+            }
+        }
+    }
 }
 
 impl Visitor for Inliner {
@@ -75,7 +114,6 @@ impl Visitor for Inliner {
         // construct analysis graph and find sub-graph of all edges that include a hole
         let analysis = GraphAnalysis::from(&builder.component);
         let subgraph = analysis
-            .clone()
             .edge_induced_subgraph(|src, dst| src.is_hole() || dst.is_hole());
 
         // if subgraph has cycles, error out
@@ -87,17 +125,9 @@ impl Visitor for Inliner {
         }
 
         // map of holes to their guard expressions
-        let mut map = HashMap::new();
+        let mut map: HashMap<_, (RRC<ir::Port>, ir::Guard)> = HashMap::new();
         let mut assignments = vec![];
         for group in &builder.component.groups {
-            // compute write closure
-            for hole in &group.borrow().holes {
-                map.insert(
-                    hole.borrow().key(),
-                    write_closure(&analysis, &hole.borrow()),
-                );
-            }
-
             // remove all assignments from group, taking ownership
             let mut group = group.borrow_mut();
             assignments.append(&mut group.assignments.drain(..).collect());
@@ -107,6 +137,29 @@ impl Visitor for Inliner {
         assignments.append(
             &mut builder.component.continuous_assignments.drain(..).collect(),
         );
+
+        for asgn in &mut assignments {
+            // if assignment writes into a hole, save it
+            let dst = asgn.dst.borrow();
+            if dst.is_hole() {
+                map.entry(dst.key())
+                    .and_modify(|(_, val)| {
+                        // seems like unncessary clone
+                        *val = val
+                            .clone()
+                            .and(asgn.guard.clone())
+                            .and(ir::Guard::Port(Rc::clone(&asgn.src)));
+                    })
+                    .or_insert((
+                        Rc::clone(&asgn.dst),
+                        asgn.guard
+                            .clone()
+                            .and(ir::Guard::Port(Rc::clone(&asgn.src))),
+                    ));
+            }
+        }
+
+        fixed_point(&subgraph, &mut map);
 
         // remove edges that write to a hole
         assignments.retain(|asgn| !asgn.dst.borrow().is_hole());
@@ -119,27 +172,28 @@ impl Visitor for Inliner {
         );
         assignments.iter_mut().for_each(|mut asgn| {
             if asgn.src.borrow().is_hole() {
-                asgn.guard = Some(match &asgn.guard {
-                    Some(g) => {
-                        g.clone().and(ir::Guard::Port(Rc::clone(&asgn.src)))
-                    }
-                    None => ir::Guard::Port(Rc::clone(&asgn.src)),
-                });
+                asgn.guard = asgn
+                    .guard
+                    .clone()
+                    .and(ir::Guard::Port(Rc::clone(&asgn.src)));
                 asgn.src = signal_on.borrow().get("out");
             }
         });
 
         // replace reads from a hole with the value in the map
         for asgn in &mut assignments {
-            if let Some(guard) = asgn.guard.as_mut() {
-                guard.for_each(&|port| {
-                    if port.is_hole() {
-                        Some(map[&port.key()].clone())
-                    } else {
-                        None
-                    }
-                })
-            }
+            asgn.guard.for_each(&|port| {
+                if port.is_hole() {
+                    Some(
+                        map.get(&port.key())
+                            .expect(&format!("{:?}", port.key()))
+                            .1
+                            .clone(),
+                    )
+                } else {
+                    None
+                }
+            })
         }
         comp.continuous_assignments = assignments;
 

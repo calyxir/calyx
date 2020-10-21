@@ -67,7 +67,7 @@ impl IRPrinter {
 
         // Add the control program
         //if matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
-            //write!(f, "  control {{}}\n")?;
+        //write!(f, "  control {{}}\n")?;
         //} else {
         write!(f, "  control {{\n")?;
         Self::write_control(&comp.control.borrow(), 4, f)?;
@@ -115,8 +115,8 @@ impl IRPrinter {
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
         write!(f, "{} = ", Self::get_port_access(&assign.dst.borrow()))?;
-        if let Some(g) = &assign.guard {
-            write!(f, "{} ? ", Self::guard_str(&g))?;
+        if !matches!(&assign.guard, ir::Guard::True) {
+            write!(f, "{} ? ", Self::guard_str(&assign.guard))?;
         }
         write!(f, "{};", Self::get_port_access(&assign.src.borrow()))
     }

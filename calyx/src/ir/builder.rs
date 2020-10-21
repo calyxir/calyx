@@ -163,17 +163,16 @@ impl<'a> Builder<'a> {
         &self,
         dst: RRC<ir::Port>,
         src: RRC<ir::Port>,
-        guard: Option<ir::Guard>,
+        guard: ir::Guard,
     ) -> ir::Assignment {
         // Valid the ports if required.
         if self.validate {
             self.is_port_well_formed(&dst.borrow());
             self.is_port_well_formed(&src.borrow());
-            if let Some(g) = &guard {
-                g.all_ports()
-                    .into_iter()
-                    .for_each(|p| self.is_port_well_formed(&p.borrow()))
-            }
+            &guard
+                .all_ports()
+                .into_iter()
+                .for_each(|p| self.is_port_well_formed(&p.borrow()));
         }
         // If the ports have different widths, error out.
         if src.borrow().width != dst.borrow().width {

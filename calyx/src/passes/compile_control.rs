@@ -113,12 +113,12 @@ impl Visitor for CompileControl {
             builder.build_assignment(
                 cond_stored.borrow().get("in"),
                 Rc::clone(&cond),
-                Some(is_cond_computed.clone()),
+                is_cond_computed.clone(),
             ),
             builder.build_assignment(
                 cond_stored.borrow().get("write_en"),
                 Rc::clone(&cond),
-                Some(is_cond_computed.clone()),
+                is_cond_computed.clone(),
             ),
         ];
         if_group
@@ -207,7 +207,7 @@ impl Visitor for CompileControl {
         let cond_val_assign = builder.build_assignment(
             cond_stored.borrow().get("in"),
             cond,
-            Some(is_cond_computed.clone()),
+            is_cond_computed.clone(),
         );
         while_group.borrow_mut().assignments.push(cond_val_assign);
         let mut while_assigns = build_assignments!(builder;

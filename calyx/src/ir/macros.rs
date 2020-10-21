@@ -57,7 +57,7 @@ macro_rules! build_assignments {
         $builder.build_assignment(
             $dst_node.borrow().get($dst_port),
             $src_node.borrow().get($src_port),
-            None)
+            crate::ir::Guard::True)
     };
 
     // Guarded assignment.
@@ -68,7 +68,7 @@ macro_rules! build_assignments {
         $builder.build_assignment(
             $dst_node.borrow().get($dst_port),
             $src_node.borrow().get($src_port),
-            Some($guard.clone()))
+            $guard.clone())
     };
 
     ($builder:expr;
