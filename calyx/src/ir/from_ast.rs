@@ -70,33 +70,19 @@ fn build_component(
     sig_ctx: &SigCtx,
 ) -> FutilResult<Component> {
     // Cell to represent the signature of this component
-    let signature = Builder::cell_from_signature(
-        THIS_ID.into(),
-        CellType::ThisComponent,
+    let mut ir_component = Component::new(
+        comp.name,
         comp.signature
             .inputs
             .into_iter()
             .map(|pd| (pd.name, pd.width))
-            // Add the go and clk ports.
-            .chain(vec![(Id::from("go"), 1), (Id::from("clk"), 1)].into_iter())
             .collect(),
         comp.signature
             .outputs
             .into_iter()
             .map(|pd| (pd.name, pd.width))
-            // Add the go and clk ports.
-            .chain(vec![(Id::from("done"), 1)].into_iter())
             .collect(),
     );
-
-    let mut ir_component = Component {
-        name: comp.name,
-        signature,
-        cells: vec![],
-        groups: vec![],
-        continuous_assignments: vec![],
-        control: Rc::new(RefCell::new(Control::empty())),
-    };
 
     // For each ast::Cell, build an Cell that contains all the
     // required information.
