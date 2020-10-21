@@ -45,13 +45,11 @@ class Relay2Futil(ExprFunctor):
             bitwidth = get_bitwidth(arg.type_annotation)
             port_definition = FPortDef(name=name, bitwidth=bitwidth)
             port_definitions.append(port_definition)
-            self.function_arguments.append(port_definition)
         return port_definitions
 
     def __init__(self):
         super(Relay2Futil, self).__init__()
         self.id_dictionary = defaultdict(int)
-        self.function_arguments = []  # A list of function arguments that should not be included in main.
         self.main = FComponent(name="main", cells=[], wires=[])
 
     def visit_var(self, var):
@@ -60,9 +58,9 @@ class Relay2Futil(ExprFunctor):
 
         cell = FCell(primitive=FPrimitive(name=name, data=[get_bitwidth(type)], type=PrimitiveType.Register))
 
-        # The main cell requires a unique identifier.
+        # The main cell requires a unique identifier when an argument is a function.
         main_cell = FCell(
-            primitive=FPrimitive(name=self.id(name), data=[get_bitwidth(type)], type=PrimitiveType.Register))
+            primitive=FPrimitive(name=name + "_", data=[get_bitwidth(type)], type=PrimitiveType.Register))
         self.main.add_cell(main_cell)
         return cell
 
@@ -85,8 +83,8 @@ class Relay2Futil(ExprFunctor):
         fn_component.signature.inputs = arguments
 
         body = self.visit(function.body)
-        # TODO(cgyurgyik): Currently hardcoded. We want to include constants, but disclude
-        # function arguments.
+        # TODO(cgyurgyik): We want to disclude function arguments.
+        # This assumes anything that is not a constant must be a function argument.
         if body.primitive.type == PrimitiveType.Constant:
             fn_component.add_cell(body)
 
@@ -123,10 +121,9 @@ def infer_type(expr: Function) -> Function:
 
 def build_main(c: FComponent):
     '''
-    Builds the main function that will take the last function and run it.
+    Builds the main function that will take the last defined relay function and run it.
     '''
     # FIXME(cgyurgyik): This is currently mostly hard-coded.
-
     for cell in reversed(c.cells):  # Get the bitwidth of the output of the last function declaration.
         if cell.is_declaration():
             bitwidth = cell.declaration.component.signature.outputs[0].bitwidth
@@ -134,16 +131,18 @@ def build_main(c: FComponent):
             function_name = cell.declaration.name
             break
 
-    ret_cell = FCell(primitive=FPrimitive(name="ret", data=[bitwidth], type=PrimitiveType.Register))
+    # Add a return cell that will store the final output.
+    ret_name = "ret"
+    ret_cell = FCell(primitive=FPrimitive(name=ret_name, data=[bitwidth], type=PrimitiveType.Register))
     c.add_cell(ret_cell)
 
     connections = []
     for input in inputs:
-        connections.append(FConnection(wire=FWire(f'{function_name}.{input.name}', f'{input.name + "0"}.out')))
+        connections.append(FConnection(wire=FWire(f'{function_name}.{input.name}', f'{input.name + "_"}.out')))
+
     connections.append(FConnection(wire=FWire(f'{function_name}.go', "1'd1")))
-    connections.append(FConnection(wire=FWire(f'{ret_cell.primitive.name}.write_en', "1'd1")))
-    connections.append(
-        FConnection(wire=FWire(f'{ret_cell.primitive.name}.in', f'{function_name}.done ? {function_name}.out')))
+    connections.append(FConnection(wire=FWire(f'{ret_name}.write_en', "1'd1")))
+    connections.append(FConnection(wire=FWire(f'{ret_name}.in', f'{function_name}.done ? {function_name}.out')))
     c.wires = connections
 
 
