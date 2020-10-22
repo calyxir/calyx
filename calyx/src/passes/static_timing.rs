@@ -2,9 +2,8 @@ use crate::frontend::library::ast as lib;
 use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::{build_assignments, guard, structure};
-use std::cmp;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::{cmp, rc::Rc};
 
 #[derive(Default)]
 pub struct StaticTiming {}
@@ -79,6 +78,10 @@ impl Visitor for StaticTiming {
             ) {
                 let while_group =
                     builder.add_group("static_while", HashMap::new());
+
+                // take at least one cycle for computing the body and conditiona
+                let ctime = cmp::max(ctime, 1);
+                let btime = cmp::max(btime, 1);
 
                 let fsm_size = 32;
                 structure!(builder;
