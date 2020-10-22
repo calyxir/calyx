@@ -1,4 +1,5 @@
 use super::{Assignment, Builder, Cell, CellType, Control, Group, Id, RRC};
+use crate::utils;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -22,6 +23,11 @@ pub struct Component {
     pub continuous_assignments: Vec<Assignment>,
     /// The control program for this component.
     pub control: RRC<Control>,
+
+    ///// Internal structures
+    /// Namegenerator that contains the names currently defined in this
+    /// component (cell and group names).
+    namegen: utils::NameGenerator,
 }
 
 /// Builder methods for extracting and construction IR nodes.
@@ -58,6 +64,7 @@ impl Component {
                 .chain(vec![(Id::from("done"), 1)].into_iter())
                 .collect(),
         );
+
         Component {
             name: name.as_ref().into(),
             signature: this_sig,
@@ -65,6 +72,7 @@ impl Component {
             groups: vec![],
             continuous_assignments: vec![],
             control: Rc::new(RefCell::new(Control::empty())),
+            namegen: utils::NameGenerator::default(),
         }
     }
 
@@ -88,5 +96,13 @@ impl Component {
             .iter()
             .find(|&g| g.borrow().name == *name)
             .map(|r| Rc::clone(r))
+    }
+
+    /// Construct a non-conflicting name using the Component's namegenerator.
+    pub fn generate_name<S>(&mut self, prefix: S) -> Id
+    where
+        S: Into<Id> + ToString,
+    {
+        self.namegen.gen_name(prefix)
     }
 }

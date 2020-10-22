@@ -102,8 +102,6 @@ fn build_component(
 
     let mut builder =
         Builder::from(&mut ir_component, &sig_ctx.lib_sigs, false);
-    // XXX(rachit): Explicitly disabling the name generator.
-    builder.disable_namegen = true;
 
     ast_groups
         .into_iter()
@@ -183,7 +181,7 @@ fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
 
 /// Build an IR group using the AST Group.
 fn build_group(group: ast::Group, builder: &mut Builder) -> FutilResult<()> {
-    let ir_group = builder.add_group(group.name.id, group.attributes);
+    let ir_group = builder.add_group(group.name, group.attributes);
 
     // Add assignemnts to the group
     for wire in group.wires {
