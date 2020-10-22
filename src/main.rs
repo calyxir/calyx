@@ -13,9 +13,9 @@ use calyx::{
 use cmdline::Opts;
 use pass_manager::PassManager;
 use passes::{
-    CollapseControl, CompileControl, CompileEmpty, ComponentInterface,
-    Externalize, GoInsertion, Inliner, Papercut, RemoveExternalMemories,
-    StaticTiming, WellFormed,
+    ClkInsertion, CollapseControl, CompileControl, CompileEmpty,
+    ComponentInterface, Externalize, GoInsertion, Inliner, Papercut,
+    RemoveExternalMemories, StaticTiming, WellFormed,
 };
 use std::io::stdin;
 use structopt::StructOpt;
@@ -39,6 +39,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
     register_pass!(pm, CollapseControl);
     register_pass!(pm, CompileEmpty);
     register_pass!(pm, Papercut);
+    register_pass!(pm, ClkInsertion);
 
     // Register aliases
     register_alias!(
@@ -55,6 +56,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
             GoInsertion,
             ComponentInterface,
             Inliner,
+            ClkInsertion,
             //MergeAssign,
         ]
     );
@@ -73,6 +75,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
             GoInsertion,
             ComponentInterface,
             Inliner,
+            ClkInsertion,
             //MergeAssign,
             Externalize,
         ]

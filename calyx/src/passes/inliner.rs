@@ -48,7 +48,6 @@ fn fixed_point(
 
     // initialize the worklist to have guards that have no holes
     for (key, (_, guard)) in map.iter() {
-        println!("key: {:?}", key);
         if !has_holes(&guard) {
             worklist.push(key.clone())
         }
@@ -57,8 +56,6 @@ fn fixed_point(
     while !worklist.is_empty() {
         let hole_key = worklist.pop().unwrap_or_else(|| unreachable!());
         let (hole, new_guard) = map[&hole_key].clone();
-
-        println!("{:?}", worklist);
 
         for read in graph
             .reads_from(&hole.borrow())
@@ -159,6 +156,7 @@ impl Visitor for Inliner {
             }
         }
 
+        // find fixed point of map
         fixed_point(&subgraph, &mut map);
 
         // remove edges that write to a hole
@@ -186,7 +184,10 @@ impl Visitor for Inliner {
                 if port.is_hole() {
                     Some(
                         map.get(&port.key())
-                            .expect(&format!("{:?}", port.key()))
+                            .expect(&format!(
+                                "Missing {:?} from inliner map.",
+                                port.key()
+                            ))
                             .1
                             .clone(),
                     )

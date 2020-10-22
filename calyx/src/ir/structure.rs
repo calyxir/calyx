@@ -114,7 +114,7 @@ pub struct Cell {
 
 impl Cell {
     /// Get a reference to the named port if it exists.
-    pub fn find<S>(&self, name: &S) -> Option<RRC<Port>>
+    pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
     where
         S: std::fmt::Display + Clone + AsRef<str>,
     {

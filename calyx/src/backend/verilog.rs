@@ -245,7 +245,10 @@ fn emit_assignment(
         v::AssignTy::Blocking,
     );
     assignments.iter().rfold(init, |acc, e| match &e.guard {
-        ir::Guard::True => unimplemented!(),
+        ir::Guard::True => v::Sequential::new_blk_assign(
+            port_to_ref(Rc::clone(&e.dst)),
+            port_to_ref(Rc::clone(&e.src)),
+        ),
         g => {
             let guard = guard_to_expr(g);
             let mut if_s = v::SequentialIfElse::new(guard);
@@ -350,7 +353,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
         // get the data
         .add_seq(v::Sequential::new_blk_assign(
             v::Expr::new_ref("DATA"),
-            v::Expr::new_call("futil_getenv", vec![v::Expr::new_ref("DATA")]),
+            v::Expr::new_call("futil_getenv", vec![v::Expr::new_str("DATA")]),
         ))
         // log the path to the data
         .add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
@@ -363,11 +366,16 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
         )));
 
     let memories = comp.cells.iter().filter_map(|cell| {
-        if requires_initialization(&cell.borrow().name) {
-            Some(cell.borrow().name.id.clone())
-        } else {
-            None
-        }
+        cell.borrow()
+            .type_name()
+            .map(requires_initialization)
+            .and_then(|yes| {
+                if yes {
+                    Some(cell.borrow().name.id.clone())
+                } else {
+                    None
+                }
+            })
     });
 
     memories.clone().for_each(|name| {
@@ -376,8 +384,8 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
             vec![
                 v::Expr::Concat(v::ExprConcat {
                     exprs: vec![
-                        v::Expr::new_ref("DATA"),
                         v::Expr::new_str(&format!("/{}.dat", name)),
+                        v::Expr::new_ref("DATA"),
                     ],
                 }),
                 v::Expr::new_ipath(&format!("{}.mem", name)),
@@ -392,8 +400,8 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
             vec![
                 v::Expr::Concat(v::ExprConcat {
                     exprs: vec![
-                        v::Expr::new_ref("DATA"),
                         v::Expr::new_str(&format!("/{}.out", name)),
+                        v::Expr::new_ref("DATA"),
                     ],
                 }),
                 v::Expr::new_ipath(&format!("{}.mem", name)),
