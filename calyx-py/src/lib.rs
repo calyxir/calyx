@@ -79,7 +79,7 @@ fn free_component(c: ComponentWrapper) -> () {
 
 /// The python module exposing the relevant functions.
 #[pymodule]
-fn libcalyx_py(_py: Python, m: &PyModule) -> PyResult<()> {
+fn libcalyx(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(new_component, m)?)?;
     m.add_function(wrap_pyfunction!(get_component_name, m)?)?;
     m.add_function(wrap_pyfunction!(free_component, m)?)?;

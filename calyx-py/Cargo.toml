@@ -5,7 +5,7 @@ authors = ["Rachit Nigam <rachit.nigam12@gmail.com>"]
 edition = "2018"
 
 [lib]
-name = "calyx_py"
+name = "calyx"
 crate-type = ["cdylib"]
 
 [dependencies]
