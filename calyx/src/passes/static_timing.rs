@@ -6,6 +6,11 @@ use std::collections::HashMap;
 use std::{cmp, rc::Rc};
 
 #[derive(Default)]
+/// Optimized lowering for control statements that only contain groups with
+/// the "static" attribute.
+///
+/// Structured as a bottom-up pass. Control constructs not compiled by this
+/// pass are compiled by the generic `CompileControl` pass.
 pub struct StaticTiming {}
 
 impl Named for StaticTiming {

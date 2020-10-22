@@ -1,5 +1,3 @@
-//! Compiles away all `empty` statements in a FuTIL program to a group that is
-//! always active.
 use crate::frontend::library::ast::LibrarySignatures;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Component, Control};
@@ -8,6 +6,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Default)]
+/// Compiles away all `empty` statements in a FuTIL program to a group that is
+/// always active.
 pub struct CompileEmpty {}
 
 impl CompileEmpty {

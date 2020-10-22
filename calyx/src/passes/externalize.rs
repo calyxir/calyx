@@ -1,41 +1,42 @@
-//! Pass to externalize input/output ports for "external" cells.
-//! The input ports of these cells are exposed through the ports of the
-//! component containing them.
-//! For example:
-//! ```
-//! component main() -> () {
-//!     cells {
-//!         // Inputs: addr0, write_data, write_en
-//!         // Outputs: read_data, done
-//!         m1 = prim std_mem_d1_ext(32, 10, 4);
-//!     }
-//!     wires {
-//!         m1.addr0 = 1'd1;
-//!         x.in = m1.read_data;
-//!     }
-//! }
-//! ```
-//! is transformed into:
-//! ```
-//! component main(
-//!     m1_read_data: 32,
-//!     m1_done: 1
-//! ) -> (m1_add0: 4, m1_write_data: 32, m1_write_en: 1) {
-//!     cells {
-//!         // m1 removed.
-//!     }
-//!     wires {
-//!         m1_add0 = 1'd1;
-//!         x.in = m1_read_data;
-//!     }
-//! }
-//! ```
 use crate::frontend::library::ast as lib;
 use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use std::rc::Rc;
 
 #[derive(Default)]
+/// Externalize input/output ports for "external" cells.
+/// The ports of these cells are exposed through the ports of the parent
+/// component.
+///
+/// For example:
+/// ```
+/// component main() -> () {
+///     cells {
+///         // Inputs: addr0, write_data, write_en
+///         // Outputs: read_data, done
+///         m1 = prim std_mem_d1_ext(32, 10, 4);
+///     }
+///     wires {
+///         m1.addr0 = 1'd1;
+///         x.in = m1.read_data;
+///     }
+/// }
+/// ```
+/// is transformed into:
+/// ```
+/// component main(
+///     m1_read_data: 32,
+///     m1_done: 1
+/// ) -> (m1_add0: 4, m1_write_data: 32, m1_write_en: 1) {
+///     cells {
+///         // m1 removed.
+///     }
+///     wires {
+///         m1_add0 = 1'd1;
+///         x.in = m1_read_data;
+///     }
+/// }
+/// ```
 pub struct Externalize;
 
 impl Named for Externalize {

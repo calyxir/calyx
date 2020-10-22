@@ -1,27 +1,3 @@
-//! Wires up the `go` and `done` holes for FuTIL programs with a single
-//! enable to the component `go` and `done` ports.
-//! For example:
-//! ```
-//! component main(go: 1) -> (done: 1) {
-//!     cells { .. }
-//!     wires {
-//!         group only_group { .. }
-//!     }
-//!     control { only_group; }
-//! }
-//! ```
-//! is transformed into:
-//! ```
-//! component main(go: 1) -> (done: 1) {
-//!     cells { .. }
-//!     wires {
-//!         group only_group { .. }
-//!         only_group[go] = go;
-//!         done = only_group[done];
-//!     }
-//!     control { only_group; }
-//! }
-//! ```
 use crate::errors::Error;
 use crate::frontend::library::ast as lib;
 use crate::ir;
@@ -30,6 +6,31 @@ use crate::{build_assignments, guard, structure};
 use std::rc::Rc;
 
 #[derive(Default)]
+/// Wires up the `go` and `done` holes for FuTIL programs with a single
+/// enable to the component `go` and `done` ports.
+///
+/// For example:
+/// ```
+/// component main(go: 1) -> (done: 1) {
+///     cells { .. }
+///     wires {
+///         group only_group { .. }
+///     }
+///     control { only_group; }
+/// }
+/// ```
+/// is transformed into:
+/// ```
+/// component main(go: 1) -> (done: 1) {
+///     cells { .. }
+///     wires {
+///         group only_group { .. }
+///         only_group[go] = go;
+///         done = only_group[done];
+///     }
+///     control { only_group; }
+/// }
+/// ```
 pub struct ComponentInterface;
 
 impl Named for ComponentInterface {

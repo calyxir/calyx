@@ -10,6 +10,9 @@ use std::convert::TryInto;
 use std::rc::Rc;
 
 #[derive(Default)]
+/// Primary lowering pass. Transforms all control constructs in a program
+/// into groups that enable `go` and `done` holes. After this pass runs,
+/// there is exactly one group enable in the control.
 pub struct CompileControl {}
 
 impl Named for CompileControl {

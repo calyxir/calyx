@@ -1,6 +1,3 @@
-//! Adds assignments from a components `clk` port to every
-//! component that contains an input `clk` port. For example
-
 use crate::frontend::library::ast as lib;
 use crate::ir::{
     self,
@@ -9,6 +6,8 @@ use crate::ir::{
 use ir::traversal::{Action, VisResult};
 
 #[derive(Default)]
+/// Adds assignments from a components `clk` port to every
+/// component that contains an input `clk` port. For example
 pub struct ClkInsertion;
 
 impl Named for ClkInsertion {

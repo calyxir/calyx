@@ -3,6 +3,7 @@ use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 
 #[derive(Default)]
+/// Collapses and de-nests control constructs.
 pub struct CollapseControl {}
 
 impl Named for CollapseControl {

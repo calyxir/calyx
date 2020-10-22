@@ -1,3 +1,4 @@
+//! Passes for the FuTIL compiler.
 mod collapse_control;
 mod compile_control;
 mod compile_empty;

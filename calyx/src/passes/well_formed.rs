@@ -1,12 +1,14 @@
-//! Pass to check if the program is well-formed. Catches the following errors:
-//! 1. Programs that use reserved SystemVerilog keywords as identifiers.
-//! 2. Programs that don't use a defined group.
 use crate::errors::Error;
 use crate::frontend::library::ast::LibrarySignatures;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Component};
 use std::collections::HashSet;
 
+/// Pass to check if the program is well-formed.
+///
+/// Catches the following errors:
+/// 1. Programs that use reserved SystemVerilog keywords as identifiers.
+/// 2. Programs that don't use a defined group.
 pub struct WellFormed {
     /// Set of names that components and cells are not allowed to have.
     reserved_names: HashSet<String>,

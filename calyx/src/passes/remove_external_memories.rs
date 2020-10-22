@@ -3,6 +3,7 @@ use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use std::collections::HashMap;
 
+/// Replaces "external" memory cells with internal memories.
 pub struct RemoveExternalMemories<'a> {
     changeable: HashMap<&'a str, &'a str>,
 }
