@@ -1,18 +1,3 @@
-//! Guards all the non-hole assignments in a group using the group's `go` signal.
-//! For example, the pass transforms this FuTIL program:
-//! ```
-//! group foo {
-//!     x.in = cond ? 32'd1;
-//!     foo[done] = reg.done;
-//! }
-//! ```
-//! into:
-//! ```
-//! group foo {
-//!     x.in = cond & foo[go] ? 32'd1;
-//!     foo[done] = reg.done;
-//! }
-//! ```
 use std::collections::HashMap;
 
 use crate::frontend::library::ast as lib;
