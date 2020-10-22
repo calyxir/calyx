@@ -44,9 +44,16 @@ pub fn ast_to_ir(
 
     // Add component signatures
     for comp in &components {
-        sig_ctx
-            .comp_sigs
-            .insert(comp.name.clone(), comp.signature.clone());
+        let mut sig = comp.signature.clone();
+        sig.inputs.push(ast::Portdef {
+            name: "go".into(),
+            width: 1,
+        });
+        sig.outputs.push(ast::Portdef {
+            name: "done".into(),
+            width: 1,
+        });
+        sig_ctx.comp_sigs.insert(comp.name.clone(), sig);
     }
 
     let comps = components
@@ -136,7 +143,9 @@ fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
                 .ok_or_else(|| Error::UndefinedComponent(component.clone()))?;
             Ok((
                 name,
-                CellType::Component,
+                CellType::Component {
+                    name: component.clone(),
+                },
                 sig.inputs
                     .iter()
                     .cloned()

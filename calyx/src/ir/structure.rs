@@ -89,7 +89,10 @@ pub enum CellType {
         param_binding: Vec<(Id, u64)>,
     },
     /// Cell constructed using a FuTIL component
-    Component,
+    Component {
+        /// Name of the component used to instantiate this cell.
+        name: Id,
+    },
     /// This cell represents the current component
     ThisComponent,
     /// Cell representing a Constant
@@ -143,8 +146,9 @@ impl Cell {
     /// Returns the name of the component that is this cells type.
     pub fn type_name(&self) -> Option<&Id> {
         match &self.prototype {
-            CellType::Primitive { name, .. } => Some(name),
-            CellType::Component => todo!(),
+            CellType::Primitive { name, .. } | CellType::Component { name } => {
+                Some(name)
+            }
             CellType::ThisComponent => Some(&self.name),
             CellType::Constant { .. } => None,
         }

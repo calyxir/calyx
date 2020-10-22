@@ -187,7 +187,7 @@ fn wire_decls(cell: &ir::Cell) -> Vec<v::Decl> {
                 let parent_ref = cell.upgrade().unwrap();
                 let parent = parent_ref.borrow();
                 match parent.prototype {
-                    ir::CellType::Component
+                    ir::CellType::Component { .. }
                     | ir::CellType::Primitive { .. } => {
                         Some(v::Decl::new_logic(
                             format!(
