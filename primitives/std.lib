@@ -41,7 +41,8 @@ primitive std_mem_d1[width, size, idx_size](
 primitive std_mem_d1_ext[width, size, idx_size](
   addr0: idx_size,
   write_data: width,
-  write_en: 1
+  write_en: 1,
+  clk: 1
 ) -> (read_data: width, done: 1) {}
 
 
@@ -85,7 +86,8 @@ primitive std_mem_d2_ext[width, d0_size, d1_size, d0_idx_size, d1_idx_size](
   addr0: d0_idx_size,
   addr1: d1_idx_size,
   write_data: width,
-  write_en: 1
+  write_en: 1,
+  clk: 1
 ) -> (read_data: width, done: 1) {}
 
 primitive std_mem_d3[
@@ -149,7 +151,8 @@ primitive std_mem_d3_ext[
   addr1: d1_idx_size,
   addr2: d2_idx_size,
   write_data: width,
-  write_en: 1
+  write_en: 1,
+  clk: 1
 ) -> (read_data: width, done: 1) {}
 
 primitive std_logsize_mem_d1[width, logsize](
