@@ -1,14 +1,13 @@
 import tvm
 from tvm import relay
 from tvm.relay import parser
-import relay2futil
+from compiler import *
 import sys
 
 
 def identity():
-    """The float32 identity function in Relay.
-    """
-    x = relay.var('x', shape=())
+    """Definition of a relay variable."""
+    x = relay.var('x', shape=(), dtype="int32")
     f = relay.Function([x], x)
     return f
 
@@ -16,19 +15,37 @@ def identity():
 def const():
     """A simple constant function in Relay.
     """
-    return parser.fromtext('fn(){42}') 
+    return parser.fromtext('v0.0.4 fn(){%0 = 42; %0}')
 
-def tensor_add():
+
+def tensor_1d_add():
     """Add together two 1-dimensional tensors in Relay.
     """
     x = relay.var("x", relay.TensorType((1, 4), "int32"))
     y = relay.var("y", relay.TensorType((1, 4), "int32"))
     return relay.Function([x, y], relay.add(x, y))
 
+
+def test():
+    x = relay.var("x", relay.TensorType((1, 4), "int32"))
+    y = relay.var("y", relay.TensorType((1, 4), "int32"))
+    z = relay.var("z", shape=(), dtype="int32")
+    return relay.Function([x, y, z], relay.add(x, y))
+
+
+def tensor_2d_add():
+    """Add together two 2-dimensional tensors in Relay.
+    """
+    x = relay.var("x", relay.TensorType((2, 4), "int32"))
+    y = relay.var("y", relay.TensorType((2, 4), "int32"))
+    return relay.Function([x, y], relay.add(x, y))
+
+
 def add():
     """Add together two constants in Relay.
     """
     return relay.Function([], relay.add(relay.const(37), relay.const(5)))
+
 
 def add_var():
     """Add together two variables
@@ -37,15 +54,17 @@ def add_var():
     y = relay.var('y', shape=())
     return relay.Function([x, y], relay.add(x, y))
 
+
 def assign():
     """Assign a const to a varible
     """
     x = relay.var('x', shape=())
     v1 = relay.log(x)
-    v2 = relay.add (v1,x)
+    v2 = relay.add(v1, x)
     return relay.Function([x], v2)
 
-def conv2d( weight=None, **kwargs):
+
+def conv2d(weight=None, **kwargs):
     name = 'test'
     if not weight:
         weight = relay.var(name + "_weight")
@@ -60,15 +79,16 @@ def mlp_net():
     return mlp.get_net(1)
 
 
-ALL_FUNCS = [identity, const, add, tensor_add, add_var, assign, conv2d, mlp_net]
+ALL_FUNCS = [identity, const, tensor_1d_add, test, mlp_net, conv2d]
+
+
 def simple_example():
+    func = identity()  # Default if none provided.
     # See if the command line contains a function name.
     for option in ALL_FUNCS:
         if option.__name__ in sys.argv[1:]:
             func = option()
             break
-    else:
-        func = add()  # The default for no argument.
 
     if '-o' in sys.argv[1:]:
         # Try optimizing the Relay IR with a few built-in passes.
@@ -87,7 +107,7 @@ def simple_example():
         print(func)
     else:
         # Compile the function and print the FuTIL.
-        print(relay2futil.compile(func))
+        print(compile(func))
 
 
 if __name__ == '__main__':

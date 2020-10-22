@@ -1,0 +1,10 @@
+{
+  "x": {
+    "data": [42],
+    "bitwidth": 32
+  },
+    "ret": {
+      "data": [0],
+      "bitwidth": 32
+    }
+}

@@ -1,4 +1,0 @@
-v0.0.4
-fn (%x: Tensor[(1, 4), int32], %y: Tensor[(1, 4), int32]) -> Tensor[(1, 4), int32] {
-   add(%x, %y)
-}
