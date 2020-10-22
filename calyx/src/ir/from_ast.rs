@@ -137,7 +137,7 @@ fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
             let sig = sig_ctx
                 .comp_sigs
                 .get(&component)
-                .ok_or_else(|| Error::UndefinedComponent(name.clone()))?;
+                .ok_or_else(|| Error::UndefinedComponent(component.clone()))?;
             Ok((
                 name,
                 CellType::Component,
@@ -160,7 +160,7 @@ fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
             let prim_sig = sig_ctx
                 .lib_sigs
                 .get(&prim_name)
-                .ok_or_else(|| Error::UndefinedComponent(name.clone()))?;
+                .ok_or_else(|| Error::UndefinedComponent(prim_name.clone()))?;
             let (param_binding, inputs, outputs) =
                 prim_sig.resolve(&instance.params)?;
             Ok((
