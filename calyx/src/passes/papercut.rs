@@ -112,10 +112,13 @@ impl Visitor for Papercut<'_> {
 
         // If there is a group that hasn't been assigned to, throw an error.
         if let Some(g) = no_done_group {
-            return Err(Error::Papercut(format!(
-                "No writes to the `done' hole for group `{}'",
-                g.to_string()
-            )));
+            return Err(Error::Papercut(
+                format!(
+                    "No writes to the `done' hole for group `{}'",
+                    g.to_string()
+                ),
+                g,
+            ));
         }
 
         // For each component that's being driven in a group, make
@@ -166,7 +169,10 @@ impl Visitor for Papercut<'_> {
                         inst,
                         second,
                         comp_type);
-                            return Err(Error::Papercut(msg));
+                            return Err(Error::Papercut(
+                                msg,
+                                group.borrow().name.clone(),
+                            ));
                         }
                     }
                 }

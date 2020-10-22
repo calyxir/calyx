@@ -42,13 +42,13 @@ impl<'a> Builder<'a> {
         attributes: HashMap<String, u64>,
     ) -> RRC<ir::Group>
     where
-        S: Into<ir::Id> + ToString
+        S: Into<ir::Id> + ToString + Clone,
     {
-        let name = self.component.generate_name(prefix);
+        let name = self.component.generate_name(prefix.clone());
 
         // Check if there is a group with the same name.
         let group = Rc::new(RefCell::new(ir::Group {
-            name: ir::Id::from(name.as_ref()),
+            name,
             attributes,
             holes: vec![],
             assignments: vec![],

@@ -55,7 +55,7 @@ pub enum Error {
     MissingImplementation(&'static str, ir::Id),
 
     /// Papercut error: signals a commonly made mistake in FuTIL program.
-    Papercut(String),
+    Papercut(String, ir::Id),
 
     /// Internal compiler error that should never occur.
     Impossible(String), // Signal compiler errors that should never occur.
@@ -125,8 +125,8 @@ impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use Error::*;
         match self {
-            Papercut(msg) => {
-                write!(f, "{}", (&("[Papercut] ".to_string() + msg)))
+            Papercut(msg, id) => {
+                write!(f, "{}", id.fmt_err(&("[Papercut] ".to_string() + msg)))
             }
             UnusedGroup(name) => {
                 write!(
