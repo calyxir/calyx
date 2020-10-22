@@ -22,9 +22,24 @@ struct SigCtx {
     lib_sigs: HashMap<Id, library::ast::Primitive>,
 }
 
+fn extend_signature(sig: &mut ast::Signature) {
+    sig.inputs.push(ast::Portdef {
+        name: "go".into(),
+        width: 1,
+    });
+    sig.inputs.push(ast::Portdef {
+        name: "clk".into(),
+        width: 1,
+    });
+    sig.outputs.push(ast::Portdef {
+        name: "done".into(),
+        width: 1,
+    });
+}
+
 /// Construct an IR representation using a parsed AST and command line options.
 pub fn ast_to_ir(
-    components: Vec<ast::ComponentDef>,
+    mut components: Vec<ast::ComponentDef>,
     libraries: &[library::ast::Library],
     import_statements: Vec<String>,
     debug_mode: bool,
@@ -42,18 +57,13 @@ pub fn ast_to_ir(
         );
     }
 
-    // Add component signatures
-    for comp in &components {
-        let mut sig = comp.signature.clone();
-        sig.inputs.push(ast::Portdef {
-            name: "go".into(),
-            width: 1,
-        });
-        sig.outputs.push(ast::Portdef {
-            name: "done".into(),
-            width: 1,
-        });
-        sig_ctx.comp_sigs.insert(comp.name.clone(), sig);
+    // Add component signatures to context
+    for comp in &mut components {
+        // extend the signature
+        extend_signature(&mut comp.signature);
+        sig_ctx
+            .comp_sigs
+            .insert(comp.name.clone(), comp.signature.clone());
     }
 
     let comps = components
@@ -205,7 +215,6 @@ fn build_group(group: ast::Group, builder: &mut Builder) -> FutilResult<()> {
 
 /// Get the pointer to the Port represented by `port`.
 fn get_port_ref(port: ast::Port, comp: &Component) -> FutilResult<RRC<Port>> {
-
     match port {
         ast::Port::Comp { component, port } => comp
             .find_cell(&component)

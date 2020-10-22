@@ -52,16 +52,10 @@ impl Component {
             inputs
                 .into_iter()
                 .map(|(name, width)| (name.as_ref().into(), width))
-                // Add the go and clk ports.
-                .chain(
-                    vec![(Id::from("go"), 1), (Id::from("clk"), 1)].into_iter(),
-                )
                 .collect(),
             outputs
                 .into_iter()
                 .map(|(name, width)| (name.as_ref().into(), width))
-                // Add the go and clk ports.
-                .chain(vec![(Id::from("done"), 1)].into_iter())
                 .collect(),
         );
 
