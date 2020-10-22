@@ -6,47 +6,8 @@ from collections import namedtuple, defaultdict
 import math
 
 from pretty_print import *
+from relay2futil_utilities import *
 from futil_ast import *
-
-PREAMBLE = """import "primitives/std.lib";"""
-
-
-def get_bitwidth(type):
-    '''
-    Quick and dirty way to get the bitwidth.
-    '''
-    t = str(type)
-    if t[0:3] == 'int':
-        return int(t[3:len(t)])
-    elif t[0:5] == 'float':
-        return int(t[5:len(t)])
-    else:
-        assert False, f'{t} is not supported.'
-
-
-def extract_function_arguments(args):
-    '''
-    Extracts the arguments from a function as port definitions
-    '''
-    inputs = []
-    outputs = []
-    for arg in args:
-        name = arg.name_hint
-        bitwidth = get_bitwidth(arg.type_annotation)
-        out_port = f'{name}_out'
-        done_port = f'{name}_done'
-        inputs.append(FPortDef(name=out_port, bitwidth=bitwidth))
-        inputs.append(FPortDef(name=done_port, bitwidth=1))
-
-        write_data_port = f'{name}_write_data'
-        write_enable_port = f'{name}_write_en'
-        addr0_port = f'{name}_addr0'
-
-        outputs.append(FPortDef(name=write_data_port, bitwidth=bitwidth))
-        outputs.append(FPortDef(name=write_enable_port, bitwidth=1))
-        # TODO(cgyurgyik): Let's instead add a begin and end index.
-        outputs.append(FPortDef(name=addr0_port, bitwidth=1))  # FIXME: Hardcoded for scalars.
-    return inputs, outputs
 
 
 class Relay2Futil(ExprFunctor):
@@ -184,6 +145,7 @@ def compile(program) -> str:
     src = visitor.visit(program)
 
     build_main(visitor.main)
+    PREAMBLE = """import "primitives/std.lib";"""
 
     return f'{PREAMBLE}\n\n{src}\n\n{pp_component(visitor.main)}'
 

@@ -153,31 +153,3 @@ class FCell(Cell):
 
     def is_declaration(self):
         return self.declaration != None
-
-
-def build_return_connections(ret: FPrimitive, index: FPrimitive, comp: FComponent):
-    inputs = comp.signature.inputs
-    outputs = comp.signature.outputs
-    # Write to return register.
-
-    if len(inputs) > 0:
-        input_name = (inputs[0].name).split('_')[0]
-    else:
-        # If there are no inputs, take the out wire of the last constant.
-        for cell in reversed(comp.cells):
-            if cell.is_primitive() and cell.primitive.type == PrimitiveType.Constant:
-                input_name = f'{cell.primitive.name}.out'
-                break
-
-    group_name = "save_return_value"
-    wire0 = FWire(f'{ret.name}.addr0', f'{index.name}.out')
-    wire1 = FWire(f'{ret.name}.write_en', "1'd1")
-    wire2 = FWire(f'{input_name}_addr0', f'{index.name}.out')
-    wire3 = FWire(f'{input_name}_write_en', "1'd1")
-    wire4 = FWire(f'{ret.name}.write_data', f'{input_name}_out')
-    wire5 = FWire(f'{input_name}_write_data', f'{ret.name}.read_data')
-    wire6 = FWire(f'{group_name}[done]', f'{ret.name}.done')
-    wires = [wire0, wire1, wire2, wire3, wire4, wire5, wire6]
-
-    connection_1 = FConnection(group=FGroup(name=group_name, wires=wires, attributes=[]))
-    return [connection_1]
