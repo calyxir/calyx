@@ -11,8 +11,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-const THIS_ID: &str = "this";
-
 /// Context to store the signature information for all defined primitives and
 /// components.
 #[derive(Default)]
@@ -200,40 +198,29 @@ fn build_group(group: ast::Group, builder: &mut Builder) -> FutilResult<()> {
 
 /// Get the pointer to the Port represented by `port`.
 fn get_port_ref(port: ast::Port, comp: &Component) -> FutilResult<RRC<Port>> {
-    let find_and_clone_port = |comp: &Id,
-                               port_name: Id,
-                               all_ports: &[RRC<Port>]|
-     -> FutilResult<RRC<Port>> {
-        // XXX(rachit): Use the find_ methods on the cells instead of manually
-        // searching the ports.
-        all_ports
-            .iter()
-            .find(|p| p.borrow().name == port_name)
-            .map(|p| Rc::clone(p))
-            .ok_or_else(|| {
-                Error::UndefinedPort(comp.clone(), port_name.to_string())
-            })
-    };
 
     match port {
-        ast::Port::Comp { component, port } => {
-            let cell_ref = comp
-                .find_cell(&component)
-                .ok_or_else(|| Error::UndefinedComponent(component.clone()))?;
-            let cell = &cell_ref.borrow();
-            find_and_clone_port(&component, port, &cell.ports)
-        }
+        ast::Port::Comp { component, port } => comp
+            .find_cell(&component)
+            .ok_or_else(|| Error::UndefinedComponent(component.clone()))?
+            .borrow()
+            .find(&port)
+            .ok_or_else(|| {
+                Error::UndefinedPort(component.clone(), port.to_string())
+            }),
         ast::Port::This { port } => {
-            let cell = comp.signature.borrow();
-            find_and_clone_port(&THIS_ID.into(), port, &cell.ports)
+            comp.signature.borrow().find(&port).ok_or_else(|| {
+                Error::UndefinedPort(comp.name.clone(), port.to_string())
+            })
         }
-        ast::Port::Hole { group, name } => {
-            let group_ref = comp
-                .find_group(&group)
-                .ok_or_else(|| Error::UndefinedGroup(group.clone()))?;
-            let g = group_ref.borrow();
-            find_and_clone_port(&group, name, &g.holes)
-        }
+        ast::Port::Hole { group, name: port } => comp
+            .find_group(&group)
+            .ok_or_else(|| Error::UndefinedGroup(group.clone()))?
+            .borrow()
+            .find(&port)
+            .ok_or_else(|| {
+                Error::UndefinedPort(group.clone(), port.to_string())
+            }),
     }
 }
 

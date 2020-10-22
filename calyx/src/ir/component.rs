@@ -2,6 +2,10 @@ use super::{Assignment, Builder, Cell, CellType, Control, Group, Id, RRC};
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// The default name of the signature cell in a component.
+/// In general, this should not be used by anything.
+const THIS_ID: &str = "_this";
+
 /// In memory representation of a Component.
 #[derive(Debug)]
 pub struct Component {
@@ -37,7 +41,7 @@ impl Component {
         O: AsRef<str>,
     {
         let this_sig = Builder::cell_from_signature(
-            "this".into(),
+            THIS_ID.into(),
             CellType::ThisComponent,
             inputs
                 .into_iter()
