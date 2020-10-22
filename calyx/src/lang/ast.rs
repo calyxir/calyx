@@ -343,10 +343,8 @@ impl GuardExpr {
         let uniqs = flat_atoms
             .into_iter()
             .unique()
-            .filter(|atom| match *atom {
-                GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. })) => false,
-                _ => true,
-            })
+            .filter(|atom|
+                !matches!(*atom, GuardExpr::Atom(Atom::Num(BitNum { val: 1, .. }))))
             .collect();
 
         GuardExpr::And(uniqs)
@@ -377,10 +375,8 @@ impl GuardExpr {
         let uniqs = flat_atoms
             .into_iter()
             .unique()
-            .filter(|atom| match *atom {
-                GuardExpr::Atom(Atom::Num(BitNum { val: 0, .. })) => false,
-                _ => true,
-            })
+            .filter(|atom|
+                !matches!(*atom, GuardExpr::Atom(Atom::Num(BitNum { val: 0, .. }))))
             .collect();
 
         GuardExpr::Or(uniqs)
