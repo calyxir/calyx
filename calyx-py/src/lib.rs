@@ -25,9 +25,23 @@ struct ComponentWrapper {
 /// Transform a boxed ir::Component into a ComponentWrapper.
 /// Leaks the underlying ir::Component so that it can be used by the
 /// python library.
-fn raw_transform(comp: Box<ir::Component>) -> ComponentWrapper {
+fn into_wrapper(comp: Box<ir::Component>) -> ComponentWrapper {
     ComponentWrapper {
         comp: Box::into_raw(comp) as *mut c_void,
+    }
+}
+
+/// Check if the wrapper contains a valid pointer to an ir::Component
+/// and returns a boxed representation.
+/// **Note**: Methods using this probably want to use `into_wrapper` to
+/// create a valid wrapper at the end of the function call.
+fn from_wrapper(wrap: ComponentWrapper) -> Box<ir::Component> {
+    unsafe {
+        assert!(
+            !wrap.comp.is_null(),
+            "Invalid component wrapper. The component seems to have been already dropped.");
+        let comp_raw = wrap.comp as *mut ir::Component;
+        Box::from_raw(comp_raw)
     }
 }
 
@@ -49,24 +63,18 @@ fn new_component(
 /// Get the name of this Component.
 #[pyfunction]
 fn get_component_name(c: ComponentWrapper) -> String {
-    unsafe {
-        let comp_raw = c.comp as *mut ir::Component;
-        let comp = Box::from_raw(comp_raw);
-        let ret = comp.name.to_string();
-        // Make sure that `comp` is not dropped.
-        raw_transform(comp);
-        ret
-    }
+    let comp = from_wrapper(c);
+    let ret = comp.name.to_string();
+    into_wrapper(comp);
+    ret
 }
 
 /// Free the underlying ir::Component. All components must have this
 /// method called on them to ensure that they don't leak.
 #[pyfunction]
 fn free_component(c: ComponentWrapper) -> () {
-    unsafe {
-        let comp_raw = c.comp as *mut ir::Component;
-        Box::from_raw(comp_raw);
-    }
+    from_wrapper(c);
+    // The component is dropped automatically due to Box<T> destructor.
 }
 
 /// The python module exposing the relevant functions.
