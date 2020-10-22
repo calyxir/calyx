@@ -6,10 +6,10 @@ component main() -> () {
     b_0 = prim std_reg(16);
     bin_read0_0 = prim std_reg(16);
     bin_read1_0 = prim std_reg(16);
-    div0 = prim fixed_p_std_div(16,8,8);
+    div_pipe0 = prim std_div_pipe(16);
     fpconst0 = prim fixed_p_std_const(16,8,8,16,5);
     fpconst1 = prim fixed_p_std_const(16,8,8,8,375);
-    mult0 = prim fixed_p_std_mult(16,8,8);
+    mult_pipe0 = prim std_mult_pipe(16);
     result0 = prim std_mem_d1_ext(32,8,4);
     result1_0 = prim std_reg(16);
     result2_0 = prim std_reg(16);
@@ -36,17 +36,19 @@ component main() -> () {
       bin_read0_0.in = slice1.out;
       bin_read0_0.write_en = 1'd1;
       let2[done] = bin_read0_0.done;
-      slice1.in = div0.out;
-      div0.left = a_0.out;
-      div0.right = b_0.out;
+      slice1.in = div_pipe0.out;
+      div_pipe0.left = a_0.out;
+      div_pipe0.right = b_0.out;
+      div_pipe0.go = !div_pipe0.done ? 1'd1;
     }
     group let3<"static"=1> {
       bin_read1_0.in = slice2.out;
       bin_read1_0.write_en = 1'd1;
       let3[done] = bin_read1_0.done;
-      slice2.in = mult0.out;
-      mult0.left = a_0.out;
-      mult0.right = b_0.out;
+      slice2.in = mult_pipe0.out;
+      mult_pipe0.left = a_0.out;
+      mult_pipe0.right = b_0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
     group upd0<"static"=1> {
       result1_0.write_en = 1'd1;
