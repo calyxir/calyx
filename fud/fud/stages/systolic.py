@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from fud.stages import Stage, Step, SourceType
+from .. import errors
 
 
 class SystolicStage(Stage):
@@ -11,8 +12,8 @@ class SystolicStage(Stage):
     def _define(self):
         main = Step(SourceType.Nothing)
         script = Path(self.config['global', 'futil_directory']) / 'frontends' / 'systolic-lang' / 'gen-systolic.py'
-        flags = '-tl 2 -td 2 -ll 2 -ld 2'
-        if self.config['stages', self.name, 'flags'] is not None:
-            flags = self.config['stages', self.name, 'flags']
+        if self.config['stages', self.name, 'flags'] is None:
+            raise errors.MissingDynamicConfiguration('systolic.flags')
+        flags = self.config['stages', self.name, 'flags']
         main.set_cmd(' '.join([str(script), flags]))
         return [main]
