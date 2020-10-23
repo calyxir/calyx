@@ -25,6 +25,7 @@ primitive std_mem_d1[width, size, idx_size](
 
       logic [width-1:0]  mem[size-1:0];
 
+      /* verilator lint_off WIDTH */
       assign read_data = mem[addr0];
       always_ff @(posedge clk) begin
         if (write_en) begin
@@ -68,6 +69,7 @@ primitive std_mem_d2[width, d0_size, d1_size, d0_idx_size, d1_idx_size](
         output logic [width-1:0]  read_data,
         output logic done);
 
+      /* verilator lint_off WIDTH */
       logic [width-1:0]  mem[d0_size-1:0][d1_size-1:0];
 
       assign read_data = mem[addr0][addr1];
