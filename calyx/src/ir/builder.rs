@@ -119,7 +119,7 @@ impl<'a> Builder<'a> {
     ) -> RRC<ir::Cell>
     where
         S: Into<ir::Id> + ToString,
-        P: AsRef<str>
+        P: AsRef<str>,
     {
         let prim_id = ir::Id::from(primitive.as_ref());
         let prim = &self.lib_sigs[&prim_id];

@@ -143,11 +143,10 @@ impl Visitor for Inliner {
                 map.entry(dst.key())
                     .and_modify(|(_, val)| {
                         // XXX: seems like unncessary clone
-                        *val = val.clone().or(
-                            asgn.guard
-                                .clone()
-                                .and(ir::Guard::Port(Rc::clone(&asgn.src))),
-                        );
+                        *val = val.clone().or(asgn
+                            .guard
+                            .clone()
+                            .and(ir::Guard::Port(Rc::clone(&asgn.src))));
                     })
                     .or_insert((
                         Rc::clone(&asgn.dst),

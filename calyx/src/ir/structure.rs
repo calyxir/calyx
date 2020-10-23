@@ -55,9 +55,7 @@ impl Port {
     pub fn is_constant(&self, val: u64) -> bool {
         if let PortParent::Cell(cell) = &self.parent {
             match cell.upgrade().unwrap().borrow().prototype {
-                CellType::Constant { val: v, .. } => {
-                    v == val
-                }
+                CellType::Constant { val: v, .. } => v == val,
                 _ => false,
             }
         } else {
