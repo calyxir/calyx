@@ -142,11 +142,12 @@ impl Visitor for Inliner {
             if dst.is_hole() {
                 map.entry(dst.key())
                     .and_modify(|(_, val)| {
-                        // seems like unncessary clone
-                        *val = val
-                            .clone()
-                            .and(asgn.guard.clone())
-                            .and(ir::Guard::Port(Rc::clone(&asgn.src)));
+                        // XXX: seems like unncessary clone
+                        *val = val.clone().or(
+                            asgn.guard
+                                .clone()
+                                .and(ir::Guard::Port(Rc::clone(&asgn.src))),
+                        );
                     })
                     .or_insert((
                         Rc::clone(&asgn.dst),
