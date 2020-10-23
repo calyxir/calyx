@@ -120,7 +120,11 @@ impl IRPrinter {
         write!(f, "{}", " ".repeat(indent_level))?;
         write!(f, "{} = ", Self::get_port_access(&assign.dst.borrow()))?;
         if !matches!(&assign.guard, ir::Guard::True) {
-            write!(f, "{} ? ", Self::guard_str(&assign.guard))?;
+            write!(
+                f,
+                "{} ? ",
+                Self::guard_str(&assign.guard.clone().flatten())
+            )?;
         }
         write!(f, "{};", Self::get_port_access(&assign.src.borrow()))
     }
@@ -211,14 +215,27 @@ impl IRPrinter {
     }
 
     /// Generate a String-based representation for a guard.
-    fn guard_str(guard: &ir::Guard) -> String {
-        match guard {
-            ir::Guard::And(gs) | ir::Guard::Or(gs) => gs
+    pub fn guard_str(guard: &ir::Guard) -> String {
+        match &guard {
+            ir::Guard::And(gs) => gs
                 .iter()
                 .map(|g| {
                     let s = Self::guard_str(g);
-                    if g > guard {
-                        format!("({})", s)
+                    if g > &guard {
+                        s.surround("(", ")")
+                    } else {
+                        s
+                    }
+                })
+                .filter(|s| s != "")
+                .collect::<Vec<_>>()
+                .join(&format!(" {} ", guard.op_str()).to_string()),
+            ir::Guard::Or(gs) => gs
+                .iter()
+                .map(|g| {
+                    let s = Self::guard_str(g);
+                    if g > &guard {
+                        s.surround("(", ")")
                     } else {
                         s
                     }
@@ -232,12 +249,12 @@ impl IRPrinter {
             | ir::Guard::Lt(l, r)
             | ir::Guard::Geq(l, r)
             | ir::Guard::Leq(l, r) => {
-                let left = if &**l > guard {
+                let left = if &**l > &guard {
                     format!("({})", Self::guard_str(l))
                 } else {
                     Self::guard_str(l)
                 };
-                let right = if &**r > guard {
+                let right = if &**r > &guard {
                     format!("({})", Self::guard_str(r))
                 } else {
                     Self::guard_str(r)
@@ -245,7 +262,7 @@ impl IRPrinter {
                 format!("{} {} {}", left, &guard.op_str(), right)
             }
             ir::Guard::Not(g) => {
-                let s = if &**g > guard {
+                let s = if &**g > &guard {
                     format!("({})", Self::guard_str(g))
                 } else {
                     Self::guard_str(g)
@@ -292,5 +309,17 @@ impl IRPrinter {
                 port.name.id
             ),
         }
+    }
+}
+
+trait Surround {
+    fn surround(self, pre: &str, suf: &str) -> Self;
+}
+
+impl Surround for String {
+    fn surround(mut self, pre: &str, suf: &str) -> Self {
+        self.insert_str(0, pre);
+        self.push_str(suf);
+        self
     }
 }
