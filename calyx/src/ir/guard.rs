@@ -18,16 +18,6 @@ pub enum Guard {
     True,
 }
 
-fn flatten_and(ands: &mut Vec<Guard>) {
-    *ands = ands
-        .iter()
-        .flat_map(|g| match g {
-            Guard::And(v) => v.to_vec(),
-            x => vec![x.clone()],
-        })
-        .collect();
-}
-
 /// Helper functions for the guard.
 impl Guard {
     /// Mutates a guard by calling `f` on every leaf in the
@@ -105,30 +95,32 @@ impl Guard {
         }
     }
 
-    pub fn and_vec(self, guards: &mut Vec<Guard>) -> Self {
-        flatten_and(guards);
-        let mut new: Vec<Guard>;
-        if let Guard::And(inner) = self {
-            new = inner;
-            flatten_and(guards);
-            new.append(guards);
-        } else {
-            new = vec![self];
-            new.append(guards);
+    pub fn and_vec(mut guards: Vec<Guard>) -> Self {
+        if guards.len() == 1 {
+            return guards.remove(0);
         }
-        // filter out redundant guards
-        new.retain(|guard| {
+
+        // Flatten any nested `And` inside the atoms.
+        let mut flat_atoms: Vec<Guard> = Vec::with_capacity(guards.len());
+        for atom in guards {
+            match atom {
+                Guard::And(mut bs) => flat_atoms.append(&mut bs),
+                _ => flat_atoms.push(atom),
+            }
+        }
+        // Filter out true guards
+        flat_atoms.retain(|guard| {
             if let Guard::Port(p) = guard {
-                return !p.borrow().is_constant(1, 1);
+                return !p.borrow().is_constant(1);
             }
 
             !matches!(guard, Guard::True)
         });
-        Guard::And(new)
+        Guard::And(flat_atoms)
     }
 
     pub fn and(self, rhs: Guard) -> Self {
-        self.and_vec(&mut vec![rhs])
+        Guard::and_vec(vec![self, rhs])
     }
 
     pub fn or(self, other: Guard) -> Self {
@@ -192,6 +184,8 @@ impl PartialEq for Guard {
             (Guard::Geq(_, _), Guard::Geq(_, _)) => true,
             (Guard::Leq(_, _), Guard::Leq(_, _)) => true,
             (Guard::Not(_), Guard::Not(_)) => true,
+            // XXX(rachit): This doesn't make sense. How can two different
+            // ports be the same?
             (Guard::Port(_), Guard::Port(_)) => true,
             (Guard::True, Guard::True) => true,
             _ => false,
@@ -250,7 +244,7 @@ impl BitAnd for Guard {
     type Output = Self;
 
     fn bitand(self, other: Self) -> Self::Output {
-        Guard::And(vec![self, other])
+        self.and(other)
     }
 }
 
@@ -262,7 +256,7 @@ impl BitOr for Guard {
     type Output = Self;
 
     fn bitor(self, other: Self) -> Self::Output {
-        Guard::Or(vec![self, other])
+        self.or(other)
     }
 }
 
