@@ -1,4 +1,5 @@
 use crate::{errors::FutilResult, frontend::library, ir, utils::OutputFile};
+use itertools::Itertools;
 //use pretty::termcolor::ColorSpec;
 //use pretty::RcDoc;
 
@@ -24,6 +25,7 @@ pub trait Backend {
         Self::emit_primitives(
             prog.used_primitives()
                 .into_iter()
+                .sorted_by_key(|x| &x.name)
                 .map(|x| &x.implementation[0])
                 .collect(),
             &mut file,

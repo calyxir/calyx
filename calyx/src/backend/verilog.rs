@@ -168,7 +168,7 @@ fn emit_component(comp: &ir::Component) -> v::Module {
 
     let seq_stmts = map
         .values()
-        .sorted_by_key(|(port, _)| port.borrow().name.to_string())
+        .sorted_by_key(|(port, _)| port.borrow().key())
         .map(|asgns| emit_assignment(asgns))
         .collect::<Vec<_>>();
 
