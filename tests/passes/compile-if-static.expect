@@ -1,47 +1,47 @@
 import "primitives/std.lib";
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
-    cond_stored0 = prim std_reg(1);
-    f = prim std_reg(1);
-    fsm0 = prim std_reg(2);
-    incr0 = prim std_add(2);
-    lt = prim std_lt(1);
     t = prim std_reg(1);
+    f = prim std_reg(1);
+    lt = prim std_lt(1);
+    fsm = prim std_reg(32);
+    cond_stored = prim std_reg(1);
+    incr = prim std_add(32);
   }
   
   wires {
-    group cond<"static"=0> {
-      lt.left = 1'd1;
-      lt.right = 1'd0;
-      cond[done] = 1'd1;
+    group true<"static"=1> {
+      t.in = 1'd1;
+      t.write_en = 1'd1;
+      true[done] = t.done;
     }
     group false<"static"=1> {
       f.in = 1'd1;
       f.write_en = 1'd1;
       false[done] = f.done;
     }
-    group static_if0<"static"=2> {
-      incr0.left = fsm0.out;
-      incr0.right = 2'd1;
-      fsm0.in = fsm0.out != 2'd2 ? incr0.out;
-      fsm0.write_en = fsm0.out != 2'd2 ? 1'd1;
-      cond[go] = fsm0.out == 2'd0 ? 1'd1;
-      cond_stored0.write_en = fsm0.out == 2'd0 ? 1'd1;
-      cond_stored0.in = fsm0.out == 2'd0 ? lt.out;
-      true[go] = (fsm0.out > 2'd0 & fsm0.out < 2'd2 & cond_stored0.out) ? 1'd1;
-      false[go] = (fsm0.out > 2'd0 & fsm0.out < 2'd2 & !(cond_stored0.out)) ? 1'd1;
-      static_if0[done] = fsm0.out == 2'd2 ? 1'd1;
+    group cond<"static"=0> {
+      lt.left = 1'd1;
+      lt.right = 1'd0;
+      cond[done] = 1'd1;
     }
-    group true<"static"=1> {
-      t.in = 1'd1;
-      t.write_en = 1'd1;
-      true[done] = t.done;
+    group static_if<"static"=2> {
+      incr.left = fsm.out;
+      incr.right = 32'd1;
+      fsm.in = fsm.out != 32'd2 ? incr.out;
+      fsm.write_en = fsm.out != 32'd2 ? 1'd1;
+      cond[go] = fsm.out == 32'd0 ? 1'd1;
+      cond_stored.write_en = fsm.out == 32'd0 ? 1'd1;
+      true[go] = fsm.out > 32'd0 & fsm.out < 32'd2 & cond_stored.out ? 1'd1;
+      false[go] = fsm.out > 32'd0 & fsm.out < 32'd2 & !cond_stored.out ? 1'd1;
+      static_if[done] = fsm.out == 32'd2 ? 1'd1;
+      cond_stored.in = fsm.out == 32'd0 ? lt.out;
     }
-    fsm0.write_en = fsm0.out == 2'd2 ? 1'd1;
-    fsm0.in = fsm0.out == 2'd2 ? 2'd0;
+    fsm.in = fsm.out == 32'd2 ? 32'd0;
+    fsm.write_en = fsm.out == 32'd2 ? 1'd1;
   }
   
   control {
-    static_if0;
+    static_if;
   }
 }

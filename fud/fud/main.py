@@ -51,7 +51,7 @@ def register_stages(registry, config):
         futil.FutilStage(config, 'futil-lowered', '-b futil',
                          'Compile FuTIL to FuTIL to remove all control and inline groups'))
     registry.register(
-        futil.FutilStage(config, 'futil-noinline', '-b futil -p no-inline',
+        futil.FutilStage(config, 'futil-noinline', '-b futil -d hole-inliner',
                          'Compile FuTIL to FuTIL to remove all control and inline groups'))
 
     # Verilator

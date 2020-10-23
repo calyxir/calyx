@@ -1,51 +1,51 @@
 import "primitives/std.lib";
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
-    cond_computed0 = prim std_reg(1);
-    cond_stored0 = prim std_reg(1);
-    done_reg0 = prim std_reg(1);
+    t = prim std_reg(1);
     f = prim std_reg(1);
     lt = prim std_lt(1);
-    t = prim std_reg(1);
+    cond_computed = prim std_reg(1);
+    cond_stored = prim std_reg(1);
+    done_reg = prim std_reg(1);
   }
   
   wires {
-    group cond<> {
-      lt.left = 1'd1;
-      lt.right = 1'd0;
-      cond[done] = 1'd1;
+    group true<> {
+      t.in = 1'd1;
+      t.write_en = 1'd1;
+      true[done] = t.done;
     }
     group false<> {
       f.in = 1'd1;
       f.write_en = 1'd1;
       false[done] = f.done;
     }
-    group if0<> {
-      cond[go] = !(cond_computed0.out) ? 1'd1;
-      cond_computed0.in = (cond[go] & cond[done]) ? 1'd1;
-      cond_computed0.write_en = (cond[go] & cond[done]) ? 1'd1;
-      cond_stored0.in = (cond[go] & cond[done]) ? lt.out;
-      cond_stored0.write_en = (cond[go] & cond[done]) ? lt.out;
-      true[go] = (!(true[done]) & cond_computed0.out & cond_stored0.out) ? 1'd1;
-      false[go] = (!(false[done]) & cond_computed0.out & !(cond_stored0.out)) ? 1'd1;
-      done_reg0.in = ((cond_computed0.out & cond_stored0.out & true[done]) | (cond_computed0.out & !(cond_stored0.out) & false[done])) ? 1'd1;
-      done_reg0.write_en = ((cond_computed0.out & cond_stored0.out & true[done]) | (cond_computed0.out & !(cond_stored0.out) & false[done])) ? 1'd1;
-      if0[done] = done_reg0.out ? 1'd1;
+    group cond<> {
+      lt.left = 1'd1;
+      lt.right = 1'd0;
+      cond[done] = 1'd1;
     }
-    group true<> {
-      t.in = 1'd1;
-      t.write_en = 1'd1;
-      true[done] = t.done;
+    group if<> {
+      cond_stored.in = cond[go] & cond[done] ? lt.out;
+      cond_stored.write_en = cond[go] & cond[done] ? lt.out;
+      cond[go] = !cond_computed.out ? 1'd1;
+      cond_computed.in = cond[go] & cond[done] ? 1'd1;
+      cond_computed.write_en = cond[go] & cond[done] ? 1'd1;
+      true[go] = !true[done] & cond_computed.out & cond_stored.out ? 1'd1;
+      false[go] = !false[done] & cond_computed.out & !cond_stored.out ? 1'd1;
+      done_reg.in = cond_computed.out & cond_stored.out & true[done] | cond_computed.out & !cond_stored.out & false[done] ? 1'd1;
+      done_reg.write_en = cond_computed.out & cond_stored.out & true[done] | cond_computed.out & !cond_stored.out & false[done] ? 1'd1;
+      if[done] = done_reg.out ? 1'd1;
     }
-    cond_computed0.in = done_reg0.out ? 1'd0;
-    cond_stored0.in = done_reg0.out ? 1'd0;
-    done_reg0.in = done_reg0.out ? 1'd0;
-    cond_computed0.write_en = done_reg0.out ? 1'd1;
-    cond_stored0.write_en = done_reg0.out ? 1'd1;
-    done_reg0.write_en = done_reg0.out ? 1'd1;
+    done_reg.in = done_reg.out ? 1'd0;
+    done_reg.write_en = done_reg.out ? 1'd1;
+    cond_computed.in = done_reg.out ? 1'd0;
+    cond_computed.write_en = done_reg.out ? 1'd1;
+    cond_stored.in = done_reg.out ? 1'd0;
+    cond_stored.write_en = done_reg.out ? 1'd1;
   }
   
   control {
-    if0;
+    if;
   }
 }

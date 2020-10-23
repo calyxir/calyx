@@ -1,24 +1,26 @@
-use crate::errors::{self, Result, Span};
-use crate::lang::ast;
-use crate::lang::library::ast as lib;
+//! Parser for FuTIL libraries.
+use super::ast as lib;
+use crate::errors::{self, FutilResult, Span};
+use crate::ir::{self, Direction};
 use pest_consume::{match_nodes, Error, Parser};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-type ParseResult<T> = std::result::Result<T, Error<Rule>>;
+type ParseResult<T> = Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, Rc<String>>;
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
-const _GRAMMAR: &str = include_str!("library_syntax.pest");
+const _GRAMMAR: &str = include_str!("syntax.pest");
 
 #[derive(Parser)]
-#[grammar = "frontend/library_syntax.pest"]
+#[grammar = "frontend/library/syntax.pest"]
 pub struct LibraryParser;
 
 impl LibraryParser {
-    pub fn parse_file(path: &PathBuf) -> Result<lib::Library> {
+    /// Parses a FuTIL library into an AST representation.
+    pub fn parse_file(path: &PathBuf) -> FutilResult<lib::Library> {
         let content = &fs::read(path).map_err(|err| {
             errors::Error::InvalidFile(format!(
                 "Failed to read {}: {}",
@@ -54,8 +56,8 @@ impl LibraryParser {
         ))
     }
 
-    fn identifier(input: Node) -> ParseResult<ast::Id> {
-        Ok(ast::Id::new(
+    fn identifier(input: Node) -> ParseResult<ir::Id> {
+        Ok(ir::Id::new(
             input.as_str(),
             Some(Span::new(input.as_span(), Rc::clone(input.user_data()))),
         ))
@@ -70,11 +72,17 @@ impl LibraryParser {
             input.into_children();
             [identifier(id), bitwidth(bw)] => lib::ParamPortdef {
                 name: id,
-                width: lib::Width::Const { value: bw }
+                width: lib::Width::Const { value: bw },
+                // XXX(rachit): FAKE Direction. `io_ports` assigns the
+                // correct directions.
+                direction: Direction::Input,
             },
             [identifier(id), identifier(param)] => lib::ParamPortdef {
                 name: id,
-                width: lib::Width::Param { value: param }
+                width: lib::Width::Param { value: param },
+                // XXX(rachit): FAKE Direction. `io_ports` assigns the
+                // correct directions.
+                direction: Direction::Input,
             }
         ))
     }
@@ -85,7 +93,7 @@ impl LibraryParser {
             [io_port(p)..] => p.collect()))
     }
 
-    fn params(input: Node) -> ParseResult<Vec<ast::Id>> {
+    fn params(input: Node) -> ParseResult<Vec<ir::Id>> {
         Ok(match_nodes!(
             input.into_children();
             [identifier(id)..] => id.collect()
@@ -106,23 +114,23 @@ impl LibraryParser {
         ))
     }
 
-    fn signature(input: Node) -> ParseResult<lib::ParamSignature> {
+    fn signature(input: Node) -> ParseResult<Vec<lib::ParamPortdef>> {
         Ok(match_nodes!(
             input.into_children();
-            [io_ports(ins), io_ports(outs)] => lib::ParamSignature {
-                inputs: ins,
-                outputs: outs
+            [io_ports(mut ins), io_ports(mut outs)] => {
+                ins.iter_mut().for_each(|i| i.direction = Direction::Input);
+                outs.iter_mut().for_each(|i| i.direction = Direction::Output);
+                ins.into_iter().chain(outs.into_iter()).collect()
             },
-            [io_ports(ins)] => lib::ParamSignature {
-                inputs: ins,
-                outputs: vec![]
+            [io_ports(ins)] => {
+                ins
             }
         ))
     }
 
     fn inner_wrap(input: Node) -> ParseResult<String> {
         // remove extra whitespace and indentation
-        let mut result = String::new();
+        let mut FutilResult = String::new();
         // records the base indentation level
         let mut indent_level: Option<usize> = None;
         for line in input.as_str().lines() {
@@ -133,7 +141,7 @@ impl LibraryParser {
 
             // if we have already found indent level
             if indent_level.is_some() {
-                result += indent_level
+                FutilResult += indent_level
                     .map(|pre| {
                         if line.len() > pre {
                             line.split_at(pre).1
@@ -143,10 +151,10 @@ impl LibraryParser {
                     })
                     .unwrap_or(line)
                     .trim_end();
-                result += "\n";
+                FutilResult += "\n";
             }
         }
-        Ok(result.trim_end().to_string())
+        Ok(FutilResult.trim_end().to_string())
     }
 
     fn block(input: Node) -> ParseResult<String> {
@@ -168,9 +176,9 @@ impl LibraryParser {
             .into_children()
             .map(|node| {
                 Ok(match node.as_rule() {
-                    Rule::verilog_block => lib::Implementation::Verilog {
-                        data: Self::verilog_block(node)?,
-                    },
+                    Rule::verilog_block => {
+                        lib::Implementation::Verilog(Self::verilog_block(node)?)
+                    }
                     _ => unreachable!(),
                 })
             })

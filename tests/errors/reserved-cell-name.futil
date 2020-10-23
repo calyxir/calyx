@@ -1,0 +1,10 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    clk = prim std_reg(32);
+  }
+  wires {
+  }
+  control {
+  }
+}

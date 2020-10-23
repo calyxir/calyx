@@ -1,31 +1,33 @@
-use crate::errors::Result;
-use crate::{
-    lang::{component, context},
-    utils::OutputFile,
-};
-use pretty::termcolor::ColorSpec;
-use pretty::RcDoc;
+use crate::{errors::FutilResult, frontend::library, ir, utils::OutputFile};
+//use pretty::termcolor::ColorSpec;
+//use pretty::RcDoc;
 
-/// All backends must implement this trait.
-/// `Backend::name` returns the name of this backend.
-/// `Backend::validate` should return `Ok(())` if the
-/// program is in the expected form and `Err(...)` otherwise.
-/// `Backend::emit` should convert the program to a formted string
-/// `Backend::run` is the composition of these two functions.
+/// A backend for FuTIL.
 pub trait Backend {
+    /// The name of this backend.
     fn name() -> &'static str;
-    fn validate(prog: &context::Context) -> Result<()>;
-    fn emit(prog: &context::Context, write: OutputFile) -> Result<()>;
-    fn run(prog: &context::Context, file: OutputFile) -> Result<()> {
+    /// Validate this program for emitting using this backend. Returns an
+    /// Err(..) if the program has unexpected constructs.
+    fn validate(prog: &ir::Context) -> FutilResult<()>;
+    /// Transforms the program into a formatted string representing a valid
+    /// and write it to `write`.
+    fn emit_primitives(
+        prog: Vec<&library::ast::Implementation>,
+        write: &mut OutputFile,
+    ) -> FutilResult<()>;
+    /// Transforms the program into a formatted string representing a valid
+    /// and write it to `write`.
+    fn emit(prog: &ir::Context, write: &mut OutputFile) -> FutilResult<()>;
+    /// Convience function to validate and emit the program.
+    fn run(prog: &ir::Context, mut file: OutputFile) -> FutilResult<()> {
         Self::validate(&prog)?;
-        Self::emit(prog, file)
+        Self::emit_primitives(
+            prog.used_primitives()
+                .into_iter()
+                .map(|x| &x.implementation[0])
+                .collect(),
+            &mut file,
+        )?;
+        Self::emit(prog, &mut file)
     }
-}
-
-pub trait Emitable {
-    fn doc<'a>(
-        &self,
-        ctx: &context::Context,
-        comp: &component::Component,
-    ) -> Result<RcDoc<'a, ColorSpec>>;
 }

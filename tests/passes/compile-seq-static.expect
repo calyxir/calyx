@@ -4,8 +4,8 @@ component main(go: 1, clk: 1) -> (done: 1) {
     a = prim std_reg(2);
     b = prim std_reg(2);
     c = prim std_reg(2);
-    fsm0 = prim std_reg(2);
-    incr0 = prim std_add(2);
+    fsm = prim std_reg(32);
+    incr = prim std_add(32);
   }
   
   wires {
@@ -24,21 +24,21 @@ component main(go: 1, clk: 1) -> (done: 1) {
       c.write_en = 1'd1;
       C[done] = c.done;
     }
-    group static_seq0<"static"=3> {
-      A[go] = fsm0.out == 2'd0 ? 1'd1;
-      B[go] = fsm0.out == 2'd1 ? 1'd1;
-      C[go] = fsm0.out == 2'd2 ? 1'd1;
-      incr0.left = 2'd1;
-      incr0.right = fsm0.out;
-      fsm0.in = fsm0.out != 2'd3 ? incr0.out;
-      fsm0.write_en = fsm0.out != 2'd3 ? 1'd1;
-      static_seq0[done] = fsm0.out == 2'd3 ? 1'd1;
+    group static_seq<"static"=3> {
+      A[go] = fsm.out == 32'd0 ? 1'd1;
+      B[go] = fsm.out == 32'd1 ? 1'd1;
+      C[go] = fsm.out == 32'd2 ? 1'd1;
+      incr.left = 32'd1;
+      incr.right = fsm.out;
+      fsm.in = fsm.out != 32'd3 ? incr.out;
+      fsm.write_en = fsm.out != 32'd3 ? 1'd1;
+      static_seq[done] = fsm.out == 32'd3 ? 1'd1;
     }
-    fsm0.write_en = fsm0.out == 2'd3 ? 1'd1;
-    fsm0.in = fsm0.out == 2'd3 ? 2'd0;
+    fsm.in = fsm.out == 32'd3 ? 32'd0;
+    fsm.write_en = fsm.out == 32'd3 ? 1'd1;
   }
   
   control {
-    static_seq0;
+    static_seq;
   }
 }
