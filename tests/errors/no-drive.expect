@@ -2,6 +2,6 @@
 1
 ---STDERR---
 Error: 
-9 |      r.in = 32'd1;
-  |        ^^ [Papercut] Required signal not driven inside the group.
+8 |    group no_drive {
+  |          ^^^^^^^^ [Papercut] Required signal not driven inside the group.
 When driving the signal `r.in' the signal `r.write_en' must also be driven. The primitive type `std_reg' requires this invariant.
