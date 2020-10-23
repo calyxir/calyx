@@ -1,149 +1,69 @@
-import math
-from dataclasses import dataclass
+from futil_ast import *
 
-IdDictionary = {'cond': 0, 'std_const': 0, 'control': 0, 'group': 0, 'incr': 0, 'index': 0, 'incr': 0, 'let': 0,
-                'seq': 0, 'std_add': 0, 'std_eq': 0, 'std_le': 0, 'std_mem_d1': 0, 'std_mem_d2': 0, 'std_mem_d3': 0,
-                'std_reg': 0}
-
-
-def id(element):
-    """
-    Returns the next available id for an element type.
-    This provides an identification system to produce unique variable names. While some of these are members of the
-    standard library, others are commonly found names such as `cond` for branches, and `let` for loops.
-    """
-    assert (element in IdDictionary), 'Add this element to the id_dictionary.'
-    id_number = IdDictionary[element]
-    IdDictionary[element] += 1
-    return id_number
-
-
-@dataclass
-class Register:
-    bitwidth: int
-    name: str
-    primitive_type: str = 'std_reg'
-
-    def __init__(self, bitwidth: int, name: str = 'reg'):
-        if name != "reg":
-            assert (name in IdDictionary), f'Named value `{name}` must be in the IdDictionary.'
-            self.name = name + str(id(name))
-        else:
-            self.name = name + str(id('std_reg'))
-        self.bitwidth = bitwidth
-
-    def construct(self):
-        return f'{self.name} = prim {self.primitive_type}({self.bitwidth});'
-
-
-@dataclass
-class Const:
-    bitwidth: int
-    value: int
-    name: str
-    primitive_type: str = 'std_const'
-
-    def __init__(self, bitwidth: int, value: int, name: str = 'const'):
-        if name != "const":
-            assert (name in IdDictionary), f'Named value `{name}` must be in the IdDictionary.'
-            self.name = name + str(id(name))
-        else:
-            self.name = name + str(id('std_const'))
-        self.bitwidth = bitwidth
-        self.value = value
-
-    def construct(self):
-        return f'{self.name} = prim {self.primitive_type}({self.bitwidth}, {self.value});'
-
-
-@dataclass
-class BinaryOp:
-    bitwidth: int
-    op: str
-    primitive_type: str
-
-    def __init__(self, bitwidth: int, op: str):
-        op_id = "std_" + op
-        assert (op_id in IdDictionary), f'Op value `{op_id}` must be in the IdDictionary.'
-        self.name = op + str(id(op_id))
-        self.bitwidth = bitwidth
-        self.primitive_type = op_id
-        self.op = op
-
-    def construct(self):
-        return f'{self.name} = prim {self.primitive_type}({self.bitwidth});'
-
-
-@dataclass
-class Tensor1D:
-    bitwidth: int
-    memory_size: int
-    index_bitwidth: int
-    name: str
-    primitive_type: str = 'std_mem_d1'
-
-    def __init__(self, bitwidth: int, memory_size: int, index_bitwidth: int, name: str = 'tensor1D_'):
-        if name != "tensor1D_":
-            assert (name in IdDictionary), f'Named value `{name}` must be in the IdDictionary.'
-            self.name = name + str(id(name))
-        else:
-            self.name = name + str(id('std_mem_d1'))
-            self.bitwidth = bitwidth
-            self.memory_size = memory_size
-            self.index_bitwidth = index_bitwidth
-
-    def construct(self):
-        return f'{self.name} = prim {self.primitive_type}({self.bitwidth}, {self.memory_size}, {self.index_bitwidth});'
-
-
-def ExtractTensorTypes(tensor_type):
+def get_bitwidth(type):
     '''
-    Extracts information from the tensor type.
-    dimensions: The number of dimensions in the tensor. This must be N where 0 <= N <= 3.
-    bitwidth: The bitwidth of the values in the tensor.
-    memory_size: The number of elements in the tensor.
-    memory_index_bitwidth: The bitwidth of the index used to increment the size.
-                           This will be equivalent to log2(memory_size).
+    Quick and dirty way to get the bitwidth.
     '''
-    dimension = tensor_type.shape
-    type = tensor_type.dtype
-    bitwidth = int(''.join(filter(str.isdigit, type)))
-
-    number_of_dimensions = len(dimension)
-    assert (number_of_dimensions >= 0 and number_of_dimensions <= 3), "Dimensional count N must be 0 <= N <= 3"
-
-    if number_of_dimensions == 0:
-        # Scalar
-        return 0, 0, 0, bitwidth
-
-    elif number_of_dimensions == 2 and dimension[0] == 1:
-        # 1-dimensional tensor
-        dimensions = dimension[0]
-        mem_size = dimension[1].__int__()
-        mem_index_bitwidth = str(int(math.log2(mem_size)))
-
-    elif number_of_dimensions == 2:
-        # 2-dimensional tensor
-        assert (False), "Unimplemented."
+    t = str(type)
+    if t[0:3] == 'int':
+        return int(t[3:len(t)])
+    elif t[0:5] == 'float':
+        return int(t[5:len(t)])
     else:
-        assert (False), "Unimplemented."
-        # 3-dimensional tensor
-
-    return dimensions, mem_size, mem_index_bitwidth, bitwidth
+        assert False, f'{t} is not supported.'
 
 
-def ExtractBinaryArgumentTypes(a1, a2):
-    """
-    Extracts necessary information for binary arguments.
-    """
-    arg1_type = a1.checked_type
-    arg2_type = a2.checked_type
-    dimension_arg1, mem_size_arg1, mem_index_arg1, bitwidth1 = ExtractTensorTypes(arg1_type)
-    dimension_arg2, mem_size_arg2, mem_index_arg2, bitwidth2 = ExtractTensorTypes(arg2_type)
+def extract_function_arguments(args):
+    '''
+    Extracts the arguments from a function as port definitions.
+    '''
+    inputs = []
+    outputs = []
+    for arg in args:
+        name = arg.name_hint
+        bitwidth = get_bitwidth(arg.type_annotation)
+        out_port = f'{name}_out'
+        done_port = f'{name}_done'
+        inputs.append(FPortDef(name=out_port, bitwidth=bitwidth))
+        inputs.append(FPortDef(name=done_port, bitwidth=1))
 
-    assert bitwidth1 == bitwidth2, f'The arguments for {call.op.name} have different bitwidths.'
-    assert dimension_arg1 == dimension_arg2, f'The arguments for {call.op.name} have different dimensions.'
-    assert mem_size_arg1 == mem_size_arg2, f'The arguments for {call.op.name} have different memory sizes.'
-    assert mem_index_arg1 == mem_index_arg2, f'The arguments for {call.op.name} have different index sizes.'
+        write_data_port = f'{name}_write_data'
+        write_enable_port = f'{name}_write_en'
+        addr0_port = f'{name}_addr0'
 
-    return dimension_arg1, mem_size_arg1, mem_index_arg1, bitwidth1
+        outputs.append(FPortDef(name=write_data_port, bitwidth=bitwidth))
+        outputs.append(FPortDef(name=write_enable_port, bitwidth=1))
+        # TODO(cgyurgyik): Let's instead add a begin and end index.
+        outputs.append(FPortDef(name=addr0_port, bitwidth=1))  # FIXME: Hardcoded for scalars.
+    return inputs, outputs
+
+def build_return_connections(ret: FPrimitive, index: FPrimitive, comp: FComponent):
+    '''
+    Given a 'ret' primitive, Creates a group to save the value at `index` for the
+    inputs.
+    '''
+    inputs = comp.signature.inputs
+    outputs = comp.signature.outputs
+    # Write to return register.
+
+    if len(inputs) > 0:
+        input_name = (inputs[0].name).split('_')[0]
+    else:
+        # If there are no inputs, take the out wire of the last constant.
+        for cell in reversed(comp.cells):
+            if cell.is_primitive() and cell.primitive.type == PrimitiveType.Constant:
+                input_name = f'{cell.primitive.name}.out'
+                break
+
+    group_name = "save_return_value"
+    wire0 = FWire(f'{ret.name}.addr0', f'{index.name}.out')
+    wire1 = FWire(f'{ret.name}.write_en', "1'd1")
+    wire2 = FWire(f'{input_name}_addr0', f'{index.name}.out')
+    wire3 = FWire(f'{input_name}_write_en', "1'd1")
+    wire4 = FWire(f'{ret.name}.write_data', f'{input_name}_out')
+    wire5 = FWire(f'{input_name}_write_data', f'{ret.name}.read_data')
+    wire6 = FWire(f'{group_name}[done]', f'{ret.name}.done')
+    wires = [wire0, wire1, wire2, wire3, wire4, wire5, wire6]
+
+    connection_1 = FConnection(group=FGroup(name=group_name, wires=wires, attributes=[]))
+    return [connection_1]

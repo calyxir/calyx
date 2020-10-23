@@ -2,7 +2,7 @@ import "primitives/std.lib";
 component main() -> () {
   cells {
     x = prim std_reg(32);
-    ret = prim std_reg(32);
+    ret0 = prim std_reg(32);
     const0 = prim std_const(32, 10);
     add0 = prim std_add(32);
   }
@@ -10,9 +10,9 @@ component main() -> () {
     group group0 {
       add0.left = x.out;
       add0.right = const0.out;
-      ret.in = add0.out;
-      ret.write_en = 1'd1;
-      group0[done] = ret.done;
+      ret0.in = add0.out;
+      ret0.write_en = 1'd1;
+      group0[done] = ret0.done;
     }
   }
   control {
