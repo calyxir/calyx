@@ -30,15 +30,14 @@ impl Visitor for ClkInsertion {
 
         for cell_ref in &builder.component.cells {
             let cell = cell_ref.borrow();
-            match cell.find("clk") {
-                Some(port) => builder.component.continuous_assignments.push(
+            if let Some(port) = cell.find("clk") {
+                builder.component.continuous_assignments.push(
                     builder.build_assignment(
                         port,
                         builder.component.signature.borrow().get("clk"),
                         ir::Guard::True,
                     ),
-                ),
-                None => (),
+                )
             }
         }
 

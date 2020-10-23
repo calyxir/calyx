@@ -67,7 +67,7 @@ fn fixed_point(graph: &GraphAnalysis, map: &mut Store) {
             .all_ports()
             .iter()
             .map(|p| p.borrow().is_hole())
-            .fold(false, |acc, e| acc || e)
+            .any(|e| e)
     };
 
     // initialize the worklist to have guards that have no holes
@@ -208,10 +208,12 @@ impl Visitor for Inliner {
                 if port.is_hole() {
                     Some(
                         map.get(&port.key())
-                            .expect(&format!(
-                                "Missing {:?} from inliner map.",
-                                port.key()
-                            ))
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "Missing {:?} from inliner map.",
+                                    port.key()
+                                )
+                            })
                             .1
                             .clone(),
                     )

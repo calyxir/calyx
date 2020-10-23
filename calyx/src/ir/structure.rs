@@ -64,7 +64,7 @@ impl Port {
     }
 
     /// Gets name of parent object.
-    pub fn get_parent_name<'a>(&'a self) -> Id {
+    pub fn get_parent_name(&self) -> Id {
         match &self.parent {
             PortParent::Cell(cell) => {
                 cell.upgrade().unwrap().borrow().name.clone()
@@ -131,14 +131,13 @@ impl Cell {
     where
         S: std::fmt::Display + Clone + AsRef<str>,
     {
-        self.find(&name).expect(
-            format!(
+        self.find(&name).unwrap_or_else(|| {
+            panic!(
                 "Port `{}' not found on group `{}'",
                 name.to_string(),
                 self.name.to_string()
             )
-            .as_str(),
-        )
+        })
     }
 
     /// Returns the name of the component that is this cells type.
@@ -199,14 +198,13 @@ impl Group {
     where
         S: std::fmt::Display + Clone + AsRef<str>,
     {
-        self.find(&name).expect(
-            format!(
+        self.find(&name).unwrap_or_else(|| {
+            panic!(
                 "Hole `{}' not found on group `{}'",
                 name.to_string(),
                 self.name.to_string()
             )
-            .as_str(),
-        )
+        })
     }
 }
 

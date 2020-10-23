@@ -225,7 +225,7 @@ impl IRPrinter {
                 })
                 .filter(|s| s != "")
                 .collect::<Vec<_>>()
-                .join(&format!(" {} ", guard.op_str()).to_string()),
+                .join(&format!(" {} ", guard.op_str())),
             ir::Guard::Eq(l, r)
             | ir::Guard::Neq(l, r)
             | ir::Guard::Gt(l, r)
@@ -255,7 +255,7 @@ impl IRPrinter {
             ir::Guard::Port(port_ref) => {
                 Self::get_port_access(&port_ref.borrow())
             }
-            ir::Guard::True => format!("1'b1"),
+            ir::Guard::True => "1'b1".to_string(),
         }
     }
 
@@ -263,13 +263,12 @@ impl IRPrinter {
     fn get_port_access(port: &ir::Port) -> String {
         match &port.parent {
             ir::PortParent::Cell(cell_wref) => {
-                let cell_ref = cell_wref.upgrade().expect(
-                    format!(
+                let cell_ref = cell_wref.upgrade().unwrap_or_else(|| {
+                    panic!(
                         "Malformed AST: No reference to Cell for port `{:#?}'",
                         port
                     )
-                    .as_str(),
-                );
+                });
                 let cell = cell_ref.borrow();
                 match cell.prototype {
                     ir::CellType::Constant { val, width } => {
@@ -283,13 +282,10 @@ impl IRPrinter {
                 "{}[{}]",
                 group_wref
                     .upgrade()
-                    .expect(
-                        format!(
+                    .unwrap_or_else(|| panic!(
                         "Malformed AST: No reference to Group for port `{:#?}'",
                         port
-                    )
-                        .as_str()
-                    )
+                    ))
                     .borrow()
                     .name
                     .id,

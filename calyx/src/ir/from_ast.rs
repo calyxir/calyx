@@ -179,7 +179,7 @@ fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
             let (param_binding, inputs, outputs) =
                 prim_sig.resolve(&instance.params)?;
             Ok((
-                name.clone(),
+                name,
                 CellType::Primitive {
                     name: prim_name,
                     param_binding,

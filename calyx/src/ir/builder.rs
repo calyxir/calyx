@@ -44,7 +44,7 @@ impl<'a> Builder<'a> {
     where
         S: Into<ir::Id> + ToString + Clone,
     {
-        let name = self.component.generate_name(prefix.clone());
+        let name = self.component.generate_name(prefix);
 
         // Check if there is a group with the same name.
         let group = Rc::new(RefCell::new(ir::Group {
@@ -89,7 +89,7 @@ impl<'a> Builder<'a> {
 
         // Construct this cell if it's not already present in the context.
         let cell = Self::cell_from_signature(
-            name.clone(),
+            name,
             ir::CellType::Constant { val, width },
             vec![],
             vec![("out".into(), width)],
@@ -177,7 +177,7 @@ impl<'a> Builder<'a> {
     /// with the port exists in the Component.
     /// Validate methods panic! in order to generate a stacktrace to the
     /// offending code.
-    fn is_port_well_formed(&self, port: &ir::Port) -> () {
+    fn is_port_well_formed(&self, port: &ir::Port) {
         match &port.parent {
             ir::PortParent::Cell(cell_wref) => {
                 let cell_ref = cell_wref.upgrade().expect("Weak reference to port's parent cell points to nothing. This usually means that the Component did not retain a pointer to the Cell.");

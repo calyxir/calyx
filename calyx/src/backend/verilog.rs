@@ -305,7 +305,7 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
             .fold(None, |acc, r| {
                 acc.map(|l| op(guard)(l, r.clone())).or(Some(r))
             })
-            .unwrap_or(v::Expr::new_ulit_bin(1, &1.to_string())),
+            .unwrap_or_else(|| v::Expr::new_ulit_bin(1, &1.to_string())),
         Guard::Eq(l, r)
         | Guard::Neq(l, r)
         | Guard::Gt(l, r)
