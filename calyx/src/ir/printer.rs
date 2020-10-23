@@ -19,9 +19,9 @@ impl IRPrinter {
                 matches!(p.borrow().direction, ir::Direction::Input)
             });
 
-        write!(
+        writeln!(
             f,
-            "component {}({}) -> ({}) {{\n",
+            "component {}({}) -> ({}) {{",
             comp.name.id,
             inputs
                 .iter()
@@ -44,35 +44,35 @@ impl IRPrinter {
         )?;
 
         // Add the cells
-        write!(f, "  cells {{\n")?;
+        writeln!(f, "  cells {{")?;
         for cell in &comp.cells {
             Self::write_cell(&cell.borrow(), 4, f)?;
         }
         // TODO(rachit): Trailing spaces added for test faithfulness
-        writeln!(f, "  }}\n  ")?;
+        writeln!(f, "  }}")?;
 
         // Add the wires
-        write!(f, "  wires {{\n")?;
+        writeln!(f, "  wires {{")?;
         for group in &comp.groups {
             Self::write_group(&group.borrow(), 4, f)?;
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         // Write the continuous assignments
         for assign in &comp.continuous_assignments {
             Self::write_assignment(assign, 4, f)?;
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         // TODO(rachit): Trailing spaces added for test faithfulness
-        writeln!(f, "  }}\n  ")?;
+        writeln!(f, "  }}\n")?;
 
         // Add the control program
-        //if matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
-        //write!(f, "  control {{}}\n")?;
-        //} else {
-        write!(f, "  control {{\n")?;
-        Self::write_control(&comp.control.borrow(), 4, f)?;
-        writeln!(f, "  }}")?;
-        //}
+        if matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
+            writeln!(f, "  control {{}}")?;
+        } else {
+            writeln!(f, "  control {{")?;
+            Self::write_control(&comp.control.borrow(), 4, f)?;
+            writeln!(f, "  }}")?;
+        }
 
         write!(f, "}}")
     }
@@ -91,9 +91,9 @@ impl IRPrinter {
             } => {
                 write!(f, "{}", " ".repeat(indent_level))?;
                 write!(f, "{} = prim ", cell.name.id)?;
-                write!(
+                writeln!(
                     f,
-                    "{}({});\n",
+                    "{}({});",
                     name.id,
                     param_binding
                         .iter()
@@ -143,11 +143,11 @@ impl IRPrinter {
                 .collect::<Vec<_>>()
                 .join(", ")
         )?;
-        write!(f, " {{\n")?;
+        writeln!(f, " {{")?;
 
         for assign in &group.assignments {
             Self::write_assignment(assign, indent_level + 2, f)?;
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         write!(f, "{}}}", " ".repeat(indent_level))
     }
@@ -161,17 +161,17 @@ impl IRPrinter {
         write!(f, "{}", " ".repeat(indent_level))?;
         match control {
             ir::Control::Enable(ir::Enable { group }) => {
-                write!(f, "{};\n", group.borrow().name.id)
+                writeln!(f, "{};", group.borrow().name.id)
             }
             ir::Control::Seq(ir::Seq { stmts }) => {
-                write!(f, "seq {{\n")?;
+                writeln!(f, "seq {{")?;
                 for stmt in stmts {
                     Self::write_control(stmt, indent_level + 2, f)?;
                 }
                 writeln!(f, "{}}}", " ".repeat(indent_level))
             }
             ir::Control::Par(ir::Par { stmts }) => {
-                write!(f, "par {{\n")?;
+                writeln!(f, "par {{")?;
                 for stmt in stmts {
                     Self::write_control(stmt, indent_level + 2, f)?;
                 }
@@ -183,23 +183,23 @@ impl IRPrinter {
                 tbranch,
                 fbranch,
             }) => {
-                write!(
+                writeln!(
                     f,
-                    "if {} with {} {{\n",
+                    "if {} with {} {{",
                     Self::get_port_access(&port.borrow()),
                     cond.borrow().name.id
                 )?;
                 Self::write_control(tbranch, indent_level + 2, f)?;
                 write!(f, "{}}}", " ".repeat(indent_level))?;
                 // TODO(rachit): don't print else when its empty
-                write!(f, " else {{\n")?;
+                writeln!(f, " else {{")?;
                 Self::write_control(fbranch, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
             }
             ir::Control::While(ir::While { port, cond, body }) => {
-                write!(
+                writeln!(
                     f,
-                    "while {} with {} {{\n",
+                    "while {} with {} {{",
                     Self::get_port_access(&port.borrow()),
                     cond.borrow().name.id
                 )?;
