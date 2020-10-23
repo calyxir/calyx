@@ -32,13 +32,36 @@ impl Named for Inliner {
     }
 }
 
-fn fixed_point(
-    graph: &GraphAnalysis,
-    map: &mut HashMap<(ir::Id, ir::Id), (RRC<ir::Port>, ir::Guard)>,
-) {
+type Store = HashMap<(ir::Id, ir::Id), (RRC<ir::Port>, ir::Guard)>;
+
+/// Finds the 'fixed_point' of a map from Hole names to guards under the
+/// inlining operation. The map contains entries like:
+/// ```
+/// A[go] -> some_thing & B[go] & !A[done]
+/// B[go] -> C[go]
+/// C[go] -> go
+/// ...
+/// ```
+/// We want to transform this so that the guard expression for every
+/// hole does not itself contain holes.
+///
+/// We compute the fixed point using a worklist algorithm.
+/// Variables:
+///  - `guard(x)`: refers to the guard of the hole `x`
+///  - `worklist`: a queue that contains fully inlined guards that have not yet been inlined into other guards
+///
+/// Algorithm:
+///  - `worklist` is initialized to be all the holes that contain no holes in their guards.
+///  - while there are things in `worklist`:
+///    - pop a hole, `H`, from `worklist`
+///    - for every hole, `a` that reads from `H`
+///      - replace all instances of `H` in `guard(a)` with `guard(H)`
+///      - if no holes in `guard(a)`, add to `worklist`
+fn fixed_point(graph: &GraphAnalysis, map: &mut Store) {
     // keeps track of next holes we can inline
     let mut worklist = Vec::new();
 
+    // helper to check if a guard has holes
     let has_holes = |guard: &ir::Guard| {
         guard
             .all_ports()
@@ -58,10 +81,12 @@ fn fixed_point(
         let hole_key = worklist.pop().unwrap_or_else(|| unreachable!());
         let (hole, new_guard) = map[&hole_key].clone();
 
+        // for every read from the hole
         for read in graph
             .reads_from(&hole.borrow())
             .filter(|p| p.borrow().is_hole())
         {
+            // inline `hole_key` into `read`
             let key = read.borrow().key();
             map.entry(read.borrow().key()).and_modify(|(_, guard)| {
                 guard.for_each(&|port: &ir::Port| {
@@ -72,6 +97,7 @@ fn fixed_point(
                     }
                 })
             });
+            // if done with this guard, add it to the worklist
             if !has_holes(&map[&key].1) {
                 worklist.push(key)
             }
@@ -97,9 +123,6 @@ impl Visitor for Inliner {
 
         let this_comp = Rc::clone(&comp.signature);
         let mut builder = ir::Builder::from(comp, sigs, false);
-        // make a builder for constructing constants. Introduce new scope
-        // for builder so that it only holds its mutable reference to
-        // `comp` for the duration of this scope
 
         // add top_level[go] = this.go
         let mut asgns = build_assignments!(
@@ -123,7 +146,7 @@ impl Visitor for Inliner {
         }
 
         // map of holes to their guard expressions
-        let mut map: HashMap<_, (RRC<ir::Port>, ir::Guard)> = HashMap::new();
+        let mut map: Store = HashMap::new();
         let mut assignments = vec![];
         for group in &builder.component.groups {
             // remove all assignments from group, taking ownership
