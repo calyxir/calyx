@@ -10,10 +10,11 @@ from .. import errors
 
 class VerilatorStage(Stage):
     def __init__(self, config, mem, desc):
+        super().__init__('verilog', mem, config, desc)
         if mem not in ['vcd', 'dat']:
             raise Exception("mem has to be 'vcd' or 'dat'")
         self.vcd = mem == 'vcd'
-        super().__init__('verilog', mem, config, desc)
+        self.cycle_limit = self.config['stages', self.name, 'cycle_limit']
 
     def _define(self):
         mktmp = Step(SourceType.Nothing)
@@ -68,6 +69,7 @@ class VerilatorStage(Stage):
             '{ctx[data_prefix]}',
             '{ctx[tmpdir]}/Vmain',
             '{ctx[tmpdir]}/output.vcd',
+            str(self.cycle_limit),
             '--trace' if self.vcd else '',
             '1>&2'
         ]))

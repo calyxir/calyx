@@ -1,0 +1,56 @@
+import "primitives/std.lib";
+
+//// ANCHOR: component
+component identity(in: 32) -> (out: 32) {
+  cells {
+    r = prim std_reg(32);
+  }
+  wires {
+    group save {
+      r.in = in;
+      r.write_en = 1'd1;
+      save[done] = r.done;
+    }
+
+    //// ANCHOR: wires
+    // This component always outputs the current value in r
+    out = r.out;
+    //// ANCHOR_END: wires
+  }
+  control {
+    save;
+  }
+}
+//// ANCHOR_END: component
+
+//// ANCHOR: main
+component main() -> () {
+  cells {
+    // Instantiate the identity element
+    id = identity;
+    current_value = prim std_reg(32);
+  }
+  wires {
+    group run_id {
+      // We want to "save" the value 10 inside the identity group.
+      id.in = 32'd10;
+      // All components have a magic "go" and "done" port added to them.
+      // Execute the component.
+      id.go = 1'd1;
+      run_id[done] = id.done;
+    }
+    group use_id {
+      // We want to "observe" the current value saved in id.
+      // The out port on the `id` component always shows the last saved
+      // element. We don't need to set the `go` because we're not executing
+      // and control.
+      current_value.in = id.out;
+      current_value.write_en = 1'd1;
+      use_id[done] = current_value.done;
+    }
+  }
+  control {
+    seq { run_id; use_id; }
+  }
+}
+//// ANCHOR_END: main
