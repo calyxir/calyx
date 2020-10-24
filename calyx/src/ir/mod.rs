@@ -35,8 +35,5 @@ pub mod traversal;
 /// Module to transform AST programs into IR.
 pub mod from_ast;
 
-/// Analysis of ir programs.
-pub mod analysis;
-
 /// Convinience macros for constructing IR nodes.
 pub mod macros;

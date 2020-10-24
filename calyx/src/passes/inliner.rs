@@ -1,12 +1,10 @@
 use crate::{
+    analysis::GraphAnalysis,
     build_assignments,
     errors::Error,
     frontend::library::ast::LibrarySignatures,
     ir,
-    ir::{
-        analysis::GraphAnalysis,
-        traversal::{Action, Named, VisResult, Visitor},
-    },
+    ir::traversal::{Action, Named, VisResult, Visitor},
     structure,
     utils::Keyable,
 };
