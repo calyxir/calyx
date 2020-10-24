@@ -150,6 +150,12 @@ impl Cell {
             CellType::Constant { .. } => None,
         }
     }
+
+    /// Return the canonical name for the cell generated to represent this
+    /// (val, width) constant.
+    pub(super) fn constant_name(val: u64, width: u64) -> Id {
+        format!("_{}_{}", val, width).into()
+    }
 }
 
 /// Represents a guarded assignment in the program
@@ -205,13 +211,5 @@ impl Group {
                 self.name.to_string()
             )
         })
-    }
-}
-
-impl Cell {
-    /// Return the canonical name for the cell generated to represent this
-    /// (val, width) constant.
-    pub(super) fn constant_name(val: u64, width: u64) -> Id {
-        format!("_{}_{}", val, width).into()
     }
 }
