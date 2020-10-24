@@ -172,7 +172,76 @@ impl<'a> Builder<'a> {
         ir::Assignment { dst, src, guard }
     }
 
-    ///////////////////// Internal function ////////////////////
+    /// Rewrite all reads and writes from `cell` in the given assingments to
+    /// the same ports on `new_cell`.
+    ///
+    /// For example, given with `cell = a` and `new_cell = b`
+    /// ```
+    /// a.in = a.done ? a.out;
+    /// ```
+    /// is rewritten to
+    /// ```
+    /// b.in = b.done ? b.out;
+    /// ```
+    pub fn rename_port_uses(
+        &self,
+        cell: RRC<ir::Cell>,
+        new_cell: RRC<ir::Cell>,
+        assigns: &mut Vec<ir::Assignment>,
+    ) {
+        // Make sure the cells have the same primitives.
+        if self.validate {
+            if let ir::CellType::Primitive { name: n1, .. } =
+                &cell.borrow().prototype
+            {
+                if let ir::CellType::Primitive { name: n2, .. } =
+                    &new_cell.borrow().prototype
+                {
+                    if n1 != n2 {
+                        panic!(
+                            "Attempting to rewrite cells of different types: {} ({}) and {} ({})",
+                            cell.borrow().name,
+                            n1,
+                            new_cell.borrow().name,
+                            n2)
+                    }
+                } else {
+                    panic!(
+                        "Tried to rename non-primitive cell: {}",
+                        cell.borrow().name
+                    )
+                }
+            } else {
+                panic!(
+                    "Tried to rename non-primitive cell: {}",
+                    cell.borrow().name
+                )
+            }
+        }
+
+        // Returns port with the same name on `new_cell` if port_ref is a port
+        // on `cell`
+        let new_port = |port_ref: &RRC<ir::Port>| -> RRC<ir::Port> {
+            let port = port_ref.borrow();
+            if let ir::PortParent::Cell(cell_wref) = &port.parent {
+                if Rc::ptr_eq(&cell_wref.upgrade().unwrap(), &cell) {
+                    Rc::clone(&new_cell.borrow().get(&port.name))
+                } else {
+                    Rc::clone(port_ref)
+                }
+            } else {
+                Rc::clone(port_ref)
+            }
+        };
+
+        for assign in assigns {
+            assign.src = new_port(&assign.src);
+            assign.dst = new_port(&assign.dst);
+            assign.guard.for_each(&|port| Some(ir::Guard::Port(new_port(&port))));
+        }
+    }
+
+    ///////////////////// Internal functions/////////////////////////////////
     /// VALIDATE: Check if the component contains the cell/group associated
     /// with the port exists in the Component.
     /// Validate methods panic! in order to generate a stacktrace to the
