@@ -87,8 +87,8 @@ fn fixed_point(graph: &GraphAnalysis, map: &mut Store) {
             // inline `hole_key` into `read`
             let key = read.borrow().key();
             map.entry(read.borrow().key()).and_modify(|(_, guard)| {
-                guard.for_each(&|port: &ir::Port| {
-                    if port.key() == hole_key {
+                guard.for_each(&|port| {
+                    if port.borrow().key() == hole_key {
                         Some(new_guard.clone())
                     } else {
                         None
@@ -203,18 +203,8 @@ impl Visitor for Inliner {
         // replace reads from a hole with the value in the map
         for asgn in &mut assignments {
             asgn.guard.for_each(&|port| {
-                if port.is_hole() {
-                    Some(
-                        map.get(&port.key())
-                            .unwrap_or_else(|| {
-                                panic!(
-                                    "Missing {:?} from inliner map.",
-                                    port.key()
-                                )
-                            })
-                            .1
-                            .clone(),
-                    )
+                if port.borrow().is_hole() {
+                    Some(map[&port.borrow().key()].1.clone())
                 } else {
                     None
                 }
