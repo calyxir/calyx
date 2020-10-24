@@ -30,6 +30,7 @@ pub struct Primitive {
 impl Primitive {
     /// Retuns the bindings for all the paramters, the input ports and the
     /// output ports.
+    #[allow(clippy::type_complexity)]
     pub fn resolve(
         &self,
         parameters: &[u64],

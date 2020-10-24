@@ -233,19 +233,6 @@ impl Guard {
     pub fn gt(self, other: Guard) -> Self {
         Guard::Gt(Box::new(self), Box::new(other))
     }
-
-    pub fn not(self) -> Self {
-        match self {
-            Guard::Eq(lhs, rhs) => Guard::Neq(lhs, rhs),
-            Guard::Neq(lhs, rhs) => Guard::Eq(lhs, rhs),
-            Guard::Gt(lhs, rhs) => Guard::Leq(lhs, rhs),
-            Guard::Lt(lhs, rhs) => Guard::Geq(lhs, rhs),
-            Guard::Geq(lhs, rhs) => Guard::Lt(lhs, rhs),
-            Guard::Leq(lhs, rhs) => Guard::Gt(lhs, rhs),
-            Guard::Not(expr) => *expr,
-            _ => Guard::Not(Box::new(self)),
-        }
-    }
 }
 
 /// Construct guards from ports
@@ -361,6 +348,15 @@ impl Not for Guard {
     type Output = Self;
 
     fn not(self) -> Self {
-        self.not()
+        match self {
+            Guard::Eq(lhs, rhs) => Guard::Neq(lhs, rhs),
+            Guard::Neq(lhs, rhs) => Guard::Eq(lhs, rhs),
+            Guard::Gt(lhs, rhs) => Guard::Leq(lhs, rhs),
+            Guard::Lt(lhs, rhs) => Guard::Geq(lhs, rhs),
+            Guard::Geq(lhs, rhs) => Guard::Lt(lhs, rhs),
+            Guard::Leq(lhs, rhs) => Guard::Gt(lhs, rhs),
+            Guard::Not(expr) => *expr,
+            _ => Guard::Not(Box::new(self)),
+        }
     }
 }

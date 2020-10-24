@@ -284,7 +284,7 @@ impl Visitor for CompileControl {
 
                     let group_go = guard!(fsm["out"])
                         .eq(guard!(fsm_cur_state["out"]))
-                        .and(guard!(group["done"]).not());
+                        .and(!guard!(group["done"]));
 
                     let group_done = guard!(fsm["out"])
                         .eq(guard!(fsm_cur_state["out"]))

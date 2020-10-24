@@ -55,10 +55,10 @@ impl<'a> Builder<'a> {
         }));
 
         // Add default holes to the group.
-        for (name, width) in vec![("go", 1), ("done", 1)] {
+        for (name, width) in &[("go", 1), ("done", 1)] {
             let hole = Rc::new(RefCell::new(ir::Port {
-                name: name.into(),
-                width,
+                name: ir::Id::from(*name),
+                width: *width,
                 direction: ir::Direction::Inout,
                 parent: ir::PortParent::Group(Rc::downgrade(&group)),
             }));
@@ -152,7 +152,7 @@ impl<'a> Builder<'a> {
         if self.validate {
             self.is_port_well_formed(&dst.borrow());
             self.is_port_well_formed(&src.borrow());
-            &guard
+            guard
                 .all_ports()
                 .into_iter()
                 .for_each(|p| self.is_port_well_formed(&p.borrow()));
