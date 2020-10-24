@@ -6,3 +6,4 @@ mod graph;
 mod schedule_conflicts;
 
 pub use graph::GraphAnalysis;
+pub use schedule_conflicts::ScheduleConflicts;

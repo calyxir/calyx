@@ -15,7 +15,7 @@ use pass_manager::PassManager;
 use passes::{
     ClkInsertion, CollapseControl, CompileControl, CompileEmpty,
     ComponentInterface, Externalize, GoInsertion, Inliner, Papercut,
-    RemoveExternalMemories, StaticTiming, WellFormed,
+    RemoveExternalMemories, StaticTiming, WellFormed, ResourceSharing,
 };
 use std::io::stdin;
 use structopt::StructOpt;
@@ -40,8 +40,10 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
     register_pass!(pm, CompileEmpty);
     register_pass!(pm, Papercut);
     register_pass!(pm, ClkInsertion);
+    register_pass!(pm, ResourceSharing);
 
     // Register aliases
+    // TODO: Add resource sharing.
     register_alias!(
         pm,
         "all",
