@@ -142,11 +142,11 @@ impl GraphAnalysis {
     {
         let Self { graph, nodes } = self;
         let graph = graph.filter_map(
-            |_idx, node| Some(Rc::clone(node)),
-            |idx, edge| {
+            |_, node| Some(Rc::clone(node)),
+            |idx, _| {
                 let (src_idx, dst_idx) = graph.edge_endpoints(idx).unwrap();
                 if filter(&graph[src_idx].borrow(), &graph[dst_idx].borrow()) {
-                    Some(*edge)
+                    Some(())
                 } else {
                     None
                 }
