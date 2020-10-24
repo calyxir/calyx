@@ -1,19 +1,50 @@
 import "primitives/std.lib";
-component main() -> () {
+
+component fn0 (x_out: 32, x_done: 1) -> (x_write_data: 32, x_write_en: 1, x_addr0: 1) {
   cells {
-    x = prim std_reg(32);
-    ret = prim std_reg(32);
+    c0 = prim std_const(1, 0);
+    ret = prim std_mem_d1(32, 1, 1);
   }
   wires {
-    group group0 {
-      ret.in = x.out;
+    group save_return_value {
+      ret.addr0 = c0.out;
       ret.write_en = 1'd1;
-      group0[done] = ret.done;
+      x_addr0 = c0.out;
+      x_write_en = 1'd1;
+      ret.write_data = x_out;
+      x_write_data = ret.read_data;
+      save_return_value[done] = ret.done;
     }
   }
   control {
     seq {
-      group0;
+      save_return_value;
+    }
+  }
+}
+
+component main () -> () {
+  cells {
+    x = prim std_mem_d1(32, 1, 1);
+    function0 = fn0;
+    ret = prim std_mem_d1(32, 1, 1);
+    c0 = prim std_const(1, 0);
+  }
+  wires {
+    group run_function0 {
+      x.addr0 = c0.out;
+      function0.x_done = x.done;
+      function0.x_out = x.read_data;
+      ret.addr0 = function0.x_addr0;
+      ret.write_data = function0.x_write_data;
+      ret.write_en = function0.x_write_en;
+      function0.go = 1'd1;
+      run_function0[done] = function0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      run_function0;
     }
   }
 }

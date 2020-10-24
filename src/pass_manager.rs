@@ -1,11 +1,10 @@
 use calyx::{
-    errors::{Error, Result},
-    lang::context::Context,
-    utils::NameGenerator,
+    errors::{Error, FutilResult},
+    ir,
 };
 use std::collections::{HashMap, HashSet};
 
-pub type PassClosure = Box<dyn Fn(&Context, &mut NameGenerator) -> Result<()>>;
+pub type PassClosure = Box<dyn Fn(&mut ir::Context) -> FutilResult<()>>;
 
 /// Structure that tracks all registered passes for the compiler.
 pub struct PassManager {
@@ -29,7 +28,7 @@ impl PassManager {
         &mut self,
         name: String,
         pass_func: PassClosure,
-    ) -> Result<()> {
+    ) -> FutilResult<()> {
         if self.passes.contains_key(&name) {
             return Err(Error::Misc(format!(
                 "Pass with name '{}' is already registered.",
@@ -47,7 +46,7 @@ impl PassManager {
         &mut self,
         name: String,
         passes: Vec<String>,
-    ) -> Result<()> {
+    ) -> FutilResult<()> {
         if self.aliases.contains_key(&name) {
             return Err(Error::Misc(format!(
                 "Alias with name '{}'  already registered.",
@@ -122,16 +121,15 @@ impl PassManager {
     /// Executes a given "plan" constructed using the incl and excl lists.
     pub fn execute_plan(
         &self,
-        ctx: Context,
-        mut name_gen: NameGenerator,
+        ctx: &mut ir::Context,
         incl: &[String],
         excl: &[String],
-    ) -> Result<Context> {
+    ) -> FutilResult<()> {
         let (passes, excl_set) = self.create_plan(incl, excl);
         for name in passes {
             if let Some(pass) = self.passes.get(&name) {
                 if !excl_set.contains(&name) {
-                    pass(&ctx, &mut name_gen)?;
+                    pass(ctx)?;
                 }
             } else {
                 return Err(Error::UnknownPass(
@@ -141,7 +139,7 @@ impl PassManager {
             }
         }
 
-        Ok(ctx)
+        Ok(())
     }
 }
 
@@ -150,11 +148,10 @@ impl PassManager {
 macro_rules! register_pass {
     ($manager:expr, $pass:ident) => {
         let name = $pass::name().to_string();
-        let pass_closure: crate::pass_manager::PassClosure =
-            Box::new(|ctx, _| {
-                $pass::do_pass_default(&ctx)?;
-                Ok(())
-            });
+        let pass_closure: crate::pass_manager::PassClosure = Box::new(|ir| {
+            $pass::do_pass_default(ir)?;
+            Ok(())
+        });
         $manager.add_pass(name, pass_closure)?;
     };
 }

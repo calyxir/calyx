@@ -3,21 +3,13 @@ component main(go: 1, clk: 1) -> (done: 1) {
   cells {
     add = prim std_add(32);
     add_r = prim std_reg(32);
-    cond_stored0 = prim std_reg(1);
-    fsm0 = prim std_reg(2);
-    incr0 = prim std_add(2);
     lt = prim std_lt(32);
     lt_r = prim std_reg(1);
+    fsm = prim std_reg(32);
+    cond_stored = prim std_reg(1);
+    incr = prim std_add(32);
   }
-  
   wires {
-    group cond<"static"=1> {
-      lt.right = 32'd5;
-      lt.left = 32'd1;
-      lt_r.in = lt.out;
-      lt_r.write_en = 1'd1;
-      cond[done] = lt_r.out;
-    }
     group do_add<"static"=1> {
       add.right = 32'd4;
       add.left = 32'd4;
@@ -25,24 +17,31 @@ component main(go: 1, clk: 1) -> (done: 1) {
       add_r.write_en = 1'd1;
       do_add[done] = add_r.done;
     }
-    group static_while0<> {
-      incr0.left = fsm0.out;
-      incr0.right = 2'd1;
-      fsm0.in = fsm0.out != 2'd2 ? incr0.out;
-      fsm0.write_en = fsm0.out != 2'd2 ? 1'd1;
-      cond[go] = fsm0.out < 2'd1 ? 1'd1;
-      cond_stored0.in = fsm0.out < 2'd1 ? lt_r.out;
-      cond_stored0.write_en = fsm0.out < 2'd1 ? 1'd1;
-      do_add[go] = (cond_stored0.out & fsm0.out >= 2'd1 & fsm0.out < 2'd2) ? 1'd1;
-      fsm0.in = fsm0.out == 2'd2 ? 2'd0;
-      fsm0.write_en = fsm0.out == 2'd2 ? 1'd1;
-      static_while0[done] = (fsm0.out == 2'd1 & !(cond_stored0.out)) ? 1'd1;
+    group cond<"static"=1> {
+      lt.right = 32'd5;
+      lt.left = 32'd1;
+      lt_r.in = lt.out;
+      lt_r.write_en = 1'd1;
+      cond[done] = lt_r.out;
     }
-    fsm0.write_en = (fsm0.out == 2'd1 & !(cond_stored0.out)) ? 1'd1;
-    fsm0.in = (fsm0.out == 2'd1 & !(cond_stored0.out)) ? 2'd0;
+    group static_while<> {
+      incr.left = fsm.out;
+      incr.right = 32'd1;
+      fsm.in = fsm.out != 32'd2 ? incr.out;
+      fsm.write_en = fsm.out != 32'd2 ? 1'd1;
+      cond[go] = fsm.out < 32'd1 ? 1'd1;
+      cond_stored.write_en = fsm.out < 32'd1 ? 1'd1;
+      do_add[go] = cond_stored.out & fsm.out >= 32'd1 & fsm.out < 32'd2 ? 1'd1;
+      fsm.in = fsm.out == 32'd2 ? 32'd0;
+      fsm.write_en = fsm.out == 32'd2 ? 1'd1;
+      static_while[done] = fsm.out == 32'd1 & !cond_stored.out ? 1'd1;
+      cond_stored.in = fsm.out < 32'd1 ? lt_r.out;
+    }
+    fsm.in = fsm.out == 32'd1 & !cond_stored.out ? 32'd0;
+    fsm.write_en = fsm.out == 32'd1 & !cond_stored.out ? 1'd1;
   }
-  
+
   control {
-    static_while0;
+    static_while;
   }
 }

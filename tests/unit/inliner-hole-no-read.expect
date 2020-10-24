@@ -8,21 +8,23 @@ component main(go: 1, clk: 1) -> (done: 1) {
     x0 = prim std_reg(32);
     y0 = prim std_reg(32);
   }
-  
   wires {
-    x0.in = (fsm0.out == 2'd0 & go) ? const0.out;
-    x0.write_en = (fsm0.out == 2'd0 & go) ? 1'd1;
-    y0.in = (fsm0.out == 2'd1 & go) ? const1.out;
-    y0.write_en = (fsm0.out == 2'd1 & go) ? 1'd1;
-    fsm0.in = (fsm0.out != 2'd2 & go) ? incr0.out;
-    fsm0.write_en = ((fsm0.out != 2'd2 & go) | fsm0.out == 2'd2) ? 1'd1;
-    done = fsm0.out == 2'd2 ? 1'd1;
-    fsm0.in = fsm0.out == 2'd2 ? 2'd0;
-    incr0.right = go ? fsm0.out;
+    x0.in = fsm0.out == 2'd0 & go ? const0.out;
+    x0.write_en = fsm0.out == 2'd0 & go ? 1'd1;
+    y0.in = fsm0.out == 2'd1 & go ? const1.out;
+    y0.write_en = fsm0.out == 2'd1 & go ? 1'd1;
     incr0.left = go ? 2'd1;
+    incr0.right = go ? fsm0.out;
+    fsm0.in = fsm0.out != 2'd2 & go ? incr0.out;
+    fsm0.write_en = fsm0.out != 2'd2 & go ? 1'd1;
+    fsm0.write_en = fsm0.out == 2'd2 ? 1'd1;
+    fsm0.in = fsm0.out == 2'd2 ? 2'd0;
+    done = fsm0.out == 2'd2 ? 1'd1;
+    done = fsm0.out == 2'd2 ? 1'd1;
+    fsm0.clk = clk;
+    x0.clk = clk;
+    y0.clk = clk;
   }
-  
-  control {
-    
-  }
+
+  control {}
 }
