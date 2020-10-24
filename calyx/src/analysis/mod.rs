@@ -3,5 +3,6 @@
 //! about FuTIL programs easier.
 
 mod graph;
+mod schedule_conflicts;
 
 pub use graph::GraphAnalysis;
