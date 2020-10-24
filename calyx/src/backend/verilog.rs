@@ -141,8 +141,7 @@ fn emit_component(comp: &ir::Component) -> v::Module {
     });
 
     // structure wire declarations
-    comp
-        .cells
+    comp.cells
         .iter()
         .flat_map(|cell| wire_decls(&cell.borrow()))
         .for_each(|decl| {
@@ -150,8 +149,7 @@ fn emit_component(comp: &ir::Component) -> v::Module {
         });
 
     // cell instances
-    comp
-        .cells
+    comp.cells
         .iter()
         .filter_map(|cell| cell_instance(&cell.borrow()))
         .for_each(|instance| {
