@@ -221,7 +221,7 @@ impl IRPrinter {
                 .iter()
                 .map(|g| {
                     let s = Self::guard_str(g);
-                    if g > &guard {
+                    if g > guard {
                         s.surround("(", ")")
                     } else {
                         s
@@ -229,12 +229,12 @@ impl IRPrinter {
                 })
                 .filter(|s| s != "")
                 .collect::<Vec<_>>()
-                .join(&format!(" {} ", guard.op_str()).to_string()),
+                .join(&format!(" {} ", guard.op_str())),
             ir::Guard::Or(gs) => gs
                 .iter()
                 .map(|g| {
                     let s = Self::guard_str(g);
-                    if g > &guard {
+                    if g > guard {
                         s.surround("(", ")")
                     } else {
                         s
@@ -249,12 +249,12 @@ impl IRPrinter {
             | ir::Guard::Lt(l, r)
             | ir::Guard::Geq(l, r)
             | ir::Guard::Leq(l, r) => {
-                let left = if &**l > &guard {
+                let left = if &**l > guard {
                     format!("({})", Self::guard_str(l))
                 } else {
                     Self::guard_str(l)
                 };
-                let right = if &**r > &guard {
+                let right = if &**r > guard {
                     format!("({})", Self::guard_str(r))
                 } else {
                     Self::guard_str(r)
@@ -262,7 +262,7 @@ impl IRPrinter {
                 format!("{} {} {}", left, &guard.op_str(), right)
             }
             ir::Guard::Not(g) => {
-                let s = if &**g > &guard {
+                let s = if &**g > guard {
                     format!("({})", Self::guard_str(g))
                 } else {
                     Self::guard_str(g)
