@@ -1,7 +1,6 @@
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
   }
-  
   wires {
     group A<> {
     }
@@ -14,7 +13,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
     group A___<> {
     }
   }
-  
+
   control {
     seq {
       A;

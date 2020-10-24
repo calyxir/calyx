@@ -1,13 +1,12 @@
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
   }
-  
   wires {
     group _empty<"static"=0> {
       _empty[done] = 1'd1;
     }
   }
-  
+
   control {
     _empty;
   }

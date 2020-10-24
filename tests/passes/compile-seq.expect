@@ -6,7 +6,6 @@ component main(go: 1, clk: 1) -> (done: 1) {
     c = prim std_reg(2);
     fsm = prim std_reg(32);
   }
-  
   wires {
     group A<> {
       a.in = 2'd0;
@@ -38,7 +37,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
     fsm.in = fsm.out == 32'd3 ? 32'd0;
     fsm.write_en = fsm.out == 32'd3 ? 1'd1;
   }
-  
+
   control {
     seq;
   }

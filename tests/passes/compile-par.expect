@@ -9,7 +9,6 @@ component main(go: 1, clk: 1) -> (done: 1) {
     par_done_reg0 = prim std_reg(1);
     par_done_reg1 = prim std_reg(1);
   }
-  
   wires {
     group A<> {
       a.in = 2'd0;
@@ -49,7 +48,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
     par_done_reg1.in = par_reset.out ? 1'd0;
     par_done_reg1.write_en = par_reset.out ? 1'd1;
   }
-  
+
   control {
     par;
   }

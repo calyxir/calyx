@@ -9,7 +9,6 @@ component main(go: 1, clk: 1) -> (done: 1) {
     cond_stored = prim std_reg(1);
     incr = prim std_add(32);
   }
-  
   wires {
     group do_add<"static"=1> {
       add.right = 32'd4;
@@ -41,7 +40,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
     fsm.in = fsm.out == 32'd1 & !cond_stored.out ? 32'd0;
     fsm.write_en = fsm.out == 32'd1 & !cond_stored.out ? 1'd1;
   }
-  
+
   control {
     static_while;
   }

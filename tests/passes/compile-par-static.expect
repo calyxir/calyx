@@ -7,7 +7,6 @@ component main(go: 1, clk: 1) -> (done: 1) {
     fsm = prim std_reg(32);
     incr = prim std_add(32);
   }
-  
   wires {
     group A<"static"=1> {
       a.in = 2'd0;
@@ -37,7 +36,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
     fsm.in = fsm.out == 32'd1 ? 32'd0;
     fsm.write_en = fsm.out == 32'd1 ? 1'd1;
   }
-  
+
   control {
     static_par;
   }

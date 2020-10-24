@@ -5,16 +5,15 @@ component main(go: 1, clk: 1) -> (done: 1) {
     add = prim std_add(32);
     fsm = prim std_reg(32);
   }
-  
   wires {
-    add.left = (fsm.out == 32'd0 & !(r.done) & (go | go) | fsm.out == 32'd1 & !(r.done) & (go | go)) ? 32'd1;
-    add.right = (fsm.out == 32'd0 & !(r.done) & (go | go) | fsm.out == 32'd1 & !(r.done) & (go | go)) ? r.out;
-    r.in = (fsm.out == 32'd0 & !(r.done) & (go | go) | fsm.out == 32'd1 & !(r.done) & (go | go)) ? add.out;
-    r.write_en = (fsm.out == 32'd0 & !(r.done) & (go | go) | fsm.out == 32'd1 & !(r.done) & (go | go)) ? 1'd1;
-    fsm.in = fsm.out == 32'd0 & r.done & (go | go) ? 32'd1;
-    fsm.write_en = fsm.out == 32'd0 & r.done & (go | go) ? 1'd1;
-    fsm.in = fsm.out == 32'd1 & r.done & (go | go) ? 32'd2;
-    fsm.write_en = fsm.out == 32'd1 & r.done & (go | go) ? 1'd1;
+    add.left = fsm.out == 32'd0 & !r.done & go | fsm.out == 32'd1 & !r.done & go ? 32'd1;
+    add.right = fsm.out == 32'd0 & !r.done & go | fsm.out == 32'd1 & !r.done & go ? r.out;
+    r.in = fsm.out == 32'd0 & !r.done & go | fsm.out == 32'd1 & !r.done & go ? add.out;
+    r.write_en = fsm.out == 32'd0 & !r.done & go | fsm.out == 32'd1 & !r.done & go ? 1'd1;
+    fsm.in = fsm.out == 32'd0 & r.done & go ? 32'd1;
+    fsm.write_en = fsm.out == 32'd0 & r.done & go ? 1'd1;
+    fsm.in = fsm.out == 32'd1 & r.done & go ? 32'd2;
+    fsm.write_en = fsm.out == 32'd1 & r.done & go ? 1'd1;
     fsm.in = fsm.out == 32'd2 ? 32'd0;
     fsm.write_en = fsm.out == 32'd2 ? 1'd1;
     done = fsm.out == 32'd2 ? 1'd1;
@@ -22,8 +21,6 @@ component main(go: 1, clk: 1) -> (done: 1) {
     r.clk = clk;
     fsm.clk = clk;
   }
-  
-  control {
-    
-  }
+
+  control {}
 }
