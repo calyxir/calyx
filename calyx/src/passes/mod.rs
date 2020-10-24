@@ -11,6 +11,7 @@ mod clk_insertion;
 mod go_insertion;
 mod papercut;
 mod remove_external_memories;
+mod resource_sharing;
 mod static_timing;
 
 pub use clk_insertion::ClkInsertion;
@@ -23,5 +24,6 @@ pub use go_insertion::GoInsertion;
 pub use inliner::Inliner;
 pub use papercut::Papercut;
 pub use remove_external_memories::RemoveExternalMemories;
+pub use resource_sharing::ResourceSharing;
 pub use static_timing::StaticTiming;
 pub use well_formed::WellFormed;

@@ -3,13 +3,15 @@ use petgraph::{graph::NodeIndex, Graph};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+type GroupNode = RRC<ir::Group>;
+
 #[derive(Default)]
 /// A conflict graph that describes which groups are being run in parallel
 /// to each other.
 pub struct ScheduleConflicts {
     /// The conflict graph. Two groups have an edge between them if they
     /// may run in parallel.
-    pub(self) conflicts: Graph<RRC<ir::Group>, ()>,
+    pub(self) conflicts: Graph<GroupNode, ()>,
     /// Map from the name of the group to its NodeIndex in the conflicts
     /// graph.
     pub(self) index_map: HashMap<ir::Id, NodeIndex>,
@@ -17,19 +19,28 @@ pub struct ScheduleConflicts {
 
 impl ScheduleConflicts {
     /// Returns the NodeIndex corresponding to this Group if present.
-    pub fn find_index(&self, group: &RRC<ir::Group>) -> Option<NodeIndex> {
+    pub fn find_index(&self, group: &GroupNode) -> Option<NodeIndex> {
         self.index_map.get(&group.borrow().name).cloned()
     }
 
     /// Returns the NodeIndex corresponding to this Group.
     /// Panics if the Group is not in the CurrentConflict.
-    pub fn get_index(&self, group: RRC<ir::Group>) -> NodeIndex {
+    pub fn get_index(&self, group: &GroupNode) -> NodeIndex {
         self.index_map[&group.borrow().name]
+    }
+
+    /// Return a vector of all groups that conflict with this group.
+    pub fn all_conflicts(&self, group: &GroupNode) -> Vec<GroupNode> {
+        self.conflicts
+            .neighbors_undirected(self.get_index(group))
+            .into_iter()
+            .map(|idx| Rc::clone(&self.conflicts[idx]))
+            .collect()
     }
 
     /////////////// Internal Methods //////////////////
     /// Adds a node to the CurrentConflict set.
-    pub(self) fn add_node(&mut self, group: &RRC<ir::Group>) {
+    pub(self) fn add_node(&mut self, group: &GroupNode) {
         if self.find_index(group).is_none() {
             let idx = self.conflicts.add_node(Rc::clone(group));
             self.index_map.insert(group.borrow().name.clone(), idx);
@@ -37,18 +48,38 @@ impl ScheduleConflicts {
     }
 }
 
-/// Adds conflict edges between every node in the vector.
+/// Given a set of vectors of nodes, adds edges between all nodes in one
+/// vector to all nodes in every other vector.
+///
+/// For example:
+/// ```
+/// vec![
+///     vec!["a", "b"],
+///     vec!["c", "d"]
+/// ]
+/// ```
+/// will create the edges:
+/// ```
+/// a --- c
+/// b --- c
+/// a --- d
+/// b --- d
+/// ```
 fn all_conflicting(
-    mut nodes: Vec<RRC<ir::Group>>,
+    groups: &Vec<Vec<GroupNode>>,
     current_conflicts: &mut ScheduleConflicts,
 ) {
-    while let Some(node1) = nodes.pop() {
-        for node2 in &nodes {
-            current_conflicts.conflicts.add_edge(
-                current_conflicts.get_index(Rc::clone(&node1)),
-                current_conflicts.get_index(Rc::clone(node2)),
-                (),
-            );
+    for group1 in 0..groups.len() {
+        for group2 in group1 + 1..groups.len() {
+            for node1 in &groups[group1] {
+                for node2 in &groups[group2] {
+                    current_conflicts.conflicts.add_edge(
+                        current_conflicts.get_index(node1),
+                        current_conflicts.get_index(node2),
+                        (),
+                    );
+                }
+            }
         }
     }
 }
@@ -57,7 +88,7 @@ fn all_conflicting(
 fn build_conflict_graph(
     c: &ir::Control,
     confs: &mut ScheduleConflicts,
-    all_enables: &mut Vec<RRC<ir::Group>>,
+    all_enables: &mut Vec<GroupNode>,
 ) {
     match c {
         ir::Control::Empty(_) => (),
@@ -85,22 +116,23 @@ fn build_conflict_graph(
             build_conflict_graph(body, confs, all_enables);
         }
         ir::Control::Par(ir::Par { stmts }) => {
-            let mut enables = stmts
+            let enables = stmts
                 .into_iter()
-                .flat_map(|c| {
-                    let mut enables = Vec::new();
+                .map(|c| {
                     // Visit this child and add conflict edges.
                     // Collect the enables in this into a new vector.
+                    let mut enables = Vec::new();
                     build_conflict_graph(c, confs, &mut enables);
-                    // Add conflict edges between all children.
-                    all_conflicting(enables.clone(), confs);
                     enables
                 })
                 .collect::<Vec<_>>();
 
+            // Add conflict edges between all children.
+            all_conflicting(&enables, confs);
+
             // Add the enables from visiting the children to the current
             // set of enables.
-            all_enables.append(&mut enables);
+            all_enables.append(&mut enables.into_iter().flatten().collect());
         }
     }
 }
