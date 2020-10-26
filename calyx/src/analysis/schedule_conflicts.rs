@@ -1,6 +1,7 @@
 use crate::ir::{self, RRC};
 use petgraph::{graph::NodeIndex, Graph};
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::rc::Rc;
 
 type GroupNode = RRC<ir::Group>;
@@ -143,5 +144,26 @@ impl From<&ir::Control> for ScheduleConflicts {
         let mut confs = ScheduleConflicts::default();
         build_conflict_graph(control, &mut confs, &mut vec![]);
         confs
+    }
+}
+
+impl ToString for ScheduleConflicts {
+    fn to_string(&self) -> String {
+        let mut out = String::new();
+        for idx in self.conflicts.node_indices() {
+            write!(
+                &mut out,
+                "{} -> {}",
+                self.conflicts[idx].borrow().name,
+                self.conflicts
+                    .neighbors_undirected(idx)
+                    .into_iter()
+                    .map(|idx| self.conflicts[idx].borrow().name.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            )
+            .expect("Failed to write to ScheduleConflicts string");
+        }
+        out
     }
 }
