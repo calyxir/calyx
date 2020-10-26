@@ -6,6 +6,7 @@ use crate::ir::{
     RRC,
 };
 use ir::traversal::{Action, VisResult};
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -45,26 +46,69 @@ impl Visitor for ResourceSharing {
         let conflicts =
             analysis::ScheduleConflicts::from(&*comp.control.borrow());
 
-        // For each group
-        // For each shareable cell used by the group
-        // For each cell of this type not used by any conflicting group
-        // Rewrite all instances of this cell to .
-        /*for group in &comp.groups {
-            group.
-        }*/
+        println!("{}", conflicts.to_string());
 
-        /*for group in &comp.groups {
-            println!(
-                "{} -> {}",
-                group.borrow().name,
+        // Map from group name to the cells its been assigned.
+        let mut cell_assigns: HashMap<ir::Id, Vec<RRC<ir::Cell>>> =
+            HashMap::new();
+
+        // Sort groups in-order of conflict degree.
+        let sorted: Vec<_> = comp
+            .groups
+            .iter()
+            .sorted_by(|g1, g2| {
+                // XXX(rachit): Potential performance pitfall since
+                // all_conflicts iterates over the conflicts graph.
                 conflicts
-                    .all_conflicts(group)
-                    .into_iter()
-                    .map(|g| g.borrow().name.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            )
-        }*/
+                    .all_conflicts(g2)
+                    .len()
+                    .cmp(&conflicts.all_conflicts(g1).len())
+            })
+            .collect();
+
+        for group in sorted {
+            // Find all the primitives already used by neighbours.
+            let all_conflicts = conflicts
+                .all_conflicts(group)
+                .into_iter()
+                .flat_map(|g| cell_assigns.get(&g.borrow().name))
+                .flatten()
+                .collect::<Vec<_>>();
+
+            // New assignments for this cell.
+            let mut assigns: Vec<RRC<ir::Cell>> = Vec::new();
+            for old_cell in
+                analysis::ReadWriteSet::uses(&group.borrow().assignments)
+            {
+                // If this is a primitive cell
+                if let ir::CellType::Primitive { name: prim, .. } =
+                    &old_cell.borrow().prototype
+                {
+                    // Find a cell of this primitive type that hasn't been used
+                    // by the neighbours.
+                    let cell = cell_map[&prim]
+                        .iter()
+                        .find(|c| {
+                            !all_conflicts.iter().any(|uc| Rc::ptr_eq(uc, c))
+                        })
+                        .expect("Failed to find a non-conflicting cell.");
+
+                    println!(
+                        "{}: {}",
+                        old_cell.borrow().name,
+                        cell.borrow().name
+                    );
+
+                    // XXX: Apply this rewrite on the group.
+
+                    // Save the performed assignment to `cell_assigns`.
+                    assigns.push(Rc::clone(cell));
+                }
+            }
+            cell_assigns.insert(group.borrow().name.clone(), assigns);
+            println!("==============");
+        }
+
         Ok(Action::Stop)
     }
 }
