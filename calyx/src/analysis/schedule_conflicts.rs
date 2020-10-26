@@ -151,7 +151,7 @@ impl ToString for ScheduleConflicts {
     fn to_string(&self) -> String {
         let mut out = String::new();
         for idx in self.conflicts.node_indices() {
-            write!(
+            writeln!(
                 &mut out,
                 "{} -> {}",
                 self.conflicts[idx].borrow().name,
