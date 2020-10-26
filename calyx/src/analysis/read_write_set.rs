@@ -1,4 +1,5 @@
 use crate::ir::{self, RRC};
+use itertools::Itertools;
 use std::rc::Rc;
 
 /// Calcuate the reads-from and writes-to set for a given set of assignments.
@@ -18,6 +19,7 @@ impl ReadWriteSet {
                     None
                 }
             })
+            .unique_by(|cell| cell.borrow().name.clone())
             .collect()
     }
 
@@ -34,6 +36,7 @@ impl ReadWriteSet {
                     None
                 }
             })
+            .unique_by(|cell| cell.borrow().name.clone())
             .collect()
     }
 
@@ -43,5 +46,8 @@ impl ReadWriteSet {
         let mut reads = Self::read_set(assigns);
         reads.append(&mut Self::write_set(assigns));
         reads
+            .into_iter()
+            .unique_by(|cell| cell.borrow().name.clone())
+            .collect()
     }
 }
