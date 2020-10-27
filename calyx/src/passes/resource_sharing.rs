@@ -25,6 +25,7 @@ impl Named for ResourceSharing {
 }
 
 #[derive(Default)]
+#[allow(clippy::type_complexity)]
 /// Internal struct to store information about resource sharing.
 struct Workspace {
     /// Mapping from the name of a group the cells that have been used by it.
