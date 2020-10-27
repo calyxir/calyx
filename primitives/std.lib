@@ -462,6 +462,7 @@ primitive std_div_pipe[width]
 (clk: 1, reset: 1, go: 1, left: width, right: width)
 -> (out: width, done: 1) {
   verilog {
+    /* verilator lint_off WIDTH */
     module std_div_pipe
               #(parameter width = 32)
                 (input             clk, reset,
