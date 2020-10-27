@@ -143,16 +143,7 @@ impl Visitor for ResourceSharing {
         for group_ref in &builder.component.groups {
             let mut group = group_ref.borrow_mut();
             let mut assigns = group.assignments.drain(..).collect::<Vec<_>>();
-            for (old, new) in &self.rewrites[&group.name] {
-                // XXX(rachit): Performance pitfall.
-                // ir::Builder::rename_port_uses iterates over the entire
-                // assignment list every time.
-                builder.rename_port_uses(
-                    Rc::clone(old),
-                    Rc::clone(new),
-                    &mut assigns,
-                );
-            }
+            builder.rename_port_uses(&self.rewrites[&group.name], &mut assigns);
             group.assignments = assigns;
         }
 

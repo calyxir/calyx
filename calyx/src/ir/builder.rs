@@ -185,65 +185,38 @@ impl<'a> Builder<'a> {
     /// ```
     pub fn rename_port_uses(
         &self,
-        old_cell: RRC<ir::Cell>,
-        new_cell: RRC<ir::Cell>,
+        rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
         assigns: &mut Vec<ir::Assignment>,
     ) {
-        if Rc::ptr_eq(&old_cell, &new_cell) {
-            return;
-        }
-
-        // Make sure the cells have the same primitives.
-        if self.validate {
-            if let ir::CellType::Primitive { name: n1, .. } =
-                &old_cell.borrow().prototype
-            {
-                if let ir::CellType::Primitive { name: n2, .. } =
-                    &new_cell.borrow().prototype
-                {
-                    if n1 != n2 {
-                        panic!(
-                            "Attempting to rewrite cells of different types: {} ({}) and {} ({})",
-                            old_cell.borrow().name,
-                            n1,
-                            new_cell.borrow().name,
-                            n2)
-                    }
+        // Returns true if the port's parent in the given cell.
+        let parent_matches =
+            |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> bool {
+                if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
+                    Rc::ptr_eq(&cell_wref.upgrade().unwrap(), cell)
                 } else {
-                    panic!(
-                        "Tried to rename non-primitive cell: {}",
-                        old_cell.borrow().name
-                    )
+                    false
                 }
-            } else {
-                panic!(
-                    "Tried to rename non-primitive cell: {}",
-                    old_cell.borrow().name
-                )
-            }
-        }
+            };
 
-        // Returns port with the same name on `new_cell` if port_ref is a port
-        // on `cell`
-        let new_port = |port_ref: &RRC<ir::Port>| -> RRC<ir::Port> {
-            let port = port_ref.borrow();
-            if let ir::PortParent::Cell(cell_wref) = &port.parent {
-                if Rc::ptr_eq(&cell_wref.upgrade().unwrap(), &old_cell) {
-                    Rc::clone(&new_cell.borrow().get(&port.name))
-                } else {
-                    Rc::clone(port_ref)
-                }
-            } else {
-                Rc::clone(port_ref)
-            }
+        // Returns a reference to the port with the same name in cell.
+        let get_port =
+            |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> RRC<ir::Port> {
+                Rc::clone(&cell.borrow().get(&port.borrow().name))
+            };
+
+        let rewrite_port = |port: &RRC<ir::Port>| -> Option<RRC<ir::Port>> {
+            rewrites
+                .iter()
+                .find(|(cell, _)| parent_matches(port, cell))
+                .map(|(_, new_cell)| get_port(port, new_cell))
         };
 
         for assign in assigns {
-            assign.src = new_port(&assign.src);
-            assign.dst = new_port(&assign.dst);
-            assign
-                .guard
-                .for_each(&|port| Some(ir::Guard::Port(new_port(&port))));
+            rewrite_port(&assign.src).map(|new_port| assign.src = new_port);
+            rewrite_port(&assign.dst).map(|new_port| assign.dst = new_port);
+            assign.guard.for_each(&|port| {
+                rewrite_port(&port).map(|p| ir::Guard::Port(p))
+            });
         }
     }
 
