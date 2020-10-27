@@ -95,10 +95,11 @@ impl Visitor for ResourceSharing {
                 .all_conflicts(group)
                 .into_iter()
                 .flat_map(|g| self.used_cells.get(&g.borrow().name))
+                .cloned()
                 .flatten()
-                .collect::<Vec<_>>();
+                .collect::<Vec<RRC<_>>>();
 
-            // Cells used by the generated assignment for this cell.
+            // Cells used by the generated assignment for this group.
             let mut used_cells: Vec<RRC<ir::Cell>> = Vec::new();
             // Rewrites generated for this group.
             let mut rewrites: Vec<(RRC<ir::Cell>, RRC<ir::Cell>)> = Vec::new();
@@ -115,7 +116,10 @@ impl Visitor for ResourceSharing {
                     let cell = cell_map[&name_and_binding]
                         .iter()
                         .find(|c| {
-                            !all_conflicts.iter().any(|uc| Rc::ptr_eq(uc, c))
+                            !all_conflicts
+                                .iter()
+                                .chain(used_cells.iter())
+                                .any(|uc| Rc::ptr_eq(uc, c))
                         })
                         .expect("Failed to find a non-conflicting cell.");
 
