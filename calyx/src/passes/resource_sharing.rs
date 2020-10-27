@@ -24,18 +24,44 @@ impl Named for ResourceSharing {
     }
 }
 
+#[derive(Default)]
+/// Internal struct to store information about resource sharing.
+struct Workspace {
+    /// Mapping from the name of a group the cells that have been used by it.
+    pub used_cells: HashMap<ir::Id, Vec<RRC<ir::Cell>>>,
+
+    /// Mapping from the name of a group to the (old_cell, new_cell) pairs.
+    /// This is used to rewrite all uses of `old_cell` with `new_cell` in the
+    /// group.
+    pub rewrites: HashMap<ir::Id, Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>>,
+}
+
+/// Returns the name of the primitive used to construct this cell if the
+/// primitive's "share" attribute is set to 1.
+fn shareable_primitive_name(
+    cell: &RRC<ir::Cell>,
+    sigs: &lib::LibrarySignatures,
+) -> Option<ir::Id> {
+    if let ir::CellType::Primitive { name, .. } = &cell.borrow().prototype {
+        if let Some(&share) = sigs[&name].attributes.get("share") {
+            if share == 1 {
+                return Some(name.clone());
+            }
+        }
+    }
+    None
+}
+
 impl Visitor for ResourceSharing {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _sigs: &lib::LibrarySignatures,
+        sigs: &lib::LibrarySignatures,
     ) -> VisResult {
         // Mapping from the name of the primitive to all cells that use it.
         let mut cell_map: HashMap<ir::Id, Vec<RRC<ir::Cell>>> = HashMap::new();
         for cell in &comp.cells {
-            if let ir::CellType::Primitive { name, .. } =
-                &cell.borrow().prototype
-            {
+            if let Some(name) = shareable_primitive_name(cell, sigs) {
                 cell_map
                     .entry(name.clone())
                     .or_default()
@@ -46,13 +72,10 @@ impl Visitor for ResourceSharing {
         let conflicts =
             analysis::ScheduleConflicts::from(&*comp.control.borrow());
 
-        println!("{}", conflicts.to_string());
-
         // Map from group name to the cells its been assigned.
-        let mut cell_assigns: HashMap<ir::Id, Vec<RRC<ir::Cell>>> =
-            HashMap::new();
+        let mut workspace = Workspace::default();
 
-        // Sort groups in-order of conflict degree.
+        // Sort groups in descending order of number of conflicts.
         let sorted: Vec<_> = comp
             .groups
             .iter()
@@ -71,19 +94,20 @@ impl Visitor for ResourceSharing {
             let all_conflicts = conflicts
                 .all_conflicts(group)
                 .into_iter()
-                .flat_map(|g| cell_assigns.get(&g.borrow().name))
+                .flat_map(|g| workspace.used_cells.get(&g.borrow().name))
                 .flatten()
                 .collect::<Vec<_>>();
 
-            // New assignments for this cell.
-            let mut assigns: Vec<RRC<ir::Cell>> = Vec::new();
+            // Cells used by the generated assignment for this cell.
+            let mut used_cells: Vec<RRC<ir::Cell>> = Vec::new();
+            // Rewrites generated for this group.
+            let mut rewrites: Vec<(RRC<ir::Cell>, RRC<ir::Cell>)> = Vec::new();
+
             for old_cell in
                 analysis::ReadWriteSet::uses(&group.borrow().assignments)
             {
                 // If this is a primitive cell
-                if let ir::CellType::Primitive { name: prim, .. } =
-                    &old_cell.borrow().prototype
-                {
+                if let Some(prim) = shareable_primitive_name(&old_cell, sigs) {
                     // Find a cell of this primitive type that hasn't been used
                     // by the neighbours.
                     let cell = cell_map[&prim]
@@ -93,20 +117,40 @@ impl Visitor for ResourceSharing {
                         })
                         .expect("Failed to find a non-conflicting cell.");
 
-                    println!(
-                        "{}: {}",
-                        old_cell.borrow().name,
-                        cell.borrow().name
-                    );
-
-                    // XXX: Apply this rewrite on the group.
+                    // Rewrite current cell to the new cell.
+                    rewrites.push((Rc::clone(&old_cell), Rc::clone(cell)));
 
                     // Save the performed assignment to `cell_assigns`.
-                    assigns.push(Rc::clone(cell));
+                    used_cells.push(Rc::clone(cell));
                 }
             }
-            cell_assigns.insert(group.borrow().name.clone(), assigns);
-            println!("==============");
+
+            // Add the used cells and the rewrites to the workspace.
+            workspace
+                .used_cells
+                .insert(group.borrow().name.clone(), used_cells);
+            workspace
+                .rewrites
+                .insert(group.borrow().name.clone(), rewrites);
+        }
+
+        let builder = ir::Builder::from(comp, sigs, false);
+
+        // Apply the generated rewrites
+        for group_ref in &builder.component.groups {
+            let mut group = group_ref.borrow_mut();
+            let mut assigns = group.assignments.drain(..).collect::<Vec<_>>();
+            for (old, new) in &workspace.rewrites[&group.name] {
+                // XXX(rachit): Performance pitfall.
+                // ir::Builder::rename_port_uses iterates over the entire
+                // assignment list every time.
+                builder.rename_port_uses(
+                    Rc::clone(old),
+                    Rc::clone(new),
+                    &mut assigns,
+                );
+            }
+            group.assignments = assigns;
         }
 
         Ok(Action::Stop)

@@ -15,7 +15,7 @@ use pass_manager::PassManager;
 use passes::{
     ClkInsertion, CollapseControl, CompileControl, CompileEmpty,
     ComponentInterface, Externalize, GoInsertion, Inliner, Papercut,
-    RemoveExternalMemories, StaticTiming, WellFormed, ResourceSharing,
+    RemoveExternalMemories, ResourceSharing, StaticTiming, WellFormed,
 };
 use std::io::stdin;
 use structopt::StructOpt;
