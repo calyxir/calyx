@@ -21,6 +21,26 @@ pub fn eval(comp: &ir::Component) -> FutilResult<Environment> {
     todo!()
 }
 
-pub fn eval_assigns(assigns: &[ir::Assignment]) -> FutilResult<Environment> {
+fn eval_assigns(
+    assigns: &[ir::Assignment],
+    env: Environment,
+) -> FutilResult<Environment> {
+    // Find the done signal in the sequence of assignments
+
+    // while done signal is zero
+        // e2 = Clone the current environment
+        // for assign in assigns
+            // check if the assign.guard == 1
+            // perform a read from `env` for assign.src
+            // write to assign.dst to e2
+        // env = e2
+
+    // Ok(env)
+
+    todo!()
+}
+
+/// Returns the done signal in this sequence of assignments
+fn get_done_signal(assigns: &[ir::Assignment]) -> &ir::Assignment {
     todo!()
 }
