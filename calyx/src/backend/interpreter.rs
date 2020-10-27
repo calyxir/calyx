@@ -3,6 +3,7 @@ use crate::ir;
 use std::collections::HashMap;
 
 /// The environment to interpret a FuTIL program
+#[derive(Default, Clone)]
 pub struct Environment {
     /// A mapping from cell names to the values on their ports.
     map: HashMap<ir::Id, HashMap<ir::Id, u64>>,
