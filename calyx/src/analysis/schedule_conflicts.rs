@@ -67,7 +67,7 @@ impl ScheduleConflicts {
 /// b --- d
 /// ```
 fn all_conflicting(
-    groups: &Vec<Vec<GroupNode>>,
+    groups: &[Vec<GroupNode>],
     current_conflicts: &mut ScheduleConflicts,
 ) {
     for group1 in 0..groups.len() {
@@ -98,7 +98,7 @@ fn build_conflict_graph(
             all_enables.push(Rc::clone(group));
         }
         ir::Control::Seq(ir::Seq { stmts }) => stmts
-            .into_iter()
+            .iter()
             .for_each(|c| build_conflict_graph(c, confs, all_enables)),
         ir::Control::If(ir::If {
             cond,
@@ -118,7 +118,7 @@ fn build_conflict_graph(
         }
         ir::Control::Par(ir::Par { stmts }) => {
             let enables = stmts
-                .into_iter()
+                .iter()
                 .map(|c| {
                     // Visit this child and add conflict edges.
                     // Collect the enables in this into a new vector.

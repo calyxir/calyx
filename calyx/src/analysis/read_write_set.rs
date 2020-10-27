@@ -10,7 +10,7 @@ impl ReadWriteSet {
     /// **Ignores** reads from group holes.
     pub fn read_set(assigns: &[ir::Assignment]) -> Vec<RRC<ir::Cell>> {
         assigns
-            .into_iter()
+            .iter()
             .filter_map(|assign| {
                 let src_ref = assign.src.borrow();
                 if let ir::PortParent::Cell(cell_wref) = &src_ref.parent {
@@ -27,7 +27,7 @@ impl ReadWriteSet {
     /// **Ignores** reads from group holes.
     pub fn write_set(assigns: &[ir::Assignment]) -> Vec<RRC<ir::Cell>> {
         assigns
-            .into_iter()
+            .iter()
             .filter_map(|assign| {
                 let dst_ref = assign.dst.borrow();
                 if let ir::PortParent::Cell(cell_wref) = &dst_ref.parent {
