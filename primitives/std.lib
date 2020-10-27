@@ -341,7 +341,7 @@ primitive std_mod<"share"=1>[width](left: width, right: width) -> (out: width) {
   }
 }
 
-primitive std_mod_pipe<"share"=1>[width]
+primitive std_mod_pipe[width]
 (clk: 1, reset: 1, go: 1, left: width, right: width)
 -> (out: width, done: 1) {
   verilog {
@@ -407,7 +407,7 @@ primitive std_mult<"share"=1>[width](left: width, right: width) -> (out: width) 
   }
 }
 
-primitive std_mult_pipe<"share"=1>[width](left: width, right: width, go: 1, clk: 1) -> (out: width, done: 1) {
+primitive std_mult_pipe[width](left: width, right: width, go: 1, clk: 1) -> (out: width, done: 1) {
   verilog {
     module std_mult_pipe
       #(parameter width = 32)
@@ -458,7 +458,7 @@ primitive std_div<"share"=1>[width](left: width, right: width) -> (out: width) {
   }
 }
 
-primitive std_div_pipe<"share"=1>[width]
+primitive std_div_pipe[width]
 (clk: 1, reset: 1, go: 1, left: width, right: width)
 -> (out: width, done: 1) {
   verilog {
