@@ -185,14 +185,18 @@ impl<'a> Builder<'a> {
     /// ```
     pub fn rename_port_uses(
         &self,
-        cell: RRC<ir::Cell>,
+        old_cell: RRC<ir::Cell>,
         new_cell: RRC<ir::Cell>,
         assigns: &mut Vec<ir::Assignment>,
     ) {
+        if Rc::ptr_eq(&old_cell, &new_cell) {
+            return;
+        }
+
         // Make sure the cells have the same primitives.
         if self.validate {
             if let ir::CellType::Primitive { name: n1, .. } =
-                &cell.borrow().prototype
+                &old_cell.borrow().prototype
             {
                 if let ir::CellType::Primitive { name: n2, .. } =
                     &new_cell.borrow().prototype
@@ -200,7 +204,7 @@ impl<'a> Builder<'a> {
                     if n1 != n2 {
                         panic!(
                             "Attempting to rewrite cells of different types: {} ({}) and {} ({})",
-                            cell.borrow().name,
+                            old_cell.borrow().name,
                             n1,
                             new_cell.borrow().name,
                             n2)
@@ -208,13 +212,13 @@ impl<'a> Builder<'a> {
                 } else {
                     panic!(
                         "Tried to rename non-primitive cell: {}",
-                        cell.borrow().name
+                        old_cell.borrow().name
                     )
                 }
             } else {
                 panic!(
                     "Tried to rename non-primitive cell: {}",
-                    cell.borrow().name
+                    old_cell.borrow().name
                 )
             }
         }
@@ -224,7 +228,7 @@ impl<'a> Builder<'a> {
         let new_port = |port_ref: &RRC<ir::Port>| -> RRC<ir::Port> {
             let port = port_ref.borrow();
             if let ir::PortParent::Cell(cell_wref) = &port.parent {
-                if Rc::ptr_eq(&cell_wref.upgrade().unwrap(), &cell) {
+                if Rc::ptr_eq(&cell_wref.upgrade().unwrap(), &old_cell) {
                     Rc::clone(&new_cell.borrow().get(&port.name))
                 } else {
                     Rc::clone(port_ref)
@@ -237,7 +241,9 @@ impl<'a> Builder<'a> {
         for assign in assigns {
             assign.src = new_port(&assign.src);
             assign.dst = new_port(&assign.dst);
-            assign.guard.for_each(&|port| Some(ir::Guard::Port(new_port(&port))));
+            assign
+                .guard
+                .for_each(&|port| Some(ir::Guard::Port(new_port(&port))));
         }
     }
 
