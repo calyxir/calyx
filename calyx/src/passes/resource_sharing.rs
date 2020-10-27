@@ -11,8 +11,17 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Default)]
+#[allow(clippy::type_complexity)]
 /// TODO
-pub struct ResourceSharing;
+pub struct ResourceSharing {
+    /// Mapping from the name of a group the cells that have been used by it.
+    pub(self) used_cells: HashMap<ir::Id, Vec<RRC<ir::Cell>>>,
+
+    /// Mapping from the name of a group to the (old_cell, new_cell) pairs.
+    /// This is used to rewrite all uses of `old_cell` with `new_cell` in the
+    /// group.
+    pub(self) rewrites: HashMap<ir::Id, Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>>,
+}
 
 impl Named for ResourceSharing {
     fn name() -> &'static str {
@@ -22,19 +31,6 @@ impl Named for ResourceSharing {
     fn description() -> &'static str {
         "shares resources between groups that don't execute in parallel"
     }
-}
-
-#[derive(Default)]
-#[allow(clippy::type_complexity)]
-/// Internal struct to store information about resource sharing.
-struct Workspace {
-    /// Mapping from the name of a group the cells that have been used by it.
-    pub used_cells: HashMap<ir::Id, Vec<RRC<ir::Cell>>>,
-
-    /// Mapping from the name of a group to the (old_cell, new_cell) pairs.
-    /// This is used to rewrite all uses of `old_cell` with `new_cell` in the
-    /// group.
-    pub rewrites: HashMap<ir::Id, Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>>,
 }
 
 /// Returns the name of the primitive used to construct this cell if the
@@ -79,9 +75,6 @@ impl Visitor for ResourceSharing {
         let conflicts =
             analysis::ScheduleConflicts::from(&*comp.control.borrow());
 
-        // Map from group name to the cells its been assigned.
-        let mut workspace = Workspace::default();
-
         // Sort groups in descending order of number of conflicts.
         let sorted: Vec<_> = comp
             .groups
@@ -101,7 +94,7 @@ impl Visitor for ResourceSharing {
             let all_conflicts = conflicts
                 .all_conflicts(group)
                 .into_iter()
-                .flat_map(|g| workspace.used_cells.get(&g.borrow().name))
+                .flat_map(|g| self.used_cells.get(&g.borrow().name))
                 .flatten()
                 .collect::<Vec<_>>();
 
@@ -135,12 +128,9 @@ impl Visitor for ResourceSharing {
             }
 
             // Add the used cells and the rewrites to the workspace.
-            workspace
-                .used_cells
+            self.used_cells
                 .insert(group.borrow().name.clone(), used_cells);
-            workspace
-                .rewrites
-                .insert(group.borrow().name.clone(), rewrites);
+            self.rewrites.insert(group.borrow().name.clone(), rewrites);
         }
 
         let builder = ir::Builder::from(comp, sigs, false);
@@ -149,7 +139,7 @@ impl Visitor for ResourceSharing {
         for group_ref in &builder.component.groups {
             let mut group = group_ref.borrow_mut();
             let mut assigns = group.assignments.drain(..).collect::<Vec<_>>();
-            for (old, new) in &workspace.rewrites[&group.name] {
+            for (old, new) in &self.rewrites[&group.name] {
                 // XXX(rachit): Performance pitfall.
                 // ir::Builder::rename_port_uses iterates over the entire
                 // assignment list every time.
@@ -162,6 +152,59 @@ impl Visitor for ResourceSharing {
             group.assignments = assigns;
         }
 
-        Ok(Action::Stop)
+        Ok(Action::Continue)
+    }
+
+    // Rewrite the name of the cond port if this group was re-written.
+    fn start_if(
+        &mut self,
+        s: &mut ir::If,
+        _comp: &mut ir::Component,
+        _sigs: &lib::LibrarySignatures,
+    ) -> VisResult {
+        let cond_port = &s.port;
+        let group_name = &s.cond.borrow().name;
+        // Check if the cell associated with the port was rewritten for the cond
+        // group.
+        let rewrite = self.rewrites[group_name].iter().find(|(c, _)| {
+            if let ir::PortParent::Cell(cell_wref) = &cond_port.borrow().parent
+            {
+                return Rc::ptr_eq(c, &cell_wref.upgrade().unwrap());
+            }
+            false
+        });
+
+        if let Some((_, new_cell)) = rewrite {
+            let new_port = new_cell.borrow().get(&cond_port.borrow().name);
+            s.port = new_port;
+        }
+
+        Ok(Action::Continue)
+    }
+
+    // Rewrite the name of the cond port if this group was re-written.
+    fn start_while(
+        &mut self,
+        s: &mut ir::While,
+        _comp: &mut ir::Component,
+        _sigs: &lib::LibrarySignatures,
+    ) -> VisResult {
+        let cond_port = &s.port;
+        let group_name = &s.cond.borrow().name;
+        // Check if the cell associated with the port was rewritten for the cond
+        // group.
+        let rewrite = self.rewrites[group_name].iter().find(|(c, _)| {
+            if let ir::PortParent::Cell(cell_wref) = &cond_port.borrow().parent
+            {
+                return Rc::ptr_eq(c, &cell_wref.upgrade().unwrap());
+            }
+            false
+        });
+
+        if let Some((_, new_cell)) = rewrite {
+            let new_port = new_cell.borrow().get(&cond_port.borrow().name);
+            s.port = new_port;
+        }
+        Ok(Action::Continue)
     }
 }
