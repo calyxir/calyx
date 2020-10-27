@@ -4,7 +4,7 @@ ver = "0.2.7"
 ## Test each pass in isolation. Gets the pass flags from a comment on the first line of the file
 [[tests]]
 name = "passes"
-paths = [ "tests/passes/*.futil" ]
+paths = [ "tests/passes/*.futil", "tests/passes/resource-sharing/*.futil" ]
 # gets the pass flags a comment on the first line of the test file
 cmd = """
 flags=$(head -n 1 {} | cut -c 3-)
