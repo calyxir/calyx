@@ -33,6 +33,7 @@ fn eval_assigns(
             // check if the assign.guard == 1
             // perform a read from `env` for assign.src
             // write to assign.dst to e2
+            // update internal state of the cell.
         // env = e2
 
     // Ok(env)
@@ -42,5 +43,16 @@ fn eval_assigns(
 
 /// Returns the done signal in this sequence of assignments
 fn get_done_signal(assigns: &[ir::Assignment]) -> &ir::Assignment {
+    todo!()
+}
+
+/// Uses the cell's inputs ports to perform any required updates to the
+/// cell's output ports.
+fn update_cell_state(
+    cell: &ir::Id,
+    inputs: &[ir::Id],
+    output: &[ir::Id],
+    env:Environment
+) -> FutilResult<Environment> {
     todo!()
 }
