@@ -42,11 +42,15 @@ struct Workspace {
 fn shareable_primitive_name(
     cell: &RRC<ir::Cell>,
     sigs: &lib::LibrarySignatures,
-) -> Option<ir::Id> {
-    if let ir::CellType::Primitive { name, .. } = &cell.borrow().prototype {
+) -> Option<(ir::Id, ir::Binding)> {
+    if let ir::CellType::Primitive {
+        name,
+        param_binding,
+    } = &cell.borrow().prototype
+    {
         if let Some(&share) = sigs[&name].attributes.get("share") {
             if share == 1 {
-                return Some(name.clone());
+                return Some((name.clone(), param_binding.clone()));
             }
         }
     }
@@ -60,11 +64,13 @@ impl Visitor for ResourceSharing {
         sigs: &lib::LibrarySignatures,
     ) -> VisResult {
         // Mapping from the name of the primitive to all cells that use it.
-        let mut cell_map: HashMap<ir::Id, Vec<RRC<ir::Cell>>> = HashMap::new();
+        let mut cell_map: HashMap<(ir::Id, ir::Binding), Vec<RRC<ir::Cell>>> =
+            HashMap::new();
         for cell in &comp.cells {
-            if let Some(name) = shareable_primitive_name(cell, sigs) {
+            if let Some(name_and_binding) = shareable_primitive_name(cell, sigs)
+            {
                 cell_map
-                    .entry(name.clone())
+                    .entry(name_and_binding.clone())
                     .or_default()
                     .push(Rc::clone(cell))
             }
@@ -108,10 +114,12 @@ impl Visitor for ResourceSharing {
                 analysis::ReadWriteSet::uses(&group.borrow().assignments)
             {
                 // If this is a primitive cell
-                if let Some(prim) = shareable_primitive_name(&old_cell, sigs) {
+                if let Some(name_and_binding) =
+                    shareable_primitive_name(&old_cell, sigs)
+                {
                     // Find a cell of this primitive type that hasn't been used
                     // by the neighbours.
-                    let cell = cell_map[&prim]
+                    let cell = cell_map[&name_and_binding]
                         .iter()
                         .find(|c| {
                             !all_conflicts.iter().any(|uc| Rc::ptr_eq(uc, c))

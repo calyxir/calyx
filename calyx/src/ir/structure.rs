@@ -76,6 +76,9 @@ impl Port {
     }
 }
 
+/// Alias for bindings
+pub type Binding = Vec<(Id, u64)>;
+
 /// The type for a Cell
 #[derive(Debug)]
 pub enum CellType {
@@ -84,7 +87,7 @@ pub enum CellType {
         /// Name of the primitive cell used to instantiate this cell.
         name: Id,
         /// Bindings for the parameters. Uses Vec to retain the input order.
-        param_binding: Vec<(Id, u64)>,
+        param_binding: Binding,
     },
     /// Cell constructed using a FuTIL component
     Component {

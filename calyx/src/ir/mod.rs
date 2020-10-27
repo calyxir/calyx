@@ -26,7 +26,7 @@ pub use guard::Guard;
 pub use id::Id;
 pub use printer::IRPrinter;
 pub use structure::{
-    Assignment, Cell, CellType, Direction, Group, Port, PortParent,
+    Assignment, Binding, Cell, CellType, Direction, Group, Port, PortParent,
 };
 
 /// Visitor to traverse a control program.
