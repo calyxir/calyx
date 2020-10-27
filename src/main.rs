@@ -51,6 +51,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
             WellFormed,
             Papercut,
             RemoveExternalMemories,
+            ResourceSharing,
             CompileEmpty,
             CollapseControl,
             StaticTiming,
@@ -69,6 +70,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
         [
             WellFormed,
             Papercut,
+            ResourceSharing,
             CompileEmpty,
             CollapseControl,
             CompileControl,
