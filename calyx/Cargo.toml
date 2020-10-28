@@ -22,7 +22,7 @@ atty = "0.2.14"
 derivative = "2.1.1"
 pest = "2.1.3"
 pest_derive = "2.1.0"
-pest_consume = { git = "https://github.com/rachitnigam/pest_consume.git", branch = 'master' }
+pest_consume = "1.0.6"
 itertools = "0.9.0"
 lazy_static = "1.4.0"
 vast = { git = "https://github.com/vegaluisjose/vast.git", branch = 'master' }
