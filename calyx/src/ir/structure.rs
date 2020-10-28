@@ -66,12 +66,18 @@ impl Port {
     /// Gets name of parent object.
     pub fn get_parent_name(&self) -> Id {
         match &self.parent {
-            PortParent::Cell(cell) => {
-                cell.upgrade().unwrap().borrow().name.clone()
-            }
-            PortParent::Group(group) => {
-                group.upgrade().unwrap().borrow().name.clone()
-            }
+            PortParent::Cell(cell) => cell
+                .upgrade()
+                .unwrap_or_else(|| panic!("No cell for port: {}", self.name))
+                .borrow()
+                .name
+                .clone(),
+            PortParent::Group(group) => group
+                .upgrade()
+                .unwrap_or_else(|| panic!("No group for hole: {}", self.name))
+                .borrow()
+                .name
+                .clone(),
         }
     }
 }
