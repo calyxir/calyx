@@ -26,7 +26,7 @@ cmd = """
 name = "unit"
 paths = [ "tests/unit/*.futil" ]
 cmd = """
-./target/debug/futil {} -d static-timing -d well-formed -d papercut
+./target/debug/futil {} -d static-timing -d well-formed -d papercut -d resource-sharing
 """
 
 ## Same as unit except runs with static-timing
@@ -34,7 +34,7 @@ cmd = """
 name = "unit static"
 paths = [ "tests/unit/*.futil" ]
 cmd = """
-./target/debug/futil {} -d well-formed -d papercut
+./target/debug/futil {} -d well-formed -d papercut -d resource-sharing
 """
 
 ##### Correctness Tests #####
