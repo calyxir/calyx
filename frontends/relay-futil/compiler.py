@@ -6,8 +6,13 @@ from collections import namedtuple, defaultdict
 import math
 
 from pretty_print import *
-from relay2futil_utilities import *
+from utilities import *
 from futil_ast import *
+
+# Map standard Relay call to respective hardware name in FuTIL.
+BuiltInBinaryCalls = {'add': 'add', 'equal': 'eq', 'multiply': 'mult', 'subtract': 'sub'}
+
+EmitResult = namedtuple('EmitResult', ['cells', 'groups'])
 
 
 class Relay2Futil(ExprFunctor):
@@ -19,7 +24,7 @@ class Relay2Futil(ExprFunctor):
         """
         id_number = self.id_dictionary[name]
         self.id_dictionary[name] += 1
-        return str(name + str(id_number))
+        return name + str(id_number)
 
     def __init__(self):
         super(Relay2Futil, self).__init__()
@@ -30,51 +35,56 @@ class Relay2Futil(ExprFunctor):
         name = var.name_hint
         type = str(var.type_annotation)
         data = [get_bitwidth(type), 1, 1]  # [width, size, index_size]
+        return [FCell(primitive=FPrimitive(name=name, data=data, type=PrimitiveType.Memory1D))]
 
-        cell = FCell(primitive=FPrimitive(name=name, data=data, type=PrimitiveType.Memory1D))
-        self.main.add_cell(cell)
-        return cell
+    def visit_let(self, let):
+        variable = self.visit(let.var)[0]
+        body = self.visit(let.body)
+        values = self.visit(let.value)
+
+        for value in values:
+            if not value.is_declaration(): continue
+            value.declaration.intermediary_output = FCell(
+                primitive=FPrimitive(name=variable.primitive.name, data=variable.primitive.data,
+                                     type=PrimitiveType.Memory1D))
+        return [body, values]
 
     def visit_constant(self, const):
         type = const.data.dtype
         shape = const.data.shape
         data = [get_bitwidth(type), int(const.data.asnumpy())]  # [width, value]
         name = self.id("const")
-        return FCell(primitive=FPrimitive(name=name, data=data, type=PrimitiveType.Constant))
+        return [FCell(primitive=FPrimitive(name=name, data=data, type=PrimitiveType.Constant))]
+
+    def visit_call(self, call):
+        assert call.op.name in BuiltInBinaryCalls, f'{call.op.name} not supported.'
+        op = BuiltInBinaryCalls[call.op.name]
+
+        args = []
+        for arg in call.args: args.append(self.visit(arg))
+        return [build_tensor_0D_binary_op(call, args, op)]
 
     def visit_function(self, function):
-        fn_component: FComponent = FComponent(name=self.id("fn"), cells=[], wires=[],
-                                              signature=FSignature(inputs=[], outputs=[]))
-
-        # Function Arguments
-        inputs, outputs = extract_function_arguments(function.params)
-        fn_component.signature.inputs = inputs
-        fn_component.signature.outputs = outputs
-
+        fn: FComponent = FComponent(name=self.id("function"), cells=[], wires=[],
+                                    signature=FSignature(inputs=[], outputs=[]))
+        fn.signature.inputs, fn.signature.outputs = extract_function_arguments(function.params)
         body = self.visit(function.body)
-        # We want to include constants, but not function arguments.
-        if body.primitive.type == PrimitiveType.Constant:
-            fn_component.add_cell(body)
 
-        # Return values
-        begin_cst = FCell(primitive=FPrimitive(name=self.id("c"), data=[1, 0], type=PrimitiveType.Constant))
-        fn_component.add_cell(begin_cst)  # FIXME: Pull data from the input arguments.
+        components = [fn]
+        for cell in flatten(body):
+            if cell.is_declaration():
+                fn.add_cell(cell)
+                components.append(cell.declaration.component)
+            elif cell.primitive.type == PrimitiveType.Constant:
+                # Include constants, but not function arguments.
+                fn.add_cell(cell)
 
-        return_type = str(function.ret_type)
-        bitwidth = get_bitwidth(return_type)
-        ret_cell = FCell(primitive=FPrimitive(name="ret", data=[bitwidth, 1, 1], type=PrimitiveType.Memory1D))
-        fn_component.add_cell(ret_cell)
+        build_function_body(fn)  # Groups, wires, connections.
 
-        # Groups
-        fn_component.wires = build_return_connections(ret_cell.primitive, begin_cst.primitive, fn_component)
+        # Add declaration to main.
+        self.main.add_cell(FCell(declaration=FDeclaration(name=self.id("fn"), component=fn)))
 
-        # Control
-        connections = list(filter(lambda w: w.is_group(), fn_component.wires))
-        fn_component.controls = [Seq(stmts=list(map(lambda w: w.group.name, connections)))]
-
-        # Add wire to this function.
-        self.main.add_cell(FCell(declaration=FDeclaration(name=self.id("function"), component=fn_component)))
-        return pp_component(fn_component)
+        return '\n'.join(pp_component(c) for c in reversed(components))
 
 
 def infer_type(expr: Function) -> Function:
@@ -89,65 +99,16 @@ def infer_type(expr: Function) -> Function:
     return ret
 
 
-def build_main(c: FComponent):
-    '''
-    Builds the main function that will take the last function and run it.
-    '''
-    # FIXME(cgyurgyik): This is currently mostly hard-coded.
-
-    for cell in reversed(c.cells):  # Get the bitwidth of the output of the last function declaration.
-        if cell.is_declaration():
-            bitwidth = cell.declaration.component.signature.outputs[0].bitwidth
-            inputs = cell.declaration.component.signature.inputs
-            outputs = cell.declaration.component.signature.outputs
-            function_name = cell.declaration.name
-            break
-
-    ret = FCell(primitive=FPrimitive(name="ret", data=[bitwidth, 1, 1], type=PrimitiveType.Memory1D))
-    c.add_cell(ret)
-
-    index = 0
-    cst = FCell(primitive=FPrimitive(name=f'c{index}', data=[1, index], type=PrimitiveType.Constant))
-    c.add_cell(cst)
-
-    # FIXME: Currently, assuming one input only. For multiple inputs,
-    # Need to determine if the input is 1D, 2D, ...
-    group_name = f'run_{function_name}'
-    var = (inputs[0].name).split('_')[0]
-    out_port = inputs[0].name
-    done_port = inputs[1].name
-    write_data_port = outputs[0].name
-    write_enable_port = outputs[1].name
-    addr0_port = outputs[2].name
-
-    wire0 = FWire(f'{var}.addr0', f'{cst.primitive.name}.out')
-    wire1 = FWire(f'{function_name}.{done_port}', f'{var}.done')
-    wire2 = FWire(f'{function_name}.{out_port}', f'{var}.read_data')
-    wire3 = FWire(f'{ret.primitive.name}.addr0', f'{function_name}.{addr0_port}')
-    wire4 = FWire(f'{ret.primitive.name}.write_data', f'{function_name}.{write_data_port}')
-    wire5 = FWire(f'{ret.primitive.name}.write_en', f'{function_name}.{write_enable_port}')
-    wire6 = FWire(f'{function_name}.go', "1'd1")
-    wire7 = FWire(f'{group_name}[done]', f'{function_name}.done ? ' + "1'd1")
-
-    wires = [wire0, wire1, wire2, wire3, wire4, wire5, wire6, wire7]
-    connection_1 = FConnection(group=FGroup(name=group_name, wires=wires, attributes=[]))
-    c.wires = [connection_1]
-
-    connections = list(filter(lambda w: w.is_group(), c.wires))
-    c.controls = [Seq(stmts=list(map(lambda w: w.group.name, connections)))]
-
-
 def compile(program) -> str:
-    """Translate a Relay function to a FuTIL program (as a string).
-    """
+    """Translate a Relay function to a FuTIL program (as a string)."""
     program = infer_type(program)
     visitor = Relay2Futil()
     src = visitor.visit(program)
 
-    build_main(visitor.main)
+    build_main_body(visitor.main)
     PREAMBLE = """import "primitives/std.lib";"""
-
-    return f'{PREAMBLE}\n\n{src}\n\n{pp_component(visitor.main)}'
+    NEWL = "\n\n"
+    return f'{PREAMBLE}{NEWL}{src}{NEWL}{pp_component(visitor.main)}'
 
 
 if __name__ == '__main__':
