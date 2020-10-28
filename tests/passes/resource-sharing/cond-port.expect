@@ -37,8 +37,6 @@ component main(go: 1, clk: 1) -> (done: 1) {
       let1;
       if gt0.out with cond0 {
         upd0;
-      } else {
-        
       }
     }
   }
