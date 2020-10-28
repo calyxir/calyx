@@ -27,7 +27,7 @@ impl ScheduleConflicts {
     /// Returns the NodeIndex corresponding to this Group.
     /// Panics if the Group is not in the CurrentConflict.
     pub fn get_index(&self, group: &GroupNode) -> NodeIndex {
-        self.index_map[&group.borrow().name]
+        *self.index_map.get(&group.borrow().name).unwrap_or_else(|| panic!("No index for group `{}' in conflict graph. Is the group used in the control program?", group.borrow().name))
     }
 
     /// Return a vector of all groups that conflict with this group.

@@ -2,7 +2,7 @@ use crate::analysis;
 use crate::frontend::library::ast as lib;
 use crate::ir::{
     self,
-    traversal::{Named, Visitor, Action, VisResult},
+    traversal::{Action, Named, VisResult, Visitor},
     RRC,
 };
 use itertools::Itertools;

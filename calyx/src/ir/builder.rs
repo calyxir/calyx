@@ -212,11 +212,15 @@ impl<'a> Builder<'a> {
         };
 
         for assign in assigns {
-            rewrite_port(&assign.src).map(|new_port| assign.src = new_port);
-            rewrite_port(&assign.dst).map(|new_port| assign.dst = new_port);
-            assign.guard.for_each(&|port| {
-                rewrite_port(&port).map(|p| ir::Guard::Port(p))
-            });
+            if let Some(new_port) = rewrite_port(&assign.src) {
+                assign.src = new_port;
+            }
+            if let Some(new_port) = rewrite_port(&assign.dst) {
+                assign.dst = new_port;
+            }
+            assign
+                .guard
+                .for_each(&|port| rewrite_port(&port).map(ir::Guard::Port));
         }
     }
 
