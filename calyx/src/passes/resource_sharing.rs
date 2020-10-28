@@ -2,10 +2,9 @@ use crate::analysis;
 use crate::frontend::library::ast as lib;
 use crate::ir::{
     self,
-    traversal::{Named, Visitor},
+    traversal::{Named, Visitor, Action, VisResult},
     RRC,
 };
-use ir::traversal::{Action, VisResult};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::rc::Rc;
