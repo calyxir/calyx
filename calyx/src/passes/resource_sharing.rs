@@ -12,7 +12,8 @@ use std::rc::Rc;
 
 #[derive(Default)]
 #[allow(clippy::type_complexity)]
-/// TODO
+/// Rewrites groups to share cells marked with the "share" attribute
+/// when the groups are guaranteed to never run in parallel.
 pub struct ResourceSharing {
     /// Mapping from the name of a group the cells that have been used by it.
     pub(self) used_cells: HashMap<ir::Id, Vec<RRC<ir::Cell>>>,
