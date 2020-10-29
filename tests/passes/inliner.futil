@@ -28,11 +28,10 @@ component main() -> () {
       fsm.in = write_r1[done] ? 1'b1;
       seq0[done] = write_r2[done];
     }
-
-    seq0[go] = go;
-    done = seq0[done] ? 1'b1;
   }
 
-  control {}
+  control {
+    seq0;
+  }
 
 }

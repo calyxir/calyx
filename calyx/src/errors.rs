@@ -1,59 +1,83 @@
-//! This file contains the centralized error handling for Futil. Each variant of the
+//! Centralized error handling for FuTIL. Each variant of the
 //! `Error` enum represents a different type of error. For some types of errors, you
 //! might want to add a `From` impl so that the `?` syntax is more convienent.
 
-use crate::frontend::{library_syntax, syntax};
-use crate::lang::ast;
+use crate::frontend::{ast, library, parser};
+use crate::ir;
 use petgraph::stable_graph::NodeIndex;
 use std::iter::repeat;
 use std::rc::Rc;
 
+/// Standard error type for FuTIL errors.
 #[allow(clippy::large_enum_variant)]
 pub enum Error {
-    ParseError(pest_consume::Error<syntax::Rule>),
-    LibraryParseError(pest_consume::Error<library_syntax::Rule>),
-    ReservedName(ast::Id),
+    /// Error while parsing a FuTIL program.
+    ParseError(pest_consume::Error<parser::Rule>),
+    /// Error while parsing a FuTIL library.
+    LibraryParseError(pest_consume::Error<library::parser::Rule>),
+    /// Using a reserved keyword as a program identifier.
+    ReservedName(ir::Id),
 
+    /// The given string does not correspond to any known pass.
     UnknownPass(String, String),
+    /// The input file is invalid (does not exist).
     InvalidFile(String),
+    /// Failed to write the output
     WriteError,
-    MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
 
-    UndefinedPort(ast::Id, String),
-    UndefinedEdge(String, String),
-    UndefinedComponent(ast::Id),
-    UndefinedGroup(ast::Id),
-
-    UnusedGroup(ast::Id),
-
-    /* Trying to bind new group to existing name.  */
-    AlreadyBound(ast::Id, String),
-    DuplicateGroup(ast::Id),
-    DuplicatePort(ast::Id, ast::Portdef),
-
-    SignatureResolutionFailed(ast::Id, ast::Id),
-
+    /// The control program is malformed.
     MalformedControl(String),
+
+    /// The connections are malformed.
     MalformedStructure(String),
+    /// The port widths don't match up on an edge.
+    MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
+    /// Port not found on the given component.
+    UndefinedPort(ir::Id, String),
+    /// The component has not been defined.
+    UndefinedComponent(ir::Id),
+    /// The group has not been defined
+    UndefinedGroup(ir::Id),
+    /// The group was not used in the program.
+    UnusedGroup(ir::Id),
 
-    MissingImplementation(&'static str, ast::Id),
+    /// The name has already been bound.
+    AlreadyBound(ir::Id, String),
+    /// The group has already been bound.
+    DuplicateGroup(ir::Id),
+    /// The port has already been defined.
+    DuplicatePort(ir::Id, ast::Portdef),
 
-    Papercut(String, ast::Id),
+    /// No value provided for a primitive parameter.
+    SignatureResolutionFailed(ir::Id, ir::Id),
 
+    /// An implementation is missing.
+    MissingImplementation(&'static str, ir::Id),
+
+    /// Papercut error: signals a commonly made mistake in FuTIL program.
+    Papercut(String, ir::Id),
+
+    /// Internal compiler error that should never occur.
     Impossible(String), // Signal compiler errors that should never occur.
     NotSubcomponent,
+
+    /// A miscellaneous error. Should be replaced with a more precise error.
     #[allow(unused)]
     Misc(String),
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+/// Convience wrapper to represent success or meaningul compiler error.
+pub type FutilResult<T> = std::result::Result<T, Error>;
 
+/// A span of the input program.
+/// Used for reporting location-based errors.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
-    // we use Rc<String> here so that we don't have tostore the entire
-    // input program for each identifier and Rc<String> has nicer lifetimes than &str.
+    /// Reference to input program source.
     input: Rc<String>,
+    /// The start of the span.
     start: usize,
+    /// The end of the span.
     end: usize,
 }
 
@@ -151,7 +175,6 @@ impl std::fmt::Debug for Error {
                 let msg = format!("Use of undefined {} port: {}", port_kind, port.to_string());
                 write!(f, "{}", port.fmt_err(&msg))
             }
-            UndefinedEdge(src, dest) => write!(f, "Use of undefined edge: {}->{}", src, dest),
             UndefinedComponent(id) => {
                 let msg = format!("Use of undefined component: {}", id.to_string());
                 write!(f, "{}", id.fmt_err(&msg))
@@ -164,7 +187,7 @@ impl std::fmt::Debug for Error {
                 write!(f, "Attempted to duplicate group `{}`", group.to_string())
             }
             DuplicatePort(comp, portdef) => {
-                write!(f, "Attempted to add duplicate port `{}` to component `{}`", portdef.to_string(), comp.to_string())
+                write!(f, "Attempted to add duplicate port `{:?}` to component `{}`", portdef, comp.to_string())
             }
             MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
             MalformedStructure(msg) => write!(f, "Malformed Structure: {}", msg),
@@ -191,14 +214,14 @@ impl From<std::fmt::Error> for Error {
     }
 }
 
-impl From<pest_consume::Error<syntax::Rule>> for Error {
-    fn from(e: pest_consume::Error<syntax::Rule>) -> Self {
+impl From<pest_consume::Error<parser::Rule>> for Error {
+    fn from(e: pest_consume::Error<parser::Rule>) -> Self {
         Error::ParseError(e)
     }
 }
 
-impl From<pest_consume::Error<library_syntax::Rule>> for Error {
-    fn from(e: pest_consume::Error<library_syntax::Rule>) -> Self {
+impl From<pest_consume::Error<library::parser::Rule>> for Error {
+    fn from(e: pest_consume::Error<library::parser::Rule>) -> Self {
         Error::LibraryParseError(e)
     }
 }
@@ -213,18 +236,18 @@ impl From<std::io::Error> for Error {
 
 /// A generalized 'unwrapping' trait that extracts data from
 /// a container that can possible be an error and automatically
-/// generates the correct `Error` variant with the `ast::Id`.
+/// generates the correct `Error` variant with the `ir::Id`.
 /// For example, `Extract<NodeIndex, NodeIndex>` can be implemented for
 /// `Option<NodeIndex>` to provide convienent error reporting for
 /// undefined components / groups.
 pub trait Extract<T, R> {
-    /// Unpacks `T` into `Result<R>` using `id: ast::Id`
+    /// Unpacks `T` into `FutilResult<R>` using `id: ir::Id`
     /// for error reporting with locations.
-    fn extract(&self, id: &ast::Id) -> Result<R>;
+    fn extract(&self, id: &ir::Id) -> FutilResult<R>;
 }
 
 impl Extract<NodeIndex, NodeIndex> for Option<NodeIndex> {
-    fn extract(&self, id: &ast::Id) -> Result<NodeIndex> {
+    fn extract(&self, id: &ir::Id) -> FutilResult<NodeIndex> {
         match self {
             Some(t) => Ok(*t),
             None => Err(Error::UndefinedComponent(id.clone())),

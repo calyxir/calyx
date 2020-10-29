@@ -5,7 +5,6 @@ component main(go: 1, clk: 1) -> (done: 1) {
     B = prim std_mem_d1(32, 16, 4);
     state = prim std_reg(32);
   }
-  
   wires {
     group wr_A<> {
       A.write_en = 1'd1;
@@ -20,8 +19,6 @@ component main(go: 1, clk: 1) -> (done: 1) {
       wr_B[done] = B.done;
     }
   }
-  
-  control {
-    
-  }
+
+  control {}
 }

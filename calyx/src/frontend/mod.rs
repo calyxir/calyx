@@ -1,4 +1,7 @@
-pub mod colors;
-pub mod library_syntax;
-pub mod pretty_print;
-pub mod syntax;
+//! The FuTIL compiler frontend. Responsible for parser FuTIL programs and
+//! FuTIL libraries.
+//! The frontend representation is transformed into the representation defined
+//! in the `ir` module.
+pub mod ast;
+pub mod library;
+pub mod parser;

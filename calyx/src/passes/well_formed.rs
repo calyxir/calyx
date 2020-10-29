@@ -1,24 +1,30 @@
 use crate::errors::Error;
-use crate::lang::{
-    ast, component::Component, context::Context, structure::NodeData,
-};
-use crate::passes::visitor::{Action, Named, VisResult, Visitor};
-use ast::Enable;
+use crate::frontend::library::ast::LibrarySignatures;
+use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::ir::{self, Component};
 use std::collections::HashSet;
 
+/// Pass to check if the program is well-formed.
+///
+/// Catches the following errors:
+/// 1. Programs that use reserved SystemVerilog keywords as identifiers.
+/// 2. Programs that don't use a defined group.
 pub struct WellFormed {
     /// Set of names that components and cells are not allowed to have.
     reserved_names: HashSet<String>,
 
     /// Names of the groups that have been used in the control.
-    used_groups: HashSet<ast::Id>,
+    used_groups: HashSet<ir::Id>,
+
+    /// All of the groups used in the program.
+    all_groups: HashSet<ir::Id>,
 }
 
 impl Default for WellFormed {
     fn default() -> Self {
         let reserved_names = vec![
             "reg", "wire", "always", "posedge", "negedge", "logic", "tri",
-            "input", "output", "if", "generate", "var",
+            "input", "output", "if", "generate", "var", "go", "done", "clk",
         ]
         .into_iter()
         .map(|s| s.to_string())
@@ -27,6 +33,7 @@ impl Default for WellFormed {
         WellFormed {
             reserved_names,
             used_groups: HashSet::new(),
+            all_groups: HashSet::new(),
         }
     }
 }
@@ -42,77 +49,75 @@ impl Named for WellFormed {
 }
 
 impl Visitor for WellFormed {
-    /// Check to see if any of the components use a reserved name or if the
-    /// same name is bound by a group and a component.
-    fn start(&mut self, comp: &mut Component, _x: &Context) -> VisResult {
-        for (_, node) in comp.structure.component_iterator() {
-            if self.reserved_names.contains(&node.name.id) {
-                return Err(Error::ReservedName(node.name.clone()));
+    fn start(
+        &mut self,
+        comp: &mut Component,
+        _ctx: &LibrarySignatures,
+    ) -> VisResult {
+        for group_ref in &comp.groups {
+            self.all_groups.insert(group_ref.borrow().name.clone());
+        }
+        // Check if any of the cells use a reserved name.
+        for cell_ref in &comp.cells {
+            let cell = cell_ref.borrow();
+            if self.reserved_names.contains(&cell.name.id) {
+                return Err(Error::ReservedName(cell.name.clone()));
             }
-
-            // If this is a cell, check for clash with group name.
-            if let NodeData::Cell(_) = &node.data {
-                if comp.structure.groups.contains_key(&Some(node.name.clone()))
-                {
-                    return Err(Error::AlreadyBound(
-                        node.name.clone(),
-                        "group".to_string(),
-                    ));
-                }
+            if self.all_groups.contains(&cell.name) {
+                return Err(Error::AlreadyBound(
+                    cell.name.clone(),
+                    "group".to_string(),
+                ));
             }
         }
         Ok(Action::Continue)
     }
 
-    /// Check to see if all groups mentioned in the control are defined.
     fn start_enable(
         &mut self,
-        s: &Enable,
-        comp: &mut Component,
-        _x: &Context,
+        s: &mut ir::Enable,
+        _comp: &mut Component,
+        _ctx: &LibrarySignatures,
     ) -> VisResult {
-        let st = &comp.structure;
-        if !st.groups.contains_key(&Some(s.comp.clone())) {
-            return Err(Error::UndefinedGroup(s.comp.clone()));
-        }
-        // Add the name of this group to set of used groups.
-        self.used_groups.insert(s.comp.clone());
-
+        self.used_groups.insert(s.group.borrow().name.clone());
         Ok(Action::Continue)
     }
 
     fn finish_if(
         &mut self,
-        s: &ast::If,
+        s: &mut ir::If,
         _comp: &mut Component,
-        _x: &Context,
+        _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Add cond group as a used port.
-        self.used_groups.insert(s.cond.clone());
+        self.used_groups.insert(s.cond.borrow().name.clone());
         Ok(Action::Continue)
     }
 
     fn finish_while(
         &mut self,
-        s: &ast::While,
+        s: &mut ir::While,
         _comp: &mut Component,
-        _x: &Context,
+        _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Add cond group as a used port.
-        self.used_groups.insert(s.cond.clone());
+        self.used_groups.insert(s.cond.borrow().name.clone());
         Ok(Action::Continue)
     }
 
-    /// Check if all defined groups were used in the control
-    fn finish(&mut self, comp: &mut Component, _x: &Context) -> VisResult {
-        for (group, _) in comp.structure.groups.iter() {
-            if let Some(group_name) = group {
-                if !self.used_groups.contains(group_name) {
-                    return Err(Error::UnusedGroup(group_name.clone()));
-                }
-            }
+    fn finish(
+        &mut self,
+        _comp: &mut Component,
+        _ctx: &LibrarySignatures,
+    ) -> VisResult {
+        let unused_group = self
+            .all_groups
+            .difference(&self.used_groups)
+            .into_iter()
+            .next();
+        match unused_group {
+            Some(group) => Err(Error::UnusedGroup(group.clone())),
+            None => Ok(Action::Continue),
         }
-
-        Ok(Action::Continue)
     }
 }
