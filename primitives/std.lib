@@ -258,7 +258,7 @@ primitive std_shift_reg[width, depth](in: width, write_en: 1, clk: 1) -> (out: w
   }
 }
 
-primitive std_const[width, value]() -> (out: width) {
+primitive std_const<"share"=1>[width, value]() -> (out: width) {
   verilog {
     module std_const
       #(parameter width = 32,
@@ -269,7 +269,7 @@ primitive std_const[width, value]() -> (out: width) {
   }
 }
 
-primitive std_slice[in_width, out_width](in: in_width) -> (out: out_width) {
+primitive std_slice<"share"=1>[in_width, out_width](in: in_width) -> (out: out_width) {
   verilog {
     module std_slice
       #(parameter IN_WIDTH = 32,
@@ -281,7 +281,7 @@ primitive std_slice[in_width, out_width](in: in_width) -> (out: out_width) {
   }
 }
 
-primitive std_lsh[width](left: width, right: width) -> (out: width) {
+primitive std_lsh<"share"=1>[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_lsh
       #(parameter width = 32)
@@ -293,7 +293,7 @@ primitive std_lsh[width](left: width, right: width) -> (out: width) {
   }
 }
 
-primitive std_rsh[width](left: width, right: width) -> (out: width) {
+primitive std_rsh<"share"=1>[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_rsh
       #(parameter width = 32)
@@ -305,7 +305,7 @@ primitive std_rsh[width](left: width, right: width) -> (out: width) {
   }
 }
 
-primitive std_add[width](left: width, right: width) -> (out: width) {
+primitive std_add<"share"=1>[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_add
       #(parameter width = 32)
@@ -317,7 +317,7 @@ primitive std_add[width](left: width, right: width) -> (out: width) {
   }
 }
 
-primitive std_sub[width](left: width, right: width) -> (out: width) {
+primitive std_sub<"share"=1>[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_sub
       #(parameter width = 32)
@@ -329,7 +329,7 @@ primitive std_sub[width](left: width, right: width) -> (out: width) {
   }
 }
 
-primitive std_mod[width](left: width, right: width) -> (out: width) {
+primitive std_mod<"share"=1>[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_mod
       #(parameter width = 32)
@@ -395,7 +395,7 @@ primitive std_mod_pipe[width]
   }
 }
 
-primitive std_mult[width](left: width, right: width) -> (out: width) {
+primitive std_mult<"share"=1>[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_mult
       #(parameter width = 32)
@@ -446,7 +446,7 @@ primitive std_mult_pipe[width](left: width, right: width, go: 1, clk: 1) -> (out
   }
 }
 
-primitive std_div[width](left: width, right: width) -> (out: width) {
+primitive std_div<"share"=1>[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_div
       #(parameter width = 32)
@@ -462,6 +462,7 @@ primitive std_div_pipe[width]
 (clk: 1, reset: 1, go: 1, left: width, right: width)
 -> (out: width, done: 1) {
   verilog {
+    /* verilator lint_off WIDTH */
     module std_div_pipe
               #(parameter width = 32)
                 (input             clk, reset,
@@ -513,7 +514,7 @@ primitive std_div_pipe[width]
 }
 
 
-primitive std_not[width](in: width) -> (out: width) {
+primitive std_not<"share"=1>[width](in: width) -> (out: width) {
   verilog {
     module std_not
       #(parameter width = 32)
@@ -524,7 +525,7 @@ primitive std_not[width](in: width) -> (out: width) {
   }
 }
 
-primitive std_and[width](left: width, right: width) -> (out: width) {
+primitive std_and<"share"=1>[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_and
       #(parameter width = 32)
@@ -536,7 +537,7 @@ primitive std_and[width](left: width, right: width) -> (out: width) {
   }
 }
 
-primitive std_or[width](left: width, right: width) -> (out: width) {
+primitive std_or<"share"=1>[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_or
       #(parameter width = 32)
@@ -548,7 +549,7 @@ primitive std_or[width](left: width, right: width) -> (out: width) {
   }
 }
 
-primitive std_gt[width](left: width, right: width) -> (out: 1) {
+primitive std_gt<"share"=1>[width](left: width, right: width) -> (out: 1) {
   verilog {
     module std_gt
       #(parameter width = 32)
@@ -560,7 +561,7 @@ primitive std_gt[width](left: width, right: width) -> (out: 1) {
   }
 }
 
-primitive std_lt[width](left: width, right: width) -> (out: 1) {
+primitive std_lt<"share"=1>[width](left: width, right: width) -> (out: 1) {
   verilog {
     module std_lt
       #(parameter width = 32)
@@ -572,7 +573,7 @@ primitive std_lt[width](left: width, right: width) -> (out: 1) {
   }
 }
 
-primitive std_eq[width](left: width, right: width) -> (out: 1) {
+primitive std_eq<"share"=1>[width](left: width, right: width) -> (out: 1) {
   verilog {
     module std_eq
       #(parameter width = 32)
@@ -584,7 +585,7 @@ primitive std_eq[width](left: width, right: width) -> (out: 1) {
   }
 }
 
-primitive std_neq[width](left: width, right: width) -> (out: 1) {
+primitive std_neq<"share"=1>[width](left: width, right: width) -> (out: 1) {
   verilog {
     module std_neq
       #(parameter width = 32)
@@ -596,7 +597,7 @@ primitive std_neq[width](left: width, right: width) -> (out: 1) {
   }
 }
 
-primitive std_ge[width](left: width, right: width) -> (out: 1) {
+primitive std_ge<"share"=1>[width](left: width, right: width) -> (out: 1) {
   verilog {
     module std_ge
       #(parameter width = 32)
@@ -608,7 +609,7 @@ primitive std_ge[width](left: width, right: width) -> (out: 1) {
   }
 }
 
-primitive std_le[width](left: width, right: width) -> (out: 1) {
+primitive std_le<"share"=1>[width](left: width, right: width) -> (out: 1) {
   verilog {
     module std_le
       #(parameter width = 32)

@@ -172,7 +172,59 @@ impl<'a> Builder<'a> {
         ir::Assignment { dst, src, guard }
     }
 
-    ///////////////////// Internal function ////////////////////
+    /// Rewrite all reads and writes from `cell` in the given assingments to
+    /// the same ports on `new_cell`.
+    ///
+    /// For example, given with `cell = a` and `new_cell = b`
+    /// ```
+    /// a.in = a.done ? a.out;
+    /// ```
+    /// is rewritten to
+    /// ```
+    /// b.in = b.done ? b.out;
+    /// ```
+    pub fn rename_port_uses(
+        &self,
+        rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
+        assigns: &mut Vec<ir::Assignment>,
+    ) {
+        // Returns true if the port's parent in the given cell.
+        let parent_matches =
+            |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> bool {
+                if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
+                    Rc::ptr_eq(&cell_wref.upgrade().unwrap(), cell)
+                } else {
+                    false
+                }
+            };
+
+        // Returns a reference to the port with the same name in cell.
+        let get_port =
+            |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> RRC<ir::Port> {
+                Rc::clone(&cell.borrow().get(&port.borrow().name))
+            };
+
+        let rewrite_port = |port: &RRC<ir::Port>| -> Option<RRC<ir::Port>> {
+            rewrites
+                .iter()
+                .find(|(cell, _)| parent_matches(port, cell))
+                .map(|(_, new_cell)| get_port(port, new_cell))
+        };
+
+        for assign in assigns {
+            if let Some(new_port) = rewrite_port(&assign.src) {
+                assign.src = new_port;
+            }
+            if let Some(new_port) = rewrite_port(&assign.dst) {
+                assign.dst = new_port;
+            }
+            assign
+                .guard
+                .for_each(&|port| rewrite_port(&port).map(ir::Guard::Port));
+        }
+    }
+
+    ///////////////////// Internal functions/////////////////////////////////
     /// VALIDATE: Check if the component contains the cell/group associated
     /// with the port exists in the Component.
     /// Validate methods panic! in order to generate a stacktrace to the

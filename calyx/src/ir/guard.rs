@@ -50,7 +50,7 @@ impl Guard {
     /// returns.
     pub fn for_each<F>(&mut self, f: &F)
     where
-        F: Fn(&Port) -> Option<Guard>,
+        F: Fn(RRC<Port>) -> Option<Guard>,
     {
         match self {
             Guard::And(ands) => {
@@ -72,7 +72,7 @@ impl Guard {
                 inner.for_each(f);
             }
             Guard::Port(port) => {
-                let guard = f(&port.borrow())
+                let guard = f(Rc::clone(port))
                     .unwrap_or_else(|| Guard::Port(Rc::clone(port)));
                 *self = guard;
             }

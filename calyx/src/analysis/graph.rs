@@ -1,5 +1,5 @@
 use crate::{
-    ir::{Assignment, Component, Direction, Id, Port, RRC},
+    ir::{self, Id, RRC},
     utils::Keyable,
 };
 use petgraph::{
@@ -10,7 +10,7 @@ use petgraph::{
 };
 use std::{collections::HashMap, rc::Rc};
 
-type Node = RRC<Port>;
+type Node = RRC<ir::Port>;
 type Edge = ();
 
 /// A petgraph::DiGraph where ports are the nodes and edges contain no
@@ -18,7 +18,7 @@ type Edge = ();
 pub type CellGraph = DiGraph<Node, Edge>;
 
 /// Implement keyable for port
-impl Keyable for Port {
+impl Keyable for ir::Port {
     type Key = (Id, Id);
     fn key(&self) -> Self::Key {
         (self.get_parent_name(), self.name.clone())
@@ -50,12 +50,12 @@ pub struct GraphAnalysis {
 impl GraphAnalysis {
     /// Construct a graph from a component. Ports are nodes
     /// and assignments are edges.
-    pub fn from(component: &Component) -> Self {
+    pub fn from(component: &ir::Component) -> Self {
         let mut graph = CellGraph::new();
         let mut nodes = HashMap::new();
 
         // helper for inserting ports and edges from an assignment
-        let mut insert_asgn = |asgn: &Assignment| {
+        let mut insert_asgn = |asgn: &ir::Assignment| {
             // insert nodes for src and dst ports
             let src_key = asgn.src.borrow().key();
             let dst_key = asgn.dst.borrow().key();
@@ -96,11 +96,11 @@ impl GraphAnalysis {
 
     /// Returns an iterator over all the reads from a port.
     /// Returns an empty iterator if this is an Input port.
-    pub fn reads_from(&self, port: &Port) -> PortIterator<'_> {
+    pub fn reads_from(&self, port: &ir::Port) -> PortIterator<'_> {
         let idx = self.nodes[&port.key()];
         match port.direction {
-            Direction::Input => PortIterator::empty(),
-            Direction::Output | Direction::Inout => PortIterator {
+            ir::Direction::Input => PortIterator::empty(),
+            ir::Direction::Output | ir::Direction::Inout => PortIterator {
                 port_iter: Box::new(
                     self.graph.edges_directed(idx, Outgoing).map(move |edge| {
                         let node_idx =
@@ -114,10 +114,10 @@ impl GraphAnalysis {
 
     /// Returns an iterator over all the writes to this port.
     /// Returns an empty iterator if this is an Output port.
-    pub fn writes_to(&self, port: &Port) -> PortIterator<'_> {
+    pub fn writes_to(&self, port: &ir::Port) -> PortIterator<'_> {
         let idx = self.nodes[&port.key()];
         match port.direction {
-            Direction::Input | Direction::Inout => PortIterator {
+            ir::Direction::Input | ir::Direction::Inout => PortIterator {
                 port_iter: Box::new(
                     self.graph.edges_directed(idx, Incoming).map(move |edge| {
                         let node_idx =
@@ -126,7 +126,7 @@ impl GraphAnalysis {
                     }),
                 ),
             },
-            Direction::Output => PortIterator::empty(),
+            ir::Direction::Output => PortIterator::empty(),
         }
     }
 
@@ -138,7 +138,7 @@ impl GraphAnalysis {
     /// `src` and `dst` is kept. Otherwise, it is removed.
     pub fn edge_induced_subgraph<F>(self, mut filter: F) -> Self
     where
-        F: FnMut(&Port, &Port) -> bool,
+        F: FnMut(&ir::Port, &ir::Port) -> bool,
     {
         let Self { graph, nodes } = self;
         let graph = graph.filter_map(
@@ -165,7 +165,7 @@ impl GraphAnalysis {
 /// over ports to allow functions to build and return
 /// port iterators in different ways.
 pub struct PortIterator<'a> {
-    port_iter: Box<dyn Iterator<Item = RRC<Port>> + 'a>,
+    port_iter: Box<dyn Iterator<Item = RRC<ir::Port>> + 'a>,
 }
 
 impl PortIterator<'_> {
@@ -178,7 +178,7 @@ impl PortIterator<'_> {
 }
 
 impl Iterator for PortIterator<'_> {
-    type Item = RRC<Port>;
+    type Item = RRC<ir::Port>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.port_iter.next()

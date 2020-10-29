@@ -26,7 +26,7 @@ pub use guard::Guard;
 pub use id::Id;
 pub use printer::IRPrinter;
 pub use structure::{
-    Assignment, Cell, CellType, Direction, Group, Port, PortParent,
+    Assignment, Binding, Cell, CellType, Direction, Group, Port, PortParent,
 };
 
 /// Visitor to traverse a control program.
@@ -34,9 +34,6 @@ pub mod traversal;
 
 /// Module to transform AST programs into IR.
 pub mod from_ast;
-
-/// Analysis of ir programs.
-pub mod analysis;
 
 /// Convinience macros for constructing IR nodes.
 pub mod macros;
