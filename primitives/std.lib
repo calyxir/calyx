@@ -822,3 +822,47 @@ primitive fixed_p_std_div[width, int_width, fract_width](left: width, right: wid
 
     }
 }
+
+// the bigger integer bit always comes left, one with bigger fractional bit comes right
+primitive fixed_p_std_add_dbit[p_width, p_int_width1, p_fract_width1, p_int_width2, p_fract_width2, p_out_width] (left: p_width, right: p_width) ->(out: p_out_width){
+    verilog{
+      module fixed_p_std_add_dbit
+        #(parameter width= 32,
+        parameter int_width1 = 8, 
+        parameter fract_width1 = 24,
+        parameter int_width2 = 4,
+        parameter fract_width2 =28,
+        parameter out_width = 36)
+
+        (input logic [width-1:0] left, 
+        input logic [width-1:0] right, 
+        output logic [out_width-1:0] out);
+
+        logic [int_width1-1:0] left_int;
+        logic [int_width2-1:0] right_int;
+        logic [fract_width1-1:0] left_fract;
+        logic [fract_width2-1:0] right_fract;
+
+        logic [int_width1-1:0]  mod_right_int;
+        logic [fract_width2-1:0] mod_left_fract;
+
+        logic [int_width1-1:0]  whole_int;
+        logic [fract_width2-1:0] whole_fract;
+
+        assign {left_int, left_fract} = left;
+        assign {right_int, right_fract} = right;
+
+        //assign mod_right_int = right_int;
+
+        //extend fractional bits for left
+        assign mod_left_fract = left_fract * (2**(fract_width2-fract_width1));
+
+        //add
+        assign whole_int = left_int + right_int;
+        assign whole_fract = mod_left_fract + right_fract;
+
+        //slice
+        assign out = {whole_int, whole_fract};
+      endmodule
+    }
+}
