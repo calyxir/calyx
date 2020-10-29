@@ -1,0 +1,13 @@
+// -p dead-cell-removal
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    used_reg = prim std_reg(32);
+    used_le = prim std_le(1);
+    unused_reg = prim std_reg(32);
+  }
+  wires {
+    used_reg.in = used_le.out ? 32'd10;
+  }
+  control {}
+}
