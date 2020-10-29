@@ -3,7 +3,6 @@ component main(go: 1, clk: 1) -> (done: 1) {
   cells {
     add = prim std_add(32);
   }
-  
   wires {
     group do_add<> {
       add.right = do_add[go] ? 32'd4;
@@ -11,8 +10,6 @@ component main(go: 1, clk: 1) -> (done: 1) {
       do_add[done] = 1'd1;
     }
   }
-  
-  control {
-    
-  }
+
+  control {}
 }
