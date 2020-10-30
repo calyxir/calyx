@@ -10,6 +10,7 @@ class PrimitiveType(Enum):
     Memory1D = 3
     Memory2D = 4
     Memory3D = 5
+    BinOp = 6
 
 
 class ControlType(Enum):
@@ -131,6 +132,7 @@ class FComponent:
         '''
         Appends a subcomponent to this component's list of FuTIL cells.
         '''
+        # TODO(cgyurgyik): If its already contained here, don't re-add it.
         self.cells.append(subcomponent)
 
 
@@ -140,6 +142,8 @@ class FDeclaration:
     Represents a FuTIL declaration.
     '''
     name: str
+    intermediary_inputs: List[Cell] = None
+    intermediary_output: Cell = None
     component: FComponent = None
 
 
