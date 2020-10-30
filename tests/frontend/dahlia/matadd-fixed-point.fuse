@@ -1,0 +1,10 @@
+decl a0_0: ufix<16,8>[2][2];
+decl b0_0: ufix<16,8>[2][2];
+decl result0_0: ufix<16,8>[2][2];
+
+
+for (let i: ubit<2> = 0..2) {
+  for (let j: ubit<2> = 0..2) {
+    result0_0[i][j] := a0_0[i][j] + b0_0[i][j];
+  }
+}

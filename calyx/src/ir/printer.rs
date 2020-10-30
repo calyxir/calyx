@@ -196,9 +196,13 @@ impl IRPrinter {
                 Self::write_control(tbranch, indent_level + 2, f)?;
                 write!(f, "{}}}", " ".repeat(indent_level))?;
                 // TODO(rachit): don't print else when its empty
-                writeln!(f, " else {{")?;
-                Self::write_control(fbranch, indent_level + 2, f)?;
-                writeln!(f, "{}}}", " ".repeat(indent_level))
+                if let ir::Control::Empty(_) = **fbranch {
+                    writeln!(f)
+                } else {
+                    writeln!(f, " else {{")?;
+                    Self::write_control(fbranch, indent_level + 2, f)?;
+                    writeln!(f, "{}}}", " ".repeat(indent_level))
+                }
             }
             ir::Control::While(ir::While { port, cond, body }) => {
                 writeln!(

@@ -3,12 +3,22 @@ use itertools::Itertools;
 use std::rc::Rc;
 
 /// Calcuate the reads-from and writes-to set for a given set of assignments.
-pub struct ReadWriteSet {}
+pub struct ReadWriteSet;
 
 impl ReadWriteSet {
     /// Returns the name of the cells these assignments read from.
     /// **Ignores** reads from group holes.
     pub fn read_set(assigns: &[ir::Assignment]) -> Vec<RRC<ir::Cell>> {
+        let guard_ports = assigns.iter().flat_map(|assign| {
+            assign.guard.all_ports().into_iter().filter_map(|port_ref| {
+                let port = port_ref.borrow();
+                if let ir::PortParent::Cell(cell_wref) = &port.parent {
+                    Some(Rc::clone(&cell_wref.upgrade().unwrap()))
+                } else {
+                    None
+                }
+            })
+        });
         assigns
             .iter()
             .filter_map(|assign| {
@@ -19,6 +29,7 @@ impl ReadWriteSet {
                     None
                 }
             })
+            .chain(guard_ports)
             .unique_by(|cell| cell.borrow().name.clone())
             .collect()
     }
