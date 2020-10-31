@@ -857,11 +857,21 @@ primitive fixed_p_std_add_dbit[p_width, p_int_width1, p_fract_width1, p_int_widt
         //extend fractional bits for left
         assign mod_left_fract = left_fract * (2**(fract_width2-fract_width1));
 
-        //add
-        assign whole_int = left_int + right_int;
-        assign whole_fract = mod_left_fract + right_fract;
+        always_comb begin
+          if ((mod_left_fract + right_fract) >= 2**fract_width2) begin
+            whole_int = left_int + right_int+1;
+            whole_fract =mod_left_fract + right_fract-2**fract_width2;
+          end
+          else begin
+            whole_int = left_int + right_int;
+            whole_fract =mod_left_fract + right_fract;
+          end
+        end
 
-        //slice
+        //add
+        //assign whole_int = left_int + right_int;
+        //assign whole_fract = mod_left_fract + right_fract;
+
         assign out = {whole_int, whole_fract};
       endmodule
     }
