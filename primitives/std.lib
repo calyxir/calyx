@@ -824,7 +824,7 @@ primitive fixed_p_std_div[width, int_width, fract_width](left: width, right: wid
 }
 
 // the bigger integer bit always comes left, one with bigger fractional bit comes right
-primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, fract_width2, out_width] (left: p_width, right: p_width) ->(out: p_out_width){
+primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, fract_width2, out_width] (left: width, right: width) ->(out: out_width){
     verilog{
       module fixed_p_std_add_dbit
         #(parameter width= 32,
