@@ -1,80 +1,12 @@
-{
-  "mem0": [
-    [
-      12,
-      0,
-      0,
-      0
-    ],
-    [
-      10,
-      0,
-      0,
-      0
-    ],
-    [
-      20,
-      0,
-      0,
-      0
-    ],
-    [
-      34,
-      0,
-      0,
-      0
-    ]
-  ],
-  "mem1": [
-    [
-      16,
-      0,
-      0,
-      0
-    ],
-    [
-      32,
-      0,
-      0,
-      0
-    ],
-    [
-      8,
-      0,
-      0,
-      0
-    ],
-    [
-      24,
-      0,
-      0,
-      0
-    ]
-  ],
-  "mem2": [
-    [
-      40,
-      0,
-      0,
-      0
-    ],
-    [
-      52,
-      0,
-      0,
-      0
-    ],
-    [
-      48,
-      0,
-      0,
-      0
-    ],
-    [
-      92,
-      0,
-      0,
-      0
-    ]
-  ]
-}
+---CODE---
+1
+---STDERR---
+Stage 'futil' had a non-zero exit code.
+--------------- stderr ---------------
+Error: 
+12 |        add1 = prim fixed_p_std_add_dbit(8, 6, 2, 5, 3, 9);
+   |                    ^^^^^^^^^^^^^^^^^^^^ No value passed in for parameter: p_width
+which is used here:
+827 |primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, fract_width2, out_width] (left: p_width, right: p_width) ->(out: p_out_width){
+    |                                                                                                            ^^^^^^^ 
+
