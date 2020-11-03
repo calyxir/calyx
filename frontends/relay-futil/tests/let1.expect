@@ -1,42 +1,42 @@
 import "primitives/std.lib";
 
-component add (x_out: 32, y_out: 32, in_done: 1) -> (in_write_data: 32, in_write_en: 1, in_addr0: 1) {
+component mult (a_out: 32, b_out: 32, in_done: 1) -> (in_write_data: 32, in_write_en: 1, in_addr0: 1) {
   cells {
-    add = prim std_add(32);
+    mult = prim std_mult(32);
     c0 = prim std_const(1, 0);
   }
   wires {
-    group process_add {
+    group process_mult {
       in_addr0 = c0.out;
-      add.left = x_out;
-      add.right = y_out;
+      mult.left = a_out;
+      mult.right = b_out;
       in_write_en = 1'd1;
-      in_write_data = add.out;
-      process_add[done] = in_done ? 1'd1;
+      in_write_data = mult.out;
+      process_mult[done] = in_done ? 1'd1;
     }
   }
   control {
     seq {
-      process_add;
+      process_mult;
     }
   }
 }
-component function0 (x_out: 32, y_out: 32, in_done: 1) -> (in_write_data: 32, in_write_en: 1, in_addr0: 1) {
+component function0 (a_out: 32, b_out: 32, in_done: 1) -> (in_write_data: 32, in_write_en: 1, in_addr0: 1) {
   cells {
-    add_fn = add;
+    mult_fn = mult;
     z = prim std_mem_d1(32, 1, 1);
     c0 = prim std_const(1, 0);
   }
   wires {
-    group run_add_fn {
-      add_fn.x_out = x_out;
-      add_fn.y_out = y_out;
-      z.write_data = add_fn.in_write_data;
-      z.write_en = add_fn.in_write_en;
-      z.addr0 = add_fn.in_addr0;
-      add_fn.in_done = z.done;
-      add_fn.go = 1'd1;
-      run_add_fn[done] = add_fn.done ? 1'd1;
+    group run_mult_fn {
+      mult_fn.a_out = a_out;
+      mult_fn.b_out = b_out;
+      z.write_data = mult_fn.in_write_data;
+      z.write_en = mult_fn.in_write_en;
+      z.addr0 = mult_fn.in_addr0;
+      mult_fn.in_done = z.done;
+      mult_fn.go = 1'd1;
+      run_mult_fn[done] = mult_fn.done ? 1'd1;
     }
     group save_return_value {
       z.addr0 = c0.out;
@@ -48,7 +48,7 @@ component function0 (x_out: 32, y_out: 32, in_done: 1) -> (in_write_data: 32, in
   }
   control {
     seq {
-      run_add_fn;
+      run_mult_fn;
       save_return_value;
     }
   }
@@ -59,15 +59,15 @@ component main () -> () {
     fn0 = function0;
     c0 = prim std_const(1, 0);
     main_ret = prim std_mem_d1(32, 1, 1);
-    x = prim std_mem_d1(32, 1, 1);
-    y = prim std_mem_d1(32, 1, 1);
+    a = prim std_mem_d1(32, 1, 1);
+    b = prim std_mem_d1(32, 1, 1);
   }
   wires {
     group run_fn0 {
-      fn0.x_out = x.read_data;
-      x.addr0 = fn0.in_addr0;
-      fn0.y_out = y.read_data;
-      y.addr0 = fn0.in_addr0;
+      fn0.a_out = a.read_data;
+      a.addr0 = fn0.in_addr0;
+      fn0.b_out = b.read_data;
+      b.addr0 = fn0.in_addr0;
       main_ret.addr0 = fn0.in_addr0;
       main_ret.write_data = fn0.in_write_data;
       main_ret.write_en = fn0.in_write_en;

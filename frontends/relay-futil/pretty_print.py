@@ -81,10 +81,28 @@ def pp_cell(cell: FCell):
             value = str(data[1])
             return f'{cell.primitive.name} = prim std_const({bitwidth}, {value});'
         elif cell.primitive.type == PrimitiveType.Memory1D:
-            bitwidth = str(data[0])
             size = str(data[1])
             index_size = str(data[2])
             return f'{cell.primitive.name} = prim std_mem_d1({bitwidth}, {size}, {index_size});'
+        elif cell.primitive.type == PrimitiveType.Memory2D:
+            size0 = str(data[1])
+            size1 = str(data[2])
+            index_size0 = str(data[3])
+            index_size1 = str(data[4])
+            return f'{cell.primitive.name} = prim std_mem_d2({bitwidth}, ' \
+                   f'{size0}, {size1}, {index_size0}, {index_size1});'
+        elif cell.primitive.type == PrimitiveType.Memory3D:
+            size0 = str(data[1])
+            size1 = str(data[2])
+            size2 = str(data[3])
+            index_size0 = str(data[4])
+            index_size1 = str(data[5])
+            index_size2 = str(data[6])
+            return f'{cell.primitive.name} = prim std_mem_d3({bitwidth}, ' \
+                   f'{size0}, {size1}, {size2}, {index_size0}, {index_size1}, {index_size2});'
+        elif cell.primitive.type == PrimitiveType.BinOp:
+            op = data[1]
+            return f'{cell.primitive.name} = prim std_{op}({bitwidth});'
         else:
             assert False, f'FCell pretty print unimplemented for {cell} with name {cell.primitive.name}'
     elif cell.is_declaration():
