@@ -1,0 +1,5 @@
+v0.0.4
+fn (%a: int32, %b: int32) {
+  let %c = subtract(%a, %b);
+  %c
+}

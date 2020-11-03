@@ -1,0 +1,18 @@
+{
+  "a": {
+    "data": [49],
+    "bitwidth": 32
+  },
+  "b": {
+      "data": [7],
+      "bitwidth": 32
+    },
+    "main_ret": {
+      "data": [0],
+      "bitwidth": 32
+    },
+    "c": {
+      "data": [0],
+      "bitwidth": 32
+    }
+}

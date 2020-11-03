@@ -1,3 +1,4 @@
+use crate::ir;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::{
@@ -7,31 +8,49 @@ use std::{
     str::FromStr,
 };
 
-/// Structure to generate unique names that are somewhat readable
-#[derive(Clone, Debug)]
+/// Simple HashMap-based name generator that generates new names for each
+/// prefix.
+/// **Note**: The name generator is *not* hygienic!
+/// For example:
+/// ```
+/// namegen.gen_name("seq");  // Generates "seq0"
+/// ... // 8 more calls.
+/// namegen.gen_name("seq");  // Generates "seq10"
+/// namegen.gen_name("seq1"); // CONFLICT! Generates "seq10".
+/// ```
+#[derive(Clone, Debug, Default)]
 pub struct NameGenerator {
     name_hash: HashMap<String, i64>,
 }
 
-impl Default for NameGenerator {
-    fn default() -> Self {
-        NameGenerator {
-            name_hash: HashMap::new(),
+impl NameGenerator {
+    /// Returns a new String that starts with `prefix`.
+    /// For example:
+    /// ```
+    /// namegen.gen_name("seq");  // Generates "seq0"
+    /// namegen.gen_name("seq");  // Generates "seq1"
+    /// ```
+    pub fn gen_name<S>(&mut self, prefix: S) -> ir::Id
+    where
+        S: Into<ir::Id> + ToString,
+    {
+        // Insert default value for this prefix if there is no entry.
+        let count = self
+            .name_hash
+            .entry(prefix.to_string())
+            .and_modify(|v| *v += 1)
+            .or_insert(-1);
+
+        // If the count is -1, don't create a suffix
+        if *count == -1 {
+            prefix.into()
+        } else {
+            ir::Id::from(prefix.to_string() + &count.to_string())
         }
     }
 }
 
-impl NameGenerator {
-    pub fn gen_name(&mut self, name: &str) -> String {
-        let count = match self.name_hash.get(name) {
-            None => 0,
-            Some(c) => *c,
-        };
-        self.name_hash.insert(name.to_string(), count + 1);
-        format!("{}{}", name, count)
-    }
-}
-
+/// TODO(rachit): Document this.
 #[derive(Debug)]
 pub enum OutputFile {
     Stdout,
@@ -79,6 +98,14 @@ impl OutputFile {
             }
         }
     }
+}
+
+/// Utility trait for transforming a type into a key usable
+/// in a hashmap.
+pub trait Keyable {
+    type Key;
+    /// Transform `self` into a hash key.
+    fn key(&self) -> Self::Key;
 }
 
 /// Calculates the hash of hashable trait using the default hasher

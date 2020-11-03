@@ -1,0 +1,84 @@
+import "primitives/std.lib";
+
+component sub (x_out: 32, y_out: 32, in_done: 1) -> (in_write_data: 32, in_write_en: 1, in_addr0: 1) {
+  cells {
+    sub = prim std_sub(32);
+    c0 = prim std_const(1, 0);
+  }
+  wires {
+    group process_sub {
+      in_addr0 = c0.out;
+      sub.left = x_out;
+      sub.right = y_out;
+      in_write_en = 1'd1;
+      in_write_data = sub.out;
+      process_sub[done] = in_done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      process_sub;
+    }
+  }
+}
+component function0 (x_out: 32, y_out: 32, in_done: 1) -> (in_write_data: 32, in_write_en: 1, in_addr0: 1) {
+  cells {
+    sub_fn = sub;
+    z = prim std_mem_d1(32, 1, 1);
+    c0 = prim std_const(1, 0);
+  }
+  wires {
+    group run_sub_fn {
+      sub_fn.x_out = x_out;
+      sub_fn.y_out = y_out;
+      z.write_data = sub_fn.in_write_data;
+      z.write_en = sub_fn.in_write_en;
+      z.addr0 = sub_fn.in_addr0;
+      sub_fn.in_done = z.done;
+      sub_fn.go = 1'd1;
+      run_sub_fn[done] = sub_fn.done ? 1'd1;
+    }
+    group save_return_value {
+      z.addr0 = c0.out;
+      in_addr0 = c0.out;
+      in_write_en = 1'd1;
+      in_write_data = z.read_data;
+      save_return_value[done] = in_done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      run_sub_fn;
+      save_return_value;
+    }
+  }
+}
+
+component main () -> () {
+  cells {
+    fn0 = function0;
+    c0 = prim std_const(1, 0);
+    main_ret = prim std_mem_d1(32, 1, 1);
+    x = prim std_mem_d1(32, 1, 1);
+    y = prim std_mem_d1(32, 1, 1);
+  }
+  wires {
+    group run_fn0 {
+      fn0.x_out = x.read_data;
+      x.addr0 = fn0.in_addr0;
+      fn0.y_out = y.read_data;
+      y.addr0 = fn0.in_addr0;
+      main_ret.addr0 = fn0.in_addr0;
+      main_ret.write_data = fn0.in_write_data;
+      main_ret.write_en = fn0.in_write_en;
+      fn0.in_done = main_ret.done;
+      fn0.go = 1'd1;
+      run_fn0[done] = fn0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      run_fn0;
+    }
+  }
+}

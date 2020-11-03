@@ -1,0 +1,32 @@
+// -p resource-sharing
+
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    add0 = prim std_add(32);
+    add1 = prim std_add(32);
+    x_0 = prim std_reg(32);
+  }
+  wires {
+    group upd0 {
+      add0.left = x_0.out;
+      add0.right = 32'd1;
+      x_0.in = add0.out;
+      x_0.write_en = 1'd1;
+      upd0[done] = x_0.done ? 1'd1;
+    }
+    group upd1 {
+      add1.left = x_0.out;
+      add1.right = 32'd1;
+      x_0.in = add1.out;
+      x_0.write_en = 1'd1;
+      upd1[done] = x_0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      upd0;
+      upd1;
+    }
+  }
+}

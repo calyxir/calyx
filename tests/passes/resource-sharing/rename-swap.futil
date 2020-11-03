@@ -1,0 +1,29 @@
+// -p resource-sharing
+
+/// Make sure that the assignment renames all assignments once.
+/// For example, the rename scheme (rsh0 -> rsh1, rsh1 -> rsh0) correctly
+/// swap names.
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    mem = prim std_mem_d2(32,8,8,4,4);
+    rsh0 = prim std_rsh(4);
+    rsh1 = prim std_rsh(4);
+  }
+  wires {
+    group upd1<"static"=1> {
+      rsh1.left = 4'd1;
+      rsh1.right = 4'd0;
+
+      rsh0.left = 4'd1;
+      rsh0.right = 4'd0;
+
+      mem.addr1 = rsh1.out;
+      mem.addr0 = rsh0.out;
+      upd1[done] = mem.done;
+    }
+  }
+  control {
+    upd1;
+  }
+}

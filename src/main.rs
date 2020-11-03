@@ -1,37 +1,29 @@
 mod cmdline;
 mod pass_manager;
 
+use crate::ir::traversal::Visitor;
 use atty::Stream;
 use calyx::{
-    errors::{Error, Result},
-    frontend::{library_syntax, syntax},
-    lang::context::Context,
+    errors::{Error, FutilResult},
+    frontend::{library, parser},
+    ir,
+    ir::traversal::Named,
     passes,
-    utils::NameGenerator,
 };
 use cmdline::Opts;
 use pass_manager::PassManager;
 use passes::{
-    collapse_control::CollapseControl,
-    compile_control::CompileControl,
-    compile_empty::CompileEmpty,
-    component_interface::ComponentInterface,
-    externalize::Externalize,
-    go_insertion::GoInsertion,
-    inliner::Inliner,
-    merge_assign::MergeAssign,
-    papercut::Papercut,
-    remove_external_memories::RemoveExternalMemories,
-    static_timing::StaticTiming,
-    visitor::{Named, Visitor},
-    well_formed::WellFormed,
+    ClkInsertion, CollapseControl, CompileControl, CompileEmpty,
+    ComponentInterface, DeadCellRemoval, Externalize, GoInsertion, Inliner,
+    Papercut, RemoveExternalMemories, ResourceSharing, StaticTiming,
+    WellFormed,
 };
 use std::io::stdin;
 use structopt::StructOpt;
 
 /// Construct the pass manager by registering all passes and aliases used
 /// by the command line.
-fn construct_pass_manager() -> Result<PassManager> {
+fn construct_pass_manager() -> FutilResult<PassManager> {
     // Construct the pass manager and register all passes.
     let mut pm = PassManager::new();
 
@@ -42,14 +34,18 @@ fn construct_pass_manager() -> Result<PassManager> {
     register_pass!(pm, GoInsertion);
     register_pass!(pm, ComponentInterface);
     register_pass!(pm, Inliner);
-    register_pass!(pm, MergeAssign);
+    //register_pass!(pm, MergeAssign);
     register_pass!(pm, Externalize);
     register_pass!(pm, RemoveExternalMemories);
     register_pass!(pm, CollapseControl);
     register_pass!(pm, CompileEmpty);
     register_pass!(pm, Papercut);
+    register_pass!(pm, ClkInsertion);
+    register_pass!(pm, ResourceSharing);
+    register_pass!(pm, DeadCellRemoval);
 
     // Register aliases
+    // TODO: Add resource sharing.
     register_alias!(
         pm,
         "all",
@@ -57,27 +53,17 @@ fn construct_pass_manager() -> Result<PassManager> {
             WellFormed,
             Papercut,
             RemoveExternalMemories,
+            ResourceSharing,
             CompileEmpty,
             CollapseControl,
             StaticTiming,
             CompileControl,
+            DeadCellRemoval,
             GoInsertion,
             ComponentInterface,
             Inliner,
-            MergeAssign,
-        ]
-    );
-
-    register_alias!(
-        pm,
-        "no-inline",
-        [
-            RemoveExternalMemories,
-            CompileEmpty,
-            StaticTiming,
-            CompileControl,
-            GoInsertion,
-            ComponentInterface,
+            ClkInsertion,
+            //MergeAssign,
         ]
     );
 
@@ -87,15 +73,18 @@ fn construct_pass_manager() -> Result<PassManager> {
         [
             WellFormed,
             Papercut,
+            ResourceSharing,
             CompileEmpty,
             CollapseControl,
             CompileControl,
             StaticTiming,
             CompileControl,
+            DeadCellRemoval,
             GoInsertion,
             ComponentInterface,
             Inliner,
-            MergeAssign,
+            ClkInsertion,
+            //MergeAssign,
             Externalize,
         ]
     );
@@ -105,7 +94,7 @@ fn construct_pass_manager() -> Result<PassManager> {
     Ok(pm)
 }
 
-fn main() -> Result<()> {
+fn main() -> FutilResult<()> {
     let pm = construct_pass_manager()?;
 
     // parse the command line arguments into Opts struct
@@ -120,10 +109,10 @@ fn main() -> Result<()> {
     // ==== Construct the context ====
     // parse the file
     let namespace = match &opts.file {
-        Some(file) => syntax::FutilParser::parse_file(&file),
+        Some(file) => parser::FutilParser::parse_file(&file),
         None => {
             if atty::isnt(Stream::Stdin) {
-                syntax::FutilParser::parse(stdin())
+                parser::FutilParser::parse(stdin())
             } else {
                 Err(Error::InvalidFile(
                     "No file provided and terminal not a TTY".to_string(),
@@ -137,25 +126,23 @@ fn main() -> Result<()> {
         .libraries
         .iter()
         .map(|path| {
-            library_syntax::LibraryParser::parse_file(&opts.lib_path.join(path))
+            library::parser::LibraryParser::parse_file(
+                &opts.lib_path.join(path),
+            )
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<FutilResult<Vec<_>>>()?;
 
-    // build context
-    let context = Context::from_ast(
-        namespace,
+    // Build the IR representation
+    let mut rep: ir::Context = ir::from_ast::ast_to_ir(
+        namespace.components,
         &libraries,
+        namespace.libraries,
         opts.enable_debug,
-        opts.enable_verilator,
-        opts.color,
     )?;
 
-    // Construct the name generator
-    let name_gen = NameGenerator::default();
+    // Run all passes specified by the command line
+    pm.execute_plan(&mut rep, &opts.pass, &opts.disable_pass)?;
 
-    // run all passes specified by the command line
-    let context =
-        pm.execute_plan(context, name_gen, &opts.pass, &opts.disable_pass)?;
-
-    opts.run_backend(&context)
+    opts.run_backend(&rep)?;
+    Ok(())
 }
