@@ -10,6 +10,10 @@ prodvec := map 16 (a <- avec, b <- bvec) { a * b }
 dot := reduce 4 (a, b <- prodvec) 0 { a + b }
 ```
 
+A `map` expressions produces a new vector, each element an evaluated expression that can use elements of other vectors. In the above example, the `map` expression multiplies the values of `avec` and `bvec`. These expressions also have _parallelism factors_: in the above code snippet, the `map` expression has a parallelism factor of 16, which means we stamp out 16 multipliers to speed up the computation.
+
+`reduce` expressions walk over memories and accumulate a result into a register. In the above code snippet, we add together all of the elements of `prodvec` and place them in a register named `dot`.
+
 This guide will walk you through the steps to build a program that compiles MrXL programs to FuTIL code. To simplify things, we'll make a few assumptions:
 - Every array in a MrXL program has the same length.
 - Every integer in our generated hardware will be 32 bits.
@@ -65,7 +69,7 @@ Now we can decide on rules for generating code depending on which AST node we're
 
 ### `Decl` nodes
 
-`Decl` nodes instantiate new memories and registers. Here's FuTIL code that creates a new memory `foo`, with 4 32-bit elements and a 32-bit indexor:
+`Decl` nodes instantiate new memories and registers. We need these to be instantiated in the `cells` section of our FuTIL output. Here's FuTIL code that creates a new memory `foo`, with 4 32-bit elements and a 32-bit indexor:
 
 ```
 foo = prim std_mem_d1(32, 4, 32);
@@ -109,6 +113,8 @@ while le0.out with cond0 {
 }
 ```
 
+This logic orchestrates our groups, basically representing iterating over our array and evaluating some computation on each element of the array. On each iteration we signal for the `eval_body0` group to do its work, followed sequentially by `incr_idx0` to advance our index register so that we can work on the next element of the array.
+
 ### Parallelization
 
 MrXL allows you to parallelize your `map` and `reduce` operations. Let's revisit the `map` example from earlier:
@@ -119,7 +125,7 @@ output baz: int[4]
 baz := map 4 (a <- foo) { a + 5 }
 ```
 
-The number 4 after the `map` specifies the number of adders we can use at once to parallelize this computation. There are a few ways we could parallelize this program, and one of them is to split the memories used in the `map` operation into 4 separate memory _banks_, and then we can read from each bank of `foo` and write into each bank of `baz` simultaneously. In general, we can break memories of size `m` into `b` banks (each with size `m/b`), and then simultaneously process those `b` banks. Realizing this in FuTIL means creating separate memories for each bank, and creating `group`s to process each bank. In the `Map` and `Reduce` code generation section we described `group`s that could be orchestrated to iterate over a memory and process it. We'll now have to do that for each memory bank, and then parallelize these operations in the generated FuTIL's `control` section:
+The number 4 after the `map` specifies the number of adders we can use at once to parallelize this computation. There are a few ways we could parallelize this program, and one of them is to split the memories used in the `map` operation into 4 separate memory _banks_, and then we can read from each bank of `foo` and write into each bank of `baz` simultaneously. In general, we can break memories of size `m` into `b` banks (each with size `m/b`), and then simultaneously process those `b` banks. Realizing this in FuTIL means creating separate memories for each bank, and creating `group`s to process each bank. In the `Map` and `Reduce` code generation section we described `group`s that could be orchestrated to iterate over a memory and process it. We'll now have to do that for each memory bank, and then parallelize these operations in the generated FuTIL's `control` section. We can accomplish this with FuTIL's `par` keyword, signalling to execute groups in parallel. Here's an example of executing four while loops in parallel:
 
 ```
 par {
