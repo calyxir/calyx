@@ -22,19 +22,30 @@ struct SigCtx {
     lib_sigs: HashMap<Id, library::ast::Primitive>,
 }
 
+/// Extend the signature with magical ports.
 fn extend_signature(sig: &mut ast::Signature) {
-    sig.inputs.push(ast::Portdef {
-        name: "go".into(),
-        width: 1,
-    });
-    sig.inputs.push(ast::Portdef {
-        name: "clk".into(),
-        width: 1,
-    });
-    sig.outputs.push(ast::Portdef {
-        name: "done".into(),
-        width: 1,
-    });
+    // XXX(Sam): checking to see if the port exists is a hack.
+    // The solution to the 'four big problems' will solve this.
+    if sig.inputs.iter().find(|pd| pd.name == "go").is_none() {
+        sig.inputs.push(ast::Portdef {
+            name: "go".into(),
+            width: 1,
+        });
+    }
+
+    if sig.inputs.iter().find(|pd| pd.name == "clk").is_none() {
+        sig.inputs.push(ast::Portdef {
+            name: "clk".into(),
+            width: 1,
+        });
+    }
+
+    if sig.outputs.iter().find(|pd| pd.name == "done").is_none() {
+        sig.outputs.push(ast::Portdef {
+            name: "done".into(),
+            width: 1,
+        });
+    }
 }
 
 /// Construct an IR representation using a parsed AST and command line options.
