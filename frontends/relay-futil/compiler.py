@@ -64,18 +64,19 @@ class Relay2Futil(ExprFunctor):
         """
         input_type = cells[0].primitive.type
         function = name = op = None
+
         if function_name in BuiltInBinaryCalls:
             op = BuiltInBinaryCalls[function_name]
             if input_type == PrimitiveType.Memory1D:
-                name = self.relay_id(f'tensor1d_{function_name}')
                 function = tensor1d_op
+                name = self.relay_id(f'tensor1d_{function_name}')
             if input_type == PrimitiveType.Memory2D:
-                name = self.relay_id(f'tensor2d_{function_name}')
                 function = tensor2d_op
+                name = self.relay_id(f'tensor2d_{function_name}')
         if function_name == "nn.batch_flatten":
-            assert input_type == PrimitiveType.Memory3D, f'{input_type} not supported for batch flattening.'
-            function = tensor3d_batch_flatten
-            name = self.relay_id(f'{function.__name__}')
+            if input_type == PrimitiveType.Memory3D:
+                function = tensor3d_batch_flatten
+                name = self.relay_id(f'{function.__name__}')
 
         assert function != None and name != None, f'{function_name} with type {input_type} is not supported.'
         return DahliaDeclaration(component_name=name, decl_name=self.id(name), op=op, inputs=args, function=function)

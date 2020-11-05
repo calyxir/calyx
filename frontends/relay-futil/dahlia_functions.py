@@ -28,16 +28,16 @@ def lower_dahlia_program(prog, component_name):
                      to the file as well. However, this makes debugging difficult as well.
     '''
     program_string = ""
-    for line in prog.splitlines():
-        program_string += f'{line}\n'
+    for line in prog.splitlines(): program_string += f'{line}\n'
 
     with NamedTemporaryFile() as tf0, NamedTemporaryFile() as tf1, NamedTemporaryFile() as tf2:
         tf0.write(bytes(program_string, 'UTF-8'))
         tf0.seek(0)
         tf1.seek(0)
         tf2.seek(0)
-        command = f"""
-            /Users/cgyurgyik/Projects/dahlia/fuse {tf0.name} --lower -b=futil -n={component_name} > {tf1.name} \
+        command = \
+            f"""
+            fuse {tf0.name} --lower -b=futil -n={component_name} > {tf1.name} \
             {NO_ERR} && cd ../../ && cargo run -- {tf1.name} -p externalize > {tf2.name} {NO_ERR} 
             """
         subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).communicate()

@@ -7,9 +7,7 @@ This is an in-progress compiler from [TVM][]'s intermediate representation, [Rel
 Installation
 ------------
 
-You will need to install TVM—and we depend on the latest source (unreleased changes for 0.7). There are [official instructions][tvm-install], but these might work for you:
-
-1. Clone the TVM repository (success was once attained with revision `ccacb1ec1`):
+1. Clone the TVM repository with commit hash `ccacb1ec1`):
 
         git clone --recursive git@github.com:apache/incubator-tvm.git
         cd incubator-tvm && git reset --hard ccacb1ec1
@@ -19,7 +17,7 @@ You will need to install TVM—and we depend on the latest source (unreleased ch
         mkdir build && cd build
         cp ../cmake/config.cmake .
 
-4. Build (takes about 9 minutes on my MacBook Pro):
+4. Build TVM:
 
         cmake -G Ninja .. && ninja
 
@@ -35,6 +33,8 @@ You will need to install TVM—and we depend on the latest source (unreleased ch
         python3 setup.py bdist_wheel
         pip3 install --user dist/topi-*.whl
 
+7. Install [Dahlia](https://github.com/cucapra/dahlia#set-it-up), which is used when lowering from Relay to FuTIL.
+The `fuse` executable is expected to be on your path.
 
 Run an Example
 --------------
