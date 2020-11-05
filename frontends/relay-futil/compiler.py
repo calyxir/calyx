@@ -35,6 +35,7 @@ class Relay2Futil(ExprFunctor):
         Relay does not explicitly differentiate a variable name if it is used twice. For example,
         %x  = foo(%y);
         %x1 = bar(%x); // Here, at this level, the name_hint associated with `x1` is still 'x'.
+
         To avoid this, we provide Relay with its own identification dictionary. If 'x' is seen
         three times, it will produce: 'x', 'x1', x2'.
         """
@@ -56,24 +57,28 @@ class Relay2Futil(ExprFunctor):
         if type == PrimitiveType.Memory3D: return dahlia_name + "_0_0"
         assert False, f'{name} with {type} is not supported yet.'
 
-    def get_dahlia_function_type(self, function_name, input_type):
+    def get_dahlia_declaration(self, function_name, cells, args):
         """
         Returns the corresponding name, Dahlia function type, and op (if it is a binary op, otherwise None).
         If the function type isn't supported, fails with an assertion.
         """
-        op = None
+        input_type = cells[0].primitive.type
+        function = name = op = None
         if function_name in BuiltInBinaryCalls:
             op = BuiltInBinaryCalls[function_name]
             if input_type == PrimitiveType.Memory1D:
-                return self.relay_id(f'tensor1d_{function_name}'), DahliaFunctionType.Tensor1DBinaryOp, op
+                name = self.relay_id(f'tensor1d_{function_name}')
+                function = tensor1d_op
             if input_type == PrimitiveType.Memory2D:
-                return self.relay_id(f'tensor2d_{function_name}'), DahliaFunctionType.Tensor2DBinaryOp, op
-
+                name = self.relay_id(f'tensor2d_{function_name}')
+                function = tensor2d_op
         if function_name == "nn.batch_flatten":
             assert input_type == PrimitiveType.Memory3D, f'{input_type} not supported for batch flattening.'
-            return self.relay_id(f'tensor3d_batch_flatten'), DahliaFunctionType.Tensor3DBatchFlatten, op
+            function = tensor3d_batch_flatten
+            name = self.relay_id(f'{function.__name__}')
 
-        assert False, f'{function_name} with {input_type} is not supported.'
+        assert function != None and name != None, f'{function_name} with type {input_type} is not supported.'
+        return DahliaDeclaration(component_name=name, decl_name=self.id(name), op=op, inputs=args, function=function)
 
     def visit_var(self, var):
         name = self.relay_id(var.name_hint)
@@ -91,16 +96,8 @@ class Relay2Futil(ExprFunctor):
         output = variable[0]
         for value in flatten(values):
             if not value.is_dahlia_declaration(): continue
-            decl = value.dahlia_declaration
-            decl.output = output
-            # TODO(cgyurgyik): This shouldn't be necessary. To simplify, produce mapping
-            #                  between enum and corresponding function.
-            if decl.type == DahliaFunctionType.Tensor1DBinaryOp:
-                decl.program = tensor1d_op(decl)
-            elif decl.type == DahliaFunctionType.Tensor2DBinaryOp:
-                decl.program = tensor2d_op(decl)
-            elif decl.type == DahliaFunctionType.Tensor3DBatchFlatten:
-                decl.program = tensor3d_batch_flatten(decl)
+            value.dahlia_declaration.output = output
+            value.dahlia_declaration.invoke()
         return [body, values]
 
     def visit_constant(self, const):
@@ -114,14 +111,11 @@ class Relay2Futil(ExprFunctor):
         cells = []
         args = []
         for arg in call.args:
-            result = self.visit(arg)
-            cells.append(result)
-            args.append(result)
+            argument = self.visit(arg)
+            cells.append(argument)
+            args.append(argument)
         cells = flatten(cells)
-        name, type, op = self.get_dahlia_function_type(call.op.name, cells[0].primitive.type)
-        dahlia_declaration = DahliaDeclaration(component_name=name, decl_name=self.id(name), op=op,
-                                               inputs=flatten(args), type=type)
-        cells.append(FCell(dahlia_declaration=dahlia_declaration))
+        cells.append(FCell(dahlia_declaration=self.get_dahlia_declaration(call.op.name, cells, flatten(args))))
         return cells
 
     def visit_function(self, function):

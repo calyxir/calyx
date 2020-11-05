@@ -1,12 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Dict
+from types import FunctionType
 from enum import Enum
-
-
-class DahliaFunctionType(Enum):
-    Tensor1DBinaryOp = 1
-    Tensor2DBinaryOp = 2
-    Tensor3DBatchFlatten = 3
 
 
 class PrimitiveType(Enum):
@@ -142,11 +137,14 @@ class FComponent:
 class DahliaDeclaration:
     decl_name: str
     component_name: str
-    type: DahliaFunctionType
     op: str = None
-    program: str = None
     inputs: List[Cell] = None
     output: Cell = None
+    function: FunctionType = None
+    program: str = None
+
+    def invoke(self):
+        self.program = self.function(self)
 
 
 @dataclass

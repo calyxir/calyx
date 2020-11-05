@@ -3,6 +3,9 @@ import subprocess
 from tempfile import NamedTemporaryFile, TemporaryFile
 from futil_ast import *
 
+IMPORT_STATEMENT = """import "primitives/std.lib";\n"""
+NO_ERR = "2>/dev/null"
+
 
 def lower_dahlia_program(prog, component_name):
     '''
@@ -29,18 +32,17 @@ def lower_dahlia_program(prog, component_name):
         program_string += f'{line}\n'
 
     with NamedTemporaryFile() as tf0, NamedTemporaryFile() as tf1, NamedTemporaryFile() as tf2:
+        tf0.write(bytes(program_string, 'UTF-8'))
         tf0.seek(0)
         tf1.seek(0)
         tf2.seek(0)
-        tf0.write(bytes(program_string, 'UTF-8'))
-        no_err = "2>/dev/null"
         command = f"""
-            /Users/cgyurgyik/Projects/dahlia/fuse {tf0.name} --lower -b=futil -n={component_name} > {tf1.name} {no_err}
-            && cd ../../ && cargo run -- {tf1.name} -p externalize > {tf2.name} {no_err} 
+            /Users/cgyurgyik/Projects/dahlia/fuse {tf0.name} --lower -b=futil -n={component_name} > {tf1.name} \
+            {NO_ERR} && cd ../../ && cargo run -- {tf1.name} -p externalize > {tf2.name} {NO_ERR} 
             """
         subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).communicate()
-        dahlia_component = open(tf2.name, 'r').read()[29:]  # Skip over importing the primitives library.
-        return dahlia_component
+        component = open(tf2.name, 'r').read()[len(IMPORT_STATEMENT):]  # Skip over importing the primitives library.
+        return component
 
 
 def tensor1d_op(declaration):
