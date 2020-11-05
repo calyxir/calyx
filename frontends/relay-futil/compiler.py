@@ -25,6 +25,7 @@ class Relay2Futil(ExprFunctor):
     def id(self, name):
         """
         Provides a unique identification for a given name.
+        For example, if 'a' is seen three times, it will produce: 'a0', 'a1', 'a2'.
         """
         id_number = self.id_dictionary[name]
         self.id_dictionary[name] += 1
@@ -150,7 +151,7 @@ def compile(program) -> str:
     PREAMBLE = """import "primitives/std.lib";"""
     MAIN = visitor.visit(program)
     DAHLIA_COMPONENTS = '\n'.join(visitor.dahlia_components)
-    NEWL = "\n\n"
+    NEWL = '\n\n'
     return f'{PREAMBLE}{NEWL}{DAHLIA_COMPONENTS}{NEWL}{MAIN}'
 
 

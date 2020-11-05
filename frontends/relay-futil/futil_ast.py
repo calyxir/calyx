@@ -165,11 +165,8 @@ class FCell(Cell):
     declaration: FDeclaration = None
     dahlia_declaration: DahliaDeclaration = None
 
-    def is_primitive(self):
-        return self.primitive != None
+    def is_primitive(self): return self.primitive != None
 
-    def is_declaration(self):
-        return self.declaration != None
+    def is_declaration(self): return self.declaration != None
 
-    def is_dahlia_declaration(self):
-        return self.dahlia_declaration != None
+    def is_dahlia_declaration(self): return self.dahlia_declaration != None
