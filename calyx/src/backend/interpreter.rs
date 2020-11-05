@@ -1,6 +1,7 @@
 use crate::errors::FutilResult;
 use crate::ir;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// The environment to interpret a FuTIL program
 #[derive(Default, Clone)]
@@ -9,6 +10,8 @@ pub struct Environment {
     map: HashMap<ir::Id, HashMap<ir::Id, u64>>,
     /// A queue of operations that need to be applied in the future.
     update_queue: Vec<HashMap<ir::Id, HashMap<ir::Id, u64>>>,
+    // maps cell ids to cells, much like in component. WIll probably need to remove eventually
+    cells: HashMap<ir::Id, ir::RRC<ir::Cell>>,
 }
 
 /// Helper functions for the environment.
@@ -18,49 +21,177 @@ impl Environment {
         self.map[cell][port]
     }
 
-    /// Performs an update to the current environment using the update_queue.
+    // Puts the mapping from port to val in map.
+    pub fn put(&mut self, cell: &ir::Id, port: &ir::Id, val: u64) -> () {
+        let temp = self.map.get(cell).clone();
+
+        if let Some(map) = temp {
+            let mut mapcopy = map.clone();
+            mapcopy.insert(port.clone(), val);
+            self.map.insert(cell.clone(), mapcopy); // ???
+        } else {
+            let mut temp_map = HashMap::new();
+            temp_map.insert(port.clone(), val);
+            self.map.insert(cell.clone(), temp_map);
+        }
+    }
+
+    // TODO
+    pub fn add_update(&self) -> () {}
+
+    /// Performs an update to the current environment using the update_queue; TODO
     pub fn do_tick(self) -> Self {
-        todo!()
+        for update in &self.update_queue {
+            println!("test")
+        }
+        self
+    }
+    // gets the cell based on the name; TODO; similar to find_cell in component.rs
+    fn get_cell(&self, cell: &ir::Id) -> Option<ir::RRC<ir::Cell>> {
+        self.cells
+            .values()
+            .find(|&g| g.borrow().name == *cell)
+            .map(|r| Rc::clone(r))
     }
 }
 
-pub fn eval(comp: &ir::Component) -> FutilResult<Environment> {
-    todo!()
+// Uses eval_assigns as a helper
+fn eval_group(group: ir::Group, env: Environment) -> FutilResult<Environment> {
+    let res = eval_assigns(&group.assignments, &env);
+    res
 }
 
+// Evaluates assigns, given env; TODO
 fn eval_assigns(
     assigns: &[ir::Assignment],
-    env: Environment,
+    env: &Environment,
 ) -> FutilResult<Environment> {
     // Find the done signal in the sequence of assignments
+    let done_signal = get_done_signal(assigns);
+    //let init = done_signal.src.clone();
 
-    // while done signal is zero
-        // e2 = Clone the current environment
-        // for assign in assigns
-            // check if the assign.guard == 1
+    // e2 = Clone the current environment
+    let mut write_env = env.clone();
+
+    // get the cell that done_signal.dst belongs to
+    let cell = get_cell(&done_signal.dst);
+
+    // while done signal is zero; how to check value of done_signal?
+    while env.get(&cell, &done_signal.dst.borrow().name) == 0 {}
+    // for assign in assigns
+    for assign in assigns.iter() {
+        // check if the assign.guard == 1
+        if eval_guard(&assign.guard) {
+            // cell of assign.src
+            let src_cell = get_cell(&assign.src);
+            // cell of assign.dst
+            let dst_cell = get_cell(&assign.dst);
+
             // perform a read from `env` for assign.src
-            // write to assign.dst to e2
+            let read_val = env.get(&src_cell, &done_signal.src.borrow().name);
+
             // update internal state of the cell and
             // queue any required updates.
-        // env = env.do_tick()
 
-    // Ok(env)
+            // determine if src is a combinational cell or not
+            if get_combinational_or_not(&src_cell, env) {
+                // write to assign.dst to e2 immediately, if combinational
+                write_env.put(
+                    &dst_cell,
+                    &done_signal.dst.borrow().name,
+                    read_val,
+                );
+            } else {
+                // otherwise, add the write to the update queue
+            }
 
-    todo!()
+            // env = env.do_tick()
+        }
+    }
+
+    Ok(write_env)
+}
+
+// Evaluates guard; TODO
+fn eval_guard(guard: &ir::Guard) -> bool {
+    match guard {
+        ir::Guard::True => true,
+        ir::Guard::Port(p) => true, //TODO; this is probably the big one
+        ir::Guard::Not(g) => !(eval_guard(g)),
+        _ => true,
+    }
+}
+
+// Get the cell a port belongs to.
+//Very similar to ir::Port::get_parent_name, except it also panics if the id names a group
+fn get_cell(dest: &ir::RRC<ir::Port>) -> ir::Id {
+    let id = ir::Port::get_parent_name(&(dest.borrow()));
+    // make sure that id is a cell id and not a group id; TODO
+    id
 }
 
 /// Returns the done signal in this sequence of assignments
 fn get_done_signal(assigns: &[ir::Assignment]) -> &ir::Assignment {
-    todo!()
+    for assign in assigns.iter() {
+        // check if the statement's destination port is the "done" hole
+        if (assign.dst.borrow()).name.id == "done".to_string() {
+            return assign;
+        }
+    }
+    panic!("no done signal");
+}
+
+// Returns the done hole for a group
+fn get_done_hole_group(group: &ir::Group) -> ir::RRC<ir::Port> {
+    ir::Group::get(group, "done".to_string())
+}
+
+// determines if a cell is combinational or not. Will need to change implementation later.
+fn get_combinational_or_not(cell: &ir::Id, env: &Environment) -> bool {
+    // if cell is none,
+    let cellg = env
+        .get_cell(cell)
+        .unwrap_or_else(|| panic!("Constants aren't cells?"));
+
+    let cellgcopy = cellg.clone(); //??
+
+    let cb = cellgcopy.borrow();
+
+    let celltype = cb.type_name().unwrap_or_else(|| panic!("Constant?"));
+
+    // TODO
+    match (*celltype).id.as_str() {
+        "std_add" => true,
+        _ => false,
+    }
 }
 
 /// Uses the cell's inputs ports to perform any required updates to the
-/// cell's output ports.
+/// cell's output ports. TODO
 fn update_cell_state(
     cell: &ir::Id,
     inputs: &[ir::Id],
     output: &[ir::Id],
-    env:Environment
+    env: Environment,
 ) -> FutilResult<Environment> {
-    todo!()
+    // get the actual cell, based on the id
+    // let cell_r = cell.as_ref();
+
+    let e = env.clone(); //??
+
+    let cell_r = e
+        .get_cell(cell)
+        .unwrap_or_else(|| panic!("Constants aren't cells!!"));
+
+    let temp = cell_r.borrow();
+
+    // get the cell type
+    let cell_type = ir::Cell::type_name(&temp);
+    match cell_type {
+        None => println!("const"),
+        Some(ct) => println!("this should be the cell type"),
+    }
+
+    // TODO
+    Ok(env)
 }
