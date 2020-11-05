@@ -54,8 +54,8 @@ def get_memory_parameters(type):
 def build_main(c: FComponent):
     dahlia_declarations = []
     for cell in reversed(c.cells):
-        if cell.is_dahlia_declaration():
-            dahlia_declarations.append(cell.dahlia_declaration)
+        if not cell.is_dahlia_declaration(): continue
+        dahlia_declarations.append(cell.dahlia_declaration)
 
     for declaration in dahlia_declarations:
         inputs = declaration.inputs

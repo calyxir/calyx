@@ -156,7 +156,7 @@ def compile(program) -> str:
     MAIN = visitor.visit(program)
     DAHLIA_COMPONENTS = '\n'.join(visitor.dahlia_components)
     NEWL = "\n\n"
-    return f'{PREAMBLE}{NEWL}{DAHLIA_COMPONENTS}{NEWL}{MAIN}{NEWL}'
+    return f'{PREAMBLE}{NEWL}{DAHLIA_COMPONENTS}{NEWL}{MAIN}'
 
 
 if __name__ == '__main__':
