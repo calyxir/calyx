@@ -746,7 +746,7 @@ primitive fixed_p_std_const[width, int_width, fract_width, value1, value2] () ->
 
 
 primitive fixed_p_std_add[width, int_width, fract_width] (left: width, right: width) ->(out: width){
-    verilog{
+    verilog {
       module fixed_p_std_add
         #(parameter width= 32,
         parameter int_width= 8,
@@ -762,7 +762,7 @@ primitive fixed_p_std_add[width, int_width, fract_width] (left: width, right: wi
 }
 
 primitive fixed_p_std_sub[width, int_width, fract_width] (left: width, right: width)->(out: width){
-    verilog{
+    verilog {
         module fixed_p_std_sub
         #(parameter width= 32,
         parameter int_width= 8,
@@ -778,7 +778,7 @@ primitive fixed_p_std_sub[width, int_width, fract_width] (left: width, right: wi
     }
 }
 
-primitive fixed_p_std_mult[width, int_width, fract_width, out_width](left: width, right: width)->(out: width){
+primitive fixed_p_std_mult[width, int_width, fract_width](left: width, right: width)->(out: width){
     verilog {
       module fixed_p_std_mult
         #(parameter width= 32,
@@ -803,7 +803,7 @@ primitive fixed_p_std_mult[width, int_width, fract_width, out_width](left: width
 }
 
 primitive fixed_p_std_div[width, int_width, fract_width](left: width, right: width)->(out: width){
-    verilog{
+    verilog {
         module fixed_p_std_div
           #(parameter width= 32,
             parameter int_width= 8,
@@ -824,8 +824,9 @@ primitive fixed_p_std_div[width, int_width, fract_width](left: width, right: wid
 }
 
 // the bigger integer bit always comes left, one with bigger fractional bit comes right
-primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, fract_width2, out_width] (left: width, right: width) ->(out: out_width){
-    verilog{
+primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, fract_width2, out_width] (left: width, right: width) 
+->(out: out_width){
+    verilog {
       module fixed_p_std_add_dbit
         #(parameter width= 32,
         parameter int_width1 = 8, 
