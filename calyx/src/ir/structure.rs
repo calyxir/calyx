@@ -148,7 +148,7 @@ impl Cell {
     {
         self.find(&name).unwrap_or_else(|| {
             panic!(
-                "Port `{}' not found on group `{}'",
+                "Port `{}' not found on cell `{}'",
                 name.to_string(),
                 self.name.to_string()
             )
