@@ -34,7 +34,8 @@ Installation
         pip3 install --user dist/topi-*.whl
 
 7. Install [Dahlia](https://github.com/cucapra/dahlia#set-it-up), which is used when lowering from Relay to FuTIL.
-The `fuse` executable is expected to be on your path.
+The `fuse` executable is expected to be on your path. Alternatively, it will check to see if the environment variable
+`$DAHLIA_EXEC` is set. 
 
 Run an Example
 --------------

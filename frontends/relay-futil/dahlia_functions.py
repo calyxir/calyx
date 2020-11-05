@@ -1,4 +1,5 @@
 import subprocess
+import os
 
 from tempfile import NamedTemporaryFile, TemporaryFile
 from futil_ast import *
@@ -9,23 +10,9 @@ NO_ERR = "2>/dev/null"
 
 def lower_dahlia_program(prog, component_name):
     '''
-    Takes in a string that represents a Dahlia program, lowers it to FuTIL, and applies the `externalize` pass.
-    This is just for experimental purposes, and needs to be replaced.
-    More bluntly, this does the following:
-    1. Copies dahlia program `prog` to a temporary file `temp.fuse`.
-       $ echo `program_string` > temp.fuse
-
-    2. Lowers `temp.fuse` to FuTIL with the name changed to `component_name`, and saves it in `lowered.futil`.
-       $ ./fuse temp.fuse --lower -b=futil -n=component_name > lowered.futil
-
-    3. Runs the 'externalize' pass on the `lowered.futil` file.
-       $ cargo run -- lowered.futil -p externalize > temp.futil
-
-    4. Copies the output from `lowered.futil`, except for the first line (we don't want another copy of the import).
-
-    TODO(cgyurgyik): As you'll see below, this only works on my local machine.
-                     I've explicitly removed errors with `2>/dev/null` so they aren't inserted
-                     to the file as well. However, this makes debugging difficult as well.
+    Takes in a string representation of a Dahlia program, lowers it to FuTIL with the given `component_name`,
+    and applies the `externalize` pass. This pass exposes the inputs and outputs of primitive types that are
+    declared external, e.g. `std_mem_d1_ext`, and places them in the inputs and outputs of the component.
     '''
     program_string = ""
     for line in prog.splitlines(): program_string += f'{line}\n'
@@ -35,13 +22,14 @@ def lower_dahlia_program(prog, component_name):
         tf0.seek(0)
         tf1.seek(0)
         tf2.seek(0)
+        fuse_binary = os.environ['DAHLIA_EXEC'] if 'DAHLIA_EXEC' in os.environ else 'fuse'
         command = \
             f"""
-            fuse {tf0.name} --lower -b=futil -n={component_name} > {tf1.name} \
-            {NO_ERR} && cd ../../ && cargo run -- {tf1.name} -p externalize > {tf2.name} {NO_ERR} 
+            {fuse_binary} {tf0.name} --lower -b=futil -n={component_name} > {tf1.name} {NO_ERR} \
+            && cd ../../ && cargo run -- {tf1.name} -p externalize > {tf2.name} {NO_ERR} 
             """
         subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).communicate()
-        component = open(tf2.name, 'r').read()[len(IMPORT_STATEMENT):]  # Skip over importing the primitives library.
+        component = tf2.read().decode()[len(IMPORT_STATEMENT):]  # Skip over importing the primitives library.
         return component
 
 
