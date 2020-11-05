@@ -33,6 +33,7 @@ DEFAULT_CONFIGURATION = {
             'exec': 'verilator',
             'file_extensions': ['.v', '.sv'],
             'cycle_limit': int(5e8),
+            'top_module': "main",
             'data': None
         },
         'vcd': {
