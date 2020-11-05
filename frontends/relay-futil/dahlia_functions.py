@@ -1,5 +1,6 @@
 import subprocess
 
+from tempfile import NamedTemporaryFile, TemporaryFile
 from futil_ast import *
 
 
@@ -23,24 +24,23 @@ def lower_dahlia_program(prog, component_name):
                      I've explicitly removed errors with `2>/dev/null` so they aren't inserted
                      to the file as well. However, this makes debugging difficult as well.
     '''
-    program_string = "\""
+    program_string = ""
     for line in prog.splitlines():
         program_string += f'{line}\n'
-    program_string += "\""
-    no_err = "2>/dev/null"
-    command = \
-        f"""
-        echo {program_string} > temp.fuse &&
-        /Users/cgyurgyik/Projects/dahlia/fuse temp.fuse --lower -b=futil -n={component_name} > lowered.futil {no_err} -l error &&
-        cd ../../ &&
-        cargo run -- frontends/relay-futil/lowered.futil -p externalize > frontends/relay-futil/temp.futil {no_err} &&
-        cd frontends/relay-futil/ 
-        """
-    subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).communicate()
-    dahlia_component = open('temp.futil', 'r').read()[29:]  # Skip over importing the primitives library.
-    subprocess.Popen("rm temp.fuse ; rm lowered.futil ; rm temp.futil", stdout=subprocess.PIPE,
-                     shell=True).communicate()
-    return dahlia_component
+
+    with NamedTemporaryFile() as tf0, NamedTemporaryFile() as tf1, NamedTemporaryFile() as tf2:
+        tf0.seek(0)
+        tf1.seek(0)
+        tf2.seek(0)
+        tf0.write(bytes(program_string, 'UTF-8'))
+        no_err = "2>/dev/null"
+        command = f"""
+            /Users/cgyurgyik/Projects/dahlia/fuse {tf0.name} --lower -b=futil -n={component_name} > {tf1.name} {no_err}
+            && cd ../../ && cargo run -- {tf1.name} -p externalize > {tf2.name} {no_err} 
+            """
+        subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).communicate()
+        dahlia_component = open(tf2.name, 'r').read()[29:]  # Skip over importing the primitives library.
+        return dahlia_component
 
 
 def tensor1d_op(declaration):
