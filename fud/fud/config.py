@@ -25,10 +25,15 @@ DEFAULT_CONFIGURATION = {
             'exec': 'dahlia',
             'file_extensions': ['.fuse', '.dahlia']
         },
+        'mrxl': {
+            'exec': 'mrxl',
+            'file_extensions': ['.mrxl']
+        },
         'verilog': {
             'exec': 'verilator',
             'file_extensions': ['.v', '.sv'],
             'cycle_limit': int(5e8),
+            'top_module': "main",
             'data': None
         },
         'vcd': {

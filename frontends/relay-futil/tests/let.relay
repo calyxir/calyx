@@ -1,6 +1,0 @@
-v0.0.4
-fn (%x: int32) {
-  let %a = add(%x, 42);
-  let %b = %x;
-  add(%a, %b)
-}

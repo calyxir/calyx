@@ -19,6 +19,11 @@ The MrXL implementation is in Python and uses [Poetry][]. First, [install Poetry
 
     poetry install
 
+You'll also want to do this so you can use `mrxl` as a stage of `fud`:
+
+    poetry build
+    pip install dist/<generated_wheel_file>
+
 [poetry]: https://python-poetry.org
 
 

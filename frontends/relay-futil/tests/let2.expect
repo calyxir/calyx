@@ -1,0 +1,118 @@
+import "primitives/std.lib";
+
+component mult (a_out: 32, b_out: 32, in_done: 1) -> (in_write_data: 32, in_write_en: 1, in_addr0: 1) {
+  cells {
+    mult = prim std_mult(32);
+    c0 = prim std_const(1, 0);
+  }
+  wires {
+    group process_mult {
+      in_addr0 = c0.out;
+      mult.left = a_out;
+      mult.right = b_out;
+      in_write_en = 1'd1;
+      in_write_data = mult.out;
+      process_mult[done] = in_done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      process_mult;
+    }
+  }
+}
+component add (c_out: 32, a_out: 32, in_done: 1) -> (in_write_data: 32, in_write_en: 1, in_addr0: 1) {
+  cells {
+    add = prim std_add(32);
+    c0 = prim std_const(1, 0);
+  }
+  wires {
+    group process_add {
+      in_addr0 = c0.out;
+      add.left = c_out;
+      add.right = a_out;
+      in_write_en = 1'd1;
+      in_write_data = add.out;
+      process_add[done] = in_done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      process_add;
+    }
+  }
+}
+component function0 (a_out: 32, b_out: 32, in_done: 1) -> (in_write_data: 32, in_write_en: 1, in_addr0: 1) {
+  cells {
+    add_fn = add;
+    mult_fn = mult;
+    c = prim std_mem_d1(32, 1, 1);
+    d = prim std_mem_d1(32, 1, 1);
+    c0 = prim std_const(1, 0);
+  }
+  wires {
+    group run_mult_fn {
+      mult_fn.a_out = a_out;
+      mult_fn.b_out = b_out;
+      c.write_data = mult_fn.in_write_data;
+      c.write_en = mult_fn.in_write_en;
+      c.addr0 = mult_fn.in_addr0;
+      mult_fn.in_done = c.done;
+      mult_fn.go = 1'd1;
+      run_mult_fn[done] = mult_fn.done ? 1'd1;
+    }
+    group run_add_fn {
+      add_fn.c_out = c.read_data;
+      add_fn.a_out = a_out;
+      d.write_data = add_fn.in_write_data;
+      d.write_en = add_fn.in_write_en;
+      d.addr0 = add_fn.in_addr0;
+      add_fn.in_done = d.done;
+      add_fn.go = 1'd1;
+      run_add_fn[done] = add_fn.done ? 1'd1;
+    }
+    group save_return_value {
+      d.addr0 = c0.out;
+      in_addr0 = c0.out;
+      in_write_en = 1'd1;
+      in_write_data = d.read_data;
+      save_return_value[done] = in_done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      run_mult_fn;
+      run_add_fn;
+      save_return_value;
+    }
+  }
+}
+
+component main () -> () {
+  cells {
+    fn0 = function0;
+    c0 = prim std_const(1, 0);
+    main_ret = prim std_mem_d1(32, 1, 1);
+    a = prim std_mem_d1(32, 1, 1);
+    b = prim std_mem_d1(32, 1, 1);
+  }
+  wires {
+    group run_fn0 {
+      fn0.a_out = a.read_data;
+      a.addr0 = fn0.in_addr0;
+      fn0.b_out = b.read_data;
+      b.addr0 = fn0.in_addr0;
+      main_ret.addr0 = fn0.in_addr0;
+      main_ret.write_data = fn0.in_write_data;
+      main_ret.write_en = fn0.in_write_en;
+      fn0.in_done = main_ret.done;
+      fn0.go = 1'd1;
+      run_fn0[done] = fn0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      run_fn0;
+    }
+  }
+}
