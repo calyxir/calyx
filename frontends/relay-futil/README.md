@@ -42,12 +42,10 @@ Run an Example
 Try this to run a simple example:
 ```bash
 cd futil/frontends/relay-futil
-python3 example.py
+python3 example.py add
 ```     
-
-Pass the `-r` flag to this script to see the Relay code. Otherwise, we just print the FuTIL code. There is also an `-o` flag to try optimizing the Relay code a little bit.
-
-You can specify the name of an example as a command-line argument. Currently, the only option is `identity`.
+Pass the `-h` flag to this script for help.
+Pass the `-r` flag to this script to see the Relay IR. Otherwise, we just print the FuTIL output. 
 
 
 Run the Tests

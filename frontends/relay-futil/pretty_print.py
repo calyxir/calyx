@@ -1,4 +1,5 @@
 from futil_ast import *
+import textwrap
 
 
 def mk_block(decl, contents, indent=2):
@@ -107,3 +108,5 @@ def pp_cell(cell: FCell):
             assert False, f'FCell pretty print unimplemented for {cell} with name {cell.primitive.name}'
     elif cell.is_declaration():
         return f'{cell.declaration.name} = {cell.declaration.component.name};'
+    elif cell.is_dahlia_declaration():
+        return f'{cell.dahlia_declaration.decl_name} = {cell.dahlia_declaration.component_name};'

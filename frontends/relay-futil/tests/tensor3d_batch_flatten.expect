@@ -1,0 +1,166 @@
+import "primitives/std.lib";
+
+component tensor3d_batch_flatten(go: 1, clk: 1, x0_0_0_read_data: 32, x0_0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (done: 1, x0_0_0_addr0: 1, x0_0_0_addr1: 2, x0_0_0_addr2: 2, x0_0_0_write_data: 32, x0_0_0_write_en: 1, x0_0_0_clk: 1, x10_0_addr0: 1, x10_0_addr1: 3, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_clk: 1) {
+  cells {
+    add0 = prim std_add(3);
+    add1 = prim std_add(2);
+    add2 = prim std_add(2);
+    add3 = prim std_add(1);
+    const0 = prim std_const(3, 0);
+    const1 = prim std_const(1, 0);
+    const10 = prim std_const(1, 1);
+    const2 = prim std_const(1, 0);
+    const3 = prim std_const(2, 0);
+    const4 = prim std_const(2, 1);
+    const5 = prim std_const(2, 0);
+    const6 = prim std_const(2, 1);
+    const7 = prim std_const(3, 1);
+    const8 = prim std_const(2, 1);
+    const9 = prim std_const(2, 1);
+    i0 = prim std_reg(1);
+    j0 = prim std_reg(2);
+    k0 = prim std_reg(2);
+    l_0 = prim std_reg(3);
+    le0 = prim std_le(1);
+    le1 = prim std_le(2);
+    le2 = prim std_le(2);
+    x_read0_0 = prim std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const2.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = j0.out;
+      le1.right = const4.out;
+    }
+    group cond2<"static"=0> {
+      cond2[done] = 1'd1;
+      le2.left = k0.out;
+      le2.right = const6.out;
+    }
+    group let0<"static"=1> {
+      l_0.in = const0.out;
+      l_0.write_en = 1'd1;
+      let0[done] = l_0.done;
+    }
+    group let1<"static"=1> {
+      i0.in = const1.out;
+      i0.write_en = 1'd1;
+      let1[done] = i0.done;
+    }
+    group let2<"static"=1> {
+      j0.in = const3.out;
+      j0.write_en = 1'd1;
+      let2[done] = j0.done;
+    }
+    group let3<"static"=1> {
+      k0.in = const5.out;
+      k0.write_en = 1'd1;
+      let3[done] = k0.done;
+    }
+    group upd0<"static"=1> {
+      x_read0_0.write_en = 1'd1;
+      x0_0_0_addr2 = k0.out;
+      x0_0_0_addr1 = j0.out;
+      x0_0_0_addr0 = i0.out;
+      x_read0_0.in = 1'd1 ? x0_0_0_read_data;
+      upd0[done] = x_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      x10_0_addr1 = l_0.out;
+      x10_0_addr0 = i0.out;
+      x10_0_write_en = 1'd1;
+      x10_0_write_data = 1'd1 ? x_read0_0.out;
+      upd1[done] = x10_0_done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      l_0.write_en = 1'd1;
+      add0.left = l_0.out;
+      add0.right = const7.out;
+      l_0.in = 1'd1 ? add0.out;
+      upd2[done] = l_0.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      k0.write_en = 1'd1;
+      add1.left = k0.out;
+      add1.right = const8.out;
+      k0.in = 1'd1 ? add1.out;
+      upd3[done] = k0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      j0.write_en = 1'd1;
+      add2.left = j0.out;
+      add2.right = const9.out;
+      j0.in = 1'd1 ? add2.out;
+      upd4[done] = j0.done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      i0.write_en = 1'd1;
+      add3.left = i0.out;
+      add3.right = const10.out;
+      i0.in = 1'd1 ? add3.out;
+      upd5[done] = i0.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      let0;
+      let1;
+      while le0.out with cond0 {
+        seq {
+          let2;
+          while le1.out with cond1 {
+            seq {
+              let3;
+              while le2.out with cond2 {
+                seq {
+                  upd0;
+                  upd1;
+                  upd2;
+                  upd3;
+                }
+              }
+              upd4;
+            }
+          }
+          upd5;
+        }
+      }
+    }
+  }
+}
+
+component main () -> () {
+  cells {
+    x1 = prim std_mem_d2(32, 1, 4, 1, 3);
+    x = prim std_mem_d3(32, 1, 2, 2, 1, 2, 2);
+    tensor3d_batch_flatten0 = tensor3d_batch_flatten;
+  }
+  wires {
+    group run_tensor3d_batch_flatten {
+      x.addr0 = tensor3d_batch_flatten0.x0_0_0_addr0;
+      tensor3d_batch_flatten0.x0_0_0_read_data = x.read_data;
+      x.addr1 = tensor3d_batch_flatten0.x0_0_0_addr1;
+      x.addr2 = tensor3d_batch_flatten0.x0_0_0_addr2;
+      x1.addr0 = tensor3d_batch_flatten0.x10_0_addr0;
+      x1.addr1 = tensor3d_batch_flatten0.x10_0_addr1;
+      x1.write_data = tensor3d_batch_flatten0.x10_0_write_data;
+      x1.write_en = tensor3d_batch_flatten0.x10_0_write_en;
+      tensor3d_batch_flatten0.x10_0_done = x1.done;
+      tensor3d_batch_flatten0.go = 1'd1;
+      run_tensor3d_batch_flatten[done] = tensor3d_batch_flatten0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      run_tensor3d_batch_flatten;
+    }
+  }
+}
+
+
