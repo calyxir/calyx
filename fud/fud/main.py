@@ -11,7 +11,7 @@ from .stages import Source, SourceType
 from .config import Configuration
 from .registry import Registry
 from . import errors
-from .stages import dahlia, futil, verilator, vcdump, systolic
+from .stages import dahlia, futil, verilator, vcdump, systolic, mrxl
 from . import utils
 
 
@@ -39,6 +39,9 @@ def register_stages(registry, config):
     """
     # Dahlia
     registry.register(dahlia.DahliaStage(config))
+
+    # MrXL
+    registry.register(mrxl.MrXLStage(config))
 
     # Systolic Array
     registry.register(systolic.SystolicStage(config))
