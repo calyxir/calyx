@@ -12,7 +12,7 @@ def lower_dahlia_program(prog, component_name):
     '''
     Takes in a string representation of a Dahlia program, lowers it to FuTIL with the given `component_name`,
     and applies the `externalize` pass. This pass exposes the inputs and outputs of primitive types that are
-    declared external, e.g. `std_mem_d1_ext`, and places them in the inputs and outputs of the component.
+    declared external, e.g. `std_mem_d1_ext`, and places them in the inputs and outputs of the respective component.
     '''
     program_string = ""
     for line in prog.splitlines(): program_string += f'{line}\n'
@@ -34,17 +34,12 @@ def lower_dahlia_program(prog, component_name):
 
 
 def tensor1d_op(declaration):
-    op1 = declaration.inputs[0].primitive
-    op2 = declaration.inputs[1].primitive
-    res = declaration.output.primitive
+    op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
 
     assert op1.type == PrimitiveType.Memory1D and op1.type == op2.type and op2.type == res.type
-    assert op1.data[0] == op2.data[0] and op1.data[0] == res.data[0]
-    assert op1.data[1] == op2.data[1] and op2.data[1] == res.data[1]
-    assert op1.data[2] == op2.data[2] and op2.data[2] == res.data[2]
-    bitwidth = op1.data[0]
-    size = op1.data[1]
-    index_size = op1.data[2]
+    assert op1.data[0] == op2.data[0] and op1.data[0] == res.data[0] and op1.data[1] == op2.data[1]
+    assert op1.data[2] == op2.data[2] and op2.data[2] == res.data[2] and op2.data[1] == res.data[1]
+    bitwidth, size, index_size = op1.data[0], op1.data[1], op1.data[2]
     return lower_dahlia_program(f"""
     decl {op1.name}: ubit<{bitwidth}>[{size}];
     decl {op2.name}: ubit<{bitwidth}>[{size}];
@@ -55,22 +50,13 @@ def tensor1d_op(declaration):
 
 
 def tensor2d_op(declaration):
-    op1 = declaration.inputs[0].primitive
-    op2 = declaration.inputs[1].primitive
-    res = declaration.output.primitive
-
+    op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
+    bitwidth, size0, size1, index_size0, index_size1 = op1.data[0], op1.data[1], op1.data[2], op1.data[3], op1.data[4]
     assert op1.type == PrimitiveType.Memory2D and op1.type == op2.type and op2.type == res.type
-    assert op1.data[0] == op2.data[0] and op1.data[0] == res.data[0]
-    assert op1.data[1] == op2.data[1] and op2.data[1] == res.data[1]
-    assert op1.data[2] == op2.data[2] and op2.data[2] == res.data[2]
-    assert op1.data[3] == op2.data[3] and op2.data[3] == res.data[3]
-    assert op1.data[4] == op2.data[4] and op2.data[4] == res.data[4]
+    assert bitwidth == op2.data[0] and op1.data[0] == res.data[0] and op2.data[4] == res.data[4]
+    assert size0 == op2.data[1] and op2.data[1] == res.data[1] and size1 == op2.data[2] and op2.data[2] == res.data[2]
+    assert index_size0 == op2.data[3] and op2.data[3] == res.data[3] and index_size1 == op2.data[4]
 
-    bitwidth = op1.data[0]
-    size0 = op1.data[1]
-    size1 = op1.data[2]
-    index_size0 = op1.data[3]
-    index_size1 = op1.data[4]
     return lower_dahlia_program(f"""
     decl {op1.name}: ubit<{bitwidth}>[{size0}][{size1}];
     decl {op2.name}: ubit<{bitwidth}>[{size0}][{size1}];
@@ -83,21 +69,12 @@ def tensor2d_op(declaration):
 
 
 def tensor3d_batch_flatten(declaration):
-    op1 = declaration.inputs[0].primitive
-    res = declaration.output.primitive
-
-    bitwidth = op1.data[0]
-    op1_size0 = op1.data[1]
-    op1_size1 = op1.data[2]
-    op1_size2 = op1.data[3]
-    op1_index_size0 = op1.data[4]
-    op1_index_size1 = op1.data[5]
-    op1_index_size2 = op1.data[6]
-    res_bitwidth = res.data[0]
-    res_size0 = res.data[1]
-    res_size1 = res.data[2]
-    res_index_size0 = res.data[3]
-    res_index_size1 = res.data[4]
+    """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.batch_flatten"""
+    op1, res = declaration.inputs[0].primitive, declaration.output.primitive
+    bitwidth, op1_size0, op1_size1, op1_size2 = op1.data[0], op1.data[1], op1.data[2], op1.data[3]
+    op1_index_size0, op1_index_size1, op1_index_size2 = op1.data[4], op1.data[5], op1.data[6]
+    res_bitwidth, res_size0, res_size1 = res.data[0], res.data[1], res.data[2]
+    res_index_size0, res_index_size1 = res.data[3], res.data[4]
 
     assert op1.type == PrimitiveType.Memory3D and res_size1 == op1_size1 * op1_size2 and res_size0 == op1_size0
     assert res.type == PrimitiveType.Memory2D and res_bitwidth == bitwidth
@@ -113,3 +90,31 @@ def tensor3d_batch_flatten(declaration):
             }}
           }}
         }}""", declaration.component_name)
+
+
+def batch_matmul(declaration):
+    """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.batch_matmul"""
+    assert False, "Unimplemented. nn.batch_matmul currently does not execute properly."
+    op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
+    bitwidth, M1_size0, M1_size1, M1_size2 = op1.data[0], op1.data[1], op1.data[2], op1.data[3]
+    M1_index_size0, M1_index_size1, M1_index_size2 = op1.data[4], op1.data[5], op1.data[6]
+    M2_size0, M2_size1, M2_size2 = op2.data[1], op2.data[2], op2.data[3]
+    M2_index_size0, M2_index_size1, M2_index_size2 = op2.data[4], op2.data[5], op2.data[6]
+    assert op1.type == PrimitiveType.Memory3D and op1.type == op2.type and op2.type == res.type
+    assert M2_size1 == M1_size2 and bitwidth == op2.data[0] and M1_size0 == M2_size0
+
+    return lower_dahlia_program(f"""
+    decl {op1.name}: ubit<{bitwidth}>[{M1_size0}][{M1_size1}][{M1_size2}];
+    decl {op2.name}: ubit<{bitwidth}>[{M2_size0}][{M2_size1}][{M2_size2}];
+    decl {res.name}: ubit<{bitwidth}>[{M1_size0}][{M1_size1}][{M2_size2}];
+    for (let i: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
+      for (let j: ubit<{M1_index_size1}> = 0..{M1_size1}) {{
+        for (let k: ubit<{M2_index_size2}> = 0..{M2_size2}) {{
+          for (let l: ubit<{M1_index_size2}> = 0..{M1_size2}) {{
+            let prod = {op1.name}[i][j][l] * {op2.name}[i][l][k];
+          }} combine {{
+            {res.name}[i][j][k] += prod;
+          }}
+        }}
+      }}
+    }}""", declaration.component_name)

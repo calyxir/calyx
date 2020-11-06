@@ -27,6 +27,14 @@ def batch_flatten():
     return relay.Function([x], relay.nn.batch_flatten(x))
 
 
+def batch_matmul():
+    """Add together two 2-dimensional tensors in Relay.
+    """
+    x = relay.var("x", relay.TensorType((1, 3, 2), "int32"))
+    y = relay.var("y", relay.TensorType((1, 2, 3), "int32"))
+    return relay.Function([x, y], relay.nn.batch_matmul(x, y))
+
+
 def mlp_net():
     """The MLP test from Relay.
     """
@@ -34,7 +42,7 @@ def mlp_net():
     return mlp.get_net(1)
 
 
-ALL_FUNCS = [add, tensor_add, batch_flatten, mlp_net]
+ALL_FUNCS = [add, tensor_add, batch_flatten, batch_matmul, mlp_net]
 FUNC_NAMES = list(map(lambda x: x.__name__, ALL_FUNCS))
 
 

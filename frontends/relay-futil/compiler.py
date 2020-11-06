@@ -78,6 +78,9 @@ class Relay2Futil(ExprFunctor):
             if input_type == PrimitiveType.Memory3D:
                 function = tensor3d_batch_flatten
                 name = self.relay_id(f'{function.__name__}')
+        elif function_name == "nn.batch_matmul":
+            function = batch_matmul
+            name = self.relay_id(f'{function.__name__}')
 
         assert function != None and name != None, f'{function_name} with type {input_type} is not supported.'
         return DahliaDeclaration(component_name=name, decl_name=self.id(name), op=op, inputs=args, function=function)
