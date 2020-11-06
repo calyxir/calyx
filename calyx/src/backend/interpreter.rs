@@ -10,7 +10,7 @@ pub struct Environment {
     map: HashMap<ir::Id, HashMap<ir::Id, u64>>,
     /// A queue of operations that need to be applied in the future.
     update_queue: Vec<HashMap<ir::Id, HashMap<ir::Id, u64>>>,
-    // maps cell ids to cells, much like in component. WIll probably need to remove eventually
+    /// A mapping from cell ids to cells, much like in component.rs. Will probably need to remove eventually
     cells: HashMap<ir::Id, ir::RRC<ir::Cell>>,
 }
 
@@ -21,7 +21,7 @@ impl Environment {
         self.map[cell][port]
     }
 
-    // Puts the mapping from port to val in map.
+    /// Puts the mapping from cell to port to val in map.
     pub fn put(&mut self, cell: &ir::Id, port: &ir::Id, val: u64) -> () {
         let temp = self.map.get(cell).clone();
 
@@ -36,7 +36,7 @@ impl Environment {
         }
     }
 
-    // TODO
+    /// Adds an update to the update queue; TODO
     pub fn add_update(&self) -> () {}
 
     /// Performs an update to the current environment using the update_queue; TODO
@@ -46,7 +46,7 @@ impl Environment {
         }
         self
     }
-    // gets the cell based on the name; TODO; similar to find_cell in component.rs
+    /// Gets the cell based on the name; TODO; similar to find_cell in component.rs
     fn get_cell(&self, cell: &ir::Id) -> Option<ir::RRC<ir::Cell>> {
         self.cells
             .values()
@@ -112,7 +112,7 @@ fn eval_assigns(
     Ok(write_env)
 }
 
-// Evaluates guard; TODO
+/// Evaluates guard; TODO
 fn eval_guard(guard: &ir::Guard) -> bool {
     match guard {
         ir::Guard::True => true,
@@ -122,8 +122,8 @@ fn eval_guard(guard: &ir::Guard) -> bool {
     }
 }
 
-// Get the cell a port belongs to.
-//Very similar to ir::Port::get_parent_name, except it also panics if the id names a group
+/// Get the cell a port belongs to.
+/// Very similar to ir::Port::get_parent_name, except it can also panic
 fn get_cell(dest: &ir::RRC<ir::Port>) -> ir::Id {
     let id = ir::Port::get_parent_name(&(dest.borrow()));
     // make sure that id is a cell id and not a group id; TODO
@@ -141,17 +141,17 @@ fn get_done_signal(assigns: &[ir::Assignment]) -> &ir::Assignment {
     panic!("no done signal");
 }
 
-// Returns the done hole for a group
+/// Returns the done hole for a group
 fn get_done_hole_group(group: &ir::Group) -> ir::RRC<ir::Port> {
     ir::Group::get(group, "done".to_string())
 }
 
-// determines if a cell is combinational or not. Will need to change implementation later.
+/// Determines if a cell is combinational or not. Will need to change implementation later.
 fn get_combinational_or_not(cell: &ir::Id, env: &Environment) -> bool {
     // if cell is none,
     let cellg = env
         .get_cell(cell)
-        .unwrap_or_else(|| panic!("Constants aren't cells?"));
+        .unwrap_or_else(|| panic!("Cannot find cell with name"));
 
     let cellgcopy = cellg.clone(); //??
 
@@ -162,6 +162,8 @@ fn get_combinational_or_not(cell: &ir::Id, env: &Environment) -> bool {
     // TODO
     match (*celltype).id.as_str() {
         "std_add" => true,
+        "std_reg" => false,
+        "std_const" => true,
         _ => false,
     }
 }
@@ -177,21 +179,34 @@ fn update_cell_state(
     // get the actual cell, based on the id
     // let cell_r = cell.as_ref();
 
-    let e = env.clone(); //??
+    let mut e = env.clone(); //??
 
     let cell_r = e
         .get_cell(cell)
-        .unwrap_or_else(|| panic!("Constants aren't cells!!"));
+        .unwrap_or_else(|| panic!("Cannot find cell with name"));
 
-    let temp = cell_r.borrow();
+    let temp = cell_r.borrow(); //???
 
     // get the cell type
-    let cell_type = ir::Cell::type_name(&temp);
+    let cell_type = temp.type_name();
+
     match cell_type {
-        None => println!("const"),
-        Some(ct) => println!("this should be the cell type"),
+        None => println!("Futil Const?"),
+        Some(ct) => match ct.id.as_str() {
+            "std_add" =>
+            // let a = e.get(cell, inputs[0]);
+            // let b = e.get(cell, inputs[1]);
+            {
+                e.put(
+                    cell,
+                    &output[0],
+                    e.get(cell, &inputs[0]) + e.get(cell, &inputs[1]),
+                )
+            }
+            _ => println!("ok"),
+        },
     }
 
     // TODO
-    Ok(env)
+    Ok(e)
 }
