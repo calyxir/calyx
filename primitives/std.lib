@@ -126,6 +126,7 @@ primitive std_mem_d3[
         output logic [width-1:0]  read_data,
         output logic done);
 
+      /* verilator lint_off WIDTH */
       logic [width-1:0]  mem[d0_size-1:0][d1_size-1:0][d2_size-1:0];
 
       assign read_data = mem[addr0][addr1][addr2];
