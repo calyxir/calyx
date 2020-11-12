@@ -7,10 +7,6 @@
       "data": [5],
       "bitwidth": 32
     },
-    "main_ret": {
-      "data": [0],
-      "bitwidth": 32
-    },
     "c": {
       "data":[3],
       "bitwidth": 32

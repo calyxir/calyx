@@ -1,84 +1,106 @@
 import "primitives/std.lib";
 
-component mult (a_out: 32, b_out: 32, in_done: 1) -> (in_write_data: 32, in_write_en: 1, in_addr0: 1) {
+component tensor1d_multiply(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, b0_read_data: 32, b0_done: 1, z0_read_data: 32, z0_done: 1) -> (done: 1, a0_addr0: 1, a0_write_data: 32, a0_write_en: 1, a0_clk: 1, b0_addr0: 1, b0_write_data: 32, b0_write_en: 1, b0_clk: 1, z0_addr0: 1, z0_write_data: 32, z0_write_en: 1, z0_clk: 1) {
   cells {
-    mult = prim std_mult(32);
-    c0 = prim std_const(1, 0);
+    a_read0_0 = prim std_reg(32);
+    add0 = prim std_add(1);
+    b_read0_0 = prim std_reg(32);
+    bin_read0_0 = prim std_reg(32);
+    const0 = prim std_const(1, 0);
+    const1 = prim std_const(1, 0);
+    const2 = prim std_const(1, 1);
+    i0 = prim std_reg(1);
+    le0 = prim std_le(1);
+    mult_pipe0 = prim std_mult_pipe(32);
   }
   wires {
-    group process_mult {
-      in_addr0 = c0.out;
-      mult.left = a_out;
-      mult.right = b_out;
-      in_write_en = 1'd1;
-      in_write_data = mult.out;
-      process_mult[done] = in_done ? 1'd1;
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1<"static"=4> {
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      let1[done] = bin_read0_0.done;
+      mult_pipe0.left = a_read0_0.out;
+      mult_pipe0.right = b_read0_0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group upd0<"static"=1> {
+      a_read0_0.write_en = 1'd1;
+      a0_addr0 = i0.out;
+      a_read0_0.in = 1'd1 ? a0_read_data;
+      upd0[done] = a_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      b_read0_0.write_en = 1'd1;
+      b0_addr0 = i0.out;
+      b_read0_0.in = 1'd1 ? b0_read_data;
+      upd1[done] = b_read0_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      z0_addr0 = i0.out;
+      z0_write_en = 1'd1;
+      z0_write_data = 1'd1 ? bin_read0_0.out;
+      upd2[done] = z0_done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      i0.write_en = 1'd1;
+      add0.left = i0.out;
+      add0.right = const2.out;
+      i0.in = 1'd1 ? add0.out;
+      upd3[done] = i0.done ? 1'd1;
     }
   }
+
   control {
     seq {
-      process_mult;
-    }
-  }
-}
-component function0 (a_out: 32, b_out: 32, in_done: 1) -> (in_write_data: 32, in_write_en: 1, in_addr0: 1) {
-  cells {
-    mult_fn = mult;
-    z = prim std_mem_d1(32, 1, 1);
-    c0 = prim std_const(1, 0);
-  }
-  wires {
-    group run_mult_fn {
-      mult_fn.a_out = a_out;
-      mult_fn.b_out = b_out;
-      z.write_data = mult_fn.in_write_data;
-      z.write_en = mult_fn.in_write_en;
-      z.addr0 = mult_fn.in_addr0;
-      mult_fn.in_done = z.done;
-      mult_fn.go = 1'd1;
-      run_mult_fn[done] = mult_fn.done ? 1'd1;
-    }
-    group save_return_value {
-      z.addr0 = c0.out;
-      in_addr0 = c0.out;
-      in_write_en = 1'd1;
-      in_write_data = z.read_data;
-      save_return_value[done] = in_done ? 1'd1;
-    }
-  }
-  control {
-    seq {
-      run_mult_fn;
-      save_return_value;
+      let0;
+      while le0.out with cond0 {
+        seq {
+          par {
+            upd0;
+            upd1;
+          }
+          let1;
+          upd2;
+          upd3;
+        }
+      }
     }
   }
 }
 
 component main () -> () {
   cells {
-    fn0 = function0;
-    c0 = prim std_const(1, 0);
-    main_ret = prim std_mem_d1(32, 1, 1);
+    z = prim std_mem_d1(32, 1, 1);
     a = prim std_mem_d1(32, 1, 1);
     b = prim std_mem_d1(32, 1, 1);
+    tensor1d_multiply0 = tensor1d_multiply;
   }
   wires {
-    group run_fn0 {
-      fn0.a_out = a.read_data;
-      a.addr0 = fn0.in_addr0;
-      fn0.b_out = b.read_data;
-      b.addr0 = fn0.in_addr0;
-      main_ret.addr0 = fn0.in_addr0;
-      main_ret.write_data = fn0.in_write_data;
-      main_ret.write_en = fn0.in_write_en;
-      fn0.in_done = main_ret.done;
-      fn0.go = 1'd1;
-      run_fn0[done] = fn0.done ? 1'd1;
+    group run_tensor1d_multiply {
+      a.addr0 = tensor1d_multiply0.a0_addr0;
+      tensor1d_multiply0.a0_read_data = a.read_data;
+      b.addr0 = tensor1d_multiply0.b0_addr0;
+      tensor1d_multiply0.b0_read_data = b.read_data;
+      z.addr0 = tensor1d_multiply0.z0_addr0;
+      z.write_data = tensor1d_multiply0.z0_write_data;
+      z.write_en = tensor1d_multiply0.z0_write_en;
+      tensor1d_multiply0.z0_done = z.done;
+      tensor1d_multiply0.go = 1'd1;
+      run_tensor1d_multiply[done] = tensor1d_multiply0.done ? 1'd1;
     }
   }
   control {
     seq {
-      run_fn0;
+      run_tensor1d_multiply;
     }
   }
 }

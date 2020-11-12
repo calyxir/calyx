@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Dict
+from types import FunctionType
 from enum import Enum
-import textwrap
 
 
 class PrimitiveType(Enum):
@@ -10,7 +10,6 @@ class PrimitiveType(Enum):
     Memory1D = 3
     Memory2D = 4
     Memory3D = 5
-    BinOp = 6
 
 
 class ControlType(Enum):
@@ -46,21 +45,6 @@ class FSignature:
     '''
     inputs: List[FPortDef]
     outputs: List[FPortDef]
-
-
-# @dataclass
-# class Atom:
-#     '''
-#     Atomic operations used in guard conditions and RHS of the guarded assignments.
-#     '''
-#     port: FPort
-#     num: int  # TODO(cgyurgyik): This uses a Bitnum structure.
-
-
-# @dataclass
-# class FGuard:
-#     guard_expression: str
-#     atom: Atom
 
 
 @dataclass
@@ -128,12 +112,39 @@ class FComponent:
     controls: FControl = None  # Control statement for this component.
     signature: FSignature = None  # Input and output ports.
 
+    def contains_primitive(self, name: str):
+        '''
+        Determines whether this component contains a primitive with the given name.
+        '''
+        # TODO(cgyurgyik): Rethink data structure here.
+        for cell in self.cells:
+            if not cell.is_primitive(): continue
+            if cell.primitive.name == name: return True
+        return False
+
     def add_cell(self, subcomponent: Cell):
         '''
         Appends a subcomponent to this component's list of FuTIL cells.
         '''
-        # TODO(cgyurgyik): If its already contained here, don't re-add it.
+        if not subcomponent.is_primitive():
+            self.cells.append(subcomponent)
+            return
+        if self.contains_primitive(subcomponent.primitive.name): return
         self.cells.append(subcomponent)
+
+
+@dataclass
+class DahliaDeclaration:
+    decl_name: str
+    component_name: str
+    op: str = None
+    inputs: List[Cell] = None
+    output: Cell = None
+    function: FunctionType = None
+    program: str = None
+
+    def invoke(self):
+        self.program = self.function(self)
 
 
 @dataclass
@@ -149,11 +160,13 @@ class FDeclaration:
 
 @dataclass
 class FCell(Cell):
+    dahlia_name: str = None
     primitive: FPrimitive = None
     declaration: FDeclaration = None
+    dahlia_declaration: DahliaDeclaration = None
 
-    def is_primitive(self):
-        return self.primitive != None
+    def is_primitive(self): return self.primitive != None
 
-    def is_declaration(self):
-        return self.declaration != None
+    def is_declaration(self): return self.declaration != None
+
+    def is_dahlia_declaration(self): return self.dahlia_declaration != None

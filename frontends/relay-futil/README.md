@@ -7,9 +7,7 @@ This is an in-progress compiler from [TVM][]'s intermediate representation, [Rel
 Installation
 ------------
 
-You will need to install TVM—and we depend on the latest source (unreleased changes for 0.7). There are [official instructions][tvm-install], but these might work for you:
-
-1. Clone the TVM repository (success was once attained with revision `ccacb1ec1`):
+1. Clone the TVM repository with commit hash `ccacb1ec1`):
 
         git clone --recursive git@github.com:apache/incubator-tvm.git
         cd incubator-tvm && git reset --hard ccacb1ec1
@@ -19,22 +17,22 @@ You will need to install TVM—and we depend on the latest source (unreleased ch
         mkdir build && cd build
         cp ../cmake/config.cmake .
 
-4. Build (takes about 9 minutes on my MacBook Pro):
+4. Build TVM:
 
         cmake -G Ninja .. && ninja
 
 5. Install the `tvm` Python package by building a [wheel][]:
 
-        cd ../python
-        python3 setup.py bdist_wheel
+        cd ../python && python3 setup.py bdist_wheel
         pip3 install --user dist/tvm-*.whl
 
 6. Install the accompanying `topi` Python package:
 
-        cd ../topi/python
-        python3 setup.py bdist_wheel
+        cd ../topi/python && python3 setup.py bdist_wheel
         pip3 install --user dist/topi-*.whl
 
+7. Install [Dahlia][], which is used when lowering from Relay to FuTIL.
+The `fuse` executable is expected to be on your path. Alternatively, it will check to see if the environment variable `$DAHLIA_EXEC` is set. 
 
 Run an Example
 --------------
@@ -42,12 +40,10 @@ Run an Example
 Try this to run a simple example:
 ```bash
 cd futil/frontends/relay-futil
-python3 example.py
+python3 example.py add
 ```     
-
-Pass the `-r` flag to this script to see the Relay code. Otherwise, we just print the FuTIL code. There is also an `-o` flag to try optimizing the Relay code a little bit.
-
-You can specify the name of an example as a command-line argument. Currently, the only option is `identity`.
+Pass the `-h` flag to this script for help.
+Pass the `-r` flag to this script to see the Relay IR. Otherwise, we just print the FuTIL output. 
 
 
 Run the Tests
@@ -64,7 +60,7 @@ The Relay text format parser requires ANTLR, so also do this:
 
 Then, just type `runt` to run the tests.
 
-
+[dahlia]: https://github.com/cucapra/dahlia#set-it-up
 [tvm]: https://tvm.apache.org
 [tvm-install]: https://tvm.apache.org/docs/install/from_source.html#developers-get-source-from-github
 [relay]: https://tvm.apache.org/docs/api/python/relay/index.html
