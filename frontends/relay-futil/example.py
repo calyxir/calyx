@@ -37,7 +37,6 @@ def relu():
     x = relay.var('x', shape=[2, 4], dtype='int32')
     return relay.Function([x], relay.nn.relu(x))
 
-
 def mlp_net():
     """The MLP test from Relay."""
     from tvm.relay.testing import mlp
