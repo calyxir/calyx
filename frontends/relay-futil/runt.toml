@@ -6,7 +6,7 @@ paths = ["tests/*.relay"]
 cmd = "python3 compiler.py < {}"
 
 [[tests]]
-name = "FuTIL to dat"
+name = "Relay to FuTIL to dat"
 paths = ["tests/data/*.relay"]
 cmd = """
       python3 compiler.py < {} > {}.expect && \

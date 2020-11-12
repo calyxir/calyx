@@ -9,7 +9,7 @@ from futil_ast import *
 from dahlia_functions import *
 
 # Mapping from Relay binary calls to the respective Dahlia operator.
-BuiltInBinaryCalls = {'add': '+', 'multiply': '*', 'subtract': '-'}
+BuiltInBinaryCalls = {'add': '+', 'divide': '/', 'multiply': '*', 'subtract': '-'}
 
 
 class Relay2Futil(ExprFunctor):
@@ -69,81 +69,71 @@ class Relay2Futil(ExprFunctor):
         if function_name in BuiltInBinaryCalls:
             op = BuiltInBinaryCalls[function_name]
             if input_type == PrimitiveType.Memory1D:
-                function = tensor1d_op
-                name = self.relay_id(f'tensor1d_{function_name}')
-            if input_type == PrimitiveType.Memory2D:
-                function = tensor2d_op
-                name = self.relay_id(f'tensor2d_{function_name}')
+                function, name = tensor1d_op, f'tensor1d_{function_name}'
+            elif input_type == PrimitiveType.Memory2D:
+                function, name = tensor2d_op, f'tensor2d_{function_name}'
+
         if function_name == "nn.batch_flatten":
-            if input_type == PrimitiveType.Memory3D:
-                function = tensor3d_batch_flatten
-                name = self.relay_id(f'{function.__name__}')
+            if input_type == PrimitiveType.Memory3D: function = tensor3d_batch_flatten
         elif function_name == "nn.batch_matmul":
             function = batch_matmul
-            name = self.relay_id(f'{function.__name__}')
+        elif function_name == "nn.bias_add":
+            if input_type == PrimitiveType.Memory2D: function = tensor2d_bias_add
+        elif function_name == "nn.relu":
+            if input_type == PrimitiveType.Memory2D: function = tensor2d_relu
 
-        assert function != None and name != None, f'{function_name} with type {input_type} is not supported.'
-        return DahliaDeclaration(component_name=name, decl_name=self.id(name), op=op, inputs=args, function=function)
+        assert function != None, f'{function_name} with type {input_type} is not supported.'
+        if name == None: name = function.__name__
+        return DahliaDeclaration(component_name=self.relay_id(name), decl_name=self.id(name), op=op, inputs=args,
+                                 function=function)
 
     def visit_var(self, var):
         name = self.relay_id(var.name_hint)
-        if self.main.contains_primitive(name): return [cell]
-
-        data, type = get_memory_parameters(var.type_annotation)
+        # Do not add duplicate primitives to main.
+        if self.main.contains_primitive(name): return cell
+        data, type, data_type = get_memory_parameters(var.type_annotation)
         dahlia_name = self.produce_dahlia_name(name, type)
-        return [FCell(dahlia_name=dahlia_name, primitive=FPrimitive(name=name, data=data, type=type))]
+        return FCell(dahlia_name=dahlia_name,
+                     primitive=FPrimitive(name=name, data=data, data_type=data_type, type=type))
 
     def visit_let(self, let):
-        variable = self.visit(let.var)
-        body = self.visit(let.body)
-        values = self.visit(let.value)
-
-        output = variable[0]
-        for value in flatten(values):
+        output, body, values = self.visit(let.var), self.visit(let.body), self.visit(let.value)
+        for value in values:
             if not value.is_dahlia_declaration(): continue
             value.dahlia_declaration.output = output
             value.dahlia_declaration.invoke()
         return [body, values]
 
     def visit_constant(self, const):
-        type = const.data.dtype
-        shape = const.data.shape
-        data = [get_bitwidth(type), int(const.data.asnumpy())]
-        name = self.id("const")
-        return [FCell(primitive=FPrimitive(name=name, data=data, type=PrimitiveType.Constant))]
+        type, shape = const.data.dtype, const.data.shape
+        name, data, data_type = self.id("const"), [get_bitwidth(type), int(const.data.asnumpy())], get_type(type)
+        return FCell(primitive=FPrimitive(name=name, data=data, data_type=data_type, type=PrimitiveType.Constant))
 
     def visit_call(self, call):
-        cells = []
-        args = []
+        cells, args = [], []
         for arg in call.args:
             argument = self.visit(arg)
             cells.append(argument)
             args.append(argument)
-        cells = flatten(cells)
-        cells.append(FCell(dahlia_declaration=self.get_dahlia_declaration(call.op.name, cells, flatten(args))))
+        cells.append(FCell(dahlia_declaration=self.get_dahlia_declaration(call.op.name, cells, args)))
         return cells
 
     def visit_function(self, function):
         body = self.visit(function.body)
-
         for cell in flatten(body):
             self.main.add_cell(cell)
             if not cell.is_dahlia_declaration(): continue
             self.dahlia_components.append(cell.dahlia_declaration.program)
-
-        build_main(self.main)  # Groups, wires, connections.
+        build_main_controls(self.main)
         return pp_component(self.main)
 
 
 def infer_type(expr: Function) -> Function:
     infer_types_pass = relay.transform.InferType()
-    fuse_op__pass = relay.transform.FuseOps()
-    to_normal_pass = relay.transform.ToANormalForm()
     mod = ir.IRModule()
     mod['main'] = expr
     mod = infer_types_pass(mod)
-    ret = mod['main']
-    return ret
+    return mod['main']
 
 
 def compile(program) -> str:

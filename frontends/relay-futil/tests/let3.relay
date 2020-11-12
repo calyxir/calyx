@@ -1,7 +1,7 @@
 v0.0.4
 fn (%a: int32, %b: int32) {
   let %c = subtract(%a, %b);
-  let %d = add(%c, %a);
+  let %d = divide(%c, %a);
   let %e = multiply(%c, %d);
   %e
 }
