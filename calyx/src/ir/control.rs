@@ -55,6 +55,12 @@ pub struct Enable {
     pub group: RRC<Group>,
 }
 
+impl From<RRC<Group>> for Enable {
+    fn from(group: RRC<Group>) -> Self {
+        Enable { group }
+    }
+}
+
 /// Data for the `empty` control statement.
 //#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 #[derive(Debug)]

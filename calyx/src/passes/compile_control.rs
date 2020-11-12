@@ -66,6 +66,7 @@ impl Visitor<()> for CompileControl {
     fn finish_if(
         &mut self,
         cif: &mut ir::If,
+        _data: (),
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
     ) -> VisResult<()> {
@@ -165,6 +166,7 @@ impl Visitor<()> for CompileControl {
     fn finish_while(
         &mut self,
         wh: &mut ir::While,
+        _data: (),
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
     ) -> VisResult<()> {
@@ -256,6 +258,7 @@ impl Visitor<()> for CompileControl {
     fn finish_seq(
         &mut self,
         s: &mut ir::Seq,
+        _data: (),
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
     ) -> VisResult<()> {
@@ -339,6 +342,7 @@ impl Visitor<()> for CompileControl {
     fn finish_par(
         &mut self,
         s: &mut ir::Par,
+        _data: (),
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
     ) -> VisResult<()> {

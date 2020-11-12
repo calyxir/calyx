@@ -53,6 +53,7 @@ impl Visitor<()> for StaticTiming {
     fn finish_while(
         &mut self,
         while_s: &mut ir::While,
+        _data: (),
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
     ) -> VisResult<()> {
@@ -176,6 +177,7 @@ impl Visitor<()> for StaticTiming {
     fn finish_if(
         &mut self,
         s: &mut ir::If,
+        _data: (),
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
     ) -> VisResult<()> {
@@ -298,6 +300,7 @@ impl Visitor<()> for StaticTiming {
     fn finish_par(
         &mut self,
         s: &mut ir::Par,
+        _data: (),
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
     ) -> VisResult<()> {
@@ -370,6 +373,7 @@ impl Visitor<()> for StaticTiming {
     fn finish_seq(
         &mut self,
         s: &mut ir::Seq,
+        _data: (),
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
     ) -> VisResult<()> {

@@ -21,6 +21,7 @@ impl Visitor<()> for CollapseControl {
     fn finish_seq(
         &mut self,
         s: &mut ir::Seq,
+        _data: (),
         _comp: &mut ir::Component,
         _c: &lib::LibrarySignatures,
     ) -> VisResult<()> {
@@ -43,6 +44,7 @@ impl Visitor<()> for CollapseControl {
     fn finish_par(
         &mut self,
         s: &mut ir::Par,
+        _data: (),
         _comp: &mut ir::Component,
         _c: &lib::LibrarySignatures,
     ) -> VisResult<()> {

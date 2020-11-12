@@ -37,10 +37,10 @@ impl<T> ActionTuple<T> {
     /// run `next()`.
     pub(super) fn and_then<F>(self, mut next: F) -> VisResult<T>
     where
-        F: FnMut() -> VisResult<T>,
+        F: FnMut(T) -> VisResult<T>,
     {
         match self.action {
-            Action::Continue => next(),
+            Action::Continue => next(self.data),
             Action::Change(_) | Action::Stop | Action::SkipChildren => Ok(self),
         }
     }

@@ -76,6 +76,7 @@ impl Visitor<()> for WellFormed {
     fn start_enable(
         &mut self,
         s: &mut ir::Enable,
+        _data: (),
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult<()> {
@@ -86,6 +87,7 @@ impl Visitor<()> for WellFormed {
     fn finish_if(
         &mut self,
         s: &mut ir::If,
+        _data: (),
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult<()> {
@@ -97,6 +99,7 @@ impl Visitor<()> for WellFormed {
     fn finish_while(
         &mut self,
         s: &mut ir::While,
+        _data: (),
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult<()> {
@@ -107,6 +110,7 @@ impl Visitor<()> for WellFormed {
 
     fn finish(
         &mut self,
+        _data: (),
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult<()> {

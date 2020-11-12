@@ -154,6 +154,7 @@ impl Visitor<()> for ResourceSharing {
     fn start_if(
         &mut self,
         s: &mut ir::If,
+        _data: (),
         _comp: &mut ir::Component,
         _sigs: &lib::LibrarySignatures,
     ) -> VisResult<()> {
@@ -181,6 +182,7 @@ impl Visitor<()> for ResourceSharing {
     fn start_while(
         &mut self,
         s: &mut ir::While,
+        _data: (),
         _comp: &mut ir::Component,
         _sigs: &lib::LibrarySignatures,
     ) -> VisResult<()> {

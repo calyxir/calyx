@@ -1,10 +1,22 @@
 
-// write x
-let x: ubit<32> = 1;
-// read x
-let z: ubit<32> = x + 1;
+// // write x
+// let x: ubit<32> = 1;
+// // read x
+// let z: ubit<32> = x + 1;
 
-// write y
-let y: ubit<32> = 1;
-// read y
-let z: ubit<32> = y + 1;
+// // write y
+// let y: ubit<32> = 1;
+// // read y
+// let z: ubit<32> = y + 1;
+
+
+
+
+
+
+let a: ubit<32> = 1;
+if (1 == 2) {
+  let a_read: ubit<32> = a + 1;
+} else {
+  let dont_read_a: ubit<32> = 2;
+}

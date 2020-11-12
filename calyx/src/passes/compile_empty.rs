@@ -28,6 +28,7 @@ impl Visitor<()> for CompileEmpty {
     fn finish_empty(
         &mut self,
         _s: &mut ir::Empty,
+        _data: (),
         comp: &mut Component,
         sigs: &LibrarySignatures,
     ) -> VisResult<()> {
