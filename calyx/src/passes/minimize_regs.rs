@@ -9,11 +9,15 @@ use ir::{
     Component,
 };
 
-#[derive(Default)]
-
 /// Minimize use of registers
 pub struct MinimizeRegs {
     live: LiveRangeAnalysis,
+}
+
+impl MinimizeRegs {
+    pub fn new(live: LiveRangeAnalysis) -> Self {
+        MinimizeRegs { live }
+    }
 }
 
 impl Named for MinimizeRegs {
@@ -26,11 +30,25 @@ impl Named for MinimizeRegs {
 }
 
 impl Visitor<()> for MinimizeRegs {
-    fn start(
+    fn start_enable(
         &mut self,
+        enable: &mut ir::Enable,
+        _data: (),
         _comp: &mut Component,
         _sigs: &lib::LibrarySignatures,
     ) -> VisResult<()> {
+        let name = &enable.group.borrow().name;
+        eprintln!("{}", name.to_string());
+        eprintln!(
+            "  {}",
+            self.live
+                .get(&enable.group.borrow())
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+
         Ok(Action::continue_default())
     }
 }

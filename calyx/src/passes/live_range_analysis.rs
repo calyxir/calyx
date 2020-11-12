@@ -1,6 +1,6 @@
 use crate::frontend::library::ast as lib;
 use crate::{
-    analysis::ReadWriteSet,
+    analysis::{ReadWriteSet, VariableDetection},
     ir::{
         self,
         traversal::{Named, Visitor},
@@ -11,9 +11,12 @@ use ir::{
     Component,
 };
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
-type AnalysisSet = HashSet<ir::Id>;
+pub type Data = HashSet<ir::Id>;
 
 /// Computes the control statements that a stateful cell is 'live' for.
 ///
@@ -26,7 +29,21 @@ type AnalysisSet = HashSet<ir::Id>;
 #[derive(Default)]
 pub struct LiveRangeAnalysis {
     /// The variables that are live at this statement
-    live: HashMap<ir::Id, AnalysisSet>,
+    live: HashMap<ir::Id, Data>,
+}
+
+impl LiveRangeAnalysis {
+    pub fn get(&self, group: &ir::Group) -> &Data {
+        &self.live[&group.name]
+    }
+
+    fn data_string(data: &Data) -> String {
+        data.iter()
+            .map(|x| x.to_string())
+            .sorted()
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 }
 
 impl Named for LiveRangeAnalysis {
@@ -38,8 +55,6 @@ impl Named for LiveRangeAnalysis {
     }
 }
 
-pub type Data = AnalysisSet;
-
 impl Visitor<Data> for LiveRangeAnalysis {
     fn start_seq(
         &mut self,
@@ -48,7 +63,6 @@ impl Visitor<Data> for LiveRangeAnalysis {
         comp: &mut Component,
         sigs: &lib::LibrarySignatures,
     ) -> VisResult<Data> {
-        eprintln!("start seq");
         // iterate over the seq children in reverse order
         for child in seq.stmts.iter_mut().rev() {
             alive = child.visit(self, alive, comp, sigs)?.data;
@@ -64,7 +78,6 @@ impl Visitor<Data> for LiveRangeAnalysis {
         comp: &mut Component,
         sigs: &lib::LibrarySignatures,
     ) -> VisResult<Data> {
-        eprintln!("start par");
         let mut alive = data.clone();
         for child in par.stmts.iter_mut() {
             alive = &alive | &child.visit(self, data.clone(), comp, sigs)?.data;
@@ -79,7 +92,7 @@ impl Visitor<Data> for LiveRangeAnalysis {
         comp: &mut Component,
         sigs: &lib::LibrarySignatures,
     ) -> VisResult<Data> {
-        eprintln!("start if");
+        // xxx deal with condition
         let t_alive = if_s.tbranch.visit(self, alive.clone(), comp, sigs)?.data;
         let f_alive = if_s.fbranch.visit(self, alive.clone(), comp, sigs)?.data;
 
@@ -96,15 +109,17 @@ impl Visitor<Data> for LiveRangeAnalysis {
         comp: &mut Component,
         sigs: &lib::LibrarySignatures,
     ) -> VisResult<Data> {
-        eprintln!("start while");
         let mut start = alive.clone();
         let mut next;
 
+        eprintln!("start while");
         loop {
+            eprintln!("  start: {}", LiveRangeAnalysis::data_string(&start));
             next = while_s.body.visit(self, start.clone(), comp, sigs)?.data;
             next = ir::Control::Enable(ir::Enable::from(while_s.cond.clone()))
                 .visit(self, next, comp, sigs)?
                 .data;
+            eprintln!("  next: {}", LiveRangeAnalysis::data_string(&next));
 
             if start == next {
                 start = next;
@@ -113,6 +128,7 @@ impl Visitor<Data> for LiveRangeAnalysis {
 
             start = next;
         }
+        eprintln!("end while");
 
         Ok(Action::skipchildren_with(start))
     }
@@ -125,55 +141,37 @@ impl Visitor<Data> for LiveRangeAnalysis {
         _sigs: &lib::LibrarySignatures,
     ) -> VisResult<Data> {
         let group = enable.group.borrow();
-
-        eprintln!("hi: {}", group.name.to_string());
-
-        let reads: HashSet<_> = ReadWriteSet::read_set(&group.assignments)
-            .into_iter()
-            .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
-            .map(|c| c.borrow().name.clone())
-            .collect();
-        let writes: HashSet<_> = ReadWriteSet::write_set(&group.assignments)
-            .into_iter()
-            .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
-            .map(|c| c.borrow().name.clone())
-            .collect();
-
-        eprintln!("  alive {:?}", alive);
-        eprintln!("  reads {:?}", reads);
-        eprintln!(" writes {:?}", writes);
-
-        alive = &(&alive - &writes) | &reads;
-        eprintln!("  alive {:?}", alive);
-
-        // set the alive set for this enable to be `alive`
         self.live
             .entry(group.name.clone())
-            .and_modify(|hs| *hs = alive.clone())
+            .and_modify(|hs| *hs = &*hs | &alive)
             .or_insert(alive.clone());
 
-        Ok(Action::continue_with(alive))
-    }
+        // if the group contains what looks like a variable write,
+        // then just add variable to write set
+        if let Some(variable) =
+            VariableDetection::variable_like(Rc::clone(&enable.group))
+        {
+            alive.remove(&variable);
+        } else {
+            let reads: HashSet<_> = ReadWriteSet::read_set(&group.assignments)
+                .into_iter()
+                .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
+                .map(|c| c.borrow().name.clone())
+                .collect();
 
-    fn finish(
-        &mut self,
-        _alive: Data,
-        _comp: &mut Component,
-        _sigs: &lib::LibrarySignatures,
-    ) -> VisResult<Data> {
-        for (key, values) in self.live.iter() {
-            eprintln!("{}", key.to_string());
-            eprintln!(
-                "  {}",
-                values
+            // XXX(sam) the writes are incorrect atm
+            let writes: HashSet<_> =
+                ReadWriteSet::write_set(&group.assignments)
                     .into_iter()
-                    .map(|x| x.to_string())
-                    .sorted()
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
+                    .filter(|c| {
+                        c.borrow().type_name() == Some(&"std_reg".into())
+                    })
+                    .map(|c| c.borrow().name.clone())
+                    .collect();
+
+            alive = &(&alive - &writes) | &reads;
         }
 
-        Ok(Action::continue_default())
+        Ok(Action::continue_with(alive))
     }
 }

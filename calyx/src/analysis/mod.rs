@@ -5,7 +5,9 @@
 mod graph;
 mod read_write_set;
 mod schedule_conflicts;
+mod variable_detection;
 
 pub use graph::GraphAnalysis;
 pub use read_write_set::ReadWriteSet;
 pub use schedule_conflicts::ScheduleConflicts;
+pub use variable_detection::VariableDetection;

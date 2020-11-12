@@ -131,7 +131,7 @@ impl Visitor<()> for Inliner {
         builder.component.continuous_assignments.append(&mut asgns);
 
         // construct analysis graph and find sub-graph of all edges that include a hole
-        let analysis = GraphAnalysis::from(&builder.component);
+        let analysis = GraphAnalysis::from(&*builder.component);
         let subgraph = analysis
             .edge_induced_subgraph(|src, dst| src.is_hole() || dst.is_hole());
 

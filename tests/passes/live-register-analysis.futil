@@ -46,52 +46,52 @@ component kernel() -> () {
     group upd0<"static"=1> {
       A_read0_0.write_en = 1'd1;
       A0.addr0 = i0.out;
-      A_read0_0.in = 1'd1 ? A0.read_data;
-      upd0[done] = A_read0_0.done ? 1'd1;
+      A_read0_0.in = A0.read_data;
+      upd0[done] = A_read0_0.done;
     }
     group upd1<"static"=1> {
       C0.addr0 = i0.out;
       C0.write_en = 1'd1;
-      C0.write_data = 1'd1 ? A_read0_0.out;
-      upd1[done] = C0.done ? 1'd1;
+      C0.write_data = A_read0_0.out;
+      upd1[done] = C0.done;
     }
     group upd2<"static"=1> {
       B_read0_0.write_en = 1'd1;
       B0.addr0 = i0.out;
-      B_read0_0.in = 1'd1 ? B0.read_data;
-      upd2[done] = B_read0_0.done ? 1'd1;
+      B_read0_0.in = B0.read_data;
+      upd2[done] = B_read0_0.done;
     }
     group upd3<"static"=1> {
       A0.addr0 = i0.out;
       A0.write_en = 1'd1;
-      A0.write_data = 1'd1 ? B_read0_0.out;
-      upd3[done] = A0.done ? 1'd1;
+      A0.write_data = B_read0_0.out;
+      upd3[done] = A0.done;
     }
     group upd4<"static"=1> {
       i0.write_en = 1'd1;
       add0.left = i0.out;
       add0.right = const2.out;
-      i0.in = 1'd1 ? add0.out;
-      upd4[done] = i0.done ? 1'd1;
+      i0.in = add0.out;
+      upd4[done] = i0.done;
     }
     group upd5<"static"=1> {
       C_read0_0.write_en = 1'd1;
       C0.addr0 = i1.out;
-      C_read0_0.in = 1'd1 ? C0.read_data;
-      upd5[done] = C_read0_0.done ? 1'd1;
+      C_read0_0.in = C0.read_data;
+      upd5[done] = C_read0_0.done;
     }
     group upd6<"static"=1> {
       B0.addr0 = i1.out;
       B0.write_en = 1'd1;
-      B0.write_data = 1'd1 ? C_read0_0.out;
-      upd6[done] = B0.done ? 1'd1;
+      B0.write_data = C_read0_0.out;
+      upd6[done] = B0.done;
     }
     group upd7<"static"=1> {
       i1.write_en = 1'd1;
       add1.left = i1.out;
       add1.right = const5.out;
-      i1.in = 1'd1 ? add1.out;
-      upd7[done] = i1.done ? 1'd1;
+      i1.in = add1.out;
+      upd7[done] = i1.done;
     }
   }
   control {

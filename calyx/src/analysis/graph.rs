@@ -41,58 +41,74 @@ impl Keyable for ir::Port {
 ///
 /// This representation is useful for asking graph based queries
 /// such as all the reads from a port or all the write to a port.
-#[derive(Clone)]
+#[derive(Clone, Default, Debug)]
 pub struct GraphAnalysis {
     nodes: HashMap<(Id, Id), NodeIndex>,
     graph: CellGraph,
 }
 
-impl GraphAnalysis {
-    /// Construct a graph from a component. Ports are nodes
-    /// and assignments are edges.
-    pub fn from(component: &ir::Component) -> Self {
-        let mut graph = CellGraph::new();
-        let mut nodes = HashMap::new();
+impl From<&ir::Group> for GraphAnalysis {
+    fn from(group: &ir::Group) -> Self {
+        let mut analysis = GraphAnalysis::default();
 
-        // helper for inserting ports and edges from an assignment
-        let mut insert_asgn = |asgn: &ir::Assignment| {
-            // insert nodes for src and dst ports
-            let src_key = asgn.src.borrow().key();
-            let dst_key = asgn.dst.borrow().key();
-            nodes
-                .entry(src_key.clone())
-                .or_insert_with(|| graph.add_node(Rc::clone(&asgn.src)));
-            nodes
-                .entry(dst_key.clone())
-                .or_insert_with(|| graph.add_node(Rc::clone(&asgn.dst)));
-            // add edge for the assignment
-            let src_node = nodes[&src_key];
-            let dst_node = nodes[&dst_key];
-            graph.add_edge(src_node, dst_node, ());
-            // add edges for guards that read from the port in the guard
-            // and write to the dst of the assignment
-            for port in &asgn.guard.all_ports() {
-                let guard_key = port.borrow().key();
-                nodes
-                    .entry(guard_key.clone())
-                    .or_insert_with(|| graph.add_node(Rc::clone(&port)));
-                graph.add_edge(nodes[&guard_key], dst_node, ());
-            }
-        };
+        for asgn in &group.assignments {
+            analysis.insert_assignment(asgn);
+        }
+
+        analysis
+    }
+}
+
+impl From<&ir::Component> for GraphAnalysis {
+    fn from(component: &ir::Component) -> Self {
+        let mut analysis = GraphAnalysis::default();
 
         // add edges and nodes for continuous assignments
         for asgn in &component.continuous_assignments {
-            insert_asgn(asgn);
+            analysis.insert_assignment(asgn);
         }
         // add edges and nodes for all group assignments
         for group in &component.groups {
             for asgn in &group.borrow().assignments {
-                insert_asgn(asgn);
+                analysis.insert_assignment(asgn);
             }
         }
 
-        GraphAnalysis { nodes, graph }
+        analysis
     }
+}
+
+impl GraphAnalysis {
+    fn insert_assignment(&mut self, asgn: &ir::Assignment) {
+        let GraphAnalysis { nodes, graph } = self;
+        // insert nodes for src and dst ports
+        let src_key = asgn.src.borrow().key();
+        let dst_key = asgn.dst.borrow().key();
+        nodes
+            .entry(src_key.clone())
+            .or_insert_with(|| graph.add_node(Rc::clone(&asgn.src)));
+        nodes
+            .entry(dst_key.clone())
+            .or_insert_with(|| graph.add_node(Rc::clone(&asgn.dst)));
+        // add edge for the assignment
+        let src_node = nodes[&src_key];
+        let dst_node = nodes[&dst_key];
+        graph.add_edge(src_node, dst_node, ());
+        // add edges for guards that read from the port in the guard
+        // and write to the dst of the assignment
+        for port in &asgn.guard.all_ports() {
+            let guard_key = port.borrow().key();
+            nodes
+                .entry(guard_key.clone())
+                .or_insert_with(|| graph.add_node(Rc::clone(&port)));
+            graph.add_edge(nodes[&guard_key], dst_node, ());
+        }
+    }
+
+    // /// Construct a graph from a component. Ports are nodes
+    // /// and assignments are edges.
+    // pub fn from(component: &ir::Component) -> Self {
+    // }
 
     /// Returns an iterator over all the reads from a port.
     /// Returns an empty iterator if this is an Input port.
