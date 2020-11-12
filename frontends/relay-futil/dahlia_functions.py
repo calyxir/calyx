@@ -172,8 +172,8 @@ def batch_matmul(declaration):
     assert op1.data_type == op2.data_type and op2.data_type == res.data_type
 
     # 1. Get transpose of second operand.
-    # 2. Conduct temporary = op1 * transpose(op2).
-    # 3. Write temporary value to return value.*
+    # 2. Create temporary value `t`. Then, t = op1 * transpose(op2).
+    # 3. Copy temporary value to return value.*
     #    * This third step may not be necessary, but trying to conduct the matrix multiply
     #      directly with the return value declared resulted in incorrect outputs.
     program = f"""
