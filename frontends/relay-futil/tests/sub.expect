@@ -1,84 +1,98 @@
 import "primitives/std.lib";
 
-component sub (x_out: 32, y_out: 32, in_done: 1) -> (in_write_data: 32, in_write_en: 1, in_addr0: 1) {
+component tensor1d_subtract(go: 1, clk: 1, x0_read_data: 32, x0_done: 1, y0_read_data: 32, y0_done: 1, z0_read_data: 32, z0_done: 1) -> (done: 1, x0_addr0: 1, x0_write_data: 32, x0_write_en: 1, x0_clk: 1, y0_addr0: 1, y0_write_data: 32, y0_write_en: 1, y0_clk: 1, z0_addr0: 1, z0_write_data: 32, z0_write_en: 1, z0_clk: 1) {
   cells {
-    sub = prim std_sub(32);
-    c0 = prim std_const(1, 0);
+    add0 = prim std_add(1);
+    const0 = prim std_const(1, 0);
+    const1 = prim std_const(1, 0);
+    const2 = prim std_const(1, 1);
+    i0 = prim std_reg(1);
+    le0 = prim std_le(1);
+    sub0 = prim std_sub(32);
+    x_read0_0 = prim std_reg(32);
+    y_read0_0 = prim std_reg(32);
   }
   wires {
-    group process_sub {
-      in_addr0 = c0.out;
-      sub.left = x_out;
-      sub.right = y_out;
-      in_write_en = 1'd1;
-      in_write_data = sub.out;
-      process_sub[done] = in_done ? 1'd1;
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group upd0<"static"=1> {
+      x_read0_0.write_en = 1'd1;
+      x0_addr0 = i0.out;
+      x_read0_0.in = 1'd1 ? x0_read_data;
+      upd0[done] = x_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      y_read0_0.write_en = 1'd1;
+      y0_addr0 = i0.out;
+      y_read0_0.in = 1'd1 ? y0_read_data;
+      upd1[done] = y_read0_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      z0_addr0 = i0.out;
+      z0_write_en = 1'd1;
+      sub0.left = x_read0_0.out;
+      sub0.right = y_read0_0.out;
+      z0_write_data = 1'd1 ? sub0.out;
+      upd2[done] = z0_done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      i0.write_en = 1'd1;
+      add0.left = i0.out;
+      add0.right = const2.out;
+      i0.in = 1'd1 ? add0.out;
+      upd3[done] = i0.done ? 1'd1;
     }
   }
+
   control {
     seq {
-      process_sub;
-    }
-  }
-}
-component function0 (x_out: 32, y_out: 32, in_done: 1) -> (in_write_data: 32, in_write_en: 1, in_addr0: 1) {
-  cells {
-    sub_fn = sub;
-    z = prim std_mem_d1(32, 1, 1);
-    c0 = prim std_const(1, 0);
-  }
-  wires {
-    group run_sub_fn {
-      sub_fn.x_out = x_out;
-      sub_fn.y_out = y_out;
-      z.write_data = sub_fn.in_write_data;
-      z.write_en = sub_fn.in_write_en;
-      z.addr0 = sub_fn.in_addr0;
-      sub_fn.in_done = z.done;
-      sub_fn.go = 1'd1;
-      run_sub_fn[done] = sub_fn.done ? 1'd1;
-    }
-    group save_return_value {
-      z.addr0 = c0.out;
-      in_addr0 = c0.out;
-      in_write_en = 1'd1;
-      in_write_data = z.read_data;
-      save_return_value[done] = in_done ? 1'd1;
-    }
-  }
-  control {
-    seq {
-      run_sub_fn;
-      save_return_value;
+      let0;
+      while le0.out with cond0 {
+        seq {
+          par {
+            upd0;
+            upd1;
+          }
+          upd2;
+          upd3;
+        }
+      }
     }
   }
 }
 
 component main () -> () {
   cells {
-    fn0 = function0;
-    c0 = prim std_const(1, 0);
-    main_ret = prim std_mem_d1(32, 1, 1);
+    z = prim std_mem_d1(32, 1, 1);
     x = prim std_mem_d1(32, 1, 1);
     y = prim std_mem_d1(32, 1, 1);
+    tensor1d_subtract0 = tensor1d_subtract;
   }
   wires {
-    group run_fn0 {
-      fn0.x_out = x.read_data;
-      x.addr0 = fn0.in_addr0;
-      fn0.y_out = y.read_data;
-      y.addr0 = fn0.in_addr0;
-      main_ret.addr0 = fn0.in_addr0;
-      main_ret.write_data = fn0.in_write_data;
-      main_ret.write_en = fn0.in_write_en;
-      fn0.in_done = main_ret.done;
-      fn0.go = 1'd1;
-      run_fn0[done] = fn0.done ? 1'd1;
+    group run_tensor1d_subtract {
+      x.addr0 = tensor1d_subtract0.x0_addr0;
+      tensor1d_subtract0.x0_read_data = x.read_data;
+      y.addr0 = tensor1d_subtract0.y0_addr0;
+      tensor1d_subtract0.y0_read_data = y.read_data;
+      z.addr0 = tensor1d_subtract0.z0_addr0;
+      z.write_data = tensor1d_subtract0.z0_write_data;
+      z.write_en = tensor1d_subtract0.z0_write_en;
+      tensor1d_subtract0.z0_done = z.done;
+      tensor1d_subtract0.go = 1'd1;
+      run_tensor1d_subtract[done] = tensor1d_subtract0.done ? 1'd1;
     }
   }
   control {
     seq {
-      run_fn0;
+      run_tensor1d_subtract;
     }
   }
 }
