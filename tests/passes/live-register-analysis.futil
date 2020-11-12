@@ -1,0 +1,121 @@
+// git.status = dirty, build.date = Wed Nov 04 19:48:43 EST 2020, git.hash = 497eae8
+import "primitives/std.lib";
+component kernel() -> () {
+  cells {
+    A0 = prim std_mem_d1_ext(32,32,6);
+    A_read0_0 = prim std_reg(32);
+    B0 = prim std_mem_d1_ext(32,32,6);
+    B_read0_0 = prim std_reg(32);
+    C0 = prim std_mem_d1_ext(32,32,6);
+    C_read0_0 = prim std_reg(32);
+    add0 = prim std_add(6);
+    add1 = prim std_add(6);
+    const0 = prim std_const(6,0);
+    const1 = prim std_const(6,31);
+    const2 = prim std_const(6,1);
+    const3 = prim std_const(6,0);
+    const4 = prim std_const(6,31);
+    const5 = prim std_const(6,1);
+    i0 = prim std_reg(6);
+    i1 = prim std_reg(6);
+    le0 = prim std_le(6);
+    le1 = prim std_le(6);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = i1.out;
+      le1.right = const4.out;
+    }
+    // in the general case, we don't know if i0.done came from inside group or out of it
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1<"static"=1> {
+      i1.in = const3.out;
+      i1.write_en = 1'd1;
+      let1[done] = i1.done;
+    }
+    group upd0<"static"=1> {
+      A_read0_0.write_en = 1'd1;
+      A0.addr0 = i0.out;
+      A_read0_0.in = 1'd1 ? A0.read_data;
+      upd0[done] = A_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      C0.addr0 = i0.out;
+      C0.write_en = 1'd1;
+      C0.write_data = 1'd1 ? A_read0_0.out;
+      upd1[done] = C0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      B_read0_0.write_en = 1'd1;
+      B0.addr0 = i0.out;
+      B_read0_0.in = 1'd1 ? B0.read_data;
+      upd2[done] = B_read0_0.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      A0.addr0 = i0.out;
+      A0.write_en = 1'd1;
+      A0.write_data = 1'd1 ? B_read0_0.out;
+      upd3[done] = A0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      i0.write_en = 1'd1;
+      add0.left = i0.out;
+      add0.right = const2.out;
+      i0.in = 1'd1 ? add0.out;
+      upd4[done] = i0.done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      C_read0_0.write_en = 1'd1;
+      C0.addr0 = i1.out;
+      C_read0_0.in = 1'd1 ? C0.read_data;
+      upd5[done] = C_read0_0.done ? 1'd1;
+    }
+    group upd6<"static"=1> {
+      B0.addr0 = i1.out;
+      B0.write_en = 1'd1;
+      B0.write_data = 1'd1 ? C_read0_0.out;
+      upd6[done] = B0.done ? 1'd1;
+    }
+    group upd7<"static"=1> {
+      i1.write_en = 1'd1;
+      add1.left = i1.out;
+      add1.right = const5.out;
+      i1.in = 1'd1 ? add1.out;
+      upd7[done] = i1.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          upd0;
+          par {
+            upd1;
+            upd2;
+          }
+          upd3;
+          upd4;
+        }
+      }
+      let1;
+      while le1.out with cond1 {
+        seq {
+          upd5; // writes to x
+          upd6; // x is live
+          upd7; // reads from x
+        }
+      }
+    }
+  }
+}

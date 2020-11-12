@@ -16,16 +16,16 @@ impl Named for CollapseControl {
     }
 }
 
-impl Visitor for CollapseControl {
+impl Visitor<()> for CollapseControl {
     /// Collapse seq { seq { A }; B } into seq { A; B }.
     fn finish_seq(
         &mut self,
         s: &mut ir::Seq,
         _comp: &mut ir::Component,
         _c: &lib::LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         if s.stmts.is_empty() {
-            return Ok(Action::Change(ir::Control::empty()));
+            return Ok(Action::change_default(ir::Control::empty()));
         }
         let mut seqs: Vec<ir::Control> = vec![];
         for con in s.stmts.drain(..) {
@@ -36,7 +36,7 @@ impl Visitor for CollapseControl {
                 _ => seqs.push(con),
             }
         }
-        Ok(Action::Change(ir::Control::seq(seqs)))
+        Ok(Action::change_default(ir::Control::seq(seqs)))
     }
 
     /// Collapse par { par { A }; B } into par { A; B }.
@@ -45,9 +45,9 @@ impl Visitor for CollapseControl {
         s: &mut ir::Par,
         _comp: &mut ir::Component,
         _c: &lib::LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         if s.stmts.is_empty() {
-            return Ok(Action::Change(ir::Control::empty()));
+            return Ok(Action::change_default(ir::Control::empty()));
         }
         let mut pars: Vec<ir::Control> = vec![];
         for con in s.stmts.drain(..) {
@@ -58,6 +58,6 @@ impl Visitor for CollapseControl {
                 _ => pars.push(con),
             }
         }
-        Ok(Action::Change(ir::Control::par(pars)))
+        Ok(Action::change_default(ir::Control::par(pars)))
     }
 }

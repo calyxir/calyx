@@ -1,0 +1,14 @@
+// swap the contents of A and B
+
+decl A: ubit<32>[32];
+decl B: ubit<32>[32];
+decl C: ubit<32>[32];
+
+for (let i: ubit<6> = 0..32) {
+  C[i] := A[i];
+  A[i] := B[i];
+}
+
+for (let i: ubit<6> = 0..32) {
+  B[i] := C[i];
+}

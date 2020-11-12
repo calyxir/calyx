@@ -49,13 +49,13 @@ where
     timing.ok().map(|ts| ts.into_iter().fold(0, acc))
 }
 
-impl Visitor for StaticTiming {
+impl Visitor<()> for StaticTiming {
     fn finish_while(
         &mut self,
         while_s: &mut ir::While,
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         // let st = &mut comp.structure;
 
         if let ir::Control::Enable(data) = &*while_s.body {
@@ -164,11 +164,13 @@ impl Visitor for StaticTiming {
                 );
                 comp.continuous_assignments.append(&mut cleanup);
 
-                return Ok(Action::Change(ir::Control::enable(while_group)));
+                return Ok(Action::change_default(ir::Control::enable(
+                    while_group,
+                )));
             }
         }
 
-        Ok(Action::Continue)
+        Ok(Action::continue_default())
     }
 
     fn finish_if(
@@ -176,7 +178,7 @@ impl Visitor for StaticTiming {
         s: &mut ir::If,
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         if let (ir::Control::Enable(tdata), ir::Control::Enable(fdata)) =
             (&*s.tbranch, &*s.fbranch)
         {
@@ -284,11 +286,13 @@ impl Visitor for StaticTiming {
                 );
                 comp.continuous_assignments.append(&mut clean_assigns);
 
-                return Ok(Action::Change(ir::Control::enable(if_group)));
+                return Ok(Action::change_default(ir::Control::enable(
+                    if_group,
+                )));
             }
         }
 
-        Ok(Action::Continue)
+        Ok(Action::continue_default())
     }
 
     fn finish_par(
@@ -296,7 +300,7 @@ impl Visitor for StaticTiming {
         s: &mut ir::Par,
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         let maybe_max_time = accumulate_static_time(&s.stmts, cmp::max);
 
         // Early return if this group is not compilable.
@@ -357,9 +361,9 @@ impl Visitor for StaticTiming {
             );
             comp.continuous_assignments.append(&mut cleanup_assigns);
 
-            Ok(Action::Change(ir::Control::enable(par_group)))
+            Ok(Action::change_default(ir::Control::enable(par_group)))
         } else {
-            Ok(Action::Continue)
+            Ok(Action::continue_default())
         }
     }
 
@@ -368,14 +372,14 @@ impl Visitor for StaticTiming {
         s: &mut ir::Seq,
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         // If this sequence only contains groups with the "static" attribute,
         // compile it using a statically timed FSM.
         let total_time = accumulate_static_time(&s.stmts, |acc, x| acc + x);
 
         // Early return if this group is not compilable.
         if total_time.is_none() {
-            return Ok(Action::Continue);
+            return Ok(Action::continue_default());
         }
 
         let mut builder = ir::Builder::from(comp, ctx, false);
@@ -458,6 +462,6 @@ impl Visitor for StaticTiming {
             .insert("static".to_string(), cur_cycle);
 
         // Replace the control with the seq group.
-        Ok(Action::Change(ir::Control::enable(seq_group)))
+        Ok(Action::change_default(ir::Control::enable(seq_group)))
     }
 }

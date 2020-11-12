@@ -48,12 +48,12 @@ impl Named for WellFormed {
     }
 }
 
-impl Visitor for WellFormed {
+impl Visitor<()> for WellFormed {
     fn start(
         &mut self,
         comp: &mut Component,
         _ctx: &LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         for group_ref in &comp.groups {
             self.all_groups.insert(group_ref.borrow().name.clone());
         }
@@ -70,7 +70,7 @@ impl Visitor for WellFormed {
                 ));
             }
         }
-        Ok(Action::Continue)
+        Ok(Action::continue_default())
     }
 
     fn start_enable(
@@ -78,9 +78,9 @@ impl Visitor for WellFormed {
         s: &mut ir::Enable,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         self.used_groups.insert(s.group.borrow().name.clone());
-        Ok(Action::Continue)
+        Ok(Action::continue_default())
     }
 
     fn finish_if(
@@ -88,10 +88,10 @@ impl Visitor for WellFormed {
         s: &mut ir::If,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         // Add cond group as a used port.
         self.used_groups.insert(s.cond.borrow().name.clone());
-        Ok(Action::Continue)
+        Ok(Action::continue_default())
     }
 
     fn finish_while(
@@ -99,17 +99,17 @@ impl Visitor for WellFormed {
         s: &mut ir::While,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         // Add cond group as a used port.
         self.used_groups.insert(s.cond.borrow().name.clone());
-        Ok(Action::Continue)
+        Ok(Action::continue_default())
     }
 
     fn finish(
         &mut self,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         let unused_group = self
             .all_groups
             .difference(&self.used_groups)
@@ -117,7 +117,7 @@ impl Visitor for WellFormed {
             .next();
         match unused_group {
             Some(group) => Err(Error::UnusedGroup(group.clone())),
-            None => Ok(Action::Continue),
+            None => Ok(Action::continue_default()),
         }
     }
 }

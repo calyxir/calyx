@@ -31,12 +31,12 @@ impl Named for RemoveExternalMemories<'_> {
     }
 }
 
-impl Visitor for RemoveExternalMemories<'_> {
+impl Visitor<()> for RemoveExternalMemories<'_> {
     fn start(
         &mut self,
         comp: &mut ir::Component,
         _c: &lib::LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         for cell_ref in &comp.cells {
             let mut cell = cell_ref.borrow_mut();
             if let ir::CellType::Primitive { name, .. } = &mut cell.prototype {
@@ -47,6 +47,6 @@ impl Visitor for RemoveExternalMemories<'_> {
             }
         }
 
-        Ok(Action::Stop)
+        Ok(Action::stop_default())
     }
 }

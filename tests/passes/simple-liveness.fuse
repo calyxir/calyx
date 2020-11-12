@@ -1,0 +1,10 @@
+
+// write x
+let x: ubit<32> = 1;
+// read x
+let z: ubit<32> = x + 1;
+
+// write y
+let y: ubit<32> = 1;
+// read y
+let z: ubit<32> = y + 1;

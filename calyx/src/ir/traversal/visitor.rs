@@ -30,7 +30,7 @@ pub trait Named {
 ///
 /// A pass will usually override one or more function and rely on the default
 /// visitors to automatically visit the children.
-pub trait Visitor {
+pub trait Visitor<T: Default> {
     /// Instantiate this pass using the default() method and run it on the
     /// context.
     fn do_pass_default(context: &mut Context) -> FutilResult<Self>
@@ -61,11 +61,10 @@ pub trait Visitor {
                         // program.
                         let control_ref = Rc::clone(&comp.control);
                         // Borrow the control program mutably and visit it.
-                        let _ = control_ref
+                        let action_tuple = control_ref
                             .borrow_mut()
                             .visit(self, &mut comp, signatures)?;
-                        // Never skip the .finish method.
-                        Ok(Action::Continue)
+                        Ok(Action::continue_with(action_tuple.data))
                     })?
                     .and_then(|| self.finish(&mut comp, signatures))?
                     .apply_change(&mut comp.control.borrow_mut())?;
@@ -81,8 +80,8 @@ pub trait Visitor {
         &mut self,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
+    ) -> VisResult<T> {
+        Ok(Action::continue_default())
     }
 
     /// Exceuted after the traversal ends.
@@ -92,8 +91,8 @@ pub trait Visitor {
         &mut self,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
+    ) -> VisResult<T> {
+        Ok(Action::continue_default())
     }
 
     /// Excecuted before visiting the children of a `ir::Seq` node.
@@ -102,8 +101,8 @@ pub trait Visitor {
         _s: &mut ir::Seq,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
+    ) -> VisResult<T> {
+        Ok(Action::continue_default())
     }
 
     /// Excecuted after visiting the children of a `ir::Seq` node.
@@ -112,8 +111,8 @@ pub trait Visitor {
         _s: &mut ir::Seq,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
+    ) -> VisResult<T> {
+        Ok(Action::continue_default())
     }
 
     /// Excecuted before visiting the children of a `ir::Par` node.
@@ -122,8 +121,8 @@ pub trait Visitor {
         _s: &mut ir::Par,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
+    ) -> VisResult<T> {
+        Ok(Action::continue_default())
     }
 
     /// Excecuted after visiting the children of a `ir::Par` node.
@@ -132,8 +131,8 @@ pub trait Visitor {
         _s: &mut ir::Par,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
+    ) -> VisResult<T> {
+        Ok(Action::continue_default())
     }
 
     /// Excecuted before visiting the children of a `ir::If` node.
@@ -142,8 +141,8 @@ pub trait Visitor {
         _s: &mut ir::If,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
+    ) -> VisResult<T> {
+        Ok(Action::continue_default())
     }
 
     /// Excecuted after visiting the children of a `ir::If` node.
@@ -152,8 +151,8 @@ pub trait Visitor {
         _s: &mut ir::If,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
+    ) -> VisResult<T> {
+        Ok(Action::continue_default())
     }
 
     /// Excecuted before visiting the children of a `ir::If` node.
@@ -162,8 +161,8 @@ pub trait Visitor {
         _s: &mut ir::While,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
+    ) -> VisResult<T> {
+        Ok(Action::continue_default())
     }
 
     /// Excecuted after visiting the children of a `ir::If` node.
@@ -172,8 +171,8 @@ pub trait Visitor {
         _s: &mut ir::While,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
+    ) -> VisResult<T> {
+        Ok(Action::continue_default())
     }
 
     /// Excecuted before visiting the children of a `ir::Enable` node.
@@ -182,8 +181,8 @@ pub trait Visitor {
         _s: &mut ir::Enable,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
+    ) -> VisResult<T> {
+        Ok(Action::continue_default())
     }
 
     /// Excecuted after visiting the children of a `ir::Enable` node.
@@ -192,8 +191,8 @@ pub trait Visitor {
         _s: &mut ir::Enable,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
+    ) -> VisResult<T> {
+        Ok(Action::continue_default())
     }
 
     /// Excecuted before visiting the children of a `ir::Empty` node.
@@ -202,8 +201,8 @@ pub trait Visitor {
         _s: &mut ir::Empty,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
+    ) -> VisResult<T> {
+        Ok(Action::continue_default())
     }
 
     /// Excecuted after visiting the children of a `ir::Empty` node.
@@ -212,8 +211,8 @@ pub trait Visitor {
         _s: &mut ir::Empty,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
+    ) -> VisResult<T> {
+        Ok(Action::continue_default())
     }
 }
 
@@ -221,23 +220,23 @@ pub trait Visitor {
 /// This performs a recursive walk of the tree.
 /// It calls `Visitor::start_*` on the way down, and `Visitor::finish_*` on
 /// the way up.
-pub trait Visitable {
+pub trait Visitable<T: Default> {
     /// Perform the traversal.
     fn visit(
         &mut self,
-        visitor: &mut dyn Visitor,
+        visitor: &mut dyn Visitor<T>,
         component: &mut Component,
         signatures: &LibrarySignatures,
-    ) -> VisResult;
+    ) -> VisResult<T>;
 }
 
-impl Visitable for Control {
+impl<T: Default> Visitable<T> for Control {
     fn visit(
         &mut self,
-        visitor: &mut dyn Visitor,
+        visitor: &mut dyn Visitor<T>,
         component: &mut Component,
         sigs: &LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<T> {
         match self {
             Control::Seq(data) => visitor
                 .start_seq(data, component, sigs)?
@@ -274,21 +273,21 @@ impl Visitable for Control {
 }
 
 /// Blanket implementation for Vectors of Visitables
-impl<V: Visitable> Visitable for Vec<V> {
+impl<T: Default, V: Visitable<T>> Visitable<T> for Vec<V> {
     fn visit(
         &mut self,
-        visitor: &mut dyn Visitor,
+        visitor: &mut dyn Visitor<T>,
         component: &mut Component,
         sigs: &LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<T> {
         for t in self {
-            match t.visit(visitor, component, sigs)? {
+            match t.visit(visitor, component, sigs)?.action {
                 Action::Continue | Action::SkipChildren | Action::Change(_) => {
                     continue
                 }
-                Action::Stop => return Ok(Action::Stop),
+                Action::Stop => return Ok(Action::stop_default()),
             };
         }
-        Ok(Action::Continue)
+        Ok(Action::continue_default())
     }
 }

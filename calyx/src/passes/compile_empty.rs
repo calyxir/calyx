@@ -24,13 +24,13 @@ impl Named for CompileEmpty {
     }
 }
 
-impl Visitor for CompileEmpty {
+impl Visitor<()> for CompileEmpty {
     fn finish_empty(
         &mut self,
         _s: &mut ir::Empty,
         comp: &mut Component,
         sigs: &LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         let group_ref = match comp.find_group(&CompileEmpty::EMPTY_GROUP) {
             Some(g) => g,
             None => {
@@ -55,6 +55,8 @@ impl Visitor for CompileEmpty {
             }
         };
 
-        Ok(Action::Change(Control::enable(Rc::clone(&group_ref))))
+        Ok(Action::change_default(Control::enable(Rc::clone(
+            &group_ref,
+        ))))
     }
 }
