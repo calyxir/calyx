@@ -14,9 +14,17 @@
 
 
 
-let a: ubit<32> = 1;
-if (1 == 2) {
-  let a_read: ubit<32> = a + 1;
-} else {
-  let dont_read_a: ubit<32> = 2;
-}
+// let a: ubit<32> = 1;
+// if (1 == 2) {
+//   let a_read: ubit<32> = a + 1;
+// } else {
+//   let dont_read_a: ubit<32> = 2;
+// }
+
+let before: ubit<32> = 1;
+
+let x: ubit<32> = 1;
+let b: ubit<32> = 1;
+let c: ubit<32> = 1;
+
+let z: ubit<32> = x;

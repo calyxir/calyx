@@ -39,15 +39,7 @@ impl Visitor<()> for MinimizeRegs {
     ) -> VisResult<()> {
         let name = &enable.group.borrow().name;
         eprintln!("{}", name.to_string());
-        eprintln!(
-            "  {}",
-            self.live
-                .get(&enable.group.borrow())
-                .iter()
-                .map(|x| x.to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
+        eprintln!("  {:?}", self.live.get(&enable.group.borrow()));
 
         Ok(Action::continue_default())
     }

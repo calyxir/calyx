@@ -109,11 +109,11 @@ component kernel() -> () {
         }
       }
       let1;
-      while le1.out with cond1 {
+      while le1.out with cond1 { // read i1
         seq {
-          upd5; // writes to x
-          upd6; // x is live
-          upd7; // reads from x
+          upd5; // write C_read0_0, read i1
+          upd6; // read i1, read C_read0_0
+          upd7; // read i1, write i1
         }
       }
     }

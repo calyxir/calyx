@@ -21,6 +21,7 @@ impl VariableDetection {
             .collect::<Vec<_>>();
 
         if writes.len() != 1 {
+            eprintln!("failed writes");
             return None;
         }
 
@@ -34,6 +35,7 @@ impl VariableDetection {
             .map(|src| src.borrow().is_constant(1))
             .collect::<Vec<_>>();
         if activation.len() != 1 || (activation.len() > 0 && !activation[0]) {
+            eprintln!("failed write en");
             return None;
         }
 
@@ -43,6 +45,7 @@ impl VariableDetection {
             .map(|src| src.borrow().get_parent_name() == cell.name)
             .collect::<Vec<_>>();
         if activation.len() != 1 || (activation.len() > 0 && !activation[0]) {
+            eprintln!("failed g[done] = reg.done");
             return None;
         }
 

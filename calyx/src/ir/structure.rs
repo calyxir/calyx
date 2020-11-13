@@ -168,7 +168,7 @@ impl Cell {
 }
 
 /// Represents a guarded assignment in the program
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Assignment {
     /// The destination for the assignment.
     pub dst: RRC<Port>,
