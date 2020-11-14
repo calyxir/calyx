@@ -793,8 +793,6 @@ primitive fixed_p_std_mult[width, int_width, fract_width](left: width, right: wi
         logic [2*width-2:0] result;
 
         assign result = left * right;
-        // result bit= 2*width, 1 is placed at fract_width,
-        //the valid bit would be width amount of bits starting at fract_width
         assign out = result[width+fract_width-1:fract_width];
 
 
@@ -816,8 +814,6 @@ primitive fixed_p_std_div[width, int_width, fract_width](left: width, right: wid
           logic [2*width-2:0] result;
 
           assign result = left / right;
-          // result bit= 2*width, 1 is placed at fract_width,
-          //the valid bit would be width amount of bits starting at fract_width
           assign out = result[width+fract_width-1:fract_width];
         endmodule
 
@@ -854,7 +850,6 @@ primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, frac
         assign {left_int, left_fract} = left;
         assign {right_int, right_fract} = right;
 
-        //assign mod_right_int = right_int;
 
         //extend fractional bits for left
         assign mod_left_fract = left_fract * (2**(fract_width2-fract_width1));
@@ -870,11 +865,56 @@ primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, frac
           end
         end
 
-        //add
-        //assign whole_int = left_int + right_int;
-        //assign whole_fract = mod_left_fract + right_fract;
-
         assign out = {whole_int, whole_fract};
       endmodule
     }
+}
+
+/////// signed primitives ///////
+primitive std_uadd<"share"=1>[width](left: width, right: width) -> (out: width) {
+  verilog {
+    module std_uadd
+      #(parameter width = 32)
+      (input  signed  [width-1:0] left,
+        input  signed  [width-1:0] right,
+        output signed  [width-1:0] out);
+      assign out = left + right;
+    endmodule
+  }
+}
+
+primitive std_usub<"share"=1>[width](left: width, right: width) -> (out: width) {
+  verilog {
+    module std_usub
+      #(parameter width = 32)
+      (input  signed  [width-1:0] left,
+        input  signed  [width-1:0] right,
+        output signed  [width-1:0] out);
+      assign out = left - right;
+    endmodule
+  }
+}
+
+primitive std_umult<"share"=1>[width](left: width, right: width) -> (out: width) {
+  verilog {
+    module std_umult
+      #(parameter width = 32)
+      (input  signed  [width-1:0] left,
+        input  signed  [width-1:0] right,
+        output signed  [width-1:0] out);
+      assign out = left * right;
+    endmodule
+  }
+}
+
+primitive std_div<"share"=1>[width](left: width, right: width) -> (out: width) {
+  verilog {
+    module std_udiv
+      #(parameter width = 32)
+      (input  signed  [width-1:0] left,
+        input  signed  [width-1:0] right,
+        output signed  [width-1:0] out);
+      assign out = left / right;
+    endmodule
+  }
 }

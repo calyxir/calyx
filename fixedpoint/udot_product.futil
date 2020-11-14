@@ -1,0 +1,67 @@
+import "primitives/std.lib";
+component main() -> () {
+    cells{
+        add0 = prim std_uadd(3);
+        const0 = prim std_const(3,0); // initalize the counter
+        const1 = prim std_const(3,4);
+        const2 = prim std_const(3,1); // increment by 1 
+        counter = prim std_reg(3);
+        r_2 = prim std_reg(32);
+        lt0 = prim std_lt(3);
+        mem0 = prim std_mem_d2(32, 4, 4, 3, 3);
+        mem1 = prim std_mem_d2(32, 4, 4, 3, 3);
+        add1 = prim std_add(32);
+        mult = prim std_umult(32);
+    }
+    wires{
+    group cond0 {
+      cond0[done] = 1'd1;
+      lt0.left = counter.out;
+      lt0.right = const1.out;
+    } // ctrl segment will count until idx is 4
+
+    group let0 {
+      counter.in = const0.out;
+      counter.write_en = 1'd1;
+      let0[done] = counter.done;
+    } // initializing the counter 0
+
+    group upd0{
+      counter.write_en = 1'd1;
+      add0.left = counter.out;
+      add0.right = const2.out; // incremented by 1
+      counter.in = add0.out;
+      upd0[done] = counter.done ? 1'd1;
+    } // updates the counter
+
+
+    group upd1 {
+         mem0.addr0 = counter.out;
+         mem0.addr1 = 3'd0;
+         mem1.addr0 = counter.out;
+         mem1.addr1 = 3'd0;
+         r_2.write_en = 1'd1;
+         mult.left = mem0.read_data;
+         mult.right = mem1.read_data;
+         add1.left = mult.out;
+         add1.right = r_2.out;
+         r_2.in =  add1.out;
+         upd1[done] = r_2.done ? 1'd1;
+
+    } // computational step of everything 
+
+
+    }
+    control{
+        seq{
+            let0;
+            while lt0.out with cond0{
+                seq{
+                    upd1;
+                    upd0;
+                }
+            }
+
+        }
+    }
+}
