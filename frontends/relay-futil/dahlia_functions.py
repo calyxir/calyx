@@ -90,6 +90,7 @@ def tensor3d_op(declaration):
     assert op1.type == PrimitiveType.Memory3D and op1.type == op2.type and op2.type == res.type
     assert bitwidth == op2.data[0] and op1.data[0] == res.data[0] and op2.data[4] == res.data[4]
     assert size0 == op2.data[1] and op2.data[1] == res.data[1] and size1 == op2.data[2] and op2.data[2] == res.data[2]
+    assert size2 == op2.data[3] and op2.data[3] == res.data[3]
     assert index_size0 == op2.data[4] and op2.data[4] == res.data[4] and index_size1 == op2.data[5]
     assert index_size2 == op2.data[6] and op2.data[6] == res.data[6]
     program = f"""
