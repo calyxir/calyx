@@ -83,6 +83,29 @@ def tensor2d_op(declaration):
     return lower_dahlia_program(program, declaration.component_name)
 
 
+def tensor3d_op(declaration):
+    op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
+    bitwidth, size0, size1, size2, = op1.data[0], op1.data[1], op1.data[2], op1.data[3]
+    index_size0, index_size1, index_size2 = op1.data[4], op1.data[5], op1.data[6]
+    assert op1.type == PrimitiveType.Memory3D and op1.type == op2.type and op2.type == res.type
+    assert bitwidth == op2.data[0] and op1.data[0] == res.data[0] and op2.data[4] == res.data[4]
+    assert size0 == op2.data[1] and op2.data[1] == res.data[1] and size1 == op2.data[2] and op2.data[2] == res.data[2]
+    assert index_size0 == op2.data[4] and op2.data[4] == res.data[4] and index_size1 == op2.data[5]
+    assert index_size2 == op2.data[6] and op2.data[6] == res.data[6]
+    program = f"""
+    decl {op1.name}: {op1.data_type}<{bitwidth}>[{size0}][{size1}][{size2}];
+    decl {op2.name}: {op2.data_type}<{bitwidth}>[{size0}][{size1}][{size2}];
+    decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}][{size2}];
+    for (let i: ubit<{index_size0}> = 0..{size0}) {{
+      for (let j: ubit<{index_size1}> = 0..{size1}) {{
+        for (let k: ubit<{index_size2}> = 0..{size2}) {{
+          {res.name}[i][j][k] := {op1.name}[i][j][k] {declaration.op} {op2.name}[i][j][k];
+        }}
+      }}
+    }}"""
+    return lower_dahlia_program(program, declaration.component_name)
+
+
 def batch_flatten(declaration):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.batch_flatten"""
     op1, res = declaration.inputs[0].primitive, declaration.output.primitive

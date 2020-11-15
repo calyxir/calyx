@@ -72,6 +72,8 @@ class Relay2Futil(ExprFunctor):
                 function, name = tensor1d_op, f'tensor1d_{function_name}'
             elif input_type == PrimitiveType.Memory2D:
                 function, name = tensor2d_op, f'tensor2d_{function_name}'
+            elif input_type == PrimitiveType.Memory3D:
+                function, name = tensor3d_op, f'tensor3d_{function_name}'
 
         if function_name == "nn.batch_flatten":
             if input_type == PrimitiveType.Memory3D: function = batch_flatten
