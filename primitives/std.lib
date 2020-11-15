@@ -907,7 +907,7 @@ primitive std_umult<"share"=1>[width](left: width, right: width) -> (out: width)
   }
 }
 
-primitive std_div<"share"=1>[width](left: width, right: width) -> (out: width) {
+primitive std_udiv<"share"=1>[width](left: width, right: width) -> (out: width) {
   verilog {
     module std_udiv
       #(parameter width = 32)
