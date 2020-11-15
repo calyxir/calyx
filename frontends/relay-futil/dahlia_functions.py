@@ -83,7 +83,7 @@ def tensor2d_op(declaration):
     return lower_dahlia_program(program, declaration.component_name)
 
 
-def tensor3d_batch_flatten(declaration):
+def batch_flatten(declaration):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.batch_flatten"""
     op1, res = declaration.inputs[0].primitive, declaration.output.primitive
     bitwidth, op1_size0, op1_size1, op1_size2 = op1.data[0], op1.data[1], op1.data[2], op1.data[3]
