@@ -14,5 +14,7 @@
 - [Compiler Development](./dev/index.md)
   - [Program Context](./dev/context.md)
   - [Writing a Test](./dev/test.md)
+- [Optimizations](./optimizations/index.md)
+  - [Dataflow Analysis](./optimizations/dataflow.md)
 ----
 [Contributors](./contributors.md)
