@@ -11,6 +11,7 @@ use ir::{
     traversal::{Action, VisResult},
     Component,
 };
+use itertools::Itertools;
 
 /// Minimize use of registers
 pub struct MinimizeRegs {
@@ -44,6 +45,7 @@ impl Visitor<()> for MinimizeRegs {
         _comp: &mut Component,
         _sigs: &lib::LibrarySignatures,
     ) -> VisResult<()> {
+        // XXX(sam) can move this to work on definitions rather than enables
         let conflicts = self.live.get(&enable.group.borrow());
         self.graph.insert_conflicts(
             &conflicts.into_iter().cloned().collect::<Vec<_>>(),
@@ -58,7 +60,26 @@ impl Visitor<()> for MinimizeRegs {
         comp: &mut Component,
         sigs: &lib::LibrarySignatures,
     ) -> VisResult<()> {
-        let ordering = self.live.get_all();
+        // add constraints so that registers of different sizes can't be shared
+        for a_ref in &comp.cells {
+            for b_ref in &comp.cells {
+                let a = a_ref.borrow();
+                let b = b_ref.borrow();
+                let a_correct_type = a.type_name() == Some(&"std_reg".into());
+                let b_correct_type = b.type_name() == Some(&"std_reg".into());
+                if !(a_correct_type && b_correct_type) {
+                    continue;
+                }
+
+                if a.get_paramter(&"width".into())
+                    != b.get_paramter(&"width".into())
+                {
+                    self.graph.insert_conflict(a.name.clone(), b.name.clone());
+                }
+            }
+        }
+
+        let ordering = self.live.get_all().sorted();
         let coloring_id: Vec<(_, _)> = self
             .graph
             .color_greedy_with(ordering)

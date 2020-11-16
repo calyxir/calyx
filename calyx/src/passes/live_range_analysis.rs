@@ -258,7 +258,7 @@ impl Visitor<Data> for LiveRangeAnalysis {
         _comp: &mut Component,
         _sigs: &lib::LibrarySignatures,
     ) -> VisResult<Data> {
-        // no reason to compute this every time
+        // XXX(sam) no reason to compute this every time
         let (reads, writes) =
             LiveRangeAnalysis::find_gen_kill(Rc::clone(&enable.group));
         alive.gen = reads;
@@ -268,6 +268,7 @@ impl Visitor<Data> for LiveRangeAnalysis {
         alive = alive.transfer();
 
         // set the live set of this node to be the things live on the output of this node
+        // plus the things written to in this group
         self.live.insert(
             enable.group.borrow().name.clone(),
             &alive.live | &alive.kill,

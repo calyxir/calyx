@@ -160,6 +160,18 @@ impl Cell {
         }
     }
 
+    pub fn get_paramter(&self, param: &Id) -> Option<u64> {
+        match &self.prototype {
+            CellType::Primitive { param_binding, .. } => param_binding
+                .iter()
+                .find(|(key, _)| key == param)
+                .map(|(_, val)| *val),
+            CellType::Component { .. } => None,
+            CellType::ThisComponent => None,
+            CellType::Constant { .. } => None,
+        }
+    }
+
     /// Return the canonical name for the cell generated to represent this
     /// (val, width) constant.
     pub(super) fn constant_name(val: u64, width: u64) -> Id {

@@ -57,7 +57,6 @@ impl<T: Eq + Hash + Clone + std::fmt::Debug> GraphColoring<T> {
             available_colors.iter_mut().for_each(|(_, b)| *b = false);
 
             // search neighbors for used colors
-            eprintln!("{:?}", &node);
             for nbr in self.graph.neighbors(self.index_map[&node]) {
                 let item = &self.graph[nbr];
                 // if the neighbor is already colored
