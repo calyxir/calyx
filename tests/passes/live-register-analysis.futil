@@ -32,7 +32,6 @@ component kernel() -> () {
       le1.left = i1.out;
       le1.right = const4.out;
     }
-    // in the general case, we don't know if i0.done came from inside group or out of it
     group let0<"static"=1> {
       i0.in = const0.out;
       i0.write_en = 1'd1;
@@ -109,11 +108,11 @@ component kernel() -> () {
         }
       }
       let1;
-      while le1.out with cond1 { // read i1
+      while le1.out with cond1 {
         seq {
-          upd5; // write C_read0_0, read i1
-          upd6; // read i1, read C_read0_0
-          upd7; // read i1, write i1
+          upd5;
+          upd6;
+          upd7;
         }
       }
     }
