@@ -21,7 +21,6 @@ use std::{
 pub struct Data {
     gen: HashSet<ir::Id>,
     kill: HashSet<ir::Id>,
-    par_kill: HashSet<ir::Id>,
     live: HashSet<ir::Id>,
 }
 
@@ -31,7 +30,6 @@ impl BitOr<&Data> for &Data {
         Data {
             gen: &self.gen | &rhs.gen,
             kill: &self.kill | &rhs.kill,
-            par_kill: &self.par_kill | &rhs.kill,
             live: &self.live | &rhs.live,
         }
     }
@@ -39,7 +37,7 @@ impl BitOr<&Data> for &Data {
 
 impl Data {
     fn transfer(mut self) -> Self {
-        self.live = &(&(&self.live - &self.kill) - &self.par_kill) | &self.gen;
+        self.live = &(&self.live - &self.kill) | &self.gen;
         self
     }
 }
@@ -62,6 +60,19 @@ impl LiveRangeAnalysis {
         &self.live[&group.name]
     }
 
+    /// Compute the `gen` and `kill` sets for a given group definition. Because
+    /// we can't always know if a group will *definitely* kill something or *definitely*
+    /// read something, this function is conservative.
+    ///
+    /// However, it is conservative in different directions for `gens` and `kills`.
+    /// In particular, it is always ok to accidentally put something in `gens` because
+    /// in the worst case we say something is alive when it isn't.
+    ///
+    /// However, it is **never** ok to accidentally put something in `writes` because
+    /// we might accidentally kill something that should be alive.
+    ///
+    /// To implement this, we say that something is being read if it shows up on the rhs
+    /// of any assignment in a group. Something is written if it it's guard is `1` or if it has no guard.
     fn find_gen_kill(
         group_ref: RRC<ir::Group>,
     ) -> (HashSet<ir::Id>, HashSet<ir::Id>) {
@@ -71,7 +82,6 @@ impl LiveRangeAnalysis {
         if let Some(variable) =
             VariableDetection::variable_like(Rc::clone(&group_ref))
         {
-            eprintln!(" variable! {:?}", variable.to_string());
             // we don't want to read the control signal of `variable`
             let assignments = group
                 .assignments
@@ -90,7 +100,6 @@ impl LiveRangeAnalysis {
                 .map(|c| c.borrow().name.clone())
                 .collect();
 
-            // XXX(sam): should also consider other writes
             let mut writes = HashSet::new();
             writes.insert(variable);
 
@@ -102,8 +111,15 @@ impl LiveRangeAnalysis {
                 .map(|c| c.borrow().name.clone())
                 .collect();
 
-            // XXX(sam) the writes are incorrect atm
-            let writes = ReadWriteSet::write_set(&group.assignments)
+            // only consider write assignments where the guard is true
+            let assignments = group
+                .assignments
+                .iter()
+                .filter(|asgn| asgn.guard == ir::Guard::True)
+                .cloned()
+                .collect::<Vec<_>>();
+
+            let writes = ReadWriteSet::write_set(&assignments)
                 .into_iter()
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
                 .map(|c| c.borrow().name.clone())
@@ -142,12 +158,10 @@ impl Visitor<Data> for LiveRangeAnalysis {
         comp: &mut Component,
         sigs: &lib::LibrarySignatures,
     ) -> VisResult<Data> {
-        eprintln!("start seq");
         // iterate over the seq children in reverse order
         for child in seq.stmts.iter_mut().rev() {
             alive = child.visit(self, alive, comp, sigs)?.data;
         }
-        eprintln!("finish seq");
 
         Ok(Action::skipchildren_with(alive))
     }
@@ -155,61 +169,24 @@ impl Visitor<Data> for LiveRangeAnalysis {
     fn start_par(
         &mut self,
         par: &mut ir::Par,
-        data: Data,
+        mut data: Data,
         comp: &mut Component,
         sigs: &lib::LibrarySignatures,
     ) -> VisResult<Data> {
-        // // x dead
-        // par { w x, r y}
-        // r x
-        //
-        //
-        //    { y, z }
-        //   /     \
-        // { z }  { x, y, z }
-        //   ^      ^
-        // { x, z }  { x, z }
-        //
-        //
-        // { x } - ??? = { }
-        // { x } + { } = ???
-        //
-        //
-        //
-        // seq {
-        //   ... // y alive
-        //   par {
-        //     wr x, // x alive
-        //     rd y  // y alive, is x alive here?
-        //   }
-        //   rd x // x alive
-        // }
-        //
-        //
-        //
-        // # normal
-        // live(n) = (live_in(n) - kill(n)) + gen(n)
-        //
-        // # parallel
-        // we define cobegin(n) to be the parent `par` node of a ctrl stmt
-        // par_live(live_in(n) - kill(n) - kill(cobegin(n))) + gen(n)
-
+        // drain gens so that we don't mix them with the gens we gather from the par
+        data.gen.drain();
         let mut par_data = data.clone();
         for child in par.stmts.iter_mut() {
-            let child_data = &child.visit(self, data.clone(), comp, sigs)?.data;
-            par_data.par_kill = &par_data.par_kill | &child_data.kill;
+            par_data =
+                &par_data | &child.visit(self, data.clone(), comp, sigs)?.data;
         }
 
-        let mut res = Data::default();
-        res.par_kill = par_data.par_kill.clone();
-        for child in par.stmts.iter_mut() {
-            let child_data =
-                &child.visit(self, par_data.clone(), comp, sigs)?.data;
-            res = &res | &child_data;
-        }
-        res.par_kill.drain();
+        // compute transfer function using
+        //  - gen = union(gen(children))
+        //  - kill = union(kill(children))
+        par_data = par_data.transfer();
 
-        Ok(Action::skipchildren_with(res))
+        Ok(Action::skipchildren_with(par_data))
     }
 
     fn start_if(
@@ -219,14 +196,22 @@ impl Visitor<Data> for LiveRangeAnalysis {
         comp: &mut Component,
         sigs: &lib::LibrarySignatures,
     ) -> VisResult<Data> {
-        // xxx deal with condition
+        // compute each branch
         let t_alive = if_s.tbranch.visit(self, alive.clone(), comp, sigs)?.data;
         let f_alive = if_s.fbranch.visit(self, alive.clone(), comp, sigs)?.data;
 
-        alive = &alive | &t_alive;
-        alive = &alive | &f_alive;
+        // take union
+        alive.live = &alive.live | &t_alive.live;
+        alive.live = &alive.live | &f_alive.live;
 
-        Ok(Action::skipchildren_with(alive))
+        // feed to condition to compute
+        let cond_alive =
+            ir::Control::Enable(ir::Enable::from(if_s.cond.clone()))
+                .visit(self, alive, comp, sigs)?
+                .data;
+
+        // return liveness from condition
+        Ok(Action::skipchildren_with(cond_alive))
     }
 
     fn start_while(
@@ -275,19 +260,16 @@ impl Visitor<Data> for LiveRangeAnalysis {
         alive.gen = reads;
         alive.kill = writes;
 
-        eprintln!(
-            "    gen: {:?}, kill: {:?}, par_kill: {:?}",
-            alive.gen, alive.kill, alive.par_kill
-        );
+        eprintln!("    gen: {:?}, kill: {:?}", alive.gen, alive.kill);
 
         // compute transfer function
         alive = alive.transfer();
 
         // set the live set of this node to be the things live on the output of this node
-        self.live
-            .entry(enable.group.borrow().name.clone())
-            .and_modify(|hs| *hs = &alive.live | &alive.kill)
-            .or_insert(alive.live.clone());
+        self.live.insert(
+            enable.group.borrow().name.clone(),
+            &alive.live | &alive.kill,
+        );
 
         eprintln!(" {} out( {} )", name, alive.to_string());
 

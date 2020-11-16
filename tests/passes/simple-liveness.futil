@@ -28,11 +28,11 @@ component kernel() -> () {
       b_0.write_en = 1'd1;
       let2[done] = b_0.done;
     }
-    // group let3<"static"=1> {
-    //   c_0.in = const3.out;
-    //   c_0.write_en = 1'd1;
-    //   let3[done] = c_0.done;
-    // }
+    group let3<"static"=1> {
+      c_0.in = const3.out;
+      c_0.write_en = 1'd1;
+      let3[done] = c_0.done;
+    }
     group let4<"static"=1> {
       z_0.in = x_0.out;
       z_0.write_en = 1'd1;
