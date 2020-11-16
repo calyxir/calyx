@@ -224,14 +224,11 @@ impl Visitor<Data> for LiveRangeAnalysis {
         let mut start = alive.clone();
         let mut next;
 
-        eprintln!("start while");
         loop {
-            eprintln!("  start: {}", start.to_string());
             next = while_s.body.visit(self, start.clone(), comp, sigs)?.data;
             next = ir::Control::Enable(ir::Enable::from(while_s.cond.clone()))
                 .visit(self, next, comp, sigs)?
                 .data;
-            eprintln!("  next: {}", next.to_string());
 
             if start == next {
                 start = next;
@@ -240,7 +237,6 @@ impl Visitor<Data> for LiveRangeAnalysis {
 
             start = next;
         }
-        eprintln!("end while");
 
         Ok(Action::skipchildren_with(start))
     }
@@ -253,14 +249,11 @@ impl Visitor<Data> for LiveRangeAnalysis {
         _sigs: &lib::LibrarySignatures,
     ) -> VisResult<Data> {
         let name = enable.group.borrow().name.to_string();
-        eprintln!(" {} in( {} )", name, alive.to_string());
         // no reason to compute this every time
         let (reads, writes) =
             LiveRangeAnalysis::find_gen_kill(Rc::clone(&enable.group));
         alive.gen = reads;
         alive.kill = writes;
-
-        eprintln!("    gen: {:?}, kill: {:?}", alive.gen, alive.kill);
 
         // compute transfer function
         alive = alive.transfer();
@@ -270,8 +263,6 @@ impl Visitor<Data> for LiveRangeAnalysis {
             enable.group.borrow().name.clone(),
             &alive.live | &alive.kill,
         );
-
-        eprintln!(" {} out( {} )", name, alive.to_string());
 
         Ok(Action::continue_with(alive))
     }
