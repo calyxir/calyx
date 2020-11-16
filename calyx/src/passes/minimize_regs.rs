@@ -13,7 +13,19 @@ use ir::{
 };
 use itertools::Itertools;
 
-/// Minimize use of registers
+/// Given a `LiveRangeAnalysis` that specifies the registers alive at each
+/// group, minimize the registers used for each component.
+///
+/// This works by constructing an interference graph for each alive register.
+/// If two registers are ever alive at the same time, then there is an edge
+/// between them in the interference graph. Additionally, if two registers
+/// are different sizes, then there is an edge between them.
+///
+/// A greedy graph coloring algorithm on the interference graph
+/// is used to assign each register a name.
+///
+/// This pass only renames uses of registers. `DeadCellRemoval` should be run after this
+/// to actually remove the register definitions.
 pub struct MinimizeRegs {
     live: LiveRangeAnalysis,
     graph: GraphColoring<ir::Id>,
@@ -46,6 +58,8 @@ impl Visitor<()> for MinimizeRegs {
         _sigs: &lib::LibrarySignatures,
     ) -> VisResult<()> {
         // XXX(sam) can move this to work on definitions rather than enables
+
+        // add constraints between things that are alive at the same time
         let conflicts = self.live.get(&comp.name, &enable.group.borrow());
         self.graph
             .insert_conflicts(&conflicts.iter().cloned().collect::<Vec<_>>());
@@ -78,6 +92,7 @@ impl Visitor<()> for MinimizeRegs {
             }
         }
 
+        // used a sorted ordering to perform coloring
         let ordering = self.live.get_all(&comp.name).sorted();
         let coloring: Vec<_> = self
             .graph
@@ -89,8 +104,9 @@ impl Visitor<()> for MinimizeRegs {
             })
             .collect();
 
+        // apply the coloring as a renaming of registers for both groups
+        // and continuous assignments
         let builder = ir::Builder::from(comp, sigs, false);
-
         for group_ref in &builder.component.groups {
             let mut group = group_ref.borrow_mut();
             let mut assigns: Vec<_> = group.assignments.drain(..).collect();

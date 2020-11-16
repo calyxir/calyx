@@ -17,10 +17,16 @@ use std::{
     rc::Rc,
 };
 
+/// The data structure that is passed through the visitor functions.
+/// We need to explicitly pass `gen` and `live` between control statements because
+/// `par` needs this information to implement it's `meet` function correctly.
 #[derive(Default, Clone, PartialEq, Eq)]
 pub struct Data {
+    /// Represents the registers that are generated from this control statement.
     gen: HashSet<ir::Id>,
+    /// Represents the registers that are killed by this control statement.
     kill: HashSet<ir::Id>,
+    /// Represents the registers that are live at this control statement
     live: HashSet<ir::Id>,
 }
 
@@ -36,6 +42,8 @@ impl BitOr<&Data> for &Data {
 }
 
 impl Data {
+    /// Defines the dataflow transfer function.
+    /// This is the standard definition for liveness.
     fn transfer(mut self) -> Self {
         self.live = &(&self.live - &self.kill) | &self.gen;
         self
@@ -69,6 +77,7 @@ impl LiveRangeAnalysis {
         &self.component_lives[component][&group.name]
     }
 
+    /// Get a unique list of all live registers in `component`.
     pub fn get_all(
         &self,
         component: &ir::Id,

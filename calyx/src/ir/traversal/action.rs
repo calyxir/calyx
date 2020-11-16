@@ -2,8 +2,13 @@
 use crate::errors::FutilResult;
 use crate::ir::{self, Control};
 
+/// Contains both a data packet of type `T` and an `Action`.
+/// The main purpose of this struct is to give names to
+/// the data and action respectively for clearer code.
 pub struct ActionTuple<T> {
+    /// The data packet of this tuple.
     pub data: T,
+    /// The action of this tuple.
     pub action: Action,
 }
 
