@@ -42,11 +42,11 @@ impl Visitor<()> for MinimizeRegs {
         &mut self,
         enable: &mut ir::Enable,
         _data: (),
-        _comp: &mut Component,
+        comp: &mut Component,
         _sigs: &lib::LibrarySignatures,
     ) -> VisResult<()> {
         // XXX(sam) can move this to work on definitions rather than enables
-        let conflicts = self.live.get(&enable.group.borrow());
+        let conflicts = self.live.get(&comp.name, &enable.group.borrow());
         self.graph.insert_conflicts(
             &conflicts.into_iter().cloned().collect::<Vec<_>>(),
         );
@@ -79,17 +79,12 @@ impl Visitor<()> for MinimizeRegs {
             }
         }
 
-        let ordering = self.live.get_all().sorted();
-        let coloring_id: Vec<(_, _)> = self
+        let ordering = self.live.get_all(&comp.name).sorted();
+        let coloring: Vec<_> = self
             .graph
             .color_greedy_with(ordering)
             .into_iter()
             .filter(|(a, b)| a != b)
-            .collect();
-        eprintln!("{:#?}", coloring_id);
-
-        let coloring: Vec<_> = coloring_id
-            .into_iter()
             .map(|(a, b)| {
                 (comp.find_cell(&a).unwrap(), comp.find_cell(&b).unwrap())
             })

@@ -1,23 +1,20 @@
-// -p minimize-regs -p dead-cell-removal
 import "primitives/std.lib";
-component kernel() -> () {
+component kernel(go: 1, clk: 1) -> (done: 1) {
   cells {
-    A0 = prim std_mem_d1_ext(32,32,6);
+    A0 = prim std_mem_d1_ext(32, 32, 6);
     A_read0_0 = prim std_reg(32);
-    B0 = prim std_mem_d1_ext(32,32,6);
+    B0 = prim std_mem_d1_ext(32, 32, 6);
     B_read0_0 = prim std_reg(32);
-    C0 = prim std_mem_d1_ext(32,32,6);
-    C_read0_0 = prim std_reg(32);
+    C0 = prim std_mem_d1_ext(32, 32, 6);
     add0 = prim std_add(6);
     add1 = prim std_add(6);
-    const0 = prim std_const(6,0);
-    const1 = prim std_const(6,31);
-    const2 = prim std_const(6,1);
-    const3 = prim std_const(6,0);
-    const4 = prim std_const(6,31);
-    const5 = prim std_const(6,1);
+    const0 = prim std_const(6, 0);
+    const1 = prim std_const(6, 31);
+    const2 = prim std_const(6, 1);
+    const3 = prim std_const(6, 0);
+    const4 = prim std_const(6, 31);
+    const5 = prim std_const(6, 1);
     i0 = prim std_reg(6);
-    i1 = prim std_reg(6);
     le0 = prim std_le(6);
     le1 = prim std_le(6);
   }
@@ -29,19 +26,18 @@ component kernel() -> () {
     }
     group cond1<"static"=0> {
       cond1[done] = 1'd1;
-      le1.left = i1.out;
+      le1.left = i0.out;
       le1.right = const4.out;
     }
-    // in the general case, we don't know if i0.done came from inside group or out of it
     group let0<"static"=1> {
       i0.in = const0.out;
       i0.write_en = 1'd1;
       let0[done] = i0.done;
     }
     group let1<"static"=1> {
-      i1.in = const3.out;
-      i1.write_en = 1'd1;
-      let1[done] = i1.done;
+      i0.in = const3.out;
+      i0.write_en = 1'd1;
+      let1[done] = i0.done;
     }
     group upd0<"static"=1> {
       A_read0_0.write_en = 1'd1;
@@ -75,25 +71,26 @@ component kernel() -> () {
       upd4[done] = i0.done;
     }
     group upd5<"static"=1> {
-      C_read0_0.write_en = 1'd1;
-      C0.addr0 = i1.out;
-      C_read0_0.in = C0.read_data;
-      upd5[done] = C_read0_0.done;
+      A_read0_0.write_en = 1'd1;
+      C0.addr0 = i0.out;
+      A_read0_0.in = C0.read_data;
+      upd5[done] = A_read0_0.done;
     }
     group upd6<"static"=1> {
-      B0.addr0 = i1.out;
+      B0.addr0 = i0.out;
       B0.write_en = 1'd1;
-      B0.write_data = C_read0_0.out;
+      B0.write_data = A_read0_0.out;
       upd6[done] = B0.done;
     }
     group upd7<"static"=1> {
-      i1.write_en = 1'd1;
-      add1.left = i1.out;
+      i0.write_en = 1'd1;
+      add1.left = i0.out;
       add1.right = const5.out;
-      i1.in = add1.out;
-      upd7[done] = i1.done;
+      i0.in = add1.out;
+      upd7[done] = i0.done;
     }
   }
+
   control {
     seq {
       let0;
@@ -109,11 +106,11 @@ component kernel() -> () {
         }
       }
       let1;
-      while le1.out with cond1 { // read i1
+      while le1.out with cond1 {
         seq {
-          upd5; // write C_read0_0, read i1
-          upd6; // read i1, read C_read0_0
-          upd7; // read i1, write i1
+          upd5;
+          upd6;
+          upd7;
         }
       }
     }

@@ -42,6 +42,8 @@ impl Data {
     }
 }
 
+pub type ComponentLiveRange = HashMap<ir::Id, HashSet<ir::Id>>;
+
 /// Computes the control statements that a stateful cell is 'live' for.
 ///
 /// Each group has a `writes-to` and `reads-from` list.
@@ -51,18 +53,27 @@ impl Data {
 /// A stateful cell is live if it is read from before it is written to again.
 #[derive(Default)]
 pub struct LiveRangeAnalysis {
+    /// A map from component names to live ranges
+    component_lives: HashMap<ir::Id, ComponentLiveRange>,
     /// The variables that are live at this statement
-    live: HashMap<ir::Id, HashSet<ir::Id>>,
+    live: ComponentLiveRange,
 }
 
 impl LiveRangeAnalysis {
     /// Look up the set of things live at a group definition.
-    pub fn get(&self, group: &ir::Group) -> &HashSet<ir::Id> {
-        &self.live[&group.name]
+    pub fn get(
+        &self,
+        component: &ir::Id,
+        group: &ir::Group,
+    ) -> &HashSet<ir::Id> {
+        &self.component_lives[component][&group.name]
     }
 
-    pub fn get_all(&self) -> impl Iterator<Item = ir::Id> + '_ {
-        self.live
+    pub fn get_all(
+        &self,
+        component: &ir::Id,
+    ) -> impl Iterator<Item = ir::Id> + '_ {
+        self.component_lives[component]
             .iter()
             .map(|(_name, set)| set.iter())
             .flatten()
@@ -161,6 +172,28 @@ impl Named for LiveRangeAnalysis {
 }
 
 impl Visitor<Data> for LiveRangeAnalysis {
+    fn start(
+        &mut self,
+        _comp: &mut Component,
+        _sigs: &lib::LibrarySignatures,
+    ) -> VisResult<Data> {
+        // for each component, we want a separate live map
+        self.live = HashMap::new();
+        Ok(Action::continue_default())
+    }
+
+    fn finish(
+        &mut self,
+        data: Data,
+        comp: &mut Component,
+        _sigs: &lib::LibrarySignatures,
+    ) -> VisResult<Data> {
+        // move the lives into the component version
+        self.component_lives
+            .insert(comp.name.clone(), self.live.drain().collect());
+        Ok(Action::continue_with(data))
+    }
+
     fn start_seq(
         &mut self,
         seq: &mut ir::Seq,
