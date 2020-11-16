@@ -23,7 +23,7 @@ impl MinimizeRegs {
     pub fn new(live: LiveRangeAnalysis) -> Self {
         MinimizeRegs {
             live,
-            graph: GraphColoring::new(),
+            graph: GraphColoring::default(),
         }
     }
 }
@@ -47,9 +47,8 @@ impl Visitor<()> for MinimizeRegs {
     ) -> VisResult<()> {
         // XXX(sam) can move this to work on definitions rather than enables
         let conflicts = self.live.get(&comp.name, &enable.group.borrow());
-        self.graph.insert_conflicts(
-            &conflicts.into_iter().cloned().collect::<Vec<_>>(),
-        );
+        self.graph
+            .insert_conflicts(&conflicts.iter().cloned().collect::<Vec<_>>());
 
         Ok(Action::continue_default())
     }

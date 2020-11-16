@@ -34,7 +34,7 @@ impl VariableDetection {
             .writes_to(&cell.get("write_en").borrow())
             .map(|src| src.borrow().is_constant(1))
             .collect::<Vec<_>>();
-        if activation.len() != 1 || (activation.len() > 0 && !activation[0]) {
+        if activation.len() != 1 || (!activation.is_empty() && !activation[0]) {
             // failed write_en check
             return None;
         }
@@ -44,7 +44,7 @@ impl VariableDetection {
             .writes_to(&group.get("done").borrow())
             .map(|src| src.borrow().get_parent_name() == cell.name)
             .collect::<Vec<_>>();
-        if activation.len() != 1 || (activation.len() > 0 && !activation[0]) {
+        if activation.len() != 1 || (!activation.is_empty() && !activation[0]) {
             // failed g[done] = reg.done check
             return None;
         }

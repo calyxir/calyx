@@ -6,31 +6,33 @@ pub struct GraphColoring<T: Eq + Hash> {
     index_map: HashMap<T, NodeIndex>,
 }
 
-impl<T: Eq + Hash + Clone + std::fmt::Debug> GraphColoring<T> {
-    pub fn new() -> Self {
+impl<T: Eq + Hash> Default for GraphColoring<T> {
+    fn default() -> Self {
         GraphColoring {
             graph: Graph::new(),
             index_map: HashMap::new(),
         }
     }
+}
 
+impl<T: Eq + Hash + Clone + std::fmt::Debug> GraphColoring<T> {
     pub fn insert_conflict(&mut self, a: T, b: T) {
         // we don't need to add self edges, but we still want the node
         if a == b {
-            self.index_map
-                .entry(a.clone())
-                .or_insert(self.graph.add_node(a));
+            if !self.index_map.contains_key(&a) {
+                self.index_map.insert(a.clone(), self.graph.add_node(a));
+            }
             return;
         }
 
-        let a_node: NodeIndex = **&self
-            .index_map
-            .entry(a.clone())
-            .or_insert(self.graph.add_node(a));
-        let b_node = **&self
-            .index_map
-            .entry(b.clone())
-            .or_insert(self.graph.add_node(b));
+        let a_node: NodeIndex = match self.index_map.get(&a) {
+            Some(node) => *node,
+            None => self.graph.add_node(a),
+        };
+        let b_node: NodeIndex = match self.index_map.get(&b) {
+            Some(node) => *node,
+            None => self.graph.add_node(b),
+        };
         self.graph.add_edge(a_node, b_node, ());
     }
 

@@ -264,7 +264,7 @@ impl Visitor<Data> for LiveRangeAnalysis {
         comp: &mut Component,
         sigs: &lib::LibrarySignatures,
     ) -> VisResult<Data> {
-        let mut start = alive.clone();
+        let mut start = alive;
         let mut next;
 
         loop {
