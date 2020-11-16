@@ -45,7 +45,7 @@ component kernel() -> () {
       par {
         let1;
         let2;
-        // let3;
+        let3;
       }
       let4;
     }

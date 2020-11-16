@@ -44,10 +44,6 @@ impl Visitor<()> for MinimizeRegs {
         _comp: &mut Component,
         _sigs: &lib::LibrarySignatures,
     ) -> VisResult<()> {
-        let name = &enable.group.borrow().name;
-        eprintln!("{}", name.to_string());
-        eprintln!("  {:?}", self.live.get(&enable.group.borrow()));
-
         let conflicts = self.live.get(&enable.group.borrow());
         self.graph.insert_conflicts(
             &conflicts.into_iter().cloned().collect::<Vec<_>>(),
@@ -59,12 +55,39 @@ impl Visitor<()> for MinimizeRegs {
     fn finish(
         &mut self,
         _data: (),
-        _comp: &mut Component,
-        _sigs: &lib::LibrarySignatures,
+        comp: &mut Component,
+        sigs: &lib::LibrarySignatures,
     ) -> VisResult<()> {
-        eprintln!("{:?}", self.live.get_all().collect::<Vec<_>>());
         let ordering = self.live.get_all();
-        eprintln!("{:#?}", self.graph.color_greedy_with(ordering));
+        let coloring_id: Vec<(_, _)> = self
+            .graph
+            .color_greedy_with(ordering)
+            .into_iter()
+            .filter(|(a, b)| a != b)
+            .collect();
+        eprintln!("{:#?}", coloring_id);
+
+        let coloring: Vec<_> = coloring_id
+            .into_iter()
+            .map(|(a, b)| {
+                (comp.find_cell(&a).unwrap(), comp.find_cell(&b).unwrap())
+            })
+            .collect();
+
+        let builder = ir::Builder::from(comp, sigs, false);
+
+        for group_ref in &builder.component.groups {
+            let mut group = group_ref.borrow_mut();
+            let mut assigns: Vec<_> = group.assignments.drain(..).collect();
+            builder.rename_port_uses(&coloring, &mut assigns);
+            group.assignments = assigns;
+        }
+
+        let mut assigns: Vec<_> =
+            builder.component.continuous_assignments.drain(..).collect();
+        builder.rename_port_uses(&coloring, &mut assigns);
+        builder.component.continuous_assignments = assigns;
+
         Ok(Action::continue_default())
     }
 }

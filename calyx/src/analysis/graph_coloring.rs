@@ -6,7 +6,7 @@ pub struct GraphColoring<T: Eq + Hash> {
     index_map: HashMap<T, NodeIndex>,
 }
 
-impl<T: Eq + Hash + Clone> GraphColoring<T> {
+impl<T: Eq + Hash + Clone + std::fmt::Debug> GraphColoring<T> {
     pub fn new() -> Self {
         GraphColoring {
             graph: Graph::new(),
@@ -15,8 +15,11 @@ impl<T: Eq + Hash + Clone> GraphColoring<T> {
     }
 
     pub fn insert_conflict(&mut self, a: T, b: T) {
-        // we don't need to add self edges
+        // we don't need to add self edges, but we still want the node
         if a == b {
+            self.index_map
+                .entry(a.clone())
+                .or_insert(self.graph.add_node(a));
             return;
         }
 
@@ -54,6 +57,7 @@ impl<T: Eq + Hash + Clone> GraphColoring<T> {
             available_colors.iter_mut().for_each(|(_, b)| *b = false);
 
             // search neighbors for used colors
+            eprintln!("{:?}", &node);
             for nbr in self.graph.neighbors(self.index_map[&node]) {
                 let item = &self.graph[nbr];
                 // if the neighbor is already colored
