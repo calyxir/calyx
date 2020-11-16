@@ -56,8 +56,18 @@ pub struct LiveRangeAnalysis {
 }
 
 impl LiveRangeAnalysis {
+    /// Look up the set of things live at a group definition.
     pub fn get(&self, group: &ir::Group) -> &HashSet<ir::Id> {
         &self.live[&group.name]
+    }
+
+    pub fn get_all(&self) -> impl Iterator<Item = ir::Id> + '_ {
+        self.live
+            .iter()
+            .map(|(_name, set)| set.iter())
+            .flatten()
+            .unique()
+            .cloned()
     }
 
     /// Compute the `gen` and `kill` sets for a given group definition. Because
@@ -248,7 +258,6 @@ impl Visitor<Data> for LiveRangeAnalysis {
         _comp: &mut Component,
         _sigs: &lib::LibrarySignatures,
     ) -> VisResult<Data> {
-        let name = enable.group.borrow().name.to_string();
         // no reason to compute this every time
         let (reads, writes) =
             LiveRangeAnalysis::find_gen_kill(Rc::clone(&enable.group));

@@ -1,8 +1,11 @@
 use super::LiveRangeAnalysis;
 use crate::frontend::library::ast as lib;
-use crate::ir::{
-    self,
-    traversal::{Named, Visitor},
+use crate::{
+    analysis::GraphColoring,
+    ir::{
+        self,
+        traversal::{Named, Visitor},
+    },
 };
 use ir::{
     traversal::{Action, VisResult},
@@ -12,11 +15,15 @@ use ir::{
 /// Minimize use of registers
 pub struct MinimizeRegs {
     live: LiveRangeAnalysis,
+    graph: GraphColoring<ir::Id>,
 }
 
 impl MinimizeRegs {
     pub fn new(live: LiveRangeAnalysis) -> Self {
-        MinimizeRegs { live }
+        MinimizeRegs {
+            live,
+            graph: GraphColoring::new(),
+        }
     }
 }
 
@@ -41,6 +48,23 @@ impl Visitor<()> for MinimizeRegs {
         eprintln!("{}", name.to_string());
         eprintln!("  {:?}", self.live.get(&enable.group.borrow()));
 
+        let conflicts = self.live.get(&enable.group.borrow());
+        self.graph.insert_conflicts(
+            &conflicts.into_iter().cloned().collect::<Vec<_>>(),
+        );
+
+        Ok(Action::continue_default())
+    }
+
+    fn finish(
+        &mut self,
+        _data: (),
+        _comp: &mut Component,
+        _sigs: &lib::LibrarySignatures,
+    ) -> VisResult<()> {
+        eprintln!("{:?}", self.live.get_all().collect::<Vec<_>>());
+        let ordering = self.live.get_all();
+        eprintln!("{:#?}", self.graph.color_greedy_with(ordering));
         Ok(Action::continue_default())
     }
 }
