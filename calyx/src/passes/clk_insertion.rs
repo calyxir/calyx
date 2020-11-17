@@ -20,12 +20,12 @@ impl Named for ClkInsertion {
     }
 }
 
-impl Visitor for ClkInsertion {
+impl Visitor<()> for ClkInsertion {
     fn start(
         &mut self,
         comp: &mut ir::Component,
         sigs: &lib::LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         let builder = ir::Builder::from(comp, sigs, false);
 
         for cell_ref in &builder.component.cells {
@@ -42,6 +42,6 @@ impl Visitor for ClkInsertion {
         }
 
         // we don't need to traverse control
-        Ok(Action::Stop)
+        Ok(Action::stop_default())
     }
 }
