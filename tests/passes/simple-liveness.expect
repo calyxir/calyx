@@ -7,7 +7,7 @@ component kernel(go: 1, clk: 1) -> (done: 1) {
     const1 = prim std_const(4, 1);
     const2 = prim std_const(32, 1);
     const3 = prim std_const(32, 1);
-    z_0 = prim std_reg(4);
+    x_0 = prim std_reg(4);
   }
   wires {
     group let0<"static"=1> {
@@ -16,9 +16,9 @@ component kernel(go: 1, clk: 1) -> (done: 1) {
       let0[done] = before_0.done;
     }
     group let1<"static"=1> {
-      before_0.in = const1.out;
-      before_0.write_en = 1'd1;
-      let1[done] = before_0.done;
+      x_0.in = const1.out;
+      x_0.write_en = 1'd1;
+      let1[done] = x_0.done;
     }
     group let2<"static"=1> {
       b_0.in = const2.out;
@@ -31,9 +31,9 @@ component kernel(go: 1, clk: 1) -> (done: 1) {
       let3[done] = b_0.done;
     }
     group let4<"static"=1> {
-      z_0.in = before_0.out;
-      z_0.write_en = 1'd1;
-      let4[done] = z_0.done;
+      before_0.in = x_0.out;
+      before_0.write_en = 1'd1;
+      let4[done] = before_0.done;
     }
   }
 

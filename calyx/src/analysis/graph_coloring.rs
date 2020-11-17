@@ -1,15 +1,19 @@
-use petgraph::{graph::NodeIndex, Graph};
+use itertools::Itertools;
+use petgraph::{
+    graph::{NodeIndex, UnGraph},
+    Graph,
+};
 use std::{collections::HashMap, hash::Hash};
 
 pub struct GraphColoring<T: Eq + Hash> {
-    graph: Graph<T, ()>,
+    graph: UnGraph<T, ()>,
     index_map: HashMap<T, NodeIndex>,
 }
 
 impl<T: Eq + Hash> Default for GraphColoring<T> {
     fn default() -> Self {
         GraphColoring {
-            graph: Graph::new(),
+            graph: Graph::new_undirected(),
             index_map: HashMap::new(),
         }
     }
@@ -27,13 +31,15 @@ impl<T: Eq + Hash + Clone + std::fmt::Debug> GraphColoring<T> {
 
         let a_node: NodeIndex = match self.index_map.get(&a) {
             Some(node) => *node,
-            None => self.graph.add_node(a),
+            None => self.graph.add_node(a.clone()),
         };
         let b_node: NodeIndex = match self.index_map.get(&b) {
             Some(node) => *node,
-            None => self.graph.add_node(b),
+            None => self.graph.add_node(b.clone()),
         };
-        self.graph.add_edge(a_node, b_node, ());
+        self.index_map.insert(a, a_node);
+        self.index_map.insert(b, b_node);
+        self.graph.update_edge(a_node, b_node, ());
     }
 
     pub fn insert_conflicts(&mut self, items: &[T]) {
@@ -90,5 +96,38 @@ impl<T: Eq + Hash + Clone + std::fmt::Debug> GraphColoring<T> {
         }
 
         coloring
+    }
+}
+
+impl<T: Eq + Hash + ToString> ToString for GraphColoring<T> {
+    fn to_string(&self) -> String {
+        let keys: Vec<_> = self.index_map.keys().collect();
+        let nodes = keys
+            .iter()
+            .enumerate()
+            .map(|(_idx, key)| {
+                format!(
+                    "  {} [label=\"{}\"];",
+                    key.to_string(),
+                    key.to_string()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let edges = self
+            .graph
+            .edge_indices()
+            .filter_map(|idx| self.graph.edge_endpoints(idx))
+            .unique()
+            .map(|(a_idx, b_idx)| {
+                format!(
+                    "  {} -- {};",
+                    self.graph[a_idx].to_string(),
+                    self.graph[b_idx].to_string()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        format!("graph {{ \n{}\n{}\n }}", nodes, edges)
     }
 }

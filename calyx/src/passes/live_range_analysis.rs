@@ -26,8 +26,11 @@ pub struct Data {
     gen: HashSet<ir::Id>,
     /// Represents the registers that are killed by this control statement.
     kill: HashSet<ir::Id>,
-    /// Represents the registers that are live at this control statement
+    /// Represents the registers that are live at this control statement.
     live: HashSet<ir::Id>,
+    /// Keeps track of registers alive in par statements so that they can
+    /// be shared between siblings.
+    local_live: HashSet<ir::Id>,
 }
 
 impl BitOr<&Data> for &Data {
@@ -37,6 +40,7 @@ impl BitOr<&Data> for &Data {
             gen: &self.gen | &rhs.gen,
             kill: &self.kill | &rhs.kill,
             live: &self.live | &rhs.live,
+            local_live: &self.local_live | &rhs.local_live,
         }
     }
 }
@@ -119,6 +123,14 @@ impl LiveRangeAnalysis {
                 .filter(|asgn| {
                     !(asgn.src.borrow().get_parent_name() == variable
                         && asgn.src.borrow().name == "done")
+                })
+                .filter(|asgn| {
+                    if let ir::Guard::Port(port) = &asgn.guard {
+                        !(port.borrow().get_parent_name() == variable
+                            && port.borrow().name == "done")
+                    } else {
+                        true
+                    }
                 })
                 .cloned()
                 .collect::<Vec<_>>();
@@ -227,7 +239,20 @@ impl Visitor<Data> for LiveRangeAnalysis {
     ) -> VisResult<Data> {
         // drain gens so that we don't mix them with the gens we gather from the par
         data.gen.drain();
+        // record the things locally live coming into this par.
+        // we first visit our children without the local lives
+        // to gather the local lives they generate. we then pass
+        // the union of the local lives to the children as we visit
+        // them again. this has the effect of communicating live registers
+        // between siblings in a par.
+        let saved = data.local_live.drain().collect::<HashSet<_>>();
         let mut par_data = data.clone();
+        for child in par.stmts.iter_mut() {
+            par_data =
+                &par_data | &child.visit(self, data.clone(), comp, sigs)?.data;
+        }
+
+        let data = par_data.clone();
         for child in par.stmts.iter_mut() {
             par_data =
                 &par_data | &child.visit(self, data.clone(), comp, sigs)?.data;
@@ -237,6 +262,11 @@ impl Visitor<Data> for LiveRangeAnalysis {
         //  - gen = union(gen(children))
         //  - kill = union(kill(children))
         par_data = par_data.transfer();
+
+        // we remove registers that we killed from the local live and recombine
+        // it with the saved local lives so that an pars above this one have
+        // the correct local lives.
+        par_data.local_live = &(&par_data.local_live - &par_data.kill) | &saved;
 
         Ok(Action::skipchildren_with(par_data))
     }
@@ -309,11 +339,14 @@ impl Visitor<Data> for LiveRangeAnalysis {
         // compute transfer function
         alive = alive.transfer();
 
+        // add things live out of this enable to the local lives.
+        alive.local_live = &alive.local_live | &alive.live;
+
         // set the live set of this node to be the things live on the output of this node
         // plus the things written to in this group
         self.live.insert(
             enable.group.borrow().name.clone(),
-            &alive.live | &alive.kill,
+            &(&alive.live | &alive.kill) | &alive.local_live,
         );
 
         Ok(Action::continue_with(alive))

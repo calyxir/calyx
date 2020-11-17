@@ -42,6 +42,7 @@ impl VariableDetection {
         // check to see if `reg.done` is written into `g[done]`
         let activation = graph
             .writes_to(&group.get("done").borrow())
+            .filter(|src| !src.borrow().is_constant(1))
             .map(|src| src.borrow().get_parent_name() == cell.name)
             .collect::<Vec<_>>();
         if activation.len() != 1 || (!activation.is_empty() && !activation[0]) {
