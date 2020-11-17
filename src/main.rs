@@ -148,6 +148,7 @@ fn main() -> FutilResult<()> {
         &libraries,
         namespace.libraries,
         opts.enable_debug,
+        opts.enable_synthesis,
     )?;
 
     // Run all passes specified by the command line

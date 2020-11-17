@@ -16,6 +16,8 @@ pub struct Context {
     pub lib_sigs: HashMap<Id, library::ast::Primitive>,
     /// Enable debug mode logging.
     pub debug_mode: bool,
+    /// Enables synthesis mode.
+    pub synthesis_mode: bool,
 }
 
 impl Context {
