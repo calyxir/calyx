@@ -273,11 +273,11 @@ primitive std_const<"share"=1>[width, value]() -> (out: width) {
 primitive std_slice<"share"=1>[in_width, out_width](in: in_width) -> (out: out_width) {
   verilog {
     module std_slice
-      #(parameter IN_WIDTH = 32,
-        parameter OUT_WIDTH = 32)
-      (input  logic [IN_WIDTH-1:0] in,
-       output logic [OUT_WIDTH-1:0] out);
-      assign out = in[OUT_WIDTH-1:0];
+      #(parameter in_width = 32,
+        parameter out_width = 32)
+      (input  logic [in_width-1:0] in,
+       output logic [out_width-1:0] out);
+      assign out = in[out_width-1:0];
     endmodule
   }
 }
@@ -825,19 +825,19 @@ primitive fixed_p_std_div[width, int_width, fract_width](left: width, right: wid
 }
 
 // the bigger integer bit always comes left, one with bigger fractional bit comes right
-primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, fract_width2, out_width] (left: width, right: width) 
+primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, fract_width2, out_width] (left: width, right: width)
 ->(out: out_width){
     verilog {
       module fixed_p_std_add_dbit
         #(parameter width= 32,
-        parameter int_width1 = 8, 
+        parameter int_width1 = 8,
         parameter fract_width1 = 24,
         parameter int_width2 = 4,
         parameter fract_width2 =28,
         parameter out_width = 36)
 
-        (input logic [width-1:0] left, 
-        input logic [width-1:0] right, 
+        (input logic [width-1:0] left,
+        input logic [width-1:0] right,
         output logic [out_width-1:0] out);
 
         logic [int_width1-1:0] left_int;

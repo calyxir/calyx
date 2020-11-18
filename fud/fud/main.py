@@ -48,7 +48,7 @@ def register_stages(registry, config):
 
     # FuTIL
     registry.register(
-        futil.FutilStage(config, 'verilog', '-b verilog --verilator',
+        futil.FutilStage(config, 'verilog', '-b verilog',
                          'Compile FuTIL to Verilog instrumented for simulation'))
     registry.register(
         futil.FutilStage(config, 'futil-lowered', '-b futil',
