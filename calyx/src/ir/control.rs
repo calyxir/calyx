@@ -85,27 +85,27 @@ pub enum Control {
 }
 
 impl Control {
-    /// Convience constructor for empty.
+    /// Convenience constructor for empty.
     pub fn empty() -> Self {
         Control::Empty(Empty {})
     }
 
-    /// Convience constructor for seq.
+    /// Convenience constructor for seq.
     pub fn seq(stmts: Vec<Control>) -> Self {
         Control::Seq(Seq { stmts })
     }
 
-    /// Convience constructor for par.
+    /// Convenience constructor for par.
     pub fn par(stmts: Vec<Control>) -> Self {
         Control::Par(Par { stmts })
     }
 
-    /// Convience constructor for par.
+    /// Convenience constructor for par.
     pub fn enable(group: RRC<Group>) -> Self {
         Control::Enable(Enable { group })
     }
 
-    /// Convience constructor for if
+    /// Convenience constructor for if
     pub fn if_(
         port: RRC<Port>,
         cond: RRC<Group>,
@@ -120,7 +120,7 @@ impl Control {
         })
     }
 
-    /// Convience constructor for while
+    /// Convenience constructor for while
     pub fn while_(
         port: RRC<Port>,
         cond: RRC<Group>,

@@ -16,7 +16,7 @@ use passes::{
     ClkInsertion, CollapseControl, CompileControl, CompileEmpty,
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion, Inliner,
     LiveRangeAnalysis, MinimizeRegs, Papercut, RemoveExternalMemories,
-    ResourceSharing, StaticTiming, WellFormed,
+    ResourceSharing, StaticTiming, WellFormed, IfElseSpec
 };
 use std::io::stdin;
 use structopt::StructOpt;
@@ -29,6 +29,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
 
     // Register passes.
     register_pass!(pm, WellFormed);
+    register_pass!(pm, IfElseSpec);
     register_pass!(pm, StaticTiming);
     register_pass!(pm, CompileControl);
     register_pass!(pm, GoInsertion);
@@ -58,6 +59,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
         pm,
         "all",
         [
+            IfElseSpec,
             WellFormed,
             Papercut,
             RemoveExternalMemories,
