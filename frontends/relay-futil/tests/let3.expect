@@ -76,15 +76,16 @@ component tensor1d_multiply(go: 1, clk: 1, c0_read_data: 32, c0_done: 1, d0_read
     }
   }
 }
-component tensor1d_add(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data: 32, c0_done: 1, d0_read_data: 32, d0_done: 1) -> (done: 1, a0_addr0: 1, a0_write_data: 32, a0_write_en: 1, a0_clk: 1, c0_addr0: 1, c0_write_data: 32, c0_write_en: 1, c0_clk: 1, d0_addr0: 1, d0_write_data: 32, d0_write_en: 1, d0_clk: 1) {
+component tensor1d_divide(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data: 32, c0_done: 1, d0_read_data: 32, d0_done: 1) -> (done: 1, a0_addr0: 1, a0_write_data: 32, a0_write_en: 1, a0_clk: 1, c0_addr0: 1, c0_write_data: 32, c0_write_en: 1, c0_clk: 1, d0_addr0: 1, d0_write_data: 32, d0_write_en: 1, d0_clk: 1) {
   cells {
     a_read0_0 = prim std_reg(32);
-    add0 = prim std_add(32);
-    add1 = prim std_add(1);
+    add0 = prim std_add(1);
+    bin_read0_0 = prim std_reg(32);
     c_read0_0 = prim std_reg(32);
     const0 = prim std_const(1, 0);
     const1 = prim std_const(1, 0);
     const2 = prim std_const(1, 1);
+    div_pipe0 = prim std_div_pipe(32);
     i0 = prim std_reg(1);
     le0 = prim std_le(1);
   }
@@ -98,6 +99,14 @@ component tensor1d_add(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data
       i0.in = const0.out;
       i0.write_en = 1'd1;
       let0[done] = i0.done;
+    }
+    group let1<> {
+      bin_read0_0.in = div_pipe0.out;
+      bin_read0_0.write_en = div_pipe0.done;
+      let1[done] = bin_read0_0.done;
+      div_pipe0.left = c_read0_0.out;
+      div_pipe0.right = a_read0_0.out;
+      div_pipe0.go = !div_pipe0.done ? 1'd1;
     }
     group upd0<"static"=1> {
       c_read0_0.write_en = 1'd1;
@@ -114,16 +123,14 @@ component tensor1d_add(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data
     group upd2<"static"=1> {
       d0_addr0 = i0.out;
       d0_write_en = 1'd1;
-      add0.left = c_read0_0.out;
-      add0.right = a_read0_0.out;
-      d0_write_data = 1'd1 ? add0.out;
+      d0_write_data = 1'd1 ? bin_read0_0.out;
       upd2[done] = d0_done ? 1'd1;
     }
     group upd3<"static"=1> {
       i0.write_en = 1'd1;
-      add1.left = i0.out;
-      add1.right = const2.out;
-      i0.in = 1'd1 ? add1.out;
+      add0.left = i0.out;
+      add0.right = const2.out;
+      i0.in = 1'd1 ? add0.out;
       upd3[done] = i0.done ? 1'd1;
     }
   }
@@ -137,6 +144,7 @@ component tensor1d_add(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data
             upd0;
             upd1;
           }
+          let1;
           upd2;
           upd3;
         }
@@ -220,7 +228,7 @@ component main () -> () {
     d = prim std_mem_d1(32, 1, 1);
     tensor1d_multiply0 = tensor1d_multiply;
     a = prim std_mem_d1(32, 1, 1);
-    tensor1d_add0 = tensor1d_add;
+    tensor1d_divide0 = tensor1d_divide;
     b = prim std_mem_d1(32, 1, 1);
     tensor1d_subtract0 = tensor1d_subtract;
   }
@@ -237,17 +245,17 @@ component main () -> () {
       tensor1d_subtract0.go = 1'd1;
       run_tensor1d_subtract[done] = tensor1d_subtract0.done ? 1'd1;
     }
-    group run_tensor1d_add {
-      c.addr0 = tensor1d_add0.c0_addr0;
-      tensor1d_add0.c0_read_data = c.read_data;
-      a.addr0 = tensor1d_add0.a0_addr0;
-      tensor1d_add0.a0_read_data = a.read_data;
-      d.addr0 = tensor1d_add0.d0_addr0;
-      d.write_data = tensor1d_add0.d0_write_data;
-      d.write_en = tensor1d_add0.d0_write_en;
-      tensor1d_add0.d0_done = d.done;
-      tensor1d_add0.go = 1'd1;
-      run_tensor1d_add[done] = tensor1d_add0.done ? 1'd1;
+    group run_tensor1d_divide {
+      c.addr0 = tensor1d_divide0.c0_addr0;
+      tensor1d_divide0.c0_read_data = c.read_data;
+      a.addr0 = tensor1d_divide0.a0_addr0;
+      tensor1d_divide0.a0_read_data = a.read_data;
+      d.addr0 = tensor1d_divide0.d0_addr0;
+      d.write_data = tensor1d_divide0.d0_write_data;
+      d.write_en = tensor1d_divide0.d0_write_en;
+      tensor1d_divide0.d0_done = d.done;
+      tensor1d_divide0.go = 1'd1;
+      run_tensor1d_divide[done] = tensor1d_divide0.done ? 1'd1;
     }
     group run_tensor1d_multiply {
       c.addr0 = tensor1d_multiply0.c0_addr0;
@@ -265,7 +273,7 @@ component main () -> () {
   control {
     seq {
       run_tensor1d_subtract;
-      run_tensor1d_add;
+      run_tensor1d_divide;
       run_tensor1d_multiply;
     }
   }

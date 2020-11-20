@@ -26,6 +26,7 @@ class FPrimitive:
     name: str
     data: List[int]
     type: PrimitiveType
+    data_type: str
 
 
 @dataclass
@@ -153,8 +154,6 @@ class FDeclaration:
     Represents a FuTIL declaration.
     '''
     name: str
-    intermediary_inputs: List[Cell] = None
-    intermediary_output: Cell = None
     component: FComponent = None
 
 

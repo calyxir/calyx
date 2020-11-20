@@ -31,7 +31,11 @@ Installation
         cd ../topi/python && python3 setup.py bdist_wheel
         pip3 install --user dist/topi-*.whl
 
-7. Install [Dahlia][], which is used when lowering from Relay to FuTIL.
+7. To run the [MLP net][] and [VGG net][] examples, install `pytest`:
+        
+        pip3 install pytest
+
+8. Install [Dahlia][], which is used when lowering from Relay to FuTIL.
 The `fuse` executable is expected to be on your path. Alternatively, it will check to see if the environment variable `$DAHLIA_EXEC` is set. 
 
 Run an Example
@@ -60,6 +64,8 @@ The Relay text format parser requires ANTLR, so also do this:
 
 Then, just type `runt` to run the tests.
 
+[vgg net]: https://github.com/apache/incubator-tvm/blob/main/python/tvm/relay/testing/vgg.py 
+[mlp net]: https://github.com/apache/incubator-tvm/blob/main/python/tvm/relay/testing/mlp.py
 [dahlia]: https://github.com/cucapra/dahlia#set-it-up
 [tvm]: https://tvm.apache.org
 [tvm-install]: https://tvm.apache.org/docs/install/from_source.html#developers-get-source-from-github

@@ -5,63 +5,71 @@ import sys
 
 
 def add():
-    """Add together two variables in Relay.
-    """
     x = relay.var('x', shape=(), dtype="int32")
     y = relay.var('y', shape=(), dtype="int32")
     return relay.Function([x, y], relay.add(x, y))
 
 
-def tensor_add():
-    """Add together two 2-dimensional tensors in Relay.
-    """
+def tensor_subtract():
     x = relay.var("x", relay.TensorType((2, 4), "int32"))
     y = relay.var("y", relay.TensorType((2, 4), "int32"))
-    return relay.Function([x, y], relay.add(x, y))
+    return relay.Function([x, y], relay.subtract(x, y))
 
 
 def batch_flatten():
-    """Flattens all dimensions except for the batch dimension.
-    """
     x = relay.var("x", relay.TensorType((2, 5, 5), "int32"))
     return relay.Function([x], relay.nn.batch_flatten(x))
 
 
 def batch_matmul():
-    """Add together two 2-dimensional tensors in Relay.
-    """
-    x = relay.var("x", relay.TensorType((1, 3, 2), "int32"))
-    y = relay.var("y", relay.TensorType((1, 2, 3), "int32"))
+    x = relay.var('x', shape=[1, 3, 3], dtype='float32')
+    y = relay.var('y', shape=[1, 3, 3], dtype='float32')
     return relay.Function([x, y], relay.nn.batch_matmul(x, y))
 
 
+def bias_add():
+    x = relay.var('x', shape=[2, 4], dtype='float32')
+    bias = relay.var('bias', shape=[4], dtype='float32')
+    return relay.Function([x, bias], relay.nn.bias_add(data=x, bias=bias))
+
+
+def relu():
+    x = relay.var('x', shape=[2, 4], dtype='int32')
+    return relay.Function([x], relay.nn.relu(x))
+
 def mlp_net():
-    """The MLP test from Relay.
-    """
+    """The MLP test from Relay."""
     from tvm.relay.testing import mlp
     return mlp.get_net(1)
 
 
-ALL_FUNCS = [add, tensor_add, batch_flatten, batch_matmul, mlp_net]
+def vgg_net():
+    """The VGG test from Relay."""
+    from tvm.relay.testing import vgg
+    return vgg.get_net(batch_size=1, image_shape=(3, 224, 224), num_classes=10, dtype='int32', num_layers=11,
+                       batch_norm=True)
+
+
+ALL_FUNCS = [add, tensor_subtract, batch_flatten, batch_matmul, bias_add, relu, mlp_net, vgg_net]
 FUNC_NAMES = list(map(lambda x: x.__name__, ALL_FUNCS))
 
 
-def simple_example():
-    if '-h' in sys.argv[1:]:
-        supported_functions = []
+def run_example():
+    input = sys.argv[1:]
+    if '-h' in input or input == []:
         print("- To see FuTIL output:\n$ python3 example.py <function_name>")
         print("- To see Relay IR:\n$ python3 example.py <function_name> -r")
-        print("\n- Supported function names:")
-        for f in FUNC_NAMES: print(f'    {f}')
+        print("\n- Supported functions:")
+        (lambda x: print(', '.join(x)))(FUNC_NAMES)
         return
     func = None
     # See if the command line contains a function name.
     for option in ALL_FUNCS:
-        if option.__name__ in sys.argv[1:]:
+        if option.__name__ in input:
             func = option()
             break
     if func == None:
-        print("For help:\n$ python3 example.py -h")
+        print(f'Function {input} is not a supported. To see a list of functions:\n$ python3 example.py -h')
         return
 
     # Try optimizing the Relay IR with a few built-in passes.
@@ -71,10 +79,10 @@ def simple_example():
         relay.transform.ToANormalForm(),
     ])
 
-    mod = tvm.IRModule.from_expr(func)
-    mod_opt = seq(mod)
+    mod_opt = tvm.IRModule.from_expr(func)
+    mod_opt = seq(mod_opt)
     func = mod_opt['main']
-    if '-r' in sys.argv[1:]:
+    if '-r' in input:
         # Dump the Relay representation (for educational purposes).
         print(func)
     else:
@@ -83,4 +91,4 @@ def simple_example():
 
 
 if __name__ == '__main__':
-    simple_example()
+    run_example()

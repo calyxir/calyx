@@ -61,9 +61,7 @@ def pp_component(component: FComponent):
             continue
         subcomponents.append(pp_cell(cell))
     cells = mk_block("cells", '\n'.join(subcomponents))
-
     inputs, outputs = pp_component_signature(component)
-
     wires = mk_block("wires", '\n'.join(pp_connections(component)))
 
     controls = "" if component.controls == None else '\n'.join(pp_control(component))
@@ -75,24 +73,27 @@ def pp_component(component: FComponent):
 def pp_cell(cell: FCell):
     if cell.is_primitive():
         data = cell.primitive.data
-        bitwidth = str(data[0])
+        data_type = cell.primitive.data_type
+        if data_type == 'ubit' or data_type == 'bit': bitwidth = str(data[0])
+        # `fix` / `ufix` will have bitwidth form: <TotalWidth, FractWidth>. We only want TotalWidth.
+        if data_type == 'ufix' or data_type == 'fix': bitwidth = str(data[0]).split(',')[0]
         if cell.primitive.type == PrimitiveType.Register:
             return f'{cell.primitive.name} = prim std_reg({bitwidth});'
-        elif cell.primitive.type == PrimitiveType.Constant:
+        if cell.primitive.type == PrimitiveType.Constant:
             value = str(data[1])
             return f'{cell.primitive.name} = prim std_const({bitwidth}, {value});'
-        elif cell.primitive.type == PrimitiveType.Memory1D:
+        if cell.primitive.type == PrimitiveType.Memory1D:
             size = str(data[1])
             index_size = str(data[2])
             return f'{cell.primitive.name} = prim std_mem_d1({bitwidth}, {size}, {index_size});'
-        elif cell.primitive.type == PrimitiveType.Memory2D:
+        if cell.primitive.type == PrimitiveType.Memory2D:
             size0 = str(data[1])
             size1 = str(data[2])
             index_size0 = str(data[3])
             index_size1 = str(data[4])
             return f'{cell.primitive.name} = prim std_mem_d2({bitwidth}, ' \
                    f'{size0}, {size1}, {index_size0}, {index_size1});'
-        elif cell.primitive.type == PrimitiveType.Memory3D:
+        if cell.primitive.type == PrimitiveType.Memory3D:
             size0 = str(data[1])
             size1 = str(data[2])
             size2 = str(data[3])
@@ -101,11 +102,10 @@ def pp_cell(cell: FCell):
             index_size2 = str(data[6])
             return f'{cell.primitive.name} = prim std_mem_d3({bitwidth}, ' \
                    f'{size0}, {size1}, {size2}, {index_size0}, {index_size1}, {index_size2});'
-        elif cell.primitive.type == PrimitiveType.BinOp:
+        if cell.primitive.type == PrimitiveType.BinOp:
             op = data[1]
             return f'{cell.primitive.name} = prim std_{op}({bitwidth});'
-        else:
-            assert False, f'FCell pretty print unimplemented for {cell} with name {cell.primitive.name}'
+        assert False, f'FCell pretty print unimplemented for {cell} with name {cell.primitive.name}'
     elif cell.is_declaration():
         return f'{cell.declaration.name} = {cell.declaration.component.name};'
     elif cell.is_dahlia_declaration():
