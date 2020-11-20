@@ -56,6 +56,7 @@ class Relay2Futil(ExprFunctor):
         if type == PrimitiveType.Memory1D: return dahlia_name
         if type == PrimitiveType.Memory2D: return dahlia_name + "_0"
         if type == PrimitiveType.Memory3D: return dahlia_name + "_0_0"
+        if type == PrimitiveType.Memory4D: return dahlia_name + "_0_0_0"
         assert False, f'{name} with {type} is not supported yet.'
 
     def get_dahlia_declaration(self, function_name, cells, args):
@@ -74,6 +75,8 @@ class Relay2Futil(ExprFunctor):
                 function, name = tensor2d_op, f'tensor2d_{function_name}'
             elif input_type == PrimitiveType.Memory3D:
                 function, name = tensor3d_op, f'tensor3d_{function_name}'
+            elif input_type == PrimitiveType.Memory4D:
+                function, name = tensor4d_op, f'tensor4d_{function_name}'
 
         if function_name == "nn.batch_flatten":
             if input_type == PrimitiveType.Memory3D: function = batch_flatten
@@ -82,7 +85,8 @@ class Relay2Futil(ExprFunctor):
         elif function_name == "nn.bias_add":
             if input_type == PrimitiveType.Memory2D: function = tensor2d_bias_add
         elif function_name == "nn.relu":
-            if input_type == PrimitiveType.Memory2D: function = tensor2d_relu
+            assert input_type == PrimitiveType.Memory2D or input_type == PrimitiveType.Memory4D
+            function = relu
 
         assert function != None, f'{function_name} with type {input_type} is not supported.'
         if name == None: name = function.__name__

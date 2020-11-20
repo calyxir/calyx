@@ -67,6 +67,7 @@ def get_memory_parameters(type):
     if len(tensor_dimensions) == 1: primitive_type = PrimitiveType.Memory1D
     if len(tensor_dimensions) == 2: primitive_type = PrimitiveType.Memory2D
     if len(tensor_dimensions) == 3: primitive_type = PrimitiveType.Memory3D
+    if len(tensor_dimensions) == 4: primitive_type = PrimitiveType.Memory4D
     return data, primitive_type, data_type
 
 

@@ -10,6 +10,7 @@ class PrimitiveType(Enum):
     Memory1D = 3
     Memory2D = 4
     Memory3D = 5
+    Memory4D = 6
 
 
 class ControlType(Enum):

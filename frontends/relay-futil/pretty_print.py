@@ -102,6 +102,17 @@ def pp_cell(cell: FCell):
             index_size2 = str(data[6])
             return f'{cell.primitive.name} = prim std_mem_d3({bitwidth}, ' \
                    f'{size0}, {size1}, {size2}, {index_size0}, {index_size1}, {index_size2});'
+        if cell.primitive.type == PrimitiveType.Memory4D:
+            size0 = str(data[1])
+            size1 = str(data[2])
+            size2 = str(data[3])
+            size3 = str(data[4])
+            index_size0 = str(data[4])
+            index_size1 = str(data[5])
+            index_size2 = str(data[6])
+            index_size3 = str(data[7])
+            return f'{cell.primitive.name} = prim std_mem_d4({bitwidth}, ' \
+                   f'{size0}, {size1}, {size2}, {size3}, {index_size0}, {index_size1}, {index_size2}, {index_size3});'
         if cell.primitive.type == PrimitiveType.BinOp:
             op = data[1]
             return f'{cell.primitive.name} = prim std_{op}({bitwidth});'
