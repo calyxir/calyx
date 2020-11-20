@@ -54,6 +54,7 @@ pub fn ast_to_ir(
     libraries: &[library::ast::Library],
     import_statements: Vec<String>,
     debug_mode: bool,
+    synthesis_mode: bool,
 ) -> FutilResult<Context> {
     // Build the signature context
     let mut sig_ctx = SigCtx::default();
@@ -87,6 +88,7 @@ pub fn ast_to_ir(
         lib_sigs: sig_ctx.lib_sigs,
         import_statements,
         debug_mode,
+        synthesis_mode,
     })
 }
 

@@ -15,8 +15,8 @@ use pass_manager::PassManager;
 use passes::{
     ClkInsertion, CollapseControl, CompileControl, CompileEmpty,
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion, Inliner,
-    Papercut, RemoveExternalMemories, ResourceSharing, StaticTiming,
-    WellFormed,
+    LiveRangeAnalysis, MinimizeRegs, Papercut, RemoveExternalMemories,
+    ResourceSharing, StaticTiming, WellFormed,
 };
 use std::io::stdin;
 use structopt::StructOpt;
@@ -44,6 +44,14 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
     register_pass!(pm, ResourceSharing);
     register_pass!(pm, DeadCellRemoval);
 
+    // custom register pass
+    let register_removal_pass_f: pass_manager::PassClosure = Box::new(|ctx| {
+        let analysis = LiveRangeAnalysis::do_pass_default(ctx)?;
+        MinimizeRegs::new(analysis).do_pass(ctx)?;
+        Ok(())
+    });
+    pm.add_pass(MinimizeRegs::name().to_string(), register_removal_pass_f)?;
+
     // Register aliases
     // TODO: Add resource sharing.
     register_alias!(
@@ -54,6 +62,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
             Papercut,
             RemoveExternalMemories,
             ResourceSharing,
+            MinimizeRegs,
             CompileEmpty,
             CollapseControl,
             StaticTiming,
@@ -74,6 +83,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
             WellFormed,
             Papercut,
             ResourceSharing,
+            MinimizeRegs,
             CompileEmpty,
             CollapseControl,
             CompileControl,
@@ -138,6 +148,7 @@ fn main() -> FutilResult<()> {
         &libraries,
         namespace.libraries,
         opts.enable_debug,
+        opts.enable_synthesis,
     )?;
 
     // Run all passes specified by the command line

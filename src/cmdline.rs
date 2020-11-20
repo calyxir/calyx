@@ -34,9 +34,9 @@ pub struct Opts {
     #[structopt(long = "debug")]
     pub enable_debug: bool,
 
-    /// Enable Verilator mode.
-    #[structopt(long = "verilator")]
-    pub enable_verilator: bool,
+    /// Enable synthesis mode.
+    #[structopt(long = "synthesis")]
+    pub enable_synthesis: bool,
 
     /// Select a backend.
     #[structopt(short = "b", long = "backend", default_value)]
