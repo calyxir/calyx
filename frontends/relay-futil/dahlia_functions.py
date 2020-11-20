@@ -91,7 +91,6 @@ def tensor3d_op(declaration):
     }}"""
     return lower_dahlia_program(program, declaration.component_name)
 
-
 def tensor4d_op(declaration):
     op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
     bitwidth, size0, size1, size2, size3 = op1.data[0], op1.data[1], op1.data[2], op1.data[3], op1.data[4]
