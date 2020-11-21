@@ -64,7 +64,7 @@ class Relay2Futil(ExprFunctor):
                              PrimitiveType.Memory3D: '_0_0', PrimitiveType.Memory4D: '_0_0_0'}
         dahlia_name = self.id(name)
         assert type in DahliaNameMapping, f'{name} with {type} is not supported yet.'
-        return DahliaNameMapping[type]
+        return dahlia_name + DahliaNameMapping[type]
 
     def get_dahlia_declaration(self, function_name, cells, args):
         """
