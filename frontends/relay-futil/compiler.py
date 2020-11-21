@@ -103,7 +103,8 @@ class Relay2Futil(ExprFunctor):
 
     def visit_constant(self, const):
         type, shape = const.data.dtype, const.data.shape
-        name, data, data_type = self.id("const"), [get_bitwidth(type), int(const.data.asnumpy())], get_type(type)
+        name, data = self.id("const"), [get_bitwidth(type), int(const.data.asnumpy())]
+        data_type = get_memory_parameters(type)
         return FCell(primitive=FPrimitive(name=name, data=data, data_type=data_type, type=PrimitiveType.Constant))
 
     def visit_call(self, call):
