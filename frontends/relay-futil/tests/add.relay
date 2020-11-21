@@ -1,6 +1,5 @@
 v0.0.4
-fn (%x: Tensor[(512), int32]) {
-  let %l: int32 = 42;
-  let %z = add(%x, %l);
+fn (%x: int32, %y: int32) {
+  let %z = add(%x, %y);
   %z
 }
