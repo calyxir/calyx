@@ -263,14 +263,15 @@ def expand_dims(declaration):
     bitwidth, size, index_size = data.data[0], data.data[1], data.data[2]
     size0, size1, size2 = res.data[1], res.data[2], res.data[3]
     index_size0, index_size1, index_size2 = res.data[4], res.data[5], res.data[6]
-    program = f"""decl {data.name}: {data.data_type}<{bitwidth}>[{size}];"""
     if axis == 1 and num_newaxis == 2:
-        program += f"""
+        program = f"""
+        decl {data.name}: {data.data_type}<{bitwidth}>[{size}];
         decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}][{size2}];
         for (let i: ubit<{index_size}> = 0..{size}) {{
           {res.name}[i][0][0] := {data.name}[i];
         }}
         """
+    print(program)
     return lower_dahlia_program(program, declaration.component_name)
 
 

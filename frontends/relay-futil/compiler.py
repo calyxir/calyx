@@ -136,7 +136,7 @@ def relay_transforms(expr: Function) -> Function:
         relay.transform.SimplifyInference(),
         relay.transform.InferType()
     ])
-    mod = ir.IRModule()
+    mod = ir.IRModule.from_expr(expr)
     mod['main'] = expr
     mod = transform(mod)
     return mod['main']
@@ -157,5 +157,5 @@ def compile(program) -> str:
 if __name__ == '__main__':
     import sys
 
-    relay_func = relay.fromtext(sys.stdin.read())
-    print(compile(relay_func))
+    relay_function = relay.fromtext(sys.stdin.read())
+    print(compile(relay_function))

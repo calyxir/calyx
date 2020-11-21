@@ -87,13 +87,13 @@ def run_example():
 
     mod_opt = tvm.IRModule.from_expr(func)
     mod_opt = seq(mod_opt)
-    func = mod_opt['main']
+    relay_IR = mod_opt['main']
     if '-r' in input:
         # Dump the Relay representation (for educational purposes).
-        print(func)
+        print(relay_IR)
     else:
         # Compile the function and print the FuTIL.
-        print(compile(func))
+        print(compile(relay_IR))
 
 
 if __name__ == '__main__':
