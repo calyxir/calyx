@@ -258,17 +258,19 @@ def negative(declaration):
 
 def expand_dims(declaration):
     """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.expand_dims"""
-    op1, res = declaration.inputs[0].primitive, declaration.output.primitive
-    bitwidth, size, index_size = op1.data[0], op1.data[1], op1.data[2]
+    axis, num_newaxis = declaration.attributes.get_int("axis"), declaration.attributes.get_int("num_newaxis")
+    data, res = declaration.inputs[0].primitive, declaration.output.primitive
+    bitwidth, size, index_size = data.data[0], data.data[1], data.data[2]
     size0, size1, size2 = res.data[1], res.data[2], res.data[3]
     index_size0, index_size1, index_size2 = res.data[4], res.data[5], res.data[6]
-    program = f"""
-        decl {op1.name}: {op1.data_type}<{bitwidth}>[{size}];
+    program = f"""decl {data.name}: {data.data_type}<{bitwidth}>[{size}];"""
+    if axis == 1 and num_newaxis == 2:
+        program += f"""
         decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}][{size2}];
         for (let i: ubit<{index_size}> = 0..{size}) {{
-          {res.name}[i][0][0] := {op1.name}[i];
+          {res.name}[i][0][0] := {data.name}[i];
         }}
-    """
+        """
     return lower_dahlia_program(program, declaration.component_name)
 
 

@@ -95,11 +95,12 @@ class Relay2Futil(ExprFunctor):
                      primitive=FPrimitive(name=name, data=data, data_type=data_type, type=type))
 
     def visit_let(self, let):
-        output, body, values = self.visit(let.var), self.visit(let.body), self.visit(let.value)
+        values, output = self.visit(let.value), self.visit(let.var)
         for value in values:
             if not value.is_dahlia_declaration(): continue
             value.dahlia_declaration.output = output
             value.dahlia_declaration.invoke()
+        body = self.visit(let.body)
         return [body, values]
 
     def visit_constant(self, const):

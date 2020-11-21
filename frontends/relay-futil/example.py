@@ -17,7 +17,7 @@ def tensor_subtract():
 
 
 def expand_dims():
-    x = relay.var('x', shape=[4], dtype='int32')
+    x = relay.var('x', shape=[512], dtype='int32')
     return relay.Function([x], relay.expand_dims(x, axis=1, num_newaxis=2))
 
 
