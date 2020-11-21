@@ -16,6 +16,11 @@ def tensor_subtract():
     return relay.Function([x, y], relay.subtract(x, y))
 
 
+def expand_dims():
+    x = relay.var('x', shape=[4], dtype='int32')
+    return relay.Function([x], relay.expand_dims(x, axis=1, num_newaxis=2))
+
+
 def batch_flatten():
     x = relay.var("x", relay.TensorType((2, 5, 5), "int32"))
     return relay.Function([x], relay.nn.batch_flatten(x))
@@ -37,6 +42,7 @@ def relu():
     x = relay.var('x', shape=[2, 4], dtype='int32')
     return relay.Function([x], relay.nn.relu(x))
 
+
 def mlp_net():
     """The MLP test from Relay."""
     from tvm.relay.testing import mlp
@@ -50,7 +56,7 @@ def vgg_net():
                        batch_norm=True)
 
 
-ALL_FUNCS = [add, tensor_subtract, batch_flatten, batch_matmul, bias_add, relu, mlp_net, vgg_net]
+ALL_FUNCS = [add, tensor_subtract, expand_dims, batch_flatten, batch_matmul, bias_add, relu, mlp_net, vgg_net]
 FUNC_NAMES = list(map(lambda x: x.__name__, ALL_FUNCS))
 
 

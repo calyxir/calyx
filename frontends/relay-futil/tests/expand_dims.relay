@@ -1,0 +1,6 @@
+v0.0.4
+fn (%x: Tensor[(4), int32]) {
+  let %x1 = expand_dims(%x, axis=1, num_newaxis=2);
+  %x1
+}
+

@@ -5,12 +5,12 @@ from enum import Enum
 
 
 class PrimitiveType(Enum):
-    Register = 1
-    Constant = 2
-    Memory1D = 3
-    Memory2D = 4
-    Memory3D = 5
-    Memory4D = 6
+    Memory1D = 1
+    Memory2D = 2
+    Memory3D = 3
+    Memory4D = 4
+    Register = 5
+    Constant = 6
 
 
 class ControlType(Enum):

@@ -9,7 +9,15 @@ from futil_ast import *
 from dahlia_functions import *
 
 # Mapping from Relay binary calls to the respective Dahlia operator.
-BuiltInBinaryCalls = {'add': '+', 'divide': '/', 'multiply': '*', 'subtract': '-'}
+BuiltInBinaryOps = {'add': '+', 'divide': '/', 'multiply': '*', 'subtract': '-'}
+
+# Mapping from Tensor dimensions to function type.
+BinaryOpTensorDimensions = {PrimitiveType.Memory1D: tensor1d_op, PrimitiveType.Memory2D: tensor2d_op,
+                            PrimitiveType.Memory3D: tensor3d_op, PrimitiveType.Memory4D: tensor4d_op}
+
+# Mapping from Relay function names to their respective Dahlia lowering.
+RelayFunctionCalls = {'nn.batch_flatten': batch_flatten, 'nn.batch_matmul': batch_matmul,
+                      'nn.bias_add': bias_add, 'nn.relu': relu, 'negative': negative, 'expand_dims': expand_dims}
 
 
 class Relay2Futil(ExprFunctor):
@@ -52,12 +60,11 @@ class Relay2Futil(ExprFunctor):
         Memory2D: 'X0_0', 'X1_0', 'X2_0', ...
         Memory3D: 'X0_0_0', 'X1_0_0', 'X2_0_0', ...
         """
+        DahliaNameMapping = {PrimitiveType.Memory1D: '', PrimitiveType.Memory2D: '_0',
+                             PrimitiveType.Memory3D: '_0_0', PrimitiveType.Memory4D: '_0_0_0'}
         dahlia_name = self.id(name)
-        if type == PrimitiveType.Memory1D: return dahlia_name
-        if type == PrimitiveType.Memory2D: return dahlia_name + "_0"
-        if type == PrimitiveType.Memory3D: return dahlia_name + "_0_0"
-        if type == PrimitiveType.Memory4D: return dahlia_name + "_0_0_0"
-        assert False, f'{name} with {type} is not supported yet.'
+        assert type in DahliaNameMapping, f'{name} with {type} is not supported yet.'
+        return DahliaNameMapping[type]
 
     def get_dahlia_declaration(self, function_name, cells, args):
         """
@@ -66,30 +73,14 @@ class Relay2Futil(ExprFunctor):
         """
         input_type = cells[0].primitive.type
         function = name = op = None
-
-        if function_name in BuiltInBinaryCalls:
-            op = BuiltInBinaryCalls[function_name]
-            if input_type == PrimitiveType.Memory1D:
-                function, name = tensor1d_op, f'tensor1d_{function_name}'
-            elif input_type == PrimitiveType.Memory2D:
-                function, name = tensor2d_op, f'tensor2d_{function_name}'
-            elif input_type == PrimitiveType.Memory3D:
-                function, name = tensor3d_op, f'tensor3d_{function_name}'
-            elif input_type == PrimitiveType.Memory4D:
-                function, name = tensor4d_op, f'tensor4d_{function_name}'
-
-        if function_name == "nn.batch_flatten":
-            if input_type == PrimitiveType.Memory3D: function = batch_flatten
-        elif function_name == "nn.batch_matmul":
-            function = batch_matmul
-        elif function_name == "nn.bias_add":
-            if input_type == PrimitiveType.Memory2D: function = tensor2d_bias_add
-        elif function_name == "nn.relu":
-            assert input_type == PrimitiveType.Memory2D or input_type == PrimitiveType.Memory4D
-            function = relu
-
-        assert function != None, f'{function_name} with type {input_type} is not supported.'
-        if name == None: name = function.__name__
+        if function_name in BuiltInBinaryOps:
+            op = BuiltInBinaryOps[function_name]
+            function, name = BinaryOpTensorDimensions[input_type], function_name
+        elif function_name in RelayFunctionCalls:
+            function = RelayFunctionCalls[function_name]
+            name = function.__name__
+        else:
+            assert False, f'{function_name} with type {input_type} is not supported.'
         return DahliaDeclaration(component_name=self.relay_id(name), decl_name=self.id(name), op=op, inputs=args,
                                  function=function)
 

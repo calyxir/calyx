@@ -91,6 +91,7 @@ def tensor3d_op(declaration):
     }}"""
     return lower_dahlia_program(program, declaration.component_name)
 
+
 def tensor4d_op(declaration):
     op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
     bitwidth, size0, size1, size2, size3 = op1.data[0], op1.data[1], op1.data[2], op1.data[3], op1.data[4]
@@ -133,7 +134,7 @@ def batch_flatten(declaration):
     return lower_dahlia_program(program, declaration.component_name)
 
 
-def tensor2d_bias_add(declaration):
+def bias_add(declaration):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.bias_add"""
     # Assumes default value axis=1 is passed in.
     data, bias, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
@@ -158,6 +159,7 @@ def tensor2d_bias_add(declaration):
 #     will not take fixed point operands for the `>` operator.
 #  2. Without signed bit array support, this is also meaningless.
 def relu(declaration):
+    """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.relu"""
     op1, res = declaration.inputs[0].primitive, declaration.output.primitive
     assert res.data_type == 'ubit', f'{res.data_type} is not currently supported for ReLU.'
 
@@ -209,6 +211,37 @@ def relu(declaration):
                 }}
                 """
         return lower_dahlia_program(program, declaration.component_name)
+
+
+# TODO(cgyurgyik): Similar to ReLU, this requires signed operands.
+def negative(declaration):
+    """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.negative"""
+    op1, res = declaration.inputs[0].primitive, declaration.output.primitive
+    bitwidth, size, index_size = op1.data[0], op1.data[1], op1.data[2]
+    program = f"""
+        decl {op1.name}: {op1.data_type}<{bitwidth}>[{size}];
+        decl {res.name}: {res.data_type}<{bitwidth}>[{size}];
+        for (let i: ubit<{index_size}> = 0..{size}) {{
+          {res.name}[i] := -{op1.name}[i];
+        }}
+    """
+    return lower_dahlia_program(program, declaration.component_name)
+
+
+def expand_dims(declaration):
+    """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.expand_dims"""
+    op1, res = declaration.inputs[0].primitive, declaration.output.primitive
+    bitwidth, size, index_size = op1.data[0], op1.data[1], op1.data[2]
+    size0, size1, size2 = res.data[1], res.data[2], res.data[3]
+    index_size0, index_size1, index_size2 = res.data[4], res.data[5], res.data[6]
+    program = f"""
+        decl {op1.name}: {op1.data_type}<{bitwidth}>[{size}];
+        decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}][{size2}];
+        for (let i: ubit<{index_size}> = 0..{size}) {{
+          {res.name}[i][0][0] := {op1.name}[i];
+        }}
+    """
+    return lower_dahlia_program(program, declaration.component_name)
 
 
 def batch_matmul(declaration):
