@@ -67,7 +67,7 @@ class Relay2Futil(ExprFunctor):
         assert type in DahliaNameMapping, f'{name} with {type} is not supported yet.'
         return dahlia_name + DahliaNameMapping[type]
 
-    def get_dahlia_declaration(self, function_name, cells, args):
+    def get_dahlia_declaration(self, function_name, cells, args, attrs):
         """
         Returns the corresponding name, Dahlia function type, and op (if it is a binary op, otherwise None).
         If the function type isn't supported, fails with an assertion.
@@ -82,8 +82,8 @@ class Relay2Futil(ExprFunctor):
             name = function.__name__
         else:
             assert False, f'{function_name} with type {input_type} is not supported.'
-        return DahliaDeclaration(component_name=self.relay_id(name), decl_name=self.id(name), op=op, inputs=args,
-                                 function=function)
+        return DahliaDeclaration(component_name=self.relay_id(name), decl_name=self.id(name),
+                                 op=op, inputs=args, attributes=attrs, function=function)
 
     def visit_var(self, var):
         name = self.relay_id(var.name_hint)
@@ -109,12 +109,13 @@ class Relay2Futil(ExprFunctor):
         return FCell(primitive=FPrimitive(name=name, data=data, data_type=data_type, type=PrimitiveType.Constant))
 
     def visit_call(self, call):
+        attributes = call.attrs
         cells, args = [], []
         for arg in call.args:
             argument = self.visit(arg)
             cells.append(argument)
             args.append(argument)
-        cells.append(FCell(dahlia_declaration=self.get_dahlia_declaration(call.op.name, cells, args)))
+        cells.append(FCell(dahlia_declaration=self.get_dahlia_declaration(call.op.name, cells, args, call.attrs)))
         return cells
 
     def visit_function(self, function):

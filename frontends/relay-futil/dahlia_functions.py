@@ -136,7 +136,7 @@ def batch_flatten(declaration):
 
 def bias_add(declaration):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.bias_add"""
-    # Assumes default value axis=1 is passed in.
+    axis = declaration.attributes.get_int("axis")
     data, bias, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
     bitwidth = data.data[0]
     size0, size1, index_size0, index_size1 = data.data[1], data.data[2], data.data[3], data.data[4]
@@ -144,13 +144,21 @@ def bias_add(declaration):
     program = f"""
     decl {data.name}: {data.data_type}<{bitwidth}>[{size0}][{size1}];
     decl {bias.name}: {bias.data_type}<{bitwidth}>[{bias_size}];
-    decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}];
-    for (let i: ubit<{index_size0}> = 0..{size0}) {{
-      for (let j: ubit<{index_size1}> = 0..{size1}) {{
-        {res.name}[i][j] := {data.name}[i][j] + {bias.name}[j];
-      }}
-    }}
-    """
+    decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}];"""
+    if axis == 1:
+        program += f"""
+        for (let i: ubit<{index_size0}> = 0..{size0}) {{
+          for (let j: ubit<{index_size1}> = 0..{size1}) {{
+            {res.name}[i][j] := {data.name}[i][j] + {bias.name}[j];
+          }}
+        }}"""
+    elif axis == 0:
+        program += f"""
+        for (let j: ubit<{index_size1}> = 0..{size1}) {{
+          for (let i: ubit<{index_size0}> = 0..{size0}) {{
+            {res.name}[i][j] := {data.name}[i][j] + {bias.name}[i];
+          }}
+        }}"""
     return lower_dahlia_program(program, declaration.component_name)
 
 

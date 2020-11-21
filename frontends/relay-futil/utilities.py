@@ -2,6 +2,10 @@ from futil_ast import *
 from itertools import chain
 import math
 
+# Mapping from the tensor dimensions to the corresponding FuTIL memory type.
+TensorToMemoryDimensionMapping = {1: PrimitiveType.Memory1D, 2: PrimitiveType.Memory2D,
+                                  3: PrimitiveType.Memory3D, 4: PrimitiveType.Memory4D}
+
 
 def flatten(l):
     '''
@@ -60,15 +64,11 @@ def get_memory_parameters(type):
     string_dimensions = t[t.find("(") + 1:t.find(")")]
 
     tensor_dimensions = list(map(int, string_dimensions.split(',')))
-    data = [get_bitwidth(string_type)]
+    data, num_dimensions = [get_bitwidth(string_type)], len(tensor_dimensions)
+    assert num_dimensions in TensorToMemoryDimensionMapping, f'{num_dimensions} dimensions is not supported.'
     for dimension in tensor_dimensions: data.append(dimension)  # Size.
     for dimension in tensor_dimensions: data.append(int(math.log2(dimension) + 1))  # Index size.
-
-    if len(tensor_dimensions) == 1: primitive_type = PrimitiveType.Memory1D
-    if len(tensor_dimensions) == 2: primitive_type = PrimitiveType.Memory2D
-    if len(tensor_dimensions) == 3: primitive_type = PrimitiveType.Memory3D
-    if len(tensor_dimensions) == 4: primitive_type = PrimitiveType.Memory4D
-    return data, primitive_type, data_type
+    return data, TensorToMemoryDimensionMapping[num_dimensions], data_type
 
 
 def build_main_controls(c: FComponent):

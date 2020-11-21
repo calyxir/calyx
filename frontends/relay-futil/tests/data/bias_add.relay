@@ -1,5 +1,5 @@
 v0.0.4
 fn (%x: Tensor[(2, 4), float32], %bias: Tensor[(4), float32])  {
-  let %x1: Tensor[(2, 4), float32] = nn.bias_add(%x, %bias);
+  let %x1: Tensor[(2, 4), float32] = nn.bias_add(%x, %bias, axis=1);
   %x1
 }

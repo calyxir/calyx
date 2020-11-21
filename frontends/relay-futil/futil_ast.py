@@ -1,3 +1,4 @@
+import tvm
 from dataclasses import dataclass
 from typing import List, Dict
 from types import FunctionType
@@ -142,6 +143,7 @@ class DahliaDeclaration:
     op: str = None
     inputs: List[Cell] = None
     output: Cell = None
+    attributes: tvm.ir.Attrs = None
     function: FunctionType = None
     program: str = None
 
