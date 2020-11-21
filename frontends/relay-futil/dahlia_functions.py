@@ -271,7 +271,6 @@ def expand_dims(declaration):
           {res.name}[i][0][0] := {data.name}[i];
         }}
         """
-    print(program)
     return lower_dahlia_program(program, declaration.component_name)
 
 

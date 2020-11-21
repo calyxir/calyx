@@ -142,7 +142,7 @@ def relay_transforms(expr: Function) -> Function:
     return mod['main']
 
 
-def compile(program) -> str:
+def lower_to_futil(program) -> str:
     """Translate a Relay function to a FuTIL program (as a string)."""
     program = relay_transforms(program)
     visitor = Relay2Futil()
@@ -158,4 +158,4 @@ if __name__ == '__main__':
     import sys
 
     relay_function = relay.fromtext(sys.stdin.read())
-    print(compile(relay_function))
+    print(lower_to_futil(relay_function))

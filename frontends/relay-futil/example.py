@@ -93,7 +93,7 @@ def run_example():
         print(relay_IR)
     else:
         # Compile the function and print the FuTIL.
-        print(compile(relay_IR))
+        print(lower_to_futil(relay_IR))
 
 
 if __name__ == '__main__':
