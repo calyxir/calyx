@@ -47,14 +47,26 @@ def lower_dahlia_program(prog, component_name):
 
 def tensor1d_op(declaration):
     op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
-    bitwidth, size, index_size = op1.data[0], op1.data[1], op1.data[2]
-    program = f"""
-    decl {op1.name}: {op1.data_type}<{bitwidth}>[{size}];
-    decl {op2.name}: {op2.data_type}<{bitwidth}>[{size}];
-    decl {res.name}: {res.data_type}<{bitwidth}>[{size}];
-    for (let i: ubit<{index_size}> = 0..{size}) {{
-      {res.name}[i] := {op1.name}[i] {declaration.op} {op2.name}[i];
-    }}"""
+    bitwidth, size, index_size, op2_size = op1.data[0], op1.data[1], op1.data[2], op2.data[1]
+    if op2_size != size:
+        # Element-wise operation using a single value, e.g.
+        # let %a = 42;
+        # let %c = add(%b: Tensor[(512)], %a);
+        program = f"""
+        decl {op1.name}: {op1.data_type}<{bitwidth}>[{size}];
+        decl {op2.name}: {op2.data_type}<{bitwidth}>[{op2_size}];
+        decl {res.name}: {res.data_type}<{bitwidth}>[{size}];
+        for (let i: ubit<{index_size}> = 0..{size}) {{
+            {res.name}[i] := {op1.name}[i] {declaration.op} {op2.name}[0];
+        }}"""
+    else:
+        program = f"""
+        decl {op1.name}: {op1.data_type}<{bitwidth}>[{size}];
+        decl {op2.name}: {op2.data_type}<{bitwidth}>[{size}];
+        decl {res.name}: {res.data_type}<{bitwidth}>[{size}];
+        for (let i: ubit<{index_size}> = 0..{size}) {{
+          {res.name}[i] := {op1.name}[i] {declaration.op} {op2.name}[i];
+        }}"""
     return lower_dahlia_program(program, declaration.component_name)
 
 

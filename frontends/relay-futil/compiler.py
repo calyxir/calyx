@@ -96,14 +96,15 @@ class Relay2Futil(ExprFunctor):
 
     def visit_let(self, let):
         values, output = self.visit(let.value), self.visit(let.var)
+        if not isinstance(values, list): return [self.visit(let.body), values]
         for value in values:
             if not value.is_dahlia_declaration(): continue
             value.dahlia_declaration.output = output
             value.dahlia_declaration.invoke()
-        body = self.visit(let.body)
-        return [body, values]
+        return [self.visit(let.body), values]
 
     def visit_constant(self, const):
+        # Note: We're currently treating constants defined in a `let` statement in Relay IR as 1D Memory.
         type, shape = const.data.dtype, const.data.shape
         name, data = self.id("const"), [get_bitwidth(type), int(const.data.asnumpy())]
         data_type = get_memory_parameters(type)

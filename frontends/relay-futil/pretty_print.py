@@ -73,10 +73,9 @@ def pp_component(component: FComponent):
 def pp_cell(cell: FCell):
     if cell.is_primitive():
         data = cell.primitive.data
-        data_type = cell.primitive.data_type
-        if data_type == 'ubit' or data_type == 'bit': bitwidth = str(data[0])
+        data_type, bitwidth = cell.primitive.data_type, data[0]
         # `fix` / `ufix` will have bitwidth form: <TotalWidth, FractWidth>. We only want TotalWidth.
-        if data_type == 'ufix' or data_type == 'fix': bitwidth = str(data[0]).split(',')[0]
+        if data_type == 'ufix' or data_type == 'fix': bitwidth = str(bitwidth).split(',')[0]
         if cell.primitive.type == PrimitiveType.Register:
             return f'{cell.primitive.name} = prim std_reg({bitwidth});'
         if cell.primitive.type == PrimitiveType.Constant:
