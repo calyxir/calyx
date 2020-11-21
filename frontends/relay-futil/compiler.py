@@ -1,3 +1,4 @@
+import tvm
 from tvm import relay, ir
 from tvm.relay.expr_functor import ExprFunctor
 from tvm.relay.function import Function
@@ -126,17 +127,22 @@ class Relay2Futil(ExprFunctor):
         return pp_component(self.main)
 
 
-def infer_type(expr: Function) -> Function:
-    infer_types_pass = relay.transform.InferType()
+def relay_transforms(expr: Function) -> Function:
+    """https://tvm.apache.org/docs/api/python/relay/transform.html"""
+    transform = tvm.transform.Sequential([
+        relay.transform.SimplifyExpr(),
+        relay.transform.SimplifyInference(),
+        relay.transform.InferType()
+    ])
     mod = ir.IRModule()
     mod['main'] = expr
-    mod = infer_types_pass(mod)
+    mod = transform(mod)
     return mod['main']
 
 
 def compile(program) -> str:
     """Translate a Relay function to a FuTIL program (as a string)."""
-    program = infer_type(program)
+    program = relay_transforms(program)
     visitor = Relay2Futil()
 
     PREAMBLE = """import "primitives/std.lib";"""
