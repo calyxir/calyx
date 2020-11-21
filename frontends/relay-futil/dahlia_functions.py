@@ -31,7 +31,6 @@ def lower_dahlia_program(prog, component_name):
         (done: 1, X0_addr0: 2, X0_write_data: 32, X0_write_en: 1, X0_clk: 1) {
            ...
         }
-
     '''
     program_string = '\n'.join(prog.splitlines())
     with NamedTemporaryFile() as tf0, NamedTemporaryFile() as tf1, NamedTemporaryFile() as tf2:
@@ -139,26 +138,47 @@ def bias_add(declaration):
     axis = declaration.attributes.get_int("axis")
     data, bias, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
     bitwidth = data.data[0]
-    size0, size1, index_size0, index_size1 = data.data[1], data.data[2], data.data[3], data.data[4]
-    bias_size, bias_index_size = bias.data[1], bias.data[2]
-    program = f"""
-    decl {data.name}: {data.data_type}<{bitwidth}>[{size0}][{size1}];
-    decl {bias.name}: {bias.data_type}<{bitwidth}>[{bias_size}];
-    decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}];"""
-    if axis == 1:
-        program += f"""
-        for (let i: ubit<{index_size0}> = 0..{size0}) {{
-          for (let j: ubit<{index_size1}> = 0..{size1}) {{
-            {res.name}[i][j] := {data.name}[i][j] + {bias.name}[j];
-          }}
-        }}"""
-    elif axis == 0:
-        program += f"""
-        for (let j: ubit<{index_size1}> = 0..{size1}) {{
-          for (let i: ubit<{index_size0}> = 0..{size0}) {{
-            {res.name}[i][j] := {data.name}[i][j] + {bias.name}[i];
-          }}
-        }}"""
+    if data.type == PrimitiveType.Memory2D:
+        size0, size1, index_size0, index_size1 = data.data[1], data.data[2], data.data[3], data.data[4]
+        bias_size, bias_index_size = bias.data[1], bias.data[2]
+        program = f"""
+        decl {data.name}: {data.data_type}<{bitwidth}>[{size0}][{size1}];
+        decl {bias.name}: {bias.data_type}<{bitwidth}>[{bias_size}];
+        decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}];"""
+        if axis == 1:
+            program += f"""
+            for (let i: ubit<{index_size0}> = 0..{size0}) {{
+              for (let j: ubit<{index_size1}> = 0..{size1}) {{
+                {res.name}[i][j] := {data.name}[i][j] + {bias.name}[j];
+              }}
+            }}"""
+        elif axis == 0:
+            program += f"""
+            for (let j: ubit<{index_size1}> = 0..{size1}) {{
+              for (let i: ubit<{index_size0}> = 0..{size0}) {{
+                {res.name}[i][j] := {data.name}[i][j] + {bias.name}[i];
+              }}
+            }}"""
+    elif data.type == PrimitiveType.Memory4D:
+        bitwidth, size0, size1, size2, size3 = data.data[0], data.data[1], data.data[2], data.data[3], data.data[4]
+        index_size0, index_size1, index_size2, index_size3 = data.data[5], data.data[6], data.data[7], data.data[8]
+        bias_size, bias_index_size = bias.data[1], bias.data[2]
+        program = f"""
+        decl {data.name}: {data.data_type}<{bitwidth}>[{size0}][{size1}][{size2}][{size3}];
+        decl {bias.name}: {bias.data_type}<{bitwidth}>[{bias_size}];
+        decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}][{size2}][{size3}];"""
+        if axis == 1:
+            program += f"""
+            for (let i: ubit<{index_size0}> = 0..{size0}) {{
+              for (let j: ubit<{index_size1}> = 0..{size1}) {{
+                for (let k: ubit<{index_size2}> = 0..{size2}) {{
+                  for (let l: ubit<{index_size3}> = 0..{size3}) {{
+                    {res.name}[i][j][k][l] := {data.name}[i][j][k][l] + {bias.name}[j];
+                  }}
+                }}
+              }}
+            }}"""
+
     return lower_dahlia_program(program, declaration.component_name)
 
 
