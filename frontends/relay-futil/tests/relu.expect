@@ -192,8 +192,8 @@ component relu(go: 1, clk: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_
 
 component main () -> () {
   cells {
-    x1 = prim std_mem_d4(32, 2, 4, 8, 32, 32, 2, 3, 4);
-    x = prim std_mem_d4(32, 2, 4, 8, 32, 32, 2, 3, 4);
+    x1 = prim std_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
+    x = prim std_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
     relu0 = relu;
   }
   wires {

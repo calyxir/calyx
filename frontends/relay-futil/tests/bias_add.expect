@@ -164,8 +164,8 @@ component bias_add(go: 1, clk: 1, bias0_read_data: 32, bias0_done: 1, x0_0_0_0_r
 
 component main () -> () {
   cells {
-    x1 = prim std_mem_d4(32, 1, 64, 512, 256, 256, 1, 7, 10);
-    x = prim std_mem_d4(32, 1, 64, 512, 256, 256, 1, 7, 10);
+    x1 = prim std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
+    x = prim std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
     bias = prim std_mem_d1(32, 64, 7);
     bias_add0 = bias_add;
   }
