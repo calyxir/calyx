@@ -187,7 +187,7 @@ primitive std_mem_d4[
         parameter d0_idx_size = 4,
         parameter d1_idx_size = 4,
         parameter d2_idx_size = 4,
-        parameter d3_idx_size = 4,)
+        parameter d3_idx_size = 4)
        (input logic [d0_idx_size-1:0] addr0,
         input logic [d1_idx_size-1:0] addr1,
         input logic [d2_idx_size-1:0] addr2,
