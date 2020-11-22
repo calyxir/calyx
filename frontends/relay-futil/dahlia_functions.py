@@ -48,24 +48,24 @@ def lower_dahlia_program(prog, component_name):
 def tensor1d_op(declaration):
     op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
     bitwidth, size, index_size, op2_size = op1.data[0], op1.data[1], op1.data[2], op2.data[1]
-    if op2_size != size:
-        # Element-wise operation using a single value, e.g.
-        # let %a = 42;
-        # let %c = add(%b: Tensor[(512)], %a);
-        program = f"""
-        decl {op1.name}: {op1.data_type}<{bitwidth}>[{size}];
-        decl {op2.name}: {op2.data_type}<{bitwidth}>[{op2_size}];
-        decl {res.name}: {res.data_type}<{bitwidth}>[{size}];
-        for (let i: ubit<{index_size}> = 0..{size}) {{
-            {res.name}[i] := {op1.name}[i] {declaration.op} {op2.name}[0];
-        }}"""
-    else:
+    if size == op2_size:
         program = f"""
         decl {op1.name}: {op1.data_type}<{bitwidth}>[{size}];
         decl {op2.name}: {op2.data_type}<{bitwidth}>[{size}];
         decl {res.name}: {res.data_type}<{bitwidth}>[{size}];
         for (let i: ubit<{index_size}> = 0..{size}) {{
           {res.name}[i] := {op1.name}[i] {declaration.op} {op2.name}[i];
+        }}"""
+    else:
+        # Broadcasting using a single value, e.g.
+        #   let %a = 42;
+        #   let %c = add(%b: Tensor[(512)], %a);
+        program = f"""
+        decl {op1.name}: {op1.data_type}<{bitwidth}>[{size}];
+        decl {op2.name}: {op2.data_type}<{bitwidth}>[{op2_size}];
+        decl {res.name}: {res.data_type}<{bitwidth}>[{size}];
+        for (let i: ubit<{index_size}> = 0..{size}) {{
+            {res.name}[i] := {op1.name}[i] {declaration.op} {op2.name}[0];
         }}"""
     return lower_dahlia_program(program, declaration.component_name)
 
@@ -107,19 +107,38 @@ def tensor4d_op(declaration):
     op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
     bitwidth, size0, size1, size2, size3 = op1.data[0], op1.data[1], op1.data[2], op1.data[3], op1.data[4]
     index_size0, index_size1, index_size2, index_size3 = op1.data[5], op1.data[6], op1.data[7], op1.data[8]
-    program = f"""
-    decl {op1.name}: {op1.data_type}<{bitwidth}>[{size0}][{size1}][{size2}][{size3}];
-    decl {op2.name}: {op2.data_type}<{bitwidth}>[{size0}][{size1}][{size2}][{size3}];
-    decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}][{size2}][{size3}];
-    for (let i: ubit<{index_size0}> = 0..{size0}) {{
-      for (let j: ubit<{index_size1}> = 0..{size1}) {{
-        for (let k: ubit<{index_size2}> = 0..{size2}) {{
-          for (let l: ubit<{index_size3}> = 0..{size3}) {{
-            {res.name}[i][j][k][l] := {op1.name}[i][j][k][l] {declaration.op} {op2.name}[i][j][k][l];
+    if op1.type == op2.type:
+        program = f"""
+        decl {op1.name}: {op1.data_type}<{bitwidth}>[{size0}][{size1}][{size2}][{size3}];
+        decl {op2.name}: {op2.data_type}<{bitwidth}>[{size0}][{size1}][{size2}][{size3}];
+        decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}][{size2}][{size3}];
+        for (let i: ubit<{index_size0}> = 0..{size0}) {{
+          for (let j: ubit<{index_size1}> = 0..{size1}) {{
+            for (let k: ubit<{index_size2}> = 0..{size2}) {{
+              for (let l: ubit<{index_size3}> = 0..{size3}) {{
+                {res.name}[i][j][k][l] := {op1.name}[i][j][k][l] {declaration.op} {op2.name}[i][j][k][l];
+              }}
+            }}
           }}
-        }}
-      }}
-    }}"""
+        }}"""
+    else:  # Broadcasting.
+        op2_size0, op2_size1, op2_size2 = op2.data[1], op2.data[2], op2.data[3]
+        op2_index_size0, op2_index_size1, op2_index_size2 = op2.data[3], op2.data[5], op2.data[6]
+        # TODO(cgyurgyik): This is defaulted to: `Tensor(X, Y, 1, 1) op Tensor(Y, 1, 1)` for VGG Net.
+        # This should be generalized.
+        program = f"""
+        decl {op1.name}: {op1.data_type}<{bitwidth}>[{size0}][{size1}][{size2}][{size3}];
+        decl {op2.name}: {op2.data_type}<{bitwidth}>[{op2_size0}][{op2_size1}][{op2_size2}];
+        decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}][{size2}][{size3}];
+        for (let i: ubit<{index_size0}> = 0..{size0}) {{
+          for (let j: ubit<{index_size1}> = 0..{size1}) {{
+            for (let k: ubit<{index_size2}> = 0..{size2}) {{
+              for (let l: ubit<{index_size3}> = 0..{size3}) {{
+                {res.name}[i][j][k][l] := {op1.name}[i][j][k][l] {declaration.op} {op2.name}[j][0][0];
+              }}
+            }}
+          }}
+        }}"""
     return lower_dahlia_program(program, declaration.component_name)
 
 
