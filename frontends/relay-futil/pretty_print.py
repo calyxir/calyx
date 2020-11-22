@@ -14,8 +14,7 @@ def mk_block(decl, contents, indent=2):
 
 def pp_component_signature(component: FComponent):
     inputs = []
-    if component.signature == None:
-        return "", ""
+    if component.signature == None: return "", ""
 
     for input in component.signature.inputs:
         inputs.append(f'{input.name}: {input.bitwidth}')
@@ -74,7 +73,7 @@ def pp_cell(cell: FCell):
     if cell.is_primitive():
         data = cell.primitive.data
         data_type, bitwidth = cell.primitive.data_type, data[0]
-        # `fix` / `ufix` will have bitwidth form: <TotalWidth, FractWidth>. We only want TotalWidth.
+        # `fix` / `ufix` will have bitwidth in the form: <TotalWidth, FractWidth>. We only want TotalWidth.
         if data_type == 'ufix' or data_type == 'fix': bitwidth = str(bitwidth).split(',')[0]
         if cell.primitive.type == PrimitiveType.Register:
             return f'{cell.primitive.name} = prim std_reg({bitwidth});'
@@ -82,34 +81,20 @@ def pp_cell(cell: FCell):
             value = str(data[1])
             return f'{cell.primitive.name} = prim std_const({bitwidth}, {value});'
         if cell.primitive.type == PrimitiveType.Memory1D:
-            size = str(data[1])
-            index_size = str(data[2])
+            size, index_size = str(data[1]), str(data[2])
             return f'{cell.primitive.name} = prim std_mem_d1({bitwidth}, {size}, {index_size});'
         if cell.primitive.type == PrimitiveType.Memory2D:
-            size0 = str(data[1])
-            size1 = str(data[2])
-            index_size0 = str(data[3])
-            index_size1 = str(data[4])
+            size0, size1, index_size0, index_size1 = str(data[1]), str(data[2]), str(data[3]), str(data[4])
             return f'{cell.primitive.name} = prim std_mem_d2({bitwidth}, ' \
                    f'{size0}, {size1}, {index_size0}, {index_size1});'
         if cell.primitive.type == PrimitiveType.Memory3D:
-            size0 = str(data[1])
-            size1 = str(data[2])
-            size2 = str(data[3])
-            index_size0 = str(data[4])
-            index_size1 = str(data[5])
-            index_size2 = str(data[6])
+            size0, size1, size2 = str(data[1]), str(data[2]), str(data[3])
+            index_size0, index_size1, index_size2 = str(data[4]), str(data[5]), str(data[6])
             return f'{cell.primitive.name} = prim std_mem_d3({bitwidth}, ' \
                    f'{size0}, {size1}, {size2}, {index_size0}, {index_size1}, {index_size2});'
         if cell.primitive.type == PrimitiveType.Memory4D:
-            size0 = str(data[1])
-            size1 = str(data[2])
-            size2 = str(data[3])
-            size3 = str(data[4])
-            index_size0 = str(data[5])
-            index_size1 = str(data[6])
-            index_size2 = str(data[7])
-            index_size3 = str(data[8])
+            size0, size1, size2, size3 = str(data[1]), str(data[2]), str(data[3]), str(data[4])
+            index_size0, index_size1, index_size2, index_size3 = str(data[5]), str(data[6]), str(data[7]), str(data[8])
             return f'{cell.primitive.name} = prim std_mem_d4({bitwidth}, ' \
                    f'{size0}, {size1}, {size2}, {size3}, {index_size0}, {index_size1}, {index_size2}, {index_size3});'
         if cell.primitive.type == PrimitiveType.BinOp:
