@@ -54,7 +54,7 @@ class Relay2Futil(ExprFunctor):
         if id_number == 0: return name
         return name + str(id_number)
 
-    def produce_dahlia_name(self, name, type):
+    def dahlia_name(self, name, type):
         """
         Dahlia uses the following naming scheme for an arbitrary variable 'X':
         Memory1D: 'X0', 'X1', 'X2', ...
@@ -90,7 +90,7 @@ class Relay2Futil(ExprFunctor):
         # Do not add duplicate primitives to main.
         if self.main.contains_primitive(name): return cell
         data, type, data_type = get_memory_parameters(var.type_annotation)
-        dahlia_name = self.produce_dahlia_name(name, type)
+        dahlia_name = self.dahlia_name(name, type)
         return FCell(dahlia_name=dahlia_name,
                      primitive=FPrimitive(name=name, data=data, data_type=data_type, type=type))
 
