@@ -96,11 +96,11 @@ class Relay2Futil(ExprFunctor):
 
     def visit_let(self, let):
         values, output = self.visit(let.value), self.visit(let.var)
-        if not isinstance(values, list): return [self.visit(let.body), values]
-        for value in values:
-            if not value.is_dahlia_declaration(): continue
-            value.dahlia_declaration.output = output
-            value.dahlia_declaration.invoke()
+        if isinstance(values, list):
+            for value in values:
+                if not value.is_dahlia_declaration(): continue
+                value.dahlia_declaration.output = output
+                value.dahlia_declaration.invoke()
         return [self.visit(let.body), values]
 
     def visit_constant(self, const):
