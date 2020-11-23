@@ -2,10 +2,10 @@ import tvm
 from dataclasses import dataclass
 from typing import List, Dict
 from types import FunctionType
-from enum import Enum
+from enum import Enum, IntEnum
 
-
-class PrimitiveType(Enum):
+# Note: The integer value N for Memory with dimension N is used; these should remain unchanged.
+class PrimitiveType(IntEnum):
     Memory1D = 1
     Memory2D = 2
     Memory3D = 3

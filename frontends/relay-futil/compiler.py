@@ -12,12 +12,8 @@ from dahlia_functions import *
 # Mapping from Relay binary calls to the respective Dahlia operator.
 BuiltInBinaryOps = {'add': '+', 'divide': '/', 'multiply': '*', 'subtract': '-'}
 
-# Mapping from Tensor dimensions to function type.
-BinaryOpTensorDimensions = {PrimitiveType.Memory1D: tensor1d_op, PrimitiveType.Memory2D: tensor2d_op,
-                            PrimitiveType.Memory3D: tensor3d_op, PrimitiveType.Memory4D: tensor4d_op}
-
 # Mapping from Relay function names to their respective Dahlia lowering.
-RelayFunctionCalls = {'nn.batch_flatten': batch_flatten, 'nn.batch_matmul': batch_matmul,
+RelayFunctionCalls = {'nn.dense': dense, 'nn.batch_flatten': batch_flatten, 'nn.batch_matmul': batch_matmul,
                       'nn.bias_add': bias_add, 'nn.relu': relu, 'negative': negative, 'expand_dims': expand_dims}
 
 # Mapping between primitive type and associated Dahlia name extension.
@@ -79,7 +75,7 @@ class Relay2Futil(ExprFunctor):
         function = name = op = None
         if function_name in BuiltInBinaryOps:
             op = BuiltInBinaryOps[function_name]
-            function, name = BinaryOpTensorDimensions[input_type], function_name
+            function, name = broadcast, function_name
         elif function_name in RelayFunctionCalls:
             function = RelayFunctionCalls[function_name]
             name = function.__name__
