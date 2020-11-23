@@ -107,8 +107,9 @@ def broadcast(declaration):
             op2_indices.append(current_dimension)
         variable_name = next_character(variable_name, -1)
 
-    op1_nth_index, op2_nth_index = ''.join(reversed(op1_indices)), ''.join(reversed(op2_indices))
-    res_nth_index = ''.join(reversed(res_indices))
+    # Resulting index in the nested for loop, e.g. for op1[i][j][0][k], this is `[i][j][0][k]`.
+    op1_index, op2_index = ''.join(reversed(op1_indices)), ''.join(reversed(op2_indices))
+    res_index = ''.join(reversed(res_indices))
 
     # Declarations for op1, op2, res.
     op1_decl = f'decl {op1.name}: {op1.data_type}<{op1.data[0]}>'
@@ -128,8 +129,8 @@ def broadcast(declaration):
             size, index_size = max(size, op2_size), max(size, op2_index_size)
         loop_body.append(f'for (let {variable_name}: ubit<{index_size}> = 0..{size}) {{')
         variable_name = next_character(variable_name)
-    loop_body.append(
-        f'{res.name}{res_nth_index} := {op1.name}{op1_nth_index} {declaration.op} {op2.name}{op2_nth_index};')
+    loop_body.append(f'{res.name}{res_index} := {op1.name}{op1_index} {declaration.op} {op2.name}{op2_index};')
+
     for i in range(1, len(op1_sizes) + 1): loop_body.append('}')
     program = f"""
     {op1_decl};
