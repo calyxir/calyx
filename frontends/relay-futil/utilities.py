@@ -3,7 +3,7 @@ from itertools import chain
 import math
 
 # Mapping from the tensor dimensions to the corresponding FuTIL memory type.
-TensorToMemoryDimensionMapping = {1: PrimitiveType.Memory1D, 2: PrimitiveType.Memory2D,
+NumDimensionsToPrimitive = {1: PrimitiveType.Memory1D, 2: PrimitiveType.Memory2D,
                                   3: PrimitiveType.Memory3D, 4: PrimitiveType.Memory4D}
 
 
@@ -65,10 +65,10 @@ def get_memory_parameters(type):
 
     tensor_dimensions = list(map(int, string_dimensions.split(',')))
     data, num_dimensions = [get_bitwidth(string_type)], len(tensor_dimensions)
-    assert num_dimensions in TensorToMemoryDimensionMapping, f'{num_dimensions} dimensions is not supported.'
+    assert num_dimensions in NumDimensionsToPrimitive, f'{num_dimensions} dimensions is not supported.'
     for dimension in tensor_dimensions: data.append(dimension)  # Size.
     for dimension in tensor_dimensions: data.append(int(math.log2(dimension) + 1))  # Index size.
-    return data, TensorToMemoryDimensionMapping[num_dimensions], data_type
+    return data, NumDimensionsToPrimitive[num_dimensions], data_type
 
 
 def build_main_controls(c: FComponent):
