@@ -4,7 +4,7 @@ import math
 
 # Mapping from the tensor dimensions to the corresponding FuTIL memory type.
 NumDimensionsToPrimitive = {1: PrimitiveType.Memory1D, 2: PrimitiveType.Memory2D,
-                                  3: PrimitiveType.Memory3D, 4: PrimitiveType.Memory4D}
+                            3: PrimitiveType.Memory3D, 4: PrimitiveType.Memory4D}
 
 
 def flatten(l):
