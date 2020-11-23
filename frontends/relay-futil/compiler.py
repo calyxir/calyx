@@ -17,9 +17,9 @@ RelayFunctionCalls = {'nn.dense': dense, 'nn.batch_flatten': batch_flatten, 'nn.
                       'nn.bias_add': bias_add, 'nn.relu': relu, 'negative': negative, 'expand_dims': expand_dims}
 
 # Mapping between primitive type and associated Dahlia name extension.
-# E.g. A 2D memory array named `A` will be lowered to `A_0`.
-DahliaNameExtension = {PrimitiveType.Memory1D: '', PrimitiveType.Memory2D: '_0',
-                       PrimitiveType.Memory3D: '_0_0', PrimitiveType.Memory4D: '_0_0_0'}
+# E.g. A 2D memory primitive named `A` will be lowered to `A0_0`.
+DahliaNameExtension = {PrimitiveType.Memory1D: '0', PrimitiveType.Memory2D: '0_0',
+                       PrimitiveType.Memory3D: '0_0_0', PrimitiveType.Memory4D: '0_0_0_0'}
 
 
 class Relay2Futil(ExprFunctor):
@@ -62,9 +62,8 @@ class Relay2Futil(ExprFunctor):
         Memory2D: 'X0_0', 'X1_0', 'X2_0', ...
         Memory3D: 'X0_0_0', 'X1_0_0', 'X2_0_0', ...
         """
-        dahlia_name = self.id(name)
         assert type in DahliaNameExtension, f'{name} with {type} is not supported yet.'
-        return dahlia_name + DahliaNameExtension[type]
+        return name + DahliaNameExtension[type]
 
     def get_dahlia_declaration(self, function_name, cells, args, attrs):
         """
