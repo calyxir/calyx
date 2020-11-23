@@ -187,6 +187,8 @@ def batch_flatten(declaration):
 def bias_add(declaration):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.bias_add"""
     axis = declaration.attributes.get_int("axis")
+    # TODO(cgyurgyik): Supported axis = -1.
+    assert axis == 0 or axis == 1, f'bias_add with axis: {axis} is not currently supported.'
     data, bias, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
     bitwidth = data.data[0]
     if data.type == PrimitiveType.Memory2D:
