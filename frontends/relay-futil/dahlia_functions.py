@@ -88,7 +88,7 @@ def broadcast(declaration):
         res_sizes.append(max(size, op2_sizes[i]) if i < len(op2_sizes) else size)
 
     op1_indices, op2_indices, res_indices = [], [], []
-    # Get the character associated with 'i' + N, where N == Memory Dimensions
+    # Get the character associated with 'i' + N, where N == number of dimensions in `op1`.
     variable_name = chr(ord(CHARACTER_I) + op1_offset - 1)
     for i in range(0, len(op1_sizes)):
         current_dimension, index_zero = f'[{variable_name}]', '[0]'
@@ -112,12 +112,10 @@ def broadcast(declaration):
 
     # Declarations for op1, op2, res.
     op1_decl = f'decl {op1.name}: {op1.data_type}<{op1.data[0]}>'
-    for i in reversed(range(0, len(op1_sizes))): op1_decl += f'[{op1_sizes[i]}]'
-
     op2_decl = f'decl {op2.name}: {op2.data_type}<{op2.data[0]}>'
-    for i in reversed(range(0, len(op2_sizes))): op2_decl += f'[{op2_sizes[i]}]'
-
     res_decl = f'decl {res.name}: {res.data_type}<{res.data[0]}>'
+    for i in reversed(range(0, len(op1_sizes))): op1_decl += f'[{op1_sizes[i]}]'
+    for i in reversed(range(0, len(op2_sizes))): op2_decl += f'[{op2_sizes[i]}]'
     for i in reversed(range(0, len(res_sizes))): res_decl += f'[{res_sizes[i]}]'
 
     # For loop(s).
