@@ -1,6 +1,6 @@
 import "primitives/std.lib";
 
-component add(go: 1, clk: 1, x10_0_0_read_data: 32, x10_0_0_done: 1, x20_0_0_read_data: 32, x20_0_0_done: 1, x30_0_0_read_data: 32, x30_0_0_done: 1) -> (done: 1, x10_0_0_addr0: 1, x10_0_0_addr1: 2, x10_0_0_addr2: 2, x10_0_0_write_data: 32, x10_0_0_write_en: 1, x10_0_0_clk: 1, x20_0_0_addr0: 2, x20_0_0_addr1: 1, x20_0_0_addr2: 1, x20_0_0_write_data: 32, x20_0_0_write_en: 1, x20_0_0_clk: 1, x30_0_0_addr0: 2, x30_0_0_addr1: 2, x30_0_0_addr2: 2, x30_0_0_write_data: 32, x30_0_0_write_en: 1, x30_0_0_clk: 1) {
+component add(go: 1, clk: 1, x10_0_read_data: 32, x10_0_done: 1, x20_0_0_read_data: 32, x20_0_0_done: 1, x30_0_0_read_data: 32, x30_0_0_done: 1) -> (done: 1, x10_0_addr0: 2, x10_0_addr1: 2, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_clk: 1, x20_0_0_addr0: 2, x20_0_0_addr1: 1, x20_0_0_addr2: 1, x20_0_0_write_data: 32, x20_0_0_write_en: 1, x20_0_0_clk: 1, x30_0_0_addr0: 2, x30_0_0_addr1: 2, x30_0_0_addr2: 2, x30_0_0_write_data: 32, x30_0_0_write_en: 1, x30_0_0_clk: 1) {
   cells {
     add0 = prim std_add(32);
     add1 = prim std_add(2);
@@ -9,14 +9,13 @@ component add(go: 1, clk: 1, x10_0_0_read_data: 32, x10_0_0_done: 1, x20_0_0_rea
     const0 = prim std_const(2, 0);
     const1 = prim std_const(2, 1);
     const10 = prim std_const(2, 1);
-    const11 = prim std_const(2, 1);
     const2 = prim std_const(2, 0);
     const3 = prim std_const(2, 1);
     const4 = prim std_const(2, 0);
     const5 = prim std_const(2, 1);
     const6 = prim std_const(1, 0);
     const7 = prim std_const(1, 0);
-    const8 = prim std_const(1, 0);
+    const8 = prim std_const(2, 1);
     const9 = prim std_const(2, 1);
     i0 = prim std_reg(2);
     j0 = prim std_reg(2);
@@ -60,16 +59,15 @@ component add(go: 1, clk: 1, x10_0_0_read_data: 32, x10_0_0_done: 1, x20_0_0_rea
     }
     group upd0<"static"=1> {
       x1_read0_0.write_en = 1'd1;
-      x10_0_0_addr2 = k0.out;
-      x10_0_0_addr1 = j0.out;
-      x10_0_0_addr0 = const6.out;
-      x1_read0_0.in = 1'd1 ? x10_0_0_read_data;
+      x10_0_addr1 = k0.out;
+      x10_0_addr0 = j0.out;
+      x1_read0_0.in = 1'd1 ? x10_0_read_data;
       upd0[done] = x1_read0_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
       x2_read0_0.write_en = 1'd1;
-      x20_0_0_addr2 = const8.out;
-      x20_0_0_addr1 = const7.out;
+      x20_0_0_addr2 = const7.out;
+      x20_0_0_addr1 = const6.out;
       x20_0_0_addr0 = i0.out;
       x2_read0_0.in = 1'd1 ? x20_0_0_read_data;
       upd1[done] = x2_read0_0.done ? 1'd1;
@@ -87,21 +85,21 @@ component add(go: 1, clk: 1, x10_0_0_read_data: 32, x10_0_0_done: 1, x20_0_0_rea
     group upd3<"static"=1> {
       k0.write_en = 1'd1;
       add1.left = k0.out;
-      add1.right = const9.out;
+      add1.right = const8.out;
       k0.in = 1'd1 ? add1.out;
       upd3[done] = k0.done ? 1'd1;
     }
     group upd4<"static"=1> {
       j0.write_en = 1'd1;
       add2.left = j0.out;
-      add2.right = const10.out;
+      add2.right = const9.out;
       j0.in = 1'd1 ? add2.out;
       upd4[done] = j0.done ? 1'd1;
     }
     group upd5<"static"=1> {
       i0.write_en = 1'd1;
       add3.left = i0.out;
-      add3.right = const11.out;
+      add3.right = const10.out;
       i0.in = 1'd1 ? add3.out;
       upd5[done] = i0.done ? 1'd1;
     }
@@ -139,16 +137,15 @@ component add(go: 1, clk: 1, x10_0_0_read_data: 32, x10_0_0_done: 1, x20_0_0_rea
 component main () -> () {
   cells {
     x3 = prim std_mem_d3(32, 2, 2, 2, 2, 2, 2);
-    x1 = prim std_mem_d3(32, 1, 2, 2, 1, 2, 2);
+    x1 = prim std_mem_d2(32, 2, 2, 2, 2);
     x2 = prim std_mem_d3(32, 2, 1, 1, 2, 1, 1);
     add0 = add;
   }
   wires {
     group run_add {
-      x1.addr0 = add0.x10_0_0_addr0;
-      add0.x10_0_0_read_data = x1.read_data;
-      x1.addr1 = add0.x10_0_0_addr1;
-      x1.addr2 = add0.x10_0_0_addr2;
+      x1.addr0 = add0.x10_0_addr0;
+      add0.x10_0_read_data = x1.read_data;
+      x1.addr1 = add0.x10_0_addr1;
       x2.addr0 = add0.x20_0_0_addr0;
       add0.x20_0_0_read_data = x2.read_data;
       x2.addr1 = add0.x20_0_0_addr1;

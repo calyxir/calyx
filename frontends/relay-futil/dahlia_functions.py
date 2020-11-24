@@ -76,10 +76,7 @@ def broadcast(declaration):
               result[i][j][k] := op1[i][0][k] + op2[j][0];
               ...
     """
-    operand1, operand2 = declaration.inputs[0].primitive, declaration.inputs[1].primitive
-    res = declaration.output.primitive
-    op1 = operand1 if operand1.type >= operand2.type else operand2
-    op2 = operand2 if op1 == operand1 else operand1
+    op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
 
     op1_dims, op2_dims, res_dims = op1.type, op2.type, res.type
     op1_sizes, op2_sizes, res_sizes = [], [], []
@@ -88,18 +85,22 @@ def broadcast(declaration):
     for i in reversed(range(0, op2_dims)): op2_sizes.append(op2.data[i + 1])
     for i in reversed(range(0, res_dims)): res_sizes.append(res.data[i + 1])
 
-    op1_indices, op2_indices, res_indices = [], [], []
     # Gets the last variable name since we will compare sizes in the reverse direction.
-    variable_name = chr(ord(CHARACTER_I) + op1_dims - 1)
-    # Determine the value at the N'th index. This will either be `[x]` or `[0]`
+    variable_name = chr(ord(CHARACTER_I) + res_dims - 1)
+    # Determine the value at the indices in reverse order.
+    # For each dimension, this will either be `[x]` for index_variable `x`, or `[0]`
     # depending on the relationship between the dimensions sizes.
+    op1_indices, op2_indices, res_indices = [], [], []
     for i in range(0, len(res_sizes)):
         current_dimension, index_zero = f'[{variable_name}]', '[0]'
         res_indices.append(current_dimension)
-        if len(op2_sizes) <= i:
+        if op1_dims > op2_dims and len(op2_sizes) <= i:
             op1_indices.append(current_dimension)
             continue
-        elif op1_sizes[i] == op2_sizes[i]:
+        if op2_dims > op1_dims and len(op1_sizes) <= i:
+            op2_indices.append(current_dimension)
+            continue
+        if op1_sizes[i] == op2_sizes[i]:
             op1_indices.append(current_dimension)
             op2_indices.append(current_dimension)
         elif op1_sizes[i] > op2_sizes[i]:
@@ -110,8 +111,9 @@ def broadcast(declaration):
             op2_indices.append(current_dimension)
         variable_name = next_character(variable_name, -1)
 
-    # Resulting index in the nested for loop, e.g. for op1[i][j][0][k], this is `[i][j][0][k]`.
-    op1_index, op2_index = ''.join(reversed(op1_indices)), ''.join(reversed(op2_indices))
+    # Resulting index in the nested for loop, e.g. for `op1[i][j][0][k]`, this is `[i][j][0][k]`.
+    op1_index = ''.join(reversed(op1_indices))
+    op2_index = ''.join(reversed(op2_indices))
     res_index = ''.join(reversed(res_indices))
     loop_body = f'{res.name}{res_index} := {op1.name}{op1_index} {declaration.op} {op2.name}{op2_index};'
 
@@ -139,9 +141,9 @@ def batch_flatten(declaration):
 
     declarations = pp_dahlia_memory_declarations([data, res])
     let_flattened = f'let {variable_name}: ubit<{res_index_size1}> = 0;'
-    body = (f"{res.name}{res_indices} := {data.name}{data_indices}; {variable_name} := {variable_name} + 1;")
-    loops = pp_dahlia_loop(data, body)
-    program = f"""{declarations}{NEWL}{let_flattened}{NEWL}{loops}"""
+    body = f"{res.name}{res_indices} := {data.name}{data_indices}; {variable_name} := {variable_name} + 1;"
+    program_body = pp_dahlia_loop(data, body)
+    program = f"""{declarations}{NEWL}{let_flattened}{NEWL}{program_body}"""
     return lower_dahlia_program(program, declaration.component_name)
 
 
@@ -165,8 +167,8 @@ def bias_add(declaration):
 
     declarations = pp_dahlia_memory_declarations([data, bias, res])
     body = (f"{res.name}{data_indices} := {data.name}{data_indices} + {bias.name}{bias_index};")
-    loops = pp_dahlia_loop(data, body)
-    return lower_dahlia_program(f"""{declarations}{NEWL}{loops}""", declaration.component_name)
+    program_body = pp_dahlia_loop(data, body)
+    return lower_dahlia_program(f"""{declarations}{NEWL}{program_body}""", declaration.component_name)
 
 
 # TODO(cgyurgyik):
@@ -175,12 +177,12 @@ def bias_add(declaration):
 #  2. Without signed bit array support, this is also meaningless.
 def relu(declaration):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.relu"""
-    op1, res = declaration.inputs[0].primitive, declaration.output.primitive
-    bitwidth, num_dimensions = op1.data[0], op1.type
+    data, res = declaration.inputs[0].primitive, declaration.output.primitive
+    bitwidth, num_dimensions = data.data[0], data.type
     assert res.data_type == 'ubit', f'{res.data_type} is not currently supported for ReLU.'
 
-    let_zero = f'let zero: {op1.data_type}<{bitwidth}> = 0;'
-    declarations = pp_dahlia_memory_declarations([op1, res])
+    declarations = pp_dahlia_memory_declarations([data, res])
+    let_zero = f'let zero: {data.data_type}<{bitwidth}> = 0;'
 
     indices = ""
     variable_name = CHARACTER_I
@@ -189,33 +191,57 @@ def relu(declaration):
         indices += f'[{variable_name}]'
         variable_name = next_character(variable_name)
 
-    body = f"""if ({op1.name}{indices} > zero) {{ {res.name}{indices} := {op1.name}{indices}; }} 
+    body = f"""if ({data.name}{indices} > zero) {{ {res.name}{indices} := {data.name}{indices}; }} 
         else {{ {res.name}{indices} := 0; }}"""
-    loops = pp_dahlia_loop(op1, body)
-    return lower_dahlia_program(f"""{declarations}{NEWL}{let_zero}{NEWL}{loops}""", declaration.component_name)
+    program_body = pp_dahlia_loop(data, body)
+    return lower_dahlia_program(f"""{declarations}{NEWL}{let_zero}{NEWL}{program_body}""", declaration.component_name)
 
 
 # TODO(cgyurgyik): Similar to ReLU, this requires signed operands.
 def negative(declaration):
     """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.negative"""
-    op1, res = declaration.inputs[0].primitive, declaration.output.primitive
-    bitwidth, size, index_size = op1.data[0], op1.data[1], op1.data[2]
-    program = f"""
-        {pp_dahlia_memory_declarations([res, op1])}
-        for (let i: ubit<{index_size}> = 0..{size}) {{
-          {res.name}[i] := -{op1.name}[i];
-        }}
-    """
-    return lower_dahlia_program(program, declaration.component_name)
+    op, res = declaration.inputs[0].primitive, declaration.output.primitive
+    bitwidth, num_dimensions = op.data[0], op.type
+
+    indices = ""
+    variable_name = CHARACTER_I
+    for i in range(0, num_dimensions):
+        # Determine loop body indices.
+        indices += f'[{variable_name}]'
+        variable_name = next_character(variable_name)
+
+    declarations = pp_dahlia_memory_declarations([op, res])
+    program_body = pp_dahlia_loop(op, f"""{res.name}{indices} := -{op.name}{indices};""")
+    return lower_dahlia_program(f"""{declarations}{NEWL}{program_body}""", declaration.component_name)
 
 
 def expand_dims(declaration):
     """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.expand_dims"""
     axis, num_newaxis = declaration.attributes.get_int("axis"), declaration.attributes.get_int("num_newaxis")
     data, res = declaration.inputs[0].primitive, declaration.output.primitive
+    bitwidth, num_dimensions = data.data[0], data.type
+
+    declarations = pp_dahlia_memory_declarations([data, res])
+
+    res_indices, data_indices = "", ""
+    variable_name = CHARACTER_I
+    for i in range(0, num_dimensions):
+        # Determine loop body indices.
+        index = f'[{variable_name}]'
+        res_indices += index
+        data_indices += index
+        if axis == i + 1:
+            for _ in range(0, num_newaxis): res_indices += '[0]'
+        variable_name = next_character(variable_name)
+
+    program_body = pp_dahlia_loop(data, f'{res.name}{res_indices} := {data.name}{data_indices}')
+    program = f"""{declarations}{NEWL}{program_body}"""
+    return lower_dahlia_program(program, declaration.component_name)
+
     bitwidth, size, index_size = data.data[0], data.data[1], data.data[2]
     size0, size1, size2 = res.data[1], res.data[2], res.data[3]
     index_size0, index_size1, index_size2 = res.data[4], res.data[5], res.data[6]
+
     if axis == 1 and num_newaxis == 2:
         program = f"""
         {pp_dahlia_memory_declarations([res, data])}
