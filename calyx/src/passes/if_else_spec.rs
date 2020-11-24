@@ -84,7 +84,7 @@ impl Visitor<()> for IfElseSpec {
                 if let ir::PortParent::Cell( parent_cell ) = parent {
 
                     if let ir::CellType::Primitive { name, param_binding: _ } = &parent_cell.upgrade().unwrap().borrow().prototype {
-                        if name.to_string() == STD_REG_NAME {
+                        if *name == STD_REG_NAME {
 
                             let reg_already_procd = regs_to_rewrt
                                 .get(group_name)
@@ -116,7 +116,7 @@ impl Visitor<()> for IfElseSpec {
                 let c = builder.add_primitive(
                     shadow_reg_name,
                     "std_reg",
-                    &vec![reg.borrow().get_paramter(&ir::Id::from(WIDTH_PARAM)).unwrap()]
+                    &[reg.borrow().get_paramter(&ir::Id::from(WIDTH_PARAM)).unwrap()]
                 );
                 rewrites.get_mut(&group_name).unwrap().push((reg, c));
             }
