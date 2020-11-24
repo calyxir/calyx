@@ -89,8 +89,10 @@ def broadcast(declaration):
     for i in reversed(range(0, res_dims)): res_sizes.append(res.data[i + 1])
 
     op1_indices, op2_indices, res_indices = [], [], []
-    # Get the character associated with 'i' + N, where N == number of dimensions in `op1`.
+    # Gets the last variable name since we will compare sizes in the reverse direction.
     variable_name = chr(ord(CHARACTER_I) + op1_dims - 1)
+    # Determine the value at the N'th index. This will either be `[x]` or `[0]`
+    # depending on the relationship between the dimensions sizes.
     for i in range(0, len(res_sizes)):
         current_dimension, index_zero = f'[{variable_name}]', '[0]'
         res_indices.append(current_dimension)
