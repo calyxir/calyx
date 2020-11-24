@@ -48,14 +48,6 @@ def lower_dahlia_program(prog, component_name):
         return component
 
 
-def next_character(ch, dir=1):
-    """
-    Returns the next character after 'ch'.
-    If dir is positive, then will return 'ch' + 1. Otherwise, it will return 'ch' - 1.
-    """
-    return chr(ord(ch) + dir) if dir > 0 else chr(ord(ch) - 1)
-
-
 def broadcast(declaration):
     """
     https://numpy.org/doc/stable/user/basics.broadcasting.html
@@ -238,19 +230,6 @@ def expand_dims(declaration):
     program = f"""{declarations}{NEWL}{program_body}"""
     return lower_dahlia_program(program, declaration.component_name)
 
-    bitwidth, size, index_size = data.data[0], data.data[1], data.data[2]
-    size0, size1, size2 = res.data[1], res.data[2], res.data[3]
-    index_size0, index_size1, index_size2 = res.data[4], res.data[5], res.data[6]
-
-    if axis == 1 and num_newaxis == 2:
-        program = f"""
-        {pp_dahlia_memory_declarations([res, data])}
-        for (let i: ubit<{index_size}> = 0..{size}) {{
-          {res.name}[i][0][0] := {data.name}[i];
-        }}
-        """
-    return lower_dahlia_program(program, declaration.component_name)
-
 
 def batch_matmul(declaration):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.batch_matmul"""
@@ -264,8 +243,8 @@ def batch_matmul(declaration):
     # 3. Copy temporary value to return value.*
     #    * This third step may not be necessary, but trying to conduct the matrix multiply
     #      directly with the return value declared resulted in incorrect outputs.
-    program = f"""
-    {pp_dahlia_memory_declarations([res, op1, op2])}
+    declarations = pp_dahlia_memory_declarations([res, op1, op2])
+    program = f"""{declarations}
     let transpose_{op2.name}: {op2.data_type}<{bitwidth}>[{M2_size0}][{M2_size2}][{M2_size1}];
     let temporary_{res.name}: {res.data_type}<{bitwidth}>[{M1_size0}][{M1_size1}][{M2_size1}];
     for (let batch: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
