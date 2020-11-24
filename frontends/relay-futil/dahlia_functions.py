@@ -3,10 +3,12 @@ import os
 
 from tempfile import NamedTemporaryFile, TemporaryFile
 from futil_ast import *
+from pretty_print import *
 
 IMPORT_STATEMENT = """import "primitives/std.lib";\n"""
 NO_ERR = "2>/dev/null"
 CHARACTER_I = chr(ord('i'))
+NEWL = '\n'
 
 
 def lower_dahlia_program(prog, component_name):
@@ -79,18 +81,17 @@ def broadcast(declaration):
     op1 = operand1 if operand1.type >= operand2.type else operand2
     op2 = operand2 if op1 == operand1 else operand1
 
-    op1_offset, op2_offset = op1.type, op2.type
+    op1_dims, op2_dims, res_dims = op1.type, op2.type, res.type
     op1_sizes, op2_sizes, res_sizes = [], [], []
-    for i in reversed(range(1, op1_offset + 1)): op1_sizes.append(op1.data[i])
-    for i in reversed(range(1, op2_offset + 1)): op2_sizes.append(op2.data[i])
-    for i in range(0, len(op1_sizes)):
-        size = op1_sizes[i]
-        res_sizes.append(max(size, op2_sizes[i]) if i < len(op2_sizes) else size)
+    # Get memory sizes in reversed order.
+    for i in reversed(range(0, op1_dims)): op1_sizes.append(op1.data[i + 1])
+    for i in reversed(range(0, op2_dims)): op2_sizes.append(op2.data[i + 1])
+    for i in reversed(range(0, res_dims)): res_sizes.append(res.data[i + 1])
 
     op1_indices, op2_indices, res_indices = [], [], []
     # Get the character associated with 'i' + N, where N == number of dimensions in `op1`.
-    variable_name = chr(ord(CHARACTER_I) + op1_offset - 1)
-    for i in range(0, len(op1_sizes)):
+    variable_name = chr(ord(CHARACTER_I) + op1_dims - 1)
+    for i in range(0, len(res_sizes)):
         current_dimension, index_zero = f'[{variable_name}]', '[0]'
         res_indices.append(current_dimension)
         if len(op2_sizes) <= i:
@@ -110,129 +111,60 @@ def broadcast(declaration):
     # Resulting index in the nested for loop, e.g. for op1[i][j][0][k], this is `[i][j][0][k]`.
     op1_index, op2_index = ''.join(reversed(op1_indices)), ''.join(reversed(op2_indices))
     res_index = ''.join(reversed(res_indices))
+    loop_body = f'{res.name}{res_index} := {op1.name}{op1_index} {declaration.op} {op2.name}{op2_index};'
 
-    # Declarations for op1, op2, res.
-    op1_decl = f'decl {op1.name}: {op1.data_type}<{op1.data[0]}>'
-    op2_decl = f'decl {op2.name}: {op2.data_type}<{op2.data[0]}>'
-    res_decl = f'decl {res.name}: {res.data_type}<{res.data[0]}>'
-    for i in reversed(range(0, len(op1_sizes))): op1_decl += f'[{op1_sizes[i]}]'
-    for i in reversed(range(0, len(op2_sizes))): op2_decl += f'[{op2_sizes[i]}]'
-    for i in reversed(range(0, len(res_sizes))): res_decl += f'[{res_sizes[i]}]'
-
-    # For loop(s).
-    variable_name = CHARACTER_I
-    loop_body = []
-    for i in range(1, len(op1_sizes) + 1):
-        size, index_size = res.data[i], res.data[i + op1_offset]
-        if (i + op2_offset < len(op2_sizes)):
-            op2_size, op2_index_size = op2.data[i], op2.data[i + op2_offset]
-            size, index_size = max(size, op2_size), max(size, op2_index_size)
-        loop_body.append(f'for (let {variable_name}: ubit<{index_size}> = 0..{size}) {{')
-        variable_name = next_character(variable_name)
-    loop_body.append(f'{res.name}{res_index} := {op1.name}{op1_index} {declaration.op} {op2.name}{op2_index};')
-
-    for i in range(1, len(op1_sizes) + 1): loop_body.append('}')
-    program = f"""
-    {op1_decl};
-    {op2_decl};
-    {res_decl};
-    {' '.join(loop_body)}
-    """
+    program_body = pp_dahlia_loop(res, loop_body)
+    declarations = pp_dahlia_memory_declarations([res, op1, op2])
+    program = f"""{declarations}{NEWL}{program_body}"""
     return lower_dahlia_program(program, declaration.component_name)
 
 
 def batch_flatten(declaration):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.batch_flatten"""
-    op1, res = declaration.inputs[0].primitive, declaration.output.primitive
-    bitwidth, res_bitwidth, res_size0, res_size1 = op1.data[0], res.data[0], res.data[1], res.data[2]
-    res_index_size0, res_index_size1 = res.data[3], res.data[4]
+    data, res = declaration.inputs[0].primitive, declaration.output.primitive
+    bitwidth, num_dimensions = data.data[0], data.type
+    res_index_size1 = res.data[4]
 
-    if op1.type == PrimitiveType.Memory3D:
-        op1_size0, op1_size1, op1_size2 = op1.data[1], op1.data[2], op1.data[3]
-        op1_index_size0, op1_index_size1, op1_index_size2 = op1.data[4], op1.data[5], op1.data[6]
-        program = f"""
-            decl {op1.name}: {op1.data_type}<{bitwidth}>[{op1_size0}][{op1_size1}][{op1_size2}];
-            decl {res.name}: {res.data_type}<{bitwidth}>[{res_size0}][{res_size1}];
-            let l: ubit<{res_index_size1}> = 0;
-            for (let i: ubit<{op1_index_size0}> = 0..{op1_size0}) {{
-              for (let j: ubit<{op1_index_size1}> = 0..{op1_size1}) {{
-                for (let k: ubit<{op1_index_size2}> = 0..{op1_size2}) {{
-                  {res.name}[i][l] := {op1.name}[i][j][k];
-                  l := l + 1;
-                }}
-              }}
-            }}"""
-        return lower_dahlia_program(program, declaration.component_name)
-    if op1.type == PrimitiveType.Memory4D:
-        op1_size0, op1_size1, op1_size2, op1_size3 = op1.data[1], op1.data[2], op1.data[3], op1.data[4]
-        op1_index_size0, op1_index_size1 = op1.data[5], op1.data[6]
-        op1_index_size2, op1_index_size3 = op1.data[7], op1.data[8]
-        program = f"""
-            decl {op1.name}: {op1.data_type}<{bitwidth}>[{op1_size0}][{op1_size1}][{op1_size2}][{op1_size3}];
-            decl {res.name}: {res.data_type}<{bitwidth}>[{res_size0}][{res_size1}];
-            let l: ubit<{res_index_size1}> = 0;
-            for (let i: ubit<{op1_index_size0}> = 0..{op1_size0}) {{
-              for (let j: ubit<{op1_index_size1}> = 0..{op1_size1}) {{
-                for (let k: ubit<{op1_index_size2}> = 0..{op1_size2}) {{
-                  for (let l: ubit<{op1_index_size3}> = 0..{op1_size3}) {{
-                    {res.name}[i][l] := {op1.name}[i][j][k][l];
-                    l := l + 1;
-                  }}
-                }}
-              }}
-            }}"""
-        return lower_dahlia_program(program, declaration.component_name)
+    variable_name = CHARACTER_I
+    data_indices, res_indices = "", f'[{variable_name}]'
+    for i in range(0, num_dimensions):
+        # Determine loop body indices based on `axis` provided.
+        size, index_size = data.data[i + 1], data.data[i + num_dimensions + 1]
+        index = f'[{variable_name}]'
+        data_indices += index
+        variable_name = next_character(variable_name)
+    res_indices += f'[{variable_name}]'
+
+    declarations = pp_dahlia_memory_declarations([data, res])
+    let_flattened = f'let {variable_name}: ubit<{res_index_size1}> = 0;'
+    body = (f"{res.name}{res_indices} := {data.name}{data_indices}; {variable_name} := {variable_name} + 1;")
+    loops = pp_dahlia_loop(data, body)
+    program = f"""{declarations}{NEWL}{let_flattened}{NEWL}{loops}"""
+    return lower_dahlia_program(program, declaration.component_name)
 
 
 def bias_add(declaration):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.bias_add"""
-    axis = declaration.attributes.get_int("axis")
-    # TODO(cgyurgyik): Supported axis = -1.
-    assert axis == 0 or axis == 1, f'bias_add with axis: {axis} is not currently supported.'
     data, bias, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
-    bitwidth = data.data[0]
-    if data.type == PrimitiveType.Memory2D:
-        size0, size1, index_size0, index_size1 = data.data[1], data.data[2], data.data[3], data.data[4]
-        bias_size, bias_index_size = bias.data[1], bias.data[2]
-        program = f"""
-        decl {data.name}: {data.data_type}<{bitwidth}>[{size0}][{size1}];
-        decl {bias.name}: {bias.data_type}<{bitwidth}>[{bias_size}];
-        decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}];"""
-        if axis == 1:
-            program += f"""
-            for (let i: ubit<{index_size0}> = 0..{size0}) {{
-              for (let j: ubit<{index_size1}> = 0..{size1}) {{
-                {res.name}[i][j] := {data.name}[i][j] + {bias.name}[j];
-              }}
-            }}"""
-        elif axis == 0:
-            program += f"""
-            for (let j: ubit<{index_size1}> = 0..{size1}) {{
-              for (let i: ubit<{index_size0}> = 0..{size0}) {{
-                {res.name}[i][j] := {data.name}[i][j] + {bias.name}[i];
-              }}
-            }}"""
-    elif data.type == PrimitiveType.Memory4D:
-        bitwidth, size0, size1, size2, size3 = data.data[0], data.data[1], data.data[2], data.data[3], data.data[4]
-        index_size0, index_size1, index_size2, index_size3 = data.data[5], data.data[6], data.data[7], data.data[8]
-        bias_size, bias_index_size = bias.data[1], bias.data[2]
-        program = f"""
-        decl {data.name}: {data.data_type}<{bitwidth}>[{size0}][{size1}][{size2}][{size3}];
-        decl {bias.name}: {bias.data_type}<{bitwidth}>[{bias_size}];
-        decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}][{size2}][{size3}];"""
-        if axis == 1:
-            program += f"""
-            for (let i: ubit<{index_size0}> = 0..{size0}) {{
-              for (let j: ubit<{index_size1}> = 0..{size1}) {{
-                for (let k: ubit<{index_size2}> = 0..{size2}) {{
-                  for (let l: ubit<{index_size3}> = 0..{size3}) {{
-                    {res.name}[i][j][k][l] := {data.name}[i][j][k][l] + {bias.name}[j];
-                  }}
-                }}
-              }}
-            }}"""
+    bitwidth, num_dimensions = data.data[0], data.type
 
-    return lower_dahlia_program(program, declaration.component_name)
+    axis_attribute = declaration.attributes.get_int("axis")
+    axis = num_dimensions - 1 if axis_attribute == -1 else axis_attribute
+
+    variable_name = CHARACTER_I
+    data_indices = ""
+    for i in range(0, num_dimensions):
+        # Determine loop body indices based on `axis` provided.
+        size, index_size = data.data[i + 1], data.data[i + num_dimensions + 1]
+        index = f'[{variable_name}]'
+        if axis == i: bias_index = index
+        data_indices += index
+        variable_name = next_character(variable_name)
+
+    declarations = pp_dahlia_memory_declarations([data, bias, res])
+    body = (f"{res.name}{data_indices} := {data.name}{data_indices} + {bias.name}{bias_index};")
+    loops = pp_dahlia_loop(data, body)
+    return lower_dahlia_program(f"""{declarations}{NEWL}{loops}""", declaration.component_name)
 
 
 # TODO(cgyurgyik):
@@ -242,56 +174,23 @@ def bias_add(declaration):
 def relu(declaration):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.relu"""
     op1, res = declaration.inputs[0].primitive, declaration.output.primitive
+    bitwidth, num_dimensions = op1.data[0], op1.type
     assert res.data_type == 'ubit', f'{res.data_type} is not currently supported for ReLU.'
 
-    if op1.type == PrimitiveType.Memory2D:
-        bitwidth, op1_size0, op1_size1 = op1.data[0], op1.data[1], op1.data[2]
-        op1_index_size0, op1_index_size1 = op1.data[3], op1.data[4]
-        res_bitwidth, res_size0, res_size1 = res.data[0], res.data[1], res.data[2]
-        res_index_size0, res_index_size1 = res.data[3], res.data[4]
-        program = f"""
-        decl {op1.name}: {op1.data_type}<{bitwidth}>[{op1_size0}][{op1_size1}];
-        decl {res.name}: {res.data_type}<{bitwidth}>[{res_size0}][{res_size1}];
-        let zero: {op1.data_type}<{bitwidth}> = 0;
-        for (let i: ubit<{op1_index_size0}> = 0..{op1_size0}) {{
-          for (let j: ubit<{op1_index_size1}> = 0..{op1_size1}) {{
-            if ({op1.name}[i][j] > zero) {{
-              {res.name}[i][j] := {op1.name}[i][j];
-            }} else {{
-              {res.name}[i][j] := 0;
-            }}
-          }}
-        }}
-        """
-        return lower_dahlia_program(program, declaration.component_name)
+    let_zero = f'let zero: {op1.data_type}<{bitwidth}> = 0;'
+    declarations = pp_dahlia_memory_declarations([op1, res])
 
-    elif op1.type == PrimitiveType.Memory4D:
-        bitwidth, op1_size0, op1_size1 = op1.data[0], op1.data[1], op1.data[2]
-        op1_size2, op1_size3, op1_index_size0, = op1.data[3], op1.data[4], op1.data[5]
-        op1_index_size1, op1_index_size2, op1_index_size3 = op1.data[6], op1.data[7], op1.data[8]
-        res_bitwidth, res_size0, res_size1 = res.data[0], res.data[1], res.data[2]
-        res_size2, res_size3, res_index_size0, res_index_size1 = res.data[3], res.data[4], res.data[5], res.data[6]
-        res_index_size2, res_index_size3 = res.data[7], res.data[8]
+    indices = ""
+    variable_name = CHARACTER_I
+    for i in range(0, num_dimensions):
+        # Determine loop body indices.
+        indices += f'[{variable_name}]'
+        variable_name = next_character(variable_name)
 
-        program = f"""
-                decl {op1.name}: {op1.data_type}<{bitwidth}>[{op1_size0}][{op1_size1}][{op1_size2}][{op1_size3}];
-                decl {res.name}: {res.data_type}<{bitwidth}>[{res_size0}][{res_size1}][{op1_size2}][{op1_size3}];
-                let zero: {op1.data_type}<{bitwidth}> = 0;
-                for (let i: ubit<{op1_index_size0}> = 0..{op1_size0}) {{
-                  for (let j: ubit<{op1_index_size1}> = 0..{op1_size1}) {{
-                    for (let k: ubit<{op1_index_size2}> = 0..{op1_size2}) {{
-                      for (let l: ubit<{op1_index_size3}> = 0..{op1_size3}) {{
-                        if ({op1.name}[i][j][k][l] > zero) {{
-                          {res.name}[i][j][k][l] := {op1.name}[i][j][k][l];
-                        }} else {{
-                          {res.name}[i][j][k][l] := 0;
-                        }}
-                      }} 
-                    }}
-                  }}
-                }}
-                """
-        return lower_dahlia_program(program, declaration.component_name)
+    body = f"""if ({op1.name}{indices} > zero) {{ {res.name}{indices} := {op1.name}{indices}; }} 
+        else {{ {res.name}{indices} := 0; }}"""
+    loops = pp_dahlia_loop(op1, body)
+    return lower_dahlia_program(f"""{declarations}{NEWL}{let_zero}{NEWL}{loops}""", declaration.component_name)
 
 
 # TODO(cgyurgyik): Similar to ReLU, this requires signed operands.
@@ -300,8 +199,7 @@ def negative(declaration):
     op1, res = declaration.inputs[0].primitive, declaration.output.primitive
     bitwidth, size, index_size = op1.data[0], op1.data[1], op1.data[2]
     program = f"""
-        decl {op1.name}: {op1.data_type}<{bitwidth}>[{size}];
-        decl {res.name}: {res.data_type}<{bitwidth}>[{size}];
+        {pp_dahlia_memory_declarations([res, op1])}
         for (let i: ubit<{index_size}> = 0..{size}) {{
           {res.name}[i] := -{op1.name}[i];
         }}
@@ -318,8 +216,7 @@ def expand_dims(declaration):
     index_size0, index_size1, index_size2 = res.data[4], res.data[5], res.data[6]
     if axis == 1 and num_newaxis == 2:
         program = f"""
-        decl {data.name}: {data.data_type}<{bitwidth}>[{size}];
-        decl {res.name}: {res.data_type}<{bitwidth}>[{size0}][{size1}][{size2}];
+        {pp_dahlia_memory_declarations([res, data])}
         for (let i: ubit<{index_size}> = 0..{size}) {{
           {res.name}[i][0][0] := {data.name}[i];
         }}
@@ -340,9 +237,7 @@ def batch_matmul(declaration):
     #    * This third step may not be necessary, but trying to conduct the matrix multiply
     #      directly with the return value declared resulted in incorrect outputs.
     program = f"""
-    decl {op1.name}: {op1.data_type}<{bitwidth}>[{M1_size0}][{M1_size1}][{M1_size2}];
-    decl {op2.name}: {op2.data_type}<{bitwidth}>[{M2_size0}][{M2_size1}][{M2_size2}];
-    decl {res.name}: {res.data_type}<{bitwidth}>[{M1_size0}][{M1_size1}][{M2_size1}];
+    {pp_dahlia_memory_declarations([res, op1, op2])}
     let transpose_{op2.name}: {op2.data_type}<{bitwidth}>[{M2_size0}][{M2_size2}][{M2_size1}];
     let temporary_{res.name}: {res.data_type}<{bitwidth}>[{M1_size0}][{M1_size1}][{M2_size1}];
     for (let batch: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
@@ -387,9 +282,7 @@ def dense(declaration):
     M1_index_size0, M1_index_size1 = op1.data[3], op1.data[4]
     M2_size0, M2_size1, M2_index_size0, M2_index_size1 = op2.data[1], op2.data[2], op2.data[3], op2.data[4]
     program = f"""
-    decl {op1.name}: {op1.data_type}<{bitwidth}>[{M1_size0}][{M1_size1}];
-    decl {op2.name}: {op2.data_type}<{bitwidth}>[{M2_size0}][{M2_size1}];
-    decl {res.name}: {res.data_type}<{bitwidth}>[{M1_size0}][{M2_size0}];
+    {pp_dahlia_memory_declarations([res, op1, op2])}
     let transpose_{op2.name}: {op2.data_type}<{bitwidth}>[{M2_size1}][{M2_size0}];
     let temporary_{res.name}: {res.data_type}<{bitwidth}>[{M1_size0}][{M2_size0}];
     for (let i: ubit<{M2_index_size0}> = 0..{M2_size0}) {{

@@ -105,3 +105,54 @@ def pp_cell(cell: FCell):
         return f'{cell.declaration.name} = {cell.declaration.component.name};'
     elif cell.is_dahlia_declaration():
         return f'{cell.dahlia_declaration.decl_name} = {cell.dahlia_declaration.component_name};'
+
+
+# Dahlia Pretty Printing.
+
+def next_character(ch, dir=1):
+    """
+    Returns the next character after 'ch'.
+    If dir is positive, then will return 'ch' + 1. Otherwise, it will return 'ch' - 1.
+    """
+    return chr(ord(ch) + dir) if dir > 0 else chr(ord(ch) - 1)
+
+
+def pp_dahlia_memory_declarations(declaration_list):
+    declarations = []
+    for decl in declaration_list:
+        decl_string = f'decl {decl.name}: {decl.data_type}<{decl.data[0]}>'
+        for i in range(0, decl.type): decl_string += f'[{decl.data[i + 1]}]'
+        declarations.append(f'{decl_string};')
+    return '\n'.join(declarations)
+
+
+def pp_dahlia_loop(data, body):
+    """
+    Returns an iteration over data with `body` as the work done within the nested loop(s).
+    Many tensor functions share the same control flow: (1) Iterate over `data`, and (2) do some work in body.
+    For example, if `data` is a 2D primitive of size (M, N) and body == `X;`, then this will return:
+
+    ```
+    for (let i: ubit<X> = 0..M) {
+      for (let j: ubit<Y> = 0..N) {
+        X;
+      }
+    }
+    ```
+    """
+    variable_name = chr(ord('i'))
+    num_dimensions = data.type
+
+    program = []
+    SPACING = ''
+    for i in range(0, num_dimensions):
+        size, index_size = data.data[i + 1], data.data[i + num_dimensions + 1]
+        program.append(f'{SPACING}for (let {variable_name}: ubit<{index_size}> = 0..{size}) {{')
+        variable_name = next_character(variable_name)
+        SPACING += '  '
+    program.append(f'{SPACING}{body}')
+
+    for i in range(0, num_dimensions):
+        SPACING = SPACING[:-2]
+        program.append(f'{SPACING}}}')
+    return '\n'.join(program)
