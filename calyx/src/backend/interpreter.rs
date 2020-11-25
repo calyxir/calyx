@@ -9,7 +9,11 @@ pub struct Environment {
     /// A mapping from cell names to the values on their ports.
     map: HashMap<ir::Id, HashMap<ir::Id, u64>>,
     /// A queue of operations that need to be applied in the future.
+    /// A vector with maps that map cells to a mapping from ports to the new values.
     update_queue: Vec<HashMap<ir::Id, HashMap<ir::Id, u64>>>,
+    /// Another implementation of the update queue
+    /// Is a vector that pairs the source cell, the source port, the destination cell, and the destination port.
+    updates: Vec<(ir::Id, ir::Id, ir::Id, ir::Id)>,
     /// A mapping from cell ids to cells, much like in component.rs. Will probably need to remove eventually
     cells: HashMap<ir::Id, ir::RRC<ir::Cell>>,
 }
@@ -47,13 +51,45 @@ impl Environment {
         self.update_queue.push(outer_map);
     }
 
-    /// Performs an update to the current environment using the update_queue; TODO
-    pub fn do_tick(self) -> Self {
-        for update in &self.update_queue {
-            println!("test")
-        }
-        self //??
+    /// Puts an update into the updates vector
+    pub fn put_update(
+        &mut self,
+        prev_cell: &ir::Id,
+        prev_port: &ir::Id,
+        next_cell: &ir::Id,
+        next_port: &ir::Id,
+    ) {
+        self.updates.push((
+            prev_cell.clone(),
+            prev_port.clone(),
+            next_cell.clone(),
+            next_port.clone(),
+        ));
     }
+
+    /// Simulates a clock cycle by executing the stored updates.
+    pub fn do_tick(&mut self) -> () {
+        for updates in &self.updates.clone() {
+            // read the values from the environment
+            let new_val = self.get(&updates.0, &updates.1);
+            self.put(&updates.2, &updates.3, new_val);
+        }
+        &self.updates.clear();
+    }
+
+    /// Performs an update to the current environment using the update_queue; TODO
+    // pub fn do_tick(mut self) -> Self {
+    //     for update in &self.update_queue.clone() {
+    //         for cell in update.keys() {
+    //             let port_val = &update[cell];
+    //             for port in port_val.keys() {
+    //                 self.put(cell, port, port_val[port]);
+    //             }
+    //         }
+    //     }
+    //     self
+    // }
+
     /// Gets the cell based on the name; TODO; similar to find_cell in component.rs
     fn get_cell(&self, cell: &ir::Id) -> Option<ir::RRC<ir::Cell>> {
         self.cells
@@ -76,100 +112,131 @@ fn eval_assigns(
 ) -> FutilResult<Environment> {
     // Find the done signal in the sequence of assignments
     let done_signal = get_done_signal(assigns);
-    //let init = done_signal.src.clone();
-
     // e2 = Clone the current environment
     let mut write_env = env.clone();
-
     // get the cell that done_signal.dst belongs to
-    let cell = get_cell(&done_signal.dst);
+    let done_cell = get_cell(&done_signal.dst);
 
     // while done signal is zero; how to check value of done_signal?
-    while env.get(&cell, &done_signal.dst.borrow().name) == 0 {}
-    // for assign in assigns
-    for assign in assigns.iter() {
-        // check if the assign.guard == 1
-        if eval_guard(&assign.guard, env) {
-            // check if assign.src is a constant?
-            // cell of assign.src
-            let src_cell = get_cell(&assign.src);
+    while env.get(&done_cell, &done_signal.dst.borrow().name) == 0 {
+        // for assign in assigns
+        for assign in assigns.iter() {
+            // check if the assign.guard == 1
+            if eval_guard(&assign.guard, env) {
+                // check if the cells are constants?
+                // cell of assign.src
+                let src_cell = get_cell(&assign.src);
+                // cell of assign.dst
+                let dst_cell = get_cell(&assign.dst);
 
-            // cell of assign.dst
-            let dst_cell = get_cell(&assign.dst);
+                // perform a read from `env` for assign.src
+                let read_val =
+                    env.get(&src_cell, &done_signal.src.borrow().name);
 
-            // perform a read from `env` for assign.src
-            let read_val = env.get(&src_cell, &done_signal.src.borrow().name);
+                // update internal state of the cell and
+                // queue any required updates.
 
-            // update internal state of the cell and
-            // queue any required updates.
-
-            // determine if dst_cell is a combinational cell or not
-            if get_combinational_or_not(&dst_cell, env) {
-                // write to assign.dst to e2 immediately, if combinational
-                write_env.put(&dst_cell, &assign.dst.borrow().name, read_val);
-
-                // now, update the internal state of the cell; for now, this only includes adds; TODO
-                let mut inputs = vec![];
-                let mut outputs = vec![];
-
-                // get dst_cell's input vector
-                match &env.get_cell(&dst_cell) {
-                    Some(cell) => {
-                        inputs = vec![
-                            (cell.borrow()).get("left").borrow().name.clone(),
-                            (cell.borrow()).get("right").borrow().name.clone(),
-                        ]
-                    }
-                    _ => panic!("could not find cell"),
-                }
-
-                // get dst_cell's output vector
-                match &env.get_cell(&dst_cell) {
-                    Some(cell) => {
-                        outputs = vec![(cell.borrow())
-                            .get("out")
-                            .borrow()
-                            .name
-                            .clone()]
-                        //clean this up later?
-                    }
-                    _ => panic!("could not find cell"),
-                }
-
-                match update_cell_state(
-                    &dst_cell,
-                    &inputs[..],
-                    &outputs[..],
-                    &write_env,
-                ) {
-                    Ok(env) => write_env = env,
-                    _ => println!("error somehow"),
-                }
-            } else {
-                // otherwise, add the write to the update queue; currently only handles registers
-                let temp_cell = &env.get_cell(&dst_cell);
-                match temp_cell {
-                    Some(cell) => write_env.add_update(
-                        //???
-                        (cell.borrow()).get("in").borrow().name.clone(),
-                        (cell.borrow()).get("in").borrow().name.clone(),
+                // determine if dst_cell is a combinational cell or not
+                if get_combinational_or_not(&dst_cell, env) {
+                    // write to assign.dst to e2 immediately, if combinational
+                    &write_env.put(
+                        &dst_cell,
+                        &assign.dst.borrow().name,
                         read_val,
-                    ), //???
-                    _ => panic!("can't find the ports"),
-                }
-            }
+                    );
 
-            // env = env.do_tick()
+                    // now, update the internal state of the cell; for now, this only includes adds; TODO
+                    let mut inputs = vec![];
+                    let mut outputs = vec![];
+
+                    // get dst_cell's input vector
+                    match &env.get_cell(&dst_cell) {
+                        Some(cell) => {
+                            inputs = vec![
+                                (cell.borrow())
+                                    .get("left")
+                                    .borrow()
+                                    .name
+                                    .clone(),
+                                (cell.borrow())
+                                    .get("right")
+                                    .borrow()
+                                    .name
+                                    .clone(),
+                            ]
+                        }
+                        _ => panic!("could not find cell"),
+                    }
+
+                    // get dst_cell's output vector
+                    match &env.get_cell(&dst_cell) {
+                        Some(cell) => {
+                            outputs = vec![(cell.borrow())
+                                .get("out")
+                                .borrow()
+                                .name
+                                .clone()]
+                            //clean this up later?
+                        }
+                        _ => panic!("could not find cell"),
+                    }
+
+                    match update_cell_state(
+                        &dst_cell,
+                        &inputs[..],
+                        &outputs[..],
+                        &write_env,
+                    ) {
+                        Ok(env) => write_env = env,
+                        _ => println!("error somehow"),
+                    }
+                } else {
+                    // otherwise, add the write to the update queue; currently only handles registers
+                    let temp_cell = &env.get_cell(&dst_cell);
+                    match temp_cell {
+                        Some(cell) => write_env.put_update(
+                            &src_cell,
+                            &assign.src.borrow().name,
+                            &dst_cell,
+                            &assign.dst.borrow().name,
+                        ), //temp
+                        // Some(cell) => write_env.add_update(
+                        //     (cell.borrow()).name.clone(),
+                        //     (cell.borrow()).get("in").borrow().name.clone(), //temp
+                        //     1,                                               //temp
+                        // ),
+                        _ => panic!("can't find the ports"),
+                    }
+                }
+
+                &write_env.do_tick();
+            }
         }
     }
 
     Ok(write_env)
 }
 
-/// Evaluates guard; TODO
+/// Evaluates guard; TODO (change bool to u64)
 fn eval_guard(guard: &ir::Guard, env: &Environment) -> bool {
     match guard {
-        ir::Guard::True => true,
+        ir::Guard::Or(gs) => {
+            for g in gs.clone() {
+                if eval_guard(&g, env) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        ir::Guard::And(gs) => {
+            for g in gs.clone() {
+                if !eval_guard(&g, env) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        ir::Guard::Not(g) => !(eval_guard(g, &env)),
         ir::Guard::Port(p) =>
         //TODO; this is probably the big one
         {
@@ -179,7 +246,7 @@ fn eval_guard(guard: &ir::Guard, env: &Environment) -> bool {
                 true
             }
         }
-        ir::Guard::Not(g) => !(eval_guard(g, &env)),
+        ir::Guard::True => true,
         _ => true,
     }
 }
@@ -226,6 +293,7 @@ fn get_combinational_or_not(cell: &ir::Id, env: &Environment) -> bool {
         "std_add" => true,
         "std_reg" => false,
         "std_const" => true,
+        "std_mult" => true,
         _ => false,
     }
 }
@@ -253,20 +321,76 @@ fn update_cell_state(
     let cell_type = temp.type_name();
 
     match cell_type {
-        None => println!("Futil Const?"),
+        None => panic!("Futil Const?"),
         Some(ct) => match ct.id.as_str() {
-            "std_add" =>
-            // let a = e.get(cell, inputs[0]);
-            // let b = e.get(cell, inputs[1]);
-            {
+            "std_reg" => {
+                new_env.put(cell, &output[0], env.get(cell, &inputs[0]))
+            }
+            "std_add" | "std_" => new_env.put(
+                cell,
+                &output[0],
+                new_env.get(cell, &inputs[0]) + env.get(cell, &inputs[1]),
+            ),
+            "std_mult" => new_env.put(
+                cell,
+                &output[0],
+                new_env.get(cell, &inputs[0]) * env.get(cell, &inputs[1]),
+            ),
+            "std_not" => {
+                new_env.put(cell, &output[0], !new_env.get(cell, &inputs[0]))
+            }
+            "std_and" => new_env.put(
+                cell,
+                &output[0],
+                new_env.get(cell, &inputs[0]) & env.get(cell, &inputs[1]),
+            ),
+            "std_or" => new_env.put(
+                cell,
+                &output[0],
+                new_env.get(cell, &inputs[0]) ^ env.get(cell, &inputs[1]),
+            ),
+            "std_gt" => new_env.put(
+                cell,
+                &output[0],
+                (new_env.get(cell, &inputs[0]) > env.get(cell, &inputs[1]))
+                    as u64,
+            ),
+            "std_lt" => new_env.put(
+                cell,
+                &output[0],
+                (new_env.get(cell, &inputs[0]) > env.get(cell, &inputs[1]))
+                    as u64,
+            ),
+            "std_eq" => new_env.put(
+                cell,
+                &output[0],
+                (new_env.get(cell, &inputs[0]) == env.get(cell, &inputs[1]))
+                    as u64,
+            ),
+            "std_neq" => new_env.put(
+                cell,
+                &output[0],
+                (new_env.get(cell, &inputs[0]) != env.get(cell, &inputs[1]))
+                    as u64,
+            ),
+            "std_ge" => new_env.put(
+                cell,
+                &output[0],
+                (new_env.get(cell, &inputs[0]) >= env.get(cell, &inputs[1]))
+                    as u64,
+            ),
+            "std_le" => new_env.put(
+                cell,
+                &output[0],
+                (new_env.get(cell, &inputs[0]) <= env.get(cell, &inputs[1]))
+                    as u64,
+            ),
+            "std_sqrt" => {
                 new_env.put(
                     cell,
                     &output[0],
-                    new_env.get(cell, &inputs[0]) + env.get(cell, &inputs[1]),
-                )
-            }
-            "std_reg" => {
-                new_env.put(cell, &output[0], env.get(cell, &inputs[0]))
+                    ((new_env.get(cell, &inputs[0]) as f64).sqrt()) as u64, // cast to f64 to use sqrt
+                );
             }
             _ => println!("ok"),
         },

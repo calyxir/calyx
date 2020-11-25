@@ -1,0 +1,31 @@
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    const1 = prim std_const(32, 1);
+    const2 = prim std_const(32, 2);
+
+    add1 = prim std_add(32);
+    add2 = prim std_add(32);
+
+  }
+
+  wires {
+
+    // add1 and add2 feed into each other
+    group adds {
+      add1.left = add2.out;
+      add1.right = const1.out;
+      add2.left = add1.out;
+      add2.right = const2.out;
+      add_only[done] = add1.done;
+    }
+
+  }
+
+  control {
+    seq {
+      adds;
+    }
+  }
+}
