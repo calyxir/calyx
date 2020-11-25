@@ -1,25 +1,27 @@
 import "primitives/std.lib";
+// adapted from https://www.csl.cornell.edu/courses/ece5745/handouts/ece5745-lab1-imul.pdf
 
 component main() -> () {
   cells {
-    const1 = prim std_const(32, 1);
-    const2 = prim std_const(32, 2);
+    const1 = prim std_const(32, 11);
+    const2 = prim std_const(32, 5);
 
-    add1 = prim std_add(32);
-    add2 = prim std_add(32);
+    lsh = prim std_lsh(32);
+    rsh = prim std_rsh(32);
 
     reg1 = prim std_reg(32);
     reg2 = prim std_reg(32);
+
+    
 
   }
 
   wires {
 
-    // should finish evaluation immediately
-    group add_no_reg {
+    group cond {
       add1.left = const1.out;
       add1.right = const2.out;
-      add_no_reg[done] = 1'd1;
+      cond[done] = 1'd1;
     }
 
     // should finish evaluation after 1 clock cycle
@@ -38,7 +40,7 @@ component main() -> () {
       add1.right = const2.out;
       reg1.in = add1.out;
 
-      reg2.write_en = 1'd1; // might need to change this?
+      reg2.write_en = 1'd1;
       add2.left = reg1.out;
       add2.right = const1.out;
       reg2.in = add2.out;
@@ -50,7 +52,7 @@ component main() -> () {
 
   control {
     seq {
-      add_no_reg;
+      add_only;
       add_reg;
       two_add_reg;
     }
