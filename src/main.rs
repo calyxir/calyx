@@ -17,8 +17,6 @@ use passes::{
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion, Inliner,
     LiveRangeAnalysis, MinimizeRegs, Papercut, RemoveExternalMemories,
     ResourceSharing, StaticTiming, WellFormed, InferStaticTiming
-    ComponentInterface, Externalize, GoInsertion, Inliner, Papercut,
-    RemoveExternalMemories, StaticTiming, WellFormed, InferStaticTiming
 };
 use std::io::stdin;
 use structopt::StructOpt;

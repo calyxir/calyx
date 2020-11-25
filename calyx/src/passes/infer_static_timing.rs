@@ -12,7 +12,7 @@ use crate::errors::Error;
 use crate::frontend::library::ast as lib;
 use crate::guard;
 use crate::ir;
-use crate::ir::analysis::GraphAnalysis;
+use crate::analysis::GraphAnalysis;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 
 pub struct InferStaticTiming<'a> {
@@ -94,7 +94,7 @@ fn infer_latency<'a>(port: &ir::Port,
                     return Some(0)
                 },
 
-                ir::CellType::Component => {
+                ir::CellType::Component { .. } => {
                     return None
                 },
                 ir::CellType::ThisComponent => {
@@ -112,14 +112,14 @@ fn infer_latency<'a>(port: &ir::Port,
 
 }
 
-impl Visitor for InferStaticTiming<'_> {
+impl Visitor<()> for InferStaticTiming<'_> {
     fn start(
         &mut self,
         comp: &mut ir::Component,
         _c: &lib::LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
 
-        let analysis = GraphAnalysis::from(&comp);
+        let analysis = GraphAnalysis::from(&*comp);
 
         //let latencies: Vec<Option<u64>> = Vec::new();
         let mut latency_result: Option<u64> = None;
@@ -151,6 +151,6 @@ impl Visitor for InferStaticTiming<'_> {
                 None => continue
             }
         }
-        Ok(Action::Stop)
+        Ok(Action::stop_default())
     }
 }
