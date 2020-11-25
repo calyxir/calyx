@@ -14,14 +14,11 @@ use cmdline::Opts;
 use pass_manager::PassManager;
 use passes::{
     ClkInsertion, CollapseControl, CompileControl, CompileEmpty,
-<<<<<<< HEAD
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion, Inliner,
     LiveRangeAnalysis, MinimizeRegs, Papercut, RemoveExternalMemories,
-    ResourceSharing, StaticTiming, WellFormed,
-=======
+    ResourceSharing, StaticTiming, WellFormed, InferStaticTiming
     ComponentInterface, Externalize, GoInsertion, Inliner, Papercut,
     RemoveExternalMemories, StaticTiming, WellFormed, InferStaticTiming
->>>>>>> First pass implementation
 };
 use std::io::stdin;
 use structopt::StructOpt;
