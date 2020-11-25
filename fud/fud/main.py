@@ -21,7 +21,7 @@ def discover_implied_stage(filename, config):
     stage was implied.
     """
     if filename is None:
-        raise Exception('TODO: No filename or type provided.')
+        raise Exception('No filename or type provided for exec.')
 
     suffix = Path(filename).suffix
     for (name, stage) in config['stages'].items():
