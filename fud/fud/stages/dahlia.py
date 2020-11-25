@@ -12,10 +12,10 @@ class DahliaStage(Stage):
 
     def _define(self):
         main = Step(SourceType.Path)
-        main.set_cmd(f'{self.cmd} ')
         main.set_cmd(' '.join([
             self.cmd,
             unwrap_or(self.config['stages', self.name, 'flags'], ''),
-            '{{ctx[input_path]}} -b futil --lower'
+            ' -b futil --lower',
+            '{ctx[input_path]}'
         ]))
         return [main]
