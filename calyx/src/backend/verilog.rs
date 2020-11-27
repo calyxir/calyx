@@ -13,10 +13,10 @@ use ir::{Control, Group, Guard, RRC};
 use itertools::Itertools;
 use std::{collections::HashMap, rc::Rc};
 use vast::v17::ast as v;
-// use lib::Implementation;
 
 /// Implements a simple Verilog backend. The backend
 /// only accepts Futil programs with no control and no groups.
+#[derive(Default)]
 pub struct VerilogBackend;
 
 /// Checks to make sure that there are no holes being
@@ -84,7 +84,7 @@ impl From<library::ast::Implementation> for library::ast::Verilog {
 }
 
 impl Backend for VerilogBackend {
-    fn name() -> &'static str {
+    fn name(&self) -> &'static str {
         "verilog"
     }
 
