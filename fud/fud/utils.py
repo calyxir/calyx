@@ -1,4 +1,5 @@
 import sys
+import logging
 import logging as log
 
 
@@ -23,3 +24,17 @@ def unwrap_or(val, default):
         return val
     else:
         return default
+
+def logging_setup():
+    # Color for warning and error mesages
+    logging.addLevelName(
+        logging.WARNING,
+        "\033[1;33m%s\033[1;0m" % logging.getLevelName(logging.WARNING))
+    logging.addLevelName(
+        logging.ERROR,
+        "\033[1;31m%s\033[1;0m" % logging.getLevelName(logging.ERROR))
+
+    logging.basicConfig(
+        format='%(levelname)s: %(message)s',
+        stream=sys.stderr,
+        level=logging.INFO)
