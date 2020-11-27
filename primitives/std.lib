@@ -891,12 +891,26 @@ primitive fixed_p_std_div[width, int_width, fract_width](left: width, right: wid
           logic [2*width-2:0] result;
 
           assign result = left / right;
-          // result bit= 2*width, 1 is placed at fract_width,
-          //the valid bit would be width amount of bits starting at fract_width
+          // result bit = 2 * width, 1 is placed at fract_width,
+          // the valid bit would be width amount of bits starting at fract_width
           assign out = result[width+fract_width-1:fract_width];
         endmodule
 
     }
+}
+
+primitive fixed_p_std_gt<"share"=1>[width, int_width, fract_width](left: width, right: width) -> (out: 1) {
+  verilog {
+    module fixed_p_std_gt
+     #(parameter width = 32,
+       parameter int_width = 8,
+       parameter fract_width = 24)
+       (input  logic [width-1:0] left,
+        input  logic [width-1:0] right,
+        output logic             out);
+      assign out = left > right;
+    endmodule
+  }
 }
 
 // the bigger integer bit always comes left, one with bigger fractional bit comes right

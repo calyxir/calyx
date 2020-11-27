@@ -6,21 +6,20 @@ component relu(go: 1, clk: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_
     add1 = prim std_add(4);
     add2 = prim std_add(3);
     add3 = prim std_add(2);
-    const0 = prim std_const(32, 0);
-    const1 = prim std_const(2, 0);
-    const10 = prim std_const(6, 1);
-    const11 = prim std_const(4, 1);
-    const12 = prim std_const(3, 1);
-    const13 = prim std_const(2, 1);
-    const2 = prim std_const(2, 1);
-    const3 = prim std_const(3, 0);
-    const4 = prim std_const(3, 3);
-    const5 = prim std_const(4, 0);
-    const6 = prim std_const(4, 7);
-    const7 = prim std_const(6, 0);
-    const8 = prim std_const(6, 31);
-    const9 = prim std_const(32, 0);
-    gt0 = prim std_gt(32);
+    const0 = prim std_const(2, 0);
+    const1 = prim std_const(2, 1);
+    const10 = prim std_const(3, 1);
+    const11 = prim std_const(2, 1);
+    const2 = prim std_const(3, 0);
+    const3 = prim std_const(3, 3);
+    const4 = prim std_const(4, 0);
+    const5 = prim std_const(4, 7);
+    const6 = prim std_const(6, 0);
+    const7 = prim std_const(6, 31);
+    const8 = prim std_const(6, 1);
+    const9 = prim std_const(4, 1);
+    fpconst0 = prim fixed_p_std_const(32, 16, 16, 0, 0);
+    gt0 = prim fixed_p_std_gt(32, 16, 16);
     i0 = prim std_reg(2);
     j0 = prim std_reg(3);
     k0 = prim std_reg(4);
@@ -37,22 +36,22 @@ component relu(go: 1, clk: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_
     group cond0<"static"=0> {
       cond0[done] = 1'd1;
       le0.left = i0.out;
-      le0.right = const2.out;
+      le0.right = const1.out;
     }
     group cond1<"static"=0> {
       cond1[done] = 1'd1;
       le1.left = j0.out;
-      le1.right = const4.out;
+      le1.right = const3.out;
     }
     group cond2<"static"=0> {
       cond2[done] = 1'd1;
       le2.left = k0.out;
-      le2.right = const6.out;
+      le2.right = const5.out;
     }
     group cond3<"static"=0> {
       cond3[done] = 1'd1;
       le3.left = l0.out;
-      le3.right = const8.out;
+      le3.right = const7.out;
     }
     group cond4<"static"=0> {
       cond4[done] = 1'd1;
@@ -60,27 +59,27 @@ component relu(go: 1, clk: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_
       gt0.right = zero_0.out;
     }
     group let0<"static"=1> {
-      zero_0.in = const0.out;
+      zero_0.in = fpconst0.out;
       zero_0.write_en = 1'd1;
       let0[done] = zero_0.done;
     }
     group let1<"static"=1> {
-      i0.in = const1.out;
+      i0.in = const0.out;
       i0.write_en = 1'd1;
       let1[done] = i0.done;
     }
     group let2<"static"=1> {
-      j0.in = const3.out;
+      j0.in = const2.out;
       j0.write_en = 1'd1;
       let2[done] = j0.done;
     }
     group let3<"static"=1> {
-      k0.in = const5.out;
+      k0.in = const4.out;
       k0.write_en = 1'd1;
       let3[done] = k0.done;
     }
     group let4<"static"=1> {
-      l0.in = const7.out;
+      l0.in = const6.out;
       l0.write_en = 1'd1;
       let4[done] = l0.done;
     }
@@ -117,34 +116,34 @@ component relu(go: 1, clk: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_
       x10_0_0_0_addr1 = j0.out;
       x10_0_0_0_addr0 = i0.out;
       x10_0_0_0_write_en = 1'd1;
-      x10_0_0_0_write_data = 1'd1 ? const9.out;
+      x10_0_0_0_write_data = 1'd1 ? zero_0.out;
       upd3[done] = x10_0_0_0_done ? 1'd1;
     }
     group upd4<"static"=1> {
       l0.write_en = 1'd1;
       add0.left = l0.out;
-      add0.right = const10.out;
+      add0.right = const8.out;
       l0.in = 1'd1 ? add0.out;
       upd4[done] = l0.done ? 1'd1;
     }
     group upd5<"static"=1> {
       k0.write_en = 1'd1;
       add1.left = k0.out;
-      add1.right = const11.out;
+      add1.right = const9.out;
       k0.in = 1'd1 ? add1.out;
       upd5[done] = k0.done ? 1'd1;
     }
     group upd6<"static"=1> {
       j0.write_en = 1'd1;
       add2.left = j0.out;
-      add2.right = const12.out;
+      add2.right = const10.out;
       j0.in = 1'd1 ? add2.out;
       upd6[done] = j0.done ? 1'd1;
     }
     group upd7<"static"=1> {
       i0.write_en = 1'd1;
       add3.left = i0.out;
-      add3.right = const13.out;
+      add3.right = const11.out;
       i0.in = 1'd1 ? add3.out;
       upd7[done] = i0.done ? 1'd1;
     }

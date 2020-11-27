@@ -171,10 +171,10 @@ def relu(declaration):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.relu"""
     data, res = declaration.inputs[0].primitive, declaration.output.primitive
     bitwidth, num_dimensions = data.data[0], data.type
-    assert res.data_type == 'ubit', f'{res.data_type} is not currently supported for ReLU.'
 
     declarations = pp_dahlia_memory_declarations([data, res])
-    let_zero = f'let zero: {data.data_type}<{bitwidth}> = 0;'
+    zero = '0.0' if data.data_type == 'ufix' else '0'
+    let_zero = f'let zero: {data.data_type}<{bitwidth}> = {zero};'
 
     indices = ""
     variable_name = CHARACTER_I
@@ -184,7 +184,7 @@ def relu(declaration):
         variable_name = next_character(variable_name)
 
     body = f"""if ({data.name}{indices} > zero) {{ {res.name}{indices} := {data.name}{indices}; }} 
-        else {{ {res.name}{indices} := 0; }}"""
+        else {{ {res.name}{indices} := zero; }}"""
     program_body = pp_dahlia_loop(data, body)
     return lower_dahlia_program(f"""{declarations}{NEWL}{let_zero}{NEWL}{program_body}""", declaration.component_name)
 
