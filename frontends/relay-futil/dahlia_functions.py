@@ -65,7 +65,7 @@ def broadcast(declaration):
         for (i = 0...64) {
           for (j = 0..16) {
             for (k = 0..32) {
-              result[i][j][k] := op1[i][0][k] + op2[j][0];
+              result[i][j][k] := op1[i][0][k] op op2[j][0];
               ...
     """
     op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
