@@ -2,7 +2,7 @@ import "primitives/std.lib";
 
 component bias_add2(go: 1, clk: 1, fc3_bias0_read_data: 32, fc3_bias0_done: 1, x70_0_read_data: 32, x70_0_done: 1, x80_0_read_data: 32, x80_0_done: 1) -> (done: 1, fc3_bias0_addr0: 4, fc3_bias0_write_data: 32, fc3_bias0_write_en: 1, fc3_bias0_clk: 1, x70_0_addr0: 1, x70_0_addr1: 4, x70_0_write_data: 32, x70_0_write_en: 1, x70_0_clk: 1, x80_0_addr0: 1, x80_0_addr1: 4, x80_0_write_data: 32, x80_0_write_en: 1, x80_0_clk: 1) {
   cells {
-    add0 = prim std_add(32);
+    add0 = prim fixed_p_std_add(32, 16, 16);
     add1 = prim std_add(4);
     add2 = prim std_add(1);
     const0 = prim std_const(1, 0);
@@ -103,7 +103,7 @@ component dense2(go: 1, clk: 1, fc3_weight0_0_read_data: 32, fc3_weight0_0_done:
   cells {
     add0 = prim std_add(7);
     add1 = prim std_add(4);
-    add2 = prim std_add(32);
+    add2 = prim fixed_p_std_add(32, 16, 16);
     add3 = prim std_add(7);
     add4 = prim std_add(4);
     add5 = prim std_add(1);
@@ -148,6 +148,8 @@ component dense2(go: 1, clk: 1, fc3_weight0_0_read_data: 32, fc3_weight0_0_done:
     le6 = prim std_le(4);
     mult_pipe0 = prim std_mult_pipe(32);
     product_0 = prim std_reg(32);
+    slice0 = prim std_slice(32, 32);
+    slice1 = prim std_slice(32, 32);
     temporary_x70_0 = prim std_mem_d2(32, 1, 10, 1, 4);
     temporary_x7_read0_0 = prim std_reg(32);
     transpose_fc3_weight0_0 = prim std_mem_d2(32, 64, 10, 7, 4);
@@ -215,18 +217,20 @@ component dense2(go: 1, clk: 1, fc3_weight0_0_read_data: 32, fc3_weight0_0_done:
       k0.write_en = 1'd1;
       let4[done] = k0.done;
     }
-    group let5<"static"=4> {
-      bin_read0_0.in = mult_pipe0.out;
-      bin_read0_0.write_en = mult_pipe0.done;
+    group let5<"static"=1> {
+      bin_read0_0.in = slice0.out;
+      bin_read0_0.write_en = 1'd1;
       let5[done] = bin_read0_0.done;
+      slice0.in = mult_pipe0.out;
       mult_pipe0.left = x6_read0_0.out;
       mult_pipe0.right = transpose_fc3_weight_read0_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
     group let6<"static"=1> {
-      product_0.in = bin_read0_0.out;
+      product_0.in = slice1.out;
       product_0.write_en = 1'd1;
       let6[done] = product_0.done;
+      slice1.in = bin_read0_0.out;
     }
     group let7<"static"=1> {
       i2.in = const15.out;
@@ -404,15 +408,14 @@ component relu1(go: 1, clk: 1, x50_0_read_data: 32, x50_0_done: 1, x60_0_read_da
   cells {
     add0 = prim std_add(7);
     add1 = prim std_add(1);
-    const0 = prim std_const(32, 0);
+    const0 = prim std_const(1, 0);
     const1 = prim std_const(1, 0);
-    const2 = prim std_const(1, 0);
-    const3 = prim std_const(7, 0);
-    const4 = prim std_const(7, 63);
-    const5 = prim std_const(32, 0);
-    const6 = prim std_const(7, 1);
-    const7 = prim std_const(1, 1);
-    gt0 = prim std_gt(32);
+    const2 = prim std_const(7, 0);
+    const3 = prim std_const(7, 63);
+    const4 = prim std_const(7, 1);
+    const5 = prim std_const(1, 1);
+    fpconst0 = prim fixed_p_std_const(32, 16, 16, 0, 0);
+    gt0 = prim fixed_p_std_gt(32, 16, 16);
     i0 = prim std_reg(1);
     j0 = prim std_reg(7);
     le0 = prim std_le(1);
@@ -425,12 +428,12 @@ component relu1(go: 1, clk: 1, x50_0_read_data: 32, x50_0_done: 1, x60_0_read_da
     group cond0<"static"=0> {
       cond0[done] = 1'd1;
       le0.left = i0.out;
-      le0.right = const2.out;
+      le0.right = const1.out;
     }
     group cond1<"static"=0> {
       cond1[done] = 1'd1;
       le1.left = j0.out;
-      le1.right = const4.out;
+      le1.right = const3.out;
     }
     group cond2<"static"=0> {
       cond2[done] = 1'd1;
@@ -438,17 +441,17 @@ component relu1(go: 1, clk: 1, x50_0_read_data: 32, x50_0_done: 1, x60_0_read_da
       gt0.right = zero_0.out;
     }
     group let0<"static"=1> {
-      zero_0.in = const0.out;
+      zero_0.in = fpconst0.out;
       zero_0.write_en = 1'd1;
       let0[done] = zero_0.done;
     }
     group let1<"static"=1> {
-      i0.in = const1.out;
+      i0.in = const0.out;
       i0.write_en = 1'd1;
       let1[done] = i0.done;
     }
     group let2<"static"=1> {
-      j0.in = const3.out;
+      j0.in = const2.out;
       j0.write_en = 1'd1;
       let2[done] = j0.done;
     }
@@ -477,20 +480,20 @@ component relu1(go: 1, clk: 1, x50_0_read_data: 32, x50_0_done: 1, x60_0_read_da
       x60_0_addr1 = j0.out;
       x60_0_addr0 = i0.out;
       x60_0_write_en = 1'd1;
-      x60_0_write_data = 1'd1 ? const5.out;
+      x60_0_write_data = 1'd1 ? zero_0.out;
       upd3[done] = x60_0_done ? 1'd1;
     }
     group upd4<"static"=1> {
       j0.write_en = 1'd1;
       add0.left = j0.out;
-      add0.right = const6.out;
+      add0.right = const4.out;
       j0.in = 1'd1 ? add0.out;
       upd4[done] = j0.done ? 1'd1;
     }
     group upd5<"static"=1> {
       i0.write_en = 1'd1;
       add1.left = i0.out;
-      add1.right = const7.out;
+      add1.right = const5.out;
       i0.in = 1'd1 ? add1.out;
       upd5[done] = i0.done ? 1'd1;
     }
@@ -525,7 +528,7 @@ component relu1(go: 1, clk: 1, x50_0_read_data: 32, x50_0_done: 1, x60_0_read_da
 }
 component bias_add1(go: 1, clk: 1, fc2_bias0_read_data: 32, fc2_bias0_done: 1, x40_0_read_data: 32, x40_0_done: 1, x50_0_read_data: 32, x50_0_done: 1) -> (done: 1, fc2_bias0_addr0: 7, fc2_bias0_write_data: 32, fc2_bias0_write_en: 1, fc2_bias0_clk: 1, x40_0_addr0: 1, x40_0_addr1: 7, x40_0_write_data: 32, x40_0_write_en: 1, x40_0_clk: 1, x50_0_addr0: 1, x50_0_addr1: 7, x50_0_write_data: 32, x50_0_write_en: 1, x50_0_clk: 1) {
   cells {
-    add0 = prim std_add(32);
+    add0 = prim fixed_p_std_add(32, 16, 16);
     add1 = prim std_add(7);
     add2 = prim std_add(1);
     const0 = prim std_const(1, 0);
@@ -626,7 +629,7 @@ component dense1(go: 1, clk: 1, fc2_weight0_0_read_data: 32, fc2_weight0_0_done:
   cells {
     add0 = prim std_add(8);
     add1 = prim std_add(7);
-    add2 = prim std_add(32);
+    add2 = prim fixed_p_std_add(32, 16, 16);
     add3 = prim std_add(8);
     add4 = prim std_add(7);
     add5 = prim std_add(1);
@@ -671,6 +674,8 @@ component dense1(go: 1, clk: 1, fc2_weight0_0_read_data: 32, fc2_weight0_0_done:
     le6 = prim std_le(7);
     mult_pipe0 = prim std_mult_pipe(32);
     product_0 = prim std_reg(32);
+    slice0 = prim std_slice(32, 32);
+    slice1 = prim std_slice(32, 32);
     temporary_x40_0 = prim std_mem_d2(32, 1, 64, 1, 7);
     temporary_x4_read0_0 = prim std_reg(32);
     transpose_fc2_weight0_0 = prim std_mem_d2(32, 128, 64, 8, 7);
@@ -738,18 +743,20 @@ component dense1(go: 1, clk: 1, fc2_weight0_0_read_data: 32, fc2_weight0_0_done:
       k0.write_en = 1'd1;
       let4[done] = k0.done;
     }
-    group let5<"static"=4> {
-      bin_read0_0.in = mult_pipe0.out;
-      bin_read0_0.write_en = mult_pipe0.done;
+    group let5<"static"=1> {
+      bin_read0_0.in = slice0.out;
+      bin_read0_0.write_en = 1'd1;
       let5[done] = bin_read0_0.done;
+      slice0.in = mult_pipe0.out;
       mult_pipe0.left = x3_read0_0.out;
       mult_pipe0.right = transpose_fc2_weight_read0_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
     group let6<"static"=1> {
-      product_0.in = bin_read0_0.out;
+      product_0.in = slice1.out;
       product_0.write_en = 1'd1;
       let6[done] = product_0.done;
+      slice1.in = bin_read0_0.out;
     }
     group let7<"static"=1> {
       i2.in = const15.out;
@@ -927,15 +934,14 @@ component relu(go: 1, clk: 1, x20_0_read_data: 32, x20_0_done: 1, x30_0_read_dat
   cells {
     add0 = prim std_add(8);
     add1 = prim std_add(1);
-    const0 = prim std_const(32, 0);
+    const0 = prim std_const(1, 0);
     const1 = prim std_const(1, 0);
-    const2 = prim std_const(1, 0);
-    const3 = prim std_const(8, 0);
-    const4 = prim std_const(8, 127);
-    const5 = prim std_const(32, 0);
-    const6 = prim std_const(8, 1);
-    const7 = prim std_const(1, 1);
-    gt0 = prim std_gt(32);
+    const2 = prim std_const(8, 0);
+    const3 = prim std_const(8, 127);
+    const4 = prim std_const(8, 1);
+    const5 = prim std_const(1, 1);
+    fpconst0 = prim fixed_p_std_const(32, 16, 16, 0, 0);
+    gt0 = prim fixed_p_std_gt(32, 16, 16);
     i0 = prim std_reg(1);
     j0 = prim std_reg(8);
     le0 = prim std_le(1);
@@ -948,12 +954,12 @@ component relu(go: 1, clk: 1, x20_0_read_data: 32, x20_0_done: 1, x30_0_read_dat
     group cond0<"static"=0> {
       cond0[done] = 1'd1;
       le0.left = i0.out;
-      le0.right = const2.out;
+      le0.right = const1.out;
     }
     group cond1<"static"=0> {
       cond1[done] = 1'd1;
       le1.left = j0.out;
-      le1.right = const4.out;
+      le1.right = const3.out;
     }
     group cond2<"static"=0> {
       cond2[done] = 1'd1;
@@ -961,17 +967,17 @@ component relu(go: 1, clk: 1, x20_0_read_data: 32, x20_0_done: 1, x30_0_read_dat
       gt0.right = zero_0.out;
     }
     group let0<"static"=1> {
-      zero_0.in = const0.out;
+      zero_0.in = fpconst0.out;
       zero_0.write_en = 1'd1;
       let0[done] = zero_0.done;
     }
     group let1<"static"=1> {
-      i0.in = const1.out;
+      i0.in = const0.out;
       i0.write_en = 1'd1;
       let1[done] = i0.done;
     }
     group let2<"static"=1> {
-      j0.in = const3.out;
+      j0.in = const2.out;
       j0.write_en = 1'd1;
       let2[done] = j0.done;
     }
@@ -1000,20 +1006,20 @@ component relu(go: 1, clk: 1, x20_0_read_data: 32, x20_0_done: 1, x30_0_read_dat
       x30_0_addr1 = j0.out;
       x30_0_addr0 = i0.out;
       x30_0_write_en = 1'd1;
-      x30_0_write_data = 1'd1 ? const5.out;
+      x30_0_write_data = 1'd1 ? zero_0.out;
       upd3[done] = x30_0_done ? 1'd1;
     }
     group upd4<"static"=1> {
       j0.write_en = 1'd1;
       add0.left = j0.out;
-      add0.right = const6.out;
+      add0.right = const4.out;
       j0.in = 1'd1 ? add0.out;
       upd4[done] = j0.done ? 1'd1;
     }
     group upd5<"static"=1> {
       i0.write_en = 1'd1;
       add1.left = i0.out;
-      add1.right = const7.out;
+      add1.right = const5.out;
       i0.in = 1'd1 ? add1.out;
       upd5[done] = i0.done ? 1'd1;
     }
@@ -1048,7 +1054,7 @@ component relu(go: 1, clk: 1, x20_0_read_data: 32, x20_0_done: 1, x30_0_read_dat
 }
 component bias_add(go: 1, clk: 1, fc1_bias0_read_data: 32, fc1_bias0_done: 1, x10_0_read_data: 32, x10_0_done: 1, x20_0_read_data: 32, x20_0_done: 1) -> (done: 1, fc1_bias0_addr0: 8, fc1_bias0_write_data: 32, fc1_bias0_write_en: 1, fc1_bias0_clk: 1, x10_0_addr0: 1, x10_0_addr1: 8, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_clk: 1, x20_0_addr0: 1, x20_0_addr1: 8, x20_0_write_data: 32, x20_0_write_en: 1, x20_0_clk: 1) {
   cells {
-    add0 = prim std_add(32);
+    add0 = prim fixed_p_std_add(32, 16, 16);
     add1 = prim std_add(8);
     add2 = prim std_add(1);
     const0 = prim std_const(1, 0);
@@ -1149,7 +1155,7 @@ component dense(go: 1, clk: 1, fc1_weight0_0_read_data: 32, fc1_weight0_0_done: 
   cells {
     add0 = prim std_add(10);
     add1 = prim std_add(8);
-    add2 = prim std_add(32);
+    add2 = prim fixed_p_std_add(32, 16, 16);
     add3 = prim std_add(10);
     add4 = prim std_add(8);
     add5 = prim std_add(1);
@@ -1194,6 +1200,8 @@ component dense(go: 1, clk: 1, fc1_weight0_0_read_data: 32, fc1_weight0_0_done: 
     le6 = prim std_le(8);
     mult_pipe0 = prim std_mult_pipe(32);
     product_0 = prim std_reg(32);
+    slice0 = prim std_slice(32, 32);
+    slice1 = prim std_slice(32, 32);
     temporary_x10_0 = prim std_mem_d2(32, 1, 128, 1, 8);
     temporary_x1_read0_0 = prim std_reg(32);
     transpose_fc1_weight0_0 = prim std_mem_d2(32, 784, 128, 10, 8);
@@ -1261,18 +1269,20 @@ component dense(go: 1, clk: 1, fc1_weight0_0_read_data: 32, fc1_weight0_0_done: 
       k0.write_en = 1'd1;
       let4[done] = k0.done;
     }
-    group let5<"static"=4> {
-      bin_read0_0.in = mult_pipe0.out;
-      bin_read0_0.write_en = mult_pipe0.done;
+    group let5<"static"=1> {
+      bin_read0_0.in = slice0.out;
+      bin_read0_0.write_en = 1'd1;
       let5[done] = bin_read0_0.done;
+      slice0.in = mult_pipe0.out;
       mult_pipe0.left = x_read0_0.out;
       mult_pipe0.right = transpose_fc1_weight_read0_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
     group let6<"static"=1> {
-      product_0.in = bin_read0_0.out;
+      product_0.in = slice1.out;
       product_0.write_en = 1'd1;
       let6[done] = product_0.done;
+      slice1.in = bin_read0_0.out;
     }
     group let7<"static"=1> {
       i2.in = const15.out;
