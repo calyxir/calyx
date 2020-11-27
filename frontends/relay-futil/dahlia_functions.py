@@ -207,6 +207,26 @@ def negative(declaration):
     return lower_dahlia_program(f"""{declarations}{NEWL}{program_body}""", declaration.component_name)
 
 
+# TODO(cgyurgyik): Similar to ReLU, this requires signed operands.
+def sqrt(declaration):
+    """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.negative"""
+    op, res = declaration.inputs[0].primitive, declaration.output.primitive
+    bitwidth, num_dimensions, data_type = op.data[0], op.type, op.data_type
+    include_sqrt = f"""import "fxp_sqrt.h" {{ def sqrt(value: {data_type}<{bitwidth}>): {data_type}<{bitwidth}>; }}"""
+
+    indices = ""
+    variable_name = CHARACTER_I
+    for i in range(0, num_dimensions):
+        # Determine loop body indices.
+        indices += f'[{variable_name}]'
+        variable_name = next_character(variable_name)
+
+    declarations = pp_dahlia_memory_declarations([op, res])
+    program_body = pp_dahlia_loop(op, f"""{res.name}{indices} := sqrt({op.name}{indices});""")
+    return lower_dahlia_program(f"""{include_sqrt}{NEWL}{declarations}{NEWL}{program_body}""",
+                                declaration.component_name)
+
+
 def expand_dims(declaration):
     """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.expand_dims"""
     axis, num_newaxis = declaration.attributes.get_int("axis"), declaration.attributes.get_int("num_newaxis")

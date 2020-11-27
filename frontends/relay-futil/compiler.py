@@ -14,7 +14,8 @@ BuiltInBinaryOps = {'add': '+', 'divide': '/', 'multiply': '*', 'subtract': '-'}
 
 # Mapping from Relay function names to their respective Dahlia lowering.
 RelayFunctionCalls = {'nn.dense': dense, 'nn.batch_flatten': batch_flatten, 'nn.batch_matmul': batch_matmul,
-                      'nn.bias_add': bias_add, 'nn.relu': relu, 'negative': negative, 'expand_dims': expand_dims}
+                      'nn.bias_add': bias_add, 'nn.relu': relu, 'negative': negative, 'expand_dims': expand_dims,
+                      'sqrt': sqrt}
 
 # Mapping between primitive type and associated Dahlia name extension.
 # E.g. A 2D memory primitive named `A` will be lowered to `A0_0`.
