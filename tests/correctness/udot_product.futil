@@ -1,7 +1,7 @@
 import "primitives/std.lib";
 component main() -> () {
     cells{
-        add0 = prim std_uadd(3);
+        add0 = prim std_sadd(3);
         const0 = prim std_const(3,0); // initalize the counter
         const1 = prim std_const(3,4);
         const2 = prim std_const(3,1); // increment by 1 
@@ -11,7 +11,7 @@ component main() -> () {
         mem0 = prim std_mem_d2(32, 4, 4, 3, 3);
         mem1 = prim std_mem_d2(32, 4, 4, 3, 3);
         add1 = prim std_add(32);
-        mult = prim std_umult(32);
+        mult = prim std_smult(32);
     }
     wires{
     group cond0 {

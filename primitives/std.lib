@@ -871,9 +871,9 @@ primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, frac
 }
 
 /////// signed primitives ///////
-primitive std_uadd<"share"=1>[width](left: width, right: width) -> (out: width) {
+primitive std_sadd<"share"=1>[width](left: width, right: width) -> (out: width) {
   verilog {
-    module std_uadd
+    module std_sadd
       #(parameter width = 32)
       (input  signed  [width-1:0] left,
         input  signed  [width-1:0] right,
@@ -883,9 +883,9 @@ primitive std_uadd<"share"=1>[width](left: width, right: width) -> (out: width) 
   }
 }
 
-primitive std_usub<"share"=1>[width](left: width, right: width) -> (out: width) {
+primitive std_ssub<"share"=1>[width](left: width, right: width) -> (out: width) {
   verilog {
-    module std_usub
+    module std_ssub
       #(parameter width = 32)
       (input  signed  [width-1:0] left,
         input  signed  [width-1:0] right,
@@ -895,9 +895,9 @@ primitive std_usub<"share"=1>[width](left: width, right: width) -> (out: width) 
   }
 }
 
-primitive std_umult<"share"=1>[width](left: width, right: width) -> (out: width) {
+primitive std_smult<"share"=1>[width](left: width, right: width) -> (out: width) {
   verilog {
-    module std_umult
+    module std_smult
       #(parameter width = 32)
       (input  signed  [width-1:0] left,
         input  signed  [width-1:0] right,
@@ -907,9 +907,9 @@ primitive std_umult<"share"=1>[width](left: width, right: width) -> (out: width)
   }
 }
 
-primitive std_udiv<"share"=1>[width](left: width, right: width) -> (out: width) {
+primitive std_sdiv<"share"=1>[width](left: width, right: width) -> (out: width) {
   verilog {
-    module std_udiv
+    module std_sdiv
       #(parameter width = 32)
       (input  signed  [width-1:0] left,
         input  signed  [width-1:0] right,
@@ -917,4 +917,53 @@ primitive std_udiv<"share"=1>[width](left: width, right: width) -> (out: width) 
       assign out = left / right;
     endmodule
   }
+}
+
+primitive sfixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, fract_width2, out_width] (left: width, right: width) 
+->(out: out_width){
+    verilog {
+      module sfixed_p_std_add_dbit
+        #(parameter width= 32,
+        parameter int_width1 = 8, 
+        parameter fract_width1 = 24,
+        parameter int_width2 = 4,
+        parameter fract_width2 =28,
+        parameter out_width = 36)
+
+        (input signed [width-1:0] left, 
+        input signed [width-1:0] right, 
+        output signed [out_width-1:0] out);
+
+        signed [int_width1-1:0] left_int;
+        signed [int_width2-1:0] right_int;
+        signed [fract_width1-1:0] left_fract;
+        signed [fract_width2-1:0] right_fract;
+
+        signed [int_width1-1:0]  mod_right_int;
+        signed [fract_width2-1:0] mod_left_fract;
+
+        signed [int_width1-1:0]  whole_int;
+        signed [fract_width2-1:0] whole_fract;
+
+        assign {left_int, left_fract} = left;
+        assign {right_int, right_fract} = right;
+
+
+        //extend fractional bits for left
+        assign mod_left_fract = left_fract * (2**(fract_width2-fract_width1));
+
+        always_comb begin
+          if ((mod_left_fract + right_fract) >= 2**fract_width2) begin
+            whole_int = left_int + right_int+1;
+            whole_fract =mod_left_fract + right_fract-2**fract_width2;
+          end
+          else begin
+            whole_int = left_int + right_int;
+            whole_fract =mod_left_fract + right_fract;
+          end
+        end
+
+        assign out = {whole_int, whole_fract};
+      endmodule
+    }
 }
