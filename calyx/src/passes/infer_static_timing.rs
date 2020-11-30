@@ -46,21 +46,30 @@ fn infer_latency<'a>(
     analysis: &GraphAnalysis,
     latency_data: &HashMap<&'a str, (&'a str, &'a str, u64)>,
 ) -> Option<u64> {
+    // Get this `port`s parent
     if let ir::PortParent::Cell(cell) = &port.parent {
         match &cell.upgrade().unwrap().borrow().prototype {
             ir::CellType::Primitive { name, .. } => {
+                // From the parent, get the timing information.
                 let data = latency_data.get(name.as_ref());
+                // If the timing is defined
                 if let Some((go, done, latency)) = data {
+                    // If this is the "done" port for this primitive.
                     if port.name == *done {
+                        // Get the go port for this cell.
+                        /*if let ir::PortParent::Cell(cell_wref) = &port.parent {
+                            let go_port = cell.upgrade().borrow().get(go);
+                        }*/
+                        // Find all assignments to the "go" port for this primitive.
                         let go_port: &ir::Port = &group
                             .assignments
                             .iter()
                             .find(|a| {
-                                // XXX(rachit): What is this searching for?
                                 let a_dst = a.dst.borrow();
                                 let a_dst_name = a_dst.name.to_string();
                                 let a_prnt_name = a_dst.get_parent_name();
                                 let b_prnt_name = port.get_parent_name();
+                                // This is a write to this cell's go signal.
                                 a_dst_name == *go && a_prnt_name == b_prnt_name
                             })
                             .unwrap()
