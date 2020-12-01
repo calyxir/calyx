@@ -121,7 +121,7 @@ fn eval_assigns(
     while env.get(&done_cell, &done_signal.dst.borrow().name) == 0 {
         // for assign in assigns
         for assign in assigns.iter() {
-            // check if the assign.guard == 1
+            // check if the assign.guard != 0
             if eval_guard(&assign.guard, env) {
                 // check if the cells are constants?
                 // cell of assign.src
@@ -217,8 +217,11 @@ fn eval_assigns(
     Ok(write_env)
 }
 
+// used to convert guard's value to bool
+fn eval_guard(guard: &ir::Guard, env: &Environment) -> bool {}
+
 /// Evaluates guard; TODO (change bool to u64)
-fn eval_guard(guard: &ir::Guard, env: &Environment) -> bool {
+fn eval_guard_helper(guard: &ir::Guard, env: &Environment) -> bool {
     match guard {
         ir::Guard::Or(gs) => {
             for g in gs.clone() {
@@ -290,10 +293,11 @@ fn get_combinational_or_not(cell: &ir::Id, env: &Environment) -> bool {
 
     // TODO
     match (*celltype).id.as_str() {
-        "std_add" => true,
         "std_reg" => false,
-        "std_const" => true,
-        "std_mult" => true,
+        "std_const" | "std_slice" | "std_lsh" | "std_rsh" | "std_add"
+        | "std_sub" | "std_mod" | "std_mult" | "std_div" | "std_not"
+        | "std_and" | "std_or" | "std_gt" | "std_lt" | "std_eq" | "std_neq"
+        | "std_ge" | "std_le" => true,
         _ => false,
     }
 }
