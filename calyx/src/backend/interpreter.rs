@@ -181,6 +181,8 @@ fn eval_assigns(
                         _ => panic!("could not find cell"),
                     }
 
+
+                    
                     match update_cell_state(
                         &dst_cell,
                         &inputs[..],
@@ -188,7 +190,7 @@ fn eval_assigns(
                         &write_env,
                     ) {
                         Ok(env) => write_env = env,
-                        _ => println!("error somehow"),
+                        _ => println!("error in updating cell state"),
                     }
                 } else {
                     // otherwise, add the write to the update queue; currently only handles registers
@@ -322,10 +324,30 @@ fn get_combinational_or_not(cell: &ir::Id, env: &Environment) -> bool {
     // TODO
     match (*celltype).id.as_str() {
         "std_reg" => false,
-        "std_const" | "std_slice" | "std_lsh" | "std_rsh" | "std_add"
-        | "std_sub" | "std_mod" | "std_mult" | "std_div" | "std_not"
-        | "std_and" | "std_or" | "std_gt" | "std_lt" | "std_eq" | "std_neq"
-        | "std_ge" | "std_le" => true,
+        "std_const"
+        | "std_slice"
+        | "std_lsh"
+        | "std_rsh"
+        | "std_add"
+        | "std_sub"
+        | "std_mod"
+        | "std_mult"
+        | "std_div"
+        | "std_not"
+        | "std_and"
+        | "std_or"
+        | "std_gt"
+        | "std_lt"
+        | "std_eq"
+        | "std_neq"
+        | "std_ge"
+        | "std_le"
+        | "fixed_p_std_const"
+        | "fixed_p_std_add"
+        | "fixed_p_std_sub"
+        | "fixed_p_std_mult"
+        | "fixed_p_std_div"
+        | "fixed_p_std_add_dbit" => true,
         _ => false,
     }
 }
@@ -418,6 +440,7 @@ fn update_cell_state(
                     as u64,
             ),
             "std_sqrt" => {
+                //TODO; wrong implementation
                 new_env.put(
                     cell,
                     &output[0],
