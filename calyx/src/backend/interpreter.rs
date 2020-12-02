@@ -218,39 +218,67 @@ fn eval_assigns(
 }
 
 // used to convert guard's value to bool
-fn eval_guard(guard: &ir::Guard, env: &Environment) -> bool {}
+fn eval_guard(guard: &ir::Guard, env: &Environment) -> bool {
+    if eval_guard_helper(guard, env) != 0 {
+        return true;
+    } else {
+        return false;
+    }
+}
 
-/// Evaluates guard; TODO (change bool to u64)
-fn eval_guard_helper(guard: &ir::Guard, env: &Environment) -> bool {
+/// Evaluates guard; TODO (messy u64 implementation)
+fn eval_guard_helper(guard: &ir::Guard, env: &Environment) -> u64 {
     match guard {
         ir::Guard::Or(gs) => {
             for g in gs.clone() {
-                if eval_guard(&g, env) {
-                    return true;
+                if eval_guard_helper(&g, env) != 0 {
+                    return 1;
                 }
             }
-            return false;
+            return 0;
         }
         ir::Guard::And(gs) => {
             for g in gs.clone() {
-                if !eval_guard(&g, env) {
-                    return false;
+                if eval_guard_helper(&g, env) == 0 {
+                    return 0;
                 }
             }
-            return true;
+            return 1;
         }
-        ir::Guard::Not(g) => !(eval_guard(g, &env)),
-        ir::Guard::Port(p) =>
-        //TODO; this is probably the big one
-        {
-            if env.get(&get_cell(p), &((*p.borrow()).name)) == 0 {
-                false
+        ir::Guard::Eq(g1, g2) => {
+            (eval_guard_helper(&**g1, env) == eval_guard_helper(&**g2, env))
+                as u64
+        }
+        ir::Guard::Neq(g1, g2) => {
+            (eval_guard_helper(&**g1, env) != eval_guard_helper(&**g2, env))
+                as u64
+        }
+        ir::Guard::Gt(g1, g2) => {
+            (eval_guard_helper(&**g1, env) > eval_guard_helper(&**g2, env))
+                as u64
+        }
+        ir::Guard::Lt(g1, g2) => {
+            (eval_guard_helper(&**g1, env) < eval_guard_helper(&**g2, env))
+                as u64
+        }
+        ir::Guard::Geq(g1, g2) => {
+            (eval_guard_helper(&**g1, env) >= eval_guard_helper(&**g2, env))
+                as u64
+        }
+        ir::Guard::Leq(g1, g2) => {
+            (eval_guard_helper(&**g1, env) <= eval_guard_helper(&**g2, env))
+                as u64
+        }
+        ir::Guard::Not(g) => {
+            if eval_guard_helper(g, &env) == 0 {
+                return 1;
             } else {
-                true
+                return 0;
             }
         }
-        ir::Guard::True => true,
-        _ => true,
+        ir::Guard::Port(p) => env.get(&get_cell(p), &((*p.borrow()).name)),
+        //TODO; this is probably the big one
+        ir::Guard::True => 1,
     }
 }
 
