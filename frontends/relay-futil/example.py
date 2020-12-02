@@ -49,6 +49,15 @@ def dense():
     return relay.Function([x, y], relay.nn.dense(x, y, units=10))
 
 
+def softmax():
+    x = relay.var('x', shape=[1, 10], dtype='float32')
+    return relay.Function([x], relay.nn.softmax(x))
+
+
+def max_pool2d():
+    data = relay.var('data', shape=[2, 2, 4, 4], dtype='int32')
+    return relay.Function([data], relay.nn.max_pool2d(data, padding=[0,0,0,0], strides=[2,2], pool_size=[2,2]))
+
 def mlp_net():
     """The MLP test from Relay."""
     from tvm.relay.testing import mlp
@@ -58,11 +67,12 @@ def mlp_net():
 def vgg_net():
     """The VGG test from Relay."""
     from tvm.relay.testing import vgg
-    return vgg.get_net(batch_size=1, image_shape=(3, 224, 224), num_classes=10, dtype='int32', num_layers=11,
+    return vgg.get_net(batch_size=5, image_shape=(3, 224, 224), num_classes=10, dtype='int32', num_layers=13,
                        batch_norm=True)
 
 
-ALL_FUNCS = [add, tensor_subtract, expand_dims, batch_flatten, batch_matmul, bias_add, relu, dense, mlp_net, vgg_net]
+ALL_FUNCS = [add, tensor_subtract, expand_dims, batch_flatten, batch_matmul, bias_add, relu, dense, softmax, mlp_net,
+             vgg_net, max_pool2d]
 FUNC_NAMES = list(map(lambda x: x.__name__, ALL_FUNCS))
 
 

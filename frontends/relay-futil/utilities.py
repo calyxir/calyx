@@ -96,13 +96,18 @@ def build_main_controls(c: FComponent):
             wires.append(FWire(f'{prim.name}.addr1', f'{declaration.decl_name}.{input.dahlia_name}_addr1'))
             if prim.type == PrimitiveType.Memory2D: continue
             wires.append(FWire(f'{prim.name}.addr2', f'{declaration.decl_name}.{input.dahlia_name}_addr2'))
+            if prim.type == PrimitiveType.Memory3D: continue
+            wires.append(FWire(f'{prim.name}.addr3', f'{declaration.decl_name}.{input.dahlia_name}_addr3'))
 
         output = declaration.output
+        type = output.primitive.type
         wires.append(FWire(f'{output.primitive.name}.addr0', f'{declaration.decl_name}.{output.dahlia_name}_addr0'))
-        if output.primitive.type == PrimitiveType.Memory2D or output.primitive.type == PrimitiveType.Memory3D:
+        if type == PrimitiveType.Memory2D or type == PrimitiveType.Memory3D or type == PrimitiveType.Memory4D:
             wires.append(FWire(f'{output.primitive.name}.addr1', f'{declaration.decl_name}.{output.dahlia_name}_addr1'))
-        if output.primitive.type == PrimitiveType.Memory3D:
+        if type == PrimitiveType.Memory3D or type == PrimitiveType.Memory4D:
             wires.append(FWire(f'{output.primitive.name}.addr2', f'{declaration.decl_name}.{output.dahlia_name}_addr2'))
+        if type == PrimitiveType.Memory4D:
+            wires.append(FWire(f'{output.primitive.name}.addr3', f'{declaration.decl_name}.{output.dahlia_name}_addr3'))
 
         wires.append(
             FWire(f'{output.primitive.name}.write_data', f'{declaration.decl_name}.{output.dahlia_name}_write_data'))

@@ -1,5 +1,169 @@
 import "primitives/std.lib";
 
+component softmax(go: 1, clk: 1, x80_0_read_data: 32, x80_0_done: 1, x90_0_read_data: 32, x90_0_done: 1) -> (done: 1, x80_0_addr0: 1, x80_0_addr1: 4, x80_0_write_data: 32, x80_0_write_en: 1, x80_0_clk: 1, x90_0_addr0: 1, x90_0_addr1: 4, x90_0_write_data: 32, x90_0_write_en: 1, x90_0_clk: 1) {
+  cells {
+    add0 = prim fixed_p_std_add(32, 16, 16);
+    add1 = prim std_add(4);
+    add2 = prim std_add(4);
+    add3 = prim std_add(1);
+    bin_read0_0 = prim std_reg(32);
+    const0 = prim std_const(1, 0);
+    const1 = prim std_const(1, 0);
+    const2 = prim std_const(4, 0);
+    const3 = prim std_const(4, 9);
+    const4 = prim std_const(4, 1);
+    const5 = prim std_const(4, 0);
+    const6 = prim std_const(4, 9);
+    const7 = prim std_const(4, 1);
+    const8 = prim std_const(1, 1);
+    div_pipe0 = prim std_div_pipe(32);
+    exp0 = prim std_exp();
+    exp1 = prim std_exp();
+    fpconst0 = prim fixed_p_std_const(32, 16, 16, 0, 0);
+    i0 = prim std_reg(1);
+    j0 = prim std_reg(4);
+    k0 = prim std_reg(4);
+    le0 = prim std_le(1);
+    le1 = prim std_le(4);
+    le2 = prim std_le(4);
+    slice0 = prim std_slice(32, 32);
+    x8_expsum_0 = prim std_reg(32);
+    x8_read0_0 = prim std_reg(32);
+    x8_read1_0 = prim std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = j0.out;
+      le1.right = const3.out;
+    }
+    group cond2<"static"=0> {
+      cond2[done] = 1'd1;
+      le2.left = k0.out;
+      le2.right = const6.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1<"static"=1> {
+      x8_expsum_0.in = fpconst0.out;
+      x8_expsum_0.write_en = 1'd1;
+      let1[done] = x8_expsum_0.done;
+    }
+    group let2<"static"=1> {
+      j0.in = const2.out;
+      j0.write_en = 1'd1;
+      let2[done] = j0.done;
+    }
+    group let3<"static"=1> {
+      k0.in = const5.out;
+      k0.write_en = 1'd1;
+      let3[done] = k0.done;
+    }
+    group let4<"static"=1> {
+      bin_read0_0.in = slice0.out;
+      bin_read0_0.write_en = 1'd1;
+      let4[done] = bin_read0_0.done;
+      slice0.in = div_pipe0.out;
+      div_pipe0.left = exp1.out;
+      div_pipe0.right = x8_expsum_0.out;
+      div_pipe0.go = !div_pipe0.done ? 1'd1;
+      exp1.exponent = x8_read1_0.out;
+      exp1.go = !exp1.done ? 1'd1;
+    }
+    group upd0<"static"=1> {
+      x8_read0_0.write_en = 1'd1;
+      x80_0_addr1 = j0.out;
+      x80_0_addr0 = i0.out;
+      x8_read0_0.in = 1'd1 ? x80_0_read_data;
+      upd0[done] = x8_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=2> {
+      x8_expsum_0.write_en = 1'd1;
+      add0.left = x8_expsum_0.out;
+      add0.right = exp0.out;
+      exp0.exponent = x8_read0_0.out;
+      exp0.go = !exp0.done ? 1'd1;
+      x8_expsum_0.in = 1'd1 ? add0.out;
+      upd1[done] = x8_expsum_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      j0.write_en = 1'd1;
+      add1.left = j0.out;
+      add1.right = const4.out;
+      j0.in = 1'd1 ? add1.out;
+      upd2[done] = j0.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      x8_read1_0.write_en = 1'd1;
+      x80_0_addr1 = k0.out;
+      x80_0_addr0 = i0.out;
+      x8_read1_0.in = 1'd1 ? x80_0_read_data;
+      upd3[done] = x8_read1_0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      x90_0_addr1 = k0.out;
+      x90_0_addr0 = i0.out;
+      x90_0_write_en = 1'd1;
+      x90_0_write_data = 1'd1 ? bin_read0_0.out;
+      upd4[done] = x90_0_done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      k0.write_en = 1'd1;
+      add2.left = k0.out;
+      add2.right = const7.out;
+      k0.in = 1'd1 ? add2.out;
+      upd5[done] = k0.done ? 1'd1;
+    }
+    group upd6<"static"=1> {
+      i0.write_en = 1'd1;
+      add3.left = i0.out;
+      add3.right = const8.out;
+      i0.in = 1'd1 ? add3.out;
+      upd6[done] = i0.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          par {
+            let1;
+            seq {
+              let2;
+              while le1.out with cond1 {
+                seq {
+                  upd0;
+                  upd1;
+                  upd2;
+                }
+              }
+            }
+          }
+          let3;
+          while le2.out with cond2 {
+            seq {
+              upd3;
+              let4;
+              upd4;
+              upd5;
+            }
+          }
+          upd6;
+        }
+      }
+    }
+  }
+}
 component bias_add2(go: 1, clk: 1, fc3_bias0_read_data: 32, fc3_bias0_done: 1, x70_0_read_data: 32, x70_0_done: 1, x80_0_read_data: 32, x80_0_done: 1) -> (done: 1, fc3_bias0_addr0: 4, fc3_bias0_write_data: 32, fc3_bias0_write_en: 1, fc3_bias0_clk: 1, x70_0_addr0: 1, x70_0_addr1: 4, x70_0_write_data: 32, x70_0_write_en: 1, x70_0_clk: 1, x80_0_addr0: 1, x80_0_addr1: 4, x80_0_write_data: 32, x80_0_write_en: 1, x80_0_clk: 1) {
   cells {
     add0 = prim fixed_p_std_add(32, 16, 16);
@@ -1623,7 +1787,9 @@ component batch_flatten(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_do
 
 component main () -> () {
   cells {
+    x9 = prim std_mem_d2(32, 1, 10, 1, 4);
     x8 = prim std_mem_d2(32, 1, 10, 1, 4);
+    softmax0 = softmax;
     x7 = prim std_mem_d2(32, 1, 10, 1, 4);
     fc3_bias = prim std_mem_d1(32, 10, 4);
     bias_add2 = bias_add2;
@@ -1774,6 +1940,18 @@ component main () -> () {
       bias_add2.go = 1'd1;
       run_bias_add2[done] = bias_add2.done ? 1'd1;
     }
+    group run_softmax {
+      x8.addr0 = softmax0.x80_0_addr0;
+      softmax0.x80_0_read_data = x8.read_data;
+      x8.addr1 = softmax0.x80_0_addr1;
+      x9.addr0 = softmax0.x90_0_addr0;
+      x9.addr1 = softmax0.x90_0_addr1;
+      x9.write_data = softmax0.x90_0_write_data;
+      x9.write_en = softmax0.x90_0_write_en;
+      softmax0.x90_0_done = x9.done;
+      softmax0.go = 1'd1;
+      run_softmax[done] = softmax0.done ? 1'd1;
+    }
   }
   control {
     seq {
@@ -1786,6 +1964,7 @@ component main () -> () {
       run_relu1;
       run_dense2;
       run_bias_add2;
+      run_softmax;
     }
   }
 }

@@ -52,7 +52,7 @@ def broadcast(declaration):
     """
     https://numpy.org/doc/stable/user/basics.broadcasting.html
     Implements array broadcasting:
-    Two dimensions are compatible when either (1) they're equal, or (2) one of them is 1.
+    Two dimensions are compatible when either (1) they're equal, or (2) one of them is `1`.
     It is not required that both operands have the same number of dimensions either.
     - When lowering from Relay IR, we are guaranteed the arrays are compatible for broadcasting.
     - Variable names for indexing through the array begin with `i`, and continue alphabetically.
@@ -88,11 +88,9 @@ def broadcast(declaration):
         res_indices.append(current_dimension)
         if op1_dims > op2_dims and len(op2_sizes) <= i:
             op1_indices.append(current_dimension)
-            continue
-        if op2_dims > op1_dims and len(op1_sizes) <= i:
+        elif op2_dims > op1_dims and len(op1_sizes) <= i:
             op2_indices.append(current_dimension)
-            continue
-        if op1_sizes[i] == op2_sizes[i]:
+        elif op1_sizes[i] == op2_sizes[i]:
             op1_indices.append(current_dimension)
             op2_indices.append(current_dimension)
         elif op1_sizes[i] > op2_sizes[i]:
@@ -170,11 +168,11 @@ def bias_add(declaration):
 def relu(declaration):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.relu"""
     data, res = declaration.inputs[0].primitive, declaration.output.primitive
-    bitwidth, num_dimensions = data.data[0], data.type
+    bitwidth, num_dimensions, data_type = data.data[0], data.type, data.data_type
 
     declarations = pp_dahlia_memory_declarations([data, res])
-    zero = '0.0' if data.data_type == 'ufix' else '0'
-    let_zero = f'let zero: {data.data_type}<{bitwidth}> = {zero};'
+    zero = '0.0' if data_type == 'ufix' or data_type == 'fix' else '0'
+    let_zero = f'let zero: {data_type}<{bitwidth}> = {zero};'
 
     indices = ""
     variable_name = CHARACTER_I
@@ -301,7 +299,7 @@ def batch_matmul(declaration):
 # TODO(cgyurgyik): Similar to batch_matmul, this requires a temporary memory to store the output
 # of the matrix multiply. Otherwise, the values aren't computed properly. Look deeper into this.
 def dense(declaration):
-    """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.batch_matmul"""
+    """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.dense"""
     # TODO(cgyurgyik): Add support for `units`.
     units = declaration.attributes.get_int("units")
     op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
@@ -334,4 +332,76 @@ def dense(declaration):
       }}
     }}
     """
+    return lower_dahlia_program(program, declaration.component_name)
+
+
+# TODO(cgyurgyik): Currently, only supports a small subset (namely those used in our VGG net and MLP net examples).
+def softmax(declaration):
+    """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.softmax"""
+    op, res = declaration.inputs[0].primitive, declaration.output.primitive
+    axis = declaration.attributes.get_int("axis")
+    data_type = op.data_type
+    assert op.type == PrimitiveType.Memory2D, f'nn.softmax with pritmive type Memory{op.type}D is not supported.'
+    assert axis == -1 or axis == 1, f'nn.softmax with axis = {axis} is not supported.'
+    bitwidth, size0, size1, index_size0, index_size1 = op.data[0], op.data[1], op.data[2], op.data[3], op.data[4]
+
+    import_exp = f"""import "std_exp.h" {{ def exp(x: {data_type}<{bitwidth}>): {data_type}<{bitwidth}>; }}"""
+    declarations = pp_dahlia_memory_declarations([res, op])
+
+    zero = '0.0' if data_type == 'ufix' or data_type == 'fix' else '0'
+    body = f"""
+    for (let i: ubit<{index_size0}> = 0..{size0}) {{
+      let {op.name}_expsum: {data_type}<{bitwidth}> = {zero};
+      for (let j: ubit<{index_size1}> = 0..{size1}) {{ {op.name}_expsum += exp({op.name}[i][j]); }}
+      for (let k: ubit<{index_size1}> = 0..{size1}) {{ 
+        {res.name}[i][k] := exp({op.name}[i][k]); 
+        ---
+        {res.name}[i][k] := {res.name}[i][k] / {op.name}_expsum;
+      }}
+    }}
+    """
+    program = f"""{import_exp}{NEWL}{declarations}{body}"""
+    return lower_dahlia_program(program, declaration.component_name)
+
+
+def max_pool2d(declaration):
+    """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.max_pool2d"""
+    data, res = declaration.inputs[0].primitive, declaration.output.primitive
+
+    strides = declaration.attributes.get_int_tuple("strides")
+    pool_size = declaration.attributes.get_int_tuple("pool_size")
+    padding = declaration.attributes.get_int_tuple("padding")
+    layout = declaration.attributes.get_str("layout")
+    ceil_mode = declaration.attributes.get_int("ceil_mode")
+    for p in padding: assert p == 0, f"Non-zero padding: {padding} is not currently supported for nn.max_pool2d"
+    assert layout == 'NCHW', f"Layout \'{layout}\' is not currently supported for nn.max_pool2d; please use `NCHW`"
+    assert ceil_mode == False, "`ceil_mode` is not currently supported for nn.max_pool2d"
+    bitwidth, data_type = data.data[0], data.data_type
+    size0, size1, size2, size3 = res.data[1], res.data[2], res.data[3], res.data[4]
+
+    declarations = pp_dahlia_memory_declarations([res, data])
+    program_body = f"""
+    for (let i: ubit<32> = 0..{size0}) {{
+      for (let j: ubit<32> = 0..{size1}) {{
+        for (let k: ubit<32> = 0..{size2}) {{
+          for (let l: ubit<32> = 0..{size3}) {{
+            let stride_x: ubit<32> = k * {strides[0]}/*stride[0]*/;
+            let stride_y: ubit<32> = l * {strides[1]}/*stride[1]*/;
+            
+            let max: {data_type}<{bitwidth}> = {data.name}[i][j][stride_x][stride_y];
+            for (let m: ubit<32> = 0..{pool_size[0]}/*pool_size[0]*/) {{
+              for (let n: ubit<32> = 0..{pool_size[1]}/*pool_size[1]*/) {{
+                let pool_x: ubit<32> = stride_x + m;
+                let pool_y: ubit<32> = stride_y + n;
+                let current: {data_type}<{bitwidth}> = {data.name}[i][j][pool_x][pool_y]; 
+                if (current > max) {{ max := current; }} else {{ max := max; }}
+              }}
+            }}
+            {res.name}[i][j][k][l] := max;
+          }} 
+        }} 
+      }} 
+    }} 
+    """
+    program = f"""{declarations}{NEWL}{program_body}"""
     return lower_dahlia_program(program, declaration.component_name)

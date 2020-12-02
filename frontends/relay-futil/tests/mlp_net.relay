@@ -11,7 +11,6 @@ fn (%data: Tensor[(1, 1, 28, 28), float32], %fc1_weight: Tensor[(128, 784), floa
   let %x6: Tensor[(1, 64), float32] = nn.relu(%x5) /* ty=Tensor[(1, 64), float32] */;
   let %x7: Tensor[(1, 10), float32] = nn.dense(%x6, %fc3_weight, units=10) /* ty=Tensor[(1, 10), float32] */;
   let %x8: Tensor[(1, 10), float32] = nn.bias_add(%x7, %fc3_bias, axis=-1) /* ty=Tensor[(1, 10), float32] */;
-  %x8
-  // let %x9: Tensor[(1, 10), float32] = nn.softmax(%x8) /* ty=Tensor[(1, 10), float32] */;
-  // %x9
+  let %x9: Tensor[(1, 10), float32] = nn.softmax(%x8) /* ty=Tensor[(1, 10), float32] */;
+  %x9
 }

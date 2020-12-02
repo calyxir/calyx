@@ -14,8 +14,8 @@ BuiltInBinaryOps = {'add': '+', 'divide': '/', 'multiply': '*', 'subtract': '-'}
 
 # Mapping from Relay function names to their respective Dahlia lowering.
 RelayFunctionCalls = {'nn.dense': dense, 'nn.batch_flatten': batch_flatten, 'nn.batch_matmul': batch_matmul,
-                      'nn.bias_add': bias_add, 'nn.relu': relu, 'negative': negative, 'expand_dims': expand_dims,
-                      'sqrt': sqrt}
+                      'nn.bias_add': bias_add, 'nn.relu': relu, 'nn.softmax': softmax, 'nn.max_pool2d': max_pool2d,
+                      'negative': negative, 'expand_dims': expand_dims, 'sqrt': sqrt}
 
 # Mapping between primitive type and associated Dahlia name extension.
 # E.g. A 2D memory primitive named `A` will be lowered to `A0_0`.
@@ -58,10 +58,10 @@ class Relay2Futil(ExprFunctor):
 
     def dahlia_name(self, name, type):
         """
-        Dahlia uses the following naming scheme for an arbitrary variable 'X':
-        Memory1D: 'X0', 'X1', 'X2', ...
-        Memory2D: 'X0_0', 'X1_0', 'X2_0', ...
-        Memory3D: 'X0_0_0', 'X1_0_0', 'X2_0_0', ...
+        Dahlia uses the following naming scheme for arbitrary variables `X`, `Y`:
+        Memory1D: `X0`, `Y0`, ...
+        Memory2D: `X0_0`, `Y0_0`, ...
+        Memory3D: `X0_0_0`, `Y0_0_0`, ...
         """
         assert type in DahliaNameExtension, f'{name} with {type} is not supported yet.'
         return name + DahliaNameExtension[type]
@@ -80,7 +80,7 @@ class Relay2Futil(ExprFunctor):
             function = RelayFunctionCalls[function_name]
             name = function.__name__
         else:
-            assert False, f'{function_name} with type {input_type} is not supported.'
+            assert False, f'{function_name} is not supported for lowering to FuTIL.'
         return DahliaDeclaration(component_name=self.relay_id(name), decl_name=self.id(name),
                                  op=op, inputs=args, attributes=attrs, function=function)
 
