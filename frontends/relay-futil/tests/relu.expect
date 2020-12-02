@@ -1,22 +1,33 @@
 import "primitives/std.lib";
 
-component tensor2d_relu(go: 1, clk: 1, x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (done: 1, x0_0_addr0: 2, x0_0_addr1: 3, x0_0_write_data: 32, x0_0_write_en: 1, x0_0_clk: 1, x10_0_addr0: 2, x10_0_addr1: 3, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_clk: 1) {
+component relu(go: 1, clk: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read_data: 32, x10_0_0_0_done: 1) -> (done: 1, x0_0_0_0_addr0: 2, x0_0_0_0_addr1: 3, x0_0_0_0_addr2: 4, x0_0_0_0_addr3: 6, x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_clk: 1, x10_0_0_0_addr0: 2, x10_0_0_0_addr1: 3, x10_0_0_0_addr2: 4, x10_0_0_0_addr3: 6, x10_0_0_0_write_data: 32, x10_0_0_0_write_en: 1, x10_0_0_0_clk: 1) {
   cells {
-    add0 = prim std_add(3);
-    add1 = prim std_add(2);
-    const0 = prim std_const(32, 0);
-    const1 = prim std_const(2, 0);
-    const2 = prim std_const(2, 1);
-    const3 = prim std_const(3, 0);
-    const4 = prim std_const(3, 3);
-    const5 = prim std_const(32, 0);
-    const6 = prim std_const(3, 1);
-    const7 = prim std_const(2, 1);
-    gt0 = prim std_gt(32);
+    add0 = prim std_add(6);
+    add1 = prim std_add(4);
+    add2 = prim std_add(3);
+    add3 = prim std_add(2);
+    const0 = prim std_const(2, 0);
+    const1 = prim std_const(2, 1);
+    const10 = prim std_const(3, 1);
+    const11 = prim std_const(2, 1);
+    const2 = prim std_const(3, 0);
+    const3 = prim std_const(3, 3);
+    const4 = prim std_const(4, 0);
+    const5 = prim std_const(4, 7);
+    const6 = prim std_const(6, 0);
+    const7 = prim std_const(6, 31);
+    const8 = prim std_const(6, 1);
+    const9 = prim std_const(4, 1);
+    fpconst0 = prim fixed_p_std_const(32, 16, 16, 0, 0);
+    gt0 = prim fixed_p_std_gt(32, 16, 16);
     i0 = prim std_reg(2);
     j0 = prim std_reg(3);
+    k0 = prim std_reg(4);
+    l0 = prim std_reg(6);
     le0 = prim std_le(2);
     le1 = prim std_le(3);
+    le2 = prim std_le(4);
+    le3 = prim std_le(6);
     x_read0_0 = prim std_reg(32);
     x_read1_0 = prim std_reg(32);
     zero_0 = prim std_reg(32);
@@ -25,74 +36,116 @@ component tensor2d_relu(go: 1, clk: 1, x0_0_read_data: 32, x0_0_done: 1, x10_0_r
     group cond0<"static"=0> {
       cond0[done] = 1'd1;
       le0.left = i0.out;
-      le0.right = const2.out;
+      le0.right = const1.out;
     }
     group cond1<"static"=0> {
       cond1[done] = 1'd1;
       le1.left = j0.out;
-      le1.right = const4.out;
+      le1.right = const3.out;
     }
     group cond2<"static"=0> {
       cond2[done] = 1'd1;
+      le2.left = k0.out;
+      le2.right = const5.out;
+    }
+    group cond3<"static"=0> {
+      cond3[done] = 1'd1;
+      le3.left = l0.out;
+      le3.right = const7.out;
+    }
+    group cond4<"static"=0> {
+      cond4[done] = 1'd1;
       gt0.left = x_read0_0.out;
       gt0.right = zero_0.out;
     }
     group let0<"static"=1> {
-      zero_0.in = const0.out;
+      zero_0.in = fpconst0.out;
       zero_0.write_en = 1'd1;
       let0[done] = zero_0.done;
     }
     group let1<"static"=1> {
-      i0.in = const1.out;
+      i0.in = const0.out;
       i0.write_en = 1'd1;
       let1[done] = i0.done;
     }
     group let2<"static"=1> {
-      j0.in = const3.out;
+      j0.in = const2.out;
       j0.write_en = 1'd1;
       let2[done] = j0.done;
     }
+    group let3<"static"=1> {
+      k0.in = const4.out;
+      k0.write_en = 1'd1;
+      let3[done] = k0.done;
+    }
+    group let4<"static"=1> {
+      l0.in = const6.out;
+      l0.write_en = 1'd1;
+      let4[done] = l0.done;
+    }
     group upd0<"static"=1> {
       x_read0_0.write_en = 1'd1;
-      x0_0_addr1 = j0.out;
-      x0_0_addr0 = i0.out;
-      x_read0_0.in = 1'd1 ? x0_0_read_data;
+      x0_0_0_0_addr3 = l0.out;
+      x0_0_0_0_addr2 = k0.out;
+      x0_0_0_0_addr1 = j0.out;
+      x0_0_0_0_addr0 = i0.out;
+      x_read0_0.in = 1'd1 ? x0_0_0_0_read_data;
       upd0[done] = x_read0_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
       x_read1_0.write_en = 1'd1;
-      x0_0_addr1 = j0.out;
-      x0_0_addr0 = i0.out;
-      x_read1_0.in = 1'd1 ? x0_0_read_data;
+      x0_0_0_0_addr3 = l0.out;
+      x0_0_0_0_addr2 = k0.out;
+      x0_0_0_0_addr1 = j0.out;
+      x0_0_0_0_addr0 = i0.out;
+      x_read1_0.in = 1'd1 ? x0_0_0_0_read_data;
       upd1[done] = x_read1_0.done ? 1'd1;
     }
     group upd2<"static"=1> {
-      x10_0_addr1 = j0.out;
-      x10_0_addr0 = i0.out;
-      x10_0_write_en = 1'd1;
-      x10_0_write_data = 1'd1 ? x_read1_0.out;
-      upd2[done] = x10_0_done ? 1'd1;
+      x10_0_0_0_addr3 = l0.out;
+      x10_0_0_0_addr2 = k0.out;
+      x10_0_0_0_addr1 = j0.out;
+      x10_0_0_0_addr0 = i0.out;
+      x10_0_0_0_write_en = 1'd1;
+      x10_0_0_0_write_data = 1'd1 ? x_read1_0.out;
+      upd2[done] = x10_0_0_0_done ? 1'd1;
     }
     group upd3<"static"=1> {
-      x10_0_addr1 = j0.out;
-      x10_0_addr0 = i0.out;
-      x10_0_write_en = 1'd1;
-      x10_0_write_data = 1'd1 ? const5.out;
-      upd3[done] = x10_0_done ? 1'd1;
+      x10_0_0_0_addr3 = l0.out;
+      x10_0_0_0_addr2 = k0.out;
+      x10_0_0_0_addr1 = j0.out;
+      x10_0_0_0_addr0 = i0.out;
+      x10_0_0_0_write_en = 1'd1;
+      x10_0_0_0_write_data = 1'd1 ? zero_0.out;
+      upd3[done] = x10_0_0_0_done ? 1'd1;
     }
     group upd4<"static"=1> {
-      j0.write_en = 1'd1;
-      add0.left = j0.out;
-      add0.right = const6.out;
-      j0.in = 1'd1 ? add0.out;
-      upd4[done] = j0.done ? 1'd1;
+      l0.write_en = 1'd1;
+      add0.left = l0.out;
+      add0.right = const8.out;
+      l0.in = 1'd1 ? add0.out;
+      upd4[done] = l0.done ? 1'd1;
     }
     group upd5<"static"=1> {
+      k0.write_en = 1'd1;
+      add1.left = k0.out;
+      add1.right = const9.out;
+      k0.in = 1'd1 ? add1.out;
+      upd5[done] = k0.done ? 1'd1;
+    }
+    group upd6<"static"=1> {
+      j0.write_en = 1'd1;
+      add2.left = j0.out;
+      add2.right = const10.out;
+      j0.in = 1'd1 ? add2.out;
+      upd6[done] = j0.done ? 1'd1;
+    }
+    group upd7<"static"=1> {
       i0.write_en = 1'd1;
-      add1.left = i0.out;
-      add1.right = const7.out;
-      i0.in = 1'd1 ? add1.out;
-      upd5[done] = i0.done ? 1'd1;
+      add3.left = i0.out;
+      add3.right = const11.out;
+      i0.in = 1'd1 ? add3.out;
+      upd7[done] = i0.done ? 1'd1;
     }
   }
 
@@ -105,19 +158,31 @@ component tensor2d_relu(go: 1, clk: 1, x0_0_read_data: 32, x0_0_done: 1, x10_0_r
           let2;
           while le1.out with cond1 {
             seq {
-              upd0;
-              if gt0.out with cond2 {
+              let3;
+              while le2.out with cond2 {
                 seq {
-                  upd1;
-                  upd2;
+                  let4;
+                  while le3.out with cond3 {
+                    seq {
+                      upd0;
+                      if gt0.out with cond4 {
+                        seq {
+                          upd1;
+                          upd2;
+                        }
+                      } else {
+                        upd3;
+                      }
+                      upd4;
+                    }
+                  }
+                  upd5;
                 }
-              } else {
-                upd3;
               }
-              upd4;
+              upd6;
             }
           }
-          upd5;
+          upd7;
         }
       }
     }
@@ -126,27 +191,27 @@ component tensor2d_relu(go: 1, clk: 1, x0_0_read_data: 32, x0_0_done: 1, x10_0_r
 
 component main () -> () {
   cells {
-    x1 = prim std_mem_d2(32, 2, 4, 2, 3);
-    x = prim std_mem_d2(32, 2, 4, 2, 3);
-    tensor2d_relu0 = tensor2d_relu;
+    x1 = prim std_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
+    x = prim std_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
+    relu0 = relu;
   }
   wires {
-    group run_tensor2d_relu {
-      x.addr0 = tensor2d_relu0.x0_0_addr0;
-      tensor2d_relu0.x0_0_read_data = x.read_data;
-      x.addr1 = tensor2d_relu0.x0_0_addr1;
-      x1.addr0 = tensor2d_relu0.x10_0_addr0;
-      x1.addr1 = tensor2d_relu0.x10_0_addr1;
-      x1.write_data = tensor2d_relu0.x10_0_write_data;
-      x1.write_en = tensor2d_relu0.x10_0_write_en;
-      tensor2d_relu0.x10_0_done = x1.done;
-      tensor2d_relu0.go = 1'd1;
-      run_tensor2d_relu[done] = tensor2d_relu0.done ? 1'd1;
+    group run_relu {
+      x.addr0 = relu0.x0_0_0_0_addr0;
+      relu0.x0_0_0_0_read_data = x.read_data;
+      x.addr1 = relu0.x0_0_0_0_addr1;
+      x.addr2 = relu0.x0_0_0_0_addr2;
+      x1.addr0 = relu0.x10_0_0_0_addr0;
+      x1.write_data = relu0.x10_0_0_0_write_data;
+      x1.write_en = relu0.x10_0_0_0_write_en;
+      relu0.x10_0_0_0_done = x1.done;
+      relu0.go = 1'd1;
+      run_relu[done] = relu0.done ? 1'd1;
     }
   }
   control {
     seq {
-      run_tensor2d_relu;
+      run_relu;
     }
   }
 }

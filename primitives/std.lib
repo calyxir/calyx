@@ -158,6 +158,81 @@ primitive std_mem_d3_ext[
   clk: 1
 ) -> (read_data: width, done: 1) {}
 
+primitive std_mem_d4[
+    width,
+    d0_size,
+    d1_size,
+    d2_size,
+    d3_size,
+    d0_idx_size,
+    d1_idx_size,
+    d2_idx_size,
+    d3_idx_size
+] (
+  addr0: d0_idx_size,
+  addr1: d1_idx_size,
+  addr2: d2_idx_size,
+  addr3: d3_idx_size,
+  write_data: width,
+  write_en: 1,
+  clk: 1
+) -> (read_data: width, done: 1) {
+  verilog {
+    module std_mem_d4
+      #(parameter width = 32,
+        parameter d0_size = 16,
+        parameter d1_size = 16,
+        parameter d2_size = 16,
+        parameter d3_size = 16,
+        parameter d0_idx_size = 4,
+        parameter d1_idx_size = 4,
+        parameter d2_idx_size = 4,
+        parameter d3_idx_size = 4)
+       (input logic [d0_idx_size-1:0] addr0,
+        input logic [d1_idx_size-1:0] addr1,
+        input logic [d2_idx_size-1:0] addr2,
+        input logic [d3_idx_size-1:0] addr3,
+        input logic [width-1:0]   write_data,
+        input logic               write_en,
+        input logic               clk,
+        output logic [width-1:0]  read_data,
+        output logic done);
+
+      /* verilator lint_off WIDTH */
+      logic [width-1:0]  mem[d0_size-1:0][d1_size-1:0][d2_size-1:0][d3_size-1:0];
+
+      assign read_data = mem[addr0][addr1][addr2][addr3];
+      always_ff @(posedge clk) begin
+        if (write_en) begin
+          mem[addr0][addr1][addr2][addr3] <= write_data;
+          done <= 1'd1;
+        end else
+          done <= 1'd0;
+      end
+    endmodule
+  }
+}
+
+primitive std_mem_d4_ext[
+    width,
+    d0_size,
+    d1_size,
+    d2_size,
+    d3_size,
+    d0_idx_size,
+    d1_idx_size,
+    d2_idx_size,
+    d3_idx_size
+] (
+  addr0: d0_idx_size,
+  addr1: d1_idx_size,
+  addr2: d2_idx_size,
+  addr3: d3_idx_size,
+  write_data: width,
+  write_en: 1,
+  clk: 1
+) -> (read_data: width, done: 1) {}
+
 primitive std_logsize_mem_d1[width, logsize](
   addr0: logsize,
   write_data: width,
@@ -816,12 +891,26 @@ primitive fixed_p_std_div[width, int_width, fract_width](left: width, right: wid
           logic [2*width-2:0] result;
 
           assign result = left / right;
-          // result bit= 2*width, 1 is placed at fract_width,
-          //the valid bit would be width amount of bits starting at fract_width
+          // result bit = 2 * width, 1 is placed at fract_width,
+          // the valid bit would be width amount of bits starting at fract_width
           assign out = result[width+fract_width-1:fract_width];
         endmodule
 
     }
+}
+
+primitive fixed_p_std_gt<"share"=1>[width, int_width, fract_width](left: width, right: width) -> (out: 1) {
+  verilog {
+    module fixed_p_std_gt
+     #(parameter width = 32,
+       parameter int_width = 8,
+       parameter fract_width = 24)
+       (input  logic [width-1:0] left,
+        input  logic [width-1:0] right,
+        output logic             out);
+      assign out = left > right;
+    endmodule
+  }
 }
 
 // the bigger integer bit always comes left, one with bigger fractional bit comes right

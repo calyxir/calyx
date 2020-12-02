@@ -14,6 +14,7 @@ impl Default for RemoveExternalMemories<'_> {
             ("std_mem_d1_ext", "std_mem_d1"),
             ("std_mem_d2_ext", "std_mem_d2"),
             ("std_mem_d3_ext", "std_mem_d3"),
+            ("std_mem_d4_ext", "std_mem_d4"),
         ]
         .into_iter()
         .collect();

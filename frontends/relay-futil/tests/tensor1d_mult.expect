@@ -1,6 +1,6 @@
 import "primitives/std.lib";
 
-component tensor1d_multiply(go: 1, clk: 1, x0_read_data: 32, x0_done: 1, x10_read_data: 32, x10_done: 1, y0_read_data: 32, y0_done: 1) -> (done: 1, x0_addr0: 3, x0_write_data: 32, x0_write_en: 1, x0_clk: 1, x10_addr0: 3, x10_write_data: 32, x10_write_en: 1, x10_clk: 1, y0_addr0: 3, y0_write_data: 32, y0_write_en: 1, y0_clk: 1) {
+component multiply(go: 1, clk: 1, x0_read_data: 32, x0_done: 1, x10_read_data: 32, x10_done: 1, y0_read_data: 32, y0_done: 1) -> (done: 1, x0_addr0: 3, x0_write_data: 32, x0_write_en: 1, x0_clk: 1, x10_addr0: 3, x10_write_data: 32, x10_write_en: 1, x10_clk: 1, y0_addr0: 3, y0_write_data: 32, y0_write_en: 1, y0_clk: 1) {
   cells {
     add0 = prim std_add(3);
     bin_read0_0 = prim std_reg(32);
@@ -82,25 +82,25 @@ component main () -> () {
     x1 = prim std_mem_d1(32, 4, 3);
     x = prim std_mem_d1(32, 4, 3);
     y = prim std_mem_d1(32, 4, 3);
-    tensor1d_multiply0 = tensor1d_multiply;
+    multiply0 = multiply;
   }
   wires {
-    group run_tensor1d_multiply {
-      x.addr0 = tensor1d_multiply0.x0_addr0;
-      tensor1d_multiply0.x0_read_data = x.read_data;
-      y.addr0 = tensor1d_multiply0.y0_addr0;
-      tensor1d_multiply0.y0_read_data = y.read_data;
-      x1.addr0 = tensor1d_multiply0.x10_addr0;
-      x1.write_data = tensor1d_multiply0.x10_write_data;
-      x1.write_en = tensor1d_multiply0.x10_write_en;
-      tensor1d_multiply0.x10_done = x1.done;
-      tensor1d_multiply0.go = 1'd1;
-      run_tensor1d_multiply[done] = tensor1d_multiply0.done ? 1'd1;
+    group run_multiply {
+      x.addr0 = multiply0.x0_addr0;
+      multiply0.x0_read_data = x.read_data;
+      y.addr0 = multiply0.y0_addr0;
+      multiply0.y0_read_data = y.read_data;
+      x1.addr0 = multiply0.x10_addr0;
+      x1.write_data = multiply0.x10_write_data;
+      x1.write_en = multiply0.x10_write_en;
+      multiply0.x10_done = x1.done;
+      multiply0.go = 1'd1;
+      run_multiply[done] = multiply0.done ? 1'd1;
     }
   }
   control {
     seq {
-      run_tensor1d_multiply;
+      run_multiply;
     }
   }
 }

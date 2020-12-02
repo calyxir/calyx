@@ -1,5 +1,6 @@
 v0.0.4
-fn (%a: int32, %b: int32) {
-  let %c = subtract(%a, %b);
-  %c
+fn (%x: Tensor[(4), int32]) {
+  let %y = 8;
+  let %x1 = subtract(%x, %y);
+  %x1
 }
