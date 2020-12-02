@@ -393,8 +393,8 @@ def max_pool2d(declaration):
               for (let n: ubit<32> = 0..{pool_size[1]}/*pool_size[1]*/) {{
                 let pool_x: ubit<32> = stride_x + m;
                 let pool_y: ubit<32> = stride_y + n;
-                let current: {data_type}<{bitwidth}> = {data.name}[i][j][pool_x][pool_y]; 
-                if (current > max) {{ max := current; }} else {{ max := max; }}
+                let current: {data_type}<{bitwidth}> = {data.name}[i][j][pool_x][pool_y];
+                if (current > max) {{ max := current; }} else {{ max := max; }} 
               }}
             }}
             {res.name}[i][j][k][l] := max;
