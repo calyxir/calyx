@@ -3,7 +3,7 @@ component main() -> () {
   cells {
     a00 = prim std_mem_d1_ext(32,4,3);
     a0_read0_0 = prim std_reg(32);
-    add0 = prim std_add(32);
+    add0 = prim std_sadd(32);
     add1 = prim std_add(4);
     b00 = prim std_mem_d1_ext(32,4,3);
     b0_read0_0 = prim std_reg(32);
@@ -14,7 +14,7 @@ component main() -> () {
     const3 = prim std_const(4,1);
     i0 = prim std_reg(4);
     le0 = prim std_le(4);
-    mult_pipe0 = prim std_mult_pipe(32);
+    mult_pipe0 = prim std_smult_pipe(32);
     res_0 = prim std_reg(32);
     result = prim std_reg(32);
     slice0 = prim std_slice(4,3);
