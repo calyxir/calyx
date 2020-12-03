@@ -820,20 +820,20 @@ primitive fixed_p_std_div[width, int_width, fract_width](left: width, right: wid
     }
 }
 
-// the bigger integer bit always comes left, one with bigger fractional bit comes right
-primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, fract_width2, out_width] (left: width, right: width) 
+primitive fixed_p_std_add_dbit[width1, width2 , int_width1, fract_width1, int_width2, fract_width2, out_width] (left: width1, right: width2) 
 ->(out: out_width){
     verilog {
       module fixed_p_std_add_dbit
-        #(parameter width= 32,
+        #(parameter width1= 32,
+        parameter width2= 32,
         parameter int_width1 = 8, 
         parameter fract_width1 = 24,
         parameter int_width2 = 4,
         parameter fract_width2 =28,
         parameter out_width = 36)
 
-        (input logic [width-1:0] left, 
-        input logic [width-1:0] right, 
+        (input logic [width1-1:0] left, 
+        input logic [width2-1:0] right, 
         output logic [out_width-1:0] out);
 
         logic [int_width1-1:0] left_int;
@@ -841,17 +841,18 @@ primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, frac
         logic [fract_width1-1:0] left_fract;
         logic [fract_width2-1:0] right_fract;
 
-        logic [int_width1-1:0]  mod_right_int;
-        logic [fract_width2-1:0] mod_left_fract;
+        localparam bigint = (int_width1 >= int_width2) ? int_width1 : int_width2;
+        localparam bigfract = (fract_width1 >= fract_width2) ? fract_width1 : fract_width2;
+        
+        logic [bigint-1:0]  mod_right_int;
+        logic [bigfract-1:0] mod_left_fract;
 
-        logic [int_width1-1:0]  whole_int;
-        logic [fract_width2-1:0] whole_fract;
+        logic [bigint-1:0]  whole_int;
+        logic [ bigfract-1:0] whole_fract;
 
         assign {left_int, left_fract} = left;
         assign {right_int, right_fract} = right;
 
-
-        //extend fractional bits for left
         assign mod_left_fract = left_fract * (2**(fract_width2-fract_width1));
 
         always_comb begin
@@ -919,37 +920,39 @@ primitive std_sdiv<"share"=1>[width](left: width, right: width) -> (out: width) 
   }
 }
 
-primitive sfixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, fract_width2, out_width] (left: width, right: width) 
+primitive sfixed_p_std_add_dbit[width1, width2 , int_width1, fract_width1, int_width2, fract_width2, out_width] (left: width1, right: width2) 
 ->(out: out_width){
     verilog {
       module sfixed_p_std_add_dbit
-        #(parameter width= 32,
+        #(parameter width1= 32,
+        parameter width2= 32,
         parameter int_width1 = 8, 
         parameter fract_width1 = 24,
         parameter int_width2 = 4,
         parameter fract_width2 =28,
         parameter out_width = 36)
 
-        (input signed [width-1:0] left, 
-        input signed [width-1:0] right, 
-        output signed [out_width-1:0] out);
+        (input logic [width1-1:0] left, 
+        input logic [width2-1:0] right, 
+        output logic [out_width-1:0] out);
 
-        signed [int_width1-1:0] left_int;
-        signed [int_width2-1:0] right_int;
-        signed [fract_width1-1:0] left_fract;
-        signed [fract_width2-1:0] right_fract;
+        logic [int_width1-1:0] left_int;
+        logic [int_width2-1:0] right_int;
+        logic [fract_width1-1:0] left_fract;
+        logic [fract_width2-1:0] right_fract;
 
-        signed [int_width1-1:0]  mod_right_int;
-        signed [fract_width2-1:0] mod_left_fract;
+        localparam bigint = (int_width1 >= int_width2) ? int_width1 : int_width2;
+        localparam bigfract = (fract_width1 >= fract_width2) ? fract_width1 : fract_width2;
+        
+        logic [bigint-1:0]  mod_right_int;
+        logic [bigfract-1:0] mod_left_fract;
 
-        signed [int_width1-1:0]  whole_int;
-        signed [fract_width2-1:0] whole_fract;
+        logic [bigint-1:0]  whole_int;
+        logic [ bigfract-1:0] whole_fract;
 
         assign {left_int, left_fract} = left;
         assign {right_int, right_fract} = right;
 
-
-        //extend fractional bits for left
         assign mod_left_fract = left_fract * (2**(fract_width2-fract_width1));
 
         always_comb begin
