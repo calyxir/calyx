@@ -381,23 +381,23 @@ def max_pool2d(declaration):
 
     declarations = pp_dahlia_memory_declarations([res, data])
     program_body = f"""
-    for (let i: ubit<32> = 0..{size0}) {{
-      for (let j: ubit<32> = 0..{size1}) {{
-        for (let k: ubit<32> = 0..{size2}) {{
-          for (let l: ubit<32> = 0..{size3}) {{
-            let stride_x: ubit<32> = k * {strides[0]}/*stride[0]*/;
-            let stride_y: ubit<32> = l * {strides[1]}/*stride[1]*/;
+    for (let b: ubit<32> = 0..{size0}) {{
+      for (let c: ubit<32> = 0..{size1}) {{
+        for (let y: ubit<32> = 0..{size2}) {{
+          for (let x: ubit<32> = 0..{size3}) {{
+            let stride_y: ubit<32> = y * {strides[1]}/*strides[1]*/;
+            let stride_x: ubit<32> = x * {strides[0]}/*strides[0]*/;
             
-            let max: {data_type}<{bitwidth}> = {data.name}[i][j][stride_x][stride_y];
+            let max: {data_type}<{bitwidth}> = {data.name}[b][c][stride_y][stride_x];
             for (let m: ubit<32> = 0..{pool_size[0]}/*pool_size[0]*/) {{
               for (let n: ubit<32> = 0..{pool_size[1]}/*pool_size[1]*/) {{
-                let pool_x: ubit<32> = stride_x + m;
-                let pool_y: ubit<32> = stride_y + n;
-                let current: {data_type}<{bitwidth}> = {data.name}[i][j][pool_x][pool_y];
+                let pool_y: ubit<32> = stride_y + m;
+                let pool_x: ubit<32> = stride_x + n;
+                let current: {data_type}<{bitwidth}> = {data.name}[b][c][pool_y][pool_x];
                 if (current > max) {{ max := current; }} 
               }}
             }}
-            {res.name}[i][j][k][l] := max;
+            {res.name}[b][c][y][x] := max;
           }} 
         }} 
       }} 
