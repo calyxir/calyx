@@ -59,9 +59,9 @@ class Relay2Futil(ExprFunctor):
     def dahlia_name(self, name, type):
         """
         Dahlia uses the following naming scheme for arbitrary variables `X`, `Y`:
-        Memory1D: `X0`, `Y0`, ...
-        Memory2D: `X0_0`, `Y0_0`, ...
-        Memory3D: `X0_0_0`, `Y0_0_0`, ...
+        Memory1D: `X0`, `Y0`
+        Memory2D: `X0_0`, `Y0_0`
+        Memory3D: `X0_0_0`, `Y0_0_0`
         """
         assert type in DahliaNameExtension, f'{name} with {type} is not supported yet.'
         return name + DahliaNameExtension[type]
