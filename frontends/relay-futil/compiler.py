@@ -147,10 +147,10 @@ def lower_to_futil(program) -> str:
     program = relay_transforms(program)
     visitor = Relay2Futil()
 
-    PREAMBLE = """import "primitives/std.lib";"""
+    PREAMBLE = """import "primitives/std.lib";\n"""
     MAIN = visitor.visit(program)
     DAHLIA_COMPONENTS = '\n'.join(visitor.dahlia_components)
-    NEWL = '\n\n'
+    NEWL = '\n'
     return f'{PREAMBLE}{NEWL}{DAHLIA_COMPONENTS}{NEWL}{MAIN}'
 
 

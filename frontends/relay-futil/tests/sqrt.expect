@@ -164,7 +164,11 @@ component main () -> () {
       sqrt0.x0_0_0_0_read_data = x.read_data;
       x.addr1 = sqrt0.x0_0_0_0_addr1;
       x.addr2 = sqrt0.x0_0_0_0_addr2;
+      x.addr3 = sqrt0.x0_0_0_0_addr3;
       x1.addr0 = sqrt0.x10_0_0_0_addr0;
+      x1.addr1 = sqrt0.x10_0_0_0_addr1;
+      x1.addr2 = sqrt0.x10_0_0_0_addr2;
+      x1.addr3 = sqrt0.x10_0_0_0_addr3;
       x1.write_data = sqrt0.x10_0_0_0_write_data;
       x1.write_en = sqrt0.x10_0_0_0_write_en;
       sqrt0.x10_0_0_0_done = x1.done;

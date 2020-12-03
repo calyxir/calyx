@@ -56,7 +56,7 @@ component divide(go: 1, clk: 1, x0_0_0_read_data: 32, x0_0_0_done: 1, x10_0_0_re
       k0.write_en = 1'd1;
       let2[done] = k0.done;
     }
-    group let3<> {
+    group let3 {
       bin_read0_0.in = div_pipe0.out;
       bin_read0_0.write_en = div_pipe0.done;
       let3[done] = bin_read0_0.done;

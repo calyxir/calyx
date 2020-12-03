@@ -42,7 +42,7 @@ def lower_dahlia_program(prog, component_name):
         fuse_binary = os.environ['DAHLIA_EXEC'] if 'DAHLIA_EXEC' in os.environ else 'fuse'
         command = f"""
                 {fuse_binary} {tf0.name} --lower -b=futil -n={component_name} > {tf1.name} {NO_ERR} \
-                 && cargo run -- {tf1.name} -l ../../ -p externalize > {tf2.name} {NO_ERR}"""
+                 && fud e --from futil {tf1.name} --to futil-externalize > {tf2.name} {NO_ERR}"""
         subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).communicate()
         component = tf2.read().decode()[len(IMPORT_STATEMENT):]  # Skip over importing the primitives library.
         return component

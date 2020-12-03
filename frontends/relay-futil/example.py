@@ -56,7 +56,8 @@ def softmax():
 
 def max_pool2d():
     data = relay.var('data', shape=[2, 2, 4, 4], dtype='int32')
-    return relay.Function([data], relay.nn.max_pool2d(data, padding=[0,0,0,0], strides=[2,2], pool_size=[2,2]))
+    return relay.Function([data], relay.nn.max_pool2d(data, padding=[0, 0, 0, 0], strides=[2, 2], pool_size=[2, 2]))
+
 
 def mlp_net():
     """The MLP test from Relay."""
@@ -71,8 +72,8 @@ def vgg_net():
                        batch_norm=True)
 
 
-ALL_FUNCS = [add, tensor_subtract, expand_dims, batch_flatten, batch_matmul, bias_add, relu, dense, softmax, mlp_net,
-             vgg_net, max_pool2d]
+ALL_FUNCS = [add, tensor_subtract, expand_dims, batch_flatten, batch_matmul,
+             bias_add, relu, dense, softmax, mlp_net, vgg_net, max_pool2d]
 FUNC_NAMES = list(map(lambda x: x.__name__, ALL_FUNCS))
 
 

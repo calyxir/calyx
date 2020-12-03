@@ -68,6 +68,7 @@ component add(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data: 32, c0_
     }
   }
 }
+
 component multiply(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, b0_read_data: 32, b0_done: 1, c0_read_data: 32, c0_done: 1) -> (done: 1, a0_addr0: 1, a0_write_data: 32, a0_write_en: 1, a0_clk: 1, b0_addr0: 1, b0_write_data: 32, b0_write_en: 1, b0_clk: 1, c0_addr0: 1, c0_write_data: 32, c0_write_en: 1, c0_clk: 1) {
   cells {
     a_read0_0 = prim std_reg(32);

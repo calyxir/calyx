@@ -30,6 +30,7 @@ component softmax(go: 1, clk: 1, x80_0_read_data: 32, x80_0_done: 1, x90_0_read_
     x8_expsum_0 = prim std_reg(32);
     x8_read0_0 = prim std_reg(32);
     x8_read1_0 = prim std_reg(32);
+    x9_read0_0 = prim std_reg(32);
   }
   wires {
     group cond0<"static"=0> {
@@ -72,11 +73,9 @@ component softmax(go: 1, clk: 1, x80_0_read_data: 32, x80_0_done: 1, x90_0_read_
       bin_read0_0.write_en = 1'd1;
       let4[done] = bin_read0_0.done;
       slice0.in = div_pipe0.out;
-      div_pipe0.left = exp1.out;
+      div_pipe0.left = x9_read0_0.out;
       div_pipe0.right = x8_expsum_0.out;
       div_pipe0.go = !div_pipe0.done ? 1'd1;
-      exp1.exponent = x8_read1_0.out;
-      exp1.go = !exp1.done ? 1'd1;
     }
     group upd0<"static"=1> {
       x8_read0_0.write_en = 1'd1;
@@ -85,7 +84,7 @@ component softmax(go: 1, clk: 1, x80_0_read_data: 32, x80_0_done: 1, x90_0_read_
       x8_read0_0.in = 1'd1 ? x80_0_read_data;
       upd0[done] = x8_read0_0.done ? 1'd1;
     }
-    group upd1<"static"=2> {
+    group upd1 {
       x8_expsum_0.write_en = 1'd1;
       add0.left = x8_expsum_0.out;
       add0.right = exp0.out;
@@ -108,26 +107,42 @@ component softmax(go: 1, clk: 1, x80_0_read_data: 32, x80_0_done: 1, x90_0_read_
       x8_read1_0.in = 1'd1 ? x80_0_read_data;
       upd3[done] = x8_read1_0.done ? 1'd1;
     }
-    group upd4<"static"=1> {
+    group upd4 {
+      x90_0_addr1 = k0.out;
+      x90_0_addr0 = i0.out;
+      x90_0_write_en = exp1.done;
+      exp1.exponent = x8_read1_0.out;
+      exp1.go = !exp1.done ? 1'd1;
+      x90_0_write_data = exp1.done ? exp1.out;
+      upd4[done] = x90_0_done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      x9_read0_0.write_en = 1'd1;
+      x90_0_addr1 = k0.out;
+      x90_0_addr0 = i0.out;
+      x9_read0_0.in = 1'd1 ? x90_0_read_data;
+      upd5[done] = x9_read0_0.done ? 1'd1;
+    }
+    group upd6<"static"=1> {
       x90_0_addr1 = k0.out;
       x90_0_addr0 = i0.out;
       x90_0_write_en = 1'd1;
       x90_0_write_data = 1'd1 ? bin_read0_0.out;
-      upd4[done] = x90_0_done ? 1'd1;
+      upd6[done] = x90_0_done ? 1'd1;
     }
-    group upd5<"static"=1> {
+    group upd7<"static"=1> {
       k0.write_en = 1'd1;
       add2.left = k0.out;
       add2.right = const7.out;
       k0.in = 1'd1 ? add2.out;
-      upd5[done] = k0.done ? 1'd1;
+      upd7[done] = k0.done ? 1'd1;
     }
-    group upd6<"static"=1> {
+    group upd8<"static"=1> {
       i0.write_en = 1'd1;
       add3.left = i0.out;
       add3.right = const8.out;
       i0.in = 1'd1 ? add3.out;
-      upd6[done] = i0.done ? 1'd1;
+      upd8[done] = i0.done ? 1'd1;
     }
   }
 
@@ -153,17 +168,20 @@ component softmax(go: 1, clk: 1, x80_0_read_data: 32, x80_0_done: 1, x90_0_read_
           while le2.out with cond2 {
             seq {
               upd3;
-              let4;
               upd4;
               upd5;
+              let4;
+              upd6;
+              upd7;
             }
           }
-          upd6;
+          upd8;
         }
       }
     }
   }
 }
+
 component bias_add2(go: 1, clk: 1, fc3_bias0_read_data: 32, fc3_bias0_done: 1, x70_0_read_data: 32, x70_0_done: 1, x80_0_read_data: 32, x80_0_done: 1) -> (done: 1, fc3_bias0_addr0: 4, fc3_bias0_write_data: 32, fc3_bias0_write_en: 1, fc3_bias0_clk: 1, x70_0_addr0: 1, x70_0_addr1: 4, x70_0_write_data: 32, x70_0_write_en: 1, x70_0_clk: 1, x80_0_addr0: 1, x80_0_addr1: 4, x80_0_write_data: 32, x80_0_write_en: 1, x80_0_clk: 1) {
   cells {
     add0 = prim fixed_p_std_add(32, 16, 16);
@@ -263,6 +281,7 @@ component bias_add2(go: 1, clk: 1, fc3_bias0_read_data: 32, fc3_bias0_done: 1, x
     }
   }
 }
+
 component dense2(go: 1, clk: 1, fc3_weight0_0_read_data: 32, fc3_weight0_0_done: 1, x60_0_read_data: 32, x60_0_done: 1, x70_0_read_data: 32, x70_0_done: 1) -> (done: 1, fc3_weight0_0_addr0: 4, fc3_weight0_0_addr1: 7, fc3_weight0_0_write_data: 32, fc3_weight0_0_write_en: 1, fc3_weight0_0_clk: 1, x60_0_addr0: 1, x60_0_addr1: 7, x60_0_write_data: 32, x60_0_write_en: 1, x60_0_clk: 1, x70_0_addr0: 1, x70_0_addr1: 4, x70_0_write_data: 32, x70_0_write_en: 1, x70_0_clk: 1) {
   cells {
     add0 = prim std_add(7);
@@ -568,6 +587,7 @@ component dense2(go: 1, clk: 1, fc3_weight0_0_read_data: 32, fc3_weight0_0_done:
     }
   }
 }
+
 component relu1(go: 1, clk: 1, x50_0_read_data: 32, x50_0_done: 1, x60_0_read_data: 32, x60_0_done: 1) -> (done: 1, x50_0_addr0: 1, x50_0_addr1: 7, x50_0_write_data: 32, x50_0_write_en: 1, x50_0_clk: 1, x60_0_addr0: 1, x60_0_addr1: 7, x60_0_write_data: 32, x60_0_write_en: 1, x60_0_clk: 1) {
   cells {
     add0 = prim std_add(7);
@@ -690,6 +710,7 @@ component relu1(go: 1, clk: 1, x50_0_read_data: 32, x50_0_done: 1, x60_0_read_da
     }
   }
 }
+
 component bias_add1(go: 1, clk: 1, fc2_bias0_read_data: 32, fc2_bias0_done: 1, x40_0_read_data: 32, x40_0_done: 1, x50_0_read_data: 32, x50_0_done: 1) -> (done: 1, fc2_bias0_addr0: 7, fc2_bias0_write_data: 32, fc2_bias0_write_en: 1, fc2_bias0_clk: 1, x40_0_addr0: 1, x40_0_addr1: 7, x40_0_write_data: 32, x40_0_write_en: 1, x40_0_clk: 1, x50_0_addr0: 1, x50_0_addr1: 7, x50_0_write_data: 32, x50_0_write_en: 1, x50_0_clk: 1) {
   cells {
     add0 = prim fixed_p_std_add(32, 16, 16);
@@ -789,6 +810,7 @@ component bias_add1(go: 1, clk: 1, fc2_bias0_read_data: 32, fc2_bias0_done: 1, x
     }
   }
 }
+
 component dense1(go: 1, clk: 1, fc2_weight0_0_read_data: 32, fc2_weight0_0_done: 1, x30_0_read_data: 32, x30_0_done: 1, x40_0_read_data: 32, x40_0_done: 1) -> (done: 1, fc2_weight0_0_addr0: 7, fc2_weight0_0_addr1: 8, fc2_weight0_0_write_data: 32, fc2_weight0_0_write_en: 1, fc2_weight0_0_clk: 1, x30_0_addr0: 1, x30_0_addr1: 8, x30_0_write_data: 32, x30_0_write_en: 1, x30_0_clk: 1, x40_0_addr0: 1, x40_0_addr1: 7, x40_0_write_data: 32, x40_0_write_en: 1, x40_0_clk: 1) {
   cells {
     add0 = prim std_add(8);
@@ -1094,6 +1116,7 @@ component dense1(go: 1, clk: 1, fc2_weight0_0_read_data: 32, fc2_weight0_0_done:
     }
   }
 }
+
 component relu(go: 1, clk: 1, x20_0_read_data: 32, x20_0_done: 1, x30_0_read_data: 32, x30_0_done: 1) -> (done: 1, x20_0_addr0: 1, x20_0_addr1: 8, x20_0_write_data: 32, x20_0_write_en: 1, x20_0_clk: 1, x30_0_addr0: 1, x30_0_addr1: 8, x30_0_write_data: 32, x30_0_write_en: 1, x30_0_clk: 1) {
   cells {
     add0 = prim std_add(8);
@@ -1216,6 +1239,7 @@ component relu(go: 1, clk: 1, x20_0_read_data: 32, x20_0_done: 1, x30_0_read_dat
     }
   }
 }
+
 component bias_add(go: 1, clk: 1, fc1_bias0_read_data: 32, fc1_bias0_done: 1, x10_0_read_data: 32, x10_0_done: 1, x20_0_read_data: 32, x20_0_done: 1) -> (done: 1, fc1_bias0_addr0: 8, fc1_bias0_write_data: 32, fc1_bias0_write_en: 1, fc1_bias0_clk: 1, x10_0_addr0: 1, x10_0_addr1: 8, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_clk: 1, x20_0_addr0: 1, x20_0_addr1: 8, x20_0_write_data: 32, x20_0_write_en: 1, x20_0_clk: 1) {
   cells {
     add0 = prim fixed_p_std_add(32, 16, 16);
@@ -1315,6 +1339,7 @@ component bias_add(go: 1, clk: 1, fc1_bias0_read_data: 32, fc1_bias0_done: 1, x1
     }
   }
 }
+
 component dense(go: 1, clk: 1, fc1_weight0_0_read_data: 32, fc1_weight0_0_done: 1, x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (done: 1, fc1_weight0_0_addr0: 8, fc1_weight0_0_addr1: 10, fc1_weight0_0_write_data: 32, fc1_weight0_0_write_en: 1, fc1_weight0_0_clk: 1, x0_0_addr0: 1, x0_0_addr1: 10, x0_0_write_data: 32, x0_0_write_en: 1, x0_0_clk: 1, x10_0_addr0: 1, x10_0_addr1: 8, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_clk: 1) {
   cells {
     add0 = prim std_add(10);
@@ -1620,6 +1645,7 @@ component dense(go: 1, clk: 1, fc1_weight0_0_read_data: 32, fc1_weight0_0_done: 
     }
   }
 }
+
 component batch_flatten(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, x0_0_read_data: 32, x0_0_done: 1) -> (done: 1, data0_0_0_0_addr0: 1, data0_0_0_0_addr1: 1, data0_0_0_0_addr2: 5, data0_0_0_0_addr3: 5, data0_0_0_0_write_data: 32, data0_0_0_0_write_en: 1, data0_0_0_0_clk: 1, x0_0_addr0: 1, x0_0_addr1: 10, x0_0_write_data: 32, x0_0_write_en: 1, x0_0_clk: 1) {
   cells {
     add0 = prim std_add(10);
@@ -1821,6 +1847,7 @@ component main () -> () {
       batch_flatten0.data0_0_0_0_read_data = data.read_data;
       data.addr1 = batch_flatten0.data0_0_0_0_addr1;
       data.addr2 = batch_flatten0.data0_0_0_0_addr2;
+      data.addr3 = batch_flatten0.data0_0_0_0_addr3;
       x.addr0 = batch_flatten0.x0_0_addr0;
       x.addr1 = batch_flatten0.x0_0_addr1;
       x.write_data = batch_flatten0.x0_0_write_data;

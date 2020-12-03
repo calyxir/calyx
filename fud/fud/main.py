@@ -36,6 +36,10 @@ def register_stages(registry, config):
         futil.FutilStage(config, 'futil-noinline', '-b futil -d hole-inliner',
                          'Compile FuTIL to FuTIL to remove all control and inline groups'))
 
+    registry.register(
+        futil.FutilStage(config, 'futil-externalize', '-b futil -p externalize',
+                         'Compile FuTIL to FuTIL to externalize all external memories primitives'))
+
     # Verilator
     registry.register(
         verilator.VerilatorStage(config, 'vcd',
