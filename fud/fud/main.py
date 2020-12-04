@@ -38,7 +38,7 @@ def register_stages(registry, config):
 
     registry.register(
         futil.FutilStage(config, 'futil-externalize', '-b futil -p externalize',
-                         'Compile FuTIL to FuTIL to externalize all external memories primitives'))
+                         'Compile FuTIL to FuTIL to externalize all external memory primitives'))
 
     # Verilator
     registry.register(
