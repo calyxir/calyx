@@ -300,8 +300,6 @@ def batch_matmul(declaration):
 # of the matrix multiply. Otherwise, the values aren't computed properly. Look deeper into this.
 def dense(declaration):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.dense"""
-    # TODO(cgyurgyik): Add support for `units`.
-    units = declaration.attributes.get_int("units")
     op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
     bitwidth, M1_size0, M1_size1 = op1.data[0], op1.data[1], op1.data[2]
     M1_index_size0, M1_index_size1 = op1.data[3], op1.data[4]
@@ -352,7 +350,9 @@ def softmax(declaration):
     body = f"""
     for (let i: ubit<{index_size0}> = 0..{size0}) {{
       let {op.name}_expsum: {data_type}<{bitwidth}> = {zero};
-      for (let j: ubit<{index_size1}> = 0..{size1}) {{ {op.name}_expsum += exp({op.name}[i][j]); }}
+      for (let j: ubit<{index_size1}> = 0..{size1}) {{ 
+        {op.name}_expsum += exp({op.name}[i][j]); 
+      }}
       for (let k: ubit<{index_size1}> = 0..{size1}) {{ 
         {res.name}[i][k] := exp({op.name}[i][k]); 
         ---
@@ -370,10 +370,8 @@ def max_pool2d(declaration):
 
     strides = declaration.attributes.get_int_tuple("strides")
     pool_size = declaration.attributes.get_int_tuple("pool_size")
-    padding = declaration.attributes.get_int_tuple("padding")
     layout = declaration.attributes.get_str("layout")
     ceil_mode = declaration.attributes.get_int("ceil_mode")
-    for p in padding: assert p == 0, f"Non-zero padding: {padding} is not currently supported for nn.max_pool2d"
     assert layout == 'NCHW', f"Layout \'{layout}\' is not currently supported for nn.max_pool2d; please use `NCHW`"
     assert ceil_mode == False, "`ceil_mode` is not currently supported for nn.max_pool2d"
     bitwidth, data_type = data.data[0], data.data_type
@@ -385,8 +383,8 @@ def max_pool2d(declaration):
       for (let c: ubit<32> = 0..{size1}) {{
         for (let y: ubit<32> = 0..{size2}) {{
           for (let x: ubit<32> = 0..{size3}) {{
-            let stride_y: ubit<32> = y * {strides[1]}/*strides[1]*/;
-            let stride_x: ubit<32> = x * {strides[0]}/*strides[0]*/;
+            let stride_y: ubit<32> = y * {strides[0]}/*strides[0]*/;
+            let stride_x: ubit<32> = x * {strides[1]}/*strides[1]*/;
             
             let max: {data_type}<{bitwidth}> = {data.name}[b][c][stride_y][stride_x];
             for (let m: ubit<32> = 0..{pool_size[0]}/*pool_size[0]*/) {{
@@ -404,4 +402,46 @@ def max_pool2d(declaration):
     }} 
     """
     program = f"""{declarations}{NEWL}{program_body}"""
+    return lower_dahlia_program(program, declaration.component_name)
+
+
+# Only supports a small subset of the `conv2d` function. For example,
+# dilation and grouped convlution are not supported.
+def conv2d(declaration):
+    """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.conv2d"""
+    data, weight, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
+
+    strides = declaration.attributes.get_int_tuple("strides")
+    kernel_size = declaration.attributes.get_int_tuple("kernel_size")
+    channels = declaration.attributes.get_int("channels")
+    bitwidth, data_type = data.data[0], data.data_type
+    size0, size1, size2, size3 = res.data[1], res.data[2], res.data[3], res.data[4]
+
+    declarations = pp_dahlia_memory_declarations([res, data, weight])
+
+    zero = '0.0' if data_type == 'ufix' or data_type == 'fix' else '0'
+    program_body = f"""
+    for (let b: ubit<32> = 0..{size0}) {{
+      for (let c: ubit<32> = 0..{size1}) {{
+        for (let y: ubit<32> = 0..{size2}) {{
+          for (let x: ubit<32> = 0..{size3}) {{
+            let weighted_sum: {data_type}<{bitwidth}> = {zero};
+            
+            for (let k: ubit<32> = 0..{channels}) {{
+              for (let dy: ubit<32> = 0..{kernel_size[1]}/*kernel_size[1]*/) {{
+                for (let dx: ubit<32> = 0..{kernel_size[0]}/*kernel_size[0]*/) {{
+                  let kernel_y: ubit<32> = /*strides[0]*/{strides[0]} * y + dy;
+                  let kernel_x: ubit<32> = /*strides[1]*/{strides[1]} * x + dx;
+                  weighted_sum += {data.name}[b][k][kernel_y][kernel_x] * {weight.name}[c][k][dy][dx];
+                }}
+              }}
+            }}
+            {res.name}[b][c][y][x] := weighted_sum;
+          }} 
+        }} 
+      }} 
+    }} 
+    """
+    program = f"""{declarations}{NEWL}{program_body}"""
+
     return lower_dahlia_program(program, declaration.component_name)

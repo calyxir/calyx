@@ -59,6 +59,12 @@ def max_pool2d():
     return relay.Function([data], relay.nn.max_pool2d(data, padding=[0, 0, 0, 0], strides=[2, 2], pool_size=[2, 2]))
 
 
+def conv2d():
+    d = relay.var('data', shape=[1,2,2,2], dtype='int32')
+    w = relay.var('weight', shape=[1,2,2,2], dtype='int32')
+    return relay.Function([d, w], relay.nn.conv2d(d, w, padding=[1, 1, 1, 1], channels=1, kernel_size=[2,2]))
+
+
 def mlp_net():
     """The MLP test from Relay."""
     from tvm.relay.testing import mlp
@@ -73,7 +79,7 @@ def vgg_net():
 
 
 ALL_FUNCS = [add, tensor_subtract, expand_dims, batch_flatten, batch_matmul,
-             bias_add, relu, dense, softmax, mlp_net, vgg_net, max_pool2d]
+             bias_add, relu, dense, softmax, conv2d, max_pool2d, mlp_net, vgg_net]
 FUNC_NAMES = list(map(lambda x: x.__name__, ALL_FUNCS))
 
 
