@@ -60,9 +60,9 @@ def max_pool2d():
 
 
 def conv2d():
-    d = relay.var('data', shape=[1,2,2,2], dtype='int32')
-    w = relay.var('weight', shape=[1,2,2,2], dtype='int32')
-    return relay.Function([d, w], relay.nn.conv2d(d, w, padding=[1, 1, 1, 1], channels=1, kernel_size=[2,2]))
+    d = relay.var('data', shape=[5, 512, 14, 14], dtype='int32')
+    w = relay.var('weight', shape=[512, 512, 3, 3], dtype='int32')
+    return relay.Function([d, w], relay.nn.conv2d(d, w, padding=[1, 1, 1, 1], channels=512, kernel_size=[3, 3]))
 
 
 def mlp_net():

@@ -70,8 +70,8 @@ component conv2d(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, 
     slice7 = prim std_slice(32, 2);
     slice8 = prim std_slice(32, 32);
     slice9 = prim std_slice(32, 3);
+    sum_0 = prim std_reg(32);
     weight_read0_0 = prim std_reg(32);
-    weighted_sum_0 = prim std_reg(32);
     x0 = prim std_reg(32);
     y0 = prim std_reg(32);
   }
@@ -156,9 +156,9 @@ component conv2d(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, 
       let3[done] = x0.done;
     }
     group let4<"static"=1> {
-      weighted_sum_0.in = fpconst0.out;
-      weighted_sum_0.write_en = 1'd1;
-      let4[done] = weighted_sum_0.done;
+      sum_0.in = fpconst0.out;
+      sum_0.write_en = 1'd1;
+      let4[done] = sum_0.done;
     }
     group let5<"static"=1> {
       k0.in = const8.out;
@@ -224,11 +224,11 @@ component conv2d(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, 
       upd10[done] = b0.done ? 1'd1;
     }
     group upd2<"static"=1> {
-      weighted_sum_0.write_en = 1'd1;
-      add2.left = weighted_sum_0.out;
+      sum_0.write_en = 1'd1;
+      add2.left = sum_0.out;
       add2.right = bin_read2_0.out;
-      weighted_sum_0.in = 1'd1 ? add2.out;
-      upd2[done] = weighted_sum_0.done ? 1'd1;
+      sum_0.in = 1'd1 ? add2.out;
+      upd2[done] = sum_0.done ? 1'd1;
     }
     group upd3<"static"=1> {
       dx0.write_en = 1'd1;
@@ -261,7 +261,7 @@ component conv2d(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, 
       x0_0_0_0_addr0 = slice9.out;
       slice9.in = b0.out;
       x0_0_0_0_write_en = 1'd1;
-      x0_0_0_0_write_data = 1'd1 ? weighted_sum_0.out;
+      x0_0_0_0_write_data = 1'd1 ? sum_0.out;
       upd6[done] = x0_0_0_0_done ? 1'd1;
     }
     group upd7<"static"=1> {

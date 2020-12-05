@@ -191,7 +191,7 @@ def relu(declaration):
 def negative(declaration):
     """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.negative"""
     op, res = declaration.inputs[0].primitive, declaration.output.primitive
-    bitwidth, num_dimensions = op.data[0], op.type
+    bitwidth, num_dimensions, data_type = op.data[0], op.type, op.data_type
 
     indices = ""
     variable_name = CHARACTER_I
@@ -201,7 +201,8 @@ def negative(declaration):
         variable_name = next_character(variable_name)
 
     declarations = pp_dahlia_memory_declarations([op, res])
-    program_body = pp_dahlia_loop(op, f"""{res.name}{indices} := -{op.name}{indices};""")
+    zero = '0.0' if data_type == 'ufix' or data_type == 'fix' else '0'
+    program_body = pp_dahlia_loop(op, f"""{res.name}{indices} := {zero} - {op.name}{indices};""")
     return lower_dahlia_program(f"""{declarations}{NEWL}{program_body}""", declaration.component_name)
 
 
@@ -406,7 +407,7 @@ def max_pool2d(declaration):
 
 
 # Only supports a small subset of the `conv2d` function. For example,
-# dilation and grouped convlution are not supported.
+# dilation and grouped convolution are not supported.
 def conv2d(declaration):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.conv2d"""
     data, weight, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
@@ -425,23 +426,21 @@ def conv2d(declaration):
       for (let c: ubit<32> = 0..{size1}) {{
         for (let y: ubit<32> = 0..{size2}) {{
           for (let x: ubit<32> = 0..{size3}) {{
-            let weighted_sum: {data_type}<{bitwidth}> = {zero};
+            let sum: {data_type}<{bitwidth}> = {zero};
             
             for (let k: ubit<32> = 0..{channels}) {{
               for (let dy: ubit<32> = 0..{kernel_size[1]}/*kernel_size[1]*/) {{
                 for (let dx: ubit<32> = 0..{kernel_size[0]}/*kernel_size[0]*/) {{
-                  let kernel_y: ubit<32> = /*strides[0]*/{strides[0]} * y + dy;
-                  let kernel_x: ubit<32> = /*strides[1]*/{strides[1]} * x + dx;
-                  weighted_sum += {data.name}[b][k][kernel_y][kernel_x] * {weight.name}[c][k][dy][dx];
-                }}
+                  let kernel_y: ubit<32> = (/*strides[0]*/{strides[0]} * y) + dy;
+                  let kernel_x: ubit<32> = (/*strides[1]*/{strides[1]} * x) + dx;     
+                }} combine {{ sum += {data.name}[b][k][kernel_y][kernel_x] * {weight.name}[c][k][dy][dx]; }}
               }}
             }}
-            {res.name}[b][c][y][x] := weighted_sum;
+            {res.name}[b][c][y][x] := sum;
           }} 
         }} 
       }} 
     }} 
     """
     program = f"""{declarations}{NEWL}{program_body}"""
-
     return lower_dahlia_program(program, declaration.component_name)
