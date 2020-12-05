@@ -10,22 +10,22 @@ component main(go: 1, clk: 1) -> (done: 1) {
     par_done_reg1 = prim std_reg(1);
   }
   wires {
-    group A<> {
+    group A {
       a.in = 2'd0;
       a.write_en = 1'd1;
       A[done] = a.done;
     }
-    group B<> {
+    group B {
       b.in = 2'd1;
       b.write_en = 1'd1;
       B[done] = b.done;
     }
-    group C<> {
+    group C {
       c.in = 2'd2;
       c.write_en = 1'd1;
       C[done] = c.done;
     }
-    group par<> {
+    group par {
       A[go] = !(par_done_reg.out | A[done]) ? 1'd1;
       par_done_reg.in = A[done] ? 1'd1;
       par_done_reg.write_en = A[done] ? 1'd1;
