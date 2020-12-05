@@ -266,9 +266,7 @@ impl<T: Default> Visitable<T> for Control {
             Control::Enable(ctrl) => visitor
                 .start_enable(ctrl, component, sigs)?
                 .pop()
-                .and_then(|| {
-                    visitor.finish_enable(ctrl, component, sigs)
-                })?,
+                .and_then(|| visitor.finish_enable(ctrl, component, sigs))?,
             Control::Empty(ctrl) => visitor
                 .start_empty(ctrl, component, sigs)?
                 .pop()

@@ -164,9 +164,7 @@ impl Visitor<()> for StaticTiming {
                 );
                 comp.continuous_assignments.append(&mut cleanup);
 
-                return Ok(Action::Change(ir::Control::enable(
-                    while_group,
-                )));
+                return Ok(Action::Change(ir::Control::enable(while_group)));
             }
         }
 
@@ -286,9 +284,7 @@ impl Visitor<()> for StaticTiming {
                 );
                 comp.continuous_assignments.append(&mut clean_assigns);
 
-                return Ok(Action::Change(ir::Control::enable(
-                    if_group,
-                )));
+                return Ok(Action::Change(ir::Control::enable(if_group)));
             }
         }
 
