@@ -56,17 +56,17 @@ pub trait Visitor<T: Default> {
             .iter_mut()
             .map(|mut comp| {
                 self.start(&mut comp, signatures)?
-                    .and_then(|x| {
+                    .and_then(|| {
                         // Create a clone of the reference to the Control
                         // program.
                         let control_ref = Rc::clone(&comp.control);
                         // Borrow the control program mutably and visit it.
-                        let action_tuple = control_ref
+                        control_ref
                             .borrow_mut()
-                            .visit(self, x, &mut comp, signatures)?;
-                        Ok(Action::continue_with(action_tuple.data))
+                            .visit(self, &mut comp, signatures)?;
+                        Ok(Action::Continue)
                     })?
-                    .and_then(|x| self.finish(x, &mut comp, signatures))?
+                    .and_then(|| self.finish(&mut comp, signatures))?
                     .apply_change(&mut comp.control.borrow_mut())?;
                 Ok(())
             })
@@ -80,8 +80,8 @@ pub trait Visitor<T: Default> {
         &mut self,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
-        Ok(Action::continue_default())
+    ) -> VisResult {
+        Ok(Action::Continue)
     }
 
     /// Exceuted after the traversal ends.
@@ -89,143 +89,130 @@ pub trait Visitor<T: Default> {
     /// the children.
     fn finish(
         &mut self,
-        data: T,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
-        Ok(Action::continue_with(data))
+    ) -> VisResult {
+        Ok(Action::Continue)
     }
 
     /// Excecuted before visiting the children of a `ir::Seq` node.
     fn start_seq(
         &mut self,
         _s: &mut ir::Seq,
-        data: T,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
-        Ok(Action::continue_with(data))
+    ) -> VisResult {
+        Ok(Action::Continue)
     }
 
     /// Excecuted after visiting the children of a `ir::Seq` node.
     fn finish_seq(
         &mut self,
         _s: &mut ir::Seq,
-        data: T,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
-        Ok(Action::continue_with(data))
+    ) -> VisResult {
+        Ok(Action::Continue)
     }
 
     /// Excecuted before visiting the children of a `ir::Par` node.
     fn start_par(
         &mut self,
         _s: &mut ir::Par,
-        data: T,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
-        Ok(Action::continue_with(data))
+    ) -> VisResult {
+        Ok(Action::Continue)
     }
 
     /// Excecuted after visiting the children of a `ir::Par` node.
     fn finish_par(
         &mut self,
         _s: &mut ir::Par,
-        data: T,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
-        Ok(Action::continue_with(data))
+    ) -> VisResult {
+        Ok(Action::Continue)
     }
 
     /// Excecuted before visiting the children of a `ir::If` node.
     fn start_if(
         &mut self,
         _s: &mut ir::If,
-        data: T,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
-        Ok(Action::continue_with(data))
+    ) -> VisResult {
+        Ok(Action::Continue)
     }
 
     /// Excecuted after visiting the children of a `ir::If` node.
     fn finish_if(
         &mut self,
         _s: &mut ir::If,
-        data: T,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
-        Ok(Action::continue_with(data))
+    ) -> VisResult {
+        Ok(Action::Continue)
     }
 
     /// Excecuted before visiting the children of a `ir::If` node.
     fn start_while(
         &mut self,
         _s: &mut ir::While,
-        data: T,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
-        Ok(Action::continue_with(data))
+    ) -> VisResult {
+        Ok(Action::Continue)
     }
 
     /// Excecuted after visiting the children of a `ir::If` node.
     fn finish_while(
         &mut self,
         _s: &mut ir::While,
-        data: T,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
-        Ok(Action::continue_with(data))
+    ) -> VisResult {
+        Ok(Action::Continue)
     }
 
     /// Excecuted before visiting the children of a `ir::Enable` node.
     fn start_enable(
         &mut self,
         _s: &mut ir::Enable,
-        data: T,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
-        Ok(Action::continue_with(data))
+    ) -> VisResult {
+        Ok(Action::Continue)
     }
 
     /// Excecuted after visiting the children of a `ir::Enable` node.
     fn finish_enable(
         &mut self,
         _s: &mut ir::Enable,
-        data: T,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
-        Ok(Action::continue_with(data))
+    ) -> VisResult {
+        Ok(Action::Continue)
     }
 
     /// Excecuted before visiting the children of a `ir::Empty` node.
     fn start_empty(
         &mut self,
         _s: &mut ir::Empty,
-        data: T,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
-        Ok(Action::continue_with(data))
+    ) -> VisResult {
+        Ok(Action::Continue)
     }
 
     /// Excecuted after visiting the children of a `ir::Empty` node.
     fn finish_empty(
         &mut self,
         _s: &mut ir::Empty,
-        data: T,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
-        Ok(Action::continue_with(data))
+    ) -> VisResult {
+        Ok(Action::Continue)
     }
 }
 
@@ -238,56 +225,54 @@ pub trait Visitable<T: Default> {
     fn visit(
         &mut self,
         visitor: &mut dyn Visitor<T>,
-        data: T,
         component: &mut Component,
         signatures: &LibrarySignatures,
-    ) -> VisResult<T>;
+    ) -> VisResult;
 }
 
 impl<T: Default> Visitable<T> for Control {
     fn visit(
         &mut self,
         visitor: &mut dyn Visitor<T>,
-        data: T,
         component: &mut Component,
         sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
+    ) -> VisResult {
         match self {
             Control::Seq(ctrl) => visitor
-                .start_seq(ctrl, data, component, sigs)?
-                .and_then(|x| ctrl.stmts.visit(visitor, x, component, sigs))?
+                .start_seq(ctrl, component, sigs)?
+                .and_then(|| ctrl.stmts.visit(visitor, component, sigs))?
                 .pop()
-                .and_then(|x| visitor.finish_seq(ctrl, x, component, sigs))?,
+                .and_then(|| visitor.finish_seq(ctrl, component, sigs))?,
             Control::Par(ctrl) => visitor
-                .start_par(ctrl, data, component, sigs)?
-                .and_then(|x| ctrl.stmts.visit(visitor, x, component, sigs))?
+                .start_par(ctrl, component, sigs)?
+                .and_then(|| ctrl.stmts.visit(visitor, component, sigs))?
                 .pop()
-                .and_then(|x| visitor.finish_par(ctrl, x, component, sigs))?,
+                .and_then(|| visitor.finish_par(ctrl, component, sigs))?,
             Control::If(ctrl) => visitor
-                .start_if(ctrl, data, component, sigs)?
-                .and_then(|x| ctrl.tbranch.visit(visitor, x, component, sigs))?
-                .and_then(|x| ctrl.fbranch.visit(visitor, x, component, sigs))?
+                .start_if(ctrl, component, sigs)?
+                .and_then(|| ctrl.tbranch.visit(visitor, component, sigs))?
+                .and_then(|| ctrl.fbranch.visit(visitor, component, sigs))?
                 .pop()
-                .and_then(|x| visitor.finish_if(ctrl, x, component, sigs))?,
+                .and_then(|| visitor.finish_if(ctrl, component, sigs))?,
             Control::While(ctrl) => visitor
-                .start_while(ctrl, data, component, sigs)?
-                .and_then(|x| {
+                .start_while(ctrl, component, sigs)?
+                .and_then(|| {
                     Control::Enable(ir::Enable::from(ctrl.cond.clone()))
-                        .visit(visitor, x, component, sigs)
+                        .visit(visitor, component, sigs)
                 })?
-                .and_then(|x| ctrl.body.visit(visitor, x, component, sigs))?
+                .and_then(|| ctrl.body.visit(visitor, component, sigs))?
                 .pop()
-                .and_then(|x| visitor.finish_while(ctrl, x, component, sigs))?,
+                .and_then(|| visitor.finish_while(ctrl, component, sigs))?,
             Control::Enable(ctrl) => visitor
-                .start_enable(ctrl, data, component, sigs)?
+                .start_enable(ctrl, component, sigs)?
                 .pop()
-                .and_then(|x| {
-                    visitor.finish_enable(ctrl, x, component, sigs)
+                .and_then(|| {
+                    visitor.finish_enable(ctrl, component, sigs)
                 })?,
             Control::Empty(ctrl) => visitor
-                .start_empty(ctrl, data, component, sigs)?
+                .start_empty(ctrl, component, sigs)?
                 .pop()
-                .and_then(|x| visitor.finish_empty(ctrl, x, component, sigs))?,
+                .and_then(|| visitor.finish_empty(ctrl, component, sigs))?,
         }
         .apply_change(self)
     }
@@ -298,20 +283,18 @@ impl<T: Default, V: Visitable<T>> Visitable<T> for Vec<V> {
     fn visit(
         &mut self,
         visitor: &mut dyn Visitor<T>,
-        mut data: T,
         component: &mut Component,
         sigs: &LibrarySignatures,
-    ) -> VisResult<T> {
+    ) -> VisResult {
         for t in self {
-            let res = t.visit(visitor, data, component, sigs)?;
-            match res.action {
+            let res = t.visit(visitor, component, sigs)?;
+            match res {
                 Action::Continue | Action::SkipChildren | Action::Change(_) => {
-                    data = res.data;
                     continue;
                 }
-                Action::Stop => return Ok(Action::stop_with(res.data)),
+                Action::Stop => return Ok(Action::Stop),
             };
         }
-        Ok(Action::continue_default())
+        Ok(Action::Continue)
     }
 }

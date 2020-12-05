@@ -37,7 +37,7 @@ impl Visitor<()> for RemoveExternalMemories<'_> {
         &mut self,
         comp: &mut ir::Component,
         _c: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         for cell_ref in &comp.cells {
             let mut cell = cell_ref.borrow_mut();
             if let ir::CellType::Primitive { name, .. } = &mut cell.prototype {
@@ -48,6 +48,6 @@ impl Visitor<()> for RemoveExternalMemories<'_> {
             }
         }
 
-        Ok(Action::stop_default())
+        Ok(Action::Stop)
     }
 }

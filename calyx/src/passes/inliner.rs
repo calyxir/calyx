@@ -108,7 +108,7 @@ impl Visitor<()> for Inliner {
         &mut self,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         // get the only group in the enable
         let top_level = match &*comp.control.borrow() {
             ir::Control::Enable(en) => Rc::clone(&en.group),
@@ -216,6 +216,6 @@ impl Visitor<()> for Inliner {
         comp.groups.clear();
 
         // remove group from control
-        Ok(Action::change_default(ir::Control::empty()))
+        Ok(Action::Change(ir::Control::empty()))
     }
 }

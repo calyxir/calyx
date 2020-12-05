@@ -58,7 +58,7 @@ impl Visitor<()> for ResourceSharing {
         &mut self,
         comp: &mut ir::Component,
         sigs: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         // Mapping from the name of the primitive to all cells that use it.
         let mut cell_map: HashMap<(ir::Id, ir::Binding), Vec<RRC<ir::Cell>>> =
             HashMap::new();
@@ -147,17 +147,16 @@ impl Visitor<()> for ResourceSharing {
             group.assignments = assigns;
         }
 
-        Ok(Action::continue_default())
+        Ok(Action::Continue)
     }
 
     // Rewrite the name of the cond port if this group was re-written.
     fn start_if(
         &mut self,
         s: &mut ir::If,
-        _data: (),
         _comp: &mut ir::Component,
         _sigs: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         let cond_port = &s.port;
         let group_name = &s.cond.borrow().name;
         // Check if the cell associated with the port was rewritten for the cond
@@ -175,17 +174,16 @@ impl Visitor<()> for ResourceSharing {
             s.port = new_port;
         }
 
-        Ok(Action::continue_default())
+        Ok(Action::Continue)
     }
 
     // Rewrite the name of the cond port if this group was re-written.
     fn start_while(
         &mut self,
         s: &mut ir::While,
-        _data: (),
         _comp: &mut ir::Component,
         _sigs: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         let cond_port = &s.port;
         let group_name = &s.cond.borrow().name;
         // Check if the cell associated with the port was rewritten for the cond
@@ -202,6 +200,6 @@ impl Visitor<()> for ResourceSharing {
             let new_port = new_cell.borrow().get(&cond_port.borrow().name);
             s.port = new_port;
         }
-        Ok(Action::continue_default())
+        Ok(Action::Continue)
     }
 }

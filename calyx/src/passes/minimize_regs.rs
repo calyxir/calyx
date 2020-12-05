@@ -54,19 +54,18 @@ impl Visitor<()> for MinimizeRegs {
         &mut self,
         comp: &mut ir::Component,
         _s: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         self.live = LiveRangeAnalysis::from(&*comp.control.borrow());
 
-        Ok(Action::continue_default())
+        Ok(Action::Continue)
     }
 
     fn start_enable(
         &mut self,
         enable: &mut ir::Enable,
-        _data: (),
         _comp: &mut Component,
         _sigs: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         // XXX(sam) can move this to work on definitions rather than enables
 
         // add constraints between things that are alive at the same time
@@ -74,15 +73,14 @@ impl Visitor<()> for MinimizeRegs {
         self.graph
             .insert_conflicts(&conflicts.iter().cloned().collect::<Vec<_>>());
 
-        Ok(Action::continue_default())
+        Ok(Action::Continue)
     }
 
     fn finish(
         &mut self,
-        _data: (),
         comp: &mut Component,
         sigs: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         // add constraints so that registers of different sizes can't be shared
         for a_ref in &comp.cells {
             for b_ref in &comp.cells {
@@ -129,6 +127,6 @@ impl Visitor<()> for MinimizeRegs {
         builder.rename_port_uses(&coloring, &mut assigns);
         builder.component.continuous_assignments = assigns;
 
-        Ok(Action::continue_default())
+        Ok(Action::Continue)
     }
 }
