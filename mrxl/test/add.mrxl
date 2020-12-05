@@ -1,3 +1,0 @@
-input foo: int[4]
-output baz: int[4]
-baz := map 5 (a <- foo) { a + 5 }

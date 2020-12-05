@@ -1,0 +1,106 @@
+import "primitives/std.lib";
+
+component multiply(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, b0_read_data: 32, b0_done: 1, z0_read_data: 32, z0_done: 1) -> (done: 1, a0_addr0: 1, a0_write_data: 32, a0_write_en: 1, a0_clk: 1, b0_addr0: 1, b0_write_data: 32, b0_write_en: 1, b0_clk: 1, z0_addr0: 1, z0_write_data: 32, z0_write_en: 1, z0_clk: 1) {
+  cells {
+    a_read0_0 = prim std_reg(32);
+    add0 = prim std_add(1);
+    b_read0_0 = prim std_reg(32);
+    bin_read0_0 = prim std_reg(32);
+    const0 = prim std_const(1, 0);
+    const1 = prim std_const(1, 0);
+    const2 = prim std_const(1, 1);
+    i0 = prim std_reg(1);
+    le0 = prim std_le(1);
+    mult_pipe0 = prim std_mult_pipe(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1<"static"=4> {
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      let1[done] = bin_read0_0.done;
+      mult_pipe0.left = a_read0_0.out;
+      mult_pipe0.right = b_read0_0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group upd0<"static"=1> {
+      a_read0_0.write_en = 1'd1;
+      a0_addr0 = i0.out;
+      a_read0_0.in = 1'd1 ? a0_read_data;
+      upd0[done] = a_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      b_read0_0.write_en = 1'd1;
+      b0_addr0 = i0.out;
+      b_read0_0.in = 1'd1 ? b0_read_data;
+      upd1[done] = b_read0_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      z0_addr0 = i0.out;
+      z0_write_en = 1'd1;
+      z0_write_data = 1'd1 ? bin_read0_0.out;
+      upd2[done] = z0_done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      i0.write_en = 1'd1;
+      add0.left = i0.out;
+      add0.right = const2.out;
+      i0.in = 1'd1 ? add0.out;
+      upd3[done] = i0.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          par {
+            upd0;
+            upd1;
+          }
+          let1;
+          upd2;
+          upd3;
+        }
+      }
+    }
+  }
+}
+
+component main () -> () {
+  cells {
+    z = prim std_mem_d1(32, 1, 1);
+    a = prim std_mem_d1(32, 1, 1);
+    b = prim std_mem_d1(32, 1, 1);
+    multiply0 = multiply;
+  }
+  wires {
+    group run_multiply {
+      a.addr0 = multiply0.a0_addr0;
+      multiply0.a0_read_data = a.read_data;
+      b.addr0 = multiply0.b0_addr0;
+      multiply0.b0_read_data = b.read_data;
+      z.addr0 = multiply0.z0_addr0;
+      z.write_data = multiply0.z0_write_data;
+      z.write_en = multiply0.z0_write_en;
+      multiply0.z0_done = z.done;
+      multiply0.go = 1'd1;
+      run_multiply[done] = multiply0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      run_multiply;
+    }
+  }
+}

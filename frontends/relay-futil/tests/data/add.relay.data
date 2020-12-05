@@ -1,0 +1,14 @@
+{
+  "x": {
+    "data": [42],
+    "bitwidth": 32
+  },
+  "y": {
+      "data": [7],
+      "bitwidth": 32
+    },
+  "z": {
+    "data": [0],
+    "bitwidth": 32
+  }
+}

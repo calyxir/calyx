@@ -7,6 +7,9 @@ from pprint import PrettyPrinter
 from .utils import eprint
 from . import errors
 
+# Global registry. Initialized by main.py.
+REGISTRY = None
+
 wizard_data = {
     'global': {
         'futil_directory': 'Root Directory of FuTIL repository',
@@ -23,12 +26,18 @@ DEFAULT_CONFIGURATION = {
         },
         'dahlia': {
             'exec': 'dahlia',
-            'file_extensions': ['.fuse', '.dahlia']
+            'file_extensions': ['.fuse', '.dahlia'],
+            'flags': None
+        },
+        'mrxl': {
+            'exec': 'mrxl',
+            'file_extensions': ['.mrxl']
         },
         'verilog': {
             'exec': 'verilator',
             'file_extensions': ['.v', '.sv'],
             'cycle_limit': int(5e8),
+            'top_module': "main",
             'data': None
         },
         'vcd': {

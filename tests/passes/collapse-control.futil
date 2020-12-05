@@ -2,19 +2,25 @@
 
 component main() -> () {
   cells {}
-  wires {}
+  wires {
+    group A {}
+    group B {}
+    group C {}
+    group D {}
+    group A___ {}
+  }
   control {
     seq {
       seq { A; B; seq { C; D; }}
-      A-------;
+      A___;
       par { A; par { B; C; }; D; }
-      A-------;
+      A___;
       seq { A; seq { B; } C; }
-      A--------;
+      A___;
       par { A; par { B; } C; }
-      A--------;
+      A___;
       par { A; seq { B; C; }; D; }
-      A--------;
+      A___;
       seq { A; par { B; C; }; D; }
     }
   }

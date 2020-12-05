@@ -1,6 +1,15 @@
 ver = "0.2.7"
 
 [[tests]]
-name = "Relay to Futil"
-paths = [ "tests/*.relay" ]
-cmd = "python3 relay2futil.py < {}"
+name = "Relay to FuTIL"
+paths = ["tests/*.relay"]
+cmd = "python3 compiler.py < {}"
+
+[[tests]]
+name = "Relay to FuTIL to dat"
+paths = ["tests/data/*.relay"]
+cmd = """
+      python3 compiler.py < {} > {}.expect && \
+      fud exec --from futil {}.expect --to dat -s verilog.data {}.data -q ; \
+      rm {}.expect
+      """

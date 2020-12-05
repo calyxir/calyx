@@ -4,53 +4,52 @@ component main(go: 1, clk: 1) -> (done: 1) {
     a = prim std_reg(2);
     b = prim std_reg(2);
     c = prim std_reg(2);
+    par_reset = prim std_reg(1);
+    par_done_reg = prim std_reg(1);
     par_done_reg0 = prim std_reg(1);
     par_done_reg1 = prim std_reg(1);
-    par_done_reg2 = prim std_reg(1);
-    par_reset0 = prim std_reg(1);
   }
-  
   wires {
-    group A<> {
+    group A {
       a.in = 2'd0;
       a.write_en = 1'd1;
       A[done] = a.done;
     }
-    group B<> {
+    group B {
       b.in = 2'd1;
       b.write_en = 1'd1;
       B[done] = b.done;
     }
-    group C<> {
+    group C {
       c.in = 2'd2;
       c.write_en = 1'd1;
       C[done] = c.done;
     }
-    group par0<> {
-      A[go] = !((par_done_reg0.out | A[done])) ? 1'd1;
-      par_done_reg0.in = A[done] ? 1'd1;
-      par_done_reg0.write_en = A[done] ? 1'd1;
-      B[go] = !((par_done_reg1.out | B[done])) ? 1'd1;
-      par_done_reg1.in = B[done] ? 1'd1;
-      par_done_reg1.write_en = B[done] ? 1'd1;
-      C[go] = !((par_done_reg2.out | C[done])) ? 1'd1;
-      par_done_reg2.in = C[done] ? 1'd1;
-      par_done_reg2.write_en = C[done] ? 1'd1;
-      par_reset0.in = (par_done_reg0.out & par_done_reg1.out & par_done_reg2.out) ? 1'd1;
-      par_reset0.write_en = (par_done_reg0.out & par_done_reg1.out & par_done_reg2.out) ? 1'd1;
-      par0[done] = par_reset0.out ? 1'd1;
+    group par {
+      A[go] = !(par_done_reg.out | A[done]) ? 1'd1;
+      par_done_reg.in = A[done] ? 1'd1;
+      par_done_reg.write_en = A[done] ? 1'd1;
+      B[go] = !(par_done_reg0.out | B[done]) ? 1'd1;
+      par_done_reg0.in = B[done] ? 1'd1;
+      par_done_reg0.write_en = B[done] ? 1'd1;
+      C[go] = !(par_done_reg1.out | C[done]) ? 1'd1;
+      par_done_reg1.in = C[done] ? 1'd1;
+      par_done_reg1.write_en = C[done] ? 1'd1;
+      par_reset.in = par_done_reg.out & par_done_reg0.out & par_done_reg1.out ? 1'd1;
+      par_reset.write_en = par_done_reg.out & par_done_reg0.out & par_done_reg1.out ? 1'd1;
+      par[done] = par_reset.out ? 1'd1;
     }
-    par_done_reg0.in = par_reset0.out ? 1'd0;
-    par_done_reg1.in = par_reset0.out ? 1'd0;
-    par_done_reg2.in = par_reset0.out ? 1'd0;
-    par_reset0.in = par_reset0.out ? 1'd0;
-    par_done_reg0.write_en = par_reset0.out ? 1'd1;
-    par_done_reg1.write_en = par_reset0.out ? 1'd1;
-    par_done_reg2.write_en = par_reset0.out ? 1'd1;
-    par_reset0.write_en = par_reset0.out ? 1'd1;
+    par_reset.in = par_reset.out ? 1'd0;
+    par_reset.write_en = par_reset.out ? 1'd1;
+    par_done_reg.in = par_reset.out ? 1'd0;
+    par_done_reg.write_en = par_reset.out ? 1'd1;
+    par_done_reg0.in = par_reset.out ? 1'd0;
+    par_done_reg0.write_en = par_reset.out ? 1'd1;
+    par_done_reg1.in = par_reset.out ? 1'd0;
+    par_done_reg1.write_en = par_reset.out ? 1'd1;
   }
-  
+
   control {
-    par0;
+    par;
   }
 }

@@ -14,7 +14,6 @@ class VerilatorStage(Stage):
         if mem not in ['vcd', 'dat']:
             raise Exception("mem has to be 'vcd' or 'dat'")
         self.vcd = mem == 'vcd'
-        self.cycle_limit = self.config['stages', self.name, 'cycle_limit']
 
     def _define(self):
         mktmp = Step(SourceType.Nothing)
@@ -55,7 +54,7 @@ class VerilatorStage(Stage):
             '--trace',
             '{ctx[input_path]}',
             "--exe " + " --exe ".join(testbench_files),
-            '--top-module main',  # TODO: make this use dynamic config
+            '--top-module', self.config['stages', self.name, 'top_module'],
             '--Mdir',
             '{ctx[tmpdir]}',
             '1>&2'
@@ -69,7 +68,7 @@ class VerilatorStage(Stage):
             '{ctx[data_prefix]}',
             '{ctx[tmpdir]}/Vmain',
             '{ctx[tmpdir]}/output.vcd',
-            str(self.cycle_limit),
+            str(self.config['stages', self.name, 'cycle_limit']),
             '--trace' if self.vcd else '',
             '1>&2'
         ]))

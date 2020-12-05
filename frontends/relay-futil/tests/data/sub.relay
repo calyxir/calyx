@@ -1,0 +1,6 @@
+v0.0.4
+fn (%x: Tensor[(4), int32]) {
+  let %y = 8;
+  let %x1 = subtract(%x, %y);
+  %x1
+}

@@ -1,0 +1,58 @@
+import "primitives/std.lib";
+
+//// ANCHOR: component
+component times_10_and_add_1(
+  reg_done: 1,
+  reg_out: 32
+) -> (reg_in: 32, reg_write_en: 1) {
+  cells {
+    add = prim std_add(32);
+    mult = prim std_mult(32);
+  }
+  wires {
+    group do_add_and_mul {
+      mult.right = reg_out;
+      mult.left = 32'd10;
+
+      add.left = 32'd1;
+      add.right = mult.out;
+
+      reg_in = add.out;
+      reg_write_en = 1'd1;
+      do_add_and_mul[done] = reg_done;
+    }
+  }
+  control {
+    seq { do_add_and_mul; }
+  }
+}
+//// ANCHOR_END: component
+
+//// ANCHOR: main
+component main() -> () {
+  cells {
+    op = times_10_and_add_1;
+    r = prim std_reg(32);
+  }
+  wires {
+    // Initialize value in r
+    group init_r {
+      r.in = 32'd15;
+      r.write_en = 1'd1;
+      init_r[done] = r.done;
+    }
+    group apply_op {
+      op.reg_done = r.done;
+      op.reg_out = r.out;
+      r.in = op.reg_in;
+      r.write_en = op.reg_write_en;
+
+      op.go = 1'd1;
+      apply_op[done] = op.done;
+    }
+  }
+  control {
+    seq { init_r; apply_op; }
+  }
+}
+//// ANCHOR_END: main

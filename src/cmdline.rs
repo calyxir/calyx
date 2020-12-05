@@ -1,13 +1,7 @@
 use calyx::backend::traits::Backend;
-use calyx::backend::verilog::gen::VerilogBackend;
-use calyx::{
-    errors::{Error, Result},
-    frontend::pretty_print::PrettyPrint,
-    lang::context,
-    utils::OutputFile,
-};
+use calyx::backend::verilog::VerilogBackend;
+use calyx::{errors::FutilResult, ir, utils::OutputFile};
 use itertools::Itertools;
-use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 pub use structopt::StructOpt;
@@ -40,9 +34,9 @@ pub struct Opts {
     #[structopt(long = "debug")]
     pub enable_debug: bool,
 
-    /// Enable Verilator mode.
-    #[structopt(long = "verilator")]
-    pub enable_verilator: bool,
+    /// Enable synthesis mode.
+    #[structopt(long = "synthesis")]
+    pub enable_synthesis: bool,
 
     /// Select a backend.
     #[structopt(short = "b", long = "backend", default_value)]
@@ -72,15 +66,14 @@ pub struct Opts {
 pub enum BackendOpt {
     Verilog,
     Futil,
-    Dot,
+    // Dot,
     None,
 }
 
 fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
-        (VerilogBackend::name(), BackendOpt::Verilog),
+        ("verilog", BackendOpt::Verilog),
         ("futil", BackendOpt::Futil),
-        ("dot", BackendOpt::Dot),
         ("none", BackendOpt::None),
     ]
 }
@@ -94,7 +87,7 @@ impl Default for BackendOpt {
 /// Command line parsing for the Backend enum
 impl FromStr for BackendOpt {
     type Err = String;
-    fn from_str(input: &str) -> std::result::Result<Self, Self::Err> {
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         // allocate a vector for the list of backends
         let backends = backends();
         // see if there is a backend for the string that we receive
@@ -124,7 +117,7 @@ impl ToString for BackendOpt {
         match self {
             Self::Verilog => "verilog",
             Self::Futil => "futil",
-            Self::Dot => "dot",
+            // Self::Dot => "dot",
             Self::None => "none",
         }
         .to_string()
@@ -133,38 +126,45 @@ impl ToString for BackendOpt {
 
 impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
-    pub fn run_backend(self, context: &context::Context) -> Result<()> {
+    pub fn run_backend(self, context: &ir::Context) -> FutilResult<()> {
         match self.backend {
-            BackendOpt::Verilog => VerilogBackend::run(&context, self.output),
+            BackendOpt::Verilog => {
+                let backend = VerilogBackend::default();
+                backend.run(&context, self.output)
+            }
             BackendOpt::Futil => {
-                if self.color || self.output.isatty() {
-                    context.pretty_print_color();
-                } else {
-                    write!(
-                        self.output.get_write(),
-                        "{}",
-                        context.pretty_string()
+                for import_path in &context.import_statements {
+                    writeln!(
+                        &mut self.output.get_write(),
+                        "import \"{}\";",
+                        import_path
+                    )?
+                }
+                for comp in &context.components {
+                    ir::IRPrinter::write_component(
+                        comp,
+                        &mut self.output.get_write(),
                     )?;
                 }
                 Ok(())
             }
-            BackendOpt::Dot => {
-                let write_result = write!(
-                    self.output.get_write(),
-                    "{}",
-                    context
-                        .get_component(&self.toplevel.into())?
-                        .structure
-                        .visualize()
-                );
-                write_result.map_err(|err| {
-                    Error::InvalidFile(format!(
-                        "Failed to write: {}",
-                        err.to_string()
-                    ))
-                })?;
-                Ok(())
-            }
+            // BackendOpt::Dot => {
+            //     let write_result = write!(
+            //         self.output.get_write(),
+            //         "{}",
+            //         context
+            //             .get_component(&self.toplevel.into())?
+            //             .structure
+            //             .visualize()
+            //     );
+            //     write_result.map_err(|err| {
+            //         Error::InvalidFile(format!(
+            //             "Failed to write: {}",
+            //             err.to_string()
+            //         ))
+            //     })?;
+            //     Ok(())
+            // }
             BackendOpt::None => Ok(()),
         }
     }
