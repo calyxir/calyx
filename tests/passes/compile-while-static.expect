@@ -24,7 +24,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
       lt_r.write_en = 1'd1;
       cond[done] = lt_r.out;
     }
-    group static_while<> {
+    group static_while {
       incr.left = fsm.out;
       incr.right = 32'd1;
       fsm.in = fsm.out != 32'd2 ? incr.out;

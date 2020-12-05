@@ -8,17 +8,17 @@ component main(go: 1, clk: 1) -> (done: 1) {
     done_reg = prim std_reg(1);
   }
   wires {
-    group do_add<> {
+    group do_add {
       add.right = 32'd4;
       add.left = 32'd4;
       do_add[done] = 1'd1;
     }
-    group cond<> {
+    group cond {
       lt.right = 32'd5;
       lt.left = 32'd1;
       cond[done] = 1'd1;
     }
-    group while<> {
+    group while {
       cond_stored.in = cond[go] & cond[done] ? lt.out;
       cond[go] = !cond_computed.out ? 1'd1;
       cond_computed.in = cond[go] & cond[done] ? 1'd1;

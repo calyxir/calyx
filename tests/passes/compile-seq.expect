@@ -7,22 +7,22 @@ component main(go: 1, clk: 1) -> (done: 1) {
     fsm = prim std_reg(32);
   }
   wires {
-    group A<> {
+    group A {
       a.in = 2'd0;
       a.write_en = 1'd1;
       A[done] = a.done;
     }
-    group B<> {
+    group B {
       b.in = 2'd1;
       b.write_en = 1'd1;
       B[done] = b.done;
     }
-    group C<> {
+    group C {
       c.in = 2'd2;
       c.write_en = 1'd1;
       C[done] = c.done;
     }
-    group seq<> {
+    group seq {
       A[go] = fsm.out == 32'd0 & !A[done] ? 1'd1;
       fsm.in = fsm.out == 32'd0 & A[done] ? 32'd1;
       fsm.write_en = fsm.out == 32'd0 & A[done] ? 1'd1;
