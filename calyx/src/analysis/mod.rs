@@ -7,7 +7,9 @@ mod graph_coloring;
 mod read_write_set;
 mod schedule_conflicts;
 mod variable_detection;
+mod live_range_analysis;
 
+pub use live_range_analysis::LiveRangeAnalysis;
 pub use graph::GraphAnalysis;
 pub use graph_coloring::GraphColoring;
 pub use read_write_set::ReadWriteSet;
