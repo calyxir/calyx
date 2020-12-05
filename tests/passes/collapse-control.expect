@@ -2,15 +2,15 @@ component main(go: 1, clk: 1) -> (done: 1) {
   cells {
   }
   wires {
-    group A<> {
+    group A {
     }
-    group B<> {
+    group B {
     }
-    group C<> {
+    group C {
     }
-    group D<> {
+    group D {
     }
-    group A___<> {
+    group A___ {
     }
   }
 
