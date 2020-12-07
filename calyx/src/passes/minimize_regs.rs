@@ -60,7 +60,7 @@ impl Visitor<()> for MinimizeRegs {
         Ok(Action::Continue)
     }
 
-    fn start_enable(
+    fn enable(
         &mut self,
         enable: &mut ir::Enable,
         _comp: &mut Component,

@@ -73,7 +73,7 @@ impl Visitor<()> for WellFormed {
         Ok(Action::Continue)
     }
 
-    fn start_enable(
+    fn enable(
         &mut self,
         s: &mut ir::Enable,
         _comp: &mut Component,
