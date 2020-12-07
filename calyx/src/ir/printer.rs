@@ -169,6 +169,9 @@ impl IRPrinter {
             ir::Control::Enable(ir::Enable { group }) => {
                 writeln!(f, "{};", group.borrow().name.id)
             }
+            ir::Control::Invoke(ir::Invoke { .. }) => {
+                unimplemented!()
+            }
             ir::Control::Seq(ir::Seq { stmts }) => {
                 writeln!(f, "seq {{")?;
                 for stmt in stmts {

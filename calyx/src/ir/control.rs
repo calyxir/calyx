@@ -1,7 +1,6 @@
-use super::{Group, Port, RRC};
+use super::{Group, Port, RRC, Id, Cell};
 
 /// Data for the `seq` control statement.
-//#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 #[derive(Debug)]
 pub struct Seq {
     /// List of `Control` statements to run in sequence.
@@ -9,7 +8,6 @@ pub struct Seq {
 }
 
 /// Data for the `par` control statement.
-//#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 #[derive(Debug)]
 pub struct Par {
     /// List of `Control` statements to run in parallel.
@@ -17,7 +15,6 @@ pub struct Par {
 }
 
 /// Data for the `if` control statement.
-//#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 #[derive(Debug)]
 pub struct If {
     /// Port that connects the conditional check.
@@ -34,7 +31,6 @@ pub struct If {
 }
 
 /// Data for the `if` control statement.
-//#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 #[derive(Debug)]
 pub struct While {
     /// Port that connects the conditional check.
@@ -48,11 +44,22 @@ pub struct While {
 }
 
 /// Data for the `enable` control statement.
-//#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 #[derive(Debug)]
 pub struct Enable {
     /// List of components to run.
     pub group: RRC<Group>,
+}
+
+type PortMap = Vec<(Id, RRC<Port>)>;
+
+#[derive(Debug)]
+pub struct Invoke {
+    /// Cell that is being invoked.
+    pub comp: RRC<Cell>,
+    /// Mapping from name of input ports in `comp` to the port connected to it.
+    pub inputs: PortMap,
+    /// Mapping from name of output ports in `comp` to the port connected to it.
+    pub outputs: PortMap,
 }
 
 impl From<RRC<Group>> for Enable {
@@ -62,12 +69,10 @@ impl From<RRC<Group>> for Enable {
 }
 
 /// Data for the `empty` control statement.
-//#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 #[derive(Debug)]
 pub struct Empty {}
 
 /// Control AST nodes.
-//#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 #[derive(Debug)]
 pub enum Control {
     /// Represents sequential composition of control statements.
@@ -78,6 +83,8 @@ pub enum Control {
     If(If),
     /// Standard imperative while statement
     While(While),
+    /// Invoke a sub-component with the given port assignments
+    Invoke(Invoke),
     /// Runs the control for a list of subcomponents.
     Enable(Enable),
     /// Control statement that does nothing.
@@ -100,9 +107,14 @@ impl Control {
         Control::Par(Par { stmts })
     }
 
-    /// Convience constructor for par.
+    /// Convience constructor for enable.
     pub fn enable(group: RRC<Group>) -> Self {
         Control::Enable(Enable { group })
+    }
+
+    /// Convience constructor for invoke.
+    pub fn invoke(comp: RRC<Cell>, inputs: PortMap, outputs: PortMap) -> Self {
+        Control::Invoke(Invoke { comp, inputs, outputs })
     }
 
     /// Convience constructor for if

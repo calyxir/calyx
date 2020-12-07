@@ -145,8 +145,10 @@ fn build_component(
     ir_component.continuous_assignments = continuous_assignments;
 
     // Build the Control ast using ast::Control.
-    let control =
-        Rc::new(RefCell::new(build_control(comp.control, &ir_component)?));
+    let control = Rc::new(RefCell::new(build_control(
+        comp.control,
+        &ir_component,
+    )?));
     ir_component.control = control;
 
     Ok(ir_component)
@@ -341,6 +343,25 @@ fn build_control(
                 .find_group(&component)
                 .ok_or_else(|| Error::UndefinedGroup(component.clone()))?,
         )),
+        ast::Control::Invoke {
+            comp: component,
+            inputs,
+            outputs,
+        } => {
+            let cell =
+                Rc::clone(&comp.find_cell(&component).ok_or_else(|| {
+                    Error::UndefinedComponent(component.clone())
+                })?);
+            let inps = inputs
+                .into_iter()
+                .map(|(id, port)| get_port_ref(port, comp).map(|p| (id, p)))
+                .collect::<Result<_, _>>()?;
+            let outs = outputs
+                .into_iter()
+                .map(|(id, port)| get_port_ref(port, comp).map(|p| (id, p)))
+                .collect::<Result<_, _>>()?;
+            Control::invoke(cell, inps, outs)
+        }
         ast::Control::Seq { stmts } => Control::seq(
             stmts
                 .into_iter()

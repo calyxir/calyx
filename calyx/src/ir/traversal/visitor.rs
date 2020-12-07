@@ -185,6 +185,16 @@ pub trait Visitor<T: Default> {
         Ok(Action::Continue)
     }
 
+    /// Excecuted at an `ir::Invoke` node. This is leaf node with no children.
+    fn invoke(
+        &mut self,
+        _s: &mut ir::Invoke,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
     /// Excecuted at an `ir::Empty` node. This is leaf node with no children.
     fn empty(
         &mut self,
@@ -243,10 +253,9 @@ impl<T: Default> Visitable<T> for Control {
                 .and_then(|| ctrl.body.visit(visitor, component, sigs))?
                 .pop()
                 .and_then(|| visitor.finish_while(ctrl, component, sigs))?,
-            Control::Enable(ctrl) => visitor
-                .enable(ctrl, component, sigs)?,
-            Control::Empty(ctrl) => visitor
-                .empty(ctrl, component, sigs)?
+            Control::Enable(ctrl) => visitor.enable(ctrl, component, sigs)?,
+            Control::Empty(ctrl) => visitor.empty(ctrl, component, sigs)?,
+            Control::Invoke(data) => visitor.invoke(data, component, sigs)?,
         }
         .apply_change(self)
     }

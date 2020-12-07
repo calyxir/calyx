@@ -148,6 +148,10 @@ connections = {
 
 enable = { identifier ~ ";" }
 
+invoke_arg = { identifier ~ "=" ~ port }
+invoke_args = { invoke_arg ~ ("," ~ invoke_arg)* }
+invoke = { "invoke" ~ identifier ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" }
+
 seq = {
       "seq" ~ "{"
       ~ stmt*
