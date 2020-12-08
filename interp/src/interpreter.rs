@@ -1,5 +1,5 @@
-use crate::errors::FutilResult;
-use crate::ir;
+use calyx::errors::FutilResult;
+use calyx::ir;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -182,7 +182,7 @@ fn eval_assigns(
                     }
 
 
-                    
+
                     match update_cell_state(
                         &dst_cell,
                         &inputs[..],
