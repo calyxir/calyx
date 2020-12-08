@@ -7,11 +7,11 @@ from pretty_print import *
 
 IMPORT_STATEMENT = """import "primitives/std.lib";\n"""
 NO_ERR = "2>/dev/null"
-CHARACTER_I = chr(ord('i'))
 NEWL = '\n'
+CHARACTER_I = chr(ord('i'))  # Starting index variable name for Dahlia array iteration.
 
 
-def lower_dahlia_program(prog, component_name):
+def LowerDahliaProgramToFuTIL(program, component_name):
     """
     Takes in a string representation of a Dahlia program, lowers it to FuTIL with the given `component_name`,
     and applies the `externalize` pass. This pass exposes the inputs and outputs of primitive types that are
@@ -35,7 +35,7 @@ def lower_dahlia_program(prog, component_name):
            ...
         }
     """
-    program_string = '\n'.join(prog.splitlines())
+    program_string = '\n'.join(program.splitlines())
     with NamedTemporaryFile() as tf0, NamedTemporaryFile() as tf1, NamedTemporaryFile() as tf2:
         tf0.write(bytes(program_string, 'UTF-8'))
         tf0.seek(0), tf1.seek(0), tf2.seek(0)
@@ -47,6 +47,10 @@ def lower_dahlia_program(prog, component_name):
         component = tf2.read().decode()[len(IMPORT_STATEMENT):]  # Skip over importing the primitives library.
         return component
 
+
+####################################################################################################
+################################ Dahlia Implementations ############################################
+####################################################################################################
 
 def broadcast(declaration):
     """
@@ -110,7 +114,7 @@ def broadcast(declaration):
     program_body = pp_dahlia_loop(res, loop_body)
     declarations = pp_dahlia_memory_declarations([res, op1, op2])
     program = f"""{declarations}{NEWL}{program_body}"""
-    return lower_dahlia_program(program, declaration.component_name)
+    return LowerDahliaProgramToFuTIL(program, declaration.component_name)
 
 
 def batch_flatten(declaration):
@@ -134,7 +138,7 @@ def batch_flatten(declaration):
     body = f"{res.name}{res_indices} := {data.name}{data_indices}; {variable_name} := {variable_name} + 1;"
     program_body = pp_dahlia_loop(data, body)
     program = f"""{declarations}{NEWL}{let_flattened}{NEWL}{program_body}"""
-    return lower_dahlia_program(program, declaration.component_name)
+    return LowerDahliaProgramToFuTIL(program, declaration.component_name)
 
 
 def bias_add(declaration):
@@ -158,7 +162,7 @@ def bias_add(declaration):
     declarations = pp_dahlia_memory_declarations([data, bias, res])
     body = (f"{res.name}{data_indices} := {data.name}{data_indices} + {bias.name}{bias_index};")
     program_body = pp_dahlia_loop(data, body)
-    return lower_dahlia_program(f"""{declarations}{NEWL}{program_body}""", declaration.component_name)
+    return LowerDahliaProgramToFuTIL(f"""{declarations}{NEWL}{program_body}""", declaration.component_name)
 
 
 # TODO(cgyurgyik):
@@ -184,7 +188,8 @@ def relu(declaration):
     body = f"""if ({data.name}{indices} > zero) {{ {res.name}{indices} := {data.name}{indices}; }} 
         else {{ {res.name}{indices} := zero; }}"""
     program_body = pp_dahlia_loop(data, body)
-    return lower_dahlia_program(f"""{declarations}{NEWL}{let_zero}{NEWL}{program_body}""", declaration.component_name)
+    return LowerDahliaProgramToFuTIL(f"""{declarations}{NEWL}{let_zero}{NEWL}{program_body}""",
+                                     declaration.component_name)
 
 
 # TODO(cgyurgyik): Similar to ReLU, this requires signed operands.
@@ -203,12 +208,11 @@ def negative(declaration):
     declarations = pp_dahlia_memory_declarations([op, res])
     zero = '0.0' if data_type == 'ufix' or data_type == 'fix' else '0'
     program_body = pp_dahlia_loop(op, f"""{res.name}{indices} := {zero} - {op.name}{indices};""")
-    return lower_dahlia_program(f"""{declarations}{NEWL}{program_body}""", declaration.component_name)
+    return LowerDahliaProgramToFuTIL(f"""{declarations}{NEWL}{program_body}""", declaration.component_name)
 
 
-# TODO(cgyurgyik): Similar to ReLU, this requires signed operands.
 def sqrt(declaration):
-    """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.negative"""
+    """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.sqrt"""
     op, res = declaration.inputs[0].primitive, declaration.output.primitive
     bitwidth, num_dimensions, data_type = op.data[0], op.type, op.data_type
     include_sqrt = f"""import "fxp_sqrt.h" {{ def sqrt(value: {data_type}<{bitwidth}>): {data_type}<{bitwidth}>; }}"""
@@ -222,8 +226,8 @@ def sqrt(declaration):
 
     declarations = pp_dahlia_memory_declarations([op, res])
     program_body = pp_dahlia_loop(op, f"""{res.name}{indices} := sqrt({op.name}{indices});""")
-    return lower_dahlia_program(f"""{include_sqrt}{NEWL}{declarations}{NEWL}{program_body}""",
-                                declaration.component_name)
+    return LowerDahliaProgramToFuTIL(f"""{include_sqrt}{NEWL}{declarations}{NEWL}{program_body}""",
+                                     declaration.component_name)
 
 
 def expand_dims(declaration):
@@ -246,8 +250,7 @@ def expand_dims(declaration):
         variable_name = next_character(variable_name)
 
     program_body = pp_dahlia_loop(data, f'{res.name}{res_indices} := {data.name}{data_indices}')
-    program = f"""{declarations}{NEWL}{program_body}"""
-    return lower_dahlia_program(program, declaration.component_name)
+    return LowerDahliaProgramToFuTIL(f"""{declarations}{NEWL}{program_body}""", declaration.component_name)
 
 
 def batch_matmul(declaration):
@@ -294,7 +297,7 @@ def batch_matmul(declaration):
       }}
     }} 
     """
-    return lower_dahlia_program(program, declaration.component_name)
+    return LowerDahliaProgramToFuTIL(program, declaration.component_name)
 
 
 # TODO(cgyurgyik): Similar to batch_matmul, this requires a temporary memory to store the output
@@ -331,7 +334,7 @@ def dense(declaration):
       }}
     }}
     """
-    return lower_dahlia_program(program, declaration.component_name)
+    return LowerDahliaProgramToFuTIL(program, declaration.component_name)
 
 
 # TODO(cgyurgyik): Currently, only supports a small subset (namely those used in our VGG net and MLP net examples).
@@ -362,7 +365,8 @@ def softmax(declaration):
     }}
     """
     program = f"""{import_exp}{NEWL}{declarations}{body}"""
-    return lower_dahlia_program(program, declaration.component_name)
+
+    return LowerDahliaProgramToFuTIL(program, declaration.component_name)
 
 
 def max_pool2d(declaration):
@@ -403,7 +407,7 @@ def max_pool2d(declaration):
     }} 
     """
     program = f"""{declarations}{NEWL}{program_body}"""
-    return lower_dahlia_program(program, declaration.component_name)
+    return LowerDahliaProgramToFuTIL(program, declaration.component_name)
 
 
 # Only supports a small subset of the `conv2d` function. For example,
@@ -443,4 +447,31 @@ def conv2d(declaration):
     }} 
     """
     program = f"""{declarations}{NEWL}{program_body}"""
-    return lower_dahlia_program(program, declaration.component_name)
+    return LowerDahliaProgramToFuTIL(program, declaration.component_name)
+
+
+# Mapping from Relay function names to their respective Dahlia lowering.
+RelayFunctionCalls = {'nn.dense': dense, 'nn.batch_flatten': batch_flatten, 'nn.batch_matmul': batch_matmul,
+                      'nn.bias_add': bias_add, 'nn.relu': relu, 'nn.softmax': softmax, 'nn.max_pool2d': max_pool2d,
+                      'nn.conv2d': conv2d, 'negative': negative, 'expand_dims': expand_dims, 'sqrt': sqrt}
+
+# Mapping from Relay binary calls to the respective Dahlia operator.
+BuiltInBinaryOps = {'add': '+', 'divide': '/', 'multiply': '*', 'subtract': '-'}
+
+
+def GetRelayFunctionCall(function_name) -> RelayFunctionCall:
+    """
+    Returns the corresponding name, function, and op (if it is a binary op, otherwise None).
+    If the function isn't supported, fails with an assertion.
+    """
+    function = name = op = None
+    assert function_name in BuiltInBinaryOps or function_name in RelayFunctionCalls, \
+        f'{function_name} is not supported for lowering from Relay IR to FuTIL.'
+    if function_name in BuiltInBinaryOps:
+        op = BuiltInBinaryOps[function_name]
+        function = broadcast
+        name = function_name
+    else:
+        function = RelayFunctionCalls[function_name]
+        name = function.__name__
+    return function, name, op

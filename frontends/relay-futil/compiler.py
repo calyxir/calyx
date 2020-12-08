@@ -9,19 +9,6 @@ from utilities import *
 from futil_ast import *
 from dahlia_functions import *
 
-# Mapping from Relay binary calls to the respective Dahlia operator.
-BuiltInBinaryOps = {'add': '+', 'divide': '/', 'multiply': '*', 'subtract': '-'}
-
-# Mapping from Relay function names to their respective Dahlia lowering.
-RelayFunctionCalls = {'nn.dense': dense, 'nn.batch_flatten': batch_flatten, 'nn.batch_matmul': batch_matmul,
-                      'nn.bias_add': bias_add, 'nn.relu': relu, 'nn.softmax': softmax, 'nn.max_pool2d': max_pool2d,
-                      'nn.conv2d': conv2d, 'negative': negative, 'expand_dims': expand_dims, 'sqrt': sqrt}
-
-# Mapping between primitive type and associated Dahlia name extension.
-# E.g. A 2D memory primitive named `A` will be lowered to `A0_0`.
-DahliaNameExtension = {PrimitiveType.Memory1D: '0', PrimitiveType.Memory2D: '0_0',
-                       PrimitiveType.Memory3D: '0_0_0', PrimitiveType.Memory4D: '0_0_0_0'}
-
 
 class Relay2Futil(ExprFunctor):
     """The main compilation visitor."""
@@ -30,17 +17,16 @@ class Relay2Futil(ExprFunctor):
         super(Relay2Futil, self).__init__()
         self.id_dictionary = defaultdict(int)
         self.relay_id_dictionary = defaultdict(int)
-        self.dahlia_components = []
-        self.main = FComponent(name="main", cells=[], wires=[])
+        self.main = FComponent(name="main")
 
     def id(self, name):
         """
         Provides a unique identification for a given name.
         For example, if 'a' is seen three times, it will produce: 'a0', 'a1', 'a2'.
         """
-        id_number = self.id_dictionary[name]
+        id_number = str(self.id_dictionary[name])
         self.id_dictionary[name] += 1
-        return name + str(id_number)
+        return ''.join((name, id_number))
 
     def relay_id(self, name):
         """
@@ -54,7 +40,7 @@ class Relay2Futil(ExprFunctor):
         id_number = self.relay_id_dictionary[name]
         self.relay_id_dictionary[name] += 1
         if id_number == 0: return name
-        return name + str(id_number)
+        return ''.join((name, str(id_number)))
 
     def dahlia_name(self, name, type):
         """
@@ -64,69 +50,47 @@ class Relay2Futil(ExprFunctor):
         Memory3D: `X0_0_0`, `Y0_0_0`
         """
         assert type in DahliaNameExtension, f'{name} with {type} is not supported yet.'
-        return name + DahliaNameExtension[type]
+        return ''.join((name, DahliaNameExtension[type]))
 
-    def get_dahlia_declaration(self, function_name, cells, args, attrs):
-        """
-        Returns the corresponding name, Dahlia function type, and op (if it is a binary op, otherwise None).
-        If the function type isn't supported, fails with an assertion.
-        """
-        input_type = cells[0].primitive.type
-        function = name = op = None
-        if function_name in BuiltInBinaryOps:
-            op = BuiltInBinaryOps[function_name]
-            function, name = broadcast, function_name
-        elif function_name in RelayFunctionCalls:
-            function = RelayFunctionCalls[function_name]
-            name = function.__name__
-        else:
-            assert False, f'{function_name} is not supported for lowering to FuTIL.'
-        return DahliaDeclaration(component_name=self.relay_id(name), decl_name=self.id(name),
-                                 op=op, inputs=args, attributes=attrs, function=function)
-
-    def visit_var(self, var):
+    def visit_var(self, var) -> FCell:
         name = self.relay_id(var.name_hint)
-        # Do not add duplicate primitives to main.
-        if self.main.contains_primitive(name): return cell
+        if name in self.main.cells: return cell
         data, type, data_type = get_memory_parameters(var.type_annotation)
-        dahlia_name = self.dahlia_name(name, type)
-        return FCell(dahlia_name=dahlia_name,
+        return FCell(dahlia_name=self.dahlia_name(name, type),
                      primitive=FPrimitive(name=name, data=data, data_type=data_type, type=type))
 
     def visit_let(self, let):
         values, output = self.visit(let.value), self.visit(let.var)
         if isinstance(values, list):
             for value in values:
-                if not value.is_dahlia_declaration(): continue
-                value.dahlia_declaration.output = output
-                value.dahlia_declaration.invoke()
+                if value.is_relay_function(): value.relay_function.output = output
         return [self.visit(let.body), values]
 
-    def visit_constant(self, const):
+    def visit_constant(self, const) -> FCell:
         # Note: We're currently treating constants defined in a `let` statement in Relay IR as 1D Memory.
-        type, shape = const.data.dtype, const.data.shape
-        name, data = self.id("const"), [get_bitwidth(type), int(const.data.asnumpy())]
-        data_type = get_memory_parameters(type)
-        return FCell(primitive=FPrimitive(name=name, data=data, data_type=data_type, type=PrimitiveType.Constant))
+        # type, shape = const.data.dtype, const.data.shape
+        pass
 
-    def visit_call(self, call):
+    def visit_call(self, call) -> List[FCell]:
         attributes = call.attrs
         cells, args = [], []
         for arg in call.args:
             argument = self.visit(arg)
             cells.append(argument)
             args.append(argument)
-        cells.append(FCell(dahlia_declaration=self.get_dahlia_declaration(call.op.name, cells, args, call.attrs)))
+        # We are representing all function calls in Relay IR at the Dahlia level, which will then be lowered to FuTIL.
+        # Note, the Relay function's output is not defined until the `let` statement is visited.
+        function, name, op = GetRelayFunctionCall(call.op.name)
+        relay_function_call = RelayFunctionCall(component_name=self.relay_id(name), name=self.id(name), op=op,
+                                                inputs=args, attributes=call.attrs, lowering_function=function)
+        cells.append(FCell(relay_function=relay_function_call))
         return cells
 
     def visit_function(self, function):
         body = self.visit(function.body)
-        for cell in flatten(body):
-            self.main.add_cell(cell)
-            if not cell.is_dahlia_declaration(): continue
-            self.dahlia_components.append(cell.dahlia_declaration.program)
+        for cell in flatten(body): self.main.add_cell(cell)
         build_main_controls(self.main)
-        return pp_component(self.main)
+        return pp_lowered_relay_function(self.main)
 
 
 def relay_transforms(expr: Function) -> Function:
@@ -149,9 +113,7 @@ def lower_to_futil(program) -> str:
 
     PREAMBLE = """import "primitives/std.lib";\n"""
     MAIN = visitor.visit(program)
-    DAHLIA_COMPONENTS = '\n'.join(visitor.dahlia_components)
-    NEWL = '\n'
-    return f'{PREAMBLE}{NEWL}{DAHLIA_COMPONENTS}{NEWL}{MAIN}'
+    return '\n'.join((PREAMBLE, MAIN))
 
 
 if __name__ == '__main__':

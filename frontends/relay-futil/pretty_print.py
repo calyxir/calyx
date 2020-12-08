@@ -2,14 +2,14 @@ from futil_ast import *
 import textwrap
 
 
-def mk_block(decl, contents, indent=2):
+def pp_block(decl, contents, indent=2):
     """Format a block like this:
         decl {
           contents
         }
     where `decl` is one line but contents can be multiple lines.
     """
-    return decl + ' {\n' + textwrap.indent(contents, indent * ' ') + '\n}'
+    return ''.join((decl, ' {\n', textwrap.indent(contents, indent * ' '), '\n}'))
 
 
 def pp_component_signature(component: FComponent):
@@ -39,7 +39,7 @@ def pp_connections(component: FConnection):
             wires = []
             for wire in connection.group.wires:
                 wires.append(pp_wire(wire))
-            connections.append(mk_block(f'group {connection.group.name}', '\n'.join(wires)))
+            connections.append(pp_block(f'group {connection.group.name}', '\n'.join(wires)))
     return connections
 
 
@@ -49,24 +49,57 @@ def pp_control(component: FComponent):
         groups = []
         for group_name in control.stmts:
             groups.append(f'{group_name};')
-        ctrls.append(mk_block(control.name, '\n'.join(groups)))
+        ctrls.append(pp_block(control.name, '\n'.join(groups)))
     return ctrls
 
 
-def pp_component(component: FComponent):
+def pp_lowered_dahlia_components(component: FComponent):
+    relay_functions = []
+    for cell in component.cells.values():
+        if cell == None or not cell.is_relay_function(): continue
+        relay_call = cell.relay_function
+        relay_functions.append(relay_call.lowering_function(relay_call))
+    return '\n'.join(relay_functions)
+
+
+def pp_lowered_relay_function(component: FComponent):
+    """
+    Pretty prints the main program. This consists of the following:
+    1. Relay functions lowered from Dahlia -> FuTIL.
+    2. The `main` component.
+
+    Example:
+    ------------------------------------
+    Input
+    ```
+      fn (%x: int32, %y: int32) { let %z = add(%x, %y); %z }
+    ```
+    ------------------------------------
+    Output
+    ```
+      component add(...) -> (...) { ... }
+
+      component main() -> () {
+        ...
+        control { run_add; }
+      }
+    ```
+    """
+    relay_function_components = pp_lowered_dahlia_components(component)
+
     subcomponents = []
-    for cell in component.cells:
-        if cell == None:
-            continue
+    for cell in component.cells.values():
+        if cell == None: continue
         subcomponents.append(pp_cell(cell))
-    cells = mk_block("cells", '\n'.join(subcomponents))
+    cells = pp_block("cells", '\n'.join(subcomponents))
     inputs, outputs = pp_component_signature(component)
-    wires = mk_block("wires", '\n'.join(pp_connections(component)))
+    wires = pp_block("wires", '\n'.join(pp_connections(component)))
 
-    controls = "" if component.controls == None else '\n'.join(pp_control(component))
-    control = mk_block("control", controls)
-
-    return mk_block(f'component {component.name} ({inputs}) -> ({outputs})', '\n'.join([cells, wires, control]))
+    controls = '\n'.join(pp_control(component))
+    control = pp_block("control", controls)
+    main_component = pp_block(f'component {component.name} ({inputs}) -> ({outputs})',
+                              '\n'.join([cells, wires, control]))
+    return '\n'.join((relay_function_components, main_component))
 
 
 def pp_cell(cell: FCell):
@@ -100,11 +133,8 @@ def pp_cell(cell: FCell):
         if cell.primitive.type == PrimitiveType.BinOp:
             op = data[1]
             return f'{cell.primitive.name} = prim std_{op}({bitwidth});'
-        assert False, f'FCell pretty print unimplemented for {cell} with name {cell.primitive.name}'
-    elif cell.is_declaration():
-        return f'{cell.declaration.name} = {cell.declaration.component.name};'
-    elif cell.is_dahlia_declaration():
-        return f'{cell.dahlia_declaration.decl_name} = {cell.dahlia_declaration.component_name};'
+    if cell.is_relay_function(): return f'{cell.relay_function.name} = {cell.relay_function.component_name};'
+    assert False, f'FCell pretty print unimplemented for {cell} with name {cell.primitive.name}'
 
 
 # Dahlia Pretty Printing.
@@ -112,17 +142,17 @@ def pp_cell(cell: FCell):
 def next_character(ch, dir=1):
     """
     Returns the next character after 'ch'.
-    If dir is positive, then will return 'ch' + 1. Otherwise, it will return 'ch' - 1.
+    If `dir` is positive, then will return 'ch' + 1. Otherwise, it will return 'ch' - 1.
     """
-    return chr(ord(ch) + dir) if dir > 0 else chr(ord(ch) - 1)
+    return chr(ord(ch) + 1) if dir > 0 else chr(ord(ch) - 1)
 
 
 def pp_dahlia_memory_declarations(declaration_list):
     declarations = []
-    for decl in declaration_list:
-        decl_string = f'decl {decl.name}: {decl.data_type}<{decl.data[0]}>'
-        for i in range(0, decl.type): decl_string += f'[{decl.data[i + 1]}]'
-        declarations.append(f'{decl_string};')
+    for declaration in declaration_list:
+        string = f'decl {declaration.name}: {declaration.data_type}<{declaration.data[0]}>'
+        for i in range(0, declaration.type): string += f'[{declaration.data[i + 1]}]'
+        declarations.append(string + ";")
     return '\n'.join(declarations)
 
 
