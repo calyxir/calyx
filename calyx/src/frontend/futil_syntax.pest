@@ -5,6 +5,7 @@ ident_syms = _{ "_" | "-" | "'" }
 identifier = @{ ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
 
 bitwidth = @{ ASCII_DIGIT+ }
+bad_num = @{ ASCII_DIGIT+ }
 num_lit = @{
       ASCII_DIGIT+ ~ "'"
       ~ ( "d" ~ ASCII_DIGIT+
@@ -94,7 +95,11 @@ port = {
 }
 
 LHS = { hole | port }
-expr = { LHS | num_lit }
+expr = {
+  LHS
+  | num_lit
+  | bad_num // throws an error
+}
 
 guard_eq = { "==" }
 guard_neq = { "!=" }
