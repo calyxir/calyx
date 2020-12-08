@@ -73,9 +73,13 @@ component_cell = {
       identifier ~ "=" ~ identifier
 }
 
+cell = {
+      (primitive_cell | component_cell) ~ ";"
+}
+
 cells = {
       "cells"
-      ~ "{" ~ ((primitive_cell | component_cell) ~ ";")* ~ "}"
+      ~ "{" ~ cell* ~ "}"
 }
 
 // ====== wires ======
