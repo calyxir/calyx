@@ -39,7 +39,7 @@ where
                     .attributes
                     .get("static")
                     .copied()
-                    .ok_or_else(|| ())
+                    .ok_or(())
             } else {
                 Err(())
             }

@@ -13,7 +13,7 @@ use std::rc::Rc;
 type ParseResult<T> = Result<T, Error<Rule>>;
 // user data is the input program so that we can create ir::Id's
 // that have a reference to the input string
-type Node<'i> = pest_consume::Node<'i, Rule, Rc<String>>;
+type Node<'i> = pest_consume::Node<'i, Rule, Rc<str>>;
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
 const _GRAMMAR: &str = include_str!("futil_syntax.pest");
@@ -56,7 +56,7 @@ impl FutilParser {
         let inputs = FutilParser::parse_with_userdata(
             Rule::file,
             string_content,
-            Rc::new(string_content.to_string()),
+            Rc::from(string_content),
         )?;
         let input = inputs.single()?;
         Ok(FutilParser::file(input)?)
@@ -73,7 +73,7 @@ impl FutilParser {
         let inputs = FutilParser::parse_with_userdata(
             Rule::file,
             &buf,
-            Rc::new(buf.to_string()),
+            Rc::from(buf.as_str()),
         )?;
         let input = inputs.single()?;
         Ok(FutilParser::file(input)?)

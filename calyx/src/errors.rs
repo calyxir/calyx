@@ -74,7 +74,7 @@ pub type FutilResult<T> = std::result::Result<T, Error>;
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
     /// Reference to input program source.
-    input: Rc<String>,
+    input: Rc<str>,
     /// The start of the span.
     start: usize,
     /// The end of the span.
@@ -84,7 +84,7 @@ pub struct Span {
 impl Span {
     /// Create a new `Error::Span` from a `pest::Span` and
     /// the input string.
-    pub fn new(span: pest::Span, input: Rc<String>) -> Span {
+    pub fn new(span: pest::Span, input: Rc<str>) -> Span {
         Span {
             input,
             start: span.start(),

@@ -625,6 +625,18 @@ primitive std_or<"share"=1>[width](left: width, right: width) -> (out: width) {
   }
 }
 
+primitive std_xor[p_width](left: p_width, right: p_width) -> (out: p_width) {
+  verilog {
+    module std_xor
+      #(parameter width = 32)
+      (input logic  [width-1:0] left,
+        input logic  [width-1:0] right,
+        output logic [width-1:0] out);
+      assign out = left ^ right;
+    endmodule
+  }
+}
+
 primitive std_gt<"share"=1>[width](left: width, right: width) -> (out: 1) {
   verilog {
     module std_gt
