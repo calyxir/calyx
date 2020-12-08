@@ -233,15 +233,19 @@ impl FutilParser {
         ))
     }
 
+    fn cell(input: Node) -> ParseResult<ast::Cell> {
+        Ok(match_nodes!(
+                input.into_children();
+                [primitive_cell(node)] => node,
+                [component_cell(node)] => node,
+        ))
+    }
+
     fn cells(input: Node) -> ParseResult<Vec<ast::Cell>> {
-        input
-            .into_children()
-            .map(|node| match node.as_rule() {
-                Rule::primitive_cell => Self::primitive_cell(node),
-                Rule::component_cell => Self::component_cell(node),
-                _ => unreachable!(),
-            })
-            .collect()
+        Ok(match_nodes!(
+                input.into_children();
+                [cell(cells)..] => cells.collect()
+        ))
     }
 
     fn port(input: Node) -> ParseResult<ast::Port> {
