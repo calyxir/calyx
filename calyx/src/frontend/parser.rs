@@ -94,78 +94,74 @@ impl FutilParser {
     }
 
     fn bitwidth(input: Node) -> ParseResult<u64> {
-        Ok(match input.as_str().parse::<u64>() {
-            Ok(x) => x,
-            _ => panic!("Unable to parse '{}' as a u64", input.as_str()),
-        })
+        input
+            .as_str()
+            .parse::<u64>()
+            .map_err(|_| input.error("Expected valid bitwidth"))
     }
 
     fn bad_num(input: Node) -> ParseResult<u64> {
-        match input.as_str().parse::<u64>() {
-            Ok(_) => {
-                Err(input.error("Expected number with bitwidth (like 32'd10)."))
-            }
-            _ => panic!("Unable to parse '{}' as a u64", input.as_str()),
-        }
+        Err(input.error("Expected number with bitwidth (like 32'd10)."))
+    }
+
+    fn hex(input: Node) -> ParseResult<u64> {
+        u64::from_str_radix(input.as_str(), 16)
+            .map_err(|_| input.error("Expected hexadecimal number"))
+    }
+    fn decimal(input: Node) -> ParseResult<u64> {
+        u64::from_str_radix(input.as_str(), 10)
+            .map_err(|_| input.error("Expected decimal number"))
+    }
+    fn octal(input: Node) -> ParseResult<u64> {
+        u64::from_str_radix(input.as_str(), 8)
+            .map_err(|_| input.error("Expected octal number"))
+    }
+    fn binary(input: Node) -> ParseResult<u64> {
+        u64::from_str_radix(input.as_str(), 2)
+            .map_err(|_| input.error("Expected binary number"))
     }
 
     fn num_lit(input: Node) -> ParseResult<BitNum> {
-        let raw = input.as_str();
-        if raw.contains("'d") {
-            match raw.split("'d").collect::<Vec<_>>().as_slice() {
-                [bits, val] => Ok(BitNum {
-                    width: bits.parse().unwrap(),
+        Ok(match_nodes!(
+            input.clone().into_children();
+            [bitwidth(width), decimal(val)] => BitNum {
+                    width,
                     num_type: NumType::Decimal,
-                    val: val.parse().unwrap(),
+                    val,
                     span: Some(Span::new(
                         input.as_span(),
                         Rc::clone(input.user_data()),
                     )),
-                }),
-                _ => unreachable!(),
-            }
-        } else if raw.contains("'b") {
-            match raw.split("'b").collect::<Vec<_>>().as_slice() {
-                [bits, val] => Ok(BitNum {
-                    width: bits.parse().unwrap(),
-                    num_type: NumType::Binary,
-                    val: u64::from_str_radix(val, 2).unwrap(),
-                    span: Some(Span::new(
-                        input.as_span(),
-                        Rc::clone(input.user_data()),
-                    )),
-                }),
-                _ => unreachable!(),
-            }
-        } else if raw.contains("'x") {
-            match raw.split("'x").collect::<Vec<_>>().as_slice() {
-                [bits, val] => Ok(BitNum {
-                    width: bits.parse().unwrap(),
+                },
+            [bitwidth(width), hex(val)] => BitNum {
+                    width,
                     num_type: NumType::Hex,
-                    val: u64::from_str_radix(val, 16).unwrap(),
+                    val,
                     span: Some(Span::new(
                         input.as_span(),
                         Rc::clone(input.user_data()),
                     )),
-                }),
-                _ => unreachable!(),
-            }
-        } else if raw.contains("'o") {
-            match raw.split("'o").collect::<Vec<_>>().as_slice() {
-                [bits, val] => Ok(BitNum {
-                    width: bits.parse().unwrap(),
+                },
+            [bitwidth(width), octal(val)] => BitNum {
+                    width,
                     num_type: NumType::Octal,
-                    val: u64::from_str_radix(val, 8).unwrap(),
+                    val,
                     span: Some(Span::new(
                         input.as_span(),
                         Rc::clone(input.user_data()),
                     )),
-                }),
-                _ => unreachable!(),
-            }
-        } else {
-            unreachable!()
-        }
+                },
+            [bitwidth(width), binary(val)] => BitNum {
+                    width,
+                    num_type: NumType::Binary,
+                    val,
+                    span: Some(Span::new(
+                        input.as_span(),
+                        Rc::clone(input.user_data()),
+                    )),
+                },
+
+        ))
     }
 
     fn char(input: Node) -> ParseResult<&str> {
