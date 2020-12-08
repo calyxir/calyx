@@ -21,6 +21,12 @@ def parse_dat(path):
         arr = np.array(list(map(lambda v: int(v.strip(), 16), lines)))
         return arr
 
+# def parse_dat(path):
+#     with path.open('r') as f:
+#         lines = f.readlines()
+#         arr = np.array(list(map(lambda v: int(v.strip(), 16), lines)))
+#         return arr
+
 def decimal_to_fixed_p (num, width, int_bit, frac_bit):
     '''
     given number, width, integer bit and fractinal bit,
@@ -124,10 +130,21 @@ def convert2json(input_dir, extension):
     shape_json = None
     if shape_json_path.exists():
         shape_json = json.load(shape_json_path.open('r'))
+        print(shape_json)
 
     # TODO: change to use shape json
     for f in input_dir.glob(f'*.{extension}'):
+        #print(shape_json[f.stem]["fixedpoint"])
+        # if shape_json[f.stem]["fixedpoint"] ==[0]:
+        #     arr = parse_dat(f)
+        # elif shape_json[f.stem]["fixedpoint"] ==[2]:
+        #     arr = parse_dat_fxd(f)
+        # else: 
+        #     raise Exception("should be [0] if not fixedpoint, [3] if fixedpoint")
+        print(f)
         arr = parse_dat(f)
+        print(arr)
+        print(shape_json.get(f.stem))
         if shape_json is not None and shape_json.get(f.stem) is not None and shape_json[f.stem]["shape"] != [0]:
             try:
                 arr = arr.reshape(tuple(shape_json[f.stem]["shape"]))
