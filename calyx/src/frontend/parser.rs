@@ -100,6 +100,15 @@ impl FutilParser {
         })
     }
 
+    fn bad_num(input: Node) -> ParseResult<u64> {
+        match input.as_str().parse::<u64>() {
+            Ok(_) => {
+                Err(input.error("Expected number with bitwidth (like 32'd10)."))
+            }
+            _ => panic!("Unable to parse '{}' as a u64", input.as_str()),
+        }
+    }
+
     fn num_lit(input: Node) -> ParseResult<BitNum> {
         let raw = input.as_str();
         if raw.contains("'d") {
@@ -272,11 +281,12 @@ impl FutilParser {
     }
 
     fn expr(input: Node) -> ParseResult<ast::Atom> {
-        Ok(match_nodes!(
+        match_nodes!(
             input.into_children();
-            [LHS(port)] => ast::Atom::Port(port),
-            [num_lit(num)] => ast::Atom::Num(num)
-        ))
+            [LHS(port)] => Ok(ast::Atom::Port(port)),
+            [num_lit(num)] => Ok(ast::Atom::Num(num)),
+            [bad_num(num)] => unreachable!("bad_num returned non-error result"),
+        )
     }
 
     fn guard_not(_input: Node) -> ParseResult<()> {
