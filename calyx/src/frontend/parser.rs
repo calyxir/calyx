@@ -380,12 +380,29 @@ impl FutilParser {
             .collect()
     }
 
-    /*fn invoke(input: Node) -> ParseResult<ast::Invoke> {
+    fn invoke_arg(input: Node) -> ParseResult<(ir::Id, ast::Port)> {
         Ok(match_nodes!(
             input.into_children();
-            []
+            [identifier(name), port(p)] => (name, p)
         ))
-    }*/
+    }
+
+    fn invoke_args(
+        input: Node,
+    ) -> ParseResult<Vec<(ir::Id, ast::Port)>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [invoke_arg(args)..] => args.collect()
+        ))
+    }
+
+    fn invoke(input: Node) -> ParseResult<ast::Control> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(comp), invoke_args(inputs), invoke_args(outputs)] =>
+                ast::Control::Invoke { comp, inputs, outputs }
+        ))
+    }
 
     fn enable(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
@@ -452,6 +469,7 @@ impl FutilParser {
         Ok(match_nodes!(
             input.into_children();
             [enable(data)] => data,
+            [invoke(data)] => data,
             [seq(data)] => data,
             [par(data)] => data,
             [if_stmt(data)] => data,

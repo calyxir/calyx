@@ -154,7 +154,7 @@ enable = { identifier ~ ";" }
 
 invoke_arg = { identifier ~ "=" ~ port }
 invoke_args = { invoke_arg ~ ("," ~ invoke_arg)* }
-invoke = { "invoke" ~ identifier ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" }
+invoke = { "invoke" ~ identifier ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ";" }
 
 seq = {
       "seq" ~ "{"
@@ -182,6 +182,7 @@ while_stmt = {
 
 stmt = {
       enable
+    | invoke
     | (seq ~ ";"?)
     | (par ~ ";"?)
     | (if_stmt ~ ";"?)
