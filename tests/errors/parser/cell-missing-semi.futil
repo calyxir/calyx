@@ -1,0 +1,7 @@
+component main() -> () {
+  cells {
+    r = prim std_reg(32)
+  }
+  wires { }
+  control { }
+}
