@@ -5,7 +5,6 @@ ident_syms = _{ "_" | "-" | "'" }
 identifier = @{ ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
 
 bitwidth = @{ ASCII_DIGIT+ }
-bad_num = @{ ASCII_DIGIT+ }
 num_lit = @{
       ASCII_DIGIT+ ~ "'"
       ~ ( "d" ~ ASCII_DIGIT+
@@ -16,6 +15,9 @@ num_lit = @{
 
 char = { !"\"" ~ ANY }
 string_lit = ${ "\"" ~ char* ~ "\"" }
+
+// Error reporting rule: Expected a number with bitwidth in this position.
+bad_num = @{ ASCII_DIGIT+ }
 
 // ====== toplevel ======
 
@@ -169,8 +171,14 @@ par = {
       ~ "}"
 }
 
-block = _{
+// Error reporting rule: these statements should be inside a `stmt`.
+stmts_without_block = {
+  "{" ~ stmt* ~ "}"
+}
+
+block = {
       "{" ~ stmt ~ "}"
+      | stmts_without_block
 }
 
 if_stmt = {

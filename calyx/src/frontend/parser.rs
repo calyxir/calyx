@@ -418,24 +418,26 @@ impl FutilParser {
     fn if_stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [port(port), identifier(cond), stmt(stmt)] => ast::Control::If {
+            [port(port), identifier(cond), block(stmt)] => ast::Control::If {
                 port,
                 cond,
                 tbranch: Box::new(stmt),
                 fbranch: Box::new(ast::Control::Empty{})
             },
-            [port(port), identifier(cond), stmt(tbranch), stmt(fbranch)] => ast::Control::If {
-                port,
-                cond,
-                tbranch: Box::new(tbranch),
-                fbranch: Box::new(fbranch)
-            },
-            [port(port), identifier(cond), stmt(tbranch), if_stmt(fbranch)] => ast::Control::If {
-                port,
-                cond,
-                tbranch: Box::new(tbranch),
-                fbranch: Box::new(fbranch)
-            },
+            [port(port), identifier(cond), block(tbranch), block(fbranch)] =>
+                ast::Control::If {
+                    port,
+                    cond,
+                    tbranch: Box::new(tbranch),
+                    fbranch: Box::new(fbranch)
+                },
+            [port(port), identifier(cond), block(tbranch), if_stmt(fbranch)] =>
+                ast::Control::If {
+                    port,
+                    cond,
+                    tbranch: Box::new(tbranch),
+                    fbranch: Box::new(fbranch)
+                },
 
         ))
     }
@@ -443,7 +445,7 @@ impl FutilParser {
     fn while_stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [port(port), identifier(cond), stmt(stmt)] => ast::Control::While {
+            [port(port), identifier(cond), block(stmt)] => ast::Control::While {
                 port,
                 cond,
                 body: Box::new(stmt),
@@ -460,6 +462,22 @@ impl FutilParser {
             [if_stmt(data)] => data,
             [while_stmt(data)] => data,
         ))
+    }
+
+    fn block(input: Node) -> ParseResult<ast::Control> {
+        Ok(match_nodes!(
+            input.into_children();
+            [stmt(stmt)] => stmt,
+            [stmts_without_block(_)] => unreachable!()
+        ))
+    }
+
+    fn stmts_without_block(input: Node) -> ParseResult<ast::Control> {
+        match_nodes!(
+            input.clone().into_children();
+            [stmt(_)..] => Err(
+                input.error("Sequence of control statements should be enclosed in `seq` or `par`."))
+        )
     }
 
     fn control(input: Node) -> ParseResult<ast::Control> {
