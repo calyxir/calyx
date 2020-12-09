@@ -53,7 +53,7 @@ fn shareable_primitive_name(
     None
 }
 
-impl Visitor<()> for ResourceSharing {
+impl Visitor for ResourceSharing {
     fn start(
         &mut self,
         comp: &mut ir::Component,

@@ -59,7 +59,7 @@ fn format_port_name(comp: &ir::Id, port: &ir::Id) -> ir::Id {
     format!("{}_{}", comp.id, port.id).into()
 }
 
-impl Visitor<()> for Externalize {
+impl Visitor for Externalize {
     fn start(
         &mut self,
         comp: &mut ir::Component,

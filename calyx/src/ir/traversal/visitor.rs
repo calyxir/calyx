@@ -30,7 +30,7 @@ pub trait Named {
 ///
 /// A pass will usually override one or more function and rely on the default
 /// visitors to automatically visit the children.
-pub trait Visitor<T: Default> {
+pub trait Visitor {
     /// Instantiate this pass using the default() method and run it on the
     /// context.
     fn do_pass_default(context: &mut Context) -> FutilResult<Self>
@@ -220,20 +220,20 @@ pub trait Visitor<T: Default> {
 /// This performs a recursive walk of the tree.
 /// It calls `Visitor::start_*` on the way down, and `Visitor::finish_*` on
 /// the way up.
-pub trait Visitable<T: Default> {
+pub trait Visitable {
     /// Perform the traversal.
     fn visit(
         &mut self,
-        visitor: &mut dyn Visitor<T>,
+        visitor: &mut dyn Visitor,
         component: &mut Component,
         signatures: &LibrarySignatures,
     ) -> VisResult;
 }
 
-impl<T: Default> Visitable<T> for Control {
+impl Visitable for Control {
     fn visit(
         &mut self,
-        visitor: &mut dyn Visitor<T>,
+        visitor: &mut dyn Visitor,
         component: &mut Component,
         sigs: &LibrarySignatures,
     ) -> VisResult {
@@ -277,10 +277,10 @@ impl<T: Default> Visitable<T> for Control {
 }
 
 /// Blanket implementation for Vectors of Visitables
-impl<T: Default, V: Visitable<T>> Visitable<T> for Vec<V> {
+impl<V: Visitable> Visitable for Vec<V> {
     fn visit(
         &mut self,
-        visitor: &mut dyn Visitor<T>,
+        visitor: &mut dyn Visitor,
         component: &mut Component,
         sigs: &LibrarySignatures,
     ) -> VisResult {

@@ -33,7 +33,7 @@ impl Named for GoInsertion {
     }
 }
 
-impl Visitor<()> for GoInsertion {
+impl Visitor for GoInsertion {
     fn start(
         &mut self,
         comp: &mut ir::Component,

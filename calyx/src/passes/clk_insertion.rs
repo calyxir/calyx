@@ -20,7 +20,7 @@ impl Named for ClkInsertion {
     }
 }
 
-impl Visitor<()> for ClkInsertion {
+impl Visitor for ClkInsertion {
     fn start(
         &mut self,
         comp: &mut ir::Component,

@@ -49,7 +49,7 @@ where
     timing.ok().map(|ts| ts.into_iter().fold(0, acc))
 }
 
-impl Visitor<()> for StaticTiming {
+impl Visitor for StaticTiming {
     fn finish_while(
         &mut self,
         while_s: &mut ir::While,

@@ -32,7 +32,7 @@ impl Named for RemoveExternalMemories<'_> {
     }
 }
 
-impl Visitor<()> for RemoveExternalMemories<'_> {
+impl Visitor for RemoveExternalMemories<'_> {
     fn start(
         &mut self,
         comp: &mut ir::Component,

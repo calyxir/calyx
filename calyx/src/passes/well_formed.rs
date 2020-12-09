@@ -48,7 +48,7 @@ impl Named for WellFormed {
     }
 }
 
-impl Visitor<()> for WellFormed {
+impl Visitor for WellFormed {
     fn start(
         &mut self,
         comp: &mut Component,

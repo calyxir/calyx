@@ -25,7 +25,7 @@ impl Named for CompileControl {
     }
 }
 
-impl Visitor<()> for CompileControl {
+impl Visitor for CompileControl {
     /// This compiles `if` statements of the following form:
     /// ```C
     /// if comp.out with cond {

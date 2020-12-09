@@ -24,7 +24,7 @@ impl Named for CompileEmpty {
     }
 }
 
-impl Visitor<()> for CompileEmpty {
+impl Visitor for CompileEmpty {
     fn finish_empty(
         &mut self,
         _s: &mut ir::Empty,
