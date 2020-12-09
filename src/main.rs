@@ -13,7 +13,7 @@ use calyx::{
 use cmdline::Opts;
 use pass_manager::PassManager;
 use passes::{
-    ClkInsertion, CollapseControl, CompileControl, CompileEmpty,
+    ClkInsertion, CollapseControl, CompileControl, CompileEmpty, CompileInvoke,
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion, Inliner,
     MinimizeRegs, Papercut, RemoveExternalMemories, ResourceSharing,
     StaticTiming, WellFormed,
@@ -31,6 +31,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
     register_pass!(pm, WellFormed);
     register_pass!(pm, StaticTiming);
     register_pass!(pm, CompileControl);
+    register_pass!(pm, CompileInvoke);
     register_pass!(pm, GoInsertion);
     register_pass!(pm, ComponentInterface);
     register_pass!(pm, Inliner);
