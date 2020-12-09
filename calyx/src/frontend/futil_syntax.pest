@@ -214,8 +214,5 @@ stmt = {
 }
 
 control = {
-      "control"
-      ~ "{"
-      ~ stmt?
-      ~ "}"
+      "control" ~ (("{" ~ "}") | block)
 }

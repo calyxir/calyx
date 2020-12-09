@@ -502,7 +502,7 @@ impl FutilParser {
     fn control(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [stmt(stmt)] => stmt,
+            [block(stmt)] => stmt,
             [] => ast::Control::Empty{}
         ))
     }
