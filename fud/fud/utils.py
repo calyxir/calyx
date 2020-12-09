@@ -25,7 +25,8 @@ def unwrap_or(val, default):
     else:
         return default
 
-def logging_setup():
+
+def logging_setup(args):
     # Color for warning and error mesages
     logging.addLevelName(
         logging.WARNING,
@@ -34,7 +35,16 @@ def logging_setup():
         logging.ERROR,
         "\033[1;31m%s\033[1;0m" % logging.getLevelName(logging.ERROR))
 
+    # set verbosity level
+    level = None
+    if args.verbose <= 0:
+        level = log.WARNING
+    elif args.verbose <= 1:
+        level = log.INFO
+    elif args.verbose <= 2:
+        level = log.DEBUG
     logging.basicConfig(
         format='%(levelname)s: %(message)s',
         stream=sys.stderr,
-        level=logging.INFO)
+        level=level
+    )
