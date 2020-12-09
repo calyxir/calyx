@@ -1,0 +1,9 @@
+---CODE---
+1
+---STDERR---
+Error: FuTIL Parser:  --> 3:5
+  |
+3 |     r = prim std_reg(32)␊
+  |     ^---
+  |
+  = expected cell

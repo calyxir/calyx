@@ -1,0 +1,11 @@
+component main() -> () {
+  cells { }
+  wires { }
+  control {
+    while r.out with cond {
+      upd0;
+      upd1;
+      upd2;
+    }
+  }
+}

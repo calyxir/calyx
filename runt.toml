@@ -20,7 +20,10 @@ flags=$(head -n 1 {} | cut -c 3-)
 ## checking.
 [[tests]]
 name = "errors"
-paths = [ "tests/errors/*.futil" ]
+paths = [
+  "tests/errors/*.futil",
+  "tests/errors/parser/*.futil"
+]
 cmd = """
 ./target/debug/futil {} -p well-formed -p papercut
 """

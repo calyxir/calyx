@@ -1,0 +1,11 @@
+---CODE---
+1
+---STDERR---
+Error: FuTIL Parser:  --> 5:27
+  |
+5 |     while r.out with cond {␊
+  | ...
+9 |     }␊
+  |     ^---------------------^
+  |
+  = Sequence of control statements should be enclosed in `seq` or `par`.
