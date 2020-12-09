@@ -1,4 +1,4 @@
-use super::{Group, Port, RRC, Id, Cell};
+use super::{Cell, Group, Id, Port, RRC};
 
 /// Data for the `seq` control statement.
 #[derive(Debug)]
@@ -114,7 +114,11 @@ impl Control {
 
     /// Convience constructor for invoke.
     pub fn invoke(comp: RRC<Cell>, inputs: PortMap, outputs: PortMap) -> Self {
-        Control::Invoke(Invoke { comp, inputs, outputs })
+        Control::Invoke(Invoke {
+            comp,
+            inputs,
+            outputs,
+        })
     }
 
     /// Convience constructor for if

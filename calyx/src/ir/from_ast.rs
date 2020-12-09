@@ -145,10 +145,8 @@ fn build_component(
     ir_component.continuous_assignments = continuous_assignments;
 
     // Build the Control ast using ast::Control.
-    let control = Rc::new(RefCell::new(build_control(
-        comp.control,
-        &ir_component,
-    )?));
+    let control =
+        Rc::new(RefCell::new(build_control(comp.control, &ir_component)?));
     ir_component.control = control;
 
     Ok(ir_component)

@@ -387,9 +387,7 @@ impl FutilParser {
         ))
     }
 
-    fn invoke_args(
-        input: Node,
-    ) -> ParseResult<Vec<(ir::Id, ast::Port)>> {
+    fn invoke_args(input: Node) -> ParseResult<Vec<(ir::Id, ast::Port)>> {
         Ok(match_nodes!(
             input.into_children();
             [invoke_arg(args)..] => args.collect()

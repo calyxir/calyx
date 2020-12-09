@@ -48,7 +48,6 @@ impl IRPrinter {
         for cell in &comp.cells {
             Self::write_cell(&cell.borrow(), 4, f)?;
         }
-        // TODO(rachit): Trailing spaces added for test faithfulness
         writeln!(f, "  }}")?;
 
         // Add the wires
@@ -62,7 +61,6 @@ impl IRPrinter {
             Self::write_assignment(assign, 4, f)?;
             writeln!(f)?;
         }
-        // TODO(rachit): Trailing spaces added for test faithfulness
         writeln!(f, "  }}\n")?;
 
         // Add the control program
@@ -169,8 +167,42 @@ impl IRPrinter {
             ir::Control::Enable(ir::Enable { group }) => {
                 writeln!(f, "{};", group.borrow().name.id)
             }
-            ir::Control::Invoke(ir::Invoke { .. }) => {
-                unimplemented!()
+            ir::Control::Invoke(ir::Invoke {
+                comp,
+                inputs,
+                outputs,
+            }) => {
+                write!(f, "invoke {}(", comp.borrow().name)?;
+                for (arg, port) in inputs {
+                    write!(
+                        f,
+                        "\n{}{} = {},",
+                        " ".repeat(indent_level + 2),
+                        arg,
+                        Self::get_port_access(&port.borrow())
+                    )?;
+                }
+                if inputs.is_empty() {
+                    write!(f, ")(")?;
+                }
+                else {
+                    write!(f, "\n{})(", " ".repeat(indent_level))?;
+                }
+                for (arg, port) in outputs {
+                    write!(
+                        f,
+                        "\n{}{} = {},",
+                        " ".repeat(indent_level + 2),
+                        arg,
+                        Self::get_port_access(&port.borrow())
+                    )?;
+                }
+                if outputs.is_empty() {
+                    writeln!(f, ");")
+                }
+                else {
+                    writeln!(f, "\n{});", " ".repeat(indent_level))
+                }
             }
             ir::Control::Seq(ir::Seq { stmts }) => {
                 writeln!(f, "seq {{")?;
