@@ -37,7 +37,7 @@ def logging_setup(args):
 
     # set verbosity level
     level = None
-    if args.verbose <= 0:
+    if 'verbose' not in args or args.verbose <= 0:
         level = log.WARNING
     elif args.verbose <= 1:
         level = log.INFO
