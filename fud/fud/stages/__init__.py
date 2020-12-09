@@ -3,7 +3,6 @@
 import subprocess
 from enum import Enum
 from tempfile import NamedTemporaryFile, TemporaryFile
-from pathlib import Path
 import sys
 import logging as log
 import os
@@ -33,7 +32,6 @@ class Source:
     def to_pipe(self):
         """Converts an arbitrary source into a SourceType.File"""
         if self.source_type == SourceType.Path:
-            Path(self.data).touch()
             self.data = open(self.data, 'r+')
             self.source_type = SourceType.File
         elif self.source_type == SourceType.File:

@@ -16,5 +16,5 @@ impl Named for CompileInvoke {
     }
 }
 
-impl Visitor<()> for CompileInvoke {
+impl Visitor for CompileInvoke {
 }

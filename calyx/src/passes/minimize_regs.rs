@@ -49,7 +49,7 @@ impl Named for MinimizeRegs {
     }
 }
 
-impl Visitor<()> for MinimizeRegs {
+impl Visitor for MinimizeRegs {
     fn start(
         &mut self,
         comp: &mut ir::Component,

@@ -19,7 +19,7 @@ impl Named for DeadCellRemoval {
     }
 }
 
-impl Visitor<()> for DeadCellRemoval {
+impl Visitor for DeadCellRemoval {
     fn start(
         &mut self,
         comp: &mut ir::Component,

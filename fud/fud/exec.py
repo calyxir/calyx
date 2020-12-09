@@ -4,7 +4,7 @@ from halo import Halo
 from pathlib import Path
 
 from .stages import Source, SourceType
-from . import errors, utils, config
+from . import errors, utils
 
 
 def discover_implied_stage(filename, config):
@@ -32,16 +32,6 @@ def run_fud(args, config):
         input_file = Path(args.input_file)
         if not input_file.exists():
             raise FileNotFoundError(input_file)
-
-    # set verbosity level
-    level = None
-    if args.verbose <= 0:
-        level = log.WARNING
-    elif args.verbose <= 1:
-        level = log.INFO
-    elif args.verbose <= 2:
-        level = log.DEBUG
-    log.basicConfig(format="%(message)s", level=level)
 
     # update the stages config with arguments provided via cmdline
     if args.dynamic_config is not None:

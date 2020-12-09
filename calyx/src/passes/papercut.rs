@@ -81,7 +81,7 @@ impl Named for Papercut<'_> {
     }
 }
 
-impl Visitor<()> for Papercut<'_> {
+impl Visitor for Papercut<'_> {
     fn start(
         &mut self,
         comp: &mut ir::Component,

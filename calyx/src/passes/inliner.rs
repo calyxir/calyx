@@ -103,7 +103,7 @@ fn fixed_point(graph: &GraphAnalysis, map: &mut Store) {
     }
 }
 
-impl Visitor<()> for Inliner {
+impl Visitor for Inliner {
     fn start(
         &mut self,
         comp: &mut ir::Component,

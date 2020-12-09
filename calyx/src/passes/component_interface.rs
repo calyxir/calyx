@@ -43,7 +43,7 @@ impl Named for ComponentInterface {
     }
 }
 
-impl Visitor<()> for ComponentInterface {
+impl Visitor for ComponentInterface {
     fn start(
         &mut self,
         comp: &mut ir::Component,

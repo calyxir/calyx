@@ -16,7 +16,7 @@ impl Named for CollapseControl {
     }
 }
 
-impl Visitor<()> for CollapseControl {
+impl Visitor for CollapseControl {
     /// Collapse seq { seq { A }; B } into seq { A; B }.
     fn finish_seq(
         &mut self,

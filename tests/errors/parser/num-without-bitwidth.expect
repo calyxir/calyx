@@ -1,0 +1,9 @@
+---CODE---
+1
+---STDERR---
+Error: FuTIL Parser:  --> 4:12
+  |
+4 |     r.in = 1;␊
+  |            ^
+  |
+  = Expected number with bitwidth (like 32'd10).
