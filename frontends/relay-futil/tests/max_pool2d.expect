@@ -1,6 +1,6 @@
 import "primitives/std.lib";
 
-component max_pool2d(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, result0_0_0_0_read_data: 32, result0_0_0_0_done: 1) -> (done: 1, data0_0_0_0_addr0: 2, data0_0_0_0_addr1: 2, data0_0_0_0_addr2: 3, data0_0_0_0_addr3: 3, data0_0_0_0_write_data: 32, data0_0_0_0_write_en: 1, data0_0_0_0_clk: 1, result0_0_0_0_addr0: 2, result0_0_0_0_addr1: 2, result0_0_0_0_addr2: 2, result0_0_0_0_addr3: 2, result0_0_0_0_write_data: 32, result0_0_0_0_write_en: 1, result0_0_0_0_clk: 1) {
+component max_pool2d0(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, result0_0_0_0_read_data: 32, result0_0_0_0_done: 1) -> (done: 1, data0_0_0_0_addr0: 2, data0_0_0_0_addr1: 2, data0_0_0_0_addr2: 3, data0_0_0_0_addr3: 3, data0_0_0_0_write_data: 32, data0_0_0_0_write_en: 1, data0_0_0_0_clk: 1, result0_0_0_0_addr0: 2, result0_0_0_0_addr1: 2, result0_0_0_0_addr2: 2, result0_0_0_0_addr3: 2, result0_0_0_0_write_data: 32, result0_0_0_0_write_en: 1, result0_0_0_0_clk: 1) {
   cells {
     add0 = prim std_add(32);
     add1 = prim std_add(32);
@@ -326,29 +326,29 @@ component main () -> () {
   cells {
     result = prim std_mem_d4(32, 2, 2, 2, 2, 2, 2, 2, 2);
     data = prim std_mem_d4(32, 2, 2, 4, 4, 2, 2, 3, 3);
-    max_pool2d0 = max_pool2d;
+    comp_max_pool2d0 = max_pool2d0;
   }
   wires {
-    group run_max_pool2d {
-      data.addr0 = max_pool2d0.data0_0_0_0_addr0;
-      max_pool2d0.data0_0_0_0_read_data = data.read_data;
-      data.addr1 = max_pool2d0.data0_0_0_0_addr1;
-      data.addr2 = max_pool2d0.data0_0_0_0_addr2;
-      data.addr3 = max_pool2d0.data0_0_0_0_addr3;
-      result.addr0 = max_pool2d0.result0_0_0_0_addr0;
-      result.addr1 = max_pool2d0.result0_0_0_0_addr1;
-      result.addr2 = max_pool2d0.result0_0_0_0_addr2;
-      result.addr3 = max_pool2d0.result0_0_0_0_addr3;
-      result.write_data = max_pool2d0.result0_0_0_0_write_data;
-      result.write_en = max_pool2d0.result0_0_0_0_write_en;
-      max_pool2d0.result0_0_0_0_done = result.done;
-      max_pool2d0.go = 1'd1;
-      run_max_pool2d[done] = max_pool2d0.done ? 1'd1;
+    group run_max_pool2d0 {
+      data.addr0 = comp_max_pool2d0.data0_0_0_0_addr0;
+      comp_max_pool2d0.data0_0_0_0_read_data = data.read_data;
+      data.addr1 = comp_max_pool2d0.data0_0_0_0_addr1;
+      data.addr2 = comp_max_pool2d0.data0_0_0_0_addr2;
+      data.addr3 = comp_max_pool2d0.data0_0_0_0_addr3;
+      result.addr0 = comp_max_pool2d0.result0_0_0_0_addr0;
+      result.addr1 = comp_max_pool2d0.result0_0_0_0_addr1;
+      result.addr2 = comp_max_pool2d0.result0_0_0_0_addr2;
+      result.addr3 = comp_max_pool2d0.result0_0_0_0_addr3;
+      result.write_data = comp_max_pool2d0.result0_0_0_0_write_data;
+      result.write_en = comp_max_pool2d0.result0_0_0_0_write_en;
+      comp_max_pool2d0.result0_0_0_0_done = result.done;
+      comp_max_pool2d0.go = 1'd1;
+      run_max_pool2d0[done] = comp_max_pool2d0.done ? 1'd1;
     }
   }
   control {
     seq {
-      run_max_pool2d;
+      run_max_pool2d0;
     }
   }
 }

@@ -1,6 +1,6 @@
 import "primitives/std.lib";
 
-component conv2d(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, weight0_0_0_0_read_data: 32, weight0_0_0_0_done: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1) -> (done: 1, data0_0_0_0_addr0: 3, data0_0_0_0_addr1: 10, data0_0_0_0_addr2: 4, data0_0_0_0_addr3: 4, data0_0_0_0_write_data: 32, data0_0_0_0_write_en: 1, data0_0_0_0_clk: 1, weight0_0_0_0_addr0: 10, weight0_0_0_0_addr1: 10, weight0_0_0_0_addr2: 2, weight0_0_0_0_addr3: 2, weight0_0_0_0_write_data: 32, weight0_0_0_0_write_en: 1, weight0_0_0_0_clk: 1, x0_0_0_0_addr0: 3, x0_0_0_0_addr1: 10, x0_0_0_0_addr2: 4, x0_0_0_0_addr3: 4, x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_clk: 1) {
+component conv2d0(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, weight0_0_0_0_read_data: 32, weight0_0_0_0_done: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1) -> (done: 1, data0_0_0_0_addr0: 3, data0_0_0_0_addr1: 10, data0_0_0_0_addr2: 4, data0_0_0_0_addr3: 4, data0_0_0_0_write_data: 32, data0_0_0_0_write_en: 1, data0_0_0_0_clk: 1, weight0_0_0_0_addr0: 10, weight0_0_0_0_addr1: 10, weight0_0_0_0_addr2: 2, weight0_0_0_0_addr3: 2, weight0_0_0_0_write_data: 32, weight0_0_0_0_write_en: 1, weight0_0_0_0_clk: 1, x0_0_0_0_addr0: 3, x0_0_0_0_addr1: 10, x0_0_0_0_addr2: 4, x0_0_0_0_addr3: 4, x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_clk: 1) {
   cells {
     add0 = prim std_add(32);
     add1 = prim std_add(32);
@@ -362,34 +362,34 @@ component main () -> () {
     x = prim std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
     data = prim std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
     weight = prim std_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
-    conv2d0 = conv2d;
+    comp_conv2d0 = conv2d0;
   }
   wires {
-    group run_conv2d {
-      data.addr0 = conv2d0.data0_0_0_0_addr0;
-      conv2d0.data0_0_0_0_read_data = data.read_data;
-      data.addr1 = conv2d0.data0_0_0_0_addr1;
-      data.addr2 = conv2d0.data0_0_0_0_addr2;
-      data.addr3 = conv2d0.data0_0_0_0_addr3;
-      weight.addr0 = conv2d0.weight0_0_0_0_addr0;
-      conv2d0.weight0_0_0_0_read_data = weight.read_data;
-      weight.addr1 = conv2d0.weight0_0_0_0_addr1;
-      weight.addr2 = conv2d0.weight0_0_0_0_addr2;
-      weight.addr3 = conv2d0.weight0_0_0_0_addr3;
-      x.addr0 = conv2d0.x0_0_0_0_addr0;
-      x.addr1 = conv2d0.x0_0_0_0_addr1;
-      x.addr2 = conv2d0.x0_0_0_0_addr2;
-      x.addr3 = conv2d0.x0_0_0_0_addr3;
-      x.write_data = conv2d0.x0_0_0_0_write_data;
-      x.write_en = conv2d0.x0_0_0_0_write_en;
-      conv2d0.x0_0_0_0_done = x.done;
-      conv2d0.go = 1'd1;
-      run_conv2d[done] = conv2d0.done ? 1'd1;
+    group run_conv2d0 {
+      data.addr0 = comp_conv2d0.data0_0_0_0_addr0;
+      comp_conv2d0.data0_0_0_0_read_data = data.read_data;
+      data.addr1 = comp_conv2d0.data0_0_0_0_addr1;
+      data.addr2 = comp_conv2d0.data0_0_0_0_addr2;
+      data.addr3 = comp_conv2d0.data0_0_0_0_addr3;
+      weight.addr0 = comp_conv2d0.weight0_0_0_0_addr0;
+      comp_conv2d0.weight0_0_0_0_read_data = weight.read_data;
+      weight.addr1 = comp_conv2d0.weight0_0_0_0_addr1;
+      weight.addr2 = comp_conv2d0.weight0_0_0_0_addr2;
+      weight.addr3 = comp_conv2d0.weight0_0_0_0_addr3;
+      x.addr0 = comp_conv2d0.x0_0_0_0_addr0;
+      x.addr1 = comp_conv2d0.x0_0_0_0_addr1;
+      x.addr2 = comp_conv2d0.x0_0_0_0_addr2;
+      x.addr3 = comp_conv2d0.x0_0_0_0_addr3;
+      x.write_data = comp_conv2d0.x0_0_0_0_write_data;
+      x.write_en = comp_conv2d0.x0_0_0_0_write_en;
+      comp_conv2d0.x0_0_0_0_done = x.done;
+      comp_conv2d0.go = 1'd1;
+      run_conv2d0[done] = comp_conv2d0.done ? 1'd1;
     }
   }
   control {
     seq {
-      run_conv2d;
+      run_conv2d0;
     }
   }
 }

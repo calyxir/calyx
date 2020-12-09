@@ -77,12 +77,12 @@ def get_memory_parameters(type):
     return data, NumDimensionsToPrimitive[num_dimensions], data_type
 
 
-def build_main_controls(c: FComponent):
+def build_main_controls(component: FComponent):
     '''
     Builds the wires and control for the `main` component. This is done by creating a group `run_*`
     with its respective wiring for each Relay function call, and adding it to the control.
     '''
-    for cell in reversed(c.cells.values()):
+    for cell in reversed(component.cells.values()):
         if not cell.is_relay_function(): continue
         function = cell.relay_function
         inputs, output = function.inputs, function.output
@@ -115,8 +115,8 @@ def build_main_controls(c: FComponent):
         wires.append(FWire(f'{function.name}.{output.dahlia_name}_done', f'{output_name}.done'))
         wires.append(FWire(f'{function.name}.go', "1'd1"))
         wires.append(FWire(f'{group_name}[done]', f"{function.name}.done ? 1'd1"))
-        c.wires.append(FConnection(group=FGroup(name=group_name, wires=wires, attributes=[])))
+        component.wires.append(FConnection(group=FGroup(name=group_name, wires=wires, attributes=[])))
 
     # Ensures that only group names make it into the controls of a FuTIL component.
-    connections = list(filter(lambda w: w.is_group(), c.wires))
-    c.controls = [Seq(stmts=list(map(lambda w: w.group.name, connections)))]
+    connections = list(filter(lambda w: w.is_group(), component.wires))
+    component.controls = [Seq(stmts=list(map(lambda w: w.group.name, connections)))]

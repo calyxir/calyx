@@ -1,6 +1,6 @@
 import "primitives/std.lib";
 
-component batch_flatten(go: 1, clk: 1, x0_0_0_read_data: 32, x0_0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (done: 1, x0_0_0_addr0: 1, x0_0_0_addr1: 2, x0_0_0_addr2: 2, x0_0_0_write_data: 32, x0_0_0_write_en: 1, x0_0_0_clk: 1, x10_0_addr0: 1, x10_0_addr1: 3, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_clk: 1) {
+component batch_flatten0(go: 1, clk: 1, x0_0_0_read_data: 32, x0_0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (done: 1, x0_0_0_addr0: 1, x0_0_0_addr1: 2, x0_0_0_addr2: 2, x0_0_0_write_data: 32, x0_0_0_write_en: 1, x0_0_0_clk: 1, x10_0_addr0: 1, x10_0_addr1: 3, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_clk: 1) {
   cells {
     add0 = prim std_add(3);
     add1 = prim std_add(2);
@@ -139,26 +139,26 @@ component main () -> () {
   cells {
     x1 = prim std_mem_d2(32, 1, 4, 1, 3);
     x = prim std_mem_d3(32, 1, 2, 2, 1, 2, 2);
-    batch_flatten0 = batch_flatten;
+    comp_batch_flatten0 = batch_flatten0;
   }
   wires {
-    group run_batch_flatten {
-      x.addr0 = batch_flatten0.x0_0_0_addr0;
-      batch_flatten0.x0_0_0_read_data = x.read_data;
-      x.addr1 = batch_flatten0.x0_0_0_addr1;
-      x.addr2 = batch_flatten0.x0_0_0_addr2;
-      x1.addr0 = batch_flatten0.x10_0_addr0;
-      x1.addr1 = batch_flatten0.x10_0_addr1;
-      x1.write_data = batch_flatten0.x10_0_write_data;
-      x1.write_en = batch_flatten0.x10_0_write_en;
-      batch_flatten0.x10_0_done = x1.done;
-      batch_flatten0.go = 1'd1;
-      run_batch_flatten[done] = batch_flatten0.done ? 1'd1;
+    group run_batch_flatten0 {
+      x.addr0 = comp_batch_flatten0.x0_0_0_addr0;
+      comp_batch_flatten0.x0_0_0_read_data = x.read_data;
+      x.addr1 = comp_batch_flatten0.x0_0_0_addr1;
+      x.addr2 = comp_batch_flatten0.x0_0_0_addr2;
+      x1.addr0 = comp_batch_flatten0.x10_0_addr0;
+      x1.addr1 = comp_batch_flatten0.x10_0_addr1;
+      x1.write_data = comp_batch_flatten0.x10_0_write_data;
+      x1.write_en = comp_batch_flatten0.x10_0_write_en;
+      comp_batch_flatten0.x10_0_done = x1.done;
+      comp_batch_flatten0.go = 1'd1;
+      run_batch_flatten0[done] = comp_batch_flatten0.done ? 1'd1;
     }
   }
   control {
     seq {
-      run_batch_flatten;
+      run_batch_flatten0;
     }
   }
 }

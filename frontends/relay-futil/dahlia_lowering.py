@@ -3,7 +3,6 @@ import os
 
 from tempfile import NamedTemporaryFile, TemporaryFile
 from futil_ast import *
-from pretty_print import *
 
 IMPORT_STATEMENT = """import "primitives/std.lib";\n"""
 NO_ERR = "2>/dev/null"
@@ -11,7 +10,68 @@ NEWL = '\n'
 CHARACTER_I = chr(ord('i'))  # Starting index variable name for Dahlia array iteration.
 
 
-def LowerDahliaProgramToFuTIL(program, component_name):
+def next_character(ch, dir=1):
+    """
+    Returns the next character after 'ch'.
+    If `dir` is positive, then will return 'ch' + 1. Otherwise, it will return 'ch' - 1.
+    """
+    return chr(ord(ch) + 1) if dir > 0 else chr(ord(ch) - 1)
+
+
+def PPDahliaMemoryDeclarations(relay_function):
+    """
+    Pretty print for Dahlia memory declarations, e.g.
+    `decl X: ubit<32> [1][10];`
+    """
+    cell_list = relay_function.inputs
+    cell_list.append(relay_function.output)
+
+    declarations = []
+    for cell in cell_list:
+        declaration = cell.primitive
+        declaration_str = f'decl {declaration.name}: {declaration.data_type}<{declaration.data[0]}>'
+        for i in range(0, declaration.type): declaration_str += f'[{declaration.data[i + 1]}]'
+        declarations.append(declaration_str + ";")
+    return '\n'.join(declarations)
+
+
+def PPDahliaLoop(relay_function, body, num_dimensions, data=None):
+    """
+    Returns an iteration over data with `body` as the work done within the nested loop(s).
+    Many tensor functions share the same control flow: (1) Iterate `num_dimensions` times, and (2) do some work in body.
+    For example, if `data` is a 2D primitive of size (M, N) and body == `X;`, then this will return:
+
+    ```
+    for (let i: ubit<X> = 0..M) {
+      for (let j: ubit<Y> = 0..N) {
+        X;
+      }
+    }
+    ```
+
+    Notes:
+    If `data` is provided, it will be used to determine the `num_dimensions` as well as the corresponding bitwidths
+    and memory sizes. This occurs only in special cases; otherwise, the `output` of the `relay_function` will
+    determine these.
+    """
+    variable_name = CHARACTER_I
+    program = []
+    SPACING = ''
+    output = relay_function.output.primitive if data == None else data
+    for i in range(0, num_dimensions):
+        size, index_size = output.data[i + 1], output.data[i + num_dimensions + 1]
+        program.append(f'{SPACING}for (let {variable_name}: ubit<{index_size}> = 0..{size}) {{')
+        variable_name = next_character(variable_name)
+        SPACING += '  '
+    program.append(f'{SPACING}{body}')
+
+    for i in range(0, num_dimensions):
+        SPACING = SPACING[:-2]
+        program.append(SPACING + '}')
+    return '\n'.join(program)
+
+
+def LowerDahliaProgramToFuTIL(relay_function, dahlia_body, dahlia_imports=None):
     """
     Takes in a string representation of a Dahlia program, lowers it to FuTIL with the given `component_name`,
     and applies the `externalize` pass. This pass exposes the inputs and outputs of primitive types that are
@@ -19,6 +79,7 @@ def LowerDahliaProgramToFuTIL(program, component_name):
 
     Example:
         ------ Dahlia, component name: ProcessX ------
+        import "foo.h" { ... }
         decl X: ubit<32>[4];
         ...
 
@@ -35,13 +96,15 @@ def LowerDahliaProgramToFuTIL(program, component_name):
            ...
         }
     """
-    program_string = '\n'.join(program.splitlines())
+    if dahlia_imports == None: dahlia_imports = ''
+    program_string = '\n'.join((dahlia_imports, PPDahliaMemoryDeclarations(relay_function), dahlia_body))
+
     with NamedTemporaryFile() as tf0, NamedTemporaryFile() as tf1, NamedTemporaryFile() as tf2:
         tf0.write(bytes(program_string, 'UTF-8'))
         tf0.seek(0), tf1.seek(0), tf2.seek(0)
         fuse_binary = os.environ['DAHLIA_EXEC'] if 'DAHLIA_EXEC' in os.environ else 'fuse'
         command = f"""
-                {fuse_binary} {tf0.name} --lower -b=futil -n={component_name} > {tf1.name} {NO_ERR} \
+                {fuse_binary} {tf0.name} --lower -b=futil -n={relay_function.component_name} > {tf1.name} {NO_ERR} \
                  && fud e --from futil {tf1.name} --to futil-externalize > {tf2.name} {NO_ERR}"""
         subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).communicate()
         component = tf2.read().decode()[len(IMPORT_STATEMENT):]  # Skip over importing the primitives library.
@@ -49,10 +112,10 @@ def LowerDahliaProgramToFuTIL(program, component_name):
 
 
 ####################################################################################################
-################################ Dahlia Implementations ############################################
+################## Dahlia Implementations for Relay Function Calls #################################
 ####################################################################################################
 
-def broadcast(declaration):
+def broadcast(function: RelayFunctionCall):
     """
     https://numpy.org/doc/stable/user/basics.broadcasting.html
     Implements array broadcasting:
@@ -72,8 +135,7 @@ def broadcast(declaration):
               result[i][j][k] := op1[i][0][k] op op2[j][0];
               ...
     """
-    op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
-
+    op1, op2, res = function.inputs[0].primitive, function.inputs[1].primitive, function.output.primitive
     op1_dims, op2_dims, res_dims = op1.type, op2.type, res.type
     op1_sizes, op2_sizes, res_sizes = [], [], []
     # Get memory sizes in reversed order.
@@ -109,18 +171,15 @@ def broadcast(declaration):
     op1_index = ''.join(reversed(op1_indices))
     op2_index = ''.join(reversed(op2_indices))
     res_index = ''.join(reversed(res_indices))
-    loop_body = f'{res.name}{res_index} := {op1.name}{op1_index} {declaration.op} {op2.name}{op2_index};'
+    loop_body = f'{res.name}{res_index} := {op1.name}{op1_index} {function.op} {op2.name}{op2_index};'
 
-    program_body = pp_dahlia_loop(res, loop_body)
-    declarations = pp_dahlia_memory_declarations([res, op1, op2])
-    program = f"""{declarations}{NEWL}{program_body}"""
-    return LowerDahliaProgramToFuTIL(program, declaration.component_name)
+    return LowerDahliaProgramToFuTIL(function, PPDahliaLoop(function, loop_body, num_dimensions=res_dims))
 
 
-def batch_flatten(declaration):
+def batch_flatten(function):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.batch_flatten"""
-    data, res = declaration.inputs[0].primitive, declaration.output.primitive
-    bitwidth, num_dimensions = data.data[0], data.type
+    data, res = function.inputs[0].primitive, function.output.primitive
+    bitwidth, num_dimensions = res.data[0], data.type
     res_index_size1 = res.data[4]
 
     variable_name = CHARACTER_I
@@ -133,20 +192,18 @@ def batch_flatten(declaration):
         variable_name = next_character(variable_name)
     res_indices += f'[{variable_name}]'
 
-    declarations = pp_dahlia_memory_declarations([data, res])
     let_flattened = f'let {variable_name}: ubit<{res_index_size1}> = 0;'
     body = f"{res.name}{res_indices} := {data.name}{data_indices}; {variable_name} := {variable_name} + 1;"
-    program_body = pp_dahlia_loop(data, body)
-    program = f"""{declarations}{NEWL}{let_flattened}{NEWL}{program_body}"""
-    return LowerDahliaProgramToFuTIL(program, declaration.component_name)
+    program_body = '\n'.join((let_flattened, PPDahliaLoop(function, body, num_dimensions, data)))
+    return LowerDahliaProgramToFuTIL(function, program_body)
 
 
-def bias_add(declaration):
+def bias_add(function):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.bias_add"""
-    data, bias, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
+    data, bias, res = function.inputs[0].primitive, function.inputs[1].primitive, function.output.primitive
     bitwidth, num_dimensions = data.data[0], data.type
 
-    axis_attribute = declaration.attributes.get_int("axis")
+    axis_attribute = function.attributes.get_int("axis")
     axis = num_dimensions - 1 if axis_attribute == -1 else axis_attribute
 
     variable_name = CHARACTER_I
@@ -159,22 +216,19 @@ def bias_add(declaration):
         data_indices += index
         variable_name = next_character(variable_name)
 
-    declarations = pp_dahlia_memory_declarations([data, bias, res])
-    body = (f"{res.name}{data_indices} := {data.name}{data_indices} + {bias.name}{bias_index};")
-    program_body = pp_dahlia_loop(data, body)
-    return LowerDahliaProgramToFuTIL(f"""{declarations}{NEWL}{program_body}""", declaration.component_name)
+    body = f"{res.name}{data_indices} := {data.name}{data_indices} + {bias.name}{bias_index};"
+    return LowerDahliaProgramToFuTIL(function, PPDahliaLoop(function, body, num_dimensions))
 
 
 # TODO(cgyurgyik):
 #  1. This won't work for fixed point currently, since Dahlia
 #     will not take fixed point operands for the `>` operator.
 #  2. Without signed bit array support, this is also meaningless.
-def relu(declaration):
+def relu(function):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.relu"""
-    data, res = declaration.inputs[0].primitive, declaration.output.primitive
+    data, res = function.inputs[0].primitive, function.output.primitive
     bitwidth, num_dimensions, data_type = data.data[0], data.type, data.data_type
 
-    declarations = pp_dahlia_memory_declarations([data, res])
     zero = '0.0' if data_type == 'ufix' or data_type == 'fix' else '0'
     let_zero = f'let zero: {data_type}<{bitwidth}> = {zero};'
 
@@ -186,16 +240,15 @@ def relu(declaration):
         variable_name = next_character(variable_name)
 
     body = f"""if ({data.name}{indices} > zero) {{ {res.name}{indices} := {data.name}{indices}; }} 
-        else {{ {res.name}{indices} := zero; }}"""
-    program_body = pp_dahlia_loop(data, body)
-    return LowerDahliaProgramToFuTIL(f"""{declarations}{NEWL}{let_zero}{NEWL}{program_body}""",
-                                     declaration.component_name)
+               else {{ {res.name}{indices} := zero; }}"""
+    program_body = '\n'.join((let_zero, PPDahliaLoop(function, body, num_dimensions)))
+    return LowerDahliaProgramToFuTIL(function, program_body)
 
 
 # TODO(cgyurgyik): Similar to ReLU, this requires signed operands.
-def negative(declaration):
+def negative(function):
     """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.negative"""
-    op, res = declaration.inputs[0].primitive, declaration.output.primitive
+    op, res = function.inputs[0].primitive, function.output.primitive
     bitwidth, num_dimensions, data_type = op.data[0], op.type, op.data_type
 
     indices = ""
@@ -205,15 +258,14 @@ def negative(declaration):
         indices += f'[{variable_name}]'
         variable_name = next_character(variable_name)
 
-    declarations = pp_dahlia_memory_declarations([op, res])
     zero = '0.0' if data_type == 'ufix' or data_type == 'fix' else '0'
-    program_body = pp_dahlia_loop(op, f"""{res.name}{indices} := {zero} - {op.name}{indices};""")
-    return LowerDahliaProgramToFuTIL(f"""{declarations}{NEWL}{program_body}""", declaration.component_name)
+    program_body = PPDahliaLoop(function, f"""{res.name}{indices} := {zero} - {op.name}{indices};""", num_dimensions)
+    return LowerDahliaProgramToFuTIL(function, program_body)
 
 
-def sqrt(declaration):
+def sqrt(function):
     """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.sqrt"""
-    op, res = declaration.inputs[0].primitive, declaration.output.primitive
+    op, res = function.inputs[0].primitive, function.output.primitive
     bitwidth, num_dimensions, data_type = op.data[0], op.type, op.data_type
     include_sqrt = f"""import "fxp_sqrt.h" {{ def sqrt(value: {data_type}<{bitwidth}>): {data_type}<{bitwidth}>; }}"""
 
@@ -224,19 +276,15 @@ def sqrt(declaration):
         indices += f'[{variable_name}]'
         variable_name = next_character(variable_name)
 
-    declarations = pp_dahlia_memory_declarations([op, res])
-    program_body = pp_dahlia_loop(op, f"""{res.name}{indices} := sqrt({op.name}{indices});""")
-    return LowerDahliaProgramToFuTIL(f"""{include_sqrt}{NEWL}{declarations}{NEWL}{program_body}""",
-                                     declaration.component_name)
+    program_body = PPDahliaLoop(function, f"""{res.name}{indices} := sqrt({op.name}{indices});""", num_dimensions)
+    return LowerDahliaProgramToFuTIL(function, program_body, include_sqrt)
 
 
-def expand_dims(declaration):
+def expand_dims(function):
     """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.expand_dims"""
-    axis, num_newaxis = declaration.attributes.get_int("axis"), declaration.attributes.get_int("num_newaxis")
-    data, res = declaration.inputs[0].primitive, declaration.output.primitive
+    axis, num_newaxis = function.attributes.get_int("axis"), function.attributes.get_int("num_newaxis")
+    data, res = function.inputs[0].primitive, function.output.primitive
     bitwidth, num_dimensions = data.data[0], data.type
-
-    declarations = pp_dahlia_memory_declarations([data, res])
 
     res_indices, data_indices = "", ""
     variable_name = CHARACTER_I
@@ -249,13 +297,13 @@ def expand_dims(declaration):
             for _ in range(0, num_newaxis): res_indices += '[0]'
         variable_name = next_character(variable_name)
 
-    program_body = pp_dahlia_loop(data, f'{res.name}{res_indices} := {data.name}{data_indices}')
-    return LowerDahliaProgramToFuTIL(f"""{declarations}{NEWL}{program_body}""", declaration.component_name)
+    program_body = PPDahliaLoop(function, f'{res.name}{res_indices} := {data.name}{data_indices}', num_dimensions, data)
+    return LowerDahliaProgramToFuTIL(function, program_body)
 
 
-def batch_matmul(declaration):
+def batch_matmul(function):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.batch_matmul"""
-    op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
+    op1, op2, res = function.inputs[0].primitive, function.inputs[1].primitive, function.output.primitive
     bitwidth, M1_size0, M1_size1, M1_size2 = op1.data[0], op1.data[1], op1.data[2], op1.data[3]
     M1_index_size0, M1_index_size1, M1_index_size2 = op1.data[4], op1.data[5], op1.data[6]
     M2_size0, M2_size1, M2_size2 = op2.data[1], op2.data[2], op2.data[3]
@@ -265,8 +313,7 @@ def batch_matmul(declaration):
     # 3. Copy temporary value to return value.*
     #    * This third step may not be necessary, but trying to conduct the matrix multiply
     #      directly with the return value declared resulted in incorrect outputs.
-    declarations = pp_dahlia_memory_declarations([res, op1, op2])
-    program = f"""{declarations}
+    program_body = f"""
     let transpose_{op2.name}: {op2.data_type}<{bitwidth}>[{M2_size0}][{M2_size2}][{M2_size1}];
     let temporary_{res.name}: {res.data_type}<{bitwidth}>[{M1_size0}][{M1_size1}][{M2_size1}];
     for (let batch: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
@@ -297,19 +344,18 @@ def batch_matmul(declaration):
       }}
     }} 
     """
-    return LowerDahliaProgramToFuTIL(program, declaration.component_name)
+    return LowerDahliaProgramToFuTIL(function, program_body)
 
 
 # TODO(cgyurgyik): Similar to batch_matmul, this requires a temporary memory to store the output
 # of the matrix multiply. Otherwise, the values aren't computed properly. Look deeper into this.
-def dense(declaration):
+def dense(function):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.dense"""
-    op1, op2, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
+    op1, op2, res = function.inputs[0].primitive, function.inputs[1].primitive, function.output.primitive
     bitwidth, M1_size0, M1_size1 = op1.data[0], op1.data[1], op1.data[2]
     M1_index_size0, M1_index_size1 = op1.data[3], op1.data[4]
     M2_size0, M2_size1, M2_index_size0, M2_index_size1 = op2.data[1], op2.data[2], op2.data[3], op2.data[4]
     program = f"""
-    {pp_dahlia_memory_declarations([res, op1, op2])}
     let transpose_{op2.name}: {op2.data_type}<{bitwidth}>[{M2_size1}][{M2_size0}];
     let temporary_{res.name}: {res.data_type}<{bitwidth}>[{M1_size0}][{M2_size0}];
     for (let i: ubit<{M2_index_size0}> = 0..{M2_size0}) {{
@@ -334,24 +380,22 @@ def dense(declaration):
       }}
     }}
     """
-    return LowerDahliaProgramToFuTIL(program, declaration.component_name)
+    return LowerDahliaProgramToFuTIL(function, program)
 
 
 # TODO(cgyurgyik): Currently, only supports a small subset (namely those used in our VGG net and MLP net examples).
-def softmax(declaration):
+def softmax(function):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.softmax"""
-    op, res = declaration.inputs[0].primitive, declaration.output.primitive
-    axis = declaration.attributes.get_int("axis")
+    op, res = function.inputs[0].primitive, function.output.primitive
+    axis = function.attributes.get_int("axis")
     data_type = op.data_type
     assert op.type == PrimitiveType.Memory2D, f'nn.softmax with pritmive type Memory{op.type}D is not supported.'
     assert axis == -1 or axis == 1, f'nn.softmax with axis = {axis} is not supported.'
     bitwidth, size0, size1, index_size0, index_size1 = op.data[0], op.data[1], op.data[2], op.data[3], op.data[4]
 
     import_exp = f"""import "std_exp.h" {{ def exp(x: {data_type}<{bitwidth}>): {data_type}<{bitwidth}>; }}"""
-    declarations = pp_dahlia_memory_declarations([res, op])
-
     zero = '0.0' if data_type == 'ufix' or data_type == 'fix' else '0'
-    body = f"""
+    program_body = f"""
     for (let i: ubit<{index_size0}> = 0..{size0}) {{
       let {op.name}_expsum: {data_type}<{bitwidth}> = {zero};
       for (let j: ubit<{index_size1}> = 0..{size1}) {{ 
@@ -364,25 +408,22 @@ def softmax(declaration):
       }}
     }}
     """
-    program = f"""{import_exp}{NEWL}{declarations}{body}"""
-
-    return LowerDahliaProgramToFuTIL(program, declaration.component_name)
+    return LowerDahliaProgramToFuTIL(function, program_body, import_exp)
 
 
-def max_pool2d(declaration):
+def max_pool2d(function):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.max_pool2d"""
-    data, res = declaration.inputs[0].primitive, declaration.output.primitive
+    data, res = function.inputs[0].primitive, function.output.primitive
 
-    strides = declaration.attributes.get_int_tuple("strides")
-    pool_size = declaration.attributes.get_int_tuple("pool_size")
-    layout = declaration.attributes.get_str("layout")
-    ceil_mode = declaration.attributes.get_int("ceil_mode")
+    strides = function.attributes.get_int_tuple("strides")
+    pool_size = function.attributes.get_int_tuple("pool_size")
+    layout = function.attributes.get_str("layout")
+    ceil_mode = function.attributes.get_int("ceil_mode")
     assert layout == 'NCHW', f"Layout \'{layout}\' is not currently supported for nn.max_pool2d; please use `NCHW`"
     assert ceil_mode == False, "`ceil_mode` is not currently supported for nn.max_pool2d"
     bitwidth, data_type = data.data[0], data.data_type
     size0, size1, size2, size3 = res.data[1], res.data[2], res.data[3], res.data[4]
 
-    declarations = pp_dahlia_memory_declarations([res, data])
     program_body = f"""
     for (let b: ubit<32> = 0..{size0}) {{
       for (let c: ubit<32> = 0..{size1}) {{
@@ -406,23 +447,20 @@ def max_pool2d(declaration):
       }} 
     }} 
     """
-    program = f"""{declarations}{NEWL}{program_body}"""
-    return LowerDahliaProgramToFuTIL(program, declaration.component_name)
+    return LowerDahliaProgramToFuTIL(function, program_body)
 
 
 # Only supports a small subset of the `conv2d` function. For example,
 # dilation and grouped convolution are not supported.
-def conv2d(declaration):
+def conv2d(function):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.conv2d"""
-    data, weight, res = declaration.inputs[0].primitive, declaration.inputs[1].primitive, declaration.output.primitive
+    data, weight, res = function.inputs[0].primitive, function.inputs[1].primitive, function.output.primitive
 
-    strides = declaration.attributes.get_int_tuple("strides")
-    kernel_size = declaration.attributes.get_int_tuple("kernel_size")
-    channels = declaration.attributes.get_int("channels")
+    strides = function.attributes.get_int_tuple("strides")
+    kernel_size = function.attributes.get_int_tuple("kernel_size")
+    channels = function.attributes.get_int("channels")
     bitwidth, data_type = data.data[0], data.data_type
     size0, size1, size2, size3 = res.data[1], res.data[2], res.data[3], res.data[4]
-
-    declarations = pp_dahlia_memory_declarations([res, data, weight])
 
     zero = '0.0' if data_type == 'ufix' or data_type == 'fix' else '0'
     program_body = f"""
@@ -446,8 +484,7 @@ def conv2d(declaration):
       }} 
     }} 
     """
-    program = f"""{declarations}{NEWL}{program_body}"""
-    return LowerDahliaProgramToFuTIL(program, declaration.component_name)
+    return LowerDahliaProgramToFuTIL(function, program_body)
 
 
 # Mapping from Relay function names to their respective Dahlia lowering.
@@ -461,8 +498,8 @@ BuiltInBinaryOps = {'add': '+', 'divide': '/', 'multiply': '*', 'subtract': '-'}
 
 def GetRelayFunctionCall(function_name) -> RelayFunctionCall:
     """
-    Returns the corresponding name, function, and op (if it is a binary op, otherwise None).
-    If the function isn't supported, fails with an assertion.
+    Returns the corresponding name, function, and `op` type (if it is a binary op, otherwise None)
+    of the Relay function call. If the function call isn't supported, fails with an assertion.
     """
     function = name = op = None
     assert function_name in BuiltInBinaryOps or function_name in RelayFunctionCalls, \

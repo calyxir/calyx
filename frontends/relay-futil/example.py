@@ -16,6 +16,7 @@ def tensor_subtract():
     return relay.Function([x, y], relay.subtract(x, y))
 
 
+# Trying to read in a function that uses `expand_dims` with relay.fromtext() leads to some peculiar errors.
 def expand_dims():
     x = relay.var('x', shape=[512], dtype='int32')
     return relay.Function([x], relay.expand_dims(x, axis=1, num_newaxis=2))

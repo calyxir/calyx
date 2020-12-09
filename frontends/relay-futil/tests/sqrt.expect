@@ -1,6 +1,6 @@
 import "primitives/std.lib";
 
-component sqrt(go: 1, clk: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read_data: 32, x10_0_0_0_done: 1) -> (done: 1, x0_0_0_0_addr0: 4, x0_0_0_0_addr1: 4, x0_0_0_0_addr2: 5, x0_0_0_0_addr3: 7, x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_clk: 1, x10_0_0_0_addr0: 4, x10_0_0_0_addr1: 4, x10_0_0_0_addr2: 5, x10_0_0_0_addr3: 7, x10_0_0_0_write_data: 32, x10_0_0_0_write_en: 1, x10_0_0_0_clk: 1) {
+component sqrt0(go: 1, clk: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read_data: 32, x10_0_0_0_done: 1) -> (done: 1, x0_0_0_0_addr0: 4, x0_0_0_0_addr1: 4, x0_0_0_0_addr2: 5, x0_0_0_0_addr3: 7, x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_clk: 1, x10_0_0_0_addr0: 4, x10_0_0_0_addr1: 4, x10_0_0_0_addr2: 5, x10_0_0_0_addr3: 7, x10_0_0_0_write_data: 32, x10_0_0_0_write_en: 1, x10_0_0_0_clk: 1) {
   cells {
     add0 = prim std_add(7);
     add1 = prim std_add(5);
@@ -156,29 +156,29 @@ component main () -> () {
   cells {
     x1 = prim std_mem_d4(32, 8, 8, 16, 64, 4, 4, 5, 7);
     x = prim std_mem_d4(32, 8, 8, 16, 64, 4, 4, 5, 7);
-    sqrt0 = sqrt;
+    comp_sqrt0 = sqrt0;
   }
   wires {
-    group run_sqrt {
-      x.addr0 = sqrt0.x0_0_0_0_addr0;
-      sqrt0.x0_0_0_0_read_data = x.read_data;
-      x.addr1 = sqrt0.x0_0_0_0_addr1;
-      x.addr2 = sqrt0.x0_0_0_0_addr2;
-      x.addr3 = sqrt0.x0_0_0_0_addr3;
-      x1.addr0 = sqrt0.x10_0_0_0_addr0;
-      x1.addr1 = sqrt0.x10_0_0_0_addr1;
-      x1.addr2 = sqrt0.x10_0_0_0_addr2;
-      x1.addr3 = sqrt0.x10_0_0_0_addr3;
-      x1.write_data = sqrt0.x10_0_0_0_write_data;
-      x1.write_en = sqrt0.x10_0_0_0_write_en;
-      sqrt0.x10_0_0_0_done = x1.done;
-      sqrt0.go = 1'd1;
-      run_sqrt[done] = sqrt0.done ? 1'd1;
+    group run_sqrt0 {
+      x.addr0 = comp_sqrt0.x0_0_0_0_addr0;
+      comp_sqrt0.x0_0_0_0_read_data = x.read_data;
+      x.addr1 = comp_sqrt0.x0_0_0_0_addr1;
+      x.addr2 = comp_sqrt0.x0_0_0_0_addr2;
+      x.addr3 = comp_sqrt0.x0_0_0_0_addr3;
+      x1.addr0 = comp_sqrt0.x10_0_0_0_addr0;
+      x1.addr1 = comp_sqrt0.x10_0_0_0_addr1;
+      x1.addr2 = comp_sqrt0.x10_0_0_0_addr2;
+      x1.addr3 = comp_sqrt0.x10_0_0_0_addr3;
+      x1.write_data = comp_sqrt0.x10_0_0_0_write_data;
+      x1.write_en = comp_sqrt0.x10_0_0_0_write_en;
+      comp_sqrt0.x10_0_0_0_done = x1.done;
+      comp_sqrt0.go = 1'd1;
+      run_sqrt0[done] = comp_sqrt0.done ? 1'd1;
     }
   }
   control {
     seq {
-      run_sqrt;
+      run_sqrt0;
     }
   }
 }

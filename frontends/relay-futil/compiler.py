@@ -7,7 +7,7 @@ from collections import defaultdict
 from pretty_print import *
 from utilities import *
 from futil_ast import *
-from dahlia_functions import *
+from dahlia_lowering import *
 
 
 class Relay2Futil(ExprFunctor):
@@ -34,8 +34,8 @@ class Relay2Futil(ExprFunctor):
         %x  = foo(%y);
         %x1 = bar(%x); // Here, at this level, the name_hint associated with `x1` is still 'x'.
 
-        To avoid this, we provide Relay with its own identification dictionary. If 'x' is seen
-        three times, it will produce: 'x', 'x1', x2'.
+        To avoid this, we provide Relay with its own identification dictionary.
+        If 'x' is seen three times, it will produce: 'x', 'x1', x2'.
         """
         id_number = self.relay_id_dictionary[name]
         self.relay_id_dictionary[name] += 1
@@ -62,7 +62,7 @@ class Relay2Futil(ExprFunctor):
     def visit_let(self, let):
         values, output = self.visit(let.value), self.visit(let.var)
         if isinstance(values, list):
-            for value in values:
+            for value in flatten(values):
                 if value.is_relay_function(): value.relay_function.output = output
         return [self.visit(let.body), values]
 
@@ -81,8 +81,9 @@ class Relay2Futil(ExprFunctor):
         # We are representing all function calls in Relay IR at the Dahlia level, which will then be lowered to FuTIL.
         # Note, the Relay function's output is not defined until the `let` statement is visited.
         function, name, op = GetRelayFunctionCall(call.op.name)
-        relay_function_call = RelayFunctionCall(component_name=self.relay_id(name), name=self.id(name), op=op,
-                                                inputs=args, attributes=call.attrs, lowering_function=function)
+        component_name = self.id(name)
+        relay_function_call = RelayFunctionCall(component_name=component_name, name=f'comp_{component_name}',
+                                                op=op, inputs=args, attributes=call.attrs, lowering_function=function)
         cells.append(FCell(relay_function=relay_function_call))
         return cells
 
@@ -95,14 +96,13 @@ class Relay2Futil(ExprFunctor):
 
 def relay_transforms(expr: Function) -> Function:
     """https://tvm.apache.org/docs/api/python/relay/transform.html"""
-    transform = tvm.transform.Sequential([
+    transforms = tvm.transform.Sequential([
         relay.transform.SimplifyExpr(),
         relay.transform.SimplifyInference(),
-        relay.transform.InferType()
+        relay.transform.InferType(),
     ])
     mod = ir.IRModule.from_expr(expr)
-    mod['main'] = expr
-    mod = transform(mod)
+    mod = transforms(mod)
     return mod['main']
 
 
