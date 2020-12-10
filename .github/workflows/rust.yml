@@ -174,9 +174,6 @@ jobs:
           args: -p calyx --no-deps
       - name: Move source documentation
         run: |
-          ls -la .
-          ls ./target
-          ls ./book
           mv ./target/doc ./book
       - name: rsync
         if: ${{github.event_name=='push' && github.ref=='refs/heads/master'}}
