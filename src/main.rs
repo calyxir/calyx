@@ -14,9 +14,9 @@ use cmdline::Opts;
 use pass_manager::PassManager;
 use passes::{
     ClkInsertion, CollapseControl, CompileControl, CompileEmpty,
-    ComponentInterface, DeadCellRemoval, Externalize, GoInsertion, Inliner,
-    LiveRangeAnalysis, MinimizeRegs, Papercut, RemoveExternalMemories,
-    ResourceSharing, StaticTiming, WellFormed, InferStaticTiming
+    ComponentInterface, DeadCellRemoval, Externalize, GoInsertion,
+    InferStaticTiming, Inliner, LiveRangeAnalysis, MinimizeRegs, Papercut,
+    RemoveExternalMemories, ResourceSharing, StaticTiming, WellFormed,
 };
 use std::io::stdin;
 use structopt::StructOpt;
