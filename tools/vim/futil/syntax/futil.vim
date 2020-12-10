@@ -10,7 +10,7 @@ syn region futilString start=/\v"/ skip=/\v\\./ end=/\v("|$)/
 hi link futilString String
 
 " Control statements
-syn keyword futilControl while if with seq par
+syn keyword futilControl while if with seq par invoke
 hi link futilControl Special
 
 " Other keywords

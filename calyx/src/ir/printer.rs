@@ -184,8 +184,7 @@ impl IRPrinter {
                 }
                 if inputs.is_empty() {
                     write!(f, ")(")?;
-                }
-                else {
+                } else {
                     write!(f, "\n{})(", " ".repeat(indent_level))?;
                 }
                 for (arg, port) in outputs {
@@ -199,8 +198,7 @@ impl IRPrinter {
                 }
                 if outputs.is_empty() {
                     writeln!(f, ");")
-                }
-                else {
+                } else {
                     writeln!(f, "\n{});", " ".repeat(indent_level))
                 }
             }

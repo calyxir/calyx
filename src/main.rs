@@ -49,7 +49,12 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
     register_alias!(
         pm,
         "pre-opt",
-        [CompileInvoke, CollapseControl, ResourceSharing, MinimizeRegs]
+        [
+            CompileInvoke,
+            CollapseControl,
+            ResourceSharing,
+            MinimizeRegs
+        ]
     );
     register_alias!(
         pm,

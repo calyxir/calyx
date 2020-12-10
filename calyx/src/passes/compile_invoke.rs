@@ -1,7 +1,7 @@
 use crate::frontend::library::ast::LibrarySignatures;
-use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir;
-use crate::{build_assignments, structure, guard};
+use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::{build_assignments, structure};
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -29,24 +29,16 @@ impl Visitor for CompileInvoke {
         let invoke_group = builder.add_group("invoke", HashMap::new());
 
         // Generate state elements to make sure that component is only run once.
-        // comp.go = once.out != 1 ? 1;
-        // once.in = once.out != 1 ? comp.done;
-        // once.write_en = once.out != 1 ? comp.done;
-        // invoke[done] = once.out == 1
+        // comp.go = 1'd1;
+        // invoke[done] = comp.done;
         structure!(builder;
-            let once = prim std_reg(1);
-            let done_const = constant(1, 1);
-            let zero = constant(0, 1);
+            let one = constant(1, 1);
         );
 
         let cell = &s.comp;
-        let is_done = guard!(once["out"]).eq(guard!(done_const["out"]));
-        let is_not_done = !is_done.clone();
-        let mut once_assignments = build_assignments!(builder;
-            cell["go"] = is_not_done ? done_const["out"];
-            once["in"] = is_not_done ? cell["done"];
-            once["write_en"] = is_not_done ? cell["done"];
-            invoke_group["done"] = is_done ? done_const["out"];
+        let mut enable_assignments = build_assignments!(builder;
+            cell["go"] = ? one["out"];
+            invoke_group["done"] = ? cell["done"];
         );
 
         // Generate argument assignments
@@ -61,18 +53,9 @@ impl Visitor for CompileInvoke {
             .chain(s.outputs.drain(..).into_iter().map(|(out, p)| {
                 builder.build_assignment(p, cell.get(out), ir::Guard::True)
             }))
-            .chain(once_assignments.drain(..))
+            .chain(enable_assignments.drain(..))
             .collect();
         invoke_group.borrow_mut().assignments = assigns;
-
-        // CLEANUP: Set once to 0;
-        // once.in = once.out == 1 ? 0;
-        // once.write_en = once.out == 1 ? 1;
-        let mut cleanup = build_assignments!(builder;
-            once["in"] = is_done ? zero["out"];
-            once["write_en"] = is_done ? done_const["out"];
-        );
-        comp.continuous_assignments.append(&mut cleanup);
 
         Ok(Action::Change(ir::Control::enable(invoke_group)))
     }
