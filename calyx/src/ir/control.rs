@@ -52,6 +52,7 @@ pub struct Enable {
 
 type PortMap = Vec<(Id, RRC<Port>)>;
 
+/// Data for an `invoke` control statement.
 #[derive(Debug)]
 pub struct Invoke {
     /// Cell that is being invoked.
