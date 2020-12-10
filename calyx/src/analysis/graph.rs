@@ -8,6 +8,7 @@ use petgraph::{
     visit::EdgeRef,
     Direction::{Incoming, Outgoing},
 };
+use std::fmt::Write;
 use std::{collections::HashMap, rc::Rc};
 
 type Node = RRC<ir::Port>;
@@ -105,11 +106,6 @@ impl GraphAnalysis {
         }
     }
 
-    // /// Construct a graph from a component. Ports are nodes
-    // /// and assignments are edges.
-    // pub fn from(component: &ir::Component) -> Self {
-    // }
-
     /// Returns an iterator over all the reads from a port.
     /// Returns an empty iterator if this is an Input port.
     pub fn reads_from(&self, port: &ir::Port) -> PortIterator<'_> {
@@ -174,6 +170,33 @@ impl GraphAnalysis {
     /// Checks if there are cycles in the analysis graph.
     pub fn has_cycles(&self) -> bool {
         algo::is_cyclic_directed(&self.graph)
+    }
+}
+
+impl ToString for GraphAnalysis {
+    fn to_string(&self) -> String {
+        let mut out = String::new();
+        for idx in self.graph.node_indices() {
+            let src_port = self.graph[idx].borrow();
+            let src =
+                format!("{}.{}", src_port.get_parent_name(), src_port.name);
+            writeln!(
+                &mut out,
+                "{} -> [{}]",
+                src,
+                self.graph
+                    .neighbors_directed(idx, petgraph::Direction::Outgoing)
+                    .into_iter()
+                    .map(|idx| {
+                        let port = self.graph[idx].borrow();
+                        format!("{}.{}", port.get_parent_name(), port.name)
+                    })
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            )
+            .expect("Failed to write to ScheduleConflicts string");
+        }
+        out
     }
 }
 
