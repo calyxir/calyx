@@ -49,14 +49,6 @@ impl Visitor for CompileInvoke {
             invoke_group["done"] = is_done ? done_const["out"];
         );
 
-        // CLEANUP: Set once to 0;
-        // once.in = once.out == 1 ? 0;
-        // once.write_en = once.out == 1 ? 1;
-        let mut cleanup = build_assignments!(builder;
-            once["in"] = is_done ? zero["out"];
-            once["write_en"] = is_done ? done_const["out"];
-        );
-
         // Generate argument assignments
         let cell = &*s.comp.borrow();
         let assigns = s
@@ -70,9 +62,17 @@ impl Visitor for CompileInvoke {
                 builder.build_assignment(p, cell.get(out), ir::Guard::True)
             }))
             .chain(once_assignments.drain(..))
-            .chain(cleanup.drain(..))
             .collect();
         invoke_group.borrow_mut().assignments = assigns;
+
+        // CLEANUP: Set once to 0;
+        // once.in = once.out == 1 ? 0;
+        // once.write_en = once.out == 1 ? 1;
+        let mut cleanup = build_assignments!(builder;
+            once["in"] = is_done ? zero["out"];
+            once["write_en"] = is_done ? done_const["out"];
+        );
+        comp.continuous_assignments.append(&mut cleanup);
 
         Ok(Action::Change(ir::Control::enable(invoke_group)))
     }
