@@ -177,7 +177,7 @@ jobs:
           ls -la .
           ls ./target
           ls ./book
-          mv ./target/docs ./book
+          mv ./target/doc ./book
       - name: rsync
         if: ${{github.event_name=='push' && github.ref=='refs/heads/master'}}
         env:
