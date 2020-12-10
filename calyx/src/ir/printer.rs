@@ -103,7 +103,7 @@ impl IRPrinter {
             ir::CellType::Constant { .. } => Ok(()),
             ir::CellType::Component { name } => {
                 write!(f, "{}", " ".repeat(indent_level))?;
-                write!(f, "{} = {}", cell.name.id, name)
+                writeln!(f, "{} = {};", cell.name.id, name)
             }
             _ => unimplemented!(),
         }
