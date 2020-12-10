@@ -267,7 +267,6 @@ def emit(prog):
     wires = []
     control = []
 
-    print(prog)
     # All arrays must be the same size. The first array we see determines the
     # size that we'll assume for the rest of the program's arrays.
     arr_size = None

@@ -14,6 +14,12 @@ A `map` expressions produces a new vector, each element an evaluated expression 
 
 `reduce` expressions walk over memories and accumulate a result into a register. In the above code snippet, we add together all of the elements of `prodvec` and place them in a register named `dot`.
 
+Here's how you compile a MrXL program to FuTIL and then Verilog, and run that Verilog code with Verilator:
+
+```
+fud exec frontends/mrxl/test/add.mrxl --from mrxl --to vcd_json
+```
+
 This guide will walk you through the steps to build a program that compiles MrXL programs to FuTIL code. To simplify things, we'll make a few assumptions:
 - Every array in a MrXL program has the same length.
 - Every integer in our generated hardware will be 32 bits.
@@ -100,7 +106,9 @@ component main() -> {{
 
 ### `Map` and `Reduce` nodes
 
-For every map or reduce node, we need to generate FuTIL code that iterates over an array, performs some kind of computation, and then stores the result of that computation in another array if we're doing a map, or in an accumulator register if we're doing a reduce. We'll need to generate a few FuTIL groups:
+For every map or reduce node, we need to generate FuTIL code that iterates over an array, performs some kind of computation, and then stores the result of that computation. For `map` operations, we'll perform a computaiton on an element of an input array, and then store the result in a result array. For `reduce` operations, we'll also use an element of an input array, but we'll also use an _accumulator_ register that we'll use in each computation, and we'll also store to. For example, if we were writing a `reduce` that summed up the elements of an input array, we'd use an accumulator register that was initialized to hold the value 0, and add to the value of this register each element of an input array.
+
+We can implement these behaviors using FuTIL groups:
 - `incr_idx`: Increments an `idx` register using an adder. This group is done when the `idx` register is written to.
 - `cond`: Applies a "less than" operator to `idx`, and the length of our input arrays, using the `le` hardware unit.
 - `eval_body`: Reads from an array, performs some kind of computation, and writes the result of the computation to an accumulator register or another array.
