@@ -70,6 +70,11 @@ fn infer_latency<'a>(
             .get_parent_name()
             .to_string();
 
+        // If there are multiple signals writing to one "go" signal, we can't infer static timing.
+        if writes.contains_key(&src_parent_name) {
+            return None
+        }
+
         match (&asgn.dst.borrow().parent, &asgn.src.borrow().parent) {
 
             (ir::PortParent::Cell(dst_cell), ir::PortParent::Cell(src_cell)) =>  {
