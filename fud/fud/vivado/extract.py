@@ -45,8 +45,8 @@ def futil_extract(directory):
         meet_timing = file_contains(r'Timing constraints are not met.', directory / "impl_1" / "main_timing_summary_routed.rpt")
 
         return json.dumps({
-            'lut': find_row(slice_logic, 'Site Type', 'CLB LUTs')['Used'],
-            'dsp': find_row(dsp_table, 'Site Type', 'DSPs')['Used'],
+            'lut': to_int(find_row(slice_logic, 'Site Type', 'CLB LUTs')['Used']),
+            'dsp': to_int(find_row(dsp_table, 'Site Type', 'DSPs')['Used']),
             'meet_timing': int(meet_timing),
             'registers': rtl_component_extract(directory, 'Registers'),
             'muxes': rtl_component_extract(directory, 'Muxes')
