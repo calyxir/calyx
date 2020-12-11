@@ -7,7 +7,7 @@ from termcolor import colored, cprint
 
 from .config import Configuration
 from .registry import Registry
-from .stages import dahlia, futil, verilator, vcdump, systolic, mrxl
+from .stages import dahlia, dahlia_hls, futil, verilator, vcdump, systolic, mrxl, vivado, vivado_hls
 from . import exec, utils, errors
 
 
@@ -17,6 +17,7 @@ def register_stages(registry, cfg):
     """
     # Dahlia
     registry.register(dahlia.DahliaStage(cfg))
+    registry.register(dahlia_hls.DahliaHLSStage(cfg))
 
     # MrXL
     registry.register(mrxl.MrXLStage(cfg))
@@ -29,6 +30,11 @@ def register_stages(registry, cfg):
         futil.FutilStage(
             cfg, 'verilog', '-b verilog',
             'Compile FuTIL to Verilog instrumented for simulation'
+        ))
+    registry.register(
+        futil.FutilStage(
+            cfg, 'synth-verilog', '-b verilog --synthesis -p external',
+            'Compile FuTIL to synthesizable Verilog '
         ))
     registry.register(
         futil.FutilStage(
@@ -52,6 +58,10 @@ def register_stages(registry, cfg):
             cfg, 'dat',
             'Generate a JSON file with final state of all memories'
         ))
+
+    # Vivado / vivado hls
+    registry.register(vivado.VivadoStage(cfg))
+    registry.register(vivado_hls.VivadoHLSStage(cfg))
 
     # Vcdump
     registry.register(vcdump.VcdumpStage(cfg))
