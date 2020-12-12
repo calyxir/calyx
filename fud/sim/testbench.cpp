@@ -48,7 +48,7 @@ int main(int argc, char **argv, char **env) {
     }
     // dump variables into VCD file and toggle clock
     for (clk = 0; clk < 2; clk++) {
-      if (trace) {
+      if (trace && ignore_cycles == 0) {
         tfp->dump(2 * i + clk);
       }
       top->clk = !top->clk;
