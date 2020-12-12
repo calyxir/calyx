@@ -52,6 +52,12 @@ DEFAULT_CONFIGURATION = {
         },
         'systolic': {
             'flags': None
+        },
+        'vivado': {
+            'exec': 'vivado'
+        },
+        'vivado_hls': {
+            'exec': 'vivado_hls'
         }
     }
 }
