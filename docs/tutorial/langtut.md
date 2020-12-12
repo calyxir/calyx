@@ -112,3 +112,38 @@ Meaning that, after the program finished, the final value in our memory was 42.
 
 [json]: https://www.json.org/
 [verilator]: https://www.veripool.org/wiki/verilator
+
+
+## Add Control
+
+Let's change our program to use an execution schedule.
+To do that, we'll need to organize the assignments in the `wire` section into a named *group:*
+
+    wires {
+      group the_answer {
+        mem.addr0 = 1'b0;
+        mem.write_data = 32'd42;
+        mem.write_en = 1'b1;
+        the_answer[done] = mem.done;
+      }
+    }
+
+We also need one extra line in the group: that assignment to `the_answer[done]`.
+Here, we say that `the_answer`'s work is one once the update to `mem` has finished.
+Calyx groups have *compilation holes* called `go` and `done` that the control program will use to orchestrate their execution.
+
+The last thing we need is a control program.
+Add one line to activate `the_answer` and then finish:
+
+    control {
+      the_answer;
+    }
+
+If you execute this program, it should do the same thing as the original group-free version: `mem` ends up with 42 in it.
+But now we're controlling things with an execution schedule.
+
+If you're curious to see how the Calyx compiler lowers this program to a Verilog-like structural form of Calyx, you can do this:
+
+    fud exec hello.futil --to futil-lowered
+
+Notably, you'll see `control {}` in the output, meaning that the compiler has eliminated all the control statements and replaced them with continuous assignments in `wires`.
