@@ -124,17 +124,78 @@ fn find_go_done_edges<'a>(
             name: cell_type, ..
         } = &cell.prototype
         {
-            let (go, done, _) = latency_data.get(cell_type.as_ref()).unwrap();
-            let go_port = &cell.ports.iter().find(|p| p.borrow().name == *go);
-            let done_port =
-                &cell.ports.iter().find(|p| p.borrow().name == *done);
+            if let Some((go, done, _)) = latency_data.get(cell_type.as_ref()) {
+                let go_port =
+                    &cell.ports.iter().find(|p| p.borrow().name == *go);
+                let done_port =
+                    &cell.ports.iter().find(|p| p.borrow().name == *done);
 
-            if let (Some(g), Some(d)) = (go_port, done_port) {
-                go_done_edges.push((Rc::clone(&g), Rc::clone(&d)));
+                if let (Some(g), Some(d)) = (go_port, done_port) {
+                    go_done_edges.push((Rc::clone(&g), Rc::clone(&d)));
+                }
             }
         }
     }
     return go_done_edges;
+}
+
+/// Returns true if `port` is a "done" port, and we know the latency data
+/// about `port`, or is a constant.
+fn is_done_port_or_const<'a>(
+    port: &ir::Port,
+    latency_data: &HashMap<&'a str, (&'a str, &'a str, u64)>,
+) -> bool {
+    if let ir::PortParent::Cell(cell) = &port.parent {
+        if let ir::CellType::Primitive {
+            name: cell_type, ..
+        } = &cell.upgrade().unwrap().borrow().prototype
+        {
+            if let Some((_, done, _)) = latency_data.get(cell_type.as_ref()) {
+                if port.name == *done {
+                    return true;
+                }
+            }
+        }
+
+        if let ir::CellType::Constant { val, .. } =
+            &cell.upgrade().unwrap().borrow().prototype
+        {
+            if *val > 0 {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/// Returns true if `graph` contains writes to "done" ports
+/// that could have dynamic latencies, false otherwise.
+fn contains_dyn_writes<'a>(
+    graph: GraphAnalysis,
+    latency_data: &HashMap<&'a str, (&'a str, &'a str, u64)>,
+) -> bool {
+    for port in &graph.ports() {
+        if let ir::PortParent::Cell(cell) = &port.borrow().parent {
+            if let ir::CellType::Primitive {
+                name: cell_type, ..
+            } = &cell.upgrade().unwrap().borrow().prototype
+            {
+                if let Some((go, _, _)) = latency_data.get(cell_type.as_ref()) {
+                    if port.borrow().name == *go {
+                        for write_port in graph.writes_to(&*port.borrow()) {
+                            if !is_done_port_or_const(
+                                &*write_port.borrow(),
+                                latency_data,
+                            ) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return false;
 }
 
 /// Attempts to infer the number of cycles starting when
@@ -165,8 +226,13 @@ fn infer_latency<'a>(
     // a.write_en -> a.done
     // a.done -> g1[done]
     // ```
+    let graph_unprocessed = GraphAnalysis::from(group);
+    if contains_dyn_writes(graph_unprocessed.clone(), latency_data) {
+        return None;
+    }
+
     let go_done_edges = find_go_done_edges(group, latency_data);
-    let graph = GraphAnalysis::from(group)
+    let graph = graph_unprocessed
         .edge_induced_subgraph(|src, dst| {
             mem_wrt_dep_graph(src, dst, latency_data)
         })
@@ -191,9 +257,11 @@ fn infer_latency<'a>(
             if let ir::CellType::Primitive { name, .. } =
                 &cell.upgrade().unwrap().borrow().prototype
             {
-                let (go, _, latency) = latency_data.get(name.as_ref()).unwrap();
-                if port.borrow().name == go {
-                    latency_sum += latency;
+                if let Some((go, _, latency)) = latency_data.get(name.as_ref())
+                {
+                    if port.borrow().name == go {
+                        latency_sum += latency;
+                    }
                 }
             }
         }

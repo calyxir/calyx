@@ -152,12 +152,12 @@ impl GraphAnalysis {
         for (a_ref, b_ref) in edges {
             let a = a_ref.borrow();
             let b = b_ref.borrow();
-            let a_idx =
-                nodes.get(&(a.get_parent_name(), a.name.clone())).unwrap();
-            let b_idx =
-                nodes.get(&(b.get_parent_name(), b.name.clone())).unwrap();
-
-            graph_copy.add_edge(*a_idx, *b_idx, ());
+            if let (Some(a_idx), Some(b_idx)) = (
+                nodes.get(&(a.get_parent_name(), a.name.clone())),
+                nodes.get(&(b.get_parent_name(), b.name.clone())),
+            ) {
+                graph_copy.add_edge(*a_idx, *b_idx, ());
+            }
         }
 
         return Self {
@@ -232,6 +232,14 @@ impl GraphAnalysis {
             },
         );
         Self { graph, nodes }
+    }
+
+    pub fn ports(&self) -> Vec<RRC<ir::Port>> {
+        self.graph
+            .raw_nodes()
+            .into_iter()
+            .map(|node| Rc::clone(&node.weight))
+            .collect()
     }
 
     /// Remove all vertices that have no undirected neighbors from the analysis graph.
