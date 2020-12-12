@@ -166,6 +166,7 @@ impl GraphAnalysis {
         };
     }
 
+    /// Return a topological sort of this graph.
     pub fn toposort(&self) -> PortIterator<'_> {
         PortIterator {
             port_iter: Box::new(
