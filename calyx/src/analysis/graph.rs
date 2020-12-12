@@ -9,7 +9,7 @@ use petgraph::{
     Direction::{Incoming, Outgoing},
 };
 use std::fmt::Write;
-use std::{collections::{HashMap, HashSet}, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 type Node = RRC<ir::Port>;
 type Edge = ();
@@ -142,6 +142,7 @@ impl GraphAnalysis {
         }
     }
 
+    /// Add each edge in `edges` to the graph.
     pub fn add_edges(
         self,
         edges: &Vec<(RRC<ir::Port>, RRC<ir::Port>)>,
@@ -176,22 +177,38 @@ impl GraphAnalysis {
         }
     }
 
+    /// Return a Vec of paths from `start` to `finish`, each path a Vec of ports.
     pub fn paths(
         &self,
         start: &ir::Port,
         finish: &ir::Port,
     ) -> Vec<Vec<RRC<ir::Port>>> {
+        let start_idx = self
+            .nodes
+            .get(&(start.get_parent_name(), start.name.clone()))
+            .unwrap();
+        let finish_idx = self
+            .nodes
+            .get(&(finish.get_parent_name(), finish.name.clone()))
+            .unwrap();
 
-        let start_idx = self.nodes.get(&(start.get_parent_name(), start.name.clone())).unwrap();
-        let finish_idx = self.nodes.get(&(finish.get_parent_name(), finish.name.clone())).unwrap();
-
-        let paths: Vec<Vec<RRC<ir::Port>>> = algo::all_simple_paths(&self.graph, *start_idx, *finish_idx, 0, None)
-                .map(|v: Vec<_>| v.into_iter().map(|i| Rc::clone(&self.graph[NodeIndex::new(i.index())])).collect())
-                .collect();
-        return paths
+        let paths: Vec<Vec<RRC<ir::Port>>> = algo::all_simple_paths(
+            &self.graph,
+            *start_idx,
+            *finish_idx,
+            0,
+            None,
+        )
+        .map(|v: Vec<_>| {
+            v.into_iter()
+                .map(|i| Rc::clone(&self.graph[NodeIndex::new(i.index())]))
+                .collect()
+        })
+        .collect();
+        return paths;
     }
 
-    /// Restricts the analysis graph to only include edges 
+    /// Restricts the analysis graph to only include edges
     /// that are specified by the `filter`.
     ///
     /// `filter` is passed references to the `src` and `dst` of each
@@ -214,39 +231,48 @@ impl GraphAnalysis {
             },
         );
         Self { graph, nodes }
-
     }
 
+    /// Remove all vertices that have no undirected neighbors from the analysis graph.
     pub fn remove_isolated_vertices(self) -> Self {
-
         // Create a node -> neighbor count mapping, that's insensitive to `NodeIndex`s.
         // `retain_nodes`, called a few lines down, invalidates `NodeIndex`s.
         let mut num_neighbors: HashMap<(Id, Id), usize> = HashMap::new();
 
-        println!("hellllo");
-        println!("{}", self.to_string());
         let Self { graph, nodes } = self;
         for n_idx in graph.node_indices() {
             let node = graph[n_idx].borrow();
-            num_neighbors.insert((node.get_parent_name(), node.name.clone()), graph.neighbors_undirected(n_idx).count());
+            num_neighbors.insert(
+                (node.get_parent_name(), node.name.clone()),
+                graph.neighbors_undirected(n_idx).count(),
+            );
         }
         let mut graph_copy = graph.clone();
         let mut nodes_copy = nodes.clone();
 
-        println!("{:?}", num_neighbors);
-
-        graph_copy.retain_nodes(|g, n_idx|{
+        graph_copy.retain_nodes(|_g, n_idx| {
             let node = graph[n_idx].borrow();
-            return *num_neighbors.get(&(node.get_parent_name(), node.name.clone())).unwrap() > 0;
+            return *num_neighbors
+                .get(&(node.get_parent_name(), node.name.clone()))
+                .unwrap()
+                > 0;
         });
 
+        // retain_nodes breaks existing `NodeIndex`s, so repopulate nodes.
         for node in graph_copy.raw_nodes() {
             let port = node.weight.borrow();
-            let n_idx = graph_copy.node_indices().find(|idx| *graph_copy[*idx].borrow() == *port).unwrap();
-            nodes_copy.insert((port.get_parent_name(), port.name.clone()), n_idx);
+            let n_idx = graph_copy
+                .node_indices()
+                .find(|idx| *graph_copy[*idx].borrow() == *port)
+                .unwrap();
+            nodes_copy
+                .insert((port.get_parent_name(), port.name.clone()), n_idx);
         }
 
-        Self { graph: graph_copy, nodes: nodes_copy }
+        Self {
+            graph: graph_copy,
+            nodes: nodes_copy,
+        }
     }
 
     /// Checks if there are cycles in the analysis graph.
