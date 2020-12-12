@@ -182,19 +182,20 @@ Next, let's create a group `read` that moves the value from the memory to our re
 
 Here, we use the memory's `read_data` port to get the initial value out.
 
-[TK: I thought this would need to be `val.write_en = mem.done`, so we make sure the register takes its value after the read finishes? But apparently it needs to be as above, i.e., always enabled. When I try to use `mem.done`, the whole thing seems to silently "get stuck"? (1) I'm not sure why that's not right, and (2) this would be a really good thing to have a dynamic debugging tool for... perhaps the interpreter. To show that the `incr` and `write` groups never run if `read` never signals it's finished.]
+[TK: I thought this would need to be `val.write_en = mem.done`, so we make sure the register takes its value after the read finishes? But apparently it needs to be as above, i.e., always enabled. When I try to use `mem.done`, the whole thing seems to silently "get stuck"? (1) I'm not sure why that's not right, and (2) this would be a really good thing to have a dynamic debugging tool for... perhaps the interpreter. To show that the `upd` and `write` groups never run if `read` never signals it's finished.]
 
-Finally, we need a third group to increment the value in the register:
+Finally, we need a third group to add and update the value in the register:
 
-    group incr {
+    group upd {
       add.left = val.out;
-      add.right = 32'd1;
+      add.right = 32'd4;
       val.in = add.out;
       val.write_en = 1'b1;
-      incr[done] = val.done;
+      upd[done] = val.done;
     }
 
 The `std_add` component from the standard library has two input ports, `left` and `right`, and a single output port, `out`, which we hook up to the register's `in` port.
+This group adds a constant 4 to the register's value, updating it in place.
 
 [TK: Explain the weirdness/difference of combinational components, so we don't need to use `add.done`?]
 
@@ -203,9 +204,9 @@ We will need a `seq` statement to say we want to the three steps sequentially:
 
     seq {
       read;
-      incr;
+      upd;
       write;
     }
 
 Try running this program again.
-The memory's initial value was 10, and its final value after execution should be 11.
+The memory's initial value was 10, and its final value after execution should be 14.
