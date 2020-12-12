@@ -82,6 +82,15 @@ impl Port {
     }
 }
 
+impl PartialEq for Port {
+    fn eq(&self, other: &Self) -> bool {
+        return self.get_parent_name() == other.get_parent_name()
+            && self.name == other.name;
+    }
+}
+
+impl Eq for Port {}
+
 /// Alias for bindings
 pub type Binding = Vec<(Id, u64)>;
 
