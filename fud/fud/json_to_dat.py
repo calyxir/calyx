@@ -75,26 +75,6 @@ def fixed_p_to_decimal (fp, width, int_bit, frac_bit):
 # go through the json data and create a file for each key,
 # flattening the data and then converting it to bitstrings
 
-# original version 
-# def convert2dat(output_dir, data, extension):
-#     output_dir = Path(output_dir)
-#     shape = {}
-#     for k, item in data.items():
-#         path = output_dir / f"{k}.{extension}"
-#         path.touch()
-#         arr = np.array(item["data"])
-#         shape[k] = {"shape": list(arr.shape), "bitwidth": item["bitwidth"]}
-#         with path.open('w') as f:
-#             for v in arr.flatten():
-#                 f.write(bitstring(v, item["bitwidth"]) + "\n")
-
-#     # commit shape.json file
-#     shape_json_file = output_dir / "shape.json"
-#     with shape_json_file.open('w') as f:
-#         json.dump(shape, f, indent=2)
-
-
-# revised version 
 def convert2dat(output_dir, data, extension):
     output_dir = Path(output_dir)
     shape = {}
