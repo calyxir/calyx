@@ -182,8 +182,6 @@ Next, let's create a group `read` that moves the value from the memory to our re
 
 Here, we use the memory's `read_data` port to get the initial value out.
 
-[TK: I thought this would need to be `val.write_en = mem.done`, so we make sure the register takes its value after the read finishes? But apparently it needs to be as above, i.e., always enabled. When I try to use `mem.done`, the whole thing seems to silently "get stuck"? (1) I'm not sure why that's not right, and (2) this would be a really good thing to have a dynamic debugging tool for... perhaps the interpreter. To show that the `upd` and `write` groups never run if `read` never signals it's finished.]
-
 Finally, we need a third group to add and update the value in the register:
 
     group upd {
@@ -196,8 +194,7 @@ Finally, we need a third group to add and update the value in the register:
 
 The `std_add` component from the standard library has two input ports, `left` and `right`, and a single output port, `out`, which we hook up to the register's `in` port.
 This group adds a constant 4 to the register's value, updating it in place.
-
-[TK: Explain the weirdness/difference of combinational components, so we don't need to use `add.done`?]
+We can enable the `val` register with a constant 1 because the `std_add` component is *combinational*, meaning its results are ready "instantly" without the need to wait for a done signal.
 
 We need to extend our control program to orchestrate the execution of the three groups.
 We will need a `seq` statement to say we want to the three steps sequentially:
