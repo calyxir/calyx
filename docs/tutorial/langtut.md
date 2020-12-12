@@ -210,3 +210,82 @@ We will need a `seq` statement to say we want to the three steps sequentially:
 
 Try running this program again.
 The memory's initial value was 10, and its final value after execution should be 14.
+
+
+## Iterate
+
+Next, we'd like to run our little computation in a loop.
+The idea is to use Calyx's `while` control construct, which works like this:
+
+    while <value> with <group> {
+      <body>
+    }
+
+A `while` loop runs the control statements in the body until `<value>`, which is some port on some component, becomes zero.
+The `with <group>` bit means that we activate a given group in order to compute the condition value that determines whether the loop continues executing.
+
+Let's run our memory-updating `seq` block in a while loop.
+Change the control program to look like this:
+
+    control {
+      seq {
+        init;
+        while lt.out with cond {
+          par {
+            seq {
+              read;
+              upd;
+              write;
+            };
+            incr;
+          }
+        }
+      }
+    }
+
+This version uses `while`, the parallel composition construct `par`, and a few new groups we will need to define.
+The idea is that we'll use a counter register to make this loop run a fixed number of times, like a `for` loop.
+First, we have an outer `seq` that invokes an `init` group that we will write to set the counter to zero.
+The `while` loop then uses a new group `cond`, and it will run while a signal `lt.out` remains nonzero: this signal will compute `counter < 8`.
+The body of the loop runs our old `seq` block in parallel with a new `incr` group to increment the counter.
+
+Let's add some cells to our component:
+
+    counter = prim std_reg(32);
+    add2 = prim std_add(32);
+    lt = prim std_lt(32);
+
+We'll need a new register, an adder to do the incrementing, and a less-than comparator.
+
+We can use these raw materials to build the new groups we need: `init`, `incr`, and `cond`.
+First, the `init` group is pretty simple:
+
+    group init {
+      counter.in = 32'd0;
+      counter.write_en = 1'b1;
+      init[done] = counter.done;
+    }
+
+This group just writes a zero into the counter and signals that it's done.
+Next, the `incr` group adds one to the value in `counter` using `add2`:
+
+    group incr {
+      add2.left = counter.out;
+      add2.right = 32'd1;
+      counter.in = add2.out;
+      counter.write_en = 1'b1;
+      incr[done] = counter.done;
+    }
+
+And finally, `cond` uses our comparator `lt` to compute the signal we need for our `while` loop:
+
+    group cond {
+      lt.left = counter.out;
+      lt.right = 32'd8;
+      cond[done] = 1'b1;
+    }
+
+By comparing with 8, we should now be running our loop body 8 times.
+
+Try running this program again.
+The output should be the result of adding 4 to the initial value 8 times, so 10 + 8 ⨉ 4.
