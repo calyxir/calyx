@@ -147,3 +147,60 @@ If you're curious to see how the Calyx compiler lowers this program to a Verilog
     fud exec hello.futil --to futil-lowered
 
 Notably, you'll see `control {}` in the output, meaning that the compiler has eliminated all the control statements and replaced them with continuous assignments in `wires`.
+
+
+## Add an Adder
+
+The next step is to actually do some computation.
+In this version of the program, we'll read a value from the memory, increment it, and store the updated value back to the memory.
+
+First, we will add two components to the `cells` section:
+
+    val = prim std_reg(32);
+    add = prim std_add(32);
+
+We make a register `val` and an integer adder `add`, both configured to work on 32-bit values.
+
+Next, we'll create three groups in the `wires` section for the three steps we want to run: read, increment, and write back to the memory.
+Let's start with the last step, which looks pretty similar to our `the_answer` group from above, except that the value comes from the `val` register instead of a constant:
+
+    group write {
+      mem.addr0 = 1'b0;
+      mem.write_en = 1'b1;
+      mem.write_data = val.out;
+      write[done] = mem.done;
+    }
+
+Next, let's create a group `read` that moves the value from the memory to our register `val`:
+
+    group read {
+      mem.addr0 = 1'b0;
+      val.in = mem.read_data;
+      val.write_en = 1'b1;
+      read[done] = val.done;
+    }
+
+Here, we use the memory's `read_data` port to get the initial value out.
+Finally, we need a third group to increment the value in the register:
+
+    group incr {
+      add.left = val.out;
+      add.right = 32'd1;
+      val.in = add.out;
+      val.write_en = 1'b1;
+      incr[done] = val.done;
+    }
+
+The `std_add` component from the standard library has two input ports, `left` and `right`, and a single output port, `out`, which we hook up to the register's `in` port.
+
+We need to extend our control program to orchestrate the execution of the three groups.
+We will need a `seq` statement to say we want to the three steps sequentially:
+
+    seq {
+      read;
+      incr;
+      write;
+    }
+
+Try running this program again.
+The memory's initial value was 10, and its final value after execution should be 11.
