@@ -34,7 +34,7 @@ Every component definition has three sections:
 We'll fill these sections up minimally in the next sections.
 
 
-## A Memory Cell and Input Data
+## A Memory Cell
 
 Let's turn out skeleton into a tiny, nearly no-op Calyx program.
 We'll start by adding a memory component to the cells:
@@ -51,6 +51,28 @@ the data width (here, 32 bits),
 the number of elements (just one),
 and the width of the address port (one bit).
 
+Next, we'll add some assignments (wires) to update the value in the memory.
+Insert these lines to put a constant value into the memory:
+
+    wires {
+      mem.addr0 = 1'b0;
+      mem.write_data = 32'd42;
+      mem.write_en = 1'b1;
+    }
+
+These assignments refer to three *ports* on the memory component:
+`addr0` (the address port),
+`write_data` (the value we're putting into the memory), and
+`write_en` (the *write enable* signal, telling the memory that it's time to do a write).
+Constants like `32'd42` are Verilog-like literals that include the bit width (32), the base (`d` for decimal), and the value (42).
+
+Assignments at the top level in the `wires` section, like these, are "continuous."
+They always happen, without any need for `control` statements to orchestrate them.
+We'll see later how to organize assignments into groups.
+
+
+## Compile & Run
+
 We can almost run this program!
 But first, we need to provide it with data.
 The Calyx infrastructure can provide data to programs from [JSON][] files.
@@ -66,9 +88,6 @@ So make a file called something like `hello.json` containing something along the
 The `mem` key means we're providing the initial value for our memory called `mem`.
 We have one (integer) data element, and we indicate the width (32 bits).
 
-
-## Compile & Run
-
 If you want to see how this Calyx program compiles to Verilog, here's the fud incantation you need:
 
     fud exec hello.futil --to verilog
@@ -76,11 +95,20 @@ If you want to see how this Calyx program compiles to Verilog, here's the fud in
 Not terribly interesting!
 However, one nice thing you can do with programs is execute them.
 
-Here's the fud incantation to run our program using [Verilator][]:
+To run our program using [Verilator][], do this:
 
     fud exec hello.futil --to dat -s verilog.data hello.json
 
 Using `--to dat` asks fud to run the program, and the extra `-s verilog.data <filename>` argument tells it where to find the input data.
+Executing this program should print:
+
+    {
+      "mem": [
+        42
+      ]
+    }
+
+Meaning that, after the program finished, the final value in our memory was 42.
 
 [json]: https://www.json.org/
 [verilator]: https://www.veripool.org/wiki/verilator
