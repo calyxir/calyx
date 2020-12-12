@@ -21,11 +21,16 @@ def parse_dat(path):
         arr = np.array(list(map(lambda v: int(v.strip(), 16), lines)))
         return arr
 
-# def parse_dat(path):
-#     with path.open('r') as f:
-#         lines = f.readlines()
-#         arr = np.array(list(map(lambda v: int(v.strip(), 16), lines)))
-#         return arr
+def parse_dat_fxd(path, wholebit, intbit, fracbit):
+    with path.open('r') as f:
+        lines = f.readlines()
+        arr = np.array(
+            list(
+                map(
+                    lambda v: 
+                    fixed_p_to_decimal(np.binary_repr(int(v.strip(), 16),width = wholebit),
+                    wholebit, intbit,fracbit), lines)))
+        return arr
 
 def decimal_to_fixed_p (num, width, int_bit, frac_bit):
     '''
@@ -97,23 +102,28 @@ def convert2dat(output_dir, data, extension):
         path = output_dir / f"{k}.{extension}"
         path.touch()
         arr = np.array(item["data"])
-        # fixedpoint informations arre given as array [int bit, fractional bit]
-        bits = np.array(item["fixedpoint"])
-        shape[k] = {"shape": list(arr.shape), "bitwidth": item["bitwidth"], "fixedpoint": list(bits.shape)}
-        # if empty, then bitstrings are directly computed
-        if list(bits.shape)[0] ==0:
+        # type informations are given as string
+        typ = item["type"]
+        info = typ[typ.find("(")+1:typ.find(")")]
+        info = info.split(",")
+        shape[k] = {"shape": list(arr.shape), "typ": info}
+        if len(info) ==2:
+            # integer
             with path.open('w') as f:
                 for v in arr.flatten():
-                    f.write(bitstring(v, item["bitwidth"]) + "\n")
-        # if given int bit, fract bit then fixedpoint bitstrings are computed
-        elif list(bits.shape)[0] ==2:
+                    f.write(bitstring(v, int(info[0])) + "\n")
+        elif len(info) ==3:
+            # fixedpoint
             with path.open('w') as f:
                 for v in arr.flatten():
-                    bs =  decimal_to_fixed_p(v, item["bitwidth"], bits[0], bits[1])
-                    f.write( bitstring2(bs, item["bitwidth"])+ "\n")
+                    wholebit = int(info[0])
+                    intbit = int(info[1])
+                    fracbit = wholebit-intbit
+                    bs =  decimal_to_fixed_p(v, wholebit, intbit, fracbit)
+                    f.write( bitstring2(bs, wholebit)+ "\n")
         # other cases are not allowed
         else:
-            raise Exception("give [] if not fixedpoint, [intbit, fractbit] if fixedpoint")
+            raise Exception("give a valid type input")
 
     # commit shape.json file
     shape_json_file = output_dir / "shape.json"
@@ -130,21 +140,22 @@ def convert2json(input_dir, extension):
     shape_json = None
     if shape_json_path.exists():
         shape_json = json.load(shape_json_path.open('r'))
-        print(shape_json)
 
     # TODO: change to use shape json
     for f in input_dir.glob(f'*.{extension}'):
-        #print(shape_json[f.stem]["fixedpoint"])
-        # if shape_json[f.stem]["fixedpoint"] ==[0]:
-        #     arr = parse_dat(f)
-        # elif shape_json[f.stem]["fixedpoint"] ==[2]:
-        #     arr = parse_dat_fxd(f)
-        # else: 
-        #     raise Exception("should be [0] if not fixedpoint, [3] if fixedpoint")
-        print(f)
-        arr = parse_dat(f)
-        print(arr)
-        print(shape_json.get(f.stem))
+        typinfo = shape_json[f.stem]["typ"]
+        if len(typinfo)==2:
+            # integer 
+            arr = parse_dat(f)
+        elif len(typinfo)==3:
+            # fixed point 
+            wholebit = int(typinfo[0])
+            intbit = int(typinfo[1])
+            fracbit= wholebit - intbit
+            arr = parse_dat_fxd(f,wholebit, intbit,fracbit)
+        else: 
+            raise Exception("valid type is required")
+
         if shape_json is not None and shape_json.get(f.stem) is not None and shape_json[f.stem]["shape"] != [0]:
             try:
                 arr = arr.reshape(tuple(shape_json[f.stem]["shape"]))
