@@ -61,7 +61,6 @@ fn mem_wrt_dep_graph<'a>(
                 &src_cell.upgrade().unwrap().borrow().prototype,
             ) {
                 
-                println!("comparing {}.{} and {}.{}", src.get_parent_name().to_string(), src.name, dst.get_parent_name().to_string(), dst.name);
                 let data_dst = latency_data.get(dst_cell_prim_type.as_ref());
                 let data_src = latency_data.get(src_cell_prim_type.as_ref());
                 if let (Some((go_dst, done_dst, _)), Some((go_src, done_src, _))) =
@@ -140,25 +139,28 @@ fn infer_latency<'a>(
     }
 
     let graph3 = graph2.add_edges(&go_done_edges);
-    println!("{}", graph3.to_string());
     let graph4 = graph3.remove_isolated_vertices();
-    println!("graph:");
-    println!("{}", graph4.to_string());
 
     let mut tsort = graph4.toposort();
     let start = tsort.next().unwrap();
     let finish = tsort.last().unwrap();
     
-    println!("{}.{}", start.borrow().get_parent_name().to_string(), start.borrow().name);
-    println!("{}.{}", finish.borrow().get_parent_name().to_string(), finish.borrow().name);
-
     let paths = graph4.paths(&*start.borrow(), &*finish.borrow());
     let path1 = paths.get(0).unwrap();
+
+    let mut sum = 0;
     for port in path1 {
-        println!("{:?}", port);
+        if let ir::PortParent::Cell(cell) = &port.borrow().parent {
+            if let ir::CellType::Primitive {name, ..} = &cell.upgrade().unwrap().borrow().prototype {
+                let (go, _, latency) = latency_data.get(name.as_ref()).unwrap();
+                if port.borrow().name == go {
+                    sum += latency;
+                }
+            }
+        }
     }
 
-    None
+    Some(sum)
 }
 
 impl Visitor<()> for InferStaticTiming<'_> {
