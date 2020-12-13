@@ -36,7 +36,7 @@ We'll fill these sections up minimally in the next sections.
 
 ## A Memory Cell
 
-Let's turn out skeleton into a tiny, nearly no-op Calyx program.
+Let's turn our skeleton into a tiny, nearly no-op Calyx program.
 We'll start by adding a memory component to the cells:
 
     cells {
