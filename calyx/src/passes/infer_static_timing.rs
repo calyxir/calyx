@@ -251,7 +251,7 @@ fn infer_latency<'a>(
 
     // Give up if a port has multiple writes to it.
     if contains_node_deg_gt_one(graph.clone()) {
-        return None
+        return None;
     }
 
     let mut tsort = graph.toposort();
