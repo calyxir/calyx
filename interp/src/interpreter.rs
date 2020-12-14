@@ -65,25 +65,34 @@ impl Environment {
 
     /// Adds an update to the update queue; TODO; ok to drop prev and next?
     pub fn add_update(&mut self, ucell: ir::Id, uinput : Vec<ir::Id>, uoutput : Vec<ir::Id>, uvars : HashMap<String, u64>) -> () {
+        println!("add update!");
         let update = Update{cell : ucell, inputs : uinput, outputs : uoutput, vars : uvars};
         self.update_queue.push(update);
     }
 
     // Convenience function to remove an update from the update queue
     pub fn remove_update(&mut self, ucell: ir::Id) -> () {
-        self.map.remove(&ucell);
+        self.map.remove(&ucell); // this is wrong
     }
 
     /// Simulates a clock cycle by executing the stored updates.
     pub fn do_tick(&mut self) -> () {
-        self.put(&ir::Id::from("reg0"), &ir::Id::from("done"), 1);
+        //self.put(&ir::Id::from("reg0"), &ir::Id::from("done"), 1); //hard coding
         
-        for update in &self.update_queue {
-            let mut test = update_cell_state(&update.cell, &update.inputs, &update.inputs, self);
-            match test {
-                Ok(_) => println!("updated"),
-                _ => panic!("uh oh ")
+        let uq = self.update_queue.clone();
+        for update in uq {
+            //println!("{:?}", update);
+            let updated = update_cell_state(&update.cell, &update.inputs, &update.outputs, &self);
+            match updated {
+                Ok(e) => {
+                    //let m = self.map.get_mut(&update.cell);
+                    let temp = e.map.get(&update.cell).unwrap_or_else(|| panic!("can't get map")).clone();
+                    //m = temp;
+                    self.map.insert(update.cell.clone(), temp);
+                }
+                    _ => panic!("uh oh ")
             }
+            //self.remove_update(update.cell); //?
         }
         // &self.updates.clear();
     }
@@ -148,12 +157,12 @@ fn eval_assigns(
     while write_env.get(&done_cell, &done_assign.src.borrow().name) == 0
         && counter < 5
     {  
-        println!("{}", &done_cell);
-        println!("test {:?} \n", write_env.map.get(&done_cell));
-        counter += 1;
+        println!("Clock cycle {}", counter);
+        println!("state of done_cell {:1} : {:?} \n", &done_cell, write_env.map.get(&done_cell));
+        
         // for assign in assigns
         for assign in ok_assigns.iter() {
-            print!("{:1} {:?} \n", counter, &assign.guard);
+            //print!("{:1} {:?} \n", counter, &assign.guard);
             // check if the assign.guard != 0
             if eval_guard(&assign.guard, env) {
                 // check if the cells are constants?
@@ -176,21 +185,21 @@ fn eval_assigns(
                 // update internal state of the cell and
                 // queue any required updates.
 
-                println!(
-                    "add0 out is {}",
-                    write_env.get(
-                        &ir::Id::from("add0".to_string()),
-                        &ir::Id::from("out".to_string())
-                    )
-                );
+                // println!(
+                //     "add0 out is {}",
+                //     write_env.get(
+                //         &ir::Id::from("add0".to_string()),
+                //         &ir::Id::from("out".to_string())
+                //     )
+                // );
 
-                println!(
-                    "reg0 done is {}",
-                    write_env.get(
-                        &ir::Id::from("reg0".to_string()),
-                        &ir::Id::from("done".to_string())
-                    )
-                );
+                // println!(
+                //     "reg0 done is {}",
+                //     write_env.get(
+                //         &ir::Id::from("reg0".to_string()),
+                //         &ir::Id::from("done".to_string())
+                //     )
+                // );
 
                 //determine if dst_cell is a combinational cell or not
                 if get_combinational_or_not(&dst_cell, env) {
@@ -248,37 +257,18 @@ fn eval_assigns(
                 } else {
                     // otherwise, add the write to the update queue; currently only handles registers
 
-
-                    // get dst_cell's input and output vectors; TODO (currently only works for registers)
+                    // get input and output vectors; TODO (currently only works for registers)
                     let mut inputs = vec![];
                     let mut outputs = vec![];
 
-                    // get dst_cell's input vector
-                    match &env.get_cell(&dst_cell) {
-                        Some(cell) => {
-                            inputs = vec![
-                                (cell.borrow())
-                                    .get("in")
-                                    .borrow()
-                                    .name
-                                    .clone(),
-                            ]
-                        }
-                        _ => panic!("could not find cell"),
-                    }
+                    // println!("src: {}", src_cell);
+                    // println!("src port: {}", &assign.src.borrow().name);
+                    // println!("dst port: {}", &assign.dst.borrow().name);
 
-                    // get dst_cell's output vector
-                    match &env.get_cell(&dst_cell) {
-                        Some(cell) => {
-                            outputs = vec![(cell.borrow())
-                                .get("out")
-                                .borrow()
-                                .name
-                                .clone()]
-                            //clean this up later?
-                        }
-                        _ => panic!("could not find cell"),
-                    }
+                    // get input cell
+                    inputs = vec![src_cell.clone()];
+                    // get dst_cell's output port
+                    outputs = vec![assign.dst.borrow().name.clone()];
 
                     write_env = init_cells(&dst_cell, inputs, outputs, write_env)?;
                 }
@@ -286,9 +276,13 @@ fn eval_assigns(
             }
             
         }
+        println!("do tick");
         &write_env.do_tick();
+        println!("done with tick");
+        counter += 1;
     }
 
+    println!("\nFinal state of the done cell, i.e. {:1}: {:?} \n", &done_cell, write_env.map.get(&done_cell));
     Ok(write_env)
 }
 
@@ -459,6 +453,7 @@ fn init_cells(cell: &ir::Id, inputs : Vec<ir::Id>, outputs : Vec<ir::Id>, mut en
             },
             "std_reg" => {
                 let map : HashMap<String, u64> = HashMap::new(); //placeholder
+                // reg.in = dst port should go here
                 env.add_update(cell.clone(), inputs, outputs, map);
                 
             }
@@ -495,9 +490,25 @@ fn update_cell_state(
         None => panic!("Futil Const?"),
         Some(ct) => match ct.id.as_str() {
             "std_reg" => {
-                new_env.put(cell, &output[0], env.get(cell, &inputs[0]));
-                // remove from update queue
-                new_env.remove_update((*cell).clone()); // check the type of cell
+                //println!("reg update");
+                let out = ir::Id::from("out"); //assuming reg.in = cell.out, always
+                let inp = ir::Id::from("in"); //assuming reg.in = cell.out, always
+                let done = ir::Id::from("done"); //done id
+
+                // println!("cell to read from: {}", inputs[0]);
+                // println!("reg port to write to: {}", &output[0]);
+                // println!("value to write to cell port: {}", env.get(&inputs[0], &out));
+
+                new_env.put(cell, &output[0], env.get(&inputs[0], &out)); //reg.in = cell.out; tehcnically should be in init?
+                
+                if output[0].id == "in"{
+                    new_env.put(cell, &out, new_env.get(cell, &inp)); // reg.out = reg.in
+                    new_env.put(cell, &done, 1); // reg.done = 1'd1
+                    // remove from update queue
+                    //new_env.remove_update((*cell).clone()); // check the type of cell
+                }
+                
+                
             },
             "std_sqrt" => {
                 //TODO; wrong implementation
@@ -507,15 +518,30 @@ fn update_cell_state(
                     ((new_env.get(cell, &inputs[0]) as f64).sqrt()) as u64, // cast to f64 to use sqrt
                 );
             }
-            "std_add" | "std_" => new_env.put(
+            "std_add" => new_env.put(
                 cell,
                 &output[0],
                 new_env.get(cell, &inputs[0]) + env.get(cell, &inputs[1]),
+            ),
+            "std_sub" => new_env.put(
+                cell,
+                &output[0],
+                new_env.get(cell, &inputs[0]) - env.get(cell, &inputs[1]),
+            ),
+            "std_mod" => new_env.put(
+                cell,
+                &output[0],
+                new_env.get(cell, &inputs[0]) % env.get(cell, &inputs[1]),
             ),
             "std_mult" => new_env.put(
                 cell,
                 &output[0],
                 new_env.get(cell, &inputs[0]) * env.get(cell, &inputs[1]),
+            ),
+            "std_div" => new_env.put(
+                cell,
+                &output[0],
+                new_env.get(cell, &inputs[0]) / env.get(cell, &inputs[1]),
             ),
             "std_not" => {
                 new_env.put(cell, &output[0], !new_env.get(cell, &inputs[0]))

@@ -23,16 +23,16 @@ component main() -> () {
     }
 
     // should finish evaluation after 1 clock cycle
-    group add_reg {
+    group add_one_reg {
       reg1.write_en = 1'd1;
       add1.left = const1.out;
       add1.right = const2.out;
       reg1.in = add1.out;
-      add_reg[done] = reg1.done;
+      add_one_reg[done] = reg1.done;
     }
 
     // should finish evaluation after 2 clock cycles
-    group two_add_reg {
+    group add_two_reg {
       reg1.write_en = 1'd1;
       add1.left = const1.out;
       add1.right = const2.out;
@@ -43,7 +43,7 @@ component main() -> () {
       add2.right = const1.out;
       reg2.in = add2.out;
 
-      two_add_reg[done] = reg2.done;
+      add_two_reg[done] = reg2.done;
     }
 
   }
@@ -51,8 +51,8 @@ component main() -> () {
   control {
     seq {
       add_no_reg;
-      add_reg;
-      two_add_reg;
+      add_one_reg;
+      add_two_reg;
     }
   }
 }
