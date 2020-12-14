@@ -34,11 +34,9 @@ pub struct Opts {
     pub group: String,
 }
 
-fn get_ast() {}
-
 fn main() -> FutilResult<()> {
     let opts = Opts::from_args();
-    println!("{:?}", opts);
+    //println!("{:?}", opts);
 
     // construct interpreter
     let interpreter: interpretgroup::GroupInterpreter =
