@@ -198,6 +198,16 @@ fn contains_dyn_writes<'a>(
     return false;
 }
 
+/// Returns true if `graph` contains any nodes with degree > 1.
+fn contains_node_deg_gt_one(graph: GraphAnalysis) -> bool {
+    for port in graph.ports() {
+        if graph.writes_to(&*port.borrow()).count() > 1 {
+            return true;
+        }
+    }
+    return false;
+}
+
 /// Attempts to infer the number of cycles starting when
 /// group[go] is high, and port is high. If inference is
 /// not possible, returns None.
@@ -238,6 +248,11 @@ fn infer_latency<'a>(
         })
         .add_edges(&go_done_edges)
         .remove_isolated_vertices();
+
+    // Give up if a port has multiple writes to it.
+    if contains_node_deg_gt_one(graph.clone()) {
+        return None
+    }
 
     let mut tsort = graph.toposort();
     let start = tsort.next().unwrap();
