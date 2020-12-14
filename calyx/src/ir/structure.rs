@@ -84,8 +84,8 @@ impl Port {
 
 impl PartialEq for Port {
     fn eq(&self, other: &Self) -> bool {
-        return self.get_parent_name() == other.get_parent_name()
-            && self.name == other.name;
+        self.get_parent_name() == other.get_parent_name()
+            && self.name == other.name
     }
 }
 

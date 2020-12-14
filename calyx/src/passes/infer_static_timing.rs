@@ -93,20 +93,16 @@ fn mem_wrt_dep_graph<'a>(
                 }
             }
 
-            return false;
+            false
         }
 
         // Something is written to a group: to be added to the graph, this needs to be a "done" port.
         (_, ir::PortParent::Group(_)) => {
-            if dst.name == "done" {
-                return true;
-            } else {
-                return false;
-            }
+            dst.name == "done"
         }
 
         // If we encounter anything else, no need to add it to the graph.
-        _ => return false,
+        _ => false,
     }
 }
 
@@ -136,7 +132,7 @@ fn find_go_done_edges<'a>(
             }
         }
     }
-    return go_done_edges;
+    go_done_edges
 }
 
 /// Returns true if `port` is a "done" port, and we know the latency data
@@ -165,7 +161,7 @@ fn is_done_port_or_const<'a>(
             }
         }
     }
-    return false;
+    false
 }
 
 /// Returns true if `graph` contains writes to "done" ports
@@ -195,7 +191,7 @@ fn contains_dyn_writes<'a>(
             }
         }
     }
-    return false;
+    false
 }
 
 /// Returns true if `graph` contains any nodes with degree > 1.
@@ -205,7 +201,7 @@ fn contains_node_deg_gt_one(graph: GraphAnalysis) -> bool {
             return true;
         }
     }
-    return false;
+    false
 }
 
 /// Attempts to infer the number of cycles starting when
@@ -260,7 +256,7 @@ fn infer_latency<'a>(
 
     let paths = graph.paths(&*start.borrow(), &*finish.borrow());
     // If there are no paths, give up.
-    if paths.len() == 0 {
+    if paths.is_empty() {
         return None;
     }
     let first_path = paths.get(0).unwrap();

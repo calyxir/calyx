@@ -34,11 +34,11 @@ impl Keyable for ir::Port {
 ///  c.in = G[done] & b.done ? add.out
 ///  ```
 /// creates the edges:
-///   ```
-///   add.out -> c.in
-///   G[done] -> c.in
-///   b.done -> c.in
-///   ```
+///  ```
+///  add.out -> c.in
+///  G[done] -> c.in
+///  b.done -> c.in
+///  ```
 ///
 /// This representation is useful for asking graph based queries
 /// such as all the reads from a port or all the write to a port.
@@ -145,10 +145,10 @@ impl GraphAnalysis {
     /// Add each edge in `edges` to the graph.
     pub fn add_edges(
         self,
-        edges: &Vec<(RRC<ir::Port>, RRC<ir::Port>)>,
+        edges: &[(RRC<ir::Port>, RRC<ir::Port>)],
     ) -> Self {
         let Self { graph, nodes } = self;
-        let mut graph_copy = graph.clone();
+        let mut graph = graph;
         for (a_ref, b_ref) in edges {
             let a = a_ref.borrow();
             let b = b_ref.borrow();
@@ -156,14 +156,14 @@ impl GraphAnalysis {
                 nodes.get(&(a.get_parent_name(), a.name.clone())),
                 nodes.get(&(b.get_parent_name(), b.name.clone())),
             ) {
-                graph_copy.add_edge(*a_idx, *b_idx, ());
+                graph.add_edge(*a_idx, *b_idx, ());
             }
         }
 
-        return Self {
-            graph: graph_copy,
+        Self {
+            graph,
             nodes,
-        };
+        }
     }
 
     /// Return a topological sort of this graph.
@@ -206,7 +206,7 @@ impl GraphAnalysis {
                 .collect()
         })
         .collect();
-        return paths;
+        paths
     }
 
     /// Restricts the analysis graph to only include edges
@@ -237,7 +237,7 @@ impl GraphAnalysis {
     pub fn ports(&self) -> Vec<RRC<ir::Port>> {
         self.graph
             .raw_nodes()
-            .into_iter()
+            .iter()
             .map(|node| Rc::clone(&node.weight))
             .collect()
     }
@@ -257,7 +257,7 @@ impl GraphAnalysis {
             );
         }
         let mut graph_copy = graph.clone();
-        let mut nodes_copy = nodes.clone();
+        let mut nodes_copy = nodes;
 
         graph_copy.retain_nodes(|_g, n_idx| {
             let node = graph[n_idx].borrow();
