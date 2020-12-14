@@ -1,3 +1,5 @@
+//! Interpreter "backend"
+
 use calyx::{errors::FutilResult, ir};
 use std::collections::HashMap;
 use std::rc::Rc;
