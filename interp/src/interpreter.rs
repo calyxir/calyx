@@ -1,25 +1,46 @@
-use calyx::errors::FutilResult;
-use calyx::ir;
+use calyx::{errors::FutilResult, ir};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+#[derive(Clone, Debug)]
+struct Update{
+    // the cell to be updated
+    pub cell : ir::Id,
+    // the vector of input ports
+    pub inputs : Vec<ir::Id>,
+    // the vector of output ports
+    pub outputs : Vec<ir::Id>,
+    // map of intermediate variables (could refer to a port or it could be "new", e.g. in the sqrt)
+    pub vars : HashMap<String, u64>,
+}
+
 /// The environment to interpret a FuTIL program
-#[derive(Default, Clone)]
+#[derive(Clone, Debug)]
 pub struct Environment {
     /// A mapping from cell names to the values on their ports.
     map: HashMap<ir::Id, HashMap<ir::Id, u64>>,
     /// A queue of operations that need to be applied in the future.
     /// A vector with maps that map cells to a mapping from ports to the new values.
-    update_queue: Vec<HashMap<ir::Id, HashMap<ir::Id, u64>>>,
-    /// Another implementation of the update queue
-    /// Is a vector that pairs the source cell, the source port, the destination cell, and the destination port.
-    updates: Vec<(ir::Id, ir::Id, ir::Id, ir::Id)>,
+    update_queue: Vec<Update>,
     /// A mapping from cell ids to cells, much like in component.rs. Will probably need to remove eventually
     cells: HashMap<ir::Id, ir::RRC<ir::Cell>>,
 }
 
 /// Helper functions for the environment.
 impl Environment {
+    // Constructor "syntactic sugar"
+    pub fn init(
+        map: HashMap<ir::Id, HashMap<ir::Id, u64>>,
+        cells: HashMap<ir::Id, ir::RRC<ir::Cell>>,
+    ) -> Self {
+        let update_queue : Vec<Update>= Vec::new();
+        Self {
+            map: map,
+            update_queue: update_queue,
+            cells: cells,
+        }
+    }
+
     /// Returns the value on a port, in a cell.
     pub fn get(&self, cell: &ir::Id, port: &ir::Id) -> u64 {
         self.map[cell][port]
@@ -27,12 +48,14 @@ impl Environment {
 
     /// Puts the mapping from cell to port to val in map.
     pub fn put(&mut self, cell: &ir::Id, port: &ir::Id, val: u64) -> () {
-        let temp = self.map.get(cell).clone();
+        let temp = self.map.get_mut(cell);
 
         if let Some(map) = temp {
             let mut mapcopy = map.clone();
             mapcopy.insert(port.clone(), val);
+            //println!("mapcopy: {:?}", mapcopy);
             self.map.insert(cell.clone(), mapcopy); // ???
+            //println!("sefl.map: {:?}", self.map);
         } else {
             let mut temp_map = HashMap::new();
             temp_map.insert(port.clone(), val);
@@ -41,54 +64,29 @@ impl Environment {
     }
 
     /// Adds an update to the update queue; TODO; ok to drop prev and next?
-    pub fn add_update(&mut self, prev: ir::Id, next: ir::Id, val: u64) -> () {
-        let mut temp_map = HashMap::new();
-        temp_map.insert(next, val);
-
-        let mut outer_map = HashMap::new();
-        outer_map.insert(prev, temp_map);
-
-        self.update_queue.push(outer_map);
+    pub fn add_update(&mut self, ucell: ir::Id, uinput : Vec<ir::Id>, uoutput : Vec<ir::Id>, uvars : HashMap<String, u64>) -> () {
+        let update = Update{cell : ucell, inputs : uinput, outputs : uoutput, vars : uvars};
+        self.update_queue.push(update);
     }
 
-    /// Puts an update into the updates vector
-    pub fn put_update(
-        &mut self,
-        prev_cell: &ir::Id,
-        prev_port: &ir::Id,
-        next_cell: &ir::Id,
-        next_port: &ir::Id,
-    ) {
-        self.updates.push((
-            prev_cell.clone(),
-            prev_port.clone(),
-            next_cell.clone(),
-            next_port.clone(),
-        ));
+    // Convenience function to remove an update from the update queue
+    pub fn remove_update(&mut self, ucell: ir::Id) -> () {
+        self.map.remove(&ucell);
     }
 
     /// Simulates a clock cycle by executing the stored updates.
     pub fn do_tick(&mut self) -> () {
-        for updates in &self.updates.clone() {
-            // read the values from the environment
-            let new_val = self.get(&updates.0, &updates.1);
-            self.put(&updates.2, &updates.3, new_val);
+        self.put(&ir::Id::from("reg0"), &ir::Id::from("done"), 1);
+        
+        for update in &self.update_queue {
+            let mut test = update_cell_state(&update.cell, &update.inputs, &update.inputs, self);
+            match test {
+                Ok(_) => println!("updated"),
+                _ => panic!("uh oh ")
+            }
         }
-        &self.updates.clear();
+        // &self.updates.clear();
     }
-
-    /// Performs an update to the current environment using the update_queue; TODO
-    // pub fn do_tick(mut self) -> Self {
-    //     for update in &self.update_queue.clone() {
-    //         for cell in update.keys() {
-    //             let port_val = &update[cell];
-    //             for port in port_val.keys() {
-    //                 self.put(cell, port, port_val[port]);
-    //             }
-    //         }
-    //     }
-    //     self
-    // }
 
     /// Gets the cell based on the name; TODO; similar to find_cell in component.rs
     fn get_cell(&self, cell: &ir::Id) -> Option<ir::RRC<ir::Cell>> {
@@ -97,12 +95,26 @@ impl Environment {
             .find(|&g| g.borrow().name == *cell)
             .map(|r| Rc::clone(r))
     }
+
+    // Outputs the cells; TODO (write to a specified output in the future)
+    pub fn cell_state(&self) {
+        println!("{:?}", self.map)
+    }
 }
 
 // Uses eval_assigns as a helper
-fn eval_group(group: ir::Group, env: Environment) -> FutilResult<Environment> {
-    let res = eval_assigns(&group.assignments, &env);
+pub fn eval_group(
+    group: ir::RRC<ir::Group>,
+    env: Environment,
+) -> FutilResult<Environment> {
+    let g = group.borrow();
+
+    println!("{:?}", env.map);
+
+    let res = eval_assigns(&g.assignments, &env);
     res
+
+    //Ok(env)
 }
 
 // Evaluates assigns, given env; TODO
@@ -111,32 +123,76 @@ fn eval_assigns(
     env: &Environment,
 ) -> FutilResult<Environment> {
     // Find the done signal in the sequence of assignments
-    let done_signal = get_done_signal(assigns);
+    let done_assign = get_done_signal(assigns);
     // e2 = Clone the current environment
     let mut write_env = env.clone();
-    // get the cell that done_signal.dst belongs to
-    let done_cell = get_cell(&done_signal.dst);
+    // get the cell that done_assign.src belongs to
+    let done_cell = get_cell_from_port(&done_assign.src);
 
-    // while done signal is zero; how to check value of done_signal?
-    while env.get(&done_cell, &done_signal.dst.borrow().name) == 0 {
+    // prevent infinite loops; should probably be deleted later (unless we want to display the clock cycle)?
+    let mut counter = 0;
+
+    // filter out the assignment statements that are not only from cells; for now, also excludes cells not in the env map
+    let ok_assigns = assigns
+        .iter()
+        .filter(|&a| {
+            is_cell(&a.dst.borrow())
+                && is_cell(&a.dst.borrow())
+                && env.map.contains_key(&get_cell_from_port(&a.src)) //dummy way of making sure the map has the a.src cell
+                && env.map.contains_key(&get_cell_from_port(&a.dst))
+            // ??
+        })
+        .collect::<Vec<_>>();
+
+    // while done_assign src is 0 (done_assign.dst is not a cell's port; it should be a group's port)
+    while write_env.get(&done_cell, &done_assign.src.borrow().name) == 0
+        && counter < 5
+    {  
+        println!("{}", &done_cell);
+        println!("test {:?} \n", write_env.map.get(&done_cell));
+        counter += 1;
         // for assign in assigns
-        for assign in assigns.iter() {
+        for assign in ok_assigns.iter() {
+            print!("{:1} {:?} \n", counter, &assign.guard);
             // check if the assign.guard != 0
             if eval_guard(&assign.guard, env) {
                 // check if the cells are constants?
                 // cell of assign.src
-                let src_cell = get_cell(&assign.src);
+                let src_cell = get_cell_from_port(&assign.src);
                 // cell of assign.dst
-                let dst_cell = get_cell(&assign.dst);
+                let dst_cell = get_cell_from_port(&assign.dst);
+
+                println!(
+                    "src cell {:1} port: {:2}, dest cell {:3} port: {:4}",
+                    src_cell,
+                    &assign.src.borrow().name,
+                    dst_cell,
+                    &assign.dst.borrow().name
+                );
 
                 // perform a read from `env` for assign.src
-                let read_val =
-                    env.get(&src_cell, &done_signal.src.borrow().name);
+                let read_val = env.get(&src_cell, &assign.src.borrow().name);
 
                 // update internal state of the cell and
                 // queue any required updates.
 
-                // determine if dst_cell is a combinational cell or not
+                println!(
+                    "add0 out is {}",
+                    write_env.get(
+                        &ir::Id::from("add0".to_string()),
+                        &ir::Id::from("out".to_string())
+                    )
+                );
+
+                println!(
+                    "reg0 done is {}",
+                    write_env.get(
+                        &ir::Id::from("reg0".to_string()),
+                        &ir::Id::from("done".to_string())
+                    )
+                );
+
+                //determine if dst_cell is a combinational cell or not
                 if get_combinational_or_not(&dst_cell, env) {
                     // write to assign.dst to e2 immediately, if combinational
                     &write_env.put(
@@ -145,7 +201,7 @@ fn eval_assigns(
                         read_val,
                     );
 
-                    // now, update the internal state of the cell; for now, this only includes adds; TODO
+                    // now, update the internal state of the cell; for now, this only includes adds; TODO (use primitive Cell parameters)
                     let mut inputs = vec![];
                     let mut outputs = vec![];
 
@@ -181,42 +237,67 @@ fn eval_assigns(
                         _ => panic!("could not find cell"),
                     }
 
-
-
-                    match update_cell_state(
+                    // update the cell state in write_env
+                    write_env = update_cell_state(
                         &dst_cell,
                         &inputs[..],
                         &outputs[..],
                         &write_env,
-                    ) {
-                        Ok(env) => write_env = env,
-                        _ => println!("error in updating cell state"),
-                    }
+                    )?;
+
                 } else {
                     // otherwise, add the write to the update queue; currently only handles registers
-                    let temp_cell = &env.get_cell(&dst_cell);
-                    match temp_cell {
-                        Some(cell) => write_env.put_update(
-                            &src_cell,
-                            &assign.src.borrow().name,
-                            &dst_cell,
-                            &assign.dst.borrow().name,
-                        ), //temp
-                        // Some(cell) => write_env.add_update(
-                        //     (cell.borrow()).name.clone(),
-                        //     (cell.borrow()).get("in").borrow().name.clone(), //temp
-                        //     1,                                               //temp
-                        // ),
-                        _ => panic!("can't find the ports"),
+
+
+                    // get dst_cell's input and output vectors; TODO (currently only works for registers)
+                    let mut inputs = vec![];
+                    let mut outputs = vec![];
+
+                    // get dst_cell's input vector
+                    match &env.get_cell(&dst_cell) {
+                        Some(cell) => {
+                            inputs = vec![
+                                (cell.borrow())
+                                    .get("in")
+                                    .borrow()
+                                    .name
+                                    .clone(),
+                            ]
+                        }
+                        _ => panic!("could not find cell"),
                     }
+
+                    // get dst_cell's output vector
+                    match &env.get_cell(&dst_cell) {
+                        Some(cell) => {
+                            outputs = vec![(cell.borrow())
+                                .get("out")
+                                .borrow()
+                                .name
+                                .clone()]
+                            //clean this up later?
+                        }
+                        _ => panic!("could not find cell"),
+                    }
+
+                    write_env = init_cells(&dst_cell, inputs, outputs, write_env)?;
                 }
 
-                &write_env.do_tick();
             }
+            
         }
+        &write_env.do_tick();
     }
 
     Ok(write_env)
+}
+
+// convenience function to determine if a port belongs to a cell or not
+fn is_cell(port: &ir::Port) -> bool {
+    match &port.parent {
+        ir::PortParent::Cell(_) => true,
+        _ => false,
+    }
 }
 
 // used to convert guard's value to bool
@@ -278,25 +359,33 @@ fn eval_guard_helper(guard: &ir::Guard, env: &Environment) -> u64 {
                 return 0;
             }
         }
-        ir::Guard::Port(p) => env.get(&get_cell(p), &((*p.borrow()).name)),
+        ir::Guard::Port(p) => env.get(&get_cell_from_port(p), &((*p.borrow()).name)),
         //TODO; this is probably the big one
         ir::Guard::True => 1,
     }
 }
 
-/// Get the cell a port belongs to.
+/// Get the cell id a port belongs to.
 /// Very similar to ir::Port::get_parent_name, except it can also panic
-fn get_cell(port: &ir::RRC<ir::Port>) -> ir::Id {
-    let id = ir::Port::get_parent_name(&(port.borrow()));
-    // make sure that id is a cell id and not a group id; TODO
-    id
+fn get_cell_from_port(port: &ir::RRC<ir::Port>) -> ir::Id {
+    if is_cell(&port.borrow()) {
+        return ir::Port::get_parent_name(&(port.borrow()));
+    } else {
+        panic!("port belongs to a group, not a cell!");
+    }
 }
 
-/// Returns the done signal in this sequence of assignments
+/// Returns the assignment statement with the done signal; assumes there aren't other groups to check?
 fn get_done_signal(assigns: &[ir::Assignment]) -> &ir::Assignment {
     for assign in assigns.iter() {
-        // check if the statement's destination port is the "done" hole
-        if (assign.dst.borrow()).name.id == "done".to_string() {
+        let dest = assign.dst.borrow();
+        // need to check g's name?
+        let group_or_not = match &dest.parent {
+            ir::PortParent::Group(_) => true,
+            _ => false,
+        };
+        // check if the statement's destination port is the "done" hole and if its parent is a group
+        if dest.name.id == "done".to_string() && group_or_not {
             return assign;
         }
     }
@@ -321,7 +410,7 @@ fn get_combinational_or_not(cell: &ir::Id, env: &Environment) -> bool {
 
     let celltype = cb.type_name().unwrap_or_else(|| panic!("Constant?"));
 
-    // TODO
+    // TODO; get cell attributes
     match (*celltype).id.as_str() {
         "std_reg" => false,
         "std_const"
@@ -347,9 +436,37 @@ fn get_combinational_or_not(cell: &ir::Id, env: &Environment) -> bool {
         | "fixed_p_std_sub"
         | "fixed_p_std_mult"
         | "fixed_p_std_div"
+        | "fixed_p_std_gt"
         | "fixed_p_std_add_dbit" => true,
         _ => false,
     }
+}
+
+// initializes values for the update queue, i.e. for non-combinational cells
+fn init_cells(cell: &ir::Id, inputs : Vec<ir::Id>, outputs : Vec<ir::Id>, mut env: Environment) -> FutilResult<Environment> {
+    //let mut new_env = env.clone();
+
+    let cell_r = env
+        .get_cell(cell)
+        .unwrap_or_else(|| panic!("Cannot find cell with name"));
+
+    // get the cell type
+    match cell_r.borrow().type_name() {
+        None => panic!("bad"),
+        Some(ct) => match ct.id.as_str() {
+            "std_sqrt" => { //:( 
+                // has intermediate steps/computation??
+            },
+            "std_reg" => {
+                let map : HashMap<String, u64> = HashMap::new(); //placeholder
+                env.add_update(cell.clone(), inputs, outputs, map);
+                
+            }
+            _ => panic!("attempted to initalize an update queue map for a combinational cell")
+        }
+    }
+
+    Ok(env)
 }
 
 /// Uses the cell's inputs ports to perform any required updates to the
@@ -378,7 +495,17 @@ fn update_cell_state(
         None => panic!("Futil Const?"),
         Some(ct) => match ct.id.as_str() {
             "std_reg" => {
-                new_env.put(cell, &output[0], env.get(cell, &inputs[0]))
+                new_env.put(cell, &output[0], env.get(cell, &inputs[0]));
+                // remove from update queue
+                new_env.remove_update((*cell).clone()); // check the type of cell
+            },
+            "std_sqrt" => {
+                //TODO; wrong implementation
+                new_env.put(
+                    cell,
+                    &output[0],
+                    ((new_env.get(cell, &inputs[0]) as f64).sqrt()) as u64, // cast to f64 to use sqrt
+                );
             }
             "std_add" | "std_" => new_env.put(
                 cell,
@@ -439,15 +566,7 @@ fn update_cell_state(
                 (new_env.get(cell, &inputs[0]) <= env.get(cell, &inputs[1]))
                     as u64,
             ),
-            "std_sqrt" => {
-                //TODO; wrong implementation
-                new_env.put(
-                    cell,
-                    &output[0],
-                    ((new_env.get(cell, &inputs[0]) as f64).sqrt()) as u64, // cast to f64 to use sqrt
-                );
-            }
-            _ => println!("ok"),
+            _ => println!("unimplemented!"),
         },
     }
 
