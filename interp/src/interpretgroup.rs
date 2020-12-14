@@ -36,7 +36,7 @@ impl GroupInterpreter {
 		//println!("cells and ports: {:?}", map);
 		//println!("ids and cells: {:?}", cellmap);
 
-		let mut environment: interpreter::Environment =
+		let environment: interpreter::Environment =
 			interpreter::Environment::init(map, cellmap);
 
 		// Initial state of the environment
@@ -46,10 +46,11 @@ impl GroupInterpreter {
 		let group = comp
 			.find_group(&self.group)
 			.unwrap_or_else(|| panic!("bad"));
-		println!("Yay, interpreting");
+		println!("Started interpreting...");
 
 		let finalenv = interpreter::eval_group(group, environment)?;
 
+		println!("Finished interpreting.");
 		// Final state of the environment
 		finalenv.cell_state();
 		Ok(())
