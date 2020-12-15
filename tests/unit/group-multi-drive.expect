@@ -1,14 +1,3 @@
-_1_32.out -> [add.left]
-add.left -> []
-r.out -> [add.right]
-add.right -> []
-add.out -> [r.in]
-r.in -> []
-_1_1.out -> [r.write_en]
-r.write_en -> []
-r.done -> [do_update.done]
-do_update.done -> []
-
 import "primitives/std.lib";
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
