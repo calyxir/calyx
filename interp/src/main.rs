@@ -10,6 +10,7 @@ pub use structopt::StructOpt;
 mod interpreter;
 pub mod interpretgroup;
 
+/// CLI Options
 #[derive(Debug, StructOpt)]
 #[structopt(name = "interpreter", about = "group interpreter CLI")]
 pub struct Opts {
@@ -34,6 +35,7 @@ pub struct Opts {
     pub group: String,
 }
 
+/// Interpret a group from a FuTIL program
 fn main() -> FutilResult<()> {
     let opts = Opts::from_args();
     //println!("{:?}", opts);
@@ -74,7 +76,7 @@ fn main() -> FutilResult<()> {
     )?;
 
     // run the interpreter (in this case, group interpreter)
-    interpreter.interpret(&ir)?;
+    interpreter.interpret(ir)?;
 
     return Ok(());
 }
