@@ -1,10 +1,8 @@
----CODE---
-1
----STDERR---
-Stage 'verilog' had a non-zero exit code.
----------------- stderr ----------------
-%Error: /var/folders/6q/t70wp1n54pd1dlp4q9m58ft00000gn/T/tmpjhkaeb_3:1:1: syntax error, unexpected IDENTIFIER
-    1 | _1_1.out -> [b.write_en]
-      | ^~~~
-%Error: Exiting due to 1 error(s)
-
+{
+  "in": [
+    4
+  ],
+  "out": [
+    4
+  ]
+}
