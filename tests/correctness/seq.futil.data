@@ -3,12 +3,12 @@
     "data": [
       4
     ],
-    "bitwidth": 32
+   "type": "TSizedInt(32, true)"
   },
   "out": {
     "data": [
       6
     ],
-    "bitwidth": 32
+    "type": "TSizedInt(32, true)"
   }
 }

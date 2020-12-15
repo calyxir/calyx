@@ -3,18 +3,18 @@
     "data": [
       0
     ],
-    "bitwidth": 32
+    "type": "TSizedInt(32, true)"
   },
   "b": {
     "data": [
       0
     ],
-    "bitwidth": 32
+    "type": "TSizedInt(32, true)"
   },
   "c": {
     "data": [
       0
     ],
-    "bitwidth": 32
+    "type": "TSizedInt(32, true)"
   }
 }
