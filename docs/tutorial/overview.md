@@ -97,7 +97,7 @@ For each `Decl` node, we need to determine if we're instantiating a memory or a 
 
 #### `Map` and `Reduce` nodes
 
-For every map or reduce node, we need to generate FuTIL code that iterates over an array, performs some kind of computation, and then stores the result of that computation. For `map` operations, we'll perform a computaiton on an element of an input array, and then store the result in a result array. For `reduce` operations, we'll also use an element of an input array, but we'll also use an _accumulator_ register that we'll use in each computation, and we'll also store to. For example, if we were writing a `reduce` that summed up the elements of an input array, we'd use an accumulator register that was initialized to hold the value 0, and add to the value of this register each element of an input array.
+For every map or reduce node, we need to generate FuTIL code that iterates over an array, performs some kind of computation, and then stores the result of that computation. For `map` operations, we'll perform a computation on an element of an input array, and then store the result in a result array. For `reduce` operations, we'll also use an element of an input array, but we'll also use an _accumulator_ register that we'll use in each computation, and we'll also store to. For example, if we were writing a `reduce` that summed up the elements of an input array, we'd use an accumulator register that was initialized to hold the value 0, and add to the value of this register each element of an input array.
 
 We can implement these behaviors using FuTIL groups:
 - `incr_idx`: Increments an `idx` register using an adder. This group is done when the `idx` register is written to.
