@@ -34,7 +34,7 @@ with this data file, containing banked memories to allow for the parallelism:
 Run the program with the supplied data by typing:
 
 ```
-fud exec frontends/mrxl/test/add.mrxl --from mrxl --to vcd -s verilog.data frontends/mrxl/test/add_par2.data
+fud exec frontends/mrxl/test/add.mrxl --from mrxl --to vcd -s verilog.data frontends/mrxl/test/add.mrxl.data
 ```
 
 ## Build a Compiler for MrXL
@@ -146,7 +146,7 @@ par {
 Hopefully this should be enough to get you started with writing your own MrXL compiler. Some more follow up tasks you could try if you're interested:
 - Implement code generation to implement `reduce` statements, which we do not include in our compiler.
 - Implement code generation that allows memories that differ from one another in size.
-- Implement complex function body expressions. We only support binary operations with simple operands, like `a + 5`. Different hardware components take multiple cycles to execute: for example, a register takes 1 cycle to write data to, but a memory might take more. This complicates hardware design, as you need to account for differing latencies among hardware components. 
+- Implement complex function body expressions. We only support binary operations with simple operands, like `a + 5`. Different hardware components take multiple cycles to execute: for example, a register takes 1 cycle to write data to, but a memory might take more. This complicates hardware design, as you need to account for differing latencies among hardware components.
 
 [astcode]: https://github.com/cucapra/futil/blob/mrxl/mrxl/mrxl/ast.py
-[mrxldocs]: https://github.com/cucapra/futil/tree/master/frontends/mrxl 
+[mrxldocs]: https://github.com/cucapra/futil/tree/master/frontends/mrxl

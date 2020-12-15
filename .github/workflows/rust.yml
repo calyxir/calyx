@@ -125,6 +125,11 @@ jobs:
       with:
         command: build
 
+    - name: Install MrXL
+      run: |
+        cd frontends/mrxl
+        flit install
+
     - name: Install fud
       run: |
         cd fud
