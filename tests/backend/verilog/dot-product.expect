@@ -1,0 +1,651 @@
+module std_add
+  #(parameter width = 32)
+  (input  logic [width-1:0] left,
+    input  logic [width-1:0] right,
+    output logic [width-1:0] out);
+  assign out = left + right;
+endmodule
+module std_const
+  #(parameter width = 32,
+    parameter value = 0)
+   (output logic [width - 1:0] out);
+  assign out = value;
+endmodule
+module std_le
+  #(parameter width = 32)
+  (input logic [width-1:0] left,
+   input logic [width-1:0] right,
+   output logic            out);
+  assign out = left <= right;
+endmodule
+module std_mem_d1
+  #(parameter width = 32,
+    parameter size = 16,
+    parameter idx_size = 4)
+   (input logic [idx_size-1:0] addr0,
+    input logic [width-1:0]   write_data,
+    input logic               write_en,
+    input logic               clk,
+    output logic [width-1:0]  read_data,
+    output logic done);
+
+  logic [width-1:0]  mem[size-1:0];
+
+  /* verilator lint_off WIDTH */
+  assign read_data = mem[addr0];
+  always_ff @(posedge clk) begin
+    if (write_en) begin
+      mem[addr0] <= write_data;
+      done <= 1'd1;
+    end else
+      done <= 1'd0;
+  end
+endmodule
+module std_mult_pipe
+  #(parameter width = 32)
+   (input logic [width-1:0] left,
+    input logic [width-1:0] right,
+    input logic go,
+    input logic clk,
+    output logic [width-1:0] out,
+    output logic done);
+   logic [width-1:0] rtmp;
+   logic [width-1:0] ltmp;
+   logic [width-1:0] out_tmp;
+   reg done_buf[1:0];
+   always_ff @(posedge clk) begin
+     if (go) begin
+       rtmp <= right;
+       ltmp <= left;
+       out_tmp <= rtmp * ltmp;
+       out <= out_tmp;
+
+       done <= done_buf[1];
+       done_buf[0] <= 1'b1;
+       done_buf[1] <= done_buf[0];
+     end else begin
+       rtmp <= 0;
+       ltmp <= 0;
+       out_tmp <= 0;
+       out <= 0;
+
+       done <= 0;
+       done_buf[0] <= 0;
+       done_buf[1] <= 0;
+     end
+   end
+ endmodule
+module std_reg
+  #(parameter width = 32)
+   (input wire [width-1:0] in,
+    input wire write_en,
+    input wire clk,
+    // output
+    output logic [width - 1:0] out,
+    output logic done);
+
+  always_ff @(posedge clk) begin
+    if (write_en) begin
+      out <= in;
+      done <= 1'd1;
+    end else
+      done <= 1'd0;
+  end
+endmodule
+module main (
+    input logic go,
+    input logic clk,
+    output logic done
+);
+    import "DPI-C" function string futil_getenv (input string env_var);
+    string DATA;
+    initial begin
+        DATA = futil_getenv("DATA");
+        $fdisplay(2, "DATA (path to meminit files): %s", DATA);
+        $readmemh({DATA, "/A0.dat"}, A0.mem);
+        $readmemh({DATA, "/B0.dat"}, B0.mem);
+        $readmemh({DATA, "/v0.dat"}, v0.mem);
+    end
+    final begin
+        $writememh({DATA, "/A0.out"}, A0.mem);
+        $writememh({DATA, "/B0.out"}, B0.mem);
+        $writememh({DATA, "/v0.out"}, v0.mem);
+    end
+    logic [3:0] A0_addr0;
+    logic [31:0] A0_write_data;
+    logic A0_write_en;
+    logic A0_clk;
+    logic [31:0] A0_read_data;
+    logic A0_done;
+    logic [31:0] A_read0_0_in;
+    logic A_read0_0_write_en;
+    logic A_read0_0_clk;
+    logic [31:0] A_read0_0_out;
+    logic A_read0_0_done;
+    logic [3:0] B0_addr0;
+    logic [31:0] B0_write_data;
+    logic B0_write_en;
+    logic B0_clk;
+    logic [31:0] B0_read_data;
+    logic B0_done;
+    logic [31:0] B_read0_0_in;
+    logic B_read0_0_write_en;
+    logic B_read0_0_clk;
+    logic [31:0] B_read0_0_out;
+    logic B_read0_0_done;
+    logic [31:0] add0_left;
+    logic [31:0] add0_right;
+    logic [31:0] add0_out;
+    logic [3:0] add1_left;
+    logic [3:0] add1_right;
+    logic [3:0] add1_out;
+    logic [31:0] bin_read0_0_in;
+    logic bin_read0_0_write_en;
+    logic bin_read0_0_clk;
+    logic [31:0] bin_read0_0_out;
+    logic bin_read0_0_done;
+    logic [3:0] const0_out;
+    logic [3:0] const1_out;
+    logic const2_out;
+    logic const3_out;
+    logic [3:0] const4_out;
+    logic [31:0] dot_0_in;
+    logic dot_0_write_en;
+    logic dot_0_clk;
+    logic [31:0] dot_0_out;
+    logic dot_0_done;
+    logic [3:0] i0_in;
+    logic i0_write_en;
+    logic i0_clk;
+    logic [3:0] i0_out;
+    logic i0_done;
+    logic [3:0] le0_left;
+    logic [3:0] le0_right;
+    logic le0_out;
+    logic [31:0] mult_pipe0_left;
+    logic [31:0] mult_pipe0_right;
+    logic mult_pipe0_go;
+    logic mult_pipe0_clk;
+    logic [31:0] mult_pipe0_out;
+    logic mult_pipe0_done;
+    logic v0_addr0;
+    logic [31:0] v0_write_data;
+    logic v0_write_en;
+    logic v0_clk;
+    logic [31:0] v0_read_data;
+    logic v0_done;
+    logic [31:0] fsm_in;
+    logic fsm_write_en;
+    logic fsm_clk;
+    logic [31:0] fsm_out;
+    logic fsm_done;
+    logic [31:0] incr_left;
+    logic [31:0] incr_right;
+    logic [31:0] incr_out;
+    logic [31:0] fsm0_in;
+    logic fsm0_write_en;
+    logic fsm0_clk;
+    logic [31:0] fsm0_out;
+    logic fsm0_done;
+    logic [31:0] incr0_left;
+    logic [31:0] incr0_right;
+    logic [31:0] incr0_out;
+    logic [31:0] fsm1_in;
+    logic fsm1_write_en;
+    logic fsm1_clk;
+    logic [31:0] fsm1_out;
+    logic fsm1_done;
+    logic cond_stored_in;
+    logic cond_stored_write_en;
+    logic cond_stored_clk;
+    logic cond_stored_out;
+    logic cond_stored_done;
+    logic [31:0] incr1_left;
+    logic [31:0] incr1_right;
+    logic [31:0] incr1_out;
+    logic [31:0] fsm2_in;
+    logic fsm2_write_en;
+    logic fsm2_clk;
+    logic [31:0] fsm2_out;
+    logic fsm2_done;
+    initial begin
+        A0_addr0 = 4'd0;
+        A0_write_data = 32'd0;
+        A0_write_en = 1'd0;
+        A0_clk = 1'd0;
+        A_read0_0_in = 32'd0;
+        A_read0_0_write_en = 1'd0;
+        A_read0_0_clk = 1'd0;
+        B0_addr0 = 4'd0;
+        B0_write_data = 32'd0;
+        B0_write_en = 1'd0;
+        B0_clk = 1'd0;
+        B_read0_0_in = 32'd0;
+        B_read0_0_write_en = 1'd0;
+        B_read0_0_clk = 1'd0;
+        add0_left = 32'd0;
+        add0_right = 32'd0;
+        add1_left = 4'd0;
+        add1_right = 4'd0;
+        bin_read0_0_in = 32'd0;
+        bin_read0_0_write_en = 1'd0;
+        bin_read0_0_clk = 1'd0;
+        dot_0_in = 32'd0;
+        dot_0_write_en = 1'd0;
+        dot_0_clk = 1'd0;
+        i0_in = 4'd0;
+        i0_write_en = 1'd0;
+        i0_clk = 1'd0;
+        le0_left = 4'd0;
+        le0_right = 4'd0;
+        mult_pipe0_left = 32'd0;
+        mult_pipe0_right = 32'd0;
+        mult_pipe0_go = 1'd0;
+        mult_pipe0_clk = 1'd0;
+        v0_addr0 = 1'd0;
+        v0_write_data = 32'd0;
+        v0_write_en = 1'd0;
+        v0_clk = 1'd0;
+        fsm_in = 32'd0;
+        fsm_write_en = 1'd0;
+        fsm_clk = 1'd0;
+        incr_left = 32'd0;
+        incr_right = 32'd0;
+        fsm0_in = 32'd0;
+        fsm0_write_en = 1'd0;
+        fsm0_clk = 1'd0;
+        incr0_left = 32'd0;
+        incr0_right = 32'd0;
+        fsm1_in = 32'd0;
+        fsm1_write_en = 1'd0;
+        fsm1_clk = 1'd0;
+        cond_stored_in = 1'd0;
+        cond_stored_write_en = 1'd0;
+        cond_stored_clk = 1'd0;
+        incr1_left = 32'd0;
+        incr1_right = 32'd0;
+        fsm2_in = 32'd0;
+        fsm2_write_en = 1'd0;
+        fsm2_clk = 1'd0;
+    end
+    std_mem_d1 # (
+        .idx_size(4),
+        .size(8),
+        .width(32)
+    ) A0 (
+        .addr0(A0_addr0),
+        .clk(A0_clk),
+        .done(A0_done),
+        .read_data(A0_read_data),
+        .write_data(A0_write_data),
+        .write_en(A0_write_en)
+    );
+    std_reg # (
+        .width(32)
+    ) A_read0_0 (
+        .clk(A_read0_0_clk),
+        .done(A_read0_0_done),
+        .in(A_read0_0_in),
+        .out(A_read0_0_out),
+        .write_en(A_read0_0_write_en)
+    );
+    std_mem_d1 # (
+        .idx_size(4),
+        .size(8),
+        .width(32)
+    ) B0 (
+        .addr0(B0_addr0),
+        .clk(B0_clk),
+        .done(B0_done),
+        .read_data(B0_read_data),
+        .write_data(B0_write_data),
+        .write_en(B0_write_en)
+    );
+    std_reg # (
+        .width(32)
+    ) B_read0_0 (
+        .clk(B_read0_0_clk),
+        .done(B_read0_0_done),
+        .in(B_read0_0_in),
+        .out(B_read0_0_out),
+        .write_en(B_read0_0_write_en)
+    );
+    std_add # (
+        .width(32)
+    ) add0 (
+        .left(add0_left),
+        .out(add0_out),
+        .right(add0_right)
+    );
+    std_add # (
+        .width(4)
+    ) add1 (
+        .left(add1_left),
+        .out(add1_out),
+        .right(add1_right)
+    );
+    std_reg # (
+        .width(32)
+    ) bin_read0_0 (
+        .clk(bin_read0_0_clk),
+        .done(bin_read0_0_done),
+        .in(bin_read0_0_in),
+        .out(bin_read0_0_out),
+        .write_en(bin_read0_0_write_en)
+    );
+    std_const # (
+        .value(0),
+        .width(4)
+    ) const0 (
+        .out(const0_out)
+    );
+    std_const # (
+        .value(7),
+        .width(4)
+    ) const1 (
+        .out(const1_out)
+    );
+    std_const # (
+        .value(0),
+        .width(1)
+    ) const2 (
+        .out(const2_out)
+    );
+    std_const # (
+        .value(0),
+        .width(1)
+    ) const3 (
+        .out(const3_out)
+    );
+    std_const # (
+        .value(1),
+        .width(4)
+    ) const4 (
+        .out(const4_out)
+    );
+    std_reg # (
+        .width(32)
+    ) dot_0 (
+        .clk(dot_0_clk),
+        .done(dot_0_done),
+        .in(dot_0_in),
+        .out(dot_0_out),
+        .write_en(dot_0_write_en)
+    );
+    std_reg # (
+        .width(4)
+    ) i0 (
+        .clk(i0_clk),
+        .done(i0_done),
+        .in(i0_in),
+        .out(i0_out),
+        .write_en(i0_write_en)
+    );
+    std_le # (
+        .width(4)
+    ) le0 (
+        .left(le0_left),
+        .out(le0_out),
+        .right(le0_right)
+    );
+    std_mult_pipe # (
+        .width(32)
+    ) mult_pipe0 (
+        .clk(mult_pipe0_clk),
+        .done(mult_pipe0_done),
+        .go(mult_pipe0_go),
+        .left(mult_pipe0_left),
+        .out(mult_pipe0_out),
+        .right(mult_pipe0_right)
+    );
+    std_mem_d1 # (
+        .idx_size(1),
+        .size(1),
+        .width(32)
+    ) v0 (
+        .addr0(v0_addr0),
+        .clk(v0_clk),
+        .done(v0_done),
+        .read_data(v0_read_data),
+        .write_data(v0_write_data),
+        .write_en(v0_write_en)
+    );
+    std_reg # (
+        .width(32)
+    ) fsm (
+        .clk(fsm_clk),
+        .done(fsm_done),
+        .in(fsm_in),
+        .out(fsm_out),
+        .write_en(fsm_write_en)
+    );
+    std_add # (
+        .width(32)
+    ) incr (
+        .left(incr_left),
+        .out(incr_out),
+        .right(incr_right)
+    );
+    std_reg # (
+        .width(32)
+    ) fsm0 (
+        .clk(fsm0_clk),
+        .done(fsm0_done),
+        .in(fsm0_in),
+        .out(fsm0_out),
+        .write_en(fsm0_write_en)
+    );
+    std_add # (
+        .width(32)
+    ) incr0 (
+        .left(incr0_left),
+        .out(incr0_out),
+        .right(incr0_right)
+    );
+    std_reg # (
+        .width(32)
+    ) fsm1 (
+        .clk(fsm1_clk),
+        .done(fsm1_done),
+        .in(fsm1_in),
+        .out(fsm1_out),
+        .write_en(fsm1_write_en)
+    );
+    std_reg # (
+        .width(1)
+    ) cond_stored (
+        .clk(cond_stored_clk),
+        .done(cond_stored_done),
+        .in(cond_stored_in),
+        .out(cond_stored_out),
+        .write_en(cond_stored_write_en)
+    );
+    std_add # (
+        .width(32)
+    ) incr1 (
+        .left(incr1_left),
+        .out(incr1_out),
+        .right(incr1_right)
+    );
+    std_reg # (
+        .width(32)
+    ) fsm2 (
+        .clk(fsm2_clk),
+        .done(fsm2_done),
+        .in(fsm2_in),
+        .out(fsm2_out),
+        .write_en(fsm2_write_en)
+    );
+    always_comb begin
+        if(((fsm_out <= 32'd1) & ((fsm0_out == 32'd0) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))))) begin
+            A0_addr0 = i0_out;
+        end else A0_addr0 = 4'd0;
+        A0_clk = clk;
+        A_read0_0_clk = clk;
+        if(((fsm_out <= 32'd1) & ((fsm0_out == 32'd0) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))))) begin
+            A_read0_0_in = A0_read_data;
+        end else A_read0_0_in = 32'd0;
+        if(((fsm_out <= 32'd1) & ((fsm0_out == 32'd0) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))))) begin
+            A_read0_0_write_en = 1'd1;
+        end else A_read0_0_write_en = 1'd0;
+        if(((fsm_out <= 32'd1) & ((fsm0_out == 32'd0) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))))) begin
+            B0_addr0 = i0_out;
+        end else B0_addr0 = 4'd0;
+        B0_clk = clk;
+        B_read0_0_clk = clk;
+        if(((fsm_out <= 32'd1) & ((fsm0_out == 32'd0) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))))) begin
+            B_read0_0_in = B0_read_data;
+        end else B_read0_0_in = 32'd0;
+        if(((fsm_out <= 32'd1) & ((fsm0_out == 32'd0) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))))) begin
+            B_read0_0_write_en = 1'd1;
+        end else B_read0_0_write_en = 1'd0;
+        if((fsm2_out == 32'd2)) begin
+            done = 1'd1;
+        end else if((fsm2_out == 32'd2)) begin
+            done = 1'd1;
+        end else done = 1'd0;
+        if(((fsm0_out == 32'd6) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            add0_left = v0_read_data;
+        end else add0_left = 32'd0;
+        if(((fsm0_out == 32'd6) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            add0_right = dot_0_out;
+        end else add0_right = 32'd0;
+        if(((fsm0_out == 32'd7) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            add1_left = i0_out;
+        end else add1_left = 4'd0;
+        if(((fsm0_out == 32'd7) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            add1_right = const4_out;
+        end else add1_right = 4'd0;
+        bin_read0_0_clk = clk;
+        if((((fsm0_out >= 32'd1) & (fsm0_out < 32'd5)) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            bin_read0_0_in = mult_pipe0_out;
+        end else bin_read0_0_in = 32'd0;
+        if((((fsm0_out >= 32'd1) & (fsm0_out < 32'd5)) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            bin_read0_0_write_en = mult_pipe0_done;
+        end else bin_read0_0_write_en = 1'd0;
+        cond_stored_clk = clk;
+        if(((fsm1_out < 32'd1) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))) begin
+            cond_stored_in = le0_out;
+        end else cond_stored_in = 1'd0;
+        if(((fsm1_out < 32'd1) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))) begin
+            cond_stored_write_en = 1'd1;
+        end else cond_stored_write_en = 1'd0;
+        dot_0_clk = clk;
+        if(((fsm0_out == 32'd5) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            dot_0_in = bin_read0_0_out;
+        end else dot_0_in = 32'd0;
+        if(((fsm0_out == 32'd5) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            dot_0_write_en = 1'd1;
+        end else dot_0_write_en = 1'd0;
+        fsm_clk = clk;
+        if(((fsm_out != 32'd1) & ((fsm0_out == 32'd0) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))))) begin
+            fsm_in = incr_out;
+        end else if((fsm_out == 32'd1)) begin
+            fsm_in = 32'd0;
+        end else fsm_in = 32'd0;
+        if(((fsm_out != 32'd1) & ((fsm0_out == 32'd0) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))))) begin
+            fsm_write_en = 1'd1;
+        end else if((fsm_out == 32'd1)) begin
+            fsm_write_en = 1'd1;
+        end else fsm_write_en = 1'd0;
+        fsm0_clk = clk;
+        if(((fsm0_out != 32'd8) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            fsm0_in = incr0_out;
+        end else if((fsm0_out == 32'd8)) begin
+            fsm0_in = 32'd0;
+        end else fsm0_in = 32'd0;
+        if(((fsm0_out != 32'd8) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            fsm0_write_en = 1'd1;
+        end else if((fsm0_out == 32'd8)) begin
+            fsm0_write_en = 1'd1;
+        end else fsm0_write_en = 1'd0;
+        fsm1_clk = clk;
+        if(((fsm1_out != 32'd9) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))) begin
+            fsm1_in = incr1_out;
+        end else if(((fsm1_out == 32'd9) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))) begin
+            fsm1_in = 32'd0;
+        end else if(((fsm1_out == 32'd1) & ~cond_stored_out)) begin
+            fsm1_in = 32'd0;
+        end else fsm1_in = 32'd0;
+        if(((fsm1_out != 32'd9) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))) begin
+            fsm1_write_en = 1'd1;
+        end else if(((fsm1_out == 32'd9) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))) begin
+            fsm1_write_en = 1'd1;
+        end else if(((fsm1_out == 32'd1) & ~cond_stored_out)) begin
+            fsm1_write_en = 1'd1;
+        end else fsm1_write_en = 1'd0;
+        fsm2_clk = clk;
+        if((((fsm2_out == 32'd0) & i0_done) & (go | go))) begin
+            fsm2_in = 32'd1;
+        end else if((((fsm2_out == 32'd1) & ((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))) begin
+            fsm2_in = 32'd2;
+        end else if((fsm2_out == 32'd2)) begin
+            fsm2_in = 32'd0;
+        end else fsm2_in = 32'd0;
+        if((((fsm2_out == 32'd0) & i0_done) & (go | go))) begin
+            fsm2_write_en = 1'd1;
+        end else if((((fsm2_out == 32'd1) & ((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))) begin
+            fsm2_write_en = 1'd1;
+        end else if((fsm2_out == 32'd2)) begin
+            fsm2_write_en = 1'd1;
+        end else fsm2_write_en = 1'd0;
+        i0_clk = clk;
+        if((((fsm2_out == 32'd0) & ~i0_done) & (go | go))) begin
+            i0_in = const0_out;
+        end else if(((fsm0_out == 32'd7) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            i0_in = add1_out;
+        end else i0_in = 4'd0;
+        if((((fsm2_out == 32'd0) & ~i0_done) & (go | go))) begin
+            i0_write_en = 1'd1;
+        end else if(((fsm0_out == 32'd7) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            i0_write_en = 1'd1;
+        end else i0_write_en = 1'd0;
+        if(((fsm0_out == 32'd0) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            incr_left = 32'd1;
+        end else incr_left = 32'd0;
+        if(((fsm0_out == 32'd0) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            incr_right = fsm_out;
+        end else incr_right = 32'd0;
+        if((((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))) begin
+            incr0_left = 32'd1;
+        end else incr0_left = 32'd0;
+        if((((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))) begin
+            incr0_right = fsm0_out;
+        end else incr0_right = 32'd0;
+        if((((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))) begin
+            incr1_left = fsm1_out;
+        end else incr1_left = 32'd0;
+        if((((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))) begin
+            incr1_right = 32'd1;
+        end else incr1_right = 32'd0;
+        if(((fsm1_out < 32'd1) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))) begin
+            le0_left = i0_out;
+        end else le0_left = 4'd0;
+        if(((fsm1_out < 32'd1) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))) begin
+            le0_right = const1_out;
+        end else le0_right = 4'd0;
+        mult_pipe0_clk = clk;
+        if((~mult_pipe0_done & (((fsm0_out >= 32'd1) & (fsm0_out < 32'd5)) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go)))))) begin
+            mult_pipe0_go = 1'd1;
+        end else mult_pipe0_go = 1'd0;
+        if((((fsm0_out >= 32'd1) & (fsm0_out < 32'd5)) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            mult_pipe0_left = A_read0_0_out;
+        end else mult_pipe0_left = 32'd0;
+        if((((fsm0_out >= 32'd1) & (fsm0_out < 32'd5)) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            mult_pipe0_right = B_read0_0_out;
+        end else mult_pipe0_right = 32'd0;
+        if(((fsm0_out == 32'd6) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            v0_addr0 = const2_out;
+        end else if(((fsm0_out == 32'd6) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            v0_addr0 = const3_out;
+        end else v0_addr0 = 1'd0;
+        v0_clk = clk;
+        if(((fsm0_out == 32'd6) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            v0_write_data = add0_out;
+        end else v0_write_data = 32'd0;
+        if(((fsm0_out == 32'd6) & (((cond_stored_out & (fsm1_out >= 32'd1)) & (fsm1_out < 32'd9)) & (((fsm2_out == 32'd1) & ~((fsm1_out == 32'd1) & ~cond_stored_out)) & (go | go))))) begin
+            v0_write_en = 1'd1;
+        end else v0_write_en = 1'd0;
+    end
+endmodule
+
