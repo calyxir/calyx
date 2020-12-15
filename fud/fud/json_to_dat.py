@@ -86,7 +86,7 @@ def convert2dat(output_dir, data, extension):
         typ = item["type"]
         info = typ[typ.find("(")+1:typ.find(")")]
         info = info.split(",")
-        shape[k] = {"shape": list(arr.shape), "typ": info}
+        shape[k] = {"shape": list(arr.shape), "type": info}
         if len(info) ==2:
             # integer
             with path.open('w') as f:
@@ -123,16 +123,18 @@ def convert2json(input_dir, extension):
 
     # TODO: change to use shape json
     for f in input_dir.glob(f'*.{extension}'):
-        typinfo = shape_json[f.stem]["typ"]
+        typinfo = shape_json[f.stem]["type"]
         if len(typinfo)==2:
             # integer 
             arr = parse_dat(f)
+            print(arr)
         elif len(typinfo)==3:
             # fixed point 
             wholebit = int(typinfo[0])
             intbit = int(typinfo[1])
             fracbit= wholebit - intbit
             arr = parse_dat_fxd(f,wholebit, intbit,fracbit)
+            print(arr)
         else: 
             raise Exception("valid type is required")
 

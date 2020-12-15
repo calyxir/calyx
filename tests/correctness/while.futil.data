@@ -1,6 +1,6 @@
 {
   "i": {
     "data": [0],
-    "bitwidth": 32
+    "type": "TSizedInt(32, true)"
   }
 }
