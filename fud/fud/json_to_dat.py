@@ -127,14 +127,12 @@ def convert2json(input_dir, extension):
         if len(typinfo)==2:
             # integer 
             arr = parse_dat(f)
-            print(arr)
         elif len(typinfo)==3:
             # fixed point 
             wholebit = int(typinfo[0])
             intbit = int(typinfo[1])
             fracbit= wholebit - intbit
             arr = parse_dat_fxd(f,wholebit, intbit,fracbit)
-            print(arr)
         else: 
             raise Exception("valid type is required")
 
