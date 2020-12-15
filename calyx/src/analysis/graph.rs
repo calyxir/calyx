@@ -143,10 +143,7 @@ impl GraphAnalysis {
     }
 
     /// Add each edge in `edges` to the graph.
-    pub fn add_edges(
-        self,
-        edges: &[(RRC<ir::Port>, RRC<ir::Port>)],
-    ) -> Self {
+    pub fn add_edges(self, edges: &[(RRC<ir::Port>, RRC<ir::Port>)]) -> Self {
         let Self { graph, nodes } = self;
         let mut graph = graph;
         for (a_ref, b_ref) in edges {
@@ -160,10 +157,7 @@ impl GraphAnalysis {
             }
         }
 
-        Self {
-            graph,
-            nodes,
-        }
+        Self { graph, nodes }
     }
 
     /// Return a topological sort of this graph.

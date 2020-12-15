@@ -97,9 +97,7 @@ fn mem_wrt_dep_graph<'a>(
         }
 
         // Something is written to a group: to be added to the graph, this needs to be a "done" port.
-        (_, ir::PortParent::Group(_)) => {
-            dst.name == "done"
-        }
+        (_, ir::PortParent::Group(_)) => dst.name == "done",
 
         // If we encounter anything else, no need to add it to the graph.
         _ => false,
@@ -171,20 +169,37 @@ fn contains_dyn_writes<'a>(
     latency_data: &HashMap<&'a str, (&'a str, &'a str, u64)>,
 ) -> bool {
     for port in &graph.ports() {
-        if let ir::PortParent::Cell(cell) = &port.borrow().parent {
-            if let ir::CellType::Primitive {
-                name: cell_type, ..
-            } = &cell.upgrade().unwrap().borrow().prototype
-            {
-                if let Some((go, _, _)) = latency_data.get(cell_type.as_ref()) {
-                    if port.borrow().name == *go {
-                        for write_port in graph.writes_to(&*port.borrow()) {
-                            if !is_done_port_or_const(
-                                &*write_port.borrow(),
-                                latency_data,
-                            ) {
-                                return true;
+        match &port.borrow().parent {
+            ir::PortParent::Cell(cell) => {
+                if let ir::CellType::Primitive {
+                    name: cell_type, ..
+                } = &cell.upgrade().unwrap().borrow().prototype
+                {
+                    if let Some((go, _, _)) =
+                        latency_data.get(cell_type.as_ref())
+                    {
+                        if port.borrow().name == *go {
+                            for write_port in graph.writes_to(&*port.borrow()) {
+                                if !is_done_port_or_const(
+                                    &*write_port.borrow(),
+                                    latency_data,
+                                ) {
+                                    return true;
+                                }
                             }
+                        }
+                    }
+                }
+            }
+
+            ir::PortParent::Group(_) => {
+                if port.borrow().name == "done" {
+                    for write_port in graph.writes_to(&*port.borrow()) {
+                        if !is_done_port_or_const(
+                            &*write_port.borrow(),
+                            latency_data,
+                        ) {
+                            return true;
                         }
                     }
                 }
