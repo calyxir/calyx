@@ -106,3 +106,10 @@ paths = [ "tests/frontend/systolic/array-*.txt" ]
 cmd = """
 ./frontends/systolic-lang/gen-systolic.py $(cat {})
 """
+
+[[tests]]
+name = "mrxl frontend"
+paths = [ "frontends/mrxl/test/*.mrxl" ]
+cmd = """
+fud e -q {} --from mrxl --to dat -s verilog.data {}.data
+"""
