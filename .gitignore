@@ -31,3 +31,4 @@ fud/dist
 fud/build
 *.egg-info
 __pycache__
+*.pyc
