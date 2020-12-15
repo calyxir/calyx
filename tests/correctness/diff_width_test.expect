@@ -1,80 +1,10 @@
-{
-  "mem0": [
-    [
-      12,
-      0,
-      0,
-      0
-    ],
-    [
-      10,
-      0,
-      0,
-      0
-    ],
-    [
-      20,
-      0,
-      0,
-      0
-    ],
-    [
-      34,
-      0,
-      0,
-      0
-    ]
-  ],
-  "mem1": [
-    [
-      16,
-      0,
-      0,
-      0
-    ],
-    [
-      32,
-      0,
-      0,
-      0
-    ],
-    [
-      8,
-      0,
-      0,
-      0
-    ],
-    [
-      24,
-      0,
-      0,
-      0
-    ]
-  ],
-  "mem2": [
-    [
-      40,
-      0,
-      0,
-      0
-    ],
-    [
-      52,
-      0,
-      0,
-      0
-    ],
-    [
-      48,
-      0,
-      0,
-      0
-    ],
-    [
-      92,
-      0,
-      0,
-      0
-    ]
-  ]
-}
+---CODE---
+1
+---STDERR---
+Stage 'verilog' had a non-zero exit code.
+---------------- stderr ----------------
+%Error: /var/folders/6q/t70wp1n54pd1dlp4q9m58ft00000gn/T/tmpcxgkypjs:1:1: syntax error, unexpected IDENTIFIER
+    1 | _1_1.out -> [cond0.done]
+      | ^~~~
+%Error: Exiting due to 1 error(s)
+

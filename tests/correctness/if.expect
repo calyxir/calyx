@@ -1,5 +1,10 @@
-{
-  "mem": [
-    4
-  ]
-}
+---CODE---
+1
+---STDERR---
+Stage 'verilog' had a non-zero exit code.
+---------------- stderr ----------------
+%Error: /var/folders/6q/t70wp1n54pd1dlp4q9m58ft00000gn/T/tmpfgsxt67q:1:1: syntax error, unexpected IDENTIFIER
+    1 | _5_32.out -> [lt.left]
+      | ^~~~~
+%Error: Exiting due to 1 error(s)
+

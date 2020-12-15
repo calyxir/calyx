@@ -1,3 +1,17 @@
+const0.out -> [x0.in]
+x0.in -> []
+_1_1.out -> [x0.write_en]
+x0.write_en -> []
+x0.done -> [let0.done]
+let0.done -> []
+
+const1.out -> [y0.in]
+y0.in -> []
+_1_1.out -> [y0.write_en]
+y0.write_en -> []
+y0.done -> [let1.done]
+let1.done -> []
+
 import "primitives/std.lib";
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
