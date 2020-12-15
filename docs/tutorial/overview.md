@@ -17,22 +17,24 @@ Arrays can be `input` arrays, which we populate with some input data, or `output
 
 ## Run a MrXL Program
 
-MrXL programs need to be fed data in the form of JSON files. Let's try to run this program:
+First, you'll need to have the MrXL stage installed for `fud`. See the [MrXL docs][mrxldocs].
+
+MrXL programs need to be fed data in the form of JSON files. Let's try to run this program, which has a parallelism factor of two:
 
 ```
 {{#include ../../frontends/mrxl/test/add.mrxl}}
 ```
 
-with this data:
+with this data file, containing banked memories to allow for the parallelism:
 
 ```
-{{#include ../../frontends/mrxl/test/add.data}}
+{{#include ../../frontends/mrxl/test/add_par2.data}}
 ```
 
-We can accomplish this by typing:
+Run the program with the supplied data by typing:
 
 ```
-fud exec frontends/mrxl/test/add.mrxl --from mrxl --to vcd -s verilog.data frontends/mrxl/test/add.data
+fud exec frontends/mrxl/test/add.mrxl --from mrxl --to vcd -s verilog.data frontends/mrxl/test/add_par2.data
 ```
 
 ## Build a Compiler for MrXL
@@ -144,4 +146,7 @@ par {
 Hopefully this should be enough to get you started with writing your own MrXL compiler. Some more follow up tasks you could try if you're interested:
 - Implement code generation to implement `reduce` statements, which we do not include in our compiler.
 - Implement code generation that allows memories that differ from one another in size.
-- Implement complex function body expressions. We only support binary operations with simple operands, like `a + 5`. Different hardware components take multiple cycles to execute: for example, a register takes 1 cycle to write data to, but a memory might take more. This complicates hardware design, as you need to account for differing latencies among hardware components.
+- Implement complex function body expressions. We only support binary operations with simple operands, like `a + 5`. Different hardware components take multiple cycles to execute: for example, a register takes 1 cycle to write data to, but a memory might take more. This complicates hardware design, as you need to account for differing latencies among hardware components. 
+
+[astcode]: https://github.com/cucapra/futil/blob/mrxl/mrxl/mrxl/ast.py
+[mrxldocs]: https://github.com/cucapra/futil/tree/master/frontends/mrxl 

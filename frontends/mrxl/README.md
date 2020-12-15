@@ -30,7 +30,7 @@ You'll also want to do this so you can use `mrxl` as a stage of `fud`:
 Interpreter
 -----------
 
-To run the interpreter, do this:
+To run the compile, do this:
 
     poetry run mrxl <program> <indata>
 
