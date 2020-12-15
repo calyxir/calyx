@@ -124,6 +124,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
+        args: -- --all
 
     - name: Install MrXL
       run: |
