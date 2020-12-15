@@ -30,15 +30,19 @@ You'll also want to do this so you can use `mrxl` as a stage of `fud`:
 Interpreter
 -----------
 
-To run the compile, do this:
+To run the interpreter, do this:
 
-    poetry run mrxl <program> <indata>
+    poetry run mrxl <program> --data <indata> --interpret
 
 where `<program>` is a MrXL source code file and `<indata>` is a JSON file containing values for all the variables declared as `input` in the program. The interpreter dumps the `output` variables as JSON to stdout.
 
 You can try this, for example:
 
-    poetry run mrxl test/dot.mrxl test/dot.json
+    poetry run mrxl test/dot.mrxl --data test/dot.json --interpret
+
+To run the compiler, leave off the `--interpret` and `--data` flags:
+
+    poetry run mrxl test/dot.mrxl
 
 
 Tests
