@@ -41,7 +41,7 @@ group cond{2}{0} {{
   le{2}{0}.left = idx{2}{0}.out;
   le{2}{0}.right = 32'd{1};
 
-  cond{2}{0}.done = 1'b1;
+  cond{2}{0}[done] = 1'b1;
 }}
     '''.format(suffix, arr_size, bank_suffix)
 
