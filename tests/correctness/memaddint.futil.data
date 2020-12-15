@@ -1,0 +1,24 @@
+{
+    "a0_00_0": {
+        "data": [
+          [3,12],
+          [4,10]
+        ],
+        "type": "TSizedInt(16, true)"
+      },
+      "b0_00_0": {
+        "data": [
+          [23,12],
+          [14,2]
+        ],
+        "type": "TSizedInt(16, true)"
+      },
+      "result0_00_0": {
+        "data": [
+          [0,0],
+          [0,0]
+        ],
+        "type": "TSizedInt(16, true)"
+      }
+  }
+  
