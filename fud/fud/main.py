@@ -5,81 +5,100 @@ import shutil
 import logging as log
 from termcolor import colored, cprint
 
-from .stages import Source
 from .config import Configuration
 from .registry import Registry
-from .stages import dahlia, futil, verilator, vcdump, systolic, mrxl, Source, SourceType
-from . import exec, utils, config, errors
+from .stages import dahlia, dahlia_hls, futil, verilator, vcdump, systolic, mrxl, vivado, vivado_hls
+from . import exec, utils, errors
 
 
-def register_stages(registry, config):
+def register_stages(registry, cfg):
     """
     Register stages and command line flags required to generate the results.
     """
     # Dahlia
-    registry.register(dahlia.DahliaStage(config))
+    registry.register(dahlia.DahliaStage(cfg))
+    registry.register(dahlia_hls.DahliaHLSStage(cfg))
 
     # MrXL
-    registry.register(mrxl.MrXLStage(config))
+    registry.register(mrxl.MrXLStage(cfg))
 
     # Systolic Array
-    registry.register(systolic.SystolicStage(config))
+    registry.register(systolic.SystolicStage(cfg))
 
     # FuTIL
     registry.register(
-        futil.FutilStage(config, 'verilog', '-b verilog',
-                         'Compile FuTIL to Verilog instrumented for simulation'))
+        futil.FutilStage(
+            cfg, 'verilog', '-b verilog',
+            'Compile FuTIL to Verilog instrumented for simulation'
+        ))
     registry.register(
-        futil.FutilStage(config, 'futil-lowered', '-b futil',
-                         'Compile FuTIL to FuTIL to remove all control and inline groups'))
+        futil.FutilStage(
+            cfg, 'synth-verilog', '-b verilog --synthesis -p external',
+            'Compile FuTIL to synthesizable Verilog '
+        ))
     registry.register(
-        futil.FutilStage(config, 'futil-noinline', '-b futil -d hole-inliner',
-                         'Compile FuTIL to FuTIL to remove all control and inline groups'))
+        futil.FutilStage(
+            cfg, 'futil-lowered', '-b futil',
+            'Compile FuTIL to FuTIL to remove all control and inline groups'
+        ))
+    registry.register(
+        futil.FutilStage(
+            cfg, 'futil-noinline', '-b futil -d hole-inliner',
+            'Compile FuTIL to FuTIL to remove all control and inline groups'
+        ))
 
     # Verilator
     registry.register(
-        verilator.VerilatorStage(config, 'vcd',
-                                 'Generate a VCD file from Verilog simulation'))
+        verilator.VerilatorStage(
+            cfg, 'vcd',
+            'Generate a VCD file from Verilog simulation'
+        ))
     registry.register(
-        verilator.VerilatorStage(config, 'dat',
-                                 'Generate a JSON file with final state of all memories'))
+        verilator.VerilatorStage(
+            cfg, 'dat',
+            'Generate a JSON file with final state of all memories'
+        ))
+
+    # Vivado / vivado hls
+    registry.register(vivado.VivadoStage(cfg))
+    registry.register(vivado_hls.VivadoHLSStage(cfg))
 
     # Vcdump
-    registry.register(vcdump.VcdumpStage(config))
+    registry.register(vcdump.VcdumpStage(cfg))
 
 
-def config(args, config):
+def display_config(args, cfg):
     if args.key is None:
-        print(config.config_file)
+        print(cfg.config_file)
         print()
-        config.display()
+        cfg.display()
     else:
         path = args.key.split(".")
         if args.value is None:
             # print out values
-            res = config[path]
+            res = cfg[path]
             if isinstance(res, dict):
                 print(toml.dumps(res))
             else:
                 print(res)
         else:
-            config.touch(path)
-            if not isinstance(config[path], list):
-                config[path] = args.value
-                config.commit()
+            cfg.touch(path)
+            if not isinstance(cfg[path], list):
+                cfg[path] = args.value
+                cfg.commit()
             else:
                 raise Exception("NYI: supporting updating lists")
 
 
-def info(args, config):
-    print(config.REGISTRY)
+def info(args, cfg):
+    print(cfg.REGISTRY)
 
 
-def check(args, config):
-    config.launch_wizard()
+def check(args, cfg):
+    cfg.launch_wizard()
 
     # check global
-    futil_root = Path(config['global', 'futil_directory'])
+    futil_root = Path(cfg['global', 'futil_directory'])
     futil_str = colored(str(futil_root), 'yellow')
     cprint('global:', attrs=['bold'])
     if futil_root.exists():
@@ -92,7 +111,7 @@ def check(args, config):
 
     uninstalled = []
     # check executables in stages
-    for name, stage in config['stages'].items():
+    for name, stage in cfg['stages'].items():
         if 'exec' in stage:
             cprint(f'stages.{name}.exec:', attrs=['bold'])
             exec_path = shutil.which(stage['exec'])
@@ -120,9 +139,6 @@ def main():
     """Builds the command line argument parser,
     parses the arguments, and returns the results."""
 
-    # Setup logging
-    utils.logging_setup()
-
     parser = argparse.ArgumentParser(
         description="Driver to execute FuTIL and supporting toolchains"
     )
@@ -148,17 +164,20 @@ def main():
         help="Check to make sure configuration is valid.",
         description="Check to make sure configuration is valid."))
 
-    config = Configuration()
+    cfg = Configuration()
 
     # Build the registry.
-    config.REGISTRY = Registry(config)
-    register_stages(config.REGISTRY, config)
+    cfg.REGISTRY = Registry(cfg)
+    register_stages(cfg.REGISTRY, cfg)
 
     args = parser.parse_args()
 
+    # Setup logging
+    utils.logging_setup(args)
+
     if 'func' in args:
         try:
-            args.func(args, config)
+            args.func(args, cfg)
         except errors.FudError as e:
             log.error(e)
             exit(-1)
@@ -203,7 +222,7 @@ def config_config(parser):
         help='The value to write.',
         nargs='?'
     )
-    parser.set_defaults(func=config)
+    parser.set_defaults(func=display_config)
 
 
 def config_info(parser):

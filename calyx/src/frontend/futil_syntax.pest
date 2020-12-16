@@ -5,16 +5,30 @@ ident_syms = _{ "_" | "-" | "'" }
 identifier = @{ ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
 
 bitwidth = @{ ASCII_DIGIT+ }
-num_lit = @{
-      ASCII_DIGIT+ ~ "'"
-      ~ ( "d" ~ ASCII_DIGIT+
-        | "b" ~ ASCII_BIN_DIGIT+
-        | "x" ~ ASCII_HEX_DIGIT+
-        | "o" ~ ASCII_OCT_DIGIT+)
+
+// Conservatively parse all symbols to provide better errors.
+binary =  @{ ASCII_HEX_DIGIT+ }
+decimal = @{ ASCII_HEX_DIGIT+ }
+octal =   @{ ASCII_HEX_DIGIT+ }
+hex =     @{ ASCII_HEX_DIGIT+ }
+
+// `$` creates a compound rule which ignores whitespace while allowing for
+// inner rules (`@` makes inner rules silent).
+// See: https://pest.rs/book/print.html#atomic
+num_lit = ${
+      bitwidth
+      ~ "'"
+      ~ ( "d" ~ decimal
+        | "b" ~ binary
+        | "x" ~ hex
+        | "o" ~ octal )
 }
 
 char = { !"\"" ~ ANY }
 string_lit = ${ "\"" ~ char* ~ "\"" }
+
+// Error reporting rule: Expected a number with bitwidth in this position.
+bad_num = @{ ASCII_DIGIT ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "'")* }
 
 // ====== toplevel ======
 
@@ -73,9 +87,13 @@ component_cell = {
       identifier ~ "=" ~ identifier
 }
 
+cell = {
+      (primitive_cell | component_cell) ~ ";"
+}
+
 cells = {
       "cells"
-      ~ "{" ~ ((primitive_cell | component_cell) ~ ";")* ~ "}"
+      ~ "{" ~ cell* ~ "}"
 }
 
 // ====== wires ======
@@ -90,7 +108,11 @@ port = {
 }
 
 LHS = { hole | port }
-expr = { LHS | num_lit }
+expr = {
+  LHS
+  | num_lit
+  | bad_num // throws an error
+}
 
 guard_eq = { "==" }
 guard_neq = { "!=" }
@@ -160,8 +182,14 @@ par = {
       ~ "}"
 }
 
-block = _{
+// Error reporting rule: these statements should be inside a `stmt`.
+stmts_without_block = {
+  "{" ~ stmt* ~ "}"
+}
+
+block = {
       "{" ~ stmt ~ "}"
+      | stmts_without_block
 }
 
 if_stmt = {

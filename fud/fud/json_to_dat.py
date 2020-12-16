@@ -119,16 +119,8 @@ def convert2dat(output_dir, data, extension):
         path = output_dir / f"{k}.{extension}"
         path.touch()
         arr = np.array(item["data"])
-        # type informations are given as string
         typ = item["type"]
         info = parse_type(typ)
-        #print(d)
-        # typ_name = typ[0:typ.find("<")]
-        # print(typ_name)
-        # info = typ[typ.find("(")+1:typ.find(")")]
-        # info = {typ_name: info}
-        # print(info)
-        # info = info.split(",")
         shape[k] = {"shape": list(arr.shape), "type": info}
         if info['type_name'] == 'bit':
             # bit
