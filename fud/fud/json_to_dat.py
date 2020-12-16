@@ -8,6 +8,7 @@ def bitstring(val, bw):
     val &= (2**bw - 1)
     return '{:x}'.format(val)
 
+# Converts `val` in binary representation to a bitstring that is `bw` characters wide
 def bitstring2(val, bw):
     #first truncate val by `bw` bits
     val = val[len(val)-bw:len(val)]
@@ -31,6 +32,42 @@ def parse_dat_fxd(path, wholebit, intbit, fracbit):
                     fixed_p_to_decimal(np.binary_repr(int(v.strip(), 16),width = wholebit),
                     wholebit, intbit,fracbit), lines)))
         return arr
+
+# if 'typ' is a valid type parse 'typ' to dictionary form, raises exception if not valid form 
+def parse_type(typ):
+    typ_name = typ[0:typ.find("<")]
+    d = {}
+    if (typ_name[0]=='u'):
+        typ_name = typ[1:typ.find("<")]
+        unsigned = True
+    else: 
+        typ_name = typ[0:typ.find("<")]
+        unsigned = False
+    
+    if typ_name == "bit":
+        width = typ[typ.find("<")+1:typ.find(">")]
+        info = width.split(",")
+        if len(info)!=1:
+             raise Exception("(u)bit takes one arguement")
+        d['type_name'] = typ_name
+        d['width'] = int(info[0])
+        d['unsigned'] = unsigned
+
+    elif typ_name == "fix":
+        width = typ[typ.find("<")+1:typ.find(">")]
+        info = width.split(",")
+        if len(info)!=2:
+             raise Exception("(u)fix takes two arguements")
+        full_width = int(info[0])
+        int_width = int(info[1])
+        d['type_name'] = typ_name
+        d['full_width'] = full_width
+        d['int_width'] = int_width
+        d['unsigned'] = unsigned
+    else:
+        raise Exception("only (u)bit<n> and (u)fix<n,m> are supported, open request for other types")
+
+    return d
 
 def decimal_to_fixed_p (num, width, int_bit, frac_bit):
     '''
@@ -72,9 +109,9 @@ def fixed_p_to_decimal (fp, width, int_bit, frac_bit):
     return num
 
 
-# go through the json data and create a file for each key,
-# flattening the data and then converting it to bitstrings
 
+# go through the json data and create a file for each key,
+# flattening the data and then converting it to bitstrings   
 def convert2dat(output_dir, data, extension):
     output_dir = Path(output_dir)
     shape = {}
@@ -84,20 +121,26 @@ def convert2dat(output_dir, data, extension):
         arr = np.array(item["data"])
         # type informations are given as string
         typ = item["type"]
-        info = typ[typ.find("(")+1:typ.find(")")]
-        info = info.split(",")
+        info = parse_type(typ)
+        #print(d)
+        # typ_name = typ[0:typ.find("<")]
+        # print(typ_name)
+        # info = typ[typ.find("(")+1:typ.find(")")]
+        # info = {typ_name: info}
+        # print(info)
+        # info = info.split(",")
         shape[k] = {"shape": list(arr.shape), "type": info}
-        if len(info) ==2:
-            # integer
+        if info['type_name'] == 'bit':
+            # bit
             with path.open('w') as f:
                 for v in arr.flatten():
-                    f.write(bitstring(v, int(info[0])) + "\n")
-        elif len(info) ==3:
+                    f.write(bitstring(v, info['width']) + "\n")
+        elif info['type_name'] == 'fix':
             # fixedpoint
             with path.open('w') as f:
                 for v in arr.flatten():
-                    wholebit = int(info[0])
-                    intbit = int(info[1])
+                    wholebit = info['full_width']
+                    intbit = info['int_width']
                     fracbit = wholebit-intbit
                     bs =  decimal_to_fixed_p(v, wholebit, intbit, fracbit)
                     f.write( bitstring2(bs, wholebit)+ "\n")
@@ -124,13 +167,13 @@ def convert2json(input_dir, extension):
     # TODO: change to use shape json
     for f in input_dir.glob(f'*.{extension}'):
         typinfo = shape_json[f.stem]["type"]
-        if len(typinfo)==2:
-            # integer 
+        if typinfo['type_name']=='bit':
+            # bit
             arr = parse_dat(f)
-        elif len(typinfo)==3:
+        elif typinfo['type_name']=='fix':
             # fixed point 
-            wholebit = int(typinfo[0])
-            intbit = int(typinfo[1])
+            wholebit = typinfo['full_width']
+            intbit = typinfo['int_width']
             fracbit= wholebit - intbit
             arr = parse_dat_fxd(f,wholebit, intbit,fracbit)
         else: 

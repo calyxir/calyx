@@ -1,6 +1,6 @@
 {
   "i": {
     "data": [0],
-    "type": "TSizedInt(32, true)"
+    "type": "bit<32>"
   }
 }

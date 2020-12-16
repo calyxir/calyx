@@ -3,6 +3,6 @@
     "data": [
       10
     ],
-    "type": "TSizedInt(32, true)"
+    "type": "ubit<32>"
   }
 }

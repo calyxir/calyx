@@ -3,18 +3,18 @@
     "data": [
       0
     ],
-    "type": "TSizedInt(32, true)"
+    "type": "bit<32>"
   },
   "b": {
     "data": [
       0
     ],
-    "type": "TSizedInt(32, true)"
+    "type": "bit<32>"
   },
   "c": {
     "data": [
       0
     ],
-    "type": "TSizedInt(32, true)"
+    "type": "bit<32>"
   }
 }

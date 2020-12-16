@@ -4,21 +4,21 @@
           [3,12],
           [4,10]
         ],
-        "type": "TSizedInt(16, true)"
+        "type": "ubit<16>"
       },
       "b0_00_0": {
         "data": [
           [23,12],
           [14,2]
         ],
-        "type": "TSizedInt(16, true)"
+        "type": "ubit<16>"
       },
       "result0_00_0": {
         "data": [
           [0,0],
           [0,0]
         ],
-        "type": "TSizedInt(16, true)"
+        "type": "ubit<16>"
       }
   }
   

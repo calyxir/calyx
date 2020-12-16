@@ -3,12 +3,12 @@
     "data": [
       4
     ],
-   "type": "TSizedInt(32, true)"
+   "type": "bit<32>"
   },
   "out": {
     "data": [
       6
     ],
-    "type": "TSizedInt(32, true)"
+    "type": "bit<32>"
   }
 }

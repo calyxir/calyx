@@ -4,21 +4,21 @@
           [3.5,2.25],
           [4.125,2.5]
         ],
-        "type": "TFixed(8, 3, true)"
+        "type": "ufix<8,3>"
       },
       "b0_00_0": {
         "data": [
           [23,12],
           [14,2]
         ],
-        "type": "TFixed(8, 3, true)"
+        "type": "ufix<8,3>"
       },
       "result0_00_0": {
         "data": [
           [0,0],
           [0,0]
         ],
-        "type": "TFixed(8, 3, true)"
+        "type": "ufix<8,3>"
       }
   }
   
