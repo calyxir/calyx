@@ -70,6 +70,11 @@ impl Visitor for MinimizeRegs {
 
         // add constraints between things that are alive at the same time
         let conflicts = self.live.get(&enable.group.borrow());
+        // eprintln!(
+        //     "{:?}: {:#?}",
+        //     enable.group.borrow().name.as_ref(),
+        //     conflicts
+        // );
         self.graph
             .insert_conflicts(&conflicts.iter().cloned().collect::<Vec<_>>());
 
@@ -100,6 +105,8 @@ impl Visitor for MinimizeRegs {
             }
         }
 
+        // eprintln!("{}", self.graph.to_string());
+
         // used a sorted ordering to perform coloring
         let ordering = self.live.get_all().sorted();
         let coloring: Vec<_> = self
@@ -111,6 +118,20 @@ impl Visitor for MinimizeRegs {
                 (comp.find_cell(&a).unwrap(), comp.find_cell(&b).unwrap())
             })
             .collect();
+
+        // eprintln!(
+        //     "coloring: {:#?}",
+        //     coloring
+        //         .iter()
+        //         .map(|(src, dest)| {
+        //             format!(
+        //                 "{} -> {}",
+        //                 src.borrow().name.to_string(),
+        //                 dest.borrow().name.to_string(),
+        //             )
+        //         })
+        //         .collect::<Vec<_>>()
+        // );
 
         // apply the coloring as a renaming of registers for both groups
         // and continuous assignments

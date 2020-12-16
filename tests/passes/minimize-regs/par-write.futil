@@ -1,0 +1,27 @@
+// -p minimize-regs -p dead-cell-removal
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    x = prim std_reg(32);
+    y = prim std_reg(32);
+  }
+  wires {
+    group wr_x {
+      x.in = 32'd1;
+      x.write_en = 1'd1;
+      wr_x[done] = x.done;
+    }
+    group wr_y {
+      y.in = 32'd2;
+      y.write_en = 1'd1;
+      wr_y[done] = y.done;
+    }
+  }
+  control {
+    par {
+      wr_x;
+      wr_y;
+    }
+  }
+}

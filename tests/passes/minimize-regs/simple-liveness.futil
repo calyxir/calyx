@@ -2,52 +2,41 @@
 import "primitives/std.lib";
 component kernel() -> () {
   cells {
-    b_0 = prim std_reg(32);
-    before_0 = prim std_reg(4);
-    c_0 = prim std_reg(32);
-    const0 = prim std_const(4,1);
-    const1 = prim std_const(4,1);
-    const2 = prim std_const(32,1);
-    const3 = prim std_const(32,1);
-    x_0 = prim std_reg(4);
-    z_0 = prim std_reg(4);
+    b = prim std_reg(32);
+    before = prim std_reg(4);
+    x = prim std_reg(4);
+    read_x = prim std_add(4);
   }
   wires {
-    group let0<"static"=1> {
-      before_0.in = const0.out;
-      before_0.write_en = 1'd1;
-      let0[done] = before_0.done;
+    group wr_before<"static"=1> {
+      before.in = 4'd1;
+      before.write_en = 1'd1;
+      wr_before[done] = before.done;
     }
-    group let1<"static"=1> {
-      x_0.in = const1.out;
-      x_0.write_en = 1'd1;
-      let1[done] = x_0.done;
+    group wr_x<"static"=1> {
+      x.in = 4'd1;
+      x.write_en = 1'd1;
+      wr_x[done] = x.done;
     }
-    group let2<"static"=1> {
-      b_0.in = const2.out;
-      b_0.write_en = 1'd1;
-      let2[done] = b_0.done;
+    group wr_b<"static"=1> {
+      b.in = 32'd1;
+      b.write_en = 1'd1;
+      wr_b[done] = b.done;
     }
-    group let3<"static"=1> {
-      c_0.in = const3.out;
-      c_0.write_en = 1'd1;
-      let3[done] = c_0.done;
-    }
-    group let4<"static"=1> {
-      z_0.in = x_0.out;
-      z_0.write_en = 1'd1;
-      let4[done] = z_0.done;
+    group rd_x<"static"=1> {
+      read_x.right = x.out;
+      read_x.left = x.out;
+      rd_x[done] = 1'b1;
     }
   }
   control {
     seq {
-      let0;
+      wr_before;
       par {
-        let1;
-        let2;
-        let3;
+        wr_x;
+        wr_b;
       }
-      let4;
+      rd_x;
     }
   }
 }

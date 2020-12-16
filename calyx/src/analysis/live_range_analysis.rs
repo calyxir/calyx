@@ -12,7 +12,7 @@ use std::{
 /// The data structure that is passed through the visitor functions.
 /// We need to explicitly pass `gen` and `live` between control statements because
 /// `par` needs this information to implement it's `meet` function correctly.
-#[derive(Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Data {
     /// Represents the registers that are generated from this control statement.
     gen: HashSet<ir::Id>,
@@ -176,18 +176,18 @@ fn build_live_ranges(
             alive.gen = reads;
             alive.kill = writes;
 
+            // eprintln!("bef transfer: {:#?}", alive);
             // compute transfer function
             alive.transfer();
 
             // add things live out of this enable to the local lives.
-            alive.local_live = &alive.local_live | &alive.live;
+            alive.local_live = &(&alive.local_live | &alive.live) | &alive.kill;
+            // eprintln!("aft transfer {:#?}", alive);
 
             // set the live set of this node to be the things live on the
             // output of this node plus the things written to in this group
-            lr.live.insert(
-                group.borrow().name.clone(),
-                &(&alive.live | &alive.kill) | &alive.local_live,
-            );
+            lr.live
+                .insert(group.borrow().name.clone(), &alive.live | &alive.kill);
         }
         ir::Control::Seq(ir::Seq { stmts }) => stmts
             .iter()
@@ -228,6 +228,19 @@ fn build_live_ranges(
                 *alive = &*alive | &child_data;
             }
 
+            // pass the union of the local lives to the children as
+            // we visit them again. this has the effect of communicating
+            // live registers between siblings in a par.
+            let mut data = alive.clone();
+            data.live = &data.live | &data.local_live;
+            for child in stmts {
+                let mut child_data = data.clone();
+                build_live_ranges(&child, &mut child_data, lr);
+                *alive = &*alive | &child_data;
+            }
+
+            // eprintln!("before: {:#?}", alive);
+
             // compute transfer function using
             //  - gen = union(gen(children))
             //  - kill = union(kill(children))
@@ -237,6 +250,8 @@ fn build_live_ranges(
             // it with the saved local lives so that an pars above this one have
             // the correct local lives.
             alive.local_live = &(&alive.local_live - &alive.kill) | &saved;
+
+            // eprintln!("after: {:#?}", alive);
         }
         ir::Control::While(ir::While { body, cond, .. }) => {
             let mut next;
