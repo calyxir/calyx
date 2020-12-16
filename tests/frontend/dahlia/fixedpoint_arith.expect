@@ -2,11 +2,11 @@ import "primitives/std.lib";
 component main() -> () {
   cells {
     a_0 = prim std_reg(16);
-    add0 = prim fixed_p_std_sadd(16,8,8);
+    add0 = prim fixed_p_std_add(16,8,8);
     b_0 = prim std_reg(16);
     bin_read0_0 = prim std_reg(16);
     bin_read1_0 = prim std_reg(16);
-    div_pipe0 = prim std_sdiv_pipe(16);
+    div_pipe0 = prim std_div_pipe(16);
     fpconst0 = prim fixed_p_std_const(16,8,8,16,5);
     fpconst1 = prim fixed_p_std_const(16,8,8,8,375);
     mult_pipe0 = prim std_mult_pipe(16);
