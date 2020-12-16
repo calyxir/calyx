@@ -34,9 +34,9 @@ pub struct Opts {
     #[structopt(long = "debug")]
     pub enable_debug: bool,
 
-    /// Enable Verilator mode.
-    #[structopt(long = "verilator")]
-    pub enable_verilator: bool,
+    /// Enable synthesis mode.
+    #[structopt(long = "synthesis")]
+    pub enable_synthesis: bool,
 
     /// Select a backend.
     #[structopt(short = "b", long = "backend", default_value)]
@@ -72,9 +72,8 @@ pub enum BackendOpt {
 
 fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
-        (VerilogBackend::name(), BackendOpt::Verilog),
+        ("verilog", BackendOpt::Verilog),
         ("futil", BackendOpt::Futil),
-        // ("dot", BackendOpt::Dot),
         ("none", BackendOpt::None),
     ]
 }
@@ -129,7 +128,10 @@ impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
     pub fn run_backend(self, context: &ir::Context) -> FutilResult<()> {
         match self.backend {
-            BackendOpt::Verilog => VerilogBackend::run(&context, self.output),
+            BackendOpt::Verilog => {
+                let backend = VerilogBackend::default();
+                backend.run(&context, self.output)
+            }
             BackendOpt::Futil => {
                 for import_path in &context.import_statements {
                     writeln!(

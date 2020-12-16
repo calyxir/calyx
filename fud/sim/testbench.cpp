@@ -30,16 +30,25 @@ int main(int argc, char **argv, char **env) {
     tfp->open(argv[1]);
   }
 
-  // initialize simulation inputs
+  // initialize simulation inputs and eval once to avoid zero-time reset bug (https://github.com/verilator/verilator/issues/2661)
+  top->go = 0;
+  top->eval();
   top->clk = 0;
-  top->go = 1;
+
   int done = 0;
+  int ignore_cycles = 5;
   printf("Starting simulation\n");
   while (done == 0 && i < n_cycles) {
     done = top->done;
+    // Do nothing for a few cycles to avoid zero-time reset bug
+    if (ignore_cycles == 0) {
+      top->go = 1;
+    } else {
+      ignore_cycles--;
+    }
     // dump variables into VCD file and toggle clock
     for (clk = 0; clk < 2; clk++) {
-      if (trace) {
+      if (trace && ignore_cycles == 0) {
         tfp->dump(2 * i + clk);
       }
       top->clk = !top->clk;
@@ -52,7 +61,7 @@ int main(int argc, char **argv, char **env) {
     i++;
   }
 
-  printf("Simulated %i cycles\n", i);
+  printf("Simulated %i cycles\n", i - ignore_cycles);
   top->final();
   if (trace) {
     tfp->close();

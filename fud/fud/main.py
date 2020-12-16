@@ -1,199 +1,104 @@
 from pathlib import Path
 import argparse
 import toml
-import logging as log
-from halo import Halo
-import sys
 import shutil
+import logging as log
 from termcolor import colored, cprint
 
-from .stages import Source, SourceType
 from .config import Configuration
 from .registry import Registry
-from . import errors
-from .stages import dahlia, futil, verilator, vcdump, systolic, mrxl
-from . import utils
+from .stages import dahlia, dahlia_hls, futil, verilator, vcdump, systolic, mrxl, vivado, vivado_hls
+from . import exec, utils, errors
 
 
-def discover_implied_stage(filename, config):
-    """
-    Use the mapping from filename extensions to stages to figure out which
-    stage was implied.
-    """
-    if filename is None:
-        raise Exception('TODO: No filename or type provided.')
-
-    suffix = Path(filename).suffix
-    for (name, stage) in config['stages'].items():
-        for ext in stage['file_extensions']:
-            if suffix == ext:
-                return name
-
-    # no stages corresponding with this file extension where found
-    raise errors.UnknownExtension(filename)
-
-
-def register_stages(registry, config):
+def register_stages(registry, cfg):
     """
     Register stages and command line flags required to generate the results.
     """
     # Dahlia
-    registry.register(dahlia.DahliaStage(config))
+    registry.register(dahlia.DahliaStage(cfg))
+    registry.register(dahlia_hls.DahliaHLSStage(cfg))
 
     # MrXL
-    registry.register(mrxl.MrXLStage(config))
+    registry.register(mrxl.MrXLStage(cfg))
 
     # Systolic Array
-    registry.register(systolic.SystolicStage(config))
+    registry.register(systolic.SystolicStage(cfg))
 
     # FuTIL
     registry.register(
-        futil.FutilStage(config, 'verilog', '-b verilog --verilator',
-                         'Compile FuTIL to Verilog instrumented for simulation'))
+        futil.FutilStage(
+            cfg, 'verilog', '-b verilog',
+            'Compile FuTIL to Verilog instrumented for simulation'
+        ))
     registry.register(
-        futil.FutilStage(config, 'futil-lowered', '-b futil',
-                         'Compile FuTIL to FuTIL to remove all control and inline groups'))
+        futil.FutilStage(
+            cfg, 'synth-verilog', '-b verilog --synthesis -p external',
+            'Compile FuTIL to synthesizable Verilog '
+        ))
     registry.register(
-        futil.FutilStage(config, 'futil-noinline', '-b futil -d hole-inliner',
-                         'Compile FuTIL to FuTIL to remove all control and inline groups'))
+        futil.FutilStage(
+            cfg, 'futil-lowered', '-b futil',
+            'Compile FuTIL to FuTIL to remove all control and inline groups'
+        ))
+    registry.register(
+        futil.FutilStage(
+            cfg, 'futil-noinline', '-b futil -d hole-inliner',
+            'Compile FuTIL to FuTIL to remove all control and inline groups'
+        ))
 
     # Verilator
     registry.register(
-        verilator.VerilatorStage(config, 'vcd',
-                                 'Generate a VCD file from Verilog simulation'))
+        verilator.VerilatorStage(
+            cfg, 'vcd',
+            'Generate a VCD file from Verilog simulation'
+        ))
     registry.register(
-        verilator.VerilatorStage(config, 'dat',
-                                 'Generate a JSON file with final state of all memories'))
+        verilator.VerilatorStage(
+            cfg, 'dat',
+            'Generate a JSON file with final state of all memories'
+        ))
+
+    # Vivado / vivado hls
+    registry.register(vivado.VivadoStage(cfg))
+    registry.register(vivado_hls.VivadoHLSStage(cfg))
 
     # Vcdump
-    registry.register(vcdump.VcdumpStage(config))
+    registry.register(vcdump.VcdumpStage(cfg))
 
 
-def run(args, config):
-    # check if input_file exists
-    input_file = None
-    if args.input_file is not None:
-        input_file = Path(args.input_file)
-        if not input_file.exists():
-            raise FileNotFoundError(input_file)
-
-    # config.launch_wizard()
-
-    # set verbosity level
-    level = None
-    if args.verbose <= 0:
-        level = log.WARNING
-    elif args.verbose <= 1:
-        level = log.INFO
-    elif args.verbose <= 2:
-        level = log.DEBUG
-    log.basicConfig(format="%(message)s", level=level)
-
-    # update the stages config with arguments provided via cmdline
-    if args.dynamic_config is not None:
-        for key, value in args.dynamic_config:
-            config[['stages'] + key.split('.')] = value
-
-    registry = Registry(config)
-    register_stages(registry, config)
-
-    # find source
-    source = args.source
-    if source is None:
-        source = discover_implied_stage(args.input_file, config)
-
-    # find target
-    target = args.dest
-    if target is None:
-        target = discover_implied_stage(args.output_file, config)
-
-    path = registry.make_path(source, target)
-    if path is None:
-        raise errors.NoPathFound(source, target)
-
-    # If the path doesn't execute anything, it is probably an error.
-    if len(path) == 0:
-        raise errors.TrivialPath(source)
-
-    # if we are doing a dry run, print out stages and exit
-    if args.dry_run:
-        print("fud will perform the following steps:")
-
-    # Pretty spinner.
-    spinner_enabled = not (utils.is_debug() or args.dry_run or args.quiet)
-    # Execute the path transformation specification.
-    with Halo(
-            spinner='dots',
-            color='cyan',
-            stream=sys.stderr,
-            enabled=spinner_enabled) as sp:
-        inp = Source(str(input_file), SourceType.Path)
-        for i, ed in enumerate(path):
-            sp.start(f"{ed.stage.name} → {ed.stage.target_stage}")
-            (result, stderr, retcode) = ed.stage.transform(
-                inp,
-                dry_run=args.dry_run,
-                last=i == (len(path) - 1)
-            )
-            inp = result
-
-            if retcode == 0:
-                if log.getLogger().level <= log.INFO:
-                    sp.succeed()
-            else:
-                if log.getLogger().level <= log.INFO:
-                    sp.fail()
-                else:
-                    sp.stop()
-                utils.eprint(stderr)
-                exit(retcode)
-        sp.stop()
-
-        # return early when there's a dry run
-        if args.dry_run:
-            return
-
-        if args.output_file is not None:
-            with Path(args.output_file).open('wb') as f:
-                f.write(inp.data.read())
-        else:
-            print(inp.data.read().decode('UTF-8'))
-
-
-def config(args, config):
+def display_config(args, cfg):
     if args.key is None:
-        print(config.config_file)
+        print(cfg.config_file)
         print()
-        config.display()
+        cfg.display()
     else:
         path = args.key.split(".")
         if args.value is None:
             # print out values
-            res = config[path]
+            res = cfg[path]
             if isinstance(res, dict):
                 print(toml.dumps(res))
             else:
                 print(res)
         else:
-            config.touch(path)
-            if not isinstance(config[path], list):
-                config[path] = args.value
-                config.commit()
+            cfg.touch(path)
+            if not isinstance(cfg[path], list):
+                cfg[path] = args.value
+                cfg.commit()
             else:
                 raise Exception("NYI: supporting updating lists")
 
 
-def info(args, config):
-    registry = Registry(config)
-    register_stages(registry, config)
-    print(registry)
+def info(args, cfg):
+    print(cfg.REGISTRY)
 
 
-def check(args, config):
-    config.launch_wizard()
+def check(args, cfg):
+    cfg.launch_wizard()
 
     # check global
-    futil_root = Path(config['global', 'futil_directory'])
+    futil_root = Path(cfg['global', 'futil_directory'])
     futil_str = colored(str(futil_root), 'yellow')
     cprint('global:', attrs=['bold'])
     if futil_root.exists():
@@ -206,7 +111,7 @@ def check(args, config):
 
     uninstalled = []
     # check executables in stages
-    for name, stage in config['stages'].items():
+    for name, stage in cfg['stages'].items():
         if 'exec' in stage:
             cprint(f'stages.{name}.exec:', attrs=['bold'])
             exec_path = shutil.which(stage['exec'])
@@ -215,7 +120,8 @@ def check(args, config):
                 cprint(" ✔", 'green', end=' ')
                 print(f"{exec_name} installed.")
                 if exec_path is not None and not Path(exec_path).is_absolute():
-                    print(f"   {exec_name} is a relative path and will not work from every directory.")
+                    print(
+                        f"   {exec_name} is a relative path and will not work from every directory.")
             else:
                 uninstalled.append(name)
                 cprint(" ✖", 'red', end=' ')
@@ -232,6 +138,7 @@ def check(args, config):
 def main():
     """Builds the command line argument parser,
     parses the arguments, and returns the results."""
+
     parser = argparse.ArgumentParser(
         description="Driver to execute FuTIL and supporting toolchains"
     )
@@ -257,22 +164,29 @@ def main():
         help="Check to make sure configuration is valid.",
         description="Check to make sure configuration is valid."))
 
-    config = Configuration()
+    cfg = Configuration()
+
+    # Build the registry.
+    cfg.REGISTRY = Registry(cfg)
+    register_stages(cfg.REGISTRY, cfg)
 
     args = parser.parse_args()
 
+    # Setup logging
+    utils.logging_setup(args)
+
     if 'func' in args:
         try:
-            args.func(args, config)
+            args.func(args, cfg)
         except errors.FudError as e:
-            print('Error: ' + str(e))
+            log.error(e)
+            exit(-1)
     else:
         parser.print_help()
         exit(-1)
 
 
 def config_run(parser):
-    # TODO: add help for all of these options
     parser.add_argument('--from', dest='source',
                         help='Name of the start stage')
     parser.add_argument('--to', dest='dest',
@@ -294,11 +208,10 @@ def config_run(parser):
                         help='Enable verbose logging')
     parser.add_argument('-q', '--quiet', action='store_true')
     parser.add_argument('input_file', help='Path to the input file', nargs='?')
-    parser.set_defaults(func=run)
+    parser.set_defaults(func=exec.run_fud)
 
 
 def config_config(parser):
-    # TODO: add help for all of these options
     parser.add_argument(
         'key',
         help='The key to perform an action on.',
@@ -309,11 +222,10 @@ def config_config(parser):
         help='The value to write.',
         nargs='?'
     )
-    parser.set_defaults(func=config)
+    parser.set_defaults(func=display_config)
 
 
 def config_info(parser):
-    # TODO: add help for all these options
     parser.set_defaults(func=info)
 
 

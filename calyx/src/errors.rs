@@ -57,6 +57,9 @@ pub enum Error {
     /// Papercut error: signals a commonly made mistake in FuTIL program.
     Papercut(String, ir::Id),
 
+    /// Group "static" latency annotation differed from inferred latency.
+    ImpossibleLatencyAnnotation(String, u64, u64),
+
     /// Internal compiler error that should never occur.
     Impossible(String), // Signal compiler errors that should never occur.
     NotSubcomponent,
@@ -74,7 +77,7 @@ pub type FutilResult<T> = std::result::Result<T, Error>;
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
     /// Reference to input program source.
-    input: Rc<String>,
+    input: Rc<str>,
     /// The start of the span.
     start: usize,
     /// The end of the span.
@@ -84,7 +87,7 @@ pub struct Span {
 impl Span {
     /// Create a new `Error::Span` from a `pest::Span` and
     /// the input string.
-    pub fn new(span: pest::Span, input: Rc<String>) -> Span {
+    pub fn new(span: pest::Span, input: Rc<str>) -> Span {
         Span {
             input,
             start: span.start(),
@@ -127,6 +130,17 @@ impl std::fmt::Debug for Error {
         match self {
             Papercut(msg, id) => {
                 write!(f, "{}", id.fmt_err(&("[Papercut] ".to_string() + msg)))
+            }
+            ImpossibleLatencyAnnotation(grp_name, ann_val, inferred_val) => {
+                let msg1 = format!("Annotated latency: {}", ann_val);
+                let msg2 = format!("Inferred latency: {}", inferred_val);
+                write!(
+                    f,
+                    "Impossible \"static\" latency annotation for group {}.\n{}\n{}",
+                    grp_name,
+                    msg1,
+                    msg2
+                )
             }
             UnusedGroup(name) => {
                 write!(

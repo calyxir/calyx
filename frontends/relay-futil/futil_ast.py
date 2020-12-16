@@ -1,15 +1,17 @@
+import tvm
 from dataclasses import dataclass
 from typing import List, Dict
 from types import FunctionType
-from enum import Enum
+from enum import Enum, IntEnum
 
-
-class PrimitiveType(Enum):
-    Register = 1
-    Constant = 2
-    Memory1D = 3
-    Memory2D = 4
-    Memory3D = 5
+# Note: The integer value N for Memory with dimension N is used; these should remain unchanged.
+class PrimitiveType(IntEnum):
+    Memory1D = 1
+    Memory2D = 2
+    Memory3D = 3
+    Memory4D = 4
+    Register = 5
+    Constant = 6
 
 
 class ControlType(Enum):
@@ -26,6 +28,7 @@ class FPrimitive:
     name: str
     data: List[int]
     type: PrimitiveType
+    data_type: str
 
 
 @dataclass
@@ -140,6 +143,7 @@ class DahliaDeclaration:
     op: str = None
     inputs: List[Cell] = None
     output: Cell = None
+    attributes: tvm.ir.Attrs = None
     function: FunctionType = None
     program: str = None
 
@@ -153,8 +157,6 @@ class FDeclaration:
     Represents a FuTIL declaration.
     '''
     name: str
-    intermediary_inputs: List[Cell] = None
-    intermediary_output: Cell = None
     component: FComponent = None
 
 

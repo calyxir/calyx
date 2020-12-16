@@ -1,0 +1,1791 @@
+import "primitives/std.lib";
+
+component bias_add2(go: 1, clk: 1, fc3_bias0_read_data: 32, fc3_bias0_done: 1, x70_0_read_data: 32, x70_0_done: 1, x80_0_read_data: 32, x80_0_done: 1) -> (done: 1, fc3_bias0_addr0: 4, fc3_bias0_write_data: 32, fc3_bias0_write_en: 1, fc3_bias0_clk: 1, x70_0_addr0: 1, x70_0_addr1: 4, x70_0_write_data: 32, x70_0_write_en: 1, x70_0_clk: 1, x80_0_addr0: 1, x80_0_addr1: 4, x80_0_write_data: 32, x80_0_write_en: 1, x80_0_clk: 1) {
+  cells {
+    add0 = prim fixed_p_std_add(32, 16, 16);
+    add1 = prim std_add(4);
+    add2 = prim std_add(1);
+    const0 = prim std_const(1, 0);
+    const1 = prim std_const(1, 0);
+    const2 = prim std_const(4, 0);
+    const3 = prim std_const(4, 9);
+    const4 = prim std_const(4, 1);
+    const5 = prim std_const(1, 1);
+    fc3_bias_read0_0 = prim std_reg(32);
+    i0 = prim std_reg(1);
+    j0 = prim std_reg(4);
+    le0 = prim std_le(1);
+    le1 = prim std_le(4);
+    x7_read0_0 = prim std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = j0.out;
+      le1.right = const3.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1<"static"=1> {
+      j0.in = const2.out;
+      j0.write_en = 1'd1;
+      let1[done] = j0.done;
+    }
+    group upd0<"static"=1> {
+      x7_read0_0.write_en = 1'd1;
+      x70_0_addr1 = j0.out;
+      x70_0_addr0 = i0.out;
+      x7_read0_0.in = 1'd1 ? x70_0_read_data;
+      upd0[done] = x7_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      fc3_bias_read0_0.write_en = 1'd1;
+      fc3_bias0_addr0 = j0.out;
+      fc3_bias_read0_0.in = 1'd1 ? fc3_bias0_read_data;
+      upd1[done] = fc3_bias_read0_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      x80_0_addr1 = j0.out;
+      x80_0_addr0 = i0.out;
+      x80_0_write_en = 1'd1;
+      add0.left = x7_read0_0.out;
+      add0.right = fc3_bias_read0_0.out;
+      x80_0_write_data = 1'd1 ? add0.out;
+      upd2[done] = x80_0_done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      j0.write_en = 1'd1;
+      add1.left = j0.out;
+      add1.right = const4.out;
+      j0.in = 1'd1 ? add1.out;
+      upd3[done] = j0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      i0.write_en = 1'd1;
+      add2.left = i0.out;
+      add2.right = const5.out;
+      i0.in = 1'd1 ? add2.out;
+      upd4[done] = i0.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          let1;
+          while le1.out with cond1 {
+            seq {
+              par {
+                upd0;
+                upd1;
+              }
+              upd2;
+              upd3;
+            }
+          }
+          upd4;
+        }
+      }
+    }
+  }
+}
+component dense2(go: 1, clk: 1, fc3_weight0_0_read_data: 32, fc3_weight0_0_done: 1, x60_0_read_data: 32, x60_0_done: 1, x70_0_read_data: 32, x70_0_done: 1) -> (done: 1, fc3_weight0_0_addr0: 4, fc3_weight0_0_addr1: 7, fc3_weight0_0_write_data: 32, fc3_weight0_0_write_en: 1, fc3_weight0_0_clk: 1, x60_0_addr0: 1, x60_0_addr1: 7, x60_0_write_data: 32, x60_0_write_en: 1, x60_0_clk: 1, x70_0_addr0: 1, x70_0_addr1: 4, x70_0_write_data: 32, x70_0_write_en: 1, x70_0_clk: 1) {
+  cells {
+    add0 = prim std_add(7);
+    add1 = prim std_add(4);
+    add2 = prim fixed_p_std_add(32, 16, 16);
+    add3 = prim std_add(7);
+    add4 = prim std_add(4);
+    add5 = prim std_add(1);
+    add6 = prim std_add(4);
+    add7 = prim std_add(1);
+    bin_read0_0 = prim std_reg(32);
+    const0 = prim std_const(4, 0);
+    const1 = prim std_const(4, 9);
+    const10 = prim std_const(7, 0);
+    const11 = prim std_const(7, 63);
+    const12 = prim std_const(7, 1);
+    const13 = prim std_const(4, 1);
+    const14 = prim std_const(1, 1);
+    const15 = prim std_const(1, 0);
+    const16 = prim std_const(1, 0);
+    const17 = prim std_const(4, 0);
+    const18 = prim std_const(4, 9);
+    const19 = prim std_const(4, 1);
+    const2 = prim std_const(7, 0);
+    const20 = prim std_const(1, 1);
+    const3 = prim std_const(7, 63);
+    const4 = prim std_const(7, 1);
+    const5 = prim std_const(4, 1);
+    const6 = prim std_const(1, 0);
+    const7 = prim std_const(1, 0);
+    const8 = prim std_const(4, 0);
+    const9 = prim std_const(4, 9);
+    fc3_weight_read0_0 = prim std_reg(32);
+    i0 = prim std_reg(4);
+    i1 = prim std_reg(1);
+    i2 = prim std_reg(1);
+    j0 = prim std_reg(7);
+    j1 = prim std_reg(4);
+    j2 = prim std_reg(4);
+    k0 = prim std_reg(7);
+    le0 = prim std_le(4);
+    le1 = prim std_le(7);
+    le2 = prim std_le(1);
+    le3 = prim std_le(4);
+    le4 = prim std_le(7);
+    le5 = prim std_le(1);
+    le6 = prim std_le(4);
+    mult_pipe0 = prim std_mult_pipe(32);
+    product_0 = prim std_reg(32);
+    slice0 = prim std_slice(32, 32);
+    slice1 = prim std_slice(32, 32);
+    temporary_x70_0 = prim std_mem_d2(32, 1, 10, 1, 4);
+    temporary_x7_read0_0 = prim std_reg(32);
+    transpose_fc3_weight0_0 = prim std_mem_d2(32, 64, 10, 7, 4);
+    transpose_fc3_weight_read0_0 = prim std_reg(32);
+    x6_read0_0 = prim std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = j0.out;
+      le1.right = const3.out;
+    }
+    group cond2<"static"=0> {
+      cond2[done] = 1'd1;
+      le2.left = i1.out;
+      le2.right = const7.out;
+    }
+    group cond3<"static"=0> {
+      cond3[done] = 1'd1;
+      le3.left = j1.out;
+      le3.right = const9.out;
+    }
+    group cond4<"static"=0> {
+      cond4[done] = 1'd1;
+      le4.left = k0.out;
+      le4.right = const11.out;
+    }
+    group cond5<"static"=0> {
+      cond5[done] = 1'd1;
+      le5.left = i2.out;
+      le5.right = const16.out;
+    }
+    group cond6<"static"=0> {
+      cond6[done] = 1'd1;
+      le6.left = j2.out;
+      le6.right = const18.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1<"static"=1> {
+      j0.in = const2.out;
+      j0.write_en = 1'd1;
+      let1[done] = j0.done;
+    }
+    group let2<"static"=1> {
+      i1.in = const6.out;
+      i1.write_en = 1'd1;
+      let2[done] = i1.done;
+    }
+    group let3<"static"=1> {
+      j1.in = const8.out;
+      j1.write_en = 1'd1;
+      let3[done] = j1.done;
+    }
+    group let4<"static"=1> {
+      k0.in = const10.out;
+      k0.write_en = 1'd1;
+      let4[done] = k0.done;
+    }
+    group let5<"static"=1> {
+      bin_read0_0.in = slice0.out;
+      bin_read0_0.write_en = 1'd1;
+      let5[done] = bin_read0_0.done;
+      slice0.in = mult_pipe0.out;
+      mult_pipe0.left = x6_read0_0.out;
+      mult_pipe0.right = transpose_fc3_weight_read0_0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group let6<"static"=1> {
+      product_0.in = slice1.out;
+      product_0.write_en = 1'd1;
+      let6[done] = product_0.done;
+      slice1.in = bin_read0_0.out;
+    }
+    group let7<"static"=1> {
+      i2.in = const15.out;
+      i2.write_en = 1'd1;
+      let7[done] = i2.done;
+    }
+    group let8<"static"=1> {
+      j2.in = const17.out;
+      j2.write_en = 1'd1;
+      let8[done] = j2.done;
+    }
+    group upd0<"static"=1> {
+      fc3_weight_read0_0.write_en = 1'd1;
+      fc3_weight0_0_addr1 = j0.out;
+      fc3_weight0_0_addr0 = i0.out;
+      fc3_weight_read0_0.in = 1'd1 ? fc3_weight0_0_read_data;
+      upd0[done] = fc3_weight_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      transpose_fc3_weight0_0.addr1 = i0.out;
+      transpose_fc3_weight0_0.addr0 = j0.out;
+      transpose_fc3_weight0_0.write_en = 1'd1;
+      transpose_fc3_weight0_0.write_data = 1'd1 ? fc3_weight_read0_0.out;
+      upd1[done] = transpose_fc3_weight0_0.done ? 1'd1;
+    }
+    group upd10<"static"=1> {
+      temporary_x7_read0_0.write_en = 1'd1;
+      temporary_x70_0.addr1 = j2.out;
+      temporary_x70_0.addr0 = i2.out;
+      temporary_x7_read0_0.in = 1'd1 ? temporary_x70_0.read_data;
+      upd10[done] = temporary_x7_read0_0.done ? 1'd1;
+    }
+    group upd11<"static"=1> {
+      x70_0_addr1 = j2.out;
+      x70_0_addr0 = i2.out;
+      x70_0_write_en = 1'd1;
+      x70_0_write_data = 1'd1 ? temporary_x7_read0_0.out;
+      upd11[done] = x70_0_done ? 1'd1;
+    }
+    group upd12<"static"=1> {
+      j2.write_en = 1'd1;
+      add6.left = j2.out;
+      add6.right = const19.out;
+      j2.in = 1'd1 ? add6.out;
+      upd12[done] = j2.done ? 1'd1;
+    }
+    group upd13<"static"=1> {
+      i2.write_en = 1'd1;
+      add7.left = i2.out;
+      add7.right = const20.out;
+      i2.in = 1'd1 ? add7.out;
+      upd13[done] = i2.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      j0.write_en = 1'd1;
+      add0.left = j0.out;
+      add0.right = const4.out;
+      j0.in = 1'd1 ? add0.out;
+      upd2[done] = j0.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      i0.write_en = 1'd1;
+      add1.left = i0.out;
+      add1.right = const5.out;
+      i0.in = 1'd1 ? add1.out;
+      upd3[done] = i0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      x6_read0_0.write_en = 1'd1;
+      x60_0_addr1 = k0.out;
+      x60_0_addr0 = i1.out;
+      x6_read0_0.in = 1'd1 ? x60_0_read_data;
+      upd4[done] = x6_read0_0.done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      transpose_fc3_weight_read0_0.write_en = 1'd1;
+      transpose_fc3_weight0_0.addr1 = j1.out;
+      transpose_fc3_weight0_0.addr0 = k0.out;
+      transpose_fc3_weight_read0_0.in = 1'd1 ? transpose_fc3_weight0_0.read_data;
+      upd5[done] = transpose_fc3_weight_read0_0.done ? 1'd1;
+    }
+    group upd6<"static"=1> {
+      temporary_x70_0.addr1 = j1.out;
+      temporary_x70_0.addr0 = i1.out;
+      temporary_x70_0.write_en = 1'd1;
+      add2.left = temporary_x70_0.read_data;
+      add2.right = product_0.out;
+      temporary_x70_0.addr1 = j1.out;
+      temporary_x70_0.addr0 = i1.out;
+      temporary_x70_0.write_data = 1'd1 ? add2.out;
+      upd6[done] = temporary_x70_0.done ? 1'd1;
+    }
+    group upd7<"static"=1> {
+      k0.write_en = 1'd1;
+      add3.left = k0.out;
+      add3.right = const12.out;
+      k0.in = 1'd1 ? add3.out;
+      upd7[done] = k0.done ? 1'd1;
+    }
+    group upd8<"static"=1> {
+      j1.write_en = 1'd1;
+      add4.left = j1.out;
+      add4.right = const13.out;
+      j1.in = 1'd1 ? add4.out;
+      upd8[done] = j1.done ? 1'd1;
+    }
+    group upd9<"static"=1> {
+      i1.write_en = 1'd1;
+      add5.left = i1.out;
+      add5.right = const14.out;
+      i1.in = 1'd1 ? add5.out;
+      upd9[done] = i1.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          let1;
+          while le1.out with cond1 {
+            seq {
+              upd0;
+              upd1;
+              upd2;
+            }
+          }
+          upd3;
+        }
+      }
+      let2;
+      while le2.out with cond2 {
+        seq {
+          let3;
+          while le3.out with cond3 {
+            seq {
+              let4;
+              while le4.out with cond4 {
+                seq {
+                  par {
+                    upd4;
+                    upd5;
+                  }
+                  let5;
+                  let6;
+                  upd6;
+                  upd7;
+                }
+              }
+              upd8;
+            }
+          }
+          upd9;
+        }
+      }
+      let7;
+      while le5.out with cond5 {
+        seq {
+          let8;
+          while le6.out with cond6 {
+            seq {
+              upd10;
+              upd11;
+              upd12;
+            }
+          }
+          upd13;
+        }
+      }
+    }
+  }
+}
+component relu1(go: 1, clk: 1, x50_0_read_data: 32, x50_0_done: 1, x60_0_read_data: 32, x60_0_done: 1) -> (done: 1, x50_0_addr0: 1, x50_0_addr1: 7, x50_0_write_data: 32, x50_0_write_en: 1, x50_0_clk: 1, x60_0_addr0: 1, x60_0_addr1: 7, x60_0_write_data: 32, x60_0_write_en: 1, x60_0_clk: 1) {
+  cells {
+    add0 = prim std_add(7);
+    add1 = prim std_add(1);
+    const0 = prim std_const(1, 0);
+    const1 = prim std_const(1, 0);
+    const2 = prim std_const(7, 0);
+    const3 = prim std_const(7, 63);
+    const4 = prim std_const(7, 1);
+    const5 = prim std_const(1, 1);
+    fpconst0 = prim fixed_p_std_const(32, 16, 16, 0, 0);
+    gt0 = prim fixed_p_std_gt(32, 16, 16);
+    i0 = prim std_reg(1);
+    j0 = prim std_reg(7);
+    le0 = prim std_le(1);
+    le1 = prim std_le(7);
+    x5_read0_0 = prim std_reg(32);
+    x5_read1_0 = prim std_reg(32);
+    zero_0 = prim std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = j0.out;
+      le1.right = const3.out;
+    }
+    group cond2<"static"=0> {
+      cond2[done] = 1'd1;
+      gt0.left = x5_read0_0.out;
+      gt0.right = zero_0.out;
+    }
+    group let0<"static"=1> {
+      zero_0.in = fpconst0.out;
+      zero_0.write_en = 1'd1;
+      let0[done] = zero_0.done;
+    }
+    group let1<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let1[done] = i0.done;
+    }
+    group let2<"static"=1> {
+      j0.in = const2.out;
+      j0.write_en = 1'd1;
+      let2[done] = j0.done;
+    }
+    group upd0<"static"=1> {
+      x5_read0_0.write_en = 1'd1;
+      x50_0_addr1 = j0.out;
+      x50_0_addr0 = i0.out;
+      x5_read0_0.in = 1'd1 ? x50_0_read_data;
+      upd0[done] = x5_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      x5_read1_0.write_en = 1'd1;
+      x50_0_addr1 = j0.out;
+      x50_0_addr0 = i0.out;
+      x5_read1_0.in = 1'd1 ? x50_0_read_data;
+      upd1[done] = x5_read1_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      x60_0_addr1 = j0.out;
+      x60_0_addr0 = i0.out;
+      x60_0_write_en = 1'd1;
+      x60_0_write_data = 1'd1 ? x5_read1_0.out;
+      upd2[done] = x60_0_done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      x60_0_addr1 = j0.out;
+      x60_0_addr0 = i0.out;
+      x60_0_write_en = 1'd1;
+      x60_0_write_data = 1'd1 ? zero_0.out;
+      upd3[done] = x60_0_done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      j0.write_en = 1'd1;
+      add0.left = j0.out;
+      add0.right = const4.out;
+      j0.in = 1'd1 ? add0.out;
+      upd4[done] = j0.done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      i0.write_en = 1'd1;
+      add1.left = i0.out;
+      add1.right = const5.out;
+      i0.in = 1'd1 ? add1.out;
+      upd5[done] = i0.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      let0;
+      let1;
+      while le0.out with cond0 {
+        seq {
+          let2;
+          while le1.out with cond1 {
+            seq {
+              upd0;
+              if gt0.out with cond2 {
+                seq {
+                  upd1;
+                  upd2;
+                }
+              } else {
+                upd3;
+              }
+              upd4;
+            }
+          }
+          upd5;
+        }
+      }
+    }
+  }
+}
+component bias_add1(go: 1, clk: 1, fc2_bias0_read_data: 32, fc2_bias0_done: 1, x40_0_read_data: 32, x40_0_done: 1, x50_0_read_data: 32, x50_0_done: 1) -> (done: 1, fc2_bias0_addr0: 7, fc2_bias0_write_data: 32, fc2_bias0_write_en: 1, fc2_bias0_clk: 1, x40_0_addr0: 1, x40_0_addr1: 7, x40_0_write_data: 32, x40_0_write_en: 1, x40_0_clk: 1, x50_0_addr0: 1, x50_0_addr1: 7, x50_0_write_data: 32, x50_0_write_en: 1, x50_0_clk: 1) {
+  cells {
+    add0 = prim fixed_p_std_add(32, 16, 16);
+    add1 = prim std_add(7);
+    add2 = prim std_add(1);
+    const0 = prim std_const(1, 0);
+    const1 = prim std_const(1, 0);
+    const2 = prim std_const(7, 0);
+    const3 = prim std_const(7, 63);
+    const4 = prim std_const(7, 1);
+    const5 = prim std_const(1, 1);
+    fc2_bias_read0_0 = prim std_reg(32);
+    i0 = prim std_reg(1);
+    j0 = prim std_reg(7);
+    le0 = prim std_le(1);
+    le1 = prim std_le(7);
+    x4_read0_0 = prim std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = j0.out;
+      le1.right = const3.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1<"static"=1> {
+      j0.in = const2.out;
+      j0.write_en = 1'd1;
+      let1[done] = j0.done;
+    }
+    group upd0<"static"=1> {
+      x4_read0_0.write_en = 1'd1;
+      x40_0_addr1 = j0.out;
+      x40_0_addr0 = i0.out;
+      x4_read0_0.in = 1'd1 ? x40_0_read_data;
+      upd0[done] = x4_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      fc2_bias_read0_0.write_en = 1'd1;
+      fc2_bias0_addr0 = j0.out;
+      fc2_bias_read0_0.in = 1'd1 ? fc2_bias0_read_data;
+      upd1[done] = fc2_bias_read0_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      x50_0_addr1 = j0.out;
+      x50_0_addr0 = i0.out;
+      x50_0_write_en = 1'd1;
+      add0.left = x4_read0_0.out;
+      add0.right = fc2_bias_read0_0.out;
+      x50_0_write_data = 1'd1 ? add0.out;
+      upd2[done] = x50_0_done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      j0.write_en = 1'd1;
+      add1.left = j0.out;
+      add1.right = const4.out;
+      j0.in = 1'd1 ? add1.out;
+      upd3[done] = j0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      i0.write_en = 1'd1;
+      add2.left = i0.out;
+      add2.right = const5.out;
+      i0.in = 1'd1 ? add2.out;
+      upd4[done] = i0.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          let1;
+          while le1.out with cond1 {
+            seq {
+              par {
+                upd0;
+                upd1;
+              }
+              upd2;
+              upd3;
+            }
+          }
+          upd4;
+        }
+      }
+    }
+  }
+}
+component dense1(go: 1, clk: 1, fc2_weight0_0_read_data: 32, fc2_weight0_0_done: 1, x30_0_read_data: 32, x30_0_done: 1, x40_0_read_data: 32, x40_0_done: 1) -> (done: 1, fc2_weight0_0_addr0: 7, fc2_weight0_0_addr1: 8, fc2_weight0_0_write_data: 32, fc2_weight0_0_write_en: 1, fc2_weight0_0_clk: 1, x30_0_addr0: 1, x30_0_addr1: 8, x30_0_write_data: 32, x30_0_write_en: 1, x30_0_clk: 1, x40_0_addr0: 1, x40_0_addr1: 7, x40_0_write_data: 32, x40_0_write_en: 1, x40_0_clk: 1) {
+  cells {
+    add0 = prim std_add(8);
+    add1 = prim std_add(7);
+    add2 = prim fixed_p_std_add(32, 16, 16);
+    add3 = prim std_add(8);
+    add4 = prim std_add(7);
+    add5 = prim std_add(1);
+    add6 = prim std_add(7);
+    add7 = prim std_add(1);
+    bin_read0_0 = prim std_reg(32);
+    const0 = prim std_const(7, 0);
+    const1 = prim std_const(7, 63);
+    const10 = prim std_const(8, 0);
+    const11 = prim std_const(8, 127);
+    const12 = prim std_const(8, 1);
+    const13 = prim std_const(7, 1);
+    const14 = prim std_const(1, 1);
+    const15 = prim std_const(1, 0);
+    const16 = prim std_const(1, 0);
+    const17 = prim std_const(7, 0);
+    const18 = prim std_const(7, 63);
+    const19 = prim std_const(7, 1);
+    const2 = prim std_const(8, 0);
+    const20 = prim std_const(1, 1);
+    const3 = prim std_const(8, 127);
+    const4 = prim std_const(8, 1);
+    const5 = prim std_const(7, 1);
+    const6 = prim std_const(1, 0);
+    const7 = prim std_const(1, 0);
+    const8 = prim std_const(7, 0);
+    const9 = prim std_const(7, 63);
+    fc2_weight_read0_0 = prim std_reg(32);
+    i0 = prim std_reg(7);
+    i1 = prim std_reg(1);
+    i2 = prim std_reg(1);
+    j0 = prim std_reg(8);
+    j1 = prim std_reg(7);
+    j2 = prim std_reg(7);
+    k0 = prim std_reg(8);
+    le0 = prim std_le(7);
+    le1 = prim std_le(8);
+    le2 = prim std_le(1);
+    le3 = prim std_le(7);
+    le4 = prim std_le(8);
+    le5 = prim std_le(1);
+    le6 = prim std_le(7);
+    mult_pipe0 = prim std_mult_pipe(32);
+    product_0 = prim std_reg(32);
+    slice0 = prim std_slice(32, 32);
+    slice1 = prim std_slice(32, 32);
+    temporary_x40_0 = prim std_mem_d2(32, 1, 64, 1, 7);
+    temporary_x4_read0_0 = prim std_reg(32);
+    transpose_fc2_weight0_0 = prim std_mem_d2(32, 128, 64, 8, 7);
+    transpose_fc2_weight_read0_0 = prim std_reg(32);
+    x3_read0_0 = prim std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = j0.out;
+      le1.right = const3.out;
+    }
+    group cond2<"static"=0> {
+      cond2[done] = 1'd1;
+      le2.left = i1.out;
+      le2.right = const7.out;
+    }
+    group cond3<"static"=0> {
+      cond3[done] = 1'd1;
+      le3.left = j1.out;
+      le3.right = const9.out;
+    }
+    group cond4<"static"=0> {
+      cond4[done] = 1'd1;
+      le4.left = k0.out;
+      le4.right = const11.out;
+    }
+    group cond5<"static"=0> {
+      cond5[done] = 1'd1;
+      le5.left = i2.out;
+      le5.right = const16.out;
+    }
+    group cond6<"static"=0> {
+      cond6[done] = 1'd1;
+      le6.left = j2.out;
+      le6.right = const18.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1<"static"=1> {
+      j0.in = const2.out;
+      j0.write_en = 1'd1;
+      let1[done] = j0.done;
+    }
+    group let2<"static"=1> {
+      i1.in = const6.out;
+      i1.write_en = 1'd1;
+      let2[done] = i1.done;
+    }
+    group let3<"static"=1> {
+      j1.in = const8.out;
+      j1.write_en = 1'd1;
+      let3[done] = j1.done;
+    }
+    group let4<"static"=1> {
+      k0.in = const10.out;
+      k0.write_en = 1'd1;
+      let4[done] = k0.done;
+    }
+    group let5<"static"=1> {
+      bin_read0_0.in = slice0.out;
+      bin_read0_0.write_en = 1'd1;
+      let5[done] = bin_read0_0.done;
+      slice0.in = mult_pipe0.out;
+      mult_pipe0.left = x3_read0_0.out;
+      mult_pipe0.right = transpose_fc2_weight_read0_0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group let6<"static"=1> {
+      product_0.in = slice1.out;
+      product_0.write_en = 1'd1;
+      let6[done] = product_0.done;
+      slice1.in = bin_read0_0.out;
+    }
+    group let7<"static"=1> {
+      i2.in = const15.out;
+      i2.write_en = 1'd1;
+      let7[done] = i2.done;
+    }
+    group let8<"static"=1> {
+      j2.in = const17.out;
+      j2.write_en = 1'd1;
+      let8[done] = j2.done;
+    }
+    group upd0<"static"=1> {
+      fc2_weight_read0_0.write_en = 1'd1;
+      fc2_weight0_0_addr1 = j0.out;
+      fc2_weight0_0_addr0 = i0.out;
+      fc2_weight_read0_0.in = 1'd1 ? fc2_weight0_0_read_data;
+      upd0[done] = fc2_weight_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      transpose_fc2_weight0_0.addr1 = i0.out;
+      transpose_fc2_weight0_0.addr0 = j0.out;
+      transpose_fc2_weight0_0.write_en = 1'd1;
+      transpose_fc2_weight0_0.write_data = 1'd1 ? fc2_weight_read0_0.out;
+      upd1[done] = transpose_fc2_weight0_0.done ? 1'd1;
+    }
+    group upd10<"static"=1> {
+      temporary_x4_read0_0.write_en = 1'd1;
+      temporary_x40_0.addr1 = j2.out;
+      temporary_x40_0.addr0 = i2.out;
+      temporary_x4_read0_0.in = 1'd1 ? temporary_x40_0.read_data;
+      upd10[done] = temporary_x4_read0_0.done ? 1'd1;
+    }
+    group upd11<"static"=1> {
+      x40_0_addr1 = j2.out;
+      x40_0_addr0 = i2.out;
+      x40_0_write_en = 1'd1;
+      x40_0_write_data = 1'd1 ? temporary_x4_read0_0.out;
+      upd11[done] = x40_0_done ? 1'd1;
+    }
+    group upd12<"static"=1> {
+      j2.write_en = 1'd1;
+      add6.left = j2.out;
+      add6.right = const19.out;
+      j2.in = 1'd1 ? add6.out;
+      upd12[done] = j2.done ? 1'd1;
+    }
+    group upd13<"static"=1> {
+      i2.write_en = 1'd1;
+      add7.left = i2.out;
+      add7.right = const20.out;
+      i2.in = 1'd1 ? add7.out;
+      upd13[done] = i2.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      j0.write_en = 1'd1;
+      add0.left = j0.out;
+      add0.right = const4.out;
+      j0.in = 1'd1 ? add0.out;
+      upd2[done] = j0.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      i0.write_en = 1'd1;
+      add1.left = i0.out;
+      add1.right = const5.out;
+      i0.in = 1'd1 ? add1.out;
+      upd3[done] = i0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      x3_read0_0.write_en = 1'd1;
+      x30_0_addr1 = k0.out;
+      x30_0_addr0 = i1.out;
+      x3_read0_0.in = 1'd1 ? x30_0_read_data;
+      upd4[done] = x3_read0_0.done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      transpose_fc2_weight_read0_0.write_en = 1'd1;
+      transpose_fc2_weight0_0.addr1 = j1.out;
+      transpose_fc2_weight0_0.addr0 = k0.out;
+      transpose_fc2_weight_read0_0.in = 1'd1 ? transpose_fc2_weight0_0.read_data;
+      upd5[done] = transpose_fc2_weight_read0_0.done ? 1'd1;
+    }
+    group upd6<"static"=1> {
+      temporary_x40_0.addr1 = j1.out;
+      temporary_x40_0.addr0 = i1.out;
+      temporary_x40_0.write_en = 1'd1;
+      add2.left = temporary_x40_0.read_data;
+      add2.right = product_0.out;
+      temporary_x40_0.addr1 = j1.out;
+      temporary_x40_0.addr0 = i1.out;
+      temporary_x40_0.write_data = 1'd1 ? add2.out;
+      upd6[done] = temporary_x40_0.done ? 1'd1;
+    }
+    group upd7<"static"=1> {
+      k0.write_en = 1'd1;
+      add3.left = k0.out;
+      add3.right = const12.out;
+      k0.in = 1'd1 ? add3.out;
+      upd7[done] = k0.done ? 1'd1;
+    }
+    group upd8<"static"=1> {
+      j1.write_en = 1'd1;
+      add4.left = j1.out;
+      add4.right = const13.out;
+      j1.in = 1'd1 ? add4.out;
+      upd8[done] = j1.done ? 1'd1;
+    }
+    group upd9<"static"=1> {
+      i1.write_en = 1'd1;
+      add5.left = i1.out;
+      add5.right = const14.out;
+      i1.in = 1'd1 ? add5.out;
+      upd9[done] = i1.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          let1;
+          while le1.out with cond1 {
+            seq {
+              upd0;
+              upd1;
+              upd2;
+            }
+          }
+          upd3;
+        }
+      }
+      let2;
+      while le2.out with cond2 {
+        seq {
+          let3;
+          while le3.out with cond3 {
+            seq {
+              let4;
+              while le4.out with cond4 {
+                seq {
+                  par {
+                    upd4;
+                    upd5;
+                  }
+                  let5;
+                  let6;
+                  upd6;
+                  upd7;
+                }
+              }
+              upd8;
+            }
+          }
+          upd9;
+        }
+      }
+      let7;
+      while le5.out with cond5 {
+        seq {
+          let8;
+          while le6.out with cond6 {
+            seq {
+              upd10;
+              upd11;
+              upd12;
+            }
+          }
+          upd13;
+        }
+      }
+    }
+  }
+}
+component relu(go: 1, clk: 1, x20_0_read_data: 32, x20_0_done: 1, x30_0_read_data: 32, x30_0_done: 1) -> (done: 1, x20_0_addr0: 1, x20_0_addr1: 8, x20_0_write_data: 32, x20_0_write_en: 1, x20_0_clk: 1, x30_0_addr0: 1, x30_0_addr1: 8, x30_0_write_data: 32, x30_0_write_en: 1, x30_0_clk: 1) {
+  cells {
+    add0 = prim std_add(8);
+    add1 = prim std_add(1);
+    const0 = prim std_const(1, 0);
+    const1 = prim std_const(1, 0);
+    const2 = prim std_const(8, 0);
+    const3 = prim std_const(8, 127);
+    const4 = prim std_const(8, 1);
+    const5 = prim std_const(1, 1);
+    fpconst0 = prim fixed_p_std_const(32, 16, 16, 0, 0);
+    gt0 = prim fixed_p_std_gt(32, 16, 16);
+    i0 = prim std_reg(1);
+    j0 = prim std_reg(8);
+    le0 = prim std_le(1);
+    le1 = prim std_le(8);
+    x2_read0_0 = prim std_reg(32);
+    x2_read1_0 = prim std_reg(32);
+    zero_0 = prim std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = j0.out;
+      le1.right = const3.out;
+    }
+    group cond2<"static"=0> {
+      cond2[done] = 1'd1;
+      gt0.left = x2_read0_0.out;
+      gt0.right = zero_0.out;
+    }
+    group let0<"static"=1> {
+      zero_0.in = fpconst0.out;
+      zero_0.write_en = 1'd1;
+      let0[done] = zero_0.done;
+    }
+    group let1<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let1[done] = i0.done;
+    }
+    group let2<"static"=1> {
+      j0.in = const2.out;
+      j0.write_en = 1'd1;
+      let2[done] = j0.done;
+    }
+    group upd0<"static"=1> {
+      x2_read0_0.write_en = 1'd1;
+      x20_0_addr1 = j0.out;
+      x20_0_addr0 = i0.out;
+      x2_read0_0.in = 1'd1 ? x20_0_read_data;
+      upd0[done] = x2_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      x2_read1_0.write_en = 1'd1;
+      x20_0_addr1 = j0.out;
+      x20_0_addr0 = i0.out;
+      x2_read1_0.in = 1'd1 ? x20_0_read_data;
+      upd1[done] = x2_read1_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      x30_0_addr1 = j0.out;
+      x30_0_addr0 = i0.out;
+      x30_0_write_en = 1'd1;
+      x30_0_write_data = 1'd1 ? x2_read1_0.out;
+      upd2[done] = x30_0_done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      x30_0_addr1 = j0.out;
+      x30_0_addr0 = i0.out;
+      x30_0_write_en = 1'd1;
+      x30_0_write_data = 1'd1 ? zero_0.out;
+      upd3[done] = x30_0_done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      j0.write_en = 1'd1;
+      add0.left = j0.out;
+      add0.right = const4.out;
+      j0.in = 1'd1 ? add0.out;
+      upd4[done] = j0.done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      i0.write_en = 1'd1;
+      add1.left = i0.out;
+      add1.right = const5.out;
+      i0.in = 1'd1 ? add1.out;
+      upd5[done] = i0.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      let0;
+      let1;
+      while le0.out with cond0 {
+        seq {
+          let2;
+          while le1.out with cond1 {
+            seq {
+              upd0;
+              if gt0.out with cond2 {
+                seq {
+                  upd1;
+                  upd2;
+                }
+              } else {
+                upd3;
+              }
+              upd4;
+            }
+          }
+          upd5;
+        }
+      }
+    }
+  }
+}
+component bias_add(go: 1, clk: 1, fc1_bias0_read_data: 32, fc1_bias0_done: 1, x10_0_read_data: 32, x10_0_done: 1, x20_0_read_data: 32, x20_0_done: 1) -> (done: 1, fc1_bias0_addr0: 8, fc1_bias0_write_data: 32, fc1_bias0_write_en: 1, fc1_bias0_clk: 1, x10_0_addr0: 1, x10_0_addr1: 8, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_clk: 1, x20_0_addr0: 1, x20_0_addr1: 8, x20_0_write_data: 32, x20_0_write_en: 1, x20_0_clk: 1) {
+  cells {
+    add0 = prim fixed_p_std_add(32, 16, 16);
+    add1 = prim std_add(8);
+    add2 = prim std_add(1);
+    const0 = prim std_const(1, 0);
+    const1 = prim std_const(1, 0);
+    const2 = prim std_const(8, 0);
+    const3 = prim std_const(8, 127);
+    const4 = prim std_const(8, 1);
+    const5 = prim std_const(1, 1);
+    fc1_bias_read0_0 = prim std_reg(32);
+    i0 = prim std_reg(1);
+    j0 = prim std_reg(8);
+    le0 = prim std_le(1);
+    le1 = prim std_le(8);
+    x1_read0_0 = prim std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = j0.out;
+      le1.right = const3.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1<"static"=1> {
+      j0.in = const2.out;
+      j0.write_en = 1'd1;
+      let1[done] = j0.done;
+    }
+    group upd0<"static"=1> {
+      x1_read0_0.write_en = 1'd1;
+      x10_0_addr1 = j0.out;
+      x10_0_addr0 = i0.out;
+      x1_read0_0.in = 1'd1 ? x10_0_read_data;
+      upd0[done] = x1_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      fc1_bias_read0_0.write_en = 1'd1;
+      fc1_bias0_addr0 = j0.out;
+      fc1_bias_read0_0.in = 1'd1 ? fc1_bias0_read_data;
+      upd1[done] = fc1_bias_read0_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      x20_0_addr1 = j0.out;
+      x20_0_addr0 = i0.out;
+      x20_0_write_en = 1'd1;
+      add0.left = x1_read0_0.out;
+      add0.right = fc1_bias_read0_0.out;
+      x20_0_write_data = 1'd1 ? add0.out;
+      upd2[done] = x20_0_done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      j0.write_en = 1'd1;
+      add1.left = j0.out;
+      add1.right = const4.out;
+      j0.in = 1'd1 ? add1.out;
+      upd3[done] = j0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      i0.write_en = 1'd1;
+      add2.left = i0.out;
+      add2.right = const5.out;
+      i0.in = 1'd1 ? add2.out;
+      upd4[done] = i0.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          let1;
+          while le1.out with cond1 {
+            seq {
+              par {
+                upd0;
+                upd1;
+              }
+              upd2;
+              upd3;
+            }
+          }
+          upd4;
+        }
+      }
+    }
+  }
+}
+component dense(go: 1, clk: 1, fc1_weight0_0_read_data: 32, fc1_weight0_0_done: 1, x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (done: 1, fc1_weight0_0_addr0: 8, fc1_weight0_0_addr1: 10, fc1_weight0_0_write_data: 32, fc1_weight0_0_write_en: 1, fc1_weight0_0_clk: 1, x0_0_addr0: 1, x0_0_addr1: 10, x0_0_write_data: 32, x0_0_write_en: 1, x0_0_clk: 1, x10_0_addr0: 1, x10_0_addr1: 8, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_clk: 1) {
+  cells {
+    add0 = prim std_add(10);
+    add1 = prim std_add(8);
+    add2 = prim fixed_p_std_add(32, 16, 16);
+    add3 = prim std_add(10);
+    add4 = prim std_add(8);
+    add5 = prim std_add(1);
+    add6 = prim std_add(8);
+    add7 = prim std_add(1);
+    bin_read0_0 = prim std_reg(32);
+    const0 = prim std_const(8, 0);
+    const1 = prim std_const(8, 127);
+    const10 = prim std_const(10, 0);
+    const11 = prim std_const(10, 783);
+    const12 = prim std_const(10, 1);
+    const13 = prim std_const(8, 1);
+    const14 = prim std_const(1, 1);
+    const15 = prim std_const(1, 0);
+    const16 = prim std_const(1, 0);
+    const17 = prim std_const(8, 0);
+    const18 = prim std_const(8, 127);
+    const19 = prim std_const(8, 1);
+    const2 = prim std_const(10, 0);
+    const20 = prim std_const(1, 1);
+    const3 = prim std_const(10, 783);
+    const4 = prim std_const(10, 1);
+    const5 = prim std_const(8, 1);
+    const6 = prim std_const(1, 0);
+    const7 = prim std_const(1, 0);
+    const8 = prim std_const(8, 0);
+    const9 = prim std_const(8, 127);
+    fc1_weight_read0_0 = prim std_reg(32);
+    i0 = prim std_reg(8);
+    i1 = prim std_reg(1);
+    i2 = prim std_reg(1);
+    j0 = prim std_reg(10);
+    j1 = prim std_reg(8);
+    j2 = prim std_reg(8);
+    k0 = prim std_reg(10);
+    le0 = prim std_le(8);
+    le1 = prim std_le(10);
+    le2 = prim std_le(1);
+    le3 = prim std_le(8);
+    le4 = prim std_le(10);
+    le5 = prim std_le(1);
+    le6 = prim std_le(8);
+    mult_pipe0 = prim std_mult_pipe(32);
+    product_0 = prim std_reg(32);
+    slice0 = prim std_slice(32, 32);
+    slice1 = prim std_slice(32, 32);
+    temporary_x10_0 = prim std_mem_d2(32, 1, 128, 1, 8);
+    temporary_x1_read0_0 = prim std_reg(32);
+    transpose_fc1_weight0_0 = prim std_mem_d2(32, 784, 128, 10, 8);
+    transpose_fc1_weight_read0_0 = prim std_reg(32);
+    x_read0_0 = prim std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = j0.out;
+      le1.right = const3.out;
+    }
+    group cond2<"static"=0> {
+      cond2[done] = 1'd1;
+      le2.left = i1.out;
+      le2.right = const7.out;
+    }
+    group cond3<"static"=0> {
+      cond3[done] = 1'd1;
+      le3.left = j1.out;
+      le3.right = const9.out;
+    }
+    group cond4<"static"=0> {
+      cond4[done] = 1'd1;
+      le4.left = k0.out;
+      le4.right = const11.out;
+    }
+    group cond5<"static"=0> {
+      cond5[done] = 1'd1;
+      le5.left = i2.out;
+      le5.right = const16.out;
+    }
+    group cond6<"static"=0> {
+      cond6[done] = 1'd1;
+      le6.left = j2.out;
+      le6.right = const18.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1<"static"=1> {
+      j0.in = const2.out;
+      j0.write_en = 1'd1;
+      let1[done] = j0.done;
+    }
+    group let2<"static"=1> {
+      i1.in = const6.out;
+      i1.write_en = 1'd1;
+      let2[done] = i1.done;
+    }
+    group let3<"static"=1> {
+      j1.in = const8.out;
+      j1.write_en = 1'd1;
+      let3[done] = j1.done;
+    }
+    group let4<"static"=1> {
+      k0.in = const10.out;
+      k0.write_en = 1'd1;
+      let4[done] = k0.done;
+    }
+    group let5<"static"=1> {
+      bin_read0_0.in = slice0.out;
+      bin_read0_0.write_en = 1'd1;
+      let5[done] = bin_read0_0.done;
+      slice0.in = mult_pipe0.out;
+      mult_pipe0.left = x_read0_0.out;
+      mult_pipe0.right = transpose_fc1_weight_read0_0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group let6<"static"=1> {
+      product_0.in = slice1.out;
+      product_0.write_en = 1'd1;
+      let6[done] = product_0.done;
+      slice1.in = bin_read0_0.out;
+    }
+    group let7<"static"=1> {
+      i2.in = const15.out;
+      i2.write_en = 1'd1;
+      let7[done] = i2.done;
+    }
+    group let8<"static"=1> {
+      j2.in = const17.out;
+      j2.write_en = 1'd1;
+      let8[done] = j2.done;
+    }
+    group upd0<"static"=1> {
+      fc1_weight_read0_0.write_en = 1'd1;
+      fc1_weight0_0_addr1 = j0.out;
+      fc1_weight0_0_addr0 = i0.out;
+      fc1_weight_read0_0.in = 1'd1 ? fc1_weight0_0_read_data;
+      upd0[done] = fc1_weight_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      transpose_fc1_weight0_0.addr1 = i0.out;
+      transpose_fc1_weight0_0.addr0 = j0.out;
+      transpose_fc1_weight0_0.write_en = 1'd1;
+      transpose_fc1_weight0_0.write_data = 1'd1 ? fc1_weight_read0_0.out;
+      upd1[done] = transpose_fc1_weight0_0.done ? 1'd1;
+    }
+    group upd10<"static"=1> {
+      temporary_x1_read0_0.write_en = 1'd1;
+      temporary_x10_0.addr1 = j2.out;
+      temporary_x10_0.addr0 = i2.out;
+      temporary_x1_read0_0.in = 1'd1 ? temporary_x10_0.read_data;
+      upd10[done] = temporary_x1_read0_0.done ? 1'd1;
+    }
+    group upd11<"static"=1> {
+      x10_0_addr1 = j2.out;
+      x10_0_addr0 = i2.out;
+      x10_0_write_en = 1'd1;
+      x10_0_write_data = 1'd1 ? temporary_x1_read0_0.out;
+      upd11[done] = x10_0_done ? 1'd1;
+    }
+    group upd12<"static"=1> {
+      j2.write_en = 1'd1;
+      add6.left = j2.out;
+      add6.right = const19.out;
+      j2.in = 1'd1 ? add6.out;
+      upd12[done] = j2.done ? 1'd1;
+    }
+    group upd13<"static"=1> {
+      i2.write_en = 1'd1;
+      add7.left = i2.out;
+      add7.right = const20.out;
+      i2.in = 1'd1 ? add7.out;
+      upd13[done] = i2.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      j0.write_en = 1'd1;
+      add0.left = j0.out;
+      add0.right = const4.out;
+      j0.in = 1'd1 ? add0.out;
+      upd2[done] = j0.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      i0.write_en = 1'd1;
+      add1.left = i0.out;
+      add1.right = const5.out;
+      i0.in = 1'd1 ? add1.out;
+      upd3[done] = i0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      x_read0_0.write_en = 1'd1;
+      x0_0_addr1 = k0.out;
+      x0_0_addr0 = i1.out;
+      x_read0_0.in = 1'd1 ? x0_0_read_data;
+      upd4[done] = x_read0_0.done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      transpose_fc1_weight_read0_0.write_en = 1'd1;
+      transpose_fc1_weight0_0.addr1 = j1.out;
+      transpose_fc1_weight0_0.addr0 = k0.out;
+      transpose_fc1_weight_read0_0.in = 1'd1 ? transpose_fc1_weight0_0.read_data;
+      upd5[done] = transpose_fc1_weight_read0_0.done ? 1'd1;
+    }
+    group upd6<"static"=1> {
+      temporary_x10_0.addr1 = j1.out;
+      temporary_x10_0.addr0 = i1.out;
+      temporary_x10_0.write_en = 1'd1;
+      add2.left = temporary_x10_0.read_data;
+      add2.right = product_0.out;
+      temporary_x10_0.addr1 = j1.out;
+      temporary_x10_0.addr0 = i1.out;
+      temporary_x10_0.write_data = 1'd1 ? add2.out;
+      upd6[done] = temporary_x10_0.done ? 1'd1;
+    }
+    group upd7<"static"=1> {
+      k0.write_en = 1'd1;
+      add3.left = k0.out;
+      add3.right = const12.out;
+      k0.in = 1'd1 ? add3.out;
+      upd7[done] = k0.done ? 1'd1;
+    }
+    group upd8<"static"=1> {
+      j1.write_en = 1'd1;
+      add4.left = j1.out;
+      add4.right = const13.out;
+      j1.in = 1'd1 ? add4.out;
+      upd8[done] = j1.done ? 1'd1;
+    }
+    group upd9<"static"=1> {
+      i1.write_en = 1'd1;
+      add5.left = i1.out;
+      add5.right = const14.out;
+      i1.in = 1'd1 ? add5.out;
+      upd9[done] = i1.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          let1;
+          while le1.out with cond1 {
+            seq {
+              upd0;
+              upd1;
+              upd2;
+            }
+          }
+          upd3;
+        }
+      }
+      let2;
+      while le2.out with cond2 {
+        seq {
+          let3;
+          while le3.out with cond3 {
+            seq {
+              let4;
+              while le4.out with cond4 {
+                seq {
+                  par {
+                    upd4;
+                    upd5;
+                  }
+                  let5;
+                  let6;
+                  upd6;
+                  upd7;
+                }
+              }
+              upd8;
+            }
+          }
+          upd9;
+        }
+      }
+      let7;
+      while le5.out with cond5 {
+        seq {
+          let8;
+          while le6.out with cond6 {
+            seq {
+              upd10;
+              upd11;
+              upd12;
+            }
+          }
+          upd13;
+        }
+      }
+    }
+  }
+}
+component batch_flatten(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, x0_0_read_data: 32, x0_0_done: 1) -> (done: 1, data0_0_0_0_addr0: 1, data0_0_0_0_addr1: 1, data0_0_0_0_addr2: 5, data0_0_0_0_addr3: 5, data0_0_0_0_write_data: 32, data0_0_0_0_write_en: 1, data0_0_0_0_clk: 1, x0_0_addr0: 1, x0_0_addr1: 10, x0_0_write_data: 32, x0_0_write_en: 1, x0_0_clk: 1) {
+  cells {
+    add0 = prim std_add(10);
+    add1 = prim std_add(5);
+    add2 = prim std_add(5);
+    add3 = prim std_add(1);
+    add4 = prim std_add(1);
+    const0 = prim std_const(10, 0);
+    const1 = prim std_const(1, 0);
+    const10 = prim std_const(5, 1);
+    const11 = prim std_const(5, 1);
+    const12 = prim std_const(1, 1);
+    const13 = prim std_const(1, 1);
+    const2 = prim std_const(1, 0);
+    const3 = prim std_const(1, 0);
+    const4 = prim std_const(1, 0);
+    const5 = prim std_const(5, 0);
+    const6 = prim std_const(5, 27);
+    const7 = prim std_const(5, 0);
+    const8 = prim std_const(5, 27);
+    const9 = prim std_const(10, 1);
+    data_read0_0 = prim std_reg(32);
+    i0 = prim std_reg(1);
+    j0 = prim std_reg(1);
+    k0 = prim std_reg(5);
+    l0 = prim std_reg(5);
+    le0 = prim std_le(1);
+    le1 = prim std_le(1);
+    le2 = prim std_le(5);
+    le3 = prim std_le(5);
+    m_0 = prim std_reg(10);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const2.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = j0.out;
+      le1.right = const4.out;
+    }
+    group cond2<"static"=0> {
+      cond2[done] = 1'd1;
+      le2.left = k0.out;
+      le2.right = const6.out;
+    }
+    group cond3<"static"=0> {
+      cond3[done] = 1'd1;
+      le3.left = l0.out;
+      le3.right = const8.out;
+    }
+    group let0<"static"=1> {
+      m_0.in = const0.out;
+      m_0.write_en = 1'd1;
+      let0[done] = m_0.done;
+    }
+    group let1<"static"=1> {
+      i0.in = const1.out;
+      i0.write_en = 1'd1;
+      let1[done] = i0.done;
+    }
+    group let2<"static"=1> {
+      j0.in = const3.out;
+      j0.write_en = 1'd1;
+      let2[done] = j0.done;
+    }
+    group let3<"static"=1> {
+      k0.in = const5.out;
+      k0.write_en = 1'd1;
+      let3[done] = k0.done;
+    }
+    group let4<"static"=1> {
+      l0.in = const7.out;
+      l0.write_en = 1'd1;
+      let4[done] = l0.done;
+    }
+    group upd0<"static"=1> {
+      data_read0_0.write_en = 1'd1;
+      data0_0_0_0_addr3 = l0.out;
+      data0_0_0_0_addr2 = k0.out;
+      data0_0_0_0_addr1 = j0.out;
+      data0_0_0_0_addr0 = i0.out;
+      data_read0_0.in = 1'd1 ? data0_0_0_0_read_data;
+      upd0[done] = data_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      x0_0_addr1 = m_0.out;
+      x0_0_addr0 = i0.out;
+      x0_0_write_en = 1'd1;
+      x0_0_write_data = 1'd1 ? data_read0_0.out;
+      upd1[done] = x0_0_done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      m_0.write_en = 1'd1;
+      add0.left = m_0.out;
+      add0.right = const9.out;
+      m_0.in = 1'd1 ? add0.out;
+      upd2[done] = m_0.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      l0.write_en = 1'd1;
+      add1.left = l0.out;
+      add1.right = const10.out;
+      l0.in = 1'd1 ? add1.out;
+      upd3[done] = l0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      k0.write_en = 1'd1;
+      add2.left = k0.out;
+      add2.right = const11.out;
+      k0.in = 1'd1 ? add2.out;
+      upd4[done] = k0.done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      j0.write_en = 1'd1;
+      add3.left = j0.out;
+      add3.right = const12.out;
+      j0.in = 1'd1 ? add3.out;
+      upd5[done] = j0.done ? 1'd1;
+    }
+    group upd6<"static"=1> {
+      i0.write_en = 1'd1;
+      add4.left = i0.out;
+      add4.right = const13.out;
+      i0.in = 1'd1 ? add4.out;
+      upd6[done] = i0.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      let0;
+      let1;
+      while le0.out with cond0 {
+        seq {
+          let2;
+          while le1.out with cond1 {
+            seq {
+              let3;
+              while le2.out with cond2 {
+                seq {
+                  let4;
+                  while le3.out with cond3 {
+                    seq {
+                      upd0;
+                      upd1;
+                      upd2;
+                      upd3;
+                    }
+                  }
+                  upd4;
+                }
+              }
+              upd5;
+            }
+          }
+          upd6;
+        }
+      }
+    }
+  }
+}
+
+component main () -> () {
+  cells {
+    x8 = prim std_mem_d2(32, 1, 10, 1, 4);
+    x7 = prim std_mem_d2(32, 1, 10, 1, 4);
+    fc3_bias = prim std_mem_d1(32, 10, 4);
+    bias_add2 = bias_add2;
+    x6 = prim std_mem_d2(32, 1, 64, 1, 7);
+    fc3_weight = prim std_mem_d2(32, 10, 64, 4, 7);
+    dense2 = dense2;
+    x5 = prim std_mem_d2(32, 1, 64, 1, 7);
+    relu1 = relu1;
+    x4 = prim std_mem_d2(32, 1, 64, 1, 7);
+    fc2_bias = prim std_mem_d1(32, 64, 7);
+    bias_add1 = bias_add1;
+    x3 = prim std_mem_d2(32, 1, 128, 1, 8);
+    fc2_weight = prim std_mem_d2(32, 64, 128, 7, 8);
+    dense1 = dense1;
+    x2 = prim std_mem_d2(32, 1, 128, 1, 8);
+    relu0 = relu;
+    x1 = prim std_mem_d2(32, 1, 128, 1, 8);
+    fc1_bias = prim std_mem_d1(32, 128, 8);
+    bias_add0 = bias_add;
+    x = prim std_mem_d2(32, 1, 784, 1, 10);
+    fc1_weight = prim std_mem_d2(32, 128, 784, 8, 10);
+    dense0 = dense;
+    data = prim std_mem_d4(32, 1, 1, 28, 28, 1, 1, 5, 5);
+    batch_flatten0 = batch_flatten;
+  }
+  wires {
+    group run_batch_flatten {
+      data.addr0 = batch_flatten0.data0_0_0_0_addr0;
+      batch_flatten0.data0_0_0_0_read_data = data.read_data;
+      data.addr1 = batch_flatten0.data0_0_0_0_addr1;
+      data.addr2 = batch_flatten0.data0_0_0_0_addr2;
+      x.addr0 = batch_flatten0.x0_0_addr0;
+      x.addr1 = batch_flatten0.x0_0_addr1;
+      x.write_data = batch_flatten0.x0_0_write_data;
+      x.write_en = batch_flatten0.x0_0_write_en;
+      batch_flatten0.x0_0_done = x.done;
+      batch_flatten0.go = 1'd1;
+      run_batch_flatten[done] = batch_flatten0.done ? 1'd1;
+    }
+    group run_dense {
+      x.addr0 = dense0.x0_0_addr0;
+      dense0.x0_0_read_data = x.read_data;
+      x.addr1 = dense0.x0_0_addr1;
+      fc1_weight.addr0 = dense0.fc1_weight0_0_addr0;
+      dense0.fc1_weight0_0_read_data = fc1_weight.read_data;
+      fc1_weight.addr1 = dense0.fc1_weight0_0_addr1;
+      x1.addr0 = dense0.x10_0_addr0;
+      x1.addr1 = dense0.x10_0_addr1;
+      x1.write_data = dense0.x10_0_write_data;
+      x1.write_en = dense0.x10_0_write_en;
+      dense0.x10_0_done = x1.done;
+      dense0.go = 1'd1;
+      run_dense[done] = dense0.done ? 1'd1;
+    }
+    group run_bias_add {
+      x1.addr0 = bias_add0.x10_0_addr0;
+      bias_add0.x10_0_read_data = x1.read_data;
+      x1.addr1 = bias_add0.x10_0_addr1;
+      fc1_bias.addr0 = bias_add0.fc1_bias0_addr0;
+      bias_add0.fc1_bias0_read_data = fc1_bias.read_data;
+      x2.addr0 = bias_add0.x20_0_addr0;
+      x2.addr1 = bias_add0.x20_0_addr1;
+      x2.write_data = bias_add0.x20_0_write_data;
+      x2.write_en = bias_add0.x20_0_write_en;
+      bias_add0.x20_0_done = x2.done;
+      bias_add0.go = 1'd1;
+      run_bias_add[done] = bias_add0.done ? 1'd1;
+    }
+    group run_relu {
+      x2.addr0 = relu0.x20_0_addr0;
+      relu0.x20_0_read_data = x2.read_data;
+      x2.addr1 = relu0.x20_0_addr1;
+      x3.addr0 = relu0.x30_0_addr0;
+      x3.addr1 = relu0.x30_0_addr1;
+      x3.write_data = relu0.x30_0_write_data;
+      x3.write_en = relu0.x30_0_write_en;
+      relu0.x30_0_done = x3.done;
+      relu0.go = 1'd1;
+      run_relu[done] = relu0.done ? 1'd1;
+    }
+    group run_dense1 {
+      x3.addr0 = dense1.x30_0_addr0;
+      dense1.x30_0_read_data = x3.read_data;
+      x3.addr1 = dense1.x30_0_addr1;
+      fc2_weight.addr0 = dense1.fc2_weight0_0_addr0;
+      dense1.fc2_weight0_0_read_data = fc2_weight.read_data;
+      fc2_weight.addr1 = dense1.fc2_weight0_0_addr1;
+      x4.addr0 = dense1.x40_0_addr0;
+      x4.addr1 = dense1.x40_0_addr1;
+      x4.write_data = dense1.x40_0_write_data;
+      x4.write_en = dense1.x40_0_write_en;
+      dense1.x40_0_done = x4.done;
+      dense1.go = 1'd1;
+      run_dense1[done] = dense1.done ? 1'd1;
+    }
+    group run_bias_add1 {
+      x4.addr0 = bias_add1.x40_0_addr0;
+      bias_add1.x40_0_read_data = x4.read_data;
+      x4.addr1 = bias_add1.x40_0_addr1;
+      fc2_bias.addr0 = bias_add1.fc2_bias0_addr0;
+      bias_add1.fc2_bias0_read_data = fc2_bias.read_data;
+      x5.addr0 = bias_add1.x50_0_addr0;
+      x5.addr1 = bias_add1.x50_0_addr1;
+      x5.write_data = bias_add1.x50_0_write_data;
+      x5.write_en = bias_add1.x50_0_write_en;
+      bias_add1.x50_0_done = x5.done;
+      bias_add1.go = 1'd1;
+      run_bias_add1[done] = bias_add1.done ? 1'd1;
+    }
+    group run_relu1 {
+      x5.addr0 = relu1.x50_0_addr0;
+      relu1.x50_0_read_data = x5.read_data;
+      x5.addr1 = relu1.x50_0_addr1;
+      x6.addr0 = relu1.x60_0_addr0;
+      x6.addr1 = relu1.x60_0_addr1;
+      x6.write_data = relu1.x60_0_write_data;
+      x6.write_en = relu1.x60_0_write_en;
+      relu1.x60_0_done = x6.done;
+      relu1.go = 1'd1;
+      run_relu1[done] = relu1.done ? 1'd1;
+    }
+    group run_dense2 {
+      x6.addr0 = dense2.x60_0_addr0;
+      dense2.x60_0_read_data = x6.read_data;
+      x6.addr1 = dense2.x60_0_addr1;
+      fc3_weight.addr0 = dense2.fc3_weight0_0_addr0;
+      dense2.fc3_weight0_0_read_data = fc3_weight.read_data;
+      fc3_weight.addr1 = dense2.fc3_weight0_0_addr1;
+      x7.addr0 = dense2.x70_0_addr0;
+      x7.addr1 = dense2.x70_0_addr1;
+      x7.write_data = dense2.x70_0_write_data;
+      x7.write_en = dense2.x70_0_write_en;
+      dense2.x70_0_done = x7.done;
+      dense2.go = 1'd1;
+      run_dense2[done] = dense2.done ? 1'd1;
+    }
+    group run_bias_add2 {
+      x7.addr0 = bias_add2.x70_0_addr0;
+      bias_add2.x70_0_read_data = x7.read_data;
+      x7.addr1 = bias_add2.x70_0_addr1;
+      fc3_bias.addr0 = bias_add2.fc3_bias0_addr0;
+      bias_add2.fc3_bias0_read_data = fc3_bias.read_data;
+      x8.addr0 = bias_add2.x80_0_addr0;
+      x8.addr1 = bias_add2.x80_0_addr1;
+      x8.write_data = bias_add2.x80_0_write_data;
+      x8.write_en = bias_add2.x80_0_write_en;
+      bias_add2.x80_0_done = x8.done;
+      bias_add2.go = 1'd1;
+      run_bias_add2[done] = bias_add2.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      run_batch_flatten;
+      run_dense;
+      run_bias_add;
+      run_relu;
+      run_dense1;
+      run_bias_add1;
+      run_relu1;
+      run_dense2;
+      run_bias_add2;
+    }
+  }
+}

@@ -13,10 +13,10 @@ use ir::{Control, Group, Guard, RRC};
 use itertools::Itertools;
 use std::{collections::HashMap, rc::Rc};
 use vast::v17::ast as v;
-// use lib::Implementation;
 
 /// Implements a simple Verilog backend. The backend
 /// only accepts Futil programs with no control and no groups.
+#[derive(Default)]
 pub struct VerilogBackend;
 
 /// Checks to make sure that there are no holes being
@@ -84,7 +84,7 @@ impl From<library::ast::Implementation> for library::ast::Verilog {
 }
 
 impl Backend for VerilogBackend {
-    fn name() -> &'static str {
+    fn name(&self) -> &'static str {
         "verilog"
     }
 
@@ -111,7 +111,7 @@ impl Backend for VerilogBackend {
         let modules = &ctx
             .components
             .iter()
-            .map(|comp| emit_component(&comp).to_string())
+            .map(|comp| emit_component(&comp, !ctx.synthesis_mode).to_string())
             .collect::<Vec<_>>();
 
         write!(file.get_write(), "{}", modules.join("\n"))?;
@@ -119,7 +119,7 @@ impl Backend for VerilogBackend {
     }
 }
 
-fn emit_component(comp: &ir::Component) -> v::Module {
+fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
     let mut module = v::Module::new(comp.name.as_ref());
     let sig = comp.signature.borrow();
     for port_ref in &sig.ports {
@@ -136,17 +136,31 @@ fn emit_component(comp: &ir::Component) -> v::Module {
     }
 
     // Add memory initial and final blocks
-    memory_read_write(&comp).into_iter().for_each(|stmt| {
-        module.add_stmt(stmt);
-    });
+    if memory_simulation {
+        memory_read_write(&comp).into_iter().for_each(|stmt| {
+            module.add_stmt(stmt);
+        });
+    }
 
-    // structure wire declarations
-    comp.cells
+    let wires = comp
+        .cells
         .iter()
         .flat_map(|cell| wire_decls(&cell.borrow()))
-        .for_each(|decl| {
-            module.add_decl(decl);
-        });
+        .collect_vec();
+    // structure wire declarations
+    wires.iter().for_each(|(name, width, _)| {
+        module.add_decl(v::Decl::new_logic(name, *width));
+    });
+    let mut initial = v::ParallelProcess::new_initial();
+    wires.iter().for_each(|(name, width, dir)| {
+        if *dir == ir::Direction::Input {
+            initial.add_seq(v::Sequential::new_blk_assign(
+                v::Expr::new_ref(name),
+                v::Expr::new_ulit_dec(*width as u32, &0.to_string()),
+            ));
+        }
+    });
+    module.add_process(initial);
 
     // cell instances
     comp.cells
@@ -177,7 +191,7 @@ fn emit_component(comp: &ir::Component) -> v::Module {
     module
 }
 
-fn wire_decls(cell: &ir::Cell) -> Vec<v::Decl> {
+fn wire_decls(cell: &ir::Cell) -> Vec<(String, u64, ir::Direction)> {
     cell.ports
         .iter()
         .filter_map(|port| match &port.borrow().parent {
@@ -186,16 +200,15 @@ fn wire_decls(cell: &ir::Cell) -> Vec<v::Decl> {
                 let parent = parent_ref.borrow();
                 match parent.prototype {
                     ir::CellType::Component { .. }
-                    | ir::CellType::Primitive { .. } => {
-                        Some(v::Decl::new_logic(
-                            format!(
-                                "{}_{}",
-                                parent.name.as_ref(),
-                                port.borrow().name.as_ref()
-                            ),
-                            port.borrow().width,
-                        ))
-                    }
+                    | ir::CellType::Primitive { .. } => Some((
+                        format!(
+                            "{}_{}",
+                            parent.name.as_ref(),
+                            port.borrow().name.as_ref()
+                        ),
+                        port.borrow().width,
+                        port.borrow().direction.clone(),
+                    )),
                     _ => None,
                 }
             }

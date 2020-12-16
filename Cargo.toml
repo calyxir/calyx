@@ -1,12 +1,7 @@
 [package]
 name = "futil"
 version = "0.1.0"
-authors = [
-  "Samuel Thomas <sgt43@cornell.edu>",
-  "Rachit Nigam <rnigam@cs.cornell.edu>",
-  "Kenneth Fang <kwf37@cornell.edu>",
-  "Adrian Sampson <asampson@cs.cornell.edu>",
-]
+authors = [ "The FuTIL Authors" ]
 edition = "2018"
 build = false
 
@@ -20,3 +15,6 @@ atty = "0.2.14"
 [workspace]
 members = ["calyx"]
 exclude = ["site"]
+
+[profile.dev]
+opt-level = 1

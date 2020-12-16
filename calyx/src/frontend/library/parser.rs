@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 type ParseResult<T> = Result<T, Error<Rule>>;
-type Node<'i> = pest_consume::Node<'i, Rule, Rc<String>>;
+type Node<'i> = pest_consume::Node<'i, Rule, Rc<str>>;
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
 const _GRAMMAR: &str = include_str!("syntax.pest");
@@ -32,7 +32,7 @@ impl LibraryParser {
         let inputs = LibraryParser::parse_with_userdata(
             Rule::file,
             string_content,
-            Rc::new(string_content.to_string()),
+            Rc::from(string_content.to_string()),
         )?;
         let input = inputs.single()?;
         Ok(LibraryParser::file(input)?)

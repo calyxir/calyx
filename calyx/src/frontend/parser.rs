@@ -13,7 +13,7 @@ use std::rc::Rc;
 type ParseResult<T> = Result<T, Error<Rule>>;
 // user data is the input program so that we can create ir::Id's
 // that have a reference to the input string
-type Node<'i> = pest_consume::Node<'i, Rule, Rc<String>>;
+type Node<'i> = pest_consume::Node<'i, Rule, Rc<str>>;
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
 const _GRAMMAR: &str = include_str!("futil_syntax.pest");
@@ -56,7 +56,7 @@ impl FutilParser {
         let inputs = FutilParser::parse_with_userdata(
             Rule::file,
             string_content,
-            Rc::new(string_content.to_string()),
+            Rc::from(string_content),
         )?;
         let input = inputs.single()?;
         Ok(FutilParser::file(input)?)
@@ -73,7 +73,7 @@ impl FutilParser {
         let inputs = FutilParser::parse_with_userdata(
             Rule::file,
             &buf,
-            Rc::new(buf.to_string()),
+            Rc::from(buf.as_str()),
         )?;
         let input = inputs.single()?;
         Ok(FutilParser::file(input)?)
@@ -94,69 +94,74 @@ impl FutilParser {
     }
 
     fn bitwidth(input: Node) -> ParseResult<u64> {
-        Ok(match input.as_str().parse::<u64>() {
-            Ok(x) => x,
-            _ => panic!("Unable to parse '{}' as a u64", input.as_str()),
-        })
+        input
+            .as_str()
+            .parse::<u64>()
+            .map_err(|_| input.error("Expected valid bitwidth"))
+    }
+
+    fn bad_num(input: Node) -> ParseResult<u64> {
+        Err(input.error("Expected number with bitwidth (like 32'd10)."))
+    }
+
+    fn hex(input: Node) -> ParseResult<u64> {
+        u64::from_str_radix(input.as_str(), 16)
+            .map_err(|_| input.error("Expected hexadecimal number"))
+    }
+    fn decimal(input: Node) -> ParseResult<u64> {
+        u64::from_str_radix(input.as_str(), 10)
+            .map_err(|_| input.error("Expected decimal number"))
+    }
+    fn octal(input: Node) -> ParseResult<u64> {
+        u64::from_str_radix(input.as_str(), 8)
+            .map_err(|_| input.error("Expected octal number"))
+    }
+    fn binary(input: Node) -> ParseResult<u64> {
+        u64::from_str_radix(input.as_str(), 2)
+            .map_err(|_| input.error("Expected binary number"))
     }
 
     fn num_lit(input: Node) -> ParseResult<BitNum> {
-        let raw = input.as_str();
-        if raw.contains("'d") {
-            match raw.split("'d").collect::<Vec<_>>().as_slice() {
-                [bits, val] => Ok(BitNum {
-                    width: bits.parse().unwrap(),
+        Ok(match_nodes!(
+            input.clone().into_children();
+            [bitwidth(width), decimal(val)] => BitNum {
+                    width,
                     num_type: NumType::Decimal,
-                    val: val.parse().unwrap(),
+                    val,
                     span: Some(Span::new(
                         input.as_span(),
                         Rc::clone(input.user_data()),
                     )),
-                }),
-                _ => unreachable!(),
-            }
-        } else if raw.contains("'b") {
-            match raw.split("'b").collect::<Vec<_>>().as_slice() {
-                [bits, val] => Ok(BitNum {
-                    width: bits.parse().unwrap(),
-                    num_type: NumType::Binary,
-                    val: u64::from_str_radix(val, 2).unwrap(),
-                    span: Some(Span::new(
-                        input.as_span(),
-                        Rc::clone(input.user_data()),
-                    )),
-                }),
-                _ => unreachable!(),
-            }
-        } else if raw.contains("'x") {
-            match raw.split("'x").collect::<Vec<_>>().as_slice() {
-                [bits, val] => Ok(BitNum {
-                    width: bits.parse().unwrap(),
+                },
+            [bitwidth(width), hex(val)] => BitNum {
+                    width,
                     num_type: NumType::Hex,
-                    val: u64::from_str_radix(val, 16).unwrap(),
+                    val,
                     span: Some(Span::new(
                         input.as_span(),
                         Rc::clone(input.user_data()),
                     )),
-                }),
-                _ => unreachable!(),
-            }
-        } else if raw.contains("'o") {
-            match raw.split("'o").collect::<Vec<_>>().as_slice() {
-                [bits, val] => Ok(BitNum {
-                    width: bits.parse().unwrap(),
+                },
+            [bitwidth(width), octal(val)] => BitNum {
+                    width,
                     num_type: NumType::Octal,
-                    val: u64::from_str_radix(val, 8).unwrap(),
+                    val,
                     span: Some(Span::new(
                         input.as_span(),
                         Rc::clone(input.user_data()),
                     )),
-                }),
-                _ => unreachable!(),
-            }
-        } else {
-            unreachable!()
-        }
+                },
+            [bitwidth(width), binary(val)] => BitNum {
+                    width,
+                    num_type: NumType::Binary,
+                    val,
+                    span: Some(Span::new(
+                        input.as_span(),
+                        Rc::clone(input.user_data()),
+                    )),
+                },
+
+        ))
     }
 
     fn char(input: Node) -> ParseResult<&str> {
@@ -233,15 +238,19 @@ impl FutilParser {
         ))
     }
 
+    fn cell(input: Node) -> ParseResult<ast::Cell> {
+        Ok(match_nodes!(
+                input.into_children();
+                [primitive_cell(node)] => node,
+                [component_cell(node)] => node,
+        ))
+    }
+
     fn cells(input: Node) -> ParseResult<Vec<ast::Cell>> {
-        input
-            .into_children()
-            .map(|node| match node.as_rule() {
-                Rule::primitive_cell => Self::primitive_cell(node),
-                Rule::component_cell => Self::component_cell(node),
-                _ => unreachable!(),
-            })
-            .collect()
+        Ok(match_nodes!(
+                input.into_children();
+                [cell(cells)..] => cells.collect()
+        ))
     }
 
     fn port(input: Node) -> ParseResult<ast::Port> {
@@ -268,11 +277,12 @@ impl FutilParser {
     }
 
     fn expr(input: Node) -> ParseResult<ast::Atom> {
-        Ok(match_nodes!(
+        match_nodes!(
             input.into_children();
-            [LHS(port)] => ast::Atom::Port(port),
-            [num_lit(num)] => ast::Atom::Num(num)
-        ))
+            [LHS(port)] => Ok(ast::Atom::Port(port)),
+            [num_lit(num)] => Ok(ast::Atom::Num(num)),
+            [bad_num(num)] => unreachable!("bad_num returned non-error result"),
+        )
     }
 
     fn guard_not(_input: Node) -> ParseResult<()> {
@@ -404,24 +414,26 @@ impl FutilParser {
     fn if_stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [port(port), identifier(cond), stmt(stmt)] => ast::Control::If {
+            [port(port), identifier(cond), block(stmt)] => ast::Control::If {
                 port,
                 cond,
                 tbranch: Box::new(stmt),
                 fbranch: Box::new(ast::Control::Empty{})
             },
-            [port(port), identifier(cond), stmt(tbranch), stmt(fbranch)] => ast::Control::If {
-                port,
-                cond,
-                tbranch: Box::new(tbranch),
-                fbranch: Box::new(fbranch)
-            },
-            [port(port), identifier(cond), stmt(tbranch), if_stmt(fbranch)] => ast::Control::If {
-                port,
-                cond,
-                tbranch: Box::new(tbranch),
-                fbranch: Box::new(fbranch)
-            },
+            [port(port), identifier(cond), block(tbranch), block(fbranch)] =>
+                ast::Control::If {
+                    port,
+                    cond,
+                    tbranch: Box::new(tbranch),
+                    fbranch: Box::new(fbranch)
+                },
+            [port(port), identifier(cond), block(tbranch), if_stmt(fbranch)] =>
+                ast::Control::If {
+                    port,
+                    cond,
+                    tbranch: Box::new(tbranch),
+                    fbranch: Box::new(fbranch)
+                },
 
         ))
     }
@@ -429,7 +441,7 @@ impl FutilParser {
     fn while_stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [port(port), identifier(cond), stmt(stmt)] => ast::Control::While {
+            [port(port), identifier(cond), block(stmt)] => ast::Control::While {
                 port,
                 cond,
                 body: Box::new(stmt),
@@ -446,6 +458,22 @@ impl FutilParser {
             [if_stmt(data)] => data,
             [while_stmt(data)] => data,
         ))
+    }
+
+    fn block(input: Node) -> ParseResult<ast::Control> {
+        Ok(match_nodes!(
+            input.into_children();
+            [stmt(stmt)] => stmt,
+            [stmts_without_block(_)] => unreachable!()
+        ))
+    }
+
+    fn stmts_without_block(input: Node) -> ParseResult<ast::Control> {
+        match_nodes!(
+            input.clone().into_children();
+            [stmt(_)..] => Err(
+                input.error("Sequence of control statements should be enclosed in `seq` or `par`."))
+        )
     }
 
     fn control(input: Node) -> ParseResult<ast::Control> {

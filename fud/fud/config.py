@@ -7,6 +7,9 @@ from pprint import PrettyPrinter
 from .utils import eprint
 from . import errors
 
+# Global registry. Initialized by main.py.
+REGISTRY = None
+
 wizard_data = {
     'global': {
         'futil_directory': 'Root Directory of FuTIL repository',
@@ -23,7 +26,8 @@ DEFAULT_CONFIGURATION = {
         },
         'dahlia': {
             'exec': 'dahlia',
-            'file_extensions': ['.fuse', '.dahlia']
+            'file_extensions': ['.fuse', '.dahlia'],
+            'flags': None
         },
         'mrxl': {
             'exec': 'mrxl',
@@ -48,6 +52,12 @@ DEFAULT_CONFIGURATION = {
         },
         'systolic': {
             'flags': None
+        },
+        'vivado': {
+            'exec': 'vivado'
+        },
+        'vivado_hls': {
+            'exec': 'vivado_hls'
         }
     }
 }

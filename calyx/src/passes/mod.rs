@@ -1,19 +1,22 @@
 //! Passes for the FuTIL compiler.
+//mod merge_assign;
+mod clk_insertion;
 mod collapse_control;
 mod compile_control;
 mod compile_empty;
 mod component_interface;
-mod externalize;
-mod inliner;
-mod well_formed;
-//mod merge_assign;
-mod clk_insertion;
 mod dead_cell_removal;
+mod externalize;
 mod go_insertion;
+mod infer_static_timing;
+mod inliner;
+mod live_range_analysis;
+mod minimize_regs;
 mod papercut;
 mod remove_external_memories;
 mod resource_sharing;
 mod static_timing;
+mod well_formed;
 
 pub use clk_insertion::ClkInsertion;
 pub use collapse_control::CollapseControl;
@@ -23,7 +26,10 @@ pub use component_interface::ComponentInterface;
 pub use dead_cell_removal::DeadCellRemoval;
 pub use externalize::Externalize;
 pub use go_insertion::GoInsertion;
+pub use infer_static_timing::InferStaticTiming;
 pub use inliner::Inliner;
+pub use live_range_analysis::LiveRangeAnalysis;
+pub use minimize_regs::MinimizeRegs;
 pub use papercut::Papercut;
 pub use remove_external_memories::RemoveExternalMemories;
 pub use resource_sharing::ResourceSharing;

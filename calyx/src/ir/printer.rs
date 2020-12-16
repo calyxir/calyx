@@ -137,16 +137,18 @@ impl IRPrinter {
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
         write!(f, "group {}", group.name.id)?;
-        write!(
-            f,
-            "<{}>",
-            group
-                .attributes
-                .iter()
-                .map(|(k, v)| { format!("\"{}\"={}", k, v) })
-                .collect::<Vec<_>>()
-                .join(", ")
-        )?;
+        if !group.attributes.is_empty() {
+            write!(
+                f,
+                "<{}>",
+                group
+                    .attributes
+                    .iter()
+                    .map(|(k, v)| { format!("\"{}\"={}", k, v) })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )?;
+        }
         writeln!(f, " {{")?;
 
         for assign in &group.assignments {

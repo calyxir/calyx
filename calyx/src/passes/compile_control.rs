@@ -25,7 +25,7 @@ impl Named for CompileControl {
     }
 }
 
-impl Visitor for CompileControl {
+impl Visitor<()> for CompileControl {
     /// This compiles `if` statements of the following form:
     /// ```C
     /// if comp.out with cond {
@@ -66,9 +66,10 @@ impl Visitor for CompileControl {
     fn finish_if(
         &mut self,
         cif: &mut ir::If,
+        _data: (),
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // create a new group for if related structure
@@ -156,7 +157,7 @@ impl Visitor for CompileControl {
         );
         comp.continuous_assignments.append(&mut cleanup_assigns);
 
-        Ok(Action::Change(ir::Control::enable(if_group)))
+        Ok(Action::change_default(ir::Control::enable(if_group)))
     }
 
     /// XXX(rachit): The explanation is not consistent with the code.
@@ -165,9 +166,10 @@ impl Visitor for CompileControl {
     fn finish_while(
         &mut self,
         wh: &mut ir::While,
+        _data: (),
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // create group
@@ -250,15 +252,16 @@ impl Visitor for CompileControl {
         );
         comp.continuous_assignments.append(&mut clean_assigns);
 
-        Ok(Action::Change(ir::Control::enable(while_group)))
+        Ok(Action::change_default(ir::Control::enable(while_group)))
     }
 
     fn finish_seq(
         &mut self,
         s: &mut ir::Seq,
+        _data: (),
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // Create a new group for the seq related structure.
@@ -330,7 +333,7 @@ impl Visitor for CompileControl {
         comp.continuous_assignments.append(&mut assigns);
 
         // Replace the control with the seq group.
-        Ok(Action::Change(ir::Control::enable(seq_group)))
+        Ok(Action::change_default(ir::Control::enable(seq_group)))
     }
 
     /// Par compilation generates 1-bit registers to hold `done` values
@@ -339,9 +342,10 @@ impl Visitor for CompileControl {
     fn finish_par(
         &mut self,
         s: &mut ir::Par,
+        _data: (),
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // Name of the parent group.
@@ -421,6 +425,6 @@ impl Visitor for CompileControl {
                 .append(&mut assigns);
         }
 
-        Ok(Action::Change(ir::Control::enable(par_group)))
+        Ok(Action::change_default(ir::Control::enable(par_group)))
     }
 }

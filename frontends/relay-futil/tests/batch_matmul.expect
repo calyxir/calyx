@@ -1,148 +1,322 @@
 import "primitives/std.lib";
 
-component batch_matmul(go: 1, clk: 1, a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_data: 32, b0_0_0_done: 1, x0_0_0_read_data: 32, x0_0_0_done: 1) -> (done: 1, a0_0_0_addr0: 2, a0_0_0_addr1: 2, a0_0_0_addr2: 2, a0_0_0_write_data: 32, a0_0_0_write_en: 1, a0_0_0_clk: 1, b0_0_0_addr0: 2, b0_0_0_addr1: 2, b0_0_0_addr2: 2, b0_0_0_write_data: 32, b0_0_0_write_en: 1, b0_0_0_clk: 1, x0_0_0_addr0: 2, x0_0_0_addr1: 2, x0_0_0_addr2: 2, x0_0_0_write_data: 32, x0_0_0_write_en: 1, x0_0_0_clk: 1) {
+component batch_matmul(go: 1, clk: 1, a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_data: 32, b0_0_0_done: 1, x0_0_0_read_data: 32, x0_0_0_done: 1) -> (done: 1, a0_0_0_addr0: 3, a0_0_0_addr1: 3, a0_0_0_addr2: 3, a0_0_0_write_data: 32, a0_0_0_write_en: 1, a0_0_0_clk: 1, b0_0_0_addr0: 3, b0_0_0_addr1: 3, b0_0_0_addr2: 3, b0_0_0_write_data: 32, b0_0_0_write_en: 1, b0_0_0_clk: 1, x0_0_0_addr0: 3, x0_0_0_addr1: 3, x0_0_0_addr2: 3, x0_0_0_write_data: 32, x0_0_0_write_en: 1, x0_0_0_clk: 1) {
   cells {
     a_read0_0 = prim std_reg(32);
-    add0 = prim std_add(32);
-    add1 = prim std_add(2);
-    add2 = prim std_add(2);
-    add3 = prim std_add(2);
-    add4 = prim std_add(2);
+    add0 = prim std_add(3);
+    add1 = prim std_add(3);
+    add10 = prim std_add(3);
+    add2 = prim std_add(3);
+    add3 = prim std_add(32);
+    add4 = prim std_add(3);
+    add5 = prim std_add(3);
+    add6 = prim std_add(3);
+    add7 = prim std_add(3);
+    add8 = prim std_add(3);
+    add9 = prim std_add(3);
     b_read0_0 = prim std_reg(32);
+    batch0 = prim std_reg(3);
+    batch1 = prim std_reg(3);
+    batch2 = prim std_reg(3);
     bin_read0_0 = prim std_reg(32);
-    const0 = prim std_const(2, 0);
-    const1 = prim std_const(2, 2);
-    const10 = prim std_const(2, 1);
-    const11 = prim std_const(2, 1);
-    const2 = prim std_const(2, 0);
-    const3 = prim std_const(2, 2);
-    const4 = prim std_const(2, 0);
-    const5 = prim std_const(2, 2);
-    const6 = prim std_const(2, 0);
-    const7 = prim std_const(2, 2);
-    const8 = prim std_const(2, 1);
-    const9 = prim std_const(2, 1);
-    i0 = prim std_reg(2);
-    j0 = prim std_reg(2);
-    k0 = prim std_reg(2);
-    l0 = prim std_reg(2);
-    le0 = prim std_le(2);
-    le1 = prim std_le(2);
-    le2 = prim std_le(2);
-    le3 = prim std_le(2);
+    const0 = prim std_const(3, 0);
+    const1 = prim std_const(3, 3);
+    const10 = prim std_const(3, 3);
+    const11 = prim std_const(3, 0);
+    const12 = prim std_const(3, 6);
+    const13 = prim std_const(3, 0);
+    const14 = prim std_const(3, 6);
+    const15 = prim std_const(3, 0);
+    const16 = prim std_const(3, 4);
+    const17 = prim std_const(3, 1);
+    const18 = prim std_const(3, 1);
+    const19 = prim std_const(3, 1);
+    const2 = prim std_const(3, 0);
+    const20 = prim std_const(3, 1);
+    const21 = prim std_const(3, 0);
+    const22 = prim std_const(3, 3);
+    const23 = prim std_const(3, 0);
+    const24 = prim std_const(3, 6);
+    const25 = prim std_const(3, 0);
+    const26 = prim std_const(3, 6);
+    const27 = prim std_const(3, 1);
+    const28 = prim std_const(3, 1);
+    const29 = prim std_const(3, 1);
+    const3 = prim std_const(3, 6);
+    const4 = prim std_const(3, 0);
+    const5 = prim std_const(3, 4);
+    const6 = prim std_const(3, 1);
+    const7 = prim std_const(3, 1);
+    const8 = prim std_const(3, 1);
+    const9 = prim std_const(3, 0);
+    i0 = prim std_reg(3);
+    i1 = prim std_reg(3);
+    i2 = prim std_reg(3);
+    j0 = prim std_reg(3);
+    j1 = prim std_reg(3);
+    j2 = prim std_reg(3);
+    k0 = prim std_reg(3);
+    le0 = prim std_le(3);
+    le1 = prim std_le(3);
+    le2 = prim std_le(3);
+    le3 = prim std_le(3);
+    le4 = prim std_le(3);
+    le5 = prim std_le(3);
+    le6 = prim std_le(3);
+    le7 = prim std_le(3);
+    le8 = prim std_le(3);
+    le9 = prim std_le(3);
     mult_pipe0 = prim std_mult_pipe(32);
-    prod_0 = prim std_reg(32);
+    product_0 = prim std_reg(32);
+    temporary_x0_0_0 = prim std_mem_d3(32, 4, 7, 7, 3, 3, 3);
+    temporary_x_read0_0 = prim std_reg(32);
+    transpose_b0_0_0 = prim std_mem_d3(32, 4, 5, 7, 3, 3, 3);
+    transpose_b_read0_0 = prim std_reg(32);
   }
   wires {
     group cond0<"static"=0> {
       cond0[done] = 1'd1;
-      le0.left = i0.out;
+      le0.left = batch0.out;
       le0.right = const1.out;
     }
     group cond1<"static"=0> {
       cond1[done] = 1'd1;
-      le1.left = j0.out;
+      le1.left = i0.out;
       le1.right = const3.out;
     }
     group cond2<"static"=0> {
       cond2[done] = 1'd1;
-      le2.left = k0.out;
+      le2.left = j0.out;
       le2.right = const5.out;
     }
     group cond3<"static"=0> {
       cond3[done] = 1'd1;
-      le3.left = l0.out;
-      le3.right = const7.out;
+      le3.left = batch1.out;
+      le3.right = const10.out;
+    }
+    group cond4<"static"=0> {
+      cond4[done] = 1'd1;
+      le4.left = i1.out;
+      le4.right = const12.out;
+    }
+    group cond5<"static"=0> {
+      cond5[done] = 1'd1;
+      le5.left = j1.out;
+      le5.right = const14.out;
+    }
+    group cond6<"static"=0> {
+      cond6[done] = 1'd1;
+      le6.left = k0.out;
+      le6.right = const16.out;
+    }
+    group cond7<"static"=0> {
+      cond7[done] = 1'd1;
+      le7.left = batch2.out;
+      le7.right = const22.out;
+    }
+    group cond8<"static"=0> {
+      cond8[done] = 1'd1;
+      le8.left = i2.out;
+      le8.right = const24.out;
+    }
+    group cond9<"static"=0> {
+      cond9[done] = 1'd1;
+      le9.left = j2.out;
+      le9.right = const26.out;
     }
     group let0<"static"=1> {
-      i0.in = const0.out;
-      i0.write_en = 1'd1;
-      let0[done] = i0.done;
+      batch0.in = const0.out;
+      batch0.write_en = 1'd1;
+      let0[done] = batch0.done;
     }
     group let1<"static"=1> {
-      j0.in = const2.out;
-      j0.write_en = 1'd1;
-      let1[done] = j0.done;
+      i0.in = const2.out;
+      i0.write_en = 1'd1;
+      let1[done] = i0.done;
+    }
+    group let10<"static"=1> {
+      i2.in = const23.out;
+      i2.write_en = 1'd1;
+      let10[done] = i2.done;
+    }
+    group let11<"static"=1> {
+      j2.in = const25.out;
+      j2.write_en = 1'd1;
+      let11[done] = j2.done;
     }
     group let2<"static"=1> {
-      k0.in = const4.out;
-      k0.write_en = 1'd1;
-      let2[done] = k0.done;
+      j0.in = const4.out;
+      j0.write_en = 1'd1;
+      let2[done] = j0.done;
     }
     group let3<"static"=1> {
-      l0.in = const6.out;
-      l0.write_en = 1'd1;
-      let3[done] = l0.done;
+      batch1.in = const9.out;
+      batch1.write_en = 1'd1;
+      let3[done] = batch1.done;
     }
-    group let4<"static"=4> {
-      bin_read0_0.in = mult_pipe0.out;
-      bin_read0_0.write_en = mult_pipe0.done;
-      let4[done] = bin_read0_0.done;
-      mult_pipe0.left = a_read0_0.out;
-      mult_pipe0.right = b_read0_0.out;
-      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    group let4<"static"=1> {
+      i1.in = const11.out;
+      i1.write_en = 1'd1;
+      let4[done] = i1.done;
     }
     group let5<"static"=1> {
-      prod_0.in = bin_read0_0.out;
-      prod_0.write_en = 1'd1;
-      let5[done] = prod_0.done;
+      j1.in = const13.out;
+      j1.write_en = 1'd1;
+      let5[done] = j1.done;
+    }
+    group let6<"static"=1> {
+      k0.in = const15.out;
+      k0.write_en = 1'd1;
+      let6[done] = k0.done;
+    }
+    group let7<"static"=4> {
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      let7[done] = bin_read0_0.done;
+      mult_pipe0.left = a_read0_0.out;
+      mult_pipe0.right = transpose_b_read0_0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group let8<"static"=1> {
+      product_0.in = bin_read0_0.out;
+      product_0.write_en = 1'd1;
+      let8[done] = product_0.done;
+    }
+    group let9<"static"=1> {
+      batch2.in = const21.out;
+      batch2.write_en = 1'd1;
+      let9[done] = batch2.done;
     }
     group upd0<"static"=1> {
-      a_read0_0.write_en = 1'd1;
-      a0_0_0_addr2 = l0.out;
-      a0_0_0_addr1 = j0.out;
-      a0_0_0_addr0 = i0.out;
-      a_read0_0.in = 1'd1 ? a0_0_0_read_data;
-      upd0[done] = a_read0_0.done ? 1'd1;
+      b_read0_0.write_en = 1'd1;
+      b0_0_0_addr2 = j0.out;
+      b0_0_0_addr1 = i0.out;
+      b0_0_0_addr0 = batch0.out;
+      b_read0_0.in = 1'd1 ? b0_0_0_read_data;
+      upd0[done] = b_read0_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
-      b_read0_0.write_en = 1'd1;
-      b0_0_0_addr2 = k0.out;
-      b0_0_0_addr1 = l0.out;
-      b0_0_0_addr0 = i0.out;
-      b_read0_0.in = 1'd1 ? b0_0_0_read_data;
-      upd1[done] = b_read0_0.done ? 1'd1;
+      transpose_b0_0_0.addr2 = i0.out;
+      transpose_b0_0_0.addr1 = j0.out;
+      transpose_b0_0_0.addr0 = batch0.out;
+      transpose_b0_0_0.write_en = 1'd1;
+      transpose_b0_0_0.write_data = 1'd1 ? b_read0_0.out;
+      upd1[done] = transpose_b0_0_0.done ? 1'd1;
+    }
+    group upd10<"static"=1> {
+      i1.write_en = 1'd1;
+      add6.left = i1.out;
+      add6.right = const19.out;
+      i1.in = 1'd1 ? add6.out;
+      upd10[done] = i1.done ? 1'd1;
+    }
+    group upd11<"static"=1> {
+      batch1.write_en = 1'd1;
+      add7.left = batch1.out;
+      add7.right = const20.out;
+      batch1.in = 1'd1 ? add7.out;
+      upd11[done] = batch1.done ? 1'd1;
+    }
+    group upd12<"static"=1> {
+      temporary_x_read0_0.write_en = 1'd1;
+      temporary_x0_0_0.addr2 = j2.out;
+      temporary_x0_0_0.addr1 = i2.out;
+      temporary_x0_0_0.addr0 = batch2.out;
+      temporary_x_read0_0.in = 1'd1 ? temporary_x0_0_0.read_data;
+      upd12[done] = temporary_x_read0_0.done ? 1'd1;
+    }
+    group upd13<"static"=1> {
+      x0_0_0_addr2 = j2.out;
+      x0_0_0_addr1 = i2.out;
+      x0_0_0_addr0 = batch2.out;
+      x0_0_0_write_en = 1'd1;
+      x0_0_0_write_data = 1'd1 ? temporary_x_read0_0.out;
+      upd13[done] = x0_0_0_done ? 1'd1;
+    }
+    group upd14<"static"=1> {
+      j2.write_en = 1'd1;
+      add8.left = j2.out;
+      add8.right = const27.out;
+      j2.in = 1'd1 ? add8.out;
+      upd14[done] = j2.done ? 1'd1;
+    }
+    group upd15<"static"=1> {
+      i2.write_en = 1'd1;
+      add9.left = i2.out;
+      add9.right = const28.out;
+      i2.in = 1'd1 ? add9.out;
+      upd15[done] = i2.done ? 1'd1;
+    }
+    group upd16<"static"=1> {
+      batch2.write_en = 1'd1;
+      add10.left = batch2.out;
+      add10.right = const29.out;
+      batch2.in = 1'd1 ? add10.out;
+      upd16[done] = batch2.done ? 1'd1;
     }
     group upd2<"static"=1> {
-      x0_0_0_addr2 = k0.out;
-      x0_0_0_addr1 = j0.out;
-      x0_0_0_addr0 = i0.out;
-      x0_0_0_write_en = 1'd1;
-      add0.left = x0_0_0_read_data;
-      add0.right = prod_0.out;
-      x0_0_0_addr2 = k0.out;
-      x0_0_0_addr1 = j0.out;
-      x0_0_0_addr0 = i0.out;
-      x0_0_0_write_data = 1'd1 ? add0.out;
-      upd2[done] = x0_0_0_done ? 1'd1;
+      j0.write_en = 1'd1;
+      add0.left = j0.out;
+      add0.right = const6.out;
+      j0.in = 1'd1 ? add0.out;
+      upd2[done] = j0.done ? 1'd1;
     }
     group upd3<"static"=1> {
-      l0.write_en = 1'd1;
-      add1.left = l0.out;
-      add1.right = const8.out;
-      l0.in = 1'd1 ? add1.out;
-      upd3[done] = l0.done ? 1'd1;
+      i0.write_en = 1'd1;
+      add1.left = i0.out;
+      add1.right = const7.out;
+      i0.in = 1'd1 ? add1.out;
+      upd3[done] = i0.done ? 1'd1;
     }
     group upd4<"static"=1> {
-      k0.write_en = 1'd1;
-      add2.left = k0.out;
-      add2.right = const9.out;
-      k0.in = 1'd1 ? add2.out;
-      upd4[done] = k0.done ? 1'd1;
+      batch0.write_en = 1'd1;
+      add2.left = batch0.out;
+      add2.right = const8.out;
+      batch0.in = 1'd1 ? add2.out;
+      upd4[done] = batch0.done ? 1'd1;
     }
     group upd5<"static"=1> {
-      j0.write_en = 1'd1;
-      add3.left = j0.out;
-      add3.right = const10.out;
-      j0.in = 1'd1 ? add3.out;
-      upd5[done] = j0.done ? 1'd1;
+      a_read0_0.write_en = 1'd1;
+      a0_0_0_addr2 = k0.out;
+      a0_0_0_addr1 = i1.out;
+      a0_0_0_addr0 = batch1.out;
+      a_read0_0.in = 1'd1 ? a0_0_0_read_data;
+      upd5[done] = a_read0_0.done ? 1'd1;
     }
     group upd6<"static"=1> {
-      i0.write_en = 1'd1;
-      add4.left = i0.out;
-      add4.right = const11.out;
-      i0.in = 1'd1 ? add4.out;
-      upd6[done] = i0.done ? 1'd1;
+      transpose_b_read0_0.write_en = 1'd1;
+      transpose_b0_0_0.addr2 = j1.out;
+      transpose_b0_0_0.addr1 = k0.out;
+      transpose_b0_0_0.addr0 = batch1.out;
+      transpose_b_read0_0.in = 1'd1 ? transpose_b0_0_0.read_data;
+      upd6[done] = transpose_b_read0_0.done ? 1'd1;
+    }
+    group upd7<"static"=1> {
+      temporary_x0_0_0.addr2 = j1.out;
+      temporary_x0_0_0.addr1 = i1.out;
+      temporary_x0_0_0.addr0 = batch1.out;
+      temporary_x0_0_0.write_en = 1'd1;
+      add3.left = temporary_x0_0_0.read_data;
+      add3.right = product_0.out;
+      temporary_x0_0_0.addr2 = j1.out;
+      temporary_x0_0_0.addr1 = i1.out;
+      temporary_x0_0_0.addr0 = batch1.out;
+      temporary_x0_0_0.write_data = 1'd1 ? add3.out;
+      upd7[done] = temporary_x0_0_0.done ? 1'd1;
+    }
+    group upd8<"static"=1> {
+      k0.write_en = 1'd1;
+      add4.left = k0.out;
+      add4.right = const17.out;
+      k0.in = 1'd1 ? add4.out;
+      upd8[done] = k0.done ? 1'd1;
+    }
+    group upd9<"static"=1> {
+      j1.write_en = 1'd1;
+      add5.left = j1.out;
+      add5.right = const18.out;
+      j1.in = 1'd1 ? add5.out;
+      upd9[done] = j1.done ? 1'd1;
     }
   }
 
@@ -157,26 +331,66 @@ component batch_matmul(go: 1, clk: 1, a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0
               let2;
               while le2.out with cond2 {
                 seq {
-                  let3;
-                  while le3.out with cond3 {
-                    seq {
-                      par {
-                        upd0;
-                        upd1;
-                      }
-                      let4;
-                      let5;
-                      upd2;
-                      upd3;
-                    }
-                  }
-                  upd4;
+                  upd0;
+                  upd1;
+                  upd2;
                 }
               }
-              upd5;
+              upd3;
             }
           }
-          upd6;
+          upd4;
+        }
+      }
+      let3;
+      while le3.out with cond3 {
+        seq {
+          let4;
+          while le4.out with cond4 {
+            seq {
+              let5;
+              while le5.out with cond5 {
+                seq {
+                  let6;
+                  while le6.out with cond6 {
+                    seq {
+                      par {
+                        upd5;
+                        upd6;
+                      }
+                      let7;
+                      let8;
+                      upd7;
+                      upd8;
+                    }
+                  }
+                  upd9;
+                }
+              }
+              upd10;
+            }
+          }
+          upd11;
+        }
+      }
+      let9;
+      while le7.out with cond7 {
+        seq {
+          let10;
+          while le8.out with cond8 {
+            seq {
+              let11;
+              while le9.out with cond9 {
+                seq {
+                  upd12;
+                  upd13;
+                  upd14;
+                }
+              }
+              upd15;
+            }
+          }
+          upd16;
         }
       }
     }
@@ -185,9 +399,9 @@ component batch_matmul(go: 1, clk: 1, a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0
 
 component main () -> () {
   cells {
-    x = prim std_mem_d3(32, 3, 3, 3, 2, 2, 2);
-    a = prim std_mem_d3(32, 3, 3, 3, 2, 2, 2);
-    b = prim std_mem_d3(32, 3, 3, 3, 2, 2, 2);
+    x = prim std_mem_d3(32, 4, 7, 7, 3, 3, 3);
+    a = prim std_mem_d3(32, 4, 7, 5, 3, 3, 3);
+    b = prim std_mem_d3(32, 4, 7, 5, 3, 3, 3);
     batch_matmul0 = batch_matmul;
   }
   wires {

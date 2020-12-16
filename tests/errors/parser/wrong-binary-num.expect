@@ -1,0 +1,9 @@
+---CODE---
+1
+---STDERR---
+Error: FuTIL Parser:  --> 4:16
+  |
+4 |     r.in = 10'b22;␊
+  |                ^^
+  |
+  = Expected binary number

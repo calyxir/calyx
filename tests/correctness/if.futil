@@ -15,7 +15,7 @@ component main() -> () {
 
     group true {
       mem.addr0 = 1'b0;
-      mem.write_data = 32'd32;
+      mem.write_data = 32'd4;
       mem.write_en = 1'b1;
       true[done] = mem.done;
     }

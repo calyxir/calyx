@@ -103,12 +103,12 @@ fn fixed_point(graph: &GraphAnalysis, map: &mut Store) {
     }
 }
 
-impl Visitor for Inliner {
+impl Visitor<()> for Inliner {
     fn start(
         &mut self,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
-    ) -> VisResult {
+    ) -> VisResult<()> {
         // get the only group in the enable
         let top_level = match &*comp.control.borrow() {
             ir::Control::Enable(en) => Rc::clone(&en.group),
@@ -131,7 +131,7 @@ impl Visitor for Inliner {
         builder.component.continuous_assignments.append(&mut asgns);
 
         // construct analysis graph and find sub-graph of all edges that include a hole
-        let analysis = GraphAnalysis::from(&builder.component);
+        let analysis = GraphAnalysis::from(&*builder.component);
         let subgraph = analysis
             .edge_induced_subgraph(|src, dst| src.is_hole() || dst.is_hole());
 
@@ -216,6 +216,6 @@ impl Visitor for Inliner {
         comp.groups.clear();
 
         // remove group from control
-        Ok(Action::Change(ir::Control::empty()))
+        Ok(Action::change_default(ir::Control::empty()))
     }
 }
