@@ -57,6 +57,9 @@ pub enum Error {
     /// Papercut error: signals a commonly made mistake in FuTIL program.
     Papercut(String, ir::Id),
 
+    /// Group "static" latency annotation differed from inferred latency.
+    ImpossibleLatencyAnnotation(String, u64, u64),
+
     /// Internal compiler error that should never occur.
     Impossible(String), // Signal compiler errors that should never occur.
     NotSubcomponent,
@@ -127,6 +130,17 @@ impl std::fmt::Debug for Error {
         match self {
             Papercut(msg, id) => {
                 write!(f, "{}", id.fmt_err(&("[Papercut] ".to_string() + msg)))
+            }
+            ImpossibleLatencyAnnotation(grp_name, ann_val, inferred_val) => {
+                let msg1 = format!("Annotated latency: {}", ann_val);
+                let msg2 = format!("Inferred latency: {}", inferred_val);
+                write!(
+                    f,
+                    "Impossible \"static\" latency annotation for group {}.\n{}\n{}",
+                    grp_name,
+                    msg1,
+                    msg2
+                )
             }
             UnusedGroup(name) => {
                 write!(

@@ -1,11 +1,9 @@
-//let t: bit<16> =2;
-decl result: ubit<32>[8];
-let a: fix<16,8> =(16.5 as fix<16,8>);
-let b: fix<16,8>=8.375;
-let result1: fix<16,8>;
-let result2: fix<16,8>;
-let result3: fix<16,8>;
-let result4: fix<16,8>;
+let a: ufix<16,8> = 16.5;
+let b: ufix<16,8> = 8.375;
+let result1: ufix<16,8>;
+let result2: ufix<16,8>;
+let result3: ufix<16,8>;
+let result4: ufix<16,8>;
 
 result1 := a+b;
 result2 := a/b;
