@@ -81,12 +81,12 @@ impl Named for Papercut<'_> {
     }
 }
 
-impl Visitor<()> for Papercut<'_> {
+impl Visitor for Papercut<'_> {
     fn start(
         &mut self,
         comp: &mut ir::Component,
         _ctx: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         // For each group, check if there is at least one write to the done
         // signal of that group.
         // Names of the groups whose `done` hole has been written to.
@@ -179,6 +179,6 @@ impl Visitor<()> for Papercut<'_> {
             }
         }
 
-        Ok(Action::stop_default())
+        Ok(Action::Stop)
     }
 }

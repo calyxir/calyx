@@ -19,12 +19,12 @@ impl Named for DeadCellRemoval {
     }
 }
 
-impl Visitor<()> for DeadCellRemoval {
+impl Visitor for DeadCellRemoval {
     fn start(
         &mut self,
         comp: &mut ir::Component,
         _sigs: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         let mut used_cells: HashSet<ir::Id> = HashSet::new();
 
         // All cells used in groups
@@ -46,6 +46,6 @@ impl Visitor<()> for DeadCellRemoval {
         // Remove cells that are not used.
         comp.cells.retain(|c| used_cells.contains(&c.borrow().name));
 
-        Ok(Action::continue_default())
+        Ok(Action::Stop)
     }
 }
