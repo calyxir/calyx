@@ -5,7 +5,7 @@
       40,
       50
     ],
-    "bitwidth": 32
+    "type": "ubit<32>"
   },
   "l0": {
     "data": [
@@ -13,7 +13,7 @@
       6,
       8
     ],
-    "bitwidth": 32
+    "type": "ubit<32>"
   },
   "out_mem": {
     "data": [
@@ -21,6 +21,6 @@
         0
       ]
     ],
-    "bitwidth": 32
+    "type": "ubit<32>"
   }
 }

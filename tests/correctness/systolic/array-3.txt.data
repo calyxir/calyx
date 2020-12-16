@@ -5,7 +5,7 @@
       40,
       50
     ],
-    "bitwidth": 32
+    "type": "ubit<32>"
   },
   "t1": {
     "data": [
@@ -13,7 +13,7 @@
       20,
       30
     ],
-    "bitwidth": 32
+    "type": "ubit<32>"
   },
   "t2": {
     "data": [
@@ -21,7 +21,7 @@
       60,
       70
     ],
-    "bitwidth": 32
+    "type": "ubit<32>"
   },
   "l0": {
     "data": [
@@ -29,7 +29,7 @@
       6,
       8
     ],
-    "bitwidth": 32
+    "type": "ubit<32>"
   },
   "l1": {
     "data": [
@@ -37,7 +37,7 @@
       9,
       11
     ],
-    "bitwidth": 32
+    "type": "ubit<32>"
   },
   "l2": {
     "data": [
@@ -45,7 +45,7 @@
       3,
       5
     ],
-    "bitwidth": 32
+    "type": "ubit<32>"
   },
   "out_mem": {
     "data": [
@@ -53,6 +53,6 @@
         0
       ]
     ],
-    "bitwidth": 32
+    "type": "ubit<32>"
   }
 }
