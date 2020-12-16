@@ -83,10 +83,10 @@ impl Environment {
         self.update_queue.push(update);
     }
 
-    // Convenience function to remove an update from the update queue
-    pub fn remove_update(&mut self, ucell: ir::Id) -> () {
-        self.map.remove(&ucell); // this is wrong
-    }
+    // // Convenience function to remove an update from the update queue
+    // pub fn remove_update(&mut self, ucell: ir::Id) -> () {
+    //     self.map.remove(&ucell); // this is wrong
+    // }
 
     /// Simulates a clock cycle by executing the stored updates.
     pub fn do_tick(&mut self) -> () {
@@ -94,7 +94,7 @@ impl Environment {
 
         let uq = self.update_queue.clone();
         for update in uq {
-            //println!("{:?}", update);
+            // println!("{:?}", update);
             let updated = update_cell_state(
                 &update.cell,
                 &update.inputs,
@@ -140,8 +140,6 @@ pub fn eval_group(
 ) -> FutilResult<Environment> {
     let g = group.borrow();
 
-    println!("{:?}", env.map);
-
     let res = eval_assigns(&g.assignments, &env);
     res
 }
@@ -186,7 +184,6 @@ fn eval_assigns(
 
         // for assign in assigns
         for assign in ok_assigns.iter() {
-            //print!("{:1} {:?} \n", counter, &assign.guard);
             // check if the assign.guard != 0
             if eval_guard(&assign.guard, env) {
                 // check if the cells are constants?
@@ -205,28 +202,17 @@ fn eval_assigns(
 
                 // perform a read from `env` for assign.src
                 let read_val = env.get(&src_cell, &assign.src.borrow().name);
+                // println!("{}", read_val);
 
                 // update internal state of the cell and
                 // queue any required updates.
 
-                // println!(
-                //     "add0 out is {}",
-                //     write_env.get(
-                //         &ir::Id::from("add0".to_string()),
-                //         &ir::Id::from("out".to_string())
-                //     )
-                // );
-
-                // println!(
-                //     "reg0 done is {}",
-                //     write_env.get(
-                //         &ir::Id::from("reg0".to_string()),
-                //         &ir::Id::from("done".to_string())
-                //     )
-                // );
-
                 //determine if dst_cell is a combinational cell or not
-                if get_combinational_or_not(&dst_cell, env) {
+                if get_combinational_or_not(
+                    &dst_cell,
+                    &assign.dst.borrow().name,
+                    env,
+                ) {
                     // write to assign.dst to e2 immediately, if combinational
                     &write_env.put(
                         &dst_cell,
@@ -234,49 +220,60 @@ fn eval_assigns(
                         read_val,
                     );
 
+                    println!(
+                        "reg0.write_en = {}",
+                        write_env.get(
+                            &ir::Id::from("reg0"),
+                            &ir::Id::from("write_en")
+                        )
+                    );
+
                     // now, update the internal state of the cell; for now, this only includes adds; TODO (use primitive Cell parameters)
                     let mut inputs = vec![];
                     let mut outputs = vec![];
 
-                    // get dst_cell's input vector
-                    match &env.get_cell(&dst_cell) {
-                        Some(cell) => {
-                            inputs = vec![
-                                (cell.borrow())
-                                    .get("left")
+                    // TODO: hacky way to avoid updating the cell state. Also, how to get input and output vectors in general??
+                    if &assign.dst.borrow().name != "write_en" {
+                        // get dst_cell's input vector
+                        match &env.get_cell(&dst_cell) {
+                            Some(cell) => {
+                                inputs = vec![
+                                    (cell.borrow())
+                                        .get("left")
+                                        .borrow()
+                                        .name
+                                        .clone(),
+                                    (cell.borrow())
+                                        .get("right")
+                                        .borrow()
+                                        .name
+                                        .clone(),
+                                ]
+                            }
+                            _ => panic!("could not find cell"),
+                        }
+
+                        // get dst_cell's output vector
+                        match &env.get_cell(&dst_cell) {
+                            Some(cell) => {
+                                outputs = vec![(cell.borrow())
+                                    .get("out")
                                     .borrow()
                                     .name
-                                    .clone(),
-                                (cell.borrow())
-                                    .get("right")
-                                    .borrow()
-                                    .name
-                                    .clone(),
-                            ]
+                                    .clone()]
+                                //clean this up later?
+                            }
+                            _ => panic!("could not find cell"),
                         }
-                        _ => panic!("could not find cell"),
-                    }
 
-                    // get dst_cell's output vector
-                    match &env.get_cell(&dst_cell) {
-                        Some(cell) => {
-                            outputs = vec![(cell.borrow())
-                                .get("out")
-                                .borrow()
-                                .name
-                                .clone()]
-                            //clean this up later?
-                        }
-                        _ => panic!("could not find cell"),
+                        // update the cell state in write_env
+                        write_env = update_cell_state(
+                            &dst_cell,
+                            &inputs[..],
+                            &outputs[..],
+                            &write_env,
+                        )?;
                     }
-
-                    // update the cell state in write_env
-                    write_env = update_cell_state(
-                        &dst_cell,
-                        &inputs[..],
-                        &outputs[..],
-                        &write_env,
-                    )?;
                 } else {
                     // otherwise, add the write to the update queue; currently only handles registers
 
@@ -419,8 +416,12 @@ fn get_done_hole_group(group: &ir::Group) -> ir::RRC<ir::Port> {
     ir::Group::get(group, "done".to_string())
 }
 
-/// Determines if a cell is combinational or not. Will need to change implementation later.
-fn get_combinational_or_not(cell: &ir::Id, env: &Environment) -> bool {
+/// Determines if writing a particular cell and cell port is combinational or not. Will need to change implementation later.
+fn get_combinational_or_not(
+    cell: &ir::Id,
+    port: &ir::Id,
+    env: &Environment,
+) -> bool {
     // if cell is none,
     let cellg = env
         .get_cell(cell)
@@ -434,7 +435,11 @@ fn get_combinational_or_not(cell: &ir::Id, env: &Environment) -> bool {
 
     // TODO; get cell attributes
     match (*celltype).id.as_str() {
-        "std_reg" => false,
+        "std_reg" => match (*port).id.as_str() {
+            "write_en" => true,
+            "out" => false,
+            _ => false,
+        },
         "std_const"
         | "std_slice"
         | "std_lsh"
@@ -497,7 +502,8 @@ fn init_cells(
 }
 
 /// Uses the cell's inputs ports to perform any required updates to the
-/// cell's output ports. TODO
+/// cell's output ports.
+/// TODO: how to get input and output ports in general? How to "standardize" for combinational or not operations
 fn update_cell_state(
     cell: &ir::Id,
     inputs: &[ir::Id],
@@ -516,119 +522,120 @@ fn update_cell_state(
     let temp = cell_r.borrow(); //???
 
     // get the cell type
-    let cell_type = temp.type_name();
+    let cell_type = temp.type_name().unwrap_or_else(|| panic!("Futil Const?"));
 
-    match cell_type {
-        None => panic!("Futil Const?"),
-        Some(ct) => match ct.id.as_str() {
-            "std_reg" => {
-                let write_en = ir::Id::from("write_en");
+    match cell_type.id.as_str() {
+        "std_reg" => {
+            let write_en = ir::Id::from("write_en");
 
-                // register's write_en must be high
-                if new_env.get(&cell, &write_en) != 0 {
-                    //println!("reg update");
-                    let out = ir::Id::from("out"); //assuming reg.in = cell.out, always
-                    let inp = ir::Id::from("in"); //assuming reg.in = cell.out, always
-                    let done = ir::Id::from("done"); //done id
+            // if (){
 
-                    // println!("cell to read from: {}", inputs[0]);
-                    // println!("reg port to write to: {}", &output[0]);
-                    // println!("value to write to cell port: {}", env.get(&inputs[0], &out));
+            // }
+            // register's write_en must be high to write reg.out and reg.done
+            if new_env.get(&cell, &write_en) != 0 {
+                //println!("reg update");
+                let out = ir::Id::from("out"); //assuming reg.in = cell.out, always
+                let inp = ir::Id::from("in"); //assuming reg.in = cell.out, always
+                let done = ir::Id::from("done"); //done id
 
-                    new_env.put(cell, &output[0], env.get(&inputs[0], &out)); //reg.in = cell.out; tehcnically should be in init?
+                // println!("cell to read from: {}", inputs[0]);
+                // println!("reg port to write to: {}", &output[0]);
+                // println!("value to write to cell port: {}", env.get(&inputs[0], &out));
 
-                    if output[0].id == "in" {
-                        new_env.put(cell, &out, new_env.get(cell, &inp)); // reg.out = reg.in
-                        new_env.put(cell, &done, 1); // reg.done = 1'd1
-                                                     // remove from update queue
-                                                     //new_env.remove_update((*cell).clone()); // check the type of cell
-                    }
+                new_env.put(cell, &output[0], env.get(&inputs[0], &out)); //reg.in = cell.out; should this be in init?
+
+                if output[0].id == "in" {
+                    new_env.put(cell, &out, new_env.get(cell, &inp)); // reg.out = reg.in
+                    new_env.put(cell, &done, 1); // reg.done = 1'd1
+                                                 // remove from update queue
+                                                 //new_env.remove_update((*cell).clone()); // check the type of cell
                 }
             }
-            "std_sqrt" => {
-                //TODO; wrong implementation
+        }
+        "std_sqrt" => {
+            //TODO; wrong implementation
+            new_env.put(
+                cell,
+                &output[0],
+                ((new_env.get(cell, &inputs[0]) as f64).sqrt()) as u64, // cast to f64 to use sqrt
+            );
+        }
+        "std_add" => new_env.put(
+            cell,
+            &output[0],
+            new_env.get(cell, &inputs[0]) + env.get(cell, &inputs[1]),
+        ),
+        "std_sub" => new_env.put(
+            cell,
+            &output[0],
+            new_env.get(cell, &inputs[0]) - env.get(cell, &inputs[1]),
+        ),
+        "std_mod" => new_env.put(
+            cell,
+            &output[0],
+            new_env.get(cell, &inputs[0]) % env.get(cell, &inputs[1]),
+        ),
+        "std_mult" => new_env.put(
+            cell,
+            &output[0],
+            new_env.get(cell, &inputs[0]) * env.get(cell, &inputs[1]),
+        ),
+        "std_div" => {
+            // need this condition to avoid divide by 0
+            // (e.g. if only one of left/right ports has been updated from the initial nonzero value?)
+            // TODO: what if the program specifies a divide by 0? how to catch??
+            if env.get(cell, &inputs[1]) != 0 {
                 new_env.put(
                     cell,
                     &output[0],
-                    ((new_env.get(cell, &inputs[0]) as f64).sqrt()) as u64, // cast to f64 to use sqrt
-                );
+                    new_env.get(cell, &inputs[0]) / env.get(cell, &inputs[1]),
+                )
             }
-            "std_add" => new_env.put(
-                cell,
-                &output[0],
-                new_env.get(cell, &inputs[0]) + env.get(cell, &inputs[1]),
-            ),
-            "std_sub" => new_env.put(
-                cell,
-                &output[0],
-                new_env.get(cell, &inputs[0]) - env.get(cell, &inputs[1]),
-            ),
-            "std_mod" => new_env.put(
-                cell,
-                &output[0],
-                new_env.get(cell, &inputs[0]) % env.get(cell, &inputs[1]),
-            ),
-            "std_mult" => new_env.put(
-                cell,
-                &output[0],
-                new_env.get(cell, &inputs[0]) * env.get(cell, &inputs[1]),
-            ),
-            "std_div" => new_env.put(
-                cell,
-                &output[0],
-                new_env.get(cell, &inputs[0]) / env.get(cell, &inputs[1]),
-            ),
-            "std_not" => {
-                new_env.put(cell, &output[0], !new_env.get(cell, &inputs[0]))
-            }
-            "std_and" => new_env.put(
-                cell,
-                &output[0],
-                new_env.get(cell, &inputs[0]) & env.get(cell, &inputs[1]),
-            ),
-            "std_or" => new_env.put(
-                cell,
-                &output[0],
-                new_env.get(cell, &inputs[0]) ^ env.get(cell, &inputs[1]),
-            ),
-            "std_gt" => new_env.put(
-                cell,
-                &output[0],
-                (new_env.get(cell, &inputs[0]) > env.get(cell, &inputs[1]))
-                    as u64,
-            ),
-            "std_lt" => new_env.put(
-                cell,
-                &output[0],
-                (new_env.get(cell, &inputs[0]) > env.get(cell, &inputs[1]))
-                    as u64,
-            ),
-            "std_eq" => new_env.put(
-                cell,
-                &output[0],
-                (new_env.get(cell, &inputs[0]) == env.get(cell, &inputs[1]))
-                    as u64,
-            ),
-            "std_neq" => new_env.put(
-                cell,
-                &output[0],
-                (new_env.get(cell, &inputs[0]) != env.get(cell, &inputs[1]))
-                    as u64,
-            ),
-            "std_ge" => new_env.put(
-                cell,
-                &output[0],
-                (new_env.get(cell, &inputs[0]) >= env.get(cell, &inputs[1]))
-                    as u64,
-            ),
-            "std_le" => new_env.put(
-                cell,
-                &output[0],
-                (new_env.get(cell, &inputs[0]) <= env.get(cell, &inputs[1]))
-                    as u64,
-            ),
-            _ => unimplemented!("{}", ct),
-        },
+        }
+        "std_not" => {
+            new_env.put(cell, &output[0], !new_env.get(cell, &inputs[0]))
+        }
+        "std_and" => new_env.put(
+            cell,
+            &output[0],
+            new_env.get(cell, &inputs[0]) & env.get(cell, &inputs[1]),
+        ),
+        "std_or" => new_env.put(
+            cell,
+            &output[0],
+            new_env.get(cell, &inputs[0]) ^ env.get(cell, &inputs[1]),
+        ),
+        "std_gt" => new_env.put(
+            cell,
+            &output[0],
+            (new_env.get(cell, &inputs[0]) > env.get(cell, &inputs[1])) as u64,
+        ),
+        "std_lt" => new_env.put(
+            cell,
+            &output[0],
+            (new_env.get(cell, &inputs[0]) > env.get(cell, &inputs[1])) as u64,
+        ),
+        "std_eq" => new_env.put(
+            cell,
+            &output[0],
+            (new_env.get(cell, &inputs[0]) == env.get(cell, &inputs[1])) as u64,
+        ),
+        "std_neq" => new_env.put(
+            cell,
+            &output[0],
+            (new_env.get(cell, &inputs[0]) != env.get(cell, &inputs[1])) as u64,
+        ),
+        "std_ge" => new_env.put(
+            cell,
+            &output[0],
+            (new_env.get(cell, &inputs[0]) >= env.get(cell, &inputs[1])) as u64,
+        ),
+        "std_le" => new_env.put(
+            cell,
+            &output[0],
+            (new_env.get(cell, &inputs[0]) <= env.get(cell, &inputs[1])) as u64,
+        ),
+        _ => unimplemented!("{}", cell_type),
     }
 
     // TODO

@@ -1,0 +1,29 @@
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    const0 = prim std_const(16, 13);
+    const1 = prim std_const(16, 10);
+    lt0 = prim std_lt(16);
+    reg0 = prim std_reg(16);
+
+  }
+
+  wires {
+
+    group op {
+      reg0.write_en = 1'd1;
+      lt0.left = const0.out;
+      lt0.right = const1.out;
+      reg0.in = lt0.out;     // invalid assignment?
+      op[done] = reg0.done;
+    }
+    
+  }
+
+  control {
+    seq {
+      op;
+    }
+  }
+}

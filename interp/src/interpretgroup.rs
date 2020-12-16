@@ -24,13 +24,13 @@ impl GroupInterpreter {
     }
 
     // Interpret a group, given a context, component name, and group name
-    pub fn interpret(self, mut ctx: ir::Context) -> FutilResult<()> {
+    pub fn interpret(self, ctx: ir::Context) -> FutilResult<()> {
         // validation
         let comp = validate_names(&ctx, &self.component, &self.group)?;
 
         // intialize environment
         let cells = get_cells(&ctx, &self.component); // May not necessarily need to explicitly get cells here?
-        let map = contsruct_map(&cells);
+        let map = construct_map(&cells);
         let cellmap = construct_cell_map(&cells);
 
         //println!("cells and ports: {:?}", map);
@@ -40,7 +40,7 @@ impl GroupInterpreter {
             interpreter::Environment::init(map, cellmap);
 
         // Initial state of the environment
-        //environment.cell_state();
+        environment.cell_state();
 
         // interpret the group
         let group = comp
@@ -89,7 +89,7 @@ fn get_cells(ctx: &ir::Context, component: &String) -> Vec<ir::RRC<ir::Cell>> {
 }
 
 // Construct a map from cell ids to a map to the cell's port's ids to the port values
-fn contsruct_map(
+fn construct_map(
     cells: &Vec<ir::RRC<ir::Cell>>,
 ) -> HashMap<ir::Id, HashMap<ir::Id, u64>> {
     let mut map = HashMap::new();
@@ -108,7 +108,7 @@ fn contsruct_map(
                     // all ports initalized to 0 for now, unless the cell is an std_constant (or the port is write_en)
                     let pb = port.borrow();
                     if pb.name == "write_en" {
-                        let initval = 1; //TODO: write_en is de facto 1 for now
+                        let initval = 0; //TODO: write_en is de facto 1 for now
 
                         ports.insert(pb.name.clone(), initval);
                     } else {
