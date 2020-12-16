@@ -34,7 +34,7 @@ cmd = """
 name = "unit"
 paths = [ "tests/unit/*.futil" ]
 cmd = """
-./target/debug/futil {} -d static-timing -d well-formed -d papercut -d resource-sharing
+./target/debug/futil {} -d infer-static-timing -d static-timing -d well-formed -d papercut -d resource-sharing
 """
 
 ## Same as unit except runs with static-timing
@@ -42,7 +42,7 @@ cmd = """
 name = "unit static"
 paths = [ "tests/unit/*.futil" ]
 cmd = """
-./target/debug/futil {} -d well-formed -d papercut -d resource-sharing
+./target/debug/futil {} -d infer-static-timing -d well-formed -d papercut -d resource-sharing
 """
 
 ##### Correctness Tests #####
@@ -110,4 +110,11 @@ name = "systolic array frontend"
 paths = [ "tests/frontend/systolic/array-*.txt" ]
 cmd = """
 ./frontends/systolic-lang/gen-systolic.py $(cat {})
+"""
+
+[[tests]]
+name = "mrxl frontend"
+paths = [ "frontends/mrxl/test/*.mrxl" ]
+cmd = """
+fud e -q {} --from mrxl --to dat -s verilog.data {}.data
 """

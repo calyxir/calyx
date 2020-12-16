@@ -2,6 +2,12 @@ from . import ast
 
 
 def emit_mem_decl(name, size, par):
+    """
+    Returns a string of a memory declaration, to
+    be added to the cells section of a FuTIL program.
+    If par > 1, returns several banked memories, separated
+    by newlines.
+    """
     banked_mems = []
     for i in range(par):
         banked_mems.append("{} = prim std_mem_d1(32, {}, {});".format(
@@ -13,22 +19,39 @@ def emit_mem_decl(name, size, par):
 
 
 def emit_reg_decl(name, size):
+    """
+    Returns a string of a register declaration, to
+    be added to the cells section of a FuTIL program.
+    """
     return "{} = prim std_reg({});".format(name, 32)
 
 
 def emit_cond_group(suffix, arr_size, b=None):
+    """
+    Emits a group that checks if an index has reached
+    arr_size. If b is not None, adds it (the bank number)
+    to the end of the index cell name.
+
+    suffix is added to the end to the end of each cell,
+    to disambiguate from other `map` or `reduce` implementations.
+    """
     bank_suffix = "_b" + str(b) + "_" if b is not None else ""
     return '''
 group cond{2}{0} {{
   le{2}{0}.left = idx{2}{0}.out;
   le{2}{0}.right = 32'd{1};
 
-  cond{2}{0}.done = 1'b1;
+  cond{2}{0}[done] = 1'b1;
 }}
     '''.format(suffix, arr_size, bank_suffix)
 
 
 def emit_idx_group(s_idx, b=None):
+    """
+    Emits a group that increments an index. If b is
+    not None, adds it (the bank number) as a suffix to each cell
+    name.
+    """
     bank_suffix = "_b" + str(b) + "_" if b is not None else ""
     return '''
 group incr_idx{1}{0} {{
@@ -44,6 +67,14 @@ group incr_idx{1}{0} {{
 
 
 def emit_compute_op(exp, op, dest, name2arr, suffix, bank_suffix):
+    """
+    Returns a string containing a FuTIL implementation of a MrXL
+    variable or number (exp). op is the type of operation this
+    expression is used in. dest is the destination of this expression.
+    name2arr maps statement variable names to the array names they're
+    accessing elements of, e.g. if we're binding an element of array
+    `foo` to a variable `a`, `a` maps to `foo`.
+    """
     if isinstance(exp, ast.VarExpr):
         if isinstance(op, ast.Map):
             return "{}{}.read_data".format(name2arr[exp.name], bank_suffix)
@@ -53,7 +84,15 @@ def emit_compute_op(exp, op, dest, name2arr, suffix, bank_suffix):
         return "{}'d{}".format(32, exp.value)
 
 
-def emit_eval_body_group(suffix, stmt, b=None):
+def emit_eval_body_group(s_idx, stmt, b=None):
+    """
+    Returns an string of a group that implements the body
+    of stmt, a `map` or `reduce` statement. Adds suffix
+    at the end of the group name, to avoid name collisions
+    with other `map` or `reduce` statement group implementations.
+    If this is a `map` expression, b is the banking factor
+    of the input array. (Otherwise, b is None.)
+    """
     bank_suffix = "_b" + str(b) if b is not None else ""
 
     mem_offsets = []
@@ -63,31 +102,31 @@ def emit_eval_body_group(suffix, stmt, b=None):
         name2arr[bi.dest[idx]] = bi.src
         mem_offsets.append(
             "{0}{1}.addr0 = idx{1}_{2}.out;".format(
-                bi.src, bank_suffix, suffix
+                bi.src, bank_suffix, s_idx
             )
         )
 
     if isinstance(stmt.op, ast.Map):
         mem_offsets.append(
             "{0}{1}.addr0 = idx{1}_{2}.out;".format(
-                stmt.dest, bank_suffix, suffix
+                stmt.dest, bank_suffix, s_idx
             )
         )
 
     compute_left_op = emit_compute_op(
-        stmt.op.body.lhs, stmt.op, stmt.dest, name2arr, suffix, bank_suffix
+        stmt.op.body.lhs, stmt.op, stmt.dest, name2arr, s_idx, bank_suffix
     )
 
     compute_right_op = emit_compute_op(
-        stmt.op.body.rhs, stmt.op, stmt.dest, name2arr, suffix, bank_suffix
+        stmt.op.body.rhs, stmt.op, stmt.dest, name2arr, s_idx, bank_suffix
     )
 
     if isinstance(stmt.op, ast.Map):
         write = "{0}{1}.write_data = adder_op{1}_{2}.out;".format(
-                stmt.dest, bank_suffix, suffix
+                stmt.dest, bank_suffix, s_idx
         )
     else:
-        write = "{}.in = adder_op{}.out;".format(stmt.dest, suffix)
+        write = "{}.in = adder_op{}.out;".format(stmt.dest, s_idx)
 
     return '''
 group eval_body{6}_{0} {{
@@ -103,7 +142,7 @@ group eval_body{6}_{0} {{
   eval_body{6}_{0}[done] = {1}{6}.done;
 }}
     '''.format(
-            suffix,
+            s_idx,
             stmt.dest,
             compute_left_op,
             compute_right_op,
@@ -114,6 +153,13 @@ group eval_body{6}_{0} {{
 
 
 def gen_reduce_impl(stmt, arr_size, s_idx):
+    """
+    Returns a dictionary containing FuTIL cells, wires and
+    control needed to implement a map statement. Similar
+    to gen_map_impl, with an implementation of a body
+    of the `reduce` statement instead of an implementation
+    of a `map` statement.
+    """
     result = dict()
 
     cells = []
@@ -139,6 +185,17 @@ while le{0}.out with cond{0} {{
 
 
 def gen_map_impl(stmt, arr_size, bank_factor, s_idx):
+    """
+    Returns a dictionary containing FuTIL cells, wires and
+    control needed to implement a map statement. (See gen_stmt_impl
+    for format of the dictionary.)
+
+    Generates these groups:
+      - a group that implements the body of the map statement
+      - a group that increments an index to access the map input array
+      - a group that implements the loop condition, checking if the index
+        has reached the end of the input array
+    """
     result = dict()
 
     cells = []
@@ -178,6 +235,23 @@ def gen_map_impl(stmt, arr_size, bank_factor, s_idx):
 
 
 def gen_stmt_impl(stmt, arr_size, name2par, s_idx):
+    """
+    Returns FuTIL cells, wires, and control needed to implement
+    a MrXL `map` or `reduce` statement. It is a dictionary
+    of this form:
+    {
+        "cells": <list of strings containing cell defs>,
+        "wires": <list of strings containing wire defs>,
+        "control": <list of strings containing control statements>
+    }
+
+    s_idx is the "statement index." The first `map` or `reduce`
+    statement has s_idx=0, and this is suffixed at the end of
+    each cell used to implement this statement. This number
+    is incremented for each subsequent statement.
+
+    name2par maps memory names to banking factors.
+    """
     if isinstance(stmt.op, ast.Map):
         return gen_map_impl(stmt, arr_size, name2par[stmt.dest], s_idx)
     else:
@@ -185,11 +259,14 @@ def gen_stmt_impl(stmt, arr_size, name2par, s_idx):
 
 
 def emit(prog):
+    """
+    Returns a string containing a FuTIL program, compiled from `prog`, a MrXL
+    program.
+    """
     cells = []
     wires = []
     control = []
 
-    print(prog)
     # All arrays must be the same size. The first array we see determines the
     # size that we'll assume for the rest of the program's arrays.
     arr_size = None

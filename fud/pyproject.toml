@@ -14,7 +14,8 @@ requires = [
          "appdirs",
          "toml",
          "halo",
-         "termcolor"
+         "termcolor",
+         "packaging"
 ]
 
 [tool.flit.scripts]
