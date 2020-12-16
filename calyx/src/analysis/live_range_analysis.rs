@@ -197,21 +197,11 @@ fn build_live_ranges(
             alive.gen = reads;
             alive.kill = writes;
 
-            eprintln!(
-                "bef transfer {}: {:#?}",
-                group.borrow().name.as_ref(),
-                alive
-            );
             // compute transfer function
             alive.transfer();
 
             // add things live out of this enable to the local lives.
             alive.local_live = &(&alive.local_live | &alive.live) | &alive.kill;
-            eprintln!(
-                "aft transfer {}: {:#?}",
-                group.borrow().name.as_ref(),
-                alive
-            );
 
             // set the live set of this node to be the things live on the
             // output of this node plus the things written to in this group
@@ -268,8 +258,6 @@ fn build_live_ranges(
                 *alive = &*alive | &child_data;
             }
 
-            // eprintln!("before: {:#?}", alive);
-
             // compute transfer function using
             //  - gen = union(gen(children))
             //  - kill = union(kill(children))
@@ -279,8 +267,6 @@ fn build_live_ranges(
             // it with the saved local lives so that an pars above this one have
             // the correct local lives.
             alive.local_live = &alive.local_live | &saved;
-
-            eprintln!("after: {:#?}", alive);
         }
         ir::Control::While(ir::While { body, cond, .. }) => {
             let mut next;
