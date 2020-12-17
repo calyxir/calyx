@@ -8,7 +8,7 @@ use crate::{
     frontend::library,
 };
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 /// Context to store the signature information for all defined primitives and
@@ -88,11 +88,62 @@ pub fn ast_to_ir(
     })
 }
 
+fn validate_component(
+    comp: &ast::ComponentDef,
+    sig_ctx: &SigCtx,
+) -> FutilResult<()> {
+    let mut cells = HashSet::new();
+    let mut groups = HashSet::new();
+
+    for cell in &comp.cells {
+        let name = cell.name();
+        if cells.contains(name) {
+            return Err(Error::AlreadyBound(name.clone(), "cell".to_string()));
+        }
+        cells.insert(name.clone());
+
+        match cell {
+            ast::Cell::Prim { prim, .. } => {
+                if !sig_ctx.lib_sigs.contains_key(prim) {
+                    return Err(Error::Undefined(
+                        prim.clone(),
+                        "primitive".to_string(),
+                    ));
+                }
+            }
+            ast::Cell::Decl { component, .. } => {
+                if !sig_ctx.comp_sigs.contains_key(component) {
+                    return Err(Error::Undefined(
+                        component.clone(),
+                        "component".to_string(),
+                    ));
+                }
+            }
+        }
+    }
+
+    for group in &comp.groups {
+        let name = &group.name;
+        if groups.contains(name) {
+            return Err(Error::AlreadyBound(name.clone(), "group".to_string()));
+        }
+        if cells.contains(name) {
+            return Err(Error::AlreadyBound(name.clone(), "cell".to_string()));
+        }
+        groups.insert(name.clone());
+    }
+
+    Ok(())
+}
+
 /// Build an `ir::component::Component` using an `frontend::ast::ComponentDef`.
 fn build_component(
     comp: ast::ComponentDef,
     sig_ctx: &SigCtx,
 ) -> FutilResult<Component> {
+    // Validate the component before building it.
+    validate_component(&comp, sig_ctx)?;
+
     // Cell to represent the signature of this component
     let mut ir_component = Component::new(
         comp.name,
@@ -137,13 +188,8 @@ fn build_component(
 fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
     // Get the name, inputs, and outputs.
     let res: FutilResult<(Id, CellType, Vec<_>, Vec<_>)> = match cell {
-        ast::Cell::Decl {
-            data: ast::Decl { name, component },
-        } => {
-            let sig = sig_ctx
-                .comp_sigs
-                .get(&component)
-                .ok_or_else(|| Error::UndefinedComponent(component.clone()))?;
+        ast::Cell::Decl { name, component } => {
+            let sig = &sig_ctx.comp_sigs[&component];
             Ok((
                 name,
                 CellType::Component {
@@ -153,20 +199,13 @@ fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
                 sig.outputs.clone(),
             ))
         }
-        ast::Cell::Prim {
-            data: ast::Prim { name, instance },
-        } => {
-            let prim_name = instance.name;
-            let prim_sig = sig_ctx
-                .lib_sigs
-                .get(&prim_name)
-                .ok_or_else(|| Error::UndefinedComponent(prim_name.clone()))?;
-            let (param_binding, inputs, outputs) =
-                prim_sig.resolve(&instance.params)?;
+        ast::Cell::Prim { name, prim, params } => {
+            let prim_sig = &sig_ctx.lib_sigs[&prim];
+            let (param_binding, inputs, outputs) = prim_sig.resolve(&params)?;
             Ok((
                 name,
                 CellType::Primitive {
-                    name: prim_name,
+                    name: prim,
                     param_binding,
                 },
                 inputs,
@@ -203,25 +242,23 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> FutilResult<RRC<Port>> {
     match port {
         ast::Port::Comp { component, port } => comp
             .find_cell(&component)
-            .ok_or_else(|| Error::UndefinedComponent(component.clone()))?
+            .ok_or_else(|| {
+                Error::Undefined(component.clone(), "cell".to_string())
+            })?
             .borrow()
             .find(&port)
-            .ok_or_else(|| {
-                Error::UndefinedPort(component.clone(), port.to_string())
-            }),
+            .ok_or_else(|| Error::Undefined(port, "port".to_string())),
         ast::Port::This { port } => {
             comp.signature.borrow().find(&port).ok_or_else(|| {
-                Error::UndefinedPort(comp.name.clone(), port.to_string())
+                Error::Undefined(port, "component port".to_string())
             })
         }
         ast::Port::Hole { group, name: port } => comp
             .find_group(&group)
-            .ok_or_else(|| Error::UndefinedGroup(group.clone()))?
+            .ok_or_else(|| Error::Undefined(group, "group".to_string()))?
             .borrow()
             .find(&port)
-            .ok_or_else(|| {
-                Error::UndefinedPort(group.clone(), port.to_string())
-            }),
+            .ok_or_else(|| Error::Undefined(port, "hole".to_string())),
     }
 }
 
@@ -309,9 +346,9 @@ fn build_control(
 ) -> FutilResult<Control> {
     Ok(match control {
         ast::Control::Enable { comp: component } => Control::enable(Rc::clone(
-            &comp
-                .find_group(&component)
-                .ok_or_else(|| Error::UndefinedGroup(component.clone()))?,
+            &comp.find_group(&component).ok_or_else(|| {
+                Error::Undefined(component.clone(), "group".to_string())
+            })?,
         )),
         ast::Control::Seq { stmts } => Control::seq(
             stmts
@@ -332,21 +369,17 @@ fn build_control(
             fbranch,
         } => Control::if_(
             get_port_ref(port, comp)?,
-            Rc::clone(
-                &comp
-                    .find_group(&cond)
-                    .ok_or_else(|| Error::UndefinedGroup(cond.clone()))?,
-            ),
+            Rc::clone(&comp.find_group(&cond).ok_or_else(|| {
+                Error::Undefined(cond.clone(), "group".to_string())
+            })?),
             Box::new(build_control(*tbranch, comp)?),
             Box::new(build_control(*fbranch, comp)?),
         ),
         ast::Control::While { port, cond, body } => Control::while_(
             get_port_ref(port, comp)?,
-            Rc::clone(
-                &comp
-                    .find_group(&cond)
-                    .ok_or_else(|| Error::UndefinedGroup(cond.clone()))?,
-            ),
+            Rc::clone(&comp.find_group(&cond).ok_or_else(|| {
+                Error::Undefined(cond.clone(), "group".to_string())
+            })?),
             Box::new(build_control(*body, comp)?),
         ),
         ast::Control::Empty { .. } => Control::empty(),

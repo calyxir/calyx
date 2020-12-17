@@ -32,21 +32,14 @@ pub enum Error {
     MalformedStructure(String),
     /// The port widths don't match up on an edge.
     MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
-    /// Port not found on the given component.
-    UndefinedPort(ir::Id, String),
-    /// The component has not been defined.
-    UndefinedComponent(ir::Id),
-    /// The group has not been defined
-    UndefinedGroup(ir::Id),
-    /// The group was not used in the program.
-    UnusedGroup(ir::Id),
 
+    /// The name has not been bound
+    Undefined(ir::Id, String),
     /// The name has already been bound.
     AlreadyBound(ir::Id, String),
-    /// The group has already been bound.
-    DuplicateGroup(ir::Id),
-    /// The port has already been defined.
-    DuplicatePort(ir::Id, (ir::Id, u64)),
+
+    /// The group was not used in the program.
+    UnusedGroup(ir::Id),
 
     /// No value provided for a primitive parameter.
     SignatureResolutionFailed(ir::Id, ir::Id),
@@ -157,8 +150,8 @@ impl std::fmt::Debug for Error {
                 let msg = format!("Use of reserved keyword: {}", name.to_string());
                 write!(f, "{}", name.fmt_err(&msg))
             }
-            UndefinedGroup(name) => {
-                let msg = format!("Use of undefined group: {}", name.to_string());
+            Undefined(name, typ) => {
+                let msg = format!("Undefined {} name: {}", typ, name.to_string());
                 write!(
                     f,
                     "{}",
@@ -185,23 +178,9 @@ impl std::fmt::Debug for Error {
                        port2.port_name().to_string(),
                        port2.port_name().fmt_err(&msg2))
             }
-            UndefinedPort(port, port_kind) => {
-                let msg = format!("Use of undefined {} port: {}", port_kind, port.to_string());
-                write!(f, "{}", port.fmt_err(&msg))
-            }
-            UndefinedComponent(id) => {
-                let msg = format!("Use of undefined component: {}", id.to_string());
-                write!(f, "{}", id.fmt_err(&msg))
-            }
             SignatureResolutionFailed(id, param_name) => {
                 let msg = format!("No value passed in for parameter: {}", param_name.to_string());
                 write!(f, "{}\nwhich is used here:{}", id.fmt_err(&msg), param_name.fmt_err(""))
-            }
-            DuplicateGroup(group) => {
-                write!(f, "Attempted to duplicate group `{}`", group.to_string())
-            }
-            DuplicatePort(comp, portdef) => {
-                write!(f, "Attempted to add duplicate port `{:?}` to component `{}`", portdef, comp.to_string())
             }
             MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
             MalformedStructure(msg) => write!(f, "Malformed Structure: {}", msg),
@@ -264,7 +243,7 @@ impl Extract<NodeIndex, NodeIndex> for Option<NodeIndex> {
     fn extract(&self, id: &ir::Id) -> FutilResult<NodeIndex> {
         match self {
             Some(t) => Ok(*t),
-            None => Err(Error::UndefinedComponent(id.clone())),
+            None => Err(Error::Undefined(id.clone(), "component".to_string())),
         }
     }
 }

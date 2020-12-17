@@ -233,8 +233,8 @@ impl FutilParser {
     fn component_cell(input: Node) -> ParseResult<ast::Cell> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(id), identifier(name)] =>
-                ast::Cell::decl(id, name)
+            [identifier(name), identifier(component)] =>
+                ast::Cell::Decl { name, component }
         ))
     }
 
