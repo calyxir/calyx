@@ -75,7 +75,7 @@ impl Environment {
         uoutput: Vec<ir::Id>,
         uvars: HashMap<String, u64>,
     ) -> () {
-        println!("add update!");
+        //println!("add update!");
         let update = Update {
             cell: ucell,
             inputs: uinput,
@@ -194,12 +194,12 @@ fn eval_assigns(
     while write_env.get(&done_cell, &done_assign.src.borrow().name) == 0
         && counter < 5
     {
-        println!("Clock cycle {}", counter);
-        println!(
+        //println!("Clock cycle {}", counter);
+        /*println!(
             "state of done_cell {:1} : {:?} \n",
             &done_cell,
             write_env.map.get(&done_cell)
-        );
+        );*/
 
         // for assign in assigns
         for assign in ok_assigns.iter() {
@@ -211,13 +211,13 @@ fn eval_assigns(
                 // cell of assign.dst
                 let dst_cell = get_cell_from_port(&assign.dst);
 
-                println!(
+                /*println!(
                     "src cell {:1} port: {:2}, dest cell {:3} port: {:4}",
                     src_cell,
                     &assign.src.borrow().name,
                     dst_cell,
                     &assign.dst.borrow().name
-                );
+                );*/
 
                 // perform a read from `env` for assign.src
                 let read_val = env.get(&src_cell, &assign.src.borrow().name);
@@ -239,13 +239,13 @@ fn eval_assigns(
                         read_val,
                     );
 
-                    println!(
+                    /*println!(
                         "reg0.write_en = {}",
                         write_env.get(
                             &ir::Id::from("reg0"),
                             &ir::Id::from("write_en")
                         )
-                    );
+                    );*/
 
                     // now, update the internal state of the cell; for now, this only includes adds; TODO (use primitive Cell parameters)
                     let inputs;
@@ -311,17 +311,17 @@ fn eval_assigns(
                 }
             }
         }
-        println!("do tick");
+        //println!("do tick");
         &write_env.do_tick();
-        println!("done with tick");
+        //println!("done with tick");
         counter += 1;
     }
 
-    println!(
+    /*println!(
         "\nFinal state of the done cell, i.e. {:1}: {:?} \n",
         &done_cell,
         write_env.map.get(&done_cell)
-    );
+    );*/
     Ok(write_env)
 }
 
