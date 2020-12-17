@@ -248,8 +248,8 @@ fn eval_assigns(
                     );
 
                     // now, update the internal state of the cell; for now, this only includes adds; TODO (use primitive Cell parameters)
-                    let mut inputs = vec![];
-                    let mut outputs = vec![];
+                    let inputs;
+                    let outputs;
 
                     // TODO: hacky way to avoid updating the cell state. Also, how to get input and output vectors in general??
                     if &assign.dst.borrow().name != "write_en" {
@@ -297,17 +297,14 @@ fn eval_assigns(
                     // otherwise, add the write to the update queue; currently only handles registers
 
                     // get input and output vectors; TODO (currently only works for registers)
-                    let mut inputs = vec![];
-                    let mut outputs = vec![];
-
                     // println!("src: {}", src_cell);
                     // println!("src port: {}", &assign.src.borrow().name);
                     // println!("dst port: {}", &assign.dst.borrow().name);
 
                     // get input cell
-                    inputs = vec![src_cell.clone()];
+                    let inputs = vec![src_cell.clone()];
                     // get dst_cell's output port
-                    outputs = vec![assign.dst.borrow().name.clone()];
+                    let outputs = vec![assign.dst.borrow().name.clone()];
 
                     write_env =
                         init_cells(&dst_cell, inputs, outputs, write_env)?;
