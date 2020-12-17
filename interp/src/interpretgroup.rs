@@ -81,7 +81,7 @@ fn validate_names<'a>(
 
 // Find the component's cells in context; duplicated code?
 fn get_cells(ctx: &ir::Context, component: &str) -> Vec<ir::RRC<ir::Cell>> {
-    let components = &ctx.clone().components;
+    let components = &ctx.components;
     match components.iter().find(|&c| c.name.id == *component) {
         Some(comp) => comp.cells.clone(),
         _ => panic!("This isn't supposed to happen?"),
@@ -109,7 +109,7 @@ fn construct_map(
                     let pb = port.borrow();
                     let initval = cb
                         .get_paramter(&ir::Id::from("value".to_string()))
-                        .unwrap_or_else(|| 0); //std_const should be the only cell type with the "value" parameter
+                        .unwrap_or(0); //std_const should be the only cell type with the "value" parameter
 
                     ports.insert(pb.name.clone(), initval);
                 }
