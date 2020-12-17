@@ -67,3 +67,12 @@ class TrivialPath(FudError):
     def __init__(self, stage):
         msg = f"The exection starts and ends at the same stage `{stage}'. This is likely an error."
         super().__init__(msg)
+
+
+class ConversionError(FudError):
+    """
+    Failed to convert data in one representation to another representation.
+    """
+    def __init__(self, msg):
+        msg = f"Data conversion error: {msg}"
+        super().__init__(msg)
