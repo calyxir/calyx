@@ -138,6 +138,12 @@ def main():
         except errors.FudError as e:
             log.error(e)
             exit(-1)
+        except Exception as e:
+            if args.verbose >= 1:
+                raise e
+            else:
+                log.error(f"{getattr(e, 'message', repr(e))}\nAn internal error occured. Run with `-v` to see stack trace")
+                exit(-1)
     else:
         parser.print_help()
         exit(-1)
