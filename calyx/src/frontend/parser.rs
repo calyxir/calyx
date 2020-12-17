@@ -194,7 +194,7 @@ impl FutilParser {
         ))
     }
 
-    fn signature_return(input: Node) -> ParseResult<Vec<ast::Portdef>> {
+    fn signature_return(input: Node) -> ParseResult<Vec<(ir::Id, u64)>> {
         Ok(match_nodes!(
             input.into_children();
             [io_ports(p)] => p,
@@ -202,13 +202,13 @@ impl FutilParser {
         ))
     }
 
-    fn io_port(input: Node) -> ParseResult<ast::Portdef> {
+    fn io_port(input: Node) -> ParseResult<(ir::Id, u64)> {
         Ok(match_nodes![
             input.into_children();
-            [identifier(id), bitwidth(bw)] => ast::Portdef { name: id, width: bw }])
+            [identifier(id), bitwidth(bw)] => (id, bw)])
     }
 
-    fn io_ports(input: Node) -> ParseResult<Vec<ast::Portdef>> {
+    fn io_ports(input: Node) -> ParseResult<Vec<(ir::Id, u64)>> {
         Ok(match_nodes![
             input.into_children();
             [io_port(p)..] => p.collect()])
@@ -384,7 +384,7 @@ impl FutilParser {
             match node.as_rule() {
                 Rule::wire => wires.push(Self::wire(node)?),
                 Rule::group => groups.push(Self::group(node)?),
-                _ => unreachable!()
+                _ => unreachable!(),
             }
         }
         Ok((wires, groups))

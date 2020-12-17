@@ -39,20 +39,10 @@ pub struct ComponentDef {
 #[derive(Clone, Debug)]
 pub struct Signature {
     /// List of input ports.
-    pub inputs: Vec<Portdef>,
+    pub inputs: Vec<(ir::Id, u64)>,
 
     /// List of output ports.
-    pub outputs: Vec<Portdef>,
-}
-
-/// The definition of an input/output port.
-#[derive(Clone, Debug)]
-pub struct Portdef {
-    /// The name of the port.
-    pub name: ir::Id,
-
-    /// The width of the port.
-    pub width: u64,
+    pub outputs: Vec<(ir::Id, u64)>,
 }
 
 /// Statement that refers to a port on a subcomponent.
