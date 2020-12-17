@@ -296,12 +296,12 @@ fn infer_latency<'a>(
     Some(latency_sum)
 }
 
-impl Visitor<()> for InferStaticTiming<'_> {
+impl Visitor for InferStaticTiming<'_> {
     fn start(
         &mut self,
         comp: &mut ir::Component,
         _c: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         let mut latency_result: Option<u64>;
         for group in &comp.groups {
             if let Some(latency) =
@@ -332,6 +332,6 @@ impl Visitor<()> for InferStaticTiming<'_> {
                 None => continue,
             }
         }
-        Ok(Action::stop_default())
+        Ok(Action::Stop)
     }
 }

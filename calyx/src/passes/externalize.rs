@@ -59,12 +59,12 @@ fn format_port_name(comp: &ir::Id, port: &ir::Id) -> ir::Id {
     format!("{}_{}", comp.id, port.id).into()
 }
 
-impl Visitor<()> for Externalize {
+impl Visitor for Externalize {
     fn start(
         &mut self,
         comp: &mut ir::Component,
         _ctx: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         // Extract external cells.
         let (ext_cells, cells): (Vec<_>, Vec<_>) =
             comp.cells.drain(..).into_iter().partition(|cr| {
@@ -102,6 +102,6 @@ impl Visitor<()> for Externalize {
         }
 
         // Stop traversal, we don't need to traverse over control ast
-        Ok(Action::stop_default())
+        Ok(Action::Stop)
     }
 }

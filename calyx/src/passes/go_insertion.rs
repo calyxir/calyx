@@ -33,12 +33,12 @@ impl Named for GoInsertion {
     }
 }
 
-impl Visitor<()> for GoInsertion {
+impl Visitor for GoInsertion {
     fn start(
         &mut self,
         comp: &mut ir::Component,
         _c: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         for group in &comp.groups {
             let group_go = guard!(group["go"]);
             let mut group = group.borrow_mut();
@@ -51,6 +51,6 @@ impl Visitor<()> for GoInsertion {
         }
 
         // This pass doesn't modify any control.
-        Ok(Action::stop_default())
+        Ok(Action::Stop)
     }
 }

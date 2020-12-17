@@ -1,6 +1,6 @@
 import "primitives/std.lib";
 
-component main() {
+component main() -> () {
   cells {
     incr = prim std_add(32);
   }

@@ -2,7 +2,7 @@
 
 import "primitives/std.lib";
 
-component main() {
+component main() -> () {
   cells {
     add = prim std_add(32);
   }

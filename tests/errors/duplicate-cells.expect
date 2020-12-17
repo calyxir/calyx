@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: 
+6 |    r = prim std_reg(32);
+  |    ^ Name already bound by cell

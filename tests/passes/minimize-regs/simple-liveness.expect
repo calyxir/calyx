@@ -1,0 +1,41 @@
+import "primitives/std.lib";
+component kernel(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    b = prim std_reg(32);
+    before = prim std_reg(4);
+    read_x = prim std_add(4);
+  }
+  wires {
+    group wr_before<"static"=1> {
+      before.in = 4'd1;
+      before.write_en = 1'd1;
+      wr_before[done] = before.done;
+    }
+    group wr_x<"static"=1> {
+      before.in = 4'd1;
+      before.write_en = 1'd1;
+      wr_x[done] = before.done;
+    }
+    group wr_b<"static"=1> {
+      b.in = 32'd1;
+      b.write_en = 1'd1;
+      wr_b[done] = b.done;
+    }
+    group rd_x<"static"=1> {
+      read_x.right = before.out;
+      read_x.left = before.out;
+      rd_x[done] = 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      wr_before;
+      par {
+        wr_x;
+        wr_b;
+      }
+      rd_x;
+    }
+  }
+}
