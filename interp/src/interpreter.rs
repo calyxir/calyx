@@ -424,7 +424,7 @@ fn get_done_signal(assigns: &[ir::Assignment]) -> &ir::Assignment {
             return assign;
         }
     }
-    panic!("no done signal");
+    unreachable!("Group does not have a done signal");
 }
 
 /// Determines if writing a particular cell and cell port is combinational or not. Will need to change implementation later.
