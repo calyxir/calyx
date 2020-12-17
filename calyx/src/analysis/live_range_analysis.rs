@@ -191,6 +191,7 @@ fn build_live_ranges(
 ) {
     match c {
         ir::Control::Empty(_) => (),
+        ir::Control::Invoke(_) => unimplemented!(),
         ir::Control::Enable(ir::Enable { group }) => {
             // XXX(sam) no reason to compute this every time
             let (reads, writes) = LiveRangeAnalysis::find_gen_kill(&group);

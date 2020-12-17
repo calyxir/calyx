@@ -13,7 +13,7 @@ use calyx::{
 use cmdline::Opts;
 use pass_manager::PassManager;
 use passes::{
-    ClkInsertion, CollapseControl, CompileControl, CompileEmpty,
+    ClkInsertion, CollapseControl, CompileControl, CompileEmpty, CompileInvoke,
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion,
     InferStaticTiming, Inliner, MinimizeRegs, Papercut, RemoveExternalMemories,
     ResourceSharing, StaticTiming, WellFormed,
@@ -31,10 +31,10 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
     register_pass!(pm, WellFormed);
     register_pass!(pm, StaticTiming);
     register_pass!(pm, CompileControl);
+    register_pass!(pm, CompileInvoke);
     register_pass!(pm, GoInsertion);
     register_pass!(pm, ComponentInterface);
     register_pass!(pm, Inliner);
-    //register_pass!(pm, MergeAssign);
     register_pass!(pm, Externalize);
     register_pass!(pm, RemoveExternalMemories);
     register_pass!(pm, CollapseControl);
@@ -46,27 +46,41 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
     register_pass!(pm, MinimizeRegs);
     register_pass!(pm, InferStaticTiming);
 
+    register_alias!(pm, "validate", [WellFormed, Papercut]);
+    register_alias!(
+        pm,
+        "pre-opt",
+        [
+            CompileInvoke,
+            CollapseControl,
+            InferStaticTiming,
+            ResourceSharing,
+            MinimizeRegs
+        ]
+    );
+    register_alias!(
+        pm,
+        "compile",
+        [CompileEmpty, StaticTiming, CompileControl]
+    );
+    register_alias!(pm, "post-opt", [DeadCellRemoval]);
+    register_alias!(
+        pm,
+        "lower",
+        [GoInsertion, ComponentInterface, Inliner, ClkInsertion,]
+    );
+
     // Register aliases
     register_alias!(
         pm,
         "all",
         [
-            WellFormed,
-            Papercut,
+            "validate",
             RemoveExternalMemories,
-            ResourceSharing,
-            MinimizeRegs,
-            CompileEmpty,
-            CollapseControl,
-            InferStaticTiming,
-            StaticTiming,
-            CompileControl,
-            DeadCellRemoval,
-            GoInsertion,
-            ComponentInterface,
-            Inliner,
-            ClkInsertion,
-            //MergeAssign,
+            "pre-opt",
+            "compile",
+            "post-opt",
+            "lower",
         ]
     );
 
@@ -74,21 +88,11 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
         pm,
         "external",
         [
-            WellFormed,
-            Papercut,
-            ResourceSharing,
-            MinimizeRegs,
-            CompileEmpty,
-            CollapseControl,
-            CompileControl,
-            StaticTiming,
-            CompileControl,
-            DeadCellRemoval,
-            GoInsertion,
-            ComponentInterface,
-            Inliner,
-            ClkInsertion,
-            //MergeAssign,
+            "validate",
+            "pre-opt",
+            "compile",
+            "post-opt",
+            "lower",
             Externalize,
         ]
     );

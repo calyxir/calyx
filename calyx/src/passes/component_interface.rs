@@ -39,7 +39,7 @@ impl Named for ComponentInterface {
     }
 
     fn description() -> &'static str {
-        "create a go/done interface for components and wire up a single enable to this interface"
+        "wire up a single enable to the go/done interface in a component"
     }
 }
 

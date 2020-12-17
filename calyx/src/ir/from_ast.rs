@@ -338,6 +338,25 @@ fn build_control(
                 Error::Undefined(component.clone(), "group".to_string())
             })?,
         )),
+        ast::Control::Invoke {
+            comp: component,
+            inputs,
+            outputs,
+        } => {
+            let cell =
+                Rc::clone(&comp.find_cell(&component).ok_or_else(|| {
+                    Error::Undefined(component.clone(), "cell".to_string())
+                })?);
+            let inps = inputs
+                .into_iter()
+                .map(|(id, port)| get_port_ref(port, comp).map(|p| (id, p)))
+                .collect::<Result<_, _>>()?;
+            let outs = outputs
+                .into_iter()
+                .map(|(id, port)| get_port_ref(port, comp).map(|p| (id, p)))
+                .collect::<Result<_, _>>()?;
+            Control::invoke(cell, inps, outs)
+        }
         ast::Control::Seq { stmts } => Control::seq(
             stmts
                 .into_iter()

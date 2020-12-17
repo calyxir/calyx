@@ -145,6 +145,7 @@ impl Opts {
                         comp,
                         &mut self.output.get_write(),
                     )?;
+                    writeln!(&mut self.output.get_write())?
                 }
                 Ok(())
             }

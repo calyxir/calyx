@@ -228,6 +228,15 @@ pub enum Control {
         /// Group to be enabled
         comp: ir::Id,
     },
+    /// Invoke component with input/output assignments.
+    Invoke {
+        /// Name of the component to be invoked.
+        comp: ir::Id,
+        /// Input assignments
+        inputs: Vec<(ir::Id, Port)>,
+        /// Output assignments
+        outputs: Vec<(ir::Id, Port)>,
+    },
     /// Control statement that does nothing.
     Empty {},
 }

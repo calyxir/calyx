@@ -390,6 +390,28 @@ impl FutilParser {
         Ok((wires, groups))
     }
 
+    fn invoke_arg(input: Node) -> ParseResult<(ir::Id, ast::Port)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(name), port(p)] => (name, p)
+        ))
+    }
+
+    fn invoke_args(input: Node) -> ParseResult<Vec<(ir::Id, ast::Port)>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [invoke_arg(args)..] => args.collect()
+        ))
+    }
+
+    fn invoke(input: Node) -> ParseResult<ast::Control> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(comp), invoke_args(inputs), invoke_args(outputs)] =>
+                ast::Control::Invoke { comp, inputs, outputs }
+        ))
+    }
+
     fn enable(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
@@ -457,6 +479,7 @@ impl FutilParser {
         Ok(match_nodes!(
             input.into_children();
             [enable(data)] => data,
+            [invoke(data)] => data,
             [seq(data)] => data,
             [par(data)] => data,
             [if_stmt(data)] => data,
@@ -483,7 +506,7 @@ impl FutilParser {
     fn control(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [stmt(stmt)] => stmt,
+            [block(stmt)] => stmt,
             [] => ast::Control::Empty{}
         ))
     }

@@ -175,8 +175,8 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted before visiting the children of a `ir::Enable` node.
-    fn start_enable(
+    /// Excecuted at an `ir::Enable` node. This is leaf node with no children.
+    fn enable(
         &mut self,
         _s: &mut ir::Enable,
         _comp: &mut Component,
@@ -185,28 +185,18 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted after visiting the children of a `ir::Enable` node.
-    fn finish_enable(
+    /// Excecuted at an `ir::Invoke` node. This is leaf node with no children.
+    fn invoke(
         &mut self,
-        _s: &mut ir::Enable,
+        _s: &mut ir::Invoke,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
         Ok(Action::Continue)
     }
 
-    /// Excecuted before visiting the children of a `ir::Empty` node.
-    fn start_empty(
-        &mut self,
-        _s: &mut ir::Empty,
-        _comp: &mut Component,
-        _sigs: &LibrarySignatures,
-    ) -> VisResult {
-        Ok(Action::Continue)
-    }
-
-    /// Excecuted after visiting the children of a `ir::Empty` node.
-    fn finish_empty(
+    /// Excecuted at an `ir::Empty` node. This is leaf node with no children.
+    fn empty(
         &mut self,
         _s: &mut ir::Empty,
         _comp: &mut Component,
@@ -263,14 +253,9 @@ impl Visitable for Control {
                 .and_then(|| ctrl.body.visit(visitor, component, sigs))?
                 .pop()
                 .and_then(|| visitor.finish_while(ctrl, component, sigs))?,
-            Control::Enable(ctrl) => visitor
-                .start_enable(ctrl, component, sigs)?
-                .pop()
-                .and_then(|| visitor.finish_enable(ctrl, component, sigs))?,
-            Control::Empty(ctrl) => visitor
-                .start_empty(ctrl, component, sigs)?
-                .pop()
-                .and_then(|| visitor.finish_empty(ctrl, component, sigs))?,
+            Control::Enable(ctrl) => visitor.enable(ctrl, component, sigs)?,
+            Control::Empty(ctrl) => visitor.empty(ctrl, component, sigs)?,
+            Control::Invoke(data) => visitor.invoke(data, component, sigs)?,
         }
         .apply_change(self)
     }

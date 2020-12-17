@@ -64,13 +64,40 @@ impl Visitor for WellFormed {
         Ok(Action::Continue)
     }
 
-    fn start_enable(
+    fn enable(
         &mut self,
         s: &mut ir::Enable,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         self.used_groups.insert(s.group.borrow().name.clone());
+        Ok(Action::Continue)
+    }
+
+    fn invoke(
+        &mut self,
+        s: &mut ir::Invoke,
+        _comp: &mut Component,
+        _ctx: &LibrarySignatures,
+    ) -> VisResult {
+        for (id, port) in &s.inputs {
+            if port.borrow().direction != ir::Direction::Output {
+                panic!(
+                    "Input argument `{}` for `invoke {}` uses non-output port: `{}`. Input arguments should use output ports.",
+                    id,
+                    s.comp.borrow().name,
+                    port.borrow().name)
+            }
+        }
+        for (id, port) in &s.outputs {
+            if port.borrow().direction != ir::Direction::Input {
+                panic!(
+                    "Output argument `{}` for `invoke {}` uses non-input port: `{}`. Output arguments should use input ports.",
+                    id,
+                    s.comp.borrow().name,
+                    port.borrow().name)
+            }
+        }
         Ok(Action::Continue)
     }
 

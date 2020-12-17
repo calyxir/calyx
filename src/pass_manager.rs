@@ -40,8 +40,8 @@ impl PassManager {
     }
 
     /// Adds a new alias for groups of passes. An alias is a list of strings
-    /// that represent valid pass names to be executed for the alias. The
-    /// order of execution of passes is the same as the order of specification.
+    /// that represent valid pass names OR an alias.
+    /// The passes and aliases are executed in the order of specification.
     pub fn add_alias(
         &mut self,
         name: String,
@@ -53,7 +53,20 @@ impl PassManager {
                 name
             )));
         }
-        self.aliases.insert(name, passes);
+        // Expand any aliases used in defining this alias.
+        let all_passes = passes
+            .into_iter()
+            .flat_map(|pass| {
+                if self.aliases.contains_key(&pass) {
+                    self.aliases[&pass].clone()
+                } else if self.passes.contains_key(&pass) {
+                    vec![pass]
+                } else {
+                    panic!("No pass or alias named: {}", pass)
+                }
+            })
+            .collect();
+        self.aliases.insert(name, all_passes);
         Ok(())
     }
 
@@ -159,9 +172,17 @@ macro_rules! register_pass {
 /// Simple macro to register an alias with a pass manager.
 #[macro_export]
 macro_rules! register_alias {
-    ($manager:expr, $alias:literal, [ $($pass:ident),* $(,)? ]) => {
+    (@unwrap_name $pass:ident) => {
+        $pass::name().to_string()
+    };
+
+    (@unwrap_name $pass:literal) => {
+        $pass.to_string()
+    };
+
+    ($manager:expr, $alias:literal, [ $($pass:tt),* $(,)? ]) => {
         $manager.add_alias($alias.to_string(), vec![
-            $($pass::name().to_string()),*
+            $(register_alias!(@unwrap_name $pass)),*
         ])?;
     };
 }
