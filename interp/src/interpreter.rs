@@ -131,7 +131,24 @@ impl Environment {
 
     /// Outputs the cell state; TODO (write to a specified output in the future)
     pub fn cell_state(&self) {
-        println!("{:?}", self.map)
+        let state_str = self
+            .map
+            .iter()
+            .map(|(cell, ports)| {
+                format!(
+                    "{}\n{}",
+                    cell,
+                    ports
+                        .iter()
+                        .map(|(p, v)| format!("\t{}: {}", p, v))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        println!("{}\n{}\n{}", "=".repeat(30), state_str, "=".repeat(30))
     }
 }
 
