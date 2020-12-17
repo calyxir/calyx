@@ -438,10 +438,7 @@ fn get_combinational_or_not(
         .get_cell(cell)
         .unwrap_or_else(|| panic!("Cannot find cell with name"));
 
-    let cellgcopy = cellg.clone(); //??
-
-    let cb = cellgcopy.borrow();
-
+    let cb = cellg.borrow();
     let celltype = cb.type_name().unwrap_or_else(|| panic!("Constant?"));
 
     // TODO; get cell attributes
