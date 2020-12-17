@@ -1,7 +1,7 @@
 // -p minimize-regs -p dead-cell-removal
 import "primitives/std.lib";
 
-component main {
+component main() -> () {
   cells {
     x = prim std_reg(32);
     y = prim std_reg(32);
