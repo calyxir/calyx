@@ -46,11 +46,11 @@ impl GroupInterpreter {
         let group = comp
             .find_group(&self.group)
             .unwrap_or_else(|| panic!("bad"));
-        println!("Started interpreting...");
+        //println!("Started interpreting...");
 
         let finalenv = interpreter::eval_group(group, environment)?;
 
-        println!("Finished interpreting.");
+        //println!("Finished interpreting.");
         // Final state of the environment
         finalenv.cell_state();
         Ok(())
