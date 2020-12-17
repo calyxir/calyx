@@ -38,16 +38,15 @@ pub struct Opts {
 /// Interpret a group from a FuTIL program
 fn main() -> FutilResult<()> {
     let opts = Opts::from_args();
-    //println!("{:?}", opts);
 
-    // construct interpreter
+    // Construct interpreter
     let interpreter: interpretgroup::GroupInterpreter =
         interpretgroup::GroupInterpreter {
             component: opts.component.clone(),
             group: opts.group.clone(),
         };
 
-    // get input file
+    // Get input file
     let namespace = match &opts.file {
         Some(file) => parser::FutilParser::parse_file(&file),
         None => Err(Error::InvalidFile(
@@ -55,7 +54,8 @@ fn main() -> FutilResult<()> {
         )),
     }?;
 
-    // only library for now is primitives std
+    // Get libraries used in file
+    // The only library test programs should have for now is primitives/std.lib
     let library: Vec<_> = namespace
         .libraries
         .iter()
@@ -66,7 +66,7 @@ fn main() -> FutilResult<()> {
         })
         .collect::<FutilResult<Vec<_>>>()?;
 
-    // IR
+    // Construct IR
     let ir = ir::from_ast::ast_to_ir(
         namespace.components,
         &library,
@@ -75,7 +75,7 @@ fn main() -> FutilResult<()> {
         false,
     )?;
 
-    // run the interpreter (in this case, group interpreter)
+    // Run the interpreter (in this case, group interpreter)
     interpreter.interpret(ir)?;
 
     return Ok(());

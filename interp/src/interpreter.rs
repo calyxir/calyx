@@ -4,6 +4,7 @@ use calyx::{errors::FutilResult, ir};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+/// Stores information for updates.
 #[derive(Clone, Debug)]
 struct Update {
     /// The cell to be updated
@@ -17,7 +18,7 @@ struct Update {
     pub vars: HashMap<String, u64>,
 }
 
-/// The environment to interpret a FuTIL program
+/// The environment to interpret a FuTIL program.
 #[derive(Clone, Debug)]
 pub struct Environment {
     /// A mapping from cell names to the values on their ports.
@@ -32,16 +33,16 @@ pub struct Environment {
 
 /// Helper functions for the environment.
 impl Environment {
-    // Constructor "syntactic sugar"
+    /// Constructor "syntactic sugar"
     pub fn init(
         map: HashMap<ir::Id, HashMap<ir::Id, u64>>,
         cells: HashMap<ir::Id, ir::RRC<ir::Cell>>,
     ) -> Self {
         let update_queue: Vec<Update> = Vec::new();
         Self {
-            map: map,
-            update_queue: update_queue,
-            cells: cells,
+            map,
+            update_queue,
+            cells,
         }
     }
 
@@ -51,7 +52,7 @@ impl Environment {
     }
 
     /// Puts the mapping from cell to port to val in map.
-    pub fn put(&mut self, cell: &ir::Id, port: &ir::Id, val: u64) -> () {
+    pub fn put(&mut self, cell: &ir::Id, port: &ir::Id, val: u64) {
         let temp = self.map.get_mut(cell);
 
         if let Some(map) = temp {
@@ -74,7 +75,7 @@ impl Environment {
         uinput: Vec<ir::Id>,
         uoutput: Vec<ir::Id>,
         uvars: HashMap<String, u64>,
-    ) -> () {
+    ) {
         //println!("add update!");
         let update = Update {
             cell: ucell,
@@ -85,18 +86,15 @@ impl Environment {
         self.update_queue.push(update);
     }
 
-    // // Convenience function to remove an update from the update queue
-    // pub fn remove_update(&mut self, ucell: ir::Id) -> () {
+    /// Convenience function to remove a particular cell's update from the update queue
+    // pub fn remove_update(&mut self, ucell: ir::Id) {
     //     self.map.remove(&ucell); // this is wrong
     // }
 
     /// Simulates a clock cycle by executing the stored updates.
-    pub fn do_tick(&mut self) -> () {
-        //self.put(&ir::Id::from("reg0"), &ir::Id::from("done"), 1); //hard coding
-
+    pub fn do_tick(&mut self) {
         let uq = self.update_queue.clone();
         for update in uq {
-            // println!("{:?}", update);
             let updated = update_cell_state(
                 &update.cell,
                 &update.inputs,
@@ -105,7 +103,6 @@ impl Environment {
             );
             match updated {
                 Ok(e) => {
-                    //let m = self.map.get_mut(&update.cell);
                     let temp = e
                         .map
                         .get(&update.cell)
@@ -116,12 +113,11 @@ impl Environment {
                 }
                 _ => panic!("uh oh "),
             }
-            //self.remove_update(update.cell); //?
+            //self.remove_update(update.cell); //
         }
-        // &self.updates.clear();
     }
 
-    /// Gets the cell based on the name; TODO; similar to find_cell in component.rs
+    /// Gets the cell based on the name; similar to find_cell in component.rs
     fn get_cell(&self, cell: &ir::Id) -> Option<ir::RRC<ir::Cell>> {
         self.cells
             .values()
@@ -152,15 +148,14 @@ impl Environment {
     }
 }
 
-/// Evaluates a group in an environment.
+/// Evaluates a group, given an environment.
 pub fn eval_group(
     group: ir::RRC<ir::Group>,
     env: Environment,
 ) -> FutilResult<Environment> {
     let g = group.borrow();
 
-    let res = eval_assigns(&g.assignments, &env);
-    res
+    eval_assigns(&g.assignments, &env)
 }
 
 /// Evaluates a group's assignment statements in an environment.
@@ -172,13 +167,13 @@ fn eval_assigns(
     let done_assign = get_done_signal(assigns);
     // e2 = Clone the current environment
     let mut write_env = env.clone();
-    // get the cell that done_assign.src belongs to
+    // Get the cell that done_assign.src belongs to
     let done_cell = get_cell_from_port(&done_assign.src);
 
-    // prevent infinite loops; should probably be deleted later (unless we want to display the clock cycle)?
+    // Prevent infinite loops; should probably be deleted later (unless we want to display the clock cycle)?
     let mut counter = 0;
 
-    // filter out the assignment statements that are not only from cells; for now, also excludes cells not in the env map
+    // Filter out the assignment statements that are not only from cells; for now, also excludes cells not in the env map
     let ok_assigns = assigns
         .iter()
         .filter(|&a| {
@@ -186,11 +181,10 @@ fn eval_assigns(
                 && is_cell(&a.dst.borrow())
                 && env.map.contains_key(&get_cell_from_port(&a.src)) //dummy way of making sure the map has the a.src cell
                 && env.map.contains_key(&get_cell_from_port(&a.dst))
-            // ??
         })
         .collect::<Vec<_>>();
 
-    // while done_assign src is 0 (done_assign.dst is not a cell's port; it should be a group's port)
+    // While done_assign.src is 0 (we use done_assign.src because done_assign.dst is not a cell's port; it should be a group's port)
     while write_env.get(&done_cell, &done_assign.src.borrow().name) == 0
         && counter < 5
     {
@@ -221,7 +215,6 @@ fn eval_assigns(
 
                 // perform a read from `env` for assign.src
                 let read_val = env.get(&src_cell, &assign.src.borrow().name);
-                // println!("{}", read_val);
 
                 // update internal state of the cell and
                 // queue any required updates.
@@ -233,7 +226,7 @@ fn eval_assigns(
                     env,
                 ) {
                     // write to assign.dst to e2 immediately, if combinational
-                    &write_env.put(
+                    write_env.put(
                         &dst_cell,
                         &assign.dst.borrow().name,
                         read_val,
@@ -296,11 +289,6 @@ fn eval_assigns(
                 } else {
                     // otherwise, add the write to the update queue; currently only handles registers
 
-                    // get input and output vectors; TODO (currently only works for registers)
-                    // println!("src: {}", src_cell);
-                    // println!("src port: {}", &assign.src.borrow().name);
-                    // println!("dst port: {}", &assign.dst.borrow().name);
-
                     // get input cell
                     let inputs = vec![src_cell.clone()];
                     // get dst_cell's output port
@@ -311,9 +299,7 @@ fn eval_assigns(
                 }
             }
         }
-        //println!("do tick");
-        &write_env.do_tick();
-        //println!("done with tick");
+        write_env.do_tick();
         counter += 1;
     }
 
@@ -327,19 +313,12 @@ fn eval_assigns(
 
 /// Convenience function to determine if a port's parent is a cell or not
 fn is_cell(port: &ir::Port) -> bool {
-    match &port.parent {
-        ir::PortParent::Cell(_) => true,
-        _ => false,
-    }
+    matches!(&port.parent, ir::PortParent::Cell(_))
 }
 
 /// Evalutes a guard in an environment.
 fn eval_guard(guard: &ir::Guard, env: &Environment) -> bool {
-    if eval_guard_helper(guard, env) != 0 {
-        return true;
-    } else {
-        return false;
-    }
+    eval_guard_helper(guard, env) != 0
 }
 
 /// Evaluate guard implementation; TODO (messy u64 implementation?)
@@ -415,12 +394,9 @@ fn get_done_signal(assigns: &[ir::Assignment]) -> &ir::Assignment {
     for assign in assigns.iter() {
         let dest = assign.dst.borrow();
         // need to check g's name?
-        let group_or_not = match &dest.parent {
-            ir::PortParent::Group(_) => true,
-            _ => false,
-        };
+        let group_or_not = matches!(&dest.parent, ir::PortParent::Group(_));
         // check if the statement's destination port is the "done" hole and if its parent is a group
-        if dest.name.id == "done".to_string() && group_or_not {
+        if dest.name.id == *"done" && group_or_not {
             return assign;
         }
     }
@@ -460,6 +436,7 @@ fn get_combinational_or_not(
         | "std_not"
         | "std_and"
         | "std_or"
+        | "std_xor"
         | "std_gt"
         | "std_lt"
         | "std_eq"
@@ -477,7 +454,7 @@ fn get_combinational_or_not(
     }
 }
 
-// Initializes values for the update queue, i.e. for non-combinational cells
+/// Initializes values for the update queue, i.e. for non-combinational cells
 fn init_cells(
     cell: &ir::Id,
     inputs: Vec<ir::Id>,
@@ -495,15 +472,17 @@ fn init_cells(
         None => panic!("bad"),
         Some(ct) => match ct.id.as_str() {
             "std_sqrt" => { //:(
-                // has intermediate steps/computation??
-            },
+                 // has intermediate steps/computation
+            }
             "std_reg" => {
-                let map : HashMap<String, u64> = HashMap::new(); //placeholder
-                // reg.in = dst port should go here
+                let map: HashMap<String, u64> = HashMap::new(); //placeholder
+                                                                // reg.in = dst port should go here
                 env.add_update(cell.clone(), inputs, outputs, map);
             }
-            _ => panic!("attempted to initalize an update queue map for a combinational cell")
-        }
+            _ => panic!(
+                "attempted to initalize an update for a combinational cell"
+            ),
+        },
     }
 
     Ok(env)
@@ -536,19 +515,12 @@ fn update_cell_state(
         "std_reg" => {
             let write_en = ir::Id::from("write_en");
 
-            // if (){
-
-            // }
             // register's write_en must be high to write reg.out and reg.done
             if new_env.get(&cell, &write_en) != 0 {
                 //println!("reg update");
                 let out = ir::Id::from("out"); //assuming reg.in = cell.out, always
                 let inp = ir::Id::from("in"); //assuming reg.in = cell.out, always
                 let done = ir::Id::from("done"); //done id
-
-                // println!("cell to read from: {}", inputs[0]);
-                // println!("reg port to write to: {}", &output[0]);
-                // println!("value to write to cell port: {}", env.get(&inputs[0], &out));
 
                 new_env.put(cell, &output[0], env.get(&inputs[0], &out)); //reg.in = cell.out; should this be in init?
 
@@ -609,6 +581,11 @@ fn update_cell_state(
             new_env.get(cell, &inputs[0]) & env.get(cell, &inputs[1]),
         ),
         "std_or" => new_env.put(
+            cell,
+            &output[0],
+            new_env.get(cell, &inputs[0]) | env.get(cell, &inputs[1]),
+        ),
+        "std_xor" => new_env.put(
             cell,
             &output[0],
             new_env.get(cell, &inputs[0]) ^ env.get(cell, &inputs[1]),
