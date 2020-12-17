@@ -1,6 +1,6 @@
 use super::{
-    Assignment, Builder, Cell, CellType, Component, Context, Control, Guard,
-    Id, Port, RRC,
+    Assignment, Builder, CellType, Component, Context, Control, Guard, Id,
+    Port, RRC,
 };
 use crate::{
     errors::{Error, FutilResult},
@@ -150,22 +150,18 @@ fn build_component(
         comp.signature.inputs,
         comp.signature.outputs,
     );
-
-    // For each ast::Cell, build an Cell that contains all the
-    // required information.
-    let cells = comp
-        .cells
-        .into_iter()
-        .map(|cell| build_cell(cell, &sig_ctx))
-        .collect::<FutilResult<Vec<_>>>()?;
-    ir_component.cells = cells;
-
     let mut builder =
         Builder::from(&mut ir_component, &sig_ctx.lib_sigs, false);
 
+    // For each ast::Cell, add a Cell that contains all the
+    // required information.
+    comp.cells
+        .into_iter()
+        .for_each(|cell| add_cell(cell, &sig_ctx, &mut builder));
+
     comp.groups
         .into_iter()
-        .map(|g| build_group(g, &mut builder))
+        .map(|g| add_group(g, &mut builder))
         .collect::<FutilResult<()>>()?;
 
     let continuous_assignments = comp
@@ -173,57 +169,49 @@ fn build_component(
         .into_iter()
         .map(|w| build_assignment(w, &mut builder))
         .collect::<FutilResult<Vec<_>>>()?;
-    ir_component.continuous_assignments = continuous_assignments;
+    builder.component.continuous_assignments = continuous_assignments;
 
     // Build the Control ast using ast::Control.
-    let control =
-        Rc::new(RefCell::new(build_control(comp.control, &ir_component)?));
-    ir_component.control = control;
+    let control = Rc::new(RefCell::new(build_control(
+        comp.control,
+        &builder.component,
+    )?));
+    builder.component.control = control;
 
     Ok(ir_component)
 }
 
 ///////////////// Cell Construction /////////////////////////
 
-fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
-    // Get the name, inputs, and outputs.
-    let res: FutilResult<(Id, CellType, Vec<_>, Vec<_>)> = match cell {
-        ast::Cell::Decl { name, component } => {
+fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
+    match cell {
+        ast::Cell::Decl {
+            name: prefix,
+            component,
+        } => {
+            let name = builder.component.generate_name(prefix);
             let sig = &sig_ctx.comp_sigs[&component];
-            Ok((
+            let typ = CellType::Component {
+                name: component.clone(),
+            };
+            let cell = Builder::cell_from_signature(
                 name,
-                CellType::Component {
-                    name: component.clone(),
-                },
+                typ,
                 sig.inputs.clone(),
                 sig.outputs.clone(),
-            ))
+            );
+            builder.component.cells.push(cell);
         }
         ast::Cell::Prim { name, prim, params } => {
-            let prim_sig = &sig_ctx.lib_sigs[&prim];
-            let (param_binding, inputs, outputs) = prim_sig.resolve(&params)?;
-            Ok((
-                name,
-                CellType::Primitive {
-                    name: prim,
-                    param_binding,
-                },
-                inputs,
-                outputs,
-            ))
+            builder.add_primitive(name, prim, &params);
         }
-    };
-    let (name, typ, inputs, outputs) = res?;
-    // Construct the Cell
-    let cell = Builder::cell_from_signature(name, typ, inputs, outputs);
-
-    Ok(cell)
+    }
 }
 
 ///////////////// Group Construction /////////////////////////
 
 /// Build an IR group using the AST Group.
-fn build_group(group: ast::Group, builder: &mut Builder) -> FutilResult<()> {
+fn add_group(group: ast::Group, builder: &mut Builder) -> FutilResult<()> {
     let ir_group = builder.add_group(group.name, group.attributes);
 
     // Add assignemnts to the group
