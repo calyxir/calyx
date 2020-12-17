@@ -75,17 +75,6 @@ impl Port {
     }
 }
 
-/// Instantiates a subcomponent named `name` with
-/// paramters `params`.
-#[derive(Debug)]
-pub struct Compinst {
-    /// Name of the subcomponent to instantiate.
-    pub name: ir::Id,
-
-    /// List of parameters.
-    pub params: Vec<u64>,
-}
-
 // ===================================
 // AST for wire guard expressions
 // ===================================
@@ -146,56 +135,35 @@ pub struct Guard {
 // Data definitions for Structure
 // ===================================
 
-/// Data for the `new` structure statement.
-#[derive(Debug)]
-pub struct Decl {
-    /// Name of the variable being defined.
-    pub name: ir::Id,
-
-    /// Name of the component being instantiated.
-    pub component: ir::Id,
-}
-
-/// Data for the `new-std` structure statement.
-#[derive(Debug)]
-pub struct Prim {
-    /// Name of the variable being defined.
-    pub name: ir::Id,
-
-    /// Data for instantiating the library component.
-    pub instance: Compinst,
-}
-
 /// The Cell AST nodes.
 #[derive(Debug)]
 pub enum Cell {
     /// Node for instantiating user-defined components.
-    Decl { data: Decl },
+    Decl { name: ir::Id, component: ir::Id },
     /// Node for instantiating primitive components.
-    Prim { data: Prim },
+    Prim {
+        name: ir::Id,
+        prim: ir::Id,
+        params: Vec<u64>,
+    },
 }
 
 /// Methods for constructing the structure AST nodes.
 impl Cell {
-    /// Constructs `Structure::Decl` with `name` and `component`
-    /// as arguments.
-    pub fn decl(name: ir::Id, component: ir::Id) -> Cell {
-        Cell::Decl {
-            data: Decl { name, component },
-        }
-    }
-
     /// Constructs `Structure::Std` with `name` and `instance`
     /// as arguments.
     pub fn prim(var: ir::Id, prim_name: ir::Id, params: Vec<u64>) -> Cell {
         Cell::Prim {
-            data: Prim {
-                name: var,
-                instance: Compinst {
-                    name: prim_name,
-                    params,
-                },
-            },
+            name: var,
+            prim: prim_name,
+            params,
+        }
+    }
+
+    pub fn name(&self) -> &ir::Id {
+        match self {
+            Self::Decl { name, .. } => name,
+            Self::Prim { name, .. } => name,
         }
     }
 }
