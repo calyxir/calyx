@@ -427,11 +427,6 @@ fn get_done_signal(assigns: &[ir::Assignment]) -> &ir::Assignment {
     panic!("no done signal");
 }
 
-/// Returns the done hole for a group
-fn get_done_hole_group(group: &ir::Group) -> ir::RRC<ir::Port> {
-    ir::Group::get(group, "done".to_string())
-}
-
 /// Determines if writing a particular cell and cell port is combinational or not. Will need to change implementation later.
 fn get_combinational_or_not(
     cell: &ir::Id,
