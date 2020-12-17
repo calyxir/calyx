@@ -54,7 +54,7 @@ class Registry:
             transforms.append(f"{k} → {', '.join(vals)}")
 
         all_transforms = '\n'.join(transforms)
-        all_stages = '\n'.join([ f"{s} → {e}: {d}" for (s,e,d) in legend ])
+        all_stages = '\n'.join([f"{s} → {e}: {d}" for (s, e, d) in legend])
 
         return f"""List of possible stage transformations:
 {all_transforms}

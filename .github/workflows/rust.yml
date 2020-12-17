@@ -125,6 +125,11 @@ jobs:
       with:
         command: build
 
+    - name: Install MrXL
+      run: |
+        cd frontends/mrxl
+        flit install
+
     - name: Install fud
       run: |
         cd fud
@@ -167,6 +172,14 @@ jobs:
           mdbook-version: 'latest'
       - name: mdbook
         run: mdbook build
+      - name: Build source documentation
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: -p calyx --no-deps
+      - name: Move source documentation
+        run: |
+          mv ./target/doc ./book
       - name: rsync
         if: ${{github.event_name=='push' && github.ref=='refs/heads/master'}}
         env:

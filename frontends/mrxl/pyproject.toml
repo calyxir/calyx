@@ -1,15 +1,17 @@
-[tool.poetry]
-name = "mrxl"
-version = "0.1.0"
-description = "map/reduce accelerator DSL"
-authors = ["Adrian Sampson <asampson@cs.cornell.edu>"]
-
-[tool.poetry.dependencies]
-lark-parser = "^0.9.0"
-
-[tool.poetry.scripts]
-mrxl = "mrxl:main"
-
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.metadata]
+module = "mrxl"
+author = "The FuTIL Authors"
+home-page = "https://github.com/cucapra/futil/tree/frontends/mrxl"
+classifiers = ["License :: OSI Approved :: MIT License"]
+description-file = "README.md"
+requires-python = ">=3.4"
+requires = [
+         "lark-parser",
+]
+
+[tool.flit.scripts]
+mrxl = "mrxl.main:main"

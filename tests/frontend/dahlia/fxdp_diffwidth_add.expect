@@ -2,19 +2,17 @@ import "primitives/std.lib";
 component main() -> () {
   cells {
     a_0 = prim std_reg(16);
-    add0 = prim fixed_p_std_add_dbit(16,8,8,5,11,19);
+    add0 = prim fixed_p_std_add_dbit(16,16,8,8,5,11,19);
     b_0 = prim std_reg(16);
     fpconst0 = prim fixed_p_std_const(16,8,8,16,5);
     fpconst1 = prim fixed_p_std_const(16,5,11,8,375);
     result1_0 = prim std_reg(19);
-    slice0 = prim std_slice(16,16);
   }
   wires {
     group let0<"static"=1> {
-      a_0.in = slice0.out;
+      a_0.in = fpconst0.out;
       a_0.write_en = 1'd1;
       let0[done] = a_0.done;
-      slice0.in = fpconst0.out;
     }
     group let1<"static"=1> {
       b_0.in = fpconst1.out;
