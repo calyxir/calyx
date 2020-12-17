@@ -26,25 +26,21 @@ struct SigCtx {
 fn extend_signature(sig: &mut ast::Signature) {
     // XXX(Sam): checking to see if the port exists is a hack.
     // The solution to the 'four big problems' will solve this.
-    if sig.inputs.iter().find(|pd| pd.name == "go").is_none() {
-        sig.inputs.push(ast::Portdef {
-            name: "go".into(),
-            width: 1,
-        });
+    if sig.inputs.iter().find(|(name, _)| name == "go").is_none() {
+        sig.inputs.push(("go".into(), 1))
     }
 
-    if sig.inputs.iter().find(|pd| pd.name == "clk").is_none() {
-        sig.inputs.push(ast::Portdef {
-            name: "clk".into(),
-            width: 1,
-        });
+    if sig.inputs.iter().find(|(name, _)| name == "clk").is_none() {
+        sig.inputs.push(("clk".into(), 1))
     }
 
-    if sig.outputs.iter().find(|pd| pd.name == "done").is_none() {
-        sig.outputs.push(ast::Portdef {
-            name: "done".into(),
-            width: 1,
-        });
+    if sig
+        .outputs
+        .iter()
+        .find(|(name, _)| name == "done")
+        .is_none()
+    {
+        sig.inputs.push(("done".into(), 1))
     }
 }
 
@@ -100,16 +96,8 @@ fn build_component(
     // Cell to represent the signature of this component
     let mut ir_component = Component::new(
         comp.name,
-        comp.signature
-            .inputs
-            .into_iter()
-            .map(|pd| (pd.name, pd.width))
-            .collect(),
-        comp.signature
-            .outputs
-            .into_iter()
-            .map(|pd| (pd.name, pd.width))
-            .collect(),
+        comp.signature.inputs,
+        comp.signature.outputs,
     );
 
     // For each ast::Cell, build an Cell that contains all the
@@ -161,16 +149,8 @@ fn build_cell(cell: ast::Cell, sig_ctx: &SigCtx) -> FutilResult<RRC<Cell>> {
                 CellType::Component {
                     name: component.clone(),
                 },
-                sig.inputs
-                    .iter()
-                    .cloned()
-                    .map(|pd| (pd.name, pd.width))
-                    .collect::<Vec<_>>(),
-                sig.outputs
-                    .iter()
-                    .cloned()
-                    .map(|pd| (pd.name, pd.width))
-                    .collect::<Vec<_>>(),
+                sig.inputs.clone(),
+                sig.outputs.clone(),
             ))
         }
         ast::Cell::Prim {

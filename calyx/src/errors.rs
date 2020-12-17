@@ -46,7 +46,7 @@ pub enum Error {
     /// The group has already been bound.
     DuplicateGroup(ir::Id),
     /// The port has already been defined.
-    DuplicatePort(ir::Id, ast::Portdef),
+    DuplicatePort(ir::Id, (ir::Id, u64)),
 
     /// No value provided for a primitive parameter.
     SignatureResolutionFailed(ir::Id, ir::Id),
