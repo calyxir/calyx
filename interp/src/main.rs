@@ -14,11 +14,11 @@ pub mod interpretgroup;
 #[derive(Debug, StructOpt)]
 #[structopt(name = "interpreter", about = "group interpreter CLI")]
 pub struct Opts {
-    // Input file
+    /// Input file
     #[structopt(parse(from_os_str))]
     pub file: Option<PathBuf>,
 
-    // Output file, default is stdout
+    /// Output file, default is stdout
     #[structopt(short = "o", long = "output", default_value)]
     pub output: OutputFile,
 
@@ -26,11 +26,11 @@ pub struct Opts {
     #[structopt(long, short, default_value = "..")]
     pub lib_path: PathBuf,
 
-    // Component to interpret
+    /// Component to interpret
     #[structopt(short = "c", long = "component", default_value = "main")]
     pub component: String,
 
-    // Group to interpret
+    /// Group to interpret
     #[structopt(short = "g", long = "group")]
     pub group: String,
 }

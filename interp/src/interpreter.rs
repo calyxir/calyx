@@ -6,13 +6,14 @@ use std::rc::Rc;
 
 #[derive(Clone, Debug)]
 struct Update {
-    // the cell to be updated
+    /// The cell to be updated
     pub cell: ir::Id,
-    // the vector of input ports
+    /// The vector of input ports
     pub inputs: Vec<ir::Id>,
-    // the vector of output ports
+    /// The vector of output ports
     pub outputs: Vec<ir::Id>,
-    // map of intermediate variables (could refer to a port or it could be "new", e.g. in the sqrt)
+    /// Map of intermediate variables
+    /// (could refer to a port or it could be "new", e.g. in the sqrt)
     pub vars: HashMap<String, u64>,
 }
 
@@ -24,7 +25,8 @@ pub struct Environment {
     /// A queue of operations that need to be applied in the future.
     /// A vector of Updates.
     update_queue: Vec<Update>,
-    /// A mapping from cell ids to cells, much like in component.rs. Will probably need to remove eventually
+    // XXX(karen): Will probably need to remove eventually
+    /// A mapping from cell ids to cells, much like in component.rs.
     cells: HashMap<ir::Id, ir::RRC<ir::Cell>>,
 }
 
