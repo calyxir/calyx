@@ -494,7 +494,7 @@ fn init_cells(
     match cell_r.borrow().type_name() {
         None => panic!("bad"),
         Some(ct) => match ct.id.as_str() {
-            "std_sqrt" => { //:( 
+            "std_sqrt" => { //:(
                 // has intermediate steps/computation??
             },
             "std_reg" => {
