@@ -40,7 +40,7 @@ fn extend_signature(sig: &mut ast::Signature) {
         .find(|(name, _)| name == "done")
         .is_none()
     {
-        sig.inputs.push(("done".into(), 1))
+        sig.outputs.push(("done".into(), 1))
     }
 }
 
