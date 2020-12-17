@@ -375,15 +375,19 @@ impl FutilParser {
         ))
     }
 
-    fn connections(input: Node) -> ParseResult<Vec<ast::Connection>> {
-        input
-            .into_children()
-            .map(|node| match node.as_rule() {
-                Rule::wire => Ok(ast::Connection::Wire(Self::wire(node)?)),
-                Rule::group => Ok(ast::Connection::Group(Self::group(node)?)),
-                _ => unreachable!(),
-            })
-            .collect()
+    fn connections(
+        input: Node,
+    ) -> ParseResult<(Vec<ast::Wire>, Vec<ast::Group>)> {
+        let mut wires = Vec::new();
+        let mut groups = Vec::new();
+        for node in input.into_children() {
+            match node.as_rule() {
+                Rule::wire => wires.push(Self::wire(node)?),
+                Rule::group => groups.push(Self::group(node)?),
+                _ => unreachable!()
+            }
+        }
+        Ok((wires, groups))
     }
 
     fn enable(input: Node) -> ParseResult<ast::Control> {
@@ -487,26 +491,23 @@ impl FutilParser {
     fn component(input: Node) -> ParseResult<ast::ComponentDef> {
         Ok(match_nodes!(
         input.into_children();
-        [identifier(id), signature(sig), cells(cells), connections(connections), control(control)] =>
+        [
+            identifier(id),
+            signature(sig),
+            cells(cells),
+            connections(connections),
+            control(control)
+        ] => {
+            let (continuous_assignments, groups) = connections;
             ast::ComponentDef {
                 name: id,
                 signature: sig,
                 cells,
-                connections,
+                groups,
+                continuous_assignments,
                 control,
-            },
-            [identifier(id), cells(cells), connections(connections), control(control)] =>
-                ast::ComponentDef {
-                    name: id,
-                    signature: ast::Signature {
-                        inputs: vec![],
-                        outputs: vec![]
-                    },
-                    cells,
-                    connections,
-                    control,
-                },
-        ))
+            }
+        }))
     }
 
     fn imports(input: Node) -> ParseResult<Vec<String>> {

@@ -121,24 +121,16 @@ fn build_component(
         .collect::<FutilResult<Vec<_>>>()?;
     ir_component.cells = cells;
 
-    // Build Groups and Assignments using Connections.
-    let (mut ast_groups, mut continuous) = (vec![], vec![]);
-    for conn in comp.connections.into_iter() {
-        match conn {
-            ast::Connection::Group(g) => ast_groups.push(g),
-            ast::Connection::Wire(w) => continuous.push(w),
-        }
-    }
-
     let mut builder =
         Builder::from(&mut ir_component, &sig_ctx.lib_sigs, false);
 
-    ast_groups
+    comp.groups
         .into_iter()
         .map(|g| build_group(g, &mut builder))
         .collect::<FutilResult<()>>()?;
 
-    let continuous_assignments = continuous
+    let continuous_assignments = comp
+        .continuous_assignments
         .into_iter()
         .map(|w| build_assignment(w, &mut builder))
         .collect::<FutilResult<Vec<_>>>()?;

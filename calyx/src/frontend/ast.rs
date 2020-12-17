@@ -24,8 +24,11 @@ pub struct ComponentDef {
     /// List of instantiated sub-components
     pub cells: Vec<Cell>,
 
-    /// List of wires
-    pub connections: Vec<Connection>,
+    /// List of groups
+    pub groups: Vec<Group>,
+
+    /// List of continuous assignments
+    pub continuous_assignments: Vec<Wire>,
 
     /// Single control statement for this component.
     pub control: Control,
@@ -205,13 +208,6 @@ impl Cell {
             },
         }
     }
-}
-
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug)]
-pub enum Connection {
-    Group(Group),
-    Wire(Wire),
 }
 
 #[derive(Debug)]
