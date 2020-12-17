@@ -24,8 +24,11 @@ pub struct ComponentDef {
     /// List of instantiated sub-components
     pub cells: Vec<Cell>,
 
-    /// List of wires
-    pub connections: Vec<Connection>,
+    /// List of groups
+    pub groups: Vec<Group>,
+
+    /// List of continuous assignments
+    pub continuous_assignments: Vec<Wire>,
 
     /// Single control statement for this component.
     pub control: Control,
@@ -36,20 +39,10 @@ pub struct ComponentDef {
 #[derive(Clone, Debug)]
 pub struct Signature {
     /// List of input ports.
-    pub inputs: Vec<Portdef>,
+    pub inputs: Vec<(ir::Id, u64)>,
 
     /// List of output ports.
-    pub outputs: Vec<Portdef>,
-}
-
-/// The definition of an input/output port.
-#[derive(Clone, Debug)]
-pub struct Portdef {
-    /// The name of the port.
-    pub name: ir::Id,
-
-    /// The width of the port.
-    pub width: u64,
+    pub outputs: Vec<(ir::Id, u64)>,
 }
 
 /// Statement that refers to a port on a subcomponent.
@@ -80,17 +73,6 @@ impl Port {
             Port::Hole { name, .. } => name,
         }
     }
-}
-
-/// Instantiates a subcomponent named `name` with
-/// paramters `params`.
-#[derive(Debug)]
-pub struct Compinst {
-    /// Name of the subcomponent to instantiate.
-    pub name: ir::Id,
-
-    /// List of parameters.
-    pub params: Vec<u64>,
 }
 
 // ===================================
@@ -153,65 +135,37 @@ pub struct Guard {
 // Data definitions for Structure
 // ===================================
 
-/// Data for the `new` structure statement.
-#[derive(Debug)]
-pub struct Decl {
-    /// Name of the variable being defined.
-    pub name: ir::Id,
-
-    /// Name of the component being instantiated.
-    pub component: ir::Id,
-}
-
-/// Data for the `new-std` structure statement.
-#[derive(Debug)]
-pub struct Prim {
-    /// Name of the variable being defined.
-    pub name: ir::Id,
-
-    /// Data for instantiating the library component.
-    pub instance: Compinst,
-}
-
 /// The Cell AST nodes.
 #[derive(Debug)]
 pub enum Cell {
     /// Node for instantiating user-defined components.
-    Decl { data: Decl },
+    Decl { name: ir::Id, component: ir::Id },
     /// Node for instantiating primitive components.
-    Prim { data: Prim },
+    Prim {
+        name: ir::Id,
+        prim: ir::Id,
+        params: Vec<u64>,
+    },
 }
 
 /// Methods for constructing the structure AST nodes.
 impl Cell {
-    /// Constructs `Structure::Decl` with `name` and `component`
-    /// as arguments.
-    pub fn decl(name: ir::Id, component: ir::Id) -> Cell {
-        Cell::Decl {
-            data: Decl { name, component },
-        }
-    }
-
     /// Constructs `Structure::Std` with `name` and `instance`
     /// as arguments.
     pub fn prim(var: ir::Id, prim_name: ir::Id, params: Vec<u64>) -> Cell {
         Cell::Prim {
-            data: Prim {
-                name: var,
-                instance: Compinst {
-                    name: prim_name,
-                    params,
-                },
-            },
+            name: var,
+            prim: prim_name,
+            params,
         }
     }
-}
 
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug)]
-pub enum Connection {
-    Group(Group),
-    Wire(Wire),
+    pub fn name(&self) -> &ir::Id {
+        match self {
+            Self::Decl { name, .. } => name,
+            Self::Prim { name, .. } => name,
+        }
+    }
 }
 
 #[derive(Debug)]

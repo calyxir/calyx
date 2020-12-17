@@ -54,20 +54,11 @@ impl Visitor for WellFormed {
         comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
-        for group_ref in &comp.groups {
-            self.all_groups.insert(group_ref.borrow().name.clone());
-        }
         // Check if any of the cells use a reserved name.
         for cell_ref in &comp.cells {
             let cell = cell_ref.borrow();
             if self.reserved_names.contains(&cell.name.id) {
                 return Err(Error::ReservedName(cell.name.clone()));
-            }
-            if self.all_groups.contains(&cell.name) {
-                return Err(Error::AlreadyBound(
-                    cell.name.clone(),
-                    "group".to_string(),
-                ));
             }
         }
         Ok(Action::Continue)

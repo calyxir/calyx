@@ -1,0 +1,78 @@
+// -p minimize-regs -p dead-cell-removal
+import "primitives/std.lib";
+component kernel() -> () {
+  cells {
+    b0 = prim std_reg(32);
+    before0 = prim std_reg(4);
+    x0 = prim std_reg(4);
+    read_x0 = prim std_add(4);
+
+    b1 = prim std_reg(32);
+    before1 = prim std_reg(4);
+    x1 = prim std_reg(4);
+    read_x1 = prim std_add(4);
+  }
+  wires {
+    group wr_before0<"static"=1> {
+      before0.in = 4'd1;
+      before0.write_en = 1'd1;
+      wr_before0[done] = before0.done;
+    }
+    group wr_x0<"static"=1> {
+      x0.in = 4'd1;
+      x0.write_en = 1'd1;
+      wr_x0[done] = x0.done;
+    }
+    group wr_b0<"static"=1> {
+      b0.in = 32'd1;
+      b0.write_en = 1'd1;
+      wr_b0[done] = b0.done;
+    }
+    group rd_x0<"static"=1> {
+      read_x0.right = x0.out;
+      read_x0.left = x0.out;
+      rd_x0[done] = 1'b1;
+    }
+
+    group wr_before1<"static"=1> {
+      before1.in = 4'd1;
+      before1.write_en = 1'd1;
+      wr_before1[done] = before1.done;
+    }
+    group wr_x1<"static"=1> {
+      x1.in = 4'd1;
+      x1.write_en = 1'd1;
+      wr_x1[done] = x1.done;
+    }
+    group wr_b1<"static"=1> {
+      b1.in = 32'd1;
+      b1.write_en = 1'd1;
+      wr_b1[done] = b1.done;
+    }
+    group rd_x1<"static"=1> {
+      read_x1.right = x1.out;
+      read_x1.left = x1.out;
+      rd_x1[done] = 1'b1;
+    }
+  }
+  control {
+    par {
+      seq {
+        wr_before0;
+        par {
+          wr_x0;
+          wr_b0;
+        }
+        rd_x0;
+      }
+      seq {
+        wr_before1;
+        par {
+          wr_x1;
+          wr_b1;
+        }
+        rd_x1;
+      }
+    }
+  }
+}

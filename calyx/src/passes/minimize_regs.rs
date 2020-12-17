@@ -55,7 +55,7 @@ impl Visitor for MinimizeRegs {
         comp: &mut ir::Component,
         _s: &lib::LibrarySignatures,
     ) -> VisResult {
-        self.live = LiveRangeAnalysis::from(&*comp.control.borrow());
+        self.live = LiveRangeAnalysis::new(&comp, &*comp.control.borrow());
 
         Ok(Action::Continue)
     }
