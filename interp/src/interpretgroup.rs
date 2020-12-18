@@ -68,14 +68,16 @@ fn validate_names<'a>(
             let groups = &comp.groups.clone();
             match groups.iter().find(|&g| g.borrow().name == *group) {
                 Some(_) => Ok(comp),
-                None => {
-                    Err(Error::UndefinedGroup(ir::Id::from(group.to_string())))
-                }
+                None => Err(Error::Undefined(
+                    ir::Id::from(group.to_string()),
+                    "group".to_string(),
+                )),
             }
         }
-        None => Err(Error::UndefinedComponent(ir::Id::from(
-            component.to_string(),
-        ))),
+        None => Err(Error::Undefined(
+            ir::Id::from(component.to_string()),
+            "component".to_string(),
+        )),
     }
 }
 
@@ -105,7 +107,7 @@ fn construct_map(
             }
             ir::CellType::Primitive { .. } => {
                 for port in &cb.ports {
-                    // All ports for primitives are initalized to 0 , unless the cell is an std_constant
+                    // All ports for primitives are initalized to 0 , unless the cell is an std_const
                     let pb = port.borrow();
                     let initval = cb
                         .get_paramter(&ir::Id::from("value".to_string()))
