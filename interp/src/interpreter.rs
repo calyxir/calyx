@@ -58,9 +58,7 @@ impl Environment {
         if let Some(map) = temp {
             let mut mapcopy = map.clone();
             mapcopy.insert(port.clone(), val);
-            //println!("mapcopy: {:?}", mapcopy);
             self.map.insert(cell.clone(), mapcopy);
-        //println!("sefl.map: {:?}", self.map);
         } else {
             let mut temp_map = HashMap::new();
             temp_map.insert(port.clone(), val);
@@ -526,7 +524,6 @@ fn update_cell_state(
                     new_env.put(cell, &out, new_env.get(cell, &inp)); // reg.out = reg.in
                     new_env.put(cell, &done, 1); // reg.done = 1'd1
                     new_env.remove_update(cell); // remove from update queue
-                                                 //new_env.remove_update((*cell).clone()); // check the type of cell
                 }
             }
         }
@@ -548,11 +545,15 @@ fn update_cell_state(
             &output[0],
             new_env.get(cell, &inputs[0]) - env.get(cell, &inputs[1]),
         ),
-        "std_mod" => new_env.put(
-            cell,
-            &output[0],
-            new_env.get(cell, &inputs[0]) % env.get(cell, &inputs[1]),
-        ),
+        "std_mod" => {
+            if env.get(cell, &inputs[1]) != 0 {
+                new_env.put(
+                    cell,
+                    &output[0],
+                    new_env.get(cell, &inputs[0]) % env.get(cell, &inputs[1]),
+                )
+            }
+        }
         "std_mult" => new_env.put(
             cell,
             &output[0],
