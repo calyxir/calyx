@@ -196,7 +196,7 @@ fn wire_decls(cell: &ir::Cell) -> Vec<(String, u64, ir::Direction)> {
         .iter()
         .filter_map(|port| match &port.borrow().parent {
             ir::PortParent::Cell(cell) => {
-                let parent_ref = cell.upgrade().unwrap();
+                let parent_ref = cell.upgrade();
                 let parent = parent_ref.borrow();
                 match parent.prototype {
                     ir::CellType::Component { .. }
@@ -278,7 +278,7 @@ fn port_to_ref(port_ref: RRC<ir::Port>) -> v::Expr {
     let port = port_ref.borrow();
     match &port.parent {
         ir::PortParent::Cell(cell) => {
-            let parent_ref = cell.upgrade().unwrap();
+            let parent_ref = cell.upgrade();
             let parent = parent_ref.borrow();
             match parent.prototype {
                 ir::CellType::Constant { val, width } => {

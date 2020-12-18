@@ -54,7 +54,7 @@ impl Port {
     /// Checks if this port is a constant of value: `val`.
     pub fn is_constant(&self, val: u64) -> bool {
         if let PortParent::Cell(cell) = &self.parent {
-            match cell.upgrade().unwrap().borrow().prototype {
+            match cell.upgrade().borrow().prototype {
                 CellType::Constant { val: v, .. } => v == val,
                 _ => false,
             }
@@ -66,18 +66,8 @@ impl Port {
     /// Gets name of parent object.
     pub fn get_parent_name(&self) -> Id {
         match &self.parent {
-            PortParent::Cell(cell) => cell
-                .upgrade()
-                .unwrap_or_else(|| panic!("No cell for port: {}", self.name))
-                .borrow()
-                .name
-                .clone(),
-            PortParent::Group(group) => group
-                .upgrade()
-                .unwrap_or_else(|| panic!("No group for hole: {}", self.name))
-                .borrow()
-                .name
-                .clone(),
+            PortParent::Cell(cell) => cell.upgrade().borrow().name.clone(),
+            PortParent::Group(group) => group.upgrade().borrow().name.clone(),
         }
     }
 }
