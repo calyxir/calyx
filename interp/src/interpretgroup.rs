@@ -54,7 +54,7 @@ impl GroupInterpreter {
 }
 
 // Get the name of the component to interpret from the context.
-fn get_component<'a>(
+fn get_component(
     ctx: ir::Context,
     component: &str,
 ) -> FutilResult<ir::Component> {
