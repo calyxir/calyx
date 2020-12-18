@@ -27,6 +27,8 @@ pub struct Environment {
     /// A vector of Updates.
     update_queue: Vec<Update>,
     // XXX(karen): Will probably need to remove eventually
+    // XXX(rachit): We can probably just "attach" an `ir::Component` here and
+    // use the methods defined on that (like `ir::Component::get_cell`).
     /// A mapping from cell ids to cells, much like in component.rs.
     cells: HashMap<ir::Id, ir::RRC<ir::Cell>>,
 }
