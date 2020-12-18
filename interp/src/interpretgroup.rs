@@ -27,66 +27,43 @@ impl GroupInterpreter {
     /// Interpret a group, given a context, component name, and group name
     pub fn interpret(self, ctx: ir::Context) -> FutilResult<()> {
         // Validation
-        let comp = validate_names(&ctx, &self.component, &self.group)?;
+        let comp = get_component(ctx, &self.component)?;
 
         // Intialize environment
-        let cells = get_cells(&ctx, &self.component); // May not necessarily need to explicitly get cells here?
-        let map = construct_map(&cells);
-        let cellmap = construct_cell_map(&cells);
-
-        let environment: interpreter::Environment =
-            interpreter::Environment::init(map, cellmap);
+        let map = construct_map(&comp.cells);
+        let cellmap = comp
+            .cells
+            .iter()
+            .map(|cell| (cell.borrow().name.clone(), Rc::clone(&cell)))
+            .collect::<HashMap<_, _>>();
 
         // Initial state of the environment
+        let environment = interpreter::Environment::init(map, cellmap);
         environment.cell_state();
 
         // Interpret the group
-        let group = comp
-            .find_group(&self.group)
-            .unwrap_or_else(|| panic!("bad"));
-        //println!("Started interpreting...");
+        let group = comp.find_group(&self.group).ok_or_else(|| {
+            Error::Undefined(ir::Id::from(self.group), "group".to_string())
+        })?;
 
-        let finalenv = interpreter::eval_group(group, environment)?;
-
-        //println!("Finished interpreting.");
         // Final state of the environment
+        let finalenv = interpreter::eval_group(group, environment)?;
         finalenv.cell_state();
         Ok(())
     }
 }
 
-// Ensures that the component and group names exist in the context
-fn validate_names<'a>(
-    ctx: &'a ir::Context,
+// Get the name of the component to interpret from the context.
+fn get_component<'a>(
+    ctx: ir::Context,
     component: &str,
-    group: &str,
-) -> FutilResult<&'a ir::Component> {
-    let components = &ctx.components;
-
-    match components.iter().find(|&c| c.name.id == *component) {
-        Some(comp) => {
-            let groups = &comp.groups.clone();
-            match groups.iter().find(|&g| g.borrow().name == *group) {
-                Some(_) => Ok(comp),
-                None => Err(Error::Undefined(
-                    ir::Id::from(group.to_string()),
-                    "group".to_string(),
-                )),
-            }
-        }
+) -> FutilResult<ir::Component> {
+    match ctx.components.into_iter().find(|c| c.name.id == *component) {
+        Some(comp) => Ok(comp),
         None => Err(Error::Undefined(
             ir::Id::from(component.to_string()),
             "component".to_string(),
         )),
-    }
-}
-
-// Find the component's cells in context; duplicated code?
-fn get_cells(ctx: &ir::Context, component: &str) -> Vec<ir::RRC<ir::Cell>> {
-    let components = &ctx.components;
-    match components.iter().find(|&c| c.name.id == *component) {
-        Some(comp) => comp.cells.clone(),
-        _ => panic!("This isn't supposed to happen?"),
     }
 }
 
@@ -119,18 +96,6 @@ fn construct_map(
             }
             _ => panic!("component"),
         }
-    }
-    map
-}
-
-// Construct a map from cell ids to cells; this is likely necessary for a group interpreter.
-// However, it is probably unecessary for a component interpreter.
-fn construct_cell_map(
-    cells: &[ir::RRC<ir::Cell>],
-) -> HashMap<ir::Id, ir::RRC<ir::Cell>> {
-    let mut map = HashMap::new();
-    for cell in cells {
-        map.insert(cell.borrow().name.clone(), Rc::clone(&cell));
     }
     map
 }
