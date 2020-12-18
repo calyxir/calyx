@@ -17,6 +17,7 @@ use passes::{
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion,
     InferStaticTiming, Inliner, LiveRangeAnalysis, MinimizeRegs, Papercut,
     RemoveExternalMemories, ResourceSharing, StaticTiming, WellFormed,
+    WhileSpec,
 };
 use std::io::stdin;
 use structopt::StructOpt;
@@ -43,6 +44,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
     register_pass!(pm, ClkInsertion);
     register_pass!(pm, ResourceSharing);
     register_pass!(pm, DeadCellRemoval);
+    register_pass!(pm, WhileSpec);
 
     // custom register pass
     let register_removal_pass_f: pass_manager::PassClosure = Box::new(|ctx| {
@@ -75,6 +77,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
             Inliner,
             ClkInsertion,
             //MergeAssign,
+            WhileSpec,
         ]
     );
 

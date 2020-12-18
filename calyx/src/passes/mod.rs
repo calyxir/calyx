@@ -17,6 +17,7 @@ mod remove_external_memories;
 mod resource_sharing;
 mod static_timing;
 mod well_formed;
+mod while_spec;
 
 pub use clk_insertion::ClkInsertion;
 pub use collapse_control::CollapseControl;
@@ -35,3 +36,4 @@ pub use remove_external_memories::RemoveExternalMemories;
 pub use resource_sharing::ResourceSharing;
 pub use static_timing::StaticTiming;
 pub use well_formed::WellFormed;
+pub use while_spec::WhileSpec;
