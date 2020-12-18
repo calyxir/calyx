@@ -87,9 +87,9 @@ impl Environment {
     }
 
     /// Convenience function to remove a particular cell's update from the update queue
-    // pub fn remove_update(&mut self, ucell: ir::Id) {
-    //     self.map.remove(&ucell); // this is wrong
-    // }
+    pub fn remove_update(&mut self, ucell: &ir::Id) {
+        self.update_queue.retain(|u| u.cell != ucell);
+    }
 
     /// Simulates a clock cycle by executing the stored updates.
     pub fn do_tick(&mut self) {
@@ -106,14 +106,12 @@ impl Environment {
                     let temp = e
                         .map
                         .get(&update.cell)
-                        .unwrap_or_else(|| panic!("can't get map"))
+                        .unwrap_or_else(|| panic!("Can't get map"))
                         .clone();
-                    //m = temp;
                     self.map.insert(update.cell.clone(), temp);
                 }
-                _ => panic!("uh oh "),
+                _ => panic!("Could not apply update. "),
             }
-            //self.remove_update(update.cell); //
         }
     }
 
@@ -188,7 +186,7 @@ fn eval_assigns(
     while write_env.get(&done_cell, &done_assign.src.borrow().name) == 0
         && counter < 5
     {
-        //println!("Clock cycle {}", counter);
+        // println!("Clock cycle {}", counter);
         /*println!(
             "state of done_cell {:1} : {:?} \n",
             &done_cell,
@@ -330,7 +328,7 @@ fn eval_guard_helper(guard: &ir::Guard, env: &Environment) -> u64 {
                     return 1;
                 }
             }
-            return 0;
+            0
         }
         ir::Guard::And(gs) => {
             for g in gs.clone() {
@@ -338,7 +336,7 @@ fn eval_guard_helper(guard: &ir::Guard, env: &Environment) -> u64 {
                     return 0;
                 }
             }
-            return 1;
+            1
         }
         ir::Guard::Eq(g1, g2) => {
             (eval_guard_helper(&**g1, env) == eval_guard_helper(&**g2, env))
@@ -366,9 +364,9 @@ fn eval_guard_helper(guard: &ir::Guard, env: &Environment) -> u64 {
         }
         ir::Guard::Not(g) => {
             if eval_guard_helper(g, &env) == 0 {
-                return 1;
+                1
             } else {
-                return 0;
+                0
             }
         }
         ir::Guard::Port(p) => {
@@ -383,9 +381,9 @@ fn eval_guard_helper(guard: &ir::Guard, env: &Environment) -> u64 {
 /// Very similar to ir::Port::get_parent_name, except it can also panic
 fn get_cell_from_port(port: &ir::RRC<ir::Port>) -> ir::Id {
     if is_cell(&port.borrow()) {
-        return ir::Port::get_parent_name(&(port.borrow()));
+        ir::Port::get_parent_name(&(port.borrow()))
     } else {
-        panic!("port belongs to a group, not a cell!");
+        panic!("port belongs to a group, not a cell!")
     }
 }
 
@@ -500,13 +498,13 @@ fn update_cell_state(
     // get the actual cell, based on the id
     // let cell_r = cell.as_ref();
 
-    let mut new_env = env.clone(); //??
+    let mut new_env = env.clone();
 
     let cell_r = new_env
         .get_cell(cell)
         .unwrap_or_else(|| panic!("Cannot find cell with name"));
 
-    let temp = cell_r.borrow(); //???
+    let temp = cell_r.borrow();
 
     // get the cell type
     let cell_type = temp.type_name().unwrap_or_else(|| panic!("Futil Const?"));
@@ -527,7 +525,7 @@ fn update_cell_state(
                 if output[0].id == "in" {
                     new_env.put(cell, &out, new_env.get(cell, &inp)); // reg.out = reg.in
                     new_env.put(cell, &done, 1); // reg.done = 1'd1
-                                                 // remove from update queue
+                    new_env.remove_update(cell); // remove from update queue
                                                  //new_env.remove_update((*cell).clone()); // check the type of cell
                 }
             }

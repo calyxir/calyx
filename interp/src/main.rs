@@ -78,5 +78,5 @@ fn main() -> FutilResult<()> {
     // Run the interpreter (in this case, group interpreter)
     interpreter.interpret(ir)?;
 
-    return Ok(());
+    Ok(())
 }
