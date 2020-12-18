@@ -247,13 +247,8 @@ fn build_live_ranges(
                 kills.clone(),
                 lr,
             );
-            let (f_alive, f_gens, f_kills) = build_live_ranges(
-                &fbranch,
-                alive.clone(),
-                gens.clone(),
-                kills.clone(),
-                lr,
-            );
+            let (f_alive, f_gens, f_kills) =
+                build_live_ranges(&fbranch, alive, gens, kills, lr);
 
             // take union
             let alive = &t_alive | &f_alive;
