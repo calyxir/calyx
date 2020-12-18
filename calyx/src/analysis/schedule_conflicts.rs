@@ -1,7 +1,7 @@
 use crate::ir::{self, RRC};
+use itertools::Itertools;
 use petgraph::{graph::NodeIndex, Graph};
 use std::collections::HashMap;
-use std::fmt::Write;
 use std::rc::Rc;
 
 type GroupNode = RRC<ir::Group>;
@@ -150,21 +150,33 @@ impl From<&ir::Control> for ScheduleConflicts {
 
 impl ToString for ScheduleConflicts {
     fn to_string(&self) -> String {
-        let mut out = String::new();
-        for idx in self.conflicts.node_indices() {
-            writeln!(
-                &mut out,
-                "{} -> {}",
-                self.conflicts[idx].borrow().name,
-                self.conflicts
-                    .neighbors_undirected(idx)
-                    .into_iter()
-                    .map(|idx| self.conflicts[idx].borrow().name.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            )
-            .expect("Failed to write to ScheduleConflicts string");
-        }
-        out
+        let keys: Vec<_> = self.index_map.keys().collect();
+        let nodes = keys
+            .iter()
+            .enumerate()
+            .map(|(_idx, key)| {
+                format!(
+                    "  {} [label=\"{}\"];",
+                    key.to_string(),
+                    key.to_string()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let edges = self
+            .conflicts
+            .edge_indices()
+            .filter_map(|idx| self.conflicts.edge_endpoints(idx))
+            .unique()
+            .map(|(a_idx, b_idx)| {
+                format!(
+                    "  {} -- {};",
+                    self.conflicts[a_idx].borrow().name.to_string(),
+                    self.conflicts[b_idx].borrow().name.to_string()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        format!("graph {{ \n{}\n{}\n }}", nodes, edges)
     }
 }

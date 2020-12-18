@@ -1,6 +1,6 @@
 use crate::frontend::library::ast as lib;
 use crate::{
-    analysis::{GraphColoring, LiveRangeAnalysis},
+    analysis::{GraphColoring, LiveRangeAnalysis, ScheduleConflicts},
     ir::{
         self,
         traversal::{Named, Visitor},
@@ -29,6 +29,7 @@ use itertools::Itertools;
 pub struct MinimizeRegs {
     live: LiveRangeAnalysis,
     graph: GraphColoring<ir::Id>,
+    par_conflicts: ScheduleConflicts,
 }
 
 impl MinimizeRegs {
@@ -36,6 +37,7 @@ impl MinimizeRegs {
         MinimizeRegs {
             live,
             graph: GraphColoring::default(),
+            par_conflicts: ScheduleConflicts::default(),
         }
     }
 }
@@ -56,6 +58,7 @@ impl Visitor for MinimizeRegs {
         _s: &lib::LibrarySignatures,
     ) -> VisResult {
         self.live = LiveRangeAnalysis::new(&comp, &*comp.control.borrow());
+        self.par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
 
         Ok(Action::Continue)
     }
@@ -66,12 +69,32 @@ impl Visitor for MinimizeRegs {
         _comp: &mut Component,
         _sigs: &lib::LibrarySignatures,
     ) -> VisResult {
-        // XXX(sam) can move this to work on definitions rather than enables
-
         // add constraints between things that are alive at the same time
         let conflicts = self.live.get(&enable.group.borrow());
         self.graph
             .insert_conflicts(&conflicts.iter().cloned().collect::<Vec<_>>());
+
+        let in_parallel: Vec<_> = self
+            .par_conflicts
+            .all_conflicts(&enable.group)
+            .into_iter()
+            .flat_map(|group| {
+                self.live
+                    .get(&*group.borrow())
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+
+        for conflict_here in conflicts {
+            for par_conflict in &in_parallel {
+                self.graph.insert_conflict(
+                    conflict_here.clone(),
+                    par_conflict.clone(),
+                );
+            }
+        }
 
         Ok(Action::Continue)
     }
@@ -111,6 +134,18 @@ impl Visitor for MinimizeRegs {
                 (comp.find_cell(&a).unwrap(), comp.find_cell(&b).unwrap())
             })
             .collect();
+
+        // eprintln!(
+        //     "{:?}",
+        //     coloring
+        //         .iter()
+        //         .map(|(a, b)| format!(
+        //             "{} -> {}",
+        //             a.borrow().name.to_string(),
+        //             b.borrow().name.to_string()
+        //         ))
+        //         .collect::<Vec<_>>()
+        // );
 
         // apply the coloring as a renaming of registers for both groups
         // and continuous assignments

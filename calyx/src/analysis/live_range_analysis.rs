@@ -5,47 +5,59 @@ use crate::{
 use itertools::Itertools;
 use std::{
     collections::{HashMap, HashSet},
-    ops::BitOr,
+    fmt::Debug,
+    ops::{BitOr, Sub},
     rc::Rc,
 };
 
-/// The data structure that is passed through the visitor functions.
-/// We need to explicitly pass `gen` and `live` between control statements because
-/// `par` needs this information to implement it's `meet` function correctly.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Data {
-    /// Represents the registers that are generated from this control statement.
-    gen: HashSet<ir::Id>,
-    /// Represents the registers that are killed by this control statement.
-    kill: HashSet<ir::Id>,
-    /// Represents the registers that are live at this control statement.
-    live: HashSet<ir::Id>,
-    /// Keeps track of registers alive in par statements so that they can
-    /// be shared between siblings.
-    local_live: HashSet<ir::Id>,
-    /// Keeps track of registers that are globally alive.
-    global_live: HashSet<ir::Id>,
+/// The data structure used to represent sets of ids. This is used to represent
+/// the `live`, `gen`, and `kill` sets.
+#[derive(Default, Clone)]
+pub struct Prop {
+    set: HashSet<ir::Id>,
 }
 
-impl BitOr<&Data> for &Data {
-    type Output = Data;
-    fn bitor(self, rhs: &Data) -> Self::Output {
-        Data {
-            gen: &self.gen | &rhs.gen,
-            kill: &self.kill | &rhs.kill,
-            live: &self.live | &rhs.live,
-            local_live: &self.local_live | &rhs.local_live,
-            global_live: self.global_live.clone(),
+/// Conversion from HashSet<ir::Id>
+impl From<HashSet<ir::Id>> for Prop {
+    fn from(set: HashSet<ir::Id>) -> Self {
+        Prop { set }
+    }
+}
+
+/// Implement convenience math operators for Prop
+impl BitOr<&Prop> for &Prop {
+    type Output = Prop;
+    fn bitor(self, rhs: &Prop) -> Self::Output {
+        Prop {
+            set: &self.set | &rhs.set,
         }
     }
 }
 
-impl Data {
+impl Sub<&Prop> for &Prop {
+    type Output = Prop;
+    fn sub(self, rhs: &Prop) -> Self::Output {
+        Prop {
+            set: &self.set - &rhs.set,
+        }
+    }
+}
+
+/// Implement nice printing for prop for debugging purposes.
+impl Debug for Prop {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{")?;
+        let names = self.set.iter().map(|id| &id.id).join(", ");
+        write!(f, "{}", names)?;
+        write!(f, "}}")
+    }
+}
+
+impl Prop {
     /// Defines the dataflow transfer function.
     /// This is the standard definition for liveness.
-    fn transfer(&mut self) {
-        self.live = &(&self.live - &self.kill) | &self.gen;
-        self.live = &self.live | &self.global_live;
+    fn transfer(self, gen: &Prop, kill: &Prop) -> Self {
+        &(&self - kill) | gen
     }
 }
 
@@ -59,7 +71,17 @@ impl Data {
 #[derive(Default)]
 pub struct LiveRangeAnalysis {
     /// Map from group names to the components live inside them.
-    live: HashMap<ir::Id, HashSet<ir::Id>>,
+    live: HashMap<ir::Id, Prop>,
+}
+
+impl Debug for LiveRangeAnalysis {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Live variables {{")?;
+        for (k, v) in self.live.iter() {
+            writeln!(f, "  {}: {:?}", k.id, v)?;
+        }
+        write!(f, "}}")
+    }
 }
 
 impl LiveRangeAnalysis {
@@ -67,29 +89,38 @@ impl LiveRangeAnalysis {
     pub fn new(comp: &ir::Component, control: &ir::Control) -> Self {
         let mut ranges = LiveRangeAnalysis::default();
 
-        // global reads
-        let mut data = Data::default();
-        let global_reads: HashSet<_> =
+        build_live_ranges(
+            control,
+            Prop::default(),
+            Prop::default(),
+            Prop::default(),
+            &mut ranges,
+        );
+
+        // add global reads to every point
+        let global_reads: Prop =
             ReadWriteSet::read_set(&comp.continuous_assignments)
                 .into_iter()
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
                 .map(|c| c.borrow().name.clone())
-                .collect();
-        data.global_live = global_reads;
+                .collect::<HashSet<_>>()
+                .into();
+        for (_, prop) in ranges.live.iter_mut() {
+            *prop = &*prop | &global_reads;
+        }
 
-        build_live_ranges(control, &mut data, &mut ranges);
         ranges
     }
     /// Look up the set of things live at a group definition.
     pub fn get(&self, group: &ir::Group) -> &HashSet<ir::Id> {
-        &self.live[&group.name]
+        &self.live[&group.name].set
     }
 
     /// Get a unique list of all live registers in `component`.
     pub fn get_all(&self) -> impl Iterator<Item = ir::Id> + '_ {
         self.live
             .iter()
-            .map(|(_name, set)| set.iter())
+            .map(|(_name, set)| set.set.iter())
             .flatten()
             .unique()
             .cloned()
@@ -108,9 +139,7 @@ impl LiveRangeAnalysis {
     ///
     /// To implement this, we say that something is being read if it shows up on the rhs
     /// of any assignment in a group. Something is written if it it's guard is `1` or if it has no guard.
-    fn find_gen_kill(
-        group_ref: &RRC<ir::Group>,
-    ) -> (HashSet<ir::Id>, HashSet<ir::Id>) {
+    fn find_gen_kill(group_ref: &RRC<ir::Group>) -> (Prop, Prop) {
         let group = group_ref.borrow();
         // if the group contains what looks like a variable write,
         // then just add variable to write set
@@ -146,7 +175,7 @@ impl LiveRangeAnalysis {
             let mut writes = HashSet::new();
             writes.insert(variable);
 
-            (reads, writes)
+            (reads.into(), writes.into())
         } else {
             let reads: HashSet<_> = ReadWriteSet::read_set(&group.assignments)
                 .into_iter()
@@ -162,57 +191,48 @@ impl LiveRangeAnalysis {
                 .cloned()
                 .collect::<Vec<_>>();
 
-            let writes = ReadWriteSet::write_set(&assignments)
+            let writes: HashSet<_> = ReadWriteSet::write_set(&assignments)
                 .into_iter()
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
                 .map(|c| c.borrow().name.clone())
                 .collect();
 
-            (reads, writes)
+            (reads.into(), writes.into())
         }
     }
 }
 
-impl ToString for Data {
-    fn to_string(&self) -> String {
-        self.live
-            .iter()
-            .map(|x| x.to_string())
-            .sorted()
-            .collect::<Vec<_>>()
-            .join(", ")
-    }
-}
-
+/// Implements the parallel dataflow analysis that computes the liveness of every register
+/// at every point in the program.
 fn build_live_ranges(
     c: &ir::Control,
-    alive: &mut Data,
+    alive: Prop,
+    gens: Prop,
+    kills: Prop,
     lr: &mut LiveRangeAnalysis,
-) {
+) -> (Prop, Prop, Prop) {
     match c {
-        ir::Control::Empty(_) => (),
+        ir::Control::Empty(_) => (alive, gens, kills),
         ir::Control::Invoke(_) => unimplemented!(),
         ir::Control::Enable(ir::Enable { group }) => {
             // XXX(sam) no reason to compute this every time
             let (reads, writes) = LiveRangeAnalysis::find_gen_kill(&group);
-            alive.gen = reads;
-            alive.kill = writes;
 
             // compute transfer function
-            alive.transfer();
-
-            // add things live out of this enable to the local lives.
-            alive.local_live = &(&alive.local_live | &alive.live) | &alive.kill;
+            let alive = alive.transfer(&reads, &writes);
 
             // set the live set of this node to be the things live on the
             // output of this node plus the things written to in this group
             lr.live
-                .insert(group.borrow().name.clone(), &alive.live | &alive.kill);
+                .insert(group.borrow().name.clone(), &alive | &writes);
+            (alive, &gens | &reads, &kills | &writes)
         }
-        ir::Control::Seq(ir::Seq { stmts }) => stmts
-            .iter()
-            .rev()
-            .for_each(|c| build_live_ranges(&c, alive, lr)),
+        ir::Control::Seq(ir::Seq { stmts }) => stmts.iter().rev().fold(
+            (alive, gens, kills),
+            |(alive, gens, kills), e| {
+                build_live_ranges(&e, alive, gens, kills, lr)
+            },
+        ),
         ir::Control::If(ir::If {
             cond,
             tbranch,
@@ -220,73 +240,73 @@ fn build_live_ranges(
             ..
         }) => {
             // compute each branch
-            let mut t_alive = alive.clone();
-            let mut f_alive = alive.clone();
-            build_live_ranges(&tbranch, &mut t_alive, lr);
-            build_live_ranges(&fbranch, &mut f_alive, lr);
+            let (t_alive, t_gens, t_kills) = build_live_ranges(
+                &tbranch,
+                alive.clone(),
+                gens.clone(),
+                kills.clone(),
+                lr,
+            );
+            let (f_alive, f_gens, f_kills) = build_live_ranges(
+                &fbranch,
+                alive.clone(),
+                gens.clone(),
+                kills.clone(),
+                lr,
+            );
 
             // take union
-            alive.live = &alive.live | &t_alive.live;
-            alive.live = &alive.live | &f_alive.live;
+            let alive = &t_alive | &f_alive;
+            let gens = &t_gens | &f_gens;
+            let kills = &t_kills | &f_kills;
 
             // feed to condition to compute
-            build_live_ranges(&ir::Control::enable(cond.clone()), alive, lr)
+            build_live_ranges(
+                &ir::Control::enable(cond.clone()),
+                alive,
+                gens,
+                kills,
+                lr,
+            )
         }
         ir::Control::Par(ir::Par { stmts }) => {
-            // drain gens so that we don't mix them with the gens we gather from the par
-            alive.gen.drain();
-            // record the things locally live coming into this par.
-            // we first visit our children without the local lives
-            // to gather the local lives they generate. we then pass
-            // the union of the local lives to the children as we visit
-            // them again. this has the effect of communicating live registers
-            // between siblings in a par.
-            let saved = alive.local_live.drain().collect::<HashSet<_>>();
-            for child in stmts {
-                let mut child_data = alive.clone();
-                build_live_ranges(&child, &mut child_data, lr);
-                *alive = &*alive | &child_data;
-            }
-
-            // pass the union of the local lives to the children as
-            // we visit them again. this has the effect of communicating
-            // live registers between siblings in a par.
-            let mut data = alive.clone();
-            data.live = &data.live | &data.local_live;
-            for child in stmts {
-                let mut child_data = data.clone();
-                build_live_ranges(&child, &mut child_data, lr);
-                *alive = &*alive | &child_data;
-            }
-
-            // compute transfer function using
-            //  - gen = union(gen(children))
-            //  - kill = union(kill(children))
-            alive.transfer();
-
-            // we remove registers that we killed from the local live and recombine
-            // it with the saved local lives so that an pars above this one have
-            // the correct local lives.
-            alive.local_live = &alive.local_live | &saved;
-        }
-        ir::Control::While(ir::While { body, cond, .. }) => {
-            let mut next;
-
-            loop {
-                next = alive.clone();
-                build_live_ranges(&body, &mut next, lr);
-                build_live_ranges(
-                    &ir::Control::enable(cond.clone()),
-                    &mut next,
-                    lr,
+            let (alive, gens, kills) = stmts
+                .iter()
+                .rev()
+                .map(|e| {
+                    build_live_ranges(
+                        e,
+                        alive.clone(),
+                        Prop::default(),
+                        Prop::default(),
+                        lr,
+                    )
+                })
+                .fold(
+                    (Prop::default(), Prop::default(), Prop::default()),
+                    |(acc_alive, acc_gen, acc_kill), (alive, gen, kill)| {
+                        (
+                            &acc_alive | &alive,
+                            &acc_gen | &gen,
+                            &acc_kill | &kill,
+                        )
+                    },
                 );
 
-                if *alive == next {
-                    *alive = next;
-                    break;
-                }
-                *alive = next;
-            }
+            let alive = alive.transfer(&gens, &kills);
+            (alive, gens, kills)
+        }
+        ir::Control::While(ir::While { body, cond, .. }) => {
+            let (alive, gens, kills) =
+                build_live_ranges(&body, alive, gens, kills, lr);
+            let (alive, gens, kills) = build_live_ranges(
+                &ir::Control::enable(cond.clone()),
+                alive,
+                gens,
+                kills,
+                lr,
+            );
+            build_live_ranges(&body, alive, gens, kills, lr)
         }
     }
 }
