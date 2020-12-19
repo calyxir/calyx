@@ -96,9 +96,8 @@ impl Visitor for Papercut<'_> {
                 let assign = assign_ref.dst.borrow();
                 if assign.is_hole() && assign.name == "done" {
                     if let ir::PortParent::Group(group_ref) = &assign.parent {
-                        hole_writes.insert(
-                            group_ref.upgrade().unwrap().borrow().name.clone(),
-                        );
+                        hole_writes
+                            .insert(group_ref.upgrade().borrow().name.clone());
                     }
                 }
             }
@@ -138,7 +137,7 @@ impl Visitor for Papercut<'_> {
             for assign in &group.borrow().assignments {
                 let dst = assign.dst.borrow();
                 if let ir::PortParent::Cell(cell_wref) = &dst.parent {
-                    let cell_ref = cell_wref.upgrade().unwrap();
+                    let cell_ref = cell_wref.upgrade();
                     let cell = cell_ref.borrow();
                     // If this is a primitive cell, collect the driver
                     if let ir::CellType::Primitive { name, .. } =

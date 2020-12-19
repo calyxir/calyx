@@ -1,7 +1,7 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
 use crate::frontend::library::ast::LibrarySignatures;
-use crate::ir::{self, RRC};
+use crate::ir::{self, RRC, WRC};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -60,7 +60,7 @@ impl<'a> Builder<'a> {
                 name: ir::Id::from(*name),
                 width: *width,
                 direction: ir::Direction::Inout,
-                parent: ir::PortParent::Group(Rc::downgrade(&group)),
+                parent: ir::PortParent::Group(WRC::from(&group)),
             }));
             group.borrow_mut().holes.push(hole);
         }
@@ -192,7 +192,7 @@ impl<'a> Builder<'a> {
         let parent_matches =
             |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> bool {
                 if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
-                    Rc::ptr_eq(&cell_wref.upgrade().unwrap(), cell)
+                    Rc::ptr_eq(&cell_wref.upgrade(), cell)
                 } else {
                     false
                 }
@@ -232,13 +232,13 @@ impl<'a> Builder<'a> {
     fn is_port_well_formed(&self, port: &ir::Port) {
         match &port.parent {
             ir::PortParent::Cell(cell_wref) => {
-                let cell_ref = cell_wref.upgrade().expect("Weak reference to port's parent cell points to nothing. This usually means that the Component did not retain a pointer to the Cell.");
+                let cell_ref = cell_wref.internal.upgrade().expect("Weak reference to port's parent cell points to nothing. This usually means that the Component did not retain a pointer to the Cell.");
 
                 let cell_name = &cell_ref.borrow().name;
                 self.component.find_cell(cell_name).expect("Port's parent cell not present in the component. Add the cell to the component before using the Port.");
             }
             ir::PortParent::Group(group_wref) => {
-                let group_ref = group_wref.upgrade().expect("Weak reference to hole's parent group points to nothing. This usually means that the Component did not retain a pointer to the Group.");
+                let group_ref = group_wref.internal.upgrade().expect("Weak reference to hole's parent group points to nothing. This usually means that the Component did not retain a pointer to the Group.");
 
                 let group_name = &group_ref.borrow().name;
                 self.component.find_group(group_name).expect("Hole's parent cell not present in the component. Add the group to the component before using the Hole.");
@@ -264,7 +264,7 @@ impl<'a> Builder<'a> {
                 name,
                 width,
                 direction: ir::Direction::Input,
-                parent: ir::PortParent::Cell(Rc::downgrade(&cell)),
+                parent: ir::PortParent::Cell(WRC::from(&cell)),
             }));
             cell.borrow_mut().ports.push(port);
         }
@@ -273,7 +273,7 @@ impl<'a> Builder<'a> {
                 name,
                 width,
                 direction: ir::Direction::Output,
-                parent: ir::PortParent::Cell(Rc::downgrade(&cell)),
+                parent: ir::PortParent::Cell(WRC::from(&cell)),
             }));
             cell.borrow_mut().ports.push(port);
         }

@@ -164,7 +164,7 @@ impl Visitor for ResourceSharing {
         let rewrite = self.rewrites[group_name].iter().find(|(c, _)| {
             if let ir::PortParent::Cell(cell_wref) = &cond_port.borrow().parent
             {
-                return Rc::ptr_eq(c, &cell_wref.upgrade().unwrap());
+                return Rc::ptr_eq(c, &cell_wref.upgrade());
             }
             false
         });
@@ -191,7 +191,7 @@ impl Visitor for ResourceSharing {
         let rewrite = self.rewrites[group_name].iter().find(|(c, _)| {
             if let ir::PortParent::Cell(cell_wref) = &cond_port.borrow().parent
             {
-                return Rc::ptr_eq(c, &cell_wref.upgrade().unwrap());
+                return Rc::ptr_eq(c, &cell_wref.upgrade());
             }
             false
         });

@@ -319,12 +319,13 @@ impl IRPrinter {
     fn get_port_access(port: &ir::Port) -> String {
         match &port.parent {
             ir::PortParent::Cell(cell_wref) => {
-                let cell_ref = cell_wref.upgrade().unwrap_or_else(|| {
-                    panic!(
+                let cell_ref =
+                    cell_wref.internal.upgrade().unwrap_or_else(|| {
+                        panic!(
                         "Malformed AST: No reference to Cell for port `{:#?}'",
                         port
                     )
-                });
+                    });
                 let cell = cell_ref.borrow();
                 match cell.prototype {
                     ir::CellType::Constant { val, width } => {
@@ -337,6 +338,7 @@ impl IRPrinter {
             ir::PortParent::Group(group_wref) => format!(
                 "{}[{}]",
                 group_wref
+                    .internal
                     .upgrade()
                     .unwrap_or_else(|| panic!(
                         "Malformed AST: No reference to Group for port `{:#?}'",

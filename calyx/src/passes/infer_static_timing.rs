@@ -60,8 +60,8 @@ fn mem_wrt_dep_graph<'a>(
                     ..
                 },
             ) = (
-                &dst_cell.upgrade().unwrap().borrow().prototype,
-                &src_cell.upgrade().unwrap().borrow().prototype,
+                &dst_cell.upgrade().borrow().prototype,
+                &src_cell.upgrade().borrow().prototype,
             ) {
                 let data_dst = latency_data.get(dst_cell_prim_type.as_ref());
                 let data_src = latency_data.get(src_cell_prim_type.as_ref());
@@ -82,8 +82,8 @@ fn mem_wrt_dep_graph<'a>(
                 },
                 ir::CellType::Constant { .. },
             ) = (
-                &dst_cell.upgrade().unwrap().borrow().prototype,
-                &src_cell.upgrade().unwrap().borrow().prototype,
+                &dst_cell.upgrade().borrow().prototype,
+                &src_cell.upgrade().borrow().prototype,
             ) {
                 let data = latency_data.get(dst_cell_prim_type.as_ref());
                 if let Some((go, _, _)) = data {
@@ -142,7 +142,7 @@ fn is_done_port_or_const<'a>(
     if let ir::PortParent::Cell(cell) = &port.parent {
         if let ir::CellType::Primitive {
             name: cell_type, ..
-        } = &cell.upgrade().unwrap().borrow().prototype
+        } = &cell.upgrade().borrow().prototype
         {
             if let Some((_, done, _)) = latency_data.get(cell_type.as_ref()) {
                 if port.name == *done {
@@ -152,7 +152,7 @@ fn is_done_port_or_const<'a>(
         }
 
         if let ir::CellType::Constant { val, .. } =
-            &cell.upgrade().unwrap().borrow().prototype
+            &cell.upgrade().borrow().prototype
         {
             if *val > 0 {
                 return true;
@@ -173,7 +173,7 @@ fn contains_dyn_writes<'a>(
             ir::PortParent::Cell(cell) => {
                 if let ir::CellType::Primitive {
                     name: cell_type, ..
-                } = &cell.upgrade().unwrap().borrow().prototype
+                } = &cell.upgrade().borrow().prototype
                 {
                     if let Some((go, _, _)) =
                         latency_data.get(cell_type.as_ref())
@@ -281,7 +281,7 @@ fn infer_latency<'a>(
     for port in first_path {
         if let ir::PortParent::Cell(cell) = &port.borrow().parent {
             if let ir::CellType::Primitive { name, .. } =
-                &cell.upgrade().unwrap().borrow().prototype
+                &cell.upgrade().borrow().prototype
             {
                 if let Some((go, _, latency)) = latency_data.get(name.as_ref())
                 {
