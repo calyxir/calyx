@@ -89,8 +89,9 @@ impl Environment {
         self.update_queue.retain(|u| u.cell != ucell);
     }
 
+    // TODO: should the return type be FuTIlResult<Environment>?
     /// Simulates a clock cycle by executing the stored updates.
-    pub fn do_tick(&mut self) {
+    pub fn do_tick(mut self) -> Self {
         let uq = self.update_queue.clone();
         for update in uq {
             let updated = update_cell_state(
@@ -100,17 +101,18 @@ impl Environment {
                 &self,
             );
             match updated {
-                Ok(e) => {
-                    let temp = e
+                Ok(updated_env) => {
+                    let updated_cell = updated_env
                         .map
                         .get(&update.cell)
                         .unwrap_or_else(|| panic!("Can't get map"))
                         .clone();
-                    self.map.insert(update.cell.clone(), temp);
+                    self.map.insert(update.cell.clone(), updated_cell);
                 }
                 _ => panic!("Could not apply update. "),
             }
         }
+        self
     }
 
     /// Gets the cell based on the name; similar to find_cell in component.rs
@@ -149,11 +151,10 @@ pub fn eval_group(
     group: ir::RRC<ir::Group>,
     env: Environment,
 ) -> FutilResult<Environment> {
-    let g = group.borrow();
-
-    eval_assigns(&g.assignments, &env)
+    eval_assigns(&(group.borrow()).assignments, &env)
 }
 
+// XXX(karen): I think it will need another copy of environment for each iteration of assignment statements
 /// Evaluates a group's assignment statements in an environment.
 fn eval_assigns(
     assigns: &[ir::Assignment],
@@ -190,11 +191,14 @@ fn eval_assigns(
             &done_cell,
             write_env.map.get(&done_cell)
         );*/
+        // "staging" updates
+        //let mut iter_updates = write_env.clone();
 
         // for assign in assigns
         for assign in ok_assigns.iter() {
             // check if the assign.guard != 0
-            if eval_guard(&assign.guard, env) {
+            // should it be evaluating the guard in write_env environment?
+            if eval_guard(&assign.guard, &write_env) {
                 // check if the cells are constants?
                 // cell of assign.src
                 let src_cell = get_cell_from_port(&assign.src);
@@ -210,6 +214,7 @@ fn eval_assigns(
                 );*/
 
                 // perform a read from `env` for assign.src
+                // XXX(karen): should read from the previous iteration's env?
                 let read_val = env.get(&src_cell, &assign.src.borrow().name);
 
                 // update internal state of the cell and
@@ -243,7 +248,7 @@ fn eval_assigns(
                     // TODO: hacky way to avoid updating the cell state. Also, how to get input and output vectors in general??
                     if &assign.dst.borrow().name != "write_en" {
                         // get dst_cell's input vector
-                        match &env.get_cell(&dst_cell) {
+                        match &write_env.get_cell(&dst_cell) {
                             Some(cell) => {
                                 inputs = vec![
                                     (cell.borrow())
@@ -262,7 +267,7 @@ fn eval_assigns(
                         }
 
                         // get dst_cell's output vector
-                        match &env.get_cell(&dst_cell) {
+                        match &write_env.get_cell(&dst_cell) {
                             Some(cell) => {
                                 outputs = vec![(cell.borrow())
                                     .get("out")
@@ -295,7 +300,8 @@ fn eval_assigns(
                 }
             }
         }
-        write_env.do_tick();
+        // write_env = iter_updates.do_tick()
+        write_env = write_env.do_tick();
         counter += 1;
     }
 
@@ -320,22 +326,14 @@ fn eval_guard(guard: &ir::Guard, env: &Environment) -> bool {
 /// Evaluate guard implementation; TODO (messy u64 implementation?)
 fn eval_guard_helper(guard: &ir::Guard, env: &Environment) -> u64 {
     match guard {
-        ir::Guard::Or(gs) => {
-            for g in gs.clone() {
-                if eval_guard_helper(&g, env) != 0 {
-                    return 1;
-                }
-            }
-            0
-        }
-        ir::Guard::And(gs) => {
-            for g in gs.clone() {
-                if eval_guard_helper(&g, env) == 0 {
-                    return 0;
-                }
-            }
-            1
-        }
+        ir::Guard::Or(gs) => gs
+            .iter()
+            .find(|&x| eval_guard_helper(x, env) != 0)
+            .map_or(0, |_| 1) as u64,
+        ir::Guard::And(gs) => gs
+            .iter()
+            .find(|&x| eval_guard_helper(x, env) == 0)
+            .map_or(1, |_| 0) as u64,
         ir::Guard::Eq(g1, g2) => {
             (eval_guard_helper(&**g1, env) == eval_guard_helper(&**g2, env))
                 as u64
@@ -360,13 +358,7 @@ fn eval_guard_helper(guard: &ir::Guard, env: &Environment) -> u64 {
             (eval_guard_helper(&**g1, env) <= eval_guard_helper(&**g2, env))
                 as u64
         }
-        ir::Guard::Not(g) => {
-            if eval_guard_helper(g, &env) == 0 {
-                1
-            } else {
-                0
-            }
-        }
+        ir::Guard::Not(g) => (eval_guard_helper(g, &env) != 0) as u64,
         ir::Guard::Port(p) => {
             env.get(&get_cell_from_port(p), &((*p.borrow()).name))
         }
@@ -418,6 +410,7 @@ fn get_combinational_or_not(
         "std_reg" => match (*port).id.as_str() {
             "write_en" => true,
             "out" => false,
+            "done" => false,
             _ => false,
         },
         "std_const"
@@ -513,7 +506,6 @@ fn update_cell_state(
 
             // register's write_en must be high to write reg.out and reg.done
             if new_env.get(&cell, &write_en) != 0 {
-                //println!("reg update");
                 let out = ir::Id::from("out"); //assuming reg.in = cell.out, always
                 let inp = ir::Id::from("in"); //assuming reg.in = cell.out, always
                 let done = ir::Id::from("done"); //done id
