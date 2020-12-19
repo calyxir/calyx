@@ -188,6 +188,32 @@ impl<'a> Builder<'a> {
         rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
         assigns: &mut Vec<ir::Assignment>,
     ) {
+        self.rename_ports(rewrites, assigns, true, true)
+    }
+
+    pub fn rename_port_writes(
+        &self,
+        rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
+        assigns: &mut Vec<ir::Assignment>,
+    ) {
+        self.rename_ports(rewrites, assigns, true, false);
+    }
+
+    pub fn rename_port_reads(
+        &self,
+        rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
+        assigns: &mut Vec<ir::Assignment>,
+    ) {
+        self.rename_ports(rewrites, assigns, false, true);
+    }
+
+    fn rename_ports(
+        &self,
+        rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
+        assigns: &mut Vec<ir::Assignment>,
+        rewrite_writes: bool,
+        rewrite_reads: bool,
+    ) {
         // Returns true if the port's parent in the given cell.
         let parent_matches =
             |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> bool {
@@ -213,10 +239,14 @@ impl<'a> Builder<'a> {
 
         for assign in assigns {
             if let Some(new_port) = rewrite_port(&assign.src) {
-                assign.src = new_port;
+                if rewrite_reads {
+                    assign.src = new_port;
+                }
             }
             if let Some(new_port) = rewrite_port(&assign.dst) {
-                assign.dst = new_port;
+                if rewrite_writes {
+                    assign.dst = new_port;
+                }
             }
             assign
                 .guard
