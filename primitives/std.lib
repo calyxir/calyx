@@ -63,7 +63,7 @@ primitive std_mem_d2[width, d0_size, d1_size, d0_idx_size, d1_idx_size](
         parameter d1_idx_size = 4)
        (input logic [d0_idx_size-1:0] addr0,
         input logic [d1_idx_size-1:0] addr1,
-        input logic [width-1:0]   write_data /*verilator public*/,
+        input logic [width-1:0]   write_data,
         input logic               write_en,
         input logic               clk,
         output logic [width-1:0]  read_data,
@@ -849,7 +849,6 @@ primitive fixed_p_std_const[width, int_width, fract_width, value1, value2] () ->
             parameter value2 = 0)
 
         (output logic [width-1:0] out);
-        /* verilator lint_off WIDTHCONCAT */
         assign out = {value1, value2};
         endmodule
     }
