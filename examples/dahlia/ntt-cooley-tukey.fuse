@@ -1,9 +1,9 @@
-/* Cooley-Tukey Radix-2 DIT Algorithm */
+/* Cooley-Tukey Radix2 DIT Algorithm */
 
-decl inp: ubit<32>[32];
-decl prime: ubit<32>[1];
-decl omegas: ubit<32>[32];
-decl ret: ubit<32>[32];  // Output array.
+decl inp: bit<32>[32];
+decl prime: bit<32>[1];
+decl omegas: bit<32>[32];
+decl ret: bit<32>[32];  // Output array.
 
 let P = prime[0];
 let N: ubit<6> = 32;
@@ -21,7 +21,6 @@ while (idx < N) {
 ---
 
 idx := 0;
-let one: ubit<6> = 1;
 while (idx < N) {
   let rev_idx: ubit<6> = 0;
   ---
@@ -34,7 +33,7 @@ while (idx < N) {
   }
   if (rev_idx > idx) {
     // Swap `ret[idx]`, `ret[rev_idx]`.
-    let temp: ubit<32> = ret[idx];
+    let temp: bit<32> = ret[idx];
     ---
     ret[idx] := ret[rev_idx];
     ---
@@ -61,9 +60,9 @@ while (iters < log2N) {
     let j: ubit<6> = 0;
     while (j < mHalved) {
       let k: ubit<6> = iStep + j;
-      let U: ubit<32> = ret[k];
+      let U: bit<32> = ret[k];
       ---
-      let V: ubit<32> = ret[k + mHalved] * omegas[oidx];
+      let V: bit<32> = ret[k + mHalved] * omegas[oidx];
       ---
       ret[k] := (U + V) % P;
       ---
@@ -76,4 +75,3 @@ while (iters < log2N) {
   mIndex := mIndex << 1;
   iters := iters + 1;
 }
-
