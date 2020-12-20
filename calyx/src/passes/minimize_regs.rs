@@ -1,7 +1,6 @@
-use super::LiveRangeAnalysis;
 use crate::frontend::library::ast as lib;
 use crate::{
-    analysis::GraphColoring,
+    analysis::{GraphColoring, LiveRangeAnalysis},
     ir::{
         self,
         traversal::{Named, Visitor},
@@ -26,6 +25,7 @@ use itertools::Itertools;
 ///
 /// This pass only renames uses of registers. `DeadCellRemoval` should be run after this
 /// to actually remove the register definitions.
+#[derive(Default)]
 pub struct MinimizeRegs {
     live: LiveRangeAnalysis,
     graph: GraphColoring<ir::Id>,
@@ -49,30 +49,38 @@ impl Named for MinimizeRegs {
     }
 }
 
-impl Visitor<()> for MinimizeRegs {
-    fn start_enable(
+impl Visitor for MinimizeRegs {
+    fn start(
+        &mut self,
+        comp: &mut ir::Component,
+        _s: &lib::LibrarySignatures,
+    ) -> VisResult {
+        self.live = LiveRangeAnalysis::new(&comp, &*comp.control.borrow());
+
+        Ok(Action::Continue)
+    }
+
+    fn enable(
         &mut self,
         enable: &mut ir::Enable,
-        _data: (),
-        comp: &mut Component,
+        _comp: &mut Component,
         _sigs: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         // XXX(sam) can move this to work on definitions rather than enables
 
         // add constraints between things that are alive at the same time
-        let conflicts = self.live.get(&comp.name, &enable.group.borrow());
+        let conflicts = self.live.get(&enable.group.borrow());
         self.graph
             .insert_conflicts(&conflicts.iter().cloned().collect::<Vec<_>>());
 
-        Ok(Action::continue_default())
+        Ok(Action::Continue)
     }
 
     fn finish(
         &mut self,
-        _data: (),
         comp: &mut Component,
         sigs: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         // add constraints so that registers of different sizes can't be shared
         for a_ref in &comp.cells {
             for b_ref in &comp.cells {
@@ -93,7 +101,7 @@ impl Visitor<()> for MinimizeRegs {
         }
 
         // used a sorted ordering to perform coloring
-        let ordering = self.live.get_all(&comp.name).sorted();
+        let ordering = self.live.get_all().sorted();
         let coloring: Vec<_> = self
             .graph
             .color_greedy_with(ordering)
@@ -119,6 +127,6 @@ impl Visitor<()> for MinimizeRegs {
         builder.rename_port_uses(&coloring, &mut assigns);
         builder.component.continuous_assignments = assigns;
 
-        Ok(Action::continue_default())
+        Ok(Action::Continue)
     }
 }

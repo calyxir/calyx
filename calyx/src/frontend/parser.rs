@@ -194,7 +194,7 @@ impl FutilParser {
         ))
     }
 
-    fn signature_return(input: Node) -> ParseResult<Vec<ast::Portdef>> {
+    fn signature_return(input: Node) -> ParseResult<Vec<(ir::Id, u64)>> {
         Ok(match_nodes!(
             input.into_children();
             [io_ports(p)] => p,
@@ -202,13 +202,13 @@ impl FutilParser {
         ))
     }
 
-    fn io_port(input: Node) -> ParseResult<ast::Portdef> {
+    fn io_port(input: Node) -> ParseResult<(ir::Id, u64)> {
         Ok(match_nodes![
             input.into_children();
-            [identifier(id), bitwidth(bw)] => ast::Portdef { name: id, width: bw }])
+            [identifier(id), bitwidth(bw)] => (id, bw)])
     }
 
-    fn io_ports(input: Node) -> ParseResult<Vec<ast::Portdef>> {
+    fn io_ports(input: Node) -> ParseResult<Vec<(ir::Id, u64)>> {
         Ok(match_nodes![
             input.into_children();
             [io_port(p)..] => p.collect()])
@@ -233,8 +233,8 @@ impl FutilParser {
     fn component_cell(input: Node) -> ParseResult<ast::Cell> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(id), identifier(name)] =>
-                ast::Cell::decl(id, name)
+            [identifier(name), identifier(component)] =>
+                ast::Cell::Decl { name, component }
         ))
     }
 
@@ -375,15 +375,41 @@ impl FutilParser {
         ))
     }
 
-    fn connections(input: Node) -> ParseResult<Vec<ast::Connection>> {
-        input
-            .into_children()
-            .map(|node| match node.as_rule() {
-                Rule::wire => Ok(ast::Connection::Wire(Self::wire(node)?)),
-                Rule::group => Ok(ast::Connection::Group(Self::group(node)?)),
+    fn connections(
+        input: Node,
+    ) -> ParseResult<(Vec<ast::Wire>, Vec<ast::Group>)> {
+        let mut wires = Vec::new();
+        let mut groups = Vec::new();
+        for node in input.into_children() {
+            match node.as_rule() {
+                Rule::wire => wires.push(Self::wire(node)?),
+                Rule::group => groups.push(Self::group(node)?),
                 _ => unreachable!(),
-            })
-            .collect()
+            }
+        }
+        Ok((wires, groups))
+    }
+
+    fn invoke_arg(input: Node) -> ParseResult<(ir::Id, ast::Port)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(name), port(p)] => (name, p)
+        ))
+    }
+
+    fn invoke_args(input: Node) -> ParseResult<Vec<(ir::Id, ast::Port)>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [invoke_arg(args)..] => args.collect()
+        ))
+    }
+
+    fn invoke(input: Node) -> ParseResult<ast::Control> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(comp), invoke_args(inputs), invoke_args(outputs)] =>
+                ast::Control::Invoke { comp, inputs, outputs }
+        ))
     }
 
     fn enable(input: Node) -> ParseResult<ast::Control> {
@@ -453,6 +479,7 @@ impl FutilParser {
         Ok(match_nodes!(
             input.into_children();
             [enable(data)] => data,
+            [invoke(data)] => data,
             [seq(data)] => data,
             [par(data)] => data,
             [if_stmt(data)] => data,
@@ -479,7 +506,7 @@ impl FutilParser {
     fn control(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [stmt(stmt)] => stmt,
+            [block(stmt)] => stmt,
             [] => ast::Control::Empty{}
         ))
     }
@@ -487,26 +514,23 @@ impl FutilParser {
     fn component(input: Node) -> ParseResult<ast::ComponentDef> {
         Ok(match_nodes!(
         input.into_children();
-        [identifier(id), signature(sig), cells(cells), connections(connections), control(control)] =>
+        [
+            identifier(id),
+            signature(sig),
+            cells(cells),
+            connections(connections),
+            control(control)
+        ] => {
+            let (continuous_assignments, groups) = connections;
             ast::ComponentDef {
                 name: id,
                 signature: sig,
                 cells,
-                connections,
+                groups,
+                continuous_assignments,
                 control,
-            },
-            [identifier(id), cells(cells), connections(connections), control(control)] =>
-                ast::ComponentDef {
-                    name: id,
-                    signature: ast::Signature {
-                        inputs: vec![],
-                        outputs: vec![]
-                    },
-                    cells,
-                    connections,
-                    control,
-                },
-        ))
+            }
+        }))
     }
 
     fn imports(input: Node) -> ParseResult<Vec<String>> {

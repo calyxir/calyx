@@ -902,8 +902,6 @@ primitive fixed_p_std_mult[width, int_width, fract_width](left: width, right: wi
         logic [2*width-2:0] result;
 
         assign result = left * right;
-        // result bit= 2*width, 1 is placed at fract_width,
-        //the valid bit would be width amount of bits starting at fract_width
         assign out = result[width+fract_width-1:fract_width];
 
 
@@ -925,8 +923,6 @@ primitive fixed_p_std_div[width, int_width, fract_width](left: width, right: wid
           logic [2*width-2:0] result;
 
           assign result = left / right;
-          // result bit = 2 * width, 1 is placed at fract_width,
-          // the valid bit would be width amount of bits starting at fract_width
           assign out = result[width+fract_width-1:fract_width];
         endmodule
 
@@ -947,20 +943,20 @@ primitive fixed_p_std_gt<"share"=1>[width, int_width, fract_width](left: width, 
   }
 }
 
-// the bigger integer bit always comes left, one with bigger fractional bit comes right
-primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, fract_width2, out_width] (left: width, right: width)
+primitive fixed_p_std_add_dbit[width1, width2 , int_width1, fract_width1, int_width2, fract_width2, out_width] (left: width1, right: width2)
 ->(out: out_width){
     verilog {
       module fixed_p_std_add_dbit
-        #(parameter width= 32,
+        #(parameter width1= 32,
+        parameter width2= 32,
         parameter int_width1 = 8,
         parameter fract_width1 = 24,
         parameter int_width2 = 4,
         parameter fract_width2 =28,
         parameter out_width = 36)
 
-        (input logic [width-1:0] left,
-        input logic [width-1:0] right,
+        (input logic [width1-1:0] left,
+        input logic [width2-1:0] right,
         output logic [out_width-1:0] out);
 
         logic [int_width1-1:0] left_int;
@@ -968,18 +964,18 @@ primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, frac
         logic [fract_width1-1:0] left_fract;
         logic [fract_width2-1:0] right_fract;
 
-        logic [int_width1-1:0]  mod_right_int;
-        logic [fract_width2-1:0] mod_left_fract;
+        localparam bigint = (int_width1 >= int_width2) ? int_width1 : int_width2;
+        localparam bigfract = (fract_width1 >= fract_width2) ? fract_width1 : fract_width2;
 
-        logic [int_width1-1:0]  whole_int;
-        logic [fract_width2-1:0] whole_fract;
+        logic [bigint-1:0]  mod_right_int;
+        logic [bigfract-1:0] mod_left_fract;
+
+        logic [bigint-1:0]  whole_int;
+        logic [ bigfract-1:0] whole_fract;
 
         assign {left_int, left_fract} = left;
         assign {right_int, right_fract} = right;
 
-        //assign mod_right_int = right_int;
-
-        //extend fractional bits for left
         assign mod_left_fract = left_fract * (2**(fract_width2-fract_width1));
 
         always_comb begin
@@ -993,9 +989,525 @@ primitive fixed_p_std_add_dbit[width, int_width1, fract_width1, int_width2, frac
           end
         end
 
-        //add
-        //assign whole_int = left_int + right_int;
-        //assign whole_fract = mod_left_fract + right_fract;
+        assign out = {whole_int, whole_fract};
+      endmodule
+    }
+}
+
+/////// signed primitives ///////
+primitive std_slsh<"share"=1>[width](left: width, right: width) -> (out: width) {
+  verilog {
+    module std_slsh
+      #(parameter width = 32)
+      (input  signed [width-1:0] left,
+        input  signed [width-1:0] right,
+        output signed [width-1:0] out);
+      assign out = left << right;
+    endmodule
+  }
+}
+
+primitive std_srsh<"share"=1>[width](left: width, right: width) -> (out: width) {
+  verilog {
+    module std_srsh
+      #(parameter width = 32)
+      (input  signed [width-1:0] left,
+        input  signed [width-1:0] right,
+        output signed [width-1:0] out);
+      assign out = left >> right;
+    endmodule
+  }
+}
+primitive std_sadd<"share"=1>[width](left: width, right: width) -> (out: width) {
+  verilog {
+    module std_sadd
+      #(parameter width = 32)
+      (input  signed  [width-1:0] left,
+        input  signed  [width-1:0] right,
+        output signed  [width-1:0] out);
+      assign out = left + right;
+    endmodule
+  }
+}
+
+primitive std_ssub<"share"=1>[width](left: width, right: width) -> (out: width) {
+  verilog {
+    module std_ssub
+      #(parameter width = 32)
+      (input  signed  [width-1:0] left,
+        input  signed  [width-1:0] right,
+        output signed  [width-1:0] out);
+      assign out = left - right;
+    endmodule
+  }
+}
+
+primitive std_smod<"share"=1>[width](left: width, right: width) -> (out: width) {
+  verilog {
+    module std_smod
+      #(parameter width = 32)
+      (input  signed [width-1:0] left,
+        input  signed [width-1:0] right,
+        output signed [width-1:0] out);
+      assign out = left % right;
+    endmodule
+  }
+}
+
+primitive std_smod_pipe[width]
+(clk: 1, reset: 1, go: 1, left: width, right: width)
+-> (out: width, done: 1) {
+  verilog {
+    module std_smod_pipe
+              #(parameter width = 32)
+                (input            clk, reset,
+                input                  go,
+                input  signed [width-1:0]      left,
+                input  signed [width-1:0]      right,
+                output reg [width-1:0] out,
+                output reg             done);
+
+      wire start = go && !running && !reset;
+
+      reg [width-1:0]     dividend;
+      reg [(width-1)*2:0] divisor;
+      reg [width-1:0]     quotient;
+      reg [width-1:0]     quotient_msk;
+      reg                 running;
+
+      always @(posedge clk) begin
+          if (reset || !go) begin
+            running <= 0;
+            done <= 0;
+            out <= 0;
+          end else
+           if (start && left == 0) begin
+              out <= 0;
+              done <= 1;
+           end if (start) begin
+              running <= 1;
+              dividend <= left;
+              divisor <= right << width-1;
+              quotient <= 0;
+              quotient_msk <= 1 << width-1;
+            end else
+              if (!quotient_msk && running) begin
+                running <= 0;
+                done <= 1;
+                out <= dividend;
+              end else begin
+                if (divisor <= dividend) begin
+                    dividend <= dividend - divisor;
+                    quotient <= quotient | quotient_msk;
+                end
+                divisor <= divisor >> 1;
+                quotient_msk <= quotient_msk >> 1;
+              end
+      end
+    endmodule
+  }
+}
+
+primitive std_smult<"share"=1>[width](left: width, right: width) -> (out: width) {
+  verilog {
+    module std_smult
+      #(parameter width = 32)
+      (input  signed  [width-1:0] left,
+        input  signed  [width-1:0] right,
+        output signed  [width-1:0] out);
+      assign out = left * right;
+    endmodule
+  }
+}
+
+primitive std_smult_pipe[width](left: width, right: width, go: 1, clk: 1) -> (out: width, done: 1) {
+  verilog {
+    module std_ssmult_pipe
+      #(parameter width = 32)
+       (input signed [width-1:0] left,
+        input signed [width-1:0] right,
+        input logic go,
+        input logic clk,
+        output signed [width-1:0] out,
+        output logic done);
+       signed [width-1:0] rtmp;
+       signed [width-1:0] ltmp;
+       signed [width-1:0] out_tmp;
+       reg done_buf[1:0];
+       always_ff @(posedge clk) begin
+         if (go) begin
+           rtmp <= right;
+           ltmp <= left;
+           out_tmp <= rtmp * ltmp;
+           out <= out_tmp;
+
+           done <= done_buf[1];
+           done_buf[0] <= 1'b1;
+           done_buf[1] <= done_buf[0];
+         end else begin
+           rtmp <= 0;
+           ltmp <= 0;
+           out_tmp <= 0;
+           out <= 0;
+
+           done <= 0;
+           done_buf[0] <= 0;
+           done_buf[1] <= 0;
+         end
+       end
+     endmodule
+  }
+}
+
+primitive std_sdiv<"share"=1>[width](left: width, right: width) -> (out: width) {
+  verilog {
+    module std_sdiv
+      #(parameter width = 32)
+      (input  signed  [width-1:0] left,
+        input  signed  [width-1:0] right,
+        output signed  [width-1:0] out);
+      assign out = left / right;
+    endmodule
+  }
+}
+
+primitive std_sdiv_pipe[width]
+(clk: 1, reset: 1, go: 1, left: width, right: width)
+-> (out: width, done: 1) {
+  verilog {
+    /* verilator lint_off WIDTH */
+    module std_sdiv_pipe
+              #(parameter width = 32)
+                (input             clk, reset,
+                input                  go,
+                input signed [width-1:0]      left,
+                input signed [width-1:0]      right,
+                output reg [width-1:0] out,
+                output reg             done);
+
+      wire start = go && !running && !reset;
+
+      reg [width-1:0]     dividend;
+      reg [(width-1)*2:0] divisor;
+      reg [width-1:0]     quotient;
+      reg [width-1:0]     quotient_msk;
+      reg                 running;
+
+      always @(posedge clk) begin
+          if (reset || !go) begin
+            running <= 0;
+            done <= 0;
+            out <= 0;
+          end else
+           if (start && left == 0) begin
+              out <= 0;
+              done <= 1;
+           end if (start) begin
+              running <= 1;
+              dividend <= left;
+              divisor <= right << width-1;
+              quotient <= 0;
+              quotient_msk <= 1 << width-1;
+            end else
+              if (!quotient_msk && running) begin
+                running <= 0;
+                done <= 1;
+                out <= quotient;
+              end else begin
+                if (divisor <= dividend) begin
+                    dividend <= dividend - divisor;
+                    quotient <= quotient | quotient_msk;
+                end
+                divisor <= divisor >> 1;
+                quotient_msk <= quotient_msk >> 1;
+              end
+      end
+    endmodule
+  }
+}
+
+
+primitive std_snot<"share"=1>[width](in: width) -> (out: width) {
+  verilog {
+    module std_snot
+      #(parameter width = 32)
+      (input signed [width-1:0] in,
+        output signed [width-1:0] out);
+      assign out = ~in;
+    endmodule
+  }
+}
+
+primitive std_sand<"share"=1>[width](left: width, right: width) -> (out: width) {
+  verilog {
+    module std_sand
+      #(parameter width = 32)
+      (input signed  [width-1:0] left,
+        input signed  [width-1:0] right,
+        output signed [width-1:0] out);
+      assign out = left & right;
+    endmodule
+  }
+}
+
+primitive std_sor<"share"=1>[width](left: width, right: width) -> (out: width) {
+  verilog {
+    module std_sor
+      #(parameter width = 32)
+      (input signed  [width-1:0] left,
+        input signed  [width-1:0] right,
+        output signed [width-1:0] out);
+      assign out = left | right;
+    endmodule
+  }
+}
+
+primitive std_sgt<"share"=1>[width](left: width, right: width) -> (out: 1) {
+  verilog {
+    module std_sgt
+      #(parameter width = 32)
+      (input signed [width-1:0] left,
+        input signed [width-1:0] right,
+        output signed            out);
+      assign out = left > right;
+    endmodule
+  }
+}
+
+primitive std_slt<"share"=1>[width](left: width, right: width) -> (out: 1) {
+  verilog {
+    module std_slt
+      #(parameter width = 32)
+      (input signed [width-1:0] left,
+        input signed [width-1:0] right,
+        output signed            out);
+      assign out = left < right;
+    endmodule
+  }
+}
+
+primitive std_seq<"share"=1>[width](left: width, right: width) -> (out: 1) {
+  verilog {
+    module std_seq
+      #(parameter width = 32)
+      (input signed [width-1:0] left,
+        input signed [width-1:0] right,
+        output signed            out);
+      assign out = left == right;
+    endmodule
+  }
+}
+
+primitive std_sneq<"share"=1>[width](left: width, right: width) -> (out: 1) {
+  verilog {
+    module std_sneq
+      #(parameter width = 32)
+      (input signed [width-1:0] left,
+        input signed [width-1:0] right,
+        output signed            out);
+      assign out = left != right;
+    endmodule
+  }
+}
+
+primitive std_sge<"share"=1>[width](left: width, right: width) -> (out: 1) {
+  verilog {
+    module std_sge
+      #(parameter width = 32)
+      (input signed [width-1:0] left,
+        input signed [width-1:0] right,
+        output signed            out);
+      assign out = left >= right;
+    endmodule
+  }
+}
+
+primitive std_sle<"share"=1>[width](left: width, right: width) -> (out: 1) {
+  verilog {
+    module std_sle
+      #(parameter width = 32)
+      (input signed [width-1:0] left,
+       input signed [width-1:0] right,
+       output signed            out);
+      assign out = left <= right;
+    endmodule
+  }
+}
+
+primitive std_ssqrt(in: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
+  verilog {
+    module std_ssqrt
+      (input signed [31:0]  in,
+       input logic         go,
+       input logic         clk,
+       output signed [31:0] out,
+       output logic        done);
+      // declare the variables
+      reg [31:0] a;
+      reg [15:0] q;
+      reg [17:0] left,right,r;
+      integer i;
+      always_ff @(posedge clk) begin
+        if (go && i == 0) begin
+          // initialize all the variables.
+          a = in;
+          q = 0;
+          i = 1;
+          left = 0;   // input to adder/sub
+          right = 0;  // input to adder/sub
+          r = 0;      // remainder
+        // run the calculations for 16 iterations.
+        end else if (go && i <= 16) begin
+          right = {q,r[17],1'b1};
+          left = {r[15:0],a[31:30]};
+          a = {a[29:0],2'b00};    //left shift by 2 bits.
+          if (r[17] == 1) //add if r is negative
+              r = left + right;
+          else    //subtract if r is positive
+              r = left - right;
+          q = {q[14:0],!r[17]};
+          if (i == 16) begin
+            out = {16'd0,q};   //final assignment of output.
+            i = 0;
+            done = 1;
+          end else
+            i = i + 1;
+        end else begin
+          // initialize all the variables.
+          a = in;
+          q = 0;
+          i = 0;
+          left = 0;   // input to adder/sub
+          right = 0;  // input to adder/sub
+          r = 0;      // remainder
+          done = 0;
+        end
+      end
+    endmodule
+  }
+}
+
+///signed fixedpoint
+
+primitive fixed_p_std_sadd[width, int_width, fract_width] (left: width, right: width) ->(out: width){
+    verilog {
+      module fixed_p_std_sadd
+        #(parameter width= 32,
+        parameter int_width= 8,
+        parameter fract_width= 24)
+
+        (input signed [width-1:0] left,
+        input signed [width-1:0] right,
+        output signed [width-1:0] out);
+
+        assign out = left + right;
+      endmodule
+    }
+}
+
+primitive fixed_p_std_ssub[width, int_width, fract_width] (left: width, right: width)->(out: width){
+    verilog {
+        module fixed_p_std_ssub
+        #(parameter width= 32,
+        parameter int_width= 8,
+        parameter fract_width= 24)
+
+        (input signed [width-1:0] left,
+        input signed [width-1:0] right,
+        output signed [width-1:0] out);
+
+
+        out = left -right;
+        endmodule
+    }
+}
+
+primitive fixed_p_std_smult[width, int_width, fract_width](left: width, right: width)->(out: width){
+    verilog {
+      module fixed_p_std_smult
+        #(parameter width= 32,
+        parameter int_width= 8,
+        parameter fract_width= 24)
+
+        (input signed [width-1:0] left,
+        input signed [width-1:0] right,
+        output signed [width-1:0] out);
+
+        logic [2*width-2:0] result;
+
+        assign result = left * right;
+        assign out = result[width+fract_width-1:fract_width];
+
+
+        endmodule
+
+    }
+}
+
+primitive fixed_p_std_sdiv[width, int_width, fract_width](left: width, right: width)->(out: width){
+    verilog {
+        module fixed_p_std_sdiv
+          #(parameter width= 32,
+            parameter int_width= 8,
+            parameter fract_width= 24)
+          (input signed [width-1:0] left,
+           input signed [width-1:0] right,
+           output signed [width-1:0] out);
+
+          logic [2*width-2:0] result;
+
+          assign result = left / right;
+          assign out = result[width+fract_width-1:fract_width];
+        endmodule
+
+    }
+}
+
+primitive sfixed_p_std_add_dbit[width1, width2 , int_width1, fract_width1, int_width2, fract_width2, out_width] (left: width1, right: width2)
+->(out: out_width){
+    verilog {
+      module sfixed_p_std_add_dbit
+        #(parameter width1= 32,
+        parameter width2= 32,
+        parameter int_width1 = 8,
+        parameter fract_width1 = 24,
+        parameter int_width2 = 4,
+        parameter fract_width2 =28,
+        parameter out_width = 36)
+
+        (input logic [width1-1:0] left,
+        input logic [width2-1:0] right,
+        output logic [out_width-1:0] out);
+
+        logic [int_width1-1:0] left_int;
+        logic [int_width2-1:0] right_int;
+        logic [fract_width1-1:0] left_fract;
+        logic [fract_width2-1:0] right_fract;
+
+        localparam bigint = (int_width1 >= int_width2) ? int_width1 : int_width2;
+        localparam bigfract = (fract_width1 >= fract_width2) ? fract_width1 : fract_width2;
+
+        logic [bigint-1:0]  mod_right_int;
+        logic [bigfract-1:0] mod_left_fract;
+
+        logic [bigint-1:0]  whole_int;
+        logic [ bigfract-1:0] whole_fract;
+
+        assign {left_int, left_fract} = left;
+        assign {right_int, right_fract} = right;
+
+        assign mod_left_fract = left_fract * (2**(fract_width2-fract_width1));
+
+        always_comb begin
+          if ((mod_left_fract + right_fract) >= 2**fract_width2) begin
+            whole_int = left_int + right_int+1;
+            whole_fract =mod_left_fract + right_fract-2**fract_width2;
+          end
+          else begin
+            whole_int = left_int + right_int;
+            whole_fract =mod_left_fract + right_fract;
+          end
+        end
 
         assign out = {whole_int, whole_fract};
       endmodule

@@ -1,0 +1,46 @@
+import "primitives/std.lib";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    x = prim std_reg(32);
+    y = prim std_reg(32);
+    add_x = prim std_add(32);
+    add_y = prim std_add(32);
+  }
+  wires {
+    group wr_x {
+      x.in = 32'd2;
+      x.write_en = 1'd1;
+      wr_x[done] = x.done;
+    }
+    group rd_x {
+      add_x.left = x.out;
+      add_x.right = x.out;
+      rd_x[done] = 1'd1;
+    }
+    group wr_y {
+      y.in = 32'd4;
+      y.write_en = 1'd1;
+      wr_y[done] = y.done;
+    }
+    group rd_y {
+      add_y.left = y.out;
+      add_y.right = y.out;
+      rd_y[done] = 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      par {
+        seq {
+          wr_x;
+          rd_x;
+        }
+        seq {
+          wr_y;
+          rd_y;
+        }
+      }
+    }
+  }
+}

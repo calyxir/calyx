@@ -2,5 +2,5 @@
 1
 ---STDERR---
 Error: 
-5 |    incr = prim std_add(32);
-  |    ^^^^ Name already bound by group
+9 |    group incr {
+  |          ^^^^ Name already bound by cell

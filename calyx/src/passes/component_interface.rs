@@ -39,16 +39,16 @@ impl Named for ComponentInterface {
     }
 
     fn description() -> &'static str {
-        "create a go/done interface for components and wire up a single enable to this interface"
+        "wire up a single enable to the go/done interface in a component"
     }
 }
 
-impl Visitor<()> for ComponentInterface {
+impl Visitor for ComponentInterface {
     fn start(
         &mut self,
         comp: &mut ir::Component,
         ctx: &lib::LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         let control_ref = Rc::clone(&comp.control);
         let control = control_ref.borrow();
 
@@ -67,9 +67,9 @@ impl Visitor<()> for ComponentInterface {
             );
             comp.continuous_assignments.append(&mut assigns);
 
-            Ok(Action::stop_default())
+            Ok(Action::Stop)
         } else if let ir::Control::Empty(..) = &*control {
-            Ok(Action::stop_default())
+            Ok(Action::Stop)
         } else {
             Err(Error::MalformedControl(
                 "ComponentInterface: Structure has more than one group"

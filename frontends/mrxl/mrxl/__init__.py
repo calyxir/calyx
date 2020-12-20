@@ -1,16 +1,3 @@
-import sys
-import json
-from .parse import parse
-from .gen_futil import emit
-from .interp import interp, InterpError
+"""The MrXL compiler and interpreter"""
 
-
-def main():
-    with open(sys.argv[1]) as f:
-        txt = f.read()
-    ast = parse(txt)
-    out = emit(ast)
-
-
-if __name__ == '__main__':
-    main()
+__version__ = "0.1.0"
