@@ -386,6 +386,7 @@ def dense(function):
 # TODO(cgyurgyik): Currently, only supports a small subset (namely those used in our VGG net and MLP net examples).
 def softmax(function):
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.softmax"""
+    assert False, "Unimplemented."
     op, res = function.inputs[0].primitive, function.output.primitive
     axis = function.attributes.get_int("axis")
     data_type = op.data_type
