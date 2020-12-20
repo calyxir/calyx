@@ -1,6 +1,6 @@
 import "primitives/std.lib";
 
-component relu(go: 1, clk: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read_data: 32, x10_0_0_0_done: 1) -> (done: 1, x0_0_0_0_addr0: 2, x0_0_0_0_addr1: 3, x0_0_0_0_addr2: 4, x0_0_0_0_addr3: 6, x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_clk: 1, x10_0_0_0_addr0: 2, x10_0_0_0_addr1: 3, x10_0_0_0_addr2: 4, x10_0_0_0_addr3: 6, x10_0_0_0_write_data: 32, x10_0_0_0_write_en: 1, x10_0_0_0_clk: 1) {
+component relu0(go: 1, clk: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read_data: 32, x10_0_0_0_done: 1) -> (done: 1, x0_0_0_0_addr0: 2, x0_0_0_0_addr1: 3, x0_0_0_0_addr2: 4, x0_0_0_0_addr3: 6, x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_clk: 1, x10_0_0_0_addr0: 2, x10_0_0_0_addr1: 3, x10_0_0_0_addr2: 4, x10_0_0_0_addr3: 6, x10_0_0_0_write_data: 32, x10_0_0_0_write_en: 1, x10_0_0_0_clk: 1) {
   cells {
     add0 = prim std_add(6);
     add1 = prim std_add(4);
@@ -193,25 +193,29 @@ component main () -> () {
   cells {
     x1 = prim std_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
     x = prim std_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
-    relu0 = relu;
+    comp_relu0 = relu0;
   }
   wires {
-    group run_relu {
-      x.addr0 = relu0.x0_0_0_0_addr0;
-      relu0.x0_0_0_0_read_data = x.read_data;
-      x.addr1 = relu0.x0_0_0_0_addr1;
-      x.addr2 = relu0.x0_0_0_0_addr2;
-      x1.addr0 = relu0.x10_0_0_0_addr0;
-      x1.write_data = relu0.x10_0_0_0_write_data;
-      x1.write_en = relu0.x10_0_0_0_write_en;
-      relu0.x10_0_0_0_done = x1.done;
-      relu0.go = 1'd1;
-      run_relu[done] = relu0.done ? 1'd1;
+    group run_relu0 {
+      x.addr0 = comp_relu0.x0_0_0_0_addr0;
+      comp_relu0.x0_0_0_0_read_data = x.read_data;
+      x.addr1 = comp_relu0.x0_0_0_0_addr1;
+      x.addr2 = comp_relu0.x0_0_0_0_addr2;
+      x.addr3 = comp_relu0.x0_0_0_0_addr3;
+      x1.addr0 = comp_relu0.x10_0_0_0_addr0;
+      x1.addr1 = comp_relu0.x10_0_0_0_addr1;
+      x1.addr2 = comp_relu0.x10_0_0_0_addr2;
+      x1.addr3 = comp_relu0.x10_0_0_0_addr3;
+      x1.write_data = comp_relu0.x10_0_0_0_write_data;
+      x1.write_en = comp_relu0.x10_0_0_0_write_en;
+      comp_relu0.x10_0_0_0_done = x1.done;
+      comp_relu0.go = 1'd1;
+      run_relu0[done] = comp_relu0.done ? 1'd1;
     }
   }
   control {
     seq {
-      run_relu;
+      run_relu0;
     }
   }
 }

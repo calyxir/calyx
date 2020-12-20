@@ -16,6 +16,7 @@ def tensor_subtract():
     return relay.Function([x, y], relay.subtract(x, y))
 
 
+# Trying to read in a function that uses `expand_dims` with relay.fromtext() leads to some peculiar errors.
 def expand_dims():
     x = relay.var('x', shape=[512], dtype='int32')
     return relay.Function([x], relay.expand_dims(x, axis=1, num_newaxis=2))
@@ -49,6 +50,22 @@ def dense():
     return relay.Function([x, y], relay.nn.dense(x, y, units=10))
 
 
+def softmax():
+    x = relay.var('x', shape=[1, 10], dtype='float32')
+    return relay.Function([x], relay.nn.softmax(x))
+
+
+def max_pool2d():
+    data = relay.var('data', shape=[2, 2, 4, 4], dtype='int32')
+    return relay.Function([data], relay.nn.max_pool2d(data, padding=[0, 0, 0, 0], strides=[2, 2], pool_size=[2, 2]))
+
+
+def conv2d():
+    d = relay.var('data', shape=[5, 512, 14, 14], dtype='int32')
+    w = relay.var('weight', shape=[512, 512, 3, 3], dtype='int32')
+    return relay.Function([d, w], relay.nn.conv2d(d, w, padding=[1, 1, 1, 1], channels=512, kernel_size=[3, 3]))
+
+
 def mlp_net():
     """The MLP test from Relay."""
     from tvm.relay.testing import mlp
@@ -58,11 +75,12 @@ def mlp_net():
 def vgg_net():
     """The VGG test from Relay."""
     from tvm.relay.testing import vgg
-    return vgg.get_net(batch_size=1, image_shape=(3, 224, 224), num_classes=10, dtype='int32', num_layers=11,
+    return vgg.get_net(batch_size=5, image_shape=(3, 224, 224), num_classes=10, dtype='int32', num_layers=13,
                        batch_norm=True)
 
 
-ALL_FUNCS = [add, tensor_subtract, expand_dims, batch_flatten, batch_matmul, bias_add, relu, dense, mlp_net, vgg_net]
+ALL_FUNCS = [add, tensor_subtract, expand_dims, batch_flatten, batch_matmul,
+             bias_add, relu, dense, softmax, conv2d, max_pool2d, mlp_net, vgg_net]
 FUNC_NAMES = list(map(lambda x: x.__name__, ALL_FUNCS))
 
 

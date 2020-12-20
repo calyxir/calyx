@@ -44,6 +44,10 @@ def register_stages(registry, cfg):
             cfg, 'futil-noinline', '-b futil -d hole-inliner',
             'Compile FuTIL to FuTIL to remove all control and inline groups'
         ))
+    registry.register(
+        futil.FutilStage(cfg, 'futil-externalize', '-b futil -p externalize',
+                         'Compile FuTIL to FuTIL to externalize all external memory primitives'
+        ))
 
     # Verilator
     registry.register(
