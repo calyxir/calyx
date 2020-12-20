@@ -8,7 +8,7 @@ component subtract0(go: 1, clk: 1, x0_read_data: 32, x0_done: 1, y0_read_data: 3
     const2 = prim std_const(1, 1);
     i0 = prim std_reg(1);
     le0 = prim std_le(1);
-    sub0 = prim std_sub(32);
+    sub0 = prim std_ssub(32);
     x_read0_0 = prim std_reg(32);
     y_read0_0 = prim std_reg(32);
   }
@@ -68,6 +68,7 @@ component subtract0(go: 1, clk: 1, x0_read_data: 32, x0_done: 1, y0_read_data: 3
     }
   }
 }
+
 
 component main () -> () {
   cells {

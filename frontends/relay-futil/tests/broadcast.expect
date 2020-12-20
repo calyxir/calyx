@@ -2,7 +2,7 @@ import "primitives/std.lib";
 
 component add0(go: 1, clk: 1, x10_0_read_data: 32, x10_0_done: 1, x20_0_0_read_data: 32, x20_0_0_done: 1, x30_0_0_read_data: 32, x30_0_0_done: 1) -> (done: 1, x10_0_addr0: 2, x10_0_addr1: 2, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_clk: 1, x20_0_0_addr0: 2, x20_0_0_addr1: 1, x20_0_0_addr2: 1, x20_0_0_write_data: 32, x20_0_0_write_en: 1, x20_0_0_clk: 1, x30_0_0_addr0: 2, x30_0_0_addr1: 2, x30_0_0_addr2: 2, x30_0_0_write_data: 32, x30_0_0_write_en: 1, x30_0_0_clk: 1) {
   cells {
-    add0 = prim std_add(32);
+    add0 = prim std_sadd(32);
     add1 = prim std_add(2);
     add2 = prim std_add(2);
     add3 = prim std_add(2);
@@ -133,6 +133,7 @@ component add0(go: 1, clk: 1, x10_0_read_data: 32, x10_0_done: 1, x20_0_0_read_d
     }
   }
 }
+
 
 component main () -> () {
   cells {

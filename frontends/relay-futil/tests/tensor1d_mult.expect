@@ -9,7 +9,7 @@ component multiply0(go: 1, clk: 1, x0_read_data: 32, x0_done: 1, x10_read_data: 
     const2 = prim std_const(3, 1);
     i0 = prim std_reg(3);
     le0 = prim std_le(3);
-    mult_pipe0 = prim std_mult_pipe(32);
+    mult_pipe0 = prim std_smult_pipe(32);
     x_read0_0 = prim std_reg(32);
     y_read0_0 = prim std_reg(32);
   }
@@ -76,6 +76,7 @@ component multiply0(go: 1, clk: 1, x0_read_data: 32, x0_done: 1, x10_read_data: 
     }
   }
 }
+
 
 component main () -> () {
   cells {

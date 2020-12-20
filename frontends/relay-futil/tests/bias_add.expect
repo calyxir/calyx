@@ -2,7 +2,7 @@ import "primitives/std.lib";
 
 component bias_add0(go: 1, clk: 1, bias0_read_data: 32, bias0_done: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read_data: 32, x10_0_0_0_done: 1) -> (done: 1, bias0_addr0: 7, bias0_write_data: 32, bias0_write_en: 1, bias0_clk: 1, x0_0_0_0_addr0: 1, x0_0_0_0_addr1: 7, x0_0_0_0_addr2: 10, x0_0_0_0_addr3: 9, x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_clk: 1, x10_0_0_0_addr0: 1, x10_0_0_0_addr1: 7, x10_0_0_0_addr2: 10, x10_0_0_0_addr3: 9, x10_0_0_0_write_data: 32, x10_0_0_0_write_en: 1, x10_0_0_0_clk: 1) {
   cells {
-    add0 = prim fixed_p_std_add(32, 16, 16);
+    add0 = prim fixed_p_std_sadd(32, 16, 16);
     add1 = prim std_add(9);
     add2 = prim std_add(10);
     add3 = prim std_add(7);
@@ -161,6 +161,7 @@ component bias_add0(go: 1, clk: 1, bias0_read_data: 32, bias0_done: 1, x0_0_0_0_
     }
   }
 }
+
 
 component main () -> () {
   cells {

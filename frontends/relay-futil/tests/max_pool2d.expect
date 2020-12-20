@@ -35,7 +35,7 @@ component max_pool2d0(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done
     const8 = prim std_const(32, 2);
     const9 = prim std_const(32, 2);
     current_0 = prim std_reg(32);
-    gt0 = prim std_gt(32);
+    gt0 = prim std_sgt(32);
     le0 = prim std_le(32);
     le1 = prim std_le(32);
     le2 = prim std_le(32);
@@ -321,6 +321,7 @@ component max_pool2d0(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done
     }
   }
 }
+
 
 component main () -> () {
   cells {

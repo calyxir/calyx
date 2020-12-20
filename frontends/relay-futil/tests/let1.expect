@@ -11,7 +11,7 @@ component multiply0(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, b0_read_data: 3
     const2 = prim std_const(1, 1);
     i0 = prim std_reg(1);
     le0 = prim std_le(1);
-    mult_pipe0 = prim std_mult_pipe(32);
+    mult_pipe0 = prim std_smult_pipe(32);
   }
   wires {
     group cond0<"static"=0> {
@@ -76,6 +76,7 @@ component multiply0(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, b0_read_data: 3
     }
   }
 }
+
 
 component main () -> () {
   cells {

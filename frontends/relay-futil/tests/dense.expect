@@ -4,7 +4,7 @@ component dense0(go: 1, clk: 1, x0_0_read_data: 32, x0_0_done: 1, x10_0_read_dat
   cells {
     add0 = prim std_add(13);
     add1 = prim std_add(4);
-    add2 = prim std_add(32);
+    add2 = prim std_sadd(32);
     add3 = prim std_add(13);
     add4 = prim std_add(4);
     add5 = prim std_add(1);
@@ -46,7 +46,7 @@ component dense0(go: 1, clk: 1, x0_0_read_data: 32, x0_0_done: 1, x10_0_read_dat
     le4 = prim std_le(13);
     le5 = prim std_le(1);
     le6 = prim std_le(4);
-    mult_pipe0 = prim std_mult_pipe(32);
+    mult_pipe0 = prim std_smult_pipe(32);
     product_0 = prim std_reg(32);
     temporary_x10_0 = prim std_mem_d2(32, 1, 10, 1, 4);
     temporary_x1_read0_0 = prim std_reg(32);
@@ -301,6 +301,7 @@ component dense0(go: 1, clk: 1, x0_0_read_data: 32, x0_0_done: 1, x10_0_read_dat
     }
   }
 }
+
 
 component main () -> () {
   cells {
