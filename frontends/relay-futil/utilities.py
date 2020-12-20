@@ -32,8 +32,8 @@ def get_dahlia_data_type(relay_type):
     NOTE: Currently, Dahlia does not support signed types for arrays.
     '''
     dtype = relay_type.dtype
-    if 'int' in dtype: return 'ubit'
-    if 'float' in dtype: return 'ufix'
+    if 'int' in dtype: return 'bit'
+    if 'float' in dtype: return 'fix'
     assert False, f'{relay_type} is not supported.'
 
 
