@@ -135,6 +135,7 @@ component batch_flatten0(go: 1, clk: 1, x0_0_0_read_data: 32, x0_0_0_done: 1, x1
   }
 }
 
+
 component main () -> () {
   cells {
     x1 = prim std_mem_d2(32, 1, 4, 1, 3);

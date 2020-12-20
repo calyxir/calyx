@@ -11,7 +11,7 @@ component multiply0(go: 1, clk: 1, c0_read_data: 32, c0_done: 1, d0_read_data: 3
     d_read0_0 = prim std_reg(32);
     i0 = prim std_reg(1);
     le0 = prim std_le(1);
-    mult_pipe0 = prim std_mult_pipe(32);
+    mult_pipe0 = prim std_smult_pipe(32);
   }
   wires {
     group cond0<"static"=0> {
@@ -77,6 +77,7 @@ component multiply0(go: 1, clk: 1, c0_read_data: 32, c0_done: 1, d0_read_data: 3
   }
 }
 
+
 component subtract1(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data: 32, c0_done: 1, d0_read_data: 32, d0_done: 1) -> (done: 1, a0_addr0: 1, a0_write_data: 32, a0_write_en: 1, a0_clk: 1, c0_addr0: 1, c0_write_data: 32, c0_write_en: 1, c0_clk: 1, d0_addr0: 1, d0_write_data: 32, d0_write_en: 1, d0_clk: 1) {
   cells {
     a_read0_0 = prim std_reg(32);
@@ -87,7 +88,7 @@ component subtract1(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data: 3
     const2 = prim std_const(1, 1);
     i0 = prim std_reg(1);
     le0 = prim std_le(1);
-    sub0 = prim std_sub(32);
+    sub0 = prim std_ssub(32);
   }
   wires {
     group cond0<"static"=0> {
@@ -146,6 +147,7 @@ component subtract1(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data: 3
   }
 }
 
+
 component subtract0(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, b0_read_data: 32, b0_done: 1, c0_read_data: 32, c0_done: 1) -> (done: 1, a0_addr0: 1, a0_write_data: 32, a0_write_en: 1, a0_clk: 1, b0_addr0: 1, b0_write_data: 32, b0_write_en: 1, b0_clk: 1, c0_addr0: 1, c0_write_data: 32, c0_write_en: 1, c0_clk: 1) {
   cells {
     a_read0_0 = prim std_reg(32);
@@ -156,7 +158,7 @@ component subtract0(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, b0_read_data: 3
     const2 = prim std_const(1, 1);
     i0 = prim std_reg(1);
     le0 = prim std_le(1);
-    sub0 = prim std_sub(32);
+    sub0 = prim std_ssub(32);
   }
   wires {
     group cond0<"static"=0> {
@@ -214,6 +216,7 @@ component subtract0(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, b0_read_data: 3
     }
   }
 }
+
 
 component main () -> () {
   cells {

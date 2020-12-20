@@ -152,6 +152,7 @@ component sqrt0(go: 1, clk: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0
   }
 }
 
+
 component main () -> () {
   cells {
     x1 = prim std_mem_d4(32, 8, 8, 16, 64, 4, 4, 5, 7);

@@ -7,7 +7,7 @@ component batch_matmul0(go: 1, clk: 1, a0_0_0_read_data: 32, a0_0_0_done: 1, b0_
     add1 = prim std_add(3);
     add10 = prim std_add(3);
     add2 = prim std_add(3);
-    add3 = prim std_add(32);
+    add3 = prim std_sadd(32);
     add4 = prim std_add(3);
     add5 = prim std_add(3);
     add6 = prim std_add(3);
@@ -66,7 +66,7 @@ component batch_matmul0(go: 1, clk: 1, a0_0_0_read_data: 32, a0_0_0_done: 1, b0_
     le7 = prim std_le(3);
     le8 = prim std_le(3);
     le9 = prim std_le(3);
-    mult_pipe0 = prim std_mult_pipe(32);
+    mult_pipe0 = prim std_smult_pipe(32);
     product_0 = prim std_reg(32);
     temporary_x0_0_0 = prim std_mem_d3(32, 4, 7, 7, 3, 3, 3);
     temporary_x_read0_0 = prim std_reg(32);
@@ -396,6 +396,7 @@ component batch_matmul0(go: 1, clk: 1, a0_0_0_read_data: 32, a0_0_0_done: 1, b0_
     }
   }
 }
+
 
 component main () -> () {
   cells {

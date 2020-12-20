@@ -19,7 +19,7 @@ component relu0(go: 1, clk: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0
     const8 = prim std_const(6, 1);
     const9 = prim std_const(4, 1);
     fpconst0 = prim fixed_p_std_const(32, 16, 16, 0, 0);
-    gt0 = prim fixed_p_std_gt(32, 16, 16);
+    gt0 = prim fixed_p_std_sgt(32, 16, 16);
     i0 = prim std_reg(2);
     j0 = prim std_reg(3);
     k0 = prim std_reg(4);
@@ -188,6 +188,7 @@ component relu0(go: 1, clk: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0
     }
   }
 }
+
 
 component main () -> () {
   cells {

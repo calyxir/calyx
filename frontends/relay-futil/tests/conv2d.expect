@@ -4,7 +4,7 @@ component conv2d0(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done: 1,
   cells {
     add0 = prim std_add(32);
     add1 = prim std_add(32);
-    add2 = prim fixed_p_std_add(32, 16, 16);
+    add2 = prim fixed_p_std_sadd(32, 16, 16);
     add3 = prim std_add(32);
     add4 = prim std_add(32);
     add5 = prim std_add(32);
@@ -56,7 +56,7 @@ component conv2d0(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done: 1,
     le6 = prim std_le(32);
     mult_pipe0 = prim std_mult_pipe(32);
     mult_pipe1 = prim std_mult_pipe(32);
-    mult_pipe2 = prim std_mult_pipe(32);
+    mult_pipe2 = prim std_smult_pipe(32);
     slice0 = prim std_slice(32, 3);
     slice1 = prim std_slice(32, 10);
     slice10 = prim std_slice(32, 10);
@@ -356,6 +356,7 @@ component conv2d0(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done: 1,
     }
   }
 }
+
 
 component main () -> () {
   cells {
