@@ -1100,7 +1100,7 @@ primitive std_smult<"share"=1>[width](left: width, right: width) -> (out: width)
 
 primitive std_smult_pipe[width](left: width, right: width, go: 1, clk: 1) -> (out: width, done: 1) {
   verilog {
-    module std_ssmult_pipe
+    module std_smult_pipe
       #(parameter width = 32)
        (input signed [width-1:0] left,
         input signed [width-1:0] right,
@@ -1108,9 +1108,9 @@ primitive std_smult_pipe[width](left: width, right: width, go: 1, clk: 1) -> (ou
         input logic clk,
         output signed [width-1:0] out,
         output logic done);
-       signed [width-1:0] rtmp;
-       signed [width-1:0] ltmp;
-       signed [width-1:0] out_tmp;
+       logic signed [width-1:0] rtmp;
+       logic signed [width-1:0] ltmp;
+       logic signed [width-1:0] out_tmp;
        reg done_buf[1:0];
        always_ff @(posedge clk) begin
          if (go) begin
