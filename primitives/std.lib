@@ -1064,16 +1064,16 @@ primitive std_smod_pipe[width]
                 input                  go,
                 input  signed [width-1:0]      left,
                 input  signed [width-1:0]      right,
-                output reg [width-1:0] out,
+                output reg signed [width-1:0] out,
                 output reg             done);
 
       wire start = go && !running && !reset;
 
-      reg [width-1:0]     dividend;
-      reg [(width-1)*2:0] divisor;
-      reg [width-1:0]     quotient;
-      reg [width-1:0]     quotient_msk;
-      reg                 running;
+      reg signed [width-1:0]     dividend;
+      reg signed [(width-1)*2:0] divisor;
+      reg signed [width-1:0]     quotient;
+      reg signed [width-1:0]     quotient_msk;
+      reg                        running;
 
       always @(posedge clk) begin
           if (reset || !go) begin
@@ -1187,11 +1187,11 @@ primitive std_sdiv_pipe[width]
 
       wire start = go && !running && !reset;
 
-      reg [width-1:0]     dividend;
-      reg [(width-1)*2:0] divisor;
-      reg [width-1:0]     quotient;
-      reg [width-1:0]     quotient_msk;
-      reg                 running;
+      reg signed [width-1:0]     dividend;
+      reg signed [(width-1)*2:0] divisor;
+      reg signed [width-1:0]     quotient;
+      reg signed [width-1:0]     quotient_msk;
+      reg                        running;
 
       always @(posedge clk) begin
           if (reset || !go) begin
@@ -1343,9 +1343,9 @@ primitive std_ssqrt(in: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
        output signed [31:0] out,
        output logic        done);
       // declare the variables
-      reg [31:0] a;
-      reg [15:0] q;
-      reg [17:0] left,right,r;
+      reg signed [31:0] a;
+      reg signed [15:0] q;
+      reg signed [17:0] left,right,r;
       integer i;
       always_ff @(posedge clk) begin
         if (go && i == 0) begin
@@ -1433,7 +1433,7 @@ primitive fixed_p_std_smult[width, int_width, fract_width](left: width, right: w
         input signed [width-1:0] right,
         output signed [width-1:0] out);
 
-        logic [2*width-2:0] result;
+        logic signed [2*width-2:0] result;
 
         assign result = left * right;
         assign out = result[width+fract_width-1:fract_width];
