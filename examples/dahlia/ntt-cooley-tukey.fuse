@@ -57,7 +57,7 @@ while (iters < log2N) {
   ---
   let stopIndex: ubit<6> = N / mIndex;
   ---
-  let mHalved: ubit<6> = mIndex / 2;
+  let mHalved: ubit<6> = mIndex >> 1;
   ---
   while (i < stopIndex) {
     let oidx: ubit<6> = 0;
@@ -73,7 +73,7 @@ while (iters < log2N) {
       ---
       let V: bit<32> = ret[k + mHalved] * omegas[oidx];
       ---
-      ret[k] := (U + V) % P
+      ret[k] := (U + V) % P;
       ---
       ret[k + mHalved] := (U - V) % P;
       ---
@@ -85,7 +85,7 @@ while (iters < log2N) {
     i := i + 1;
   }
   ---
-  mIndex := mIndex * 2;
+  mIndex := mIndex << 1;
   ---
   iters := iters + 1;
 }
