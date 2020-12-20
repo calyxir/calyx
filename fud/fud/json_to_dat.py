@@ -16,11 +16,22 @@ def bitstring2(val, bw):
     numval = int(val,base=2)
     return '{:x}'.format(numval)
 
-
 def parse_dat(path):
     with path.open('r') as f:
         lines = f.readlines()
         arr = np.array(list(map(lambda v: int(v.strip(), 16), lines)))
+        return arr
+
+def signed_parse_helper(v,bw):
+    if v > 2**(bw-1):
+        return  -1*(2**bw-v)
+    else:
+        return v
+
+def parse_dat_signed(path,bw):
+    with path.open('r') as f:
+        lines = f.readlines()
+        arr = np.array(list(map(lambda v: signed_parse_helper(int(v.strip(), 16),bw), lines)))
         return arr
 
 def parse_dat_fxd(path, wholebit, intbit, fracbit):
@@ -34,6 +45,17 @@ def parse_dat_fxd(path, wholebit, intbit, fracbit):
                     wholebit, intbit,fracbit), lines)))
         return arr
 
+
+def parse_dat_fxd_signed(path,wholebit, intbit,fracbit):
+    with path.open('r') as f:
+        lines = f.readlines()
+        arr = np.array(
+            list(
+                map(
+                    lambda v:
+                    signed_fixed_p_to_decimal(np.binary_repr(int(v.strip(), 16),width = wholebit),
+                    wholebit, intbit,fracbit), lines)))
+        return arr
 
 def parse_type(typ):
     """
@@ -102,10 +124,48 @@ def decimal_to_fixed_p(num, int_bit, frac_bit):
 
     frac = int(frac)
     frac_b = np.binary_repr(frac, width = frac_bit)
+    if len(int_b) > int_bit:
+        raise Exception(f"{int_bit} causes overflow, provide larger integer bit")
+
+    if len(frac_b) > frac_bit:
+        raise Exception(f"{frac_bit} causes overflow , provide larger fractional bit")
+
     r = int_b + frac_b
     return r
 
+def signed_decimal_to_fixed_p(num, int_bit, frac_bit):
+    if num <0:
+        num = -1 * num
+        intg, frac = str(float(num)).split(".")
+        int_b = np.binary_repr(int(intg), width = int_bit-1)
+        int_b = '1'+int_b
+    else:
+        intg, frac = str(float(num)).split(".")
+        int_b = np.binary_repr(int(intg), width = int_bit-1)
+        int_b = '0'+int_b
 
+    frac = "0."+frac
+
+    # multiply fractional part with 2**frac_bit to turn into integer
+    frac = float(frac) * float(2**frac_bit)
+    _, f = str(frac).split(".")
+
+    # raises Exception when the number can't be represented as fixed number
+    if f != "0":
+        raise Exception(f"{num} cannot be as the type: fix<{int_bit}, {frac_bit}>")
+
+    frac = int(frac)
+    frac_b = np.binary_repr(frac, width = frac_bit)
+    if len(int_b) > int_bit:
+        raise Exception(f"{int_bit} causes overflow, provide larger integer bit")
+
+    if len(frac_b) > frac_bit:
+        raise Exception(f"{frac_bit} causes overflow , provide larger fractional bit")
+
+    r = int_b + frac_b
+    return r
+
+    
 def fixed_p_to_decimal (fp, width, int_bit, frac_bit):
     '''
     given fixedpoint representation, width, integer bit and fractinal bit,
@@ -120,6 +180,18 @@ def fixed_p_to_decimal (fp, width, int_bit, frac_bit):
     num = float(int_num +frac_num)
     return num
 
+def signed_fixed_p_to_decimal (fp, width, int_bit, frac_bit):
+    int_b = fp[1:int_bit]
+    frac_b = fp[int_bit:width]
+    int_num = int(int_b, 2)
+    frac = int(frac_b, 2)
+    frac_num = float(frac / 2**(frac_bit))
+    num = float(int_num +frac_num)
+
+    if fp[0]=='1':
+        num = -1 * num
+
+    return num
 
 # go through the json data and create a file for each key,
 # flattening the data and then converting it to bitstrings
@@ -150,7 +222,12 @@ def convert2dat(output_dir, data, extension):
                     wholebit = info['full_width']
                     intbit = info['int_width']
                     fracbit = wholebit-intbit
-                    bs =  decimal_to_fixed_p(v, intbit, fracbit)
+                    if info['unsigned']:
+                        # unsigned fxdpoint
+                        bs =  decimal_to_fixed_p(v, intbit, fracbit)
+                    else:
+                        # signed fxdpoint
+                        bs =  signed_decimal_to_fixed_p(v, intbit, fracbit)
                     f.write( bitstring2(bs, wholebit)+ "\n")
         # other cases are not allowed
         else:
@@ -177,13 +254,23 @@ def convert2json(input_dir, extension):
         typinfo = shape_json[f.stem]["type"]
         if typinfo['type_name']=='bit':
             # bit
-            arr = parse_dat(f)
+            if typinfo['unsigned']:
+                # unsigned bit
+                arr = parse_dat(f)
+            else:
+                # signed bit
+                arr = parse_dat_signed(f,typinfo['width'])
         elif typinfo['type_name']=='fix':
             # fixed point
             wholebit = typinfo['full_width']
             intbit = typinfo['int_width']
             fracbit= wholebit - intbit
-            arr = parse_dat_fxd(f,wholebit, intbit,fracbit)
+            if typinfo['unsigned']:
+                # unsigned fixedpoint
+                arr = parse_dat_fxd(f,wholebit, intbit,fracbit)
+            else:
+                # signed fixedpoint
+                arr = parse_dat_fxd_signed(f,wholebit, intbit,fracbit)
         else:
             raise Exception("valid type is required")
 

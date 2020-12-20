@@ -3,7 +3,7 @@ component main() -> () {
   cells {
     a0_00_0 = prim std_mem_d2_ext(16,2,2,2,2);
     a0_0_read0_0 = prim std_reg(16);
-    add0 = prim fixed_p_std_add(16,8,8);
+    add0 = prim fixed_p_std_sadd(16,8,8);
     add1 = prim std_add(2);
     add2 = prim std_add(2);
     b0_00_0 = prim std_mem_d2_ext(16,2,2,2,2);
