@@ -1514,7 +1514,6 @@ primitive sfixed_p_std_add_dbit[width1, width2 , int_width1, fract_width1, int_w
     }
 }
 
-
 primitive fixed_p_std_sgt<"share"=1>[width, int_width, fract_width](left: width, right: width) -> (out: 1) {
   verilog {
     module fixed_p_std_sgt
