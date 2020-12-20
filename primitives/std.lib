@@ -1513,3 +1513,18 @@ primitive sfixed_p_std_add_dbit[width1, width2 , int_width1, fract_width1, int_w
       endmodule
     }
 }
+
+
+primitive fixed_p_std_sgt<"share"=1>[width, int_width, fract_width](left: width, right: width) -> (out: 1) {
+  verilog {
+    module fixed_p_std_sgt
+     #(parameter width = 32,
+       parameter int_width = 8,
+       parameter fract_width = 24)
+       (input  signed logic [width-1:0] left,
+        input  signed logic [width-1:0] right,
+        output signed logic             out);
+      assign out = left > right;
+    endmodule
+  }
+}
