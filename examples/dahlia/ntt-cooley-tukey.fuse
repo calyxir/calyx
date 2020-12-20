@@ -54,27 +54,38 @@ let iters: ubit<6> = 0;
 
 while (iters < log2N) {
   let i: ubit<6> = 0;
+  ---
   let stopIndex: ubit<6> = N / mIndex;
-  let mHalved: ubit<6> = mIndex >> 1;
+  ---
+  let mHalved: ubit<6> = mIndex / 2;
+  ---
   while (i < stopIndex) {
     let oidx: ubit<6> = 0;
+    ---
     let iStep: ubit<6> = i * mIndex;
+    ---
     let j: ubit<6> = 0;
+    ---
     while (j < mHalved) {
       let k: ubit<6> = iStep + j;
+      ---
       let U: bit<32> = ret[k];
       ---
       let V: bit<32> = ret[k + mHalved] * omegas[oidx];
       ---
-      ret[k] := (U + V) % P;
+      ret[k] := (U + V) % P
       ---
       ret[k + mHalved] := (U - V) % P;
       ---
       oidx := oidx + stopIndex;
+      ---
       j := j + 1;
     }
+    ---
     i := i + 1;
   }
-  mIndex := mIndex << 1;
+  ---
+  mIndex := mIndex * 2;
+  ---
   iters := iters + 1;
 }
