@@ -10,22 +10,19 @@ component main() -> () {
     fpconst0 = prim fixed_p_std_const(16,8,8,16,5);
     fpconst1 = prim fixed_p_std_const(16,8,8,8,375);
     mult_pipe0 = prim std_mult_pipe(16);
-    result0 = prim std_mem_d1_ext(32,8,4);
     result1_0 = prim std_reg(16);
     result2_0 = prim std_reg(16);
     result3_0 = prim std_reg(16);
     result4_0 = prim std_reg(16);
     slice0 = prim std_slice(16,16);
     slice1 = prim std_slice(16,16);
-    slice2 = prim std_slice(16,16);
     sub0 = prim fixed_p_std_sub(16,8,8);
   }
   wires {
     group let0<"static"=1> {
-      a_0.in = slice0.out;
+      a_0.in = fpconst0.out;
       a_0.write_en = 1'd1;
       let0[done] = a_0.done;
-      slice0.in = fpconst0.out;
     }
     group let1<"static"=1> {
       b_0.in = fpconst1.out;
@@ -33,19 +30,19 @@ component main() -> () {
       let1[done] = b_0.done;
     }
     group let2<"static"=1> {
-      bin_read0_0.in = slice1.out;
+      bin_read0_0.in = slice0.out;
       bin_read0_0.write_en = 1'd1;
       let2[done] = bin_read0_0.done;
-      slice1.in = div_pipe0.out;
+      slice0.in = div_pipe0.out;
       div_pipe0.left = a_0.out;
       div_pipe0.right = b_0.out;
       div_pipe0.go = !div_pipe0.done ? 1'd1;
     }
     group let3<"static"=1> {
-      bin_read1_0.in = slice2.out;
+      bin_read1_0.in = slice1.out;
       bin_read1_0.write_en = 1'd1;
       let3[done] = bin_read1_0.done;
-      slice2.in = mult_pipe0.out;
+      slice1.in = mult_pipe0.out;
       mult_pipe0.left = a_0.out;
       mult_pipe0.right = b_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;

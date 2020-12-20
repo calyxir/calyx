@@ -33,7 +33,7 @@ bad_num = @{ ASCII_DIGIT ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "'")* }
 // ====== toplevel ======
 
 component = {
-      "component" ~ identifier ~ signature?
+      "component" ~ identifier ~ signature
       ~ "{"
       ~ cells
       ~ connections
@@ -58,7 +58,7 @@ imports = { import* }
 // ====== signature ======
 
 signature = {
-      "(" ~ io_ports? ~ ")" ~ signature_return?
+      "(" ~ io_ports? ~ ")" ~ signature_return
 }
 
 signature_return = {
@@ -170,6 +170,10 @@ connections = {
 
 enable = { identifier ~ ";" }
 
+invoke_arg = { identifier ~ "=" ~ port }
+invoke_args = { (invoke_arg ~ ("," ~ invoke_arg)*)? }
+invoke = { "invoke" ~ identifier ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ";" }
+
 seq = {
       "seq" ~ "{"
       ~ stmt*
@@ -202,6 +206,7 @@ while_stmt = {
 
 stmt = {
       enable
+    | invoke
     | (seq ~ ";"?)
     | (par ~ ";"?)
     | (if_stmt ~ ";"?)
@@ -209,8 +214,5 @@ stmt = {
 }
 
 control = {
-      "control"
-      ~ "{"
-      ~ stmt?
-      ~ "}"
+      "control" ~ (("{" ~ "}") | block)
 }

@@ -10,12 +10,6 @@ component kernel() -> () {
     C_read0_0 = prim std_reg(32);
     add0 = prim std_add(6);
     add1 = prim std_add(6);
-    const0 = prim std_const(6,0);
-    const1 = prim std_const(6,31);
-    const2 = prim std_const(6,1);
-    const3 = prim std_const(6,0);
-    const4 = prim std_const(6,31);
-    const5 = prim std_const(6,1);
     i0 = prim std_reg(6);
     i1 = prim std_reg(6);
     le0 = prim std_le(6);
@@ -25,20 +19,20 @@ component kernel() -> () {
     group cond0<"static"=0> {
       cond0[done] = 1'd1;
       le0.left = i0.out;
-      le0.right = const1.out;
+      le0.right = 6'd31;
     }
     group cond1<"static"=0> {
       cond1[done] = 1'd1;
       le1.left = i1.out;
-      le1.right = const4.out;
+      le1.right = 6'd31;
     }
     group let0<"static"=1> {
-      i0.in = const0.out;
+      i0.in = 6'd0;
       i0.write_en = 1'd1;
       let0[done] = i0.done;
     }
     group let1<"static"=1> {
-      i1.in = const3.out;
+      i1.in = 6'd0;
       i1.write_en = 1'd1;
       let1[done] = i1.done;
     }
@@ -69,7 +63,7 @@ component kernel() -> () {
     group upd4<"static"=1> {
       i0.write_en = 1'd1;
       add0.left = i0.out;
-      add0.right = const2.out;
+      add0.right = 6'd1;
       i0.in = add0.out;
       upd4[done] = i0.done;
     }
@@ -88,7 +82,7 @@ component kernel() -> () {
     group upd7<"static"=1> {
       i1.write_en = 1'd1;
       add1.left = i1.out;
-      add1.right = const5.out;
+      add1.right = 6'd1;
       i1.in = add1.out;
       upd7[done] = i1.done;
     }

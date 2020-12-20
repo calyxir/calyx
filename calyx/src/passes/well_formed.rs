@@ -48,72 +48,86 @@ impl Named for WellFormed {
     }
 }
 
-impl Visitor<()> for WellFormed {
+impl Visitor for WellFormed {
     fn start(
         &mut self,
         comp: &mut Component,
         _ctx: &LibrarySignatures,
-    ) -> VisResult<()> {
-        for group_ref in &comp.groups {
-            self.all_groups.insert(group_ref.borrow().name.clone());
-        }
+    ) -> VisResult {
         // Check if any of the cells use a reserved name.
         for cell_ref in &comp.cells {
             let cell = cell_ref.borrow();
             if self.reserved_names.contains(&cell.name.id) {
                 return Err(Error::ReservedName(cell.name.clone()));
             }
-            if self.all_groups.contains(&cell.name) {
-                return Err(Error::AlreadyBound(
-                    cell.name.clone(),
-                    "group".to_string(),
-                ));
-            }
         }
-        Ok(Action::continue_default())
+        Ok(Action::Continue)
     }
 
-    fn start_enable(
+    fn enable(
         &mut self,
         s: &mut ir::Enable,
-        _data: (),
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         self.used_groups.insert(s.group.borrow().name.clone());
-        Ok(Action::continue_default())
+        Ok(Action::Continue)
+    }
+
+    fn invoke(
+        &mut self,
+        s: &mut ir::Invoke,
+        _comp: &mut Component,
+        _ctx: &LibrarySignatures,
+    ) -> VisResult {
+        for (id, port) in &s.inputs {
+            if port.borrow().direction != ir::Direction::Output {
+                panic!(
+                    "Input argument `{}` for `invoke {}` uses non-output port: `{}`. Input arguments should use output ports.",
+                    id,
+                    s.comp.borrow().name,
+                    port.borrow().name)
+            }
+        }
+        for (id, port) in &s.outputs {
+            if port.borrow().direction != ir::Direction::Input {
+                panic!(
+                    "Output argument `{}` for `invoke {}` uses non-input port: `{}`. Output arguments should use input ports.",
+                    id,
+                    s.comp.borrow().name,
+                    port.borrow().name)
+            }
+        }
+        Ok(Action::Continue)
     }
 
     fn finish_if(
         &mut self,
         s: &mut ir::If,
-        _data: (),
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         // Add cond group as a used port.
         self.used_groups.insert(s.cond.borrow().name.clone());
-        Ok(Action::continue_default())
+        Ok(Action::Continue)
     }
 
     fn finish_while(
         &mut self,
         s: &mut ir::While,
-        _data: (),
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         // Add cond group as a used port.
         self.used_groups.insert(s.cond.borrow().name.clone());
-        Ok(Action::continue_default())
+        Ok(Action::Continue)
     }
 
     fn finish(
         &mut self,
-        _data: (),
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
-    ) -> VisResult<()> {
+    ) -> VisResult {
         let unused_group = self
             .all_groups
             .difference(&self.used_groups)
@@ -121,7 +135,7 @@ impl Visitor<()> for WellFormed {
             .next();
         match unused_group {
             Some(group) => Err(Error::UnusedGroup(group.clone())),
-            None => Ok(Action::continue_default()),
+            None => Ok(Action::Continue),
         }
     }
 }
