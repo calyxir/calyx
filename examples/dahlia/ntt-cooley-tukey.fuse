@@ -5,7 +5,7 @@ decl prime: bit<32>[1];
 decl omegas: bit<32>[32];
 decl ret: bit<32>[32];  // Output array.
 
-let P = prime[0];
+let P: bit<32> = prime[0];
 let N: ubit<6> = 32;
 let log2N: ubit<6> = 5;
 
@@ -68,9 +68,8 @@ while (iters < log2N) {
       ---
       ret[k] := (U + V) % P;
       ---
-      let temp = (U - V) % P;
+      ret[k + mHalved] := (U - V) % P;
       ---
-      ret[k + mHalved] := (temp + P) % P;
       oidx := oidx + stopIndex;
       j := j + 1;
     }
