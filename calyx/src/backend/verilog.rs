@@ -246,22 +246,11 @@ fn emit_assignment(
     (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
 ) -> v::Parallel {
     let dst = dst_ref.borrow();
-    /*let init = v::Sequential::SeqAssign(
-        port_to_ref(Rc::clone(&dst_ref)),
-        v::Expr::new_ulit_dec(dst.width as u32, &0.to_string()),
-        v::AssignTy::Blocking,
-    );*/
     let init = v::Expr::new_ulit_dec(dst.width as u32, &0.to_string());
-    let rhs = assignments.iter().rfold(init, |acc, e| match &e.guard {
-        /*ir::Guard::True => v::Sequential::new_blk_assign(
-            port_to_ref(Rc::clone(&e.dst)),
-            port_to_ref(Rc::clone(&e.src)),
-        ),*/
-        g => {
-            let guard = guard_to_expr(g);
-            let asgn = port_to_ref(Rc::clone(&e.src));
-            v::Expr::new_mux(guard, asgn, acc)
-        }
+    let rhs = assignments.iter().rfold(init, |acc, e| {
+        let guard = guard_to_expr(&e.guard);
+        let asgn = port_to_ref(Rc::clone(&e.src));
+        v::Expr::new_mux(guard, asgn, acc)
     });
     v::Parallel::ParAssign(port_to_ref(Rc::clone(dst_ref)), rhs)
 }
