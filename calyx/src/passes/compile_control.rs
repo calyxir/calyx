@@ -1,3 +1,4 @@
+use super::math_utilities::get_bit_width_from;
 use crate::errors::Error;
 use crate::frontend::library::ast as lib;
 use crate::ir::{
@@ -263,7 +264,7 @@ impl Visitor for CompileControl {
 
         // Create a new group for the seq related structure.
         let seq_group = builder.add_group("seq", HashMap::new());
-        let fsm_size = 32;
+        let fsm_size = get_bit_width_from(1 + s.stmts.len() as u64);
 
         // new structure
         structure!(builder;

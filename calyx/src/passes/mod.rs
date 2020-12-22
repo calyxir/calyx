@@ -11,6 +11,7 @@ mod externalize;
 mod go_insertion;
 mod infer_static_timing;
 mod inliner;
+mod math_utilities;
 mod minimize_regs;
 mod papercut;
 mod remove_external_memories;

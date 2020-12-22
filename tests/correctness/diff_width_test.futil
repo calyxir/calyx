@@ -45,7 +45,6 @@ component main() -> () {
       mem2.write_data = add1.out;
       upd1[done] = mem2.done ? 1'd1;
     }
-
   }
   control {
     seq {
