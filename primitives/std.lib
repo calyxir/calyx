@@ -1160,7 +1160,7 @@ primitive std_sdiv_pipe[width]
                 input                  go,
                 input signed [width-1:0]      left,
                 input signed [width-1:0]      right,
-                output reg [width-1:0] out,
+                output reg signed [width-1:0] out,
                 output reg             done);
 
       wire start = go && !running && !reset;
