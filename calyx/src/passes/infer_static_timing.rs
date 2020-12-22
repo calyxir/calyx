@@ -31,10 +31,20 @@ impl Named for InferStaticTiming<'_> {
 
 impl Default for InferStaticTiming<'_> {
     fn default() -> Self {
-        let prim_latency_data = [("std_reg", ("write_en", "done", 1))]
-            .iter()
-            .cloned()
-            .collect();
+        let prim_latency_data = [
+            ("std_reg", ("write_en", "done", 1)),
+            ("std_mem_d1", ("write_en", "done", 1)),
+            ("std_mem_d1_ext", ("write_en", "done", 1)),
+            ("std_mem_d2", ("write_en", "done", 1)),
+            ("std_mem_d2_ext", ("write_en", "done", 1)),
+            ("std_mem_d3", ("write_en", "done", 1)),
+            ("std_mem_d3_ext", ("write_en", "done", 1)),
+            ("std_mem_d4", ("write_en", "done", 1)),
+            ("std_mem_d4_ext", ("write_en", "done", 1)),
+        ]
+        .iter()
+        .cloned()
+        .collect();
         InferStaticTiming { prim_latency_data }
     }
 }

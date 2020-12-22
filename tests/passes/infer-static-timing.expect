@@ -18,7 +18,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
       r1.write_en = r0.done;
       two_cycles[done] = r1.done;
     }
-    group mem_wrt_to_done {
+    group mem_wrt_to_done<"static"=1> {
       m0.addr0 = 1'd0;
       m0.write_data = 32'd5;
       m0.write_en = 1'd1;

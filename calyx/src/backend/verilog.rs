@@ -178,16 +178,12 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
             .or_insert((Rc::clone(&asgn.dst), vec![asgn]));
     }
 
-    let seq_stmts = map
-        .values()
+    map.values()
         .sorted_by_key(|(port, _)| port.borrow().key())
-        .map(|asgns| emit_assignment(asgns))
-        .collect::<Vec<_>>();
+        .for_each(|asgns| {
+            module.add_stmt(v::Stmt::new_parallel(emit_assignment(asgns)));
+        });
 
-    let mut always_comb = v::ParallelProcess::new_always_comb();
-    always_comb.body = seq_stmts;
-
-    module.add_process(always_comb);
     module
 }
 
@@ -248,30 +244,15 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
 
 fn emit_assignment(
     (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
-) -> v::Sequential {
+) -> v::Parallel {
     let dst = dst_ref.borrow();
-    let init = v::Sequential::SeqAssign(
-        port_to_ref(Rc::clone(&dst_ref)),
-        v::Expr::new_ulit_dec(dst.width as u32, &0.to_string()),
-        v::AssignTy::Blocking,
-    );
-    assignments.iter().rfold(init, |acc, e| match &e.guard {
-        ir::Guard::True => v::Sequential::new_blk_assign(
-            port_to_ref(Rc::clone(&e.dst)),
-            port_to_ref(Rc::clone(&e.src)),
-        ),
-        g => {
-            let guard = guard_to_expr(g);
-            let mut if_s = v::SequentialIfElse::new(guard);
-            let asgn = v::Sequential::new_blk_assign(
-                port_to_ref(Rc::clone(&e.dst)),
-                port_to_ref(Rc::clone(&e.src)),
-            );
-            if_s.add_seq(asgn);
-            if_s.set_else(acc);
-            if_s.into()
-        }
-    })
+    let init = v::Expr::new_ulit_dec(dst.width as u32, &0.to_string());
+    let rhs = assignments.iter().rfold(init, |acc, e| {
+        let guard = guard_to_expr(&e.guard);
+        let asgn = port_to_ref(Rc::clone(&e.src));
+        v::Expr::new_mux(guard, asgn, acc)
+    });
+    v::Parallel::ParAssign(port_to_ref(Rc::clone(dst_ref)), rhs)
 }
 
 fn port_to_ref(port_ref: RRC<ir::Port>) -> v::Expr {
