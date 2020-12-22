@@ -9,20 +9,20 @@ component main() -> () {
   }
 
   wires {
-    group B {
+    group B<"static"=1> {
       b.write_en = 1'b1;
       in.addr0 = 1'b0;
       b.in = in.read_data;
       B[done] = b.done;
     }
 
-    group C {
+    group C<"static"=1> {
       c.write_en = 1'b1;
       c.in = b.out;
       C[done] = c.done;
     }
 
-    group commit {
+    group commit<"static"=1> {
       out.write_en = 1'b1;
       out.addr0 = 1'b0;
       out.write_data = c.out;

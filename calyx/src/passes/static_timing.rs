@@ -338,7 +338,7 @@ impl Visitor for StaticTiming {
                         let state_const = constant(static_time, fsm_size);
                     );
                     let go_guard =
-                        guard!(fsm["out"]).le(guard!(state_const["out"]));
+                        guard!(fsm["out"]).lt(guard!(state_const["out"]));
 
                     let mut assigns = build_assignments!(builder;
                       group["go"] = go_guard ? signal_const["out"];

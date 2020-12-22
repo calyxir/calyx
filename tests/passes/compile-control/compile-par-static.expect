@@ -29,9 +29,9 @@ component main(go: 1, clk: 1) -> (done: 1) {
       fsm.in = fsm.out != 32'd1 ? incr.out;
       fsm.write_en = fsm.out != 32'd1 ? 1'd1;
       static_par[done] = fsm.out == 32'd1 ? 1'd1;
-      A[go] = fsm.out <= 32'd1 ? 1'd1;
-      B[go] = fsm.out <= 32'd1 ? 1'd1;
-      C[go] = fsm.out <= 32'd1 ? 1'd1;
+      A[go] = fsm.out < 32'd1 ? 1'd1;
+      B[go] = fsm.out < 32'd1 ? 1'd1;
+      C[go] = fsm.out < 32'd1 ? 1'd1;
     }
     fsm.in = fsm.out == 32'd1 ? 32'd0;
     fsm.write_en = fsm.out == 32'd1 ? 1'd1;
