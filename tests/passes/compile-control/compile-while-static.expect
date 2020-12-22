@@ -5,9 +5,9 @@ component main(go: 1, clk: 1) -> (done: 1) {
     add_r = prim std_reg(32);
     lt = prim std_lt(32);
     lt_r = prim std_reg(1);
-    fsm = prim std_reg(32);
+    fsm = prim std_reg(2);
     cond_stored = prim std_reg(1);
-    incr = prim std_add(32);
+    incr = prim std_add(2);
   }
   wires {
     group do_add<"static"=1> {
@@ -26,19 +26,19 @@ component main(go: 1, clk: 1) -> (done: 1) {
     }
     group static_while {
       incr.left = fsm.out;
-      incr.right = 32'd1;
-      fsm.in = fsm.out != 32'd2 ? incr.out;
-      fsm.write_en = fsm.out != 32'd2 ? 1'd1;
-      cond[go] = fsm.out < 32'd1 ? 1'd1;
-      cond_stored.write_en = fsm.out < 32'd1 ? 1'd1;
-      do_add[go] = cond_stored.out & fsm.out >= 32'd1 & fsm.out < 32'd2 ? 1'd1;
-      fsm.in = fsm.out == 32'd2 ? 32'd0;
-      fsm.write_en = fsm.out == 32'd2 ? 1'd1;
-      static_while[done] = fsm.out == 32'd1 & !cond_stored.out ? 1'd1;
-      cond_stored.in = fsm.out < 32'd1 ? lt_r.out;
+      incr.right = 2'd1;
+      fsm.in = fsm.out != 2'd2 ? incr.out;
+      fsm.write_en = fsm.out != 2'd2 ? 1'd1;
+      cond[go] = fsm.out < 2'd1 ? 1'd1;
+      cond_stored.write_en = fsm.out < 2'd1 ? 1'd1;
+      do_add[go] = cond_stored.out & fsm.out >= 2'd1 & fsm.out < 2'd2 ? 1'd1;
+      fsm.in = fsm.out == 2'd2 ? 2'd0;
+      fsm.write_en = fsm.out == 2'd2 ? 1'd1;
+      static_while[done] = fsm.out == 2'd1 & !cond_stored.out ? 1'd1;
+      cond_stored.in = fsm.out < 2'd1 ? lt_r.out;
     }
-    fsm.in = fsm.out == 32'd1 & !cond_stored.out ? 32'd0;
-    fsm.write_en = fsm.out == 32'd1 & !cond_stored.out ? 1'd1;
+    fsm.in = fsm.out == 2'd1 & !cond_stored.out ? 2'd0;
+    fsm.write_en = fsm.out == 2'd1 & !cond_stored.out ? 1'd1;
   }
 
   control {
