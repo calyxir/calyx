@@ -6,10 +6,10 @@ component main(go: 1, clk: 1) -> (done: 1) {
     fsm = prim std_reg(2);
   }
   wires {
-    add.left = fsm.out == 2'd0 & !r.done & go | fsm.out == 2'd1 & !r.done & go ? 32'd1;
-    add.right = fsm.out == 2'd0 & !r.done & go | fsm.out == 2'd1 & !r.done & go ? r.out;
-    r.in = fsm.out == 2'd0 & !r.done & go | fsm.out == 2'd1 & !r.done & go ? add.out;
-    r.write_en = fsm.out == 2'd0 & !r.done & go | fsm.out == 2'd1 & !r.done & go ? 1'd1;
+    add.left = !r.done & go & fsm.out == 2'd1 | fsm.out == 2'd0 & !r.done & go ? 32'd1;
+    add.right = !r.done & go & fsm.out == 2'd1 | fsm.out == 2'd0 & !r.done & go ? r.out;
+    r.in = !r.done & go & fsm.out == 2'd1 | fsm.out == 2'd0 & !r.done & go ? add.out;
+    r.write_en = !r.done & go & fsm.out == 2'd1 | fsm.out == 2'd0 & !r.done & go ? 1'd1;
     fsm.in = fsm.out == 2'd0 & r.done & go ? 2'd1;
     fsm.write_en = fsm.out == 2'd0 & r.done & go ? 1'd1;
     fsm.in = fsm.out == 2'd1 & r.done & go ? 2'd2;

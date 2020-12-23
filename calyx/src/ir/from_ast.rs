@@ -293,12 +293,8 @@ fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> FutilResult<Guard> {
 
     Ok(match guard {
         GE::Atom(atom) => Guard::port(atom_to_port(atom, bd)?),
-        GE::Or(l, r) => {
-            Guard::or(build_guard(*l, bd)?, build_guard(*r, bd)?)
-        }
-        GE::And(l, r) => {
-            Guard::and(build_guard(*l, bd)?, build_guard(*r, bd)?)
-        }
+        GE::Or(l, r) => Guard::or(build_guard(*l, bd)?, build_guard(*r, bd)?),
+        GE::And(l, r) => Guard::and(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::Eq(l, r) => {
             Guard::Eq(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
         }

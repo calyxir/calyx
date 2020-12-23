@@ -16,6 +16,7 @@ mod minimize_regs;
 mod papercut;
 mod remove_external_memories;
 mod resource_sharing;
+mod simplify_guards;
 mod static_timing;
 mod well_formed;
 
@@ -34,5 +35,6 @@ pub use minimize_regs::MinimizeRegs;
 pub use papercut::Papercut;
 pub use remove_external_memories::RemoveExternalMemories;
 pub use resource_sharing::ResourceSharing;
+pub use simplify_guards::SimplifyGuards;
 pub use static_timing::StaticTiming;
 pub use well_formed::WellFormed;
