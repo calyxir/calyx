@@ -220,7 +220,7 @@ impl<'a> Builder<'a> {
             }
             assign
                 .guard
-                .for_each(&|port| rewrite_port(&port).map(ir::Guard::Port));
+                .for_each(&|port| rewrite_port(&port).map(ir::Guard::port));
         }
     }
 

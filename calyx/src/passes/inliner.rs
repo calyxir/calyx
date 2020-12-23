@@ -114,7 +114,7 @@ impl Visitor for Inliner {
             ir::Control::Enable(en) => Rc::clone(&en.group),
             _ => return Err(
                 Error::MalformedControl(
-                    "The hole inliner requires control to be a single enable. Try running `compile_control` before inlining.".to_string()
+                    "The hole inliner requires control to be a single enable. Try running `compile-control` before inlining.".to_string()
                 )
             )
         };
@@ -167,13 +167,13 @@ impl Visitor for Inliner {
                         *val = val.clone().or(asgn
                             .guard
                             .clone()
-                            .and(ir::Guard::Port(Rc::clone(&asgn.src))));
+                            .and(ir::Guard::port(Rc::clone(&asgn.src))));
                     })
                     .or_insert((
                         Rc::clone(&asgn.dst),
                         asgn.guard
                             .clone()
-                            .and(ir::Guard::Port(Rc::clone(&asgn.src))),
+                            .and(ir::Guard::port(Rc::clone(&asgn.src))),
                     ));
             }
         }
@@ -195,7 +195,7 @@ impl Visitor for Inliner {
                 asgn.guard = asgn
                     .guard
                     .clone()
-                    .and(ir::Guard::Port(Rc::clone(&asgn.src)));
+                    .and(ir::Guard::port(Rc::clone(&asgn.src)));
                 asgn.src = signal_on.borrow().get("out");
             }
         });
