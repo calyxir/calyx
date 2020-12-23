@@ -15,6 +15,3 @@ atty = "0.2.14"
 [workspace]
 members = ["calyx"]
 exclude = ["site"]
-
-[profile.dev]
-opt-level = 1
