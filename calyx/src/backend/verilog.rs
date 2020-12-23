@@ -23,18 +23,14 @@ pub struct VerilogBackend;
 /// used in a guard.
 fn validate_guard(guard: &ir::Guard) -> bool {
     match guard {
-        Guard::And(bs) => bs.iter().all(|b| validate_guard(b)),
-        Guard::Or(bs) => bs.iter().all(|b| validate_guard(b)),
-        Guard::Eq(left, right) => validate_guard(left) && validate_guard(right),
-        Guard::Neq(left, right) => {
-            validate_guard(left) && validate_guard(right)
-        }
-        Guard::Gt(left, right) => validate_guard(left) && validate_guard(right),
-        Guard::Lt(left, right) => validate_guard(left) && validate_guard(right),
-        Guard::Geq(left, right) => {
-            validate_guard(left) && validate_guard(right)
-        }
-        Guard::Leq(left, right) => {
+        Guard::Eq(left, right)
+        | Guard::Or(left, right)
+        | Guard::And(left, right)
+        | Guard::Neq(left, right)
+        | Guard::Gt(left, right)
+        | Guard::Lt(left, right)
+        | Guard::Geq(left, right)
+        | Guard::Leq(left, right) => {
             validate_guard(left) && validate_guard(right)
         }
         Guard::Not(inner) => validate_guard(inner),
@@ -279,26 +275,21 @@ fn port_to_ref(port_ref: RRC<ir::Port>) -> v::Expr {
 
 fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
     let op = |g: &ir::Guard| match g {
-        Guard::Or(_) => v::Expr::new_bit_or,
-        Guard::And(_) => v::Expr::new_bit_and,
-        Guard::Eq(_, _) => v::Expr::new_eq,
-        Guard::Neq(_, _) => v::Expr::new_neq,
-        Guard::Gt(_, _) => v::Expr::new_gt,
-        Guard::Lt(_, _) => v::Expr::new_lt,
-        Guard::Geq(_, _) => v::Expr::new_geq,
-        Guard::Leq(_, _) => v::Expr::new_leq,
-        Guard::Not(_) | Guard::Port(_) | Guard::True => unreachable!(),
+        Guard::Or(..) => v::Expr::new_bit_or,
+        Guard::And(..) => v::Expr::new_bit_and,
+        Guard::Eq(..) => v::Expr::new_eq,
+        Guard::Neq(..) => v::Expr::new_neq,
+        Guard::Gt(..) => v::Expr::new_gt,
+        Guard::Lt(..) => v::Expr::new_lt,
+        Guard::Geq(..) => v::Expr::new_geq,
+        Guard::Leq(..) => v::Expr::new_leq,
+        Guard::Not(..) | Guard::Port(..) | Guard::True => unreachable!(),
     };
 
     match guard {
-        Guard::Or(ops) | Guard::And(ops) => ops
-            .iter()
-            .map(guard_to_expr)
-            .fold(None, |acc, r| {
-                acc.map(|l| op(guard)(l, r.clone())).or(Some(r))
-            })
-            .unwrap_or_else(|| v::Expr::new_ulit_bin(1, &1.to_string())),
         Guard::Eq(l, r)
+        | Guard::And(l, r)
+        | Guard::Or(l, r)
         | Guard::Neq(l, r)
         | Guard::Gt(l, r)
         | Guard::Lt(l, r)

@@ -393,7 +393,9 @@ impl Visitor for CompileControl {
         }
 
         // Hook up parent's done signal to all children.
-        let par_done = ir::Guard::And(par_group_done);
+        let par_done = par_group_done.into_iter().fold(ir::Guard::True, |acc, x| {
+            ir::Guard::and(acc, x)
+        });
         let par_reset_out = guard!(par_reset["out"]);
         let mut assigns = build_assignments!(builder;
             par_reset["in"] = par_done ? signal_on["out"];

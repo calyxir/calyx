@@ -52,10 +52,12 @@ impl Port {
     }
 
     /// Checks if this port is a constant of value: `val`.
-    pub fn is_constant(&self, val: u64) -> bool {
+    pub fn is_constant(&self, val: u64, width: u64) -> bool {
         if let PortParent::Cell(cell) = &self.parent {
             match cell.upgrade().borrow().prototype {
-                CellType::Constant { val: v, .. } => v == val,
+                CellType::Constant { val: v, width: w } => {
+                    v == val && width == w
+                }
                 _ => false,
             }
         } else {
