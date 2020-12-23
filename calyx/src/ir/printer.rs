@@ -118,11 +118,7 @@ impl IRPrinter {
         write!(f, "{}", " ".repeat(indent_level))?;
         write!(f, "{} = ", Self::get_port_access(&assign.dst.borrow()))?;
         if !matches!(&assign.guard, ir::Guard::True) {
-            write!(
-                f,
-                "{} ? ",
-                Self::guard_str(&assign.guard.clone())
-            )?;
+            write!(f, "{} ? ", Self::guard_str(&assign.guard.clone()))?;
         }
         write!(f, "{};", Self::get_port_access(&assign.src.borrow()))
     }
