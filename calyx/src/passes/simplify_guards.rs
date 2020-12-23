@@ -5,6 +5,8 @@ use crate::ir::{
 };
 use boolean_expression::Expr;
 use ir::traversal::{Action, VisResult};
+use itertools::Itertools;
+use std::collections::HashSet;
 
 impl From<ir::Guard> for Expr<ir::Guard> {
     fn from(guard: ir::Guard) -> Self {
@@ -51,6 +53,77 @@ impl Named for SimplifyGuards {
     }
 }
 
+fn extract_dnf(expr: Expr<ir::Guard>, acc: &mut Vec<Expr<ir::Guard>>) {
+    match expr {
+        Expr::Or(l, r) => {
+            extract_dnf(*l, acc);
+            extract_dnf(*r, acc);
+        }
+        _ => acc.push(expr),
+    }
+}
+
+fn extract_cnf(expr: Expr<ir::Guard>, acc: &mut Vec<Expr<ir::Guard>>) {
+    match expr {
+        Expr::And(l, r) => {
+            extract_cnf(*l, acc);
+            extract_cnf(*r, acc);
+        }
+        _ => acc.push(expr),
+    }
+}
+
+/// Simplify the guard using a few simple tricks.
+fn simplify_guard(guard: ir::Guard) -> ir::Guard {
+    // Use the BBD library to get a sum-of-product or DNF form.
+    let sop = Expr::from(guard).simplify_via_bdd();
+    let mut disjuncts = Vec::new();
+    extract_dnf(sop, &mut disjuncts);
+
+    // If this isn't a disjunct, return
+    if disjuncts.len() == 1 {
+        return disjuncts.pop().unwrap().into();
+    }
+
+    // Extract the elements for each disjunct and turn them into sets.
+    let sets = disjuncts
+        .into_iter()
+        .map(|d| {
+            let mut conjuncts = Vec::new();
+            extract_cnf(d, &mut conjuncts);
+            conjuncts.into_iter().collect::<HashSet<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    // Find common elements in all disjuncts
+    let mut common = sets[0].clone();
+    common.retain(|e| sets.iter().all(|s| s.contains(e)));
+
+    // For each common factor, remove it from each disjunct and generate
+    // a new guard expression.
+    let not_common_guard = sets
+        .into_iter()
+        .map(|s| {
+            s.into_iter()
+                .filter_map(|e| {
+                    if !common.contains(&e) {
+                        Some(ir::Guard::from(e))
+                    } else {
+                        None
+                    }
+                })
+                .fold(ir::Guard::True, |acc, x| acc & x)
+        })
+        .fold1(ir::Guard::or)
+        .unwrap();
+
+    let common_guard = common
+        .into_iter()
+        .fold(ir::Guard::True, |acc, x| acc & x.into());
+
+    common_guard & not_common_guard
+}
+
 impl Visitor for SimplifyGuards {
     fn start(
         &mut self,
@@ -65,7 +138,7 @@ impl Visitor for SimplifyGuards {
                 .map(|assign| ir::Assignment {
                     src: assign.src,
                     dst: assign.dst,
-                    guard: Expr::from(assign.guard).simplify_via_bdd().into(),
+                    guard: simplify_guard(assign.guard),
                 })
                 .collect();
 
@@ -78,7 +151,7 @@ impl Visitor for SimplifyGuards {
             .map(|assign| ir::Assignment {
                 src: assign.src,
                 dst: assign.dst,
-                guard: Expr::from(assign.guard).simplify_via_bdd().into(),
+                guard: simplify_guard(assign.guard),
             })
             .collect();
         // we don't need to traverse control
