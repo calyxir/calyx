@@ -63,7 +63,9 @@ def register_stages(registry, cfg):
 
     # Vivado / vivado hls
     registry.register(vivado.VivadoStage(cfg))
+    registry.register(vivado.VivadoExtractStage(cfg))
     registry.register(vivado_hls.VivadoHLSStage(cfg))
+    registry.register(vivado_hls.VivadoHLSExtractStage(cfg))
 
     # Vcdump
     registry.register(vcdump.VcdumpStage(cfg))

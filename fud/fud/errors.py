@@ -5,12 +5,14 @@ class FudError(Exception):
     """
     An error caught by the FuTIL Driver.
     """
-    pass
+
+    def __init__(self, msg):
+        super().__init__(msg)
 
 
 class NoFile(FudError):
     def __init__(self):
-        super().__init__('No filename or type provided for exec.')
+        super().__init__("No filename or type provided for exec.")
 
 
 class UnknownExtension(FudError):
@@ -23,7 +25,8 @@ class UnknownExtension(FudError):
         path = Path(filename)
         ext = path.suffix
         super().__init__(
-            f"`{ext}' does not correspond to any known stage. Please provide an explicit stage using --to or --from.")
+            f"`{ext}' does not correspond to any known stage. Please provide an explicit stage using --to or --from."
+        )
 
 
 class UnsetConfiguration(FudError):
@@ -44,8 +47,10 @@ class MissingDynamicConfiguration(FudError):
     """
 
     def __init__(self, variable):
-        msg = f"`{variable}' needs to be set. " + \
-            "Use the runtime configuration flag to provide a value: '-s {variable} <value>'."
+        msg = (
+            f"`{variable}' needs to be set. "
+            + "Use the runtime configuration flag to provide a value: '-s {variable} <value>'."
+        )
         super().__init__(msg)
 
 
@@ -61,9 +66,19 @@ class NoPathFound(FudError):
 
 class TrivialPath(FudError):
     """
-    The execution doesn't run an stages. Likely a user mistake.
+    The execution doesn't run any stages. Likely a user mistake.
     """
 
     def __init__(self, stage):
         msg = f"The exection starts and ends at the same stage `{stage}'. This is likely an error."
+        super().__init__(msg)
+
+
+class SourceConversion(FudError):
+    """
+    Can't convert to a particular source type.
+    """
+
+    def __init__(self, source_t, dst_t):
+        msg = f"Can't convert from {source_t} to {dst_t}"
         super().__init__(msg)
