@@ -41,13 +41,16 @@ impl Visitor for GoInsertion {
     ) -> VisResult {
         for group in &comp.groups {
             let group_go = guard!(group["go"]);
-            let mut group = group.borrow_mut();
-            for assign in group.assignments.iter_mut() {
+            // Detach the group's assignments so we can drop the mutable access to it.
+            let mut group_assigns =
+                group.borrow_mut().assignments.drain(..).collect::<Vec<_>>();
+            for assign in group_assigns.iter_mut() {
                 let dst = assign.dst.borrow();
                 if !(dst.is_hole() && dst.name == "done") {
                     assign.guard = assign.guard.clone() & group_go.clone();
                 }
             }
+            group.borrow_mut().assignments = group_assigns;
         }
 
         // This pass doesn't modify any control.
