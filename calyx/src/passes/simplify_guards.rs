@@ -136,13 +136,13 @@ impl Visitor for SimplifyGuards {
                 .borrow_mut()
                 .assignments
                 .iter_mut()
-                .for_each(|assign| assign.guard.update(|g| simplify_guard(g)));
+                .for_each(|assign| assign.guard.update(simplify_guard));
         }
 
         // Merge continuous_assignments
         comp.continuous_assignments
             .iter_mut()
-            .for_each(|assign| assign.guard.update(|g| simplify_guard(g)));
+            .for_each(|assign| assign.guard.update(simplify_guard));
 
         // we don't need to traverse control
         Ok(Action::Stop)
