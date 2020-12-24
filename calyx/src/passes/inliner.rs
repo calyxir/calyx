@@ -6,7 +6,6 @@ use crate::{
     ir,
     ir::traversal::{Action, Named, VisResult, Visitor},
     structure,
-    utils::Keyable,
 };
 use ir::RRC;
 use std::{collections::HashMap, rc::Rc};
@@ -85,16 +84,17 @@ fn fixed_point(graph: &GraphAnalysis, map: &mut Store) {
             .filter(|p| p.borrow().is_hole())
         {
             // inline `hole_key` into `read`
-            let key = read.borrow().key();
-            map.entry(read.borrow().key()).and_modify(|(_, guard)| {
-                guard.for_each(&|port| {
-                    if port.borrow().key() == hole_key {
-                        Some(new_guard.clone())
-                    } else {
-                        None
-                    }
-                })
-            });
+            let key = read.borrow().canonical();
+            map.entry(read.borrow().canonical())
+                .and_modify(|(_, guard)| {
+                    guard.for_each(&|port| {
+                        if port.borrow().canonical() == hole_key {
+                            Some(new_guard.clone())
+                        } else {
+                            None
+                        }
+                    })
+                });
             // if done with this guard, add it to the worklist
             if !has_holes(&map[&key].1) {
                 worklist.push(key)
@@ -161,7 +161,7 @@ impl Visitor for Inliner {
             // if assignment writes into a hole, save it
             let dst = asgn.dst.borrow();
             if dst.is_hole() {
-                map.entry(dst.key())
+                map.entry(dst.canonical())
                     .and_modify(|(_, val)| {
                         // XXX: seems like unncessary clone
                         *val = val.clone().or(asgn
@@ -204,7 +204,7 @@ impl Visitor for Inliner {
         for asgn in &mut assignments {
             asgn.guard.for_each(&|port| {
                 if port.borrow().is_hole() {
-                    Some(map[&port.borrow().key()].1.clone())
+                    Some(map[&port.borrow().canonical()].1.clone())
                 } else {
                     None
                 }

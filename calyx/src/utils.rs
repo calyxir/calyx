@@ -1,8 +1,7 @@
 use crate::ir;
-use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::{
-    hash::{Hash, Hasher},
+    hash::{BuildHasherDefault, Hasher},
     io::Write,
     path::PathBuf,
     str::FromStr,
@@ -50,7 +49,8 @@ impl NameGenerator {
     }
 }
 
-/// TODO(rachit): Document this.
+/// Possible choices for output streams.
+/// Used by the `-o` option to the compiler.
 #[derive(Debug)]
 pub enum OutputFile {
     Stdout,
@@ -100,18 +100,31 @@ impl OutputFile {
     }
 }
 
-/// Utility trait for transforming a type into a key usable
-/// in a hashmap.
-pub trait Keyable {
-    type Key;
-    /// Transform `self` into a hash key.
-    fn key(&self) -> Self::Key;
+/// A deterministic hashing function.
+/// Used to create a deterministic HashMap that can be used to store data
+/// structures that need deterministic printing.
+/// Implementation from: https://docs.rs/crate/hash_hasher/2.0.3/source/src/lib.rs
+#[derive(Copy, Clone, Default)]
+pub struct DeterministicHasher(u64);
+
+impl Hasher for DeterministicHasher {
+    #[inline]
+    fn write(&mut self, value: &[u8]) {
+        // A normal use-case (e.g. by a node in a DHT) may well involve handling hashes which are
+        // identical over the most-significant-bits, hence reverse the input message here to use
+        // the least-significant-bits first.
+        for (index, item) in value.iter().rev().enumerate().take(8) {
+            self.0 ^= u64::from(*item) << (index * 8);
+        }
+    }
+
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.0
+    }
 }
 
-/// Calculates the hash of hashable trait using the default hasher
-#[allow(unused)]
-pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
-    let mut s = DefaultHasher::new();
-    t.hash(&mut s);
-    s.finish()
-}
+/// A deterministic HashMap.
+/// Call `DeterministicHashMap::default` to construct this type.
+pub type DeterministicHashMap<K, V> =
+    HashMap<K, V, BuildHasherDefault<DeterministicHasher>>;

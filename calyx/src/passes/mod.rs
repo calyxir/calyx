@@ -1,5 +1,4 @@
 //! Passes for the FuTIL compiler.
-//mod merge_assign;
 mod clk_insertion;
 mod collapse_control;
 mod compile_control;
@@ -12,6 +11,7 @@ mod go_insertion;
 mod infer_static_timing;
 mod inliner;
 mod math_utilities;
+mod merge_assign;
 mod minimize_regs;
 mod papercut;
 mod remove_external_memories;
@@ -31,6 +31,7 @@ pub use externalize::Externalize;
 pub use go_insertion::GoInsertion;
 pub use infer_static_timing::InferStaticTiming;
 pub use inliner::Inliner;
+pub use merge_assign::MergeAssign;
 pub use minimize_regs::MinimizeRegs;
 pub use papercut::Papercut;
 pub use remove_external_memories::RemoveExternalMemories;

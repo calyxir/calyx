@@ -7,7 +7,7 @@ use crate::{
     errors::{Error, FutilResult},
     frontend::library,
     ir,
-    utils::{Keyable, OutputFile},
+    utils::OutputFile,
 };
 use ir::{Control, Group, Guard, RRC};
 use itertools::Itertools;
@@ -169,13 +169,13 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
     // gather assignments keyed by destination
     let mut map: HashMap<_, (RRC<ir::Port>, Vec<_>)> = HashMap::new();
     for asgn in &comp.continuous_assignments {
-        map.entry(asgn.dst.borrow().key())
+        map.entry(asgn.dst.borrow().canonical())
             .and_modify(|(_, v)| v.push(asgn))
             .or_insert((Rc::clone(&asgn.dst), vec![asgn]));
     }
 
     map.values()
-        .sorted_by_key(|(port, _)| port.borrow().key())
+        .sorted_by_key(|(port, _)| port.borrow().canonical())
         .for_each(|asgns| {
             module.add_stmt(v::Stmt::new_parallel(emit_assignment(asgns)));
         });
