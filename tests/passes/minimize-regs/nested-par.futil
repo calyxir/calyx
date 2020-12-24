@@ -28,10 +28,10 @@ component kernel() -> () {
       b0.write_en = 1'd1;
       wr_b0[done] = b0.done;
     }
-    group rd_x0<"static"=1> {
+    group rd_x0<"static"=0> {
       read_x0.right = x0.out;
       read_x0.left = x0.out;
-      rd_x0[done] = 1'b1;
+      rd_x0[done] = 1'd1;
     }
 
     group wr_before1<"static"=1> {
@@ -49,10 +49,10 @@ component kernel() -> () {
       b1.write_en = 1'd1;
       wr_b1[done] = b1.done;
     }
-    group rd_x1<"static"=1> {
+    group rd_x1<"static"=0> {
       read_x1.right = x1.out;
       read_x1.left = x1.out;
-      rd_x1[done] = 1'b1;
+      rd_x1[done] = 1'd1;
     }
   }
   control {
