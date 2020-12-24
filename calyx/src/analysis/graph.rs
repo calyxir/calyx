@@ -1,6 +1,4 @@
-use crate::{
-    ir::{self, Id, RRC},
-};
+use crate::ir::{self, Id, RRC};
 use petgraph::{
     algo,
     graph::{DiGraph, NodeIndex},
