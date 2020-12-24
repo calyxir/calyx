@@ -1,7 +1,7 @@
-use crate::frontend::library::ast as lib;
 use crate::ir::{
     self,
     traversal::{Named, Visitor},
+    LibrarySignatures,
 };
 use crate::utils::DeterministicHashMap;
 use ir::traversal::{Action, VisResult};
@@ -59,7 +59,7 @@ impl Visitor for MergeAssign {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _ctx: &lib::LibrarySignatures,
+        _ctx: &LibrarySignatures,
     ) -> VisResult {
         for group in &comp.groups {
             let assigns = group.borrow_mut().assignments.drain(..).collect();
