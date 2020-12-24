@@ -5,7 +5,6 @@
 use crate::{
     backend::traits::Backend,
     errors::{Error, FutilResult},
-    frontend::library,
     ir,
     utils::OutputFile,
 };
@@ -71,14 +70,6 @@ fn validate_control(ctrl: &ir::Control) -> FutilResult<()> {
     }
 }
 
-impl From<library::ast::Implementation> for library::ast::Verilog {
-    fn from(imp: library::ast::Implementation) -> Self {
-        match imp {
-            library::ast::Implementation::Verilog(v) => v,
-        }
-    }
-}
-
 impl Backend for VerilogBackend {
     fn name(&self) -> &'static str {
         "verilog"
@@ -88,17 +79,6 @@ impl Backend for VerilogBackend {
         for component in &ctx.components {
             validate_structure(&component.groups)?;
             validate_control(&component.control.borrow())?;
-        }
-        Ok(())
-    }
-
-    fn emit_primitives(
-        prims: Vec<&library::ast::Implementation>,
-        file: &mut OutputFile,
-    ) -> FutilResult<()> {
-        for prim in prims {
-            let library::ast::Implementation::Verilog(v) = prim;
-            writeln!(file.get_write(), "{}", v.code)?;
         }
         Ok(())
     }

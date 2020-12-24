@@ -5,7 +5,7 @@ use crate::ir::traversal::Visitor;
 use atty::Stream;
 use calyx::{
     errors::{Error, FutilResult},
-    frontend::{library, parser},
+    frontend::parser,
     ir,
     ir::traversal::Named,
     passes,
@@ -20,6 +20,7 @@ use passes::{
     WellFormed,
 };
 use std::io::stdin;
+use std::path::PathBuf;
 use structopt::StructOpt;
 
 /// Construct the pass manager by registering all passes and aliases used
@@ -139,22 +140,28 @@ fn main() -> FutilResult<()> {
         }
     }?;
 
-    // parse libraries
-    let libraries: Vec<_> = namespace
-        .libraries
-        .iter()
-        .map(|path| {
-            library::parser::LibraryParser::parse_file(
-                &opts.lib_path.join(path),
-            )
-        })
-        .collect::<FutilResult<Vec<_>>>()?;
+    // Parse all transitive dependencies
+    let mut libs = ir::LibrarySignatures::default();
+    namespace.externs.into_iter().for_each(|(path, exts)| {
+        libs.extend(path, exts);
+    });
+    let mut components = namespace.components;
+    let mut deps: Vec<String> = namespace.imports;
+
+    while let Some(file) = deps.pop() {
+        let mut namespace =
+            parser::FutilParser::parse_file(&PathBuf::from(file))?;
+        components.append(&mut namespace.components);
+        namespace.externs.into_iter().for_each(|(path, exts)| {
+            libs.extend(path, exts);
+        });
+        deps.append(&mut namespace.imports);
+    }
 
     // Build the IR representation
     let mut rep: ir::Context = ir::from_ast::ast_to_ir(
-        namespace.components,
-        &libraries,
-        namespace.libraries,
+        components,
+        libs,
         opts.enable_debug,
         opts.enable_synthesis,
     )?;

@@ -1,15 +1,110 @@
 /// Abstract Syntax Tree for Futil
-use crate::errors::Span;
+use crate::errors::{Error, FutilResult, Span};
 use crate::ir;
 use std::collections::HashMap;
 
 /// Top level AST statement. This contains a list of Component definitions.
 #[derive(Debug)]
 pub struct NamespaceDef {
-    /// The path to libraries
-    pub libraries: Vec<String>,
+    /// Path to imported files.
+    pub imports: Vec<String>,
     /// List of component definitions.
     pub components: Vec<ComponentDef>,
+    /// Extern statements and any primitive declarations in them.
+    pub externs: Vec<(String, Vec<Primitive>)>,
+}
+
+/// Representation of a Primitive.
+#[derive(Clone, Debug)]
+pub struct Primitive {
+    /// Name of this primitive.
+    pub name: ir::Id,
+    /// Paramters for this primitive.
+    pub params: Vec<ir::Id>,
+    /// The input/output signature for this primitive.
+    pub signature: Vec<ParamPortdef>,
+    /// Key-value attributes for this primitive.
+    pub attributes: HashMap<String, u64>,
+}
+
+impl Primitive {
+    /// Retuns the bindings for all the paramters, the input ports and the
+    /// output ports.
+    #[allow(clippy::type_complexity)]
+    pub fn resolve(
+        &self,
+        parameters: &[u64],
+    ) -> FutilResult<(Vec<(ir::Id, u64)>, Vec<(ir::Id, u64)>, Vec<(ir::Id, u64)>)>
+    {
+        let bindings = self
+            .params
+            .iter()
+            .cloned()
+            .zip(parameters.iter().cloned())
+            .collect::<HashMap<ir::Id, u64>>();
+
+        let (input, output): (Vec<ParamPortdef>, Vec<ParamPortdef>) = self
+            .signature
+            .iter()
+            .cloned()
+            .partition(|ppd| ppd.direction == ir::Direction::Input);
+
+        let inps = input
+            .iter()
+            .map(|ppd| ppd.resolve(&bindings))
+            .collect::<FutilResult<_>>()?;
+        let outs = output
+            .iter()
+            .map(|ppd| ppd.resolve(&bindings))
+            .collect::<FutilResult<_>>()?;
+
+        Ok((
+            // XXX: Recreating the binding so that they have deterministic
+            // order.
+            self.params
+                .iter()
+                .cloned()
+                .zip(parameters.iter().cloned())
+                .collect(),
+            inps,
+            outs,
+        ))
+    }
+}
+
+/// A parameter port definition.
+#[derive(Clone, Debug)]
+pub struct ParamPortdef {
+    pub name: ir::Id,
+    pub width: Width,
+    pub direction: ir::Direction,
+}
+
+/// Represents an abstract width of a primitive signature.
+#[derive(Clone, Debug)]
+pub enum Width {
+    /// The width is a constant.
+    Const { value: u64 },
+    /// The width is a parameter.
+    Param { value: ir::Id },
+}
+
+impl ParamPortdef {
+    pub fn resolve(
+        &self,
+        val_map: &HashMap<ir::Id, u64>,
+    ) -> FutilResult<(ir::Id, u64)> {
+        match &self.width {
+            Width::Const { value } => Ok((self.name.clone(), *value)),
+            Width::Param { value } => match val_map.get(&value) {
+                Some(width) => Ok((self.name.clone(), *width)),
+                None => Err(Error::SignatureResolutionFailed(
+                    self.name.clone(),
+                    value.clone(),
+                )),
+            },
+        }
+    }
 }
 
 /// AST statement for defining components.

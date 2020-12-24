@@ -1,9 +1,9 @@
 use super::math_utilities::get_bit_width_from;
 use crate::errors::Error;
-use crate::frontend::library::ast as lib;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
+    LibrarySignatures,
 };
 use crate::{build_assignments, guard, structure};
 use std::collections::HashMap;
@@ -68,7 +68,7 @@ impl Visitor for CompileControl {
         &mut self,
         cif: &mut ir::If,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
@@ -167,7 +167,7 @@ impl Visitor for CompileControl {
         &mut self,
         wh: &mut ir::While,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
@@ -258,7 +258,7 @@ impl Visitor for CompileControl {
         &mut self,
         s: &mut ir::Seq,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
@@ -341,7 +341,7 @@ impl Visitor for CompileControl {
         &mut self,
         s: &mut ir::Par,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         let mut builder = ir::Builder::from(comp, ctx, false);
 

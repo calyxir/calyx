@@ -1,6 +1,5 @@
-use crate::frontend::library::ast as lib;
-use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::ir::{self, LibrarySignatures};
 
 #[derive(Default)]
 /// Collapses and de-nests control constructs.
@@ -22,7 +21,7 @@ impl Visitor for CollapseControl {
         &mut self,
         s: &mut ir::Seq,
         _comp: &mut ir::Component,
-        _c: &lib::LibrarySignatures,
+        _c: &LibrarySignatures,
     ) -> VisResult {
         if s.stmts.is_empty() {
             return Ok(Action::Change(ir::Control::empty()));
@@ -44,7 +43,7 @@ impl Visitor for CollapseControl {
         &mut self,
         s: &mut ir::Par,
         _comp: &mut ir::Component,
-        _c: &lib::LibrarySignatures,
+        _c: &LibrarySignatures,
     ) -> VisResult {
         if s.stmts.is_empty() {
             return Ok(Action::Change(ir::Control::empty()));

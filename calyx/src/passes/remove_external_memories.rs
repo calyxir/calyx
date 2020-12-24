@@ -1,6 +1,5 @@
-use crate::frontend::library::ast as lib;
-use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::ir::{self, LibrarySignatures};
 use std::collections::HashMap;
 
 /// Replaces "external" memory cells with internal memories.
@@ -36,7 +35,7 @@ impl Visitor for RemoveExternalMemories<'_> {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _c: &lib::LibrarySignatures,
+        _c: &LibrarySignatures,
     ) -> VisResult {
         for cell_ref in &comp.cells {
             let mut cell = cell_ref.borrow_mut();

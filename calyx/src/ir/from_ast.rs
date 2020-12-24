@@ -1,11 +1,10 @@
 use super::{
     Assignment, Builder, CellType, Component, Context, Control, Guard, Id,
-    Port, RRC,
+    LibrarySignatures, Port, RRC,
 };
 use crate::{
     errors::{Error, FutilResult},
     frontend::ast,
-    frontend::library,
 };
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -19,7 +18,7 @@ struct SigCtx {
     comp_sigs: HashMap<Id, ast::Signature>,
 
     /// Mapping from library functions to signatures
-    lib_sigs: HashMap<Id, library::ast::Primitive>,
+    lib: LibrarySignatures,
 }
 
 /// Extend the signature with magical ports.
@@ -47,23 +46,13 @@ fn extend_signature(sig: &mut ast::Signature) {
 /// Construct an IR representation using a parsed AST and command line options.
 pub fn ast_to_ir(
     mut components: Vec<ast::ComponentDef>,
-    libraries: &[library::ast::Library],
-    import_statements: Vec<String>,
+    lib: LibrarySignatures,
     debug_mode: bool,
     synthesis_mode: bool,
 ) -> FutilResult<Context> {
     // Build the signature context
     let mut sig_ctx = SigCtx::default();
-
-    // Add primitive signatures
-    for library in libraries {
-        sig_ctx.lib_sigs.extend(
-            library
-                .primitives
-                .iter()
-                .map(|prim| (prim.name.clone(), prim.clone())),
-        );
-    }
+    sig_ctx.lib = lib;
 
     // Add component signatures to context
     for comp in &mut components {
@@ -81,8 +70,7 @@ pub fn ast_to_ir(
 
     Ok(Context {
         components: comps,
-        lib_sigs: sig_ctx.lib_sigs,
-        import_statements,
+        lib: sig_ctx.lib,
         debug_mode,
         synthesis_mode,
     })
@@ -104,7 +92,7 @@ fn validate_component(
 
         match cell {
             ast::Cell::Prim { prim, .. } => {
-                if !sig_ctx.lib_sigs.contains_key(prim) {
+                if sig_ctx.lib.find_primitive(prim).is_none() {
                     return Err(Error::Undefined(
                         prim.clone(),
                         "primitive".to_string(),
@@ -150,8 +138,7 @@ fn build_component(
         comp.signature.inputs,
         comp.signature.outputs,
     );
-    let mut builder =
-        Builder::from(&mut ir_component, &sig_ctx.lib_sigs, false);
+    let mut builder = Builder::from(&mut ir_component, &sig_ctx.lib, false);
 
     // For each ast::Cell, add a Cell that contains all the
     // required information.

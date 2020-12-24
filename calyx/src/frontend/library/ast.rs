@@ -72,41 +72,6 @@ impl Primitive {
     }
 }
 
-/// A parameter port definition.
-#[derive(Clone, Debug)]
-pub struct ParamPortdef {
-    pub name: ir::Id,
-    pub width: Width,
-    pub direction: ir::Direction,
-}
-
-/// Represents an abstract width of a primitive signature.
-#[derive(Clone, Debug)]
-pub enum Width {
-    /// The width is a constant.
-    Const { value: u64 },
-    /// The width is a parameter.
-    Param { value: ir::Id },
-}
-
-impl ParamPortdef {
-    pub fn resolve(
-        &self,
-        val_map: &HashMap<ir::Id, u64>,
-    ) -> FutilResult<(ir::Id, u64)> {
-        match &self.width {
-            Width::Const { value } => Ok((self.name.clone(), *value)),
-            Width::Param { value } => match val_map.get(&value) {
-                Some(width) => Ok((self.name.clone(), *width)),
-                None => Err(Error::SignatureResolutionFailed(
-                    self.name.clone(),
-                    value.clone(),
-                )),
-            },
-        }
-    }
-}
-
 // Parsing for providing particular backend implementations for primitive definitions
 
 #[derive(Clone, Debug)]

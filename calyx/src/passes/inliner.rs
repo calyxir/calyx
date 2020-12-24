@@ -2,9 +2,8 @@ use crate::{
     analysis::GraphAnalysis,
     build_assignments,
     errors::Error,
-    frontend::library::ast::LibrarySignatures,
-    ir,
     ir::traversal::{Action, Named, VisResult, Visitor},
+    ir::{self, LibrarySignatures},
     structure,
 };
 use ir::RRC;

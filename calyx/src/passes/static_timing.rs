@@ -1,7 +1,6 @@
 use super::math_utilities::get_bit_width_from;
-use crate::frontend::library::ast as lib;
-use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::ir::{self, LibrarySignatures};
 use crate::{build_assignments, guard, structure};
 use std::collections::HashMap;
 use std::{cmp, rc::Rc};
@@ -55,7 +54,7 @@ impl Visitor for StaticTiming {
         &mut self,
         while_s: &mut ir::While,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         // let st = &mut comp.structure;
 
@@ -179,7 +178,7 @@ impl Visitor for StaticTiming {
         &mut self,
         s: &mut ir::If,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         if let (ir::Control::Enable(tdata), ir::Control::Enable(fdata)) =
             (&*s.tbranch, &*s.fbranch)
@@ -304,7 +303,7 @@ impl Visitor for StaticTiming {
         &mut self,
         s: &mut ir::Par,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         // Early return if this group is not compilable.
         if let Some(max_time) = accumulate_static_time(&s.stmts, cmp::max) {
@@ -374,7 +373,7 @@ impl Visitor for StaticTiming {
         &mut self,
         s: &mut ir::Seq,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         // If this sequence only contains groups with the "static" attribute,
         // compile it using a statically timed FSM.
