@@ -3,8 +3,7 @@
 //! `ir::Context` to compile every `ir::Component` using the pass.
 use super::action::{Action, VisResult};
 use crate::errors::FutilResult;
-use crate::frontend::library::ast::LibrarySignatures;
-use crate::ir::{self, Component, Context, Control};
+use crate::ir::{self, Component, Context, Control, LibrarySignatures};
 use std::rc::Rc;
 
 /// Trait that describes named things. Calling `do_pass` and `do_pass_default`
@@ -49,7 +48,7 @@ pub trait Visitor {
     where
         Self: Sized + Named,
     {
-        let signatures = &context.lib_sigs;
+        let signatures = &context.lib;
         context
             .components
             // Mutably borrow the components in the context

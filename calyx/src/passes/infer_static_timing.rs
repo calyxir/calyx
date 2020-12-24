@@ -8,10 +8,9 @@ use std::collections::HashMap;
 
 use crate::analysis::{GraphAnalysis, ReadWriteSet};
 use crate::errors::Error;
-use crate::frontend::library::ast as lib;
-use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::RRC;
+use crate::ir::{self, LibrarySignatures};
 use std::rc::Rc;
 
 pub struct InferStaticTiming<'a> {
@@ -310,7 +309,7 @@ impl Visitor for InferStaticTiming<'_> {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _c: &lib::LibrarySignatures,
+        _c: &LibrarySignatures,
     ) -> VisResult {
         let mut latency_result: Option<u64>;
         for group in &comp.groups {

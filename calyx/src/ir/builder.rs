@@ -1,7 +1,6 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
-use crate::frontend::library::ast::LibrarySignatures;
-use crate::ir::{self, RRC, WRC};
+use crate::ir::{self, LibrarySignatures, RRC, WRC};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -13,7 +12,7 @@ pub struct Builder<'a> {
     /// Component for which this builder is constructing.
     pub component: &'a mut ir::Component,
     /// Library signatures.
-    pub lib_sigs: &'a LibrarySignatures,
+    pub lib: &'a LibrarySignatures,
     /// Enable validation of components.
     /// Useful for debugging malformed AST errors.
     pub validate: bool,
@@ -23,12 +22,12 @@ impl<'a> Builder<'a> {
     /// Instantiate a new builder using for a component.
     pub fn from(
         component: &'a mut ir::Component,
-        lib_sigs: &'a LibrarySignatures,
+        lib: &'a LibrarySignatures,
         validate: bool,
     ) -> Self {
         Self {
             component,
-            lib_sigs,
+            lib,
             validate,
         }
     }
@@ -122,7 +121,7 @@ impl<'a> Builder<'a> {
         P: AsRef<str>,
     {
         let prim_id = ir::Id::from(primitive.as_ref());
-        let prim = &self.lib_sigs[&prim_id];
+        let prim = &self.lib.get_primitive(&prim_id);
         let (param_binding, inputs, outputs) = prim
             .resolve(param_values)
             .expect("Failed to add primitive.");

@@ -80,6 +80,12 @@ impl FutilParser {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
+enum ExtOrComp {
+    Ext((String, Vec<ast::Primitive>)),
+    Comp(ast::ComponentDef),
+}
+
 #[pest_consume::parser]
 impl FutilParser {
     fn EOI(_input: Node) -> ParseResult<()> {
@@ -542,12 +548,112 @@ impl FutilParser {
         ))
     }
 
+    fn params(input: Node) -> ParseResult<Vec<ir::Id>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(id)..] => id.collect()
+        ))
+    }
+
+    fn prim_io_port(input: Node) -> ParseResult<ast::ParamPortdef> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(id), bitwidth(bw)] => ast::ParamPortdef {
+                name: id,
+                width: ast::Width::Const { value: bw },
+                // XXX(rachit): FAKE Direction. `io_ports` assigns the
+                // correct directions.
+                direction: ir::Direction::Input,
+            },
+            [identifier(id), identifier(param)] => ast::ParamPortdef {
+                name: id,
+                width: ast::Width::Param { value: param },
+                // XXX(rachit): FAKE Direction. `io_ports` assigns the
+                // correct directions.
+                direction: ir::Direction::Input,
+            }
+        ))
+    }
+
+    fn prim_io_ports(input: Node) -> ParseResult<Vec<ast::ParamPortdef>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [prim_io_port(p)..] => p.collect()))
+    }
+
+    fn prim_signature(input: Node) -> ParseResult<Vec<ast::ParamPortdef>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [prim_io_ports(mut ins), prim_io_ports(mut outs)] => {
+                ins.iter_mut().for_each(|i| i.direction = ir::Direction::Input);
+                outs.iter_mut().for_each(|i| i.direction = ir::Direction::Output);
+                ins.into_iter().chain(outs.into_iter()).collect()
+            }
+        ))
+    }
+
+    fn primitive(input: Node) -> ParseResult<ast::Primitive> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(name), attributes(attrs), params(p), prim_signature(s)] => ast::Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: attrs,
+            },
+            [identifier(name), attributes(attrs), prim_signature(s)] => ast::Primitive {
+                name,
+                params: vec![],
+                signature: s,
+                attributes: attrs,
+            },
+            [identifier(name), params(p), prim_signature(s)] => ast::Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: HashMap::new(),
+            },
+            [identifier(name), prim_signature(s)] => ast::Primitive {
+                name,
+                params: vec![],
+                signature: s,
+                attributes: HashMap::new(),
+            }
+        ))
+    }
+
+    fn ext(input: Node) -> ParseResult<(String, Vec<ast::Primitive>)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [string_lit(file), primitive(prims)..] => (file, prims.collect())
+        ))
+    }
+
+    fn extern_or_component(input: Node) -> ParseResult<ExtOrComp> {
+        Ok(match_nodes!(
+            input.into_children();
+            [component(comp)] => ExtOrComp::Comp(comp),
+            [ext(ext)] => ExtOrComp::Ext(ext)
+        ))
+    }
+
     fn file(input: Node) -> ParseResult<ast::NamespaceDef> {
         Ok(match_nodes!(
             input.into_children();
-            [imports(imports), component(comps).., EOI] => ast::NamespaceDef {
-                libraries: imports,
-                components: comps.collect()
+            [imports(imports), extern_or_component(mixed).., EOI] => {
+                let mut namespace =
+                    ast::NamespaceDef {
+                        imports,
+                        components: Vec::new(),
+                        externs: Vec::new(),
+                    };
+                for m in mixed {
+                    match m {
+                        ExtOrComp::Ext(ext) => namespace.externs.push(ext),
+                        ExtOrComp::Comp(comp) => namespace.components.push(comp),
+                    }
+                }
+                namespace
             }
         ))
     }

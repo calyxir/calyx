@@ -1,6 +1,5 @@
-use crate::frontend::library::ast::LibrarySignatures;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, Component, Control};
+use crate::ir::{self, Component, Control, LibrarySignatures};
 use crate::{build_assignments, structure};
 use std::collections::HashMap;
 use std::rc::Rc;

@@ -1,7 +1,6 @@
 use crate::errors::Error;
-use crate::frontend::library::ast::LibrarySignatures;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, Component};
+use crate::ir::{self, Component, LibrarySignatures};
 use std::collections::HashSet;
 
 /// Pass to check if the program is well-formed.

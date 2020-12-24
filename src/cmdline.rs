@@ -133,13 +133,14 @@ impl Opts {
                 backend.run(&context, self.output)
             }
             BackendOpt::Futil => {
-                for import_path in &context.import_statements {
+                // TODO(rachit): Print out all the extern statements
+                /*for import_path in &context.import_statements {
                     writeln!(
                         &mut self.output.get_write(),
                         "import \"{}\";",
                         import_path
                     )?
-                }
+                }*/
                 for comp in &context.components {
                     ir::IRPrinter::write_component(
                         comp,

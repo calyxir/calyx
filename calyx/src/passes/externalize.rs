@@ -1,6 +1,5 @@
-use crate::frontend::library::ast as lib;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, WRC};
+use crate::ir::{self, LibrarySignatures, WRC};
 
 #[derive(Default)]
 /// Externalize input/output ports for "external" cells.
@@ -62,7 +61,7 @@ impl Visitor for Externalize {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _ctx: &lib::LibrarySignatures,
+        _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Extract external cells.
         let (ext_cells, cells): (Vec<_>, Vec<_>) =

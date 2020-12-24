@@ -32,6 +32,18 @@ bad_num = @{ ASCII_DIGIT ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "'")* }
 
 // ====== toplevel ======
 
+
+file = {
+      SOI
+      ~ imports
+      ~ extern_or_component+
+      ~ EOI
+}
+
+extern_or_component = {
+  component | ext
+}
+
 component = {
       "component" ~ identifier ~ signature
       ~ "{"
@@ -41,18 +53,39 @@ component = {
       ~ "}"
 }
 
-file = {
-      SOI
-      ~ imports
-      ~ component+
-      ~ EOI
-}
+// ========= Imports ===============
 
 import = _{
       "import" ~ string_lit ~ ";"
 }
 
 imports = { import* }
+
+// ========= Exernal definitions ===============
+
+params = {
+      "[" ~ (identifier ~ ("," ~ identifier)*)? ~ "]"
+}
+
+prim_signature = {
+      "(" ~ prim_io_ports? ~ ")" ~ "->" ~ "(" ~ prim_io_ports? ~ ")"
+}
+
+prim_io_port = {
+      identifier ~ ":" ~ (bitwidth | identifier)
+}
+
+prim_io_ports = {
+      (prim_io_port ~ ("," ~ prim_io_port)*)?
+}
+
+primitive = {
+      "primitive" ~ identifier ~ attributes? ~ params? ~ prim_signature ~ ";"
+}
+
+ext = {
+  "extern" ~ string_lit ~ "{" ~ primitive* ~ "}"
+}
 
 
 // ====== signature ======
