@@ -72,6 +72,11 @@ impl Port {
             PortParent::Group(group) => group.upgrade().borrow().name.clone(),
         }
     }
+
+    /// Get the canonical representation for this Port.
+    pub fn canonical(&self) -> (Id, Id) {
+        (self.get_parent_name(), self.name.clone())
+    }
 }
 
 impl PartialEq for Port {

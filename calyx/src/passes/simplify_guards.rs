@@ -6,7 +6,6 @@ use crate::ir::{
 use boolean_expression::Expr;
 use ir::traversal::{Action, VisResult};
 use itertools::Itertools;
-use std::collections::HashSet;
 
 impl From<ir::Guard> for Expr<ir::Guard> {
     fn from(guard: ir::Guard) -> Self {
@@ -15,6 +14,9 @@ impl From<ir::Guard> for Expr<ir::Guard> {
             ir::Guard::Or(l, r) => Expr::or((*l).into(), (*r).into()),
             ir::Guard::Not(e) => Expr::not((*e).into()),
             ir::Guard::True => Expr::Const(true),
+            ir::Guard::Neq(l, r) => Expr::not(ir::Guard::Eq(l, r).into()),
+            ir::Guard::Leq(l, r) => Expr::not(ir::Guard::Gt(l, r).into()),
+            ir::Guard::Geq(l, r) => Expr::not(ir::Guard::Lt(l, r).into()),
             _ => Expr::Terminal(guard),
         }
     }
@@ -39,8 +41,7 @@ impl From<Expr<ir::Guard>> for ir::Guard {
 }
 
 #[derive(Default)]
-/// Adds assignments from a components `clk` port to every
-/// component that contains an input `clk` port. For example
+/// Simplify guards using BDDs and other heuristic tricks.
 pub struct SimplifyGuards;
 
 impl Named for SimplifyGuards {
@@ -91,7 +92,7 @@ fn simplify_guard(guard: ir::Guard) -> ir::Guard {
         .map(|d| {
             let mut conjuncts = Vec::new();
             extract_cnf(d, &mut conjuncts);
-            conjuncts.into_iter().collect::<HashSet<_>>()
+            conjuncts.into_iter().collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
 
@@ -131,29 +132,18 @@ impl Visitor for SimplifyGuards {
         _: &lib::LibrarySignatures,
     ) -> VisResult {
         for group in &comp.groups {
-            let group_assigns = group
+            group
                 .borrow_mut()
                 .assignments
-                .drain(..)
-                .map(|assign| ir::Assignment {
-                    src: assign.src,
-                    dst: assign.dst,
-                    guard: simplify_guard(assign.guard),
-                })
-                .collect();
-
-            group.borrow_mut().assignments = group_assigns;
+                .iter_mut()
+                .for_each(|assign| assign.guard.update(|g| simplify_guard(g)));
         }
 
-        comp.continuous_assignments = comp
-            .continuous_assignments
-            .drain(..)
-            .map(|assign| ir::Assignment {
-                src: assign.src,
-                dst: assign.dst,
-                guard: simplify_guard(assign.guard),
-            })
-            .collect();
+        // Merge continuous_assignments
+        comp.continuous_assignments
+            .iter_mut()
+            .for_each(|assign| assign.guard.update(|g| simplify_guard(g)));
+
         // we don't need to traverse control
         Ok(Action::Stop)
     }

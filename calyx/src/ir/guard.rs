@@ -1,5 +1,6 @@
 use super::{Port, RRC};
-use std::ops::{BitAnd, BitOr, Not};
+use std::mem;
+use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use std::{cmp::Ordering, hash::Hash, rc::Rc};
 
 /// An assignment guard which has pointers to the various ports from which it reads.
@@ -16,6 +17,12 @@ pub enum Guard {
     Not(Box<Guard>),
     Port(RRC<Port>),
     True,
+}
+
+impl Default for Guard {
+    fn default() -> Self {
+        Guard::True
+    }
 }
 
 impl Hash for Guard {
@@ -94,6 +101,17 @@ impl Guard {
             Guard::Not(g) => g.all_ports(),
             Guard::True => vec![],
         }
+    }
+
+    /// Use `std::mem::take` trick to update the Guard in place
+    #[inline(always)]
+    pub fn update<F>(&mut self, upd: F)
+    where
+        F: FnOnce(Guard) -> Guard,
+    {
+        let old = mem::take(self);
+        let new = upd(old);
+        *self = new;
     }
 
     /// Return the string corresponding to the guard operation.
@@ -291,5 +309,25 @@ impl Not for Guard {
             Guard::Not(expr) => *expr,
             _ => Guard::Not(Box::new(self)),
         }
+    }
+}
+
+/// Update a Guard with Or.
+/// ```
+/// g1 |= g2;
+/// ```
+impl BitOrAssign for Guard {
+    fn bitor_assign(&mut self, other: Self) {
+        self.update(|old| old | other)
+    }
+}
+
+/// Update a Guard with Or.
+/// ```
+/// g1 &= g2;
+/// ```
+impl BitAndAssign for Guard {
+    fn bitand_assign(&mut self, other: Self) {
+        self.update(|old| old & other)
     }
 }
