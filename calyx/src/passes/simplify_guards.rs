@@ -1,7 +1,7 @@
-use crate::frontend::library::ast as lib;
 use crate::ir::{
     self,
     traversal::{Named, Visitor},
+    LibrarySignatures,
 };
 use boolean_expression::Expr;
 use ir::traversal::{Action, VisResult};
@@ -129,7 +129,7 @@ impl Visitor for SimplifyGuards {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _: &lib::LibrarySignatures,
+        _: &LibrarySignatures,
     ) -> VisResult {
         for group in &comp.groups {
             group
