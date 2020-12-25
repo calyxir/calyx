@@ -47,6 +47,7 @@ fn extend_signature(sig: &mut ast::Signature) {
 pub fn ast_to_ir(
     mut components: Vec<ast::ComponentDef>,
     lib: LibrarySignatures,
+    imports: Vec<String>,
     debug_mode: bool,
     synthesis_mode: bool,
 ) -> FutilResult<Context> {
@@ -71,6 +72,7 @@ pub fn ast_to_ir(
     Ok(Context {
         components: comps,
         lib: sig_ctx.lib,
+        imports,
         debug_mode,
         synthesis_mode,
     })

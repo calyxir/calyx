@@ -133,14 +133,13 @@ impl Opts {
                 backend.run(&context, self.output)
             }
             BackendOpt::Futil => {
-                // TODO(rachit): Print out all the extern statements
-                /*for import_path in &context.import_statements {
+                for import_path in &context.imports {
                     writeln!(
                         &mut self.output.get_write(),
                         "import \"{}\";",
                         import_path
                     )?
-                }*/
+                }
                 for comp in &context.components {
                     ir::IRPrinter::write_component(
                         comp,
@@ -150,23 +149,6 @@ impl Opts {
                 }
                 Ok(())
             }
-            // BackendOpt::Dot => {
-            //     let write_result = write!(
-            //         self.output.get_write(),
-            //         "{}",
-            //         context
-            //             .get_component(&self.toplevel.into())?
-            //             .structure
-            //             .visualize()
-            //     );
-            //     write_result.map_err(|err| {
-            //         Error::InvalidFile(format!(
-            //             "Failed to write: {}",
-            //             err.to_string()
-            //         ))
-            //     })?;
-            //     Ok(())
-            // }
             BackendOpt::None => Ok(()),
         }
     }

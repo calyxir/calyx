@@ -10,6 +10,8 @@ use crate::{
 };
 use ir::{Control, Group, Guard, RRC};
 use itertools::Itertools;
+use std::fs::File;
+use std::io;
 use std::{collections::HashMap, rc::Rc};
 use vast::v17::ast as v;
 
@@ -79,6 +81,19 @@ impl Backend for VerilogBackend {
         for component in &ctx.components {
             validate_structure(&component.groups)?;
             validate_control(&component.control.borrow())?;
+        }
+        Ok(())
+    }
+
+    /// Generate a "fat" library by copy-pasting all of the extern files.
+    /// A possible alternative in the future is to use SystemVerilog `include`
+    /// statement.
+    fn link_externs(
+        ctx: &ir::Context,
+        file: &mut OutputFile,
+    ) -> FutilResult<()> {
+        for extern_path in &ctx.lib.paths {
+            io::copy(&mut File::open(extern_path)?, &mut file.get_write())?;
         }
         Ok(())
     }

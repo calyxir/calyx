@@ -59,7 +59,7 @@ module std_smod_pipe #(
   logic [width-1:0] quotient;
   logic [width-1:0] quotient_msk;
   logic running;
-  logic start
+  logic start;
 
   // TODO(rachit): Initial values are not synthesizable. Remove this.
   assign start = go && !running && !reset;

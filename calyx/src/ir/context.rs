@@ -12,7 +12,7 @@ pub struct LibrarySignatures {
     /// Direct mapping from name to primitives
     sigs: HashMap<Id, ast::Primitive>,
     /// Paths to files that define externs (relative to the root file).
-    paths: Vec<String>,
+    pub paths: Vec<String>,
 }
 
 impl LibrarySignatures {
@@ -51,21 +51,6 @@ pub struct Context {
     pub debug_mode: bool,
     /// Enables synthesis mode.
     pub synthesis_mode: bool,
+    /// Original import statements.
+    pub imports: Vec<String>,
 }
-
-/*impl Context {
-    /// Returns the primitives that are used by this context.
-    pub fn used_primitives(&self) -> Vec<&library::ast::Primitive> {
-        let mut used = HashMap::new();
-        for comp in &self.components {
-            for cell in &comp.cells {
-                if let ir::CellType::Primitive { name, .. } =
-                    &cell.borrow().prototype
-                {
-                    used.insert(name.clone(), &self.lib_sigs[&name]);
-                }
-            }
-        }
-        used.drain().map(|(_, v)| v).collect()
-    }
-}*/
