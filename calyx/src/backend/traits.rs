@@ -11,7 +11,10 @@ pub trait Backend {
     /// and write it to `write`.
     fn emit(prog: &ir::Context, write: &mut OutputFile) -> FutilResult<()>;
     /// Link the extern collected while parsing the program.
-    fn link_externs(prog: &ir::Context, write: &mut OutputFile) -> FutilResult<()>;
+    fn link_externs(
+        prog: &ir::Context,
+        write: &mut OutputFile,
+    ) -> FutilResult<()>;
     /// Convience function to validate and emit the program.
     fn run(&self, prog: &ir::Context, mut file: OutputFile) -> FutilResult<()> {
         Self::validate(&prog)?;

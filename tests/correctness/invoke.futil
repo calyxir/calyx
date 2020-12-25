@@ -1,4 +1,5 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
+import "primitives/bitnum/unsigned.futil";
 
 component exponent(base: 32, exp: 4) -> (out: 32) {
   cells {

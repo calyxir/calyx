@@ -1,4 +1,6 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
+import "primitives/fixed/unsigned.futil";
+
 component main() -> () {
   cells {
     add0 = prim std_add(3);
