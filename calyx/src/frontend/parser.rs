@@ -57,7 +57,8 @@ impl FutilParser {
             Rule::file,
             string_content,
             Rc::from(string_content),
-        )?;
+        )
+        .map_err(|e| e.with_path(&path.to_string_lossy()))?;
         let input = inputs.single()?;
         Ok(FutilParser::file(input)?)
     }
