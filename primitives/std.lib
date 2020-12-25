@@ -1,3 +1,6 @@
+// vim: set ft=:
+// vim: set noai nocin nosi inde=:
+
 primitive std_mem_d1[width, size, idx_size](
   addr0: idx_size,
   write_data: width,
