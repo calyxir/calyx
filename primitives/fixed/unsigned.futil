@@ -1,7 +1,7 @@
 /**
 * Unsigned fixed point primitives.
 */
-extern "signed.futil" {
+extern "unsigned.sv" {
 
   primitive fixed_p_std_const<"share"=1>[
     WIDTH, INT_WIDTH, FRACT_WIDTH, VALUE1, VALUE2

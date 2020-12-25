@@ -20,7 +20,7 @@ use passes::{
     WellFormed,
 };
 use std::io::stdin;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 
 /// Construct the pass manager by registering all passes and aliases used
@@ -143,11 +143,15 @@ fn main() -> FutilResult<()> {
     // Parse all transitive dependencies
     let mut libs = ir::LibrarySignatures::default();
     namespace.externs.into_iter().for_each(|(path, exts)| {
-        libs.extend(path, exts);
+        libs.extend(
+            opts.lib_path.join(path).to_string_lossy().to_string(),
+            exts,
+        );
     });
     let mut components = namespace.components;
     let mut deps: Vec<PathBuf> = namespace
         .imports
+        .clone()
         .into_iter()
         .map(|f| opts.lib_path.join(f))
         .collect();
@@ -155,8 +159,13 @@ fn main() -> FutilResult<()> {
     while let Some(path) = deps.pop() {
         let mut namespace = parser::FutilParser::parse_file(&path)?;
         components.append(&mut namespace.components);
+
+        let parent = match path.parent() {
+            Some(a) => a,
+            None => Path::new("."),
+        };
         namespace.externs.into_iter().for_each(|(path, exts)| {
-            libs.extend(path, exts);
+            libs.extend(parent.join(path).to_string_lossy().to_string(), exts);
         });
 
         // All imports are relative to the file being currently parsed.
@@ -164,10 +173,7 @@ fn main() -> FutilResult<()> {
             &mut namespace
                 .imports
                 .into_iter()
-                .map(|f| match path.parent() {
-                    None => PathBuf::from(f),
-                    Some(p) => p.join(f),
-                })
+                .map(|f| parent.join(f))
                 .collect(),
         );
     }
@@ -176,6 +182,7 @@ fn main() -> FutilResult<()> {
     let mut rep: ir::Context = ir::from_ast::ast_to_ir(
         components,
         libs,
+        namespace.imports,
         opts.enable_debug,
         opts.enable_synthesis,
     )?;

@@ -2,7 +2,7 @@ module std_mod_pipe #(
     parameter width = 32
 ) (
     input                  clk,
-    reset,
+    input                  reset,
     input                  go,
     input      [width-1:0] left,
     input      [width-1:0] right,
