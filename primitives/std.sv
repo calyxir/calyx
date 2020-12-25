@@ -489,51 +489,6 @@ module std_sqrt
   end
 endmodule
 
-module std_start_fsm
- (input logic  valid,
-  input logic  reset,
-  input logic  clk,
-  // outputs
-  output logic out);
-
-  logic        state;
-  always_ff @(posedge clk) begin
-  if (reset) begin
-    out <= 1'b0;
-    state <= 1'b0;
-  end else
-    case ({valid, state})
-      2'b00: out <= 1'b0;
-      2'b10: begin
-        state <= 1'b1;
-        out <= 1'b1;
-      end
-      2'b01: out <= 1'b0;
-      2'b11: out <= 1'b0;
-    endcase
-  end
-endmodule
-
-module std_fsm_state
-  (input logic  in,
-   input logic  reset,
-   input logic  clk,
-   // outputs
-   output logic out);
-
-  logic        state;
-
-  always_ff @(posedge clk) begin
-    if (reset) state <= 1'b0;
-    else begin
-      state <= in;
-    end
-  end
-
-  always_comb
-    out = state;
-endmodule
-
 /////// fixed_point primitive ///////////
 
 module fixed_p_std_const
