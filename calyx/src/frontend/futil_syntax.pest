@@ -36,7 +36,7 @@ bad_num = @{ ASCII_DIGIT ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "'")* }
 file = {
       SOI
       ~ imports
-      ~ extern_or_component+
+      ~ extern_or_component*
       ~ EOI
 }
 

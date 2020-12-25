@@ -146,16 +146,30 @@ fn main() -> FutilResult<()> {
         libs.extend(path, exts);
     });
     let mut components = namespace.components;
-    let mut deps: Vec<String> = namespace.imports;
+    let mut deps: Vec<PathBuf> = namespace
+        .imports
+        .into_iter()
+        .map(|f| opts.lib_path.join(f))
+        .collect();
 
-    while let Some(file) = deps.pop() {
-        let mut namespace =
-            parser::FutilParser::parse_file(&PathBuf::from(file))?;
+    while let Some(path) = deps.pop() {
+        let mut namespace = parser::FutilParser::parse_file(&path)?;
         components.append(&mut namespace.components);
         namespace.externs.into_iter().for_each(|(path, exts)| {
             libs.extend(path, exts);
         });
-        deps.append(&mut namespace.imports);
+
+        // All imports are relative to the file being currently parsed.
+        deps.append(
+            &mut namespace
+                .imports
+                .into_iter()
+                .map(|f| match path.parent() {
+                    None => PathBuf::from(f),
+                    Some(p) => p.join(f),
+                })
+                .collect(),
+        );
     }
 
     // Build the IR representation

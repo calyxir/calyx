@@ -164,7 +164,7 @@ impl std::fmt::Debug for Error {
                     known_passes
                 )
             },
-            InvalidFile(err) => write!(f, "InvalidFile: {}", err),
+            InvalidFile(err) => write!(f, "{}", err),
             ParseError(err) => write!(f, "FuTIL Parser: {}", err),
             WriteError => write!(f, "WriteError"),
             MismatchedPortWidths(port1, w1, port2, w2) => {
