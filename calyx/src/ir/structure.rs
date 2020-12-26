@@ -1,6 +1,6 @@
 //! Representation for structure (wires and cells) in a FuTIL program.
 use super::{Guard, Id, RRC, WRC};
-use std::collections::HashMap;
+use linked_hash_map::LinkedHashMap;
 use std::rc::Rc;
 
 /// Direction of a port on a cell.
@@ -211,7 +211,7 @@ pub struct Group {
     pub holes: Vec<RRC<Port>>,
 
     /// Attributes for this group.
-    pub(super) attributes: HashMap<String, u64>,
+    pub(super) attributes: LinkedHashMap<String, u64>,
 }
 
 impl Group {

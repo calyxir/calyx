@@ -13,6 +13,7 @@ mod context;
 mod control;
 mod guard;
 mod id;
+mod primitives;
 mod printer;
 mod structure;
 
@@ -24,6 +25,7 @@ pub use context::{Context, LibrarySignatures};
 pub use control::{Control, Empty, Enable, If, Invoke, Par, Seq, While};
 pub use guard::Guard;
 pub use id::Id;
+pub use primitives::{PortDef, Primitive, Width};
 pub use printer::IRPrinter;
 pub use structure::{
     Assignment, Binding, Cell, CellType, Direction, Group, Port, PortParent,

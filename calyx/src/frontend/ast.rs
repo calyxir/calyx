@@ -4,7 +4,6 @@ use crate::errors::{Error, FutilResult, Span};
 use crate::ir;
 use atty::Stream;
 use linked_hash_map::LinkedHashMap;
-use std::collections::HashMap;
 use std::io::stdin;
 use std::path::{Path, PathBuf};
 
@@ -16,7 +15,7 @@ pub struct NamespaceDef {
     /// List of component definitions.
     pub components: Vec<ComponentDef>,
     /// Extern statements and any primitive declarations in them.
-    pub externs: Vec<(String, Vec<Primitive>)>,
+    pub externs: Vec<(String, Vec<ir::Primitive>)>,
 }
 
 impl NamespaceDef {
@@ -80,98 +79,13 @@ impl NamespaceDef {
     }
 }
 
-/// Representation of a Primitive.
-#[derive(Clone, Debug)]
-pub struct Primitive {
-    /// Name of this primitive.
-    pub name: ir::Id,
-    /// Paramters for this primitive.
-    pub params: Vec<ir::Id>,
-    /// The input/output signature for this primitive.
-    pub signature: Vec<PortDef>,
-    /// Key-value attributes for this primitive.
-    pub attributes: HashMap<String, u64>,
-}
-
-impl Primitive {
-    /// Retuns the bindings for all the paramters, the input ports and the
-    /// output ports.
-    #[allow(clippy::type_complexity)]
-    pub fn resolve(
-        &self,
-        parameters: &[u64],
-    ) -> FutilResult<(Vec<(ir::Id, u64)>, Vec<(ir::Id, u64, ir::Direction)>)>
-    {
-        let bindings = self
-            .params
-            .iter()
-            .cloned()
-            .zip(parameters.iter().cloned())
-            .collect::<LinkedHashMap<ir::Id, u64>>();
-
-        let ports = self
-            .signature
-            .iter()
-            .cloned()
-            .map(|pd| pd.resolve(&bindings).map(|(n, w)| (n, w, pd.direction)))
-            .collect::<Result<_, _>>()?;
-
-        Ok((bindings.into_iter().collect(), ports))
-    }
-}
-
-/// A parameter port definition.
-#[derive(Clone, Debug)]
-pub struct PortDef {
-    pub name: ir::Id,
-    pub width: Width,
-    pub direction: ir::Direction,
-}
-
-impl From<(ir::Id, u64, ir::Direction)> for PortDef {
-    fn from(port: (ir::Id, u64, ir::Direction)) -> Self {
-        PortDef {
-            name: port.0,
-            width: Width::Const { value: port.1 },
-            direction: port.2,
-        }
-    }
-}
-
-/// Represents an abstract width of a primitive signature.
-#[derive(Clone, Debug)]
-pub enum Width {
-    /// The width is a constant.
-    Const { value: u64 },
-    /// The width is a parameter.
-    Param { value: ir::Id },
-}
-
-impl PortDef {
-    pub fn resolve(
-        &self,
-        binding: &LinkedHashMap<ir::Id, u64>,
-    ) -> FutilResult<(ir::Id, u64)> {
-        match &self.width {
-            Width::Const { value } => Ok((self.name.clone(), *value)),
-            Width::Param { value } => match binding.get(&value) {
-                Some(width) => Ok((self.name.clone(), *width)),
-                None => Err(Error::SignatureResolutionFailed(
-                    self.name.clone(),
-                    value.clone(),
-                )),
-            },
-        }
-    }
-}
-
 /// AST statement for defining components.
 #[derive(Debug)]
 pub struct ComponentDef {
     /// Name of the component.
     pub name: ir::Id,
     /// Defines input and output ports.
-    pub signature: Vec<PortDef>,
+    pub signature: Vec<ir::PortDef>,
     /// List of instantiated sub-components
     pub cells: Vec<Cell>,
     /// List of groups
@@ -308,7 +222,7 @@ impl Cell {
 pub struct Group {
     pub name: ir::Id,
     pub wires: Vec<Wire>,
-    pub attributes: HashMap<String, u64>,
+    pub attributes: LinkedHashMap<String, u64>,
 }
 
 /// Data for the `->` structure statement.

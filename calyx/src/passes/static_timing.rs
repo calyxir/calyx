@@ -2,7 +2,7 @@ use super::math_utilities::get_bit_width_from;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, LibrarySignatures};
 use crate::{build_assignments, guard, structure};
-use std::collections::HashMap;
+use linked_hash_map::LinkedHashMap;
 use std::{cmp, rc::Rc};
 
 #[derive(Default)]
@@ -81,7 +81,7 @@ impl Visitor for StaticTiming {
                 body.borrow().get_attribute("static"),
             ) {
                 let while_group =
-                    builder.add_group("static_while", HashMap::new());
+                    builder.add_group("static_while", LinkedHashMap::new());
 
                 // take at least one cycle for computing the body and condition
                 let ctime = cmp::max(ctime, 1);
@@ -193,7 +193,7 @@ impl Visitor for StaticTiming {
                 fal.borrow().get_attribute("static"),
             ) {
                 let mut builder = ir::Builder::from(comp, ctx, false);
-                let mut attrs = HashMap::new();
+                let mut attrs = LinkedHashMap::new();
                 attrs.insert(
                     "static".to_string(),
                     ctime + 1 + cmp::max(ttime, ftime),
@@ -308,7 +308,7 @@ impl Visitor for StaticTiming {
         if let Some(max_time) = accumulate_static_time(&s.stmts, cmp::max) {
             let mut builder = ir::Builder::from(comp, ctx, false);
 
-            let mut attrs = HashMap::new();
+            let mut attrs = LinkedHashMap::new();
             attrs.insert("static".to_string(), max_time);
 
             let par_group = builder.add_group("static_par", attrs);
@@ -388,7 +388,8 @@ impl Visitor for StaticTiming {
         let fsm_size = get_bit_width_from(1 + total_time.unwrap());
 
         // Create new group for compiling this seq.
-        let seq_group = builder.add_group("static_seq", HashMap::new());
+        let seq_group =
+            builder.add_group("static_seq", LinkedHashMap::with_capacity(1));
 
         // Add FSM register
         structure!(builder;

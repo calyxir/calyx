@@ -1,6 +1,6 @@
 use super::{
     Assignment, Builder, CellType, Component, Context, Control, Direction,
-    Guard, Id, LibrarySignatures, Port, RRC,
+    Guard, Id, LibrarySignatures, Port, PortDef, RRC,
 };
 use crate::{
     errors::{Error, FutilResult},
@@ -16,14 +16,14 @@ use std::rc::Rc;
 #[derive(Default)]
 struct SigCtx {
     /// Mapping from component names to signatures
-    comp_sigs: HashMap<Id, Vec<ast::PortDef>>,
+    comp_sigs: HashMap<Id, Vec<PortDef>>,
 
     /// Mapping from library functions to signatures
     lib: LibrarySignatures,
 }
 
 /// Extend the signature with magical ports.
-fn extend_signature(sig: &mut Vec<ast::PortDef>) {
+fn extend_signature(sig: &mut Vec<PortDef>) {
     // XXX(Sam): checking to see if the port exists is a hack.
     let (mut has_go, mut has_clk, mut has_done) = (false, false, false);
     sig.iter().for_each(|pd| match pd.name.as_ref() {

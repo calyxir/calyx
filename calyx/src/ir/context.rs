@@ -1,8 +1,7 @@
 //! An IR context. This is the top-level object for an IR and contains all information
 //! need to transform, lower, an emit a program.
 //! Passes usually have transform/analyze the components in the IR.
-use super::{Component, Id};
-use crate::frontend::ast;
+use super::{Component, Id, Primitive};
 use std::collections::HashMap;
 
 /// A representation of all the primitive definitions found while parsing
@@ -10,14 +9,14 @@ use std::collections::HashMap;
 #[derive(Debug, Default)]
 pub struct LibrarySignatures {
     /// Direct mapping from name to primitives
-    sigs: HashMap<Id, ast::Primitive>,
+    sigs: HashMap<Id, Primitive>,
     /// Paths to files that define externs (relative to the root file).
     pub paths: Vec<String>,
 }
 
 impl LibrarySignatures {
     /// Return the `Primitive` associated to this Id.
-    pub fn find_primitive<S>(&self, name: S) -> Option<&ast::Primitive>
+    pub fn find_primitive<S>(&self, name: S) -> Option<&Primitive>
     where
         S: AsRef<str>,
     {
@@ -25,7 +24,7 @@ impl LibrarySignatures {
     }
 
     /// Return the `Primitive` associated to this Id.
-    pub fn get_primitive<S>(&self, name: S) -> &ast::Primitive
+    pub fn get_primitive<S>(&self, name: S) -> &Primitive
     where
         S: AsRef<str>,
     {
@@ -33,8 +32,8 @@ impl LibrarySignatures {
     }
 }
 
-impl From<Vec<(String, Vec<ast::Primitive>)>> for LibrarySignatures {
-    fn from(externs: Vec<(String, Vec<ast::Primitive>)>) -> Self {
+impl From<Vec<(String, Vec<Primitive>)>> for LibrarySignatures {
+    fn from(externs: Vec<(String, Vec<Primitive>)>) -> Self {
         let mut lib = LibrarySignatures::default();
         for (path, prims) in externs {
             lib.sigs

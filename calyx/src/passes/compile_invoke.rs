@@ -1,7 +1,7 @@
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, LibrarySignatures};
 use crate::{build_assignments, structure};
-use std::collections::HashMap;
+use linked_hash_map::LinkedHashMap;
 
 #[derive(Default)]
 pub struct CompileInvoke;
@@ -25,7 +25,8 @@ impl Visitor for CompileInvoke {
     ) -> VisResult {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
-        let invoke_group = builder.add_group("invoke", HashMap::new());
+        let invoke_group =
+            builder.add_group("invoke", LinkedHashMap::with_capacity(0));
 
         // Generate state elements to make sure that component is only run once.
         // comp.go = 1'd1;

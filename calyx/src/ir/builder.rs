@@ -1,8 +1,8 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
 use crate::ir::{self, LibrarySignatures, RRC, WRC};
+use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 /// An IR builder.
@@ -38,7 +38,7 @@ impl<'a> Builder<'a> {
     pub fn add_group<S>(
         &mut self,
         prefix: S,
-        attributes: HashMap<String, u64>,
+        attributes: LinkedHashMap<String, u64>,
     ) -> RRC<ir::Group>
     where
         S: Into<ir::Id> + ToString + Clone,

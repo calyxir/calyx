@@ -2,9 +2,9 @@
 use super::ast::{self, BitNum, NumType};
 use crate::errors::{self, FutilResult, Span};
 use crate::ir;
+use linked_hash_map::LinkedHashMap;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
-use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
@@ -53,9 +53,12 @@ impl FutilParser {
             ))
         })?;
         let string_content = std::str::from_utf8(content)?;
-        let inputs =
-            FutilParser::parse_with_userdata(Rule::file, string_content, Rc::from(string_content))
-                .map_err(|e| e.with_path(&path.to_string_lossy()))?;
+        let inputs = FutilParser::parse_with_userdata(
+            Rule::file,
+            string_content,
+            Rc::from(string_content),
+        )
+        .map_err(|e| e.with_path(&path.to_string_lossy()))?;
         let input = inputs.single()?;
         Ok(FutilParser::file(input)?)
     }
@@ -63,9 +66,16 @@ impl FutilParser {
     pub fn parse<R: Read>(mut r: R) -> FutilResult<ast::NamespaceDef> {
         let mut buf = String::new();
         r.read_to_string(&mut buf).map_err(|err| {
-            errors::Error::InvalidFile(format!("Failed to parse buffer: {}", err.to_string()))
+            errors::Error::InvalidFile(format!(
+                "Failed to parse buffer: {}",
+                err.to_string()
+            ))
         })?;
-        let inputs = FutilParser::parse_with_userdata(Rule::file, &buf, Rc::from(buf.as_str()))?;
+        let inputs = FutilParser::parse_with_userdata(
+            Rule::file,
+            &buf,
+            Rc::from(buf.as_str()),
+        )?;
         let input = inputs.single()?;
         Ok(FutilParser::file(input)?)
     }
@@ -73,7 +83,7 @@ impl FutilParser {
 
 #[allow(clippy::large_enum_variant)]
 enum ExtOrComp {
-    Ext((String, Vec<ast::Primitive>)),
+    Ext((String, Vec<ir::Primitive>)),
     Comp(ast::ComponentDef),
 }
 
@@ -107,13 +117,16 @@ impl FutilParser {
             .map_err(|_| input.error("Expected hexadecimal number"))
     }
     fn decimal(input: Node) -> ParseResult<u64> {
-        u64::from_str_radix(input.as_str(), 10).map_err(|_| input.error("Expected decimal number"))
+        u64::from_str_radix(input.as_str(), 10)
+            .map_err(|_| input.error("Expected decimal number"))
     }
     fn octal(input: Node) -> ParseResult<u64> {
-        u64::from_str_radix(input.as_str(), 8).map_err(|_| input.error("Expected octal number"))
+        u64::from_str_radix(input.as_str(), 8)
+            .map_err(|_| input.error("Expected octal number"))
     }
     fn binary(input: Node) -> ParseResult<u64> {
-        u64::from_str_radix(input.as_str(), 2).map_err(|_| input.error("Expected binary number"))
+        u64::from_str_radix(input.as_str(), 2)
+            .map_err(|_| input.error("Expected binary number"))
     }
 
     fn num_lit(input: Node) -> ParseResult<BitNum> {
@@ -178,7 +191,7 @@ impl FutilParser {
         ))
     }
 
-    fn attributes(input: Node) -> ParseResult<HashMap<String, u64>> {
+    fn attributes(input: Node) -> ParseResult<LinkedHashMap<String, u64>> {
         Ok(match_nodes!(
             input.into_children();
             [key_value(kvs)..] => kvs.collect()
@@ -201,37 +214,37 @@ impl FutilParser {
         ))
     }
 
-    fn io_port(input: Node) -> ParseResult<(ir::Id, ast::Width)> {
+    fn io_port(input: Node) -> ParseResult<(ir::Id, ir::Width)> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(id), bitwidth(value)] => (id, ast::Width::Const { value }),
-            [identifier(id), identifier(value)] => (id, ast::Width::Param { value }),
+            [identifier(id), bitwidth(value)] => (id, ir::Width::Const { value }),
+            [identifier(id), identifier(value)] => (id, ir::Width::Param { value }),
         ))
     }
 
-    fn inputs(input: Node) -> ParseResult<Vec<ast::PortDef>> {
+    fn inputs(input: Node) -> ParseResult<Vec<ir::PortDef>> {
         Ok(match_nodes!(
             input.into_children();
             [io_port(ins)..] => {
-                ins.map(|(name, width)| ast::PortDef {
+                ins.map(|(name, width)| ir::PortDef {
                     name, width, direction: ir::Direction::Input
                 }).collect()
             }
         ))
     }
 
-    fn outputs(input: Node) -> ParseResult<Vec<ast::PortDef>> {
+    fn outputs(input: Node) -> ParseResult<Vec<ir::PortDef>> {
         Ok(match_nodes!(
             input.into_children();
             [io_port(outs)..] => {
-                outs.map(|(name, width)| ast::PortDef {
+                outs.map(|(name, width)| ir::PortDef {
                     name, width, direction: ir::Direction::Output
                 }).collect()
             }
         ))
     }
 
-    fn signature(input: Node) -> ParseResult<Vec<ast::PortDef>> {
+    fn signature(input: Node) -> ParseResult<Vec<ir::PortDef>> {
         Ok(match_nodes!(
             input.into_children();
             // XXX(rachit): We expect the signature to be extended to have `go`,
@@ -246,32 +259,32 @@ impl FutilParser {
     }
 
     // ==============PortDeftives =====================
-    fn primitive(input: Node) -> ParseResult<ast::Primitive> {
+    fn primitive(input: Node) -> ParseResult<ir::Primitive> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(name), attributes(attrs), params(p), signature(s)] => ast::Primitive {
+            [identifier(name), attributes(attrs), params(p), signature(s)] => ir::Primitive {
                 name,
                 params: p,
                 signature: s,
                 attributes: attrs,
             },
-            [identifier(name), attributes(attrs), signature(s)] => ast::Primitive {
+            [identifier(name), attributes(attrs), signature(s)] => ir::Primitive {
                 name,
                 params: Vec::with_capacity(0),
                 signature: s,
                 attributes: attrs,
             },
-            [identifier(name), params(p), signature(s)] => ast::Primitive {
+            [identifier(name), params(p), signature(s)] => ir::Primitive {
                 name,
                 params: p,
                 signature: s,
-                attributes: HashMap::with_capacity(0),
+                attributes: LinkedHashMap::with_capacity(0),
             },
-            [identifier(name), signature(s)] => ast::Primitive {
+            [identifier(name), signature(s)] => ir::Primitive {
                 name,
                 params: Vec::with_capacity(0),
                 signature: s,
-                attributes: HashMap::with_capacity(0),
+                attributes: LinkedHashMap::with_capacity(0),
             }
         ))
     }
@@ -346,16 +359,28 @@ impl FutilParser {
     }
 
     #[prec_climb(term, PRECCLIMBER)]
-    fn guard_expr(l: ast::GuardExpr, op: Node, r: ast::GuardExpr) -> ParseResult<ast::GuardExpr> {
+    fn guard_expr(
+        l: ast::GuardExpr,
+        op: Node,
+        r: ast::GuardExpr,
+    ) -> ParseResult<ast::GuardExpr> {
         match op.as_rule() {
             Rule::guard_eq => Ok(ast::GuardExpr::Eq(Box::new(l), Box::new(r))),
-            Rule::guard_neq => Ok(ast::GuardExpr::Neq(Box::new(l), Box::new(r))),
-            Rule::guard_leq => Ok(ast::GuardExpr::Leq(Box::new(l), Box::new(r))),
-            Rule::guard_geq => Ok(ast::GuardExpr::Geq(Box::new(l), Box::new(r))),
+            Rule::guard_neq => {
+                Ok(ast::GuardExpr::Neq(Box::new(l), Box::new(r)))
+            }
+            Rule::guard_leq => {
+                Ok(ast::GuardExpr::Leq(Box::new(l), Box::new(r)))
+            }
+            Rule::guard_geq => {
+                Ok(ast::GuardExpr::Geq(Box::new(l), Box::new(r)))
+            }
             Rule::guard_lt => Ok(ast::GuardExpr::Lt(Box::new(l), Box::new(r))),
             Rule::guard_gt => Ok(ast::GuardExpr::Gt(Box::new(l), Box::new(r))),
             Rule::guard_or => Ok(ast::GuardExpr::Or(Box::new(l), Box::new(r))),
-            Rule::guard_and => Ok(ast::GuardExpr::And(Box::new(l), Box::new(r))),
+            Rule::guard_and => {
+                Ok(ast::GuardExpr::And(Box::new(l), Box::new(r)))
+            }
             _ => unreachable!(),
         }
     }
@@ -401,13 +426,15 @@ impl FutilParser {
             },
             [identifier(name), wire(wire)..] => ast::Group {
                 name,
-                attributes: HashMap::with_capacity(0),
+                attributes: LinkedHashMap::with_capacity(0),
                 wires: wire.collect()
             }
         ))
     }
 
-    fn connections(input: Node) -> ParseResult<(Vec<ast::Wire>, Vec<ast::Group>)> {
+    fn connections(
+        input: Node,
+    ) -> ParseResult<(Vec<ast::Wire>, Vec<ast::Group>)> {
         let mut wires = Vec::new();
         let mut groups = Vec::new();
         for node in input.into_children() {
@@ -571,7 +598,7 @@ impl FutilParser {
         ))
     }
 
-    fn ext(input: Node) -> ParseResult<(String, Vec<ast::Primitive>)> {
+    fn ext(input: Node) -> ParseResult<(String, Vec<ir::Primitive>)> {
         Ok(match_nodes!(
             input.into_children();
             [string_lit(file), primitive(prims)..] => (file, prims.collect())

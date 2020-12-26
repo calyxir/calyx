@@ -1,7 +1,7 @@
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Component, Control, LibrarySignatures};
 use crate::{build_assignments, structure};
-use std::collections::HashMap;
+use linked_hash_map::LinkedHashMap;
 use std::rc::Rc;
 
 #[derive(Default)]
@@ -35,7 +35,7 @@ impl Visitor for CompileEmpty {
             None => {
                 let mut builder = ir::Builder::from(comp, sigs, false);
                 // Create a group that always outputs done if it doesn't exist.
-                let mut attrs = HashMap::new();
+                let mut attrs = LinkedHashMap::with_capacity(1);
                 attrs.insert("static".to_string(), 0);
 
                 // Add the new group

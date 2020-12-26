@@ -6,7 +6,7 @@ use crate::ir::{
     LibrarySignatures,
 };
 use crate::{build_assignments, guard, structure};
-use std::collections::HashMap;
+use linked_hash_map::LinkedHashMap;
 use std::convert::TryInto;
 use std::rc::Rc;
 
@@ -73,7 +73,7 @@ impl Visitor for CompileControl {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // create a new group for if related structure
-        let if_group = builder.add_group("if", HashMap::new());
+        let if_group = builder.add_group("if", LinkedHashMap::new());
 
         let cond_group = Rc::clone(&cif.cond);
         let cond = Rc::clone(&cif.port);
@@ -172,7 +172,7 @@ impl Visitor for CompileControl {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // create group
-        let while_group = builder.add_group("while", HashMap::new());
+        let while_group = builder.add_group("while", LinkedHashMap::new());
 
         // cond group
         let cond_group = Rc::clone(&wh.cond);
@@ -263,7 +263,7 @@ impl Visitor for CompileControl {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // Create a new group for the seq related structure.
-        let seq_group = builder.add_group("seq", HashMap::new());
+        let seq_group = builder.add_group("seq", LinkedHashMap::new());
         let fsm_size = get_bit_width_from(1 + s.stmts.len() as u64);
 
         // new structure
@@ -346,7 +346,7 @@ impl Visitor for CompileControl {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // Name of the parent group.
-        let par_group = builder.add_group("par", HashMap::new());
+        let par_group = builder.add_group("par", LinkedHashMap::new());
 
         let mut par_group_done: Vec<ir::Guard> =
             Vec::with_capacity(s.stmts.len());
