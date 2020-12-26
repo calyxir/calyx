@@ -2,14 +2,7 @@ mod cmdline;
 mod pass_manager;
 
 use crate::ir::traversal::Visitor;
-use atty::Stream;
-use calyx::{
-    errors::{Error, FutilResult},
-    frontend::parser,
-    ir,
-    ir::traversal::Named,
-    passes,
-};
+use calyx::{errors::FutilResult, frontend, ir, ir::traversal::Named, passes};
 use cmdline::Opts;
 use pass_manager::PassManager;
 use passes::{
@@ -19,8 +12,6 @@ use passes::{
     RemoveExternalMemories, ResourceSharing, SimplifyGuards, StaticTiming,
     WellFormed,
 };
-use std::io::stdin;
-use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 
 /// Construct the pass manager by registering all passes and aliases used
@@ -125,64 +116,12 @@ fn main() -> FutilResult<()> {
         return Ok(());
     }
 
-    // ==== Construct the context ====
-    // parse the file
-    let namespace = match &opts.file {
-        Some(file) => parser::FutilParser::parse_file(&file),
-        None => {
-            if atty::isnt(Stream::Stdin) {
-                parser::FutilParser::parse(stdin())
-            } else {
-                Err(Error::InvalidFile(
-                    "No file provided and terminal not a TTY".to_string(),
-                ))
-            }
-        }
-    }?;
-
-    // Parse all transitive dependencies
-    let mut libs = ir::LibrarySignatures::default();
-    namespace.externs.into_iter().for_each(|(path, exts)| {
-        libs.extend(
-            opts.lib_path.join(path).to_string_lossy().to_string(),
-            exts,
-        );
-    });
-    let mut components = namespace.components;
-    let mut deps: Vec<PathBuf> = namespace
-        .imports
-        .clone()
-        .into_iter()
-        .map(|f| opts.lib_path.join(f))
-        .collect();
-
-    while let Some(path) = deps.pop() {
-        let mut namespace = parser::FutilParser::parse_file(&path)?;
-        components.append(&mut namespace.components);
-
-        let parent = match path.parent() {
-            Some(a) => a,
-            None => Path::new("."),
-        };
-        namespace.externs.into_iter().for_each(|(path, exts)| {
-            libs.extend(parent.join(path).to_string_lossy().to_string(), exts);
-        });
-
-        // All imports are relative to the file being currently parsed.
-        deps.append(
-            &mut namespace
-                .imports
-                .into_iter()
-                .map(|f| parent.join(f))
-                .collect(),
-        );
-    }
+    // Construct the namespace.
+    let namespace = frontend::NamespaceDef::new(&opts.file, &opts.lib_path)?;
 
     // Build the IR representation
-    let mut rep: ir::Context = ir::from_ast::ast_to_ir(
-        components,
-        libs,
-        namespace.imports,
+    let mut rep = ir::from_ast::ast_to_ir(
+        namespace,
         opts.enable_debug,
         opts.enable_synthesis,
     )?;

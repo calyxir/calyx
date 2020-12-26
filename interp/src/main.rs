@@ -1,9 +1,4 @@
-use calyx::{
-    errors::{Error, FutilResult},
-    frontend::{library, parser},
-    ir,
-    utils::OutputFile,
-};
+use calyx::{errors::FutilResult, frontend, ir, utils::OutputFile};
 use std::path::PathBuf;
 pub use structopt::StructOpt;
 
@@ -46,34 +41,9 @@ fn main() -> FutilResult<()> {
             group: opts.group.clone(),
         };
 
-    // Get input file
-    let namespace = match &opts.file {
-        Some(file) => parser::FutilParser::parse_file(&file),
-        None => Err(Error::InvalidFile(
-            "Must provide a FuTIL file as input (for now)!".to_string(),
-        )),
-    }?;
-
-    // Get libraries used in file
-    // The only library test programs should have for now is primitives/std.lib
-    let library: Vec<_> = namespace
-        .libraries
-        .iter()
-        .map(|path| {
-            library::parser::LibraryParser::parse_file(
-                &opts.lib_path.join(path),
-            )
-        })
-        .collect::<FutilResult<Vec<_>>>()?;
-
     // Construct IR
-    let ir = ir::from_ast::ast_to_ir(
-        namespace.components,
-        &library,
-        namespace.libraries,
-        false,
-        false,
-    )?;
+    let namespace = frontend::NamespaceDef::new(&opts.file, &opts.lib_path)?;
+    let ir = ir::from_ast::ast_to_ir(namespace, false, false)?;
 
     // Run the interpreter (in this case, group interpreter)
     interpreter.interpret(ir)?;

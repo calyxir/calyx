@@ -31,12 +31,17 @@ impl LibrarySignatures {
     {
         &self.sigs[&Id::from(name.as_ref())]
     }
+}
 
-    /// Extend library with extern definition
-    pub fn extend(&mut self, path: String, prims: Vec<ast::Primitive>) {
-        self.sigs
-            .extend(prims.into_iter().map(|p| (p.name.clone(), p)));
-        self.paths.push(path);
+impl From<Vec<(String, Vec<ast::Primitive>)>> for LibrarySignatures {
+    fn from(externs: Vec<(String, Vec<ast::Primitive>)>) -> Self {
+        let mut lib = LibrarySignatures::default();
+        for (path, prims) in externs {
+            lib.sigs
+                .extend(prims.into_iter().map(|p| (p.name.clone(), p)));
+            lib.paths.push(path);
+        }
+        lib
     }
 }
 

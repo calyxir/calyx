@@ -3,5 +3,6 @@
 //! The frontend representation is transformed into the representation defined
 //! in the `ir` module.
 pub mod ast;
-//pub mod library;
-pub mod parser;
+pub(super) mod parser;
+
+pub use ast::NamespaceDef;
