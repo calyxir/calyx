@@ -47,13 +47,13 @@ impl GroupInterpreter {
         })?;
 
         // Final state of the environment
-        let finalenv = interpreter::eval_group(group, environment)?;
+        let finalenv = interpreter::eval_group(group, &environment)?;
         finalenv.cell_state();
         Ok(())
     }
 }
 
-// Get the name of the component to interpret from the context.
+/// Get the name of the component to interpret from the context.
 fn get_component(
     ctx: ir::Context,
     component: &str,
@@ -67,7 +67,7 @@ fn get_component(
     }
 }
 
-// Construct a map from cell ids to a map from the cell's ports' ids to the ports' values
+/// Construct a map from cell ids to a map from the cell's ports' ids to the ports' values
 fn construct_map(
     cells: &[ir::RRC<ir::Cell>],
 ) -> HashMap<ir::Id, HashMap<ir::Id, u64>> {

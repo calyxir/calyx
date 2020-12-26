@@ -149,7 +149,7 @@ impl Environment {
 /// Evaluates a group, given an environment.
 pub fn eval_group(
     group: ir::RRC<ir::Group>,
-    env: Environment,
+    env: &Environment,
 ) -> FutilResult<Environment> {
     eval_assigns(&(group.borrow()).assignments, &env)
 }
@@ -176,7 +176,8 @@ fn eval_assigns(
         .filter(|&a| {
             is_cell(&a.dst.borrow())
                 && is_cell(&a.dst.borrow())
-                && env.map.contains_key(&get_cell_from_port(&a.src)) //dummy way of making sure the map has the a.src cell
+                // dummy way of making sure the map has the a.src cell
+                && env.map.contains_key(&get_cell_from_port(&a.src))
                 && env.map.contains_key(&get_cell_from_port(&a.dst))
         })
         .collect::<Vec<_>>();
@@ -195,10 +196,10 @@ fn eval_assigns(
         //let mut iter_updates = write_env.clone();
 
         // for assign in assigns
-        for assign in ok_assigns.iter() {
+        for assign in &ok_assigns {
             // check if the assign.guard != 0
             // should it be evaluating the guard in write_env environment?
-            if eval_guard(&assign.guard, &write_env) {
+            if eval_guard(&assign.guard, &write_env) != 0 {
                 // check if the cells are constants?
                 // cell of assign.src
                 let src_cell = get_cell_from_port(&assign.src);
@@ -221,11 +222,7 @@ fn eval_assigns(
                 // queue any required updates.
 
                 //determine if dst_cell is a combinational cell or not
-                if get_combinational_or_not(
-                    &dst_cell,
-                    &assign.dst.borrow().name,
-                    env,
-                ) {
+                if is_combinational(&dst_cell, &assign.dst.borrow().name, env) {
                     // write to assign.dst to e2 immediately, if combinational
                     write_env.put(
                         &dst_cell,
@@ -281,10 +278,7 @@ fn eval_assigns(
 
                         // update the cell state in write_env
                         write_env = update_cell_state(
-                            &dst_cell,
-                            &inputs[..],
-                            &outputs[..],
-                            &write_env,
+                            &dst_cell, &inputs, &outputs, &write_env,
                         )?;
                     }
                 } else {
@@ -318,43 +312,24 @@ fn is_cell(port: &ir::Port) -> bool {
     matches!(&port.parent, ir::PortParent::Cell(_))
 }
 
-/// Evalutes a guard in an environment.
-fn eval_guard(guard: &ir::Guard, env: &Environment) -> bool {
-    eval_guard_helper(guard, env) != 0
-}
-
 /// Evaluate guard implementation; TODO (messy u64 implementation?)
-fn eval_guard_helper(guard: &ir::Guard, env: &Environment) -> u64 {
-    (match guard {
+fn eval_guard(guard: &Box<ir::Guard>, env: &Environment) -> u64 {
+    (match &**guard {
         ir::Guard::Or(g1, g2) => {
-            (eval_guard_helper(&**g1, env) == 1)
-                || (eval_guard_helper(&**g2, env) == 1)
+            (eval_guard(g1, env) == 1) || (eval_guard(g2, env) == 1)
         }
         ir::Guard::And(g1, g2) => {
-            (eval_guard_helper(&**g1, env) == 1)
-                && (eval_guard_helper(&**g2, env) == 1)
+            (eval_guard(g1, env) == 1) && (eval_guard(g2, env) == 1)
         }
-        ir::Guard::Eq(g1, g2) => {
-            eval_guard_helper(&**g1, env) == eval_guard_helper(&**g2, env)
-        }
-        ir::Guard::Neq(g1, g2) => {
-            eval_guard_helper(&**g1, env) != eval_guard_helper(&**g2, env)
-        }
-        ir::Guard::Gt(g1, g2) => {
-            eval_guard_helper(&**g1, env) > eval_guard_helper(&**g2, env)
-        }
-        ir::Guard::Lt(g1, g2) => {
-            eval_guard_helper(&**g1, env) < eval_guard_helper(&**g2, env)
-        }
-        ir::Guard::Geq(g1, g2) => {
-            eval_guard_helper(&**g1, env) >= eval_guard_helper(&**g2, env)
-        }
-        ir::Guard::Leq(g1, g2) => {
-            eval_guard_helper(&**g1, env) <= eval_guard_helper(&**g2, env)
-        }
-        ir::Guard::Not(g) => eval_guard_helper(g, &env) != 0,
+        ir::Guard::Eq(g1, g2) => eval_guard(g1, env) == eval_guard(g2, env),
+        ir::Guard::Neq(g1, g2) => eval_guard(g1, env) != eval_guard(g2, env),
+        ir::Guard::Gt(g1, g2) => eval_guard(g1, env) > eval_guard(g2, env),
+        ir::Guard::Lt(g1, g2) => eval_guard(g1, env) < eval_guard(g2, env),
+        ir::Guard::Geq(g1, g2) => eval_guard(g1, env) >= eval_guard(g2, env),
+        ir::Guard::Leq(g1, g2) => eval_guard(g1, env) <= eval_guard(g2, env),
+        ir::Guard::Not(g) => eval_guard(g, &env) != 0,
         ir::Guard::Port(p) => {
-            env.get(&get_cell_from_port(p), &((*p.borrow()).name)) != 0
+            env.get(&get_cell_from_port(&p), &((*p.borrow()).name)) != 0
         }
         ir::Guard::True => true,
     }) as u64
@@ -385,11 +360,7 @@ fn get_done_signal(assigns: &[ir::Assignment]) -> &ir::Assignment {
 }
 
 /// Determines if writing a particular cell and cell port is combinational or not. Will need to change implementation later.
-fn get_combinational_or_not(
-    cell: &ir::Id,
-    port: &ir::Id,
-    env: &Environment,
-) -> bool {
+fn is_combinational(cell: &ir::Id, port: &ir::Id, env: &Environment) -> bool {
     // if cell is none,
     let cellg = env
         .get_cell(cell)
