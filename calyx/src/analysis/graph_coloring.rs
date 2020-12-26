@@ -1,7 +1,5 @@
 use itertools::Itertools;
-use petgraph::{
-    matrix_graph::{MatrixGraph, NodeIndex, UnMatrix, Zero},
-};
+use petgraph::matrix_graph::{MatrixGraph, NodeIndex, UnMatrix, Zero};
 use std::{collections::HashMap, hash::Hash};
 
 /// Edge weight used for the graph nodes
