@@ -39,6 +39,14 @@ impl Primitive {
 
         Ok((bindings.into_iter().collect(), ports))
     }
+
+    /// Return the value associated with this attribute key.
+    pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
+    where
+        S: AsRef<str>,
+    {
+        self.attributes.get(attr.as_ref())
+    }
 }
 
 /// A parameter port definition.

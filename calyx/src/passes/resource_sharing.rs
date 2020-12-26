@@ -43,8 +43,7 @@ fn shareable_primitive_name(
         param_binding,
     } = &cell.borrow().prototype
     {
-        if let Some(&share) = sigs.get_primitive(&name).attributes.get("share")
-        {
+        if let Some(&share) = sigs.get_primitive(&name).get_attribute("share") {
             if share == 1 {
                 return Some((name.clone(), param_binding.clone()));
             }
