@@ -18,6 +18,34 @@ pub trait Named {
     fn description() -> &'static str;
 }
 
+/// Implementator of trait provide various logging methods.
+pub trait Loggable {
+    /// Log output to STDERR.
+    /// `context` is the location from which the logger is being called.
+    /// Usage:
+    /// ```
+    /// self.elog("number-of-groups", groups.len());
+    /// ```
+    fn elog<S, T>(&self, context: S, msg: T) -> ()
+    where
+        S: std::fmt::Display,
+        T: std::fmt::Display;
+}
+
+/// Blanket implementation for Loggable for traits implementing Named
+impl<T> Loggable for T
+where
+    T: Named,
+{
+    fn elog<S, M>(&self, context: S, msg: M)
+    where
+        S: std::fmt::Display,
+        M: std::fmt::Display,
+    {
+        eprintln!("{}.{}: {}", T::name(), context, msg)
+    }
+}
+
 /// The visiting interface for a `ir::Control` program.
 /// Contains two kinds of functions:
 /// 1. start_<node>: Called when visiting <node> top-down.
