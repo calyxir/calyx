@@ -2,8 +2,8 @@
 use super::parser;
 use crate::errors::{Error, FutilResult, Span};
 use crate::ir;
-use linked_hash_map::LinkedHashMap;
 use atty::Stream;
+use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::io::stdin;
 use std::path::{Path, PathBuf};

@@ -1,10 +1,6 @@
 use crate::ir;
 use std::collections::HashMap;
-use std::{
-    io::Write,
-    path::PathBuf,
-    str::FromStr,
-};
+use std::{io::Write, path::PathBuf, str::FromStr};
 
 /// Simple HashMap-based name generator that generates new names for each
 /// prefix.

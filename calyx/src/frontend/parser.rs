@@ -53,12 +53,9 @@ impl FutilParser {
             ))
         })?;
         let string_content = std::str::from_utf8(content)?;
-        let inputs = FutilParser::parse_with_userdata(
-            Rule::file,
-            string_content,
-            Rc::from(string_content),
-        )
-        .map_err(|e| e.with_path(&path.to_string_lossy()))?;
+        let inputs =
+            FutilParser::parse_with_userdata(Rule::file, string_content, Rc::from(string_content))
+                .map_err(|e| e.with_path(&path.to_string_lossy()))?;
         let input = inputs.single()?;
         Ok(FutilParser::file(input)?)
     }
@@ -66,16 +63,9 @@ impl FutilParser {
     pub fn parse<R: Read>(mut r: R) -> FutilResult<ast::NamespaceDef> {
         let mut buf = String::new();
         r.read_to_string(&mut buf).map_err(|err| {
-            errors::Error::InvalidFile(format!(
-                "Failed to parse buffer: {}",
-                err.to_string()
-            ))
+            errors::Error::InvalidFile(format!("Failed to parse buffer: {}", err.to_string()))
         })?;
-        let inputs = FutilParser::parse_with_userdata(
-            Rule::file,
-            &buf,
-            Rc::from(buf.as_str()),
-        )?;
+        let inputs = FutilParser::parse_with_userdata(Rule::file, &buf, Rc::from(buf.as_str()))?;
         let input = inputs.single()?;
         Ok(FutilParser::file(input)?)
     }
@@ -117,16 +107,13 @@ impl FutilParser {
             .map_err(|_| input.error("Expected hexadecimal number"))
     }
     fn decimal(input: Node) -> ParseResult<u64> {
-        u64::from_str_radix(input.as_str(), 10)
-            .map_err(|_| input.error("Expected decimal number"))
+        u64::from_str_radix(input.as_str(), 10).map_err(|_| input.error("Expected decimal number"))
     }
     fn octal(input: Node) -> ParseResult<u64> {
-        u64::from_str_radix(input.as_str(), 8)
-            .map_err(|_| input.error("Expected octal number"))
+        u64::from_str_radix(input.as_str(), 8).map_err(|_| input.error("Expected octal number"))
     }
     fn binary(input: Node) -> ParseResult<u64> {
-        u64::from_str_radix(input.as_str(), 2)
-            .map_err(|_| input.error("Expected binary number"))
+        u64::from_str_radix(input.as_str(), 2).map_err(|_| input.error("Expected binary number"))
     }
 
     fn num_lit(input: Node) -> ParseResult<BitNum> {
@@ -270,7 +257,7 @@ impl FutilParser {
             },
             [identifier(name), attributes(attrs), signature(s)] => ast::Primitive {
                 name,
-                params: vec![],
+                params: Vec::with_capacity(0),
                 signature: s,
                 attributes: attrs,
             },
@@ -278,13 +265,13 @@ impl FutilParser {
                 name,
                 params: p,
                 signature: s,
-                attributes: HashMap::new(),
+                attributes: HashMap::with_capacity(0),
             },
             [identifier(name), signature(s)] => ast::Primitive {
                 name,
-                params: vec![],
+                params: Vec::with_capacity(0),
                 signature: s,
-                attributes: HashMap::new(),
+                attributes: HashMap::with_capacity(0),
             }
         ))
     }
@@ -359,28 +346,16 @@ impl FutilParser {
     }
 
     #[prec_climb(term, PRECCLIMBER)]
-    fn guard_expr(
-        l: ast::GuardExpr,
-        op: Node,
-        r: ast::GuardExpr,
-    ) -> ParseResult<ast::GuardExpr> {
+    fn guard_expr(l: ast::GuardExpr, op: Node, r: ast::GuardExpr) -> ParseResult<ast::GuardExpr> {
         match op.as_rule() {
             Rule::guard_eq => Ok(ast::GuardExpr::Eq(Box::new(l), Box::new(r))),
-            Rule::guard_neq => {
-                Ok(ast::GuardExpr::Neq(Box::new(l), Box::new(r)))
-            }
-            Rule::guard_leq => {
-                Ok(ast::GuardExpr::Leq(Box::new(l), Box::new(r)))
-            }
-            Rule::guard_geq => {
-                Ok(ast::GuardExpr::Geq(Box::new(l), Box::new(r)))
-            }
+            Rule::guard_neq => Ok(ast::GuardExpr::Neq(Box::new(l), Box::new(r))),
+            Rule::guard_leq => Ok(ast::GuardExpr::Leq(Box::new(l), Box::new(r))),
+            Rule::guard_geq => Ok(ast::GuardExpr::Geq(Box::new(l), Box::new(r))),
             Rule::guard_lt => Ok(ast::GuardExpr::Lt(Box::new(l), Box::new(r))),
             Rule::guard_gt => Ok(ast::GuardExpr::Gt(Box::new(l), Box::new(r))),
             Rule::guard_or => Ok(ast::GuardExpr::Or(Box::new(l), Box::new(r))),
-            Rule::guard_and => {
-                Ok(ast::GuardExpr::And(Box::new(l), Box::new(r)))
-            }
+            Rule::guard_and => Ok(ast::GuardExpr::And(Box::new(l), Box::new(r))),
             _ => unreachable!(),
         }
     }
@@ -426,15 +401,13 @@ impl FutilParser {
             },
             [identifier(name), wire(wire)..] => ast::Group {
                 name,
-                attributes: HashMap::new(),
+                attributes: HashMap::with_capacity(0),
                 wires: wire.collect()
             }
         ))
     }
 
-    fn connections(
-        input: Node,
-    ) -> ParseResult<(Vec<ast::Wire>, Vec<ast::Group>)> {
+    fn connections(input: Node) -> ParseResult<(Vec<ast::Wire>, Vec<ast::Group>)> {
         let mut wires = Vec::new();
         let mut groups = Vec::new();
         for node in input.into_children() {

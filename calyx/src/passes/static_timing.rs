@@ -36,8 +36,7 @@ where
             if let ir::Control::Enable(data) = con {
                 data.group
                     .borrow()
-                    .attributes
-                    .get("static")
+                    .get_attribute("static")
                     .copied()
                     .ok_or(())
             } else {
@@ -78,8 +77,8 @@ impl Visitor for StaticTiming {
 
             // The group is statically compilable with combinational condition.
             if let (Some(&ctime), Some(&btime)) = (
-                cond.borrow().attributes.get("static"),
-                body.borrow().attributes.get("static"),
+                cond.borrow().get_attribute("static"),
+                body.borrow().get_attribute("static"),
             ) {
                 let while_group =
                     builder.add_group("static_while", HashMap::new());
@@ -189,9 +188,9 @@ impl Visitor for StaticTiming {
 
             // combinational condition
             if let (Some(&ctime), Some(&ttime), Some(&ftime)) = (
-                cond.borrow().attributes.get("static"),
-                tru.borrow().attributes.get("static"),
-                fal.borrow().attributes.get("static"),
+                cond.borrow().get_attribute("static"),
+                tru.borrow().get_attribute("static"),
+                fal.borrow().get_attribute("static"),
             ) {
                 let mut builder = ir::Builder::from(comp, ctx, false);
                 let mut attrs = HashMap::new();
@@ -337,7 +336,8 @@ impl Visitor for StaticTiming {
             for con in s.stmts.iter() {
                 if let ir::Control::Enable(data) = con {
                     let group = &data.group;
-                    let static_time: u64 = group.borrow().attributes["static"];
+                    let static_time: u64 =
+                        *group.borrow().get_attribute("static").unwrap();
 
                     // group[go] = fsm.out <= static_time ? 1;
                     structure!(builder;
@@ -402,7 +402,8 @@ impl Visitor for StaticTiming {
                 let group = &data.group;
 
                 // Static time of the group.
-                let static_time: u64 = group.borrow().attributes["static"];
+                let static_time: u64 =
+                    *group.borrow().get_attribute("static").unwrap();
 
                 structure!(builder;
                     let start_st = constant(cur_cycle, fsm_size);
@@ -460,8 +461,7 @@ impl Visitor for StaticTiming {
         // Add static attribute to this group.
         seq_group
             .borrow_mut()
-            .attributes
-            .insert("static".to_string(), cur_cycle);
+            .add_attribute("static".to_string(), cur_cycle);
 
         // Replace the control with the seq group.
         Ok(Action::Change(ir::Control::enable(seq_group)))

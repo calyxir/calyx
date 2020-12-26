@@ -211,7 +211,7 @@ pub struct Group {
     pub holes: Vec<RRC<Port>>,
 
     /// Attributes for this group.
-    pub attributes: HashMap<String, u64>,
+    pub(super) attributes: HashMap<String, u64>,
 }
 
 impl Group {
@@ -238,5 +238,21 @@ impl Group {
                 self.name.to_string()
             )
         })
+    }
+
+    /// Return the value associated with this attribute key.
+    pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
+    where
+        S: AsRef<str>,
+    {
+        self.attributes.get(attr.as_ref())
+    }
+
+    /// Add a new attribute to the group.
+    pub fn add_attribute<S>(&mut self, attr: S, value: u64)
+    where
+        S: Into<String>,
+    {
+        self.attributes.insert(attr.into(), value);
     }
 }
