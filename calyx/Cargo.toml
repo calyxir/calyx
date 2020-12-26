@@ -10,7 +10,6 @@ crate-type = ["rlib"]
 
 [dependencies]
 petgraph = "0.5.0"
-bumpalo = "3.2.1"
 atty = "0.2.14"
 derivative = "2.1.1"
 pest = "2.1.3"
