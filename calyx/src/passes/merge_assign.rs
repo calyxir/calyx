@@ -43,7 +43,7 @@ fn merge_assigns(assigns: Vec<ir::Assignment>) -> Vec<ir::Assignment> {
         let dst_key = assign.dst.borrow().canonical();
         let key = (dst_key, src_key);
         if let Some(asgn) = map.get_mut(&key) {
-            asgn.guard |= assign.guard;
+            *asgn.guard |= *assign.guard;
         } else {
             map.insert(key, assign);
         }
