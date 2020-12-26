@@ -1,7 +1,11 @@
 /// Abstract Syntax Tree for Futil
+use super::parser;
 use crate::errors::{Error, FutilResult, Span};
 use crate::ir;
+use atty::Stream;
 use std::collections::HashMap;
+use std::io::stdin;
+use std::path::{Path, PathBuf};
 
 /// Top level AST statement. This contains a list of Component definitions.
 #[derive(Debug)]
@@ -12,6 +16,67 @@ pub struct NamespaceDef {
     pub components: Vec<ComponentDef>,
     /// Extern statements and any primitive declarations in them.
     pub externs: Vec<(String, Vec<Primitive>)>,
+}
+
+impl NamespaceDef {
+    /// Parse the program and all of its transitive dependencies to build
+    /// a whole program context.
+    pub fn new(
+        file: &Option<PathBuf>,
+        lib_path: &PathBuf,
+    ) -> FutilResult<Self> {
+        let mut namespace = match file {
+            Some(file) => parser::FutilParser::parse_file(&file),
+            None => {
+                if atty::isnt(Stream::Stdin) {
+                    parser::FutilParser::parse(stdin())
+                } else {
+                    Err(Error::InvalidFile(
+                        "No file provided and terminal not a TTY".to_string(),
+                    ))
+                }
+            }
+        }?;
+
+        namespace.externs.iter_mut().for_each(|(path, _)| {
+            *path = lib_path.join(path.clone()).to_string_lossy().to_string();
+        });
+
+        // Parse all transitive dependencies
+        let mut deps: Vec<PathBuf> = namespace
+            .imports
+            .clone()
+            .into_iter()
+            .map(|f| lib_path.join(f))
+            .collect();
+
+        while let Some(path) = deps.pop() {
+            let mut ns = parser::FutilParser::parse_file(&path)?;
+            namespace.components.append(&mut ns.components);
+
+            let parent = match path.parent() {
+                Some(a) => a,
+                None => Path::new("."),
+            };
+
+            namespace.externs.append(
+                &mut ns
+                    .externs
+                    .into_iter()
+                    .map(|(path, exts)| {
+                        (parent.join(path).to_string_lossy().to_string(), exts)
+                    })
+                    .collect(),
+            );
+
+            // All imports are relative to the file being currently parsed.
+            deps.append(
+                &mut ns.imports.into_iter().map(|f| parent.join(f)).collect(),
+            );
+        }
+
+        Ok(namespace)
+    }
 }
 
 /// Representation of a Primitive.

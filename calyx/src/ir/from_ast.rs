@@ -45,18 +45,16 @@ fn extend_signature(sig: &mut ast::Signature) {
 
 /// Construct an IR representation using a parsed AST and command line options.
 pub fn ast_to_ir(
-    mut components: Vec<ast::ComponentDef>,
-    lib: LibrarySignatures,
-    imports: Vec<String>,
+    mut namespace: ast::NamespaceDef,
     debug_mode: bool,
     synthesis_mode: bool,
 ) -> FutilResult<Context> {
     // Build the signature context
     let mut sig_ctx = SigCtx::default();
-    sig_ctx.lib = lib;
+    sig_ctx.lib = namespace.externs.into();
 
     // Add component signatures to context
-    for comp in &mut components {
+    for comp in &mut namespace.components {
         // extend the signature
         extend_signature(&mut comp.signature);
         sig_ctx
@@ -64,7 +62,8 @@ pub fn ast_to_ir(
             .insert(comp.name.clone(), comp.signature.clone());
     }
 
-    let comps = components
+    let comps = namespace
+        .components
         .into_iter()
         .map(|comp| build_component(comp, &sig_ctx))
         .collect::<Result<_, _>>()?;
@@ -72,7 +71,7 @@ pub fn ast_to_ir(
     Ok(Context {
         components: comps,
         lib: sig_ctx.lib,
-        imports,
+        imports: namespace.imports,
         debug_mode,
         synthesis_mode,
     })
