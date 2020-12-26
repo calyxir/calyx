@@ -195,7 +195,7 @@ pub struct Assignment {
     pub src: RRC<Port>,
 
     /// The guard for this assignment.
-    pub guard: Guard,
+    pub guard: Box<Guard>,
 }
 
 /// A Group of assignments that perform a logical action.

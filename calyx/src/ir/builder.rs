@@ -168,7 +168,11 @@ impl<'a> Builder<'a> {
         }
         // Validate: Check to see if the cell/group associated with the
         // port is in the component.
-        ir::Assignment { dst, src, guard }
+        ir::Assignment {
+            dst,
+            src,
+            guard: Box::new(guard),
+        }
     }
 
     /// Rewrite all reads and writes from `cell` in the given assingments to

@@ -191,10 +191,8 @@ impl Visitor for Inliner {
         );
         assignments.iter_mut().for_each(|mut asgn| {
             if asgn.src.borrow().is_hole() {
-                asgn.guard = asgn
-                    .guard
-                    .clone()
-                    .and(ir::Guard::port(Rc::clone(&asgn.src)));
+                let and_guard = ir::Guard::port(Rc::clone(&asgn.src));
+                *asgn.guard &= and_guard;
                 asgn.src = signal_on.borrow().get("out");
             }
         });

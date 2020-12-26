@@ -126,7 +126,7 @@ impl LiveRangeAnalysis {
                         && asgn.src.borrow().name == "done")
                 })
                 .filter(|asgn| {
-                    if let ir::Guard::Port(port) = &asgn.guard {
+                    if let ir::Guard::Port(port) = &*asgn.guard {
                         !(port.borrow().get_parent_name() == variable
                             && port.borrow().name == "done")
                     } else {
@@ -158,7 +158,7 @@ impl LiveRangeAnalysis {
             let assignments = group
                 .assignments
                 .iter()
-                .filter(|asgn| asgn.guard == ir::Guard::True)
+                .filter(|asgn| *asgn.guard == ir::Guard::True)
                 .cloned()
                 .collect::<Vec<_>>();
 
