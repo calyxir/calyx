@@ -90,8 +90,7 @@ impl<'a> Builder<'a> {
         let cell = Self::cell_from_signature(
             name,
             ir::CellType::Constant { val, width },
-            vec![],
-            vec![("out".into(), width)],
+            vec![("out".into(), width, ir::Direction::Output)],
         );
 
         // Add constant to the Component.
@@ -122,7 +121,7 @@ impl<'a> Builder<'a> {
     {
         let prim_id = ir::Id::from(primitive.as_ref());
         let prim = &self.lib.get_primitive(&prim_id);
-        let (param_binding, inputs, outputs) = prim
+        let (param_binding, ports) = prim
             .resolve(param_values)
             .expect("Failed to add primitive.");
 
@@ -133,8 +132,7 @@ impl<'a> Builder<'a> {
                 name: prim_id,
                 param_binding,
             },
-            inputs,
-            outputs,
+            ports,
         );
         self.component.cells.push(Rc::clone(&cell));
         cell
@@ -253,33 +251,22 @@ impl<'a> Builder<'a> {
     pub(super) fn cell_from_signature(
         name: ir::Id,
         typ: ir::CellType,
-        inputs: Vec<(ir::Id, u64)>,
-        outputs: Vec<(ir::Id, u64)>,
+        ports: Vec<(ir::Id, u64, ir::Direction)>,
     ) -> RRC<ir::Cell> {
         let cell = Rc::new(RefCell::new(ir::Cell {
             name,
             ports: vec![],
             prototype: typ,
         }));
-        // Construct ports
-        for (name, width) in inputs {
+        ports.into_iter().for_each(|(name, width, direction)| {
             let port = Rc::new(RefCell::new(ir::Port {
                 name,
                 width,
-                direction: ir::Direction::Input,
+                direction,
                 parent: ir::PortParent::Cell(WRC::from(&cell)),
             }));
             cell.borrow_mut().ports.push(port);
-        }
-        for (name, width) in outputs {
-            let port = Rc::new(RefCell::new(ir::Port {
-                name,
-                width,
-                direction: ir::Direction::Output,
-                parent: ir::PortParent::Cell(WRC::from(&cell)),
-            }));
-            cell.borrow_mut().ports.push(port);
-        }
+        });
         cell
     }
 }

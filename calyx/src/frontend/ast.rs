@@ -2,6 +2,7 @@
 use super::parser;
 use crate::errors::{Error, FutilResult, Span};
 use crate::ir;
+use linked_hash_map::LinkedHashMap;
 use atty::Stream;
 use std::collections::HashMap;
 use std::io::stdin;
@@ -87,7 +88,7 @@ pub struct Primitive {
     /// Paramters for this primitive.
     pub params: Vec<ir::Id>,
     /// The input/output signature for this primitive.
-    pub signature: Vec<ParamPortdef>,
+    pub signature: Vec<PortDef>,
     /// Key-value attributes for this primitive.
     pub attributes: HashMap<String, u64>,
 }
@@ -99,50 +100,42 @@ impl Primitive {
     pub fn resolve(
         &self,
         parameters: &[u64],
-    ) -> FutilResult<(Vec<(ir::Id, u64)>, Vec<(ir::Id, u64)>, Vec<(ir::Id, u64)>)>
+    ) -> FutilResult<(Vec<(ir::Id, u64)>, Vec<(ir::Id, u64, ir::Direction)>)>
     {
         let bindings = self
             .params
             .iter()
             .cloned()
             .zip(parameters.iter().cloned())
-            .collect::<HashMap<ir::Id, u64>>();
+            .collect::<LinkedHashMap<ir::Id, u64>>();
 
-        let (input, output): (Vec<ParamPortdef>, Vec<ParamPortdef>) = self
+        let ports = self
             .signature
             .iter()
             .cloned()
-            .partition(|ppd| ppd.direction == ir::Direction::Input);
+            .map(|pd| pd.resolve(&bindings).map(|(n, w)| (n, w, pd.direction)))
+            .collect::<Result<_, _>>()?;
 
-        let inps = input
-            .iter()
-            .map(|ppd| ppd.resolve(&bindings))
-            .collect::<FutilResult<_>>()?;
-        let outs = output
-            .iter()
-            .map(|ppd| ppd.resolve(&bindings))
-            .collect::<FutilResult<_>>()?;
-
-        Ok((
-            // XXX: Recreating the binding so that they have deterministic
-            // order.
-            self.params
-                .iter()
-                .cloned()
-                .zip(parameters.iter().cloned())
-                .collect(),
-            inps,
-            outs,
-        ))
+        Ok((bindings.into_iter().collect(), ports))
     }
 }
 
 /// A parameter port definition.
 #[derive(Clone, Debug)]
-pub struct ParamPortdef {
+pub struct PortDef {
     pub name: ir::Id,
     pub width: Width,
     pub direction: ir::Direction,
+}
+
+impl From<(ir::Id, u64, ir::Direction)> for PortDef {
+    fn from(port: (ir::Id, u64, ir::Direction)) -> Self {
+        PortDef {
+            name: port.0,
+            width: Width::Const { value: port.1 },
+            direction: port.2,
+        }
+    }
 }
 
 /// Represents an abstract width of a primitive signature.
@@ -154,14 +147,14 @@ pub enum Width {
     Param { value: ir::Id },
 }
 
-impl ParamPortdef {
+impl PortDef {
     pub fn resolve(
         &self,
-        val_map: &HashMap<ir::Id, u64>,
+        binding: &LinkedHashMap<ir::Id, u64>,
     ) -> FutilResult<(ir::Id, u64)> {
         match &self.width {
             Width::Const { value } => Ok((self.name.clone(), *value)),
-            Width::Param { value } => match val_map.get(&value) {
+            Width::Param { value } => match binding.get(&value) {
                 Some(width) => Ok((self.name.clone(), *width)),
                 None => Err(Error::SignatureResolutionFailed(
                     self.name.clone(),
@@ -177,32 +170,16 @@ impl ParamPortdef {
 pub struct ComponentDef {
     /// Name of the component.
     pub name: ir::Id,
-
     /// Defines input and output ports.
-    pub signature: Signature,
-
+    pub signature: Vec<PortDef>,
     /// List of instantiated sub-components
     pub cells: Vec<Cell>,
-
     /// List of groups
     pub groups: Vec<Group>,
-
     /// List of continuous assignments
     pub continuous_assignments: Vec<Wire>,
-
     /// Single control statement for this component.
     pub control: Control,
-}
-
-/// The signature for a component. Contains a list
-/// of input ports and a list of output ports.
-#[derive(Clone, Debug)]
-pub struct Signature {
-    /// List of input ports.
-    pub inputs: Vec<(ir::Id, u64)>,
-
-    /// List of output ports.
-    pub outputs: Vec<(ir::Id, u64)>,
 }
 
 /// Statement that refers to a port on a subcomponent.
@@ -318,6 +295,7 @@ impl Cell {
         }
     }
 
+    /// Return the name of the cell.
     pub fn name(&self) -> &ir::Id {
         match self {
             Self::Decl { name, .. } => name,

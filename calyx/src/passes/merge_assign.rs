@@ -3,9 +3,9 @@ use crate::ir::{
     traversal::{Named, Visitor},
     LibrarySignatures,
 };
-use crate::utils::DeterministicHashMap;
 use ir::traversal::{Action, VisResult};
 use itertools::Itertools;
+use linked_hash_map::LinkedHashMap;
 
 /// Merge assignments of the form:
 /// ```
@@ -35,8 +35,8 @@ fn merge_assigns(assigns: Vec<ir::Assignment>) -> Vec<ir::Assignment> {
     // A (cell, port) pair used as a key.
     type Key = (ir::Id, ir::Id);
     // Map from (dst, src) -> Assignment
-    let mut map: DeterministicHashMap<(Key, Key), ir::Assignment> =
-        DeterministicHashMap::default();
+    let mut map: LinkedHashMap<(Key, Key), ir::Assignment> =
+        LinkedHashMap::new();
 
     for assign in assigns {
         let src_key = assign.src.borrow().canonical();

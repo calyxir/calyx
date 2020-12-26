@@ -1,7 +1,6 @@
 use crate::ir;
 use std::collections::HashMap;
 use std::{
-    hash::{BuildHasherDefault, Hasher},
     io::Write,
     path::PathBuf,
     str::FromStr,
@@ -99,32 +98,3 @@ impl OutputFile {
         }
     }
 }
-
-/// A deterministic hashing function.
-/// Used to create a deterministic HashMap that can be used to store data
-/// structures that need deterministic printing.
-/// Implementation from: https://docs.rs/crate/hash_hasher/2.0.3/source/src/lib.rs
-#[derive(Copy, Clone, Default)]
-pub struct DeterministicHasher(u64);
-
-impl Hasher for DeterministicHasher {
-    #[inline]
-    fn write(&mut self, value: &[u8]) {
-        // A normal use-case (e.g. by a node in a DHT) may well involve handling hashes which are
-        // identical over the most-significant-bits, hence reverse the input message here to use
-        // the least-significant-bits first.
-        for (index, item) in value.iter().rev().enumerate().take(8) {
-            self.0 ^= u64::from(*item) << (index * 8);
-        }
-    }
-
-    #[inline]
-    fn finish(&self) -> u64 {
-        self.0
-    }
-}
-
-/// A deterministic HashMap.
-/// Call `DeterministicHashMap::default` to construct this type.
-pub type DeterministicHashMap<K, V> =
-    HashMap<K, V, BuildHasherDefault<DeterministicHasher>>;

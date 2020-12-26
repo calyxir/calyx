@@ -93,6 +93,7 @@ impl FutilParser {
         Ok(())
     }
 
+    // ================ Literals =====================
     fn identifier(input: Node) -> ParseResult<ir::Id> {
         Ok(ir::Id::new(
             input.as_str(),
@@ -182,43 +183,27 @@ impl FutilParser {
         ))
     }
 
-    fn signature(input: Node) -> ParseResult<ast::Signature> {
+    // ================ Attributes =====================
+    fn key_value(input: Node) -> ParseResult<(String, u64)> {
         Ok(match_nodes!(
             input.into_children();
-            [io_ports(inputs), signature_return(outputs)] => ast::Signature {
-                inputs,
-                outputs
-            },
-            [io_ports(inputs)] => ast::Signature {
-                inputs,
-                outputs: vec![]
-            },
-            [signature_return(outputs)] => ast::Signature {
-                inputs: vec![],
-                outputs
-            },
-            [] => ast::Signature { inputs: vec![], outputs: vec![] }
+            [string_lit(key), bitwidth(num)] => (key, num)
         ))
     }
 
-    fn signature_return(input: Node) -> ParseResult<Vec<(ir::Id, u64)>> {
+    fn attributes(input: Node) -> ParseResult<HashMap<String, u64>> {
         Ok(match_nodes!(
             input.into_children();
-            [io_ports(p)] => p,
-            [] => vec![]
+            [key_value(kvs)..] => kvs.collect()
         ))
     }
 
-    fn io_port(input: Node) -> ParseResult<(ir::Id, u64)> {
-        Ok(match_nodes![
+    // ================ Signature =====================
+    fn params(input: Node) -> ParseResult<Vec<ir::Id>> {
+        Ok(match_nodes!(
             input.into_children();
-            [identifier(id), bitwidth(bw)] => (id, bw)])
-    }
-
-    fn io_ports(input: Node) -> ParseResult<Vec<(ir::Id, u64)>> {
-        Ok(match_nodes![
-            input.into_children();
-            [io_port(p)..] => p.collect()])
+            [identifier(id)..] => id.collect()
+        ))
     }
 
     fn args(input: Node) -> ParseResult<Vec<u64>> {
@@ -229,6 +214,82 @@ impl FutilParser {
         ))
     }
 
+    fn io_port(input: Node) -> ParseResult<(ir::Id, ast::Width)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(id), bitwidth(value)] => (id, ast::Width::Const { value }),
+            [identifier(id), identifier(value)] => (id, ast::Width::Param { value }),
+        ))
+    }
+
+    fn inputs(input: Node) -> ParseResult<Vec<ast::PortDef>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [io_port(ins)..] => {
+                ins.map(|(name, width)| ast::PortDef {
+                    name, width, direction: ir::Direction::Input
+                }).collect()
+            }
+        ))
+    }
+
+    fn outputs(input: Node) -> ParseResult<Vec<ast::PortDef>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [io_port(outs)..] => {
+                outs.map(|(name, width)| ast::PortDef {
+                    name, width, direction: ir::Direction::Output
+                }).collect()
+            }
+        ))
+    }
+
+    fn signature(input: Node) -> ParseResult<Vec<ast::PortDef>> {
+        Ok(match_nodes!(
+            input.into_children();
+            // XXX(rachit): We expect the signature to be extended to have `go`,
+            // `done`, and `clk`.
+            [] => Vec::with_capacity(3),
+            [inputs(ins)] => { ins },
+            [outputs(outs)] => { outs },
+            [inputs(ins), outputs(outs)] => {
+                ins.into_iter().chain(outs.into_iter()).collect()
+            },
+        ))
+    }
+
+    // ==============PortDeftives =====================
+    fn primitive(input: Node) -> ParseResult<ast::Primitive> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(name), attributes(attrs), params(p), signature(s)] => ast::Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: attrs,
+            },
+            [identifier(name), attributes(attrs), signature(s)] => ast::Primitive {
+                name,
+                params: vec![],
+                signature: s,
+                attributes: attrs,
+            },
+            [identifier(name), params(p), signature(s)] => ast::Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: HashMap::new(),
+            },
+            [identifier(name), signature(s)] => ast::Primitive {
+                name,
+                params: vec![],
+                signature: s,
+                attributes: HashMap::new(),
+            }
+        ))
+    }
+
+    // ================ Cells =====================
     fn primitive_cell(input: Node) -> ParseResult<ast::Cell> {
         Ok(match_nodes!(
             input.into_children();
@@ -260,6 +321,7 @@ impl FutilParser {
         ))
     }
 
+    // ================ Wires =====================
     fn port(input: Node) -> ParseResult<ast::Port> {
         Ok(match_nodes!(
             input.into_children();
@@ -354,20 +416,6 @@ impl FutilParser {
         ))
     }
 
-    fn key_value(input: Node) -> ParseResult<(String, u64)> {
-        Ok(match_nodes!(
-            input.into_children();
-            [string_lit(key), bitwidth(num)] => (key, num)
-        ))
-    }
-
-    fn attributes(input: Node) -> ParseResult<HashMap<String, u64>> {
-        Ok(match_nodes!(
-            input.into_children();
-            [key_value(kvs)..] => kvs.collect()
-        ))
-    }
-
     fn group(input: Node) -> ParseResult<ast::Group> {
         Ok(match_nodes!(
             input.into_children();
@@ -399,6 +447,7 @@ impl FutilParser {
         Ok((wires, groups))
     }
 
+    // ================ Control program =====================
     fn invoke_arg(input: Node) -> ParseResult<(ir::Id, ast::Port)> {
         Ok(match_nodes!(
             input.into_children();
@@ -546,80 +595,6 @@ impl FutilParser {
         Ok(match_nodes!(
             input.into_children();
             [string_lit(path)..] => path.collect()
-        ))
-    }
-
-    fn params(input: Node) -> ParseResult<Vec<ir::Id>> {
-        Ok(match_nodes!(
-            input.into_children();
-            [identifier(id)..] => id.collect()
-        ))
-    }
-
-    fn prim_io_port(input: Node) -> ParseResult<ast::ParamPortdef> {
-        Ok(match_nodes!(
-            input.into_children();
-            [identifier(id), bitwidth(bw)] => ast::ParamPortdef {
-                name: id,
-                width: ast::Width::Const { value: bw },
-                // XXX(rachit): FAKE Direction. `io_ports` assigns the
-                // correct directions.
-                direction: ir::Direction::Input,
-            },
-            [identifier(id), identifier(param)] => ast::ParamPortdef {
-                name: id,
-                width: ast::Width::Param { value: param },
-                // XXX(rachit): FAKE Direction. `io_ports` assigns the
-                // correct directions.
-                direction: ir::Direction::Input,
-            }
-        ))
-    }
-
-    fn prim_io_ports(input: Node) -> ParseResult<Vec<ast::ParamPortdef>> {
-        Ok(match_nodes!(
-            input.into_children();
-            [prim_io_port(p)..] => p.collect()))
-    }
-
-    fn prim_signature(input: Node) -> ParseResult<Vec<ast::ParamPortdef>> {
-        Ok(match_nodes!(
-            input.into_children();
-            [prim_io_ports(mut ins), prim_io_ports(mut outs)] => {
-                ins.iter_mut().for_each(|i| i.direction = ir::Direction::Input);
-                outs.iter_mut().for_each(|i| i.direction = ir::Direction::Output);
-                ins.into_iter().chain(outs.into_iter()).collect()
-            }
-        ))
-    }
-
-    fn primitive(input: Node) -> ParseResult<ast::Primitive> {
-        Ok(match_nodes!(
-            input.into_children();
-            [identifier(name), attributes(attrs), params(p), prim_signature(s)] => ast::Primitive {
-                name,
-                params: p,
-                signature: s,
-                attributes: attrs,
-            },
-            [identifier(name), attributes(attrs), prim_signature(s)] => ast::Primitive {
-                name,
-                params: vec![],
-                signature: s,
-                attributes: attrs,
-            },
-            [identifier(name), params(p), prim_signature(s)] => ast::Primitive {
-                name,
-                params: p,
-                signature: s,
-                attributes: HashMap::new(),
-            },
-            [identifier(name), prim_signature(s)] => ast::Primitive {
-                name,
-                params: vec![],
-                signature: s,
-                attributes: HashMap::new(),
-            }
         ))
     }
 

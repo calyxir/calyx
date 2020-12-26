@@ -1,11 +1,12 @@
 use super::{
-    Assignment, Builder, CellType, Component, Context, Control, Guard, Id,
-    LibrarySignatures, Port, RRC,
+    Assignment, Builder, CellType, Component, Context, Control, Direction,
+    Guard, Id, LibrarySignatures, Port, RRC,
 };
 use crate::{
     errors::{Error, FutilResult},
     frontend::ast,
 };
+use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -15,31 +16,31 @@ use std::rc::Rc;
 #[derive(Default)]
 struct SigCtx {
     /// Mapping from component names to signatures
-    comp_sigs: HashMap<Id, ast::Signature>,
+    comp_sigs: HashMap<Id, Vec<ast::PortDef>>,
 
     /// Mapping from library functions to signatures
     lib: LibrarySignatures,
 }
 
 /// Extend the signature with magical ports.
-fn extend_signature(sig: &mut ast::Signature) {
+fn extend_signature(sig: &mut Vec<ast::PortDef>) {
     // XXX(Sam): checking to see if the port exists is a hack.
-    // The solution to the 'four big problems' will solve this.
-    if sig.inputs.iter().find(|(name, _)| name == "go").is_none() {
-        sig.inputs.push(("go".into(), 1))
-    }
+    let (mut has_go, mut has_clk, mut has_done) = (false, false, false);
+    sig.iter().for_each(|pd| match pd.name.as_ref() {
+        "go" => has_go = true,
+        "clk" => has_clk = true,
+        "done" => has_done = true,
+        _ => (),
+    });
 
-    if sig.inputs.iter().find(|(name, _)| name == "clk").is_none() {
-        sig.inputs.push(("clk".into(), 1))
+    if !has_go {
+        sig.push(("go".into(), 1, Direction::Input).into())
     }
-
-    if sig
-        .outputs
-        .iter()
-        .find(|(name, _)| name == "done")
-        .is_none()
-    {
-        sig.outputs.push(("done".into(), 1))
+    if !has_clk {
+        sig.push(("clk".into(), 1, Direction::Input).into())
+    }
+    if !has_done {
+        sig.push(("done".into(), 1, Direction::Output).into())
     }
 }
 
@@ -133,11 +134,16 @@ fn build_component(
     // Validate the component before building it.
     validate_component(&comp, sig_ctx)?;
 
-    // Cell to represent the signature of this component
+    // Components don't have any parameter information.
+    let fake_binding = LinkedHashMap::with_capacity(0);
     let mut ir_component = Component::new(
         comp.name,
-        comp.signature.inputs,
-        comp.signature.outputs,
+        comp.signature
+            .into_iter()
+            .map(|pd| {
+                pd.resolve(&fake_binding).map(|(n, w)| (n, w, pd.direction))
+            })
+            .collect::<Result<_, _>>()?,
     );
     let mut builder = Builder::from(&mut ir_component, &sig_ctx.lib, false);
 
@@ -182,11 +188,19 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
             let typ = CellType::Component {
                 name: component.clone(),
             };
+            // Components do not have any bindings for parameters
+            let fake_binding = LinkedHashMap::with_capacity(0);
             let cell = Builder::cell_from_signature(
                 name,
                 typ,
-                sig.inputs.clone(),
-                sig.outputs.clone(),
+                sig.iter()
+                    .cloned()
+                    .map(|pd| {
+                        pd.resolve(&fake_binding)
+                            .map(|(n, w)| (n, w, pd.direction))
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+                    .expect("Failed to build component"),
             );
             builder.component.cells.push(cell);
         }

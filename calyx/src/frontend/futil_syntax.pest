@@ -61,56 +61,45 @@ import = _{
 
 imports = { import* }
 
-// ========= Exernal definitions ===============
+
+// ====== Component signature ======
+
+signature = {
+      "(" ~ inputs? ~ ")" ~ "->" ~ "(" ~ outputs? ~ ")"
+}
+
+io_port = {
+      identifier ~ ":" ~ (bitwidth | identifier)
+}
+
+inputs = {
+      io_port ~ ("," ~ io_port)*
+}
+
+outputs = {
+      io_port ~ ("," ~ io_port)*
+}
+
+// ========= Exernal primitive definitions ===============
 
 params = {
       "[" ~ (identifier ~ ("," ~ identifier)*)? ~ "]"
 }
 
-prim_signature = {
-      "(" ~ prim_io_ports? ~ ")" ~ "->" ~ "(" ~ prim_io_ports? ~ ")"
-}
-
-prim_io_port = {
-      identifier ~ ":" ~ (bitwidth | identifier)
-}
-
-prim_io_ports = {
-      (prim_io_port ~ ("," ~ prim_io_port)*)?
-}
-
 primitive = {
-      "primitive" ~ identifier ~ attributes? ~ params? ~ prim_signature ~ ";"
+      "primitive" ~ identifier ~ attributes? ~ params? ~ signature ~ ";"
 }
 
 ext = {
   "extern" ~ string_lit ~ "{" ~ primitive* ~ "}"
 }
 
-
-// ====== signature ======
-
-signature = {
-      "(" ~ io_ports? ~ ")" ~ signature_return
-}
-
-signature_return = {
-      "->" ~ "(" ~ io_ports? ~ ")"
-}
-
-io_port = {
-      identifier ~ ":" ~ bitwidth
-}
-
-io_ports = {
-      io_port ~ ("," ~ io_port)*
-}
+// ====== cells ======
 
 args = {
       "(" ~ (bitwidth ~ ("," ~ bitwidth)*)? ~ ")"
 }
 
-// ====== cells ======
 
 primitive_cell = {
       identifier ~ "=" ~ "prim" ~ identifier ~ args

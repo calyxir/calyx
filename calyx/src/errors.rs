@@ -176,7 +176,7 @@ impl std::fmt::Debug for Error {
                        port2.port_name().fmt_err(&msg2))
             }
             SignatureResolutionFailed(id, param_name) => {
-                let msg = format!("No value passed in for parameter: {}", param_name.to_string());
+                let msg = format!("Failed to resolve: {}", param_name.to_string());
                 write!(f, "{}\nwhich is used here:{}", id.fmt_err(&msg), param_name.fmt_err(""))
             }
             MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
