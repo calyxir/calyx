@@ -312,7 +312,10 @@ fn is_cell(port: &ir::Port) -> bool {
     matches!(&port.parent, ir::PortParent::Cell(_))
 }
 
-/// Evaluate guard implementation; TODO (messy u64 implementation?)
+/// Evaluate guard implementation
+#[allow(clippy::borrowed_box)]
+// XXX: Allow for this warning. It would make sense to use a reference when we
+// have the `box` match pattern available in Rust.
 fn eval_guard(guard: &Box<ir::Guard>, env: &Environment) -> u64 {
     (match &**guard {
         ir::Guard::Or(g1, g2) => {
