@@ -1,9 +1,10 @@
-use calyx::{errors::FutilResult, frontend, ir, utils::OutputFile};
-use std::path::PathBuf;
-pub use structopt::StructOpt;
-
+mod interpret_group;
 mod interpreter;
-pub mod interpretgroup;
+
+use calyx::{errors::FutilResult, frontend, ir, utils::OutputFile};
+use interpret_group::GroupInterpreter;
+use std::path::PathBuf;
+use structopt::StructOpt;
 
 /// CLI Options
 #[derive(Debug, StructOpt)]
@@ -35,11 +36,10 @@ fn main() -> FutilResult<()> {
     let opts = Opts::from_args();
 
     // Construct interpreter
-    let interpreter: interpretgroup::GroupInterpreter =
-        interpretgroup::GroupInterpreter {
-            component: opts.component.clone(),
-            group: opts.group.clone(),
-        };
+    let interpreter: GroupInterpreter = GroupInterpreter {
+        component: opts.component.clone(),
+        group: opts.group.clone(),
+    };
 
     // Construct IR
     let namespace = frontend::NamespaceDef::new(&opts.file, &opts.lib_path)?;
