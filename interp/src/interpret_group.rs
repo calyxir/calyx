@@ -19,11 +19,6 @@ pub struct GroupInterpreter {
 }
 
 impl GroupInterpreter {
-    /// Returns the name of the interpreter
-    pub fn name(self) -> &'static str {
-        "group interpreter"
-    }
-
     /// Interpret a group, given a context, component name, and group name
     pub fn interpret(self, ctx: ir::Context) -> FutilResult<()> {
         // Validation
