@@ -1,13 +1,7 @@
 [package]
 name = "calyx"
 version = "0.1.0"
-authors = [
-  "Samuel Thomas <sgt43@cornell.edu>",
-  "Kenneth Fang <kwf37@cornell.edu>",
-  "Zhijing Li <zl679@cornell.edu>",
-  "Rachit Nigam <rnigam@cs.cornell.edu>",
-  "Adrian Sampson <asampson@cs.cornell.edu>",
-]
+authors = [ "The FuTIL Team" ]
 edition = "2018"
 build = false
 # build = "build.rs"
