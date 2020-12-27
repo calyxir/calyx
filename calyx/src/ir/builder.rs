@@ -156,17 +156,30 @@ impl<'a> Builder<'a> {
                 .for_each(|p| self.is_port_well_formed(&p.borrow()));
         }
         // If the ports have different widths, error out.
-        if src.borrow().width != dst.borrow().width {
-            panic!(
-                "Invalid assignment. `{}.{}' and `{}.{}' have different widths",
-                src.borrow().get_parent_name(),
-                src.borrow().name,
-                dst.borrow().get_parent_name(),
-                dst.borrow().name,
-            )
-        }
-        // Validate: Check to see if the cell/group associated with the
-        // port is in the component.
+        debug_assert!(
+            src.borrow().width == dst.borrow().width,
+            "Invalid assignment. `{}.{}' and `{}.{}' have different widths",
+            src.borrow().get_parent_name(),
+            src.borrow().name,
+            dst.borrow().get_parent_name(),
+            dst.borrow().name,
+        );
+        // If ports have the wrong directions, error out.
+        debug_assert!(
+            // Allow for both Input and Inout ports.
+            src.borrow().direction != ir::Direction::Input,
+            "Not an ouput port: {}.{}",
+            src.borrow().get_parent_name(),
+            src.borrow().name
+        );
+        debug_assert!(
+            // Allow for both Input and Inout ports.
+            dst.borrow().direction != ir::Direction::Output,
+            "Not an input port: {}.{}",
+            dst.borrow().get_parent_name(),
+            dst.borrow().name
+        );
+
         ir::Assignment {
             dst,
             src,
