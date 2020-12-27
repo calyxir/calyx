@@ -26,7 +26,7 @@ pub trait Loggable {
     /// ```
     /// self.elog("number-of-groups", groups.len());
     /// ```
-    fn elog<S, T>(&self, context: S, msg: T) -> ()
+    fn elog<S, T>(&self, context: S, msg: T)
     where
         S: std::fmt::Display,
         T: std::fmt::Display;

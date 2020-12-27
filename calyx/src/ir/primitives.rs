@@ -1,6 +1,7 @@
 use super::{Direction, Id};
 use crate::errors::{Error, FutilResult};
 use linked_hash_map::LinkedHashMap;
+use smallvec::SmallVec;
 
 /// Representation of a Primitive.
 #[derive(Clone, Debug)]
@@ -22,7 +23,8 @@ impl Primitive {
     pub fn resolve(
         &self,
         parameters: &[u64],
-    ) -> FutilResult<(Vec<(Id, u64)>, Vec<(Id, u64, Direction)>)> {
+    ) -> FutilResult<(SmallVec<[(Id, u64); 5]>, Vec<(Id, u64, Direction)>)>
+    {
         let bindings = self
             .params
             .iter()

@@ -1,6 +1,7 @@
 //! Representation for structure (wires and cells) in a FuTIL program.
 use super::{Guard, Id, RRC, WRC};
 use linked_hash_map::LinkedHashMap;
+use smallvec::SmallVec;
 use std::rc::Rc;
 
 /// Direction of a port on a cell.
@@ -89,7 +90,7 @@ impl PartialEq for Port {
 impl Eq for Port {}
 
 /// Alias for bindings
-pub type Binding = Vec<(Id, u64)>;
+pub type Binding = SmallVec<[(Id, u64); 5]>;
 
 /// The type for a Cell
 #[derive(Debug)]
@@ -123,7 +124,7 @@ pub struct Cell {
     /// Name of this cell.
     pub name: Id,
     /// Ports on this cell
-    pub ports: Vec<RRC<Port>>,
+    pub ports: SmallVec<[RRC<Port>; 10]>,
     /// Underlying type for this cell
     pub prototype: CellType,
 }
@@ -208,7 +209,7 @@ pub struct Group {
     pub assignments: Vec<Assignment>,
 
     /// Holes for this group
-    pub holes: Vec<RRC<Port>>,
+    pub holes: SmallVec<[RRC<Port>; 3]>,
 
     /// Attributes for this group.
     pub(super) attributes: LinkedHashMap<String, u64>,

@@ -2,7 +2,7 @@ use crate::{
     analysis::{GraphColoring, LiveRangeAnalysis},
     ir::{
         self,
-        traversal::{Loggable, Named, Visitor},
+        traversal::{Named, Visitor},
         LibrarySignatures,
     },
 };

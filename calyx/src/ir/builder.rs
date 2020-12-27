@@ -2,6 +2,7 @@
 //! representation.
 use crate::ir::{self, LibrarySignatures, RRC, WRC};
 use linked_hash_map::LinkedHashMap;
+use smallvec::smallvec;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -49,7 +50,7 @@ impl<'a> Builder<'a> {
         let group = Rc::new(RefCell::new(ir::Group {
             name,
             attributes,
-            holes: vec![],
+            holes: smallvec![],
             assignments: vec![],
         }));
 
@@ -255,7 +256,7 @@ impl<'a> Builder<'a> {
     ) -> RRC<ir::Cell> {
         let cell = Rc::new(RefCell::new(ir::Cell {
             name,
-            ports: vec![],
+            ports: smallvec![],
             prototype: typ,
         }));
         ports.into_iter().for_each(|(name, width, direction)| {
