@@ -115,14 +115,17 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
     let sig = comp.signature.borrow();
     for port_ref in &sig.ports {
         let port = port_ref.borrow();
+        // NOTE: The signature port definitions are reversed inside the component.
         match port.direction {
             ir::Direction::Input => {
-                module.add_input(port.name.as_ref(), port.width);
-            }
-            ir::Direction::Output => {
                 module.add_output(port.name.as_ref(), port.width);
             }
-            ir::Direction::Inout => todo!("error message"),
+            ir::Direction::Output => {
+                module.add_input(port.name.as_ref(), port.width);
+            }
+            ir::Direction::Inout => {
+                panic!("Unexpected Inout port on Component: {}", port.name)
+            }
         }
     }
 

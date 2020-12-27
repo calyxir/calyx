@@ -14,7 +14,7 @@ use std::rc::Rc;
 /// Primary lowering pass. Transforms all control constructs in a program
 /// into groups that enable `go` and `done` holes. After this pass runs,
 /// there is exactly one group enable in the control.
-pub struct CompileControl {}
+pub struct CompileControl;
 
 impl Named for CompileControl {
     fn name() -> &'static str {
@@ -28,7 +28,7 @@ impl Named for CompileControl {
 
 impl Visitor for CompileControl {
     /// This compiles `if` statements of the following form:
-    /// ```C
+    /// ```
     /// if comp.out with cond {
     ///   true;
     /// } else {
@@ -36,7 +36,7 @@ impl Visitor for CompileControl {
     /// }
     /// ```
     /// into the following group:
-    /// ```C
+    /// ```
     /// if0 {
     ///   // compute the condition if we haven't computed it before
     ///   cond[go] = !cond_computed.out ? 1'b1;

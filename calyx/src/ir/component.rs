@@ -48,7 +48,8 @@ impl Component {
             CellType::ThisComponent,
             ports
                 .into_iter()
-                .map(|(name, w, d)| (name.as_ref().into(), w, d))
+                // Reverse the port directions inside the component.
+                .map(|(name, w, d)| (name.as_ref().into(), w, d.reverse()))
                 .collect(),
         );
 
