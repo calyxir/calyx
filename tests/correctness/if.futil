@@ -10,20 +10,20 @@ component main() -> () {
     group cond<"static"=0> {
       lt.left = 32'd5;
       lt.right = 32'd9;
-      cond[done] = 1'b1;
+      cond[done] = 1'd1;
     }
 
     group true<"static"=1> {
-      mem.addr0 = 1'b0;
+      mem.addr0 = 1'd0;
       mem.write_data = 32'd4;
-      mem.write_en = 1'b1;
+      mem.write_en = 1'd1;
       true[done] = mem.done;
     }
 
     group false<"static"=1> {
-      mem.addr0 = 1'b0;
-      mem.write_data = 32'b0;
-      mem.write_en = 1'b1;
+      mem.addr0 = 1'd0;
+      mem.write_data = 32'd10;
+      mem.write_en = 1'd1;
       false[done] = mem.done;
     }
   }
