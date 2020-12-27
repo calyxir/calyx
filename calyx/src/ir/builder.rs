@@ -1,9 +1,9 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
-use crate::frontend::library::ast::LibrarySignatures;
-use crate::ir::{self, RRC, WRC};
+use crate::ir::{self, LibrarySignatures, RRC, WRC};
+use linked_hash_map::LinkedHashMap;
+use smallvec::smallvec;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 /// An IR builder.
@@ -13,7 +13,7 @@ pub struct Builder<'a> {
     /// Component for which this builder is constructing.
     pub component: &'a mut ir::Component,
     /// Library signatures.
-    pub lib_sigs: &'a LibrarySignatures,
+    pub lib: &'a LibrarySignatures,
     /// Enable validation of components.
     /// Useful for debugging malformed AST errors.
     pub validate: bool,
@@ -23,12 +23,12 @@ impl<'a> Builder<'a> {
     /// Instantiate a new builder using for a component.
     pub fn from(
         component: &'a mut ir::Component,
-        lib_sigs: &'a LibrarySignatures,
+        lib: &'a LibrarySignatures,
         validate: bool,
     ) -> Self {
         Self {
             component,
-            lib_sigs,
+            lib,
             validate,
         }
     }
@@ -39,7 +39,7 @@ impl<'a> Builder<'a> {
     pub fn add_group<S>(
         &mut self,
         prefix: S,
-        attributes: HashMap<String, u64>,
+        attributes: LinkedHashMap<String, u64>,
     ) -> RRC<ir::Group>
     where
         S: Into<ir::Id> + ToString + Clone,
@@ -50,7 +50,7 @@ impl<'a> Builder<'a> {
         let group = Rc::new(RefCell::new(ir::Group {
             name,
             attributes,
-            holes: vec![],
+            holes: smallvec![],
             assignments: vec![],
         }));
 
@@ -91,8 +91,7 @@ impl<'a> Builder<'a> {
         let cell = Self::cell_from_signature(
             name,
             ir::CellType::Constant { val, width },
-            vec![],
-            vec![("out".into(), width)],
+            vec![("out".into(), width, ir::Direction::Output)],
         );
 
         // Add constant to the Component.
@@ -122,8 +121,8 @@ impl<'a> Builder<'a> {
         P: AsRef<str>,
     {
         let prim_id = ir::Id::from(primitive.as_ref());
-        let prim = &self.lib_sigs[&prim_id];
-        let (param_binding, inputs, outputs) = prim
+        let prim = &self.lib.get_primitive(&prim_id);
+        let (param_binding, ports) = prim
             .resolve(param_values)
             .expect("Failed to add primitive.");
 
@@ -134,8 +133,7 @@ impl<'a> Builder<'a> {
                 name: prim_id,
                 param_binding,
             },
-            inputs,
-            outputs,
+            ports,
         );
         self.component.cells.push(Rc::clone(&cell));
         cell
@@ -169,7 +167,11 @@ impl<'a> Builder<'a> {
         }
         // Validate: Check to see if the cell/group associated with the
         // port is in the component.
-        ir::Assignment { dst, src, guard }
+        ir::Assignment {
+            dst,
+            src,
+            guard: Box::new(guard),
+        }
     }
 
     /// Rewrite all reads and writes from `cell` in the given assingments to
@@ -220,7 +222,7 @@ impl<'a> Builder<'a> {
             }
             assign
                 .guard
-                .for_each(&|port| rewrite_port(&port).map(ir::Guard::Port));
+                .for_each(&|port| rewrite_port(&port).map(ir::Guard::port));
         }
     }
 
@@ -250,33 +252,22 @@ impl<'a> Builder<'a> {
     pub(super) fn cell_from_signature(
         name: ir::Id,
         typ: ir::CellType,
-        inputs: Vec<(ir::Id, u64)>,
-        outputs: Vec<(ir::Id, u64)>,
+        ports: Vec<(ir::Id, u64, ir::Direction)>,
     ) -> RRC<ir::Cell> {
         let cell = Rc::new(RefCell::new(ir::Cell {
             name,
-            ports: vec![],
+            ports: smallvec![],
             prototype: typ,
         }));
-        // Construct ports
-        for (name, width) in inputs {
+        ports.into_iter().for_each(|(name, width, direction)| {
             let port = Rc::new(RefCell::new(ir::Port {
                 name,
                 width,
-                direction: ir::Direction::Input,
+                direction,
                 parent: ir::PortParent::Cell(WRC::from(&cell)),
             }));
             cell.borrow_mut().ports.push(port);
-        }
-        for (name, width) in outputs {
-            let port = Rc::new(RefCell::new(ir::Port {
-                name,
-                width,
-                direction: ir::Direction::Output,
-                parent: ir::PortParent::Cell(WRC::from(&cell)),
-            }));
-            cell.borrow_mut().ports.push(port);
-        }
+        });
         cell
     }
 }

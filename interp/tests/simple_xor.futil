@@ -1,0 +1,30 @@
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    const0 = prim std_const(32, 13);
+    const1 = prim std_const(32, 10);
+    xor0 = prim std_xor(32);
+    reg0 = prim std_reg(32);
+
+  }
+
+  wires {
+
+    // expect xor0.out = 7
+    group op {
+      reg0.write_en = 1'd1;
+      xor0.left = const0.out;
+      xor0.right = const1.out;
+      reg0.in = xor0.out;
+      op[done] = reg0.done;
+    }
+    
+  }
+
+  control {
+    seq {
+      op;
+    }
+  }
+}

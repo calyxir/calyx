@@ -3,8 +3,7 @@
 //! `ir::Context` to compile every `ir::Component` using the pass.
 use super::action::{Action, VisResult};
 use crate::errors::FutilResult;
-use crate::frontend::library::ast::LibrarySignatures;
-use crate::ir::{self, Component, Context, Control};
+use crate::ir::{self, Component, Context, Control, LibrarySignatures};
 use std::rc::Rc;
 
 /// Trait that describes named things. Calling `do_pass` and `do_pass_default`
@@ -17,6 +16,34 @@ pub trait Named {
 
     /// A short description of the pass.
     fn description() -> &'static str;
+}
+
+/// Implementator of trait provide various logging methods.
+pub trait Loggable {
+    /// Log output to STDERR.
+    /// `context` is the location from which the logger is being called.
+    /// Usage:
+    /// ```
+    /// self.elog("number-of-groups", groups.len());
+    /// ```
+    fn elog<S, T>(&self, context: S, msg: T)
+    where
+        S: std::fmt::Display,
+        T: std::fmt::Display;
+}
+
+/// Blanket implementation for Loggable for traits implementing Named
+impl<T> Loggable for T
+where
+    T: Named,
+{
+    fn elog<S, M>(&self, context: S, msg: M)
+    where
+        S: std::fmt::Display,
+        M: std::fmt::Display,
+    {
+        eprintln!("{}.{}: {}", T::name(), context, msg)
+    }
 }
 
 /// The visiting interface for a `ir::Control` program.
@@ -49,7 +76,7 @@ pub trait Visitor {
     where
         Self: Sized + Named,
     {
-        let signatures = &context.lib_sigs;
+        let signatures = &context.lib;
         context
             .components
             // Mutably borrow the components in the context

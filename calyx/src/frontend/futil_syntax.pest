@@ -32,6 +32,18 @@ bad_num = @{ ASCII_DIGIT ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "'")* }
 
 // ====== toplevel ======
 
+
+file = {
+      SOI
+      ~ imports
+      ~ extern_or_component*
+      ~ EOI
+}
+
+extern_or_component = {
+  component | ext
+}
+
 component = {
       "component" ~ identifier ~ signature
       ~ "{"
@@ -41,12 +53,7 @@ component = {
       ~ "}"
 }
 
-file = {
-      SOI
-      ~ imports
-      ~ component+
-      ~ EOI
-}
+// ========= Imports ===============
 
 import = _{
       "import" ~ string_lit ~ ";"
@@ -55,29 +62,44 @@ import = _{
 imports = { import* }
 
 
-// ====== signature ======
+// ====== Component signature ======
 
 signature = {
-      "(" ~ io_ports? ~ ")" ~ signature_return
-}
-
-signature_return = {
-      "->" ~ "(" ~ io_ports? ~ ")"
+      "(" ~ inputs? ~ ")" ~ "->" ~ "(" ~ outputs? ~ ")"
 }
 
 io_port = {
-      identifier ~ ":" ~ bitwidth
+      identifier ~ ":" ~ (bitwidth | identifier)
 }
 
-io_ports = {
+inputs = {
       io_port ~ ("," ~ io_port)*
 }
+
+outputs = {
+      io_port ~ ("," ~ io_port)*
+}
+
+// ========= Exernal primitive definitions ===============
+
+params = {
+      "[" ~ (identifier ~ ("," ~ identifier)*)? ~ "]"
+}
+
+primitive = {
+      "primitive" ~ identifier ~ attributes? ~ params? ~ signature ~ ";"
+}
+
+ext = {
+  "extern" ~ string_lit ~ "{" ~ primitive* ~ "}"
+}
+
+// ====== cells ======
 
 args = {
       "(" ~ (bitwidth ~ ("," ~ bitwidth)*)? ~ ")"
 }
 
-// ====== cells ======
 
 primitive_cell = {
       identifier ~ "=" ~ "prim" ~ identifier ~ args

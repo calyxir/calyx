@@ -2,6 +2,7 @@ import logging as log
 import sys
 from halo import Halo
 from pathlib import Path
+import shutil
 
 from .stages import Source, SourceType
 from . import errors, utils
@@ -94,8 +95,17 @@ def run_fud(args, config):
         if args.dry_run:
             return
 
-        if args.output_file is not None:
-            with Path(args.output_file).open('wb') as f:
-                f.write(inp.data.read())
+        if inp.source_type == SourceType.TmpDir:
+            if args.output_file is not None:
+                if Path(args.output_file).exists():
+                    shutil.rmtree(args.output_file)
+                shutil.move(inp.data.name, args.output_file)
+            else:
+                shutil.move(inp.data.name, ".")
+                print(f"Moved {inp.data.name} here.")
         else:
-            print(inp.data.read().decode('UTF-8'))
+            if args.output_file is not None:
+                with Path(args.output_file).open('wb') as f:
+                    f.write(inp.data.read())
+            else:
+                print(inp.data.read().decode('UTF-8'))

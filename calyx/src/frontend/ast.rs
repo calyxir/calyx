@@ -1,15 +1,82 @@
 /// Abstract Syntax Tree for Futil
-use crate::errors::Span;
+use super::parser;
+use crate::errors::{Error, FutilResult, Span};
 use crate::ir;
-use std::collections::HashMap;
+use atty::Stream;
+use linked_hash_map::LinkedHashMap;
+use std::io::stdin;
+use std::path::{Path, PathBuf};
 
 /// Top level AST statement. This contains a list of Component definitions.
 #[derive(Debug)]
 pub struct NamespaceDef {
-    /// The path to libraries
-    pub libraries: Vec<String>,
+    /// Path to imported files.
+    pub imports: Vec<String>,
     /// List of component definitions.
     pub components: Vec<ComponentDef>,
+    /// Extern statements and any primitive declarations in them.
+    pub externs: Vec<(String, Vec<ir::Primitive>)>,
+}
+
+impl NamespaceDef {
+    /// Parse the program and all of its transitive dependencies to build
+    /// a whole program context.
+    pub fn new(
+        file: &Option<PathBuf>,
+        lib_path: &PathBuf,
+    ) -> FutilResult<Self> {
+        let mut namespace = match file {
+            Some(file) => parser::FutilParser::parse_file(&file),
+            None => {
+                if atty::isnt(Stream::Stdin) {
+                    parser::FutilParser::parse(stdin())
+                } else {
+                    Err(Error::InvalidFile(
+                        "No file provided and terminal not a TTY".to_string(),
+                    ))
+                }
+            }
+        }?;
+
+        namespace.externs.iter_mut().for_each(|(path, _)| {
+            *path = lib_path.join(path.clone()).to_string_lossy().to_string();
+        });
+
+        // Parse all transitive dependencies
+        let mut deps: Vec<PathBuf> = namespace
+            .imports
+            .clone()
+            .into_iter()
+            .map(|f| lib_path.join(f))
+            .collect();
+
+        while let Some(path) = deps.pop() {
+            let mut ns = parser::FutilParser::parse_file(&path)?;
+            namespace.components.append(&mut ns.components);
+
+            let parent = match path.parent() {
+                Some(a) => a,
+                None => Path::new("."),
+            };
+
+            namespace.externs.append(
+                &mut ns
+                    .externs
+                    .into_iter()
+                    .map(|(path, exts)| {
+                        (parent.join(path).to_string_lossy().to_string(), exts)
+                    })
+                    .collect(),
+            );
+
+            // All imports are relative to the file being currently parsed.
+            deps.append(
+                &mut ns.imports.into_iter().map(|f| parent.join(f)).collect(),
+            );
+        }
+
+        Ok(namespace)
+    }
 }
 
 /// AST statement for defining components.
@@ -17,32 +84,16 @@ pub struct NamespaceDef {
 pub struct ComponentDef {
     /// Name of the component.
     pub name: ir::Id,
-
     /// Defines input and output ports.
-    pub signature: Signature,
-
+    pub signature: Vec<ir::PortDef>,
     /// List of instantiated sub-components
     pub cells: Vec<Cell>,
-
     /// List of groups
     pub groups: Vec<Group>,
-
     /// List of continuous assignments
     pub continuous_assignments: Vec<Wire>,
-
     /// Single control statement for this component.
     pub control: Control,
-}
-
-/// The signature for a component. Contains a list
-/// of input ports and a list of output ports.
-#[derive(Clone, Debug)]
-pub struct Signature {
-    /// List of input ports.
-    pub inputs: Vec<(ir::Id, u64)>,
-
-    /// List of output ports.
-    pub outputs: Vec<(ir::Id, u64)>,
 }
 
 /// Statement that refers to a port on a subcomponent.
@@ -109,10 +160,8 @@ pub enum Atom {
 /// The AST for GuardExprs
 #[derive(Debug)]
 pub enum GuardExpr {
-    // TODO(rachit): Go back to the simpler, two children AST representation.
-    // Use the IR to merge And nodes.
-    And(Vec<GuardExpr>),
-    Or(Vec<GuardExpr>),
+    And(Box<GuardExpr>, Box<GuardExpr>),
+    Or(Box<GuardExpr>, Box<GuardExpr>),
     Eq(Box<GuardExpr>, Box<GuardExpr>),
     Neq(Box<GuardExpr>, Box<GuardExpr>),
     Gt(Box<GuardExpr>, Box<GuardExpr>),
@@ -160,6 +209,7 @@ impl Cell {
         }
     }
 
+    /// Return the name of the cell.
     pub fn name(&self) -> &ir::Id {
         match self {
             Self::Decl { name, .. } => name,
@@ -172,7 +222,7 @@ impl Cell {
 pub struct Group {
     pub name: ir::Id,
     pub wires: Vec<Wire>,
-    pub attributes: HashMap<String, u64>,
+    pub attributes: LinkedHashMap<String, u64>,
 }
 
 /// Data for the `->` structure statement.

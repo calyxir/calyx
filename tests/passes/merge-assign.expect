@@ -1,0 +1,14 @@
+import "primitives/std.lib";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    r = prim std_reg(4);
+    add = prim std_add(32);
+  }
+  wires {
+    add.left = r.out == 4'd0 | r.out == 4'd1 | r.out == 4'd3 ? 32'd32;
+    add.left = r.out == 4'd5 | r.out == 4'd6 ? 32'd4;
+    add.right = 32'd4;
+  }
+
+  control {}
+}

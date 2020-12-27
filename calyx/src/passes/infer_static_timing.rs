@@ -8,10 +8,9 @@ use std::collections::HashMap;
 
 use crate::analysis::{GraphAnalysis, ReadWriteSet};
 use crate::errors::Error;
-use crate::frontend::library::ast as lib;
-use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::RRC;
+use crate::ir::{self, LibrarySignatures};
 use std::rc::Rc;
 
 pub struct InferStaticTiming<'a> {
@@ -310,7 +309,7 @@ impl Visitor for InferStaticTiming<'_> {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _c: &lib::LibrarySignatures,
+        _c: &LibrarySignatures,
     ) -> VisResult {
         let mut latency_result: Option<u64>;
         for group in &comp.groups {
@@ -318,7 +317,7 @@ impl Visitor for InferStaticTiming<'_> {
                 infer_latency(&group.borrow(), &self.prim_latency_data)
             {
                 let grp = group.borrow();
-                if let Some(curr_lat) = grp.attributes.get("static") {
+                if let Some(curr_lat) = grp.get_attribute("static") {
                     if *curr_lat != latency {
                         return Err(Error::ImpossibleLatencyAnnotation(
                             grp.name.to_string(),
@@ -334,10 +333,7 @@ impl Visitor for InferStaticTiming<'_> {
 
             match latency_result {
                 Some(res) => {
-                    group
-                        .borrow_mut()
-                        .attributes
-                        .insert("static".to_string(), res);
+                    group.borrow_mut().add_attribute("static".to_string(), res);
                 }
                 None => continue,
             }

@@ -1,12 +1,12 @@
 use super::math_utilities::get_bit_width_from;
 use crate::errors::Error;
-use crate::frontend::library::ast as lib;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
+    LibrarySignatures,
 };
 use crate::{build_assignments, guard, structure};
-use std::collections::HashMap;
+use linked_hash_map::LinkedHashMap;
 use std::convert::TryInto;
 use std::rc::Rc;
 
@@ -68,12 +68,12 @@ impl Visitor for CompileControl {
         &mut self,
         cif: &mut ir::If,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // create a new group for if related structure
-        let if_group = builder.add_group("if", HashMap::new());
+        let if_group = builder.add_group("if", LinkedHashMap::new());
 
         let cond_group = Rc::clone(&cif.cond);
         let cond = Rc::clone(&cif.port);
@@ -167,12 +167,12 @@ impl Visitor for CompileControl {
         &mut self,
         wh: &mut ir::While,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // create group
-        let while_group = builder.add_group("while", HashMap::new());
+        let while_group = builder.add_group("while", LinkedHashMap::new());
 
         // cond group
         let cond_group = Rc::clone(&wh.cond);
@@ -258,12 +258,12 @@ impl Visitor for CompileControl {
         &mut self,
         s: &mut ir::Seq,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // Create a new group for the seq related structure.
-        let seq_group = builder.add_group("seq", HashMap::new());
+        let seq_group = builder.add_group("seq", LinkedHashMap::new());
         let fsm_size = get_bit_width_from(1 + s.stmts.len() as u64);
 
         // new structure
@@ -341,12 +341,12 @@ impl Visitor for CompileControl {
         &mut self,
         s: &mut ir::Par,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // Name of the parent group.
-        let par_group = builder.add_group("par", HashMap::new());
+        let par_group = builder.add_group("par", LinkedHashMap::new());
 
         let mut par_group_done: Vec<ir::Guard> =
             Vec::with_capacity(s.stmts.len());
@@ -393,7 +393,9 @@ impl Visitor for CompileControl {
         }
 
         // Hook up parent's done signal to all children.
-        let par_done = ir::Guard::And(par_group_done);
+        let par_done = par_group_done
+            .into_iter()
+            .fold(ir::Guard::True, ir::Guard::and);
         let par_reset_out = guard!(par_reset["out"]);
         let mut assigns = build_assignments!(builder;
             par_reset["in"] = par_done ? signal_on["out"];

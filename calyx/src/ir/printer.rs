@@ -117,12 +117,8 @@ impl IRPrinter {
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
         write!(f, "{} = ", Self::get_port_access(&assign.dst.borrow()))?;
-        if !matches!(&assign.guard, ir::Guard::True) {
-            write!(
-                f,
-                "{} ? ",
-                Self::guard_str(&assign.guard.clone().flatten())
-            )?;
+        if !matches!(&*assign.guard, ir::Guard::True) {
+            write!(f, "{} ? ", Self::guard_str(&assign.guard.clone()))?;
         }
         write!(f, "{};", Self::get_port_access(&assign.src.borrow()))
     }
@@ -256,33 +252,9 @@ impl IRPrinter {
     /// Generate a String-based representation for a guard.
     pub fn guard_str(guard: &ir::Guard) -> String {
         match &guard {
-            ir::Guard::And(gs) => gs
-                .iter()
-                .map(|g| {
-                    let s = Self::guard_str(g);
-                    if g > guard {
-                        s.surround("(", ")")
-                    } else {
-                        s
-                    }
-                })
-                .filter(|s| s != "")
-                .collect::<Vec<_>>()
-                .join(&format!(" {} ", guard.op_str())),
-            ir::Guard::Or(gs) => gs
-                .iter()
-                .map(|g| {
-                    let s = Self::guard_str(g);
-                    if g > guard {
-                        s.surround("(", ")")
-                    } else {
-                        s
-                    }
-                })
-                .filter(|s| s != "")
-                .collect::<Vec<_>>()
-                .join(&format!(" {} ", guard.op_str())),
-            ir::Guard::Eq(l, r)
+            ir::Guard::And(l, r)
+            | ir::Guard::Or(l, r)
+            | ir::Guard::Eq(l, r)
             | ir::Guard::Neq(l, r)
             | ir::Guard::Gt(l, r)
             | ir::Guard::Lt(l, r)

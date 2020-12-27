@@ -61,58 +61,58 @@ component main(go: 1, clk: 1) -> (done: 1) {
     group upd0<"static"=1> {
       a_src_read0_0.write_en = 1'd1;
       a_src0.addr0 = i0.out;
-      a_src_read0_0.in = 1'd1 ? a_src0.read_data;
+      a_src_read0_0.in = a_src0.read_data;
       upd0[done] = a_src_read0_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
       a_tar0.addr0 = i0.out;
       a_tar0.write_en = 1'd1;
-      a_tar0.write_data = 1'd1 ? a_src_read0_0.out;
+      a_tar0.write_data = a_src_read0_0.out;
       upd1[done] = a_tar0.done ? 1'd1;
     }
     group upd2<"static"=1> {
       i0.write_en = 1'd1;
       add0.left = i0.out;
       add0.right = const2.out;
-      i0.in = 1'd1 ? add0.out;
+      i0.in = add0.out;
       upd2[done] = i0.done ? 1'd1;
     }
     group upd3<"static"=1> {
       b_src_read0_0.write_en = 1'd1;
       b_src0.addr0 = i1.out;
-      b_src_read0_0.in = 1'd1 ? b_src0.read_data;
+      b_src_read0_0.in = b_src0.read_data;
       upd3[done] = b_src_read0_0.done ? 1'd1;
     }
     group upd4<"static"=1> {
       b_tar0.addr0 = i1.out;
       b_tar0.write_en = 1'd1;
-      b_tar0.write_data = 1'd1 ? b_src_read0_0.out;
+      b_tar0.write_data = b_src_read0_0.out;
       upd4[done] = b_tar0.done ? 1'd1;
     }
     group upd5<"static"=1> {
       i1.write_en = 1'd1;
       add1.left = i1.out;
       add1.right = const5.out;
-      i1.in = 1'd1 ? add1.out;
+      i1.in = add1.out;
       upd5[done] = i1.done ? 1'd1;
     }
     group upd6<"static"=1> {
       a_src_read0_0.write_en = 1'd1;
       c_tar0.addr0 = i0.out;
-      a_src_read0_0.in = 1'd1 ? c_tar0.read_data;
+      a_src_read0_0.in = c_tar0.read_data;
       upd6[done] = a_src_read0_0.done ? 1'd1;
     }
     group upd7<"static"=1> {
       c_src0.addr0 = i0.out;
       c_src0.write_en = 1'd1;
-      c_src0.write_data = 1'd1 ? a_src_read0_0.out;
+      c_src0.write_data = a_src_read0_0.out;
       upd7[done] = c_src0.done ? 1'd1;
     }
     group upd8<"static"=1> {
       i0.write_en = 1'd1;
       add2.left = i0.out;
       add2.right = const8.out;
-      i0.in = 1'd1 ? add2.out;
+      i0.in = add2.out;
       upd8[done] = i0.done ? 1'd1;
     }
   }

@@ -1,7 +1,7 @@
 ---CODE---
 1
 ---STDERR---
-Error: FuTIL Parser:  --> 3:5
+Error: FuTIL Parser:  --> tests/errors/parser/cell-missing-semi.futil:3:5
   |
 3 |     r = prim std_reg(32)␊
   |     ^---
