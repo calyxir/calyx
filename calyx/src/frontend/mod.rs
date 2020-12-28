@@ -5,6 +5,6 @@
 //! in the `ir` module.
 
 pub mod ast;
-pub(super) mod parser;
+pub mod parser;
 
 pub use ast::NamespaceDef;
