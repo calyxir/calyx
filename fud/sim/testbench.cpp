@@ -2,6 +2,11 @@
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 #include <stdio.h>
+
+// Keep track of time: https://www.veripool.org/wiki/verilator/Manual-verilator#CONNECTING-TO-C
+vluint64_t main_time = 0;
+double sc_time_stamp() { return main_time; }
+
 int main(int argc, char **argv, char **env) {
   int i = 0;
   int clk;
@@ -21,7 +26,7 @@ int main(int argc, char **argv, char **env) {
   if (argc >= 4) {
     trace = std::strcmp(argv[3], "--trace") == 0;
   }
-  printf("Tracing: %d\n", trace);
+  //printf("Tracing: %d\n", trace);
   VerilatedVcdC *tfp;
   if (trace) {
     Verilated::traceEverOn(true);
@@ -30,14 +35,15 @@ int main(int argc, char **argv, char **env) {
     tfp->open(argv[1]);
   }
 
-  // initialize simulation inputs and eval once to avoid zero-time reset bug (https://github.com/verilator/verilator/issues/2661)
+  // initialize simulation inputs and eval once to avoid zero-time reset bug
+  // (https://github.com/verilator/verilator/issues/2661)
   top->go = 0;
   top->eval();
   top->clk = 0;
 
   int done = 0;
   int ignore_cycles = 5;
-  printf("Starting simulation\n");
+  //printf("Starting simulation\n");
   while (done == 0 && i < n_cycles) {
     done = top->done;
     // Do nothing for a few cycles to avoid zero-time reset bug
@@ -54,6 +60,9 @@ int main(int argc, char **argv, char **env) {
       top->clk = !top->clk;
       top->eval();
     }
+
+    // Time passes
+    main_time++;
 
     if (Verilated::gotFinish())
       exit(0);

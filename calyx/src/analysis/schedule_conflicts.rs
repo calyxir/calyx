@@ -12,10 +12,10 @@ type GroupNode = RRC<ir::Group>;
 pub struct ScheduleConflicts {
     /// The conflict graph. Two groups have an edge between them if they
     /// may run in parallel.
-    pub(self) conflicts: Graph<GroupNode, ()>,
+    conflicts: Graph<GroupNode, ()>,
     /// Map from the name of the group to its NodeIndex in the conflicts
     /// graph.
-    pub(self) index_map: HashMap<ir::Id, NodeIndex>,
+    index_map: HashMap<ir::Id, NodeIndex>,
 }
 
 impl ScheduleConflicts {

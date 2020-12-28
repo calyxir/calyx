@@ -1,8 +1,8 @@
+/* verilator lint_off WIDTH */
 module std_mod_pipe #(
     parameter width = 32
 ) (
     input                  clk,
-    input                  reset,
     input                  go,
     input      [width-1:0] left,
     input      [width-1:0] right,
@@ -10,16 +10,18 @@ module std_mod_pipe #(
     output reg             done
 );
 
-  wire start = go && !running && !reset;
+  wire start = go && !running;
 
   reg [width-1:0] dividend;
   reg [(width-1)*2:0] divisor;
   reg [width-1:0] quotient;
   reg [width-1:0] quotient_msk;
-  reg running;
+  reg running, finished;
+
+  assign finished = !quotient_msk && running;
 
   always @(posedge clk) begin
-    if (reset || !go) begin
+    if (!go) begin
       running <= 0;
       done <= 0;
       out <= 0;
@@ -33,7 +35,7 @@ module std_mod_pipe #(
       divisor <= right << width - 1;
       quotient <= 0;
       quotient_msk <= 1 << width - 1;
-    end else if (!quotient_msk && running) begin
+    end else if (finished) begin
       running <= 0;
       done <= 1;
       out <= dividend;
@@ -46,6 +48,20 @@ module std_mod_pipe #(
       quotient_msk <= quotient_msk >> 1;
     end
   end
+
+  `ifdef VERILATOR
+    // Simulation self test against unsynthesizable implementation.
+    always @(posedge clk) begin
+      if (finished && dividend != $unsigned(((left % right) + right) % right))
+        $error(
+          "\nstd_mod_pipe: Computed and golden outputs do not match!\n",
+          "left: %0d", $unsigned(left),
+          "  right: %0d\n", $unsigned(right),
+          "expected: %0d", $unsigned(((left % right) + right) % right),
+          "  computed: %0d", $unsigned(out)
+        );
+    end
+  `endif
 endmodule
 
 module std_mult_pipe #(
@@ -90,7 +106,6 @@ module std_div_pipe #(
     parameter width = 32
 ) (
     input                  clk,
-    reset,
     input                  go,
     input      [width-1:0] left,
     input      [width-1:0] right,
@@ -98,7 +113,7 @@ module std_div_pipe #(
     output reg             done
 );
 
-  wire start = go && !running && !reset;
+  wire start = go && !running;
 
   reg [width-1:0] dividend;
   reg [(width-1)*2:0] divisor;
@@ -107,7 +122,7 @@ module std_div_pipe #(
   reg running;
 
   always @(posedge clk) begin
-    if (reset || !go) begin
+    if (!go) begin
       running <= 0;
       done <= 0;
       out <= 0;
@@ -148,6 +163,7 @@ module std_sqrt (
   logic [15:0] q;
   logic [17:0] left, right, r;
   integer i;
+
   always_ff @(posedge clk) begin
     if (go && i == 0) begin
       // initialize all the variables.
@@ -184,7 +200,113 @@ module std_sqrt (
       done <= 0;
     end
   end
+
+  `ifdef VERILATOR
+    // Simulation self test against unsynthesizable implementation.
+    always @(posedge clk) begin
+      if (done && out != $sqrt(in))
+        $error(
+          "\nstd_sqrt: Computed and golden outputs do not match!\n",
+          "input: %0d", in,
+          "expected: %0d", in,
+          "  computed: %0d", out
+        );
+    end
+  `endif
 endmodule
+
+// ===============Signed operations that wrap unsigned ones ===============
+
+module std_smod_pipe #(
+    parameter width = 32
+) (
+    input                     clk,
+    input                     go,
+    input  signed [width-1:0] left,
+    input  signed [width-1:0] right,
+    output reg    [width-1:0] out,
+    output reg                done
+);
+
+  logic signed [width-1:0] left_abs;
+  logic signed [width-1:0] comp_out;
+
+  assign left_abs = left[width-1] == 1 ? -left : left;
+  assign out = left[width-1] == 1 ? $signed(right - comp_out) : comp_out;
+
+  std_mod_pipe #(
+    .width(width)
+  ) comp (
+    .clk(clk),
+    .done(done),
+    .go(go),
+    .left(left_abs),
+    .right(right),
+    .out(comp_out)
+  );
+
+  `ifdef VERILATOR
+    // Simulation self test against unsynthesizable implementation.
+    always @(posedge clk) begin
+      if (done && out != $signed(((left % right) + right) % right))
+        $error(
+          "\nstd_smod_pipe: Computed and golden outputs do not match!\n",
+          "left: %0d", left,
+          "  right: %0d\n", right,
+          "expected: %0d", $signed(((left % right) + right) % right),
+          "  computed: %0d", $signed(out)
+        );
+    end
+  `endif
+endmodule
+
+/* verilator lint_off WIDTH */
+module std_sdiv_pipe #(
+    parameter width = 32
+) (
+    input                     clk,
+    input                     go,
+    input  signed [width-1:0] left,
+    input  signed [width-1:0] right,
+    output reg    [width-1:0] out,
+    output reg                done
+);
+
+  logic signed [width-1:0] left_abs;
+  logic signed [width-1:0] right_abs;
+  logic signed [width-1:0] comp_out;
+
+  assign right_abs = right[width-1] == 1 ? -right : right;
+  assign left_abs = left[width-1] == 1 ? -left : left;
+  assign out =
+    (left[width-1] == 1) ^ (right[width-1] == 1) ? -comp_out : comp_out;
+
+  std_div_pipe #(
+    .width(width)
+  ) comp (
+    .clk(clk),
+    .done(done),
+    .go(go),
+    .left(left_abs),
+    .right(right),
+    .out(comp_out)
+  );
+
+  `ifdef VERILATOR
+    // Simulation self test against unsynthesizable implementation.
+    always @(posedge clk) begin
+      if (done && out != $signed(left / right))
+        $error(
+          "\nstd_sdiv_pipe: Computed and golden outputs do not match!\n",
+          "left: %0d", left,
+          "  right: %0d\n", right,
+          "expected: %0d", $signed(left / right),
+          "  computed: %0d", $signed(out)
+        );
+    end
+  `endif
+endmodule
+
 
 //==================== Unsynthesizable primitives =========================
 module std_mult #(
