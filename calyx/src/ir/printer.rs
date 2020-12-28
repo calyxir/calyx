@@ -48,7 +48,6 @@ impl IRPrinter {
         for cell in &comp.cells {
             Self::write_cell(&cell.borrow(), 4, f)?;
         }
-        // TODO(rachit): Trailing spaces added for test faithfulness
         writeln!(f, "  }}")?;
 
         // Add the wires
@@ -62,7 +61,6 @@ impl IRPrinter {
             Self::write_assignment(assign, 4, f)?;
             writeln!(f)?;
         }
-        // TODO(rachit): Trailing spaces added for test faithfulness
         writeln!(f, "  }}\n")?;
 
         // Add the control program
@@ -105,7 +103,7 @@ impl IRPrinter {
             ir::CellType::Constant { .. } => Ok(()),
             ir::CellType::Component { name } => {
                 write!(f, "{}", " ".repeat(indent_level))?;
-                write!(f, "{} = {}", cell.name.id, name)
+                writeln!(f, "{} = {};", cell.name.id, name)
             }
             _ => unimplemented!(),
         }
@@ -119,12 +117,8 @@ impl IRPrinter {
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
         write!(f, "{} = ", Self::get_port_access(&assign.dst.borrow()))?;
-        if !matches!(&assign.guard, ir::Guard::True) {
-            write!(
-                f,
-                "{} ? ",
-                Self::guard_str(&assign.guard.clone().flatten())
-            )?;
+        if !matches!(&*assign.guard, ir::Guard::True) {
+            write!(f, "{} ? ", Self::guard_str(&assign.guard.clone()))?;
         }
         write!(f, "{};", Self::get_port_access(&assign.src.borrow()))
     }
@@ -168,6 +162,41 @@ impl IRPrinter {
         match control {
             ir::Control::Enable(ir::Enable { group }) => {
                 writeln!(f, "{};", group.borrow().name.id)
+            }
+            ir::Control::Invoke(ir::Invoke {
+                comp,
+                inputs,
+                outputs,
+            }) => {
+                write!(f, "invoke {}(", comp.borrow().name)?;
+                for (arg, port) in inputs {
+                    write!(
+                        f,
+                        "\n{}{} = {},",
+                        " ".repeat(indent_level + 2),
+                        arg,
+                        Self::get_port_access(&port.borrow())
+                    )?;
+                }
+                if inputs.is_empty() {
+                    write!(f, ")(")?;
+                } else {
+                    write!(f, "\n{})(", " ".repeat(indent_level))?;
+                }
+                for (arg, port) in outputs {
+                    write!(
+                        f,
+                        "\n{}{} = {},",
+                        " ".repeat(indent_level + 2),
+                        arg,
+                        Self::get_port_access(&port.borrow())
+                    )?;
+                }
+                if outputs.is_empty() {
+                    writeln!(f, ");")
+                } else {
+                    writeln!(f, "\n{});", " ".repeat(indent_level))
+                }
             }
             ir::Control::Seq(ir::Seq { stmts }) => {
                 writeln!(f, "seq {{")?;
@@ -223,33 +252,9 @@ impl IRPrinter {
     /// Generate a String-based representation for a guard.
     pub fn guard_str(guard: &ir::Guard) -> String {
         match &guard {
-            ir::Guard::And(gs) => gs
-                .iter()
-                .map(|g| {
-                    let s = Self::guard_str(g);
-                    if g > guard {
-                        s.surround("(", ")")
-                    } else {
-                        s
-                    }
-                })
-                .filter(|s| s != "")
-                .collect::<Vec<_>>()
-                .join(&format!(" {} ", guard.op_str())),
-            ir::Guard::Or(gs) => gs
-                .iter()
-                .map(|g| {
-                    let s = Self::guard_str(g);
-                    if g > guard {
-                        s.surround("(", ")")
-                    } else {
-                        s
-                    }
-                })
-                .filter(|s| s != "")
-                .collect::<Vec<_>>()
-                .join(&format!(" {} ", guard.op_str())),
-            ir::Guard::Eq(l, r)
+            ir::Guard::And(l, r)
+            | ir::Guard::Or(l, r)
+            | ir::Guard::Eq(l, r)
             | ir::Guard::Neq(l, r)
             | ir::Guard::Gt(l, r)
             | ir::Guard::Lt(l, r)
@@ -286,12 +291,13 @@ impl IRPrinter {
     fn get_port_access(port: &ir::Port) -> String {
         match &port.parent {
             ir::PortParent::Cell(cell_wref) => {
-                let cell_ref = cell_wref.upgrade().unwrap_or_else(|| {
-                    panic!(
+                let cell_ref =
+                    cell_wref.internal.upgrade().unwrap_or_else(|| {
+                        panic!(
                         "Malformed AST: No reference to Cell for port `{:#?}'",
                         port
                     )
-                });
+                    });
                 let cell = cell_ref.borrow();
                 match cell.prototype {
                     ir::CellType::Constant { val, width } => {
@@ -304,6 +310,7 @@ impl IRPrinter {
             ir::PortParent::Group(group_wref) => format!(
                 "{}[{}]",
                 group_wref
+                    .internal
                     .upgrade()
                     .unwrap_or_else(|| panic!(
                         "Malformed AST: No reference to Group for port `{:#?}'",

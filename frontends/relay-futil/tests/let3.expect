@@ -1,6 +1,6 @@
 import "primitives/std.lib";
 
-component multiply(go: 1, clk: 1, c0_read_data: 32, c0_done: 1, d0_read_data: 32, d0_done: 1, e0_read_data: 32, e0_done: 1) -> (done: 1, c0_addr0: 1, c0_write_data: 32, c0_write_en: 1, c0_clk: 1, d0_addr0: 1, d0_write_data: 32, d0_write_en: 1, d0_clk: 1, e0_addr0: 1, e0_write_data: 32, e0_write_en: 1, e0_clk: 1) {
+component multiply0(go: 1, clk: 1, c0_read_data: 32, c0_done: 1, d0_read_data: 32, d0_done: 1, e0_read_data: 32, e0_done: 1) -> (done: 1, c0_addr0: 1, c0_write_data: 32, c0_write_en: 1, c0_clk: 1, d0_addr0: 1, d0_write_data: 32, d0_write_en: 1, d0_clk: 1, e0_addr0: 1, e0_write_data: 32, e0_write_en: 1, e0_clk: 1) {
   cells {
     add0 = prim std_add(1);
     bin_read0_0 = prim std_reg(32);
@@ -11,7 +11,7 @@ component multiply(go: 1, clk: 1, c0_read_data: 32, c0_done: 1, d0_read_data: 32
     d_read0_0 = prim std_reg(32);
     i0 = prim std_reg(1);
     le0 = prim std_le(1);
-    mult_pipe0 = prim std_mult_pipe(32);
+    mult_pipe0 = prim std_smult_pipe(32);
   }
   wires {
     group cond0<"static"=0> {
@@ -76,18 +76,19 @@ component multiply(go: 1, clk: 1, c0_read_data: 32, c0_done: 1, d0_read_data: 32
     }
   }
 }
-component divide(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data: 32, c0_done: 1, d0_read_data: 32, d0_done: 1) -> (done: 1, a0_addr0: 1, a0_write_data: 32, a0_write_en: 1, a0_clk: 1, c0_addr0: 1, c0_write_data: 32, c0_write_en: 1, c0_clk: 1, d0_addr0: 1, d0_write_data: 32, d0_write_en: 1, d0_clk: 1) {
+
+
+component subtract1(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data: 32, c0_done: 1, d0_read_data: 32, d0_done: 1) -> (done: 1, a0_addr0: 1, a0_write_data: 32, a0_write_en: 1, a0_clk: 1, c0_addr0: 1, c0_write_data: 32, c0_write_en: 1, c0_clk: 1, d0_addr0: 1, d0_write_data: 32, d0_write_en: 1, d0_clk: 1) {
   cells {
     a_read0_0 = prim std_reg(32);
     add0 = prim std_add(1);
-    bin_read0_0 = prim std_reg(32);
     c_read0_0 = prim std_reg(32);
     const0 = prim std_const(1, 0);
     const1 = prim std_const(1, 0);
     const2 = prim std_const(1, 1);
-    div_pipe0 = prim std_div_pipe(32);
     i0 = prim std_reg(1);
     le0 = prim std_le(1);
+    sub0 = prim std_ssub(32);
   }
   wires {
     group cond0<"static"=0> {
@@ -99,14 +100,6 @@ component divide(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data: 32, 
       i0.in = const0.out;
       i0.write_en = 1'd1;
       let0[done] = i0.done;
-    }
-    group let1<> {
-      bin_read0_0.in = div_pipe0.out;
-      bin_read0_0.write_en = div_pipe0.done;
-      let1[done] = bin_read0_0.done;
-      div_pipe0.left = c_read0_0.out;
-      div_pipe0.right = a_read0_0.out;
-      div_pipe0.go = !div_pipe0.done ? 1'd1;
     }
     group upd0<"static"=1> {
       c_read0_0.write_en = 1'd1;
@@ -123,7 +116,9 @@ component divide(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data: 32, 
     group upd2<"static"=1> {
       d0_addr0 = i0.out;
       d0_write_en = 1'd1;
-      d0_write_data = 1'd1 ? bin_read0_0.out;
+      sub0.left = c_read0_0.out;
+      sub0.right = a_read0_0.out;
+      d0_write_data = 1'd1 ? sub0.out;
       upd2[done] = d0_done ? 1'd1;
     }
     group upd3<"static"=1> {
@@ -144,7 +139,6 @@ component divide(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data: 32, 
             upd0;
             upd1;
           }
-          let1;
           upd2;
           upd3;
         }
@@ -152,7 +146,9 @@ component divide(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, c0_read_data: 32, 
     }
   }
 }
-component subtract(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, b0_read_data: 32, b0_done: 1, c0_read_data: 32, c0_done: 1) -> (done: 1, a0_addr0: 1, a0_write_data: 32, a0_write_en: 1, a0_clk: 1, b0_addr0: 1, b0_write_data: 32, b0_write_en: 1, b0_clk: 1, c0_addr0: 1, c0_write_data: 32, c0_write_en: 1, c0_clk: 1) {
+
+
+component subtract0(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, b0_read_data: 32, b0_done: 1, c0_read_data: 32, c0_done: 1) -> (done: 1, a0_addr0: 1, a0_write_data: 32, a0_write_en: 1, a0_clk: 1, b0_addr0: 1, b0_write_data: 32, b0_write_en: 1, b0_clk: 1, c0_addr0: 1, c0_write_data: 32, c0_write_en: 1, c0_clk: 1) {
   cells {
     a_read0_0 = prim std_reg(32);
     add0 = prim std_add(1);
@@ -162,7 +158,7 @@ component subtract(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, b0_read_data: 32
     const2 = prim std_const(1, 1);
     i0 = prim std_reg(1);
     le0 = prim std_le(1);
-    sub0 = prim std_sub(32);
+    sub0 = prim std_ssub(32);
   }
   wires {
     group cond0<"static"=0> {
@@ -221,60 +217,61 @@ component subtract(go: 1, clk: 1, a0_read_data: 32, a0_done: 1, b0_read_data: 32
   }
 }
 
+
 component main () -> () {
   cells {
     e = prim std_mem_d1(32, 1, 1);
     c = prim std_mem_d1(32, 1, 1);
     d = prim std_mem_d1(32, 1, 1);
-    multiply0 = multiply;
+    comp_multiply0 = multiply0;
     a = prim std_mem_d1(32, 1, 1);
-    divide0 = divide;
+    comp_subtract1 = subtract1;
     b = prim std_mem_d1(32, 1, 1);
-    subtract0 = subtract;
+    comp_subtract0 = subtract0;
   }
   wires {
-    group run_subtract {
-      a.addr0 = subtract0.a0_addr0;
-      subtract0.a0_read_data = a.read_data;
-      b.addr0 = subtract0.b0_addr0;
-      subtract0.b0_read_data = b.read_data;
-      c.addr0 = subtract0.c0_addr0;
-      c.write_data = subtract0.c0_write_data;
-      c.write_en = subtract0.c0_write_en;
-      subtract0.c0_done = c.done;
-      subtract0.go = 1'd1;
-      run_subtract[done] = subtract0.done ? 1'd1;
+    group run_subtract0 {
+      a.addr0 = comp_subtract0.a0_addr0;
+      comp_subtract0.a0_read_data = a.read_data;
+      b.addr0 = comp_subtract0.b0_addr0;
+      comp_subtract0.b0_read_data = b.read_data;
+      c.addr0 = comp_subtract0.c0_addr0;
+      c.write_data = comp_subtract0.c0_write_data;
+      c.write_en = comp_subtract0.c0_write_en;
+      comp_subtract0.c0_done = c.done;
+      comp_subtract0.go = 1'd1;
+      run_subtract0[done] = comp_subtract0.done ? 1'd1;
     }
-    group run_divide {
-      c.addr0 = divide0.c0_addr0;
-      divide0.c0_read_data = c.read_data;
-      a.addr0 = divide0.a0_addr0;
-      divide0.a0_read_data = a.read_data;
-      d.addr0 = divide0.d0_addr0;
-      d.write_data = divide0.d0_write_data;
-      d.write_en = divide0.d0_write_en;
-      divide0.d0_done = d.done;
-      divide0.go = 1'd1;
-      run_divide[done] = divide0.done ? 1'd1;
+    group run_subtract1 {
+      c.addr0 = comp_subtract1.c0_addr0;
+      comp_subtract1.c0_read_data = c.read_data;
+      a.addr0 = comp_subtract1.a0_addr0;
+      comp_subtract1.a0_read_data = a.read_data;
+      d.addr0 = comp_subtract1.d0_addr0;
+      d.write_data = comp_subtract1.d0_write_data;
+      d.write_en = comp_subtract1.d0_write_en;
+      comp_subtract1.d0_done = d.done;
+      comp_subtract1.go = 1'd1;
+      run_subtract1[done] = comp_subtract1.done ? 1'd1;
     }
-    group run_multiply {
-      c.addr0 = multiply0.c0_addr0;
-      multiply0.c0_read_data = c.read_data;
-      d.addr0 = multiply0.d0_addr0;
-      multiply0.d0_read_data = d.read_data;
-      e.addr0 = multiply0.e0_addr0;
-      e.write_data = multiply0.e0_write_data;
-      e.write_en = multiply0.e0_write_en;
-      multiply0.e0_done = e.done;
-      multiply0.go = 1'd1;
-      run_multiply[done] = multiply0.done ? 1'd1;
+    group run_multiply0 {
+      c.addr0 = comp_multiply0.c0_addr0;
+      comp_multiply0.c0_read_data = c.read_data;
+      d.addr0 = comp_multiply0.d0_addr0;
+      comp_multiply0.d0_read_data = d.read_data;
+      e.addr0 = comp_multiply0.e0_addr0;
+      e.write_data = comp_multiply0.e0_write_data;
+      e.write_en = comp_multiply0.e0_write_en;
+      comp_multiply0.e0_done = e.done;
+      comp_multiply0.go = 1'd1;
+      run_multiply0[done] = comp_multiply0.done ? 1'd1;
     }
   }
   control {
     seq {
-      run_subtract;
-      run_divide;
-      run_multiply;
+      run_subtract0;
+      run_subtract1;
+      run_multiply0;
     }
   }
 }

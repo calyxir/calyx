@@ -1,13 +1,13 @@
 import "primitives/std.lib";
 
-component batch_matmul(go: 1, clk: 1, a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_data: 32, b0_0_0_done: 1, x0_0_0_read_data: 32, x0_0_0_done: 1) -> (done: 1, a0_0_0_addr0: 3, a0_0_0_addr1: 3, a0_0_0_addr2: 3, a0_0_0_write_data: 32, a0_0_0_write_en: 1, a0_0_0_clk: 1, b0_0_0_addr0: 3, b0_0_0_addr1: 3, b0_0_0_addr2: 3, b0_0_0_write_data: 32, b0_0_0_write_en: 1, b0_0_0_clk: 1, x0_0_0_addr0: 3, x0_0_0_addr1: 3, x0_0_0_addr2: 3, x0_0_0_write_data: 32, x0_0_0_write_en: 1, x0_0_0_clk: 1) {
+component batch_matmul0(go: 1, clk: 1, a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_data: 32, b0_0_0_done: 1, x0_0_0_read_data: 32, x0_0_0_done: 1) -> (done: 1, a0_0_0_addr0: 3, a0_0_0_addr1: 3, a0_0_0_addr2: 3, a0_0_0_write_data: 32, a0_0_0_write_en: 1, a0_0_0_clk: 1, b0_0_0_addr0: 3, b0_0_0_addr1: 3, b0_0_0_addr2: 3, b0_0_0_write_data: 32, b0_0_0_write_en: 1, b0_0_0_clk: 1, x0_0_0_addr0: 3, x0_0_0_addr1: 3, x0_0_0_addr2: 3, x0_0_0_write_data: 32, x0_0_0_write_en: 1, x0_0_0_clk: 1) {
   cells {
     a_read0_0 = prim std_reg(32);
     add0 = prim std_add(3);
     add1 = prim std_add(3);
     add10 = prim std_add(3);
     add2 = prim std_add(3);
-    add3 = prim std_add(32);
+    add3 = prim std_sadd(32);
     add4 = prim std_add(3);
     add5 = prim std_add(3);
     add6 = prim std_add(3);
@@ -66,7 +66,7 @@ component batch_matmul(go: 1, clk: 1, a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0
     le7 = prim std_le(3);
     le8 = prim std_le(3);
     le9 = prim std_le(3);
-    mult_pipe0 = prim std_mult_pipe(32);
+    mult_pipe0 = prim std_smult_pipe(32);
     product_0 = prim std_reg(32);
     temporary_x0_0_0 = prim std_mem_d3(32, 4, 7, 7, 3, 3, 3);
     temporary_x_read0_0 = prim std_reg(32);
@@ -397,36 +397,37 @@ component batch_matmul(go: 1, clk: 1, a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0
   }
 }
 
+
 component main () -> () {
   cells {
     x = prim std_mem_d3(32, 4, 7, 7, 3, 3, 3);
     a = prim std_mem_d3(32, 4, 7, 5, 3, 3, 3);
     b = prim std_mem_d3(32, 4, 7, 5, 3, 3, 3);
-    batch_matmul0 = batch_matmul;
+    comp_batch_matmul0 = batch_matmul0;
   }
   wires {
-    group run_batch_matmul {
-      a.addr0 = batch_matmul0.a0_0_0_addr0;
-      batch_matmul0.a0_0_0_read_data = a.read_data;
-      a.addr1 = batch_matmul0.a0_0_0_addr1;
-      a.addr2 = batch_matmul0.a0_0_0_addr2;
-      b.addr0 = batch_matmul0.b0_0_0_addr0;
-      batch_matmul0.b0_0_0_read_data = b.read_data;
-      b.addr1 = batch_matmul0.b0_0_0_addr1;
-      b.addr2 = batch_matmul0.b0_0_0_addr2;
-      x.addr0 = batch_matmul0.x0_0_0_addr0;
-      x.addr1 = batch_matmul0.x0_0_0_addr1;
-      x.addr2 = batch_matmul0.x0_0_0_addr2;
-      x.write_data = batch_matmul0.x0_0_0_write_data;
-      x.write_en = batch_matmul0.x0_0_0_write_en;
-      batch_matmul0.x0_0_0_done = x.done;
-      batch_matmul0.go = 1'd1;
-      run_batch_matmul[done] = batch_matmul0.done ? 1'd1;
+    group run_batch_matmul0 {
+      a.addr0 = comp_batch_matmul0.a0_0_0_addr0;
+      comp_batch_matmul0.a0_0_0_read_data = a.read_data;
+      a.addr1 = comp_batch_matmul0.a0_0_0_addr1;
+      a.addr2 = comp_batch_matmul0.a0_0_0_addr2;
+      b.addr0 = comp_batch_matmul0.b0_0_0_addr0;
+      comp_batch_matmul0.b0_0_0_read_data = b.read_data;
+      b.addr1 = comp_batch_matmul0.b0_0_0_addr1;
+      b.addr2 = comp_batch_matmul0.b0_0_0_addr2;
+      x.addr0 = comp_batch_matmul0.x0_0_0_addr0;
+      x.addr1 = comp_batch_matmul0.x0_0_0_addr1;
+      x.addr2 = comp_batch_matmul0.x0_0_0_addr2;
+      x.write_data = comp_batch_matmul0.x0_0_0_write_data;
+      x.write_en = comp_batch_matmul0.x0_0_0_write_en;
+      comp_batch_matmul0.x0_0_0_done = x.done;
+      comp_batch_matmul0.go = 1'd1;
+      run_batch_matmul0[done] = comp_batch_matmul0.done ? 1'd1;
     }
   }
   control {
     seq {
-      run_batch_matmul;
+      run_batch_matmul0;
     }
   }
 }

@@ -2,7 +2,7 @@
 //! `Error` enum represents a different type of error. For some types of errors, you
 //! might want to add a `From` impl so that the `?` syntax is more convienent.
 
-use crate::frontend::{ast, library, parser};
+use crate::frontend::{ast, parser};
 use crate::ir;
 use petgraph::stable_graph::NodeIndex;
 use std::iter::repeat;
@@ -13,8 +13,6 @@ use std::rc::Rc;
 pub enum Error {
     /// Error while parsing a FuTIL program.
     ParseError(pest_consume::Error<parser::Rule>),
-    /// Error while parsing a FuTIL library.
-    LibraryParseError(pest_consume::Error<library::parser::Rule>),
     /// Using a reserved keyword as a program identifier.
     ReservedName(ir::Id),
 
@@ -166,9 +164,8 @@ impl std::fmt::Debug for Error {
                     known_passes
                 )
             },
-            InvalidFile(err) => write!(f, "InvalidFile: {}", err),
+            InvalidFile(err) => write!(f, "{}", err),
             ParseError(err) => write!(f, "FuTIL Parser: {}", err),
-            LibraryParseError(err) => write!(f, "FuTIL Library Parser: {}", err),
             WriteError => write!(f, "WriteError"),
             MismatchedPortWidths(port1, w1, port2, w2) => {
                 let msg1 = format!("This port has width: {}", w1);
@@ -179,7 +176,7 @@ impl std::fmt::Debug for Error {
                        port2.port_name().fmt_err(&msg2))
             }
             SignatureResolutionFailed(id, param_name) => {
-                let msg = format!("No value passed in for parameter: {}", param_name.to_string());
+                let msg = format!("Failed to resolve: {}", param_name.to_string());
                 write!(f, "{}\nwhich is used here:{}", id.fmt_err(&msg), param_name.fmt_err(""))
             }
             MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
@@ -210,12 +207,6 @@ impl From<std::fmt::Error> for Error {
 impl From<pest_consume::Error<parser::Rule>> for Error {
     fn from(e: pest_consume::Error<parser::Rule>) -> Self {
         Error::ParseError(e)
-    }
-}
-
-impl From<pest_consume::Error<library::parser::Rule>> for Error {
-    fn from(e: pest_consume::Error<library::parser::Rule>) -> Self {
-        Error::LibraryParseError(e)
     }
 }
 

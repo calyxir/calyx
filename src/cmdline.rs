@@ -133,7 +133,7 @@ impl Opts {
                 backend.run(&context, self.output)
             }
             BackendOpt::Futil => {
-                for import_path in &context.import_statements {
+                for import_path in &context.imports {
                     writeln!(
                         &mut self.output.get_write(),
                         "import \"{}\";",
@@ -145,26 +145,10 @@ impl Opts {
                         comp,
                         &mut self.output.get_write(),
                     )?;
+                    writeln!(&mut self.output.get_write())?
                 }
                 Ok(())
             }
-            // BackendOpt::Dot => {
-            //     let write_result = write!(
-            //         self.output.get_write(),
-            //         "{}",
-            //         context
-            //             .get_component(&self.toplevel.into())?
-            //             .structure
-            //             .visualize()
-            //     );
-            //     write_result.map_err(|err| {
-            //         Error::InvalidFile(format!(
-            //             "Failed to write: {}",
-            //             err.to_string()
-            //         ))
-            //     })?;
-            //     Ok(())
-            // }
             BackendOpt::None => Ok(()),
         }
     }

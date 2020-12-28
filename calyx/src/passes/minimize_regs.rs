@@ -1,9 +1,9 @@
-use crate::frontend::library::ast as lib;
 use crate::{
     analysis::{GraphColoring, LiveRangeAnalysis},
     ir::{
         self,
         traversal::{Named, Visitor},
+        LibrarySignatures,
     },
 };
 use ir::{
@@ -53,18 +53,18 @@ impl Visitor for MinimizeRegs {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _s: &lib::LibrarySignatures,
+        _s: &LibrarySignatures,
     ) -> VisResult {
         self.live = LiveRangeAnalysis::new(&comp, &*comp.control.borrow());
 
         Ok(Action::Continue)
     }
 
-    fn start_enable(
+    fn enable(
         &mut self,
         enable: &mut ir::Enable,
         _comp: &mut Component,
-        _sigs: &lib::LibrarySignatures,
+        _sigs: &LibrarySignatures,
     ) -> VisResult {
         // XXX(sam) can move this to work on definitions rather than enables
 
@@ -79,7 +79,7 @@ impl Visitor for MinimizeRegs {
     fn finish(
         &mut self,
         comp: &mut Component,
-        sigs: &lib::LibrarySignatures,
+        sigs: &LibrarySignatures,
     ) -> VisResult {
         // add constraints so that registers of different sizes can't be shared
         for a_ref in &comp.cells {

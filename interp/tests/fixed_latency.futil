@@ -1,0 +1,105 @@
+import "primitives/std.lib";
+// adapted from https://www.csl.cornell.edu/courses/ece5745/handouts/ece5745-lab1-imul.pdf
+// this program should take approximately 32 cycles
+
+component main() -> () {
+  cells {
+    // used for loops
+    incr = prim std_add(32)
+    const0 = prim std_const(32, 1);
+    count = prim std_reg(32);
+    ltcond = prim std_lt(32);
+    fixed = prim std_const(32, 32);
+
+    a = prim std_const(32, 11);
+    b = prim std_const(32, 5);
+    result = prim std_reg(32);
+
+    reg0 = prim std_reg(32);
+    reg1 = prim std_reg(32);
+
+    modulo = prim std_mod(32);
+    add0 = prim std_add(32);
+    lsh = prim std_lsh(32);
+    rsh = prim std_rsh(32);
+
+  }
+
+  wires {
+
+    group loop_condition {
+      ltcond.left = count.out;
+      ltcond.right = fixed.out;
+      loop_condition[done] = 1'd1;
+    }
+
+    group increment_loop {
+      count.write_en = 1'd1;
+      incr.left = count.out;
+      incr.right = const0.out;
+      count.in = incr.out;
+      increment_loop[done] = count.out;
+    }
+
+    group init0 {
+      reg0.write_en = 1'd1;
+      reg0.in = a.out;
+      init0[done] = reg0.done;
+    }
+
+    group init1 {
+      reg1.write_en = 1'd1;
+      reg1.in = b.out;
+      init1[done] = reg1.done;
+    }
+
+    group lsb_check {
+      modulo.left = reg1.out;
+      modulo.right = const0.out;
+      lsb_check[done] = 1'd1;
+    }
+
+    // should take ~1 clock cycle
+    group increment_result {
+      result.write_en = 1'd1;
+      add0.left = reg0.out;
+      add0.right = reg1.out;
+      result.in = add0.out;
+      add_reg[done] = reg1.done;
+    }
+
+    group a_shift {
+      lsh.left = reg0.out;
+      lsh.right = const0.out;
+      a_shift[done] = 1'd1;
+    }
+
+    group b_shift {
+      lsh.left = reg1.out;
+      lsh.right = const0.out;
+      b_shift[done] = 1'd1;
+    }
+
+  }
+
+  control {
+    seq {
+      seq {
+        init0;
+        init1;
+      }
+      while ltcond.out with loop_condition {
+        seq{
+          if modulo.out with lsb_check {
+            seq{
+              increment_result;
+            }
+          }
+          a_shift;
+          b_shift;
+          increment_loop;
+        }
+      }
+    }
+  }
+}

@@ -3,23 +3,20 @@ component main(go: 1, clk: 1) -> (done: 1) {
   cells {
     r = prim std_reg(32);
     add = prim std_add(32);
-    fsm = prim std_reg(32);
+    fsm = prim std_reg(2);
   }
   wires {
-    add.left = fsm.out == 32'd0 & !r.done & go | fsm.out == 32'd1 & !r.done & go ? 32'd1;
-    add.right = fsm.out == 32'd0 & !r.done & go | fsm.out == 32'd1 & !r.done & go ? r.out;
-    r.in = fsm.out == 32'd0 & !r.done & go | fsm.out == 32'd1 & !r.done & go ? add.out;
-    r.write_en = fsm.out == 32'd0 & !r.done & go | fsm.out == 32'd1 & !r.done & go ? 1'd1;
-    fsm.in = fsm.out == 32'd0 & r.done & go ? 32'd1;
-    fsm.write_en = fsm.out == 32'd0 & r.done & go ? 1'd1;
-    fsm.in = fsm.out == 32'd1 & r.done & go ? 32'd2;
-    fsm.write_en = fsm.out == 32'd1 & r.done & go ? 1'd1;
-    fsm.in = fsm.out == 32'd2 ? 32'd0;
-    fsm.write_en = fsm.out == 32'd2 ? 1'd1;
-    done = fsm.out == 32'd2 ? 1'd1;
-    done = fsm.out == 32'd2 ? 1'd1;
-    r.clk = clk;
+    done = fsm.out == 2'd2 ? 1'd1;
+    add.left = !r.done & go & (fsm.out == 2'd1 | fsm.out == 2'd0) ? 32'd1;
+    add.right = !r.done & go & (fsm.out == 2'd1 | fsm.out == 2'd0) ? r.out;
     fsm.clk = clk;
+    fsm.in = fsm.out == 2'd2 ? 2'd0;
+    fsm.in = fsm.out == 2'd0 & r.done & go ? 2'd1;
+    fsm.in = fsm.out == 2'd1 & r.done & go ? 2'd2;
+    fsm.write_en = fsm.out == 2'd2 | r.done & go & fsm.out == 2'd1 | fsm.out == 2'd0 & r.done & go ? 1'd1;
+    r.clk = clk;
+    r.in = !r.done & go & (fsm.out == 2'd1 | fsm.out == 2'd0) ? add.out;
+    r.write_en = !r.done & go & (fsm.out == 2'd1 | fsm.out == 2'd0) ? 1'd1;
   }
 
   control {}

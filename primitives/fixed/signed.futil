@@ -1,0 +1,36 @@
+/**
+ * Signed fixed point numbers
+ */
+extern "signed.sv" {
+  primitive fixed_p_std_sadd<"share"=1>[
+    width, int_width, fract_width
+  ](left: width, right: width) -> (out: width);
+
+  primitive fixed_p_std_ssub<"share"=1>[
+    width, int_width, fract_width
+  ](left: width, right: width) -> (out: width);
+
+  primitive sfixed_p_std_add_dbit<"share"=1>[
+    width1,
+    width2 ,
+    int_width1,
+    fract_width1,
+    int_width2,
+    fract_width2,
+    out_width
+  ](left: width1, right: width2) -> (out: out_width);
+
+  primitive fixed_p_std_sgt<"share"=1>[
+    width, int_width, fract_width
+  ](left: width, right: width) -> (out: 1);
+
+
+  /// =================== Unsynthesizable Primitives =========================
+  primitive fixed_p_std_smult<"share"=1>[
+    width, int_width, fract_width
+  ](left: width, right: width) -> (out: width);
+
+  primitive fixed_p_std_sdiv<"share"=1>[
+    width, int_width, fract_width
+  ](left: width, right: width) -> (out: width);
+}

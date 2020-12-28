@@ -1,26 +1,14 @@
----CODE---
-1
----STDERR---
-Error: Unknown pass: merge-assign. Known passes: Passes:
-- clk-insertion
-- collapse-control
-- compile-control
-- compile-empty
-- component-interface-inserter
-- dead-cell-removal
-- externalize
-- go-insertion
-- hole-inliner
-- infer-static-timing
-- minimize-regs
-- papercut
-- remove-external-memories
-- resource-sharing
-- static-timing
-- well-formed
+import "primitives/std.lib";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    r = prim std_reg(4);
+    add = prim std_add(32);
+  }
+  wires {
+    add.left = r.out == 4'd0 | r.out == 4'd1 | r.out == 4'd3 ? 32'd32;
+    add.left = r.out == 4'd5 | r.out == 4'd6 ? 32'd4;
+    add.right = 32'd4;
+  }
 
-Aliases:
-- all: well-formed, papercut, remove-external-memories, resource-sharing, minimize-regs, compile-empty, collapse-control, infer-static-timing, static-timing, compile-control, dead-cell-removal, go-insertion, component-interface-inserter, hole-inliner, clk-insertion
-- external: well-formed, papercut, resource-sharing, minimize-regs, compile-empty, collapse-control, compile-control, static-timing, compile-control, dead-cell-removal, go-insertion, component-interface-inserter, hole-inliner, clk-insertion, externalize
-- none: 
-.
+  control {}
+}

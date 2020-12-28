@@ -2,9 +2,9 @@
 use super::ast::{self, BitNum, NumType};
 use crate::errors::{self, FutilResult, Span};
 use crate::ir;
+use linked_hash_map::LinkedHashMap;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
-use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
@@ -57,7 +57,8 @@ impl FutilParser {
             Rule::file,
             string_content,
             Rc::from(string_content),
-        )?;
+        )
+        .map_err(|e| e.with_path(&path.to_string_lossy()))?;
         let input = inputs.single()?;
         Ok(FutilParser::file(input)?)
     }
@@ -80,12 +81,19 @@ impl FutilParser {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
+enum ExtOrComp {
+    Ext((String, Vec<ir::Primitive>)),
+    Comp(ast::ComponentDef),
+}
+
 #[pest_consume::parser]
 impl FutilParser {
     fn EOI(_input: Node) -> ParseResult<()> {
         Ok(())
     }
 
+    // ================ Literals =====================
     fn identifier(input: Node) -> ParseResult<ir::Id> {
         Ok(ir::Id::new(
             input.as_str(),
@@ -175,43 +183,27 @@ impl FutilParser {
         ))
     }
 
-    fn signature(input: Node) -> ParseResult<ast::Signature> {
+    // ================ Attributes =====================
+    fn key_value(input: Node) -> ParseResult<(String, u64)> {
         Ok(match_nodes!(
             input.into_children();
-            [io_ports(inputs), signature_return(outputs)] => ast::Signature {
-                inputs,
-                outputs
-            },
-            [io_ports(inputs)] => ast::Signature {
-                inputs,
-                outputs: vec![]
-            },
-            [signature_return(outputs)] => ast::Signature {
-                inputs: vec![],
-                outputs
-            },
-            [] => ast::Signature { inputs: vec![], outputs: vec![] }
+            [string_lit(key), bitwidth(num)] => (key, num)
         ))
     }
 
-    fn signature_return(input: Node) -> ParseResult<Vec<(ir::Id, u64)>> {
+    fn attributes(input: Node) -> ParseResult<LinkedHashMap<String, u64>> {
         Ok(match_nodes!(
             input.into_children();
-            [io_ports(p)] => p,
-            [] => vec![]
+            [key_value(kvs)..] => kvs.collect()
         ))
     }
 
-    fn io_port(input: Node) -> ParseResult<(ir::Id, u64)> {
-        Ok(match_nodes![
+    // ================ Signature =====================
+    fn params(input: Node) -> ParseResult<Vec<ir::Id>> {
+        Ok(match_nodes!(
             input.into_children();
-            [identifier(id), bitwidth(bw)] => (id, bw)])
-    }
-
-    fn io_ports(input: Node) -> ParseResult<Vec<(ir::Id, u64)>> {
-        Ok(match_nodes![
-            input.into_children();
-            [io_port(p)..] => p.collect()])
+            [identifier(id)..] => id.collect()
+        ))
     }
 
     fn args(input: Node) -> ParseResult<Vec<u64>> {
@@ -222,6 +214,82 @@ impl FutilParser {
         ))
     }
 
+    fn io_port(input: Node) -> ParseResult<(ir::Id, ir::Width)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(id), bitwidth(value)] => (id, ir::Width::Const { value }),
+            [identifier(id), identifier(value)] => (id, ir::Width::Param { value }),
+        ))
+    }
+
+    fn inputs(input: Node) -> ParseResult<Vec<ir::PortDef>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [io_port(ins)..] => {
+                ins.map(|(name, width)| ir::PortDef {
+                    name, width, direction: ir::Direction::Input
+                }).collect()
+            }
+        ))
+    }
+
+    fn outputs(input: Node) -> ParseResult<Vec<ir::PortDef>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [io_port(outs)..] => {
+                outs.map(|(name, width)| ir::PortDef {
+                    name, width, direction: ir::Direction::Output
+                }).collect()
+            }
+        ))
+    }
+
+    fn signature(input: Node) -> ParseResult<Vec<ir::PortDef>> {
+        Ok(match_nodes!(
+            input.into_children();
+            // XXX(rachit): We expect the signature to be extended to have `go`,
+            // `done`, and `clk`.
+            [] => Vec::with_capacity(3),
+            [inputs(ins)] => { ins },
+            [outputs(outs)] => { outs },
+            [inputs(ins), outputs(outs)] => {
+                ins.into_iter().chain(outs.into_iter()).collect()
+            },
+        ))
+    }
+
+    // ==============PortDeftives =====================
+    fn primitive(input: Node) -> ParseResult<ir::Primitive> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(name), attributes(attrs), params(p), signature(s)] => ir::Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: attrs,
+            },
+            [identifier(name), attributes(attrs), signature(s)] => ir::Primitive {
+                name,
+                params: Vec::with_capacity(0),
+                signature: s,
+                attributes: attrs,
+            },
+            [identifier(name), params(p), signature(s)] => ir::Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: LinkedHashMap::with_capacity(0),
+            },
+            [identifier(name), signature(s)] => ir::Primitive {
+                name,
+                params: Vec::with_capacity(0),
+                signature: s,
+                attributes: LinkedHashMap::with_capacity(0),
+            }
+        ))
+    }
+
+    // ================ Cells =====================
     fn primitive_cell(input: Node) -> ParseResult<ast::Cell> {
         Ok(match_nodes!(
             input.into_children();
@@ -253,6 +321,7 @@ impl FutilParser {
         ))
     }
 
+    // ================ Wires =====================
     fn port(input: Node) -> ParseResult<ast::Port> {
         Ok(match_nodes!(
             input.into_children();
@@ -308,8 +377,10 @@ impl FutilParser {
             }
             Rule::guard_lt => Ok(ast::GuardExpr::Lt(Box::new(l), Box::new(r))),
             Rule::guard_gt => Ok(ast::GuardExpr::Gt(Box::new(l), Box::new(r))),
-            Rule::guard_or => Ok(ast::GuardExpr::Or(vec![l, r])),
-            Rule::guard_and => Ok(ast::GuardExpr::And(vec![l, r])),
+            Rule::guard_or => Ok(ast::GuardExpr::Or(Box::new(l), Box::new(r))),
+            Rule::guard_and => {
+                Ok(ast::GuardExpr::And(Box::new(l), Box::new(r)))
+            }
             _ => unreachable!(),
         }
     }
@@ -345,20 +416,6 @@ impl FutilParser {
         ))
     }
 
-    fn key_value(input: Node) -> ParseResult<(String, u64)> {
-        Ok(match_nodes!(
-            input.into_children();
-            [string_lit(key), bitwidth(num)] => (key, num)
-        ))
-    }
-
-    fn attributes(input: Node) -> ParseResult<HashMap<String, u64>> {
-        Ok(match_nodes!(
-            input.into_children();
-            [key_value(kvs)..] => kvs.collect()
-        ))
-    }
-
     fn group(input: Node) -> ParseResult<ast::Group> {
         Ok(match_nodes!(
             input.into_children();
@@ -369,7 +426,7 @@ impl FutilParser {
             },
             [identifier(name), wire(wire)..] => ast::Group {
                 name,
-                attributes: HashMap::new(),
+                attributes: LinkedHashMap::with_capacity(0),
                 wires: wire.collect()
             }
         ))
@@ -388,6 +445,29 @@ impl FutilParser {
             }
         }
         Ok((wires, groups))
+    }
+
+    // ================ Control program =====================
+    fn invoke_arg(input: Node) -> ParseResult<(ir::Id, ast::Port)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(name), port(p)] => (name, p)
+        ))
+    }
+
+    fn invoke_args(input: Node) -> ParseResult<Vec<(ir::Id, ast::Port)>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [invoke_arg(args)..] => args.collect()
+        ))
+    }
+
+    fn invoke(input: Node) -> ParseResult<ast::Control> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(comp), invoke_args(inputs), invoke_args(outputs)] =>
+                ast::Control::Invoke { comp, inputs, outputs }
+        ))
     }
 
     fn enable(input: Node) -> ParseResult<ast::Control> {
@@ -457,6 +537,7 @@ impl FutilParser {
         Ok(match_nodes!(
             input.into_children();
             [enable(data)] => data,
+            [invoke(data)] => data,
             [seq(data)] => data,
             [par(data)] => data,
             [if_stmt(data)] => data,
@@ -483,7 +564,7 @@ impl FutilParser {
     fn control(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [stmt(stmt)] => stmt,
+            [block(stmt)] => stmt,
             [] => ast::Control::Empty{}
         ))
     }
@@ -517,12 +598,38 @@ impl FutilParser {
         ))
     }
 
+    fn ext(input: Node) -> ParseResult<(String, Vec<ir::Primitive>)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [string_lit(file), primitive(prims)..] => (file, prims.collect())
+        ))
+    }
+
+    fn extern_or_component(input: Node) -> ParseResult<ExtOrComp> {
+        Ok(match_nodes!(
+            input.into_children();
+            [component(comp)] => ExtOrComp::Comp(comp),
+            [ext(ext)] => ExtOrComp::Ext(ext)
+        ))
+    }
+
     fn file(input: Node) -> ParseResult<ast::NamespaceDef> {
         Ok(match_nodes!(
             input.into_children();
-            [imports(imports), component(comps).., EOI] => ast::NamespaceDef {
-                libraries: imports,
-                components: comps.collect()
+            [imports(imports), extern_or_component(mixed).., EOI] => {
+                let mut namespace =
+                    ast::NamespaceDef {
+                        imports,
+                        components: Vec::new(),
+                        externs: Vec::new(),
+                    };
+                for m in mixed {
+                    match m {
+                        ExtOrComp::Ext(ext) => namespace.externs.push(ext),
+                        ExtOrComp::Comp(comp) => namespace.components.push(comp),
+                    }
+                }
+                namespace
             }
         ))
     }

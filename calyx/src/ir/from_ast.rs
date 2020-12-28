@@ -1,12 +1,12 @@
 use super::{
-    Assignment, Builder, CellType, Component, Context, Control, Guard, Id,
-    Port, RRC,
+    Assignment, Builder, CellType, Component, Context, Control, Direction,
+    Guard, Id, LibrarySignatures, Port, PortDef, RRC,
 };
 use crate::{
     errors::{Error, FutilResult},
     frontend::ast,
-    frontend::library,
 };
+use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -16,57 +16,46 @@ use std::rc::Rc;
 #[derive(Default)]
 struct SigCtx {
     /// Mapping from component names to signatures
-    comp_sigs: HashMap<Id, ast::Signature>,
+    comp_sigs: HashMap<Id, Vec<PortDef>>,
 
     /// Mapping from library functions to signatures
-    lib_sigs: HashMap<Id, library::ast::Primitive>,
+    lib: LibrarySignatures,
 }
 
 /// Extend the signature with magical ports.
-fn extend_signature(sig: &mut ast::Signature) {
+fn extend_signature(sig: &mut Vec<PortDef>) {
     // XXX(Sam): checking to see if the port exists is a hack.
-    // The solution to the 'four big problems' will solve this.
-    if sig.inputs.iter().find(|(name, _)| name == "go").is_none() {
-        sig.inputs.push(("go".into(), 1))
-    }
+    let (mut has_go, mut has_clk, mut has_done) = (false, false, false);
+    sig.iter().for_each(|pd| match pd.name.as_ref() {
+        "go" => has_go = true,
+        "clk" => has_clk = true,
+        "done" => has_done = true,
+        _ => (),
+    });
 
-    if sig.inputs.iter().find(|(name, _)| name == "clk").is_none() {
-        sig.inputs.push(("clk".into(), 1))
+    if !has_go {
+        sig.push(("go".into(), 1, Direction::Input).into())
     }
-
-    if sig
-        .outputs
-        .iter()
-        .find(|(name, _)| name == "done")
-        .is_none()
-    {
-        sig.outputs.push(("done".into(), 1))
+    if !has_clk {
+        sig.push(("clk".into(), 1, Direction::Input).into())
+    }
+    if !has_done {
+        sig.push(("done".into(), 1, Direction::Output).into())
     }
 }
 
 /// Construct an IR representation using a parsed AST and command line options.
 pub fn ast_to_ir(
-    mut components: Vec<ast::ComponentDef>,
-    libraries: &[library::ast::Library],
-    import_statements: Vec<String>,
+    mut namespace: ast::NamespaceDef,
     debug_mode: bool,
     synthesis_mode: bool,
 ) -> FutilResult<Context> {
     // Build the signature context
     let mut sig_ctx = SigCtx::default();
-
-    // Add primitive signatures
-    for library in libraries {
-        sig_ctx.lib_sigs.extend(
-            library
-                .primitives
-                .iter()
-                .map(|prim| (prim.name.clone(), prim.clone())),
-        );
-    }
+    sig_ctx.lib = namespace.externs.into();
 
     // Add component signatures to context
-    for comp in &mut components {
+    for comp in &mut namespace.components {
         // extend the signature
         extend_signature(&mut comp.signature);
         sig_ctx
@@ -74,15 +63,16 @@ pub fn ast_to_ir(
             .insert(comp.name.clone(), comp.signature.clone());
     }
 
-    let comps = components
+    let comps = namespace
+        .components
         .into_iter()
         .map(|comp| build_component(comp, &sig_ctx))
         .collect::<Result<_, _>>()?;
 
     Ok(Context {
         components: comps,
-        lib_sigs: sig_ctx.lib_sigs,
-        import_statements,
+        lib: sig_ctx.lib,
+        imports: namespace.imports,
         debug_mode,
         synthesis_mode,
     })
@@ -104,7 +94,7 @@ fn validate_component(
 
         match cell {
             ast::Cell::Prim { prim, .. } => {
-                if !sig_ctx.lib_sigs.contains_key(prim) {
+                if sig_ctx.lib.find_primitive(prim).is_none() {
                     return Err(Error::Undefined(
                         prim.clone(),
                         "primitive".to_string(),
@@ -144,14 +134,18 @@ fn build_component(
     // Validate the component before building it.
     validate_component(&comp, sig_ctx)?;
 
-    // Cell to represent the signature of this component
+    // Components don't have any parameter information.
+    let fake_binding = LinkedHashMap::with_capacity(0);
     let mut ir_component = Component::new(
         comp.name,
-        comp.signature.inputs,
-        comp.signature.outputs,
+        comp.signature
+            .into_iter()
+            .map(|pd| {
+                pd.resolve(&fake_binding).map(|(n, w)| (n, w, pd.direction))
+            })
+            .collect::<Result<_, _>>()?,
     );
-    let mut builder =
-        Builder::from(&mut ir_component, &sig_ctx.lib_sigs, false);
+    let mut builder = Builder::from(&mut ir_component, &sig_ctx.lib, false);
 
     // For each ast::Cell, add a Cell that contains all the
     // required information.
@@ -194,11 +188,19 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
             let typ = CellType::Component {
                 name: component.clone(),
             };
+            // Components do not have any bindings for parameters
+            let fake_binding = LinkedHashMap::with_capacity(0);
             let cell = Builder::cell_from_signature(
                 name,
                 typ,
-                sig.inputs.clone(),
-                sig.outputs.clone(),
+                sig.iter()
+                    .cloned()
+                    .map(|pd| {
+                        pd.resolve(&fake_binding)
+                            .map(|(n, w)| (n, w, pd.direction))
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+                    .expect("Failed to build component"),
             );
             builder.component.cells.push(cell);
         }
@@ -292,17 +294,9 @@ fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> FutilResult<Guard> {
     };
 
     Ok(match guard {
-        GE::Atom(atom) => Guard::Port(atom_to_port(atom, bd)?),
-        GE::And(gs) => Guard::And(
-            gs.into_iter()
-                .map(|g| into_box_guard(Box::new(g), bd).map(|b| *b))
-                .collect::<FutilResult<Vec<_>>>()?,
-        ),
-        GE::Or(gs) => Guard::Or(
-            gs.into_iter()
-                .map(|g| into_box_guard(Box::new(g), bd).map(|b| *b))
-                .collect::<FutilResult<Vec<_>>>()?,
-        ),
+        GE::Atom(atom) => Guard::port(atom_to_port(atom, bd)?),
+        GE::Or(l, r) => Guard::or(build_guard(*l, bd)?, build_guard(*r, bd)?),
+        GE::And(l, r) => Guard::and(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::Eq(l, r) => {
             Guard::Eq(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
         }
@@ -338,6 +332,25 @@ fn build_control(
                 Error::Undefined(component.clone(), "group".to_string())
             })?,
         )),
+        ast::Control::Invoke {
+            comp: component,
+            inputs,
+            outputs,
+        } => {
+            let cell =
+                Rc::clone(&comp.find_cell(&component).ok_or_else(|| {
+                    Error::Undefined(component.clone(), "cell".to_string())
+                })?);
+            let inps = inputs
+                .into_iter()
+                .map(|(id, port)| get_port_ref(port, comp).map(|p| (id, p)))
+                .collect::<Result<_, _>>()?;
+            let outs = outputs
+                .into_iter()
+                .map(|(id, port)| get_port_ref(port, comp).map(|p| (id, p)))
+                .collect::<Result<_, _>>()?;
+            Control::invoke(cell, inps, outs)
+        }
         ast::Control::Seq { stmts } => Control::seq(
             stmts
                 .into_iter()

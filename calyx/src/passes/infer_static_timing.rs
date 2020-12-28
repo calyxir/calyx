@@ -8,10 +8,9 @@ use std::collections::HashMap;
 
 use crate::analysis::{GraphAnalysis, ReadWriteSet};
 use crate::errors::Error;
-use crate::frontend::library::ast as lib;
-use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::RRC;
+use crate::ir::{self, LibrarySignatures};
 use std::rc::Rc;
 
 pub struct InferStaticTiming<'a> {
@@ -31,10 +30,20 @@ impl Named for InferStaticTiming<'_> {
 
 impl Default for InferStaticTiming<'_> {
     fn default() -> Self {
-        let prim_latency_data = [("std_reg", ("write_en", "done", 1))]
-            .iter()
-            .cloned()
-            .collect();
+        let prim_latency_data = [
+            ("std_reg", ("write_en", "done", 1)),
+            ("std_mem_d1", ("write_en", "done", 1)),
+            ("std_mem_d1_ext", ("write_en", "done", 1)),
+            ("std_mem_d2", ("write_en", "done", 1)),
+            ("std_mem_d2_ext", ("write_en", "done", 1)),
+            ("std_mem_d3", ("write_en", "done", 1)),
+            ("std_mem_d3_ext", ("write_en", "done", 1)),
+            ("std_mem_d4", ("write_en", "done", 1)),
+            ("std_mem_d4_ext", ("write_en", "done", 1)),
+        ]
+        .iter()
+        .cloned()
+        .collect();
         InferStaticTiming { prim_latency_data }
     }
 }
@@ -60,8 +69,8 @@ fn mem_wrt_dep_graph<'a>(
                     ..
                 },
             ) = (
-                &dst_cell.upgrade().unwrap().borrow().prototype,
-                &src_cell.upgrade().unwrap().borrow().prototype,
+                &dst_cell.upgrade().borrow().prototype,
+                &src_cell.upgrade().borrow().prototype,
             ) {
                 let data_dst = latency_data.get(dst_cell_prim_type.as_ref());
                 let data_src = latency_data.get(src_cell_prim_type.as_ref());
@@ -82,8 +91,8 @@ fn mem_wrt_dep_graph<'a>(
                 },
                 ir::CellType::Constant { .. },
             ) = (
-                &dst_cell.upgrade().unwrap().borrow().prototype,
-                &src_cell.upgrade().unwrap().borrow().prototype,
+                &dst_cell.upgrade().borrow().prototype,
+                &src_cell.upgrade().borrow().prototype,
             ) {
                 let data = latency_data.get(dst_cell_prim_type.as_ref());
                 if let Some((go, _, _)) = data {
@@ -142,7 +151,7 @@ fn is_done_port_or_const<'a>(
     if let ir::PortParent::Cell(cell) = &port.parent {
         if let ir::CellType::Primitive {
             name: cell_type, ..
-        } = &cell.upgrade().unwrap().borrow().prototype
+        } = &cell.upgrade().borrow().prototype
         {
             if let Some((_, done, _)) = latency_data.get(cell_type.as_ref()) {
                 if port.name == *done {
@@ -152,7 +161,7 @@ fn is_done_port_or_const<'a>(
         }
 
         if let ir::CellType::Constant { val, .. } =
-            &cell.upgrade().unwrap().borrow().prototype
+            &cell.upgrade().borrow().prototype
         {
             if *val > 0 {
                 return true;
@@ -173,7 +182,7 @@ fn contains_dyn_writes<'a>(
             ir::PortParent::Cell(cell) => {
                 if let ir::CellType::Primitive {
                     name: cell_type, ..
-                } = &cell.upgrade().unwrap().borrow().prototype
+                } = &cell.upgrade().borrow().prototype
                 {
                     if let Some((go, _, _)) =
                         latency_data.get(cell_type.as_ref())
@@ -281,7 +290,7 @@ fn infer_latency<'a>(
     for port in first_path {
         if let ir::PortParent::Cell(cell) = &port.borrow().parent {
             if let ir::CellType::Primitive { name, .. } =
-                &cell.upgrade().unwrap().borrow().prototype
+                &cell.upgrade().borrow().prototype
             {
                 if let Some((go, _, latency)) = latency_data.get(name.as_ref())
                 {
@@ -300,7 +309,7 @@ impl Visitor for InferStaticTiming<'_> {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _c: &lib::LibrarySignatures,
+        _c: &LibrarySignatures,
     ) -> VisResult {
         let mut latency_result: Option<u64>;
         for group in &comp.groups {
@@ -308,7 +317,7 @@ impl Visitor for InferStaticTiming<'_> {
                 infer_latency(&group.borrow(), &self.prim_latency_data)
             {
                 let grp = group.borrow();
-                if let Some(curr_lat) = grp.attributes.get("static") {
+                if let Some(curr_lat) = grp.get_attribute("static") {
                     if *curr_lat != latency {
                         return Err(Error::ImpossibleLatencyAnnotation(
                             grp.name.to_string(),
@@ -324,10 +333,7 @@ impl Visitor for InferStaticTiming<'_> {
 
             match latency_result {
                 Some(res) => {
-                    group
-                        .borrow_mut()
-                        .attributes
-                        .insert("static".to_string(), res);
+                    group.borrow_mut().add_attribute("static".to_string(), res);
                 }
                 None => continue,
             }

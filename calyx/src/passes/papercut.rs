@@ -1,7 +1,6 @@
 use crate::errors::Error;
-use crate::frontend::library::ast as lib;
-use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::ir::{self, LibrarySignatures};
 use std::collections::{HashMap, HashSet};
 
 /// Pass to check for common errors such as missing assignments to `done' holes
@@ -85,7 +84,7 @@ impl Visitor for Papercut<'_> {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _ctx: &lib::LibrarySignatures,
+        _ctx: &LibrarySignatures,
     ) -> VisResult {
         // For each group, check if there is at least one write to the done
         // signal of that group.
@@ -96,9 +95,8 @@ impl Visitor for Papercut<'_> {
                 let assign = assign_ref.dst.borrow();
                 if assign.is_hole() && assign.name == "done" {
                     if let ir::PortParent::Group(group_ref) = &assign.parent {
-                        hole_writes.insert(
-                            group_ref.upgrade().unwrap().borrow().name.clone(),
-                        );
+                        hole_writes
+                            .insert(group_ref.upgrade().borrow().name.clone());
                     }
                 }
             }
@@ -138,7 +136,7 @@ impl Visitor for Papercut<'_> {
             for assign in &group.borrow().assignments {
                 let dst = assign.dst.borrow();
                 if let ir::PortParent::Cell(cell_wref) = &dst.parent {
-                    let cell_ref = cell_wref.upgrade().unwrap();
+                    let cell_ref = cell_wref.upgrade();
                     let cell = cell_ref.borrow();
                     // If this is a primitive cell, collect the driver
                     if let ir::CellType::Primitive { name, .. } =

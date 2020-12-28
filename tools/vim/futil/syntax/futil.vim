@@ -10,15 +10,15 @@ syn region futilString start=/\v"/ skip=/\v\\./ end=/\v("|$)/
 hi link futilString String
 
 " Control statements
-syn keyword futilControl while if with seq par
+syn keyword futilControl while if with seq par invoke
 hi link futilControl Special
 
 " Other keywords
-syn keyword futilKeyword import cells wires control group prim
+syn keyword futilKeyword import cells wires control group prim extern
 hi link futilKeyword Keyword
 
 " Names of components and groups
-syn keyword futilKeyword component group nextgroup=futilBoundName skipwhite
+syn keyword futilKeyword component group primitive nextgroup=futilBoundName skipwhite
 syn match futilBoundName '\v[_a-zA-Z]((\-+)?[_a-zA-Z0-9]+)*' contained
 hi link futilBoundName Include
 

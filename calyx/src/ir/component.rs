@@ -1,4 +1,6 @@
-use super::{Assignment, Builder, Cell, CellType, Control, Group, Id, RRC};
+use super::{
+    Assignment, Builder, Cell, CellType, Control, Direction, Group, Id, RRC,
+};
 use crate::utils;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -36,26 +38,17 @@ pub struct Component {
 ///   name.
 impl Component {
     /// Construct a new Component with the given `name` and signature fields.
-    pub fn new<S, I, O>(
-        name: S,
-        inputs: Vec<(I, u64)>,
-        outputs: Vec<(O, u64)>,
-    ) -> Self
+    pub fn new<S, N>(name: S, ports: Vec<(N, u64, Direction)>) -> Self
     where
         S: AsRef<str>,
-        I: AsRef<str>,
-        O: AsRef<str>,
+        N: AsRef<str>,
     {
         let this_sig = Builder::cell_from_signature(
             THIS_ID.into(),
             CellType::ThisComponent,
-            inputs
+            ports
                 .into_iter()
-                .map(|(name, width)| (name.as_ref().into(), width))
-                .collect(),
-            outputs
-                .into_iter()
-                .map(|(name, width)| (name.as_ref().into(), width))
+                .map(|(name, w, d)| (name.as_ref().into(), w, d))
                 .collect(),
         );
 

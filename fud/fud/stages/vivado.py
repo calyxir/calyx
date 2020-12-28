@@ -10,7 +10,7 @@ class VivadoStage(Stage):
     def __init__(self, config):
         super().__init__(
             'synth-verilog',
-            'resource-estimate',
+            'synth-files',
             config,
             'Runs synthesis on a Verilog program'
         )
@@ -44,12 +44,36 @@ class VivadoStage(Stage):
             ' vivado -mode batch -source synth.tcl >&2'
         ]))
 
+        # output dir
+        output = Step(SourceType.Nothing)
+
+        def f(inp, ctx):
+            return (Source(ctx['tmpdir_obj'], SourceType.TmpDir), None, 0)
+        output.set_func(f, 'Output synthesis directory.')
+
+        return [mktmp, copy, vivado, output]
+
+
+class VivadoExtractStage(Stage):
+    def __init__(self, config):
+        super().__init__(
+            'synth-files',
+            'resource-estimate',
+            config,
+            'Runs synthesis on a Verilog program'
+        )
+
+    def _define(self):
         # extract
         extract = Step(SourceType.Nothing)
 
         def f(inp, ctx):
-            res = futil_extract(Path(ctx['tmpdir']))
+            res = None
+            if inp.source_type == SourceType.TmpDir:
+                res = futil_extract(Path(inp.data.name))
+            else:
+                res = futil_extract(Path(inp.data))
             return (Source(BytesIO(res.encode('UTF-8')), SourceType.File), None, 0)
         extract.set_func(f, 'Extract information.')
 
-        return [mktmp, copy, vivado, extract]
+        return [extract]

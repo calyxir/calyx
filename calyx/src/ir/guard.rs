@@ -1,13 +1,13 @@
 use super::{Port, RRC};
-use itertools::Itertools;
-use std::ops::{BitAnd, BitOr, Not};
+use std::mem;
+use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use std::{cmp::Ordering, hash::Hash, rc::Rc};
 
 /// An assignment guard which has pointers to the various ports from which it reads.
 #[derive(Debug, Clone)]
 pub enum Guard {
-    Or(Vec<Guard>),
-    And(Vec<Guard>),
+    Or(Box<Guard>, Box<Guard>),
+    And(Box<Guard>, Box<Guard>),
     Eq(Box<Guard>, Box<Guard>),
     Neq(Box<Guard>, Box<Guard>),
     Gt(Box<Guard>, Box<Guard>),
@@ -19,12 +19,18 @@ pub enum Guard {
     True,
 }
 
+impl Default for Guard {
+    fn default() -> Self {
+        Guard::True
+    }
+}
+
 impl Hash for Guard {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            Guard::Or(ors) => ors.iter().for_each(|g| g.hash(state)),
-            Guard::And(ands) => ands.iter().for_each(|g| g.hash(state)),
-            Guard::Eq(l, r)
+            Guard::Or(l, r)
+            | Guard::And(l, r)
+            | Guard::Eq(l, r)
             | Guard::Neq(l, r)
             | Guard::Gt(l, r)
             | Guard::Lt(l, r)
@@ -53,13 +59,9 @@ impl Guard {
         F: Fn(RRC<Port>) -> Option<Guard>,
     {
         match self {
-            Guard::And(ands) => {
-                ands.iter_mut().for_each(|guard| guard.for_each(f))
-            }
-            Guard::Or(ors) => {
-                ors.iter_mut().for_each(|guard| guard.for_each(f))
-            }
             Guard::Eq(l, r)
+            | Guard::And(l, r)
+            | Guard::Or(l, r)
             | Guard::Neq(l, r)
             | Guard::Gt(l, r)
             | Guard::Lt(l, r)
@@ -73,7 +75,7 @@ impl Guard {
             }
             Guard::Port(port) => {
                 let guard = f(Rc::clone(port))
-                    .unwrap_or_else(|| Guard::Port(Rc::clone(port)));
+                    .unwrap_or_else(|| Guard::port(Rc::clone(port)));
                 *self = guard;
             }
             Guard::True => {}
@@ -84,10 +86,9 @@ impl Guard {
     pub fn all_ports(&self) -> Vec<RRC<Port>> {
         match self {
             Guard::Port(a) => vec![Rc::clone(a)],
-            Guard::Or(gs) | Guard::And(gs) => {
-                gs.iter().map(|g| g.all_ports()).flatten().collect()
-            }
-            Guard::Eq(l, r)
+            Guard::And(l, r)
+            | Guard::Or(l, r)
+            | Guard::Eq(l, r)
             | Guard::Neq(l, r)
             | Guard::Gt(l, r)
             | Guard::Lt(l, r)
@@ -102,112 +103,63 @@ impl Guard {
         }
     }
 
+    /// Use `std::mem::take` trick to update the Guard in place
+    #[inline(always)]
+    pub fn update<F>(&mut self, upd: F)
+    where
+        F: FnOnce(Guard) -> Guard,
+    {
+        let old = mem::take(self);
+        let new = upd(old);
+        *self = new;
+    }
+
     /// Return the string corresponding to the guard operation.
     pub fn op_str(&self) -> String {
         match self {
-            Guard::And(_) => "&".to_string(),
-            Guard::Or(_) => "|".to_string(),
-            Guard::Eq(_, _) => "==".to_string(),
-            Guard::Neq(_, _) => "!=".to_string(),
-            Guard::Gt(_, _) => ">".to_string(),
-            Guard::Lt(_, _) => "<".to_string(),
-            Guard::Geq(_, _) => ">=".to_string(),
-            Guard::Leq(_, _) => "<=".to_string(),
-            Guard::Not(_) => "!".to_string(),
-            Guard::Port(_) | Guard::True => {
+            Guard::And(..) => "&".to_string(),
+            Guard::Or(..) => "|".to_string(),
+            Guard::Eq(..) => "==".to_string(),
+            Guard::Neq(..) => "!=".to_string(),
+            Guard::Gt(..) => ">".to_string(),
+            Guard::Lt(..) => "<".to_string(),
+            Guard::Geq(..) => ">=".to_string(),
+            Guard::Leq(..) => "<=".to_string(),
+            Guard::Not(..) => "!".to_string(),
+            Guard::Port(..) | Guard::True => {
                 panic!("No operator string for Guard::Port")
             }
         }
     }
 
-    pub fn flatten(self) -> Self {
-        match self {
-            Guard::Or(ors) => {
-                let mut ors: Vec<_> = ors
-                    .into_iter()
-                    .flat_map(|x| match x {
-                        Guard::Or(v) => v,
-                        x => vec![x],
-                    })
-                    .map(Self::flatten)
-                    .unique()
-                    .collect();
-                if ors.len() == 1 {
-                    ors.remove(0)
-                } else {
-                    Guard::Or(ors)
-                }
-            }
-            Guard::And(ands) => {
-                let mut ands: Vec<_> = ands
-                    .into_iter()
-                    .flat_map(|x| match x {
-                        Guard::And(v) => v,
-                        x => vec![x],
-                    })
-                    .map(Self::flatten)
-                    .unique()
-                    .collect();
-                if ands.len() == 1 {
-                    ands.remove(0)
-                } else {
-                    Guard::And(ands)
-                }
-            }
-            Guard::Eq(l, r) => {
-                Guard::Eq(Box::new(l.flatten()), Box::new(r.flatten()))
-            }
-            Guard::Neq(l, r) => {
-                Guard::Neq(Box::new(l.flatten()), Box::new(r.flatten()))
-            }
-            Guard::Gt(l, r) => {
-                Guard::Gt(Box::new(l.flatten()), Box::new(r.flatten()))
-            }
-            Guard::Lt(l, r) => {
-                Guard::Lt(Box::new(l.flatten()), Box::new(r.flatten()))
-            }
-            Guard::Geq(l, r) => {
-                Guard::Geq(Box::new(l.flatten()), Box::new(r.flatten()))
-            }
-            Guard::Leq(l, r) => {
-                Guard::Leq(Box::new(l.flatten()), Box::new(r.flatten()))
-            }
-            Guard::Not(inner) => Guard::Not(Box::new(inner.flatten())),
-            Guard::Port(_) => self,
-            Guard::True => self,
+    pub fn port(p: RRC<Port>) -> Self {
+        if p.borrow().is_constant(1, 1) {
+            Guard::True
+        } else {
+            Guard::Port(p)
         }
-    }
-
-    pub fn and_vec(mut guards: Vec<Guard>) -> Self {
-        if guards.len() == 1 {
-            return guards.remove(0);
-        }
-
-        // Flatten any nested `And` inside the atoms.
-        let mut flat_atoms: Vec<Guard> = Vec::with_capacity(guards.len());
-        for atom in guards {
-            match atom {
-                Guard::And(mut bs) => flat_atoms.append(&mut bs),
-                _ => flat_atoms.push(atom),
-            }
-        }
-        // Filter out true guards
-        flat_atoms.retain(|guard| {
-            if let Guard::Port(p) = guard {
-                return !p.borrow().is_constant(1);
-            }
-
-            !matches!(guard, Guard::True)
-        });
-        Guard::And(flat_atoms)
     }
 
     pub fn and(self, rhs: Guard) -> Self {
-        Guard::and_vec(vec![self, rhs])
+        if rhs == Guard::True {
+            self
+        } else if self == Guard::True {
+            rhs
+        } else if self == rhs {
+            self
+        } else {
+            Guard::And(Box::new(self), Box::new(rhs))
+        }
     }
 
-    pub fn or(self, other: Guard) -> Self {
-        Guard::Or(vec![self, other])
+    pub fn or(self, rhs: Guard) -> Self {
+        if rhs == Guard::True || self == Guard::True {
+            Guard::True
+        } else if self == rhs {
+            self
+        } else {
+            Guard::Or(Box::new(self), Box::new(rhs))
+        }
     }
 
     pub fn eq(self, other: Guard) -> Self {
@@ -245,10 +197,9 @@ impl From<RRC<Port>> for Guard {
 impl PartialEq for Guard {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Guard::Or(a), Guard::Or(b)) | (Guard::And(a), Guard::And(b)) => {
-                a == b
-            }
-            (Guard::Eq(la, ra), Guard::Eq(lb, rb))
+            (Guard::Or(la, ra), Guard::Or(lb, rb))
+            | (Guard::And(la, ra), Guard::And(lb, rb))
+            | (Guard::Eq(la, ra), Guard::Eq(lb, rb))
             | (Guard::Neq(la, ra), Guard::Neq(lb, rb))
             | (Guard::Gt(la, ra), Guard::Gt(lb, rb))
             | (Guard::Lt(la, ra), Guard::Lt(lb, rb))
@@ -279,7 +230,7 @@ impl PartialOrd for Guard {
 impl Ord for Guard {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Guard::Or(_), Guard::Or(_))
+            (Guard::Or(..), Guard::Or(..))
             | (Guard::And(..), Guard::And(..))
             | (Guard::Eq(..), Guard::Eq(..))
             | (Guard::Neq(..), Guard::Neq(..))
@@ -290,10 +241,10 @@ impl Ord for Guard {
             | (Guard::Not(..), Guard::Not(..))
             | (Guard::Port(..), Guard::Port(..))
             | (Guard::True, Guard::True) => Ordering::Equal,
-            (Guard::Or(_), _) => Ordering::Greater,
-            (_, Guard::Or(_)) => Ordering::Less,
-            (Guard::And(_), _) => Ordering::Greater,
-            (_, Guard::And(_)) => Ordering::Less,
+            (Guard::Or(..), _) => Ordering::Greater,
+            (_, Guard::Or(..)) => Ordering::Less,
+            (Guard::And(..), _) => Ordering::Greater,
+            (_, Guard::And(..)) => Ordering::Less,
             (Guard::Leq(..), _) => Ordering::Greater,
             (_, Guard::Leq(..)) => Ordering::Less,
             (Guard::Geq(..), _) => Ordering::Greater,
@@ -358,5 +309,25 @@ impl Not for Guard {
             Guard::Not(expr) => *expr,
             _ => Guard::Not(Box::new(self)),
         }
+    }
+}
+
+/// Update a Guard with Or.
+/// ```
+/// g1 |= g2;
+/// ```
+impl BitOrAssign for Guard {
+    fn bitor_assign(&mut self, other: Self) {
+        self.update(|old| old | other)
+    }
+}
+
+/// Update a Guard with Or.
+/// ```
+/// g1 &= g2;
+/// ```
+impl BitAndAssign for Guard {
+    fn bitand_assign(&mut self, other: Self) {
+        self.update(|old| old & other)
     }
 }

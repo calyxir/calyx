@@ -124,6 +124,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
+        args: --all
 
     - name: Install MrXL
       run: |
@@ -155,12 +156,12 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: fmt
-        args: -- --check
+        args: --all -- --check
     - name: Run clippy
       uses: actions-rs/cargo@v1
       with:
         command: clippy
-        args: -- --deny warnings
+        args: --all -- --deny warnings
 
   docs:
     runs-on: ubuntu-latest

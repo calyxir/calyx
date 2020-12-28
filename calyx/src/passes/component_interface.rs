@@ -1,7 +1,6 @@
 use crate::errors::Error;
-use crate::frontend::library::ast as lib;
-use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::ir::{self, LibrarySignatures};
 use crate::{build_assignments, guard, structure};
 use std::rc::Rc;
 
@@ -39,7 +38,7 @@ impl Named for ComponentInterface {
     }
 
     fn description() -> &'static str {
-        "create a go/done interface for components and wire up a single enable to this interface"
+        "wire up a single enable to the go/done interface in a component"
     }
 }
 
@@ -47,7 +46,7 @@ impl Visitor for ComponentInterface {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         let control_ref = Rc::clone(&comp.control);
         let control = control_ref.borrow();
