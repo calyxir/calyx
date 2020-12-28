@@ -74,11 +74,9 @@ class TrivialPath(FudError):
         super().__init__(msg)
 
 
-class SourceConversion(FudError):
+class ConversionError(FudError):
     """
-    Can't convert to a particular source type.
+    Failed to convert data in one representation to another representation.
     """
-
-    def __init__(self, source_t, dst_t):
-        msg = f"Can't convert from {source_t} to {dst_t}"
-        super().__init__(msg)
+    def __init__(self, msg):
+        msg = f"Data conversion error: {msg}"
