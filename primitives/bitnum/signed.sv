@@ -9,7 +9,7 @@ module std_slsh #(
     input  signed [width-1:0] right,
     output signed [width-1:0] out
 );
-  assign out = $signed(left << right);
+  assign out = left <<< right;
 endmodule
 
 module std_srsh #(
@@ -19,7 +19,7 @@ module std_srsh #(
     input  signed [width-1:0] right,
     output signed [width-1:0] out
 );
-  assign out = $signed(left >> right);
+  assign out = left >>> right;
 endmodule
 
 module std_sadd #(
@@ -54,7 +54,20 @@ module std_smod_pipe #(
     output reg                done
 );
 
-  logic [width-1:0] dividend;
+
+  always_ff @(posedge clk) begin
+    if (go) begin
+      done <= 1;
+      out <= $signed(((left % right) + right) % right);
+    end else begin
+      done <= 0;
+      out <= 0;
+    end
+  end
+
+  // TODO(rachit): This implementation is incorrect. It generates something
+  // that is not the modulus of the input.
+  /*logic [width-1:0] dividend;
   logic [(width-1)*2:0] divisor;
   logic [width-1:0] quotient;
   logic [width-1:0] quotient_msk;
@@ -63,7 +76,6 @@ module std_smod_pipe #(
 
   // TODO(rachit): Initial values are not synthesizable. Remove this.
   assign start = go && !running && !reset;
-
   always @(posedge clk) begin
     if (reset || !go) begin
       running <= 0;
@@ -77,22 +89,22 @@ module std_smod_pipe #(
     if (start) begin
       running <= 1;
       dividend <= left;
-      divisor <= $signed(right << width - 1);
+      divisor <= (right <<< width - 1);
       quotient <= 0;
-      quotient_msk <= $signed(1 << width - 1);
+      quotient_msk <= (1 <<< width - 1);
     end else if (!quotient_msk && running) begin
       running <= 0;
       done <= 1;
       out <= dividend;
     end else begin
       if (divisor <= dividend) begin
-        dividend <= $signed(dividend - divisor);
-        quotient <= $signed(quotient | quotient_msk);
+        dividend <= (dividend - divisor);
+        quotient <= (quotient | quotient_msk);
       end
-      divisor <= $signed(divisor >> 1);
-      quotient_msk <= $signed(quotient_msk >> 1);
+      divisor <= (divisor >>> 1);
+      quotient_msk <= (quotient_msk >>> 1);
     end
-  end
+  end*/
 endmodule
 
 module std_smult_pipe #(
