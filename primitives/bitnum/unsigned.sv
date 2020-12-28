@@ -163,6 +163,7 @@ module std_sqrt (
   logic [15:0] q;
   logic [17:0] left, right, r;
   integer i;
+
   always_ff @(posedge clk) begin
     if (go && i == 0) begin
       // initialize all the variables.
@@ -199,6 +200,19 @@ module std_sqrt (
       done <= 0;
     end
   end
+
+  `ifdef VERILATOR
+    // Simulation self test against unsynthesizable implementation.
+    always @(posedge clk) begin
+      if (done && out != $sqrt(in))
+        $error(
+          "\nstd_sqrt: Computed and golden outputs do not match!\n",
+          "input: %0d", in,
+          "expected: %0d", in,
+          "  computed: %0d", out
+        );
+    end
+  `endif
 endmodule
 
 // ===============Signed operations that wrap unsigned ones ===============
