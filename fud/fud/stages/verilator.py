@@ -50,18 +50,15 @@ class VerilatorStage(Stage):
         verilator.set_cmd(" ".join([
             self.cmd,
             '-cc',
-            # Don't trace if we're only looking at memory outputs
             '--trace',
             '{ctx[input_path]}',
             "--exe " + " --exe ".join(testbench_files),
+            '--build',
             '--top-module', self.config['stages', self.name, 'top_module'],
             '--Mdir',
             '{ctx[tmpdir]}',
             '1>&2'
         ]))
-
-        make = Step(SourceType.Nothing)
-        make.set_cmd("make -j -C {ctx[tmpdir]} -f Vmain.mk Vmain 1>&2")
 
         run = Step(SourceType.Nothing)
         run.set_cmd(" ".join([
@@ -69,6 +66,7 @@ class VerilatorStage(Stage):
             '{ctx[tmpdir]}/Vmain',
             '{ctx[tmpdir]}/output.vcd',
             str(self.config['stages', self.name, 'cycle_limit']),
+            # Don't trace if we're only looking at memory outputs
             '--trace' if self.vcd else '',
             '1>&2'
         ]))
@@ -94,4 +92,4 @@ class VerilatorStage(Stage):
             return (inp, None, 0)
         cleanup.set_func(f, "Cleanup tmp directory.")
 
-        return [mktmp, data, verilator, make, run, extract, cleanup]
+        return [mktmp, data, verilator, run, extract, cleanup]
