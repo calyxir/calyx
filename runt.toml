@@ -118,3 +118,10 @@ paths = [ "frontends/mrxl/test/*.mrxl" ]
 cmd = """
 fud e -q {} --from mrxl --to dat -s verilog.data {}.data
 """
+
+[[tests]]
+name = "NTT"
+paths = [ "ntt/*.fuse"]
+cmd = """
+fud e {} --to dat -s verilog.data ntt/ntt.data -q
+"""
