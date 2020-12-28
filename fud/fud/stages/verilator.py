@@ -55,7 +55,7 @@ class VerilatorStage(Stage):
             '{ctx[input_path]}',
             "--exe " + " --exe ".join(testbench_files),
             '--top-module', self.config['stages', self.name, 'top_module'],
-            '--x-assign', 0,
+            '--x-assign', str(0),
             '--Mdir',
             '{ctx[tmpdir]}',
             '1>&2'
