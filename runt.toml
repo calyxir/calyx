@@ -120,7 +120,7 @@ fud e -q {} --from mrxl --to dat -s verilog.data {}.data
 """
 
 [[tests]]
-name = "NTT"
+name = "NTT correctness"
 paths = [ "ntt/cooley-tukey/*.fuse", "ntt/naive/*.fuse" ]
 expect_dir = "ntt/expected"
 cmd = """
