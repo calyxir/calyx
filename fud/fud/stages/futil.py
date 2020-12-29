@@ -14,10 +14,6 @@ class FutilStage(Stage):
             '-l', self.config['global', "futil_directory"],
             self.flags,
             unwrap_or(self.config['stages', self.name, 'flags'], ''),
-            '{ctx[last]}'
 
         ]))
-        main.last_context = {
-            'last': '--force-color'
-        }
         return [main]
