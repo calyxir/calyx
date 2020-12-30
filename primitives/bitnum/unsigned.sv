@@ -151,6 +151,11 @@ module std_div_pipe #(
   end
 endmodule
 
+// TODO(rachit): This implementation is "broken": it uses blocking
+// assingments (=) inside `always_ff` blocks which is discouraged
+// for building synthesizable designs.
+// Chaging the design to just non-blocking assignments (<=) doesn't work
+// becasue (<=) doesn't impose sequentiality.
 module std_sqrt (
     input  logic [31:0] in,
     input  logic        go,
@@ -167,37 +172,37 @@ module std_sqrt (
   always_ff @(posedge clk) begin
     if (go && i == 0) begin
       // initialize all the variables.
-      a <= in;
-      q <= 0;
-      i <= 1;
-      left <= 0;  // input to adder/sub
-      right <= 0;  // input to adder/sub
-      r <= 0;  // remainder
+      a = in;
+      q = 0;
+      i = 1;
+      left = 0;  // input to adder/sub
+      right = 0;  // input to adder/sub
+      r = 0;  // remainder
       // run the calculations for 16 iterations.
     end else if (go && i <= 16) begin
-      right <= {q, r[17], 1'b1};
-      left <= {r[15:0], a[31:30]};
-      a <= {a[29:0], 2'b00};  //left shift by 2 bits.
+      right = {q, r[17], 1'b1};
+      left = {r[15:0], a[31:30]};
+      a = {a[29:0], 2'b00};  //left shift by 2 bits.
       if (r[17] == 1)  //add if r is negative
-        r <= left + right;
+        r = left + right;
       else  //subtract if r is positive
-        r <= left - right;
-      q <= {q[14:0], !r[17]};
+        r = left - right;
+      q = {q[14:0], !r[17]};
 
       if (i == 16) begin
-        out <= {16'd0, q};  //final assignment of output.
-        i <= 0;
-        done <= 1;
-      end else i <= i + 1;
+        out = {16'd0, q};  //final assignment of output.
+        i = 0;
+        done = 1;
+      end else i = i + 1;
     end else begin
       // initialize all the variables.
-      a <= in;
-      q <= 0;
-      i <= 0;
-      left <= 0;  // input to adder/sub
-      right <= 0;  // input to adder/sub
-      r <= 0;  // remainder
-      done <= 0;
+      a = in;
+      q = 0;
+      i = 0;
+      left = 0;  // input to adder/sub
+      right = 0;  // input to adder/sub
+      r = 0;  // remainder
+      done = 0;
     end
   end
 
