@@ -68,7 +68,6 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
             Inliner,
             ClkInsertion,
             MergeAssign,
-            SimplifyGuards
         ]
     );
 
