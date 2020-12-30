@@ -151,11 +151,10 @@ module std_div_pipe #(
   end
 endmodule
 
-// TODO(rachit): This implementation is "broken": it uses blocking
-// assingments (=) inside `always_ff` blocks which is discouraged
-// for building synthesizable designs.
-// Chaging the design to just non-blocking assignments (<=) doesn't work
-// becasue (<=) doesn't impose sequentiality.
+/**
+* Implements the non-restoring square root algorithm's iterative
+* implementation (Figure 8): https://ieeexplore.ieee.org/document/563604
+*/
 module std_sqrt (
     input  logic [31:0] in,
     input  logic        go,
@@ -163,53 +162,78 @@ module std_sqrt (
     output logic [31:0] out,
     output logic        done
 );
+  // Done state
+  localparam END = 17;
+
   // declare the variables
   logic [31:0] a;
-  logic [15:0] q;
-  logic [17:0] left, right, r;
-  integer i;
+  logic [15:0] Q;
+  logic [17:0] left, right, R;
+  logic [17:0] tmp;
+  logic [5:0] i;
 
+  // Input to the add/sub circuit.
+  assign right = {Q, R[17], 1'b1};
+  assign left = {R[15:0], a[31:30]};
+
+  // Output is based on current value of r
+  always_comb begin
+    if (R[17] == 1)
+      tmp = left + right;
+    else
+      tmp = left - right;
+  end
+
+  // Update the current iteration counter
   always_ff @(posedge clk) begin
-    if (go && i == 0) begin
-      // initialize all the variables.
-      a = in;
-      q = 0;
-      i = 1;
-      left = 0;  // input to adder/sub
-      right = 0;  // input to adder/sub
-      r = 0;  // remainder
-      // run the calculations for 16 iterations.
-    end else if (go && i <= 16) begin
-      right = {q, r[17], 1'b1};
-      left = {r[15:0], a[31:30]};
-      a = {a[29:0], 2'b00};  //left shift by 2 bits.
-      if (r[17] == 1)  //add if r is negative
-        r = left + right;
-      else  //subtract if r is positive
-        r = left - right;
-      q = {q[14:0], !r[17]};
+    if (go && i < END)
+      i <= i + 1;
+    else
+      i <= 0;
+  end
 
-      if (i == 16) begin
-        out = {16'd0, q};  //final assignment of output.
-        i = 0;
-        done = 1;
-      end else i = i + 1;
+  // Done signal and final value
+  always_ff @(posedge clk) begin
+    if (i == END) begin
+      done <= 1;
+      out <= {16'd0, Q};
     end else begin
-      // initialize all the variables.
-      a = in;
-      q = 0;
-      i = 0;
-      left = 0;  // input to adder/sub
-      right = 0;  // input to adder/sub
-      r = 0;  // remainder
-      done = 0;
+      done <= 0;
+      out <= 0;
     end
   end
 
+  // Quotient and remainder updates
+  always_ff @(posedge clk) begin
+    if (go && i < END) begin
+      Q <= {Q[14:0], !tmp[17]};
+      R <= tmp;
+    end else begin
+      Q <= 0;
+      R <= 0;
+    end
+  end
+
+  // Input stream update
+  always_ff @(posedge clk) begin
+    if (go) begin
+      if (i == 0) begin
+        a <= in;
+      end else if (i < END) begin
+        a <= {a[29:0], 2'b00};
+      end else begin
+        a <= 0;
+      end
+    end else begin
+      a <= 0;
+    end
+  end
+
+  // Simulation self test against unsynthesizable implementation.
   `ifdef VERILATOR
-    // Simulation self test against unsynthesizable implementation.
+    // Save the original value of the input
     always @(posedge clk) begin
-      if (done && out != $floor($sqrt(in)))
+      if (i == END && Q != $floor($sqrt(in)))
         $error(
           "\nstd_sqrt: Computed and golden outputs do not match!\n",
           "input: %0d\n", in,
@@ -219,6 +243,7 @@ module std_sqrt (
         );
     end
   `endif
+
 endmodule
 
 // ===============Signed operations that wrap unsigned ones ===============
@@ -294,7 +319,7 @@ module std_sdiv_pipe #(
     .done(done),
     .go(go),
     .left(left_abs),
-    .right(right),
+    .right(right_abs),
     .out(comp_out)
   );
 
