@@ -1,3 +1,4 @@
+// -d infer-static-timing -d static-timing -d well-formed -d papercut -d resource-sharing
 import "primitives/std.lib";
 
 component main() -> () {
