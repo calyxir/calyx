@@ -204,11 +204,12 @@ module std_sqrt (
   `ifdef VERILATOR
     // Simulation self test against unsynthesizable implementation.
     always @(posedge clk) begin
-      if (done && out != $sqrt(in))
+      if (done && out != $floor($sqrt(in)))
         $error(
           "\nstd_sqrt: Computed and golden outputs do not match!\n",
-          "input: %0d", in,
-          "expected: %0d", in,
+          "input: %0d\n", in,
+          /* verilator lint_off REALCVT */
+          "expected: %0d", $floor($sqrt(in)),
           "  computed: %0d", out
         );
     end
