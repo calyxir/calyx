@@ -1,3 +1,4 @@
+//! Interface for a FuTIL backend.
 use crate::{errors::FutilResult, ir, utils::OutputFile};
 
 /// A backend for FuTIL.

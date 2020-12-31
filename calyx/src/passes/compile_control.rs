@@ -11,9 +11,13 @@ use std::convert::TryInto;
 use std::rc::Rc;
 
 #[derive(Default)]
-/// Primary lowering pass. Transforms all control constructs in a program
-/// into groups that enable `go` and `done` holes. After this pass runs,
-/// there is exactly one group enable in the control.
+/// **Reference lowering pass**. Traverses a control program bottom-up and
+/// transforms each control sub-program into a single enable statement.
+/// *Not used in the default compilation pipeline.*
+///
+/// This pass uses an older compilation strategy that generates worse FSM-controller.
+/// It is left in-tree because it serves as a second source of truth for the
+/// lowering process.
 pub struct CompileControl;
 
 impl Named for CompileControl {

@@ -5,7 +5,7 @@ use crate::ir::Control;
 /// Result of performing a visit.
 pub type VisResult = FutilResult<Action>;
 
-/// A visit action.
+/// Action performed at the end of visiting a control statement.
 pub enum Action {
     /// Continue traversal of control program.
     Continue,

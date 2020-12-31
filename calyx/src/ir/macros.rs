@@ -1,4 +1,7 @@
-/// Convinience macro to get a port and turn it into an ir::Guard.
+/// Convinience macro to get a port and turn it into an [`ir::Guard`](crate::ir::Guard).
+///
+/// The identifier should either be a [`ir::Group`](crate::ir::Group) or an
+/// [`ir::Cell`](crate::ir::Cell).
 /// Example:
 /// ```
 /// let fsm_out = guard!(fsm["out"]);
@@ -12,8 +15,10 @@ macro_rules! guard {
 
 /// Add primitives and constants to the component and `let`-bind the
 /// references.
+///
 /// Example:
 /// ```
+/// let builder = ir::Builder::from(&mut component, &sigs, validate);
 /// structure!(builder;
 ///     let signal_on = constant(1, 32); // Define 32-bit constant 1.
 ///     let fsm_reg = prim std_reg(32);  // Define 32-bit register.
@@ -41,7 +46,7 @@ macro_rules! structure {
 }
 
 /// Build guarded assignment statements and return a vector containing them.
-/// **Note**: Guards used in the assignments are `cloned`.
+///
 /// The macro accepts two forms:
 /// ```
 /// build_assignments!(builder;
@@ -49,6 +54,7 @@ macro_rules! structure {
 ///     fsm["in"] = guard ? add["out"];
 /// )
 /// ```
+/// **Note**: Guards used in the assignments are `cloned`.
 #[macro_export]
 macro_rules! build_assignments {
     // Unguarded assignment.

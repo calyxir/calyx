@@ -42,6 +42,7 @@ impl From<Expr<ir::Guard>> for ir::Guard {
 
 #[derive(Default)]
 /// Simplify guards using BDDs and other heuristic tricks.
+/// *Not used in the default compilation pipeline.*
 pub struct SimplifyGuards;
 
 impl Named for SimplifyGuards {
