@@ -21,22 +21,6 @@ struct Schedule {
 }
 
 impl Schedule {
-    /// Merge all the transition guards for a given (initial, final) state
-    /// pair. Guarantees that after calling, the Schedule will only contain
-    /// unique (initial, final) state pairs.
-    fn merge_transitions(&mut self) {
-        let mut transition_map = HashMap::with_capacity(self.transitions.len());
-        for (init, fin, guard) in self.transitions.drain(..) {
-            transition_map
-                .entry((init, fin))
-                .or_insert_with(|| !ir::Guard::True)
-                .update(|og| og.or(guard))
-        }
-        self.transitions = transition_map
-            .into_iter()
-            .map(|((i, f), g)| (i, f, g))
-            .collect();
-    }
 
     /// Validate that all states are reachable in the transition graph.
     /// TODO
@@ -87,9 +71,9 @@ fn realize_schedule(
     builder: &mut ir::Builder,
 ) -> RRC<ir::Group> {
     schedule.validate();
-    schedule.display();
     let final_state = schedule.last_state();
-    let fsm_size = get_bit_width_from(final_state + 1 /* represent 0..final_state */);
+    let fsm_size =
+        get_bit_width_from(final_state + 1 /* represent 0..final_state */);
     structure!(builder;
         let fsm = prim std_reg(fsm_size);
         let signal_on = constant(1, 1);
@@ -109,7 +93,7 @@ fn realize_schedule(
             .flat_map(|(state, mut assigns)| {
                 let state_const = builder.add_constant(state, fsm_size);
                 let state_guard =
-                    guard!(state_const["out"]).eq(guard!(fsm["out"]));
+                    guard!(fsm["out"]).eq(guard!(state_const["out"]));
                 assigns.iter_mut().for_each(|asgn| {
                     asgn.guard.update(|g| g.and(state_guard.clone()))
                 });
@@ -471,7 +455,7 @@ impl Visitor for TopDownCompileControl {
     ) -> VisResult {
         // Do not try to compile an enable
         if matches!(*comp.control.borrow(), ir::Control::Enable(..)) {
-            return Ok(Action::Stop)
+            return Ok(Action::Stop);
         }
         let control = Rc::clone(&comp.control);
         let mut builder = ir::Builder::from(comp, sigs, false);
