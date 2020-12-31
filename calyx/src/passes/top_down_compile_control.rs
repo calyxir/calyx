@@ -387,28 +387,30 @@ impl Visitor for TopDownCompileControl {
             let signal_off = constant(0, 1);
         );
 
-        let groups = s
+        let done_regs = s
             .stmts
             .iter()
-            .map(|con| match con {
-                ir::Control::Enable(ir::Enable { group }) => Rc::clone(group),
-                _ => {
-                    let mut schedule = Schedule::default();
-                    calculate_states(
-                        &con,
-                        0,
-                        &ir::Guard::True,
-                        &mut schedule,
-                        &mut builder,
-                    );
-                    realize_schedule(schedule, &mut builder)
-                }
-            })
-            .collect::<Vec<_>>();
+            .map(|con| {
+                let group = match con {
+                    // Do not compile enables
+                    ir::Control::Enable(ir::Enable { group }) => {
+                        Rc::clone(group)
+                    }
+                    _ => {
+                        // Compile complex schedule and return the group.
+                        let mut schedule = Schedule::default();
+                        calculate_states(
+                            &con,
+                            0,
+                            &ir::Guard::True,
+                            &mut schedule,
+                            &mut builder,
+                        );
+                        realize_schedule(schedule, &mut builder)
+                    }
+                };
 
-        let done_regs = groups
-            .into_iter()
-            .map(|group| {
+                // Build circuitry to enable and disable this group.
                 structure!(builder;
                     let pd = prim std_reg(1);
                 );
@@ -447,6 +449,7 @@ impl Visitor for TopDownCompileControl {
             .continuous_assignments
             .append(&mut cleanup);
 
+        // Done conditional for this group.
         let done = builder.build_assignment(
             par_group.borrow().get("done"),
             signal_on.borrow().get("out"),
