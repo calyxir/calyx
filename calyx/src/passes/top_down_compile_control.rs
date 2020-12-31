@@ -8,6 +8,7 @@ use crate::{build_assignments, guard, structure};
 use ir::IRPrinter;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
+use petgraph::{algo::connected_components, graph::DiGraph};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -21,11 +22,19 @@ struct Schedule {
 }
 
 impl Schedule {
-
     /// Validate that all states are reachable in the transition graph.
-    /// TODO
     fn validate(&self) {
-        debug_assert!(true);
+        let graph = DiGraph::<(), u32>::from_edges(
+            &self
+                .transitions
+                .iter()
+                .map(|(s, e, _)| (*s as u32, *e as u32))
+                .collect::<Vec<_>>(),
+        );
+
+        debug_assert!(
+            connected_components(&graph) == 1,
+            "State transition graph has unreachable states (graph has more than one connected component).");
     }
 
     /// Return the max state in the transition graph
