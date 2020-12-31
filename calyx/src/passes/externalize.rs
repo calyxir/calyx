@@ -89,9 +89,6 @@ impl Visitor for Externalize {
                 // Change the name and the parent of this port.
                 port_ref.borrow_mut().name =
                     format_port_name(&name, &port_name);
-                // Flip the direction of the port.
-                let new_dir = port_ref.borrow().direction.reverse();
-                port_ref.borrow_mut().direction = new_dir;
                 // Point to the signature cell as its parent
                 port_ref.borrow_mut().parent =
                     ir::PortParent::Cell(WRC::from(&comp.signature));
