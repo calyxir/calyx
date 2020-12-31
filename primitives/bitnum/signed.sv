@@ -45,17 +45,18 @@ endmodule
 module std_smult_pipe #(
     parameter width = 32
 ) (
-    input  logic              go,
-    input  logic              clk,
-    input  signed [width-1:0] left,
-    input  signed [width-1:0] right,
-    output signed [width-1:0] out,
-    output logic              done
+    input  logic                    go,
+    input  logic                    clk,
+    input  signed       [width-1:0] left,
+    input  signed       [width-1:0] right,
+    output signed logic [width-1:0] out,
+    output logic                    done
 );
   logic signed [width-1:0] rtmp;
   logic signed [width-1:0] ltmp;
   logic signed [width-1:0] out_tmp;
-  reg done_buf[1:0];
+  logic done_buf[1:0];
+
   always_ff @(posedge clk) begin
     if (go) begin
       rtmp <= right;

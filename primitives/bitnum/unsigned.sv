@@ -2,22 +2,21 @@
 module std_mod_pipe #(
     parameter width = 32
 ) (
-    input                  clk,
-    input                  go,
-    input      [width-1:0] left,
-    input      [width-1:0] right,
-    output reg [width-1:0] out,
-    output reg             done
+    input                    clk,
+    input                    go,
+    input        [width-1:0] left,
+    input        [width-1:0] right,
+    output logic [width-1:0] out,
+    output logic             done
 );
 
-  wire start = go && !running;
+  logic [width-1:0] dividend;
+  logic [(width-1)*2:0] divisor;
+  logic [width-1:0] quotient;
+  logic [width-1:0] quotient_msk;
+  logic start, running, finished;
 
-  reg [width-1:0] dividend;
-  reg [(width-1)*2:0] divisor;
-  reg [width-1:0] quotient;
-  reg [width-1:0] quotient_msk;
-  reg running, finished;
-
+  assign start = go && !running;
   assign finished = !quotient_msk && running;
 
   always @(posedge clk) begin
@@ -29,6 +28,7 @@ module std_mod_pipe #(
       out <= 0;
       done <= 1;
     end
+
     if (start) begin
       running <= 1;
       dividend <= left;
@@ -255,8 +255,8 @@ module std_smod_pipe #(
     input                     go,
     input  signed [width-1:0] left,
     input  signed [width-1:0] right,
-    output reg    [width-1:0] out,
-    output reg                done
+    output logic  [width-1:0] out,
+    output logic              done
 );
 
   logic signed [width-1:0] left_abs;
@@ -299,8 +299,8 @@ module std_sdiv_pipe #(
     input                     go,
     input  signed [width-1:0] left,
     input  signed [width-1:0] right,
-    output reg    [width-1:0] out,
-    output reg                done
+    output logic  [width-1:0] out,
+    output logic              done
 );
 
   logic signed [width-1:0] left_abs;
@@ -379,8 +379,9 @@ module std_exp (
 );
   always_ff @(posedge clk) begin
     if (go) begin
+      // XXX: This is a hilariously bad approximation
       /* verilator lint_off REALCVT */
-      out <= 2.718281 ** exponent;
+      out <= /* 2.718281 */ 3 ** exponent;
       done <= 1;
     end else begin
       out <= 0;
