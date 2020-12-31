@@ -21,6 +21,7 @@ impl Zero for NonZeroBool {
     }
 }
 
+/// Defines a greedy graph coloring algorithm over a generic conflict graph.
 pub struct GraphColoring<T: Eq + Hash> {
     graph: UnMatrix<T, NonZeroBool>,
     index_map: HashMap<T, NodeIndex>,

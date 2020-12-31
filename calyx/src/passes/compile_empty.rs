@@ -5,8 +5,15 @@ use linked_hash_map::LinkedHashMap;
 use std::rc::Rc;
 
 #[derive(Default)]
-/// Compiles away all `empty` statements in a FuTIL program to a group that is
-/// always active.
+/// Compiles away all [`ir::Empty`](crate::ir::Empty) statements into an
+/// [`ir::Enable`](crate::ir::Enable).
+///
+/// The generated program enables the following group:
+/// ```
+/// group _empty {
+///     _empty["done"] = 1'd1;
+/// }
+/// ```
 pub struct CompileEmpty {}
 
 impl CompileEmpty {

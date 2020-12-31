@@ -3,6 +3,8 @@ use crate::ir::{self, LibrarySignatures};
 use crate::{build_assignments, structure};
 use linked_hash_map::LinkedHashMap;
 
+/// Compiles [`ir::Invoke`](crate::ir::Invoke) statements into an [`ir::Enable`](crate::ir::Enable)
+/// that runs the invoked component.
 #[derive(Default)]
 pub struct CompileInvoke;
 

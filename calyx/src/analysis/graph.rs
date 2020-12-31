@@ -15,10 +15,11 @@ type Edge = ();
 /// information.
 pub type CellGraph = DiGraph<Node, Edge>;
 
-/// Constructs a graph based representation of a component. Each port is
-/// represented as a node, and each edge represents a read/write between ports.
+/// Constructs a graph based representation of a component. Each node represents
+/// a [`ir::Port`](crate::ir::Port) and each directed edge (`X -> Y`) means
+/// that `X`'s value is read in an assignment to `Y`.
 ///
-/// For example:
+/// # Example
 ///  ```
 ///  c.in = G[done] & b.done ? add.out
 ///  ```
@@ -217,6 +218,7 @@ impl GraphAnalysis {
         Self { graph, nodes }
     }
 
+    /// Returns all the [`Port`](crate::ir::Port) associated with this instance.
     pub fn ports(&self) -> Vec<RRC<ir::Port>> {
         self.graph
             .raw_nodes()

@@ -3,6 +3,33 @@ use crate::ir::{self, LibrarySignatures};
 
 #[derive(Default)]
 /// Collapses and de-nests control constructs.
+///
+/// Running this pass removes unnecessary FSM transitions and compilation
+/// groups during the lowering phase.
+///
+/// # Example
+/// 1. Collapses nested `seq`:
+/// ```
+/// seq {
+///     seq { A; B }
+///     C;
+/// }
+/// ```
+/// into
+/// ```
+/// seq { A; B C; }
+/// ```
+/// 2. Collapses nested `par`:
+/// ```
+/// par {
+///     par { A; B }
+///     C;
+/// }
+/// ```
+/// into
+/// ```
+/// par { A; B C; }
+/// ```
 pub struct CollapseControl {}
 
 impl Named for CollapseControl {

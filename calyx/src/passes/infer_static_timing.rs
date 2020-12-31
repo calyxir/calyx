@@ -1,9 +1,3 @@
-//! Statically infers the number of cycles for groups where the `done`
-//! signal relies only on other `done` signals, and then inserts "static"
-//! annotations with those inferred values. If there is an existing
-//! annotation in a group that differs from an inferred value, this
-//! pass will throw an error. If a group's `done` signal relies on signals
-//! that are not only `done` signals, this pass will ignore that group.
 use std::collections::HashMap;
 
 use crate::analysis::{GraphAnalysis, ReadWriteSet};
@@ -13,6 +7,14 @@ use crate::ir::RRC;
 use crate::ir::{self, LibrarySignatures};
 use std::rc::Rc;
 
+/// Infer "static" annotation for groups.
+///
+/// Statically infers the number of cycles for groups where the `done`
+/// signal relies only on other `done` signals, and then inserts "static"
+/// annotations with those inferred values. If there is an existing
+/// annotation in a group that differs from an inferred value, this
+/// pass will throw an error. If a group's `done` signal relies on signals
+/// that are not only `done` signals, this pass will ignore that group.
 pub struct InferStaticTiming<'a> {
     /// primitive name -> (go signal, done signal, latency)
     prim_latency_data: HashMap<&'a str, (&'a str, &'a str, u64)>,

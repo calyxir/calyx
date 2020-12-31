@@ -6,6 +6,7 @@ use crate::ir::{
 };
 use std::collections::HashSet;
 
+/// Removes unused cells from components.
 #[derive(Default)]
 pub struct DeadCellRemoval;
 

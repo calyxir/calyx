@@ -1,5 +1,6 @@
 //! SystemVerilog backend for the FuTIL compiler.
-//! Transforms an `ir::Context` into a formatted string that represents a
+//!
+//! Transforms an [`ir::Context`](crate::ir::Context) into a formatted string that represents a
 //! valid SystemVerilog program.
 
 use crate::{

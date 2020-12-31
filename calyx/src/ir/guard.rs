@@ -6,16 +6,27 @@ use std::{cmp::Ordering, hash::Hash, rc::Rc};
 /// An assignment guard which has pointers to the various ports from which it reads.
 #[derive(Debug, Clone)]
 pub enum Guard {
+    /// Represents `c1 || c2`.
     Or(Box<Guard>, Box<Guard>),
+    /// Represents `c1 && c2`.
     And(Box<Guard>, Box<Guard>),
+    /// Represents `p1 == p2`.
     Eq(Box<Guard>, Box<Guard>),
+    /// Represents `p1 != p2`.
     Neq(Box<Guard>, Box<Guard>),
+    /// Represents `p1 > p2`.
     Gt(Box<Guard>, Box<Guard>),
+    /// Represents `p1 < p2`.
     Lt(Box<Guard>, Box<Guard>),
+    /// Represents `p1 >= p2`.
     Geq(Box<Guard>, Box<Guard>),
+    /// Represents `p1 <= p2`.
     Leq(Box<Guard>, Box<Guard>),
+    /// Represents `!c1`
     Not(Box<Guard>),
+    /// Uses the value on a port as the condition. Same as `p1 == true`
     Port(RRC<Port>),
+    /// The constant true
     True,
 }
 
@@ -103,7 +114,8 @@ impl Guard {
         }
     }
 
-    /// Use `std::mem::take` trick to update the Guard in place
+    /// Update the guard in place. Replaces this guard with `upd(self)`.
+    /// Uses `std::mem::take` for the in-place update.
     #[inline(always)]
     pub fn update<F>(&mut self, upd: F)
     where

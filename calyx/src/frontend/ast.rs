@@ -7,10 +7,32 @@ use linked_hash_map::LinkedHashMap;
 use std::io::stdin;
 use std::path::{Path, PathBuf};
 
-/// Top level AST statement. This contains a list of Component definitions.
+/// Represents the parsed AST of a complete program. Contains all the components
+/// and primitives that were encountered during the parsing the program.
+///
+/// # Example
+/// When parsing a file `foo.futil`:
+/// ```
+/// import "core.futil";
+///
+/// component main() -> () { ... }
+/// ```
+/// `main` is added to the current namespace and `core.futil` is added to
+/// the parsing queue. Next, `core.futil` is parsed:
+/// ```
+/// extern "core.sv" {
+///     primitive std_add[width](left: width, right: width) -> (out: width);
+/// }
+/// ```
+/// The primitive `std_add` is added to the namespace and `"core.sv"` is
+/// added to the set of paths that need to be "linked" in the backend
+/// generation.
+///
+/// Since `core.futil` does not `import` any file, the parsing process is
+/// completed.
 #[derive(Debug)]
 pub struct NamespaceDef {
-    /// Path to imported files.
+    /// Path to extern files.
     pub imports: Vec<String>,
     /// List of component definitions.
     pub components: Vec<ComponentDef>,
