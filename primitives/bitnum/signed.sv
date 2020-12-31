@@ -49,7 +49,7 @@ module std_smult_pipe #(
     input  logic                    clk,
     input  signed       [width-1:0] left,
     input  signed       [width-1:0] right,
-    output signed logic [width-1:0] out,
+    output logic signed [width-1:0] out,
     output logic                    done
 );
   logic signed [width-1:0] rtmp;
