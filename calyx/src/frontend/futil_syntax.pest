@@ -142,13 +142,20 @@ guard_leq = { "<=" }
 guard_geq = { ">=" }
 guard_lt = { "<" }
 guard_gt = { ">" }
+cmp_expr = {
+    expr ~ guard_eq ~ expr
+  | expr ~ guard_neq ~ expr
+  | expr ~ guard_geq ~ expr
+  | expr ~ guard_leq ~ expr
+  | expr ~ guard_gt ~ expr
+  | expr ~ guard_lt ~ expr
+}
+
 guard_or = { "|" }
 guard_and = { "&" }
 guard_not = { "!" }
 operator = _{
-      guard_eq | guard_neq | guard_leq | guard_geq
-    | guard_lt | guard_gt | guard_or | guard_and
-    | guard_not
+     guard_or | guard_and
 }
 
 guard_expr = {
@@ -156,7 +163,12 @@ guard_expr = {
 }
 
 term = {
-      guard_not ~ expr | guard_not ~ guard_expr | "(" ~ guard_expr ~ ")" | expr
+      guard_not ~ expr
+    | guard_not ~ "(" ~ cmp_expr ~ ")"
+    | guard_not ~ "(" ~ guard_expr ~ ")"
+    | "(" ~ guard_expr ~ ")"
+    | cmp_expr
+    | expr
 }
 
 switch_stmt = {
