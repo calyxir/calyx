@@ -297,25 +297,13 @@ fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> FutilResult<Guard> {
         GE::Atom(atom) => Guard::port(atom_to_port(atom, bd)?),
         GE::Or(l, r) => Guard::or(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::And(l, r) => Guard::and(build_guard(*l, bd)?, build_guard(*r, bd)?),
-        GE::Eq(l, r) => {
-            Guard::Eq(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
-        }
-        GE::Neq(l, r) => {
-            Guard::Neq(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
-        }
-        GE::Gt(l, r) => {
-            Guard::Gt(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
-        }
-        GE::Lt(l, r) => {
-            Guard::Lt(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
-        }
-        GE::Geq(l, r) => {
-            Guard::Geq(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
-        }
-        GE::Leq(l, r) => {
-            Guard::Leq(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
-        }
         GE::Not(g) => Guard::Not(into_box_guard(g, bd)?),
+        GE::Eq(l, r) => Guard::Eq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
+        GE::Neq(l, r) => Guard::Neq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
+        GE::Gt(l, r) => Guard::Gt(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
+        GE::Lt(l, r) => Guard::Lt(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
+        GE::Geq(l, r) => Guard::Geq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
+        GE::Leq(l, r) => Guard::Leq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
     })
 }
 
