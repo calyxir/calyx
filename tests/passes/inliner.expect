@@ -8,8 +8,8 @@ component main(go: 1, clk: 1) -> (done: 1) {
   wires {
     r1.in = fsm.out == 1'd0 & go ? 32'd1;
     r1.write_en = fsm.out == 1'd0 & go ? 1'd1;
-    r2.in = fsm.out == 1'b1 & go ? r1.out;
-    r2.write_en = fsm.out == 1'b1 & go ? 1'd1;
+    r2.in = fsm.out == 1'd1 & go ? r1.out;
+    r2.write_en = fsm.out == 1'd1 & go ? 1'd1;
     fsm.in = r1.done & go ? 1'd1;
     done = r2.done ? 1'd1;
   }
