@@ -253,14 +253,7 @@ impl IRPrinter {
     /// Generate a String-based representation for a guard.
     pub fn guard_str(guard: &ir::Guard) -> String {
         match &guard {
-            ir::Guard::And(l, r)
-            | ir::Guard::Or(l, r)
-            | ir::Guard::Eq(l, r)
-            | ir::Guard::Neq(l, r)
-            | ir::Guard::Gt(l, r)
-            | ir::Guard::Lt(l, r)
-            | ir::Guard::Geq(l, r)
-            | ir::Guard::Leq(l, r) => {
+            ir::Guard::And(l, r) | ir::Guard::Or(l, r) => {
                 let left = if &**l > guard {
                     format!("({})", Self::guard_str(l))
                 } else {
@@ -272,6 +265,19 @@ impl IRPrinter {
                     Self::guard_str(r)
                 };
                 format!("{} {} {}", left, &guard.op_str(), right)
+            }
+            ir::Guard::Eq(l, r)
+            | ir::Guard::Neq(l, r)
+            | ir::Guard::Gt(l, r)
+            | ir::Guard::Lt(l, r)
+            | ir::Guard::Geq(l, r)
+            | ir::Guard::Leq(l, r) => {
+                format!(
+                    "{} {} {}",
+                    Self::get_port_access(&l.borrow()),
+                    &guard.op_str(),
+                    Self::get_port_access(&r.borrow())
+                )
             }
             ir::Guard::Not(g) => {
                 let s = if &**g > guard {

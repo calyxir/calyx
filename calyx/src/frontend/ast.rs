@@ -182,15 +182,17 @@ pub enum Atom {
 /// The AST for GuardExprs
 #[derive(Debug)]
 pub enum GuardExpr {
+    // Logical operations
     And(Box<GuardExpr>, Box<GuardExpr>),
     Or(Box<GuardExpr>, Box<GuardExpr>),
-    Eq(Box<GuardExpr>, Box<GuardExpr>),
-    Neq(Box<GuardExpr>, Box<GuardExpr>),
-    Gt(Box<GuardExpr>, Box<GuardExpr>),
-    Lt(Box<GuardExpr>, Box<GuardExpr>),
-    Geq(Box<GuardExpr>, Box<GuardExpr>),
-    Leq(Box<GuardExpr>, Box<GuardExpr>),
     Not(Box<GuardExpr>),
+    // Comparison operations
+    Eq(Atom, Atom),
+    Neq(Atom, Atom),
+    Gt(Atom, Atom),
+    Lt(Atom, Atom),
+    Geq(Atom, Atom),
+    Leq(Atom, Atom),
     Atom(Atom),
 }
 

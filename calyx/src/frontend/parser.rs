@@ -364,23 +364,29 @@ impl FutilParser {
         op: Node,
         r: ast::GuardExpr,
     ) -> ParseResult<ast::GuardExpr> {
+        // Early return for logical operations
         match op.as_rule() {
-            Rule::guard_eq => Ok(ast::GuardExpr::Eq(Box::new(l), Box::new(r))),
-            Rule::guard_neq => {
-                Ok(ast::GuardExpr::Neq(Box::new(l), Box::new(r)))
+            Rule::guard_or => {
+                return Ok(ast::GuardExpr::Or(Box::new(l), Box::new(r)))
             }
-            Rule::guard_leq => {
-                Ok(ast::GuardExpr::Leq(Box::new(l), Box::new(r)))
-            }
-            Rule::guard_geq => {
-                Ok(ast::GuardExpr::Geq(Box::new(l), Box::new(r)))
-            }
-            Rule::guard_lt => Ok(ast::GuardExpr::Lt(Box::new(l), Box::new(r))),
-            Rule::guard_gt => Ok(ast::GuardExpr::Gt(Box::new(l), Box::new(r))),
-            Rule::guard_or => Ok(ast::GuardExpr::Or(Box::new(l), Box::new(r))),
             Rule::guard_and => {
-                Ok(ast::GuardExpr::And(Box::new(l), Box::new(r)))
+                return Ok(ast::GuardExpr::And(Box::new(l), Box::new(r)))
             }
+            _ => (),
+        }
+
+        let (la, ra) = match (l, r) {
+            (ast::GuardExpr::Atom(la), ast::GuardExpr::Atom(ra)) => (la, ra),
+            _ => return Err(op.error("Sequence of control statements should be enclosed in `seq` or `par`."))
+        };
+
+        match op.as_rule() {
+            Rule::guard_eq => Ok(ast::GuardExpr::Eq(la, ra)),
+            Rule::guard_neq => Ok(ast::GuardExpr::Neq(la, ra)),
+            Rule::guard_leq => Ok(ast::GuardExpr::Leq(la, ra)),
+            Rule::guard_geq => Ok(ast::GuardExpr::Geq(la, ra)),
+            Rule::guard_lt => Ok(ast::GuardExpr::Lt(la, ra)),
+            Rule::guard_gt => Ok(ast::GuardExpr::Gt(la, ra)),
             _ => unreachable!(),
         }
     }
