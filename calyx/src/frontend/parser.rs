@@ -26,13 +26,6 @@ lazy_static::lazy_static! {
             // loosest binding
             Operator::new(Rule::guard_or, Assoc::Left),
             Operator::new(Rule::guard_and, Assoc::Left),
-            Operator::new(Rule::guard_leq, Assoc::Left),
-            Operator::new(Rule::guard_geq, Assoc::Left),
-            Operator::new(Rule::guard_lt, Assoc::Left),
-            Operator::new(Rule::guard_gt, Assoc::Left),
-            Operator::new(Rule::guard_eq, Assoc::Left),
-            Operator::new(Rule::guard_neq, Assoc::Left),
-            Operator::new(Rule::guard_not, Assoc::Right)
             // tighest binding
         ]
     );
@@ -325,7 +318,8 @@ impl FutilParser {
     fn port(input: Node) -> ParseResult<ast::Port> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(component), identifier(port)] => ast::Port::Comp { component, port },
+            [identifier(component), identifier(port)] =>
+                ast::Port::Comp { component, port },
             [identifier(port)] => ast::Port::This { port }
         ))
     }
@@ -354,6 +348,37 @@ impl FutilParser {
         )
     }
 
+    fn guard_eq(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+    fn guard_neq(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+    fn guard_leq(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+    fn guard_geq(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+    fn guard_lt(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+    fn guard_gt(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn cmp_expr(input: Node) -> ParseResult<ast::GuardExpr> {
+        Ok(match_nodes!(
+            input.into_children();
+            [expr(l), guard_eq(_), expr(r)] => ast::GuardExpr::Eq(l, r),
+            [expr(l), guard_neq(_), expr(r)] => ast::GuardExpr::Neq(l, r),
+            [expr(l), guard_geq(_), expr(r)] => ast::GuardExpr::Geq(l, r),
+            [expr(l), guard_leq(_), expr(r)] => ast::GuardExpr::Leq(l, r),
+            [expr(l), guard_gt(_), expr(r)] =>  ast::GuardExpr::Gt(l, r),
+            [expr(l), guard_lt(_), expr(r)] =>  ast::GuardExpr::Lt(l, r),
+        ))
+    }
+
     fn guard_not(_input: Node) -> ParseResult<()> {
         Ok(())
     }
@@ -364,29 +389,11 @@ impl FutilParser {
         op: Node,
         r: ast::GuardExpr,
     ) -> ParseResult<ast::GuardExpr> {
-        // Early return for logical operations
         match op.as_rule() {
-            Rule::guard_or => {
-                return Ok(ast::GuardExpr::Or(Box::new(l), Box::new(r)))
-            }
+            Rule::guard_or => Ok(ast::GuardExpr::Or(Box::new(l), Box::new(r))),
             Rule::guard_and => {
-                return Ok(ast::GuardExpr::And(Box::new(l), Box::new(r)))
+                Ok(ast::GuardExpr::And(Box::new(l), Box::new(r)))
             }
-            _ => (),
-        }
-
-        let (la, ra) = match (l, r) {
-            (ast::GuardExpr::Atom(la), ast::GuardExpr::Atom(ra)) => (la, ra),
-            _ => return Err(op.error("Sequence of control statements should be enclosed in `seq` or `par`."))
-        };
-
-        match op.as_rule() {
-            Rule::guard_eq => Ok(ast::GuardExpr::Eq(la, ra)),
-            Rule::guard_neq => Ok(ast::GuardExpr::Neq(la, ra)),
-            Rule::guard_leq => Ok(ast::GuardExpr::Leq(la, ra)),
-            Rule::guard_geq => Ok(ast::GuardExpr::Geq(la, ra)),
-            Rule::guard_lt => Ok(ast::GuardExpr::Lt(la, ra)),
-            Rule::guard_gt => Ok(ast::GuardExpr::Gt(la, ra)),
             _ => unreachable!(),
         }
     }
@@ -395,9 +402,19 @@ impl FutilParser {
         Ok(match_nodes!(
             input.into_children();
             [guard_expr(guard)] => guard,
+            [cmp_expr(e)] => e,
             [expr(e)] => ast::GuardExpr::Atom(e),
-            [guard_not(_), guard_expr(e)] => ast::GuardExpr::Not(Box::new(e)),
-            [guard_not(_), expr(e)] => ast::GuardExpr::Not(Box::new(ast::GuardExpr::Atom(e)))
+            [guard_not(_), expr(e)] => {
+                ast::GuardExpr::Not(Box::new(ast::GuardExpr::Atom(e)))
+            },
+            [guard_not(_), cmp_expr(e)] => {
+                ast::GuardExpr::Not(Box::new(e))
+            },
+            [guard_not(_), guard_expr(e)] => {
+                ast::GuardExpr::Not(Box::new(e))
+            },
+            [guard_not(_), expr(e)] =>
+                ast::GuardExpr::Not(Box::new(ast::GuardExpr::Atom(e)))
         ))
     }
 
