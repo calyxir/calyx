@@ -1,8 +1,5 @@
-mod interpret_group;
-mod interpreter;
-
 use calyx::{errors::FutilResult, frontend, ir, utils::OutputFile};
-use interpret_group::GroupInterpreter;
+use interp::interpret_group::GroupInterpreter;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
