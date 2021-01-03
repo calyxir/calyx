@@ -22,7 +22,7 @@ pub struct Update {
 pub struct Environment {
     /// A mapping from cell names to the values on their ports.
     // XXX: Should not be `pub`.
-    pub map: HashMap<ir::Id, HashMap<ir::Id, u64>>,
+    map: HashMap<ir::Id, HashMap<ir::Id, u64>>,
 
     /// A queue of operations that need to be applied in the future.
     /// A vector of Updates.
