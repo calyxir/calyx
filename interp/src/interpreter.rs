@@ -34,8 +34,8 @@ fn eval_assigns(
         .filter(|&a| {
             !a.dst.borrow().is_hole()
                 // dummy way of making sure the map has the a.src cell
-                && env.map.contains_key(&get_cell_from_port(&a.src))
-                && env.map.contains_key(&get_cell_from_port(&a.dst))
+                && env.get_cell(&get_cell_from_port(&a.src)).is_some()
+                && env.get_cell(&get_cell_from_port(&a.dst)).is_some()
         })
         .collect::<Vec<_>>();
 
