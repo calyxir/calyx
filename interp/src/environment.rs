@@ -66,17 +66,10 @@ impl Environment {
 
     /// Puts the mapping from cell to port to val in map.
     pub fn put(&mut self, cell: &ir::Id, port: &ir::Id, val: u64) {
-        let temp = self.map.get_mut(cell);
-
-        if let Some(map) = temp {
-            let mut mapcopy = map.clone();
-            mapcopy.insert(port.clone(), val);
-            self.map.insert(cell.clone(), mapcopy);
-        } else {
-            let mut temp_map = HashMap::new();
-            temp_map.insert(port.clone(), val);
-            self.map.insert(cell.clone(), temp_map);
-        }
+        self.map
+            .entry(cell.clone())
+            .or_default()
+            .insert(port.clone(), val);
     }
 
     /// Adds an update to the update queue; TODO; ok to drop prev and next?
