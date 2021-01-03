@@ -47,9 +47,16 @@ impl Environment {
     }
 
     /// Returns the value on a port, in a cell.
-    // XXX(rachit): This method can probably just take an ir::Port
+    // XXX(rachit): Deprecate this method in favor of `get_from_port`
     pub fn get(&self, cell: &ir::Id, port: &ir::Id) -> u64 {
         self.map[cell][port]
+    }
+
+    pub fn get_from_port(&self, port: &ir::Port) -> u64 {
+        if port.is_hole() {
+            panic!("Cannot get value from hole")
+        }
+        self.map[&port.get_parent_name()][&port.name]
     }
 
     /// Puts the mapping from cell to port to val in map.
@@ -155,7 +162,8 @@ pub fn eval_group(
     eval_assigns(&(group.borrow()).assignments, &env)
 }
 
-// XXX(karen): I think it will need another copy of environment for each iteration of assignment statements
+// XXX(karen): I think it will need another copy of environment for each
+// iteration of assignment statements
 /// Evaluates a group's assignment statements in an environment.
 fn eval_assigns(
     assigns: &[ir::Assignment],
@@ -163,20 +171,20 @@ fn eval_assigns(
 ) -> FutilResult<Environment> {
     // Find the done signal in the sequence of assignments
     let done_assign = get_done_signal(assigns);
+
     // e2 = Clone the current environment
     let mut write_env = env.clone();
-    // Get the cell that done_assign.src belongs to
-    let done_cell = get_cell_from_port(&done_assign.src);
 
-    // Prevent infinite loops; should probably be deleted later (unless we want to display the clock cycle)?
+    // XXX: Prevent infinite loops. should probably be deleted later
+    // (unless we want to display the clock cycle)?
     let mut counter = 0;
 
-    // Filter out the assignment statements that are not only from cells; for now, also excludes cells not in the env map
+    // Filter out the assignment statements that are not only from cells.
+    // XXX: for now, also excludes cells not in the env map
     let ok_assigns = assigns
         .iter()
         .filter(|&a| {
-            is_cell(&a.dst.borrow())
-                && is_cell(&a.dst.borrow())
+            !a.dst.borrow().is_hole()
                 // dummy way of making sure the map has the a.src cell
                 && env.map.contains_key(&get_cell_from_port(&a.src))
                 && env.map.contains_key(&get_cell_from_port(&a.dst))
@@ -184,8 +192,7 @@ fn eval_assigns(
         .collect::<Vec<_>>();
 
     // While done_assign.src is 0 (we use done_assign.src because done_assign.dst is not a cell's port; it should be a group's port)
-    while write_env.get(&done_cell, &done_assign.src.borrow().name) == 0
-        && counter < 5
+    while write_env.get_from_port(&done_assign.src.borrow()) == 0 && counter < 5
     {
         // println!("Clock cycle {}", counter);
         /*println!(
@@ -217,7 +224,7 @@ fn eval_assigns(
 
                 // perform a read from `env` for assign.src
                 // XXX(karen): should read from the previous iteration's env?
-                let read_val = env.get(&src_cell, &assign.src.borrow().name);
+                let read_val = env.get_from_port(&assign.src.borrow());
 
                 // update internal state of the cell and
                 // queue any required updates.
@@ -239,11 +246,14 @@ fn eval_assigns(
                         )
                     );*/
 
-                    // now, update the internal state of the cell; for now, this only includes adds; TODO (use primitive Cell parameters)
+                    // now, update the internal state of the cell;
+                    // for now, this only includes adds;
+                    // TODO (use primitive Cell parameters)
                     let inputs;
                     let outputs;
 
-                    // TODO: hacky way to avoid updating the cell state. Also, how to get input and output vectors in general??
+                    // TODO: hacky way to avoid updating the cell state.
+                    // Also, how to get input and output vectors in general??
                     if &assign.dst.borrow().name != "write_en" {
                         // get dst_cell's input vector
                         match &write_env.get_cell(&dst_cell) {
@@ -308,11 +318,6 @@ fn eval_assigns(
     Ok(write_env)
 }
 
-/// Convenience function to determine if a port's parent is a cell or not
-fn is_cell(port: &ir::Port) -> bool {
-    matches!(&port.parent, ir::PortParent::Cell(_))
-}
-
 /// Evaluate guard implementation
 #[allow(clippy::borrowed_box)]
 // XXX: Allow for this warning. It would make sense to use a reference when we
@@ -327,38 +332,24 @@ fn eval_guard(guard: &Box<ir::Guard>, env: &Environment) -> u64 {
         }
         ir::Guard::Not(g) => eval_guard(g, &env) != 0,
         ir::Guard::Eq(g1, g2) => {
-            let l = env.get(&get_cell_from_port(&g1), &g1.borrow().name);
-            let r = env.get(&get_cell_from_port(&g2), &g2.borrow().name);
-            l == r
+            env.get_from_port(&g1.borrow()) == env.get_from_port(&g2.borrow())
         }
         ir::Guard::Neq(g1, g2) => {
-            let l = env.get(&get_cell_from_port(&g1), &g1.borrow().name);
-            let r = env.get(&get_cell_from_port(&g2), &g2.borrow().name);
-            l != r
+            env.get_from_port(&g1.borrow()) != env.get_from_port(&g2.borrow())
         }
         ir::Guard::Gt(g1, g2) => {
-            let l = env.get(&get_cell_from_port(&g1), &g1.borrow().name);
-            let r = env.get(&get_cell_from_port(&g2), &g2.borrow().name);
-            l > r
+            env.get_from_port(&g1.borrow()) > env.get_from_port(&g2.borrow())
         }
         ir::Guard::Lt(g1, g2) => {
-            let l = env.get(&get_cell_from_port(&g1), &g1.borrow().name);
-            let r = env.get(&get_cell_from_port(&g2), &g2.borrow().name);
-            l < r
+            env.get_from_port(&g1.borrow()) < env.get_from_port(&g2.borrow())
         }
         ir::Guard::Geq(g1, g2) => {
-            let l = env.get(&get_cell_from_port(&g1), &g1.borrow().name);
-            let r = env.get(&get_cell_from_port(&g2), &g2.borrow().name);
-            l >= r
+            env.get_from_port(&g1.borrow()) >= env.get_from_port(&g2.borrow())
         }
         ir::Guard::Leq(g1, g2) => {
-            let l = env.get(&get_cell_from_port(&g1), &g1.borrow().name);
-            let r = env.get(&get_cell_from_port(&g2), &g2.borrow().name);
-            l <= r
+            env.get_from_port(&g1.borrow()) <= env.get_from_port(&g2.borrow())
         }
-        ir::Guard::Port(p) => {
-            env.get(&get_cell_from_port(&p), &p.borrow().name) != 0
-        }
+        ir::Guard::Port(p) => env.get_from_port(&p.borrow()) != 0,
         ir::Guard::True => true,
     }) as u64
 }
@@ -395,7 +386,8 @@ fn is_combinational(cell: &ir::Id, port: &ir::Id, env: &Environment) -> bool {
 
     // TODO; get cell attributes
     match (*celltype).id.as_str() {
-        "std_reg" => match (*port).id.as_str() {
+        "std_reg" => match port.id.as_str() {
+            // XXX(rachit): Why is this a "combinational" port?
             "write_en" => true,
             "out" => false,
             "done" => false,
@@ -438,8 +430,6 @@ fn init_cells(
     outputs: Vec<ir::Id>,
     mut env: Environment,
 ) -> FutilResult<Environment> {
-    //let mut new_env = env.clone();
-
     let cell_r = env
         .get_cell(cell)
         .unwrap_or_else(|| panic!("Cannot find cell with name"));
@@ -452,8 +442,8 @@ fn init_cells(
                  // has intermediate steps/computation
             }
             "std_reg" => {
-                let map: HashMap<String, u64> = HashMap::new(); //placeholder
-                                                                // reg.in = dst port should go here
+                let map: HashMap<String, u64> = HashMap::new();
+                // reg.in = dst port should go here
                 env.add_update(cell.clone(), inputs, outputs, map);
             }
             _ => panic!(
