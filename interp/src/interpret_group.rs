@@ -1,7 +1,7 @@
 //! Used for the command line interface.
 //! Only interprets a given group in a given component
 
-use super::interpreter;
+use super::{environment::Environment, interpreter};
 use calyx::{
     errors::{Error, FutilResult},
     ir,
@@ -33,7 +33,7 @@ impl GroupInterpreter {
             .collect::<HashMap<_, _>>();
 
         // Initial state of the environment
-        let environment = interpreter::Environment::init(map, cellmap);
+        let environment = Environment::init(map, cellmap);
         environment.cell_state();
 
         // Interpret the group
