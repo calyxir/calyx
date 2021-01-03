@@ -47,6 +47,7 @@ impl Environment {
     }
 
     /// Returns the value on a port, in a cell.
+    // XXX(rachit): This method can probably just take an ir::Port
     pub fn get(&self, cell: &ir::Id, port: &ir::Id) -> u64 {
         self.map[cell][port]
     }
@@ -324,15 +325,39 @@ fn eval_guard(guard: &Box<ir::Guard>, env: &Environment) -> u64 {
         ir::Guard::And(g1, g2) => {
             (eval_guard(g1, env) == 1) && (eval_guard(g2, env) == 1)
         }
-        ir::Guard::Eq(g1, g2) => eval_guard(g1, env) == eval_guard(g2, env),
-        ir::Guard::Neq(g1, g2) => eval_guard(g1, env) != eval_guard(g2, env),
-        ir::Guard::Gt(g1, g2) => eval_guard(g1, env) > eval_guard(g2, env),
-        ir::Guard::Lt(g1, g2) => eval_guard(g1, env) < eval_guard(g2, env),
-        ir::Guard::Geq(g1, g2) => eval_guard(g1, env) >= eval_guard(g2, env),
-        ir::Guard::Leq(g1, g2) => eval_guard(g1, env) <= eval_guard(g2, env),
         ir::Guard::Not(g) => eval_guard(g, &env) != 0,
+        ir::Guard::Eq(g1, g2) => {
+            let l = env.get(&get_cell_from_port(&g1), &g1.borrow().name);
+            let r = env.get(&get_cell_from_port(&g2), &g2.borrow().name);
+            l == r
+        }
+        ir::Guard::Neq(g1, g2) => {
+            let l = env.get(&get_cell_from_port(&g1), &g1.borrow().name);
+            let r = env.get(&get_cell_from_port(&g2), &g2.borrow().name);
+            l != r
+        }
+        ir::Guard::Gt(g1, g2) => {
+            let l = env.get(&get_cell_from_port(&g1), &g1.borrow().name);
+            let r = env.get(&get_cell_from_port(&g2), &g2.borrow().name);
+            l > r
+        }
+        ir::Guard::Lt(g1, g2) => {
+            let l = env.get(&get_cell_from_port(&g1), &g1.borrow().name);
+            let r = env.get(&get_cell_from_port(&g2), &g2.borrow().name);
+            l < r
+        }
+        ir::Guard::Geq(g1, g2) => {
+            let l = env.get(&get_cell_from_port(&g1), &g1.borrow().name);
+            let r = env.get(&get_cell_from_port(&g2), &g2.borrow().name);
+            l >= r
+        }
+        ir::Guard::Leq(g1, g2) => {
+            let l = env.get(&get_cell_from_port(&g1), &g1.borrow().name);
+            let r = env.get(&get_cell_from_port(&g2), &g2.borrow().name);
+            l <= r
+        }
         ir::Guard::Port(p) => {
-            env.get(&get_cell_from_port(&p), &((*p.borrow()).name)) != 0
+            env.get(&get_cell_from_port(&p), &p.borrow().name) != 0
         }
         ir::Guard::True => true,
     }) as u64
@@ -341,25 +366,21 @@ fn eval_guard(guard: &Box<ir::Guard>, env: &Environment) -> u64 {
 /// Get the cell id a port belongs to.
 /// Very similar to ir::Port::get_parent_name, except it can also panic
 fn get_cell_from_port(port: &ir::RRC<ir::Port>) -> ir::Id {
-    if is_cell(&port.borrow()) {
-        ir::Port::get_parent_name(&(port.borrow()))
-    } else {
-        panic!("port belongs to a group, not a cell!")
+    if port.borrow().is_hole() {
+        panic!("Unexpected hole. Cannot get cell: {}", port.borrow().name)
     }
+    port.borrow().get_parent_name()
 }
 
 /// Returns the assignment statement with the done signal; assumes there aren't other groups to check?
 fn get_done_signal(assigns: &[ir::Assignment]) -> &ir::Assignment {
-    for assign in assigns.iter() {
-        let dest = assign.dst.borrow();
-        // need to check g's name?
-        let group_or_not = matches!(&dest.parent, ir::PortParent::Group(_));
-        // check if the statement's destination port is the "done" hole and if its parent is a group
-        if dest.name.id == *"done" && group_or_not {
-            return assign;
-        }
-    }
-    unreachable!("Group does not have a done signal");
+    assigns
+        .iter()
+        .find(|assign| {
+            let dst = assign.dst.borrow();
+            dst.is_hole() && dst.name == "done"
+        })
+        .expect("Group does not have a done signal")
 }
 
 /// Determines if writing a particular cell and cell port is combinational or not. Will need to change implementation later.
