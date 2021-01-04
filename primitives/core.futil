@@ -20,7 +20,7 @@ extern "core.sv" {
   primitive std_not<"share"=1>[width](in: width) -> (out: width);
   primitive std_and<"share"=1>[width](left: width, right: width) -> (out: width);
   primitive std_or<"share"=1>[width](left: width, right: width) -> (out: width);
-  primitive std_xor<"share"=1>[p_width](left: p_width, right: p_width) -> (out: p_width);
+  primitive std_xor<"share"=1>[width](left: width, right: width) -> (out: width);
 
   /// Comparison operators
   primitive std_gt<"share"=1>[width](left: width, right: width) -> (out: 1);
