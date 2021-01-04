@@ -2,9 +2,12 @@ extern "core.sv" {
 
   /// Primitives
   primitive std_reg<"static"=1>[width](
-    in: width, write_en: 1, clk: 1
+    in: width,
+    @go(1) write_en: 1,
+    clk: 1
   ) -> (
-    out: width, done: 1
+    out: width,
+    @done(1) done: 1
   );
   primitive std_const<"share"=1>[width, value]() -> (out: width);
 
@@ -31,22 +34,28 @@ extern "core.sv" {
   primitive std_le<"share"=1>[width](left: width, right: width) -> (out: 1);
 
   /// Memories
-  primitive std_mem_d1[width, size, idx_size](
+  primitive std_mem_d1<"static"=1>[width, size, idx_size](
     addr0: idx_size,
     write_data: width,
-    write_en: 1,
+    @go(1) write_en: 1,
     clk: 1
-  ) -> (read_data: width, done: 1);
+  ) -> (
+    read_data: width,
+    @done(1) done: 1
+  );
 
-  primitive std_mem_d2[width, d0_size, d1_size, d0_idx_size, d1_idx_size](
+  primitive std_mem_d2<"static"=1>[width, d0_size, d1_size, d0_idx_size, d1_idx_size](
     addr0: d0_idx_size,
     addr1: d1_idx_size,
     write_data: width,
-    write_en: 1,
+    @go(1) write_en: 1,
     clk: 1
-  ) -> (read_data: width, done: 1);
+  ) -> (
+    @done(1) read_data: width,
+    done: 1
+  );
 
-  primitive std_mem_d3[
+  primitive std_mem_d3<"static"=1>[
       width,
       d0_size,
       d1_size,
@@ -59,11 +68,14 @@ extern "core.sv" {
     addr1: d1_idx_size,
     addr2: d2_idx_size,
     write_data: width,
-    write_en: 1,
+    @go(1) write_en: 1,
     clk: 1
-  ) -> (read_data: width, done: 1);
+  ) -> (
+    read_data: width,
+    @done(1) done: 1
+  );
 
-  primitive std_mem_d4[
+  primitive std_mem_d4<"static"=1>[
       width,
       d0_size,
       d1_size,
@@ -79,28 +91,40 @@ extern "core.sv" {
     addr2: d2_idx_size,
     addr3: d3_idx_size,
     write_data: width,
-    write_en: 1,
+    @go(1) write_en: 1,
     clk: 1
-  ) -> (read_data: width, done: 1);
+  ) -> (
+    read_data: width,
+    @done(1) done: 1
+  );
 
 
   // ============= Unsynthesizable: External memory definitions ===============
-  primitive std_mem_d1_ext[width, size, idx_size](
+  primitive std_mem_d1_ext<"static"=1>[width, size, idx_size](
     addr0: idx_size,
     write_data: width,
-    write_en: 1,
+    @go(1) write_en: 1,
     clk: 1
   ) -> (read_data: width, done: 1);
 
-  primitive std_mem_d2_ext[width, d0_size, d1_size, d0_idx_size, d1_idx_size](
+  primitive std_mem_d2_ext<"static"=1>[
+    width,
+    d0_size,
+    d1_size,
+    d0_idx_size,
+    d1_idx_size
+  ] (
     addr0: d0_idx_size,
     addr1: d1_idx_size,
     write_data: width,
-    write_en: 1,
+    @go(1) write_en: 1,
     clk: 1
-  ) -> (read_data: width, done: 1);
+  ) -> (
+    read_data: width,
+    @done(1) done: 1
+  );
 
-  primitive std_mem_d3_ext[
+  primitive std_mem_d3_ext<"static"=1>[
       width,
       d0_size,
       d1_size,
@@ -113,11 +137,14 @@ extern "core.sv" {
     addr1: d1_idx_size,
     addr2: d2_idx_size,
     write_data: width,
-    write_en: 1,
+    @go(1) write_en: 1,
     clk: 1
-  ) -> (read_data: width, done: 1);
+  ) -> (
+    read_data: width,
+    @done(1) done: 1
+  );
 
-  primitive std_mem_d4_ext[
+  primitive std_mem_d4_ext<"static"=1>[
       width,
       d0_size,
       d1_size,
@@ -133,8 +160,11 @@ extern "core.sv" {
     addr2: d2_idx_size,
     addr3: d3_idx_size,
     write_data: width,
-    write_en: 1,
+    @go(1) write_en: 1,
     clk: 1
-  ) -> (read_data: width, done: 1);
+  ) -> (
+    read_data: width,
+    @done(1) done: 1
+  );
 
 }
