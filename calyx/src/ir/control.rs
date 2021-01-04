@@ -63,12 +63,6 @@ pub struct Invoke {
     pub outputs: PortMap,
 }
 
-impl From<RRC<Group>> for Enable {
-    fn from(group: RRC<Group>) -> Self {
-        Enable { group }
-    }
-}
-
 /// Data for the `empty` control statement.
 #[derive(Debug)]
 pub struct Empty {}
