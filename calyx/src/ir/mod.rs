@@ -17,6 +17,7 @@ mod id;
 mod primitives;
 mod printer;
 mod structure;
+mod attribute;
 
 // Re-export types at the module level.
 pub use builder::Builder;
@@ -31,6 +32,7 @@ pub use printer::IRPrinter;
 pub use structure::{
     Assignment, Binding, Cell, CellType, Direction, Group, Port, PortParent,
 };
+pub use attribute::Attributes;
 
 /// Visitor to traverse a control program.
 pub mod traversal;
