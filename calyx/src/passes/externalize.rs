@@ -92,6 +92,8 @@ impl Visitor for Externalize {
                 // Point to the signature cell as its parent
                 port_ref.borrow_mut().parent =
                     ir::PortParent::Cell(WRC::from(&comp.signature));
+                // Remove any attributes from this cell port.
+                port_ref.borrow_mut().attributes = ir::Attributes::default();
                 comp.signature.borrow_mut().ports.push(port_ref);
             }
         }
