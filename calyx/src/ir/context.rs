@@ -9,7 +9,7 @@ use std::collections::HashMap;
 #[derive(Debug, Default)]
 pub struct LibrarySignatures {
     /// Direct mapping from name to primitives
-    sigs: HashMap<Id, Primitive>,
+    pub sigs: HashMap<Id, Primitive>,
     /// Paths to files that define externs (relative to the root file).
     pub paths: Vec<String>,
 }

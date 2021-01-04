@@ -43,11 +43,11 @@ impl Attributes {
     }
 
     /// Check if an attribute key has been set
-    pub fn has<S>(&self, key: &S) -> bool
+    pub fn has<S>(&self, key: S) -> bool
     where
-        S: ToString + std::cmp::Eq,
+        S: std::fmt::Display + AsRef<str>,
     {
-        self.attrs.contains_key(&key.to_string())
+        self.attrs.contains_key(&key.as_ref().to_string())
     }
 
     pub fn is_empty(&self) -> bool {
