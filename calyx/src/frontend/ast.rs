@@ -106,7 +106,7 @@ impl NamespaceDef {
 pub struct ComponentDef {
     /// Name of the component.
     pub name: ir::Id,
-    /// Defines input and output ports.
+    /// Defines input and output ports along with their attributes.
     pub signature: Vec<ir::PortDef>,
     /// List of instantiated sub-components
     pub cells: Vec<Cell>,
@@ -116,6 +116,8 @@ pub struct ComponentDef {
     pub continuous_assignments: Vec<Wire>,
     /// Single control statement for this component.
     pub control: Control,
+    /// Attributes attached to this component
+    pub attributes: LinkedHashMap<String, u64>,
 }
 
 /// Statement that refers to a port on a subcomponent.
@@ -229,34 +231,39 @@ pub struct Cell {
     pub name: ir::Id,
     /// Name of the prototype this cell was built from.
     pub prototype: CellType,
+    /// Attributes attached to this cell definition
+    pub attributes: LinkedHashMap<String, u64>,
 }
 
 /// Methods for constructing the structure AST nodes.
 impl Cell {
     /// Construct a Calyx cell instantiation.
-    pub fn decl(name: ir::Id, comp: ir::Id) -> Cell {
+    pub fn decl(
+        name: ir::Id,
+        comp: ir::Id,
+        attributes: LinkedHashMap<String, u64>,
+    ) -> Cell {
         Cell {
             name,
             prototype: CellType::Decl { name: comp },
+            attributes,
         }
     }
 
     /// Constructs a primitive cell instantiation.
-    pub fn prim(var: ir::Id, prim_name: ir::Id, params: Vec<u64>) -> Cell {
+    pub fn prim(
+        var: ir::Id,
+        prim_name: ir::Id,
+        params: Vec<u64>,
+        attributes: LinkedHashMap<String, u64>,
+    ) -> Cell {
         Cell {
             name: var,
             prototype: CellType::Prim {
                 name: prim_name,
                 params,
             },
-        }
-    }
-
-    /// Return the name of the cell.
-    pub fn name(&self) -> &ir::Id {
-        match &self.prototype {
-            CellType::Decl { name } => name,
-            CellType::Prim { name, .. } => name,
+            attributes,
         }
     }
 }
