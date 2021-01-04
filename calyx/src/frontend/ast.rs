@@ -208,36 +208,55 @@ pub struct Guard {
 // Data definitions for Structure
 // ===================================
 
-/// The Cell AST nodes.
+/// Prototype of the cell definition
 #[derive(Debug)]
-pub enum Cell {
-    /// Node for instantiating user-defined components.
-    Decl { name: ir::Id, component: ir::Id },
-    /// Node for instantiating primitive components.
+pub enum CellType {
+    /// An instantiated Calyx component.
+    Decl { name: ir::Id },
+    /// An instantiated primitive component.
     Prim {
+        /// Name of the primitive.
         name: ir::Id,
-        prim: ir::Id,
+        /// Parameter binding for primitives
         params: Vec<u64>,
     },
 }
 
+/// The Cell AST nodes.
+#[derive(Debug)]
+pub struct Cell {
+    /// Name of the cell.
+    pub name: ir::Id,
+    /// Name of the prototype this cell was built from.
+    pub prototype: CellType,
+}
+
 /// Methods for constructing the structure AST nodes.
 impl Cell {
-    /// Constructs `Structure::Std` with `name` and `instance`
-    /// as arguments.
+    /// Construct a Calyx cell instantiation.
+    pub fn decl(name: ir::Id, comp: ir::Id) -> Cell {
+        Cell {
+            name,
+            prototype: CellType::Decl { name: comp },
+        }
+    }
+
+    /// Constructs a primitive cell instantiation.
     pub fn prim(var: ir::Id, prim_name: ir::Id, params: Vec<u64>) -> Cell {
-        Cell::Prim {
+        Cell {
             name: var,
-            prim: prim_name,
-            params,
+            prototype: CellType::Prim {
+                name: prim_name,
+                params,
+            },
         }
     }
 
     /// Return the name of the cell.
     pub fn name(&self) -> &ir::Id {
-        match self {
-            Self::Decl { name, .. } => name,
-            Self::Prim { name, .. } => name,
+        match &self.prototype {
+            CellType::Decl { name } => name,
+            CellType::Prim { name, .. } => name,
         }
     }
 }
