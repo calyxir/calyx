@@ -6,8 +6,13 @@ endif
 syn match futilConstant "\v<[0-9]+('d[0-9]+)?>"
 hi link futilConstant  Constant
 
+" String literals for attributes
 syn region futilString start=/\v"/ skip=/\v\\./ end=/\v("|$)/
 hi link futilString String
+
+" @ style attributes
+syn region futilAttr start=/\v\@[a-zA-Z_]+\(/ end=/\v\)/ contains=futilConstant
+hi link futilAttr String
 
 " Control statements
 syn keyword futilControl while if with seq par invoke else
