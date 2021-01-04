@@ -295,7 +295,7 @@ impl FutilParser {
         Ok(match_nodes!(
             input.into_children();
             [identifier(name), identifier(component)] =>
-                ast::Cell::Decl { name, component }
+                ast::Cell::decl(name, component)
         ))
     }
 

@@ -92,17 +92,17 @@ fn validate_component(
         }
         cells.insert(name.clone());
 
-        match cell {
-            ast::Cell::Prim { prim, .. } => {
-                if sig_ctx.lib.find_primitive(prim).is_none() {
+        match &cell.prototype {
+            ast::CellType::Prim { name: prim, .. } => {
+                if sig_ctx.lib.find_primitive(&prim).is_none() {
                     return Err(Error::Undefined(
                         prim.clone(),
                         "primitive".to_string(),
                     ));
                 }
             }
-            ast::Cell::Decl { component, .. } => {
-                if !sig_ctx.comp_sigs.contains_key(component) {
+            ast::CellType::Decl { name: component } => {
+                if !sig_ctx.comp_sigs.contains_key(&name) {
                     return Err(Error::Undefined(
                         component.clone(),
                         "component".to_string(),
@@ -178,12 +178,9 @@ fn build_component(
 ///////////////// Cell Construction /////////////////////////
 
 fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
-    match cell {
-        ast::Cell::Decl {
-            name: prefix,
-            component,
-        } => {
-            let name = builder.component.generate_name(prefix);
+    match cell.prototype {
+        ast::CellType::Decl { name: component } => {
+            let name = builder.component.generate_name(cell.name);
             let sig = &sig_ctx.comp_sigs[&component];
             let typ = CellType::Component {
                 name: component.clone(),
@@ -204,8 +201,8 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
             );
             builder.component.cells.push(cell);
         }
-        ast::Cell::Prim { name, prim, params } => {
-            builder.add_primitive(name, prim, &params);
+        ast::CellType::Prim { name, params } => {
+            builder.add_primitive(cell.name, name, &params);
         }
     }
 }
