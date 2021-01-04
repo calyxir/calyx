@@ -2,7 +2,6 @@
 use super::ast::{self, BitNum, NumType};
 use crate::errors::{self, FutilResult, Span};
 use crate::ir;
-use linked_hash_map::LinkedHashMap;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
 use std::fs;
@@ -188,10 +187,10 @@ impl FutilParser {
         ))
     }
 
-    fn attributes(input: Node) -> ParseResult<LinkedHashMap<String, u64>> {
+    fn attributes(input: Node) -> ParseResult<ir::Attributes> {
         Ok(match_nodes!(
             input.into_children();
-            [attribute(kvs)..] => kvs.collect()
+            [attribute(kvs)..] => kvs.collect::<Vec<_>>().into()
         ))
     }
 
@@ -202,10 +201,10 @@ impl FutilParser {
         ))
     }
 
-    fn at_attributes(input: Node) -> ParseResult<LinkedHashMap<String, u64>> {
+    fn at_attributes(input: Node) -> ParseResult<ir::Attributes> {
         Ok(match_nodes!(
             input.into_children();
-            [at_attribute(kvs)..] => kvs.collect()
+            [at_attribute(kvs)..] => kvs.collect::<Vec<_>>().into()
         ))
     }
 
@@ -227,7 +226,7 @@ impl FutilParser {
 
     fn io_port(
         input: Node,
-    ) -> ParseResult<(ir::Id, ir::Width, LinkedHashMap<String, u64>)> {
+    ) -> ParseResult<(ir::Id, ir::Width, ir::Attributes)> {
         Ok(match_nodes!(
             input.into_children();
             [at_attributes(attrs), identifier(id), bitwidth(value)] =>
@@ -293,13 +292,13 @@ impl FutilParser {
                 name,
                 params: p,
                 signature: s,
-                attributes: LinkedHashMap::with_capacity(0),
+                attributes: ir::Attributes::default()
             },
             [identifier(name), signature(s)] => ir::Primitive {
                 name,
                 params: Vec::with_capacity(0),
                 signature: s,
-                attributes: LinkedHashMap::with_capacity(0),
+                attributes: ir::Attributes::default()
             }
         ))
     }
@@ -475,7 +474,7 @@ impl FutilParser {
             },
             [identifier(name), wire(wire)..] => ast::Group {
                 name,
-                attributes: LinkedHashMap::with_capacity(0),
+                attributes: ir::Attributes::default(),
                 wires: wire.collect()
             }
         ))
@@ -636,7 +635,7 @@ impl FutilParser {
                     groups,
                     continuous_assignments,
                     control,
-                    attributes: LinkedHashMap::with_capacity(0),
+                    attributes: ir::Attributes::default()
                 }
             },
             [

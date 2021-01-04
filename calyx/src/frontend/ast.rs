@@ -3,7 +3,6 @@ use super::parser;
 use crate::errors::{Error, FutilResult, Span};
 use crate::ir;
 use atty::Stream;
-use linked_hash_map::LinkedHashMap;
 use std::io::stdin;
 use std::path::{Path, PathBuf};
 
@@ -117,7 +116,7 @@ pub struct ComponentDef {
     /// Single control statement for this component.
     pub control: Control,
     /// Attributes attached to this component
-    pub attributes: LinkedHashMap<String, u64>,
+    pub attributes: ir::Attributes,
 }
 
 /// Statement that refers to a port on a subcomponent.
@@ -232,7 +231,7 @@ pub struct Cell {
     /// Name of the prototype this cell was built from.
     pub prototype: CellType,
     /// Attributes attached to this cell definition
-    pub attributes: LinkedHashMap<String, u64>,
+    pub attributes: ir::Attributes,
 }
 
 /// Methods for constructing the structure AST nodes.
@@ -241,7 +240,7 @@ impl Cell {
     pub fn decl(
         name: ir::Id,
         comp: ir::Id,
-        attributes: LinkedHashMap<String, u64>,
+        attributes: ir::Attributes,
     ) -> Cell {
         Cell {
             name,
@@ -255,7 +254,7 @@ impl Cell {
         var: ir::Id,
         prim_name: ir::Id,
         params: Vec<u64>,
-        attributes: LinkedHashMap<String, u64>,
+        attributes: ir::Attributes,
     ) -> Cell {
         Cell {
             name: var,
@@ -272,7 +271,7 @@ impl Cell {
 pub struct Group {
     pub name: ir::Id,
     pub wires: Vec<Wire>,
-    pub attributes: LinkedHashMap<String, u64>,
+    pub attributes: ir::Attributes,
 }
 
 /// Data for the `->` structure statement.

@@ -7,7 +7,6 @@ use crate::ir::{
 use crate::{build_assignments, guard, structure};
 use ir::IRPrinter;
 use itertools::Itertools;
-use linked_hash_map::LinkedHashMap;
 use petgraph::{algo::connected_components, graph::DiGraph};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -317,7 +316,7 @@ fn realize_schedule(
     );
 
     // The compilation group
-    let group = builder.add_group("tdcc", LinkedHashMap::with_capacity(0));
+    let group = builder.add_group("tdcc");
 
     // Enable assignments
     group.borrow_mut().assignments.extend(
@@ -442,8 +441,7 @@ impl Visitor for TopDownCompileControl {
         let mut builder = ir::Builder::from(comp, sigs, false);
 
         // Compilation group
-        let par_group =
-            builder.add_group("par", LinkedHashMap::with_capacity(0));
+        let par_group = builder.add_group("par");
         structure!(builder;
             let signal_on = constant(1, 1);
             let signal_off = constant(0, 1);
