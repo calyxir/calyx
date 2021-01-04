@@ -1,13 +1,65 @@
 //! Implements a formatter for the in-memory representation of Components.
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
-use crate::ir;
+use crate::ir::{self, RRC};
+use linked_hash_map::LinkedHashMap;
 use std::io;
+use std::rc::Rc;
 
 /// Printer for the IR.
 pub struct IRPrinter;
 
 impl IRPrinter {
+    /// Format attributes of the form `@static(1)`.
+    /// Returns the empty string if the `attrs` is empty.
+    fn format_at_attributes(attrs: &LinkedHashMap<String, u64>) -> String {
+        attrs
+            .iter()
+            .map(|(k, v)| format!("@{}({})", k, v))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// Format attributes of the form `<"static"=1>`.
+    /// Returns the empty string if the `attrs` is empty.
+    fn format_attributes(attrs: &LinkedHashMap<String, u64>) -> String {
+        if attrs.is_empty() {
+            "".to_string()
+        } else {
+            format!(
+                "<{}>",
+                attrs
+                    .iter()
+                    .map(|(k, v)| { format!("\"{}\"={}", k, v) })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        }
+    }
+
+    /// Formats port definitions in signatures
+    fn format_port_def(ports: &[RRC<ir::Port>]) -> String {
+        ports
+            .iter()
+            .map(|p| {
+                format!(
+                    "{}{}: {}",
+                    if !p.borrow().attributes.is_empty() {
+                        format!(
+                            "{} ",
+                            Self::format_at_attributes(&p.borrow().attributes)
+                        )
+                    } else {
+                        "".to_string()
+                    },
+                    p.borrow().name.id.to_string(),
+                    p.borrow().width
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
     /// Formats and writes the Component to the formatter.
     pub fn write_component<F: io::Write>(
         comp: &ir::Component,
@@ -15,33 +67,18 @@ impl IRPrinter {
     ) -> io::Result<()> {
         let sig = comp.signature.borrow();
         let (inputs, outputs): (Vec<_>, Vec<_>) =
-            sig.ports.iter().partition(|p| {
+            sig.ports.iter().map(|p| Rc::clone(p)).partition(|p| {
                 // Cell signature stores the ports in reversed direction.
                 matches!(p.borrow().direction, ir::Direction::Output)
             });
 
         writeln!(
             f,
-            "component {}({}) -> ({}) {{",
+            "component {}{}({}) -> ({}) {{",
             comp.name.id,
-            inputs
-                .iter()
-                .map(|p| format!(
-                    "{}: {}",
-                    p.borrow().name.id.to_string(),
-                    p.borrow().width
-                ))
-                .collect::<Vec<_>>()
-                .join(", "),
-            outputs
-                .iter()
-                .map(|p| format!(
-                    "{}: {}",
-                    p.borrow().name.id.to_string(),
-                    p.borrow().width
-                ))
-                .collect::<Vec<_>>()
-                .join(", ")
+            Self::format_attributes(&comp.attributes),
+            Self::format_port_def(&inputs),
+            Self::format_port_def(&outputs),
         )?;
 
         // Add the cells
@@ -89,6 +126,13 @@ impl IRPrinter {
                 ..
             } => {
                 write!(f, "{}", " ".repeat(indent_level))?;
+                if !cell.attributes.is_empty() {
+                    write!(
+                        f,
+                        "{} ",
+                        Self::format_at_attributes(&cell.attributes)
+                    )?
+                }
                 write!(f, "{} = prim ", cell.name.id)?;
                 writeln!(
                     f,
@@ -101,11 +145,18 @@ impl IRPrinter {
                         .join(", ")
                 )
             }
-            ir::CellType::Constant { .. } => Ok(()),
             ir::CellType::Component { name } => {
                 write!(f, "{}", " ".repeat(indent_level))?;
+                if !cell.attributes.is_empty() {
+                    write!(
+                        f,
+                        "{} ",
+                        Self::format_at_attributes(&cell.attributes)
+                    )?
+                }
                 writeln!(f, "{} = {};", cell.name.id, name)
             }
+            ir::CellType::Constant { .. } => Ok(()),
             _ => unimplemented!(),
         }
     }
@@ -133,16 +184,7 @@ impl IRPrinter {
         write!(f, "{}", " ".repeat(indent_level))?;
         write!(f, "group {}", group.name.id)?;
         if !group.attributes.is_empty() {
-            write!(
-                f,
-                "<{}>",
-                group
-                    .attributes
-                    .iter()
-                    .map(|(k, v)| { format!("\"{}\"={}", k, v) })
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )?;
+            write!(f, "{}", Self::format_attributes(&group.attributes))?;
         }
         writeln!(f, " {{")?;
 

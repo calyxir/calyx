@@ -1,6 +1,8 @@
 component main() -> () {
   cells {
-    r = prim std_reg(32)
+    r = prim std_reg(32);
+    h = prim std_reg(32)
+    l = prim std_reg(32);
   }
   wires { }
   control { }

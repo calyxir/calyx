@@ -1,6 +1,9 @@
 WHITESPACE = _{ " " | "\t" | NEWLINE }
 COMMENT = _{ ("//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE) | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
+// Semicolon
+semi = { ";" }
+
 ident_syms = _{ "_" | "-" | "'" }
 identifier = @{ ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
 
@@ -45,7 +48,7 @@ extern_or_component = {
 }
 
 component = {
-      "component" ~ identifier ~ signature
+      "component" ~ identifier ~ attributes? ~ signature
       ~ "{"
       ~ cells
       ~ connections
@@ -69,7 +72,7 @@ signature = {
 }
 
 io_port = {
-      identifier ~ ":" ~ (bitwidth | identifier)
+     at_attributes? ~ identifier ~ ":" ~ (bitwidth | identifier)
 }
 
 inputs = {
@@ -102,15 +105,15 @@ args = {
 
 
 primitive_cell = {
-      identifier ~ "=" ~ "prim" ~ identifier ~ args
+      at_attributes ~ identifier ~ "=" ~ "prim" ~ identifier ~ args
 }
 
 component_cell = {
-      identifier ~ "=" ~ identifier
+      at_attributes ~ identifier ~ "=" ~ identifier
 }
 
 cell = {
-      (primitive_cell | component_cell) ~ ";"
+      (primitive_cell | component_cell) ~ semi?
 }
 
 cells = {
@@ -179,12 +182,22 @@ wire = {
       LHS ~ "=" ~ (switch_stmt | expr) ~ ";"
 }
 
-key_value = {
+// =========== Attribute parsing ===============
+
+// <"static" = 1> style annotation
+attribute = {
       string_lit ~ "=" ~ bitwidth
 }
-
 attributes = {
-      "<" ~ (key_value ~ ("," ~ key_value)*) ~ ">"
+      "<" ~ (attribute ~ ("," ~ attribute)*) ~ ">"
+}
+
+// @static(1) style annotation
+at_attribute = {
+      "@" ~ identifier ~ "(" ~ bitwidth ~ ")"
+}
+at_attributes = {
+      at_attribute*
 }
 
 group = {

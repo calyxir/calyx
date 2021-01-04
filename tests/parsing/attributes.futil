@@ -1,0 +1,14 @@
+import "primitives/core.futil";
+component main<"static"=1>(@stable(1) @go_port(1) in: 32) -> (@stable(0) out: 32) {
+  cells {
+    @precious(1) out = prim std_reg(32);
+    le = prim std_le(32);
+  }
+  wires {
+    group cond<"stable"=1> {
+      cond[done] = 1'd1;
+    }
+  }
+  control {
+  }
+}

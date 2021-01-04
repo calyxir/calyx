@@ -61,6 +61,7 @@ impl<'a> Builder<'a> {
                 width: *width,
                 direction: ir::Direction::Inout,
                 parent: ir::PortParent::Group(WRC::from(&group)),
+                attributes: LinkedHashMap::with_capacity(0),
             }));
             group.borrow_mut().holes.push(hole);
         }
@@ -91,7 +92,12 @@ impl<'a> Builder<'a> {
         let cell = Self::cell_from_signature(
             name,
             ir::CellType::Constant { val, width },
-            vec![("out".into(), width, ir::Direction::Output)],
+            vec![(
+                "out".into(),
+                width,
+                ir::Direction::Output,
+                LinkedHashMap::with_capacity(0),
+            )],
         );
 
         // Add constant to the Component.
@@ -265,22 +271,28 @@ impl<'a> Builder<'a> {
     pub(super) fn cell_from_signature(
         name: ir::Id,
         typ: ir::CellType,
-        ports: Vec<(ir::Id, u64, ir::Direction)>,
+        ports: Vec<(ir::Id, u64, ir::Direction, LinkedHashMap<String, u64>)>,
     ) -> RRC<ir::Cell> {
         let cell = Rc::new(RefCell::new(ir::Cell {
             name,
             ports: smallvec![],
             prototype: typ,
+            // with_capacity(0) does not allocate space.
+            // Same as HashMap::with_capacity
+            attributes: LinkedHashMap::with_capacity(0),
         }));
-        ports.into_iter().for_each(|(name, width, direction)| {
-            let port = Rc::new(RefCell::new(ir::Port {
-                name,
-                width,
-                direction,
-                parent: ir::PortParent::Cell(WRC::from(&cell)),
-            }));
-            cell.borrow_mut().ports.push(port);
-        });
+        ports
+            .into_iter()
+            .for_each(|(name, width, direction, attributes)| {
+                let port = Rc::new(RefCell::new(ir::Port {
+                    name,
+                    width,
+                    direction,
+                    parent: ir::PortParent::Cell(WRC::from(&cell)),
+                    attributes,
+                }));
+                cell.borrow_mut().ports.push(port);
+            });
         cell
     }
 }

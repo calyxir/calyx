@@ -86,11 +86,13 @@ fn validate_component(
     let mut groups = HashSet::new();
 
     for cell in &comp.cells {
-        let name = cell.name();
-        if cells.contains(name) {
-            return Err(Error::AlreadyBound(name.clone(), "cell".to_string()));
+        if cells.contains(&cell.name) {
+            return Err(Error::AlreadyBound(
+                cell.name.clone(),
+                "cell".to_string(),
+            ));
         }
-        cells.insert(name.clone());
+        cells.insert(cell.name.clone());
 
         match &cell.prototype {
             ast::CellType::Prim { name: prim, .. } => {
@@ -102,7 +104,7 @@ fn validate_component(
                 }
             }
             ast::CellType::Decl { name: component } => {
-                if !sig_ctx.comp_sigs.contains_key(&name) {
+                if !sig_ctx.comp_sigs.contains_key(&component) {
                     return Err(Error::Undefined(
                         component.clone(),
                         "component".to_string(),
@@ -141,7 +143,8 @@ fn build_component(
         comp.signature
             .into_iter()
             .map(|pd| {
-                pd.resolve(&fake_binding).map(|(n, w)| (n, w, pd.direction))
+                pd.resolve(&fake_binding)
+                    .map(|(n, w, attrs)| (n, w, pd.direction, attrs))
             })
             .collect::<Result<_, _>>()?,
     );
@@ -172,13 +175,15 @@ fn build_component(
     )?));
     builder.component.control = control;
 
+    ir_component.attributes = comp.attributes;
+
     Ok(ir_component)
 }
 
 ///////////////// Cell Construction /////////////////////////
 
 fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
-    match cell.prototype {
+    let res = match cell.prototype {
         ast::CellType::Decl { name: component } => {
             let name = builder.component.generate_name(cell.name);
             let sig = &sig_ctx.comp_sigs[&component];
@@ -194,17 +199,21 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
                     .cloned()
                     .map(|pd| {
                         pd.resolve(&fake_binding)
-                            .map(|(n, w)| (n, w, pd.direction))
+                            .map(|(n, w, attrs)| (n, w, pd.direction, attrs))
                     })
                     .collect::<Result<Vec<_>, _>>()
                     .expect("Failed to build component"),
             );
-            builder.component.cells.push(cell);
+            builder.component.cells.push(Rc::clone(&cell));
+            cell
         }
         ast::CellType::Prim { name, params } => {
-            builder.add_primitive(cell.name, name, &params);
+            builder.add_primitive(cell.name, name, &params)
         }
-    }
+    };
+
+    // Add attributes to the built cell
+    res.borrow_mut().attributes = cell.attributes;
 }
 
 ///////////////// Group Construction /////////////////////////

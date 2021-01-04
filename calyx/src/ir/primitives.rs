@@ -35,8 +35,10 @@ impl Primitive {
     pub fn resolve(
         &self,
         parameters: &[u64],
-    ) -> FutilResult<(SmallVec<[(Id, u64); 5]>, Vec<(Id, u64, Direction)>)>
-    {
+    ) -> FutilResult<(
+        SmallVec<[(Id, u64); 5]>,
+        Vec<(Id, u64, Direction, LinkedHashMap<String, u64>)>,
+    )> {
         let bindings = self
             .params
             .iter()
@@ -48,7 +50,10 @@ impl Primitive {
             .signature
             .iter()
             .cloned()
-            .map(|pd| pd.resolve(&bindings).map(|(n, w)| (n, w, pd.direction)))
+            .map(|pd| {
+                pd.resolve(&bindings)
+                    .map(|(n, w, attrs)| (n, w, pd.direction, attrs))
+            })
             .collect::<Result<_, _>>()?;
 
         Ok((bindings.into_iter().collect(), ports))
@@ -74,6 +79,8 @@ pub struct PortDef {
     /// The direction of the port. Only allowed to be [`Direction::Input`]
     /// or [`Direction::Output`].
     pub direction: Direction,
+    /// Attributes attached to this port definition
+    pub attributes: LinkedHashMap<String, u64>,
 }
 
 impl From<(Id, u64, Direction)> for PortDef {
@@ -82,6 +89,7 @@ impl From<(Id, u64, Direction)> for PortDef {
             name: port.0,
             width: Width::Const { value: port.1 },
             direction: port.2,
+            attributes: LinkedHashMap::with_capacity(0),
         }
     }
 }
@@ -102,11 +110,15 @@ impl PortDef {
     pub fn resolve(
         &self,
         binding: &LinkedHashMap<Id, u64>,
-    ) -> FutilResult<(Id, u64)> {
+    ) -> FutilResult<(Id, u64, LinkedHashMap<String, u64>)> {
         match &self.width {
-            Width::Const { value } => Ok((self.name.clone(), *value)),
+            Width::Const { value } => {
+                Ok((self.name.clone(), *value, self.attributes.clone()))
+            }
             Width::Param { value } => match binding.get(&value) {
-                Some(width) => Ok((self.name.clone(), *width)),
+                Some(width) => {
+                    Ok((self.name.clone(), *width, self.attributes.clone()))
+                }
                 None => Err(Error::SignatureResolutionFailed(
                     self.name.clone(),
                     value.clone(),
