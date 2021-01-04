@@ -319,7 +319,7 @@ impl Visitor for InferStaticTiming<'_> {
                 infer_latency(&group.borrow(), &self.prim_latency_data)
             {
                 let grp = group.borrow();
-                if let Some(curr_lat) = grp.get_attribute("static") {
+                if let Some(curr_lat) = grp.attributes.get("static") {
                     if *curr_lat != latency {
                         return Err(Error::ImpossibleLatencyAnnotation(
                             grp.name.to_string(),
@@ -335,7 +335,7 @@ impl Visitor for InferStaticTiming<'_> {
 
             match latency_result {
                 Some(res) => {
-                    group.borrow_mut().add_attribute("static".to_string(), res);
+                    group.borrow_mut().attributes.insert("static", res);
                 }
                 None => continue,
             }

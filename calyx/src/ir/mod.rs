@@ -7,6 +7,7 @@
 //! 2. The IR attempts to represent similar concepts in a homogeneous manner.
 
 // Modules defining internal structures.
+mod attribute;
 mod builder;
 mod common;
 mod component;
@@ -17,9 +18,9 @@ mod id;
 mod primitives;
 mod printer;
 mod structure;
-mod attribute;
 
 // Re-export types at the module level.
+pub use attribute::Attributes;
 pub use builder::Builder;
 pub use common::{RRC, WRC};
 pub use component::Component;
@@ -32,7 +33,6 @@ pub use printer::IRPrinter;
 pub use structure::{
     Assignment, Binding, Cell, CellType, Direction, Group, Port, PortParent,
 };
-pub use attribute::Attributes;
 
 /// Visitor to traverse a control program.
 pub mod traversal;

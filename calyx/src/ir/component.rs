@@ -1,8 +1,8 @@
 use super::{
-    Assignment, Builder, Cell, CellType, Control, Direction, Group, Id, RRC,
+    Assignment, Attributes, Builder, Cell, CellType, Control, Direction, Group,
+    Id, RRC,
 };
 use crate::utils;
-use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -27,7 +27,7 @@ pub struct Component {
     /// The control program for this component.
     pub control: RRC<Control>,
     /// Attributes for this component
-    pub(super) attributes: LinkedHashMap<String, u64>,
+    pub(super) attributes: Attributes,
 
     ///// Internal structures
     /// Namegenerator that contains the names currently defined in this
@@ -43,7 +43,7 @@ impl Component {
     /// Construct a new Component with the given `name` and signature fields.
     pub fn new<S, N>(
         name: S,
-        ports: Vec<(N, u64, Direction, LinkedHashMap<String, u64>)>,
+        ports: Vec<(N, u64, Direction, Attributes)>,
     ) -> Self
     where
         S: AsRef<str>,
@@ -69,7 +69,7 @@ impl Component {
             continuous_assignments: vec![],
             control: Rc::new(RefCell::new(Control::empty())),
             namegen: utils::NameGenerator::default(),
-            attributes: LinkedHashMap::with_capacity(0),
+            attributes: Attributes::default(),
         }
     }
 

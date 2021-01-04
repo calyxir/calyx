@@ -2,7 +2,6 @@ use super::math_utilities::get_bit_width_from;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, LibrarySignatures};
 use crate::{build_assignments, guard, structure};
-use linked_hash_map::LinkedHashMap;
 use std::{cmp, rc::Rc};
 
 #[derive(Default)]
@@ -36,7 +35,8 @@ where
             if let ir::Control::Enable(data) = con {
                 data.group
                     .borrow()
-                    .get_attribute("static")
+                    .attributes
+                    .get("static")
                     .copied()
                     .ok_or(())
             } else {
@@ -77,11 +77,10 @@ impl Visitor for StaticTiming {
 
             // The group is statically compilable with combinational condition.
             if let (Some(&ctime), Some(&btime)) = (
-                cond.borrow().get_attribute("static"),
-                body.borrow().get_attribute("static"),
+                cond.borrow().attributes.get("static"),
+                body.borrow().attributes.get("static"),
             ) {
-                let while_group =
-                    builder.add_group("static_while", LinkedHashMap::new());
+                let while_group = builder.add_group("static_while");
 
                 // take at least one cycle for computing the body and condition
                 let ctime = cmp::max(ctime, 1);
@@ -188,17 +187,16 @@ impl Visitor for StaticTiming {
 
             // combinational condition
             if let (Some(&ctime), Some(&ttime), Some(&ftime)) = (
-                cond.borrow().get_attribute("static"),
-                tru.borrow().get_attribute("static"),
-                fal.borrow().get_attribute("static"),
+                cond.borrow().attributes.get("static"),
+                tru.borrow().attributes.get("static"),
+                fal.borrow().attributes.get("static"),
             ) {
                 let mut builder = ir::Builder::from(comp, ctx, false);
-                let mut attrs = LinkedHashMap::new();
-                attrs.insert(
-                    "static".to_string(),
-                    ctime + 1 + cmp::max(ttime, ftime),
-                );
-                let if_group = builder.add_group("static_if", attrs);
+                let if_group = builder.add_group("static_if");
+                if_group
+                    .borrow_mut()
+                    .attributes
+                    .insert("static", ctime + 1 + cmp::max(ttime, ftime));
 
                 let end_true_time = ttime + ctime + 1;
                 let end_false_time = ftime + ctime + 1;
@@ -308,10 +306,8 @@ impl Visitor for StaticTiming {
         if let Some(max_time) = accumulate_static_time(&s.stmts, cmp::max) {
             let mut builder = ir::Builder::from(comp, ctx, false);
 
-            let mut attrs = LinkedHashMap::new();
-            attrs.insert("static".to_string(), max_time);
-
-            let par_group = builder.add_group("static_par", attrs);
+            let par_group = builder.add_group("static_par");
+            par_group.borrow_mut().attributes.insert("static", max_time);
 
             let fsm_size = get_bit_width_from(max_time + 1);
 
@@ -337,7 +333,7 @@ impl Visitor for StaticTiming {
                 if let ir::Control::Enable(data) = con {
                     let group = &data.group;
                     let static_time: u64 =
-                        *group.borrow().get_attribute("static").unwrap();
+                        *group.borrow().attributes.get("static").unwrap();
 
                     // group[go] = fsm.out <= static_time ? 1;
                     structure!(builder;
@@ -388,8 +384,7 @@ impl Visitor for StaticTiming {
         let fsm_size = get_bit_width_from(1 + total_time.unwrap());
 
         // Create new group for compiling this seq.
-        let seq_group =
-            builder.add_group("static_seq", LinkedHashMap::with_capacity(1));
+        let seq_group = builder.add_group("static_seq");
 
         // Add FSM register
         structure!(builder;
@@ -404,7 +399,7 @@ impl Visitor for StaticTiming {
 
                 // Static time of the group.
                 let static_time: u64 =
-                    *group.borrow().get_attribute("static").unwrap();
+                    *group.borrow().attributes.get("static").unwrap();
 
                 structure!(builder;
                     let start_st = constant(cur_cycle, fsm_size);
@@ -462,7 +457,8 @@ impl Visitor for StaticTiming {
         // Add static attribute to this group.
         seq_group
             .borrow_mut()
-            .add_attribute("static".to_string(), cur_cycle);
+            .attributes
+            .insert("static", cur_cycle);
 
         // Replace the control with the seq group.
         Ok(Action::Change(ir::Control::enable(seq_group)))

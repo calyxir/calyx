@@ -220,7 +220,8 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
 
 /// Build an IR group using the AST Group.
 fn add_group(group: ast::Group, builder: &mut Builder) -> FutilResult<()> {
-    let ir_group = builder.add_group(group.name, group.attributes);
+    let ir_group = builder.add_group(group.name);
+    ir_group.borrow_mut().attributes = group.attributes;
 
     // Add assignemnts to the group
     for wire in group.wires {

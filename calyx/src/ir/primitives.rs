@@ -1,4 +1,4 @@
-use super::{Direction, Id};
+use super::{Attributes, Direction, Id};
 use crate::errors::{Error, FutilResult};
 use linked_hash_map::LinkedHashMap;
 use smallvec::SmallVec;
@@ -25,7 +25,7 @@ pub struct Primitive {
     /// The input/output signature for this primitive.
     pub signature: Vec<PortDef>,
     /// Key-value attributes for this primitive.
-    pub attributes: LinkedHashMap<String, u64>,
+    pub attributes: Attributes,
 }
 
 impl Primitive {
@@ -37,7 +37,7 @@ impl Primitive {
         parameters: &[u64],
     ) -> FutilResult<(
         SmallVec<[(Id, u64); 5]>,
-        Vec<(Id, u64, Direction, LinkedHashMap<String, u64>)>,
+        Vec<(Id, u64, Direction, Attributes)>,
     )> {
         let bindings = self
             .params
@@ -58,14 +58,6 @@ impl Primitive {
 
         Ok((bindings.into_iter().collect(), ports))
     }
-
-    /// Return the value associated with this attribute key.
-    pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
-    where
-        S: AsRef<str>,
-    {
-        self.attributes.get(attr.as_ref())
-    }
 }
 
 /// Definition of a port.
@@ -80,7 +72,7 @@ pub struct PortDef {
     /// or [`Direction::Output`].
     pub direction: Direction,
     /// Attributes attached to this port definition
-    pub attributes: LinkedHashMap<String, u64>,
+    pub attributes: Attributes,
 }
 
 impl From<(Id, u64, Direction)> for PortDef {
@@ -89,7 +81,7 @@ impl From<(Id, u64, Direction)> for PortDef {
             name: port.0,
             width: Width::Const { value: port.1 },
             direction: port.2,
-            attributes: LinkedHashMap::with_capacity(0),
+            attributes: Attributes::default(),
         }
     }
 }
@@ -110,7 +102,7 @@ impl PortDef {
     pub fn resolve(
         &self,
         binding: &LinkedHashMap<Id, u64>,
-    ) -> FutilResult<(Id, u64, LinkedHashMap<String, u64>)> {
+    ) -> FutilResult<(Id, u64, Attributes)> {
         match &self.width {
             Width::Const { value } => {
                 Ok((self.name.clone(), *value, self.attributes.clone()))

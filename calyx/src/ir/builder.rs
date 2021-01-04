@@ -1,7 +1,6 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
 use crate::ir::{self, LibrarySignatures, RRC, WRC};
-use linked_hash_map::LinkedHashMap;
 use smallvec::smallvec;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -36,11 +35,7 @@ impl<'a> Builder<'a> {
     /// Construct a new group and add it to the Component.
     /// The group is guaranteed to start with `prefix`.
     /// Returns a reference to the group.
-    pub fn add_group<S>(
-        &mut self,
-        prefix: S,
-        attributes: LinkedHashMap<String, u64>,
-    ) -> RRC<ir::Group>
+    pub fn add_group<S>(&mut self, prefix: S) -> RRC<ir::Group>
     where
         S: Into<ir::Id> + ToString + Clone,
     {
@@ -49,7 +44,7 @@ impl<'a> Builder<'a> {
         // Check if there is a group with the same name.
         let group = Rc::new(RefCell::new(ir::Group {
             name,
-            attributes,
+            attributes: ir::Attributes::default(),
             holes: smallvec![],
             assignments: vec![],
         }));
@@ -61,7 +56,7 @@ impl<'a> Builder<'a> {
                 width: *width,
                 direction: ir::Direction::Inout,
                 parent: ir::PortParent::Group(WRC::from(&group)),
-                attributes: LinkedHashMap::with_capacity(0),
+                attributes: ir::Attributes::default(),
             }));
             group.borrow_mut().holes.push(hole);
         }
@@ -96,7 +91,7 @@ impl<'a> Builder<'a> {
                 "out".into(),
                 width,
                 ir::Direction::Output,
-                LinkedHashMap::with_capacity(0),
+                ir::Attributes::default(),
             )],
         );
 
@@ -271,7 +266,7 @@ impl<'a> Builder<'a> {
     pub(super) fn cell_from_signature(
         name: ir::Id,
         typ: ir::CellType,
-        ports: Vec<(ir::Id, u64, ir::Direction, LinkedHashMap<String, u64>)>,
+        ports: Vec<(ir::Id, u64, ir::Direction, ir::Attributes)>,
     ) -> RRC<ir::Cell> {
         let cell = Rc::new(RefCell::new(ir::Cell {
             name,
@@ -279,7 +274,7 @@ impl<'a> Builder<'a> {
             prototype: typ,
             // with_capacity(0) does not allocate space.
             // Same as HashMap::with_capacity
-            attributes: LinkedHashMap::with_capacity(0),
+            attributes: ir::Attributes::default(),
         }));
         ports
             .into_iter()

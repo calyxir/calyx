@@ -2,7 +2,6 @@
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
 use crate::ir::{self, RRC};
-use linked_hash_map::LinkedHashMap;
 use std::io;
 use std::rc::Rc;
 
@@ -12,8 +11,9 @@ pub struct IRPrinter;
 impl IRPrinter {
     /// Format attributes of the form `@static(1)`.
     /// Returns the empty string if the `attrs` is empty.
-    fn format_at_attributes(attrs: &LinkedHashMap<String, u64>) -> String {
+    fn format_at_attributes(attrs: &ir::Attributes) -> String {
         attrs
+            .attrs
             .iter()
             .map(|(k, v)| format!("@{}({})", k, v))
             .collect::<Vec<_>>()
@@ -22,13 +22,14 @@ impl IRPrinter {
 
     /// Format attributes of the form `<"static"=1>`.
     /// Returns the empty string if the `attrs` is empty.
-    fn format_attributes(attrs: &LinkedHashMap<String, u64>) -> String {
+    fn format_attributes(attrs: &ir::Attributes) -> String {
         if attrs.is_empty() {
             "".to_string()
         } else {
             format!(
                 "<{}>",
                 attrs
+                    .attrs
                     .iter()
                     .map(|(k, v)| { format!("\"{}\"={}", k, v) })
                     .collect::<Vec<_>>()

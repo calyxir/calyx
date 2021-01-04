@@ -2,9 +2,27 @@ use linked_hash_map::LinkedHashMap;
 use std::ops::Index;
 
 /// Attributes associated with a specific IR structure.
+#[derive(Debug, Clone)]
 pub struct Attributes {
     /// Mapping from the name of the attribute to its value.
-    attrs: LinkedHashMap<String, u64>,
+    pub(super) attrs: LinkedHashMap<String, u64>,
+}
+
+impl Default for Attributes {
+    fn default() -> Self {
+        Attributes {
+            // Does not allocate any space.
+            attrs: LinkedHashMap::with_capacity(0),
+        }
+    }
+}
+
+impl From<Vec<(String, u64)>> for Attributes {
+    fn from(v: Vec<(String, u64)>) -> Self {
+        Attributes {
+            attrs: v.into_iter().collect(),
+        }
+    }
 }
 
 impl Attributes {
@@ -17,11 +35,11 @@ impl Attributes {
     }
 
     /// Get the value associated with an attribute key
-    pub fn get<S>(&self, key: &S) -> Option<&u64>
+    pub fn get<S>(&self, key: S) -> Option<&u64>
     where
-        S: ToString + std::cmp::Eq,
+        S: std::fmt::Display + AsRef<str>,
     {
-        self.attrs.get(&key.to_string())
+        self.attrs.get(&key.as_ref().to_string())
     }
 
     /// Check if an attribute key has been set
@@ -31,11 +49,15 @@ impl Attributes {
     {
         self.attrs.contains_key(&key.to_string())
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.attrs.is_empty()
+    }
 }
 
 impl<S> Index<&S> for Attributes
 where
-    S: ToString + std::cmp::Eq + std::fmt::Display,
+    S: AsRef<str> + std::fmt::Display,
 {
     type Output = u64;
 
