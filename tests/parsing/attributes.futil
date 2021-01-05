@@ -10,5 +10,8 @@ component main<"static"=1>(@stable(1) @go_port(1) in: 32) -> (@stable(0) out: 32
     }
   }
   control {
+    @bound(32) while le.out with cond {
+      cond;
+    }
   }
 }

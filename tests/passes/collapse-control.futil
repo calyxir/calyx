@@ -13,15 +13,15 @@ component main() -> () {
     seq {
       seq { A; B; seq { C; D; }}
       A___;
-      par { A; par { B; C; }; D; }
+      par { A; par { B; C; } D; }
       A___;
       seq { A; seq { B; } C; }
       A___;
       par { A; par { B; } C; }
       A___;
-      par { A; seq { B; C; }; D; }
+      par { A; seq { B; C; } D; }
       A___;
-      seq { A; par { B; C; }; D; }
+      seq { A; par { B; C; } D; }
     }
   }
 }

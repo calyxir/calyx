@@ -278,7 +278,7 @@ impl Visitor for CompileControl {
         // Generate fsm to drive the sequence
         for (idx, con) in s.stmts.iter().enumerate() {
             match con {
-                ir::Control::Enable(ir::Enable { group }) => {
+                ir::Control::Enable(ir::Enable { group, .. }) => {
                     let my_idx: u64 = idx.try_into().unwrap();
                     /* group[go] = fsm.out == idx & !group[done] ? 1 */
                     structure!(builder;
@@ -363,7 +363,7 @@ impl Visitor for CompileControl {
 
         for con in s.stmts.iter() {
             match con {
-                ir::Control::Enable(ir::Enable { group }) => {
+                ir::Control::Enable(ir::Enable { group, .. }) => {
                     // Create register to hold this group's done signal.
                     structure!(builder;
                         let par_done_reg = prim std_reg(1);

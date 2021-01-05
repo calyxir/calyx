@@ -215,20 +215,20 @@ connections = {
 
 // ====== control ======
 
-enable = { identifier ~ ";" }
+enable = { at_attributes ~ identifier ~ ";" }
 
 invoke_arg = { identifier ~ "=" ~ port }
 invoke_args = { (invoke_arg ~ ("," ~ invoke_arg)*)? }
-invoke = { "invoke" ~ identifier ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ";" }
+invoke = { at_attributes ~ "invoke" ~ identifier ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ";" }
 
 seq = {
-      "seq" ~ "{"
+      at_attributes ~ "seq" ~ "{"
       ~ stmt*
       ~ "}"
 }
 
 par = {
-      "par" ~ "{"
+      at_attributes ~ "par" ~ "{"
       ~ stmt*
       ~ "}"
 }
@@ -244,20 +244,20 @@ block = {
 }
 
 if_stmt = {
-      "if" ~ port ~ "with" ~ identifier ~ block ~ ("else" ~ (if_stmt | block))?
+      at_attributes ~ "if" ~ port ~ "with" ~ identifier ~ block ~ ("else" ~ (if_stmt | block))?
 }
 
 while_stmt = {
-      "while" ~ port ~ "with" ~ identifier ~ block
+      at_attributes ~ "while" ~ port ~ "with" ~ identifier ~ block
 }
 
 stmt = {
       enable
     | invoke
-    | (seq ~ ";"?)
-    | (par ~ ";"?)
-    | (if_stmt ~ ";"?)
-    | (while_stmt ~ ";"?)
+    | seq
+    | par
+    | if_stmt
+    | while_stmt
 }
 
 control = {

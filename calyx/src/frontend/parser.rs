@@ -513,23 +513,32 @@ impl FutilParser {
     fn invoke(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(comp), invoke_args(inputs), invoke_args(outputs)] =>
-                ast::Control::Invoke { comp, inputs, outputs }
+            [at_attributes(attrs), identifier(comp), invoke_args(inputs), invoke_args(outputs)] =>
+                ast::Control::Invoke {
+                    comp,
+                    inputs,
+                    outputs,
+                    attributes: attrs
+                }
         ))
     }
 
     fn enable(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(name)] => ast::Control::Enable { comp: name }
+            [at_attributes(attrs), identifier(name)] => ast::Control::Enable {
+                comp: name,
+                attributes: attrs
+            }
         ))
     }
 
     fn seq(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [stmt(stmt)..] => ast::Control::Seq {
-                stmts: stmt.collect()
+            [at_attributes(attrs), stmt(stmt)..] => ast::Control::Seq {
+                stmts: stmt.collect(),
+                attributes: attrs,
             }
         ))
     }
@@ -537,8 +546,9 @@ impl FutilParser {
     fn par(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [stmt(stmt)..] => ast::Control::Par {
-                stmts: stmt.collect()
+            [at_attributes(attrs), stmt(stmt)..] => ast::Control::Par {
+                stmts: stmt.collect(),
+                attributes: attrs,
             }
         ))
     }
@@ -546,25 +556,28 @@ impl FutilParser {
     fn if_stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [port(port), identifier(cond), block(stmt)] => ast::Control::If {
+            [at_attributes(attrs), port(port), identifier(cond), block(stmt)] => ast::Control::If {
                 port,
                 cond,
                 tbranch: Box::new(stmt),
-                fbranch: Box::new(ast::Control::Empty{})
+                fbranch: Box::new(ast::Control::Empty{}),
+                attributes: attrs,
             },
-            [port(port), identifier(cond), block(tbranch), block(fbranch)] =>
+            [at_attributes(attrs), port(port), identifier(cond), block(tbranch), block(fbranch)] =>
                 ast::Control::If {
                     port,
                     cond,
                     tbranch: Box::new(tbranch),
-                    fbranch: Box::new(fbranch)
+                    fbranch: Box::new(fbranch),
+                    attributes: attrs,
                 },
-            [port(port), identifier(cond), block(tbranch), if_stmt(fbranch)] =>
+            [at_attributes(attrs), port(port), identifier(cond), block(tbranch), if_stmt(fbranch)] =>
                 ast::Control::If {
                     port,
                     cond,
                     tbranch: Box::new(tbranch),
-                    fbranch: Box::new(fbranch)
+                    fbranch: Box::new(fbranch),
+                    attributes: attrs,
                 },
 
         ))
@@ -573,10 +586,11 @@ impl FutilParser {
     fn while_stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [port(port), identifier(cond), block(stmt)] => ast::Control::While {
+            [at_attributes(attrs), port(port), identifier(cond), block(stmt)] => ast::Control::While {
                 port,
                 cond,
                 body: Box::new(stmt),
+                attributes: attrs,
             }
         ))
     }

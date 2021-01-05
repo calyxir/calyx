@@ -94,11 +94,11 @@ fn build_conflict_graph(
     match c {
         ir::Control::Empty(_) => (),
         ir::Control::Invoke(_) => unimplemented!(),
-        ir::Control::Enable(ir::Enable { group }) => {
+        ir::Control::Enable(ir::Enable { group, .. }) => {
             confs.add_node(group);
             all_enables.push(Rc::clone(group));
         }
-        ir::Control::Seq(ir::Seq { stmts }) => stmts
+        ir::Control::Seq(ir::Seq { stmts, .. }) => stmts
             .iter()
             .for_each(|c| build_conflict_graph(c, confs, all_enables)),
         ir::Control::If(ir::If {
@@ -117,7 +117,7 @@ fn build_conflict_graph(
             confs.add_node(cond);
             build_conflict_graph(body, confs, all_enables);
         }
-        ir::Control::Par(ir::Par { stmts }) => {
+        ir::Control::Par(ir::Par { stmts, .. }) => {
             let enables = stmts
                 .iter()
                 .map(|c| {

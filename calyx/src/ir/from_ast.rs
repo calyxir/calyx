@@ -322,15 +322,23 @@ fn build_control(
     comp: &Component,
 ) -> FutilResult<Control> {
     Ok(match control {
-        ast::Control::Enable { comp: component } => Control::enable(Rc::clone(
-            &comp.find_group(&component).ok_or_else(|| {
-                Error::Undefined(component.clone(), "group".to_string())
-            })?,
-        )),
+        ast::Control::Enable {
+            comp: component,
+            attributes,
+        } => {
+            let mut en = Control::enable(Rc::clone(
+                &comp.find_group(&component).ok_or_else(|| {
+                    Error::Undefined(component.clone(), "group".to_string())
+                })?,
+            ));
+            *(en.attributes()) = attributes;
+            en
+        }
         ast::Control::Invoke {
             comp: component,
             inputs,
             outputs,
+            attributes,
         } => {
             let cell =
                 Rc::clone(&comp.find_cell(&component).ok_or_else(|| {
@@ -344,40 +352,64 @@ fn build_control(
                 .into_iter()
                 .map(|(id, port)| get_port_ref(port, comp).map(|p| (id, p)))
                 .collect::<Result<_, _>>()?;
-            Control::invoke(cell, inps, outs)
+            let mut inv = Control::invoke(cell, inps, outs);
+            *(inv.attributes()) = attributes;
+            inv
         }
-        ast::Control::Seq { stmts } => Control::seq(
-            stmts
-                .into_iter()
-                .map(|c| build_control(c, comp))
-                .collect::<FutilResult<Vec<_>>>()?,
-        ),
-        ast::Control::Par { stmts } => Control::par(
-            stmts
-                .into_iter()
-                .map(|c| build_control(c, comp))
-                .collect::<FutilResult<Vec<_>>>()?,
-        ),
+        ast::Control::Seq { stmts, attributes } => {
+            let mut s = Control::seq(
+                stmts
+                    .into_iter()
+                    .map(|c| build_control(c, comp))
+                    .collect::<FutilResult<Vec<_>>>()?,
+            );
+            *(s.attributes()) = attributes;
+            s
+        }
+        ast::Control::Par { stmts, attributes } => {
+            let mut p = Control::par(
+                stmts
+                    .into_iter()
+                    .map(|c| build_control(c, comp))
+                    .collect::<FutilResult<Vec<_>>>()?,
+            );
+            *(p.attributes()) = attributes;
+            p
+        }
         ast::Control::If {
             port,
             cond,
             tbranch,
             fbranch,
-        } => Control::if_(
-            get_port_ref(port, comp)?,
-            Rc::clone(&comp.find_group(&cond).ok_or_else(|| {
-                Error::Undefined(cond.clone(), "group".to_string())
-            })?),
-            Box::new(build_control(*tbranch, comp)?),
-            Box::new(build_control(*fbranch, comp)?),
-        ),
-        ast::Control::While { port, cond, body } => Control::while_(
-            get_port_ref(port, comp)?,
-            Rc::clone(&comp.find_group(&cond).ok_or_else(|| {
-                Error::Undefined(cond.clone(), "group".to_string())
-            })?),
-            Box::new(build_control(*body, comp)?),
-        ),
+            attributes,
+        } => {
+            let mut con = Control::if_(
+                get_port_ref(port, comp)?,
+                Rc::clone(&comp.find_group(&cond).ok_or_else(|| {
+                    Error::Undefined(cond.clone(), "group".to_string())
+                })?),
+                Box::new(build_control(*tbranch, comp)?),
+                Box::new(build_control(*fbranch, comp)?),
+            );
+            *(con.attributes()) = attributes;
+            con
+        }
+        ast::Control::While {
+            port,
+            cond,
+            body,
+            attributes,
+        } => {
+            let mut con = Control::while_(
+                get_port_ref(port, comp)?,
+                Rc::clone(&comp.find_group(&cond).ok_or_else(|| {
+                    Error::Undefined(cond.clone(), "group".to_string())
+                })?),
+                Box::new(build_control(*body, comp)?),
+            );
+            *(con.attributes()) = attributes;
+            con
+        }
         ast::Control::Empty { .. } => Control::empty(),
     })
 }

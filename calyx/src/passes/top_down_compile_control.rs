@@ -91,7 +91,7 @@ fn calculate_states(
         // group[go] = (fsm.out == cur_state) & !group[done] & pre_guard ? 1'd1;
         // fsm.in = (fsm.out == cur_state) & group[done] & pre_guard ? nxt_state;
         // ```
-        ir::Control::Enable(ir::Enable { group }) => {
+        ir::Control::Enable(ir::Enable { group, .. }) => {
             let done_cond = guard!(group["done"]) & pre_guard.clone();
             let not_done = !guard!(group["done"]) & pre_guard.clone();
             let signal_on = builder.add_constant(1, 1);
@@ -109,7 +109,7 @@ fn calculate_states(
             nxt_state
         }
         // Give children the states `cur`, `cur + 1`, `cur + 2`, ...
-        ir::Control::Seq(ir::Seq { stmts }) => {
+        ir::Control::Seq(ir::Seq { stmts, .. }) => {
             let mut cur = cur_state;
             for stmt in stmts {
                 cur = calculate_states(stmt, cur, pre_guard, schedule, builder);
@@ -130,6 +130,7 @@ fn calculate_states(
             cond,
             tbranch,
             fbranch,
+            ..
         }) => {
             structure!(builder;
                 let signal_on = constant(1, 1);
@@ -213,7 +214,9 @@ fn calculate_states(
         //    is true.
         // 3. cur + b -> cur: Jump to the start state when stored condition was true.
         // 4. cur + 1 -> cur + b + 1: Exit stage
-        ir::Control::While(ir::While { cond, port, body }) => {
+        ir::Control::While(ir::While {
+            cond, port, body, ..
+        }) => {
             structure!(builder;
                 let signal_on = constant(1, 1);
                 let signal_off = constant(0, 1);
@@ -454,7 +457,9 @@ impl Visitor for TopDownCompileControl {
         for con in &s.stmts {
             let group = match con {
                 // Do not compile enables
-                ir::Control::Enable(ir::Enable { group }) => Rc::clone(group),
+                ir::Control::Enable(ir::Enable { group, .. }) => {
+                    Rc::clone(group)
+                }
                 // Compile complex schedule and return the group.
                 _ => {
                     let mut schedule = Schedule::default();

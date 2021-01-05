@@ -291,11 +291,15 @@ pub enum Control {
     Seq {
         /// List of `Control` statements to run in sequence.
         stmts: Vec<Control>,
+        /// Attributes
+        attributes: ir::Attributes,
     },
     /// Represents parallel composition of control statements.
     Par {
         /// List of `Control` statements to run in sequence.
         stmts: Vec<Control>,
+        /// Attributes
+        attributes: ir::Attributes,
     },
     /// Standard imperative if statement
     If {
@@ -310,6 +314,9 @@ pub enum Control {
 
         /// Control for the true branch.
         fbranch: Box<Control>,
+
+        /// Attributes
+        attributes: ir::Attributes,
     },
     /// Standard imperative while statement
     While {
@@ -321,11 +328,16 @@ pub enum Control {
 
         /// Control for the loop body.
         body: Box<Control>,
+
+        /// Attributes
+        attributes: ir::Attributes,
     },
     /// Runs the control for a list of subcomponents.
     Enable {
         /// Group to be enabled
         comp: ir::Id,
+        /// Attributes
+        attributes: ir::Attributes,
     },
     /// Invoke component with input/output assignments.
     Invoke {
@@ -335,6 +347,8 @@ pub enum Control {
         inputs: Vec<(ir::Id, Port)>,
         /// Output assignments
         outputs: Vec<(ir::Id, Port)>,
+        /// Attributes
+        attributes: ir::Attributes,
     },
     /// Control statement that does nothing.
     Empty {},

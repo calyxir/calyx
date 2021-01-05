@@ -192,7 +192,7 @@ fn build_live_ranges(
     match c {
         ir::Control::Empty(_) => (),
         ir::Control::Invoke(_) => unimplemented!(),
-        ir::Control::Enable(ir::Enable { group }) => {
+        ir::Control::Enable(ir::Enable { group, .. }) => {
             // XXX(sam) no reason to compute this every time
             let (reads, writes) = LiveRangeAnalysis::find_gen_kill(&group);
             alive.gen = reads;
@@ -209,7 +209,7 @@ fn build_live_ranges(
             lr.live
                 .insert(group.borrow().name.clone(), &alive.live | &alive.kill);
         }
-        ir::Control::Seq(ir::Seq { stmts }) => stmts
+        ir::Control::Seq(ir::Seq { stmts, .. }) => stmts
             .iter()
             .rev()
             .for_each(|c| build_live_ranges(&c, alive, lr)),
@@ -232,7 +232,7 @@ fn build_live_ranges(
             // feed to condition to compute
             build_live_ranges(&ir::Control::enable(cond.clone()), alive, lr)
         }
-        ir::Control::Par(ir::Par { stmts }) => {
+        ir::Control::Par(ir::Par { stmts, .. }) => {
             // drain gens so that we don't mix them with the gens we gather from the par
             alive.gen.drain();
             // record the things locally live coming into this par.

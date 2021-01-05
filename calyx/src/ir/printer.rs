@@ -204,14 +204,21 @@ impl IRPrinter {
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
         match control {
-            ir::Control::Enable(ir::Enable { group }) => {
+            ir::Control::Enable(ir::Enable { group, attributes }) => {
+                if !attributes.is_empty() {
+                    write!(f, "{} ", Self::format_at_attributes(&attributes))?
+                }
                 writeln!(f, "{};", group.borrow().name.id)
             }
             ir::Control::Invoke(ir::Invoke {
                 comp,
                 inputs,
                 outputs,
+                attributes,
             }) => {
+                if !attributes.is_empty() {
+                    write!(f, "{} ", Self::format_at_attributes(&attributes))?
+                }
                 write!(f, "invoke {}(", comp.borrow().name)?;
                 for (arg, port) in inputs {
                     write!(
@@ -242,14 +249,20 @@ impl IRPrinter {
                     writeln!(f, "\n{});", " ".repeat(indent_level))
                 }
             }
-            ir::Control::Seq(ir::Seq { stmts }) => {
+            ir::Control::Seq(ir::Seq { stmts, attributes }) => {
+                if !attributes.is_empty() {
+                    write!(f, "{} ", Self::format_at_attributes(&attributes))?
+                }
                 writeln!(f, "seq {{")?;
                 for stmt in stmts {
                     Self::write_control(stmt, indent_level + 2, f)?;
                 }
                 writeln!(f, "{}}}", " ".repeat(indent_level))
             }
-            ir::Control::Par(ir::Par { stmts }) => {
+            ir::Control::Par(ir::Par { stmts, attributes }) => {
+                if !attributes.is_empty() {
+                    write!(f, "{} ", Self::format_at_attributes(&attributes))?
+                }
                 writeln!(f, "par {{")?;
                 for stmt in stmts {
                     Self::write_control(stmt, indent_level + 2, f)?;
@@ -261,7 +274,11 @@ impl IRPrinter {
                 cond,
                 tbranch,
                 fbranch,
+                attributes,
             }) => {
+                if !attributes.is_empty() {
+                    write!(f, "{} ", Self::format_at_attributes(&attributes))?
+                }
                 writeln!(
                     f,
                     "if {} with {} {{",
@@ -270,7 +287,6 @@ impl IRPrinter {
                 )?;
                 Self::write_control(tbranch, indent_level + 2, f)?;
                 write!(f, "{}}}", " ".repeat(indent_level))?;
-                // TODO(rachit): don't print else when its empty
                 if let ir::Control::Empty(_) = **fbranch {
                     writeln!(f)
                 } else {
@@ -279,7 +295,15 @@ impl IRPrinter {
                     writeln!(f, "{}}}", " ".repeat(indent_level))
                 }
             }
-            ir::Control::While(ir::While { port, cond, body }) => {
+            ir::Control::While(ir::While {
+                port,
+                cond,
+                body,
+                attributes,
+            }) => {
+                if !attributes.is_empty() {
+                    write!(f, "{} ", Self::format_at_attributes(&attributes))?
+                }
                 writeln!(
                     f,
                     "while {} with {} {{",
