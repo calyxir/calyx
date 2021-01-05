@@ -1,13 +1,66 @@
 //! Implements a formatter for the in-memory representation of Components.
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
-use crate::ir;
+use crate::ir::{self, RRC};
 use std::io;
+use std::rc::Rc;
 
 /// Printer for the IR.
 pub struct IRPrinter;
 
 impl IRPrinter {
+    /// Format attributes of the form `@static(1)`.
+    /// Returns the empty string if the `attrs` is empty.
+    fn format_at_attributes(attrs: &ir::Attributes) -> String {
+        attrs
+            .attrs
+            .iter()
+            .map(|(k, v)| format!("@{}({})", k, v))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// Format attributes of the form `<"static"=1>`.
+    /// Returns the empty string if the `attrs` is empty.
+    fn format_attributes(attrs: &ir::Attributes) -> String {
+        if attrs.is_empty() {
+            "".to_string()
+        } else {
+            format!(
+                "<{}>",
+                attrs
+                    .attrs
+                    .iter()
+                    .map(|(k, v)| { format!("\"{}\"={}", k, v) })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        }
+    }
+
+    /// Formats port definitions in signatures
+    fn format_port_def(ports: &[RRC<ir::Port>]) -> String {
+        ports
+            .iter()
+            .map(|p| {
+                format!(
+                    "{}{}: {}",
+                    if !p.borrow().attributes.is_empty() {
+                        format!(
+                            "{} ",
+                            Self::format_at_attributes(&p.borrow().attributes)
+                        )
+                    } else {
+                        "".to_string()
+                    },
+                    p.borrow().name.id.to_string(),
+                    p.borrow().width
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
     /// Formats and writes the Component to the formatter.
     pub fn write_component<F: io::Write>(
         comp: &ir::Component,
@@ -15,32 +68,18 @@ impl IRPrinter {
     ) -> io::Result<()> {
         let sig = comp.signature.borrow();
         let (inputs, outputs): (Vec<_>, Vec<_>) =
-            sig.ports.iter().partition(|p| {
-                matches!(p.borrow().direction, ir::Direction::Input)
+            sig.ports.iter().map(|p| Rc::clone(p)).partition(|p| {
+                // Cell signature stores the ports in reversed direction.
+                matches!(p.borrow().direction, ir::Direction::Output)
             });
 
         writeln!(
             f,
-            "component {}({}) -> ({}) {{",
+            "component {}{}({}) -> ({}) {{",
             comp.name.id,
-            inputs
-                .iter()
-                .map(|p| format!(
-                    "{}: {}",
-                    p.borrow().name.id.to_string(),
-                    p.borrow().width
-                ))
-                .collect::<Vec<_>>()
-                .join(", "),
-            outputs
-                .iter()
-                .map(|p| format!(
-                    "{}: {}",
-                    p.borrow().name.id.to_string(),
-                    p.borrow().width
-                ))
-                .collect::<Vec<_>>()
-                .join(", ")
+            Self::format_attributes(&comp.attributes),
+            Self::format_port_def(&inputs),
+            Self::format_port_def(&outputs),
         )?;
 
         // Add the cells
@@ -88,6 +127,13 @@ impl IRPrinter {
                 ..
             } => {
                 write!(f, "{}", " ".repeat(indent_level))?;
+                if !cell.attributes.is_empty() {
+                    write!(
+                        f,
+                        "{} ",
+                        Self::format_at_attributes(&cell.attributes)
+                    )?
+                }
                 write!(f, "{} = prim ", cell.name.id)?;
                 writeln!(
                     f,
@@ -100,11 +146,18 @@ impl IRPrinter {
                         .join(", ")
                 )
             }
-            ir::CellType::Constant { .. } => Ok(()),
             ir::CellType::Component { name } => {
                 write!(f, "{}", " ".repeat(indent_level))?;
+                if !cell.attributes.is_empty() {
+                    write!(
+                        f,
+                        "{} ",
+                        Self::format_at_attributes(&cell.attributes)
+                    )?
+                }
                 writeln!(f, "{} = {};", cell.name.id, name)
             }
+            ir::CellType::Constant { .. } => Ok(()),
             _ => unimplemented!(),
         }
     }
@@ -132,16 +185,7 @@ impl IRPrinter {
         write!(f, "{}", " ".repeat(indent_level))?;
         write!(f, "group {}", group.name.id)?;
         if !group.attributes.is_empty() {
-            write!(
-                f,
-                "<{}>",
-                group
-                    .attributes
-                    .iter()
-                    .map(|(k, v)| { format!("\"{}\"={}", k, v) })
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )?;
+            write!(f, "{}", Self::format_attributes(&group.attributes))?;
         }
         writeln!(f, " {{")?;
 
@@ -252,14 +296,7 @@ impl IRPrinter {
     /// Generate a String-based representation for a guard.
     pub fn guard_str(guard: &ir::Guard) -> String {
         match &guard {
-            ir::Guard::And(l, r)
-            | ir::Guard::Or(l, r)
-            | ir::Guard::Eq(l, r)
-            | ir::Guard::Neq(l, r)
-            | ir::Guard::Gt(l, r)
-            | ir::Guard::Lt(l, r)
-            | ir::Guard::Geq(l, r)
-            | ir::Guard::Leq(l, r) => {
+            ir::Guard::And(l, r) | ir::Guard::Or(l, r) => {
                 let left = if &**l > guard {
                     format!("({})", Self::guard_str(l))
                 } else {
@@ -271,6 +308,19 @@ impl IRPrinter {
                     Self::guard_str(r)
                 };
                 format!("{} {} {}", left, &guard.op_str(), right)
+            }
+            ir::Guard::Eq(l, r)
+            | ir::Guard::Neq(l, r)
+            | ir::Guard::Gt(l, r)
+            | ir::Guard::Lt(l, r)
+            | ir::Guard::Geq(l, r)
+            | ir::Guard::Leq(l, r) => {
+                format!(
+                    "{} {} {}",
+                    Self::get_port_access(&l.borrow()),
+                    &guard.op_str(),
+                    Self::get_port_access(&r.borrow())
+                )
             }
             ir::Guard::Not(g) => {
                 let s = if &**g > guard {

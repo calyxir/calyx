@@ -3,14 +3,35 @@ use super::parser;
 use crate::errors::{Error, FutilResult, Span};
 use crate::ir;
 use atty::Stream;
-use linked_hash_map::LinkedHashMap;
 use std::io::stdin;
 use std::path::{Path, PathBuf};
 
-/// Top level AST statement. This contains a list of Component definitions.
+/// Represents the parsed AST of a complete program. Contains all the components
+/// and primitives that were encountered during the parsing the program.
+///
+/// # Example
+/// When parsing a file `foo.futil`:
+/// ```
+/// import "core.futil";
+///
+/// component main() -> () { ... }
+/// ```
+/// `main` is added to the current namespace and `core.futil` is added to
+/// the parsing queue. Next, `core.futil` is parsed:
+/// ```
+/// extern "core.sv" {
+///     primitive std_add[width](left: width, right: width) -> (out: width);
+/// }
+/// ```
+/// The primitive `std_add` is added to the namespace and `"core.sv"` is
+/// added to the set of paths that need to be "linked" in the backend
+/// generation.
+///
+/// Since `core.futil` does not `import` any file, the parsing process is
+/// completed.
 #[derive(Debug)]
 pub struct NamespaceDef {
-    /// Path to imported files.
+    /// Path to extern files.
     pub imports: Vec<String>,
     /// List of component definitions.
     pub components: Vec<ComponentDef>,
@@ -84,7 +105,7 @@ impl NamespaceDef {
 pub struct ComponentDef {
     /// Name of the component.
     pub name: ir::Id,
-    /// Defines input and output ports.
+    /// Defines input and output ports along with their attributes.
     pub signature: Vec<ir::PortDef>,
     /// List of instantiated sub-components
     pub cells: Vec<Cell>,
@@ -94,6 +115,8 @@ pub struct ComponentDef {
     pub continuous_assignments: Vec<Wire>,
     /// Single control statement for this component.
     pub control: Control,
+    /// Attributes attached to this component
+    pub attributes: ir::Attributes,
 }
 
 /// Statement that refers to a port on a subcomponent.
@@ -160,15 +183,17 @@ pub enum Atom {
 /// The AST for GuardExprs
 #[derive(Debug)]
 pub enum GuardExpr {
+    // Logical operations
     And(Box<GuardExpr>, Box<GuardExpr>),
     Or(Box<GuardExpr>, Box<GuardExpr>),
-    Eq(Box<GuardExpr>, Box<GuardExpr>),
-    Neq(Box<GuardExpr>, Box<GuardExpr>),
-    Gt(Box<GuardExpr>, Box<GuardExpr>),
-    Lt(Box<GuardExpr>, Box<GuardExpr>),
-    Geq(Box<GuardExpr>, Box<GuardExpr>),
-    Leq(Box<GuardExpr>, Box<GuardExpr>),
     Not(Box<GuardExpr>),
+    // Comparison operations
+    Eq(Atom, Atom),
+    Neq(Atom, Atom),
+    Gt(Atom, Atom),
+    Lt(Atom, Atom),
+    Geq(Atom, Atom),
+    Leq(Atom, Atom),
     Atom(Atom),
 }
 
@@ -184,36 +209,60 @@ pub struct Guard {
 // Data definitions for Structure
 // ===================================
 
-/// The Cell AST nodes.
+/// Prototype of the cell definition
 #[derive(Debug)]
-pub enum Cell {
-    /// Node for instantiating user-defined components.
-    Decl { name: ir::Id, component: ir::Id },
-    /// Node for instantiating primitive components.
+pub enum CellType {
+    /// An instantiated Calyx component.
+    Decl { name: ir::Id },
+    /// An instantiated primitive component.
     Prim {
+        /// Name of the primitive.
         name: ir::Id,
-        prim: ir::Id,
+        /// Parameter binding for primitives
         params: Vec<u64>,
     },
 }
 
+/// The Cell AST nodes.
+#[derive(Debug)]
+pub struct Cell {
+    /// Name of the cell.
+    pub name: ir::Id,
+    /// Name of the prototype this cell was built from.
+    pub prototype: CellType,
+    /// Attributes attached to this cell definition
+    pub attributes: ir::Attributes,
+}
+
 /// Methods for constructing the structure AST nodes.
 impl Cell {
-    /// Constructs `Structure::Std` with `name` and `instance`
-    /// as arguments.
-    pub fn prim(var: ir::Id, prim_name: ir::Id, params: Vec<u64>) -> Cell {
-        Cell::Prim {
-            name: var,
-            prim: prim_name,
-            params,
+    /// Construct a Calyx cell instantiation.
+    pub fn decl(
+        name: ir::Id,
+        comp: ir::Id,
+        attributes: ir::Attributes,
+    ) -> Cell {
+        Cell {
+            name,
+            prototype: CellType::Decl { name: comp },
+            attributes,
         }
     }
 
-    /// Return the name of the cell.
-    pub fn name(&self) -> &ir::Id {
-        match self {
-            Self::Decl { name, .. } => name,
-            Self::Prim { name, .. } => name,
+    /// Constructs a primitive cell instantiation.
+    pub fn prim(
+        var: ir::Id,
+        prim_name: ir::Id,
+        params: Vec<u64>,
+        attributes: ir::Attributes,
+    ) -> Cell {
+        Cell {
+            name: var,
+            prototype: CellType::Prim {
+                name: prim_name,
+                params,
+            },
+            attributes,
         }
     }
 }
@@ -222,7 +271,7 @@ impl Cell {
 pub struct Group {
     pub name: ir::Id,
     pub wires: Vec<Wire>,
-    pub attributes: LinkedHashMap<String, u64>,
+    pub attributes: ir::Attributes,
 }
 
 /// Data for the `->` structure statement.

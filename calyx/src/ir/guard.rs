@@ -6,17 +6,28 @@ use std::{cmp::Ordering, hash::Hash, rc::Rc};
 /// An assignment guard which has pointers to the various ports from which it reads.
 #[derive(Debug, Clone)]
 pub enum Guard {
+    /// Represents `c1 || c2`.
     Or(Box<Guard>, Box<Guard>),
+    /// Represents `c1 && c2`.
     And(Box<Guard>, Box<Guard>),
-    Eq(Box<Guard>, Box<Guard>),
-    Neq(Box<Guard>, Box<Guard>),
-    Gt(Box<Guard>, Box<Guard>),
-    Lt(Box<Guard>, Box<Guard>),
-    Geq(Box<Guard>, Box<Guard>),
-    Leq(Box<Guard>, Box<Guard>),
+    /// Represents `!c1`
     Not(Box<Guard>),
-    Port(RRC<Port>),
+    /// The constant true
     True,
+    /// Represents `p1 == p2`.
+    Eq(RRC<Port>, RRC<Port>),
+    /// Represents `p1 != p2`.
+    Neq(RRC<Port>, RRC<Port>),
+    /// Represents `p1 > p2`.
+    Gt(RRC<Port>, RRC<Port>),
+    /// Represents `p1 < p2`.
+    Lt(RRC<Port>, RRC<Port>),
+    /// Represents `p1 >= p2`.
+    Geq(RRC<Port>, RRC<Port>),
+    /// Represents `p1 <= p2`.
+    Leq(RRC<Port>, RRC<Port>),
+    /// Uses the value on a port as the condition. Same as `p1 == true`
+    Port(RRC<Port>),
 }
 
 impl Default for Guard {
@@ -28,16 +39,20 @@ impl Default for Guard {
 impl Hash for Guard {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            Guard::Or(l, r)
-            | Guard::And(l, r)
-            | Guard::Eq(l, r)
+            Guard::Or(l, r) | Guard::And(l, r) => {
+                l.hash(state);
+                r.hash(state)
+            }
+            Guard::Eq(l, r)
             | Guard::Neq(l, r)
             | Guard::Gt(l, r)
             | Guard::Lt(l, r)
             | Guard::Geq(l, r)
             | Guard::Leq(l, r) => {
-                l.hash(state);
-                r.hash(state)
+                l.borrow().name.hash(state);
+                l.borrow().get_parent_name().hash(state);
+                r.borrow().name.hash(state);
+                r.borrow().get_parent_name().hash(state);
             }
             Guard::Not(inner) => inner.hash(state),
             Guard::Port(p) => {
@@ -59,19 +74,33 @@ impl Guard {
         F: Fn(RRC<Port>) -> Option<Guard>,
     {
         match self {
-            Guard::Eq(l, r)
-            | Guard::And(l, r)
-            | Guard::Or(l, r)
-            | Guard::Neq(l, r)
-            | Guard::Gt(l, r)
-            | Guard::Lt(l, r)
-            | Guard::Geq(l, r)
-            | Guard::Leq(l, r) => {
+            Guard::And(l, r) | Guard::Or(l, r) => {
                 l.for_each(f);
                 r.for_each(f);
             }
             Guard::Not(inner) => {
                 inner.for_each(f);
+            }
+            Guard::Eq(l, r)
+            | Guard::Neq(l, r)
+            | Guard::Gt(l, r)
+            | Guard::Lt(l, r)
+            | Guard::Geq(l, r)
+            | Guard::Leq(l, r) => {
+                match f(Rc::clone(l)) {
+                    Some(Guard::Port(p)) => *l = p,
+                    Some(_) => unreachable!(
+                        "Cannot replace port inside comparison operator"
+                    ),
+                    None => {}
+                }
+                match f(Rc::clone(r)) {
+                    Some(Guard::Port(p)) => *r = p,
+                    Some(_) => unreachable!(
+                        "Cannot replace port inside comparison operator"
+                    ),
+                    None => {}
+                }
             }
             Guard::Port(port) => {
                 let guard = f(Rc::clone(port))
@@ -86,24 +115,26 @@ impl Guard {
     pub fn all_ports(&self) -> Vec<RRC<Port>> {
         match self {
             Guard::Port(a) => vec![Rc::clone(a)],
-            Guard::And(l, r)
-            | Guard::Or(l, r)
-            | Guard::Eq(l, r)
+            Guard::And(l, r) | Guard::Or(l, r) => {
+                let mut atoms = l.all_ports();
+                atoms.append(&mut r.all_ports());
+                atoms
+            }
+            Guard::Eq(l, r)
             | Guard::Neq(l, r)
             | Guard::Gt(l, r)
             | Guard::Lt(l, r)
             | Guard::Leq(l, r)
             | Guard::Geq(l, r) => {
-                let mut atoms = l.all_ports();
-                atoms.append(&mut r.all_ports());
-                atoms
+                vec![Rc::clone(l), Rc::clone(r)]
             }
             Guard::Not(g) => g.all_ports(),
             Guard::True => vec![],
         }
     }
 
-    /// Use `std::mem::take` trick to update the Guard in place
+    /// Update the guard in place. Replaces this guard with `upd(self)`.
+    /// Uses `std::mem::take` for the in-place update.
     #[inline(always)]
     pub fn update<F>(&mut self, upd: F)
     where
@@ -163,27 +194,66 @@ impl Guard {
     }
 
     pub fn eq(self, other: Guard) -> Self {
-        Guard::Eq(Box::new(self), Box::new(other))
+        match (self, other) {
+            (Guard::Port(l), Guard::Port(r)) => Guard::Eq(l, r),
+            (l, r) => {
+                unreachable!("Cannot build Guard::Eq using {:?} and {:?}", l, r)
+            }
+        }
     }
 
     pub fn neq(self, other: Guard) -> Self {
-        Guard::Neq(Box::new(self), Box::new(other))
+        match (self, other) {
+            (Guard::Port(l), Guard::Port(r)) => Guard::Neq(l, r),
+            (l, r) => {
+                unreachable!(
+                    "Cannot build Guard::Neq using {:?} and {:?}",
+                    l, r
+                )
+            }
+        }
     }
 
     pub fn le(self, other: Guard) -> Self {
-        Guard::Leq(Box::new(self), Box::new(other))
+        match (self, other) {
+            (Guard::Port(l), Guard::Port(r)) => Guard::Leq(l, r),
+            (l, r) => {
+                unreachable!(
+                    "Cannot build Guard::Leq using {:?} and {:?}",
+                    l, r
+                )
+            }
+        }
     }
 
     pub fn lt(self, other: Guard) -> Self {
-        Guard::Lt(Box::new(self), Box::new(other))
+        match (self, other) {
+            (Guard::Port(l), Guard::Port(r)) => Guard::Lt(l, r),
+            (l, r) => {
+                unreachable!("Cannot build Guard::Lt using {:?} and {:?}", l, r)
+            }
+        }
     }
 
     pub fn ge(self, other: Guard) -> Self {
-        Guard::Geq(Box::new(self), Box::new(other))
+        match (self, other) {
+            (Guard::Port(l), Guard::Port(r)) => Guard::Geq(l, r),
+            (l, r) => {
+                unreachable!(
+                    "Cannot build Guard::Geq using {:?} and {:?}",
+                    l, r
+                )
+            }
+        }
     }
 
     pub fn gt(self, other: Guard) -> Self {
-        Guard::Gt(Box::new(self), Box::new(other))
+        match (self, other) {
+            (Guard::Port(l), Guard::Port(r)) => Guard::Gt(l, r),
+            (l, r) => {
+                unreachable!("Cannot build Guard::Gt using {:?} and {:?}", l, r)
+            }
+        }
     }
 }
 
@@ -198,13 +268,18 @@ impl PartialEq for Guard {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Guard::Or(la, ra), Guard::Or(lb, rb))
-            | (Guard::And(la, ra), Guard::And(lb, rb))
-            | (Guard::Eq(la, ra), Guard::Eq(lb, rb))
+            | (Guard::And(la, ra), Guard::And(lb, rb)) => la == lb && ra == rb,
+            (Guard::Eq(la, ra), Guard::Eq(lb, rb))
             | (Guard::Neq(la, ra), Guard::Neq(lb, rb))
             | (Guard::Gt(la, ra), Guard::Gt(lb, rb))
             | (Guard::Lt(la, ra), Guard::Lt(lb, rb))
             | (Guard::Geq(la, ra), Guard::Geq(lb, rb))
-            | (Guard::Leq(la, ra), Guard::Leq(lb, rb)) => la == lb && ra == rb,
+            | (Guard::Leq(la, ra), Guard::Leq(lb, rb)) => {
+                (la.borrow().get_parent_name(), &la.borrow().name)
+                    == (lb.borrow().get_parent_name(), &lb.borrow().name)
+                    && (ra.borrow().get_parent_name(), &ra.borrow().name)
+                        == (rb.borrow().get_parent_name(), &rb.borrow().name)
+            }
             (Guard::Not(a), Guard::Not(b)) => a == b,
             (Guard::Port(a), Guard::Port(b)) => {
                 (a.borrow().get_parent_name(), &a.borrow().name)

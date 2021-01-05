@@ -7,16 +7,20 @@ use ir::traversal::{Action, VisResult};
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 
-/// Merge assignments of the form:
+/// Merge assignments of the form with the same (dst_port, src_port) pairs.
+///
+/// # Example
 /// ```
-/// n.p = g1 ? x;
-/// n.p = g2 ? x;
-/// n.p = g3 ? y;
+/// x.in = f.out == 1 ? 2'd0;
+/// x.in = f.out == 2 ? 2'd0;
+/// x.in = f.out == 3 ? 2'd2;
+/// y.in = f.out == 1 ? 2'd0;
 /// ```
 /// into:
 /// ```
-/// n.p = g1 | g2 ? x;
-/// n.p = g3 ? y;
+/// x.in = (f.out == 1) | (f.out == 2) ? 2'd0;
+/// x.in = f.out == 3 ? 2'd2;
+/// y.in = f.out == 1 ? 2'd0;
 /// ```
 #[derive(Default)]
 pub struct MergeAssign {}

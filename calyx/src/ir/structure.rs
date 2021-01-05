@@ -1,6 +1,5 @@
 //! Representation for structure (wires and cells) in a FuTIL program.
-use super::{Guard, Id, RRC, WRC};
-use linked_hash_map::LinkedHashMap;
+use super::{Attributes, Guard, Id, RRC, WRC};
 use smallvec::SmallVec;
 use std::rc::Rc;
 
@@ -44,6 +43,8 @@ pub struct Port {
     pub direction: Direction,
     /// Weak pointer to this port's parent
     pub parent: PortParent,
+    /// Attributes associated with this port.
+    pub attributes: Attributes,
 }
 
 impl Port {
@@ -127,6 +128,8 @@ pub struct Cell {
     pub ports: SmallVec<[RRC<Port>; 10]>,
     /// Underlying type for this cell
     pub prototype: CellType,
+    /// Attributes for this group.
+    pub(super) attributes: Attributes,
 }
 
 impl Cell {
@@ -184,6 +187,22 @@ impl Cell {
     pub(super) fn constant_name(val: u64, width: u64) -> Id {
         format!("_{}_{}", val, width).into()
     }
+
+    /// Return the value associated with this attribute key.
+    pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
+    where
+        S: AsRef<str>,
+    {
+        self.attributes.get(attr.as_ref())
+    }
+
+    /// Add a new attribute to the group.
+    pub fn add_attribute<S>(&mut self, attr: S, value: u64)
+    where
+        S: Into<String>,
+    {
+        self.attributes.insert(attr.into(), value);
+    }
 }
 
 /// Represents a guarded assignment in the program
@@ -212,7 +231,7 @@ pub struct Group {
     pub holes: SmallVec<[RRC<Port>; 3]>,
 
     /// Attributes for this group.
-    pub(super) attributes: LinkedHashMap<String, u64>,
+    pub attributes: Attributes,
 }
 
 impl Group {
@@ -239,21 +258,5 @@ impl Group {
                 self.name.to_string()
             )
         })
-    }
-
-    /// Return the value associated with this attribute key.
-    pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
-    where
-        S: AsRef<str>,
-    {
-        self.attributes.get(attr.as_ref())
-    }
-
-    /// Add a new attribute to the group.
-    pub fn add_attribute<S>(&mut self, attr: S, value: u64)
-    where
-        S: Into<String>,
-    {
-        self.attributes.insert(attr.into(), value);
     }
 }

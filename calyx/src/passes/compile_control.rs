@@ -6,15 +6,18 @@ use crate::ir::{
     LibrarySignatures,
 };
 use crate::{build_assignments, guard, structure};
-use linked_hash_map::LinkedHashMap;
 use std::convert::TryInto;
 use std::rc::Rc;
 
 #[derive(Default)]
-/// Primary lowering pass. Transforms all control constructs in a program
-/// into groups that enable `go` and `done` holes. After this pass runs,
-/// there is exactly one group enable in the control.
-pub struct CompileControl {}
+/// **Reference lowering pass**. Traverses a control program bottom-up and
+/// transforms each control sub-program into a single enable statement.
+/// *Not used in the default compilation pipeline.*
+///
+/// This pass uses an older compilation strategy that generates worse FSM-controller.
+/// It is left in-tree because it serves as a second source of truth for the
+/// lowering process.
+pub struct CompileControl;
 
 impl Named for CompileControl {
     fn name() -> &'static str {
@@ -28,7 +31,7 @@ impl Named for CompileControl {
 
 impl Visitor for CompileControl {
     /// This compiles `if` statements of the following form:
-    /// ```C
+    /// ```
     /// if comp.out with cond {
     ///   true;
     /// } else {
@@ -36,7 +39,7 @@ impl Visitor for CompileControl {
     /// }
     /// ```
     /// into the following group:
-    /// ```C
+    /// ```
     /// if0 {
     ///   // compute the condition if we haven't computed it before
     ///   cond[go] = !cond_computed.out ? 1'b1;
@@ -73,7 +76,7 @@ impl Visitor for CompileControl {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // create a new group for if related structure
-        let if_group = builder.add_group("if", LinkedHashMap::new());
+        let if_group = builder.add_group("if");
 
         let cond_group = Rc::clone(&cif.cond);
         let cond = Rc::clone(&cif.port);
@@ -172,7 +175,7 @@ impl Visitor for CompileControl {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // create group
-        let while_group = builder.add_group("while", LinkedHashMap::new());
+        let while_group = builder.add_group("while");
 
         // cond group
         let cond_group = Rc::clone(&wh.cond);
@@ -263,7 +266,7 @@ impl Visitor for CompileControl {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // Create a new group for the seq related structure.
-        let seq_group = builder.add_group("seq", LinkedHashMap::new());
+        let seq_group = builder.add_group("seq");
         let fsm_size = get_bit_width_from(1 + s.stmts.len() as u64);
 
         // new structure
@@ -346,7 +349,7 @@ impl Visitor for CompileControl {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
         // Name of the parent group.
-        let par_group = builder.add_group("par", LinkedHashMap::new());
+        let par_group = builder.add_group("par");
 
         let mut par_group_done: Vec<ir::Guard> =
             Vec::with_capacity(s.stmts.len());

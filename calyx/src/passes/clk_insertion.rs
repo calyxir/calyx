@@ -7,7 +7,7 @@ use ir::traversal::{Action, VisResult};
 
 #[derive(Default)]
 /// Adds assignments from a components `clk` port to every
-/// component that contains an input `clk` port. For example
+/// component that contains an input `clk` port.
 pub struct ClkInsertion;
 
 impl Named for ClkInsertion {

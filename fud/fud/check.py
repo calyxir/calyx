@@ -6,6 +6,13 @@ from packaging import version
 
 
 VERSIONS = {
+    'dahlia': {
+        'flag': '--version',
+        'extract': lambda out: out,
+        'version': 'dirty',
+        'compare': 'status_is_not',
+        'help': 'Dahlia binary built using uncommitted changes. Please commit changes to the Dahlia compiler and rebuild it.'
+    },
     'verilog': {
         'flag': '--version',
         'extract': lambda out: out.split(' ')[1],
@@ -40,6 +47,8 @@ def version_compare(cmp_str, installed, required):
         return version.parse(installed) == version.parse(required)
     elif cmp_str == "<=":
         return version.parse(installed) <= version.parse(required)
+    elif cmp_str == "status_is_not":
+        return required in installed
 
 
 def check_version(name, exec_path):
@@ -51,7 +60,7 @@ def check_version(name, exec_path):
             cprint(" ✔", 'green', end=' ')
             print("Found version", end=' ')
             cprint(f"{install}", 'yellow', end=' ')
-            print(f"({info['compare']}", end='')
+            print(f"({info['compare']} ", end='')
             cprint(f"{info['version']}", 'yellow', end='')
             print(")", end='')
             print(".")
@@ -60,9 +69,10 @@ def check_version(name, exec_path):
             cprint(" ✖", 'red', end=' ')
             print("Found version", end=' ')
             cprint(f"{install},", 'yellow', end=' ')
-            print(f"but need version {info['compare']}", end='')
+            print(f"but need version {info['compare']} ", end='')
             cprint(f"{info['version']}", 'yellow', end='')
             print(".")
+            cprint(f"   {info['help']}")
             return False
     else:
         return True

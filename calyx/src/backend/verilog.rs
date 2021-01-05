@@ -1,5 +1,6 @@
 //! SystemVerilog backend for the FuTIL compiler.
-//! Transforms an `ir::Context` into a formatted string that represents a
+//!
+//! Transforms an [`ir::Context`](crate::ir::Context) into a formatted string that represents a
 //! valid SystemVerilog program.
 
 use crate::{
@@ -24,15 +25,16 @@ pub struct VerilogBackend;
 /// used in a guard.
 fn validate_guard(guard: &ir::Guard) -> bool {
     match guard {
+        Guard::Or(left, right) | Guard::And(left, right) => {
+            validate_guard(left) && validate_guard(right)
+        }
         Guard::Eq(left, right)
-        | Guard::Or(left, right)
-        | Guard::And(left, right)
         | Guard::Neq(left, right)
         | Guard::Gt(left, right)
         | Guard::Lt(left, right)
         | Guard::Geq(left, right)
         | Guard::Leq(left, right) => {
-            validate_guard(left) && validate_guard(right)
+            !left.borrow().is_hole() && !right.borrow().is_hole()
         }
         Guard::Not(inner) => validate_guard(inner),
         Guard::Port(port) => !port.borrow().is_hole(),
@@ -115,14 +117,17 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
     let sig = comp.signature.borrow();
     for port_ref in &sig.ports {
         let port = port_ref.borrow();
+        // NOTE: The signature port definitions are reversed inside the component.
         match port.direction {
             ir::Direction::Input => {
-                module.add_input(port.name.as_ref(), port.width);
-            }
-            ir::Direction::Output => {
                 module.add_output(port.name.as_ref(), port.width);
             }
-            ir::Direction::Inout => todo!("error message"),
+            ir::Direction::Output => {
+                module.add_input(port.name.as_ref(), port.width);
+            }
+            ir::Direction::Inout => {
+                panic!("Unexpected Inout port on Component: {}", port.name)
+            }
         }
     }
 
@@ -282,14 +287,17 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
     };
 
     match guard {
-        Guard::Eq(l, r)
-        | Guard::And(l, r)
-        | Guard::Or(l, r)
-        | Guard::Neq(l, r)
+        Guard::And(l, r) | Guard::Or(l, r) => {
+            op(guard)(guard_to_expr(l), guard_to_expr(r))
+        }
+        Guard::Neq(l, r)
+        | Guard::Eq(l, r)
         | Guard::Gt(l, r)
         | Guard::Lt(l, r)
         | Guard::Geq(l, r)
-        | Guard::Leq(l, r) => op(guard)(guard_to_expr(l), guard_to_expr(r)),
+        | Guard::Leq(l, r) => {
+            op(guard)(port_to_ref(Rc::clone(l)), port_to_ref(Rc::clone(r)))
+        }
         Guard::Not(o) => v::Expr::new_not(guard_to_expr(o)),
         Guard::Port(p) => port_to_ref(Rc::clone(p)),
         Guard::True => v::Expr::new_ulit_bin(1, &1.to_string()),

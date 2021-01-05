@@ -86,23 +86,25 @@ fn validate_component(
     let mut groups = HashSet::new();
 
     for cell in &comp.cells {
-        let name = cell.name();
-        if cells.contains(name) {
-            return Err(Error::AlreadyBound(name.clone(), "cell".to_string()));
+        if cells.contains(&cell.name) {
+            return Err(Error::AlreadyBound(
+                cell.name.clone(),
+                "cell".to_string(),
+            ));
         }
-        cells.insert(name.clone());
+        cells.insert(cell.name.clone());
 
-        match cell {
-            ast::Cell::Prim { prim, .. } => {
-                if sig_ctx.lib.find_primitive(prim).is_none() {
+        match &cell.prototype {
+            ast::CellType::Prim { name: prim, .. } => {
+                if sig_ctx.lib.find_primitive(&prim).is_none() {
                     return Err(Error::Undefined(
                         prim.clone(),
                         "primitive".to_string(),
                     ));
                 }
             }
-            ast::Cell::Decl { component, .. } => {
-                if !sig_ctx.comp_sigs.contains_key(component) {
+            ast::CellType::Decl { name: component } => {
+                if !sig_ctx.comp_sigs.contains_key(&component) {
                     return Err(Error::Undefined(
                         component.clone(),
                         "component".to_string(),
@@ -141,7 +143,8 @@ fn build_component(
         comp.signature
             .into_iter()
             .map(|pd| {
-                pd.resolve(&fake_binding).map(|(n, w)| (n, w, pd.direction))
+                pd.resolve(&fake_binding)
+                    .map(|(n, w, attrs)| (n, w, pd.direction, attrs))
             })
             .collect::<Result<_, _>>()?,
     );
@@ -172,18 +175,17 @@ fn build_component(
     )?));
     builder.component.control = control;
 
+    ir_component.attributes = comp.attributes;
+
     Ok(ir_component)
 }
 
 ///////////////// Cell Construction /////////////////////////
 
 fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
-    match cell {
-        ast::Cell::Decl {
-            name: prefix,
-            component,
-        } => {
-            let name = builder.component.generate_name(prefix);
+    let res = match cell.prototype {
+        ast::CellType::Decl { name: component } => {
+            let name = builder.component.generate_name(cell.name);
             let sig = &sig_ctx.comp_sigs[&component];
             let typ = CellType::Component {
                 name: component.clone(),
@@ -197,24 +199,29 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
                     .cloned()
                     .map(|pd| {
                         pd.resolve(&fake_binding)
-                            .map(|(n, w)| (n, w, pd.direction))
+                            .map(|(n, w, attrs)| (n, w, pd.direction, attrs))
                     })
                     .collect::<Result<Vec<_>, _>>()
                     .expect("Failed to build component"),
             );
-            builder.component.cells.push(cell);
+            builder.component.cells.push(Rc::clone(&cell));
+            cell
         }
-        ast::Cell::Prim { name, prim, params } => {
-            builder.add_primitive(name, prim, &params);
+        ast::CellType::Prim { name, params } => {
+            builder.add_primitive(cell.name, name, &params)
         }
-    }
+    };
+
+    // Add attributes to the built cell
+    res.borrow_mut().attributes = cell.attributes;
 }
 
 ///////////////// Group Construction /////////////////////////
 
 /// Build an IR group using the AST Group.
 fn add_group(group: ast::Group, builder: &mut Builder) -> FutilResult<()> {
-    let ir_group = builder.add_group(group.name, group.attributes);
+    let ir_group = builder.add_group(group.name);
+    ir_group.borrow_mut().attributes = group.attributes;
 
     // Add assignemnts to the group
     for wire in group.wires {
@@ -297,25 +304,13 @@ fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> FutilResult<Guard> {
         GE::Atom(atom) => Guard::port(atom_to_port(atom, bd)?),
         GE::Or(l, r) => Guard::or(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::And(l, r) => Guard::and(build_guard(*l, bd)?, build_guard(*r, bd)?),
-        GE::Eq(l, r) => {
-            Guard::Eq(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
-        }
-        GE::Neq(l, r) => {
-            Guard::Neq(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
-        }
-        GE::Gt(l, r) => {
-            Guard::Gt(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
-        }
-        GE::Lt(l, r) => {
-            Guard::Lt(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
-        }
-        GE::Geq(l, r) => {
-            Guard::Geq(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
-        }
-        GE::Leq(l, r) => {
-            Guard::Leq(into_box_guard(l, bd)?, into_box_guard(r, bd)?)
-        }
         GE::Not(g) => Guard::Not(into_box_guard(g, bd)?),
+        GE::Eq(l, r) => Guard::Eq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
+        GE::Neq(l, r) => Guard::Neq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
+        GE::Gt(l, r) => Guard::Gt(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
+        GE::Lt(l, r) => Guard::Lt(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
+        GE::Geq(l, r) => Guard::Geq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
+        GE::Leq(l, r) => Guard::Leq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
     })
 }
 

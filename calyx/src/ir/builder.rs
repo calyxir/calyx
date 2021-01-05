@@ -1,7 +1,6 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
 use crate::ir::{self, LibrarySignatures, RRC, WRC};
-use linked_hash_map::LinkedHashMap;
 use smallvec::smallvec;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -36,11 +35,7 @@ impl<'a> Builder<'a> {
     /// Construct a new group and add it to the Component.
     /// The group is guaranteed to start with `prefix`.
     /// Returns a reference to the group.
-    pub fn add_group<S>(
-        &mut self,
-        prefix: S,
-        attributes: LinkedHashMap<String, u64>,
-    ) -> RRC<ir::Group>
+    pub fn add_group<S>(&mut self, prefix: S) -> RRC<ir::Group>
     where
         S: Into<ir::Id> + ToString + Clone,
     {
@@ -49,7 +44,7 @@ impl<'a> Builder<'a> {
         // Check if there is a group with the same name.
         let group = Rc::new(RefCell::new(ir::Group {
             name,
-            attributes,
+            attributes: ir::Attributes::default(),
             holes: smallvec![],
             assignments: vec![],
         }));
@@ -61,6 +56,7 @@ impl<'a> Builder<'a> {
                 width: *width,
                 direction: ir::Direction::Inout,
                 parent: ir::PortParent::Group(WRC::from(&group)),
+                attributes: ir::Attributes::default(),
             }));
             group.borrow_mut().holes.push(hole);
         }
@@ -91,7 +87,12 @@ impl<'a> Builder<'a> {
         let cell = Self::cell_from_signature(
             name,
             ir::CellType::Constant { val, width },
-            vec![("out".into(), width, ir::Direction::Output)],
+            vec![(
+                "out".into(),
+                width,
+                ir::Direction::Output,
+                ir::Attributes::default(),
+            )],
         );
 
         // Add constant to the Component.
@@ -156,17 +157,30 @@ impl<'a> Builder<'a> {
                 .for_each(|p| self.is_port_well_formed(&p.borrow()));
         }
         // If the ports have different widths, error out.
-        if src.borrow().width != dst.borrow().width {
-            panic!(
-                "Invalid assignment. `{}.{}' and `{}.{}' have different widths",
-                src.borrow().get_parent_name(),
-                src.borrow().name,
-                dst.borrow().get_parent_name(),
-                dst.borrow().name,
-            )
-        }
-        // Validate: Check to see if the cell/group associated with the
-        // port is in the component.
+        debug_assert!(
+            src.borrow().width == dst.borrow().width,
+            "Invalid assignment. `{}.{}' and `{}.{}' have different widths",
+            src.borrow().get_parent_name(),
+            src.borrow().name,
+            dst.borrow().get_parent_name(),
+            dst.borrow().name,
+        );
+        // If ports have the wrong directions, error out.
+        debug_assert!(
+            // Allow for both Input and Inout ports.
+            src.borrow().direction != ir::Direction::Input,
+            "Not an ouput port: {}.{}",
+            src.borrow().get_parent_name(),
+            src.borrow().name
+        );
+        debug_assert!(
+            // Allow for both Input and Inout ports.
+            dst.borrow().direction != ir::Direction::Output,
+            "Not an input port: {}.{}",
+            dst.borrow().get_parent_name(),
+            dst.borrow().name
+        );
+
         ir::Assignment {
             dst,
             src,
@@ -252,22 +266,28 @@ impl<'a> Builder<'a> {
     pub(super) fn cell_from_signature(
         name: ir::Id,
         typ: ir::CellType,
-        ports: Vec<(ir::Id, u64, ir::Direction)>,
+        ports: Vec<(ir::Id, u64, ir::Direction, ir::Attributes)>,
     ) -> RRC<ir::Cell> {
         let cell = Rc::new(RefCell::new(ir::Cell {
             name,
             ports: smallvec![],
             prototype: typ,
+            // with_capacity(0) does not allocate space.
+            // Same as HashMap::with_capacity
+            attributes: ir::Attributes::default(),
         }));
-        ports.into_iter().for_each(|(name, width, direction)| {
-            let port = Rc::new(RefCell::new(ir::Port {
-                name,
-                width,
-                direction,
-                parent: ir::PortParent::Cell(WRC::from(&cell)),
-            }));
-            cell.borrow_mut().ports.push(port);
-        });
+        ports
+            .into_iter()
+            .for_each(|(name, width, direction, attributes)| {
+                let port = Rc::new(RefCell::new(ir::Port {
+                    name,
+                    width,
+                    direction,
+                    parent: ir::PortParent::Cell(WRC::from(&cell)),
+                    attributes,
+                }));
+                cell.borrow_mut().ports.push(port);
+            });
         cell
     }
 }

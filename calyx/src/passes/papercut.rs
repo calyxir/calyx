@@ -3,7 +3,7 @@ use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, LibrarySignatures};
 use std::collections::{HashMap, HashSet};
 
-/// Pass to check for common errors such as missing assignments to `done' holes
+/// Pass to check for common errors such as missing assignments to `done` holes
 /// of groups.
 pub struct Papercut<'a> {
     /// Map from (primitive name) -> (signal, signal).

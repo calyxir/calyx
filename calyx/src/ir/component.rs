@@ -1,5 +1,6 @@
 use super::{
-    Assignment, Builder, Cell, CellType, Control, Direction, Group, Id, RRC,
+    Assignment, Attributes, Builder, Cell, CellType, Control, Direction, Group,
+    Id, RRC,
 };
 use crate::utils;
 use std::cell::RefCell;
@@ -25,6 +26,8 @@ pub struct Component {
     pub continuous_assignments: Vec<Assignment>,
     /// The control program for this component.
     pub control: RRC<Control>,
+    /// Attributes for this component
+    pub(super) attributes: Attributes,
 
     ///// Internal structures
     /// Namegenerator that contains the names currently defined in this
@@ -38,7 +41,10 @@ pub struct Component {
 ///   name.
 impl Component {
     /// Construct a new Component with the given `name` and signature fields.
-    pub fn new<S, N>(name: S, ports: Vec<(N, u64, Direction)>) -> Self
+    pub fn new<S, N>(
+        name: S,
+        ports: Vec<(N, u64, Direction, Attributes)>,
+    ) -> Self
     where
         S: AsRef<str>,
         N: AsRef<str>,
@@ -48,7 +54,10 @@ impl Component {
             CellType::ThisComponent,
             ports
                 .into_iter()
-                .map(|(name, w, d)| (name.as_ref().into(), w, d))
+                // Reverse the port directions inside the component.
+                .map(|(name, w, d, attrs)| {
+                    (name.as_ref().into(), w, d.reverse(), attrs)
+                })
                 .collect(),
         );
 
@@ -60,6 +69,7 @@ impl Component {
             continuous_assignments: vec![],
             control: Rc::new(RefCell::new(Control::empty())),
             namegen: utils::NameGenerator::default(),
+            attributes: Attributes::default(),
         }
     }
 

@@ -1,25 +1,26 @@
+/* verilator lint_off WIDTH */
 module std_mod_pipe #(
     parameter width = 32
 ) (
-    input                  clk,
-    input                  reset,
-    input                  go,
-    input      [width-1:0] left,
-    input      [width-1:0] right,
-    output reg [width-1:0] out,
-    output reg             done
+    input                    clk,
+    input                    go,
+    input        [width-1:0] left,
+    input        [width-1:0] right,
+    output logic [width-1:0] out,
+    output logic             done
 );
 
-  wire start = go && !running && !reset;
+  logic [width-1:0] dividend;
+  logic [(width-1)*2:0] divisor;
+  logic [width-1:0] quotient;
+  logic [width-1:0] quotient_msk;
+  logic start, running, finished;
 
-  reg [width-1:0] dividend;
-  reg [(width-1)*2:0] divisor;
-  reg [width-1:0] quotient;
-  reg [width-1:0] quotient_msk;
-  reg running;
+  assign start = go && !running;
+  assign finished = !quotient_msk && running;
 
   always @(posedge clk) begin
-    if (reset || !go) begin
+    if (!go) begin
       running <= 0;
       done <= 0;
       out <= 0;
@@ -27,13 +28,14 @@ module std_mod_pipe #(
       out <= 0;
       done <= 1;
     end
+
     if (start) begin
       running <= 1;
       dividend <= left;
       divisor <= right << width - 1;
       quotient <= 0;
       quotient_msk <= 1 << width - 1;
-    end else if (!quotient_msk && running) begin
+    end else if (finished) begin
       running <= 0;
       done <= 1;
       out <= dividend;
@@ -46,6 +48,20 @@ module std_mod_pipe #(
       quotient_msk <= quotient_msk >> 1;
     end
   end
+
+  `ifdef VERILATOR
+    // Simulation self test against unsynthesizable implementation.
+    always @(posedge clk) begin
+      if (finished && dividend != $unsigned(((left % right) + right) % right))
+        $error(
+          "\nstd_mod_pipe: Computed and golden outputs do not match!\n",
+          "left: %0d", $unsigned(left),
+          "  right: %0d\n", $unsigned(right),
+          "expected: %0d", $unsigned(((left % right) + right) % right),
+          "  computed: %0d", $unsigned(out)
+        );
+    end
+  `endif
 endmodule
 
 module std_mult_pipe #(
@@ -90,7 +106,6 @@ module std_div_pipe #(
     parameter width = 32
 ) (
     input                  clk,
-    reset,
     input                  go,
     input      [width-1:0] left,
     input      [width-1:0] right,
@@ -98,7 +113,7 @@ module std_div_pipe #(
     output reg             done
 );
 
-  wire start = go && !running && !reset;
+  wire start = go && !running;
 
   reg [width-1:0] dividend;
   reg [(width-1)*2:0] divisor;
@@ -107,7 +122,7 @@ module std_div_pipe #(
   reg running;
 
   always @(posedge clk) begin
-    if (reset || !go) begin
+    if (!go) begin
       running <= 0;
       done <= 0;
       out <= 0;
@@ -136,6 +151,10 @@ module std_div_pipe #(
   end
 endmodule
 
+/**
+* Implements the non-restoring square root algorithm's iterative
+* implementation (Figure 8): https://ieeexplore.ieee.org/document/563604
+*/
 module std_sqrt (
     input  logic [31:0] in,
     input  logic        go,
@@ -143,48 +162,182 @@ module std_sqrt (
     output logic [31:0] out,
     output logic        done
 );
+  // Done state
+  localparam END = 17;
+
   // declare the variables
   logic [31:0] a;
-  logic [15:0] q;
-  logic [17:0] left, right, r;
-  integer i;
-  always_ff @(posedge clk) begin
-    if (go && i == 0) begin
-      // initialize all the variables.
-      a <= in;
-      q <= 0;
-      i <= 1;
-      left <= 0;  // input to adder/sub
-      right <= 0;  // input to adder/sub
-      r <= 0;  // remainder
-      // run the calculations for 16 iterations.
-    end else if (go && i <= 16) begin
-      right <= {q, r[17], 1'b1};
-      left <= {r[15:0], a[31:30]};
-      a <= {a[29:0], 2'b00};  //left shift by 2 bits.
-      if (r[17] == 1)  //add if r is negative
-        r <= left + right;
-      else  //subtract if r is positive
-        r <= left - right;
-      q <= {q[14:0], !r[17]};
+  logic [15:0] Q;
+  logic [17:0] left, right, R;
+  logic [17:0] tmp;
+  logic [5:0] i;
 
-      if (i == 16) begin
-        out <= {16'd0, q};  //final assignment of output.
-        i <= 0;
-        done <= 1;
-      end else i <= i + 1;
-    end else begin
-      // initialize all the variables.
-      a <= in;
-      q <= 0;
+  // Input to the add/sub circuit.
+  assign right = {Q, R[17], 1'b1};
+  assign left = {R[15:0], a[31:30]};
+
+  // Output is based on current value of r
+  always_comb begin
+    if (R[17] == 1)
+      tmp = left + right;
+    else
+      tmp = left - right;
+  end
+
+  // Update the current iteration counter
+  always_ff @(posedge clk) begin
+    if (go && i < END)
+      i <= i + 1;
+    else
       i <= 0;
-      left <= 0;  // input to adder/sub
-      right <= 0;  // input to adder/sub
-      r <= 0;  // remainder
+  end
+
+  // Done signal and final value
+  always_ff @(posedge clk) begin
+    if (i == END) begin
+      done <= 1;
+      out <= {16'd0, Q};
+    end else begin
       done <= 0;
+      out <= 0;
     end
   end
+
+  // Quotient and remainder updates
+  always_ff @(posedge clk) begin
+    if (go && i < END) begin
+      Q <= {Q[14:0], !tmp[17]};
+      R <= tmp;
+    end else begin
+      Q <= 0;
+      R <= 0;
+    end
+  end
+
+  // Input stream update
+  always_ff @(posedge clk) begin
+    if (go) begin
+      if (i == 0) begin
+        a <= in;
+      end else if (i < END) begin
+        a <= {a[29:0], 2'b00};
+      end else begin
+        a <= 0;
+      end
+    end else begin
+      a <= 0;
+    end
+  end
+
+  // Simulation self test against unsynthesizable implementation.
+  `ifdef VERILATOR
+    // Save the original value of the input
+    always @(posedge clk) begin
+      if (i == END && Q != $floor($sqrt(in)))
+        $error(
+          "\nstd_sqrt: Computed and golden outputs do not match!\n",
+          "input: %0d\n", in,
+          /* verilator lint_off REALCVT */
+          "expected: %0d", $floor($sqrt(in)),
+          "  computed: %0d", out
+        );
+    end
+  `endif
+
 endmodule
+
+// ===============Signed operations that wrap unsigned ones ===============
+
+module std_smod_pipe #(
+    parameter width = 32
+) (
+    input                     clk,
+    input                     go,
+    input  signed [width-1:0] left,
+    input  signed [width-1:0] right,
+    output logic  [width-1:0] out,
+    output logic              done
+);
+
+  logic signed [width-1:0] left_abs;
+  logic signed [width-1:0] comp_out;
+
+  assign left_abs = left[width-1] == 1 ? -left : left;
+  assign out = left[width-1] == 1 ? $signed(right - comp_out) : comp_out;
+
+  std_mod_pipe #(
+    .width(width)
+  ) comp (
+    .clk(clk),
+    .done(done),
+    .go(go),
+    .left(left_abs),
+    .right(right),
+    .out(comp_out)
+  );
+
+  `ifdef VERILATOR
+    // Simulation self test against unsynthesizable implementation.
+    always @(posedge clk) begin
+      if (done && out != $signed(((left % right) + right) % right))
+        $error(
+          "\nstd_smod_pipe: Computed and golden outputs do not match!\n",
+          "left: %0d", left,
+          "  right: %0d\n", right,
+          "expected: %0d", $signed(((left % right) + right) % right),
+          "  computed: %0d", $signed(out)
+        );
+    end
+  `endif
+endmodule
+
+/* verilator lint_off WIDTH */
+module std_sdiv_pipe #(
+    parameter width = 32
+) (
+    input                     clk,
+    input                     go,
+    input  signed [width-1:0] left,
+    input  signed [width-1:0] right,
+    output logic  [width-1:0] out,
+    output logic              done
+);
+
+  logic signed [width-1:0] left_abs;
+  logic signed [width-1:0] right_abs;
+  logic signed [width-1:0] comp_out;
+
+  assign right_abs = right[width-1] == 1 ? -right : right;
+  assign left_abs = left[width-1] == 1 ? -left : left;
+  assign out =
+    (left[width-1] == 1) ^ (right[width-1] == 1) ? -comp_out : comp_out;
+
+  std_div_pipe #(
+    .width(width)
+  ) comp (
+    .clk(clk),
+    .done(done),
+    .go(go),
+    .left(left_abs),
+    .right(right_abs),
+    .out(comp_out)
+  );
+
+  `ifdef VERILATOR
+    // Simulation self test against unsynthesizable implementation.
+    always @(posedge clk) begin
+      if (done && out != $signed(left / right))
+        $error(
+          "\nstd_sdiv_pipe: Computed and golden outputs do not match!\n",
+          "left: %0d", left,
+          "  right: %0d\n", right,
+          "expected: %0d", $signed(left / right),
+          "  computed: %0d", $signed(out)
+        );
+    end
+  `endif
+endmodule
+
 
 //==================== Unsynthesizable primitives =========================
 module std_mult #(
@@ -226,8 +379,9 @@ module std_exp (
 );
   always_ff @(posedge clk) begin
     if (go) begin
+      // XXX: This is a hilariously bad approximation
       /* verilator lint_off REALCVT */
-      out <= 2.718281 ** exponent;
+      out <= /* 2.718281 */ 3 ** exponent;
       done <= 1;
     end else begin
       out <= 0;

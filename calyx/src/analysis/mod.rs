@@ -1,4 +1,5 @@
-//! Module for performing analysis of FuTIL programs.
+//! Analysis for Calyx programs.
+//!
 //! The analyses construct data-structures that make answering certain queries
 //! about FuTIL programs easier.
 

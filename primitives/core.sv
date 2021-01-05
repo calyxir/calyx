@@ -162,6 +162,39 @@ module std_slice #(
     output logic [out_width-1:0] out
 );
   assign out = in[out_width-1:0];
+
+  `ifdef VERILATOR
+    always_comb begin
+      if (in_width < out_width)
+        $error(
+          "std_slice: Input width less than output width\n",
+          "in_width: %0d", in_width,
+          "out_width: %0d", out_width
+        );
+    end
+  `endif
+endmodule
+
+module std_pad #(
+    parameter in_width  = 32,
+    parameter out_width = 32
+) (
+    input  logic [ in_width-1:0] in,
+    output logic [out_width-1:0] out
+);
+  localparam EXTEND = out_width - in_width;
+  assign out = { {EXTEND {1'b0}}, in};
+
+  `ifdef VERILATOR
+    always_comb begin
+      if (in_width > out_width)
+        $error(
+          "std_pad: Output width less than input width\n",
+          "in_width: %0d", in_width,
+          "out_width: %0d", out_width
+        );
+    end
+  `endif
 endmodule
 
 module std_lsh #(
