@@ -2,6 +2,7 @@
 //! Program passes implemented as the Visitor are directly invoked on
 //! `ir::Context` to compile every `ir::Component` using the pass.
 use super::action::{Action, VisResult};
+use super::PostOrder;
 use crate::errors::FutilResult;
 use crate::ir::{self, Component, Context, Control, LibrarySignatures};
 use std::rc::Rc;
@@ -77,29 +78,50 @@ pub trait Visitor {
         Self: Sized + Named,
     {
         let signatures = &context.lib;
-        context
-            .components
-            // Mutably borrow the components in the context
-            .iter_mut()
-            .map(|mut comp| {
-                self.start(&mut comp, signatures)?
-                    .and_then(|| {
-                        // Create a clone of the reference to the Control
-                        // program.
-                        let control_ref = Rc::clone(&comp.control);
-                        // Borrow the control program mutably and visit it.
-                        control_ref
-                            .borrow_mut()
-                            .visit(self, &mut comp, signatures)?;
-                        Ok(Action::Continue)
-                    })?
-                    .and_then(|| self.finish(&mut comp, signatures))?
-                    .apply_change(&mut comp.control.borrow_mut())?;
-                Ok(())
-            })
-            .collect::<FutilResult<_>>()?;
+
+        let upd = |comp: &mut ir::Component| -> FutilResult<()> {
+            self.start(comp, signatures)?
+                .and_then(|| {
+                    // Create a clone of the reference to the Control
+                    // program.
+                    let control_ref = Rc::clone(&comp.control);
+                    // Borrow the control program mutably and visit it.
+                    control_ref.borrow_mut().visit(self, comp, signatures)?;
+                    Ok(Action::Continue)
+                })?
+                .and_then(|| self.finish(comp, signatures))?
+                .apply_change(&mut comp.control.borrow_mut())?;
+            Ok(())
+        };
+
+        if Self::require_postorder() {
+            // Temporarily take ownership of components from context.
+            let comps = context.components.drain(..).collect();
+            let mut po = PostOrder::new(comps);
+            po.apply_update(upd)?;
+            context.components = po.take();
+        } else {
+            context
+                .components
+                // Mutably borrow the components in the context
+                .iter_mut()
+                .map(upd)
+                .collect::<FutilResult<_>>()?;
+        }
 
         Ok(())
+    }
+
+    /// Returns true if this pass requires a post-order traversal of the
+    /// components.
+    /// In a post-order traversal, if component `B` uses a component `A`,
+    /// then `A` is guaranteed to be traversed before `B`.
+    #[inline(always)]
+    fn require_postorder() -> bool
+    where
+        Self: Sized,
+    {
+        false
     }
 
     /// Executed before the traversal begins.
