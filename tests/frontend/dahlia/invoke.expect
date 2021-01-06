@@ -1,0 +1,57 @@
+import "primitives/std.lib";
+component add(a: 32, b: 32) -> (out: 32) {
+  cells {
+    add1 = prim std_add(32);
+    tmp0 = prim std_reg(32);
+  }
+  wires {
+    group let3<"static"=1> {
+      tmp0.in = add1.out;
+      tmp0.write_en = 1'd1;
+      let3[done] = tmp0.done;
+      add1.left = a;
+      add1.right = b;
+    }
+    out = tmp0.out;
+  }
+  control {
+    let3;
+  }
+}
+component main() -> () {
+  cells {
+    const0 = prim std_const(32,41);
+    const1 = prim std_const(32,1);
+    lhs0 = prim std_reg(32);
+    rhs0 = prim std_reg(32);
+    sum0 = prim std_reg(32);
+    add0 = add;
+  }
+  wires {
+    group let0<"static"=1> {
+      lhs0.in = const0.out;
+      lhs0.write_en = 1'd1;
+      let0[done] = lhs0.done;
+    }
+    group let1<"static"=1> {
+      rhs0.in = const1.out;
+      rhs0.write_en = 1'd1;
+      let1[done] = rhs0.done;
+    }
+    group let2 {
+      sum0.in = add0.out;
+      sum0.write_en = 1'd1;
+      let2[done] = sum0.done;
+    }
+  }
+  control {
+    seq {
+      par {
+        let0;
+        let1;
+      }
+      invoke add0(a=lhs0.out, b=rhs0.out)();
+      let2;
+    }
+  }
+}
