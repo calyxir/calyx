@@ -40,9 +40,9 @@ impl PostOrder {
     }
 
     /// Traverses components in post-order and applies `upd`.
-    pub fn apply_update<F>(&mut self, upd: F) -> FutilResult<()>
+    pub fn apply_update<F>(&mut self, mut upd: F) -> FutilResult<()>
     where
-        F: Fn(&mut ir::Component) -> FutilResult<()>,
+        F: FnMut(&mut ir::Component) -> FutilResult<()>,
     {
         self.order
             .clone()
