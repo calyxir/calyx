@@ -1,4 +1,4 @@
-use super::{Attributes, Cell, Group, Id, Port, RRC};
+use super::{Attributes, Cell, GetAttributes, Group, Id, Port, RRC};
 
 /// Data for the `seq` control statement.
 #[derive(Debug)]
@@ -99,21 +99,33 @@ pub enum Control {
     Empty(Empty),
 }
 
-impl Control {
-    pub fn attributes(&mut self) -> &mut Attributes {
+impl GetAttributes for Control {
+    fn get_mut_attributes(&mut self) -> Option<&mut Attributes> {
         match self {
             Self::Seq(Seq { attributes, .. })
             | Self::Par(Par { attributes, .. })
             | Self::If(If { attributes, .. })
             | Self::While(While { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
-            | Self::Enable(Enable { attributes, .. }) => attributes,
-            Self::Empty(..) => {
-                panic!("No attributes for Control::Empty statements")
-            }
+            | Self::Enable(Enable { attributes, .. }) => Some(attributes),
+            Self::Empty(..) => None,
         }
     }
 
+    fn get_attributes(&self) -> Option<&Attributes> {
+        match self {
+            Self::Seq(Seq { attributes, .. })
+            | Self::Par(Par { attributes, .. })
+            | Self::If(If { attributes, .. })
+            | Self::While(While { attributes, .. })
+            | Self::Invoke(Invoke { attributes, .. })
+            | Self::Enable(Enable { attributes, .. }) => Some(attributes),
+            Self::Empty(..) => None,
+        }
+    }
+}
+
+impl Control {
     // ================ Constructor methods ================
     /// Convience constructor for empty.
     pub fn empty() -> Self {

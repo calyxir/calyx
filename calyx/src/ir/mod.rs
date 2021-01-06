@@ -20,7 +20,7 @@ mod printer;
 mod structure;
 
 // Re-export types at the module level.
-pub use attribute::Attributes;
+pub use attribute::{Attributes, GetAttributes};
 pub use builder::Builder;
 pub use common::{RRC, WRC};
 pub use component::Component;

@@ -1,6 +1,6 @@
 use super::{
     Assignment, Builder, CellType, Component, Context, Control, Direction,
-    Guard, Id, LibrarySignatures, Port, PortDef, RRC,
+    GetAttributes, Guard, Id, LibrarySignatures, Port, PortDef, RRC,
 };
 use crate::{
     errors::{Error, FutilResult},
@@ -331,7 +331,7 @@ fn build_control(
                     Error::Undefined(component.clone(), "group".to_string())
                 })?,
             ));
-            *(en.attributes()) = attributes;
+            *(en.get_mut_attributes().unwrap()) = attributes;
             en
         }
         ast::Control::Invoke {
@@ -353,7 +353,7 @@ fn build_control(
                 .map(|(id, port)| get_port_ref(port, comp).map(|p| (id, p)))
                 .collect::<Result<_, _>>()?;
             let mut inv = Control::invoke(cell, inps, outs);
-            *(inv.attributes()) = attributes;
+            *(inv.get_mut_attributes().unwrap()) = attributes;
             inv
         }
         ast::Control::Seq { stmts, attributes } => {
@@ -363,7 +363,7 @@ fn build_control(
                     .map(|c| build_control(c, comp))
                     .collect::<FutilResult<Vec<_>>>()?,
             );
-            *(s.attributes()) = attributes;
+            *(s.get_mut_attributes().unwrap()) = attributes;
             s
         }
         ast::Control::Par { stmts, attributes } => {
@@ -373,7 +373,7 @@ fn build_control(
                     .map(|c| build_control(c, comp))
                     .collect::<FutilResult<Vec<_>>>()?,
             );
-            *(p.attributes()) = attributes;
+            *(p.get_mut_attributes().unwrap()) = attributes;
             p
         }
         ast::Control::If {
@@ -391,7 +391,7 @@ fn build_control(
                 Box::new(build_control(*tbranch, comp)?),
                 Box::new(build_control(*fbranch, comp)?),
             );
-            *(con.attributes()) = attributes;
+            *(con.get_mut_attributes().unwrap()) = attributes;
             con
         }
         ast::Control::While {
@@ -407,7 +407,7 @@ fn build_control(
                 })?),
                 Box::new(build_control(*body, comp)?),
             );
-            *(con.attributes()) = attributes;
+            *(con.get_mut_attributes().unwrap()) = attributes;
             con
         }
         ast::Control::Empty { .. } => Control::empty(),
