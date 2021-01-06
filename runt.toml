@@ -6,6 +6,7 @@ ver = "0.2.8"
 name = "passes"
 paths = [
   "tests/passes/*.futil",
+  "tests/passes/infer-static/*.futil",
   "tests/passes/resource-sharing/*.futil",
   "tests/passes/minimize-regs/*.futil",
   "tests/passes/compile-control/*.futil",

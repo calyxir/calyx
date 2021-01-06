@@ -27,7 +27,7 @@ pub struct Component {
     /// The control program for this component.
     pub control: RRC<Control>,
     /// Attributes for this component
-    pub(super) attributes: Attributes,
+    pub attributes: Attributes,
 
     ///// Internal structures
     /// Namegenerator that contains the names currently defined in this

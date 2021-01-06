@@ -413,4 +413,20 @@ impl Visitor for InferStaticTiming {
 
         Ok(Action::Continue)
     }
+
+    fn finish(
+        &mut self,
+        comp: &mut ir::Component,
+        _lib: &LibrarySignatures,
+    ) -> VisResult {
+        if let Some(time) = comp
+            .control
+            .borrow()
+            .get_attributes()
+            .and_then(|attrs| attrs.get("static"))
+        {
+            comp.attributes.insert("static", *time);
+        }
+        Ok(Action::Continue)
+    }
 }
