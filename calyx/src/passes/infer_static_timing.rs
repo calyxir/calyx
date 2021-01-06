@@ -3,13 +3,15 @@ use std::collections::HashMap;
 use crate::analysis::{GraphAnalysis, ReadWriteSet};
 use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::RRC;
 use crate::ir::{self, LibrarySignatures};
-use std::rc::Rc;
+use crate::ir::{GetAttributes, RRC};
+use itertools::Itertools;
+use std::{cmp, ops::Add, rc::Rc};
 
-/// Infer "static" annotation for groups.
+/// Infer "static" annotation for groups and add "@static" annotation when
+/// (conservatively) possible.
 ///
-/// Statically infers the number of cycles for groups where the `done`
+/// Infers the number of cycles for groups where the `done`
 /// signal relies only on other `done` signals, and then inserts "static"
 /// annotations with those inferred values. If there is an existing
 /// annotation in a group that differs from an inferred value, this
@@ -19,6 +21,26 @@ use std::rc::Rc;
 pub struct InferStaticTiming {
     /// primitive name -> (go signal, done signal, latency)
     latency_data: HashMap<ir::Id, (ir::Id, ir::Id, u64)>,
+}
+
+/// Function to iterate over a vector of control statements and collect
+/// the "static" attribute using the `acc` function.
+/// Returns None if any of of the Control statements is a compound statement.
+fn accumulate_static_time<F>(
+    stmts: &[ir::Control],
+    start: u64,
+    acc: F,
+) -> Option<u64>
+where
+    F: FnMut(u64, u64) -> u64,
+{
+    stmts
+        .iter()
+        .map(|con| {
+            con.get_attributes()
+                .and_then(|attr| attr.get("static").copied())
+        })
+        .fold_options(start, acc)
 }
 
 impl Named for InferStaticTiming {
@@ -330,6 +352,65 @@ impl Visitor for InferStaticTiming {
                 None => continue,
             }
         }
-        Ok(Action::Stop)
+        Ok(Action::Continue)
+    }
+
+    fn finish_if(
+        &mut self,
+        s: &mut ir::If,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+    ) -> VisResult {
+        if let (Some(ctime), Some(ttime), Some(ftime)) = (
+            s.cond.borrow().attributes.get("static"),
+            s.tbranch
+                .get_attributes()
+                .and_then(|attr| attr.get("static")),
+            s.fbranch
+                .get_attributes()
+                .and_then(|attr| attr.get("static")),
+        ) {
+            s.attributes
+                .insert("static", ctime + 1 + cmp::max(ttime, ftime));
+        }
+
+        Ok(Action::Continue)
+    }
+
+    fn finish_par(
+        &mut self,
+        s: &mut ir::Par,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+    ) -> VisResult {
+        if let Some(time) = accumulate_static_time(&s.stmts, 0, cmp::max) {
+            s.attributes.insert("static", time);
+        }
+        Ok(Action::Continue)
+    }
+
+    fn finish_seq(
+        &mut self,
+        s: &mut ir::Seq,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+    ) -> VisResult {
+        if let Some(time) = accumulate_static_time(&s.stmts, 0, Add::add) {
+            s.attributes.insert("static", time);
+        }
+        Ok(Action::Continue)
+    }
+
+    fn enable(
+        &mut self,
+        s: &mut ir::Enable,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+    ) -> VisResult {
+        if let Some(time) = s.group.borrow().attributes.get("static") {
+            s.attributes.insert("static", *time);
+        }
+
+        Ok(Action::Continue)
     }
 }

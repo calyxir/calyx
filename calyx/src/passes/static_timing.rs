@@ -2,6 +2,7 @@ use super::math_utilities::get_bit_width_from;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, LibrarySignatures};
 use crate::{build_assignments, guard, structure};
+use itertools::Itertools;
 use std::{cmp, rc::Rc};
 
 #[derive(Default)]
@@ -29,23 +30,16 @@ fn accumulate_static_time<F>(stmts: &[ir::Control], acc: F) -> Option<u64>
 where
     F: FnMut(u64, u64) -> u64,
 {
-    let timing: Result<Vec<u64>, ()> = stmts
+    stmts
         .iter()
         .map(|con| {
             if let ir::Control::Enable(data) = con {
-                data.group
-                    .borrow()
-                    .attributes
-                    .get("static")
-                    .copied()
-                    .ok_or(())
+                data.group.borrow().attributes.get("static").copied()
             } else {
-                Err(())
+                None
             }
         })
-        .collect();
-
-    timing.ok().map(|ts| ts.into_iter().fold(0, acc))
+        .fold_options(0, acc)
 }
 
 impl Visitor for StaticTiming {

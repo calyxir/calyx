@@ -32,10 +32,10 @@ component main(go: 1, clk: 1) -> (done: 1) {
 
   control {
     seq {
-      zero_cycles;
-      one_cycle;
-      two_cycles;
-      mem_wrt_to_done;
+      @static(0) zero_cycles;
+      @static(1) one_cycle;
+      @static(2) two_cycles;
+      @static(1) mem_wrt_to_done;
       mult_wrts_to_done;
     }
   }
