@@ -47,9 +47,9 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
         pm,
         "pre-opt",
         [
+            InferStaticTiming,
             CompileInvoke,
             CollapseControl,
-            InferStaticTiming,
             ResourceSharing,
             MinimizeRegs
         ]
