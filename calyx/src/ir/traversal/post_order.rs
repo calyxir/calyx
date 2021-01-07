@@ -40,24 +40,22 @@ impl PostOrder {
     /// # Panics
     /// Panics if there is no post-order traversal of the vectors possible.
     pub fn new(comps: Vec<ir::Component>) -> Self {
+        let mut graph: DiGraph<usize, ()> = DiGraph::new();
         // Reverse mapping from index to comps.
-        let rev_map: HashMap<ir::Id, u32> = comps
+        let rev_map: HashMap<ir::Id, NodeIndex> = comps
             .iter()
             .enumerate()
-            .map(|(idx, c)| (c.name.clone(), idx as u32))
+            .map(|(idx, c)| (c.name.clone(), graph.add_node(idx)))
             .collect::<HashMap<_, _>>();
 
         // Construct a graph.
-        let mut edges: Vec<(u32, u32)> = Vec::new();
-        let mut graph: DiGraph<usize, ()> = DiGraph::new();
         for comp in &comps {
             for cell in &comp.cells {
                 if let CellType::Component { name } = &cell.borrow().prototype {
-                    edges.push((rev_map[&name], rev_map[&comp.name]));
+                    graph.add_edge(rev_map[&name], rev_map[&comp.name], ());
                 }
             }
         }
-        graph.extend_with_edges(edges);
 
         // Build a topologically sorted ordering of the graph.
         let order = algo::toposort(&graph, None)
