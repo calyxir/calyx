@@ -54,7 +54,7 @@ def version_compare(cmp_str, installed, required):
 def check_version(name, exec_path):
     if name in VERSIONS:
         info = VERSIONS[name]
-        proc = subprocess.run([exec_path, info['flag']], capture_output=True)
+        proc = subprocess.run([exec_path, info['flag']], stdout=subprocess.PIPE)
         install = info['extract'](proc.stdout.decode('UTF-8')).strip()
         if version_compare(info['compare'], install, info['version']):
             cprint(" ✔", 'green', end=' ')
