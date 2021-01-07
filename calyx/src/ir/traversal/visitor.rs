@@ -1,6 +1,6 @@
 //! Implements a visitor for `ir::Control` programs.
 //! Program passes implemented as the Visitor are directly invoked on
-//! `ir::Context` to compile every `ir::Component` using the pass.
+//! [`ir::Context`] to compile every [`ir::Component`] using the pass.
 use super::action::{Action, VisResult};
 use super::PostOrder;
 use crate::errors::FutilResult;
@@ -56,62 +56,6 @@ where
 /// A pass will usually override one or more function and rely on the default
 /// visitors to automatically visit the children.
 pub trait Visitor {
-    /// Build a [Default] implementation of this pass and call [`Visitor::do_pass`]
-    /// using it.
-    fn do_pass_default(context: &mut Context) -> FutilResult<Self>
-    where
-        Self: Default + Sized + Named,
-    {
-        let mut visitor = Self::default();
-        visitor.do_pass(context)?;
-        Ok(visitor)
-    }
-
-    /// Run the visitor on a given program [`ir::Context`](crate::ir::Context).
-    /// The function mutably borrows the [`control`](crate::ir::Component::control)
-    /// program in each component and traverses it.
-    ///
-    /// # Panics
-    /// Panics if the pass attempts to use the control program mutably.
-    fn do_pass(&mut self, context: &mut Context) -> FutilResult<()>
-    where
-        Self: Sized + Named,
-    {
-        let signatures = &context.lib;
-
-        let upd = |comp: &mut ir::Component| -> FutilResult<()> {
-            self.start(comp, signatures)?
-                .and_then(|| {
-                    // Create a clone of the reference to the Control
-                    // program.
-                    let control_ref = Rc::clone(&comp.control);
-                    // Borrow the control program mutably and visit it.
-                    control_ref.borrow_mut().visit(self, comp, signatures)?;
-                    Ok(Action::Continue)
-                })?
-                .and_then(|| self.finish(comp, signatures))?
-                .apply_change(&mut comp.control.borrow_mut())?;
-            Ok(())
-        };
-
-        if Self::require_postorder() {
-            // Temporarily take ownership of components from context.
-            let comps = context.components.drain(..).collect();
-            let mut po = PostOrder::new(comps);
-            po.apply_update(upd)?;
-            context.components = po.take();
-        } else {
-            context
-                .components
-                // Mutably borrow the components in the context
-                .iter_mut()
-                .map(upd)
-                .collect::<FutilResult<_>>()?;
-        }
-
-        Ok(())
-    }
-
     /// Returns true if this pass requires a post-order traversal of the
     /// components.
     /// In a post-order traversal, if component `B` uses a component `A`,
@@ -122,6 +66,73 @@ pub trait Visitor {
         Self: Sized,
     {
         false
+    }
+
+    /// Define the traversal over a component.
+    /// Calls [Visitor::start], visits each control node, and finally calls
+    /// [Visitor::finish].
+    fn traverse_component(
+        &mut self,
+        comp: &mut ir::Component,
+        signatures: &LibrarySignatures,
+    ) -> FutilResult<()>
+    where
+        Self: Sized,
+    {
+        self.start(comp, signatures)?
+            .and_then(|| {
+                // Create a clone of the reference to the Control
+                // program.
+                let control_ref = Rc::clone(&comp.control);
+                // Borrow the control program mutably and visit it.
+                control_ref.borrow_mut().visit(self, comp, signatures)?;
+                Ok(Action::Continue)
+            })?
+            .and_then(|| self.finish(comp, signatures))?
+            .apply_change(&mut comp.control.borrow_mut())?;
+        Ok(())
+    }
+
+    /// Run the visitor on a given program [`ir::Context`](crate::ir::Context).
+    /// The function mutably borrows the [`control`](crate::ir::Component::control)
+    /// program in each component and traverses it.
+    ///
+    /// # Panics
+    /// Panics if the pass attempts to use the control program mutably.
+    fn do_pass(&mut self, context: &mut Context) -> FutilResult<()>
+    where
+        Self: Sized,
+    {
+        let signatures = &context.lib;
+
+        if Self::require_postorder() {
+            // Temporarily take ownership of components from context.
+            let comps = context.components.drain(..).collect();
+            let mut po = PostOrder::new(comps);
+            po.apply_update(|comp| self.traverse_component(comp, signatures))?;
+            context.components = po.take();
+        } else {
+            context
+                .components
+                // Mutably borrow the components in the context
+                .iter_mut()
+                .map(|comp| self.traverse_component(comp, signatures))
+                .collect::<FutilResult<_>>()?;
+        }
+
+        Ok(())
+    }
+
+    /// Build a [Default] implementation of this pass and call [`Visitor::do_pass`]
+    /// using it.
+    #[inline(always)]
+    fn do_pass_default(context: &mut Context) -> FutilResult<Self>
+    where
+        Self: Default + Sized,
+    {
+        let mut visitor = Self::default();
+        visitor.do_pass(context)?;
+        Ok(visitor)
     }
 
     /// Executed before the traversal begins.
