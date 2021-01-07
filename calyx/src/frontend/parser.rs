@@ -4,7 +4,6 @@ use crate::errors::{self, FutilResult, Span};
 use crate::ir;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
-use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
@@ -26,13 +25,6 @@ lazy_static::lazy_static! {
             // loosest binding
             Operator::new(Rule::guard_or, Assoc::Left),
             Operator::new(Rule::guard_and, Assoc::Left),
-            Operator::new(Rule::guard_leq, Assoc::Left),
-            Operator::new(Rule::guard_geq, Assoc::Left),
-            Operator::new(Rule::guard_lt, Assoc::Left),
-            Operator::new(Rule::guard_gt, Assoc::Left),
-            Operator::new(Rule::guard_eq, Assoc::Left),
-            Operator::new(Rule::guard_neq, Assoc::Left),
-            Operator::new(Rule::guard_not, Assoc::Right)
             // tighest binding
         ]
     );
@@ -57,7 +49,8 @@ impl FutilParser {
             Rule::file,
             string_content,
             Rc::from(string_content),
-        )?;
+        )
+        .map_err(|e| e.with_path(&path.to_string_lossy()))?;
         let input = inputs.single()?;
         Ok(FutilParser::file(input)?)
     }
@@ -80,12 +73,23 @@ impl FutilParser {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
+enum ExtOrComp {
+    Ext((String, Vec<ir::Primitive>)),
+    Comp(ast::ComponentDef),
+}
+
 #[pest_consume::parser]
 impl FutilParser {
     fn EOI(_input: Node) -> ParseResult<()> {
         Ok(())
     }
 
+    fn semi(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    // ================ Literals =====================
     fn identifier(input: Node) -> ParseResult<ir::Id> {
         Ok(ir::Id::new(
             input.as_str(),
@@ -175,43 +179,41 @@ impl FutilParser {
         ))
     }
 
-    fn signature(input: Node) -> ParseResult<ast::Signature> {
+    // ================ Attributes =====================
+    fn attribute(input: Node) -> ParseResult<(String, u64)> {
         Ok(match_nodes!(
             input.into_children();
-            [io_ports(inputs), signature_return(outputs)] => ast::Signature {
-                inputs,
-                outputs
-            },
-            [io_ports(inputs)] => ast::Signature {
-                inputs,
-                outputs: vec![]
-            },
-            [signature_return(outputs)] => ast::Signature {
-                inputs: vec![],
-                outputs
-            },
-            [] => ast::Signature { inputs: vec![], outputs: vec![] }
+            [string_lit(key), bitwidth(num)] => (key, num)
         ))
     }
 
-    fn signature_return(input: Node) -> ParseResult<Vec<(ir::Id, u64)>> {
+    fn attributes(input: Node) -> ParseResult<ir::Attributes> {
         Ok(match_nodes!(
             input.into_children();
-            [io_ports(p)] => p,
-            [] => vec![]
+            [attribute(kvs)..] => kvs.collect::<Vec<_>>().into()
         ))
     }
 
-    fn io_port(input: Node) -> ParseResult<(ir::Id, u64)> {
-        Ok(match_nodes![
+    fn at_attribute(input: Node) -> ParseResult<(String, u64)> {
+        Ok(match_nodes!(
             input.into_children();
-            [identifier(id), bitwidth(bw)] => (id, bw)])
+            [identifier(key), bitwidth(num)] => (key.id, num)
+        ))
     }
 
-    fn io_ports(input: Node) -> ParseResult<Vec<(ir::Id, u64)>> {
-        Ok(match_nodes![
+    fn at_attributes(input: Node) -> ParseResult<ir::Attributes> {
+        Ok(match_nodes!(
             input.into_children();
-            [io_port(p)..] => p.collect()])
+            [at_attribute(kvs)..] => kvs.collect::<Vec<_>>().into()
+        ))
+    }
+
+    // ================ Signature =====================
+    fn params(input: Node) -> ParseResult<Vec<ir::Id>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(id)..] => id.collect()
+        ))
     }
 
     fn args(input: Node) -> ParseResult<Vec<u64>> {
@@ -222,28 +224,112 @@ impl FutilParser {
         ))
     }
 
+    fn io_port(
+        input: Node,
+    ) -> ParseResult<(ir::Id, ir::Width, ir::Attributes)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), identifier(id), bitwidth(value)] =>
+                (id, ir::Width::Const { value }, attrs),
+            [at_attributes(attrs), identifier(id), identifier(value)] =>
+                (id, ir::Width::Param { value }, attrs)
+        ))
+    }
+
+    fn inputs(input: Node) -> ParseResult<Vec<ir::PortDef>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [io_port(ins)..] => {
+                ins.map(|(name, width, attributes)| ir::PortDef {
+                    name, width, direction: ir::Direction::Input, attributes
+                }).collect()
+            }
+        ))
+    }
+
+    fn outputs(input: Node) -> ParseResult<Vec<ir::PortDef>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [io_port(outs)..] => {
+                outs.map(|(name, width, attributes)| ir::PortDef {
+                    name, width, direction: ir::Direction::Output, attributes
+                }).collect()
+            }
+        ))
+    }
+
+    fn signature(input: Node) -> ParseResult<Vec<ir::PortDef>> {
+        Ok(match_nodes!(
+            input.into_children();
+            // XXX(rachit): We expect the signature to be extended to have `go`,
+            // `done`, and `clk`.
+            [] => Vec::with_capacity(3),
+            [inputs(ins)] => { ins },
+            [outputs(outs)] => { outs },
+            [inputs(ins), outputs(outs)] => {
+                ins.into_iter().chain(outs.into_iter()).collect()
+            },
+        ))
+    }
+
+    // ==============PortDeftives =====================
+    fn primitive(input: Node) -> ParseResult<ir::Primitive> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(name), attributes(attrs), params(p), signature(s)] => ir::Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: attrs,
+            },
+            [identifier(name), attributes(attrs), signature(s)] => ir::Primitive {
+                name,
+                params: Vec::with_capacity(0),
+                signature: s,
+                attributes: attrs,
+            },
+            [identifier(name), params(p), signature(s)] => ir::Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: ir::Attributes::default()
+            },
+            [identifier(name), signature(s)] => ir::Primitive {
+                name,
+                params: Vec::with_capacity(0),
+                signature: s,
+                attributes: ir::Attributes::default()
+            }
+        ))
+    }
+
+    // ================ Cells =====================
     fn primitive_cell(input: Node) -> ParseResult<ast::Cell> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(id), identifier(prim), args(args)] =>
-            ast::Cell::prim(id, prim, args)
+            [at_attributes(attrs), identifier(id), identifier(prim), args(args)] =>
+            ast::Cell::prim(id, prim, args, attrs)
         ))
     }
 
     fn component_cell(input: Node) -> ParseResult<ast::Cell> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(name), identifier(component)] =>
-                ast::Cell::Decl { name, component }
+            [at_attributes(attrs), identifier(name), identifier(component)] =>
+                ast::Cell::decl(name, component, attrs)
         ))
     }
 
     fn cell(input: Node) -> ParseResult<ast::Cell> {
-        Ok(match_nodes!(
-                input.into_children();
-                [primitive_cell(node)] => node,
-                [component_cell(node)] => node,
-        ))
+        match_nodes!(
+            input.clone().into_children();
+            [primitive_cell(node)] =>
+                Err(input.error("Declaration is missing `;`")),
+            [component_cell(node)] =>
+                Err(input.error("Declaration is missing `;`")),
+            [primitive_cell(node), semi(_)] => Ok(node),
+            [component_cell(node), semi(_)] => Ok(node),
+        )
     }
 
     fn cells(input: Node) -> ParseResult<Vec<ast::Cell>> {
@@ -253,10 +339,12 @@ impl FutilParser {
         ))
     }
 
+    // ================ Wires =====================
     fn port(input: Node) -> ParseResult<ast::Port> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(component), identifier(port)] => ast::Port::Comp { component, port },
+            [identifier(component), identifier(port)] =>
+                ast::Port::Comp { component, port },
             [identifier(port)] => ast::Port::This { port }
         ))
     }
@@ -285,6 +373,37 @@ impl FutilParser {
         )
     }
 
+    fn guard_eq(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+    fn guard_neq(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+    fn guard_leq(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+    fn guard_geq(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+    fn guard_lt(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+    fn guard_gt(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn cmp_expr(input: Node) -> ParseResult<ast::GuardExpr> {
+        Ok(match_nodes!(
+            input.into_children();
+            [expr(l), guard_eq(_), expr(r)] => ast::GuardExpr::Eq(l, r),
+            [expr(l), guard_neq(_), expr(r)] => ast::GuardExpr::Neq(l, r),
+            [expr(l), guard_geq(_), expr(r)] => ast::GuardExpr::Geq(l, r),
+            [expr(l), guard_leq(_), expr(r)] => ast::GuardExpr::Leq(l, r),
+            [expr(l), guard_gt(_), expr(r)] =>  ast::GuardExpr::Gt(l, r),
+            [expr(l), guard_lt(_), expr(r)] =>  ast::GuardExpr::Lt(l, r),
+        ))
+    }
+
     fn guard_not(_input: Node) -> ParseResult<()> {
         Ok(())
     }
@@ -296,20 +415,10 @@ impl FutilParser {
         r: ast::GuardExpr,
     ) -> ParseResult<ast::GuardExpr> {
         match op.as_rule() {
-            Rule::guard_eq => Ok(ast::GuardExpr::Eq(Box::new(l), Box::new(r))),
-            Rule::guard_neq => {
-                Ok(ast::GuardExpr::Neq(Box::new(l), Box::new(r)))
+            Rule::guard_or => Ok(ast::GuardExpr::Or(Box::new(l), Box::new(r))),
+            Rule::guard_and => {
+                Ok(ast::GuardExpr::And(Box::new(l), Box::new(r)))
             }
-            Rule::guard_leq => {
-                Ok(ast::GuardExpr::Leq(Box::new(l), Box::new(r)))
-            }
-            Rule::guard_geq => {
-                Ok(ast::GuardExpr::Geq(Box::new(l), Box::new(r)))
-            }
-            Rule::guard_lt => Ok(ast::GuardExpr::Lt(Box::new(l), Box::new(r))),
-            Rule::guard_gt => Ok(ast::GuardExpr::Gt(Box::new(l), Box::new(r))),
-            Rule::guard_or => Ok(ast::GuardExpr::Or(vec![l, r])),
-            Rule::guard_and => Ok(ast::GuardExpr::And(vec![l, r])),
             _ => unreachable!(),
         }
     }
@@ -318,9 +427,19 @@ impl FutilParser {
         Ok(match_nodes!(
             input.into_children();
             [guard_expr(guard)] => guard,
+            [cmp_expr(e)] => e,
             [expr(e)] => ast::GuardExpr::Atom(e),
-            [guard_not(_), guard_expr(e)] => ast::GuardExpr::Not(Box::new(e)),
-            [guard_not(_), expr(e)] => ast::GuardExpr::Not(Box::new(ast::GuardExpr::Atom(e)))
+            [guard_not(_), expr(e)] => {
+                ast::GuardExpr::Not(Box::new(ast::GuardExpr::Atom(e)))
+            },
+            [guard_not(_), cmp_expr(e)] => {
+                ast::GuardExpr::Not(Box::new(e))
+            },
+            [guard_not(_), guard_expr(e)] => {
+                ast::GuardExpr::Not(Box::new(e))
+            },
+            [guard_not(_), expr(e)] =>
+                ast::GuardExpr::Not(Box::new(ast::GuardExpr::Atom(e)))
         ))
     }
 
@@ -345,20 +464,6 @@ impl FutilParser {
         ))
     }
 
-    fn key_value(input: Node) -> ParseResult<(String, u64)> {
-        Ok(match_nodes!(
-            input.into_children();
-            [string_lit(key), bitwidth(num)] => (key, num)
-        ))
-    }
-
-    fn attributes(input: Node) -> ParseResult<HashMap<String, u64>> {
-        Ok(match_nodes!(
-            input.into_children();
-            [key_value(kvs)..] => kvs.collect()
-        ))
-    }
-
     fn group(input: Node) -> ParseResult<ast::Group> {
         Ok(match_nodes!(
             input.into_children();
@@ -369,7 +474,7 @@ impl FutilParser {
             },
             [identifier(name), wire(wire)..] => ast::Group {
                 name,
-                attributes: HashMap::new(),
+                attributes: ir::Attributes::default(),
                 wires: wire.collect()
             }
         ))
@@ -390,6 +495,7 @@ impl FutilParser {
         Ok((wires, groups))
     }
 
+    // ================ Control program =====================
     fn invoke_arg(input: Node) -> ParseResult<(ir::Id, ast::Port)> {
         Ok(match_nodes!(
             input.into_children();
@@ -407,23 +513,32 @@ impl FutilParser {
     fn invoke(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(comp), invoke_args(inputs), invoke_args(outputs)] =>
-                ast::Control::Invoke { comp, inputs, outputs }
+            [at_attributes(attrs), identifier(comp), invoke_args(inputs), invoke_args(outputs)] =>
+                ast::Control::Invoke {
+                    comp,
+                    inputs,
+                    outputs,
+                    attributes: attrs
+                }
         ))
     }
 
     fn enable(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(name)] => ast::Control::Enable { comp: name }
+            [at_attributes(attrs), identifier(name)] => ast::Control::Enable {
+                comp: name,
+                attributes: attrs
+            }
         ))
     }
 
     fn seq(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [stmt(stmt)..] => ast::Control::Seq {
-                stmts: stmt.collect()
+            [at_attributes(attrs), stmt(stmt)..] => ast::Control::Seq {
+                stmts: stmt.collect(),
+                attributes: attrs,
             }
         ))
     }
@@ -431,8 +546,9 @@ impl FutilParser {
     fn par(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [stmt(stmt)..] => ast::Control::Par {
-                stmts: stmt.collect()
+            [at_attributes(attrs), stmt(stmt)..] => ast::Control::Par {
+                stmts: stmt.collect(),
+                attributes: attrs,
             }
         ))
     }
@@ -440,25 +556,28 @@ impl FutilParser {
     fn if_stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [port(port), identifier(cond), block(stmt)] => ast::Control::If {
+            [at_attributes(attrs), port(port), identifier(cond), block(stmt)] => ast::Control::If {
                 port,
                 cond,
                 tbranch: Box::new(stmt),
-                fbranch: Box::new(ast::Control::Empty{})
+                fbranch: Box::new(ast::Control::Empty{}),
+                attributes: attrs,
             },
-            [port(port), identifier(cond), block(tbranch), block(fbranch)] =>
+            [at_attributes(attrs), port(port), identifier(cond), block(tbranch), block(fbranch)] =>
                 ast::Control::If {
                     port,
                     cond,
                     tbranch: Box::new(tbranch),
-                    fbranch: Box::new(fbranch)
+                    fbranch: Box::new(fbranch),
+                    attributes: attrs,
                 },
-            [port(port), identifier(cond), block(tbranch), if_stmt(fbranch)] =>
+            [at_attributes(attrs), port(port), identifier(cond), block(tbranch), if_stmt(fbranch)] =>
                 ast::Control::If {
                     port,
                     cond,
                     tbranch: Box::new(tbranch),
-                    fbranch: Box::new(fbranch)
+                    fbranch: Box::new(fbranch),
+                    attributes: attrs,
                 },
 
         ))
@@ -467,10 +586,11 @@ impl FutilParser {
     fn while_stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [port(port), identifier(cond), block(stmt)] => ast::Control::While {
+            [at_attributes(attrs), port(port), identifier(cond), block(stmt)] => ast::Control::While {
                 port,
                 cond,
                 body: Box::new(stmt),
+                attributes: attrs,
             }
         ))
     }
@@ -513,23 +633,43 @@ impl FutilParser {
 
     fn component(input: Node) -> ParseResult<ast::ComponentDef> {
         Ok(match_nodes!(
-        input.into_children();
-        [
-            identifier(id),
-            signature(sig),
-            cells(cells),
-            connections(connections),
-            control(control)
-        ] => {
-            let (continuous_assignments, groups) = connections;
-            ast::ComponentDef {
-                name: id,
-                signature: sig,
-                cells,
-                groups,
-                continuous_assignments,
-                control,
-            }
+            input.into_children();
+            [
+                identifier(id),
+                signature(sig),
+                cells(cells),
+                connections(connections),
+                control(control)
+            ] => {
+                let (continuous_assignments, groups) = connections;
+                ast::ComponentDef {
+                    name: id,
+                    signature: sig,
+                    cells,
+                    groups,
+                    continuous_assignments,
+                    control,
+                    attributes: ir::Attributes::default()
+                }
+            },
+            [
+                identifier(id),
+                attributes(attributes),
+                signature(sig),
+                cells(cells),
+                connections(connections),
+                control(control)
+            ] => {
+                let (continuous_assignments, groups) = connections;
+                ast::ComponentDef {
+                    name: id,
+                    signature: sig,
+                    cells,
+                    groups,
+                    continuous_assignments,
+                    control,
+                    attributes,
+                }
         }))
     }
 
@@ -540,12 +680,38 @@ impl FutilParser {
         ))
     }
 
+    fn ext(input: Node) -> ParseResult<(String, Vec<ir::Primitive>)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [string_lit(file), primitive(prims)..] => (file, prims.collect())
+        ))
+    }
+
+    fn extern_or_component(input: Node) -> ParseResult<ExtOrComp> {
+        Ok(match_nodes!(
+            input.into_children();
+            [component(comp)] => ExtOrComp::Comp(comp),
+            [ext(ext)] => ExtOrComp::Ext(ext)
+        ))
+    }
+
     fn file(input: Node) -> ParseResult<ast::NamespaceDef> {
         Ok(match_nodes!(
             input.into_children();
-            [imports(imports), component(comps).., EOI] => ast::NamespaceDef {
-                libraries: imports,
-                components: comps.collect()
+            [imports(imports), extern_or_component(mixed).., EOI] => {
+                let mut namespace =
+                    ast::NamespaceDef {
+                        imports,
+                        components: Vec::new(),
+                        externs: Vec::new(),
+                    };
+                for m in mixed {
+                    match m {
+                        ExtOrComp::Ext(ext) => namespace.externs.push(ext),
+                        ExtOrComp::Comp(comp) => namespace.components.push(comp),
+                    }
+                }
+                namespace
             }
         ))
     }

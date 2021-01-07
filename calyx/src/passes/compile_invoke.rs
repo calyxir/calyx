@@ -1,9 +1,9 @@
-use crate::frontend::library::ast::LibrarySignatures;
-use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::ir::{self, LibrarySignatures};
 use crate::{build_assignments, structure};
-use std::collections::HashMap;
 
+/// Compiles [`ir::Invoke`](crate::ir::Invoke) statements into an [`ir::Enable`](crate::ir::Enable)
+/// that runs the invoked component.
 #[derive(Default)]
 pub struct CompileInvoke;
 
@@ -26,7 +26,7 @@ impl Visitor for CompileInvoke {
     ) -> VisResult {
         let mut builder = ir::Builder::from(comp, ctx, false);
 
-        let invoke_group = builder.add_group("invoke", HashMap::new());
+        let invoke_group = builder.add_group("invoke");
 
         // Generate state elements to make sure that component is only run once.
         // comp.go = 1'd1;

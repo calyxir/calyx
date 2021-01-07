@@ -1,12 +1,27 @@
-//use crate::errors::{Error, Extract};
-use crate::lang::ast::{GuardExpr, Id};
-use crate::lang::{
-    component::Component, context::Context, structure::DataDirection,
+use crate::ir::{
+    self,
+    traversal::{Named, Visitor},
+    LibrarySignatures,
 };
-use crate::passes::visitor::{Action, Named, VisResult, Visitor};
+use ir::traversal::{Action, VisResult};
 use itertools::Itertools;
-use petgraph::graph::NodeIndex;
+use linked_hash_map::LinkedHashMap;
 
+/// Merge assignments of the form with the same (dst_port, src_port) pairs.
+///
+/// # Example
+/// ```
+/// x.in = f.out == 1 ? 2'd0;
+/// x.in = f.out == 2 ? 2'd0;
+/// x.in = f.out == 3 ? 2'd2;
+/// y.in = f.out == 1 ? 2'd0;
+/// ```
+/// into:
+/// ```
+/// x.in = (f.out == 1) | (f.out == 2) ? 2'd0;
+/// x.in = f.out == 3 ? 2'd2;
+/// y.in = f.out == 1 ? 2'd0;
+/// ```
 #[derive(Default)]
 pub struct MergeAssign {}
 
@@ -16,89 +31,48 @@ impl Named for MergeAssign {
     }
 
     fn description() -> &'static str {
-        "Compile away all control language constructs into structure"
+        "Merge assignments with the same source-destination pairs"
     }
 }
 
-/// Merge assignments of the form:
-/// ```
-/// n.p = g1 ? x;
-/// n.p = g2 ? x;
-/// n.p = g3 ? y;
-/// ```
-/// into:
-/// ```
-/// n.p = g1 | g2 ? x;
-/// n.p = g3 ? y;
-/// ```
+fn merge_assigns(assigns: Vec<ir::Assignment>) -> Vec<ir::Assignment> {
+    // A (cell, port) pair used as a key.
+    type Key = (ir::Id, ir::Id);
+    // Map from (dst, src) -> Assignment
+    let mut map: LinkedHashMap<(Key, Key), ir::Assignment> =
+        LinkedHashMap::new();
+
+    for assign in assigns {
+        let src_key = assign.src.borrow().canonical();
+        let dst_key = assign.dst.borrow().canonical();
+        let key = (dst_key, src_key);
+        if let Some(asgn) = map.get_mut(&key) {
+            *asgn.guard |= *assign.guard;
+        } else {
+            map.insert(key, assign);
+        }
+    }
+
+    map.into_iter()
+        .sorted_by(|(k1, _), (k2, _)| Ord::cmp(k1, k2))
+        .map(|(_, v)| v)
+        .collect::<Vec<_>>()
+}
+
 impl Visitor for MergeAssign {
-    fn start(&mut self, comp: &mut Component, _ctx: &Context) -> VisResult {
-        assert!(
-            comp.structure.groups.len() == 1,
-            "MergeAssign: The component has more than one group."
-        );
-
-        type Assignments = Vec<(
-            /* (dest, port) being written to */
-            (NodeIndex, Id),
-            /* (src, port) and their guards */
-            Vec<((NodeIndex, Id), GuardExpr)>,
-        )>;
-
-        let mut merged_edges: Assignments = Vec::new();
-
-        let structure = &comp.structure;
-        for (idx, node) in structure.component_iterator() {
-            for portdef in node.signature.inputs.iter() {
-                let iterator = structure
-                    .edge_idx()
-                    .with_node(idx)
-                    .with_port(portdef.name.to_string())
-                    .with_direction(DataDirection::Write)
-                    .detach();
-                // For each (node, port) being written into, collect all
-                // HashMap<rhs, Vec<(width, guards)>> values and remove
-                // the edges.
-                let combined_guard = iterator
-                    .map(|idx| {
-                        let ed = structure.get_edge(idx);
-                        let (src_node, _) = structure.endpoints(idx);
-                        ((src_node, ed.src.port_name().clone()), &ed.guard)
-                    })
-                    .into_group_map()
-                    .into_iter()
-                    .map(|(src, guards)| {
-                        (
-                            src,
-                            GuardExpr::or_vec(
-                                guards
-                                    .into_iter()
-                                    .filter_map(|g| g.clone())
-                                    .collect(),
-                            ),
-                        )
-                    })
-                    .collect::<Vec<_>>();
-
-                let dest = (idx, portdef.name.clone());
-                merged_edges.push((dest, combined_guard));
-            }
+    fn start(
+        &mut self,
+        comp: &mut ir::Component,
+        _ctx: &LibrarySignatures,
+    ) -> VisResult {
+        for group in &comp.groups {
+            let assigns = group.borrow_mut().assignments.drain(..).collect();
+            let merged = merge_assigns(assigns);
+            group.borrow_mut().assignments = merged;
         }
 
-        for e_idx in structure.edge_idx().detach() {
-            comp.structure.remove_edge(e_idx);
-        }
-
-        for (dst, edges) in merged_edges {
-            for (src, guard) in edges {
-                comp.structure.insert_edge(
-                    src,
-                    dst.clone(),
-                    None,
-                    Some(guard),
-                )?;
-            }
-        }
+        let cassigns = comp.continuous_assignments.drain(..).collect();
+        comp.continuous_assignments = merge_assigns(cassigns);
 
         Ok(Action::Stop)
     }

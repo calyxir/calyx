@@ -1,0 +1,355 @@
+import "primitives/std.lib";
+
+component max_pool2d0(go: 1, clk: 1, data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, result0_0_0_0_read_data: 32, result0_0_0_0_done: 1) -> (done: 1, data0_0_0_0_addr0: 2, data0_0_0_0_addr1: 2, data0_0_0_0_addr2: 3, data0_0_0_0_addr3: 3, data0_0_0_0_write_data: 32, data0_0_0_0_write_en: 1, data0_0_0_0_clk: 1, result0_0_0_0_addr0: 2, result0_0_0_0_addr1: 2, result0_0_0_0_addr2: 2, result0_0_0_0_addr3: 2, result0_0_0_0_write_data: 32, result0_0_0_0_write_en: 1, result0_0_0_0_clk: 1) {
+  cells {
+    add0 = prim std_add(32);
+    add1 = prim std_add(32);
+    add2 = prim std_add(32);
+    add3 = prim std_add(32);
+    add4 = prim std_add(32);
+    add5 = prim std_add(32);
+    add6 = prim std_add(32);
+    add7 = prim std_add(32);
+    b0 = prim std_reg(32);
+    bin_read0_0 = prim std_reg(32);
+    bin_read1_0 = prim std_reg(32);
+    c0 = prim std_reg(32);
+    const0 = prim std_const(32, 0);
+    const1 = prim std_const(32, 1);
+    const10 = prim std_const(32, 0);
+    const11 = prim std_const(32, 1);
+    const12 = prim std_const(32, 0);
+    const13 = prim std_const(32, 1);
+    const14 = prim std_const(32, 1);
+    const15 = prim std_const(32, 1);
+    const16 = prim std_const(32, 1);
+    const17 = prim std_const(32, 1);
+    const18 = prim std_const(32, 1);
+    const19 = prim std_const(32, 1);
+    const2 = prim std_const(32, 0);
+    const3 = prim std_const(32, 1);
+    const4 = prim std_const(32, 0);
+    const5 = prim std_const(32, 1);
+    const6 = prim std_const(32, 0);
+    const7 = prim std_const(32, 1);
+    const8 = prim std_const(32, 2);
+    const9 = prim std_const(32, 2);
+    current_0 = prim std_reg(32);
+    gt0 = prim std_sgt(32);
+    le0 = prim std_le(32);
+    le1 = prim std_le(32);
+    le2 = prim std_le(32);
+    le3 = prim std_le(32);
+    le4 = prim std_le(32);
+    le5 = prim std_le(32);
+    m0 = prim std_reg(32);
+    max_0 = prim std_reg(32);
+    mult_pipe0 = prim std_mult_pipe(32);
+    mult_pipe1 = prim std_mult_pipe(32);
+    n0 = prim std_reg(32);
+    pool_x_0 = prim std_reg(32);
+    pool_y_0 = prim std_reg(32);
+    slice0 = prim std_slice(32, 2);
+    slice1 = prim std_slice(32, 2);
+    slice10 = prim std_slice(32, 2);
+    slice11 = prim std_slice(32, 2);
+    slice2 = prim std_slice(32, 3);
+    slice3 = prim std_slice(32, 3);
+    slice4 = prim std_slice(32, 2);
+    slice5 = prim std_slice(32, 2);
+    slice6 = prim std_slice(32, 3);
+    slice7 = prim std_slice(32, 3);
+    slice8 = prim std_slice(32, 2);
+    slice9 = prim std_slice(32, 2);
+    stride_x_0 = prim std_reg(32);
+    stride_y_0 = prim std_reg(32);
+    x0 = prim std_reg(32);
+    y0 = prim std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = b0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = c0.out;
+      le1.right = const3.out;
+    }
+    group cond2<"static"=0> {
+      cond2[done] = 1'd1;
+      le2.left = y0.out;
+      le2.right = const5.out;
+    }
+    group cond3<"static"=0> {
+      cond3[done] = 1'd1;
+      le3.left = x0.out;
+      le3.right = const7.out;
+    }
+    group cond4<"static"=0> {
+      cond4[done] = 1'd1;
+      le4.left = m0.out;
+      le4.right = const11.out;
+    }
+    group cond5<"static"=0> {
+      cond5[done] = 1'd1;
+      le5.left = n0.out;
+      le5.right = const13.out;
+    }
+    group cond6<"static"=0> {
+      cond6[done] = 1'd1;
+      gt0.left = current_0.out;
+      gt0.right = max_0.out;
+    }
+    group let0<"static"=1> {
+      b0.in = const0.out;
+      b0.write_en = 1'd1;
+      let0[done] = b0.done;
+    }
+    group let1<"static"=1> {
+      c0.in = const2.out;
+      c0.write_en = 1'd1;
+      let1[done] = c0.done;
+    }
+    group let10<"static"=1> {
+      pool_y_0.in = add0.out;
+      pool_y_0.write_en = 1'd1;
+      let10[done] = pool_y_0.done;
+      add0.left = stride_y_0.out;
+      add0.right = m0.out;
+    }
+    group let11<"static"=1> {
+      pool_x_0.in = add1.out;
+      pool_x_0.write_en = 1'd1;
+      let11[done] = pool_x_0.done;
+      add1.left = stride_x_0.out;
+      add1.right = n0.out;
+    }
+    group let2<"static"=1> {
+      y0.in = const4.out;
+      y0.write_en = 1'd1;
+      let2[done] = y0.done;
+    }
+    group let3<"static"=1> {
+      x0.in = const6.out;
+      x0.write_en = 1'd1;
+      let3[done] = x0.done;
+    }
+    group let4<"static"=4> {
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      let4[done] = bin_read0_0.done;
+      mult_pipe0.left = y0.out;
+      mult_pipe0.right = const8.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group let5<"static"=1> {
+      stride_y_0.in = bin_read0_0.out;
+      stride_y_0.write_en = 1'd1;
+      let5[done] = stride_y_0.done;
+    }
+    group let6<"static"=4> {
+      bin_read1_0.in = mult_pipe1.out;
+      bin_read1_0.write_en = mult_pipe1.done;
+      let6[done] = bin_read1_0.done;
+      mult_pipe1.left = x0.out;
+      mult_pipe1.right = const9.out;
+      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
+    }
+    group let7<"static"=1> {
+      stride_x_0.in = bin_read1_0.out;
+      stride_x_0.write_en = 1'd1;
+      let7[done] = stride_x_0.done;
+    }
+    group let8<"static"=1> {
+      m0.in = const10.out;
+      m0.write_en = 1'd1;
+      let8[done] = m0.done;
+    }
+    group let9<"static"=1> {
+      n0.in = const12.out;
+      n0.write_en = 1'd1;
+      let9[done] = n0.done;
+    }
+    group upd0<"static"=1> {
+      max_0.write_en = 1'd1;
+      data0_0_0_0_addr3 = slice3.out;
+      slice3.in = stride_x_0.out;
+      data0_0_0_0_addr2 = slice2.out;
+      slice2.in = stride_y_0.out;
+      data0_0_0_0_addr1 = slice1.out;
+      slice1.in = c0.out;
+      data0_0_0_0_addr0 = slice0.out;
+      slice0.in = b0.out;
+      max_0.in = 1'd1 ? data0_0_0_0_read_data;
+      upd0[done] = max_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      current_0.write_en = 1'd1;
+      data0_0_0_0_addr3 = slice7.out;
+      slice7.in = pool_x_0.out;
+      data0_0_0_0_addr2 = slice6.out;
+      slice6.in = pool_y_0.out;
+      data0_0_0_0_addr1 = slice5.out;
+      slice5.in = c0.out;
+      data0_0_0_0_addr0 = slice4.out;
+      slice4.in = b0.out;
+      current_0.in = 1'd1 ? data0_0_0_0_read_data;
+      upd1[done] = current_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      max_0.write_en = 1'd1;
+      max_0.in = 1'd1 ? current_0.out;
+      upd2[done] = max_0.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      n0.write_en = 1'd1;
+      add2.left = n0.out;
+      add2.right = const14.out;
+      n0.in = 1'd1 ? add2.out;
+      upd3[done] = n0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      m0.write_en = 1'd1;
+      add3.left = m0.out;
+      add3.right = const15.out;
+      m0.in = 1'd1 ? add3.out;
+      upd4[done] = m0.done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      result0_0_0_0_addr3 = slice11.out;
+      slice11.in = x0.out;
+      result0_0_0_0_addr2 = slice10.out;
+      slice10.in = y0.out;
+      result0_0_0_0_addr1 = slice9.out;
+      slice9.in = c0.out;
+      result0_0_0_0_addr0 = slice8.out;
+      slice8.in = b0.out;
+      result0_0_0_0_write_en = 1'd1;
+      result0_0_0_0_write_data = 1'd1 ? max_0.out;
+      upd5[done] = result0_0_0_0_done ? 1'd1;
+    }
+    group upd6<"static"=1> {
+      x0.write_en = 1'd1;
+      add4.left = x0.out;
+      add4.right = const16.out;
+      x0.in = 1'd1 ? add4.out;
+      upd6[done] = x0.done ? 1'd1;
+    }
+    group upd7<"static"=1> {
+      y0.write_en = 1'd1;
+      add5.left = y0.out;
+      add5.right = const17.out;
+      y0.in = 1'd1 ? add5.out;
+      upd7[done] = y0.done ? 1'd1;
+    }
+    group upd8<"static"=1> {
+      c0.write_en = 1'd1;
+      add6.left = c0.out;
+      add6.right = const18.out;
+      c0.in = 1'd1 ? add6.out;
+      upd8[done] = c0.done ? 1'd1;
+    }
+    group upd9<"static"=1> {
+      b0.write_en = 1'd1;
+      add7.left = b0.out;
+      add7.right = const19.out;
+      b0.in = 1'd1 ? add7.out;
+      upd9[done] = b0.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          let1;
+          while le1.out with cond1 {
+            seq {
+              let2;
+              while le2.out with cond2 {
+                seq {
+                  let3;
+                  while le3.out with cond3 {
+                    seq {
+                      par {
+                        seq {
+                          let4;
+                          let5;
+                        }
+                        seq {
+                          let6;
+                          let7;
+                        }
+                      }
+                      upd0;
+                      let8;
+                      while le4.out with cond4 {
+                        seq {
+                          let9;
+                          while le5.out with cond5 {
+                            seq {
+                              par {
+                                let10;
+                                let11;
+                              }
+                              upd1;
+                              if gt0.out with cond6 {
+                                upd2;
+                              }
+                              upd3;
+                            }
+                          }
+                          upd4;
+                        }
+                      }
+                      upd5;
+                      upd6;
+                    }
+                  }
+                  upd7;
+                }
+              }
+              upd8;
+            }
+          }
+          upd9;
+        }
+      }
+    }
+  }
+}
+
+
+component main () -> () {
+  cells {
+    result = prim std_mem_d4(32, 2, 2, 2, 2, 2, 2, 2, 2);
+    data = prim std_mem_d4(32, 2, 2, 4, 4, 2, 2, 3, 3);
+    comp_max_pool2d0 = max_pool2d0;
+  }
+  wires {
+    group run_max_pool2d0 {
+      data.addr0 = comp_max_pool2d0.data0_0_0_0_addr0;
+      comp_max_pool2d0.data0_0_0_0_read_data = data.read_data;
+      data.addr1 = comp_max_pool2d0.data0_0_0_0_addr1;
+      data.addr2 = comp_max_pool2d0.data0_0_0_0_addr2;
+      data.addr3 = comp_max_pool2d0.data0_0_0_0_addr3;
+      result.addr0 = comp_max_pool2d0.result0_0_0_0_addr0;
+      result.addr1 = comp_max_pool2d0.result0_0_0_0_addr1;
+      result.addr2 = comp_max_pool2d0.result0_0_0_0_addr2;
+      result.addr3 = comp_max_pool2d0.result0_0_0_0_addr3;
+      result.write_data = comp_max_pool2d0.result0_0_0_0_write_data;
+      result.write_en = comp_max_pool2d0.result0_0_0_0_write_en;
+      comp_max_pool2d0.result0_0_0_0_done = result.done;
+      comp_max_pool2d0.go = 1'd1;
+      run_max_pool2d0[done] = comp_max_pool2d0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      run_max_pool2d0;
+    }
+  }
+}

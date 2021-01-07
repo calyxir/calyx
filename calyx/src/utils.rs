@@ -1,12 +1,7 @@
+//! Shared utilities.
 use crate::ir;
-use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
-use std::{
-    hash::{Hash, Hasher},
-    io::Write,
-    path::PathBuf,
-    str::FromStr,
-};
+use std::{io::Write, path::PathBuf, str::FromStr};
 
 /// Simple HashMap-based name generator that generates new names for each
 /// prefix.
@@ -50,7 +45,8 @@ impl NameGenerator {
     }
 }
 
-/// TODO(rachit): Document this.
+/// Possible choices for output streams.
+/// Used by the `-o` option to the compiler.
 #[derive(Debug)]
 pub enum OutputFile {
     Stdout,
@@ -98,20 +94,4 @@ impl OutputFile {
             }
         }
     }
-}
-
-/// Utility trait for transforming a type into a key usable
-/// in a hashmap.
-pub trait Keyable {
-    type Key;
-    /// Transform `self` into a hash key.
-    fn key(&self) -> Self::Key;
-}
-
-/// Calculates the hash of hashable trait using the default hasher
-#[allow(unused)]
-pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
-    let mut s = DefaultHasher::new();
-    t.hash(&mut s);
-    s.finish()
 }

@@ -1,9 +1,10 @@
 ---CODE---
 1
 ---STDERR---
-Error: FuTIL Parser:  --> 3:5
+Error: FuTIL Parser:  --> 4:5
   |
-3 |     r = prim std_reg(32)␊
-  |     ^---
+4 |     h = prim std_reg(32)␊
+5 |     l = prim std_reg(32);␊
+  |     ^
   |
-  = expected cell
+  = Declaration is missing `;`

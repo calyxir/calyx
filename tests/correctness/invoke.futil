@@ -1,4 +1,5 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
+import "primitives/bitnum/unsigned.futil";
 
 component exponent(base: 32, exp: 4) -> (out: 32) {
   cells {
@@ -10,28 +11,28 @@ component exponent(base: 32, exp: 4) -> (out: 32) {
     const0 = prim std_const(4, 3);
   }
   wires {
-    group init {
+    group init<"static"=1> {
       pow.in = 32'd1;
       pow.write_en = 1'd1;
       count.in = 4'd0;
       count.write_en = 1'd1;
       init[done] = pow.done & count.done ? 1'd1;
     }
-    group do_mul {
+    group do_mul<"static"=1> {
       mul.left = base;
       mul.right = pow.out;
       pow.in = mul.out;
       pow.write_en = 1'd1;
       do_mul[done] = pow.done;
     }
-    group incr_count {
+    group incr_count<"static"=1> {
       incr.left = 4'd1;
       incr.right = count.out;
       count.in = incr.out;
       count.write_en = 1'd1;
       incr_count[done] = count.done;
     }
-    group cond {
+    group cond<"static"=0> {
       lt.right = exp;
       lt.left = count.out;
       cond[done] = 1'd1;

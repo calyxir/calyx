@@ -1,11 +1,12 @@
 use crate::analysis;
-use crate::frontend::library::ast as lib;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
+    LibrarySignatures,
 };
 use std::collections::HashSet;
 
+/// Removes unused cells from components.
 #[derive(Default)]
 pub struct DeadCellRemoval;
 
@@ -23,7 +24,7 @@ impl Visitor for DeadCellRemoval {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _sigs: &lib::LibrarySignatures,
+        _sigs: &LibrarySignatures,
     ) -> VisResult {
         let mut used_cells: HashSet<ir::Id> = HashSet::new();
 

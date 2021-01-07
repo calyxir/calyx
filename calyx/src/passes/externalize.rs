@@ -1,7 +1,5 @@
-use crate::frontend::library::ast as lib;
-use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use std::rc::Rc;
+use crate::ir::{self, LibrarySignatures, WRC};
 
 #[derive(Default)]
 /// Externalize input/output ports for "external" cells.
@@ -63,7 +61,7 @@ impl Visitor for Externalize {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _ctx: &lib::LibrarySignatures,
+        _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Extract external cells.
         let (ext_cells, cells): (Vec<_>, Vec<_>) =
@@ -91,12 +89,11 @@ impl Visitor for Externalize {
                 // Change the name and the parent of this port.
                 port_ref.borrow_mut().name =
                     format_port_name(&name, &port_name);
-                // Flip the direction of the port.
-                let new_dir = port_ref.borrow().direction.reverse();
-                port_ref.borrow_mut().direction = new_dir;
                 // Point to the signature cell as its parent
                 port_ref.borrow_mut().parent =
-                    ir::PortParent::Cell(Rc::downgrade(&comp.signature));
+                    ir::PortParent::Cell(WRC::from(&comp.signature));
+                // Remove any attributes from this cell port.
+                port_ref.borrow_mut().attributes = ir::Attributes::default();
                 comp.signature.borrow_mut().ports.push(port_ref);
             }
         }

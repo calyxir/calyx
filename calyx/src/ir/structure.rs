@@ -1,6 +1,6 @@
 //! Representation for structure (wires and cells) in a FuTIL program.
-use super::{Guard, Id, RRC, WRC};
-use std::collections::HashMap;
+use super::{Attributes, Guard, Id, RRC, WRC};
+use smallvec::SmallVec;
 use std::rc::Rc;
 
 /// Direction of a port on a cell.
@@ -43,6 +43,8 @@ pub struct Port {
     pub direction: Direction,
     /// Weak pointer to this port's parent
     pub parent: PortParent,
+    /// Attributes associated with this port.
+    pub attributes: Attributes,
 }
 
 impl Port {
@@ -52,10 +54,12 @@ impl Port {
     }
 
     /// Checks if this port is a constant of value: `val`.
-    pub fn is_constant(&self, val: u64) -> bool {
+    pub fn is_constant(&self, val: u64, width: u64) -> bool {
         if let PortParent::Cell(cell) = &self.parent {
-            match cell.upgrade().unwrap().borrow().prototype {
-                CellType::Constant { val: v, .. } => v == val,
+            match cell.upgrade().borrow().prototype {
+                CellType::Constant { val: v, width: w } => {
+                    v == val && width == w
+                }
                 _ => false,
             }
         } else {
@@ -66,19 +70,14 @@ impl Port {
     /// Gets name of parent object.
     pub fn get_parent_name(&self) -> Id {
         match &self.parent {
-            PortParent::Cell(cell) => cell
-                .upgrade()
-                .unwrap_or_else(|| panic!("No cell for port: {}", self.name))
-                .borrow()
-                .name
-                .clone(),
-            PortParent::Group(group) => group
-                .upgrade()
-                .unwrap_or_else(|| panic!("No group for hole: {}", self.name))
-                .borrow()
-                .name
-                .clone(),
+            PortParent::Cell(cell) => cell.upgrade().borrow().name.clone(),
+            PortParent::Group(group) => group.upgrade().borrow().name.clone(),
         }
+    }
+
+    /// Get the canonical representation for this Port.
+    pub fn canonical(&self) -> (Id, Id) {
+        (self.get_parent_name(), self.name.clone())
     }
 }
 
@@ -92,7 +91,7 @@ impl PartialEq for Port {
 impl Eq for Port {}
 
 /// Alias for bindings
-pub type Binding = Vec<(Id, u64)>;
+pub type Binding = SmallVec<[(Id, u64); 5]>;
 
 /// The type for a Cell
 #[derive(Debug)]
@@ -126,9 +125,11 @@ pub struct Cell {
     /// Name of this cell.
     pub name: Id,
     /// Ports on this cell
-    pub ports: Vec<RRC<Port>>,
+    pub ports: SmallVec<[RRC<Port>; 10]>,
     /// Underlying type for this cell
     pub prototype: CellType,
+    /// Attributes for this group.
+    pub(super) attributes: Attributes,
 }
 
 impl Cell {
@@ -151,7 +152,7 @@ impl Cell {
     {
         self.find(&name).unwrap_or_else(|| {
             panic!(
-                "Port `{}' not found on group `{}'",
+                "Port `{}' not found on cell `{}'",
                 name.to_string(),
                 self.name.to_string()
             )
@@ -186,6 +187,22 @@ impl Cell {
     pub(super) fn constant_name(val: u64, width: u64) -> Id {
         format!("_{}_{}", val, width).into()
     }
+
+    /// Return the value associated with this attribute key.
+    pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
+    where
+        S: AsRef<str>,
+    {
+        self.attributes.get(attr.as_ref())
+    }
+
+    /// Add a new attribute to the group.
+    pub fn add_attribute<S>(&mut self, attr: S, value: u64)
+    where
+        S: Into<String>,
+    {
+        self.attributes.insert(attr.into(), value);
+    }
 }
 
 /// Represents a guarded assignment in the program
@@ -198,7 +215,7 @@ pub struct Assignment {
     pub src: RRC<Port>,
 
     /// The guard for this assignment.
-    pub guard: Guard,
+    pub guard: Box<Guard>,
 }
 
 /// A Group of assignments that perform a logical action.
@@ -211,10 +228,10 @@ pub struct Group {
     pub assignments: Vec<Assignment>,
 
     /// Holes for this group
-    pub holes: Vec<RRC<Port>>,
+    pub holes: SmallVec<[RRC<Port>; 3]>,
 
     /// Attributes for this group.
-    pub attributes: HashMap<String, u64>,
+    pub attributes: Attributes,
 }
 
 impl Group {

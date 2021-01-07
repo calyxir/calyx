@@ -2,23 +2,16 @@ mod cmdline;
 mod pass_manager;
 
 use crate::ir::traversal::Visitor;
-use atty::Stream;
-use calyx::{
-    errors::{Error, FutilResult},
-    frontend::{library, parser},
-    ir,
-    ir::traversal::Named,
-    passes,
-};
+use calyx::{errors::FutilResult, frontend, ir, ir::traversal::Named, passes};
 use cmdline::Opts;
 use pass_manager::PassManager;
 use passes::{
     ClkInsertion, CollapseControl, CompileControl, CompileEmpty, CompileInvoke,
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion,
-    InferStaticTiming, Inliner, MinimizeRegs, Papercut, RemoveExternalMemories,
-    ResourceSharing, StaticTiming, WellFormed,
+    InferStaticTiming, Inliner, MergeAssign, MinimizeRegs, Papercut,
+    RemoveExternalMemories, ResourceSharing, SimplifyGuards, StaticTiming,
+    TopDownCompileControl, WellFormed,
 };
-use std::io::stdin;
 use structopt::StructOpt;
 
 /// Construct the pass manager by registering all passes and aliases used
@@ -45,6 +38,9 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
     register_pass!(pm, DeadCellRemoval);
     register_pass!(pm, MinimizeRegs);
     register_pass!(pm, InferStaticTiming);
+    register_pass!(pm, SimplifyGuards);
+    register_pass!(pm, MergeAssign);
+    register_pass!(pm, TopDownCompileControl);
 
     register_alias!(pm, "validate", [WellFormed, Papercut]);
     register_alias!(
@@ -61,13 +57,19 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
     register_alias!(
         pm,
         "compile",
-        [CompileEmpty, StaticTiming, CompileControl]
+        [CompileEmpty, StaticTiming, TopDownCompileControl]
     );
     register_alias!(pm, "post-opt", [DeadCellRemoval]);
     register_alias!(
         pm,
         "lower",
-        [GoInsertion, ComponentInterface, Inliner, ClkInsertion,]
+        [
+            GoInsertion,
+            ComponentInterface,
+            Inliner,
+            ClkInsertion,
+            MergeAssign,
+        ]
     );
 
     // Register aliases
@@ -114,37 +116,12 @@ fn main() -> FutilResult<()> {
         return Ok(());
     }
 
-    // ==== Construct the context ====
-    // parse the file
-    let namespace = match &opts.file {
-        Some(file) => parser::FutilParser::parse_file(&file),
-        None => {
-            if atty::isnt(Stream::Stdin) {
-                parser::FutilParser::parse(stdin())
-            } else {
-                Err(Error::InvalidFile(
-                    "No file provided and terminal not a TTY".to_string(),
-                ))
-            }
-        }
-    }?;
-
-    // parse libraries
-    let libraries: Vec<_> = namespace
-        .libraries
-        .iter()
-        .map(|path| {
-            library::parser::LibraryParser::parse_file(
-                &opts.lib_path.join(path),
-            )
-        })
-        .collect::<FutilResult<Vec<_>>>()?;
+    // Construct the namespace.
+    let namespace = frontend::NamespaceDef::new(&opts.file, &opts.lib_path)?;
 
     // Build the IR representation
-    let mut rep: ir::Context = ir::from_ast::ast_to_ir(
-        namespace.components,
-        &libraries,
-        namespace.libraries,
+    let mut rep = ir::from_ast::ast_to_ir(
+        namespace,
         opts.enable_debug,
         opts.enable_synthesis,
     )?;

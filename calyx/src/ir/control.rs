@@ -1,10 +1,12 @@
-use super::{Cell, Group, Id, Port, RRC};
+use super::{Attributes, Cell, GetAttributes, Group, Id, Port, RRC};
 
 /// Data for the `seq` control statement.
 #[derive(Debug)]
 pub struct Seq {
     /// List of `Control` statements to run in sequence.
     pub stmts: Vec<Control>,
+    /// Attributes attached to this control statement.
+    pub attributes: Attributes,
 }
 
 /// Data for the `par` control statement.
@@ -12,6 +14,8 @@ pub struct Seq {
 pub struct Par {
     /// List of `Control` statements to run in parallel.
     pub stmts: Vec<Control>,
+    /// Attributes attached to this control statement.
+    pub attributes: Attributes,
 }
 
 /// Data for the `if` control statement.
@@ -28,6 +32,9 @@ pub struct If {
 
     /// Control for the true branch.
     pub fbranch: Box<Control>,
+
+    /// Attributes attached to this control statement.
+    pub attributes: Attributes,
 }
 
 /// Data for the `if` control statement.
@@ -41,6 +48,8 @@ pub struct While {
 
     /// Control for the loop body.
     pub body: Box<Control>,
+    /// Attributes attached to this control statement.
+    pub attributes: Attributes,
 }
 
 /// Data for the `enable` control statement.
@@ -48,6 +57,8 @@ pub struct While {
 pub struct Enable {
     /// List of components to run.
     pub group: RRC<Group>,
+    /// Attributes attached to this control statement.
+    pub attributes: Attributes,
 }
 
 type PortMap = Vec<(Id, RRC<Port>)>;
@@ -61,12 +72,8 @@ pub struct Invoke {
     pub inputs: PortMap,
     /// Mapping from name of output ports in `comp` to the port connected to it.
     pub outputs: PortMap,
-}
-
-impl From<RRC<Group>> for Enable {
-    fn from(group: RRC<Group>) -> Self {
-        Enable { group }
-    }
+    /// Attributes attached to this control statement.
+    pub attributes: Attributes,
 }
 
 /// Data for the `empty` control statement.
@@ -92,7 +99,34 @@ pub enum Control {
     Empty(Empty),
 }
 
+impl GetAttributes for Control {
+    fn get_mut_attributes(&mut self) -> Option<&mut Attributes> {
+        match self {
+            Self::Seq(Seq { attributes, .. })
+            | Self::Par(Par { attributes, .. })
+            | Self::If(If { attributes, .. })
+            | Self::While(While { attributes, .. })
+            | Self::Invoke(Invoke { attributes, .. })
+            | Self::Enable(Enable { attributes, .. }) => Some(attributes),
+            Self::Empty(..) => None,
+        }
+    }
+
+    fn get_attributes(&self) -> Option<&Attributes> {
+        match self {
+            Self::Seq(Seq { attributes, .. })
+            | Self::Par(Par { attributes, .. })
+            | Self::If(If { attributes, .. })
+            | Self::While(While { attributes, .. })
+            | Self::Invoke(Invoke { attributes, .. })
+            | Self::Enable(Enable { attributes, .. }) => Some(attributes),
+            Self::Empty(..) => None,
+        }
+    }
+}
+
 impl Control {
+    // ================ Constructor methods ================
     /// Convience constructor for empty.
     pub fn empty() -> Self {
         Control::Empty(Empty {})
@@ -100,17 +134,26 @@ impl Control {
 
     /// Convience constructor for seq.
     pub fn seq(stmts: Vec<Control>) -> Self {
-        Control::Seq(Seq { stmts })
+        Control::Seq(Seq {
+            stmts,
+            attributes: Attributes::default(),
+        })
     }
 
     /// Convience constructor for par.
     pub fn par(stmts: Vec<Control>) -> Self {
-        Control::Par(Par { stmts })
+        Control::Par(Par {
+            stmts,
+            attributes: Attributes::default(),
+        })
     }
 
     /// Convience constructor for enable.
     pub fn enable(group: RRC<Group>) -> Self {
-        Control::Enable(Enable { group })
+        Control::Enable(Enable {
+            group,
+            attributes: Attributes::default(),
+        })
     }
 
     /// Convience constructor for invoke.
@@ -119,6 +162,7 @@ impl Control {
             comp,
             inputs,
             outputs,
+            attributes: Attributes::default(),
         })
     }
 
@@ -134,6 +178,7 @@ impl Control {
             cond,
             tbranch,
             fbranch,
+            attributes: Attributes::default(),
         })
     }
 
@@ -143,6 +188,11 @@ impl Control {
         cond: RRC<Group>,
         body: Box<Control>,
     ) -> Self {
-        Control::While(While { port, cond, body })
+        Control::While(While {
+            port,
+            cond,
+            body,
+            attributes: Attributes::default(),
+        })
     }
 }

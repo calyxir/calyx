@@ -1,6 +1,9 @@
 WHITESPACE = _{ " " | "\t" | NEWLINE }
 COMMENT = _{ ("//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE) | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
+// Semicolon
+semi = { ";" }
+
 ident_syms = _{ "_" | "-" | "'" }
 identifier = @{ ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
 
@@ -32,8 +35,20 @@ bad_num = @{ ASCII_DIGIT ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "'")* }
 
 // ====== toplevel ======
 
+
+file = {
+      SOI
+      ~ imports
+      ~ extern_or_component*
+      ~ EOI
+}
+
+extern_or_component = {
+  component | ext
+}
+
 component = {
-      "component" ~ identifier ~ signature
+      "component" ~ identifier ~ attributes? ~ signature
       ~ "{"
       ~ cells
       ~ connections
@@ -41,12 +56,7 @@ component = {
       ~ "}"
 }
 
-file = {
-      SOI
-      ~ imports
-      ~ component+
-      ~ EOI
-}
+// ========= Imports ===============
 
 import = _{
       "import" ~ string_lit ~ ";"
@@ -55,40 +65,55 @@ import = _{
 imports = { import* }
 
 
-// ====== signature ======
+// ====== Component signature ======
 
 signature = {
-      "(" ~ io_ports? ~ ")" ~ signature_return
-}
-
-signature_return = {
-      "->" ~ "(" ~ io_ports? ~ ")"
+      "(" ~ inputs? ~ ")" ~ "->" ~ "(" ~ outputs? ~ ")"
 }
 
 io_port = {
-      identifier ~ ":" ~ bitwidth
+     at_attributes? ~ identifier ~ ":" ~ (bitwidth | identifier)
 }
 
-io_ports = {
+inputs = {
       io_port ~ ("," ~ io_port)*
 }
+
+outputs = {
+      io_port ~ ("," ~ io_port)*
+}
+
+// ========= Exernal primitive definitions ===============
+
+params = {
+      "[" ~ (identifier ~ ("," ~ identifier)*)? ~ "]"
+}
+
+primitive = {
+      "primitive" ~ identifier ~ attributes? ~ params? ~ signature ~ ";"
+}
+
+ext = {
+  "extern" ~ string_lit ~ "{" ~ primitive* ~ "}"
+}
+
+// ====== cells ======
 
 args = {
       "(" ~ (bitwidth ~ ("," ~ bitwidth)*)? ~ ")"
 }
 
-// ====== cells ======
 
 primitive_cell = {
-      identifier ~ "=" ~ "prim" ~ identifier ~ args
+      at_attributes ~ identifier ~ "=" ~ "prim" ~ identifier ~ args
 }
 
 component_cell = {
-      identifier ~ "=" ~ identifier
+      at_attributes ~ identifier ~ "=" ~ identifier
 }
 
 cell = {
-      (primitive_cell | component_cell) ~ ";"
+      (primitive_cell | component_cell) ~ semi?
 }
 
 cells = {
@@ -120,13 +145,20 @@ guard_leq = { "<=" }
 guard_geq = { ">=" }
 guard_lt = { "<" }
 guard_gt = { ">" }
+cmp_expr = {
+    expr ~ guard_eq ~ expr
+  | expr ~ guard_neq ~ expr
+  | expr ~ guard_geq ~ expr
+  | expr ~ guard_leq ~ expr
+  | expr ~ guard_gt ~ expr
+  | expr ~ guard_lt ~ expr
+}
+
 guard_or = { "|" }
 guard_and = { "&" }
 guard_not = { "!" }
 operator = _{
-      guard_eq | guard_neq | guard_leq | guard_geq
-    | guard_lt | guard_gt | guard_or | guard_and
-    | guard_not
+     guard_or | guard_and
 }
 
 guard_expr = {
@@ -134,7 +166,12 @@ guard_expr = {
 }
 
 term = {
-      guard_not ~ expr | guard_not ~ guard_expr | "(" ~ guard_expr ~ ")" | expr
+      guard_not ~ expr
+    | guard_not ~ "(" ~ cmp_expr ~ ")"
+    | guard_not ~ "(" ~ guard_expr ~ ")"
+    | "(" ~ guard_expr ~ ")"
+    | cmp_expr
+    | expr
 }
 
 switch_stmt = {
@@ -145,12 +182,22 @@ wire = {
       LHS ~ "=" ~ (switch_stmt | expr) ~ ";"
 }
 
-key_value = {
+// =========== Attribute parsing ===============
+
+// <"static" = 1> style annotation
+attribute = {
       string_lit ~ "=" ~ bitwidth
 }
-
 attributes = {
-      "<" ~ (key_value ~ ("," ~ key_value)*) ~ ">"
+      "<" ~ (attribute ~ ("," ~ attribute)*) ~ ">"
+}
+
+// @static(1) style annotation
+at_attribute = {
+      "@" ~ identifier ~ "(" ~ bitwidth ~ ")"
+}
+at_attributes = {
+      at_attribute*
 }
 
 group = {
@@ -168,20 +215,20 @@ connections = {
 
 // ====== control ======
 
-enable = { identifier ~ ";" }
+enable = { at_attributes ~ identifier ~ ";" }
 
 invoke_arg = { identifier ~ "=" ~ port }
 invoke_args = { (invoke_arg ~ ("," ~ invoke_arg)*)? }
-invoke = { "invoke" ~ identifier ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ";" }
+invoke = { at_attributes ~ "invoke" ~ identifier ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ";" }
 
 seq = {
-      "seq" ~ "{"
+      at_attributes ~ "seq" ~ "{"
       ~ stmt*
       ~ "}"
 }
 
 par = {
-      "par" ~ "{"
+      at_attributes ~ "par" ~ "{"
       ~ stmt*
       ~ "}"
 }
@@ -197,20 +244,20 @@ block = {
 }
 
 if_stmt = {
-      "if" ~ port ~ "with" ~ identifier ~ block ~ ("else" ~ (if_stmt | block))?
+      at_attributes ~ "if" ~ port ~ "with" ~ identifier ~ block ~ ("else" ~ (if_stmt | block))?
 }
 
 while_stmt = {
-      "while" ~ port ~ "with" ~ identifier ~ block
+      at_attributes ~ "while" ~ port ~ "with" ~ identifier ~ block
 }
 
 stmt = {
       enable
     | invoke
-    | (seq ~ ";"?)
-    | (par ~ ";"?)
-    | (if_stmt ~ ";"?)
-    | (while_stmt ~ ";"?)
+    | seq
+    | par
+    | if_stmt
+    | while_stmt
 }
 
 control = {

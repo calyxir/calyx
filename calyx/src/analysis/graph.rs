@@ -1,7 +1,4 @@
-use crate::{
-    ir::{self, Id, RRC},
-    utils::Keyable,
-};
+use crate::ir::{self, Id, RRC};
 use petgraph::{
     algo,
     graph::{DiGraph, NodeIndex},
@@ -18,18 +15,11 @@ type Edge = ();
 /// information.
 pub type CellGraph = DiGraph<Node, Edge>;
 
-/// Implement keyable for port
-impl Keyable for ir::Port {
-    type Key = (Id, Id);
-    fn key(&self) -> Self::Key {
-        (self.get_parent_name(), self.name.clone())
-    }
-}
-
-/// Constructs a graph based representation of a component. Each port is
-/// represented as a node, and each edge represents a read/write between ports.
+/// Constructs a graph based representation of a component. Each node represents
+/// a [`ir::Port`](crate::ir::Port) and each directed edge (`X -> Y`) means
+/// that `X`'s value is read in an assignment to `Y`.
 ///
-/// For example:
+/// # Example
 ///  ```
 ///  c.in = G[done] & b.done ? add.out
 ///  ```
@@ -83,8 +73,8 @@ impl GraphAnalysis {
     fn insert_assignment(&mut self, asgn: &ir::Assignment) {
         let GraphAnalysis { nodes, graph } = self;
         // insert nodes for src and dst ports
-        let src_key = asgn.src.borrow().key();
-        let dst_key = asgn.dst.borrow().key();
+        let src_key = asgn.src.borrow().canonical();
+        let dst_key = asgn.dst.borrow().canonical();
         nodes
             .entry(src_key.clone())
             .or_insert_with(|| graph.add_node(Rc::clone(&asgn.src)));
@@ -98,7 +88,7 @@ impl GraphAnalysis {
         // add edges for guards that read from the port in the guard
         // and write to the dst of the assignment
         for port in &asgn.guard.all_ports() {
-            let guard_key = port.borrow().key();
+            let guard_key = port.borrow().canonical();
             nodes
                 .entry(guard_key.clone())
                 .or_insert_with(|| graph.add_node(Rc::clone(&port)));
@@ -109,7 +99,7 @@ impl GraphAnalysis {
     /// Returns an iterator over all the reads from a port.
     /// Returns an empty iterator if this is an Input port.
     pub fn reads_from(&self, port: &ir::Port) -> PortIterator<'_> {
-        let idx = self.nodes[&port.key()];
+        let idx = self.nodes[&port.canonical()];
         match port.direction {
             ir::Direction::Input => PortIterator::empty(),
             ir::Direction::Output | ir::Direction::Inout => PortIterator {
@@ -127,7 +117,7 @@ impl GraphAnalysis {
     /// Returns an iterator over all the writes to this port.
     /// Returns an empty iterator if this is an Output port.
     pub fn writes_to(&self, port: &ir::Port) -> PortIterator<'_> {
-        let idx = self.nodes[&port.key()];
+        let idx = self.nodes[&port.canonical()];
         match port.direction {
             ir::Direction::Input | ir::Direction::Inout => PortIterator {
                 port_iter: Box::new(
@@ -228,6 +218,7 @@ impl GraphAnalysis {
         Self { graph, nodes }
     }
 
+    /// Returns all the [`Port`](crate::ir::Port) associated with this instance.
     pub fn ports(&self) -> Vec<RRC<ir::Port>> {
         self.graph
             .raw_nodes()

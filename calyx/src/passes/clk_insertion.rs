@@ -1,13 +1,13 @@
-use crate::frontend::library::ast as lib;
 use crate::ir::{
     self,
     traversal::{Named, Visitor},
+    LibrarySignatures,
 };
 use ir::traversal::{Action, VisResult};
 
 #[derive(Default)]
 /// Adds assignments from a components `clk` port to every
-/// component that contains an input `clk` port. For example
+/// component that contains an input `clk` port.
 pub struct ClkInsertion;
 
 impl Named for ClkInsertion {
@@ -24,7 +24,7 @@ impl Visitor for ClkInsertion {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        sigs: &lib::LibrarySignatures,
+        sigs: &LibrarySignatures,
     ) -> VisResult {
         let builder = ir::Builder::from(comp, sigs, false);
 

@@ -1,8 +1,8 @@
-use crate::frontend::library::ast as lib;
-use crate::ir;
+use super::math_utilities::get_bit_width_from;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::ir::{self, LibrarySignatures};
 use crate::{build_assignments, guard, structure};
-use std::collections::HashMap;
+use itertools::Itertools;
 use std::{cmp, rc::Rc};
 
 #[derive(Default)]
@@ -30,23 +30,16 @@ fn accumulate_static_time<F>(stmts: &[ir::Control], acc: F) -> Option<u64>
 where
     F: FnMut(u64, u64) -> u64,
 {
-    let timing: Result<Vec<u64>, ()> = stmts
+    stmts
         .iter()
         .map(|con| {
             if let ir::Control::Enable(data) = con {
-                data.group
-                    .borrow()
-                    .attributes
-                    .get("static")
-                    .copied()
-                    .ok_or(())
+                data.group.borrow().attributes.get("static").copied()
             } else {
-                Err(())
+                None
             }
         })
-        .collect();
-
-    timing.ok().map(|ts| ts.into_iter().fold(0, acc))
+        .fold_options(0, acc)
 }
 
 impl Visitor for StaticTiming {
@@ -54,7 +47,7 @@ impl Visitor for StaticTiming {
         &mut self,
         while_s: &mut ir::While,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         // let st = &mut comp.structure;
 
@@ -81,14 +74,16 @@ impl Visitor for StaticTiming {
                 cond.borrow().attributes.get("static"),
                 body.borrow().attributes.get("static"),
             ) {
-                let while_group =
-                    builder.add_group("static_while", HashMap::new());
+                let while_group = builder.add_group("static_while");
 
-                // take at least one cycle for computing the body and conditiona
+                // take at least one cycle for computing the body and condition
                 let ctime = cmp::max(ctime, 1);
                 let btime = cmp::max(btime, 1);
 
-                let fsm_size = 32;
+                let body_end_time = ctime + btime;
+                // `0` state + (ctime + btime) states.
+                let fsm_size = get_bit_width_from(body_end_time + 1);
+
                 structure!(builder;
                     let fsm = prim std_reg(fsm_size);
                     let cond_stored = prim std_reg(1);
@@ -99,7 +94,7 @@ impl Visitor for StaticTiming {
                     let signal_on = constant(1, 1);
 
                     let cond_time_const = constant(ctime, fsm_size);
-                    let body_end_const = constant(ctime + btime, fsm_size);
+                    let body_end_const = constant(body_end_time, fsm_size);
                 );
 
                 // Cond is computed on this cycle.
@@ -175,7 +170,7 @@ impl Visitor for StaticTiming {
         &mut self,
         s: &mut ir::If,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         if let (ir::Control::Enable(tdata), ir::Control::Enable(fdata)) =
             (&*s.tbranch, &*s.fbranch)
@@ -191,14 +186,18 @@ impl Visitor for StaticTiming {
                 fal.borrow().attributes.get("static"),
             ) {
                 let mut builder = ir::Builder::from(comp, ctx, false);
-                let mut attrs = HashMap::new();
-                attrs.insert(
-                    "static".to_string(),
-                    ctime + 1 + cmp::max(ttime, ftime),
-                );
-                let if_group = builder.add_group("static_if", attrs);
+                let if_group = builder.add_group("static_if");
+                if_group
+                    .borrow_mut()
+                    .attributes
+                    .insert("static", ctime + 1 + cmp::max(ttime, ftime));
 
-                let fsm_size = 32;
+                let end_true_time = ttime + ctime + 1;
+                let end_false_time = ftime + ctime + 1;
+                // `0` state + (ctime + max(ttime, ftime) + 1) states.
+                let fsm_size = get_bit_width_from(
+                    1 + cmp::max(end_true_time, end_false_time),
+                );
                 structure!(builder;
                     let fsm = prim std_reg(fsm_size);
                     let one = constant(1, fsm_size);
@@ -209,8 +208,8 @@ impl Visitor for StaticTiming {
                     let cond_time_const = constant(ctime, fsm_size);
                     let cond_done_time_const = constant(ctime, fsm_size);
 
-                    let true_end_const = constant(ttime + ctime + 1, fsm_size);
-                    let false_end_const = constant(ftime + ctime + 1, fsm_size);
+                    let true_end_const = constant(end_true_time, fsm_size);
+                    let false_end_const = constant(end_false_time, fsm_size);
 
                     let incr = prim std_add(fsm_size);
                 );
@@ -295,21 +294,17 @@ impl Visitor for StaticTiming {
         &mut self,
         s: &mut ir::Par,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
-        let maybe_max_time = accumulate_static_time(&s.stmts, cmp::max);
-
         // Early return if this group is not compilable.
-        if let Some(max_time) = maybe_max_time {
+        if let Some(max_time) = accumulate_static_time(&s.stmts, cmp::max) {
             let mut builder = ir::Builder::from(comp, ctx, false);
 
-            let mut attrs = HashMap::new();
-            attrs.insert("static".to_string(), max_time);
+            let par_group = builder.add_group("static_par");
+            par_group.borrow_mut().attributes.insert("static", max_time);
 
-            let par_group = builder.add_group("static_par", attrs);
+            let fsm_size = get_bit_width_from(max_time + 1);
 
-            // XXX(rachit): Calculate the precise number of states required.
-            let fsm_size = 32;
             structure!(builder;
                 let fsm = prim std_reg(fsm_size);
                 let signal_const = constant(1, 1);
@@ -331,14 +326,15 @@ impl Visitor for StaticTiming {
             for con in s.stmts.iter() {
                 if let ir::Control::Enable(data) = con {
                     let group = &data.group;
-                    let static_time: u64 = group.borrow().attributes["static"];
+                    let static_time: u64 =
+                        *group.borrow().attributes.get("static").unwrap();
 
                     // group[go] = fsm.out <= static_time ? 1;
                     structure!(builder;
                         let state_const = constant(static_time, fsm_size);
                     );
                     let go_guard =
-                        guard!(fsm["out"]).le(guard!(state_const["out"]));
+                        guard!(fsm["out"]).lt(guard!(state_const["out"]));
 
                     let mut assigns = build_assignments!(builder;
                       group["go"] = go_guard ? signal_const["out"];
@@ -367,7 +363,7 @@ impl Visitor for StaticTiming {
         &mut self,
         s: &mut ir::Seq,
         comp: &mut ir::Component,
-        ctx: &lib::LibrarySignatures,
+        ctx: &LibrarySignatures,
     ) -> VisResult {
         // If this sequence only contains groups with the "static" attribute,
         // compile it using a statically timed FSM.
@@ -379,10 +375,10 @@ impl Visitor for StaticTiming {
         }
 
         let mut builder = ir::Builder::from(comp, ctx, false);
-        // TODO(rachit): Resize FSM by pre-calculating max value.
-        let fsm_size = 32;
+        let fsm_size = get_bit_width_from(1 + total_time.unwrap());
+
         // Create new group for compiling this seq.
-        let seq_group = builder.add_group("static_seq", HashMap::new());
+        let seq_group = builder.add_group("static_seq");
 
         // Add FSM register
         structure!(builder;
@@ -396,7 +392,8 @@ impl Visitor for StaticTiming {
                 let group = &data.group;
 
                 // Static time of the group.
-                let static_time: u64 = group.borrow().attributes["static"];
+                let static_time: u64 =
+                    *group.borrow().attributes.get("static").unwrap();
 
                 structure!(builder;
                     let start_st = constant(cur_cycle, fsm_size);
@@ -455,7 +452,7 @@ impl Visitor for StaticTiming {
         seq_group
             .borrow_mut()
             .attributes
-            .insert("static".to_string(), cur_cycle);
+            .insert("static", cur_cycle);
 
         // Replace the control with the seq group.
         Ok(Action::Change(ir::Control::enable(seq_group)))

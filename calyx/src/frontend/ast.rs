@@ -1,15 +1,103 @@
 /// Abstract Syntax Tree for Futil
-use crate::errors::Span;
+use super::parser;
+use crate::errors::{Error, FutilResult, Span};
 use crate::ir;
-use std::collections::HashMap;
+use atty::Stream;
+use std::io::stdin;
+use std::path::{Path, PathBuf};
 
-/// Top level AST statement. This contains a list of Component definitions.
+/// Represents the parsed AST of a complete program. Contains all the components
+/// and primitives that were encountered during the parsing the program.
+///
+/// # Example
+/// When parsing a file `foo.futil`:
+/// ```
+/// import "core.futil";
+///
+/// component main() -> () { ... }
+/// ```
+/// `main` is added to the current namespace and `core.futil` is added to
+/// the parsing queue. Next, `core.futil` is parsed:
+/// ```
+/// extern "core.sv" {
+///     primitive std_add[width](left: width, right: width) -> (out: width);
+/// }
+/// ```
+/// The primitive `std_add` is added to the namespace and `"core.sv"` is
+/// added to the set of paths that need to be "linked" in the backend
+/// generation.
+///
+/// Since `core.futil` does not `import` any file, the parsing process is
+/// completed.
 #[derive(Debug)]
 pub struct NamespaceDef {
-    /// The path to libraries
-    pub libraries: Vec<String>,
+    /// Path to extern files.
+    pub imports: Vec<String>,
     /// List of component definitions.
     pub components: Vec<ComponentDef>,
+    /// Extern statements and any primitive declarations in them.
+    pub externs: Vec<(String, Vec<ir::Primitive>)>,
+}
+
+impl NamespaceDef {
+    /// Parse the program and all of its transitive dependencies to build
+    /// a whole program context.
+    pub fn new(
+        file: &Option<PathBuf>,
+        lib_path: &PathBuf,
+    ) -> FutilResult<Self> {
+        let mut namespace = match file {
+            Some(file) => parser::FutilParser::parse_file(&file),
+            None => {
+                if atty::isnt(Stream::Stdin) {
+                    parser::FutilParser::parse(stdin())
+                } else {
+                    Err(Error::InvalidFile(
+                        "No file provided and terminal not a TTY".to_string(),
+                    ))
+                }
+            }
+        }?;
+
+        namespace.externs.iter_mut().for_each(|(path, _)| {
+            *path = lib_path.join(path.clone()).to_string_lossy().to_string();
+        });
+
+        // Parse all transitive dependencies
+        let mut deps: Vec<PathBuf> = namespace
+            .imports
+            .clone()
+            .into_iter()
+            .map(|f| lib_path.join(f))
+            .collect();
+
+        while let Some(path) = deps.pop() {
+            let mut ns = parser::FutilParser::parse_file(&path)?;
+            namespace.components.append(&mut ns.components);
+
+            let parent = match path.parent() {
+                Some(a) => a,
+                None => Path::new("."),
+            };
+
+            namespace.externs.append(
+                &mut ns
+                    .externs
+                    .into_iter()
+                    .map(|(path, exts)| {
+                        (parent.join(path).to_string_lossy().to_string(), exts)
+                    })
+                    .collect(),
+            );
+
+            // All imports are relative to the file being currently parsed.
+            deps.append(
+                &mut ns.imports.into_iter().map(|f| parent.join(f)).collect(),
+            );
+        }
+
+        Ok(namespace)
+    }
 }
 
 /// AST statement for defining components.
@@ -17,32 +105,18 @@ pub struct NamespaceDef {
 pub struct ComponentDef {
     /// Name of the component.
     pub name: ir::Id,
-
-    /// Defines input and output ports.
-    pub signature: Signature,
-
+    /// Defines input and output ports along with their attributes.
+    pub signature: Vec<ir::PortDef>,
     /// List of instantiated sub-components
     pub cells: Vec<Cell>,
-
     /// List of groups
     pub groups: Vec<Group>,
-
     /// List of continuous assignments
     pub continuous_assignments: Vec<Wire>,
-
     /// Single control statement for this component.
     pub control: Control,
-}
-
-/// The signature for a component. Contains a list
-/// of input ports and a list of output ports.
-#[derive(Clone, Debug)]
-pub struct Signature {
-    /// List of input ports.
-    pub inputs: Vec<(ir::Id, u64)>,
-
-    /// List of output ports.
-    pub outputs: Vec<(ir::Id, u64)>,
+    /// Attributes attached to this component
+    pub attributes: ir::Attributes,
 }
 
 /// Statement that refers to a port on a subcomponent.
@@ -109,17 +183,17 @@ pub enum Atom {
 /// The AST for GuardExprs
 #[derive(Debug)]
 pub enum GuardExpr {
-    // TODO(rachit): Go back to the simpler, two children AST representation.
-    // Use the IR to merge And nodes.
-    And(Vec<GuardExpr>),
-    Or(Vec<GuardExpr>),
-    Eq(Box<GuardExpr>, Box<GuardExpr>),
-    Neq(Box<GuardExpr>, Box<GuardExpr>),
-    Gt(Box<GuardExpr>, Box<GuardExpr>),
-    Lt(Box<GuardExpr>, Box<GuardExpr>),
-    Geq(Box<GuardExpr>, Box<GuardExpr>),
-    Leq(Box<GuardExpr>, Box<GuardExpr>),
+    // Logical operations
+    And(Box<GuardExpr>, Box<GuardExpr>),
+    Or(Box<GuardExpr>, Box<GuardExpr>),
     Not(Box<GuardExpr>),
+    // Comparison operations
+    Eq(Atom, Atom),
+    Neq(Atom, Atom),
+    Gt(Atom, Atom),
+    Lt(Atom, Atom),
+    Geq(Atom, Atom),
+    Leq(Atom, Atom),
     Atom(Atom),
 }
 
@@ -135,35 +209,60 @@ pub struct Guard {
 // Data definitions for Structure
 // ===================================
 
-/// The Cell AST nodes.
+/// Prototype of the cell definition
 #[derive(Debug)]
-pub enum Cell {
-    /// Node for instantiating user-defined components.
-    Decl { name: ir::Id, component: ir::Id },
-    /// Node for instantiating primitive components.
+pub enum CellType {
+    /// An instantiated Calyx component.
+    Decl { name: ir::Id },
+    /// An instantiated primitive component.
     Prim {
+        /// Name of the primitive.
         name: ir::Id,
-        prim: ir::Id,
+        /// Parameter binding for primitives
         params: Vec<u64>,
     },
 }
 
+/// The Cell AST nodes.
+#[derive(Debug)]
+pub struct Cell {
+    /// Name of the cell.
+    pub name: ir::Id,
+    /// Name of the prototype this cell was built from.
+    pub prototype: CellType,
+    /// Attributes attached to this cell definition
+    pub attributes: ir::Attributes,
+}
+
 /// Methods for constructing the structure AST nodes.
 impl Cell {
-    /// Constructs `Structure::Std` with `name` and `instance`
-    /// as arguments.
-    pub fn prim(var: ir::Id, prim_name: ir::Id, params: Vec<u64>) -> Cell {
-        Cell::Prim {
-            name: var,
-            prim: prim_name,
-            params,
+    /// Construct a Calyx cell instantiation.
+    pub fn decl(
+        name: ir::Id,
+        comp: ir::Id,
+        attributes: ir::Attributes,
+    ) -> Cell {
+        Cell {
+            name,
+            prototype: CellType::Decl { name: comp },
+            attributes,
         }
     }
 
-    pub fn name(&self) -> &ir::Id {
-        match self {
-            Self::Decl { name, .. } => name,
-            Self::Prim { name, .. } => name,
+    /// Constructs a primitive cell instantiation.
+    pub fn prim(
+        var: ir::Id,
+        prim_name: ir::Id,
+        params: Vec<u64>,
+        attributes: ir::Attributes,
+    ) -> Cell {
+        Cell {
+            name: var,
+            prototype: CellType::Prim {
+                name: prim_name,
+                params,
+            },
+            attributes,
         }
     }
 }
@@ -172,7 +271,7 @@ impl Cell {
 pub struct Group {
     pub name: ir::Id,
     pub wires: Vec<Wire>,
-    pub attributes: HashMap<String, u64>,
+    pub attributes: ir::Attributes,
 }
 
 /// Data for the `->` structure statement.
@@ -192,11 +291,15 @@ pub enum Control {
     Seq {
         /// List of `Control` statements to run in sequence.
         stmts: Vec<Control>,
+        /// Attributes
+        attributes: ir::Attributes,
     },
     /// Represents parallel composition of control statements.
     Par {
         /// List of `Control` statements to run in sequence.
         stmts: Vec<Control>,
+        /// Attributes
+        attributes: ir::Attributes,
     },
     /// Standard imperative if statement
     If {
@@ -211,6 +314,9 @@ pub enum Control {
 
         /// Control for the true branch.
         fbranch: Box<Control>,
+
+        /// Attributes
+        attributes: ir::Attributes,
     },
     /// Standard imperative while statement
     While {
@@ -222,11 +328,16 @@ pub enum Control {
 
         /// Control for the loop body.
         body: Box<Control>,
+
+        /// Attributes
+        attributes: ir::Attributes,
     },
     /// Runs the control for a list of subcomponents.
     Enable {
         /// Group to be enabled
         comp: ir::Id,
+        /// Attributes
+        attributes: ir::Attributes,
     },
     /// Invoke component with input/output assignments.
     Invoke {
@@ -236,6 +347,8 @@ pub enum Control {
         inputs: Vec<(ir::Id, Port)>,
         /// Output assignments
         outputs: Vec<(ir::Id, Port)>,
+        /// Attributes
+        attributes: ir::Attributes,
     },
     /// Control statement that does nothing.
     Empty {},

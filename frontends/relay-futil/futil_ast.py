@@ -4,6 +4,7 @@ from typing import List, Dict
 from types import FunctionType
 from enum import Enum, IntEnum
 
+
 # Note: The integer value N for Memory with dimension N is used; these should remain unchanged.
 class PrimitiveType(IntEnum):
     Memory1D = 1
@@ -110,65 +111,43 @@ class FComponent:
     Represents a FuTIL component.
     '''
     name: str
-    cells: List[Cell]  # Instantiated sub-components.
-    wires: List[FConnection]  # Wire connections between components.
+    wires = []  # Wire connections between components.
+    cells = {}  # Instantiated sub-components. This is a mapping from {`dahlia_name`, FCell}.
     controls: FControl = None  # Control statement for this component.
     signature: FSignature = None  # Input and output ports.
-
-    def contains_primitive(self, name: str):
-        '''
-        Determines whether this component contains a primitive with the given name.
-        '''
-        # TODO(cgyurgyik): Rethink data structure here.
-        for cell in self.cells:
-            if not cell.is_primitive(): continue
-            if cell.primitive.name == name: return True
-        return False
 
     def add_cell(self, subcomponent: Cell):
         '''
         Appends a subcomponent to this component's list of FuTIL cells.
         '''
-        if not subcomponent.is_primitive():
-            self.cells.append(subcomponent)
-            return
-        if self.contains_primitive(subcomponent.primitive.name): return
-        self.cells.append(subcomponent)
+        if subcomponent == None: return
+        if subcomponent.is_primitive():
+            self.cells[subcomponent.primitive.name] = subcomponent
+        elif subcomponent.is_relay_function():
+            self.cells[subcomponent.relay_function.name] = subcomponent
 
 
 @dataclass
-class DahliaDeclaration:
-    decl_name: str
+class RelayFunctionCall:
+    """
+    Represents a Relay function call. This will eventually be translated to Dahlia and subsequently lowered to FuTIL.
+    """
+    name: str
     component_name: str
-    op: str = None
+    op: str = None  # Binary operation associated with the Relay function call, if it exists.
+    attributes: tvm.ir.Attrs = None  # Attributes associated with the Relay function call, e.g. `axis`, `padding`.
+    lowering_function: FunctionType = None  # The function used to convert the Dahlia representation to FuTIL.
     inputs: List[Cell] = None
     output: Cell = None
-    attributes: tvm.ir.Attrs = None
-    function: FunctionType = None
-    program: str = None
-
-    def invoke(self):
-        self.program = self.function(self)
-
-
-@dataclass
-class FDeclaration:
-    '''
-    Represents a FuTIL declaration.
-    '''
-    name: str
-    component: FComponent = None
 
 
 @dataclass
 class FCell(Cell):
     dahlia_name: str = None
     primitive: FPrimitive = None
-    declaration: FDeclaration = None
-    dahlia_declaration: DahliaDeclaration = None
+    relay_function: RelayFunctionCall = None
 
+    # TODO(cgyurgyik): Is there a better way to do this, such as std::variant in C++?
     def is_primitive(self): return self.primitive != None
 
-    def is_declaration(self): return self.declaration != None
-
-    def is_dahlia_declaration(self): return self.dahlia_declaration != None
+    def is_relay_function(self): return self.relay_function != None

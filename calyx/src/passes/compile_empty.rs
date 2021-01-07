@@ -1,13 +1,18 @@
-use crate::frontend::library::ast::LibrarySignatures;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, Component, Control};
+use crate::ir::{self, Component, Control, LibrarySignatures};
 use crate::{build_assignments, structure};
-use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Default)]
-/// Compiles away all `empty` statements in a FuTIL program to a group that is
-/// always active.
+/// Compiles away all [`ir::Empty`](crate::ir::Empty) statements into an
+/// [`ir::Enable`](crate::ir::Enable).
+///
+/// The generated program enables the following group:
+/// ```
+/// group _empty {
+///     _empty["done"] = 1'd1;
+/// }
+/// ```
 pub struct CompileEmpty {}
 
 impl CompileEmpty {
@@ -36,12 +41,11 @@ impl Visitor for CompileEmpty {
             None => {
                 let mut builder = ir::Builder::from(comp, sigs, false);
                 // Create a group that always outputs done if it doesn't exist.
-                let mut attrs = HashMap::new();
-                attrs.insert("static".to_string(), 0);
 
                 // Add the new group
-                let empty_group = builder
-                    .add_group(CompileEmpty::EMPTY_GROUP.to_string(), attrs);
+                let empty_group =
+                    builder.add_group(CompileEmpty::EMPTY_GROUP.to_string());
+                empty_group.borrow_mut().attributes.insert("static", 0);
 
                 // Add this signal empty_group[done] = 1'd1;
                 structure!(builder;

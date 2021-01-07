@@ -1,0 +1,16 @@
+import "primitives/std.lib";
+// WIP
+
+component main() -> () {
+  cells {
+
+  }
+
+  wires {
+    
+  }
+
+  control {
+    
+  }
+}

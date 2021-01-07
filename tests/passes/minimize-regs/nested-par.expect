@@ -24,7 +24,7 @@ component kernel(go: 1, clk: 1) -> (done: 1) {
       b0.write_en = 1'd1;
       wr_b0[done] = b0.done;
     }
-    group rd_x0<"static"=1> {
+    group rd_x0<"static"=0> {
       read_x0.right = before0.out;
       read_x0.left = before0.out;
       rd_x0[done] = 1'd1;
@@ -44,7 +44,7 @@ component kernel(go: 1, clk: 1) -> (done: 1) {
       b1.write_en = 1'd1;
       wr_b1[done] = b1.done;
     }
-    group rd_x1<"static"=1> {
+    group rd_x1<"static"=0> {
       read_x1.right = before1.out;
       read_x1.left = before1.out;
       rd_x1[done] = 1'd1;

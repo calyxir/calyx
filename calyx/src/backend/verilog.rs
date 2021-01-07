@@ -1,16 +1,18 @@
 //! SystemVerilog backend for the FuTIL compiler.
-//! Transforms an `ir::Context` into a formatted string that represents a
+//!
+//! Transforms an [`ir::Context`](crate::ir::Context) into a formatted string that represents a
 //! valid SystemVerilog program.
 
 use crate::{
     backend::traits::Backend,
     errors::{Error, FutilResult},
-    frontend::library,
     ir,
-    utils::{Keyable, OutputFile},
+    utils::OutputFile,
 };
 use ir::{Control, Group, Guard, RRC};
 use itertools::Itertools;
+use std::fs::File;
+use std::io;
 use std::{collections::HashMap, rc::Rc};
 use vast::v17::ast as v;
 
@@ -23,19 +25,16 @@ pub struct VerilogBackend;
 /// used in a guard.
 fn validate_guard(guard: &ir::Guard) -> bool {
     match guard {
-        Guard::And(bs) => bs.iter().all(|b| validate_guard(b)),
-        Guard::Or(bs) => bs.iter().all(|b| validate_guard(b)),
-        Guard::Eq(left, right) => validate_guard(left) && validate_guard(right),
-        Guard::Neq(left, right) => {
+        Guard::Or(left, right) | Guard::And(left, right) => {
             validate_guard(left) && validate_guard(right)
         }
-        Guard::Gt(left, right) => validate_guard(left) && validate_guard(right),
-        Guard::Lt(left, right) => validate_guard(left) && validate_guard(right),
-        Guard::Geq(left, right) => {
-            validate_guard(left) && validate_guard(right)
-        }
-        Guard::Leq(left, right) => {
-            validate_guard(left) && validate_guard(right)
+        Guard::Eq(left, right)
+        | Guard::Neq(left, right)
+        | Guard::Gt(left, right)
+        | Guard::Lt(left, right)
+        | Guard::Geq(left, right)
+        | Guard::Leq(left, right) => {
+            !left.borrow().is_hole() && !right.borrow().is_hole()
         }
         Guard::Not(inner) => validate_guard(inner),
         Guard::Port(port) => !port.borrow().is_hole(),
@@ -75,14 +74,6 @@ fn validate_control(ctrl: &ir::Control) -> FutilResult<()> {
     }
 }
 
-impl From<library::ast::Implementation> for library::ast::Verilog {
-    fn from(imp: library::ast::Implementation) -> Self {
-        match imp {
-            library::ast::Implementation::Verilog(v) => v,
-        }
-    }
-}
-
 impl Backend for VerilogBackend {
     fn name(&self) -> &'static str {
         "verilog"
@@ -96,13 +87,15 @@ impl Backend for VerilogBackend {
         Ok(())
     }
 
-    fn emit_primitives(
-        prims: Vec<&library::ast::Implementation>,
+    /// Generate a "fat" library by copy-pasting all of the extern files.
+    /// A possible alternative in the future is to use SystemVerilog `include`
+    /// statement.
+    fn link_externs(
+        ctx: &ir::Context,
         file: &mut OutputFile,
     ) -> FutilResult<()> {
-        for prim in prims {
-            let library::ast::Implementation::Verilog(v) = prim;
-            writeln!(file.get_write(), "{}", v.code)?;
+        for extern_path in &ctx.lib.paths {
+            io::copy(&mut File::open(extern_path)?, &mut file.get_write())?;
         }
         Ok(())
     }
@@ -124,14 +117,17 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
     let sig = comp.signature.borrow();
     for port_ref in &sig.ports {
         let port = port_ref.borrow();
+        // NOTE: The signature port definitions are reversed inside the component.
         match port.direction {
             ir::Direction::Input => {
-                module.add_input(port.name.as_ref(), port.width);
-            }
-            ir::Direction::Output => {
                 module.add_output(port.name.as_ref(), port.width);
             }
-            ir::Direction::Inout => todo!("error message"),
+            ir::Direction::Output => {
+                module.add_input(port.name.as_ref(), port.width);
+            }
+            ir::Direction::Inout => {
+                panic!("Unexpected Inout port on Component: {}", port.name)
+            }
         }
     }
 
@@ -173,21 +169,17 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
     // gather assignments keyed by destination
     let mut map: HashMap<_, (RRC<ir::Port>, Vec<_>)> = HashMap::new();
     for asgn in &comp.continuous_assignments {
-        map.entry(asgn.dst.borrow().key())
+        map.entry(asgn.dst.borrow().canonical())
             .and_modify(|(_, v)| v.push(asgn))
             .or_insert((Rc::clone(&asgn.dst), vec![asgn]));
     }
 
-    let seq_stmts = map
-        .values()
-        .sorted_by_key(|(port, _)| port.borrow().key())
-        .map(|asgns| emit_assignment(asgns))
-        .collect::<Vec<_>>();
+    map.values()
+        .sorted_by_key(|(port, _)| port.borrow().canonical())
+        .for_each(|asgns| {
+            module.add_stmt(v::Stmt::new_parallel(emit_assignment(asgns)));
+        });
 
-    let mut always_comb = v::ParallelProcess::new_always_comb();
-    always_comb.body = seq_stmts;
-
-    module.add_process(always_comb);
     module
 }
 
@@ -196,7 +188,7 @@ fn wire_decls(cell: &ir::Cell) -> Vec<(String, u64, ir::Direction)> {
         .iter()
         .filter_map(|port| match &port.borrow().parent {
             ir::PortParent::Cell(cell) => {
-                let parent_ref = cell.upgrade().unwrap();
+                let parent_ref = cell.upgrade();
                 let parent = parent_ref.borrow();
                 match parent.prototype {
                     ir::CellType::Component { .. }
@@ -248,37 +240,22 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
 
 fn emit_assignment(
     (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
-) -> v::Sequential {
+) -> v::Parallel {
     let dst = dst_ref.borrow();
-    let init = v::Sequential::SeqAssign(
-        port_to_ref(Rc::clone(&dst_ref)),
-        v::Expr::new_ulit_dec(dst.width as u32, &0.to_string()),
-        v::AssignTy::Blocking,
-    );
-    assignments.iter().rfold(init, |acc, e| match &e.guard {
-        ir::Guard::True => v::Sequential::new_blk_assign(
-            port_to_ref(Rc::clone(&e.dst)),
-            port_to_ref(Rc::clone(&e.src)),
-        ),
-        g => {
-            let guard = guard_to_expr(g);
-            let mut if_s = v::SequentialIfElse::new(guard);
-            let asgn = v::Sequential::new_blk_assign(
-                port_to_ref(Rc::clone(&e.dst)),
-                port_to_ref(Rc::clone(&e.src)),
-            );
-            if_s.add_seq(asgn);
-            if_s.set_else(acc);
-            if_s.into()
-        }
-    })
+    let init = v::Expr::new_ulit_dec(dst.width as u32, &0.to_string());
+    let rhs = assignments.iter().rfold(init, |acc, e| {
+        let guard = guard_to_expr(&e.guard);
+        let asgn = port_to_ref(Rc::clone(&e.src));
+        v::Expr::new_mux(guard, asgn, acc)
+    });
+    v::Parallel::ParAssign(port_to_ref(Rc::clone(dst_ref)), rhs)
 }
 
 fn port_to_ref(port_ref: RRC<ir::Port>) -> v::Expr {
     let port = port_ref.borrow();
     match &port.parent {
         ir::PortParent::Cell(cell) => {
-            let parent_ref = cell.upgrade().unwrap();
+            let parent_ref = cell.upgrade();
             let parent = parent_ref.borrow();
             match parent.prototype {
                 ir::CellType::Constant { val, width } => {
@@ -298,31 +275,29 @@ fn port_to_ref(port_ref: RRC<ir::Port>) -> v::Expr {
 
 fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
     let op = |g: &ir::Guard| match g {
-        Guard::Or(_) => v::Expr::new_bit_or,
-        Guard::And(_) => v::Expr::new_bit_and,
-        Guard::Eq(_, _) => v::Expr::new_eq,
-        Guard::Neq(_, _) => v::Expr::new_neq,
-        Guard::Gt(_, _) => v::Expr::new_gt,
-        Guard::Lt(_, _) => v::Expr::new_lt,
-        Guard::Geq(_, _) => v::Expr::new_geq,
-        Guard::Leq(_, _) => v::Expr::new_leq,
-        Guard::Not(_) | Guard::Port(_) | Guard::True => unreachable!(),
+        Guard::Or(..) => v::Expr::new_bit_or,
+        Guard::And(..) => v::Expr::new_bit_and,
+        Guard::Eq(..) => v::Expr::new_eq,
+        Guard::Neq(..) => v::Expr::new_neq,
+        Guard::Gt(..) => v::Expr::new_gt,
+        Guard::Lt(..) => v::Expr::new_lt,
+        Guard::Geq(..) => v::Expr::new_geq,
+        Guard::Leq(..) => v::Expr::new_leq,
+        Guard::Not(..) | Guard::Port(..) | Guard::True => unreachable!(),
     };
 
     match guard {
-        Guard::Or(ops) | Guard::And(ops) => ops
-            .iter()
-            .map(guard_to_expr)
-            .fold(None, |acc, r| {
-                acc.map(|l| op(guard)(l, r.clone())).or(Some(r))
-            })
-            .unwrap_or_else(|| v::Expr::new_ulit_bin(1, &1.to_string())),
-        Guard::Eq(l, r)
-        | Guard::Neq(l, r)
+        Guard::And(l, r) | Guard::Or(l, r) => {
+            op(guard)(guard_to_expr(l), guard_to_expr(r))
+        }
+        Guard::Neq(l, r)
+        | Guard::Eq(l, r)
         | Guard::Gt(l, r)
         | Guard::Lt(l, r)
         | Guard::Geq(l, r)
-        | Guard::Leq(l, r) => op(guard)(guard_to_expr(l), guard_to_expr(r)),
+        | Guard::Leq(l, r) => {
+            op(guard)(port_to_ref(Rc::clone(l)), port_to_ref(Rc::clone(r)))
+        }
         Guard::Not(o) => v::Expr::new_not(guard_to_expr(o)),
         Guard::Port(p) => port_to_ref(Rc::clone(p)),
         Guard::True => v::Expr::new_ulit_bin(1, &1.to_string()),

@@ -1,19 +1,36 @@
 use itertools::Itertools;
-use petgraph::{
-    graph::{NodeIndex, UnGraph},
-    Graph,
-};
+use petgraph::matrix_graph::{MatrixGraph, NodeIndex, UnMatrix, Zero};
 use std::{collections::HashMap, hash::Hash};
 
+/// Edge weight used for the graph nodes
+struct NonZeroBool(bool);
+
+impl From<bool> for NonZeroBool {
+    fn from(b: bool) -> Self {
+        NonZeroBool(b)
+    }
+}
+
+impl Zero for NonZeroBool {
+    fn zero() -> Self {
+        NonZeroBool(false)
+    }
+
+    fn is_zero(&self) -> bool {
+        !self.0
+    }
+}
+
+/// Defines a greedy graph coloring algorithm over a generic conflict graph.
 pub struct GraphColoring<T: Eq + Hash> {
-    graph: UnGraph<T, ()>,
+    graph: UnMatrix<T, NonZeroBool>,
     index_map: HashMap<T, NodeIndex>,
 }
 
 impl<T: Eq + Hash> Default for GraphColoring<T> {
     fn default() -> Self {
         GraphColoring {
-            graph: Graph::new_undirected(),
+            graph: MatrixGraph::new_undirected(),
             index_map: HashMap::new(),
         }
     }
@@ -39,15 +56,23 @@ impl<T: Eq + Hash + Clone + std::fmt::Debug> GraphColoring<T> {
         };
         self.index_map.insert(a, a_node);
         self.index_map.insert(b, b_node);
-        self.graph.update_edge(a_node, b_node, ());
+        self.graph.update_edge(a_node, b_node, true.into());
     }
 
     pub fn insert_conflicts(&mut self, items: &[T]) {
-        for a in items {
-            for b in items {
-                self.insert_conflict(a.clone(), b.clone());
+        for item in items {
+            if !self.index_map.contains_key(item) {
+                self.index_map
+                    .insert(item.clone(), self.graph.add_node(item.clone()));
             }
         }
+        items.iter().tuple_combinations().for_each(|(src, dst)| {
+            self.graph.update_edge(
+                self.index_map[src],
+                self.index_map[dst],
+                true.into(),
+            );
+        });
     }
 
     /// Given an `ordering` of `T`s, find a mapping from nodes to `T`s such
@@ -99,7 +124,7 @@ impl<T: Eq + Hash + Clone + std::fmt::Debug> GraphColoring<T> {
     }
 }
 
-impl<T: Eq + Hash + ToString> ToString for GraphColoring<T> {
+/*impl<T: Eq + Hash + ToString> ToString for GraphColoring<T> {
     fn to_string(&self) -> String {
         let keys: Vec<_> = self.index_map.keys().collect();
         let nodes = keys
@@ -130,4 +155,4 @@ impl<T: Eq + Hash + ToString> ToString for GraphColoring<T> {
             .join("\n");
         format!("graph {{ \n{}\n{}\n }}", nodes, edges)
     }
-}
+}*/

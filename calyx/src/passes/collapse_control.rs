@@ -1,9 +1,35 @@
-use crate::frontend::library::ast as lib;
-use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::ir::{self, LibrarySignatures};
 
 #[derive(Default)]
 /// Collapses and de-nests control constructs.
+///
+/// Running this pass removes unnecessary FSM transitions and compilation
+/// groups during the lowering phase.
+///
+/// # Example
+/// 1. Collapses nested `seq`:
+/// ```
+/// seq {
+///     seq { A; B }
+///     C;
+/// }
+/// ```
+/// into
+/// ```
+/// seq { A; B C; }
+/// ```
+/// 2. Collapses nested `par`:
+/// ```
+/// par {
+///     par { A; B }
+///     C;
+/// }
+/// ```
+/// into
+/// ```
+/// par { A; B C; }
+/// ```
 pub struct CollapseControl {}
 
 impl Named for CollapseControl {
@@ -22,7 +48,7 @@ impl Visitor for CollapseControl {
         &mut self,
         s: &mut ir::Seq,
         _comp: &mut ir::Component,
-        _c: &lib::LibrarySignatures,
+        _c: &LibrarySignatures,
     ) -> VisResult {
         if s.stmts.is_empty() {
             return Ok(Action::Change(ir::Control::empty()));
@@ -44,7 +70,7 @@ impl Visitor for CollapseControl {
         &mut self,
         s: &mut ir::Par,
         _comp: &mut ir::Component,
-        _c: &lib::LibrarySignatures,
+        _c: &LibrarySignatures,
     ) -> VisResult {
         if s.stmts.is_empty() {
             return Ok(Action::Change(ir::Control::empty()));

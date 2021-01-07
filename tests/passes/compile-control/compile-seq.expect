@@ -4,7 +4,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
     a = prim std_reg(2);
     b = prim std_reg(2);
     c = prim std_reg(2);
-    fsm = prim std_reg(32);
+    fsm = prim std_reg(2);
   }
   wires {
     group A {
@@ -23,19 +23,19 @@ component main(go: 1, clk: 1) -> (done: 1) {
       C[done] = c.done;
     }
     group seq {
-      A[go] = fsm.out == 32'd0 & !A[done] ? 1'd1;
-      fsm.in = fsm.out == 32'd0 & A[done] ? 32'd1;
-      fsm.write_en = fsm.out == 32'd0 & A[done] ? 1'd1;
-      B[go] = fsm.out == 32'd1 & !B[done] ? 1'd1;
-      fsm.in = fsm.out == 32'd1 & B[done] ? 32'd2;
-      fsm.write_en = fsm.out == 32'd1 & B[done] ? 1'd1;
-      C[go] = fsm.out == 32'd2 & !C[done] ? 1'd1;
-      fsm.in = fsm.out == 32'd2 & C[done] ? 32'd3;
-      fsm.write_en = fsm.out == 32'd2 & C[done] ? 1'd1;
-      seq[done] = fsm.out == 32'd3 ? 1'd1;
+      A[go] = fsm.out == 2'd0 & !A[done] ? 1'd1;
+      fsm.in = fsm.out == 2'd0 & A[done] ? 2'd1;
+      fsm.write_en = fsm.out == 2'd0 & A[done] ? 1'd1;
+      B[go] = fsm.out == 2'd1 & !B[done] ? 1'd1;
+      fsm.in = fsm.out == 2'd1 & B[done] ? 2'd2;
+      fsm.write_en = fsm.out == 2'd1 & B[done] ? 1'd1;
+      C[go] = fsm.out == 2'd2 & !C[done] ? 1'd1;
+      fsm.in = fsm.out == 2'd2 & C[done] ? 2'd3;
+      fsm.write_en = fsm.out == 2'd2 & C[done] ? 1'd1;
+      seq[done] = fsm.out == 2'd3 ? 1'd1;
     }
-    fsm.in = fsm.out == 32'd3 ? 32'd0;
-    fsm.write_en = fsm.out == 32'd3 ? 1'd1;
+    fsm.in = fsm.out == 2'd3 ? 2'd0;
+    fsm.write_en = fsm.out == 2'd3 ? 1'd1;
   }
 
   control {

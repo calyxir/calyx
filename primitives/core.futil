@@ -1,0 +1,170 @@
+extern "core.sv" {
+
+  /// Primitives
+  primitive std_reg<"static"=1>[width](
+    in: width,
+    @go(1) write_en: 1,
+    clk: 1
+  ) -> (
+    out: width,
+    @done(1) done: 1
+  );
+  primitive std_const<"share"=1>[width, value]() -> (out: width);
+
+  /// Numerical operators
+  primitive std_lsh<"share"=1>[width](left: width, right: width) -> (out: width);
+  primitive std_rsh<"share"=1>[width](left: width, right: width) -> (out: width);
+  primitive std_add<"share"=1>[width](left: width, right: width) -> (out: width);
+  primitive std_sub<"share"=1>[width](left: width, right: width) -> (out: width);
+  primitive std_slice<"share"=1>[in_width, out_width](in: in_width) -> (out: out_width);
+  primitive std_pad<"share"=1>[in_width, out_width](in: in_width) -> (out: out_width);
+
+  /// Logical operators
+  primitive std_not<"share"=1>[width](in: width) -> (out: width);
+  primitive std_and<"share"=1>[width](left: width, right: width) -> (out: width);
+  primitive std_or<"share"=1>[width](left: width, right: width) -> (out: width);
+  primitive std_xor<"share"=1>[width](left: width, right: width) -> (out: width);
+
+  /// Comparison operators
+  primitive std_gt<"share"=1>[width](left: width, right: width) -> (out: 1);
+  primitive std_lt<"share"=1>[width](left: width, right: width) -> (out: 1);
+  primitive std_eq<"share"=1>[width](left: width, right: width) -> (out: 1);
+  primitive std_neq<"share"=1>[width](left: width, right: width) -> (out: 1);
+  primitive std_ge<"share"=1>[width](left: width, right: width) -> (out: 1);
+  primitive std_le<"share"=1>[width](left: width, right: width) -> (out: 1);
+
+  /// Memories
+  primitive std_mem_d1<"static"=1>[width, size, idx_size](
+    addr0: idx_size,
+    write_data: width,
+    @go(1) write_en: 1,
+    clk: 1
+  ) -> (
+    read_data: width,
+    @done(1) done: 1
+  );
+
+  primitive std_mem_d2<"static"=1>[width, d0_size, d1_size, d0_idx_size, d1_idx_size](
+    addr0: d0_idx_size,
+    addr1: d1_idx_size,
+    write_data: width,
+    @go(1) write_en: 1,
+    clk: 1
+  ) -> (
+    @done(1) read_data: width,
+    done: 1
+  );
+
+  primitive std_mem_d3<"static"=1>[
+      width,
+      d0_size,
+      d1_size,
+      d2_size,
+      d0_idx_size,
+      d1_idx_size,
+      d2_idx_size
+  ] (
+    addr0: d0_idx_size,
+    addr1: d1_idx_size,
+    addr2: d2_idx_size,
+    write_data: width,
+    @go(1) write_en: 1,
+    clk: 1
+  ) -> (
+    read_data: width,
+    @done(1) done: 1
+  );
+
+  primitive std_mem_d4<"static"=1>[
+      width,
+      d0_size,
+      d1_size,
+      d2_size,
+      d3_size,
+      d0_idx_size,
+      d1_idx_size,
+      d2_idx_size,
+      d3_idx_size
+  ] (
+    addr0: d0_idx_size,
+    addr1: d1_idx_size,
+    addr2: d2_idx_size,
+    addr3: d3_idx_size,
+    write_data: width,
+    @go(1) write_en: 1,
+    clk: 1
+  ) -> (
+    read_data: width,
+    @done(1) done: 1
+  );
+
+
+  // ============= Unsynthesizable: External memory definitions ===============
+  primitive std_mem_d1_ext<"static"=1>[width, size, idx_size](
+    addr0: idx_size,
+    write_data: width,
+    @go(1) write_en: 1,
+    clk: 1
+  ) -> (read_data: width, done: 1);
+
+  primitive std_mem_d2_ext<"static"=1>[
+    width,
+    d0_size,
+    d1_size,
+    d0_idx_size,
+    d1_idx_size
+  ] (
+    addr0: d0_idx_size,
+    addr1: d1_idx_size,
+    write_data: width,
+    @go(1) write_en: 1,
+    clk: 1
+  ) -> (
+    read_data: width,
+    @done(1) done: 1
+  );
+
+  primitive std_mem_d3_ext<"static"=1>[
+      width,
+      d0_size,
+      d1_size,
+      d2_size,
+      d0_idx_size,
+      d1_idx_size,
+      d2_idx_size
+  ] (
+    addr0: d0_idx_size,
+    addr1: d1_idx_size,
+    addr2: d2_idx_size,
+    write_data: width,
+    @go(1) write_en: 1,
+    clk: 1
+  ) -> (
+    read_data: width,
+    @done(1) done: 1
+  );
+
+  primitive std_mem_d4_ext<"static"=1>[
+      width,
+      d0_size,
+      d1_size,
+      d2_size,
+      d3_size,
+      d0_idx_size,
+      d1_idx_size,
+      d2_idx_size,
+      d3_idx_size
+  ] (
+    addr0: d0_idx_size,
+    addr1: d1_idx_size,
+    addr2: d2_idx_size,
+    addr3: d3_idx_size,
+    write_data: width,
+    @go(1) write_en: 1,
+    clk: 1
+  ) -> (
+    read_data: width,
+    @done(1) done: 1
+  );
+
+}

@@ -1,8 +1,8 @@
 import "primitives/std.lib";
 
-component add(go: 1, clk: 1, x0_read_data: 32, x0_done: 1, y0_read_data: 32, y0_done: 1, z0_read_data: 32, z0_done: 1) -> (done: 1, x0_addr0: 1, x0_write_data: 32, x0_write_en: 1, x0_clk: 1, y0_addr0: 1, y0_write_data: 32, y0_write_en: 1, y0_clk: 1, z0_addr0: 1, z0_write_data: 32, z0_write_en: 1, z0_clk: 1) {
+component add0(go: 1, clk: 1, x0_read_data: 32, x0_done: 1, y0_read_data: 32, y0_done: 1, z0_read_data: 32, z0_done: 1) -> (done: 1, x0_addr0: 1, x0_write_data: 32, x0_write_en: 1, x0_clk: 1, y0_addr0: 1, y0_write_data: 32, y0_write_en: 1, y0_clk: 1, z0_addr0: 1, z0_write_data: 32, z0_write_en: 1, z0_clk: 1) {
   cells {
-    add0 = prim fixed_p_std_add(32, 16, 16);
+    add0 = prim fixed_p_std_sadd(32, 16, 16);
     add1 = prim std_add(1);
     const0 = prim std_const(1, 0);
     const1 = prim std_const(1, 0);
@@ -69,30 +69,31 @@ component add(go: 1, clk: 1, x0_read_data: 32, x0_done: 1, y0_read_data: 32, y0_
   }
 }
 
+
 component main () -> () {
   cells {
     z = prim std_mem_d1(32, 1, 1);
     x = prim std_mem_d1(32, 1, 1);
     y = prim std_mem_d1(32, 1, 1);
-    add0 = add;
+    comp_add0 = add0;
   }
   wires {
-    group run_add {
-      x.addr0 = add0.x0_addr0;
-      add0.x0_read_data = x.read_data;
-      y.addr0 = add0.y0_addr0;
-      add0.y0_read_data = y.read_data;
-      z.addr0 = add0.z0_addr0;
-      z.write_data = add0.z0_write_data;
-      z.write_en = add0.z0_write_en;
-      add0.z0_done = z.done;
-      add0.go = 1'd1;
-      run_add[done] = add0.done ? 1'd1;
+    group run_add0 {
+      x.addr0 = comp_add0.x0_addr0;
+      comp_add0.x0_read_data = x.read_data;
+      y.addr0 = comp_add0.y0_addr0;
+      comp_add0.y0_read_data = y.read_data;
+      z.addr0 = comp_add0.z0_addr0;
+      z.write_data = comp_add0.z0_write_data;
+      z.write_en = comp_add0.z0_write_en;
+      comp_add0.z0_done = z.done;
+      comp_add0.go = 1'd1;
+      run_add0[done] = comp_add0.done ? 1'd1;
     }
   }
   control {
     seq {
-      run_add;
+      run_add0;
     }
   }
 }

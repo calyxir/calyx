@@ -155,7 +155,7 @@ impl LiveRangeAnalysis {
                         && asgn.src.borrow().name == "done")
                 })
                 .filter(|asgn| {
-                    if let ir::Guard::Port(port) = &asgn.guard {
+                    if let ir::Guard::Port(port) = &*asgn.guard {
                         !(port.borrow().get_parent_name() == variable
                             && port.borrow().name == "done")
                     } else {
@@ -187,7 +187,7 @@ impl LiveRangeAnalysis {
             let assignments = group
                 .assignments
                 .iter()
-                .filter(|asgn| asgn.guard == ir::Guard::True)
+                .filter(|asgn| *asgn.guard == ir::Guard::True)
                 .cloned()
                 .collect::<Vec<_>>();
 
@@ -214,7 +214,7 @@ fn build_live_ranges(
     match c {
         ir::Control::Empty(_) => (alive, gens, kills),
         ir::Control::Invoke(_) => unimplemented!(),
-        ir::Control::Enable(ir::Enable { group }) => {
+        ir::Control::Enable(ir::Enable { group, .. }) => {
             // XXX(sam) no reason to compute this every time
             let (reads, writes) = LiveRangeAnalysis::find_gen_kill(&group);
 
@@ -227,7 +227,7 @@ fn build_live_ranges(
                 .insert(group.borrow().name.clone(), &alive | &writes);
             (alive, &gens | &reads, &kills | &writes)
         }
-        ir::Control::Seq(ir::Seq { stmts }) => stmts.iter().rev().fold(
+        ir::Control::Seq(ir::Seq { stmts, .. }) => stmts.iter().rev().fold(
             (alive, gens, kills),
             |(alive, gens, kills), e| {
                 build_live_ranges(&e, alive, gens, kills, lr)
@@ -264,7 +264,7 @@ fn build_live_ranges(
                 lr,
             )
         }
-        ir::Control::Par(ir::Par { stmts }) => {
+        ir::Control::Par(ir::Par { stmts, .. }) => {
             let (alive, gens, kills) = stmts
                 .iter()
                 .rev()

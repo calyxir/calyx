@@ -2,11 +2,9 @@ use crate::{
     analysis::GraphAnalysis,
     build_assignments,
     errors::Error,
-    frontend::library::ast::LibrarySignatures,
-    ir,
     ir::traversal::{Action, Named, VisResult, Visitor},
+    ir::{self, LibrarySignatures},
     structure,
-    utils::Keyable,
 };
 use ir::RRC;
 use std::{collections::HashMap, rc::Rc};
@@ -85,16 +83,17 @@ fn fixed_point(graph: &GraphAnalysis, map: &mut Store) {
             .filter(|p| p.borrow().is_hole())
         {
             // inline `hole_key` into `read`
-            let key = read.borrow().key();
-            map.entry(read.borrow().key()).and_modify(|(_, guard)| {
-                guard.for_each(&|port| {
-                    if port.borrow().key() == hole_key {
-                        Some(new_guard.clone())
-                    } else {
-                        None
-                    }
-                })
-            });
+            let key = read.borrow().canonical();
+            map.entry(read.borrow().canonical())
+                .and_modify(|(_, guard)| {
+                    guard.for_each(&|port| {
+                        if port.borrow().canonical() == hole_key {
+                            Some(new_guard.clone())
+                        } else {
+                            None
+                        }
+                    })
+                });
             // if done with this guard, add it to the worklist
             if !has_holes(&map[&key].1) {
                 worklist.push(key)
@@ -114,7 +113,7 @@ impl Visitor for Inliner {
             ir::Control::Enable(en) => Rc::clone(&en.group),
             _ => return Err(
                 Error::MalformedControl(
-                    "The hole inliner requires control to be a single enable. Try running `compile_control` before inlining.".to_string()
+                    "The hole inliner requires control to be a single enable. Try running `compile-control` before inlining.".to_string()
                 )
             )
         };
@@ -161,19 +160,19 @@ impl Visitor for Inliner {
             // if assignment writes into a hole, save it
             let dst = asgn.dst.borrow();
             if dst.is_hole() {
-                map.entry(dst.key())
+                map.entry(dst.canonical())
                     .and_modify(|(_, val)| {
                         // XXX: seems like unncessary clone
                         *val = val.clone().or(asgn
                             .guard
                             .clone()
-                            .and(ir::Guard::Port(Rc::clone(&asgn.src))));
+                            .and(ir::Guard::port(Rc::clone(&asgn.src))));
                     })
                     .or_insert((
                         Rc::clone(&asgn.dst),
                         asgn.guard
                             .clone()
-                            .and(ir::Guard::Port(Rc::clone(&asgn.src))),
+                            .and(ir::Guard::port(Rc::clone(&asgn.src))),
                     ));
             }
         }
@@ -192,10 +191,8 @@ impl Visitor for Inliner {
         );
         assignments.iter_mut().for_each(|mut asgn| {
             if asgn.src.borrow().is_hole() {
-                asgn.guard = asgn
-                    .guard
-                    .clone()
-                    .and(ir::Guard::Port(Rc::clone(&asgn.src)));
+                let and_guard = ir::Guard::port(Rc::clone(&asgn.src));
+                *asgn.guard &= and_guard;
                 asgn.src = signal_on.borrow().get("out");
             }
         });
@@ -204,7 +201,7 @@ impl Visitor for Inliner {
         for asgn in &mut assignments {
             asgn.guard.for_each(&|port| {
                 if port.borrow().is_hole() {
-                    Some(map[&port.borrow().key()].1.clone())
+                    Some(map[&port.borrow().canonical()].1.clone())
                 } else {
                     None
                 }

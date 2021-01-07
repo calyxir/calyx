@@ -1,8 +1,5 @@
-use crate::{
-    errors::Error, errors::FutilResult, frontend::library, ir,
-    utils::OutputFile,
-};
-use itertools::Itertools;
+//! Interface for a FuTIL backend.
+use crate::{errors::FutilResult, ir, utils::OutputFile};
 
 /// A backend for FuTIL.
 pub trait Backend {
@@ -13,27 +10,16 @@ pub trait Backend {
     fn validate(prog: &ir::Context) -> FutilResult<()>;
     /// Transforms the program into a formatted string representing a valid
     /// and write it to `write`.
-    fn emit_primitives(
-        prog: Vec<&library::ast::Implementation>,
+    fn emit(prog: &ir::Context, write: &mut OutputFile) -> FutilResult<()>;
+    /// Link the extern collected while parsing the program.
+    fn link_externs(
+        prog: &ir::Context,
         write: &mut OutputFile,
     ) -> FutilResult<()>;
-    /// Transforms the program into a formatted string representing a valid
-    /// and write it to `write`.
-    fn emit(prog: &ir::Context, write: &mut OutputFile) -> FutilResult<()>;
     /// Convience function to validate and emit the program.
     fn run(&self, prog: &ir::Context, mut file: OutputFile) -> FutilResult<()> {
         Self::validate(&prog)?;
-        let primitives = prog
-            .used_primitives()
-            .into_iter()
-            .sorted_by_key(|x| &x.name)
-            .map(|x| {
-                x.implementation.get(0).ok_or_else(|| {
-                    Error::MissingImplementation(self.name(), x.name.clone())
-                })
-            })
-            .collect::<FutilResult<_>>()?;
-        Self::emit_primitives(primitives, &mut file)?;
+        Self::link_externs(&prog, &mut file)?;
         Self::emit(prog, &mut file)
     }
 }

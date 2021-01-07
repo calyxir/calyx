@@ -3,14 +3,14 @@
 //! `ir::Context` to compile every `ir::Component` using the pass.
 use super::action::{Action, VisResult};
 use crate::errors::FutilResult;
-use crate::frontend::library::ast::LibrarySignatures;
-use crate::ir::{self, Component, Context, Control};
+use crate::ir::{self, Component, Context, Control, LibrarySignatures};
 use std::rc::Rc;
 
-/// Trait that describes named things. Calling `do_pass` and `do_pass_default`
-/// require this to be implemented. This has to be a separate trait from `Visitor`
-/// because these methods don't recieve `self` which means that it is impossible
-/// to create dynamic trait objects.
+/// Trait that describes named things. Calling [`do_pass`](Visitor::do_pass) and [`do_pass_default`](Visitor::do_pass_default).
+/// require this to be implemented.
+///
+/// This has to be a separate trait from [`Visitor`] because these methods don't recieve `self` which
+/// means that it is impossible to create dynamic trait objects.
 pub trait Named {
     /// The name of a pass. Is used for identifying passes.
     fn name() -> &'static str;
@@ -19,20 +19,44 @@ pub trait Named {
     fn description() -> &'static str;
 }
 
-/// The visiting interface for a `ir::Control` program.
+/// Implementator of trait provide various logging methods.
+pub trait Loggable {
+    /// Log output to STDERR.
+    /// `context` is the location from which the logger is being called.
+    /// Usage:
+    /// ```
+    /// self.elog("number-of-groups", groups.len());
+    /// ```
+    fn elog<S, T>(&self, context: S, msg: T)
+    where
+        S: std::fmt::Display,
+        T: std::fmt::Display;
+}
+
+/// Blanket implementation for Loggable for traits implementing Named
+impl<T> Loggable for T
+where
+    T: Named,
+{
+    fn elog<S, M>(&self, context: S, msg: M)
+    where
+        S: std::fmt::Display,
+        M: std::fmt::Display,
+    {
+        eprintln!("{}.{}: {}", T::name(), context, msg)
+    }
+}
+
+/// The visiting interface for a [`ir::Control`](crate::ir::Control) program.
 /// Contains two kinds of functions:
 /// 1. start_<node>: Called when visiting <node> top-down.
 /// 2. finish_<node>: Called when visiting <node> bottow-up.
 ///
-/// The function do not provide mutable references to the Component itself.
-/// The idiomatic way to mutating is the Component is using its helper methods
-/// or getting an internally mutable reference to it.
-///
 /// A pass will usually override one or more function and rely on the default
 /// visitors to automatically visit the children.
 pub trait Visitor {
-    /// Instantiate this pass using the default() method and run it on the
-    /// context.
+    /// Build a [Default] implementation of this pass and call [`Visitor::do_pass`]
+    /// using it.
     fn do_pass_default(context: &mut Context) -> FutilResult<Self>
     where
         Self: Default + Sized + Named,
@@ -42,14 +66,17 @@ pub trait Visitor {
         Ok(visitor)
     }
 
-    /// Run the visitor on the program Context.
-    /// The function makes complex use of interior mutability. See inline
-    /// comments for an explanation.
+    /// Run the visitor on a given program [`ir::Context`](crate::ir::Context).
+    /// The function mutably borrows the [`control`](crate::ir::Component::control)
+    /// program in each component and traverses it.
+    ///
+    /// # Panics
+    /// Panics if the pass attempts to use the control program mutably.
     fn do_pass(&mut self, context: &mut Context) -> FutilResult<()>
     where
         Self: Sized + Named,
     {
-        let signatures = &context.lib_sigs;
+        let signatures = &context.lib;
         context
             .components
             // Mutably borrow the components in the context
@@ -75,7 +102,7 @@ pub trait Visitor {
         Ok(())
     }
 
-    /// Exceuted before the traversal begins.
+    /// Executed before the traversal begins.
     fn start(
         &mut self,
         _comp: &mut Component,
@@ -85,7 +112,7 @@ pub trait Visitor {
     }
 
     /// Exceuted after the traversal ends.
-    /// This method is always invoked regardless of the `Action` returned from
+    /// This method is always invoked regardless of the [`Action`] returned from
     /// the children.
     fn finish(
         &mut self,
@@ -95,7 +122,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted before visiting the children of a `ir::Seq` node.
+    /// Excecuted before visiting the children of a [`ir::Seq`](crate::ir::Seq) node.
     fn start_seq(
         &mut self,
         _s: &mut ir::Seq,
@@ -105,7 +132,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted after visiting the children of a `ir::Seq` node.
+    /// Excecuted after visiting the children of a [`ir::Seq`](crate::ir::Seq) node.
     fn finish_seq(
         &mut self,
         _s: &mut ir::Seq,
@@ -115,7 +142,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted before visiting the children of a `ir::Par` node.
+    /// Excecuted before visiting the children of a [`ir::Par`](crate::ir::Par) node.
     fn start_par(
         &mut self,
         _s: &mut ir::Par,
@@ -125,7 +152,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted after visiting the children of a `ir::Par` node.
+    /// Excecuted after visiting the children of a [`ir::Par`](crate::ir::Par) node.
     fn finish_par(
         &mut self,
         _s: &mut ir::Par,
@@ -135,7 +162,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted before visiting the children of a `ir::If` node.
+    /// Excecuted before visiting the children of a [`ir::If`](crate::ir::If) node.
     fn start_if(
         &mut self,
         _s: &mut ir::If,
@@ -145,7 +172,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted after visiting the children of a `ir::If` node.
+    /// Excecuted after visiting the children of a [`ir::If`](crate::ir::If) node.
     fn finish_if(
         &mut self,
         _s: &mut ir::If,
@@ -155,7 +182,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted before visiting the children of a `ir::If` node.
+    /// Excecuted before visiting the children of a [`ir::While`](crate::ir::While) node.
     fn start_while(
         &mut self,
         _s: &mut ir::While,
@@ -165,7 +192,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted after visiting the children of a `ir::If` node.
+    /// Excecuted after visiting the children of a [`ir::While`](crate::ir::While) node.
     fn finish_while(
         &mut self,
         _s: &mut ir::While,
@@ -175,7 +202,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted at an `ir::Enable` node. This is leaf node with no children.
+    /// Excecuted at an [`ir::Enable`](crate::ir::Enable) node.
     fn enable(
         &mut self,
         _s: &mut ir::Enable,
@@ -185,7 +212,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted at an `ir::Invoke` node. This is leaf node with no children.
+    /// Excecuted at an [`ir::Invoke`](crate::ir::Invoke) node.
     fn invoke(
         &mut self,
         _s: &mut ir::Invoke,
@@ -195,7 +222,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted at an `ir::Empty` node. This is leaf node with no children.
+    /// Excecuted at an [`ir::Empty`](crate::ir::Invoke) node.
     fn empty(
         &mut self,
         _s: &mut ir::Empty,
@@ -206,8 +233,9 @@ pub trait Visitor {
     }
 }
 
-/// `Visitable` describes types that can be visited by things implementing `Visitor`.
+/// Describes types that can be visited by things implementing [`Visitor`].
 /// This performs a recursive walk of the tree.
+///
 /// It calls `Visitor::start_*` on the way down, and `Visitor::finish_*` on
 /// the way up.
 pub trait Visitable {
@@ -247,7 +275,7 @@ impl Visitable for Control {
             Control::While(ctrl) => visitor
                 .start_while(ctrl, component, sigs)?
                 .and_then(|| {
-                    Control::Enable(ir::Enable::from(ctrl.cond.clone()))
+                    ir::Control::enable(ctrl.cond.clone())
                         .visit(visitor, component, sigs)
                 })?
                 .and_then(|| ctrl.body.visit(visitor, component, sigs))?

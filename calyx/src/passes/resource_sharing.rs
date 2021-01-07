@@ -1,9 +1,8 @@
 use crate::analysis;
-use crate::frontend::library::ast as lib;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
-    RRC,
+    LibrarySignatures, RRC,
 };
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -37,14 +36,15 @@ impl Named for ResourceSharing {
 /// primitive's "share" attribute is set to 1.
 fn shareable_primitive_name(
     cell: &RRC<ir::Cell>,
-    sigs: &lib::LibrarySignatures,
+    sigs: &LibrarySignatures,
 ) -> Option<(ir::Id, ir::Binding)> {
     if let ir::CellType::Primitive {
         name,
         param_binding,
     } = &cell.borrow().prototype
     {
-        if let Some(&share) = sigs[&name].attributes.get("share") {
+        if let Some(&share) = sigs.get_primitive(&name).attributes.get("share")
+        {
             if share == 1 {
                 return Some((name.clone(), param_binding.clone()));
             }
@@ -57,7 +57,7 @@ impl Visitor for ResourceSharing {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        sigs: &lib::LibrarySignatures,
+        sigs: &LibrarySignatures,
     ) -> VisResult {
         // Mapping from the name of the primitive to all cells that use it.
         let mut cell_map: HashMap<(ir::Id, ir::Binding), Vec<RRC<ir::Cell>>> =
@@ -155,7 +155,7 @@ impl Visitor for ResourceSharing {
         &mut self,
         s: &mut ir::If,
         _comp: &mut ir::Component,
-        _sigs: &lib::LibrarySignatures,
+        _sigs: &LibrarySignatures,
     ) -> VisResult {
         let cond_port = &s.port;
         let group_name = &s.cond.borrow().name;
@@ -164,7 +164,7 @@ impl Visitor for ResourceSharing {
         let rewrite = self.rewrites[group_name].iter().find(|(c, _)| {
             if let ir::PortParent::Cell(cell_wref) = &cond_port.borrow().parent
             {
-                return Rc::ptr_eq(c, &cell_wref.upgrade().unwrap());
+                return Rc::ptr_eq(c, &cell_wref.upgrade());
             }
             false
         });
@@ -182,7 +182,7 @@ impl Visitor for ResourceSharing {
         &mut self,
         s: &mut ir::While,
         _comp: &mut ir::Component,
-        _sigs: &lib::LibrarySignatures,
+        _sigs: &LibrarySignatures,
     ) -> VisResult {
         let cond_port = &s.port;
         let group_name = &s.cond.borrow().name;
@@ -191,7 +191,7 @@ impl Visitor for ResourceSharing {
         let rewrite = self.rewrites[group_name].iter().find(|(c, _)| {
             if let ir::PortParent::Cell(cell_wref) = &cond_port.borrow().parent
             {
-                return Rc::ptr_eq(c, &cell_wref.upgrade().unwrap());
+                return Rc::ptr_eq(c, &cell_wref.upgrade());
             }
             false
         });

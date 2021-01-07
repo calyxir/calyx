@@ -124,6 +124,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
+        args: --all
 
     - name: Install MrXL
       run: |
@@ -155,12 +156,12 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: fmt
-        args: -- --check
+        args: --all -- --check
     - name: Run clippy
       uses: actions-rs/cargo@v1
       with:
         command: clippy
-        args: -- --deny warnings
+        args: --all -- --deny warnings
 
   docs:
     runs-on: ubuntu-latest
@@ -190,7 +191,7 @@ jobs:
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
           DEPLOY_SRC: ./book/
           DEPLOY_DEST: sync/calyx
-          DEPLOY_2_HOST: courses
+          DEPLOY_2_HOST: courses.cit.cornell.edu
           DEPLOY_2_DEST: coursewww/capra.cs.cornell.edu/htdocs/calyx
         run: |
           echo "$DEPLOY_KEY" > pk

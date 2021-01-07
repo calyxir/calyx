@@ -1,0 +1,49 @@
+extern "unsigned.sv" {
+  primitive std_mod_pipe[width](
+    clk: 1, go: 1, left: width, right: width
+  ) -> (
+    out: width, done: 1
+  );
+
+  primitive std_mult_pipe[width](
+    left: width, right: width, go: 1, clk: 1
+  ) -> (
+    out: width, done: 1
+  );
+
+  primitive std_div_pipe[width](
+    clk: 1, go: 1, left: width, right: width
+  ) -> (
+    out: width, done: 1
+  );
+
+  primitive std_sqrt(in: 32, go: 1, clk: 1) -> (out: 32, done: 1);
+
+  // =============== Signed primitives that wrap unsigned ones ==============
+  primitive std_smod_pipe[width](
+    clk: 1, go: 1, left: width, right: width
+  ) -> (
+    out: width, done: 1
+  );
+
+  primitive std_sdiv_pipe[width](
+    clk: 1, go: 1, left: width, right: width
+  ) -> (
+    out: width, done: 1
+  );
+
+
+  /// =================== Unsynthesizable Primitives =========================
+  primitive std_mult<"share"=1>[width](
+    left: width, right: width
+  ) -> (
+    out: width
+  );
+  primitive std_div<"share"=1>[width](
+    left: width, right: width
+  ) -> (
+    out: width
+  );
+  primitive std_exp(exponent: 32, go: 1, clk: 1) -> (out: 32, done: 1);
+
+}

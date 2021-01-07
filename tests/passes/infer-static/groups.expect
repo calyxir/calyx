@@ -1,0 +1,42 @@
+import "primitives/std.lib";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    r0 = prim std_reg(1);
+    r1 = prim std_reg(1);
+    m0 = prim std_mem_d1(32, 1, 1);
+  }
+  wires {
+    group zero_cycles<"static"=0> {
+      zero_cycles[done] = 1'd1;
+    }
+    group one_cycle<"static"=1> {
+      r0.write_en = 1'd1;
+      one_cycle[done] = r0.done;
+    }
+    group two_cycles<"static"=2> {
+      r0.write_en = 1'd1;
+      r1.write_en = r0.done;
+      two_cycles[done] = r1.done;
+    }
+    group mem_wrt_to_done<"static"=1> {
+      m0.addr0 = 1'd0;
+      m0.write_data = 32'd5;
+      m0.write_en = 1'd1;
+      mem_wrt_to_done[done] = m0.done;
+    }
+    group mult_wrts_to_done {
+      r0.write_en = 1'd1;
+      mult_wrts_to_done[done] = r0.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      @static(0) zero_cycles;
+      @static(1) one_cycle;
+      @static(2) two_cycles;
+      @static(1) mem_wrt_to_done;
+      mult_wrts_to_done;
+    }
+  }
+}

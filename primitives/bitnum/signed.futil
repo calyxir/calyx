@@ -1,0 +1,29 @@
+extern "signed.sv" {
+
+  /// Comparison operators
+  primitive std_sgt<"share"=1>[width](left: width, right: width) -> (out: 1);
+  primitive std_slt<"share"=1>[width](left: width, right: width) -> (out: 1);
+  primitive std_seq<"share"=1>[width](left: width, right: width) -> (out: 1);
+  primitive std_sneq<"share"=1>[width](left: width, right: width) -> (out: 1);
+  primitive std_sge<"share"=1>[width](left: width, right: width) -> (out: 1);
+  primitive std_sle<"share"=1>[width](left: width, right: width) -> (out: 1);
+
+  /// Numerical primitives
+  primitive std_slsh<"share"=1>[width](left: width, right: width) -> (out: width);
+  primitive std_srsh<"share"=1>[width](left: width, right: width) -> (out: width);
+  primitive std_sadd<"share"=1>[width](left: width, right: width) -> (out: width);
+  primitive std_ssub<"share"=1>[width](left: width, right: width) -> (out: width);
+
+  /// Non-combinational numerical primitives
+  primitive std_smult_pipe[width](
+    left: width, right: width, go: 1, clk: 1
+  ) -> (
+    out: width, done: 1
+  );
+
+  /// ===================== Unsynthesizable Primitives ======================
+  primitive std_smod<"share"=1>[width](left: width, right: width) -> (out: width);
+  primitive std_sdiv<"share"=1>[width](left: width, right: width) -> (out: width);
+  primitive std_smult<"share"=1>[width](left: width, right: width) -> (out: width);
+
+}
