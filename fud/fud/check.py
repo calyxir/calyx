@@ -17,13 +17,15 @@ VERSIONS = {
         'flag': '--version',
         'extract': lambda out: out.split(' ')[1],
         'version': '4.100',
-        'compare': '>='
+        'compare': '>=',
+        'help': 'Try building from source: https://www.veripool.org/projects/verilator/wiki/Installing'
     },
     'vcd': {
         'flag': '--version',
         'extract': lambda out: out.split(' ')[1],
         'version': '0.1.2',
-        'compare': '>='
+        'compare': '>=',
+        'help': 'Run `cargo install vcdump` to update.'
     },
     'vivado': {
         'flag': '-version',
@@ -73,7 +75,8 @@ def check_version(name, exec_path):
                 print(f"but need version {info['compare']} ", end='')
                 cprint(f"{info['version']}", 'yellow', end='')
                 print(".")
-                cprint(f"   {info['help']}")
+                if 'help' in info:
+                    cprint(f"   {info['help']}")
                 return False
         else:
             return True
