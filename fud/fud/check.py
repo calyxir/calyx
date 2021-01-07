@@ -16,14 +16,16 @@ VERSIONS = {
     'verilog': {
         'flag': '--version',
         'extract': lambda out: out.split(' ')[1],
-        'version': '4.000',
-        'compare': '>='
+        'version': '4.100',
+        'compare': '>=',
+        'help': 'Try building from source: https://www.veripool.org/projects/verilator/wiki/Installing'
     },
     'vcd': {
         'flag': '--version',
         'extract': lambda out: out.split(' ')[1],
         'version': '0.1.2',
-        'compare': '>='
+        'compare': '>=',
+        'help': 'Run `cargo install vcdump` to update.'
     },
     'vivado': {
         'flag': '-version',
@@ -48,34 +50,39 @@ def version_compare(cmp_str, installed, required):
     elif cmp_str == "<=":
         return version.parse(installed) <= version.parse(required)
     elif cmp_str == "status_is_not":
-        return required in installed
+        return required not in installed
 
 
 def check_version(name, exec_path):
-    if name in VERSIONS:
-        info = VERSIONS[name]
-        proc = subprocess.run([exec_path, info['flag']], capture_output=True)
-        install = info['extract'](proc.stdout.decode('UTF-8')).strip()
-        if version_compare(info['compare'], install, info['version']):
-            cprint(" ✔", 'green', end=' ')
-            print("Found version", end=' ')
-            cprint(f"{install}", 'yellow', end=' ')
-            print(f"({info['compare']} ", end='')
-            cprint(f"{info['version']}", 'yellow', end='')
-            print(")", end='')
-            print(".")
-            return True
+    try:
+        if name in VERSIONS:
+            info = VERSIONS[name]
+            proc = subprocess.run([exec_path, info['flag']], stdout=subprocess.PIPE)
+            install = info['extract'](proc.stdout.decode('UTF-8')).strip()
+            if version_compare(info['compare'], install, info['version']):
+                cprint(" ✔", 'green', end=' ')
+                print("Found version", end=' ')
+                cprint(f"{install}", 'yellow', end=' ')
+                print(f"({info['compare']} ", end='')
+                cprint(f"{info['version']}", 'yellow', end='')
+                print(")", end='')
+                print(".")
+                return True
+            else:
+                cprint(" ✖", 'red', end=' ')
+                print("Found version", end=' ')
+                cprint(f"{install},", 'yellow', end=' ')
+                print(f"but need version {info['compare']} ", end='')
+                cprint(f"{info['version']}", 'yellow', end='')
+                print(".")
+                if 'help' in info:
+                    cprint(f"   {info['help']}")
+                return False
         else:
-            cprint(" ✖", 'red', end=' ')
-            print("Found version", end=' ')
-            cprint(f"{install},", 'yellow', end=' ')
-            print(f"but need version {info['compare']} ", end='')
-            cprint(f"{info['version']}", 'yellow', end='')
-            print(".")
-            cprint(f"   {info['help']}")
-            return False
-    else:
-        return True
+            return True
+    except OSError as e:
+        cprint(" ✖", 'red', end=' ')
+        print(f"Error during version check: {e}")
 
 
 def check(args, cfg):

@@ -12,10 +12,10 @@ pub struct Builder<'a> {
     /// Component for which this builder is constructing.
     pub component: &'a mut ir::Component,
     /// Library signatures.
-    pub lib: &'a LibrarySignatures,
+    lib: &'a LibrarySignatures,
     /// Enable validation of components.
     /// Useful for debugging malformed AST errors.
-    pub validate: bool,
+    validate: bool,
 }
 
 impl<'a> Builder<'a> {
