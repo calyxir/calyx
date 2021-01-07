@@ -22,6 +22,8 @@ use std::{cmp, ops::Add, rc::Rc};
 pub struct InferStaticTiming {
     /// primitive name -> (go signal, done signal, latency)
     latency_data: HashMap<ir::Id, (ir::Id, ir::Id, u64)>,
+    /// static timing information for components
+    comp_latency: HashMap<ir::Id, u64>,
 }
 
 // Override constructor to build latency_data information from the primitives
@@ -48,7 +50,10 @@ impl ConstructVisitor for InferStaticTiming {
                 }
             }
         }
-        InferStaticTiming { latency_data }
+        InferStaticTiming {
+            latency_data,
+            comp_latency: HashMap::new(),
+        }
     }
 }
 
@@ -428,6 +433,25 @@ impl Visitor for InferStaticTiming {
         Ok(Action::Continue)
     }
 
+    fn invoke(
+        &mut self,
+        s: &mut ir::Invoke,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+    ) -> VisResult {
+        // If we've found static timing for the invoked component, add
+        // this information to invoke.
+        if let Some(time) = &s
+            .comp
+            .borrow()
+            .type_name()
+            .and_then(|name| self.comp_latency.get(name))
+        {
+            s.attributes.insert("static", **time);
+        }
+        Ok(Action::Continue)
+    }
+
     fn finish(
         &mut self,
         comp: &mut ir::Component,
@@ -440,6 +464,7 @@ impl Visitor for InferStaticTiming {
             .and_then(|attrs| attrs.get("static"))
         {
             comp.attributes.insert("static", *time);
+            self.comp_latency.insert(comp.name.clone(), *time);
         }
         Ok(Action::Continue)
     }

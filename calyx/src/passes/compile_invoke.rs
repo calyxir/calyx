@@ -57,6 +57,11 @@ impl Visitor for CompileInvoke {
             .collect();
         invoke_group.borrow_mut().assignments = assigns;
 
+        // Copy "static" annotation if present
+        if let Some(time) = s.attributes.get("static") {
+            invoke_group.borrow_mut().attributes.insert("static", *time);
+        }
+
         Ok(Action::Change(ir::Control::enable(invoke_group)))
     }
 }
