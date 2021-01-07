@@ -25,12 +25,12 @@ impl From<Vec<(String, u64)>> for Attributes {
     }
 }
 
-/// Structs that can return an [`Attribute`] instance.
+/// Structs that can return an [`Attributes`] instance.
 pub trait GetAttributes {
-    /// Returns an [`Attribute`] instance
+    /// Returns an [`Attributes`] instance
     fn get_attributes(&self) -> Option<&Attributes>;
 
-    /// Returns a mutable [`Attribute`] instance
+    /// Returns a mutable [`Attributes`] instance
     fn get_mut_attributes(&mut self) -> Option<&mut Attributes>;
 }
 
