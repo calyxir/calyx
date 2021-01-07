@@ -48,6 +48,23 @@ where
     }
 }
 
+/// Trait defining method that can be used to construct a Visitor from an
+/// ir::Context.
+/// This is useful when a pass needs to construct information using the context
+/// *before* visiting the components.
+///
+/// For most passes that don't need to use, this is just going to use the
+/// default() method.
+pub trait ConstructVisitor {
+    fn from(_ctx: &ir::Context) -> Self;
+}
+
+impl<T: Default + Sized + Visitor> ConstructVisitor for T {
+    fn from(_ctx: &ir::Context) -> Self {
+        T::default()
+    }
+}
+
 /// The visiting interface for a [`ir::Control`](crate::ir::Control) program.
 /// Contains two kinds of functions:
 /// 1. start_<node>: Called when visiting <node> top-down.
@@ -128,9 +145,9 @@ pub trait Visitor {
     #[inline(always)]
     fn do_pass_default(context: &mut Context) -> FutilResult<Self>
     where
-        Self: Default + Sized,
+        Self: ConstructVisitor + Sized,
     {
-        let mut visitor = Self::default();
+        let mut visitor = Self::from(&*context);
         visitor.do_pass(context)?;
         Ok(visitor)
     }
