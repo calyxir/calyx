@@ -48,7 +48,7 @@ def version_compare(cmp_str, installed, required):
     elif cmp_str == "<=":
         return version.parse(installed) <= version.parse(required)
     elif cmp_str == "status_is_not":
-        return required in installed
+        return required not in installed
 
 
 def check_version(name, exec_path):
