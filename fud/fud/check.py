@@ -16,7 +16,7 @@ VERSIONS = {
     'verilog': {
         'flag': '--version',
         'extract': lambda out: out.split(' ')[1],
-        'version': '4.000',
+        'version': '4.100',
         'compare': '>='
     },
     'vcd': {
