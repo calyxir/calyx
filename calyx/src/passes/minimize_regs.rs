@@ -6,10 +6,7 @@ use crate::{
         LibrarySignatures,
     },
 };
-use ir::{
-    traversal::{Action, VisResult},
-    Component,
-};
+use ir::traversal::{Action, VisResult};
 use itertools::Itertools;
 
 /// Given a `LiveRangeAnalysis` that specifies the registers alive at each
@@ -55,55 +52,41 @@ impl Visitor for MinimizeRegs {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _s: &LibrarySignatures,
+        sigs: &LibrarySignatures,
     ) -> VisResult {
         self.live = LiveRangeAnalysis::new(&comp, &*comp.control.borrow());
         self.par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
 
-        Ok(Action::Continue)
-    }
-
-    fn enable(
-        &mut self,
-        enable: &mut ir::Enable,
-        _comp: &mut Component,
-        _sigs: &LibrarySignatures,
-    ) -> VisResult {
         // add constraints between things that are alive at the same time
-        let conflicts = self.live.get(&enable.group.borrow());
-        self.graph
-            .insert_conflicts(&conflicts.iter().cloned().collect::<Vec<_>>());
+        for group in &comp.groups {
+            let conflicts = self.live.get(&group.borrow());
+            self.graph.insert_conflicts(
+                &conflicts.iter().cloned().collect::<Vec<_>>(),
+            );
 
-        let in_parallel: Vec<_> = self
-            .par_conflicts
-            .all_conflicts(&enable.group)
-            .into_iter()
-            .flat_map(|group| {
-                self.live
-                    .get(&*group.borrow())
-                    .iter()
-                    .cloned()
-                    .collect::<Vec<_>>()
-            })
-            .collect();
+            let in_parallel: Vec<_> = self
+                .par_conflicts
+                .all_conflicts(&group)
+                .into_iter()
+                .flat_map(|group| {
+                    self.live
+                        .get(&*group.borrow())
+                        .iter()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                })
+                .collect();
 
-        for conflict_here in conflicts {
-            for par_conflict in &in_parallel {
-                self.graph.insert_conflict(
-                    conflict_here.clone(),
-                    par_conflict.clone(),
-                );
+            for conflict_here in conflicts {
+                for par_conflict in &in_parallel {
+                    self.graph.insert_conflict(
+                        conflict_here.clone(),
+                        par_conflict.clone(),
+                    );
+                }
             }
         }
 
-        Ok(Action::Continue)
-    }
-
-    fn finish(
-        &mut self,
-        comp: &mut Component,
-        sigs: &LibrarySignatures,
-    ) -> VisResult {
         // add constraints so that registers of different sizes can't be shared
         for a_ref in &comp.cells {
             for b_ref in &comp.cells {
@@ -135,18 +118,6 @@ impl Visitor for MinimizeRegs {
             })
             .collect();
 
-        // eprintln!(
-        //     "{:?}",
-        //     coloring
-        //         .iter()
-        //         .map(|(a, b)| format!(
-        //             "{} -> {}",
-        //             a.borrow().name.to_string(),
-        //             b.borrow().name.to_string()
-        //         ))
-        //         .collect::<Vec<_>>()
-        // );
-
         // apply the coloring as a renaming of registers for both groups
         // and continuous assignments
         let builder = ir::Builder::from(comp, sigs, false);
@@ -162,6 +133,6 @@ impl Visitor for MinimizeRegs {
         builder.rename_port_uses(&coloring, &mut assigns);
         builder.component.continuous_assignments = assigns;
 
-        Ok(Action::Continue)
+        Ok(Action::Stop)
     }
 }
