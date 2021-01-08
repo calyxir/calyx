@@ -170,11 +170,15 @@ impl Cell {
         }
     }
 
-    pub fn get_paramter(&self, param: &Id) -> Option<u64> {
+    /// Get parameter binding from the prototype used to build this cell.
+    pub fn get_paramter<S>(&self, param: S) -> Option<u64>
+    where
+        S: std::fmt::Display + Clone + AsRef<str>,
+    {
         match &self.prototype {
             CellType::Primitive { param_binding, .. } => param_binding
                 .iter()
-                .find(|(key, _)| key == param)
+                .find(|(key, _)| *key == param)
                 .map(|(_, val)| *val),
             CellType::Component { .. } => None,
             CellType::ThisComponent => None,

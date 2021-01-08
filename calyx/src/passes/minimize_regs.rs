@@ -23,21 +23,7 @@ use itertools::Itertools;
 /// This pass only renames uses of registers. `DeadCellRemoval` should be run after this
 /// to actually remove the register definitions.
 #[derive(Default)]
-pub struct MinimizeRegs {
-    live: LiveRangeAnalysis,
-    graph: GraphColoring<ir::Id>,
-    par_conflicts: ScheduleConflicts,
-}
-
-impl MinimizeRegs {
-    pub fn new(live: LiveRangeAnalysis) -> Self {
-        MinimizeRegs {
-            live,
-            graph: GraphColoring::default(),
-            par_conflicts: ScheduleConflicts::default(),
-        }
-    }
-}
+pub struct MinimizeRegs;
 
 impl Named for MinimizeRegs {
     fn name() -> &'static str {
@@ -54,62 +40,70 @@ impl Visitor for MinimizeRegs {
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
     ) -> VisResult {
-        self.live = LiveRangeAnalysis::new(&comp, &*comp.control.borrow());
-        self.par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
-
-        // add constraints between things that are alive at the same time
-        for group in &comp.groups {
-            let conflicts = self.live.get(&group.borrow());
-            self.graph.insert_conflicts(
-                &conflicts.iter().cloned().collect::<Vec<_>>(),
-            );
-
-            let in_parallel: Vec<_> = self
-                .par_conflicts
-                .all_conflicts(&group)
-                .into_iter()
-                .flat_map(|group| {
-                    self.live
-                        .get(&*group.borrow())
-                        .iter()
-                        .cloned()
-                        .collect::<Vec<_>>()
-                })
-                .collect();
-
-            for conflict_here in conflicts {
-                for par_conflict in &in_parallel {
-                    self.graph.insert_conflict(
-                        conflict_here.clone(),
-                        par_conflict.clone(),
-                    );
+        let registers = comp.cells.iter().filter_map(|cell_ref| {
+            let cell = cell_ref.borrow();
+            if let Some(name) = cell.type_name() {
+                if name == "std_reg" {
+                    return Some((
+                        cell.get_paramter("width").unwrap(),
+                        cell.name.clone(),
+                    ));
                 }
             }
+            None
+        });
+
+        let mut graph: GraphColoring<ir::Id> =
+            GraphColoring::from(registers.clone().map(|(_, name)| name));
+
+        let live = LiveRangeAnalysis::new(&comp, &*comp.control.borrow());
+        let par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
+
+        for group in &comp.groups {
+            // Conflict edges between all things alive at the same time.
+            let conflicts = live.get(&group.borrow().name);
+            graph.insert_conflicts(conflicts.iter());
         }
+
+        // Conflict edges between all groups that are enabled in parallel.
+        par_conflicts
+            .all_conflicts()
+            .into_grouping_map_by(|(g1, _)| g1.borrow().name.clone())
+            .fold(vec![], |mut acc, _, (_, conf_group)| {
+                acc.extend(live.get(&conf_group.borrow().name));
+                acc
+            })
+            .into_iter()
+            .for_each(|(group, confs)| {
+                let conflicts = live.get(&group);
+                confs
+                    .into_iter()
+                    // This unique call saves a lot of time!
+                    .unique()
+                    .for_each(|par_conflict| {
+                        for conflict_here in conflicts {
+                            if conflict_here != par_conflict {
+                                graph.insert_conflict(
+                                    &conflict_here,
+                                    &par_conflict,
+                                );
+                            }
+                        }
+                    })
+            });
 
         // add constraints so that registers of different sizes can't be shared
-        for a_ref in &comp.cells {
-            for b_ref in &comp.cells {
-                let a = a_ref.borrow();
-                let b = b_ref.borrow();
-                let a_correct_type = a.type_name() == Some(&"std_reg".into());
-                let b_correct_type = b.type_name() == Some(&"std_reg".into());
-                if !(a_correct_type && b_correct_type) {
-                    continue;
+        registers
+            .tuple_combinations()
+            .for_each(|((w1, c1), (w2, c2))| {
+                if w1 != w2 {
+                    graph.insert_conflict(&c1, &c2);
                 }
-
-                if a.get_paramter(&"width".into())
-                    != b.get_paramter(&"width".into())
-                {
-                    self.graph.insert_conflict(a.name.clone(), b.name.clone());
-                }
-            }
-        }
+            });
 
         // used a sorted ordering to perform coloring
-        let ordering = self.live.get_all().sorted();
-        let coloring: Vec<_> = self
-            .graph
+        let ordering = live.get_all().sorted();
+        let coloring: Vec<_> = graph
             .color_greedy_with(ordering)
             .into_iter()
             .filter(|(a, b)| a != b)

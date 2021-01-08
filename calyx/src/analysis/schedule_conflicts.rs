@@ -18,20 +18,22 @@ pub struct ScheduleConflicts {
     index_map: HashMap<ir::Id, NodeIndex>,
 }
 
+/// Wrapper to iterate over all the conflict edges.
+pub struct ConflictIterator<'a> {
+    iter: Box<dyn Iterator<Item = (GroupNode, GroupNode)> + 'a>,
+}
+
+impl Iterator for ConflictIterator<'_> {
+    type Item = (GroupNode, GroupNode);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
 impl ScheduleConflicts {
-    /// Returns the NodeIndex corresponding to this Group if present.
-    pub fn find_index(&self, group: &GroupNode) -> Option<NodeIndex> {
-        self.index_map.get(&group.borrow().name).cloned()
-    }
-
-    /// Returns the NodeIndex corresponding to this Group.
-    /// Panics if the Group is not in the CurrentConflict.
-    pub fn get_index(&self, group: &GroupNode) -> NodeIndex {
-        *self.index_map.get(&group.borrow().name).unwrap_or_else(|| panic!("No index for group `{}' in conflict graph. Is the group used in the control program?", group.borrow().name))
-    }
-
     /// Return a vector of all groups that conflict with this group.
-    pub fn all_conflicts(&self, group: &GroupNode) -> Vec<GroupNode> {
+    pub fn conflicts_with(&self, group: &GroupNode) -> Vec<GroupNode> {
         self.conflicts
             .neighbors_undirected(self.get_index(group))
             .into_iter()
@@ -39,10 +41,31 @@ impl ScheduleConflicts {
             .collect()
     }
 
+    /// Returns a vector containing all conflict edges in this graph.
+    pub fn all_conflicts(&self) -> ConflictIterator<'_> {
+        let iter = self.conflicts.edge_indices().map(move |edge| {
+            let (src, dst) = self.conflicts.edge_endpoints(edge).unwrap();
+            (
+                Rc::clone(&self.conflicts[src]),
+                Rc::clone(&self.conflicts[dst]),
+            )
+        });
+
+        ConflictIterator {
+            iter: Box::new(iter),
+        }
+    }
+
     /////////////// Internal Methods //////////////////
+    /// Returns the NodeIndex corresponding to this Group.
+    /// Panics if the Group is not in the CurrentConflict.
+    fn get_index(&self, group: &GroupNode) -> NodeIndex {
+        *self.index_map.get(&group.borrow().name).unwrap_or_else(|| panic!("No index for group `{}' in conflict graph. Is the group used in the control program?", group.borrow().name))
+    }
+
     /// Adds a node to the CurrentConflict set.
-    pub(self) fn add_node(&mut self, group: &GroupNode) {
-        if self.find_index(group).is_none() {
+    fn add_node(&mut self, group: &GroupNode) {
+        if self.index_map.get(&group.borrow().name).is_none() {
             let idx = self.conflicts.add_node(Rc::clone(group));
             self.index_map.insert(group.borrow().name.clone(), idx);
         }

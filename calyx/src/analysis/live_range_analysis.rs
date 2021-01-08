@@ -112,8 +112,8 @@ impl LiveRangeAnalysis {
         ranges
     }
     /// Look up the set of things live at a group definition.
-    pub fn get(&self, group: &ir::Group) -> &HashSet<ir::Id> {
-        &self.live[&group.name].set
+    pub fn get(&self, group: &ir::Id) -> &HashSet<ir::Id> {
+        &self.live[&group].set
     }
 
     /// Get a unique list of all live registers in `component`.
