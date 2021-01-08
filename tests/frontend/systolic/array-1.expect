@@ -49,9 +49,9 @@ component main() -> () {
       l0_add = prim std_add(2);
       l0 = prim std_mem_d1(32, 3, 2);
       out_mem = prim std_mem_d2_ext(32, 1, 1, 1, 1);
-      pe_00 = mac_pe;
-      top_00_read = prim std_reg(32);
-      left_00_read = prim std_reg(32);
+      pe_0_0 = mac_pe;
+      top_0_0_read = prim std_reg(32);
+      left_0_0_read = prim std_reg(32);
     }
     wires {
 
@@ -71,9 +71,9 @@ component main() -> () {
 
       group t0_move {
           t0.addr0 = t0_idx.out;
-          top_00_read.in = t0.read_data;
-          top_00_read.write_en = 1'd1;
-          t0_move[done] = top_00_read.done;
+          top_0_0_read.in = t0.read_data;
+          top_0_0_read.write_en = 1'd1;
+          t0_move[done] = top_0_0_read.done;
       }
 
       group l0_idx_init {
@@ -92,27 +92,27 @@ component main() -> () {
 
       group l0_move {
           l0.addr0 = l0_idx.out;
-          left_00_read.in = l0.read_data;
-          left_00_read.write_en = 1'd1;
-          l0_move[done] = left_00_read.done;
+          left_0_0_read.in = l0.read_data;
+          left_0_0_read.write_en = 1'd1;
+          l0_move[done] = left_0_0_read.done;
       }
 
-      group pe_00_compute {
+      group pe_0_0_compute {
 
-        pe_00.go = !pe_00.done ? 1'd1;
-        pe_00.top = top_00_read.out;
-        pe_00.left = left_00_read.out;
+        pe_0_0.go = !pe_0_0.done ? 1'd1;
+        pe_0_0.top = top_0_0_read.out;
+        pe_0_0.left = left_0_0_read.out;
 
-        pe_00_compute[done] = pe_00.done ? 1'd1;
+        pe_0_0_compute[done] = pe_0_0.done ? 1'd1;
       }
 
 
-      group pe_00_out_write {
+      group pe_0_0_out_write {
           out_mem.addr0 = 1'd0;
           out_mem.addr1 = 1'd0;
-          out_mem.write_data = pe_00.out;
+          out_mem.write_data = pe_0_0.out;
           out_mem.write_en = 1'd1;
-          pe_00_out_write[done] = out_mem.done;
+          pe_0_0_out_write[done] = out_mem.done;
       }
     }
     control {
@@ -129,22 +129,22 @@ component main() -> () {
             t0_move; l0_move;
         }
         par {
-            t0_idx_update; l0_idx_update; pe_00_compute;
+            t0_idx_update; l0_idx_update; pe_0_0_compute;
         }
         par {
             t0_move; l0_move;
         }
         par {
-            t0_idx_update; l0_idx_update; pe_00_compute;
+            t0_idx_update; l0_idx_update; pe_0_0_compute;
         }
         par {
             t0_move; l0_move;
         }
         par {
-            pe_00_compute;
+            pe_0_0_compute;
         }
         seq {
-            pe_00_out_write;
+            pe_0_0_out_write;
         }
       }
     }

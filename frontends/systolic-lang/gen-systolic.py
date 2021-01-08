@@ -58,11 +58,12 @@ NAME_SCHEME = {
     'index init': '{prefix}_idx_init',
     'index update': '{prefix}_idx_update',
     'memory move': '{prefix}_move',
-    'pe compute': 'pe_{row}{col}_compute',
+    'pe compute': 'pe_{row}_{col}_compute',
     'register move down': '{pe}_down_move',
     'register move right': '{pe}_right_move',
     'out mem move': '{pe}_out_write',
 }
+
 
 def bits_needed(num):
     return math.floor(math.log(num, 2)) + 1
@@ -140,10 +141,10 @@ def instantiate_memory(top_or_left, idx, size):
     """
     if top_or_left == 'top':
         name = f't{idx}'
-        target_reg = f'top_0{idx}_read'
+        target_reg = f'top_0_{idx}_read'
     elif top_or_left == 'left':
         name = f'l{idx}'
-        target_reg = f'left_{idx}0_read'
+        target_reg = f'left_{idx}_0_read'
     else:
         raise f'Invalid top_or_left: {top_or_left}'
 
@@ -174,28 +175,31 @@ def instantiate_pe(row, col, right_edge=False, down_edge=False):
     Returns (cells, structure) tuple.
     """
     # Add all the required cells.
-    pe = f'pe_{row}{col}'
+    pe = f'pe_{row}_{col}'
     group = NAME_SCHEME['pe compute'].format(row=row, col=col)
     cells = [
         f'{pe} = {PE_NAME};',
-        create_register(f'top_{row}{col}_read', BITWIDTH),
-        create_register(f'left_{row}{col}_read', BITWIDTH),
+        create_register(f'top_{row}_{col}_read', BITWIDTH),
+        create_register(f'left_{row}_{col}_read', BITWIDTH),
     ]
+
+    # Instantiate registers forward registers if this is not on the edge of the
+    # compute fabric.
     if not right_edge:
-        cells.append(create_register(f'right_{row}{col}_write', BITWIDTH))
+        cells.append(create_register(f'right_{row}_{col}_write', BITWIDTH))
     if not down_edge:
-        cells.append(create_register(f'down_{row}{col}_write', BITWIDTH))
+        cells.append(create_register(f'down_{row}_{col}_write', BITWIDTH))
 
     structure_stmts = f"""
             {pe}.go = !{pe}.done ? 1'd1;
-            {pe}.top = top_{row}{col}_read.out;
-            {pe}.left = left_{row}{col}_read.out;"""
+            {pe}.top = top_{row}_{col}_read.out;
+            {pe}.left = left_{row}_{col}_read.out;"""
 
     # Ports guarding the done condition for this group.
     done_guards = []
 
     if not right_edge:
-        dst_reg = f'right_{row}{col}_write'
+        dst_reg = f'right_{row}_{col}_write'
         done_guards.append(f"{dst_reg}.done")
         structure_stmts += f"""
 
@@ -203,7 +207,7 @@ def instantiate_pe(row, col, right_edge=False, down_edge=False):
             {dst_reg}.write_en = {pe}.done ? 1'd1;"""
 
     if not down_edge:
-        dst_reg = f'down_{row}{col}_write'
+        dst_reg = f'down_{row}_{col}_write'
         done_guards.append(f"{dst_reg}.done")
         structure_stmts += f"""
 
@@ -235,13 +239,13 @@ def instantiate_data_move(row, col, right_edge, down_edge):
     from the `write` register of the PE at (row, col) to the read register
     of the PEs at (row+1, col) and (row, col+1)
     """
-    name = f'pe_{row}{col}'
+    name = f'pe_{row}_{col}'
     structures = []
 
     if not right_edge:
         group_name = NAME_SCHEME['register move right'].format(pe=name)
-        src_reg = f'right_{row}{col}_write'
-        dst_reg = f'left_{row}{col+1}_read'
+        src_reg = f'right_{row}_{col}_write'
+        dst_reg = f'left_{row}_{col+1}_read'
         mover = textwrap.indent(textwrap.dedent(f'''
         group {group_name} {{
             {dst_reg}.in = {src_reg}.out;
@@ -252,8 +256,8 @@ def instantiate_data_move(row, col, right_edge, down_edge):
 
     if not down_edge:
         group_name = NAME_SCHEME['register move down'].format(pe=name)
-        src_reg = f'down_{row}{col}_write'
-        dst_reg = f'top_{row+1}{col}_read'
+        src_reg = f'down_{row}_{col}_write'
+        dst_reg = f'top_{row+1}_{col}_read'
         mover = textwrap.indent(textwrap.dedent(f'''
         group {group_name} {{
             {dst_reg}.in = {src_reg}.out;
@@ -269,12 +273,12 @@ def instantiate_output_move(row, col, row_idx_bitwidth, col_idx_bitwidth):
     """
     Generates groups to move the final value from a PE into the output array.
     """
-    group_name = NAME_SCHEME['out mem move'].format(pe=f'pe_{row}{col}')
+    group_name = NAME_SCHEME['out mem move'].format(pe=f'pe_{row}_{col}')
     return textwrap.indent(textwrap.dedent(f'''
     group {group_name} {{
         {OUT_MEM}.addr0 = {row_idx_bitwidth}'d{row};
         {OUT_MEM}.addr1 = {col_idx_bitwidth}'d{col};
-        {OUT_MEM}.write_data = pe_{row}{col}.out;
+        {OUT_MEM}.write_data = pe_{row}_{col}.out;
         {OUT_MEM}.write_en = 1'd1;
         {group_name}[done] = {OUT_MEM}.done;
     }}'''), " " * 4)
@@ -346,7 +350,7 @@ def row_data_mover_at(row, col):
     if row == 0:
         return NAME_SCHEME['memory move'].format(prefix=f't{col}')
     else:
-        return NAME_SCHEME['register move down'].format(pe=f'pe_{row-1}{col}')
+        return NAME_SCHEME['register move down'].format(pe=f'pe_{row-1}_{col}')
 
 
 def col_data_mover_at(row, col):
@@ -357,7 +361,7 @@ def col_data_mover_at(row, col):
     if col == 0:
         return NAME_SCHEME['memory move'].format(prefix=f'l{row}')
     else:
-        return NAME_SCHEME['register move right'].format(pe=f'pe_{row}{col-1}')
+        return NAME_SCHEME['register move right'].format(pe=f'pe_{row}_{col-1}')
 
 
 def index_update_at(row, col):
@@ -447,7 +451,7 @@ def generate_control(top_length, top_depth, left_length, left_depth):
     mover_groups = []
     for row in range(left_length):
         for col in range(top_length):
-            g = NAME_SCHEME['out mem move'].format(pe=f'pe_{row}{col}')
+            g = NAME_SCHEME['out mem move'].format(pe=f'pe_{row}_{col}')
             mover_groups.append(g)
     mover_control_str = textwrap.indent(textwrap.dedent(f'''
     seq {{
