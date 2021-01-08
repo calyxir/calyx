@@ -68,9 +68,9 @@ impl Visitor for MinimizeRegs {
         // Conflict edges between all groups that are enabled in parallel.
         par_conflicts
             .all_conflicts()
-            .into_grouping_map_by(|(g1, _)| g1.borrow().name.clone())
+            .into_grouping_map_by(|(g1, _)| g1.clone())
             .fold(vec![], |mut acc, _, (_, conf_group)| {
-                acc.extend(live.get(&conf_group.borrow().name));
+                acc.extend(live.get(&conf_group));
                 acc
             })
             .into_iter()

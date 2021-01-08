@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use petgraph::matrix_graph::{MatrixGraph, NodeIndex, UnMatrix, Zero};
+use petgraph::visit::IntoEdgeReferences;
 use std::{collections::HashMap, hash::Hash};
 
 pub type Idx = NodeIndex;
@@ -31,16 +32,25 @@ impl Zero for BoolIdx {
 /// `NodeIndex` in the graph.
 /// The underlying `petgraph::MatrixGraph` stores `()` for node weights and
 /// a boolean to represent the edges.
-pub struct WeightGraph<T: Eq + Hash> {
+pub struct WeightGraph<T: Eq + Hash + Clone> {
     /// Mapping from T to a unique identifier.
     pub index_map: HashMap<T, NodeIndex>,
     /// Graph representating using identifier.
     pub graph: UnMatrix<(), BoolIdx>,
 }
 
+impl<T: Eq + Hash + Clone> Default for WeightGraph<T> {
+    fn default() -> Self {
+        WeightGraph {
+            index_map: HashMap::new(),
+            graph: MatrixGraph::new_undirected(),
+        }
+    }
+}
+
 impl<T, C> From<C> for WeightGraph<T>
 where
-    T: Eq + Hash,
+    T: Eq + Hash + Clone,
     C: Iterator<Item = T>,
 {
     fn from(nodes: C) -> Self {
@@ -52,7 +62,7 @@ where
 
 impl<'a, T> WeightGraph<T>
 where
-    T: 'a + Eq + Hash,
+    T: 'a + Eq + Hash + Clone,
 {
     /// Add an edge between `a` and `b`.
     #[inline(always)]
@@ -74,6 +84,12 @@ where
         });
     }
 
+    /// Checks if the node has already been added to the graph.
+    #[inline(always)]
+    pub fn contains_node(&self, node: &T) -> bool {
+        self.index_map.contains_key(node)
+    }
+
     /// Add a new node to the graph. Client code should ensure that duplicate
     /// edges are never added to graph.
     /// Instead of using this method, consider constructing the graph using
@@ -89,13 +105,17 @@ where
         self.index_map.insert(node, idx);
     }
 
-    pub fn reverse_index(&self) -> HashMap<NodeIndex, &T> {
-        self.index_map.iter().map(|(k, v)| (*v, k)).collect()
+    pub fn reverse_index(&self) -> HashMap<NodeIndex, T> {
+        self.index_map
+            .iter()
+            .map(|(k, v)| (*v, k.clone()))
+            .collect()
     }
 }
 
-/*impl<T: Eq + Hash + ToString> ToString for GraphColoring<T> {
+impl<T: Eq + Hash + ToString + Clone> ToString for WeightGraph<T> {
     fn to_string(&self) -> String {
+        let rev_map = self.reverse_index();
         let keys: Vec<_> = self.index_map.keys().collect();
         let nodes = keys
             .iter()
@@ -111,18 +131,16 @@ where
             .join("\n");
         let edges = self
             .graph
-            .edge_indices()
-            .filter_map(|idx| self.graph.edge_endpoints(idx))
-            .unique()
-            .map(|(a_idx, b_idx)| {
+            .edge_references()
+            .map(|(a_idx, b_idx, _)| {
                 format!(
                     "  {} -- {};",
-                    self.graph[a_idx].to_string(),
-                    self.graph[b_idx].to_string()
+                    rev_map[&a_idx].to_string(),
+                    rev_map[&b_idx].to_string()
                 )
             })
             .collect::<Vec<_>>()
             .join("\n");
         format!("graph {{ \n{}\n{}\n }}", nodes, edges)
     }
-}*/
+}
