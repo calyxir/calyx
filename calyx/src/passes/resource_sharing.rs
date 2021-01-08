@@ -14,12 +14,12 @@ use std::rc::Rc;
 /// when the groups are guaranteed to never run in parallel.
 pub struct ResourceSharing {
     /// Mapping from the name of a group the cells that have been used by it.
-    pub(self) used_cells: HashMap<ir::Id, Vec<RRC<ir::Cell>>>,
+    used_cells: HashMap<ir::Id, Vec<RRC<ir::Cell>>>,
 
     /// Mapping from the name of a group to the (old_cell, new_cell) pairs.
     /// This is used to rewrite all uses of `old_cell` with `new_cell` in the
     /// group.
-    pub(self) rewrites: HashMap<ir::Id, Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>>,
+    rewrites: HashMap<ir::Id, Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>>,
 }
 
 impl Named for ResourceSharing {
@@ -83,18 +83,18 @@ impl Visitor for ResourceSharing {
                 // XXX(rachit): Potential performance pitfall since
                 // all_conflicts iterates over the conflicts graph.
                 conflicts
-                    .conflicts_with(g2)
+                    .conflicts_with(&g2.borrow().name)
                     .len()
-                    .cmp(&conflicts.conflicts_with(g1).len())
+                    .cmp(&conflicts.conflicts_with(&g1.borrow().name).len())
             })
             .collect();
 
         for group in sorted {
             // Find all the primitives already used by neighbours.
             let all_conflicts = conflicts
-                .conflicts_with(group)
+                .conflicts_with(&group.borrow().name)
                 .into_iter()
-                .flat_map(|g| self.used_cells.get(&g.borrow().name))
+                .flat_map(|g| self.used_cells.get(&g))
                 .cloned()
                 .flatten()
                 .collect::<Vec<RRC<_>>>();
