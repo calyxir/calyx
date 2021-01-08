@@ -2,6 +2,8 @@ use itertools::Itertools;
 use petgraph::matrix_graph::{MatrixGraph, NodeIndex, UnMatrix, Zero};
 use std::{collections::HashMap, hash::Hash};
 
+pub type Idx = NodeIndex;
+
 /// Edge weight used for the graph nodes
 pub struct BoolIdx(bool);
 
@@ -38,14 +40,12 @@ pub struct WeightGraph<T: Eq + Hash> {
 
 impl<T, C> From<C> for WeightGraph<T>
 where
-    T: Eq + Hash + Clone,
+    T: Eq + Hash,
     C: Iterator<Item = T>,
 {
     fn from(nodes: C) -> Self {
         let mut graph = MatrixGraph::new_undirected();
-        let index_map = nodes
-            .map(|node| (node, graph.add_node(())))
-            .collect();
+        let index_map = nodes.map(|node| (node, graph.add_node(()))).collect();
         WeightGraph { graph, index_map }
     }
 }
@@ -88,4 +88,41 @@ where
         let idx = self.graph.add_node(());
         self.index_map.insert(node, idx);
     }
+
+    pub fn reverse_index(&self) -> HashMap<NodeIndex, &T> {
+        self.index_map.iter().map(|(k, v)| (*v, k)).collect()
+    }
 }
+
+/*impl<T: Eq + Hash + ToString> ToString for GraphColoring<T> {
+    fn to_string(&self) -> String {
+        let keys: Vec<_> = self.index_map.keys().collect();
+        let nodes = keys
+            .iter()
+            .enumerate()
+            .map(|(_idx, key)| {
+                format!(
+                    "  {} [label=\"{}\"];",
+                    key.to_string(),
+                    key.to_string()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let edges = self
+            .graph
+            .edge_indices()
+            .filter_map(|idx| self.graph.edge_endpoints(idx))
+            .unique()
+            .map(|(a_idx, b_idx)| {
+                format!(
+                    "  {} -- {};",
+                    self.graph[a_idx].to_string(),
+                    self.graph[b_idx].to_string()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        format!("graph {{ \n{}\n{}\n }}", nodes, edges)
+    }
+}*/
