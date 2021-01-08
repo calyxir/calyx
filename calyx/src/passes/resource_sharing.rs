@@ -83,16 +83,16 @@ impl Visitor for ResourceSharing {
                 // XXX(rachit): Potential performance pitfall since
                 // all_conflicts iterates over the conflicts graph.
                 conflicts
-                    .all_conflicts(g2)
+                    .conflicts_with(g2)
                     .len()
-                    .cmp(&conflicts.all_conflicts(g1).len())
+                    .cmp(&conflicts.conflicts_with(g1).len())
             })
             .collect();
 
         for group in sorted {
             // Find all the primitives already used by neighbours.
             let all_conflicts = conflicts
-                .all_conflicts(group)
+                .conflicts_with(group)
                 .into_iter()
                 .flat_map(|g| self.used_cells.get(&g.borrow().name))
                 .cloned()

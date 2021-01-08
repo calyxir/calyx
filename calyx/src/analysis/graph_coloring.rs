@@ -23,55 +23,44 @@ impl Zero for NonZeroBool {
 
 /// Defines a greedy graph coloring algorithm over a generic conflict graph.
 pub struct GraphColoring<T: Eq + Hash> {
+    /// Graph representating using identifier.
     graph: UnMatrix<T, NonZeroBool>,
+    /// Mapping from T to a unique identifier.
     index_map: HashMap<T, NodeIndex>,
 }
 
-impl<T: Eq + Hash> Default for GraphColoring<T> {
-    fn default() -> Self {
-        GraphColoring {
-            graph: MatrixGraph::new_undirected(),
-            index_map: HashMap::new(),
-        }
+impl<T, C> From<C> for GraphColoring<T>
+where
+    T: Eq + Hash + Clone,
+    C: Iterator<Item = T>,
+{
+    fn from(nodes: C) -> Self {
+        let mut graph = MatrixGraph::new_undirected();
+        let index_map = nodes
+            .map(|node| (node.clone(), graph.add_node(node.clone())))
+            .collect();
+        GraphColoring { graph, index_map }
     }
 }
 
-impl<T: Eq + Hash + Clone + std::fmt::Debug> GraphColoring<T> {
-    pub fn insert_conflict(&mut self, a: T, b: T) {
-        // we don't need to add self edges, but we still want the node
-        if a == b {
-            if !self.index_map.contains_key(&a) {
-                self.index_map.insert(a.clone(), self.graph.add_node(a));
-            }
-            return;
-        }
-
-        let a_node: NodeIndex = match self.index_map.get(&a) {
-            Some(node) => *node,
-            None => self.graph.add_node(a.clone()),
-        };
-        let b_node: NodeIndex = match self.index_map.get(&b) {
-            Some(node) => *node,
-            None => self.graph.add_node(b.clone()),
-        };
-        self.index_map.insert(a, a_node);
-        self.index_map.insert(b, b_node);
-        self.graph.update_edge(a_node, b_node, true.into());
+impl<'a, T: 'a + Eq + Hash + Clone + std::fmt::Debug> GraphColoring<T> {
+    /// Add a conflict edge between `a` and `b`.
+    #[inline(always)]
+    pub fn insert_conflict(&mut self, a: &T, b: &T) {
+        self.graph.update_edge(
+            self.index_map[a],
+            self.index_map[b],
+            true.into(),
+        );
     }
 
-    pub fn insert_conflicts(&mut self, items: &[T]) {
-        for item in items {
-            if !self.index_map.contains_key(item) {
-                self.index_map
-                    .insert(item.clone(), self.graph.add_node(item.clone()));
-            }
-        }
-        items.iter().tuple_combinations().for_each(|(src, dst)| {
-            self.graph.update_edge(
-                self.index_map[src],
-                self.index_map[dst],
-                true.into(),
-            );
+    /// Add conflict edges between all given items.
+    pub fn insert_conflicts<C>(&mut self, items: C)
+    where
+        C: Iterator<Item = &'a T> + Clone,
+    {
+        items.tuple_combinations().for_each(|(src, dst)| {
+            self.insert_conflict(src, dst);
         });
     }
 
