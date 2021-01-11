@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: 
+4 |    group cond {
+  |          ^^^^ Group not used in control

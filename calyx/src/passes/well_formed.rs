@@ -14,9 +14,6 @@ pub struct WellFormed {
 
     /// Names of the groups that have been used in the control.
     used_groups: HashSet<ir::Id>,
-
-    /// All of the groups used in the program.
-    all_groups: HashSet<ir::Id>,
 }
 
 impl Default for WellFormed {
@@ -32,7 +29,6 @@ impl Default for WellFormed {
         WellFormed {
             reserved_names,
             used_groups: HashSet::new(),
-            all_groups: HashSet::new(),
         }
     }
 }
@@ -124,14 +120,16 @@ impl Visitor for WellFormed {
 
     fn finish(
         &mut self,
-        _comp: &mut Component,
+        comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
-        let unused_group = self
-            .all_groups
-            .difference(&self.used_groups)
-            .into_iter()
-            .next();
+        let all_groups: HashSet<ir::Id> = comp
+            .groups
+            .iter()
+            .map(|g| g.borrow().name.clone())
+            .collect();
+        let unused_group =
+            all_groups.difference(&self.used_groups).into_iter().next();
         match unused_group {
             Some(group) => Err(Error::UnusedGroup(group.clone())),
             None => Ok(Action::Continue),
