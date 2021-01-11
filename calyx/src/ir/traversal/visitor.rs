@@ -133,8 +133,9 @@ pub trait Visitor {
                 .components
                 // Mutably borrow the components in the context
                 .iter_mut()
-                .map(|comp| self.traverse_component(comp, signatures))
-                .collect::<FutilResult<_>>()?;
+                .try_for_each(|comp| {
+                    self.traverse_component(comp, signatures)
+                })?;
         }
 
         Ok(())
