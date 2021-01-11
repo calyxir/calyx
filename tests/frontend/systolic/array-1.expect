@@ -13,7 +13,7 @@ component mac_pe(top: 32, left: 32) -> (out: 32) {
 
   wires {
 
-    group do_mul {
+    group do_mul<"static"=4> {
       mul.left = top;
       mul.right = left;
       mul.go = !mul.done ? 1'd1;
@@ -48,8 +48,8 @@ component main() -> () {
       l0 = prim std_mem_d1(32, 3, 2);
       out_mem = prim std_mem_d2_ext(32, 1, 1, 1, 1);
       pe_0_0 = mac_pe;
-      top_0_0_read = prim std_reg(32);
-      left_0_0_read = prim std_reg(32);
+      top_0_0 = prim std_reg(32);
+      left_0_0 = prim std_reg(32);
     }
     wires {
 
@@ -69,9 +69,9 @@ component main() -> () {
 
       group t0_move {
           t0.addr0 = t0_idx.out;
-          top_0_0_read.in = t0.read_data;
-          top_0_0_read.write_en = 1'd1;
-          t0_move[done] = top_0_0_read.done;
+          top_0_0.in = t0.read_data;
+          top_0_0.write_en = 1'd1;
+          t0_move[done] = top_0_0.done;
       }
 
       group l0_idx_init {
@@ -90,11 +90,10 @@ component main() -> () {
 
       group l0_move {
           l0.addr0 = l0_idx.out;
-          left_0_0_read.in = l0.read_data;
-          left_0_0_read.write_en = 1'd1;
-          l0_move[done] = left_0_0_read.done;
+          left_0_0.in = l0.read_data;
+          left_0_0.write_en = 1'd1;
+          l0_move[done] = left_0_0.done;
       }
-
 
 
       group pe_0_0_out_write {
@@ -124,7 +123,7 @@ component main() -> () {
         par {
             t0_idx_update;
             l0_idx_update;
-            invoke pe_0_0(top = top_0_0_read.out, left = left_0_0_read.out)();
+            invoke pe_0_0(top = top_0_0.out, left = left_0_0.out)();
         }
         par {
             t0_move;
@@ -133,14 +132,14 @@ component main() -> () {
         par {
             t0_idx_update;
             l0_idx_update;
-            invoke pe_0_0(top = top_0_0_read.out, left = left_0_0_read.out)();
+            invoke pe_0_0(top = top_0_0.out, left = left_0_0.out)();
         }
         par {
             t0_move;
             l0_move;
         }
         par {
-            invoke pe_0_0(top = top_0_0_read.out, left = left_0_0_read.out)();
+            invoke pe_0_0(top = top_0_0.out, left = left_0_0.out)();
         }
         seq {
             pe_0_0_out_write;
