@@ -268,43 +268,86 @@ component main() -> () {
       seq {
 
         par {
-            t0_idx_init; t1_idx_init; l0_idx_init; l1_idx_init;
+            t0_idx_init;
+            t1_idx_init;
+            l0_idx_init;
+            l1_idx_init;
         }
         par {
-            t0_idx_update; l0_idx_update;
+            t0_idx_update;
+            l0_idx_update;
         }
         par {
-            t0_move; l0_move;
+            t0_move;
+            l0_move;
         }
         par {
-            t0_idx_update; l0_idx_update; t1_idx_update; l1_idx_update; pe_0_0_compute;
+            t0_idx_update;
+            l0_idx_update;
+            t1_idx_update;
+            l1_idx_update;
+            pe_0_0_compute;
         }
         par {
-            t0_move; t1_move; pe_0_0_down_move; l0_move; pe_0_0_right_move; l1_move;
+            t0_move;
+            t1_move;
+            pe_0_0_down_move;
+            l0_move;
+            pe_0_0_right_move;
+            l1_move;
         }
         par {
-            t0_idx_update; l0_idx_update; t1_idx_update; l1_idx_update; pe_0_0_compute; pe_0_1_compute; pe_1_0_compute;
+            t0_idx_update;
+            l0_idx_update;
+            t1_idx_update;
+            l1_idx_update;
+            pe_0_0_compute;
+            pe_0_1_compute;
+            pe_1_0_compute;
         }
         par {
-            t0_move; t1_move; pe_0_0_down_move; pe_0_1_down_move; l0_move; pe_0_0_right_move; l1_move; pe_1_0_right_move;
+            t0_move;
+            t1_move;
+            pe_0_0_down_move;
+            pe_0_1_down_move;
+            l0_move;
+            pe_0_0_right_move;
+            l1_move;
+            pe_1_0_right_move;
         }
         par {
-            t1_idx_update; l1_idx_update; pe_0_0_compute; pe_0_1_compute; pe_1_0_compute; pe_1_1_compute;
+            t1_idx_update;
+            l1_idx_update;
+            pe_0_0_compute;
+            pe_0_1_compute;
+            pe_1_0_compute;
+            pe_1_1_compute;
         }
         par {
-            t1_move; pe_0_0_down_move; pe_0_1_down_move; pe_0_0_right_move; l1_move; pe_1_0_right_move;
+            t1_move;
+            pe_0_0_down_move;
+            pe_0_1_down_move;
+            pe_0_0_right_move;
+            l1_move;
+            pe_1_0_right_move;
         }
         par {
-            pe_0_1_compute; pe_1_0_compute; pe_1_1_compute;
+            pe_0_1_compute;
+            pe_1_0_compute;
+            pe_1_1_compute;
         }
         par {
-            pe_0_1_down_move; pe_1_0_right_move;
+            pe_0_1_down_move;
+            pe_1_0_right_move;
         }
         par {
             pe_1_1_compute;
         }
         seq {
-            pe_0_0_out_write; pe_0_1_out_write; pe_1_0_out_write; pe_1_1_out_write;
+            pe_0_0_out_write;
+            pe_0_1_out_write;
+            pe_1_0_out_write;
+            pe_1_1_out_write;
         }
       }
     }

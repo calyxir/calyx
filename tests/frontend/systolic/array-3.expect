@@ -496,55 +496,152 @@ component main() -> () {
       seq {
 
         par {
-            t0_idx_init; t1_idx_init; t2_idx_init; l0_idx_init; l1_idx_init; l2_idx_init;
+            t0_idx_init;
+            t1_idx_init;
+            t2_idx_init;
+            l0_idx_init;
+            l1_idx_init;
+            l2_idx_init;
         }
         par {
-            t0_idx_update; l0_idx_update;
+            t0_idx_update;
+            l0_idx_update;
         }
         par {
-            t0_move; l0_move;
+            t0_move;
+            l0_move;
         }
         par {
-            t0_idx_update; l0_idx_update; t1_idx_update; l1_idx_update; pe_0_0_compute;
+            t0_idx_update;
+            l0_idx_update;
+            t1_idx_update;
+            l1_idx_update;
+            pe_0_0_compute;
         }
         par {
-            t0_move; t1_move; pe_0_0_down_move; l0_move; pe_0_0_right_move; l1_move;
+            t0_move;
+            t1_move;
+            pe_0_0_down_move;
+            l0_move;
+            pe_0_0_right_move;
+            l1_move;
         }
         par {
-            t0_idx_update; l0_idx_update; t1_idx_update; t2_idx_update; l1_idx_update; l2_idx_update; pe_0_0_compute; pe_0_1_compute; pe_1_0_compute;
+            t0_idx_update;
+            l0_idx_update;
+            t1_idx_update;
+            t2_idx_update;
+            l1_idx_update;
+            l2_idx_update;
+            pe_0_0_compute;
+            pe_0_1_compute;
+            pe_1_0_compute;
         }
         par {
-            t0_move; t1_move; t2_move; pe_0_0_down_move; pe_0_1_down_move; pe_1_0_down_move; l0_move; pe_0_0_right_move; pe_0_1_right_move; l1_move; pe_1_0_right_move; l2_move;
+            t0_move;
+            t1_move;
+            t2_move;
+            pe_0_0_down_move;
+            pe_0_1_down_move;
+            pe_1_0_down_move;
+            l0_move;
+            pe_0_0_right_move;
+            pe_0_1_right_move;
+            l1_move;
+            pe_1_0_right_move;
+            l2_move;
         }
         par {
-            t1_idx_update; t2_idx_update; l1_idx_update; l2_idx_update; pe_0_0_compute; pe_0_1_compute; pe_0_2_compute; pe_1_0_compute; pe_1_1_compute; pe_2_0_compute;
+            t1_idx_update;
+            t2_idx_update;
+            l1_idx_update;
+            l2_idx_update;
+            pe_0_0_compute;
+            pe_0_1_compute;
+            pe_0_2_compute;
+            pe_1_0_compute;
+            pe_1_1_compute;
+            pe_2_0_compute;
         }
         par {
-            t1_move; t2_move; pe_0_0_down_move; pe_0_1_down_move; pe_0_2_down_move; pe_1_0_down_move; pe_1_1_down_move; pe_0_0_right_move; pe_0_1_right_move; l1_move; pe_1_0_right_move; pe_1_1_right_move; l2_move; pe_2_0_right_move;
+            t1_move;
+            t2_move;
+            pe_0_0_down_move;
+            pe_0_1_down_move;
+            pe_0_2_down_move;
+            pe_1_0_down_move;
+            pe_1_1_down_move;
+            pe_0_0_right_move;
+            pe_0_1_right_move;
+            l1_move;
+            pe_1_0_right_move;
+            pe_1_1_right_move;
+            l2_move;
+            pe_2_0_right_move;
         }
         par {
-            t2_idx_update; l2_idx_update; pe_0_1_compute; pe_0_2_compute; pe_1_0_compute; pe_1_1_compute; pe_1_2_compute; pe_2_0_compute; pe_2_1_compute;
+            t2_idx_update;
+            l2_idx_update;
+            pe_0_1_compute;
+            pe_0_2_compute;
+            pe_1_0_compute;
+            pe_1_1_compute;
+            pe_1_2_compute;
+            pe_2_0_compute;
+            pe_2_1_compute;
         }
         par {
-            t2_move; pe_0_1_down_move; pe_0_2_down_move; pe_1_0_down_move; pe_1_1_down_move; pe_1_2_down_move; pe_0_1_right_move; pe_1_0_right_move; pe_1_1_right_move; l2_move; pe_2_0_right_move; pe_2_1_right_move;
+            t2_move;
+            pe_0_1_down_move;
+            pe_0_2_down_move;
+            pe_1_0_down_move;
+            pe_1_1_down_move;
+            pe_1_2_down_move;
+            pe_0_1_right_move;
+            pe_1_0_right_move;
+            pe_1_1_right_move;
+            l2_move;
+            pe_2_0_right_move;
+            pe_2_1_right_move;
         }
         par {
-            pe_0_2_compute; pe_1_1_compute; pe_1_2_compute; pe_2_0_compute; pe_2_1_compute; pe_2_2_compute;
+            pe_0_2_compute;
+            pe_1_1_compute;
+            pe_1_2_compute;
+            pe_2_0_compute;
+            pe_2_1_compute;
+            pe_2_2_compute;
         }
         par {
-            pe_0_2_down_move; pe_1_1_down_move; pe_1_2_down_move; pe_1_1_right_move; pe_2_0_right_move; pe_2_1_right_move;
+            pe_0_2_down_move;
+            pe_1_1_down_move;
+            pe_1_2_down_move;
+            pe_1_1_right_move;
+            pe_2_0_right_move;
+            pe_2_1_right_move;
         }
         par {
-            pe_1_2_compute; pe_2_1_compute; pe_2_2_compute;
+            pe_1_2_compute;
+            pe_2_1_compute;
+            pe_2_2_compute;
         }
         par {
-            pe_1_2_down_move; pe_2_1_right_move;
+            pe_1_2_down_move;
+            pe_2_1_right_move;
         }
         par {
             pe_2_2_compute;
         }
         seq {
-            pe_0_0_out_write; pe_0_1_out_write; pe_0_2_out_write; pe_1_0_out_write; pe_1_1_out_write; pe_1_2_out_write; pe_2_0_out_write; pe_2_1_out_write; pe_2_2_out_write;
+            pe_0_0_out_write;
+            pe_0_1_out_write;
+            pe_0_2_out_write;
+            pe_1_0_out_write;
+            pe_1_1_out_write;
+            pe_1_2_out_write;
+            pe_2_0_out_write;
+            pe_2_1_out_write;
+            pe_2_2_out_write;
         }
       }
     }

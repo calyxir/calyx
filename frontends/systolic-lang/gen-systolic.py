@@ -54,18 +54,29 @@ component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
 # Naming scheme for generated groups. Used to keep group names consistent
 # across structure and control.
 NAME_SCHEME = {
+    # Indexing into the memory
     'index name': '{prefix}_idx',
     'index init': '{prefix}_idx_init',
     'index update': '{prefix}_idx_update',
+
+    # Move data from main memories
     'memory move': '{prefix}_move',
-    'pe compute': 'pe_{row}_{col}_compute',
+    'out mem move': '{pe}_out_write',
+
+    # Move data between internal registers
     'register move down': '{pe}_down_move',
     'register move right': '{pe}_right_move',
-    'out mem move': '{pe}_out_write',
+
+    # XXX: This should be removed
+    'pe compute': 'pe_{row}_{col}_compute',
+    'pe move': 'pe_{row}_{col}_move',
 }
 
 
 def bits_needed(num):
+    """
+    Number of bits needed to represent `num`.
+    """
     return math.floor(math.log(num, 2)) + 1
 
 
@@ -172,7 +183,9 @@ def instantiate_memory(top_or_left, idx, size):
 def instantiate_pe(row, col, right_edge=False, down_edge=False):
     """
     Instantiate the PE and all the registers connected to it.
-    Returns (cells, structure) tuple.
+    Generates a group NAME_SCHEME['pe compute'] that enables the PE and
+    moves the data from top and left registers to bottom and right registers
+    respectively.
     """
     # Add all the required cells.
     pe = f'pe_{row}_{col}'
@@ -400,27 +413,31 @@ def generate_control(top_length, top_depth, left_length, left_depth):
         prefix=f't{idx}') for idx in range(top_length)]
     init_indices += [NAME_SCHEME['index init'].format(
         prefix=f'l{idx}') for idx in range(left_length)]
+
+    nodes = ";\n        ".join(init_indices)
     control.append(f'''
     par {{
-        {"; ".join(init_indices)};
+        {nodes};
     }}''')
 
     # Increment memories for PE_00 before computing with it.
     upd_pe00_mem = []
     upd_pe00_mem.append(NAME_SCHEME['index update'].format(prefix=f't0'))
     upd_pe00_mem.append(NAME_SCHEME['index update'].format(prefix=f'l0'))
+    nodes = ";\n        ".join(upd_pe00_mem)
     control.append(f'''
     par {{
-        {"; ".join(upd_pe00_mem)};
+        {nodes};
     }}''')
 
     for (idx, elements) in enumerate(sch):
         # Move all the requisite data.
         move = [row_data_mover_at(r, c) for (r, c) in elements]
         move += [col_data_mover_at(r, c) for (r, c) in elements]
+        nodes = ";\n            ".join(move)
         move_str = textwrap.indent(textwrap.dedent(f'''
         par {{
-            {"; ".join(move)};
+            {nodes};
         }}'''), " " * 4)
         control.append(move_str)
 
@@ -440,9 +457,10 @@ def generate_control(top_length, top_depth, left_length, left_depth):
             NAME_SCHEME['pe compute'].format(row=r, col=c) for (r, c) in elements
         ]
 
+        nodes = ";\n            ".join(more_control)
         more_control_str = textwrap.indent(textwrap.dedent(f'''
         par {{
-            {"; ". join(more_control)};
+            {nodes};
         }}'''), " " * 4)
 
         control.append(more_control_str)
@@ -453,9 +471,11 @@ def generate_control(top_length, top_depth, left_length, left_depth):
         for col in range(top_length):
             g = NAME_SCHEME['out mem move'].format(pe=f'pe_{row}_{col}')
             mover_groups.append(g)
+
+    nodes = ";\n        ".join(mover_groups)
     mover_control_str = textwrap.indent(textwrap.dedent(f'''
     seq {{
-        {"; ". join(mover_groups)};
+        {nodes};
     }}'''), " " * 4)
     control.append(mover_control_str)
 

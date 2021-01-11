@@ -120,25 +120,34 @@ component main() -> () {
       seq {
 
         par {
-            t0_idx_init; l0_idx_init;
+            t0_idx_init;
+            l0_idx_init;
         }
         par {
-            t0_idx_update; l0_idx_update;
+            t0_idx_update;
+            l0_idx_update;
         }
         par {
-            t0_move; l0_move;
+            t0_move;
+            l0_move;
         }
         par {
-            t0_idx_update; l0_idx_update; pe_0_0_compute;
+            t0_idx_update;
+            l0_idx_update;
+            pe_0_0_compute;
         }
         par {
-            t0_move; l0_move;
+            t0_move;
+            l0_move;
         }
         par {
-            t0_idx_update; l0_idx_update; pe_0_0_compute;
+            t0_idx_update;
+            l0_idx_update;
+            pe_0_0_compute;
         }
         par {
-            t0_move; l0_move;
+            t0_move;
+            l0_move;
         }
         par {
             pe_0_0_compute;
