@@ -1,7 +1,7 @@
 
 import "primitives/std.lib";
 
-component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
+component mac_pe(top: 32, left: 32) -> (out: 32) {
   cells {
     // Storage
     acc = prim std_reg(32);
@@ -31,8 +31,6 @@ component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
     }
 
     out = acc.out;
-    down = top;
-    right = left;
   }
 
   control {
@@ -158,19 +156,13 @@ component main() -> () {
           l1_move[done] = left_1_0_read.done;
       }
 
-      group pe_0_0_compute {
+      group pe_0_0_move {
 
-        pe_0_0.go = !pe_0_0.done ? 1'd1;
-        pe_0_0.top = top_0_0_read.out;
-        pe_0_0.left = left_0_0_read.out;
-
-        right_0_0_write.in = pe_0_0.done ? pe_0_0.right;
-        right_0_0_write.write_en = pe_0_0.done ? 1'd1;
-
-        down_0_0_write.in = pe_0_0.done ? pe_0_0.down;
-        down_0_0_write.write_en = pe_0_0.done ? 1'd1;
-
-        pe_0_0_compute[done] = right_0_0_write.done & down_0_0_write.done ? 1'd1;
+        right_0_0_write.in = left_0_0_read.out;
+        right_0_0_write.write_en = 1'd1;
+        down_0_0_write.in = top_0_0_read.out;
+        down_0_0_write.write_en = 1'd1;
+        pe_0_0_move[done] = 1'd1 & right_0_0_write.done & down_0_0_write.done ? 1'd1;
       }
 
       group pe_0_0_right_move {
@@ -193,16 +185,11 @@ component main() -> () {
           pe_0_0_out_write[done] = out_mem.done;
       }
 
-      group pe_0_1_compute {
+      group pe_0_1_move {
 
-        pe_0_1.go = !pe_0_1.done ? 1'd1;
-        pe_0_1.top = top_0_1_read.out;
-        pe_0_1.left = left_0_1_read.out;
-
-        down_0_1_write.in = pe_0_1.done ? pe_0_1.down;
-        down_0_1_write.write_en = pe_0_1.done ? 1'd1;
-
-        pe_0_1_compute[done] = down_0_1_write.done ? 1'd1;
+        down_0_1_write.in = top_0_1_read.out;
+        down_0_1_write.write_en = 1'd1;
+        pe_0_1_move[done] = 1'd1 & down_0_1_write.done ? 1'd1;
       }
 
       group pe_0_1_down_move {
@@ -219,16 +206,11 @@ component main() -> () {
           pe_0_1_out_write[done] = out_mem.done;
       }
 
-      group pe_1_0_compute {
+      group pe_1_0_move {
 
-        pe_1_0.go = !pe_1_0.done ? 1'd1;
-        pe_1_0.top = top_1_0_read.out;
-        pe_1_0.left = left_1_0_read.out;
-
-        right_1_0_write.in = pe_1_0.done ? pe_1_0.right;
-        right_1_0_write.write_en = pe_1_0.done ? 1'd1;
-
-        pe_1_0_compute[done] = right_1_0_write.done ? 1'd1;
+        right_1_0_write.in = left_1_0_read.out;
+        right_1_0_write.write_en = 1'd1;
+        pe_1_0_move[done] = 1'd1 & right_1_0_write.done ? 1'd1;
       }
 
       group pe_1_0_right_move {
@@ -245,14 +227,6 @@ component main() -> () {
           pe_1_0_out_write[done] = out_mem.done;
       }
 
-      group pe_1_1_compute {
-
-        pe_1_1.go = !pe_1_1.done ? 1'd1;
-        pe_1_1.top = top_1_1_read.out;
-        pe_1_1.left = left_1_1_read.out;
-
-        pe_1_1_compute[done] = pe_1_1.done ? 1'd1;
-      }
 
 
       group pe_1_1_out_write {
@@ -286,7 +260,8 @@ component main() -> () {
             l0_idx_update;
             t1_idx_update;
             l1_idx_update;
-            pe_0_0_compute;
+            invoke pe_0_0(top = top_0_0_read.out, left = left_0_0_read.out)();
+            pe_0_0_move;
         }
         par {
             t0_move;
@@ -301,9 +276,12 @@ component main() -> () {
             l0_idx_update;
             t1_idx_update;
             l1_idx_update;
-            pe_0_0_compute;
-            pe_0_1_compute;
-            pe_1_0_compute;
+            invoke pe_0_0(top = top_0_0_read.out, left = left_0_0_read.out)();
+            pe_0_0_move;
+            invoke pe_0_1(top = top_0_1_read.out, left = left_0_1_read.out)();
+            pe_0_1_move;
+            invoke pe_1_0(top = top_1_0_read.out, left = left_1_0_read.out)();
+            pe_1_0_move;
         }
         par {
             t0_move;
@@ -318,10 +296,13 @@ component main() -> () {
         par {
             t1_idx_update;
             l1_idx_update;
-            pe_0_0_compute;
-            pe_0_1_compute;
-            pe_1_0_compute;
-            pe_1_1_compute;
+            invoke pe_0_0(top = top_0_0_read.out, left = left_0_0_read.out)();
+            pe_0_0_move;
+            invoke pe_0_1(top = top_0_1_read.out, left = left_0_1_read.out)();
+            pe_0_1_move;
+            invoke pe_1_0(top = top_1_0_read.out, left = left_1_0_read.out)();
+            pe_1_0_move;
+            invoke pe_1_1(top = top_1_1_read.out, left = left_1_1_read.out)();
         }
         par {
             t1_move;
@@ -332,16 +313,18 @@ component main() -> () {
             pe_1_0_right_move;
         }
         par {
-            pe_0_1_compute;
-            pe_1_0_compute;
-            pe_1_1_compute;
+            invoke pe_0_1(top = top_0_1_read.out, left = left_0_1_read.out)();
+            pe_0_1_move;
+            invoke pe_1_0(top = top_1_0_read.out, left = left_1_0_read.out)();
+            pe_1_0_move;
+            invoke pe_1_1(top = top_1_1_read.out, left = left_1_1_read.out)();
         }
         par {
             pe_0_1_down_move;
             pe_1_0_right_move;
         }
         par {
-            pe_1_1_compute;
+            invoke pe_1_1(top = top_1_1_read.out, left = left_1_1_read.out)();
         }
         seq {
             pe_0_0_out_write;

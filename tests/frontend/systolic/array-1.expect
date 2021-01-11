@@ -1,7 +1,7 @@
 
 import "primitives/std.lib";
 
-component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
+component mac_pe(top: 32, left: 32) -> (out: 32) {
   cells {
     // Storage
     acc = prim std_reg(32);
@@ -31,8 +31,6 @@ component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
     }
 
     out = acc.out;
-    down = top;
-    right = left;
   }
 
   control {
@@ -97,14 +95,6 @@ component main() -> () {
           l0_move[done] = left_0_0_read.done;
       }
 
-      group pe_0_0_compute {
-
-        pe_0_0.go = !pe_0_0.done ? 1'd1;
-        pe_0_0.top = top_0_0_read.out;
-        pe_0_0.left = left_0_0_read.out;
-
-        pe_0_0_compute[done] = pe_0_0.done ? 1'd1;
-      }
 
 
       group pe_0_0_out_write {
@@ -134,7 +124,7 @@ component main() -> () {
         par {
             t0_idx_update;
             l0_idx_update;
-            pe_0_0_compute;
+            invoke pe_0_0(top = top_0_0_read.out, left = left_0_0_read.out)();
         }
         par {
             t0_move;
@@ -143,14 +133,14 @@ component main() -> () {
         par {
             t0_idx_update;
             l0_idx_update;
-            pe_0_0_compute;
+            invoke pe_0_0(top = top_0_0_read.out, left = left_0_0_read.out)();
         }
         par {
             t0_move;
             l0_move;
         }
         par {
-            pe_0_0_compute;
+            invoke pe_0_0(top = top_0_0_read.out, left = left_0_0_read.out)();
         }
         seq {
             pe_0_0_out_write;

@@ -12,7 +12,7 @@ PE_NAME = 'mac_pe'
 # Name of the ouput array
 OUT_MEM = 'out_mem'
 PE_DEF = """
-component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
+component mac_pe(top: 32, left: 32) -> (out: 32) {
   cells {
     // Storage
     acc = prim std_reg(32);
@@ -42,8 +42,6 @@ component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
     }
 
     out = acc.out;
-    down = top;
-    right = left;
   }
 
   control {
@@ -67,8 +65,7 @@ NAME_SCHEME = {
     'register move down': '{pe}_down_move',
     'register move right': '{pe}_right_move',
 
-    # XXX: This should be removed
-    'pe compute': 'pe_{row}_{col}_compute',
+    # Move data between PEs
     'pe move': 'pe_{row}_{col}_move',
 }
 
@@ -183,18 +180,22 @@ def instantiate_memory(top_or_left, idx, size):
 def instantiate_pe(row, col, right_edge=False, down_edge=False):
     """
     Instantiate the PE and all the registers connected to it.
-    Generates a group NAME_SCHEME['pe compute'] that enables the PE and
+    Generates a group NAME_SCHEME['pe move'] that enables the PE and
     moves the data from top and left registers to bottom and right registers
     respectively.
     """
     # Add all the required cells.
     pe = f'pe_{row}_{col}'
-    group = NAME_SCHEME['pe compute'].format(row=row, col=col)
+    group = NAME_SCHEME['pe move'].format(row=row, col=col)
     cells = [
         f'{pe} = {PE_NAME};',
         create_register(f'top_{row}_{col}_read', BITWIDTH),
         create_register(f'left_{row}_{col}_read', BITWIDTH),
     ]
+
+    # If this is the last PE in the array, skip generating the group
+    if right_edge and down_edge:
+        return ('\n'.join(cells), '')
 
     # Instantiate registers forward registers if this is not on the edge of the
     # compute fabric.
@@ -203,39 +204,30 @@ def instantiate_pe(row, col, right_edge=False, down_edge=False):
     if not down_edge:
         cells.append(create_register(f'down_{row}_{col}_write', BITWIDTH))
 
-    structure_stmts = f"""
-            {pe}.go = !{pe}.done ? 1'd1;
-            {pe}.top = top_{row}_{col}_read.out;
-            {pe}.left = left_{row}_{col}_read.out;"""
+    structure_stmts = ""
 
     # Ports guarding the done condition for this group.
-    done_guards = []
+    done_guards = ["1'd1"]
 
     if not right_edge:
+        src_reg = f'left_{row}_{col}_read'
         dst_reg = f'right_{row}_{col}_write'
         done_guards.append(f"{dst_reg}.done")
         structure_stmts += f"""
-
-            {dst_reg}.in = {pe}.done ? {pe}.right;
-            {dst_reg}.write_en = {pe}.done ? 1'd1;"""
+            {dst_reg}.in = {src_reg}.out;
+            {dst_reg}.write_en = 1'd1;"""
 
     if not down_edge:
+        src_reg = f'top_{row}_{col}_read'
         dst_reg = f'down_{row}_{col}_write'
         done_guards.append(f"{dst_reg}.done")
         structure_stmts += f"""
-
-            {dst_reg}.in = {pe}.done ? {pe}.down;
-            {dst_reg}.write_en = {pe}.done ? 1'd1;"""
-
-    # Special case: If there is no write register guard, guard using the
-    # the PE.
-    if len(done_guards) == 0:
-        done_guards.append(f"{pe}.done")
+            {dst_reg}.in = {src_reg}.out;
+            {dst_reg}.write_en = 1'd1;"""
 
     # Add the done condition for this group.
     guard = ' & '.join(done_guards)
     structure_stmts += f"""
-
             {group}[done] = {guard} ? 1'd1;"""
 
     structure = f"""
@@ -452,10 +444,15 @@ def generate_control(top_length, top_depth, left_length, left_depth):
             ]
             more_control += upd_memory
 
-        # Enable the PEs
-        more_control += [
-            NAME_SCHEME['pe compute'].format(row=r, col=c) for (r, c) in elements
-        ]
+        # Invoke the PEs and move the data to the next layer.
+        for (r, c) in elements:
+            more_control += [
+                f'invoke pe_{r}_{c}(top = top_{r}_{c}_read.out, left = left_{r}_{c}_read.out)()',
+            ]
+            if (c != top_length - 1) or (r != left_length - 1):
+                more_control += [
+                    NAME_SCHEME['pe move'].format(row=r, col=c)
+                ]
 
         nodes = ";\n            ".join(more_control)
         more_control_str = textwrap.indent(textwrap.dedent(f'''
