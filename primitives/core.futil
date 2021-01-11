@@ -51,8 +51,8 @@ extern "core.sv" {
     @go(1) write_en: 1,
     clk: 1
   ) -> (
-    @done(1) read_data: width,
-    done: 1
+    read_data: width,
+    @done(1) done: 1
   );
 
   primitive std_mem_d3<"static"=1>[
@@ -105,7 +105,7 @@ extern "core.sv" {
     write_data: width,
     @go(1) write_en: 1,
     clk: 1
-  ) -> (read_data: width, done: 1);
+  ) -> (read_data: width, @done(1) done: 1);
 
   primitive std_mem_d2_ext<"static"=1>[
     width,
