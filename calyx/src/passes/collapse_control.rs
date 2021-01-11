@@ -62,7 +62,8 @@ impl Visitor for CollapseControl {
                 _ => seqs.push(con),
             }
         }
-        Ok(Action::Change(ir::Control::seq(seqs)))
+        s.stmts = seqs;
+        Ok(Action::Continue)
     }
 
     /// Collapse par { par { A }; B } into par { A; B }.
@@ -84,6 +85,7 @@ impl Visitor for CollapseControl {
                 _ => pars.push(con),
             }
         }
-        Ok(Action::Change(ir::Control::par(pars)))
+        s.stmts = pars;
+        Ok(Action::Continue)
     }
 }

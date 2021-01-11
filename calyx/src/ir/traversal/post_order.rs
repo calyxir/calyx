@@ -72,8 +72,8 @@ impl PostOrder {
         self.order
             .clone()
             .iter()
-            .map(|idx| upd(&mut self.comps[idx.index()]))
-            .collect::<FutilResult<_>>()
+            .try_for_each(|idx| upd(&mut self.comps[idx.index()]))?;
+        Ok(())
     }
 
     /// Returns the underlying component vector in original order.
