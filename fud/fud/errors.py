@@ -11,8 +11,12 @@ class FudError(Exception):
 
 
 class NoFile(FudError):
-    def __init__(self):
-        super().__init__("No filename or type provided for exec.")
+    def __init__(self, possible_dests=None):
+        msg = "No filename or type provided for exec."
+        if possible_dests is not None:
+            dests = ",".join(map(lambda e: e.dest, possible_dests))
+            msg += f"\nPossible destination stages: [{dests}]"
+        super().__init__(msg)
 
 
 class UnknownExtension(FudError):

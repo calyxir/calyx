@@ -8,19 +8,20 @@ from .stages import Source, SourceType
 from . import errors, utils
 
 
-def discover_implied_stage(filename, config):
+def discover_implied_stage(filename, config, possible_dests=None):
     """
     Use the mapping from filename extensions to stages to figure out which
     stage was implied.
     """
     if filename is None:
-        raise errors.NoFile()
+        raise errors.NoFile(possible_dests)
 
     suffix = Path(filename).suffix
     for (name, stage) in config['stages'].items():
-        for ext in stage['file_extensions']:
-            if suffix == ext:
-                return name
+        if 'file_extensions' in stage:
+            for ext in stage['file_extensions']:
+                if suffix == ext:
+                    return name
 
     # no stages corresponding with this file extension where found
     raise errors.UnknownExtension(filename)
@@ -47,7 +48,11 @@ def run_fud(args, config):
     # find target
     target = args.dest
     if target is None:
-        target = discover_implied_stage(args.output_file, config)
+        target = discover_implied_stage(
+            args.output_file,
+            config,
+            possible_dests=config.REGISTRY.nodes[source]
+        )
 
     path = config.REGISTRY.make_path(source, target)
     if path is None:

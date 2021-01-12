@@ -10,9 +10,7 @@ class SystolicStage(Stage):
                          'Generates a matrix multiply using a systolic array architecture')
 
     def _define(self):
-
         main = Step(SourceType.Nothing)
-
         script = Path(self.config['global', 'futil_directory']) / 'frontends' / 'systolic-lang' / 'gen-systolic.py'
         flags = ""
         def f(inp, _ctx):

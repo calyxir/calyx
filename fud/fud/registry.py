@@ -3,7 +3,6 @@ from collections import namedtuple
 
 Edge = namedtuple('Edge', ['dest', 'stage'])
 
-
 # TODO: assuming there is only a single path
 class Registry:
     def __init__(self, config):
