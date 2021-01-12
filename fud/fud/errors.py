@@ -48,7 +48,8 @@ class MissingDynamicConfiguration(FudError):
 
     def __init__(self, variable):
         msg = (
-            f"`{variable}' needs to be set. "
+            "Provide an input file or "
+            + f"`{variable}' needs to be set. "
             + "Use the runtime configuration flag to provide a value: '-s {variable} <value>'."
         )
         super().__init__(msg)

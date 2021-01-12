@@ -5,6 +5,7 @@ import textwrap
 import math
 import numpy as np
 import argparse
+import json
 
 # Global constant for the current bitwidth.
 BITWIDTH = 32
@@ -505,18 +506,37 @@ import "primitives/std.lib";
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('-tl', '--top-length', type=int, required=True)
-    parser.add_argument('-td', '--top-depth', type=int, required=True)
-    parser.add_argument('-ll', '--left-length', type=int, required=True)
-    parser.add_argument('-ld', '--left-depth', type=int, required=True)
+    parser.add_argument('file', nargs='?', type=str)
+    parser.add_argument('-tl', '--top-length', type=int)
+    parser.add_argument('-td', '--top-depth', type=int)
+    parser.add_argument('-ll', '--left-length', type=int)
+    parser.add_argument('-ld', '--left-depth', type=int)
 
     args = parser.parse_args()
 
+    top_length, top_depth, left_length, left_depth = None, None, None, None
+
+    fields = [args.top_length, args.top_depth, args.left_length, args.left_depth]
+    if all(map(lambda x: x is not None, fields)):
+        top_length = args.top_length
+        top_depth = args.top_depth
+        left_length = args.left_length
+        left_depth = args.left_depth
+    elif args.file is not None:
+        with open(args.file, 'r') as f:
+            spec = json.load(f)
+            top_length = spec['top_length']
+            top_depth = spec['top_depth']
+            left_length = spec['left_length']
+            left_depth= spec['left_depth']
+    else:
+        parser.error("Need to pass either `-f FILE` or all of `-tl TOP_LENGTH -td TOP_DEPTH -ll LEFT_LENGTH -ld LEFT_DEPTH`")
+
     out = create_systolic_array(
-        top_length=args.top_length,
-        top_depth=args.top_depth,
-        left_length=args.left_length,
-        left_depth=args.left_depth,
+        top_length=top_length,
+        top_depth=top_depth,
+        left_length=left_length,
+        left_depth=left_depth,
     )
 
     print(out)

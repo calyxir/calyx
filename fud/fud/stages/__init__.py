@@ -158,48 +158,62 @@ class Step:
 
             return self.func(input_src, ctx)
 
+    def _run_cmd(self, cmd, inp, ctx):
+        proc = None
+        stdout = TemporaryFile()
+        stderr = None
+        if not is_debug():
+            stderr = TemporaryFile()
+        if inp.source_type == SourceType.Path:
+            ctx["input_path"] = inp.data
+            log.debug("  - [*] {}".format(cmd.format(ctx=ctx)))
+            proc = subprocess.Popen(
+                cmd.format(ctx=ctx),
+                shell=True,
+                stdout=stdout,
+                stderr=stderr,
+                env=os.environ,
+            )
+        else:
+            log.debug("  - [*] pipe: {}".format(cmd.format(ctx=ctx)))
+            proc = subprocess.Popen(
+                cmd.format(ctx=ctx),
+                shell=True,
+                stdin=inp.data,
+                stdout=stdout,
+                stderr=stderr,
+                env=os.environ,
+            )
+
+        proc.wait()
+        # move read pointers back to the beginning
+        stdout.seek(0)
+
+        stderr_text = ""
+        if not is_debug():
+            stderr.seek(0)
+            stderr_text = stderr.read().decode("UTF-8")
+
+        return (stdout, stderr_text, proc)
+
     def set_cmd(self, cmd):
         def f(inp, ctx):
             nonlocal cmd
-            proc = None
-            stdout = TemporaryFile()
-            stderr = None
-            if not is_debug():
-                stderr = TemporaryFile()
-            if inp.source_type == SourceType.Path:
-                ctx["input_path"] = inp.data
-                log.debug("  - [*] {}".format(cmd.format(ctx=ctx)))
-                proc = subprocess.Popen(
-                    cmd.format(ctx=ctx),
-                    shell=True,
-                    stdout=stdout,
-                    stderr=stderr,
-                    env=os.environ,
-                )
-            else:
-                log.debug("  - [*] pipe: {}".format(cmd.format(ctx=ctx)))
-                proc = subprocess.Popen(
-                    cmd.format(ctx=ctx),
-                    shell=True,
-                    stdin=inp.data,
-                    stdout=stdout,
-                    stderr=stderr,
-                    env=os.environ,
-                )
-
-            proc.wait()
-            # move read pointers back to the beginning
-            stdout.seek(0)
-
-            stderr_text = ""
-            if not is_debug():
-                stderr.seek(0)
-                stderr_text = stderr.read().decode("UTF-8")
-
+            (stdout, stderr_text, proc) = self._run_cmd(cmd, inp, ctx)
             return (Source(stdout, SourceType.File), stderr_text, proc.returncode)
 
         self.func = f
         self.description = cmd
+
+    def set_dynamic_cmd(self, cmd_func, description):
+        def f(inp, ctx):
+            cmd = cmd_func(inp, ctx)
+            (stdout, stderr_text, proc) = self._run_cmd(cmd, inp, ctx)
+            return (Source(stdout, SourceType.File), stderr_text, proc.returncode)
+
+        self.func = f
+        self.description = description
+
 
     def set_func(self, func, description):
         def f(inp, ctx):

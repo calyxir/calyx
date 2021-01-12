@@ -69,7 +69,8 @@ def run_fud(args, config):
             color='cyan',
             stream=sys.stderr,
             enabled=spinner_enabled) as sp:
-        inp = Source(str(input_file), SourceType.Path)
+        src_data = str(input_file) if input_file is not None else None
+        inp = Source(src_data, SourceType.Path)
         for i, ed in enumerate(path):
             sp.start(f"{ed.stage.name} → {ed.stage.target_stage}")
             (result, stderr, retcode) = ed.stage.transform(

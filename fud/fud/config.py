@@ -51,6 +51,7 @@ DEFAULT_CONFIGURATION = {
             'file_extensions': ['.dat']
         },
         'systolic': {
+            'file_extensions': ['.systolic'],
             'flags': None
         },
         'vivado': {
