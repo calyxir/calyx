@@ -16,8 +16,9 @@ class RPTParser:
     @staticmethod
     def _clean_and_strip(elems):
         "Remove all empty elements from the list and strips each string element."
-        m = map(lambda e: e.strip(), elems)
-        return list(filter(lambda e: e != '\n' and e != '', m))
+        nonempty = filter(lambda e: e != '\n' and e != '', elems)
+        m = map(lambda e: e.strip(), nonempty)
+        return list(map(lambda e: 'index' if e == '' else e, m))
 
     @staticmethod
     def _parse_simple_header(line):
