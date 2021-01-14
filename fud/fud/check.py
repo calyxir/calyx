@@ -16,7 +16,7 @@ VERSIONS = {
     'verilog': {
         'flag': '--version',
         'extract': lambda out: out.split(' ')[1],
-        'version': '4.100',
+        'version': '4.038',
         'compare': '>=',
         'help': 'Try building from source: https://www.veripool.org/projects/verilator/wiki/Installing'
     },
