@@ -87,6 +87,16 @@ fud e {} --to dat -s verilog.data ntt/ntt.data -q
 """
 
 [[tests]]
+name = "NTT cycle count"
+paths = [ "ntt/cooley-tukey/*.fuse", "ntt/naive/*.fuse" ]
+cmd = """
+fud e --from dahlia {} --to vcd_json \
+      -s verilog.data ntt/ntt.data \
+      -s futil.exec './target/debug/futil' \
+      -q | jq -f ntt/ntt.jq
+"""
+
+[[tests]]
 name = "mrxl correctness"
 paths = [ "frontends/mrxl/test/*.mrxl" ]
 cmd = """
