@@ -87,3 +87,13 @@ class SourceConversion(FudError):
     def __init__(self, source_t, dst_t):
         msg = f"Can't convert from {source_t} to {dst_t}"
         super().__init__(msg)
+
+
+class RemoteLibsNotInstalled(FudError):
+    """
+    Libraries needed for remote use of tools are not installed.
+    """
+
+    def __init__(self):
+        msg = f"Attempted to use remote features without both [paramiko, scp] installed. Install them and try again."
+        super().__init__(msg)

@@ -18,5 +18,11 @@ requires = [
          "packaging"
 ]
 
+[tool.flit.metadata.requires-extra]
+remote = [
+       "paramiko",
+       "scp"
+]
+
 [tool.flit.scripts]
 fud = "fud.main:main"
