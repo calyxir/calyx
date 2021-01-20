@@ -1,0 +1,68 @@
+/* Cooley-Tukey Radix2 DIT Algorithm -- Optimized.
+
+   This algorithm avoids the bit-reversal step in the
+   "on-the-fly" portion of the NTT algorithm by conducting
+   the bit-reversal in the pre-calculated phis.
+   A pre-condition for this algorithm is that the
+   `phis` are computed in bit-reversal order, where
+
+        `phi`^2 = `omega`
+
+   This optimization is possible because we can use
+   the Gentleman-Sande decimation-in-frequency
+   inverse NTT algorithm to return to normal
+   ordering again.
+
+   Reference:
+   - https://www.microsoft.com/en-us/research/wp-content/uploads/2016/05/RLWE-1.pdf
+*/
+
+// Input array; writes will be done in-place.
+decl a: bit<32>[32];
+
+// `Q` must satisfy the following properties:
+//  (1) Q = 2 * n * k + 1, for some k.
+//  (2) Q is a prime number.
+//  (3) Q >= min_modulus > n
+//  (4) Q is equivalent to 1 mod 2n.
+decl Q: bit<32>[1];
+
+// `phis` must be in bit-reversed order.
+decl phis: bit<32>[32];
+
+// Length of the input. `n` must be a power of 2.
+let n: ubit<6> = 32;
+
+let q: bit<32> = Q[0];
+let t: ubit<6> = n;
+let m: ubit<6> = 1;
+
+---
+
+while (m < n) {
+  t := t >> 1;
+  let i: ubit<6> = 0;
+  while (i < m) {
+    let j1: ubit<6> = i *  (t << 1);
+    let j2: ubit<6> = j1 + t - 1;
+    let S: bit<32> = phis[m + i];
+    ---
+    let j: ubit<6> = j1;
+
+    while (j < j2 + 1) {
+      let U: bit<32> = a[j];
+      ---
+      let V: bit<32> = a[j + t] * S;
+      ---
+      a[j] := (U + V) % q;
+      ---
+      a[j + t] := (U - V) % q;
+      ---
+      j := j + 1;
+    }
+    ---
+    i := i + 1;
+  }
+  ---
+  m := m << 1;
+}
