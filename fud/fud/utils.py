@@ -53,7 +53,7 @@ def logging_setup(args):
 
     try:
         import paramiko
-        if args.verbose >= 2:
+        if 'verbose' in args and args.verbose >= 2:
             paramiko.util.logging.getLogger().setLevel(log.DEBUG)
         else:
             paramiko.util.logging.getLogger().setLevel(log.ERROR)
