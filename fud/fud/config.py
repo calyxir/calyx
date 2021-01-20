@@ -57,8 +57,11 @@ DEFAULT_CONFIGURATION = {
         'vivado': {
             'exec': 'vivado'
         },
-        'vivado_hls': {
-            'exec': 'vivado_hls'
+        'vivado-hls': {
+            'exec': 'vivado_hls',
+            'ssh_host': '',
+            'ssh_username': '',
+            'remote': None
         }
     }
 }

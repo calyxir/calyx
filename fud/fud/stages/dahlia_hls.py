@@ -6,7 +6,7 @@ class DahliaHLSStage(Stage):
     Stage that transforms Dahlia programs to Vivado HLS C++.
     """
     def __init__(self, config):
-        super().__init__('dahlia', 'cpp', config,
+        super().__init__('dahlia', 'vivado-hls', config,
                          'Compiles Dahlia to Vivado HLS C++')
 
     def _define(self):

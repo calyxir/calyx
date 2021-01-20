@@ -2,6 +2,8 @@ import sys
 import logging
 import logging as log
 
+from . import errors
+
 
 def eprint(*args, **kwargs):
     print(*args, **kwargs, file=sys.stderr)
@@ -48,3 +50,12 @@ def logging_setup(args):
         stream=sys.stderr,
         level=level
     )
+
+    try:
+        import paramiko
+        if 'verbose' in args and args.verbose >= 2:
+            paramiko.util.logging.getLogger().setLevel(log.DEBUG)
+        else:
+            paramiko.util.logging.getLogger().setLevel(log.ERROR)
+    except ModuleNotFoundError:
+        raise errors.RemoteLibsNotInstalled

@@ -1,3 +1,153 @@
+//! This analysis implements a parallel version of a classic liveness analysis.
+//! For each group, it returns a list of the registers that are "alive" during
+//! an execution of a group.
+//!
+//! ## Parallel Analog to a CFG
+//! The `par` statement introduces a new kind of control branching that can
+//! not be captured by a traditional CFG.
+//!
+//! Consider whether `x` is alive at `foo` in the following program.
+//! ```
+//! seq {
+//!   wr_x; // writes register x
+//!   foo;
+//!   par {
+//!     wr_x2; // writes register x
+//!     bar;
+//!   }
+//!   rd_x; // reads register x
+//! }
+//! ```
+//! `x` is not alive at `foo` because there are no reads to `x` before
+//! `wr_x2` is executed which writes to `x` again. Note that `wr_x2` is always
+//! executed.
+//!
+//! We might try and represent the `par` branching with a normal CFG like this:
+//! ```
+//!       +------+
+//!       | wr_x |
+//!       +--+---+
+//!          |
+//!          v
+//!       +--+--+
+//!    +--+ foo +--+
+//!    |  +-----+  |
+//!    |           |
+//!    v           v
+//! +--+----+   +--+--+
+//! | wr_x2 |   | bar |
+//! +--+----+   +--+--+
+//!    |           |
+//!    +------+----+
+//!           |
+//!           v
+//!       +------+
+//!       | rd_x |
+//!       +------+
+//! ```
+//! But then this program is identical to
+//! ```
+//! seq {
+//!   wr_x; // writes register x
+//!   foo;
+//!   if blah.out with B {
+//!     wr_x2; // writes register x
+//!   } else {
+//!     bar;
+//!   }
+//!   rd_x; // reads register x
+//! }
+//! ```
+//! which has different semantics. In particular `x` is still alive at `foo` because
+//! `wr_x2` may not be executed.
+//!
+//! We need to augment the traditional CFG to account for `par`.
+//!
+//! ## A Parallel CFG
+//! The representation should:
+//!  1) Have the same properties as a normal CFG when no parallelism is present.
+//!  2) Threads of a `par` block should not have to know that they are in a `par` (i.e. are just CFGs themselves)
+//!  3) External to the `par` block, the information of running all threads in `par` should be visible.
+//!
+//! To address these concerns, we use a parallel CFG (pCFG) based on
+//! [Analyzing programs with explicit parallelism](https://link.springer.com/chapter/10.1007%2FBFb0038679).
+//! We introduce a new kind of node in the CFG called a `par node`. A `par node` represents an entire
+//! `par` block. The above program with `par` would look like:
+//! ```
+//! +------+
+//! | wr_x |
+//! +--+---+
+//!    |
+//!    v
+//! +--+--+
+//! | foo |
+//! +--+--+
+//!    |
+//!    v
+//! +--+---+
+//! | par1 |
+//! +--+---+
+//!    |
+//!    v
+//! +--+---+
+//! | rd_x |
+//! +------+
+//! ```
+//! For each `par node`, we associate a list of pCFGs where each pCFG represents a thread.
+//! Each thread starts with a `begin par` node and ends with a `end par` node.
+//!
+//! These are the graphs associated with `par1`.
+//! ```
+//! First thread:    Second thread:
+//! +----------+      +----------+
+//! |begin par1|      |begin par1|
+//! +--+-------+      +-+--------+
+//!    |                |
+//!    v                v
+//! +--+--+           +-+-+
+//! |wr_x2|           |bar|
+//! +--+--+           +-+-+
+//!    |                |
+//!    v                v
+//! +--+-----+        +-+------+
+//! |end par1|        |end par1|
+//! +--------+        +--------+
+//! ```
+//!
+//! The idea with the `begin/end parx` nodes is that these will handle the flow
+//! of information in and out of the threads. For example, you could write these equations:
+//! ```
+//! out(begin par1) = in(par1)
+//! out(par1) = join over all in(end par1)
+//! ```
+//!
+//! ## Definition of Liveness
+//! Now we finally come to the definition of "liveness" and how we use the pCFG to compute this.
+//!
+//! We say a register `x` is "live" at a node `p` in the CFG if there is a write to `x` ordered before
+//! `p` (such that there are no more writes to `x` at a point between that and `p`) and if there is a read
+//! of `x` ordered after `p` (such that there are no writes between that and `p`).
+//!
+//! We define the following equations (assuming a reversed direction dataflow analysis):
+//! ```
+//! for some node n:
+//!   gen(n) = registers that may be read in n
+//!   kill(n) = register that must be written to in n
+//!   live_in(n) = union over live_out(pred(n))
+//!   live_out(n) = (live_in(n) - kill(n)) + gen(n)
+//! for some par node p:
+//!   gen(p) = union over gen(n) for sub-nodes n in p
+//!   kill(p) = union over kill(n) for sub-nodes n in p
+//!   live_in(p) = union over live_out(pred(p))
+//!   live_out(p) = (live_in(p) - kill(p)) + gen(p)
+//! ```
+//! The main place this analysis differs from traditional liveness analysis
+//! is the definition of `gen(p)` and `kill(p)` for `par` nodes. These are the
+//! union of the `gen`s and `kill`s of all of their sub-nodes. Intuitively we
+//! are treating `par` blocks as if they were just a single group. Note that this
+//! is overly conservative because we are potentially ignoring ordering
+//! information of the threads.
+
 use crate::{
     analysis::{ReadWriteSet, VariableDetection},
     ir::{self, RRC},
@@ -55,7 +205,8 @@ impl Debug for Prop {
 
 impl Prop {
     /// Defines the dataflow transfer function.
-    /// This is the standard definition for liveness.
+    /// We use the standard definition for liveness:
+    ///   `(alive - kill) + gen`
     fn transfer(self, gen: &Prop, kill: &Prop) -> Self {
         &(&self - kill) | gen
     }

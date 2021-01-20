@@ -164,7 +164,7 @@ class Step:
         stderr = None
         if not is_debug():
             stderr = TemporaryFile()
-        if inp.source_type == SourceType.Path:
+        if inp.source_type == SourceType.Path or inp.source_type == SourceType.TmpDir:
             ctx["input_path"] = inp.data
             log.debug("  - [*] {}".format(cmd.format(ctx=ctx)))
             proc = subprocess.Popen(
@@ -213,7 +213,6 @@ class Step:
 
         self.func = f
         self.description = description
-
 
     def set_func(self, func, description):
         def f(inp, ctx):
