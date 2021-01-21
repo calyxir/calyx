@@ -54,8 +54,11 @@ DEFAULT_CONFIGURATION = {
             'file_extensions': ['.systolic'],
             'flags': None
         },
-        'vivado': {
-            'exec': 'vivado'
+        'synth-verilog': {
+            'exec': 'vivado',
+            'ssh_host': '',
+            'ssh_username': '',
+            'remote': None
         },
         'vivado-hls': {
             'exec': 'vivado_hls',
