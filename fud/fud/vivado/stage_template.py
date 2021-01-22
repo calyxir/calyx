@@ -82,7 +82,7 @@ class VivadoTemplateStage(Stage):
                         " ".join(device_files),
                         "{ctx[tmpdir]}",
                         "&&",
-                        "cp {ctx[input_path]} {ctx[tmpdir]}/kernel.cpp",
+                        f"cp {{ctx[input_path]}} {{ctx[tmpdir]}}/{src_file}",
                     ]
                 )
             )

@@ -58,4 +58,4 @@ def logging_setup(args):
         else:
             paramiko.util.logging.getLogger().setLevel(log.ERROR)
     except ModuleNotFoundError:
-        raise errors.RemoteLibsNotInstalled
+        pass

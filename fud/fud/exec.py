@@ -93,6 +93,7 @@ def run_fud(args, config):
                     sp.fail()
                 else:
                     sp.stop()
+                log.error(stderr)
                 exit(retcode)
         sp.stop()
 
