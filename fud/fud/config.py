@@ -92,8 +92,24 @@ class DynamicDict:
         data = self.data
         lastkey = keys[-1]
         for k in keys[:-1]:  # when assigning drill down to *second* last key
-            data = data[k]
+            # if key exists, drill down
+            if k in data:
+                data = data[k]
+            # else make a new empty dictionary, then drill down
+            else:
+                data[k] = {}
+                data = data[k]
         data[lastkey] = val
+
+    def __delitem__(self, keys):
+        if isinstance(keys, str):
+            keys = (keys,)
+
+        data = self.data
+        lastkey = keys[-1]
+        for k in keys[:-1]:  # when assigning drill down to *second* last key
+            data = data[k]
+        del data[lastkey]
 
     def __contains__(self, keys):
         data = self.data
@@ -176,13 +192,6 @@ class Configuration:
         if changed:
             self.commit()
 
-    def touch(self, path):
-        if path in self.config:
-            return
-        for i in range(len(path), 0, -1):
-            if path[:i] in self.config:
-                self.config[path[:i]] = rest_of_path(path[i:])
-
     def __getitem__(self, keys):
         try:
             return self.config[keys]
@@ -191,6 +200,9 @@ class Configuration:
 
     def __setitem__(self, keys, val):
         self.config[keys] = val
+
+    def __delitem__(self, keys):
+        del self.config[keys]
 
     def __contains__(self, keys):
         return keys in self.config

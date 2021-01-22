@@ -73,12 +73,15 @@ def register_stages(registry, cfg):
 
 def display_config(args, cfg):
     if args.key is None:
-        print(cfg.config_file)
+        print(f"Configuration file location: {cfg.config_file}")
         print()
         cfg.display()
     else:
         path = args.key.split(".")
-        if args.value is None:
+        if args.delete:
+            del cfg[path]
+            cfg.commit()
+        elif args.value is None:
             # print out values
             res = cfg[path]
             if isinstance(res, dict):
@@ -86,12 +89,15 @@ def display_config(args, cfg):
             else:
                 print(res)
         else:
-            cfg.touch(path)
-            if not isinstance(cfg[path], list):
+            # create configuration if it doesn't exist
+            if path not in cfg:
                 cfg[path] = args.value
-                cfg.commit()
+            elif not isinstance(cfg[path], list):
+                cfg[path] = args.value
             else:
-                raise Exception("NYI: supporting updating lists")
+                raise Exception("NYI: supporting updating lists. " +
+                                "Manually edit the file.")
+            cfg.commit()
 
 
 def info(args, cfg):
@@ -184,6 +190,12 @@ def config_config(parser):
         'value',
         help='The value to write.',
         nargs='?'
+    )
+    parser.add_argument(
+        '-d',
+        '--delete',
+        help='Remove key from config.',
+        action='store_true'
     )
     parser.set_defaults(func=display_config)
 
