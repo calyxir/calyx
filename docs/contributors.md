@@ -2,16 +2,21 @@
 
 Here is a list of all the people who have worked on FuTIL:
 
-- Sam Thomas
+**Current Contributors**
+
+- [Sam Thomas](https://sgtpeacock.com/)
 - [Rachit Nigam](https://rachitnigam.com)
 - [Adrian Sampson](https://adriansampson.net)
-- Neil Adit
 - Ted Bauer
 - YooNa Chang
-- Kenneth Fang
 - Chris Gyurgyik
-- Zhijing Li
-- [Yuwei Ye](https://www.viviyye.com/)
 - Karen Zhang
 
-If you're missing from this list, please open a PR!
+**Previous Contributors**
+
+- [Neil Adit](https://neiladit.com/)
+- Kenneth Fang
+- [Zhijing Li](https://tissue3.github.io/)
+- [Yuwei Ye](https://www.viviyye.com/)
+
+If you're missing from this list, please [add yourself](https://github.com/cucapra/futil/edit/master/docs/contributors.md)!
