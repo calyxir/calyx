@@ -1,6 +1,7 @@
 import argparse
 import toml
 import logging as log
+from sys import exit
 
 from .config import Configuration
 from .registry import Registry
@@ -73,8 +74,7 @@ def register_stages(registry, cfg):
 
 def display_config(args, cfg):
     if args.key is None:
-        print(f"Configuration file location: {cfg.config_file}")
-        print()
+        print(f"Configuration file location: {cfg.config_file}\n")
         cfg.display()
     else:
         path = args.key.split(".")
@@ -100,10 +100,6 @@ def display_config(args, cfg):
             cfg.commit()
 
 
-def info(args, cfg):
-    print(cfg.REGISTRY)
-
-
 def main():
     """Builds the command line argument parser,
     parses the arguments, and returns the results."""
@@ -111,6 +107,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Driver to execute FuTIL and supporting toolchains"
     )
+    # Name of the subparser stored in command
     subparsers = parser.add_subparsers()
 
     config_run(subparsers.add_parser(
@@ -133,25 +130,33 @@ def main():
         help="Check to make sure configuration is valid.",
         description="Check to make sure configuration is valid."))
 
-    cfg = Configuration()
-
-    # Build the registry.
-    cfg.REGISTRY = Registry(cfg)
-    register_stages(cfg.REGISTRY, cfg)
-
     args = parser.parse_args()
-
     # Setup logging
     utils.logging_setup(args)
 
-    if 'func' in args:
-        try:
-            args.func(args, cfg)
-        except errors.FudError as e:
-            log.error(e)
-            exit(-1)
-    else:
+    if 'command' not in args:
         parser.print_help()
+        exit(-1)
+
+    try:
+        cfg = Configuration()
+
+        # Build the registry if stage information is going to be used.
+        if args.command in ('exec', 'info'):
+            cfg.REGISTRY = Registry(cfg)
+            register_stages(cfg.REGISTRY, cfg)
+
+        if args.command == 'exec':
+            exec.run_fud(args, cfg)
+        elif args.command == 'info':
+            print(cfg.REGISTRY)
+        elif args.command == 'config':
+            display_config(args, cfg)
+        elif args.command == 'check':
+            check.check(cfg)
+
+    except errors.FudError as e:
+        log.error(e)
         exit(-1)
 
 
@@ -177,7 +182,7 @@ def config_run(parser):
                         help='Enable verbose logging')
     parser.add_argument('-q', '--quiet', action='store_true')
     parser.add_argument('input_file', help='Path to the input file', nargs='?')
-    parser.set_defaults(func=exec.run_fud)
+    parser.set_defaults(command='exec')
 
 
 def config_config(parser):
@@ -197,12 +202,12 @@ def config_config(parser):
         help='Remove key from config.',
         action='store_true'
     )
-    parser.set_defaults(func=display_config)
+    parser.set_defaults(command='config')
 
 
 def config_info(parser):
-    parser.set_defaults(func=info)
+    parser.set_defaults(command='info')
 
 
 def config_check(parser):
-    parser.set_defaults(func=check.check)
+    parser.set_defaults(command='check')

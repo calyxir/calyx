@@ -3,6 +3,7 @@ from termcolor import colored, cprint
 import shutil
 import subprocess
 from packaging import version
+import sys
 
 
 VERSIONS = {
@@ -45,19 +46,25 @@ VERSIONS = {
 def version_compare(cmp_str, installed, required):
     if cmp_str == ">=":
         return version.parse(installed) >= version.parse(required)
-    elif cmp_str == "==":
+    if cmp_str == "==":
         return version.parse(installed) == version.parse(required)
-    elif cmp_str == "<=":
+    if cmp_str == "<=":
         return version.parse(installed) <= version.parse(required)
-    elif cmp_str == "status_is_not":
+    if cmp_str == "status_is_not":
         return required not in installed
+
+    raise Exception(f"Unknown compare string: {cmp_str}")
 
 
 def check_version(name, exec_path):
     try:
         if name in VERSIONS:
             info = VERSIONS[name]
-            proc = subprocess.run([exec_path, info['flag']], stdout=subprocess.PIPE)
+            proc = subprocess.run(
+                [exec_path, info['flag']],
+                stdout=subprocess.PIPE,
+                check=False,
+            )
             install = info['extract'](proc.stdout.decode('UTF-8')).strip()
             if version_compare(info['compare'], install, info['version']):
                 cprint(" ✔", 'green', end=' ')
@@ -68,24 +75,24 @@ def check_version(name, exec_path):
                 print(")", end='')
                 print(".")
                 return True
-            else:
-                cprint(" ✖", 'red', end=' ')
-                print("Found version", end=' ')
-                cprint(f"{install},", 'yellow', end=' ')
-                print(f"but need version {info['compare']} ", end='')
-                cprint(f"{info['version']}", 'yellow', end='')
-                print(".")
-                if 'help' in info:
-                    cprint(f"   {info['help']}")
-                return False
-        else:
-            return True
+
+            cprint(" ✖", 'red', end=' ')
+            print("Found version", end=' ')
+            cprint(f"{install},", 'yellow', end=' ')
+            print(f"but need version {info['compare']} ", end='')
+            cprint(f"{info['version']}", 'yellow', end='')
+            print(".")
+            if 'help' in info:
+                cprint(f"   {info['help']}")
+            return False
+
+        return True
     except OSError as e:
         cprint(" ✖", 'red', end=' ')
         print(f"Error during version check: {e}")
 
 
-def check(args, cfg):
+def check(cfg):
     cfg.launch_wizard()
 
     # check global
@@ -140,4 +147,4 @@ def check(args, cfg):
 
     # exit with -1 if something went wrong
     if len(uninstalled) > 0 or len(wrong_version) > 0:
-        exit(-1)
+        sys.exit(-1)

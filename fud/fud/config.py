@@ -1,7 +1,8 @@
-from pathlib import Path
 import appdirs
 import toml
 import sys
+import logging as log
+from pathlib import Path
 from pprint import PrettyPrinter
 
 from .utils import eprint
@@ -133,8 +134,8 @@ def wizard(table, data):
                 if path.exists():
                     table[key] = str(path.resolve())
                     break
-                else:
-                    eprint(f"{path} doesn't exist.")
+
+                eprint(f"{path} doesn't exist.")
 
     return table
 
@@ -161,7 +162,8 @@ class Configuration:
         self.config = DynamicDict(toml.load(self.config_file))
         self.wizard_data = DynamicDict(wizard_data)
         self.fill_missing(DEFAULT_CONFIGURATION, self.config.data)
-        # self.commit()
+        if ('global', 'futil_directory') not in self.config:
+            log.warn("global.futil_directory is not set in the configuration")
 
     def commit(self):
         toml.dump(self.config.data, self.config_file.open('w'))

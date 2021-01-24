@@ -1,9 +1,10 @@
 # Summary
 
 - [Getting Started](./intro.md)
+- [Compiler Documentation](./compiler-docs.md)
 - [The FuTIL Compiler](./compiler.md)
 - [Tools](./tools/index.md)
-    - [CLI Driver](./tools/fud.md)
+    - [`fud`: CLI Driver](./tools/fud.md)
     - [Runt](./tools/runt.md)
 - [Language Tutorial](./tutorial/langtut.md)
   - [Multi-Component Designs](./lang/multi-component.md)
