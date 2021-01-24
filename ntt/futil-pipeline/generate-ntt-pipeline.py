@@ -159,10 +159,8 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
         return pp_block('group {}'.format(group_name), '\n'.join(wires))
 
     def control():
-        preambles = ['preamble_{};'.format(r) for r in range(n)]
-        epilogues = ['epilogue_{};'.format(r) for r in range(n)]
-        preambles = pp_block('seq', '\n'.join(preambles))
-        epilogues = pp_block('seq', '\n'.join(epilogues))
+        preambles = pp_block('seq', '\n'.join(['preamble_{};'.format(r) for r in range(n)]))
+        epilogues = pp_block('seq', '\n'.join(['epilogue_{};'.format(r) for r in range(n)]))
 
         ntt_stages = []
         for s in range(num_stages):
