@@ -161,7 +161,11 @@ class Configuration:
         self.config = DynamicDict(toml.load(self.config_file))
         self.wizard_data = DynamicDict(wizard_data)
         self.fill_missing(DEFAULT_CONFIGURATION, self.config.data)
-        # self.commit()
+        if ('global', 'futil_directory') not in self.config:
+            if sys.stdout.isatty():
+                self.launch_wizard()
+            else:
+                raise errors.UnsetConfiguration(('global', 'futil_directory'))
 
     def commit(self):
         toml.dump(self.config.data, self.config_file.open('w'))

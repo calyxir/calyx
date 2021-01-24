@@ -133,25 +133,25 @@ def main():
         help="Check to make sure configuration is valid.",
         description="Check to make sure configuration is valid."))
 
-    cfg = Configuration()
+    try:
+        cfg = Configuration()
 
-    # Build the registry.
-    cfg.REGISTRY = Registry(cfg)
-    register_stages(cfg.REGISTRY, cfg)
+        # Build the registry.
+        cfg.REGISTRY = Registry(cfg)
+        register_stages(cfg.REGISTRY, cfg)
 
-    args = parser.parse_args()
+        args = parser.parse_args()
 
-    # Setup logging
-    utils.logging_setup(args)
+        # Setup logging
+        utils.logging_setup(args)
 
-    if 'func' in args:
-        try:
-            args.func(args, cfg)
-        except errors.FudError as e:
-            log.error(e)
+        if 'func' in args:
+                args.func(args, cfg)
+        else:
+            parser.print_help()
             exit(-1)
-    else:
-        parser.print_help()
+    except errors.FudError as e:
+        log.error(e)
         exit(-1)
 
 
