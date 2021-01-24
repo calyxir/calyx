@@ -92,7 +92,7 @@ def check_version(name, exec_path):
         print(f"Error during version check: {e}")
 
 
-def check(_, cfg):
+def check(cfg):
     cfg.launch_wizard()
 
     # check global
