@@ -21,8 +21,8 @@ def is_debug():
 def unwrap_or(val, default):
     if val is not None:
         return val
-    else:
-        return default
+
+    return default
 
 
 def logging_setup(args):

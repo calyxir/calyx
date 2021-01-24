@@ -133,8 +133,8 @@ def wizard(table, data):
                 if path.exists():
                     table[key] = str(path.resolve())
                     break
-                else:
-                    eprint(f"{path} doesn't exist.")
+
+                eprint(f"{path} doesn't exist.")
 
     return table
 
