@@ -26,15 +26,15 @@ def generate(size, bitwidth):
 def modulate_size(size, banks):
     if len(size) == len(banks):
         return (np.array(size) // np.array(banks)).tolist()
-    else:
-        return [0]
+
+    return [0]
 
 
 def replace(mapping, key):
     if type(key) == int:
         return key
-    else:
-        return mapping[key]
+
+    return mapping[key]
 
 
 def main(path, all_random):

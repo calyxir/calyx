@@ -57,12 +57,12 @@ class SourceType(Enum):
     def __str__(self):
         if self == SourceType.Path:
             return "Path"
-        elif self == SourceType.Nothing:
+        if self == SourceType.Nothing:
             return "Nothing"
-        elif self == SourceType.File:
+        if self == SourceType.File:
             return "File"
-        else:
-            return "TmpDir"
+
+        return "TmpDir"
 
 
 class Source:
@@ -186,22 +186,22 @@ class Step:
         if dry_run:
             print(f"     - {self.description}")
             return (None, None, 0)
+
+        # convert input type to desired input type
+        if self.desired_input_type == SourceType.Path:
+            input_src.to_path()
+        elif self.desired_input_type == SourceType.File:
+            input_src.to_pipe()
+
+        # update context with step specific items
+        if last:
+            for key, value in self.last_context.items():
+                ctx[key] = value
         else:
-            # convert input type to desired input type
-            if self.desired_input_type == SourceType.Path:
-                input_src.to_path()
-            elif self.desired_input_type == SourceType.File:
-                input_src.to_pipe()
+            for key in self.last_context.keys():
+                ctx[key] = ""
 
-            # update context with step specific items
-            if last:
-                for key, value in self.last_context.items():
-                    ctx[key] = value
-            else:
-                for key in self.last_context.keys():
-                    ctx[key] = ""
-
-            return self.func(input_src, ctx)
+        return self.func(input_src, ctx)
 
     def _run_cmd(self, cmd, inp, ctx):
         if self.desired_input_type != SourceType.Nothing and inp.source_type == SourceType.Nothing:

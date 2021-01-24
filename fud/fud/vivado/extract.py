@@ -10,20 +10,18 @@ def find_row(table, colname, key, certain=True):
             return row
     if certain:
         raise Exception(f"{key} was not found in column: {colname}")
-    else:
-        return None
+
+    return None
 
 def safe_get(d, key):
     if d is not None and key in d:
         return d[key]
-    else:
-        return -1
+    return -1
 
 def to_int(s):
     if s == '-':
         return 0
-    else:
-        return int(s)
+    return int(s)
 
 
 def file_contains(regex, filename):
