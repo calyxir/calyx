@@ -1,7 +1,8 @@
-from pathlib import Path
 import appdirs
 import toml
 import sys
+import logging as log
+from pathlib import Path
 from pprint import PrettyPrinter
 
 from .utils import eprint
@@ -162,10 +163,7 @@ class Configuration:
         self.wizard_data = DynamicDict(wizard_data)
         self.fill_missing(DEFAULT_CONFIGURATION, self.config.data)
         if ('global', 'futil_directory') not in self.config:
-            if sys.stdout.isatty():
-                self.launch_wizard()
-            else:
-                raise errors.UnsetConfiguration(('global', 'futil_directory'))
+            log.warn("global.futil_directory is not set in the configuration")
 
     def commit(self):
         toml.dump(self.config.data, self.config_file.open('w'))
