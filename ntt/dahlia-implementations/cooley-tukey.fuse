@@ -1,4 +1,6 @@
-/* Cooley-Tukey Radix2 DIT Algorithm. */
+/* Cooley-Tukey Radix2 DIT Algorithm.
+   Takes in omegas in normal ordering.
+*/
 
 decl a: bit<32>[32];
 decl prime: bit<32>[1];

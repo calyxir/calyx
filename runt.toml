@@ -79,24 +79,10 @@ fud e --from systolic --to vcd_json \
 """
 
 [[tests]]
-name = "NTT correctness"
-paths = [ "ntt/cooley-tukey/*.fuse", "ntt/naive/*.fuse", "ntt/cooley-tukey-optimized/*.fuse" ]
+name = "NTT pipeline correctness"
+paths = [ "ntt/futil-pipeline/correctness/*.futil" ]
 cmd = """
 fud e {} --to dat -s verilog.data {}.data -q
-"""
-
-[[tests]]
-name = "NTT cycle count"
-paths = [
-          "ntt/naive/cycle-count/*.fuse",
-          "ntt/cooley-tukey/cycle-count/*.fuse",
-          "ntt/cooley-tukey-optimized/cycle-count/*.fuse"
-        ]
-cmd = """
-fud e --from dahlia {} --to vcd_json \
-      -s verilog.data {}.data \
-      -s futil.exec './target/debug/futil' \
-      -q | jq -f ntt/ntt.jq
 """
 
 [[tests]]
