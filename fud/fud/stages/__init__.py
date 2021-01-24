@@ -176,7 +176,7 @@ class Step:
                     another process.
     """
 
-    def __init__(self, desired_input_type, last_context={}):
+    def __init__(self, desired_input_type, last_context=Context({})):
         self.func = None
         self.description = "No description provided."
         self.desired_input_type = desired_input_type
@@ -215,7 +215,7 @@ class Step:
             stderr = TemporaryFile()
         if inp.source_type == SourceType.Path or inp.source_type == SourceType.TmpDir:
             ctx["input_path"] = inp.data
-            log.debug("  - [*] {}".format(cmd.format(ctx=ctx)))
+            log.debug("  - [*] %s", cmd.format(ctx=ctx))
             proc = subprocess.Popen(
                 cmd.format(ctx=ctx),
                 shell=True,
@@ -224,7 +224,7 @@ class Step:
                 env=os.environ,
             )
         else:
-            log.debug("  - [*] pipe: {}".format(cmd.format(ctx=ctx)))
+            log.debug("  - [*] pipe: %s", cmd.format(ctx=ctx))
             proc = subprocess.Popen(
                 cmd.format(ctx=ctx),
                 shell=True,

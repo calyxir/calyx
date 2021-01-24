@@ -6,9 +6,6 @@ class FudError(Exception):
     An error caught by the FuTIL Driver.
     """
 
-    def __init__(self, msg):
-        super().__init__(msg)
-
 
 class NoFile(FudError):
     def __init__(self, possible_dests=None):

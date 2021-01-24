@@ -83,7 +83,7 @@ class VivadoHLSExtractStage(Stage):
         # make temporary directory
         extract = Step(SourceType.Nothing)
 
-        def f(inp, ctx):
+        def f(inp, _):
             res = None
             if inp.source_type == SourceType.TmpDir:
                 res = hls_extract(Path(inp.data.name))

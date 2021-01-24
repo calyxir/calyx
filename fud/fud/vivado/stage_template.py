@@ -3,13 +3,17 @@ from tempfile import TemporaryDirectory
 from .. import errors
 from fud.stages import Source, SourceType, Stage, Step
 
-
 class VivadoTemplateStage(Stage):
     """
     TODO(rachit): Document this.
     """
     def __init__(self, name, target, config, descr):
         super().__init__(name, target, config, descr)
+        self.use_ssh = False
+        self.ssh_host = None
+        self.ssh_user = None
+        self.ssh_client = None
+        self.scp_client = None
 
     def _config_ssh(self):
         if self.config["stages", self.name, "remote"] is not None:
@@ -17,11 +21,8 @@ class VivadoTemplateStage(Stage):
             try:
                 from paramiko import SSHClient as ssh
                 from scp import SCPClient as scp
-
-                global SSHClient
-                global SCPClient
-                SSHClient = ssh
-                SCPClient = scp
+                self.ssh_client = ssh
+                self.scp_client = scp
             except ModuleNotFoundError:
                 raise errors.RemoteLibsNotInstalled
 
@@ -38,7 +39,7 @@ class VivadoTemplateStage(Stage):
 
             def f(inp, ctx):
                 if self.use_ssh:
-                    ssh = SSHClient()
+                    ssh = self.ssh_client()
                     ssh.load_system_host_keys()
                     ssh.connect(self.ssh_host, username=self.ssh_user)
                     ctx["ssh_client"] = ssh
@@ -71,7 +72,7 @@ class VivadoTemplateStage(Stage):
         if self.use_ssh:
 
             def f(inp, ctx):
-                with SCPClient(ctx["ssh_client"].get_transport()) as scp:
+                with self.scp_client(ctx["ssh_client"].get_transport()) as scp:
                     scp.put(device_files, remote_path=ctx["tmpdir"])
                     scp.put(inp.data, remote_path=f'{ctx["tmpdir"]}/{src_file}')
                 return (inp, None, 0)
@@ -98,7 +99,7 @@ class VivadoTemplateStage(Stage):
             def f(inp, ctx):
                 if self.use_ssh:
                     tmpdir = TemporaryDirectory()
-                    with SCPClient(ctx["ssh_client"].get_transport()) as scp:
+                    with self.scp_client(ctx["ssh_client"].get_transport()) as scp:
                         scp.get(
                             ctx["tmpdir"], local_path=f"{tmpdir.name}", recursive=True
                         )
@@ -137,7 +138,7 @@ class VivadoTemplateStage(Stage):
         # output directory
         output = Step(SourceType.Nothing)
 
-        def f(inp, ctx):
+        def f(_, ctx):
             return (Source(ctx["tmpdir_obj"], SourceType.TmpDir), None, 0)
 
         output.set_func(f, "Output synthesis directory.")

@@ -57,7 +57,11 @@ def check_version(name, exec_path):
     try:
         if name in VERSIONS:
             info = VERSIONS[name]
-            proc = subprocess.run([exec_path, info['flag']], stdout=subprocess.PIPE)
+            proc = subprocess.run(
+                [exec_path, info['flag']],
+                stdout=subprocess.PIPE,
+                check=False,
+            )
             install = info['extract'](proc.stdout.decode('UTF-8')).strip()
             if version_compare(info['compare'], install, info['version']):
                 cprint(" ✔", 'green', end=' ')
@@ -85,7 +89,7 @@ def check_version(name, exec_path):
         print(f"Error during version check: {e}")
 
 
-def check(args, cfg):
+def check(_, cfg):
     cfg.launch_wizard()
 
     # check global

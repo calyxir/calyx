@@ -1,7 +1,6 @@
 from pathlib import Path
 
-from fud.stages import Source, SourceType, Stage, Step
-from .. import errors
+from fud.stages import SourceType, Stage, Step
 
 
 class SystolicStage(Stage):
