@@ -134,8 +134,8 @@ jobs:
     - name: Install fud
       run: |
         cd fud
-        echo $PATH
         flit install
+        echo "============= Setting Fud configuration =============="
         fud config global.futil_directory '/home/runner/work/futil/futil'
         fud config stages.dahlia.exec '/home/runner/work/futil/futil/dahlia/fuse'
         fud config stages.futil.exec './target/debug/futil'
