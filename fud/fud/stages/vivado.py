@@ -85,13 +85,14 @@ class VivadoExtractStage(Stage):
         # extract
         extract = Step(SourceType.Nothing)
 
-        def f(inp, ctx):
+        def f(inp, _):
             res = None
             if inp.source_type == SourceType.TmpDir:
                 res = futil_extract(Path(inp.data.name))
             else:
                 res = futil_extract(Path(inp.data))
             return (Source(BytesIO(res.encode('UTF-8')), SourceType.File), None, 0)
+
         extract.set_func(f, 'Extract information.')
 
         return [extract]
