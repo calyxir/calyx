@@ -6,9 +6,37 @@ import subprocess
 import sys
 from enum import Enum
 from tempfile import NamedTemporaryFile, TemporaryFile
+from collections.abc import MutableMapping
 
 from .. import errors
 from ..utils import is_debug
+
+
+class Context(MutableMapping):
+    """
+    Context object supplied to commands that run Stages and Steps.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.store = dict()
+        self.update(dict(*args, **kwargs))  # use the free update to set keys
+
+    def __getitem__(self, key):
+        if key not in self.store:
+            raise errors.ContextKeyMissing(key)
+        return self.store[key]
+
+    def __setitem__(self, key, value):
+        self.store[key] = value
+
+    def __delitem__(self, key):
+        del self.store[key]
+
+    def __iter__(self):
+        return iter(self.store)
+
+    def __len__(self):
+        return len(self.store)
 
 
 class SourceType(Enum):
@@ -26,11 +54,25 @@ class SourceType(Enum):
     TmpDir = 3
     Nothing = 4
 
+    def __str__(self):
+        if self == SourceType.Path:
+            return "Path"
+        elif self == SourceType.Nothing:
+            return "Nothing"
+        elif self == SourceType.File:
+            return "File"
+        else:
+            return "TmpDir"
+
 
 class Source:
     def __init__(self, data, source_type):
-        self.data = data
         self.source_type = source_type
+        if (source_type != SourceType.Nothing and data is None) or \
+                (source_type == SourceType.Nothing and data is not None):
+            raise errors.InvalidSource(source_type, data)
+
+        self.data = data
 
     def to_pipe(self):
         """Converts an arbitrary source into a SourceType.File"""
@@ -40,7 +82,7 @@ class Source:
         elif self.source_type == SourceType.File:
             pass
         elif self.source_type == SourceType.TmpDir:
-            raise errors.SourceConversion(self.source_type, SourceType.Pipe)
+            raise errors.SourceConversion(self.source_type, "pipe")
         elif self.source_type == SourceType.Nothing:
             self.data = sys.stdout
             self.source_type = SourceType.File
@@ -90,8 +132,11 @@ class Stage:
         return []
 
     def transform(self, input_src, dry_run=False, last=False):
+        """
+        Run the steps to execute this Stage.
+        """
         steps = self._define()
-        ctx = {}
+        ctx = Context({})
 
         prev_out = input_src
         ret = None
@@ -137,7 +182,7 @@ class Step:
         self.desired_input_type = desired_input_type
         self.last_context = last_context
 
-    def run(self, input_src, ctx={}, dry_run=False, last=False):
+    def run(self, input_src, ctx, dry_run, last):
         if dry_run:
             print(f"     - {self.description}")
             return (None, None, 0)
@@ -159,6 +204,10 @@ class Step:
             return self.func(input_src, ctx)
 
     def _run_cmd(self, cmd, inp, ctx):
+        if self.desired_input_type != SourceType.Nothing and inp.source_type == SourceType.Nothing:
+            raise errors.UnexpectedSourceType(
+                self.desired_input_type, inp.source_type)
+
         proc = None
         stdout = TemporaryFile()
         stderr = None
@@ -197,6 +246,9 @@ class Step:
         return (stdout, stderr_text, proc)
 
     def set_cmd(self, cmd):
+        """
+        Set the command for this stage.
+        """
         def f(inp, ctx):
             nonlocal cmd
             (stdout, stderr_text, proc) = self._run_cmd(cmd, inp, ctx)
@@ -206,6 +258,12 @@ class Step:
         self.description = cmd
 
     def set_dynamic_cmd(self, cmd_func, description):
+        """
+        Set the command for this stage.
+        Unlike `set_cmd`, `cmd` provided to this uses the context to build
+        itself. Useful when, for example, the command needs CLI opts from the
+        context.
+        """
         def f(inp, ctx):
             cmd = cmd_func(inp, ctx)
             (stdout, stderr_text, proc) = self._run_cmd(cmd, inp, ctx)
@@ -215,6 +273,9 @@ class Step:
         self.description = description
 
     def set_func(self, func, description):
+        """
+        TODO(rachit): Document this.
+        """
         def f(inp, ctx):
             log.debug(description)
             return func(inp, ctx)
