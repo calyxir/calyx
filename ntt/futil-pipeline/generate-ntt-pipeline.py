@@ -19,7 +19,7 @@ def generate_pipeline_operations(n, num_stages):
     pattern:
       `a[i] +- (a[j] * phis[p])`
 
-    From this, we can have a log2(n) x n array that stores the tuple value:
+    From this, we can have a log2(`n`) x `n` array that stores the tuple value:
       `(i, op, j, p)`
       where `i` is the input index of the lhs,
             `j` is the input index of the rhs,
@@ -57,14 +57,17 @@ def pp_table(structure, n, num_stages):
     print('\n'.join(table))
 
 
-def generate_ntt_pipeline(n, input_bitwidth, q):
+def generate_ntt_pipeline(input_bitwidth, n, q):
     """
     Prints a pipeline in FuTIL for the cooley-tukey algorithm
     that uses phis in bit-reversed order.
 
-    n: Length of the input array.
-    input_bitwidth: Bit width of the values in the input array.
-    q: The modulus value.
+    `n`:
+      Length of the input array.
+    `input_bitwidth`:
+      Bit width of the values in the input array.
+    `q`:
+      The modulus value.
 
     Reference:
     https://www.microsoft.com/en-us/research/wp-content/uploads/2016/05/RLWE-1.pdf
@@ -75,7 +78,7 @@ def generate_ntt_pipeline(n, input_bitwidth, q):
 
     structure = generate_pipeline_operations(n, num_stages)
 
-    # These are used to determine the component of the index
+    # Used to determine the index of the component
     # for the `sadd` and `ssub` primitives.
     component_counts = {'add': 0, 'sub': 0}
 
@@ -212,4 +215,4 @@ def generate_ntt_pipeline(n, input_bitwidth, q):
 
 
 if __name__ == '__main__':
-    generate_ntt_pipeline(n=512, input_bitwidth=32, q=514049)
+    generate_ntt_pipeline(input_bitwidth=32, n=4, q=97)
