@@ -5,6 +5,9 @@ from fud.stages import Source, SourceType, Stage, Step
 
 
 class VivadoTemplateStage(Stage):
+    """
+    TODO(rachit): Document this.
+    """
     def __init__(self, name, target, config, descr):
         super().__init__(name, target, config, descr)
 

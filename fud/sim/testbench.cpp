@@ -26,7 +26,7 @@ int main(int argc, char **argv, char **env) {
   if (argc >= 4) {
     trace = std::strcmp(argv[3], "--trace") == 0;
   }
-  //printf("Tracing: %d\n", trace);
+
   VerilatedVcdC *tfp;
   if (trace) {
     Verilated::traceEverOn(true);

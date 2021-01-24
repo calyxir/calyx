@@ -67,10 +67,10 @@ fud exec -s verilog.cycle_limit 500 \
 
 [[tests]]
 name = "systolic array correctness"
-paths = [ "tests/correctness/systolic/*.txt" ]
+paths = [ "tests/correctness/systolic/*.systolic" ]
 cmd = """
 fud e --from systolic --to vcd_json \
-      -s systolic.flags "$(cat {})" \
+      {} \
       -s verilog.data {}.data \
       -s futil.exec './target/debug/futil' \
       -q \
@@ -115,7 +115,7 @@ fud e {} --to futil -q \
 
 [[tests]]
 name = "systolic array frontend"
-paths = [ "tests/frontend/systolic/array-*.txt" ]
+paths = [ "tests/frontend/systolic/array-*.systolic" ]
 cmd = """
-./frontends/systolic-lang/gen-systolic.py $(cat {})
+./frontends/systolic-lang/gen-systolic.py {}
 """

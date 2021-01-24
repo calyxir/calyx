@@ -39,12 +39,13 @@ def logging_setup(args):
 
     # set verbosity level
     level = None
-    if 'verbose' not in args or args.verbose <= 0:
+    if 'verbose' not in args or args.verbose == 0:
         level = log.WARNING
-    elif args.verbose <= 1:
+    elif args.verbose == 1:
         level = log.INFO
-    elif args.verbose <= 2:
+    elif args.verbose >= 2:
         level = log.DEBUG
+
     logging.basicConfig(
         format='%(levelname)s: %(message)s',
         stream=sys.stderr,
@@ -53,9 +54,6 @@ def logging_setup(args):
 
     try:
         import paramiko
-        if 'verbose' in args and args.verbose >= 2:
-            paramiko.util.logging.getLogger().setLevel(log.DEBUG)
-        else:
-            paramiko.util.logging.getLogger().setLevel(log.ERROR)
+        paramiko.util.logging.getLogger().setLevel(level)
     except ModuleNotFoundError:
         pass
