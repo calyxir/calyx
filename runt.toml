@@ -86,6 +86,13 @@ fud e {} --to dat -s verilog.data {}.data -q
 """
 
 [[tests]]
+name = "NTT frontend generation"
+paths = [ "ntt/futil-pipeline/generation/*.txt" ]
+cmd = """
+python3 ntt/futil-pipeline/generation/generate-ntt-pipeline.py < {}
+"""
+
+[[tests]]
 name = "mrxl correctness"
 paths = [ "frontends/mrxl/test/*.mrxl" ]
 cmd = """

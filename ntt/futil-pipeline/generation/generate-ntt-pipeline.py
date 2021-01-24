@@ -213,4 +213,15 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
 
 
 if __name__ == '__main__':
-    generate_ntt_pipeline(input_bitwidth=32, n=4, q=97)
+    """
+    Expects a file in the following format:
+      ```
+      input_bitwidth: <input0>
+      n: <input1>
+      q: <input2>
+      ```
+    """
+    import sys
+
+    inputs = [int(''.join(filter(str.isdigit, line))) for line in sys.stdin]
+    generate_ntt_pipeline(input_bitwidth=inputs[0], n=inputs[1], q=inputs[2])
