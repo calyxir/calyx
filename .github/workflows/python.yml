@@ -7,6 +7,8 @@ jobs:
     name: Check Formatting
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v2
       - uses: RojerGS/python-black-check@master
         with:
           line-length: 88
@@ -20,4 +22,4 @@ jobs:
       - uses: TrueBrain/actions-flake8@master
         with:
           max_line_length: 88
-          path: fud
+          path: 'fud'
