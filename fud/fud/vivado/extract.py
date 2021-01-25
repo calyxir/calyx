@@ -3,6 +3,8 @@ import sys
 import re
 import json
 
+from .. import errors
+
 
 def find_row(table, colname, key, certain=True):
     for row in table:
@@ -115,6 +117,5 @@ def hls_extract(directory):
             'best_latency': to_int(latency['LatencyBest']),
             'worst_latency': to_int(latency['LatencyWorst']),
         }, indent=2)
-    except Exception as e:
-        print(e)
-        print("HLS files weren't found, skipping.", file=sys.stderr)
+    except FileNotFoundError as e:
+        raise errors.MissingFile(e.filename)
