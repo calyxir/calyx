@@ -80,16 +80,9 @@ fud e --from systolic --to vcd_json \
 
 [[tests]]
 name = "NTT pipeline correctness"
-paths = [ "ntt/futil-pipeline/correctness/*.futil" ]
+paths = [ "tests/correctness/ntt-pipeline/*.futil" ]
 cmd = """
 fud e {} --to dat -s verilog.data {}.data -q
-"""
-
-[[tests]]
-name = "NTT frontend generation"
-paths = [ "ntt/futil-pipeline/generation/*.txt" ]
-cmd = """
-python3 ntt/futil-pipeline/generation/generate-ntt-pipeline.py < {}
 """
 
 [[tests]]
@@ -124,4 +117,11 @@ name = "systolic array frontend"
 paths = [ "tests/frontend/systolic/array-*.systolic" ]
 cmd = """
 ./frontends/systolic-lang/gen-systolic.py {}
+"""
+
+[[tests]]
+name = "NTT pipeline frontend generation"
+paths = [ "tests/frontend/ntt-pipeline/*.txt" ]
+cmd = """
+python3 frontends/ntt-pipeline/gen-ntt-pipeline.py {}
 """

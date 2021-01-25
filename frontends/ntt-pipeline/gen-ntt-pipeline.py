@@ -213,15 +213,30 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
 
 
 if __name__ == '__main__':
-    """
-    Expects a file in the following format:
-      ```
-      input_bitwidth: <input0>
-      n: <input1>
-      q: <input2>
-      ```
-    """
-    import sys
+    import sys, argparse, json
 
-    inputs = [int(''.join(filter(str.isdigit, line))) for line in sys.stdin]
-    generate_ntt_pipeline(input_bitwidth=inputs[0], n=inputs[1], q=inputs[2])
+    parser = argparse.ArgumentParser(description='NTT')
+    parser.add_argument('file', nargs='?', type=str)
+    parser.add_argument('-b', '--input_bitwidth', type=int)
+    parser.add_argument('-n', '--input_size', type=int)
+    parser.add_argument('-q', '--modulus', type=int)
+
+    args = parser.parse_args()
+
+    input_bitwidth, input_size, modulus = None, None, None
+
+    fields = [args.input_bitwidth, args.input_size, args.modulus]
+    if all(map(lambda x: x is not None, fields)):
+        input_bitwidth = args.input_bitwidth
+        input_size = args.input_size
+        modulus = args.modulus
+    elif args.file is not None:
+        with open(args.file, 'r') as f:
+            spec = json.load(f)
+            input_bitwidth = spec['input_bitwidth']
+            input_size = spec['input_size']
+            modulus = spec['modulus']
+    else:
+        parser.error("Need to pass either `-f FILE` or all of `-b INPUT_BITWIDTH -n INPUT_SIZE -q MODULUS`")
+
+    generate_ntt_pipeline(input_bitwidth, input_size, modulus)

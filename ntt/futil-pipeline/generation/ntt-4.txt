@@ -1,3 +1,0 @@
-input_bitwidth: 32
-n: 4
-q: 97
