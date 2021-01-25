@@ -11,7 +11,7 @@ jobs:
       - uses: actions/setup-python@v2
       - uses: psf/black@stable
         with:
-          black_args: ". --check"
+          black_args: "fud --check"
   lint:
     name: Run Linter
     runs-on: ubuntu-latest
