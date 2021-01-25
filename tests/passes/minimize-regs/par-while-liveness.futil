@@ -2,17 +2,17 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    a_src0 = prim std_mem_d1_ext(32,8,4);
+    @external(1) a_src0 = prim std_mem_d1(32,8,4);
     a_src_read0_0 = prim std_reg(32);
-    a_tar0 = prim std_mem_d1_ext(32,8,4);
+    @external(1) a_tar0 = prim std_mem_d1(32,8,4);
     add0 = prim std_add(4);
     add1 = prim std_add(4);
     add2 = prim std_add(4);
-    b_src0 = prim std_mem_d1_ext(32,8,4);
+    @external(1) b_src0 = prim std_mem_d1(32,8,4);
     b_src_read0_0 = prim std_reg(32);
-    b_tar0 = prim std_mem_d1_ext(32,8,4);
-    c_src0 = prim std_mem_d1_ext(32,8,4);
-    c_tar0 = prim std_mem_d1_ext(32,8,4);
+    @external(1) b_tar0 = prim std_mem_d1(32,8,4);
+    @external(1) c_src0 = prim std_mem_d1(32,8,4);
+    @external(1) c_tar0 = prim std_mem_d1(32,8,4);
     c_tar_read0_0 = prim std_reg(32);
     const0 = prim std_const(4,0);
     const1 = prim std_const(4,7);

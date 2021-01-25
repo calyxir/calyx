@@ -1,7 +1,7 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    A0 = prim std_mem_d1_ext(32,8,4);
+    @external(1) A0 = prim std_mem_d1(32,8,4);
     acc_0 = prim std_reg(32);
     add0 = prim std_add(32);
     add1 = prim std_add(4);
