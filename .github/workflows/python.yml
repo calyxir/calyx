@@ -7,11 +7,11 @@ jobs:
     name: Check Formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-      - uses: psf/black@stable
+      - uses: RojerGS/python-black-check@master
         with:
-          args: "--check fud"
+          line-length: 88
+          path: 'fud'
+
   lint:
     name: Run Linter
     runs-on: ubuntu-latest
