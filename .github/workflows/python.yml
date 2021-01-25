@@ -11,8 +11,7 @@ jobs:
       - uses: actions/setup-python@v2
       - uses: psf/black@stable
         with:
-          entryPoint: "fud"
-          args: "--check"
+          args: "./fud --check"
   lint:
     name: Run Linter
     runs-on: ubuntu-latest
