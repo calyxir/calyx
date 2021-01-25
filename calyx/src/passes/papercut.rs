@@ -39,27 +39,6 @@ impl Default for Papercut<'_> {
                     ("write_data", "addr2"),
                 ],
             ),
-            (
-                "std_mem_d1_ext",
-                vec![("write_data", "write_en"), ("write_data", "addr0")],
-            ),
-            (
-                "std_mem_d2_ext",
-                vec![
-                    ("write_data", "write_en"),
-                    ("write_data", "addr0"),
-                    ("write_data", "addr1"),
-                ],
-            ),
-            (
-                "std_mem_d3_ext",
-                vec![
-                    ("write_data", "write_en"),
-                    ("write_data", "addr0"),
-                    ("write_data", "addr1"),
-                    ("write_data", "addr2"),
-                ],
-            ),
             ("std_mul_pipe", vec![("go", "left"), ("go", "right")]),
             ("std_mod_pipe", vec![("go", "left"), ("go", "right")]),
         ]
