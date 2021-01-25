@@ -7,7 +7,7 @@ class FudError(Exception):
     """
 
 
-class NoFile(FudError):
+class NoInputFile(FudError):
     def __init__(self, possible_dests=None):
         msg = "No filename or type provided for exec."
         if possible_dests is not None:
@@ -124,4 +124,14 @@ class UnexpectedSourceType(FudError):
 
     def __init__(self, expected, got):
         msg = f"Expected source of type: {expected}, got: {got}"
+        super().__init__(msg)
+
+
+class MissingFile(FudError):
+    """
+    A stage expected a file to exist that didn't exist.
+    """
+
+    def __init__(self, filename):
+        msg = f"File doesn't exist: '{filename}'. Check tool versions with `fud check`."
         super().__init__(msg)

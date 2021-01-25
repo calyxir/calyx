@@ -14,7 +14,7 @@ def discover_implied_stage(filename, config, possible_dests=None):
     stage was implied.
     """
     if filename is None:
-        raise errors.NoFile(possible_dests)
+        raise errors.NoInputFile(possible_dests)
 
     suffix = Path(filename).suffix
     for (name, stage) in config['stages'].items():

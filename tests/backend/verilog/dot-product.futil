@@ -2,9 +2,9 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    A0 = prim std_mem_d1_ext(32,8,4);
+    @external(1) A0 = prim std_mem_d1(32,8,4);
     A_read0_0 = prim std_reg(32);
-    B0 = prim std_mem_d1_ext(32,8,4);
+    @external(1) B0 = prim std_mem_d1(32,8,4);
     B_read0_0 = prim std_reg(32);
     add0 = prim std_add(32);
     add1 = prim std_add(4);
@@ -18,7 +18,7 @@ component main() -> () {
     i0 = prim std_reg(4);
     le0 = prim std_le(4);
     mult_pipe0 = prim std_mult_pipe(32);
-    v0 = prim std_mem_d1_ext(32,1,1);
+    @external(1) v0 = prim std_mem_d1(32,1,1);
   }
   wires {
     group cond0<"static"=0> {

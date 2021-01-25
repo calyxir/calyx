@@ -75,7 +75,7 @@ def LowerDahliaProgramToFuTIL(relay_function, dahlia_body, dahlia_imports=None):
     """
     Takes in a string representation of a Dahlia program, lowers it to FuTIL with the given `component_name`,
     and applies the `externalize` pass. This pass exposes the inputs and outputs of primitive types that are
-    declared external, e.g. `std_mem_d1_ext`, and places them in the inputs and outputs of the respective component.
+    declared external, e.g. `@external(1) std_mem_d1`, and places them in the inputs and outputs of the respective component.
 
     Example:
         ------ Dahlia, component name: ProcessX ------
@@ -85,7 +85,7 @@ def LowerDahliaProgramToFuTIL(relay_function, dahlia_body, dahlia_imports=None):
 
         ------------- Lower to FuTIL -----------------
         component ProcessX() -> () {
-          X = prim std_mem_d1_ext(32, 4, 2);
+          X = prim std_mem_d1(32, 4, 2);
           ...
         }
 
