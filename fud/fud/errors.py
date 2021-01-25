@@ -26,18 +26,23 @@ class UnknownExtension(FudError):
         path = Path(filename)
         ext = path.suffix
         super().__init__(
-            f"`{ext}' does not correspond to any known stage. Please provide an explicit stage using --to or --from."
+            f"`{ext}' does not correspond to any known stage. "
+            + "Please provide an explicit stage using --to or --from."
         )
 
 
 class UnsetConfiguration(FudError):
     """
-    Execution of a stage requires some configuration. Thrown when missing configuration.
+    Execution of a stage requires some configuration.
+    Thrown when missing configuration.
     """
 
     def __init__(self, path):
         path_str = ".".join(path)
-        msg = f"'{path_str}' is not set. Use `fud config {path_str} <val>` to set it."
+        msg = (
+            f"'{path_str}' is not set. "
+            + "Use `fud config {path_str} <val>` to set it."
+        )
         super().__init__(msg)
 
 
@@ -51,7 +56,8 @@ class MissingDynamicConfiguration(FudError):
         msg = (
             "Provide an input file or "
             + f"`{variable}' needs to be set. "
-            + "Use the runtime configuration flag to provide a value: '-s {variable} <value>'."
+            + "Use the runtime configuration flag to provide a value: "
+            + "'-s {variable} <value>'."
         )
         super().__init__(msg)
 
@@ -62,7 +68,10 @@ class NoPathFound(FudError):
     """
 
     def __init__(self, source, destination):
-        msg = f"No way to convert input in stage `{source}' to stage `{destination}'."
+        msg = (
+            f"No way to convert input in stage `{source}' to "
+            + "stage `{destination}'."
+        )
         super().__init__(msg)
 
 
@@ -72,7 +81,10 @@ class TrivialPath(FudError):
     """
 
     def __init__(self, stage):
-        msg = f"The exection starts and ends at the same stage `{stage}'. This is likely an error."
+        msg = (
+            f"The exection starts and ends at the same stage `{stage}'. "
+            + "This is likely an error."
+        )
         super().__init__(msg)
 
 
@@ -103,7 +115,10 @@ class RemoteLibsNotInstalled(FudError):
     """
 
     def __init__(self):
-        msg = f"Attempted to use remote features without both [paramiko, scp] installed. Install them and try again."
+        msg = (
+            "Attempted to use remote features without both "
+            + "[paramiko, scp] installed. Install them and try again."
+        )
         super().__init__(msg)
 
 
@@ -133,5 +148,8 @@ class MissingFile(FudError):
     """
 
     def __init__(self, filename):
-        msg = f"File doesn't exist: '{filename}'. Check tool versions with `fud check`."
+        msg = (
+            f"File doesn't exist: '{filename}'. "
+            + "Check tool versions with `fud check`."
+        )
         super().__init__(msg)

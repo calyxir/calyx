@@ -17,9 +17,9 @@ def discover_implied_stage(filename, config, possible_dests=None):
         raise errors.NoInputFile(possible_dests)
 
     suffix = Path(filename).suffix
-    for (name, stage) in config['stages'].items():
-        if 'file_extensions' in stage:
-            for ext in stage['file_extensions']:
+    for (name, stage) in config["stages"].items():
+        if "file_extensions" in stage:
+            for ext in stage["file_extensions"]:
                 if suffix == ext:
                     return name
 
@@ -38,7 +38,7 @@ def run_fud(args, config):
     # update the stages config with arguments provided via cmdline
     if args.dynamic_config is not None:
         for key, value in args.dynamic_config:
-            config[['stages'] + key.split('.')] = value
+            config[["stages"] + key.split(".")] = value
 
     # find source
     source = args.source
@@ -49,9 +49,7 @@ def run_fud(args, config):
     target = args.dest
     if target is None:
         target = discover_implied_stage(
-            args.output_file,
-            config,
-            possible_dests=config.REGISTRY.nodes[source]
+            args.output_file, config, possible_dests=config.REGISTRY.nodes[source]
         )
 
     path = config.REGISTRY.make_path(source, target)
@@ -70,10 +68,8 @@ def run_fud(args, config):
     spinner_enabled = not (utils.is_debug() or args.dry_run or args.quiet)
     # Execute the path transformation specification.
     with Halo(
-            spinner='dots',
-            color='cyan',
-            stream=sys.stderr,
-            enabled=spinner_enabled) as sp:
+        spinner="dots", color="cyan", stream=sys.stderr, enabled=spinner_enabled
+    ) as sp:
 
         if input_file is None:
             inp = Source(None, SourceType.Nothing)
@@ -83,9 +79,7 @@ def run_fud(args, config):
         for i, ed in enumerate(path):
             sp.start(f"{ed.stage.name} → {ed.stage.target_stage}")
             (result, stderr, retcode) = ed.stage.transform(
-                inp,
-                dry_run=args.dry_run,
-                last=i == (len(path) - 1)
+                inp, dry_run=args.dry_run, last=i == (len(path) - 1)
             )
             inp = result
 
@@ -115,7 +109,7 @@ def run_fud(args, config):
                 print(f"Moved {inp.data.name} here.")
         else:
             if args.output_file is not None:
-                with Path(args.output_file).open('wb') as f:
+                with Path(args.output_file).open("wb") as f:
                     f.write(inp.data.read())
             else:
-                print(inp.data.read().decode('UTF-8'))
+                print(inp.data.read().decode("UTF-8"))

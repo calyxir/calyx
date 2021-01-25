@@ -1,7 +1,7 @@
 from collections import namedtuple
 
+Edge = namedtuple("Edge", ["dest", "stage"])
 
-Edge = namedtuple('Edge', ['dest', 'stage'])
 
 # TODO: assuming there is only a single path
 class Registry:
@@ -52,8 +52,8 @@ class Registry:
             legend += [(k, x.dest, x.stage.description) for x in v]
             transforms.append(f"{k} → {', '.join(vals)}")
 
-        all_transforms = '\n'.join(transforms)
-        all_stages = '\n'.join([f"{s} → {e}: {d}" for (s, e, d) in legend])
+        all_transforms = "\n".join(transforms)
+        all_stages = "\n".join([f"{s} → {e}: {d}" for (s, e, d) in legend])
 
         return f"""List of possible stage transformations:
 {all_transforms}
