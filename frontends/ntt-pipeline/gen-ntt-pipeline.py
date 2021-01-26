@@ -177,8 +177,8 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
 
     def cells():
         memories = [
-            'a = prim std_mem_d1_ext({}, {}, {});'.format(input_bitwidth, n, bitwidth),
-            'phis = prim std_mem_d1_ext({}, {}, {});'.format(input_bitwidth, n, bitwidth)
+            'a = prim std_mem_d1({}, {}, {});'.format(input_bitwidth, n, bitwidth),
+            'phis = prim std_mem_d1({}, {}, {});'.format(input_bitwidth, n, bitwidth)
         ]
         r_registers = ['r{} = prim std_reg({});'.format(row, input_bitwidth) for row in range(n)]
         A_registers = ['A{} = prim std_reg({});'.format(row, input_bitwidth) for row in range(n)]
