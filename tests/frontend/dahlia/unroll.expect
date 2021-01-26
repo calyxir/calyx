@@ -1,10 +1,10 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    A0 = prim std_mem_d1_ext(32,2,2);
-    A1 = prim std_mem_d1_ext(32,2,2);
-    A2 = prim std_mem_d1_ext(32,2,2);
-    A3 = prim std_mem_d1_ext(32,2,2);
+    @external(1) A0 = prim std_mem_d1(32,2,2);
+    @external(1) A1 = prim std_mem_d1(32,2,2);
+    @external(1) A2 = prim std_mem_d1(32,2,2);
+    @external(1) A3 = prim std_mem_d1(32,2,2);
     acc_00 = prim std_reg(32);
     acc_10 = prim std_reg(32);
     acc_20 = prim std_reg(32);

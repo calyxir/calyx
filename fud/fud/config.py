@@ -12,62 +12,49 @@ from . import errors
 REGISTRY = None
 
 wizard_data = {
-    'global': {
-        'futil_directory': 'Root Directory of FuTIL repository',
+    "global": {
+        "futil_directory": "Root Directory of FuTIL repository",
     }
 }
 
 DEFAULT_CONFIGURATION = {
-    'global': {},
-    'stages': {
-        'futil': {
-            'exec': './target/debug/futil',
-            'file_extensions': ['.futil'],
-            'flags': None
+    "global": {},
+    "stages": {
+        "futil": {
+            "exec": "./target/debug/futil",
+            "file_extensions": [".futil"],
+            "flags": None,
         },
-        'dahlia': {
-            'exec': 'dahlia',
-            'file_extensions': ['.fuse', '.dahlia'],
-            'flags': None
+        "dahlia": {
+            "exec": "dahlia",
+            "file_extensions": [".fuse", ".dahlia"],
+            "flags": None,
         },
-        'mrxl': {
-            'exec': 'mrxl',
-            'file_extensions': ['.mrxl']
+        "mrxl": {"exec": "mrxl", "file_extensions": [".mrxl"]},
+        "verilog": {
+            "exec": "verilator",
+            "file_extensions": [".v", ".sv"],
+            "cycle_limit": int(5e8),
+            "top_module": "main",
+            "data": None,
         },
-        'verilog': {
-            'exec': 'verilator',
-            'file_extensions': ['.v', '.sv'],
-            'cycle_limit': int(5e8),
-            'top_module': "main",
-            'data': None
+        "vcd": {"exec": "vcdump", "file_extensions": [".vcd"]},
+        "vcd_json": {"file_extensions": [".json"]},
+        "dat": {"file_extensions": [".dat"]},
+        "systolic": {"file_extensions": [".systolic"], "flags": None},
+        "synth-verilog": {
+            "exec": "vivado",
+            "ssh_host": "",
+            "ssh_username": "",
+            "remote": None,
         },
-        'vcd': {
-            'exec': 'vcdump',
-            'file_extensions': ['.vcd']
+        "vivado-hls": {
+            "exec": "vivado_hls",
+            "ssh_host": "",
+            "ssh_username": "",
+            "remote": None,
         },
-        'vcd_json': {
-            'file_extensions': ['.json']
-        },
-        'dat': {
-            'file_extensions': ['.dat']
-        },
-        'systolic': {
-            'file_extensions': ['.systolic'],
-            'flags': None
-        },
-        'synth-verilog': {
-            'exec': 'vivado',
-            'ssh_host': '',
-            'ssh_username': '',
-            'remote': None
-        },
-        'vivado-hls': {
-            'exec': 'vivado_hls',
-            'ssh_host': '',
-            'ssh_username': '',
-            'remote': None
-        }
-    }
+    },
 }
 
 
@@ -129,7 +116,7 @@ def wizard(table, data):
 
         if key not in table:
             while True:
-                answer = input(f'{data[key]} is unset (relative paths ok): ')
+                answer = input(f"{data[key]} is unset (relative paths ok): ")
                 path = Path(answer)
                 if path.exists():
                     table[key] = str(path.resolve())
@@ -143,9 +130,7 @@ def wizard(table, data):
 def rest_of_path(path):
     d = None
     for p in reversed(path):
-        d = {
-            p: d
-        }
+        d = {p: d}
     return d
 
 
@@ -155,18 +140,18 @@ class Configuration:
         self.path = Path(appdirs.user_config_dir("fud"))
         self.path.mkdir(exist_ok=True)
 
-        self.config_file = self.path / 'config.toml'
+        self.config_file = self.path / "config.toml"
         self.config_file.touch()
 
         # load the configuration file
         self.config = DynamicDict(toml.load(self.config_file))
         self.wizard_data = DynamicDict(wizard_data)
         self.fill_missing(DEFAULT_CONFIGURATION, self.config.data)
-        if ('global', 'futil_directory') not in self.config:
+        if ("global", "futil_directory") not in self.config:
             log.warn("global.futil_directory is not set in the configuration")
 
     def commit(self):
-        toml.dump(self.config.data, self.config_file.open('w'))
+        toml.dump(self.config.data, self.config_file.open("w"))
 
     def display(self):
         toml.dump(self.config.data, sys.stdout)
@@ -186,10 +171,7 @@ class Configuration:
         changed = False
         for key in self.config.data.keys():
             if key in self.wizard_data.data.keys():
-                self.config.data[key] = wizard(
-                    self.config[key],
-                    wizard_data[key]
-                )
+                self.config.data[key] = wizard(self.config[key], wizard_data[key])
                 changed = True
         if changed:
             self.commit()

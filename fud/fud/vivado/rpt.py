@@ -7,7 +7,7 @@ class RPTParser:
     tools. The core functionality is extracting tables out of these files.
     """
 
-    SKIP_LINE = re.compile(r'^.*(\+-*)*\+$')
+    SKIP_LINE = re.compile(r"^.*(\+-*)*\+$")
 
     def __init__(self, filepath):
         with open(filepath, "r") as data:
@@ -16,14 +16,16 @@ class RPTParser:
     @staticmethod
     def _clean_and_strip(elems):
         "Remove all empty elements from the list and strips each string element."
-        nonempty = filter(lambda e: e != '\n' and e != '', elems)
+        nonempty = filter(lambda e: e != "\n" and e != "", elems)
         m = map(lambda e: e.strip(), nonempty)
-        return list(map(lambda e: 'index' if e == '' else e, m))
+        return list(map(lambda e: "index" if e == "" else e, m))
 
     @staticmethod
     def _parse_simple_header(line):
-        assert re.search(r'\s*\|', line), 'Simple header line should have | as first non-whitespace character'
-        return RPTParser._clean_and_strip(line.split('|'))
+        assert re.search(
+            r"\s*\|", line
+        ), "Simple header line should have | as first non-whitespace character"
+        return RPTParser._clean_and_strip(line.split("|"))
 
     @staticmethod
     def _parse_multi_header(lines):
@@ -42,11 +44,12 @@ class RPTParser:
         |      |     Latency     |     Foo         |
         | Name |   min  |   max  |   bar  |   baz  |
         +------+--------+--------+--------+--------+
-        turns into: ["Name", "Latency_min", "Latency_max", "Latecy_bar", "Latency_baz", "Foo"]
+        turns into: ["Name", "Latency_min", "Latency_max",
+                     "Latecy_bar", "Latency_baz", "Foo"]
         """
 
         multi_headers = []
-        secondary_hdrs = lines[1].split('|')
+        secondary_hdrs = lines[1].split("|")
 
         # Use the following heuristic to generate header names:
         # - If header starts with a small letter, it is a secondary header.
@@ -55,23 +58,28 @@ class RPTParser:
         # - Otherwise add a new sub header class.
         for idx, line in enumerate(secondary_hdrs, 1):
             clean_line = line.strip()
-            if len(clean_line) == 0: continue
-            elif (clean_line[0].islower()
-                  and len(multi_headers) > 0
-                  and multi_headers[-1][0].islower()
-                  and clean_line not in multi_headers[-1]):
+            if len(clean_line) == 0:
+                continue
+            elif (
+                clean_line[0].islower()
+                and len(multi_headers) > 0
+                and multi_headers[-1][0].islower()
+                and clean_line not in multi_headers[-1]
+            ):
                 multi_headers[-1].append(clean_line)
-            else: multi_headers.append([clean_line])
+            else:
+                multi_headers.append([clean_line])
 
         # Extract base headers and drop the starting empty lines and ending '\n'.
-        base_hdrs = lines[0].split('|')[1:-1]
+        base_hdrs = lines[0].split("|")[1:-1]
 
         if len(base_hdrs) != len(multi_headers):
             raise Exception(
-                "Something went wrong while parsing multi header " +
-                "base len: {}, mult len: {}".format(
-                    len(base_hdrs),
-                    len(multi_headers)))
+                "Something went wrong while parsing multi header "
+                + "base len: {}, mult len: {}".format(
+                    len(base_hdrs), len(multi_headers)
+                )
+            )
 
         hdrs = []
         for idx in range(0, len(base_hdrs)):
@@ -114,11 +122,13 @@ class RPTParser:
         rows = []
         for line in table_lines[table_start:]:
             if not RPTParser.SKIP_LINE.match(line):
-                rows.append(RPTParser._clean_and_strip(line.split('|')))
+                rows.append(RPTParser._clean_and_strip(line.split("|")))
 
-        ret  = [{header[i]: row[i] for i in range(len(header))}
-                for row in rows
-                if len(row) == len(header)]
+        ret = [
+            {header[i]: row[i] for i in range(len(header))}
+            for row in rows
+            if len(row) == len(header)
+        ]
         return ret
 
     def get_table(self, reg, off, multi_header=False):
@@ -132,13 +142,15 @@ class RPTParser:
                 start = idx + off
 
                 # If start doesn't point to valid header, continue searching
-                if self.lines[start].strip() == "" or self.lines[start].strip()[0] != '+':
+                if (
+                    self.lines[start].strip() == ""
+                    or self.lines[start].strip()[0] != "+"
+                ):
                     continue
 
                 end = start
-                while(self.lines[end].strip() != ''):
+                while self.lines[end].strip() != "":
                     end += 1
-
 
         assert end > start, "Failed to find table start for {}.".format(reg)
 

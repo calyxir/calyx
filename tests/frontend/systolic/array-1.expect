@@ -46,7 +46,7 @@ component main() -> () {
       l0_idx = prim std_reg(2);
       l0_add = prim std_add(2);
       l0 = prim std_mem_d1(32, 3, 2);
-      out_mem = prim std_mem_d2_ext(32, 1, 1, 1, 1);
+      @external(1) out_mem = prim std_mem_d2(32, 1, 1, 1, 1);
       pe_0_0 = mac_pe;
       top_0_0 = prim std_reg(32);
       left_0_0 = prim std_reg(32);

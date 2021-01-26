@@ -68,8 +68,9 @@ class SourceType(Enum):
 class Source:
     def __init__(self, data, source_type):
         self.source_type = source_type
-        if (source_type != SourceType.Nothing and data is None) or \
-                (source_type == SourceType.Nothing and data is not None):
+        if (source_type != SourceType.Nothing and data is None) or (
+            source_type == SourceType.Nothing and data is not None
+        ):
             raise errors.InvalidSource(source_type, data)
 
         self.data = data
@@ -204,9 +205,11 @@ class Step:
         return self.func(input_src, ctx)
 
     def _run_cmd(self, cmd, inp, ctx):
-        if self.desired_input_type != SourceType.Nothing and inp.source_type == SourceType.Nothing:
-            raise errors.UnexpectedSourceType(
-                self.desired_input_type, inp.source_type)
+        if (
+            self.desired_input_type != SourceType.Nothing
+            and inp.source_type == SourceType.Nothing
+        ):
+            raise errors.UnexpectedSourceType(self.desired_input_type, inp.source_type)
 
         proc = None
         stdout = TemporaryFile()
@@ -249,6 +252,7 @@ class Step:
         """
         Set the command for this stage.
         """
+
         def f(inp, ctx):
             nonlocal cmd
             (stdout, stderr_text, proc) = self._run_cmd(cmd, inp, ctx)
@@ -264,6 +268,7 @@ class Step:
         itself. Useful when, for example, the command needs CLI opts from the
         context.
         """
+
         def f(inp, ctx):
             cmd = cmd_func(inp, ctx)
             (stdout, stderr_text, proc) = self._run_cmd(cmd, inp, ctx)
@@ -276,6 +281,7 @@ class Step:
         """
         TODO(rachit): Document this.
         """
+
         def f(inp, ctx):
             log.debug(description)
             return func(inp, ctx)

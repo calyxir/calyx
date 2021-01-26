@@ -1,8 +1,9 @@
-from pathlib import Path
-from io import BytesIO
 import logging
+from io import BytesIO
+from pathlib import Path
 
-from fud.stages import Stage, Step, SourceType, Source
+from fud.stages import Source, SourceType, Stage, Step
+
 from ..vivado.extract import futil_extract
 from ..vivado.stage_template import VivadoTemplateStage
 
@@ -13,10 +14,10 @@ SCPClient = None
 class VivadoStage(VivadoTemplateStage):
     def __init__(self, config):
         super().__init__(
-            'synth-verilog',
-            'synth-files',
+            "synth-verilog",
+            "synth-files",
             config,
-            'Runs synthesis on a Verilog program'
+            "Runs synthesis on a Verilog program",
         )
 
     def _define(self):
@@ -25,19 +26,24 @@ class VivadoStage(VivadoTemplateStage):
         self._config_ssh()
         self._establish_connection(steps)
         self._mktmp(steps)
-        self._move_files(steps, [
-            str(
-                Path(self.config['global', 'futil_directory'])
-                / 'fud'
-                / 'synth'
-                / 'synth.tcl'
-            ),
-            str(Path(self.config['global', 'futil_directory'])
-                / 'fud'
-                / 'synth'
-                / 'device.xdc'
+        self._move_files(
+            steps,
+            [
+                str(
+                    Path(self.config["global", "futil_directory"])
+                    / "fud"
+                    / "synth"
+                    / "synth.tcl"
                 ),
-        ], "main.sv")
+                str(
+                    Path(self.config["global", "futil_directory"])
+                    / "fud"
+                    / "synth"
+                    / "device.xdc"
+                ),
+            ],
+            "main.sv",
+        )
         self._run_vivado(steps)
         self._finalize_ssh(steps)
         self._output_dir(steps)
@@ -50,7 +56,13 @@ class VivadoStage(VivadoTemplateStage):
 
             def f(inp, ctx):
                 _, stdout, _ = ctx["ssh_client"].exec_command(
-                    f'cd {ctx["tmpdir"]} && vivado -mode batch -source synth.tcl'
+                    " ".join(
+                        [
+                            f"cd {ctx['tmpdir']}",
+                            "&&",
+                            "vivado -mode batch -source synth.tcl",
+                        ]
+                    )
                 )
                 for chunk in iter(lambda: stdout.readline(2048), ""):
                     logging.debug(chunk.strip())
@@ -59,15 +71,24 @@ class VivadoStage(VivadoTemplateStage):
 
             ssh_addr = f"{self.ssh_user}@{self.ssh_host}"
             vivado.set_func(
-                f, f'ssh {ssh_addr} cd {{ctx["tmpdir"]}} && vivado -mode batch -source synth.tcl'
+                f,
+                " ".join(
+                    [
+                        f"ssh {ssh_addr} 'cd {{ctx[tmpdir]}}",
+                        "&&",
+                        "vivado -mode batch -source synth.tcl'",
+                    ]
+                ),
             )
         else:
             vivado.set_cmd(
-                " ".join([
-                    "cd {ctx[tmpdir]}",
-                    "&&",
-                    "vivado -mode batch -source synth.tcl >&2"
-                ])
+                " ".join(
+                    [
+                        "cd {ctx[tmpdir]}",
+                        "&&",
+                        "vivado -mode batch -source synth.tcl >&2",
+                    ]
+                )
             )
         steps.append(vivado)
 
@@ -75,10 +96,10 @@ class VivadoStage(VivadoTemplateStage):
 class VivadoExtractStage(Stage):
     def __init__(self, config):
         super().__init__(
-            'synth-files',
-            'resource-estimate',
+            "synth-files",
+            "resource-estimate",
             config,
-            'Runs synthesis on a Verilog program'
+            "Runs synthesis on a Verilog program",
         )
 
     def _define(self):
@@ -91,8 +112,8 @@ class VivadoExtractStage(Stage):
                 res = futil_extract(Path(inp.data.name))
             else:
                 res = futil_extract(Path(inp.data))
-            return (Source(BytesIO(res.encode('UTF-8')), SourceType.File), None, 0)
+            return (Source(BytesIO(res.encode("UTF-8")), SourceType.File), None, 0)
 
-        extract.set_func(f, 'Extract information.')
+        extract.set_func(f, "Extract information.")
 
         return [extract]

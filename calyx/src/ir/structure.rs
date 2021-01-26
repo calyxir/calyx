@@ -1,5 +1,5 @@
 //! Representation for structure (wires and cells) in a FuTIL program.
-use super::{Attributes, Guard, Id, RRC, WRC};
+use super::{Attributes, GetAttributes, Guard, Id, RRC, WRC};
 use smallvec::SmallVec;
 use std::rc::Rc;
 
@@ -130,6 +130,16 @@ pub struct Cell {
     pub prototype: CellType,
     /// Attributes for this group.
     pub(super) attributes: Attributes,
+}
+
+impl GetAttributes for Cell {
+    fn get_attributes(&self) -> Option<&Attributes> {
+        Some(&self.attributes)
+    }
+
+    fn get_mut_attributes(&mut self) -> Option<&mut Attributes> {
+        Some(&mut self.attributes)
+    }
 }
 
 impl Cell {

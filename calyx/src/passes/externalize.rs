@@ -2,7 +2,7 @@ use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, LibrarySignatures, WRC};
 
 #[derive(Default)]
-/// Externalize input/output ports for "external" cells.
+/// Externalize input/output ports for cells marked with the `@external(1)` attribute.
 /// The ports of these cells are exposed through the ports of the parent
 /// component.
 ///
@@ -12,7 +12,7 @@ use crate::ir::{self, LibrarySignatures, WRC};
 ///     cells {
 ///         // Inputs: addr0, write_data, write_en
 ///         // Outputs: read_data, done
-///         m1 = prim std_mem_d1_ext(32, 10, 4);
+///         @external(1) m1 = prim std_mem_d1(32, 10, 4);
 ///     }
 ///     wires {
 ///         m1.addr0 = 1'd1;
@@ -43,13 +43,8 @@ impl Named for Externalize {
     }
 
     fn description() -> &'static str {
-        "Externalize the interfaces of _ext memories"
+        "Externalize the interfaces of cells marked with `@external(1)`"
     }
-}
-
-/// Is this primitive and external
-fn is_external_cell(name: &ir::Id) -> bool {
-    name.as_ref().starts_with("std_mem") && name.as_ref().ends_with("ext")
 }
 
 /// Generate a string given the name of the component and the port.
@@ -67,10 +62,7 @@ impl Visitor for Externalize {
         let (ext_cells, cells): (Vec<_>, Vec<_>) =
             comp.cells.drain(..).into_iter().partition(|cr| {
                 let cell = cr.borrow();
-                if let ir::CellType::Primitive { name, .. } = &cell.prototype {
-                    return is_external_cell(name);
-                }
-                false
+                cell.get_attribute("external") == Some(&1)
             });
 
         // Re-add non-external cells.

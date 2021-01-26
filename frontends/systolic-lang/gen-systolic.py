@@ -458,7 +458,7 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
     # Instantiate output memory
     out_ridx_size = bits_needed(left_length)
     out_cidx_size = bits_needed(top_length)
-    o_mem = f'{OUT_MEM} = prim std_mem_d2_ext({BITWIDTH}, {left_length}, {top_length}, {out_ridx_size}, {out_cidx_size});'
+    o_mem = f'@external(1) {OUT_MEM} = prim std_mem_d2({BITWIDTH}, {left_length}, {top_length}, {out_ridx_size}, {out_cidx_size});'
     cells.append(o_mem)
 
     # Instantiate all the PEs
