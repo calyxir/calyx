@@ -9,8 +9,8 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    a = prim std_mem_d1_ext(32, 4, 3);
-    phis = prim std_mem_d1_ext(32, 4, 3);
+    a = prim std_mem_d1(32, 4, 3);
+    phis = prim std_mem_d1(32, 4, 3);
     r0 = prim std_reg(32);
     r1 = prim std_reg(32);
     r2 = prim std_reg(32);
