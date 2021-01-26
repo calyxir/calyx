@@ -42,7 +42,7 @@ def generate_pipeline_operations(n, num_stages):
 
 
 def pp_table(structure, n, num_stages):
-    """Pretty prints a table describing the calculates made during the pipeline."""
+    """Pretty prints a table describing the calculations made during the pipeline."""
     stage_titles = ['a'] + ['Stage {}'.format(i) for i in range(num_stages)]
     table = PrettyTable(stage_titles)
     for row in range(n):
