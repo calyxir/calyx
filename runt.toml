@@ -50,7 +50,8 @@ fud exec -s verilog.data {}.data \
          -s futil.exec './target/debug/futil' \
          -s verilog.cycle_limit 500 \
          {} --to dat \
-         -q
+         -q \
+         | jq .memories
 """
 
 ## Same as correctness dynamic but runes with static-timing
@@ -62,7 +63,8 @@ fud exec -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          -s futil.exec './target/debug/futil' \
          {} --to dat \
-         -q
+         -q \
+         | jq .memories
 """
 
 [[tests]]
@@ -82,14 +84,15 @@ fud e --from systolic --to vcd_json \
 name = "NTT pipeline correctness"
 paths = [ "tests/correctness/ntt-pipeline/*.futil" ]
 cmd = """
-fud e {} --to dat -s verilog.data {}.data -q
+fud e {} --to dat -s verilog.data ntt/ntt.data -q \
+    | jq .memories
 """
 
 [[tests]]
 name = "mrxl correctness"
 paths = [ "frontends/mrxl/test/*.mrxl" ]
 cmd = """
-fud e -q {} --from mrxl --to dat -s verilog.data {}.data
+fud e -q {} --from mrxl --to dat -s verilog.data {}.data | jq .memories
 """
 
 ##### Backend Tests #####
@@ -98,7 +101,8 @@ name = "verilog backend"
 paths = [ "tests/backend/verilog/*.futil" ]
 cmd = """
 fud exec {} --to verilog -q \
-            -s futil.exec './target/debug/futil'
+            -s futil.exec './target/debug/futil' \
+            | jq .memories
 """
 
 

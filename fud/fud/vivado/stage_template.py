@@ -3,10 +3,12 @@ from tempfile import TemporaryDirectory
 from .. import errors
 from fud.stages import Source, SourceType, Stage, Step
 
+
 class VivadoTemplateStage(Stage):
     """
     TODO(rachit): Document this.
     """
+
     def __init__(self, name, target, config, descr):
         super().__init__(name, target, config, descr)
         self.use_ssh = False
@@ -21,6 +23,7 @@ class VivadoTemplateStage(Stage):
             try:
                 from paramiko import SSHClient as ssh
                 from scp import SCPClient as scp
+
                 self.ssh_client = ssh
                 self.scp_client = scp
             except ModuleNotFoundError:

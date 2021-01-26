@@ -1,0 +1,25 @@
+name: Python
+
+on: [push]
+
+jobs:
+  format:
+    name: Check Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - uses: RojerGS/python-black-check@master
+        with:
+          line-length: 88
+          path: 'fud'
+
+  lint:
+    name: Run Linter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: TrueBrain/actions-flake8@master
+        with:
+          max_line_length: 88
+          path: 'fud'

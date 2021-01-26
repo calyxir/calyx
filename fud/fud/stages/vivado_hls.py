@@ -14,10 +14,7 @@ SCPClient = None
 class VivadoHLSStage(VivadoTemplateStage):
     def __init__(self, config):
         super().__init__(
-            "vivado-hls",
-            "hls-files",
-            config,
-            "Runs HLS synthesis on a Dahlia program"
+            "vivado-hls", "hls-files", config, "Runs HLS synthesis on a Dahlia program"
         )
 
     def _define(self):
@@ -26,20 +23,24 @@ class VivadoHLSStage(VivadoTemplateStage):
         self._config_ssh()
         self._establish_connection(steps)
         self._mktmp(steps)
-        self._move_files(steps, [
-            str(
-                Path(self.config["global", "futil_directory"])
-                / "fud"
-                / "synth"
-                / "hls.tcl"
-            ),
-            str(
-                Path(self.config["global", "futil_directory"])
-                / "fud"
-                / "synth"
-                / "fxp_sqrt.h"
-            ),
-        ], 'kernel.cpp')
+        self._move_files(
+            steps,
+            [
+                str(
+                    Path(self.config["global", "futil_directory"])
+                    / "fud"
+                    / "synth"
+                    / "hls.tcl"
+                ),
+                str(
+                    Path(self.config["global", "futil_directory"])
+                    / "fud"
+                    / "synth"
+                    / "fxp_sqrt.h"
+                ),
+            ],
+            "kernel.cpp",
+        )
         self._run_vivado_hls(steps)
         self._finalize_ssh(steps)
         self._output_dir(steps)
