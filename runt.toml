@@ -85,7 +85,7 @@ name = "NTT pipeline correctness"
 paths = [ "tests/correctness/ntt-pipeline/*.txt" ]
 cmd = """
 python3 frontends/ntt-pipeline/gen-ntt-pipeline.py {} > {}.futil; \
-fud e {}.futil --to dat -s verilog.data {}.data -q | jq .memories 2>/dev/null; \
+fud e {}.futil --to dat -s verilog.data {}.data -q 2>/dev/null; \
 rm {}.futil;
 """
 
