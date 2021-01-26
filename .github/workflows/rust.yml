@@ -80,7 +80,7 @@ jobs:
       uses: actions/setup-python@v2
 
     - name: Install numpy and  flit
-      run: pip3 install numpy flit
+      run: pip3 install numpy flit prettytable
 
     - name: Cache SBT
       uses: actions/cache@v2
