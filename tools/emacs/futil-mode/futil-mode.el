@@ -30,6 +30,8 @@
 
 ;;; Code:
 
+(require 'highlight-numbers)
+
 (defvar futil-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "\C-j" 'newline-and-indent)
@@ -50,17 +52,18 @@
 
 (setq futil-font-lock-keywords
   (let* ((futil-defn '("component" "cells" "wires" "control" "primitive"))
-         (futil-control '("seq" "par" "if" "while" "else"))
-         (futil-keywords '("prim" "import" "with" "group"))
+         (futil-control '("seq" "par" "if" "while" "else" "with"))
+         (futil-keywords '("prim" "import" "group"))
 
          (futil-defn-regexp (regexp-opt futil-defn 'words))
          (futil-control-regexp (regexp-opt futil-control 'words))
-         (futil-keywords-regexp (regexp-opt futil-keywords 'word)))
+         (futil-keywords-regexp (regexp-opt futil-keywords 'word))
+         (futil-attributes-regexp "\\(@\\(?:[[:alpha:]]\\|_\\)+\\)\\(?:(.*?)\\)"))
 
     `((,futil-defn-regexp . (1 font-lock-keyword-face))
       (,futil-control-regexp . (1 font-lock-type-face))
       (,futil-keywords-regexp . (1 font-lock-constant-face))
-      ("[[:digit:]]+'[bdxo][[:digit:]]+" . (1 font-lock-string-face)))))
+      (,futil-attributes-regexp . (1 font-lock-type-face)))))
 
  ;;; Indentation
 
@@ -95,7 +98,6 @@
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.futil\\'" . futil-mode))
-(add-to-list 'auto-mode-alist '("\\.lib\\'" . futil-mode))
 
 (define-derived-mode futil-mode prog-mode "Futil Mode"
   "A major mode for editing Futil source files."
@@ -105,7 +107,10 @@
   (setq-local comment-start-skip "//+\\s-*")
   (setq-local font-lock-defaults
               '((futil-font-lock-keywords)))
-  (setq-local indent-line-function 'futil-indent-line))
+  (setq-local indent-line-function 'futil-indent-line)
+  (puthash 'futil-mode
+           "\\(\\<[[:digit:]]+\\(?:'[bdxo][[:digit:]]+\\)?\\>\\)"
+           highlight-numbers-modelist))
 
 (provide 'futil-mode)
 
