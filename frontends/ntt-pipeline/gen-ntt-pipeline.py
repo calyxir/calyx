@@ -22,11 +22,10 @@ def get_pipeline_data(n, num_stages):
     From this, we can have a log2(`n`) x `n` array that stores the tuple value:
       `(i, op, m)`
       where `i` is the input index of the lhs,
-            `j` is the input index of the rhs,
+            `op` is the operation conducted, in {+, -},
             and `m` is the index of the register holding the product.
     """
     operations = [[() for _ in range(n)] for _ in range(num_stages)]
-    phi_index = 1
     t = n
     for i in range(0, num_stages):
         t >>= 1
@@ -38,7 +37,6 @@ def get_pipeline_data(n, num_stages):
                 operations[i][k] = ((k - t, '-', mult_register))
                 mult_register += 1
             j += t << 1
-            phi_index += 1
     return operations
 
 
