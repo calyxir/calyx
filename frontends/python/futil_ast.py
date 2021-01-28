@@ -226,7 +226,7 @@ class Group(Structure):
         self.static_delay = static_delay
 
     def doc(self) -> str:
-        static_delay_attr = '' if self.static_delay == None else f'<"static"={int}>'
+        static_delay_attr = '' if self.static_delay == None else f'<"static"={static_delay}>'
         return block(f'group {self.id.doc()}{static_delay_attr}',
                      [c.doc() for c in self.connections])
 
