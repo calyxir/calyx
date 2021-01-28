@@ -80,8 +80,7 @@ class Component:
 
 @dataclass
 class Port(Emittable):
-    id: CompVar
-    name: str
+    pass
 
 
 @dataclass
@@ -337,8 +336,8 @@ class ControlOrEnable(Emittable):
     ControlOrEnableType = Union[Control, Enable]
     stmt: ControlOrEnableType
 
-    def __init__(self, stmt: ControlOrEnableType):
-        assert isinstance(stmt, Control) or isinstance(stmt, Enable), f'{s} should be a Control or Enable.'
+    def __init__(self, s: ControlOrEnableType):
+        assert isinstance(s, Control) or isinstance(s, Enable), f'{s} should be a Control or Enable.'
         self.stmt = stmt
 
     def doc(self) -> str:
