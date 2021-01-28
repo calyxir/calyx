@@ -1,6 +1,12 @@
 import math
 import textwrap
 from prettytable import PrettyTable
+import sys
+from os.path import abspath, dirname, join
+
+# Access to futil_ast.
+sys.path.append(abspath(join(dirname(__file__), '../python')))
+from futil_ast import *
 
 
 def pp_block(decl, contents, indent=2):
@@ -72,15 +78,14 @@ def get_multiply_data(n, num_stages):
 
 def pp_table(operations, multiplies, n, num_stages):
     """Pretty prints a table describing the calculations made during the pipeline."""
-    stage_titles = ['a'] + ['Stage {}'.format(i) for i in range(num_stages)]
+    stage_titles = ['a'] + [f'Stage {i}' for i in range(num_stages)]
     table = PrettyTable(stage_titles)
     for row in range(n):
-        table_row = ['{}'.format(row)]
+        table_row = [f'{row}']
         for stage in range(num_stages):
             lhs, op, mult_register = operations[stage][row]
             _, rhs, phi_index = multiplies[stage][mult_register]
-            table_row.append('a[{}] {} a[{}] * phis[{}]'
-                             .format(lhs, op, rhs, phi_index))
+            table_row.append(f'a[{lhs}] {op} a[{rhs}] * phis[{phi_index}]')
         table.add_row(table_row)
     table = table.get_string().split("\n")
     table = [' '.join(('//', line)) for line in table]
@@ -102,7 +107,7 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
     Reference:
     https://www.microsoft.com/en-us/research/wp-content/uploads/2016/05/RLWE-1.pdf
     """
-    assert n > 0 and (not (n & (n - 1))), '{} must be a power of 2.'.format(n)
+    assert n > 0 and (not (n & (n - 1))), f'Input length: {n} must be a power of 2.'
     num_stages = int(math.log2(n))
     bitwidth = num_stages + 1
 
@@ -126,128 +131,145 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
 
         return saved_count
 
-    def pp_mul_group(stage, mul_tuple):
-        mul_index, k, phi_index = mul_tuple
-        mult_group_name = 's{}_mul{}'.format(stage, mul_index)
-        mult_wires = [
-            'mult_pipe{}.left = phi{}.out;'.format(mul_index, phi_index),
-            'mult_pipe{}.right = r{}.out;'.format(mul_index, k),
-            'mult_pipe{}.go = !mult_pipe{}.done ? 1\'d1;'.format(mul_index, mul_index),
-            'mul{}.write_en = mult_pipe{}.done;'.format(mul_index, mul_index),
-            'mul{}.in = mult_pipe{}.out;'.format(mul_index, mul_index),
-            '{}[done] = mul{}.done ? 1\'d1;'.format(mult_group_name, mul_index)
-        ]
-        return pp_block('group {}'.format(mult_group_name), '\n'.join(mult_wires))
+    # Memory component variables.
+    input = CompVar('a')
+    phis = CompVar('phis')
 
-    def pp_op_mod_group(stage, row, operations_tuple):
+    def mul_group(stage, mul_tuple):
+        mul_index, k, phi_index = mul_tuple
+
+        group_name = CompVar(f's{stage}_mul{mul_index}')
+        mult_pipe = CompVar(f'mult_pipe{mul_index}')
+        mul = CompVar(f'mul{mul_index}')
+        phi = CompVar(f'phi{phi_index}')
+        reg = CompVar(f'r{k}')
+        connections = [
+            Connect(CompPort(phi, 'out'), CompPort(mult_pipe, 'left')),
+            Connect(CompPort(reg, 'out'), CompPort(mult_pipe, 'right')),
+            Connect(ConstantPort(1, 1), CompPort(mult_pipe, 'go'), Not(Atom(CompPort(mult_pipe, 'done')))),
+            Connect(CompPort(mult_pipe, 'done'), CompPort(mul, 'write_en')),
+            Connect(CompPort(mult_pipe, 'out'), CompPort(mul, 'in')),
+            Connect(CompPort(mul, 'done'), HolePort(group_name, 'done'))
+        ]
+        return Group(group_name, connections)
+
+    def op_mod_group(stage, row, operations_tuple):
         lhs, op, mul_index = operations_tuple
         comp = 'add' if op == '+' else 'sub'
-
         comp_index = fresh_comp_index(comp)
-        mod_group_name = 's{}_r{}_op_mod'.format(stage, row)
-        mod_wires = [
-            '{}{}.left = r{}.out;'.format(comp, comp_index, lhs),
-            '{}{}.right = mul{}.out;'.format(comp, comp_index, mul_index),
-            'mod_pipe{}.left = {}{}.out;'.format(row, comp, comp_index, comp, row),
-            'mod_pipe{}.right = {}\'d{};'.format(row, input_bitwidth, q),
-            'mod_pipe{}.go = !mod_pipe{}.done ? 1\'d1;'.format(row, row),
-            'A{}.write_en = mod_pipe{}.done;'.format(row, row),
-            'A{}.in = mod_pipe{}.out;'.format(row, row),
-            '{}[done] = A{}.done ? 1\'d1;'.format(mod_group_name, row)
-        ]
-        return pp_block('group {}'.format(mod_group_name), '\n'.join(mod_wires))
 
-    def pp_precursor_group(row):
-        group_name = 'precursor_{}'.format(row)
-        wires = [
-            'r{}.in = A{}.out;'.format(row, row),
-            'r{}.write_en = 1\'d1;'.format(row),
-            '{}[done] = r{}.done ? 1\'d1;'.format(group_name, row)
+        group_name = CompVar(f's{stage}_r{row}_op_mod')
+        op = CompVar(f'{comp}{comp_index}')
+        reg = CompVar(f'r{lhs}')
+        mul = CompVar(f'mul{mul_index}')
+        mod_pipe = CompVar(f'mod_pipe{row}')
+        A = CompVar(f'A{row}')
+        connections = [
+            Connect(CompPort(reg, 'out'), CompPort(op, 'left')),
+            Connect(CompPort(mul, 'out'), CompPort(op, 'right')),
+            Connect(CompPort(op, 'out'), CompPort(mod_pipe, 'left')),
+            Connect(ConstantPort(input_bitwidth, q), CompPort(mod_pipe, 'right')),
+            Connect(ConstantPort(1, 1), CompPort(mod_pipe, 'go'), Not(Atom(CompPort(mod_pipe, 'done')))),
+            Connect(CompPort(mod_pipe, 'done'), CompPort(A, 'write_en')),
+            Connect(CompPort(mod_pipe, 'out'), CompPort(A, 'in')),
+            Connect(CompPort(A, 'done'), HolePort(group_name, 'done'))
         ]
-        return pp_block('group {}'.format(group_name), '\n'.join(wires))
+        return Group(group_name, connections)
 
-    def pp_preamble_group(row):
-        group_name = "preamble_{}".format(row)
-        wires = [
-            'a.addr0 = {}\'d{};'.format(bitwidth, row),
-            'phis.addr0 = {}\'d{};'.format(bitwidth, row),
-            'r{}.write_en = 1\'d1;'.format(row),
-            'r{}.in = a.read_data;'.format(row),
-            'phi{}.write_en = 1\'d1;'.format(row),
-            'phi{}.in = phis.read_data;'.format(row),
-            '{}[done] = r{}.done & phi{}.done? 1\'d1;'.format(group_name, row, row)
+    def precursor_group(row):
+        group_name = CompVar(f'precursor_{row}')
+        r = CompVar(f'r{row}')
+        A = CompVar(f'A{row}')
+        connections = [
+            Connect(CompPort(A, 'out'), CompPort(r, 'in')),
+            Connect(ConstantPort(1, 1), CompPort(r, 'write_en')),
+            Connect(CompPort(r, 'done'), HolePort(group_name, 'done'))
         ]
-        return pp_block('group {}'.format(group_name), '\n'.join(wires))
+        return Group(group_name, connections)
 
-    def pp_epilogue_group(row):
-        group_name = "epilogue_{}".format(row)
-        wires = [
-            'a.addr0 = {}\'d{};'.format(bitwidth, row),
-            'a.write_en = 1\'d1;',
-            'a.write_data = A{}.out;'.format(row),
-            '{}[done] = a.done ? 1\'d1;'.format(group_name)
+    def preamble_group(row):
+        reg = CompVar(f'r{row}')
+        phi = CompVar(f'phi{row}')
+        group_name = CompVar(f'preamble_{row}')
+        connections = [
+            Connect(ConstantPort(bitwidth, row), CompPort(input, 'addr0')),
+            Connect(ConstantPort(bitwidth, row), CompPort(phis, 'addr0')),
+            Connect(ConstantPort(1, 1), CompPort(reg, 'write_en')),
+            Connect(CompPort(input, 'read_data'), CompPort(reg, 'in')),
+            Connect(ConstantPort(1, 1), CompPort(phi, 'write_en')),
+            Connect(CompPort(phis, 'read_data'), CompPort(phi, 'in')),
+            Connect(ConstantPort(1, 1), HolePort(group_name, 'done'),
+                    And(Atom(CompPort(reg, 'done')),
+                        Atom(CompPort(phi, 'done'))))
         ]
-        return pp_block('group {}'.format(group_name), '\n'.join(wires))
+        return Group(group_name, connections)
+
+    def epilogue_group(row):
+        group_name = CompVar(f'epilogue_{row}')
+        A = CompVar(f'A{row}')
+        connections = [
+            Connect(ConstantPort(bitwidth, row), CompPort(input, 'addr0')),
+            Connect(ConstantPort(1, 1), CompPort(input, 'write_en')),
+            Connect(CompPort(A, 'out'), CompPort(input, 'write_data')),
+            Connect(CompPort(input, 'done'), HolePort(group_name, 'done'))
+        ]
+        return Group(group_name, connections)
+
+    def cells():
+        stdlib = Stdlib()
+
+        memories = [
+            LibDecl(input, stdlib.mem_d1(input_bitwidth, n, bitwidth)),
+            LibDecl(phis, stdlib.mem_d1(input_bitwidth, n, bitwidth))
+        ]
+        r_regs = [LibDecl(CompVar(f'r{r}'), stdlib.register(input_bitwidth)) for r in range(n)]
+        A_regs = [LibDecl(CompVar(f'A{r}'), stdlib.register(input_bitwidth)) for r in range(n)]
+        mul_regs = [LibDecl(CompVar(f'mul{i}'), stdlib.register(input_bitwidth)) for i in range(n // 2)]
+        phi_regs = [LibDecl(CompVar(f'phi{r}'), stdlib.register(input_bitwidth)) for r in range(n)]
+        mod_pipes = [LibDecl(CompVar(f'mod_pipe{r}'), stdlib.op('smod_pipe', input_bitwidth)) for r in range(n)]
+        mult_pipes = [LibDecl(CompVar(f'mult_pipe{i}'), stdlib.op('smult_pipe', input_bitwidth)) for i in range(n // 2)]
+
+        adds = [LibDecl(CompVar(f'add{i}'), stdlib.op('sadd', input_bitwidth)) for i in range(n // 2)]
+        subs = [LibDecl(CompVar(f'sub{i}'), stdlib.op('ssub', input_bitwidth)) for i in range(n // 2)]
+
+        return memories + r_regs + A_regs + mul_regs + phi_regs + mod_pipes + mult_pipes + adds + subs
+
+    def wires():
+        preambles = [preamble_group(r) for r in range(n)]
+        precursors = [precursor_group(r) for r in range(n)]
+        muls = [mul_group(s, multiplies[s][i]) for s in range(num_stages) for i in range(n // 2)]
+        op_mods = [op_mod_group(s, r, operations[s][r]) for s in range(num_stages) for r in range(n)]
+        epilogues = [epilogue_group(r) for r in range(n)]
+        return preambles + precursors + muls + op_mods + epilogues
 
     def control():
-        preambles = pp_block('seq', '\n'.join(['preamble_{};'.format(r) for r in range(n)]))
-        epilogues = pp_block('seq', '\n'.join(['epilogue_{};'.format(r) for r in range(n)]))
+        preambles = [SeqComp([Enable(f'preamble_{r}') for r in range(n)])]
+        epilogues = [SeqComp([Enable(f'epilogue_{r}') for r in range(n)])]
 
         ntt_stages = []
         for s in range(num_stages):
             if s != 0:
                 # Only append precursors if this is not the first stage.
-                precursors = ['precursor_{};'.format(r) for r in range(n)]
-                ntt_stages.append(pp_block('par', '\n'.join(precursors)))
-
-            multiplies = ['s{}_mul{};'.format(s, i) for i in range(n // 2)]
-            op_mods = ['s{}_r{}_op_mod;'.format(s, r) for r in range(n)]
-            ntt_stages.append(pp_block('par', '\n'.join(multiplies)))
-            ntt_stages.append(pp_block('par', '\n'.join(op_mods)))
-
-        controls = pp_block('seq', '\n'.join((preambles, '\n'.join(ntt_stages), epilogues)))
-        return pp_block('control', controls)
-
-    def cells():
-        memories = [
-            'a = prim std_mem_d1({}, {}, {});'.format(input_bitwidth, n, bitwidth),
-            'phis = prim std_mem_d1({}, {}, {});'.format(input_bitwidth, n, bitwidth)
-        ]
-        r_registers = ['r{} = prim std_reg({});'.format(row, input_bitwidth) for row in range(n)]
-        A_registers = ['A{} = prim std_reg({});'.format(row, input_bitwidth) for row in range(n)]
-        mul_registers = ['mul{} = prim std_reg({});'.format(i, input_bitwidth) for i in range(n // 2)]
-        phi_registers = ['phi{} = prim std_reg({});'.format(row, input_bitwidth) for row in range(n)]
-        mod_pipes = ['mod_pipe{} = prim std_smod_pipe({});'.format(row, input_bitwidth) for row in range(n)]
-        mult_pipes = ['mult_pipe{} = prim std_smult_pipe({});'.format(i, input_bitwidth) for i in range(n // 2)]
-        adds = ['add{} = prim std_sadd({});'.format(row, input_bitwidth) for row in range(n // 2)]
-        subs = ['sub{} = prim std_ssub({});'.format(row, input_bitwidth) for row in range(n // 2)]
-
-        cells = memories + r_registers + A_registers + mul_registers \
-                + phi_registers + mod_pipes + mult_pipes + adds + subs
-        return pp_block('cells', '\n'.join(cells))
-
-    def wires():
-        preamble_groups = [pp_preamble_group(r) for r in range(n)]
-        precursor_groups = [pp_precursor_group(r) for r in range(n)]
-        mul_groups = [pp_mul_group(s, multiplies[s][i]) for s in range(num_stages) for i in range(n // 2)]
-        op_mod_groups = [pp_op_mod_group(s, r, operations[s][r]) for s in range(num_stages) for r in range(n)]
-        epilogue_groups = [pp_epilogue_group(r) for r in range(n)]
-        groups = preamble_groups + precursor_groups + mul_groups + op_mod_groups + epilogue_groups
-        return pp_block('wires', '\n'.join(groups))
+                ntt_stages.append(ParComp([Enable(f'precursor_{r}') for r in range(n)]))
+            # Multiply
+            ntt_stages.append(ParComp([Enable(f's{s}_mul{i}') for i in range(n // 2)]))
+            # Addition or subtraction mod `q`
+            ntt_stages.append(ParComp([Enable(f's{s}_r{r}_op_mod') for r in range(n)]))
+        return Control('seq', preambles + ntt_stages + epilogues)
 
     pp_table(operations, multiplies, n, num_stages)
-    print('import "primitives/std.lib";')
-    print(
-        pp_block('component main() -> ()', '\n'.join(
-            (
-                cells(), wires(), control()
-            )
-        ))
-    )
+    component = Component('main',
+                          inputs=[],
+                          outputs=[],
+                          structs=cells() + wires(),
+                          controls=control())
+    program = Program(imports=[Import('primitives/std.lib')],
+                      components=[component])
+    program.emit()
 
 
 if __name__ == '__main__':
-    import sys, argparse, json
+    import argparse, json
 
     parser = argparse.ArgumentParser(description='NTT')
     parser.add_argument('file', nargs='?', type=str)
