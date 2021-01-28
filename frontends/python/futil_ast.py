@@ -10,11 +10,14 @@ class Emittable:
     def doc(self) -> str:
         assert 0, f'`doc` not implemented for {type(self).__name__}'
 
+    def emit(self):
+        print(self.doc())
+
 
 ### Program ###
 
 @dataclass
-class Import:
+class Import(Emittable):
     filename: str
 
     def __init__(self, filename: str):
@@ -25,7 +28,7 @@ class Import:
 
 
 @dataclass
-class Program:
+class Program(Emittable):
     imports: List[Import]
     components: List[Component]
 
@@ -37,9 +40,6 @@ class Program:
         imports = '\n'.join([i.doc() for i in self.imports])
         components = '\n'.join([c.doc() for c in self.components])
         return f'{imports}\n{components}'
-
-    def emit(self):
-        print(self.doc())
 
 
 ### Component ###
