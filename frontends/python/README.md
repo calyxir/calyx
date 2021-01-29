@@ -8,3 +8,7 @@ To use the FuTIL AST and utilities:
   $ cd frontends/python
   $ flit install --symlink
 ```
+
+## Example
+`example.py` generates a component which sums two unsigned integers.
+You can see the outputted FuTIL component in `example.expect`.

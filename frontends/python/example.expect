@@ -1,0 +1,31 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    lhs = prim std_reg(32);
+    rhs = prim std_reg(32);
+    sum = prim std_reg(32);
+    add = prim std_add(32);
+  }
+  wires {
+    group do_write {
+      lhs.in = 32'd1;
+      rhs.in = 32'd41;
+      lhs.write_en = 1'd1;
+      rhs.write_en = 1'd1;
+      do_write[done] = lhs.done & rhs.done ? 1'd1;
+    }
+    group save_sum {
+      add.left = lhs.out;
+      add.right = rhs.out;
+      sum.write_en = 1'd1;
+      sum.in = add.out;
+      save_sum[done] = sum.done;
+    }
+  }
+  control {
+    seq {
+      do_write;
+      save_sum;
+    }
+  }
+}
