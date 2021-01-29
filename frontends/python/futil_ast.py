@@ -67,8 +67,8 @@ class Component:
         self.wires = [s for s in structs if not is_cell(s)]
 
     def doc(self) -> str:
-        ins = ','.join([s.doc() for s in self.inputs])
-        outs = ','.join([s.doc() for s in self.outputs])
+        ins = ', '.join([s.doc() for s in self.inputs])
+        outs = ', '.join([s.doc() for s in self.outputs])
         signature = f'component {self.name}({ins}) -> ({outs})'
         cells = block('cells', [c.doc() for c in self.cells])
         wires = block('wires', [w.doc() for w in self.wires])
@@ -89,6 +89,7 @@ class CompPort(Port):
     name: str
 
     def __init__(self, id: CompVar, name: str):
+        assert isinstance(id, CompVar), f'id: {id} is not a CompVar.'
         self.id = id
         self.name = name
 
@@ -226,7 +227,7 @@ class Group(Structure):
         self.static_delay = static_delay
 
     def doc(self) -> str:
-        static_delay_attr = '' if self.static_delay == None else f'<"static"={static_delay}>'
+        static_delay_attr = '' if self.static_delay == None else f'<"static"={self.static_delay}>'
         return block(f'group {self.id.doc()}{static_delay_attr}',
                      [c.doc() for c in self.connections])
 
@@ -241,8 +242,8 @@ class CompInst(Emittable):
         self.args = args
 
     def doc(self) -> str:
-        arguments = ', '.join([str(x) for x in self.args])
-        return f'{self.id}({arguments})'
+        args = ', '.join([str(x) for x in self.args])
+        return f'{self.id}({args})'
 
 
 ### Guard Expressions ###
@@ -301,18 +302,22 @@ class Or(GuardExpr):
 
 ### Control ###
 
-class ControlEntry(Enum):
+class ControlEntryType(Enum):
     Seq = 'seq'
     Par = 'par'
 
 
-# TODO(cgyurgyik): AST support for `Invoke`, `While`, `If`, and `Empty`.
+# TODO(cgyurgyik): AST support for `While`, `If`, and `Empty`.
 @dataclass
 class Control(Emittable):
-    entry: ControlEntry
-    stmts: list[ControlOrEnable]
+    pass
 
-    def __init__(self, entry: ControlEntry, stmts: list[ControlOrEnable]):
+@dataclass
+class ControlEntry(Control):
+    stmts: list[ControlOrEnable]
+    entry: ControlEntryType
+
+    def __init__(self, entry: ControlEntryType, stmts: list[ControlOrEnable]):
         self.entry = entry
         self.stmts = stmts
 
@@ -364,6 +369,25 @@ class ParComp(Control):
 
     def doc(self) -> str:
         return block('par', [s.doc() for s in self.stmts])
+
+
+@dataclass
+class Invoke(Control):
+    id: CompVar
+    args: List[Port]
+    params: List[CompVar]
+
+    def __init__(self, id: CompVar, args: List[Port],
+                 params: List[CompVar]):
+        self.id = id
+        self.args = args
+        self.params = params
+
+    def doc(self) -> str:
+        definitions = [
+            f'{x[0].doc()}={x[1].doc()}' for x in zip(self.params, self.args)
+        ]
+        return f'invoke {self.id.doc()}({", ".join(definitions)})();'
 
 
 ### Standard Library ###
