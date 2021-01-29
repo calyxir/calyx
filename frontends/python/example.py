@@ -16,11 +16,15 @@ cells = [
     LibDecl(add, stdlib.op('add', 32), is_external=False)
 ]
 
+# Group names.
+do_write = 'do_write'
+save_sum = 'save_sum'
+
 # Create the wires.
 wires = [
     # Writes the values `1` and `42` to registers `lhs` and `rhs` respectively.
     Group(
-        id=CompVar('do_write'),
+        id=CompVar(do_write),
         connections=[
             # lhs.in = 32'd1
             Connect(ConstantPort(32, 1), CompPort(lhs, 'in')),
@@ -33,14 +37,14 @@ wires = [
             # write[done] = lhs.done & rhs.done ? 1'd1;
             Connect(
                 ConstantPort(1, 1),
-                HolePort(CompVar('do_write'), 'done'),
+                HolePort(CompVar(do_write), 'done'),
                 And(CompPort(lhs, 'done'), CompPort(rhs, 'done'))
             )
         ]
     ),
     # Adds together `lhs` and `rhs` and saves it to register `sum`.
     Group(
-        id=CompVar('save_sum'),
+        id=CompVar(save_sum),
         connections=[
             # add.left = lhs.out
             Connect(CompPort(lhs, 'out'), CompPort(add, 'left')),
@@ -53,7 +57,7 @@ wires = [
             # save_sum[done] = sum.done
             Connect(
                 CompPort(sum, 'done'),
-                HolePort(CompVar('save_sum'), 'done')
+                HolePort(CompVar(save_sum), 'done')
             )
         ]
     )
@@ -62,7 +66,7 @@ wires = [
 # Control for the component.
 controls = ControlEntry(
     ControlEntryType.Seq,
-    [Enable("do_write"), Enable("save_sum")]
+    [Enable(do_write), Enable(save_sum)]
 )
 
 # Create the component.
