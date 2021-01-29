@@ -12,63 +12,39 @@ BITWIDTH = 32
 OUT_MEM = CompVar('out_mem')
 PE_NAME = 'mac_pe'
 
-
-def component_PE_DEF():
-    """Returns the PE_DEF component."""
-    stdlib = Stdlib()
-
-    mult_pipe = CompVar('mul')
-    mul_reg = CompVar('mul_reg')
-    acc = CompVar('acc')
-    add = CompVar('add')
-    cells = [
-        LibDecl(acc, stdlib.register(BITWIDTH)),
-        LibDecl(mul_reg, stdlib.register(BITWIDTH)),
-        LibDecl(add, stdlib.op('add', BITWIDTH)),
-        LibDecl(mult_pipe, stdlib.op('mult_pipe', BITWIDTH)),
-    ]
-
-    do_mul = CompVar('do_mul')
-    do_add = CompVar('do_add')
-    wires = [
-        Group(
-            id=do_mul,
-            connections=[
-                Connect(ThisPort(CompVar('top')), CompPort(mult_pipe, 'left')),
-                Connect(ThisPort(CompVar('left')), CompPort(mult_pipe, 'right')),
-                Connect(
-                    ConstantPort(1, 1), CompPort(mult_pipe, 'go'),
-                    Not(Atom(CompPort(mult_pipe, 'done')))
-                ),
-                Connect(
-                    CompPort(mult_pipe, 'out'), CompPort(mul_reg, 'in'),
-                    Atom(CompPort(mult_pipe, 'done'))
-                ),
-                Connect(CompPort(mult_pipe, 'done'), CompPort(mul_reg, 'write_en')),
-                Connect(CompPort(mul_reg, 'done'), HolePort(do_mul, 'done'))
-            ],
-            static_delay=4),
-        Group(
-            do_add,
-            connections=[
-                Connect(CompPort(acc, 'out'), CompPort(add, 'left')),
-                Connect(CompPort(mul_reg, 'out'), CompPort(add, 'right')),
-                Connect(CompPort(add, 'out'), CompPort(acc, 'in')),
-                Connect(ConstantPort(1, 1), CompPort(acc, 'write_en')),
-                Connect(CompPort(acc, 'done'), HolePort(do_add, 'done'))
-            ]
-        ),
-        Connect(CompPort(acc, 'out'), ThisPort(CompVar('out')))
-    ]
-
-    return Component(
-        name=PE_NAME,
-        inputs=[PortDef(CompVar('top'), BITWIDTH), PortDef(CompVar('left'), BITWIDTH)],
-        outputs=[PortDef(CompVar('out'), BITWIDTH)],
-        structs=cells + wires,
-        controls=ControlEntry(ControlEntryType.Seq, [Enable('do_mul'), Enable('do_add')])
-    )
-
+# Eventually, PE_DEF will be included a separate `.futil` file.
+PE_DEF = """
+component mac_pe(top: 32, left: 32) -> (out: 32) {
+  cells {
+    // Storage
+    acc = prim std_reg(32);
+    mul_reg = prim std_reg(32);
+    // Computation
+    add = prim std_add(32);
+    mul = prim std_mult_pipe(32);
+  }
+  wires {
+    group do_mul<"static"=4> {
+      mul.left = top;
+      mul.right = left;
+      mul.go = !mul.done ? 1'd1;
+      mul_reg.in = mul.done ? mul.out;
+      mul_reg.write_en = mul.done ? 1'd1;
+      do_mul[done] = mul_reg.done;
+    }
+    group do_add {
+      add.left = acc.out;
+      add.right = mul_reg.out;
+      acc.in = add.out;
+      acc.write_en = 1'd1;
+      do_add[done] = acc.done;
+    }
+    out = acc.out;
+  }
+  control {
+    seq { do_mul; do_add; }
+  }
+}"""
 
 # Naming scheme for generated groups. Used to keep group names consistent
 # across structure and control.
@@ -86,6 +62,7 @@ NAME_SCHEME = {
     'register move down': '{pe}_down_move',
     'register move right': '{pe}_right_move',
 }
+
 
 def instantiate_indexor(prefix, width):
     """
@@ -490,7 +467,7 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
 
     return Program(
         imports=[Import('primitives/std.lib')],
-        components=[component_PE_DEF(), main]
+        components=[main]
     )
 
 
@@ -532,5 +509,4 @@ if __name__ == '__main__':
         left_length=left_length,
         left_depth=left_depth,
     )
-
-    program.emit()
+    print(program.doc() + '\n' + PE_DEF)

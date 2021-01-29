@@ -1,36 +1,4 @@
 import "primitives/std.lib";
-component mac_pe(top: 32, left: 32) -> (out: 32) {
-  cells {
-    acc = prim std_reg(32);
-    mul_reg = prim std_reg(32);
-    add = prim std_add(32);
-    mul = prim std_mult_pipe(32);
-  }
-  wires {
-    group do_mul<"static"=4> {
-      mul.left = top;
-      mul.right = left;
-      mul.go = !mul.done ? 1'd1;
-      mul_reg.in = mul.done ? mul.out;
-      mul_reg.write_en = mul.done;
-      do_mul[done] = mul_reg.done;
-    }
-    group do_add {
-      add.left = acc.out;
-      add.right = mul_reg.out;
-      acc.in = add.out;
-      acc.write_en = 1'd1;
-      do_add[done] = acc.done;
-    }
-    out = acc.out;
-  }
-  control {
-    seq {
-      do_mul;
-      do_add;
-    }
-  }
-}
 component main() -> () {
   cells {
     t0_idx = prim std_reg(2);
@@ -266,5 +234,37 @@ component main() -> () {
         pe_1_1_out_write;
       }
     }
+  }
+}
+
+component mac_pe(top: 32, left: 32) -> (out: 32) {
+  cells {
+    // Storage
+    acc = prim std_reg(32);
+    mul_reg = prim std_reg(32);
+    // Computation
+    add = prim std_add(32);
+    mul = prim std_mult_pipe(32);
+  }
+  wires {
+    group do_mul<"static"=4> {
+      mul.left = top;
+      mul.right = left;
+      mul.go = !mul.done ? 1'd1;
+      mul_reg.in = mul.done ? mul.out;
+      mul_reg.write_en = mul.done ? 1'd1;
+      do_mul[done] = mul_reg.done;
+    }
+    group do_add {
+      add.left = acc.out;
+      add.right = mul_reg.out;
+      acc.in = add.out;
+      acc.write_en = 1'd1;
+      do_add[done] = acc.done;
+    }
+    out = acc.out;
+  }
+  control {
+    seq { do_mul; do_add; }
   }
 }
