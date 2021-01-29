@@ -243,14 +243,18 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
         return ControlEntry(ControlEntryType.Seq, preambles + ntt_stages + epilogues)
 
     pp_table(operations, multiplies, n, num_stages)
-    component = Component('main',
-                          inputs=[],
-                          outputs=[],
-                          structs=cells() + wires(),
-                          controls=control())
-    program = Program(imports=[Import('primitives/std.lib')],
-                      components=[component])
-    program.emit()
+    Program(
+        imports=[Import('primitives/std.lib')],
+        components=[
+            Component(
+                'main',
+                inputs=[],
+                outputs=[],
+                structs=cells() + wires(),
+                controls=control()
+            )
+        ]
+    ).emit()
 
 
 if __name__ == '__main__':
