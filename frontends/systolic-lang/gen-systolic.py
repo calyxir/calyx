@@ -17,7 +17,7 @@ OUT_MEM = CompVar('out_mem')
 PE_NAME = 'mac_pe'
 
 
-def PE_DEF():
+def component_PE_DEF():
     stdlib = Stdlib()
 
     mult_pipe = CompVar('mul')
@@ -500,7 +500,7 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
 
     return Program(
         imports=[Import('primitives/std.lib')],
-        components=[PE_DEF(), main]
+        components=[component_PE_DEF(), main]
     )
 
 
