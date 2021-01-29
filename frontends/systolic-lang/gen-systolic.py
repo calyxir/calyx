@@ -509,4 +509,5 @@ if __name__ == '__main__':
         left_length=left_length,
         left_depth=left_depth,
     )
-    print(program.doc() + '\n' + PE_DEF)
+    program.emit()
+    print(PE_DEF)
