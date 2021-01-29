@@ -1,22 +1,7 @@
-import math
-import textwrap
 from prettytable import PrettyTable
-import sys
-from os.path import abspath, dirname, join
 
-# Access to futil_ast.
-sys.path.append(abspath(join(dirname(__file__), '../python')))
-from futil_ast import *
-
-
-def pp_block(decl, contents, indent=2):
-    """Format a block like this:
-        decl {
-          contents
-        }
-    where `decl` is one line but contents can be multiple lines.
-    """
-    return ''.join((decl, ' {\n', textwrap.indent(contents, indent * ' '), '\n}'))
+from futil.futil_ast import *
+from futil.futil_utils import bits_needed
 
 
 def get_pipeline_data(n, num_stages):
@@ -108,8 +93,8 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
     https://www.microsoft.com/en-us/research/wp-content/uploads/2016/05/RLWE-1.pdf
     """
     assert n > 0 and (not (n & (n - 1))), f'Input length: {n} must be a power of 2.'
-    num_stages = int(math.log2(n))
-    bitwidth = num_stages + 1
+    bitwidth = bits_needed(n)
+    num_stages = bitwidth - 1
 
     operations = get_pipeline_data(n, num_stages)
     multiplies = get_multiply_data(n, num_stages)

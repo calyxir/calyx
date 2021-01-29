@@ -2,13 +2,9 @@
 
 import sys
 import textwrap
-import math
 import numpy as np
-from os.path import abspath, dirname, join
-
-# Access to futil_ast.
-sys.path.append(abspath(join(dirname(__file__), '../python')))
-from futil_ast import *
+from futil.futil_ast import *
+from futil.futil_utils import bits_needed
 
 # Global constant for the current bitwidth.
 BITWIDTH = 32
@@ -90,14 +86,6 @@ NAME_SCHEME = {
     'register move down': '{pe}_down_move',
     'register move right': '{pe}_right_move',
 }
-
-
-def bits_needed(num):
-    """
-    Number of bits needed to represent `num`.
-    """
-    return math.floor(math.log(num, 2)) + 1
-
 
 def instantiate_indexor(prefix, width):
     """

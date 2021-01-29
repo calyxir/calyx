@@ -2,7 +2,7 @@ from __future__ import annotations  # Used for circular dependencies.
 from dataclasses import dataclass
 from enum import Enum
 from typing import Union
-from futil_utils import block
+from futil.futil_utils import block
 
 
 @dataclass
