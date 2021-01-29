@@ -20,9 +20,6 @@ class Emittable:
 class Import(Emittable):
     filename: str
 
-    def __init__(self, filename: str):
-        self.filename = filename
-
     def doc(self) -> str:
         return f'import "{self.filename}";'
 
@@ -31,10 +28,6 @@ class Import(Emittable):
 class Program(Emittable):
     imports: List[Import]
     components: List[Component]
-
-    def __init__(self, imports: List[Import], components: List[Component]):
-        self.imports = imports
-        self.components = components
 
     def doc(self) -> str:
         imports = '\n'.join([i.doc() for i in self.imports])
@@ -60,7 +53,6 @@ class Component:
         self.outputs = outputs
         self.name = name
         self.controls = controls
-
         # Partition cells and wires.
         is_cell = lambda x: isinstance(x, LibDecl) or isinstance(x, CompDecl)
         self.cells = [s for s in structs if is_cell(s)]
@@ -88,11 +80,6 @@ class CompPort(Port):
     id: CompVar
     name: str
 
-    def __init__(self, id: CompVar, name: str):
-        assert isinstance(id, CompVar), f'id: {id} is not a CompVar.'
-        self.id = id
-        self.name = name
-
     def doc(self) -> str:
         return f'{self.id.doc()}.{self.name}'
 
@@ -100,9 +87,6 @@ class CompPort(Port):
 @dataclass
 class ThisPort(Port):
     id: CompVar
-
-    def __init__(self, id: CompVar):
-        self.id = id
 
     def doc(self) -> str:
         return self.id.doc()
@@ -113,10 +97,6 @@ class HolePort(Port):
     id: CompVar
     name: str
 
-    def __init__(self, id: CompVar, name: str):
-        self.id = id
-        self.name = name
-
     def doc(self) -> str:
         return f'{self.id.doc()}[{self.name}]'
 
@@ -126,10 +106,6 @@ class ConstantPort(Port):
     width: int
     value: int
 
-    def __init__(self, width: int, value: int):
-        self.width = width
-        self.value = value
-
     def doc(self) -> str:
         return f'{self.width}\'d{self.value}'
 
@@ -137,9 +113,6 @@ class ConstantPort(Port):
 @dataclass
 class CompVar(Emittable):
     name: str
-
-    def __init__(self, name: str):
-        self.name = name
 
     def doc(self) -> str:
         return self.name
@@ -156,10 +129,6 @@ class PortDef(Emittable):
     id: CompVar
     width: int
 
-    def __init__(self, id: CompVar, width: int):
-        self.id = id
-        self.width = width
-
     def doc(self) -> str:
         return f'{self.id.doc()}: {self.width}'
 
@@ -175,10 +144,6 @@ class CompDecl(Structure):
     id: CompVar
     comp: CompVar
 
-    def __init__(self, id: CompVar, comp: CompVar):
-        self.id = id
-        self.comp = comp
-
     def doc(self) -> str:
         return f'{self.id.doc()} = {self.comp.doc()};'
 
@@ -187,12 +152,7 @@ class CompDecl(Structure):
 class LibDecl(Structure):
     id: CompVar
     comp: CompInst
-    is_external: bool
-
-    def __init__(self, id: CompVar, comp: CompInst, is_external: bool = False):
-        self.id = id
-        self.comp = comp
-        self.is_external = is_external
+    is_external: bool = False
 
     def doc(self) -> str:
         external = '@external(1) ' if self.is_external else ''
@@ -203,12 +163,7 @@ class LibDecl(Structure):
 class Connect(Structure):
     src: Port
     dest: Port
-    guard: GuardExpr
-
-    def __init__(self, src: Port, dest: Port, guard: GuardExpr = None):
-        self.src = src
-        self.dest = dest
-        self.guard = guard
+    guard: GuardExpr = None
 
     def doc(self) -> str:
         source = self.src.doc() if self.guard == None else f'{self.guard.doc()} ? {self.src.doc()}'
@@ -219,12 +174,7 @@ class Connect(Structure):
 class Group(Structure):
     id: CompVar
     connections: list[Connect]
-    static_delay: int
-
-    def __init__(self, id: CompVar, connections: list[Connect], static_delay: int = None):
-        self.id = id
-        self.connections = connections
-        self.static_delay = static_delay
+    static_delay: int = None
 
     def doc(self) -> str:
         static_delay_attr = '' if self.static_delay == None else f'<"static"={self.static_delay}>'
@@ -236,10 +186,6 @@ class Group(Structure):
 class CompInst(Emittable):
     id: str
     args: list[int]
-
-    def __init__(self, id: str, args: list[int]):
-        self.id = id
-        self.args = args
 
     def doc(self) -> str:
         args = ', '.join([str(x) for x in self.args])
@@ -256,9 +202,6 @@ class GuardExpr(Emittable):
 class Atom(GuardExpr):
     item: Port
 
-    def __init__(self, item: Port):
-        self.item = item
-
     def doc(self) -> str:
         return self.item.doc()
 
@@ -266,9 +209,6 @@ class Atom(GuardExpr):
 @dataclass
 class Not(GuardExpr):
     inner: GuardExpr
-
-    def __init__(self, inner: GuardExpr):
-        self.inner = inner
 
     def doc(self) -> str:
         return f'!{self.inner.doc()}'
@@ -279,10 +219,6 @@ class And(GuardExpr):
     left: GuardExpr
     right: GuardExpr
 
-    def __init__(self, left: GuardExpr, right: GuardExpr):
-        self.left = left
-        self.right = right
-
     def doc(self) -> str:
         return f'{self.left.doc()} & {self.right.doc()}'
 
@@ -291,10 +227,6 @@ class And(GuardExpr):
 class Or(GuardExpr):
     left: GuardExpr
     right: GuardExpr
-
-    def __init__(self, left: GuardExpr, right: GuardExpr):
-        self.left = left
-        self.right = right
 
     def doc(self) -> str:
         return f'{self.left.doc()} | {self.right.doc()}'
@@ -312,14 +244,11 @@ class ControlEntryType(Enum):
 class Control(Emittable):
     pass
 
+
 @dataclass
 class ControlEntry(Control):
-    stmts: list[ControlOrEnable]
     entry: ControlEntryType
-
-    def __init__(self, entry: ControlEntryType, stmts: list[ControlOrEnable]):
-        self.entry = entry
-        self.stmts = stmts
+    stmts: list[ControlOrEnable]
 
     def doc(self):
         return block(self.entry.value, [s.doc() for s in self.stmts])
@@ -328,9 +257,6 @@ class ControlEntry(Control):
 @dataclass
 class Enable(Emittable):
     stmt: str
-
-    def __init__(self, stmt):
-        self.stmt = stmt
 
     def doc(self) -> str:
         return f'{self.stmt};'
@@ -341,10 +267,6 @@ class ControlOrEnable(Emittable):
     ControlOrEnableType = Union[Control, Enable]
     stmt: ControlOrEnableType
 
-    def __init__(self, s: ControlOrEnableType):
-        assert isinstance(s, Control) or isinstance(s, Enable), f'{s} should be a Control or Enable.'
-        self.stmt = stmt
-
     def doc(self) -> str:
         return self.doc()
 
@@ -353,9 +275,6 @@ class ControlOrEnable(Emittable):
 class SeqComp(Control):
     stmts: list[ControlOrEnable]
 
-    def __init__(self, stmts: list[ControlOrEnable]):
-        self.stmts = stmts
-
     def doc(self) -> str:
         return block('seq', [s.doc() for s in self.stmts])
 
@@ -363,9 +282,6 @@ class SeqComp(Control):
 @dataclass
 class ParComp(Control):
     stmts: list[ControlOrEnable]
-
-    def __init__(self, stmts: list[ControlOrEnable]):
-        self.stmts = stmts
 
     def doc(self) -> str:
         return block('par', [s.doc() for s in self.stmts])
@@ -376,12 +292,6 @@ class Invoke(Control):
     id: CompVar
     args: List[Port]
     params: List[CompVar]
-
-    def __init__(self, id: CompVar, args: List[Port],
-                 params: List[CompVar]):
-        self.id = id
-        self.args = args
-        self.params = params
 
     def doc(self) -> str:
         definitions = [
