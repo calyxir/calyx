@@ -140,7 +140,7 @@ jobs:
         fud config stages.dahlia.exec '/home/runner/work/futil/futil/dahlia/fuse'
         fud config stages.futil.exec './target/debug/futil'
         fud config
-    - name: Install futil
+    - name: Install python-futil
       run: |
         cd frontends/python
         flit install
