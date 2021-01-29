@@ -19,8 +19,7 @@ class DahliaStage(Stage):
                 [
                     self.cmd,
                     unwrap_or(self.config["stages", self.name, "flags"], ""),
-                    "-l error",
-                    " -b futil --lower",
+                    " -b futil --lower -l error",
                     "{ctx[input_path]}",
                 ]
             )
