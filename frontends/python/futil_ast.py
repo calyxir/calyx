@@ -317,7 +317,7 @@ class Control(Emittable):
         self.stmts = stmts
 
     def doc(self):
-        return block(self.entry, [s.doc() for s in self.stmts])
+        return block(self.entry.value, [s.doc() for s in self.stmts])
 
 
 @dataclass
