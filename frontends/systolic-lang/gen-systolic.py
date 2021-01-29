@@ -97,27 +97,6 @@ def bits_needed(num):
     """
     return math.floor(math.log(num, 2)) + 1
 
-
-def create_adder(name, width):
-    return f'{name} = prim std_add({width});'
-
-
-def create_register(name, width):
-    return f'{name} = prim std_reg({width});'
-
-
-def create_memory(name, bitwidth, size):
-    """
-    Defines a 1D memory.
-    Returns (cells, idx_size)
-    """
-    idx_width = bits_needed(size)
-    return (
-        f'{name} = prim std_mem_d1({bitwidth}, {size}, {idx_width});',
-        idx_width
-    )
-
-
 def instantiate_indexor(prefix, width):
     """
     Instantiate an indexor for accessing memory with name `prefix`.
