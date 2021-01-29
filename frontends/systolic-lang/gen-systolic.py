@@ -18,6 +18,7 @@ PE_NAME = 'mac_pe'
 
 
 def component_PE_DEF():
+    """Returns the PE_DEF component."""
     stdlib = Stdlib()
 
     mult_pipe = CompVar('mul')
@@ -96,6 +97,7 @@ def bits_needed(num):
     Number of bits needed to represent `num`.
     """
     return math.floor(math.log(num, 2)) + 1
+
 
 def instantiate_indexor(prefix, width):
     """
