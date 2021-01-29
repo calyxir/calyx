@@ -172,9 +172,19 @@ module std_sqrt (
   logic [17:0] tmp;
   logic [5:0] i;
 
+  // Done condition
+  assign done = i == END;
+
   // Input to the add/sub circuit.
   assign right = {Q, R[17], 1'b1};
   assign left = {R[15:0], a[31:30]};
+
+  // Latch for final value
+  always_latch @(posedge clk) begin
+    if (i == END) begin
+      out <= {16'd0, Q};
+    end
+  end
 
   // Output is based on current value of r
   always_comb begin
@@ -190,17 +200,6 @@ module std_sqrt (
       i <= i + 1;
     else
       i <= 0;
-  end
-
-  // Done signal and final value
-  always_ff @(posedge clk) begin
-    if (i == END) begin
-      done <= 1;
-      out <= {16'd0, Q};
-    end else begin
-      done <= 0;
-      out <= 0;
-    end
   end
 
   // Quotient and remainder updates
