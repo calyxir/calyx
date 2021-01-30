@@ -7,25 +7,25 @@ component main() -> () {
     add = prim std_add(32);
   }
   wires {
-    group do_write {
+    group update_operands {
       lhs.in = 32'd1;
       rhs.in = 32'd41;
       lhs.write_en = 1'd1;
       rhs.write_en = 1'd1;
-      do_write[done] = lhs.done & rhs.done ? 1'd1;
+      update_operands[done] = lhs.done & rhs.done ? 1'd1;
     }
-    group save_sum {
+    group compute_sum {
       add.left = lhs.out;
       add.right = rhs.out;
       sum.write_en = 1'd1;
       sum.in = add.out;
-      save_sum[done] = sum.done;
+      compute_sum[done] = sum.done;
     }
   }
   control {
     seq {
-      do_write;
-      save_sum;
+      update_operands;
+      compute_sum;
     }
   }
 }
