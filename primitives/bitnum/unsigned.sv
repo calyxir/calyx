@@ -176,6 +176,22 @@ module std_sqrt (
   assign right = {Q, R[17], 1'b1};
   assign left = {R[15:0], a[31:30]};
 
+  // Done condition
+  always_ff @(posedge clk) begin
+    if (i == END) begin
+      done <= 1;
+    end else begin
+      done <= 0;
+    end
+  end
+
+  // Latch for final value
+  always_latch @(posedge clk) begin
+    if (i == END) begin
+      out <= {16'd0, Q};
+    end
+  end
+
   // Output is based on current value of r
   always_comb begin
     if (R[17] == 1)
@@ -190,17 +206,6 @@ module std_sqrt (
       i <= i + 1;
     else
       i <= 0;
-  end
-
-  // Done signal and final value
-  always_ff @(posedge clk) begin
-    if (i == END) begin
-      done <= 1;
-      out <= {16'd0, Q};
-    end else begin
-      done <= 0;
-      out <= 0;
-    end
   end
 
   // Quotient and remainder updates
@@ -239,7 +244,7 @@ module std_sqrt (
           "input: %0d\n", in,
           /* verilator lint_off REALCVT */
           "expected: %0d", $floor($sqrt(in)),
-          "  computed: %0d", out
+          "  computed: %0d", Q
         );
     end
   `endif
