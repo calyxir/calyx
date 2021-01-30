@@ -299,6 +299,7 @@ class Invoke(Control):
         ]
         return f'invoke {self.id.doc()}({", ".join(definitions)})();'
 
+
 @dataclass
 class While(Control):
     port: Port
