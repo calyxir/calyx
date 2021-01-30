@@ -3,8 +3,8 @@
 import sys
 import textwrap
 import numpy as np
-from futil.futil_ast import *
-from futil.futil_utils import bits_needed
+from futil.ast import *
+from futil.utils import bits_needed
 
 # Global constant for the current bitwidth.
 BITWIDTH = 32

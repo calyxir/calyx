@@ -1,4 +1,4 @@
-from futil.futil_ast import *
+from futil.ast import *
 
 stdlib = Stdlib()
 

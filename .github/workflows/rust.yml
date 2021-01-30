@@ -142,7 +142,7 @@ jobs:
         fud config
     - name: Install python-futil
       run: |
-        cd frontends/python
+        cd calyx-py
         flit install
 
     - name: Test

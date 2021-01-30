@@ -1,5 +1,5 @@
 from . import ast
-from futil.futil_ast import *
+from futil.ast import *
 
 
 def emit_mem_decl(name, size, par):
