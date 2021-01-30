@@ -172,12 +172,18 @@ module std_sqrt (
   logic [17:0] tmp;
   logic [5:0] i;
 
-  // Done condition
-  assign done = i == END;
-
   // Input to the add/sub circuit.
   assign right = {Q, R[17], 1'b1};
   assign left = {R[15:0], a[31:30]};
+
+  // Done condition
+  always_ff @(posedge clk) begin
+    if (i == END) begin
+      done <= 1;
+    end else begin
+      done <= 0;
+    end
+  end
 
   // Latch for final value
   always_latch @(posedge clk) begin
@@ -238,7 +244,7 @@ module std_sqrt (
           "input: %0d\n", in,
           /* verilator lint_off REALCVT */
           "expected: %0d", $floor($sqrt(in)),
-          "  computed: %0d", out
+          "  computed: %0d", Q
         );
     end
   `endif
