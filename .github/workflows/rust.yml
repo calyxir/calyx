@@ -148,7 +148,10 @@ jobs:
     - name: Test
       run: |
         unset JAVA_TOOL_OPTIONS
-        runt -d -o fail
+        # Run Dahlia tests in sequence
+        runt -i dahlia -d -o fail -j 1
+        # Run the remaining tests
+        runt -x dahlia -d -o fail
 
   format:
     name: Check Formatting
