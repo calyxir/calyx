@@ -1,10 +1,10 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    const0 = prim std_const(32,4);
-    const1 = prim std_const(32,5);
-    x_0 = prim std_reg(32);
-    y_0 = prim std_reg(32);
+    const0 = std_const(32,4);
+    const1 = std_const(32,5);
+    x_0 = std_reg(32);
+    y_0 = std_reg(32);
   }
   wires {
     group let0<"static"=1> {
