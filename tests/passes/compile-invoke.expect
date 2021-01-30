@@ -16,7 +16,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
     exp0 = exponent;
   }
   wires {
-    group invoke {
+    group invoke<"static"=0> {
       exp0.base = r.out;
       exp0.exp = const3.out;
       exp0.go = 1'd1;
@@ -25,6 +25,6 @@ component main(go: 1, clk: 1) -> (done: 1) {
   }
 
   control {
-    invoke;
+    @static(0) invoke;
   }
 }

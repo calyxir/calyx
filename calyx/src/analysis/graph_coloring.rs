@@ -1,78 +1,38 @@
-use itertools::Itertools;
-use petgraph::matrix_graph::{MatrixGraph, NodeIndex, UnMatrix, Zero};
+use crate::utils::{Idx, WeightGraph};
 use std::{collections::HashMap, hash::Hash};
 
-/// Edge weight used for the graph nodes
-struct NonZeroBool(bool);
-
-impl From<bool> for NonZeroBool {
-    fn from(b: bool) -> Self {
-        NonZeroBool(b)
-    }
-}
-
-impl Zero for NonZeroBool {
-    fn zero() -> Self {
-        NonZeroBool(false)
-    }
-
-    fn is_zero(&self) -> bool {
-        !self.0
-    }
-}
-
 /// Defines a greedy graph coloring algorithm over a generic conflict graph.
-pub struct GraphColoring<T: Eq + Hash> {
-    graph: UnMatrix<T, NonZeroBool>,
-    index_map: HashMap<T, NodeIndex>,
+pub struct GraphColoring<T: Eq + Hash + Clone> {
+    graph: WeightGraph<T>,
 }
 
-impl<T: Eq + Hash> Default for GraphColoring<T> {
-    fn default() -> Self {
-        GraphColoring {
-            graph: MatrixGraph::new_undirected(),
-            index_map: HashMap::new(),
-        }
+impl<T, C> From<C> for GraphColoring<T>
+where
+    T: Eq + Hash + Clone,
+    C: Iterator<Item = T>,
+{
+    fn from(nodes: C) -> Self {
+        let graph = WeightGraph::from(nodes);
+        GraphColoring { graph }
     }
 }
 
-impl<T: Eq + Hash + Clone + std::fmt::Debug> GraphColoring<T> {
-    pub fn insert_conflict(&mut self, a: T, b: T) {
-        // we don't need to add self edges, but we still want the node
-        if a == b {
-            if !self.index_map.contains_key(&a) {
-                self.index_map.insert(a.clone(), self.graph.add_node(a));
-            }
-            return;
-        }
-
-        let a_node: NodeIndex = match self.index_map.get(&a) {
-            Some(node) => *node,
-            None => self.graph.add_node(a.clone()),
-        };
-        let b_node: NodeIndex = match self.index_map.get(&b) {
-            Some(node) => *node,
-            None => self.graph.add_node(b.clone()),
-        };
-        self.index_map.insert(a, a_node);
-        self.index_map.insert(b, b_node);
-        self.graph.update_edge(a_node, b_node, true.into());
+impl<'a, T> GraphColoring<T>
+where
+    T: 'a + Eq + Hash + Clone,
+{
+    /// Add a conflict edge between `a` and `b`.
+    #[inline(always)]
+    pub fn insert_conflict(&mut self, a: &T, b: &T) {
+        self.graph.add_edge(a, b);
     }
 
-    pub fn insert_conflicts(&mut self, items: &[T]) {
-        for item in items {
-            if !self.index_map.contains_key(item) {
-                self.index_map
-                    .insert(item.clone(), self.graph.add_node(item.clone()));
-            }
-        }
-        items.iter().tuple_combinations().for_each(|(src, dst)| {
-            self.graph.update_edge(
-                self.index_map[src],
-                self.index_map[dst],
-                true.into(),
-            );
-        });
+    /// Add conflict edges between all given items.
+    pub fn insert_conflicts<C>(&mut self, items: C)
+    where
+        C: Iterator<Item = &'a T> + Clone,
+    {
+        self.graph.add_all_edges(items)
     }
 
     /// Given an `ordering` of `T`s, find a mapping from nodes to `T`s such
@@ -81,22 +41,24 @@ impl<T: Eq + Hash + Clone + std::fmt::Debug> GraphColoring<T> {
         &self,
         ordering: impl Iterator<Item = T>,
     ) -> HashMap<T, T> {
-        let mut available_colors: Vec<(T, bool)> = Vec::new();
-        let mut coloring: HashMap<T, T> = HashMap::new();
+        let mut available_colors: Vec<(Idx, bool)> = Vec::new();
+        let mut coloring: HashMap<Idx, Idx> = HashMap::new();
 
         // for every node in the ordering
         for node in ordering {
+            let nidx = self.graph.index_map[&node];
             // reset available colors
             available_colors.iter_mut().for_each(|(_, b)| *b = false);
 
             // search neighbors for used colors
-            for nbr in self.graph.neighbors(self.index_map[&node]) {
-                let item = &self.graph[nbr];
+            for item in self.graph.graph.neighbors(self.graph.index_map[&node])
+            {
+                //let item = &self.graph[nbr];
                 // if the neighbor is already colored
-                if coloring.contains_key(item) {
+                if coloring.contains_key(&item) {
                     // set color to be in use
                     available_colors.iter_mut().for_each(|(x, b)| {
-                        if x == &coloring[item] {
+                        if x == &coloring[&item] {
                             *b = true
                         }
                     });
@@ -111,48 +73,19 @@ impl<T: Eq + Hash + Clone + std::fmt::Debug> GraphColoring<T> {
                 }
             });
             match color {
-                Some(c) => coloring.insert(node.clone(), c.clone()),
+                Some(c) => coloring.insert(nidx, *c),
                 None => {
                     // use self as color if nothing else
-                    available_colors.push((node.clone(), true));
-                    coloring.insert(node.clone(), node.clone())
+                    available_colors.push((nidx, true));
+                    coloring.insert(nidx, nidx)
                 }
             };
         }
 
+        let rev_map = self.graph.reverse_index();
         coloring
+            .into_iter()
+            .map(|(n1, n2)| (rev_map[&n1].clone(), rev_map[&n2].clone()))
+            .collect()
     }
 }
-
-/*impl<T: Eq + Hash + ToString> ToString for GraphColoring<T> {
-    fn to_string(&self) -> String {
-        let keys: Vec<_> = self.index_map.keys().collect();
-        let nodes = keys
-            .iter()
-            .enumerate()
-            .map(|(_idx, key)| {
-                format!(
-                    "  {} [label=\"{}\"];",
-                    key.to_string(),
-                    key.to_string()
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-        let edges = self
-            .graph
-            .edge_indices()
-            .filter_map(|idx| self.graph.edge_endpoints(idx))
-            .unique()
-            .map(|(a_idx, b_idx)| {
-                format!(
-                    "  {} -- {};",
-                    self.graph[a_idx].to_string(),
-                    self.graph[b_idx].to_string()
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-        format!("graph {{ \n{}\n{}\n }}", nodes, edges)
-    }
-}*/

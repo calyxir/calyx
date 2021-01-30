@@ -1,5 +1,4 @@
 import sys
-import logging
 import logging as log
 
 
@@ -22,29 +21,31 @@ def is_debug():
 def unwrap_or(val, default):
     if val is not None:
         return val
-    else:
-        return default
+
+    return default
 
 
 def logging_setup(args):
     # Color for warning and error mesages
-    logging.addLevelName(
-        logging.WARNING,
-        "\033[1;33m%s\033[1;0m" % logging.getLevelName(logging.WARNING))
-    logging.addLevelName(
-        logging.ERROR,
-        "\033[1;31m%s\033[1;0m" % logging.getLevelName(logging.ERROR))
+    log.addLevelName(
+        log.WARNING, "\033[1;33m%s\033[1;0m" % log.getLevelName(log.WARNING)
+    )
+    log.addLevelName(log.ERROR, "\033[1;31m%s\033[1;0m" % log.getLevelName(log.ERROR))
 
     # set verbosity level
     level = None
-    if 'verbose' not in args or args.verbose <= 0:
+    if "verbose" not in args or args.verbose == 0:
         level = log.WARNING
-    elif args.verbose <= 1:
+    elif args.verbose == 1:
         level = log.INFO
-    elif args.verbose <= 2:
+    elif args.verbose >= 2:
         level = log.DEBUG
-    logging.basicConfig(
-        format='%(levelname)s: %(message)s',
-        stream=sys.stderr,
-        level=level
-    )
+
+    log.basicConfig(format="%(levelname)s: %(message)s", stream=sys.stderr, level=level)
+
+    try:
+        import paramiko
+
+        paramiko.util.logging.getLogger().setLevel(level)
+    except ModuleNotFoundError:
+        pass

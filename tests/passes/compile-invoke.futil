@@ -18,6 +18,6 @@ component main() -> () {
   wires {
   }
   control {
-    invoke exp0(base = r.out, exp = const3.out)();
+    @static(0) invoke exp0(base = r.out, exp = const3.out)();
   }
 }

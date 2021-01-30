@@ -28,7 +28,7 @@ MrXL programs need to be fed data in the form of JSON files. Let's try to run th
 with this data file, containing banked memories to allow for the parallelism:
 
 ```
-{{#include ../../frontends/mrxl/test/add_par2.data}}
+{{#include ../../frontends/mrxl/test/add.mrxl.data}}
 ```
 
 Run the program with the supplied data by typing:

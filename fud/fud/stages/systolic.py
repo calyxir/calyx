@@ -1,19 +1,24 @@
 from pathlib import Path
 
-from fud.stages import Stage, Step, SourceType
-from .. import errors
+from fud.stages import SourceType, Stage, Step
 
 
 class SystolicStage(Stage):
     def __init__(self, config):
-        super().__init__('systolic', 'futil', config,
-                         'Generates a matrix multiply using a systolic array architecture')
+        super().__init__(
+            "systolic",
+            "futil",
+            config,
+            "Generates a matrix multiply using a systolic array architecture",
+        )
+        self.script = (
+            Path(self.config["global", "futil_directory"])
+            / "frontends"
+            / "systolic-lang"
+            / "gen-systolic.py"
+        )
 
     def _define(self):
-        main = Step(SourceType.Nothing)
-        script = Path(self.config['global', 'futil_directory']) / 'frontends' / 'systolic-lang' / 'gen-systolic.py'
-        if self.config['stages', self.name, 'flags'] is None:
-            raise errors.MissingDynamicConfiguration('systolic.flags')
-        flags = self.config['stages', self.name, 'flags']
-        main.set_cmd(' '.join([str(script), flags]))
+        main = Step(SourceType.Path)
+        main.set_cmd(" ".join([str(self.script), "{ctx[input_path]}"]))
         return [main]

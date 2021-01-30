@@ -1,5 +1,5 @@
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, LibrarySignatures};
+use crate::ir::{self, Attributes, LibrarySignatures};
 use crate::{build_assignments, structure};
 
 /// Compiles [`ir::Invoke`](crate::ir::Invoke) statements into an [`ir::Enable`](crate::ir::Enable)
@@ -57,6 +57,19 @@ impl Visitor for CompileInvoke {
             .collect();
         invoke_group.borrow_mut().assignments = assigns;
 
-        Ok(Action::Change(ir::Control::enable(invoke_group)))
+        // Copy "static" annotation if present
+        if let Some(time) = s.attributes.get("static") {
+            invoke_group.borrow_mut().attributes.insert("static", *time);
+        }
+
+        let mut en = ir::Enable {
+            group: invoke_group,
+            attributes: Attributes::default(),
+        };
+        if let Some(time) = s.attributes.get("static") {
+            en.attributes.insert("static", *time);
+        }
+
+        Ok(Action::Change(ir::Control::Enable(en)))
     }
 }

@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use crate::analysis::{GraphAnalysis, ReadWriteSet};
 use crate::errors::Error;
-use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::ir::traversal::{
+    Action, ConstructVisitor, Named, VisResult, Visitor,
+};
 use crate::ir::{self, LibrarySignatures};
 use crate::ir::{GetAttributes, RRC};
 use itertools::Itertools;
@@ -17,10 +19,42 @@ use std::{cmp, ops::Add, rc::Rc};
 /// annotation in a group that differs from an inferred value, this
 /// pass will throw an error. If a group's `done` signal relies on signals
 /// that are not only `done` signals, this pass will ignore that group.
-#[derive(Default)]
 pub struct InferStaticTiming {
     /// primitive name -> (go signal, done signal, latency)
     latency_data: HashMap<ir::Id, (ir::Id, ir::Id, u64)>,
+    /// static timing information for components
+    comp_latency: HashMap<ir::Id, u64>,
+}
+
+// Override constructor to build latency_data information from the primitives
+// library.
+impl ConstructVisitor for InferStaticTiming {
+    fn from(ctx: &ir::Context) -> Self {
+        let mut latency_data = HashMap::new();
+        // XXX(rachit): This is unneccesarily rebuilt for every component
+        // Build latency data by traversing primitive cells
+        for prim in ctx.lib.sigs.values() {
+            if let Some(time) = prim.attributes.get("static") {
+                let mut go_port = None;
+                let mut done_port = None;
+                for port in &prim.signature {
+                    if port.attributes.has("go") {
+                        go_port = Some(port.name.clone());
+                    }
+                    if port.attributes.has("done") {
+                        done_port = Some(port.name.clone());
+                    }
+                }
+                if let (Some(go), Some(done)) = (go_port, done_port) {
+                    latency_data.insert(prim.name.clone(), (go, done, *time));
+                }
+            }
+        }
+        InferStaticTiming {
+            latency_data,
+            comp_latency: HashMap::new(),
+        }
+    }
 }
 
 /// Function to iterate over a vector of control statements and collect
@@ -301,32 +335,17 @@ impl InferStaticTiming {
 }
 
 impl Visitor for InferStaticTiming {
+    // Require post order traversal of components to ensure `invoke` nodes
+    // get timing information for components.
+    fn require_postorder() -> bool {
+        true
+    }
+
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        lib: &LibrarySignatures,
+        _lib: &LibrarySignatures,
     ) -> VisResult {
-        // XXX(rachit): This is unneccesarily rebuilt for every component
-        // Build latency data by traversing primitive cells
-        for prim in lib.sigs.values() {
-            if let Some(time) = prim.attributes.get("static") {
-                let mut go_port = None;
-                let mut done_port = None;
-                for port in &prim.signature {
-                    if port.attributes.has("go") {
-                        go_port = Some(port.name.clone());
-                    }
-                    if port.attributes.has("done") {
-                        done_port = Some(port.name.clone());
-                    }
-                }
-                if let (Some(go), Some(done)) = (go_port, done_port) {
-                    self.latency_data
-                        .insert(prim.name.clone(), (go, done, *time));
-                }
-            }
-        }
-
         let mut latency_result: Option<u64>;
         for group in &comp.groups {
             if let Some(latency) = self.infer_latency(&group.borrow()) {
@@ -414,6 +433,25 @@ impl Visitor for InferStaticTiming {
         Ok(Action::Continue)
     }
 
+    fn invoke(
+        &mut self,
+        s: &mut ir::Invoke,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+    ) -> VisResult {
+        // If we've found static timing for the invoked component, add
+        // this information to invoke.
+        if let Some(time) = &s
+            .comp
+            .borrow()
+            .type_name()
+            .and_then(|name| self.comp_latency.get(name))
+        {
+            s.attributes.insert("static", **time);
+        }
+        Ok(Action::Continue)
+    }
+
     fn finish(
         &mut self,
         comp: &mut ir::Component,
@@ -426,6 +464,7 @@ impl Visitor for InferStaticTiming {
             .and_then(|attrs| attrs.get("static"))
         {
             comp.attributes.insert("static", *time);
+            self.comp_latency.insert(comp.name.clone(), *time);
         }
         Ok(Action::Continue)
     }

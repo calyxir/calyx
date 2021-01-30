@@ -1,7 +1,7 @@
 
 import "primitives/std.lib";
 
-component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
+component mac_pe(top: 32, left: 32) -> (out: 32) {
   cells {
     // Storage
     acc = prim std_reg(32);
@@ -13,7 +13,7 @@ component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
 
   wires {
 
-    group do_mul {
+    group do_mul<"static"=4> {
       mul.left = top;
       mul.right = left;
       mul.go = !mul.done ? 1'd1;
@@ -31,8 +31,6 @@ component mac_pe(top: 32, left: 32) -> (down: 32, right: 32, out: 32) {
     }
 
     out = acc.out;
-    down = top;
-    right = left;
   }
 
   control {
@@ -60,46 +58,34 @@ component main() -> () {
       l2_idx = prim std_reg(2);
       l2_add = prim std_add(2);
       l2 = prim std_mem_d1(32, 3, 2);
-      out_mem = prim std_mem_d2_ext(32, 3, 3, 2, 2);
-      pe_00 = mac_pe;
-      top_00_read = prim std_reg(32);
-      left_00_read = prim std_reg(32);
-      right_00_write = prim std_reg(32);
-      down_00_write = prim std_reg(32);
-      pe_01 = mac_pe;
-      top_01_read = prim std_reg(32);
-      left_01_read = prim std_reg(32);
-      right_01_write = prim std_reg(32);
-      down_01_write = prim std_reg(32);
-      pe_02 = mac_pe;
-      top_02_read = prim std_reg(32);
-      left_02_read = prim std_reg(32);
-      down_02_write = prim std_reg(32);
-      pe_10 = mac_pe;
-      top_10_read = prim std_reg(32);
-      left_10_read = prim std_reg(32);
-      right_10_write = prim std_reg(32);
-      down_10_write = prim std_reg(32);
-      pe_11 = mac_pe;
-      top_11_read = prim std_reg(32);
-      left_11_read = prim std_reg(32);
-      right_11_write = prim std_reg(32);
-      down_11_write = prim std_reg(32);
-      pe_12 = mac_pe;
-      top_12_read = prim std_reg(32);
-      left_12_read = prim std_reg(32);
-      down_12_write = prim std_reg(32);
-      pe_20 = mac_pe;
-      top_20_read = prim std_reg(32);
-      left_20_read = prim std_reg(32);
-      right_20_write = prim std_reg(32);
-      pe_21 = mac_pe;
-      top_21_read = prim std_reg(32);
-      left_21_read = prim std_reg(32);
-      right_21_write = prim std_reg(32);
-      pe_22 = mac_pe;
-      top_22_read = prim std_reg(32);
-      left_22_read = prim std_reg(32);
+      @external(1) out_mem = prim std_mem_d2(32, 3, 3, 2, 2);
+      pe_0_0 = mac_pe;
+      top_0_0 = prim std_reg(32);
+      left_0_0 = prim std_reg(32);
+      pe_0_1 = mac_pe;
+      top_0_1 = prim std_reg(32);
+      left_0_1 = prim std_reg(32);
+      pe_0_2 = mac_pe;
+      top_0_2 = prim std_reg(32);
+      left_0_2 = prim std_reg(32);
+      pe_1_0 = mac_pe;
+      top_1_0 = prim std_reg(32);
+      left_1_0 = prim std_reg(32);
+      pe_1_1 = mac_pe;
+      top_1_1 = prim std_reg(32);
+      left_1_1 = prim std_reg(32);
+      pe_1_2 = mac_pe;
+      top_1_2 = prim std_reg(32);
+      left_1_2 = prim std_reg(32);
+      pe_2_0 = mac_pe;
+      top_2_0 = prim std_reg(32);
+      left_2_0 = prim std_reg(32);
+      pe_2_1 = mac_pe;
+      top_2_1 = prim std_reg(32);
+      left_2_1 = prim std_reg(32);
+      pe_2_2 = mac_pe;
+      top_2_2 = prim std_reg(32);
+      left_2_2 = prim std_reg(32);
     }
     wires {
 
@@ -119,9 +105,9 @@ component main() -> () {
 
       group t0_move {
           t0.addr0 = t0_idx.out;
-          top_00_read.in = t0.read_data;
-          top_00_read.write_en = 1'd1;
-          t0_move[done] = top_00_read.done;
+          top_0_0.in = t0.read_data;
+          top_0_0.write_en = 1'd1;
+          t0_move[done] = top_0_0.done;
       }
 
       group t1_idx_init {
@@ -140,9 +126,9 @@ component main() -> () {
 
       group t1_move {
           t1.addr0 = t1_idx.out;
-          top_01_read.in = t1.read_data;
-          top_01_read.write_en = 1'd1;
-          t1_move[done] = top_01_read.done;
+          top_0_1.in = t1.read_data;
+          top_0_1.write_en = 1'd1;
+          t1_move[done] = top_0_1.done;
       }
 
       group t2_idx_init {
@@ -161,9 +147,9 @@ component main() -> () {
 
       group t2_move {
           t2.addr0 = t2_idx.out;
-          top_02_read.in = t2.read_data;
-          top_02_read.write_en = 1'd1;
-          t2_move[done] = top_02_read.done;
+          top_0_2.in = t2.read_data;
+          top_0_2.write_en = 1'd1;
+          t2_move[done] = top_0_2.done;
       }
 
       group l0_idx_init {
@@ -182,9 +168,9 @@ component main() -> () {
 
       group l0_move {
           l0.addr0 = l0_idx.out;
-          left_00_read.in = l0.read_data;
-          left_00_read.write_en = 1'd1;
-          l0_move[done] = left_00_read.done;
+          left_0_0.in = l0.read_data;
+          left_0_0.write_en = 1'd1;
+          l0_move[done] = left_0_0.done;
       }
 
       group l1_idx_init {
@@ -203,9 +189,9 @@ component main() -> () {
 
       group l1_move {
           l1.addr0 = l1_idx.out;
-          left_10_read.in = l1.read_data;
-          left_10_read.write_en = 1'd1;
-          l1_move[done] = left_10_read.done;
+          left_1_0.in = l1.read_data;
+          left_1_0.write_en = 1'd1;
+          l1_move[done] = left_1_0.done;
       }
 
       group l2_idx_init {
@@ -224,271 +210,154 @@ component main() -> () {
 
       group l2_move {
           l2.addr0 = l2_idx.out;
-          left_20_read.in = l2.read_data;
-          left_20_read.write_en = 1'd1;
-          l2_move[done] = left_20_read.done;
+          left_2_0.in = l2.read_data;
+          left_2_0.write_en = 1'd1;
+          l2_move[done] = left_2_0.done;
       }
 
-      group pe_00_compute {
-
-        pe_00.go = !pe_00.done ? 1'd1;
-        pe_00.top = top_00_read.out;
-        pe_00.left = left_00_read.out;
-
-        right_00_write.in = pe_00.done ? pe_00.right;
-        right_00_write.write_en = pe_00.done ? 1'd1;
-
-        down_00_write.in = pe_00.done ? pe_00.down;
-        down_00_write.write_en = pe_00.done ? 1'd1;
-
-        pe_00_compute[done] = right_00_write.done & down_00_write.done ? 1'd1;
+      group pe_0_0_right_move {
+          left_0_1.in = left_0_0.out;
+          left_0_1.write_en = 1'd1;
+          pe_0_0_right_move[done] = left_0_1.done;
       }
 
-      group pe_00_right_move {
-          left_01_read.in = right_00_write.out;
-          left_01_read.write_en = 1'd1;
-          pe_00_right_move[done] = left_01_read.done;
+      group pe_0_0_down_move {
+          top_1_0.in = top_0_0.out;
+          top_1_0.write_en = 1'd1;
+          pe_0_0_down_move[done] = top_1_0.done;
       }
 
-      group pe_00_down_move {
-          top_10_read.in = down_00_write.out;
-          top_10_read.write_en = 1'd1;
-          pe_00_down_move[done] = top_10_read.done;
-      }
-
-      group pe_00_out_write {
+      group pe_0_0_out_write {
           out_mem.addr0 = 2'd0;
           out_mem.addr1 = 2'd0;
-          out_mem.write_data = pe_00.out;
+          out_mem.write_data = pe_0_0.out;
           out_mem.write_en = 1'd1;
-          pe_00_out_write[done] = out_mem.done;
+          pe_0_0_out_write[done] = out_mem.done;
       }
 
-      group pe_01_compute {
-
-        pe_01.go = !pe_01.done ? 1'd1;
-        pe_01.top = top_01_read.out;
-        pe_01.left = left_01_read.out;
-
-        right_01_write.in = pe_01.done ? pe_01.right;
-        right_01_write.write_en = pe_01.done ? 1'd1;
-
-        down_01_write.in = pe_01.done ? pe_01.down;
-        down_01_write.write_en = pe_01.done ? 1'd1;
-
-        pe_01_compute[done] = right_01_write.done & down_01_write.done ? 1'd1;
+      group pe_0_1_right_move {
+          left_0_2.in = left_0_1.out;
+          left_0_2.write_en = 1'd1;
+          pe_0_1_right_move[done] = left_0_2.done;
       }
 
-      group pe_01_right_move {
-          left_02_read.in = right_01_write.out;
-          left_02_read.write_en = 1'd1;
-          pe_01_right_move[done] = left_02_read.done;
+      group pe_0_1_down_move {
+          top_1_1.in = top_0_1.out;
+          top_1_1.write_en = 1'd1;
+          pe_0_1_down_move[done] = top_1_1.done;
       }
 
-      group pe_01_down_move {
-          top_11_read.in = down_01_write.out;
-          top_11_read.write_en = 1'd1;
-          pe_01_down_move[done] = top_11_read.done;
-      }
-
-      group pe_01_out_write {
+      group pe_0_1_out_write {
           out_mem.addr0 = 2'd0;
           out_mem.addr1 = 2'd1;
-          out_mem.write_data = pe_01.out;
+          out_mem.write_data = pe_0_1.out;
           out_mem.write_en = 1'd1;
-          pe_01_out_write[done] = out_mem.done;
+          pe_0_1_out_write[done] = out_mem.done;
       }
 
-      group pe_02_compute {
-
-        pe_02.go = !pe_02.done ? 1'd1;
-        pe_02.top = top_02_read.out;
-        pe_02.left = left_02_read.out;
-
-        down_02_write.in = pe_02.done ? pe_02.down;
-        down_02_write.write_en = pe_02.done ? 1'd1;
-
-        pe_02_compute[done] = down_02_write.done ? 1'd1;
+      group pe_0_2_down_move {
+          top_1_2.in = top_0_2.out;
+          top_1_2.write_en = 1'd1;
+          pe_0_2_down_move[done] = top_1_2.done;
       }
 
-      group pe_02_down_move {
-          top_12_read.in = down_02_write.out;
-          top_12_read.write_en = 1'd1;
-          pe_02_down_move[done] = top_12_read.done;
-      }
-
-      group pe_02_out_write {
+      group pe_0_2_out_write {
           out_mem.addr0 = 2'd0;
           out_mem.addr1 = 2'd2;
-          out_mem.write_data = pe_02.out;
+          out_mem.write_data = pe_0_2.out;
           out_mem.write_en = 1'd1;
-          pe_02_out_write[done] = out_mem.done;
+          pe_0_2_out_write[done] = out_mem.done;
       }
 
-      group pe_10_compute {
-
-        pe_10.go = !pe_10.done ? 1'd1;
-        pe_10.top = top_10_read.out;
-        pe_10.left = left_10_read.out;
-
-        right_10_write.in = pe_10.done ? pe_10.right;
-        right_10_write.write_en = pe_10.done ? 1'd1;
-
-        down_10_write.in = pe_10.done ? pe_10.down;
-        down_10_write.write_en = pe_10.done ? 1'd1;
-
-        pe_10_compute[done] = right_10_write.done & down_10_write.done ? 1'd1;
+      group pe_1_0_right_move {
+          left_1_1.in = left_1_0.out;
+          left_1_1.write_en = 1'd1;
+          pe_1_0_right_move[done] = left_1_1.done;
       }
 
-      group pe_10_right_move {
-          left_11_read.in = right_10_write.out;
-          left_11_read.write_en = 1'd1;
-          pe_10_right_move[done] = left_11_read.done;
+      group pe_1_0_down_move {
+          top_2_0.in = top_1_0.out;
+          top_2_0.write_en = 1'd1;
+          pe_1_0_down_move[done] = top_2_0.done;
       }
 
-      group pe_10_down_move {
-          top_20_read.in = down_10_write.out;
-          top_20_read.write_en = 1'd1;
-          pe_10_down_move[done] = top_20_read.done;
-      }
-
-      group pe_10_out_write {
+      group pe_1_0_out_write {
           out_mem.addr0 = 2'd1;
           out_mem.addr1 = 2'd0;
-          out_mem.write_data = pe_10.out;
+          out_mem.write_data = pe_1_0.out;
           out_mem.write_en = 1'd1;
-          pe_10_out_write[done] = out_mem.done;
+          pe_1_0_out_write[done] = out_mem.done;
       }
 
-      group pe_11_compute {
-
-        pe_11.go = !pe_11.done ? 1'd1;
-        pe_11.top = top_11_read.out;
-        pe_11.left = left_11_read.out;
-
-        right_11_write.in = pe_11.done ? pe_11.right;
-        right_11_write.write_en = pe_11.done ? 1'd1;
-
-        down_11_write.in = pe_11.done ? pe_11.down;
-        down_11_write.write_en = pe_11.done ? 1'd1;
-
-        pe_11_compute[done] = right_11_write.done & down_11_write.done ? 1'd1;
+      group pe_1_1_right_move {
+          left_1_2.in = left_1_1.out;
+          left_1_2.write_en = 1'd1;
+          pe_1_1_right_move[done] = left_1_2.done;
       }
 
-      group pe_11_right_move {
-          left_12_read.in = right_11_write.out;
-          left_12_read.write_en = 1'd1;
-          pe_11_right_move[done] = left_12_read.done;
+      group pe_1_1_down_move {
+          top_2_1.in = top_1_1.out;
+          top_2_1.write_en = 1'd1;
+          pe_1_1_down_move[done] = top_2_1.done;
       }
 
-      group pe_11_down_move {
-          top_21_read.in = down_11_write.out;
-          top_21_read.write_en = 1'd1;
-          pe_11_down_move[done] = top_21_read.done;
-      }
-
-      group pe_11_out_write {
+      group pe_1_1_out_write {
           out_mem.addr0 = 2'd1;
           out_mem.addr1 = 2'd1;
-          out_mem.write_data = pe_11.out;
+          out_mem.write_data = pe_1_1.out;
           out_mem.write_en = 1'd1;
-          pe_11_out_write[done] = out_mem.done;
+          pe_1_1_out_write[done] = out_mem.done;
       }
 
-      group pe_12_compute {
-
-        pe_12.go = !pe_12.done ? 1'd1;
-        pe_12.top = top_12_read.out;
-        pe_12.left = left_12_read.out;
-
-        down_12_write.in = pe_12.done ? pe_12.down;
-        down_12_write.write_en = pe_12.done ? 1'd1;
-
-        pe_12_compute[done] = down_12_write.done ? 1'd1;
+      group pe_1_2_down_move {
+          top_2_2.in = top_1_2.out;
+          top_2_2.write_en = 1'd1;
+          pe_1_2_down_move[done] = top_2_2.done;
       }
 
-      group pe_12_down_move {
-          top_22_read.in = down_12_write.out;
-          top_22_read.write_en = 1'd1;
-          pe_12_down_move[done] = top_22_read.done;
-      }
-
-      group pe_12_out_write {
+      group pe_1_2_out_write {
           out_mem.addr0 = 2'd1;
           out_mem.addr1 = 2'd2;
-          out_mem.write_data = pe_12.out;
+          out_mem.write_data = pe_1_2.out;
           out_mem.write_en = 1'd1;
-          pe_12_out_write[done] = out_mem.done;
+          pe_1_2_out_write[done] = out_mem.done;
       }
 
-      group pe_20_compute {
-
-        pe_20.go = !pe_20.done ? 1'd1;
-        pe_20.top = top_20_read.out;
-        pe_20.left = left_20_read.out;
-
-        right_20_write.in = pe_20.done ? pe_20.right;
-        right_20_write.write_en = pe_20.done ? 1'd1;
-
-        pe_20_compute[done] = right_20_write.done ? 1'd1;
+      group pe_2_0_right_move {
+          left_2_1.in = left_2_0.out;
+          left_2_1.write_en = 1'd1;
+          pe_2_0_right_move[done] = left_2_1.done;
       }
 
-      group pe_20_right_move {
-          left_21_read.in = right_20_write.out;
-          left_21_read.write_en = 1'd1;
-          pe_20_right_move[done] = left_21_read.done;
-      }
-
-      group pe_20_out_write {
+      group pe_2_0_out_write {
           out_mem.addr0 = 2'd2;
           out_mem.addr1 = 2'd0;
-          out_mem.write_data = pe_20.out;
+          out_mem.write_data = pe_2_0.out;
           out_mem.write_en = 1'd1;
-          pe_20_out_write[done] = out_mem.done;
+          pe_2_0_out_write[done] = out_mem.done;
       }
 
-      group pe_21_compute {
-
-        pe_21.go = !pe_21.done ? 1'd1;
-        pe_21.top = top_21_read.out;
-        pe_21.left = left_21_read.out;
-
-        right_21_write.in = pe_21.done ? pe_21.right;
-        right_21_write.write_en = pe_21.done ? 1'd1;
-
-        pe_21_compute[done] = right_21_write.done ? 1'd1;
+      group pe_2_1_right_move {
+          left_2_2.in = left_2_1.out;
+          left_2_2.write_en = 1'd1;
+          pe_2_1_right_move[done] = left_2_2.done;
       }
 
-      group pe_21_right_move {
-          left_22_read.in = right_21_write.out;
-          left_22_read.write_en = 1'd1;
-          pe_21_right_move[done] = left_22_read.done;
-      }
-
-      group pe_21_out_write {
+      group pe_2_1_out_write {
           out_mem.addr0 = 2'd2;
           out_mem.addr1 = 2'd1;
-          out_mem.write_data = pe_21.out;
+          out_mem.write_data = pe_2_1.out;
           out_mem.write_en = 1'd1;
-          pe_21_out_write[done] = out_mem.done;
-      }
-
-      group pe_22_compute {
-
-        pe_22.go = !pe_22.done ? 1'd1;
-        pe_22.top = top_22_read.out;
-        pe_22.left = left_22_read.out;
-
-        pe_22_compute[done] = pe_22.done ? 1'd1;
+          pe_2_1_out_write[done] = out_mem.done;
       }
 
 
-      group pe_22_out_write {
+      group pe_2_2_out_write {
           out_mem.addr0 = 2'd2;
           out_mem.addr1 = 2'd2;
-          out_mem.write_data = pe_22.out;
+          out_mem.write_data = pe_2_2.out;
           out_mem.write_en = 1'd1;
-          pe_22_out_write[done] = out_mem.done;
+          pe_2_2_out_write[done] = out_mem.done;
       }
     }
     control {
@@ -496,55 +365,152 @@ component main() -> () {
       seq {
 
         par {
-            t0_idx_init; t1_idx_init; t2_idx_init; l0_idx_init; l1_idx_init; l2_idx_init;
+            t0_idx_init;
+            t1_idx_init;
+            t2_idx_init;
+            l0_idx_init;
+            l1_idx_init;
+            l2_idx_init;
         }
         par {
-            t0_idx_update; l0_idx_update;
+            t0_idx_update;
+            l0_idx_update;
         }
         par {
-            t0_move; l0_move;
+            t0_move;
+            l0_move;
         }
         par {
-            t0_idx_update; l0_idx_update; t1_idx_update; l1_idx_update; pe_00_compute;
+            t0_idx_update;
+            l0_idx_update;
+            t1_idx_update;
+            l1_idx_update;
+            invoke pe_0_0(top = top_0_0.out, left = left_0_0.out)();
         }
         par {
-            t0_move; t1_move; pe_00_down_move; l0_move; pe_00_right_move; l1_move;
+            t0_move;
+            t1_move;
+            pe_0_0_down_move;
+            l0_move;
+            pe_0_0_right_move;
+            l1_move;
         }
         par {
-            t0_idx_update; l0_idx_update; t1_idx_update; t2_idx_update; l1_idx_update; l2_idx_update; pe_00_compute; pe_01_compute; pe_10_compute;
+            t0_idx_update;
+            l0_idx_update;
+            t1_idx_update;
+            t2_idx_update;
+            l1_idx_update;
+            l2_idx_update;
+            invoke pe_0_0(top = top_0_0.out, left = left_0_0.out)();
+            invoke pe_0_1(top = top_0_1.out, left = left_0_1.out)();
+            invoke pe_1_0(top = top_1_0.out, left = left_1_0.out)();
         }
         par {
-            t0_move; t1_move; t2_move; pe_00_down_move; pe_01_down_move; pe_10_down_move; l0_move; pe_00_right_move; pe_01_right_move; l1_move; pe_10_right_move; l2_move;
+            t0_move;
+            t1_move;
+            t2_move;
+            pe_0_0_down_move;
+            pe_0_1_down_move;
+            pe_1_0_down_move;
+            l0_move;
+            pe_0_0_right_move;
+            pe_0_1_right_move;
+            l1_move;
+            pe_1_0_right_move;
+            l2_move;
         }
         par {
-            t1_idx_update; t2_idx_update; l1_idx_update; l2_idx_update; pe_00_compute; pe_01_compute; pe_02_compute; pe_10_compute; pe_11_compute; pe_20_compute;
+            t1_idx_update;
+            t2_idx_update;
+            l1_idx_update;
+            l2_idx_update;
+            invoke pe_0_0(top = top_0_0.out, left = left_0_0.out)();
+            invoke pe_0_1(top = top_0_1.out, left = left_0_1.out)();
+            invoke pe_0_2(top = top_0_2.out, left = left_0_2.out)();
+            invoke pe_1_0(top = top_1_0.out, left = left_1_0.out)();
+            invoke pe_1_1(top = top_1_1.out, left = left_1_1.out)();
+            invoke pe_2_0(top = top_2_0.out, left = left_2_0.out)();
         }
         par {
-            t1_move; t2_move; pe_00_down_move; pe_01_down_move; pe_02_down_move; pe_10_down_move; pe_11_down_move; pe_00_right_move; pe_01_right_move; l1_move; pe_10_right_move; pe_11_right_move; l2_move; pe_20_right_move;
+            t1_move;
+            t2_move;
+            pe_0_0_down_move;
+            pe_0_1_down_move;
+            pe_0_2_down_move;
+            pe_1_0_down_move;
+            pe_1_1_down_move;
+            pe_0_0_right_move;
+            pe_0_1_right_move;
+            l1_move;
+            pe_1_0_right_move;
+            pe_1_1_right_move;
+            l2_move;
+            pe_2_0_right_move;
         }
         par {
-            t2_idx_update; l2_idx_update; pe_01_compute; pe_02_compute; pe_10_compute; pe_11_compute; pe_12_compute; pe_20_compute; pe_21_compute;
+            t2_idx_update;
+            l2_idx_update;
+            invoke pe_0_1(top = top_0_1.out, left = left_0_1.out)();
+            invoke pe_0_2(top = top_0_2.out, left = left_0_2.out)();
+            invoke pe_1_0(top = top_1_0.out, left = left_1_0.out)();
+            invoke pe_1_1(top = top_1_1.out, left = left_1_1.out)();
+            invoke pe_1_2(top = top_1_2.out, left = left_1_2.out)();
+            invoke pe_2_0(top = top_2_0.out, left = left_2_0.out)();
+            invoke pe_2_1(top = top_2_1.out, left = left_2_1.out)();
         }
         par {
-            t2_move; pe_01_down_move; pe_02_down_move; pe_10_down_move; pe_11_down_move; pe_12_down_move; pe_01_right_move; pe_10_right_move; pe_11_right_move; l2_move; pe_20_right_move; pe_21_right_move;
+            t2_move;
+            pe_0_1_down_move;
+            pe_0_2_down_move;
+            pe_1_0_down_move;
+            pe_1_1_down_move;
+            pe_1_2_down_move;
+            pe_0_1_right_move;
+            pe_1_0_right_move;
+            pe_1_1_right_move;
+            l2_move;
+            pe_2_0_right_move;
+            pe_2_1_right_move;
         }
         par {
-            pe_02_compute; pe_11_compute; pe_12_compute; pe_20_compute; pe_21_compute; pe_22_compute;
+            invoke pe_0_2(top = top_0_2.out, left = left_0_2.out)();
+            invoke pe_1_1(top = top_1_1.out, left = left_1_1.out)();
+            invoke pe_1_2(top = top_1_2.out, left = left_1_2.out)();
+            invoke pe_2_0(top = top_2_0.out, left = left_2_0.out)();
+            invoke pe_2_1(top = top_2_1.out, left = left_2_1.out)();
+            invoke pe_2_2(top = top_2_2.out, left = left_2_2.out)();
         }
         par {
-            pe_02_down_move; pe_11_down_move; pe_12_down_move; pe_11_right_move; pe_20_right_move; pe_21_right_move;
+            pe_0_2_down_move;
+            pe_1_1_down_move;
+            pe_1_2_down_move;
+            pe_1_1_right_move;
+            pe_2_0_right_move;
+            pe_2_1_right_move;
         }
         par {
-            pe_12_compute; pe_21_compute; pe_22_compute;
+            invoke pe_1_2(top = top_1_2.out, left = left_1_2.out)();
+            invoke pe_2_1(top = top_2_1.out, left = left_2_1.out)();
+            invoke pe_2_2(top = top_2_2.out, left = left_2_2.out)();
         }
         par {
-            pe_12_down_move; pe_21_right_move;
+            pe_1_2_down_move;
+            pe_2_1_right_move;
         }
         par {
-            pe_22_compute;
+            invoke pe_2_2(top = top_2_2.out, left = left_2_2.out)();
         }
         seq {
-            pe_00_out_write; pe_01_out_write; pe_02_out_write; pe_10_out_write; pe_11_out_write; pe_12_out_write; pe_20_out_write; pe_21_out_write; pe_22_out_write;
+            pe_0_0_out_write;
+            pe_0_1_out_write;
+            pe_0_2_out_write;
+            pe_1_0_out_write;
+            pe_1_1_out_write;
+            pe_1_2_out_write;
+            pe_2_0_out_write;
+            pe_2_1_out_write;
+            pe_2_2_out_write;
         }
       }
     }

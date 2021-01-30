@@ -51,8 +51,10 @@ pub fn ast_to_ir(
     synthesis_mode: bool,
 ) -> FutilResult<Context> {
     // Build the signature context
-    let mut sig_ctx = SigCtx::default();
-    sig_ctx.lib = namespace.externs.into();
+    let mut sig_ctx = SigCtx {
+        lib: namespace.externs.into(),
+        ..Default::default()
+    };
 
     // Add component signatures to context
     for comp in &mut namespace.components {
@@ -158,8 +160,7 @@ fn build_component(
 
     comp.groups
         .into_iter()
-        .map(|g| add_group(g, &mut builder))
-        .collect::<FutilResult<()>>()?;
+        .try_for_each(|g| add_group(g, &mut builder))?;
 
     let continuous_assignments = comp
         .continuous_assignments

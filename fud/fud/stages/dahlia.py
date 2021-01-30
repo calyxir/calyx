@@ -6,16 +6,22 @@ class DahliaStage(Stage):
     """
     Stage that transforms Dahlia programs to FuTIL.
     """
+
     def __init__(self, config):
-        super().__init__('dahlia', 'futil', config,
-                         'Compiles a Dahlia program to FuTIL')
+        super().__init__(
+            "dahlia", "futil", config, "Compiles a Dahlia program to FuTIL"
+        )
 
     def _define(self):
         main = Step(SourceType.Path)
-        main.set_cmd(' '.join([
-            self.cmd,
-            unwrap_or(self.config['stages', self.name, 'flags'], ''),
-            ' -b futil --lower',
-            '{ctx[input_path]}'
-        ]))
+        main.set_cmd(
+            " ".join(
+                [
+                    self.cmd,
+                    unwrap_or(self.config["stages", self.name, "flags"], ""),
+                    " -b futil --lower -l error",
+                    "{ctx[input_path]}",
+                ]
+            )
+        )
         return [main]

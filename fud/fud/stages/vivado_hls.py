@@ -1,73 +1,74 @@
+import logging
 from io import BytesIO
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 from fud.stages import Source, SourceType, Stage, Step
 
 from ..vivado.extract import hls_extract
+from ..vivado.stage_template import VivadoTemplateStage
+
+SSHClient = None
+SCPClient = None
 
 
-class VivadoHLSStage(Stage):
+class VivadoHLSStage(VivadoTemplateStage):
     def __init__(self, config):
         super().__init__(
-            "cpp", "hls-files", config, "Runs HLS synthesis on a Dahlia program"
+            "vivado-hls", "hls-files", config, "Runs HLS synthesis on a Dahlia program"
         )
 
     def _define(self):
-        # make temporary directory
-        mktmp = Step(SourceType.Nothing)
+        steps = []
 
-        def f(inp, ctx):
-            tmpdir = TemporaryDirectory()
-            ctx["tmpdir"] = tmpdir.name
-            ctx["tmpdir_obj"] = tmpdir
-            return (inp, None, 0)
-
-        mktmp.set_func(f, "Make temporary directory.")
-
-        # copy over files
-        move = Step(SourceType.Path)
-        synth_files = [
-            str(
-                Path(self.config["global", "futil_directory"])
-                / "fud"
-                / "synth"
-                / "hls.tcl"
-            ),
-            str(
-                Path(self.config["global", "futil_directory"])
-                / "fud"
-                / "synth"
-                / "fxp_sqrt.h"
-            ),
-        ]
-        move.set_cmd(
-            " ".join(
-                [
-                    "cp",
-                    " ".join(synth_files),
-                    "{ctx[tmpdir]}",
-                    "&&",
-                    "cp {ctx[input_path]} {ctx[tmpdir]}/kernel.cpp",
-                ]
-            )
+        self._config_ssh()
+        self._establish_connection(steps)
+        self._mktmp(steps)
+        self._move_files(
+            steps,
+            [
+                str(
+                    Path(self.config["global", "futil_directory"])
+                    / "fud"
+                    / "synth"
+                    / "hls.tcl"
+                ),
+                str(
+                    Path(self.config["global", "futil_directory"])
+                    / "fud"
+                    / "synth"
+                    / "fxp_sqrt.h"
+                ),
+            ],
+            "kernel.cpp",
         )
+        self._run_vivado_hls(steps)
+        self._finalize_ssh(steps)
+        self._output_dir(steps)
 
-        # run vivado
+        return steps
+
+    def _run_vivado_hls(self, steps):
         vivado_hls = Step(SourceType.Path)
-        vivado_hls.set_cmd(
-            " ".join(["cd {ctx[tmpdir]}", "&&", "vivado_hls -f hls.tcl >&2"])
-        )
+        if self.use_ssh:
 
-        # output directory
-        output = Step(SourceType.Nothing)
+            def f(inp, ctx):
+                _, stdout, _ = ctx["ssh_client"].exec_command(
+                    f'cd {ctx["tmpdir"]} && vivado_hls -f hls.tcl'
+                )
+                for chunk in iter(lambda: stdout.readline(2048), ""):
+                    logging.debug(chunk.strip())
 
-        def f(inp, ctx):
-            return (Source(ctx["tmpdir_obj"], SourceType.TmpDir), None, 0)
+                return (inp, None, 0)
 
-        output.set_func(f, "Output synthesis directory.")
-
-        return [mktmp, move, vivado_hls, output]
+            ssh_addr = f"{self.ssh_user}@{self.ssh_host}"
+            vivado_hls.set_func(
+                f, f'ssh {ssh_addr} cd {{ctx["tmpdir"]}} && vivado_hls -f hls.tcl'
+            )
+        else:
+            vivado_hls.set_cmd(
+                " ".join(["cd {ctx[tmpdir]}", "&&", "vivado_hls -f hls.tcl >&2"])
+            )
+        steps.append(vivado_hls)
 
 
 class VivadoHLSExtractStage(Stage):
@@ -83,7 +84,7 @@ class VivadoHLSExtractStage(Stage):
         # make temporary directory
         extract = Step(SourceType.Nothing)
 
-        def f(inp, ctx):
+        def f(inp, _):
             res = None
             if inp.source_type == SourceType.TmpDir:
                 res = hls_extract(Path(inp.data.name))

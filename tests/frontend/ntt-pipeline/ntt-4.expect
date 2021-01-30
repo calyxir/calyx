@@ -1,0 +1,275 @@
+// +---+-----------------------+-----------------------+
+// | a |        Stage 0        |        Stage 1        |
+// +---+-----------------------+-----------------------+
+// | 0 | a[0] + a[2] * phis[1] | a[0] + a[1] * phis[2] |
+// | 1 | a[1] + a[3] * phis[1] | a[0] - a[1] * phis[2] |
+// | 2 | a[0] - a[2] * phis[1] | a[2] + a[3] * phis[3] |
+// | 3 | a[1] - a[3] * phis[1] | a[2] - a[3] * phis[3] |
+// +---+-----------------------+-----------------------+
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    a = prim std_mem_d1(32, 4, 3);
+    phis = prim std_mem_d1(32, 4, 3);
+    r0 = prim std_reg(32);
+    r1 = prim std_reg(32);
+    r2 = prim std_reg(32);
+    r3 = prim std_reg(32);
+    A0 = prim std_reg(32);
+    A1 = prim std_reg(32);
+    A2 = prim std_reg(32);
+    A3 = prim std_reg(32);
+    mul0 = prim std_reg(32);
+    mul1 = prim std_reg(32);
+    phi0 = prim std_reg(32);
+    phi1 = prim std_reg(32);
+    phi2 = prim std_reg(32);
+    phi3 = prim std_reg(32);
+    mod_pipe0 = prim std_smod_pipe(32);
+    mod_pipe1 = prim std_smod_pipe(32);
+    mod_pipe2 = prim std_smod_pipe(32);
+    mod_pipe3 = prim std_smod_pipe(32);
+    mult_pipe0 = prim std_smult_pipe(32);
+    mult_pipe1 = prim std_smult_pipe(32);
+    add0 = prim std_sadd(32);
+    add1 = prim std_sadd(32);
+    sub0 = prim std_ssub(32);
+    sub1 = prim std_ssub(32);
+  }
+  wires {
+    group preamble_0 {
+      a.addr0 = 3'd0;
+      phis.addr0 = 3'd0;
+      r0.write_en = 1'd1;
+      r0.in = a.read_data;
+      phi0.write_en = 1'd1;
+      phi0.in = phis.read_data;
+      preamble_0[done] = r0.done & phi0.done? 1'd1;
+    }
+    group preamble_1 {
+      a.addr0 = 3'd1;
+      phis.addr0 = 3'd1;
+      r1.write_en = 1'd1;
+      r1.in = a.read_data;
+      phi1.write_en = 1'd1;
+      phi1.in = phis.read_data;
+      preamble_1[done] = r1.done & phi1.done? 1'd1;
+    }
+    group preamble_2 {
+      a.addr0 = 3'd2;
+      phis.addr0 = 3'd2;
+      r2.write_en = 1'd1;
+      r2.in = a.read_data;
+      phi2.write_en = 1'd1;
+      phi2.in = phis.read_data;
+      preamble_2[done] = r2.done & phi2.done? 1'd1;
+    }
+    group preamble_3 {
+      a.addr0 = 3'd3;
+      phis.addr0 = 3'd3;
+      r3.write_en = 1'd1;
+      r3.in = a.read_data;
+      phi3.write_en = 1'd1;
+      phi3.in = phis.read_data;
+      preamble_3[done] = r3.done & phi3.done? 1'd1;
+    }
+    group precursor_0 {
+      r0.in = A0.out;
+      r0.write_en = 1'd1;
+      precursor_0[done] = r0.done ? 1'd1;
+    }
+    group precursor_1 {
+      r1.in = A1.out;
+      r1.write_en = 1'd1;
+      precursor_1[done] = r1.done ? 1'd1;
+    }
+    group precursor_2 {
+      r2.in = A2.out;
+      r2.write_en = 1'd1;
+      precursor_2[done] = r2.done ? 1'd1;
+    }
+    group precursor_3 {
+      r3.in = A3.out;
+      r3.write_en = 1'd1;
+      precursor_3[done] = r3.done ? 1'd1;
+    }
+    group s0_mul0 {
+      mult_pipe0.left = phi1.out;
+      mult_pipe0.right = r2.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+      mul0.write_en = mult_pipe0.done;
+      mul0.in = mult_pipe0.out;
+      s0_mul0[done] = mul0.done ? 1'd1;
+    }
+    group s0_mul1 {
+      mult_pipe1.left = phi1.out;
+      mult_pipe1.right = r3.out;
+      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
+      mul1.write_en = mult_pipe1.done;
+      mul1.in = mult_pipe1.out;
+      s0_mul1[done] = mul1.done ? 1'd1;
+    }
+    group s1_mul0 {
+      mult_pipe0.left = phi2.out;
+      mult_pipe0.right = r1.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+      mul0.write_en = mult_pipe0.done;
+      mul0.in = mult_pipe0.out;
+      s1_mul0[done] = mul0.done ? 1'd1;
+    }
+    group s1_mul1 {
+      mult_pipe1.left = phi3.out;
+      mult_pipe1.right = r3.out;
+      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
+      mul1.write_en = mult_pipe1.done;
+      mul1.in = mult_pipe1.out;
+      s1_mul1[done] = mul1.done ? 1'd1;
+    }
+    group s0_r0_op_mod {
+      add0.left = r0.out;
+      add0.right = mul0.out;
+      mod_pipe0.left = add0.out;
+      mod_pipe0.right = 32'd97;
+      mod_pipe0.go = !mod_pipe0.done ? 1'd1;
+      A0.write_en = mod_pipe0.done;
+      A0.in = mod_pipe0.out;
+      s0_r0_op_mod[done] = A0.done ? 1'd1;
+    }
+    group s0_r1_op_mod {
+      add1.left = r1.out;
+      add1.right = mul1.out;
+      mod_pipe1.left = add1.out;
+      mod_pipe1.right = 32'd97;
+      mod_pipe1.go = !mod_pipe1.done ? 1'd1;
+      A1.write_en = mod_pipe1.done;
+      A1.in = mod_pipe1.out;
+      s0_r1_op_mod[done] = A1.done ? 1'd1;
+    }
+    group s0_r2_op_mod {
+      sub0.left = r0.out;
+      sub0.right = mul0.out;
+      mod_pipe2.left = sub0.out;
+      mod_pipe2.right = 32'd97;
+      mod_pipe2.go = !mod_pipe2.done ? 1'd1;
+      A2.write_en = mod_pipe2.done;
+      A2.in = mod_pipe2.out;
+      s0_r2_op_mod[done] = A2.done ? 1'd1;
+    }
+    group s0_r3_op_mod {
+      sub1.left = r1.out;
+      sub1.right = mul1.out;
+      mod_pipe3.left = sub1.out;
+      mod_pipe3.right = 32'd97;
+      mod_pipe3.go = !mod_pipe3.done ? 1'd1;
+      A3.write_en = mod_pipe3.done;
+      A3.in = mod_pipe3.out;
+      s0_r3_op_mod[done] = A3.done ? 1'd1;
+    }
+    group s1_r0_op_mod {
+      add0.left = r0.out;
+      add0.right = mul0.out;
+      mod_pipe0.left = add0.out;
+      mod_pipe0.right = 32'd97;
+      mod_pipe0.go = !mod_pipe0.done ? 1'd1;
+      A0.write_en = mod_pipe0.done;
+      A0.in = mod_pipe0.out;
+      s1_r0_op_mod[done] = A0.done ? 1'd1;
+    }
+    group s1_r1_op_mod {
+      sub0.left = r0.out;
+      sub0.right = mul0.out;
+      mod_pipe1.left = sub0.out;
+      mod_pipe1.right = 32'd97;
+      mod_pipe1.go = !mod_pipe1.done ? 1'd1;
+      A1.write_en = mod_pipe1.done;
+      A1.in = mod_pipe1.out;
+      s1_r1_op_mod[done] = A1.done ? 1'd1;
+    }
+    group s1_r2_op_mod {
+      add1.left = r2.out;
+      add1.right = mul1.out;
+      mod_pipe2.left = add1.out;
+      mod_pipe2.right = 32'd97;
+      mod_pipe2.go = !mod_pipe2.done ? 1'd1;
+      A2.write_en = mod_pipe2.done;
+      A2.in = mod_pipe2.out;
+      s1_r2_op_mod[done] = A2.done ? 1'd1;
+    }
+    group s1_r3_op_mod {
+      sub1.left = r2.out;
+      sub1.right = mul1.out;
+      mod_pipe3.left = sub1.out;
+      mod_pipe3.right = 32'd97;
+      mod_pipe3.go = !mod_pipe3.done ? 1'd1;
+      A3.write_en = mod_pipe3.done;
+      A3.in = mod_pipe3.out;
+      s1_r3_op_mod[done] = A3.done ? 1'd1;
+    }
+    group epilogue_0 {
+      a.addr0 = 3'd0;
+      a.write_en = 1'd1;
+      a.write_data = A0.out;
+      epilogue_0[done] = a.done ? 1'd1;
+    }
+    group epilogue_1 {
+      a.addr0 = 3'd1;
+      a.write_en = 1'd1;
+      a.write_data = A1.out;
+      epilogue_1[done] = a.done ? 1'd1;
+    }
+    group epilogue_2 {
+      a.addr0 = 3'd2;
+      a.write_en = 1'd1;
+      a.write_data = A2.out;
+      epilogue_2[done] = a.done ? 1'd1;
+    }
+    group epilogue_3 {
+      a.addr0 = 3'd3;
+      a.write_en = 1'd1;
+      a.write_data = A3.out;
+      epilogue_3[done] = a.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      seq {
+        preamble_0;
+        preamble_1;
+        preamble_2;
+        preamble_3;
+      }
+      par {
+        s0_mul0;
+        s0_mul1;
+      }
+      par {
+        s0_r0_op_mod;
+        s0_r1_op_mod;
+        s0_r2_op_mod;
+        s0_r3_op_mod;
+      }
+      par {
+        precursor_0;
+        precursor_1;
+        precursor_2;
+        precursor_3;
+      }
+      par {
+        s1_mul0;
+        s1_mul1;
+      }
+      par {
+        s1_r0_op_mod;
+        s1_r1_op_mod;
+        s1_r2_op_mod;
+        s1_r3_op_mod;
+      }
+      seq {
+        epilogue_0;
+        epilogue_1;
+        epilogue_2;
+        epilogue_3;
+      }
+    }
+  }
+}

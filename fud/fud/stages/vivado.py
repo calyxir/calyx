@@ -1,79 +1,119 @@
-from tempfile import TemporaryDirectory
-from pathlib import Path
+import logging
 from io import BytesIO
+from pathlib import Path
 
-from fud.stages import Stage, Step, SourceType, Source
+from fud.stages import Source, SourceType, Stage, Step
+
 from ..vivado.extract import futil_extract
+from ..vivado.stage_template import VivadoTemplateStage
+
+SSHClient = None
+SCPClient = None
 
 
-class VivadoStage(Stage):
+class VivadoStage(VivadoTemplateStage):
     def __init__(self, config):
         super().__init__(
-            'synth-verilog',
-            'synth-files',
+            "synth-verilog",
+            "synth-files",
             config,
-            'Runs synthesis on a Verilog program'
+            "Runs synthesis on a Verilog program",
         )
 
     def _define(self):
-        # make temporary directory
-        mktmp = Step(SourceType.Nothing)
+        steps = []
 
-        def f(inp, ctx):
-            tmpdir = TemporaryDirectory()
-            ctx['tmpdir'] = tmpdir.name
-            ctx['tmpdir_obj'] = tmpdir
-            return (inp, None, 0)
-        mktmp.set_func(f, "Make temporary directory.")
+        self._config_ssh()
+        self._establish_connection(steps)
+        self._mktmp(steps)
+        self._move_files(
+            steps,
+            [
+                str(
+                    Path(self.config["global", "futil_directory"])
+                    / "fud"
+                    / "synth"
+                    / "synth.tcl"
+                ),
+                str(
+                    Path(self.config["global", "futil_directory"])
+                    / "fud"
+                    / "synth"
+                    / "device.xdc"
+                ),
+            ],
+            "main.sv",
+        )
+        self._run_vivado(steps)
+        self._finalize_ssh(steps)
+        self._output_dir(steps)
 
-        # copy over files
-        copy = Step(SourceType.Path)
-        synth_files = [
-            str(Path(self.config['global', 'futil_directory']) / 'fud' / 'synth' / 'synth.tcl'),
-            str(Path(self.config['global', 'futil_directory']) / 'fud' / 'synth' / 'device.xdc'),
-        ]
-        copy.set_cmd(' '.join([
-            'cp', ' '.join(synth_files), '{ctx[tmpdir]}', '&&',
-            'cp {ctx[input_path]} {ctx[tmpdir]}/main.sv'
-        ]))
+        return steps
 
-        # run vivado
+    def _run_vivado(self, steps):
         vivado = Step(SourceType.Path)
-        vivado.set_cmd(' '.join([
-            'cd {ctx[tmpdir]}', '&&',
-            ' vivado -mode batch -source synth.tcl >&2'
-        ]))
+        if self.use_ssh:
 
-        # output dir
-        output = Step(SourceType.Nothing)
+            def f(inp, ctx):
+                _, stdout, _ = ctx["ssh_client"].exec_command(
+                    " ".join(
+                        [
+                            f"cd {ctx['tmpdir']}",
+                            "&&",
+                            "vivado -mode batch -source synth.tcl",
+                        ]
+                    )
+                )
+                for chunk in iter(lambda: stdout.readline(2048), ""):
+                    logging.debug(chunk.strip())
 
-        def f(inp, ctx):
-            return (Source(ctx['tmpdir_obj'], SourceType.TmpDir), None, 0)
-        output.set_func(f, 'Output synthesis directory.')
+                return (inp, None, 0)
 
-        return [mktmp, copy, vivado, output]
+            ssh_addr = f"{self.ssh_user}@{self.ssh_host}"
+            vivado.set_func(
+                f,
+                " ".join(
+                    [
+                        f"ssh {ssh_addr} 'cd {{ctx[tmpdir]}}",
+                        "&&",
+                        "vivado -mode batch -source synth.tcl'",
+                    ]
+                ),
+            )
+        else:
+            vivado.set_cmd(
+                " ".join(
+                    [
+                        "cd {ctx[tmpdir]}",
+                        "&&",
+                        "vivado -mode batch -source synth.tcl >&2",
+                    ]
+                )
+            )
+        steps.append(vivado)
 
 
 class VivadoExtractStage(Stage):
     def __init__(self, config):
         super().__init__(
-            'synth-files',
-            'resource-estimate',
+            "synth-files",
+            "resource-estimate",
             config,
-            'Runs synthesis on a Verilog program'
+            "Runs synthesis on a Verilog program",
         )
 
     def _define(self):
         # extract
         extract = Step(SourceType.Nothing)
 
-        def f(inp, ctx):
+        def f(inp, _):
             res = None
             if inp.source_type == SourceType.TmpDir:
                 res = futil_extract(Path(inp.data.name))
             else:
                 res = futil_extract(Path(inp.data))
-            return (Source(BytesIO(res.encode('UTF-8')), SourceType.File), None, 0)
-        extract.set_func(f, 'Extract information.')
+            return (Source(BytesIO(res.encode("UTF-8")), SourceType.File), None, 0)
+
+        extract.set_func(f, "Extract information.")
 
         return [extract]

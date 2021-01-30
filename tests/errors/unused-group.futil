@@ -1,0 +1,9 @@
+component main() -> () {
+  cells {}
+  wires {
+    group cond {
+      cond[done] = 1'd1;
+    }
+  }
+  control {}
+}

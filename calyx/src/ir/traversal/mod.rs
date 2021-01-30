@@ -4,4 +4,4 @@ mod visitor;
 
 pub use action::{Action, VisResult};
 pub use post_order::PostOrder;
-pub use visitor::{Loggable, Named, Visitable, Visitor};
+pub use visitor::{ConstructVisitor, Loggable, Named, Visitable, Visitor};

@@ -1,5 +1,5 @@
 //! Representation for structure (wires and cells) in a FuTIL program.
-use super::{Attributes, Guard, Id, RRC, WRC};
+use super::{Attributes, GetAttributes, Guard, Id, RRC, WRC};
 use smallvec::SmallVec;
 use std::rc::Rc;
 
@@ -132,6 +132,16 @@ pub struct Cell {
     pub(super) attributes: Attributes,
 }
 
+impl GetAttributes for Cell {
+    fn get_attributes(&self) -> Option<&Attributes> {
+        Some(&self.attributes)
+    }
+
+    fn get_mut_attributes(&mut self) -> Option<&mut Attributes> {
+        Some(&mut self.attributes)
+    }
+}
+
 impl Cell {
     /// Get a reference to the named port if it exists.
     pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
@@ -170,11 +180,15 @@ impl Cell {
         }
     }
 
-    pub fn get_paramter(&self, param: &Id) -> Option<u64> {
+    /// Get parameter binding from the prototype used to build this cell.
+    pub fn get_paramter<S>(&self, param: S) -> Option<u64>
+    where
+        S: std::fmt::Display + Clone + AsRef<str>,
+    {
         match &self.prototype {
             CellType::Primitive { param_binding, .. } => param_binding
                 .iter()
-                .find(|(key, _)| key == param)
+                .find(|(key, _)| *key == param)
                 .map(|(_, val)| *val),
             CellType::Component { .. } => None,
             CellType::ThisComponent => None,

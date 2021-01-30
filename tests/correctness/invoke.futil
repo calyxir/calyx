@@ -52,7 +52,7 @@ component exponent(base: 32, exp: 4) -> (out: 32) {
 
 component main() -> () {
   cells {
-    a0 = prim std_mem_d1_ext(32,10,4);
+    @external(1) a0 = prim std_mem_d1(32,10,4);
     a_read0_0 = prim std_reg(32);
     add0 = prim std_add(4);
     const0 = prim std_const(4,0);

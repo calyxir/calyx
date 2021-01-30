@@ -5,10 +5,10 @@ extern "unsigned.sv" {
     out: width, done: 1
   );
 
-  primitive std_mult_pipe[width](
-    left: width, right: width, go: 1, clk: 1
+  primitive std_mult_pipe<"static"=3>[width](
+    left: width, right: width, @go(1) go: 1, clk: 1
   ) -> (
-    out: width, done: 1
+    out: width, @done(1) done: 1
   );
 
   primitive std_div_pipe[width](

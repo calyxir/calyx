@@ -53,6 +53,9 @@ impl Visitor for CollapseControl {
         if s.stmts.is_empty() {
             return Ok(Action::Change(ir::Control::empty()));
         }
+        if s.stmts.len() == 1 {
+            return Ok(Action::Change(s.stmts.pop().unwrap()));
+        }
         let mut seqs: Vec<ir::Control> = vec![];
         for con in s.stmts.drain(..) {
             match con {
@@ -62,7 +65,8 @@ impl Visitor for CollapseControl {
                 _ => seqs.push(con),
             }
         }
-        Ok(Action::Change(ir::Control::seq(seqs)))
+        s.stmts = seqs;
+        Ok(Action::Continue)
     }
 
     /// Collapse par { par { A }; B } into par { A; B }.
@@ -75,6 +79,9 @@ impl Visitor for CollapseControl {
         if s.stmts.is_empty() {
             return Ok(Action::Change(ir::Control::empty()));
         }
+        if s.stmts.len() == 1 {
+            return Ok(Action::Change(s.stmts.pop().unwrap()));
+        }
         let mut pars: Vec<ir::Control> = vec![];
         for con in s.stmts.drain(..) {
             match con {
@@ -84,6 +91,7 @@ impl Visitor for CollapseControl {
                 _ => pars.push(con),
             }
         }
-        Ok(Action::Change(ir::Control::par(pars)))
+        s.stmts = pars;
+        Ok(Action::Continue)
     }
 }
