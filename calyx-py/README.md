@@ -10,5 +10,5 @@ To use the FuTIL AST and utilities:
 ```
 
 ## Example
-`example.py` generates a component which sums two unsigned integers.
-You can see the outputted FuTIL component in `example.expect`.
+`test/example.py` generates a component which sums two unsigned integers.
+You can see the outputted FuTIL component in `test/example.expect`.
