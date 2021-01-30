@@ -1,7 +1,7 @@
 from prettytable import PrettyTable
 
-from futil.futil_ast import *
-from futil.futil_utils import bits_needed
+from futil.ast import *
+from futil.utils import bits_needed
 
 
 def get_pipeline_data(n, num_stages):
