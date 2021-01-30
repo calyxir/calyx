@@ -29,12 +29,24 @@ The compiler uses expectation tests as well as hardware simulation tests.
     - Fedora: `sudo dnf install jq`
     - Mac: `brew install jq`
     - Other platforms: [JQ installation][jq-install].
+5. (Optional) [flit][]:
+    - `python -m pip install flit`
 
 ### Install the FuTIL Driver
 
 [The FuTIL driver](./tools/fud.md) is required to run the various tests.
-Follow the [installation instructions](./tools/fud.html#installation).
+Follow the [installation instructions](./tools/fud.html#installation):
+```
+cd fud && flit install -s
+```
 
+### Install the FuTIL Python Library
+
+[Frontend compilers][frontends] use a [Python library][calyx-py] to emit FuTIL
+programs:
+```
+cd calyx-py && flit install -s
+```
 
 ### Building and Testing
 
@@ -72,3 +84,6 @@ cargo run -- examples/futil/simple.futil -b verilog
 [verilator-install]: https://www.veripool.org/projects/verilator/wiki/Installing
 [jq]: https://stedolan.github.io/jq/
 [jq-install]: https://stedolan.github.io/jq/
+[frontends]: ./frontends/index.md
+[calyx-py]: ./calyx-py.md
+[flit]: https://flit.readthedocs.io/en/latest/
