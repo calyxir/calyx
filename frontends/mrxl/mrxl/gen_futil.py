@@ -160,13 +160,11 @@ def gen_reduce_impl(stmt, arr_size, s_idx):
         LibDecl(CompVar(f'adder_idx{s_idx}'), stdlib.op('add', 32)),
         LibDecl(CompVar(f'adder_op{s_idx}'), stdlib.op(f'{op_name}', 32))
     ]
-
     wires = [
         emit_cond_group(s_idx, arr_size),
         emit_idx_group(s_idx),
         emit_eval_body_group(s_idx, stmt, 0)
     ]
-
     control = While(
         port=CompPort(CompVar(f'le{s_idx}'), 'out'),
         cond=CompVar(f'cond{s_idx}'),
@@ -304,6 +302,7 @@ def emit(prog):
         cells.extend(stmt_impl["cells"])
         wires.extend(stmt_impl["wires"])
         control.append(stmt_impl["control"])
+
     program = Program(
         imports=[Import('primitives/std.lib')],
         components=[
