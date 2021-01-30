@@ -308,7 +308,7 @@ impl FutilParser {
         Ok(match_nodes!(
             input.into_children();
             [at_attributes(attrs), identifier(id), identifier(prim), args(args)] =>
-            ast::Cell::prim(id, prim, args, attrs)
+            ast::Cell::from(id, prim, args, attrs)
         ))
     }
 
@@ -316,7 +316,7 @@ impl FutilParser {
         Ok(match_nodes!(
             input.into_children();
             [at_attributes(attrs), identifier(name), identifier(component)] =>
-                ast::Cell::decl(name, component, attrs)
+                ast::Cell::from(name, component, Vec::with_capacity(0), attrs)
         ))
     }
 
