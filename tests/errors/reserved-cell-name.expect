@@ -2,5 +2,5 @@
 1
 ---STDERR---
 Error: 
-4 |    clk = prim std_reg(32);
+4 |    clk = std_reg(32);
   |    ^^^ Use of reserved keyword: clk
