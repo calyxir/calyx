@@ -7,4 +7,3 @@ module = "futil"
 author = "FuTIL Authors"
 requires-python = ">=3.4"
 home-page = "https://github.com/cucapra/futil"
-

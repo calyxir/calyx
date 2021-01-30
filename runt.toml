@@ -134,7 +134,7 @@ python3 frontends/ntt-pipeline/gen-ntt-pipeline.py {}
 ##### Examples #####
 [[tests]]
 name = "Python library AST example"
-paths = ["frontends/python/*.py"]
+paths = ["calyx-py/test/*.py"]
 cmd = """
 python3 {}
 """
