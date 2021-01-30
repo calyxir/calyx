@@ -239,7 +239,7 @@ class ControlEntryType(Enum):
     Par = 'par'
 
 
-# TODO(cgyurgyik): AST support for `While`, `If`, and `Empty`.
+# TODO(cgyurgyik): AST support for `If`, and `Empty`.
 @dataclass
 class Control(Emittable):
     pass
@@ -298,6 +298,19 @@ class Invoke(Control):
             f'{x[0].doc()}={x[1].doc()}' for x in zip(self.params, self.args)
         ]
         return f'invoke {self.id.doc()}({", ".join(definitions)})();'
+
+@dataclass
+class While(Control):
+    port: Port
+    cond: CompVar
+    body: Control
+
+    def doc(self) -> str:
+        return block(
+            f'while {self.port.doc()} with {self.cond.doc()}',
+            self.body.doc(),
+            sep=''
+        )
 
 
 ### Standard Library ###

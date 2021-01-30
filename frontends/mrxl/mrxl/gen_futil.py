@@ -1,69 +1,66 @@
 from . import ast
+from futil.futil_ast import *
 
 
 def emit_mem_decl(name, size, par):
     """
-    Returns a string of a memory declaration, to
-    be added to the cells section of a FuTIL program.
-    If par > 1, returns several banked memories, separated
-    by newlines.
+    Returns N memory declarations,
+    where N = `par`.
     """
+    stdlib = Stdlib()
     banked_mems = []
     for i in range(par):
-        banked_mems.append("{} = prim std_mem_d1(32, {}, {});".format(
-            name + "_b" + str(i),
-            str(size // par),
-            str(32)
+        banked_mems.append(LibDecl(
+            CompVar(f'{name}_b{i}'),
+            stdlib.mem_d1(32, size // par, 32)
         ))
-    return "\n".join(banked_mems)
-
-
-def emit_reg_decl(name, size):
-    """
-    Returns a string of a register declaration, to
-    be added to the cells section of a FuTIL program.
-    """
-    return "{} = prim std_reg({});".format(name, 32)
+    return banked_mems
 
 
 def emit_cond_group(suffix, arr_size, b=None):
     """
     Emits a group that checks if an index has reached
-    arr_size. If b is not None, adds it (the bank number)
+    arr_size. If the bank number `b` is not None, adds it
     to the end of the index cell name.
 
     suffix is added to the end to the end of each cell,
     to disambiguate from other `map` or `reduce` implementations.
     """
-    bank_suffix = "_b" + str(b) + "_" if b is not None else ""
-    return '''
-group cond{2}{0} {{
-  le{2}{0}.left = idx{2}{0}.out;
-  le{2}{0}.right = 32'd{1};
-
-  cond{2}{0}[done] = 1'b1;
-}}
-    '''.format(suffix, arr_size, bank_suffix)
+    bank_suffix = f'_b{b}_' if b is not None else ""
+    group_id = CompVar(f'cond{bank_suffix}{suffix}')
+    le = CompVar(f'le{bank_suffix}{suffix}')
+    idx = CompVar(f'idx{bank_suffix}{suffix}')
+    return Group(
+        id=group_id,
+        connections=[
+            Connect(CompPort(idx, 'out'), CompPort(le, 'left')),
+            Connect(ConstantPort(32, arr_size), CompPort(le, 'right')),
+            Connect(ConstantPort(1, 1), HolePort(group_id, 'done'))
+        ]
+    )
 
 
 def emit_idx_group(s_idx, b=None):
     """
-    Emits a group that increments an index. If b is
-    not None, adds it (the bank number) as a suffix to each cell
-    name.
+    Emits a group that increments an index.
+    If the bank number `b` is not None, adds
+    it (the bank number) as a suffix to each
+    cell name.
     """
     bank_suffix = "_b" + str(b) + "_" if b is not None else ""
-    return '''
-group incr_idx{1}{0} {{
-  adder_idx{1}{0}.left = idx{1}{0}.out;
-  adder_idx{1}{0}.right = 32'b1;
-
-  idx{1}{0}.write_en = 1'b1;
-  idx{1}{0}.in = adder_idx{1}{0}.out;
-
-  incr_idx{1}{0}[done] = idx{1}{0}.done;
-}}
-    '''.format(s_idx, bank_suffix)
+    group_id = CompVar(f'incr_idx{bank_suffix}{s_idx}')
+    adder = CompVar(f'adder_idx{bank_suffix}{s_idx}')
+    idx = CompVar(f'idx{bank_suffix}{s_idx}')
+    return Group(
+        id=group_id,
+        connections=[
+            Connect(CompPort(idx, 'out'), CompPort(adder, 'left')),
+            Connect(ConstantPort(32, 1), CompPort(adder, 'right')),
+            Connect(ConstantPort(1, 1), CompPort(idx, 'write_en')),
+            Connect(CompPort(adder, 'out'), CompPort(idx, 'in')),
+            Connect(CompPort(idx, 'done'), HolePort(group_id, 'done'))
+        ]
+    )
 
 
 def emit_compute_op(exp, op, dest, name2arr, suffix, bank_suffix):
@@ -77,16 +74,16 @@ def emit_compute_op(exp, op, dest, name2arr, suffix, bank_suffix):
     """
     if isinstance(exp, ast.VarExpr):
         if isinstance(op, ast.Map):
-            return "{}{}.read_data".format(name2arr[exp.name], bank_suffix)
+            return CompPort(CompVar(f'{name2arr[exp.name]}{bank_suffix}'), 'read_data')
         else:
-            return "{}.out".format(dest, suffix)
+            return CompPort(CompVar(f'{dest}'), 'out')
     else:
-        return "{}'d{}".format(32, exp.value)
+        return ConstantPort(32, exp.value)
 
 
 def emit_eval_body_group(s_idx, stmt, b=None):
     """
-    Returns an string of a group that implements the body
+    Returns a string of a group that implements the body
     of stmt, a `map` or `reduce` statement. Adds suffix
     at the end of the group name, to avoid name collisions
     with other `map` or `reduce` statement group implementations.
@@ -100,17 +97,18 @@ def emit_eval_body_group(s_idx, stmt, b=None):
     for bi in stmt.op.bind:
         idx = 0 if isinstance(stmt.op, ast.Map) else 1
         name2arr[bi.dest[idx]] = bi.src
+        src = CompVar(f'{bi.src}{bank_suffix}')
+        dest = CompVar(f'idx{bank_suffix}_{s_idx}')
+
         mem_offsets.append(
-            "{0}{1}.addr0 = idx{1}_{2}.out;".format(
-                bi.src, bank_suffix, s_idx
-            )
+            Connect(CompPort(dest, 'out'), CompPort(src, 'addr0'))
         )
 
     if isinstance(stmt.op, ast.Map):
+        src = CompVar(f'{stmt.dest}{bank_suffix}')
+        dest = CompVar(f'idx{bank_suffix}_{s_idx}')
         mem_offsets.append(
-            "{0}{1}.addr0 = idx{1}_{2}.out;".format(
-                stmt.dest, bank_suffix, s_idx
-            )
+            Connect(CompPort(dest, 'out'), CompPort(src, 'addr0'))
         )
 
     compute_left_op = emit_compute_op(
@@ -122,34 +120,27 @@ def emit_eval_body_group(s_idx, stmt, b=None):
     )
 
     if isinstance(stmt.op, ast.Map):
-        write = "{0}{1}.write_data = adder_op{1}_{2}.out;".format(
-                stmt.dest, bank_suffix, s_idx
-        )
+        write_to = CompVar(f'{stmt.dest}{bank_suffix}')
+        adder_op = CompVar(f'adder_op{bank_suffix}_{s_idx}')
+        write_connection = Connect(CompPort(adder_op, 'out'), CompPort(write_to, 'write_data'))
     else:
-        write = "{}.in = adder_op{}.out;".format(stmt.dest, s_idx)
-
-    return '''
-group eval_body{6}_{0} {{
-  {1}{6}.write_en = 1'b1;
-
-  {4}
-
-  adder_op{6}_{0}.left = {2};
-  adder_op{6}_{0}.right = {3};
-
-  {5}
-
-  eval_body{6}_{0}[done] = {1}{6}.done;
-}}
-    '''.format(
-            s_idx,
-            stmt.dest,
-            compute_left_op,
-            compute_right_op,
-            "\n".join(mem_offsets),
-            write,
-            bank_suffix
+        write_connection = Connect(
+            CompPort(CompVar(f'adder_op{s_idx}'), 'out'),
+            CompPort(CompVar(f'{stmt.dest}'), 'in')
         )
+    group_id = CompVar(f'eval_body{bank_suffix}_{s_idx}')
+    adder = CompVar(f'adder_op{bank_suffix}_{s_idx}')
+    dest = CompVar(f'{stmt.dest}{bank_suffix}')
+    return Group(
+        id=group_id,
+        connections=[
+                        Connect(ConstantPort(1, 1), CompPort(dest, 'write_en')),
+                        Connect(compute_left_op, CompPort(adder, 'left')),
+                        Connect(compute_right_op, CompPort(adder, 'right')),
+                        write_connection,
+                        Connect(CompPort(dest, 'done'), HolePort(group_id, 'done'))
+                    ] + mem_offsets
+    )
 
 
 def gen_reduce_impl(stmt, arr_size, s_idx):
@@ -161,25 +152,29 @@ def gen_reduce_impl(stmt, arr_size, s_idx):
     of a `map` statement.
     """
     result = dict()
-
-    cells = []
+    stdlib = Stdlib()
     op_name = "mult" if stmt.op.body.op == "mul" else "add"
-    cells.append("le{} = prim std_lt(32);".format(s_idx))
-    cells.append("idx{} = prim std_reg(32);".format(s_idx))
-    cells.append("adder_idx{} = prim std_add(32);".format(s_idx))
-    cells.append("adder_op{} = prim std_{}(32);".format(s_idx, op_name))
+    cells = [
+        LibDecl(CompVar(f'le{s_idx}'), stdlib.op('lt', 32)),
+        LibDecl(CompVar(f'idx{s_idx}'), stdlib.register(32)),
+        LibDecl(CompVar(f'adder_idx{s_idx}'), stdlib.op('add', 32)),
+        LibDecl(CompVar(f'adder_op{s_idx}'), stdlib.op(f'{op_name}', 32))
+    ]
 
-    wires = []
-    wires.append(emit_cond_group(s_idx, arr_size))
-    wires.append(emit_idx_group(s_idx))
-    wires.append(emit_eval_body_group(s_idx, stmt, 0))
+    wires = [
+        emit_cond_group(s_idx, arr_size),
+        emit_idx_group(s_idx),
+        emit_eval_body_group(s_idx, stmt, 0)
+    ]
 
-    control = []
-    control.append('''
-while le{0}.out with cond{0} {{
-  seq {{ eval_body{0}; incr_idx{0}; }}
-}}
-    '''.format(s_idx))
+    control = While(
+        port=CompPort(CompVar(f'le{s_idx}'), 'out'),
+        cond=CompVar(f'cond{s_idx}'),
+        body=SeqComp([
+            Enable(f'eval_body{s_idx}'),
+            Enable(f'incr_idx{s_idx}')
+        ])
+    )
 
     return {"cells": cells, "wires": wires, "control": control}
 
@@ -197,39 +192,45 @@ def gen_map_impl(stmt, arr_size, bank_factor, s_idx):
         has reached the end of the input array
     """
     result = dict()
+    stdlib = Stdlib()
 
     cells = []
     for b in range(bank_factor):
-        cells.append("le_b{}_{} = prim std_lt(32);".format(b, s_idx))
-        cells.append("idx_b{}_{} = prim std_reg(32);".format(b, s_idx))
-        cells.append("adder_idx_b{}_{} = prim std_add(32);".format(b, s_idx))
+        cells.extend([
+            LibDecl(CompVar(f'le_b{b}_{s_idx}'), stdlib.op('lt', 32)),
+            LibDecl(CompVar(f'idx_b{b}_{s_idx}'), stdlib.register(32)),
+            LibDecl(CompVar(f'adder_idx_b{b}_{s_idx}'), stdlib.op('add', 32)),
+        ])
 
     op_name = "mult" if stmt.op.body.op == "mul" else "add"
     for b in range(bank_factor):
-        cells.append("adder_op_b{}_{} = prim std_{}(32);".format(
-            b, s_idx, op_name
-        ))
+        cells.append(
+            LibDecl(CompVar(f'adder_op_b{b}_{s_idx}'), stdlib.op(f'{op_name}', 32))
+        )
 
     wires = []
     for b in range(bank_factor):
-        wires.append(emit_cond_group(s_idx, arr_size // bank_factor, b))
-        wires.append(emit_idx_group(s_idx, b))
-        wires.append(emit_eval_body_group(s_idx, stmt, b))
+        wires.extend([
+            emit_cond_group(s_idx, arr_size // bank_factor, b),
+            emit_idx_group(s_idx, b),
+            emit_eval_body_group(s_idx, stmt, b)
+        ])
 
-    control = []
-    map_loops = []
-    for b in range(bank_factor):
-        map_loops.append('''
-{2}while le{0}{1}.out with cond{0}{1} {{
-{2}  seq {{ eval_body{0}{1}; incr_idx{0}{1}; }}
-{2}}}
-        '''.format("_b" + str(b) + "_", s_idx, 8 * " "))
+        map_loops = []
+        for b in range(bank_factor):
+            b_suffix = f'_b{str(b)}_'
+            map_loops.append(
+                While(
+                    CompPort(CompVar(f'le{b_suffix}{s_idx}'), 'out'),
+                    CompVar(f'cond{b_suffix}{s_idx}'),
+                    SeqComp([
+                        Enable(f'eval_body{b_suffix}{s_idx}'),
+                        Enable(f'incr_idx{b_suffix}{s_idx}')
+                    ])
+                )
+            )
 
-    control.append('''
-{1}par {{
-{1}  {0}
-{1}}}
-    '''.format("".join(map_loops), 6 * " "))
+    control = ParComp(map_loops)
 
     return {"cells": cells, "wires": wires, "control": control}
 
@@ -263,9 +264,7 @@ def emit(prog):
     Returns a string containing a FuTIL program, compiled from `prog`, a MrXL
     program.
     """
-    cells = []
-    wires = []
-    control = []
+    cells, wires, control = [], [], []
 
     # All arrays must be the same size. The first array we see determines the
     # size that we'll assume for the rest of the program's arrays.
@@ -281,19 +280,20 @@ def emit(prog):
 
     # Collect memory and register declarations.
     used_names = []
+    stdlib = Stdlib()
     for decl in prog.decls:
         used_names.append(decl.name)
         if decl.type.size:  # A memory
             arr_size = decl.type.size
-            cells.append(emit_mem_decl(decl.name, decl.type.size, name2par[decl.name]))
+            cells.extend(emit_mem_decl(decl.name, decl.type.size, name2par[decl.name]))
         else:  # A register
-            cells.append(emit_reg_decl(decl.name, 32))
+            cells.append(LibDecl(CompVar(decl.name), stdlib.register(32)))
 
     # Collect implicit memory and register declarations.
     for stmt in prog.stmts:
         if stmt.dest not in used_names:
             if isinstance(stmt.op, ast.Map):
-                cells.append(emit_mem_decl(stmt.dest, arr_size, name2par[stmt.dest]))
+                cells.extend(emit_mem_decl(stmt.dest, arr_size, name2par[stmt.dest]))
             else:
                 cells.append(emit_reg_decl(stmt.dest, 32))
             used_names.append(stmt.dest)
@@ -301,30 +301,19 @@ def emit(prog):
     # Generate FuTIL.
     for i, stmt in enumerate(prog.stmts):
         stmt_impl = gen_stmt_impl(stmt, arr_size, name2par, i)
-        cells += stmt_impl["cells"]
-        wires += stmt_impl["wires"]
-        control += stmt_impl["control"]
-
-    emitted = '''
-import "primitives/std.lib";
-component main() -> () {{
-  cells {{
-    {}
-  }}
-
-  wires {{
-    {}
-  }}
-
-  control {{
-    seq {{
-      {}
-    }}
-  }}
-}}
-'''.format(
-        "\n".join(cells),
-        "\n".join(wires),
-        "".join(control)
+        cells.extend(stmt_impl["cells"])
+        wires.extend(stmt_impl["wires"])
+        control.append(stmt_impl["control"])
+    program = Program(
+        imports=[Import('primitives/std.lib')],
+        components=[
+            Component(
+                name='main',
+                inputs=[],
+                outputs=[],
+                structs=cells + wires,
+                controls=ControlEntry(ControlEntryType.Seq, control)
+            )
+        ]
     )
-    print(emitted)
+    program.emit()
