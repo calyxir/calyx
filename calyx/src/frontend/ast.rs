@@ -211,16 +211,11 @@ pub struct Guard {
 
 /// Prototype of the cell definition
 #[derive(Debug)]
-pub enum CellType {
-    /// An instantiated Calyx component.
-    Decl { name: ir::Id },
-    /// An instantiated primitive component.
-    Prim {
-        /// Name of the primitive.
-        name: ir::Id,
-        /// Parameter binding for primitives
-        params: Vec<u64>,
-    },
+pub struct Proto {
+    /// Name of the primitive.
+    pub name: ir::Id,
+    /// Parameter binding for primitives
+    pub params: Vec<u64>,
 }
 
 /// The Cell AST nodes.
@@ -229,37 +224,24 @@ pub struct Cell {
     /// Name of the cell.
     pub name: ir::Id,
     /// Name of the prototype this cell was built from.
-    pub prototype: CellType,
+    pub prototype: Proto,
     /// Attributes attached to this cell definition
     pub attributes: ir::Attributes,
 }
 
 /// Methods for constructing the structure AST nodes.
 impl Cell {
-    /// Construct a Calyx cell instantiation.
-    pub fn decl(
-        name: ir::Id,
-        comp: ir::Id,
-        attributes: ir::Attributes,
-    ) -> Cell {
-        Cell {
-            name,
-            prototype: CellType::Decl { name: comp },
-            attributes,
-        }
-    }
-
     /// Constructs a primitive cell instantiation.
-    pub fn prim(
-        var: ir::Id,
-        prim_name: ir::Id,
+    pub fn from(
+        name: ir::Id,
+        proto: ir::Id,
         params: Vec<u64>,
         attributes: ir::Attributes,
     ) -> Cell {
         Cell {
-            name: var,
-            prototype: CellType::Prim {
-                name: prim_name,
+            name,
+            prototype: Proto {
+                name: proto,
                 params,
             },
             attributes,

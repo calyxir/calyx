@@ -1,10 +1,10 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    lhs = prim std_reg(32);
-    rhs = prim std_reg(32);
-    sum = prim std_reg(32);
-    add = prim std_add(32);
+    lhs = std_reg(32);
+    rhs = std_reg(32);
+    sum = std_reg(32);
+    add = std_add(32);
   }
   wires {
     group update_operands {

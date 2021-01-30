@@ -2,10 +2,10 @@ import "primitives/core.futil";
 
 component main() -> () {
   cells {
-    in = prim std_mem_d1(32, 1, 1);
-    b = prim std_reg(32);
-    c = prim std_reg(32);
-    out = prim std_mem_d1(32, 1, 1);
+    in = std_mem_d1(32, 1, 1);
+    b = std_reg(32);
+    c = std_reg(32);
+    out = std_mem_d1(32, 1, 1);
   }
 
   wires {

@@ -1,9 +1,9 @@
 import "primitives/std.lib";
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
-    r = prim std_reg(32);
-    add = prim std_add(32);
-    fsm = prim std_reg(2);
+    r = std_reg(32);
+    add = std_add(32);
+    fsm = std_reg(2);
   }
   wires {
     done = fsm.out == 2'd2 ? 1'd1;

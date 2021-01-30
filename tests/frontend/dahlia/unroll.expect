@@ -1,29 +1,29 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    @external(1) A0 = prim std_mem_d1(32,2,2);
-    @external(1) A1 = prim std_mem_d1(32,2,2);
-    @external(1) A2 = prim std_mem_d1(32,2,2);
-    @external(1) A3 = prim std_mem_d1(32,2,2);
-    acc_00 = prim std_reg(32);
-    acc_10 = prim std_reg(32);
-    acc_20 = prim std_reg(32);
-    acc_30 = prim std_reg(32);
-    add0 = prim std_add(32);
-    add1 = prim std_add(32);
-    add2 = prim std_add(32);
-    add3 = prim std_add(32);
-    add4 = prim std_add(4);
-    const0 = prim std_const(4,0);
-    const1 = prim std_const(4,1);
-    const2 = prim std_const(4,1);
-    i0 = prim std_reg(4);
-    le0 = prim std_le(4);
-    res_0 = prim std_reg(32);
-    slice0 = prim std_slice(4,2);
-    slice1 = prim std_slice(4,2);
-    slice2 = prim std_slice(4,2);
-    slice3 = prim std_slice(4,2);
+    @external(1) A0 = std_mem_d1(32,2,2);
+    @external(1) A1 = std_mem_d1(32,2,2);
+    @external(1) A2 = std_mem_d1(32,2,2);
+    @external(1) A3 = std_mem_d1(32,2,2);
+    acc_00 = std_reg(32);
+    acc_10 = std_reg(32);
+    acc_20 = std_reg(32);
+    acc_30 = std_reg(32);
+    add0 = std_add(32);
+    add1 = std_add(32);
+    add2 = std_add(32);
+    add3 = std_add(32);
+    add4 = std_add(4);
+    const0 = std_const(4,0);
+    const1 = std_const(4,1);
+    const2 = std_const(4,1);
+    i0 = std_reg(4);
+    le0 = std_le(4);
+    res_0 = std_reg(32);
+    slice0 = std_slice(4,2);
+    slice1 = std_slice(4,2);
+    slice2 = std_slice(4,2);
+    slice3 = std_slice(4,2);
   }
   wires {
     group cond0<"static"=0> {

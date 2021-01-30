@@ -2,7 +2,7 @@ import "primitives/std.lib";
 
 component main() -> () {
   cells {
-    r = prim std_reg(32);
+    r = std_reg(32);
   }
   wires {
     group no_drive {

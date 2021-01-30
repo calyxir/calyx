@@ -1,8 +1,8 @@
 import "primitives/std.lib";
 component main(go: 1, clk: 1) -> (x_out: 32, done: 1) {
   cells {
-    x_0 = prim std_reg(32);
-    y_0 = prim std_reg(32);
+    x_0 = std_reg(32);
+    y_0 = std_reg(32);
   }
   wires {
     group let0<"static"=1> {

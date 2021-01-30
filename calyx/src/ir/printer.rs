@@ -134,7 +134,7 @@ impl IRPrinter {
                         Self::format_at_attributes(&cell.attributes)
                     )?
                 }
-                write!(f, "{} = prim ", cell.name.id)?;
+                write!(f, "{} = ", cell.name.id)?;
                 writeln!(
                     f,
                     "{}({});",
@@ -155,7 +155,7 @@ impl IRPrinter {
                         Self::format_at_attributes(&cell.attributes)
                     )?
                 }
-                writeln!(f, "{} = {};", cell.name.id, name)
+                writeln!(f, "{} = {}();", cell.name.id, name)
             }
             ir::CellType::Constant { .. } => Ok(()),
             _ => unimplemented!(),

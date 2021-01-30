@@ -4,9 +4,9 @@ import "primitives/std.lib";
 
 component main() -> () {
   cells {
-    t = prim std_reg(1);
-    f = prim std_reg(1);
-    lt = prim std_lt(1);
+    t = std_reg(1);
+    f = std_reg(1);
+    lt = std_lt(1);
   }
 
   wires {

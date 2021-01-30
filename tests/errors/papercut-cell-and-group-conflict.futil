@@ -2,7 +2,7 @@ import "primitives/std.lib";
 
 component main() -> () {
   cells {
-    incr = prim std_add(32);
+    incr = std_add(32);
   }
 
   wires {

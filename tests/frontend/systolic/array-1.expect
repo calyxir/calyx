@@ -1,16 +1,16 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    t0_idx = prim std_reg(2);
-    t0_add = prim std_add(2);
-    t0 = prim std_mem_d1(32, 3, 2);
-    l0_idx = prim std_reg(2);
-    l0_add = prim std_add(2);
-    l0 = prim std_mem_d1(32, 3, 2);
-    @external(1) out_mem = prim std_mem_d2(32, 1, 1, 1, 1);
-    pe_0_0 = mac_pe;
-    top_0_0 = prim std_reg(32);
-    left_0_0 = prim std_reg(32);
+    t0_idx = std_reg(2);
+    t0_add = std_add(2);
+    t0 = std_mem_d1(32, 3, 2);
+    l0_idx = std_reg(2);
+    l0_add = std_add(2);
+    l0 = std_mem_d1(32, 3, 2);
+    @external(1) out_mem = std_mem_d2(32, 1, 1, 1, 1);
+    pe_0_0 = mac_pe();
+    top_0_0 = std_reg(32);
+    left_0_0 = std_reg(32);
   }
   wires {
     group t0_idx_init {
@@ -102,11 +102,11 @@ component main() -> () {
 component mac_pe(top: 32, left: 32) -> (out: 32) {
   cells {
     // Storage
-    acc = prim std_reg(32);
-    mul_reg = prim std_reg(32);
+    acc = std_reg(32);
+    mul_reg = std_reg(32);
     // Computation
-    add = prim std_add(32);
-    mul = prim std_mult_pipe(32);
+    add = std_add(32);
+    mul = std_mult_pipe(32);
   }
   wires {
     group do_mul<"static"=4> {

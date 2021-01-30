@@ -1,18 +1,18 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    @external(1) A0 = prim std_mem_d1(32,8,4);
-    @external(1) B0_0 = prim std_mem_d2(32,8,8,4,4);
-    @external(1) C0_0_0 = prim std_mem_d3(32,8,8,8,4,4,4);
-    const0 = prim std_const(32,1);
-    const1 = prim std_const(4,0);
-    const2 = prim std_const(32,1);
-    const3 = prim std_const(4,0);
-    const4 = prim std_const(4,0);
-    const5 = prim std_const(32,1);
-    const6 = prim std_const(4,0);
-    const7 = prim std_const(4,0);
-    const8 = prim std_const(4,0);
+    @external(1) A0 = std_mem_d1(32,8,4);
+    @external(1) B0_0 = std_mem_d2(32,8,8,4,4);
+    @external(1) C0_0_0 = std_mem_d3(32,8,8,8,4,4,4);
+    const0 = std_const(32,1);
+    const1 = std_const(4,0);
+    const2 = std_const(32,1);
+    const3 = std_const(4,0);
+    const4 = std_const(4,0);
+    const5 = std_const(32,1);
+    const6 = std_const(4,0);
+    const7 = std_const(4,0);
+    const8 = std_const(4,0);
   }
   wires {
     group upd0<"static"=1> {

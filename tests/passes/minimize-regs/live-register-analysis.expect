@@ -1,16 +1,16 @@
 import "primitives/std.lib";
 component kernel(go: 1, clk: 1) -> (done: 1) {
   cells {
-    @external(1) A0 = prim std_mem_d1(32, 32, 6);
-    A_read0_0 = prim std_reg(32);
-    @external(1) B0 = prim std_mem_d1(32, 32, 6);
-    B_read0_0 = prim std_reg(32);
-    @external(1) C0 = prim std_mem_d1(32, 32, 6);
-    add0 = prim std_add(6);
-    add1 = prim std_add(6);
-    i0 = prim std_reg(6);
-    le0 = prim std_le(6);
-    le1 = prim std_le(6);
+    @external(1) A0 = std_mem_d1(32, 32, 6);
+    A_read0_0 = std_reg(32);
+    @external(1) B0 = std_mem_d1(32, 32, 6);
+    B_read0_0 = std_reg(32);
+    @external(1) C0 = std_mem_d1(32, 32, 6);
+    add0 = std_add(6);
+    add1 = std_add(6);
+    i0 = std_reg(6);
+    le0 = std_le(6);
+    le1 = std_le(6);
   }
   wires {
     group cond0<"static"=0> {

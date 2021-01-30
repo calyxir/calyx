@@ -3,10 +3,10 @@ import "primitives/std.lib";
 
 component main() -> () {
   cells {
-    x = prim std_reg(32);
-    y = prim std_reg(32);
-    add_x = prim std_add(32);
-    add_y = prim std_add(32);
+    x = std_reg(32);
+    y = std_reg(32);
+    add_x = std_add(32);
+    add_y = std_add(32);
   }
 
   wires {

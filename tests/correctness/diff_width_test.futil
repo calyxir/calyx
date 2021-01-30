@@ -3,15 +3,15 @@ import "primitives/fixed/unsigned.futil";
 
 component main() -> () {
   cells {
-    add0 = prim std_add(3);
-    counter = prim std_reg(3);
-    lt0 = prim std_lt(3);
+    add0 = std_add(3);
+    counter = std_reg(3);
+    lt0 = std_lt(3);
 
-    mem0 = prim std_mem_d2(8, 4, 4, 3, 3);
-    mem1 = prim std_mem_d2(8, 4, 4, 3, 3);
-    mem2 = prim std_mem_d2(9, 4, 4, 3, 3);
+    mem0 = std_mem_d2(8, 4, 4, 3, 3);
+    mem1 = std_mem_d2(8, 4, 4, 3, 3);
+    mem2 = std_mem_d2(9, 4, 4, 3, 3);
 
-    add1 = prim fixed_p_std_add_dbit(8, 8, 6, 2, 5, 3, 9);
+    add1 = fixed_p_std_add_dbit(8, 8, 6, 2, 5, 3, 9);
   }
   wires {
     group cond0<"static"=0> {
