@@ -9,32 +9,32 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    a = prim std_mem_d1(32, 4, 3);
-    phis = prim std_mem_d1(32, 4, 3);
-    r0 = prim std_reg(32);
-    r1 = prim std_reg(32);
-    r2 = prim std_reg(32);
-    r3 = prim std_reg(32);
-    A0 = prim std_reg(32);
-    A1 = prim std_reg(32);
-    A2 = prim std_reg(32);
-    A3 = prim std_reg(32);
-    mul0 = prim std_reg(32);
-    mul1 = prim std_reg(32);
-    phi0 = prim std_reg(32);
-    phi1 = prim std_reg(32);
-    phi2 = prim std_reg(32);
-    phi3 = prim std_reg(32);
-    mod_pipe0 = prim std_smod_pipe(32);
-    mod_pipe1 = prim std_smod_pipe(32);
-    mod_pipe2 = prim std_smod_pipe(32);
-    mod_pipe3 = prim std_smod_pipe(32);
-    mult_pipe0 = prim std_smult_pipe(32);
-    mult_pipe1 = prim std_smult_pipe(32);
-    add0 = prim std_sadd(32);
-    add1 = prim std_sadd(32);
-    sub0 = prim std_ssub(32);
-    sub1 = prim std_ssub(32);
+    a = std_mem_d1(32, 4, 3);
+    phis = std_mem_d1(32, 4, 3);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+    r3 = std_reg(32);
+    A0 = std_reg(32);
+    A1 = std_reg(32);
+    A2 = std_reg(32);
+    A3 = std_reg(32);
+    mul0 = std_reg(32);
+    mul1 = std_reg(32);
+    phi0 = std_reg(32);
+    phi1 = std_reg(32);
+    phi2 = std_reg(32);
+    phi3 = std_reg(32);
+    mod_pipe0 = std_smod_pipe(32);
+    mod_pipe1 = std_smod_pipe(32);
+    mod_pipe2 = std_smod_pipe(32);
+    mod_pipe3 = std_smod_pipe(32);
+    mult_pipe0 = std_smult_pipe(32);
+    mult_pipe1 = std_smult_pipe(32);
+    add0 = std_sadd(32);
+    add1 = std_sadd(32);
+    sub0 = std_ssub(32);
+    sub1 = std_ssub(32);
   }
   wires {
     group preamble_0 {

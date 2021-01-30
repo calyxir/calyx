@@ -102,11 +102,11 @@ component main() -> () {
 component mac_pe(top: 32, left: 32) -> (out: 32) {
   cells {
     // Storage
-    acc = prim std_reg(32);
-    mul_reg = prim std_reg(32);
+    acc = std_reg(32);
+    mul_reg = std_reg(32);
     // Computation
-    add = prim std_add(32);
-    mul = prim std_mult_pipe(32);
+    add = std_add(32);
+    mul = std_mult_pipe(32);
   }
   wires {
     group do_mul<"static"=4> {
