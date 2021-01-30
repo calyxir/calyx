@@ -1,12 +1,12 @@
 import "primitives/std.lib";
 component kernel(go: 1, clk: 1) -> (done: 1) {
   cells {
-    b0 = prim std_reg(32);
-    before0 = prim std_reg(4);
-    read_x0 = prim std_add(4);
-    b1 = prim std_reg(32);
-    before1 = prim std_reg(4);
-    read_x1 = prim std_add(4);
+    b0 = std_reg(32);
+    before0 = std_reg(4);
+    read_x0 = std_add(4);
+    b1 = std_reg(32);
+    before1 = std_reg(4);
+    read_x1 = std_add(4);
   }
   wires {
     group wr_before0<"static"=1> {

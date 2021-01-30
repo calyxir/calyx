@@ -1,8 +1,8 @@
 import "primitives/std.lib";
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
-    r = prim std_reg(4);
-    add = prim std_add(32);
+    r = std_reg(4);
+    add = std_add(32);
   }
   wires {
     add.left = r.out == 4'd0 | r.out == 4'd1 | r.out == 4'd3 ? 32'd32;

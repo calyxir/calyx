@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-component main<"static"=1>(@stable(1) @go_port(1) in: 32) -> (@stable(0) out: 32) {
+component main<"static"=1>(@stable(1) @go_port(1) in: 32, go: 1, clk: 1) -> (@stable(0) out: 32, done: 1) {
   cells {
     @precious(1) out = std_reg(32);
     le = std_le(32);
@@ -9,6 +9,7 @@ component main<"static"=1>(@stable(1) @go_port(1) in: 32) -> (@stable(0) out: 32
       cond[done] = 1'd1;
     }
   }
+
   control {
     @bound(32) while le.out with cond {
       cond;

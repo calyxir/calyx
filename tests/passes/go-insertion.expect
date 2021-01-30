@@ -1,7 +1,7 @@
 import "primitives/std.lib";
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
-    add = prim std_add(32);
+    add = std_add(32);
   }
   wires {
     group do_add {

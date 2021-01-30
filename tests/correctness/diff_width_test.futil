@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-import "primitives/fixed/unsigne
+import "primitives/fixed/unsigned.futil";
 
 component main() -> () {
   cells {

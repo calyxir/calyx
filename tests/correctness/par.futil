@@ -22,7 +22,7 @@ component main() -> () {
       wr_b[done] = b.done;
     }
 
-    group wr_c<"static"=1{
+    group wr_c<"static"=1> {
       c.addr0 = 1'b0;
       c.write_en = 1'b1;
       c.write_data = 32'd1;

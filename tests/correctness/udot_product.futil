@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-import "primitives/bitnum/signe
+import "primitives/bitnum/signed.futil";
 
 component main() -> () {
   cells {

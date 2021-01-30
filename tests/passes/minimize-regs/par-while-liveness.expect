@@ -1,31 +1,31 @@
 import "primitives/std.lib";
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
-    @external(1) a_src0 = prim std_mem_d1(32, 8, 4);
-    a_src_read0_0 = prim std_reg(32);
-    @external(1) a_tar0 = prim std_mem_d1(32, 8, 4);
-    add0 = prim std_add(4);
-    add1 = prim std_add(4);
-    add2 = prim std_add(4);
-    @external(1) b_src0 = prim std_mem_d1(32, 8, 4);
-    b_src_read0_0 = prim std_reg(32);
-    @external(1) b_tar0 = prim std_mem_d1(32, 8, 4);
-    @external(1) c_src0 = prim std_mem_d1(32, 8, 4);
-    @external(1) c_tar0 = prim std_mem_d1(32, 8, 4);
-    const0 = prim std_const(4, 0);
-    const1 = prim std_const(4, 7);
-    const2 = prim std_const(4, 1);
-    const3 = prim std_const(4, 0);
-    const4 = prim std_const(4, 7);
-    const5 = prim std_const(4, 1);
-    const6 = prim std_const(4, 0);
-    const7 = prim std_const(4, 7);
-    const8 = prim std_const(4, 1);
-    i0 = prim std_reg(4);
-    i1 = prim std_reg(4);
-    le0 = prim std_le(4);
-    le1 = prim std_le(4);
-    le2 = prim std_le(4);
+    @external(1) a_src0 = std_mem_d1(32, 8, 4);
+    a_src_read0_0 = std_reg(32);
+    @external(1) a_tar0 = std_mem_d1(32, 8, 4);
+    add0 = std_add(4);
+    add1 = std_add(4);
+    add2 = std_add(4);
+    @external(1) b_src0 = std_mem_d1(32, 8, 4);
+    b_src_read0_0 = std_reg(32);
+    @external(1) b_tar0 = std_mem_d1(32, 8, 4);
+    @external(1) c_src0 = std_mem_d1(32, 8, 4);
+    @external(1) c_tar0 = std_mem_d1(32, 8, 4);
+    const0 = std_const(4, 0);
+    const1 = std_const(4, 7);
+    const2 = std_const(4, 1);
+    const3 = std_const(4, 0);
+    const4 = std_const(4, 7);
+    const5 = std_const(4, 1);
+    const6 = std_const(4, 0);
+    const7 = std_const(4, 7);
+    const8 = std_const(4, 1);
+    i0 = std_reg(4);
+    i1 = std_reg(4);
+    le0 = std_le(4);
+    le1 = std_le(4);
+    le2 = std_le(4);
   }
   wires {
     group cond0<"static"=0> {

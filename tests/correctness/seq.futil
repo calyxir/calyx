@@ -31,7 +31,7 @@ component main() -> () {
   }
 
   control {
-    {
+    seq {
       B;
       C;
       commit;
