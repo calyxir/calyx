@@ -17,14 +17,14 @@ cells = [
 ]
 
 # Group names.
-do_write = 'do_write'
-save_sum = 'save_sum'
+update_operands = 'update_operands'
+compute_sum = 'compute_sum'
 
 # Create the wires.
 wires = [
     # Writes the values `1` and `42` to registers `lhs` and `rhs` respectively.
     Group(
-        id=CompVar(do_write),
+        id=CompVar(update_operands),
         connections=[
             # lhs.in = 32'd1
             Connect(ConstantPort(32, 1), CompPort(lhs, 'in')),
@@ -34,17 +34,17 @@ wires = [
             Connect(ConstantPort(1, 1), CompPort(lhs, 'write_en')),
             # rhs.write_en = 1'd1
             Connect(ConstantPort(1, 1), CompPort(rhs, 'write_en')),
-            # write[done] = lhs.done & rhs.done ? 1'd1;
+            # update_operands[done] = lhs.done & rhs.done ? 1'd1;
             Connect(
                 ConstantPort(1, 1),
-                HolePort(CompVar(do_write), 'done'),
+                HolePort(CompVar(update_operands), 'done'),
                 And(CompPort(lhs, 'done'), CompPort(rhs, 'done'))
             )
         ]
     ),
-    # Adds together `lhs` and `rhs` and saves it to register `sum`.
+    # Adds together `lhs` and `rhs` and writes it to register `sum`.
     Group(
-        id=CompVar(save_sum),
+        id=CompVar(compute_sum),
         connections=[
             # add.left = lhs.out
             Connect(CompPort(lhs, 'out'), CompPort(add, 'left')),
@@ -54,10 +54,10 @@ wires = [
             Connect(ConstantPort(1, 1), CompPort(sum, 'write_en')),
             # sum.in = add.out
             Connect(CompPort(add, 'out'), CompPort(sum, 'in')),
-            # save_sum[done] = sum.done
+            # compute_sum[done] = sum.done
             Connect(
                 CompPort(sum, 'done'),
-                HolePort(CompVar(save_sum), 'done')
+                HolePort(CompVar(compute_sum), 'done')
             )
         ]
     )
@@ -66,7 +66,7 @@ wires = [
 # Control for the component.
 controls = ControlEntry(
     ControlEntryType.Seq,
-    [Enable(do_write), Enable(save_sum)]
+    [Enable(update_operands), Enable(compute_sum)]
 )
 
 # Create the component.
