@@ -1,31 +1,31 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    t0_idx = prim std_reg(2);
-    t0_add = prim std_add(2);
-    t0 = prim std_mem_d1(32, 3, 2);
-    t1_idx = prim std_reg(2);
-    t1_add = prim std_add(2);
-    t1 = prim std_mem_d1(32, 3, 2);
-    l0_idx = prim std_reg(2);
-    l0_add = prim std_add(2);
-    l0 = prim std_mem_d1(32, 3, 2);
-    l1_idx = prim std_reg(2);
-    l1_add = prim std_add(2);
-    l1 = prim std_mem_d1(32, 3, 2);
-    @external(1) out_mem = prim std_mem_d2(32, 2, 2, 2, 2);
-    pe_0_0 = mac_pe;
-    top_0_0 = prim std_reg(32);
-    left_0_0 = prim std_reg(32);
-    pe_0_1 = mac_pe;
-    top_0_1 = prim std_reg(32);
-    left_0_1 = prim std_reg(32);
-    pe_1_0 = mac_pe;
-    top_1_0 = prim std_reg(32);
-    left_1_0 = prim std_reg(32);
-    pe_1_1 = mac_pe;
-    top_1_1 = prim std_reg(32);
-    left_1_1 = prim std_reg(32);
+    t0_idx = std_reg(2);
+    t0_add = std_add(2);
+    t0 = std_mem_d1(32, 3, 2);
+    t1_idx = std_reg(2);
+    t1_add = std_add(2);
+    t1 = std_mem_d1(32, 3, 2);
+    l0_idx = std_reg(2);
+    l0_add = std_add(2);
+    l0 = std_mem_d1(32, 3, 2);
+    l1_idx = std_reg(2);
+    l1_add = std_add(2);
+    l1 = std_mem_d1(32, 3, 2);
+    @external(1) out_mem = std_mem_d2(32, 2, 2, 2, 2);
+    pe_0_0 = mac_pe();
+    top_0_0 = std_reg(32);
+    left_0_0 = std_reg(32);
+    pe_0_1 = mac_pe();
+    top_0_1 = std_reg(32);
+    left_0_1 = std_reg(32);
+    pe_1_0 = mac_pe();
+    top_1_0 = std_reg(32);
+    left_1_0 = std_reg(32);
+    pe_1_1 = mac_pe();
+    top_1_1 = std_reg(32);
+    left_1_1 = std_reg(32);
   }
   wires {
     group t0_idx_init {
