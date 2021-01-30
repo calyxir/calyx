@@ -2,11 +2,11 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    add0 = prim std_add(32);
-    add1 = prim std_add(32);
-    add2 = prim std_add(32);
-    add3 = prim std_add(32);
-    x_0 = prim std_reg(32);
+    add0 = std_add(32);
+    add1 = std_add(32);
+    add2 = std_add(32);
+    add3 = std_add(32);
+    x_0 = std_reg(32);
   }
   wires {
     group let0<"static"=1> {

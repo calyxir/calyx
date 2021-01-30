@@ -304,31 +304,20 @@ impl FutilParser {
     }
 
     // ================ Cells =====================
-    fn primitive_cell(input: Node) -> ParseResult<ast::Cell> {
+    fn cell_without_semi(input: Node) -> ParseResult<ast::Cell> {
         Ok(match_nodes!(
             input.into_children();
             [at_attributes(attrs), identifier(id), identifier(prim), args(args)] =>
-            ast::Cell::prim(id, prim, args, attrs)
-        ))
-    }
-
-    fn component_cell(input: Node) -> ParseResult<ast::Cell> {
-        Ok(match_nodes!(
-            input.into_children();
-            [at_attributes(attrs), identifier(name), identifier(component)] =>
-                ast::Cell::decl(name, component, attrs)
+            ast::Cell::from(id, prim, args, attrs)
         ))
     }
 
     fn cell(input: Node) -> ParseResult<ast::Cell> {
         match_nodes!(
             input.clone().into_children();
-            [primitive_cell(node)] =>
+            [cell_without_semi(node)] =>
                 Err(input.error("Declaration is missing `;`")),
-            [component_cell(node)] =>
-                Err(input.error("Declaration is missing `;`")),
-            [primitive_cell(node), semi(_)] => Ok(node),
-            [component_cell(node), semi(_)] => Ok(node),
+            [cell_without_semi(node), semi(_)] => Ok(node),
         )
     }
 

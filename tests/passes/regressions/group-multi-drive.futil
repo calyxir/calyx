@@ -3,8 +3,8 @@ import "primitives/std.lib";
 
 component main() -> () {
   cells {
-    r = prim std_reg(32);
-    add = prim std_add(32);
+    r = std_reg(32);
+    add = std_add(32);
   }
   wires {
     group do_update {

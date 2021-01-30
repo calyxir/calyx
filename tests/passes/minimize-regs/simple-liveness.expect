@@ -1,9 +1,9 @@
 import "primitives/std.lib";
 component kernel(go: 1, clk: 1) -> (done: 1) {
   cells {
-    b = prim std_reg(32);
-    before = prim std_reg(4);
-    read_x = prim std_add(4);
+    b = std_reg(32);
+    before = std_reg(4);
+    read_x = std_add(4);
   }
   wires {
     group wr_before<"static"=1> {

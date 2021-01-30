@@ -1,8 +1,8 @@
 import "primitives/core.futil";
 component main<"static"=3>(go: 1, clk: 1) -> (done: 1) {
   cells {
-    r = prim std_reg(32);
-    exp0 = exponent;
+    r = std_reg(32);
+    exp0 = exponent();
   }
   wires {
     group upd0<"static"=1> {
@@ -24,8 +24,8 @@ component main<"static"=3>(go: 1, clk: 1) -> (done: 1) {
 }
 component exponent<"static"=2>(base: 32, exp: 4, go: 1, clk: 1) -> (out: 32, done: 1) {
   cells {
-    r1 = prim std_reg(32);
-    r2 = prim std_reg(32);
+    r1 = std_reg(32);
+    r2 = std_reg(32);
   }
   wires {
     group upd2<"static"=1> {

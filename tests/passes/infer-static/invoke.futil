@@ -7,8 +7,8 @@ import "primitives/core.futil";
 */
 component main() -> () {
   cells {
-    r = prim std_reg(32);
-    exp0 = exponent;
+    r = std_reg(32);
+    exp0 = exponent();
   }
   wires {
     group upd0 {
@@ -27,8 +27,8 @@ component main() -> () {
 
 component exponent(base: 32, exp: 4) -> (out: 32) {
   cells {
-    r1 = prim std_reg(32);
-    r2 = prim std_reg(32);
+    r1 = std_reg(32);
+    r2 = std_reg(32);
   }
   wires {
     group upd2 {

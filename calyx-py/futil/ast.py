@@ -145,7 +145,7 @@ class CompDecl(Structure):
     comp: CompVar
 
     def doc(self) -> str:
-        return f'{self.id.doc()} = {self.comp.doc()};'
+        return f'{self.id.doc()} = {self.comp.doc()}();'
 
 
 @dataclass
@@ -156,7 +156,7 @@ class LibDecl(Structure):
 
     def doc(self) -> str:
         external = '@external(1) ' if self.is_external else ''
-        return f'{external}{self.id.doc()} = prim {self.comp.doc()};'
+        return f'{external}{self.id.doc()} = {self.comp.doc()};'
 
 
 @dataclass

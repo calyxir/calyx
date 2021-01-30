@@ -4,9 +4,9 @@ import "primitives/std.lib";
 
 component main() -> () {
   cells {
-    @external(1) A = prim std_mem_d1(32, 16, 4);
-    B = prim std_mem_d1(32, 16, 4);
-    state = prim std_reg(32);
+    @external(1) A = std_mem_d1(32, 16, 4);
+    B = std_mem_d1(32, 16, 4);
+    state = std_reg(32);
   }
   wires {
     group wr_A {
