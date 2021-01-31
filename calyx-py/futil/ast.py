@@ -341,7 +341,6 @@ class If(Control):
 
 ### Standard Library ###
 
-# TODO(cgyurgyik): AST support for fixed point operations (signed and unsigned).
 @dataclass
 class Stdlib:
     def register(self, bitwidth: int):
@@ -384,8 +383,8 @@ class Stdlib:
     def fixed_point_const(self, width: int, int_bit: int, frac_bit: int, value1: int, value2: int):
         return CompInst('fixed_p_std_const', [width, int_bit, frac_bit, value1, value2])
 
-    def fixed_point_op(self, op: str, width: int, int_bit: int, frac_bit: int):
-        return CompInst(f'fixed_p_std_{op}', [width, int_bit, frac_bit])
+    def fixed_point_op(self, op: str, width: int, int_bit: int, frac_bit: int, signed: bool):
+        return CompInst(f'{"s" if signed else ""}fixed_p_std_{op}', [width, int_bit, frac_bit])
 
     def diff_width_add(self,
                        width1: int,
