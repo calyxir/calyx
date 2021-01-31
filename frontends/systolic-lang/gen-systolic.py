@@ -79,8 +79,8 @@ def instantiate_indexor(prefix, width):
     name = CompVar(NAME_SCHEME['index name'].format(prefix=prefix))
     add_name = CompVar(f'{prefix}_add')
     cells = [
-        LibDecl(name, stdlib.register(width)),
-        LibDecl(add_name, stdlib.op('add', width, signed=False))
+        Cell(name, stdlib.register(width)),
+        Cell(add_name, stdlib.op('add', width, signed=False))
     ]
 
     init_name = CompVar(NAME_SCHEME['index init'].format(prefix=prefix))
@@ -148,7 +148,7 @@ def instantiate_memory(top_or_left, idx, size):
     idx_structure.append(structure)
     # Instantiate the memory
     idx_cells.append(
-        LibDecl(var_name, Stdlib().mem_d1(BITWIDTH, size, idx_width))
+        Cell(var_name, Stdlib().mem_d1(BITWIDTH, size, idx_width))
     )
     return (
         idx_cells,
@@ -163,9 +163,9 @@ def instantiate_pe(row, col, right_edge=False, down_edge=False):
     # Add all the required cells.
     stdlib = Stdlib()
     cells = [
-        CompDecl(CompVar(f'pe_{row}_{col}'), CompVar(PE_NAME)),
-        LibDecl(CompVar(f'top_{row}_{col}'), stdlib.register(BITWIDTH)),
-        LibDecl(CompVar(f'left_{row}_{col}'), stdlib.register(BITWIDTH))
+        Cell(CompVar(f'pe_{row}_{col}'), CompInst(PE_NAME, [])),
+        Cell(CompVar(f'top_{row}_{col}'), stdlib.register(BITWIDTH)),
+        Cell(CompVar(f'left_{row}_{col}'), stdlib.register(BITWIDTH))
     ]
     return cells
 
@@ -432,7 +432,7 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
     out_ridx_size = bits_needed(left_length)
     out_cidx_size = bits_needed(top_length)
     cells.append(
-        LibDecl(
+        Cell(
             OUT_MEM,
             Stdlib().mem_d2(BITWIDTH, left_length, top_length, out_ridx_size, out_cidx_size),
             is_external=True

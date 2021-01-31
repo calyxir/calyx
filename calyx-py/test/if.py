@@ -5,8 +5,8 @@ x = CompVar('x')
 lt = CompVar('lt')
 
 cells = [
-    LibDecl(lt, stdlib.op('lt', 32, signed=False), is_external=False),
-    LibDecl(x, stdlib.register(32), is_external=False)
+    Cell(lt, stdlib.op('lt', 32, signed=False), is_external=False),
+    Cell(x, stdlib.register(32), is_external=False)
 ]
 
 true = 'true'

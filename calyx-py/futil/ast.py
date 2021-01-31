@@ -54,7 +54,7 @@ class Component:
         self.name = name
         self.controls = controls
         # Partition cells and wires.
-        is_cell = lambda x: isinstance(x, LibDecl) or isinstance(x, CompDecl)
+        is_cell = lambda x: isinstance(x, Cell)
         self.cells = [s for s in structs if is_cell(s)]
         self.wires = [s for s in structs if not is_cell(s)]
 
@@ -140,16 +140,7 @@ class Structure(Emittable):
 
 
 @dataclass
-class CompDecl(Structure):
-    id: CompVar
-    comp: CompVar
-
-    def doc(self) -> str:
-        return f'{self.id.doc()} = {self.comp.doc()}();'
-
-
-@dataclass
-class LibDecl(Structure):
+class Cell(Structure):
     id: CompVar
     comp: CompInst
     is_external: bool = False

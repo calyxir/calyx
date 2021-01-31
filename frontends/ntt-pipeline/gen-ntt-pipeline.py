@@ -204,33 +204,33 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
         stdlib = Stdlib()
 
         memories = [
-            LibDecl(input, stdlib.mem_d1(input_bitwidth, n, bitwidth)),
-            LibDecl(phis, stdlib.mem_d1(input_bitwidth, n, bitwidth))
+            Cell(input, stdlib.mem_d1(input_bitwidth, n, bitwidth)),
+            Cell(phis, stdlib.mem_d1(input_bitwidth, n, bitwidth))
         ]
-        r_regs = [LibDecl(CompVar(f'r{r}'), stdlib.register(input_bitwidth)) for r in range(n)]
-        A_regs = [LibDecl(CompVar(f'A{r}'), stdlib.register(input_bitwidth)) for r in range(n)]
-        mul_regs = [LibDecl(CompVar(f'mul{i}'), stdlib.register(input_bitwidth)) for i in range(n // 2)]
-        phi_regs = [LibDecl(CompVar(f'phi{r}'), stdlib.register(input_bitwidth)) for r in range(n)]
+        r_regs = [Cell(CompVar(f'r{r}'), stdlib.register(input_bitwidth)) for r in range(n)]
+        A_regs = [Cell(CompVar(f'A{r}'), stdlib.register(input_bitwidth)) for r in range(n)]
+        mul_regs = [Cell(CompVar(f'mul{i}'), stdlib.register(input_bitwidth)) for i in range(n // 2)]
+        phi_regs = [Cell(CompVar(f'phi{r}'), stdlib.register(input_bitwidth)) for r in range(n)]
         mod_pipes = [
-            LibDecl(
+            Cell(
                 CompVar(f'mod_pipe{r}'),
                 stdlib.op('mod_pipe', input_bitwidth, signed=True)
             ) for r in range(n)
         ]
         mult_pipes = [
-            LibDecl(
+            Cell(
                 CompVar(f'mult_pipe{i}'),
                 stdlib.op('mult_pipe', input_bitwidth, signed=True)
             ) for i in range(n // 2)
         ]
         adds = [
-            LibDecl(
+            Cell(
                 CompVar(f'add{i}'),
                 stdlib.op('add', input_bitwidth, signed=True)
             ) for i in range(n // 2)
         ]
         subs = [
-            LibDecl(
+            Cell(
                 CompVar(f'sub{i}'),
                 stdlib.op('sub', input_bitwidth, signed=True)
             ) for i in range(n // 2)
