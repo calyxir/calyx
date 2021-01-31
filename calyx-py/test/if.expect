@@ -6,7 +6,7 @@ component main() -> () {
   }
   wires {
     group cond {
-      lt.left = 32'd1;
+      lt.left = 32'd0;
       lt.right = 32'd1;
       cond[done] = 1'd1;
     }

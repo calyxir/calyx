@@ -17,7 +17,7 @@ wires = [
     Group(
         id=cond,
         connections=[
-            Connect(ConstantPort(32, 1), CompPort(lt, 'left')),
+            Connect(ConstantPort(32, 0), CompPort(lt, 'left')),
             Connect(ConstantPort(32, 1), CompPort(lt, 'right')),
             Connect(ConstantPort(1, 1), HolePort(cond, 'done'))
         ]
