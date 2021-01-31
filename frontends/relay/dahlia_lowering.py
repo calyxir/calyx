@@ -489,9 +489,18 @@ def conv2d(function):
 
 
 # Mapping from Relay function names to their respective Dahlia lowering.
-RelayFunctionCalls = {'nn.dense': dense, 'nn.batch_flatten': batch_flatten, 'nn.batch_matmul': batch_matmul,
-                      'nn.bias_add': bias_add, 'nn.relu': relu, 'nn.softmax': softmax, 'nn.max_pool2d': max_pool2d,
-                      'nn.conv2d': conv2d, 'negative': negative, 'expand_dims': expand_dims, 'sqrt': sqrt}
+RelayCallNodes = {
+    'nn.dense': dense,
+    'nn.batch_flatten': batch_flatten,
+    'nn.batch_matmul': batch_matmul,
+    'nn.bias_add': bias_add,
+    'nn.relu': relu, 'nn.softmax': softmax,
+    'nn.max_pool2d': max_pool2d,
+    'nn.conv2d': conv2d,
+    'negative': negative,
+    'expand_dims': expand_dims,
+    'sqrt': sqrt
+}
 
 # Mapping from Relay binary calls to the respective Dahlia operator.
 BuiltInBinaryOps = {'add': '+', 'divide': '/', 'multiply': '*', 'subtract': '-'}

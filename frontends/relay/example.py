@@ -4,6 +4,12 @@ from compiler import *
 import sys
 
 
+def var():
+    x = relay.var('x', shape=(), dtype="int32")
+    y = relay.var('y', shape=(), dtype="int32")
+    return relay.Function([x, y], relay.add(x, y))
+
+
 def add():
     x = relay.var('x', shape=(), dtype="int32")
     y = relay.var('y', shape=(), dtype="int32")
@@ -79,7 +85,7 @@ def vgg_net():
                        batch_norm=True)
 
 
-ALL_FUNCS = [add, tensor_subtract, expand_dims, batch_flatten, batch_matmul,
+ALL_FUNCS = [add, tensor_subtract, expand_dims, batch_flatten, batch_matmul, var,
              bias_add, relu, dense, softmax, conv2d, max_pool2d, mlp_net, vgg_net]
 FUNC_NAMES = list(map(lambda x: x.__name__, ALL_FUNCS))
 
@@ -117,7 +123,7 @@ def run_example():
         print(relay_IR)
     else:
         # Compile the function and print the FuTIL.
-        print(lower_to_futil(relay_IR))
+        emit_futil(relay_IR)
 
 
 if __name__ == '__main__':
