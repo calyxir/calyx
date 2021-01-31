@@ -155,10 +155,10 @@ def gen_reduce_impl(stmt, arr_size, s_idx):
     stdlib = Stdlib()
     op_name = "mult" if stmt.op.body.op == "mul" else "add"
     cells = [
-        LibDecl(CompVar(f'le{s_idx}'), stdlib.op('lt', 32)),
+        LibDecl(CompVar(f'le{s_idx}'), stdlib.op('lt', 32, signed=False)),
         LibDecl(CompVar(f'idx{s_idx}'), stdlib.register(32)),
-        LibDecl(CompVar(f'adder_idx{s_idx}'), stdlib.op('add', 32)),
-        LibDecl(CompVar(f'adder_op{s_idx}'), stdlib.op(f'{op_name}', 32))
+        LibDecl(CompVar(f'adder_idx{s_idx}'), stdlib.op('add', 32, signed=False)),
+        LibDecl(CompVar(f'adder_op{s_idx}'), stdlib.op(f'{op_name}', 32, signed=False))
     ]
     wires = [
         emit_cond_group(s_idx, arr_size),
@@ -195,15 +195,15 @@ def gen_map_impl(stmt, arr_size, bank_factor, s_idx):
     cells = []
     for b in range(bank_factor):
         cells.extend([
-            LibDecl(CompVar(f'le_b{b}_{s_idx}'), stdlib.op('lt', 32)),
+            LibDecl(CompVar(f'le_b{b}_{s_idx}'), stdlib.op('lt', 32, signed=False)),
             LibDecl(CompVar(f'idx_b{b}_{s_idx}'), stdlib.register(32)),
-            LibDecl(CompVar(f'adder_idx_b{b}_{s_idx}'), stdlib.op('add', 32)),
+            LibDecl(CompVar(f'adder_idx_b{b}_{s_idx}'), stdlib.op('add', 32, signed=False)),
         ])
 
     op_name = "mult" if stmt.op.body.op == "mul" else "add"
     for b in range(bank_factor):
         cells.append(
-            LibDecl(CompVar(f'adder_op_b{b}_{s_idx}'), stdlib.op(f'{op_name}', 32))
+            LibDecl(CompVar(f'adder_op_b{b}_{s_idx}'), stdlib.op(f'{op_name}', 32, signed=False))
         )
 
     wires = []

@@ -80,7 +80,7 @@ def instantiate_indexor(prefix, width):
     add_name = CompVar(f'{prefix}_add')
     cells = [
         LibDecl(name, stdlib.register(width)),
-        LibDecl(add_name, stdlib.op('add', width))
+        LibDecl(add_name, stdlib.op('add', width, signed=False))
     ]
 
     init_name = CompVar(NAME_SCHEME['index init'].format(prefix=prefix))

@@ -237,9 +237,9 @@ class Or(GuardExpr):
 class ControlEntryType(Enum):
     Seq = 'seq'
     Par = 'par'
+    Empty = 'empty'
 
 
-# TODO(cgyurgyik): AST support for `If`, and `Empty`.
 @dataclass
 class Control(Emittable):
     pass
@@ -251,6 +251,8 @@ class ControlEntry(Control):
     stmts: list[ControlOrEnable]
 
     def doc(self):
+        if self.entry == ControlEntryType.Empty:
+            return Empty().doc()
         return block(self.entry.value, [s.doc() for s in self.stmts])
 
 
@@ -314,6 +316,29 @@ class While(Control):
         )
 
 
+@dataclass
+class Empty(Control):
+    def doc(self) -> str:
+        return 'empty'
+
+
+@dataclass
+class If(Control):
+    port: Port
+    cond: CompVar
+    true_branch: Control
+    false_branch: Control
+
+    def doc(self) -> str:
+        cond = f'if {self.port.doc()} with {self.cond.doc()}'
+        true_branch = self.true_branch.doc()
+        if isinstance(self.false_branch, Empty):
+            false_branch = ''
+        else:
+            false_branch = block(' else', self.false_branch.doc(), sep='')
+        return block(cond, true_branch, sep='') + false_branch
+
+
 ### Standard Library ###
 
 # TODO(cgyurgyik): AST support for fixed point operations (signed and unsigned).
@@ -325,8 +350,8 @@ class Stdlib:
     def constant(self, bitwidth: int, value: int):
         return CompInst('std_const', [bitwidth, value])
 
-    def op(self, op: str, bitwidth: int):
-        return CompInst(f'std_{op}', [bitwidth])
+    def op(self, op: str, bitwidth: int, signed: bool):
+        return CompInst(f'std_{"s" if signed else ""}{op}', [bitwidth])
 
     def identity(self, op: str, bitwidth: int):
         return CompInst('std_id', [bitwidth])
@@ -354,3 +379,24 @@ class Stdlib:
                idx_size0: int, idx_size1: int, idx_size2: int, idx_size3: int):
         return CompInst('std_mem_d4', [bitwidth, size0, size1, size2, size3,
                                        idx_size0, idx_size1, idx_size2, idx_size3])
+
+    ### Extended Fixed Point AST ###
+    def fixed_point_const(self, width: int, int_bit: int, frac_bit: int, value1: int, value2: int):
+        return CompInst('fixed_p_std_const', [width, int_bit, frac_bit, value1, value2])
+
+    def fixed_point_op(self, op: str, width: int, int_bit: int, frac_bit: int):
+        return CompInst(f'fixed_p_std_{op}', [width, int_bit, frac_bit])
+
+    def diff_width_add(self,
+                       width1: int,
+                       width2: int,
+                       int_width1: int,
+                       frac_width1: int,
+                       int_width2: int,
+                       frac_width2: int,
+                       out_width: int,
+                       signed: bool):
+        return CompInst(
+            f'{"s" if signed else ""}fixed_p_std_add_dbit',
+            [width1, width2, int_width1, frac_width1, int_width2, frac_width2, out_width]
+        )

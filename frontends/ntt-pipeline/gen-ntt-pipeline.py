@@ -211,11 +211,30 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
         A_regs = [LibDecl(CompVar(f'A{r}'), stdlib.register(input_bitwidth)) for r in range(n)]
         mul_regs = [LibDecl(CompVar(f'mul{i}'), stdlib.register(input_bitwidth)) for i in range(n // 2)]
         phi_regs = [LibDecl(CompVar(f'phi{r}'), stdlib.register(input_bitwidth)) for r in range(n)]
-        mod_pipes = [LibDecl(CompVar(f'mod_pipe{r}'), stdlib.op('smod_pipe', input_bitwidth)) for r in range(n)]
-        mult_pipes = [LibDecl(CompVar(f'mult_pipe{i}'), stdlib.op('smult_pipe', input_bitwidth)) for i in range(n // 2)]
-
-        adds = [LibDecl(CompVar(f'add{i}'), stdlib.op('sadd', input_bitwidth)) for i in range(n // 2)]
-        subs = [LibDecl(CompVar(f'sub{i}'), stdlib.op('ssub', input_bitwidth)) for i in range(n // 2)]
+        mod_pipes = [
+            LibDecl(
+                CompVar(f'mod_pipe{r}'),
+                stdlib.op('mod_pipe', input_bitwidth, signed=True)
+            ) for r in range(n)
+        ]
+        mult_pipes = [
+            LibDecl(
+                CompVar(f'mult_pipe{i}'),
+                stdlib.op('mult_pipe', input_bitwidth, signed=True)
+            ) for i in range(n // 2)
+        ]
+        adds = [
+            LibDecl(
+                CompVar(f'add{i}'),
+                stdlib.op('add', input_bitwidth, signed=True)
+            ) for i in range(n // 2)
+        ]
+        subs = [
+            LibDecl(
+                CompVar(f'sub{i}'),
+                stdlib.op('sub', input_bitwidth, signed=True)
+            ) for i in range(n // 2)
+        ]
 
         return memories + r_regs + A_regs + mul_regs + phi_regs + mod_pipes + mult_pipes + adds + subs
 
