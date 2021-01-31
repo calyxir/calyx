@@ -384,7 +384,7 @@ class Stdlib:
         return CompInst('fixed_p_std_const', [width, int_bit, frac_bit, value1, value2])
 
     def fixed_point_op(self, op: str, width: int, int_bit: int, frac_bit: int, signed: bool):
-        return CompInst(f'{"s" if signed else ""}fixed_p_std_{op}', [width, int_bit, frac_bit])
+        return CompInst(f'fixed_p_std_{"s" if signed else ""}{op}', [width, int_bit, frac_bit])
 
     def diff_width_add(self,
                        width1: int,
