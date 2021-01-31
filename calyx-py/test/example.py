@@ -13,7 +13,7 @@ cells = [
     LibDecl(lhs, stdlib.register(32), is_external=False),
     LibDecl(rhs, stdlib.register(32), is_external=False),
     LibDecl(sum, stdlib.register(32), is_external=False),
-    LibDecl(add, stdlib.op('add', 32), is_external=False)
+    LibDecl(add, stdlib.op('add', 32, signed=False), is_external=False)
 ]
 
 # Group names.
