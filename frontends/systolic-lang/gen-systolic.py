@@ -2,29 +2,28 @@
 
 import sys
 import textwrap
-import math
 import numpy as np
-import argparse
-import json
+from futil.ast import *
+from futil.utils import bits_needed
 
 # Global constant for the current bitwidth.
 BITWIDTH = 32
-PE_NAME = 'mac_pe'
 # Name of the ouput array
-OUT_MEM = 'out_mem'
+OUT_MEM = CompVar('out_mem')
+PE_NAME = 'mac_pe'
+
+# Eventually, PE_DEF will be included a separate `.futil` file.
 PE_DEF = """
 component mac_pe(top: 32, left: 32) -> (out: 32) {
   cells {
     // Storage
-    acc = prim std_reg(32);
-    mul_reg = prim std_reg(32);
+    acc = std_reg(32);
+    mul_reg = std_reg(32);
     // Computation
-    add = prim std_add(32);
-    mul = prim std_mult_pipe(32);
+    add = std_add(32);
+    mul = std_mult_pipe(32);
   }
-
   wires {
-
     group do_mul<"static"=4> {
       mul.left = top;
       mul.right = left;
@@ -33,7 +32,6 @@ component mac_pe(top: 32, left: 32) -> (out: 32) {
       mul_reg.write_en = mul.done ? 1'd1;
       do_mul[done] = mul_reg.done;
     }
-
     group do_add {
       add.left = acc.out;
       add.right = mul_reg.out;
@@ -41,10 +39,8 @@ component mac_pe(top: 32, left: 32) -> (out: 32) {
       acc.write_en = 1'd1;
       do_add[done] = acc.done;
     }
-
     out = acc.out;
   }
-
   control {
     seq { do_mul; do_add; }
   }
@@ -68,33 +64,6 @@ NAME_SCHEME = {
 }
 
 
-def bits_needed(num):
-    """
-    Number of bits needed to represent `num`.
-    """
-    return math.floor(math.log(num, 2)) + 1
-
-
-def create_adder(name, width):
-    return f'{name} = prim std_add({width});'
-
-
-def create_register(name, width):
-    return f'{name} = prim std_reg({width});'
-
-
-def create_memory(name, bitwidth, size):
-    """
-    Defines a 1D memory.
-    Returns (cells, idx_size)
-    """
-    idx_width = bits_needed(size)
-    return (
-        f'{name} = prim std_mem_d1({bitwidth}, {size}, {idx_width});',
-        idx_width
-    )
-
-
 def instantiate_indexor(prefix, width):
     """
     Instantiate an indexor for accessing memory with name `prefix`.
@@ -106,34 +75,39 @@ def instantiate_indexor(prefix, width):
 
     Returns (cells, structure)
     """
-    name = NAME_SCHEME['index name'].format(prefix=prefix)
-    add_name = f'{prefix}_add'
+    stdlib = Stdlib()
+    name = CompVar(NAME_SCHEME['index name'].format(prefix=prefix))
+    add_name = CompVar(f'{prefix}_add')
     cells = [
-        create_register(name, width),
-        create_adder(add_name, width),
+        LibDecl(name, stdlib.register(width)),
+        LibDecl(add_name, stdlib.op('add', width))
     ]
 
-    init_name = NAME_SCHEME['index init'].format(prefix=prefix)
-    init_group = f"""
-    group {init_name} {{
-        {name}.in = {width}'d{2**width-1};
-        {name}.write_en = 1'd1;
-        {init_name}[done] = {name}.done;
-    }}"""
+    init_name = CompVar(NAME_SCHEME['index init'].format(prefix=prefix))
+    init_group = Group(
+        init_name,
+        connections=[
+            Connect(ConstantPort(width, 2 ** width - 1), CompPort(name, 'in')),
+            Connect(ConstantPort(1, 1), CompPort(name, 'write_en')),
+            Connect(CompPort(name, 'done'), HolePort(init_name, 'done'))
+        ]
+    )
 
-    upd_name = NAME_SCHEME['index update'].format(prefix=prefix)
-    upd_group = f"""
-    group {upd_name} {{
-        {add_name}.left = {width}'d1;
-        {add_name}.right = {name}.out;
-        {name}.in = {add_name}.out;
-        {name}.write_en = 1'd1;
-        {upd_name}[done] = {name}.done;
-    }}"""
+    upd_name = CompVar(NAME_SCHEME['index update'].format(prefix=prefix))
+    upd_group = Group(
+        upd_name,
+        connections=[
+            Connect(ConstantPort(width, 1), CompPort(add_name, 'left')),
+            Connect(CompPort(name, 'out'), CompPort(add_name, 'right')),
+            Connect(CompPort(add_name, 'out'), CompPort(name, 'in')),
+            Connect(ConstantPort(1, 1), CompPort(name, 'write_en')),
+            Connect(CompPort(name, 'done'), HolePort(upd_name, 'done'))
+        ]
+    )
 
     return (
-        '\n'.join(cells),
-        (init_group + '\n' + upd_group)
+        cells,
+        [init_group, upd_group]
     )
 
 
@@ -154,24 +128,31 @@ def instantiate_memory(top_or_left, idx, size):
     else:
         raise f'Invalid top_or_left: {top_or_left}'
 
-    name = f'{name}'
-    idx_name = NAME_SCHEME["index name"].format(prefix=name)
-    group_name = NAME_SCHEME['memory move'].format(prefix=name)
-    structure = f"""
-    group {group_name} {{
-        {name}.addr0 = {idx_name}.out;
-        {target_reg}.in = {name}.read_data;
-        {target_reg}.write_en = 1'd1;
-        {group_name}[done] = {target_reg}.done;
-    }}"""
+    var_name = CompVar(f'{name}')
+    idx_name = CompVar(NAME_SCHEME["index name"].format(prefix=name))
+    group_name = CompVar(NAME_SCHEME['memory move'].format(prefix=name))
+    target_reg = CompVar(target_reg)
+    structure = Group(
+        group_name,
+        connections=[
+            Connect(CompPort(idx_name, 'out'), CompPort(var_name, 'addr0')),
+            Connect(CompPort(var_name, 'read_data'), CompPort(target_reg, 'in')),
+            Connect(ConstantPort(1, 1), CompPort(target_reg, 'write_en')),
+            Connect(CompPort(target_reg, 'done'), HolePort(group_name, 'done'))
+        ]
+    )
 
-    # Instantiate the memory
-    (cell, idx_width) = create_memory(f'{name}', BITWIDTH, size)
+    idx_width = bits_needed(size)
     # Instantiate the indexor
     (idx_cells, idx_structure) = instantiate_indexor(name, idx_width)
+    idx_structure.append(structure)
+    # Instantiate the memory
+    idx_cells.append(
+        LibDecl(var_name, Stdlib().mem_d1(BITWIDTH, size, idx_width))
+    )
     return (
-        idx_cells + '\n' + cell,
-        idx_structure + '\n' + structure
+        idx_cells,
+        idx_structure
     )
 
 
@@ -180,14 +161,13 @@ def instantiate_pe(row, col, right_edge=False, down_edge=False):
     Instantiate the PE and all the registers connected to it.
     """
     # Add all the required cells.
-    pe = f'pe_{row}_{col}'
+    stdlib = Stdlib()
     cells = [
-        f'{pe} = {PE_NAME};',
-        create_register(f'top_{row}_{col}', BITWIDTH),
-        create_register(f'left_{row}_{col}', BITWIDTH),
+        CompDecl(CompVar(f'pe_{row}_{col}'), CompVar(PE_NAME)),
+        LibDecl(CompVar(f'top_{row}_{col}'), stdlib.register(BITWIDTH)),
+        LibDecl(CompVar(f'left_{row}_{col}'), stdlib.register(BITWIDTH))
     ]
-
-    return '\n'.join(cells)
+    return cells
 
 
 def instantiate_data_move(row, col, right_edge, down_edge):
@@ -200,45 +180,52 @@ def instantiate_data_move(row, col, right_edge, down_edge):
     structures = []
 
     if not right_edge:
-        group_name = NAME_SCHEME['register move right'].format(pe=name)
-        src_reg = f'left_{row}_{col}'
-        dst_reg = f'left_{row}_{col+1}'
-        mover = textwrap.indent(textwrap.dedent(f'''
-        group {group_name} {{
-            {dst_reg}.in = {src_reg}.out;
-            {dst_reg}.write_en = 1'd1;
-            {group_name}[done] = {dst_reg}.done;
-        }}'''), " " * 4)
+        group_name = CompVar(NAME_SCHEME['register move right'].format(pe=name))
+        src_reg = CompVar(f'left_{row}_{col}')
+        dst_reg = CompVar(f'left_{row}_{col + 1}')
+        mover = Group(
+            group_name,
+            connections=[
+                Connect(CompPort(src_reg, 'out'), CompPort(dst_reg, 'in')),
+                Connect(ConstantPort(1, 1), CompPort(dst_reg, 'write_en')),
+                Connect(CompPort(dst_reg, 'done'), HolePort(group_name, 'done'))
+            ]
+        )
         structures.append(mover)
 
     if not down_edge:
-        group_name = NAME_SCHEME['register move down'].format(pe=name)
-        src_reg = f'top_{row}_{col}'
-        dst_reg = f'top_{row+1}_{col}'
-        mover = textwrap.indent(textwrap.dedent(f'''
-        group {group_name} {{
-            {dst_reg}.in = {src_reg}.out;
-            {dst_reg}.write_en = 1'd1;
-            {group_name}[done] = {dst_reg}.done;
-        }}'''), " "*4)
+        group_name = CompVar(NAME_SCHEME['register move down'].format(pe=name))
+        src_reg = CompVar(f'top_{row}_{col}')
+        dst_reg = CompVar(f'top_{row + 1}_{col}')
+        mover = Group(
+            group_name,
+            connections=[
+                Connect(CompPort(src_reg, 'out'), CompPort(dst_reg, 'in')),
+                Connect(ConstantPort(1, 1), CompPort(dst_reg, 'write_en')),
+                Connect(CompPort(dst_reg, 'done'), HolePort(group_name, 'done'))
+            ]
+        )
         structures.append(mover)
 
-    return '\n'.join(structures)
+    return structures
 
 
 def instantiate_output_move(row, col, row_idx_bitwidth, col_idx_bitwidth):
     """
     Generates groups to move the final value from a PE into the output array.
     """
-    group_name = NAME_SCHEME['out mem move'].format(pe=f'pe_{row}_{col}')
-    return textwrap.indent(textwrap.dedent(f'''
-    group {group_name} {{
-        {OUT_MEM}.addr0 = {row_idx_bitwidth}'d{row};
-        {OUT_MEM}.addr1 = {col_idx_bitwidth}'d{col};
-        {OUT_MEM}.write_data = pe_{row}_{col}.out;
-        {OUT_MEM}.write_en = 1'd1;
-        {group_name}[done] = {OUT_MEM}.done;
-    }}'''), " " * 4)
+    group_name = CompVar(NAME_SCHEME['out mem move'].format(pe=f'pe_{row}_{col}'))
+    pe = CompVar(f'pe_{row}_{col}')
+    return Group(
+        group_name,
+        connections=[
+            Connect(ConstantPort(row_idx_bitwidth, row), CompPort(OUT_MEM, 'addr0')),
+            Connect(ConstantPort(col_idx_bitwidth, col), CompPort(OUT_MEM, 'addr1')),
+            Connect(CompPort(pe, 'out'), CompPort(OUT_MEM, 'write_data')),
+            Connect(ConstantPort(1, 1), CompPort(OUT_MEM, 'write_en')),
+            Connect(CompPort(OUT_MEM, 'done'), HolePort(group_name, 'done'))
+        ]
+    )
 
 
 def generate_schedule(top_length, top_depth, left_length, left_depth):
@@ -271,7 +258,7 @@ def generate_schedule(top_length, top_depth, left_length, left_depth):
     # Fill the remaining rows. Similarly, all rows run one "step" behind the
     # row on their top.
     for row in range(1, left_length):
-        out[row][0] = out[row-1][0] + 1
+        out[row][0] = out[row - 1][0] + 1
         for col in range(1, top_length):
             out[row][col] = out[row][col - 1] + 1
 
@@ -307,7 +294,7 @@ def row_data_mover_at(row, col):
     if row == 0:
         return NAME_SCHEME['memory move'].format(prefix=f't{col}')
     else:
-        return NAME_SCHEME['register move down'].format(pe=f'pe_{row-1}_{col}')
+        return NAME_SCHEME['register move down'].format(pe=f'pe_{row - 1}_{col}')
 
 
 def col_data_mover_at(row, col):
@@ -318,7 +305,7 @@ def col_data_mover_at(row, col):
     if col == 0:
         return NAME_SCHEME['memory move'].format(prefix=f'l{row}')
     else:
-        return NAME_SCHEME['register move right'].format(pe=f'pe_{row}_{col-1}')
+        return NAME_SCHEME['register move right'].format(pe=f'pe_{row}_{col - 1}')
 
 
 def index_update_at(row, col):
@@ -348,87 +335,73 @@ def generate_control(top_length, top_depth, left_length, left_depth):
     sch = schedule_to_timesteps(generate_schedule(
         top_length, top_depth, left_length, left_depth))
 
-    # print(sch)
-
     control = []
 
     # Initialize all memories.
-    init_indices = [NAME_SCHEME['index init'].format(
-        prefix=f't{idx}') for idx in range(top_length)]
-    init_indices += [NAME_SCHEME['index init'].format(
-        prefix=f'l{idx}') for idx in range(left_length)]
-
-    nodes = ";\n        ".join(init_indices)
-    control.append(f'''
-    par {{
-        {nodes};
-    }}''')
+    init_indices = [
+        Enable(
+            NAME_SCHEME['index init'].format(prefix=f't{idx}')
+        ) for idx in range(top_length)
+    ]
+    init_indices.extend([
+        Enable(
+            NAME_SCHEME['index init'].format(prefix=f'l{idx}')
+        ) for idx in range(left_length)
+    ])
+    control.append(ParComp(init_indices))
 
     # Increment memories for PE_00 before computing with it.
     upd_pe00_mem = []
-    upd_pe00_mem.append(NAME_SCHEME['index update'].format(prefix=f't0'))
-    upd_pe00_mem.append(NAME_SCHEME['index update'].format(prefix=f'l0'))
-    nodes = ";\n        ".join(upd_pe00_mem)
-    control.append(f'''
-    par {{
-        {nodes};
-    }}''')
+    upd_pe00_mem.append(
+        Enable(NAME_SCHEME['index update'].format(prefix=f't0'))
+    )
+    upd_pe00_mem.append(
+        Enable(NAME_SCHEME['index update'].format(prefix=f'l0'))
+    )
+    control.append(ParComp(upd_pe00_mem))
 
     for (idx, elements) in enumerate(sch):
         # Move all the requisite data.
-        move = [row_data_mover_at(r, c) for (r, c) in elements]
-        move += [col_data_mover_at(r, c) for (r, c) in elements]
-        nodes = ";\n            ".join(move)
-        move_str = textwrap.indent(textwrap.dedent(f'''
-        par {{
-            {nodes};
-        }}'''), " " * 4)
-        control.append(move_str)
+        move = [Enable(row_data_mover_at(r, c)) for (r, c) in elements]
+        move.extend([Enable(col_data_mover_at(r, c)) for (r, c) in elements])
+        control.append(ParComp(move))
 
         # Update the indices if needed.
         more_control = []
         if idx < len(sch) - 1:
-            next_elements = sch[idx+1]
+            next_elements = sch[idx + 1]
             upd_memory = [
-                upd
+                Enable(upd)
                 for (r, c) in next_elements if (r == 0 or c == 0)
                 for upd in index_update_at(r, c)
             ]
-            more_control += upd_memory
+            more_control.extend(upd_memory)
 
         # Invoke the PEs and move the data to the next layer.
         for (r, c) in elements:
-            more_control += [
-                f'invoke pe_{r}_{c}(top = top_{r}_{c}.out, left = left_{r}_{c}.out)()',
-            ]
+            more_control.append(
+                Invoke(
+                    id=CompVar(f'pe_{r}_{c}'),
+                    args=[
+                        CompPort(CompVar(f'top_{r}_{c}'), 'out'),
+                        CompPort(CompVar(f'left_{r}_{c}'), 'out')
+                    ],
+                    params=[CompVar('top'), CompVar('left')]
+                )
+            )
 
-        nodes = ";\n            ".join(more_control)
-        more_control_str = textwrap.indent(textwrap.dedent(f'''
-        par {{
-            {nodes};
-        }}'''), " " * 4)
-
-        control.append(more_control_str)
+        control.append(ParComp(more_control))
 
     # Move all the results into output memory
     mover_groups = []
     for row in range(left_length):
         for col in range(top_length):
-            g = NAME_SCHEME['out mem move'].format(pe=f'pe_{row}_{col}')
-            mover_groups.append(g)
+            mover_groups.append(
+                Enable(NAME_SCHEME['out mem move'].format(pe=f'pe_{row}_{col}'))
+            )
 
-    nodes = ";\n        ".join(mover_groups)
-    mover_control_str = textwrap.indent(textwrap.dedent(f'''
-    seq {{
-        {nodes};
-    }}'''), " " * 4)
-    control.append(mover_control_str)
-
-    all_control = "".join(control)
-    return textwrap.dedent(f'''
-    seq {{
-        {textwrap.indent(all_control, " "*2)}
-    }}''')
+    control.append(SeqComp(mover_groups))
+    return ControlEntry(ControlEntryType.Seq, stmts=control)
 
 
 def create_systolic_array(top_length, top_depth, left_length, left_depth):
@@ -447,19 +420,24 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
     # Instantiate all the memories
     for r in range(top_length):
         (c, s) = instantiate_memory('top', r, top_depth)
-        cells.append(c)
-        wires.append(s)
+        cells.extend(c)
+        wires.extend(s)
 
     for c in range(left_length):
         (c, s) = instantiate_memory('left', c, left_depth)
-        cells.append(c)
-        wires.append(s)
+        cells.extend(c)
+        wires.extend(s)
 
     # Instantiate output memory
     out_ridx_size = bits_needed(left_length)
     out_cidx_size = bits_needed(top_length)
-    o_mem = f'@external(1) {OUT_MEM} = prim std_mem_d2({BITWIDTH}, {left_length}, {top_length}, {out_ridx_size}, {out_cidx_size});'
-    cells.append(o_mem)
+    cells.append(
+        LibDecl(
+            OUT_MEM,
+            Stdlib().mem_d2(BITWIDTH, left_length, top_length, out_ridx_size, out_cidx_size),
+            is_external=True
+        )
+    )
 
     # Instantiate all the PEs
     for row in range(left_length):
@@ -467,44 +445,36 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
             # Instantiate the PEs
             c = instantiate_pe(
                 row, col, col == top_length - 1, row == left_length - 1)
-            cells.append(c)
+            cells.extend(c)
 
             # Instantiate the mover fabric
             s = instantiate_data_move(
                 row, col, col == top_length - 1, row == left_length - 1)
-            wires.append(s)
+            wires.extend(s)
 
             # Instantiate output movement structure
             s = instantiate_output_move(row, col, out_ridx_size, out_cidx_size)
             wires.append(s)
+    main = Component(
+        name='main',
+        inputs=[],
+        outputs=[],
+        structs=wires + cells,
+        controls=generate_control(
+            top_length, top_depth, left_length, left_depth
+        )
+    )
 
-    cells_str = '\n'.join(cells)
-    wires_str = '\n'.join(wires)
-    control_str = generate_control(
-        top_length, top_depth, left_length, left_depth)
-
-    main = textwrap.dedent(f"""
-    component main() -> () {{
-        cells {{
-{textwrap.indent(cells_str, " "*10)}
-        }}
-        wires {{
-{textwrap.indent(wires_str, " "*6)}
-        }}
-        control {{
-{textwrap.indent(control_str, " "*10)}
-        }}
-    }}
-    """)
-
-    return textwrap.dedent(f"""
-import "primitives/std.lib";
-    {PE_DEF}
-    {main}
-    """)
+    return Program(
+        imports=[Import('primitives/std.lib')],
+        components=[main]
+    )
 
 
 if __name__ == '__main__':
+    import argparse
+    import json
+
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('file', nargs='?', type=str)
     parser.add_argument('-tl', '--top-length', type=int)
@@ -528,15 +498,16 @@ if __name__ == '__main__':
             top_length = spec['top_length']
             top_depth = spec['top_depth']
             left_length = spec['left_length']
-            left_depth= spec['left_depth']
+            left_depth = spec['left_depth']
     else:
-        parser.error("Need to pass either `-f FILE` or all of `-tl TOP_LENGTH -td TOP_DEPTH -ll LEFT_LENGTH -ld LEFT_DEPTH`")
+        parser.error(
+            "Need to pass either `-f FILE` or all of `-tl TOP_LENGTH -td TOP_DEPTH -ll LEFT_LENGTH -ld LEFT_DEPTH`")
 
-    out = create_systolic_array(
+    program = create_systolic_array(
         top_length=top_length,
         top_depth=top_depth,
         left_length=left_length,
         left_depth=left_depth,
     )
-
-    print(out)
+    program.emit()
+    print(PE_DEF)

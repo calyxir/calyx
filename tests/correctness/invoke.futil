@@ -3,12 +3,12 @@ import "primitives/bitnum/unsigned.futil";
 
 component exponent(base: 32, exp: 4) -> (out: 32) {
   cells {
-    pow = prim std_reg(32);
-    count = prim std_reg(4);
-    mul = prim std_mult(32);
-    lt = prim std_lt(4);
-    incr = prim std_add(4);
-    const0 = prim std_const(4, 3);
+    pow = std_reg(32);
+    count = std_reg(4);
+    mul = std_mult(32);
+    lt = std_lt(4);
+    incr = std_add(4);
+    const0 = std_const(4, 3);
   }
   wires {
     group init<"static"=1> {
@@ -52,17 +52,17 @@ component exponent(base: 32, exp: 4) -> (out: 32) {
 
 component main() -> () {
   cells {
-    @external(1) a0 = prim std_mem_d1(32,10,4);
-    a_read0_0 = prim std_reg(32);
-    add0 = prim std_add(4);
-    const0 = prim std_const(4,0);
-    const1 = prim std_const(4,9);
-    const2 = prim std_const(4,1);
-    const3 = prim std_const(4,3);
-    exp0 = exponent;
-    i0 = prim std_reg(4);
-    le0 = prim std_le(4);
-    tmp_0 = prim std_reg(32);
+    @external(1) a0 = std_mem_d1(32,10,4);
+    a_read0_0 = std_reg(32);
+    add0 = std_add(4);
+    const0 = std_const(4,0);
+    const1 = std_const(4,9);
+    const2 = std_const(4,1);
+    const3 = std_const(4,3);
+    exp0 = exponent();
+    i0 = std_reg(4);
+    le0 = std_le(4);
+    tmp_0 = std_reg(32);
   }
   wires {
     group cond0 {

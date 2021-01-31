@@ -6,9 +6,9 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    mem = prim std_mem_d2(32,8,8,4,4);
-    rsh0 = prim std_rsh(4);
-    rsh1 = prim std_rsh(4);
+    mem = std_mem_d2(32,8,8,4,4);
+    rsh0 = std_rsh(4);
+    rsh1 = std_rsh(4);
   }
   wires {
     group upd1<"static"=1> {

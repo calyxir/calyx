@@ -130,3 +130,11 @@ paths = [ "tests/frontend/ntt-pipeline/*.txt" ]
 cmd = """
 python3 frontends/ntt-pipeline/gen-ntt-pipeline.py {}
 """
+
+##### Examples #####
+[[tests]]
+name = "Python library AST example"
+paths = ["calyx-py/test/*.py"]
+cmd = """
+python3 {}
+"""

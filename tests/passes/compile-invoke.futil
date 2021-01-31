@@ -2,7 +2,7 @@
 import "primitives/std.lib";
 
 component exponent(base: 32, exp: 4) -> (out: 32) {
-  cells { pow = prim std_reg(32); }
+  cells { pow = std_reg(32); }
   wires {
     out = pow.out;
   }
@@ -11,9 +11,9 @@ component exponent(base: 32, exp: 4) -> (out: 32) {
 
 component main() -> () {
   cells {
-    r = prim std_reg(32);
-    const3 = prim std_const(4,3);
-    exp0 = exponent;
+    r = std_reg(32);
+    const3 = std_const(4,3);
+    exp0 = exponent();
   }
   wires {
   }

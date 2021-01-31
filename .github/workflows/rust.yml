@@ -140,11 +140,18 @@ jobs:
         fud config stages.dahlia.exec '/home/runner/work/futil/futil/dahlia/fuse'
         fud config stages.futil.exec './target/debug/futil'
         fud config
+    - name: Install python-futil
+      run: |
+        cd calyx-py
+        flit install
 
     - name: Test
       run: |
         unset JAVA_TOOL_OPTIONS
-        runt -d -o fail
+        # Run Dahlia tests in sequence
+        runt -i dahlia -d -o fail -j 1
+        # Run the remaining tests
+        runt -x dahlia -d -o fail
 
   format:
     name: Check Formatting

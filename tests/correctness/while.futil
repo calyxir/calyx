@@ -2,9 +2,9 @@ import "primitives/core.futil";
 
 component main() -> () {
   cells {
-    i = prim std_mem_d1(32, 1, 1);
-    lt = prim std_lt(32);
-    add = prim std_add(32);
+    i = std_mem_d1(32, 1, 1);
+    lt = std_lt(32);
+    add = std_add(32);
   }
 
   wires {
@@ -30,5 +30,5 @@ component main() -> () {
     while lt.out with cond {
       incr;
     }
-  }
+}
 }

@@ -1,12 +1,12 @@
 import "primitives/std.lib";
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
-    t = prim std_reg(1);
-    f = prim std_reg(1);
-    lt = prim std_lt(1);
-    fsm = prim std_reg(2);
-    cond_stored = prim std_reg(1);
-    incr = prim std_add(2);
+    t = std_reg(1);
+    f = std_reg(1);
+    lt = std_lt(1);
+    fsm = std_reg(2);
+    cond_stored = std_reg(1);
+    incr = std_add(2);
   }
   wires {
     group true<"static"=1> {

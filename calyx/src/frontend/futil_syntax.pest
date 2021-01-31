@@ -103,17 +103,12 @@ args = {
       "(" ~ (bitwidth ~ ("," ~ bitwidth)*)? ~ ")"
 }
 
-
-primitive_cell = {
-      at_attributes ~ identifier ~ "=" ~ "prim" ~ identifier ~ args
-}
-
-component_cell = {
-      at_attributes ~ identifier ~ "=" ~ identifier
+cell_without_semi = {
+      at_attributes ~ identifier ~ "=" ~ identifier ~ args
 }
 
 cell = {
-      (primitive_cell | component_cell) ~ semi?
+  cell_without_semi ~ semi?
 }
 
 cells = {

@@ -96,23 +96,15 @@ fn validate_component(
         }
         cells.insert(cell.name.clone());
 
-        match &cell.prototype {
-            ast::CellType::Prim { name: prim, .. } => {
-                if sig_ctx.lib.find_primitive(&prim).is_none() {
-                    return Err(Error::Undefined(
-                        prim.clone(),
-                        "primitive".to_string(),
-                    ));
-                }
-            }
-            ast::CellType::Decl { name: component } => {
-                if !sig_ctx.comp_sigs.contains_key(&component) {
-                    return Err(Error::Undefined(
-                        component.clone(),
-                        "component".to_string(),
-                    ));
-                }
-            }
+        let proto_name = &cell.prototype.name;
+
+        if sig_ctx.lib.find_primitive(&proto_name).is_none()
+            && !sig_ctx.comp_sigs.contains_key(&proto_name)
+        {
+            return Err(Error::Undefined(
+                proto_name.clone(),
+                "primitive or component".to_string(),
+            ));
         }
     }
 
@@ -184,33 +176,34 @@ fn build_component(
 ///////////////// Cell Construction /////////////////////////
 
 fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
-    let res = match cell.prototype {
-        ast::CellType::Decl { name: component } => {
-            let name = builder.component.generate_name(cell.name);
-            let sig = &sig_ctx.comp_sigs[&component];
-            let typ = CellType::Component {
-                name: component.clone(),
-            };
-            // Components do not have any bindings for parameters
-            let fake_binding = LinkedHashMap::with_capacity(0);
-            let cell = Builder::cell_from_signature(
-                name,
-                typ,
-                sig.iter()
-                    .cloned()
-                    .map(|pd| {
-                        pd.resolve(&fake_binding)
-                            .map(|(n, w, attrs)| (n, w, pd.direction, attrs))
-                    })
-                    .collect::<Result<Vec<_>, _>>()
-                    .expect("Failed to build component"),
-            );
-            builder.component.cells.push(Rc::clone(&cell));
-            cell
-        }
-        ast::CellType::Prim { name, params } => {
-            builder.add_primitive(cell.name, name, &params)
-        }
+    let proto_name = &cell.prototype.name;
+
+    let res = if sig_ctx.lib.find_primitive(proto_name).is_some() {
+        builder.add_primitive(cell.name, proto_name, &cell.prototype.params)
+    } else {
+        // Validator ensures that if the protoype is not a primitive, it
+        // is a component.
+        let name = builder.component.generate_name(cell.name);
+        let sig = &sig_ctx.comp_sigs[proto_name];
+        let typ = CellType::Component {
+            name: proto_name.clone(),
+        };
+        // Components do not have any bindings for parameters
+        let fake_binding = LinkedHashMap::with_capacity(0);
+        let cell = Builder::cell_from_signature(
+            name,
+            typ,
+            sig.iter()
+                .cloned()
+                .map(|pd| {
+                    pd.resolve(&fake_binding)
+                        .map(|(n, w, attrs)| (n, w, pd.direction, attrs))
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .expect("Failed to build component"),
+        );
+        builder.component.cells.push(Rc::clone(&cell));
+        cell
     };
 
     // Add attributes to the built cell

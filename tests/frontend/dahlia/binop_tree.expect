@@ -1,23 +1,23 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    a_0 = prim std_reg(32);
-    add0 = prim std_add(32);
-    add1 = prim std_add(32);
-    b_0 = prim std_reg(32);
-    bin_read0_0 = prim std_reg(32);
-    bin_read1_0 = prim std_reg(32);
-    c_0 = prim std_reg(32);
-    const0 = prim std_const(32,1);
-    const1 = prim std_const(32,2);
-    const2 = prim std_const(32,3);
-    const3 = prim std_const(32,4);
-    const4 = prim std_const(32,2);
-    d_0 = prim std_reg(32);
-    div_pipe0 = prim std_div_pipe(32);
-    e_0 = prim std_reg(32);
-    mult_pipe0 = prim std_mult_pipe(32);
-    x_0 = prim std_reg(32);
+    a_0 = std_reg(32);
+    add0 = std_add(32);
+    add1 = std_add(32);
+    b_0 = std_reg(32);
+    bin_read0_0 = std_reg(32);
+    bin_read1_0 = std_reg(32);
+    c_0 = std_reg(32);
+    const0 = std_const(32,1);
+    const1 = std_const(32,2);
+    const2 = std_const(32,3);
+    const3 = std_const(32,4);
+    const4 = std_const(32,2);
+    d_0 = std_reg(32);
+    div_pipe0 = std_div_pipe(32);
+    e_0 = std_reg(32);
+    mult_pipe0 = std_mult_pipe(32);
+    x_0 = std_reg(32);
   }
   wires {
     group let0<"static"=1> {

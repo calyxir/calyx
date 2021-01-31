@@ -9,6 +9,7 @@
 - [Language Tutorial](./tutorial/langtut.md)
   - [Multi-Component Designs](./lang/multi-component.md)
   - [Attributes](./lang/attributes.md)
+- [Emitting Calyx from Python](./calyx-py.md)
 - [Frontend Tutorial](./tutorial/overview.md)
 - [Frontend Compilers](./frontends/index.md)
     - [MrXL](./frontends/mrxl.md)

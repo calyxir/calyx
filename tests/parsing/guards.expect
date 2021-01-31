@@ -2,23 +2,23 @@ import "primitives/core.futil";
 import "primitives/bitnum/signed.futil";
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
-    add0 = prim std_sadd(3);
-    const0 = prim std_const(3, 0);
-    const1 = prim std_const(3, 4);
-    const2 = prim std_const(3, 1);
-    counter = prim std_reg(3);
-    r_2 = prim std_reg(32);
-    lt0 = prim std_lt(3);
-    mem0 = prim std_mem_d2(32, 4, 4, 3, 3);
-    mem1 = prim std_mem_d2(32, 4, 4, 3, 3);
-    add1 = prim std_add(32);
-    mult = prim std_smult(32);
-    fsm = prim std_reg(2);
-    incr = prim std_add(2);
-    fsm0 = prim std_reg(2);
-    cond_stored = prim std_reg(1);
-    incr0 = prim std_add(2);
-    fsm1 = prim std_reg(2);
+    add0 = std_sadd(3);
+    const0 = std_const(3, 0);
+    const1 = std_const(3, 4);
+    const2 = std_const(3, 1);
+    counter = std_reg(3);
+    r_2 = std_reg(32);
+    lt0 = std_lt(3);
+    mem0 = std_mem_d2(32, 4, 4, 3, 3);
+    mem1 = std_mem_d2(32, 4, 4, 3, 3);
+    add1 = std_add(32);
+    mult = std_smult(32);
+    fsm = std_reg(2);
+    incr = std_add(2);
+    fsm0 = std_reg(2);
+    cond_stored = std_reg(1);
+    incr0 = std_add(2);
+    fsm1 = std_reg(2);
   }
   wires {
     done = fsm1.out == 2'd2 ? 1'd1;
