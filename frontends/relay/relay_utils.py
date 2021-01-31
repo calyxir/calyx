@@ -4,7 +4,7 @@ from futil.utils import bits_needed
 from dataclasses import dataclass
 
 # Mapping from the tensor dimensions to the corresponding FuTIL memory.
-NumDimsToLibDecl = {
+NumDimsToCell = {
     0: Stdlib().register,
     1: Stdlib().mem_d1,
     2: Stdlib().mem_d2,
@@ -43,13 +43,13 @@ class DahliaFuncDef:
     attributes: tvm.ir.Attrs
 
 
-def get_invoke_params(dest: LibDecl, args: List[LibDecl]) -> List[CompVar]:
+def get_invoke_params(dest: Cell, args: List[Cell]) -> List[CompVar]:
     """Returns the parameters to Invoke."""
     # TODO(cgyurgyik): Unimplemented.
     return []
 
 
-def get_invoke_args(dest: LibDecl, args: List[LibDecl]) -> List[Port]:
+def get_invoke_args(dest: Cell, args: List[Cell]) -> List[Port]:
     """Returns the arguments to Invoke."""
     # TODO(cgyurgyik): Unimplemented.
     return []
@@ -81,13 +81,13 @@ def get_bitwidth(relay_type) -> int:
     assert 0, f'{relay_type} is not supported.'
 
 
-def get_memory(name, type) -> LibDecl:
+def get_memory(name, type) -> Cell:
     dims = type.concrete_shape
     # Bitwidth, along with sizes and index sizes (if it is a Tensor).
     args = [get_bitwidth(type)] + [d for d in dims] + [bits_needed(d) for d in dims]
 
     num_dims = len(dims)
-    return LibDecl(
+    return Cell(
         CompVar(name),
-        NumDimsToLibDecl[num_dims](*args)
+        NumDimsToCell[num_dims](*args)
     )
