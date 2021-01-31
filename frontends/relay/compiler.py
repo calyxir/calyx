@@ -17,7 +17,7 @@ class Relay2Futil(ExprFunctor):
 
         # A dictionary of currently visited variable nodes,
         # since some nodes may be visited more than once.
-        self.id_to_cell: dict[str, LibDecl] = {}
+        self.id_to_cell: dict[str, Cell] = {}
 
         # For each Relay CallNode, there is an associated
         # Dahlia FuncDef so that it can be lowered from Dahlia
@@ -37,7 +37,7 @@ class Relay2Futil(ExprFunctor):
         self.id_dictionary[name] += 1
         return f'{name}{"" if id_number == 0 else id_number}'
 
-    def visit_var(self, var) -> LibDecl:
+    def visit_var(self, var) -> Cell:
         """Visits a Relay variable and returns the
         corresponding FuTIL memory.
         """
@@ -70,7 +70,10 @@ class Relay2Futil(ExprFunctor):
         func_name = value.op.name
         comp_id = CompVar(self.id(func_name))
         comp_decl = CompVar(f'_{comp_id.name}')
-        self.id_to_cell[comp_id.name] = CompDecl(comp_decl, comp_id)
+        self.id_to_cell[comp_id.name] = Cell(
+            comp_decl,
+            CompInst(comp_id, [])
+        )
 
         params = get_invoke_params(dest, value.args)
         args = get_invoke_args(dest, value.args)
@@ -96,7 +99,7 @@ class Relay2Futil(ExprFunctor):
 
         return self.visit(let.body)
 
-    def visit_constant(self, const) -> LibDecl:
+    def visit_constant(self, const) -> Cell:
         assert 0, f'visit_constant is not supported yet: {const}'
         # type, shape = const.data.dtype, const.data.shape
         pass
