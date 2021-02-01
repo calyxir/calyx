@@ -109,9 +109,12 @@ class VerilatorStage(Stage):
             )
 
         # Step 5(self.vcd == True): extract
-        @self.step(input_type=SourceType.Directory, output_type=SourceType.Path)
+        @self.step(input_type=SourceType.Directory, output_type=SourceType.Stream)
         def output_vcd(step, tmpdir):
-            return Path(tmpdir.name) / "output.vcd"
+            """
+            Return the generated `output.vcd`.
+            """
+            return (Path(tmpdir.name) / "output.vcd").open("rb")
 
         # Step 5(self.vc == False): extract cycles + data
         @self.step(
@@ -146,6 +149,10 @@ class VerilatorStage(Stage):
             json_to_dat(tmpdir, Source(self.data_path, SourceType.Path))
         compile_with_verilator(input_data, tmpdir)
         stdout = simulate(tmpdir)
-        result = output_json(stdout, tmpdir)
+        result = None
+        if self.vcd:
+            result = output_vcd(tmpdir)
+        else:
+            result = output_json(stdout, tmpdir)
         cleanup(tmpdir)
         return result
