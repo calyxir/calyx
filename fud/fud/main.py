@@ -31,8 +31,8 @@ def register_stages(registry, cfg):
     # # MrXL
     # registry.register(mrxl.MrXLStage(cfg))
 
-    # # Systolic Array
-    # registry.register(systolic.SystolicStage(cfg))
+    # Systolic Array
+    registry.register(systolic.SystolicStage(cfg))
 
     # FuTIL
     registry.register(
@@ -76,12 +76,12 @@ def register_stages(registry, cfg):
         )
     )
 
-    # # Verilator
-    # registry.register(
-    #     verilator.VerilatorStage(
-    #         cfg, "vcd", "Generate a VCD file from Verilog simulation"
-    #     )
-    # )
+    # Verilator
+    registry.register(
+        verilator.VerilatorStage(
+            cfg, "vcd", "Generate a VCD file from Verilog simulation"
+        )
+    )
     registry.register(
         verilator.VerilatorStage(
             cfg, "dat", "Generate a JSON file with final state of all memories"
@@ -181,7 +181,7 @@ def main():
         cfg = Configuration()
 
         # update the stages config with arguments provided via cmdline
-        if args.dynamic_config is not None:
+        if "dynamic_config" in args and args.dynamic_config is not None:
             for key, value in args.dynamic_config:
                 cfg[["stages"] + key.split(".")] = value
 

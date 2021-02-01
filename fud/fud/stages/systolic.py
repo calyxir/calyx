@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fud.stages import SourceType, Stage, Step
+from fud.stages import SourceType, Stage
 
 
 class SystolicStage(Stage):
@@ -12,6 +12,8 @@ class SystolicStage(Stage):
         super().__init__(
             "systolic",
             "futil",
+            SourceType.Path,
+            SourceType.Stream,
             config,
             "Generates a matrix multiply using a systolic array architecture",
         )
@@ -21,8 +23,15 @@ class SystolicStage(Stage):
             / "systolic-lang"
             / "gen-systolic.py"
         )
+        self.setup()
 
-    def _define(self):
-        main = Step(SourceType.Path)
-        main.set_cmd(" ".join([str(self.script), "{ctx[input_path]}"]))
-        return [main]
+    def _define_steps(self, input_path):
+        @self.step(
+            input_type=SourceType.Path,
+            output_type=SourceType.Stream,
+            description=str(self.script),
+        )
+        def run_systolic(step, input_path):
+            return step.shell(f"{str(self.script)} {input_path}")
+
+        return run_systolic(input_path)
