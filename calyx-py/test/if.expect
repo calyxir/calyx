@@ -1,0 +1,33 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    lt = std_lt(32);
+    x = std_reg(32);
+  }
+  wires {
+    group cond {
+      lt.left = 32'd0;
+      lt.right = 32'd1;
+      cond[done] = 1'd1;
+    }
+    group true {
+      x.in = 32'd1;
+      x.write_en = 1'd1;
+      true[done] = x.done;
+    }
+    group false {
+      x.in = 32'd0;
+      x.write_en = 1'd1;
+      false[done] = x.done;
+    }
+  }
+  control {
+    seq {
+      if lt.out with cond {
+        true;
+      } else {
+        false;
+      }
+    }
+  }
+}
