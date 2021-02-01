@@ -1,0 +1,8 @@
+def add(a: ubit<32>, b: ubit<32>): ubit<32> = {
+  let tmp: ubit<32> = a + b;
+  return tmp;
+}
+
+let lhs: ubit<32> = (41 as ubit<32>);
+let rhs: ubit<32> = (1 as ubit<32>);
+let sum: ubit<32> = add(lhs, rhs);
