@@ -4,41 +4,12 @@ import functools
 import logging as log
 import os
 import subprocess
-import sys
-from collections.abc import MutableMapping
 from enum import Enum
 from io import BytesIO
 from tempfile import NamedTemporaryFile, TemporaryFile
 
 from .. import errors
 from ..utils import is_debug
-
-
-class Context(MutableMapping):
-    """
-    Context object supplied to commands that run Stages and Steps.
-    """
-
-    def __init__(self, *args, **kwargs):
-        self.store = dict()
-        self.update(dict(*args, **kwargs))  # use the free update to set keys
-
-    def __getitem__(self, key):
-        if key not in self.store:
-            raise errors.ContextKeyMissing(key)
-        return self.store[key]
-
-    def __setitem__(self, key, value):
-        self.store[key] = value
-
-    def __delitem__(self, key):
-        del self.store[key]
-
-    def __iter__(self):
-        return iter(self.store)
-
-    def __len__(self):
-        return len(self.store)
 
 
 class SourceType(Enum):
@@ -232,30 +203,6 @@ class Stage:
     def dry_run(self):
         for i, step in enumerate(self.steps):
             print(f"  {i+1}) {step}")
-
-    # def transform(self, input_src, dry_run=False, last=False):
-    #     """
-    #     Run the steps to execute this Stage.
-    #     """
-    #     steps = self._define()
-    #     ctx = Context({})
-
-    #     prev_out = input_src
-    #     ret = None
-    #     err = None
-    #     if dry_run:
-    #         print(f"   + {self.name}")
-    #     # loop until last step
-    #     for i, step in enumerate(steps):
-    #         last = last and i == len(steps) - 1
-    #         res = step.run(prev_out, ctx=ctx, dry_run=dry_run, last=last)
-    #         (prev_out, err, ret) = res
-    #         err_msg = self.check_exit(ret, err)
-    #         if err_msg is not None:
-    #             err = err_msg
-    #             break
-
-    #     return (prev_out, err, ret)
 
 
 class Step:
