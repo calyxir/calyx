@@ -291,7 +291,7 @@ class ParComp(Control):
 class Invoke(Control):
     id: CompVar
     args: List[Port]
-    params: List[CompVar]
+    params: List[Port]
 
     def doc(self) -> str:
         definitions = [

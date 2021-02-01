@@ -386,7 +386,7 @@ def generate_control(top_length, top_depth, left_length, left_depth):
                         CompPort(CompVar(f'top_{r}_{c}'), 'out'),
                         CompPort(CompVar(f'left_{r}_{c}'), 'out')
                     ],
-                    params=[CompVar('top'), CompVar('left')]
+                    params=[ThisPort(CompVar('top')), ThisPort(CompVar('left'))]
                 )
             )
 
