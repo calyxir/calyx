@@ -29,11 +29,11 @@ def register_stages(registry, cfg):
         dahlia.DahliaStage(cfg, "vivado-hls", "--memory-interface ap_memory")
     )
 
-    # MrXL
-    registry.register(mrxl.MrXLStage(cfg))
+    # # MrXL
+    # registry.register(mrxl.MrXLStage(cfg))
 
-    # Systolic Array
-    registry.register(systolic.SystolicStage(cfg))
+    # # Systolic Array
+    # registry.register(systolic.SystolicStage(cfg))
 
     # FuTIL
     registry.register(
@@ -77,12 +77,12 @@ def register_stages(registry, cfg):
         )
     )
 
-    # Verilator
-    registry.register(
-        verilator.VerilatorStage(
-            cfg, "vcd", "Generate a VCD file from Verilog simulation"
-        )
-    )
+    # # Verilator
+    # registry.register(
+    #     verilator.VerilatorStage(
+    #         cfg, "vcd", "Generate a VCD file from Verilog simulation"
+    #     )
+    # )
     registry.register(
         verilator.VerilatorStage(
             cfg, "dat", "Generate a JSON file with final state of all memories"
@@ -95,8 +95,8 @@ def register_stages(registry, cfg):
     registry.register(vivado_hls.VivadoHLSStage(cfg))
     registry.register(vivado_hls.VivadoHLSExtractStage(cfg))
 
-    # Vcdump
-    registry.register(vcdump.VcdumpStage(cfg))
+    # # Vcdump
+    # registry.register(vcdump.VcdumpStage(cfg))
 
 
 def display_config(args, cfg):
