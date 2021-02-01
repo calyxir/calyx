@@ -3,15 +3,16 @@ from ..utils import unwrap_or
 
 
 class DahliaStage(Stage):
-    def __init__(self, config):
-        super().__init__("dahlia", "futil", SourceType.Path, SourceType.Stream, config)
+    def __init__(self, config, dest, flags):
+        super().__init__("dahlia", dest, SourceType.Path, SourceType.Stream, config)
+        self.flags = flags
         self.setup()
 
     def _define_steps(self, input_data):
         cmd = [
             self.cmd,
             unwrap_or(self.config["stages", self.name, "flags"], ""),
-            "-b futil --lower -l error",
+            self.flags,
         ]
 
         @self.step(

@@ -9,7 +9,6 @@ from .config import Configuration
 from .registry import Registry
 from .stages import (
     dahlia,
-    dahlia_hls,
     futil,
     mrxl,
     systolic,
@@ -25,8 +24,8 @@ def register_stages(registry, cfg):
     Register stages and command line flags required to generate the results.
     """
     # Dahlia
-    registry.register(dahlia.DahliaStage(cfg))
-    # registry.register(dahlia_hls.DahliaHLSStage(cfg))
+    registry.register(dahlia.DahliaStage(cfg, "futil", "-b futil --lower -l error"))
+    registry.register(dahlia.DahliaStage(cfg, "cpp", "--memory-interface ap_memory"))
 
     # # MrXL
     # registry.register(mrxl.MrXLStage(cfg))
