@@ -27,8 +27,8 @@ def register_stages(registry, cfg):
     registry.register(dahlia.DahliaStage(cfg, "futil", "-b futil --lower -l error"))
     registry.register(dahlia.DahliaStage(cfg, "cpp", "--memory-interface ap_memory"))
 
-    # # MrXL
-    # registry.register(mrxl.MrXLStage(cfg))
+    # MrXL
+    registry.register(mrxl.MrXLStage(cfg))
 
     # Systolic Array
     registry.register(systolic.SystolicStage(cfg))
@@ -93,8 +93,8 @@ def register_stages(registry, cfg):
     # registry.register(vivado_hls.VivadoHLSStage(cfg))
     # registry.register(vivado_hls.VivadoHLSExtractStage(cfg))
 
-    # # Vcdump
-    # registry.register(vcdump.VcdumpStage(cfg))
+    # Vcdump
+    registry.register(vcdump.VcdumpStage(cfg))
 
 
 def display_config(args, cfg):

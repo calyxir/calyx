@@ -7,9 +7,23 @@ class MrXLStage(Stage):
     """
 
     def __init__(self, config):
-        super().__init__("mrxl", "futil", config, "Compiles MrXL to FuTIL.")
+        super().__init__(
+            "mrxl",
+            "futil",
+            SourceType.Path,
+            SourceType.Stream,
+            config,
+            "Compiles MrXL to FuTIL.",
+        )
+        self.setup()
 
-    def _define(self):
-        main = Step(SourceType.Path)
-        main.set_cmd(f"{self.cmd} {{ctx[input_path]}}")
-        return [main]
+    def _define_steps(self, input_path):
+        @self.step(
+            input_type=SourceType.Path,
+            output_type=SourceType.Stream,
+            description=self.cmd,
+        )
+        def run_mrxl(step, mrxl_prog):
+            return step.shell(f"{self.cmd} {mrxl_prog}")
+
+        return run_mrxl(input_path)
