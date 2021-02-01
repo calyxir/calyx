@@ -1,10 +1,9 @@
 import json
 import re
-from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from fud.stages import Source, SourceType, Stage, Step
+from fud.stages import Source, SourceType, Stage
 
 from .. import errors
 from ..json_to_dat import convert2dat, convert2json
@@ -12,7 +11,9 @@ from ..json_to_dat import convert2dat, convert2json
 
 class VerilatorStage(Stage):
     def __init__(self, config, mem, desc):
-        super().__init__("verilog", mem, config, desc)
+        super().__init__(
+            "verilog", mem, SourceType.Path, SourceType.Stream, config, desc
+        )
 
         if mem not in ["vcd", "dat"]:
             raise Exception("mem has to be 'vcd' or 'dat'")
@@ -31,150 +32,120 @@ class VerilatorStage(Stage):
                 / "wrapper.cpp"
             ),
         ]
+        self.data_path = self.config["stages", self.name, "data"]
+        self.setup()
 
-    def mktmp_step(self):
-        """
-        Step 1: Make a temporary directory.
-        """
-        # Step 1: Make a new temporary directory.
-        mktmp = Step(SourceType.Nothing)
+    def _define_steps(self, input_data):
+        # Step 1: Make a new temporary directory
+        @self.step(input_type=SourceType.Null, output_type=SourceType.Directory)
+        def mktmp(step):
+            """
+            Make temporary directory to store Verilator build files.
+            """
+            return TemporaryDirectory()
 
-        def f(inp, ctx):
-            tmpdir = TemporaryDirectory()
-            ctx["tmpdir"] = tmpdir.name
-            ctx["tmpdir_obj"] = tmpdir
-            return (inp, None, 0)
+        # Step 2a: check if we need verilog.data to be passes
+        @self.step(input_type=SourceType.String, output_type=SourceType.Null)
+        def check_verilog_for_mem_read(step, verilog_src):
+            """
+            Read input verilog to see if `verilog.data` needs to be set.
+            """
+            if "readmemh" in verilog_src:
+                raise errors.MissingDynamicConfiguration("verilog.data")
 
-        mktmp.set_func(f, "Make temporary directory.")
+        # Step 2: Transform data from JSON to Dat.
+        @self.step(input_type=(SourceType.Directory, SourceType.Stream))
+        def json_to_dat(step, tmp_dir, json_path):
+            """
+            Converts a `json` data format into a series of `.dat` files.
+            """
+            convert2dat(tmp_dir.name, json.load(json_path), "dat")
 
-        return mktmp
-
-    def json_to_dat_step(self):
-        """
-        Step 2: Transform data from JSON to Dat.
-        """
-        data = Step(SourceType.Path)
-        data_path = self.config["stages", self.name, "data"]
-
-        def f(inp, ctx):
-            if data_path is None:
-                with open(inp.data, "r") as verilog_src:
-                    # the verilog expects data, but none has been provided
-                    if "readmemh" in verilog_src.read():
-                        raise errors.MissingDynamicConfiguration("verilog.data")
-                    ctx["data_prefix"] = ""
-            else:
-                with open(data_path) as f:
-                    convert2dat(ctx["tmpdir"], json.load(f), "dat")
-                    ctx["data_prefix"] = f'DATA={ctx["tmpdir"]}'
-            return (inp, None, 0)
-
-        data.set_func(f, "Convert json data to directory of .dat files.")
-
-        return data
-
-    def verilator_step(self):
-        """
-        Step 3: Build the design with verilator.
-        """
-        verilator = Step(SourceType.Path)
-        verilator.set_cmd(
-            " ".join(
-                [
-                    self.cmd,
-                    "-cc",
-                    "--trace",
-                    "{ctx[input_path]}",
-                    "--exe " + " --exe ".join(self.testbench_files),
-                    "--build",
-                    "--top-module",
-                    self.config["stages", self.name, "top_module"],
-                    "--Mdir",
-                    "{ctx[tmpdir]}",
-                    "1>&2",
-                ]
-            )
+        # Step 3: compile with verilator
+        cmd = " ".join(
+            [
+                self.cmd,
+                "-cc",
+                "--trace",
+                "{input_path}",
+                "--exe " + " --exe ".join(self.testbench_files),
+                "--build",
+                "--top-module",
+                self.config["stages", self.name, "top_module"],
+                "--Mdir",
+                "{tmpdir_name}",
+                "1>&2",
+            ]
         )
 
-        return verilator
+        @self.step(
+            input_type=(SourceType.Path, SourceType.Directory),
+            output_type=SourceType.Stream,
+            description=cmd,
+        )
+        def compile_with_verilator(step, input_path, tmpdir):
+            return step.shell(
+                cmd.format(input_path=input_path, tmpdir_name=tmpdir.name)
+            )
 
-    def verilator_run_step(self):
-        """
-        Step 3: Run the verilated design.
-        """
-        run = Step(SourceType.Nothing)
-        run.set_cmd(
-            " ".join(
+        # Step 4: simulate
+        @self.step(
+            input_type=SourceType.Directory,
+            output_type=SourceType.Stream,
+        )
+        def simulate(step, tmpdir):
+            """
+            Simulates compiled Verilator code.
+            """
+            return step.shell(
                 [
-                    "{ctx[data_prefix]}",
-                    "{ctx[tmpdir]}/Vmain",
-                    "{ctx[tmpdir]}/output.vcd",
+                    f"DATA={tmpdir.name}",
+                    f"{tmpdir.name}/Vmain",
+                    f"{tmpdir.name}/output.vcd",
                     str(self.config["stages", self.name, "cycle_limit"]),
                     # Don't trace if we're only looking at memory outputs
                     "--trace" if self.vcd else "",
-                    # '1>&2'
                 ]
             )
+
+        # Step 5(self.vcd == True): extract
+        @self.step(input_type=SourceType.Directory, output_type=SourceType.Path)
+        def output_vcd(step, tmpdir):
+            return Path(tmpdir.name) / "output.vcd"
+
+        # Step 5(self.vc == False): extract cycles + data
+        @self.step(
+            input_type=(SourceType.String, SourceType.Directory),
+            output_type=SourceType.String,
         )
+        def output_json(step, simulated_output, tmpdir):
+            """
+            Convert .dat files back into a json and extract simulated cycles from log.
+            """
+            # Simulated 91 cycles
+            r = re.search(r"Simulated (\d+) cycles", simulated_output)
+            data = {
+                "cycles": int(r.group(1)),
+                "memories": convert2json(tmpdir.name, "out"),
+            }
+            return json.dumps(data, indent=2, sort_keys=True)
 
-        return run
+        @self.step(input_type=SourceType.Directory)
+        def cleanup(step, tmpdir):
+            """
+            Cleanup Verilator build files that we no longer need.
+            """
+            tmpdir.cleanup()
 
-    def extract_data_step(self):
-        """
-        Step 4: Extract either VCD or DAT information from run.
-        """
-        # switch later stages based on whether we are outputing vcd or mem files
-        extract = Step(SourceType.Nothing)
-        if self.vcd:
-
-            def f(_inp, ctx):
-                f = (Path(ctx["tmpdir"]) / "output.vcd").open("rb")
-                return (Source(f, SourceType.File), None, 0)
-
-            extract.set_func(f, "Read output.vcd.")
+        # Schedule
+        tmpdir = mktmp()
+        # if we need to, convert dynamically sourced json to dat
+        if self.data_path is None:
+            check_verilog_for_mem_read(input_data)
         else:
-
-            def f(_inp, ctx):
-                # Simulated 91 cycles
-                r = re.search(
-                    r"Simulated (\d+) cycles", _inp.data.read().decode("ascii")
-                )
-                data = {
-                    "cycles": int(r.group(1)),
-                    "memories": convert2json(ctx["tmpdir"], "out"),
-                }
-                buf = BytesIO(
-                    json.dumps(data, indent=2, sort_keys=True).encode("UTF-8")
-                )
-                return (Source(buf, SourceType.File), None, 0)
-
-            extract.set_func(f, "Convert output memories to json.")
-
-        return extract
-
-    def cleanup_step(self):
-        """
-        Step 5: Cleanup the temporary directory
-        """
-        cleanup = Step(SourceType.File)
-
-        def f(inp, ctx):
-            ctx["tmpdir_obj"].cleanup()
-            return (inp, None, 0)
-
-        cleanup.set_func(f, "Cleanup tmp directory.")
-
-        return cleanup
-
-    def _define(self):
-        """
-        Define all steps for running a verilator design.
-        """
-        mktmp = self.mktmp_step()
-        data = self.json_to_dat_step()
-        verilator = self.verilator_step()
-        run = self.verilator_run_step()
-        extract = self.extract_data_step()
-        cleanup = self.cleanup_step()
-
-        return [mktmp, data, verilator, run, extract, cleanup]
+            json_to_dat(tmpdir, Source(self.data_path, SourceType.Path))
+        compile_with_verilator(input_data, tmpdir)
+        stdout = simulate(tmpdir)
+        result = output_json(stdout, tmpdir)
+        cleanup(tmpdir)
+        return result

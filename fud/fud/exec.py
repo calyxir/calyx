@@ -1,11 +1,12 @@
 import logging as log
-import sys
-from halo import Halo
-from pathlib import Path
 import shutil
+import sys
+from pathlib import Path
 
-from .stages import Source, SourceType
+from halo import Halo
+
 from . import errors, utils
+from .stages import Source, SourceType
 
 
 def discover_implied_stage(filename, config, possible_dests=None):
@@ -35,11 +36,6 @@ def run_fud(args, config):
         if not input_file.exists():
             raise FileNotFoundError(input_file)
 
-    # update the stages config with arguments provided via cmdline
-    if args.dynamic_config is not None:
-        for key, value in args.dynamic_config:
-            config[["stages"] + key.split(".")] = value
-
     # find source
     source = args.source
     if source is None:
@@ -63,6 +59,10 @@ def run_fud(args, config):
     # if we are doing a dry run, print out stages and exit
     if args.dry_run:
         print("fud will perform the following steps:")
+        for ed in path:
+            print(f"Stage: {ed.stage.name}")
+            ed.stage.dry_run()
+        return
 
     # Pretty spinner.
     spinner_enabled = not (utils.is_debug() or args.dry_run or args.quiet)
@@ -71,45 +71,31 @@ def run_fud(args, config):
         spinner="dots", color="cyan", stream=sys.stderr, enabled=spinner_enabled
     ) as sp:
 
-        if input_file is None:
-            inp = Source(None, SourceType.Nothing)
-        else:
-            inp = Source(str(input_file), SourceType.Path)
+        # if input_file is None:
+        #     inp = Source(None, SourceType.Passthrough)
+        # else:
+        inp = Source(str(input_file), SourceType.Path)
 
-        for i, ed in enumerate(path):
+        for ed in path:
             sp.start(f"{ed.stage.name} → {ed.stage.target_stage}")
-            (result, stderr, retcode) = ed.stage.transform(
-                inp, dry_run=args.dry_run, last=i == (len(path) - 1)
-            )
+            result = ed.stage.run(inp)
             inp = result
+            if log.getLogger().level <= log.INFO:
+                sp.succeed()
 
-            if retcode == 0:
-                if log.getLogger().level <= log.INFO:
-                    sp.succeed()
-            else:
-                if log.getLogger().level <= log.INFO:
-                    sp.fail()
-                else:
-                    sp.stop()
-                log.error(stderr)
-                exit(retcode)
         sp.stop()
 
-        # return early when there's a dry run
-        if args.dry_run:
-            return
-
-        if inp.source_type == SourceType.TmpDir:
-            if args.output_file is not None:
-                if Path(args.output_file).exists():
-                    shutil.rmtree(args.output_file)
-                shutil.move(inp.data.name, args.output_file)
-            else:
-                shutil.move(inp.data.name, ".")
-                print(f"Moved {inp.data.name} here.")
+        # if inp.source_type == SourceType.TmpDir:
+        #     if args.output_file is not None:
+        #         if Path(args.output_file).exists():
+        #             shutil.rmtree(args.output_file)
+        #         shutil.move(inp.data.name, args.output_file)
+        #     else:
+        #         shutil.move(inp.data.name, ".")
+        #         print(f"Moved {inp.data.name} here.")
+        # else:
+        if args.output_file is not None:
+            with Path(args.output_file).open("w") as f:
+                f.write(inp.convert_to(SourceType.String).data)
         else:
-            if args.output_file is not None:
-                with Path(args.output_file).open("wb") as f:
-                    f.write(inp.data.read())
-            else:
-                print(inp.data.read().decode("UTF-8"))
+            print(inp.convert_to(SourceType.String).data)

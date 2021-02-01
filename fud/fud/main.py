@@ -26,13 +26,13 @@ def register_stages(registry, cfg):
     """
     # Dahlia
     registry.register(dahlia.DahliaStage(cfg))
-    registry.register(dahlia_hls.DahliaHLSStage(cfg))
+    # registry.register(dahlia_hls.DahliaHLSStage(cfg))
 
-    # MrXL
-    registry.register(mrxl.MrXLStage(cfg))
+    # # MrXL
+    # registry.register(mrxl.MrXLStage(cfg))
 
-    # Systolic Array
-    registry.register(systolic.SystolicStage(cfg))
+    # # Systolic Array
+    # registry.register(systolic.SystolicStage(cfg))
 
     # FuTIL
     registry.register(
@@ -76,26 +76,26 @@ def register_stages(registry, cfg):
         )
     )
 
-    # Verilator
-    registry.register(
-        verilator.VerilatorStage(
-            cfg, "vcd", "Generate a VCD file from Verilog simulation"
-        )
-    )
+    # # Verilator
+    # registry.register(
+    #     verilator.VerilatorStage(
+    #         cfg, "vcd", "Generate a VCD file from Verilog simulation"
+    #     )
+    # )
     registry.register(
         verilator.VerilatorStage(
             cfg, "dat", "Generate a JSON file with final state of all memories"
         )
     )
 
-    # Vivado / vivado hls
-    registry.register(vivado.VivadoStage(cfg))
-    registry.register(vivado.VivadoExtractStage(cfg))
-    registry.register(vivado_hls.VivadoHLSStage(cfg))
-    registry.register(vivado_hls.VivadoHLSExtractStage(cfg))
+    # # Vivado / vivado hls
+    # registry.register(vivado.VivadoStage(cfg))
+    # registry.register(vivado.VivadoExtractStage(cfg))
+    # registry.register(vivado_hls.VivadoHLSStage(cfg))
+    # registry.register(vivado_hls.VivadoHLSExtractStage(cfg))
 
-    # Vcdump
-    registry.register(vcdump.VcdumpStage(cfg))
+    # # Vcdump
+    # registry.register(vcdump.VcdumpStage(cfg))
 
 
 def display_config(args, cfg):
@@ -179,6 +179,11 @@ def main():
 
     try:
         cfg = Configuration()
+
+        # update the stages config with arguments provided via cmdline
+        if args.dynamic_config is not None:
+            for key, value in args.dynamic_config:
+                cfg[["stages"] + key.split(".")] = value
 
         # Build the registry if stage information is going to be used.
         if args.command in ("exec", "info"):

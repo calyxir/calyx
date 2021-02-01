@@ -38,7 +38,7 @@ class VivadoTemplateStage(Stage):
     def _establish_connection(self, steps):
         # maybe establish ssh connection
         if self.use_ssh:
-            ssh_connection = Step(SourceType.Nothing)
+            ssh_connection = Step(SourceType.Passthrough)
 
             def f(inp, ctx):
                 if self.use_ssh:
@@ -53,7 +53,7 @@ class VivadoTemplateStage(Stage):
 
     def _mktmp(self, steps):
         # make temporary directory
-        mktmp = Step(SourceType.Nothing)
+        mktmp = Step(SourceType.Passthrough)
 
         def f(inp, ctx):
             if self.use_ssh:
@@ -97,7 +97,7 @@ class VivadoTemplateStage(Stage):
 
     def _finalize_ssh(self, steps):
         if self.use_ssh:
-            copy = Step(SourceType.Nothing)
+            copy = Step(SourceType.Passthrough)
 
             def f(inp, ctx):
                 if self.use_ssh:
@@ -114,7 +114,7 @@ class VivadoTemplateStage(Stage):
             copy.set_func(f, "Copy files back.")
             steps.append(copy)
 
-            close_ssh = Step(SourceType.Nothing)
+            close_ssh = Step(SourceType.Passthrough)
 
             def f(inp, ctx):
                 if self.use_ssh:
@@ -125,7 +125,7 @@ class VivadoTemplateStage(Stage):
             close_ssh.set_func(f, "Close SSH")
             steps.append(close_ssh)
 
-            restructure_tmp = Step(SourceType.Nothing)
+            restructure_tmp = Step(SourceType.Passthrough)
             restructure_tmp.set_cmd(
                 " ".join(
                     [
@@ -139,7 +139,7 @@ class VivadoTemplateStage(Stage):
 
     def _output_dir(self, steps):
         # output directory
-        output = Step(SourceType.Nothing)
+        output = Step(SourceType.Passthrough)
 
         def f(_, ctx):
             return (Source(ctx["tmpdir_obj"], SourceType.TmpDir), None, 0)

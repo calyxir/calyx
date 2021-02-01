@@ -104,7 +104,7 @@ class VivadoExtractStage(Stage):
 
     def _define(self):
         # extract
-        extract = Step(SourceType.Nothing)
+        extract = Step(SourceType.Passthrough)
 
         def f(inp, _):
             res = None

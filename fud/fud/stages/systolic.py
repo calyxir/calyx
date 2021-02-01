@@ -4,6 +4,10 @@ from fud.stages import SourceType, Stage, Step
 
 
 class SystolicStage(Stage):
+    """
+    Stage that invokes the Systolic Array frontend.
+    """
+
     def __init__(self, config):
         super().__init__(
             "systolic",

@@ -101,7 +101,7 @@ class SourceConversion(FudError):
 class InvalidSource(FudError):
     """
     Source class construction is ill-specified. For example, generating
-    a SourceType.Nothing with a path as data.
+    a SourceType.Passthrough with a path as data.
     """
 
     def __init__(self, source_type, data):
@@ -152,4 +152,14 @@ class MissingFile(FudError):
             f"File doesn't exist: '{filename}'. "
             + "Check tool versions with `fud check`."
         )
+        super().__init__(msg)
+
+
+class StepFailure(FudError):
+    """
+    A step failed.
+    """
+
+    def __init__(self, stderr):
+        msg = "A step failed:\n===============\n" + stderr
         super().__init__(msg)

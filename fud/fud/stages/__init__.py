@@ -1,12 +1,14 @@
 """The definitions of fud stages."""
 
+import functools
 import logging as log
 import os
 import subprocess
 import sys
-from enum import Enum
-from tempfile import NamedTemporaryFile, TemporaryFile
 from collections.abc import MutableMapping
+from enum import Enum
+from io import BytesIO
+from tempfile import NamedTemporaryFile, TemporaryFile
 
 from .. import errors
 from ..utils import is_debug
@@ -42,69 +44,95 @@ class Context(MutableMapping):
 class SourceType(Enum):
     """
     Enum capturing the kind of source this is.
-    Path: A string for a file path. Indicates we want to write/read
-          from a path.
-    File: A file object that is directly writable/readable. Indicates
-          an already open path or a pipe.
-    Nothing: An empty source. This is neither readable nor writable.
+    TODO: document types
     """
 
     Path = 1
-    File = 2
-    TmpDir = 3
-    Nothing = 4
+    Directory = 2
+    Stream = 3
+    String = 4
+    Null = 5
 
     def __str__(self):
         if self == SourceType.Path:
             return "Path"
-        if self == SourceType.Nothing:
-            return "Nothing"
-        if self == SourceType.File:
-            return "File"
-
-        return "TmpDir"
+        elif self == SourceType.Directory:
+            return "Directory"
+        elif self == SourceType.Stream:
+            return "Stream"
+        elif self == SourceType.String:
+            return "String"
+        elif self == SourceType.Null:
+            return "Null"
 
 
 class Source:
-    def __init__(self, data, source_type):
-        self.source_type = source_type
-        if (source_type != SourceType.Nothing and data is None) or (
-            source_type == SourceType.Nothing and data is not None
-        ):
-            raise errors.InvalidSource(source_type, data)
+    def __init__(self, data, typ):
+        self.typ = typ
+        self.convert_map = {
+            SourceType.Path: {
+                SourceType.String: self._to_string,
+                SourceType.Stream: self._to_stream,
+            },
+            SourceType.Directory: {},
+            SourceType.Stream: {
+                SourceType.String: self._to_string,
+                SourceType.Path: self._to_path,
+            },
+            SourceType.String: {
+                SourceType.Stream: self._to_stream,
+            },
+        }
+        # TODO: add check
+        # if (source_type != SourceType.Passthrough and data is None) or (
+        #     source_type == SourceType.Passthrough and data is not None
+        # ):
+        #     raise errors.InvalidSource(source_type, data)
 
         self.data = data
 
-    def to_pipe(self):
-        """Converts an arbitrary source into a SourceType.File"""
-        if self.source_type == SourceType.Path:
-            self.data = open(self.data, "r+")
-            self.source_type = SourceType.File
-        elif self.source_type == SourceType.File:
-            pass
-        elif self.source_type == SourceType.TmpDir:
-            raise errors.SourceConversion(self.source_type, "pipe")
-        elif self.source_type == SourceType.Nothing:
-            self.data = sys.stdout
-            self.source_type = SourceType.File
+    def is_convertible_to(self, other):
+        if self.typ == other:
+            return True
+        else:
+            return other in self.convert_map[self.typ]
 
-    def to_path(self):
-        """Converts an arbitrary source into a SourceType.Path"""
-        if self.source_type == SourceType.Path:
-            pass
-        elif self.source_type == SourceType.File:
+    def convert_to(self, other):
+        if self.typ == other:
+            return self
+
+        if other in self.convert_map[self.typ]:
+            self.convert_map[self.typ][other]()
+            self.typ = other
+            return self
+
+        raise Exception(f"Can't convert from {self.typ} to {other}")
+
+    def _to_path(self):
+        if self.typ == SourceType.Stream:
             with NamedTemporaryFile("wb", delete=False) as tmpfile:
-                for line in self.data:
-                    tmpfile.write(line)
+                tmpfile.write(self.data.read())
                 self.data = tmpfile.name
-                self.source_type = SourceType.Path
-        elif self.source_type == SourceType.TmpDir:
-            raise errors.SourceConversion(self.source_type, SourceType.Path)
-        elif self.source_type == SourceType.Nothing:
-            pass
+        else:
+            raise Exception("TODO")
+
+    def _to_string(self):
+        if self.typ == SourceType.Path:
+            with open(self.data, "rb") as f:
+                self.data = f.read().decode("UTF-8")
+        elif self.typ == SourceType.Stream:
+            self.data = self.data.read().decode("UTF-8")
+        else:
+            raise Exception("TODO")
+
+    def _to_stream(self):
+        if self.typ == SourceType.Path:
+            self.data = open(self.data, "rb")
+        elif self.typ == SourceType.String:
+            self.data = BytesIO(self.data.encode("UTF-8"))
 
     def __repr__(self):
-        return f"<Source {self.source_type} {self.data}>"
+        return f"<Source {self.data} {self.typ} >"
 
 
 class Stage:
@@ -118,173 +146,169 @@ class Stage:
     `description`: Description of this stage
     """
 
-    def __init__(self, name, target_stage, config, description):
+    def __init__(
+        self, name, target_stage, input_type, output_type, config, description=None
+    ):
         self.name = name
         self.target_stage = target_stage
+        self.input_type = input_type
+        self.output_type = output_type
         self.config = config
         if ["stages", self.name, "exec"] in self.config:
             self.cmd = self.config["stages", self.name, "exec"]
         else:
             self.cmd = None
         self.description = description
+        self.steps = []
 
-    def _define(self):
-        """Returns a list of steps to execute."""
-        return []
+    def setup(self):
+        self.hollow_input_data = Source(None, self.input_type)
+        self.final_output = self._define_steps(self.hollow_input_data)
 
-    def transform(self, input_src, dry_run=False, last=False):
-        """
-        Run the steps to execute this Stage.
-        """
-        steps = self._define()
-        ctx = Context({})
+    def step(self, input_type=None, output_type=None, description=None):
+        if input_type == SourceType.Null:
+            input_type = ()
+        elif type(input_type) != tuple:
+            input_type = (input_type,)
 
-        prev_out = input_src
-        ret = None
-        err = None
-        if dry_run:
-            print(f"   + {self.name}")
-        # loop until last step
-        for i, step in enumerate(steps):
-            last = last and i == len(steps) - 1
-            res = step.run(prev_out, ctx=ctx, dry_run=dry_run, last=last)
-            (prev_out, err, ret) = res
-            err_msg = self.check_exit(ret, err)
-            if err_msg is not None:
-                err = err_msg
-                break
+        def step_decorator(function):
+            functools.wraps(function)
 
-        return (prev_out, err, ret)
+            # the modified function that the decorator creates
+            def wrapper(*args):
+                # check to make sure the num of args match the num of expected args
+                if len(args) != len(input_type):
+                    raise Exception(
+                        "Expected {} input arguments, but only recieved {}".format(
+                            len(input_type), len(args)
+                        )
+                    )
 
-    def check_exit(self, retcode, stderr):
-        if retcode != 0:
-            msg = f"Stage '{self.name}' had a non-zero exit code."
-            n_dashes = (len(msg) - len(" stderr ")) // 2
-            dashes = "-" * n_dashes + " stderr " + "-" * n_dashes
-            return "\n".join([msg, dashes, stderr])
+                # make sure that the args are convertible to expected input types
+                for arg, inp in zip(args, input_type):
+                    if arg.typ != inp and not arg.is_convertible_to(inp):
+                        raise Exception(
+                            f"Type mismatch: can't convert {arg.typ} to {inp}"
+                        )
 
-        return None
+                # create a source with no data so that we can return a handle to this
+                future_output = Source(None, output_type)
+                # convert the args to the right types and unwrap them
+                unwrapped_args = map(
+                    lambda a: a[0].convert_to(a[1]).data, zip(args, input_type)
+                )
+                # thunk the function as a Step
+                self.steps.append(
+                    Step(
+                        function.__name__,
+                        function,
+                        unwrapped_args,
+                        future_output,
+                        description,
+                    )
+                )
+                # return handle to the thing this function will return
+                return future_output
+
+            return wrapper
+
+        return step_decorator
+
+    def _define_steps(self, input_data):
+        pass
+
+    def run(self, input_data):
+        assert isinstance(input_data, Source)
+
+        # fill in input_data
+        self.hollow_input_data.data = input_data.convert_to(self.input_type).data
+
+        # run all the steps
+        for step in self.steps:
+            step()
+
+        return self.final_output
+
+    def dry_run(self):
+        for i, step in enumerate(self.steps):
+            print(f"  {i+1}) {step}")
+
+    # def transform(self, input_src, dry_run=False, last=False):
+    #     """
+    #     Run the steps to execute this Stage.
+    #     """
+    #     steps = self._define()
+    #     ctx = Context({})
+
+    #     prev_out = input_src
+    #     ret = None
+    #     err = None
+    #     if dry_run:
+    #         print(f"   + {self.name}")
+    #     # loop until last step
+    #     for i, step in enumerate(steps):
+    #         last = last and i == len(steps) - 1
+    #         res = step.run(prev_out, ctx=ctx, dry_run=dry_run, last=last)
+    #         (prev_out, err, ret) = res
+    #         err_msg = self.check_exit(ret, err)
+    #         if err_msg is not None:
+    #             err = err_msg
+    #             break
+
+    #     return (prev_out, err, ret)
 
 
 class Step:
-    """
-    A subdivision of a stage. This allows for more complicated stages.
-    Also automates the process of launching subprocesses to run shell commands.
-    `desired_input_type`: The input type that this step expects.
-    `last_context`: Context to add when this step is the last in the pipeline.
-                    This allows for different behavior when this step is
-                    outputting directly to a terminal rather than to
-                    another process.
-    """
+    def __init__(self, name, func, args, output, description):
+        self.name = name
+        self.func = func
+        self.args = args
+        self.output = output
+        self.description = description
 
-    def __init__(self, desired_input_type, last_context=Context({})):
-        self.func = None
-        self.description = "No description provided."
-        self.desired_input_type = desired_input_type
-        self.last_context = last_context
+    def __call__(self):
+        if is_debug():
+            args = list(self.args)
+            arg_str = ", ".join(map(lambda a: str(a), args))
+            log.debug(f"{self.name}({arg_str})")
+            self.args = args
+        self.output.data = self.func(self, *self.args)
+        return self.output
 
-    def run(self, input_src, ctx, dry_run, last):
-        if dry_run:
-            print(f"     - {self.description}")
-            return (None, None, 0)
-
-        # convert input type to desired input type
-        if self.desired_input_type == SourceType.Path:
-            input_src.to_path()
-        elif self.desired_input_type == SourceType.File:
-            input_src.to_pipe()
-
-        # update context with step specific items
-        if last:
-            for key, value in self.last_context.items():
-                ctx[key] = value
+    def __str__(self):
+        if self.description is not None:
+            return f"{self.name}: {self.description}"
+        elif self.func.__doc__ is not None:
+            return f"{self.name}: {self.func.__doc__.strip()}"
         else:
-            for key in self.last_context.keys():
-                ctx[key] = ""
+            return f"{self.name}: <python function>"
 
-        return self.func(input_src, ctx)
+    def shell(self, cmd, stdin=None):
+        """
+        Runs `cmd` in the shell and returns a stream of the output.
+        Raises `errors.StepFailure` if the command fails.
+        """
 
-    def _run_cmd(self, cmd, inp, ctx):
-        if (
-            self.desired_input_type != SourceType.Nothing
-            and inp.source_type == SourceType.Nothing
-        ):
-            raise errors.UnexpectedSourceType(self.desired_input_type, inp.source_type)
+        if isinstance(cmd, list):
+            cmd = " ".join(cmd)
 
-        proc = None
+        assert isinstance(cmd, str)
+
+        self.description = cmd
+        log.debug(cmd)
+
         stdout = TemporaryFile()
         stderr = None
+        # if we are not in debug mode, capture stderr
         if not is_debug():
             stderr = TemporaryFile()
-        if inp.source_type == SourceType.Path or inp.source_type == SourceType.TmpDir:
-            ctx["input_path"] = inp.data
-            log.debug("  - [*] %s", cmd.format(ctx=ctx))
-            proc = subprocess.Popen(
-                cmd.format(ctx=ctx),
-                shell=True,
-                stdout=stdout,
-                stderr=stderr,
-                env=os.environ,
-            )
-        else:
-            log.debug("  - [*] pipe: %s", cmd.format(ctx=ctx))
-            proc = subprocess.Popen(
-                cmd.format(ctx=ctx),
-                shell=True,
-                stdin=inp.data,
-                stdout=stdout,
-                stderr=stderr,
-                env=os.environ,
-            )
 
+        proc = subprocess.Popen(
+            cmd, shell=True, stdin=stdin, stdout=stdout, stderr=stderr, env=os.environ
+        )
         proc.wait()
-        # move read pointers back to the beginning
-        stdout.seek(0)
-
-        stderr_text = ""
-        if not is_debug():
+        if proc.returncode != 0:
             stderr.seek(0)
-            stderr_text = stderr.read().decode("UTF-8")
-
-        return (stdout, stderr_text, proc)
-
-    def set_cmd(self, cmd):
-        """
-        Set the command for this stage.
-        """
-
-        def f(inp, ctx):
-            nonlocal cmd
-            (stdout, stderr_text, proc) = self._run_cmd(cmd, inp, ctx)
-            return (Source(stdout, SourceType.File), stderr_text, proc.returncode)
-
-        self.func = f
-        self.description = cmd
-
-    def set_dynamic_cmd(self, cmd_func, description):
-        """
-        Set the command for this stage.
-        Unlike `set_cmd`, `cmd` provided to this uses the context to build
-        itself. Useful when, for example, the command needs CLI opts from the
-        context.
-        """
-
-        def f(inp, ctx):
-            cmd = cmd_func(inp, ctx)
-            (stdout, stderr_text, proc) = self._run_cmd(cmd, inp, ctx)
-            return (Source(stdout, SourceType.File), stderr_text, proc.returncode)
-
-        self.func = f
-        self.description = description
-
-    def set_func(self, func, description):
-        """
-        TODO(rachit): Document this.
-        """
-
-        def f(inp, ctx):
-            log.debug(description)
-            return func(inp, ctx)
-
-        self.func = f
-        self.description = description
+            raise errors.StepFailure(stderr.read().decode("UTF-8"))
+        stdout.seek(0)
+        return stdout
