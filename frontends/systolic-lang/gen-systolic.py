@@ -148,12 +148,9 @@ def instantiate_memory(top_or_left, idx, size):
     idx_structure.append(structure)
     # Instantiate the memory
     idx_cells.append(
-        Cell(var_name, Stdlib().mem_d1(BITWIDTH, size, idx_width))
+        Cell(var_name, Stdlib().mem_d1(BITWIDTH, size, idx_width), is_external=True)
     )
-    return (
-        idx_cells,
-        idx_structure
-    )
+    return (idx_cells, idx_structure)
 
 
 def instantiate_pe(row, col, right_edge=False, down_edge=False):
