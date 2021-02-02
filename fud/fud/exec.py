@@ -56,6 +56,10 @@ def run_fud(args, config):
     if len(path) == 0:
         raise errors.TrivialPath(source)
 
+    # check if we need `-o` specified
+    if path[-1].stage.output_type == SourceType.Directory and args.output_file is None:
+        raise errors.NeedOutputSpecified(path[-1].stage)
+
     # if we are doing a dry run, print out stages and exit
     if args.dry_run:
         print("fud will perform the following steps:")
@@ -78,6 +82,7 @@ def run_fud(args, config):
 
         for ed in path:
             sp.start(f"{ed.stage.name} → {ed.stage.target_stage}")
+            # TODO: catch exceptions
             result = ed.stage.run(inp)
             inp = result
             if log.getLogger().level <= log.INFO:
@@ -85,17 +90,11 @@ def run_fud(args, config):
 
         sp.stop()
 
-        # if inp.source_type == SourceType.TmpDir:
-        #     if args.output_file is not None:
-        #         if Path(args.output_file).exists():
-        #             shutil.rmtree(args.output_file)
-        #         shutil.move(inp.data.name, args.output_file)
-        #     else:
-        #         shutil.move(inp.data.name, ".")
-        #         print(f"Moved {inp.data.name} here.")
-        # else:
         if args.output_file is not None:
-            with Path(args.output_file).open("w") as f:
-                f.write(inp.convert_to(SourceType.String).data)
+            if inp.typ == SourceType.Directory:
+                shutil.move(inp.data.name, args.output_file)
+            else:
+                with Path(args.output_file).open("w") as f:
+                    f.write(inp.convert_to(SourceType.String).data)
         else:
             print(inp.convert_to(SourceType.String).data)

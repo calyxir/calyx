@@ -1,148 +1,105 @@
-from tempfile import TemporaryDirectory
+import logging as log
 
 from .. import errors
-from fud.stages import Source, SourceType, Stage, Step
+from ..stages import SourceType
 
 
-class VivadoTemplateStage(Stage):
+class RemoteExecution:
     """
     TODO(rachit): Document this.
     """
 
-    def __init__(self, name, target, config, descr):
-        super().__init__(name, target, config, descr)
-        self.use_ssh = False
-        self.ssh_host = None
-        self.ssh_user = None
-        self.ssh_client = None
-        self.scp_client = None
-
-    def _config_ssh(self):
-        if self.config["stages", self.name, "remote"] is not None:
+    def __init__(self, stage):
+        self.stage = stage
+        self.device_files = self.stage.device_files
+        self.target_name = self.stage.target_name
+        if self.stage.config["stages", self.stage.name, "remote"] is not None:
             # dynamically import libraries if they are installed
             try:
-                from paramiko import SSHClient as ssh
-                from scp import SCPClient as scp
+                from paramiko import SSHClient
+                from scp import SCPClient
 
-                self.ssh_client = ssh
-                self.scp_client = scp
+                self.SSHClient = SSHClient
+                self.SCPClient = SCPClient
             except ModuleNotFoundError:
                 raise errors.RemoteLibsNotInstalled
 
             self.use_ssh = True
-            self.ssh_host = self.config["stages", self.name, "ssh_host"]
-            self.ssh_user = self.config["stages", self.name, "ssh_username"]
+            self.ssh_host = self.stage.config["stages", self.stage.name, "ssh_host"]
+            self.ssh_user = self.stage.config["stages", self.stage.name, "ssh_username"]
         else:
             self.use_ssh = False
 
-    def _establish_connection(self, steps):
-        # maybe establish ssh connection
-        if self.use_ssh:
-            ssh_connection = Step(SourceType.Passthrough)
+    def open_and_transfer(self, input_path):
+        @self.stage.step(output_type=SourceType.UnTyped)
+        def establish_connection(step):
+            """
+            Establish ssh connection.
+            """
+            client = self.SSHClient()
+            client.load_system_host_keys()
+            client.connect(self.ssh_host, username=self.ssh_user)
+            return client
 
-            def f(inp, ctx):
-                if self.use_ssh:
-                    ssh = self.ssh_client()
-                    ssh.load_system_host_keys()
-                    ssh.connect(self.ssh_host, username=self.ssh_user)
-                    ctx["ssh_client"] = ssh
-                return (inp, None, 0)
+        @self.stage.step(input_type=SourceType.UnTyped, output_type=SourceType.String)
+        def mktmp(step, client):
+            """
+            Execute `mktemp -d` over ssh connection.
+            """
+            _, stdout, _ = client.exec_command("mktemp -d")
+            tmpdir = stdout.read().decode("ascii").strip()
+            return tmpdir
 
-            ssh_connection.set_func(f, "Connect to server over SSH")
-            steps.append(ssh_connection)
+        @self.stage.step(
+            input_type=(SourceType.UnTyped, SourceType.Path, SourceType.String)
+        )
+        def send_files(step, client, verilog_path, tmpdir):
+            """
+            Copy device files over ssh channel.
+            """
+            with self.SCPClient(client.get_transport()) as scp:
+                scp.put(self.device_files, remote_path=tmpdir)
+                scp.put(verilog_path, remote_path=f"{tmpdir}/{self.target_name}")
 
-    def _mktmp(self, steps):
-        # make temporary directory
-        mktmp = Step(SourceType.Passthrough)
+        client = establish_connection()
+        tmpdir = mktmp(client)
+        send_files(client, input_path, tmpdir)
+        return (client, tmpdir)
 
-        def f(inp, ctx):
-            if self.use_ssh:
-                _, stdout, _ = ctx["ssh_client"].exec_command("mktemp -d")
-                tmpdir = stdout.read().decode("ascii").strip()
-                ctx["tmpdir"] = tmpdir
-            else:
-                tmpdir = TemporaryDirectory()
-                ctx["tmpdir"] = tmpdir.name
-                ctx["tmpdir_obj"] = tmpdir
-            return (inp, None, 0)
-
-        mktmp.set_func(f, "Make temporary directory.")
-        steps.append(mktmp)
-
-    def _move_files(self, steps, device_files, src_file):
-        # copy over files
-        move = Step(SourceType.Path)
-        if self.use_ssh:
-
-            def f(inp, ctx):
-                with self.scp_client(ctx["ssh_client"].get_transport()) as scp:
-                    scp.put(device_files, remote_path=ctx["tmpdir"])
-                    scp.put(inp.data, remote_path=f'{ctx["tmpdir"]}/{src_file}')
-                return (inp, None, 0)
-
-            move.set_func(f, "Copy synth files over SCP.")
-        else:
-            move.set_cmd(
-                " ".join(
-                    [
-                        "cp",
-                        " ".join(device_files),
-                        "{ctx[tmpdir]}",
-                        "&&",
-                        f"cp {{ctx[input_path]}} {{ctx[tmpdir]}}/{src_file}",
-                    ]
-                )
+    def execute(self, client, tmpdir, cmd):
+        @self.stage.step(input_type=(SourceType.UnTyped, SourceType.String))
+        def run_vivado(step, client, tmpdir):
+            _, stdout, stderr = client.exec_command(
+                " ".join([f"cd {tmpdir}", "&&", cmd])
             )
-        steps.append(move)
+            # read stdout in 2048 byte chunks so that we get live output streaming in
+            # debug mode
+            print("==CHUNK==")
+            for chunk in iter(lambda: stdout.readline(2048), ""):
+                log.debug(chunk.strip())
+            print(stderr.read().decode("ascii"))
 
-    def _finalize_ssh(self, steps):
-        if self.use_ssh:
-            copy = Step(SourceType.Passthrough)
+        run_vivado(client, tmpdir)
 
-            def f(inp, ctx):
-                if self.use_ssh:
-                    tmpdir = TemporaryDirectory()
-                    with self.scp_client(ctx["ssh_client"].get_transport()) as scp:
-                        scp.get(
-                            ctx["tmpdir"], local_path=f"{tmpdir.name}", recursive=True
-                        )
-                        ctx["old_tmpdir"] = ctx["tmpdir"]
-                        ctx["tmpdir"] = tmpdir.name
-                        ctx["tmpdir_obj"] = tmpdir
-                    return (inp, None, 0)
-
-            copy.set_func(f, "Copy files back.")
-            steps.append(copy)
-
-            close_ssh = Step(SourceType.Passthrough)
-
-            def f(inp, ctx):
-                if self.use_ssh:
-                    ctx["ssh_client"].exec_command(f'rm -r {ctx["tmpdir"]}')
-                    ctx["ssh_client"].close()
-                return (inp, None, 0)
-
-            close_ssh.set_func(f, "Close SSH")
-            steps.append(close_ssh)
-
-            restructure_tmp = Step(SourceType.Passthrough)
-            restructure_tmp.set_cmd(
-                " ".join(
-                    [
-                        "mv {ctx[tmpdir]}/tmp.*/* {ctx[tmpdir]}",
-                        "&&",
-                        "rm -r {ctx[tmpdir]}/tmp.*",
-                    ]
+    def close_and_transfer(self, client, remote_tmpdir, local_tmpdir):
+        @self.stage.step(
+            input_type=(SourceType.UnTyped, SourceType.String, SourceType.Directory)
+        )
+        def copy_back(step, client, remote_tmpdir, local_tmpdir):
+            with self.SCPClient(client.get_transport()) as scp:
+                scp.get(
+                    remote_tmpdir, local_path=f"{local_tmpdir.name}", recursive=True
                 )
-            )
-            steps.append(restructure_tmp)
+                step.shell(f"mv {local_tmpdir.name}/tmp.* {local_tmpdir.name}")
+                step.shell(f"rm -r {local_tmpdir.name}/tmp.*")
 
-    def _output_dir(self, steps):
-        # output directory
-        output = Step(SourceType.Passthrough)
+        @self.stage.step(input_type=(SourceType.UnTyped, SourceType.String))
+        def finalize_ssh(step, client, tmpdir):
+            """
+            Remove created temporary files and close ssh connection.
+            """
+            client.exec_command(f"rm -r {tmpdir}")
+            client.close()
 
-        def f(_, ctx):
-            return (Source(ctx["tmpdir_obj"], SourceType.TmpDir), None, 0)
-
-        output.set_func(f, "Output synthesis directory.")
-        steps.append(output)
+        copy_back(client, remote_tmpdir, local_tmpdir)
+        finalize_ssh(client, remote_tmpdir)

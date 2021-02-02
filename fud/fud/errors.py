@@ -157,9 +157,38 @@ class MissingFile(FudError):
 
 class StepFailure(FudError):
     """
-    A step failed.
+    TODO: (write better error) A step failed.
     """
 
     def __init__(self, stderr):
         msg = "A step failed:\n===============\n" + stderr
+        super().__init__(msg)
+
+
+class NeedOutputSpecified(FudError):
+    """
+    An error raised when the last stage will produce output that
+    is not serializable as a text stream (i.e. a Directory)
+    """
+
+    def __init__(self, final_stage):
+        msg = (
+            f"The final stage: `{final_stage.name}` will produce a "
+            + f"`{final_stage.output_type}` which can't be printed in the terminal. "
+            + "Supply `-o <name>` to specify a name for it."
+        )
+        super().__init__(msg)
+
+
+class SourceConversionNotDirectory(FudError):
+    """
+    An error raised when the last stage will produce output that
+    is not serializable as a text stream (i.e. a Directory)
+    """
+
+    def __init__(self, path):
+        msg = (
+            f"Tried to convert {path} to a SourceType.Directory, "
+            + "but it is not a directory."
+        )
         super().__init__(msg)

@@ -7,15 +7,17 @@ import subprocess
 from enum import Enum
 from io import BytesIO
 from tempfile import NamedTemporaryFile, TemporaryFile
+from pathlib import Path
 
 from .. import errors
-from ..utils import is_debug
+from ..utils import is_debug, Directory
 
 
 class SourceType(Enum):
     """
     Enum capturing the kind of source this is.
     TODO: document types
+    TODO: replace untyped with custom named type
     """
 
     Path = 1
@@ -23,6 +25,7 @@ class SourceType(Enum):
     Stream = 3
     String = 4
     Null = 5
+    UnTyped = 6
 
     def __str__(self):
         if self == SourceType.Path:
@@ -35,6 +38,8 @@ class SourceType(Enum):
             return "String"
         elif self == SourceType.Null:
             return "Null"
+        elif self == SourceType.UnTyped:
+            return "UnTyped"
 
 
 class Source:
@@ -44,6 +49,7 @@ class Source:
             SourceType.Path: {
                 SourceType.String: self._to_string,
                 SourceType.Stream: self._to_stream,
+                SourceType.Directory: self._to_directory,
             },
             SourceType.Directory: {},
             SourceType.Stream: {
@@ -102,6 +108,15 @@ class Source:
         elif self.typ == SourceType.String:
             self.data = BytesIO(self.data.encode("UTF-8"))
 
+    def _to_directory(self):
+        if self.typ == SourceType.Path:
+            if Path(self.data).is_dir():
+                self.data = Directory(self.data)
+            else:
+                raise errors.SourceConversionNotDirectory(self.data)
+        else:
+            raise Exception("TODO")
+
     def __repr__(self):
         return f"<Source {self.data} {self.typ} >"
 
@@ -137,7 +152,7 @@ class Stage:
         self.final_output = self._define_steps(self.hollow_input_data)
 
     def step(self, input_type=None, output_type=None, description=None):
-        if input_type == SourceType.Null:
+        if input_type == SourceType.Null or input_type is None:
             input_type = ()
         elif type(input_type) != tuple:
             input_type = (input_type,)
@@ -230,7 +245,7 @@ class Step:
         else:
             return f"{self.name}: <python function>"
 
-    def shell(self, cmd, stdin=None):
+    def shell(self, cmd, stdin=None, stdout_as_debug=False):
         """
         Runs `cmd` in the shell and returns a stream of the output.
         Raises `errors.StepFailure` if the command fails.
@@ -238,6 +253,9 @@ class Step:
 
         if isinstance(cmd, list):
             cmd = " ".join(cmd)
+
+        if stdout_as_debug:
+            cmd += ">&2"
 
         assert isinstance(cmd, str)
 

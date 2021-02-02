@@ -1,5 +1,7 @@
 import sys
 import logging as log
+import shutil
+from tempfile import TemporaryDirectory
 
 
 def eprint(*args, **kwargs):
@@ -49,3 +51,20 @@ def logging_setup(args):
         paramiko.util.logging.getLogger().setLevel(level)
     except ModuleNotFoundError:
         pass
+
+
+class Directory:
+    def __init__(self, name):
+        self.name = name
+
+    def remove(self):
+        shutil.rmtree(self.name)
+
+
+class TmpDir(Directory):
+    def __init__(self):
+        self.tmpdir_obj = TemporaryDirectory()
+        self.name = self.tmpdir_obj.name
+
+    def remove(self):
+        self.tmpdir_obj.cleanup()

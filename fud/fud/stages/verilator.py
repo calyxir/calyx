@@ -1,12 +1,12 @@
 import json
 import re
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 from fud.stages import Source, SourceType, Stage
 
 from .. import errors
 from ..json_to_dat import convert2dat, convert2json
+from ..utils import TmpDir
 
 
 class VerilatorStage(Stage):
@@ -42,7 +42,7 @@ class VerilatorStage(Stage):
             """
             Make temporary directory to store Verilator build files.
             """
-            return TemporaryDirectory()
+            return TmpDir()
 
         # Step 2a: check if we need verilog.data to be passes
         @self.step(input_type=SourceType.String, output_type=SourceType.Null)
@@ -74,7 +74,6 @@ class VerilatorStage(Stage):
                 self.config["stages", self.name, "top_module"],
                 "--Mdir",
                 "{tmpdir_name}",
-                "1>&2",
             ]
         )
 
@@ -85,7 +84,8 @@ class VerilatorStage(Stage):
         )
         def compile_with_verilator(step, input_path, tmpdir):
             return step.shell(
-                cmd.format(input_path=input_path, tmpdir_name=tmpdir.name)
+                cmd.format(input_path=input_path, tmpdir_name=tmpdir.name),
+                stdout_as_debug=True,
             )
 
         # Step 4: simulate
@@ -138,7 +138,7 @@ class VerilatorStage(Stage):
             """
             Cleanup Verilator build files that we no longer need.
             """
-            tmpdir.cleanup()
+            tmpdir.remove()
 
         # Schedule
         tmpdir = mktmp()

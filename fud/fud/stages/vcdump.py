@@ -1,4 +1,4 @@
-from fud.stages import Stage, Step, SourceType
+from fud.stages import Stage, SourceType
 
 
 class VcdumpStage(Stage):

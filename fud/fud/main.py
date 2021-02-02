@@ -25,7 +25,9 @@ def register_stages(registry, cfg):
     """
     # Dahlia
     registry.register(dahlia.DahliaStage(cfg, "futil", "-b futil --lower -l error"))
-    registry.register(dahlia.DahliaStage(cfg, "cpp", "--memory-interface ap_memory"))
+    registry.register(
+        dahlia.DahliaStage(cfg, "vivado-hls", "--memory-interface ap_memory")
+    )
 
     # MrXL
     registry.register(mrxl.MrXLStage(cfg))
@@ -88,10 +90,10 @@ def register_stages(registry, cfg):
     )
 
     # # Vivado / vivado hls
-    # registry.register(vivado.VivadoStage(cfg))
-    # registry.register(vivado.VivadoExtractStage(cfg))
-    # registry.register(vivado_hls.VivadoHLSStage(cfg))
-    # registry.register(vivado_hls.VivadoHLSExtractStage(cfg))
+    registry.register(vivado.VivadoStage(cfg))
+    registry.register(vivado.VivadoExtractStage(cfg))
+    registry.register(vivado_hls.VivadoHLSStage(cfg))
+    registry.register(vivado_hls.VivadoHLSExtractStage(cfg))
 
     # Vcdump
     registry.register(vcdump.VcdumpStage(cfg))
