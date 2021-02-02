@@ -60,11 +60,6 @@ class Source:
                 SourceType.Stream: self._to_stream,
             },
         }
-        # TODO: add check
-        # if (source_type != SourceType.Passthrough and data is None) or (
-        #     source_type == SourceType.Passthrough and data is not None
-        # ):
-        #     raise errors.InvalidSource(source_type, data)
 
         self.data = data
 

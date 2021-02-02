@@ -1,5 +1,4 @@
 from collections import namedtuple
-import functools
 
 Edge = namedtuple("Edge", ["dest", "stage"])
 
