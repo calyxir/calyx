@@ -4,7 +4,7 @@ import shutil
 from fud.stages import SourceType, Stage
 
 from ..vivado.extract import futil_extract
-from . import RemoteExecution
+from .remote_context import RemoteExecution
 from ..utils import TmpDir
 
 
