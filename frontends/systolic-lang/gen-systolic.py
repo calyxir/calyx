@@ -7,7 +7,7 @@ from futil.utils import bits_needed
 # Global constant for the current bitwidth.
 BITWIDTH = 32
 # Name of the ouput array
-OUT_MEM = ast.ast.CompVar("out_mem")
+OUT_MEM = ast.CompVar("out_mem")
 PE_NAME = "mac_pe"
 
 # Eventually, PE_DEF will be included a separate `.futil` file.
@@ -71,25 +71,23 @@ def instantiate_indexor(prefix, width):
 
     Returns (cells, structure)
     """
-    stdlib = ast.ast.Stdlib()
-    name = ast.ast.CompVar(NAME_SCHEME["index name"].format(prefix=prefix))
-    add_name = ast.ast.CompVar(f"{prefix}_add")
+    stdlib = ast.Stdlib()
+    name = ast.CompVar(NAME_SCHEME["index name"].format(prefix=prefix))
+    add_name = ast.CompVar(f"{prefix}_add")
     cells = [
-        ast.ast.Cell(name, stdlib.register(width)),
-        ast.ast.Cell(add_name, stdlib.op("add", width, signed=False)),
+        ast.Cell(name, stdlib.register(width)),
+        ast.Cell(add_name, stdlib.op("add", width, signed=False)),
     ]
 
-    init_name = ast.ast.CompVar(NAME_SCHEME["index init"].format(prefix=prefix))
-    init_group = ast.ast.Group(
+    init_name = ast.CompVar(NAME_SCHEME["index init"].format(prefix=prefix))
+    init_group = ast.Group(
         init_name,
         connections=[
-            ast.ast.Connect(
-                ast.ast.ConstantPort(width, 2 ** width - 1), ast.CompPort(name, "in")
+            ast.Connect(
+                ast.ConstantPort(width, 2 ** width - 1), ast.CompPort(name, "in")
             ),
-            ast.ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(name, "write_en")),
-            ast.ast.Connect(
-                ast.CompPort(name, "done"), ast.HolePort(init_name, "done")
-            ),
+            ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(name, "write_en")),
+            ast.Connect(ast.CompPort(name, "done"), ast.HolePort(init_name, "done")),
         ],
     )
 
