@@ -40,8 +40,7 @@ wires = [
     )
 ]
 
-controls = ControlEntry(
-    ControlEntryType.Seq,
+controls = SeqComp(
     stmts=[
         If(
             CompPort(lt, 'out'),

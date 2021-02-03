@@ -64,8 +64,7 @@ wires = [
 ]
 
 # Control for the component.
-controls = ControlEntry(
-    ControlEntryType.Seq,
+controls = SeqComp(
     [Enable(update_operands), Enable(compute_sum)]
 )
 

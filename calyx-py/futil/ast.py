@@ -225,26 +225,9 @@ class Or(GuardExpr):
 
 ### Control ###
 
-class ControlEntryType(Enum):
-    Seq = 'seq'
-    Par = 'par'
-    Empty = 'empty'
-
-
 @dataclass
 class Control(Emittable):
     pass
-
-
-@dataclass
-class ControlEntry(Control):
-    entry: ControlEntryType
-    stmts: list[ControlOrEnable]
-
-    def doc(self):
-        if self.entry == ControlEntryType.Empty:
-            return Empty().doc()
-        return block(self.entry.value, [s.doc() for s in self.stmts])
 
 
 @dataclass
@@ -290,6 +273,7 @@ class Invoke(Control):
         in_defs = ", ".join([f'{p}={a.doc()}' for p, a in self.in_connects])
         out_defs = ", ".join([f'{p}={a.doc()}' for p, a in self.out_connects])
         return f'invoke {self.id.doc()}({in_defs})({out_defs});'
+
 
 @dataclass
 class While(Control):

@@ -423,7 +423,7 @@ def generate_control(top_length, top_depth, left_length, left_depth):
             )
 
     control.append(ast.SeqComp(mover_groups))
-    return ast.ControlEntry(ast.ControlEntryType.Seq, stmts=control)
+    return ast.SeqComp(stmts=control)
 
 
 def create_systolic_array(top_length, top_depth, left_length, left_depth):

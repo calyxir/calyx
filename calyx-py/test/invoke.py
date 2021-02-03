@@ -25,7 +25,7 @@ foo_component = Component(
     inputs=[PortDef(CompVar('a'), 32)],
     outputs=[PortDef(CompVar('out'), 32)],
     structs=foo_cells + foo_wires,
-    controls=ControlEntry(ControlEntryType.Seq, [Enable('let')])
+    controls=SeqComp([Enable('let')])
 )
 
 b = CompVar('b')
@@ -75,7 +75,7 @@ main_component = Component(
     inputs=[],
     outputs=[],
     structs=cells + wires,
-    controls=ControlEntry(ControlEntryType.Seq, controls)
+    controls=SeqComp(controls)
 )
 
 # Create the FuTIL program.
