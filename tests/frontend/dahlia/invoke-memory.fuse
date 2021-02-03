@@ -1,10 +1,7 @@
-def mem_copy(dest: ubit<32>[1], src: ubit<32>[1], c: ubit<1>): ubit<1> = {
+def mem_copy(dest: ubit<32>[1], src: ubit<32>[1]) = {
   let zero = (0 as ubit<1>);
   dest[zero] := src[zero];
-  return c + (1 as ubit<1>);
 }
 
 decl a: ubit<32>[1];
 decl b: ubit<32>[1];
-
-let ok: ubit<1> = mem_copy(b, a, (0 as ubit<1>));
