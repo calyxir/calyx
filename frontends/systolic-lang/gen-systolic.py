@@ -382,11 +382,11 @@ def generate_control(top_length, top_depth, left_length, left_depth):
             more_control.append(
                 Invoke(
                     id=CompVar(f'pe_{r}_{c}'),
-                    args=[
-                        CompPort(CompVar(f'top_{r}_{c}'), 'out'),
-                        CompPort(CompVar(f'left_{r}_{c}'), 'out')
+                    in_connects=[
+                        ('top', CompPort(CompVar(f'top_{r}_{c}'), 'out')),
+                        ('left', CompPort(CompVar(f'left_{r}_{c}'), 'out'))
                     ],
-                    params=[CompVar('top'), CompVar('left')]
+                    out_connects = []
                 )
             )
 
