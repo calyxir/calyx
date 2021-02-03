@@ -9,13 +9,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Formatting check
+      - name: Fud Formatting check
         uses: RojerGS/python-black-check@master
         with:
           line-length: 88
           path: 'fud'
-      - name: Linting check
+      - name: Systolic Array Formatting check
+        uses: RojerGS/python-black-check@master
+        with:
+          line-length: 88
+          path: 'frontends/systolic-lang'
+      - name: Fud Linting check
         uses: TrueBrain/actions-flake8@master
         with:
           max_line_length: 88
           path: 'fud'
+      - name: Systolic Array Linting check
+        uses: TrueBrain/actions-flake8@master
+        with:
+          max_line_length: 88
+          path: 'frontends/systolic-lang'
