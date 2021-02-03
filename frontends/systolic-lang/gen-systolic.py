@@ -130,7 +130,9 @@ def instantiate_memory(top_or_left, idx, size):
     structure = ast.Group(
         group_name,
         connections=[
-            ast.Connect(ast.CompPort(idx_name, "out"), ast.CompPort(var_name, "addr0")),
+            ast.Connect(
+                ast.CompPort(idx_name, "out"),
+                ast.CompPort(var_name, "addr0")),
             ast.Connect(
                 ast.CompPort(var_name, "read_data"), ast.CompPort(target_reg, "in")
             ),
@@ -184,8 +186,14 @@ def instantiate_data_move(row, col, right_edge, down_edge):
         mover = ast.Group(
             group_name,
             connections=[
-                ast.Connect(ast.CompPort(src_reg, "out"), ast.CompPort(dst_reg, "in")),
-                ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(dst_reg, "write_en")),
+                ast.Connect(
+                    ast.CompPort(src_reg, "out"),
+                    ast.CompPort(dst_reg, "in")
+                ),
+                ast.Connect(
+                    ast.ConstantPort(1, 1),
+                    ast.CompPort(dst_reg, "write_en")
+                ),
                 ast.Connect(
                     ast.CompPort(dst_reg, "done"), ast.HolePort(group_name, "done")
                 ),
@@ -222,10 +230,12 @@ def instantiate_output_move(row, col, row_idx_bitwidth, col_idx_bitwidth):
         group_name,
         connections=[
             ast.Connect(
-                ast.ConstantPort(row_idx_bitwidth, row), ast.CompPort(OUT_MEM, "addr0")
+                ast.ConstantPort(row_idx_bitwidth, row),
+                ast.CompPort(OUT_MEM, "addr0")
             ),
             ast.Connect(
-                ast.ConstantPort(col_idx_bitwidth, col), ast.CompPort(OUT_MEM, "addr1")
+                ast.ConstantPort(col_idx_bitwidth, col),
+                ast.CompPort(OUT_MEM, "addr1")
             ),
             ast.Connect(ast.CompPort(pe, "out"), ast.CompPort(OUT_MEM, "write_data")),
             ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(OUT_MEM, "write_en")),
@@ -453,7 +463,9 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
     for row in range(left_length):
         for col in range(top_length):
             # Instantiate the PEs
-            c = instantiate_pe(row, col, col == top_length - 1, row == left_length - 1)
+            c = instantiate_pe(
+                row, col, col == top_length - 1, row == left_length - 1
+            )
             cells.extend(c)
 
             # Instantiate the mover fabric
