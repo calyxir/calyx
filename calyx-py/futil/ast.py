@@ -283,15 +283,13 @@ class ParComp(Control):
 @dataclass
 class Invoke(Control):
     id: CompVar
-    args: List[Port]
-    params: List[CompVar]
+    in_connects: List[(str, Port)]
+    out_connects: List[(str, Port)]
 
     def doc(self) -> str:
-        definitions = [
-            f'{x[0].doc()}={x[1].doc()}' for x in zip(self.params, self.args)
-        ]
-        return f'invoke {self.id.doc()}({", ".join(definitions)})();'
-
+        in_defs = ", ".join([f'{p}={a.doc()}' for p, a in self.in_connects])
+        out_defs = ", ".join([f'{p}={a.doc()}' for p, a in self.out_connects])
+        return f'invoke {self.id.doc()}({in_defs})({out_defs});'
 
 @dataclass
 class While(Control):

@@ -43,10 +43,79 @@ class DahliaFuncDef:
     attributes: tvm.ir.Attrs
 
 
-def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> List[CompVar]:
+def get_addr_ports(c: CompInst):
+    id = c.id
+    args = c.args
+    assert id in {
+        'std_mem_d1', 'std_mem_d2',
+        'std_mem_d3', 'std_mem_d4'
+    }, f'{id} is not supported or does not have address ports.'
+
+    if id == 'std_mem_d1':
+        return [
+            ('addr0', args[2])
+        ]
+    if id == 'std_mem_d2':
+        return [
+            ('addr0', args[3]),
+            ('addr1', args[4])
+        ]
+    if id == 'std_mem_d3':
+        return [
+            ('addr0', args[4]),
+            ('addr1', args[5]),
+            ('addr2', args[6])
+        ]
+    if id == 'std_mem_d4':
+        return [
+            ('addr0', args[5]),
+            ('addr1', args[6]),
+            ('addr2', args[7]),
+            ('addr3', args[8])
+        ]
+
+
+def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
     """Returns the input and output connections for Invoke."""
-    in_connects=[]
-    out_connects=[]
+    in_connects = []
+    out_connects = []
+
+    def get_connects(c: Cell):
+        comp = c.comp
+        assert comp.id in {
+            'std_mem_d1',
+            'std_mem_d2',
+            'std_mem_d3',
+            'std_mem_d4'
+        }, f'{comp.id} is not a memory, and not supported currently.'
+        in_, out = [], []
+        param = c.id.name
+        arg = CompVar(param)
+
+        # By default, always hook up both read and write ports.
+        in_.extend([
+            (f'{param}_read_data', CompPort(arg, 'read_data')),
+            (f'{param}_done', CompPort(arg, 'done'))
+        ])
+        out.extend([
+            (f'{param}_write_data', CompPort(arg, 'write_data')),
+            (f'{param}_write_en', CompPort(arg, 'write_en'))
+        ])
+
+        # Hook up address ports.
+        addr_ports = [port for port, _ in get_addr_ports(comp)]
+        out.extend([
+            (f'{param}_{port}', CompPort(arg, f'{port}')) for port in addr_ports
+        ])
+        return in_, out
+
+    for c in args + [dest]:
+        # We treat the connections of both
+        # the destination and argument memories in
+        # the same manner for now.
+        in_, out = get_connects(c)
+        in_connects.extend(in_)
+        out_connects.extend(out)
 
     return Invoke(
         decl,
