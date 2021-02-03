@@ -1,4 +1,3 @@
-import futil("primitives/std.lib") {}
 decl A: ubit<32>[8];
 decl B: ubit<32>[8];
 decl v: ubit<32>[1];
