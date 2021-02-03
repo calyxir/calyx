@@ -12,7 +12,6 @@ NumDimsToCell = {
     4: Stdlib().mem_d4
 }
 
-
 # Suffix appended to memories by Dahlia when lowering.
 DahliaSuffix = {
     'std_mem_d1': '0',
@@ -49,14 +48,14 @@ class DahliaFuncDef:
 def get_addr_ports(c: CompInst):
     id = c.id
     args = c.args
-    dims2id = {
+    id2dims = {
         'std_mem_d1': 1,
         'std_mem_d2': 2,
         'std_mem_d3': 3,
         'std_mem_d4': 4
     }
-    assert id in dims2id.keys(), f'{id} not supported.'
-    dims = dims2id[id]
+    assert id in id2dims.keys(), f'{id} not supported.'
+    dims = id2dims[id]
     addresses = range(0, dims)
     indices = range(dims + 1, dims << 1 + 1)
     return [(f'addr{i}', args[n]) for (i, n) in zip(addresses, indices)]
