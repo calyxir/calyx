@@ -1,0 +1,32 @@
+import "primitives/std.lib";
+component main<"static"=2>(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    const0 = std_const(32, 4);
+    const1 = std_const(32, 5);
+    add = std_add(32);
+    mult = std_mult(32);
+    reg0 = std_reg(32);
+    fsm = std_reg(2);
+    incr = std_add(2);
+  }
+  wires {
+    done = fsm.out == 2'd2 ? 1'd1;
+    add.left = fsm.out == 2'd0 & go ? const0.out;
+    add.right = fsm.out == 2'd0 & go ? const1.out;
+    fsm.clk = clk;
+    fsm.in = fsm.out == 2'd2 ? 2'd0;
+    fsm.in = fsm.out != 2'd2 & go ? incr.out;
+    fsm.write_en = fsm.out != 2'd2 & go | fsm.out == 2'd2 ? 1'd1;
+    incr.left = go ? 2'd1;
+    incr.right = go ? fsm.out;
+    mult.left = fsm.out == 2'd1 & go ? const0.out;
+    mult.right = fsm.out == 2'd1 & go ? const1.out;
+    reg0.clk = clk;
+    reg0.in = fsm.out == 2'd0 & go ? add.out;
+    reg0.in = fsm.out == 2'd1 & go ? mult.out;
+    reg0.write_en = fsm.out == 2'd0 & go | fsm.out == 2'd1 & go ? 1'd1;
+  }
+
+  control {}
+}
+
