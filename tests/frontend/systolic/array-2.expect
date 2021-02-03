@@ -3,16 +3,16 @@ component main() -> () {
   cells {
     t0_idx = std_reg(2);
     t0_add = std_add(2);
-    t0 = std_mem_d1(32, 3, 2);
+    @external(1) t0 = std_mem_d1(32, 3, 2);
     t1_idx = std_reg(2);
     t1_add = std_add(2);
-    t1 = std_mem_d1(32, 3, 2);
+    @external(1) t1 = std_mem_d1(32, 3, 2);
     l0_idx = std_reg(2);
     l0_add = std_add(2);
-    l0 = std_mem_d1(32, 3, 2);
+    @external(1) l0 = std_mem_d1(32, 3, 2);
     l1_idx = std_reg(2);
     l1_add = std_add(2);
-    l1 = std_mem_d1(32, 3, 2);
+    @external(1) l1 = std_mem_d1(32, 3, 2);
     @external(1) out_mem = std_mem_d2(32, 2, 2, 2, 2);
     pe_0_0 = mac_pe();
     top_0_0 = std_reg(32);
