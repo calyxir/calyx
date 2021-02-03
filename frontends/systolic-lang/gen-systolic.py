@@ -445,7 +445,7 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
             ast.Stdlib().mem_d2(
                 BITWIDTH, left_length, top_length, out_ridx_size, out_cidx_size
             ),
-            is_external=True
+            is_external=True,
         )
     )
 
@@ -507,8 +507,7 @@ if __name__ == "__main__":
     else:
         parser.error(
             "Need to pass either `-f FILE` or all of `"
-            "-tl TOP_LENGTH -td TOP_DEPTH "
-            "-ll LEFT_LENGTH -ld LEFT_DEPTH`"
+            "-tl TOP_LENGTH -td TOP_DEPTH -ll LEFT_LENGTH -ld LEFT_DEPTH`"
         )
 
     program = create_systolic_array(
