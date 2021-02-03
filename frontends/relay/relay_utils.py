@@ -39,20 +39,20 @@ class DahliaFuncDef:
     component_id: CompVar
     function_id: str
     dest: CompVar
-    params: List[CompVar]
+    invoke_ctrl: Invoke
     attributes: tvm.ir.Attrs
 
 
-def get_invoke_params(dest: Cell, args: List[Cell]) -> List[CompVar]:
-    """Returns the parameters to Invoke."""
-    # TODO(cgyurgyik): Unimplemented.
-    return []
+def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> List[CompVar]:
+    """Returns the input and output connections for Invoke."""
+    in_connects=[]
+    out_connects=[]
 
-
-def get_invoke_args(dest: Cell, args: List[Cell]) -> List[Port]:
-    """Returns the arguments to Invoke."""
-    # TODO(cgyurgyik): Unimplemented.
-    return []
+    return Invoke(
+        decl,
+        in_connects,
+        out_connects
+    )
 
 
 def get_dahlia_data_type(relay_type) -> str:

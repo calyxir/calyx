@@ -68,31 +68,22 @@ class Relay2Futil(ExprFunctor):
 
         # Append component declaration.
         func_name = value.op.name
-        comp_id = CompVar(self.id(func_name))
-        comp_decl = CompVar(f'_{comp_id.name}')
-        self.id_to_cell[comp_id.name] = Cell(
+        comp_id = self.id(func_name)
+        comp_decl = CompVar(f'_{comp_id}')
+        self.id_to_cell[comp_id] = Cell(
             comp_decl,
             CompInst(comp_id, [])
         )
 
-        params = get_invoke_params(dest, value.args)
-        args = get_invoke_args(dest, value.args)
-
-        # Append Invoke control to `main`.
-        self.controls.append(
-            Invoke(
-                id=comp_decl,
-                args=args,
-                params=params
-            )
-        )
+        invoke_ctrl = emit_invoke_control(comp_decl, dest, value.args)
+        self.controls.append(invoke_ctrl)
 
         self.func_defs.append(
             DahliaFuncDef(
-                component_id=comp_id,
+                component_id=CompVar(comp_id),
                 function_id=func_name,
                 dest=dest,
-                params=params,
+                invoke_ctrl=invoke_ctrl,
                 attributes=value.attrs
             )
         )
