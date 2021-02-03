@@ -208,8 +208,14 @@ def instantiate_data_move(row, col, right_edge, down_edge):
         mover = ast.Group(
             group_name,
             connections=[
-                ast.Connect(ast.CompPort(src_reg, "out"), ast.CompPort(dst_reg, "in")),
-                ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(dst_reg, "write_en")),
+                ast.Connect(
+                    ast.CompPort(src_reg, "out"),
+                    ast.CompPort(dst_reg, "in")
+                ),
+                ast.Connect(
+                    ast.ConstantPort(1, 1),
+                    ast.CompPort(dst_reg, "write_en")
+                ),
                 ast.Connect(
                     ast.CompPort(dst_reg, "done"), ast.HolePort(group_name, "done")
                 ),
