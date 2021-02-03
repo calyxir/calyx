@@ -259,7 +259,7 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
             ntt_stages.append(ParComp([Enable(f's{s}_mul{i}') for i in range(n // 2)]))
             # Addition or subtraction mod `q`
             ntt_stages.append(ParComp([Enable(f's{s}_r{r}_op_mod') for r in range(n)]))
-        return ControlEntry(ControlEntryType.Seq, preambles + ntt_stages + epilogues)
+        return SeqComp(preambles + ntt_stages + epilogues)
 
     pp_table(operations, multiplies, n, num_stages)
     Program(
