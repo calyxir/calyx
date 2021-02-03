@@ -6,14 +6,14 @@ import "primitives/std.lib";
 // and places each in its own register.
 component main() -> () {
   cells {
-    const0 = prim std_const(32, 4); // 32-bit width constant with value 4.
-    const1 = prim std_const(32, 5); // 32-bit width constant with value 5.
+    const0 = std_const(32, 4); // 32-bit width constant with value 4.
+    const1 = std_const(32, 5); // 32-bit width constant with value 5.
 
-    add    = prim std_add(32);      // 32-bit width adder.
-    mult   = prim std_mult(32);     // 32-bit width multiplier.
+    add    = std_add(32);      // 32-bit width adder.
+    mult   = std_mult(32);     // 32-bit width multiplier.
 
-    reg0   = prim std_reg(32);      // 32-bit width register.
-    reg1   = prim std_reg(32);      // 32-bit width register.
+    reg0   = std_reg(32);      // 32-bit width register.
+    reg1   = std_reg(32);      // 32-bit width register.
   }
 
   wires {

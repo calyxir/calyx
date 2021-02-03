@@ -2,13 +2,13 @@ import "primitives/std.lib";
 
 component main() -> () {
   cells {
-    mem = prim std_mem_d1(32, 1, 1);
-    val = prim std_reg(32);
-    add = prim std_add(32);
+    mem = std_mem_d1(32, 1, 1);
+    val = std_reg(32);
+    add = std_add(32);
 
-    counter = prim std_reg(32);
-    add2 = prim std_add(32);
-    lt = prim std_lt(32);
+    counter = std_reg(32);
+    add2 = std_add(32);
+    lt = std_lt(32);
   }
 
   wires {
@@ -64,7 +64,7 @@ component main() -> () {
             read;
             upd;
             write;
-          };
+          }
           incr;
         }
       }

@@ -139,11 +139,11 @@ Fud wraps the FuTIL compiler and provides a set of default compiler options
 to compile FuTIL programs to Verilog.
 
 ```bash
-# Compile FuTIL source in the test vectorized-add.expect
+# Compile FuTIL source in the test simple.expect
 # to Verilog. We must explicitly specify the input
 # file type because it can not be guessed from
-# the extension.
-fud exec examples/tests/vectorized-add.expect --from futil --to verilog
+# the file extension.
+fud exec examples/futil/simple.expect --from futil --to verilog
 ```
 
 Fud can explain its execution plan when running a complex sequence of
@@ -164,12 +164,12 @@ Fud can compile a FuTIL program to Verilog and simulate it using Verilator.
 # in FuTIL using the data provided,
 # then dump the vcd into a new file for debugging.
 # === FuTIL:   examples/futil/vectorized-add.futil
-# === data:    examples/data/vectorized-add.data
+# === data:    examples/dahlia/vectorized-add.fuse.data
 # === output:  v-add.vcd
 fud exec \
   examples/futil/vectorized-add.futil \
   -o v-add.vcd \
-  -s verilog.data examples/data/vectorized-add.data
+  -s verilog.data examples/dahlia/vectorized-add.fuse.data
 ```
 
 **Simulating Dahlia.**
@@ -180,12 +180,12 @@ The following command prints out the final state of all memories by specifying
 # Compile a Dahlia dot product implementation and
 # simulate in verilog using the data provided.
 # === Dahlia: examples/dahlia/dot-product.fuse
-# === data:   examples/data/dot-product.data
+# === data:   examples/dahlia/dot-product.fuse.data
 #     (`.data` is used as an extension alias for `.json`)
 fud exec \
   examples/dahlia/dot-product.fuse \
   --to dat \
-  -s verilog.data examples/data/dot-product.data
+  -s verilog.data examples/dahlia/dot-product.fuse.data
 ```
 
 ### Working with Stages

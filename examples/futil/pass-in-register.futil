@@ -6,8 +6,8 @@ component times_10_and_add_1(
   reg_out: 32
 ) -> (reg_in: 32, reg_write_en: 1) {
   cells {
-    add = prim std_add(32);
-    mult = prim std_mult(32);
+    add = std_add(32);
+    mult = std_mult(32);
   }
   wires {
     group do_add_and_mul {
@@ -31,8 +31,8 @@ component times_10_and_add_1(
 //// ANCHOR: main
 component main() -> () {
   cells {
-    op = times_10_and_add_1;
-    r = prim std_reg(32);
+    op = times_10_and_add_1();
+    r = std_reg(32);
   }
   wires {
     // Initialize value in r
