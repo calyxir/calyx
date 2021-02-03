@@ -233,7 +233,7 @@ Change the control program to look like this:
               read;
               upd;
               write;
-            };
+            }
             incr;
           }
         }

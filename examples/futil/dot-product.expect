@@ -1,0 +1,94 @@
+import "primitives/std.lib";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    @external(1) A0 = std_mem_d1(32, 8, 4);
+    A_read0_0 = std_reg(32);
+    @external(1) B0 = std_mem_d1(32, 8, 4);
+    B_read0_0 = std_reg(32);
+    add0 = std_add(32);
+    add1 = std_add(4);
+    bin_read0_0 = std_reg(32);
+    const0 = std_const(4, 0);
+    const1 = std_const(4, 7);
+    const2 = std_const(1, 0);
+    const3 = std_const(1, 0);
+    const4 = std_const(4, 1);
+    i0 = std_reg(4);
+    le0 = std_le(4);
+    mult_pipe0 = std_mult_pipe(32);
+    @external(1) v0 = std_mem_d1(32, 1, 1);
+    fsm = std_reg(1);
+    incr = std_add(1);
+    fsm0 = std_reg(4);
+    incr0 = std_add(4);
+    fsm1 = std_reg(4);
+    cond_stored = std_reg(1);
+    incr1 = std_add(4);
+    fsm2 = std_reg(2);
+  }
+  wires {
+    A0.addr0 = fsm.out < 1'd1 & fsm0.out == 4'd0 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? i0.out;
+    A0.clk = clk;
+    A_read0_0.clk = clk;
+    A_read0_0.in = fsm.out < 1'd1 & fsm0.out == 4'd0 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? A0.read_data;
+    A_read0_0.in = fsm0.out == 4'd5 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? bin_read0_0.out;
+    A_read0_0.write_en = fsm0.out == 4'd5 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm.out < 1'd1 & fsm0.out == 4'd0 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? 1'd1;
+    B0.addr0 = fsm.out < 1'd1 & fsm0.out == 4'd0 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? i0.out;
+    B0.clk = clk;
+    B_read0_0.clk = clk;
+    B_read0_0.in = fsm.out < 1'd1 & fsm0.out == 4'd0 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? B0.read_data;
+    B_read0_0.write_en = fsm.out < 1'd1 & fsm0.out == 4'd0 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? 1'd1;
+    done = fsm2.out == 2'd2 ? 1'd1;
+    add0.left = fsm0.out == 4'd6 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? v0.read_data;
+    add0.right = fsm0.out == 4'd6 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? A_read0_0.out;
+    add1.left = fsm0.out == 4'd7 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? i0.out;
+    add1.right = fsm0.out == 4'd7 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? const4.out;
+    bin_read0_0.clk = clk;
+    bin_read0_0.in = fsm0.out >= 4'd1 & fsm0.out < 4'd5 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? mult_pipe0.out;
+    bin_read0_0.write_en = fsm0.out >= 4'd1 & fsm0.out < 4'd5 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? mult_pipe0.done;
+    cond_stored.clk = clk;
+    cond_stored.in = fsm1.out < 4'd1 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? le0.out;
+    cond_stored.write_en = fsm1.out < 4'd1 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? 1'd1;
+    fsm.clk = clk;
+    fsm.in = fsm.out == 1'd1 ? 1'd0;
+    fsm.in = fsm.out != 1'd1 & fsm0.out == 4'd0 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? incr.out;
+    fsm.write_en = fsm.out != 1'd1 & fsm0.out == 4'd0 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm.out == 1'd1 ? 1'd1;
+    fsm0.clk = clk;
+    fsm0.in = fsm0.out == 4'd8 ? 4'd0;
+    fsm0.in = fsm0.out != 4'd8 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? incr0.out;
+    fsm0.write_en = fsm0.out != 4'd8 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm0.out == 4'd8 ? 1'd1;
+    fsm1.clk = clk;
+    fsm1.in = fsm1.out == 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm1.out == 4'd1 & !cond_stored.out ? 4'd0;
+    fsm1.in = fsm1.out != 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? incr1.out;
+    fsm1.write_en = fsm1.out != 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm1.out == 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm1.out == 4'd1 & !cond_stored.out ? 1'd1;
+    fsm2.clk = clk;
+    fsm2.in = fsm2.out == 2'd2 ? 2'd0;
+    fsm2.in = fsm2.out == 2'd0 & i0.done & go ? 2'd1;
+    fsm2.in = fsm2.out == 2'd1 & fsm1.out == 4'd1 & !cond_stored.out & go ? 2'd2;
+    fsm2.write_en = fsm2.out == 2'd0 & i0.done & go | fsm2.out == 2'd1 & fsm1.out == 4'd1 & !cond_stored.out & go | fsm2.out == 2'd2 ? 1'd1;
+    i0.clk = clk;
+    i0.in = fsm0.out == 4'd7 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? add1.out;
+    i0.in = !i0.done & fsm2.out == 2'd0 & go ? const0.out;
+    i0.write_en = !i0.done & fsm2.out == 2'd0 & go | fsm0.out == 4'd7 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? 1'd1;
+    incr.left = fsm0.out == 4'd0 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? 1'd1;
+    incr.right = fsm0.out == 4'd0 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? fsm.out;
+    incr0.left = cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? 4'd1;
+    incr0.right = cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? fsm0.out;
+    incr1.left = !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? fsm1.out;
+    incr1.right = !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? 4'd1;
+    le0.left = fsm1.out < 4'd1 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? i0.out;
+    le0.right = fsm1.out < 4'd1 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? const1.out;
+    mult_pipe0.clk = clk;
+    mult_pipe0.go = !mult_pipe0.done & fsm0.out >= 4'd1 & fsm0.out < 4'd5 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? 1'd1;
+    mult_pipe0.left = fsm0.out >= 4'd1 & fsm0.out < 4'd5 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? A_read0_0.out;
+    mult_pipe0.right = fsm0.out >= 4'd1 & fsm0.out < 4'd5 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? B_read0_0.out;
+    v0.addr0 = fsm0.out == 4'd6 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? const2.out;
+    v0.addr0 = fsm0.out == 4'd6 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? const3.out;
+    v0.clk = clk;
+    v0.write_data = fsm0.out == 4'd6 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? add0.out;
+    v0.write_en = fsm0.out == 4'd6 & cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 & !(fsm1.out == 4'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? 1'd1;
+  }
+
+  control {}
+}
+

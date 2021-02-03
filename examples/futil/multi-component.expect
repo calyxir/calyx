@@ -1,0 +1,39 @@
+import "primitives/std.lib";
+component identity<"static"=1>(in: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
+  cells {
+    r = std_reg(32);
+  }
+  wires {
+    done = r.done ? 1'd1;
+    out = r.out;
+    r.clk = clk;
+    r.in = go ? in;
+    r.write_en = go ? 1'd1;
+  }
+
+  control {}
+}
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    id = identity();
+    current_value = std_reg(32);
+    fsm = std_reg(2);
+  }
+  wires {
+    done = fsm.out == 2'd2 ? 1'd1;
+    current_value.clk = clk;
+    current_value.in = !current_value.done & fsm.out == 2'd1 & go ? id.out;
+    current_value.write_en = !current_value.done & fsm.out == 2'd1 & go ? 1'd1;
+    fsm.clk = clk;
+    fsm.in = fsm.out == 2'd2 ? 2'd0;
+    fsm.in = fsm.out == 2'd0 & id.done & go ? 2'd1;
+    fsm.in = fsm.out == 2'd1 & current_value.done & go ? 2'd2;
+    fsm.write_en = fsm.out == 2'd0 & id.done & go | fsm.out == 2'd1 & current_value.done & go | fsm.out == 2'd2 ? 1'd1;
+    id.clk = clk;
+    id.go = !id.done & fsm.out == 2'd0 & go ? 1'd1;
+    id.in = !id.done & fsm.out == 2'd0 & go ? 32'd10;
+  }
+
+  control {}
+}
+
