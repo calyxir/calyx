@@ -4,29 +4,32 @@ import functools
 import logging as log
 import os
 import subprocess
-from enum import Enum
-from io import BytesIO
-from tempfile import NamedTemporaryFile, TemporaryFile
+from enum import Enum, auto
 from pathlib import Path
+from io import IOBase
 import inspect
+from tempfile import TemporaryFile
 
 from .. import errors
-from ..utils import is_debug, Directory
+from ..utils import is_debug, Directory, Conversions as conv
 
 
 class SourceType(Enum):
     """
     Enum capturing the kind of source this is.
-    TODO: document types
     TODO: replace untyped with custom named type
+    @Path: Represents a local file path. Data is pathlib.Path.
+    @Directory: Represents local directory. Data is utils.Directory.
+    @Stream: Represents a file stream. Data is a file like object.
+    @String: Represents a python string. Data is a string.
+    @UnTyped: Represents anything. No guarantees on what data is.
     """
 
-    Path = 1
-    Directory = 2
-    Stream = 3
-    String = 4
-    Null = 5
-    UnTyped = 6
+    Path = auto()
+    Directory = auto()
+    Stream = auto()
+    String = auto()
+    UnTyped = auto()
 
     def __str__(self):
         if self == SourceType.Path:
@@ -37,84 +40,62 @@ class SourceType(Enum):
             return "Stream"
         elif self == SourceType.String:
             return "String"
-        elif self == SourceType.Null:
-            return "Null"
         elif self == SourceType.UnTyped:
             return "UnTyped"
 
 
 class Source:
+    convert_map = {
+        SourceType.Path: {
+            SourceType.Directory: conv.path_to_directory,
+            SourceType.Stream: conv.path_to_stream,
+            SourceType.String: lambda p: conv.stream_to_string(conv.path_to_stream(p)),
+        },
+        SourceType.Stream: {
+            SourceType.Path: conv.stream_to_path,
+            SourceType.String: conv.stream_to_string,
+        },
+        SourceType.String: {
+            SourceType.Path: lambda s: conv.stream_to_path(conv.string_to_stream(s)),
+            SourceType.Stream: conv.string_to_stream,
+        },
+    }
+
     def __init__(self, data, typ):
         self.typ = typ
-        self.convert_map = {
-            SourceType.Path: {
-                SourceType.String: self._to_string,
-                SourceType.Stream: self._to_stream,
-                SourceType.Directory: self._to_directory,
-            },
-            SourceType.Directory: {},
-            SourceType.Stream: {
-                SourceType.String: self._to_string,
-                SourceType.Path: self._to_path,
-            },
-            SourceType.String: {
-                SourceType.Stream: self._to_stream,
-            },
-        }
-
+        # check to make sure data is the right type
+        if data is not None:
+            if self.typ == SourceType.Path:
+                assert isinstance(data, Path)
+            elif self.typ == SourceType.Directory:
+                assert isinstance(data, Directory)
+            elif self.typ == SourceType.Stream:
+                assert isinstance(data, IOBase)
+            elif self.typ == SourceType.String:
+                assert isinstance(data, str)
+            elif self.typ == SourceType.UnTyped:
+                # no guarantees on Untyped
+                pass
         self.data = data
 
     def is_convertible_to(self, other):
         if self.typ == other:
             return True
         else:
-            return other in self.convert_map[self.typ]
+            return other in Source.convert_map[self.typ]
 
     def convert_to(self, other):
         if self.typ == other:
             return self
 
-        if other in self.convert_map[self.typ]:
-            self.convert_map[self.typ][other]()
-            self.typ = other
-            return self
+        if self.is_convertible_to(other):
+            data = Source.convert_map[self.typ][other](self.data)
+            return Source(data, other)
 
         raise Exception(f"Can't convert from {self.typ} to {other}")
 
-    def _to_path(self):
-        if self.typ == SourceType.Stream:
-            with NamedTemporaryFile("wb", delete=False) as tmpfile:
-                tmpfile.write(self.data.read())
-                self.data = tmpfile.name
-        else:
-            raise Exception("TODO")
-
-    def _to_string(self):
-        if self.typ == SourceType.Path:
-            with open(self.data, "rb") as f:
-                self.data = f.read().decode("UTF-8")
-        elif self.typ == SourceType.Stream:
-            self.data = self.data.read().decode("UTF-8")
-        else:
-            raise Exception("TODO")
-
-    def _to_stream(self):
-        if self.typ == SourceType.Path:
-            self.data = open(self.data, "rb")
-        elif self.typ == SourceType.String:
-            self.data = BytesIO(self.data.encode("UTF-8"))
-
-    def _to_directory(self):
-        if self.typ == SourceType.Path:
-            if Path(self.data).is_dir():
-                self.data = Directory(self.data)
-            else:
-                raise errors.SourceConversionNotDirectory(self.data)
-        else:
-            raise Exception("TODO")
-
     def __repr__(self):
-        return f"<Source {self.data} {self.typ} >"
+        return f"<Source {self.data} {self.typ}>"
 
 
 class Stage:

@@ -84,7 +84,7 @@ class VerilatorStage(Stage):
             step, input_path: SourceType.Path, tmpdir: SourceType.Directory
         ) -> SourceType.Stream:
             return step.shell(
-                cmd.format(input_path=input_path, tmpdir_name=tmpdir.name),
+                cmd.format(input_path=str(input_path), tmpdir_name=tmpdir.name),
                 stdout_as_debug=True,
             )
 
@@ -111,6 +111,8 @@ class VerilatorStage(Stage):
             """
             Return the generated `output.vcd`.
             """
+            # return stream instead of path because tmpdir get's deleted
+            # before the next stage runs
             return (Path(tmpdir.name) / "output.vcd").open("rb")
 
         # Step 5(self.vc == False): extract cycles + data
@@ -142,7 +144,7 @@ class VerilatorStage(Stage):
         if self.data_path is None:
             check_verilog_for_mem_read(input_data)
         else:
-            json_to_dat(tmpdir, Source(self.data_path, SourceType.Path))
+            json_to_dat(tmpdir, Source(Path(self.data_path), SourceType.Path))
         compile_with_verilator(input_data, tmpdir)
         stdout = simulate(tmpdir)
         result = None

@@ -19,6 +19,6 @@ class DahliaStage(Stage):
             description=" ".join(cmd),
         )
         def run_dahlia(step, dahlia_prog: SourceType.Path) -> SourceType.Stream:
-            return step.shell(cmd + [dahlia_prog])
+            return step.shell(cmd + [str(dahlia_prog)])
 
         return run_dahlia(input_data)

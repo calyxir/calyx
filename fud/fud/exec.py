@@ -78,7 +78,7 @@ def run_fud(args, config):
         # if input_file is None:
         #     inp = Source(None, SourceType.Passthrough)
         # else:
-        inp = Source(str(input_file), SourceType.Path)
+        inp = Source(Path(str(input_file)), SourceType.Path)
 
         for ed in path:
             sp.start(f"{ed.stage.name} → {ed.stage.target_stage}")

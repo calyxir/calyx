@@ -62,7 +62,7 @@ class RemoteExecution:
             """
             with self.SCPClient(client.get_transport()) as scp:
                 scp.put(self.device_files, remote_path=tmpdir)
-                scp.put(verilog_path, remote_path=f"{tmpdir}/{self.target_name}")
+                scp.put(str(verilog_path), remote_path=f"{tmpdir}/{self.target_name}")
 
         client = establish_connection()
         tmpdir = mktmp(client)

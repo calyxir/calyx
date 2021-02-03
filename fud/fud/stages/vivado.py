@@ -68,7 +68,7 @@ class VivadoStage(Stage):
             """
             for f in self.device_files:
                 shutil.copy(f, tmpdir.name)
-            shutil.copy(verilog_path, f"{tmpdir.name}/{self.target_name}")
+            shutil.copy(str(verilog_path), f"{tmpdir.name}/{self.target_name}")
 
         tmpdir = mktmp()
         local_move_files(verilog_path, tmpdir)

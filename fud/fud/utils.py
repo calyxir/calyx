@@ -1,7 +1,11 @@
 import sys
 import logging as log
 import shutil
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, NamedTemporaryFile
+from io import BytesIO
+from pathlib import Path
+
+from . import errors
 
 
 def eprint(*args, **kwargs):
@@ -68,3 +72,30 @@ class TmpDir(Directory):
 
     def remove(self):
         self.tmpdir_obj.cleanup()
+
+
+class Conversions:
+    @staticmethod
+    def path_to_directory(data):
+        if data.is_dir():
+            return Directory(data.name)
+        else:
+            raise errors.SourceConversionNotDirectory(data.name)
+
+    @staticmethod
+    def path_to_stream(data):
+        return open(data, "rb")
+
+    @staticmethod
+    def stream_to_path(data):
+        with NamedTemporaryFile("wb", delete=False) as tmpfile:
+            tmpfile.write(data.read())
+            return Path(tmpfile.name)
+
+    @staticmethod
+    def stream_to_string(data):
+        return data.read().decode("UTF-8")
+
+    @staticmethod
+    def string_to_stream(data):
+        return BytesIO(data.encode("UTF-8"))
