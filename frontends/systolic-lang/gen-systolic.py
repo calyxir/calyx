@@ -386,7 +386,7 @@ def generate_control(top_length, top_depth, left_length, left_depth):
                         ('top', CompPort(CompVar(f'top_{r}_{c}'), 'out')),
                         ('left', CompPort(CompVar(f'left_{r}_{c}'), 'out'))
                     ],
-                    out_connects = []
+                    out_connects=[]
                 )
             )
 
@@ -412,7 +412,9 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
     left_depth: Number of elements processed by each PE in a col.
     """
 
-    assert top_depth == left_depth, f'Cannot multiply matrices: {top_length}x{top_depth} and {left_depth}x{left_length}'
+    assert top_depth == left_depth, \
+        f'Cannot multiply matrices: ' \
+        f'{top_length}x{top_depth} and {left_depth}x{left_length}'
 
     cells = []
     wires = []
@@ -434,7 +436,9 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
     cells.append(
         Cell(
             OUT_MEM,
-            Stdlib().mem_d2(BITWIDTH, left_length, top_length, out_ridx_size, out_cidx_size),
+            Stdlib().mem_d2(
+                BITWIDTH, left_length, top_length, out_ridx_size, out_cidx_size
+            ),
             is_external=True
         )
     )
@@ -501,7 +505,10 @@ if __name__ == '__main__':
             left_depth = spec['left_depth']
     else:
         parser.error(
-            "Need to pass either `-f FILE` or all of `-tl TOP_LENGTH -td TOP_DEPTH -ll LEFT_LENGTH -ld LEFT_DEPTH`")
+            "Need to pass either `-f FILE` or all of `"
+            "-tl TOP_LENGTH -td TOP_DEPTH "
+            "-ll LEFT_LENGTH -ld LEFT_DEPTH`"
+        )
 
     program = create_systolic_array(
         top_length=top_length,
