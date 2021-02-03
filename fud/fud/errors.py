@@ -70,7 +70,7 @@ class NoPathFound(FudError):
     def __init__(self, source, destination):
         msg = (
             f"No way to convert input in stage `{source}' to "
-            + "stage `{destination}'."
+            + f"stage `{destination}'."
         )
         super().__init__(msg)
 
