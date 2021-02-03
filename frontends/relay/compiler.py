@@ -120,7 +120,7 @@ class Relay2Futil(ExprFunctor):
                 inputs=[],
                 outputs=[],
                 structs=self.wires + list(self.id_to_cell.values()),
-                controls=ControlEntry(ControlEntryType.Seq, self.controls)
+                controls=SeqComp(self.controls)
             ),
             self.func_defs
         )
