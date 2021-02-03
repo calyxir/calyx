@@ -40,15 +40,11 @@ wires = [
     )
 ]
 
-controls = SeqComp(
-    stmts=[
-        If(
-            CompPort(lt, 'out'),
-            cond,
-            Enable(true),
-            Enable(false)
-        )
-    ]
+controls = If(
+    CompPort(lt, 'out'),
+    cond,
+    Enable(true),
+    Enable(false)
 )
 
 main_component = Component(
