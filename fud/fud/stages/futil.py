@@ -21,12 +21,8 @@ class FutilStage(Stage):
             ]
         )
 
-        @self.step(
-            input_type=SourceType.Stream,
-            output_type=SourceType.Stream,
-            description=cmd,
-        )
-        def run_futil(step, inp_stream):
+        @self.step(description=cmd)
+        def run_futil(step, inp_stream: SourceType.Stream) -> SourceType.Stream:
             return step.shell(
                 cmd,
                 stdin=inp_stream,

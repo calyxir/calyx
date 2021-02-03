@@ -52,15 +52,20 @@ class VivadoHLSStage(Stage):
 
     def setup_environment(self, verilog_path):
         # Step 1: Make a new temporary directory
-        @self.step(input_type=SourceType.Null, output_type=SourceType.Directory)
-        def mktmp(step):
+        @self.step()
+        def mktmp(step) -> SourceType.Directory:
             """
             Make temporary directory to store VivadoHLS synthesis files.
             """
             return TmpDir()
 
-        @self.step(input_type=(SourceType.Path, SourceType.Directory))
-        def local_move_files(step, verilog_path, tmpdir):
+        @self.step()
+        def local_move_files(
+            step, verilog_path: SourceType.Path, tmpdir: SourceType.Directory
+        ):
+            """
+            Copy files into tmpdir directory.
+            """
             for f in self.device_files:
                 shutil.copy(f, tmpdir.name)
             shutil.copy(verilog_path, f"{tmpdir.name}/{self.target_name}")
@@ -70,8 +75,8 @@ class VivadoHLSStage(Stage):
         return tmpdir
 
     def execute(self, tmpdir):
-        @self.step(input_type=SourceType.Directory)
-        def run_vivado(step, tmpdir):
+        @self.step()
+        def run_vivado(step, tmpdir: SourceType.Directory):
             step.shell(
                 " ".join([f"cd {tmpdir.name}", "&&", self.cmd]), stdout_as_debug=True
             )
@@ -92,8 +97,8 @@ class VivadoHLSExtractStage(Stage):
         self.setup()
 
     def _define_steps(self, input_dir):
-        @self.step(input_type=SourceType.Directory, output_type=SourceType.String)
-        def extract(step, directory):
+        @self.step()
+        def extract(step, directory: SourceType.Directory) -> SourceType.String:
             """
             Extract relevant data from Vivado synthesis files.
             """

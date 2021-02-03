@@ -14,12 +14,8 @@ class VcdumpStage(Stage):
         self.setup()
 
     def _define_steps(self, stream):
-        @self.step(
-            input_type=SourceType.Stream,
-            output_type=SourceType.Stream,
-            description=f"{self.cmd} --pretty",
-        )
-        def run_vcdump(step, inp_stream):
+        @self.step(description=f"{self.cmd} --pretty")
+        def run_vcdump(step, inp_stream: SourceType.Stream) -> SourceType.Stream:
             return step.shell(f"{self.cmd} --pretty", stdin=inp_stream)
 
         return run_vcdump(stream)

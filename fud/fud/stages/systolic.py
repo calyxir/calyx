@@ -26,12 +26,8 @@ class SystolicStage(Stage):
         self.setup()
 
     def _define_steps(self, input_path):
-        @self.step(
-            input_type=SourceType.Path,
-            output_type=SourceType.Stream,
-            description=str(self.script),
-        )
-        def run_systolic(step, input_path):
+        @self.step(description=str(self.script))
+        def run_systolic(step, input_path: SourceType.Path) -> SourceType.Stream:
             return step.shell(f"{str(self.script)} {input_path}")
 
         return run_systolic(input_path)

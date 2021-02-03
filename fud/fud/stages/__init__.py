@@ -8,6 +8,7 @@ from enum import Enum
 from io import BytesIO
 from tempfile import NamedTemporaryFile, TemporaryFile
 from pathlib import Path
+import inspect
 
 from .. import errors
 from ..utils import is_debug, Directory
@@ -146,37 +147,46 @@ class Stage:
         self.hollow_input_data = Source(None, self.input_type)
         self.final_output = self._define_steps(self.hollow_input_data)
 
-    def step(self, input_type=None, output_type=None, description=None):
-        if input_type == SourceType.Null or input_type is None:
-            input_type = ()
-        elif type(input_type) != tuple:
-            input_type = (input_type,)
-
+    def step(self, description=None):
         def step_decorator(function):
             functools.wraps(function)
 
+            sig = inspect.signature(function)
+
+            # ignore the first parameter because it should be `step`
+            annotations = []
+            for ty in list(sig.parameters.values())[1:]:
+                if ty.annotation is ty.empty:
+                    raise Exception(f"Missing type annotation for argument `{ty}`")
+                annotations.append(ty.annotation)
+            input_types = tuple(annotations)
+
+            # TODO: handle tuples return types
+            output_types = sig.return_annotation
+
             # the modified function that the decorator creates
             def wrapper(*args):
+
                 # check to make sure the num of args match the num of expected args
-                if len(args) != len(input_type):
+                if len(args) != len(input_types):
                     raise Exception(
                         "Expected {} input arguments, but only recieved {}".format(
-                            len(input_type), len(args)
+                            len(input_types), len(args)
                         )
                     )
 
                 # make sure that the args are convertible to expected input types
-                for arg, inp in zip(args, input_type):
+                for arg, inp in zip(args, input_types):
                     if arg.typ != inp and not arg.is_convertible_to(inp):
                         raise Exception(
                             f"Type mismatch: can't convert {arg.typ} to {inp}"
                         )
 
                 # create a source with no data so that we can return a handle to this
-                future_output = Source(None, output_type)
+                future_output = Source(None, output_types)
                 # convert the args to the right types and unwrap them
                 unwrapped_args = map(
-                    lambda a: a[0].convert_to(a[1]).data, zip(args, input_type)
+                    lambda a: a[0].convert_to(a[1]).data, zip(args, input_types)
                 )
                 # thunk the function as a Step
                 self.steps.append(

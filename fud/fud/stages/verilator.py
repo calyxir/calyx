@@ -37,16 +37,16 @@ class VerilatorStage(Stage):
 
     def _define_steps(self, input_data):
         # Step 1: Make a new temporary directory
-        @self.step(input_type=SourceType.Null, output_type=SourceType.Directory)
-        def mktmp(step):
+        @self.step()
+        def mktmp(step) -> SourceType.Directory:
             """
             Make temporary directory to store Verilator build files.
             """
             return TmpDir()
 
         # Step 2a: check if we need verilog.data to be passes
-        @self.step(input_type=SourceType.String, output_type=SourceType.Null)
-        def check_verilog_for_mem_read(step, verilog_src):
+        @self.step()
+        def check_verilog_for_mem_read(step, verilog_src: SourceType.String):
             """
             Read input verilog to see if `verilog.data` needs to be set.
             """
@@ -54,8 +54,10 @@ class VerilatorStage(Stage):
                 raise errors.MissingDynamicConfiguration("verilog.data")
 
         # Step 2: Transform data from JSON to Dat.
-        @self.step(input_type=(SourceType.Directory, SourceType.Stream))
-        def json_to_dat(step, tmp_dir, json_path):
+        @self.step()
+        def json_to_dat(
+            step, tmp_dir: SourceType.Directory, json_path: SourceType.Stream
+        ):
             """
             Converts a `json` data format into a series of `.dat` files.
             """
@@ -77,23 +79,18 @@ class VerilatorStage(Stage):
             ]
         )
 
-        @self.step(
-            input_type=(SourceType.Path, SourceType.Directory),
-            output_type=SourceType.Stream,
-            description=cmd,
-        )
-        def compile_with_verilator(step, input_path, tmpdir):
+        @self.step(description=cmd)
+        def compile_with_verilator(
+            step, input_path: SourceType.Path, tmpdir: SourceType.Directory
+        ) -> SourceType.Stream:
             return step.shell(
                 cmd.format(input_path=input_path, tmpdir_name=tmpdir.name),
                 stdout_as_debug=True,
             )
 
         # Step 4: simulate
-        @self.step(
-            input_type=SourceType.Directory,
-            output_type=SourceType.Stream,
-        )
-        def simulate(step, tmpdir):
+        @self.step()
+        def simulate(step, tmpdir: SourceType.Directory) -> SourceType.Stream:
             """
             Simulates compiled Verilator code.
             """
@@ -109,19 +106,18 @@ class VerilatorStage(Stage):
             )
 
         # Step 5(self.vcd == True): extract
-        @self.step(input_type=SourceType.Directory, output_type=SourceType.Stream)
-        def output_vcd(step, tmpdir):
+        @self.step()
+        def output_vcd(step, tmpdir: SourceType.Directory) -> SourceType.Stream:
             """
             Return the generated `output.vcd`.
             """
             return (Path(tmpdir.name) / "output.vcd").open("rb")
 
         # Step 5(self.vc == False): extract cycles + data
-        @self.step(
-            input_type=(SourceType.String, SourceType.Directory),
-            output_type=SourceType.String,
-        )
-        def output_json(step, simulated_output, tmpdir):
+        @self.step()
+        def output_json(
+            step, simulated_output: SourceType.String, tmpdir: SourceType.Directory
+        ) -> SourceType.String:
             """
             Convert .dat files back into a json and extract simulated cycles from log.
             """
@@ -133,8 +129,8 @@ class VerilatorStage(Stage):
             }
             return json.dumps(data, indent=2, sort_keys=True)
 
-        @self.step(input_type=SourceType.Directory)
-        def cleanup(step, tmpdir):
+        @self.step()
+        def cleanup(step, tmpdir: SourceType.Directory):
             """
             Cleanup Verilator build files that we no longer need.
             """
