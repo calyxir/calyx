@@ -231,7 +231,12 @@ class Step:
         self.func = func
         self.args = args
         self.output = output
-        self.description = description
+        if description is not None:
+            self.description = description
+        elif self.func.__doc__ is not None:
+            self.description = self.func.__doc__.strip()
+        else:
+            raise Exception(f"Step {self.name} does not have a description.")
 
     def __call__(self):
         if is_debug():

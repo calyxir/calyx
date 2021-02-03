@@ -75,13 +75,13 @@ class VivadoHLSStage(Stage):
         return tmpdir
 
     def execute(self, tmpdir):
-        @self.step()
-        def run_vivado(step, tmpdir: SourceType.Directory):
+        @self.step(description=self.cmd)
+        def run_vivado_hls(step, tmpdir: SourceType.Directory):
             step.shell(
                 " ".join([f"cd {tmpdir.name}", "&&", self.cmd]), stdout_as_debug=True
             )
 
-        run_vivado(tmpdir)
+        run_vivado_hls(tmpdir)
 
 
 class VivadoHLSExtractStage(Stage):

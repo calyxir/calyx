@@ -63,6 +63,9 @@ class VivadoStage(Stage):
         def local_move_files(
             step, verilog_path: SourceType.Path, tmpdir: SourceType.Directory
         ):
+            """
+            Copy device files into tmpdir.
+            """
             for f in self.device_files:
                 shutil.copy(f, tmpdir.name)
             shutil.copy(verilog_path, f"{tmpdir.name}/{self.target_name}")
@@ -72,7 +75,7 @@ class VivadoStage(Stage):
         return tmpdir
 
     def execute(self, tmpdir):
-        @self.step()
+        @self.step(description=self.cmd)
         def run_vivado(step, tmpdir: SourceType.Directory):
             step.shell(
                 " ".join([f"cd {tmpdir.name}", "&&", self.cmd]), stdout_as_debug=True
