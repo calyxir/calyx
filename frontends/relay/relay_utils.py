@@ -68,12 +68,7 @@ def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
 
     def get_connects(c: Cell):
         comp = c.comp
-        assert comp.id in {
-            'std_mem_d1',
-            'std_mem_d2',
-            'std_mem_d3',
-            'std_mem_d4'
-        }, f'{comp.id} is not a memory, and not supported currently.'
+        assert comp.id in DahliaSuffix, f'{comp.id} supported yet.'
         in_, out = [], []
         param = c.id.name
         arg = CompVar(param)
