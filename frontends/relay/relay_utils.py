@@ -13,8 +13,17 @@ NumDimsToCell = {
 }
 
 
+# Suffix appended to memories by Dahlia when lowering.
+DahliaSuffix = {
+    'std_mem_d1': '0',
+    'std_mem_d2': '0_0',
+    'std_mem_d3': '0_0_0',
+    'std_mem_d4': '0_0_0_0'
+}
+
+
 # TODO(cgyurgyik): Necessary with `Invoke` controls?
-def dahlia_name(name, type):
+def dahlia_name(name, component_id):
     """Appends the appropriate suffix for Dahlia codegen.
     Dahlia uses the following naming schema
     for an arbitrary variable `X`:
@@ -23,12 +32,6 @@ def dahlia_name(name, type):
       Memory3D: `X0_0_0`
       Memory4D: `X0_0_0_0`
     """
-    # DahliaSuffix = {
-    #     PrimitiveType.Memory1D: '0',
-    #     PrimitiveType.Memory2D: '0_0',
-    #     PrimitiveType.Memory3D: '0_0_0',
-    #     PrimitiveType.Memory4D: '0_0_0_0'
-    # }
     assert type in DahliaSuffix, f'{name} with {type} is not supported.'
     return f'{name}{DahliaSuffix}'
 
@@ -46,33 +49,17 @@ class DahliaFuncDef:
 def get_addr_ports(c: CompInst):
     id = c.id
     args = c.args
-    assert id in {
-        'std_mem_d1', 'std_mem_d2',
-        'std_mem_d3', 'std_mem_d4'
-    }, f'{id} is not supported or does not have address ports.'
-
-    if id == 'std_mem_d1':
-        return [
-            ('addr0', args[2])
-        ]
-    if id == 'std_mem_d2':
-        return [
-            ('addr0', args[3]),
-            ('addr1', args[4])
-        ]
-    if id == 'std_mem_d3':
-        return [
-            ('addr0', args[4]),
-            ('addr1', args[5]),
-            ('addr2', args[6])
-        ]
-    if id == 'std_mem_d4':
-        return [
-            ('addr0', args[5]),
-            ('addr1', args[6]),
-            ('addr2', args[7]),
-            ('addr3', args[8])
-        ]
+    dims2id = {
+        'std_mem_d1': 1,
+        'std_mem_d2': 2,
+        'std_mem_d3': 3,
+        'std_mem_d4': 4
+    }
+    assert id in dims2id.keys(), f'{id} not supported.'
+    dims = dims2id[id]
+    addresses = range(0, dims)
+    indices = range(dims + 1, dims << 1 + 1)
+    return [(f'addr{i}', args[n]) for (i, n) in zip(addresses, indices)]
 
 
 def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
@@ -109,11 +96,10 @@ def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
         ])
         return in_, out
 
-    for c in args + [dest]:
-        # We treat the connections of both
-        # the destination and argument memories in
-        # the same manner for now.
-        in_, out = get_connects(c)
+    for cell in args + [dest]:
+        # We treat the connections of both the destination
+        # and argument memories in the same manner for now.
+        in_, out = get_connects(cell)
         in_connects.extend(in_)
         out_connects.extend(out)
 
@@ -125,32 +111,31 @@ def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
 
 
 def get_dahlia_data_type(relay_type) -> str:
-    '''
-    Gets the Dahlia data type from the given Relay type.
-    NOTE: Currently, Dahlia does not support signed types for arrays.
-    '''
-    dtype = relay_type.dtype
-    if 'int' in dtype: return 'bit'
-    if 'float' in dtype: return 'fix'
+    """Gets the Dahlia data type from the given Relay type.
+    It maps the types in the following manner:
+
+    Relay  | Dahlia
+    -------|--------
+     int   | (`bit`, width)
+     float | (`fix`, (width, width // 2))
+    """
+    width = get_bitwidth(relay_type)
+
+    if 'int' in relay_type.dtype: return ('bit', width)
+    if 'float' in relay_type.dtype: return ('fix', (width, width // 2))
     assert False, f'{relay_type} is not supported.'
 
 
 def get_bitwidth(relay_type) -> int:
-    '''
-    Gets the bitwidth from a Relay type.
-    If the relay_type is floating point of width N, returns a fixed point of size <N, N/2>.
-    This lowers to a fixed point cell with `int_width` of size N/2, and a `fract_width` of size N/2.
-    '''
+    """Gets the bitwidth from a Relay type.
+    """
     dtype = relay_type.dtype
-    width = int(''.join(filter(str.isdigit, dtype)))
-    if 'int' in dtype:
-        return width
-    if 'float' in dtype:
-        return width, width // 2
-    assert 0, f'{relay_type} is not supported.'
+    assert 'int' in dtype or 'float' in dtype, f'{relay_type} not supported.'
+    return int(''.join(filter(str.isdigit, dtype)))
 
 
 def get_memory(name, type) -> Cell:
+    """TODO: Document."""
     dims = type.concrete_shape
     # Bitwidth, along with sizes and index sizes (if it is a Tensor).
     args = [get_bitwidth(type)] + [d for d in dims] + [bits_needed(d) for d in dims]
