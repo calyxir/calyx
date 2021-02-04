@@ -105,4 +105,4 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
         apply = broadcast if id in BinaryOps else RelayCallNodes[id]
         dahlia_definitions.append(apply(func_def))
 
-        return dahlia_to_futil('\n'.join(dahlia_definitions))
+    return dahlia_to_futil('\n'.join(dahlia_definitions))
