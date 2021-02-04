@@ -147,8 +147,8 @@ jobs:
     - name: Install tvm
       run: |
         cd frontends/relay
-        git clone --recursive git@github.com:apache/incubator-tvm.git
-        cd incubator-tvm && git reset --hard ccacb1ec1
+        git clone --recursive https://github.com/apache/tvm.git
+        cd tvm && git reset --hard ccacb1ec1
         mkdir build && cd build
         cp ../cmake/config.cmake .
         cmake -G Ninja .. && ninja
