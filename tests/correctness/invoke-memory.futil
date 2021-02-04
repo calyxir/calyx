@@ -2,72 +2,31 @@ import "primitives/std.lib";
 component copy(dest_done: 1, src_read_data: 32) ->
               (dest_write_data: 32, dest_write_en: 1, dest_addr0: 2, src_addr0: 2) {
   cells {
-    const0 = std_const(1,0);
-    const1 = std_const(1,1);
-    one_0 = std_reg(1);
-    pad = std_pad(1,2);
-    pad1 = std_pad(1,2);
-    pad2 = std_pad(1,2);
-    pad3 = std_pad(1,2);
-    src_read_0 = std_reg(32);
-    src_read1_0 = std_reg(32);
-    zero_0 = std_reg(1);
   }
   wires {
-    group let0<"static"=1> {
-      zero_0.in = const0.out;
-      zero_0.write_en = 1'd1;
-      let0[done] = zero_0.done;
-    }
-    group let1<"static"=1> {
-      one_0.in = const1.out;
-      one_0.write_en = 1'd1;
-      let1[done] = one_0.done;
-    }
-    group upd<"static"=1> {
-      src_read_0.write_en = 1'd1;
-      src_addr0 = pad.out;
-      pad.in = zero_0.out;
-      src_read_0.in = 1'd1 ? src_read_data;
-      upd[done] = src_read_0.done ? 1'd1;
-    }
-    group upd1<"static"=1> {
-      dest_addr0 = pad1.out;
-      pad1.in = zero_0.out;
+    group copy_index_zero<"static"=1> {
+      src_addr0 = 2'd0;
+      dest_addr0 = 2'd0;
       dest_write_en = 1'd1;
-      dest_write_data = 1'd1 ? src_read_0.out;
-      upd1[done] = dest_done ? 1'd1;
+      dest_write_data = src_read_data;
+      copy_index_zero[done] = dest_done;
     }
-    group upd2<"static"=1> {
-      src_read1_0.write_en = 1'd1;
-      src_addr0 = pad2.out;
-      pad2.in = one_0.out;
-      src_read1_0.in = 1'd1 ? src_read_data;
-      upd2[done] = src_read1_0.done ? 1'd1;
-    }
-    group upd3<"static"=1> {
-      dest_addr0 = pad3.out;
-      pad3.in = one_0.out;
+    group copy_index_one<"static"=1> {
+      src_addr0 = 2'd1;
+      dest_addr0 = 2'd1;
       dest_write_en = 1'd1;
-      dest_write_data = 1'd1 ? src_read1_0.out;
-      upd3[done] = dest_done ? 1'd1;
+      dest_write_data = src_read_data;
+      copy_index_one[done] = dest_done;
     }
   }
   control {
     seq {
-      par {
-        let0;
-        let1;
-      }
-      upd;
-      par {
-        upd1;
-        upd2;
-      }
-      upd3;
+      copy_index_zero;
+      copy_index_one;
     }
   }
 }
+
 component main() -> () {
   cells {
     @external(1) d = std_mem_d1(32,2,2);
