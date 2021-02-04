@@ -42,10 +42,12 @@ impl Visitor for SynthesisPapercut {
             .iter()
             .filter_map(|cell| {
                 let cell = &cell.borrow();
-                if self.memories.contains(&cell.name) {
-                    let has_external = cell.get_attribute("external");
-                    if has_external.is_none() {
-                        return Some(cell.name.clone());
+                if let Some(parent) = cell.type_name() {
+                    if self.memories.contains(&parent) {
+                        let has_external = cell.get_attribute("external");
+                        if has_external.is_none() {
+                            return Some(cell.name.clone());
+                        }
                     }
                 }
                 None
@@ -64,22 +66,23 @@ impl Visitor for SynthesisPapercut {
             });
 
         for mem in memory_cells {
+            println!("{}", mem);
             let cell = comp.find_cell(&mem).unwrap();
             let read_port = cell.borrow().get("read_data");
             if analysis.reads_from(&*read_port.borrow()).next().is_none() {
                 return Err(Error::Papercut(
                     format!(
-                        "Only reads performed on memory `{}'. Synthesis tools with remove this memory. Add @external(1) to cell to turn this into an interface memory",
+                        "Only reads performed on memory `{}'. Synthesis tools with remove this memory. Add @external(1) to cell to turn this into an interface memory.",
                         mem.to_string()
                     ),
                     mem,
                 ));
             }
-            let write_port = cell.borrow().get("out");
+            let write_port = cell.borrow().get("write_data");
             if analysis.writes_to(&*write_port.borrow()).next().is_none() {
                 return Err(Error::Papercut(
                     format!(
-                        "Only writes performed on memory `{}'. Synthesis tools with remove this memory. Add @external(1) to cell to turn this into an interface memory",
+                        "Only writes performed on memory `{}'. Synthesis tools with remove this memory. Add @external(1) to cell to turn this into an interface memory.",
                         mem.to_string()
                     ),
                     mem,

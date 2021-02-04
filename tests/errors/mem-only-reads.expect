@@ -1,0 +1,7 @@
+mem
+---CODE---
+1
+---STDERR---
+Error: 
+4 |    mem = std_mem_d1(32, 4, 4);
+  |    ^^^ [Papercut] Only writes performed on memory `mem'. Synthesis tools with remove this memory. Add @external(1) to cell to turn this into an interface memory
