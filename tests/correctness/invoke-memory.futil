@@ -1,16 +1,15 @@
 import "primitives/std.lib";
-component copy(dest0_read_data: 32, dest0_done: 1, src0_read_data: 32, src0_done: 1) ->
-               (dest0_write_data: 32, dest0_write_en: 1, dest0_addr0: 2,
-                src0_write_data: 32, src0_write_en: 1, src0_addr0: 2) {
+component copy(dest_done: 1, src_read_data: 32) ->
+              (dest_write_data: 32, dest_write_en: 1, dest_addr0: 2, src_addr0: 2) {
   cells {
     const0 = std_const(1,0);
     const1 = std_const(1,1);
     one_0 = std_reg(1);
-    pad0 = std_pad(1,2);
+    pad = std_pad(1,2);
     pad1 = std_pad(1,2);
     pad2 = std_pad(1,2);
     pad3 = std_pad(1,2);
-    src_read0_0 = std_reg(32);
+    src_read_0 = std_reg(32);
     src_read1_0 = std_reg(32);
     zero_0 = std_reg(1);
   }
@@ -25,33 +24,33 @@ component copy(dest0_read_data: 32, dest0_done: 1, src0_read_data: 32, src0_done
       one_0.write_en = 1'd1;
       let1[done] = one_0.done;
     }
-    group upd0<"static"=1> {
-      src_read0_0.write_en = 1'd1;
-      src0_addr0 = pad0.out;
-      pad0.in = zero_0.out;
-      src_read0_0.in = 1'd1 ? src0_read_data;
-      upd0[done] = src_read0_0.done ? 1'd1;
+    group upd<"static"=1> {
+      src_read_0.write_en = 1'd1;
+      src_addr0 = pad.out;
+      pad.in = zero_0.out;
+      src_read_0.in = 1'd1 ? src_read_data;
+      upd[done] = src_read_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
-      dest0_addr0 = pad1.out;
+      dest_addr0 = pad1.out;
       pad1.in = zero_0.out;
-      dest0_write_en = 1'd1;
-      dest0_write_data = 1'd1 ? src_read0_0.out;
-      upd1[done] = dest0_done ? 1'd1;
+      dest_write_en = 1'd1;
+      dest_write_data = 1'd1 ? src_read_0.out;
+      upd1[done] = dest_done ? 1'd1;
     }
     group upd2<"static"=1> {
       src_read1_0.write_en = 1'd1;
-      src0_addr0 = pad2.out;
+      src_addr0 = pad2.out;
       pad2.in = one_0.out;
-      src_read1_0.in = 1'd1 ? src0_read_data;
+      src_read1_0.in = 1'd1 ? src_read_data;
       upd2[done] = src_read1_0.done ? 1'd1;
     }
     group upd3<"static"=1> {
-      dest0_addr0 = pad3.out;
+      dest_addr0 = pad3.out;
       pad3.in = one_0.out;
-      dest0_write_en = 1'd1;
-      dest0_write_data = 1'd1 ? src_read1_0.out;
-      upd3[done] = dest0_done ? 1'd1;
+      dest_write_en = 1'd1;
+      dest_write_data = 1'd1 ? src_read1_0.out;
+      upd3[done] = dest_done ? 1'd1;
     }
   }
   control {
@@ -60,7 +59,7 @@ component copy(dest0_read_data: 32, dest0_done: 1, src0_read_data: 32, src0_done
         let0;
         let1;
       }
-      upd0;
+      upd;
       par {
         upd1;
         upd2;
@@ -71,17 +70,16 @@ component copy(dest0_read_data: 32, dest0_done: 1, src0_read_data: 32, src0_done
 }
 component main() -> () {
   cells {
-    @external(1) d0 = std_mem_d1(32,2,2);
+    @external(1) d = std_mem_d1(32,2,2);
     copy0 = copy();
-    @external(1) s0 = std_mem_d1(32,2,2);
+    @external(1) s = std_mem_d1(32,2,2);
   }
   wires {
   }
   control {
     seq {
-      invoke copy0(dest0_read_data=d0.read_data, dest0_done=d0.done, src0_read_data=s0.read_data, src0_done=s0.done)
-                  (dest0_write_data=d0.write_data, dest0_write_en=d0.write_en, dest0_addr0=d0.addr0,
-                   src0_write_data=s0.write_data, src0_write_en=s0.write_en, src0_addr0=s0.addr0);
+      invoke copy0(dest_done=d.done, src_read_data=s.read_data)
+                  (dest_write_data=d.write_data, dest_write_en=d.write_en, dest_addr0=d.addr0, src_addr0=s.addr0);
     }
   }
 }
