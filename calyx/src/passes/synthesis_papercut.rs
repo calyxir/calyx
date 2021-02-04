@@ -4,8 +4,9 @@ use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, LibrarySignatures};
 use std::collections::HashSet;
 
-/// Pass to check for common errors such as missing assignments to `done` holes
-/// of groups.
+/// Pass to check common synthesis issues.
+/// 1. If a memory is only read-from or written-to, synthesis tools will optimize it away. Add
+///    @external attribute to the cell definition to make it an interface memory.
 pub struct SynthesisPapercut {
     /// Names of memory primitives
     memories: HashSet<ir::Id>,
@@ -37,6 +38,7 @@ impl Visitor for SynthesisPapercut {
         comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
+        // Get all the memory cells.
         let memory_cells = comp
             .cells
             .iter()
@@ -54,6 +56,7 @@ impl Visitor for SynthesisPapercut {
             })
             .collect::<HashSet<_>>();
 
+        // Early return if there are no memory cells.
         if memory_cells.is_empty() {
             return Ok(Action::Stop);
         }
