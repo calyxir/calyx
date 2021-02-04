@@ -2,6 +2,7 @@ import logging as log
 
 from .. import errors
 from ..stages import SourceType
+from ..utils import shell
 
 
 class RemoteExecution:
@@ -32,7 +33,7 @@ class RemoteExecution:
 
     def open_and_transfer(self, input_path):
         @self.stage.step()
-        def establish_connection(step) -> SourceType.UnTyped:
+        def establish_connection() -> SourceType.UnTyped:
             """
             Establish ssh connection.
             """
@@ -42,7 +43,7 @@ class RemoteExecution:
             return client
 
         @self.stage.step()
-        def mktmp(step, client: SourceType.UnTyped) -> SourceType.String:
+        def mktmp(client: SourceType.UnTyped) -> SourceType.String:
             """
             Execute `mktemp -d` over ssh connection.
             """
@@ -52,7 +53,6 @@ class RemoteExecution:
 
         @self.stage.step()
         def send_files(
-            step,
             client: SourceType.UnTyped,
             verilog_path: SourceType.Path,
             tmpdir: SourceType.String,
@@ -71,7 +71,7 @@ class RemoteExecution:
 
     def execute(self, client, tmpdir, cmd):
         @self.stage.step()
-        def run_vivado(step, client: SourceType.UnTyped, tmpdir: SourceType.String):
+        def run_vivado(client: SourceType.UnTyped, tmpdir: SourceType.String):
             _, stdout, stderr = client.exec_command(
                 " ".join([f"cd {tmpdir}", "&&", cmd])
             )
@@ -79,14 +79,12 @@ class RemoteExecution:
             # debug mode
             for chunk in iter(lambda: stdout.readline(2048), ""):
                 log.debug(chunk.strip())
-            # print(stderr.read().decode("ascii"))
 
         run_vivado(client, tmpdir)
 
     def close_and_transfer(self, client, remote_tmpdir, local_tmpdir):
         @self.stage.step()
         def copy_back(
-            step,
             client: SourceType.UnTyped,
             remote_tmpdir: SourceType.String,
             local_tmpdir: SourceType.Directory,
@@ -95,11 +93,11 @@ class RemoteExecution:
                 scp.get(
                     remote_tmpdir, local_path=f"{local_tmpdir.name}", recursive=True
                 )
-                step.shell(f"mv {local_tmpdir.name}/tmp.* {local_tmpdir.name}")
-                step.shell(f"rm -r {local_tmpdir.name}/tmp.*")
+                shell(f"mv {local_tmpdir.name}/tmp.* {local_tmpdir.name}")
+                shell(f"rm -r {local_tmpdir.name}/tmp.*")
 
         @self.stage.step()
-        def finalize_ssh(step, client: SourceType.UnTyped, tmpdir: SourceType.String):
+        def finalize_ssh(client: SourceType.UnTyped, tmpdir: SourceType.String):
             """
             Remove created temporary files and close ssh connection.
             """

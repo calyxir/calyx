@@ -2,15 +2,11 @@
 
 import functools
 import logging as log
-import os
-import subprocess
 from enum import Enum, auto
 from pathlib import Path
 from io import IOBase
 import inspect
-from tempfile import TemporaryFile
 
-from .. import errors
 from ..utils import is_debug, Directory, Conversions as conv
 
 
@@ -134,9 +130,8 @@ class Stage:
 
             sig = inspect.signature(function)
 
-            # ignore the first parameter because it should be `step`
             annotations = []
-            for ty in list(sig.parameters.values())[1:]:
+            for ty in list(sig.parameters.values()):
                 if ty.annotation is ty.empty:
                     raise Exception(f"Missing type annotation for argument `{ty}`")
                 annotations.append(ty.annotation)
@@ -189,7 +184,7 @@ class Stage:
     def _define_steps(self, input_data):
         pass
 
-    def run(self, input_data):
+    def run(self, input_data, sp):
         assert isinstance(input_data, Source)
 
         # fill in input_data
@@ -197,7 +192,9 @@ class Stage:
 
         # run all the steps
         for step in self.steps:
+            sp.start_step(step.name)
             step()
+            sp.end_step()
 
         return self.final_output
 
@@ -225,7 +222,7 @@ class Step:
             arg_str = ", ".join(map(lambda a: str(a), args))
             log.debug(f"{self.name}({arg_str})")
             self.args = args
-        self.output.data = self.func(self, *self.args)
+        self.output.data = self.func(*self.args)
         return self.output
 
     def __str__(self):
@@ -235,36 +232,3 @@ class Step:
             return f"{self.name}: {self.func.__doc__.strip()}"
         else:
             return f"{self.name}: <python function>"
-
-    def shell(self, cmd, stdin=None, stdout_as_debug=False):
-        """
-        Runs `cmd` in the shell and returns a stream of the output.
-        Raises `errors.StepFailure` if the command fails.
-        """
-
-        if isinstance(cmd, list):
-            cmd = " ".join(cmd)
-
-        if stdout_as_debug:
-            cmd += ">&2"
-
-        assert isinstance(cmd, str)
-
-        self.description = cmd
-        log.debug(cmd)
-
-        stdout = TemporaryFile()
-        stderr = None
-        # if we are not in debug mode, capture stderr
-        if not is_debug():
-            stderr = TemporaryFile()
-
-        proc = subprocess.Popen(
-            cmd, shell=True, stdin=stdin, stdout=stdout, stderr=stderr, env=os.environ
-        )
-        proc.wait()
-        if proc.returncode != 0:
-            stderr.seek(0)
-            raise errors.StepFailure(stderr.read().decode("UTF-8"))
-        stdout.seek(0)
-        return stdout

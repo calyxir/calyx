@@ -1,5 +1,6 @@
-from fud.stages import Stage, SourceType
-from ..utils import unwrap_or
+from fud.stages import SourceType, Stage
+
+from ..utils import shell, unwrap_or
 
 
 class FutilStage(Stage):
@@ -22,8 +23,8 @@ class FutilStage(Stage):
         )
 
         @self.step(description=cmd)
-        def run_futil(step, inp_stream: SourceType.Stream) -> SourceType.Stream:
-            return step.shell(
+        def run_futil(inp_stream: SourceType.Stream) -> SourceType.Stream:
+            return shell(
                 cmd,
                 stdin=inp_stream,
             )

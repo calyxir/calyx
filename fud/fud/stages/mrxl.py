@@ -1,4 +1,5 @@
 from fud.stages import Stage, SourceType
+from ..utils import shell
 
 
 class MrXLStage(Stage):
@@ -19,7 +20,7 @@ class MrXLStage(Stage):
 
     def _define_steps(self, input_path):
         @self.step(description=self.cmd)
-        def run_mrxl(step, mrxl_prog: SourceType.Path) -> SourceType.Stream:
-            return step.shell(f"{self.cmd} {str(mrxl_prog)}")
+        def run_mrxl(mrxl_prog: SourceType.Path) -> SourceType.Stream:
+            return shell(f"{self.cmd} {str(mrxl_prog)}")
 
         return run_mrxl(input_path)

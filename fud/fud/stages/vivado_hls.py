@@ -5,7 +5,7 @@ from fud.stages import SourceType, Stage
 
 from ..vivado.extract import hls_extract
 from .remote_context import RemoteExecution
-from ..utils import TmpDir
+from ..utils import TmpDir, shell
 
 
 class VivadoHLSStage(Stage):
@@ -53,7 +53,7 @@ class VivadoHLSStage(Stage):
     def setup_environment(self, verilog_path):
         # Step 1: Make a new temporary directory
         @self.step()
-        def mktmp(step) -> SourceType.Directory:
+        def mktmp() -> SourceType.Directory:
             """
             Make temporary directory to store VivadoHLS synthesis files.
             """
@@ -61,7 +61,7 @@ class VivadoHLSStage(Stage):
 
         @self.step()
         def local_move_files(
-            step, verilog_path: SourceType.Path, tmpdir: SourceType.Directory
+            verilog_path: SourceType.Path, tmpdir: SourceType.Directory
         ):
             """
             Copy files into tmpdir directory.
@@ -76,10 +76,8 @@ class VivadoHLSStage(Stage):
 
     def execute(self, tmpdir):
         @self.step(description=self.cmd)
-        def run_vivado_hls(step, tmpdir: SourceType.Directory):
-            step.shell(
-                " ".join([f"cd {tmpdir.name}", "&&", self.cmd]), stdout_as_debug=True
-            )
+        def run_vivado_hls(tmpdir: SourceType.Directory):
+            shell(" ".join([f"cd {tmpdir.name}", "&&", self.cmd]), stdout_as_debug=True)
 
         run_vivado_hls(tmpdir)
 
@@ -98,7 +96,7 @@ class VivadoHLSExtractStage(Stage):
 
     def _define_steps(self, input_dir):
         @self.step()
-        def extract(step, directory: SourceType.Directory) -> SourceType.String:
+        def extract(directory: SourceType.Directory) -> SourceType.String:
             """
             Extract relevant data from Vivado synthesis files.
             """

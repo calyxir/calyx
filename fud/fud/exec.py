@@ -9,6 +9,47 @@ from . import errors, utils
 from .stages import Source, SourceType
 
 
+class SpinnerWrapper:
+    def __init__(self, spinner, save):
+        self.spinner = spinner
+        self.save = save
+        self.stage_text = ""
+        self.step_text = ""
+
+    def _update(self):
+        if self.step_text != "":
+            self.spinner.start(f"{self.stage_text}: {self.step_text}")
+        else:
+            self.spinner.start(f"{self.stage_text}")
+
+    def start_stage(self, text):
+        self.stage_text = text
+        self._update()
+
+    def end_stage(self):
+        if self.save:
+            self.spinner.succeed()
+
+    def start_step(self, text):
+        self.step_text = text
+        self._update()
+
+    def end_step(self):
+        if self.save:
+            self.spinner.succeed()
+        self.step_text = ""
+        self._update()
+
+    def succeed(self):
+        self.spinner.succeed()
+
+    def fail(self, text):
+        self.spinner.fail(text)
+
+    def stop(self):
+        self.spinner.stop()
+
+
 def discover_implied_stage(filename, config, possible_dests=None):
     """
     Use the mapping from filename extensions to stages to figure out which
@@ -75,18 +116,19 @@ def run_fud(args, config):
         spinner="dots", color="cyan", stream=sys.stderr, enabled=spinner_enabled
     ) as sp:
 
+        sp = SpinnerWrapper(sp, save=log.getLogger().level <= log.INFO)
+
         # if input_file is None:
         #     inp = Source(None, SourceType.Passthrough)
         # else:
         inp = Source(Path(str(input_file)), SourceType.Path)
 
         for ed in path:
-            sp.start(f"{ed.stage.name} → {ed.stage.target_stage}")
+            sp.start_stage(f"{ed.stage.name} → {ed.stage.target_stage}")
             # TODO: catch exceptions
-            result = ed.stage.run(inp)
+            result = ed.stage.run(inp, sp)
             inp = result
-            if log.getLogger().level <= log.INFO:
-                sp.succeed()
+            sp.end_stage()
 
         sp.stop()
 

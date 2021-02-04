@@ -1,11 +1,12 @@
 from pathlib import Path
 import shutil
+import re
 
 from fud.stages import SourceType, Stage
 
 from ..vivado.extract import futil_extract
 from .remote_context import RemoteExecution
-from ..utils import TmpDir
+from ..utils import TmpDir, shell
 
 
 class VivadoStage(Stage):
@@ -53,7 +54,7 @@ class VivadoStage(Stage):
     def setup_environment(self, verilog_path):
         # Step 1: Make a new temporary directory
         @self.step()
-        def mktmp(step) -> SourceType.Directory:
+        def mktmp() -> SourceType.Directory:
             """
             Make temporary directory to store Vivado synthesis files.
             """
@@ -61,7 +62,7 @@ class VivadoStage(Stage):
 
         @self.step()
         def local_move_files(
-            step, verilog_path: SourceType.Path, tmpdir: SourceType.Directory
+            verilog_path: SourceType.Path, tmpdir: SourceType.Directory
         ):
             """
             Copy device files into tmpdir.
@@ -75,11 +76,21 @@ class VivadoStage(Stage):
         return tmpdir
 
     def execute(self, tmpdir):
+        # @self.step(input_type=SourceType.Directory)
+        # def run_vivado(tmpdir):
+        #     proc = shell(
+        #         " ".join([f"cd {tmpdir.name}", "&&", self.cmd]), wait=False
+
         @self.step(description=self.cmd)
-        def run_vivado(step, tmpdir: SourceType.Directory):
-            step.shell(
-                " ".join([f"cd {tmpdir.name}", "&&", self.cmd]), stdout_as_debug=True
-            )
+        def run_vivado(tmpdir: SourceType.Directory):
+            shell(" ".join([f"cd {tmpdir.name}", "&&", self.cmd]), stdout_as_debug=True)
+            # for chunk in iter(lambda: proc.stdout.readline(2048), ""):
+            #     if proc.poll() is not None:
+            #         break
+            #     chunk = chunk.decode("ascii").strip()
+            #     r = re.search(r"Phase (\d(?:\d|\.)*)", chunk)
+            #     if r is not None:
+            #         step.spinner.start_step(f"{step.name} ({chunk})")
 
         run_vivado(tmpdir)
 
@@ -100,7 +111,7 @@ class VivadoExtractStage(Stage):
 
     def _define_steps(self, input_dir):
         @self.step()
-        def extract(step, directory: SourceType.Directory) -> SourceType.String:
+        def extract(directory: SourceType.Directory) -> SourceType.String:
             """
             Extract relevant data from Vivado synthesis files.
             """

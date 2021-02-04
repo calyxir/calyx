@@ -1,4 +1,5 @@
 from fud.stages import Stage, SourceType
+from ..utils import shell
 
 
 class VcdumpStage(Stage):
@@ -15,7 +16,7 @@ class VcdumpStage(Stage):
 
     def _define_steps(self, stream):
         @self.step(description=f"{self.cmd} --pretty")
-        def run_vcdump(step, inp_stream: SourceType.Stream) -> SourceType.Stream:
-            return step.shell(f"{self.cmd} --pretty", stdin=inp_stream)
+        def run_vcdump(inp_stream: SourceType.Stream) -> SourceType.Stream:
+            return shell(f"{self.cmd} --pretty", stdin=inp_stream)
 
         return run_vcdump(stream)

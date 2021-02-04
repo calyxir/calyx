@@ -1,9 +1,11 @@
 import sys
 import logging as log
 import shutil
-from tempfile import TemporaryDirectory, NamedTemporaryFile
+from tempfile import TemporaryDirectory, NamedTemporaryFile, TemporaryFile
 from io import BytesIO
 from pathlib import Path
+import subprocess
+import os
 
 from . import errors
 
@@ -99,3 +101,41 @@ class Conversions:
     @staticmethod
     def string_to_stream(data):
         return BytesIO(data.encode("UTF-8"))
+
+
+def shell(cmd, stdin=None, stdout_as_debug=False, wait=True):
+    """
+    Runs `cmd` in the shell and returns a stream of the output.
+    Raises `errors.StepFailure` if the command fails.
+    """
+
+    if isinstance(cmd, list):
+        cmd = " ".join(cmd)
+
+    if stdout_as_debug:
+        cmd += ">&2"
+
+    assert isinstance(cmd, str)
+
+    log.debug(cmd)
+
+    stdout = TemporaryFile()
+    if not wait:
+        stdout = subprocess.PIPE
+    stderr = None
+    # if we are not in debug mode, capture stderr
+    if not is_debug():
+        stderr = TemporaryFile()
+
+    proc = subprocess.Popen(
+        cmd, shell=True, stdin=stdin, stdout=stdout, stderr=stderr, env=os.environ
+    )
+    if wait:
+        proc.wait()
+        if proc.returncode != 0:
+            stderr.seek(0)
+            raise errors.StepFailure(stderr.read().decode("UTF-8"))
+        stdout.seek(0)
+        return stdout
+    else:
+        return proc

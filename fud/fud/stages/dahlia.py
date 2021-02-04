@@ -1,5 +1,6 @@
-from fud.stages import Stage, SourceType
-from ..utils import unwrap_or
+from fud.stages import SourceType, Stage
+
+from ..utils import shell, unwrap_or
 
 
 class DahliaStage(Stage):
@@ -15,10 +16,8 @@ class DahliaStage(Stage):
             self.flags,
         ]
 
-        @self.step(
-            description=" ".join(cmd),
-        )
-        def run_dahlia(step, dahlia_prog: SourceType.Path) -> SourceType.Stream:
-            return step.shell(cmd + [str(dahlia_prog)])
+        @self.step(description=" ".join(cmd))
+        def run_dahlia(dahlia_prog: SourceType.Path) -> SourceType.Stream:
+            return shell(cmd + [str(dahlia_prog)])
 
         return run_dahlia(input_data)
