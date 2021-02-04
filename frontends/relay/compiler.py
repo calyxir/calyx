@@ -149,17 +149,13 @@ def emit_futil(program) -> str:
     visitor = Relay2Futil()
     main, func_defs = visitor.visit(relay_program)
 
-    # TODO(cgyurgyik): Implement.
-    emit_components(func_defs)
-
     print(
         Program(
             imports=[Import("primitives/std.lib")],
             components=[main]
-        ).doc()
-        # Eventually, we'll print the components
-        # lowered from Dahlia here as well. These
-        # will be strings.
+        ).doc(),
+        '\n',
+        emit_components(func_defs)
     )
 
 

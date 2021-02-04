@@ -104,17 +104,16 @@ def dahlia_to_futil(dahlia_definitions: str):
         TODO: Update documentation.
     """
 
-    with NamedTemporaryFile() as tf0, NamedTemporaryFile() as tf1, NamedTemporaryFile() as tf2:
+    with NamedTemporaryFile() as tf0, NamedTemporaryFile() as tf1:
         tf0.write(bytes(dahlia_definitions, 'UTF-8'))
-        tf0.seek(0), tf1.seek(0), tf2.seek(0)
+        tf0.seek(0), tf1.seek(0)
         fuse_binary = os.environ['DAHLIA_EXEC'] if 'DAHLIA_EXEC' in os.environ else 'fuse'
-        command = f"""{fuse_binary} {tf0.name} --lower -b=futil > {tf1.name} \
-                  && fud e --from futil {tf1.name} --to futil > {tf2.name} """  # {NO_ERR}"""
+        command = f"""{fuse_binary} {tf0.name} --lower -b=futil > {tf1.name} -l=error"""
         subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).communicate()
 
-        # Don't double-import the primitives library.
-        begin = len(IMPORT_STATEMENT)
-        components = tf2.read().decode()[begin:]
+        components = tf1.read().decode()
+        # Don't add the git hash or double-import the primitives library.
+        begin = components.find('component')
         # Don't import the empty main component.
         end = components.find('component main() -> () {')
-        return components[:end]
+        return components[begin:end]
