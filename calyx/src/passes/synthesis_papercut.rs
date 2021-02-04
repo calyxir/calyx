@@ -4,6 +4,9 @@ use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, LibrarySignatures};
 use std::collections::HashSet;
 
+const READ_PORT: &str = "read_data";
+const WRITE_PORT: &str = "write_data";
+
 /// Pass to check common synthesis issues.
 /// 1. If a memory is only read-from or written-to, synthesis tools will optimize it away. Add
 ///    @external attribute to the cell definition to make it an interface memory.
@@ -70,7 +73,7 @@ impl Visitor for SynthesisPapercut {
 
         for mem in memory_cells {
             let cell = comp.find_cell(&mem).unwrap();
-            let read_port = cell.borrow().get("read_data");
+            let read_port = cell.borrow().get(READ_PORT);
             if analysis.reads_from(&*read_port.borrow()).next().is_none() {
                 return Err(Error::Papercut(
                     format!(
@@ -80,7 +83,7 @@ impl Visitor for SynthesisPapercut {
                     mem,
                 ));
             }
-            let write_port = cell.borrow().get("write_data");
+            let write_port = cell.borrow().get(WRITE_PORT);
             if analysis.writes_to(&*write_port.borrow()).next().is_none() {
                 return Err(Error::Papercut(
                     format!(
