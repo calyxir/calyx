@@ -38,16 +38,14 @@ def dahlia_name(name, component_id):
 @dataclass
 class DahliaFuncDef:
     """Necessary information to compute a Dahlia function definition."""
-    component_id: CompVar
     function_id: str
     dest: CompVar
-    invoke_ctrl: Invoke
+    args: List[CompVar]
     attributes: tvm.ir.Attrs
+    data_type: str
 
-
-def get_addr_ports(c: CompInst):
+def get_dims(c: CompInst):
     id = c.id
-    args = c.args
     id2dims = {
         'std_mem_d1': 1,
         'std_mem_d2': 2,
@@ -55,7 +53,11 @@ def get_addr_ports(c: CompInst):
         'std_mem_d4': 4
     }
     assert id in id2dims.keys(), f'{id} not supported.'
-    dims = id2dims[id]
+    return id2dims[id]
+
+def get_addr_ports(c: CompInst):
+    args = c.args
+    dims = get_dims(c)
     addresses = range(0, dims)
     indices = range(dims + 1, dims << 1 + 1)
     return [(f'addr{i}', args[n]) for (i, n) in zip(addresses, indices)]
@@ -115,9 +117,11 @@ def get_dahlia_data_type(relay_type) -> str:
     """
     width = get_bitwidth(relay_type)
 
-    if 'int' in relay_type.dtype: return ('bit', width)
-    if 'float' in relay_type.dtype: return ('fix', (width, width // 2))
-    assert False, f'{relay_type} is not supported.'
+    if 'int' in relay_type.dtype:
+        return f'bit<{width}>'
+    if 'float' in relay_type.dtype:
+        return f'fix<{width, width // 2}>'
+    assert 0, f'{relay_type} is not supported.'
 
 
 def get_bitwidth(relay_type) -> int:

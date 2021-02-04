@@ -6,6 +6,7 @@ from collections import defaultdict
 
 from relay_utils import *
 from futil.ast import *
+from relay_func_defs import *
 
 
 class Relay2Futil(ExprFunctor):
@@ -66,8 +67,11 @@ class Relay2Futil(ExprFunctor):
         if not isinstance(value, tvm.relay.Call):
             assert 0, f'{value} is unsupported.'
 
-        # Append component declaration.
-        func_name = value.op.name
+        # Function names may have a namespace
+        # prepended, e.g. `nn.bias_add`. We want to
+        # replace the periods, to get `nn_bias_add`.
+        func_name = (value.op.name).replace('.', '_')
+
         comp_id = self.id(func_name)
         comp_decl = CompVar(f'_{comp_id}')
         self.id_to_cell[comp_id] = Cell(
@@ -75,16 +79,17 @@ class Relay2Futil(ExprFunctor):
             CompInst(comp_id, [])
         )
 
-        invoke_ctrl = emit_invoke_control(comp_decl, dest, value.args)
-        self.controls.append(invoke_ctrl)
+        self.controls.append(
+            emit_invoke_control(comp_decl, dest, value.args)
+        )
 
         self.func_defs.append(
             DahliaFuncDef(
-                component_id=CompVar(comp_id),
                 function_id=func_name,
                 dest=dest,
-                invoke_ctrl=invoke_ctrl,
-                attributes=value.attrs
+                args=value.args,
+                attributes=value.attrs,
+                data_type=get_dahlia_data_type(let.var.type_annotation)
             )
         )
 
@@ -145,7 +150,7 @@ def emit_futil(program) -> str:
     main, func_defs = visitor.visit(relay_program)
 
     # TODO(cgyurgyik): Implement.
-    # emit_components_from_dahlia(func_defs)
+    emit_components(func_defs)
 
     print(
         Program(
