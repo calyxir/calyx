@@ -9,8 +9,8 @@ use passes::{
     ClkInsertion, CollapseControl, CompileControl, CompileEmpty, CompileInvoke,
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion,
     InferStaticTiming, Inliner, MergeAssign, MinimizeRegs, Papercut,
-    ResourceSharing, SimplifyGuards, StaticTiming, TopDownCompileControl,
-    WellFormed,
+    ResourceSharing, SimplifyGuards, StaticTiming, SynthesisPapercut,
+    TopDownCompileControl, WellFormed,
 };
 use structopt::StructOpt;
 
@@ -40,6 +40,7 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
     register_pass!(pm, SimplifyGuards);
     register_pass!(pm, MergeAssign);
     register_pass!(pm, TopDownCompileControl);
+    register_pass!(pm, SynthesisPapercut);
 
     register_alias!(pm, "validate", [WellFormed, Papercut]);
     register_alias!(
