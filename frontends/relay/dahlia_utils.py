@@ -83,7 +83,7 @@ def pp_dahlia_loop(fd: DahliaFuncDef, body: str, num_dimensions, data=None):
     return '\n'.join(program)
 
 
-def dahlia_program_to_futil(dahlia_definitions: str):
+def dahlia_to_futil(dahlia_definitions: str):
     """
     Takes in a string representation of a Dahlia program, lowers it to FuTIL with the given `component_name`,
     and applies the `externalize` pass. This pass exposes the inputs and outputs of primitive types that are
