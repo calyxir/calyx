@@ -43,7 +43,7 @@ class SpinnerWrapper:
     def succeed(self):
         self.spinner.succeed()
 
-    def fail(self, text):
+    def fail(self, text=None):
         self.spinner.fail(text)
 
     def stop(self):
@@ -126,9 +126,14 @@ def run_fud(args, config):
         for ed in path:
             sp.start_stage(f"{ed.stage.name} → {ed.stage.target_stage}")
             # TODO: catch exceptions
-            result = ed.stage.run(inp, sp)
-            inp = result
-            sp.end_stage()
+            try:
+                result = ed.stage.run(inp, sp)
+                inp = result
+                sp.end_stage()
+            except errors.StepFailure as e:
+                sp.fail()
+                print(e)
+                exit(-1)
 
         sp.stop()
 

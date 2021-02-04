@@ -134,7 +134,7 @@ def shell(cmd, stdin=None, stdout_as_debug=False, wait=True):
         proc.wait()
         if proc.returncode != 0:
             stderr.seek(0)
-            raise errors.StepFailure(stderr.read().decode("UTF-8"))
+            raise errors.StepFailure(cmd, stderr.read().decode("UTF-8"))
         stdout.seek(0)
         return stdout
     else:

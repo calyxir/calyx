@@ -160,8 +160,8 @@ class StepFailure(FudError):
     TODO: (write better error) A step failed.
     """
 
-    def __init__(self, stderr):
-        msg = "A step failed:\n===============\n" + stderr
+    def __init__(self, step, stderr):
+        msg = f"`{step.strip()}' failed:\n=====STDERR=====\n" + stderr
         super().__init__(msg)
 
 
