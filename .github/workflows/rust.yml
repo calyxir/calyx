@@ -151,6 +151,7 @@ jobs:
         cd tvm && git reset --hard ccacb1ec1
         mkdir build && cd build
         cp ../cmake/config.cmake .
+        sudo apt-get install -y ninja-build
         cmake -G Ninja .. && ninja
         cd ../python && python3 setup.py bdist_wheel
         pip3 install --user dist/tvm-*.whl
