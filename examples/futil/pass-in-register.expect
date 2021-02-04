@@ -1,0 +1,45 @@
+import "primitives/std.lib";
+component times_10_and_add_1(reg_done: 1, reg_out: 32, go: 1, clk: 1) -> (reg_in: 32, reg_write_en: 1, done: 1) {
+  cells {
+    add = std_add(32);
+    mult = std_mult(32);
+  }
+  wires {
+    done = reg_done ? 1'd1;
+    reg_in = go ? add.out;
+    reg_write_en = go ? 1'd1;
+    add.left = go ? 32'd1;
+    add.right = go ? mult.out;
+    mult.left = go ? 32'd10;
+    mult.right = go ? reg_out;
+  }
+
+  control {}
+}
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    op = times_10_and_add_1();
+    r = std_reg(32);
+    fsm = std_reg(2);
+  }
+  wires {
+    done = fsm.out == 2'd2 ? 1'd1;
+    fsm.clk = clk;
+    fsm.in = fsm.out == 2'd2 ? 2'd0;
+    fsm.in = fsm.out == 2'd0 & r.done & go ? 2'd1;
+    fsm.in = fsm.out == 2'd1 & op.done & go ? 2'd2;
+    fsm.write_en = fsm.out == 2'd0 & r.done & go | fsm.out == 2'd1 & op.done & go | fsm.out == 2'd2 ? 1'd1;
+    op.clk = clk;
+    op.go = !op.done & fsm.out == 2'd1 & go ? 1'd1;
+    op.reg_done = !op.done & fsm.out == 2'd1 & go ? r.done;
+    op.reg_out = !op.done & fsm.out == 2'd1 & go ? r.out;
+    r.clk = clk;
+    r.in = !r.done & fsm.out == 2'd0 & go ? 32'd15;
+    r.in = !op.done & fsm.out == 2'd1 & go ? op.reg_in;
+    r.write_en = !r.done & fsm.out == 2'd0 & go ? 1'd1;
+    r.write_en = !op.done & fsm.out == 2'd1 & go ? op.reg_write_en;
+  }
+
+  control {}
+}
+

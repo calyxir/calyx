@@ -22,12 +22,10 @@ component main() -> () {
     }
   }
   control {
-    seq {
-      if lt.out with cond {
-        true;
-      } else {
-        false;
-      }
+    if lt.out with cond {
+      true;
+    } else {
+      false;
     }
   }
 }
