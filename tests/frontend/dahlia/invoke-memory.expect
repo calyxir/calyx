@@ -1,0 +1,49 @@
+import "primitives/std.lib";
+component mem_copy(dest0_read_data: 32, dest0_done: 1, src0_read_data: 32, src0_done: 1) -> (dest0_write_data: 32, dest0_write_en: 1, dest0_addr0: 1, src0_write_data: 32, src0_write_en: 1, src0_addr0: 1) {
+  cells {
+    const0 = std_const(1,0);
+    src_read0_0 = std_reg(32);
+    zero_0 = std_reg(1);
+  }
+  wires {
+    group let0<"static"=1> {
+      zero_0.in = const0.out;
+      zero_0.write_en = 1'd1;
+      let0[done] = zero_0.done;
+    }
+    group upd0<"static"=1> {
+      src_read0_0.write_en = 1'd1;
+      src0_addr0 = zero_0.out;
+      src_read0_0.in = 1'd1 ? src0_read_data;
+      upd0[done] = src_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      dest0_addr0 = zero_0.out;
+      dest0_write_en = 1'd1;
+      dest0_write_data = 1'd1 ? src_read0_0.out;
+      upd1[done] = dest0_done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      upd0;
+      upd1;
+    }
+  }
+}
+component main() -> () {
+  cells {
+    @external(1) d0 = std_mem_d1(32,1,1);
+    mem_copy0 = mem_copy();
+    @external(1) s0 = std_mem_d1(32,1,1);
+  }
+  wires {
+  }
+  control {
+    seq {
+      invoke mem_copy0(dest0_read_data=d0.read_data, dest0_done=d0.done, src0_read_data=s0.read_data, src0_done=s0.done)(dest0_write_data=d0.write_data, dest0_write_en=d0.write_en, dest0_addr0=d0.addr0, src0_write_data=s0.write_data, src0_write_en=s0.write_en, src0_addr0=s0.addr0);
+    }
+  }
+}
+

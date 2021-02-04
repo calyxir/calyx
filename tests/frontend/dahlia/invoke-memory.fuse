@@ -3,5 +3,7 @@ def mem_copy(dest: ubit<32>[1], src: ubit<32>[1]) = {
   dest[zero] := src[zero];
 }
 
-decl a: ubit<32>[1];
-decl b: ubit<32>[1];
+decl s: ubit<32>[1];
+decl d: ubit<32>[1];
+
+mem_copy(d, s);
