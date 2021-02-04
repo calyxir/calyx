@@ -100,7 +100,6 @@ class Relay2Futil(ExprFunctor):
     def visit_constant(self, const) -> Cell:
         assert 0, f'visit_constant is not supported yet: {const}'
         # type, shape = const.data.dtype, const.data.shape
-        pass
 
     def visit_call(self, call):
         """The Relay call consists of 3 main pieces:
