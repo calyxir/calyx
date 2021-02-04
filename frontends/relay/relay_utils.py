@@ -1,6 +1,7 @@
-from __future__ import annotations  # Used for type annotations.
+import tvm
 from futil.ast import *
 from futil.utils import bits_needed
+from typing import List
 from dataclasses import dataclass
 
 # Mapping from the tensor dimensions to the
@@ -24,7 +25,8 @@ DahliaSuffix = {
 
 @dataclass
 class DahliaFuncDef:
-    """Necessary information to compute a Dahlia function definition."""
+    """Necessary information to compute a Dahlia
+    function definition."""
     function_id: str
     dest: CompVar
     args: List[CompVar]
@@ -50,7 +52,10 @@ def get_addr_ports(c: CompInst):
     dims = get_dims(c)
     addresses = range(0, dims)
     indices = range(dims + 1, dims << 1 + 1)
-    return [(f'addr{i}', args[n]) for (i, n) in zip(addresses, indices)]
+    return [
+        (f'addr{i}', args[n])
+        for (i, n) in zip(addresses, indices)
+    ]
 
 
 def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
@@ -76,13 +81,13 @@ def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
                 (f'{param}_write_data', CompPort(arg, 'write_data')),
                 (f'{param}_write_en', CompPort(arg, 'write_en'))
             ])
-        else:
-            # Otherwise, hook up read ports.
-            in_.append(
-                (f'{param}_read_data', CompPort(arg, 'read_data'))
-            )
 
-        # In either case, hook up address ports.
+        # Reads allowed in either case.
+        in_.append(
+            (f'{param}_read_data', CompPort(arg, 'read_data'))
+        )
+
+        # Hook up address ports.
         addr_ports = [port for port, _ in get_addr_ports(comp)]
         out.extend([
             (f'{param}_{port}', CompPort(arg, f'{port}')) for port in addr_ports
@@ -132,13 +137,18 @@ def get_bitwidth(relay_type) -> int:
     return int(''.join(filter(str.isdigit, dtype)))
 
 
-def get_memory(name, type) -> Cell:
-    """TODO: Document."""
+def get_memory(name: str, type: tvm.ir.Type) -> Cell:
+    """Returns a FuTIL memory for a given TVM type.
+    For non-Tensor types, a register is returned.
+    Otherwise, a memory with the corresponding dimension size
+    is returned, if it exists in FuTIL."""
     dims = type.concrete_shape
     # Bitwidth, along with sizes and index sizes (if it is a Tensor).
     args = [get_bitwidth(type)] + [d for d in dims] + [bits_needed(d) for d in dims]
 
     num_dims = len(dims)
+    assert num_dims in NumDimsToCell, f'Memory of size {num_dims} not supported.'
+
     return Cell(
         CompVar(name),
         NumDimsToCell[num_dims](*args)

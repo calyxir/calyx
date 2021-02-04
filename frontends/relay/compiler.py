@@ -1,12 +1,13 @@
-import tvm
 from tvm import relay, ir
 from tvm.relay.expr_functor import ExprFunctor
 from tvm.relay.function import Function
+
 from collections import defaultdict
+from typing import List, Dict
 
 from relay_utils import *
 from futil.ast import *
-from relay_func_defs import *
+from dahlia_impl import emit_components
 
 
 class Relay2Futil(ExprFunctor):
@@ -18,12 +19,12 @@ class Relay2Futil(ExprFunctor):
 
         # A dictionary of currently visited variable nodes,
         # since some nodes may be visited more than once.
-        self.id_to_cell: dict[str, Cell] = {}
+        self.id_to_cell: Dict[str, Cell] = {}
 
         # For each Relay CallNode, there is an associated
         # Dahlia FuncDef so that it can be lowered from Dahlia
         # to FuTIL as a stand-alone component.
-        self.func_defs: list[DahliaFuncDef] = []
+        self.func_defs: List[DahliaFuncDef] = []
 
         # Controls, wires of the main component.
         self.controls = []
@@ -135,8 +136,6 @@ class Relay2Futil(ExprFunctor):
 def relay_transforms(expr: Function) -> Function:
     """https://tvm.apache.org/docs/api/python/relay/transform.html"""
     transforms = tvm.transform.Sequential([
-        relay.transform.SimplifyExpr(),
-        relay.transform.SimplifyInference(),
         relay.transform.InferType(),
     ])
     mod = ir.IRModule.from_expr(expr)
@@ -149,19 +148,18 @@ def emit_futil(program) -> str:
     relay_program = relay_transforms(program)
     visitor = Relay2Futil()
     main, func_defs = visitor.visit(relay_program)
-
-    print(
+    return ''.join((
         Program(
             imports=[Import("primitives/std.lib")],
             components=[main]
         ).doc(),
         '\n',
         emit_components(func_defs)
-    )
+    ))
 
 
 if __name__ == '__main__':
     import sys
 
     relay_function = relay.fromtext(sys.stdin.read())
-    emit_futil(relay_function)
+    print(emit_futil(relay_function))

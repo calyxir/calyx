@@ -1,58 +1,66 @@
 import subprocess
 import os
 
-from futil.ast import *
-from futil.utils import block
-from relay_utils import *
 from typing import List
 from tempfile import NamedTemporaryFile, TemporaryFile
 
+from futil.ast import *
+from futil.utils import block
+from relay_utils import DahliaFuncDef, get_dims
 
-IMPORT_STATEMENT = """import "primitives/std.lib";\n"""
-NO_ERR = "2>/dev/null"
-NEWL = '\n'
-CHARACTER_I = chr(ord('i'))  # Starting index variable name for Dahlia array iteration.
+# Starting index variable name
+# for Dahlia array iteration.
+CHARACTER_I = chr(ord('i'))
 
 
-def next_character(ch, dir=1):
-    """
-    Returns the next character after 'ch'.
+def next_character(ch: chr, dir: int = 1) -> chr:
+    """Returns the next character after 'ch'.
     If `dir` is positive, then will return 'ch' + 1. Otherwise, it will return 'ch' - 1.
+    E.g. next_character('a') == 'b'
     """
     return chr(ord(ch) + 1) if dir > 0 else chr(ord(ch) - 1)
 
 
-def pp_dahlia_parameters(fd: DahliaFuncDef):
-    # TODO: Update documentation. Simplify.
+def emit_dahlia_params(fd: DahliaFuncDef) -> str:
+    """Emits a comma-separated string of Dahlia
+    memory declarations, e.g.
+    `X: ubit<32> [1][10], a: ufix<8, 2>[3]`
     """
-    Pretty print for Dahlia memory declarations, e.g.
-    `decl X: ubit<32> [1][10];`
-    """
-
     cells = []
     for cell in fd.args + [fd.dest]:
         cell_str = f'{cell.id.name}: {fd.data_type}'
-        for i in range(0, get_dims(cell.comp)):
-            cell_str += f'[{cell.comp.args[i + 1]}]'
+
+        dims = get_dims(cell.comp)
+        args = cell.comp.args
+        for i in range(0, dims):
+            cell_str += f'[{args[i + 1]}]'
+
         cells.append(cell_str)
-    return cells
+
+    return ', '.join(cells)
 
 
-def pp_dahlia_function_definition(fd: DahliaFuncDef, decls: List[str], body: str):
+def emit_dahlia_definition(fd: DahliaFuncDef, body: str) -> str:
+    """Emits a Dahlia definition, e.g.
+    `def foo(a: ubit<32>) = { ... }`
+    """
+    params = emit_dahlia_params(fd)
     return block(
-        f'def {fd.function_id}({", ".join(decls)}) =',
+        f'def {fd.function_id}({params}) =',
         body,
         sep=''
     )
 
 
-def pp_dahlia_loop(fd: DahliaFuncDef, body: str, num_dimensions, data=None):
-    # TODO: Update documentation. Simplify.
-    """
-    Returns an iteration over data with `body` as the work done within the nested loop(s).
-    Many tensor functions share the same control flow: (1) Iterate `num_dimensions` times, and (2) do some work in body.
-    For example, if `data` is a 2D primitive of size (M, N) and body == `X;`, then this will return:
+def emit_dahlia_loop(fd: DahliaFuncDef, body: str, num_dims: int) -> str:
+    """Emits a Dahlia loop over `num_dims` with `body`
+    nested inside. Many tensor functions share the
+    same control flow:
+    (1) Iterate `num_dims` times, and
+    (2) do some work in the body.
 
+    For example, if body == `X`, then this
+    will return:
     ```
     for (let i: ubit<X> = 0..M) {
       for (let j: ubit<Y> = 0..N) {
@@ -60,50 +68,35 @@ def pp_dahlia_loop(fd: DahliaFuncDef, body: str, num_dimensions, data=None):
       }
     }
     ```
-
-    Notes:
-    If `data` is provided, it will be used to determine the `num_dimensions` as well as the corresponding bitwidths
-    and memory sizes. This occurs only in special cases; otherwise, the `output` of the `relay_function` will
-    determine these.
     """
-    variable_name = CHARACTER_I
-    program = []
-    SPACING = ''
-    output = fd.dest if data == None else data
-    for i in range(0, num_dimensions):
-        size, index_size = output.comp.args[i + 1], output.comp.args[i + num_dimensions + 1]
-        program.append(f'{SPACING}for (let {variable_name}: ubit<{index_size}> = 0..{size}) {{')
-        variable_name = next_character(variable_name)
-        SPACING += '  '
-    program.append(f'{SPACING}{body}')
+    var_name = CHARACTER_I
+    args = fd.dest.comp.args
 
-    for i in range(0, num_dimensions):
-        SPACING = SPACING[:-2]
-        program.append(SPACING + '}')
-    return '\n'.join(program)
+    # Generate loop headers.
+    headers = []
+    for i in range(num_dims):
+        size = args[i + 1]
+        idx_size = args[i + 1 + num_dims]
+        headers.append(
+            f'for (let {var_name}: ubit<{idx_size}> = 0..{size})'
+        )
+        var_name = next_character(var_name)
+
+    headers.reverse()
+
+    # Generate loop blocks.
+    for i in range(num_dims):
+        b = body if i == 0 else headers[i - 1]
+        headers[i] = block(headers[i], b, sep='')
+    return headers[-1]
 
 
-def dahlia_to_futil(dahlia_definitions: str):
+def dahlia_to_futil(dahlia_definitions: str) -> str:
+    """Takes in a string representation of a Dahlia
+    function definitions, and lowers it to FuTIL.
+    This does not include the `import` statements,
+    nor the empty `main` component.
     """
-    Takes in a string representation of a Dahlia program, lowers it to FuTIL with the given `component_name`,
-    and applies the `externalize` pass. This pass exposes the inputs and outputs of primitive types that are
-    declared external, e.g. `@external(1) std_mem_d1`, and places them in the inputs and outputs of the respective component.
-
-    Example:
-        ------ Dahlia, component name: ProcessX ------
-        import "foo.h" { ... }
-        decl X: ubit<32>[4];
-        ...
-
-        ------------- Lower to FuTIL -----------------
-        component ProcessX() -> () {
-          X = prim std_mem_d1(32, 4, 2);
-          ...
-        }
-
-        TODO: Update documentation.
-    """
-
     with NamedTemporaryFile() as tf0, NamedTemporaryFile() as tf1:
         tf0.write(bytes(dahlia_definitions, 'UTF-8'))
         tf0.seek(0), tf1.seek(0)
@@ -112,7 +105,7 @@ def dahlia_to_futil(dahlia_definitions: str):
         subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).communicate()
 
         components = tf1.read().decode()
-        # Don't add the git hash or double-import the primitives library.
+        # Don't double-import the primitives library.
         begin = components.find('component')
         # Don't import the empty main component.
         end = components.find('component main() -> () {')
