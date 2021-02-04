@@ -30,8 +30,8 @@ component copy(dest_done: 1, src_read_data: 32) ->
 component main() -> () {
   cells {
     @external(1) d = std_mem_d1(32,2,2);
-    copy0 = copy();
     @external(1) s = std_mem_d1(32,2,2);
+    copy0 = copy();
   }
   wires {
   }
