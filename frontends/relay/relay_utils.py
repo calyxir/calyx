@@ -3,7 +3,8 @@ from futil.ast import *
 from futil.utils import bits_needed
 from dataclasses import dataclass
 
-# Mapping from the tensor dimensions to the corresponding FuTIL memory.
+# Mapping from the tensor dimensions to the
+# corresponding FuTIL primitive.
 NumDimsToCell = {
     0: Stdlib().register,
     1: Stdlib().mem_d1,
@@ -21,20 +22,6 @@ DahliaSuffix = {
 }
 
 
-# TODO(cgyurgyik): Necessary with `Invoke` controls?
-def dahlia_name(name, component_id):
-    """Appends the appropriate suffix for Dahlia codegen.
-    Dahlia uses the following naming schema
-    for an arbitrary variable `X`:
-      Memory1D: `X0`
-      Memory2D: `X0_0`
-      Memory3D: `X0_0_0`
-      Memory4D: `X0_0_0_0`
-    """
-    assert type in DahliaSuffix, f'{name} with {type} is not supported.'
-    return f'{name}{DahliaSuffix}'
-
-
 @dataclass
 class DahliaFuncDef:
     """Necessary information to compute a Dahlia function definition."""
@@ -44,18 +31,21 @@ class DahliaFuncDef:
     attributes: tvm.ir.Attrs
     data_type: str
 
+
 def get_dims(c: CompInst):
     id = c.id
-    id2dims = {
+    id2dimensions = {
         'std_mem_d1': 1,
         'std_mem_d2': 2,
         'std_mem_d3': 3,
         'std_mem_d4': 4
     }
-    assert id in id2dims.keys(), f'{id} not supported.'
-    return id2dims[id]
+    assert id in id2dimensions, f'{id} not supported.'
+    return id2dimensions[id]
+
 
 def get_addr_ports(c: CompInst):
+    """TODO: Document."""
     args = c.args
     dims = get_dims(c)
     addresses = range(0, dims)
@@ -64,7 +54,7 @@ def get_addr_ports(c: CompInst):
 
 
 def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
-    """Returns the input and output connections for Invoke."""
+    """Returns the Invoke control."""
     in_connects = []
     out_connects = []
 
@@ -106,6 +96,7 @@ def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
         in_, out = get_connects(cell, is_destination=False)
         in_connects.extend(in_)
         out_connects.extend(out)
+
     dest_in, dest_out = get_connects(dest, is_destination=True)
 
     return Invoke(
@@ -119,10 +110,10 @@ def get_dahlia_data_type(relay_type) -> str:
     """Gets the Dahlia data type from the given Relay type.
     It maps the types in the following manner:
 
-    Relay  | Dahlia
-    -------|--------
-     int   | (`bit`, width)
-     float | (`fix`, (width, width // 2))
+    Relay   |        Dahlia
+    --------|-------------------------------
+     int    |   (`bit`, width)
+     float  |   (`fix`, (width, width // 2))
     """
     width = get_bitwidth(relay_type)
 

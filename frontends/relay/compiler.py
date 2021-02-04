@@ -80,7 +80,7 @@ class Relay2Futil(ExprFunctor):
         )
 
         self.controls.append(
-            # Invoke control used in `main`.
+            # Append Invoke control to the `main` component.
             emit_invoke_control(comp_decl, dest, value.args)
         )
 

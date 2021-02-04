@@ -1,7 +1,7 @@
 from typing import List
 from futil.ast import *
-from relay_utils import *
 from dahlia_utils import *
+
 
 ####################################################################################################
 ################## Dahlia Implementations for Relay Function Call Nodes ############################
