@@ -17,6 +17,7 @@ mod papercut;
 mod resource_sharing;
 mod simplify_guards;
 mod static_timing;
+mod synthesis_papercut;
 mod top_down_compile_control;
 mod well_formed;
 
@@ -37,5 +38,6 @@ pub use papercut::Papercut;
 pub use resource_sharing::ResourceSharing;
 pub use simplify_guards::SimplifyGuards;
 pub use static_timing::StaticTiming;
+pub use synthesis_papercut::SynthesisPapercut;
 pub use top_down_compile_control::TopDownCompileControl;
 pub use well_formed::WellFormed;

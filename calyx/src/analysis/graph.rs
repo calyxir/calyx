@@ -99,36 +99,52 @@ impl GraphAnalysis {
     /// Returns an iterator over all the reads from a port.
     /// Returns an empty iterator if this is an Input port.
     pub fn reads_from(&self, port: &ir::Port) -> PortIterator<'_> {
-        let idx = self.nodes[&port.canonical()];
-        match port.direction {
-            ir::Direction::Input => PortIterator::empty(),
-            ir::Direction::Output | ir::Direction::Inout => PortIterator {
-                port_iter: Box::new(
-                    self.graph.edges_directed(idx, Outgoing).map(move |edge| {
-                        let node_idx =
-                            self.graph.edge_endpoints(edge.id()).unwrap().1;
-                        Rc::clone(&self.graph[node_idx])
-                    }),
-                ),
-            },
+        if let Some(&idx) = self.nodes.get(&port.canonical()) {
+            match port.direction {
+                ir::Direction::Input => PortIterator::empty(),
+                ir::Direction::Output | ir::Direction::Inout => PortIterator {
+                    port_iter: Box::new(
+                        self.graph.edges_directed(idx, Outgoing).map(
+                            move |edge| {
+                                let node_idx = self
+                                    .graph
+                                    .edge_endpoints(edge.id())
+                                    .unwrap()
+                                    .1;
+                                Rc::clone(&self.graph[node_idx])
+                            },
+                        ),
+                    ),
+                },
+            }
+        } else {
+            PortIterator::empty()
         }
     }
 
     /// Returns an iterator over all the writes to this port.
     /// Returns an empty iterator if this is an Output port.
     pub fn writes_to(&self, port: &ir::Port) -> PortIterator<'_> {
-        let idx = self.nodes[&port.canonical()];
-        match port.direction {
-            ir::Direction::Input | ir::Direction::Inout => PortIterator {
-                port_iter: Box::new(
-                    self.graph.edges_directed(idx, Incoming).map(move |edge| {
-                        let node_idx =
-                            self.graph.edge_endpoints(edge.id()).unwrap().0;
-                        Rc::clone(&self.graph[node_idx])
-                    }),
-                ),
-            },
-            ir::Direction::Output => PortIterator::empty(),
+        if let Some(&idx) = self.nodes.get(&port.canonical()) {
+            match port.direction {
+                ir::Direction::Input | ir::Direction::Inout => PortIterator {
+                    port_iter: Box::new(
+                        self.graph.edges_directed(idx, Incoming).map(
+                            move |edge| {
+                                let node_idx = self
+                                    .graph
+                                    .edge_endpoints(edge.id())
+                                    .unwrap()
+                                    .0;
+                                Rc::clone(&self.graph[node_idx])
+                            },
+                        ),
+                    ),
+                },
+                ir::Direction::Output => PortIterator::empty(),
+            }
+        } else {
+            PortIterator::empty()
         }
     }
 

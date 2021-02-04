@@ -35,7 +35,7 @@ paths = [
   "tests/errors/parser/*.futil"
 ]
 cmd = """
-./target/debug/futil {} -p well-formed -p papercut
+./target/debug/futil {} -p well-formed -p papercut -p synthesis-papercut
 """
 
 ##### Correctness Tests #####
