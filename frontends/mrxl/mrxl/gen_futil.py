@@ -311,7 +311,7 @@ def emit(prog):
                 inputs=[],
                 outputs=[],
                 structs=cells + wires,
-                controls=ControlEntry(ControlEntryType.Seq, control)
+                controls=SeqComp(control)
             )
         ]
     )
