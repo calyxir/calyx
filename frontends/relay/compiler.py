@@ -118,7 +118,7 @@ class Relay2Futil(ExprFunctor):
         """Visits the function. Returns the `main`
         component, as well as a list of Dahlia function
         definitions."""
-        body = self.visit(function.body)
+        self.visit(function.body)
 
         return (
             Component(
