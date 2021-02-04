@@ -1,5 +1,0 @@
-v0.0.4
-fn (%x: int32, %y: int32) {
-  let %z = subtract(%x, %y);
-  %z
-}

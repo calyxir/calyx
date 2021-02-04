@@ -73,7 +73,7 @@ def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
         assert comp.id in DahliaSuffix, f'{comp.id} supported yet.'
         in_, out = [], []
         param = f'{c.id.name}{DahliaSuffix[comp.id]}'
-        arg = CompVar(param)
+        arg = CompVar(c.id.name)
 
         # By default, always hook up both read and write ports.
         in_.extend([

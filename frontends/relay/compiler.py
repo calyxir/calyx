@@ -73,7 +73,7 @@ class Relay2Futil(ExprFunctor):
         func_name = (value.op.name).replace('.', '_')
 
         comp_id = self.id(func_name)
-        comp_decl = CompVar(f'_{comp_id}')
+        comp_decl = CompVar(f'{comp_id}_')
         self.id_to_cell[comp_id] = Cell(
             comp_decl,
             CompInst(comp_id, [])
