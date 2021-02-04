@@ -140,11 +140,22 @@ jobs:
         fud config stages.dahlia.exec '/home/runner/work/futil/futil/dahlia/fuse'
         fud config stages.futil.exec './target/debug/futil'
         fud config
-    - name: Install python-futil
+    - name: Install calyx-py
       run: |
         cd calyx-py
         flit install
-
+    - name: Install tvm
+      run: |
+        cd frontends/relay
+        git clone --recursive git@github.com:apache/incubator-tvm.git
+        cd incubator-tvm && git reset --hard ccacb1ec1
+        mkdir build && cd build
+        cp ../cmake/config.cmake .
+        cmake -G Ninja .. && ninja
+        cd ../python && python3 setup.py bdist_wheel
+        pip3 install --user dist/tvm-*.whl
+        cd ../topi/python && python3 setup.py bdist_wheel
+        pip3 install --user dist/topi-*.whl
     - name: Test
       run: |
         unset JAVA_TOOL_OPTIONS

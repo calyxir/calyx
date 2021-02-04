@@ -116,8 +116,11 @@ class Relay2Futil(ExprFunctor):
 
     def visit_function(self, function):
         """Visits the function. Returns the `main`
-        component, as well as a list of Dahlia function
-        definitions."""
+        component, as well as a list of Dahlia
+        function definitions."""
+        for p in function.params:
+            self.visit(p)
+
         self.visit(function.body)
 
         return (
@@ -147,12 +150,11 @@ def emit_futil(program) -> str:
     relay_program = relay_transforms(program)
     visitor = Relay2Futil()
     main, func_defs = visitor.visit(relay_program)
-    return ''.join((
+    return '\n'.join((
         Program(
             imports=[Import("primitives/std.lib")],
             components=[main]
         ).doc(),
-        '\n',
         emit_components(func_defs)
     ))
 
