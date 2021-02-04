@@ -1,52 +1,51 @@
-from pathlib import Path
-import shutil
 import re
+import shutil
+from pathlib import Path
 
 from fud.stages import SourceType, Stage
 
+from ..utils import TmpDir, shell
 from ..vivado.extract import futil_extract
 from .remote_context import RemoteExecution
-from ..utils import TmpDir, shell
 
 
-class VivadoStage(Stage):
-    def __init__(self, config):
+class VivadoBaseStage(Stage):
+    """
+    Base stage that defines the common steps between
+    the Vivado and VivadoHLS.
+    """
+
+    def __init__(
+        self,
+        name,
+        destination,
+        config,
+        description,
+        device_files=None,
+        target_name=None,
+        cmd=None,
+    ):
         super().__init__(
-            "synth-verilog",
-            "synth-files",
+            name,
+            destination,
             SourceType.Path,
             SourceType.Directory,
             config,
-            "Runs synthesis on a Verilog program",
+            description,
         )
-        self.device_files = [
-            str(
-                Path(self.config["global", "futil_directory"])
-                / "fud"
-                / "synth"
-                / "synth.tcl"
-            ),
-            str(
-                Path(self.config["global", "futil_directory"])
-                / "fud"
-                / "synth"
-                / "device.xdc"
-            ),
-        ]
-        self.target_name = "main.sv"
-        self.remote_context = RemoteExecution(self)
-        self.use_ssh = self.remote_context.use_ssh
-        self.cmd = "vivado -mode batch -source synth.tcl"
+        self.device_files = device_files
+        self.target_name = target_name
+        self.cmd = cmd
+        self.remote_exec = RemoteExecution(self)
+        self.use_ssh = self.remote_exec.use_ssh
         self.setup()
 
     def _define_steps(self, verilog_path):
         local_tmpdir = self.setup_environment(verilog_path)
         if self.use_ssh:
-            (client, remote_tmpdir) = self.remote_context.open_and_transfer(
-                verilog_path
-            )
-            self.remote_context.execute(client, remote_tmpdir, self.cmd)
-            self.remote_context.close_and_transfer(client, remote_tmpdir, local_tmpdir)
+            (client, remote_tmpdir) = self.remote_exec.open_and_transfer(verilog_path)
+            self.remote_exec.execute(client, remote_tmpdir, self.cmd)
+            self.remote_exec.close_and_transfer(client, remote_tmpdir, local_tmpdir)
         else:
             self.execute(local_tmpdir)
         return local_tmpdir
@@ -94,7 +93,57 @@ class VivadoStage(Stage):
 
         run_vivado(tmpdir)
 
-    # TODO cleanup step
+
+class VivadoStage(VivadoBaseStage):
+    def __init__(self, config):
+        super().__init__(
+            "synth-verilog",
+            "synth-files",
+            config,
+            "Runs synthesis on a Verilog program",
+            device_files=[
+                str(
+                    Path(config["global", "futil_directory"])
+                    / "fud"
+                    / "synth"
+                    / "synth.tcl"
+                ),
+                str(
+                    Path(config["global", "futil_directory"])
+                    / "fud"
+                    / "synth"
+                    / "device.xdc"
+                ),
+            ],
+            target_name="main.sv",
+            cmd="vivado -mode batch -source synth.tcl",
+        )
+
+
+class VivadoHLSStage(VivadoBaseStage):
+    def __init__(self, config):
+        super().__init__(
+            "synth-verilog",
+            "synth-files",
+            config,
+            "Runs synthesis on a Verilog program",
+            device_files=[
+                str(
+                    Path(config["global", "futil_directory"])
+                    / "fud"
+                    / "synth"
+                    / "hls.tcl"
+                ),
+                str(
+                    Path(config["global", "futil_directory"])
+                    / "fud"
+                    / "synth"
+                    / "fxp_sqrt.h"
+                ),
+            ],
+            target_name="kernel.cpp",
+            cmd="vivado_hls -f hls.tcl",
+        )
 
 
 class VivadoExtractStage(Stage):
@@ -116,5 +165,28 @@ class VivadoExtractStage(Stage):
             Extract relevant data from Vivado synthesis files.
             """
             return futil_extract(Path(directory.name))
+
+        return extract(input_dir)
+
+
+class VivadoHLSExtractStage(Stage):
+    def __init__(self, config):
+        super().__init__(
+            "hls-files",
+            "hls-estimate",
+            SourceType.Directory,
+            SourceType.String,
+            config,
+            "Runs HLS synthesis on a Dahlia program",
+        )
+        self.setup()
+
+    def _define_steps(self, input_dir):
+        @self.step()
+        def extract(directory: SourceType.Directory) -> SourceType.String:
+            """
+            Extract relevant data from Vivado synthesis files.
+            """
+            return hls_extract(Path(directory.name))
 
         return extract(input_dir)

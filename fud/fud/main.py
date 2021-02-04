@@ -15,7 +15,6 @@ from .stages import (
     vcdump,
     verilator,
     vivado,
-    vivado_hls,
 )
 
 
@@ -92,8 +91,8 @@ def register_stages(registry, cfg):
     # # Vivado / vivado hls
     registry.register(vivado.VivadoStage(cfg))
     registry.register(vivado.VivadoExtractStage(cfg))
-    registry.register(vivado_hls.VivadoHLSStage(cfg))
-    registry.register(vivado_hls.VivadoHLSExtractStage(cfg))
+    registry.register(vivado.VivadoHLSStage(cfg))
+    registry.register(vivado.VivadoHLSExtractStage(cfg))
 
     # Vcdump
     registry.register(vcdump.VcdumpStage(cfg))
