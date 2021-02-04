@@ -4,12 +4,6 @@ from compiler import *
 import sys
 
 
-def var():
-    x = relay.var('x', shape=(), dtype="int32")
-    y = relay.var('y', shape=(), dtype="int32")
-    return relay.Function([x, y], relay.add(x, y))
-
-
 def add():
     x = relay.var('x', shape=(), dtype="int32")
     y = relay.var('y', shape=(), dtype="int32")
@@ -85,18 +79,33 @@ def vgg_net():
                        batch_norm=True)
 
 
-ALL_FUNCS = [add, tensor_subtract, expand_dims, batch_flatten, batch_matmul, var,
-             bias_add, relu, dense, softmax, conv2d, max_pool2d, mlp_net, vgg_net]
+ALL_FUNCS = [
+    add,
+    tensor_subtract,
+    expand_dims,
+    batch_flatten,
+    batch_matmul,
+    bias_add,
+    relu,
+    dense,
+    softmax,
+    conv2d,
+    max_pool2d,
+    mlp_net,
+    vgg_net
+]
 FUNC_NAMES = list(map(lambda x: x.__name__, ALL_FUNCS))
 
+def print_function_list():
+    print("\n- Supported functions:")
+    (lambda x: print(', '.join(x)))(FUNC_NAMES)
 
 def run_example():
     input = sys.argv[1:]
     if '-h' in input or input == []:
         print("- To see FuTIL output:\n$ python3 example.py <function_name>")
         print("- To see Relay IR:\n$ python3 example.py <function_name> -r")
-        print("\n- Supported functions:")
-        (lambda x: print(', '.join(x)))(FUNC_NAMES)
+        print_function_list()
         return
     func = None
     # See if the command line contains a function name.
@@ -104,8 +113,9 @@ def run_example():
         if option.__name__ in input:
             func = option()
             break
-    if func == None:
-        print(f'Function {input} is not a supported. To see a list of functions:\n$ python3 example.py -h')
+    if func is None:
+        print(f'Function `{input[0]}` is not a supported.')
+        print_function_list()
         return
 
     # Try optimizing the Relay IR with a few built-in passes.

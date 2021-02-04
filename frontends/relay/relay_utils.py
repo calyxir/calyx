@@ -68,41 +68,50 @@ def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
     in_connects = []
     out_connects = []
 
-    def get_connects(c: Cell):
+    def get_connects(c: Cell, is_destination: bool):
+        # Hooks up correct ports for invocation, depending on whether
+        # `c` is an argument or a destination memory.
         comp = c.comp
         assert comp.id in DahliaSuffix, f'{comp.id} supported yet.'
         in_, out = [], []
         param = f'{c.id.name}{DahliaSuffix[comp.id]}'
         arg = CompVar(c.id.name)
 
-        # By default, always hook up both read and write ports.
-        in_.extend([
-            (f'{param}_read_data', CompPort(arg, 'read_data')),
-            (f'{param}_done', CompPort(arg, 'done'))
-        ])
-        out.extend([
-            (f'{param}_write_data', CompPort(arg, 'write_data')),
-            (f'{param}_write_en', CompPort(arg, 'write_en'))
-        ])
+        if is_destination:
+            # If the memory is being written to, hook up write ports.
+            in_.append(
+                (f'{param}_done', CompPort(arg, 'done'))
+            )
+            out.extend([
+                (f'{param}_write_data', CompPort(arg, 'write_data')),
+                (f'{param}_write_en', CompPort(arg, 'write_en'))
+            ])
+        else:
+            # Otherwise, hook up read ports.
+            in_.append(
+                (f'{param}_read_data', CompPort(arg, 'read_data'))
+            )
 
-        # Hook up address ports.
+        # In either case, hook up address ports.
         addr_ports = [port for port, _ in get_addr_ports(comp)]
         out.extend([
             (f'{param}_{port}', CompPort(arg, f'{port}')) for port in addr_ports
         ])
+
         return in_, out
 
-    for cell in args + [dest]:
+    for cell in args:
         # We treat the connections of both the destination
         # and argument memories in the same manner for now.
-        in_, out = get_connects(cell)
+        in_, out = get_connects(cell, is_destination=False)
         in_connects.extend(in_)
         out_connects.extend(out)
+    dest_in, dest_out = get_connects(dest, is_destination=True)
 
     return Invoke(
         decl,
-        in_connects,
-        out_connects
+        in_connects + dest_in,
+        out_connects + dest_out
     )
 
 
