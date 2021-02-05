@@ -35,6 +35,7 @@ class DahliaFuncDef:
 
 
 def get_dims(c: CompInst):
+    """Mapping from memory to number of dimensions."""
     id = c.id
     id2dimensions = {
         'std_mem_d1': 1,
@@ -47,7 +48,9 @@ def get_dims(c: CompInst):
 
 
 def get_addr_ports(c: CompInst):
-    """TODO: Document."""
+    """Returns a list of ('address, index size)
+     for each address port in the component
+     instance."""
     args = c.args
     dims = get_dims(c)
     addresses = range(0, dims)
