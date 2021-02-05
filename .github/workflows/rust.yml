@@ -152,7 +152,7 @@ jobs:
         path: ./tvm
         key: tvm-bin-${{ runner.os }}-${{ steps.versions.outputs.tvm }}
 
-    - name: Install TVM
+    - name: Build & Install TVM
       if: steps.tvm-cache.outputs.cache-hit != 'true'
       run: |
         pip3 install wheel
