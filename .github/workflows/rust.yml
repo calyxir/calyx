@@ -79,32 +79,9 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v2
 
-    - name: Install numpy and  flit
-      run: pip3 install numpy flit prettytable
+    - name: Install Python dependencies
+      run: pip3 install numpy flit prettytable wheel
 
-    - name: Cache TVM
-      id: tvm-cache
-      uses: actions/cache@v2
-      with:
-        path: ./tvm
-        key: tvm-bin-${{ runner.os }}-${{ steps.versions.outputs.tvm }}
-
-    - name: Install TVM
-      if: steps.tvm-cache.outputs.cache-hit != 'true'
-      run: |
-        pip3 install wheel
-        pip3 install -Iv antlr4-python3-runtime==4.7.2
-        sudo apt-get install -y ninja-build
-        cd frontends/relay
-        git clone --recursive https://github.com/apache/tvm.git
-        cd tvm && git reset --hard ccacb1ec1
-        mkdir build && cd build
-        cp ../cmake/config.cmake .
-        cmake -G Ninja .. && ninja
-        cd ../python && python3 setup.py bdist_wheel
-        pip3 install --user dist/tvm-*.whl
-        cd ../topi/python && python3 setup.py bdist_wheel
-        pip3 install --user dist/topi-*.whl
 
     - name: Cache SBT
       uses: actions/cache@v2
