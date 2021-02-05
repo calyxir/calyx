@@ -92,7 +92,6 @@ jobs:
     - name: Build Apache TVM
       if: steps.tvm-cache.outputs.cache-hit != 'true'
       run: |
-        pip3 install -Iv antlr4-python3-runtime==4.7.2
         sudo apt-get install -y ninja-build
         cd frontends/relay
         git clone --recursive https://github.com/apache/tvm.git
@@ -100,13 +99,10 @@ jobs:
         mkdir build && cd build
         cp ../cmake/config.cmake .
         cmake -G Ninja .. && ninja
-        cd ../python && python3 setup.py bdist_wheel
-        pip3 install --user dist/tvm-*.whl
-        cd ../topi/python && python3 setup.py bdist_wheel
-        pip3 install --user dist/topi-*.whl
 
     - name: Install Apache TVM
       run: |
+        pip3 install -Iv antlr4-python3-runtime==4.7.2
         cd frontends/relay/tvm/
         cd python && python3 setup.py bdist_wheel
         pip3 install --user dist/tvm-*.whl
