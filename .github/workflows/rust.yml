@@ -146,7 +146,8 @@ jobs:
         flit install
     - name: Install tvm
       run: |
-        pip3 install wheel antlr4-python3-runtime
+        pip3 install wheel
+        pip3 install -Iv antlr4-python3-runtime==4.7.2
         sudo apt-get install -y ninja-build
         cd frontends/relay
         git clone --recursive https://github.com/apache/tvm.git

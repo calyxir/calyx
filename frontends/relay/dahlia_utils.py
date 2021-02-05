@@ -100,8 +100,7 @@ def dahlia_to_futil(dahlia_definitions: str) -> str:
     with NamedTemporaryFile() as tf0, NamedTemporaryFile() as tf1:
         tf0.write(bytes(dahlia_definitions, 'UTF-8'))
         tf0.seek(0), tf1.seek(0)
-        fuse_binary = os.environ['DAHLIA_EXEC'] if 'DAHLIA_EXEC' in os.environ else 'fuse'
-        command = f"""{fuse_binary} {tf0.name} --lower -b=futil > {tf1.name} -l=error"""
+        command = f"""fud e --from dahlia {tf0.name} --to futil > {tf1.name} -q"""
         subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).communicate()
 
         components = tf1.read().decode()
