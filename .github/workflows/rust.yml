@@ -82,12 +82,16 @@ jobs:
     - name: Install common Python dependencies
       run: pip3 install numpy flit prettytable wheel psutil scipy attrs decorator
 
-
+    - name: Cache Apache TVM
+      id: tvm-cache
+      uses: actions/cache@v2
+      with:
+        path: frontends/relay/tvm
+        key: tvm-bin-${{ runner.os }}-${{ steps.versions.outputs.tvm }}
 
     - name: Install Apache TVM
       if: steps.tvm-cache.outputs.cache-hit != 'true'
       run: |
-        pip3 install -Iv tvm==0.7.dev1
         pip3 install -Iv antlr4-python3-runtime==4.7.2
         sudo apt-get install -y ninja-build
         cd frontends/relay
