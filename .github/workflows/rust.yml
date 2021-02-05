@@ -70,7 +70,27 @@ jobs:
         ./configure
         make
         sudo make install
-
+    - name: Cache TVM
+      id: tvm-cache
+      uses: actions/cache@v2
+      with:
+        path: frontends/relay
+        key: tvm-bin-${{ runner.os }}-${{ steps.versions.outputs.tvm }}
+    - name: Install TVM
+      if: steps.tvm-cache.outputs.cache-hit != 'true'
+      run: |
+        pip3 install wheel -Iv antlr4-python3-runtime==4.7.2
+        sudo apt-get install -y ninja-build
+        cd frontends/relay
+        git clone --recursive https://github.com/apache/tvm.git
+        cd tvm && git reset --hard ccacb1ec1
+        mkdir build && cd build
+        cp ../cmake/config.cmake .
+        cmake -G Ninja .. && ninja
+        cd ../python && python3 setup.py bdist_wheel
+        pip3 install --user dist/tvm-*.whl
+        cd ../topi/python && python3 setup.py bdist_wheel
+        pip3 install --user dist/topi-*.whl
     - name: Install Verilator
       run: |
         cd verilator
@@ -144,21 +164,6 @@ jobs:
       run: |
         cd calyx-py
         flit install
-    - name: Install tvm
-      run: |
-        pip3 install wheel
-        pip3 install -Iv antlr4-python3-runtime==4.7.2
-        sudo apt-get install -y ninja-build
-        cd frontends/relay
-        git clone --recursive https://github.com/apache/tvm.git
-        cd tvm && git reset --hard ccacb1ec1
-        mkdir build && cd build
-        cp ../cmake/config.cmake .
-        cmake -G Ninja .. && ninja
-        cd ../python && python3 setup.py bdist_wheel
-        pip3 install --user dist/tvm-*.whl
-        cd ../topi/python && python3 setup.py bdist_wheel
-        pip3 install --user dist/topi-*.whl
     - name: Test
       run: |
         unset JAVA_TOOL_OPTIONS
