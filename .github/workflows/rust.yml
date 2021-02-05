@@ -89,7 +89,7 @@ jobs:
         path: frontends/relay/tvm
         key: tvm-bin-${{ runner.os }}-${{ steps.versions.outputs.tvm }}
 
-    - name: Install Apache TVM
+    - name: Build Apache TVM
       if: steps.tvm-cache.outputs.cache-hit != 'true'
       run: |
         pip3 install -Iv antlr4-python3-runtime==4.7.2
@@ -101,6 +101,14 @@ jobs:
         cp ../cmake/config.cmake .
         cmake -G Ninja .. && ninja
         cd ../python && python3 setup.py bdist_wheel
+        pip3 install --user dist/tvm-*.whl
+        cd ../topi/python && python3 setup.py bdist_wheel
+        pip3 install --user dist/topi-*.whl
+
+    - name: Install Apache TVM
+      run: |
+        cd frontends/relay/tvm/
+        cd python && python3 setup.py bdist_wheel
         pip3 install --user dist/tvm-*.whl
         cd ../topi/python && python3 setup.py bdist_wheel
         pip3 install --user dist/topi-*.whl
