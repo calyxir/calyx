@@ -82,14 +82,14 @@ jobs:
     - name: Install Python dependencies
       run: pip3 install numpy flit prettytable wheel
 
-    - name: Cache TVM
+    - name: Cache Apache TVM
       id: tvm-cache
       uses: actions/cache@v2
       with:
         path: frontends/relay/tvm
         key: tvm-bin-${{ runner.os }}-${{ steps.versions.outputs.tvm }}
 
-    - name: Install TVM
+    - name: Install Apache TVM
       if: steps.tvm-cache.outputs.cache-hit != 'true'
       run: |
         pip3 install -Iv antlr4-python3-runtime==4.7.2
