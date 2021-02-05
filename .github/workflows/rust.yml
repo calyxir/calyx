@@ -86,7 +86,7 @@ jobs:
       id: tvm-cache
       uses: actions/cache@v2
       with:
-        path: frontends/relay
+        path: frontends/relay/tvm/*
         key: tvm-bin-${{ runner.os }}-${{ steps.versions.outputs.tvm }}
 
     - name: Install Apache TVM
