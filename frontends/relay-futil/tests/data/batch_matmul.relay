@@ -1,5 +1,0 @@
-v0.0.4
-fn (%a: Tensor[(2, 2, 3), int32], %b: Tensor[(2, 2, 3), int32]) {
-  let %x = nn.batch_matmul(%a, %b);
-  %x
-}

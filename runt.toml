@@ -96,6 +96,15 @@ cmd = """
 fud e -q {} --from mrxl --to dat -s verilog.data {}.data | jq .memories
 """
 
+[[tests]]
+name = "Relay correctness"
+paths = ["tests/correctness/relay/*.relay"]
+cmd = """
+python3 frontends/relay/compiler.py < {} > {}.expect; \
+fud e -q --from futil {}.expect --to dat -s verilog.data {}.data | jq .memories; \
+rm {}.expect;
+"""
+
 ##### Backend Tests #####
 [[tests]]
 name = "verilog backend"
@@ -130,6 +139,12 @@ paths = [ "tests/frontend/ntt-pipeline/*.txt" ]
 cmd = """
 python3 frontends/ntt-pipeline/gen-ntt-pipeline.py {}
 """
+
+
+[[tests]]
+name = "Relay frontend"
+paths = ["tests/frontend/relay/*.relay"]
+cmd = "python3 frontends/relay/compiler.py < {} -q"
 
 
 [[tests]]

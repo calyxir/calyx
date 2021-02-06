@@ -43,7 +43,7 @@ Run an Example
 
 Try this to run a simple example:
 ```bash
-cd futil/frontends/relay-futil
+cd futil/frontends/relay
 python3 example.py add
 ```     
 Pass the `-h` flag to this script for help.
