@@ -17,6 +17,7 @@ jobs:
         echo "::set-output name=vcdump::$(cargo search vcdump | awk '{print $3}' | tr -d '"')"
         echo "::set-output name=dahlia::$(git ls-remote https://github.com/cucapra/dahlia.git | awk '{print $1}')"
         echo "::set-output name=verilator::$(cat versions/verilator)"
+        echo "::set-output name=tvm::$(cat versions/tvm)"
       shell: bash
 
     # Install cargo based tools and use some caching magic.
