@@ -1,4 +1,5 @@
 import "primitives/std.lib";
+import "primitives/bitnum/math.futil";
 component main() -> () {
   cells {
     x = std_mem_d4(32, 8, 8, 16, 64, 4, 4, 5, 7);
