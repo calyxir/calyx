@@ -276,22 +276,123 @@ def sqrt(fd: DahliaFuncDef) -> str:
     )
 
 
+def batch_matmul(fd: DahliaFuncDef) -> str:
+    """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.batch_matmul"""
+    a, b, res = fd.args[0], fd.args[1], fd.dest
+    type = fd.data_type
+    bitwidth, M1_size0, M1_size1, M1_size2 = a.comp.args[0:4]
+    M1_index_size0, M1_index_size1, M1_index_size2 = a.comp.args[4:7]
+
+    M2_size0, M2_size1, M2_size2 = b.comp.args[1:4]
+    M2_index_size0, M2_index_size1, M2_index_size2 = b.comp.args[4:7]
+
+    return emit_dahlia_definition(
+        fd,
+        f"""let transpose_{b.id.name}: {type}[{M2_size0}][{M2_size2}][{M2_size1}];
+        for (let batch: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
+          for (let i: ubit<{M2_index_size1}> = 0..{M2_size1}) {{
+            for (let j: ubit<{M2_index_size2}> = 0..{M2_size2}) {{
+              transpose_{b.id.name}[batch][j][i] := {b.id.name}[batch][i][j];
+            }}
+          }}
+        }} 
+        for (let batch: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
+          for (let i: ubit<{M1_index_size1}> = 0..{M1_size1}) {{
+            for (let j: ubit<{M2_index_size1}> = 0..{M2_size1}) {{
+              for (let k: ubit<{M2_index_size2}> = 0..{M2_size2}) {{
+                let product = {a.id.name}[batch][i][k] * transpose_{b.id.name}[batch][k][j];
+              }} combine {{ {res.id.name}[batch][i][j] += product; }}
+            }}
+          }}
+        }}
+        """
+    )
+
+
+def dense(fd: DahliaFuncDef) -> str:
+    """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.dense"""
+    a, b, res = fd.args[0], fd.args[1], fd.dest
+    type = fd.data_type
+    M1_size0, M1_size1 = a.comp.args[1:3]
+    M1_index_size0, M1_index_size1 = a.comp.args[3:5]
+    M2_size0, M2_size1, M2_index_size0, M2_index_size1 = b.comp.args[1:5]
+
+    return emit_dahlia_definition(
+        fd,
+        f"""let transpose_{b.id.name}: {type}[{M2_size1}][{M2_size0}];
+        for (let i: ubit<{M2_index_size0}> = 0..{M2_size0}) {{
+          for (let j: ubit<{M2_index_size1}> = 0..{M2_size1}) {{
+            transpose_{b.id.name}[j][i] := {b.id.name}[i][j];
+          }}
+        }} 
+        for (let i: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
+          for (let j: ubit<{M2_index_size0}> = 0..{M2_size0}) {{
+            for (let k: ubit<{M1_index_size1}> = 0..{M1_size1}) {{
+              let product = {a.id.name}[i][k] * transpose_{b.id.name}[k][j];
+            }} combine {{ {res.id.name}[i][j] += product; }}
+          }}
+        }}
+        """
+    )
+
+
+def conv2d(fd: DahliaFuncDef) -> str:
+    """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.conv2d"""
+    data, weight, res = fd.args[0], fd.args[1], fd.dest
+    data_type = fd.data_type
+
+    strides = fd.attributes.get_int_tuple("strides")
+    kernel_size = fd.attributes.get_int_tuple("kernel_size")
+    channels = fd.attributes.get_int("channels")
+
+    size0, size1, size2, size3 = res.comp.args[1:5]
+    zero = '0.0' if 'fix' in data_type else '0'
+
+    return emit_dahlia_definition(
+        fd,
+        f"""for (let b_: ubit<32> = 0..{size0}) {{
+          for (let c_: ubit<32> = 0..{size1}) {{
+            for (let y_: ubit<32> = 0..{size2}) {{
+              for (let x_: ubit<32> = 0..{size3}) {{
+                let sum: {data_type} = {zero};
+                
+                for (let k: ubit<32> = 0..{channels}) {{
+                  for (let dy: ubit<32> = 0..{kernel_size[1]}/*kernel_size[1]*/) {{
+                    for (let dx: ubit<32> = 0..{kernel_size[0]}/*kernel_size[0]*/) {{
+                      let kernel_y: ubit<32> = (/*strides[0]*/{strides[0]} * y_) + dy;
+                      let kernel_x: ubit<32> = (/*strides[1]*/{strides[1]} * x_) + dx;     
+                    }} combine {{ 
+                      sum += {data.id.name}[b_][k][kernel_y][kernel_x] *
+                             {weight.id.name}[c_][k][dy][dx]; 
+                    }}
+                  }}
+                }}
+                {res.id.name}[b_][c_][y_][x_] := sum;
+              }} 
+            }} 
+          }} 
+        }} 
+        """
+    )
+
+
 # Mapping from Relay function names to their respective Dahlia lowering.
 RelayCallNodes = {
     'expand_dims': expand_dims,
     'negative': negative,
     'nn_batch_flatten': batch_flatten,
-    # 'nn_batch_matmul': batch_matmul,
+    'nn_batch_matmul': batch_matmul,
     'nn_bias_add': bias_add,
-    # 'nn_conv2d': conv2d,
-    # 'nn_dense': dense,
+    'nn_conv2d': conv2d,
+    'nn_dense': dense,
     'nn_max_pool2d': max_pool2d,
     'nn_relu': relu,
     # 'nn_softmax': softmax,
     'sqrt': sqrt
 }
 
-# Mapping from Relay binary calls to the respective Dahlia operator.
+# Mapping from Relay binary calls to
+# the respective Dahlia operator.
 BinaryOps = {
     'add': '+',
     'divide': '/',
@@ -319,7 +420,8 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     imports = [
         f"""import futil("primitives/bitnum/math.futil") 
         {{ 
-          def std_sqrt(in: {type}): {type}; 
+          def std_sqrt(in: {type}): {type};
+          def std_exp(in: {type}): {type};
         }}"""
     ]
 
