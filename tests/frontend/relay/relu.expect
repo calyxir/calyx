@@ -1,0 +1,198 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    x = std_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
+    x1 = std_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
+    nn_relu_ = nn_relu();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      invoke nn_relu_(x0_0_0_0_read_data=x.read_data, x10_0_0_0_done=x1.done, x10_0_0_0_read_data=x1.read_data)(x0_0_0_0_addr0=x.addr0, x0_0_0_0_addr1=x.addr1, x0_0_0_0_addr2=x.addr2, x0_0_0_0_addr3=x.addr3, x10_0_0_0_write_data=x1.write_data, x10_0_0_0_write_en=x1.write_en, x10_0_0_0_addr0=x1.addr0, x10_0_0_0_addr1=x1.addr1, x10_0_0_0_addr2=x1.addr2, x10_0_0_0_addr3=x1.addr3);
+    }
+  }
+}
+component nn_relu(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read_data: 32, x10_0_0_0_done: 1) -> (x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_addr0: 2, x0_0_0_0_addr1: 3, x0_0_0_0_addr2: 4, x0_0_0_0_addr3: 6, x10_0_0_0_write_data: 32, x10_0_0_0_write_en: 1, x10_0_0_0_addr0: 2, x10_0_0_0_addr1: 3, x10_0_0_0_addr2: 4, x10_0_0_0_addr3: 6) {
+  cells {
+    add0 = std_add(6);
+    add1 = std_add(4);
+    add2 = std_add(3);
+    add3 = std_add(2);
+    const0 = std_const(2,0);
+    const1 = std_const(2,1);
+    const10 = std_const(3,1);
+    const11 = std_const(2,1);
+    const2 = std_const(3,0);
+    const3 = std_const(3,3);
+    const4 = std_const(4,0);
+    const5 = std_const(4,7);
+    const6 = std_const(6,0);
+    const7 = std_const(6,31);
+    const8 = std_const(6,1);
+    const9 = std_const(4,1);
+    fpconst0 = fixed_p_std_const(32,16,16,0,0);
+    fpconst1 = fixed_p_std_const(32,16,16,0,0);
+    gt0 = fixed_p_std_sgt(32,16,16);
+    i0 = std_reg(2);
+    j0 = std_reg(3);
+    k0 = std_reg(4);
+    l0 = std_reg(6);
+    le0 = std_le(2);
+    le1 = std_le(3);
+    le2 = std_le(4);
+    le3 = std_le(6);
+    x_read0_0 = std_reg(32);
+    x_read1_0 = std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = j0.out;
+      le1.right = const3.out;
+    }
+    group cond2<"static"=0> {
+      cond2[done] = 1'd1;
+      le2.left = k0.out;
+      le2.right = const5.out;
+    }
+    group cond3<"static"=0> {
+      cond3[done] = 1'd1;
+      le3.left = l0.out;
+      le3.right = const7.out;
+    }
+    group cond4<"static"=0> {
+      cond4[done] = 1'd1;
+      gt0.left = x_read0_0.out;
+      gt0.right = fpconst0.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1<"static"=1> {
+      j0.in = const2.out;
+      j0.write_en = 1'd1;
+      let1[done] = j0.done;
+    }
+    group let2<"static"=1> {
+      k0.in = const4.out;
+      k0.write_en = 1'd1;
+      let2[done] = k0.done;
+    }
+    group let3<"static"=1> {
+      l0.in = const6.out;
+      l0.write_en = 1'd1;
+      let3[done] = l0.done;
+    }
+    group upd0<"static"=1> {
+      x_read0_0.write_en = 1'd1;
+      x0_0_0_0_addr3 = l0.out;
+      x0_0_0_0_addr2 = k0.out;
+      x0_0_0_0_addr1 = j0.out;
+      x0_0_0_0_addr0 = i0.out;
+      x_read0_0.in = 1'd1 ? x0_0_0_0_read_data;
+      upd0[done] = x_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      x_read1_0.write_en = 1'd1;
+      x0_0_0_0_addr3 = l0.out;
+      x0_0_0_0_addr2 = k0.out;
+      x0_0_0_0_addr1 = j0.out;
+      x0_0_0_0_addr0 = i0.out;
+      x_read1_0.in = 1'd1 ? x0_0_0_0_read_data;
+      upd1[done] = x_read1_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      x10_0_0_0_addr3 = l0.out;
+      x10_0_0_0_addr2 = k0.out;
+      x10_0_0_0_addr1 = j0.out;
+      x10_0_0_0_addr0 = i0.out;
+      x10_0_0_0_write_en = 1'd1;
+      x10_0_0_0_write_data = 1'd1 ? x_read1_0.out;
+      upd2[done] = x10_0_0_0_done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      x10_0_0_0_addr3 = l0.out;
+      x10_0_0_0_addr2 = k0.out;
+      x10_0_0_0_addr1 = j0.out;
+      x10_0_0_0_addr0 = i0.out;
+      x10_0_0_0_write_en = 1'd1;
+      x10_0_0_0_write_data = 1'd1 ? fpconst1.out;
+      upd3[done] = x10_0_0_0_done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      l0.write_en = 1'd1;
+      add0.left = l0.out;
+      add0.right = const8.out;
+      l0.in = 1'd1 ? add0.out;
+      upd4[done] = l0.done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      k0.write_en = 1'd1;
+      add1.left = k0.out;
+      add1.right = const9.out;
+      k0.in = 1'd1 ? add1.out;
+      upd5[done] = k0.done ? 1'd1;
+    }
+    group upd6<"static"=1> {
+      j0.write_en = 1'd1;
+      add2.left = j0.out;
+      add2.right = const10.out;
+      j0.in = 1'd1 ? add2.out;
+      upd6[done] = j0.done ? 1'd1;
+    }
+    group upd7<"static"=1> {
+      i0.write_en = 1'd1;
+      add3.left = i0.out;
+      add3.right = const11.out;
+      i0.in = 1'd1 ? add3.out;
+      upd7[done] = i0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          let1;
+          while le1.out with cond1 {
+            seq {
+              let2;
+              while le2.out with cond2 {
+                seq {
+                  let3;
+                  while le3.out with cond3 {
+                    seq {
+                      upd0;
+                      if gt0.out with cond4 {
+                        seq {
+                          upd1;
+                          upd2;
+                        }
+                      } else {
+                        upd3;
+                      }
+                      upd4;
+                    }
+                  }
+                  upd5;
+                }
+              }
+              upd6;
+            }
+          }
+          upd7;
+        }
+      }
+    }
+  }
+}
+

@@ -7,7 +7,7 @@ from dahlia_utils import *
 ################## Dahlia Implementations for Relay Call Nodes #####################################
 ####################################################################################################
 
-def broadcast(fd: DahliaFuncDef):
+def broadcast(fd: DahliaFuncDef) -> str:
     """Implements array broadcasting:
     Two dimensions are compatible when either (1) they're equal,
     or (2) one of them is `1`. It is not required that both
@@ -74,23 +74,221 @@ def broadcast(fd: DahliaFuncDef):
 
     return emit_dahlia_definition(
         fd,
-        emit_dahlia_loop(fd, loop_body, res_dims)
+        emit_dahlia_loop(res, loop_body)
+    )
+
+
+def expand_dims(fd: DahliaFuncDef) -> str:
+    """tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.expand_dims"""
+    axis = fd.attributes.get_int("axis")
+    data, res = fd.args[0], fd.dest
+
+    res_indices, data_indices = "", ""
+    var_name = CHARACTER_I
+    num_dims = get_dims(data.comp)
+    for n in range(num_dims):
+        # Determine loop body indices.
+        index = f'[{var_name}]'
+        res_indices += index
+        data_indices += index
+        if axis == n + 1:
+            # Append expanded dimensions.
+            res_indices += '[0]' * fd.attributes.get_int("num_newaxis")
+        var_name = next_character(var_name)
+
+    loop_body = f'{res.id.name}{res_indices} := {data.id.name}{data_indices};'
+    return emit_dahlia_definition(
+        fd,
+        emit_dahlia_loop(data, loop_body)
+    )
+
+
+def negative(fd: DahliaFuncDef) -> str:
+    """tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.negative"""
+    inp, res = fd.args[0], fd.dest
+
+    var_name = CHARACTER_I
+    indices = ''
+    num_dims = get_dims(inp.comp)
+    for _ in range(num_dims):
+        # Determine loop body indices.
+        indices += f'[{var_name}]'
+        var_name = next_character(var_name)
+
+    zero = '0.0' if fd.data_type == 'fix' else '0'
+    loop_body = f'{res.id.name}{indices} := {zero} - {inp.id.name}{indices};'
+    return emit_dahlia_definition(
+        fd,
+        emit_dahlia_loop(res, loop_body)
+    )
+
+
+def batch_flatten(fd: DahliaFuncDef) -> str:
+    """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.batch_flatten"""
+    data, res = fd.args[0], fd.dest
+
+    var_name = CHARACTER_I
+    args = data.comp.args
+    data_indices = ''
+    res_indices = f'[{var_name}]'
+    num_dims = get_dims(data.comp)
+    for i in range(num_dims):
+        index = f'[{var_name}]'
+        data_indices += index
+        var_name = next_character(var_name)
+
+    res_indices += f'[{var_name}]'
+
+    loop_body = f"""{res.id.name}{res_indices} := \
+           {data.id.name}{data_indices}; \
+           {var_name} := {var_name} + 1;"""
+    return emit_dahlia_definition(
+        fd,
+        (
+            # We use args[3] because the output is
+            # 2-dimensional (batch). Therefore, we want
+            # the second index size in the memory.
+            f'let {var_name}: ubit<{args[3]}> = 0;',
+            emit_dahlia_loop(data, loop_body),
+        )
+    )
+
+
+def bias_add(fd: DahliaFuncDef) -> str:
+    """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.bias_add"""
+    data, bias, res = fd.args[0], fd.args[1], fd.dest
+    axis_attribute = fd.attributes.get_int("axis")
+    axis = num_dims - 1 if axis_attribute == -1 else axis_attribute
+
+    var_name = CHARACTER_I
+    data_indices = ""
+    args = data.comp.args
+    num_dims = get_dims(data.comp)
+    for i in range(num_dims):
+        # Determine loop body indices based on `axis` provided.
+        size = args[i + 1]
+        index_size = args[i + 1 + num_dims]
+        index = f'[{var_name}]'
+        if axis == i:
+            # Determine which `var_name` is
+            # associated with the bias index.
+            bias_index = index
+
+        data_indices += index
+        var_name = next_character(var_name)
+    loop_body = f"""{res.id.name}{data_indices} := 
+                {data.id.name}{data_indices} + {bias.id.name}{bias_index};"""
+
+    return emit_dahlia_definition(
+        fd,
+        emit_dahlia_loop(data, loop_body)
+    )
+
+
+def max_pool2d(fd: DahliaFuncDef) -> str:
+    """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.max_pool2d"""
+    data, res = fd.args[0], fd.dest
+
+    strides = fd.attributes.get_int_tuple("strides")
+    pool_size = fd.attributes.get_int_tuple("pool_size")
+    layout = fd.attributes.get_str("layout")
+    ceil_mode = fd.attributes.get_int("ceil_mode")
+    assert layout == 'NCHW', \
+        f"""Layout \'{layout}\' is not currently supported for
+        nn.max_pool2d; please use `NCHW`"""
+    assert ceil_mode == False, \
+        "`ceil_mode` is not currently supported for nn.max_pool2d"
+
+    args = res.comp.args
+    width = args[0]
+    data_type = fd.data_type
+    size0, size1, size2, size3 = args[1:5]
+
+    return emit_dahlia_definition(
+        fd,
+        f"""for (let b: ubit<{width}> = 0..{size0}) {{
+          for (let c: ubit<{width}> = 0..{size1}) {{
+            for (let y: ubit<{width}> = 0..{size2}) {{
+              for (let x: ubit<{width}> = 0..{size3}) {{
+                let stride_y: ubit<{width}> = y * {strides[0]}/*strides[0]*/;
+                let stride_x: ubit<{width}> = x * {strides[1]}/*strides[1]*/;
+                
+                let max: {data_type} = {data.id.name}[b][c][stride_y][stride_x];
+                for (let m: ubit<{width}> = 0..{pool_size[0]}/*pool_size[0]*/) {{
+                  for (let n: ubit<{width}> = 0..{pool_size[1]}/*pool_size[1]*/) {{
+                    let pool_y: ubit<{width}> = stride_y + m;
+                    let pool_x: ubit<{width}> = stride_x + n;
+                    let current: {data_type} = {data.id.name}[b][c][pool_y][pool_x];
+                    if (current > max) {{ max := current; }} 
+                  }}
+                }}
+                {res.id.name}[b][c][y][x] := max;
+              }} 
+            }} 
+          }} 
+        }} 
+        """
+    )
+
+
+def relu(fd: DahliaFuncDef) -> str:
+    """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.relu"""
+    data, res = fd.args[0], fd.dest
+    num_dims = get_dims(data.comp)
+    args = data.comp.args
+
+    indices = ""
+    var_name = CHARACTER_I
+    for _ in range(num_dims):
+        indices += f'[{var_name}]'
+        var_name = next_character(var_name)
+
+    data_type = fd.data_type
+    zero = f'({"0.0" if "fix" in data_type else "0"} as {data_type})'
+    input = f'{data.id.name}{indices}'
+    result = f'{res.id.name}{indices}'
+    loop_body = f"""if ({input} > {zero}) {{ {result} := {input}; }} 
+                    else {{ {result} := {zero}; }}"""
+
+    return emit_dahlia_definition(
+        fd,
+        emit_dahlia_loop(data, loop_body)
+    )
+
+
+def sqrt(fd: DahliaFuncDef) -> str:
+    """tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.sqrt"""
+    data, res = fd.args[0], fd.dest
+    num_dims = get_dims(data.comp)
+    args = data.comp.args
+
+    indices = ""
+    var_name = CHARACTER_I
+    for _ in range(num_dims):
+        indices += f'[{var_name}]'
+        var_name = next_character(var_name)
+
+    loop_body = f"""let tmp = std_sqrt({data.id.name}{indices});
+                    {res.id.name}{indices} := tmp;"""
+    return emit_dahlia_definition(
+        fd,
+        emit_dahlia_loop(data, loop_body)
     )
 
 
 # Mapping from Relay function names to their respective Dahlia lowering.
 RelayCallNodes = {
-    # 'nn_dense': dense,
-    # 'nn_batch_flatten': batch_flatten,
+    'expand_dims': expand_dims,
+    'negative': negative,
+    'nn_batch_flatten': batch_flatten,
     # 'nn_batch_matmul': batch_matmul,
-    # 'nn_bias_add': bias_add,
-    # 'nn_relu': relu,
-    # 'nn_softmax': softmax,
-    # 'nn_max_pool2d': max_pool2d,
+    'nn_bias_add': bias_add,
     # 'nn_conv2d': conv2d,
-    # 'negative': negative,
-    # 'expand_dims': expand_dims,
-    # 'sqrt': sqrt
+    # 'nn_dense': dense,
+    'nn_max_pool2d': max_pool2d,
+    'nn_relu': relu,
+    # 'nn_softmax': softmax,
+    'sqrt': sqrt
 }
 
 # Mapping from Relay binary calls to the respective Dahlia operator.
@@ -116,4 +314,15 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
         # Otherwise, use the associated Relay function.
         apply = broadcast if id in BinaryOps else RelayCallNodes[id]
         dahlia_definitions.append(apply(func_def))
-        return dahlia_to_futil('\n'.join(dahlia_definitions))
+
+    type = func_defs[0].data_type
+    imports = [
+        f"""import futil("primitives/bitnum/math.futil") 
+        {{ 
+          def std_sqrt(in: {type}): {type}; 
+        }}"""
+    ]
+
+    return dahlia_to_futil(
+        '\n'.join(imports + dahlia_definitions)
+    )

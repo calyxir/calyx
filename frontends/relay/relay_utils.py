@@ -1,4 +1,5 @@
 import tvm
+from tvm import relay
 from futil.ast import *
 from futil.utils import bits_needed
 from typing import List
@@ -128,7 +129,7 @@ def get_dahlia_data_type(relay_type) -> str:
     if 'int' in relay_type.dtype:
         return f'bit<{width}>'
     if 'float' in relay_type.dtype:
-        return f'fix<{width, width // 2}>'
+        return f'fix<{width}, {width // 2}>'
     assert 0, f'{relay_type} is not supported.'
 
 
@@ -156,3 +157,16 @@ def get_memory(name: str, type: tvm.ir.Type) -> Cell:
         CompVar(name),
         NumDimsToCell[num_dims](*args)
     )
+
+
+def python2relay(func) -> str:
+    """Used to lower Relay IR from the
+    TVM Python library."""
+    seq = tvm.transform.Sequential([
+        relay.transform.SimplifyExpr(),
+        relay.transform.SimplifyInference(),
+        relay.transform.ToANormalForm(),
+    ])
+    mod_opt = tvm.IRModule.from_expr(func)
+    mod_opt = seq(mod_opt)
+    return mod_opt['main']
