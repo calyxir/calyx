@@ -346,7 +346,6 @@ def conv2d(fd: DahliaFuncDef) -> str:
     channels = fd.attributes.get_int("channels")
 
     size0, size1, size2, size3 = res.comp.args[1:5]
-    zero = '0.0' if 'fix' in data_type else '0'
 
     return emit_dahlia_definition(
         fd,
@@ -354,7 +353,8 @@ def conv2d(fd: DahliaFuncDef) -> str:
           for (let c_: ubit<32> = 0..{size1}) {{
             for (let y_: ubit<32> = 0..{size2}) {{
               for (let x_: ubit<32> = 0..{size3}) {{
-                let sum: {data_type} = {zero};
+                let sum: {data_type} = 
+                         {'0.0' if 'fix' in data_type else '0'};
                 
                 for (let k: ubit<32> = 0..{channels}) {{
                   for (let dy: ubit<32> = 0..{kernel_size[1]}/*kernel_size[1]*/) {{
@@ -376,6 +376,39 @@ def conv2d(fd: DahliaFuncDef) -> str:
     )
 
 
+def softmax(fd: DahliaFuncDef) -> str:
+    """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.softmax"""
+    data, res = fd.args[0], fd.dest
+    axis = fd.attributes.get_int("axis")
+    assert axis == -1 or axis == 1, f'nn.softmax with axis = {axis} is not supported.'
+
+    data_type = fd.data_type
+    size0, size1, index_size0, index_size1 = data.comp.args[1:5]
+
+    # The value of `e` if Q = 32.16, otherwise `3`.
+    e = '13044242090' if 'fix' in data_type else '3'
+
+    return emit_dahlia_definition(
+        fd,
+        f"""let e: {data_type} = {e};
+        for (let i: ubit<{index_size0}> = 0..{size0}) {{
+          let {data.id.name}_expsum: {data_type} = 
+              {'0.0' if 'fix' in data_type else '0'};
+    
+          for (let j: ubit<{index_size1}> = 0..{size1}) {{
+            let tmp1 = std_exp(e, {data.id.name}[i][j]);
+            {data.id.name}_expsum += tmp1; 
+          }}
+          for (let k: ubit<{index_size1}> = 0..{size1}) {{
+            let tmp2 = std_exp(e, {data.id.name}[i][k]);
+            {res.id.name}[i][k] := tmp2; 
+            {res.id.name}[i][k] := 
+            {res.id.name}[i][k] / {data.id.name}_expsum;
+          }}
+        }}"""
+    )
+
+
 # Mapping from Relay function names to their respective Dahlia lowering.
 RelayCallNodes = {
     'expand_dims': expand_dims,
@@ -387,7 +420,7 @@ RelayCallNodes = {
     'nn_dense': dense,
     'nn_max_pool2d': max_pool2d,
     'nn_relu': relu,
-    # 'nn_softmax': softmax,
+    'nn_softmax': softmax,
     'sqrt': sqrt
 }
 
@@ -419,9 +452,9 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     type = func_defs[0].data_type
     imports = [
         f"""import futil("primitives/bitnum/math.futil") 
-        {{ 
+        {{
+          def std_exp(base: {type}, exp: {type}): {type};
           def std_sqrt(in: {type}): {type};
-          def std_exp(in: {type}): {type};
         }}"""
     ]
 
