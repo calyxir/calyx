@@ -42,6 +42,5 @@ extern "unsigned.sv" {
   ) -> (
     out: width
   );
-  primitive std_exp(exponent: 32, go: 1, clk: 1) -> (out: 32, done: 1);
 
 }

@@ -1,3 +1,53 @@
 extern "math.sv" {
   primitive sqrt(in: 32, go: 1, clk: 1) -> (out: 32, done: 1);
 }
+
+// Computes the value b^e, where
+// b is the `base` and e is the `exp`.
+component std_exp(base: 32, exp: 32) -> (out: 32) {
+  cells {
+    pow = std_reg(32);
+    count = std_reg(32);
+    mul = std_mult(32);
+    lt = std_lt(32);
+    incr = std_add(32);
+  }
+  wires {
+    group init {
+      pow.in = 32'd1;
+      pow.write_en = 1'd1;
+      count.in = 32'd0;
+      count.write_en = 1'd1;
+      init[done] = pow.done & count.done ? 1'd1;
+    }
+    group do_mul {
+      mul.left = base;
+      mul.right = pow.out;
+      pow.in = mul.out;
+      pow.write_en = 1'd1;
+      do_mul[done] = pow.done;
+    }
+    group incr_count {
+      incr.left = 32'd1;
+      incr.right = count.out;
+      count.in = incr.out;
+      count.write_en = 1'd1;
+      incr_count[done] = count.done;
+    }
+    group cond {
+      lt.right = exp;
+      lt.left = count.out;
+      cond[done] = 1'd1;
+    }
+
+    out = pow.out;
+  }
+  control {
+    seq {
+      init;
+      while lt.out with cond {
+        par { do_mul; incr_count; }
+      }
+    }
+  }
+}

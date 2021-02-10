@@ -1,0 +1,24 @@
+import "primitives/std.lib";
+import "primitives/bitnum/math.futil";
+component main() -> () {
+  cells {
+    base = std_const(32,3);
+    exp = std_const(32,2);
+    b_x = std_mem_d1(32, 1, 1);
+    std_exp0 = std_exp();
+  }
+  wires {
+    group fill_memory {
+      b_x.write_data = std_exp0.out;
+      b_x.addr0 = 1'd0;
+      b_x.write_en = 1'd1;
+      fill_memory[done] = b_x.done;
+    }
+  }
+  control {
+    seq {
+      invoke std_exp0(base=base.out, exp=exp.out)();
+      fill_memory;
+    }
+  }
+}
