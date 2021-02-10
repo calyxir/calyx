@@ -274,3 +274,23 @@ module std_mod #(
 );
   assign out = left % right;
 endmodule
+
+module std_exp (
+    input  logic [31:0] exponent,
+    input  logic        go,
+    input  logic        clk,
+    output logic [31:0] out,
+    output logic        done
+);
+  always_ff @(posedge clk) begin
+    if (go) begin
+      // XXX: This is a hilariously bad approximation
+      /* verilator lint_off REALCVT */
+      out <= /* 2.718281 */ 3 ** exponent;
+      done <= 1;
+    end else begin
+      out <= 0;
+      done <= 0;
+    end
+  end
+endmodule
