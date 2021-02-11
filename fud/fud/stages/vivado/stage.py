@@ -2,10 +2,10 @@ import shutil
 from pathlib import Path
 
 from fud.stages import SourceType, Stage
+from fud.stages.remote_context import RemoteExecution
+from fud.utils import TmpDir, shell
 
-from ..utils import TmpDir, shell
-from ..vivado.extract import futil_extract, hls_extract
-from .remote_context import RemoteExecution
+from .extract import futil_extract, hls_extract
 
 
 class VivadoBaseStage(Stage):
