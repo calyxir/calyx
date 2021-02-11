@@ -103,6 +103,51 @@ class Conversions:
         return BytesIO(data.encode("UTF-8"))
 
 
+class SpinnerWrapper:
+    """
+    Wraps a spinner object.
+    """
+
+    def __init__(self, spinner, save):
+        self.spinner = spinner
+        self.save = save
+        self.stage_text = ""
+        self.step_text = ""
+
+    def _update(self):
+        if self.step_text != "":
+            self.spinner.start(f"{self.stage_text}: {self.step_text}")
+        else:
+            self.spinner.start(f"{self.stage_text}")
+
+    def start_stage(self, text):
+        self.stage_text = text
+        self._update()
+
+    def end_stage(self):
+        if self.save:
+            self.spinner.succeed()
+
+    def start_step(self, text):
+        self.step_text = text
+        self._update()
+
+    def end_step(self):
+        if self.save:
+            self.spinner.succeed()
+        self.step_text = ""
+        self._update()
+
+    def succeed(self):
+        self.spinner.succeed()
+
+    def fail(self, text=None):
+        self.spinner.fail(text)
+
+    def stop(self):
+        self.spinner.stop()
+
+
 def shell(cmd, stdin=None, stdout_as_debug=False):
     """
     Runs `cmd` in the shell and returns a stream of the output.

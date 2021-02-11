@@ -9,47 +9,6 @@ from . import errors, utils
 from .stages import Source, SourceType
 
 
-class SpinnerWrapper:
-    def __init__(self, spinner, save):
-        self.spinner = spinner
-        self.save = save
-        self.stage_text = ""
-        self.step_text = ""
-
-    def _update(self):
-        if self.step_text != "":
-            self.spinner.start(f"{self.stage_text}: {self.step_text}")
-        else:
-            self.spinner.start(f"{self.stage_text}")
-
-    def start_stage(self, text):
-        self.stage_text = text
-        self._update()
-
-    def end_stage(self):
-        if self.save:
-            self.spinner.succeed()
-
-    def start_step(self, text):
-        self.step_text = text
-        self._update()
-
-    def end_step(self):
-        if self.save:
-            self.spinner.succeed()
-        self.step_text = ""
-        self._update()
-
-    def succeed(self):
-        self.spinner.succeed()
-
-    def fail(self, text=None):
-        self.spinner.fail(text)
-
-    def stop(self):
-        self.spinner.stop()
-
-
 def discover_implied_stage(filename, config, possible_dests=None):
     """
     Use the mapping from filename extensions to stages to figure out which
@@ -69,14 +28,10 @@ def discover_implied_stage(filename, config, possible_dests=None):
     raise errors.UnknownExtension(filename)
 
 
-def run_fud(args, config):
-    # check if input_file exists
-    input_file = None
-    if args.input_file is not None:
-        input_file = Path(args.input_file)
-        if not input_file.exists():
-            raise FileNotFoundError(input_file)
-
+def construct_path(args, config):
+    """
+    Construct the path of stages implied by the passed arguments.
+    """
     # find source
     source = args.source
     if source is None:
@@ -97,6 +52,22 @@ def run_fud(args, config):
     if len(path) == 0:
         raise errors.TrivialPath(source)
 
+    return path
+
+
+def run_fud(args, config):
+    """
+    Execute all the stages implied by the passed `args`
+    """
+    # check if input_file exists
+    input_file = None
+    if args.input_file is not None:
+        input_file = Path(args.input_file)
+        if not input_file.exists():
+            raise FileNotFoundError(input_file)
+
+    path = construct_path(args, config)
+
     # check if we need `-o` specified
     if path[-1].stage.output_type == SourceType.Directory and args.output_file is None:
         raise errors.NeedOutputSpecified(path[-1].stage)
@@ -109,26 +80,29 @@ def run_fud(args, config):
             ed.stage.dry_run()
         return
 
-    # Pretty spinner.
+    # spinner is disabled if we are in debug mode, doing a dry_run, or are in quiet mode
     spinner_enabled = not (utils.is_debug() or args.dry_run or args.quiet)
+
     # Execute the path transformation specification.
     with Halo(
         spinner="dots", color="cyan", stream=sys.stderr, enabled=spinner_enabled
     ) as sp:
 
-        sp = SpinnerWrapper(sp, save=log.getLogger().level <= log.INFO)
+        sp = utils.SpinnerWrapper(sp, save=log.getLogger().level <= log.INFO)
 
-        # if input_file is None:
-        #     inp = Source(None, SourceType.Passthrough)
-        # else:
-        inp = Source(Path(str(input_file)), SourceType.Path)
+        # construct a source object for the input
+        data = None
+        if input_file is None:
+            data = Source(None, SourceType.UnTyped)
+        else:
+            data = Source(Path(str(input_file)), SourceType.Path)
 
+        # run all the stages
         for ed in path:
             sp.start_stage(f"{ed.stage.name} → {ed.stage.target_stage}")
-            # TODO: catch exceptions
             try:
-                result = ed.stage.run(inp, sp)
-                inp = result
+                result = ed.stage.run(data, sp)
+                data = result
                 sp.end_stage()
             except errors.StepFailure as e:
                 sp.fail()
@@ -137,11 +111,12 @@ def run_fud(args, config):
 
         sp.stop()
 
+        # output the data returned from the file step
         if args.output_file is not None:
-            if inp.typ == SourceType.Directory:
-                shutil.move(inp.data.name, args.output_file)
+            if data.typ == SourceType.Directory:
+                shutil.move(data.data.name, args.output_file)
             else:
                 with Path(args.output_file).open("w") as f:
-                    f.write(inp.convert_to(SourceType.String).data)
+                    f.write(data.convert_to(SourceType.String).data)
         else:
-            print(inp.convert_to(SourceType.String).data)
+            print(data.convert_to(SourceType.String).data)
