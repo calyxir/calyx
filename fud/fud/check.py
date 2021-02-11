@@ -46,7 +46,6 @@ VERSIONS = {
 }
 
 
-# given a compare string, call the related comparison function
 def version_compare(cmp_str, installed, required):
     """
     Given a `cmp_str`, call the related comparison function on
@@ -64,7 +63,6 @@ def version_compare(cmp_str, installed, required):
     raise Exception(f"Unknown compare string: {cmp_str}")
 
 
-# check the version for a given stage named `name`
 def check_version(name, exec_path):
     """
     Check the version for the stage: `name`.
