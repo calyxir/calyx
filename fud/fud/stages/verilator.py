@@ -5,7 +5,7 @@ from pathlib import Path
 from fud.stages import Source, SourceType, Stage
 
 from .. import errors
-from ..json_to_dat import convert2dat, convert2json
+from ..verilator.json_to_dat import convert2dat, convert2json
 from ..utils import TmpDir, shell
 
 
