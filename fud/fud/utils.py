@@ -103,7 +103,7 @@ class Conversions:
         return BytesIO(data.encode("UTF-8"))
 
 
-def shell(cmd, stdin=None, stdout_as_debug=False, wait=True):
+def shell(cmd, stdin=None, stdout_as_debug=False):
     """
     Runs `cmd` in the shell and returns a stream of the output.
     Raises `errors.StepFailure` if the command fails.
@@ -120,8 +120,6 @@ def shell(cmd, stdin=None, stdout_as_debug=False, wait=True):
     log.debug(cmd)
 
     stdout = TemporaryFile()
-    if not wait:
-        stdout = subprocess.PIPE
     stderr = None
     # if we are not in debug mode, capture stderr
     if not is_debug():
@@ -130,12 +128,12 @@ def shell(cmd, stdin=None, stdout_as_debug=False, wait=True):
     proc = subprocess.Popen(
         cmd, shell=True, stdin=stdin, stdout=stdout, stderr=stderr, env=os.environ
     )
-    if wait:
-        proc.wait()
-        if proc.returncode != 0:
+    proc.wait()
+    if proc.returncode != 0:
+        if stderr is not None:
             stderr.seek(0)
             raise errors.StepFailure(cmd, stderr.read().decode("UTF-8"))
-        stdout.seek(0)
-        return stdout
-    else:
-        return proc
+        else:
+            raise errors.StepFailure(cmd, "No stderr captured.")
+    stdout.seek(0)
+    return stdout

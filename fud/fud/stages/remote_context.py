@@ -72,6 +72,9 @@ class RemoteExecution:
     def execute(self, client, tmpdir, cmd):
         @self.stage.step()
         def run_vivado(client: SourceType.UnTyped, tmpdir: SourceType.String):
+            """
+            Run vivado command remotely.
+            """
             _, stdout, stderr = client.exec_command(
                 " ".join([f"cd {tmpdir}", "&&", cmd])
             )
@@ -89,6 +92,9 @@ class RemoteExecution:
             remote_tmpdir: SourceType.String,
             local_tmpdir: SourceType.Directory,
         ):
+            """
+            Copy files generated on server back to local host.
+            """
             with self.SCPClient(client.get_transport()) as scp:
                 scp.get(
                     remote_tmpdir, local_path=f"{local_tmpdir.name}", recursive=True

@@ -5,7 +5,7 @@ from pathlib import Path
 from fud.stages import SourceType, Stage
 
 from ..utils import TmpDir, shell
-from ..vivado.extract import futil_extract
+from ..vivado.extract import futil_extract, hls_extract
 from .remote_context import RemoteExecution
 
 
@@ -23,7 +23,9 @@ class VivadoBaseStage(Stage):
         description,
         device_files=None,
         target_name=None,
-        cmd=None,
+        local_exec=None,
+        remote_exec=None,
+        flags="",
     ):
         super().__init__(
             name,
@@ -35,9 +37,12 @@ class VivadoBaseStage(Stage):
         )
         self.device_files = device_files
         self.target_name = target_name
-        self.cmd = cmd
         self.remote_exec = RemoteExecution(self)
         self.use_ssh = self.remote_exec.use_ssh
+        if self.use_ssh:
+            self.cmd = remote_exec + " " + flags
+        else:
+            self.cmd = local_exec + " " + flags
         self.setup()
 
     def _define_steps(self, verilog_path):
@@ -75,29 +80,18 @@ class VivadoBaseStage(Stage):
         return tmpdir
 
     def execute(self, tmpdir):
-        # @self.step(input_type=SourceType.Directory)
-        # def run_vivado(tmpdir):
-        #     proc = shell(
-        #         " ".join([f"cd {tmpdir.name}", "&&", self.cmd]), wait=False
-
         @self.step(description=self.cmd)
         def run_vivado(tmpdir: SourceType.Directory):
             shell(" ".join([f"cd {tmpdir.name}", "&&", self.cmd]), stdout_as_debug=True)
-            # for chunk in iter(lambda: proc.stdout.readline(2048), ""):
-            #     if proc.poll() is not None:
-            #         break
-            #     chunk = chunk.decode("ascii").strip()
-            #     r = re.search(r"Phase (\d(?:\d|\.)*)", chunk)
-            #     if r is not None:
-            #         step.spinner.start_step(f"{step.name} ({chunk})")
 
         run_vivado(tmpdir)
 
 
 class VivadoStage(VivadoBaseStage):
     def __init__(self, config):
+        name = "synth-verilog"
         super().__init__(
-            "synth-verilog",
+            name,
             "synth-files",
             config,
             "Runs synthesis on a Verilog program",
@@ -116,15 +110,18 @@ class VivadoStage(VivadoBaseStage):
                 ),
             ],
             target_name="main.sv",
-            cmd="vivado -mode batch -source synth.tcl",
+            local_exec=config["stages", name, "exec"],
+            remote_exec="vivado",
+            flags="-mode batch -source synth.tcl",
         )
 
 
 class VivadoHLSStage(VivadoBaseStage):
     def __init__(self, config):
+        name = "vivado-hls"
         super().__init__(
-            "synth-verilog",
-            "synth-files",
+            name,
+            "hls-files",
             config,
             "Runs synthesis on a Verilog program",
             device_files=[
@@ -142,7 +139,9 @@ class VivadoHLSStage(VivadoBaseStage):
                 ),
             ],
             target_name="kernel.cpp",
-            cmd="vivado_hls -f hls.tcl",
+            local_exec=config["stages", name, "exec"],
+            remote_exec="vivado_hls",
+            flags="-f hls.tcl",
         )
 
 
