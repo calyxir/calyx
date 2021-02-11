@@ -272,6 +272,7 @@ fn is_combinational(cell: &ir::Id, port: &ir::Id, env: &Environment) -> bool {
 }
 
 /// Initializes values for the update queue, i.e. for non-combinational cells
+#[allow(clippy::unnecessary_wraps)]
 fn init_cells(
     cell: &ir::Id,
     inputs: Vec<ir::Id>,
