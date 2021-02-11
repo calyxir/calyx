@@ -61,7 +61,7 @@ class Component:
         self.name = name
         self.controls = controls
         # Partition cells and wires.
-        def is_cell(x): return isinstance(x, Cell)
+        is_cell = lambda x: isinstance(x, Cell)
         self.cells = [s for s in structs if is_cell(s)]
         self.wires = [s for s in structs if not is_cell(s)]
 
