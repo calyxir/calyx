@@ -4,3 +4,10 @@ from .stage import (
     VivadoHLSStage,
     VivadoHLSExtractStage,
 )
+
+__all__ = [
+    "VivadoStage",
+    "VivadoExtractStage",
+    "VivadoHLSStage",
+    "VivadoHLSExtractStage",
+]
