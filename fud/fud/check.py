@@ -6,6 +6,7 @@ from packaging import version
 import sys
 
 
+# Dictionary that defines how to check the version for different tools.
 VERSIONS = {
     "dahlia": {
         "flag": "--version",
@@ -45,7 +46,12 @@ VERSIONS = {
 }
 
 
+# given a compare string, call the related comparison function
 def version_compare(cmp_str, installed, required):
+    """
+    Given a `cmp_str`, call the related comparison function on
+    `installed` {cmp op} `required`.
+    """
     if cmp_str == ">=":
         return version.parse(installed) >= version.parse(required)
     if cmp_str == "==":
@@ -58,7 +64,11 @@ def version_compare(cmp_str, installed, required):
     raise Exception(f"Unknown compare string: {cmp_str}")
 
 
+# check the version for a given stage named `name`
 def check_version(name, exec_path):
+    """
+    Check the version for the stage: `name`.
+    """
     try:
         if name in VERSIONS:
             info = VERSIONS[name]
@@ -95,6 +105,9 @@ def check_version(name, exec_path):
 
 
 def check(cfg):
+    """
+    Check the entire configuration `cfg`.
+    """
     cfg.launch_wizard()
 
     # check global
