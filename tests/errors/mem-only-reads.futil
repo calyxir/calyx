@@ -1,0 +1,18 @@
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    mem = std_mem_d1(32, 4, 4);
+    r = std_reg(32);
+  }
+  wires {
+    group do_read {
+      mem.addr0 = 4'd0;
+      r.in = mem.read_data;
+      r.write_en = 1'd1;
+      do_read[done] = r.done;
+    }
+  }
+  control {
+    do_read;
+  }
+}

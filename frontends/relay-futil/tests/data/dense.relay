@@ -1,5 +1,0 @@
-v0.0.4
-fn (%x: Tensor[(1, 3), int32], %x1: Tensor[(2, 3), int32]) -> Tensor[(1, 2), int32] {
-  let %x2: Tensor[(1, 2), int32] = nn.dense(%x, %x1) /* ty=Tensor[(1, 2), int32] */;
-  %x2
-}

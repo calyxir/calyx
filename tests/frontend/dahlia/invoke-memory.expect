@@ -1,0 +1,67 @@
+import "primitives/std.lib";
+component mem_copy(dest0_read_data: 32, dest0_done: 1, src0_read_data: 32, src0_done: 1, length: 3) -> (dest0_write_data: 32, dest0_write_en: 1, dest0_addr0: 3, src0_write_data: 32, src0_write_en: 1, src0_addr0: 3) {
+  cells {
+    const1 = std_const(3,0);
+    i_0 = std_reg(3);
+    lt0 = std_lt(3);
+    src_read0_0 = std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      lt0.left = i_0.out;
+      lt0.right = length;
+    }
+    group let1<"static"=1> {
+      i_0.in = const1.out;
+      i_0.write_en = 1'd1;
+      let1[done] = i_0.done;
+    }
+    group upd0<"static"=1> {
+      src_read0_0.write_en = 1'd1;
+      src0_addr0 = i_0.out;
+      src_read0_0.in = 1'd1 ? src0_read_data;
+      upd0[done] = src_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      dest0_addr0 = i_0.out;
+      dest0_write_en = 1'd1;
+      dest0_write_data = 1'd1 ? src_read0_0.out;
+      upd1[done] = dest0_done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let1;
+      while lt0.out with cond0 {
+        seq {
+          upd0;
+          upd1;
+        }
+      }
+    }
+  }
+}
+component main() -> () {
+  cells {
+    const0 = std_const(3,5);
+    @external(1) d0 = std_mem_d1(32,5,3);
+    len_0 = std_reg(3);
+    mem_copy0 = mem_copy();
+    @external(1) s0 = std_mem_d1(32,5,3);
+  }
+  wires {
+    group let0<"static"=1> {
+      len_0.in = const0.out;
+      len_0.write_en = 1'd1;
+      let0[done] = len_0.done;
+    }
+  }
+  control {
+    seq {
+      let0;
+      invoke mem_copy0(dest0_read_data=d0.read_data, dest0_done=d0.done, src0_read_data=s0.read_data, src0_done=s0.done, length=len_0.out)(dest0_write_data=d0.write_data, dest0_write_en=d0.write_en, dest0_addr0=d0.addr0, src0_write_data=s0.write_data, src0_write_en=s0.write_en, src0_addr0=s0.addr0);
+    }
+  }
+}
+

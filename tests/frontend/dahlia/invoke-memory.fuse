@@ -1,0 +1,13 @@
+def mem_copy(dest: ubit<32>[5], src: ubit<32>[5], length: ubit<3>) = {
+  let i: ubit<3> = (0 as ubit<3>);
+  while (i < length) {
+    dest[i] := src[i];
+  }
+}
+
+decl s: ubit<32>[5];
+decl d: ubit<32>[5];
+
+let len: ubit<3> = (5 as ubit<3>);
+
+mem_copy(d, s, len);

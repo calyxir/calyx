@@ -3,7 +3,7 @@ import "primitives/std.lib";
 //// ANCHOR: component
 component identity(in: 32) -> (out: 32) {
   cells {
-    r = prim std_reg(32);
+    r = std_reg(32);
   }
   wires {
     group save {
@@ -27,8 +27,8 @@ component identity(in: 32) -> (out: 32) {
 component main() -> () {
   cells {
     // Instantiate the identity element
-    id = identity;
-    current_value = prim std_reg(32);
+    id = identity();
+    current_value = std_reg(32);
   }
   wires {
     group run_id {

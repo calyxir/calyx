@@ -35,7 +35,7 @@ paths = [
   "tests/errors/parser/*.futil"
 ]
 cmd = """
-./target/debug/futil {} -p well-formed -p papercut
+./target/debug/futil {} -p well-formed -p papercut -p synthesis-papercut
 """
 
 ##### Correctness Tests #####
@@ -96,6 +96,15 @@ cmd = """
 fud e -q {} --from mrxl --to dat -s verilog.data {}.data | jq .memories
 """
 
+[[tests]]
+name = "Relay correctness"
+paths = ["tests/correctness/relay/*.relay"]
+cmd = """
+python3 frontends/relay/compiler.py < {} > {}.expect; \
+fud e -q --from futil {}.expect --to dat -s verilog.data {}.data | jq .memories; \
+rm {}.expect;
+"""
+
 ##### Backend Tests #####
 [[tests]]
 name = "verilog backend"
@@ -131,10 +140,32 @@ cmd = """
 python3 frontends/ntt-pipeline/gen-ntt-pipeline.py {}
 """
 
-##### Examples #####
+
 [[tests]]
-name = "Python library AST example"
+name = "Relay frontend"
+paths = ["tests/frontend/relay/*.relay"]
+cmd = "python3 frontends/relay/compiler.py < {} -q"
+
+
+[[tests]]
+name = "Python library AST"
 paths = ["calyx-py/test/*.py"]
 cmd = """
 python3 {}
+"""
+
+##### Examples #####
+
+[[tests]]
+name = "Simulation examples"
+paths = ["examples/tutorial/*.futil", "examples/dahlia/*.fuse"]
+cmd = """
+fud e {} --to dat -s verilog.data {}.data -q
+"""
+
+[[tests]]
+name = "Futil examples"
+paths = ["examples/futil/*.futil"]
+cmd = """
+fud e {} --to futil-lowered -q
 """

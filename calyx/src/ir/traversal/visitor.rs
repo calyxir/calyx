@@ -106,7 +106,7 @@ pub trait Visitor {
                 Ok(Action::Continue)
             })?
             .and_then(|| self.finish(comp, signatures))?
-            .apply_change(&mut comp.control.borrow_mut())?;
+            .apply_change(&mut comp.control.borrow_mut());
         Ok(())
     }
 
@@ -306,7 +306,7 @@ impl Visitable for Control {
         component: &mut Component,
         sigs: &LibrarySignatures,
     ) -> VisResult {
-        match self {
+        let res = match self {
             Control::Seq(ctrl) => visitor
                 .start_seq(ctrl, component, sigs)?
                 .and_then(|| ctrl.stmts.visit(visitor, component, sigs))?
@@ -335,8 +335,8 @@ impl Visitable for Control {
             Control::Enable(ctrl) => visitor.enable(ctrl, component, sigs)?,
             Control::Empty(ctrl) => visitor.empty(ctrl, component, sigs)?,
             Control::Invoke(data) => visitor.invoke(data, component, sigs)?,
-        }
-        .apply_change(self)
+        };
+        Ok(res.apply_change(self))
     }
 }
 

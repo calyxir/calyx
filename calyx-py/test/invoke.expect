@@ -1,0 +1,46 @@
+import "primitives/std.lib";
+component foo(a: 32) -> (out: 32) {
+  cells {
+    temp = std_reg(32);
+  }
+  wires {
+    group let<"static"=1> {
+      temp.in = a;
+      temp.write_en = 1'd1;
+      let[done] = temp.done;
+    }
+    out = temp.out;
+  }
+  control {
+    seq {
+      let;
+    }
+  }
+}
+component main() -> () {
+  cells {
+    b = std_reg(32);
+    c = std_reg(32);
+    cst = std_const(32, 1);
+    foo0 = foo();
+  }
+  wires {
+    group write_constant<"static"=1> {
+      b.in = cst.out;
+      b.write_en = 1'd1;
+      write_constant[done] = b.done;
+    }
+    group save_foo {
+      c.in = foo0.out;
+      c.write_en = 1'd1;
+      save_foo[done] = c.done;
+    }
+  }
+  control {
+    seq {
+      write_constant;
+      invoke foo0(a=b.out)();
+      save_foo;
+    }
+  }
+}

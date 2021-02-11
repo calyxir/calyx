@@ -388,11 +388,11 @@ def generate_control(top_length, top_depth, left_length, left_depth):
             more_control.append(
                 ast.Invoke(
                     id=ast.CompVar(f"pe_{r}_{c}"),
-                    args=[
-                        ast.CompPort(ast.CompVar(f"top_{r}_{c}"), "out"),
-                        ast.CompPort(ast.CompVar(f"left_{r}_{c}"), "out"),
+                    in_connects=[
+                        ("top", ast.CompPort(ast.CompVar(f"top_{r}_{c}"), "out")),
+                        ("left", ast.CompPort(ast.CompVar(f"left_{r}_{c}"), "out")),
                     ],
-                    params=[ast.CompVar("top"), ast.CompVar("left")],
+                    out_connects=[],
                 )
             )
 
@@ -407,7 +407,7 @@ def generate_control(top_length, top_depth, left_length, left_depth):
             )
 
     control.append(ast.SeqComp(mover_groups))
-    return ast.ControlEntry(ast.ControlEntryType.Seq, stmts=control)
+    return ast.SeqComp(stmts=control)
 
 
 def create_systolic_array(top_length, top_depth, left_length, left_depth):
@@ -419,8 +419,8 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
     """
 
     assert top_depth == left_depth, (
-        f"Cannot multiply matrices: {top_length}x{top_depth} and "
-        + "{left_depth}x{left_length}"
+        f"Cannot multiply matrices: "
+        f"{top_length}x{top_depth} and {left_depth}x{left_length}"
     )
 
     cells = []
@@ -507,8 +507,8 @@ if __name__ == "__main__":
             left_depth = spec["left_depth"]
     else:
         parser.error(
-            "Need to pass either `-f FILE` or all of "
-            + "`-tl TOP_LENGTH -td TOP_DEPTH -ll LEFT_LENGTH -ld LEFT_DEPTH`"
+            "Need to pass either `-f FILE` or all of `"
+            "-tl TOP_LENGTH -td TOP_DEPTH -ll LEFT_LENGTH -ld LEFT_DEPTH`"
         )
 
     program = create_systolic_array(
