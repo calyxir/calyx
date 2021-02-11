@@ -98,17 +98,6 @@ class SourceConversion(FudError):
         super().__init__(msg)
 
 
-class InvalidSource(FudError):
-    """
-    Source class construction is ill-specified. For example, generating
-    a SourceType.Passthrough with a path as data.
-    """
-
-    def __init__(self, source_type, data):
-        msg = f"Malformed Source: {source_type} (type) to {data} (data)"
-        super().__init__(msg)
-
-
 class RemoteLibsNotInstalled(FudError):
     """
     Libraries needed for remote use of tools are not installed.
@@ -119,26 +108,6 @@ class RemoteLibsNotInstalled(FudError):
             "Attempted to use remote features without both "
             + "[paramiko, scp] installed. Install them and try again."
         )
-        super().__init__(msg)
-
-
-class ContextKeyMissing(FudError):
-    """
-    Required key missing from context.
-    """
-
-    def __init__(self, key):
-        msg = f"Required key missing from context: {key}"
-        super().__init__(msg)
-
-
-class UnexpectedSourceType(FudError):
-    """
-    SourceType mismatch
-    """
-
-    def __init__(self, expected, got):
-        msg = f"Expected source of type: {expected}, got: {got}"
         super().__init__(msg)
 
 
@@ -157,7 +126,7 @@ class MissingFile(FudError):
 
 class StepFailure(FudError):
     """
-    TODO: (write better error) A step failed.
+    Indicates that a step failed.
     """
 
     def __init__(self, step, stderr):
