@@ -1,6 +1,0 @@
-v0.0.4
-fn (%x: Tensor[(1, 2), int32]) {
-  let %x1: Tensor[(1, 2), int32] = nn.softmax(%x);
-  %x1
-}
-
