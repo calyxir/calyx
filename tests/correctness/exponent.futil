@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-import "primitives/math.futil";
+import "primitives/bitnum/math.futil";
 component main() -> () {
   cells {
     base = std_const(32,3);
