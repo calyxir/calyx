@@ -77,7 +77,9 @@ def broadcast(fd: DahliaFuncDef) -> str:
         emit_dahlia_loop(res, loop_body)
     )
 
-
+# https://github.com/cucapra/calyx/issues/401
+# Please read the issue above before trying
+# to lower this using `relay.fromtext`.
 def expand_dims(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.expand_dims"""
     axis = fd.attributes.get_int("axis")
