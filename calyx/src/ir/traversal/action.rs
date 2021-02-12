@@ -36,13 +36,13 @@ impl Action {
 
     /// Applies the Change action if `self` is a Change action.
     /// Otherwise passes the action through unchanged
-    pub(super) fn apply_change(self, con: &mut Control) -> VisResult {
+    pub(super) fn apply_change(self, con: &mut Control) -> Action {
         match self {
             Action::Change(c) => {
                 *con = c;
-                Ok(Action::Continue)
+                Action::Continue
             }
-            action => Ok(action),
+            action => action,
         }
     }
 

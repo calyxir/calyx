@@ -33,3 +33,4 @@ fud/build
 __pycache__
 *.pyc
 *.tar.gz
+*.jou

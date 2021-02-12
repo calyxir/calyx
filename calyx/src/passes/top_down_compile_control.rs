@@ -60,7 +60,7 @@ impl Schedule {
                         &mut std::io::stderr(),
                     )
                     .expect("Printing failed!");
-                    eprintln!("");
+                    eprintln!();
                 })
             });
         eprintln!("------------");
