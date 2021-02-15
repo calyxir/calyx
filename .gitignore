@@ -38,3 +38,4 @@ __pycache__
 !.devcontainer/devcontainer.json
 !.vscode/settings.json
 !.vscode/launch.json
+!.vscode/tasks.json
