@@ -1,7 +1,19 @@
 {
-  "b_x": {
+  "out": {
     "data": [
       0
+    ],
+    "bitwidth": 32
+  },
+  "base": {
+    "data": [
+      2
+    ],
+    "bitwidth": 32
+  },
+  "exp": {
+    "data": [
+      10
     ],
     "bitwidth": 32
   }
