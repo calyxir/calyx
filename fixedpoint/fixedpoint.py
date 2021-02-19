@@ -4,10 +4,17 @@ from itertools import product
 
 def decimal_to_fixed_p(num, width, int_bit, frac_bit):
     """Given the number, width, integer bit and fractional bit,
-    returns the fixed point representation.
-    Example: decimal_to_fixed_p(11.125,8,5,3) returns 01011001 = 2^3+2^1+2^0+2^(-3)
-    Precondition: There is no overflow
-    (integer part of the number should be representable with int_bit number of bits).
+    returns the fixed point representation. If the fraction
+    cannot be represented exactly in fixed point, it will be
+    rounded to the nearest whole number.
+
+    Example:
+        decimal_to_fixed_p(11.125,8,5,3)
+        returns 01011001 = 2^3+2^1+2^0+2^(-3)
+    Preconditions:
+      1. There is no overflow.
+      2. Integer part of the number should be
+         representable with int_bit number of bits.
     """
     # separate into integer and fractional parts
     intg, frac = str(num).split(".")
@@ -17,11 +24,10 @@ def decimal_to_fixed_p(num, width, int_bit, frac_bit):
     # multiply fractional part with 2**frac_bit to turn into integer
     frac = float(frac) * float(2 ** frac_bit)
     _, f = str(frac).split(".")
-    # raises Exception when the number can't
-    # be represented in fixed point format.
-    if f != "0":
-        raise Exception("Can't be represented as fixedpoint numbers.")
-    frac = int(frac)
+
+    # Rounds up if `f` is > 50.
+    frac = int(frac) if int(f) <= 50 else int(frac + 1)
+
     frac_b = np.binary_repr(frac, width=frac_bit)
     r = int_b + frac_b
     return r
@@ -137,13 +143,12 @@ def exp(x, width, int_bit, frac_bit, print_results=False):
     e_f = e_table[frac_bin]
 
     # Compute e^i * e^f.
-    expected = e_i * e_f
+    actual = e_i * e_f
 
     if print_results:
-        actual = 2.71828 ** x
-        print(f'e^{x}')
-        print(f'approx: {expected}')
+        accepted = 2.71828 ** x
+        print(f'e^{x}: {accepted}')
         print(f'actual: {actual}')
-        print(f'reldef: {(expected - actual) / expected * 100}%')
+        print(f'relative difference: {(actual - accepted) / actual * 100}%')
 
-    return expected
+    return actual
