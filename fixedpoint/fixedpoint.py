@@ -58,6 +58,8 @@ def compute_exp_frac_table(frac_bit):
     represented by fixed point in the range [0, 1].
     """
     # Chebyshev approximation coefficients for e^x in [0, 1].
+    # Credits to J. Sach's blogpost here:
+    # https://www.embeddedrelated.com/showarticle/152.php
     coeffs = [
         1.7534,
         0.85039,
