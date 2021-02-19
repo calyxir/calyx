@@ -1,3 +1,104 @@
 extern "math.sv" {
   primitive sqrt(in: 32, go: 1, clk: 1) -> (out: 32, done: 1);
 }
+
+// Computes the unsigned value e^exponent.
+// Uses fixed point format Q28.4, and an
+// approximation table to estimate the
+// fractional power of e.
+component std_exp(exponent: 32) -> (out: 32) {
+  cells {
+    // mathematical constant e in Q28.4
+    e = std_const(32, 43);
+    // Approximation of e using chebyshev
+    // polynomials within bounds [0, 1].
+    e_table = std_mem_d1(32, 16, 32);
+
+    pow = std_reg(32);
+    mul = fixed_p_std_mult(32, 28, 4);
+
+    int_bits = std_reg(32);
+    frac_bits = std_reg(32);
+    and0 = std_and(32);
+    rsh0 = std_rsh(32);
+    and1 = std_and(32);
+
+    integer_count = std_reg(32);
+    lt = std_lt(32);
+    incr = std_add(32);
+    fractional_value = std_reg(32);
+  }
+  wires {
+    group init0 {
+      // Mask integer bits, and shift right.
+      and0.left = exponent;
+      and0.right = 32'd4294967280;
+      rsh0.left = and0.out;
+      rsh0.right = 32'd4;
+      int_bits.in = rsh0.out;
+
+      // Mask fractional bits.
+      and1.left = exponent;
+      and1.right = 32'd15;
+      frac_bits.in = and1.out;
+
+      int_bits.write_en = 1'd1;
+      frac_bits.write_en = 1'd1;
+      init0[done] = int_bits.done & frac_bits.done ? 1'd1;
+    }
+    group init1 {
+      pow.in = 32'd1;
+      pow.write_en = 1'd1;
+      integer_count.in = 32'd0;
+      integer_count.write_en = 1'd1;
+      init1[done] = pow.done & integer_count.done ? 1'd1;
+    }
+    group do_mul {
+      mul.left = e.out;
+      mul.right = pow.out;
+      pow.in = mul.out;
+      pow.write_en = 1'd1;
+      do_mul[done] = pow.done;
+    }
+    group incr_count {
+      incr.left = 32'd1;
+      incr.right = integer_count.out;
+      integer_count.in = incr.out;
+      integer_count.write_en = 1'd1;
+      incr_count[done] = integer_count.done;
+    }
+    group cond {
+      lt.right = int_bits.out;
+      lt.left = integer_count.out;
+      cond[done] = 1'd1;
+    }
+    group get_fractional_value {
+      e_table.addr0 = frac_bits.out;
+      fractional_value.in = e_table.read_data;
+      fractional_value.write_en = 1'd1;
+      get_fractional_value[done] = fractional_value.done;
+    }
+    group mult_int_frac {
+      mul.left = pow.out;
+      mul.right = fractional_value.out;
+      pow.in = mul.out;
+      pow.write_en = 1'd1;
+      mult_int_frac[done] = pow.done;
+    }
+
+    out = pow.out;
+  }
+  control {
+    seq {
+      par { init0; init1; }
+      // Compute e^i, where i is the integer value.
+      while lt.out with cond {
+        par { do_mul; incr_count; }
+      }
+      // Lookup e^f, where f is the fractional value.
+      get_fractional_value;
+      // Compute e^x = e^i * e^f.
+      mult_int_frac;
+    }
+  }
+}
