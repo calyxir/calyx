@@ -130,7 +130,7 @@ def exp(x, width, int_bit, frac_bit, print_results=False):
     For the fractional portion, a chebyshev
     approximation is used.
     """
-    fp_x = decimal_to_fixed_p(x, width, frac_bit, int_bit)
+    fp_x = decimal_to_fixed_p(x, width, int_bit, frac_bit)
 
     int_b = fp_x[:int_bit]
     int_bin = int(int_b, 2)
