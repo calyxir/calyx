@@ -93,7 +93,7 @@ class VivadoStage(VivadoBaseStage):
             name,
             "synth-files",
             config,
-            "Runs synthesis on a Verilog program",
+            "Produces synthesis files from a Verilog program",
             device_files=[
                 str(
                     Path(config["global", "futil_directory"])
@@ -122,7 +122,7 @@ class VivadoHLSStage(VivadoBaseStage):
             name,
             "hls-files",
             config,
-            "Runs synthesis on a Verilog program",
+            "Produces synthesis files from a Vivado C++ program",
             device_files=[
                 str(
                     Path(config["global", "futil_directory"])
@@ -152,7 +152,7 @@ class VivadoExtractStage(Stage):
             SourceType.Directory,
             SourceType.String,
             config,
-            "Runs synthesis on a Verilog program",
+            "Extracts information from Vivado synthesis files",
         )
         self.setup()
 
@@ -175,7 +175,7 @@ class VivadoHLSExtractStage(Stage):
             SourceType.Directory,
             SourceType.String,
             config,
-            "Runs HLS synthesis on a Dahlia program",
+            "Extracts information from Vivado HLS synthesis files",
         )
         self.setup()
 

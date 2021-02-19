@@ -4,8 +4,15 @@ from ..utils import shell, unwrap_or
 
 
 class DahliaStage(Stage):
-    def __init__(self, config, dest, flags):
-        super().__init__("dahlia", dest, SourceType.Path, SourceType.Stream, config)
+    def __init__(self, config, dest, flags, descr):
+        super().__init__(
+            "dahlia",
+            dest,
+            SourceType.Path,
+            SourceType.Stream,
+            config,
+            descr,
+        )
         self.flags = flags
         self.setup()
 

@@ -1,13 +1,14 @@
 """The definitions of fud stages."""
 
 import functools
+import inspect
 import logging as log
 from enum import Enum, auto
-from pathlib import Path
 from io import IOBase
-import inspect
+from pathlib import Path
 
-from ..utils import is_debug, Directory, Conversions as conv
+from ..utils import Conversions as conv
+from ..utils import Directory, is_debug
 
 
 class SourceType(Enum):
@@ -106,7 +107,7 @@ class Stage:
     """
 
     def __init__(
-        self, name, target_stage, input_type, output_type, config, description=None
+        self, name, target_stage, input_type, output_type, config, description
     ):
         self.name = name
         self.target_stage = target_stage

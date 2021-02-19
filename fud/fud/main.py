@@ -7,15 +7,7 @@ import toml
 from . import check, errors, exec, utils
 from .config import Configuration
 from .registry import Registry
-from .stages import (
-    dahlia,
-    futil,
-    mrxl,
-    systolic,
-    vcdump,
-    verilator,
-    vivado,
-)
+from .stages import dahlia, futil, mrxl, systolic, vcdump, verilator, vivado
 
 
 def register_stages(registry, cfg):
@@ -23,9 +15,18 @@ def register_stages(registry, cfg):
     Register stages and command line flags required to generate the results.
     """
     # Dahlia
-    registry.register(dahlia.DahliaStage(cfg, "futil", "-b futil --lower -l error"))
     registry.register(
-        dahlia.DahliaStage(cfg, "vivado-hls", "--memory-interface ap_memory")
+        dahlia.DahliaStage(
+            cfg, "futil", "-b futil --lower -l error", "Compile Dahlia to FuTIL"
+        )
+    )
+    registry.register(
+        dahlia.DahliaStage(
+            cfg,
+            "vivado-hls",
+            "--memory-interface ap_memory",
+            "Compile Dahlia to Vivado C++",
+        )
     )
 
     # MrXL
