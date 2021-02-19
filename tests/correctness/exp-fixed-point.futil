@@ -5,7 +5,7 @@ component main() -> () {
     out = std_mem_d1(32, 1, 1);
     three_point_five = std_mem_d1(32, 1, 1);
     exp_reg = std_reg(32);
-    std_exp0 = std_exp();
+    std_fp_exp0 = std_fp_exp();
   }
   wires {
     group init {
@@ -15,7 +15,7 @@ component main() -> () {
       init[done] = exp_reg.done;
     }
     group fill_memory {
-      out.write_data = std_exp0.out;
+      out.write_data = std_fp_exp0.out;
       out.addr0 = 1'd0;
       out.write_en = 1'd1;
       fill_memory[done] = out.done;
@@ -24,7 +24,7 @@ component main() -> () {
   control {
     seq {
       init;
-      invoke std_exp0(exponent=exp_reg.out)();
+      invoke std_fp_exp0(exponent=exp_reg.out)();
       fill_memory;
     }
   }

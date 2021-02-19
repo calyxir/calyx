@@ -6,7 +6,7 @@ extern "math.sv" {
 // Uses fixed point format Q28.4, and an
 // approximation table to estimate the
 // fractional power of e.
-component std_exp(exponent: 32) -> (out: 32) {
+component std_fp_exp(exponent: 32) -> (out: 32) {
   cells {
     // mathematical constant e in Q28.4
     e = std_const(32, 43);
