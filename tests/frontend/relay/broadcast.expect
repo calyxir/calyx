@@ -3,7 +3,7 @@ import "primitives/bitnum/math.futil";
 component main() -> () {
   cells {
     x = std_mem_d2(32, 2, 4, 2, 3);
-    y = std_mem_d2(32, 2, 4, 2, 3);
+    y = std_mem_d2(32, 2, 1, 2, 1);
     x1 = std_mem_d2(32, 2, 4, 2, 3);
     add_ = add();
   }
@@ -16,7 +16,7 @@ component main() -> () {
     }
   }
 }
-component add(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 2, x0_0_addr1: 3, y0_0_write_data: 32, y0_0_write_en: 1, y0_0_addr0: 2, y0_0_addr1: 3, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 2, x10_0_addr1: 3) {
+component add(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 2, x0_0_addr1: 3, y0_0_write_data: 32, y0_0_write_en: 1, y0_0_addr0: 2, y0_0_addr1: 1, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 2, x10_0_addr1: 3) {
   cells {
     add0 = std_sadd(32);
     add1 = std_add(3);
@@ -25,8 +25,9 @@ component add(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_done: 1
     const1 = std_const(2,1);
     const2 = std_const(3,0);
     const3 = std_const(3,3);
-    const4 = std_const(3,1);
-    const5 = std_const(2,1);
+    const4 = std_const(1,0);
+    const5 = std_const(3,1);
+    const6 = std_const(2,1);
     i0 = std_reg(2);
     j0 = std_reg(3);
     le0 = std_le(2);
@@ -64,7 +65,7 @@ component add(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_done: 1
     }
     group upd1<"static"=1> {
       y_read0_0.write_en = 1'd1;
-      y0_0_addr1 = j0.out;
+      y0_0_addr1 = const4.out;
       y0_0_addr0 = i0.out;
       y_read0_0.in = 1'd1 ? y0_0_read_data;
       upd1[done] = y_read0_0.done ? 1'd1;
@@ -81,14 +82,14 @@ component add(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_done: 1
     group upd3<"static"=1> {
       j0.write_en = 1'd1;
       add1.left = j0.out;
-      add1.right = const4.out;
+      add1.right = const5.out;
       j0.in = 1'd1 ? add1.out;
       upd3[done] = j0.done ? 1'd1;
     }
     group upd4<"static"=1> {
       i0.write_en = 1'd1;
       add2.left = i0.out;
-      add2.right = const5.out;
+      add2.right = const6.out;
       i0.in = 1'd1 ? add2.out;
       upd4[done] = i0.done ? 1'd1;
     }
