@@ -4,7 +4,7 @@ extern "math.sv" {
 
 // Computes the unsigned value b^e, where
 // b is the `base` and e is the `exp`.
-component std_exp(base: 32, exp: 32) -> (out: 32) {
+component std_pow(base: 32, exp: 32) -> (out: 32) {
   cells {
     pow = std_reg(32);
     count = std_reg(32);
