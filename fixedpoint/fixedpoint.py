@@ -25,8 +25,9 @@ def decimal_to_fixed_p(num, width, int_bit, frac_bit):
     frac = float(frac) * float(2 ** frac_bit)
     _, f = str(frac).split(".")
 
-    # Rounds up if `f` is > 50.
-    frac = int(frac) if int(f) <= 50 else int(frac + 1)
+    # Rounds up if the tenths place is >= 5.
+    tenths_place = int(f[0])
+    frac = int(frac) if tenths_place < 5 else int(frac + 1)
 
     frac_b = np.binary_repr(frac, width=frac_bit)
     r = int_b + frac_b
@@ -152,3 +153,6 @@ def exp(x, width, int_bit, frac_bit, print_results=False):
         print(f'relative difference: {(actual - accepted) / actual * 100}%')
 
     return actual
+
+
+exp(1.11111, 10, 5, 5, True)
