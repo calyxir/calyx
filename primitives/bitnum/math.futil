@@ -47,7 +47,7 @@ component std_exp(exponent: 32) -> (out: 32) {
       init0[done] = int_bits.done & frac_bits.done ? 1'd1;
     }
     group init1 {
-      pow.in = 32'd1;
+      pow.in = 32'd16; // 1.0 in Q28.4
       pow.write_en = 1'd1;
       integer_count.in = 32'd0;
       integer_count.write_en = 1'd1;

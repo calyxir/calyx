@@ -3,14 +3,14 @@ import "primitives/bitnum/math.futil";
 component main() -> () {
   cells {
     out = std_mem_d1(32, 1, 1);
-    exp = std_mem_d1(32, 1, 1);
+    three_point_five = std_mem_d1(32, 1, 1);
     exp_reg = std_reg(32);
     std_exp0 = std_exp();
   }
   wires {
     group init {
-      exp.addr0 = 1'd0;
-      exp_reg.in = exp.read_data;
+      three_point_five.addr0 = 1'd0;
+      exp_reg.in = three_point_five.read_data;
       exp_reg.write_en = 1'd1;
       init[done] = exp_reg.done;
     }

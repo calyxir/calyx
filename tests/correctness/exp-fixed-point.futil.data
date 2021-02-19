@@ -5,9 +5,9 @@
     ],
     "bitwidth": 32
   },
-  "exp": {
+  "three_point_five": {
     "data": [
-      32
+      56
     ],
     "bitwidth": 32
   },
