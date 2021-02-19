@@ -153,6 +153,3 @@ def exp(x, width, int_bit, frac_bit, print_results=False):
         print(f'relative difference: {(actual - accepted) / actual * 100}%')
 
     return actual
-
-
-exp(1.11111, 10, 5, 5, True)
