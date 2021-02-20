@@ -47,17 +47,17 @@ def emit_dahlia_definition(fd: DahliaFuncDef, body: str) -> str:
     params = emit_dahlia_params(fd)
     return block(
         f'def {fd.function_id}({params}) =',
-        body,
+        '\n'.join(body) if isinstance(body, tuple) else body,
         sep=''
     )
 
 
-def emit_dahlia_loop(fd: DahliaFuncDef, body: str, num_dims: int) -> str:
+def emit_dahlia_loop(control_flow: Cell, body: str) -> str:
     """Emits a Dahlia loop over `num_dims` with `body`
     nested inside. Many tensor functions share the
     same control flow:
-    (1) Iterate `num_dims` times, and
-    (2) do some work in the body.
+    (1) Perform specific looping according to `control_flow`,
+    (2) and do some work in the body.
 
     For example, if body == `X`, then this
     will return:
@@ -70,7 +70,9 @@ def emit_dahlia_loop(fd: DahliaFuncDef, body: str, num_dims: int) -> str:
     ```
     """
     var_name = CHARACTER_I
-    args = fd.dest.comp.args
+    # Loop control flow is determined by these parameters.
+    num_dims = get_dims(control_flow.comp)
+    args = control_flow.comp.args
 
     # Generate loop headers.
     headers = []

@@ -42,5 +42,4 @@ extern "unsigned.sv" {
   ) -> (
     out: width
   );
-
 }
