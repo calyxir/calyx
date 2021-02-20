@@ -1,0 +1,372 @@
+import "primitives/std.lib";
+import "primitives/bitnum/math.futil";
+component main() -> () {
+  cells {
+    data = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
+    weight = std_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
+    x = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
+    nn_conv2d_ = nn_conv2d();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      invoke nn_conv2d_(data0_0_0_0_read_data=data.read_data, weight0_0_0_0_read_data=weight.read_data, x0_0_0_0_done=x.done, x0_0_0_0_read_data=x.read_data)(data0_0_0_0_addr0=data.addr0, data0_0_0_0_addr1=data.addr1, data0_0_0_0_addr2=data.addr2, data0_0_0_0_addr3=data.addr3, weight0_0_0_0_addr0=weight.addr0, weight0_0_0_0_addr1=weight.addr1, weight0_0_0_0_addr2=weight.addr2, weight0_0_0_0_addr3=weight.addr3, x0_0_0_0_write_data=x.write_data, x0_0_0_0_write_en=x.write_en, x0_0_0_0_addr0=x.addr0, x0_0_0_0_addr1=x.addr1, x0_0_0_0_addr2=x.addr2, x0_0_0_0_addr3=x.addr3);
+    }
+  }
+}
+component nn_conv2d(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, weight0_0_0_0_read_data: 32, weight0_0_0_0_done: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1) -> (data0_0_0_0_write_data: 32, data0_0_0_0_write_en: 1, data0_0_0_0_addr0: 3, data0_0_0_0_addr1: 10, data0_0_0_0_addr2: 4, data0_0_0_0_addr3: 4, weight0_0_0_0_write_data: 32, weight0_0_0_0_write_en: 1, weight0_0_0_0_addr0: 10, weight0_0_0_0_addr1: 10, weight0_0_0_0_addr2: 2, weight0_0_0_0_addr3: 2, x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_addr0: 3, x0_0_0_0_addr1: 10, x0_0_0_0_addr2: 4, x0_0_0_0_addr3: 4) {
+  cells {
+    add0 = std_add(32);
+    add1 = std_add(32);
+    add2 = std_sadd(32);
+    add3 = std_add(32);
+    add4 = std_add(32);
+    add5 = std_add(32);
+    add6 = std_add(32);
+    add7 = std_add(32);
+    add8 = std_add(32);
+    add9 = std_add(32);
+    b_0 = std_reg(32);
+    bin_read0_0 = std_reg(32);
+    bin_read1_0 = std_reg(32);
+    bin_read2_0 = std_reg(32);
+    c_0 = std_reg(32);
+    const0 = std_const(32,0);
+    const1 = std_const(32,4);
+    const10 = std_const(32,511);
+    const11 = std_const(32,0);
+    const12 = std_const(32,2);
+    const13 = std_const(32,0);
+    const14 = std_const(32,2);
+    const15 = std_const(32,1);
+    const16 = std_const(32,1);
+    const17 = std_const(32,1);
+    const18 = std_const(32,1);
+    const19 = std_const(32,1);
+    const2 = std_const(32,0);
+    const20 = std_const(32,1);
+    const21 = std_const(32,1);
+    const22 = std_const(32,1);
+    const23 = std_const(32,1);
+    const3 = std_const(32,511);
+    const4 = std_const(32,0);
+    const5 = std_const(32,13);
+    const6 = std_const(32,0);
+    const7 = std_const(32,13);
+    const8 = std_const(32,0);
+    const9 = std_const(32,0);
+    data_read0_0 = std_reg(32);
+    dx0 = std_reg(32);
+    dy0 = std_reg(32);
+    k0 = std_reg(32);
+    kernel_x_0 = std_reg(32);
+    kernel_y_0 = std_reg(32);
+    le0 = std_le(32);
+    le1 = std_le(32);
+    le2 = std_le(32);
+    le3 = std_le(32);
+    le4 = std_le(32);
+    le5 = std_le(32);
+    le6 = std_le(32);
+    mult_pipe0 = std_mult_pipe(32);
+    mult_pipe1 = std_mult_pipe(32);
+    mult_pipe2 = std_smult_pipe(32);
+    slice0 = std_slice(32,3);
+    slice1 = std_slice(32,10);
+    slice10 = std_slice(32,4);
+    slice11 = std_slice(32,4);
+    slice2 = std_slice(32,4);
+    slice3 = std_slice(32,4);
+    slice4 = std_slice(32,10);
+    slice5 = std_slice(32,10);
+    slice6 = std_slice(32,2);
+    slice7 = std_slice(32,2);
+    slice8 = std_slice(32,3);
+    slice9 = std_slice(32,10);
+    sum_0 = std_reg(32);
+    weight_read0_0 = std_reg(32);
+    x_0 = std_reg(32);
+    y_0 = std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = b_0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = c_0.out;
+      le1.right = const3.out;
+    }
+    group cond2<"static"=0> {
+      cond2[done] = 1'd1;
+      le2.left = y_0.out;
+      le2.right = const5.out;
+    }
+    group cond3<"static"=0> {
+      cond3[done] = 1'd1;
+      le3.left = x_0.out;
+      le3.right = const7.out;
+    }
+    group cond4<"static"=0> {
+      cond4[done] = 1'd1;
+      le4.left = k0.out;
+      le4.right = const10.out;
+    }
+    group cond5<"static"=0> {
+      cond5[done] = 1'd1;
+      le5.left = dy0.out;
+      le5.right = const12.out;
+    }
+    group cond6<"static"=0> {
+      cond6[done] = 1'd1;
+      le6.left = dx0.out;
+      le6.right = const14.out;
+    }
+    group let0<"static"=1> {
+      b_0.in = const0.out;
+      b_0.write_en = 1'd1;
+      let0[done] = b_0.done;
+    }
+    group let1<"static"=1> {
+      c_0.in = const2.out;
+      c_0.write_en = 1'd1;
+      let1[done] = c_0.done;
+    }
+    group let10<"static"=4> {
+      bin_read1_0.in = mult_pipe1.out;
+      bin_read1_0.write_en = mult_pipe1.done;
+      let10[done] = bin_read1_0.done;
+      mult_pipe1.left = const16.out;
+      mult_pipe1.right = x_0.out;
+      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
+    }
+    group let11<"static"=1> {
+      kernel_x_0.in = add1.out;
+      kernel_x_0.write_en = 1'd1;
+      let11[done] = kernel_x_0.done;
+      add1.left = bin_read1_0.out;
+      add1.right = dx0.out;
+    }
+    group let12<"static"=4> {
+      bin_read2_0.in = mult_pipe2.out;
+      bin_read2_0.write_en = mult_pipe2.done;
+      let12[done] = bin_read2_0.done;
+      mult_pipe2.left = data_read0_0.out;
+      mult_pipe2.right = weight_read0_0.out;
+      mult_pipe2.go = !mult_pipe2.done ? 1'd1;
+    }
+    group let2<"static"=1> {
+      y_0.in = const4.out;
+      y_0.write_en = 1'd1;
+      let2[done] = y_0.done;
+    }
+    group let3<"static"=1> {
+      x_0.in = const6.out;
+      x_0.write_en = 1'd1;
+      let3[done] = x_0.done;
+    }
+    group let4<"static"=1> {
+      sum_0.in = const8.out;
+      sum_0.write_en = 1'd1;
+      let4[done] = sum_0.done;
+    }
+    group let5<"static"=1> {
+      k0.in = const9.out;
+      k0.write_en = 1'd1;
+      let5[done] = k0.done;
+    }
+    group let6<"static"=1> {
+      dy0.in = const11.out;
+      dy0.write_en = 1'd1;
+      let6[done] = dy0.done;
+    }
+    group let7<"static"=1> {
+      dx0.in = const13.out;
+      dx0.write_en = 1'd1;
+      let7[done] = dx0.done;
+    }
+    group let8<"static"=4> {
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      let8[done] = bin_read0_0.done;
+      mult_pipe0.left = const15.out;
+      mult_pipe0.right = y_0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group let9<"static"=1> {
+      kernel_y_0.in = add0.out;
+      kernel_y_0.write_en = 1'd1;
+      let9[done] = kernel_y_0.done;
+      add0.left = bin_read0_0.out;
+      add0.right = dy0.out;
+    }
+    group upd0<"static"=1> {
+      data_read0_0.write_en = 1'd1;
+      data0_0_0_0_addr3 = slice3.out;
+      slice3.in = kernel_x_0.out;
+      data0_0_0_0_addr2 = slice2.out;
+      slice2.in = kernel_y_0.out;
+      data0_0_0_0_addr1 = slice1.out;
+      slice1.in = k0.out;
+      data0_0_0_0_addr0 = slice0.out;
+      slice0.in = b_0.out;
+      data_read0_0.in = 1'd1 ? data0_0_0_0_read_data;
+      upd0[done] = data_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      weight_read0_0.write_en = 1'd1;
+      weight0_0_0_0_addr3 = slice7.out;
+      slice7.in = dx0.out;
+      weight0_0_0_0_addr2 = slice6.out;
+      slice6.in = dy0.out;
+      weight0_0_0_0_addr1 = slice5.out;
+      slice5.in = k0.out;
+      weight0_0_0_0_addr0 = slice4.out;
+      slice4.in = c_0.out;
+      weight_read0_0.in = 1'd1 ? weight0_0_0_0_read_data;
+      upd1[done] = weight_read0_0.done ? 1'd1;
+    }
+    group upd10<"static"=1> {
+      b_0.write_en = 1'd1;
+      add9.left = b_0.out;
+      add9.right = const23.out;
+      b_0.in = 1'd1 ? add9.out;
+      upd10[done] = b_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      sum_0.write_en = 1'd1;
+      add2.left = sum_0.out;
+      add2.right = bin_read2_0.out;
+      sum_0.in = 1'd1 ? add2.out;
+      upd2[done] = sum_0.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      dx0.write_en = 1'd1;
+      add3.left = dx0.out;
+      add3.right = const17.out;
+      dx0.in = 1'd1 ? add3.out;
+      upd3[done] = dx0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      dy0.write_en = 1'd1;
+      add4.left = dy0.out;
+      add4.right = const18.out;
+      dy0.in = 1'd1 ? add4.out;
+      upd4[done] = dy0.done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      k0.write_en = 1'd1;
+      add5.left = k0.out;
+      add5.right = const19.out;
+      k0.in = 1'd1 ? add5.out;
+      upd5[done] = k0.done ? 1'd1;
+    }
+    group upd6<"static"=1> {
+      x0_0_0_0_addr3 = slice11.out;
+      slice11.in = x_0.out;
+      x0_0_0_0_addr2 = slice10.out;
+      slice10.in = y_0.out;
+      x0_0_0_0_addr1 = slice9.out;
+      slice9.in = c_0.out;
+      x0_0_0_0_addr0 = slice8.out;
+      slice8.in = b_0.out;
+      x0_0_0_0_write_en = 1'd1;
+      x0_0_0_0_write_data = 1'd1 ? sum_0.out;
+      upd6[done] = x0_0_0_0_done ? 1'd1;
+    }
+    group upd7<"static"=1> {
+      x_0.write_en = 1'd1;
+      add6.left = x_0.out;
+      add6.right = const20.out;
+      x_0.in = 1'd1 ? add6.out;
+      upd7[done] = x_0.done ? 1'd1;
+    }
+    group upd8<"static"=1> {
+      y_0.write_en = 1'd1;
+      add7.left = y_0.out;
+      add7.right = const21.out;
+      y_0.in = 1'd1 ? add7.out;
+      upd8[done] = y_0.done ? 1'd1;
+    }
+    group upd9<"static"=1> {
+      c_0.write_en = 1'd1;
+      add8.left = c_0.out;
+      add8.right = const22.out;
+      c_0.in = 1'd1 ? add8.out;
+      upd9[done] = c_0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          let1;
+          while le1.out with cond1 {
+            seq {
+              let2;
+              while le2.out with cond2 {
+                seq {
+                  let3;
+                  while le3.out with cond3 {
+                    seq {
+                      par {
+                        let4;
+                        seq {
+                          let5;
+                          while le4.out with cond4 {
+                            seq {
+                              let6;
+                              while le5.out with cond5 {
+                                seq {
+                                  let7;
+                                  while le6.out with cond6 {
+                                    seq {
+                                      par {
+                                        seq {
+                                          let8;
+                                          let9;
+                                        }
+                                        seq {
+                                          let10;
+                                          let11;
+                                        }
+                                      }
+                                      par {
+                                        upd0;
+                                        upd1;
+                                      }
+                                      let12;
+                                      upd2;
+                                      upd3;
+                                    }
+                                  }
+                                  upd4;
+                                }
+                              }
+                              upd5;
+                            }
+                          }
+                        }
+                      }
+                      upd6;
+                      upd7;
+                    }
+                  }
+                  upd8;
+                }
+              }
+              upd9;
+            }
+          }
+          upd10;
+        }
+      }
+    }
+  }
+}
+
