@@ -1,5 +1,5 @@
 extern "math.sv" {
-  primitive sqrt(in: 32, go: 1, clk: 1) -> (out: 32, done: 1);
+  primitive std_sqrt(in: 32, go: 1, clk: 1) -> (out: 32, done: 1);
 }
 
 // Computes the unsigned value b^e, where
