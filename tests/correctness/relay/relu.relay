@@ -1,0 +1,6 @@
+v0.0.4
+fn (%x: Tensor[(4), int32]) {
+  let %x1 = nn.relu(%x);
+  %x1
+}
+

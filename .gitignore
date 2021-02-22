@@ -33,3 +33,9 @@ fud/build
 __pycache__
 *.pyc
 *.tar.gz
+*.jou
+
+!.devcontainer/devcontainer.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json

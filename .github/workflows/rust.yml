@@ -17,6 +17,7 @@ jobs:
         echo "::set-output name=vcdump::$(cargo search vcdump | awk '{print $3}' | tr -d '"')"
         echo "::set-output name=dahlia::$(git ls-remote https://github.com/cucapra/dahlia.git | awk '{print $1}')"
         echo "::set-output name=verilator::$(cat versions/verilator)"
+        echo "::set-output name=tvm::$(cat versions/tvm)"
       shell: bash
 
     # Install cargo based tools and use some caching magic.
@@ -79,8 +80,35 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v2
 
-    - name: Install numpy and  flit
-      run: pip3 install numpy flit prettytable
+    - name: Install common Python dependencies
+      run: pip3 install numpy flit prettytable wheel
+
+    - name: Cache Apache TVM
+      id: tvm-cache
+      uses: actions/cache@v2
+      with:
+        path: frontends/relay/tvm
+        key: tvm-bin-${{ runner.os }}-${{ steps.versions.outputs.tvm }}
+
+    - name: Build Apache TVM
+      if: steps.tvm-cache.outputs.cache-hit != 'true'
+      run: |
+        sudo apt-get install -y ninja-build
+        cd frontends/relay
+        git clone --recursive https://github.com/apache/tvm.git
+        cd tvm && git reset --hard ccacb1ec1
+        mkdir build && cd build
+        cp ../cmake/config.cmake .
+        cmake -G Ninja .. && ninja
+
+    - name: Install Apache TVM
+      run: |
+        pip3 install -Iv antlr4-python3-runtime==4.7.2
+        cd frontends/relay/tvm/
+        cd python && python3 setup.py bdist_wheel
+        pip3 install --user dist/tvm-*.whl
+        cd ../topi/python && python3 setup.py bdist_wheel
+        pip3 install --user dist/topi-*.whl
 
     - name: Cache SBT
       uses: actions/cache@v2
@@ -136,15 +164,14 @@ jobs:
         cd fud
         flit install
         echo "============= Setting Fud configuration =============="
-        fud config global.futil_directory '/home/runner/work/futil/futil'
-        fud config stages.dahlia.exec '/home/runner/work/futil/futil/dahlia/fuse'
+        fud config global.futil_directory '/home/runner/work/calyx/calyx'
+        fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
         fud config stages.futil.exec './target/debug/futil'
         fud config
-    - name: Install python-futil
+    - name: Install calyx-py
       run: |
         cd calyx-py
         flit install
-
     - name: Test
       run: |
         unset JAVA_TOOL_OPTIONS
@@ -158,12 +185,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
+    - name: Install stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: 1.50.0
+          override: true
+          components: rustfmt, clippy
     - name: Check formatting
       uses: actions-rs/cargo@v1
       with:
         command: fmt
         args: --all -- --check
+    - name: Clippy version
+      uses: actions-rs/cargo@v1
+      with:
+        command: clippy
+        args: --version
     - name: Run clippy
       uses: actions-rs/cargo@v1
       with:
