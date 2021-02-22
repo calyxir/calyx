@@ -29,4 +29,3 @@ component main<"static"=2>(go: 1, clk: 1) -> (done: 1) {
 
   control {}
 }
-
