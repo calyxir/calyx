@@ -1,0 +1,5 @@
+v0.0.4
+fn (%x: Tensor[(1, 4096), int32], %y: Tensor[(10, 4096), int32]) -> Tensor[(1, 10), int32] {
+  let %x1: Tensor[(1, 10), int32] = nn.dense(%x, %y, units=10) /* ty=Tensor[(1, 10), int32] */;
+  %x1
+}

@@ -1,0 +1,6 @@
+v0.0.4
+fn (%a: Tensor[(4, 7, 5), int32], %b: Tensor[(4, 7, 5), int32]) {
+  let %x: Tensor[(4, 7, 7), int32] = nn.batch_matmul(%a, %b);
+  %x
+}
+

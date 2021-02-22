@@ -152,7 +152,10 @@ def emit_futil(program) -> str:
     main, func_defs = visitor.visit(relay_program)
     return '\n'.join((
         Program(
-            imports=[Import("primitives/std.lib")],
+            imports=[
+                Import("primitives/std.lib"),
+                Import("primitives/bitnum/math.futil")
+            ],
             components=[main]
         ).doc(),
         emit_components(func_defs)
@@ -163,4 +166,6 @@ if __name__ == '__main__':
     import sys
 
     relay_function = relay.fromtext(sys.stdin.read())
-    print(emit_futil(relay_function))
+    print(
+        emit_futil(relay_function)
+    )
