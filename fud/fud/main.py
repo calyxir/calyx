@@ -7,17 +7,7 @@ import toml
 from . import check, errors, exec, utils
 from .config import Configuration
 from .registry import Registry
-from .stages import (
-    dahlia,
-    dahlia_hls,
-    futil,
-    mrxl,
-    systolic,
-    vcdump,
-    verilator,
-    vivado,
-    vivado_hls,
-)
+from .stages import dahlia, futil, mrxl, systolic, vcdump, verilator, vivado
 
 
 def register_stages(registry, cfg):
@@ -25,8 +15,19 @@ def register_stages(registry, cfg):
     Register stages and command line flags required to generate the results.
     """
     # Dahlia
-    registry.register(dahlia.DahliaStage(cfg))
-    registry.register(dahlia_hls.DahliaHLSStage(cfg))
+    registry.register(
+        dahlia.DahliaStage(
+            cfg, "futil", "-b futil --lower -l error", "Compile Dahlia to FuTIL"
+        )
+    )
+    registry.register(
+        dahlia.DahliaStage(
+            cfg,
+            "vivado-hls",
+            "--memory-interface ap_memory",
+            "Compile Dahlia to Vivado C++",
+        )
+    )
 
     # MrXL
     registry.register(mrxl.MrXLStage(cfg))
@@ -88,11 +89,11 @@ def register_stages(registry, cfg):
         )
     )
 
-    # Vivado / vivado hls
+    # # Vivado / vivado hls
     registry.register(vivado.VivadoStage(cfg))
     registry.register(vivado.VivadoExtractStage(cfg))
-    registry.register(vivado_hls.VivadoHLSStage(cfg))
-    registry.register(vivado_hls.VivadoHLSExtractStage(cfg))
+    registry.register(vivado.VivadoHLSStage(cfg))
+    registry.register(vivado.VivadoHLSExtractStage(cfg))
 
     # Vcdump
     registry.register(vcdump.VcdumpStage(cfg))
@@ -179,6 +180,11 @@ def main():
 
     try:
         cfg = Configuration()
+
+        # update the stages config with arguments provided via cmdline
+        if "dynamic_config" in args and args.dynamic_config is not None:
+            for key, value in args.dynamic_config:
+                cfg[["stages"] + key.split(".")] = value
 
         # Build the registry if stage information is going to be used.
         if args.command in ("exec", "info"):
