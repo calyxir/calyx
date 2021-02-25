@@ -441,6 +441,9 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     created from the list of Dahlia function definitions.
     This does not include the import statement.
     """
+    if len(func_defs) == 0:
+        return ""
+
     dahlia_definitions = []
     for func_def in func_defs:
         id = func_def.function_id

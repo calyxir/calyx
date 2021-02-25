@@ -100,7 +100,7 @@ fud e -q {} --from mrxl --to dat -s verilog.data {}.data | jq .memories
 name = "Relay correctness"
 paths = ["tests/correctness/relay/*.relay"]
 cmd = """
-python3 frontends/relay/compiler.py < {} > {}.expect; \
+python3 frontends/relay/relay_visitor.py < {} > {}.expect; \
 fud e -q --from futil {}.expect --to dat -s verilog.data {}.data | jq .memories; \
 rm {}.expect;
 """
@@ -144,7 +144,7 @@ python3 frontends/ntt-pipeline/gen-ntt-pipeline.py {}
 [[tests]]
 name = "Relay frontend"
 paths = ["tests/frontend/relay/*.relay"]
-cmd = "python3 frontends/relay/compiler.py < {} -q"
+cmd = "python3 frontends/relay/relay_visitor.py < {} -q"
 
 
 [[tests]]

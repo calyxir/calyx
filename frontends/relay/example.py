@@ -1,6 +1,6 @@
 import tvm
 from tvm import relay
-from compiler import *
+from relay_visitor import *
 import sys
 
 
