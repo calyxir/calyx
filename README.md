@@ -1,4 +1,7 @@
-![Calyx Logo](https://sgtpeacock.com/calyx/img/logo-text.svg)
+<picture>
+  <source srcset="https://sgtpeacock.com/calyx/img/logo-text-dark.svg" media="(prefers-color-scheme: dark)">
+  <img src="https://sgtpeacock.com/calyx/img/logo-text.svg">
+</picture>
 
 # A Compiler Infrastructure for Accelerator Generators
 
