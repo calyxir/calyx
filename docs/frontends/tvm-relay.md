@@ -4,7 +4,7 @@
 optimize and target kernels to several different backends. [Relay][]
 is a high level intermediate representation for the TVM framework. 
 The goal of Relay is to replace old computation graph based 
-IRs with a more expressive IR that can be optimized for many targets. 
+IRs with a more expressive IR. 
 More information can be found in [this paper][roesch-etal].
 
 The TVM Relay frontend lives in the [relay-lang][] folder in the
