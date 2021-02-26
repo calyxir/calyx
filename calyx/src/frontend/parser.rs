@@ -1,4 +1,4 @@
-//! Parser for FuTIL programs.
+//! Parser for Calyx programs.
 use super::ast::{self, BitNum, NumType};
 use crate::errors::{self, FutilResult, Span};
 use crate::ir;
@@ -35,7 +35,7 @@ lazy_static::lazy_static! {
 pub struct FutilParser;
 
 impl FutilParser {
-    /// Parse a FuTIL program into an AST representation.
+    /// Parse a Calyx program into an AST representation.
     pub fn parse_file(path: &PathBuf) -> FutilResult<ast::NamespaceDef> {
         let content = &fs::read(path).map_err(|err| {
             errors::Error::InvalidFile(format!(
