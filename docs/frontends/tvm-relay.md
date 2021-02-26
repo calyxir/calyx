@@ -1,7 +1,11 @@
 # TVM Relay
 
 [TVM][] is a compiler for machine learning frameworks that can 
-optimize and target kernels to several different backends.
+optimize and target kernels to several different backends. [Relay][]
+is a high level intermediate representation for the TVM framework. 
+The goal of Relay is to replace old computation graph based 
+IRs with a more expressive IR that can be optimized for many targets. 
+More information can be found in [this paper][roesch-etal].
 
 The TVM Relay frontend lives in the [relay-lang][] folder in the
 Calyx repository and generates Calyx components from the Relay
@@ -56,6 +60,7 @@ Try this to run a simple example:
 - `-r`: Dumps the Relay IR. Otherwise, it dumps the Calyx output. 
 
 [relay-lang]: https://github.com/cucapra/calyx/tree/master/frontends/relay
+[roesch-etal]: https://arxiv.org/abs/1904.08368
 [vgg net]: https://github.com/apache/incubator-tvm/blob/main/python/tvm/relay/testing/vgg.py 
 [mlp net]: https://github.com/apache/incubator-tvm/blob/main/python/tvm/relay/testing/mlp.py
 [dahlia]: https://github.com/cucapra/dahlia#set-it-up
