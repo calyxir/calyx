@@ -34,7 +34,7 @@ pipeline.
 
 - `--input_bitwidth`: The bit width of each value in the input array.
 - `--input_size`: The length (or size) of the input array.
-- `--modulus`: The modulus value used for producing the nth primitive root of unity.
+- `--modulus`: The (prime) modulus value used during the transformation. 
 
 [longa-etal-ntt]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/05/RLWE-1.pdf
 [ntt-lang]: https://github.com/cucapra/calyx/tree/master/frontends/ntt-pipeline
