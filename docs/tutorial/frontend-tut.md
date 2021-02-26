@@ -1,4 +1,4 @@
-# Building a Frontend for FuTIL
+# Building a Frontend for Calyx
 
 In this tutorial, we're going to build a compiler for a small language called MrXL.
 
@@ -39,14 +39,14 @@ fud exec frontends/mrxl/test/add.mrxl --from mrxl --to vcd -s verilog.data front
 
 ## Build a Compiler for MrXL
 
-This guide will walk you through the steps to build a Python program that compiles MrXL programs to FuTIL code. To simplify things, we'll make a few assumptions:
+This guide will walk you through the steps to build a Python program that compiles MrXL programs to Calyx code. To simplify things, we'll make a few assumptions:
 - Every array in a MrXL program has the same length.
 - Every integer in our generated hardware will be 32 bits.
 - Every `map` and `reduce` body will be either a multiplication or addition of either an array element or an integer.
 
 The following sections will outline these two high level tasks:
 1. Parse MrXL into a representation we can process with Python
-1. Generate FuTIL code
+1. Generate Calyx code
 
 ### Parse MrXL into an AST
 
@@ -66,9 +66,9 @@ To start, we'll parse this MrXL program into a Python AST representation. We cho
 
 Now we can decide on rules for generating code depending on which AST node we're working on. Depending on the AST node, we might need to add code to `cells`, `wires` or `control`.
 
-### Generate FuTIL Code
+### Generate Calyx Code
 
-The skeleton of a FuTIL program has three sections, and looks like this:
+The skeleton of a Calyx program has three sections, and looks like this:
 
 ```
 component main() -> {
@@ -83,13 +83,13 @@ component main() -> {
 
 #### `Decl` nodes
 
-`Decl` nodes instantiate new memories and registers. We need these to be instantiated in the `cells` section of our FuTIL output. Here's FuTIL code that creates a new memory `foo`, with 4 32-bit elements and a 32-bit indexor:
+`Decl` nodes instantiate new memories and registers. We need these to be instantiated in the `cells` section of our Calyx output. Here's Calyx code that creates a new memory `foo`, with 4 32-bit elements and a 32-bit indexor:
 
 ```
 foo = prim std_mem_d1(32, 4, 32);
 ```
 
-For each `Decl` node, we need to determine if we're instantiating a memory or a register, and then translate that to a corresponding FuTIL declaration and place that inside the `cells` section of our generated program. Here's some code from our compiler that walks through each register and memory declaration, and generates a FuTIL program with those registers:
+For each `Decl` node, we need to determine if we're instantiating a memory or a register, and then translate that to a corresponding Calyx declaration and place that inside the `cells` section of our generated program. Here's some code from our compiler that walks through each register and memory declaration, and generates a Calyx program with those registers:
 
 {{#include ../../frontends/mrxl/mrxl/gen_futil.py:283:290}}
 
@@ -97,9 +97,9 @@ For each `Decl` node, we need to determine if we're instantiating a memory or a 
 
 #### `Map` and `Reduce` nodes
 
-For every map or reduce node, we need to generate FuTIL code that iterates over an array, performs some kind of computation, and then stores the result of that computation. For `map` operations, we'll perform a computation on an element of an input array, and then store the result in a result array. For `reduce` operations, we'll also use an element of an input array, but we'll also use an _accumulator_ register that we'll use in each computation, and we'll also store to. For example, if we were writing a `reduce` that summed up the elements of an input array, we'd use an accumulator register that was initialized to hold the value 0, and add to the value of this register each element of an input array.
+For every map or reduce node, we need to generate Calyx code that iterates over an array, performs some kind of computation, and then stores the result of that computation. For `map` operations, we'll perform a computation on an element of an input array, and then store the result in a result array. For `reduce` operations, we'll also use an element of an input array, but we'll also use an _accumulator_ register that we'll use in each computation, and we'll also store to. For example, if we were writing a `reduce` that summed up the elements of an input array, we'd use an accumulator register that was initialized to hold the value 0, and add to the value of this register each element of an input array.
 
-We can implement these behaviors using FuTIL groups:
+We can implement these behaviors using Calyx groups:
 - `incr_idx`: Increments an `idx` register using an adder. This group is done when the `idx` register is written to.
 - `cond`: Applies a "less than" operator to `idx`, and the length of our input arrays, using the `le` hardware unit.
 - `eval_body`: Reads from an array, performs some kind of computation, and writes the result of the computation to an accumulator register or another array.
@@ -124,13 +124,13 @@ output baz: int[4]
 baz := map 4 (a <- foo) { a + 5 }
 ```
 
-The number 4 after the `map` specifies the number of adders we can use at once to parallelize this computation. There are a few ways we could parallelize this program, and one of them is to split the memories used in the `map` operation into 4 separate memory _banks_, and then we can read from each bank of `foo` and write into each bank of `baz` simultaneously. In general, we can break memories of size `m` into `b` banks (each with size `m/b`), and then simultaneously process those `b` banks. Realizing this in FuTIL means creating separate memories for each bank, and creating `group`s to process each bank. Here's a section of the compiler that generates banked memories:
+The number 4 after the `map` specifies the number of adders we can use at once to parallelize this computation. There are a few ways we could parallelize this program, and one of them is to split the memories used in the `map` operation into 4 separate memory _banks_, and then we can read from each bank of `foo` and write into each bank of `baz` simultaneously. In general, we can break memories of size `m` into `b` banks (each with size `m/b`), and then simultaneously process those `b` banks. Realizing this in Calyx means creating separate memories for each bank, and creating `group`s to process each bank. Here's a section of the compiler that generates banked memories:
 
 ```
 {{#include ../../frontends/mrxl/mrxl/gen_futil.py:4:18}}
 ```
 
-In the `Map` and `Reduce` code generation section we described `group`s that could be orchestrated to iterate over a memory and process it. We'll now have to do that for each memory bank, and then parallelize these operations in the generated FuTIL's `control` section. We can accomplish this with FuTIL's `par` keyword, signalling to execute groups in parallel. Here's an example of executing four while loops in parallel:
+In the `Map` and `Reduce` code generation section we described `group`s that could be orchestrated to iterate over a memory and process it. We'll now have to do that for each memory bank, and then parallelize these operations in the generated Calyx's `control` section. We can accomplish this with Calyx's `par` keyword, signalling to execute groups in parallel. Here's an example of executing four while loops in parallel:
 
 ```
 par {

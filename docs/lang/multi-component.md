@@ -1,9 +1,9 @@
 # Multi-Component Designs
 
-FuTIL designs can define and instantiate other FuTIL components that themselves
+Calyx designs can define and instantiate other Calyx components that themselves
 encode complex `control` programs.
 
-As an example, we'll build a FuTIL design that uses a simple FuTIL component
+As an example, we'll build a Calyx design that uses a simple Calyx component
 to save a value in a register and use it in different component.
 
 We define a new component called `identity` that has an input port `in`
@@ -24,8 +24,8 @@ being active.
 By defining this continuous assignment, we can *execute* our component and
 later observe any relevant values.
 
-Next, we can instantiate this component in any other FuTIL component.
-The following FuTIL program instantiates the `id` component and uses it to
+Next, we can instantiate this component in any other Calyx component.
+The following Calyx program instantiates the `id` component and uses it to
 save a value and observe it.
 
 ```

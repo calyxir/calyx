@@ -1,6 +1,6 @@
 # Contributors
 
-Here is a list of all the people who have worked on FuTIL:
+Here is a list of all the people who have worked on Calyx:
 
 **Current Contributors**
 

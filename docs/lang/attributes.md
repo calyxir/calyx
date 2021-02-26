@@ -1,7 +1,7 @@
 # Attributes
 
-FuTIL has an attribute system that allows information to be associated with
-every basic FuTIL construct. This information can then be used to optimize the program
+Calyx has an attribute system that allows information to be associated with
+every basic Calyx construct. This information can then be used to optimize the program
 or change how the program is compiled.
 
 Here is the syntax for attributes in different parts of the AST:
@@ -42,7 +42,7 @@ control {
 ### `external(1)`
 The `external(1)` attribute has meaning when it is attached to a cell.
 When this attribute is present and the `-p external` pass is enabled,
-FuTIL will externalize the ports of the cell into the component interface.
+Calyx will externalize the ports of the cell into the component interface.
 This is useful for memories and for debugging signals.
 
 See [externalize](https://capra.cs.cornell.edu/calyx/doc/calyx/passes/struct.Externalize.html "Externalize Pass")

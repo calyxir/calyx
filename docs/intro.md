@@ -1,9 +1,9 @@
 # Getting Started
 
-FuTIL is an intermediate language and infrastructure for building compilers
+Calyx is an intermediate language and infrastructure for building compilers
 that generate custom hardware accelerators.
 
-FuTIL has many associated tools and depending on what you are doing, you
+Calyx has many associated tools and depending on what you are doing, you
 probably only need to install a subset of them.
 
 We've organized this document into a core installation that is needed for everything
@@ -41,7 +41,7 @@ If everything has been installed correctly, this should not produce any failing
 tests.
 
 ### Fud (Command-line driver)
-[The FuTIL driver](./tools/fud.md) is a command line tool to drive the FuTIL
+[The Calyx driver](./tools/fud.md) is a command line tool to drive the Calyx
 compiler and coordinate invoking frontends and backends.
 
 You need [Flit][flit] to install `fud`.
@@ -55,7 +55,7 @@ cd fud
 flit install -s
 ```
 
-`fud` needs to know where the FuTIL directory lives. Running `fud check` will ask you
+`fud` needs to know where the Calyx directory lives. Running `fud check` will ask you
 for the current directory and then display information about the tools that it could find.
 ```
 fud check
@@ -66,14 +66,14 @@ fud check
 
 ### Try running an example program
 
-In order to run a FuTIL program, execute the following command from the repository:
+In order to run a Calyx program, execute the following command from the repository:
 
 ```bash
 cargo run -- examples/futil/simple.futil
 ```
 
-This will run the FuTIL compiler with input file `examples/futil/simple.futil`,
-and generate a FuTIL program without control constructs.
+This will run the Calyx compiler with input file `examples/futil/simple.futil`,
+and generate a Calyx program without control constructs.
 In order to generate SystemVerilog, execute the following:
 
 ```bash
@@ -81,7 +81,7 @@ cargo run -- examples/futil/simple.futil -b verilog
 ```
 
 ### Check out more of our documentation
- - [How do I write a frontend for FuTIL?](./tutorial/frontend-tut.md)
+ - [How do I write a frontend for Calyx?](./tutorial/frontend-tut.md)
  - [How do I write my own pass?](./compiler-docs.md)
  - [How does the language work?](./tutorial/language-tut.md)
 
@@ -122,7 +122,7 @@ You need [flit][] to install our Python frontends.
 pip3 install flit
 ```
 
-Our Python [frontends][frontends] use a FuTIL ast library written in Python. Install with:
+Our Python [frontends][frontends] use a Calyx ast library written in Python. Install with:
 ```
 cd calyx-py && flit install -s
 ```
@@ -134,7 +134,7 @@ Frontend specific instructions:
  - [MrXL](./frontends/mrxl.md): `cd frontends/mrxl && flit install -s`
 
 ### Dahlia frontend
-[Dahlia][dahlia] is an imperative HLS language that supports FuTIL as a backend.
+[Dahlia][dahlia] is an imperative HLS language that supports Calyx as a backend.
 [Here][dahlia-install] are the complete instructions, but we've provided a quick overview.
 First, install [sbt][].
 Then:
@@ -150,7 +150,7 @@ fud config stages.dahlia.exec $(pwd)/fuse
 ```
 
 #### Vivado/VivadoHLS Synthesis backends
-We use Vivado to synthesis FuTIL designs and produce area and resource estimates.
+We use Vivado to synthesis Calyx designs and produce area and resource estimates.
 There are two ways to get `fud` working with Vivado.
 
 ##### Vivado/VivadoHLS over SSH

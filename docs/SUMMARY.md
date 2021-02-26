@@ -2,7 +2,7 @@
 
 - [Getting Started](./intro.md)
 - [Compiler Documentation](./compiler-docs.md)
-- [The FuTIL Compiler](./compiler.md)
+- [The Calyx Compiler](./compiler.md)
 - [Tools](./tools/index.md)
     - [`fud`: CLI Driver](./tools/fud.md)
     - [Runt](./tools/runt.md)
