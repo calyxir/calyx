@@ -13,7 +13,7 @@ and then add-on installations for simulation, frontends, and synthesis.
 
 Start by cloning the repository:
 ```
-git clone https://github.com/cucapra/futil.git
+git clone https://github.com/cucapra/calyx.git
 ```
 
 ### Compiler dependencies
