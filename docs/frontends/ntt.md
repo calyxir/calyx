@@ -9,7 +9,7 @@ multiplication of large integers and large degree polynomials. The
 pipeline produced here is based upon [this paper][longa-etal-ntt],
 which also provides some background information on NTT.
 
-The NTT pipeline frontend lives in the [ntt-lang][] folder in the
+The NTT pipeline frontend lives in the [ntt][] folder in the
 Calyx repository and generates the pipeline for the NTT transform.  
 
 The `gen-ntt-pipeline.py` file contains the entire program required to 
@@ -37,4 +37,4 @@ pipeline.
 - `--modulus`: The (prime) modulus value used during the transformation. 
 
 [longa-etal-ntt]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/05/RLWE-1.pdf
-[ntt-lang]: https://github.com/cucapra/calyx/tree/master/frontends/ntt-pipeline
+[ntt]: https://github.com/cucapra/calyx/tree/master/frontends/ntt-pipeline
