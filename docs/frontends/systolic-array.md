@@ -12,7 +12,7 @@ The `gen-systolic.py` contains the entire program required to generate
 systolic arrays. In order to generate an *8 X 8* systolic array, run:
 
 ```
-./systolic-lang/gen-systolic.py -tl 8 -td 8 -ll 8 -ld 8
+./frontends/systolic-lang/gen-systolic.py -tl 8 -td 8 -ll 8 -ld 8
 ```
 
 ## Command Line Options
@@ -25,4 +25,4 @@ can be configured.
 - `--top-depth`, `--left-depth`: The length of the input streams from top and left sides of the array.
 
 [kung-systolic]: http://www.eecs.harvard.edu/~htk/publication/1982-kung-why-systolic-architecture.pdf
-[systolic-lang]: https://github.com/cucapra/futil/tree/master/systolic-lang
+[systolic-lang]: https://github.com/cucapra/calyx/tree/master/frontends/systolic-lang
