@@ -247,6 +247,9 @@ jobs:
             $DEPLOY_SRC $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DEST
           ssh -p $DEPLOY_PORT -i pk -o 'UserKnownHostsFile kh' \
             $DEPLOY_USER@$DEPLOY_HOST \
+            ls coursewww/capra.cs.cornell.edu/htdocs
+          ssh -p $DEPLOY_PORT -i pk -o 'UserKnownHostsFile kh' \
+            $DEPLOY_USER@$DEPLOY_HOST \
             mkdir -p coursewww/capra.cs.cornell.edu/htdocs/docs/calyx
           ssh -p $DEPLOY_PORT -i pk -o 'UserKnownHostsFile kh' \
             $DEPLOY_USER@$DEPLOY_HOST \
