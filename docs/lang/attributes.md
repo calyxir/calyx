@@ -45,7 +45,7 @@ When this attribute is present and the `-p external` pass is enabled,
 Calyx will externalize the ports of the cell into the component interface.
 This is useful for memories and for debugging signals.
 
-See [externalize](https://capra.cs.cornell.edu/calyx/doc/calyx/passes/struct.Externalize.html "Externalize Pass")
+See [externalize](https://capra.cs.cornell.edu/docs/calyx/source/calyx/passes/struct.Externalize.html "Externalize Pass")
 for more information.
 
 ### `static(n)`
