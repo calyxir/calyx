@@ -1,7 +1,7 @@
 ---CODE---
 1
 ---STDERR---
-Error: FuTIL Parser:  --> 5:27
+Error: Calyx Parser:  --> 5:27
   |
 5 |     while r.out with cond {␊
   | ...

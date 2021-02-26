@@ -1,4 +1,4 @@
-//! SystemVerilog backend for the FuTIL compiler.
+//! SystemVerilog backend for the Calyx compiler.
 //!
 //! Transforms an [`ir::Context`](crate::ir::Context) into a formatted string that represents a
 //! valid SystemVerilog program.

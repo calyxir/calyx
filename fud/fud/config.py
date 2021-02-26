@@ -14,7 +14,7 @@ REGISTRY = None
 # keys to prompt the user for
 WIZARD_DATA = {
     "global": {
-        "futil_directory": "Root Directory of FuTIL repository",
+        "futil_directory": "Root Directory of Calyx repository",
     }
 }
 

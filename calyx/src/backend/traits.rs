@@ -1,7 +1,7 @@
-//! Interface for a FuTIL backend.
+//! Interface for a Calyx backend.
 use crate::{errors::FutilResult, ir, utils::OutputFile};
 
-/// A backend for FuTIL.
+/// A backend for Calyx.
 pub trait Backend {
     /// The name of this backend.
     fn name(&self) -> &'static str;

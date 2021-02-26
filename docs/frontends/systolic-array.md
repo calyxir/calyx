@@ -5,7 +5,7 @@ computations. See [this paper][kung-systolic] for an overview on
 systolic arrays.
 
 The systolic array frontend lives in the [systolic-lang][] folder in the
-FuTIL repository and generates systolic arrays that can perform matrix
+Calyx repository and generates systolic arrays that can perform matrix
 multiplies.
 
 The `gen-systolic.py` contains the entire program required to generate

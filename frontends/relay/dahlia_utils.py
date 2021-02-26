@@ -95,7 +95,7 @@ def emit_dahlia_loop(control_flow: Cell, body: str) -> str:
 
 def dahlia_to_futil(dahlia_definitions: str) -> str:
     """Takes in a string representation of a Dahlia
-    function definitions, and lowers it to FuTIL.
+    function definitions, and lowers it to Calyx.
     This does not include the `import` statements,
     nor the empty `main` component.
     """

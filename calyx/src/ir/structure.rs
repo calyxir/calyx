@@ -1,4 +1,4 @@
-//! Representation for structure (wires and cells) in a FuTIL program.
+//! Representation for structure (wires and cells) in a Calyx program.
 use super::{Attributes, GetAttributes, Guard, Id, RRC, WRC};
 use smallvec::SmallVec;
 use std::rc::Rc;
@@ -103,7 +103,7 @@ pub enum CellType {
         /// Bindings for the parameters. Uses Vec to retain the input order.
         param_binding: Binding,
     },
-    /// Cell constructed using a FuTIL component
+    /// Cell constructed using a Calyx component
     Component {
         /// Name of the component used to instantiate this cell.
         name: Id,

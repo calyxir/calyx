@@ -6,10 +6,10 @@ use petgraph::stable_graph::NodeIndex;
 use std::iter::repeat;
 use std::rc::Rc;
 
-/// Standard error type for FuTIL errors.
+/// Standard error type for Calyx errors.
 #[allow(clippy::large_enum_variant)]
 pub enum Error {
-    /// Error while parsing a FuTIL program.
+    /// Error while parsing a Calyx program.
     ParseError(pest_consume::Error<parser::Rule>),
     /// Using a reserved keyword as a program identifier.
     ReservedName(ir::Id),
@@ -43,7 +43,7 @@ pub enum Error {
     /// An implementation is missing.
     MissingImplementation(&'static str, ir::Id),
 
-    /// Papercut error: signals a commonly made mistake in FuTIL program.
+    /// Papercut error: signals a commonly made mistake in Calyx program.
     Papercut(String, ir::Id),
 
     /// Group "static" latency annotation differed from inferred latency.
@@ -163,7 +163,7 @@ impl std::fmt::Debug for Error {
                 )
             },
             InvalidFile(err) => write!(f, "{}", err),
-            ParseError(err) => write!(f, "FuTIL Parser: {}", err),
+            ParseError(err) => write!(f, "Calyx Parser: {}", err),
             WriteError => write!(f, "WriteError"),
             MismatchedPortWidths(port1, w1, port2, w2) => {
                 let msg1 = format!("This port has width: {}", w1);

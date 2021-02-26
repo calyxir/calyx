@@ -1,7 +1,7 @@
-TVM to FuTIL via Relay
+TVM to Calyx via Relay
 ======================
 
-This is an in-progress compiler from [TVM][]'s intermediate representation, [Relay][], targeting FuTIL.
+This is an in-progress compiler from [TVM][]'s intermediate representation, [Relay][], targeting Calyx.
 
 
 Installation
@@ -35,7 +35,7 @@ Installation
         
         pip3 install pytest
 
-8. Install [Dahlia][], which is used when lowering from Relay to FuTIL.
+8. Install [Dahlia][], which is used when lowering from Relay to Calyx.
 The `fuse` executable is expected to be on your path. Alternatively, it will check to see if the environment variable `$DAHLIA_EXEC` is set. 
 
 Run an Example
@@ -47,13 +47,13 @@ cd futil/frontends/relay
 python3 example.py add
 ```     
 Pass the `-h` flag to this script for help.
-Pass the `-r` flag to this script to see the Relay IR. Otherwise, we just print the FuTIL output. 
+Pass the `-r` flag to this script to see the Relay IR. Otherwise, we just print the Calyx output. 
 
 
 Run the Tests
 -------------
 
-The Relay-to-FuTIL compiler has [Runt][] tests in the `tests` directory.
+The Relay-to-Calyx compiler has [Runt][] tests in the `tests` directory.
 To use them, install Runt:
 
     cargo install runt

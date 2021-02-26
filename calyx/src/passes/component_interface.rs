@@ -5,7 +5,7 @@ use crate::{build_assignments, guard, structure};
 use std::rc::Rc;
 
 #[derive(Default)]
-/// Wires up the `go` and `done` holes for FuTIL programs with a single
+/// Wires up the `go` and `done` holes for Calyx programs with a single
 /// enable to the component `go` and `done` ports.
 ///
 /// For example:

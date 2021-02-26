@@ -1,7 +1,7 @@
 ---CODE---
 1
 ---STDERR---
-Error: FuTIL Parser:  --> 4:12
+Error: Calyx Parser:  --> 4:12
   |
 4 |     r.in = 1;␊
   |            ^

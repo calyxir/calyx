@@ -46,7 +46,7 @@ main_component = Component(
     name="main", inputs=[], outputs=[], structs=cells + wires, controls=controls
 )
 
-# Create the FuTIL program.
+# Create the Calyx program.
 program = Program(imports=[Import("primitives/std.lib")], components=[main_component])
 
 # Emit the code.

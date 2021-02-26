@@ -1,7 +1,7 @@
 //! Analysis for Calyx programs.
 //!
 //! The analyses construct data-structures that make answering certain queries
-//! about FuTIL programs easier.
+//! about Calyx programs easier.
 
 mod graph;
 mod graph_coloring;

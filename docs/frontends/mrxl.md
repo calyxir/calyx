@@ -1,6 +1,6 @@
 # MrXL
 
-MrXL is an example DSL for demonstrating FuTIL. MrXL programs consist of `map` and `reduce` operations on arrays. For example, this is a dot product implementation:
+MrXL is an example DSL for demonstrating Calyx. MrXL programs consist of `map` and `reduce` operations on arrays. For example, this is a dot product implementation:
 
     input avec: int[1024]
     input bvec: int[1024]

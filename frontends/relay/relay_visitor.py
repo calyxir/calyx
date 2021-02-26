@@ -24,7 +24,7 @@ class Relay2Futil(ExprFunctor):
 
         # For each Relay CallNode, there is an associated
         # Dahlia FuncDef so that it can be lowered from Dahlia
-        # to FuTIL as a stand-alone component.
+        # to Calyx as a stand-alone component.
         self.func_defs: List[DahliaFuncDef] = []
 
         # Controls, wires of the main component.
@@ -121,7 +121,7 @@ class Relay2Futil(ExprFunctor):
         latter two are used within call.op.
 
         call.op is mapped to a corresponding Dahlia function,
-        and subsequently lowered to FuTIL as a component to
+        and subsequently lowered to Calyx as a component to
         be invoked.
         """
         # Visit the call arguments.
@@ -160,7 +160,7 @@ def relay_transforms(expr: Function) -> Function:
 
 
 def emit_futil(program) -> str:
-    """Lowers a Relay function to a FuTIL program."""
+    """Lowers a Relay function to a Calyx program."""
     relay_program = relay_transforms(program)
     visitor = Relay2Futil()
     main, func_defs = visitor.visit(relay_program)
