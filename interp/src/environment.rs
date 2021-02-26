@@ -17,7 +17,7 @@ pub struct Update {
     pub vars: HashMap<String, u64>,
 }
 
-/// The environment to interpret a FuTIL program.
+/// The environment to interpret a Calyx program.
 #[derive(Clone, Debug)]
 pub struct Environment {
     /// A mapping from cell names to the values on their ports.

@@ -17,7 +17,7 @@ def register_stages(registry, cfg):
     # Dahlia
     registry.register(
         dahlia.DahliaStage(
-            cfg, "futil", "-b futil --lower -l error", "Compile Dahlia to FuTIL"
+            cfg, "futil", "-b futil --lower -l error", "Compile Dahlia to Calyx"
         )
     )
     registry.register(
@@ -35,13 +35,13 @@ def register_stages(registry, cfg):
     # Systolic Array
     registry.register(systolic.SystolicStage(cfg))
 
-    # FuTIL
+    # Calyx
     registry.register(
         futil.FutilStage(
             cfg,
             "verilog",
             "-b verilog",
-            "Compile FuTIL to Verilog instrumented for simulation",
+            "Compile Calyx to Verilog instrumented for simulation",
         )
     )
     registry.register(
@@ -49,7 +49,7 @@ def register_stages(registry, cfg):
             cfg,
             "synth-verilog",
             "-b verilog --synthesis -p external",
-            "Compile FuTIL to synthesizable Verilog ",
+            "Compile Calyx to synthesizable Verilog ",
         )
     )
     registry.register(
@@ -57,7 +57,7 @@ def register_stages(registry, cfg):
             cfg,
             "futil-lowered",
             "-b futil",
-            "Compile FuTIL to FuTIL to remove all control and inline groups",
+            "Compile Calyx to Calyx to remove all control and inline groups",
         )
     )
     registry.register(
@@ -65,7 +65,7 @@ def register_stages(registry, cfg):
             cfg,
             "futil-noinline",
             "-b futil -d hole-inliner",
-            "Compile FuTIL to FuTIL to remove all control and inline groups",
+            "Compile Calyx to Calyx to remove all control and inline groups",
         )
     )
     registry.register(
@@ -73,7 +73,7 @@ def register_stages(registry, cfg):
             cfg,
             "futil-externalize",
             "-b futil -p externalize",
-            "Compile FuTIL to FuTIL to externalize all external memory primitives",
+            "Compile Calyx to Calyx to externalize all external memory primitives",
         )
     )
 
@@ -133,7 +133,7 @@ def main():
     parses the arguments, and returns the results."""
 
     parser = argparse.ArgumentParser(
-        description="Driver to execute FuTIL and supporting toolchains"
+        description="Driver to execute Calyx and supporting toolchains"
     )
     # Name of the subparser stored in command
     subparsers = parser.add_subparsers()
@@ -141,8 +141,8 @@ def main():
     config_run(
         subparsers.add_parser(
             "exec",
-            help="Execute one of the FuTIL-related tools",
-            description="Execute one of the FuTIL-related tools",
+            help="Execute one of the Calyx-related tools",
+            description="Execute one of the Calyx-related tools",
             aliases=["e", "ex"],
         )
     )

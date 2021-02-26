@@ -14,7 +14,7 @@ class MrXLStage(Stage):
             SourceType.Path,
             SourceType.Stream,
             config,
-            "Compiles MrXL to FuTIL.",
+            "Compiles MrXL to Calyx.",
         )
         self.setup()
 

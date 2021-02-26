@@ -104,7 +104,7 @@ def print_function_list():
 def run_example():
     input = sys.argv[1:]
     if '-h' in input or input == []:
-        print("- To see FuTIL output:\n$ python3 example.py <function_name>")
+        print("- To see Calyx output:\n$ python3 example.py <function_name>")
         print("- To see Relay IR:\n$ python3 example.py <function_name> -r")
         print_function_list()
         return
@@ -133,7 +133,7 @@ def run_example():
         # Dump the Relay representation (for educational purposes).
         print(relay_IR)
     else:
-        # Compile the function and print the FuTIL.
+        # Compile the function and print the Calyx.
         print(emit_futil(relay_IR))
 
 
