@@ -1,7 +1,7 @@
 ---CODE---
 1
 ---STDERR---
-Error: FuTIL Parser:  --> 4:5
+Error: Calyx Parser:  --> 4:5
   |
 4 |     h = std_reg(32)␊
 5 |     l = std_reg(32);␊
