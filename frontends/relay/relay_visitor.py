@@ -10,6 +10,7 @@ from futil.ast import *
 from dahlia_impl import emit_components
 
 
+# TODO(cgyurgyik): Rename from FuTIL -> Calyx
 class Relay2Futil(ExprFunctor):
     """The main compilation visitor."""
 
@@ -43,15 +44,13 @@ class Relay2Futil(ExprFunctor):
         """Visits a Relay variable and returns the
         corresponding Calyx memory.
         """
-        id = self.id(var.name_hint)
-        cell = get_memory(id, var.type_annotation)
+        var_id = self.id(var.name_hint)
 
-        # Some variables may be visited more than once,
-        # e.g. if it both a destination and used as
-        # an argument.
-        if id not in self.id_to_cell:
-            self.id_to_cell[id] = cell
-
+        cell = get_memory(
+            var_id,
+            var.type_annotation
+        )
+        self.id_to_cell[var_id] = cell
         return cell
 
     def visit_let(self, let):
@@ -63,45 +62,60 @@ class Relay2Futil(ExprFunctor):
         value = self.visit(let.value)
         dest = self.visit(let.var)
 
-        # TODO(cgyurgyik): Support other let values.
-        # We'll need to support constants for `VGG Net`.
-        if not isinstance(value, tvm.relay.Call):
-            assert 0, f'{value} is unsupported.'
-
-        # Function names may have a namespace
-        # prepended, e.g. `nn.bias_add`. We want to
-        # replace the periods, to get `nn_bias_add`.
-        func_name = (value.op.name).replace('.', '_')
-
-        comp_id = self.id(func_name)
-        comp_decl = CompVar(f'{comp_id}_')
-        self.id_to_cell[comp_id] = Cell(
-            comp_decl,
-            CompInst(comp_id, [])
-        )
-
-        self.controls.append(
-            # Append Invoke control to the `main` component.
-            emit_invoke_control(comp_decl, dest, value.args)
-        )
-
-        self.func_defs.append(
-            DahliaFuncDef(
-                function_id=func_name,
-                dest=dest,
-                args=value.args,
-                attributes=value.attrs,
-                data_type=get_dahlia_data_type(let.var.type_annotation)
+        if isinstance(value, tvm.relay.Constant):
+            # Generates a constant primitive.
+            # This is done here since we need
+            # both the variable id and the value.
+            width = get_bitwidth(value.data)
+            cell = Cell(
+                CompVar(dest.id.name),
+                Stdlib().constant(width, value.data)
             )
-        )
+            self.id_to_cell[dest.id.name] = cell
+        elif isinstance(value, tvm.relay.Call):
+            # Generates cells and control for a Relay Call:
+            # 1. `Invoke` control
+            # 2. Component declaration for the invoked component.
+            # 3. `DahliaFuncDef` to generate the Relay call component.
+
+            # Function names may have a namespace
+            # prepended, e.g. `nn.bias_add`. We want to
+            # replace the periods, to get `nn_bias_add`.
+            func_name = (value.op.name).replace('.', '_')
+
+            comp_id = self.id(func_name)
+            comp_decl = CompVar(f'{comp_id}_')
+            self.id_to_cell[comp_id] = Cell(
+                comp_decl,
+                CompInst(comp_id, [])
+            )
+
+            self.controls.append(
+                # Append Invoke control to the `main` component.
+                emit_invoke_control(comp_decl, dest, value.args)
+            )
+
+            self.func_defs.append(
+                DahliaFuncDef(
+                    function_id=func_name,
+                    dest=dest,
+                    args=value.args,
+                    attributes=value.attrs,
+                    data_type=get_dahlia_data_type(let.var.type_annotation)
+                )
+            )
+        else:
+            assert 0, f'{value} is not supported yet.'
 
         return self.visit(let.body)
 
-    def visit_constant(self, const) -> Cell:
-        assert 0, f'visit_constant is not supported yet: {const}'
-        # type, shape = const.data.dtype, const.data.shape
+    def visit_constant(self, const) -> tvm.relay.Constant:
+        """Simply returns the Relay constant. Since we don't
+        have the variable id here, we generate the Calyx
+        cell within the `let` visit."""
+        return const
 
-    def visit_call(self, call):
+    def visit_call(self, call) -> tvm.relay.Call:
         """The Relay call consists of 3 main pieces:
         call.op, call.args, and call.attrs. The
         latter two are used within call.op.

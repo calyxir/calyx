@@ -1,16 +1,10 @@
 import tvm
 from tvm import relay
-from compiler import *
+from relay_visitor import *
 import sys
 
 
-def add():
-    x = relay.var('x', shape=(), dtype="int32")
-    y = relay.var('y', shape=(), dtype="int32")
-    return relay.Function([x, y], relay.add(x, y))
-
-
-def tensor_subtract():
+def tensor_add():
     x = relay.var("x", relay.TensorType((2, 4), "int32"))
     y = relay.var("y", relay.TensorType((2, 4), "int32"))
     return relay.Function([x, y], relay.subtract(x, y))
@@ -78,45 +72,52 @@ def vgg_net():
                        batch_norm=True)
 
 
-ALL_FUNCS = [
-    add,
-    tensor_subtract,
-    expand_dims,
-    batch_flatten,
-    batch_matmul,
-    bias_add,
-    relu,
-    dense,
-    softmax,
-    conv2d,
-    max_pool2d,
-    mlp_net,
-    vgg_net
-]
-FUNC_NAMES = list(map(lambda x: x.__name__, ALL_FUNCS))
+FUNCTIONS = {
+    'tensor_add': tensor_add,
+    'expand_dims': expand_dims,
+    'batch_flatten': batch_flatten,
+    'batch_matmul': batch_matmul,
+    'bias_add': bias_add,
+    'relu': relu,
+    'dense': dense,
+    'softmax': softmax,
+    'conv2d': conv2d,
+    'max_pool2d': max_pool2d,
+    'mlp_net': mlp_net,
+    'vgg_net': vgg_net
+}
 
 
-def print_function_list():
-    print("\n- Supported functions:")
-    (lambda x: print(', '.join(x)))(FUNC_NAMES)
+def pretty_print_functions():
+    """Pretty prints the available functions."""
+    half = len(FUNCTIONS) // 2
+    keys = list(FUNCTIONS.keys())
+    for (f1, f2) in zip(keys[:half], keys[half:]):
+        whitespace = (16 - len(f1)) * ' '
+        print(f'- {f1}{whitespace} - {f2}')
 
 
 def run_example():
+    """Runs the example.
+    Displays Relay IR if `-r` is found.
+    Displays Calyx otherwise."""
     input = sys.argv[1:]
-    if '-h' in input or input == []:
-        print("- To see Calyx output:\n$ python3 example.py <function_name>")
-        print("- To see Relay IR:\n$ python3 example.py <function_name> -r")
-        print_function_list()
+    if '-h' in input or not input:
+        print(
+            f"""
+help  -h    Displays available functions to play with.
+relay -r    Displays the Relay IR. Displays Calyx otherwise.
+        \nAvailable functions:"""
+        )
+        pretty_print_functions()
         return
-    func = None
-    # See if the command line contains a function name.
-    for option in ALL_FUNCS:
-        if option.__name__ in input:
-            func = option()
-            break
+
+    # See if the command line contains a correct function name.
+    func_name = input[0]
+    func = FUNCTIONS[func_name]() if func_name in FUNCTIONS.keys() else None
     if func is None:
-        print(f'Function `{input[0]}` is not a supported.')
-        print_function_list()
+        print(f'Function `{func_name}` is not a supported.')
+        pretty_print_functions()
         return
 
     # Try optimizing the Relay IR with a few built-in passes.
@@ -130,11 +131,13 @@ def run_example():
     mod_opt = seq(mod_opt)
     relay_IR = mod_opt['main']
     if '-r' in input:
-        # Dump the Relay representation (for educational purposes).
+        # Dump the Relay IR.
         print(relay_IR)
     else:
-        # Compile the function and print the Calyx.
-        print(emit_futil(relay_IR))
+        # Compile and dump the Calyx.
+        print(
+            emit_futil(relay_IR)
+        )
 
 
 if __name__ == '__main__':
