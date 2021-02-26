@@ -134,7 +134,7 @@ relay -r    Displays the Relay IR. Displays Calyx otherwise.
         # Dump the Relay IR.
         print(relay_IR)
     else:
-        # Compile the function and print the Calyx.
+        # Compile and dump the Calyx.
         print(
             emit_futil(relay_IR)
         )
