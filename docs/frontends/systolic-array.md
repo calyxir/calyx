@@ -12,7 +12,7 @@ The `gen-systolic.py` contains the entire program required to generate
 systolic arrays. In order to generate an *8 X 8* systolic array, run:
 
 ```
-./systolic-lang/gen-systolic.py -tl 8 -td 8 -ll 8 -ld 8
+./frontends/systolic-lang/gen-systolic.py -tl 8 -td 8 -ll 8 -ld 8
 ```
 
 ## Command Line Options
