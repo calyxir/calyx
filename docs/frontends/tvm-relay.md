@@ -1,6 +1,6 @@
 # TVM Relay
 
-TVM is a compiler for machine learning frameworks that can 
+[TVM][] is a compiler for machine learning frameworks that can 
 optimize and target kernels to several different backends.
 
 The TVM Relay frontend lives in the [relay-lang][] folder in the
