@@ -52,7 +52,6 @@ Run an Example
 
 Try this to run a simple example:
 
-    bash
     cd calyx/frontends/relay
     python3 example.py tensor_add
      
