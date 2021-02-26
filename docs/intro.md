@@ -116,7 +116,7 @@ handling.
 cargo install vcdump
 ```
 
-#### Python frontends (Systolic array, NTT, MrXL)
+#### Python frontends (Systolic array, NTT, MrXL, TVM Relay)
 You need [flit][] to install our Python frontends.
 ```
 pip3 install flit
@@ -132,6 +132,7 @@ Frontend specific instructions:
  Nothing else needed.
  - NTT: `pip3 install prettytables`
  - [MrXL](./frontends/mrxl.md): `cd frontends/mrxl && flit install -s`
+ - [TVM Relay](./frontends/tvm-relay.md): See instructions in the Relay frontend page.
 
 ### Dahlia frontend
 [Dahlia][dahlia] is an imperative HLS language that supports Calyx as a backend.
