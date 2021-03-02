@@ -68,8 +68,30 @@ def mlp_net():
 def vgg_net():
     """The VGG test from Relay."""
     from tvm.relay.testing import vgg
-    return vgg.get_net(batch_size=5, image_shape=(3, 224, 224), num_classes=10, dtype='int32', num_layers=13,
-                       batch_norm=True)
+    return vgg.get_net(
+        batch_size=5,
+        image_shape=(3, 224, 224),
+        num_classes=10,
+        dtype='int32',
+        num_layers=13,
+        batch_norm=True
+    )
+
+
+def quantized_net():
+    """Quantized test."""
+    from tvm.relay.testing import vgg
+    mod, params = vgg.get_workload(
+        batch_size=5,
+        image_shape=(3, 224, 224),
+        num_classes=10,
+        dtype='float32',
+        num_layers=13,
+        batch_norm=True
+    )
+    with relay.quantize.qconfig(skip_k_conv=0, round_for_shift=True):
+        mod = relay.quantize.quantize(mod, params)
+    return mod
 
 
 FUNCTIONS = {
@@ -84,7 +106,8 @@ FUNCTIONS = {
     'conv2d': conv2d,
     'max_pool2d': max_pool2d,
     'mlp_net': mlp_net,
-    'vgg_net': vgg_net
+    'vgg_net': vgg_net,
+    'quantized_net': quantized_net
 }
 
 
