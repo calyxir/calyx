@@ -150,9 +150,16 @@ relay -r    Displays the Relay IR. Displays Calyx otherwise.
         relay.transform.ToANormalForm(),
     ])
 
-    mod_opt = tvm.IRModule.from_expr(func)
-    mod_opt = seq(mod_opt)
+    mod_opt = func
+    if all(['quantized' not in i for i in input]):
+        # Quantized nets return the IRModule directly,
+        # so we can skip this step.
+        mod_opt = tvm.IRModule.from_expr(
+            seq(mod_opt)
+        )
+
     relay_IR = mod_opt['main']
+
     if '-r' in input:
         # Dump the Relay IR.
         print(relay_IR)
