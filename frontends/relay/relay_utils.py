@@ -6,7 +6,7 @@ from typing import List
 from dataclasses import dataclass
 
 # Mapping from the tensor dimensions to the
-# corresponding FuTIL primitive.
+# corresponding Calyx primitive.
 NumDimsToCell = {
     0: Stdlib().register,
     1: Stdlib().mem_d1,
@@ -17,6 +17,8 @@ NumDimsToCell = {
 
 # Suffix appended to memories by Dahlia when lowering.
 DahliaSuffix = {
+    'std_const': '',
+    'std_reg': '',
     'std_mem_d1': '0',
     'std_mem_d2': '0_0',
     'std_mem_d3': '0_0_0',
@@ -39,6 +41,7 @@ def get_dims(c: CompInst):
     """Mapping from memory to number of dimensions."""
     id = c.id
     id2dimensions = {
+        'std_reg': 0,
         'std_mem_d1': 1,
         'std_mem_d2': 2,
         'std_mem_d3': 3,
@@ -72,10 +75,15 @@ def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
         # `c` is an argument or a destination memory.
         comp = c.comp
         assert comp.id in DahliaSuffix, f'{comp.id} supported yet.'
-        in_, out = [], []
         param = f'{c.id.name}{DahliaSuffix[comp.id]}'
         arg = CompVar(c.id.name)
 
+        if any(p in comp.id for p in ['reg', 'const']):
+            # If this is a constant or a register.
+            return [(f'{param}', CompPort(arg, 'out'))], []
+
+        # Otherwise, its an N-dimensional memory.
+        in_, out = [], []
         if is_destination:
             # If the memory is being written to, hook up write ports.
             in_.append(
@@ -100,8 +108,7 @@ def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
         return in_, out
 
     for cell in args:
-        # We treat the connections of both the destination
-        # and argument memories in the same manner for now.
+        # Don't connect write ports for arguments.
         in_, out = get_connects(cell, is_destination=False)
         in_connects.extend(in_)
         out_connects.extend(out)
@@ -142,10 +149,10 @@ def get_bitwidth(relay_type) -> int:
 
 
 def get_memory(name: str, type: tvm.ir.Type) -> Cell:
-    """Returns a FuTIL memory for a given TVM type.
+    """Returns a Calyx memory for a given TVM type.
     For non-Tensor types, a register is returned.
     Otherwise, a memory with the corresponding dimension size
-    is returned, if it exists in FuTIL."""
+    is returned, if it exists in Calyx."""
     dims = type.concrete_shape
     # Bitwidth, along with sizes and index sizes (if it is a Tensor).
     args = [get_bitwidth(type)] + [d for d in dims] + [bits_needed(d) for d in dims]

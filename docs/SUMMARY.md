@@ -2,7 +2,7 @@
 
 - [Getting Started](./intro.md)
 - [Compiler Documentation](./compiler-docs.md)
-- [The FuTIL Compiler](./compiler.md)
+- [The Calyx Compiler](./compiler.md)
 - [Tools](./tools/index.md)
     - [`fud`: CLI Driver](./tools/fud.md)
     - [Runt](./tools/runt.md)
@@ -15,6 +15,8 @@
     - [MrXL](./frontends/mrxl.md)
     - [Dahlia](./frontends/dahlia.md)
     - [Systolic Array Generator](./frontends/systolic-array.md)
+    - [TVM Relay](./frontends/tvm-relay.md)
+    - [NTT Pipeline Generator](./frontends/ntt.md)
 - [Optimizations](./optimizations/index.md)
   - [Dataflow Analysis](./optimizations/dataflow.md)
 ----

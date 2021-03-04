@@ -11,9 +11,10 @@ from . import errors
 # Global registry. Initialized by main.py.
 REGISTRY = None
 
-wizard_data = {
+# keys to prompt the user for
+WIZARD_DATA = {
     "global": {
-        "futil_directory": "Root Directory of FuTIL repository",
+        "futil_directory": "Root Directory of Calyx repository",
     }
 }
 
@@ -110,6 +111,9 @@ class DynamicDict:
 
 
 def wizard(table, data):
+    """
+    Prompt the user for unset keys as specified in `data`.
+    """
     for key in data.keys():
         if not isinstance(table, dict):
             table = {}
@@ -127,14 +131,13 @@ def wizard(table, data):
     return table
 
 
-def rest_of_path(path):
-    d = None
-    for p in reversed(path):
-        d = {p: d}
-    return d
-
-
 class Configuration:
+    """
+    Wraps the configuration file and provides methods for committing
+    data, displaying configuration data, accessing data, and prompting
+    the user for unset keys.
+    """
+
     def __init__(self):
         """Find the configuration file."""
         self.path = Path(appdirs.user_config_dir("fud"))
@@ -145,18 +148,28 @@ class Configuration:
 
         # load the configuration file
         self.config = DynamicDict(toml.load(self.config_file))
-        self.wizard_data = DynamicDict(wizard_data)
+        self.wizard_data = DynamicDict(WIZARD_DATA)
         self.fill_missing(DEFAULT_CONFIGURATION, self.config.data)
         if ("global", "futil_directory") not in self.config:
             log.warn("global.futil_directory is not set in the configuration")
 
     def commit(self):
+        """
+        Commit the current configuration to a file.
+        """
         toml.dump(self.config.data, self.config_file.open("w"))
 
     def display(self):
+        """
+        Display the current configuration.
+        """
         toml.dump(self.config.data, sys.stdout)
 
     def fill_missing(self, default, config):
+        """
+        Add keys that are defined in the default config but not in
+        the user provided config.
+        """
         if isinstance(default, dict):
             # go over all the keys in the default
             for key in default.keys():
@@ -168,10 +181,13 @@ class Configuration:
         return config
 
     def launch_wizard(self):
+        """
+        Launch the wizard to prompt user for unset keys.
+        """
         changed = False
         for key in self.config.data.keys():
             if key in self.wizard_data.data.keys():
-                self.config.data[key] = wizard(self.config[key], wizard_data[key])
+                self.config.data[key] = wizard(self.config[key], WIZARD_DATA[key])
                 changed = True
         if changed:
             self.commit()

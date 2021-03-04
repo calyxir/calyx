@@ -77,6 +77,7 @@ def broadcast(fd: DahliaFuncDef) -> str:
         emit_dahlia_loop(res, loop_body)
     )
 
+
 # https://github.com/cucapra/calyx/issues/401
 # Please read the issue above before trying
 # to lower this using `relay.fromtext`.
@@ -441,6 +442,9 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     created from the list of Dahlia function definitions.
     This does not include the import statement.
     """
+    if not func_defs:
+        return ""
+
     dahlia_definitions = []
     for func_def in func_defs:
         id = func_def.function_id

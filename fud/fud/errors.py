@@ -3,7 +3,7 @@ from pathlib import Path
 
 class FudError(Exception):
     """
-    An error caught by the FuTIL Driver.
+    An error caught by the Calyx Driver.
     """
 
 
@@ -70,7 +70,7 @@ class NoPathFound(FudError):
     def __init__(self, source, destination):
         msg = (
             f"No way to convert input in stage `{source}' to "
-            + "stage `{destination}'."
+            + f"stage `{destination}'."
         )
         super().__init__(msg)
 
@@ -98,17 +98,6 @@ class SourceConversion(FudError):
         super().__init__(msg)
 
 
-class InvalidSource(FudError):
-    """
-    Source class construction is ill-specified. For example, generating
-    a SourceType.Nothing with a path as data.
-    """
-
-    def __init__(self, source_type, data):
-        msg = f"Malformed Source: {source_type} (type) to {data} (data)"
-        super().__init__(msg)
-
-
 class RemoteLibsNotInstalled(FudError):
     """
     Libraries needed for remote use of tools are not installed.
@@ -122,26 +111,6 @@ class RemoteLibsNotInstalled(FudError):
         super().__init__(msg)
 
 
-class ContextKeyMissing(FudError):
-    """
-    Required key missing from context.
-    """
-
-    def __init__(self, key):
-        msg = f"Required key missing from context: {key}"
-        super().__init__(msg)
-
-
-class UnexpectedSourceType(FudError):
-    """
-    SourceType mismatch
-    """
-
-    def __init__(self, expected, got):
-        msg = f"Expected source of type: {expected}, got: {got}"
-        super().__init__(msg)
-
-
 class MissingFile(FudError):
     """
     A stage expected a file to exist that didn't exist.
@@ -151,5 +120,44 @@ class MissingFile(FudError):
         msg = (
             f"File doesn't exist: '{filename}'. "
             + "Check tool versions with `fud check`."
+        )
+        super().__init__(msg)
+
+
+class StepFailure(FudError):
+    """
+    Indicates that a step failed.
+    """
+
+    def __init__(self, step, stderr):
+        msg = f"`{step.strip()}' failed:\n=====STDERR=====\n" + stderr
+        super().__init__(msg)
+
+
+class NeedOutputSpecified(FudError):
+    """
+    An error raised when the last stage will produce output that
+    is not serializable as a text stream (i.e. a Directory)
+    """
+
+    def __init__(self, final_stage):
+        msg = (
+            f"The final stage: `{final_stage.name}` will produce a "
+            + f"`{final_stage.output_type}` which can't be printed in the terminal. "
+            + "Supply `-o <name>` to specify a name for it."
+        )
+        super().__init__(msg)
+
+
+class SourceConversionNotDirectory(FudError):
+    """
+    An error raised when the last stage will produce output that
+    is not serializable as a text stream (i.e. a Directory)
+    """
+
+    def __init__(self, path):
+        msg = (
+            f"Tried to convert {path} to a SourceType.Directory, "
+            + "but it is not a directory."
         )
         super().__init__(msg)

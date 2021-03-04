@@ -1,9 +1,9 @@
-# FUD: FuTIL Driver
-This is the FuTIL driver. It is a tool that automates the process
-of calling FuTIL frontends, the FuTIL compiler, and any backends that may
+# FUD: Calyx Driver
+This is the Calyx driver. It is a tool that automates the process
+of calling Calyx frontends, the Calyx compiler, and any backends that may
 be needed to simulate/execute a program.
 
-The current documentation for fud lives [here](https://capra.cs.cornell.edu/calyx/tools/fud.html).
+The current documentation for fud lives [here](https://capra.cs.cornell.edu/docs/calyx/tools/fud.html).
 
 ## Contributing
 We use `black` as an automatic formatter and `flake8` to lint `fud`s code. Before merging

@@ -3,4 +3,4 @@ authors = ["Capra Lab"]
 language = "en"
 multilingual = false
 src = "docs"
-title = "FuTIL Documentation"
+title = "Calyx Documentation"

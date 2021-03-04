@@ -65,7 +65,7 @@ def emit_idx_group(s_idx, b=None):
 
 def emit_compute_op(exp, op, dest, name2arr, suffix, bank_suffix):
     """
-    Returns a string containing a FuTIL implementation of a MrXL
+    Returns a string containing a Calyx implementation of a MrXL
     variable or number (exp). op is the type of operation this
     expression is used in. dest is the destination of this expression.
     name2arr maps statement variable names to the array names they're
@@ -145,7 +145,7 @@ def emit_eval_body_group(s_idx, stmt, b=None):
 
 def gen_reduce_impl(stmt, arr_size, s_idx):
     """
-    Returns a dictionary containing FuTIL cells, wires and
+    Returns a dictionary containing Calyx cells, wires and
     control needed to implement a map statement. Similar
     to gen_map_impl, with an implementation of a body
     of the `reduce` statement instead of an implementation
@@ -179,7 +179,7 @@ def gen_reduce_impl(stmt, arr_size, s_idx):
 
 def gen_map_impl(stmt, arr_size, bank_factor, s_idx):
     """
-    Returns a dictionary containing FuTIL cells, wires and
+    Returns a dictionary containing Calyx cells, wires and
     control needed to implement a map statement. (See gen_stmt_impl
     for format of the dictionary.)
 
@@ -235,7 +235,7 @@ def gen_map_impl(stmt, arr_size, bank_factor, s_idx):
 
 def gen_stmt_impl(stmt, arr_size, name2par, s_idx):
     """
-    Returns FuTIL cells, wires, and control needed to implement
+    Returns Calyx cells, wires, and control needed to implement
     a MrXL `map` or `reduce` statement. It is a dictionary
     of this form:
     {
@@ -259,7 +259,7 @@ def gen_stmt_impl(stmt, arr_size, name2par, s_idx):
 
 def emit(prog):
     """
-    Returns a string containing a FuTIL program, compiled from `prog`, a MrXL
+    Returns a string containing a Calyx program, compiled from `prog`, a MrXL
     program.
     """
     cells, wires, control = [], [], []
@@ -296,7 +296,7 @@ def emit(prog):
                 cells.append(emit_reg_decl(stmt.dest, 32))
             used_names.append(stmt.dest)
 
-    # Generate FuTIL.
+    # Generate Calyx.
     for i, stmt in enumerate(prog.stmts):
         stmt_impl = gen_stmt_impl(stmt, arr_size, name2par, i)
         cells.extend(stmt_impl["cells"])

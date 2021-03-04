@@ -57,7 +57,7 @@ def convert2json(input_dir, extension):
             try:
                 arr = arr.reshape(tuple(shape_json[f.stem]["shape"]))
             except Exception:
-                raise Exception(f.stem)
+                raise Exception(f"Key '{f.stem}' had invalid shape.")
             name = f.stem
             data[name] = arr.tolist()
     return data

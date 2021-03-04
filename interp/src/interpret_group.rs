@@ -72,7 +72,7 @@ fn construct_map(
         let mut ports: HashMap<ir::Id, u64> = HashMap::new();
 
         match &cb.prototype {
-            // A FuTIL constant cell's out port is that constant's value
+            // A Calyx constant cell's out port is that constant's value
             ir::CellType::Constant { val, .. } => {
                 ports.insert(ir::Id::from("out"), *val);
                 map.insert(cb.name.clone(), ports);

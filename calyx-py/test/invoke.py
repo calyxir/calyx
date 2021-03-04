@@ -72,7 +72,7 @@ main_component = Component(
     controls=SeqComp(controls),
 )
 
-# Create the FuTIL program.
+# Create the Calyx program.
 program = Program(
     imports=[Import("primitives/std.lib")], components=[foo_component, main_component]
 )

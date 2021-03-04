@@ -1,3 +1,3 @@
 # Language Reference
 
-Coming soon: a reference for the whole FuTIL language.
+Coming soon: a reference for the whole Calyx language.

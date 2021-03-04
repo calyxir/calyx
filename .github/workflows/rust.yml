@@ -225,7 +225,7 @@ jobs:
           args: -p calyx --no-deps
       - name: Move source documentation
         run: |
-          mv ./target/doc ./book
+          mv ./target/doc ./book/source
       - name: rsync
         if: ${{github.event_name=='push' && github.ref=='refs/heads/master'}}
         env:
@@ -235,9 +235,9 @@ jobs:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
           DEPLOY_SRC: ./book/
-          DEPLOY_DEST: sync/calyx
+          DEPLOY_DEST: sync/calyx-book
           DEPLOY_2_HOST: courses.cit.cornell.edu
-          DEPLOY_2_DEST: coursewww/capra.cs.cornell.edu/htdocs/calyx
+          DEPLOY_2_DEST: coursewww/capra.cs.cornell.edu/htdocs/docs/calyx
         run: |
           echo "$DEPLOY_KEY" > pk
           echo "$DEPLOY_KNOWN_HOSTS" > kh

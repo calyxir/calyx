@@ -1,6 +1,6 @@
-# The FuTIL Compiler
+# The Calyx Compiler
 
-The FuTIL compiler has several command line to control the execution of various
+The Calyx compiler has several command line to control the execution of various
 passes and backends.
 
 ### Controlling Passes

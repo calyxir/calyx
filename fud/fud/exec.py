@@ -1,11 +1,12 @@
 import logging as log
-import sys
-from halo import Halo
-from pathlib import Path
 import shutil
+import sys
+from pathlib import Path
 
-from .stages import Source, SourceType
+from halo import Halo
+
 from . import errors, utils
+from .stages import Source, SourceType
 
 
 def discover_implied_stage(filename, config, possible_dests=None):
@@ -27,19 +28,10 @@ def discover_implied_stage(filename, config, possible_dests=None):
     raise errors.UnknownExtension(filename)
 
 
-def run_fud(args, config):
-    # check if input_file exists
-    input_file = None
-    if args.input_file is not None:
-        input_file = Path(args.input_file)
-        if not input_file.exists():
-            raise FileNotFoundError(input_file)
-
-    # update the stages config with arguments provided via cmdline
-    if args.dynamic_config is not None:
-        for key, value in args.dynamic_config:
-            config[["stages"] + key.split(".")] = value
-
+def construct_path(args, config):
+    """
+    Construct the path of stages implied by the passed arguments.
+    """
     # find source
     source = args.source
     if source is None:
@@ -60,56 +52,71 @@ def run_fud(args, config):
     if len(path) == 0:
         raise errors.TrivialPath(source)
 
+    return path
+
+
+def run_fud(args, config):
+    """
+    Execute all the stages implied by the passed `args`
+    """
+    # check if input_file exists
+    input_file = None
+    if args.input_file is not None:
+        input_file = Path(args.input_file)
+        if not input_file.exists():
+            raise FileNotFoundError(input_file)
+
+    path = construct_path(args, config)
+
+    # check if we need `-o` specified
+    if path[-1].stage.output_type == SourceType.Directory and args.output_file is None:
+        raise errors.NeedOutputSpecified(path[-1].stage)
+
     # if we are doing a dry run, print out stages and exit
     if args.dry_run:
         print("fud will perform the following steps:")
+        for ed in path:
+            print(f"Stage: {ed.stage.name}")
+            ed.stage.dry_run()
+        return
 
-    # Pretty spinner.
+    # spinner is disabled if we are in debug mode, doing a dry_run, or are in quiet mode
     spinner_enabled = not (utils.is_debug() or args.dry_run or args.quiet)
+
     # Execute the path transformation specification.
     with Halo(
         spinner="dots", color="cyan", stream=sys.stderr, enabled=spinner_enabled
     ) as sp:
 
+        sp = utils.SpinnerWrapper(sp, save=log.getLogger().level <= log.INFO)
+
+        # construct a source object for the input
+        data = None
         if input_file is None:
-            inp = Source(None, SourceType.Nothing)
+            data = Source(None, SourceType.UnTyped)
         else:
-            inp = Source(str(input_file), SourceType.Path)
+            data = Source(Path(str(input_file)), SourceType.Path)
 
-        for i, ed in enumerate(path):
-            sp.start(f"{ed.stage.name} → {ed.stage.target_stage}")
-            (result, stderr, retcode) = ed.stage.transform(
-                inp, dry_run=args.dry_run, last=i == (len(path) - 1)
-            )
-            inp = result
+        # run all the stages
+        for ed in path:
+            sp.start_stage(f"{ed.stage.name} → {ed.stage.target_stage}")
+            try:
+                result = ed.stage.run(data, sp)
+                data = result
+                sp.end_stage()
+            except errors.StepFailure as e:
+                sp.fail()
+                print(e)
+                exit(-1)
 
-            if retcode == 0:
-                if log.getLogger().level <= log.INFO:
-                    sp.succeed()
-            else:
-                if log.getLogger().level <= log.INFO:
-                    sp.fail()
-                else:
-                    sp.stop()
-                log.error(stderr)
-                exit(retcode)
         sp.stop()
 
-        # return early when there's a dry run
-        if args.dry_run:
-            return
-
-        if inp.source_type == SourceType.TmpDir:
-            if args.output_file is not None:
-                if Path(args.output_file).exists():
-                    shutil.rmtree(args.output_file)
-                shutil.move(inp.data.name, args.output_file)
+        # output the data returned from the file step
+        if args.output_file is not None:
+            if data.typ == SourceType.Directory:
+                shutil.move(data.data.name, args.output_file)
             else:
-                shutil.move(inp.data.name, ".")
-                print(f"Moved {inp.data.name} here.")
+                with Path(args.output_file).open("w") as f:
+                    f.write(data.convert_to(SourceType.String).data)
         else:
-            if args.output_file is not None:
-                with Path(args.output_file).open("wb") as f:
-                    f.write(inp.data.read())
-            else:
-                print(inp.data.read().decode("UTF-8"))
+            print(data.convert_to(SourceType.String).data)

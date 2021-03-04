@@ -1,4 +1,4 @@
-//! Passes for the FuTIL compiler.
+//! Passes for the Calyx compiler.
 mod clk_insertion;
 mod collapse_control;
 mod compile_control;

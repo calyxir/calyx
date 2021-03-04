@@ -79,7 +79,7 @@ def pp_table(operations, multiplies, n, num_stages):
 
 def generate_ntt_pipeline(input_bitwidth, n, q):
     """
-    Prints a pipeline in FuTIL for the cooley-tukey algorithm
+    Prints a pipeline in Calyx for the cooley-tukey algorithm
     that uses phis in bit-reversed order.
 
     `n`:

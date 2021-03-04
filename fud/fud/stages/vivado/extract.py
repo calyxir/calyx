@@ -1,9 +1,10 @@
-from . import rpt
-import sys
-import re
 import json
+import re
+import sys
 
-from .. import errors
+from fud import errors
+
+from . import rpt
 
 
 def find_row(table, colname, key, certain=True):
