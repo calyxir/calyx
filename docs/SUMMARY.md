@@ -12,11 +12,11 @@
 - [Emitting Calyx from Python](./calyx-py.md)
 - [Frontend Tutorial](./tutorial/frontend-tut.md)
 - [Frontend Compilers](./frontends/index.md)
-    - [MrXL](./frontends/mrxl.md)
     - [Dahlia](./frontends/dahlia.md)
     - [Systolic Array Generator](./frontends/systolic-array.md)
     - [TVM Relay](./frontends/tvm-relay.md)
     - [NTT Pipeline Generator](./frontends/ntt.md)
+    - [MrXL](./frontends/mrxl.md)
 - [Optimizations](./optimizations/index.md)
   - [Dataflow Analysis](./optimizations/dataflow.md)
 ----

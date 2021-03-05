@@ -1,5 +1,7 @@
 # MrXL
 
+> The MrXL frontend is a toy frontend developed for the [frontend tutorial][fronttut]. As such, it is less rigorously tested and might have bugs.
+
 MrXL is an example DSL for demonstrating Calyx. MrXL programs consist of `map` and `reduce` operations on arrays. For example, this is a dot product implementation:
 
     input avec: int[1024]
@@ -60,3 +62,4 @@ verilog.data` as usual:
 
 
 [flit]: https://flit.readthedocs.io/en/latest/index.html
+[fronttut]: ./tutorial/frontend-tut.md
