@@ -1,6 +1,6 @@
 # Number Theoretic Transform (NTT)
 
-The number theoretic transform is a generalization of the 
+The number theoretic transform is a generalization of the
 fast Fourier transform that uses nth primitive root of unity
 based upon a quotient ring instead of a field of complex numbers.
 
@@ -10,10 +10,10 @@ pipeline produced here is based upon [this paper][longa-etal-ntt],
 which also provides some background information on NTT.
 
 The NTT pipeline frontend lives in the [ntt][] folder in the
-Calyx repository and generates the pipeline for the NTT transform.  
+Calyx repository and generates the pipeline for the NTT transform.
 
-The `gen-ntt-pipeline.py` file contains the entire program required to 
-generate NTT pipelines. In order to generate a pipeline with 
+The `gen-ntt-pipeline.py` file contains the entire program required to
+generate NTT pipelines. In order to generate a pipeline with
 bit width `32`, input size `4`, and modulus value `97`:
 
 ```
@@ -22,7 +22,9 @@ bit width `32`, input size `4`, and modulus value `97`:
 
 ## Installation
 
-The generator also produces a table to illustrate which operations are occurring 
+Install the [calyx-py][./calyx-py.md] library.
+
+The generator also produces a table to illustrate which operations are occurring
 during each stage of the pipeline. This requires installing PrettyTable:
 
     pip3 install prettytables
@@ -34,7 +36,7 @@ pipeline.
 
 - `--input_bitwidth`: The bit width of each value in the input array.
 - `--input_size`: The length (or size) of the input array.
-- `--modulus`: The (prime) modulus value used during the transformation. 
+- `--modulus`: The (prime) modulus value used during the transformation.
 
 [longa-etal-ntt]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/05/RLWE-1.pdf
 [ntt]: https://github.com/cucapra/calyx/tree/master/frontends/ntt-pipeline
