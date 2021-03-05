@@ -1,0 +1,17 @@
+import "primitives/core.futil";
+
+extern "fake.sv" {
+  primitive exp() -> ();
+}
+
+component exp() -> () {
+  cells {}
+  wires {}
+  control {}
+}
+
+component main() -> () {
+  cells {}
+  wires {}
+  control {}
+}

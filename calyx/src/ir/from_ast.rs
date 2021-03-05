@@ -50,6 +50,26 @@ pub fn ast_to_ir(
     debug_mode: bool,
     synthesis_mode: bool,
 ) -> FutilResult<Context> {
+    let mut all_names: HashSet<&Id> = HashSet::with_capacity(
+        namespace.components.len() + namespace.externs.len(),
+    );
+
+    let prim_names = namespace
+        .externs
+        .iter()
+        .flat_map(|(_, prims)| prims.iter().map(|prim| &prim.name));
+    let comp_names = namespace.components.iter().map(|comp| &comp.name);
+
+    for bound in prim_names.chain(comp_names) {
+        if all_names.contains(bound) {
+            return Err(Error::AlreadyBound(
+                bound.clone(),
+                "component or primitive".to_string(),
+            ));
+        }
+        all_names.insert(bound);
+    }
+
     // Build the signature context
     let mut sig_ctx = SigCtx {
         lib: namespace.externs.into(),

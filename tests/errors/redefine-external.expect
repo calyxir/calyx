@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: 
+7 |component exp() -> () {
+  |          ^^^ Name already bound by component or primitive
