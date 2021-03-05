@@ -1,10 +1,10 @@
 # TVM Relay
 
-[TVM][] is a compiler for machine learning frameworks that can 
+[TVM][] is a compiler for machine learning frameworks that can
 optimize and target kernels to several different backends. [Relay][]
-is a high level intermediate representation for the TVM framework. 
-The goal of Relay is to replace old computation graph based 
-IRs with a more expressive IR. 
+is a high level intermediate representation for the TVM framework.
+The goal of Relay is to replace old computation graph based
+IRs with a more expressive IR.
 More information can be found in [this paper][roesch-etal].
 
 The TVM Relay frontend lives in the [relay-lang][] folder in the
@@ -42,10 +42,12 @@ intermediate representation.
         pip3 install -Iv antlr4-python3-runtime==4.7.2
 
 8. To run the [MLP net][] and [VGG net][] examples, install `pytest`:
-        
+
         pip3 install pytest
-        
+
 9. Install [Dahlia][], which is used when lowering Relay call nodes to Calyx.
+
+10. Install the [calyx-py](../calyx-py.md) library.
 
 Run an Example
 --------------
@@ -54,13 +56,13 @@ Try this to run a simple example:
 
     cd calyx/frontends/relay
     python3 example.py tensor_add
-     
+
 - `-h`: Help option; shows available examples.
-- `-r`: Dumps the Relay IR. Otherwise, it dumps the Calyx output. 
+- `-r`: Dumps the Relay IR. Otherwise, it dumps the Calyx output.
 
 [relay-lang]: https://github.com/cucapra/calyx/tree/master/frontends/relay
 [roesch-etal]: https://arxiv.org/abs/1904.08368
-[vgg net]: https://github.com/apache/incubator-tvm/blob/main/python/tvm/relay/testing/vgg.py 
+[vgg net]: https://github.com/apache/incubator-tvm/blob/main/python/tvm/relay/testing/vgg.py
 [mlp net]: https://github.com/apache/incubator-tvm/blob/main/python/tvm/relay/testing/mlp.py
 [dahlia]: https://github.com/cucapra/dahlia#set-it-up
 [tvm]: https://tvm.apache.org

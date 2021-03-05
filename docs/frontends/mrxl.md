@@ -64,4 +64,4 @@ verilog.data` as usual:
 
 
 [flit]: https://flit.readthedocs.io/en/latest/index.html
-[fronttut]: ./tutorial/frontend-tut.md
+[fronttut]: ../tutorial/frontend-tut.md

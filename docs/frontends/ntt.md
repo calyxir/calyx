@@ -22,7 +22,7 @@ bit width `32`, input size `4`, and modulus value `97`:
 
 ## Installation
 
-Install the [calyx-py][./calyx-py.md] library.
+Install the [calyx-py](../calyx-py.md) library.
 
 The generator also produces a table to illustrate which operations are occurring
 during each stage of the pipeline. This requires installing PrettyTable:

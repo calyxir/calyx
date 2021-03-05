@@ -17,7 +17,7 @@ systolic arrays. In order to generate an *8 X 8* systolic array, run:
 
 ## Installation
 
-Install the [calyx-py][./calyx-py.md] library.
+Install the [calyx-py](../calyx-py.md) library.
 
 ## Command Line Options
 
