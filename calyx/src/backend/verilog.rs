@@ -95,7 +95,17 @@ impl Backend for VerilogBackend {
         file: &mut OutputFile,
     ) -> FutilResult<()> {
         for extern_path in &ctx.lib.paths {
-            io::copy(&mut File::open(extern_path)?, &mut file.get_write())?;
+            let mut ext = File::open(extern_path).map_err(|err| {
+                let std::io::Error { .. } = err;
+                Error::WriteError(format!("File not found: {}", extern_path))
+            })?;
+            io::copy(&mut ext, &mut file.get_write()).map_err(|err| {
+                let std::io::Error { .. } = err;
+                Error::WriteError(format!(
+                    "File not found: {}",
+                    file.as_path_string()
+                ))
+            })?;
         }
         Ok(())
     }
@@ -107,7 +117,13 @@ impl Backend for VerilogBackend {
             .map(|comp| emit_component(&comp, !ctx.synthesis_mode).to_string())
             .collect::<Vec<_>>();
 
-        write!(file.get_write(), "{}", modules.join("\n"))?;
+        write!(file.get_write(), "{}", modules.join("\n")).map_err(|err| {
+            let std::io::Error { .. } = err;
+            Error::WriteError(format!(
+                "File not found: {}",
+                file.as_path_string()
+            ))
+        })?;
         Ok(())
     }
 }

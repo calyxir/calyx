@@ -8,6 +8,15 @@ pub enum OutputFile {
     File(PathBuf),
 }
 
+impl OutputFile {
+    pub fn as_path_string(&self) -> String {
+        match self {
+            OutputFile::Stdout => "<stdout>".to_string(),
+            OutputFile::File(path) => path.to_string_lossy().to_string(),
+        }
+    }
+}
+
 impl FromStr for OutputFile {
     type Err = String;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
