@@ -112,4 +112,3 @@ module fixed_p_std_sdiv #(
   assign result = $signed(left / right);
   assign out = result[width+fract_width-1:fract_width];
 endmodule
-
