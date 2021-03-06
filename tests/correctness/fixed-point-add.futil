@@ -1,0 +1,24 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    mem0 = std_mem_d1(32, 1, 1);
+    add0 = fixed_p_std_sadd(32,16,16);
+    const0 = fixed_p_std_const(32,16,16,1,1);
+    const1 = fixed_p_std_const(32,16,16,1,1);
+  }
+  wires {
+    group upd<"static"=1> {
+      mem0.write_en = 1'd1;
+      mem0.addr0 = 1'd0;
+      add0.left = const0.out;
+      add0.right = const1.out;
+      mem0.write_data = add0.out;
+      upd[done] = mem0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      upd;
+    }
+  }
+}
