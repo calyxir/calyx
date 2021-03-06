@@ -54,17 +54,17 @@ module fixed_p_std_add_dbit #(
     parameter fract_width1 = 24,
     parameter int_width2 = 4,
     parameter fract_width2 = 28,
-    parameter outwidth = 36
+    parameter out_width = 36
 ) (
     input  logic [   width1-1:0] left,
     input  logic [   width2-1:0] right,
-    output logic [outwidth-1:0] out
+    output logic [out_width-1:0] out
 );
 
   localparam big_int = (int_width1 >= int_width2) ? int_width1 : int_width2;
   localparam big_fract = (fract_width1 >= fract_width2) ? fract_width1 : fract_width2;
 
-  if (big_int + big_fract != outwidth)
+  if (big_int + big_fract != out_width)
     $error("fixed_p_std_add_dbit: Given output width not equal to computed output width");
 
   logic [int_width1-1:0] left_int;
