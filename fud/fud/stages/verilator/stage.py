@@ -100,7 +100,8 @@ class VerilatorStage(Stage):
                     str(self.config["stages", self.name, "cycle_limit"]),
                     # Don't trace if we're only looking at memory outputs
                     "--trace" if self.vcd else "",
-                ]
+                ],
+                stdout_as_debug=True
             )
 
         # Step 5(self.vcd == True): extract
