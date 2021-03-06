@@ -174,11 +174,17 @@ def shell(cmd, stdin=None, stdout_as_debug=False):
         cmd, shell=True, stdin=stdin, stdout=stdout, stderr=stderr, env=os.environ
     )
     proc.wait()
+    stdout.seek(0)
     if proc.returncode != 0:
         if stderr is not None:
             stderr.seek(0)
-            raise errors.StepFailure(cmd, stderr.read().decode("UTF-8"))
+            raise errors.StepFailure(
+                cmd,
+                stdout.read().decode("UTF-8"),
+                stderr.read().decode("UTF-8"))
         else:
-            raise errors.StepFailure(cmd, "No stderr captured.")
-    stdout.seek(0)
+            raise errors.StepFailure(
+                cmd,
+                "No stdout captured.",
+                "No stderr captured.")
     return stdout

@@ -129,8 +129,9 @@ class StepFailure(FudError):
     Indicates that a step failed.
     """
 
-    def __init__(self, step, stderr):
-        msg = f"`{step.strip()}' failed:\n=====STDERR=====\n" + stderr
+    def __init__(self, step, stdout, stderr):
+        msg = f"`{step.strip()}' failed:\n=====STDERR=====\n" + stderr + \
+            "\n=====STDOUT=====\n" + stdout
         super().__init__(msg)
 
 
