@@ -1,10 +1,14 @@
+/**
+ * Implementation of math primitives.
+ * Do not prefix names with `std_`.
+ */
 extern "math.sv" {
-  primitive std_sqrt(in: 32, go: 1, clk: 1) -> (out: 32, done: 1);
+  primitive sqrt(in: 32, go: 1, clk: 1) -> (out: 32, done: 1);
 }
 
 // Computes the unsigned value b^e, where
 // b is the `base` and e is the `exp`.
-component std_pow(base: 32, exp: 32) -> (out: 32) {
+component pow(base: 32, exp: 32) -> (out: 32) {
   cells {
     pow = std_reg(32);
     count = std_reg(32);

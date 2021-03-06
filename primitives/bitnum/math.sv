@@ -2,7 +2,7 @@
 * Implements the non-restoring square root algorithm's iterative
 * implementation (Figure 8): https://ieeexplore.ieee.org/document/563604
 */
-module std_sqrt (
+module sqrt (
     input  logic [31:0] in,
     input  logic        go,
     input  logic        clk,
