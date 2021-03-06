@@ -33,9 +33,9 @@ component nn_relu(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read_data:
     const7 = std_const(6,31);
     const8 = std_const(6,1);
     const9 = std_const(4,1);
-    fpconst0 = fixed_p_std_const(32,16,16,0,0);
-    fpconst1 = fixed_p_std_const(32,16,16,0,0);
-    gt0 = fixed_p_std_sgt(32,16,16);
+    fpconst0 = fixed_p_std_const(32,28,4,0,0);
+    fpconst1 = fixed_p_std_const(32,28,4,0,0);
+    gt0 = fixed_p_std_sgt(32,28,4);
     i0 = std_reg(2);
     j0 = std_reg(3);
     k0 = std_reg(4);

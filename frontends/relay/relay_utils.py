@@ -129,14 +129,18 @@ def get_dahlia_data_type(relay_type) -> str:
     Relay   |        Dahlia
     --------|-------------------------------
      int    |   (`bit`, width)
-     float  |   (`fix`, (width, width // 2))
+     float  |   (`fix`, (32, 28))*
+
+     * Currently hard-coded to Q28.4,
+     to support fixed point `exp`.
     """
     width = get_bitwidth(relay_type)
 
     if 'int' in relay_type.dtype:
         return f'bit<{width}>'
     if 'float' in relay_type.dtype:
-        return f'fix<{width}, {width // 2}>'
+        assert width == 32, f'Fixed point of width: {width} not supported.'
+        return f'fix<{width}, 28>'
     assert 0, f'{relay_type} is not supported.'
 
 
