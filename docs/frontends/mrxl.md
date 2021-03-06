@@ -16,7 +16,7 @@ The numbers that come right after `map` and `reduce` are parallelism factors tha
 Install
 -------
 
-Install the [calyx-py][./calyx-py.md] library.
+Install the [calyx-py](../calyx-py.md) library.
 
 The MrXL implementation is in Python and uses [Flit][].
 First, [install flit][flit] (`pip install flit` or similar), and then type the
