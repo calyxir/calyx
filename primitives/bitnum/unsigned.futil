@@ -11,20 +11,14 @@ extern "unsigned.sv" {
     out: width, @done(1) done: 1
   );
 
-  primitive std_div_pipe[width](
+  primitive std_div[width](
     clk: 1, go: 1, left: width, right: width
   ) -> (
     out: width, done: 1
   );
 
   // =============== Signed primitives that wrap unsigned ones ==============
-  primitive std_smod_pipe[width](
-    clk: 1, go: 1, left: width, right: width
-  ) -> (
-    out: width, done: 1
-  );
-
-  primitive std_sdiv_pipe[width](
+  primitive std_sdiv[width](
     clk: 1, go: 1, left: width, right: width
   ) -> (
     out: width, done: 1
@@ -33,11 +27,6 @@ extern "unsigned.sv" {
 
   /// =================== Unsynthesizable Primitives =========================
   primitive std_mult<"share"=1>[width](
-    left: width, right: width
-  ) -> (
-    out: width
-  );
-  primitive std_div<"share"=1>[width](
     left: width, right: width
   ) -> (
     out: width

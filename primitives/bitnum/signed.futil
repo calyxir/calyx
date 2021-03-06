@@ -22,8 +22,6 @@ extern "signed.sv" {
   );
 
   /// ===================== Unsynthesizable Primitives ======================
-  primitive std_smod<"share"=1>[width](left: width, right: width) -> (out: width);
-  primitive std_sdiv<"share"=1>[width](left: width, right: width) -> (out: width);
   primitive std_smult<"share"=1>[width](left: width, right: width) -> (out: width);
 
 }

@@ -140,27 +140,6 @@ module std_sle #(
   assign out = $signed(left <= right);
 endmodule
 
-module std_sdiv #(
-    parameter width = 32
-) (
-    input  signed [width-1:0] left,
-    input  signed [width-1:0] right,
-    output signed [width-1:0] out
-);
-  assign out = $signed(left / right);
-endmodule
-
-module std_smod #(
-    parameter width = 32
-) (
-    input  signed [width-1:0] left,
-    input  signed [width-1:0] right,
-    output signed [width-1:0] out
-);
-  assign out = $signed(left % right);
-endmodule
-
-
 module std_smult #(
     parameter width = 32
 ) (
