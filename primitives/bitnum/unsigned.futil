@@ -14,14 +14,18 @@ extern "unsigned.sv" {
   primitive std_div[width](
     clk: 1, go: 1, left: width, right: width
   ) -> (
-    out: width, done: 1
+    out_remainder: width,
+    out_quotient: width,
+    done: 1
   );
 
   // =============== Signed primitives that wrap unsigned ones ==============
   primitive std_sdiv[width](
     clk: 1, go: 1, left: width, right: width
   ) -> (
-    out: width, done: 1
+    out_remainder: width,
+    out_quotient: width,
+    done: 1
   );
 
 
