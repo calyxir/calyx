@@ -2,8 +2,8 @@ import "primitives/std.lib";
 import "primitives/bitnum/math.futil";
 component main() -> () {
   cells {
-    x = std_mem_d2(32, 1, 2, 1, 2);
-    x1 = std_mem_d2(32, 1, 2, 1, 2);
+    x = std_mem_d2(32, 1, 10, 1, 4);
+    x1 = std_mem_d2(32, 1, 10, 1, 4);
     nn_softmax_ = nn_softmax();
   }
   wires {
@@ -15,30 +15,30 @@ component main() -> () {
     }
   }
 }
-component nn_softmax(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 1, x0_0_addr1: 2, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 2) {
+component nn_softmax(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 1, x0_0_addr1: 4, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 4) {
   cells {
     add0 = fixed_p_std_sadd(32,28,4);
-    add1 = std_add(2);
-    add2 = std_add(2);
+    add1 = std_add(4);
+    add2 = std_add(4);
     add3 = std_add(1);
     bin_read0_0 = std_reg(32);
     const0 = std_const(1,0);
     const1 = std_const(1,0);
-    const2 = std_const(2,0);
-    const3 = std_const(2,1);
-    const4 = std_const(2,1);
-    const5 = std_const(2,0);
-    const6 = std_const(2,1);
-    const7 = std_const(2,1);
+    const2 = std_const(4,0);
+    const3 = std_const(4,9);
+    const4 = std_const(4,1);
+    const5 = std_const(4,0);
+    const6 = std_const(4,9);
+    const7 = std_const(4,1);
     const8 = std_const(1,1);
     div_pipe0 = std_sdiv_pipe(32);
     fpconst0 = fixed_p_std_const(32,28,4,0,0);
     i0 = std_reg(1);
-    j0 = std_reg(2);
-    k0 = std_reg(2);
+    j0 = std_reg(4);
+    k0 = std_reg(4);
     le0 = std_le(1);
-    le1 = std_le(2);
-    le2 = std_le(2);
+    le1 = std_le(4);
+    le2 = std_le(4);
     slice0 = std_slice(32,32);
     std_fp_exp0 = std_fp_exp();
     std_fp_exp1 = std_fp_exp();
