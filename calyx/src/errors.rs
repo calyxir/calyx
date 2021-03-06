@@ -19,7 +19,7 @@ pub enum Error {
     /// The input file is invalid (does not exist).
     InvalidFile(String),
     /// Failed to write the output
-    WriteError,
+    WriteError(String),
 
     /// The control program is malformed.
     MalformedControl(String),
@@ -164,7 +164,7 @@ impl std::fmt::Debug for Error {
             },
             InvalidFile(err) => write!(f, "{}", err),
             ParseError(err) => write!(f, "Calyx Parser: {}", err),
-            WriteError => write!(f, "WriteError"),
+            WriteError(msg) => write!(f, "{}", msg),
             MismatchedPortWidths(port1, w1, port2, w2) => {
                 let msg1 = format!("This port has width: {}", w1);
                 let msg2 = format!("This port has width: {}", w2);
@@ -196,12 +196,6 @@ impl From<std::str::Utf8Error> for Error {
     }
 }
 
-impl From<std::fmt::Error> for Error {
-    fn from(_err: std::fmt::Error) -> Self {
-        Error::WriteError
-    }
-}
-
 impl From<pest_consume::Error<parser::Rule>> for Error {
     fn from(e: pest_consume::Error<parser::Rule>) -> Self {
         Error::ParseError(e)
@@ -210,7 +204,7 @@ impl From<pest_consume::Error<parser::Rule>> for Error {
 
 impl From<std::io::Error> for Error {
     fn from(_e: std::io::Error) -> Self {
-        Error::WriteError
+        Error::WriteError("IO Error".to_string())
     }
 }
 

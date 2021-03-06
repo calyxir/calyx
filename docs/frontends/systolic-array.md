@@ -15,6 +15,10 @@ systolic arrays. In order to generate an *8 X 8* systolic array, run:
 ./frontends/systolic-lang/gen-systolic.py -tl 8 -td 8 -ll 8 -ld 8
 ```
 
+## Installation
+
+Install the [calyx-py](../calyx-py.md) library.
+
 ## Command Line Options
 
 The command line options configure the dimensions of the generated
