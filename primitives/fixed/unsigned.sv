@@ -2,12 +2,12 @@ module fixed_p_std_const #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 8,
     parameter FRACT_WIDTH = 24,
-    parameter [INT_WIDTH:0] value1 = 0,
-    parameter [FRACT_WIDTH:0] value2 = 0
+    parameter [INT_WIDTH-1:0] VALUE1 = 0,
+    parameter [FRACT_WIDTH-1:0] VALUE2 = 0
 ) (
     output logic [WIDTH-1:0] out
 );
-  assign out = {value1, value2};
+  assign out = {VALUE1, VALUE2};
 endmodule
 
 
@@ -61,10 +61,10 @@ module fixed_p_std_add_dbit #(
     output logic [OUT_WIDTH-1:0] out
 );
 
-  localparam BIGINT = (INT_WIDTH1 >= INT_WIDTH2) ? INT_WIDTH1 : INT_WIDTH2;
-  localparam BIGFRACT = (FRACT_WIDTH1 >= FRACT_WIDTH2) ? FRACT_WIDTH1 : FRACT_WIDTH2;
+  localparam BIG_INT = (INT_WIDTH1 >= INT_WIDTH2) ? INT_WIDTH1 : INT_WIDTH2;
+  localparam BIG_FRACT = (FRACT_WIDTH1 >= FRACT_WIDTH2) ? FRACT_WIDTH1 : FRACT_WIDTH2;
 
-  if (BIGINT + BIGFRACT != OUT_WIDTH)
+  if (BIG_INT + BIG_FRACT != OUT_WIDTH)
     $error("fixed_p_std_add_dbit: Given output width not equal to computed output width");
 
   logic [INT_WIDTH1-1:0] left_int;
@@ -72,11 +72,11 @@ module fixed_p_std_add_dbit #(
   logic [FRACT_WIDTH1-1:0] left_fract;
   logic [FRACT_WIDTH2-1:0] right_fract;
 
-  logic [BIGINT-1:0] mod_right_int;
-  logic [BIGFRACT-1:0] mod_left_fract;
+  logic [BIG_INT-1:0] mod_right_int;
+  logic [BIG_FRACT-1:0] mod_left_fract;
 
-  logic [BIGINT-1:0] whole_int;
-  logic [BIGFRACT-1:0] whole_fract;
+  logic [BIG_INT-1:0] whole_int;
+  logic [BIG_FRACT-1:0] whole_fract;
 
   assign {left_int, left_fract} = left;
   assign {right_int, right_fract} = right;

@@ -42,14 +42,14 @@ module sfixed_p_std_add_dbit #(
   logic [FRACT_WIDTH1-1:0] left_fract;
   logic [FRACT_WIDTH2-1:0] right_fract;
 
-  localparam BIGINT = (INT_WIDTH1 >= INT_WIDTH2) ? INT_WIDTH1 : INT_WIDTH2;
-  localparam BIGFRACT = (FRACT_WIDTH1 >= FRACT_WIDTH2) ? FRACT_WIDTH1 : FRACT_WIDTH2;
+  localparam BIG_INT = (INT_WIDTH1 >= INT_WIDTH2) ? INT_WIDTH1 : INT_WIDTH2;
+  localparam BIG_FRACT = (FRACT_WIDTH1 >= FRACT_WIDTH2) ? FRACT_WIDTH1 : FRACT_WIDTH2;
 
-  logic [BIGINT-1:0] mod_right_int;
-  logic [BIGFRACT-1:0] mod_left_fract;
+  logic [BIG_INT-1:0] mod_right_int;
+  logic [BIG_FRACT-1:0] mod_left_fract;
 
-  logic [BIGINT-1:0] whole_int;
-  logic [BIGFRACT-1:0] whole_fract;
+  logic [BIG_INT-1:0] whole_int;
+  logic [BIG_FRACT-1:0] whole_fract;
 
   assign {left_int, left_fract} = left;
   assign {right_int, right_fract} = right;
