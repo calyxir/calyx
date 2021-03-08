@@ -40,11 +40,10 @@ Let's turn our skeleton into a tiny, nearly no-op Calyx program.
 We'll start by adding a memory component to the cells:
 
     cells {
-      mem = prim std_mem_d1(32, 1, 1);
+      mem = std_mem_d1(32, 1, 1);
     }
 
-This new line declares a new cell called `mem`.
-The `prim` keyword means that we're instantiating a primitive component: here, `std_mem_d1`, our standard-library component that represents a 1D memory.
+This new line declares a new cell called `mem` and the primitive component `std_mem_d1` represents a 1D memory.
 You can see the definition of `std_mem_d1`, and all the other standard components, in the `primitives/std.lib` library we imported.
 This one has three parameters:
 the data width (here, 32 bits),
@@ -156,8 +155,8 @@ In this version of the program, we'll read a value from the memory, increment it
 
 First, we will add two components to the `cells` section:
 
-    val = prim std_reg(32);
-    add = prim std_add(32);
+    val = std_reg(32);
+    add = std_add(32);
 
 We make a register `val` and an integer adder `add`, both configured to work on 32-bit values.
 
@@ -248,9 +247,9 @@ The body of the loop runs our old `seq` block in parallel with a new `incr` grou
 
 Let's add some cells to our component:
 
-    counter = prim std_reg(32);
-    add2 = prim std_add(32);
-    lt = prim std_lt(32);
+    counter = std_reg(32);
+    add2 = std_add(32);
+    lt = std_lt(32);
 
 We'll need a new register, an adder to do the incrementing, and a less-than comparator.
 
