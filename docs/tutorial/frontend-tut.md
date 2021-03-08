@@ -86,14 +86,14 @@ component main() -> {
 `Decl` nodes instantiate new memories and registers. We need these to be instantiated in the `cells` section of our Calyx output. Here's Calyx code that creates a new memory `foo`, with 4 32-bit elements and a 32-bit indexor:
 
 ```
-foo = prim std_mem_d1(32, 4, 32);
+foo = std_mem_d1(32, 4, 32);
 ```
 
 For each `Decl` node, we need to determine if we're instantiating a memory or a register, and then translate that to a corresponding Calyx declaration and place that inside the `cells` section of our generated program. Here's some code from our compiler that walks through each register and memory declaration, and generates a Calyx program with those registers:
 
 {{#include ../../frontends/mrxl/mrxl/gen_futil.py:283:290}}
 
-(`emit_mem_decl` emits a string of the form `"mem_name = prim std_mem_d1(<element_width>, <num_elements>, <index_width>)"`.)
+(`emit_mem_decl` emits a string of the form `"mem_name = std_mem_d1(<element_width>, <num_elements>, <index_width>)"`.)
 
 #### `Map` and `Reduce` nodes
 
