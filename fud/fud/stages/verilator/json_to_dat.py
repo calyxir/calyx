@@ -54,6 +54,33 @@ def parse_dat_fp(path, width, int_width, is_signed):
         )
 
 
+def parse_fp_widths(format):
+    """Returns the width and int_width from the given
+    format. We need only two of following three in the
+    numeric type format:
+        (width, int_width, frac_width)
+    The third can then be inferred.
+    """
+    int_width = format.get("int_width")
+    frac_width = format.get("frac_width")
+    width = format.get("width")
+
+    if None not in {width, int_width}:
+        return width, int_width
+    elif None not in {int_width, frac_width}:
+        return (int_width + frac_width), int_width
+    elif None not in {width, frac_width}:
+        return width, (width - frac_width)
+    else:
+        raise Exception(
+            f"""Fixed point requires one of the following:
+            (1) Bit width `width`, integer width `int_width`.
+            (2) Bit width `width`, fractional width `frac_width`.
+            (3) Integer width `int_width`, fractional width `frac_width`.
+            """
+        )
+
+
 # Go through the json data and create a file for each key,
 # flattening the data and then converting it to bitstrings.
 def convert2dat(output_dir, data, extension):
@@ -63,30 +90,29 @@ def convert2dat(output_dir, data, extension):
         path = output_dir / f"{k}.{extension}"
         path.touch()
         arr = np.array(item["data"])
+        format = item["format"]
 
-        numeric_type = item["numeric_type"]
-        is_signed = item["is_signed"]
-        width = item["width"]
-
+        # Every format shares these two fields.
+        numeric_type = format["numeric_type"]
+        is_signed = format["is_signed"]
         shape[k] = {
             "shape": list(arr.shape),
             "numeric_type": numeric_type,
             "is_signed": is_signed,
-            "width": width
         }
+
         if numeric_type not in {'bitnum', 'fixed_point'}:
             raise Exception("Give a valid numeric type input.")
 
         # Verify an integer width is provided for fixed point.
         is_fp = (numeric_type == 'fixed_point')
         if is_fp:
-            int_width = item.get("int_width")
-            if int_width is None:
-                raise Exception(
-                    "Fixed point requires a width and integer "
-                    "width. The fractional width is inferred."
-                )
+            width, int_width = parse_fp_widths(format)
             shape[k]["int_width"] = int_width
+        else:
+            # `Bitnum`s only have a bit width.
+            width = format["width"]
+        shape[k]["width"] = width
 
         convert = lambda x: decimal_to_fp(
             x,
