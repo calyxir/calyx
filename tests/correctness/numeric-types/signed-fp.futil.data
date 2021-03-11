@@ -1,0 +1,11 @@
+{
+  "mem0": {
+    "data": [
+      -1.25
+    ],
+    "numeric_type": "fixed_point",
+    "is_signed": true,
+    "width": 4,
+    "int_width": 2
+  }
+}
