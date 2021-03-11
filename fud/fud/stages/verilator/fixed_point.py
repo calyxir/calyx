@@ -13,7 +13,9 @@ def binary_to_base10(bitstring: str) -> int:
 
 
 def fp_to_decimal(value, width, int_width, is_signed):
-    """TOOD: Document."""
+    """Takes in a fixed point number with the
+    bit width, integer bit width, and signedness, and
+    returns the decimal value."""
     frac_width = width - int_width
     begin_index = 1 if is_signed else 0
 
@@ -33,18 +35,17 @@ def fp_to_decimal(value, width, int_width, is_signed):
 
 
 def decimal_to_fp(num, width, int_width, is_signed):
-    # TODO: Update documentation.
     """Given the number, width, integer bit and fractional bit,
-    returns the fixed point representation. If the fraction
-    cannot be represented exactly in fixed point, it will be
-    rounded to the nearest whole number.
-    Example:
-        decimal_to_fp(11.125,8,5,3, False)
-        returns 01011001 = 2^3+2^1+2^0+2^(-3)
-    Preconditions:
-      1. There is no overflow.
-      2. Integer part of the number should be
-         representable with int_width number of bits.
+    returns the fixed point representation.
+
+    If the fraction cannot be represented exactly in
+    fixed point, then it raises an exception.
+
+    This is done in two steps:
+    1. Produce the binary representation of the
+       fixed point number with the given `width`,
+       `int_width`.
+    2. Convert this binary representation to base 10.
     """
     # Separate into integer and fractional parts.
     float_value = float(num * -1 if (is_signed and num < 0) else num)
@@ -71,6 +72,9 @@ def decimal_to_fp(num, width, int_width, is_signed):
     )
 
     _, fractional_excess = str(fractional_repr).split(".")
+    # TODO(cgyurgyik): Eventually, we want to use
+    # truncation for values that cannot be exactly
+    # represented.
     if fractional_excess != "0":
         # Verify we can represent the number in fixed point.
         raise Exception(
