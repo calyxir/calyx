@@ -65,11 +65,13 @@ def parse_fp_widths(format):
     frac_width = format.get("frac_width")
     width = format.get("width")
 
-    if None not in {width, int_width}:
+    provided = lambda x, y: x is not None and y is not None
+
+    if provided(width, int_width):
         return width, int_width
-    elif None not in {int_width, frac_width}:
+    elif provided(int_width, frac_width):
         return (int_width + frac_width), int_width
-    elif None not in {width, frac_width}:
+    elif provided(width, frac_width):
         return width, (width - frac_width)
     else:
         raise Exception(
@@ -102,9 +104,12 @@ def convert2dat(output_dir, data, extension):
         }
 
         if numeric_type not in {'bitnum', 'fixed_point'}:
-            raise Exception("Give a valid numeric type input.")
+            raise Exception(
+                f"""Give a valid numeric type input.
+                We currently support `bitnum` and `fixed_point`.
+                """
+            )
 
-        # Verify an integer width is provided for fixed point.
         is_fp = (numeric_type == 'fixed_point')
         if is_fp:
             width, int_width = parse_fp_widths(format)
