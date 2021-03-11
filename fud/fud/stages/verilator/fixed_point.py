@@ -74,7 +74,8 @@ def decimal_to_fp(num, width, int_width, is_signed):
     _, fractional_excess = str(fractional_repr).split(".")
     # TODO(cgyurgyik): Eventually, we want to use
     # truncation for values that cannot be exactly
-    # represented.
+    # represented. Perhaps warning flag for user-provided
+    # fixed point numbers as well.
     if fractional_excess != "0":
         # Verify we can represent the number in fixed point.
         raise Exception(
