@@ -15,8 +15,8 @@ component main<"static"=10>(@go_port(1) go: 1) -> (@done_port(1) done: 1) {
 #### **Cell Attributes**
 ```
 cells {
-  @external(1) mem = prim std_mem_d1(32, 8, 4);
-  reg = prim std_reg(32);
+  @external(1) mem = std_mem_d1(32, 8, 4);
+  reg = std_reg(32);
   ...
 }
 ```
