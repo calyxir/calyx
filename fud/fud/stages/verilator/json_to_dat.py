@@ -121,7 +121,9 @@ def convert2json(input_dir, extension):
 
     # TODO: change to use shape json
     for val in input_dir.glob(f'*.{extension}'):
-        stem = shape_json[val.stem]
+        key = val.stem
+        stem = shape_json[key]
+
         numeric_type = stem["numeric_type"]
         is_signed = stem["is_signed"]
         width = stem["width"]
@@ -146,14 +148,10 @@ def convert2json(input_dir, extension):
                 "A valid numeric type is required."
             )
 
-        if shape_json is not None and shape_json.get(val.stem) is not None and shape_json[val.stem]["shape"] != [0]:
+        if shape_json.get(key) is not None and shape_json[key]["shape"] != [0]:
             try:
-                arr = arr.reshape(tuple(shape_json[val.stem]["shape"]))
+                arr = arr.reshape(tuple(shape_json[key]["shape"]))
             except Exception:
-                raise Exception(f"Key '{val.stem}' had invalid shape.")
-            name = val.stem
-            # TODO: this is probably important, figure out why
-            # (I think it was used for Dahlia benchmarks)
-            # if '_int' in name:
-            data[name] = arr.tolist()
+                raise Exception(f"Key '{key}' had invalid shape.")
+        data[key] = arr.tolist()
     return data
