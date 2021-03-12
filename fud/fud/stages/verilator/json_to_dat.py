@@ -111,11 +111,7 @@ def convert2dat(output_dir, data, extension):
         }
 
         if numeric_type not in {'bitnum', 'fixed_point'}:
-            raise Exception(
-                f"""Give a valid numeric type input.
-                We currently support `bitnum` and `fixed_point`.
-                """
-            )
+            raise InvalidNumericType(numeric_type)
 
         is_fp = (numeric_type == 'fixed_point')
         if is_fp:
@@ -169,22 +165,14 @@ def convert2json(input_dir, extension):
         if numeric_type == 'bitnum':
             arr = parse_dat_bitnum(val, width, is_signed)
         elif numeric_type == 'fixed_point':
-            int_width = stem.get("int_width")
-            if int_width is None:
-                raise Exception(
-                    "Fixed point requires a width and integer width. "
-                    "The fractional width is inferred."
-                )
             arr = parse_dat_fp(
                 val,
                 width,
-                int_width,
+                stem["int_width"],
                 is_signed
             )
         else:
-            raise Exception(
-                "A valid numeric type is required."
-            )
+            raise InvalidNumericType(numeric_type)
 
         if shape_json.get(key) is not None and shape_json[key]["shape"] != [0]:
             try:
