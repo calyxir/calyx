@@ -1,6 +1,6 @@
 import json
 import numpy as np
-from .fixed_point import *
+from .fixed_point import fp_to_decimal, decimal_to_fp
 from pathlib import Path
 
 
