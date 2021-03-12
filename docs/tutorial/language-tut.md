@@ -284,4 +284,4 @@ And finally, `cond` uses our comparator `lt` to compute the signal we need for o
 By comparing with 8, we should now be running our loop body 8 times.
 
 Try running this program again.
-The output should be the result of adding 4 to the initial value 8 times, so 10 + 8 ⨉ 4.
+The output should be the result of adding 4 to the initial value 8 times, so 10 + 8 × 4.
