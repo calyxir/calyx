@@ -34,7 +34,7 @@ def fp_to_decimal(value, width, int_width, is_signed):
     return fp_value
 
 
-def decimal_to_fp(num, width, int_width, is_signed):
+def decimal_to_fp(value, width, int_width, is_signed):
     """Given the number, width, integer bit and fractional bit,
     returns the fixed point representation.
 
@@ -48,11 +48,13 @@ def decimal_to_fp(num, width, int_width, is_signed):
     2. Convert this binary representation to base 10.
     """
     # Separate into integer and fractional parts.
-    float_value = float(num * -1 if (is_signed and num < 0) else num)
+    float_value = float(
+        value * -1 if (is_signed and value < 0) else value
+    )
     integer_part, fractional_part = str(float_value).split(".")
 
     if is_signed:
-        prefix = '1' if num < 0 else '0'
+        prefix = '1' if value < 0 else '0'
         no_signed_bit_width = int_width - 1
     else:
         prefix = ''
@@ -79,7 +81,7 @@ def decimal_to_fp(num, width, int_width, is_signed):
     if fractional_excess != "0":
         # Verify we can represent the number in fixed point.
         raise Exception(
-            f"""{num} cannot be represented as the type:
+            f"""{value} cannot be represented as the type:
             {'' if is_signed else 'u'}fix<{width}, {int_width}>
             """
         )
@@ -89,7 +91,7 @@ def decimal_to_fp(num, width, int_width, is_signed):
     if int_overflow or frac_overflow:
         w = "integer width" if int_overflow else "fractional width"
         raise Exception(
-            f"""Trying to represent {num} with
+            f"""Trying to represent {value} with
             Integer width: {int_width}
             Fractional width: {frac_width}
             has led to overflow. Provide a larger {w}.
