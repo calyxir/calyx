@@ -7,13 +7,14 @@ from pathlib import Path
 # Converts `val` into a bitstring that is `bw` characters wide
 def bitstring(val, bw):
     # first truncate val by `bw` bits
-    val &= (2 ** bw - 1)
-    return '{:x}'.format(val)
+    val &= 2 ** bw - 1
+    return "{:x}".format(val)
 
 
 def parse_dat_bitnum(path, bw, is_signed):
     """Parses bitnum numbers of bit width `bw`
-    from the array at the given `path`."""
+    from the array at the given `path`.
+    """
 
     def to_decimal(hex_v: str) -> int:
         # Takes in a value in string
@@ -35,10 +36,15 @@ def parse_dat_bitnum(path, bw, is_signed):
 
 
 def parse_dat_fp(path, width, int_width, is_signed):
-    """Parses a fixed point number."""
-    to_decimal = lambda x: fp_to_decimal(
+    """Parses fixed point numbers in the array
+     at `path` with the following form:
+    Total width: `width`
+    Integer width: `int_width`
+    Fractional width: `width` - `int_width`
+    """
+    to_decimal = lambda v: fp_to_decimal(
         np.binary_repr(
-            int(x.strip(), 16),
+            int(v.strip(), 16),
             width
         ),
         width,
@@ -83,9 +89,10 @@ def parse_fp_widths(format):
         )
 
 
-# Go through the json data and create a file for each key,
-# flattening the data and then converting it to bitstrings.
 def convert2dat(output_dir, data, extension):
+    """Goes through the JSON data and creates
+    a file for each key, flattens the data,
+    and then converts it to bitstrings."""
     output_dir = Path(output_dir)
     shape = {}
     for k, item in data.items():
@@ -94,7 +101,7 @@ def convert2dat(output_dir, data, extension):
         arr = np.array(item["data"])
         format = item["format"]
 
-        # Every format shares these two fields.
+        # Every numeric format shares these two fields.
         numeric_type = format["numeric_type"]
         is_signed = format["is_signed"]
         shape[k] = {
@@ -126,7 +133,7 @@ def convert2dat(output_dir, data, extension):
             is_signed
         ) if is_fp else x
 
-        with path.open('w') as f:
+        with path.open("w") as f:
             for v in arr.flatten():
                 f.write(
                     bitstring(
@@ -140,15 +147,15 @@ def convert2dat(output_dir, data, extension):
     with shape_json_file.open('w') as f:
         json.dump(shape, f, indent=2)
 
-
-# Converts a directory of *.dat files back into a json file.
 def convert2json(input_dir, extension):
+    """Converts a directory of *.dat
+    files back into a JSON file."""
     input_dir = Path(input_dir)
     data = {}
     shape_json_path = input_dir / "shape.json"
     shape_json = None
     if shape_json_path.exists():
-        shape_json = json.load(shape_json_path.open('r'))
+        shape_json = json.load(shape_json_path.open("r"))
 
     # TODO: change to use shape json
     for val in input_dir.glob(f'*.{extension}'):
