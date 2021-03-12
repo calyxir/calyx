@@ -63,7 +63,7 @@ def decimal_to_fp(num, width, int_width, is_signed):
         width=no_signed_bit_width
     )
 
-    # Multiply fractional part with 2 ** frac_bit to turn into integer.
+    # Multiply fractional part with 2 ** frac_width to convert to integer.
     frac_width = width - int_width
     fractional_repr = float("0." + fractional_part) * float(2 ** frac_width)
     frac_bits = np.binary_repr(
@@ -71,26 +71,30 @@ def decimal_to_fp(num, width, int_width, is_signed):
         width=frac_width
     )
 
-    _, fractional_excess = str(fractional_repr).split(".")
     # TODO(cgyurgyik): Eventually, we want to use
     # truncation for values that cannot be exactly
-    # represented. Perhaps warning flag for user-provided
+    # represented. Warning flag for user-provided
     # fixed point numbers as well.
+    _, fractional_excess = str(fractional_repr).split(".")
     if fractional_excess != "0":
         # Verify we can represent the number in fixed point.
         raise Exception(
-            f"{num} cannot be represented as the "
-            f"type: {'' if is_signed else 'u'}fix<{width}, {int_width}>"
+            f"""{num} cannot be represented as the type:
+            {'' if is_signed else 'u'}fix<{width}, {int_width}>
+            """
         )
-    elif len(int_bits) > int_width:
+
+    int_overflow = len(int_bits) > int_width
+    frac_overflow = len(frac_bits) > frac_width
+    if int_overflow or frac_overflow:
+        w = "integer width" if int_overflow else "fractional width"
         raise Exception(
-            f"{int_bits} causes overflow, provide a larger integer width."
+            f"""Trying to represent {num} with
+            Integer width: {int_width}
+            Fractional width: {frac_width}
+            has led to overflow. Provide a larger {w}.
+            """
         )
-    elif len(frac_bits) > frac_width:
-        raise Exception(
-            f"{frac_bits} causes overflow, provide a larger fractional width."
-        )
-    else:
-        # Given the binary form of the integer part and fractional part of
-        # the decimal, simply append the two strings and convert to base 10.
-        return binary_to_base10(int_bits + frac_bits)
+    # Given the binary form of the integer part and fractional part of
+    # the decimal, simply append the two strings and convert to base 10.
+    return binary_to_base10(int_bits + frac_bits)
