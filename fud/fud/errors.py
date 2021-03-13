@@ -169,7 +169,7 @@ class InvalidNumericType(FudError):
     """
 
     def __init__(self, type):
-        msg = f"""Numeric type: {type} is not supported. 
+        msg = f"""Numeric type: {type} is not supported.
             Give a valid numeric type input. We currently support:
             (1) bitnum
             (2) fixed point"""
