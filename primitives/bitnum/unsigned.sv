@@ -70,7 +70,7 @@ module std_div #(
     always @(posedge clk) begin
       if (finished && dividend != $unsigned(((left % right) + right) % right))
         $error(
-          "\nstd_mod_pipe: (Remainder) Computed and golden outputs do not match!\n",
+          "\nstd_div: (Remainder) Computed and golden outputs do not match!\n",
           "left: %0d", $unsigned(left),
           "  right: %0d\n", $unsigned(right),
           "expected: %0d", $unsigned(((left % right) + right) % right),
@@ -79,7 +79,7 @@ module std_div #(
 
       if (finished && quotient != $unsigned(left / right))
         $error(
-          "\nstd_mod_pipe: (Quotient) Computed and golden outputs do not match!\n",
+          "\nstd_div: (Quotient) Computed and golden outputs do not match!\n",
           "left: %0d", $unsigned(left),
           "  right: %0d\n", $unsigned(right),
           "expected: %0d", $unsigned(left / right),
