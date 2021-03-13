@@ -34,8 +34,8 @@ fud e examples/dahlia/dot-product.fuse --to futil
 ### Calyx
 To simulate an example in `examples/futil`:
 ```
-fud e examples/futil/dot-product.futil --to dat \
--s examples/dahlia/verilog.data dot-product.fuse.data
+fud e examples/futil/dot-product.futil --to dat -s \
+verilog.data examples/dahlia/dot-product.fuse.data
 ```
 
 To lower Calyx to Verilog:
