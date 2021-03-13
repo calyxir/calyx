@@ -150,6 +150,11 @@ If you have `fud` installed, tell `fud` where the Dahlia compiler lives:
 fud config stages.dahlia.exec $(pwd)/fuse
 ```
 
+You might have to add some permissions to fuse first using this command in the dahlia directory:
+```
+chmod +rwx fuse
+```
+
 #### Vivado/VivadoHLS Synthesis backends
 We use Vivado to synthesis Calyx designs and produce area and resource estimates.
 There are two ways to get `fud` working with Vivado.
