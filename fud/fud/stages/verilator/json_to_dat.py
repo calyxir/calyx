@@ -27,12 +27,8 @@ def parse_dat_bitnum(path, bw, is_signed):
 
         return v
 
-    with path.open('r') as f:
-        return np.array(
-            list(
-                map(to_decimal, f.readlines())
-            )
-        )
+    with path.open("r") as f:
+        return np.array(list(map(to_decimal, f.readlines())))
 
 
 def parse_dat_fp(path, width, int_width, is_signed):
@@ -43,21 +39,11 @@ def parse_dat_fp(path, width, int_width, is_signed):
     Fractional width: `width` - `int_width`
     """
     to_decimal = lambda v: fp_to_decimal(
-        np.binary_repr(
-            int(v.strip(), 16),
-            width
-        ),
-        width,
-        int_width,
-        is_signed
+        np.binary_repr(int(v.strip(), 16), width), width, int_width, is_signed
     )
 
-    with path.open('r') as f:
-        return np.array(
-            list(
-                map(to_decimal, f.readlines())
-            )
-        )
+    with path.open("r") as f:
+        return np.array(list(map(to_decimal, f.readlines())))
 
 
 def parse_fp_widths(format):
@@ -110,10 +96,10 @@ def convert2dat(output_dir, data, extension):
             "is_signed": is_signed,
         }
 
-        if numeric_type not in {'bitnum', 'fixed_point'}:
+        if numeric_type not in {"bitnum", "fixed_point"}:
             raise InvalidNumericType(numeric_type)
 
-        is_fp = (numeric_type == 'fixed_point')
+        is_fp = numeric_type == "fixed_point"
         if is_fp:
             width, int_width = parse_fp_widths(format)
             shape[k]["int_width"] = int_width
@@ -122,26 +108,19 @@ def convert2dat(output_dir, data, extension):
             width = format["width"]
         shape[k]["width"] = width
 
-        convert = lambda x: decimal_to_fp(
-            x,
-            width,
-            int_width,
-            is_signed
-        ) if is_fp else x
+        convert = (
+            lambda x: decimal_to_fp(x, width, int_width, is_signed) if is_fp else x
+        )
 
         with path.open("w") as f:
             for v in arr.flatten():
-                f.write(
-                    bitstring(
-                        convert(v),
-                        width
-                    ) + "\n"
-                )
+                f.write(bitstring(convert(v), width) + "\n")
 
     # Commit shape.json file.
     shape_json_file = output_dir / "shape.json"
-    with shape_json_file.open('w') as f:
+    with shape_json_file.open("w") as f:
         json.dump(shape, f, indent=2)
+
 
 def convert2json(input_dir, extension):
     """Converts a directory of *.dat
@@ -154,7 +133,7 @@ def convert2json(input_dir, extension):
         shape_json = json.load(shape_json_path.open("r"))
 
     # TODO: change to use shape json
-    for val in input_dir.glob(f'*.{extension}'):
+    for val in input_dir.glob(f"*.{extension}"):
         key = val.stem
         stem = shape_json[key]
 
@@ -162,15 +141,10 @@ def convert2json(input_dir, extension):
         is_signed = stem["is_signed"]
         width = stem["width"]
 
-        if numeric_type == 'bitnum':
+        if numeric_type == "bitnum":
             arr = parse_dat_bitnum(val, width, is_signed)
-        elif numeric_type == 'fixed_point':
-            arr = parse_dat_fp(
-                val,
-                width,
-                stem["int_width"],
-                is_signed
-            )
+        elif numeric_type == "fixed_point":
+            arr = parse_dat_fp(val, width, stem["int_width"], is_signed)
         else:
             raise InvalidNumericType(numeric_type)
 

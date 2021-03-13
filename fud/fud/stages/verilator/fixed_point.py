@@ -22,11 +22,9 @@ def fp_to_decimal(value, width, int_width, is_signed):
     int_bits = value[begin_index:int_width]
     frac_bits = value[int_width:width]
     integer_value = int(int_bits, 2)
-    fractional_value = float(
-        int(frac_bits, 2) / (2 ** frac_width)
-    )
+    fractional_value = float(int(frac_bits, 2) / (2 ** frac_width))
     fp_value = float(integer_value + fractional_value)
-    if is_signed and value[0] == '1':
+    if is_signed and value[0] == "1":
         # If the sign bit is high,
         # return the negated value.
         return fp_value * -1
@@ -48,30 +46,22 @@ def decimal_to_fp(value, width, int_width, is_signed):
     2. Convert this binary representation to base 10.
     """
     # Separate into integer and fractional parts.
-    float_value = float(
-        value * -1 if (is_signed and value < 0) else value
-    )
+    float_value = float(value * -1 if (is_signed and value < 0) else value)
     integer_part, fractional_part = str(float_value).split(".")
 
     if is_signed:
-        prefix = '1' if value < 0 else '0'
+        prefix = "1" if value < 0 else "0"
         no_signed_bit_width = int_width - 1
     else:
-        prefix = ''
+        prefix = ""
         no_signed_bit_width = int_width
 
-    int_bits = prefix + np.binary_repr(
-        int(integer_part),
-        width=no_signed_bit_width
-    )
+    int_bits = prefix + np.binary_repr(int(integer_part), width=no_signed_bit_width)
 
     # Multiply fractional part with 2 ** frac_width to convert to integer.
     frac_width = width - int_width
     fractional_repr = float("0." + fractional_part) * float(2 ** frac_width)
-    frac_bits = np.binary_repr(
-        int(fractional_repr),
-        width=frac_width
-    )
+    frac_bits = np.binary_repr(int(fractional_repr), width=frac_width)
 
     # TODO(cgyurgyik): Eventually, we want to use
     # truncation for values that cannot be exactly
