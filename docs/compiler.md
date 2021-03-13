@@ -1,9 +1,26 @@
 # The Calyx Compiler
 
+The source code documentation for the compiler can be [found here][comp].
+
 The Calyx compiler has several command line to control the execution of various
 passes and backends.
 
-### Controlling Passes
+## Specifying Primitives Library
+
+The compiler implementation uses a standard library of components to compile
+programs.
+
+The only standard library for the compiler is located in:
+```
+<path to Calyx repository>/primitives
+```
+
+Specify the location of the library using the `-l` flag:
+```
+cargo run -- -l ./primitives
+```
+
+## Controlling Passes
 
 The compiler is organized as a sequence of passes that are run when the compiler
 executes.
@@ -42,6 +59,7 @@ For example, we can run the following to disable the `static-timing` pass from
 the default execution alias `all`:
 
 ```bash
-cd futil
 cargo run -- examples/futil/simple.futil -p all -d static-timing
 ```
+
+[comp]: https://capra.cs.cornell.edu/docs/calyx/source/calyx/

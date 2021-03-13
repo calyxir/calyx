@@ -51,7 +51,7 @@ tests.
 
 ## Installing the Command-line Driver
 
-[The Calyx driver](./tools/fud.md) wraps the various compiler frontends and
+[The Calyx driver](./fud) wraps the various compiler frontends and
 backends to simplify running Calyx programs.
 
 Install [Flit][]:
@@ -128,7 +128,9 @@ Some tools will be reported missing. This is expected.
 
 We're all set to run a Calyx hardware design now. Run the following command:
 ```
-fud e examples/tutorial/tutorial.futil --to dat -s verilog.data examples/tutorial/tutorial.futil.data -v
+fud e examples/tutorial/tutorial.futil \
+  -s verilog.data examples/tutorial/tutorial.futil.data \
+  --to dat -v
 ```
 
 This command will compile `examples/tutorial/tutorial.futil` to Verilog
@@ -139,75 +141,11 @@ Congratulations! You've simulated your first hardware design with Calyx.
 
 ## Where to go next?
 
-### Check out more of our documentation
- - [How do I write a frontend for Calyx?](./tutorial/frontend-tut.md)
- - [How do I write my own pass?](./compiler-docs.md)
- - [How does the language work?](./tutorial/language-tut.md)
+- [How does the language work?](./tutorial/language-tut.md)
+- [How do I install Calyx frontends?](./fud/index.html#dahlia-fronted)
+- [Examples with `fud`](./fud/exmaples.md)
+- [How do I write a frontend for Calyx?](./tutorial/frontend-tut.md)
 
-
-#### Python frontends (Systolic array, NTT, MrXL, TVM Relay)
-You need [flit][] to install our Python frontends.
-```
-pip3 install flit
-```
-
-Our Python [frontends][frontends] use a Calyx ast library written in Python. Install with:
-```
-cd calyx-py && flit install -s
-```
-
-Frontend specific instructions:
- - [Systolic array](./frontends/systolic-array.md):
- Nothing else needed.
- - NTT: `pip3 install prettytables`
- - [MrXL](./frontends/mrxl.md): `cd frontends/mrxl && flit install -s`
- - [TVM Relay](./frontends/tvm-relay.md): See instructions in the Relay frontend page.
-
-### Dahlia frontend
-[Dahlia][dahlia] is an imperative HLS language that supports Calyx as a backend.
-[Here][dahlia-install] are the complete instructions, but we've provided a quick overview.
-First, install [sbt][].
-Then:
-```
-git clone https://github.com/cucapra/dahlia.git
-cd dahlia
-sbt assembly
-```
-
-If you have `fud` installed, tell `fud` where the Dahlia compiler lives:
-```
-fud config stages.dahlia.exec $(pwd)/fuse
-```
-
-#### Vivado/VivadoHLS Synthesis backends
-We use Vivado to synthesis Calyx designs and produce area and resource estimates.
-There are two ways to get `fud` working with Vivado.
-
-##### Vivado/VivadoHLS over SSH
-`fud` supports invoking these tools over SSH. You have to tell `fud` the username and hostname
-for a server that has these tools installed:
-```
-# vivado
-fud config stages.synth-verilog.ssh_host <hostname>
-fud config stages.synth-verilog.ssh_username <username>
-
-# vivado hls
-fud config stages.vivado-hls.ssh_host <hostname>
-fud config stages.vivado-hls.ssh_username <username>
-```
-
-**Note:** `vivado` or `vivado_hls` have to be on the path of the remote machine for this
-to work. If you need the names to be something else, file an issue. `fud` currently does
-not support other names.
-
-##### Vivado/VivadoHLS locally
-We don't provide installation instructions for this. However, `fud` will look for
-`vivado` and `vivado-hls` binaries on the system. If these are installed, you can
-use `fud` to invoke these tools. You can change the paths `fud` looks for with
-```
-fud config stages.synth-verilog.exec <path> # update vivado path
-fud config stages.vivado-hls.exec <path> # update vivado_hls path
-```
 
 [rust]: https://doc.rust-lang.org/cargo/getting-started/installation.html
 [runt]: https://github.com/rachitnigam/runt
