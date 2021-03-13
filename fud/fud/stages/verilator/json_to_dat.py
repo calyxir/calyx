@@ -2,6 +2,7 @@ import json
 import numpy as np
 from .fixed_point import fp_to_decimal, decimal_to_fp
 from pathlib import Path
+from .errors import InvalidNumericType
 
 
 # Converts `val` into a bitstring that is `bw` characters wide
@@ -38,12 +39,25 @@ def parse_dat_fp(path, width, int_width, is_signed):
     Integer width: `int_width`
     Fractional width: `width` - `int_width`
     """
-    to_decimal = lambda v: fp_to_decimal(
-        np.binary_repr(int(v.strip(), 16), width), width, int_width, is_signed
-    )
+
+    def hex_to_decimal(v):
+        # Given a fixed point number
+        # in hexadecimal form,
+        # returns the decimal value.
+        return fp_to_decimal(
+            np.binary_repr(
+                int(v.strip(), 16),
+                width
+            ),
+            width, int_width, is_signed
+        )
 
     with path.open("r") as f:
-        return np.array(list(map(to_decimal, f.readlines())))
+        return np.array(
+            list(
+                map(hex_to_decimal, f.readlines())
+            )
+        )
 
 
 def parse_fp_widths(format):
@@ -57,7 +71,10 @@ def parse_fp_widths(format):
     frac_width = format.get("frac_width")
     width = format.get("width")
 
-    provided = lambda x, y: x is not None and y is not None
+    def provided(x, y):
+        # Returns whether x and y are provided,
+        # i.e. they are not None.
+        return x is not None and y is not None
 
     if provided(width, int_width):
         return width, int_width
@@ -67,7 +84,7 @@ def parse_fp_widths(format):
         return width, (width - frac_width)
     else:
         raise Exception(
-            f"""Fixed point requires one of the following:
+            """Fixed point requires one of the following:
             (1) Bit width `width`, integer width `int_width`.
             (2) Bit width `width`, fractional width `frac_width`.
             (3) Integer width `int_width`, fractional width `frac_width`.
