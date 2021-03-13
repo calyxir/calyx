@@ -1,26 +1,32 @@
 {
-  "x": {
-    "data": [[1, 2, 3, 4], [2, 4, 6, 8]],
+  "lhs": {
+    "data": [
+      1
+    ],
     "format": {
       "numeric_type": "bitnum",
       "is_signed": true,
-      "width": 32
+      "width": 4
     }
   },
-  "y": {
-    "data": [[4, 8, 16, 32], [3, 6, 9, 12]],
+  "rhs": {
+    "data": [
+      -2
+    ],
     "format": {
       "numeric_type": "bitnum",
       "is_signed": true,
-      "width": 32
+      "width": 4
     }
   },
-  "x1": {
-    "data": [[0, 0, 0, 0], [0, 0, 0, 0]],
+  "res": {
+    "data": [
+      0
+    ],
     "format": {
       "numeric_type": "bitnum",
       "is_signed": true,
-      "width": 32
+      "width": 4
     }
   }
 }

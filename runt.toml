@@ -56,6 +56,18 @@ fud exec -s verilog.data {}.data \
          | jq .memories
 """
 
+[[tests]]
+name = "numeric types correctness and parsing"
+paths = [
+  "tests/correctness/numeric-types/parsing/*.futil",
+  "tests/correctness/numeric-types/bitnum/*.futil",
+  "tests/correctness/numeric-types/fixed-point/*.futil"
+]
+cmd = """
+fud exec -s verilog.data {}.data \
+         {} --to dat -q | jq .memories
+"""
+
 ## Same as correctness dynamic but runs with static-timing.
 [[tests]]
 name = "correctness static timing"
@@ -154,14 +166,6 @@ name = "Python library AST"
 paths = ["calyx-py/test/*.py"]
 cmd = """
 python3 {}
-"""
-
-[[tests]]
-name = "Numeric type parsing"
-paths = ["tests/correctness/numeric-types/*.futil"]
-cmd = """
-fud exec -s verilog.data {}.data \
-         {} --to dat -q | jq .memories
 """
 
 ##### Examples #####

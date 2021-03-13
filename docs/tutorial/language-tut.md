@@ -80,12 +80,16 @@ So make a file called something like `hello.json` containing something along the
     {
       "mem": {
         "data": [10],
-        "bitwidth": 32
+        "format": {
+          "numeric_type": "bitnum",
+          "is_signed": false,
+          "width": 32
+        }
       }
     }
 
 The `mem` key means we're providing the initial value for our memory called `mem`.
-We have one (integer) data element, and we indicate the width (32 bits).
+We have one (unsigned integer) data element, and we indicate the bit width (32 bits).
 
 If you want to see how this Calyx program compiles to Verilog, here's the fud incantation you need:
 

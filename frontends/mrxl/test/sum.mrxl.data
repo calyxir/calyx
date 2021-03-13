@@ -6,7 +6,11 @@
       3,
       4
     ],
-    "bitwidth": 32
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
   },
   "baz": {
     "data": [
@@ -15,6 +19,10 @@
       3,
       4
     ],
-    "bitwidth": 32
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
   }
 }

@@ -1,18 +1,34 @@
 {
   "x": {
    "data": [[1, 1, 1]],
-   "bitwidth": 32
+   "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+   }
   },
   "x1": {
    "data": [[1, 1, 1], [1, 1, 1]],
-   "bitwidth": 32
+   "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+   }
   },
   "x2": {
    "data": [0, 0],
-   "bitwidth": 32
+   "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+   }
   },
   "transpose_x10_0": {
    "data": [[0, 0], [0, 0], [0, 0]],
-   "bitwidth": 32
+   "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+   }
   }
 }

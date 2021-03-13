@@ -6,7 +6,11 @@
         [20,0,0,0],
         [34,0,0,0]
       ],
-      "bitwidth": 32
+      "format": {
+        "numeric_type": "bitnum",
+        "is_signed": true,
+        "width": 32
+      }
     },
     "mem1": {
       "data": [
@@ -15,6 +19,10 @@
         [8,0,0,0],
         [24,0,0,0]
       ],
-      "bitwidth": 32
+      "format": {
+        "numeric_type": "bitnum",
+        "is_signed": true,
+        "width": 32
+      }
     }
   }
