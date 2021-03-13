@@ -27,7 +27,7 @@ following inside `frontend/mrxl`:
 This creates a symbolic link the mrxl directory and installs the `mrxl` command
 line tool.
 
-By default, [fud](../tools/fud.md) looks for the `mrxl` executable to enable
+By default, [fud](../fud) looks for the `mrxl` executable to enable
 the `mrxl` compilation stage.
 Type `fud check` to make sure `fud` reports that the `mrxl` compiler has been
 found.
