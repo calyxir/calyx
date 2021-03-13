@@ -2,7 +2,7 @@ import json
 import numpy as np
 from .fixed_point import fp_to_decimal, decimal_to_fp
 from pathlib import Path
-from ..errors import InvalidNumericType
+from fud.errors import InvalidNumericType
 
 
 # Converts `val` into a bitstring that is `bw` characters wide
