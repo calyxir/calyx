@@ -1,6 +1,10 @@
 {
   "a": {
-    "bitwidth": 32,
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    },
     "data":  [
                856, 748, 76, 484, 602, 615, 522, 985
              ],
@@ -9,7 +13,11 @@
                     ]
   },
   "phis": {
-    "bitwidth": 32,
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    },
     "data":   [
                 1, 1813, 6761, 300, 1160, 2626, 5883, 3269
               ]

@@ -1,10 +1,18 @@
 {
   "x": {
-      "data": [16],
-      "bitwidth": 32
+    "data": [16],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
   },
   "x2": {
     "data": [0],
-    "bitwidth": 32
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
   }
 }

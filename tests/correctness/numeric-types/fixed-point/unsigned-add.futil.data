@@ -1,0 +1,35 @@
+{
+  "lhs": {
+    "data": [
+      42.25
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 32,
+      "frac_width": 16
+    }
+  },
+  "rhs": {
+    "data": [
+      1.50
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 32,
+      "frac_width": 16
+    }
+  },
+  "res": {
+    "data": [
+      0
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 32,
+      "frac_width": 16
+    }
+  }
+}

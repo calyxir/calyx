@@ -124,7 +124,7 @@ class VerilatorStage(Stage):
             # Simulated 91 cycles
             r = re.search(r"Simulated (\d+) cycles", simulated_output)
             data = {
-                "cycles": int(r.group(1)),
+                "cycles": int(r.group(1)) if r is not None else 0,
                 "memories": convert2json(tmpdir.name, "out"),
             }
             return json.dumps(data, indent=2, sort_keys=True)

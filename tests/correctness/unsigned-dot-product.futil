@@ -4,9 +4,9 @@ import "primitives/bitnum/signed.futil";
 component main() -> () {
   cells {
     add0 = std_sadd(3);
-    const0 = std_const(3,0); // initalize the counter
+    const0 = std_const(3,0); // Initialize the counter.
     const1 = std_const(3,4);
-    const2 = std_const(3,1); // increment by 1
+    const2 = std_const(3,1); // Increment by 1.
     counter = std_reg(3);
     r_2 = std_reg(32);
     lt0 = std_lt(3);
@@ -20,22 +20,21 @@ component main() -> () {
       cond0[done] = 1'd1;
       lt0.left = counter.out;
       lt0.right = const1.out;
-    } // ctrl segment will count until idx is 4
+    } // Control segment for `counter` < `4`.
 
     group let0<"static"=1> {
       counter.in = const0.out;
       counter.write_en = 1'd1;
       let0[done] = counter.done;
-    } // initializing the counter 0
+    } // Initializes the counter to 0.
 
     group upd0<"static"=1> {
       counter.write_en = 1'd1;
       add0.left = counter.out;
-      add0.right = const2.out; // incremented by 1
+      add0.right = const2.out; // Increment by 1.
       counter.in = add0.out;
       upd0[done] = counter.done ? 1'd1;
-    } // updates the counter
-
+    } // Updates the counter.
 
     group upd1<"static"=1> {
       mem0.addr0 = counter.out;
@@ -49,10 +48,7 @@ component main() -> () {
       add1.right = r_2.out;
       r_2.in =  add1.out;
       upd1[done] = r_2.done ? 1'd1;
-
-    } // computational step of everything
-
-
+    }
   }
   control {
     seq {

@@ -39,11 +39,13 @@ cmd = """
 """
 
 ##### Correctness Tests #####
-## Tests that ensure that individual control constructs have correct
-## behavior when compiled.
+## Tests that ensure that individual control
+## constructs have correct behavior when compiled.
 [[tests]]
 name = "correctness dynamic"
-paths = [ "tests/correctness/*.futil" ]
+paths = [
+  "tests/correctness/*.futil",
+]
 cmd = """
 fud exec -s verilog.data {}.data \
          -s futil.flags '-d static-timing' \
@@ -54,7 +56,19 @@ fud exec -s verilog.data {}.data \
          | jq .memories
 """
 
-## Same as correctness dynamic but runes with static-timing
+[[tests]]
+name = "numeric types correctness and parsing"
+paths = [
+  "tests/correctness/numeric-types/parsing/*.futil",
+  "tests/correctness/numeric-types/bitnum/*.futil",
+  "tests/correctness/numeric-types/fixed-point/*.futil"
+]
+cmd = """
+fud exec -s verilog.data {}.data \
+         {} --to dat -q | jq .memories
+"""
+
+## Same as correctness dynamic but runs with static-timing.
 [[tests]]
 name = "correctness static timing"
 paths = [ "tests/correctness/*.futil" ]
