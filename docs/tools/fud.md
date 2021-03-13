@@ -101,7 +101,7 @@ In order to use the Dahlia frontend with Fud, first
 [install Dahlia](https://github.com/cucapra/dahlia).
 Once Dahlia is compiled, point `fud` to the Dahlia compiler binary:
 ```bash
-fud config dahlia.stages.exec <full path to dahlia repo>/fuse
+fud config stages.dahlia.exec <full path to dahlia repo>/fuse
 ```
 
 **Systolic Array Generator.**
