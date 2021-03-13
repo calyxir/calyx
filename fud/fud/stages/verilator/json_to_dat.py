@@ -45,19 +45,11 @@ def parse_dat_fp(path, width, int_width, is_signed):
         # in hexadecimal form,
         # returns the decimal value.
         return fp_to_decimal(
-            np.binary_repr(
-                int(v.strip(), 16),
-                width
-            ),
-            width, int_width, is_signed
+            np.binary_repr(int(v.strip(), 16), width), width, int_width, is_signed
         )
 
     with path.open("r") as f:
-        return np.array(
-            list(
-                map(hex_to_decimal, f.readlines())
-            )
-        )
+        return np.array(list(map(hex_to_decimal, f.readlines())))
 
 
 def parse_fp_widths(format):
