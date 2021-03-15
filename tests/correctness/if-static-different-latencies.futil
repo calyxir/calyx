@@ -1,0 +1,56 @@
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    eq = std_eq(1);
+
+    // true register chain
+    t0 = std_reg(32);
+    t1 = std_reg(32);
+    t2 = std_reg(32);
+    t3 = std_reg(32);
+    t4 = std_reg(32);
+
+    // false branch
+    i = std_mem_d1(32, 1, 1);
+    add = std_add(32);
+  }
+  wires {
+    group cond {
+      eq.left = 1'd0;
+      eq.right = 1'd1;
+      cond[done] = 1'd1;
+    }
+
+    group true {
+      t0.write_en = 1'd1;
+      t1.write_en = t0.done;
+      t2.write_en = t1.done;
+      t3.write_en = t2.done;
+      t4.write_en = t3.done;
+
+      t0.in = 32'd1;
+      t1.in = t0.out;
+      t2.in = t1.out;
+      t3.in = t2.out;
+      t4.in = t3.out;
+      true[done] = t4.done;
+    }
+
+    group false {
+      add.left = i.read_data;
+      add.right = 32'd1;
+      i.write_data = add.out;
+      i.write_en = 1'd1;
+      i.addr0 = 1'd0;
+      false[done] = i.done;
+    }
+  }
+  control {
+    if eq.out with cond {
+      true;
+    } else {
+      false;
+    }
+  }
+}
