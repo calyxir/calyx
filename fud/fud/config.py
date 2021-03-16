@@ -2,7 +2,6 @@ import appdirs
 import toml
 import sys
 import logging as log
-import os
 from pathlib import Path
 from pprint import PrettyPrinter
 
@@ -122,7 +121,7 @@ def wizard(table, data):
         if key not in table:
             while True:
                 answer = input(f"{data[key]} is unset (relative paths ok): ")
-                path = Path(os.path.expanduser(answer))
+                path = Path(answer).expanduser()
                 if path.exists():
                     table[key] = str(path.resolve())
                     break
