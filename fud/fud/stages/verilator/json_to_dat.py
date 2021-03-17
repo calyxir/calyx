@@ -20,8 +20,8 @@ def parse_dat_bitnum(path, bw, is_signed):
     if not path.exists():
         raise Malformed(
             "Data directory",
-            f"Output file for memory `{path.stem}' is missing. This probably happened because a memory is specified in the input JSON file but is not marked with @external(1) in the Calyx program. Either add the @external(1) in front of the cell definition for the memory or remove it from the JSON file."
-            )
+            f"Output file for memory `{path.stem}' is missing. This probably happened because a memory is specified in the input JSON file but is not marked with @external(1) in the Calyx program. Either add the @external(1) in front of the cell definition for the memory or remove it from the JSON file.",
+        )
 
     def to_decimal(hex_v: str) -> int:
         # Takes in a value in string
@@ -172,13 +172,13 @@ def convert2json(input_dir, extension):
         if form["shape"] == [0]:
             raise Malformed(
                 "Data format shape",
-                f"Memory '{mem}' has shape 0. This happens if the `data` field is set to `[]`. If you want the memory printed out in the output JSON, remove its definition from the input JSON file. If you want it to be printed in the output JSON, set the data field of '{mem}' to all zeros with the correct dimensions.")
+                f"Memory '{mem}' has shape 0. This happens if the `data` field is set to `[]`. If you want the memory printed out in the output JSON, remove its definition from the input JSON file. If you want it to be printed in the output JSON, set the data field of '{mem}' to all zeros with the correct dimensions.",
+            )
 
         try:
             arr = arr.reshape(tuple(form["shape"]))
         except Exception:
-            raise Malformed("Data format shape",
-                            f"Key '{key}' had invalid shape.")
+            raise Malformed("Data format shape", f"Key '{key}' had invalid shape.")
 
         data[mem] = arr.tolist()
 

@@ -180,6 +180,7 @@ class InvalidNumericType(FudError):
             (2) fixed point"""
         super().__init__(msg)
 
+
 class Malformed(FudError):
     """
     An error raised when the input to a stage is malformed in some manner.
