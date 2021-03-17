@@ -46,10 +46,7 @@ class Relay2Futil(ExprFunctor):
         """
         var_id = self.id(var.name_hint)
 
-        cell = get_memory(
-            var_id,
-            var.type_annotation
-        )
+        cell = get_memory(var_id, var.type_annotation)
         self.id_to_cell[var_id] = cell
         return cell
 
@@ -67,10 +64,7 @@ class Relay2Futil(ExprFunctor):
             # This is done here since we need
             # both the variable id and the value.
             width = get_bitwidth(value.data)
-            cell = Cell(
-                CompVar(dest.id.name),
-                Stdlib().constant(width, value.data)
-            )
+            cell = Cell(CompVar(dest.id.name), Stdlib().constant(width, value.data))
             self.id_to_cell[dest.id.name] = cell
         elif isinstance(value, tvm.relay.Call):
             # Generates cells and control for a Relay Call:
@@ -81,14 +75,11 @@ class Relay2Futil(ExprFunctor):
             # Function names may have a namespace
             # prepended, e.g. `nn.bias_add`. We want to
             # replace the periods, to get `nn_bias_add`.
-            func_name = (value.op.name).replace('.', '_')
+            func_name = (value.op.name).replace(".", "_")
 
             comp_id = self.id(func_name)
-            comp_decl = CompVar(f'{comp_id}_')
-            self.id_to_cell[comp_id] = Cell(
-                comp_decl,
-                CompInst(comp_id, [])
-            )
+            comp_decl = CompVar(f"{comp_id}_")
+            self.id_to_cell[comp_id] = Cell(comp_decl, CompInst(comp_id, []))
 
             self.controls.append(
                 # Append Invoke control to the `main` component.
@@ -101,11 +92,11 @@ class Relay2Futil(ExprFunctor):
                     dest=dest,
                     args=value.args,
                     attributes=value.attrs,
-                    data_type=get_dahlia_data_type(let.var.type_annotation)
+                    data_type=get_dahlia_data_type(let.var.type_annotation),
                 )
             )
         else:
-            assert 0, f'{value} is not supported yet.'
+            assert 0, f"{value} is not supported yet."
 
         return self.visit(let.body)
 
@@ -139,24 +130,26 @@ class Relay2Futil(ExprFunctor):
 
         return (
             Component(
-                name='main',
+                name="main",
                 inputs=[],
                 outputs=[],
                 structs=self.wires + list(self.id_to_cell.values()),
-                controls=SeqComp(self.controls)
+                controls=SeqComp(self.controls),
             ),
-            self.func_defs
+            self.func_defs,
         )
 
 
 def relay_transforms(expr: Function) -> Function:
     """https://tvm.apache.org/docs/api/python/relay/transform.html"""
-    transforms = tvm.transform.Sequential([
-        relay.transform.InferType(),
-    ])
+    transforms = tvm.transform.Sequential(
+        [
+            relay.transform.InferType(),
+        ]
+    )
     mod = ir.IRModule.from_expr(expr)
     mod = transforms(mod)
-    return mod['main']
+    return mod["main"]
 
 
 def emit_futil(program) -> str:
@@ -164,22 +157,22 @@ def emit_futil(program) -> str:
     relay_program = relay_transforms(program)
     visitor = Relay2Futil()
     main, func_defs = visitor.visit(relay_program)
-    return '\n'.join((
-        Program(
-            imports=[
-                Import("primitives/std.lib"),
-                Import("primitives/bitnum/math.futil")
-            ],
-            components=[main]
-        ).doc(),
-        emit_components(func_defs)
-    ))
+    return "\n".join(
+        (
+            Program(
+                imports=[
+                    Import("primitives/std.lib"),
+                    Import("primitives/bitnum/math.futil"),
+                ],
+                components=[main],
+            ).doc(),
+            emit_components(func_defs),
+        )
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     relay_function = relay.fromtext(sys.stdin.read())
-    print(
-        emit_futil(relay_function)
-    )
+    print(emit_futil(relay_function))

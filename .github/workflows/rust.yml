@@ -182,6 +182,7 @@ jobs:
 
   format:
     name: Check Formatting
+    needs: build
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -208,8 +209,37 @@ jobs:
         command: clippy
         args: --all -- --deny warnings
 
+  lint:
+    name: Python Linting
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Fud Formatting check
+        uses: RojerGS/python-black-check@master
+        with:
+          line-length: 88
+          path: 'fud'
+      - name: Systolic Array Formatting check
+        uses: RojerGS/python-black-check@master
+        with:
+          line-length: 88
+          path: 'frontends/systolic-lang'
+      - name: Fud Linting check
+        uses: TrueBrain/actions-flake8@master
+        with:
+          max_line_length: 88
+          path: 'fud'
+      - name: Systolic Array Linting check
+        uses: TrueBrain/actions-flake8@master
+        with:
+          max_line_length: 88
+          path: 'frontends/systolic-lang'
+
   docs:
     runs-on: ubuntu-latest
+    needs: format
     steps:
       - uses: actions/checkout@v2
       - name: Setup mdBook

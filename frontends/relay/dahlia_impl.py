@@ -7,6 +7,7 @@ from dahlia_utils import *
 ################## Dahlia Implementations for Relay Call Nodes #####################################
 ####################################################################################################
 
+
 def broadcast(fd: DahliaFuncDef) -> str:
     """Implements array broadcasting:
     Two dimensions are compatible when either (1) they're equal,
@@ -29,13 +30,20 @@ def broadcast(fd: DahliaFuncDef) -> str:
     Reference: https://numpy.org/doc/stable/user/basics.broadcasting.html
     """
     op1, op2, res = fd.args[0], fd.args[1], fd.dest
-    op1_dims, op2_dims, res_dims = get_dims(op1.comp), get_dims(op2.comp), get_dims(res.comp)
+    op1_dims, op2_dims, res_dims = (
+        get_dims(op1.comp),
+        get_dims(op2.comp),
+        get_dims(res.comp),
+    )
 
     # Get memory sizes in reversed order.
     op1_sizes, op2_sizes, res_sizes = [], [], []
-    for i in reversed(range(0, op1_dims)): op1_sizes.append(op1.comp.args[i + 1])
-    for i in reversed(range(0, op2_dims)): op2_sizes.append(op2.comp.args[i + 1])
-    for i in reversed(range(0, res_dims)): res_sizes.append(res.comp.args[i + 1])
+    for i in reversed(range(0, op1_dims)):
+        op1_sizes.append(op1.comp.args[i + 1])
+    for i in reversed(range(0, op2_dims)):
+        op2_sizes.append(op2.comp.args[i + 1])
+    for i in reversed(range(0, res_dims)):
+        res_sizes.append(res.comp.args[i + 1])
 
     # Gets the last variable name for indexing, since
     # we will compare sizes in the reverse direction.
@@ -43,10 +51,10 @@ def broadcast(fd: DahliaFuncDef) -> str:
 
     # Determine the value address value at each index.
     # This will either be a variable name or `0`.
-    index_zero = '[0]'
+    index_zero = "[0]"
     op1_indices, op2_indices, res_indices = [], [], []
     for i in range(0, len(res_sizes)):
-        current_dimension = f'[{index_var}]'
+        current_dimension = f"[{index_var}]"
         res_indices.append(current_dimension)
         if op1_dims > op2_dims and len(op2_sizes) <= i:
             op1_indices.append(current_dimension)
@@ -66,16 +74,15 @@ def broadcast(fd: DahliaFuncDef) -> str:
 
     # Resulting index in the nested for loop,
     # e.g. for `op1[i][j][0][k]`, this is `[i][j][0][k]`.
-    op1_index = ''.join(reversed(op1_indices))
-    op2_index = ''.join(reversed(op2_indices))
-    res_index = ''.join(reversed(res_indices))
-    loop_body = f'{res.id.name}{res_index} := {op1.id.name}{op1_index} ' \
-                f'{BinaryOps[fd.function_id]} {op2.id.name}{op2_index};'
-
-    return emit_dahlia_definition(
-        fd,
-        emit_dahlia_loop(res, loop_body)
+    op1_index = "".join(reversed(op1_indices))
+    op2_index = "".join(reversed(op2_indices))
+    res_index = "".join(reversed(res_indices))
+    loop_body = (
+        f"{res.id.name}{res_index} := {op1.id.name}{op1_index} "
+        f"{BinaryOps[fd.function_id]} {op2.id.name}{op2_index};"
     )
+
+    return emit_dahlia_definition(fd, emit_dahlia_loop(res, loop_body))
 
 
 # https://github.com/cucapra/calyx/issues/401
@@ -91,19 +98,16 @@ def expand_dims(fd: DahliaFuncDef) -> str:
     num_dims = get_dims(data.comp)
     for n in range(num_dims):
         # Determine loop body indices.
-        index = f'[{var_name}]'
+        index = f"[{var_name}]"
         res_indices += index
         data_indices += index
         if axis == n + 1:
             # Append expanded dimensions.
-            res_indices += '[0]' * fd.attributes.get_int("num_newaxis")
+            res_indices += "[0]" * fd.attributes.get_int("num_newaxis")
         var_name = next_character(var_name)
 
-    loop_body = f'{res.id.name}{res_indices} := {data.id.name}{data_indices};'
-    return emit_dahlia_definition(
-        fd,
-        emit_dahlia_loop(data, loop_body)
-    )
+    loop_body = f"{res.id.name}{res_indices} := {data.id.name}{data_indices};"
+    return emit_dahlia_definition(fd, emit_dahlia_loop(data, loop_body))
 
 
 def negative(fd: DahliaFuncDef) -> str:
@@ -111,19 +115,16 @@ def negative(fd: DahliaFuncDef) -> str:
     inp, res = fd.args[0], fd.dest
 
     var_name = CHARACTER_I
-    indices = ''
+    indices = ""
     num_dims = get_dims(inp.comp)
     for _ in range(num_dims):
         # Determine loop body indices.
-        indices += f'[{var_name}]'
+        indices += f"[{var_name}]"
         var_name = next_character(var_name)
 
-    zero = '0.0' if fd.data_type == 'fix' else '0'
-    loop_body = f'{res.id.name}{indices} := {zero} - {inp.id.name}{indices};'
-    return emit_dahlia_definition(
-        fd,
-        emit_dahlia_loop(res, loop_body)
-    )
+    zero = "0.0" if fd.data_type == "fix" else "0"
+    loop_body = f"{res.id.name}{indices} := {zero} - {inp.id.name}{indices};"
+    return emit_dahlia_definition(fd, emit_dahlia_loop(res, loop_body))
 
 
 def batch_flatten(fd: DahliaFuncDef) -> str:
@@ -132,15 +133,15 @@ def batch_flatten(fd: DahliaFuncDef) -> str:
 
     var_name = CHARACTER_I
     args = data.comp.args
-    data_indices = ''
-    res_indices = f'[{var_name}]'
+    data_indices = ""
+    res_indices = f"[{var_name}]"
     num_dims = get_dims(data.comp)
     for i in range(num_dims):
-        index = f'[{var_name}]'
+        index = f"[{var_name}]"
         data_indices += index
         var_name = next_character(var_name)
 
-    res_indices += f'[{var_name}]'
+    res_indices += f"[{var_name}]"
 
     loop_body = f"""{res.id.name}{res_indices} := \
            {data.id.name}{data_indices}; \
@@ -151,9 +152,9 @@ def batch_flatten(fd: DahliaFuncDef) -> str:
             # We use args[3] because the output is
             # 2-dimensional (batch). Therefore, we want
             # the second index size in the memory.
-            f'let {var_name}: ubit<{args[3]}> = 0;',
+            f"let {var_name}: ubit<{args[3]}> = 0;",
             emit_dahlia_loop(data, loop_body),
-        )
+        ),
     )
 
 
@@ -171,7 +172,7 @@ def bias_add(fd: DahliaFuncDef) -> str:
         # Determine loop body indices based on `axis` provided.
         size = args[i + 1]
         index_size = args[i + 1 + num_dims]
-        index = f'[{var_name}]'
+        index = f"[{var_name}]"
         if axis == i:
             # Determine which `var_name` is
             # associated with the bias index.
@@ -182,10 +183,7 @@ def bias_add(fd: DahliaFuncDef) -> str:
     loop_body = f"""{res.id.name}{data_indices} :=
                 {data.id.name}{data_indices} + {bias.id.name}{bias_index};"""
 
-    return emit_dahlia_definition(
-        fd,
-        emit_dahlia_loop(data, loop_body)
-    )
+    return emit_dahlia_definition(fd, emit_dahlia_loop(data, loop_body))
 
 
 def max_pool2d(fd: DahliaFuncDef) -> str:
@@ -196,11 +194,13 @@ def max_pool2d(fd: DahliaFuncDef) -> str:
     pool_size = fd.attributes.get_int_tuple("pool_size")
     layout = fd.attributes.get_str("layout")
     ceil_mode = fd.attributes.get_int("ceil_mode")
-    assert layout == 'NCHW', \
-        f"""Layout \'{layout}\' is not currently supported for
+    assert (
+        layout == "NCHW"
+    ), f"""Layout \'{layout}\' is not currently supported for
         nn.max_pool2d; please use `NCHW`"""
-    assert ceil_mode == False, \
-        "`ceil_mode` is not currently supported for nn.max_pool2d"
+    assert (
+        ceil_mode == False
+    ), "`ceil_mode` is not currently supported for nn.max_pool2d"
 
     args = res.comp.args
     width = args[0]
@@ -226,11 +226,11 @@ def max_pool2d(fd: DahliaFuncDef) -> str:
                   }}
                 }}
                 {res.id.name}[b][c][y][x] := max;
-              }}
-            }}
-          }}
-        }}
-        """
+              }} 
+            }} 
+          }} 
+        }} 
+        """,
     )
 
 
@@ -243,20 +243,17 @@ def relu(fd: DahliaFuncDef) -> str:
     indices = ""
     var_name = CHARACTER_I
     for _ in range(num_dims):
-        indices += f'[{var_name}]'
+        indices += f"[{var_name}]"
         var_name = next_character(var_name)
 
     data_type = fd.data_type
     zero = f'({"0.0" if "fix" in data_type else "0"} as {data_type})'
-    input = f'{data.id.name}{indices}'
-    result = f'{res.id.name}{indices}'
-    loop_body = f"""if ({input} > {zero}) {{ {result} := {input}; }}
+    input = f"{data.id.name}{indices}"
+    result = f"{res.id.name}{indices}"
+    loop_body = f"""if ({input} > {zero}) {{ {result} := {input}; }} 
                     else {{ {result} := {zero}; }}"""
 
-    return emit_dahlia_definition(
-        fd,
-        emit_dahlia_loop(data, loop_body)
-    )
+    return emit_dahlia_definition(fd, emit_dahlia_loop(data, loop_body))
 
 
 def sqrt(fd: DahliaFuncDef) -> str:
@@ -268,15 +265,12 @@ def sqrt(fd: DahliaFuncDef) -> str:
     indices = ""
     var_name = CHARACTER_I
     for _ in range(num_dims):
-        indices += f'[{var_name}]'
+        indices += f"[{var_name}]"
         var_name = next_character(var_name)
 
     loop_body = f"""let tmp = sqrt({data.id.name}{indices});
                     {res.id.name}{indices} := tmp;"""
-    return emit_dahlia_definition(
-        fd,
-        emit_dahlia_loop(data, loop_body)
-    )
+    return emit_dahlia_definition(fd, emit_dahlia_loop(data, loop_body))
 
 
 def batch_matmul(fd: DahliaFuncDef) -> str:
@@ -308,7 +302,7 @@ def batch_matmul(fd: DahliaFuncDef) -> str:
             }}
           }}
         }}
-        """
+        """,
     )
 
 
@@ -335,7 +329,7 @@ def dense(fd: DahliaFuncDef) -> str:
             }} combine {{ {res.id.name}[i][j] += product; }}
           }}
         }}
-        """
+        """,
     )
 
 
@@ -371,11 +365,11 @@ def conv2d(fd: DahliaFuncDef) -> str:
                   }}
                 }}
                 {res.id.name}[b_][c_][y_][x_] := sum;
-              }}
-            }}
-          }}
-        }}
-        """
+              }} 
+            }} 
+          }} 
+        }} 
+        """,
     )
 
 
@@ -383,13 +377,13 @@ def softmax(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.softmax"""
     data, res = fd.args[0], fd.dest
     axis = fd.attributes.get_int("axis")
-    assert axis == -1 or axis == 1, f'nn.softmax with axis = {axis} is not supported.'
+    assert axis == -1 or axis == 1, f"nn.softmax with axis = {axis} is not supported."
 
     data_type = fd.data_type
     size0, size1, index_size0, index_size1 = data.comp.args[1:5]
 
     # The value of `e` if Q = 32.16, otherwise `3`.
-    e = '13044242090' if 'fix' in data_type else '3'
+    e = "13044242090" if "fix" in data_type else "3"
 
     return emit_dahlia_definition(
         fd,
@@ -408,33 +402,28 @@ def softmax(fd: DahliaFuncDef) -> str:
             {res.id.name}[i][k] :=
             {res.id.name}[i][k] / {data.id.name}_expsum;
           }}
-        }}"""
+        }}""",
     )
 
 
 # Mapping from Relay function names to their respective Dahlia lowering.
 RelayCallNodes = {
-    'expand_dims': expand_dims,
-    'negative': negative,
-    'nn_batch_flatten': batch_flatten,
-    'nn_batch_matmul': batch_matmul,
-    'nn_bias_add': bias_add,
-    'nn_conv2d': conv2d,
-    'nn_dense': dense,
-    'nn_max_pool2d': max_pool2d,
-    'nn_relu': relu,
-    'nn_softmax': softmax,
-    'sqrt': sqrt
+    "expand_dims": expand_dims,
+    "negative": negative,
+    "nn_batch_flatten": batch_flatten,
+    "nn_batch_matmul": batch_matmul,
+    "nn_bias_add": bias_add,
+    "nn_conv2d": conv2d,
+    "nn_dense": dense,
+    "nn_max_pool2d": max_pool2d,
+    "nn_relu": relu,
+    "nn_softmax": softmax,
+    "sqrt": sqrt,
 }
 
 # Mapping from Relay binary calls to
 # the respective Dahlia operator.
-BinaryOps = {
-    'add': '+',
-    'divide': '/',
-    'multiply': '*',
-    'subtract': '-'
-}
+BinaryOps = {"add": "+", "divide": "/", "multiply": "*", "subtract": "-"}
 
 
 def emit_components(func_defs: List[DahliaFuncDef]) -> str:
@@ -448,7 +437,9 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     dahlia_definitions = []
     for func_def in func_defs:
         id = func_def.function_id
-        assert id in RelayCallNodes or id in BinaryOps, f'{id} not supported for lowering.'
+        assert (
+            id in RelayCallNodes or id in BinaryOps
+        ), f"{id} not supported for lowering."
 
         # If the function is a binary operation, use broadcasting.
         # Otherwise, use the associated Relay function.
@@ -464,6 +455,4 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
         }}"""
     ]
 
-    return dahlia_to_futil(
-        '\n'.join(imports + dahlia_definitions)
-    )
+    return dahlia_to_futil("\n".join(imports + dahlia_definitions))

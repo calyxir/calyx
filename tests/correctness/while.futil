@@ -2,7 +2,7 @@ import "primitives/core.futil";
 
 component main() -> () {
   cells {
-    i = std_mem_d1(32, 1, 1);
+    @external(1) i = std_mem_d1(32, 1, 1);
     lt = std_lt(32);
     add = std_add(32);
   }

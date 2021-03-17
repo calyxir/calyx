@@ -40,7 +40,7 @@ Let's turn our skeleton into a tiny, nearly no-op Calyx program.
 We'll start by adding a memory component to the cells:
 
     cells {
-      mem = std_mem_d1(32, 1, 1);
+      @external(1) mem = std_mem_d1(32, 1, 1);
     }
 
 This new line declares a new cell called `mem` and the primitive component `std_mem_d1` represents a 1D memory.
