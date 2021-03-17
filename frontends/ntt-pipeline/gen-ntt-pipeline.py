@@ -204,8 +204,8 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
         stdlib = Stdlib()
 
         memories = [
-            Cell(input, stdlib.mem_d1(input_bitwidth, n, bitwidth)),
-            Cell(phis, stdlib.mem_d1(input_bitwidth, n, bitwidth))
+            Cell(input, stdlib.mem_d1(input_bitwidth, n, bitwidth), is_external=True),
+            Cell(phis, stdlib.mem_d1(input_bitwidth, n, bitwidth), is_external=True)
         ]
         r_regs = [Cell(CompVar(f'r{r}'), stdlib.register(input_bitwidth)) for r in range(n)]
         A_regs = [Cell(CompVar(f'A{r}'), stdlib.register(input_bitwidth)) for r in range(n)]

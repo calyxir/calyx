@@ -12,7 +12,7 @@ component main() -> () {
     t4 = std_reg(32);
 
     // false branch
-    i = std_mem_d1(32, 1, 1);
+    @external(1) i = std_mem_d1(32, 1, 1);
     add = std_add(32);
   }
   wires {

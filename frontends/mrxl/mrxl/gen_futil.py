@@ -12,7 +12,8 @@ def emit_mem_decl(name, size, par):
     for i in range(par):
         banked_mems.append(Cell(
             CompVar(f'{name}_b{i}'),
-            stdlib.mem_d1(32, size // par, 32)
+            stdlib.mem_d1(32, size // par, 32),
+            is_external = True,
         ))
     return banked_mems
 

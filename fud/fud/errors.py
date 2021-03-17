@@ -179,3 +179,12 @@ class InvalidNumericType(FudError):
             (1) bitnum
             (2) fixed point"""
         super().__init__(msg)
+
+class Malformed(FudError):
+    """
+    An error raised when the input to a stage is malformed in some manner.
+    """
+
+    def __init__(self, name, msg):
+        msg = f"""Malformed {name}: {msg}"""
+        super().__init__(msg)

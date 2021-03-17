@@ -10,8 +10,8 @@ component main() -> () {
     counter = std_reg(3);
     r_2 = std_reg(32);
     lt0 = std_lt(3);
-    mem0 = std_mem_d2(32, 4, 4, 3, 3);
-    mem1 = std_mem_d2(32, 4, 4, 3, 3);
+    @external(1) mem0 = std_mem_d2(32, 4, 4, 3, 3);
+    @external(1) mem1 = std_mem_d2(32, 4, 4, 3, 3);
     add1 = std_add(32);
     mult = std_smult(32);
   }
