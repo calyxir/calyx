@@ -2,9 +2,9 @@ import "primitives/std.lib";
 import "primitives/bitnum/math.futil";
 component main() -> () {
   cells {
-    x = std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
-    bias = std_mem_d1(32, 64, 7);
-    x1 = std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
+    @external(1) x = std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
+    @external(1) bias = std_mem_d1(32, 64, 7);
+    @external(1) x1 = std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
     nn_bias_add_ = nn_bias_add();
   }
   wires {

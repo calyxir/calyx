@@ -2,8 +2,8 @@ import "primitives/std.lib";
 import "primitives/bitnum/math.futil";
 component main() -> () {
   cells {
-    data = std_mem_d4(32, 2, 2, 4, 4, 2, 2, 3, 3);
-    result = std_mem_d4(32, 2, 2, 2, 2, 2, 2, 2, 2);
+    @external(1) data = std_mem_d4(32, 2, 2, 4, 4, 2, 2, 3, 3);
+    @external(1) result = std_mem_d4(32, 2, 2, 2, 2, 2, 2, 2, 2);
     nn_max_pool2d_ = nn_max_pool2d();
   }
   wires {

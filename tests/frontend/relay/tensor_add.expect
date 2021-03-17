@@ -2,9 +2,9 @@ import "primitives/std.lib";
 import "primitives/bitnum/math.futil";
 component main() -> () {
   cells {
-    x = std_mem_d2(32, 2, 4, 2, 3);
-    y = std_mem_d2(32, 2, 4, 2, 3);
-    x1 = std_mem_d2(32, 2, 4, 2, 3);
+    @external(1) x = std_mem_d2(32, 2, 4, 2, 3);
+    @external(1) y = std_mem_d2(32, 2, 4, 2, 3);
+    @external(1) x1 = std_mem_d2(32, 2, 4, 2, 3);
     add_ = add();
   }
   wires {

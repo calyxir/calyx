@@ -2,8 +2,8 @@ import "primitives/std.lib";
 import "primitives/bitnum/math.futil";
 component main() -> () {
   cells {
-    x = std_mem_d3(32, 1, 2, 2, 1, 2, 2);
-    x1 = std_mem_d2(32, 1, 4, 1, 3);
+    @external(1) x = std_mem_d3(32, 1, 2, 2, 1, 2, 2);
+    @external(1) x1 = std_mem_d2(32, 1, 4, 1, 3);
     nn_batch_flatten_ = nn_batch_flatten();
   }
   wires {

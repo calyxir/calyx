@@ -22,13 +22,5 @@
       "is_signed": true,
       "width": 32
    }
-  },
-  "transpose_b0_0_0": {
-    "data": [[[0,0], [0,0], [0,0]], [[0,0], [0,0], [0,0]]],
-    "format": {
-      "numeric_type": "bitnum",
-      "is_signed": true,
-      "width": 32
-    }
   }
 }
