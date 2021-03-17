@@ -323,11 +323,6 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
 //==========================================
 //        Memory input and output
 //==========================================
-/// This cell needs to be initialized
-fn requires_initialization(cell_name: &ir::Id) -> bool {
-    cell_name.id.contains("mem")
-}
-
 /// Generates code of the form:
 /// ```
 /// import "DPI-C" function string futil_getenv (input string env_var);
@@ -368,16 +363,18 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
         )));
 
     let memories = comp.cells.iter().filter_map(|cell| {
-        cell.borrow()
-            .type_name()
-            .map(requires_initialization)
-            .and_then(|yes| {
-                if yes {
-                    Some(cell.borrow().name.id.clone())
-                } else {
-                    None
-                }
-            })
+        let is_external = cell.borrow().get_attribute("external").is_some();
+        if is_external
+            && cell
+                .borrow()
+                .type_name()
+                .map(|proto| proto.id.contains("mem"))
+                .unwrap_or_default()
+        {
+            Some(cell.borrow().name.id.clone())
+        } else {
+            None
+        }
     });
 
     memories.clone().for_each(|name| {

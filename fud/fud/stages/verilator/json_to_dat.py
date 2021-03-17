@@ -2,7 +2,7 @@ import json
 import numpy as np
 from .fixed_point import fp_to_decimal, decimal_to_fp
 from pathlib import Path
-from fud.errors import InvalidNumericType
+from fud.errors import InvalidNumericType, Malformed
 
 
 # Converts `val` into a bitstring that is `bw` characters wide
@@ -16,6 +16,18 @@ def parse_dat_bitnum(path, bw, is_signed):
     """Parses bitnum numbers of bit width `bw`
     from the array at the given `path`.
     """
+
+    if not path.exists():
+        raise Malformed(
+            "Data directory",
+            (
+                f"Output file for memory `{path.stem}' is missing. "
+                "This probably happened because a memory is specified in the "
+                "input JSON file but is not marked with @external(1) in the "
+                "Calyx program. Either add the @external(1) in front of the cell "
+                "definition for the memory or remove it from the JSON file."
+            ),
+        )
 
     def to_decimal(hex_v: str) -> int:
         # Takes in a value in string
@@ -87,7 +99,12 @@ def parse_fp_widths(format):
 def convert2dat(output_dir, data, extension):
     """Goes through the JSON data and creates
     a file for each key, flattens the data,
-    and then converts it to bitstrings."""
+    and then converts it to bitstrings.
+    Also generates a file named "shape.json" that contains information to
+    de-parse the memory files.
+    Only memory files corresponding to the fields in shape.json should be
+    deparsed.
+    """
     output_dir = Path(output_dir)
     shape = {}
     for k, item in data.items():
@@ -133,34 +150,50 @@ def convert2dat(output_dir, data, extension):
 
 def convert2json(input_dir, extension):
     """Converts a directory of *.dat
-    files back into a JSON file."""
+    files back into a JSON file.
+    Only de-parses output memory files corresponding to memory names in
+    "shape.json"
+    """
     input_dir = Path(input_dir)
-    data = {}
     shape_json_path = input_dir / "shape.json"
-    shape_json = None
-    if shape_json_path.exists():
-        shape_json = json.load(shape_json_path.open("r"))
+    if not shape_json_path.exists():
+        return {}
 
-    # TODO: change to use shape json
-    for val in input_dir.glob(f"*.{extension}"):
-        key = val.stem
-        stem = shape_json[key]
+    data = {}
+    shape_json = json.load(shape_json_path.open("r"))
 
-        numeric_type = stem["numeric_type"]
-        is_signed = stem["is_signed"]
-        width = stem["width"]
+    for (mem, form) in shape_json.items():
+        path = input_dir / f"{mem}.{extension}"
+        numeric_type = form["numeric_type"]
+        is_signed = form["is_signed"]
+        width = form["width"]
 
         if numeric_type == "bitnum":
-            arr = parse_dat_bitnum(val, width, is_signed)
+            arr = parse_dat_bitnum(path, width, is_signed)
         elif numeric_type == "fixed_point":
-            arr = parse_dat_fp(val, width, stem["int_width"], is_signed)
+            arr = parse_dat_fp(path, width, form["int_width"], is_signed)
         else:
             raise InvalidNumericType(numeric_type)
 
-        if shape_json.get(key) is not None and shape_json[key]["shape"] != [0]:
-            try:
-                arr = arr.reshape(tuple(shape_json[key]["shape"]))
-            except Exception:
-                raise Exception(f"Key '{key}' had invalid shape.")
-        data[key] = arr.tolist()
+        if form["shape"] == [0]:
+            raise Malformed(
+                "Data format shape",
+                (
+                    f"Memory '{mem}' has shape 0. "
+                    "This happens if the `data` field is set to `[]`. "
+                    "If you want the memory printed out in the output JSON, "
+                    "remove its definition from the input JSON file. "
+                    "If you want it to be printed in the output JSON, "
+                    f"set the data field of '{mem}' to all zeros with the "
+                    "correct dimensions."
+                ),
+            )
+
+        try:
+            arr = arr.reshape(tuple(form["shape"]))
+        except Exception:
+            raise Malformed("Data format shape", f"Memory '{mem}' had invalid shape.")
+
+        data[mem] = arr.tolist()
+
     return data

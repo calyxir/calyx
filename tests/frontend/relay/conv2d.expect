@@ -2,9 +2,9 @@ import "primitives/std.lib";
 import "primitives/bitnum/math.futil";
 component main() -> () {
   cells {
-    data = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
-    weight = std_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
-    x = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
+    @external(1) data = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
+    @external(1) weight = std_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
+    @external(1) x = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
     nn_conv2d_ = nn_conv2d();
   }
   wires {
