@@ -121,7 +121,7 @@ class VerilatorStage(Stage):
             """
             Convert .dat files back into a json and extract simulated cycles from log.
             """
-            # Simulated 91 cycles
+            # Look for ouput like: "Simulated 91 cycles"
             r = re.search(r"Simulated (\d+) cycles", simulated_output)
             data = {
                 "cycles": int(r.group(1)) if r is not None else 0,

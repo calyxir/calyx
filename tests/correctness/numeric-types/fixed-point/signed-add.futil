@@ -1,9 +1,9 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    res = std_mem_d1(4, 1, 1);
-    lhs = std_mem_d1(4, 1, 1);
-    rhs = std_mem_d1(4, 1, 1);
+    @external(1) res = std_mem_d1(4, 1, 1);
+    @external(1) lhs = std_mem_d1(4, 1, 1);
+    @external(1) rhs = std_mem_d1(4, 1, 1);
     add0 = fixed_p_std_sadd(4,2,2);
   }
   wires {

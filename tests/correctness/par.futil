@@ -2,9 +2,9 @@ import "primitives/core.futil";
 
 component main() -> () {
   cells {
-    a = std_mem_d1(32, 1, 1);
-    b = std_mem_d1(32, 1, 1);
-    c = std_mem_d1(32, 1, 1);
+    @external(1) a = std_mem_d1(32, 1, 1);
+    @external(1) b = std_mem_d1(32, 1, 1);
+    @external(1) c = std_mem_d1(32, 1, 1);
   }
 
   wires {

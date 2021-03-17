@@ -2,7 +2,7 @@ import "primitives/std.lib";
 
 component main() -> () {
   cells {
-    mem = std_mem_d1(32, 1, 1);
+    @external(1) mem = std_mem_d1(32, 1, 1);
     val = std_reg(32);
     add = std_add(32);
 

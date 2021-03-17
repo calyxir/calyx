@@ -7,7 +7,7 @@ or change how the program is compiled.
 Here is the syntax for attributes in different parts of the AST:
 #### **Component and Port Attributes**
 ```
-component main<"static"=10>(@go_port(1) go: 1) -> (@done_port(1) done: 1) {
+component main<"static"=10>(@go(1) go: 1) -> (@done(1) done: 1) {
  ...
 }
 ```
@@ -41,17 +41,23 @@ control {
 ## Meaning of Attributes
 ### `external(1)`
 The `external(1)` attribute has meaning when it is attached to a cell.
-When this attribute is present and the `-p external` pass is enabled,
-Calyx will externalize the ports of the cell into the component interface.
-This is useful for memories and for debugging signals.
-
-See [externalize](https://capra.cs.cornell.edu/docs/calyx/source/calyx/passes/struct.Externalize.html "Externalize Pass")
-for more information.
+It has two meanings:
+1. If the `externalize` pass is enabled, the cell is turned into an "external"
+   cell by exposing all its ports through the current component and rewriting
+   assignments to the use the ports. See the documentation on
+   See [externalize](https://capra.cs.cornell.edu/docs/calyx/source/calyx/passes/struct.Externalize.html "Externalize Pass") for more information.
+2. If the cell is a memory and has an `external` attribute on it, the verilog backend (`-b verilog`) generates code to read `<cell_name>.dat` to initialize the memory state and dumps out its final value after execution.
 
 ### `static(n)`
 Can be attached to components, groups, and control statements. They indicate how
 many cycles a component, group, or control statement will take to run and are used
 by `-p static-timing` to generate more efficient control FSMs.
+
+### `go(1)` and `done(1)`
+Used by the `infer-static-timing` pass to configure which ports are used like
+`go` and `done` signals.
+Along with the `static(n)` attribute, this allows the pass to calculate when
+a particular done signal of a primitive will be high.
 
 ### `share(1)`
 Can be attached to a component and indicates that a component can be shared
