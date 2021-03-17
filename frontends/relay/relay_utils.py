@@ -162,7 +162,8 @@ def get_memory(name: str, type: tvm.ir.Type) -> Cell:
 
     return Cell(
         CompVar(name),
-        NumDimsToCell[num_dims](*args)
+        NumDimsToCell[num_dims](*args),
+        is_external = True
     )
 
 
