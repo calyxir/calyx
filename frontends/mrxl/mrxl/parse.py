@@ -42,6 +42,7 @@ qual: "input" -> input | "output" -> output
 
 # Transform parse tree to AST.
 
+
 class ConstructAST(lark.Transformer):
     def decl(self, args):
         qual, name, typ = args
@@ -68,11 +69,11 @@ class ConstructAST(lark.Transformer):
         return ast.BinExpr(op.data, lhs, rhs)
 
     def litexpr(self, args):
-        value, = args
+        (value,) = args
         return ast.LitExpr(int(value))
 
     def varexpr(self, args):
-        name, = args
+        (name,) = args
         return ast.VarExpr(str(name))
 
     def type(self, args):

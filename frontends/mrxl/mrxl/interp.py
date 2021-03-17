@@ -11,8 +11,7 @@ ScalarEnv = Dict[str, Scalar]
 
 
 class InterpError(Exception):
-    """Interpretation failed unrecoverably.
-    """
+    """Interpretation failed unrecoverably."""
 
 
 def _dict_zip(d):
@@ -24,8 +23,7 @@ def _dict_zip(d):
 
 
 def interp_expr(expr: ast.Expr, env: ScalarEnv) -> Scalar:
-    """Interpret a MrXL expression to a scalar value.
-    """
+    """Interpret a MrXL expression to a scalar value."""
     if isinstance(expr, ast.LitExpr):
         return expr.value
     elif isinstance(expr, ast.VarExpr):
@@ -48,8 +46,7 @@ def interp_expr(expr: ast.Expr, env: ScalarEnv) -> Scalar:
 
 
 def interp_map(op: ast.Map, env: Env) -> Array:
-    """Run a map operation and produce a result array.
-    """
+    """Run a map operation and produce a result array."""
     map_data = {}
     for bind in op.bind:
         if len(bind.dest) != 1:
@@ -60,15 +57,11 @@ def interp_map(op: ast.Map, env: Env) -> Array:
             raise InterpError(f"source `{bind.src}` for map not found")
 
     # Compute the map.
-    return [
-        interp_expr(op.body, env)
-        for env in _dict_zip(map_data)
-    ]
+    return [interp_expr(op.body, env) for env in _dict_zip(map_data)]
 
 
 def interp_reduce(op: ast.Reduce, env: Env) -> Scalar:
-    """Run a map operation and produce a result scalar.
-    """
+    """Run a map operation and produce a result scalar."""
     if len(op.bind) != 1:
         raise InterpError("reduce needs only one bind")
     bind = op.bind[0]

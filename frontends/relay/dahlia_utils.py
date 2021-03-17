@@ -10,7 +10,7 @@ from relay_utils import DahliaFuncDef, get_dims
 
 # Starting index variable name
 # for Dahlia array iteration.
-CHARACTER_I = chr(ord('i'))
+CHARACTER_I = chr(ord("i"))
 
 
 def next_character(ch: chr, dir: int = 1) -> chr:
@@ -28,16 +28,16 @@ def emit_dahlia_params(fd: DahliaFuncDef) -> str:
     """
     cells = []
     for cell in fd.args + [fd.dest]:
-        cell_str = f'{cell.id.name}: {fd.data_type}'
+        cell_str = f"{cell.id.name}: {fd.data_type}"
 
         dims = get_dims(cell.comp)
         args = cell.comp.args
         for i in range(0, dims):
-            cell_str += f'[{args[i + 1]}]'
+            cell_str += f"[{args[i + 1]}]"
 
         cells.append(cell_str)
 
-    return ', '.join(cells)
+    return ", ".join(cells)
 
 
 def emit_dahlia_definition(fd: DahliaFuncDef, body: str) -> str:
@@ -46,9 +46,9 @@ def emit_dahlia_definition(fd: DahliaFuncDef, body: str) -> str:
     """
     params = emit_dahlia_params(fd)
     return block(
-        f'def {fd.function_id}({params}) =',
-        '\n'.join(body) if isinstance(body, tuple) else body,
-        sep=''
+        f"def {fd.function_id}({params}) =",
+        "\n".join(body) if isinstance(body, tuple) else body,
+        sep="",
     )
 
 
@@ -79,9 +79,7 @@ def emit_dahlia_loop(control_flow: Cell, body: str) -> str:
     for i in range(num_dims):
         size = args[i + 1]
         idx_size = args[i + 1 + num_dims]
-        headers.append(
-            f'for (let {var_name}: ubit<{idx_size}> = 0..{size})'
-        )
+        headers.append(f"for (let {var_name}: ubit<{idx_size}> = 0..{size})")
         var_name = next_character(var_name)
 
     headers.reverse()
@@ -89,7 +87,7 @@ def emit_dahlia_loop(control_flow: Cell, body: str) -> str:
     # Generate loop blocks.
     for i in range(num_dims):
         b = body if i == 0 else headers[i - 1]
-        headers[i] = block(headers[i], b, sep='')
+        headers[i] = block(headers[i], b, sep="")
     return headers[-1]
 
 
@@ -100,14 +98,14 @@ def dahlia_to_futil(dahlia_definitions: str) -> str:
     nor the empty `main` component.
     """
     with NamedTemporaryFile() as tf0, NamedTemporaryFile() as tf1:
-        tf0.write(bytes(dahlia_definitions, 'UTF-8'))
+        tf0.write(bytes(dahlia_definitions, "UTF-8"))
         tf0.seek(0), tf1.seek(0)
         command = f"""fud e --from dahlia {tf0.name} --to futil > {tf1.name} -q"""
         subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).communicate()
 
         components = tf1.read().decode()
         # Don't double-import the primitives library.
-        begin = components.find('component')
+        begin = components.find("component")
         # Don't import the empty main component.
-        end = components.find('component main() -> () {')
+        end = components.find("component main() -> () {")
         return components[begin:end]
