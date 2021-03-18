@@ -2,7 +2,7 @@
 * Implements the non-restoring square root algorithm's iterative
 * implementation (Figure 8): https://ieeexplore.ieee.org/document/563604
 */
-module std_sqrt (
+module sqrt (
     input  logic [31:0] in,
     input  logic        go,
     input  logic        clk,
@@ -87,7 +87,7 @@ module std_sqrt (
     always @(posedge clk) begin
       if (i == END && Q != $floor($sqrt(in)))
         $error(
-          "\nstd_sqrt: Computed and golden outputs do not match!\n",
+          "\nsqrt: Computed and golden outputs do not match!\n",
           "input: %0d\n", in,
           /* verilator lint_off REALCVT */
           "expected: %0d", $floor($sqrt(in)),
