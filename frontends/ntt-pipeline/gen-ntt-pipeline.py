@@ -164,7 +164,7 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
                 Not(Atom(CompPort(mod_pipe, "done"))),
             ),
             Connect(CompPort(mod_pipe, "done"), CompPort(A, "write_en")),
-            Connect(CompPort(mod_pipe, "out"), CompPort(A, "in")),
+            Connect(CompPort(mod_pipe, "out_remainder"), CompPort(A, "in")),
             Connect(CompPort(A, "done"), HolePort(group_name, "done")),
         ]
         return Group(group_name, connections)
@@ -233,7 +233,7 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
         mod_pipes = [
             Cell(
                 CompVar(f"mod_pipe{r}"),
-                stdlib.op("mod_pipe", input_bitwidth, signed=True),
+                stdlib.op("div_pipe", input_bitwidth, signed=True),
             )
             for r in range(n)
         ]
