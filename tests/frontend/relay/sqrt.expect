@@ -4,18 +4,18 @@ component main() -> () {
   cells {
     @external(1) x = std_mem_d4(32, 8, 8, 16, 64, 4, 4, 5, 7);
     @external(1) x1 = std_mem_d4(32, 8, 8, 16, 64, 4, 4, 5, 7);
-    sqrt_ = sqrt();
+    sqrt_8_8_16_64_ = sqrt_8_8_16_64();
   }
   wires {
 
   }
   control {
     seq {
-      invoke sqrt_(x0_0_0_0_read_data=x.read_data, x10_0_0_0_done=x1.done, x10_0_0_0_read_data=x1.read_data)(x0_0_0_0_addr0=x.addr0, x0_0_0_0_addr1=x.addr1, x0_0_0_0_addr2=x.addr2, x0_0_0_0_addr3=x.addr3, x10_0_0_0_write_data=x1.write_data, x10_0_0_0_write_en=x1.write_en, x10_0_0_0_addr0=x1.addr0, x10_0_0_0_addr1=x1.addr1, x10_0_0_0_addr2=x1.addr2, x10_0_0_0_addr3=x1.addr3);
+      invoke sqrt_8_8_16_64_(x0_0_0_0_read_data=x.read_data, x10_0_0_0_done=x1.done, x10_0_0_0_read_data=x1.read_data)(x0_0_0_0_addr0=x.addr0, x0_0_0_0_addr1=x.addr1, x0_0_0_0_addr2=x.addr2, x0_0_0_0_addr3=x.addr3, x10_0_0_0_write_data=x1.write_data, x10_0_0_0_write_en=x1.write_en, x10_0_0_0_addr0=x1.addr0, x10_0_0_0_addr1=x1.addr1, x10_0_0_0_addr2=x1.addr2, x10_0_0_0_addr3=x1.addr3);
     }
   }
 }
-component sqrt(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read_data: 32, x10_0_0_0_done: 1) -> (x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_addr0: 4, x0_0_0_0_addr1: 4, x0_0_0_0_addr2: 5, x0_0_0_0_addr3: 7, x10_0_0_0_write_data: 32, x10_0_0_0_write_en: 1, x10_0_0_0_addr0: 4, x10_0_0_0_addr1: 4, x10_0_0_0_addr2: 5, x10_0_0_0_addr3: 7) {
+component sqrt_8_8_16_64(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read_data: 32, x10_0_0_0_done: 1) -> (x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_addr0: 4, x0_0_0_0_addr1: 4, x0_0_0_0_addr2: 5, x0_0_0_0_addr3: 7, x10_0_0_0_write_data: 32, x10_0_0_0_write_en: 1, x10_0_0_0_addr0: 4, x10_0_0_0_addr1: 4, x10_0_0_0_addr2: 5, x10_0_0_0_addr3: 7) {
   cells {
     add0 = std_add(7);
     add1 = std_add(5);
@@ -41,7 +41,7 @@ component sqrt(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read_data: 32
     le1 = std_le(4);
     le2 = std_le(5);
     le3 = std_le(7);
-    std_sqrt0 = std_sqrt();
+    sqrt0 = sqrt();
     tmp_0 = std_reg(32);
     x_read0_0 = std_reg(32);
   }
@@ -87,7 +87,7 @@ component sqrt(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read_data: 32
       let3[done] = l0.done;
     }
     group let4 {
-      tmp_0.in = std_sqrt0.out;
+      tmp_0.in = sqrt0.out;
       tmp_0.write_en = 1'd1;
       let4[done] = tmp_0.done;
     }
@@ -153,7 +153,7 @@ component sqrt(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read_data: 32
                   while le3.out with cond3 {
                     seq {
                       upd0;
-                      invoke std_sqrt0(in=x_read0_0.out)();
+                      invoke sqrt0(in=x_read0_0.out)();
                       let4;
                       upd1;
                       upd2;

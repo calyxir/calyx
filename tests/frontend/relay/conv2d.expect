@@ -5,18 +5,18 @@ component main() -> () {
     @external(1) data = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
     @external(1) weight = std_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
     @external(1) x = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
-    nn_conv2d_ = nn_conv2d();
+    conv2d_5_512_14_14_ = conv2d_5_512_14_14();
   }
   wires {
 
   }
   control {
     seq {
-      invoke nn_conv2d_(data0_0_0_0_read_data=data.read_data, weight0_0_0_0_read_data=weight.read_data, x0_0_0_0_done=x.done, x0_0_0_0_read_data=x.read_data)(data0_0_0_0_addr0=data.addr0, data0_0_0_0_addr1=data.addr1, data0_0_0_0_addr2=data.addr2, data0_0_0_0_addr3=data.addr3, weight0_0_0_0_addr0=weight.addr0, weight0_0_0_0_addr1=weight.addr1, weight0_0_0_0_addr2=weight.addr2, weight0_0_0_0_addr3=weight.addr3, x0_0_0_0_write_data=x.write_data, x0_0_0_0_write_en=x.write_en, x0_0_0_0_addr0=x.addr0, x0_0_0_0_addr1=x.addr1, x0_0_0_0_addr2=x.addr2, x0_0_0_0_addr3=x.addr3);
+      invoke conv2d_5_512_14_14_(data0_0_0_0_read_data=data.read_data, weight0_0_0_0_read_data=weight.read_data, x0_0_0_0_done=x.done, x0_0_0_0_read_data=x.read_data)(data0_0_0_0_addr0=data.addr0, data0_0_0_0_addr1=data.addr1, data0_0_0_0_addr2=data.addr2, data0_0_0_0_addr3=data.addr3, weight0_0_0_0_addr0=weight.addr0, weight0_0_0_0_addr1=weight.addr1, weight0_0_0_0_addr2=weight.addr2, weight0_0_0_0_addr3=weight.addr3, x0_0_0_0_write_data=x.write_data, x0_0_0_0_write_en=x.write_en, x0_0_0_0_addr0=x.addr0, x0_0_0_0_addr1=x.addr1, x0_0_0_0_addr2=x.addr2, x0_0_0_0_addr3=x.addr3);
     }
   }
 }
-component nn_conv2d(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, weight0_0_0_0_read_data: 32, weight0_0_0_0_done: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1) -> (data0_0_0_0_write_data: 32, data0_0_0_0_write_en: 1, data0_0_0_0_addr0: 3, data0_0_0_0_addr1: 10, data0_0_0_0_addr2: 4, data0_0_0_0_addr3: 4, weight0_0_0_0_write_data: 32, weight0_0_0_0_write_en: 1, weight0_0_0_0_addr0: 10, weight0_0_0_0_addr1: 10, weight0_0_0_0_addr2: 2, weight0_0_0_0_addr3: 2, x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_addr0: 3, x0_0_0_0_addr1: 10, x0_0_0_0_addr2: 4, x0_0_0_0_addr3: 4) {
+component conv2d_5_512_14_14(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, weight0_0_0_0_read_data: 32, weight0_0_0_0_done: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1) -> (data0_0_0_0_write_data: 32, data0_0_0_0_write_en: 1, data0_0_0_0_addr0: 3, data0_0_0_0_addr1: 10, data0_0_0_0_addr2: 4, data0_0_0_0_addr3: 4, weight0_0_0_0_write_data: 32, weight0_0_0_0_write_en: 1, weight0_0_0_0_addr0: 10, weight0_0_0_0_addr1: 10, weight0_0_0_0_addr2: 2, weight0_0_0_0_addr3: 2, x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_addr0: 3, x0_0_0_0_addr1: 10, x0_0_0_0_addr2: 4, x0_0_0_0_addr3: 4) {
   cells {
     add0 = std_add(32);
     add1 = std_add(32);
