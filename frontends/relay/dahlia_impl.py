@@ -2,8 +2,6 @@ from typing import List
 from futil.ast import *
 from dahlia_utils import *
 
-import re
-
 
 ####################################################################################################
 ################## Dahlia Implementations for Relay Call Nodes #####################################
@@ -197,11 +195,11 @@ def max_pool2d(fd: DahliaFuncDef) -> str:
     layout = fd.attributes.get_str("layout")
     ceil_mode = fd.attributes.get_int("ceil_mode")
     assert (
-        layout == "NCHW"
+            layout == "NCHW"
     ), f"""Layout \'{layout}\' is not currently supported for
         nn.max_pool2d; please use `NCHW`"""
     assert (
-        ceil_mode == False
+            ceil_mode == False
     ), "`ceil_mode` is not currently supported for nn.max_pool2d"
 
     args = res.comp.args
@@ -440,7 +438,7 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     for func_def in func_defs:
         id = func_def.function_id
         assert (
-            id in RelayCallNodes or id in BinaryOps
+                id in RelayCallNodes or id in BinaryOps
         ), f"{id} not supported for lowering."
 
         # If the function is a binary operation, use broadcasting.
