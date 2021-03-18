@@ -1,12 +1,13 @@
 /* verilator lint_off WIDTH */
-module std_mod_pipe #(
+module std_div_pipe #(
     parameter width = 32
 ) (
     input                    clk,
     input                    go,
     input        [width-1:0] left,
     input        [width-1:0] right,
-    output logic [width-1:0] out,
+    output logic [width-1:0] out_remainder,
+    output logic [width-1:0] out_quotient,
     output logic             done
 );
 
@@ -23,9 +24,11 @@ module std_mod_pipe #(
     if (!go) begin
       running <= 0;
       done <= 0;
-      out <= 0;
+      out_remainder <= 0;
+      out_quotient <= 0;
     end else if (start && left == 0) begin
-      out <= 0;
+      out_remainder <= 0;
+      out_quotient <= 0;
       done <= 1;
     end
 
@@ -38,7 +41,8 @@ module std_mod_pipe #(
     end else if (finished) begin
       running <= 0;
       done <= 1;
-      out <= dividend;
+      out_remainder <= dividend;
+      out_quotient <= quotient;
     end else begin
       if (divisor <= dividend) begin
         dividend <= dividend - divisor;
@@ -52,13 +56,21 @@ module std_mod_pipe #(
   `ifdef VERILATOR
     // Simulation self test against unsynthesizable implementation.
     always @(posedge clk) begin
-      if (finished && dividend != $unsigned(((left % right) + right) % right))
+      if (finished && dividend != $unsigned(left % right))
         $error(
-          "\nstd_mod_pipe: Computed and golden outputs do not match!\n",
+          "\nstd_div_pipe (Remainder): Computed and golden outputs do not match!\n",
           "left: %0d", $unsigned(left),
           "  right: %0d\n", $unsigned(right),
-          "expected: %0d", $unsigned(((left % right) + right) % right),
-          "  computed: %0d", $unsigned(out)
+          "expected: %0d", $unsigned(left % right),
+          "  computed: %0d", $unsigned(dividend)
+        );
+      if (finished && quotient != $unsigned(left / right))
+        $error(
+          "\nstd_div_pipe (Quotient): Computed and golden outputs do not match!\n",
+          "left: %0d", $unsigned(left),
+          "  right: %0d\n", $unsigned(right),
+          "expected: %0d", $unsigned(left / right),
+          "  computed: %0d", $unsigned(quotient)
         );
     end
   `endif
@@ -101,100 +113,7 @@ module std_mult_pipe #(
   end
 endmodule
 
-/* verilator lint_off WIDTH */
-module std_div_pipe #(
-    parameter width = 32
-) (
-    input                  clk,
-    input                  go,
-    input      [width-1:0] left,
-    input      [width-1:0] right,
-    output reg [width-1:0] out,
-    output reg             done
-);
-
-  wire start = go && !running;
-
-  reg [width-1:0] dividend;
-  reg [(width-1)*2:0] divisor;
-  reg [width-1:0] quotient;
-  reg [width-1:0] quotient_msk;
-  reg running;
-
-  always @(posedge clk) begin
-    if (!go) begin
-      running <= 0;
-      done <= 0;
-      out <= 0;
-    end else if (start && left == 0) begin
-      out <= 0;
-      done <= 1;
-    end
-    if (start) begin
-      running <= 1;
-      dividend <= left;
-      divisor <= right << width - 1;
-      quotient <= 0;
-      quotient_msk <= 1 << width - 1;
-    end else if (!quotient_msk && running) begin
-      running <= 0;
-      done <= 1;
-      out <= quotient;
-    end else begin
-      if (divisor <= dividend) begin
-        dividend <= dividend - divisor;
-        quotient <= quotient | quotient_msk;
-      end
-      divisor <= divisor >> 1;
-      quotient_msk <= quotient_msk >> 1;
-    end
-  end
-endmodule
-
 // ===============Signed operations that wrap unsigned ones ===============
-
-module std_smod_pipe #(
-    parameter width = 32
-) (
-    input                     clk,
-    input                     go,
-    input  signed [width-1:0] left,
-    input  signed [width-1:0] right,
-    output logic  [width-1:0] out,
-    output logic              done
-);
-
-  logic signed [width-1:0] left_abs;
-  logic signed [width-1:0] comp_out;
-
-  assign left_abs = left[width-1] == 1 ? -left : left;
-  assign out = left[width-1] == 1 ? $signed(right - comp_out) : comp_out;
-
-  std_mod_pipe #(
-    .width(width)
-  ) comp (
-    .clk(clk),
-    .done(done),
-    .go(go),
-    .left(left_abs),
-    .right(right),
-    .out(comp_out)
-  );
-
-  `ifdef VERILATOR
-    // Simulation self test against unsynthesizable implementation.
-    always @(posedge clk) begin
-      if (done && out != $signed(((left % right) + right) % right))
-        $error(
-          "\nstd_smod_pipe: Computed and golden outputs do not match!\n",
-          "left: %0d", left,
-          "  right: %0d\n", right,
-          "expected: %0d", $signed(((left % right) + right) % right),
-          "  computed: %0d", $signed(out)
-        );
-    end
-  `endif
-endmodule
 
 /* verilator lint_off WIDTH */
 module std_sdiv_pipe #(
@@ -204,18 +123,21 @@ module std_sdiv_pipe #(
     input                     go,
     input  signed [width-1:0] left,
     input  signed [width-1:0] right,
-    output logic  [width-1:0] out,
+    output logic  [width-1:0] out_quotient,
+    output logic  [width-1:0] out_remainder,
     output logic              done
 );
 
   logic signed [width-1:0] left_abs;
   logic signed [width-1:0] right_abs;
-  logic signed [width-1:0] comp_out;
+  logic signed [width-1:0] comp_out_q;
+  logic signed [width-1:0] comp_out_r;
 
   assign right_abs = right[width-1] == 1 ? -right : right;
   assign left_abs = left[width-1] == 1 ? -left : left;
-  assign out =
-    (left[width-1] == 1) ^ (right[width-1] == 1) ? -comp_out : comp_out;
+  assign out_quotient =
+    (left[width-1] == 1) ^ (right[width-1] == 1) ? -comp_out_q : comp_out_q;
+  assign out_remainder = left[width-1] == 1 ? $signed(right - comp_out_r) : comp_out_r;
 
   std_div_pipe #(
     .width(width)
@@ -225,19 +147,28 @@ module std_sdiv_pipe #(
     .go(go),
     .left(left_abs),
     .right(right_abs),
-    .out(comp_out)
+    .out_quotient(comp_out_q),
+    .out_remainder(comp_out_r)
   );
 
   `ifdef VERILATOR
     // Simulation self test against unsynthesizable implementation.
     always @(posedge clk) begin
-      if (done && out != $signed(left / right))
+      if (done && out_quotient != $signed(left / right))
         $error(
-          "\nstd_sdiv_pipe: Computed and golden outputs do not match!\n",
+          "\nstd_sdiv_pipe (Quotient): Computed and golden outputs do not match!\n",
           "left: %0d", left,
           "  right: %0d\n", right,
           "expected: %0d", $signed(left / right),
-          "  computed: %0d", $signed(out)
+          "  computed: %0d", $signed(out_quotient)
+        );
+      if (done && out_remainder != $signed(((left % right) + right) % right))
+        $error(
+          "\nstd_sdiv_pipe (Remainder): Computed and golden outputs do not match!\n",
+          "left: %0d", left,
+          "  right: %0d\n", right,
+          "expected: %0d", $signed(((left % right) + right) % right),
+          "  computed: %0d", $signed(out_remainder)
         );
     end
   `endif
