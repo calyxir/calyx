@@ -80,15 +80,12 @@ class Relay2Futil(ExprFunctor):
             if prefix is not None:
                 func_name = func_name[prefix + 1:]
 
-            # Append `relay` prefix to avoid name collisions
-            # within Calyx, e.g. `relay_sqrt`.
-            dims = "_".join(
-                [
-                    str(i) for i in
-                    get_dimension_sizes(dest.comp)
-                ]
-            )
-            comp_name = f"relay_{func_name}_{dims}"
+            dims = "_".join([
+                str(i) for i in
+                get_dimension_sizes(dest.comp)
+            ])
+            # Append arity to Relay function.
+            comp_name = f"{func_name}_{dims}"
 
             comp_id = self.id(comp_name)
             comp_decl = CompVar(f"{comp_id}_")

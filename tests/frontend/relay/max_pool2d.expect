@@ -4,18 +4,18 @@ component main() -> () {
   cells {
     @external(1) data = std_mem_d4(32, 2, 2, 4, 4, 2, 2, 3, 3);
     @external(1) result = std_mem_d4(32, 2, 2, 2, 2, 2, 2, 2, 2);
-    relay_max_pool2d_2_2_2_2_ = relay_max_pool2d_2_2_2_2();
+    max_pool2d_2_2_2_2_ = max_pool2d_2_2_2_2();
   }
   wires {
 
   }
   control {
     seq {
-      invoke relay_max_pool2d_2_2_2_2_(data0_0_0_0_read_data=data.read_data, result0_0_0_0_done=result.done, result0_0_0_0_read_data=result.read_data)(data0_0_0_0_addr0=data.addr0, data0_0_0_0_addr1=data.addr1, data0_0_0_0_addr2=data.addr2, data0_0_0_0_addr3=data.addr3, result0_0_0_0_write_data=result.write_data, result0_0_0_0_write_en=result.write_en, result0_0_0_0_addr0=result.addr0, result0_0_0_0_addr1=result.addr1, result0_0_0_0_addr2=result.addr2, result0_0_0_0_addr3=result.addr3);
+      invoke max_pool2d_2_2_2_2_(data0_0_0_0_read_data=data.read_data, result0_0_0_0_done=result.done, result0_0_0_0_read_data=result.read_data)(data0_0_0_0_addr0=data.addr0, data0_0_0_0_addr1=data.addr1, data0_0_0_0_addr2=data.addr2, data0_0_0_0_addr3=data.addr3, result0_0_0_0_write_data=result.write_data, result0_0_0_0_write_en=result.write_en, result0_0_0_0_addr0=result.addr0, result0_0_0_0_addr1=result.addr1, result0_0_0_0_addr2=result.addr2, result0_0_0_0_addr3=result.addr3);
     }
   }
 }
-component relay_max_pool2d_2_2_2_2(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, result0_0_0_0_read_data: 32, result0_0_0_0_done: 1) -> (data0_0_0_0_write_data: 32, data0_0_0_0_write_en: 1, data0_0_0_0_addr0: 2, data0_0_0_0_addr1: 2, data0_0_0_0_addr2: 3, data0_0_0_0_addr3: 3, result0_0_0_0_write_data: 32, result0_0_0_0_write_en: 1, result0_0_0_0_addr0: 2, result0_0_0_0_addr1: 2, result0_0_0_0_addr2: 2, result0_0_0_0_addr3: 2) {
+component max_pool2d_2_2_2_2(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, result0_0_0_0_read_data: 32, result0_0_0_0_done: 1) -> (data0_0_0_0_write_data: 32, data0_0_0_0_write_en: 1, data0_0_0_0_addr0: 2, data0_0_0_0_addr1: 2, data0_0_0_0_addr2: 3, data0_0_0_0_addr3: 3, result0_0_0_0_write_data: 32, result0_0_0_0_write_en: 1, result0_0_0_0_addr0: 2, result0_0_0_0_addr1: 2, result0_0_0_0_addr2: 2, result0_0_0_0_addr3: 2) {
   cells {
     add0 = std_add(32);
     add1 = std_add(32);
