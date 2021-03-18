@@ -5,18 +5,18 @@ component main() -> () {
     @external(1) x = std_mem_d1(32, 1, 1);
     x1 = std_const(32, 0);
     @external(1) x2 = std_mem_d1(32, 1, 1);
-    multiply_ = multiply();
+    relay_multiply_1_ = relay_multiply_1();
   }
   wires {
 
   }
   control {
     seq {
-      invoke multiply_(x0_read_data=x.read_data, x1=x1.out, x20_done=x2.done, x20_read_data=x2.read_data)(x0_addr0=x.addr0, x20_write_data=x2.write_data, x20_write_en=x2.write_en, x20_addr0=x2.addr0);
+      invoke relay_multiply_1_(x0_read_data=x.read_data, x1=x1.out, x20_done=x2.done, x20_read_data=x2.read_data)(x0_addr0=x.addr0, x20_write_data=x2.write_data, x20_write_en=x2.write_en, x20_addr0=x2.addr0);
     }
   }
 }
-component multiply(x0_read_data: 32, x0_done: 1, x1: 32, x20_read_data: 32, x20_done: 1) -> (x0_write_data: 32, x0_write_en: 1, x0_addr0: 1, x20_write_data: 32, x20_write_en: 1, x20_addr0: 1) {
+component relay_multiply_1(x0_read_data: 32, x0_done: 1, x1: 32, x20_read_data: 32, x20_done: 1) -> (x0_write_data: 32, x0_write_en: 1, x0_addr0: 1, x20_write_data: 32, x20_write_en: 1, x20_addr0: 1) {
   cells {
     add0 = std_add(1);
     bin_read0_0 = std_reg(32);

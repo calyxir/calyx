@@ -72,12 +72,25 @@ class Relay2Futil(ExprFunctor):
             # 2. Component declaration for the invoked component.
             # 3. `DahliaFuncDef` to generate the Relay call component.
 
-            # Function names may have a namespace
-            # prepended, e.g. `nn.bias_add`. We want to
-            # replace the periods, to get `nn_bias_add`.
-            func_name = (value.op.name).replace(".", "_")
+            func_name = value.op.name
+            # Function names may have a Relay
+            # namespace prepended, e.g. `nn.bias_add`.
+            # We want to remove these.
+            prefix = func_name.find('.')
+            if prefix is not None:
+                func_name = func_name[prefix + 1:]
 
-            comp_id = self.id(func_name)
+            # Append `relay` prefix to avoid name collisions
+            # within Calyx, e.g. `relay_sqrt`.
+            dims = "_".join(
+                [
+                    str(i) for i in
+                    get_dimension_sizes(dest.comp)
+                ]
+            )
+            comp_name = f"relay_{func_name}_{dims}"
+
+            comp_id = self.id(comp_name)
             comp_decl = CompVar(f"{comp_id}_")
             self.id_to_cell[comp_id] = Cell(comp_decl, CompInst(comp_id, []))
 
@@ -89,6 +102,7 @@ class Relay2Futil(ExprFunctor):
             self.func_defs.append(
                 DahliaFuncDef(
                     function_id=func_name,
+                    component_name=comp_name,
                     dest=dest,
                     args=value.args,
                     attributes=value.attrs,

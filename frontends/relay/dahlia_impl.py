@@ -2,6 +2,8 @@ from typing import List
 from futil.ast import *
 from dahlia_utils import *
 
+import re
+
 
 ####################################################################################################
 ################## Dahlia Implementations for Relay Call Nodes #####################################
@@ -410,14 +412,14 @@ def softmax(fd: DahliaFuncDef) -> str:
 RelayCallNodes = {
     "expand_dims": expand_dims,
     "negative": negative,
-    "nn_batch_flatten": batch_flatten,
-    "nn_batch_matmul": batch_matmul,
-    "nn_bias_add": bias_add,
-    "nn_conv2d": conv2d,
-    "nn_dense": dense,
-    "nn_max_pool2d": max_pool2d,
-    "nn_relu": relu,
-    "nn_softmax": softmax,
+    "batch_flatten": batch_flatten,
+    "batch_matmul": batch_matmul,
+    "bias_add": bias_add,
+    "conv2d": conv2d,
+    "dense": dense,
+    "max_pool2d": max_pool2d,
+    "relu": relu,
+    "softmax": softmax,
     "sqrt": sqrt,
 }
 
@@ -455,4 +457,6 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
         }}"""
     ]
 
-    return dahlia_to_futil("\n".join(imports + dahlia_definitions))
+    return dahlia_to_futil(
+        "\n".join(imports + dahlia_definitions)
+    )

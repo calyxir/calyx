@@ -4,18 +4,18 @@ component main() -> () {
   cells {
     @external(1) x = std_mem_d1(32, 4, 3);
     @external(1) x1 = std_mem_d1(32, 4, 3);
-    negative_ = negative();
+    relay_negative_4_ = relay_negative_4();
   }
   wires {
 
   }
   control {
     seq {
-      invoke negative_(x0_read_data=x.read_data, x10_done=x1.done, x10_read_data=x1.read_data)(x0_addr0=x.addr0, x10_write_data=x1.write_data, x10_write_en=x1.write_en, x10_addr0=x1.addr0);
+      invoke relay_negative_4_(x0_read_data=x.read_data, x10_done=x1.done, x10_read_data=x1.read_data)(x0_addr0=x.addr0, x10_write_data=x1.write_data, x10_write_en=x1.write_en, x10_addr0=x1.addr0);
     }
   }
 }
-component negative(x0_read_data: 32, x0_done: 1, x10_read_data: 32, x10_done: 1) -> (x0_write_data: 32, x0_write_en: 1, x0_addr0: 3, x10_write_data: 32, x10_write_en: 1, x10_addr0: 3) {
+component relay_negative_4(x0_read_data: 32, x0_done: 1, x10_read_data: 32, x10_done: 1) -> (x0_write_data: 32, x0_write_en: 1, x0_addr0: 3, x10_write_data: 32, x10_write_en: 1, x10_addr0: 3) {
   cells {
     add0 = std_add(3);
     const0 = std_const(3,0);

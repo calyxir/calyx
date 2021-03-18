@@ -4,18 +4,18 @@ component main() -> () {
   cells {
     @external(1) x = std_mem_d3(32, 1, 2, 2, 1, 2, 2);
     @external(1) x1 = std_mem_d2(32, 1, 4, 1, 3);
-    nn_batch_flatten_ = nn_batch_flatten();
+    relay_batch_flatten_1_4_ = relay_batch_flatten_1_4();
   }
   wires {
 
   }
   control {
     seq {
-      invoke nn_batch_flatten_(x0_0_0_read_data=x.read_data, x10_0_done=x1.done, x10_0_read_data=x1.read_data)(x0_0_0_addr0=x.addr0, x0_0_0_addr1=x.addr1, x0_0_0_addr2=x.addr2, x10_0_write_data=x1.write_data, x10_0_write_en=x1.write_en, x10_0_addr0=x1.addr0, x10_0_addr1=x1.addr1);
+      invoke relay_batch_flatten_1_4_(x0_0_0_read_data=x.read_data, x10_0_done=x1.done, x10_0_read_data=x1.read_data)(x0_0_0_addr0=x.addr0, x0_0_0_addr1=x.addr1, x0_0_0_addr2=x.addr2, x10_0_write_data=x1.write_data, x10_0_write_en=x1.write_en, x10_0_addr0=x1.addr0, x10_0_addr1=x1.addr1);
     }
   }
 }
-component nn_batch_flatten(x0_0_0_read_data: 32, x0_0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_0_write_data: 32, x0_0_0_write_en: 1, x0_0_0_addr0: 1, x0_0_0_addr1: 2, x0_0_0_addr2: 2, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 3) {
+component relay_batch_flatten_1_4(x0_0_0_read_data: 32, x0_0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_0_write_data: 32, x0_0_0_write_en: 1, x0_0_0_addr0: 1, x0_0_0_addr1: 2, x0_0_0_addr2: 2, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 3) {
   cells {
     add0 = std_add(2);
     add1 = std_add(2);

@@ -5,18 +5,18 @@ component main() -> () {
     @external(1) a = std_mem_d3(32, 4, 7, 5, 3, 3, 3);
     @external(1) b = std_mem_d3(32, 4, 7, 5, 3, 3, 3);
     @external(1) x = std_mem_d3(32, 4, 7, 7, 3, 3, 3);
-    nn_batch_matmul_ = nn_batch_matmul();
+    relay_batch_matmul_4_7_7_ = relay_batch_matmul_4_7_7();
   }
   wires {
 
   }
   control {
     seq {
-      invoke nn_batch_matmul_(a0_0_0_read_data=a.read_data, b0_0_0_read_data=b.read_data, x0_0_0_done=x.done, x0_0_0_read_data=x.read_data)(a0_0_0_addr0=a.addr0, a0_0_0_addr1=a.addr1, a0_0_0_addr2=a.addr2, b0_0_0_addr0=b.addr0, b0_0_0_addr1=b.addr1, b0_0_0_addr2=b.addr2, x0_0_0_write_data=x.write_data, x0_0_0_write_en=x.write_en, x0_0_0_addr0=x.addr0, x0_0_0_addr1=x.addr1, x0_0_0_addr2=x.addr2);
+      invoke relay_batch_matmul_4_7_7_(a0_0_0_read_data=a.read_data, b0_0_0_read_data=b.read_data, x0_0_0_done=x.done, x0_0_0_read_data=x.read_data)(a0_0_0_addr0=a.addr0, a0_0_0_addr1=a.addr1, a0_0_0_addr2=a.addr2, b0_0_0_addr0=b.addr0, b0_0_0_addr1=b.addr1, b0_0_0_addr2=b.addr2, x0_0_0_write_data=x.write_data, x0_0_0_write_en=x.write_en, x0_0_0_addr0=x.addr0, x0_0_0_addr1=x.addr1, x0_0_0_addr2=x.addr2);
     }
   }
 }
-component nn_batch_matmul(a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_data: 32, b0_0_0_done: 1, x0_0_0_read_data: 32, x0_0_0_done: 1) -> (a0_0_0_write_data: 32, a0_0_0_write_en: 1, a0_0_0_addr0: 3, a0_0_0_addr1: 3, a0_0_0_addr2: 3, b0_0_0_write_data: 32, b0_0_0_write_en: 1, b0_0_0_addr0: 3, b0_0_0_addr1: 3, b0_0_0_addr2: 3, x0_0_0_write_data: 32, x0_0_0_write_en: 1, x0_0_0_addr0: 3, x0_0_0_addr1: 3, x0_0_0_addr2: 3) {
+component relay_batch_matmul_4_7_7(a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_data: 32, b0_0_0_done: 1, x0_0_0_read_data: 32, x0_0_0_done: 1) -> (a0_0_0_write_data: 32, a0_0_0_write_en: 1, a0_0_0_addr0: 3, a0_0_0_addr1: 3, a0_0_0_addr2: 3, b0_0_0_write_data: 32, b0_0_0_write_en: 1, b0_0_0_addr0: 3, b0_0_0_addr1: 3, b0_0_0_addr2: 3, x0_0_0_write_data: 32, x0_0_0_write_en: 1, x0_0_0_addr0: 3, x0_0_0_addr1: 3, x0_0_0_addr2: 3) {
   cells {
     a_read0_0 = std_reg(32);
     add0 = std_add(3);

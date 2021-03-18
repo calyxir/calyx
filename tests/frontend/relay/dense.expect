@@ -5,18 +5,18 @@ component main() -> () {
     @external(1) x = std_mem_d2(32, 1, 4096, 1, 13);
     @external(1) y = std_mem_d2(32, 10, 4096, 4, 13);
     @external(1) x1 = std_mem_d2(32, 1, 10, 1, 4);
-    nn_dense_ = nn_dense();
+    relay_dense_1_10_ = relay_dense_1_10();
   }
   wires {
 
   }
   control {
     seq {
-      invoke nn_dense_(x0_0_read_data=x.read_data, y0_0_read_data=y.read_data, x10_0_done=x1.done, x10_0_read_data=x1.read_data)(x0_0_addr0=x.addr0, x0_0_addr1=x.addr1, y0_0_addr0=y.addr0, y0_0_addr1=y.addr1, x10_0_write_data=x1.write_data, x10_0_write_en=x1.write_en, x10_0_addr0=x1.addr0, x10_0_addr1=x1.addr1);
+      invoke relay_dense_1_10_(x0_0_read_data=x.read_data, y0_0_read_data=y.read_data, x10_0_done=x1.done, x10_0_read_data=x1.read_data)(x0_0_addr0=x.addr0, x0_0_addr1=x.addr1, y0_0_addr0=y.addr0, y0_0_addr1=y.addr1, x10_0_write_data=x1.write_data, x10_0_write_en=x1.write_en, x10_0_addr0=x1.addr0, x10_0_addr1=x1.addr1);
     }
   }
 }
-component nn_dense(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 1, x0_0_addr1: 13, y0_0_write_data: 32, y0_0_write_en: 1, y0_0_addr0: 4, y0_0_addr1: 13, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 4) {
+component relay_dense_1_10(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 1, x0_0_addr1: 13, y0_0_write_data: 32, y0_0_write_en: 1, y0_0_addr0: 4, y0_0_addr1: 13, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 4) {
   cells {
     add0 = std_add(13);
     add1 = std_add(4);
