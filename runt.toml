@@ -177,6 +177,13 @@ fud e {} --to dat -s verilog.data examples/tutorial/data.json -q
 """
 
 [[tests]]
+name = "memory by reference tutorial"
+paths = ["examples/futil/memory-by-reference/*.futil"]
+cmd = """
+fud e {} --to dat -s verilog.data {}.data -q
+"""
+
+[[tests]]
 name = "dahlia examples"
 paths = ["examples/dahlia/*.fuse"]
 cmd = """
