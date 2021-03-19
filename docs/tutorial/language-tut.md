@@ -81,6 +81,8 @@ Assignments at the top level in the `wires` section, like these, are "continuous
 They always happen, without any need for `control` statements to orchestrate them.
 We'll see later how to organize assignments into groups.
 
+> The complete program for this section is available under [examples/tutorial/language-tutorial-mem.futil](https://github.com/cucapra/calyx/blob/master/examples/tutorial/language-tutorial-mem.futil).
+
 ## Compile & Run
 
 We can almost run this program!
@@ -145,6 +147,8 @@ If you're curious to see how the Calyx compiler lowers this program to a Verilog
 
 Notably, you'll see `control {}` in the output, meaning that the compiler has eliminated all the control statements and replaced them with continuous assignments in `wires`.
 
+> The complete program for this section is available under [examples/tutorial/language-tutorial-control.futil](https://github.com/cucapra/calyx/blob/master/examples/tutorial/language-tutorial-control.futil).
+
 
 ## Add an Adder
 
@@ -194,6 +198,7 @@ We will need a `seq` statement to say we want to the three steps sequentially:
 Try running this program again.
 The memory's initial value was 10, and its final value after execution should be 14.
 
+> The complete program for this section is available under [examples/tutorial/language-tutorial-compute.futil](https://github.com/cucapra/calyx/blob/master/examples/tutorial/language-tutorial-compute.futil).
 
 ## Iterate
 
@@ -252,6 +257,8 @@ By comparing with 8, we should now be running our loop body 8 times.
 
 Try running this program again.
 The output should be the result of adding 4 to the initial value 8 times, so 10 + 8 × 4.
+
+> The complete program for this section is available under [examples/tutorial/language-tutorial-iterate.futil](https://github.com/cucapra/calyx/blob/master/examples/tutorial/language-tutorial-iterate.futil).
 
 [ext-attr]: ../../lang/attributes.html#external1
 [json]: https://www.json.org/
