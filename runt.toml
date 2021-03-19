@@ -174,7 +174,8 @@ name = "Simulation examples"
 paths = [
   "examples/tutorial/*.futil",
   "examples/dahlia/*.fuse",
-  "examples/futil/memory-by-reference/*.futil"]
+  "examples/futil/memory-by-reference/*.futil"
+]
 cmd = """
 fud e {} --to dat -s verilog.data {}.data -q
 """
