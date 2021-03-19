@@ -33,7 +33,7 @@ component main() -> () {
       bin_read0_0.in = slice0.out;
       bin_read0_0.write_en = 1'd1;
       let2[done] = bin_read0_0.done;
-      slice0.in = div_pipe0.out;
+      slice0.in = div_pipe0.out_quotient;
       div_pipe0.left = a_0.out;
       div_pipe0.right = b_0.out;
       div_pipe0.go = !div_pipe0.done ? 1'd1;

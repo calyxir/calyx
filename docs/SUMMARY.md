@@ -9,6 +9,7 @@
   - [Runt](./tools/runt.md)
 - [Language Tutorial](./tutorial/language-tut.md)
   - [Multi-Component Designs](./lang/multi-component.md)
+  - [Passing Memories by Reference](./lang/memories-by-reference.md)  
   - [Attributes](./lang/attributes.md)
 - [Emitting Calyx from Python](./calyx-py.md)
 - [Frontend Tutorial](./tutorial/frontend-tut.md)

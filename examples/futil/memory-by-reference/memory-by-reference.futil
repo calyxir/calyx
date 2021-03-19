@@ -1,0 +1,54 @@
+import "primitives/std.lib";
+
+//// ANCHOR: component
+//// ANCHOR: component_ports
+component add_one(x_done: 1, x_read_data: 32) ->
+                 (x_write_data: 32, x_write_en: 1, x_addr0: 1) {
+//// ANCHOR_END: component_ports
+  cells {
+    one = std_const(32, 1);
+    add = std_add(32);
+    tmp_reg = std_reg(32);
+  }
+  wires {
+    //// ANCHOR: wires
+    group read_from_x {
+      x_addr0 = 1'd0;            // Set address port to zero.
+      tmp_reg.in = x_read_data;  // Read the value at address zero.
+      tmp_reg.write_en = 1'd1;
+      read_from_x[done] = tmp_reg.done;
+    }
+    group write_to_x {
+      x_addr0 = 1'd0;            // Set address port to zero.
+      add.left = one.out;
+      add.right = tmp_reg.out;   // Saved value from previous read.
+
+      x_write_data = add.out;    // Write value to address zero.
+      x_write_en = 1'd1;         // Set write enable signal to high.
+
+      write_to_x[done] = x_done; // The group is done when the write is complete.
+    }
+    //// ANCHOR_END: wires
+  }
+  control {
+    seq { read_from_x; write_to_x; }
+  }
+}
+//// ANCHOR_END: component
+
+//// ANCHOR: main
+component main() -> () {
+  cells {
+    add_one0 = add_one();
+    @external(1) x = std_mem_d1(32, 1, 1);
+  }
+  wires {
+  }
+  //// ANCHOR: invoke
+  control {
+    invoke add_one0(x_done = x.done, x_read_data = x.read_data)
+                   (x_write_data = x.write_data, x_write_en = x.write_en, x_addr0 = x.addr0);
+  }
+  //// ANCHOR_END: invoke
+}
+//// ANCHOR_END: main
