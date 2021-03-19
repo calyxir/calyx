@@ -46,7 +46,7 @@ def emit_dahlia_definition(fd: DahliaFuncDef, body: str) -> str:
     """
     params = emit_dahlia_params(fd)
     return block(
-        f"def {fd.function_id}({params}) =",
+        f"def {fd.component_name}({params}) =",
         "\n".join(body) if isinstance(body, tuple) else body,
         sep="",
     )

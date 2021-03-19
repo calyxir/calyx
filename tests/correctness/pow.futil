@@ -7,7 +7,7 @@ component main() -> () {
     @external(1) exp = std_mem_d1(32, 1, 1);
     base_reg = std_reg(32);
     exp_reg = std_reg(32);
-    std_pow0 = std_pow();
+    std_pow0 = pow();
   }
   wires {
     group init {
