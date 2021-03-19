@@ -110,7 +110,7 @@ Using `--to dat` asks fud to run the program, and the extra `-s verilog.data <fi
 Executing this program should print:
 
 ```
-{{#include ../../examples/tutorial/language-tutorial-mem.futil.expect}}
+{{#include ../../examples/tutorial/language-tutorial-mem.expect}}
 ```
 
 Meaning that, after the program finished, the final value in our memory was 42.
