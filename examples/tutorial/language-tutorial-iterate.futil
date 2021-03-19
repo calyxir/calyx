@@ -6,9 +6,11 @@ component main() -> () {
     val = std_reg(32);
     add = std_add(32);
 
+    // ANCHOR: new_cells
     counter = std_reg(32);
     add2 = std_add(32);
     lt = std_lt(32);
+    // ANCHOR_END: new_cells
   }
 
   wires {
@@ -34,12 +36,15 @@ component main() -> () {
       write[done] = mem.done;
     }
 
+    // ANCHOR: init
     group init {
       counter.in = 32'd0;
       counter.write_en = 1'b1;
       init[done] = counter.done;
     }
+    // ANCHOR_END: init
 
+    // ANCHOR: incr
     group incr {
       add2.left = counter.out;
       add2.right = 32'd1;
@@ -47,14 +52,18 @@ component main() -> () {
       counter.write_en = 1'b1;
       incr[done] = counter.done;
     }
+    // ANCHOR_END: incr
 
+    // ANCHOR: cond
     group cond {
       lt.left = counter.out;
       lt.right = 32'd8;
       cond[done] = 1'b1;
     }
+    // ANCHOR_END: cond
   }
 
+  // ANCHOR: control
   control {
     seq {
       init;
@@ -70,4 +79,5 @@ component main() -> () {
       }
     }
   }
+  // ANCHOR_END: control
 }
