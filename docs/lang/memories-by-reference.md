@@ -41,10 +41,10 @@ include the union of the columns above:
 
 One tricky thing to note is where the ports belong, i.e. should it be
 an input port or an output port of the component? The way to reason about this
-is to ask whether we want to receive from or send signal to the given wire. For example,
+is to ask whether we want to receive signal from or send signal to the given wire. For example,
 with `read_data`, we will always be receiving signal from it, so it should be an input port.
-On the contrary, we'll be using address ports to mark where in the memory we want to be,
-so those should be used as output ports.
+Conversely, address ports are used to mark where in memory we want to access,
+so those are used as output ports.
 
 We then simply use the given ports to both read and write to the memory passed
 by reference. Note that we've split up the read and write to memory `x` in separate groups,
@@ -55,7 +55,7 @@ say, `x.write_data`.
 {{#include ../../examples/futil/memory-by-reference/memory-by-reference.futil:wires}}
 ```
 
-Bringing everything back together, the `add_one` component then ends up being:
+Bringing everything back together, the `add_one` component is written accordingly:
 ```
 {{#include ../../examples/futil/memory-by-reference/memory-by-reference.futil:component}}
 ```
@@ -79,14 +79,14 @@ fud e examples/futil/memory-by-reference/memory-by-reference.futil --to dat \
 ```
 
 ## Multi-dimensional Memories
-Not much changes for mult-dimensional arrays. The only additional step is adding
+Not much changes for multi-dimensional arrays. The only additional step is adding
 the corresponding address ports. For example, a 2-dimensional memory will require address ports
 `addr0` and `addr1`. More generally, an `N`-dimensional memory will require address ports
 `addr0`, ..., `addr(N-1)`.
 
 ## Multiple Memories
-Similarly, multiple memories will just require the ports to be passed for the given memories.
-Here is an example of a memory copy (referred to as `mem_cpy` in C), with memories of size 5:
+Similarly, multiple memories will just require the ports to be passed for each of the given memories.
+Here is an example of a memory copy (referred to as `mem_cpy` in the C language), with 1-dimensional memories of size 5:
 ```
 {{#include ../../tests/correctness/invoke-memory.futil}}
 ```
