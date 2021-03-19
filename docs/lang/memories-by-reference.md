@@ -34,7 +34,7 @@ and write to `x`:
 |                | address ports |
 
 Since we're both reading and writing from `x`, we'll 
-include the union of the table above:
+include the union of the columns above:
 ```
 {{#include ../../examples/futil/memory-by-reference/memory-by-reference.futil:component_ports}}
 ```
