@@ -1,0 +1,32 @@
+import "primitives/std.lib";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    x = std_reg(1);
+  }
+  wires {
+    group wr_x {
+      x.in = 1'd1;
+      x.write_en = 1'd1;
+      wr_x[done] = x.done;
+    }
+    group cond {
+      x.in = 1'd1;
+      x.write_en = 1'd1;
+      cond[done] = x.done;
+    }
+    group some_math {
+      x.in = 1'd0;
+      x.write_en = 1'd1;
+      some_math[done] = x.done;
+    }
+  }
+
+  control {
+    seq {
+      wr_x;
+      if x.out with cond {
+        some_math;
+      }
+    }
+  }
+}
