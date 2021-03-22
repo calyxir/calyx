@@ -38,7 +38,8 @@ impl ScheduleConflicts {
             .collect()
     }
 
-    /// Returns a vector containing all conflict edges in this graph.
+    /// Returns an iterator containing all conflict edges,
+    /// `(src group: ir::Id, dst group: ir::Id)`, in this graph.
     pub fn all_conflicts(&self) -> ConflictIterator<'_> {
         let iter =
             self.graph

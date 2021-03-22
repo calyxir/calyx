@@ -32,7 +32,7 @@ impl Zero for BoolIdx {
 /// `NodeIndex` in the graph.
 /// The underlying `petgraph::MatrixGraph` stores `()` for node weights and
 /// a boolean to represent the edges.
-pub struct WeightGraph<T: Eq + Hash + Clone> {
+pub struct WeightGraph<T> {
     /// Mapping from T to a unique identifier.
     pub index_map: HashMap<T, NodeIndex>,
     /// Graph representating using identifier.
@@ -50,7 +50,7 @@ impl<T: Eq + Hash + Clone> Default for WeightGraph<T> {
 
 impl<T, C> From<C> for WeightGraph<T>
 where
-    T: Eq + Hash + Clone,
+    T: Eq + Hash,
     C: Iterator<Item = T>,
 {
     fn from(nodes: C) -> Self {
