@@ -9,22 +9,64 @@ use ir::{
 use itertools::Itertools;
 use std::rc::Rc;
 
+/// A trait for implementing passes that want to share components
+/// by building a conflict graph and performing graph coloring
+/// to minimize the number of used components.
+///
+/// You must implement the functions:
+///  - `lookup_group_conflicts`
+///  - `cell_filter`
+///  - `set_rewrites`
+///  - `get_rewrites`
+///
+/// Given these functions, the trait `Visitor` will automatically be
+/// implemented for your struct.
+///
+/// The algorithm that runs is:
+///  - instantiate conflict graph using all component cells that satisfy `cell_filter`
+///  - use `ScheduleConflicts` to find groups that run in parallel with each other
+///  - for each group, `G` that runs in parallel with another group `H`, add edges between
+///  each cell in the sets `lookup_group_conflicts(G)` and `lookup_group_conflicts(H)`.
+///  - add conflicts between cells where for `c0 != c1`
+///  - call `custom_conflicts` to insert pass specific conflict edges
+///  - perform graph coloring using `self.ordering` to define the order of the greedy coloring
+///  - use coloring to rewrite group assignments, continuous assignments, and conditional ports.
 pub trait ShareComponents {
+    /// Initialize the structure using `&ir::Component` and `&ir::LibrarySignatures`.
+    /// This function is called at the very beginning of the traversal
+    /// before anything else.
     fn initialize(
         &mut self,
-        component: &ir::Component,
-        library_signatures: &ir::LibrarySignatures,
+        _component: &ir::Component,
+        _library_signatures: &ir::LibrarySignatures,
     ) {
+        // nothing
     }
+
+    /// Return a vector of conflicting cell names for a the group `group_name`.
+    /// These are the names of the cells that conflict if their groups are
+    /// run in parallel.
     fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id>;
+
+    /// Given a cell and the library signatures, this function decides if
+    /// this cell is relevant to the current sharing pass or not. This
+    /// is used to filter out irrelevant cells.
     fn cell_filter(
         &self,
         cell: &ir::Cell,
         sigs: &ir::LibrarySignatures,
     ) -> bool;
+
+    /// The definition of cell equality. Cells will only be replaced with
+    /// a cell that is equal to it according to this function. The default
+    /// implementation is to compare the prototypes of the cell.
     fn cell_equality(&self, cell0: &ir::Cell, cell1: &ir::Cell) -> bool {
         cell0.prototype == cell1.prototype
     }
+
+    /// Called after the initial conflict graph is constructed.
+    /// This function let's you add custom conflicts to the graph
+    /// before graph coloring is performed.
     fn custom_conflicts(
         &self,
         _comp: &ir::Component,
@@ -32,8 +74,9 @@ pub trait ShareComponents {
     ) {
         // don't add any conflicts
     }
-    fn set_rewrites(&mut self, rewrites: Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>);
-    fn get_rewrites<'a>(&'a self) -> &'a [(RRC<ir::Cell>, RRC<ir::Cell>)];
+
+    /// Defines the order to perform the graph coloring in. By
+    /// default, the ordering is the cells sorted by name.
     fn ordering<I>(&self, cells: I) -> Box<dyn Iterator<Item = ir::Id>>
     where
         I: Iterator<Item = RRC<ir::Cell>>,
@@ -44,6 +87,12 @@ pub trait ShareComponents {
                 .sorted(),
         )
     }
+
+    /// Set the list of rewrites.
+    fn set_rewrites(&mut self, rewrites: Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>);
+
+    /// Get the list of rewrites.
+    fn get_rewrites(&self) -> &[(RRC<ir::Cell>, RRC<ir::Cell>)];
 }
 
 impl<T: ShareComponents> Visitor for T {

@@ -42,7 +42,7 @@ impl ShareComponents for MinimizeRegs {
     }
 
     fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id> {
-        self.live.get(group_name).into_iter().cloned().collect()
+        self.live.get(group_name).iter().cloned().collect()
     }
 
     fn cell_filter(
@@ -75,9 +75,7 @@ impl ShareComponents for MinimizeRegs {
         self.rewrites = rewrites;
     }
 
-    fn get_rewrites<'a>(
-        &'a self,
-    ) -> &'a [(ir::RRC<ir::Cell>, ir::RRC<ir::Cell>)] {
+    fn get_rewrites(&self) -> &[(ir::RRC<ir::Cell>, ir::RRC<ir::Cell>)] {
         &self.rewrites
     }
 }
