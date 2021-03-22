@@ -1,0 +1,9 @@
+---CODE---
+1
+---STDERR---
+Error: Calyx Parser:  --> 4:12
+  |
+4 |     r.in = 5'xaa;␊
+  |            ^---^
+  |
+  = Cannot represent given literal 'aa' in 5 bits
