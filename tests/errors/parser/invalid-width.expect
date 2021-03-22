@@ -1,0 +1,9 @@
+---CODE---
+1
+---STDERR---
+Error: Calyx Parser:  --> 4:12
+  |
+4 |     r.in = 0'd1;␊
+  |            ^--^
+  |
+  = Cannot represent given literal '1' in 0 bits
