@@ -167,7 +167,9 @@ impl FutilParser {
 
         );
 
-        if num.width == 0 || (num.width < 64 && !(u64::pow(2,num.width as u32) >= num.val)) {
+        // the below cast is safe since the width must be less than 64 for
+        // the given literal to be unrepresentable
+        if num.width == 0 || (num.width < 64 && !(u64::pow(2,num.width as u32) - 1 >= num.val)) {
             let lit_str = match num.num_type {
                 NumType::Binary => format!("{:b}", num.val),
                 NumType::Decimal => format!("{}", num.val),
