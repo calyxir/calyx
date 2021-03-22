@@ -126,7 +126,7 @@ impl FutilParser {
     }
 
     fn num_lit(input: Node) -> ParseResult<BitNum> {
-        Ok(match_nodes!(
+        let num = match_nodes!(
             input.clone().into_children();
             [bitwidth(width), decimal(val)] => BitNum {
                     width,
@@ -165,7 +165,27 @@ impl FutilParser {
                     )),
                 },
 
-        ))
+        );
+
+        // the below cast is safe since the width must be less than 64 for
+        // the given literal to be unrepresentable
+        if num.width == 0
+            || (num.width < 64 && !(u64::pow(2, num.width as u32) > num.val))
+        {
+            let lit_str = match num.num_type {
+                NumType::Binary => format!("{:b}", num.val),
+                NumType::Decimal => format!("{}", num.val),
+                NumType::Octal => format!("{:o}", num.val),
+                NumType::Hex => format!("{:x}", num.val),
+            };
+            let bit_plural = if num.width == 1 { "bit" } else { "bits" };
+            Err(input.error(format!(
+                "Cannot represent given literal '{}' in {} {}",
+                lit_str, num.width, bit_plural
+            )))
+        } else {
+            Ok(num)
+        }
     }
 
     fn char(input: Node) -> ParseResult<&str> {
