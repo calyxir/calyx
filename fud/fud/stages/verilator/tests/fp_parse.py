@@ -1,5 +1,5 @@
 from random import randint
-from fud.stages.verilator.fixed_point import *
+from fud.stages.verilator.fixed_point import decimal_to_fp, fp_to_decimal, negate_twos_complement
 from hypothesis import given, strategies as st
 
 
@@ -49,7 +49,7 @@ def verify_twos_complement_negation_round_trip(bits):
     assert bitstring == round_trip(
         bitstring
     ), f"""original: {bitstring},
-        round-tripped: {roundtrip(bitstring)},
+        round-tripped: {round_trip(bitstring)},
         width: {width}"""
 
 

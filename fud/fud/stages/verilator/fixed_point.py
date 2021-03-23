@@ -177,7 +177,7 @@ def decimal_to_fp(value: Decimal, width: int, int_width: int, is_signed: bool) -
             f"""Trying to represent {value} with
             Width: {width}
             Integer width: {int_width}
-            Fractional width: {frac_width} 
+            Fractional width: {frac_width}
             has led to overflow.
             Required number of integer bits: {num_int_bits}.
             Required number of fractional bits: {num_frac_bits}."""
