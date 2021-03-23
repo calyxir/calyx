@@ -92,7 +92,7 @@ def fp_to_decimal(bits: str, width: int, int_width: int, is_signed: bool) -> Dec
 # truncation for values that cannot be exactly
 # represented. Warning flag for user-provided
 # fixed point numbers as well.
-def verify_representation_in_fp(x: Decimal, width: int, int_width: int) -> bool:
+def verify_representation_in_fp(x: Decimal, width: int, int_width: int):
     """Raises an exception if the fractional value
     `x` is not representable by fixed point numbers,
     otherwise does nothing."""
