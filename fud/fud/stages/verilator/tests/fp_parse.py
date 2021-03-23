@@ -31,7 +31,7 @@ def test_fixed_point_round_trip(bits, is_signed):
     expected = int(bitstring, 2)
     actual = fp_round_trip(bitstring)
     assert (
-            expected == actual
+        expected == actual
     ), f"""width: {width}, int_width:{int_width}
         is_signed: {is_signed}, bits: {bitstring}
         expected: {expected}, actual: {actual}"""
