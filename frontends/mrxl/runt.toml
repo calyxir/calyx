@@ -1,6 +1,0 @@
-ver = "0.2.8"
-
-[[tests]]
-name = "MrXL interpreter"
-paths = [ "test/*.mrxl" ]
-cmd = "poetry run mrxl {} test/$(basename {} .mrxl).json"
