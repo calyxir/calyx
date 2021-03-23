@@ -81,7 +81,10 @@ jobs:
       uses: actions/setup-python@v2
 
     - name: Install common Python dependencies
-      run: pip3 install numpy flit prettytable wheel hypothesis
+      run: pip3 install numpy flit prettytable wheel hypothesis pytest
+
+    - name: Run Python Tests
+      run: pytest fud/fud/stages/verilator/tests/fp_parse.py
 
     - name: Cache Apache TVM
       id: tvm-cache
