@@ -5,7 +5,6 @@ from fud.stages.verilator.fixed_point import (
     negate_twos_complement,
 )
 from hypothesis import given, strategies as st
-import pytest
 
 
 @given(bits=st.lists(st.booleans(), min_size=2, max_size=256), is_signed=st.booleans())
