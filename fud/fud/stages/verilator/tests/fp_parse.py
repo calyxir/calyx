@@ -42,16 +42,15 @@ def test_twos_complement_negation_round_trip(bits):
     """Verifies that the negation of the negation
     in twos complement is the original bitstring."""
     bitstring = "".join(["1" if x else "0" for x in bits])
-    width = len(bitstring)
 
     def round_trip(bits):
         # Round-trips the twos complement
         # negation, i.e.
         # negate(negate(bits))
-        return negate_twos_complement(negate_twos_complement(bits, width), width)
+        return negate_twos_complement(negate_twos_complement(bits))
 
     assert bitstring == round_trip(
         bitstring
     ), f"""original: {bitstring},
         round-tripped: {round_trip(bitstring)},
-        width: {width}"""
+        width: {len(bitstring)}"""

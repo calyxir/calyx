@@ -15,23 +15,17 @@ def binary_to_base10(bitstring: str) -> int:
     return out
 
 
-def negate_twos_complement(bitstring: str, width: int) -> str:
+def negate_twos_complement(bitstring: str) -> str:
     """Takes in a bit string and returns the negated
     form in two's complement. This is done by:
     (1) Flipping the bits
     (2) Adding 1.
     Example:
         negative_twos_complement(
-            bitstring="011",
-            width=3
+            bitstring="011"
         )
         = "101"
         = `-3` in two's complement."""
-    length = len(bitstring)
-    assert (
-        length == width
-    ), f"bitstring: {bitstring} does not have width: {width}. Actual: {length}."
-
     if all(b == "0" for b in bitstring):
         # Two's complement of zero is itself.
         return bitstring
@@ -39,6 +33,7 @@ def negate_twos_complement(bitstring: str, width: int) -> str:
     # Flip bits.
     bitstring = "".join(["1" if b == "0" else "0" for b in bitstring])
 
+    width = len(bitstring)
     # Add one.
     return np.binary_repr(int(bitstring, 2) + 1, width)
 
@@ -56,7 +51,7 @@ def fp_to_decimal(bits: str, width: int, int_width: int, is_signed: bool) -> Dec
     is_negative = is_signed and (bits[0] == "1")
     if is_negative:
         # Negate it to calculate the positive value.
-        bits = negate_twos_complement(bits, width)
+        bits = negate_twos_complement(bits)
 
     # Determine expected value by summing over
     # the binary values of the given bits.
@@ -192,6 +187,6 @@ def decimal_to_fp(value: Decimal, width: int, int_width: int, is_signed: bool) -
     bits = int_bits + frac_bits
 
     if is_negative:
-        bits = negate_twos_complement(bits, width)
+        bits = negate_twos_complement(bits)
 
     return binary_to_base10(bits)
