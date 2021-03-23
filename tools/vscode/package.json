@@ -1,0 +1,25 @@
+{
+    "name": "calyx",
+    "displayName": "Calyx",
+    "description": "Provides syntax highlighting for Calyx",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.54.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "calyx",
+            "aliases": ["Calyx", "calyx"],
+            "extensions": [".futil"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "calyx",
+            "scopeName": "source.calyx",
+            "path": "./syntaxes/calyx.tmLanguage.json"
+        }]
+    }
+}
