@@ -2,13 +2,13 @@ use crate::utils::{Idx, WeightGraph};
 use std::{collections::HashMap, hash::Hash};
 
 /// Defines a greedy graph coloring algorithm over a generic conflict graph.
-pub struct GraphColoring<T: Eq + Hash + Clone> {
+pub struct GraphColoring<T> {
     graph: WeightGraph<T>,
 }
 
 impl<T, C> From<C> for GraphColoring<T>
 where
-    T: Eq + Hash + Clone,
+    T: Hash + Eq,
     C: Iterator<Item = T>,
 {
     fn from(nodes: C) -> Self {
@@ -87,5 +87,11 @@ where
             .into_iter()
             .map(|(n1, n2)| (rev_map[&n1].clone(), rev_map[&n2].clone()))
             .collect()
+    }
+}
+
+impl<T: Eq + Hash + ToString + Clone> ToString for GraphColoring<T> {
+    fn to_string(&self) -> String {
+        self.graph.to_string()
     }
 }

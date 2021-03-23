@@ -15,6 +15,7 @@ mod merge_assign;
 mod minimize_regs;
 mod papercut;
 mod resource_sharing;
+mod sharing_components;
 mod simplify_guards;
 mod static_timing;
 mod synthesis_papercut;
