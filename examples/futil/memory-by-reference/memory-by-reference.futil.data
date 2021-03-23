@@ -1,6 +1,6 @@
 {
-  "mem": {
-    "data": [10],
+  "x": {
+    "data": [0],
     "format": {
       "numeric_type": "bitnum",
       "is_signed": false,

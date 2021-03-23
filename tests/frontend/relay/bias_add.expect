@@ -5,18 +5,18 @@ component main() -> () {
     @external(1) x = std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
     @external(1) bias = std_mem_d1(32, 64, 7);
     @external(1) x1 = std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
-    nn_bias_add_ = nn_bias_add();
+    bias_add_1_64_512_256_ = bias_add_1_64_512_256();
   }
   wires {
 
   }
   control {
     seq {
-      invoke nn_bias_add_(x0_0_0_0_read_data=x.read_data, bias0_read_data=bias.read_data, x10_0_0_0_done=x1.done, x10_0_0_0_read_data=x1.read_data)(x0_0_0_0_addr0=x.addr0, x0_0_0_0_addr1=x.addr1, x0_0_0_0_addr2=x.addr2, x0_0_0_0_addr3=x.addr3, bias0_addr0=bias.addr0, x10_0_0_0_write_data=x1.write_data, x10_0_0_0_write_en=x1.write_en, x10_0_0_0_addr0=x1.addr0, x10_0_0_0_addr1=x1.addr1, x10_0_0_0_addr2=x1.addr2, x10_0_0_0_addr3=x1.addr3);
+      invoke bias_add_1_64_512_256_(x0_0_0_0_read_data=x.read_data, bias0_read_data=bias.read_data, x10_0_0_0_done=x1.done, x10_0_0_0_read_data=x1.read_data)(x0_0_0_0_addr0=x.addr0, x0_0_0_0_addr1=x.addr1, x0_0_0_0_addr2=x.addr2, x0_0_0_0_addr3=x.addr3, bias0_addr0=bias.addr0, x10_0_0_0_write_data=x1.write_data, x10_0_0_0_write_en=x1.write_en, x10_0_0_0_addr0=x1.addr0, x10_0_0_0_addr1=x1.addr1, x10_0_0_0_addr2=x1.addr2, x10_0_0_0_addr3=x1.addr3);
     }
   }
 }
-component nn_bias_add(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, bias0_read_data: 32, bias0_done: 1, x10_0_0_0_read_data: 32, x10_0_0_0_done: 1) -> (x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_addr0: 1, x0_0_0_0_addr1: 7, x0_0_0_0_addr2: 10, x0_0_0_0_addr3: 9, bias0_write_data: 32, bias0_write_en: 1, bias0_addr0: 7, x10_0_0_0_write_data: 32, x10_0_0_0_write_en: 1, x10_0_0_0_addr0: 1, x10_0_0_0_addr1: 7, x10_0_0_0_addr2: 10, x10_0_0_0_addr3: 9) {
+component bias_add_1_64_512_256(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, bias0_read_data: 32, bias0_done: 1, x10_0_0_0_read_data: 32, x10_0_0_0_done: 1) -> (x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_addr0: 1, x0_0_0_0_addr1: 7, x0_0_0_0_addr2: 10, x0_0_0_0_addr3: 9, bias0_write_data: 32, bias0_write_en: 1, bias0_addr0: 7, x10_0_0_0_write_data: 32, x10_0_0_0_write_en: 1, x10_0_0_0_addr0: 1, x10_0_0_0_addr1: 7, x10_0_0_0_addr2: 10, x10_0_0_0_addr3: 9) {
   cells {
     add0 = fixed_p_std_sadd(32,16,16);
     add1 = std_add(9);

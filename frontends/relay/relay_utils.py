@@ -32,6 +32,7 @@ class DahliaFuncDef:
     function definition."""
 
     function_id: str
+    component_name: str
     dest: CompVar
     args: List[CompVar]
     attributes: tvm.ir.Attrs
@@ -51,16 +52,24 @@ def get_dims(c: CompInst):
     assert id in id2dimensions, f"{id} not supported."
     return id2dimensions[id]
 
+def get_dimension_sizes(c: CompInst) -> List[int]:
+    """Given a cell `c`, returns the corresponding
+    memory sizes.
+    Example:
+    std_mem_d1(32, 8, 3) returns [8]."""
+    dims = get_dims(c)
+    return [c.args[i] for i in range(1, dims + 1)]
 
 def get_addr_ports(c: CompInst):
-    """Returns a list of ('address, index size)
+    """Returns a list of (address, index size)
     for each address port in the component
     instance."""
-    args = c.args
     dims = get_dims(c)
     addresses = range(0, dims)
     indices = range(dims + 1, dims << 1 + 1)
-    return [(f"addr{i}", args[n]) for (i, n) in zip(addresses, indices)]
+    return [
+        (f"addr{i}", c.args[n]) for (i, n) in zip(addresses, indices)
+    ]
 
 
 def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:

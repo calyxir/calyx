@@ -180,7 +180,7 @@ def bias_add(fd: DahliaFuncDef) -> str:
 
         data_indices += index
         var_name = next_character(var_name)
-    loop_body = f"""{res.id.name}{data_indices} := 
+    loop_body = f"""{res.id.name}{data_indices} :=
                 {data.id.name}{data_indices} + {bias.id.name}{bias_index};"""
 
     return emit_dahlia_definition(fd, emit_dahlia_loop(data, loop_body))
@@ -195,11 +195,11 @@ def max_pool2d(fd: DahliaFuncDef) -> str:
     layout = fd.attributes.get_str("layout")
     ceil_mode = fd.attributes.get_int("ceil_mode")
     assert (
-        layout == "NCHW"
+            layout == "NCHW"
     ), f"""Layout \'{layout}\' is not currently supported for
         nn.max_pool2d; please use `NCHW`"""
     assert (
-        ceil_mode == False
+            ceil_mode == False
     ), "`ceil_mode` is not currently supported for nn.max_pool2d"
 
     args = res.comp.args
@@ -215,14 +215,14 @@ def max_pool2d(fd: DahliaFuncDef) -> str:
               for (let x: ubit<{width}> = 0..{size3}) {{
                 let stride_y: ubit<{width}> = y * {strides[0]}/*strides[0]*/;
                 let stride_x: ubit<{width}> = x * {strides[1]}/*strides[1]*/;
-                
+
                 let max: {data_type} = {data.id.name}[b][c][stride_y][stride_x];
                 for (let m: ubit<{width}> = 0..{pool_size[0]}/*pool_size[0]*/) {{
                   for (let n: ubit<{width}> = 0..{pool_size[1]}/*pool_size[1]*/) {{
                     let pool_y: ubit<{width}> = stride_y + m;
                     let pool_x: ubit<{width}> = stride_x + n;
                     let current: {data_type} = {data.id.name}[b][c][pool_y][pool_x];
-                    if (current > max) {{ max := current; }} 
+                    if (current > max) {{ max := current; }}
                   }}
                 }}
                 {res.id.name}[b][c][y][x] := max;
@@ -268,7 +268,7 @@ def sqrt(fd: DahliaFuncDef) -> str:
         indices += f"[{var_name}]"
         var_name = next_character(var_name)
 
-    loop_body = f"""let tmp = std_sqrt({data.id.name}{indices});
+    loop_body = f"""let tmp = sqrt({data.id.name}{indices});
                     {res.id.name}{indices} := tmp;"""
     return emit_dahlia_definition(fd, emit_dahlia_loop(data, loop_body))
 
@@ -292,7 +292,7 @@ def batch_matmul(fd: DahliaFuncDef) -> str:
               transpose_{b.id.name}[batch][j][i] := {b.id.name}[batch][i][j];
             }}
           }}
-        }} 
+        }}
         for (let batch: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
           for (let i: ubit<{M1_index_size1}> = 0..{M1_size1}) {{
             for (let j: ubit<{M2_index_size1}> = 0..{M2_size1}) {{
@@ -321,7 +321,7 @@ def dense(fd: DahliaFuncDef) -> str:
           for (let j: ubit<{M2_index_size1}> = 0..{M2_size1}) {{
             transpose_{b.id.name}[j][i] := {b.id.name}[i][j];
           }}
-        }} 
+        }}
         for (let i: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
           for (let j: ubit<{M2_index_size0}> = 0..{M2_size0}) {{
             for (let k: ubit<{M1_index_size1}> = 0..{M1_size1}) {{
@@ -350,17 +350,17 @@ def conv2d(fd: DahliaFuncDef) -> str:
           for (let c_: ubit<32> = 0..{size1}) {{
             for (let y_: ubit<32> = 0..{size2}) {{
               for (let x_: ubit<32> = 0..{size3}) {{
-                let sum: {data_type} = 
+                let sum: {data_type} =
                          {'0.0' if 'fix' in data_type else '0'};
-                
+
                 for (let k: ubit<32> = 0..{channels}) {{
                   for (let dy: ubit<32> = 0..{kernel_size[1]}/*kernel_size[1]*/) {{
                     for (let dx: ubit<32> = 0..{kernel_size[0]}/*kernel_size[0]*/) {{
                       let kernel_y: ubit<32> = (/*strides[0]*/{strides[0]} * y_) + dy;
-                      let kernel_x: ubit<32> = (/*strides[1]*/{strides[1]} * x_) + dx;     
-                    }} combine {{ 
+                      let kernel_x: ubit<32> = (/*strides[1]*/{strides[1]} * x_) + dx;
+                    }} combine {{
                       sum += {data.id.name}[b_][k][kernel_y][kernel_x] *
-                             {weight.id.name}[c_][k][dy][dx]; 
+                             {weight.id.name}[c_][k][dy][dx];
                     }}
                   }}
                 }}
@@ -389,17 +389,17 @@ def softmax(fd: DahliaFuncDef) -> str:
         fd,
         f"""let e: {data_type} = {e};
         for (let i: ubit<{index_size0}> = 0..{size0}) {{
-          let {data.id.name}_expsum: {data_type} = 
+          let {data.id.name}_expsum: {data_type} =
               {'0.0' if 'fix' in data_type else '0'};
-    
+
           for (let j: ubit<{index_size1}> = 0..{size1}) {{
-            let tmp1 = std_exp(e, {data.id.name}[i][j]);
-            {data.id.name}_expsum += tmp1; 
+            let tmp1 = exp(e, {data.id.name}[i][j]);
+            {data.id.name}_expsum += tmp1;
           }}
           for (let k: ubit<{index_size1}> = 0..{size1}) {{
-            let tmp2 = std_exp(e, {data.id.name}[i][k]);
-            {res.id.name}[i][k] := tmp2; 
-            {res.id.name}[i][k] := 
+            let tmp2 = exp(e, {data.id.name}[i][k]);
+            {res.id.name}[i][k] := tmp2;
+            {res.id.name}[i][k] :=
             {res.id.name}[i][k] / {data.id.name}_expsum;
           }}
         }}""",
@@ -410,14 +410,14 @@ def softmax(fd: DahliaFuncDef) -> str:
 RelayCallNodes = {
     "expand_dims": expand_dims,
     "negative": negative,
-    "nn_batch_flatten": batch_flatten,
-    "nn_batch_matmul": batch_matmul,
-    "nn_bias_add": bias_add,
-    "nn_conv2d": conv2d,
-    "nn_dense": dense,
-    "nn_max_pool2d": max_pool2d,
-    "nn_relu": relu,
-    "nn_softmax": softmax,
+    "batch_flatten": batch_flatten,
+    "batch_matmul": batch_matmul,
+    "bias_add": bias_add,
+    "conv2d": conv2d,
+    "dense": dense,
+    "max_pool2d": max_pool2d,
+    "relu": relu,
+    "softmax": softmax,
     "sqrt": sqrt,
 }
 
@@ -438,7 +438,7 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     for func_def in func_defs:
         id = func_def.function_id
         assert (
-            id in RelayCallNodes or id in BinaryOps
+                id in RelayCallNodes or id in BinaryOps
         ), f"{id} not supported for lowering."
 
         # If the function is a binary operation, use broadcasting.
@@ -448,11 +448,13 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
 
     type = func_defs[0].data_type
     imports = [
-        f"""import futil("primitives/bitnum/math.futil") 
+        f"""import futil("primitives/bitnum/math.futil")
         {{
-          def std_exp(base: {type}, exp: {type}): {type};
-          def std_sqrt(in: {type}): {type};
+          def exp(base: {type}, exp: {type}): {type};
+          def sqrt(in: {type}): {type};
         }}"""
     ]
 
-    return dahlia_to_futil("\n".join(imports + dahlia_definitions))
+    return dahlia_to_futil(
+        "\n".join(imports + dahlia_definitions)
+    )

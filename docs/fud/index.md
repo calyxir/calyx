@@ -90,7 +90,7 @@ Install it with:
 cargo install vcdump
 ```
 
-## Dahlia Fronted
+## Dahlia Frontend
 
 In order to use the Dahlia frontend with Fud, first [install
 Dahlia](../frontends/dahlia.md).
@@ -112,7 +112,7 @@ cd calyx-py && flit install -s
 
 Frontend specific instructions:
  - [Systolic array](./frontends/systolic-array.md): Nothing else needed.
- - [NTT](./fronteds/ntt.md): `pip3 install prettytables`
+ - [NTT](./frontends/ntt.md): `pip3 install prettytables`
  - [MrXL](./frontends/mrxl.md): `cd frontends/mrxl && flit install -s`
  - [TVM Relay](./frontends/tvm-relay.md): See instructions.
 
