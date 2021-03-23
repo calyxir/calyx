@@ -1,6 +1,15 @@
 from random import randint
-from fud.stages.verilator.fixed_point import decimal_to_fp, fp_to_decimal, negate_twos_complement
+from fud.stages.verilator.fixed_point import (
+    decimal_to_fp,
+    fp_to_decimal,
+    negate_twos_complement,
+)
 from hypothesis import given, strategies as st
+import pytest
+
+
+def x():
+    assert 0
 
 
 @given(bits=st.lists(st.booleans(), min_size=2, max_size=256), is_signed=st.booleans())
