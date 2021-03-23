@@ -68,6 +68,11 @@ fud exec -s verilog.data {}.data \
          {} --to dat -q | jq .memories
 """
 
+[[tests]]
+name= "fixed point parsing"
+paths = ["fud/fud/stages/verilator/tests/*.py"]
+cmd = """ python3 {} """
+
 ## Same as correctness dynamic but runs with static-timing.
 [[tests]]
 name = "correctness static timing"
