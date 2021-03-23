@@ -19,6 +19,21 @@ component main(go: 1, clk: 1) -> (done: 1) {
       x.write_en = 1'd1;
       some_math[done] = x.done;
     }
+    group wr_z {
+      x.in = 1'd1;
+      x.write_en = 1'd1;
+      wr_z[done] = x.done;
+    }
+    group cond1 {
+      x.in = 1'd1;
+      x.write_en = 1'd1;
+      cond1[done] = x.done;
+    }
+    group some_math1 {
+      x.in = 1'd0;
+      x.write_en = 1'd1;
+      some_math[done] = x.done;
+    }
   }
 
   control {
@@ -26,6 +41,10 @@ component main(go: 1, clk: 1) -> (done: 1) {
       wr_x;
       if x.out with cond {
         some_math;
+      }
+      wr_z;
+      while x.out with cond1 {
+        some_math1;
       }
     }
   }

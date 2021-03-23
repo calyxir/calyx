@@ -26,6 +26,12 @@ component main() -> () {
       some_math[done] = y.done;
     }
 
+    group wr_z {
+      z.in = 1'd1;
+      z.write_en = 1'd1;
+      wr_z[done] = z.done;
+    }
+
     group cond1 {
       z.in = 1'd1;
       z.write_en = 1'd1;
@@ -45,6 +51,7 @@ component main() -> () {
       if y.out with cond {
         some_math;
       }
+      wr_z;
       while z.out with cond1 {
         some_math1;
       }
