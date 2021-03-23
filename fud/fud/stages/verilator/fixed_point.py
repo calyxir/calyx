@@ -27,6 +27,11 @@ def negate_twos_complement(bitstring: str, width: int) -> str:
         )
         = "101"
         = `-3` in two's complement."""
+    length = len(bitstring)
+    assert (
+        length == width
+    ), f"bitstring: {bitstring} does not have width: {width}. Actual: {length}."
+
     if all(b == "0" for b in bitstring):
         # Two's complement of zero is itself.
         return bitstring
@@ -77,7 +82,7 @@ def fp_to_decimal(bits: str, width: int, int_width: int, is_signed: bool) -> Dec
 
     # Set the Decimal precision to ensure
     # small fractional values are still
-    # represented accurately.
+    # represented precisely.
     getcontext().prec = 64
 
     fractional_value = Decimal(
