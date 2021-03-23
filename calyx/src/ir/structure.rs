@@ -94,7 +94,7 @@ impl Eq for Port {}
 pub type Binding = SmallVec<[(Id, u64); 5]>;
 
 /// The type for a Cell
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum CellType {
     /// Cell constructed using a primitive definition
     Primitive {
