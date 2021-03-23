@@ -27,19 +27,15 @@ def negate_twos_complement(bitstring: str, width: int) -> str:
         )
         = "101"
         = `-3` in two's complement."""
-    if all(b == '0' for b in bitstring):
+    if all(b == "0" for b in bitstring):
         # Two's complement of zero is itself.
         return bitstring
 
     # Flip bits.
-    bitstring = ''.join([
-        '1' if b == '0' else '0' for b in bitstring
-    ])
+    bitstring = "".join(["1" if b == "0" else "0" for b in bitstring])
 
     # Add one.
-    return np.binary_repr(
-        int(bitstring, 2) + 1, width
-    )
+    return np.binary_repr(int(bitstring, 2) + 1, width)
 
 
 def fp_to_decimal(bits: str, width: int, int_width: int, is_signed: bool) -> Decimal:
@@ -52,7 +48,7 @@ def fp_to_decimal(bits: str, width: int, int_width: int, is_signed: bool) -> Dec
     two's complement form."""
     assert len(bits) > 0, "The empty bit string cannot be converted to decimal."
 
-    is_negative = is_signed and (bits[0] == '1')
+    is_negative = is_signed and (bits[0] == "1")
     if is_negative:
         # Negate it to calculate the positive value.
         bits = negate_twos_complement(bits, width)
@@ -65,7 +61,7 @@ def fp_to_decimal(bits: str, width: int, int_width: int, is_signed: bool) -> Dec
     integer_value = 0
     # Sum over integer bits.
     for i in range(0, int_width):
-        if bits[i] == '1':
+        if bits[i] == "1":
             integer_value += exponent
         exponent >>= 1
 
@@ -75,7 +71,7 @@ def fp_to_decimal(bits: str, width: int, int_width: int, is_signed: bool) -> Dec
     fractional_value = Fraction(0)
     # Sum over fractional bits.
     for i in range(int_width, width):
-        if bits[i] == '1':
+        if bits[i] == "1":
             fractional_value += Fraction(1, denominator)
         denominator <<= 1
 
@@ -111,10 +107,12 @@ def verify_representation_in_fp(x: Decimal, width: int, int_width: int) -> bool:
     # (1) The numerator is zero or (numerator - 1) is even.
     # (2) The denominator is a power of 2 that is
     #     less than or equal to the fractional width.
-    if all((
+    if all(
+        (
             numerator == 0 or (numerator - 1) % 2 == 0,
-            log2_d.is_integer() and log2_d <= frac_width
-    )):
+            log2_d.is_integer() and log2_d <= frac_width,
+        )
+    ):
         return
 
     raise Exception(
@@ -126,6 +124,7 @@ def verify_representation_in_fp(x: Decimal, width: int, int_width: int) -> bool:
         f"fractional width: {frac_width}]."
     )
 
+
 def decimal_to_fp(value: Decimal, width: int, int_width: int, is_signed: bool) -> int:
     """Given the value, width, integer width and signed-ness,
     returns the fixed point representation in two's complement,
@@ -136,8 +135,7 @@ def decimal_to_fp(value: Decimal, width: int, int_width: int, is_signed: bool) -
 
     if not is_signed and value < 0.0:
         raise Exception(
-            f"A negative value was passed in, {value}, "
-            f"and `is_signed` is False."
+            f"A negative value was passed in, {value}, " f"and `is_signed` is False."
         )
 
     is_negative = is_signed and value < 0.0
@@ -165,14 +163,10 @@ def decimal_to_fp(value: Decimal, width: int, int_width: int, is_signed: bool) -
     # Verifies the fractional part can be represented with powers of two.
     verify_representation_in_fp(fractional_part, width, int_width)
 
-    int_bits = np.binary_repr(
-        int(integer_part),
-        width=int_width
-    )
+    int_bits = np.binary_repr(int(integer_part), width=int_width)
     frac_width = width - int_width
     frac_bits = np.binary_repr(
-        int(Fraction(fractional_part) * (2 ** frac_width)),
-        frac_width
+        int(Fraction(fractional_part) * (2 ** frac_width)), frac_width
     )
 
     num_int_bits = len(int_bits)
