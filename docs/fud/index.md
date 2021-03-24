@@ -105,16 +105,16 @@ You need [flit][] to install our Python frontends.
 pip3 install flit
 ```
 
-Our Python [frontends][] use a Calyx ast library written in Python. Install with:
+Our Python [frontends](../frontends) use a Calyx ast library written in Python. Install with:
 ```
 cd calyx-py && flit install -s
 ```
 
 Frontend specific instructions:
- - [Systolic array](./frontends/systolic-array.md): Nothing else needed.
- - [NTT](./frontends/ntt.md): `pip3 install prettytable`
- - [MrXL](./frontends/mrxl.md): `cd frontends/mrxl && flit install -s`
- - [TVM Relay](./frontends/tvm-relay.md): See instructions.
+ - [Systolic array](../frontends/systolic-array.md): Nothing else needed.
+ - [NTT](../frontends/ntt.md): `pip3 install prettytable`
+ - [MrXL](../frontends/mrxl.md): `cd frontends/mrxl && flit install -s`
+ - [TVM Relay](../frontends/tvm-relay.md): See instructions.
 
 
 ## Adding Synthesis Backends
