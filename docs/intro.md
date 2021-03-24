@@ -128,13 +128,13 @@ Some tools will be reported missing. This is expected.
 
 We're all set to run a Calyx hardware design now. Run the following command:
 ```
-fud e examples/tutorial/tutorial.futil \
-  -s verilog.data examples/tutorial/tutorial.futil.data \
+fud e examples/tutorial/language-tutorial-iterate.futil \
+  -s verilog.data examples/tutorial/data.json \
   --to dat -v
 ```
 
-This command will compile `examples/tutorial/tutorial.futil` to Verilog
-using the Calyx compiler, simulate the design using the data in `examples/tutorial/tutorial.futil.data`, and generate a JSON representation of the
+This command will compile `examples/tutorial/language-tutorial-iterate.futil` to Verilog
+using the Calyx compiler, simulate the design using the data in `examples/tutorial/data.json`, and generate a JSON representation of the
 final memory state.
 
 Congratulations! You've simulated your first hardware design with Calyx.
