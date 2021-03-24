@@ -242,4 +242,43 @@ impl<T: ShareComponents> Visitor for T {
         }
         Ok(Action::Continue)
     }
+
+    fn invoke(
+        &mut self,
+        s: &mut ir::Invoke,
+        _comp: &mut ir::Component,
+        _sigs: &ir::LibrarySignatures,
+    ) -> VisResult {
+        // rename inputs
+        for (_id, src) in &s.inputs {
+            let rewrite = self.get_rewrites().iter().find(|(c, _)| {
+                if let ir::PortParent::Cell(cell_wref) = &src.borrow().parent {
+                    return Rc::ptr_eq(c, &cell_wref.upgrade());
+                }
+                false
+            });
+
+            if let Some((_, new_cell)) = rewrite {
+                let new_port = new_cell.borrow().get(&src.borrow().name);
+                *src.borrow_mut() = new_port.borrow().clone();
+            }
+        }
+
+        // rename outputs
+        for (_id, dest) in &s.outputs {
+            let rewrite = self.get_rewrites().iter().find(|(c, _)| {
+                if let ir::PortParent::Cell(cell_wref) = &dest.borrow().parent {
+                    return Rc::ptr_eq(c, &cell_wref.upgrade());
+                }
+                false
+            });
+
+            if let Some((_, new_cell)) = rewrite {
+                let new_port = new_cell.borrow().get(&dest.borrow().name);
+                *dest.borrow_mut() = new_port.borrow().clone();
+            }
+        }
+
+        Ok(Action::Continue)
+    }
 }

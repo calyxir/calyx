@@ -17,10 +17,10 @@ pub struct Prop {
     set: HashSet<ir::Id>,
 }
 
-/// Conversion from HashSet<ir::Id>
-impl From<HashSet<ir::Id>> for Prop {
-    fn from(set: HashSet<ir::Id>) -> Self {
-        Prop { set }
+/// Conversion to Prop from things that can be converted to HashSet<ir::Id>.
+impl<T: Into<HashSet<ir::Id>>> From<T> for Prop {
+    fn from(t: T) -> Self {
+        Prop { set: t.into() }
     }
 }
 
@@ -282,7 +282,7 @@ impl LiveRangeAnalysis {
     ///
     /// To implement this, we say that something is being read if it shows up on the rhs
     /// of any assignment in a group. Something is written if it it's guard is `1` or if it has no guard.
-    fn find_gen_kill(group_ref: &RRC<ir::Group>) -> (Prop, Prop) {
+    fn find_gen_kill_group(group_ref: &RRC<ir::Group>) -> (Prop, Prop) {
         let group = group_ref.borrow();
         // if the group contains what looks like a variable write,
         // then just add variable to write set
@@ -343,6 +343,35 @@ impl LiveRangeAnalysis {
             (reads.into(), writes.into())
         }
     }
+
+    fn find_gen_kill_invoke(invoke: &ir::Invoke) -> (Prop, Prop) {
+        let register_filter = |port: &RRC<ir::Port>| {
+            if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
+                cell_wref.upgrade().borrow().type_name()
+                    == Some(&"std_reg".into())
+            } else {
+                false
+            }
+        };
+
+        let reads: Prop = invoke
+            .inputs
+            .iter()
+            .filter(|(_, src)| register_filter(src))
+            .map(|(_, src)| src.borrow().get_parent_name().clone())
+            .collect::<HashSet<ir::Id>>()
+            .into();
+
+        let writes: Prop = invoke
+            .outputs
+            .iter()
+            .filter(|(_, src)| register_filter(src))
+            .map(|(_, dest)| dest.borrow().get_parent_name().clone())
+            .collect::<HashSet<ir::Id>>()
+            .into();
+
+        (reads, writes)
+    }
 }
 
 /// Implements the parallel dataflow analysis that computes the liveness of every register
@@ -356,10 +385,16 @@ fn build_live_ranges(
 ) -> (Prop, Prop, Prop) {
     match c {
         ir::Control::Empty(_) => (alive, gens, kills),
-        ir::Control::Invoke(_) => unimplemented!(),
+        ir::Control::Invoke(invoke) => {
+            let (reads, writes) =
+                LiveRangeAnalysis::find_gen_kill_invoke(invoke);
+            let alive = alive.transfer(&reads, &writes);
+            (alive, &gens | &reads, &kills | &writes)
+        }
         ir::Control::Enable(ir::Enable { group, .. }) => {
             // XXX(sam) no reason to compute this every time
-            let (reads, writes) = LiveRangeAnalysis::find_gen_kill(&group);
+            let (reads, writes) =
+                LiveRangeAnalysis::find_gen_kill_group(&group);
 
             // compute transfer function
             let alive = alive.transfer(&reads, &writes);

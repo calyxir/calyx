@@ -107,7 +107,7 @@ fn build_conflict_graph(
 ) {
     match c {
         ir::Control::Empty(_) => (),
-        ir::Control::Invoke(_) => unimplemented!(),
+        ir::Control::Invoke(_) => (),
         ir::Control::Enable(ir::Enable { group, .. }) => {
             confs.add_node(&group.borrow().name);
             all_enables.push(group.borrow().name.clone());
