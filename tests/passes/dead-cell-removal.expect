@@ -1,12 +1,40 @@
 import "primitives/std.lib";
+component add(left: 32, right: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
+  cells {
+    adder = std_add(32);
+    outpt = std_reg(32);
+  }
+  wires {
+    group do_add {
+      adder.left = left;
+      adder.right = right;
+      outpt.in = adder.out;
+      outpt.write_en = 1'd1;
+      do_add[done] = outpt.done;
+    }
+  }
+
+  control {
+    seq {
+      do_add;
+    }
+  }
+}
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
     used_reg = std_reg(32);
     used_le = std_le(1);
+    my_add = add();
+    add_input = std_reg(32);
   }
   wires {
     used_reg.in = used_le.out ? 32'd10;
   }
 
-  control {}
+  control {
+    invoke my_add(
+      left = add_input.out,
+      right = add_input.out,
+    )();
+  }
 }
