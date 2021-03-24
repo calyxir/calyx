@@ -260,7 +260,7 @@ The output should be the result of adding 4 to the initial value 8 times, so 10 
 
 > The complete program for this section is available under [examples/tutorial/language-tutorial-iterate.futil](https://github.com/cucapra/calyx/blob/master/examples/tutorial/language-tutorial-iterate.futil).
 
-[ext-attr]: ../../lang/attributes.html#external1
+[ext-attr]: ../lang/attributes.html#external1
 [json]: https://www.json.org/
 [verilator]: https://www.veripool.org/wiki/verilator
 [tutorial]: https://github.com/cucapra/calyx/tree/master/examples/tutorial
