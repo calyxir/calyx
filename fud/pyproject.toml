@@ -15,7 +15,8 @@ requires = [
          "toml",
          "halo",
          "termcolor",
-         "packaging"
+         "packaging",
+         "numpy"
 ]
 
 [tool.flit.metadata.requires-extra]
