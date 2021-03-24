@@ -61,7 +61,7 @@ pip3 install flit
 
 Install `fud` (from the root of the repository):
 ```
-flit -f fud/pyproject.toml fud install -s
+flit -f fud/pyproject.toml install -s
 ```
 Configure `fud`:
 ```
