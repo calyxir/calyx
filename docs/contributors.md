@@ -11,6 +11,7 @@ Here is a list of all the people who have worked on Calyx:
 - YooNa Chang
 - Chris Gyurgyik
 - Karen Zhang
+- YoungSeok Na
 
 **Previous Contributors**
 
