@@ -192,7 +192,7 @@ We need to extend our control program to orchestrate the execution of the three 
 We will need a `seq` statement to say we want to the three steps sequentially:
 
 ```
-{{#include ../../examples/tutorial/language-tutorial-compute.futil:cells}}
+{{#include ../../examples/tutorial/language-tutorial-compute.futil:control}}
 ```
 
 Try running this program again.
