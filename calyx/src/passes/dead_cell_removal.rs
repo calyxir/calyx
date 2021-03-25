@@ -33,12 +33,12 @@ impl Visitor for DeadCellRemoval {
         self.used_cells.extend(
             s.inputs
                 .iter()
-                .map(|(_, port)| port.borrow().get_parent_name().clone()),
+                .map(|(_, port)| port.borrow().get_parent_name()),
         );
         self.used_cells.extend(
             s.outputs
                 .iter()
-                .map(|(_, port)| port.borrow().get_parent_name().clone()),
+                .map(|(_, port)| port.borrow().get_parent_name()),
         );
 
         self.used_cells.insert(s.comp.borrow().name.clone());

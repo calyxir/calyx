@@ -358,7 +358,7 @@ impl LiveRangeAnalysis {
             .inputs
             .iter()
             .filter(|(_, src)| register_filter(src))
-            .map(|(_, src)| src.borrow().get_parent_name().clone())
+            .map(|(_, src)| src.borrow().get_parent_name())
             .collect::<HashSet<ir::Id>>()
             .into();
 
@@ -366,7 +366,7 @@ impl LiveRangeAnalysis {
             .outputs
             .iter()
             .filter(|(_, src)| register_filter(src))
-            .map(|(_, dest)| dest.borrow().get_parent_name().clone())
+            .map(|(_, dest)| dest.borrow().get_parent_name())
             .collect::<HashSet<ir::Id>>()
             .into();
 
