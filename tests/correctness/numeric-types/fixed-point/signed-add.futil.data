@@ -1,7 +1,7 @@
 {
   "lhs": {
     "data": [
-      1.5
+      -1.5
     ],
     "format": {
       "numeric_type": "fixed_point",
@@ -12,7 +12,7 @@
   },
   "rhs": {
     "data": [
-      -1.0
+      1.0
     ],
     "format": {
       "numeric_type": "fixed_point",

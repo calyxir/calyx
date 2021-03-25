@@ -112,7 +112,7 @@ cd calyx-py && flit install -s
 
 Frontend specific instructions:
  - [Systolic array](./frontends/systolic-array.md): Nothing else needed.
- - [NTT](./frontends/ntt.md): `pip3 install prettytables`
+ - [NTT](./frontends/ntt.md): `pip3 install prettytable`
  - [MrXL](./frontends/mrxl.md): `cd frontends/mrxl && flit install -s`
  - [TVM Relay](./frontends/tvm-relay.md): See instructions.
 
