@@ -1,7 +1,48 @@
 from prettytable import PrettyTable
-
+import numpy as np
+from typing import List
 from futil.ast import *
 from futil.utils import bits_needed
+
+
+def reduce_parallel_control_pass(component: Component, N: int, input_size: int):
+    """Reduces the amount of fan-out by reducing
+    parallelization in the execution flow
+    by a factor of `N`.
+
+    For example, given an input size 4 and
+    reduction factor N = 2:
+
+    Before:
+    par { s0_mul0; s0_mul1; }
+    par { s0_r0_op_mod; s0_r1_op_mod; s0_r2_op_mod; s0_r3_op_mod; }
+    ...
+
+    After:
+    par { s0_mul0; s0_mul1; }
+    par { s0_r0_op_mod; s0_r1_op_mod; }
+    par { s0_r2_op_mod; s0_r3_op_mod; }
+    ...
+    """
+    assert (
+        N is not None and 0 < N < input_size and (not (N & (N - 1)))
+    ), f"""N should be a power of two within bounds (0, n)."""
+
+    reduced_controls = []
+    for control in component.controls.stmts:
+        if not isinstance(control, ParComp):
+            reduced_controls.append(control)
+            continue
+
+        enable = next(iter(control.stmts), None).stmt
+        # Parallelized multiplies are already a factor of 1/2 less.
+        factor = N // 2 if "mul" in enable else N
+
+        reduced_controls.extend(
+            ParComp(x) for x in np.split(np.array(control.stmts), factor)
+        )
+
+    component.controls = SeqComp(reduced_controls)
 
 
 def get_pipeline_data(n, num_stages):
@@ -62,7 +103,8 @@ def get_multiply_data(n, num_stages):
 
 
 def pp_table(operations, multiplies, n, num_stages):
-    """Pretty prints a table describing the calculations made during the pipeline."""
+    """Pretty prints a table describing the
+    calculations made during the pipeline."""
     stage_titles = ["a"] + [f"Stage {i}" for i in range(num_stages)]
     table = PrettyTable(stage_titles)
     for row in range(n):
@@ -77,7 +119,7 @@ def pp_table(operations, multiplies, n, num_stages):
     print("\n".join(table))
 
 
-def generate_ntt_pipeline(input_bitwidth, n, q):
+def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
     """
     Prints a pipeline in Calyx for the cooley-tukey algorithm
     that uses phis in bit-reversed order.
@@ -297,7 +339,7 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
         return SeqComp(preambles + ntt_stages + epilogues)
 
     pp_table(operations, multiplies, n, num_stages)
-    Program(
+    return Program(
         imports=[Import("primitives/std.lib")],
         components=[
             Component(
@@ -308,7 +350,7 @@ def generate_ntt_pipeline(input_bitwidth, n, q):
                 controls=control(),
             )
         ],
-    ).emit()
+    )
 
 
 if __name__ == "__main__":
@@ -319,25 +361,33 @@ if __name__ == "__main__":
     parser.add_argument("-b", "--input_bitwidth", type=int)
     parser.add_argument("-n", "--input_size", type=int)
     parser.add_argument("-q", "--modulus", type=int)
+    parser.add_argument("-par_red", "--parallel_reduction", type=int)
 
     args = parser.parse_args()
 
     input_bitwidth, input_size, modulus = None, None, None
-
-    fields = [args.input_bitwidth, args.input_size, args.modulus]
-    if all(map(lambda x: x is not None, fields)):
+    required_fields = [args.input_bitwidth, args.input_size, args.modulus]
+    if all(map(lambda x: x is not None, required_fields)):
         input_bitwidth = args.input_bitwidth
         input_size = args.input_size
         modulus = args.modulus
+        parallel_reduction = args.parallel_reduction
     elif args.file is not None:
         with open(args.file, "r") as f:
             spec = json.load(f)
             input_bitwidth = spec["input_bitwidth"]
             input_size = spec["input_size"]
             modulus = spec["modulus"]
+            parallel_reduction = spec.get("parallel_reduction")
     else:
         parser.error(
             "Need to pass either `-f FILE` or all of `-b INPUT_BITWIDTH -n INPUT_SIZE -q MODULUS`"
         )
 
-    generate_ntt_pipeline(input_bitwidth, input_size, modulus)
+    program = generate_ntt_pipeline(input_bitwidth, input_size, modulus)
+
+    if parallel_reduction is not None:
+        for c in program.components:
+            reduce_parallel_control_pass(c, parallel_reduction, input_size)
+
+    program.emit()
