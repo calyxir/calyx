@@ -1,6 +1,5 @@
 from prettytable import PrettyTable
 import numpy as np
-from typing import List
 from futil.ast import *
 from futil.utils import bits_needed
 
