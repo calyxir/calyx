@@ -63,9 +63,6 @@ class NumericType:
 @dataclass
 class Bitnum(NumericType):
     """Represents a two's complement bitnum."""
-
-    string_repr: str
-
     def __init__(self, value: str, width: int, is_signed: bool):
         super().__init__(value, width, is_signed)
         unsigned_value = int(self.string_repr)
