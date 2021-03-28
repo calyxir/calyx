@@ -6,13 +6,6 @@ from decimal import Decimal
 from fud.errors import InvalidNumericType, Malformed
 
 
-# Converts `val` into a bit string that is `bw` characters wide
-def bitstring(val, bw):
-    # first truncate val by `bw` bits
-    val &= 2 ** bw - 1
-    return "{:x}".format(val)
-
-
 def parse_dat(path, args):
     """Parses a number with the given numeric type
     arguments from the array at the given `path`.
@@ -31,10 +24,9 @@ def parse_dat(path, args):
 
     NumericType = FixedPoint if "int_width" in args else Bitnum
     with path.open("r") as f:
-        return np.array([
-            NumericType(f"0x{value}", **args).str_value()
-            for value in f.readlines()
-        ])
+        return np.array(
+            [NumericType(f"0x{value}", **args).str_value() for value in f.readlines()]
+        )
 
 
 def parse_fp_widths(format):
@@ -136,8 +128,7 @@ def convert2json(input_dir, extension):
     for (mem, form) in shape_json.items():
         path = input_dir / f"{mem}.{extension}"
         args = form.copy()
-        args.pop('shape')
-        args.pop('numeric_type')
+        args.pop("shape"), args.pop("numeric_type")
         arr = parse_dat(path, args)
         if form["shape"] == [0]:
             raise Malformed(

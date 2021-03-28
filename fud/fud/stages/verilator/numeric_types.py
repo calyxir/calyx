@@ -13,7 +13,7 @@ class NumericType:
     bit_string_repr: str
     hex_string_repr: str
     base10_repr: int
-    hex_string_padding: int # Padding used for hex string representation.
+    hex_string_padding: int  # Padding used for hex string representation.
 
     def __init__(self, value: str, width: int, is_signed: bool):
         assert isinstance(value, str), f"value: {value} should be in string form."
@@ -28,14 +28,18 @@ class NumericType:
 
         if "0b" in value:
             self.string_repr = str(int(value, 2))
-            difference = width - len(value) # Zero padding.
-            self.bit_string_repr = '0' * difference + value[2:]
+            difference = width - len(value)  # Zero padding.
+            self.bit_string_repr = "0" * difference + value[2:]
             self.base10_repr = int(self.bit_string_repr, 2)
-            self.hex_string_repr = np.base_repr(self.base10_repr, 16, self.hex_string_padding)
+            self.hex_string_repr = np.base_repr(
+                self.base10_repr, 16, self.hex_string_padding
+            )
         elif "0x" in value:
             self.string_repr = str(int(value, 16))
             self.hex_string_repr = value[2:]
-            self.bit_string_repr = np.binary_repr(int(self.hex_string_repr, 16), self.width)
+            self.bit_string_repr = np.binary_repr(
+                int(self.hex_string_repr, 16), self.width
+            )
             self.base10_repr = int(self.bit_string_repr, 2)
         else:
             self.string_repr = value
@@ -59,6 +63,7 @@ class NumericType:
 @dataclass
 class Bitnum(NumericType):
     """Represents a two's complement bitnum."""
+
     string_repr: str
 
     def __init__(self, value: str, width: int, is_signed: bool):
@@ -68,7 +73,9 @@ class Bitnum(NumericType):
             # The actual value was passed instead of a base string representation.
             self.bit_string_repr = np.binary_repr(unsigned_value, self.width)
             self.base10_repr = int(self.bit_string_repr, 2)
-            self.hex_string_repr = np.base_repr(self.base10_repr, 16, self.hex_string_padding)
+            self.hex_string_repr = np.base_repr(
+                self.base10_repr, 16, self.hex_string_padding
+            )
 
         if is_signed and self.base10_repr > (2 ** (width - 1)):
             self.string_repr = str(-1 * ((2 ** width) - self.base10_repr))
@@ -84,6 +91,7 @@ class Bitnum(NumericType):
             Base 10: {self.base10_repr}"""
         )
 
+
 @dataclass
 class FixedPoint(NumericType):
     """Represents a two's complement fixed point number.
@@ -97,6 +105,7 @@ class FixedPoint(NumericType):
                     The fractional width is then inferred as
                     `width - int_width`.
     4. `is_signed`: The signed-ness of the number."""
+
     int_width: int
     frac_width: int
     decimal_repr: Decimal
@@ -107,7 +116,7 @@ class FixedPoint(NumericType):
         self.int_width = int_width
         self.frac_width = width - int_width
         assert (
-                width > int_width
+            width > int_width
         ), f"width: {width} should be greater than the integer width: {int_width}."
 
         if any(x in value for x in ["0x", "0b"]):
@@ -193,9 +202,7 @@ class FixedPoint(NumericType):
         self.bit_string_repr = bits
         self.base10_repr = int(bits, 2)
         self.hex_string_repr = np.base_repr(
-            self.base10_repr,
-            16,
-            self.hex_string_padding
+            self.base10_repr, 16, self.hex_string_padding
         )
 
     def __initialize_with_base_string(self, value: str):
