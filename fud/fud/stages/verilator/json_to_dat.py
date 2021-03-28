@@ -1,22 +1,22 @@
 import json
 import numpy as np
-from .fixed_point import fp_to_decimal, decimal_to_fp
+from .numeric_types import FixedPoint, Bitnum
 from pathlib import Path
+from decimal import Decimal
 from fud.errors import InvalidNumericType, Malformed
 
 
-# Converts `val` into a bitstring that is `bw` characters wide
+# Converts `val` into a bit string that is `bw` characters wide
 def bitstring(val, bw):
     # first truncate val by `bw` bits
     val &= 2 ** bw - 1
     return "{:x}".format(val)
 
 
-def parse_dat_bitnum(path, bw, is_signed):
-    """Parses bitnum numbers of bit width `bw`
-    from the array at the given `path`.
+def parse_dat(path, args):
+    """Parses a number with the given numeric type
+    arguments from the array at the given `path`.
     """
-
     if not path.exists():
         raise Malformed(
             "Data directory",
@@ -29,40 +29,12 @@ def parse_dat_bitnum(path, bw, is_signed):
             ),
         )
 
-    def to_decimal(hex_v: str) -> int:
-        # Takes in a value in string
-        # hexadecimal form, and
-        # returns the corresponding
-        # integer value.
-        v = int(hex_v.strip(), 16)
-        if is_signed and v > (2 ** (bw - 1)):
-            return -1 * ((2 ** bw) - v)
-
-        return v
-
+    NumericType = FixedPoint if "int_width" in args else Bitnum
     with path.open("r") as f:
-        return np.array(list(map(to_decimal, f.readlines())))
-
-
-def parse_dat_fp(path, width, int_width, is_signed):
-    """Parses fixed point numbers in the array
-     at `path` with the following form:
-    Total width: `width`
-    Integer width: `int_width`
-    Fractional width: `width` - `int_width`
-    """
-
-    def hex_to_decimal(v):
-        # Given a fixed point number in hexadecimal form,
-        # returns the string form of the decimal value.
-        decimal_v = fp_to_decimal(
-            np.binary_repr(int(v.strip(), 16), width), width, int_width, is_signed
-        )
-        # Stringified since Decimal is not JSON serializable.
-        return str(decimal_v)
-
-    with path.open("r") as f:
-        return np.array(list(map(hex_to_decimal, f.readlines())))
+        return np.array([
+            NumericType(f"0x{value}", **args).str_value()
+            for value in f.readlines()
+        ])
 
 
 def parse_fp_widths(format):
@@ -114,14 +86,9 @@ def convert2dat(output_dir, data, extension):
         arr = np.array(item["data"])
         format = item["format"]
 
-        # Every numeric format shares these two fields.
         numeric_type = format["numeric_type"]
         is_signed = format["is_signed"]
-        shape[k] = {
-            "shape": list(arr.shape),
-            "numeric_type": numeric_type,
-            "is_signed": is_signed,
-        }
+        shape[k] = {"is_signed": is_signed}
 
         if numeric_type not in {"bitnum", "fixed_point"}:
             raise InvalidNumericType(numeric_type)
@@ -135,13 +102,16 @@ def convert2dat(output_dir, data, extension):
             width = format["width"]
         shape[k]["width"] = width
 
-        convert = (
-            lambda x: decimal_to_fp(x, width, int_width, is_signed) if is_fp else x
-        )
+        def convert(x):
+            NumericType = FixedPoint if is_fp else Bitnum
+            return NumericType(x, **shape[k]).hex_string(with_prefix=False)
 
         with path.open("w") as f:
             for v in arr.flatten():
-                f.write(bitstring(convert(v), width) + "\n")
+                f.write(convert(v) + "\n")
+
+        shape[k]["shape"] = list(arr.shape)
+        shape[k]["numeric_type"] = numeric_type
 
     # Commit shape.json file.
     shape_json_file = output_dir / "shape.json"
@@ -165,17 +135,10 @@ def convert2json(input_dir, extension):
 
     for (mem, form) in shape_json.items():
         path = input_dir / f"{mem}.{extension}"
-        numeric_type = form["numeric_type"]
-        is_signed = form["is_signed"]
-        width = form["width"]
-
-        if numeric_type == "bitnum":
-            arr = parse_dat_bitnum(path, width, is_signed)
-        elif numeric_type == "fixed_point":
-            arr = parse_dat_fp(path, width, form["int_width"], is_signed)
-        else:
-            raise InvalidNumericType(numeric_type)
-
+        args = form.copy()
+        args.pop('shape')
+        args.pop('numeric_type')
+        arr = parse_dat(path, args)
         if form["shape"] == [0]:
             raise Malformed(
                 "Data format shape",
