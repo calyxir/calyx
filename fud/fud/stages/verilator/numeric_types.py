@@ -7,6 +7,14 @@ from decimal import Decimal, getcontext
 
 @dataclass
 class NumericType:
+    """Interface for a numeric type.
+    The following are required to be passed in by the user:
+    1. `value`: The value of the number. It may come in 3 forms:
+                (a) The actual value, e.g. `42`
+                (b) Binary string, e.g. `0b1101`
+                (c) Hexadecimal string, e.g. `0xFF`
+    2. `width`: The bit width of the entire number.
+    4. `is_signed`: The signed-ness of the number."""
     width: int
     is_signed: bool
     string_repr: str
@@ -17,6 +25,8 @@ class NumericType:
 
     def __init__(self, value: str, width: int, is_signed: bool):
         assert isinstance(value, str), f"value: {value} should be in string form."
+        assert len(str) > 0, f"Empty string passed in."
+
         if value[0] == "-":
             assert (
                 is_signed
@@ -63,7 +73,6 @@ class NumericType:
 @dataclass
 class Bitnum(NumericType):
     """Represents a two's complement bitnum."""
-
     def __init__(self, value: str, width: int, is_signed: bool):
         super().__init__(value, width, is_signed)
         unsigned_value = int(self.string_repr)
@@ -92,18 +101,11 @@ class Bitnum(NumericType):
 
 @dataclass
 class FixedPoint(NumericType):
-    """Represents a two's complement fixed point number.
-    The following are required to be passed in by the user:
-    1. `value`: The value of the number. It may come in 3 forms:
-                (a) The actual value, e.g. `0.125`
-                (b) Binary string, e.g. `0b1101`
-                (c) Hexadecimal string, e.g. `0xFF`
-    2. `width`: The bit width of the entire fixed point number.
-    3. `int_width`: The integer width of the fixed point number.
-                    The fractional width is then inferred as
-                    `width - int_width`.
-    4. `is_signed`: The signed-ness of the number."""
-
+    """Represents a fixed point number. In addition
+    to the value, width, and signed-ness, it also has
+    the parameter `int_width`: The integer width of
+    the fixed point number. The fractional width is
+    then inferred as `width - int_width`."""
     int_width: int
     frac_width: int
     decimal_repr: Decimal
