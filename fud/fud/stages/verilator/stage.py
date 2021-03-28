@@ -1,4 +1,4 @@
-import json
+import simplejson as sjson
 import re
 from pathlib import Path
 
@@ -59,7 +59,7 @@ class VerilatorStage(Stage):
             """
             Converts a `json` data format into a series of `.dat` files.
             """
-            convert2dat(tmp_dir.name, json.load(json_path), "dat")
+            convert2dat(tmp_dir.name, sjson.load(json_path, use_decimal=True), "dat")
 
         # Step 3: compile with verilator
         cmd = " ".join(
@@ -127,7 +127,7 @@ class VerilatorStage(Stage):
                 "cycles": int(r.group(1)) if r is not None else 0,
                 "memories": convert2json(tmpdir.name, "out"),
             }
-            return json.dumps(data, indent=2, sort_keys=True)
+            return sjson.dumps(data, indent=2, sort_keys=True, use_decimal=True)
 
         @self.step()
         def cleanup(tmpdir: SourceType.Directory):

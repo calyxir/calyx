@@ -17,7 +17,7 @@ class NumericType:
 
     def __init__(self, value: str, width: int, is_signed: bool):
         assert isinstance(value, str), f"value: {value} should be in string form."
-        if "-" in value:
+        if value[0] == "-":
             assert (
                 is_signed
             ), f"Negative value: {value} needs `is_signed` to be set to True."
@@ -63,6 +63,7 @@ class NumericType:
 @dataclass
 class Bitnum(NumericType):
     """Represents a two's complement bitnum."""
+
     def __init__(self, value: str, width: int, is_signed: bool):
         super().__init__(value, width, is_signed)
         unsigned_value = int(self.string_repr)
@@ -137,12 +138,12 @@ class FixedPoint(NumericType):
         self.rational_repr = Fraction(value)
 
         if self.decimal_repr == Decimal(0.0):
+            self.hex_string_repr = "0" * self.hex_string_padding
             self.bit_string_repr = "0" * self.width
             self.base10_repr = 0
-            self.hex_string_repr = "0" * self.hex_string_padding
             return
 
-        is_negative = self.is_signed and "-" in value
+        is_negative = self.is_signed and value[0] == "-"
         if is_negative:
             self.decimal_repr *= -1
             self.rational_repr *= -1
@@ -174,6 +175,11 @@ class FixedPoint(NumericType):
         num_int_bits = len(int_bits)
         int_overflow = num_int_bits > self.int_width
         required_width = log2(frac_width_rational.denominator)
+        if not required_width.is_integer():
+            raise Exception(
+                f"The value: `{value}` is not representable in fixed point."
+            )
+
         frac_overflow = int(required_width) > self.frac_width
         # Verify no integer or fractional width overflow in representation.
         if int_overflow or frac_overflow:

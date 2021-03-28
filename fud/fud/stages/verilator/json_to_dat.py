@@ -1,4 +1,4 @@
-import json
+import simplejson as sjson
 import numpy as np
 from .numeric_types import FixedPoint, Bitnum
 from pathlib import Path
@@ -75,7 +75,7 @@ def convert2dat(output_dir, data, extension):
     for k, item in data.items():
         path = output_dir / f"{k}.{extension}"
         path.touch()
-        arr = np.array(item["data"])
+        arr = np.array(item["data"], str)
         format = item["format"]
 
         numeric_type = format["numeric_type"]
@@ -108,7 +108,7 @@ def convert2dat(output_dir, data, extension):
     # Commit shape.json file.
     shape_json_file = output_dir / "shape.json"
     with shape_json_file.open("w") as f:
-        json.dump(shape, f, indent=2)
+        sjson.dump(shape, f, indent=2, use_decimal=True)
 
 
 def convert2json(input_dir, extension):
@@ -123,7 +123,7 @@ def convert2json(input_dir, extension):
         return {}
 
     data = {}
-    shape_json = json.load(shape_json_path.open("r"))
+    shape_json = sjson.load(shape_json_path.open("r"), use_decimal=True)
 
     for (mem, form) in shape_json.items():
         path = input_dir / f"{mem}.{extension}"
