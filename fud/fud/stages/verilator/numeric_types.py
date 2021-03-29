@@ -25,7 +25,7 @@ class NumericType:
 
     def __init__(self, value: str, width: int, is_signed: bool):
         assert isinstance(value, str), f"value: {value} should be in string form."
-        assert len(str) > 0, f"Empty string passed in."
+        assert len(value) > 0, f"Empty string passed in."
 
         if value[0] == "-":
             assert (
