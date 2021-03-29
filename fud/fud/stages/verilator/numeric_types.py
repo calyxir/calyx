@@ -90,7 +90,7 @@ class Bitnum(NumericType):
 
         if len(self.bit_string_repr) > width:
             raise InvalidNumericType(
-                f"The bit string: {value} will overflow when trying to represent"
+                f"The value: {value} will overflow when trying to represent"
                 f"{len(self.bit_string_repr)} bits with width: {width}"
             )
 
