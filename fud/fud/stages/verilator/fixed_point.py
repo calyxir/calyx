@@ -4,17 +4,6 @@ from fractions import Fraction
 from decimal import Decimal, getcontext
 
 
-def binary_to_base10(bitstring: str) -> int:
-    """Takes a binary number in string form
-    e.g. "1010" and returns the
-    corresponding base 10 number.
-    """
-    out = 0
-    for bit in bitstring:
-        out = (out << 1) | int(bit)
-    return out
-
-
 def negate_twos_complement(bitstring: str) -> str:
     """Takes in a bit string and returns the negated
     form in two's complement. This is done by:

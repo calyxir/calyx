@@ -1,6 +1,7 @@
 from itertools import product
 import numpy as np
-from decimal import Decimal, getcontext
+from decimal import Decimal
+from .numeric_types import FixedPoint
 
 
 def compute_exp_frac_table(frac_width: int):
@@ -41,15 +42,15 @@ def compute_exp_frac_table(frac_width: int):
     binary_permutations = map(list, product([0, 1], repeat=frac_width))
 
     e_table = [0] * (2 ** frac_width)
-    for p in binary_permutations:
-        i = binary_to_base10(p)
+    for permutation in binary_permutations:
+        i = int(permutation, 2)
         fraction = float(i / 2 ** (frac_width))
         e_table[i] = chebyshev_polynomial_approx(fraction)
 
     return e_table
 
 
-def exp(x: Decimal, width: int, int_width: int, print_results=False):
+def exp(x: Decimal, width: int, int_width: int, is_signed: bool, print_results=False):
     """
     Computes an approximation of e^x.
     This is done by splitting the fixed point number
@@ -59,11 +60,13 @@ def exp(x: Decimal, width: int, int_width: int, print_results=False):
     approximation is used.
     """
     frac_width = width - int_width
-    fp_x = np.binary_repr(decimal_to_fp(x, width, int_width, frac_width), width)
+    bin_string = FixedPoint(x, width, int_width, is_signed=False).bit_string(
+        with_prefix=False
+    )
 
-    int_b = fp_x[:int_width]
+    int_b = bin_string[:int_width]
     int_bin = int(int_b, 2)
-    frac_b = fp_x[int_width:width]
+    frac_b = bin_string[int_width:width]
     frac_bin = int(frac_b, 2)
 
     # Split e^x into e^i * e^f.
