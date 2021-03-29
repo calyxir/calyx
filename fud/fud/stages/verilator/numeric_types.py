@@ -79,12 +79,6 @@ class Bitnum(NumericType):
         super().__init__(value, width, is_signed)
         integer_value = int(self.string_repr)
 
-        binary_string = bin(integer_value)[2:]
-        if len(binary_string) > width:
-            raise InvalidNumericType(
-                f"The value: {value} leads to overflow when represented with {width} bits."
-            )
-
         if all(x not in value for x in ["0x", "0b"]):
             # The actual value was passed instead of a base string representation.
             self.bit_string_repr = np.binary_repr(integer_value, self.width)
@@ -97,7 +91,7 @@ class Bitnum(NumericType):
         if len(self.bit_string_repr) > width:
             raise InvalidNumericType(
                 f"The bit string: {value} will overflow when trying to represent"
-                f"{length} bits with width: {width}"
+                f"{len(self.bit_string_repr)} bits with width: {width}"
             )
 
     def pretty_print(self):
