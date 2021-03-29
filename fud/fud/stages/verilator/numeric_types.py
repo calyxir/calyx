@@ -189,7 +189,7 @@ class FixedPoint(NumericType):
             int_msg = f"<-- Required: {num_int_bits}" if int_overflow else ""
             frac_msg = f"<-- Required: {int(required_width)}" if frac_overflow else ""
             raise InvalidNumericType(
-                f"""Trying to represent {self.decimal_repr} has led to overflow.
+                f"""Trying to represent {value} has led to overflow.
                 Width: {self.width}
                 Integer width: {self.int_width} {int_msg}  
                 Fractional width: {self.frac_width} {frac_msg}"""
