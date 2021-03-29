@@ -407,7 +407,7 @@ impl Visitor for StaticTiming {
                 let go_guard = if static_time == 1 {
                     guard!(fsm["out"]).eq(guard!(start_st["out"]))
                 } else if cur_cycle == 0 {
-                    guard!(fsm["out"]).le(guard!(end_st["out"]))
+                    guard!(fsm["out"]).lt(guard!(end_st["out"]))
                 } else {
                     guard!(fsm["out"]).ge(guard!(start_st["out"]))
                         & guard!(fsm["out"]).lt(guard!(end_st["out"]))
