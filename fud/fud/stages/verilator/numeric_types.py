@@ -27,11 +27,12 @@ class NumericType:
     def __init__(self, value: str, width: int, is_signed: bool):
         if not isinstance(value, str) or len(value) == 0:
             raise InvalidNumericType(
-                f"The value: {value} of type: {type(value)} should be a non-empty string."
+                f"The value: {value} of type: "
+                f"{type(value)} should be a non-empty string."
             )
         if value.startswith("-") and not is_signed:
             raise InvalidNumericType(
-                f"A negative value was provided: {value}, and `is_signed` is False."
+                f"A negative value was provided: {value}, " f"and `is_signed` is False."
             )
         value = value.strip()
         self.width = width

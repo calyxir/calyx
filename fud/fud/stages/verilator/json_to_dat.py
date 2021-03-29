@@ -22,11 +22,15 @@ def parse_dat(path, args):
             ),
         )
 
-    NumericType = FixedPoint if "int_width" in args else Bitnum
+    def parse(hex_value):
+        hex_value = f"0x{hex_value}"
+        if "int_width" in args:
+            return FixedPoint(hex_value, **args).str_value()
+        else:
+            return int(Bitnum(hex_value, **args).str_value())
+
     with path.open("r") as f:
-        return np.array(
-            [NumericType(f"0x{value}", **args).str_value() for value in f.readlines()]
-        )
+        return np.array([parse(hex_value) for hex_value in f.readlines()])
 
 
 def parse_fp_widths(format):
