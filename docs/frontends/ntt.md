@@ -27,7 +27,7 @@ Install the [calyx-py](../calyx-py.md) library.
 The generator also produces a table to illustrate which operations are occurring
 during each stage of the pipeline. This requires installing PrettyTable:
 
-    pip3 install prettytables
+    pip3 install prettytable numpy
 
 ## Command Line Options
 
@@ -37,6 +37,7 @@ pipeline.
 - `--input_bitwidth`: The bit width of each value in the input array.
 - `--input_size`: The length (or size) of the input array.
 - `--modulus`: The (prime) modulus value used during the transformation.
+- `--parallel_reduction`: Decreases fan-out by reducing the number of groups executed in parallel by this factor.
 
 [longa-etal-ntt]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/05/RLWE-1.pdf
 [ntt]: https://github.com/cucapra/calyx/tree/master/frontends/ntt-pipeline
