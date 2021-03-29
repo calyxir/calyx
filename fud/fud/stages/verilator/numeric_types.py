@@ -96,13 +96,12 @@ class Bitnum(NumericType):
 
     def pretty_print(self):
         print(
-            f"""
-            {'Signed' if self.is_signed else ''} Bitnum: {self.string_repr}
-            ------------------
-            Width: {self.width}
-            Bit String: 0b{self.bit_string_repr}
-            Hex String: 0x{self.hex_string_repr}
-            Unsigned Integer: {self.uint_repr}"""
+            f"""{'Signed' if self.is_signed else ''} Bitnum: {self.string_repr}
+------------------
+Width: {self.width}
+Bit String: 0b{self.bit_string_repr}
+Hex String: 0x{self.hex_string_repr}
+Unsigned Integer: {self.uint_repr}"""
         )
 
 
@@ -188,9 +187,9 @@ class FixedPoint(NumericType):
             )
             raise InvalidNumericType(
                 f"""Trying to represent {value} has led to overflow.
-                Width: {self.width}
-                Integer width: {self.int_width} {int_msg}
-                Fractional width: {self.frac_width} {frac_msg}"""
+Width: {self.width}
+Integer width: {self.int_width} {int_msg}
+Fractional width: {self.frac_width} {frac_msg}"""
             )
 
         int_bits = np.binary_repr(int_partition, self.int_width)
@@ -284,13 +283,15 @@ class FixedPoint(NumericType):
 
     def pretty_print(self):
         print(
-            f"""
-        {'Signed' if self.is_signed else ''} Fixed Point: {self.string_repr}
-        ------------------
-        Width: {self.width}, IntWidth: {self.int_width}, FracWidth: {self.frac_width}
-        Decimal Class: {self.decimal_repr}
-        Fraction Class: {self.rational_repr}
-        Bit String: 0b{self.bit_string_repr}
-        Hex String: 0x{self.hex_string_repr}
-        Unsigned Integer: {self.uint_repr}"""
+            f"""{'Signed' if self.is_signed else ''} Fixed Point: {self.string_repr}
+------------------
+Width: {self.width}, IntWidth: {self.int_width}, FracWidth: {self.frac_width}
+Decimal Class: {self.decimal_repr}
+Fraction Class: {self.rational_repr}
+Bit String: 0b{self.bit_string_repr}
+Hex String: 0x{self.hex_string_repr}
+Unsigned Integer: {self.uint_repr}"""
         )
+
+
+Bitnum("1", 32, True).pretty_print()
