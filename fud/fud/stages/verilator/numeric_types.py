@@ -292,6 +292,3 @@ Bit String: 0b{self.bit_string_repr}
 Hex String: 0x{self.hex_string_repr}
 Unsigned Integer: {self.uint_repr}"""
         )
-
-
-Bitnum("1", 32, True).pretty_print()
