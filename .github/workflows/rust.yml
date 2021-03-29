@@ -180,7 +180,7 @@ jobs:
         # Run the remaining tests
         runt -x dahlia -d -o fail
     - name: Run Python Tests
-      run: pytest fud/fud/stages/verilator/tests/fp_parse.py
+      run: pytest fud/fud/stages/verilator/tests/numeric_types.py
 
   format:
     name: Check Formatting

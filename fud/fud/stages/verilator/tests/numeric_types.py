@@ -22,11 +22,11 @@ def test_fixed_point_round_trip(bits, is_signed):
 
     def fp_round_trip(bit_string: str) -> int:
         # Round-trips the fixed point conversion.
-        value = FixedPoint(f"0b{bit_string}", width, int_width, is_signed).str_value()
-        # TODO: Test and fix hex string.
-        value = FixedPoint(f"0x{hex_string}", width, int_width, is_signed).str_value()
+        bin = FixedPoint(f"0b{bit_string}", width, int_width, is_signed).str_value()
+        hex = FixedPoint(f"0x{hex_string}", width, int_width, is_signed).str_value()
+        assert bin == hex
         return FixedPoint(
-            value,
+            bin,
             width,
             int_width,
             is_signed,
@@ -58,8 +58,10 @@ def test_bitnum_round_trip(bits, is_signed):
 
     def bitnum_round_trip(bit_string: str) -> int:
         # Round-trips the bitnum conversion.
-        value = Bitnum(f"0b{bit_string}", width, is_signed).str_value()
-        return Bitnum(value, width, is_signed)
+        bin = Bitnum(f"0b{bit_string}", width, is_signed).str_value()
+        hex = Bitnum(f"0x{hex_string}", width, is_signed).str_value()
+        assert bin == hex
+        return Bitnum(bin, width, is_signed)
 
     round_trip = bitnum_round_trip(bit_string)
     assert all(
