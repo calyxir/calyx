@@ -16,7 +16,8 @@ requires = [
          "halo",
          "termcolor",
          "packaging",
-         "numpy"
+         "numpy",
+         "simplejson"
 ]
 
 [tool.flit.metadata.requires-extra]
