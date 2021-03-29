@@ -2,7 +2,6 @@ import simplejson as sjson
 import numpy as np
 from .numeric_types import FixedPoint, Bitnum
 from pathlib import Path
-from decimal import Decimal
 from fud.errors import InvalidNumericType, Malformed
 
 

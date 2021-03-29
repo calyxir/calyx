@@ -1,5 +1,5 @@
 import numpy as np
-from math import log2, ceil
+from math import log2
 from fractions import Fraction
 from dataclasses import dataclass
 from decimal import Decimal, getcontext
@@ -215,8 +215,9 @@ class FixedPoint(NumericType):
         """Initializes the value given the bit string."""
         if len(self.bit_string_repr) > self.width:
             raise InvalidNumericType(
-                f"The bit string: {self.bit_string_repr} will overflow when trying to represent"
-                f"{len(self.bit_string_repr)} bits with width: {self.width}"
+                f"The bit string: {self.bit_string_repr} will "
+                f"overflow when trying to represent {len(self.bit_string_repr)} "
+                f"bits with width: {self.width}."
             )
         is_negative = self.is_signed and (self.bit_string_repr.startswith("1"))
         if is_negative:
@@ -284,12 +285,12 @@ class FixedPoint(NumericType):
     def pretty_print(self):
         print(
             f"""
-            {'Signed' if self.is_signed else ''} Fixed Point: {self.string_repr} 
-            ------------------
-            Width: {self.width}, IntWidth: {self.int_width}, FracWidth: {self.frac_width}
-            Decimal Class: {self.decimal_repr}
-            Fraction Class: {self.rational_repr}
-            Bit String: 0b{self.bit_string_repr}
-            Hex String: 0x{self.hex_string_repr}
-            Unsigned Integer: {self.uint_repr}"""
+        {'Signed' if self.is_signed else ''} Fixed Point: {self.string_repr} 
+        ------------------
+        Width: {self.width}, IntWidth: {self.int_width}, FracWidth: {self.frac_width}
+        Decimal Class: {self.decimal_repr}
+        Fraction Class: {self.rational_repr}
+        Bit String: 0b{self.bit_string_repr}
+        Hex String: 0x{self.hex_string_repr}
+        Unsigned Integer: {self.uint_repr}"""
         )
