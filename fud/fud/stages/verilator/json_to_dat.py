@@ -83,7 +83,7 @@ def convert2dat(output_dir, data, extension):
         shape[k] = {"is_signed": is_signed}
 
         if numeric_type not in {"bitnum", "fixed_point"}:
-            raise InvalidNumericType(numeric_type)
+            raise InvalidNumericType("Fud only supports fixed point and bitnum.")
 
         is_fp = numeric_type == "fixed_point"
         if is_fp:

@@ -15,8 +15,8 @@ def test_fixed_point_round_trip(bits, is_signed):
     int_width = randint(1, width - 1)
 
     bit_string = "".join(["1" if x else "0" for x in bits])
-    base10 = int(bit_string, 2)
-    hex_string = np.base_repr(base10, 16, ceil(width / 4))
+    unsigned_integer = int(bit_string, 2)
+    hex_string = np.base_repr(unsigned_integer, 16, ceil(width / 4))
 
     def fp_round_trip(bit_string: str) -> int:
         # Round-trips the fixed point conversion.
@@ -33,13 +33,13 @@ def test_fixed_point_round_trip(bits, is_signed):
         (
             bit_string == round_trip.bit_string(with_prefix=False),
             hex_string == round_trip.hex_string(with_prefix=False),
-            base10 == round_trip.base10(),
+            unsigned_integer == round_trip.unsigned_integer(),
         )
     ), f"""width: {width}, int_width:{int_width}
         is_signed: {is_signed}, bits: {bit_string}
         base 2: {bit_string} versus {round_trip.bit_string(with_prefix=False)}
         base 16: {hex_string} versus {round_trip.hex_string(with_prefix=False)}
-        base 10: {base10} versus {round_trip.base10()}"""
+        base 10: {unsigned_integer} versus {round_trip.unsigned_integer()}"""
 
 
 @given(bits=st.lists(st.booleans(), min_size=2, max_size=256), is_signed=st.booleans())
@@ -49,8 +49,8 @@ def test_bitnum_round_trip(bits, is_signed):
     width = len(bits)
 
     bit_string = "".join(["1" if x else "0" for x in bits])
-    base10 = int(bit_string, 2)
-    hex_string = np.base_repr(base10, 16, ceil(width / 4))
+    unsigned_integer = int(bit_string, 2)
+    hex_string = np.base_repr(unsigned_integer, 16, ceil(width / 4))
 
     def bitnum_round_trip(bit_string: str) -> int:
         # Round-trips the bitnum conversion.
@@ -62,9 +62,9 @@ def test_bitnum_round_trip(bits, is_signed):
         (
             bit_string == round_trip.bit_string(with_prefix=False),
             hex_string == round_trip.hex_string(with_prefix=False),
-            base10 == round_trip.base10(),
+            unsigned_integer == round_trip.unsigned_integer(),
         )
     ), f"""width: {width}, is_signed: {is_signed}, bits: {bit_string}
         base 2: {bit_string} versus {round_trip.bit_string(with_prefix=False)}
         base 16: {hex_string} versus {round_trip.hex_string(with_prefix=False)}
-        base 10: {base10} versus {round_trip.base10()}"""
+        base 10: {unsigned_integer} versus {round_trip.unsigned_integer()}"""
