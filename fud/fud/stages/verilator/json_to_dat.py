@@ -22,7 +22,7 @@ def parse_dat(path, args):
             ),
         )
 
-    def parse(hex_value):
+    def parse(hex_value: str):
         hex_value = f"0x{hex_value}"
         if "int_width" in args:
             return FixedPoint(hex_value, **args).str_value()
