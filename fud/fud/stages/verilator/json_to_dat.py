@@ -1,22 +1,14 @@
-import json
+import simplejson as sjson
 import numpy as np
-from .fixed_point import fp_to_decimal, decimal_to_fp
+from .numeric_types import FixedPoint, Bitnum
 from pathlib import Path
 from fud.errors import InvalidNumericType, Malformed
 
 
-# Converts `val` into a bitstring that is `bw` characters wide
-def bitstring(val, bw):
-    # first truncate val by `bw` bits
-    val &= 2 ** bw - 1
-    return "{:x}".format(val)
-
-
-def parse_dat_bitnum(path, bw, is_signed):
-    """Parses bitnum numbers of bit width `bw`
-    from the array at the given `path`.
+def parse_dat(path, args):
+    """Parses a number with the given numeric type
+    arguments from the array at the given `path`.
     """
-
     if not path.exists():
         raise Malformed(
             "Data directory",
@@ -29,40 +21,15 @@ def parse_dat_bitnum(path, bw, is_signed):
             ),
         )
 
-    def to_decimal(hex_v: str) -> int:
-        # Takes in a value in string
-        # hexadecimal form, and
-        # returns the corresponding
-        # integer value.
-        v = int(hex_v.strip(), 16)
-        if is_signed and v > (2 ** (bw - 1)):
-            return -1 * ((2 ** bw) - v)
-
-        return v
+    def parse(hex_value: str):
+        hex_value = f"0x{hex_value}"
+        if "int_width" in args:
+            return FixedPoint(hex_value, **args).str_value()
+        else:
+            return int(Bitnum(hex_value, **args).str_value())
 
     with path.open("r") as f:
-        return np.array(list(map(to_decimal, f.readlines())))
-
-
-def parse_dat_fp(path, width, int_width, is_signed):
-    """Parses fixed point numbers in the array
-     at `path` with the following form:
-    Total width: `width`
-    Integer width: `int_width`
-    Fractional width: `width` - `int_width`
-    """
-
-    def hex_to_decimal(v):
-        # Given a fixed point number in hexadecimal form,
-        # returns the string form of the decimal value.
-        decimal_v = fp_to_decimal(
-            np.binary_repr(int(v.strip(), 16), width), width, int_width, is_signed
-        )
-        # Stringified since Decimal is not JSON serializable.
-        return str(decimal_v)
-
-    with path.open("r") as f:
-        return np.array(list(map(hex_to_decimal, f.readlines())))
+        return np.array([parse(hex_value) for hex_value in f.readlines()])
 
 
 def parse_fp_widths(format):
@@ -111,20 +78,15 @@ def convert2dat(output_dir, data, extension):
     for k, item in data.items():
         path = output_dir / f"{k}.{extension}"
         path.touch()
-        arr = np.array(item["data"])
+        arr = np.array(item["data"], str)
         format = item["format"]
 
-        # Every numeric format shares these two fields.
         numeric_type = format["numeric_type"]
         is_signed = format["is_signed"]
-        shape[k] = {
-            "shape": list(arr.shape),
-            "numeric_type": numeric_type,
-            "is_signed": is_signed,
-        }
+        shape[k] = {"is_signed": is_signed}
 
         if numeric_type not in {"bitnum", "fixed_point"}:
-            raise InvalidNumericType(numeric_type)
+            raise InvalidNumericType('Fud only supports "fixed_point" and "bitnum".')
 
         is_fp = numeric_type == "fixed_point"
         if is_fp:
@@ -135,18 +97,21 @@ def convert2dat(output_dir, data, extension):
             width = format["width"]
         shape[k]["width"] = width
 
-        convert = (
-            lambda x: decimal_to_fp(x, width, int_width, is_signed) if is_fp else x
-        )
+        def convert(x):
+            NumericType = FixedPoint if is_fp else Bitnum
+            return NumericType(x, **shape[k]).hex_string(with_prefix=False)
 
         with path.open("w") as f:
             for v in arr.flatten():
-                f.write(bitstring(convert(v), width) + "\n")
+                f.write(convert(v) + "\n")
+
+        shape[k]["shape"] = list(arr.shape)
+        shape[k]["numeric_type"] = numeric_type
 
     # Commit shape.json file.
     shape_json_file = output_dir / "shape.json"
     with shape_json_file.open("w") as f:
-        json.dump(shape, f, indent=2)
+        sjson.dump(shape, f, indent=2, use_decimal=True)
 
 
 def convert2json(input_dir, extension):
@@ -161,21 +126,13 @@ def convert2json(input_dir, extension):
         return {}
 
     data = {}
-    shape_json = json.load(shape_json_path.open("r"))
+    shape_json = sjson.load(shape_json_path.open("r"), use_decimal=True)
 
     for (mem, form) in shape_json.items():
         path = input_dir / f"{mem}.{extension}"
-        numeric_type = form["numeric_type"]
-        is_signed = form["is_signed"]
-        width = form["width"]
-
-        if numeric_type == "bitnum":
-            arr = parse_dat_bitnum(path, width, is_signed)
-        elif numeric_type == "fixed_point":
-            arr = parse_dat_fp(path, width, form["int_width"], is_signed)
-        else:
-            raise InvalidNumericType(numeric_type)
-
+        args = form.copy()
+        args.pop("shape"), args.pop("numeric_type")
+        arr = parse_dat(path, args)
         if form["shape"] == [0]:
             raise Malformed(
                 "Data format shape",
