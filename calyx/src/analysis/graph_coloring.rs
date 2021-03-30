@@ -37,27 +37,35 @@ where
 
     /// Given an `ordering` of `T`s, find a mapping from nodes to `T`s such
     /// that no node has a neighbor with the same `T`.
-    pub fn color_greedy_with(
+    pub fn color_greedy_with<F>(
         &self,
         ordering: impl Iterator<Item = T>,
-    ) -> HashMap<T, T> {
-        let mut available_colors: Vec<(Idx, bool)> = Vec::new();
+        color_equiv: F,
+    ) -> HashMap<T, T>
+    where
+        F: Fn(&T, &T) -> bool,
+    {
+        // false = available, true = in use
+        let mut colors_in_use: Vec<(Idx, bool)> =
+            Vec::with_capacity(self.graph.index_map.len());
         let mut coloring: HashMap<Idx, Idx> = HashMap::new();
+        let rev_map = self.graph.reverse_index();
 
         // for every node in the ordering
         for node in ordering {
             let nidx = self.graph.index_map[&node];
-            // reset available colors
-            available_colors.iter_mut().for_each(|(_, b)| *b = false);
+            // reset available colors: if colors not equivalent, set the color as being in use
+            colors_in_use.iter_mut().for_each(|(n, b)| {
+                *b = !color_equiv(&node, &rev_map[n]);
+            });
 
             // search neighbors for used colors
             for item in self.graph.graph.neighbors(self.graph.index_map[&node])
             {
-                //let item = &self.graph[nbr];
                 // if the neighbor is already colored
                 if coloring.contains_key(&item) {
                     // set color to be in use
-                    available_colors.iter_mut().for_each(|(x, b)| {
+                    colors_in_use.iter_mut().for_each(|(x, b)| {
                         if x == &coloring[&item] {
                             *b = true
                         }
@@ -65,24 +73,26 @@ where
                 }
             }
             // find the first available color
-            let color = available_colors.iter().find_map(|(x, b)| {
-                if !*b {
-                    Some(x)
-                } else {
-                    None
-                }
-            });
+            let color =
+                colors_in_use.iter().find_map(
+                    |(x, b)| {
+                        if !*b {
+                            Some(x)
+                        } else {
+                            None
+                        }
+                    },
+                );
             match color {
                 Some(c) => coloring.insert(nidx, *c),
                 None => {
                     // use self as color if nothing else
-                    available_colors.push((nidx, true));
+                    colors_in_use.push((nidx, true));
                     coloring.insert(nidx, nidx)
                 }
             };
         }
 
-        let rev_map = self.graph.reverse_index();
         coloring
             .into_iter()
             .map(|(n1, n2)| (rev_map[&n1].clone(), rev_map[&n2].clone()))
@@ -92,6 +102,14 @@ where
 
 impl<T: Eq + Hash + ToString + Clone> ToString for GraphColoring<T> {
     fn to_string(&self) -> String {
-        self.graph.to_string()
+        // self.graph.to_string()
+        format!(
+            "nodes: {:?}",
+            self.graph
+                .index_map
+                .keys()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+        )
     }
 }
