@@ -75,7 +75,7 @@ def exp(x: str, width: int, int_width: int, is_signed: bool, print_results=False
         ) # Should return an approximation of e^(1.0)
     """
     frac_width = width - int_width
-    bin_string = FixedPoint(str(x), width, int_width, is_signed=False).bit_string(
+    bin_string = FixedPoint(x, width, int_width, is_signed=False).bit_string(
         with_prefix=False
     )
 
