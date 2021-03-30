@@ -1,16 +1,3 @@
-module fixed_p_std_const #(
-    parameter WIDTH = 32,
-    parameter INT_WIDTH = 8,
-    parameter FRACT_WIDTH = 24,
-    parameter [INT_WIDTH-1:0] VALUE1 = 0,
-    parameter [FRACT_WIDTH-1:0] VALUE2 = 0
-) (
-    output logic [WIDTH-1:0] out
-);
-  assign out = {VALUE1, VALUE2};
-endmodule
-
-
 module fixed_p_std_add #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 8,
