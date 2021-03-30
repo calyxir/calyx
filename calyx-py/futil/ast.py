@@ -398,11 +398,6 @@ class Stdlib:
         )
 
     ### Extended Fixed Point AST ###
-    def fixed_point_const(
-        self, width: int, int_bit: int, frac_bit: int, value1: int, value2: int
-    ):
-        return CompInst("fixed_p_std_const", [width, int_bit, frac_bit, value1, value2])
-
     def fixed_point_op(
         self, op: str, width: int, int_bit: int, frac_bit: int, signed: bool
     ):
