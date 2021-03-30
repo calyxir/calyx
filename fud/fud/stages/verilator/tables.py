@@ -1,5 +1,4 @@
 from itertools import product
-import numpy as np
 from decimal import Decimal
 from fud.stages.verilator.numeric_types import FixedPoint
 
