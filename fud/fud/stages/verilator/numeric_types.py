@@ -179,8 +179,8 @@ class FixedPoint(NumericType):
         frac_overflow = required_frac_width > self.frac_width
         if int_overflow or frac_overflow:
             raise InvalidNumericType(
-                f"""Trying to represent {value} with integer width: {self.int_width},
-fractional width: {self.frac_width} has led to overflow.
+                f"""Trying to represent {value} with:
+integer width: {self.int_width}, fractional width: {self.frac_width} has led to overflow.
 {'Required int width: {}'.format(required_int_width) if int_overflow else ''}
 {'Required fractional width: {}'.format(required_frac_width) if frac_overflow else ''}
 """
