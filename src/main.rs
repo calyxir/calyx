@@ -48,10 +48,10 @@ fn construct_pass_manager() -> FutilResult<PassManager> {
         "pre-opt",
         [
             InferStaticTiming,
-            CompileInvoke,
             CollapseControl,
             ResourceSharing,
-            MinimizeRegs
+            MinimizeRegs,
+            CompileInvoke,
         ]
     );
     register_alias!(
