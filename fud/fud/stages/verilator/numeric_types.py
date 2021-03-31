@@ -19,10 +19,10 @@ class NumericType:
 
     width: int
     is_signed: bool
-    string_repr: str
-    bit_string_repr: str
-    hex_string_repr: str
-    uint_repr: int
+    string_repr: str = None
+    bit_string_repr: str = None
+    hex_string_repr: str = None
+    uint_repr: int = None
 
     def __init__(self, value: str, width: int, is_signed: bool):
         if not isinstance(value, str) or len(value) == 0:
@@ -39,20 +39,25 @@ class NumericType:
         self.is_signed = is_signed
 
         if value.startswith("0b"):
-            self.string_repr = str(int(value, 2))
+            self.string_repr = str(
+                int(value, 2)
+            )
             # Zero padding for bit string.
-            self.bit_string_repr = "0" * (width - len(value)) + value[2:]
+            self.bit_string_repr = "0" * max(width - len(value), 0) + value[2:]
 
             self.uint_repr = int(self.bit_string_repr, 2)
             self.hex_string_repr = np.base_repr(self.uint_repr, 16)
         elif value.startswith("0x"):
-            self.string_repr = str(int(value, 16))
+            self.string_repr = str(
+                int(value, 16)
+            )
             self.hex_string_repr = value[2:]
             self.bit_string_repr = np.binary_repr(
                 int(self.hex_string_repr, 16), self.width
             )
             self.uint_repr = int(self.bit_string_repr, 2)
         else:
+            # The decimal representation was passed in.
             self.string_repr = value
 
     def str_value(self) -> str:
@@ -74,19 +79,18 @@ class NumericType:
 @dataclass
 class Bitnum(NumericType):
     """Represents a two's complement bitnum."""
-
     def __init__(self, value: str, width: int, is_signed: bool):
         super().__init__(value, width, is_signed)
-        integer_value = int(self.string_repr)
 
-        if all(x not in value for x in ["0x", "0b"]):
-            # The actual value was passed instead of a base string representation.
-            self.bit_string_repr = np.binary_repr(integer_value, self.width)
+        if self.bit_string_repr is None and self.hex_string_repr is None:
+            # The decimal representation was passed in.
+            self.bit_string_repr = np.binary_repr(int(self.string_repr), self.width)
             self.uint_repr = int(self.bit_string_repr, 2)
             self.hex_string_repr = np.base_repr(self.uint_repr, 16)
 
         if is_signed and self.uint_repr > (2 ** (width - 1)):
-            self.string_repr = str(-1 * ((2 ** width) - self.uint_repr))
+            negated_value = -1 * ((2 ** width) - self.uint_repr)
+            self.string_repr = str(negated_value)
 
         if len(self.bit_string_repr) > width:
             raise InvalidNumericType(
@@ -113,10 +117,10 @@ class FixedPoint(NumericType):
     the fixed point number. The fractional width is
     then inferred as `width - int_width`."""
 
-    int_width: int
-    frac_width: int
-    decimal_repr: Decimal
-    rational_repr: Fraction
+    int_width: int = None
+    frac_width: int = None
+    decimal_repr: Decimal = None
+    rational_repr: Fraction = None
 
     def __init__(self, value: str, width: int, int_width: int, is_signed: bool):
         super().__init__(value, width, is_signed)
@@ -127,10 +131,10 @@ class FixedPoint(NumericType):
                 f"width: {width} should be greater than the integer width: {int_width}."
             )
 
-        if value.startswith("0b") or value.startswith("0x"):
+        if self.bit_string_repr is not None or self.hex_string_repr is not None:
             self.__initialize_with_base_string()
         else:
-            self.__initialize(value)
+            self.__initialize_with_decimal_repr(value)
 
     def decimal(self) -> Decimal:
         return self.decimal_repr
@@ -138,37 +142,33 @@ class FixedPoint(NumericType):
     def rational(self) -> Fraction:
         return self.rational_repr
 
-    def __initialize(self, value: str):
-        """Given the actual `value`, initialize
-        the other values by splitting `value`
-        into its integer and fractional
+    def __initialize_with_decimal_repr(self, value: str):
+        """Given the decimal representation,
+        initialize the other values by splitting
+        `value` into its integer and fractional
         representations."""
         self.string_repr = value
         self.decimal_repr = Decimal(value)
         self.rational_repr = Fraction(value)
 
-        if self.decimal_repr == Decimal(0.0):
-            self.bit_string_repr = "0" * self.width
-            self.hex_string_repr = "0"
-            self.uint_repr = 0
-            return
-
-        is_negative = value.startswith("-") and self.is_signed
+        is_negative = self.is_signed and value.startswith("-")
         if is_negative:
             self.decimal_repr *= -1
             self.rational_repr *= -1
 
-        def partition_representations():
+        def partition():
             if self.rational_repr.denominator == 1:
                 # It is a whole number.
                 return int(self.decimal_repr), 0
             elif self.rational_repr < 1:
+                # Catches the scientific notation case,
+                # e.g. `4.2e-20`.
                 return 0, self.decimal_repr
             else:
                 ipart, fpart = str(self.decimal_repr).split(".")
                 return int(ipart), "0.{}".format(fpart)
 
-        int_partition, frac_partition = partition_representations()
+        int_partition, frac_partition = partition()
         frac_width_rational = Fraction(frac_partition)
 
         required_frac_width = log2(frac_width_rational.denominator)
@@ -181,15 +181,12 @@ class FixedPoint(NumericType):
         int_overflow = int(required_int_width) > self.int_width - 1
         frac_overflow = int(required_frac_width) > self.frac_width
         if int_overflow or frac_overflow:
-            int_msg = f"<-- Required: {int(required_int_width)}" if int_overflow else ""
-            frac_msg = (
-                f"<-- Required: {int(required_frac_width)}" if frac_overflow else ""
-            )
             raise InvalidNumericType(
-                f"""Trying to represent {value} has led to overflow.
-Width: {self.width}
-Integer width: {self.int_width} {int_msg}
-Fractional width: {self.frac_width} {frac_msg}"""
+                f"""Trying to represent {value} with integer width: {self.int_width},
+fractional width: {self.frac_width} has led to overflow. 
+{'Required int width: {}'.format(int(required_int_width)) if int_overflow else ''}
+{'Required fractional width: {}'.format(int(required_frac_width)) if frac_overflow else ''}
+"""
             )
 
         int_bits = np.binary_repr(int_partition, self.int_width)
@@ -218,7 +215,7 @@ Fractional width: {self.frac_width} {frac_msg}"""
                 f"overflow when trying to represent {len(self.bit_string_repr)} "
                 f"bits with width: {self.width}."
             )
-        is_negative = self.is_signed and (self.bit_string_repr.startswith("1"))
+        is_negative = self.is_signed and self.bit_string_repr.startswith("1")
         if is_negative:
             # Negate it to calculate the positive value.
             self.bit_string_repr = self.__negate_twos_complement(self.bit_string_repr)
