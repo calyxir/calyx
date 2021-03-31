@@ -1,4 +1,5 @@
 //! Shared utilities.
+mod measure_time;
 mod namegenerator;
 mod out_file;
 mod weight_graph;
