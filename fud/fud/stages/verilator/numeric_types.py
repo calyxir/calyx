@@ -39,18 +39,14 @@ class NumericType:
         self.is_signed = is_signed
 
         if value.startswith("0b"):
-            self.string_repr = str(
-                int(value, 2)
-            )
+            self.string_repr = str(int(value, 2))
             # Zero padding for bit string.
             self.bit_string_repr = "0" * max(width - len(value), 0) + value[2:]
 
             self.uint_repr = int(self.bit_string_repr, 2)
             self.hex_string_repr = np.base_repr(self.uint_repr, 16)
         elif value.startswith("0x"):
-            self.string_repr = str(
-                int(value, 16)
-            )
+            self.string_repr = str(int(value, 16))
             self.hex_string_repr = value[2:]
             self.bit_string_repr = np.binary_repr(
                 int(self.hex_string_repr, 16), self.width
@@ -79,6 +75,7 @@ class NumericType:
 @dataclass
 class Bitnum(NumericType):
     """Represents a two's complement bitnum."""
+
     def __init__(self, value: str, width: int, is_signed: bool):
         super().__init__(value, width, is_signed)
 
