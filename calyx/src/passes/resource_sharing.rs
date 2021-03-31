@@ -1,17 +1,20 @@
 use super::sharing_components::ShareComponents;
 use crate::analysis;
 use crate::ir::{self, traversal::Named, RRC};
-use std::collections::HashMap;
+use ir::traversal::ConstructVisitor;
+use std::collections::{HashMap, HashSet};
 
-#[derive(Default)]
 /// Rewrites groups to share cells marked with the "share" attribute
 /// when the groups are guaranteed to never run in parallel.
 pub struct ResourceSharing {
     /// Mapping from the name of a group to the cells that it uses.
-    shareable_components: HashMap<ir::Id, Vec<ir::Id>>,
+    used_cells_map: HashMap<ir::Id, Vec<ir::Id>>,
 
     /// This is used to rewrite all uses of `old_cell` with `new_cell` in the group.
     rewrites: Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>,
+
+    /// Set of shareable components.
+    shareable_components: HashSet<ir::Id>,
 }
 
 impl Named for ResourceSharing {
@@ -24,13 +27,31 @@ impl Named for ResourceSharing {
     }
 }
 
+impl ConstructVisitor for ResourceSharing {
+    fn from(ctx: &ir::Context) -> Self {
+        let mut shareable_components = HashSet::new();
+        for prim in ctx.lib.sigs.values() {
+            eprintln!("prim: {:?}", prim.name);
+            if let Some(&1) = prim.attributes.get("share") {
+                shareable_components.insert(prim.name.clone());
+            }
+        }
+        eprintln!("{:#?}", shareable_components);
+        ResourceSharing {
+            used_cells_map: HashMap::new(),
+            rewrites: Vec::new(),
+            shareable_components,
+        }
+    }
+}
+
 impl ShareComponents for ResourceSharing {
     fn initialize(
         &mut self,
         component: &ir::Component,
-        sigs: &ir::LibrarySignatures,
+        _sigs: &ir::LibrarySignatures,
     ) {
-        self.shareable_components = component
+        self.used_cells_map = component
             .groups
             .iter()
             .map(|group| {
@@ -38,7 +59,7 @@ impl ShareComponents for ResourceSharing {
                     group.borrow().name.clone(),
                     analysis::ReadWriteSet::uses(&group.borrow().assignments)
                         .into_iter()
-                        .filter(|cell| self.cell_filter(&cell.borrow(), sigs))
+                        .filter(|cell| self.cell_filter(&cell.borrow()))
                         .map(|cell| cell.borrow().name.clone())
                         .collect::<Vec<_>>(),
                 )
@@ -47,19 +68,12 @@ impl ShareComponents for ResourceSharing {
     }
 
     fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id> {
-        self.shareable_components[group_name].clone()
+        self.used_cells_map[group_name].clone()
     }
 
-    fn cell_filter(
-        &self,
-        cell: &ir::Cell,
-        sigs: &ir::LibrarySignatures,
-    ) -> bool {
-        if let ir::CellType::Primitive {
-            name: prim_type, ..
-        } = &cell.prototype
-        {
-            sigs.get_primitive(&prim_type).attributes.get("share") == Some(&1)
+    fn cell_filter(&self, cell: &ir::Cell) -> bool {
+        if let Some(type_name) = cell.type_name() {
+            self.shareable_components.contains(&type_name)
         } else {
             false
         }
@@ -70,7 +84,7 @@ impl ShareComponents for ResourceSharing {
         _comp: &ir::Component,
         graph: &mut analysis::GraphColoring<ir::Id>,
     ) {
-        for confs in self.shareable_components.values() {
+        for confs in self.used_cells_map.values() {
             graph.insert_conflicts(confs.iter());
         }
     }
