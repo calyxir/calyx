@@ -52,7 +52,7 @@
 
 (setq futil-font-lock-keywords
   (let* ((futil-defn '("component" "cells" "wires" "control" "primitive"))
-         (futil-control '("seq" "par" "if" "while" "else" "with"))
+         (futil-control '("seq" "par" "if" "while" "else" "with" "invoke"))
          (futil-keywords '("prim" "import" "group"))
 
          (futil-defn-regexp (regexp-opt futil-defn 'words))
