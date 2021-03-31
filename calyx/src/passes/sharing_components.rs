@@ -7,7 +7,7 @@ use ir::{
     RRC,
 };
 use itertools::Itertools;
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 /// A trait for implementing passes that want to share components
 /// by building a conflict graph and performing graph coloring
@@ -110,6 +110,13 @@ impl<T: ShareComponents> Visitor for T {
             .filter(|c| self.cell_filter(&c.borrow(), sigs))
             .map(Rc::clone);
 
+        let name_to_cell_map: HashMap<_, _> = comp
+            .cells
+            .iter()
+            .filter(|c| self.cell_filter(&c.borrow(), sigs))
+            .map(|c| (c.borrow().name.clone(), Rc::clone(&c)))
+            .collect();
+
         let mut graph: GraphColoring<ir::Id> = GraphColoring::from(
             cells.clone().map(|cell_ref| cell_ref.borrow().name.clone()),
         );
@@ -142,25 +149,20 @@ impl<T: ShareComponents> Visitor for T {
                     })
             });
 
-        // add conflicts between things of different types
-        cells
-            .clone()
-            .tuple_combinations()
-            .for_each(|(cell0, cell1)| {
-                if !self.cell_equality(&*cell0.borrow(), &*cell1.borrow()) {
-                    graph.insert_conflict(
-                        &cell0.borrow().name,
-                        &cell1.borrow().name,
-                    );
-                }
-            });
-
         // custom conflicts
         self.custom_conflicts(&comp, &mut graph);
 
         // used a sorted ordering to perform coloring
         let coloring: Vec<_> = graph
-            .color_greedy_with(self.ordering(cells))
+            .color_greedy_with(
+                self.ordering(cells),
+                |a: &ir::Id, b: &ir::Id| {
+                    self.cell_equality(
+                        &name_to_cell_map[a].borrow(),
+                        &name_to_cell_map[b].borrow(),
+                    )
+                },
+            )
             .into_iter()
             .filter(|(a, b)| a != b)
             .map(|(a, b)| {
