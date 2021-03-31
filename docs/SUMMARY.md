@@ -21,5 +21,6 @@
   - [MrXL](./frontends/mrxl.md)
 - [Optimizations](./optimizations/index.md)
   - [Dataflow Analysis](./optimizations/dataflow.md)
+- [Debugging Tips](./debug/debug.md)
 ----
 [Contributors](./contributors.md)
