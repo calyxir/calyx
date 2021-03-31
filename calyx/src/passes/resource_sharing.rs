@@ -31,12 +31,10 @@ impl ConstructVisitor for ResourceSharing {
     fn from(ctx: &ir::Context) -> Self {
         let mut shareable_components = HashSet::new();
         for prim in ctx.lib.sigs.values() {
-            eprintln!("prim: {:?}", prim.name);
             if let Some(&1) = prim.attributes.get("share") {
                 shareable_components.insert(prim.name.clone());
             }
         }
-        eprintln!("{:#?}", shareable_components);
         ResourceSharing {
             used_cells_map: HashMap::new(),
             rewrites: Vec::new(),

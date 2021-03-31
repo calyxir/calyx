@@ -109,7 +109,7 @@ impl<T: ShareComponents> Visitor for T {
         let name_to_cell_map: HashMap<_, _> = comp
             .cells
             .iter()
-            .filter(|c| self.cell_filter(&c.borrow(), sigs))
+            .filter(|c| self.cell_filter(&c.borrow()))
             .map(|c| (c.borrow().name.clone(), Rc::clone(&c)))
             .collect();
 
