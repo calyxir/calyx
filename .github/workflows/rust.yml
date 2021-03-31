@@ -81,7 +81,7 @@ jobs:
       uses: actions/setup-python@v2
 
     - name: Install common Python dependencies
-      run: pip3 install numpy flit prettytable wheel hypothesis pytest
+      run: pip3 install numpy flit prettytable wheel hypothesis pytest simplejson
 
     - name: Cache Apache TVM
       id: tvm-cache
@@ -180,7 +180,7 @@ jobs:
         # Run the remaining tests
         runt -x dahlia -d -o fail
     - name: Run Python Tests
-      run: pytest fud/fud/stages/verilator/tests/fp_parse.py
+      run: pytest fud/fud/stages/verilator/tests/numeric_types.py
 
   format:
     name: Check Formatting

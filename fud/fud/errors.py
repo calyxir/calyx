@@ -173,11 +173,8 @@ class InvalidNumericType(FudError):
     An error raised when an invalid numeric type is provided.
     """
 
-    def __init__(self, type):
-        msg = f"""Numeric type: {type} is not supported.
-            Give a valid numeric type input. We currently support:
-            (1) bitnum
-            (2) fixed point"""
+    def __init__(self, msg):
+        msg = f"""Invalid Numeric Type: {msg}"""
         super().__init__(msg)
 
 
