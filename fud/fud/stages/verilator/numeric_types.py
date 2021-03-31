@@ -173,16 +173,16 @@ class FixedPoint(NumericType):
             raise InvalidNumericType(
                 f"The value: `{value}` is not representable in fixed point."
             )
-
-        required_int_width = log2(int_partition) if int_partition > 0 else 0
-        int_overflow = int(required_int_width) > self.int_width - 1
-        frac_overflow = int(required_frac_width) > self.frac_width
+        required_int_width = int(log2(int_partition) if int_partition > 0 else 0)
+        required_frac_width = int(required_frac_width)
+        int_overflow = required_int_width > self.int_width - 1
+        frac_overflow = required_frac_width > self.frac_width
         if int_overflow or frac_overflow:
             raise InvalidNumericType(
                 f"""Trying to represent {value} with integer width: {self.int_width},
-fractional width: {self.frac_width} has led to overflow. 
-{'Required int width: {}'.format(int(required_int_width)) if int_overflow else ''}
-{'Required fractional width: {}'.format(int(required_frac_width)) if frac_overflow else ''}
+fractional width: {self.frac_width} has led to overflow.
+{'Required int width: {}'.format(required_int_width) if int_overflow else ''}
+{'Required fractional width: {}'.format(required_frac_width) if frac_overflow else ''}
 """
             )
 
