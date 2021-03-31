@@ -102,14 +102,6 @@ where
 
 impl<T: Eq + Hash + ToString + Clone> ToString for GraphColoring<T> {
     fn to_string(&self) -> String {
-        // self.graph.to_string()
-        format!(
-            "nodes: {:?}",
-            self.graph
-                .index_map
-                .keys()
-                .map(|x| x.to_string())
-                .collect::<Vec<_>>()
-        )
+        self.graph.to_string()
     }
 }
