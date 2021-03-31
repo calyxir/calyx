@@ -1,0 +1,5 @@
+let a: ufix<3,1> = 1.25;
+let b: ufix<3,2>= 2.5;
+let result: ufix<4, 2>;
+
+result := a + b;
