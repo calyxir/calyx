@@ -30,9 +30,16 @@ impl Named for ResourceSharing {
 impl ConstructVisitor for ResourceSharing {
     fn from(ctx: &ir::Context) -> Self {
         let mut shareable_components = HashSet::new();
+        // add share=1 primitives to the shareable_components set
         for prim in ctx.lib.sigs.values() {
             if let Some(&1) = prim.attributes.get("share") {
                 shareable_components.insert(prim.name.clone());
+            }
+        }
+        // add share=1 user defined components to the shareable_components set
+        for comp in &ctx.components {
+            if let Some(&1) = comp.attributes.get("share") {
+                shareable_components.insert(comp.name.clone());
             }
         }
         ResourceSharing {
