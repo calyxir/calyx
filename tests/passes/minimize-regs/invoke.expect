@@ -22,19 +22,37 @@ component add(left: 32, right: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
 }
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
-    used_reg = std_reg(32);
-    used_le = std_le(1);
+    x = std_reg(32);
+    add_x = std_add(32);
     my_add = add();
-    add_input = std_reg(32);
   }
   wires {
-    used_reg.in = used_le.out ? 32'd10;
+    group wr_x {
+      x.in = 32'd1;
+      x.write_en = 1'd1;
+      wr_x[done] = x.done;
+    }
+    group rd_x {
+      add_x.left = x.out;
+      add_x.right = x.out;
+      rd_x[done] = 1'd1;
+    }
+    group wr_y {
+      x.in = 32'd10;
+      x.write_en = 1'd1;
+      wr_y[done] = x.done;
+    }
   }
 
   control {
-    invoke my_add(
-      left = add_input.out,
-      right = add_input.out,
-    )();
+    seq {
+      wr_x;
+      rd_x;
+      wr_y;
+      invoke my_add(
+        left = x.out,
+        right = x.out,
+      )();
+    }
   }
 }
