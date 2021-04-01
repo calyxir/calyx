@@ -45,11 +45,7 @@ impl ShareComponents for MinimizeRegs {
         self.live.get(group_name).iter().cloned().collect()
     }
 
-    fn cell_filter(
-        &self,
-        cell: &ir::Cell,
-        _sigs: &ir::LibrarySignatures,
-    ) -> bool {
+    fn cell_filter(&self, cell: &ir::Cell) -> bool {
         if let Some(name) = cell.type_name() {
             name == "std_reg"
         } else {
