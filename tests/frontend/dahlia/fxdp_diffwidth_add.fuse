@@ -1,5 +1,0 @@
-let a: ufix<16,8> = 16.5;
-let b: ufix<16,5>= 8.375;
-let result1: ufix<19,8>;
-
-result1 := a+b;

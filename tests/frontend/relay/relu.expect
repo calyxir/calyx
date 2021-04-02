@@ -33,8 +33,8 @@ component relu_2_4_8_32(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read
     const7 = std_const(6,31);
     const8 = std_const(6,1);
     const9 = std_const(4,1);
-    fpconst0 = fixed_p_std_const(32,16,16,0,0);
-    fpconst1 = fixed_p_std_const(32,16,16,0,0);
+    fp_const0 = std_const(32,0);
+    fp_const1 = std_const(32,0);
     gt0 = fixed_p_std_sgt(32,16,16);
     i0 = std_reg(2);
     j0 = std_reg(3);
@@ -71,7 +71,7 @@ component relu_2_4_8_32(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read
     group cond4<"static"=0> {
       cond4[done] = 1'd1;
       gt0.left = x_read0_0.out;
-      gt0.right = fpconst0.out;
+      gt0.right = fp_const0.out;
     }
     group let0<"static"=1> {
       i0.in = const0.out;
@@ -126,7 +126,7 @@ component relu_2_4_8_32(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read
       x10_0_0_0_addr1 = j0.out;
       x10_0_0_0_addr0 = i0.out;
       x10_0_0_0_write_en = 1'd1;
-      x10_0_0_0_write_data = 1'd1 ? fpconst1.out;
+      x10_0_0_0_write_data = 1'd1 ? fp_const1.out;
       upd3[done] = x10_0_0_0_done ? 1'd1;
     }
     group upd4<"static"=1> {
