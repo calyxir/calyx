@@ -399,10 +399,10 @@ class Stdlib:
 
     ### Extended Fixed Point AST ###
     def fixed_point_op(
-        self, op: str, width: int, int_bit: int, frac_bit: int, signed: bool
+        self, op: str, width: int, int_width: int, frac_width: int, signed: bool
     ):
         return CompInst(
-            f'fixed_p_std_{"s" if signed else ""}{op}', [width, int_bit, frac_bit]
+            f'fixed_p_std_{"s" if signed else ""}{op}', [width, int_width, frac_width]
         )
 
     def diff_width_add(
