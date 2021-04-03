@@ -9,6 +9,7 @@ How to deal with undefined behavior
 - Lift environment out of group level
 - Signature: (Group, component, initial environment) -> Environment
 - For now, ignoring if 2 groups dependent on each other in parallel
+- We need to be able to call a component interpreter if we come across a component while interpreting a group
 
 ## Control
 - Use the group interpreter (without it necessarily being completely correct)
@@ -18,8 +19,5 @@ How to deal with undefined behavior
 ## Component
 
 # Stuff to do
-1. Change the group interpreter interface (Environment "decoupling", signature)
-2. Implement control interpreter skeleton
-  - Initialization (of the environment and the interpreter) and "validation" (of both)
-  - How to handle sequences (par, seq, if, while)
-3. Stubbing interpreter code for the Component -> Control -> Group hierarchy
+1. Remove update queue from environment, eventually figure out scheduling mechanism when interpreting a control
+2. Go over/meet about how to handle interpreting a control
