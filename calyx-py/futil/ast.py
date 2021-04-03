@@ -402,7 +402,7 @@ class Stdlib:
         self, op: str, width: int, int_width: int, frac_width: int, signed: bool
     ):
         return CompInst(
-            f'fixed_p_std_{"s" if signed else ""}{op}', [width, int_width, frac_width]
+            f'std_fp_{"s" if signed else ""}{op}', [width, int_width, frac_width]
         )
 
     def diff_width_add(
@@ -417,7 +417,7 @@ class Stdlib:
         signed: bool,
     ):
         return CompInst(
-            f'{"s" if signed else ""}fixed_p_std_add_dbit',
+            f'std_fp_{"s" if signed else ""}add_dwidth',
             [
                 width1,
                 width2,
