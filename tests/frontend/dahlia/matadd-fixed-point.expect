@@ -3,7 +3,7 @@ component main() -> () {
   cells {
     @external(1) a0_00_0 = std_mem_d2(16,2,2,2,2);
     a0_0_read0_0 = std_reg(16);
-    add0 = fixed_p_std_add(16,8,8);
+    add0 = std_fp_add(16,8,8);
     add1 = std_add(2);
     add2 = std_add(2);
     @external(1) b0_00_0 = std_mem_d2(16,2,2,2,2);
