@@ -1,4 +1,4 @@
-use calyx::{
+use crate::{
     errors::{Error, FutilResult},
     ir,
 };
