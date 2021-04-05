@@ -23,7 +23,7 @@ module std_fp_ssub #(
   assign out = $signed(left - right);
 endmodule
 
-module sstd_fp_add_dwidth #(
+module std_fp_sadd_dwidth #(
     parameter WIDTH1 = 32,
     parameter WIDTH2 = 32,
     parameter INT_WIDTH1 = 8,
