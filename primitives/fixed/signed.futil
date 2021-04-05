@@ -10,7 +10,7 @@ extern "signed.sv" {
     WIDTH, INT_WIDTH, FRACT_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
-  primitive sstd_fp_add_dwidth<"share"=1>[
+  primitive std_fp_sadd_dwidth<"share"=1>[
     WIDTH1,
     WIDTH2 ,
     INT_WIDTH1,
