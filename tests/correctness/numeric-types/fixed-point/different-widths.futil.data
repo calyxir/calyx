@@ -1,24 +1,24 @@
 {
   "lhs": {
     "data": [
-      -1.5
+      7.0
     ],
     "format": {
       "numeric_type": "fixed_point",
-      "is_signed": true,
+      "is_signed": false,
       "width": 4,
-      "frac_width": 2
+      "int_width": 3
     }
   },
   "rhs": {
     "data": [
-      1.0
+      0.75
     ],
     "format": {
       "numeric_type": "fixed_point",
-      "is_signed": true,
+      "is_signed": false,
       "width": 4,
-      "frac_width": 2
+      "int_width": 2
     }
   },
   "res": {
@@ -27,9 +27,9 @@
     ],
     "format": {
       "numeric_type": "fixed_point",
-      "is_signed": true,
-      "width": 4,
-      "frac_width": 2
+      "is_signed": false,
+      "width": 5,
+      "int_width": 3
     }
   }
 }
