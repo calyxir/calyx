@@ -2,7 +2,7 @@ use crate::utils::{Idx, WeightGraph};
 use itertools::Itertools;
 use petgraph::algo;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap},
     hash::Hash,
 };
 
@@ -47,7 +47,7 @@ where
     /// Given an `ordering` of `T`s, find a mapping from nodes to `T`s such
     /// that no node has a neighbor with the same `T`.
     pub fn color_greedy(&self) -> HashMap<T, T> {
-        let mut all_colors: HashSet<Idx> = HashSet::new();
+        let mut all_colors: BTreeSet<Idx> = BTreeSet::new();
         let mut coloring: HashMap<Idx, Idx> = HashMap::new();
 
         // get strongly get components of graph
@@ -65,7 +65,7 @@ where
                     all_colors.iter().cloned().collect_vec();
 
                 // every node with need a different color
-                for nidx in scc {
+                for nidx in scc.into_iter().sorted() {
                     if available_colors.len() > 0 {
                         coloring.insert(nidx, available_colors.remove(0));
                     } else {
@@ -74,7 +74,7 @@ where
                     }
                 }
             } else {
-                for nidx in scc {
+                for nidx in scc.into_iter().sorted() {
                     let mut available_colors = all_colors.clone();
                     // search neighbors for used colors
                     for item in self.graph.graph.neighbors(nidx) {
