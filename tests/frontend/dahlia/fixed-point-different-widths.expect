@@ -2,7 +2,7 @@ import "primitives/std.lib";
 component main() -> () {
   cells {
     a_0 = std_reg(3);
-    add0 = fixed_p_std_add_dbit(3,3,1,2,2,1,4);
+    add0 = std_fp_add_dwidth(3,3,1,2,2,1,4);
     b_0 = std_reg(3);
     fp_const0 = std_const(3,5);
     fp_const1 = std_const(3,5);

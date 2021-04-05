@@ -1,4 +1,4 @@
-module fixed_p_std_sadd #(
+module std_fp_sadd #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 8,
     parameter FRACT_WIDTH = 24
@@ -10,7 +10,7 @@ module fixed_p_std_sadd #(
   assign out = $signed(left + right);
 endmodule
 
-module fixed_p_std_ssub #(
+module std_fp_ssub #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 8,
     parameter FRACT_WIDTH = 24
@@ -23,7 +23,7 @@ module fixed_p_std_ssub #(
   assign out = $signed(left - right);
 endmodule
 
-module sfixed_p_std_add_dbit #(
+module sstd_fp_add_dwidth #(
     parameter WIDTH1 = 32,
     parameter WIDTH2 = 32,
     parameter INT_WIDTH1 = 8,
@@ -69,7 +69,7 @@ module sfixed_p_std_add_dbit #(
   assign out = {whole_int, whole_fract};
 endmodule
 
-module fixed_p_std_sgt #(
+module std_fp_sgt #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 8,
     parameter FRACT_WIDTH = 24
@@ -81,7 +81,7 @@ module fixed_p_std_sgt #(
   assign out = $signed(left > right);
 endmodule
 
-module fixed_p_std_smult #(
+module std_fp_smult #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 8,
     parameter FRACT_WIDTH = 24
@@ -97,7 +97,7 @@ module fixed_p_std_smult #(
   assign out = result[WIDTH+FRACT_WIDTH-1:FRACT_WIDTH];
 endmodule
 
-module fixed_p_std_sdiv #(
+module std_fp_sdiv #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 8,
     parameter FRACT_WIDTH = 24
