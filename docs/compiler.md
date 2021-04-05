@@ -20,6 +20,13 @@ Specify the location of the library using the `-l` flag:
 cargo run -- -l ./primitives
 ```
 
+## Primitive Libraries Format
+The primitive libraries consist of a `.futil` file paired with a `.sv` file. The
+`.futil` file defines a series of Calyx shim bindings in `extern` blocks which
+match up with SystemVerilog definitions of those primitives. These libraries may
+also expose components written in Calyx, usually defined using primitives
+exposed by the file.
+
 ## Controlling Passes
 
 The compiler is organized as a sequence of passes that are run when the compiler
