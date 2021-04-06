@@ -127,3 +127,60 @@ OUT_WIDTH-bits. This component is combinational.
 ---
 
 ## Logical Operators
+
+### `std_not<WIDTH>`
+
+Bitwise NOT. This component is combinational.
+
+**Inputs:**
+
+- `in: width` - A WIDTH-bit input.
+
+**Outputs:**
+
+- `out: width` - The bitwise NOT of the input (`~in`)
+
+---
+
+### `std_and<WIDTH>`
+
+Bitwise AND. This component is combinational.
+
+**Inputs:**
+
+- `left: width` - A WIDTH-bit argument
+- `right: width` - A WIDTH-bit argument
+
+**Outputs:**
+
+- `out: width` - The bitwise AND of the arguments (`left & right`)
+
+---
+
+### `std_or<WIDTH>`
+
+Bitwise OR. This component is combinational.
+
+**Inputs:**
+
+- `left: width` - A WIDTH-bit argument
+- `right: width` - A WIDTH-bit argument
+
+**Outputs:**
+
+- `out: width` - The bitwise OR of the arguments (`left | right`)
+
+---
+
+### `std_xor<WIDTH>`
+
+Bitwise XOR. This component is combinational.
+
+**Inputs:**
+
+- `left: width` - A WIDTH-bit argument
+- `right: width` - A WIDTH-bit argument
+
+**Outputs:**
+
+- `out: width` - The bitwise XOR of the arguments (`left ^ right`)
