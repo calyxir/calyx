@@ -10,17 +10,16 @@ module std_fp_mult_pipe #(
     output logic [WIDTH-1:0] out,
     output logic             done
 );
-  logic [WIDTH-1:0] rtmp;
-  logic [WIDTH-1:0] ltmp;
+  logic [WIDTH-1:0]          rtmp;
+  logic [WIDTH-1:0]          ltmp;
   logic [(WIDTH << 1) - 1:0] out_tmp;
   reg done_buf[1:0];
   always_ff @(posedge clk) begin
     if (go) begin
       rtmp <= right;
       ltmp <= left;
-      out_tmp <= rtmp * ltmp;
-      // Extract middle bits for an approximation.
-      out <= out_tmp[(WIDTH << 1)-INT_WIDTH-1:INT_WIDTH];
+      out_tmp <= ltmp * rtmp;
+      out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
 
       done <= done_buf[1];
       done_buf[0] <= 1'b1;
