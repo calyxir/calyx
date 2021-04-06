@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 pub type PassClosure = Box<dyn Fn(&mut ir::Context) -> FutilResult<()>>;
 
 /// Structure that tracks all registered passes for the compiler.
+#[derive(Default)]
 pub struct PassManager {
     /// All registered passes
     passes: HashMap<String, PassClosure>,
@@ -16,12 +17,6 @@ pub struct PassManager {
 }
 
 impl PassManager {
-    pub fn new() -> Self {
-        PassManager {
-            passes: HashMap::new(),
-            aliases: HashMap::new(),
-        }
-    }
     /// Registers a new pass with the pass manager. Return `Err` if there is
     /// already a pass with the same name.
     pub fn add_pass(

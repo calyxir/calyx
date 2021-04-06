@@ -15,7 +15,7 @@ use crate::{
 impl PassManager {
     pub fn default_passes() -> FutilResult<Self> {
         // Construct the pass manager and register all passes.
-        let mut pm = PassManager::new();
+        let mut pm = PassManager::default();
 
         // Register passes.
         register_pass!(pm, WellFormed);

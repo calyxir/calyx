@@ -6,7 +6,7 @@ use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
 use std::fs;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::Path;
 use std::rc::Rc;
 
 type ParseResult<T> = Result<T, Error<Rule>>;
@@ -36,7 +36,7 @@ pub struct FutilParser;
 
 impl FutilParser {
     /// Parse a Calyx program into an AST representation.
-    pub fn parse_file(path: &PathBuf) -> FutilResult<ast::NamespaceDef> {
+    pub fn parse_file(path: &Path) -> FutilResult<ast::NamespaceDef> {
         let content = &fs::read(path).map_err(|err| {
             errors::Error::InvalidFile(format!(
                 "Failed to read {}: {}",

@@ -66,7 +66,7 @@ where
 
                 // every node with need a different color
                 for nidx in scc.into_iter().sorted() {
-                    if available_colors.len() > 0 {
+                    if !available_colors.is_empty() {
                         coloring.insert(nidx, available_colors.remove(0));
                     } else {
                         all_colors.insert(nidx);
@@ -117,7 +117,7 @@ where
             .collect();
 
         let rev_map = self.graph.reverse_index();
-        while degree_ordering.len() > 0 {
+        while !degree_ordering.is_empty() {
             let head = degree_ordering.remove(0);
             // eprintln!("{}", self.graph.degree(head));
             if !coloring.contains_key(&head) {

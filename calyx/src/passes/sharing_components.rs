@@ -99,7 +99,7 @@ impl<T: ShareComponents> Visitor for T {
             cells_by_type
                 .entry(cell.borrow().prototype.clone())
                 .and_modify(|v| v.push(cell.borrow().name.clone()))
-                .or_insert(vec![cell.borrow().name.clone()]);
+                .or_insert_with(|| vec![cell.borrow().name.clone()]);
         }
 
         let mut graphs_by_type: HashMap<ir::CellType, GraphColoring<ir::Id>> =
@@ -124,7 +124,7 @@ impl<T: ShareComponents> Visitor for T {
                     {
                         acc.entry(id_to_type[&conflict].clone())
                             .and_modify(|v| v.push(conflict.clone()))
-                            .or_insert(vec![conflict]);
+                            .or_insert_with(|| vec![conflict]);
                     }
                     acc
                 },
@@ -149,9 +149,9 @@ impl<T: ShareComponents> Visitor for T {
         self.custom_conflicts(&comp, |confs: Vec<ir::Id>| {
             for (a, b) in confs.iter().tuple_combinations() {
                 if id_to_type[a] == id_to_type[b] {
-                    graphs_by_type
-                        .get_mut(&id_to_type[a])
-                        .map(|g| g.insert_conflict(a, b));
+                    if let Some(g) = graphs_by_type.get_mut(&id_to_type[a]) {
+                        g.insert_conflict(a, b)
+                    }
                 }
             }
         });
