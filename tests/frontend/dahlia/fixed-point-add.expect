@@ -1,7 +1,7 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    add0 = fixed_p_std_add(4,2,2);
+    add0 = std_fp_add(4,2,2);
     fp_const0 = std_const(4,6);
     fp_const1 = std_const(4,4);
     slice0 = std_slice(4,4);

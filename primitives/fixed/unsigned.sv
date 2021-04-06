@@ -1,3 +1,4 @@
+
 module std_fp_mult_pipe #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 16,
@@ -37,7 +38,7 @@ module std_fp_mult_pipe #(
   end
 endmodule
 
-module fixed_p_std_add #(
+module std_fp_add #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 8,
     parameter FRACT_WIDTH = 24
@@ -49,7 +50,7 @@ module fixed_p_std_add #(
   assign out = left + right;
 endmodule
 
-module fixed_p_std_sub #(
+module std_fp_sub #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 8,
     parameter FRACT_WIDTH = 24
@@ -61,7 +62,7 @@ module fixed_p_std_sub #(
   assign out = left - right;
 endmodule
 
-module fixed_p_std_gt #(
+module std_fp_gt #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 8,
     parameter FRACT_WIDTH = 24
@@ -73,7 +74,7 @@ module fixed_p_std_gt #(
   assign out = left > right;
 endmodule
 
-module fixed_p_std_add_dbit #(
+module std_fp_add_dwidth #(
     parameter WIDTH1 = 32,
     parameter WIDTH2 = 32,
     parameter INT_WIDTH1 = 8,
@@ -91,7 +92,7 @@ module fixed_p_std_add_dbit #(
   localparam BIG_FRACT = (FRACT_WIDTH1 >= FRACT_WIDTH2) ? FRACT_WIDTH1 : FRACT_WIDTH2;
 
   if (BIG_INT + BIG_FRACT != OUT_WIDTH)
-    $error("fixed_p_std_add_dbit: Given output width not equal to computed output width");
+    $error("std_fp_add_dwidth: Given output width not equal to computed output width");
 
   logic [INT_WIDTH1-1:0] left_int;
   logic [INT_WIDTH2-1:0] right_int;
@@ -124,7 +125,7 @@ endmodule
 
 /// ========================= Unsynthesizable primitives =====================
 
-module fixed_p_std_mult #(
+module std_fp_mult #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 8,
     parameter FRACT_WIDTH = 24
@@ -139,7 +140,7 @@ module fixed_p_std_mult #(
   assign out = result[WIDTH+FRACT_WIDTH-1:FRACT_WIDTH];
 endmodule
 
-module fixed_p_std_div #(
+module std_fp_div #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 8,
     parameter FRACT_WIDTH = 24

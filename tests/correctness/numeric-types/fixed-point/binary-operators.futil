@@ -13,11 +13,11 @@ component main() -> () {
     @external(1) unsigned_sub = std_mem_d1(32, 1, 1);
     @external(1) unsigned_mul = std_mem_d1(32, 1, 1);
 
-    sadd = fixed_p_std_sadd(4,2,2);
-    ssub = fixed_p_std_ssub(4,2,2);
+    sadd = std_fp_sadd(4,2,2);
+    ssub = std_fp_ssub(4,2,2);
     smul = std_fp_smult_pipe(4,2,2);
-    add = fixed_p_std_add(32,1,31);
-    sub = fixed_p_std_sub(32,1,31);
+    add = std_fp_add(32,1,31);
+    sub = std_fp_sub(32,1,31);
     mul = std_fp_mult_pipe(32,1,31);
   }
   wires {

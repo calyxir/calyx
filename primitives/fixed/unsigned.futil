@@ -10,19 +10,19 @@ extern "unsigned.sv" {
     out: WIDTH, done: 1
   );
 
-  primitive fixed_p_std_add<"share"=1>[
+  primitive std_fp_add<"share"=1>[
     WIDTH, INT_WIDTH, FRACT_WIDTH
   ](left: WIDTH, right: WIDTH) ->(out: WIDTH);
 
-  primitive fixed_p_std_sub<"share"=1>[
+  primitive std_fp_sub<"share"=1>[
     WIDTH, INT_WIDTH, FRACT_WIDTH
   ](left: WIDTH, right: WIDTH)->(out: WIDTH);
 
-  primitive fixed_p_std_gt<"share"=1>[
+  primitive std_fp_gt<"share"=1>[
     WIDTH, INT_WIDTH, FRACT_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: 1);
 
-  primitive fixed_p_std_add_dbit<"share"=1>[
+  primitive std_fp_add_dwidth<"share"=1>[
     WIDTH1,
     WIDTH2 ,
     INT_WIDTH1,
@@ -34,11 +34,11 @@ extern "unsigned.sv" {
 
   /// ========================= Unsynthesizable Primitives ====================
 
-  primitive fixed_p_std_mult<"share"=1>[
+  primitive std_fp_mult<"share"=1>[
     WIDTH, INT_WIDTH, FRACT_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
-  primitive fixed_p_std_div<"share"=1>[
+  primitive std_fp_div<"share"=1>[
     WIDTH, INT_WIDTH, FRACT_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 

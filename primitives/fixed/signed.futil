@@ -10,15 +10,15 @@ extern "signed.sv" {
     out: WIDTH, done: 1
   );
 
-  primitive fixed_p_std_sadd<"share"=1>[
+  primitive std_fp_sadd<"share"=1>[
     WIDTH, INT_WIDTH, FRACT_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
-  primitive fixed_p_std_ssub<"share"=1>[
+  primitive std_fp_ssub<"share"=1>[
     WIDTH, INT_WIDTH, FRACT_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
-  primitive sfixed_p_std_add_dbit<"share"=1>[
+  primitive std_fp_sadd_dwidth<"share"=1>[
     WIDTH1,
     WIDTH2 ,
     INT_WIDTH1,
@@ -28,17 +28,17 @@ extern "signed.sv" {
     OUT_WIDTH
   ](left: WIDTH1, right: WIDTH2) -> (out: OUT_WIDTH);
 
-  primitive fixed_p_std_sgt<"share"=1>[
+  primitive std_fp_sgt<"share"=1>[
     WIDTH, INT_WIDTH, FRACT_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: 1);
 
 
   /// =================== Unsynthesizable Primitives =========================
-  primitive fixed_p_std_smult<"share"=1>[
+  primitive std_fp_smult<"share"=1>[
     WIDTH, INT_WIDTH, FRACT_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
-  primitive fixed_p_std_sdiv<"share"=1>[
+  primitive std_fp_sdiv<"share"=1>[
     WIDTH, INT_WIDTH, FRACT_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 }

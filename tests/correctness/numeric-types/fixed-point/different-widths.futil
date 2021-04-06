@@ -4,7 +4,7 @@ component main() -> () {
     @external(1) res = std_mem_d1(5, 1, 1);
     @external(1) lhs = std_mem_d1(4, 1, 1);
     @external(1) rhs = std_mem_d1(4, 1, 1);
-    add0 = fixed_p_std_add_dbit(4, 4, 3, 1, 2, 2, 5);
+    add0 = std_fp_add_dwidth(4, 4, 3, 1, 2, 2, 5);
   }
   wires {
     group upd<"static"=1> {
