@@ -42,7 +42,6 @@ module std_fp_smult_pipe #(
 endmodule
 
 module std_fp_sadd #(
-
     parameter WIDTH = 32,
     parameter INT_WIDTH = 8,
     parameter FRACT_WIDTH = 24
