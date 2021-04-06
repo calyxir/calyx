@@ -35,7 +35,7 @@ component relu_2_4_8_32(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read
     const9 = std_const(4,1);
     fp_const0 = std_const(32,0);
     fp_const1 = std_const(32,0);
-    gt0 = fixed_p_std_sgt(32,16,16);
+    gt0 = std_fp_sgt(32,16,16);
     i0 = std_reg(2);
     j0 = std_reg(3);
     k0 = std_reg(4);
