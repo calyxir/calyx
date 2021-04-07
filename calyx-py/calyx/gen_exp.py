@@ -391,39 +391,45 @@ def generate_groups(degree: int, width: int, int_width: int) -> List[Structure]:
         ]
         return Group(group_name, connections)
 
-    def final_multiply():
-        # Multiply e^fractional_value * e^integer_value.
+    def final_multiply(register_id: CompVar) -> List[Group]:
+        # Multiply e^{fractional_value} * e^{integer_value},
+        # and write it to register `m`.
         group_name = CompVar("final_multiply")
         mult_pipe = CompVar("mult_pipe1")
         reg = CompVar("m")
-        connections = [
-            Connect(
-                CompPort(CompVar("pow1"), "out"),
-                CompPort(mult_pipe, "left"),
-            ),
-            Connect(
-                CompPort(CompVar("sum1"), "out"),
-                CompPort(mult_pipe, "right"),
-            ),
-            Connect(
-                ConstantPort(1, 1),
-                CompPort(mult_pipe, "go"),
-                Not(Atom(CompPort(mult_pipe, "done"))),
-            ),
-            Connect(CompPort(mult_pipe, "done"), CompPort(reg, "write_en")),
-            Connect(CompPort(mult_pipe, "out"), CompPort(reg, "in")),
-            Connect(CompPort(reg, "done"), HolePort(group_name, "done")),
+        return [
+            Group(
+                id=group_name,
+                connections=[
+                    Connect(
+                        CompPort(CompVar("pow1"), "out"),
+                        CompPort(mult_pipe, "left"),
+                    ),
+                    Connect(
+                        CompPort(CompVar("sum1"), "out"),
+                        CompPort(mult_pipe, "right"),
+                    ),
+                    Connect(
+                        ConstantPort(1, 1),
+                        CompPort(mult_pipe, "go"),
+                        Not(Atom(CompPort(mult_pipe, "done"))),
+                    ),
+                    Connect(CompPort(mult_pipe, "done"), CompPort(reg, "write_en")),
+                    Connect(CompPort(mult_pipe, "out"), CompPort(reg, "in")),
+                    Connect(CompPort(reg, "done"), HolePort(group_name, "done")),
+                ],
+            )
         ]
-        return [Group(group_name, connections)]
 
-    # Connect final sum to the `out` signal of the component
-    out = [Connect(CompPort(CompVar("m"), "out"), ThisPort(CompVar("out")))]
+    # Connect final value to the `out` signal of the component.
+    output_register = CompVar("m")
+    out = [Connect(CompPort(output_register, "out"), ThisPort(CompVar("out")))]
     return (
         init
         + [consume_pow(j) for j in range(2, degree + 1)]
         + [multiply_by_reciprocal_factorial(k) for k in range(2, degree + 1)]
         + divide_and_conquer_sums(degree)
-        + final_multiply()
+        + final_multiply(output_register)
         + out
     )
 
@@ -485,8 +491,8 @@ def generate_control(degree: int) -> Control:
 #   if (x < 0.0): out = 1 / e^x
 def generate_exp_taylor_series_approximation(
     degree: int, width: int, int_width: int
-) -> Program:
-    """Generates a Calyx program to produce the Taylor Series
+) -> List[Component]:
+    """Generates Calyx components to produce the Taylor series
     approximation of e^x to the provided degree. Given this is
     a Maclaurin series, it can be written more generally as:
         e^x = 1 + x + (x^2 / 2!) + (x^3 / 3!) + ... + (x^n / n!)
@@ -496,7 +502,7 @@ def generate_exp_taylor_series_approximation(
     of `x`, so that `x = i + f`. We can then calculate `x` in
     the following manner:
         1. Compute `e^i` using `fp_pow`.
-        2. Compute `e^f` using a Taylor Series approximation.
+        2. Compute `e^f` using a Taylor series approximation.
         3. Since `e^x = e^(i+f)`, multiply `e^i * e^f`.
 
     Reference: https://en.wikipedia.org/wiki/Taylor_series#Exponential_function
@@ -505,20 +511,17 @@ def generate_exp_taylor_series_approximation(
     assert (
         degree > 0 and log2(degree).is_integer()
     ), f"The degree: {degree} should be a power of 2."
-    return Program(
-        imports=[Import("primitives/std.lib")],
-        components=[
-            Component(
-                "exp",
-                inputs=[PortDef(CompVar("x"), width)],
-                outputs=[PortDef(CompVar("out"), width)],
-                structs=generate_cells(degree, width, int_width)
-                + generate_groups(degree, width, int_width),
-                controls=generate_control(degree),
-            ),
-            generate_fp_pow_component(width, int_width),
-        ],
-    )
+    return [
+        Component(
+            "exp",
+            inputs=[PortDef(CompVar("x"), width)],
+            outputs=[PortDef(CompVar("out"), width)],
+            structs=generate_cells(degree, width, int_width)
+            + generate_groups(degree, width, int_width),
+            controls=generate_control(degree),
+        ),
+        generate_fp_pow_component(width, int_width),
+    ]
 
 
 if __name__ == "__main__":
@@ -550,7 +553,12 @@ if __name__ == "__main__":
         parser.error(
             "Need to pass either `-f FILE` or all of `-d DEGREE -w WIDTH -i INT_WIDTH`"
         )
-    program = generate_exp_taylor_series_approximation(degree, width, int_width)
+
+    program = Program(
+        imports=[Import("primitives/std.lib")],
+        components=generate_exp_taylor_series_approximation(degree, width, int_width),
+    )
+    # Append a `main` program for testing purposes.
     program.components.append(
         Component(
             "main",
