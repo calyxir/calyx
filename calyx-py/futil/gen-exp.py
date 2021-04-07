@@ -1,5 +1,4 @@
-import numpy as np
-from ast import *
+from futil.ast import *
 from math import factorial, log2
 from typing import List
 from fud.stages.verilator.numeric_types import FixedPoint
@@ -118,7 +117,7 @@ def float_to_fixed_point(value: float, N: int) -> float:
     with the decimal value truncated to `N - 1` places.
     """
     w = 2 << (N - 1)
-    return np.round(value * w) / float(w)
+    return round(value * w) / float(w)
 
 
 def generate_cells(degree: int, width: int, int_width: int) -> List[Cell]:
