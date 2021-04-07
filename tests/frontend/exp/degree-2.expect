@@ -1,21 +1,43 @@
 import "primitives/std.lib";
 component exp(x: 32) -> (out: 32) {
   cells {
+    int_x = std_reg(32);
+    frac_x = std_reg(32);
+    m = std_reg(32);
+    and0 = std_and(32);
+    and1 = std_and(32);
+    rsh = std_rsh(32);
     c2 = std_const(32, 2);
     x2 = std_reg(32);
     product2 = std_reg(32);
     p2 = std_reg(32);
     sum1 = std_reg(32);
     add1 = std_fp_add(32, 16, 16);
+    mult_pipe1 = std_fp_mult_pipe(32, 16, 16);
     mult_pipe2 = std_fp_mult_pipe(32, 16, 16);
     reciprocal_factorial2 = std_const(32, 32768);
     one = std_const(32, 65536);
+    e = std_const(32, 178145);
+    pow1 = fp_pow();
     pow2 = fp_pow();
   }
   wires {
+    group init {
+      and0.left = x;
+      and0.right = 32'd4294901760;
+      rsh.left = and0.out;
+      rsh.right = 32'd16;
+      and1.left = x;
+      and1.right = 32'd65535;
+      int_x.write_en = 1'd1;
+      frac_x.write_en = 1'd1;
+      int_x.in = rsh.out;
+      frac_x.in = and1.out;
+      init[done] = int_x.done & frac_x.done ? 1'd1;
+    }
     group assign_input2<"static"=1> {
       x2.write_en = 1'd1;
-      x2.in = x;
+      x2.in = frac_x.out;
       assign_input2[done] = x2.done ? 1'd1;
     }
     group consume_pow2<"static"=1> {
@@ -32,7 +54,7 @@ component exp(x: 32) -> (out: 32) {
       mult_by_reciprocal_factorial2[done] = product2.done;
     }
     group sum_round1_1<"static"=1> {
-      add1.left = x;
+      add1.left = frac_x.out;
       add1.right = product2.out;
       sum1.write_en = 1'd1;
       sum1.in = add1.out;
@@ -45,14 +67,24 @@ component exp(x: 32) -> (out: 32) {
       sum1.in = add1.out;
       add_degree_zero[done] = sum1.done;
     }
-    out = sum1.out;
+    group final_multiply {
+      mult_pipe1.left = pow1.out;
+      mult_pipe1.right = sum1.out;
+      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
+      m.write_en = mult_pipe1.done;
+      m.in = mult_pipe1.out;
+      final_multiply[done] = m.done;
+    }
+    out = m.out;
   }
   control {
     seq {
+      init;
       par {
         assign_input2;
       }
       par {
+        invoke pow1(base=e.out, integer_exp=int_x.out)();
         invoke pow2(base=x2.out, integer_exp=c2.out)();
       }
       par {
@@ -65,6 +97,7 @@ component exp(x: 32) -> (out: 32) {
         sum_round1_1;
       }
       add_degree_zero;
+      final_multiply;
     }
   }
 }
