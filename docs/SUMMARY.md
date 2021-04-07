@@ -5,7 +5,7 @@
   - [Examples](./fud/examples.md)
   - [Vivado Tools](./fud/synthesis.md)
 - [The Calyx Compiler](./compiler.md)
-  - [Core](./libraries/core.md)
+  - [Primitive Library](./libraries/core.md)
 - [Tools](./tools/index.md)
   - [Runt](./tools/runt.md)
 - [Language Tutorial](./tutorial/language-tut.md)
