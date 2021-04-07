@@ -28,8 +28,10 @@
 //! [lang-tut]: https://capra.cs.cornell.edu/docs/calyx/tutorial/language-tut.html
 pub mod analysis;
 pub mod backend;
+pub mod default_passes;
 pub mod errors;
 pub mod frontend;
 pub mod ir;
+pub mod pass_manager;
 pub mod passes;
 pub mod utils;

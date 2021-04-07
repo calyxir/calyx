@@ -42,10 +42,7 @@ pub struct NamespaceDef {
 impl NamespaceDef {
     /// Parse the program and all of its transitive dependencies to build
     /// a whole program context.
-    pub fn new(
-        file: &Option<PathBuf>,
-        lib_path: &PathBuf,
-    ) -> FutilResult<Self> {
+    pub fn new(file: &Option<PathBuf>, lib_path: &Path) -> FutilResult<Self> {
         let mut namespace = match file {
             Some(file) => parser::FutilParser::parse_file(&file),
             None => {
