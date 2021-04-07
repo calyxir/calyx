@@ -34,8 +34,15 @@ def generate_fp_pow_component(width: int, int_width: int) -> Component:
         Group(
             id=CompVar("init"),
             connections=[
-                Connect(ConstantPort(width, FixedPoint("1.0", width, int_width, is_signed=False).unsigned_integer()),
-                        CompPort(pow, "in")),
+                Connect(
+                    ConstantPort(
+                        width,
+                        FixedPoint(
+                            "1.0", width, int_width, is_signed=False
+                        ).unsigned_integer(),
+                    ),
+                    CompPort(pow, "in"),
+                ),
                 Connect(ConstantPort(1, 1), CompPort(pow, "write_en")),
                 Connect(ConstantPort(width, 0), CompPort(count, "in")),
                 Connect(ConstantPort(1, 1), CompPort(count, "write_en")),
@@ -168,21 +175,21 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[Cell]:
             CompVar(f"one"),
             stdlib.constant(
                 width,
-                FixedPoint("1.0", width, int_width, is_signed=False).unsigned_integer()
+                FixedPoint("1.0", width, int_width, is_signed=False).unsigned_integer(),
             ),
         )
     ]
     return (
-            constants
-            + input_registers
-            + product_registers
-            + pow_registers
-            + sum_registers
-            + adds
-            + mult_pipes
-            + reciprocal_factorials
-            + one
-            + pows
+        constants
+        + input_registers
+        + product_registers
+        + pow_registers
+        + sum_registers
+        + adds
+        + mult_pipes
+        + reciprocal_factorials
+        + one
+        + pows
     )
 
 
@@ -228,7 +235,11 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
             sum = CompVar(f"sum{i + 1}")
 
             # In the first round and first group, we add the 1st degree, the value `x` itself.
-            lhs = ThisPort(CompVar("x")) if round == 1 and i == 0 else CompPort(reg_lhs, "out")
+            lhs = (
+                ThisPort(CompVar("x"))
+                if round == 1 and i == 0
+                else CompPort(reg_lhs, "out")
+            )
             connections = [
                 Connect(lhs, CompPort(adder, "left")),
                 Connect(CompPort(reg_rhs, "out"), CompPort(adder, "right")),
@@ -255,7 +266,7 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
                 Connect(CompPort(adder, "out"), CompPort(reg, "in")),
                 Connect(CompPort(reg, "done"), HolePort(group_name, "done")),
             ],
-            static_delay=1
+            static_delay=1,
         )
     )
 
@@ -316,10 +327,10 @@ def generate_groups(degree: int, width: int, int_width: int) -> List[Structure]:
         return Group(group_name, connections)
 
     return (
-            [assign_input(i) for i in range(2, degree + 1)]
-            + [consume_pow(j) for j in range(2, degree + 1)]
-            + [multiply_by_reciprocal_factorial(k) for k in range(2, degree + 1)]
-            + divide_and_conquer_sums(degree)
+        [assign_input(i) for i in range(2, degree + 1)]
+        + [consume_pow(j) for j in range(2, degree + 1)]
+        + [multiply_by_reciprocal_factorial(k) for k in range(2, degree + 1)]
+        + divide_and_conquer_sums(degree)
     )
 
 
@@ -366,7 +377,7 @@ def generate_control(degree: int) -> Control:
 
 
 def generate_exp_taylor_series_approximation(
-        degree: int, width: int, int_width: int
+    degree: int, width: int, int_width: int
 ) -> Program:
     """Generates a Calyx program to produce the Taylor Series
     approximation of e^x to the provided degree. Given this is
@@ -377,7 +388,7 @@ def generate_exp_taylor_series_approximation(
     """
     # TODO(cgyurgyik): Support any degree.
     assert (
-            degree > 0 and log2(degree).is_integer()
+        degree > 0 and log2(degree).is_integer()
     ), f"The degree: {degree} should be a power of 2."
     return Program(
         imports=[Import("primitives/std.lib")],
@@ -387,7 +398,7 @@ def generate_exp_taylor_series_approximation(
                 inputs=[PortDef(CompVar("x"), width)],
                 outputs=[PortDef(CompVar("out"), width)],
                 structs=generate_cells(degree, width, int_width)
-                        + generate_groups(degree, width, int_width),
+                + generate_groups(degree, width, int_width),
                 controls=generate_control(degree),
             ),
             generate_fp_pow_component(width, int_width),
@@ -439,30 +450,46 @@ if __name__ == "__main__":
                     id=CompVar("init"),
                     connections=[
                         Connect(ConstantPort(1, 0), CompPort(CompVar("x"), "addr0")),
-                        Connect(CompPort(CompVar("x"), "read_data"), CompPort(CompVar("t"), "in")),
+                        Connect(
+                            CompPort(CompVar("x"), "read_data"),
+                            CompPort(CompVar("t"), "in"),
+                        ),
                         Connect(ConstantPort(1, 1), CompPort(CompVar("t"), "write_en")),
-                        Connect(CompPort(CompVar("t"), "done"), HolePort(CompVar("init"), "done"))
-                    ]
+                        Connect(
+                            CompPort(CompVar("t"), "done"),
+                            HolePort(CompVar("init"), "done"),
+                        ),
+                    ],
                 ),
                 Group(
                     id=CompVar("write_to_memory"),
                     connections=[
                         Connect(ConstantPort(1, 0), CompPort(CompVar("ret"), "addr0")),
-                        Connect(ConstantPort(1, 1), CompPort(CompVar("ret"), "write_en")),
-                        Connect(CompPort(CompVar("e"), "out"), CompPort(CompVar("ret"), "write_data")),
-                        Connect(CompPort(CompVar("ret"), "done"), HolePort(CompVar("write_to_memory"), "done"))
-                    ]
-                )
-            ],
-            controls=SeqComp([
-                Enable("init"),
-                Invoke(
-                    id=CompVar("e"),
-                    in_connects=[("x", CompPort(CompVar("t"), "out"))],
-                    out_connects=[]
+                        Connect(
+                            ConstantPort(1, 1), CompPort(CompVar("ret"), "write_en")
+                        ),
+                        Connect(
+                            CompPort(CompVar("e"), "out"),
+                            CompPort(CompVar("ret"), "write_data"),
+                        ),
+                        Connect(
+                            CompPort(CompVar("ret"), "done"),
+                            HolePort(CompVar("write_to_memory"), "done"),
+                        ),
+                    ],
                 ),
-                Enable("write_to_memory")
-            ]),
+            ],
+            controls=SeqComp(
+                [
+                    Enable("init"),
+                    Invoke(
+                        id=CompVar("e"),
+                        in_connects=[("x", CompPort(CompVar("t"), "out"))],
+                        out_connects=[],
+                    ),
+                    Enable("write_to_memory"),
+                ]
+            ),
         )
     )
     program.emit()
