@@ -278,3 +278,81 @@ Less than or equal. This component is combinational.
 - `out: 1` - A single bit output. 1 if `left <= right` else 0.
 
 ---
+
+## Memories
+
+### `std_mem_d1`
+
+A one-dimensional memory.
+
+**Parameters:**
+
+- `WIDTH` - Size of an individual memory slot.
+- `SIZE` - Number of slots in the memory.
+- `IDX_SIZE` - The width of the index given to the memory.
+
+**Inputs:**
+
+- `addr0: idx_size` - The index to be accessed or updated
+- `write_data: width` - Data to be written to the selected memory slot
+- `write_en: 1` - One bit write enabled signal, causes the memory to write `write_data` to the slot indexed by `addr0`
+
+**Outputs:**
+
+- `read_data: width` - The value stored at `addr0`. This value is combinational with respect to `addr0`.
+- `done: 1`: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
+
+---
+
+### `std_mem_d2`
+
+A two-dimensional memory.
+
+**Parameters:**
+
+- `WIDTH` - Size of an individual memory slot.
+- `D0_SIZE` - Number of memory slots for the first index.
+- `D1_SIZE` - Number of memory slots for the second index.
+- `D0_IDX_SIZE` - The width of the first index.
+- `D1_IDX_SIZE` - The width of the second index.
+
+**Inputs:**
+
+- `addr0: d0_idx_size` - The first index into the memory
+- `addr1: d1_idx_size` - The second index into the memory
+- `write_data: width` - Data to be written to the selected memory slot
+- `write_en: 1` - One bit write enabled signal, causes the memory to write `write_data` to the slot indexed by `addr0` and `addr1`
+
+**Outputs:**
+
+- `read_data: width` - The value stored at `mem[addr0][addr1]`. This value is combinational with respect to `addr0` and `addr1`.
+- `done: 1`: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
+
+---
+
+### `std_mem_d3`
+
+A three-dimensional memory.
+
+**Parameters:**
+
+- `WIDTH` - Size of an individual memory slot.
+- `D0_SIZE` - Number of memory slots for the first index.
+- `D1_SIZE` - Number of memory slots for the second index.
+- `D2_SIZE` - Number of memory slots for the second index.
+- `D0_IDX_SIZE` - The width of the first index.
+- `D1_IDX_SIZE` - The width of the second index.
+- `D2_IDX_SIZE` - The width of the third index.
+
+**Inputs:**
+
+- `addr0: d0_idx_size` - The first index into the memory
+- `addr1: d1_idx_size` - The second index into the memory
+- `addr2: d1_idx_size` - The second index into the memory
+- `write_data: width` - Data to be written to the selected memory slot
+- `write_en: 1` - One bit write enabled signal, causes the memory to write `write_data` to the slot indexed by `addr0`, `addr1`, and `addr2`
+
+**Outputs:**
+
+- `read_data: width` - The value stored at `mem[addr0][addr1][addr2]`. This value is combinational with respect to `addr0`, `addr1`, and `addr2`.
+- `done: 1`: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
