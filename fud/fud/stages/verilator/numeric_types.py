@@ -1,12 +1,12 @@
 import numpy as np
 from math import log2
 from fractions import Fraction
-from dataclasses import dataclass
+import dataclasses
 from decimal import Decimal, getcontext
 from fud.errors import InvalidNumericType
 
 
-@dataclass
+@dataclasses.dataclass
 class NumericType:
     """Interface for a numeric type.
     The following are required to be passed in by the user:
@@ -72,7 +72,7 @@ class NumericType:
         pass
 
 
-@dataclass
+@dataclasses.dataclass
 class Bitnum(NumericType):
     """Represents a two's complement bitnum."""
 
@@ -106,7 +106,7 @@ Unsigned Integer: {self.uint_repr}"""
         )
 
 
-@dataclass
+@dataclasses.dataclass
 class FixedPoint(NumericType):
     """Represents a fixed point number. In addition
     to the value, width, and signed-ness, it also has
