@@ -1,7 +1,7 @@
 from calyx import ast
 from math import factorial, log2
 from typing import List
-from fud.stages.verilator.numeric_types import FixedPoint
+from fud.stages.verilator import numeric_types
 
 
 def generate_fp_pow_component(width: int, int_width: int) -> ast.Component:
@@ -36,7 +36,7 @@ def generate_fp_pow_component(width: int, int_width: int) -> ast.Component:
                 ast.Connect(
                     ast.ConstantPort(
                         width,
-                        FixedPoint(
+                        numeric_types.FixedPoint(
                             "1.0", width, int_width, is_signed=False
                         ).unsigned_integer(),
                     ),
@@ -180,7 +180,7 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[ast.Cell]:
     reciprocal_factorials = []
     for i in range(2, degree + 1):
         fixed_point_value = float_to_fixed_point(1.0 / factorial(i), frac_width)
-        value = FixedPoint(
+        value = numeric_types.FixedPoint(
             str(fixed_point_value), width, int_width, is_signed=False
         ).unsigned_integer()
         reciprocal_factorials.append(
@@ -197,14 +197,16 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[ast.Cell]:
             ast.CompVar("one"),
             stdlib.constant(
                 width,
-                FixedPoint("1.0", width, int_width, is_signed=False).unsigned_integer(),
+                numeric_types.FixedPoint(
+                    "1.0", width, int_width, is_signed=False
+                ).unsigned_integer(),
             ),
         ),
         ast.Cell(
             ast.CompVar("e"),
             stdlib.constant(
                 width,
-                FixedPoint(
+                numeric_types.FixedPoint(
                     str(float_to_fixed_point(2.7182818284, frac_width)),
                     width,
                     int_width,
