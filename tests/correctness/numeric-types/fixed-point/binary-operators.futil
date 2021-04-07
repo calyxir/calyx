@@ -11,10 +11,10 @@ component main() -> () {
     @external(1) unsigned_add = std_mem_d1(32, 1, 1);
     @external(1) unsigned_sub = std_mem_d1(32, 1, 1);
 
-    sadd = fixed_p_std_sadd(4,2,2);
-    ssub = fixed_p_std_ssub(4,2,2);
-    add = fixed_p_std_add(32,1,31);
-    sub = fixed_p_std_sub(32,1,31);
+    sadd = std_fp_sadd(4,2,2);
+    ssub = std_fp_ssub(4,2,2);
+    add = std_fp_add(32,1,31);
+    sub = std_fp_sub(32,1,31);
   }
   wires {
     group do_signed_add<"static"=1> {

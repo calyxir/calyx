@@ -84,13 +84,12 @@ impl ShareComponents for ResourceSharing {
         }
     }
 
-    fn custom_conflicts(
-        &self,
-        _comp: &ir::Component,
-        graph: &mut analysis::GraphColoring<ir::Id>,
-    ) {
-        for confs in self.used_cells_map.values() {
-            graph.insert_conflicts(confs.iter());
+    fn custom_conflicts<F>(&self, _comp: &ir::Component, mut add_conflicts: F)
+    where
+        F: FnMut(Vec<ir::Id>),
+    {
+        for used in self.used_cells_map.values() {
+            add_conflicts(used.clone())
         }
     }
 
