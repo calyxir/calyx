@@ -107,7 +107,7 @@ rm {}.futil;
 name = "exp (taylor series approximation) correctness"
 paths = [ "tests/correctness/exp/*.txt" ]
 cmd = """
-python3 calyx-py/futil/gen-exp.py {} > {}.futil; \
+python3 calyx-py/futil/gen_exp.py {} > {}.futil; \
 fud e {}.futil --to dat -s verilog.data {}.data -q 2>/dev/null; \
 rm {}.futil;
 """
@@ -171,7 +171,7 @@ cmd = "python3 frontends/relay/relay_visitor.py < {} -q"
 [[tests]]
 name = "exp frontend"
 paths = ["tests/frontend/exp/*.txt"]
-cmd = "python3 calyx-py/futil/gen-exp.py {}"
+cmd = "python3 calyx-py/futil/gen_exp.py {}"
 
 [[tests]]
 name = "python library AST"
