@@ -5,16 +5,20 @@ component main() -> () {
     @external(1) srhs = std_mem_d1(4, 1, 1);
     @external(1) signed_add = std_mem_d1(4, 1, 1);
     @external(1) signed_sub = std_mem_d1(4, 1, 1);
+    @external(1) signed_mul = std_mem_d1(4, 1, 1);
 
     @external(1) lhs = std_mem_d1(32, 1, 1);
     @external(1) rhs = std_mem_d1(32, 1, 1);
     @external(1) unsigned_add = std_mem_d1(32, 1, 1);
     @external(1) unsigned_sub = std_mem_d1(32, 1, 1);
+    @external(1) unsigned_mul = std_mem_d1(32, 1, 1);
 
     sadd = std_fp_sadd(4,2,2);
     ssub = std_fp_ssub(4,2,2);
+    smul = std_fp_smult_pipe(4,2,2);
     add = std_fp_add(32,1,31);
     sub = std_fp_sub(32,1,31);
+    mul = std_fp_mult_pipe(32,1,31);
   }
   wires {
     group do_signed_add<"static"=1> {
@@ -57,6 +61,28 @@ component main() -> () {
       unsigned_sub.write_data = sub.out;
       do_unsigned_sub[done] = unsigned_sub.done ? 1'd1;
     }
+    group do_unsigned_mul {
+      unsigned_mul.addr0 = 1'd0;
+      lhs.addr0 = 1'd0;
+      rhs.addr0 = 1'd0;
+      mul.left = lhs.read_data;
+      mul.right = rhs.read_data;
+      unsigned_mul.write_data = mul.out;
+      mul.go = !mul.done ? 1'd1;
+      unsigned_mul.write_en = mul.done;
+      do_unsigned_mul[done] = unsigned_mul.done ? 1'd1;
+    }
+    group do_signed_mul {
+      signed_mul.addr0 = 1'd0;
+      slhs.addr0 = 1'd0;
+      srhs.addr0 = 1'd0;
+      smul.left = slhs.read_data;
+      smul.right = srhs.read_data;
+      signed_mul.write_data = smul.out;
+      smul.go = !smul.done ? 1'd1;
+      signed_mul.write_en = smul.done;
+      do_signed_mul[done] = signed_mul.done ? 1'd1;
+    }
   }
   control {
     seq {
@@ -64,6 +90,8 @@ component main() -> () {
       do_signed_sub;
       do_unsigned_add;
       do_unsigned_sub;
+      do_unsigned_mul;
+      do_signed_mul;
     }
   }
 }

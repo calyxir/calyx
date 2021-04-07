@@ -1,3 +1,43 @@
+
+module std_fp_mult_pipe #(
+    parameter WIDTH = 32,
+    parameter INT_WIDTH = 16,
+    parameter FRAC_WIDTH = 16
+) (
+    input  logic [WIDTH-1:0] left,
+    input  logic [WIDTH-1:0] right,
+    input  logic             go,
+    input  logic             clk,
+    output logic [WIDTH-1:0] out,
+    output logic             done
+);
+  logic [WIDTH-1:0]          rtmp;
+  logic [WIDTH-1:0]          ltmp;
+  logic [(WIDTH << 1) - 1:0] out_tmp;
+  reg done_buf[1:0];
+  always_ff @(posedge clk) begin
+    if (go) begin
+      rtmp <= right;
+      ltmp <= left;
+      out_tmp <= ltmp * rtmp;
+      out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
+
+      done <= done_buf[1];
+      done_buf[0] <= 1'b1;
+      done_buf[1] <= done_buf[0];
+    end else begin
+      rtmp <= 0;
+      ltmp <= 0;
+      out_tmp <= 0;
+      out <= 0;
+
+      done <= 0;
+      done_buf[0] <= 0;
+      done_buf[1] <= 0;
+    end
+  end
+endmodule
+
 module std_fp_add #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 8,

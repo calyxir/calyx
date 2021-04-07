@@ -65,6 +65,17 @@
       "frac_width": 2
     }
   },
+  "signed_mul": {
+    "data": [
+      0.0
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": true,
+      "width": 4,
+      "frac_width": 2
+    }
+  },
   "unsigned_add": {
     "data": [
       0.0
@@ -77,6 +88,17 @@
     }
   },
   "unsigned_sub": {
+    "data": [
+      0.0
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 32,
+      "frac_width": 31
+    }
+  },
+  "unsigned_mul": {
     "data": [
       0.0
     ],
