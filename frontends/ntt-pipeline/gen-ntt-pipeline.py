@@ -1,6 +1,6 @@
 from prettytable import PrettyTable
 import numpy as np
-from calyx.ast import *
+from calyx.py_ast import *
 from calyx.utils import bits_needed
 
 

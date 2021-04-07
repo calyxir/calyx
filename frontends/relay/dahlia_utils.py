@@ -4,7 +4,7 @@ import os
 from typing import List
 from tempfile import NamedTemporaryFile, TemporaryFile
 
-from calyx.ast import *
+from calyx.py_ast import *
 from calyx.utils import block
 from relay_utils import DahliaFuncDef, get_dims
 

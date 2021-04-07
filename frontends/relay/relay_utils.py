@@ -1,6 +1,6 @@
 import tvm
 from tvm import relay
-from calyx.ast import *
+from calyx.py_ast import *
 from calyx.utils import bits_needed
 from typing import List
 from dataclasses import dataclass
