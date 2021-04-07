@@ -1,0 +1,141 @@
+import "primitives/std.lib";
+component exp(x: 32) -> (out: 32) {
+  cells {
+    c2 = std_const(32, 2);
+    x2 = std_reg(32);
+    product2 = std_reg(32);
+    p2 = std_reg(32);
+    sum1 = std_reg(32);
+    add1 = std_fp_add(32, 16, 16);
+    mult_pipe2 = std_fp_mult_pipe(32, 16, 16);
+    reciprocal_factorial2 = std_const(32, 32768);
+    one = std_const(32, 65536);
+    pow2 = fp_pow();
+  }
+  wires {
+    group assign_input2<"static"=1> {
+      x2.write_en = 1'd1;
+      x2.in = x;
+      assign_input2[done] = x2.done ? 1'd1;
+    }
+    group consume_pow2<"static"=1> {
+      p2.write_en = 1'd1;
+      p2.in = pow2.out;
+      consume_pow2[done] = p2.done ? 1'd1;
+    }
+    group mult_by_reciprocal_factorial2 {
+      mult_pipe2.left = p2.out;
+      mult_pipe2.right = reciprocal_factorial2.out;
+      mult_pipe2.go = !mult_pipe2.done ? 1'd1;
+      product2.write_en = mult_pipe2.done;
+      product2.in = mult_pipe2.out;
+      mult_by_reciprocal_factorial2[done] = product2.done;
+    }
+    group sum_round1_1<"static"=1> {
+      add1.left = one.out;
+      add1.right = product2.out;
+      sum1.write_en = 1'd1;
+      sum1.in = add1.out;
+      sum_round1_1[done] = sum1.done;
+    }
+    out = sum1.out;
+  }
+  control {
+    seq {
+      par {
+        assign_input2;
+      }
+      par {
+        invoke pow2(base=x2.out, integer_exp=c2.out)();
+      }
+      par {
+        consume_pow2;
+      }
+      par {
+        mult_by_reciprocal_factorial2;
+      }
+      par {
+        sum_round1_1;
+      }
+    }
+  }
+}
+component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
+  cells {
+    pow = std_reg(32);
+    count = std_reg(32);
+    mul = std_fp_mult_pipe(32, 16, 16);
+    lt = std_lt(32);
+    incr = std_add(32);
+  }
+  wires {
+    group init {
+      pow.in = 32'd65536;
+      pow.write_en = 1'd1;
+      count.in = 32'd0;
+      count.write_en = 1'd1;
+      init[done] = pow.done & count.done ? 1'd1;
+    }
+    group execute_mul {
+      mul.left = base;
+      mul.right = pow.out;
+      mul.go = !mul.done ? 1'd1;
+      pow.write_en = mul.done;
+      pow.in = mul.out;
+      execute_mul[done] = pow.done;
+    }
+    group incr_count {
+      incr.left = 32'd1;
+      incr.right = count.out;
+      count.in = incr.out;
+      count.write_en = 1'd1;
+      incr_count[done] = count.done;
+    }
+    group cond {
+      lt.left = count.out;
+      lt.right = integer_exp;
+      cond[done] = 1'd1;
+    }
+    out = pow.out;
+  }
+  control {
+    seq {
+      init;
+      while lt.out with cond {
+        par {
+          execute_mul;
+          incr_count;
+        }
+      }
+    }
+  }
+}
+component main() -> () {
+  cells {
+    t = std_reg(32);
+    @external(1) x = std_mem_d1(32, 1, 1);
+    @external(1) ret = std_mem_d1(32, 1, 1);
+    e = exp();
+  }
+  wires {
+    group init {
+      x.addr0 = 1'd0;
+      t.in = x.read_data;
+      t.write_en = 1'd1;
+      init[done] = t.done;
+    }
+    group write_to_memory {
+      ret.addr0 = 1'd0;
+      ret.write_en = 1'd1;
+      ret.write_data = e.out;
+      write_to_memory[done] = ret.done;
+    }
+  }
+  control {
+    seq {
+      init;
+      invoke e(x=t.out)();
+      write_to_memory;
+    }
+  }
+}

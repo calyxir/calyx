@@ -168,6 +168,10 @@ name = "relay frontend"
 paths = ["tests/frontend/relay/*.relay"]
 cmd = "python3 frontends/relay/relay_visitor.py < {} -q"
 
+[[tests]]
+name = "exp frontend"
+paths = ["tests/frontend/exp/*.txt"]
+cmd = "python3 calyx-py/futil/gen-exp.py {}"
 
 [[tests]]
 name = "python library AST"
