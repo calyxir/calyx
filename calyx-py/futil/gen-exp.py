@@ -374,7 +374,9 @@ def generate_control(degree: int) -> Control:
         + [Enable("add_degree_zero")]
     )
 
-
+# TODO(cgyurgyik): Support negative values.
+# We can do this in the following manner:
+#     if (x < 0.0): out = 1 / e^x
 def generate_exp_taylor_series_approximation(
     degree: int, width: int, int_width: int
 ) -> Program:
