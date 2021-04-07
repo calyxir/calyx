@@ -15,3 +15,10 @@ atty = "0.2.14"
 [workspace]
 members = ["calyx", "interp"]
 exclude = ["site"]
+
+[dev-dependencies]
+criterion = {version = "0.3", features=["html_reports"]}
+
+[[bench]]
+name = "component-sharing"
+harness = false

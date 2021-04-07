@@ -1,6 +1,6 @@
 use super::sharing_components::ShareComponents;
 use crate::{
-    analysis::{GraphColoring, LiveRangeAnalysis},
+    analysis::LiveRangeAnalysis,
     ir::{self, traversal::Named},
 };
 
@@ -53,14 +53,13 @@ impl ShareComponents for MinimizeRegs {
         }
     }
 
-    fn custom_conflicts(
-        &self,
-        comp: &ir::Component,
-        graph: &mut GraphColoring<ir::Id>,
-    ) {
+    fn custom_conflicts<F>(&self, comp: &ir::Component, mut add_conflicts: F)
+    where
+        F: FnMut(Vec<ir::Id>),
+    {
         for group in &comp.groups {
             let conflicts = self.live.get(&group.borrow().name);
-            graph.insert_conflicts(conflicts.iter());
+            add_conflicts(conflicts.iter().cloned().collect());
         }
     }
 
