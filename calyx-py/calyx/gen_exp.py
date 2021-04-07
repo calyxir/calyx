@@ -528,6 +528,14 @@ def generate_exp_taylor_series_approximation(
     a Maclaurin series, it can be written more generally as:
         e^x = 1 + x + (x^2 / 2!) + (x^3 / 3!) + ... + (x^n / n!)
         where `n` is the nth degree.
+
+    Let `i` be the integer value and `f` be the fractional value
+    of `x`, so that `x = i + f`. We can then calculate `x` in
+    the following manner:
+        1. Compute `e^i` using `fp_pow`.
+        2. Compute `e^f` using a Taylor Series approximation.
+        3. Since `e^x = e^(i+f)`, multiply `e^i * e^f`.
+
     Reference: https://en.wikipedia.org/wiki/Taylor_series#Exponential_function
     """
     # TODO(cgyurgyik): Support any degree.
