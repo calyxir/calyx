@@ -1,10 +1,10 @@
 from __future__ import annotations  # Used for circular dependencies.
-import dataclasses
+from dataclasses import dataclass
 from typing import List, Union
 from calyx.utils import block
 
 
-@dataclasses.dataclass
+@dataclass
 class Emittable:
     def doc(self) -> str:
         assert 0, f"`doc` not implemented for {type(self).__name__}"
@@ -16,7 +16,7 @@ class Emittable:
 ### Program ###
 
 
-@dataclasses.dataclass
+@dataclass
 class Import(Emittable):
     filename: str
 
@@ -24,7 +24,7 @@ class Import(Emittable):
         return f'import "{self.filename}";'
 
 
-@dataclasses.dataclass
+@dataclass
 class Program(Emittable):
     imports: List[Import]
     components: List[Component]
@@ -38,7 +38,7 @@ class Program(Emittable):
 ### Component ###
 
 
-@dataclasses.dataclass
+@dataclass
 class Component:
     name: str
     inputs: list[PortDef]
@@ -77,12 +77,12 @@ class Component:
 ### Ports ###
 
 
-@dataclasses.dataclass
+@dataclass
 class Port(Emittable):
     pass
 
 
-@dataclasses.dataclass
+@dataclass
 class CompPort(Port):
     id: CompVar
     name: str
@@ -91,7 +91,7 @@ class CompPort(Port):
         return f"{self.id.doc()}.{self.name}"
 
 
-@dataclasses.dataclass
+@dataclass
 class ThisPort(Port):
     id: CompVar
 
@@ -99,7 +99,7 @@ class ThisPort(Port):
         return self.id.doc()
 
 
-@dataclasses.dataclass
+@dataclass
 class HolePort(Port):
     id: CompVar
     name: str
@@ -108,7 +108,7 @@ class HolePort(Port):
         return f"{self.id.doc()}[{self.name}]"
 
 
-@dataclasses.dataclass
+@dataclass
 class ConstantPort(Port):
     width: int
     value: int
@@ -117,7 +117,7 @@ class ConstantPort(Port):
         return f"{self.width}'d{self.value}"
 
 
-@dataclasses.dataclass
+@dataclass
 class CompVar(Emittable):
     name: str
 
@@ -131,7 +131,7 @@ class CompVar(Emittable):
         return CompVar(f"{self.name}{suffix}")
 
 
-@dataclasses.dataclass
+@dataclass
 class PortDef(Emittable):
     id: CompVar
     width: int
@@ -141,12 +141,12 @@ class PortDef(Emittable):
 
 
 ### Structure ###
-@dataclasses.dataclass
+@dataclass
 class Structure(Emittable):
     pass
 
 
-@dataclasses.dataclass
+@dataclass
 class Cell(Structure):
     id: CompVar
     comp: CompInst
@@ -157,7 +157,7 @@ class Cell(Structure):
         return f"{external}{self.id.doc()} = {self.comp.doc()};"
 
 
-@dataclasses.dataclass
+@dataclass
 class Connect(Structure):
     src: Port
     dest: Port
@@ -172,7 +172,7 @@ class Connect(Structure):
         return f"{self.dest.doc()} = {source};"
 
 
-@dataclasses.dataclass
+@dataclass
 class Group(Structure):
     id: CompVar
     connections: list[Connect]
@@ -188,7 +188,7 @@ class Group(Structure):
         )
 
 
-@dataclasses.dataclass
+@dataclass
 class CompInst(Emittable):
     id: str
     args: list[int]
@@ -199,12 +199,12 @@ class CompInst(Emittable):
 
 
 ### Guard Expressions ###
-@dataclasses.dataclass
+@dataclass
 class GuardExpr(Emittable):
     pass
 
 
-@dataclasses.dataclass
+@dataclass
 class Atom(GuardExpr):
     item: Port
 
@@ -212,7 +212,7 @@ class Atom(GuardExpr):
         return self.item.doc()
 
 
-@dataclasses.dataclass
+@dataclass
 class Not(GuardExpr):
     inner: GuardExpr
 
@@ -220,7 +220,7 @@ class Not(GuardExpr):
         return f"!{self.inner.doc()}"
 
 
-@dataclasses.dataclass
+@dataclass
 class And(GuardExpr):
     left: GuardExpr
     right: GuardExpr
@@ -229,7 +229,7 @@ class And(GuardExpr):
         return f"{self.left.doc()} & {self.right.doc()}"
 
 
-@dataclasses.dataclass
+@dataclass
 class Or(GuardExpr):
     left: GuardExpr
     right: GuardExpr
@@ -241,12 +241,12 @@ class Or(GuardExpr):
 ### Control ###
 
 
-@dataclasses.dataclass
+@dataclass
 class Control(Emittable):
     pass
 
 
-@dataclasses.dataclass
+@dataclass
 class Enable(Emittable):
     stmt: str
 
@@ -254,7 +254,7 @@ class Enable(Emittable):
         return f"{self.stmt};"
 
 
-@dataclasses.dataclass
+@dataclass
 class ControlOrEnable(Emittable):
     ControlOrEnableType = Union[Control, Enable]
     stmt: ControlOrEnableType
@@ -263,7 +263,7 @@ class ControlOrEnable(Emittable):
         return self.doc()
 
 
-@dataclasses.dataclass
+@dataclass
 class SeqComp(Control):
     stmts: list[ControlOrEnable]
 
@@ -271,7 +271,7 @@ class SeqComp(Control):
         return block("seq", [s.doc() for s in self.stmts])
 
 
-@dataclasses.dataclass
+@dataclass
 class ParComp(Control):
     stmts: list[ControlOrEnable]
 
@@ -279,7 +279,7 @@ class ParComp(Control):
         return block("par", [s.doc() for s in self.stmts])
 
 
-@dataclasses.dataclass
+@dataclass
 class Invoke(Control):
     id: CompVar
     in_connects: List[(str, Port)]
@@ -291,7 +291,7 @@ class Invoke(Control):
         return f"invoke {self.id.doc()}({in_defs})({out_defs});"
 
 
-@dataclasses.dataclass
+@dataclass
 class While(Control):
     port: Port
     cond: CompVar
@@ -303,13 +303,13 @@ class While(Control):
         )
 
 
-@dataclasses.dataclass
+@dataclass
 class Empty(Control):
     def doc(self) -> str:
         return "empty"
 
 
-@dataclasses.dataclass
+@dataclass
 class If(Control):
     port: Port
     cond: CompVar
@@ -329,7 +329,7 @@ class If(Control):
 ### Standard Library ###
 
 
-@dataclasses.dataclass
+@dataclass
 class Stdlib:
     def register(self, bitwidth: int):
         return CompInst("std_reg", [bitwidth])
