@@ -2,6 +2,14 @@
 * Unsigned fixed point primitives.
 */
 extern "unsigned.sv" {
+  primitive std_fp_mult_pipe[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](
+    clk: 1, go: 1, left: WIDTH, right: WIDTH
+  ) -> (
+    out: WIDTH, done: 1
+  );
+
   primitive std_fp_add<"share"=1>[
     WIDTH, INT_WIDTH, FRACT_WIDTH
   ](left: WIDTH, right: WIDTH) ->(out: WIDTH);
