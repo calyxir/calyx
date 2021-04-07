@@ -3,6 +3,15 @@
 This library defines a standard set of components used in most Calyx programs
 such as registers and basic bitwise operations.
 
+**Contents**
+
+- [Numerical Operators](#numerical-operators)
+- [Logical Operators](#logical-operators)
+- [Comparison Operators](#comparison-operators)
+- [Memories](#memories)
+
+---
+
 ## Numerical Operators
 
 ### `std_reg<WIDTH>`
@@ -187,7 +196,7 @@ Bitwise XOR. This component is combinational.
 
 ---
 
-## Comparison Ops
+## Comparison Operators
 
 ### `std_gt<WIDTH>`
 
