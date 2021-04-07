@@ -1,124 +1,116 @@
-from calyx import ast
+from calyx.py_ast import *
 from math import factorial, log2
 from typing import List
 from fud.stages.verilator import numeric_types
 
 
-def generate_fp_pow_component(width: int, int_width: int) -> ast.Component:
+def generate_fp_pow_component(width: int, int_width: int) -> Component:
     """Generates a fixed point `pow` component, which
     computes the value x**y, where y must be an integer.
     """
-    stdlib = ast.Stdlib()
+    stdlib = Stdlib()
     frac_width = width - int_width
 
-    pow = ast.CompVar("pow")
-    count = ast.CompVar("count")
-    mul = ast.CompVar("mul")
-    lt = ast.CompVar("lt")
-    incr = ast.CompVar("incr")
+    pow = CompVar("pow")
+    count = CompVar("count")
+    mul = CompVar("mul")
+    lt = CompVar("lt")
+    incr = CompVar("incr")
 
     cells = [
-        ast.Cell(pow, stdlib.register(width)),
-        ast.Cell(count, stdlib.register(width)),
-        ast.Cell(
+        Cell(pow, stdlib.register(width)),
+        Cell(count, stdlib.register(width)),
+        Cell(
             mul,
             stdlib.fixed_point_op(
                 "mult_pipe", width, int_width, frac_width, signed=False
             ),
         ),
-        ast.Cell(lt, stdlib.op("lt", width, signed=False)),
-        ast.Cell(incr, stdlib.op("add", width, signed=False)),
+        Cell(lt, stdlib.op("lt", width, signed=False)),
+        Cell(incr, stdlib.op("add", width, signed=False)),
     ]
     wires = [
-        ast.Group(
-            id=ast.CompVar("init"),
+        Group(
+            id=CompVar("init"),
             connections=[
-                ast.Connect(
-                    ast.ConstantPort(
+                Connect(
+                    ConstantPort(
                         width,
                         numeric_types.FixedPoint(
                             "1.0", width, int_width, is_signed=False
                         ).unsigned_integer(),
                     ),
-                    ast.CompPort(pow, "in"),
+                    CompPort(pow, "in"),
                 ),
-                ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(pow, "write_en")),
-                ast.Connect(ast.ConstantPort(width, 0), ast.CompPort(count, "in")),
-                ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(count, "write_en")),
-                ast.Connect(
-                    ast.ConstantPort(1, 1),
-                    ast.HolePort(ast.CompVar("init"), "done"),
-                    ast.And(
-                        ast.Atom(ast.CompPort(pow, "done")),
-                        ast.Atom(ast.CompPort(count, "done")),
+                Connect(ConstantPort(1, 1), CompPort(pow, "write_en")),
+                Connect(ConstantPort(width, 0), CompPort(count, "in")),
+                Connect(ConstantPort(1, 1), CompPort(count, "write_en")),
+                Connect(
+                    ConstantPort(1, 1),
+                    HolePort(CompVar("init"), "done"),
+                    And(
+                        Atom(CompPort(pow, "done")),
+                        Atom(CompPort(count, "done")),
                     ),
                 ),
             ],
         ),
-        ast.Group(
-            id=ast.CompVar("execute_mul"),
+        Group(
+            id=CompVar("execute_mul"),
             connections=[
-                ast.Connect(
-                    ast.ThisPort(ast.CompVar("base")), ast.CompPort(mul, "left")
+                Connect(ThisPort(CompVar("base")), CompPort(mul, "left")),
+                Connect(CompPort(pow, "out"), CompPort(mul, "right")),
+                Connect(
+                    ConstantPort(1, 1),
+                    CompPort(mul, "go"),
+                    Not(Atom(CompPort(mul, "done"))),
                 ),
-                ast.Connect(ast.CompPort(pow, "out"), ast.CompPort(mul, "right")),
-                ast.Connect(
-                    ast.ConstantPort(1, 1),
-                    ast.CompPort(mul, "go"),
-                    ast.Not(ast.Atom(ast.CompPort(mul, "done"))),
-                ),
-                ast.Connect(ast.CompPort(mul, "done"), ast.CompPort(pow, "write_en")),
-                ast.Connect(ast.CompPort(mul, "out"), ast.CompPort(pow, "in")),
-                ast.Connect(
-                    ast.CompPort(pow, "done"),
-                    ast.HolePort(ast.CompVar("execute_mul"), "done"),
+                Connect(CompPort(mul, "done"), CompPort(pow, "write_en")),
+                Connect(CompPort(mul, "out"), CompPort(pow, "in")),
+                Connect(
+                    CompPort(pow, "done"),
+                    HolePort(CompVar("execute_mul"), "done"),
                 ),
             ],
         ),
-        ast.Group(
-            id=ast.CompVar("incr_count"),
+        Group(
+            id=CompVar("incr_count"),
             connections=[
-                ast.Connect(ast.ConstantPort(width, 1), ast.CompPort(incr, "left")),
-                ast.Connect(ast.CompPort(count, "out"), ast.CompPort(incr, "right")),
-                ast.Connect(ast.CompPort(incr, "out"), ast.CompPort(count, "in")),
-                ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(count, "write_en")),
-                ast.Connect(
-                    ast.CompPort(count, "done"),
-                    ast.HolePort(ast.CompVar("incr_count"), "done"),
+                Connect(ConstantPort(width, 1), CompPort(incr, "left")),
+                Connect(CompPort(count, "out"), CompPort(incr, "right")),
+                Connect(CompPort(incr, "out"), CompPort(count, "in")),
+                Connect(ConstantPort(1, 1), CompPort(count, "write_en")),
+                Connect(
+                    CompPort(count, "done"),
+                    HolePort(CompVar("incr_count"), "done"),
                 ),
             ],
         ),
-        ast.Group(
-            id=ast.CompVar("cond"),
+        Group(
+            id=CompVar("cond"),
             connections=[
-                ast.Connect(ast.CompPort(count, "out"), ast.CompPort(lt, "left")),
-                ast.Connect(
-                    ast.ThisPort(ast.CompVar("integer_exp")), ast.CompPort(lt, "right")
-                ),
-                ast.Connect(
-                    ast.ConstantPort(1, 1), ast.HolePort(ast.CompVar("cond"), "done")
-                ),
+                Connect(CompPort(count, "out"), CompPort(lt, "left")),
+                Connect(ThisPort(CompVar("integer_exp")), CompPort(lt, "right")),
+                Connect(ConstantPort(1, 1), HolePort(CompVar("cond"), "done")),
             ],
         ),
-        ast.Connect(
-            ast.CompPort(ast.CompVar("pow"), "out"), ast.ThisPort(ast.CompVar("out"))
-        ),
+        Connect(CompPort(CompVar("pow"), "out"), ThisPort(CompVar("out"))),
     ]
-    return ast.Component(
+    return Component(
         "fp_pow",
         inputs=[
-            ast.PortDef(ast.CompVar("base"), width),
-            ast.PortDef(ast.CompVar("integer_exp"), width),
+            PortDef(CompVar("base"), width),
+            PortDef(CompVar("integer_exp"), width),
         ],
-        outputs=[ast.PortDef(ast.CompVar("out"), width)],
+        outputs=[PortDef(CompVar("out"), width)],
         structs=cells + wires,
-        controls=ast.SeqComp(
+        controls=SeqComp(
             [
-                ast.Enable("init"),
-                ast.While(
-                    ast.CompPort(lt, "out"),
-                    ast.CompVar("cond"),
-                    ast.ParComp([ast.Enable("execute_mul"), ast.Enable("incr_count")]),
+                Enable("init"),
+                While(
+                    CompPort(lt, "out"),
+                    CompVar("cond"),
+                    ParComp([Enable("execute_mul"), Enable("incr_count")]),
                 ),
             ]
         ),
@@ -133,39 +125,38 @@ def float_to_fixed_point(value: float, N: int) -> float:
     return round(value * w) / float(w)
 
 
-def generate_cells(degree: int, width: int, int_width: int) -> List[ast.Cell]:
-    stdlib = ast.Stdlib()
+def generate_cells(degree: int, width: int, int_width: int) -> List[Cell]:
+    stdlib = Stdlib()
     frac_width = width - int_width
     init_cells = [
-        ast.Cell(ast.CompVar("int_x"), stdlib.register(width)),
-        ast.Cell(ast.CompVar("frac_x"), stdlib.register(width)),
-        ast.Cell(ast.CompVar("m"), stdlib.register(width)),
-        ast.Cell(ast.CompVar("and0"), stdlib.op("and", width, signed=False)),
-        ast.Cell(ast.CompVar("and1"), stdlib.op("and", width, signed=False)),
-        ast.Cell(ast.CompVar("rsh"), stdlib.op("rsh", width, signed=False)),
+        Cell(CompVar("int_x"), stdlib.register(width)),
+        Cell(CompVar("frac_x"), stdlib.register(width)),
+        Cell(CompVar("m"), stdlib.register(width)),
+        Cell(CompVar("and0"), stdlib.op("and", width, signed=False)),
+        Cell(CompVar("and1"), stdlib.op("and", width, signed=False)),
+        Cell(CompVar("rsh"), stdlib.op("rsh", width, signed=False)),
     ]
     pow_registers = [
-        ast.Cell(ast.CompVar(f"p{i}"), stdlib.register(width))
-        for i in range(2, degree + 1)
+        Cell(CompVar(f"p{i}"), stdlib.register(width)) for i in range(2, degree + 1)
     ]
     product_registers = [
-        ast.Cell(ast.CompVar(f"product{i}"), stdlib.register(width))
+        Cell(CompVar(f"product{i}"), stdlib.register(width))
         for i in range(2, degree + 1)
     ]
     sum_registers = [
-        ast.Cell(ast.CompVar(f"sum{i}"), stdlib.register(width))
+        Cell(CompVar(f"sum{i}"), stdlib.register(width))
         for i in range(1, (degree // 2) + 1)
     ]
     adds = [
-        ast.Cell(
-            ast.CompVar(f"add{i}"),
+        Cell(
+            CompVar(f"add{i}"),
             stdlib.fixed_point_op("add", width, int_width, frac_width, signed=False),
         )
         for i in range(1, (degree // 2) + 1)
     ]
     mult_pipes = [
-        ast.Cell(
-            ast.CompVar(f"mult_pipe{i}"),
+        Cell(
+            CompVar(f"mult_pipe{i}"),
             stdlib.fixed_point_op(
                 "mult_pipe", width, int_width, frac_width, signed=False
             ),
@@ -174,8 +165,7 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[ast.Cell]:
     ]
     # One extra `fp_pow` instance to compute e^{int_value}.
     pows = [
-        ast.Cell(ast.CompVar(f"pow{i}"), ast.CompInst("fp_pow", []))
-        for i in range(1, degree + 1)
+        Cell(CompVar(f"pow{i}"), CompInst("fp_pow", [])) for i in range(1, degree + 1)
     ]
     reciprocal_factorials = []
     for i in range(2, degree + 1):
@@ -184,17 +174,14 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[ast.Cell]:
             str(fixed_point_value), width, int_width, is_signed=False
         ).unsigned_integer()
         reciprocal_factorials.append(
-            ast.Cell(
-                ast.CompVar(f"reciprocal_factorial{i}"), stdlib.constant(width, value)
-            )
+            Cell(CompVar(f"reciprocal_factorial{i}"), stdlib.constant(width, value))
         )
     # Constant values for the exponent to the fixed point `pow` function.
     constants = [
-        ast.Cell(ast.CompVar(f"c{i}"), stdlib.constant(width, i))
-        for i in range(2, degree + 1)
+        Cell(CompVar(f"c{i}"), stdlib.constant(width, i)) for i in range(2, degree + 1)
     ] + [
-        ast.Cell(
-            ast.CompVar("one"),
+        Cell(
+            CompVar("one"),
             stdlib.constant(
                 width,
                 numeric_types.FixedPoint(
@@ -202,8 +189,8 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[ast.Cell]:
                 ).unsigned_integer(),
             ),
         ),
-        ast.Cell(
-            ast.CompVar("e"),
+        Cell(
+            CompVar("e"),
             stdlib.constant(
                 width,
                 numeric_types.FixedPoint(
@@ -228,7 +215,7 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[ast.Cell]:
     )
 
 
-def divide_and_conquer_sums(degree: int) -> List[ast.Structure]:
+def divide_and_conquer_sums(degree: int) -> List[Structure]:
     """Returns a list of groups for the sums.
     This is done by dividing the groups into
     log2(N) different rounds, where N is the `degree`.
@@ -256,55 +243,51 @@ def divide_and_conquer_sums(degree: int) -> List[ast.Structure]:
             )
         ]
         for i, (lhs, rhs) in enumerate(register_indices):
-            group_name = ast.CompVar(f"sum_round{round}_{i + 1}")
-            adder = ast.CompVar(f"add{i + 1}")
+            group_name = CompVar(f"sum_round{round}_{i + 1}")
+            adder = CompVar(f"add{i + 1}")
 
             # The first round will accrue its operands
             # from the previously calculated products.
             register_name = "product" if round == 1 else "sum"
 
-            reg_lhs = ast.CompVar(f"{register_name}{lhs}")
-            reg_rhs = ast.CompVar(f"{register_name}{rhs}")
-            sum = ast.CompVar(f"sum{i + 1}")
+            reg_lhs = CompVar(f"{register_name}{lhs}")
+            reg_rhs = CompVar(f"{register_name}{rhs}")
+            sum = CompVar(f"sum{i + 1}")
 
             # In the first round and first group, we add the 1st degree, the value `x` itself.
             lhs = (
-                ast.CompPort(ast.CompVar("frac_x"), "out")
+                CompPort(CompVar("frac_x"), "out")
                 if round == 1 and i == 0
-                else ast.CompPort(reg_lhs, "out")
+                else CompPort(reg_lhs, "out")
             )
             connections = [
-                ast.Connect(lhs, ast.CompPort(adder, "left")),
-                ast.Connect(ast.CompPort(reg_rhs, "out"), ast.CompPort(adder, "right")),
-                ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(sum, "write_en")),
-                ast.Connect(ast.CompPort(adder, "out"), ast.CompPort(sum, "in")),
-                ast.Connect(
-                    ast.CompPort(sum, "done"), ast.HolePort(group_name, "done")
-                ),
+                Connect(lhs, CompPort(adder, "left")),
+                Connect(CompPort(reg_rhs, "out"), CompPort(adder, "right")),
+                Connect(ConstantPort(1, 1), CompPort(sum, "write_en")),
+                Connect(CompPort(adder, "out"), CompPort(sum, "in")),
+                Connect(CompPort(sum, "done"), HolePort(group_name, "done")),
             ]
-            groups.append(ast.Group(group_name, connections, 1))
+            groups.append(Group(group_name, connections, 1))
         sum_count >>= 1
         round = round + 1
 
     # Sums the 0th degree value, 1, and the final
     # sum of the divide-and-conquer.
-    group_name = ast.CompVar(f"add_degree_zero")
-    adder = ast.CompVar("add1")
-    reg = ast.CompVar("sum1")
+    group_name = CompVar(f"add_degree_zero")
+    adder = CompVar("add1")
+    reg = CompVar("sum1")
     groups.append(
-        ast.Group(
+        Group(
             id=group_name,
             connections=[
-                ast.Connect(ast.CompPort(reg, "out"), ast.CompPort(adder, "left")),
-                ast.Connect(
-                    ast.CompPort(ast.CompVar("one"), "out"),
-                    ast.CompPort(adder, "right"),
+                Connect(CompPort(reg, "out"), CompPort(adder, "left")),
+                Connect(
+                    CompPort(CompVar("one"), "out"),
+                    CompPort(adder, "right"),
                 ),
-                ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(reg, "write_en")),
-                ast.Connect(ast.CompPort(adder, "out"), ast.CompPort(reg, "in")),
-                ast.Connect(
-                    ast.CompPort(reg, "done"), ast.HolePort(group_name, "done")
-                ),
+                Connect(ConstantPort(1, 1), CompPort(reg, "write_en")),
+                Connect(CompPort(adder, "out"), CompPort(reg, "in")),
+                Connect(CompPort(reg, "done"), HolePort(group_name, "done")),
             ],
             static_delay=1,
         )
@@ -312,141 +295,129 @@ def divide_and_conquer_sums(degree: int) -> List[ast.Structure]:
     return groups
 
 
-def generate_groups(degree: int, width: int, int_width: int) -> List[ast.Structure]:
+def generate_groups(degree: int, width: int, int_width: int) -> List[Structure]:
     frac_width = width - int_width
 
     # Initialization: split up the value `x` into its integer and fractional values.
     init = [
-        ast.Group(
-            id=ast.CompVar("init"),
+        Group(
+            id=CompVar("init"),
             connections=[
-                ast.Connect(
-                    ast.ThisPort(ast.CompVar("x")),
-                    ast.CompPort(ast.CompVar("and0"), "left"),
+                Connect(
+                    ThisPort(CompVar("x")),
+                    CompPort(CompVar("and0"), "left"),
                 ),
-                ast.Connect(
-                    ast.ConstantPort(width, 2 ** width - 2 ** frac_width),
-                    ast.CompPort(ast.CompVar("and0"), "right"),
+                Connect(
+                    ConstantPort(width, 2 ** width - 2 ** frac_width),
+                    CompPort(CompVar("and0"), "right"),
                 ),
-                ast.Connect(
-                    ast.CompPort(ast.CompVar("and0"), "out"),
-                    ast.CompPort(ast.CompVar("rsh"), "left"),
+                Connect(
+                    CompPort(CompVar("and0"), "out"),
+                    CompPort(CompVar("rsh"), "left"),
                 ),
-                ast.Connect(
-                    ast.ConstantPort(width, frac_width),
-                    ast.CompPort(ast.CompVar("rsh"), "right"),
+                Connect(
+                    ConstantPort(width, frac_width),
+                    CompPort(CompVar("rsh"), "right"),
                 ),
-                ast.Connect(
-                    ast.ThisPort(ast.CompVar("x")),
-                    ast.CompPort(ast.CompVar("and1"), "left"),
+                Connect(
+                    ThisPort(CompVar("x")),
+                    CompPort(CompVar("and1"), "left"),
                 ),
-                ast.Connect(
-                    ast.ConstantPort(width, (2 ** frac_width) - 1),
-                    ast.CompPort(ast.CompVar("and1"), "right"),
+                Connect(
+                    ConstantPort(width, (2 ** frac_width) - 1),
+                    CompPort(CompVar("and1"), "right"),
                 ),
-                ast.Connect(
-                    ast.ConstantPort(1, 1),
-                    ast.CompPort(ast.CompVar("int_x"), "write_en"),
+                Connect(
+                    ConstantPort(1, 1),
+                    CompPort(CompVar("int_x"), "write_en"),
                 ),
-                ast.Connect(
-                    ast.ConstantPort(1, 1),
-                    ast.CompPort(ast.CompVar("frac_x"), "write_en"),
+                Connect(
+                    ConstantPort(1, 1),
+                    CompPort(CompVar("frac_x"), "write_en"),
                 ),
-                ast.Connect(
-                    ast.CompPort(ast.CompVar("rsh"), "out"),
-                    ast.CompPort(ast.CompVar("int_x"), "in"),
+                Connect(
+                    CompPort(CompVar("rsh"), "out"),
+                    CompPort(CompVar("int_x"), "in"),
                 ),
-                ast.Connect(
-                    ast.CompPort(ast.CompVar("and1"), "out"),
-                    ast.CompPort(ast.CompVar("frac_x"), "in"),
+                Connect(
+                    CompPort(CompVar("and1"), "out"),
+                    CompPort(CompVar("frac_x"), "in"),
                 ),
-                ast.Connect(
-                    ast.ConstantPort(1, 1),
-                    ast.HolePort(ast.CompVar("init"), "done"),
-                    ast.And(
-                        ast.Atom(ast.CompPort(ast.CompVar("int_x"), "done")),
-                        ast.Atom(ast.CompPort(ast.CompVar("frac_x"), "done")),
+                Connect(
+                    ConstantPort(1, 1),
+                    HolePort(CompVar("init"), "done"),
+                    And(
+                        Atom(CompPort(CompVar("int_x"), "done")),
+                        Atom(CompPort(CompVar("frac_x"), "done")),
                     ),
                 ),
             ],
         )
     ]
 
-    def consume_pow(i: int) -> ast.Group:
+    def consume_pow(i: int) -> Group:
         # Write the output of pow{i} to register p{i}.
-        reg = ast.CompVar(f"p{i}")
-        group_name = ast.CompVar(f"consume_pow{i}")
+        reg = CompVar(f"p{i}")
+        group_name = CompVar(f"consume_pow{i}")
         connections = [
-            ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(reg, "write_en")),
-            ast.Connect(
-                ast.CompPort(ast.CompVar(f"pow{i}"), "out"), ast.CompPort(reg, "in")
-            ),
-            ast.Connect(
-                ast.ConstantPort(1, 1),
-                ast.HolePort(group_name, "done"),
-                ast.CompPort(reg, "done"),
+            Connect(ConstantPort(1, 1), CompPort(reg, "write_en")),
+            Connect(CompPort(CompVar(f"pow{i}"), "out"), CompPort(reg, "in")),
+            Connect(
+                ConstantPort(1, 1),
+                HolePort(group_name, "done"),
+                CompPort(reg, "done"),
             ),
         ]
-        return ast.Group(group_name, connections, 1)
+        return Group(group_name, connections, 1)
 
-    def multiply_by_reciprocal_factorial(i: int) -> ast.Group:
+    def multiply_by_reciprocal_factorial(i: int) -> Group:
         # Multiply register p{i} with the reciprocal factorial.
-        group_name = ast.CompVar(f"mult_by_reciprocal_factorial{i}")
-        mult_pipe = ast.CompVar(f"mult_pipe{i}")
-        reg = ast.CompVar(f"p{i}")
-        product = ast.CompVar(f"product{i}")
-        reciprocal = ast.CompVar(f"reciprocal_factorial{i}")
+        group_name = CompVar(f"mult_by_reciprocal_factorial{i}")
+        mult_pipe = CompVar(f"mult_pipe{i}")
+        reg = CompVar(f"p{i}")
+        product = CompVar(f"product{i}")
+        reciprocal = CompVar(f"reciprocal_factorial{i}")
         connections = [
-            ast.Connect(ast.CompPort(reg, "out"), ast.CompPort(mult_pipe, "left")),
-            ast.Connect(
-                ast.CompPort(reciprocal, "out"), ast.CompPort(mult_pipe, "right")
+            Connect(CompPort(reg, "out"), CompPort(mult_pipe, "left")),
+            Connect(CompPort(reciprocal, "out"), CompPort(mult_pipe, "right")),
+            Connect(
+                ConstantPort(1, 1),
+                CompPort(mult_pipe, "go"),
+                Not(Atom(CompPort(mult_pipe, "done"))),
             ),
-            ast.Connect(
-                ast.ConstantPort(1, 1),
-                ast.CompPort(mult_pipe, "go"),
-                ast.Not(ast.Atom(ast.CompPort(mult_pipe, "done"))),
-            ),
-            ast.Connect(
-                ast.CompPort(mult_pipe, "done"), ast.CompPort(product, "write_en")
-            ),
-            ast.Connect(ast.CompPort(mult_pipe, "out"), ast.CompPort(product, "in")),
-            ast.Connect(
-                ast.CompPort(product, "done"), ast.HolePort(group_name, "done")
-            ),
+            Connect(CompPort(mult_pipe, "done"), CompPort(product, "write_en")),
+            Connect(CompPort(mult_pipe, "out"), CompPort(product, "in")),
+            Connect(CompPort(product, "done"), HolePort(group_name, "done")),
         ]
-        return ast.Group(group_name, connections)
+        return Group(group_name, connections)
 
     def final_multiply():
         # Multiply e^fractional_value * e^integer_value.
-        group_name = ast.CompVar("final_multiply")
-        mult_pipe = ast.CompVar("mult_pipe1")
-        reg = ast.CompVar("m")
+        group_name = CompVar("final_multiply")
+        mult_pipe = CompVar("mult_pipe1")
+        reg = CompVar("m")
         connections = [
-            ast.Connect(
-                ast.CompPort(ast.CompVar("pow1"), "out"),
-                ast.CompPort(mult_pipe, "left"),
+            Connect(
+                CompPort(CompVar("pow1"), "out"),
+                CompPort(mult_pipe, "left"),
             ),
-            ast.Connect(
-                ast.CompPort(ast.CompVar("sum1"), "out"),
-                ast.CompPort(mult_pipe, "right"),
+            Connect(
+                CompPort(CompVar("sum1"), "out"),
+                CompPort(mult_pipe, "right"),
             ),
-            ast.Connect(
-                ast.ConstantPort(1, 1),
-                ast.CompPort(mult_pipe, "go"),
-                ast.Not(ast.Atom(ast.CompPort(mult_pipe, "done"))),
+            Connect(
+                ConstantPort(1, 1),
+                CompPort(mult_pipe, "go"),
+                Not(Atom(CompPort(mult_pipe, "done"))),
             ),
-            ast.Connect(ast.CompPort(mult_pipe, "done"), ast.CompPort(reg, "write_en")),
-            ast.Connect(ast.CompPort(mult_pipe, "out"), ast.CompPort(reg, "in")),
-            ast.Connect(ast.CompPort(reg, "done"), ast.HolePort(group_name, "done")),
+            Connect(CompPort(mult_pipe, "done"), CompPort(reg, "write_en")),
+            Connect(CompPort(mult_pipe, "out"), CompPort(reg, "in")),
+            Connect(CompPort(reg, "done"), HolePort(group_name, "done")),
         ]
-        return [ast.Group(group_name, connections)]
+        return [Group(group_name, connections)]
 
-    # ast.Connect final sum to the `out` signal of the component
-    out = [
-        ast.Connect(
-            ast.CompPort(ast.CompVar("m"), "out"), ast.ThisPort(ast.CompVar("out"))
-        )
-    ]
+    # Connect final sum to the `out` signal of the component
+    out = [Connect(CompPort(CompVar("m"), "out"), ThisPort(CompVar("out")))]
     return (
         init
         + [consume_pow(j) for j in range(2, degree + 1)]
@@ -457,25 +428,25 @@ def generate_groups(degree: int, width: int, int_width: int) -> List[ast.Structu
     )
 
 
-def generate_control(degree: int) -> ast.Control:
+def generate_control(degree: int) -> Control:
     pow_invokes = [
-        ast.ParComp(
+        ParComp(
             [
-                ast.Invoke(
-                    ast.CompVar("pow1"),
+                Invoke(
+                    CompVar("pow1"),
                     [
-                        ("base", ast.CompPort(ast.CompVar("e"), "out")),
-                        ("integer_exp", ast.CompPort(ast.CompVar("int_x"), "out")),
+                        ("base", CompPort(CompVar("e"), "out")),
+                        ("integer_exp", CompPort(CompVar("int_x"), "out")),
                     ],
                     [],
                 )
             ]
             + [
-                ast.Invoke(
-                    ast.CompVar(f"pow{i}"),
+                Invoke(
+                    CompVar(f"pow{i}"),
                     [
-                        ("base", ast.CompPort(ast.CompVar("frac_x"), "out")),
-                        ("integer_exp", ast.CompPort(ast.CompVar(f"c{i}"), "out")),
+                        ("base", CompPort(CompVar("frac_x"), "out")),
+                        ("integer_exp", CompPort(CompVar(f"c{i}"), "out")),
                     ],
                     [],
                 )
@@ -483,39 +454,29 @@ def generate_control(degree: int) -> ast.Control:
             ]
         )
     ]
-    consume_pow = [
-        ast.ParComp([ast.Enable(f"consume_pow{i}") for i in range(2, degree + 1)])
-    ]
+    consume_pow = [ParComp([Enable(f"consume_pow{i}") for i in range(2, degree + 1)])]
     mult_by_reciprocal = [
-        ast.ParComp(
-            [
-                ast.Enable(f"mult_by_reciprocal_factorial{i}")
-                for i in range(2, degree + 1)
-            ]
+        ParComp(
+            [Enable(f"mult_by_reciprocal_factorial{i}") for i in range(2, degree + 1)]
         )
     ]
 
     divide_and_conquer = []
-    ast.Enable_count = degree >> 1
+    Enable_count = degree >> 1
     for r in range(1, int(log2(degree) + 1)):
         divide_and_conquer.append(
-            ast.ParComp(
-                [
-                    ast.Enable(f"sum_round{r}_{i}")
-                    for i in range(1, ast.Enable_count + 1)
-                ]
-            )
+            ParComp([Enable(f"sum_round{r}_{i}") for i in range(1, Enable_count + 1)])
         )
-        ast.Enable_count >>= 1
+        Enable_count >>= 1
 
-    return ast.SeqComp(
-        [ast.Enable("init")]
+    return SeqComp(
+        [Enable("init")]
         + pow_invokes
         + consume_pow
         + mult_by_reciprocal
         + divide_and_conquer
-        + [ast.Enable("add_degree_zero")]
-        + [ast.Enable("final_multiply")]
+        + [Enable("add_degree_zero")]
+        + [Enable("final_multiply")]
     )
 
 
@@ -524,7 +485,7 @@ def generate_control(degree: int) -> ast.Control:
 #   if (x < 0.0): out = 1 / e^x
 def generate_exp_taylor_series_approximation(
     degree: int, width: int, int_width: int
-) -> ast.Program:
+) -> Program:
     """Generates a Calyx program to produce the Taylor Series
     approximation of e^x to the provided degree. Given this is
     a Maclaurin series, it can be written more generally as:
@@ -544,13 +505,13 @@ def generate_exp_taylor_series_approximation(
     assert (
         degree > 0 and log2(degree).is_integer()
     ), f"The degree: {degree} should be a power of 2."
-    return ast.Program(
-        imports=[ast.Import("primitives/std.lib")],
+    return Program(
+        imports=[Import("primitives/std.lib")],
         components=[
-            ast.Component(
+            Component(
                 "exp",
-                inputs=[ast.PortDef(ast.CompVar("x"), width)],
-                outputs=[ast.PortDef(ast.CompVar("out"), width)],
+                inputs=[PortDef(CompVar("x"), width)],
+                outputs=[PortDef(CompVar("out"), width)],
                 structs=generate_cells(degree, width, int_width)
                 + generate_groups(degree, width, int_width),
                 controls=generate_control(degree),
@@ -591,73 +552,71 @@ if __name__ == "__main__":
         )
     program = generate_exp_taylor_series_approximation(degree, width, int_width)
     program.components.append(
-        ast.Component(
+        Component(
             "main",
             inputs=[],
             outputs=[],
             structs=[
-                ast.Cell(ast.CompVar("t"), ast.Stdlib().register(width)),
-                ast.Cell(
-                    ast.CompVar("x"), ast.Stdlib().mem_d1(width, 1, 1), is_external=True
-                ),
-                ast.Cell(
-                    ast.CompVar("ret"),
-                    ast.Stdlib().mem_d1(width, 1, 1),
+                Cell(CompVar("t"), Stdlib().register(width)),
+                Cell(CompVar("x"), Stdlib().mem_d1(width, 1, 1), is_external=True),
+                Cell(
+                    CompVar("ret"),
+                    Stdlib().mem_d1(width, 1, 1),
                     is_external=True,
                 ),
-                ast.Cell(ast.CompVar("e"), ast.CompInst("exp", [])),
-                ast.Group(
-                    id=ast.CompVar("init"),
+                Cell(CompVar("e"), CompInst("exp", [])),
+                Group(
+                    id=CompVar("init"),
                     connections=[
-                        ast.Connect(
-                            ast.ConstantPort(1, 0),
-                            ast.CompPort(ast.CompVar("x"), "addr0"),
+                        Connect(
+                            ConstantPort(1, 0),
+                            CompPort(CompVar("x"), "addr0"),
                         ),
-                        ast.Connect(
-                            ast.CompPort(ast.CompVar("x"), "read_data"),
-                            ast.CompPort(ast.CompVar("t"), "in"),
+                        Connect(
+                            CompPort(CompVar("x"), "read_data"),
+                            CompPort(CompVar("t"), "in"),
                         ),
-                        ast.Connect(
-                            ast.ConstantPort(1, 1),
-                            ast.CompPort(ast.CompVar("t"), "write_en"),
+                        Connect(
+                            ConstantPort(1, 1),
+                            CompPort(CompVar("t"), "write_en"),
                         ),
-                        ast.Connect(
-                            ast.CompPort(ast.CompVar("t"), "done"),
-                            ast.HolePort(ast.CompVar("init"), "done"),
+                        Connect(
+                            CompPort(CompVar("t"), "done"),
+                            HolePort(CompVar("init"), "done"),
                         ),
                     ],
                 ),
-                ast.Group(
-                    id=ast.CompVar("write_to_memory"),
+                Group(
+                    id=CompVar("write_to_memory"),
                     connections=[
-                        ast.Connect(
-                            ast.ConstantPort(1, 0),
-                            ast.CompPort(ast.CompVar("ret"), "addr0"),
+                        Connect(
+                            ConstantPort(1, 0),
+                            CompPort(CompVar("ret"), "addr0"),
                         ),
-                        ast.Connect(
-                            ast.ConstantPort(1, 1),
-                            ast.CompPort(ast.CompVar("ret"), "write_en"),
+                        Connect(
+                            ConstantPort(1, 1),
+                            CompPort(CompVar("ret"), "write_en"),
                         ),
-                        ast.Connect(
-                            ast.CompPort(ast.CompVar("e"), "out"),
-                            ast.CompPort(ast.CompVar("ret"), "write_data"),
+                        Connect(
+                            CompPort(CompVar("e"), "out"),
+                            CompPort(CompVar("ret"), "write_data"),
                         ),
-                        ast.Connect(
-                            ast.CompPort(ast.CompVar("ret"), "done"),
-                            ast.HolePort(ast.CompVar("write_to_memory"), "done"),
+                        Connect(
+                            CompPort(CompVar("ret"), "done"),
+                            HolePort(CompVar("write_to_memory"), "done"),
                         ),
                     ],
                 ),
             ],
-            controls=ast.SeqComp(
+            controls=SeqComp(
                 [
-                    ast.Enable("init"),
-                    ast.Invoke(
-                        id=ast.CompVar("e"),
-                        in_connects=[("x", ast.CompPort(ast.CompVar("t"), "out"))],
+                    Enable("init"),
+                    Invoke(
+                        id=CompVar("e"),
+                        in_connects=[("x", CompPort(CompVar("t"), "out"))],
                         out_connects=[],
                     ),
-                    ast.Enable("write_to_memory"),
+                    Enable("write_to_memory"),
                 ]
             ),
         )
