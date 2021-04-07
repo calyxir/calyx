@@ -3,7 +3,7 @@
 This library defines a standard set of components used in most Calyx programs
 such as registers and basic bitwise operations.
 
-**Contents**
+## Contents
 
 - [Numerical Operators](#numerical-operators)
 - [Logical Operators](#logical-operators)
