@@ -91,14 +91,6 @@ where
         self.index_map.contains_key(node)
     }
 
-    pub fn contains_edge(&self, a: &T, b: &T) -> bool {
-        if self.graph.edge_count() > 0 {
-            self.graph.has_edge(self.index_map[a], self.index_map[b])
-        } else {
-            false
-        }
-    }
-
     /// Add a new node to the graph. Client code should ensure that duplicate
     /// edges are never added to graph.
     /// Instead of using this method, consider constructing the graph using
@@ -114,6 +106,7 @@ where
         self.index_map.insert(node, idx);
     }
 
+    /// Returns a Map from `NodeIndex` to `T` (the reverse of the index)
     pub fn reverse_index(&self) -> HashMap<NodeIndex, T> {
         self.index_map
             .iter()
@@ -121,11 +114,12 @@ where
             .collect()
     }
 
+    /// Returns an iterator over references to nodes in the Graph.
     pub fn nodes(&self) -> impl Iterator<Item = &T> {
-        // self.index_map.keys().sorted()
         self.index_map.keys()
     }
 
+    /// Return the degree of a given node (number of edges connected).
     pub fn degree(&self, node: &T) -> usize {
         self.graph.neighbors(self.index_map[node]).count()
     }
