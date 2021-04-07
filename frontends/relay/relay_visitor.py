@@ -6,7 +6,7 @@ from collections import defaultdict
 from typing import List, Dict
 
 from relay_utils import *
-from futil.ast import *
+from calyx.ast import *
 from dahlia_impl import emit_components
 
 

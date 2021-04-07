@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from futil import ast
-from futil.utils import bits_needed
+from calyx import ast
+from calyx.utils import bits_needed
 
 # Global constant for the current bitwidth.
 BITWIDTH = 32

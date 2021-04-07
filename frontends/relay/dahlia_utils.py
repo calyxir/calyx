@@ -4,8 +4,8 @@ import os
 from typing import List
 from tempfile import NamedTemporaryFile, TemporaryFile
 
-from futil.ast import *
-from futil.utils import block
+from calyx.ast import *
+from calyx.utils import block
 from relay_utils import DahliaFuncDef, get_dims
 
 # Starting index variable name
