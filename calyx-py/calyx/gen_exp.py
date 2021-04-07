@@ -144,10 +144,6 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[ast.Cell]:
         ast.Cell(ast.CompVar("and1"), stdlib.op("and", width, signed=False)),
         ast.Cell(ast.CompVar("rsh"), stdlib.op("rsh", width, signed=False)),
     ]
-    input_registers = [
-        ast.Cell(ast.CompVar(f"x{i}"), stdlib.register(width))
-        for i in range(2, degree + 1)
-    ]
     pow_registers = [
         ast.Cell(ast.CompVar(f"p{i}"), stdlib.register(width))
         for i in range(2, degree + 1)
@@ -219,7 +215,6 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[ast.Cell]:
     return (
         init_cells
         + constants
-        + input_registers
         + product_registers
         + pow_registers
         + sum_registers
@@ -375,24 +370,6 @@ def generate_groups(degree: int, width: int, int_width: int) -> List[ast.Structu
         )
     ]
 
-    def assign_input(i: int) -> ast.Group:
-        # Assign value of the input `x`
-        # to each temporary register x{i}.
-        reg = ast.CompVar(f"x{i}")
-        ast.Group_name = ast.CompVar(f"assign_input{i}")
-        connections = [
-            ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(reg, "write_en")),
-            ast.Connect(
-                ast.CompPort(ast.CompVar("frac_x"), "out"), ast.CompPort(reg, "in")
-            ),
-            ast.Connect(
-                ast.ConstantPort(1, 1),
-                ast.HolePort(ast.Group_name, "done"),
-                ast.CompPort(reg, "done"),
-            ),
-        ]
-        return ast.Group(ast.Group_name, connections, 1)
-
     def consume_pow(i: int) -> ast.Group:
         # Write the output of pow{i} to register p{i}.
         reg = ast.CompVar(f"p{i}")
@@ -472,7 +449,6 @@ def generate_groups(degree: int, width: int, int_width: int) -> List[ast.Structu
     ]
     return (
         init
-        + [assign_input(i) for i in range(2, degree + 1)]
         + [consume_pow(j) for j in range(2, degree + 1)]
         + [multiply_by_reciprocal_factorial(k) for k in range(2, degree + 1)]
         + divide_and_conquer_sums(degree)
@@ -482,9 +458,6 @@ def generate_groups(degree: int, width: int, int_width: int) -> List[ast.Structu
 
 
 def generate_control(degree: int) -> ast.Control:
-    assigns = [
-        ast.ParComp([ast.Enable(f"assign_input{i}") for i in range(2, degree + 1)])
-    ]
     pow_invokes = [
         ast.ParComp(
             [
@@ -501,7 +474,7 @@ def generate_control(degree: int) -> ast.Control:
                 ast.Invoke(
                     ast.CompVar(f"pow{i}"),
                     [
-                        ("base", ast.CompPort(ast.CompVar(f"x{i}"), "out")),
+                        ("base", ast.CompPort(ast.CompVar("frac_x"), "out")),
                         ("integer_exp", ast.CompPort(ast.CompVar(f"c{i}"), "out")),
                     ],
                     [],
@@ -537,7 +510,6 @@ def generate_control(degree: int) -> ast.Control:
 
     return ast.SeqComp(
         [ast.Enable("init")]
-        + assigns
         + pow_invokes
         + consume_pow
         + mult_by_reciprocal

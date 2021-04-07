@@ -8,7 +8,6 @@ component exp(x: 32) -> (out: 32) {
     and1 = std_and(32);
     rsh = std_rsh(32);
     c2 = std_const(32, 2);
-    x2 = std_reg(32);
     product2 = std_reg(32);
     p2 = std_reg(32);
     sum1 = std_reg(32);
@@ -34,11 +33,6 @@ component exp(x: 32) -> (out: 32) {
       int_x.in = rsh.out;
       frac_x.in = and1.out;
       init[done] = int_x.done & frac_x.done ? 1'd1;
-    }
-    group assign_input2<"static"=1> {
-      x2.write_en = 1'd1;
-      x2.in = frac_x.out;
-      assign_input2[done] = x2.done ? 1'd1;
     }
     group consume_pow2<"static"=1> {
       p2.write_en = 1'd1;
@@ -81,11 +75,8 @@ component exp(x: 32) -> (out: 32) {
     seq {
       init;
       par {
-        assign_input2;
-      }
-      par {
         invoke pow1(base=e.out, integer_exp=int_x.out)();
-        invoke pow2(base=x2.out, integer_exp=c2.out)();
+        invoke pow2(base=frac_x.out, integer_exp=c2.out)();
       }
       par {
         consume_pow2;
