@@ -1,4 +1,4 @@
-from calyx.calyx_ast import *
+from calyx.ast import *
 
 stdlib = Stdlib()
 
