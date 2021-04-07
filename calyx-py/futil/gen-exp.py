@@ -384,8 +384,8 @@ def generate_exp_taylor_series_approximation(
         components=[
             Component(
                 "exp",
-                inputs=[PortDef(CompVar("x"), 32)],
-                outputs=[PortDef(CompVar("out"), 32)],
+                inputs=[PortDef(CompVar("x"), width)],
+                outputs=[PortDef(CompVar("out"), width)],
                 structs=generate_cells(degree, width, int_width)
                         + generate_groups(degree, width, int_width),
                 controls=generate_control(degree),

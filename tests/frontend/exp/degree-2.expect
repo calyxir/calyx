@@ -32,11 +32,18 @@ component exp(x: 32) -> (out: 32) {
       mult_by_reciprocal_factorial2[done] = product2.done;
     }
     group sum_round1_1<"static"=1> {
-      add1.left = one.out;
+      add1.left = x;
       add1.right = product2.out;
       sum1.write_en = 1'd1;
       sum1.in = add1.out;
       sum_round1_1[done] = sum1.done;
+    }
+    group add_degree_zero<"static"=1> {
+      add1.left = sum1.out;
+      add1.right = one.out;
+      sum1.write_en = 1'd1;
+      sum1.in = add1.out;
+      add_degree_zero[done] = sum1.done;
     }
     out = sum1.out;
   }
@@ -57,6 +64,7 @@ component exp(x: 32) -> (out: 32) {
       par {
         sum_round1_1;
       }
+      add_degree_zero;
     }
   }
 }
