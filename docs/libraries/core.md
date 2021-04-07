@@ -339,7 +339,7 @@ A three-dimensional memory.
 - `WIDTH` - Size of an individual memory slot.
 - `D0_SIZE` - Number of memory slots for the first index.
 - `D1_SIZE` - Number of memory slots for the second index.
-- `D2_SIZE` - Number of memory slots for the second index.
+- `D2_SIZE` - Number of memory slots for the third index.
 - `D0_IDX_SIZE` - The width of the first index.
 - `D1_IDX_SIZE` - The width of the second index.
 - `D2_IDX_SIZE` - The width of the third index.
@@ -348,11 +348,43 @@ A three-dimensional memory.
 
 - `addr0: d0_idx_size` - The first index into the memory
 - `addr1: d1_idx_size` - The second index into the memory
-- `addr2: d1_idx_size` - The second index into the memory
+- `addr2: d2_idx_size` - The third index into the memory
 - `write_data: width` - Data to be written to the selected memory slot
 - `write_en: 1` - One bit write enabled signal, causes the memory to write `write_data` to the slot indexed by `addr0`, `addr1`, and `addr2`
 
 **Outputs:**
 
 - `read_data: width` - The value stored at `mem[addr0][addr1][addr2]`. This value is combinational with respect to `addr0`, `addr1`, and `addr2`.
+- `done: 1`: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
+
+---
+
+### `std_mem_d4`
+
+A four-dimensional memory.
+
+**Parameters:**
+
+- `WIDTH` - Size of an individual memory slot.
+- `D0_SIZE` - Number of memory slots for the first index.
+- `D1_SIZE` - Number of memory slots for the second index.
+- `D2_SIZE` - Number of memory slots for the third index.
+- `D3_SIZE` - Number of memory slots for the fourth index.
+- `D0_IDX_SIZE` - The width of the first index.
+- `D1_IDX_SIZE` - The width of the second index.
+- `D2_IDX_SIZE` - The width of the third index.
+- `D3_IDX_SIZE` - The width of the fourth index.
+
+**Inputs:**
+
+- `addr0: d0_idx_size` - The first index into the memory
+- `addr1: d1_idx_size` - The second index into the memory
+- `addr2: d2_idx_size` - The third index into the memory
+- `addr3: d3_idx_size` - The fourth index into the memory
+- `write_data: width` - Data to be written to the selected memory slot
+- `write_en: 1` - One bit write enabled signal, causes the memory to write `write_data` to the slot indexed by `addr0`, `addr1`, `addr2`, and `addr3`
+
+**Outputs:**
+
+- `read_data: width` - The value stored at `mem[addr0][addr1][addr2][addr3]`. This value is combinational with respect to `addr0`, `addr1`, `addr2`, and `addr3`.
 - `done: 1`: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
