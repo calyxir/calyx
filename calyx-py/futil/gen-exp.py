@@ -34,7 +34,8 @@ def generate_fp_pow_component(width: int, int_width: int) -> Component:
         Group(
             id=CompVar("init"),
             connections=[
-                Connect(ConstantPort(width, FixedPoint("1.0", width, int_width, is_signed=False).unsigned_integer()), CompPort(pow, "in")),
+                Connect(ConstantPort(width, FixedPoint("1.0", width, int_width, is_signed=False).unsigned_integer()),
+                        CompPort(pow, "in")),
                 Connect(ConstantPort(1, 1), CompPort(pow, "write_en")),
                 Connect(ConstantPort(width, 0), CompPort(count, "in")),
                 Connect(ConstantPort(1, 1), CompPort(count, "write_en")),
@@ -192,12 +193,13 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
     These rounds can then be executed in parallel.
 
     For example, with N == 4, we will produce groups:
-      group sum_round1_1 { ... }     #    1   p2  p3  p4
+      group sum_round1_1 { ... }     #    x   p2  p3  p4
                                      #     \  /   \  /
       group sum_round1_2 { ... }     #    sum1   sum2
                                      #       \   /
       group sum_round2_1 { ... }     #        sum1
 
+      group add_degree_zero { ... }  #    sum1 + 1
       out = sum1.out                 #    Hook to `out`
 
     """
@@ -225,8 +227,8 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
             reg_rhs = CompVar(f"{register_name}{rhs}")
             sum = CompVar(f"sum{i + 1}")
 
-            # In the first round and first group, we add the degree zero value, i.e. 1.
-            lhs = CompPort(CompVar("one"), "out") if round == 1 and i == 0 else CompPort(reg_lhs, "out")
+            # In the first round and first group, we add the 1st degree, the value `x` itself.
+            lhs = ThisPort(CompVar("x")) if round == 1 and i == 0 else CompPort(reg_lhs, "out")
             connections = [
                 Connect(lhs, CompPort(adder, "left")),
                 Connect(CompPort(reg_rhs, "out"), CompPort(adder, "right")),
@@ -237,6 +239,25 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
             groups.append(Group(group_name, connections, 1))
         sum_count >>= 1
         round = round + 1
+
+    # Sums the 0th degree value, 1, and the final
+    # sum of the divide-and-conquer.
+    group_name = CompVar(f"add_degree_zero")
+    adder = CompVar("add1")
+    reg = CompVar("sum1")
+    groups.append(
+        Group(
+            id=group_name,
+            connections=[
+                Connect(CompPort(reg, "out"), CompPort(adder, "left")),
+                Connect(CompPort(CompVar("one"), "out"), CompPort(adder, "right")),
+                Connect(ConstantPort(1, 1), CompPort(reg, "write_en")),
+                Connect(CompPort(adder, "out"), CompPort(reg, "in")),
+                Connect(CompPort(reg, "done"), HolePort(group_name, "done")),
+            ],
+            static_delay=1
+        )
+    )
 
     # Connect final sum to the `out` signal of the component
     out = [Connect(CompPort(CompVar("sum1"), "out"), ThisPort(CompVar("out")))]
@@ -340,6 +361,7 @@ def generate_control(degree: int) -> Control:
         + consume_pow
         + mult_by_reciprocal
         + divide_and_conquer
+        + [Enable("add_degree_zero")]
     )
 
 
