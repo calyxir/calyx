@@ -184,3 +184,97 @@ Bitwise XOR. This component is combinational.
 **Outputs:**
 
 - `out: width` - The bitwise XOR of the arguments (`left ^ right`)
+
+---
+
+## Comparison Ops
+
+### `std_gt<WIDTH>`
+
+Greater than. This component is combinational.
+
+**Inputs:**
+
+- `left: width` - A WIDTH-bit argument
+- `right: width` - A WIDTH-bit argument
+
+**Outputs:**
+
+- `out: 1` - A single bit output. 1 if `left > right` else 0.
+
+---
+
+### `std_lt<WIDTH>`
+
+Less than. This component is combinational.
+
+**Inputs:**
+
+- `left: width` - A WIDTH-bit argument
+- `right: width` - A WIDTH-bit argument
+
+**Outputs:**
+
+- `out: 1` - A single bit output. 1 if `left < right` else 0.
+
+---
+
+### `std_eq<WIDTH>`
+
+Equality comparison. This component is combinational.
+
+**Inputs:**
+
+- `left: width` - A WIDTH-bit argument
+- `right: width` - A WIDTH-bit argument
+
+**Outputs:**
+
+- `out: 1` - A single bit output. 1 if `left = right` else 0.
+
+---
+
+### `std_neq<WIDTH>`
+
+Not equal. This component is combinational.
+
+**Inputs:**
+
+- `left: width` - A WIDTH-bit argument
+- `right: width` - A WIDTH-bit argument
+
+**Outputs:**
+
+- `out: 1` - A single bit output. 1 if `left != right` else 0.
+
+---
+
+### `std_ge<WIDTH>`
+
+Greater than or equal. This component is combinational.
+
+**Inputs:**
+
+- `left: width` - A WIDTH-bit argument
+- `right: width` - A WIDTH-bit argument
+
+**Outputs:**
+
+- `out: 1` - A single bit output. 1 if `left >= right` else 0.
+
+---
+
+### `std_le<WIDTH>`
+
+Less than or equal. This component is combinational.
+
+**Inputs:**
+
+- `left: width` - A WIDTH-bit argument
+- `right: width` - A WIDTH-bit argument
+
+**Outputs:**
+
+- `out: 1` - A single bit output. 1 if `left <= right` else 0.
+
+---
