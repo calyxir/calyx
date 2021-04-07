@@ -10,6 +10,8 @@ component exp(x: 16) -> (out: 16) {
     c2 = std_const(16, 2);
     c3 = std_const(16, 3);
     c4 = std_const(16, 4);
+    one = std_const(16, 256);
+    e = std_const(16, 696);
     product2 = std_reg(16);
     product3 = std_reg(16);
     product4 = std_reg(16);
@@ -27,8 +29,6 @@ component exp(x: 16) -> (out: 16) {
     reciprocal_factorial2 = std_const(16, 128);
     reciprocal_factorial3 = std_const(16, 43);
     reciprocal_factorial4 = std_const(16, 11);
-    one = std_const(16, 256);
-    e = std_const(16, 696);
     pow1 = fp_pow();
     pow2 = fp_pow();
     pow3 = fp_pow();

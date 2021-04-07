@@ -172,6 +172,7 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[ast.Cell]:
         )
         for i in range(1, degree + 1)
     ]
+    # One extra `fp_pow` instance to compute e^{int_value}.
     pows = [
         ast.Cell(ast.CompVar(f"pow{i}"), ast.CompInst("fp_pow", []))
         for i in range(1, degree + 1)
@@ -191,10 +192,7 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[ast.Cell]:
     constants = [
         ast.Cell(ast.CompVar(f"c{i}"), stdlib.constant(width, i))
         for i in range(2, degree + 1)
-    ]
-
-    fixed_point_e = str(float_to_fixed_point(2.7182818284, frac_width))
-    constant_values = [
+    ] + [
         ast.Cell(
             ast.CompVar("one"),
             stdlib.constant(
@@ -207,7 +205,10 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[ast.Cell]:
             stdlib.constant(
                 width,
                 FixedPoint(
-                    fixed_point_e, width, int_width, is_signed=False
+                    str(float_to_fixed_point(2.7182818284, frac_width)),
+                    width,
+                    int_width,
+                    is_signed=False,
                 ).unsigned_integer(),
             ),
         ),
@@ -221,27 +222,26 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[ast.Cell]:
         + adds
         + mult_pipes
         + reciprocal_factorials
-        + constant_values
         + pows
     )
 
 
 def divide_and_conquer_sums(degree: int) -> List[ast.Structure]:
-    """Returns a list of ast.Groups for the sums.
-    This is done by dividing the ast.Groups into
+    """Returns a list of groups for the sums.
+    This is done by dividing the groups into
     log2(N) different rounds, where N is the `degree`.
     These rounds can then be executed in parallel.
 
-    For example, with N == 4, we will produce ast.Groups:
-      ast.Group sum_round1_1 { ... }     #    x   p2  p3  p4
+    For example, with N == 4, we will produce groups:
+      group sum_round1_1 { ... }     #    x   p2  p3  p4
                                      #     \  /   \  /
-      ast.Group sum_round1_2 { ... }     #    sum1   sum2
+      group sum_round1_2 { ... }     #    sum1   sum2
                                      #       \   /
-      ast.Group sum_round2_1 { ... }     #        sum1
+      group sum_round2_1 { ... }     #        sum1
 
-      ast.Group add_degree_zero { ... }  #    sum1 + 1
+      group add_degree_zero { ... }  #    sum1 + 1
     """
-    ast.Groups = []
+    groups = []
     sum_count = degree
     round = 1
     while sum_count > 1:
@@ -254,7 +254,7 @@ def divide_and_conquer_sums(degree: int) -> List[ast.Structure]:
             )
         ]
         for i, (lhs, rhs) in enumerate(register_indices):
-            ast.Group_name = ast.CompVar(f"sum_round{round}_{i + 1}")
+            group_name = ast.CompVar(f"sum_round{round}_{i + 1}")
             adder = ast.CompVar(f"add{i + 1}")
 
             # The first round will accrue its operands
@@ -265,7 +265,7 @@ def divide_and_conquer_sums(degree: int) -> List[ast.Structure]:
             reg_rhs = ast.CompVar(f"{register_name}{rhs}")
             sum = ast.CompVar(f"sum{i + 1}")
 
-            # In the first round and first ast.Group, we add the 1st degree, the value `x` itself.
+            # In the first round and first group, we add the 1st degree, the value `x` itself.
             lhs = (
                 ast.CompPort(ast.CompVar("frac_x"), "out")
                 if round == 1 and i == 0
@@ -277,21 +277,21 @@ def divide_and_conquer_sums(degree: int) -> List[ast.Structure]:
                 ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(sum, "write_en")),
                 ast.Connect(ast.CompPort(adder, "out"), ast.CompPort(sum, "in")),
                 ast.Connect(
-                    ast.CompPort(sum, "done"), ast.HolePort(ast.Group_name, "done")
+                    ast.CompPort(sum, "done"), ast.HolePort(group_name, "done")
                 ),
             ]
-            ast.Groups.append(ast.Group(ast.Group_name, connections, 1))
+            groups.append(ast.Group(group_name, connections, 1))
         sum_count >>= 1
         round = round + 1
 
     # Sums the 0th degree value, 1, and the final
     # sum of the divide-and-conquer.
-    ast.Group_name = ast.CompVar(f"add_degree_zero")
+    group_name = ast.CompVar(f"add_degree_zero")
     adder = ast.CompVar("add1")
     reg = ast.CompVar("sum1")
-    ast.Groups.append(
+    groups.append(
         ast.Group(
-            id=ast.Group_name,
+            id=group_name,
             connections=[
                 ast.Connect(ast.CompPort(reg, "out"), ast.CompPort(adder, "left")),
                 ast.Connect(
@@ -301,13 +301,13 @@ def divide_and_conquer_sums(degree: int) -> List[ast.Structure]:
                 ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(reg, "write_en")),
                 ast.Connect(ast.CompPort(adder, "out"), ast.CompPort(reg, "in")),
                 ast.Connect(
-                    ast.CompPort(reg, "done"), ast.HolePort(ast.Group_name, "done")
+                    ast.CompPort(reg, "done"), ast.HolePort(group_name, "done")
                 ),
             ],
             static_delay=1,
         )
     )
-    return ast.Groups
+    return groups
 
 
 def generate_groups(degree: int, width: int, int_width: int) -> List[ast.Structure]:
@@ -373,7 +373,7 @@ def generate_groups(degree: int, width: int, int_width: int) -> List[ast.Structu
     def consume_pow(i: int) -> ast.Group:
         # Write the output of pow{i} to register p{i}.
         reg = ast.CompVar(f"p{i}")
-        ast.Group_name = ast.CompVar(f"consume_pow{i}")
+        group_name = ast.CompVar(f"consume_pow{i}")
         connections = [
             ast.Connect(ast.ConstantPort(1, 1), ast.CompPort(reg, "write_en")),
             ast.Connect(
@@ -381,15 +381,15 @@ def generate_groups(degree: int, width: int, int_width: int) -> List[ast.Structu
             ),
             ast.Connect(
                 ast.ConstantPort(1, 1),
-                ast.HolePort(ast.Group_name, "done"),
+                ast.HolePort(group_name, "done"),
                 ast.CompPort(reg, "done"),
             ),
         ]
-        return ast.Group(ast.Group_name, connections, 1)
+        return ast.Group(group_name, connections, 1)
 
     def multiply_by_reciprocal_factorial(i: int) -> ast.Group:
         # Multiply register p{i} with the reciprocal factorial.
-        ast.Group_name = ast.CompVar(f"mult_by_reciprocal_factorial{i}")
+        group_name = ast.CompVar(f"mult_by_reciprocal_factorial{i}")
         mult_pipe = ast.CompVar(f"mult_pipe{i}")
         reg = ast.CompVar(f"p{i}")
         product = ast.CompVar(f"product{i}")
@@ -409,14 +409,14 @@ def generate_groups(degree: int, width: int, int_width: int) -> List[ast.Structu
             ),
             ast.Connect(ast.CompPort(mult_pipe, "out"), ast.CompPort(product, "in")),
             ast.Connect(
-                ast.CompPort(product, "done"), ast.HolePort(ast.Group_name, "done")
+                ast.CompPort(product, "done"), ast.HolePort(group_name, "done")
             ),
         ]
-        return ast.Group(ast.Group_name, connections)
+        return ast.Group(group_name, connections)
 
     def final_multiply():
         # Multiply e^fractional_value * e^integer_value.
-        ast.Group_name = ast.CompVar("final_multiply")
+        group_name = ast.CompVar("final_multiply")
         mult_pipe = ast.CompVar("mult_pipe1")
         reg = ast.CompVar("m")
         connections = [
@@ -435,11 +435,9 @@ def generate_groups(degree: int, width: int, int_width: int) -> List[ast.Structu
             ),
             ast.Connect(ast.CompPort(mult_pipe, "done"), ast.CompPort(reg, "write_en")),
             ast.Connect(ast.CompPort(mult_pipe, "out"), ast.CompPort(reg, "in")),
-            ast.Connect(
-                ast.CompPort(reg, "done"), ast.HolePort(ast.Group_name, "done")
-            ),
+            ast.Connect(ast.CompPort(reg, "done"), ast.HolePort(group_name, "done")),
         ]
-        return [ast.Group(ast.Group_name, connections)]
+        return [ast.Group(group_name, connections)]
 
     # ast.Connect final sum to the `out` signal of the component
     out = [
@@ -556,7 +554,7 @@ if __name__ == "__main__":
     import argparse, json
 
     parser = argparse.ArgumentParser(
-        description="`exp` using Taylor Series approximation"
+        description="`exp` using a Taylor Series approximation"
     )
     parser.add_argument("file", nargs="?", type=str)
     parser.add_argument("-d", "--degree", type=int)

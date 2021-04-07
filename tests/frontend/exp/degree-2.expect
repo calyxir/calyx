@@ -8,6 +8,8 @@ component exp(x: 32) -> (out: 32) {
     and1 = std_and(32);
     rsh = std_rsh(32);
     c2 = std_const(32, 2);
+    one = std_const(32, 65536);
+    e = std_const(32, 178145);
     product2 = std_reg(32);
     p2 = std_reg(32);
     sum1 = std_reg(32);
@@ -15,8 +17,6 @@ component exp(x: 32) -> (out: 32) {
     mult_pipe1 = std_fp_mult_pipe(32, 16, 16);
     mult_pipe2 = std_fp_mult_pipe(32, 16, 16);
     reciprocal_factorial2 = std_const(32, 32768);
-    one = std_const(32, 65536);
-    e = std_const(32, 178145);
     pow1 = fp_pow();
     pow2 = fp_pow();
   }
