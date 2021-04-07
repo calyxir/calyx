@@ -239,8 +239,8 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
         round = round + 1
 
     # Connect final sum to the `out` signal of the component
-    out = Connect(CompPort(CompVar("sum1"), "out"), ThisPort(CompVar("out")))
-    return groups
+    out = [Connect(CompPort(CompVar("sum1"), "out"), ThisPort(CompVar("out")))]
+    return groups + out
 
 
 def generate_groups(degree: int, width: int, int_width: int) -> List[Structure]:
@@ -299,7 +299,6 @@ def generate_groups(degree: int, width: int, int_width: int) -> List[Structure]:
             + [consume_pow(j) for j in range(2, degree + 1)]
             + [multiply_by_reciprocal_factorial(k) for k in range(2, degree + 1)]
             + divide_and_conquer_sums(degree)
-            + [Connect(CompPort(CompVar("sum1"), "out"), ThisPort(CompVar("out")))]
     )
 
 
