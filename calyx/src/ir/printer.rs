@@ -220,7 +220,7 @@ impl IRPrinter {
                     write!(f, "{} ", Self::format_at_attributes(&attributes))?
                 }
                 write!(f, "invoke {}(", comp.borrow().name)?;
-                for (i, (arg, port)) in inputs.into_iter().enumerate() {
+                for (i, (arg, port)) in inputs.iter().enumerate() {
                     write!(
                         f,
                         "{}\n{}{} = {}",
@@ -235,7 +235,7 @@ impl IRPrinter {
                 } else {
                     write!(f, "\n{})(", " ".repeat(indent_level))?;
                 }
-                for (i, (arg, port)) in outputs.into_iter().enumerate() {
+                for (i, (arg, port)) in outputs.iter().enumerate() {
                     write!(
                         f,
                         "{}\n{}{} = {}",
