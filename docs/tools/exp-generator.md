@@ -1,4 +1,4 @@
-# exp Generator
+# `exp` Generator
 
 The `exp` generator uses a Taylor series approximation to calculate the value of the natural
 exponential function `e^x`. The [Maclaurin series](https://en.wikipedia.org/wiki/Taylor_series#Exponential_function) 
