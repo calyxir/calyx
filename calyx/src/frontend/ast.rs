@@ -323,9 +323,9 @@ pub enum Control {
         /// Name of the component to be invoked.
         comp: ir::Id,
         /// Input assignments
-        inputs: Vec<(ir::Id, Port)>,
+        inputs: Vec<(ir::Id, Atom)>,
         /// Output assignments
-        outputs: Vec<(ir::Id, Port)>,
+        outputs: Vec<(ir::Id, Atom)>,
         /// Attributes
         attributes: ir::Attributes,
     },
