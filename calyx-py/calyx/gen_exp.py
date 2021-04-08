@@ -558,7 +558,7 @@ if __name__ == "__main__":
         imports=[Import("primitives/std.lib")],
         components=generate_exp_taylor_series_approximation(degree, width, int_width),
     )
-    # Append a `main` program for testing purposes.
+    # Append a `main` component for testing purposes.
     program.components.append(
         Component(
             "main",
