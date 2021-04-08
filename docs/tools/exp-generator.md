@@ -1,4 +1,4 @@
-# Exp Generator
+# exp Generator
 
 The `exp` generator uses a Taylor series approximation to calculate the value of the natural
 exponential function `e^x`. The [Maclaurin series](https://en.wikipedia.org/wiki/Taylor_series#Exponential_function) 
@@ -6,7 +6,7 @@ for the function can be written as:
 ```
 e^x = 1 + x + x^2/2! + x^3/3! + ... + x^n/n!
 ```
-where `n` is the nth order or degree of the series.
+where `n` is the nth degree or order of the polynomial.
 
 The `gen_exp.py` file contains the entire program required to
 generate an entire Calyx program. The `main` component contains
@@ -30,5 +30,5 @@ The command line options configure the degree (or order) of the taylor series, b
 - `--width`: The bit width of the value `x`.
 - `--int_width`: The integer width of the value `x`. The fractional width is then inferred as `width - int_width`.
 
-Similarly, the `gen_exp.py` file provides the option to simply produce the components themselves to be dropped into
+Similarly, the `gen_exp.py` file provides the option to produce only the necessary components to be dropped into
 other Calyx programs.
