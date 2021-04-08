@@ -488,7 +488,7 @@ def generate_control(degree: int) -> Control:
 
 # TODO(cgyurgyik): Support negative values.
 # We can do this in the following manner:
-#   if (x < 0.0): out = 1 / e^x
+#   if (x < 0.0): out = 1 / e^abs(x)
 def generate_exp_taylor_series_approximation(
     degree: int, width: int, int_width: int
 ) -> List[Component]:
