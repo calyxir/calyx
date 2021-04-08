@@ -51,7 +51,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
       wr_y;
       invoke my_add(
         left = x.out,
-        right = x.out,
+        right = x.out
       )();
     }
   }

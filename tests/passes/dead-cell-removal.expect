@@ -34,7 +34,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
   control {
     invoke my_add(
       left = add_input.out,
-      right = add_input.out,
+      right = add_input.out
     )();
   }
 }
