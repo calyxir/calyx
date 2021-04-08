@@ -3,7 +3,7 @@
 ## Installation
 To use the Calyx AST and utilities:
 1. Install [flit](https://flit.readthedocs.io/en/latest/#install).
-2. Install the `futil` package:
+2. Install the `calyx` package:
 ```
   $ cd calyx-py/
   $ flit install --symlink

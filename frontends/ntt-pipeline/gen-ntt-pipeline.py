@@ -1,7 +1,7 @@
 from prettytable import PrettyTable
 import numpy as np
-from futil.ast import *
-from futil.utils import bits_needed
+from calyx.py_ast import *
+from calyx.utils import bits_needed
 
 
 def reduce_parallel_control_pass(component: Component, N: int, input_size: int):

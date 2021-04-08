@@ -1,7 +1,7 @@
 import tvm
 from tvm import relay
-from futil.ast import *
-from futil.utils import bits_needed
+from calyx.py_ast import *
+from calyx.utils import bits_needed
 from typing import List
 from dataclasses import dataclass
 

@@ -1,5 +1,5 @@
 from . import ast
-from futil.ast import *
+from calyx.py_ast import *
 
 
 def emit_mem_decl(name, size, par):

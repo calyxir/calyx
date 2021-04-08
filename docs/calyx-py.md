@@ -1,6 +1,6 @@
 # Emitting Calyx from Python
 
-Our frontends are written in python and make use of the `futil` library to
+Our frontends are written in Python3 and make use of the `calyx` library to
 generate their code.
 
 To install the library, run the following from the repository root (requires
