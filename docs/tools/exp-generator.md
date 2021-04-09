@@ -1,6 +1,6 @@
 # `exp` Generator
 
-The `exp` generator uses a Taylor series approximation to calculate the value of the natural
+The `exp` generator uses a Taylor series approximation to calculate the fixed point value of the natural
 exponential function `e^x`. The [Maclaurin series](https://en.wikipedia.org/wiki/Taylor_series#Exponential_function) 
 for the function can be written as:
 ```
@@ -13,7 +13,7 @@ The `main` component contains memories `x` (for the input) and `ret` for the res
 In order to generate an example program with degree `4`, bit width `32`, and `integer bit width` 16:
 
 ```
-./calyx-py/calyx/gen_exp.py -d 2 -w 32 -i 16
+./calyx-py/calyx/gen_exp.py -d 4 -w 32 -i 16
 ```
 
 Similarly, it provides a function to produce only the necessary components to be dropped into other Calyx programs.
@@ -28,4 +28,4 @@ The command line options configure the degree (or order) of the taylor series, b
 
 - `--degree`: The degree of the Taylor polynomial.
 - `--width`: The bit width of the value `x`.
-- `--int_width`: The integer width of the value `x`. The fractional width is then inferred as `width - int_width`.
+- `--int_width`: The integer bit width of the value `x`. The fractional bit width is then inferred as `width - int_width`.
