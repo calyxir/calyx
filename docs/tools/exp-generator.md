@@ -10,7 +10,7 @@ where `n` is the nth degree or order of the polynomial.
 
 The `gen_exp.py` file can generate an entire Calyx program for testing purposes.
 The `main` component contains memories `x` (for the input) and `ret` for the result of `e^x`. 
-In order to generate an example program with degree `4`, bit width `32`, and `integer bit width` 16:
+In order to generate an example program with degree `4`, bit width `32`, and integer bit width `16`:
 
 ```
 ./calyx-py/calyx/gen_exp.py -d 4 -w 32 -i 16
