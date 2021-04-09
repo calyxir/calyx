@@ -505,14 +505,16 @@ impl FutilParser {
     }
 
     // ================ Control program =====================
-    fn invoke_arg(input: Node) -> ParseResult<(ir::Id, ast::Port)> {
+    fn invoke_arg(input: Node) -> ParseResult<(ir::Id, ast::Atom)> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(name), port(p)] => (name, p)
+            [identifier(name), port(p)] => (name, ast::Atom::Port(p)),
+            [identifier(name), num_lit(bn)] => (name, ast::Atom::Num(bn))
+
         ))
     }
 
-    fn invoke_args(input: Node) -> ParseResult<Vec<(ir::Id, ast::Port)>> {
+    fn invoke_args(input: Node) -> ParseResult<Vec<(ir::Id, ast::Atom)>> {
         Ok(match_nodes!(
             input.into_children();
             [invoke_arg(args)..] => args.collect()
