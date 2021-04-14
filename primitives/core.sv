@@ -13,11 +13,11 @@ module std_mem_d1 #(
     parameter SIZE = 16,
     parameter IDX_SIZE = 4
 ) (
-   input wire                logic [idx_size-1:0] addr0,
-   input wire                logic [ width-1:0] write_data,
+   input wire                logic [IDX_SIZE-1:0] addr0,
+   input wire                logic [ WIDTH-1:0] write_data,
    input wire                logic write_en,
    input wire                logic clk,
-   output logic [ width-1:0] read_data,
+   output logic [ WIDTH-1:0] read_data,
    output logic              done
 );
 
