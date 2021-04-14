@@ -34,7 +34,7 @@ extern "core.sv" {
   primitive std_le<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
 
   /// Memories
-  primitive std_mem_D1<"static"=1>[WIDTH, size, IDX_SIZE](
+  primitive std_mem_d1<"static"=1>[WIDTH, size, IDX_SIZE](
     addr0: IDX_SIZE,
     write_data: WIDTH,
     @go(1) write_en: 1,
@@ -44,7 +44,7 @@ extern "core.sv" {
     @done(1) done: 1
   );
 
-  primitive std_mem_D2<"static"=1>[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
+  primitive std_mem_d2<"static"=1>[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
     addr0: D0_IDX_SIZE,
     addr1: D1_IDX_SIZE,
     write_data: WIDTH,
@@ -55,7 +55,7 @@ extern "core.sv" {
     @done(1) done: 1
   );
 
-  primitive std_mem_D3<"static"=1>[
+  primitive std_mem_d3<"static"=1>[
       WIDTH,
       D0_SIZE,
       D1_SIZE,
