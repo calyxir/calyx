@@ -22,35 +22,35 @@ module std_fp_div_pipe #(
     assign finished = running && (idx == ITERATIONS - 1);
 
     always_comb begin
-        if (acc >= {1'b0, right}) begin
-            acc_next = acc - right;
-            {acc_next, quotient_next} = {acc_next[WIDTH-1:0], quotient, 1'b1};
-        end else begin
-            {acc_next, quotient_next} = {acc, quotient} << 1;
-        end
+      if (acc >= {1'b0, right}) begin
+        acc_next = acc - right;
+        {acc_next, quotient_next} = {acc_next[WIDTH-1:0], quotient, 1'b1};
+      end else begin
+        {acc_next, quotient_next} = {acc, quotient} << 1;
+      end
     end
 
     always_ff @(posedge clk) begin
-        if (start) begin
-            running <= 1;
-            done <= 0;
-            idx <= 0;
-            {acc, quotient} <= {{WIDTH{1'b0}}, left, 1'b0};
-            out_quotient <= 0;
-            out_remainder <= left;
-        end else if (finished) begin
-            running <= 0;
-            done <= 1;
-            out_quotient <= quotient_next;
-        end else begin
-            idx <= idx + 1;
-            acc <= acc_next;
-            quotient <= quotient_next;
-            out_quotient <= out_quotient;
-            if (right <= out_remainder) begin
-              out_remainder <= out_remainder - right;
-            end
+      if (start) begin
+        running <= 1;
+        done <= 0;
+        idx <= 0;
+        {acc, quotient} <= {{WIDTH{1'b0}}, left, 1'b0};
+        out_quotient <= 0;
+        out_remainder <= left;
+      end else if (finished) begin
+        running <= 0;
+        done <= 1;
+        out_quotient <= quotient_next;
+      end else begin
+        idx <= idx + 1;
+        acc <= acc_next;
+        quotient <= quotient_next;
+        out_quotient <= out_quotient;
+        if (right <= out_remainder) begin
+          out_remainder <= out_remainder - right;
         end
+      end
     end
 endmodule
 
