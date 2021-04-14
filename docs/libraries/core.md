@@ -20,13 +20,13 @@ A `WIDTH`-wide register.
 
 **Inputs:**
 
-- `in: width` - An input value to the register `WIDTH`-bits.
+- `in: WIDTH` - An input value to the register `WIDTH`-bits.
 - `write_en: 1` - The one bit write enabled signal. Indicates that the register
   should store the value on the in wire.
 
 **Outputs:**
 
-- `out: width` - The value contained in the register.
+- `out: WIDTH` - The value contained in the register.
 - `done: 1` - The register's done signal. Set high for one cycle after writing a
   new value.
 
@@ -40,7 +40,7 @@ A constant WIDTH-bit value with value VAL.
 
 **Outputs:**
 
-- `out:width` - The value of the constant (i.e. `VAL`)
+- `out: WIDTH` - The value of the constant (i.e. `VAL`)
 
 ---
 
@@ -50,12 +50,12 @@ A left bit shift. Performs `LEFT << RIGHT`. This component is combinational.
 
 **Inputs:**
 
-- `left: width` - A WIDTH-bit value to be shifted
-- `right: width` - A WIDTH-bit value representing the shift amount
+- `left: WIDTH` - A WIDTH-bit value to be shifted
+- `right: WIDTH` - A WIDTH-bit value representing the shift amount
 
 **Outputs:**
 
-- `out: width` - A WIDTH-bit value equivalent to `LEFT << RIGHT`
+- `out: WIDTH` - A WIDTH-bit value equivalent to `LEFT << RIGHT`
 
 ---
 
@@ -65,12 +65,12 @@ A right bit shift. Performs `LEFT >> RIGHT`. This component is combinational.
 
 **Inputs:**
 
-- `left: width` - A WIDTH-bit value to be shifted
-- `right: width` - A WIDTH-bit value representing the shift amount
+- `left: WIDTH` - A WIDTH-bit value to be shifted
+- `right: WIDTH` - A WIDTH-bit value representing the shift amount
 
 **Outputs:**
 
-- `out: width` - A WIDTH-bit value equivalent to `LEFT >> RIGHT`
+- `out: WIDTH` - A WIDTH-bit value equivalent to `LEFT >> RIGHT`
 
 ---
 
@@ -81,12 +81,12 @@ is combinational.
 
 **Inputs:**
 
-- `left: width` - A WIDTH-bit value
-- `right: width` - A WIDTH-bit value
+- `left: WIDTH` - A WIDTH-bit value
+- `right: WIDTH` - A WIDTH-bit value
 
 **Outputs:**
 
-- `out: width` - A WIDTH-bit value equivalent to `LEFT + RIGHT`
+- `out: WIDTH` - A WIDTH-bit value equivalent to `LEFT + RIGHT`
 
 ---
 
@@ -96,12 +96,12 @@ Bitwise subtraction. Performs `LEFT - RIGHT`. This component is combinational.
 
 **Inputs:**
 
-- `left: width` - A WIDTH-bit value
-- `right: width` - A WIDTH-bit value
+- `left: WIDTH` - A WIDTH-bit value
+- `right: WIDTH` - A WIDTH-bit value
 
 **Outputs:**
 
-- `out: width` - A WIDTH-bit value equivalent to `LEFT - RIGHT`
+- `out: WIDTH` - A WIDTH-bit value equivalent to `LEFT - RIGHT`
 
 ---
 
@@ -112,11 +112,11 @@ Slice out the lower OUT_WIDTH bits of an IN_WIDTH-bit value. Computes
 
 **Inputs:**
 
-- `in: in_width` - An IN_WIDTH-bit value
+- `in: IN_WIDTH` - An IN_WIDTH-bit value
 
 **Outputs:**
 
-- `out: out_width` - The lower OUT_WIDTH bits of `in`
+- `out: OUT_WIDTH` - The lower OUT_WIDTH bits of `in`
 
 ---
 
@@ -127,11 +127,11 @@ OUT_WIDTH-bits. This component is combinational.
 
 **Inputs:**
 
-- `in: in_width` - An IN_WIDTH-bit value to be padded
+- `in: IN_WIDTH` - An IN_WIDTH-bit value to be padded
 
 **Outputs:**
 
-- `out: out_width` - The padded value
+- `out: OUT_WIDTH` - The padded value
 
 ---
 
@@ -143,11 +143,11 @@ Bitwise NOT. This component is combinational.
 
 **Inputs:**
 
-- `in: width` - A WIDTH-bit input.
+- `in: WIDTH` - A WIDTH-bit input.
 
 **Outputs:**
 
-- `out: width` - The bitwise NOT of the input (`~in`)
+- `out: WIDTH` - The bitwise NOT of the input (`~in`)
 
 ---
 
@@ -157,12 +157,12 @@ Bitwise AND. This component is combinational.
 
 **Inputs:**
 
-- `left: width` - A WIDTH-bit argument
-- `right: width` - A WIDTH-bit argument
+- `left: WIDTH` - A WIDTH-bit argument
+- `right: WIDTH` - A WIDTH-bit argument
 
 **Outputs:**
 
-- `out: width` - The bitwise AND of the arguments (`left & right`)
+- `out: WIDTH` - The bitwise AND of the arguments (`left & right`)
 
 ---
 
@@ -172,12 +172,12 @@ Bitwise OR. This component is combinational.
 
 **Inputs:**
 
-- `left: width` - A WIDTH-bit argument
-- `right: width` - A WIDTH-bit argument
+- `left: WIDTH` - A WIDTH-bit argument
+- `right: WIDTH` - A WIDTH-bit argument
 
 **Outputs:**
 
-- `out: width` - The bitwise OR of the arguments (`left | right`)
+- `out: WIDTH` - The bitwise OR of the arguments (`left | right`)
 
 ---
 
@@ -187,12 +187,12 @@ Bitwise XOR. This component is combinational.
 
 **Inputs:**
 
-- `left: width` - A WIDTH-bit argument
-- `right: width` - A WIDTH-bit argument
+- `left: WIDTH` - A WIDTH-bit argument
+- `right: WIDTH` - A WIDTH-bit argument
 
 **Outputs:**
 
-- `out: width` - The bitwise XOR of the arguments (`left ^ right`)
+- `out: WIDTH` - The bitwise XOR of the arguments (`left ^ right`)
 
 ---
 
@@ -204,8 +204,8 @@ Greater than. This component is combinational.
 
 **Inputs:**
 
-- `left: width` - A WIDTH-bit argument
-- `right: width` - A WIDTH-bit argument
+- `left: WIDTH` - A WIDTH-bit argument
+- `right: WIDTH` - A WIDTH-bit argument
 
 **Outputs:**
 
@@ -219,8 +219,8 @@ Less than. This component is combinational.
 
 **Inputs:**
 
-- `left: width` - A WIDTH-bit argument
-- `right: width` - A WIDTH-bit argument
+- `left: WIDTH` - A WIDTH-bit argument
+- `right: WIDTH` - A WIDTH-bit argument
 
 **Outputs:**
 
@@ -234,8 +234,8 @@ Equality comparison. This component is combinational.
 
 **Inputs:**
 
-- `left: width` - A WIDTH-bit argument
-- `right: width` - A WIDTH-bit argument
+- `left: WIDTH` - A WIDTH-bit argument
+- `right: WIDTH` - A WIDTH-bit argument
 
 **Outputs:**
 
@@ -249,8 +249,8 @@ Not equal. This component is combinational.
 
 **Inputs:**
 
-- `left: width` - A WIDTH-bit argument
-- `right: width` - A WIDTH-bit argument
+- `left: WIDTH` - A WIDTH-bit argument
+- `right: WIDTH` - A WIDTH-bit argument
 
 **Outputs:**
 
@@ -264,8 +264,8 @@ Greater than or equal. This component is combinational.
 
 **Inputs:**
 
-- `left: width` - A WIDTH-bit argument
-- `right: width` - A WIDTH-bit argument
+- `left: WIDTH` - A WIDTH-bit argument
+- `right: WIDTH` - A WIDTH-bit argument
 
 **Outputs:**
 
@@ -279,8 +279,8 @@ Less than or equal. This component is combinational.
 
 **Inputs:**
 
-- `left: width` - A WIDTH-bit argument
-- `right: width` - A WIDTH-bit argument
+- `left: WIDTH` - A WIDTH-bit argument
+- `right: WIDTH` - A WIDTH-bit argument
 
 **Outputs:**
 
@@ -302,13 +302,13 @@ A one-dimensional memory.
 
 **Inputs:**
 
-- `addr0: idx_size` - The index to be accessed or updated
-- `write_data: width` - Data to be written to the selected memory slot
+- `addr0: IDX_SIZE - The index to be accessed or updated
+- `write_data: WIDTH` - Data to be written to the selected memory slot
 - `write_en: 1` - One bit write enabled signal, causes the memory to write `write_data` to the slot indexed by `addr0`
 
 **Outputs:**
 
-- `read_data: width` - The value stored at `addr0`. This value is combinational with respect to `addr0`.
+- `read_data: WIDTH` - The value stored at `addr0`. This value is combinational with respect to `addr0`.
 - `done: 1`: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
 
 ---
@@ -327,14 +327,14 @@ A two-dimensional memory.
 
 **Inputs:**
 
-- `addr0: d0_idx_size` - The first index into the memory
-- `addr1: d1_idx_size` - The second index into the memory
-- `write_data: width` - Data to be written to the selected memory slot
+- `addr0: D0_IDX_SIZE` - The first index into the memory
+- `addr1: D1_IDX_SIZE` - The second index into the memory
+- `write_data: WIDTH` - Data to be written to the selected memory slot
 - `write_en: 1` - One bit write enabled signal, causes the memory to write `write_data` to the slot indexed by `addr0` and `addr1`
 
 **Outputs:**
 
-- `read_data: width` - The value stored at `mem[addr0][addr1]`. This value is combinational with respect to `addr0` and `addr1`.
+- `read_data: WIDTH` - The value stored at `mem[addr0][addr1]`. This value is combinational with respect to `addr0` and `addr1`.
 - `done: 1`: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
 
 ---
@@ -355,15 +355,15 @@ A three-dimensional memory.
 
 **Inputs:**
 
-- `addr0: d0_idx_size` - The first index into the memory
-- `addr1: d1_idx_size` - The second index into the memory
-- `addr2: d2_idx_size` - The third index into the memory
-- `write_data: width` - Data to be written to the selected memory slot
+- `addr0: D0_IDX_SIZE` - The first index into the memory
+- `addr1: D1_IDX_SIZE` - The second index into the memory
+- `addr2: D2_IDX_SIZE` - The third index into the memory
+- `write_data: WIDTH` - Data to be written to the selected memory slot
 - `write_en: 1` - One bit write enabled signal, causes the memory to write `write_data` to the slot indexed by `addr0`, `addr1`, and `addr2`
 
 **Outputs:**
 
-- `read_data: width` - The value stored at `mem[addr0][addr1][addr2]`. This value is combinational with respect to `addr0`, `addr1`, and `addr2`.
+- `read_data: WIDTH` - The value stored at `mem[addr0][addr1][addr2]`. This value is combinational with respect to `addr0`, `addr1`, and `addr2`.
 - `done: 1`: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
 
 ---
@@ -386,14 +386,14 @@ A four-dimensional memory.
 
 **Inputs:**
 
-- `addr0: d0_idx_size` - The first index into the memory
-- `addr1: d1_idx_size` - The second index into the memory
-- `addr2: d2_idx_size` - The third index into the memory
-- `addr3: d3_idx_size` - The fourth index into the memory
-- `write_data: width` - Data to be written to the selected memory slot
+- `addr0: D0_IDX_SIZE` - The first index into the memory
+- `addr1: D1_IDX_SIZE` - The second index into the memory
+- `addr2: D2_IDX_SIZE` - The third index into the memory
+- `addr3: D3_IDX_SIZE` - The fourth index into the memory
+- `write_data: WIDTH` - Data to be written to the selected memory slot
 - `write_en: 1` - One bit write enabled signal, causes the memory to write `write_data` to the slot indexed by `addr0`, `addr1`, `addr2`, and `addr3`
 
 **Outputs:**
 
-- `read_data: width` - The value stored at `mem[addr0][addr1][addr2][addr3]`. This value is combinational with respect to `addr0`, `addr1`, `addr2`, and `addr3`.
+- `read_data: WIDTH` - The value stored at `mem[addr0][addr1][addr2][addr3]`. This value is combinational with respect to `addr0`, `addr1`, `addr2`, and `addr3`.
 - `done: 1`: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
