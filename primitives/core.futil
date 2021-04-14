@@ -16,8 +16,8 @@ extern "core.sv" {
   primitive std_rsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
   primitive std_add<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
   primitive std_sub<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
-  primitive std_slice<"share"=1>[in_WIDTH, out_WIDTH](in: in_WIDTH) -> (out: out_WIDTH);
-  primitive std_pad<"share"=1>[in_WIDTH, out_WIDTH](in: in_WIDTH) -> (out: out_WIDTH);
+  primitive std_slice<"share"=1>[IN_WIDTH, OUT_WIDTH](in: IN_WIDTH) -> (out: OUT_WIDTH);
+  primitive std_pad<"share"=1>[IN_WIDTH, OUT_WIDTH](in: IN_WIDTH) -> (out: OUT_WIDTH);
 
   /// Logical operators
   primitive std_not<"share"=1>[WIDTH](in: WIDTH) -> (out: WIDTH);
