@@ -1,20 +1,20 @@
 /* verilator lint_off WIDTH */
 module std_div_pipe #(
-    parameter width = 32
+    parameter WIDTH = 32
 ) (
     input                    clk,
     input                    go,
-    input        [width-1:0] left,
-    input        [width-1:0] right,
-    output logic [width-1:0] out_remainder,
-    output logic [width-1:0] out_quotient,
+    input        [WIDTH-1:0] left,
+    input        [WIDTH-1:0] right,
+    output logic [WIDTH-1:0] out_remainder,
+    output logic [WIDTH-1:0] out_quotient,
     output logic             done
 );
 
-  logic [width-1:0] dividend;
-  logic [(width-1)*2:0] divisor;
-  logic [width-1:0] quotient;
-  logic [width-1:0] quotient_msk;
+  logic [WIDTH-1:0] dividend;
+  logic [(WIDTH-1)*2:0] divisor;
+  logic [WIDTH-1:0] quotient;
+  logic [WIDTH-1:0] quotient_msk;
   logic start, running, finished;
 
   assign start = go && !running;
@@ -35,9 +35,9 @@ module std_div_pipe #(
     if (start) begin
       running <= 1;
       dividend <= left;
-      divisor <= right << width - 1;
+      divisor <= right << WIDTH - 1;
       quotient <= 0;
-      quotient_msk <= 1 << width - 1;
+      quotient_msk <= 1 << WIDTH - 1;
     end else if (finished) begin
       running <= 0;
       done <= 1;
@@ -77,18 +77,18 @@ module std_div_pipe #(
 endmodule
 
 module std_mult_pipe #(
-    parameter width = 32
+    parameter WIDTH = 32
 ) (
-    input  logic [width-1:0] left,
-    input  logic [width-1:0] right,
+    input  logic [WIDTH-1:0] left,
+    input  logic [WIDTH-1:0] right,
     input  logic             go,
     input  logic             clk,
-    output logic [width-1:0] out,
+    output logic [WIDTH-1:0] out,
     output logic             done
 );
-  logic [width-1:0] rtmp;
-  logic [width-1:0] ltmp;
-  logic [width-1:0] out_tmp;
+  logic [WIDTH-1:0] rtmp;
+  logic [WIDTH-1:0] ltmp;
+  logic [WIDTH-1:0] out_tmp;
   reg done_buf[1:0];
   always_ff @(posedge clk) begin
     if (go) begin
@@ -117,29 +117,29 @@ endmodule
 
 /* verilator lint_off WIDTH */
 module std_sdiv_pipe #(
-    parameter width = 32
+    parameter WIDTH = 32
 ) (
     input                     clk,
     input                     go,
-    input  signed [width-1:0] left,
-    input  signed [width-1:0] right,
-    output signed [width-1:0] out_quotient,
-    output signed [width-1:0] out_remainder,
+    input  signed [WIDTH-1:0] left,
+    input  signed [WIDTH-1:0] right,
+    output signed [WIDTH-1:0] out_quotient,
+    output signed [WIDTH-1:0] out_remainder,
     output logic              done
 );
 
-  logic signed [width-1:0] left_abs;
-  logic signed [width-1:0] right_abs;
-  logic signed [width-1:0] comp_out_q;
-  logic signed [width-1:0] comp_out_r;
+  logic signed [WIDTH-1:0] left_abs;
+  logic signed [WIDTH-1:0] right_abs;
+  logic signed [WIDTH-1:0] comp_out_q;
+  logic signed [WIDTH-1:0] comp_out_r;
 
-  assign right_abs = right[width-1] ? -right : right;
-  assign left_abs = left[width-1] ? -left : left;
-  assign out_quotient = left[width-1] ^ right[width-1] ? -comp_out_q : comp_out_q;
-  assign out_remainder = left[width-1] == 1 ? $signed(right - comp_out_r) : comp_out_r;
+  assign right_abs = right[WIDTH-1] ? -right : right;
+  assign left_abs = left[WIDTH-1] ? -left : left;
+  assign out_quotient = left[WIDTH-1] ^ right[WIDTH-1] ? -comp_out_q : comp_out_q;
+  assign out_remainder = left[WIDTH-1] == 1 ? $signed(right - comp_out_r) : comp_out_r;
 
   std_div_pipe #(
-    .width(width)
+    .WIDTH(WIDTH)
   ) comp (
     .clk(clk),
     .done(done),
@@ -176,31 +176,31 @@ endmodule
 
 //==================== Unsynthesizable primitives =========================
 module std_mult #(
-    parameter width = 32
+    parameter WIDTH = 32
 ) (
-    input  logic [width-1:0] left,
-    input  logic [width-1:0] right,
-    output logic [width-1:0] out
+    input  logic [WIDTH-1:0] left,
+    input  logic [WIDTH-1:0] right,
+    output logic [WIDTH-1:0] out
 );
   assign out = left * right;
 endmodule
 
 module std_div #(
-    parameter width = 32
+    parameter WIDTH = 32
 ) (
-    input  logic [width-1:0] left,
-    input  logic [width-1:0] right,
-    output logic [width-1:0] out
+    input  logic [WIDTH-1:0] left,
+    input  logic [WIDTH-1:0] right,
+    output logic [WIDTH-1:0] out
 );
   assign out = left / right;
 endmodule
 
 module std_mod #(
-    parameter width = 32
+    parameter WIDTH = 32
 ) (
-    input  logic [width-1:0] left,
-    input  logic [width-1:0] right,
-    output logic [width-1:0] out
+    input  logic [WIDTH-1:0] left,
+    input  logic [WIDTH-1:0] right,
+    output logic [WIDTH-1:0] out
 );
   assign out = left % right;
 endmodule

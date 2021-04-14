@@ -1,37 +1,37 @@
 extern "unsigned.sv" {
-  primitive std_div_pipe<"static"=3>[width](
-    left: width, right: width, @go(1) go: 1, clk: 1
+  primitive std_div_pipe<"static"=3>[WIDTH](
+    left: WIDTH, right: WIDTH, @go(1) go: 1, clk: 1
   ) -> (
-    out_quotient: width,
-    out_remainder: width,
+    out_quotient: WIDTH,
+    out_remainder: WIDTH,
     @done(1) done: 1
   );
 
-  primitive std_mult_pipe[width](
-    clk: 1, go: 1, left: width, right: width
+  primitive std_mult_pipe[WIDTH](
+    clk: 1, go: 1, left: WIDTH, right: WIDTH
   ) -> (
-    out: width, done: 1
+    out: WIDTH, done: 1
   );
 
   // =============== Signed primitives that wrap unsigned ones ==============
-  primitive std_sdiv_pipe<"static"=3>[width](
-    clk: 1, @go(1) go: 1, left: width, right: width
+  primitive std_sdiv_pipe<"static"=3>[WIDTH](
+    clk: 1, @go(1) go: 1, left: WIDTH, right: WIDTH
   ) -> (
-    out_quotient: width,
-    out_remainder: width,
+    out_quotient: WIDTH,
+    out_remainder: WIDTH,
     @done(1) done: 1
   );
 
 
   /// =================== Unsynthesizable Primitives =========================
-  primitive std_mult<"share"=1>[width](
-    left: width, right: width
+  primitive std_mult<"share"=1>[WIDTH](
+    left: WIDTH, right: WIDTH
   ) -> (
-    out: width
+    out: WIDTH
   );
-  primitive std_div<"share"=1>[width](
-    left: width, right: width
+  primitive std_div<"share"=1>[WIDTH](
+    left: WIDTH, right: WIDTH
   ) -> (
-    out: width
+    out: WIDTH
   );
 }
