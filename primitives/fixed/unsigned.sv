@@ -1,3 +1,58 @@
+module std_fp_div_pipe #(
+  parameter WIDTH = 32,
+  parameter INT_WIDTH = 16,
+  parameter FRAC_WIDTH = 16
+) (
+    input  logic             go,
+    input  logic             clk,
+    input  logic [WIDTH-1:0] left,
+    input  logic [WIDTH-1:0] right,
+    output logic [WIDTH-1:0] out_remainder,
+    output logic [WIDTH-1:0] out_quotient,
+    output logic             done
+);
+    localparam ITERATIONS = WIDTH + FRAC_WIDTH;
+
+    logic [WIDTH-1:0] quotient, quotient_next;
+    logic [WIDTH:0] acc, acc_next;
+    logic [$clog2(ITERATIONS)-1:0] idx;
+    logic start, running, finished;
+
+    assign start = go && !running;
+    assign finished = running && (idx == ITERATIONS - 1);
+
+    always_comb begin
+        if (acc >= {1'b0, right}) begin
+            acc_next = acc - right;
+            {acc_next, quotient_next} = {acc_next[WIDTH-1:0], quotient, 1'b1};
+        end else begin
+            {acc_next, quotient_next} = {acc, quotient} << 1;
+        end
+    end
+
+    always_ff @(posedge clk) begin
+        if (start) begin
+            running <= 1;
+            done <= 0;
+            idx <= 0;
+            {acc, quotient} <= {{WIDTH{1'b0}}, left, 1'b0};
+            out_quotient <= 0;
+            out_remainder <= left;
+        end else if (finished) begin
+            running <= 0;
+            done <= 1;
+            out_quotient <= quotient_next;
+        end else begin
+            idx <= idx + 1;
+            acc <= acc_next;
+            quotient <= quotient_next;
+            out_quotient <= out_quotient;
+            if (right <= out_remainder) begin
+              out_remainder <= out_remainder - right;
+            end
+        end
+    end
+endmodule
 
 module std_fp_mult_pipe #(
     parameter WIDTH = 32,
@@ -121,6 +176,47 @@ module std_fp_add_dwidth #(
   end
 
   assign out = {whole_int, whole_fract};
+endmodule
+
+// ===============Signed operations that wrap unsigned ones ===============
+
+module std_fp_sdiv_pipe #(
+    parameter WIDTH = 32,
+    parameter INT_WIDTH = 16,
+    parameter FRAC_WIDTH = 16
+) (
+    input                     clk,
+    input                     go,
+    input  signed [WIDTH-1:0] left,
+    input  signed [WIDTH-1:0] right,
+    output signed [WIDTH-1:0] out_quotient,
+    output signed [WIDTH-1:0] out_remainder,
+    output logic              done
+);
+
+  logic signed [WIDTH-1:0] left_abs;
+  logic signed [WIDTH-1:0] right_abs;
+  logic signed [WIDTH-1:0] comp_out_q;
+  logic signed [WIDTH-1:0] comp_out_r;
+
+  assign right_abs = right[WIDTH-1] ? -right : right;
+  assign left_abs = left[WIDTH-1] ? -left : left;
+  assign out_quotient = left[WIDTH-1] ^ right[WIDTH-1] ? -comp_out_q : comp_out_q;
+  assign out_remainder = left[WIDTH-1] ? $signed(right - comp_out_r) : comp_out_r;
+
+  std_fp_div_pipe #(
+    .WIDTH(WIDTH),
+    .INT_WIDTH(INT_WIDTH),
+    .FRAC_WIDTH(FRAC_WIDTH)
+  ) comp (
+    .clk(clk),
+    .done(done),
+    .go(go),
+    .left(left_abs),
+    .right(right_abs),
+    .out_quotient(comp_out_q),
+    .out_remainder(comp_out_r)
+  );
 endmodule
 
 /// ========================= Unsynthesizable primitives =====================

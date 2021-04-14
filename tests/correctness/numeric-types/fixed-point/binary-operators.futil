@@ -6,19 +6,25 @@ component main() -> () {
     @external(1) signed_add = std_mem_d1(4, 1, 1);
     @external(1) signed_sub = std_mem_d1(4, 1, 1);
     @external(1) signed_mul = std_mem_d1(4, 1, 1);
+    @external(1) signed_div = std_mem_d1(4, 1, 1);
+    @external(1) signed_mod = std_mem_d1(4, 1, 1);
 
     @external(1) lhs = std_mem_d1(32, 1, 1);
     @external(1) rhs = std_mem_d1(32, 1, 1);
     @external(1) unsigned_add = std_mem_d1(32, 1, 1);
     @external(1) unsigned_sub = std_mem_d1(32, 1, 1);
     @external(1) unsigned_mul = std_mem_d1(32, 1, 1);
+    @external(1) unsigned_div = std_mem_d1(32, 1, 1);
+    @external(1) unsigned_mod = std_mem_d1(32, 1, 1);
 
     sadd = std_fp_sadd(4,2,2);
     ssub = std_fp_ssub(4,2,2);
     smul = std_fp_smult_pipe(4,2,2);
+    sdiv = std_fp_sdiv_pipe(4,2,2);
     add = std_fp_add(32,1,31);
     sub = std_fp_sub(32,1,31);
     mul = std_fp_mult_pipe(32,1,31);
+    div = std_fp_div_pipe(32,1,31);
   }
   wires {
     group do_signed_add<"static"=1> {
@@ -83,15 +89,45 @@ component main() -> () {
       signed_mul.write_en = smul.done;
       do_signed_mul[done] = signed_mul.done ? 1'd1;
     }
+    group do_unsigned_div_mod {
+      unsigned_div.addr0 = 1'd0;
+      unsigned_mod.addr0 = 1'd0;
+      lhs.addr0 = 1'd0;
+      rhs.addr0 = 1'd0;
+      div.left = lhs.read_data;
+      div.right = rhs.read_data;
+      unsigned_div.write_data = div.out_quotient;
+      unsigned_mod.write_data = div.out_remainder;
+      div.go = !div.done ? 1'd1;
+      unsigned_div.write_en = div.done;
+      unsigned_mod.write_en = div.done;
+      do_unsigned_div_mod[done] = unsigned_div.done & unsigned_mod.done ? 1'd1;
+    }
+    group do_signed_div_mod {
+      signed_div.addr0 = 1'd0;
+      signed_mod.addr0 = 1'd0;
+      slhs.addr0 = 1'd0;
+      srhs.addr0 = 1'd0;
+      sdiv.left = slhs.read_data;
+      sdiv.right = srhs.read_data;
+      signed_div.write_data = sdiv.out_quotient;
+      signed_mod.write_data = sdiv.out_remainder;
+      sdiv.go = !sdiv.done ? 1'd1;
+      signed_div.write_en = sdiv.done;
+      signed_mod.write_en = sdiv.done;
+      do_signed_div_mod[done] = signed_div.done & signed_mod.done ? 1'd1;
+    }
   }
   control {
     seq {
       do_signed_add;
       do_signed_sub;
+      do_signed_mul;
+      do_signed_div_mod;
       do_unsigned_add;
       do_unsigned_sub;
       do_unsigned_mul;
-      do_signed_mul;
+      do_unsigned_div_mod;
     }
   }
 }

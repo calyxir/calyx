@@ -10,6 +10,16 @@ extern "unsigned.sv" {
     out: WIDTH, done: 1
   );
 
+  primitive std_fp_div_pipe[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](
+    clk: 1, go: 1, left: WIDTH, right: WIDTH
+  ) -> (
+    out_remainder: WIDTH,
+    out_quotient: WIDTH,
+    done: 1
+  );
+
   primitive std_fp_add<"share"=1>[
     WIDTH, INT_WIDTH, FRACT_WIDTH
   ](left: WIDTH, right: WIDTH) ->(out: WIDTH);
@@ -31,6 +41,18 @@ extern "unsigned.sv" {
     FRACT_WIDTH2,
     OUT_WIDTH
   ](left: WIDTH1, right: WIDTH2) -> (out: OUT_WIDTH);
+
+  /// ===============Signed operations that wrap unsigned ones ===============
+
+  primitive std_fp_sdiv_pipe[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](
+    clk: 1, go: 1, left: WIDTH, right: WIDTH
+  ) -> (
+    out_remainder: WIDTH,
+    out_quotient: WIDTH,
+    done: 1
+  );
 
   /// ========================= Unsynthesizable Primitives ====================
 

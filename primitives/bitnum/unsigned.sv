@@ -20,7 +20,7 @@ module std_div_pipe #(
   assign start = go && !running;
   assign finished = !quotient_msk && running;
 
-  always @(posedge clk) begin
+  always_ff @(posedge clk) begin
     if (!go) begin
       running <= 0;
       done <= 0;
@@ -123,8 +123,8 @@ module std_sdiv_pipe #(
     input                     go,
     input  signed [width-1:0] left,
     input  signed [width-1:0] right,
-    output logic  [width-1:0] out_quotient,
-    output logic  [width-1:0] out_remainder,
+    output signed [width-1:0] out_quotient,
+    output signed [width-1:0] out_remainder,
     output logic              done
 );
 
@@ -133,10 +133,9 @@ module std_sdiv_pipe #(
   logic signed [width-1:0] comp_out_q;
   logic signed [width-1:0] comp_out_r;
 
-  assign right_abs = right[width-1] == 1 ? -right : right;
-  assign left_abs = left[width-1] == 1 ? -left : left;
-  assign out_quotient =
-    (left[width-1] == 1) ^ (right[width-1] == 1) ? -comp_out_q : comp_out_q;
+  assign right_abs = right[width-1] ? -right : right;
+  assign left_abs = left[width-1] ? -left : left;
+  assign out_quotient = left[width-1] ^ right[width-1] ? -comp_out_q : comp_out_q;
   assign out_remainder = left[width-1] == 1 ? $signed(right - comp_out_r) : comp_out_r;
 
   std_div_pipe #(
