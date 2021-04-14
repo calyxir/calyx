@@ -132,10 +132,10 @@ endmodule
 module std_fp_add_dwidth #(
     parameter WIDTH1 = 32,
     parameter WIDTH2 = 32,
-    parameter INT_WIDTH1 = 8,
-    parameter FRAC_WIDTH1 = 24,
-    parameter INT_WIDTH2 = 4,
-    parameter FRAC_WIDTH2 = 28,
+    parameter INT_WIDTH1 = 16,
+    parameter FRAC_WIDTH1 = 16,
+    parameter INT_WIDTH2 = 12,
+    parameter FRAC_WIDTH2 = 20,
     parameter OUT_WIDTH = 36
 ) (
     input  logic [   WIDTH1-1:0] left,
