@@ -8,6 +8,7 @@ component exp(x: 16) -> (out: 16) {
     and0 = std_and(16);
     and1 = std_and(16);
     rsh = std_rsh(16);
+    lt = std_slt(16);
     c2 = std_const(16, 2);
     c3 = std_const(16, 3);
     c4 = std_const(16, 4);
@@ -38,12 +39,9 @@ component exp(x: 16) -> (out: 16) {
     pow4 = fp_pow();
   }
   wires {
-    group init {
-      mult_pipe1.left = x;
-      mult_pipe1.right = negative_one.out;
-      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
-      exponent_value.write_en = mult_pipe1.done;
-      exponent_value.in = mult_pipe1.out;
+    group init<"static"=1> {
+      exponent_value.write_en = 1'd1;
+      exponent_value.in = x;
       init[done] = exponent_value.done;
     }
     group split_bits {
@@ -58,6 +56,27 @@ component exp(x: 16) -> (out: 16) {
       int_x.in = rsh.out;
       frac_x.in = and1.out;
       split_bits[done] = int_x.done & frac_x.done ? 1'd1;
+    }
+    group negate {
+      mult_pipe1.left = exponent_value.out;
+      mult_pipe1.right = negative_one.out;
+      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
+      exponent_value.write_en = mult_pipe1.done;
+      exponent_value.in = mult_pipe1.out;
+      negate[done] = exponent_value.done;
+    }
+    group is_negative<"static"=0> {
+      lt.left = x;
+      lt.right = 16'd0;
+      is_negative[done] = 1'd1;
+    }
+    group reciprocal {
+      div_pipe.left = one.out;
+      div_pipe.right = m.out;
+      div_pipe.go = !div_pipe.done ? 1'd1;
+      m.write_en = div_pipe.done;
+      m.in = div_pipe.out_quotient;
+      reciprocal[done] = m.done;
     }
     group consume_pow2<"static"=1> {
       p2.write_en = 1'd1;
@@ -134,19 +153,14 @@ component exp(x: 16) -> (out: 16) {
       m.in = mult_pipe1.out;
       final_multiply[done] = m.done;
     }
-    group reciprocal {
-      div_pipe.left = one.out;
-      div_pipe.right = m.out;
-      div_pipe.go = !div_pipe.done ? 1'd1;
-      m.write_en = div_pipe.done;
-      m.in = div_pipe.out_quotient;
-      reciprocal[done] = m.done;
-    }
     out = m.out;
   }
   control {
     seq {
       init;
+      if lt.out with is_negative {
+        negate;
+      }
       split_bits;
       par {
         invoke pow1(base=e.out, integer_exp=int_x.out)();
@@ -173,7 +187,9 @@ component exp(x: 16) -> (out: 16) {
       }
       add_degree_zero;
       final_multiply;
-      reciprocal;
+      if lt.out with is_negative {
+        reciprocal;
+      }
     }
   }
 }

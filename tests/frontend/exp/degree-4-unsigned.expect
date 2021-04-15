@@ -36,7 +36,7 @@ component exp(x: 16) -> (out: 16) {
     pow4 = fp_pow();
   }
   wires {
-    group init {
+    group init<"static"=1> {
       exponent_value.write_en = 1'd1;
       exponent_value.in = x;
       init[done] = exponent_value.done;

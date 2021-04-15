@@ -138,7 +138,12 @@ def generate_cells(
         Cell(CompVar("and0"), stdlib.op("and", width, signed=False)),
         Cell(CompVar("and1"), stdlib.op("and", width, signed=False)),
         Cell(CompVar("rsh"), stdlib.op("rsh", width, signed=False)),
-    ]
+    ] + (
+        [Cell(CompVar("lt"), stdlib.op("lt", width, signed=is_signed))]
+        if is_signed
+        else []
+    )
+
     pow_registers = [
         Cell(CompVar(f"p{i}"), stdlib.register(width)) for i in range(2, degree + 1)
     ]
@@ -326,31 +331,37 @@ def generate_groups(
 ) -> List[Structure]:
     frac_width = width - int_width
 
-    init = Group(id=CompVar("init"), connections=[])
-    mult_pipe = CompVar("mult_pipe1")
     input = CompVar("exponent_value")
-    if is_signed:
-        # Flip sign, since we eventually will compute e^-x as 1/e^x.
-        init.connections = [
-            Connect(ThisPort(CompVar("x")), CompPort(mult_pipe, "left")),
-            Connect(
-                CompPort(CompVar("negative_one"), "out"), CompPort(mult_pipe, "right")
-            ),
-            Connect(
-                ConstantPort(1, 1),
-                CompPort(mult_pipe, "go"),
-                Not(Atom(CompPort(mult_pipe, "done"))),
-            ),
-            Connect(CompPort(mult_pipe, "done"), CompPort(input, "write_en")),
-            Connect(CompPort(mult_pipe, "out"), CompPort(input, "in")),
-            Connect(CompPort(input, "done"), HolePort(CompVar("init"), "done")),
-        ]
-    else:
-        init.connections = [
+    init = Group(
+        id=CompVar("init"),
+        connections=[
             Connect(ConstantPort(1, 1), CompPort(input, "write_en")),
             Connect(ThisPort(CompVar("x")), CompPort(input, "in")),
             Connect(CompPort(input, "done"), HolePort(CompVar("init"), "done")),
-        ]
+        ],
+        static_delay=1,
+    )
+
+    if is_signed:
+        mult_pipe = CompVar("mult_pipe1")
+        negate = Group(
+            id=CompVar("negate"),
+            connections=[
+                Connect(CompPort(input, "out"), CompPort(mult_pipe, "left")),
+                Connect(
+                    CompPort(CompVar("negative_one"), "out"),
+                    CompPort(mult_pipe, "right"),
+                ),
+                Connect(
+                    ConstantPort(1, 1),
+                    CompPort(mult_pipe, "go"),
+                    Not(Atom(CompPort(mult_pipe, "done"))),
+                ),
+                Connect(CompPort(mult_pipe, "done"), CompPort(input, "write_en")),
+                Connect(CompPort(mult_pipe, "out"), CompPort(input, "in")),
+                Connect(CompPort(input, "done"), HolePort(CompVar("negate"), "done")),
+            ],
+        )
 
     # Initialization: split up the value `x` into its integer and fractional values.
     split_bits = Group(
@@ -477,38 +488,43 @@ def generate_groups(
         # Take the reciprocal, since the initial value was -x.
         div_pipe = CompVar("div_pipe")
         input = CompVar("m")
-        reciprocal = [
-            Group(
-                id=CompVar("reciprocal"),
-                connections=[
-                    Connect(
-                        CompPort(CompVar("one"), "out"), CompPort(div_pipe, "left")
-                    ),
-                    Connect(CompPort(input, "out"), CompPort(div_pipe, "right")),
-                    Connect(
-                        ConstantPort(1, 1),
-                        CompPort(div_pipe, "go"),
-                        Not(Atom(CompPort(div_pipe, "done"))),
-                    ),
-                    Connect(CompPort(div_pipe, "done"), CompPort(input, "write_en")),
-                    Connect(CompPort(div_pipe, "out_quotient"), CompPort(input, "in")),
-                    Connect(
-                        CompPort(input, "done"), HolePort(CompVar("reciprocal"), "done")
-                    ),
-                ],
-            )
-        ]
+        reciprocal = Group(
+            id=CompVar("reciprocal"),
+            connections=[
+                Connect(CompPort(CompVar("one"), "out"), CompPort(div_pipe, "left")),
+                Connect(CompPort(input, "out"), CompPort(div_pipe, "right")),
+                Connect(
+                    ConstantPort(1, 1),
+                    CompPort(div_pipe, "go"),
+                    Not(Atom(CompPort(div_pipe, "done"))),
+                ),
+                Connect(CompPort(div_pipe, "done"), CompPort(input, "write_en")),
+                Connect(CompPort(div_pipe, "out_quotient"), CompPort(input, "in")),
+                Connect(
+                    CompPort(input, "done"), HolePort(CompVar("reciprocal"), "done")
+                ),
+            ],
+        )
+        is_negative = Group(
+            id=CompVar("is_negative"),
+            connections=[
+                Connect(ThisPort(CompVar("x")), CompPort(CompVar("lt"), "left")),
+                Connect(ConstantPort(width, 0), CompPort(CompVar("lt"), "right")),
+                Connect(ConstantPort(1, 1), HolePort(CompVar("is_negative"), "done")),
+            ],
+            static_delay=0,
+        )
 
     # Connect final value to the `out` signal of the component.
     output_register = CompVar("m")
     out = [Connect(CompPort(output_register, "out"), ThisPort(CompVar("out")))]
     return (
         [init, split_bits]
+        + ([negate, is_negative, reciprocal] if is_signed else [])
         + [consume_pow(j) for j in range(2, degree + 1)]
         + [multiply_by_reciprocal_factorial(k) for k in range(2, degree + 1)]
         + divide_and_conquer_sums(degree)
         + final_multiply(output_register)
-        + (reciprocal if is_signed else [])
         + out
     )
 
@@ -555,10 +571,30 @@ def generate_control(degree: int, is_signed: bool) -> Control:
         Enable_count >>= 1
 
     ending_sequence = [Enable("add_degree_zero"), Enable("final_multiply")] + (
-        [Enable("reciprocal")] if is_signed else []
+        [
+            If(
+                CompPort(CompVar("lt"), "out"),
+                CompVar("is_negative"),
+                Enable("reciprocal"),
+            )
+        ]
+        if is_signed
+        else []
     )
     return SeqComp(
-        [Enable("init"), Enable("split_bits")]
+        [Enable("init")]
+        + (
+            [
+                If(
+                    CompPort(CompVar("lt"), "out"),
+                    CompVar("is_negative"),
+                    Enable("negate"),
+                )
+            ]
+            if is_signed
+            else []
+        )
+        + [Enable("split_bits")]
         + pow_invokes
         + consume_pow
         + mult_by_reciprocal

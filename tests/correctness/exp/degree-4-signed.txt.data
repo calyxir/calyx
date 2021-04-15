@@ -1,7 +1,7 @@
 {
   "x": {
     "data": [
-      -1.0
+      1.0
     ],
     "format": {
       "numeric_type": "fixed_point",
