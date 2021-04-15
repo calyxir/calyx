@@ -1,4 +1,4 @@
-// Fixed point `sqrt`, using a digit-by-digit algorithm.
+// Bitnum `sqrt`, using a digit-by-digit algorithm.
 // en.wikipedia.org/wiki/Methods_of_computing_square_roots#Digit-by-digit_calculation
 module sqrt #(
     parameter WIDTH = 32
