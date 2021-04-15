@@ -1,5 +1,0 @@
-{
-  "degree": 4,
-  "width": 32,
-  "int_width": 16
-}

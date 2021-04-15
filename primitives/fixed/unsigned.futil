@@ -10,36 +10,58 @@ extern "unsigned.sv" {
     out: WIDTH, done: 1
   );
 
+  primitive std_fp_div_pipe[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](
+    clk: 1, go: 1, left: WIDTH, right: WIDTH
+  ) -> (
+    out_remainder: WIDTH,
+    out_quotient: WIDTH,
+    done: 1
+  );
+
   primitive std_fp_add<"share"=1>[
-    WIDTH, INT_WIDTH, FRACT_WIDTH
+    WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) ->(out: WIDTH);
 
   primitive std_fp_sub<"share"=1>[
-    WIDTH, INT_WIDTH, FRACT_WIDTH
+    WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH)->(out: WIDTH);
 
   primitive std_fp_gt<"share"=1>[
-    WIDTH, INT_WIDTH, FRACT_WIDTH
+    WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: 1);
 
   primitive std_fp_add_dwidth<"share"=1>[
     WIDTH1,
     WIDTH2 ,
     INT_WIDTH1,
-    FRACT_WIDTH1,
+    FRAC_WIDTH1,
     INT_WIDTH2,
-    FRACT_WIDTH2,
+    FRAC_WIDTH2,
     OUT_WIDTH
   ](left: WIDTH1, right: WIDTH2) -> (out: OUT_WIDTH);
+
+  /// ===============Signed operations that wrap unsigned ones ===============
+
+  primitive std_fp_sdiv_pipe[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](
+    clk: 1, go: 1, left: WIDTH, right: WIDTH
+  ) -> (
+    out_remainder: WIDTH,
+    out_quotient: WIDTH,
+    done: 1
+  );
 
   /// ========================= Unsynthesizable Primitives ====================
 
   primitive std_fp_mult<"share"=1>[
-    WIDTH, INT_WIDTH, FRACT_WIDTH
+    WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
   primitive std_fp_div<"share"=1>[
-    WIDTH, INT_WIDTH, FRACT_WIDTH
+    WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
 

@@ -314,7 +314,7 @@ class If(Control):
     port: Port
     cond: CompVar
     true_branch: Control
-    false_branch: Control
+    false_branch: Control = Empty()
 
     def doc(self) -> str:
         cond = f"if {self.port.doc()} with {self.cond.doc()}"
