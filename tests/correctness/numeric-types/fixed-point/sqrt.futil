@@ -1,0 +1,26 @@
+import "primitives/fixed/math.futil";
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    @external(1) radicand = std_mem_d1(32, 1, 1);
+    @external(1) root = std_mem_d1(32, 1, 1);
+    sqrt = fp_sqrt(32, 16, 16);
+  }
+  wires {
+    group do_sqrt<"static"=1> {
+      root.addr0 = 1'd0;
+      radicand.addr0 = 1'd0;
+      sqrt.in = radicand.read_data;
+      sqrt.go = !sqrt.done ? 1'd1;
+      root.write_en = sqrt.done;
+      root.write_data = sqrt.out;
+      do_sqrt[done] = root.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      do_sqrt;
+    }
+  }
+}
