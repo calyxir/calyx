@@ -19,7 +19,8 @@ module sqrt #(
     logic start, running, finished;
 
     assign start = go && !running;
-    assign finished = running && (idx == ITERATIONS - 1);
+    /* verilator lint_off WIDTH */
+    assign finished = running && (idx == (ITERATIONS - 1));
 
     always_comb begin
       tmp = acc - {quotient, 2'b01};
@@ -39,14 +40,11 @@ module sqrt #(
     always_ff @(posedge clk) begin
       if (start) begin
         running <= 1;
-        done <= 0;
         idx <= 0;
         quotient <= 0;
         {acc, x} <= {{WIDTH{1'b0}}, in, 2'b0};
       end else if (finished) begin
         running <= 0;
-        done <= 1;
-        out <= quotient_next;
       end else begin
           idx <= idx + 1;
           x <= x_next;
@@ -55,19 +53,22 @@ module sqrt #(
       end
     end
 
-    // Simulation self test against unsynthesizable implementation.
-    `ifdef VERILATOR
-    // Save the original value of the input
-    always @(posedge clk) begin
-      if (idx == ITERATIONS - 1 && quotient_next != $floor($sqrt(in)))
-        $error(
-          "\nsqrt: Computed and golden outputs do not match!\n",
-          "input: %0d\n", in,
-          /* verilator lint_off REALCVT */
-          "expected: %0d", $floor($sqrt(in)),
-          "  computed: %0d", quotient_next
-        );
+    // Done condition.
+    always_ff @(posedge clk) begin
+      if (idx == ITERATIONS - 1) begin
+        done <= 1;
+      end else begin
+        done <= 0;
+      end
     end
-    `endif
+
+    // Latch for final value.
+    always_latch @(posedge clk) begin
+      /* verilator lint_off WIDTH */
+      if (idx == ITERATIONS-1) begin
+        out <= quotient_next;
+      end
+    end
+
 endmodule
 
