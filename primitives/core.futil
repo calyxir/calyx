@@ -1,21 +1,7 @@
 extern "core.sv" {
 
   /// Primitives
-  primitive std_reg<"static"=1>[WIDTH](
-    in: WIDTH,
-    @go(1) write_en: 1,
-    clk: 1
-  ) -> (
-    out: WIDTH,
-    @done(1) done: 1
-  );
   primitive std_const<"share"=1>[WIDTH, value]() -> (out: WIDTH);
-
-  /// Numerical operators
-  primitive std_lsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
-  primitive std_rsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
-  primitive std_add<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
-  primitive std_sub<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
   primitive std_slice<"share"=1>[IN_WIDTH, OUT_WIDTH](in: IN_WIDTH) -> (out: OUT_WIDTH);
   primitive std_pad<"share"=1>[IN_WIDTH, OUT_WIDTH](in: IN_WIDTH) -> (out: OUT_WIDTH);
 
@@ -25,15 +11,16 @@ extern "core.sv" {
   primitive std_or<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
   primitive std_xor<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
-  /// Comparison operators
-  primitive std_gt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_lt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_eq<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_neq<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_ge<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_le<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-
   /// Memories
+  primitive std_reg<"static"=1>[WIDTH](
+    in: WIDTH,
+    @go(1) write_en: 1,
+    clk: 1
+  ) -> (
+    out: WIDTH,
+    @done(1) done: 1
+  );
+
   primitive std_mem_d1<"static"=1>[WIDTH, SIZE, IDX_SIZE](
     addr0: IDX_SIZE,
     write_data: WIDTH,

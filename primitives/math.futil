@@ -1,4 +1,12 @@
 extern "math.sv" {
+  primitive fp_sqrt[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](
+    clk: 1, go: 1, in: WIDTH
+  ) -> (
+    out: WIDTH, done: 1
+  );
+
   primitive sqrt[
     WIDTH
   ](
@@ -6,6 +14,7 @@ extern "math.sv" {
   ) -> (
     out: WIDTH, done: 1
   );
+
 }
 
 // Computes the unsigned value b^e, where
