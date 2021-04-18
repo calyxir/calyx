@@ -627,6 +627,28 @@ module std_sdiv_pipe #(
     .out_quotient(comp_out_q),
     .out_remainder(comp_out_r)
   );
+
+  `ifdef VERILATOR
+    // Simulation self test against unsynthesizable implementation.
+    always @(posedge clk) begin
+      if (done && out_quotient != $signed(left / right))
+        $error(
+          "\nstd_sdiv_pipe (Quotient): Computed and golden outputs do not match!\n",
+          "left: %0d", left,
+          "  right: %0d\n", right,
+          "expected: %0d", $signed(left / right),
+          "  computed: %0d", $signed(out_quotient)
+        );
+      if (done && out_remainder != $signed(((left % right) + right) % right))
+        $error(
+          "\nstd_sdiv_pipe (Remainder): Computed and golden outputs do not match!\n",
+          "left: %0d", left,
+          "  right: %0d\n", right,
+          "expected: %0d", $signed(((left % right) + right) % right),
+          "  computed: %0d", $signed(out_remainder)
+        );
+    end
+  `endif
 endmodule
 
 module std_sgt #(
