@@ -6,18 +6,18 @@ import "primitives/std.lib";
 // and places each in its own register.
 component main() -> () {
   cells {
-    const0 = std_const(32, 4); // 32-bit width constant with value 4.
-    const1 = std_const(32, 5); // 32-bit width constant with value 5.
+    const0 = std_const(32, 4);       // 32-bit width constant with value 4.
+    const1 = std_const(32, 5);       // 32-bit width constant with value 5.
 
-    add    = std_add(32);      // 32-bit width adder.
-    mult   = std_mult(32);     // 32-bit width multiplier.
+    add    = std_add(32);            // 32-bit width adder.
+    mult   = std_mult_pipeline(32);  // 32-bit width multiply pipeline.
 
-    reg0   = std_reg(32);      // 32-bit width register.
-    reg1   = std_reg(32);      // 32-bit width register.
+    reg0   = std_reg(32);            // 32-bit width register.
+    reg1   = std_reg(32);            // 32-bit width register.
   }
 
   wires {
-    group add_constants {
+    group add_constants<"static"=1> {       // This group will finish in 1 cycle.
       add.left = const0.out;                // 4
       add.right = const1.out;               // 5
       reg0.in = add.out;                    // 4 + 5 = 9
@@ -28,7 +28,8 @@ component main() -> () {
       mult.left = const0.out;               // 4
       mult.right = const1.out;              // 5
       reg1.in = mult.out;                   // 4 * 5 = 20
-      reg1.write_en = 1'd1;                 // Enable writes for register 1.
+      mult.go = !mult.done ? 1'd1;          // Initiate the pipeline.
+      reg1.write_en = mult.done;            // Enable writes for register 1 when the pipeline is complete.
       multiply_constants[done] = reg1.done; // Signify this group is done.
     }
   }

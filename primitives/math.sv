@@ -72,7 +72,7 @@ module fp_sqrt #(
 endmodule
 
 module sqrt #(
-    parameter WIDTH = 32,
+    parameter WIDTH = 32
 ) (
     input  logic             clk,
     input  logic             go,
@@ -81,7 +81,7 @@ module sqrt #(
     output logic             done
 );
   fp_sqrt #(
-    .WIDTH(WIDTH)
+    .WIDTH(WIDTH),
     .INT_WIDTH(WIDTH),
     .FRAC_WIDTH(0)
   ) comp (
