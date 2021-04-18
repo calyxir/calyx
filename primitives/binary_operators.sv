@@ -614,7 +614,7 @@ module std_sdiv_pipe #(
   assign left_abs = left[WIDTH-1] ? -left : left;
   assign different_signs = left[WIDTH-1] ^ right[WIDTH-1];
   assign out_quotient = different_signs ? -comp_out_q : comp_out_q;
-  assign out_remainder = (different_signs && comp_out_r) ? $signed(right - comp_out_r) : comp_out_r;
+  assign out_remainder = (left[WIDTH-1] && comp_out_r) ? $signed(right - comp_out_r) : comp_out_r;
 
   std_div_pipe #(
     .WIDTH(WIDTH)
