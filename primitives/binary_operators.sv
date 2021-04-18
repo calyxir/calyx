@@ -111,7 +111,6 @@ module std_fp_div_pipe #(
         idx <= idx + 1;
         acc <= acc_next;
         quotient <= quotient_next;
-        out_quotient <= out_quotient;
         if (right <= out_remainder) begin
           out_remainder <= out_remainder - right;
         end
@@ -271,7 +270,7 @@ module std_fp_sdiv_pipe #(
   assign right_abs = right[WIDTH-1] ? -right : right;
   assign left_abs = left[WIDTH-1] ? -left : left;
   assign out_quotient = left[WIDTH-1] ^ right[WIDTH-1] ? -comp_out_q : comp_out_q;
-  assign out_remainder = left[WIDTH-1] ? $signed(right - comp_out_r) : comp_out_r;
+  assign out_remainder = (left[WIDTH-1] && comp_out_r) ? $signed(right - comp_out_r) : comp_out_r;
 
   std_fp_div_pipe #(
     .WIDTH(WIDTH),
