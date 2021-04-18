@@ -1,5 +1,5 @@
 v0.0.4
-fn (%x: Tensor[(8, 8, 16, 64), int32]) {
+fn (%x: Tensor[(1, 4), int32]) {
   let %x1 = sqrt(%x);
   %x1
 }

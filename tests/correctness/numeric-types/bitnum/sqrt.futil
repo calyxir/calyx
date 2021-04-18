@@ -1,0 +1,32 @@
+import "primitives/bitnum/math.futil";
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    @external(1) radicand = std_mem_d1(32, 1, 1);
+    @external(1) root = std_mem_d1(32, 1, 1);
+    t = std_reg(32);
+    s = sqrt(32);
+  }
+  wires {
+    group save_temporary<"static"=1> {
+      t.write_en = 1'd1;
+      radicand.addr0 = 1'd0;
+      t.in = radicand.read_data;
+      save_temporary[done] = t.done ? 1'd1;
+    }
+    group save_sqrt<"static"=1> {
+      root.addr0 = 1'd0;
+      root.write_en = 1'd1;
+      root.write_data = s.out;
+      save_sqrt[done] = root.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      save_temporary;
+      invoke s(in=t.out)();
+      save_sqrt;
+    }
+  }
+}
