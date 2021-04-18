@@ -1,0 +1,297 @@
+extern "tcam.sv" {
+  primitive par_mem_d1<"static"=1>[WIDTH, SIZE, INDEX_SIZE](
+    index: INDEX_SIZE,
+    write_data: WIDTH,
+    @go(1) write_en: 1,
+    clk: 1
+  ) -> (
+    read0: WIDTH,
+    read1: WIDTH,
+    read2: WIDTH,
+    read3: WIDTH,
+    read4: WIDTH,
+    read5: WIDTH,
+    read6: WIDTH,
+    read7: WIDTH,
+    @done(1) done: 1
+  );
+}
+
+
+// An implementation of Comparator Network Longest Prefix Match (CN-LPM), as described in:
+// "TCAM-based high speed Longest prefix matching with fast incremental table updates"
+// Rasmussen et al. (2013) [https://ieeexplore.ieee.org/document/6602288]
+
+// Sets the `match_line` signal to high if the value `in` matches the
+// `prefix` with the given `length`. For example, given
+//     in = 4'b1100, prefix = 4'b0011, length = 2:
+//     our prefix-match may be represented as `11xx`, where `x`
+//     is a "don't care" bit. Since `in` does indeed match the
+//     prefix `11xx`, the `match_line` signal is set to high.
+//
+// Note: the length is an N-bit value,
+//       which means `0` length really means `1`,
+//       and more generally, `N-1` length represents `N`.
+//       The zero case is special, and caught earlier so that
+//       we only need N bits to represent length.
+component match_element(in: 8, prefix: 8, length: 3, ml_done: 1) -> (match_line: 1, write_en: 1) {
+  cells {
+    sub = std_sub(3);
+    pad = std_pad(3, 8);
+    rsh = std_rsh(8);
+    eq  = std_eq(8);
+  }
+  wires {
+    group compare<"static"=1> {
+      sub.left = 3'd7;
+      sub.right = length;
+      pad.in = sub.out;
+
+      rsh.left = in;
+      rsh.right = pad.out;
+
+      eq.left = rsh.out;
+      eq.right = prefix;
+
+      write_en = 1'd1;
+      match_line = eq.out;
+      compare[done] = ml_done;
+    }
+  }
+  control {
+    compare;
+  }
+}
+
+// Given two addresses A and B with their lengths and match line, sets the `X` ports
+// with the address and length of the maximum length (valid) prefix match. The output
+// match line is set as the logical OR of the match lines from A and B. For example,
+//
+//   lenA: 4, mlA: 1, addrA: 0
+//   lenB: 3, mlB: 1, addrB: 1
+//   Since lenA > lenB and the match line of A is high,
+//   `lenX` = 4, `mlX` = 1, and `addrX` = 0.
+component comparator_element(lenA: 3, lenB: 3, addrA: 3, addrB: 3, mlA: 1, mlB: 1, len_done: 1, addr_done: 1, ml_done: 1) ->
+                            (lenX: 3, addrX: 3, mlX: 1, len_write_en: 1, addr_write_en: 1, ml_write_en: 1) {
+  cells {
+    gt0 = std_gt(3);
+    or0 = std_or(1);
+    or1 = std_or(1);
+    not0 = std_not(1);
+    and0 = std_and(1);
+  }
+  wires {
+    group select<"static"=0> {
+      gt0.left = lenA;
+      gt0.right = lenB;
+      not0.in = mlB;
+      or0.left = not0.out;
+      or0.right = gt0.out;
+      and0.left = mlA;
+      and0.right = or0.out;
+      select[done] = 1'd1;
+    }
+    group A<"static"=1> {
+      len_write_en = 1'd1;
+      addr_write_en = 1'd1;
+      lenX = lenA;
+      addrX = addrA;
+      A[done] = len_done & addr_done ? 1'd1;
+    }
+    group B<"static"=1> {
+      len_write_en = 1'd1;
+      addr_write_en = 1'd1;
+      lenX = lenB;
+      addrX = addrB;
+      B[done] = len_done & addr_done ? 1'd1;
+    }
+    group or_match_line<"static"=1> {
+      or1.left = mlA;
+      or1.right = mlB;
+      ml_write_en = 1'd1;
+      mlX = or1.out;
+      or_match_line[done] = ml_done;
+    }
+  }
+  control {
+    par {
+      if and0.out with select { A; } else { B; }
+      or_match_line;
+    }
+  }
+}
+
+// A ternary content-addressable memory (TCAM) implemented using a CN-LPM
+// implementation. One can either write to the TCAM or search the TCAM.
+// Each stage in the TCAM is separated by registers to allow pipelining
+// in the future.
+//
+// To write to the TCAM:
+// 1. Set the `write_en` signal high.
+// 2. Provide an `in` value and a corresponding `prefix_len`.
+//    For example, if you want to represent the prefix-match
+//    `101xx`, you'd pass in `0b'00101` with prefix_len `3`.
+//
+// To search the TCAM:
+// 1. Set the `search_en` signal high.
+// 2. Provide an `in` value indicating the data you're searching.
+// 3. The signal is set to `index`, and may be saved to a register
+//    using the `rdone` and `rwrite_en` signals.
+//
+// The `write_en` and `search_en` signals should NOT be set to high
+// in the same invocation. If a zero-length prefix is written to the TCAM,
+// then invalid searches will be set to the corresponding index. Otherwise,
+// invalid searches will be defaulted to index zero.
+component CNLPM_TCAM(write_en: 1, search_en: 1, in: 8, prefix_len: 4, write_index: 3, rdone: 1) -> (index: 3, rwrite_en: 1) {
+  cells {
+    @external(1) prefixes = par_mem_d1(8, 8, 3);
+    @external(1) lengths = par_mem_d1(3, 8, 3);
+    zero_index = std_reg(3);
+    w_eq = std_eq(1);
+    s_eq = std_eq(1);
+    z_eq = std_eq(4);
+    is_invalid = std_eq(1);
+
+    slice = std_slice(4, 3);
+    sub = std_sub(4);
+
+    me0 = match_element();
+    me1 = match_element();
+    me2 = match_element();
+    me3 = match_element();
+    me4 = match_element();
+    me5 = match_element();
+    me6 = match_element();
+    me7 = match_element();
+    ml0 = std_reg(1);
+    ml1 = std_reg(1);
+    ml2 = std_reg(1);
+    ml3 = std_reg(1);
+    ml4 = std_reg(1);
+    ml5 = std_reg(1);
+    ml6 = std_reg(1);
+    ml7 = std_reg(1);
+
+    ce00 = comparator_element();
+    len00 = std_reg(3);
+    addr00 = std_reg(3);
+    ml00 = std_reg(1);
+
+    ce01 = comparator_element();
+    len01 = std_reg(3);
+    addr01 = std_reg(3);
+    ml01 = std_reg(1);
+
+    ce02 = comparator_element();
+    len02 = std_reg(3);
+    addr02 = std_reg(3);
+    ml02 = std_reg(1);
+
+    ce03 = comparator_element();
+    len03 = std_reg(3);
+    addr03 = std_reg(3);
+    ml03 = std_reg(1);
+
+    ce10 = comparator_element();
+    len10 = std_reg(3);
+    addr10 = std_reg(3);
+    ml10 = std_reg(1);
+
+    ce11 = comparator_element();
+    len11 = std_reg(3);
+    addr11 = std_reg(3);
+    ml11 = std_reg(1);
+
+    ce20 = comparator_element();
+    len20 = std_reg(3);
+    out_index = std_reg(3);
+    ml20 = std_reg(1);
+  }
+  wires {
+    group is_write_enabled<"static"=0> {
+      w_eq.left = write_en;
+      w_eq.right = 1'd1;
+      is_write_enabled[done] = 1'd1;
+    }
+    group is_length_zero<"static"=0> {
+      z_eq.left = 4'd0;
+      z_eq.right = prefix_len;
+      is_length_zero[done] = 1'd1;
+    }
+    group is_search_enabled<"static"=0> {
+      s_eq.left = search_en;
+      s_eq.right = 1'd1;
+      is_search_enabled[done] = 1'd1;
+    }
+    group write_zero<"static"=1> {
+      zero_index.write_en = 1'd1;
+      zero_index.in = write_index;
+      write_zero[done] = zero_index.done;
+    }
+    group minus_one_and_write<"static"=1> {
+      prefixes.index = write_index;
+      lengths.index = write_index;
+      prefixes.write_en = write_en;
+      lengths.write_en = write_en;
+      prefixes.write_data = in;
+      sub.left = prefix_len;
+      sub.right = 4'd1;
+      slice.in = sub.out;
+      lengths.write_data = slice.out;
+      minus_one_and_write[done] = prefixes.done & lengths.done ? 1'd1;
+    }
+    group validity<"static"=0> {
+      is_invalid.left = ml20.out;
+      is_invalid.right = 1'd0;
+      validity[done] = 1'd1;
+    }
+    group default_to_zero_length_index<"static"=1> {
+      rwrite_en = 1'd1;
+      index = zero_index.out;
+      default_to_zero_length_index[done] = rdone;
+    }
+    group save_index<"static"=1> {
+      rwrite_en = 1'd1;
+      index = out_index.out;
+      save_index[done] = rdone;
+    }
+  }
+
+  control {
+    par {
+      if w_eq.out with is_write_enabled {
+        if z_eq.out with is_length_zero {
+          write_zero;
+        } else {
+          minus_one_and_write;
+        }
+      }
+      if s_eq.out with is_search_enabled {
+        seq {
+          par {
+            invoke me0(in=in, prefix=prefixes.read0, length=lengths.read0, ml_done=ml0.done)(match_line=ml0.in, write_en=ml0.write_en);
+            invoke me1(in=in, prefix=prefixes.read1, length=lengths.read1, ml_done=ml1.done)(match_line=ml1.in, write_en=ml1.write_en);
+            invoke me2(in=in, prefix=prefixes.read2, length=lengths.read2, ml_done=ml2.done)(match_line=ml2.in, write_en=ml2.write_en);
+            invoke me3(in=in, prefix=prefixes.read3, length=lengths.read3, ml_done=ml3.done)(match_line=ml3.in, write_en=ml3.write_en);
+            invoke me4(in=in, prefix=prefixes.read4, length=lengths.read4, ml_done=ml4.done)(match_line=ml4.in, write_en=ml4.write_en);
+            invoke me5(in=in, prefix=prefixes.read5, length=lengths.read5, ml_done=ml5.done)(match_line=ml5.in, write_en=ml5.write_en);
+            invoke me6(in=in, prefix=prefixes.read6, length=lengths.read6, ml_done=ml6.done)(match_line=ml6.in, write_en=ml6.write_en);
+            invoke me7(in=in, prefix=prefixes.read7, length=lengths.read7, ml_done=ml7.done)(match_line=ml7.in, write_en=ml7.write_en);
+          }
+          par {
+            invoke ce00(lenA=lengths.read0, lenB=lengths.read1, addrA=3'd0, addrB=3'd1, mlA=ml0.out, mlB=ml1.out, len_done=len00.done, addr_done=addr00.done, ml_done=ml00.done)(lenX=len00.in, addrX=addr00.in, mlX=ml00.in, len_write_en=len00.write_en, addr_write_en=addr00.write_en, ml_write_en=ml00.write_en);
+            invoke ce01(lenA=lengths.read2, lenB=lengths.read3, addrA=3'd2, addrB=3'd3, mlA=ml2.out, mlB=ml3.out, len_done=len01.done, addr_done=addr01.done, ml_done=ml01.done)(lenX=len01.in, addrX=addr01.in, mlX=ml01.in, len_write_en=len01.write_en, addr_write_en=addr01.write_en, ml_write_en=ml01.write_en);
+            invoke ce02(lenA=lengths.read4, lenB=lengths.read5, addrA=3'd4, addrB=3'd5, mlA=ml4.out, mlB=ml5.out, len_done=len02.done, addr_done=addr02.done, ml_done=ml02.done)(lenX=len02.in, addrX=addr02.in, mlX=ml02.in, len_write_en=len02.write_en, addr_write_en=addr02.write_en, ml_write_en=ml02.write_en);
+            invoke ce03(lenA=lengths.read6, lenB=lengths.read7, addrA=3'd6, addrB=3'd7, mlA=ml6.out, mlB=ml7.out, len_done=len03.done, addr_done=addr03.done, ml_done=ml03.done)(lenX=len03.in, addrX=addr03.in, mlX=ml03.in, len_write_en=len03.write_en, addr_write_en=addr03.write_en, ml_write_en=ml03.write_en);
+          }
+          par {
+            invoke ce10(lenA=len00.out, lenB=len01.out, addrA=addr00.out, addrB=addr01.out, mlA=ml00.out, mlB=ml01.out, len_done=len10.done, addr_done=addr10.done, ml_done=ml10.done)(lenX=len10.in, addrX=addr10.in, mlX=ml10.in, len_write_en=len10.write_en, addr_write_en=addr10.write_en, ml_write_en=ml10.write_en);
+            invoke ce11(lenA=len02.out, lenB=len03.out, addrA=addr02.out, addrB=addr03.out, mlA=ml02.out, mlB=ml03.out, len_done=len11.done, addr_done=addr11.done, ml_done=ml11.done)(lenX=len11.in, addrX=addr11.in, mlX=ml11.in, len_write_en=len11.write_en, addr_write_en=addr11.write_en, ml_write_en=ml11.write_en);
+          }
+          invoke ce20(lenA=len10.out, lenB=len11.out, addrA=addr10.out, addrB=addr11.out, mlA=ml10.out, mlB=ml11.out, len_done=len20.done, addr_done=out_index.done, ml_done=ml20.done)(lenX=len20.in, addrX=out_index.in, mlX=ml20.in, len_write_en=len20.write_en, addr_write_en=out_index.write_en, ml_write_en=ml20.write_en);
+          if is_invalid.out with validity { default_to_zero_length_index; } else { save_index; }
+        }
+      }
+    }
+  }
+}
