@@ -10,7 +10,7 @@ component main() -> () {
     const1 = std_const(32, 5);       // 32-bit width constant with value 5.
 
     add    = std_add(32);            // 32-bit width adder.
-    mult   = std_mult_pipeline(32);  // 32-bit width multiply pipeline.
+    mult   = std_mult_pipe(32);      // 32-bit width multiply pipeline.
 
     reg0   = std_reg(32);            // 32-bit width register.
     reg1   = std_reg(32);            // 32-bit width register.

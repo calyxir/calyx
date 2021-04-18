@@ -1,5 +1,4 @@
 extern "core.sv" {
-
   /// Primitives
   primitive std_const<"share"=1>[WIDTH, value]() -> (out: WIDTH);
   primitive std_slice<"share"=1>[IN_WIDTH, OUT_WIDTH](in: IN_WIDTH) -> (out: OUT_WIDTH);

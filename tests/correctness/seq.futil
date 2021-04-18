@@ -1,4 +1,4 @@
-import "primitives/core.futil";
+import "primitives/std.lib";
 
 component main() -> () {
   cells {
