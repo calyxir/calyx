@@ -1,5 +1,3 @@
-// Fixed point squareroot, using a digit-by-digit algorithm.
-// en.wikipedia.org/wiki/Methods_of_computing_square_roots#Digit-by-digit_calculation
 module fp_sqrt #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 16,

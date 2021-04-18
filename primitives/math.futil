@@ -1,4 +1,6 @@
 extern "math.sv" {
+  // Fixed point square root operator, using a digit-by-digit algorithm.
+  // en.wikipedia.org/wiki/Methods_of_computing_square_roots#Digit-by-digit_calculation
   primitive fp_sqrt[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
