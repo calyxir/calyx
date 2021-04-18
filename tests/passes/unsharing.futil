@@ -1,0 +1,44 @@
+
+import "primitives/core.futil";
+
+component main() -> () {
+    cells {
+        r = std_reg(32);
+        add1 = std_add(32);
+        sub = std_sub(32);
+    }
+
+    wires {
+        group zero {
+            r.in = 32'd0;
+            r.write_en = 1'd1;
+            zero[done] = r.done;
+        }
+
+        group inc {
+            add1.left = 32'd1;
+            add1.right = r.out;
+            r.in = add1.out;
+            r.write_en = 1'd1;
+            inc[done] = r.done;
+        }
+        group replace {
+            r.in = 32'd5;
+            r.write_en = 1'd1;
+            replace[done] = r.done;
+        }
+
+        group dec {
+            sub.left = r.out;
+            sub.right = 32'd1;
+            r.in = sub.out;
+            r.write_en = 1'd1;
+            dec[done] = r.done;
+        }
+    }
+    control {
+        seq {
+            zero; inc; replace; dec;
+        }
+    }
+}
