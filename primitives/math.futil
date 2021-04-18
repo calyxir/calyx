@@ -23,41 +23,41 @@ extern "math.sv" {
 // b is the `base` and e is the `exp`.
 component pow(base: 32, exp: 32) -> (out: 32) {
   cells {
-    pow = std_reg(32);
+    t = std_reg(32);
     count = std_reg(32);
-    mul = std_mult(32);
+    mul = std_mult_pipe(32);
     lt = std_lt(32);
     incr = std_add(32);
   }
   wires {
-    group init {
-      pow.in = 32'd1;
-      pow.write_en = 1'd1;
+    group init<"static"=1> {
+      t.in = 32'd1;
+      t.write_en = 1'd1;
       count.in = 32'd0;
       count.write_en = 1'd1;
-      init[done] = pow.done & count.done ? 1'd1;
+      init[done] = t.done & count.done ? 1'd1;
     }
     group do_mul {
       mul.left = base;
-      mul.right = pow.out;
-      pow.in = mul.out;
-      pow.write_en = 1'd1;
-      do_mul[done] = pow.done;
+      mul.right = t.out;
+      mul.go = !mul.done ? 1'd1;
+      t.in = mul.out;
+      t.write_en = mul.done;
+      do_mul[done] = t.done;
     }
-    group incr_count {
+    group incr_count<"static"=1> {
       incr.left = 32'd1;
       incr.right = count.out;
       count.in = incr.out;
       count.write_en = 1'd1;
       incr_count[done] = count.done;
     }
-    group cond {
+    group cond<"static"=0> {
       lt.right = exp;
       lt.left = count.out;
       cond[done] = 1'd1;
     }
-
-    out = pow.out;
+    out = t.out;
   }
   control {
     seq {

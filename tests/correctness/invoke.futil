@@ -1,11 +1,11 @@
 import "primitives/core.futil";
-import "primitives/bitnum/unsigned.futil";
+import "primitives/binary_operators.futil";
 
 component exponent(base: 32, exp: 4) -> (out: 32) {
   cells {
     pow = std_reg(32);
     count = std_reg(4);
-    mul = std_mult(32);
+    mul = std_mult_pipe(32);
     lt = std_lt(4);
     incr = std_add(4);
     const0 = std_const(4, 3);
@@ -18,11 +18,12 @@ component exponent(base: 32, exp: 4) -> (out: 32) {
       count.write_en = 1'd1;
       init[done] = pow.done & count.done ? 1'd1;
     }
-    group do_mul<"static"=1> {
+    group do_mul {
       mul.left = base;
       mul.right = pow.out;
+      mul.go = !mul.done ? 1'd1;
       pow.in = mul.out;
-      pow.write_en = 1'd1;
+      pow.write_en = mul.done;
       do_mul[done] = pow.done;
     }
     group incr_count<"static"=1> {
