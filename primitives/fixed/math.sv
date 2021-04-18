@@ -1,7 +1,9 @@
-// Bitnum `sqrt`, using a digit-by-digit algorithm.
+// Fixed point `sqrt`, using a digit-by-digit algorithm.
 // en.wikipedia.org/wiki/Methods_of_computing_square_roots#Digit-by-digit_calculation
-module sqrt #(
-    parameter WIDTH = 32
+module fp_sqrt #(
+    parameter WIDTH = 32,
+    parameter INT_WIDTH = 16,
+    parameter FRAC_WIDTH = 16
 ) (
     input  logic             clk,
     input  logic             go,
@@ -9,7 +11,7 @@ module sqrt #(
     output logic [WIDTH-1:0] out,
     output logic             done
 );
-    localparam ITERATIONS = WIDTH >> 1;
+    localparam ITERATIONS = WIDTH+FRAC_WIDTH >> 1;
     logic [$clog2(ITERATIONS)-1:0] idx;
 
     logic [WIDTH-1:0] x, x_next;
@@ -71,4 +73,3 @@ module sqrt #(
     end
 
 endmodule
-
