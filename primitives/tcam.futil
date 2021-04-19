@@ -43,7 +43,7 @@ extern "tcam.sv" {
 
 
 // An implementation of Comparator Network Longest Prefix Match (CN-LPM), as described in:
-// "TCAM-based high speed Longest prefix matching with fast incremental table updates"
+// "TCAM-based high speed longest prefix matching with fast incremental table updates"
 // Rasmussen et al. (2013) [https://ieeexplore.ieee.org/document/6602288]
 
 // Sets the `match_line` signal to high if the value `in` matches the
