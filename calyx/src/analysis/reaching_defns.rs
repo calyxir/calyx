@@ -127,10 +127,18 @@ fn build_reaching_def(
             todo!()
         }
         ir::Control::If(ir::If {
-            tbranch, fbranch, ..
+            tbranch,
+            fbranch,
+            cond,
+            ..
         }) => {
-            let t_case = build_reaching_def(tbranch, reach.clone(), rd);
-            let f_case = build_reaching_def(fbranch, reach, rd);
+            let fake_enable = ir::Control::Enable(ir::Enable {
+                attributes: ir::Attributes::default(),
+                group: Rc::clone(cond),
+            });
+            let post_cond = build_reaching_def(&fake_enable, reach, rd);
+            let t_case = build_reaching_def(tbranch, post_cond.clone(), rd);
+            let f_case = build_reaching_def(fbranch, post_cond, rd);
             &t_case | &f_case
         }
         ir::Control::While(_) => {
