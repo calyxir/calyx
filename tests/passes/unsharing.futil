@@ -38,6 +38,12 @@ component main() -> () {
             final[done] = r.done;
         }
 
+        group alt {
+            r.in = 32'd99;
+            r.write_en = 1'd1;
+            alt[done] = r.done;
+        }
+
         group five {
             r.in = 32'd5;
             r.write_en = 1'd1;
@@ -55,6 +61,7 @@ component main() -> () {
             }
 
             final;
+            alt;
 
         }
     }
