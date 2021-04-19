@@ -56,7 +56,7 @@ extern "tcam.sv" {
 // Note: the length is an N-bit value,
 //       which means length `0` really means length `1`,
 //       and more generally, `N-1` length represents `N`.
-//       The zero case is special, and caught earlier so that
+//       The zero case is caught earlier so that
 //       we only need N bits to represent length.
 component match_element(in: 32, prefix: 32, length: 5, ml_done: 1) -> (match_line: 1, write_en: 1) {
   cells {
