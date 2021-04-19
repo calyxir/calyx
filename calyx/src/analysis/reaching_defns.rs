@@ -141,8 +141,16 @@ fn build_reaching_def(
             let f_case = build_reaching_def(fbranch, post_cond, rd);
             &t_case | &f_case
         }
-        ir::Control::While(_) => {
-            todo!()
+        ir::Control::While(ir::While { cond, body, .. }) => {
+            let fake_enable = ir::Control::Enable(ir::Enable {
+                attributes: ir::Attributes::default(),
+                group: Rc::clone(cond),
+            });
+            let post_cond = build_reaching_def(&fake_enable, reach, rd);
+
+            let round_1 = build_reaching_def(body, post_cond, rd);
+            let post_cond2 = build_reaching_def(&fake_enable, round_1, rd);
+            build_reaching_def(body, post_cond2, rd)
         }
         ir::Control::Invoke(_) => {
             todo!()
