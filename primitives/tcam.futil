@@ -13,6 +13,30 @@ extern "tcam.sv" {
     read5: WIDTH,
     read6: WIDTH,
     read7: WIDTH,
+    read8: WIDTH,
+    read9: WIDTH,
+    read10: WIDTH,
+    read11: WIDTH,
+    read12: WIDTH,
+    read13: WIDTH,
+    read14: WIDTH,
+    read15: WIDTH,
+    read16: WIDTH,
+    read17: WIDTH,
+    read18: WIDTH,
+    read19: WIDTH,
+    read20: WIDTH,
+    read21: WIDTH,
+    read22: WIDTH,
+    read23: WIDTH,
+    read24: WIDTH,
+    read25: WIDTH,
+    read26: WIDTH,
+    read27: WIDTH,
+    read28: WIDTH,
+    read29: WIDTH,
+    read30: WIDTH,
+    read31: WIDTH,
     @done(1) done: 1
   );
 }
@@ -24,26 +48,26 @@ extern "tcam.sv" {
 
 // Sets the `match_line` signal to high if the value `in` matches the
 // `prefix` with the given `length`. For example, given
-//     in = 4'b1100, prefix = 4'b0011, length = 2:
-//     our prefix-match may be represented as `11xx`, where `x`
+//     in = 5'b11000, prefix = 5'b00011, length = 2:
+//     our prefix-match may be represented as `11xxx`, where `x`
 //     is a "don't care" bit. Since `in` does indeed match the
-//     prefix `11xx`, the `match_line` signal is set to high.
+//     prefix `11xxx`, the `match_line` signal is set to high.
 //
 // Note: the length is an N-bit value,
-//       which means `0` length really means `1`,
+//       which means length `0` really means length `1`,
 //       and more generally, `N-1` length represents `N`.
 //       The zero case is special, and caught earlier so that
 //       we only need N bits to represent length.
-component match_element(in: 8, prefix: 8, length: 3, ml_done: 1) -> (match_line: 1, write_en: 1) {
+component match_element(in: 32, prefix: 32, length: 5, ml_done: 1) -> (match_line: 1, write_en: 1) {
   cells {
-    sub = std_sub(3);
-    pad = std_pad(3, 8);
-    rsh = std_rsh(8);
-    eq  = std_eq(8);
+    sub = std_sub(5);
+    pad = std_pad(5, 32);
+    rsh = std_rsh(32);
+    eq  = std_eq(32);
   }
   wires {
     group compare<"static"=1> {
-      sub.left = 3'd7;
+      sub.left = 5'd31;
       sub.right = length;
       pad.in = sub.out;
 
@@ -71,10 +95,10 @@ component match_element(in: 8, prefix: 8, length: 3, ml_done: 1) -> (match_line:
 //   lenB: 3, mlB: 1, addrB: 1
 //   Since lenA > lenB and the match line of A is high,
 //   `lenX` = 4, `mlX` = 1, and `addrX` = 0.
-component comparator_element(lenA: 3, lenB: 3, addrA: 3, addrB: 3, mlA: 1, mlB: 1, len_done: 1, addr_done: 1, ml_done: 1) ->
-                            (lenX: 3, addrX: 3, mlX: 1, len_write_en: 1, addr_write_en: 1, ml_write_en: 1) {
+component comparator_element(lenA: 5, lenB: 5, addrA: 5, addrB: 5, mlA: 1, mlB: 1, len_done: 1, addr_done: 1, ml_done: 1) ->
+                            (lenX: 5, addrX: 5, mlX: 1, len_write_en: 1, addr_write_en: 1, ml_write_en: 1) {
   cells {
-    gt0 = std_gt(3);
+    gt0 = std_gt(5);
     or0 = std_or(1);
     or1 = std_or(1);
     not0 = std_not(1);
@@ -121,10 +145,10 @@ component comparator_element(lenA: 3, lenB: 3, addrA: 3, addrB: 3, mlA: 1, mlB: 
   }
 }
 
-// A ternary content-addressable memory (TCAM) implemented using a CN-LPM
-// implementation. One can either write to the TCAM or search the TCAM.
-// Each stage in the TCAM is separated by registers to allow pipelining
-// in the future.
+// A ternary content-addressable memory (TCAM) for IPv4, implemented
+// using CN-LPM. One can either write to the TCAM or search the TCAM.
+// Each stage in the TCAM is separated by registers to allow
+// pipelining in the future.
 //
 // To write to the TCAM:
 // 1. Set the `write_en` signal high.
@@ -142,18 +166,18 @@ component comparator_element(lenA: 3, lenB: 3, addrA: 3, addrB: 3, mlA: 1, mlB: 
 // in the same invocation. If a zero-length prefix is written to the TCAM,
 // then invalid searches will be set to the corresponding index. Otherwise,
 // invalid searches will be defaulted to index zero.
-component CNLPM_TCAM(write_en: 1, search_en: 1, in: 8, prefix_len: 4, write_index: 3, rdone: 1) -> (index: 3, rwrite_en: 1) {
+component TCAM_IPv4(write_en: 1, search_en: 1, in: 32, prefix_len: 6, write_index: 5, rdone: 1) -> (index: 5, rwrite_en: 1) {
   cells {
-    @external(1) prefixes = par_mem_d1(8, 8, 3);
-    @external(1) lengths = par_mem_d1(3, 8, 3);
-    zero_index = std_reg(3);
+    @external(1) prefixes = par_mem_d1(32, 32, 5);
+    @external(1) lengths = par_mem_d1(5, 32, 5);
+    zero_index = std_reg(5);
     w_eq = std_eq(1);
     s_eq = std_eq(1);
-    z_eq = std_eq(4);
+    z_eq = std_eq(6);
     is_invalid = std_eq(1);
 
-    slice = std_slice(4, 3);
-    sub = std_sub(4);
+    slice = std_slice(6, 5);
+    sub = std_sub(6);
 
     me0 = match_element();
     me1 = match_element();
@@ -163,49 +187,192 @@ component CNLPM_TCAM(write_en: 1, search_en: 1, in: 8, prefix_len: 4, write_inde
     me5 = match_element();
     me6 = match_element();
     me7 = match_element();
-    ml0 = std_reg(1);
-    ml1 = std_reg(1);
-    ml2 = std_reg(1);
-    ml3 = std_reg(1);
-    ml4 = std_reg(1);
-    ml5 = std_reg(1);
-    ml6 = std_reg(1);
-    ml7 = std_reg(1);
+    me8 = match_element();
+    me9 = match_element();
+    me10 = match_element();
+    me11 = match_element();
+    me12 = match_element();
+    me13 = match_element();
+    me14 = match_element();
+    me15 = match_element();
+    me16 = match_element();
+    me17 = match_element();
+    me18 = match_element();
+    me19 = match_element();
+    me20 = match_element();
+    me21 = match_element();
+    me22 = match_element();
+    me23 = match_element();
+    me24 = match_element();
+    me25 = match_element();
+    me26 = match_element();
+    me27 = match_element();
+    me28 = match_element();
+    me29 = match_element();
+    me30 = match_element();
+    me31 = match_element();
+    mle0 = std_reg(1);
+    mle1 = std_reg(1);
+    mle2 = std_reg(1);
+    mle3 = std_reg(1);
+    mle4 = std_reg(1);
+    mle5 = std_reg(1);
+    mle6 = std_reg(1);
+    mle7 = std_reg(1);
+    mle8 = std_reg(1);
+    mle9 = std_reg(1);
+    mle10 = std_reg(1);
+    mle11 = std_reg(1);
+    mle12 = std_reg(1);
+    mle13 = std_reg(1);
+    mle14 = std_reg(1);
+    mle15 = std_reg(1);
+    mle16 = std_reg(1);
+    mle17 = std_reg(1);
+    mle18 = std_reg(1);
+    mle19 = std_reg(1);
+    mle20 = std_reg(1);
+    mle21 = std_reg(1);
+    mle22 = std_reg(1);
+    mle23 = std_reg(1);
+    mle24 = std_reg(1);
+    mle25 = std_reg(1);
+    mle26 = std_reg(1);
+    mle27 = std_reg(1);
+    mle28 = std_reg(1);
+    mle29 = std_reg(1);
+    mle30 = std_reg(1);
+    mle31 = std_reg(1);
 
     ce00 = comparator_element();
-    len00 = std_reg(3);
-    addr00 = std_reg(3);
-    ml00 = std_reg(1);
-
     ce01 = comparator_element();
-    len01 = std_reg(3);
-    addr01 = std_reg(3);
-    ml01 = std_reg(1);
-
     ce02 = comparator_element();
-    len02 = std_reg(3);
-    addr02 = std_reg(3);
-    ml02 = std_reg(1);
-
     ce03 = comparator_element();
-    len03 = std_reg(3);
-    addr03 = std_reg(3);
-    ml03 = std_reg(1);
-
+    ce04 = comparator_element();
+    ce05 = comparator_element();
+    ce06 = comparator_element();
+    ce07 = comparator_element();
+    ce08 = comparator_element();
+    ce09 = comparator_element();
+    ce010 = comparator_element();
+    ce011 = comparator_element();
+    ce012 = comparator_element();
+    ce013 = comparator_element();
+    ce014 = comparator_element();
+    ce015 = comparator_element();
     ce10 = comparator_element();
-    len10 = std_reg(3);
-    addr10 = std_reg(3);
-    ml10 = std_reg(1);
-
     ce11 = comparator_element();
-    len11 = std_reg(3);
-    addr11 = std_reg(3);
-    ml11 = std_reg(1);
-
+    ce12 = comparator_element();
+    ce13 = comparator_element();
+    ce14 = comparator_element();
+    ce15 = comparator_element();
+    ce16 = comparator_element();
+    ce17 = comparator_element();
     ce20 = comparator_element();
-    len20 = std_reg(3);
-    out_index = std_reg(3);
+    ce21 = comparator_element();
+    ce22 = comparator_element();
+    ce23 = comparator_element();
+    ce30 = comparator_element();
+    ce31 = comparator_element();
+    ce40 = comparator_element();
+
+    len00 = std_reg(5);
+    len01 = std_reg(5);
+    len02 = std_reg(5);
+    len03 = std_reg(5);
+    len04 = std_reg(5);
+    len05 = std_reg(5);
+    len06 = std_reg(5);
+    len07 = std_reg(5);
+    len08 = std_reg(5);
+    len09 = std_reg(5);
+    len010 = std_reg(5);
+    len011 = std_reg(5);
+    len012 = std_reg(5);
+    len013 = std_reg(5);
+    len014 = std_reg(5);
+    len015 = std_reg(5);
+    len10 = std_reg(5);
+    len11 = std_reg(5);
+    len12 = std_reg(5);
+    len13 = std_reg(5);
+    len14 = std_reg(5);
+    len15 = std_reg(5);
+    len16 = std_reg(5);
+    len17 = std_reg(5);
+    len18 = std_reg(5);
+    len20 = std_reg(5);
+    len21 = std_reg(5);
+    len22 = std_reg(5);
+    len23 = std_reg(5);
+    len24 = std_reg(5);
+    len30 = std_reg(5);
+    len31 = std_reg(5);
+
+    addr00 = std_reg(5);
+    addr01 = std_reg(5);
+    addr02 = std_reg(5);
+    addr03 = std_reg(5);
+    addr04 = std_reg(5);
+    addr05 = std_reg(5);
+    addr06 = std_reg(5);
+    addr07 = std_reg(5);
+    addr08 = std_reg(5);
+    addr09 = std_reg(5);
+    addr010 = std_reg(5);
+    addr011 = std_reg(5);
+    addr012 = std_reg(5);
+    addr013 = std_reg(5);
+    addr014 = std_reg(5);
+    addr015 = std_reg(5);
+    addr10 = std_reg(5);
+    addr11 = std_reg(5);
+    addr12 = std_reg(5);
+    addr13 = std_reg(5);
+    addr14 = std_reg(5);
+    addr15 = std_reg(5);
+    addr16 = std_reg(5);
+    addr17 = std_reg(5);
+    addr20 = std_reg(5);
+    addr21 = std_reg(5);
+    addr22 = std_reg(5);
+    addr23 = std_reg(5);
+    addr30 = std_reg(5);
+    addr31 = std_reg(5);
+
+    ml00 = std_reg(1);
+    ml01 = std_reg(1);
+    ml02 = std_reg(1);
+    ml03 = std_reg(1);
+    ml04 = std_reg(1);
+    ml05 = std_reg(1);
+    ml06 = std_reg(1);
+    ml07 = std_reg(1);
+    ml08 = std_reg(1);
+    ml09 = std_reg(1);
+    ml010 = std_reg(1);
+    ml011 = std_reg(1);
+    ml012 = std_reg(1);
+    ml013 = std_reg(1);
+    ml014 = std_reg(1);
+    ml015 = std_reg(1);
+    ml10 = std_reg(1);
+    ml11 = std_reg(1);
+    ml12 = std_reg(1);
+    ml13 = std_reg(1);
+    ml14 = std_reg(1);
+    ml15 = std_reg(1);
+    ml16 = std_reg(1);
+    ml17 = std_reg(1);
     ml20 = std_reg(1);
+    ml21 = std_reg(1);
+    ml22 = std_reg(1);
+    ml23 = std_reg(1);
+    ml30 = std_reg(1);
+    ml31 = std_reg(1);
+
+    final_valid = std_reg(1);
+    out_index = std_reg(5);
   }
   wires {
     group is_write_enabled<"static"=0> {
@@ -214,7 +381,7 @@ component CNLPM_TCAM(write_en: 1, search_en: 1, in: 8, prefix_len: 4, write_inde
       is_write_enabled[done] = 1'd1;
     }
     group is_length_zero<"static"=0> {
-      z_eq.left = 4'd0;
+      z_eq.left = 6'd0;
       z_eq.right = prefix_len;
       is_length_zero[done] = 1'd1;
     }
@@ -235,13 +402,13 @@ component CNLPM_TCAM(write_en: 1, search_en: 1, in: 8, prefix_len: 4, write_inde
       lengths.write_en = write_en;
       prefixes.write_data = in;
       sub.left = prefix_len;
-      sub.right = 4'd1;
+      sub.right = 6'd1;
       slice.in = sub.out;
       lengths.write_data = slice.out;
       minus_one_and_write[done] = prefixes.done & lengths.done ? 1'd1;
     }
     group validity<"static"=0> {
-      is_invalid.left = ml20.out;
+      is_invalid.left = final_valid.out;
       is_invalid.right = 1'd0;
       validity[done] = 1'd1;
     }
@@ -269,26 +436,78 @@ component CNLPM_TCAM(write_en: 1, search_en: 1, in: 8, prefix_len: 4, write_inde
       if s_eq.out with is_search_enabled {
         seq {
           par {
-            invoke me0(in=in, prefix=prefixes.read0, length=lengths.read0, ml_done=ml0.done)(match_line=ml0.in, write_en=ml0.write_en);
-            invoke me1(in=in, prefix=prefixes.read1, length=lengths.read1, ml_done=ml1.done)(match_line=ml1.in, write_en=ml1.write_en);
-            invoke me2(in=in, prefix=prefixes.read2, length=lengths.read2, ml_done=ml2.done)(match_line=ml2.in, write_en=ml2.write_en);
-            invoke me3(in=in, prefix=prefixes.read3, length=lengths.read3, ml_done=ml3.done)(match_line=ml3.in, write_en=ml3.write_en);
-            invoke me4(in=in, prefix=prefixes.read4, length=lengths.read4, ml_done=ml4.done)(match_line=ml4.in, write_en=ml4.write_en);
-            invoke me5(in=in, prefix=prefixes.read5, length=lengths.read5, ml_done=ml5.done)(match_line=ml5.in, write_en=ml5.write_en);
-            invoke me6(in=in, prefix=prefixes.read6, length=lengths.read6, ml_done=ml6.done)(match_line=ml6.in, write_en=ml6.write_en);
-            invoke me7(in=in, prefix=prefixes.read7, length=lengths.read7, ml_done=ml7.done)(match_line=ml7.in, write_en=ml7.write_en);
+            invoke me0(in=in, prefix=prefixes.read0, length=lengths.read0, ml_done=mle0.done)(match_line=mle0.in, write_en=mle0.write_en);
+            invoke me1(in=in, prefix=prefixes.read1, length=lengths.read1, ml_done=mle1.done)(match_line=mle1.in, write_en=mle1.write_en);
+            invoke me2(in=in, prefix=prefixes.read2, length=lengths.read2, ml_done=mle2.done)(match_line=mle2.in, write_en=mle2.write_en);
+            invoke me3(in=in, prefix=prefixes.read3, length=lengths.read3, ml_done=mle3.done)(match_line=mle3.in, write_en=mle3.write_en);
+            invoke me4(in=in, prefix=prefixes.read4, length=lengths.read4, ml_done=mle4.done)(match_line=mle4.in, write_en=mle4.write_en);
+            invoke me5(in=in, prefix=prefixes.read5, length=lengths.read5, ml_done=mle5.done)(match_line=mle5.in, write_en=mle5.write_en);
+            invoke me6(in=in, prefix=prefixes.read6, length=lengths.read6, ml_done=mle6.done)(match_line=mle6.in, write_en=mle6.write_en);
+            invoke me7(in=in, prefix=prefixes.read7, length=lengths.read7, ml_done=mle7.done)(match_line=mle7.in, write_en=mle7.write_en);
+            invoke me8(in=in, prefix=prefixes.read8, length=lengths.read8, ml_done=mle8.done)(match_line=mle8.in, write_en=mle8.write_en);
+            invoke me9(in=in, prefix=prefixes.read9, length=lengths.read9, ml_done=mle9.done)(match_line=mle9.in, write_en=mle9.write_en);
+            invoke me10(in=in, prefix=prefixes.read10, length=lengths.read10, ml_done=mle10.done)(match_line=mle10.in, write_en=mle10.write_en);
+            invoke me11(in=in, prefix=prefixes.read11, length=lengths.read11, ml_done=mle11.done)(match_line=mle11.in, write_en=mle11.write_en);
+            invoke me12(in=in, prefix=prefixes.read12, length=lengths.read12, ml_done=mle12.done)(match_line=mle12.in, write_en=mle12.write_en);
+            invoke me13(in=in, prefix=prefixes.read13, length=lengths.read13, ml_done=mle13.done)(match_line=mle13.in, write_en=mle13.write_en);
+            invoke me14(in=in, prefix=prefixes.read14, length=lengths.read14, ml_done=mle14.done)(match_line=mle14.in, write_en=mle14.write_en);
+            invoke me15(in=in, prefix=prefixes.read15, length=lengths.read15, ml_done=mle15.done)(match_line=mle15.in, write_en=mle15.write_en);
+            invoke me16(in=in, prefix=prefixes.read16, length=lengths.read16, ml_done=mle16.done)(match_line=mle16.in, write_en=mle16.write_en);
+            invoke me17(in=in, prefix=prefixes.read17, length=lengths.read17, ml_done=mle17.done)(match_line=mle17.in, write_en=mle17.write_en);
+            invoke me18(in=in, prefix=prefixes.read18, length=lengths.read18, ml_done=mle18.done)(match_line=mle18.in, write_en=mle18.write_en);
+            invoke me19(in=in, prefix=prefixes.read19, length=lengths.read19, ml_done=mle19.done)(match_line=mle19.in, write_en=mle19.write_en);
+            invoke me20(in=in, prefix=prefixes.read20, length=lengths.read20, ml_done=mle20.done)(match_line=mle20.in, write_en=mle20.write_en);
+            invoke me21(in=in, prefix=prefixes.read21, length=lengths.read21, ml_done=mle21.done)(match_line=mle21.in, write_en=mle21.write_en);
+            invoke me22(in=in, prefix=prefixes.read22, length=lengths.read22, ml_done=mle22.done)(match_line=mle22.in, write_en=mle22.write_en);
+            invoke me23(in=in, prefix=prefixes.read23, length=lengths.read23, ml_done=mle23.done)(match_line=mle23.in, write_en=mle23.write_en);
+            invoke me24(in=in, prefix=prefixes.read24, length=lengths.read24, ml_done=mle24.done)(match_line=mle24.in, write_en=mle24.write_en);
+            invoke me25(in=in, prefix=prefixes.read25, length=lengths.read25, ml_done=mle25.done)(match_line=mle25.in, write_en=mle25.write_en);
+            invoke me26(in=in, prefix=prefixes.read26, length=lengths.read26, ml_done=mle26.done)(match_line=mle26.in, write_en=mle26.write_en);
+            invoke me27(in=in, prefix=prefixes.read27, length=lengths.read27, ml_done=mle27.done)(match_line=mle27.in, write_en=mle27.write_en);
+            invoke me28(in=in, prefix=prefixes.read28, length=lengths.read28, ml_done=mle28.done)(match_line=mle28.in, write_en=mle28.write_en);
+            invoke me29(in=in, prefix=prefixes.read29, length=lengths.read29, ml_done=mle29.done)(match_line=mle29.in, write_en=mle29.write_en);
+            invoke me30(in=in, prefix=prefixes.read30, length=lengths.read30, ml_done=mle30.done)(match_line=mle30.in, write_en=mle30.write_en);
+            invoke me31(in=in, prefix=prefixes.read31, length=lengths.read31, ml_done=mle31.done)(match_line=mle31.in, write_en=mle31.write_en);
           }
           par {
-            invoke ce00(lenA=lengths.read0, lenB=lengths.read1, addrA=3'd0, addrB=3'd1, mlA=ml0.out, mlB=ml1.out, len_done=len00.done, addr_done=addr00.done, ml_done=ml00.done)(lenX=len00.in, addrX=addr00.in, mlX=ml00.in, len_write_en=len00.write_en, addr_write_en=addr00.write_en, ml_write_en=ml00.write_en);
-            invoke ce01(lenA=lengths.read2, lenB=lengths.read3, addrA=3'd2, addrB=3'd3, mlA=ml2.out, mlB=ml3.out, len_done=len01.done, addr_done=addr01.done, ml_done=ml01.done)(lenX=len01.in, addrX=addr01.in, mlX=ml01.in, len_write_en=len01.write_en, addr_write_en=addr01.write_en, ml_write_en=ml01.write_en);
-            invoke ce02(lenA=lengths.read4, lenB=lengths.read5, addrA=3'd4, addrB=3'd5, mlA=ml4.out, mlB=ml5.out, len_done=len02.done, addr_done=addr02.done, ml_done=ml02.done)(lenX=len02.in, addrX=addr02.in, mlX=ml02.in, len_write_en=len02.write_en, addr_write_en=addr02.write_en, ml_write_en=ml02.write_en);
-            invoke ce03(lenA=lengths.read6, lenB=lengths.read7, addrA=3'd6, addrB=3'd7, mlA=ml6.out, mlB=ml7.out, len_done=len03.done, addr_done=addr03.done, ml_done=ml03.done)(lenX=len03.in, addrX=addr03.in, mlX=ml03.in, len_write_en=len03.write_en, addr_write_en=addr03.write_en, ml_write_en=ml03.write_en);
+            invoke ce00(lenA=lengths.read0, lenB=lengths.read1, addrA=5'd0, addrB=5'd1, mlA=mle0.out, mlB=mle1.out, len_done=len00.done, addr_done=addr00.done, ml_done=ml00.done)(lenX=len00.in, addrX=addr00.in, mlX=ml00.in, len_write_en=len00.write_en, addr_write_en=addr00.write_en, ml_write_en=ml00.write_en);
+            invoke ce01(lenA=lengths.read2, lenB=lengths.read3, addrA=5'd2, addrB=5'd3, mlA=mle2.out, mlB=mle3.out, len_done=len01.done, addr_done=addr01.done, ml_done=ml01.done)(lenX=len01.in, addrX=addr01.in, mlX=ml01.in, len_write_en=len01.write_en, addr_write_en=addr01.write_en, ml_write_en=ml01.write_en);
+            invoke ce02(lenA=lengths.read4, lenB=lengths.read5, addrA=5'd4, addrB=5'd5, mlA=mle4.out, mlB=mle5.out, len_done=len02.done, addr_done=addr02.done, ml_done=ml02.done)(lenX=len02.in, addrX=addr02.in, mlX=ml02.in, len_write_en=len02.write_en, addr_write_en=addr02.write_en, ml_write_en=ml02.write_en);
+            invoke ce03(lenA=lengths.read6, lenB=lengths.read7, addrA=5'd6, addrB=5'd7, mlA=mle6.out, mlB=mle7.out, len_done=len03.done, addr_done=addr03.done, ml_done=ml03.done)(lenX=len03.in, addrX=addr03.in, mlX=ml03.in, len_write_en=len03.write_en, addr_write_en=addr03.write_en, ml_write_en=ml03.write_en);
+            invoke ce04(lenA=lengths.read8, lenB=lengths.read9, addrA=5'd8, addrB=5'd9, mlA=mle8.out, mlB=mle9.out, len_done=len04.done, addr_done=addr04.done, ml_done=ml04.done)(lenX=len04.in, addrX=addr04.in, mlX=ml04.in, len_write_en=len04.write_en, addr_write_en=addr04.write_en, ml_write_en=ml04.write_en);
+            invoke ce05(lenA=lengths.read10, lenB=lengths.read11, addrA=5'd10, addrB=5'd11, mlA=mle10.out, mlB=mle11.out, len_done=len05.done, addr_done=addr05.done, ml_done=ml05.done)(lenX=len05.in, addrX=addr05.in, mlX=ml05.in, len_write_en=len05.write_en, addr_write_en=addr05.write_en, ml_write_en=ml05.write_en);
+            invoke ce06(lenA=lengths.read12, lenB=lengths.read13, addrA=5'd12, addrB=5'd13, mlA=mle12.out, mlB=mle13.out, len_done=len06.done, addr_done=addr06.done, ml_done=ml06.done)(lenX=len06.in, addrX=addr06.in, mlX=ml06.in, len_write_en=len06.write_en, addr_write_en=addr06.write_en, ml_write_en=ml06.write_en);
+            invoke ce07(lenA=lengths.read14, lenB=lengths.read15, addrA=5'd14, addrB=5'd15, mlA=mle14.out, mlB=mle15.out, len_done=len07.done, addr_done=addr07.done, ml_done=ml07.done)(lenX=len07.in, addrX=addr07.in, mlX=ml07.in, len_write_en=len07.write_en, addr_write_en=addr07.write_en, ml_write_en=ml07.write_en);
+            invoke ce08(lenA=lengths.read16, lenB=lengths.read17, addrA=5'd16, addrB=5'd17, mlA=mle16.out, mlB=mle17.out, len_done=len08.done, addr_done=addr08.done, ml_done=ml08.done)(lenX=len08.in, addrX=addr08.in, mlX=ml08.in, len_write_en=len08.write_en, addr_write_en=addr08.write_en, ml_write_en=ml08.write_en);
+            invoke ce09(lenA=lengths.read18, lenB=lengths.read19, addrA=5'd18, addrB=5'd19, mlA=mle18.out, mlB=mle19.out, len_done=len09.done, addr_done=addr09.done, ml_done=ml09.done)(lenX=len09.in, addrX=addr09.in, mlX=ml09.in, len_write_en=len09.write_en, addr_write_en=addr09.write_en, ml_write_en=ml09.write_en);
+            invoke ce010(lenA=lengths.read20, lenB=lengths.read21, addrA=5'd20, addrB=5'd21, mlA=mle20.out, mlB=mle21.out, len_done=len010.done, addr_done=addr010.done, ml_done=ml010.done)(lenX=len010.in, addrX=addr010.in, mlX=ml010.in, len_write_en=len010.write_en, addr_write_en=addr010.write_en, ml_write_en=ml010.write_en);
+            invoke ce011(lenA=lengths.read22, lenB=lengths.read23, addrA=5'd22, addrB=5'd23, mlA=mle22.out, mlB=mle23.out, len_done=len011.done, addr_done=addr011.done, ml_done=ml011.done)(lenX=len011.in, addrX=addr011.in, mlX=ml011.in, len_write_en=len011.write_en, addr_write_en=addr011.write_en, ml_write_en=ml011.write_en);
+            invoke ce012(lenA=lengths.read24, lenB=lengths.read25, addrA=5'd24, addrB=5'd25, mlA=mle24.out, mlB=mle25.out, len_done=len012.done, addr_done=addr012.done, ml_done=ml012.done)(lenX=len012.in, addrX=addr012.in, mlX=ml012.in, len_write_en=len012.write_en, addr_write_en=addr012.write_en, ml_write_en=ml012.write_en);
+            invoke ce013(lenA=lengths.read26, lenB=lengths.read27, addrA=5'd26, addrB=5'd27, mlA=mle26.out, mlB=mle27.out, len_done=len013.done, addr_done=addr013.done, ml_done=ml013.done)(lenX=len013.in, addrX=addr013.in, mlX=ml013.in, len_write_en=len013.write_en, addr_write_en=addr013.write_en, ml_write_en=ml013.write_en);
+            invoke ce014(lenA=lengths.read28, lenB=lengths.read29, addrA=5'd28, addrB=5'd29, mlA=mle28.out, mlB=mle29.out, len_done=len014.done, addr_done=addr014.done, ml_done=ml014.done)(lenX=len014.in, addrX=addr014.in, mlX=ml014.in, len_write_en=len014.write_en, addr_write_en=addr014.write_en, ml_write_en=ml014.write_en);
+            invoke ce015(lenA=lengths.read30, lenB=lengths.read31, addrA=5'd30, addrB=5'd31, mlA=mle30.out, mlB=mle31.out, len_done=len015.done, addr_done=addr015.done, ml_done=ml015.done)(lenX=len015.in, addrX=addr015.in, mlX=ml015.in, len_write_en=len015.write_en, addr_write_en=addr015.write_en, ml_write_en=ml015.write_en);
           }
           par {
             invoke ce10(lenA=len00.out, lenB=len01.out, addrA=addr00.out, addrB=addr01.out, mlA=ml00.out, mlB=ml01.out, len_done=len10.done, addr_done=addr10.done, ml_done=ml10.done)(lenX=len10.in, addrX=addr10.in, mlX=ml10.in, len_write_en=len10.write_en, addr_write_en=addr10.write_en, ml_write_en=ml10.write_en);
             invoke ce11(lenA=len02.out, lenB=len03.out, addrA=addr02.out, addrB=addr03.out, mlA=ml02.out, mlB=ml03.out, len_done=len11.done, addr_done=addr11.done, ml_done=ml11.done)(lenX=len11.in, addrX=addr11.in, mlX=ml11.in, len_write_en=len11.write_en, addr_write_en=addr11.write_en, ml_write_en=ml11.write_en);
+            invoke ce12(lenA=len04.out, lenB=len05.out, addrA=addr04.out, addrB=addr05.out, mlA=ml04.out, mlB=ml05.out, len_done=len12.done, addr_done=addr12.done, ml_done=ml12.done)(lenX=len12.in, addrX=addr12.in, mlX=ml12.in, len_write_en=len12.write_en, addr_write_en=addr12.write_en, ml_write_en=ml12.write_en);
+            invoke ce13(lenA=len06.out, lenB=len07.out, addrA=addr06.out, addrB=addr07.out, mlA=ml06.out, mlB=ml07.out, len_done=len13.done, addr_done=addr13.done, ml_done=ml13.done)(lenX=len13.in, addrX=addr13.in, mlX=ml13.in, len_write_en=len13.write_en, addr_write_en=addr13.write_en, ml_write_en=ml13.write_en);
+            invoke ce14(lenA=len08.out, lenB=len09.out, addrA=addr08.out, addrB=addr09.out, mlA=ml08.out, mlB=ml09.out, len_done=len14.done, addr_done=addr14.done, ml_done=ml14.done)(lenX=len14.in, addrX=addr14.in, mlX=ml14.in, len_write_en=len14.write_en, addr_write_en=addr14.write_en, ml_write_en=ml14.write_en);
+            invoke ce15(lenA=len010.out, lenB=len011.out, addrA=addr010.out, addrB=addr011.out, mlA=ml010.out, mlB=ml011.out, len_done=len15.done, addr_done=addr15.done, ml_done=ml15.done)(lenX=len15.in, addrX=addr15.in, mlX=ml15.in, len_write_en=len15.write_en, addr_write_en=addr15.write_en, ml_write_en=ml15.write_en);
+            invoke ce16(lenA=len012.out, lenB=len013.out, addrA=addr012.out, addrB=addr013.out, mlA=ml012.out, mlB=ml013.out, len_done=len16.done, addr_done=addr16.done, ml_done=ml16.done)(lenX=len16.in, addrX=addr16.in, mlX=ml16.in, len_write_en=len16.write_en, addr_write_en=addr16.write_en, ml_write_en=ml16.write_en);
+            invoke ce17(lenA=len014.out, lenB=len015.out, addrA=addr014.out, addrB=addr015.out, mlA=ml014.out, mlB=ml015.out, len_done=len17.done, addr_done=addr17.done, ml_done=ml17.done)(lenX=len17.in, addrX=addr17.in, mlX=ml17.in, len_write_en=len17.write_en, addr_write_en=addr17.write_en, ml_write_en=ml17.write_en);
           }
-          invoke ce20(lenA=len10.out, lenB=len11.out, addrA=addr10.out, addrB=addr11.out, mlA=ml10.out, mlB=ml11.out, len_done=len20.done, addr_done=out_index.done, ml_done=ml20.done)(lenX=len20.in, addrX=out_index.in, mlX=ml20.in, len_write_en=len20.write_en, addr_write_en=out_index.write_en, ml_write_en=ml20.write_en);
+          par {
+            invoke ce20(lenA=len10.out, lenB=len11.out, addrA=addr10.out, addrB=addr11.out, mlA=ml10.out, mlB=ml11.out, len_done=len20.done, addr_done=addr20.done, ml_done=ml20.done)(lenX=len20.in, addrX=addr20.in, mlX=ml20.in, len_write_en=len20.write_en, addr_write_en=addr20.write_en, ml_write_en=ml20.write_en);
+            invoke ce21(lenA=len12.out, lenB=len13.out, addrA=addr12.out, addrB=addr13.out, mlA=ml12.out, mlB=ml13.out, len_done=len21.done, addr_done=addr21.done, ml_done=ml21.done)(lenX=len21.in, addrX=addr21.in, mlX=ml21.in, len_write_en=len21.write_en, addr_write_en=addr21.write_en, ml_write_en=ml21.write_en);
+            invoke ce22(lenA=len14.out, lenB=len15.out, addrA=addr14.out, addrB=addr15.out, mlA=ml14.out, mlB=ml15.out, len_done=len22.done, addr_done=addr22.done, ml_done=ml22.done)(lenX=len22.in, addrX=addr22.in, mlX=ml22.in, len_write_en=len22.write_en, addr_write_en=addr22.write_en, ml_write_en=ml22.write_en);
+            invoke ce23(lenA=len16.out, lenB=len17.out, addrA=addr16.out, addrB=addr17.out, mlA=ml16.out, mlB=ml17.out, len_done=len23.done, addr_done=addr23.done, ml_done=ml23.done)(lenX=len23.in, addrX=addr23.in, mlX=ml23.in, len_write_en=len23.write_en, addr_write_en=addr23.write_en, ml_write_en=ml23.write_en);
+          }
+          par {
+            invoke ce30(lenA=len20.out, lenB=len21.out, addrA=addr20.out, addrB=addr21.out, mlA=ml20.out, mlB=ml21.out, len_done=len30.done, addr_done=addr30.done, ml_done=ml30.done)(lenX=len30.in, addrX=addr30.in, mlX=ml30.in, len_write_en=len30.write_en, addr_write_en=addr30.write_en, ml_write_en=ml30.write_en);
+            invoke ce31(lenA=len22.out, lenB=len23.out, addrA=addr22.out, addrB=addr23.out, mlA=ml22.out, mlB=ml23.out, len_done=len31.done, addr_done=addr31.done, ml_done=ml31.done)(lenX=len31.in, addrX=addr31.in, mlX=ml31.in, len_write_en=len31.write_en, addr_write_en=addr31.write_en, ml_write_en=ml31.write_en);
+          }
+          invoke ce40(lenA=len30.out, lenB=len31.out, addrA=addr30.out, addrB=addr31.out, mlA=ml30.out, mlB=ml31.out, addr_done=out_index.done, ml_done=final_valid.done)(addrX=out_index.in, mlX=final_valid.in, addr_write_en=out_index.write_en, ml_write_en=final_valid.write_en);
           if is_invalid.out with validity { default_to_zero_length_index; } else { save_index; }
         }
       }
