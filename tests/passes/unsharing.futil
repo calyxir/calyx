@@ -5,7 +5,9 @@ component main() -> () {
     cells {
         r = std_reg(32);
         add1 = std_add(32);
-        sub = std_sub(32);
+        add2 = std_add(32);
+        flag = std_reg(1);
+        other = std_reg(32);
     }
 
     wires {
@@ -15,30 +17,45 @@ component main() -> () {
             zero[done] = r.done;
         }
 
-        group inc {
-            add1.left = 32'd1;
-            add1.right = r.out;
-            r.in = add1.out;
+        group one {
+            r.in = 32'd1;
             r.write_en = 1'd1;
-            inc[done] = r.done;
-        }
-        group replace {
-            r.in = 32'd5;
-            r.write_en = 1'd1;
-            replace[done] = r.done;
+            one[done] = r.done;
         }
 
-        group dec {
-            sub.left = r.out;
-            sub.right = 32'd1;
-            r.in = sub.out;
+        group cond {
+            flag.in = flag.out ? 1'd0;
+            flag.in = !flag.out ? 1'd1;
+            flag.write_en = 1'd1;
+            cond[done] = flag.done;
+        }
+
+        group final {
+            add2.left = 32'd154;
+            add2.right = r.out;
+            other.in = add2.out;
+            other.write_en = 1'd1;
+            final[done] = r.done;
+        }
+
+        group five {
+            r.in = 32'd5;
             r.write_en = 1'd1;
-            dec[done] = r.done;
+            five[done] = r.done;
         }
     }
+
     control {
-        seq {
-            zero; inc; replace; dec;
+        seq{
+            zero;
+            if flag.out with cond {
+                seq {one;}
+            } else {
+                seq {five;}
+            }
+
+            final;
+
         }
     }
 }
