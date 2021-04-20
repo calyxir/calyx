@@ -10,6 +10,18 @@ extern "core.sv" {
   primitive std_or<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
   primitive std_xor<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
+  /// Numerical Operators
+  primitive std_add<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  primitive std_sub<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  primitive std_gt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  primitive std_lt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  primitive std_eq<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  primitive std_neq<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  primitive std_ge<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  primitive std_le<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  primitive std_lsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  primitive std_rsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+
   /// Memories
   primitive std_reg<"static"=1>[WIDTH](
     in: WIDTH,

@@ -82,8 +82,8 @@ extern "binary_operators.sv" {
   ](left: WIDTH1, right: WIDTH2) -> (out: OUT_WIDTH);
 
   /// =================== Unsigned, Bitnum =========================
-  primitive std_add<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
-  primitive std_sub<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  /// Other unsigned bitnum primitives are found in the core library,
+  /// since they're required for FSM encoding.
 
   primitive std_mult_pipe[WIDTH](
     clk: 1, go: 1, left: WIDTH, right: WIDTH
@@ -98,15 +98,6 @@ extern "binary_operators.sv" {
     out_remainder: WIDTH,
     @done(1) done: 1
   );
-
-  primitive std_gt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_lt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_eq<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_neq<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_ge<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_le<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_lsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
-  primitive std_rsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
   /// =================== Signed, Bitnum =========================
   primitive std_sadd<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);

@@ -346,26 +346,6 @@ module std_fp_sgt #(
 endmodule
 
 /// =================== Unsigned, Bitnum =========================
-module std_add #(
-    parameter WIDTH = 32
-) (
-   input wire               logic [WIDTH-1:0] left,
-   input wire               logic [WIDTH-1:0] right,
-   output logic [WIDTH-1:0] out
-);
-  assign out = left + right;
-endmodule
-
-module std_sub #(
-    parameter WIDTH = 32
-) (
-   input wire               logic [WIDTH-1:0] left,
-   input wire               logic [WIDTH-1:0] right,
-   output logic [WIDTH-1:0] out
-);
-  assign out = left - right;
-endmodule
-
 module std_mult_pipe #(
     parameter WIDTH = 32
 ) (
@@ -465,87 +445,6 @@ module std_div_pipe #(
         );
     end
   `endif
-endmodule
-
-
-module std_gt #(
-    parameter WIDTH = 32
-) (
-   input wire   logic [WIDTH-1:0] left,
-   input wire   logic [WIDTH-1:0] right,
-   output logic out
-);
-  assign out = left > right;
-endmodule
-
-module std_lt #(
-    parameter WIDTH = 32
-) (
-   input wire   logic [WIDTH-1:0] left,
-   input wire   logic [WIDTH-1:0] right,
-   output logic out
-);
-  assign out = left < right;
-endmodule
-
-module std_eq #(
-    parameter WIDTH = 32
-) (
-   input wire   logic [WIDTH-1:0] left,
-   input wire   logic [WIDTH-1:0] right,
-   output logic out
-);
-  assign out = left == right;
-endmodule
-
-module std_neq #(
-    parameter WIDTH = 32
-) (
-   input wire   logic [WIDTH-1:0] left,
-   input wire   logic [WIDTH-1:0] right,
-   output logic out
-);
-  assign out = left != right;
-endmodule
-
-module std_ge #(
-    parameter WIDTH = 32
-) (
-    input wire   logic [WIDTH-1:0] left,
-    input wire   logic [WIDTH-1:0] right,
-    output logic out
-);
-  assign out = left >= right;
-endmodule
-
-module std_le #(
-    parameter WIDTH = 32
-) (
-   input wire   logic [WIDTH-1:0] left,
-   input wire   logic [WIDTH-1:0] right,
-   output logic out
-);
-  assign out = left <= right;
-endmodule
-
-module std_lsh #(
-    parameter WIDTH = 32
-) (
-   input wire               logic [WIDTH-1:0] left,
-   input wire               logic [WIDTH-1:0] right,
-   output logic [WIDTH-1:0] out
-);
-  assign out = left << right;
-endmodule
-
-module std_rsh #(
-    parameter WIDTH = 32
-) (
-   input wire               logic [WIDTH-1:0] left,
-   input wire               logic [WIDTH-1:0] right,
-   output logic [WIDTH-1:0] out
-);
-  assign out = left >> right;
 endmodule
 
 /// =================== Signed, Bitnum =========================
