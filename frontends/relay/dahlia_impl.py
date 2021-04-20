@@ -1,6 +1,7 @@
 from typing import List
 from calyx.py_ast import *
 from dahlia_utils import *
+from calyx.gen_exp import generate_exp_taylor_series_approximation
 
 
 ####################################################################################################
@@ -382,25 +383,19 @@ def softmax(fd: DahliaFuncDef) -> str:
     data_type = fd.data_type
     size0, size1, index_size0, index_size1 = data.comp.args[1:5]
 
-    # The value of `e` if Q = 32.16, otherwise `3`.
-    e = "13044242090" if "fix" in data_type else "3"
-
     return emit_dahlia_definition(
         fd,
-        f"""let e: {data_type} = {e};
+        f"""
         for (let i: ubit<{index_size0}> = 0..{size0}) {{
-          let {data.id.name}_expsum: {data_type} =
-              {'0.0' if 'fix' in data_type else '0'};
-
+          let {data.id.name}_expsum: {data_type} = {'0.0' if 'fix' in data_type else '0'};
           for (let j: ubit<{index_size1}> = 0..{size1}) {{
-            let tmp1 = exp(e, {data.id.name}[i][j]);
+            let tmp1 = exp({data.id.name}[i][j]);
             {data.id.name}_expsum += tmp1;
           }}
           for (let k: ubit<{index_size1}> = 0..{size1}) {{
-            let tmp2 = exp(e, {data.id.name}[i][k]);
+            let tmp2 = exp({data.id.name}[i][k]);
             {res.id.name}[i][k] := tmp2;
-            {res.id.name}[i][k] :=
-            {res.id.name}[i][k] / {data.id.name}_expsum;
+            {res.id.name}[i][k] := {res.id.name}[i][k] / {data.id.name}_expsum;
           }}
         }}""",
     )
@@ -450,11 +445,22 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     imports = [
         f"""import futil("primitives/bitnum/math.futil")
         {{
-          def exp(base: {type}, exp: {type}): {type};
+          def exp(x: {type}): {type};
           def sqrt(in: {type}): {type};
         }}"""
     ]
 
+    exp_components = None
+    if any(f.function_id == "softmax" for f in func_defs):
+        # Import `exp` operator for softmax implementation.
+        width = int(type[type.find('<')+1:type.find(',')])
+        exp_components = generate_exp_taylor_series_approximation(
+            degree=8,
+            width=width,
+            int_width=width // 2,
+            is_signed='u' not in type,
+        )
+
     return dahlia_to_futil(
         "\n".join(imports + dahlia_definitions)
-    )
+    ) + "\n".join([c.doc() for c in exp_components])
