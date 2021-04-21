@@ -53,6 +53,8 @@ impl Sub<&HashSet<ir::Id>> for &DefSet {
     }
 }
 
+type OverlapMap = HashMap<ir::Id, Vec<HashSet<(ir::Id, GroupName)>>>;
+
 #[derive(Debug)]
 pub struct ReachingDefinitionAnalysis {
     pub reach: HashMap<GroupName, DefSet>,
@@ -73,9 +75,7 @@ impl ReachingDefinitionAnalysis {
         }
     }
 
-    pub fn calculate_overlap(
-        &self,
-    ) -> HashMap<ir::Id, Vec<HashSet<(ir::Id, GroupName)>>> {
+    pub fn calculate_overlap(&self) -> OverlapMap {
         let mut overlap_map: HashMap<
             ir::Id,
             Vec<HashSet<(ir::Id, GroupName)>>,
@@ -150,6 +150,7 @@ fn build_reaching_def(
 
             let round_1 = build_reaching_def(body, post_cond, rd);
             let post_cond2 = build_reaching_def(&fake_enable, round_1, rd);
+            // Twice as nice?
             build_reaching_def(body, post_cond2, rd)
         }
         ir::Control::Invoke(_) => {
