@@ -7,6 +7,6 @@ extern "unsynthesizable.sv" {
 
   primitive std_unsyn_smult<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
   primitive std_unsyn_sdiv<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
-  primitive std_smod<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  primitive std_unsyn_smod<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
 }
