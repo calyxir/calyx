@@ -3,26 +3,16 @@ import "primitives/unsynthesizable.futil";
 component times_10_and_add_1(reg_done: 1, reg_out: 32, go: 1, clk: 1) -> (reg_in: 32, reg_write_en: 1, done: 1) {
   cells {
     add = std_add(32);
-    t = std_reg(32);
     mult = std_unsyn_mult(32);
-    fsm = std_reg(2);
   }
   wires {
-    done = fsm.out == 2'd2 ? 1'd1;
-    reg_in = !reg_done & fsm.out == 2'd0 & go ? add.out;
-    reg_write_en = !reg_done & fsm.out == 2'd0 & go ? 1'd1;
-    add.left = !reg_done & fsm.out == 2'd0 & go ? 32'd1;
-    add.right = !reg_done & fsm.out == 2'd0 & go ? t.out;
-    fsm.clk = clk;
-    fsm.in = fsm.out == 2'd2 ? 2'd0;
-    fsm.in = fsm.out == 2'd0 & reg_done & go ? 2'd1;
-    fsm.in = fsm.out == 2'd1 & t.done & go ? 2'd2;
-    fsm.write_en = fsm.out == 2'd0 & reg_done & go | fsm.out == 2'd1 & t.done & go | fsm.out == 2'd2 ? 1'd1;
-    mult.left = !t.done & fsm.out == 2'd1 & go ? 32'd10;
-    mult.right = !t.done & fsm.out == 2'd1 & go ? reg_out;
-    t.clk = clk;
-    t.in = !t.done & fsm.out == 2'd1 & go ? mult.out;
-    t.write_en = !t.done & fsm.out == 2'd1 & go ? 1'd1;
+    done = reg_done ? 1'd1;
+    reg_in = go ? add.out;
+    reg_write_en = go ? 1'd1;
+    add.left = go ? 32'd1;
+    add.right = go ? mult.out;
+    mult.left = go ? 32'd10;
+    mult.right = go ? reg_out;
   }
 
   control {}

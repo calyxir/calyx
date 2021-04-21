@@ -8,27 +8,23 @@ component times_10_and_add_1(
 ) -> (reg_in: 32, reg_write_en: 1) {
   cells {
     add = std_add(32);
-    t = std_reg(32);
     mult = std_unsyn_mult(32);
   }
   wires {
-    group do_mul {
+    group do_add_and_mul {
       mult.right = reg_out;
       mult.left = 32'd10;
-      t.write_en = 1'd1;
-      t.in = mult.out;
-      do_mul[done] = t.done;
-    }
-    group do_add {
+
       add.left = 32'd1;
-      add.right = t.out;
+      add.right = mult.out;
+
       reg_in = add.out;
       reg_write_en = 1'd1;
-      do_add[done] = reg_done;
+      do_add_and_mul[done] = reg_done;
     }
   }
   control {
-    seq { do_add; do_mul; }
+    seq { do_add_and_mul; }
   }
 }
 //// ANCHOR_END: component
