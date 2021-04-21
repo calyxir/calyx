@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-import "primitives/bitnum/signed.futil";
+import "primitives/binary_operators.futil";
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
     add0 = std_sadd(3);
@@ -12,7 +12,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
     mem0 = std_mem_d2(32, 4, 4, 3, 3);
     mem1 = std_mem_d2(32, 4, 4, 3, 3);
     add1 = std_add(32);
-    mult = std_smult(32);
+    sadd = std_sadd(32);
     fsm = std_reg(2);
     incr = std_add(2);
     fsm0 = std_reg(2);
@@ -24,7 +24,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
     done = fsm1.out == 2'd2 ? 1'd1;
     add0.left = fsm.out == 2'd1 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? counter.out;
     add0.right = fsm.out == 2'd1 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? const2.out;
-    add1.left = fsm.out == 2'd0 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? mult.out;
+    add1.left = fsm.out == 2'd0 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? sadd.out;
     add1.right = fsm.out == 2'd0 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? r_2.out;
     cond_stored.clk = clk;
     cond_stored.in = fsm0.out < 2'd1 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? lt0.out;
@@ -58,8 +58,8 @@ component main(go: 1, clk: 1) -> (done: 1) {
     mem1.addr0 = fsm.out == 2'd0 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? counter.out;
     mem1.addr1 = fsm.out == 2'd0 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? 3'd0;
     mem1.clk = clk;
-    mult.left = fsm.out == 2'd0 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? mem0.read_data;
-    mult.right = fsm.out == 2'd0 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? mem1.read_data;
+    sadd.left = fsm.out == 2'd0 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? mem0.read_data;
+    sadd.right = fsm.out == 2'd0 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? mem1.read_data;
     r_2.clk = clk;
     r_2.in = fsm.out == 2'd0 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? add1.out;
     r_2.write_en = fsm.out == 2'd0 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? 1'd1;

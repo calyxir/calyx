@@ -1,4 +1,4 @@
-import "primitives/fixed/math.futil";
+import "primitives/math.futil";
 import "primitives/std.lib";
 
 component main() -> () {
