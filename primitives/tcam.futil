@@ -1,3 +1,7 @@
+// An implementation of Comparator Network Longest Prefix Match (CN-LPM), as described in:
+// "TCAM-based high speed longest prefix matching with fast incremental table updates"
+// Rasmussen et al. (2013) [https://ieeexplore.ieee.org/document/6602288]
+
 extern "tcam.sv" {
   primitive par_mem_d1<"static"=1>[WIDTH, SIZE, INDEX_SIZE](
     index: INDEX_SIZE,
@@ -40,11 +44,6 @@ extern "tcam.sv" {
     @done(1) done: 1
   );
 }
-
-
-// An implementation of Comparator Network Longest Prefix Match (CN-LPM), as described in:
-// "TCAM-based high speed longest prefix matching with fast incremental table updates"
-// Rasmussen et al. (2013) [https://ieeexplore.ieee.org/document/6602288]
 
 // Sets the `match_line` signal to high if the value `in` matches the
 // `prefix` with the given `length`. For example, given
