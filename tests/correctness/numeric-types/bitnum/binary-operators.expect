@@ -1,0 +1,44 @@
+{
+  "lhs": [
+    32
+  ],
+  "rhs": [
+    16
+  ],
+  "signed_add": [
+    0
+  ],
+  "signed_div": [
+    -1
+  ],
+  "signed_mod": [
+    0
+  ],
+  "signed_mul": [
+    -1
+  ],
+  "signed_sub": [
+    -2
+  ],
+  "slhs": [
+    -1
+  ],
+  "srhs": [
+    1
+  ],
+  "unsigned_add": [
+    48
+  ],
+  "unsigned_div": [
+    2
+  ],
+  "unsigned_mod": [
+    0
+  ],
+  "unsigned_mul": [
+    512
+  ],
+  "unsigned_sub": [
+    16
+  ]
+}

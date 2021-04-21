@@ -1,0 +1,12 @@
+extern "unsynthesizable.sv" {
+  // Designs that use these primitives cannot be synthesized.
+
+  primitive std_unsyn_mult<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  primitive std_unsyn_div<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  primitive std_unsyn_mod<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+
+  primitive std_unsyn_smult<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  primitive std_unsyn_sdiv<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  primitive std_unsyn_smod<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+
+}
