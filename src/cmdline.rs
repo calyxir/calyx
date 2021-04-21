@@ -1,5 +1,5 @@
 use calyx::backend::traits::Backend;
-use calyx::backend::verilog::VerilogBackend;
+use calyx::backend::{verilog::VerilogBackend, xilinx::XilinxInterfaceBackend};
 use calyx::{errors::FutilResult, ir, utils::OutputFile};
 use itertools::Itertools;
 use std::path::PathBuf;
@@ -65,6 +65,7 @@ pub struct Opts {
 #[derive(Debug, Copy, Clone)]
 pub enum BackendOpt {
     Verilog,
+    Xilinx,
     Futil,
     // Dot,
     None,
@@ -73,6 +74,7 @@ pub enum BackendOpt {
 fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
         ("verilog", BackendOpt::Verilog),
+        ("xilinx", BackendOpt::Xilinx),
         ("futil", BackendOpt::Futil),
         ("none", BackendOpt::None),
     ]
@@ -116,6 +118,7 @@ impl ToString for BackendOpt {
     fn to_string(&self) -> String {
         match self {
             Self::Verilog => "verilog",
+            Self::Xilinx => "xilinx",
             Self::Futil => "futil",
             // Self::Dot => "dot",
             Self::None => "none",
@@ -130,6 +133,10 @@ impl Opts {
         match self.backend {
             BackendOpt::Verilog => {
                 let backend = VerilogBackend::default();
+                backend.run(&context, self.output)
+            }
+            BackendOpt::Xilinx => {
+                let backend = XilinxInterfaceBackend::default();
                 backend.run(&context, self.output)
             }
             BackendOpt::Futil => {
