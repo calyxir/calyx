@@ -443,10 +443,11 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
 
     type = func_defs[0].data_type
     imports = [
-        f"""import futil("primitives/bitnum/math.futil")
+        f"""import futil("primitives/math.futil")
         {{
           def exp(x: {type}): {type};
           def sqrt(in: {type}): {type};
+          def fp_sqrt(in: {type}): {type};
         }}"""
     ]
 

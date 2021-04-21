@@ -173,7 +173,7 @@ def emit_futil(program) -> str:
             Program(
                 imports=[
                     Import("primitives/std.lib"),
-                    Import("primitives/bitnum/math.futil"),
+                    Import("primitives/math.futil"),
                 ],
                 components=[main],
             ).doc(),

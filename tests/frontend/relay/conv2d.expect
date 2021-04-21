@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-import "primitives/bitnum/math.futil";
+import "primitives/math.futil";
 component main() -> () {
   cells {
     @external(1) data = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
