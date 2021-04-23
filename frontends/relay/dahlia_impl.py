@@ -163,12 +163,12 @@ def bias_add(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.bias_add"""
     data, bias, res = fd.args[0], fd.args[1], fd.dest
     axis_attribute = fd.attributes.get_int("axis")
+    num_dims = get_dims(data.comp)
     axis = num_dims - 1 if axis_attribute == -1 else axis_attribute
 
     var_name = CHARACTER_I
     data_indices = ""
     args = data.comp.args
-    num_dims = get_dims(data.comp)
     for i in range(num_dims):
         # Determine loop body indices based on `axis` provided.
         size = args[i + 1]
