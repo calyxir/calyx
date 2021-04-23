@@ -196,11 +196,11 @@ def max_pool2d(fd: DahliaFuncDef) -> str:
     layout = fd.attributes.get_str("layout")
     ceil_mode = fd.attributes.get_int("ceil_mode")
     assert (
-            layout == "NCHW"
+        layout == "NCHW"
     ), f"""Layout \'{layout}\' is not currently supported for
         nn.max_pool2d; please use `NCHW`"""
     assert (
-            ceil_mode == False
+        ceil_mode == False
     ), "`ceil_mode` is not currently supported for nn.max_pool2d"
 
     args = res.comp.args
@@ -432,7 +432,7 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     for func_def in func_defs:
         id = func_def.function_id
         assert (
-                id in RelayCallNodes or id in BinaryOps
+            id in RelayCallNodes or id in BinaryOps
         ), f"{id} not supported for lowering."
 
         # If the function is a binary operation, use broadcasting.
@@ -453,14 +453,14 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     exp_components = None
     if any(f.function_id == "softmax" for f in func_defs):
         # Import `exp` operator for softmax implementation.
-        width = int(type[type.find('<') + 1:type.find(',')])
+        width = int(type[type.find("<") + 1 : type.find(",")])
         exp_components = generate_exp_taylor_series_approximation(
             degree=8,
             width=width,
             int_width=width // 2,
-            is_signed='u' not in type,
+            is_signed="u" not in type,
         )
 
-    return dahlia_to_futil(
-        "\n".join(imports + dahlia_definitions)
-    ) + "\n".join([c.doc() for c in exp_components])
+    return dahlia_to_calyx("\n".join(imports + dahlia_definitions)) + "\n".join(
+        [c.doc() for c in exp_components]
+    )

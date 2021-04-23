@@ -10,12 +10,11 @@ from calyx.py_ast import *
 from dahlia_impl import emit_components
 
 
-# TODO(cgyurgyik): Rename from FuTIL -> Calyx
-class Relay2Futil(ExprFunctor):
+class Relay2Calyx(ExprFunctor):
     """The main compilation visitor."""
 
     def __init__(self):
-        super(Relay2Futil, self).__init__()
+        super(Relay2Calyx, self).__init__()
         self.id_dictionary = defaultdict(int)
 
         # A dictionary of currently visited variable nodes,
@@ -76,14 +75,11 @@ class Relay2Futil(ExprFunctor):
             # Function names may have a Relay
             # namespace prepended, e.g. `nn.bias_add`.
             # We want to remove these.
-            prefix = func_name.find('.')
+            prefix = func_name.find(".")
             if prefix is not None:
-                func_name = func_name[prefix + 1:]
+                func_name = func_name[prefix + 1 :]
 
-            dims = "_".join([
-                str(i) for i in
-                get_dimension_sizes(dest.comp)
-            ])
+            dims = "_".join([str(i) for i in get_dimension_sizes(dest.comp)])
             # Append arity to Relay function.
             comp_name = f"{func_name}_{dims}"
 
@@ -163,10 +159,10 @@ def relay_transforms(expr: Function) -> Function:
     return mod["main"]
 
 
-def emit_futil(program) -> str:
+def emit_calyx(program) -> str:
     """Lowers a Relay function to a Calyx program."""
     relay_program = relay_transforms(program)
-    visitor = Relay2Futil()
+    visitor = Relay2Calyx()
     main, func_defs = visitor.visit(relay_program)
     return "\n".join(
         (
@@ -186,4 +182,4 @@ if __name__ == "__main__":
     import sys
 
     relay_function = relay.fromtext(sys.stdin.read())
-    print(emit_futil(relay_function))
+    print(emit_calyx(relay_function))
