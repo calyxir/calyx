@@ -450,7 +450,7 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
         }}"""
     ]
 
-    exp_components = None
+    exp_components = []
     if any(f.function_id == "softmax" for f in func_defs):
         # Import `exp` operator for softmax implementation.
         width = int(type[type.find("<") + 1 : type.find(",")])

@@ -136,7 +136,7 @@ component conv2d_5_512_14_14(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, wei
       c_0.write_en = 1'd1;
       let1[done] = c_0.done;
     }
-    group let10<"static"=4> {
+    group let10 {
       bin_read1_0.in = mult_pipe1.out;
       bin_read1_0.write_en = mult_pipe1.done;
       let10[done] = bin_read1_0.done;
@@ -151,7 +151,7 @@ component conv2d_5_512_14_14(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, wei
       add1.left = bin_read1_0.out;
       add1.right = dx0.out;
     }
-    group let12<"static"=4> {
+    group let12 {
       bin_read2_0.in = mult_pipe2.out;
       bin_read2_0.write_en = mult_pipe2.done;
       let12[done] = bin_read2_0.done;
@@ -189,7 +189,7 @@ component conv2d_5_512_14_14(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, wei
       dx0.write_en = 1'd1;
       let7[done] = dx0.done;
     }
-    group let8<"static"=4> {
+    group let8 {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
       let8[done] = bin_read0_0.done;

@@ -140,7 +140,7 @@ component batch_matmul_4_7_7(a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_d
       k0.write_en = 1'd1;
       let6[done] = k0.done;
     }
-    group let7<"static"=4> {
+    group let7 {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
       let7[done] = bin_read0_0.done;
