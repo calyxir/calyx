@@ -387,15 +387,14 @@ def softmax(fd: DahliaFuncDef) -> str:
         fd,
         f"""
         for (let i: ubit<{index_size0}> = 0..{size0}) {{
-          let {data.id.name}_expsum: {data_type} = {'0.0' if 'fix' in data_type else '0'};
+          let expj: {data_type} = {'0.0' if 'fix' in data_type else '0'};
           for (let j: ubit<{index_size1}> = 0..{size1}) {{
-            let tmp1 = exp({data.id.name}[i][j]);
-            {data.id.name}_expsum += tmp1;
+            let t1 = exp({data.id.name}[i][j]);
+            expj += t1;
           }}
           for (let k: ubit<{index_size1}> = 0..{size1}) {{
-            let tmp2 = exp({data.id.name}[i][k]);
-            {res.id.name}[i][k] := tmp2;
-            {res.id.name}[i][k] := {res.id.name}[i][k] / {data.id.name}_expsum;
+            let t2 = exp({data.id.name}[i][k]);
+            {res.id.name}[i][k] := t2 / expj; 
           }}
         }}""",
     )
@@ -454,7 +453,7 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     exp_components = None
     if any(f.function_id == "softmax" for f in func_defs):
         # Import `exp` operator for softmax implementation.
-        width = int(type[type.find('<')+1:type.find(',')])
+        width = int(type[type.find('<') + 1:type.find(',')])
         exp_components = generate_exp_taylor_series_approximation(
             degree=8,
             width=width,
