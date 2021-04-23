@@ -452,12 +452,14 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
 
     exp_components = []
     if any(f.function_id == "softmax" for f in func_defs):
-        # Import `exp` operator for softmax implementation.
-        width = int(type[type.find("<") + 1 : type.find(",")])
+        # Import `exp` operator for softmax.
+        sep = type.find(",")
+        width = int(type[type.find("<") + 1 : sep])
+        int_width = int(type[sep + 1: type.find(">")])
         exp_components = generate_exp_taylor_series_approximation(
             degree=8,
             width=width,
-            int_width=width // 2,
+            int_width=int_width,
             is_signed="u" not in type,
         )
 
