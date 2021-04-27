@@ -4,7 +4,6 @@ component main() -> () {
     add0 = std_fp_add(4,2,2);
     fp_const0 = std_const(4,6);
     fp_const1 = std_const(4,4);
-    slice0 = std_slice(4,4);
     x_0 = std_reg(4);
     y_0 = std_reg(4);
   }
@@ -15,10 +14,9 @@ component main() -> () {
       let0[done] = x_0.done;
     }
     group let1<"static"=1> {
-      y_0.in = slice0.out;
+      y_0.in = add0.out;
       y_0.write_en = 1'd1;
       let1[done] = y_0.done;
-      slice0.in = add0.out;
       add0.left = x_0.out;
       add0.right = fp_const1.out;
     }
