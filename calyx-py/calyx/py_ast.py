@@ -2,6 +2,7 @@ from __future__ import annotations  # Used for circular dependencies.
 from dataclasses import dataclass
 from typing import List, Union
 from calyx.utils import block
+import numpy as np
 
 
 @dataclass
@@ -118,11 +119,9 @@ class ConstantPort(Port):
         if self.representation == 'decimal':
             return f"{self.width}'d{self.value}"
         if self.representation == 'binary':
-            binary_value = bin(self.value)[2:]
-            return f"{self.width}'b{binary_value}"
+            return f"{self.width}'b{np.binary_repr(self.value, width=self.width)}"
         if self.representation == 'hexadecimal':
-            hex_value = hex(self.value)[2:]
-            return f"{self.width}'h{hex_value}"
+            return f"{self.width}'h{np.base_repr(self.value, base=16)}"
 
 
 @dataclass

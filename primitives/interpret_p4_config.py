@@ -114,16 +114,17 @@ def write_to_match_engine(match_engine_id: CompVar, actions: List[Action]):
         ip = a.ip
         prefix_length = int(a.subnet_mask)
 
+        # Right shift the prefix since we want the
+        # masking bits to be on the RHS.
+        prefix = ip_to_decimal(ip) >> (32 - prefix_length)
+
         controls.append(
             Invoke(
                 id=match_engine_id,
                 in_connects=[
                     ("write_en", ConstantPort(1, 1)),
                     ("write_index", ConstantPort(5, address)),
-                    (
-                        "in",
-                        ConstantPort(32, ip_to_decimal(ip), representation="binary"),
-                    ),
+                    ("in", ConstantPort(32, prefix, representation="binary")),
                     ("prefix_len", ConstantPort(6, prefix_length)),
                 ],
                 out_connects=[],
