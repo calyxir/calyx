@@ -74,7 +74,8 @@ table_add <table_name> <action> <match>/<length> => <action data(s)>"""
 
 
 def write_to_action_memory(action_memory_id: CompVar, actions: List[Action]):
-    """Writes each action ID to an address in the Action Memory."""
+    """Returns the groups and control to write
+    each action ID to an address in the Action Memory."""
     groups = []
     for a in actions:
         action_addr = a.action_address
@@ -96,6 +97,7 @@ def write_to_action_memory(action_memory_id: CompVar, actions: List[Action]):
 
 
 def ip_to_decimal(ip: str) -> int:
+    """Given an IP string, returns the decimal value."""
     octet1 = 16777216  # 256 ** 3
     octet2 = 65536  # 256 ** 2
     octet3 = 256
@@ -106,7 +108,8 @@ def ip_to_decimal(ip: str) -> int:
 
 
 def write_to_match_engine(match_engine_id: CompVar, actions: List[Action]):
-    """Writes each IP (with prefix length) to the Match Engine."""
+    """Returns the control sequence that writes each
+    IP (with prefix length) to the Match Engine."""
     controls = []
     for a in actions:
         # Write mapping (ip, mask) -> address.
@@ -114,17 +117,13 @@ def write_to_match_engine(match_engine_id: CompVar, actions: List[Action]):
         ip = a.ip
         prefix_length = int(a.subnet_mask)
 
-        # Right shift the prefix since we want the
-        # masking bits to be on the RHS.
-        prefix = ip_to_decimal(ip) >> (32 - prefix_length)
-
         controls.append(
             Invoke(
                 id=match_engine_id,
                 in_connects=[
                     ("write_en", ConstantPort(1, 1)),
                     ("write_index", ConstantPort(5, address)),
-                    ("in", ConstantPort(32, prefix, representation="binary")),
+                    ("in", ConstantPort(32, ip_to_decimal(ip), representation="binary")),
                     ("prefix_len", ConstantPort(6, prefix_length)),
                 ],
                 out_connects=[],

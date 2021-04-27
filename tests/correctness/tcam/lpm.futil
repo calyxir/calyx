@@ -20,11 +20,11 @@ component main() -> () {
   control {
     seq {
       // 1100xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      invoke tcam(write_en=1'd1, write_index=5'd0, in=32'b00000000000000000000000000001100, prefix_len=6'd4)();
+      invoke tcam(write_en=1'd1, write_index=5'd0, in=32'b11000000000000000000000000000000, prefix_len=6'd4)();
       // 110001xxxxxxxxxxxxxxxxxxxxxxxxxx
-      invoke tcam(write_en=1'd1, write_index=5'd1, in=32'b00000000000000000000000000110001, prefix_len=6'd6)();
+      invoke tcam(write_en=1'd1, write_index=5'd1, in=32'b11000100000000000000000000000000, prefix_len=6'd6)();
       // 11000xxxxxxxxxxxxxxxxxxxxxxxxxxx
-      invoke tcam(write_en=1'd1, write_index=5'd2, in=32'b00000000000000000000000000011000, prefix_len=6'd5)();
+      invoke tcam(write_en=1'd1, write_index=5'd2, in=32'b11000000000000000000000000000000, prefix_len=6'd5)();
 
       // Search.
       invoke tcam(search_en=1'd1, in=32'b11000000000000000000000000000000, rdone=r.done)(rwrite_en=r.write_en, index=r.in);

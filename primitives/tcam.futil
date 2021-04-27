@@ -47,7 +47,7 @@ extern "tcam.sv" {
 
 // Sets the `match_line` signal to high if the value `in` matches the
 // `prefix` with the given `length`. For example, given
-//     in = 5'b11000, prefix = 5'b00011, length = 2:
+//     in = 5'b11000, prefix = 5'b11001, length = 2:
 //     our prefix-match may be represented as `11xxx`, where `x`
 //     is a "don't care" bit. Since `in` does indeed match the
 //     prefix `11xxx`, the `match_line` signal is set to high.
@@ -61,7 +61,8 @@ component match_element(in: 32, prefix: 32, length: 5, ml_done: 1) -> (match_lin
   cells {
     sub = std_sub(5);
     pad = std_pad(5, 32);
-    rsh = std_rsh(32);
+    rsh0 = std_rsh(32);
+    rsh1 = std_rsh(32);
     eq  = std_eq(32);
   }
   wires {
@@ -70,11 +71,12 @@ component match_element(in: 32, prefix: 32, length: 5, ml_done: 1) -> (match_lin
       sub.right = length;
       pad.in = sub.out;
 
-      rsh.left = in;
-      rsh.right = pad.out;
-
-      eq.left = rsh.out;
-      eq.right = prefix;
+      rsh0.left = in;
+      rsh0.right = pad.out;
+      rsh1.left = prefix;
+      rsh1.right = pad.out;
+      eq.left = rsh0.out;
+      eq.right = rsh1.out;
 
       write_en = 1'd1;
       match_line = eq.out;
