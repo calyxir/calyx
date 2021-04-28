@@ -91,21 +91,33 @@ impl ReachingDefinitionAnalysis {
                 set.insert((defname.clone(), group_name.clone()));
             }
 
-            for (defname, set) in group_overlaps.drain() {
+            for (defname, set) in group_overlaps {
                 let overlap_vec = overlap_map.entry(defname).or_default();
+
                 if overlap_vec.is_empty() {
                     overlap_vec.push(set)
                 } else {
-                    let mut found = false;
-                    for entry in overlap_vec.iter_mut() {
-                        if !set.is_disjoint(entry) {
-                            *entry = &set | entry;
-                            found = true;
-                            break;
+                    let mut no_overlap = vec![];
+                    let mut overlap = vec![];
+
+                    for entry in overlap_vec.drain(..) {
+                        if set.is_disjoint(&entry) {
+                            no_overlap.push(entry)
+                        } else {
+                            overlap.push(entry)
                         }
                     }
-                    if !found {
+
+                    *overlap_vec = no_overlap;
+
+                    if overlap.is_empty() {
                         overlap_vec.push(set);
+                    } else {
+                        overlap_vec.push(
+                            overlap
+                                .into_iter()
+                                .fold(set, |acc, entry| &acc | &entry),
+                        )
                     }
                 }
             }
