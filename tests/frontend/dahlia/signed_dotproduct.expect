@@ -37,7 +37,7 @@ component main() -> () {
       i0.write_en = 1'd1;
       let1[done] = i0.done;
     }
-    group let2 {
+    group let2<"static"=4> {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
       let2[done] = bin_read0_0.done;

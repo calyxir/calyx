@@ -151,7 +151,7 @@ component max_pool2d_2_2_2_2(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, res
       x0.write_en = 1'd1;
       let3[done] = x0.done;
     }
-    group let4 {
+    group let4<"static"=4> {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
       let4[done] = bin_read0_0.done;
@@ -164,7 +164,7 @@ component max_pool2d_2_2_2_2(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, res
       stride_y_0.write_en = 1'd1;
       let5[done] = stride_y_0.done;
     }
-    group let6 {
+    group let6<"static"=4> {
       bin_read1_0.in = mult_pipe1.out;
       bin_read1_0.write_en = mult_pipe1.done;
       let6[done] = bin_read1_0.done;

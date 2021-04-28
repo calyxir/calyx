@@ -39,7 +39,7 @@ component multiply_1(x0_read_data: 32, x0_done: 1, x1: 32, x20_read_data: 32, x2
       i0.write_en = 1'd1;
       let0[done] = i0.done;
     }
-    group let1 {
+    group let1<"static"=4> {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
       let1[done] = bin_read0_0.done;
