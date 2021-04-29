@@ -1,4 +1,5 @@
 //! Shared utilities.
+pub(crate) mod math;
 pub(crate) mod measure_time;
 mod namegenerator;
 mod out_file;
