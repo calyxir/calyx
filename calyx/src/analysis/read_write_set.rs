@@ -51,6 +51,26 @@ impl ReadWriteSet {
             .collect()
     }
 
+    // TODO(griffin): add documentation
+    pub fn must_write_set(assigns: &[ir::Assignment]) -> Vec<RRC<ir::Cell>> {
+        assigns
+            .iter()
+            .filter_map(|assignment| {
+                if let ir::Guard::True = *assignment.guard {
+                    let dst_ref = assignment.dst.borrow();
+                    if let ir::PortParent::Cell(cell_wref) = &dst_ref.parent {
+                        Some(Rc::clone(&cell_wref.upgrade()))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .unique_by(|cell| cell.borrow().name.clone())
+            .collect()
+    }
+
     /// Returns all uses of cells in this group. Uses constitute both reads and
     /// writes to cells.
     pub fn uses(assigns: &[ir::Assignment]) -> Vec<RRC<ir::Cell>> {
