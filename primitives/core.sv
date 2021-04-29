@@ -10,11 +10,11 @@
 
 module std_const #(
     parameter WIDTH = 32,
-    parameter value = 0
+    parameter VALUE = 0
 ) (
    output logic [WIDTH - 1:0] out
 );
-  assign out = value;
+  assign out = VALUE;
 endmodule
 
 module std_slice #(
