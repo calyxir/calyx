@@ -116,7 +116,7 @@ def run_fud(args, config):
             if data.typ == SourceType.Directory:
                 shutil.move(data.data.name, args.output_file)
             else:
-                with Path(args.output_file).open("w") as f:
-                    f.write(data.convert_to(SourceType.String).data)
+                with Path(args.output_file).open("wb") as f:
+                    f.write(data.convert_to(SourceType.Bytes).data)
         else:
             print(data.convert_to(SourceType.String).data)

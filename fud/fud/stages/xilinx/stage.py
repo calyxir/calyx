@@ -15,7 +15,7 @@ class XilinxStage(Stage):
             "futil",
             "xclbin",
             SourceType.Path,
-            SourceType.Directory,
+            SourceType.Stream,
             config,
             "compiles Calyx programs to Xilinx bitstreams",
         )
@@ -152,18 +152,17 @@ class XilinxStage(Stage):
 
         @self.step()
         def download_xclbin(
-            client: SourceType.UnTyped, tmpdir: SourceType.String
-        ) -> SourceType.Path:
+            client: SourceType.UnTyped,
+            tmpdir: SourceType.String,
+        ) -> SourceType.Stream:
             """
             Download xclbin file
             """
             local_tmpdir = TmpDir()
+            xclbin_path = Path(local_tmpdir.name) / "kernel.xclbin"
             with SCPClient(client.get_transport()) as scp:
-                scp.get(
-                    f"{tmpdir}/xclbin/kernel.xclbin",
-                    local_path=f"{local_tmpdir.name}/kernel.xclbin",
-                )
-            return local_tmpdir / "kernel.xclbin"
+                scp.get(f"{tmpdir}/xclbin/kernel.xclbin", local_path=str(xclbin_path))
+            return xclbin_path.open("rb")
 
         @self.step()
         def cleanup(client: SourceType.UnTyped, tmpdir: SourceType.String):
