@@ -228,6 +228,7 @@ impl AddressSpace {
         }
     }
 
+    #[allow(unused)]
     fn print_mapping(&self) {
         for addr in &self.space {
             println!("{:#04x} {}", addr.address, addr.name);
@@ -311,6 +312,76 @@ impl AxiChannel {
         for (name, width) in &self.outputs {
             module.add_output(&format!("{}{}", self.prefix, name), *width);
         }
+    }
+}
+
+pub(crate) struct Axi4Lite {
+    read_address: AxiChannel,
+    read_data: AxiChannel,
+    write_address: AxiChannel,
+    write_data: AxiChannel,
+    write_response: AxiChannel,
+}
+
+impl Axi4Lite {
+    pub fn new(address_width: u64, data_width: u64, prefix: &str) -> Self {
+        // read channels
+        let read_address = AxiChannel {
+            prefix: format!("{}AR", prefix),
+            direction: ChannelDirection::Recv,
+            state: vec![v::Decl::new_wire("raddr", address_width)],
+            inputs: vec![("ADDR".to_string(), address_width)],
+            outputs: vec![],
+        };
+        let read_data = AxiChannel {
+            prefix: format!("{}R", prefix),
+            direction: ChannelDirection::Send,
+            state: vec![v::Decl::new_reg("rdata", data_width)],
+            inputs: vec![],
+            outputs: vec![
+                ("DATA".to_string(), data_width),
+                ("RESP".to_string(), 1),
+            ],
+        };
+
+        // write channels
+        let write_address = AxiChannel {
+            prefix: format!("{}AW", prefix),
+            direction: ChannelDirection::Recv,
+            state: vec![v::Decl::new_reg("waddr", address_width)],
+            inputs: vec![("ADDR".to_string(), address_width)],
+            outputs: vec![],
+        };
+        let write_data = AxiChannel {
+            prefix: format!("{}W", prefix),
+            direction: ChannelDirection::Recv,
+            state: vec![v::Decl::new_wire("wdata", data_width)],
+            inputs: vec![("DATA".to_string(), data_width)],
+            outputs: vec![],
+        };
+        let write_response = AxiChannel {
+            prefix: format!("{}B", prefix),
+            direction: ChannelDirection::Send,
+            state: vec![],
+            inputs: vec![],
+            outputs: vec![("RESP".to_string(), 2)],
+        };
+        Self {
+            read_address,
+            read_data,
+            write_address,
+            write_data,
+            write_response,
+        }
+    }
+
+    pub fn add_ports_to(&self, module: &mut v::Module) {
+        // add channel ports
+        self.read_address.add_ports_to(module);
+        self.read_data.add_ports_to(module);
+        self.write_address.add_ports_to(module);
+        self.write_data.add_ports_to(module);
+        self.write_response.add_ports_to(module);
     }
 }
 
@@ -429,17 +500,8 @@ impl<'a> Synchronization<'a> {
     }
 }
 
-pub fn axi(
-    module: &mut v::Module,
-    address_width: u64,
-    data_width: u64,
-    memories: &[&str],
-) {
-    module.add_input("ACLK", 1);
-    module.add_input("ARESET", 1);
-
-    // define the address space of the control interface
-    let mut addr_space = AddressSpace::new(address_width, data_width)
+fn axi_address_space(address_width: u64, data_width: u64) -> AddressSpace {
+    AddressSpace::new(address_width, data_width)
         .address(
             0x0,
             "AP_CONTROL",
@@ -463,14 +525,25 @@ pub fn axi(
                 (0..1, "int_isr_done", 0..1, Flags::Write), // XXX should be read
                 (1..2, "int_isr_ready", 0..1, Flags::Write),
             ],
-        );
+        )
+}
 
+pub fn axi(
+    module: &mut v::Module,
+    address_width: u64,
+    data_width: u64,
+    memories: &[String],
+) {
+    module.add_input("ACLK", 1);
+    module.add_input("ARESET", 1);
+
+    // define the address space of the control interface
+    let mut addr_space = axi_address_space(address_width, data_width);
     addr_space.add_address(
         0x10,
         "TIMEOUT",
-        vec![(0..32, "timeout", 0..32, Flags::Write)],
+        vec![(0..32, "int_timeout", 0..32, Flags::Write)],
     );
-
     for (idx, memory_name) in memories.iter().enumerate() {
         let part0_name = format!("{}_0", memory_name);
         let part1_name = format!("{}_1", memory_name);
@@ -491,73 +564,29 @@ pub fn axi(
 
     module.add_output("ap_start", 1);
     module.add_input("ap_done", 1);
+    module.add_output("timeout", 32);
 
-    // read channels
-    let read_address = AxiChannel {
-        prefix: "AR".to_string(),
-        direction: ChannelDirection::Recv,
-        state: vec![v::Decl::new_wire("raddr", address_width)],
-        inputs: vec![("ADDR".to_string(), address_width)],
-        outputs: vec![],
-    };
-    let read_data = AxiChannel {
-        prefix: "R".to_string(),
-        direction: ChannelDirection::Send,
-        state: vec![v::Decl::new_reg("rdata", data_width)],
-        inputs: vec![],
-        outputs: vec![
-            ("DATA".to_string(), data_width),
-            ("RESP".to_string(), 1),
-        ],
-    };
-
-    // write channels
-    let write_address = AxiChannel {
-        prefix: "AW".to_string(),
-        direction: ChannelDirection::Recv,
-        state: vec![v::Decl::new_reg("waddr", address_width)],
-        inputs: vec![("ADDR".to_string(), address_width)],
-        outputs: vec![],
-    };
-    let write_data = AxiChannel {
-        prefix: "W".to_string(),
-        direction: ChannelDirection::Recv,
-        state: vec![v::Decl::new_wire("wdata", data_width)],
-        inputs: vec![("DATA".to_string(), data_width)],
-        outputs: vec![],
-    };
-    let write_response = AxiChannel {
-        prefix: "B".to_string(),
-        direction: ChannelDirection::Send,
-        state: vec![],
-        inputs: vec![],
-        outputs: vec![("RESP".to_string(), 2)],
-    };
-
-    // add channel ports
-    read_address.add_ports_to(module);
-    read_data.add_ports_to(module);
-    write_address.add_ports_to(module);
-    write_data.add_ports_to(module);
-    write_response.add_ports_to(module);
+    let axi4 = Axi4Lite::new(address_width, data_width, "");
+    axi4.add_ports_to(module);
 
     // synchronise channels
-    let read_controller = read_address.then(&read_data).prefix("r");
+    let read_controller = axi4.read_address.then(&axi4.read_data).prefix("r");
     read_controller.emit(module);
     module.add_stmt(v::Parallel::Assign("raddr".into(), "ARADDR".into()));
     module.add_stmt(v::Parallel::Assign("RDATA".into(), "rdata".into()));
     module.add_stmt(v::Parallel::Assign("RRESP".into(), v::Expr::new_int(0)));
 
-    let write_controller = write_address
-        .then(&write_data)
-        .then(&write_response)
+    let write_controller = axi4
+        .write_address
+        .then(&axi4.write_data)
+        .then(&axi4.write_response)
         .prefix("w");
     write_controller.emit(module);
     module.add_stmt(v::Parallel::Assign("wdata".into(), "WDATA".into()));
     module.add_stmt(v::Parallel::Assign("BRESP".into(), v::Expr::new_int(0)));
     let mut always = v::ParallelProcess::new_always();
     always.set_event(v::Sequential::new_posedge("ACLK"));
-    let mut ifelse = v::SequentialIfElse::new(write_address.handshake());
+    let mut ifelse = v::SequentialIfElse::new(axi4.write_address.handshake());
     ifelse.add_seq(v::Sequential::new_nonblk_assign(
         "waddr".into(),
         "AWADDR".into(),
@@ -565,9 +594,14 @@ pub fn axi(
     always.add_seq(ifelse.into());
     module.add_stmt(always);
 
-    addr_space.print_mapping();
-    println!("====\n");
-    addr_space.output_to_bus(module, read_data.handshake(), "raddr", "rdata");
+    // addr_space.print_mapping();
+    // println!("====\n");
+    addr_space.output_to_bus(
+        module,
+        axi4.read_data.handshake(),
+        "raddr",
+        "rdata",
+    );
 
     addr_space.internal_registers(module);
 
@@ -576,37 +610,39 @@ pub fn axi(
         "ap_start".into(),
         "int_ap_start".into(),
     ));
+    module
+        .add_stmt(v::Parallel::Assign("timeout".into(), "int_timeout".into()));
     addr_space.register_logic(
         module,
-        write_data.handshake(),
+        axi4.write_data.handshake(),
         "AP_CONTROL",
         "waddr",
         "wdata",
     );
     addr_space.register_logic(
         module,
-        write_data.handshake(),
+        axi4.write_data.handshake(),
         "GIE",
         "waddr",
         "wdata",
     );
     addr_space.register_logic(
         module,
-        write_data.handshake(),
+        axi4.write_data.handshake(),
         "IER",
         "waddr",
         "wdata",
     );
     addr_space.register_logic(
         module,
-        write_data.handshake(),
+        axi4.write_data.handshake(),
         "ISR",
         "waddr",
         "wdata",
     );
     addr_space.register_logic(
         module,
-        write_data.handshake(),
+        axi4.write_data.handshake(),
         "TIMEOUT",
         "waddr",
         "wdata",
@@ -616,18 +652,20 @@ pub fn axi(
         let part0_name = format!("{}_0", memory);
         let part1_name = format!("{}_1", memory);
         let addr_name = format!("addr_{}", memory);
-        module
-            .add_stmt(v::Parallel::Assign((*memory).into(), addr_name.into()));
+        module.add_stmt(v::Parallel::Assign(
+            memory.as_str().into(),
+            addr_name.into(),
+        ));
         addr_space.register_logic(
             module,
-            write_data.handshake(),
+            axi4.write_data.handshake(),
             &part0_name,
             "waddr",
             "wdata",
         );
         addr_space.register_logic(
             module,
-            write_data.handshake(),
+            axi4.write_data.handshake(),
             &part1_name,
             "waddr",
             "wdata",

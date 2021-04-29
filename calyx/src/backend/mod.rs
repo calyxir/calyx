@@ -3,3 +3,4 @@ mod axi;
 pub mod traits;
 pub mod verilog;
 pub mod xilinx;
+pub mod xilinx_xml;
