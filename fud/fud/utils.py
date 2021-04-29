@@ -94,17 +94,9 @@ class Conversions:
             tmpfile.write(data.read())
             return Path(tmpfile.name)
 
-    # @staticmethod
-    # def stream_to_string(data):
-    #     return data.read().decode("UTF-8")
-
     @staticmethod
     def stream_to_bytes(data):
         return data.read()
-
-    # @staticmethod
-    # def string_to_stream(data):
-    #     return BytesIO(data.encode("UTF-8"))
 
     @staticmethod
     def bytes_to_stream(data):
