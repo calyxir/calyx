@@ -185,7 +185,7 @@ class Stage:
     def _define_steps(self, input_data):
         pass
 
-    def run(self, input_data, sp):
+    def run(self, input_data, sp=None):
         assert isinstance(input_data, Source)
 
         # fill in input_data
@@ -193,9 +193,11 @@ class Stage:
 
         # run all the steps
         for step in self.steps:
-            sp.start_step(step.name)
+            if sp is not None:
+                sp.start_step(step.name)
             step()
-            sp.end_step()
+            if sp is not None:
+                sp.end_step()
 
         return self.final_output
 

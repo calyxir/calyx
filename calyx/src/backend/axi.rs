@@ -340,7 +340,7 @@ impl Axi4Lite {
             inputs: vec![],
             outputs: vec![
                 ("DATA".to_string(), data_width),
-                ("RESP".to_string(), 1),
+                ("RESP".to_string(), 2),
             ],
         };
 

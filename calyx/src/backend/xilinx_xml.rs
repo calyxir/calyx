@@ -124,14 +124,14 @@ impl Backend for XilinxXmlBackend {
                         port_type: "addressable",
                         base: "0x0",
                     },
-                    Port {
-                        name: "m00_axi",
-                        mode: "master",
-                        range: "0xFFFFFFFFFFFFFFFF",
-                        data_width: 64,
-                        port_type: "addressable",
-                        base: "0x0",
-                    },
+                    // Port {
+                    //     name: "m00_axi",
+                    //     mode: "master",
+                    //     range: "0xFFFFFFFFFFFFFFFF",
+                    //     data_width: 64,
+                    //     port_type: "addressable",
+                    //     base: "0x0",
+                    // },
                 ]
                 .into(),
                 args: vec![Arg {

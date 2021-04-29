@@ -7,7 +7,7 @@ import toml
 from . import check, errors, exec, utils
 from .config import Configuration
 from .registry import Registry
-from .stages import dahlia, futil, mrxl, systolic, vcdump, verilator, vivado
+from .stages import dahlia, futil, mrxl, systolic, vcdump, verilator, vivado, xilinx
 
 
 def register_stages(registry, cfg):
@@ -97,6 +97,9 @@ def register_stages(registry, cfg):
 
     # Vcdump
     registry.register(vcdump.VcdumpStage(cfg))
+
+    # Xilinx
+    registry.register(xilinx.XilinxStage(cfg))
 
 
 def display_config(args, cfg):

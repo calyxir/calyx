@@ -55,6 +55,10 @@ DEFAULT_CONFIGURATION = {
             "ssh_username": "",
             "remote": None,
         },
+        "xclbin": {
+            "ssh_host": "",
+            "ssh_username": "",
+        },
     },
 }
 
