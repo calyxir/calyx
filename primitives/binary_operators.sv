@@ -96,6 +96,17 @@ module std_fp_div_pipe #(
     end
 
     always_ff @(posedge clk) begin
+      if (!go) begin
+        running <= 0;
+        done <= 0;
+        out_remainder <= 0;
+        out_quotient <= 0;
+      end else if (start && left == 0) begin
+        out_remainder <= 0;
+        out_quotient <= 0;
+        done <= 1;
+      end
+
       if (start) begin
         running <= 1;
         done <= 0;

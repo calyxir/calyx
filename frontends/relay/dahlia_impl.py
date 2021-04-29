@@ -1,6 +1,7 @@
 from typing import List
 from calyx.py_ast import *
 from dahlia_utils import *
+from calyx.gen_exp import generate_exp_taylor_series_approximation
 
 
 ####################################################################################################
@@ -162,12 +163,12 @@ def bias_add(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.bias_add"""
     data, bias, res = fd.args[0], fd.args[1], fd.dest
     axis_attribute = fd.attributes.get_int("axis")
+    num_dims = get_dims(data.comp)
     axis = num_dims - 1 if axis_attribute == -1 else axis_attribute
 
     var_name = CHARACTER_I
     data_indices = ""
     args = data.comp.args
-    num_dims = get_dims(data.comp)
     for i in range(num_dims):
         # Determine loop body indices based on `axis` provided.
         size = args[i + 1]
@@ -195,11 +196,11 @@ def max_pool2d(fd: DahliaFuncDef) -> str:
     layout = fd.attributes.get_str("layout")
     ceil_mode = fd.attributes.get_int("ceil_mode")
     assert (
-            layout == "NCHW"
+        layout == "NCHW"
     ), f"""Layout \'{layout}\' is not currently supported for
         nn.max_pool2d; please use `NCHW`"""
     assert (
-            ceil_mode == False
+        ceil_mode == False
     ), "`ceil_mode` is not currently supported for nn.max_pool2d"
 
     args = res.comp.args
@@ -382,25 +383,18 @@ def softmax(fd: DahliaFuncDef) -> str:
     data_type = fd.data_type
     size0, size1, index_size0, index_size1 = data.comp.args[1:5]
 
-    # The value of `e` if Q = 32.16, otherwise `3`.
-    e = "13044242090" if "fix" in data_type else "3"
-
     return emit_dahlia_definition(
         fd,
-        f"""let e: {data_type} = {e};
+        f"""
         for (let i: ubit<{index_size0}> = 0..{size0}) {{
-          let {data.id.name}_expsum: {data_type} =
-              {'0.0' if 'fix' in data_type else '0'};
-
+          let expj: {data_type} = {'0.0' if 'fix' in data_type else '0'};
           for (let j: ubit<{index_size1}> = 0..{size1}) {{
-            let tmp1 = exp(e, {data.id.name}[i][j]);
-            {data.id.name}_expsum += tmp1;
+            let t1 = exp({data.id.name}[i][j]);
+            expj += t1;
           }}
           for (let k: ubit<{index_size1}> = 0..{size1}) {{
-            let tmp2 = exp(e, {data.id.name}[i][k]);
-            {res.id.name}[i][k] := tmp2;
-            {res.id.name}[i][k] :=
-            {res.id.name}[i][k] / {data.id.name}_expsum;
+            let t2 = exp({data.id.name}[i][k]);
+            {res.id.name}[i][k] := t2 / expj; 
           }}
         }}""",
     )
@@ -438,7 +432,7 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     for func_def in func_defs:
         id = func_def.function_id
         assert (
-                id in RelayCallNodes or id in BinaryOps
+            id in RelayCallNodes or id in BinaryOps
         ), f"{id} not supported for lowering."
 
         # If the function is a binary operation, use broadcasting.
@@ -450,11 +444,25 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     imports = [
         f"""import futil("primitives/math.futil")
         {{
+          def exp(x: {type}): {type};
           def sqrt(in: {type}): {type};
           def fp_sqrt(in: {type}): {type};
         }}"""
     ]
 
-    return dahlia_to_futil(
-        "\n".join(imports + dahlia_definitions)
+    exp_components = []
+    if any(f.function_id == "softmax" for f in func_defs):
+        # Import `exp` operator for softmax.
+        sep = type.find(",")
+        width = int(type[type.find("<") + 1 : sep])
+        int_width = int(type[sep + 1: type.find(">")])
+        exp_components = generate_exp_taylor_series_approximation(
+            degree=8,
+            width=width,
+            int_width=int_width,
+            is_signed="u" not in type,
+        )
+
+    return dahlia_to_calyx("\n".join(imports + dahlia_definitions)) + "\n".join(
+        [c.doc() for c in exp_components]
     )
