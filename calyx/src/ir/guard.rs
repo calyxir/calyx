@@ -66,6 +66,13 @@ impl Hash for Guard {
 
 /// Helper functions for the guard.
 impl Guard {
+    /// Checks whether the guard is Port type.
+    pub fn is_port(&self) -> bool {
+        match self {
+            Guard::True => false,
+            _ => true,
+        }
+    }
     /// Mutates a guard by calling `f` on every leaf in the
     /// guard tree and replacing the leaf with the guard that `f`
     /// returns.
