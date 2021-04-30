@@ -1,4 +1,5 @@
 //! Defines update methods for the various primitive cells in the Calyx standard library.
+
 use super::environment::Environment;
 use calyx::{errors::FutilResult, ir};
 
@@ -185,5 +186,5 @@ pub fn update_cell_state(
     }
 
     // TODO
-    Ok(*new_env)
+    Ok(new_env)
 }

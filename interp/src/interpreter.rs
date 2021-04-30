@@ -1,3 +1,6 @@
+//! Implementation of interpreter
+//! TODO: interpreting components (e.g. in multi-component programs)
+
 use super::{environment::Environment, primitives, update::UpdateQueue};
 use calyx::{errors::FutilResult, ir};
 use std::collections::HashMap;
@@ -14,6 +17,14 @@ pub fn eval_group(
 // XXX(karen): I think it will need another copy of environment for each
 // iteration of assignment statements
 /// Evaluates a group's assignment statements in an environment.
+/// How this is done:
+/// First, a new write-to environment is cloned from the original read-only environment.
+/// For each clock cycle (until the group's done signal is high):
+/// Then, each assignment statement is checked for its done signal is high.
+/// If that statement's done signal is high:
+/// If the assignment is combinational, it is immediately evaluated result and stored in the write-to environment.
+/// If it is not combinational, then it is added to an update queue, to be evaluated at the end of the current clock cycle.
+/// This continues until the group's done signal is high.
 fn eval_assigns(
     assigns: &[ir::Assignment],
     mut env: Environment,
@@ -24,17 +35,15 @@ fn eval_assigns(
     // Find the done signal in the sequence of assignments
     let done_assign = get_done_signal(assigns);
 
-    // e2 = Clone the current environment
+    // Clone the current environment
     let mut write_env = env.clone();
-
-    // Update queue
-    let uq = UpdateQueue::init(component.clone());
 
     // XXX: Prevent infinite loops. should probably be deleted later
     // (unless we want to display the clock cycle)?
     let mut counter = 0;
 
     // Filter out the assignment statements that are not only from cells.
+    // Reorder assignment statements??
     // XXX: for now, also excludes cells not in the env map
     let ok_assigns = assigns
         .iter()
@@ -46,10 +55,12 @@ fn eval_assigns(
         })
         .collect::<Vec<_>>();
 
-    // While done_assign.src is 0 (we use done_assign.src because done_assign.dst is not a cell's port; it should be a group's port)
+    // While done_assign.src is 0
+    // (we use done_assign.src because done_assign.dst is not a cell's port; it should be a group's port)
     while write_env.get_from_port(&cid, &done_assign.src.borrow()) == 0
         && counter < 5
     {
+        env = write_env.clone();
         // println!("Clock cycle {}", counter);
         /*println!(
             "state of done_cell {:1} : {:?} \n",
@@ -58,8 +69,10 @@ fn eval_assigns(
         );*/
         // "staging" updates
         //let mut iter_updates = write_env.clone();
+        // Update queue
+        let uq = UpdateQueue::init(component.clone());
 
-        // for assign in assigns
+        // Iterate through assignment statements
         for assign in &ok_assigns {
             // check if the assign.guard != 0
             // should it be evaluating the guard in write_env environment?
@@ -85,7 +98,8 @@ fn eval_assigns(
                 // update internal state of the cell and
                 // queue any required updates.
 
-                //determine if dst_cell is a combinational cell or not
+                //determine if dst_cell is a combinational cell or not.
+                // If so, it should be immediately evaluated.
                 if is_combinational(
                     &cid,
                     &dst_cell,
@@ -150,11 +164,11 @@ fn eval_assigns(
                         }
 
                         // update the cell state in write_env
-                        *write_env = primitives::update_cell_state(
+                        write_env = primitives::update_cell_state(
                             &dst_cell,
                             &inputs,
                             &outputs,
-                            write_env,
+                            &write_env,
                             component.clone(),
                         )?;
                     }
@@ -166,12 +180,12 @@ fn eval_assigns(
                     // get dst_cell's output port
                     let outputs = vec![assign.dst.borrow().name.clone()];
 
-                    uq.init_cells(&dst_cell, inputs, outputs, *write_env);
+                    uq.init_cells(&dst_cell, inputs, outputs, write_env);
                 }
             }
         }
         // write_env = iter_updates.do_tick()
-        write_env = &uq.do_tick(&write_env)?;
+        write_env = uq.do_tick(&write_env)?;
         counter += 1;
     }
 
@@ -180,7 +194,7 @@ fn eval_assigns(
         &done_cell,
         write_env.map.get(&done_cell)
     );*/
-    Ok(*write_env)
+    Ok(write_env)
 }
 
 /// Evaluate guard implementation

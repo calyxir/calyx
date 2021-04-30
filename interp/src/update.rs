@@ -5,7 +5,7 @@ use calyx::{
 };
 use std::collections::HashMap;
 
-/// Stores information for updates.
+/// Stores information for individual updates.
 #[derive(Clone, Debug)]
 pub struct Update {
     /// The cell to be updated
@@ -19,6 +19,7 @@ pub struct Update {
     pub vars: HashMap<String, u64>,
 }
 
+/// Queue of updates.
 #[derive(Clone, Debug)]
 pub struct UpdateQueue {
     pub component: String,
@@ -26,6 +27,7 @@ pub struct UpdateQueue {
 }
 
 impl UpdateQueue {
+    // TODO: incomplete
     pub fn init(component: String) -> Self {
         Self {
             component: component,
@@ -35,6 +37,9 @@ impl UpdateQueue {
         }
     }
     /// Initializes values for the update queue, i.e. for non-combinational cells
+    /// inputs : Vector of input...
+    /// outputs : Vector of output...
+    /// env : Environment
     #[allow(clippy::unnecessary_unwrap)]
     pub fn init_cells(
         mut self,
@@ -44,7 +49,7 @@ impl UpdateQueue {
         mut env: Environment,
     ) -> Self {
         let cell_r = env
-            .get_cell(&ir::Id::from(self.component), cell)
+            .get_cell(&ir::Id::from(self.component.clone()), cell)
             .unwrap_or_else(|| panic!("Cannot find cell with name"));
         // get the cell type
         match cell_r.borrow().type_name() {
@@ -85,6 +90,7 @@ impl UpdateQueue {
     }
 
     /// Convenience function to remove a particular cell's update from the update queue
+    /// TODO: what if I have reg0.in = (4) and reg0.in = (5) in the program?
     pub fn remove_update(&mut self, ucell: &ir::Id) {
         self.updates.retain(|u| u.cell != ucell);
     }
@@ -110,17 +116,21 @@ impl UpdateQueue {
                 self.component.clone(),
             );
             match updated {
-                Ok(updated_env) => {
-                    let updated_cell = updated_env
+                Ok(mut updated_env) => {
+                    let temp = updated_env.clone();
+                    let updated_cell = temp
                         .map
                         .get(&cid)
                         .unwrap_or_else(|| panic!("Can't get component's map"))
                         .get(&update.cell)
                         .clone();
+
                     match updated_cell {
                         Some(m) => {
-                            updated_env.put_cell(&cid, *m);
-                            env = &updated_env;
+                            updated_env.put_cell(&cid, (*m).clone());
+                            // TODO: how to correctly update env??
+                            //env = updated_env;
+                            //env.put_cell(&cid, (*m).clone());
                         }
                         _ => panic!("Could not apply update."),
                     }

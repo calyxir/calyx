@@ -1,28 +1,30 @@
+//! Environment for interpreter.
+
 //use super::{primitives, update};
 use calyx::ir;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 /// The environment to interpret a FuTIL program.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Environment {
+    /// Stores values of context.
     /// Maps component names to a mapping from the component's cell names to their ports' values.
     pub map: HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, u64>>>,
 
-    /// The context.
-    pub context: ir::Context,
-    // The vector of components.
-    //pub components: Vec<ir::Component>,
+    /// A reference to the context.
+    pub context: ir::RRC<ir::Context>,
 }
 
 /// Helper functions for the environment.
 impl Environment {
-    /// Construct an environment from a context
-    pub fn init(context: ir::Context) -> Self {
-        // TODO; moving context ok?
+    /// Construct an environment
+    /// ctx : A context from the IR
+    pub fn init(ctx: ir::RRC<ir::Context>) -> Self {
         Self {
-            map: Environment::construct_map(&context),
-            context: context,
+            map: Environment::construct_map(&*ctx.borrow()),
+            context: ctx.clone(),
         }
     }
 
@@ -57,6 +59,7 @@ impl Environment {
     }
 
     /// Puts a mapping from component to cell to port to val into map.
+    /// Should this function return the modified environment instead?
     pub fn put_cell(&mut self, comp: &ir::Id, cellport: HashMap<ir::Id, u64>) {
         self.map
             .entry(comp.clone())
@@ -72,8 +75,8 @@ impl Environment {
         comp: &ir::Id,
         cell: &ir::Id,
     ) -> Option<ir::RRC<ir::Cell>> {
-        let temp =
-            self.context.components.iter().find(|cm| cm.name == *comp)?;
+        let a = self.context.borrow();
+        let temp = a.components.iter().find(|cm| cm.name == *comp)?;
         temp.find_cell(&(cell.id))
     }
 

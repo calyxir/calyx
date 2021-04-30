@@ -21,19 +21,23 @@ pub struct GroupInterpreter {
 }
 
 impl GroupInterpreter {
+    /// Construct a GroupInterpreter
+    /// comp: Name of component the group is from
+    /// grp: The group to interpret
+    /// env: The initial environment
     pub fn init(
-        component: String,
-        group: ir::RRC<ir::Group>,
-        environment: Environment,
+        comp: String,
+        grp: ir::RRC<ir::Group>,
+        env: Environment,
     ) -> Self {
         Self {
-            component: component,
-            group: group,
-            environment: environment,
+            component: comp,
+            group: grp,
+            environment: env,
         }
     }
 
-    /// Interpret a group, given a context, component name, and group name
+    /// Interpret this group
     pub fn interpret(self) -> FutilResult<Environment> {
         // Print the initial state of the environment
         // self.environment.cell_state(self.component.clone());
