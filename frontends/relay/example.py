@@ -82,7 +82,7 @@ def vgg_net():
         batch_size=5,
         image_shape=(3, 224, 224),
         num_classes=10,
-        dtype="int32",
+        dtype="float32",
         num_layers=13,
         batch_norm=True,
     )

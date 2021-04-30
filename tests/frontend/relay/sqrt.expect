@@ -4,18 +4,18 @@ component main() -> () {
   cells {
     @external(1) x = std_mem_d2(32, 1, 4, 1, 3);
     @external(1) x1 = std_mem_d2(32, 1, 4, 1, 3);
-    sqrt_1_4_ = sqrt_1_4();
+    sqrt_1x4_ = sqrt_1x4();
   }
   wires {
 
   }
   control {
     seq {
-      invoke sqrt_1_4_(x0_0_read_data=x.read_data, x10_0_done=x1.done, x10_0_read_data=x1.read_data)(x0_0_addr0=x.addr0, x0_0_addr1=x.addr1, x10_0_write_data=x1.write_data, x10_0_write_en=x1.write_en, x10_0_addr0=x1.addr0, x10_0_addr1=x1.addr1);
+      invoke sqrt_1x4_(x0_0_read_data=x.read_data, x10_0_done=x1.done, x10_0_read_data=x1.read_data)(x0_0_addr0=x.addr0, x0_0_addr1=x.addr1, x10_0_write_data=x1.write_data, x10_0_write_en=x1.write_en, x10_0_addr0=x1.addr0, x10_0_addr1=x1.addr1);
     }
   }
 }
-component sqrt_1_4(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 1, x0_0_addr1: 3, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 3) {
+component sqrt_1x4(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 1, x0_0_addr1: 3, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 3) {
   cells {
     add0 = std_add(3);
     add1 = std_add(1);
@@ -30,7 +30,7 @@ component sqrt_1_4(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_
     le0 = std_le(1);
     le1 = std_le(3);
     sqrt0 = sqrt(32);
-    tmp_0 = std_reg(32);
+    tmp___0 = std_reg(32);
     x_read0_0 = std_reg(32);
   }
   wires {
@@ -55,9 +55,9 @@ component sqrt_1_4(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_
       let1[done] = j0.done;
     }
     group let2 {
-      tmp_0.in = sqrt0.out;
-      tmp_0.write_en = 1'd1;
-      let2[done] = tmp_0.done;
+      tmp___0.in = sqrt0.out;
+      tmp___0.write_en = 1'd1;
+      let2[done] = tmp___0.done;
     }
     group upd0<"static"=1> {
       x_read0_0.write_en = 1'd1;
@@ -70,7 +70,7 @@ component sqrt_1_4(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_
       x10_0_addr1 = j0.out;
       x10_0_addr0 = i0.out;
       x10_0_write_en = 1'd1;
-      x10_0_write_data = 1'd1 ? tmp_0.out;
+      x10_0_write_data = 1'd1 ? tmp___0.out;
       upd1[done] = x10_0_done ? 1'd1;
     }
     group upd2<"static"=1> {

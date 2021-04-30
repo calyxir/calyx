@@ -91,21 +91,26 @@ def emit_dahlia_loop(control_flow: Cell, body: str) -> str:
     return headers[-1]
 
 
-def dahlia_to_calyx(dahlia_definitions: str) -> str:
+def dahlia_to_calyx(imports: List[str], definitions: List[str]) -> str:
     """Takes in a string representation of a Dahlia
-    function definitions, and lowers it to Calyx.
+    imports and function definitions, and lowers it to Calyx.
     This does not include the `import` statements,
     nor the empty `main` component.
     """
+    dahlia_program = "\n".join(imports + definitions)
     with NamedTemporaryFile() as tf0, NamedTemporaryFile() as tf1:
-        tf0.write(bytes(dahlia_definitions, "UTF-8"))
+        tf0.write(bytes(dahlia_program, "UTF-8"))
         tf0.seek(0), tf1.seek(0)
         command = f"""fud e --from dahlia {tf0.name} --to futil > {tf1.name} -q"""
         subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).communicate()
 
-        components = tf1.read().decode()
+        components_or_error = tf1.read().decode()
+        assert (
+            "STDERR" not in components_or_error
+        ), f"Failed to lower Dahlia to Calyx: {components_or_error}"
+
         # Don't double-import the primitives library.
-        begin = components.find("component")
+        begin = components_or_error.find("component")
         # Don't import the empty main component.
-        end = components.find("component main() -> () {")
-        return components[begin:end]
+        end = components_or_error.find("component main() -> () {")
+        return components_or_error[begin:end]

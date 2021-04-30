@@ -4,18 +4,18 @@ component main() -> () {
   cells {
     @external(1) x = std_mem_d2(32, 1, 10, 1, 4);
     @external(1) x1 = std_mem_d2(32, 1, 10, 1, 4);
-    softmax_1_10_ = softmax_1_10();
+    softmax_1x10_ = softmax_1x10();
   }
   wires {
 
   }
   control {
     seq {
-      invoke softmax_1_10_(x0_0_read_data=x.read_data, x10_0_done=x1.done, x10_0_read_data=x1.read_data)(x0_0_addr0=x.addr0, x0_0_addr1=x.addr1, x10_0_write_data=x1.write_data, x10_0_write_en=x1.write_en, x10_0_addr0=x1.addr0, x10_0_addr1=x1.addr1);
+      invoke softmax_1x10_(x0_0_read_data=x.read_data, x10_0_done=x1.done, x10_0_read_data=x1.read_data)(x0_0_addr0=x.addr0, x0_0_addr1=x.addr1, x10_0_write_data=x1.write_data, x10_0_write_en=x1.write_en, x10_0_addr0=x1.addr0, x10_0_addr1=x1.addr1);
     }
   }
 }
-component softmax_1_10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 1, x0_0_addr1: 4, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 4) {
+component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 1, x0_0_addr1: 4, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 4) {
   cells {
     add0 = std_fp_sadd(32,16,16);
     add1 = std_add(4);
@@ -34,7 +34,7 @@ component softmax_1_10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
     div_pipe0 = std_fp_sdiv_pipe(32,16,16);
     exp0 = exp();
     exp1 = exp();
-    expj_0 = std_reg(32);
+    expj___0 = std_reg(32);
     fp_const0 = std_const(32,0);
     i0 = std_reg(1);
     j0 = std_reg(4);
@@ -42,8 +42,8 @@ component softmax_1_10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
     le0 = std_le(1);
     le1 = std_le(4);
     le2 = std_le(4);
-    t1_0 = std_reg(32);
-    t2_0 = std_reg(32);
+    t1___0 = std_reg(32);
+    t2___0 = std_reg(32);
     x_read0_0 = std_reg(32);
     x_read1_0 = std_reg(32);
   }
@@ -69,9 +69,9 @@ component softmax_1_10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
       let0[done] = i0.done;
     }
     group let1<"static"=1> {
-      expj_0.in = fp_const0.out;
-      expj_0.write_en = 1'd1;
-      let1[done] = expj_0.done;
+      expj___0.in = fp_const0.out;
+      expj___0.write_en = 1'd1;
+      let1[done] = expj___0.done;
     }
     group let2<"static"=1> {
       j0.in = const2.out;
@@ -79,9 +79,9 @@ component softmax_1_10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
       let2[done] = j0.done;
     }
     group let3 {
-      t1_0.in = exp0.out;
-      t1_0.write_en = 1'd1;
-      let3[done] = t1_0.done;
+      t1___0.in = exp0.out;
+      t1___0.write_en = 1'd1;
+      let3[done] = t1___0.done;
     }
     group let4<"static"=1> {
       k0.in = const5.out;
@@ -89,16 +89,16 @@ component softmax_1_10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
       let4[done] = k0.done;
     }
     group let5 {
-      t2_0.in = exp1.out;
-      t2_0.write_en = 1'd1;
-      let5[done] = t2_0.done;
+      t2___0.in = exp1.out;
+      t2___0.write_en = 1'd1;
+      let5[done] = t2___0.done;
     }
     group let6 {
       bin_read0_0.in = div_pipe0.out_quotient;
       bin_read0_0.write_en = div_pipe0.done;
       let6[done] = bin_read0_0.done;
-      div_pipe0.left = t2_0.out;
-      div_pipe0.right = expj_0.out;
+      div_pipe0.left = t2___0.out;
+      div_pipe0.right = expj___0.out;
       div_pipe0.go = !div_pipe0.done ? 1'd1;
     }
     group upd0<"static"=1> {
@@ -109,11 +109,11 @@ component softmax_1_10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
       upd0[done] = x_read0_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
-      expj_0.write_en = 1'd1;
-      add0.left = expj_0.out;
-      add0.right = t1_0.out;
-      expj_0.in = 1'd1 ? add0.out;
-      upd1[done] = expj_0.done ? 1'd1;
+      expj___0.write_en = 1'd1;
+      add0.left = expj___0.out;
+      add0.right = t1___0.out;
+      expj___0.in = 1'd1 ? add0.out;
+      upd1[done] = expj___0.done ? 1'd1;
     }
     group upd2<"static"=1> {
       j0.write_en = 1'd1;

@@ -5,18 +5,18 @@ component main() -> () {
     @external(1) x = std_mem_d2(32, 1, 4096, 1, 13);
     @external(1) y = std_mem_d2(32, 10, 4096, 4, 13);
     @external(1) x1 = std_mem_d2(32, 1, 10, 1, 4);
-    dense_1_10_ = dense_1_10();
+    dense_1x10_ = dense_1x10();
   }
   wires {
 
   }
   control {
     seq {
-      invoke dense_1_10_(x0_0_read_data=x.read_data, y0_0_read_data=y.read_data, x10_0_done=x1.done, x10_0_read_data=x1.read_data)(x0_0_addr0=x.addr0, x0_0_addr1=x.addr1, y0_0_addr0=y.addr0, y0_0_addr1=y.addr1, x10_0_write_data=x1.write_data, x10_0_write_en=x1.write_en, x10_0_addr0=x1.addr0, x10_0_addr1=x1.addr1);
+      invoke dense_1x10_(x0_0_read_data=x.read_data, y0_0_read_data=y.read_data, x10_0_done=x1.done, x10_0_read_data=x1.read_data)(x0_0_addr0=x.addr0, x0_0_addr1=x.addr1, y0_0_addr0=y.addr0, y0_0_addr1=y.addr1, x10_0_write_data=x1.write_data, x10_0_write_en=x1.write_en, x10_0_addr0=x1.addr0, x10_0_addr1=x1.addr1);
     }
   }
 }
-component dense_1_10(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 1, x0_0_addr1: 13, y0_0_write_data: 32, y0_0_write_en: 1, y0_0_addr0: 4, y0_0_addr1: 13, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 4) {
+component dense_1x10(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 1, x0_0_addr1: 13, y0_0_write_data: 32, y0_0_write_en: 1, y0_0_addr0: 4, y0_0_addr1: 13, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 4) {
   cells {
     add0 = std_add(13);
     add1 = std_add(4);
@@ -52,8 +52,8 @@ component dense_1_10(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_
     le4 = std_le(13);
     mult_pipe0 = std_smult_pipe(32);
     product_0 = std_reg(32);
-    transpose_y0_0 = std_mem_d2(32,4096,10,13,4);
-    transpose_y_read0_0 = std_reg(32);
+    transpose_y__0_0 = std_mem_d2(32,4096,10,13,4);
+    transpose_y___read0_0 = std_reg(32);
     x_read0_0 = std_reg(32);
     y_read0_0 = std_reg(32);
   }
@@ -113,7 +113,7 @@ component dense_1_10(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_
       bin_read0_0.write_en = mult_pipe0.done;
       let5[done] = bin_read0_0.done;
       mult_pipe0.left = x_read0_0.out;
-      mult_pipe0.right = transpose_y_read0_0.out;
+      mult_pipe0.right = transpose_y___read0_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
     group let6<"static"=1> {
@@ -129,11 +129,11 @@ component dense_1_10(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_
       upd0[done] = y_read0_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
-      transpose_y0_0.addr1 = i0.out;
-      transpose_y0_0.addr0 = j0.out;
-      transpose_y0_0.write_en = 1'd1;
-      transpose_y0_0.write_data = 1'd1 ? y_read0_0.out;
-      upd1[done] = transpose_y0_0.done ? 1'd1;
+      transpose_y__0_0.addr1 = i0.out;
+      transpose_y__0_0.addr0 = j0.out;
+      transpose_y__0_0.write_en = 1'd1;
+      transpose_y__0_0.write_data = 1'd1 ? y_read0_0.out;
+      upd1[done] = transpose_y__0_0.done ? 1'd1;
     }
     group upd2<"static"=1> {
       j0.write_en = 1'd1;
@@ -157,11 +157,11 @@ component dense_1_10(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_
       upd4[done] = x_read0_0.done ? 1'd1;
     }
     group upd5<"static"=1> {
-      transpose_y_read0_0.write_en = 1'd1;
-      transpose_y0_0.addr1 = j1.out;
-      transpose_y0_0.addr0 = k0.out;
-      transpose_y_read0_0.in = 1'd1 ? transpose_y0_0.read_data;
-      upd5[done] = transpose_y_read0_0.done ? 1'd1;
+      transpose_y___read0_0.write_en = 1'd1;
+      transpose_y__0_0.addr1 = j1.out;
+      transpose_y__0_0.addr0 = k0.out;
+      transpose_y___read0_0.in = 1'd1 ? transpose_y__0_0.read_data;
+      upd5[done] = transpose_y___read0_0.done ? 1'd1;
     }
     group upd6<"static"=1> {
       x10_0_addr1 = j1.out;
