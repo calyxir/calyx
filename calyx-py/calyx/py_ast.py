@@ -113,15 +113,9 @@ class HolePort(Port):
 class ConstantPort(Port):
     width: int
     value: int
-    representation: str = 'decimal'
 
     def doc(self) -> str:
-        if self.representation == 'decimal':
-            return f"{self.width}'d{self.value}"
-        if self.representation == 'binary':
-            return f"{self.width}'b{np.binary_repr(self.value, width=self.width)}"
-        if self.representation == 'hexadecimal':
-            return f"{self.width}'h{np.base_repr(self.value, base=16)}"
+        return f"{self.width}'d{self.value}"
 
 
 @dataclass
