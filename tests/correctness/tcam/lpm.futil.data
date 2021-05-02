@@ -8,31 +8,5 @@
       "is_signed": false,
       "width": 5
     }
-  },
-  "prefixes": {
-    "data": [
-      0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0
-    ],
-    "format": {
-      "numeric_type": "bitnum",
-      "is_signed": false,
-      "width": 32
-    }
-  },
-  "lengths": {
-    "data": [
-      0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0
-    ],
-    "format": {
-      "numeric_type": "bitnum",
-      "is_signed": false,
-      "width": 5
-    }
   }
 }
