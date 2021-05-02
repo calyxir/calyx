@@ -2,7 +2,6 @@ from __future__ import annotations  # Used for circular dependencies.
 from dataclasses import dataclass
 from typing import List, Union
 from calyx.utils import block
-import numpy as np
 
 
 @dataclass
