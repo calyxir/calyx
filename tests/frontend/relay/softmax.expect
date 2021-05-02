@@ -1,0 +1,560 @@
+import "primitives/std.lib";
+import "primitives/math.futil";
+component main() -> () {
+  cells {
+    @external(1) x = std_mem_d2(32, 1, 10, 1, 4);
+    @external(1) x1 = std_mem_d2(32, 1, 10, 1, 4);
+    softmax_1_10_ = softmax_1_10();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      invoke softmax_1_10_(x0_0_read_data=x.read_data, x10_0_done=x1.done, x10_0_read_data=x1.read_data)(x0_0_addr0=x.addr0, x0_0_addr1=x.addr1, x10_0_write_data=x1.write_data, x10_0_write_en=x1.write_en, x10_0_addr0=x1.addr0, x10_0_addr1=x1.addr1);
+    }
+  }
+}
+component softmax_1_10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 1, x0_0_addr1: 4, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 4) {
+  cells {
+    add0 = std_fp_sadd(32,16,16);
+    add1 = std_add(4);
+    add2 = std_add(4);
+    add3 = std_add(1);
+    bin_read0_0 = std_reg(32);
+    const0 = std_const(1,0);
+    const1 = std_const(1,0);
+    const2 = std_const(4,0);
+    const3 = std_const(4,9);
+    const4 = std_const(4,1);
+    const5 = std_const(4,0);
+    const6 = std_const(4,9);
+    const7 = std_const(4,1);
+    const8 = std_const(1,1);
+    div_pipe0 = std_fp_sdiv_pipe(32,16,16);
+    exp0 = exp();
+    exp1 = exp();
+    expj_0 = std_reg(32);
+    fp_const0 = std_const(32,0);
+    i0 = std_reg(1);
+    j0 = std_reg(4);
+    k0 = std_reg(4);
+    le0 = std_le(1);
+    le1 = std_le(4);
+    le2 = std_le(4);
+    t1_0 = std_reg(32);
+    t2_0 = std_reg(32);
+    x_read0_0 = std_reg(32);
+    x_read1_0 = std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = j0.out;
+      le1.right = const3.out;
+    }
+    group cond2<"static"=0> {
+      cond2[done] = 1'd1;
+      le2.left = k0.out;
+      le2.right = const6.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1<"static"=1> {
+      expj_0.in = fp_const0.out;
+      expj_0.write_en = 1'd1;
+      let1[done] = expj_0.done;
+    }
+    group let2<"static"=1> {
+      j0.in = const2.out;
+      j0.write_en = 1'd1;
+      let2[done] = j0.done;
+    }
+    group let3 {
+      t1_0.in = exp0.out;
+      t1_0.write_en = 1'd1;
+      let3[done] = t1_0.done;
+    }
+    group let4<"static"=1> {
+      k0.in = const5.out;
+      k0.write_en = 1'd1;
+      let4[done] = k0.done;
+    }
+    group let5 {
+      t2_0.in = exp1.out;
+      t2_0.write_en = 1'd1;
+      let5[done] = t2_0.done;
+    }
+    group let6 {
+      bin_read0_0.in = div_pipe0.out_quotient;
+      bin_read0_0.write_en = div_pipe0.done;
+      let6[done] = bin_read0_0.done;
+      div_pipe0.left = t2_0.out;
+      div_pipe0.right = expj_0.out;
+      div_pipe0.go = !div_pipe0.done ? 1'd1;
+    }
+    group upd0<"static"=1> {
+      x_read0_0.write_en = 1'd1;
+      x0_0_addr1 = j0.out;
+      x0_0_addr0 = i0.out;
+      x_read0_0.in = 1'd1 ? x0_0_read_data;
+      upd0[done] = x_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      expj_0.write_en = 1'd1;
+      add0.left = expj_0.out;
+      add0.right = t1_0.out;
+      expj_0.in = 1'd1 ? add0.out;
+      upd1[done] = expj_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      j0.write_en = 1'd1;
+      add1.left = j0.out;
+      add1.right = const4.out;
+      j0.in = 1'd1 ? add1.out;
+      upd2[done] = j0.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      x_read1_0.write_en = 1'd1;
+      x0_0_addr1 = k0.out;
+      x0_0_addr0 = i0.out;
+      x_read1_0.in = 1'd1 ? x0_0_read_data;
+      upd3[done] = x_read1_0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      x10_0_addr1 = k0.out;
+      x10_0_addr0 = i0.out;
+      x10_0_write_en = 1'd1;
+      x10_0_write_data = 1'd1 ? bin_read0_0.out;
+      upd4[done] = x10_0_done ? 1'd1;
+    }
+    group upd5<"static"=1> {
+      k0.write_en = 1'd1;
+      add2.left = k0.out;
+      add2.right = const7.out;
+      k0.in = 1'd1 ? add2.out;
+      upd5[done] = k0.done ? 1'd1;
+    }
+    group upd6<"static"=1> {
+      i0.write_en = 1'd1;
+      add3.left = i0.out;
+      add3.right = const8.out;
+      i0.in = 1'd1 ? add3.out;
+      upd6[done] = i0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          par {
+            let1;
+            seq {
+              let2;
+              while le1.out with cond1 {
+                seq {
+                  upd0;
+                  invoke exp0(x=x_read0_0.out)();
+                  let3;
+                  upd1;
+                  upd2;
+                }
+              }
+            }
+          }
+          let4;
+          while le2.out with cond2 {
+            seq {
+              upd3;
+              invoke exp1(x=x_read1_0.out)();
+              let5;
+              let6;
+              upd4;
+              upd5;
+            }
+          }
+          upd6;
+        }
+      }
+    }
+  }
+}
+component exp(x: 32) -> (out: 32) {
+  cells {
+    exponent_value = std_reg(32);
+    int_x = std_reg(32);
+    frac_x = std_reg(32);
+    m = std_reg(32);
+    and0 = std_and(32);
+    and1 = std_and(32);
+    rsh = std_rsh(32);
+    lt = std_slt(32);
+    c2 = std_const(32, 2);
+    c3 = std_const(32, 3);
+    c4 = std_const(32, 4);
+    c5 = std_const(32, 5);
+    c6 = std_const(32, 6);
+    c7 = std_const(32, 7);
+    c8 = std_const(32, 8);
+    one = std_const(32, 65536);
+    e = std_const(32, 178145);
+    negative_one = std_const(32, 4294901760);
+    product2 = std_reg(32);
+    product3 = std_reg(32);
+    product4 = std_reg(32);
+    product5 = std_reg(32);
+    product6 = std_reg(32);
+    product7 = std_reg(32);
+    product8 = std_reg(32);
+    p2 = std_reg(32);
+    p3 = std_reg(32);
+    p4 = std_reg(32);
+    p5 = std_reg(32);
+    p6 = std_reg(32);
+    p7 = std_reg(32);
+    p8 = std_reg(32);
+    sum1 = std_reg(32);
+    sum2 = std_reg(32);
+    sum3 = std_reg(32);
+    sum4 = std_reg(32);
+    add1 = std_fp_sadd(32, 16, 16);
+    add2 = std_fp_sadd(32, 16, 16);
+    add3 = std_fp_sadd(32, 16, 16);
+    add4 = std_fp_sadd(32, 16, 16);
+    mult_pipe1 = std_fp_smult_pipe(32, 16, 16);
+    mult_pipe2 = std_fp_smult_pipe(32, 16, 16);
+    mult_pipe3 = std_fp_smult_pipe(32, 16, 16);
+    mult_pipe4 = std_fp_smult_pipe(32, 16, 16);
+    mult_pipe5 = std_fp_smult_pipe(32, 16, 16);
+    mult_pipe6 = std_fp_smult_pipe(32, 16, 16);
+    mult_pipe7 = std_fp_smult_pipe(32, 16, 16);
+    mult_pipe8 = std_fp_smult_pipe(32, 16, 16);
+    div_pipe = std_fp_sdiv_pipe(32, 16, 16);
+    reciprocal_factorial2 = std_const(32, 32768);
+    reciprocal_factorial3 = std_const(32, 10923);
+    reciprocal_factorial4 = std_const(32, 2731);
+    reciprocal_factorial5 = std_const(32, 546);
+    reciprocal_factorial6 = std_const(32, 91);
+    reciprocal_factorial7 = std_const(32, 13);
+    reciprocal_factorial8 = std_const(32, 2);
+    pow1 = fp_pow();
+    pow2 = fp_pow();
+    pow3 = fp_pow();
+    pow4 = fp_pow();
+    pow5 = fp_pow();
+    pow6 = fp_pow();
+    pow7 = fp_pow();
+    pow8 = fp_pow();
+  }
+  wires {
+    group init<"static"=1> {
+      exponent_value.write_en = 1'd1;
+      exponent_value.in = x;
+      init[done] = exponent_value.done;
+    }
+    group split_bits {
+      and0.left = exponent_value.out;
+      and0.right = 32'd4294901760;
+      rsh.left = and0.out;
+      rsh.right = 32'd16;
+      and1.left = exponent_value.out;
+      and1.right = 32'd65535;
+      int_x.write_en = 1'd1;
+      frac_x.write_en = 1'd1;
+      int_x.in = rsh.out;
+      frac_x.in = and1.out;
+      split_bits[done] = int_x.done & frac_x.done ? 1'd1;
+    }
+    group negate {
+      mult_pipe1.left = exponent_value.out;
+      mult_pipe1.right = negative_one.out;
+      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
+      exponent_value.write_en = mult_pipe1.done;
+      exponent_value.in = mult_pipe1.out;
+      negate[done] = exponent_value.done;
+    }
+    group is_negative<"static"=0> {
+      lt.left = x;
+      lt.right = 32'd0;
+      is_negative[done] = 1'd1;
+    }
+    group reciprocal {
+      div_pipe.left = one.out;
+      div_pipe.right = m.out;
+      div_pipe.go = !div_pipe.done ? 1'd1;
+      m.write_en = div_pipe.done;
+      m.in = div_pipe.out_quotient;
+      reciprocal[done] = m.done;
+    }
+    group consume_pow2<"static"=1> {
+      p2.write_en = 1'd1;
+      p2.in = pow2.out;
+      consume_pow2[done] = p2.done ? 1'd1;
+    }
+    group consume_pow3<"static"=1> {
+      p3.write_en = 1'd1;
+      p3.in = pow3.out;
+      consume_pow3[done] = p3.done ? 1'd1;
+    }
+    group consume_pow4<"static"=1> {
+      p4.write_en = 1'd1;
+      p4.in = pow4.out;
+      consume_pow4[done] = p4.done ? 1'd1;
+    }
+    group consume_pow5<"static"=1> {
+      p5.write_en = 1'd1;
+      p5.in = pow5.out;
+      consume_pow5[done] = p5.done ? 1'd1;
+    }
+    group consume_pow6<"static"=1> {
+      p6.write_en = 1'd1;
+      p6.in = pow6.out;
+      consume_pow6[done] = p6.done ? 1'd1;
+    }
+    group consume_pow7<"static"=1> {
+      p7.write_en = 1'd1;
+      p7.in = pow7.out;
+      consume_pow7[done] = p7.done ? 1'd1;
+    }
+    group consume_pow8<"static"=1> {
+      p8.write_en = 1'd1;
+      p8.in = pow8.out;
+      consume_pow8[done] = p8.done ? 1'd1;
+    }
+    group mult_by_reciprocal_factorial2 {
+      mult_pipe2.left = p2.out;
+      mult_pipe2.right = reciprocal_factorial2.out;
+      mult_pipe2.go = !mult_pipe2.done ? 1'd1;
+      product2.write_en = mult_pipe2.done;
+      product2.in = mult_pipe2.out;
+      mult_by_reciprocal_factorial2[done] = product2.done;
+    }
+    group mult_by_reciprocal_factorial3 {
+      mult_pipe3.left = p3.out;
+      mult_pipe3.right = reciprocal_factorial3.out;
+      mult_pipe3.go = !mult_pipe3.done ? 1'd1;
+      product3.write_en = mult_pipe3.done;
+      product3.in = mult_pipe3.out;
+      mult_by_reciprocal_factorial3[done] = product3.done;
+    }
+    group mult_by_reciprocal_factorial4 {
+      mult_pipe4.left = p4.out;
+      mult_pipe4.right = reciprocal_factorial4.out;
+      mult_pipe4.go = !mult_pipe4.done ? 1'd1;
+      product4.write_en = mult_pipe4.done;
+      product4.in = mult_pipe4.out;
+      mult_by_reciprocal_factorial4[done] = product4.done;
+    }
+    group mult_by_reciprocal_factorial5 {
+      mult_pipe5.left = p5.out;
+      mult_pipe5.right = reciprocal_factorial5.out;
+      mult_pipe5.go = !mult_pipe5.done ? 1'd1;
+      product5.write_en = mult_pipe5.done;
+      product5.in = mult_pipe5.out;
+      mult_by_reciprocal_factorial5[done] = product5.done;
+    }
+    group mult_by_reciprocal_factorial6 {
+      mult_pipe6.left = p6.out;
+      mult_pipe6.right = reciprocal_factorial6.out;
+      mult_pipe6.go = !mult_pipe6.done ? 1'd1;
+      product6.write_en = mult_pipe6.done;
+      product6.in = mult_pipe6.out;
+      mult_by_reciprocal_factorial6[done] = product6.done;
+    }
+    group mult_by_reciprocal_factorial7 {
+      mult_pipe7.left = p7.out;
+      mult_pipe7.right = reciprocal_factorial7.out;
+      mult_pipe7.go = !mult_pipe7.done ? 1'd1;
+      product7.write_en = mult_pipe7.done;
+      product7.in = mult_pipe7.out;
+      mult_by_reciprocal_factorial7[done] = product7.done;
+    }
+    group mult_by_reciprocal_factorial8 {
+      mult_pipe8.left = p8.out;
+      mult_pipe8.right = reciprocal_factorial8.out;
+      mult_pipe8.go = !mult_pipe8.done ? 1'd1;
+      product8.write_en = mult_pipe8.done;
+      product8.in = mult_pipe8.out;
+      mult_by_reciprocal_factorial8[done] = product8.done;
+    }
+    group sum_round1_1<"static"=1> {
+      add1.left = frac_x.out;
+      add1.right = product2.out;
+      sum1.write_en = 1'd1;
+      sum1.in = add1.out;
+      sum_round1_1[done] = sum1.done;
+    }
+    group sum_round1_2<"static"=1> {
+      add2.left = product3.out;
+      add2.right = product4.out;
+      sum2.write_en = 1'd1;
+      sum2.in = add2.out;
+      sum_round1_2[done] = sum2.done;
+    }
+    group sum_round1_3<"static"=1> {
+      add3.left = product5.out;
+      add3.right = product6.out;
+      sum3.write_en = 1'd1;
+      sum3.in = add3.out;
+      sum_round1_3[done] = sum3.done;
+    }
+    group sum_round1_4<"static"=1> {
+      add4.left = product7.out;
+      add4.right = product8.out;
+      sum4.write_en = 1'd1;
+      sum4.in = add4.out;
+      sum_round1_4[done] = sum4.done;
+    }
+    group sum_round2_1<"static"=1> {
+      add1.left = sum1.out;
+      add1.right = sum2.out;
+      sum1.write_en = 1'd1;
+      sum1.in = add1.out;
+      sum_round2_1[done] = sum1.done;
+    }
+    group sum_round2_2<"static"=1> {
+      add2.left = sum3.out;
+      add2.right = sum4.out;
+      sum2.write_en = 1'd1;
+      sum2.in = add2.out;
+      sum_round2_2[done] = sum2.done;
+    }
+    group sum_round3_1<"static"=1> {
+      add1.left = sum1.out;
+      add1.right = sum2.out;
+      sum1.write_en = 1'd1;
+      sum1.in = add1.out;
+      sum_round3_1[done] = sum1.done;
+    }
+    group add_degree_zero<"static"=1> {
+      add1.left = sum1.out;
+      add1.right = one.out;
+      sum1.write_en = 1'd1;
+      sum1.in = add1.out;
+      add_degree_zero[done] = sum1.done;
+    }
+    group final_multiply {
+      mult_pipe1.left = pow1.out;
+      mult_pipe1.right = sum1.out;
+      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
+      m.write_en = mult_pipe1.done;
+      m.in = mult_pipe1.out;
+      final_multiply[done] = m.done;
+    }
+    out = m.out;
+  }
+  control {
+    seq {
+      init;
+      if lt.out with is_negative {
+        negate;
+      }
+      split_bits;
+      par {
+        invoke pow1(base=e.out, integer_exp=int_x.out)();
+        invoke pow2(base=frac_x.out, integer_exp=c2.out)();
+        invoke pow3(base=frac_x.out, integer_exp=c3.out)();
+        invoke pow4(base=frac_x.out, integer_exp=c4.out)();
+        invoke pow5(base=frac_x.out, integer_exp=c5.out)();
+        invoke pow6(base=frac_x.out, integer_exp=c6.out)();
+        invoke pow7(base=frac_x.out, integer_exp=c7.out)();
+        invoke pow8(base=frac_x.out, integer_exp=c8.out)();
+      }
+      par {
+        consume_pow2;
+        consume_pow3;
+        consume_pow4;
+        consume_pow5;
+        consume_pow6;
+        consume_pow7;
+        consume_pow8;
+      }
+      par {
+        mult_by_reciprocal_factorial2;
+        mult_by_reciprocal_factorial3;
+        mult_by_reciprocal_factorial4;
+        mult_by_reciprocal_factorial5;
+        mult_by_reciprocal_factorial6;
+        mult_by_reciprocal_factorial7;
+        mult_by_reciprocal_factorial8;
+      }
+      par {
+        sum_round1_1;
+        sum_round1_2;
+        sum_round1_3;
+        sum_round1_4;
+      }
+      par {
+        sum_round2_1;
+        sum_round2_2;
+      }
+      par {
+        sum_round3_1;
+      }
+      add_degree_zero;
+      final_multiply;
+      if lt.out with is_negative {
+        reciprocal;
+      }
+    }
+  }
+}
+component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
+  cells {
+    pow = std_reg(32);
+    count = std_reg(32);
+    mul = std_fp_smult_pipe(32, 16, 16);
+    lt = std_slt(32);
+    incr = std_sadd(32);
+  }
+  wires {
+    group init {
+      pow.in = 32'd65536;
+      pow.write_en = 1'd1;
+      count.in = 32'd0;
+      count.write_en = 1'd1;
+      init[done] = pow.done & count.done ? 1'd1;
+    }
+    group execute_mul {
+      mul.left = base;
+      mul.right = pow.out;
+      mul.go = !mul.done ? 1'd1;
+      pow.write_en = mul.done;
+      pow.in = mul.out;
+      execute_mul[done] = pow.done;
+    }
+    group incr_count {
+      incr.left = 32'd1;
+      incr.right = count.out;
+      count.in = incr.out;
+      count.write_en = 1'd1;
+      incr_count[done] = count.done;
+    }
+    group cond {
+      lt.left = count.out;
+      lt.right = integer_exp;
+      cond[done] = 1'd1;
+    }
+    out = pow.out;
+  }
+  control {
+    seq {
+      init;
+      while lt.out with cond {
+        par {
+          execute_mul;
+          incr_count;
+        }
+      }
+    }
+  }
+}

@@ -153,7 +153,7 @@ relay -r    Displays the Relay IR. Displays Calyx otherwise.
         print(relay_IR)
     else:
         # Compile and dump the Calyx.
-        print(emit_futil(relay_IR))
+        print(emit_calyx(relay_IR))
 
 
 if __name__ == "__main__":
