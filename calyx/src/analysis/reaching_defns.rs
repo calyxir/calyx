@@ -38,16 +38,19 @@ impl BitOr<&DefSet> for &DefSet {
     }
 }
 
-impl Sub<&HashSet<ir::Id>> for &DefSet {
+impl Sub<(&HashSet<ir::Id>, &HashSet<ir::Id>)> for &DefSet {
     type Output = DefSet;
 
-    fn sub(self, rhs: &HashSet<ir::Id>) -> Self::Output {
+    fn sub(self, rhs: (&HashSet<ir::Id>, &HashSet<ir::Id>)) -> Self::Output {
+        let (write, read) = rhs;
         DefSet {
             set: self
                 .set
                 .iter()
                 .cloned()
-                .filter(|(name, _)| !rhs.contains(name))
+                .filter(|(name, _)| {
+                    !(write.contains(name) && !read.contains(name))
+                })
                 .collect(),
         }
     }
@@ -170,7 +173,7 @@ fn build_reaching_def(
         }
         ir::Control::Enable(en) => {
             let writes =
-                ReadWriteSet::write_set(&en.group.borrow().assignments);
+                ReadWriteSet::must_write_set(&en.group.borrow().assignments);
             // for each write:
             // Killing all other reaching defns for that var
             // generating a new defn (Id, GROUP)
@@ -183,7 +186,20 @@ fn build_reaching_def(
                 .map(|x| x.borrow().name.clone())
                 .collect::<HashSet<_>>();
 
-            let mut cur_reach = &reach - &write_set;
+            let read_set =
+                ReadWriteSet::read_set(&en.group.borrow().assignments)
+                    .iter()
+                    .filter(|&x| match &x.borrow().prototype {
+                        ir::CellType::Primitive { name, .. } => {
+                            name == "std_reg"
+                        }
+                        _ => false,
+                    })
+                    .map(|x| x.borrow().name.clone())
+                    .collect::<HashSet<_>>();
+
+            // only kill a def if the value is not read.
+            let mut cur_reach = &reach - (&write_set, &read_set);
             cur_reach.extend(write_set, &en.group.borrow().name);
 
             rd.reach
