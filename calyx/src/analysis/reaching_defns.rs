@@ -26,6 +26,19 @@ impl DefSet {
             set: HashSet::new(),
         }
     }
+
+    fn kill(&self, writes: &HashSet<ir::Id>, reads: &HashSet<ir::Id>) -> Self {
+        DefSet {
+            set: self
+                .set
+                .iter()
+                .cloned()
+                .filter(|(name, _)| {
+                    !writes.contains(name) || !reads.contains(name)
+                })
+                .collect(),
+        }
+    }
 }
 
 impl BitOr<&DefSet> for &DefSet {
@@ -34,24 +47,6 @@ impl BitOr<&DefSet> for &DefSet {
     fn bitor(self, rhs: &DefSet) -> Self::Output {
         DefSet {
             set: &self.set | &rhs.set,
-        }
-    }
-}
-
-impl Sub<(&HashSet<ir::Id>, &HashSet<ir::Id>)> for &DefSet {
-    type Output = DefSet;
-
-    fn sub(self, rhs: (&HashSet<ir::Id>, &HashSet<ir::Id>)) -> Self::Output {
-        let (write, read) = rhs;
-        DefSet {
-            set: self
-                .set
-                .iter()
-                .cloned()
-                .filter(|(name, _)| {
-                    !(write.contains(name) && !read.contains(name))
-                })
-                .collect(),
         }
     }
 }
@@ -199,7 +194,7 @@ fn build_reaching_def(
                     .collect::<HashSet<_>>();
 
             // only kill a def if the value is not read.
-            let mut cur_reach = &reach - (&write_set, &read_set);
+            let mut cur_reach = reach.kill(&write_set, &read_set);
             cur_reach.extend(write_set, &en.group.borrow().name);
 
             rd.reach
