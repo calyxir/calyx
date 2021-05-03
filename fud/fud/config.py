@@ -56,8 +56,17 @@ DEFAULT_CONFIGURATION = {
             "remote": None,
         },
         "xclbin": {
+            "file_extensions": [".xclbin"],
+            "mode": "hw_emu",
+            "device": "xilinx_u50_gen3x16_xdma_201920_3",
             "ssh_host": "",
             "ssh_username": "",
+        },
+        "wdb": {
+            "file_extensions": [".wdb"],
+            "ssh_host": "",
+            "ssh_username": "",
+            "host": None,
         },
     },
 }

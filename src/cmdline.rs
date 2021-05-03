@@ -1,7 +1,7 @@
 use calyx::backend::traits::Backend;
 use calyx::backend::{
-    verilog::VerilogBackend, xilinx::XilinxInterfaceBackend,
-    xilinx_xml::XilinxXmlBackend,
+    verilog::VerilogBackend, xilinx::toplevel::XilinxInterfaceBackend,
+    xilinx::xml::XilinxXmlBackend,
 };
 use calyx::{errors::FutilResult, ir, utils::OutputFile};
 use itertools::Itertools;

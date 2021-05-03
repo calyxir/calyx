@@ -76,6 +76,22 @@ def register_stages(registry, cfg):
             "Compile Calyx to Calyx to externalize all external memory primitives",
         )
     )
+    registry.register(
+        futil.FutilStage(
+            cfg,
+            "axi-wrapper",
+            "-b xilinx",
+            "Generate the AXI wrapper for Calyx",
+        )
+    )
+    registry.register(
+        futil.FutilStage(
+            cfg,
+            "xilinx-xml",
+            "-b xilinx-xml",
+            "Generate the XML metadata for Xilinx",
+        )
+    )
 
     # Verilator
     registry.register(
@@ -100,6 +116,7 @@ def register_stages(registry, cfg):
 
     # Xilinx
     registry.register(xilinx.XilinxStage(cfg))
+    registry.register(xilinx.HwEmulationStage(cfg))
 
 
 def display_config(args, cfg):
