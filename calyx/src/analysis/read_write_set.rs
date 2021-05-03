@@ -51,7 +51,9 @@ impl ReadWriteSet {
             .collect()
     }
 
-    // TODO(griffin): add documentation
+    /// Return the name of the cells that these assignments write to for writes
+    /// that are guarded by true.
+    /// **Ignores** writes to group holes.
     pub fn must_write_set(assigns: &[ir::Assignment]) -> Vec<RRC<ir::Cell>> {
         assigns
             .iter()
