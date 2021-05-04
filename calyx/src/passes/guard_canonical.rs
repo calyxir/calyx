@@ -3,7 +3,6 @@ use crate::ir::{
     traversal::{Action, Named, VisResult, Visitor},
     LibrarySignatures,
 };
-use crate::errors::Error;
 use crate::ir::Guard;
 
 /// Canonicalizes the guard expression.
