@@ -37,12 +37,19 @@ class Relay2Calyx(ExprFunctor):
         """
         Provides a unique identification for a given name.
         If 'a' is seen twice, it will produce: 'a', 'a1'.
+        No `_` is used, in accordance with Relay variable
+        names.
         """
         id_number = self.id_dictionary[name]
         self.id_dictionary[name] += 1
         return f"{name}{'' if id_number == 0 else id_number}"
 
     def func_id(self, function_name):
+        """Used to uniquely identify functions with the
+        same name and arity. Eventually, we'll want to
+        instantiante two instances of the same Calyx
+        component. For example, if `foo_3x3` is seen twice,
+        it will produce: `foo_3x3`, `foo_3x3_1`"""
         id_number = self.id_dictionary[function_name]
         self.id_dictionary[function_name] += 1
         return function_name if id_number == 0 else f"{function_name}_{id_number}"
