@@ -6,12 +6,12 @@ from calyx.gen_exp import generate_exp_taylor_series_approximation
 
 ### Dahlia Implementations for Relay Call Nodes ###
 
-# Context: While working on a Relay frontend for
+# Context: While implementing a Relay frontend for
 # Calyx, we decided it would be easier to implement
 # the Relay calls, e.g. `nn.softmax`, in Dahlia, and
 # then lower the corresponding function definition
 # to a Calyx program. Perhaps one day these will
-# be replaced with Calyx components directly.
+# be replaced directly with Calyx components.
 #
 # In some cases, there is an effort to allow certain
 # functions to take on varying dimensionality,
