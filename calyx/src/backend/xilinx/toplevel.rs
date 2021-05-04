@@ -299,10 +299,10 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
         .map(|mem| format!("{}_send", mem).into())
         .collect();
     fsm::LinearFsm::new("host_txn_")
-        .state(&[], "ap_start") // idle state
-        .state(&copy_start_assigns, "memories_copied") // copy memory state
-        .state(&["kernel_start".into()], "kernel_done") // run kernel state
-        .state(&send_start_assigns, "memories_sent") // send memory to host state
+        .state("idle", &[], "ap_start") // idle state
+        .state("copy", &copy_start_assigns, "memories_copied") // copy memory state
+        .state("run_kernel", &["kernel_start".into()], "kernel_done") // run kernel state
+        .state("send", &send_start_assigns, "memories_sent") // send memory to host state
         .emit(module);
 
     // let state = "host_txn_state";

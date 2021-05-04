@@ -1,3 +1,4 @@
+use super::fsm;
 use crate::utils;
 use vast::v05::ast as v;
 
@@ -36,6 +37,7 @@ impl AxiChannel {
 
     pub fn then<'a>(&'a self, channel: &'a AxiChannel) -> Synchronization<'a> {
         Synchronization {
+            trigger: None,
             channels: vec![self, channel],
             prefix: String::new(),
         }
@@ -109,6 +111,7 @@ impl Axi4Lite {
 }
 
 pub(crate) struct Synchronization<'a> {
+    trigger: Option<v::Expr>,
     channels: Vec<&'a AxiChannel>,
     prefix: String,
 }
@@ -127,98 +130,21 @@ impl<'a> Synchronization<'a> {
         self
     }
 
-    fn state(&self) -> String {
-        format!("{}state", self.prefix)
+    pub fn trigger(mut self, expr: v::Expr) -> Self {
+        self.trigger = Some(expr);
+        self
     }
 
-    fn next(&self) -> String {
-        format!("{}next", self.prefix)
-    }
-
-    fn decls(&self, module: &mut v::Module) {
-        // fsm state registers
-        let state_width =
-            utils::math::bits_needed_for(self.channels.len() as u64);
-        module.add_decl(v::Decl::new_reg(&self.state(), state_width));
-        module.add_decl(v::Decl::new_reg(&self.next(), state_width));
-
+    pub fn emit(&self, module: &mut v::Module) {
         // internal channel wires
         for ch in &self.channels {
             ch.state.iter().for_each(|d| module.add_decl(d.clone()));
         }
-    }
 
-    fn state_assignments(&self, module: &mut v::Module) {
-        for (i, ch) in self.channels.iter().enumerate() {
-            let assign = v::Parallel::Assign(
-                ch.ready().into(),
-                v::Expr::new_eq(
-                    self.state().into(),
-                    v::Expr::new_int(i as i32),
-                ),
-            );
-            module.add_stmt(assign);
+        let mut fsm = fsm::LinearFsm::new(&self.prefix);
+        for ch in &self.channels {
+            fsm.add_state(&ch.prefix, &[ch.ready().into()], ch.valid());
         }
-    }
-
-    fn update(&self, module: &mut v::Module) {
-        let mut parallel = v::ParallelProcess::new_always();
-        parallel.set_event(v::Sequential::new_posedge("ACLK"));
-
-        let mut ifelse = v::SequentialIfElse::new("ARESET".into());
-        ifelse.add_seq(v::Sequential::new_nonblk_assign(
-            self.state().into(),
-            v::Expr::new_int(0),
-        ));
-        ifelse.set_else(v::Sequential::new_nonblk_assign(
-            self.state().into(),
-            self.next().into(),
-        ));
-
-        parallel.add_seq(ifelse.into());
-        module.add_stmt(parallel)
-    }
-
-    fn transition_block(&self, module: &mut v::Module) {
-        let mut parallel = v::ParallelProcess::new_always();
-        parallel.set_event(v::Sequential::Wildcard);
-
-        let mut case = v::Case::new(self.state().into());
-
-        for (i, ch) in self.channels.iter().enumerate() {
-            let this_state = i as i32;
-            let next_state = ((i + 1) % self.channels.len()) as i32;
-
-            let mut branch = v::CaseBranch::new(v::Expr::new_int(this_state));
-            let mut ifelse =
-                v::SequentialIfElse::new(v::Expr::new_ref(ch.valid()));
-            ifelse.add_seq(v::Sequential::new_blk_assign(
-                self.next().into(),
-                v::Expr::new_int(next_state),
-            ));
-            ifelse.set_else(v::Sequential::new_blk_assign(
-                self.next().into(),
-                v::Expr::new_int(this_state),
-            ));
-            branch.add_seq(ifelse.into());
-            case.add_branch(branch);
-        }
-
-        let mut default = v::CaseDefault::default();
-        default.add_seq(v::Sequential::new_blk_assign(
-            self.next().into(),
-            v::Expr::new_int(0),
-        ));
-        case.set_default(default);
-
-        parallel.add_seq(v::Sequential::new_case(case));
-        module.add_stmt(parallel)
-    }
-
-    pub fn emit(&self, module: &mut v::Module) {
-        self.decls(module);
-        self.state_assignments(module);
-        self.update(module);
-        self.transition_block(module);
+        fsm.emit(module);
     }
 }

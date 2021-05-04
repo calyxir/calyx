@@ -102,7 +102,7 @@ impl MemoryInterface for Axi4Lite {
         module.add_output("DONE", 1);
 
         // module mode fsm
-        module_mode_fsm(&mut module);
+        let mode_fsm = module_mode_fsm(&mut module);
 
         // Instantiate BRAM
         module.add_decl(v::Decl::new_array("bram", data_width, 32));
@@ -111,42 +111,16 @@ impl MemoryInterface for Axi4Lite {
         module.add_decl(v::Decl::new_reg("write_done", 1));
 
         // bram reading / writing logic
-        let mut bram_always = v::ParallelProcess::new_always();
-        bram_always.set_event(v::Sequential::new_posedge("ACLK"));
-        let mut if_we_bram = v::SequentialIfElse::new("WE".into());
-        if_we_bram.add_seq(v::Sequential::new_nonblk_assign(
-            v::Expr::new_index_expr("bram", "ADDR".into()),
-            "WRITE_DATA".into(),
-        ));
-        if_we_bram.add_seq(v::Sequential::new_nonblk_assign(
-            "write_done".into(),
-            v::Expr::new_int(1),
-        ));
-        let mut if_we_bram_else = v::SequentialIfElse::default();
-        if_we_bram_else.add_seq(v::Sequential::new_nonblk_assign(
-            "bram_data".into(),
-            v::Expr::new_index_expr("bram", "ADDR".into()),
-        ));
-        if_we_bram_else.add_seq(v::Sequential::new_nonblk_assign(
-            "write_done".into(),
-            v::Expr::new_int(0),
-        ));
-        if_we_bram.set_else(if_we_bram_else.into());
-
-        bram_always.add_seq(if_we_bram.into());
-        module.add_stmt(bram_always);
-        module.add_stmt(v::Parallel::Assign(
-            "READ_DATA".into(),
-            "bram_data".into(),
-        ));
-
-        module_mode_fsm(&mut module);
+        bram_logic(&mut module, &mode_fsm);
 
         module.add_decl(v::Decl::new_reg("int_addr_offset", address_width));
 
         // synchronise channels
-        let read_controller =
-            axi4.read_address.then(&axi4.read_data).prefix("r");
+        let read_controller = axi4
+            .read_address
+            .then(&axi4.read_data)
+            .prefix("r")
+            .trigger(mode_fsm.state_is("copy"));
         read_controller.emit(&mut module);
         module.add_stmt(v::Parallel::Assign("raddr".into(), "ARADDR".into()));
         module.add_stmt(v::Parallel::Assign("RDATA".into(), "rdata".into()));
@@ -190,7 +164,7 @@ impl MemoryInterface for Axi4Lite {
     }
 }
 
-fn module_mode_fsm(module: &mut v::Module) {
+fn module_mode_fsm(module: &mut v::Module) -> fsm::LinearFsm {
     // states:
     //  0: idle, start when COPY_TO_HOST
     //  1: copy to host, trans when
@@ -199,14 +173,43 @@ fn module_mode_fsm(module: &mut v::Module) {
     module.add_decl(v::Decl::new_wire("copy_done", 1));
     module.add_decl(v::Decl::new_wire("send_done", 1));
     // TODO assign to done signals when counter reaches limit
-    fsm::LinearFsm::new("memory_mode_")
-        .state(&[], "COPY_FROM_HOST") // idle: wait for COPY_FROM_HOST
-        .state(&[], "copy_done") // copy data from host into local bram
-        .state(&["COPY_FROM_HOST_DONE".into()], "SEND_TO_HOST") // act as bram
-        .state(&[], "send_done") // send data to host from local bram
-        .emit(module);
-    module.add_stmt(v::Parallel::Assign(
-        "SEND_TO_HOST_DONE".into(),
-        "send_done".into(),
+    let fsm = fsm::LinearFsm::new("memory_mode_")
+        .state("idle", &[], "COPY_FROM_HOST") // idle: wait for COPY_FROM_HOST
+        .state("copy", &[], "copy_done") // copy data from host into local bram
+        .state("bram", &["COPY_FROM_HOST_DONE".into()], "SEND_TO_HOST") // act as bram
+        .state("send", &[], "send_done") // send data to host from local bram
+        .state("done", &["SEND_TO_HOST_DONE".into()], "ARESET"); // send data to host from local bram
+    fsm.emit(module);
+    fsm
+}
+
+fn bram_logic(module: &mut v::Module, mode_fsm: &fsm::LinearFsm) {
+    let mut bram_always = v::ParallelProcess::new_always();
+    bram_always.set_event(v::Sequential::new_posedge("ACLK"));
+    let mut if_mode_bram = v::SequentialIfElse::new(mode_fsm.state_is("bram"));
+    let mut if_we_bram = v::SequentialIfElse::new("WE".into());
+    if_we_bram.add_seq(v::Sequential::new_nonblk_assign(
+        v::Expr::new_index_expr("bram", "ADDR".into()),
+        "WRITE_DATA".into(),
     ));
+    if_we_bram.add_seq(v::Sequential::new_nonblk_assign(
+        "write_done".into(),
+        v::Expr::new_int(1),
+    ));
+    let mut if_we_bram_else = v::SequentialIfElse::default();
+    if_we_bram_else.add_seq(v::Sequential::new_nonblk_assign(
+        "bram_data".into(),
+        v::Expr::new_index_expr("bram", "ADDR".into()),
+    ));
+    if_we_bram_else.add_seq(v::Sequential::new_nonblk_assign(
+        "write_done".into(),
+        v::Expr::new_int(0),
+    ));
+    if_we_bram.set_else(if_we_bram_else.into());
+    if_mode_bram.add_seq(if_we_bram.into());
+
+    bram_always.add_seq(if_mode_bram.into());
+    module.add_stmt(bram_always);
+    module
+        .add_stmt(v::Parallel::Assign("READ_DATA".into(), "bram_data".into()));
 }
