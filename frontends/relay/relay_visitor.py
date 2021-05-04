@@ -180,12 +180,14 @@ def relay_transforms(expr: Function) -> Function:
     mod = transforms(mod)
     return mod["main"]
 
+
 def check_naming_convention(func_defs: List[DahliaFuncDef]):
     """Names that begin with the prefix `__` are reserved for
     the Dahlia programs that are created to implement the
     respective Relay call nodes. For example, `__x` is
     not allowed, but `_x` and `x` are OK.
     """
+
     def is_reserved(x):
         return x[:2] == "__"
 
