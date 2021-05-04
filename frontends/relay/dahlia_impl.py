@@ -4,10 +4,22 @@ from dahlia_utils import *
 from calyx.gen_exp import generate_exp_taylor_series_approximation
 
 
-# Dahlia Implementations for Relay Call Nodes.
+### Dahlia Implementations for Relay Call Nodes ###
+
+# Context: While working on a Relay frontend for
+# Calyx, we decided it would be easier to implement
+# the Relay calls, e.g. `nn.softmax`, in Dahlia, and
+# then lower the corresponding function definition
+# to a Calyx program. Perhaps one day these will
+# be replaced with Calyx components directly.
+#
+# In some cases, there is an effort to allow certain
+# functions to take on varying dimensionality,
+# which trades off code readability for minimizing
+# duplication.
 #
 # Local variables declared in each Dahlia implementation
-# should use the `__` suffix, e.g. `x` should be named `x__`
+# should use the `__` prefix, e.g. `x` should be named `__x`
 # to avoid name collisions.
 
 
@@ -57,7 +69,7 @@ def broadcast(fd: DahliaFuncDef) -> str:
     index_zero = "[0]"
     op1_indices, op2_indices, res_indices = [], [], []
     for i in range(0, len(res_sizes)):
-        current_dimension = f"[{index_var}]"
+        current_dimension = f"[__{index_var}]"
         res_indices.append(current_dimension)
         if op1_dims > op2_dims and len(op2_sizes) <= i:
             op1_indices.append(current_dimension)
@@ -101,7 +113,7 @@ def expand_dims(fd: DahliaFuncDef) -> str:
     num_dims = get_dims(data.comp)
     for n in range(num_dims):
         # Determine loop body indices.
-        index = f"[{var_name}]"
+        index = f"[__{var_name}]"
         res_indices += index
         data_indices += index
         if axis == n + 1:
@@ -122,7 +134,7 @@ def negative(fd: DahliaFuncDef) -> str:
     num_dims = get_dims(inp.comp)
     for _ in range(num_dims):
         # Determine loop body indices.
-        indices += f"[{var_name}]"
+        indices += f"[__{var_name}]"
         var_name = next_character(var_name)
 
     zero = f"(0.0 as {fd.data_type})" if "fix" in fd.data_type else "0"
@@ -137,25 +149,25 @@ def batch_flatten(fd: DahliaFuncDef) -> str:
     var_name = CHARACTER_I
     args = data.comp.args
     data_indices = ""
-    res_indices = f"[{var_name}]"
+    res_indices = f"[__{var_name}]"
     num_dims = get_dims(data.comp)
     for i in range(num_dims):
-        index = f"[{var_name}]"
+        index = f"[__{var_name}]"
         data_indices += index
         var_name = next_character(var_name)
 
-    res_indices += f"[{var_name}]"
+    res_indices += f"[__{var_name}]"
 
     loop_body = f"""{res.id.name}{res_indices} := \
            {data.id.name}{data_indices}; \
-           {var_name} := {var_name} + 1;"""
+           __{var_name} := __{var_name} + 1;"""
     return emit_dahlia_definition(
         fd,
         (
             # We use args[3] because the output is
             # 2-dimensional (batch). Therefore, we want
             # the second index size in the memory.
-            f"let {var_name}: ubit<{args[3]}> = 0;",
+            f"let __{var_name}: ubit<{args[3]}> = 0;",
             emit_dahlia_loop(data, loop_body),
         ),
     )
@@ -175,7 +187,7 @@ def bias_add(fd: DahliaFuncDef) -> str:
         # Determine loop body indices based on `axis` provided.
         size = args[i + 1]
         index_size = args[i + 1 + num_dims]
-        index = f"[{var_name}]"
+        index = f"[__{var_name}]"
         if axis == i:
             # Determine which `var_name` is
             # associated with the bias index.
@@ -212,23 +224,23 @@ def max_pool2d(fd: DahliaFuncDef) -> str:
 
     return emit_dahlia_definition(
         fd,
-        f"""for (let b__: ubit<{width}> = 0..{size0}) {{
-          for (let c__: ubit<{width}> = 0..{size1}) {{
-            for (let y__: ubit<{width}> = 0..{size2}) {{
-              for (let x__: ubit<{width}> = 0..{size3}) {{
-                let stride_y__: ubit<{width}> = y__ * {strides[0]}/*strides[0]*/;
-                let stride_x__: ubit<{width}> = x__ * {strides[1]}/*strides[1]*/;
+        f"""for (let __b: ubit<{width}> = 0..{size0}) {{
+          for (let __c: ubit<{width}> = 0..{size1}) {{
+            for (let __y: ubit<{width}> = 0..{size2}) {{
+              for (let __x: ubit<{width}> = 0..{size3}) {{
+                let stride_y__: ubit<{width}> = __y * {strides[0]}/*strides[0]*/;
+                let stride_x__: ubit<{width}> = __x * {strides[1]}/*strides[1]*/;
 
-                let max__: {data_type} = {data.id.name}[b__][c__][stride_y__][stride_x__];
+                let max__: {data_type} = {data.id.name}[__b][__c][stride_y__][stride_x__];
                 for (let m__: ubit<{width}> = 0..{pool_size[0]}/*pool_size[0]*/) {{
                   for (let n__: ubit<{width}> = 0..{pool_size[1]}/*pool_size[1]*/) {{
                     let pool_y__: ubit<{width}> = stride_y__ + m__;
                     let pool_x__: ubit<{width}> = stride_x__ + n__;
-                    let current__: {data_type} = {data.id.name}[b__][c__][pool_y__][pool_x__];
+                    let current__: {data_type} = {data.id.name}[__b][__c][pool_y__][pool_x__];
                     if (current__ > max__) {{ max__ := current__; }}
                   }}
                 }}
-                {res.id.name}[b__][c__][y__][x__] := max__;
+                {res.id.name}[__b][__c][__y][__x] := max__;
               }} 
             }} 
           }} 
@@ -246,7 +258,7 @@ def relu(fd: DahliaFuncDef) -> str:
     indices = ""
     var_name = CHARACTER_I
     for _ in range(num_dims):
-        indices += f"[{var_name}]"
+        indices += f"[__{var_name}]"
         var_name = next_character(var_name)
 
     data_type = fd.data_type
@@ -268,7 +280,7 @@ def sqrt(fd: DahliaFuncDef) -> str:
     indices = ""
     var_name = CHARACTER_I
     for _ in range(num_dims):
-        indices += f"[{var_name}]"
+        indices += f"[__{var_name}]"
         var_name = next_character(var_name)
 
     loop_body = f"""let tmp__ = sqrt({data.id.name}{indices});
@@ -288,20 +300,21 @@ def batch_matmul(fd: DahliaFuncDef) -> str:
 
     return emit_dahlia_definition(
         fd,
-        f"""let transpose_{b.id.name}__: {type}[{M2_size0}][{M2_size2}][{M2_size1}];
-        for (let batch__: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
-          for (let i: ubit<{M2_index_size1}> = 0..{M2_size1}) {{
-            for (let j: ubit<{M2_index_size2}> = 0..{M2_size2}) {{
-              transpose_{b.id.name}__[batch__][j][i] := {b.id.name}[batch__][i][j];
+        f"""let __transpose_{b.id.name}: {type}[{M2_size0}][{M2_size2}][{M2_size1}];
+        for (let __batch: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
+          for (let __i: ubit<{M2_index_size1}> = 0..{M2_size1}) {{
+            for (let __j: ubit<{M2_index_size2}> = 0..{M2_size2}) {{
+              __transpose_{b.id.name}[__batch][__j][__i] := {b.id.name}[__batch][__i][__j];
             }}
           }}
         }}
-        for (let batch__: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
-          for (let i: ubit<{M1_index_size1}> = 0..{M1_size1}) {{
-            for (let j: ubit<{M2_index_size1}> = 0..{M2_size1}) {{
-              for (let k: ubit<{M2_index_size2}> = 0..{M2_size2}) {{
-                let product = {a.id.name}[batch__][i][k] * transpose_{b.id.name}__[batch__][k][j];
-              }} combine {{ {res.id.name}[batch__][i][j] += product; }}
+        ---
+        for (let __batch: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
+          for (let __i: ubit<{M1_index_size1}> = 0..{M1_size1}) {{
+            for (let __j: ubit<{M2_index_size1}> = 0..{M2_size1}) {{
+              for (let __k: ubit<{M2_index_size2}> = 0..{M2_size2}) {{
+                let __product = {a.id.name}[__batch][__i][__k] * __transpose_{b.id.name}[__batch][__k][__j];
+              }} combine {{ {res.id.name}[__batch][__i][__j] += __product; }}
             }}
           }}
         }}
@@ -319,17 +332,17 @@ def dense(fd: DahliaFuncDef) -> str:
 
     return emit_dahlia_definition(
         fd,
-        f"""let transpose_{b.id.name}__: {type}[{M2_size1}][{M2_size0}];
-        for (let i: ubit<{M2_index_size0}> = 0..{M2_size0}) {{
-          for (let j: ubit<{M2_index_size1}> = 0..{M2_size1}) {{
-            transpose_{b.id.name}__[j][i] := {b.id.name}[i][j];
+        f"""let __transpose_{b.id.name}: {type}[{M2_size1}][{M2_size0}];
+        for (let __i: ubit<{M2_index_size0}> = 0..{M2_size0}) {{
+          for (let __j: ubit<{M2_index_size1}> = 0..{M2_size1}) {{
+            __transpose_{b.id.name}[__j][__i] := {b.id.name}[__i][__j];
           }}
         }}
-        for (let i: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
-          for (let j: ubit<{M2_index_size0}> = 0..{M2_size0}) {{
-            for (let k: ubit<{M1_index_size1}> = 0..{M1_size1}) {{
-              let product = {a.id.name}[i][k] * transpose_{b.id.name}__[k][j];
-            }} combine {{ {res.id.name}[i][j] += product; }}
+        for (let __i: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
+          for (let __j: ubit<{M2_index_size0}> = 0..{M2_size0}) {{
+            for (let __k: ubit<{M1_index_size1}> = 0..{M1_size1}) {{
+              let __product = {a.id.name}[__i][__k] * __transpose_{b.id.name}[__k][__j];
+            }} combine {{ {res.id.name}[__i][__j] += __product; }}
           }}
         }}
         """,
@@ -349,24 +362,24 @@ def conv2d(fd: DahliaFuncDef) -> str:
 
     return emit_dahlia_definition(
         fd,
-        f"""for (let b__: ubit<32> = 0..{size0}) {{
-          for (let c__: ubit<32> = 0..{size1}) {{
-            for (let y__: ubit<32> = 0..{size2}) {{
-              for (let x__: ubit<32> = 0..{size3}) {{
-                let sum__: {data_type} = {'0.0' if 'fix' in data_type else '0'};
+        f"""for (let __b: ubit<32> = 0..{size0}) {{
+          for (let __c: ubit<32> = 0..{size1}) {{
+            for (let __y: ubit<32> = 0..{size2}) {{
+              for (let __x: ubit<32> = 0..{size3}) {{
+                let __sum: {data_type} = {'0.0' if 'fix' in data_type else '0'};
 
-                for (let k__: ubit<32> = 0..{channels}) {{
-                  for (let dy__: ubit<32> = 0..{kernel_size[1]}/*kernel_size[1]*/) {{
-                    for (let dx__: ubit<32> = 0..{kernel_size[0]}/*kernel_size[0]*/) {{
-                      let kernel_y__: ubit<32> = (/*strides[0]*/{strides[0]} * y__) + dy__;
-                      let kernel_x__: ubit<32> = (/*strides[1]*/{strides[1]} * x__) + dx__;
+                for (let __k: ubit<32> = 0..{channels}) {{
+                  for (let __dy: ubit<32> = 0..{kernel_size[1]}/*kernel_size[1]*/) {{
+                    for (let __dx: ubit<32> = 0..{kernel_size[0]}/*kernel_size[0]*/) {{
+                      let __kernel_y: ubit<32> = (/*strides[0]*/{strides[0]} * __y) + __dy;
+                      let __kernel_x: ubit<32> = (/*strides[1]*/{strides[1]} * __x) + __dx;
                     }} combine {{
-                      sum__ += {data.id.name}[b__][k__][kernel_y__][kernel_x__] *
-                             {weight.id.name}[c__][k__][dy__][dx__];
+                      __sum += {data.id.name}[__b][__k][__kernel_y][__kernel_x] *
+                             {weight.id.name}[__c][__k][__dy][__dx];
                     }}
                   }}
                 }}
-                {res.id.name}[b__][c__][y__][x__] := sum__;
+                {res.id.name}[__b][__c][__y][__x] := __sum;
               }} 
             }} 
           }} 
@@ -387,15 +400,15 @@ def softmax(fd: DahliaFuncDef) -> str:
     return emit_dahlia_definition(
         fd,
         f"""
-        for (let i: ubit<{index_size0}> = 0..{size0}) {{
-          let expj__: {data_type} = {f'(0.0 as {data_type})' if 'fix' in data_type else '0'};
-          for (let j: ubit<{index_size1}> = 0..{size1}) {{
-            let t1__ = exp({data.id.name}[i][j]);
-            expj__ += t1__;
+        for (let __i: ubit<{index_size0}> = 0..{size0}) {{
+          let __expj: {data_type} = {'0.0' if 'fix' in data_type else '0'};
+          for (let __j: ubit<{index_size1}> = 0..{size1}) {{
+            let __t1 = exp({data.id.name}[__i][__j]);
+            __expj += __t1;
           }}
-          for (let k: ubit<{index_size1}> = 0..{size1}) {{
-            let t2__ = exp({data.id.name}[i][k]);
-            {res.id.name}[i][k] := t2__ / expj__; 
+          for (let __k: ubit<{index_size1}> = 0..{size1}) {{
+            let __t2 = exp({data.id.name}[__i][__k]);
+            {res.id.name}[__i][__k] := __t2 / __expj; 
           }}
         }}""",
     )
