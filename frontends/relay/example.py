@@ -1,6 +1,6 @@
 import tvm
 from tvm import relay
-from relay_visitor import *
+import relay_visitor
 import sys
 
 
@@ -153,7 +153,7 @@ relay -r    Displays the Relay IR. Displays Calyx otherwise.
         print(relay_IR)
     else:
         # Compile and dump the Calyx.
-        print(emit_calyx(relay_IR))
+        print(relay_visitor.emit_calyx(relay_IR))
 
 
 if __name__ == "__main__":
