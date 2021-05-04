@@ -19,6 +19,14 @@ component max_pool2d_2x2x2x2(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, res
   cells {
     __b0 = std_reg(32);
     __c0 = std_reg(32);
+    __current_0 = std_reg(32);
+    __m0 = std_reg(32);
+    __max_0 = std_reg(32);
+    __n0 = std_reg(32);
+    __pool_x_0 = std_reg(32);
+    __pool_y_0 = std_reg(32);
+    __stride_x_0 = std_reg(32);
+    __stride_y_0 = std_reg(32);
     __x0 = std_reg(32);
     __y0 = std_reg(32);
     add0 = std_add(32);
@@ -51,7 +59,6 @@ component max_pool2d_2x2x2x2(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, res
     const7 = std_const(32,1);
     const8 = std_const(32,2);
     const9 = std_const(32,2);
-    current___0 = std_reg(32);
     gt0 = std_sgt(32);
     le0 = std_le(32);
     le1 = std_le(32);
@@ -59,13 +66,8 @@ component max_pool2d_2x2x2x2(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, res
     le3 = std_le(32);
     le4 = std_le(32);
     le5 = std_le(32);
-    m__0 = std_reg(32);
-    max___0 = std_reg(32);
     mult_pipe0 = std_mult_pipe(32);
     mult_pipe1 = std_mult_pipe(32);
-    n__0 = std_reg(32);
-    pool_x___0 = std_reg(32);
-    pool_y___0 = std_reg(32);
     slice0 = std_slice(32,2);
     slice1 = std_slice(32,2);
     slice10 = std_slice(32,2);
@@ -78,8 +80,6 @@ component max_pool2d_2x2x2x2(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, res
     slice7 = std_slice(32,3);
     slice8 = std_slice(32,2);
     slice9 = std_slice(32,2);
-    stride_x___0 = std_reg(32);
-    stride_y___0 = std_reg(32);
   }
   wires {
     group cond0<"static"=0> {
@@ -104,18 +104,18 @@ component max_pool2d_2x2x2x2(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, res
     }
     group cond4<"static"=0> {
       cond4[done] = 1'd1;
-      le4.left = m__0.out;
+      le4.left = __m0.out;
       le4.right = const11.out;
     }
     group cond5<"static"=0> {
       cond5[done] = 1'd1;
-      le5.left = n__0.out;
+      le5.left = __n0.out;
       le5.right = const13.out;
     }
     group cond6<"static"=0> {
       cond6[done] = 1'd1;
-      gt0.left = current___0.out;
-      gt0.right = max___0.out;
+      gt0.left = __current_0.out;
+      gt0.right = __max_0.out;
     }
     group let0<"static"=1> {
       __b0.in = const0.out;
@@ -128,18 +128,18 @@ component max_pool2d_2x2x2x2(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, res
       let1[done] = __c0.done;
     }
     group let10<"static"=1> {
-      pool_y___0.in = add0.out;
-      pool_y___0.write_en = 1'd1;
-      let10[done] = pool_y___0.done;
-      add0.left = stride_y___0.out;
-      add0.right = m__0.out;
+      __pool_y_0.in = add0.out;
+      __pool_y_0.write_en = 1'd1;
+      let10[done] = __pool_y_0.done;
+      add0.left = __stride_y_0.out;
+      add0.right = __m0.out;
     }
     group let11<"static"=1> {
-      pool_x___0.in = add1.out;
-      pool_x___0.write_en = 1'd1;
-      let11[done] = pool_x___0.done;
-      add1.left = stride_x___0.out;
-      add1.right = n__0.out;
+      __pool_x_0.in = add1.out;
+      __pool_x_0.write_en = 1'd1;
+      let11[done] = __pool_x_0.done;
+      add1.left = __stride_x_0.out;
+      add1.right = __n0.out;
     }
     group let2<"static"=1> {
       __y0.in = const4.out;
@@ -160,9 +160,9 @@ component max_pool2d_2x2x2x2(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, res
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
     group let5<"static"=1> {
-      stride_y___0.in = bin_read0_0.out;
-      stride_y___0.write_en = 1'd1;
-      let5[done] = stride_y___0.done;
+      __stride_y_0.in = bin_read0_0.out;
+      __stride_y_0.write_en = 1'd1;
+      let5[done] = __stride_y_0.done;
     }
     group let6<"static"=4> {
       bin_read1_0.in = mult_pipe1.out;
@@ -173,64 +173,64 @@ component max_pool2d_2x2x2x2(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, res
       mult_pipe1.go = !mult_pipe1.done ? 1'd1;
     }
     group let7<"static"=1> {
-      stride_x___0.in = bin_read1_0.out;
-      stride_x___0.write_en = 1'd1;
-      let7[done] = stride_x___0.done;
+      __stride_x_0.in = bin_read1_0.out;
+      __stride_x_0.write_en = 1'd1;
+      let7[done] = __stride_x_0.done;
     }
     group let8<"static"=1> {
-      m__0.in = const10.out;
-      m__0.write_en = 1'd1;
-      let8[done] = m__0.done;
+      __m0.in = const10.out;
+      __m0.write_en = 1'd1;
+      let8[done] = __m0.done;
     }
     group let9<"static"=1> {
-      n__0.in = const12.out;
-      n__0.write_en = 1'd1;
-      let9[done] = n__0.done;
+      __n0.in = const12.out;
+      __n0.write_en = 1'd1;
+      let9[done] = __n0.done;
     }
     group upd0<"static"=1> {
-      max___0.write_en = 1'd1;
+      __max_0.write_en = 1'd1;
       data0_0_0_0_addr3 = slice3.out;
-      slice3.in = stride_x___0.out;
+      slice3.in = __stride_x_0.out;
       data0_0_0_0_addr2 = slice2.out;
-      slice2.in = stride_y___0.out;
+      slice2.in = __stride_y_0.out;
       data0_0_0_0_addr1 = slice1.out;
       slice1.in = __c0.out;
       data0_0_0_0_addr0 = slice0.out;
       slice0.in = __b0.out;
-      max___0.in = 1'd1 ? data0_0_0_0_read_data;
-      upd0[done] = max___0.done ? 1'd1;
+      __max_0.in = 1'd1 ? data0_0_0_0_read_data;
+      upd0[done] = __max_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
-      current___0.write_en = 1'd1;
+      __current_0.write_en = 1'd1;
       data0_0_0_0_addr3 = slice7.out;
-      slice7.in = pool_x___0.out;
+      slice7.in = __pool_x_0.out;
       data0_0_0_0_addr2 = slice6.out;
-      slice6.in = pool_y___0.out;
+      slice6.in = __pool_y_0.out;
       data0_0_0_0_addr1 = slice5.out;
       slice5.in = __c0.out;
       data0_0_0_0_addr0 = slice4.out;
       slice4.in = __b0.out;
-      current___0.in = 1'd1 ? data0_0_0_0_read_data;
-      upd1[done] = current___0.done ? 1'd1;
+      __current_0.in = 1'd1 ? data0_0_0_0_read_data;
+      upd1[done] = __current_0.done ? 1'd1;
     }
     group upd2<"static"=1> {
-      max___0.write_en = 1'd1;
-      max___0.in = 1'd1 ? current___0.out;
-      upd2[done] = max___0.done ? 1'd1;
+      __max_0.write_en = 1'd1;
+      __max_0.in = 1'd1 ? __current_0.out;
+      upd2[done] = __max_0.done ? 1'd1;
     }
     group upd3<"static"=1> {
-      n__0.write_en = 1'd1;
-      add2.left = n__0.out;
+      __n0.write_en = 1'd1;
+      add2.left = __n0.out;
       add2.right = const14.out;
-      n__0.in = 1'd1 ? add2.out;
-      upd3[done] = n__0.done ? 1'd1;
+      __n0.in = 1'd1 ? add2.out;
+      upd3[done] = __n0.done ? 1'd1;
     }
     group upd4<"static"=1> {
-      m__0.write_en = 1'd1;
-      add3.left = m__0.out;
+      __m0.write_en = 1'd1;
+      add3.left = __m0.out;
       add3.right = const15.out;
-      m__0.in = 1'd1 ? add3.out;
-      upd4[done] = m__0.done ? 1'd1;
+      __m0.in = 1'd1 ? add3.out;
+      upd4[done] = __m0.done ? 1'd1;
     }
     group upd5<"static"=1> {
       result0_0_0_0_addr3 = slice11.out;
@@ -242,7 +242,7 @@ component max_pool2d_2x2x2x2(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, res
       result0_0_0_0_addr0 = slice8.out;
       slice8.in = __b0.out;
       result0_0_0_0_write_en = 1'd1;
-      result0_0_0_0_write_data = 1'd1 ? max___0.out;
+      result0_0_0_0_write_data = 1'd1 ? __max_0.out;
       upd5[done] = result0_0_0_0_done ? 1'd1;
     }
     group upd6<"static"=1> {

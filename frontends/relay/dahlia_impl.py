@@ -228,19 +228,19 @@ def max_pool2d(fd: DahliaFuncDef) -> str:
           for (let __c: ubit<{width}> = 0..{size1}) {{
             for (let __y: ubit<{width}> = 0..{size2}) {{
               for (let __x: ubit<{width}> = 0..{size3}) {{
-                let stride_y__: ubit<{width}> = __y * {strides[0]}/*strides[0]*/;
-                let stride_x__: ubit<{width}> = __x * {strides[1]}/*strides[1]*/;
+                let __stride_y: ubit<{width}> = __y * {strides[0]}/*strides[0]*/;
+                let __stride_x: ubit<{width}> = __x * {strides[1]}/*strides[1]*/;
 
-                let max__: {data_type} = {data.id.name}[__b][__c][stride_y__][stride_x__];
-                for (let m__: ubit<{width}> = 0..{pool_size[0]}/*pool_size[0]*/) {{
-                  for (let n__: ubit<{width}> = 0..{pool_size[1]}/*pool_size[1]*/) {{
-                    let pool_y__: ubit<{width}> = stride_y__ + m__;
-                    let pool_x__: ubit<{width}> = stride_x__ + n__;
-                    let current__: {data_type} = {data.id.name}[__b][__c][pool_y__][pool_x__];
-                    if (current__ > max__) {{ max__ := current__; }}
+                let __max: {data_type} = {data.id.name}[__b][__c][__stride_y][__stride_x];
+                for (let __m: ubit<{width}> = 0..{pool_size[0]}/*pool_size[0]*/) {{
+                  for (let __n: ubit<{width}> = 0..{pool_size[1]}/*pool_size[1]*/) {{
+                    let __pool_y: ubit<{width}> = __stride_y + __m;
+                    let __pool_x: ubit<{width}> = __stride_x + __n;
+                    let __current: {data_type} = {data.id.name}[__b][__c][__pool_y][__pool_x];
+                    if (__current > __max) {{ __max := __current; }}
                   }}
                 }}
-                {res.id.name}[__b][__c][__y][__x] := max__;
+                {res.id.name}[__b][__c][__y][__x] := __max;
               }} 
             }} 
           }} 
@@ -283,8 +283,8 @@ def sqrt(fd: DahliaFuncDef) -> str:
         indices += f"[__{var_name}]"
         var_name = next_character(var_name)
 
-    loop_body = f"""let tmp__ = sqrt({data.id.name}{indices});
-                    {res.id.name}{indices} := tmp__;"""
+    loop_body = f"""let __tmp = sqrt({data.id.name}{indices});
+                    {res.id.name}{indices} := __tmp;"""
     return emit_dahlia_definition(fd, emit_dahlia_loop(data, loop_body))
 
 

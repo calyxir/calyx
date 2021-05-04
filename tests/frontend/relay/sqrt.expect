@@ -19,6 +19,7 @@ component sqrt_1x4(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_
   cells {
     __i0 = std_reg(1);
     __j0 = std_reg(3);
+    __tmp_0 = std_reg(32);
     add0 = std_add(3);
     add1 = std_add(1);
     const0 = std_const(1,0);
@@ -30,7 +31,6 @@ component sqrt_1x4(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_
     le0 = std_le(1);
     le1 = std_le(3);
     sqrt0 = sqrt(32);
-    tmp___0 = std_reg(32);
     x_read0_0 = std_reg(32);
   }
   wires {
@@ -55,9 +55,9 @@ component sqrt_1x4(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_
       let1[done] = __j0.done;
     }
     group let2 {
-      tmp___0.in = sqrt0.out;
-      tmp___0.write_en = 1'd1;
-      let2[done] = tmp___0.done;
+      __tmp_0.in = sqrt0.out;
+      __tmp_0.write_en = 1'd1;
+      let2[done] = __tmp_0.done;
     }
     group upd0<"static"=1> {
       x_read0_0.write_en = 1'd1;
@@ -70,7 +70,7 @@ component sqrt_1x4(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_
       x10_0_addr1 = __j0.out;
       x10_0_addr0 = __i0.out;
       x10_0_write_en = 1'd1;
-      x10_0_write_data = 1'd1 ? tmp___0.out;
+      x10_0_write_data = 1'd1 ? __tmp_0.out;
       upd1[done] = x10_0_done ? 1'd1;
     }
     group upd2<"static"=1> {
