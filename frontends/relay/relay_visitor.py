@@ -106,8 +106,8 @@ class Relay2Calyx(ExprFunctor):
             # Append arity to Calyx component name.
             dims = "x".join([str(i) for i in get_dimension_sizes(dest.comp)])
 
-            # Given two functions with the same operator and arity,
-            # append a unique identifier to the second. Eventually,
+            # Given functions with the same operator and arity,
+            # append a unique identifier to the preceding. Eventually,
             # we may want to use the same component and different
             # instances. This will require careful manipulation
             # of input and output ports of the two components.
