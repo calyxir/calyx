@@ -17,6 +17,8 @@ component main() -> () {
 }
 component sqrt_1x4(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 1, x0_0_addr1: 3, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 3) {
   cells {
+    __i0 = std_reg(1);
+    __j0 = std_reg(3);
     add0 = std_add(3);
     add1 = std_add(1);
     const0 = std_const(1,0);
@@ -25,8 +27,6 @@ component sqrt_1x4(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_
     const3 = std_const(3,3);
     const4 = std_const(3,1);
     const5 = std_const(1,1);
-    i0 = std_reg(1);
-    j0 = std_reg(3);
     le0 = std_le(1);
     le1 = std_le(3);
     sqrt0 = sqrt(32);
@@ -36,23 +36,23 @@ component sqrt_1x4(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_
   wires {
     group cond0<"static"=0> {
       cond0[done] = 1'd1;
-      le0.left = i0.out;
+      le0.left = __i0.out;
       le0.right = const1.out;
     }
     group cond1<"static"=0> {
       cond1[done] = 1'd1;
-      le1.left = j0.out;
+      le1.left = __j0.out;
       le1.right = const3.out;
     }
     group let0<"static"=1> {
-      i0.in = const0.out;
-      i0.write_en = 1'd1;
-      let0[done] = i0.done;
+      __i0.in = const0.out;
+      __i0.write_en = 1'd1;
+      let0[done] = __i0.done;
     }
     group let1<"static"=1> {
-      j0.in = const2.out;
-      j0.write_en = 1'd1;
-      let1[done] = j0.done;
+      __j0.in = const2.out;
+      __j0.write_en = 1'd1;
+      let1[done] = __j0.done;
     }
     group let2 {
       tmp___0.in = sqrt0.out;
@@ -61,31 +61,31 @@ component sqrt_1x4(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_
     }
     group upd0<"static"=1> {
       x_read0_0.write_en = 1'd1;
-      x0_0_addr1 = j0.out;
-      x0_0_addr0 = i0.out;
+      x0_0_addr1 = __j0.out;
+      x0_0_addr0 = __i0.out;
       x_read0_0.in = 1'd1 ? x0_0_read_data;
       upd0[done] = x_read0_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
-      x10_0_addr1 = j0.out;
-      x10_0_addr0 = i0.out;
+      x10_0_addr1 = __j0.out;
+      x10_0_addr0 = __i0.out;
       x10_0_write_en = 1'd1;
       x10_0_write_data = 1'd1 ? tmp___0.out;
       upd1[done] = x10_0_done ? 1'd1;
     }
     group upd2<"static"=1> {
-      j0.write_en = 1'd1;
-      add0.left = j0.out;
+      __j0.write_en = 1'd1;
+      add0.left = __j0.out;
       add0.right = const4.out;
-      j0.in = 1'd1 ? add0.out;
-      upd2[done] = j0.done ? 1'd1;
+      __j0.in = 1'd1 ? add0.out;
+      upd2[done] = __j0.done ? 1'd1;
     }
     group upd3<"static"=1> {
-      i0.write_en = 1'd1;
-      add1.left = i0.out;
+      __i0.write_en = 1'd1;
+      add1.left = __i0.out;
       add1.right = const5.out;
-      i0.in = 1'd1 ? add1.out;
-      upd3[done] = i0.done ? 1'd1;
+      __i0.in = 1'd1 ? add1.out;
+      upd3[done] = __i0.done ? 1'd1;
     }
   }
   control {

@@ -18,6 +18,16 @@ component main() -> () {
 }
 component batch_matmul_4x7x7(a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_data: 32, b0_0_0_done: 1, x0_0_0_read_data: 32, x0_0_0_done: 1) -> (a0_0_0_write_data: 32, a0_0_0_write_en: 1, a0_0_0_addr0: 3, a0_0_0_addr1: 3, a0_0_0_addr2: 3, b0_0_0_write_data: 32, b0_0_0_write_en: 1, b0_0_0_addr0: 3, b0_0_0_addr1: 3, b0_0_0_addr2: 3, x0_0_0_write_data: 32, x0_0_0_write_en: 1, x0_0_0_addr0: 3, x0_0_0_addr1: 3, x0_0_0_addr2: 3) {
   cells {
+    __batch0 = std_reg(3);
+    __batch1 = std_reg(3);
+    __i0 = std_reg(3);
+    __i1 = std_reg(3);
+    __j0 = std_reg(3);
+    __j1 = std_reg(3);
+    __k0 = std_reg(3);
+    __product_0 = std_reg(32);
+    __transpose_b0_0_0 = std_mem_d3(32,4,5,7,3,3,3);
+    __transpose_b_read0_0 = std_reg(32);
     a_read0_0 = std_reg(32);
     add0 = std_add(3);
     add1 = std_add(3);
@@ -28,8 +38,6 @@ component batch_matmul_4x7x7(a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_d
     add6 = std_add(3);
     add7 = std_add(3);
     b_read0_0 = std_reg(32);
-    batch__0 = std_reg(3);
-    batch__1 = std_reg(3);
     bin_read0_0 = std_reg(32);
     const0 = std_const(3,0);
     const1 = std_const(3,3);
@@ -52,11 +60,6 @@ component batch_matmul_4x7x7(a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_d
     const7 = std_const(3,1);
     const8 = std_const(3,1);
     const9 = std_const(3,0);
-    i0 = std_reg(3);
-    i1 = std_reg(3);
-    j0 = std_reg(3);
-    j1 = std_reg(3);
-    k0 = std_reg(3);
     le0 = std_le(3);
     le1 = std_le(3);
     le2 = std_le(3);
@@ -65,187 +68,184 @@ component batch_matmul_4x7x7(a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_d
     le5 = std_le(3);
     le6 = std_le(3);
     mult_pipe0 = std_smult_pipe(32);
-    product_0 = std_reg(32);
-    transpose_b__0_0_0 = std_mem_d3(32,4,5,7,3,3,3);
-    transpose_b___read0_0 = std_reg(32);
   }
   wires {
     group cond0<"static"=0> {
       cond0[done] = 1'd1;
-      le0.left = batch__0.out;
+      le0.left = __batch0.out;
       le0.right = const1.out;
     }
     group cond1<"static"=0> {
       cond1[done] = 1'd1;
-      le1.left = i0.out;
+      le1.left = __i0.out;
       le1.right = const3.out;
     }
     group cond2<"static"=0> {
       cond2[done] = 1'd1;
-      le2.left = j0.out;
+      le2.left = __j0.out;
       le2.right = const5.out;
     }
     group cond3<"static"=0> {
       cond3[done] = 1'd1;
-      le3.left = batch__1.out;
+      le3.left = __batch1.out;
       le3.right = const10.out;
     }
     group cond4<"static"=0> {
       cond4[done] = 1'd1;
-      le4.left = i1.out;
+      le4.left = __i1.out;
       le4.right = const12.out;
     }
     group cond5<"static"=0> {
       cond5[done] = 1'd1;
-      le5.left = j1.out;
+      le5.left = __j1.out;
       le5.right = const14.out;
     }
     group cond6<"static"=0> {
       cond6[done] = 1'd1;
-      le6.left = k0.out;
+      le6.left = __k0.out;
       le6.right = const16.out;
     }
     group let0<"static"=1> {
-      batch__0.in = const0.out;
-      batch__0.write_en = 1'd1;
-      let0[done] = batch__0.done;
+      __batch0.in = const0.out;
+      __batch0.write_en = 1'd1;
+      let0[done] = __batch0.done;
     }
     group let1<"static"=1> {
-      i0.in = const2.out;
-      i0.write_en = 1'd1;
-      let1[done] = i0.done;
+      __i0.in = const2.out;
+      __i0.write_en = 1'd1;
+      let1[done] = __i0.done;
     }
     group let2<"static"=1> {
-      j0.in = const4.out;
-      j0.write_en = 1'd1;
-      let2[done] = j0.done;
+      __j0.in = const4.out;
+      __j0.write_en = 1'd1;
+      let2[done] = __j0.done;
     }
     group let3<"static"=1> {
-      batch__1.in = const9.out;
-      batch__1.write_en = 1'd1;
-      let3[done] = batch__1.done;
+      __batch1.in = const9.out;
+      __batch1.write_en = 1'd1;
+      let3[done] = __batch1.done;
     }
     group let4<"static"=1> {
-      i1.in = const11.out;
-      i1.write_en = 1'd1;
-      let4[done] = i1.done;
+      __i1.in = const11.out;
+      __i1.write_en = 1'd1;
+      let4[done] = __i1.done;
     }
     group let5<"static"=1> {
-      j1.in = const13.out;
-      j1.write_en = 1'd1;
-      let5[done] = j1.done;
+      __j1.in = const13.out;
+      __j1.write_en = 1'd1;
+      let5[done] = __j1.done;
     }
     group let6<"static"=1> {
-      k0.in = const15.out;
-      k0.write_en = 1'd1;
-      let6[done] = k0.done;
+      __k0.in = const15.out;
+      __k0.write_en = 1'd1;
+      let6[done] = __k0.done;
     }
     group let7<"static"=4> {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
       let7[done] = bin_read0_0.done;
       mult_pipe0.left = a_read0_0.out;
-      mult_pipe0.right = transpose_b___read0_0.out;
+      mult_pipe0.right = __transpose_b_read0_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
     group let8<"static"=1> {
-      product_0.in = bin_read0_0.out;
-      product_0.write_en = 1'd1;
-      let8[done] = product_0.done;
+      __product_0.in = bin_read0_0.out;
+      __product_0.write_en = 1'd1;
+      let8[done] = __product_0.done;
     }
     group upd0<"static"=1> {
       b_read0_0.write_en = 1'd1;
-      b0_0_0_addr2 = j0.out;
-      b0_0_0_addr1 = i0.out;
-      b0_0_0_addr0 = batch__0.out;
+      b0_0_0_addr2 = __j0.out;
+      b0_0_0_addr1 = __i0.out;
+      b0_0_0_addr0 = __batch0.out;
       b_read0_0.in = 1'd1 ? b0_0_0_read_data;
       upd0[done] = b_read0_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
-      transpose_b__0_0_0.addr2 = i0.out;
-      transpose_b__0_0_0.addr1 = j0.out;
-      transpose_b__0_0_0.addr0 = batch__0.out;
-      transpose_b__0_0_0.write_en = 1'd1;
-      transpose_b__0_0_0.write_data = 1'd1 ? b_read0_0.out;
-      upd1[done] = transpose_b__0_0_0.done ? 1'd1;
+      __transpose_b0_0_0.addr2 = __i0.out;
+      __transpose_b0_0_0.addr1 = __j0.out;
+      __transpose_b0_0_0.addr0 = __batch0.out;
+      __transpose_b0_0_0.write_en = 1'd1;
+      __transpose_b0_0_0.write_data = 1'd1 ? b_read0_0.out;
+      upd1[done] = __transpose_b0_0_0.done ? 1'd1;
     }
     group upd10<"static"=1> {
-      i1.write_en = 1'd1;
-      add6.left = i1.out;
+      __i1.write_en = 1'd1;
+      add6.left = __i1.out;
       add6.right = const19.out;
-      i1.in = 1'd1 ? add6.out;
-      upd10[done] = i1.done ? 1'd1;
+      __i1.in = 1'd1 ? add6.out;
+      upd10[done] = __i1.done ? 1'd1;
     }
     group upd11<"static"=1> {
-      batch__1.write_en = 1'd1;
-      add7.left = batch__1.out;
+      __batch1.write_en = 1'd1;
+      add7.left = __batch1.out;
       add7.right = const20.out;
-      batch__1.in = 1'd1 ? add7.out;
-      upd11[done] = batch__1.done ? 1'd1;
+      __batch1.in = 1'd1 ? add7.out;
+      upd11[done] = __batch1.done ? 1'd1;
     }
     group upd2<"static"=1> {
-      j0.write_en = 1'd1;
-      add0.left = j0.out;
+      __j0.write_en = 1'd1;
+      add0.left = __j0.out;
       add0.right = const6.out;
-      j0.in = 1'd1 ? add0.out;
-      upd2[done] = j0.done ? 1'd1;
+      __j0.in = 1'd1 ? add0.out;
+      upd2[done] = __j0.done ? 1'd1;
     }
     group upd3<"static"=1> {
-      i0.write_en = 1'd1;
-      add1.left = i0.out;
+      __i0.write_en = 1'd1;
+      add1.left = __i0.out;
       add1.right = const7.out;
-      i0.in = 1'd1 ? add1.out;
-      upd3[done] = i0.done ? 1'd1;
+      __i0.in = 1'd1 ? add1.out;
+      upd3[done] = __i0.done ? 1'd1;
     }
     group upd4<"static"=1> {
-      batch__0.write_en = 1'd1;
-      add2.left = batch__0.out;
+      __batch0.write_en = 1'd1;
+      add2.left = __batch0.out;
       add2.right = const8.out;
-      batch__0.in = 1'd1 ? add2.out;
-      upd4[done] = batch__0.done ? 1'd1;
+      __batch0.in = 1'd1 ? add2.out;
+      upd4[done] = __batch0.done ? 1'd1;
     }
     group upd5<"static"=1> {
       a_read0_0.write_en = 1'd1;
-      a0_0_0_addr2 = k0.out;
-      a0_0_0_addr1 = i1.out;
-      a0_0_0_addr0 = batch__1.out;
+      a0_0_0_addr2 = __k0.out;
+      a0_0_0_addr1 = __i1.out;
+      a0_0_0_addr0 = __batch1.out;
       a_read0_0.in = 1'd1 ? a0_0_0_read_data;
       upd5[done] = a_read0_0.done ? 1'd1;
     }
     group upd6<"static"=1> {
-      transpose_b___read0_0.write_en = 1'd1;
-      transpose_b__0_0_0.addr2 = j1.out;
-      transpose_b__0_0_0.addr1 = k0.out;
-      transpose_b__0_0_0.addr0 = batch__1.out;
-      transpose_b___read0_0.in = 1'd1 ? transpose_b__0_0_0.read_data;
-      upd6[done] = transpose_b___read0_0.done ? 1'd1;
+      __transpose_b_read0_0.write_en = 1'd1;
+      __transpose_b0_0_0.addr2 = __j1.out;
+      __transpose_b0_0_0.addr1 = __k0.out;
+      __transpose_b0_0_0.addr0 = __batch1.out;
+      __transpose_b_read0_0.in = 1'd1 ? __transpose_b0_0_0.read_data;
+      upd6[done] = __transpose_b_read0_0.done ? 1'd1;
     }
     group upd7<"static"=1> {
-      x0_0_0_addr2 = j1.out;
-      x0_0_0_addr1 = i1.out;
-      x0_0_0_addr0 = batch__1.out;
+      x0_0_0_addr2 = __j1.out;
+      x0_0_0_addr1 = __i1.out;
+      x0_0_0_addr0 = __batch1.out;
       x0_0_0_write_en = 1'd1;
       add3.left = x0_0_0_read_data;
-      add3.right = product_0.out;
-      x0_0_0_addr2 = j1.out;
-      x0_0_0_addr1 = i1.out;
-      x0_0_0_addr0 = batch__1.out;
+      add3.right = __product_0.out;
+      x0_0_0_addr2 = __j1.out;
+      x0_0_0_addr1 = __i1.out;
+      x0_0_0_addr0 = __batch1.out;
       x0_0_0_write_data = 1'd1 ? add3.out;
       upd7[done] = x0_0_0_done ? 1'd1;
     }
     group upd8<"static"=1> {
-      k0.write_en = 1'd1;
-      add4.left = k0.out;
+      __k0.write_en = 1'd1;
+      add4.left = __k0.out;
       add4.right = const17.out;
-      k0.in = 1'd1 ? add4.out;
-      upd8[done] = k0.done ? 1'd1;
+      __k0.in = 1'd1 ? add4.out;
+      upd8[done] = __k0.done ? 1'd1;
     }
     group upd9<"static"=1> {
-      j1.write_en = 1'd1;
-      add5.left = j1.out;
+      __j1.write_en = 1'd1;
+      add5.left = __j1.out;
       add5.right = const18.out;
-      j1.in = 1'd1 ? add5.out;
-      upd9[done] = j1.done ? 1'd1;
+      __j1.in = 1'd1 ? add5.out;
+      upd9[done] = __j1.done ? 1'd1;
     }
   }
   control {

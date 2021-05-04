@@ -79,7 +79,7 @@ def emit_dahlia_loop(control_flow: Cell, body: str) -> str:
     for i in range(num_dims):
         size = args[i + 1]
         idx_size = args[i + 1 + num_dims]
-        headers.append(f"for (let {var_name}: ubit<{idx_size}> = 0..{size})")
+        headers.append(f"for (let __{var_name}: ubit<{idx_size}> = 0..{size})")
         var_name = next_character(var_name)
 
     headers.reverse()

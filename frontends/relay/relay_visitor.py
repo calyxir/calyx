@@ -180,12 +180,35 @@ def relay_transforms(expr: Function) -> Function:
     mod = transforms(mod)
     return mod["main"]
 
+def check_naming_convention(func_defs: List[DahliaFuncDef]):
+    """Names that begin with the prefix `__` are reserved for
+    the Dahlia programs that are created to implement the
+    respective Relay call nodes. For example, `__x` is
+    not allowed, but `_x` and `x` are OK.
+    """
+    def is_reserved(x):
+        return x[:2] == "__"
+
+    for f in func_defs:
+        variables = [v.id.name for v in f.args + [f.dest]]
+        reserved_variables = list(filter(is_reserved, variables))
+        if reserved_variables:
+            raise Exception(
+                f"Relay call node: `{f.function_id}` violates the naming convention. No "
+                "variables should be prefixed with `__`. This is reserved for Dahlia "
+                "local variables used before lowering to Calyx. Offending variable name(s): "
+                f"{', '.join(reserved_variables)}"
+            )
+
 
 def emit_calyx(program) -> str:
     """Lowers a Relay function to a Calyx program."""
     relay_program = relay_transforms(program)
     visitor = Relay2Calyx()
     main, func_defs = visitor.visit(relay_program)
+
+    check_naming_convention(func_defs)
+
     return "\n".join(
         (
             Program(
