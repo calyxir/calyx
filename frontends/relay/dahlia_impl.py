@@ -14,9 +14,8 @@ from calyx.gen_exp import generate_exp_taylor_series_approximation
 # be replaced directly with Calyx components.
 #
 # In some cases, there is an effort to allow certain
-# functions to take on varying dimensionality,
-# which trades off code readability for minimizing
-# duplication.
+# functions take on varying dimensionality, which
+# trades off code readability for minimizing duplication.
 #
 # Local variables declared in each Dahlia implementation
 # should use the `__` prefix, e.g. `x` should be named `__x`
