@@ -1,4 +1,5 @@
 from calyx.py_ast import *
+from calyx.utils import float_to_fixed_point
 from math import factorial, log2
 from typing import List
 from fud.stages.verilator import numeric_types
@@ -115,15 +116,6 @@ def generate_fp_pow_component(width: int, int_width: int, is_signed: bool) -> Co
             ]
         ),
     )
-
-
-def float_to_fixed_point(value: float, N: int) -> float:
-    """Returns a fixed point representation of `value`
-    with the decimal value truncated to `N - 1` places.
-    """
-    w = 2 << (N - 1)
-    return round(value * w) / float(w)
-
 
 def generate_cells(
     degree: int, width: int, int_width: int, is_signed: bool
