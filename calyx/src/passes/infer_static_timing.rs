@@ -251,6 +251,21 @@ impl InferStaticTiming {
         false
     }
 
+    /// Returns true if `graph` contains a `done` hole assigned with just 1.
+    fn is_always_done(graph: GraphAnalysis) -> bool {
+        for port in graph.ports() {
+            if port.borrow().is_hole() {
+                let count = graph.writes_to(&*port.borrow()).count();
+                let p = graph.writes_to(&*port.borrow()).next().unwrap();
+
+                if count == 1 && p.borrow().is_constant(1, 1) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// Returns true if `graph` contains any nodes with degree > 1.
     fn contains_node_deg_gt_one(graph: GraphAnalysis) -> bool {
         for port in graph.ports() {
@@ -296,6 +311,11 @@ impl InferStaticTiming {
             .edge_induced_subgraph(|src, dst| self.mem_wrt_dep_graph(src, dst))
             .add_edges(&go_done_edges)
             .remove_isolated_vertices();
+
+        // 0 static latency if always done
+        if Self::is_always_done(graph.clone()) {
+            return Some(0);
+        }
 
         // Give up if a port has multiple writes to it.
         if Self::contains_node_deg_gt_one(graph.clone()) {
