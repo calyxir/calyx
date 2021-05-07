@@ -4,7 +4,6 @@ import "primitives/core.futil";
 component main() -> () {
     cells {
         r = std_reg(32);
-        add1 = std_add(32);
         add2 = std_add(32);
         flag = std_reg(1);
         other = std_reg(32);
@@ -35,7 +34,7 @@ component main() -> () {
             add2.right = r.out;
             other.in = add2.out;
             other.write_en = 1'd1;
-            final[done] = r.done;
+            final[done] = other.done;
         }
 
         group alt {
@@ -49,10 +48,17 @@ component main() -> () {
             r.write_en = 1'd1;
             five[done] = r.done;
         }
+
+        group set_flag {
+            flag.in = 1'd1;
+            flag.write_en = 1'd1;
+            set_flag[done] = flag.done;
+        }
     }
 
     control {
         seq{
+            set_flag;
             zero;
             if flag.out with cond {
                 seq {one;}
