@@ -34,7 +34,7 @@ impl DefSet {
                 .iter()
                 .cloned()
                 .filter(|(name, _)| {
-                    !writes.contains(name) || !reads.contains(name)
+                    !writes.contains(name) || reads.contains(name)
                 })
                 .collect(),
         }
@@ -78,7 +78,7 @@ impl ReachingDefinitionAnalysis {
             ir::Id,
             Vec<HashSet<(ir::Id, GroupName)>>,
         > = HashMap::new();
-        for defset in self.reach.values() {
+        for (grp, defset) in &self.reach {
             let mut group_overlaps: HashMap<
                 ir::Id,
                 HashSet<(ir::Id, GroupName)>,
@@ -87,6 +87,7 @@ impl ReachingDefinitionAnalysis {
             for (defname, group_name) in &defset.set {
                 let set = group_overlaps.entry(defname.clone()).or_default();
                 set.insert((defname.clone(), group_name.clone()));
+                set.insert((defname.clone(), grp.clone()));
             }
 
             for (defname, set) in group_overlaps {
@@ -182,17 +183,10 @@ fn build_reaching_def(
                 .collect::<HashSet<_>>();
 
             let read_set =
-                ReadWriteSet::read_set(&en.group.borrow().assignments)
+                ReadWriteSet::register_reads(&en.group.borrow().assignments)
                     .iter()
-                    .filter(|&x| match &x.borrow().prototype {
-                        ir::CellType::Primitive { name, .. } => {
-                            name == "std_reg"
-                        }
-                        _ => false,
-                    })
                     .map(|x| x.borrow().name.clone())
                     .collect::<HashSet<_>>();
-
             // only kill a def if the value is not read.
             let mut cur_reach = reach.kill(&write_set, &read_set);
             cur_reach.extend(write_set, &en.group.borrow().name);
