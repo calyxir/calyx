@@ -46,8 +46,8 @@ impl Visitor for GuardCanonical {
         comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
-        // For each group, canonicalize guard statements that has constant 1 as
-        // either a source or a guard.
+        // For each group and continuous assignments, canonicalize guard 
+        // statements that has constant 1 as either a source or a guard.
         // # Example
         // ```
         // a[done] = 1'd1 ? r1.done
@@ -59,6 +59,8 @@ impl Visitor for GuardCanonical {
             let new_assign = update_assign(group.borrow_mut().assignments.clone());
             group.borrow_mut().assignments = new_assign;
         }
+        let new_cont = update_assign(comp.continuous_assignments.clone());
+        comp.continuous_assignments = new_cont;
 
         Ok(Action::Stop)
     }
