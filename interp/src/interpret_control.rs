@@ -73,7 +73,6 @@ fn eval_seq(
     mut env: Environment,
 ) -> FutilResult<Environment> {
     for stmt in &s.stmts {
-        //println!("statement {:?} :", stmt);
         env = eval_control(stmt, comp.clone(), env)?;
     }
     Ok(env)
@@ -130,7 +129,7 @@ fn eval_enable(
 ) -> FutilResult<Environment> {
     let gp = Rc::clone(&(e.group));
 
-    println!("{:?}", e.group.borrow().name);
+    //println!("Enable group {:?}", e.group.borrow().name);
 
     // TODO
     let gi = GroupInterpreter::init(comp.clone(), gp, env);

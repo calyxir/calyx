@@ -70,7 +70,7 @@ fn eval_assigns(
         // "staging" updates
         //let mut iter_updates = write_env.clone();
         // Update queue
-        let uq = UpdateQueue::init(component.clone());
+        let mut uq = UpdateQueue::init(component.clone());
 
         // Iterate through assignment statements
         for assign in &ok_assigns {
@@ -82,14 +82,6 @@ fn eval_assigns(
                 let src_cell = get_cell_from_port(&assign.src);
                 // cell of assign.dst
                 let dst_cell = get_cell_from_port(&assign.dst);
-
-                // println!(
-                //     "src cell {:1} port: {:2}, dest cell {:3} port: {:4}",
-                //     src_cell,
-                //     &assign.src.borrow().name,
-                //     dst_cell,
-                //     &assign.dst.borrow().name
-                // );
 
                 // perform a read from `env` for assign.src
                 // XXX(karen): should read from the previous iteration's env?
@@ -180,12 +172,17 @@ fn eval_assigns(
                     // get dst_cell's output port
                     let outputs = vec![assign.dst.borrow().name.clone()];
 
-                    uq.init_cells(&dst_cell, inputs, outputs, write_env);
+                    uq = uq.init_cells(
+                        &dst_cell,
+                        inputs,
+                        outputs,
+                        write_env.clone(),
+                    );
                 }
             }
         }
         // write_env = iter_updates.do_tick()
-        write_env = uq.do_tick(&write_env)?;
+        write_env = uq.do_tick(write_env.clone())?;
         counter += 1;
     }
 

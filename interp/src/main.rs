@@ -67,12 +67,12 @@ fn main() -> FutilResult<()> {
         .into_iter()
         .find(|cm| cm.name == "main".to_string())
         .ok_or(Error::Impossible("Cannot find main component".to_string()))?;
+
     let interpreter: ComponentInterpreter = ComponentInterpreter {
         environment: env,
         component: mn,
     };
-    //let interpreter: ComponentInterpreter = ComponentInterpreter::init(env, mn);
-    interpreter.interpret();
+    interpreter.interpret()?;
 
     Ok(())
 }

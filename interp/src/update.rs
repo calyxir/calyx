@@ -97,13 +97,39 @@ impl UpdateQueue {
 
     // TODO: should the return type be FuTIlResult<Environment>?
     /// Simulates a clock cycle by executing the stored updates.
+    // pub fn do_tick(
+    //     mut self,
+    //     environment: &Environment,
+    // ) -> FutilResult<Environment> {
+    //     let mut env = environment;
+
+    //     //let cid = ir::Id::from(self.component.clone());
+
+    //     let uq = self.updates.clone();
+    //     // iterate through each update
+    //     for update in uq {
+    //         let updated = primitives::update_cell_state(
+    //             &update.cell,
+    //             &update.inputs,
+    //             &update.outputs,
+    //             environment,
+    //             self.component.clone(),
+    //         )?;
+
+    //         let utemp = updated.clone();
+
+    //         env = &utemp;
+    //     }
+    //     Ok(*env)
+    // }
+
     pub fn do_tick(
         mut self,
-        environment: &Environment,
+        environment: Environment,
     ) -> FutilResult<Environment> {
-        let mut env = environment;
+        let mut env = environment.clone();
 
-        let cid = ir::Id::from(self.component.clone());
+        //let cid = ir::Id::from(self.component.clone());
 
         let uq = self.updates.clone();
         // iterate through each update
@@ -112,33 +138,14 @@ impl UpdateQueue {
                 &update.cell,
                 &update.inputs,
                 &update.outputs,
-                environment,
+                &(env.clone()),
                 self.component.clone(),
-            );
-            match updated {
-                Ok(mut updated_env) => {
-                    let temp = updated_env.clone();
-                    let updated_cell = temp
-                        .map
-                        .get(&cid)
-                        .unwrap_or_else(|| panic!("Can't get component's map"))
-                        .get(&update.cell)
-                        .clone();
+            )?;
 
-                    match updated_cell {
-                        Some(m) => {
-                            updated_env.put_cell(&cid, (*m).clone());
-                            // TODO: how to correctly update env??
-                            //env = updated_env;
-                            //env.put_cell(&cid, (*m).clone());
-                        }
-                        _ => panic!("Could not apply update."),
-                    }
-                    //updated_env.map.insert(update.cell.clone(), updated_cell);
-                }
-                _ => panic!("Could not apply update. "),
-            }
+            let utemp = updated.clone();
+
+            env = utemp.clone();
         }
-        Ok(*env)
+        Ok(env)
     }
 }

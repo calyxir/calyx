@@ -111,8 +111,8 @@ impl Environment {
     ) -> HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, u64>>> {
         let mut map = HashMap::new();
         for comp in &context.components {
+            let mut cellMap = HashMap::new();
             for cell in &comp.cells {
-                let mut cellMap = HashMap::new();
                 let cb = cell.borrow();
                 let mut ports: HashMap<ir::Id, u64> = HashMap::new();
                 match &cb.prototype {
@@ -136,9 +136,10 @@ impl Environment {
                     }
                     _ => panic!("component"),
                 }
-                map.insert(comp.name.clone(), cellMap);
             }
+            map.insert(comp.name.clone(), cellMap);
         }
+        //println!("init map : {:?}", map);
         map
     }
 }
