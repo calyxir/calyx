@@ -34,6 +34,49 @@ impl ReadWriteSet {
             .collect()
     }
 
+    /// returns the register cells whose out port is read anywhere in the given
+    /// assignments
+    pub fn register_reads(assigns: &[ir::Assignment]) -> Vec<RRC<ir::Cell>> {
+        let guard_ports = assigns.iter().flat_map(|assign| {
+            assign.guard.all_ports().into_iter().filter_map(|port_ref| {
+                let port = port_ref.borrow();
+                if let ir::PortParent::Cell(cell_wref) = &port.parent {
+                    if &port.name == "out" {
+                        Some(Rc::clone(&cell_wref.upgrade()))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+        });
+        assigns
+            .iter()
+            .filter_map(|assign| {
+                let src_ref = assign.src.borrow();
+                if let ir::PortParent::Cell(cell_wref) = &src_ref.parent {
+                    if src_ref.name == "out" {
+                        Some(Rc::clone(&cell_wref.upgrade()))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .chain(guard_ports)
+            .filter(|x| {
+                if let Some(name) = x.borrow().type_name() {
+                    name == "std_reg"
+                } else {
+                    false
+                }
+            })
+            .unique_by(|cell| cell.borrow().name.clone())
+            .collect()
+    }
+
     /// Returns the name of the cells these assignments write to.
     /// **Ignores** reads from group holes.
     pub fn write_set(assigns: &[ir::Assignment]) -> Vec<RRC<ir::Cell>> {
