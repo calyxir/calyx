@@ -111,7 +111,7 @@ impl Environment {
     ) -> HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, u64>>> {
         let mut map = HashMap::new();
         for comp in &context.components {
-            let mut cellMap = HashMap::new();
+            let mut cell_map = HashMap::new();
             for cell in &comp.cells {
                 let cb = cell.borrow();
                 let mut ports: HashMap<ir::Id, u64> = HashMap::new();
@@ -119,7 +119,7 @@ impl Environment {
                     // A FuTIL constant cell's out port is that constant's value
                     ir::CellType::Constant { val, .. } => {
                         ports.insert(ir::Id::from("out"), *val);
-                        cellMap.insert(cb.name.clone(), ports);
+                        cell_map.insert(cb.name.clone(), ports);
                     }
                     ir::CellType::Primitive { .. } => {
                         for port in &cb.ports {
@@ -132,14 +132,14 @@ impl Environment {
                                 .unwrap_or(0); //std_const should be the only cell type with the "value" parameter
                             ports.insert(pb.name.clone(), initval);
                         }
-                        cellMap.insert(cb.name.clone(), ports);
+                        cell_map.insert(cb.name.clone(), ports);
                     }
+                    //TODO: handle components
                     _ => panic!("component"),
                 }
             }
-            map.insert(comp.name.clone(), cellMap);
+            map.insert(comp.name.clone(), cell_map);
         }
-        //println!("init map : {:?}", map);
         map
     }
 }

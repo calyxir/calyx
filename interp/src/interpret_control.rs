@@ -138,8 +138,8 @@ fn eval_enable(
 
 /// Interpret Empty
 fn eval_empty(
-    e: &ir::Empty,
-    comp: String,
+    _e: &ir::Empty,
+    _comp: String,
     env: Environment,
 ) -> FutilResult<Environment> {
     Ok(env)

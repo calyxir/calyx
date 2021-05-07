@@ -95,42 +95,9 @@ impl UpdateQueue {
         self.updates.retain(|u| u.cell != ucell);
     }
 
-    // TODO: should the return type be FuTIlResult<Environment>?
     /// Simulates a clock cycle by executing the stored updates.
-    // pub fn do_tick(
-    //     mut self,
-    //     environment: &Environment,
-    // ) -> FutilResult<Environment> {
-    //     let mut env = environment;
-
-    //     //let cid = ir::Id::from(self.component.clone());
-
-    //     let uq = self.updates.clone();
-    //     // iterate through each update
-    //     for update in uq {
-    //         let updated = primitives::update_cell_state(
-    //             &update.cell,
-    //             &update.inputs,
-    //             &update.outputs,
-    //             environment,
-    //             self.component.clone(),
-    //         )?;
-
-    //         let utemp = updated.clone();
-
-    //         env = &utemp;
-    //     }
-    //     Ok(*env)
-    // }
-
-    pub fn do_tick(
-        mut self,
-        environment: Environment,
-    ) -> FutilResult<Environment> {
+    pub fn do_tick(self, environment: Environment) -> FutilResult<Environment> {
         let mut env = environment.clone();
-
-        //let cid = ir::Id::from(self.component.clone());
-
         let uq = self.updates.clone();
         // iterate through each update
         for update in uq {
@@ -141,10 +108,7 @@ impl UpdateQueue {
                 &(env.clone()),
                 self.component.clone(),
             )?;
-
-            let utemp = updated.clone();
-
-            env = utemp.clone();
+            env = updated.clone();
         }
         Ok(env)
     }

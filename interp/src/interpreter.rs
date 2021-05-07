@@ -62,14 +62,8 @@ fn eval_assigns(
     {
         env = write_env.clone();
         // println!("Clock cycle {}", counter);
-        /*println!(
-            "state of done_cell {:1} : {:?} \n",
-            &done_cell,
-            write_env.map.get(&done_cell)
-        );*/
-        // "staging" updates
-        //let mut iter_updates = write_env.clone();
-        // Update queue
+
+        // Update queue for staging updates
         let mut uq = UpdateQueue::init(component.clone());
 
         // Iterate through assignment statements
@@ -91,14 +85,13 @@ fn eval_assigns(
                 // queue any required updates.
 
                 //determine if dst_cell is a combinational cell or not.
-                // If so, it should be immediately evaluated.
+                // If so, it should be immediately evaluated and stored.
                 if is_combinational(
                     &cid,
                     &dst_cell,
                     &assign.dst.borrow().name,
                     &env,
                 ) {
-                    // write to assign.dst to e2 immediately, if combinational
                     write_env.put(
                         &cid,
                         &dst_cell,
@@ -106,16 +99,8 @@ fn eval_assigns(
                         read_val,
                     );
 
-                    /*println!(
-                        "reg0.write_en = {}",
-                        write_env.get(
-                            &ir::Id::from("reg0"),
-                            &ir::Id::from("write_en")
-                        )
-                    );*/
-
                     // now, update the internal state of the cell;
-                    // for now, this only includes adds;
+                    // for now, this only includes cells with left and right ports;
                     // TODO (use primitive Cell parameters)
                     let inputs;
                     let outputs;
@@ -181,16 +166,9 @@ fn eval_assigns(
                 }
             }
         }
-        // write_env = iter_updates.do_tick()
         write_env = uq.do_tick(write_env.clone())?;
         counter += 1;
     }
-
-    /*println!(
-        "\nFinal state of the done cell, i.e. {:1}: {:?} \n",
-        &done_cell,
-        write_env.map.get(&done_cell)
-    );*/
     Ok(write_env)
 }
 
