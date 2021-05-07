@@ -49,7 +49,7 @@ impl GroupInterpreter {
             self.component.clone(),
         )?;
         // Print out final state of environment
-        finalenv.cell_state(self.component.clone());
+        finalenv.cell_state();
         Ok(finalenv)
     }
 }

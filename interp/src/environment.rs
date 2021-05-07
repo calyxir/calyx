@@ -2,12 +2,18 @@
 
 //use super::{primitives, update};
 use calyx::ir;
-use std::cell::RefCell;
+use serde::Serialize;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// The environment to interpret a FuTIL program.
-#[derive(Debug, Clone)]
+// #[derive(Serialize, Debug)]
+// struct Cycle (HashMap<String, HashMap<String, u64>>);
+#[derive(Serialize, Debug)]
+struct Cycle(BTreeMap<String, BTreeMap<String, BTreeMap<String, u64>>>);
+
+/// The environment to interpret a Calyx program.
+#[derive(Clone, Debug)]
 pub struct Environment {
     /// Stores values of context.
     /// Maps component names to a mapping from the component's cell names to their ports' values.
@@ -80,31 +86,6 @@ impl Environment {
         temp.find_cell(&(cell.id))
     }
 
-    /// Outputs a component's cell state; TODO (write to a specified output in the future)
-    pub fn cell_state(&self, comp: String) {
-        // TODO
-
-        let temp = ir::Id::from(comp);
-
-        let state_str = self.map[&temp]
-            .iter()
-            .map(|(cell, ports)| {
-                format!(
-                    "{}\n{}",
-                    cell,
-                    ports
-                        .iter()
-                        .map(|(p, v)| format!("\t{}: {}", p, v))
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        println!("{}\n{}\n{}", "=".repeat(30), state_str, "=".repeat(30))
-    }
-
     /// Maps components to maps from cell ids to a map from the cell's ports' ids to port values
     fn construct_map(
         context: &ir::Context,
@@ -141,5 +122,40 @@ impl Environment {
             map.insert(comp.name.clone(), cell_map);
         }
         map
+    }
+
+    /// Outputs the cell state; TODO (write to a specified output in the future)
+    pub fn cell_state(&self) {
+        let mut cyc1: BTreeMap<
+            String,
+            BTreeMap<String, BTreeMap<String, u64>>,
+        > = BTreeMap::new();
+        // component id to component cell mappings
+        for (key, value) in &self.map {
+            //println!("{}",key.to_string());
+            let mut cyc2 = BTreeMap::new();
+            // component cell to component port id mappings
+            for (k, v) in value {
+                let mut cyc3 = BTreeMap::new();
+                // port id to port value mappings
+                for (p, i) in v {
+                    cyc3.insert(p.to_string(), *i);
+                }
+                // println!("{}",k.to_string());
+                cyc2.insert(k.to_string(), cyc3);
+            }
+            cyc1.insert(key.to_string(), cyc2);
+        }
+
+        let state_str = Cycle(cyc1);
+
+        // for (key, value) in &cyc1 {
+        //     println!("{}", key);
+        //     for (k,v) in value{
+        //         println!("{}: {}", k, v);
+        //     }
+        // }
+        let serialized = serde_json::to_string(&state_str).unwrap();
+        println!("{}", serialized);
     }
 }
