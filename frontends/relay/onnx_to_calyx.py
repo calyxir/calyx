@@ -26,8 +26,8 @@ def write_data(relay_ir, input, input_name: str, params, filename: str):
             "numeric_type": "fixed_point",
             "is_signed": is_signed,
             "width": width,
-            "frac_width": frac_width
-        }
+            "frac_width": frac_width,
+        },
     }
 
     # Write the actual parameter values.
@@ -38,8 +38,8 @@ def write_data(relay_ir, input, input_name: str, params, filename: str):
                 "numeric_type": "fixed_point",
                 "is_signed": is_signed,
                 "width": width,
-                "frac_width": frac_width
-            }
+                "frac_width": frac_width,
+            },
         }
 
     with open(filename, "w") as file:
@@ -67,7 +67,7 @@ def run_net(net_name: str, input, onnx_model_path: str, output: str):
       (2) Writes the data for Calyx simulation to <net_name>.data
       (3) Writes the Relay IR to <net_name>.relay
 
-    Otherwise, if output is "tvm", executes the Relay program
+    Otherwise, if output is "tvm", executes the Relay program.
     with the TVM executor.
     """
     onnx_model = onnx.load(onnx_model_path)
@@ -80,28 +80,30 @@ def run_net(net_name: str, input, onnx_model_path: str, output: str):
     transforms = tvm.transform.Sequential([relay.transform.ToANormalForm()])
     mod = transforms(mod)
 
-    output = {"tvm", "calyx"} if output == "both" else {output}
+    output = {"tvm", "calyx", "relay"} if output == "all" else {output}
     if "calyx" in output:
         # Save the parameters of the model to
         # a file for Calyx simulation.
         data_name = f"{net_name}.data"
         calyx_name = f"{net_name}.futil"
-        relay_name = f"{net_name}.relay"
 
-        print(f"Writing the Calyx data to: {data_name} ...")
+        print(f"...writing the Calyx data to: {data_name}")
         write_data(mod, data, input_name, params, data_name)
 
-        print(f"Writing the Calyx program to: {calyx_name} ...")
+        print(f"...writing the Calyx program to: {calyx_name}")
         write_calyx(mod, calyx_name)
-
-        print(f"Writing the Relay IR to: {relay_name} ...")
+    if "relay" in output:
+        relay_name = f"{net_name}.relay"
+        print(f"...writing the Relay IR to: {relay_name}")
         write_relay(mod, relay_name)
     if "tvm" in output:
         with tvm.transform.PassContext(opt_level=1):
             intrp = relay.build_module.create_executor("graph", mod, tvm.cpu(0))
 
         # Execute the ONNX model with the given parameters.
-        assert isinstance(data, np.ndarray), f"The input type, {type(data)}, should be `class '<numpy.ndarray>'`."
+        assert isinstance(
+            data, np.ndarray
+        ), f"The input type, {type(data)}, should be `class '<numpy.ndarray>'`."
         tvm_output = intrp.evaluate()(tvm.nd.array(data.astype("float32")), **params)
 
         np.set_printoptions(suppress=True, precision=16)
@@ -111,14 +113,26 @@ def run_net(net_name: str, input, onnx_model_path: str, output: str):
 if __name__ == "__main__":
     # Script for running an ONNX model.
     import argparse
+
     parser = argparse.ArgumentParser(description="ONNX to Calyx")
     parser.add_argument("-n", "--net_name", required=True, help="Name of your net.")
-    parser.add_argument("-d", "--dataset", required=True, help="The dataset used. Needed for image preprocessing.")
+    parser.add_argument(
+        "-d",
+        "--dataset",
+        required=True,
+        help="The dataset used. Needed for image preprocessing.",
+    )
     parser.add_argument("-i", "--image", required=True, help="Path to the input image.")
-    parser.add_argument("-ox", "--onnx_model", required=True, help="Path to the ONNX model.")
-
-    h = "Whether you want to output the Calyx program, `calyx`, execute the Relay IR with TVM, `tvm`, or `both`."
-    parser.add_argument("-o", "--output", required=True, choices={"calyx", "tvm", "both"}, help=h)
+    parser.add_argument(
+        "-onnx", "--onnx_model", required=True, help="Path to the ONNX model."
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        required=True,
+        choices={"calyx", "tvm", "relay", "all"},
+        help="Choices: `calyx`, `tvm`, `relay`, or `all` the above.",
+    )
 
     args = vars(parser.parse_args())
 
@@ -135,8 +149,7 @@ if __name__ == "__main__":
     # The filepath to the ONNX model.
     onnx_model_path = args["onnx_model"]
 
-    # Determines whether you want to output the
-    # Calyx program or execute the TVM program.
+    # Determines which output you want.
     output = args["output"]
 
     # Runs the net and prints the classification output.

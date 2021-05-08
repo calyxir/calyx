@@ -115,6 +115,7 @@ def pretty_print_functions():
 
 def run_example():
     import sys
+
     """Runs the example.
     Displays Relay IR if `-r` is found.
     Displays Calyx otherwise."""

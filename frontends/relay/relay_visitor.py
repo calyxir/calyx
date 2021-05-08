@@ -244,6 +244,7 @@ def emit_calyx(relay_ir) -> str:
         )
     )
 
+
 def get_program_dat_memories(relay_ir):
     """Returns a mapping (id -> tensor size)
     for each memory in the Relay IR. The format
@@ -261,24 +262,30 @@ def get_program_dat_memories(relay_ir):
                 "numeric_type": "fixed_point",
                 "is_signed": True,
                 "width": 32,
-                "frac_width": 16
-            }
+                "frac_width": 16,
+            },
         }
 
     return memories
 
+
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description="Lower Relay IR to Calyx.")
     parser.add_argument("file", help="Path to the Relay IR.")
 
     args = parser.parse_args()
     if args.file is None:
-        raise Exception("The TVM Relay visitor requires a file containing the Relay IR.")
+        raise Exception(
+            "The TVM Relay visitor requires a file containing the Relay IR."
+        )
 
     with open(args.file, "r") as file:
         relay_ir = file.read()
-    assert "v0.0.4" in relay_ir, "TVM Requires `v0.0.4` at the top of the Relay IR file."
+    assert (
+        "v0.0.4" in relay_ir
+    ), "TVM Requires `v0.0.4` at the top of the Relay IR file."
 
     relay_ir = relay.fromtext(relay_ir)
     print(emit_calyx(relay_ir))

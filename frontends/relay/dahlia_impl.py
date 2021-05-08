@@ -97,6 +97,7 @@ def broadcast(fd: DahliaFuncDef) -> str:
     )
     return emit_dahlia_definition(fd, emit_dahlia_loop(res, loop_body))
 
+
 def dropout(fd: DahliaFuncDef) -> str:
     """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.dropout"""
     p = fd.attributes.get_str("rate")
@@ -111,10 +112,11 @@ def dropout(fd: DahliaFuncDef) -> str:
         # Determine loop body indices.
         indices.append(f"[__{var_name}]")
         var_name = next_character(var_name)
-    indices = ''.join(indices)
+    indices = "".join(indices)
 
     loop_body = f"{res.id.name}{indices} := {data.id.name}{indices} * ({inverse_rate} as {data_type});"
     return emit_dahlia_definition(fd, emit_dahlia_loop(res, loop_body))
+
 
 # https://github.com/cucapra/calyx/issues/401
 # Please read the issue above before trying
@@ -405,6 +407,7 @@ def conv2d(fd: DahliaFuncDef) -> str:
         """,
     )
 
+
 def reshape(fd: DahliaFuncDef) -> str:
     """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.reshape"""
     data, res = fd.args[0], fd.dest
@@ -428,7 +431,7 @@ def reshape(fd: DahliaFuncDef) -> str:
     loop_body = f"""{result} := {input}; __m += (1 as ubit<{res.comp.args[4]}>);"""
     program = (
         f"let __m: ubit<{res.comp.args[4]}> = 0;",
-        emit_dahlia_loop(data, loop_body)
+        emit_dahlia_loop(data, loop_body),
     )
     return emit_dahlia_definition(fd, program)
 

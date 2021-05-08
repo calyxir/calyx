@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def preprocess_img_mnist(img_path):
     """Preprocessing required for MNIST classification."""
     from PIL import Image
@@ -31,18 +32,22 @@ def preprocess_img_imagenet(img_path):
     img = Image.open(img_path)
     img = mxnet.ndarray.array(img)
 
-    transform_fn = transforms.Compose([
-        transforms.Resize(224),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
+    transform_fn = transforms.Compose(
+        [
+            transforms.Resize(224),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+        ]
+    )
     img = transform_fn(img)
     img = img.expand_dims(axis=0)  # Batchify.
     return img.asnumpy()
 
+
 # Supported datasets for preprocessing.
 SupportedDatasets = {"mnist": preprocess_img_mnist, "imagenet": preprocess_img_imagenet}
+
 
 def preprocess_image(img, dataset: str):
     """Preprocesses an image for classification."""
