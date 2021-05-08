@@ -17,172 +17,295 @@ component main() -> () {
 }
 component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 1, x0_0_addr1: 4, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 4) {
   cells {
-    __expj_0 = std_reg(32);
+    __exp_sum0 = std_reg(32);
     __i0 = std_reg(1);
+    __i1 = std_reg(1);
     __j0 = std_reg(4);
+    __j1 = std_reg(4);
     __k0 = std_reg(4);
-    __t1_0 = std_reg(32);
-    __t2_0 = std_reg(32);
-    add0 = std_fp_sadd(32,16,16);
-    add1 = std_add(4);
-    add2 = std_add(4);
-    add3 = std_add(1);
+    __max0 = std_reg(32);
+    __t00 = std_reg(32);
+    __t10 = std_reg(32);
+    __t20 = std_reg(32);
+    __t30 = std_reg(32);
+    add0 = std_add(4);
+    add1 = std_add(1);
+    add2 = std_fp_sadd(32,16,16);
+    add3 = std_add(4);
+    add4 = std_add(4);
+    add5 = std_add(1);
     bin_read0_0 = std_reg(32);
     const0 = std_const(1,0);
-    const1 = std_const(1,0);
-    const2 = std_const(4,0);
-    const3 = std_const(4,9);
-    const4 = std_const(4,1);
-    const5 = std_const(4,0);
-    const6 = std_const(4,9);
-    const7 = std_const(4,1);
-    const8 = std_const(1,1);
+    const1 = std_const(4,0);
+    const10 = std_const(4,0);
+    const11 = std_const(4,9);
+    const12 = std_const(4,1);
+    const13 = std_const(4,0);
+    const14 = std_const(4,9);
+    const15 = std_const(4,1);
+    const16 = std_const(1,1);
+    const2 = std_const(1,0);
+    const3 = std_const(1,0);
+    const4 = std_const(4,0);
+    const5 = std_const(4,9);
+    const6 = std_const(4,1);
+    const7 = std_const(1,1);
+    const8 = std_const(1,0);
+    const9 = std_const(1,0);
     div_pipe0 = std_fp_sdiv_pipe(32,16,16);
     exp0 = exp();
     exp1 = exp();
     fp_const0 = std_const(32,0);
+    gt0 = std_fp_sgt(32,16,16);
     le0 = std_le(1);
     le1 = std_le(4);
-    le2 = std_le(4);
-    x_read0_0 = std_reg(32);
-    x_read1_0 = std_reg(32);
+    le2 = std_le(1);
+    le3 = std_le(4);
+    le4 = std_le(4);
+    sub0 = std_fp_ssub(32,16,16);
+    sub1 = std_fp_ssub(32,16,16);
+    x_read00 = std_reg(32);
+    x_read10 = std_reg(32);
+    x_read20 = std_reg(32);
+    x_read30 = std_reg(32);
   }
   wires {
     group cond0<"static"=0> {
       cond0[done] = 1'd1;
       le0.left = __i0.out;
-      le0.right = const1.out;
+      le0.right = const3.out;
     }
     group cond1<"static"=0> {
       cond1[done] = 1'd1;
       le1.left = __j0.out;
-      le1.right = const3.out;
+      le1.right = const5.out;
     }
     group cond2<"static"=0> {
       cond2[done] = 1'd1;
-      le2.left = __k0.out;
-      le2.right = const6.out;
+      gt0.left = x_read00.out;
+      gt0.right = __max0.out;
+    }
+    group cond3<"static"=0> {
+      cond3[done] = 1'd1;
+      le2.left = __i1.out;
+      le2.right = const9.out;
+    }
+    group cond4<"static"=0> {
+      cond4[done] = 1'd1;
+      le3.left = __j1.out;
+      le3.right = const11.out;
+    }
+    group cond5<"static"=0> {
+      cond5[done] = 1'd1;
+      le4.left = __k0.out;
+      le4.right = const14.out;
     }
     group let0<"static"=1> {
-      __i0.in = const0.out;
+      __i0.in = const2.out;
       __i0.write_en = 1'd1;
       let0[done] = __i0.done;
     }
     group let1<"static"=1> {
-      __expj_0.in = fp_const0.out;
-      __expj_0.write_en = 1'd1;
-      let1[done] = __expj_0.done;
-    }
-    group let2<"static"=1> {
-      __j0.in = const2.out;
+      __j0.in = const4.out;
       __j0.write_en = 1'd1;
-      let2[done] = __j0.done;
+      let1[done] = __j0.done;
     }
-    group let3 {
-      __t1_0.in = exp0.out;
-      __t1_0.write_en = 1'd1;
-      let3[done] = __t1_0.done;
-    }
-    group let4<"static"=1> {
-      __k0.in = const5.out;
-      __k0.write_en = 1'd1;
-      let4[done] = __k0.done;
-    }
-    group let5 {
-      __t2_0.in = exp1.out;
-      __t2_0.write_en = 1'd1;
-      let5[done] = __t2_0.done;
-    }
-    group let6 {
+    group let10 {
       bin_read0_0.in = div_pipe0.out_quotient;
       bin_read0_0.write_en = div_pipe0.done;
-      let6[done] = bin_read0_0.done;
-      div_pipe0.left = __t2_0.out;
-      div_pipe0.right = __expj_0.out;
+      let10[done] = bin_read0_0.done;
+      div_pipe0.left = __t30.out;
+      div_pipe0.right = __exp_sum0.out;
       div_pipe0.go = !div_pipe0.done ? 1'd1;
     }
+    group let2<"static"=1> {
+      __i1.in = const8.out;
+      __i1.write_en = 1'd1;
+      let2[done] = __i1.done;
+    }
+    group let3<"static"=1> {
+      __exp_sum0.in = fp_const0.out;
+      __exp_sum0.write_en = 1'd1;
+      let3[done] = __exp_sum0.done;
+    }
+    group let4<"static"=1> {
+      __j1.in = const10.out;
+      __j1.write_en = 1'd1;
+      let4[done] = __j1.done;
+    }
+    group let5<"static"=1> {
+      __t00.in = sub0.out;
+      __t00.write_en = 1'd1;
+      let5[done] = __t00.done;
+      sub0.left = x_read20.out;
+      sub0.right = __max0.out;
+    }
+    group let6 {
+      __t10.in = exp0.out;
+      __t10.write_en = 1'd1;
+      let6[done] = __t10.done;
+    }
+    group let7<"static"=1> {
+      __k0.in = const13.out;
+      __k0.write_en = 1'd1;
+      let7[done] = __k0.done;
+    }
+    group let8<"static"=1> {
+      __t20.in = sub1.out;
+      __t20.write_en = 1'd1;
+      let8[done] = __t20.done;
+      sub1.left = x_read30.out;
+      sub1.right = __max0.out;
+    }
+    group let9 {
+      __t30.in = exp1.out;
+      __t30.write_en = 1'd1;
+      let9[done] = __t30.done;
+    }
     group upd0<"static"=1> {
-      x_read0_0.write_en = 1'd1;
-      x0_0_addr1 = __j0.out;
-      x0_0_addr0 = __i0.out;
-      x_read0_0.in = 1'd1 ? x0_0_read_data;
-      upd0[done] = x_read0_0.done ? 1'd1;
+      __max0.write_en = 1'd1;
+      x0_0_addr1 = const1.out;
+      x0_0_addr0 = const0.out;
+      __max0.in = 1'd1 ? x0_0_read_data;
+      upd0[done] = __max0.done ? 1'd1;
     }
     group upd1<"static"=1> {
-      __expj_0.write_en = 1'd1;
-      add0.left = __expj_0.out;
-      add0.right = __t1_0.out;
-      __expj_0.in = 1'd1 ? add0.out;
-      upd1[done] = __expj_0.done ? 1'd1;
-    }
-    group upd2<"static"=1> {
-      __j0.write_en = 1'd1;
-      add1.left = __j0.out;
-      add1.right = const4.out;
-      __j0.in = 1'd1 ? add1.out;
-      upd2[done] = __j0.done ? 1'd1;
-    }
-    group upd3<"static"=1> {
-      x_read1_0.write_en = 1'd1;
-      x0_0_addr1 = __k0.out;
+      x_read00.write_en = 1'd1;
+      x0_0_addr1 = __j0.out;
       x0_0_addr0 = __i0.out;
-      x_read1_0.in = 1'd1 ? x0_0_read_data;
-      upd3[done] = x_read1_0.done ? 1'd1;
+      x_read00.in = 1'd1 ? x0_0_read_data;
+      upd1[done] = x_read00.done ? 1'd1;
     }
-    group upd4<"static"=1> {
+    group upd10<"static"=1> {
       x10_0_addr1 = __k0.out;
-      x10_0_addr0 = __i0.out;
+      x10_0_addr0 = __i1.out;
       x10_0_write_en = 1'd1;
       x10_0_write_data = 1'd1 ? bin_read0_0.out;
-      upd4[done] = x10_0_done ? 1'd1;
+      upd10[done] = x10_0_done ? 1'd1;
+    }
+    group upd11<"static"=1> {
+      __k0.write_en = 1'd1;
+      add4.left = __k0.out;
+      add4.right = const15.out;
+      __k0.in = 1'd1 ? add4.out;
+      upd11[done] = __k0.done ? 1'd1;
+    }
+    group upd12<"static"=1> {
+      __i1.write_en = 1'd1;
+      add5.left = __i1.out;
+      add5.right = const16.out;
+      __i1.in = 1'd1 ? add5.out;
+      upd12[done] = __i1.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      x_read10.write_en = 1'd1;
+      x0_0_addr1 = __j0.out;
+      x0_0_addr0 = __i0.out;
+      x_read10.in = 1'd1 ? x0_0_read_data;
+      upd2[done] = x_read10.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      __max0.write_en = 1'd1;
+      __max0.in = 1'd1 ? x_read10.out;
+      upd3[done] = __max0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      __j0.write_en = 1'd1;
+      add0.left = __j0.out;
+      add0.right = const6.out;
+      __j0.in = 1'd1 ? add0.out;
+      upd4[done] = __j0.done ? 1'd1;
     }
     group upd5<"static"=1> {
-      __k0.write_en = 1'd1;
-      add2.left = __k0.out;
-      add2.right = const7.out;
-      __k0.in = 1'd1 ? add2.out;
-      upd5[done] = __k0.done ? 1'd1;
+      __i0.write_en = 1'd1;
+      add1.left = __i0.out;
+      add1.right = const7.out;
+      __i0.in = 1'd1 ? add1.out;
+      upd5[done] = __i0.done ? 1'd1;
     }
     group upd6<"static"=1> {
-      __i0.write_en = 1'd1;
-      add3.left = __i0.out;
-      add3.right = const8.out;
-      __i0.in = 1'd1 ? add3.out;
-      upd6[done] = __i0.done ? 1'd1;
+      x_read20.write_en = 1'd1;
+      x0_0_addr1 = __j1.out;
+      x0_0_addr0 = __i1.out;
+      x_read20.in = 1'd1 ? x0_0_read_data;
+      upd6[done] = x_read20.done ? 1'd1;
+    }
+    group upd7<"static"=1> {
+      __exp_sum0.write_en = 1'd1;
+      add2.left = __exp_sum0.out;
+      add2.right = __t10.out;
+      __exp_sum0.in = 1'd1 ? add2.out;
+      upd7[done] = __exp_sum0.done ? 1'd1;
+    }
+    group upd8<"static"=1> {
+      __j1.write_en = 1'd1;
+      add3.left = __j1.out;
+      add3.right = const12.out;
+      __j1.in = 1'd1 ? add3.out;
+      upd8[done] = __j1.done ? 1'd1;
+    }
+    group upd9<"static"=1> {
+      x_read30.write_en = 1'd1;
+      x0_0_addr1 = __k0.out;
+      x0_0_addr0 = __i1.out;
+      x_read30.in = 1'd1 ? x0_0_read_data;
+      upd9[done] = x_read30.done ? 1'd1;
     }
   }
   control {
     seq {
+      upd0;
       let0;
       while le0.out with cond0 {
         seq {
-          par {
-            let1;
+          let1;
+          while le1.out with cond1 {
             seq {
-              let2;
-              while le1.out with cond1 {
+              upd1;
+              if gt0.out with cond2 {
                 seq {
-                  upd0;
-                  invoke exp0(x=x_read0_0.out)();
-                  let3;
-                  upd1;
                   upd2;
+                  upd3;
+                }
+              }
+              upd4;
+            }
+          }
+          upd5;
+        }
+      }
+      let2;
+      while le2.out with cond3 {
+        seq {
+          par {
+            let3;
+            seq {
+              let4;
+              while le3.out with cond4 {
+                seq {
+                  upd6;
+                  let5;
+                  invoke exp0(x=__t00.out)();
+                  let6;
+                  upd7;
+                  upd8;
                 }
               }
             }
           }
-          let4;
-          while le2.out with cond2 {
+          let7;
+          while le4.out with cond5 {
             seq {
-              upd3;
-              invoke exp1(x=x_read1_0.out)();
-              let5;
-              let6;
-              upd4;
-              upd5;
+              upd9;
+              let8;
+              invoke exp1(x=__t20.out)();
+              let9;
+              let10;
+              upd10;
+              upd11;
             }
           }
-          upd6;
+          upd12;
         }
       }
     }

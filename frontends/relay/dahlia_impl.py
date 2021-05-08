@@ -95,9 +95,26 @@ def broadcast(fd: DahliaFuncDef) -> str:
         f"{res.id.name}{res_index} := {op1.id.name}{op1_index} "
         f"{BinaryOps[fd.function_id]} {op2.id.name}{op2_index};"
     )
-
     return emit_dahlia_definition(fd, emit_dahlia_loop(res, loop_body))
 
+def dropout(fd: DahliaFuncDef) -> str:
+    """https://tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.dropout"""
+    p = fd.attributes.get_str("rate")
+    data, res = fd.args[0], fd.dest
+    data_type = fd.data_type
+    num_dims = get_dims(res.comp)
+    inverse_rate = 1 / (1 - p)
+
+    indices = []
+    var_name = CHARACTER_I
+    for n in range(num_dims):
+        # Determine loop body indices.
+        indices.append(f"[__{var_name}]")
+        var_name = next_character(var_name)
+    indices = ''.join(indices)
+
+    loop_body = f"{res.id.name}{indices} := {data.id.name}{indices} * ({inverse_rate} as {data_type});"
+    return emit_dahlia_definition(fd, emit_dahlia_loop(res, loop_body))
 
 # https://github.com/cucapra/calyx/issues/401
 # Please read the issue above before trying
@@ -155,18 +172,18 @@ def batch_flatten(fd: DahliaFuncDef) -> str:
         data_indices += index
         var_name = next_character(var_name)
 
-    res_indices += f"[__{var_name}]"
+    var_name = f"__{var_name}"
+    res_indices += f"[{var_name}]"
 
     loop_body = f"""{res.id.name}{res_indices} := \
            {data.id.name}{data_indices}; \
-           __{var_name} := __{var_name} + 1;"""
+           {var_name} := {var_name} + 1;"""
+
     return emit_dahlia_definition(
         fd,
         (
-            # We use args[3] because the output is
-            # 2-dimensional (batch). Therefore, we want
-            # the second index size in the memory.
-            f"let __{var_name}: ubit<{args[3]}> = 0;",
+            # Uses the index after the batch dimension.
+            f"let {var_name}: ubit<{res.comp.args[4]}> = 0;",
             emit_dahlia_loop(data, loop_body),
         ),
     )
@@ -211,7 +228,7 @@ def max_pool2d(fd: DahliaFuncDef) -> str:
     assert (
         layout == "NCHW"
     ), f"""Layout \'{layout}\' is not currently supported for
-        nn.max_pool2d; please use `NCHW`"""
+        nn.max_pool2d; please use `NCHW`."""
     assert (
         ceil_mode == False
     ), "`ceil_mode` is not currently supported for nn.max_pool2d"
@@ -355,9 +372,11 @@ def conv2d(fd: DahliaFuncDef) -> str:
 
     strides = fd.attributes.get_int_tuple("strides")
     kernel_size = fd.attributes.get_int_tuple("kernel_size")
-    channels = fd.attributes.get_int("channels")
-
     size0, size1, size2, size3 = res.comp.args[1:5]
+
+    channels = fd.attributes.get_int("channels")
+    if channels is None:
+        channels = size1
 
     return emit_dahlia_definition(
         fd,
@@ -386,6 +405,33 @@ def conv2d(fd: DahliaFuncDef) -> str:
         """,
     )
 
+def reshape(fd: DahliaFuncDef) -> str:
+    """https://tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.reshape"""
+    data, res = fd.args[0], fd.dest
+    newshape = fd.attributes.get_int_tuple("newshape")
+    ddims = get_dims(data.comp)
+    rdims = get_dims(res.comp)
+
+    assert (
+        newshape[0] == -1 and rdims == 2
+    ), f"Only supports a subset of `reshape` functionality (where the dimensions are inferred)."
+
+    data_indices, res_indices = "", ""
+    var_name = CHARACTER_I
+    for _ in range(ddims):
+        data_indices += f"[__{var_name}]"
+        var_name = next_character(var_name)
+
+    data_type = fd.data_type
+    input = f"{data.id.name}{data_indices}"
+    result = f"{res.id.name}[0][__m]"
+    loop_body = f"""{result} := {input}; __m += (1 as ubit<{res.comp.args[4]}>);"""
+    program = (
+        f"let __m: ubit<{res.comp.args[4]}> = 0;",
+        emit_dahlia_loop(data, loop_body)
+    )
+    return emit_dahlia_definition(fd, program)
+
 
 def softmax(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.softmax"""
@@ -399,15 +445,23 @@ def softmax(fd: DahliaFuncDef) -> str:
     return emit_dahlia_definition(
         fd,
         f"""
+        let __max :{data_type} = {data.id.name}[0][0];
         for (let __i: ubit<{index_size0}> = 0..{size0}) {{
-          let __expj: {data_type} = {'0.0' if 'fix' in data_type else '0'};
           for (let __j: ubit<{index_size1}> = 0..{size1}) {{
-            let __t1 = exp({data.id.name}[__i][__j]);
-            __expj += __t1;
+            if ({data.id.name}[__i][__j] > __max) {{ __max := {data.id.name}[__i][__j]; }}
+          }}
+        }}
+        for (let __i: ubit<{index_size0}> = 0..{size0}) {{
+          let __exp_sum: {data_type} = {'0.0' if 'fix' in data_type else '0'};
+          for (let __j: ubit<{index_size1}> = 0..{size1}) {{
+            let __t0 = {data.id.name}[__i][__j] - __max;
+            let __t1 = exp(__t0);
+            __exp_sum += __t1;
           }}
           for (let __k: ubit<{index_size1}> = 0..{size1}) {{
-            let __t2 = exp({data.id.name}[__i][__k]);
-            {res.id.name}[__i][__k] := __t2 / __expj; 
+            let __t2 = {data.id.name}[__i][__k] - __max;
+            let __t3 = exp(__t2);
+            {res.id.name}[__i][__k] := __t3 / __exp_sum; 
           }}
         }}""",
     )
@@ -422,6 +476,8 @@ RelayCallNodes = {
     "bias_add": bias_add,
     "conv2d": conv2d,
     "dense": dense,
+    "dropout": dropout,
+    "reshape": reshape,
     "max_pool2d": max_pool2d,
     "relu": relu,
     "softmax": softmax,

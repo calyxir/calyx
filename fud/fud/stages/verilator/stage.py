@@ -59,7 +59,8 @@ class VerilatorStage(Stage):
             """
             Converts a `json` data format into a series of `.dat` files.
             """
-            convert2dat(tmp_dir.name, sjson.load(json_path, use_decimal=True), "dat")
+            round_float_to_fixed = self.config["stages", self.name, "round_float_to_fixed"]
+            convert2dat(tmp_dir.name, sjson.load(json_path, use_decimal=True), "dat", round_float_to_fixed)
 
         # Step 3: compile with verilator
         cmd = " ".join(
