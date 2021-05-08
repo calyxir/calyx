@@ -251,14 +251,18 @@ impl InferStaticTiming {
         false
     }
 
-    /// Returns true if `graph` contains a `done` hole assigned with just 1.
-    fn is_always_done(graph: GraphAnalysis) -> bool {
+    /// Returns true if `graph` contains a `done` hole of a group assigned with
+    /// just 1.
+    fn is_always_done(graph: &GraphAnalysis) -> bool {
         for port in graph.ports() {
-            if port.borrow().is_hole() {
+            if port.borrow().is_hole() && port.borrow().name == "done" {
                 let count = graph.writes_to(&*port.borrow()).count();
-                let p = graph.writes_to(&*port.borrow()).next().unwrap();
+                let write_port = graph
+                    .writes_to(&*port.borrow())
+                    .next()
+                    .unwrap();
 
-                if count == 1 && p.borrow().is_constant(1, 1) {
+                if count == 1 && write_port.borrow().is_constant(1, 1) {
                     return true;
                 }
             }
@@ -313,7 +317,7 @@ impl InferStaticTiming {
             .remove_isolated_vertices();
 
         // 0 static latency if always done
-        if Self::is_always_done(graph.clone()) {
+        if Self::is_always_done(&graph) {
             return Some(0);
         }
 

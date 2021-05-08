@@ -1,0 +1,22 @@
+import "primitives/std.lib";
+component main<"static"=0>(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    r0 = std_reg(1);
+    r1 = std_reg(1);
+  }
+  wires {
+    group zero_cycles<"static"=0> {
+      r0.in = 1'd1;
+      r0.write_en = 1'd1;
+      r1.in = 1'd1;
+      r1.write_en = r0.done;
+      zero_cycles[done] = 1'd1;
+    }
+  }
+
+  control {
+    @static(0) seq {
+      @static(0) zero_cycles;
+    }
+  }
+}
