@@ -62,13 +62,12 @@ def write_relay(relay_ir, filename: str):
 
 def run_net(net_name: str, input, onnx_model_path: str, output: str):
     """Runs the net with name `net_name` to classify the `input`
-    with the ONNX model at `onnx_model_path`. If `output` is "calyx":
+    with the ONNX model at `onnx_model_path`.
+    - If `output` is "calyx":
       (1) Writes the Calyx program to <net_name>.futil
       (2) Writes the data for Calyx simulation to <net_name>.data
-      (3) Writes the Relay IR to <net_name>.relay
-
-    Otherwise, if output is "tvm", executes the Relay program.
-    with the TVM executor.
+    - If output is "tvm", executes the Relay program with the TVM executor.
+    - If output is "relay", writes the Relay IR to <net_name>.relay
     """
     onnx_model = onnx.load(onnx_model_path)
     input_name = onnx_model.graph.input[0].name
@@ -120,7 +119,7 @@ if __name__ == "__main__":
         "-d",
         "--dataset",
         required=True,
-        help="The dataset used. Needed for image preprocessing.",
+        help="Dataset used, e.g. \"mnist\". Needed for image preprocessing.",
     )
     parser.add_argument("-i", "--image", required=True, help="Path to the input image.")
     parser.add_argument(
