@@ -19,3 +19,11 @@ def bits_needed(num):
     Number of bits needed to represent `num`.
     """
     return math.floor(math.log(num, 2)) + 1
+
+
+def float_to_fixed_point(value: float, N: int) -> float:
+    """Returns a fixed point representation of `value`
+    with the decimal value truncated to `N - 1` places.
+    """
+    w = 2 << (N - 1)
+    return round(value * w) / float(w)

@@ -17,12 +17,12 @@ component main() -> () {
 }
 component negative_4(x0_read_data: 32, x0_done: 1, x10_read_data: 32, x10_done: 1) -> (x0_write_data: 32, x0_write_en: 1, x0_addr0: 3, x10_write_data: 32, x10_write_en: 1, x10_addr0: 3) {
   cells {
+    __i0 = std_reg(3);
     add0 = std_add(3);
     const0 = std_const(3,0);
     const1 = std_const(3,3);
     const2 = std_const(32,0);
     const3 = std_const(3,1);
-    i0 = std_reg(3);
     le0 = std_le(3);
     sub0 = std_ssub(32);
     x_read0_0 = std_reg(32);
@@ -30,22 +30,22 @@ component negative_4(x0_read_data: 32, x0_done: 1, x10_read_data: 32, x10_done: 
   wires {
     group cond0<"static"=0> {
       cond0[done] = 1'd1;
-      le0.left = i0.out;
+      le0.left = __i0.out;
       le0.right = const1.out;
     }
     group let0<"static"=1> {
-      i0.in = const0.out;
-      i0.write_en = 1'd1;
-      let0[done] = i0.done;
+      __i0.in = const0.out;
+      __i0.write_en = 1'd1;
+      let0[done] = __i0.done;
     }
     group upd0<"static"=1> {
       x_read0_0.write_en = 1'd1;
-      x0_addr0 = i0.out;
+      x0_addr0 = __i0.out;
       x_read0_0.in = 1'd1 ? x0_read_data;
       upd0[done] = x_read0_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
-      x10_addr0 = i0.out;
+      x10_addr0 = __i0.out;
       x10_write_en = 1'd1;
       sub0.left = const2.out;
       sub0.right = x_read0_0.out;
@@ -53,11 +53,11 @@ component negative_4(x0_read_data: 32, x0_done: 1, x10_read_data: 32, x10_done: 
       upd1[done] = x10_done ? 1'd1;
     }
     group upd2<"static"=1> {
-      i0.write_en = 1'd1;
-      add0.left = i0.out;
+      __i0.write_en = 1'd1;
+      add0.left = __i0.out;
       add0.right = const3.out;
-      i0.in = 1'd1 ? add0.out;
-      upd2[done] = i0.done ? 1'd1;
+      __i0.in = 1'd1 ? add0.out;
+      upd2[done] = __i0.done ? 1'd1;
     }
   }
   control {
