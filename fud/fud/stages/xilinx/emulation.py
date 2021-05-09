@@ -30,11 +30,18 @@ class HwEmulationStage(Stage):
             / "bitstream"
             / "xrt.ini"
         )
+        self.sim_script = (
+            Path(self.config["global", "futil_directory"])
+            / "fud"
+            / "bitstream"
+            / "sim_script.tcl"
+        )
         self.device = "xilinx_u50_gen3x16_xdma_201920_3"
 
         # remote execution
         self.ssh_host = self.config["stages", self.target_stage, "ssh_host"]
         self.ssh_user = self.config["stages", self.target_stage, "ssh_username"]
+        self.temp_location = self.config["stages", "xclbin", "temp_location"]
 
         self.setup()
 
@@ -62,7 +69,7 @@ class HwEmulationStage(Stage):
             """
             Execution `mktemp -d` on server.
             """
-            _, stdout, _ = client.exec_command("mktemp -d")
+            _, stdout, _ = client.exec_command(f"mktemp -d -p {self.temp_location}")
             return stdout.read().decode("ascii").strip()
 
         @self.step()
@@ -78,6 +85,7 @@ class HwEmulationStage(Stage):
                 scp.put(xclbin, remote_path=f"{tmpdir}/kernel.xclbin")
                 scp.put(self.host_cpp, remote_path=f"{tmpdir}/host.cpp")
                 scp.put(self.xrt, remote_path=f"{tmpdir}/xrt.ini")
+                scp.put(self.sim_script, remote_path=f"{tmpdir}/sim_script.tcl")
 
         @self.step()
         def setup_environment(client: SourceType.UnTyped):
@@ -108,7 +116,7 @@ class HwEmulationStage(Stage):
 
             for chunk in iter(lambda: stdout.readline(2048), ""):
                 log.debug(chunk.strip())
-            log.debug(stderr.read())
+            log.debug(stderr.read().decode("UTF-8").strip())
 
         @self.step()
         def generate_emconfig(client: SourceType.UnTyped, tmpdir: SourceType.String):
@@ -129,7 +137,7 @@ class HwEmulationStage(Stage):
 
             for chunk in iter(lambda: stdout.readline(2048), ""):
                 log.debug(chunk.strip())
-            log.debug(stderr.read())
+            log.debug(stderr.read().decode("UTF-8").strip())
 
         @self.step()
         def emulate(client: SourceType.UnTyped, tmpdir: SourceType.String):
@@ -153,7 +161,7 @@ class HwEmulationStage(Stage):
 
             for chunk in iter(lambda: stdout.readline(2048), ""):
                 log.debug(chunk.strip())
-            log.debug(stderr)
+            log.debug(stderr.read().decode("UTF-8").strip())
 
         @self.step()
         def download_wdb(
@@ -177,7 +185,10 @@ class HwEmulationStage(Stage):
             """
             Close SSH Connection and cleanup temporaries.
             """
-            client.exec_command("rm -r {tmpdir}")
+            if self.config["stages", self.target_stage, "save_temps"] is None:
+                client.exec_command("rm -r {tmpdir}")
+            else:
+                print(tmpdir)
             client.close()
 
         check_host_cpp()

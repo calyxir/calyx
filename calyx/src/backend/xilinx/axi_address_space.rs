@@ -187,7 +187,7 @@ impl AddressSpace {
 
         let mut if_stmt = v::SequentialIfElse::new("ARESET".into());
         let mut else_br = v::SequentialIfElse::new(v::Expr::new_logical_and(
-            handshake.into(),
+            handshake,
             v::Expr::new_eq(
                 int_addr.into(),
                 v::Expr::new_int(addr.address as i32),

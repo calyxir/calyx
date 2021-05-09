@@ -1,5 +1,4 @@
 use super::fsm;
-use crate::utils;
 use vast::v05::ast as v;
 
 pub(crate) enum ChannelDirection {
@@ -11,9 +10,7 @@ pub(crate) struct AxiChannel {
     pub prefix: String,
     pub direction: ChannelDirection,
     pub state: Vec<v::Decl>,
-    pub inputs: Vec<(String, u64)>,
-    /// Vector of (PortName, expression)
-    pub outputs: Vec<(String, u64)>,
+    pub data_ports: Vec<(String, u64)>,
 }
 
 impl AxiChannel {
@@ -44,18 +41,11 @@ impl AxiChannel {
     }
 
     pub fn ports<'a>(&'a self) -> impl Iterator<Item = String> + 'a {
-        vec![self.ready(), self.valid()]
-            .into_iter()
-            .chain(
-                self.inputs
-                    .iter()
-                    .map(move |(x, _)| format!("{}{}", self.prefix, x)),
-            )
-            .chain(
-                self.outputs
-                    .iter()
-                    .map(move |(x, _)| format!("{}{}", self.prefix, x)),
-            )
+        vec![self.ready(), self.valid()].into_iter().chain(
+            self.data_ports
+                .iter()
+                .map(move |(x, _)| format!("{}{}", self.prefix, x)),
+        )
     }
 
     pub fn add_ports_to(&self, module: &mut v::Module) {
@@ -63,22 +53,45 @@ impl AxiChannel {
         module.add_input(&self.valid(), 1);
         module.add_output(&self.ready(), 1);
 
-        let mod_inputs = match &self.direction {
-            ChannelDirection::Recv => &self.inputs,
-            ChannelDirection::Send => &self.outputs,
-        };
-        let mod_outputs = match &self.direction {
-            ChannelDirection::Recv => &self.outputs,
-            ChannelDirection::Send => &self.inputs,
-        };
-
-        for (name, width) in mod_inputs {
-            module.add_input(&format!("{}{}", self.prefix, name), *width);
+        match &self.direction {
+            ChannelDirection::Recv => {
+                for (name, width) in &self.data_ports {
+                    module
+                        .add_input(&format!("{}{}", self.prefix, name), *width);
+                }
+            }
+            ChannelDirection::Send => {
+                for (name, width) in &self.data_ports {
+                    module.add_output(
+                        &format!("{}{}", self.prefix, name),
+                        *width,
+                    );
+                }
+            }
         }
+    }
 
-        for (name, width) in mod_outputs {
-            module.add_output(&format!("{}{}", self.prefix, name), *width);
+    pub fn assign<S, E>(&self, data_port: S, expr: E) -> v::Stmt
+    where
+        S: AsRef<str>,
+        E: Into<v::Expr>,
+    {
+        if let ChannelDirection::Send = &self.direction {
+            v::Parallel::Assign(self.get(data_port).into(), expr.into()).into()
+        } else {
+            panic!("Can't assign on a recv channel");
         }
+    }
+
+    pub fn get<S>(&self, data_port: S) -> String
+    where
+        S: AsRef<str>,
+    {
+        self.data_ports
+            .iter()
+            .find(|(name, _width)| name == data_port.as_ref())
+            .map(|(name, _)| format!("{}{}", self.prefix, name))
+            .expect("Data port didn't exist in channel")
     }
 }
 
@@ -141,9 +154,22 @@ impl<'a> Synchronization<'a> {
             ch.state.iter().for_each(|d| module.add_decl(d.clone()));
         }
 
-        let mut fsm = fsm::LinearFsm::new(&self.prefix);
+        let mut fsm = fsm::LinearFsm::new(&self.prefix, "ACLK", "ARESET");
+
+        if let Some(trigger) = &self.trigger {
+            fsm.add_state("trigger", &[], trigger.clone());
+        }
+
         for ch in &self.channels {
             fsm.add_state(&ch.prefix, &[ch.ready().into()], ch.valid());
+            // if let (0, Some(trigger)) = (i, &self.trigger) {
+            //     fsm.add_state(
+            //         &ch.prefix,
+            //         &[ch.ready().into()],
+            //         v::Expr::new_logical_and(ch.valid(), trigger.clone()),
+            //     );
+            // } else {
+            // }
         }
         fsm.emit(module);
     }

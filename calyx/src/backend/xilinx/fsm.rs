@@ -11,18 +11,24 @@ pub(crate) struct State {
 pub(crate) struct LinearFsm {
     state_reg: String,
     next_reg: String,
+    clock: String,
+    reset: v::Expr,
     states: Vec<State>,
     map: BTreeMap<String, usize>,
 }
 
 impl LinearFsm {
-    pub fn new<S>(prefix: S) -> Self
+    pub fn new<S, T, E>(prefix: S, clock: T, reset: E) -> Self
     where
         S: AsRef<str>,
+        T: ToString,
+        E: Into<v::Expr>,
     {
         Self {
             state_reg: format!("{}state", prefix.as_ref()),
             next_reg: format!("{}next", prefix.as_ref()),
+            clock: clock.to_string(),
+            reset: reset.into(),
             states: Vec::new(),
             map: BTreeMap::new(),
         }
@@ -75,9 +81,9 @@ impl LinearFsm {
 
         // fsm update block
         let mut parallel = v::ParallelProcess::new_always();
-        parallel.set_event(v::Sequential::new_posedge("ACLK"));
+        parallel.set_event(v::Sequential::new_posedge(&self.clock));
 
-        let mut ifelse = v::SequentialIfElse::new("ARESET".into());
+        let mut ifelse = v::SequentialIfElse::new(self.reset.clone());
         ifelse.add_seq(v::Sequential::new_nonblk_assign(
             self.state_reg.as_str().into(),
             v::Expr::new_int(0),

@@ -97,11 +97,84 @@ impl Backend for XilinxXmlBackend {
         prog: &ir::Context,
         file: &mut crate::utils::OutputFile,
     ) -> FutilResult<()> {
-        let _toplevel = prog
+        let toplevel = prog
             .components
             .iter()
             .find(|comp| comp.attributes.has("toplevel"))
             .ok_or_else(|| Error::Misc("no toplevel".to_string()))?;
+
+        let mut ports = vec![
+            Port {
+                name: "s_axi_control",
+                mode: "slave",
+                range: "0x1000",
+                data_width: 32,
+                port_type: "addressable",
+                base: "0x0",
+            },
+            // Port {
+            //     name: "m00_axi",
+            //     mode: "master",
+            //     range: "0xFFFFFFFFFFFFFFFF",
+            //     data_width: 64,
+            //     port_type: "addressable",
+            //     base: "0x0",
+            // },
+        ];
+
+        let mut args = vec![Arg {
+            name: "timeout",
+            address_qualifier: 0,
+            id: 0,
+            port: "s_axi_control",
+            size: "0x4",
+            offset: "0x010",
+            typ: "uint",
+            host_offset: "0x0",
+            host_size: "0x4",
+        }];
+
+        let memories: Vec<(String, String)> = toplevel
+            .cells
+            .iter()
+            .filter(|cell_ref| {
+                matches!(cell_ref.borrow().get_attribute("external"), Some(&1))
+            })
+            .enumerate()
+            .map(|(i, cell_ref)| {
+                (cell_ref.borrow().name.to_string(), format!("m{}_axi", i))
+            })
+            .collect();
+        // make the lifetime of the &str long enough
+        let memories_ref: Vec<(&str, &str)> = memories
+            .iter()
+            .map(|(x, y)| (x.as_ref(), y.as_ref()))
+            .collect();
+        let offsets: Vec<String> = (0..memories.len())
+            .map(|i| format!("{:#x}", 0x18 + (8 * i)))
+            .collect();
+
+        for (i, (name, axi_name)) in memories_ref.iter().enumerate() {
+            ports.push(Port {
+                name: axi_name,
+                mode: "master",
+                range: "0xFFFFFFFFFFFFFFFF",
+                data_width: 64,
+                port_type: "addressable",
+                base: "0x0",
+            });
+            args.push(Arg {
+                name,
+                address_qualifier: 1,
+                id: (i + 1) as u64,
+                port: axi_name,
+                size: "0x8",
+                offset: &offsets[i],
+                typ: "int*",
+                host_offset: "0x0",
+                host_size: "0x8",
+            });
+        }
 
         let root = Root {
             version_major: 1,
@@ -115,37 +188,8 @@ impl Backend for XilinxXmlBackend {
                 work_group_size: 1,
                 interrupt: false,
                 hw_control_protocol: "ap_ctrl_hs",
-                ports: vec![
-                    Port {
-                        name: "s_axi_control",
-                        mode: "slave",
-                        range: "0x1000",
-                        data_width: 32,
-                        port_type: "addressable",
-                        base: "0x0",
-                    },
-                    // Port {
-                    //     name: "m00_axi",
-                    //     mode: "master",
-                    //     range: "0xFFFFFFFFFFFFFFFF",
-                    //     data_width: 64,
-                    //     port_type: "addressable",
-                    //     base: "0x0",
-                    // },
-                ]
-                .into(),
-                args: vec![Arg {
-                    name: "timeout",
-                    address_qualifier: 0,
-                    id: 0,
-                    port: "s_axi_control",
-                    size: "0x4",
-                    offset: "0x010",
-                    typ: "uint",
-                    host_offset: "0x0",
-                    host_size: "0x4",
-                }]
-                .into(),
+                ports: ports.into(),
+                args: args.into(),
             },
         };
         write!(

@@ -63,16 +63,17 @@ foreach up [ipx::get_user_parameters] {
 set_property sdx_kernel true [ipx::current_core]
 set_property sdx_kernel_type rtl [ipx::current_core]
 ipx::create_xgui_files [ipx::current_core]
-# ipx::associate_bus_interfaces -busif m00_axi -clock ap_clk [ipx::current_core]
 # ipx::associate_bus_interfaces -busif m01_axi -clock ap_clk [ipx::current_core]
 ipx::associate_bus_interfaces -busif s_axi_control -clock ap_clk [ipx::current_core]
+ipx::associate_bus_interfaces -busif m0_axi -clock ap_clk [ipx::current_core]
 
-set_property xpm_libraries {XPM_CDC XPM_MEMORY XPM_FIFO} [ipx::current_core]
+set_property xpm_libraries {XPM_CDC XPM_MEMORY} [ipx::current_core]
 set_property supported_families { } [ipx::current_core]
 set_property auto_family_support_level level_2 [ipx::current_core]
 ipx::update_checksums [ipx::current_core]
 ipx::save_core [ipx::current_core]
-close_project -delete
+close_project
+# -delete
 
 if {[file exists "${xoname}"]} {
     file delete -force "${xoname}"

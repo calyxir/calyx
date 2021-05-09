@@ -1,5 +1,6 @@
 use super::{
-    axi, control_axi::ControlInterface, fsm, memory_axi::MemoryInterface,
+    axi, control_axi::ControlInterface, fsm, memory_axi::bram,
+    memory_axi::MemoryInterface,
 };
 use crate::{
     backend::traits::Backend,
@@ -40,6 +41,7 @@ impl Backend for XilinxInterfaceBackend {
 
         let mut modules = vec![
             top_level(12, 32, &memories),
+            bram(),
             axi::Axi4Lite::control_module("Control_axi", 12, 32, &memories),
         ];
 
@@ -59,8 +61,9 @@ impl Backend for XilinxInterfaceBackend {
 
         write!(
             file.get_write(),
-            "{}\n{}{}",
+            "{}\n{}\n{}{}",
             "`default_nettype none",
+            "/* verilator lint_off DECLFILENAME */",
             module_string,
             "`default_nettype wire"
         )?;
@@ -115,21 +118,21 @@ fn top_level(
     }
 
     // debugging
-    module.add_output("DBG_ap_start", 1);
-    module.add_output("DBG_ap_done", 1);
-    module.add_output("DBG_timeout", 1);
-    module.add_output("DBG_counter", 32);
+    // module.add_output("DBG_ap_start", 1);
+    // module.add_output("DBG_ap_done", 1);
+    // module.add_output("DBG_timeout", 32);
+    // module.add_output("DBG_counter", 32);
 
-    module.add_stmt(v::Parallel::Assign(
-        "DBG_ap_start".into(),
-        "ap_start".into(),
-    ));
-    module
-        .add_stmt(v::Parallel::Assign("DBG_ap_done".into(), "ap_done".into()));
-    module
-        .add_stmt(v::Parallel::Assign("DBG_timeout".into(), "timeout".into()));
-    module
-        .add_stmt(v::Parallel::Assign("DBG_counter".into(), "counter".into()));
+    // module.add_stmt(v::Parallel::Assign(
+    //     "DBG_ap_start".into(),
+    //     "ap_start".into(),
+    // ));
+    // module
+    //     .add_stmt(v::Parallel::Assign("DBG_ap_done".into(), "ap_done".into()));
+    // module
+    //     .add_stmt(v::Parallel::Assign("DBG_timeout".into(), "timeout".into()));
+    // module
+    //     .add_stmt(v::Parallel::Assign("DBG_counter".into(), "counter".into()));
 
     // TODO: have real interrupt support
     // module.add_stmt(v::Parallel::Assign(
@@ -157,7 +160,9 @@ fn top_level(
     module.add_instance(control_instance);
 
     for mem in memories {
+        module.add_decl(v::Decl::new_wire(&format!("{}_copy", mem), 1));
         module.add_decl(v::Decl::new_wire(&format!("{}_copy_done", mem), 1));
+        module.add_decl(v::Decl::new_wire(&format!("{}_send", mem), 1));
         module.add_decl(v::Decl::new_wire(&format!("{}_send_done", mem), 1));
     }
     host_transfer_fsm(&mut module, memories);
@@ -170,9 +175,9 @@ fn top_level(
         let addr0 = format!("{}_addr0", mem);
         let write_en = format!("{}_write_en", mem);
         let done = format!("{}_done", mem);
-        module.add_decl(v::Decl::new_wire(&write_data, 1));
-        module.add_decl(v::Decl::new_wire(&read_data, 1));
-        module.add_decl(v::Decl::new_wire(&addr0, 1));
+        module.add_decl(v::Decl::new_wire(&write_data, data_width));
+        module.add_decl(v::Decl::new_wire(&read_data, data_width));
+        module.add_decl(v::Decl::new_wire(&addr0, 5));
         module.add_decl(v::Decl::new_wire(&write_en, 1));
         module.add_decl(v::Decl::new_wire(&done, 1));
 
@@ -203,7 +208,7 @@ fn top_level(
     }
 
     // instantiate kernel
-    let mut kernel_instance = v::Instance::new("kernel_inst", "Kernel");
+    let mut kernel_instance = v::Instance::new("kernel_inst", "main");
     module.add_decl(v::Decl::new_wire("kernel_start", 1));
     module.add_decl(v::Decl::new_wire("kernel_done", 1));
     kernel_instance.connect_ref("clk", "ap_clk");
@@ -215,11 +220,13 @@ fn top_level(
         let addr0 = format!("{}_addr0", mem);
         let write_data = format!("{}_write_data", mem);
         let write_en = format!("{}_write_en", mem);
+        let clk = format!("{}_clk", mem);
         kernel_instance.connect_ref(&read_data, &read_data);
         kernel_instance.connect_ref(&done, &done);
         kernel_instance.connect_ref(&addr0, &addr0);
         kernel_instance.connect_ref(&write_data, &write_data);
         kernel_instance.connect_ref(&write_en, &write_en);
+        kernel_instance.connect_ref(&clk, "");
     }
     module.add_instance(kernel_instance);
 
@@ -230,7 +237,7 @@ fn top_level(
     let mut reset_if = v::SequentialIfElse::new("ap_start".into());
     reset_if.add_seq(v::Sequential::new_nonblk_assign(
         "counter".into(),
-        v::Expr::new_add("counter".into(), v::Expr::new_ulit_dec(32, "1")),
+        v::Expr::new_add("counter", v::Expr::new_ulit_dec(32, "1")),
     ));
     reset_if.set_else(v::Sequential::new_nonblk_assign(
         "counter".into(),
@@ -264,10 +271,7 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
             memories[1..].iter().fold(
                 format!("{}_copy_done", memories[0]).into(),
                 |acc, elem| {
-                    v::Expr::new_logical_and(
-                        acc,
-                        format!("{}_copy_done", elem).into(),
-                    )
+                    v::Expr::new_logical_and(acc, format!("{}_copy_done", elem))
                 },
             )
         },
@@ -282,10 +286,7 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
             memories[1..].iter().fold(
                 format!("{}_send_done", memories[0]).into(),
                 |acc, elem| {
-                    v::Expr::new_logical_and(
-                        acc,
-                        format!("{}_send_done", elem).into(),
-                    )
+                    v::Expr::new_logical_and(acc, format!("{}_send_done", elem))
                 },
             )
         },
@@ -298,163 +299,10 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
         .iter()
         .map(|mem| format!("{}_send", mem).into())
         .collect();
-    fsm::LinearFsm::new("host_txn_")
+    fsm::LinearFsm::new("host_txn_", "ap_clk", v::Expr::new_not("ap_rst_n"))
         .state("idle", &[], "ap_start") // idle state
         .state("copy", &copy_start_assigns, "memories_copied") // copy memory state
         .state("run_kernel", &["kernel_start".into()], "kernel_done") // run kernel state
         .state("send", &send_start_assigns, "memories_sent") // send memory to host state
         .emit(module);
-
-    // let state = "host_txn_state";
-    // let next = "host_txn_next";
-
-    // // state mapping:
-    // //  0: idle, waiting for ap_start
-    // //  1: copy memory from host, waiting for copying to finish
-    // //  2: run kernel, waiting for kernel to finish
-    // //  3: send memory to host
-
-    // // fsm that controls when to read / write to memories
-    // module.add_decl(v::Decl::new_reg(state, 2));
-    // module.add_decl(v::Decl::new_reg(next, 2));
-
-    // // fsm update block
-    // let mut parallel = v::ParallelProcess::new_always();
-    // parallel.set_event(v::Sequential::new_posedge("ACLK"));
-
-    // let mut ifelse = v::SequentialIfElse::new("ARESET".into());
-    // ifelse.add_seq(v::Sequential::new_nonblk_assign(
-    //     state.into(),
-    //     v::Expr::new_int(0),
-    // ));
-    // ifelse
-    //     .set_else(v::Sequential::new_nonblk_assign(state.into(), next.into()));
-
-    // parallel.add_seq(ifelse.into());
-    // module.add_stmt(parallel);
-
-    // module.add_decl(v::Decl::new_wire("memories_copied", 1));
-    // module.add_decl(v::Decl::new_wire("memories_sent", 1));
-    // module.add_stmt(v::Parallel::Assign(
-    //     "memories_copied".into(),
-    //     if memories.len() == 0 {
-    //         panic!("Need some memories")
-    //     } else if memories.len() == 1 {
-    //         format!("{}_copy_done", memories[0]).into()
-    //     } else {
-    //         memories[1..].iter().fold(
-    //             format!("{}_copy_done", memories[0]).into(),
-    //             |acc, elem| {
-    //                 v::Expr::new_logical_and(
-    //                     acc,
-    //                     format!("{}_copy_done", elem).into(),
-    //                 )
-    //             },
-    //         )
-    //     },
-    // ));
-    // module.add_stmt(v::Parallel::Assign(
-    //     "memories_sent".into(),
-    //     if memories.len() == 0 {
-    //         panic!("Need some memories")
-    //     } else if memories.len() == 1 {
-    //         format!("{}_send_done", memories[0]).into()
-    //     } else {
-    //         memories[1..].iter().fold(
-    //             format!("{}_send_done", memories[0]).into(),
-    //             |acc, elem| {
-    //                 v::Expr::new_logical_and(
-    //                     acc,
-    //                     format!("{}_send_done", elem).into(),
-    //                 )
-    //             },
-    //         )
-    //     },
-    // ));
-    // for mem in memories {
-    //     module.add_stmt(v::Parallel::Assign(
-    //         format!("{}_copy", mem).into(),
-    //         v::Expr::new_eq(state.into(), v::Expr::new_int(1)),
-    //     ));
-    //     module.add_stmt(v::Parallel::Assign(
-    //         format!("{}_send", mem).into(),
-    //         v::Expr::new_eq(state.into(), v::Expr::new_int(3)),
-    //     ));
-    // }
-    // module.add_stmt(v::Parallel::Assign(
-    //     "kernel_start".into(),
-    //     v::Expr::new_eq(state.into(), v::Expr::new_int(2)),
-    // ));
-
-    // let mut parallel = v::ParallelProcess::new_always();
-    // parallel.set_event(v::Sequential::Wildcard);
-
-    // let mut case = v::Case::new(state.into());
-
-    // // idle state
-    // let mut idle_state = v::CaseBranch::new(v::Expr::new_int(0));
-    // let mut idle_if = v::SequentialIfElse::new("ap_start".into());
-    // idle_if.add_seq(v::Sequential::new_blk_assign(
-    //     state.into(),
-    //     v::Expr::new_int(1),
-    // ));
-    // idle_if.set_else(v::Sequential::new_blk_assign(
-    //     state.into(),
-    //     v::Expr::new_int(0),
-    // ));
-    // idle_state.add_seq(idle_if.into());
-    // case.add_branch(idle_state);
-
-    // // copy from host state
-    // let mut copy_from_host_state = v::CaseBranch::new(v::Expr::new_int(1));
-    // let mut copy_if = v::SequentialIfElse::new("memories_copied".into());
-    // copy_if.add_seq(v::Sequential::new_blk_assign(
-    //     state.into(),
-    //     v::Expr::new_int(2),
-    // ));
-    // copy_if.set_else(v::Sequential::new_blk_assign(
-    //     state.into(),
-    //     v::Expr::new_int(1),
-    // ));
-    // copy_from_host_state.add_seq(copy_if.into());
-    // case.add_branch(copy_from_host_state);
-
-    // // run kernel state
-    // let mut run_kernel_state = v::CaseBranch::new(v::Expr::new_int(2));
-    // let mut kernel_if = v::SequentialIfElse::new("kernel_done".into());
-    // kernel_if.add_seq(v::Sequential::new_blk_assign(
-    //     state.into(),
-    //     v::Expr::new_int(3),
-    // ));
-    // kernel_if.set_else(v::Sequential::new_blk_assign(
-    //     state.into(),
-    //     v::Expr::new_int(2),
-    // ));
-    // run_kernel_state.add_seq(kernel_if.into());
-    // case.add_branch(run_kernel_state);
-
-    // // send to host state
-    // let mut send_to_host_state = v::CaseBranch::new(v::Expr::new_int(3));
-    // let mut send_if = v::SequentialIfElse::new("memories_sent".into());
-    // send_if.add_seq(v::Sequential::new_blk_assign(
-    //     state.into(),
-    //     v::Expr::new_int(0),
-    // ));
-    // send_if.set_else(v::Sequential::new_blk_assign(
-    //     state.into(),
-    //     v::Expr::new_int(3),
-    // ));
-    // send_to_host_state.add_seq(send_if.into());
-    // case.add_branch(send_to_host_state);
-
-    // // default case
-    // let mut default = v::CaseDefault::default();
-    // default.add_seq(v::Sequential::new_blk_assign(
-    //     next.into(),
-    //     v::Expr::new_int(0),
-    // ));
-    // case.set_default(default);
-
-    // parallel.add_seq(v::Sequential::new_case(case));
-    // module.add_stmt(parallel)
 }

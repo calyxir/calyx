@@ -56,15 +56,13 @@ impl ControlInterface for Axi4Lite {
             prefix: format!("{}AR", prefix),
             direction: ChannelDirection::Recv,
             state: vec![v::Decl::new_wire("raddr", address_width)],
-            inputs: vec![("ADDR".to_string(), address_width)],
-            outputs: vec![],
+            data_ports: vec![("ADDR".to_string(), address_width)],
         };
         let read_data = AxiChannel {
             prefix: format!("{}R", prefix),
             direction: ChannelDirection::Send,
             state: vec![v::Decl::new_reg("rdata", data_width)],
-            inputs: vec![],
-            outputs: vec![
+            data_ports: vec![
                 ("DATA".to_string(), data_width),
                 ("RESP".to_string(), 2),
             ],
@@ -75,22 +73,19 @@ impl ControlInterface for Axi4Lite {
             prefix: format!("{}AW", prefix),
             direction: ChannelDirection::Recv,
             state: vec![v::Decl::new_reg("waddr", address_width)],
-            inputs: vec![("ADDR".to_string(), address_width)],
-            outputs: vec![],
+            data_ports: vec![("ADDR".to_string(), address_width)],
         };
         let write_data = AxiChannel {
             prefix: format!("{}W", prefix),
             direction: ChannelDirection::Recv,
             state: vec![v::Decl::new_wire("wdata", data_width)],
-            inputs: vec![("DATA".to_string(), data_width)],
-            outputs: vec![],
+            data_ports: vec![("DATA".to_string(), data_width)],
         };
         let write_response = AxiChannel {
             prefix: format!("{}B", prefix),
             direction: ChannelDirection::Send,
             state: vec![],
-            inputs: vec![],
-            outputs: vec![("RESP".to_string(), 2)],
+            data_ports: vec![("RESP".to_string(), 2)],
         };
         Self {
             read_address,
