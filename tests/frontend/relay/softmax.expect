@@ -17,17 +17,17 @@ component main() -> () {
 }
 component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 1, x0_0_addr1: 4, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 1, x10_0_addr1: 4) {
   cells {
-    __exp_sum0 = std_reg(32);
+    __exp_sum_0 = std_reg(32);
     __i0 = std_reg(1);
     __i1 = std_reg(1);
     __j0 = std_reg(4);
     __j1 = std_reg(4);
     __k0 = std_reg(4);
-    __max0 = std_reg(32);
-    __t00 = std_reg(32);
-    __t10 = std_reg(32);
-    __t20 = std_reg(32);
-    __t30 = std_reg(32);
+    __max_0 = std_reg(32);
+    __t0_0 = std_reg(32);
+    __t1_0 = std_reg(32);
+    __t2_0 = std_reg(32);
+    __t3_0 = std_reg(32);
     add0 = std_add(4);
     add1 = std_add(1);
     add2 = std_fp_sadd(32,16,16);
@@ -64,10 +64,10 @@ component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
     le4 = std_le(4);
     sub0 = std_fp_ssub(32,16,16);
     sub1 = std_fp_ssub(32,16,16);
-    x_read00 = std_reg(32);
-    x_read10 = std_reg(32);
-    x_read20 = std_reg(32);
-    x_read30 = std_reg(32);
+    x_read0_0 = std_reg(32);
+    x_read1_0 = std_reg(32);
+    x_read2_0 = std_reg(32);
+    x_read3_0 = std_reg(32);
   }
   wires {
     group cond0<"static"=0> {
@@ -82,8 +82,8 @@ component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
     }
     group cond2<"static"=0> {
       cond2[done] = 1'd1;
-      gt0.left = x_read00.out;
-      gt0.right = __max0.out;
+      gt0.left = x_read0_0.out;
+      gt0.right = __max_0.out;
     }
     group cond3<"static"=0> {
       cond3[done] = 1'd1;
@@ -114,8 +114,8 @@ component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
       bin_read0_0.in = div_pipe0.out_quotient;
       bin_read0_0.write_en = div_pipe0.done;
       let10[done] = bin_read0_0.done;
-      div_pipe0.left = __t30.out;
-      div_pipe0.right = __exp_sum0.out;
+      div_pipe0.left = __t3_0.out;
+      div_pipe0.right = __exp_sum_0.out;
       div_pipe0.go = !div_pipe0.done ? 1'd1;
     }
     group let2<"static"=1> {
@@ -124,9 +124,9 @@ component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
       let2[done] = __i1.done;
     }
     group let3<"static"=1> {
-      __exp_sum0.in = fp_const0.out;
-      __exp_sum0.write_en = 1'd1;
-      let3[done] = __exp_sum0.done;
+      __exp_sum_0.in = fp_const0.out;
+      __exp_sum_0.write_en = 1'd1;
+      let3[done] = __exp_sum_0.done;
     }
     group let4<"static"=1> {
       __j1.in = const10.out;
@@ -134,16 +134,16 @@ component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
       let4[done] = __j1.done;
     }
     group let5<"static"=1> {
-      __t00.in = sub0.out;
-      __t00.write_en = 1'd1;
-      let5[done] = __t00.done;
-      sub0.left = x_read20.out;
-      sub0.right = __max0.out;
+      __t0_0.in = sub0.out;
+      __t0_0.write_en = 1'd1;
+      let5[done] = __t0_0.done;
+      sub0.left = x_read2_0.out;
+      sub0.right = __max_0.out;
     }
     group let6 {
-      __t10.in = exp0.out;
-      __t10.write_en = 1'd1;
-      let6[done] = __t10.done;
+      __t1_0.in = exp0.out;
+      __t1_0.write_en = 1'd1;
+      let6[done] = __t1_0.done;
     }
     group let7<"static"=1> {
       __k0.in = const13.out;
@@ -151,30 +151,30 @@ component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
       let7[done] = __k0.done;
     }
     group let8<"static"=1> {
-      __t20.in = sub1.out;
-      __t20.write_en = 1'd1;
-      let8[done] = __t20.done;
-      sub1.left = x_read30.out;
-      sub1.right = __max0.out;
+      __t2_0.in = sub1.out;
+      __t2_0.write_en = 1'd1;
+      let8[done] = __t2_0.done;
+      sub1.left = x_read3_0.out;
+      sub1.right = __max_0.out;
     }
     group let9 {
-      __t30.in = exp1.out;
-      __t30.write_en = 1'd1;
-      let9[done] = __t30.done;
+      __t3_0.in = exp1.out;
+      __t3_0.write_en = 1'd1;
+      let9[done] = __t3_0.done;
     }
     group upd0<"static"=1> {
-      __max0.write_en = 1'd1;
+      __max_0.write_en = 1'd1;
       x0_0_addr1 = const1.out;
       x0_0_addr0 = const0.out;
-      __max0.in = 1'd1 ? x0_0_read_data;
-      upd0[done] = __max0.done ? 1'd1;
+      __max_0.in = 1'd1 ? x0_0_read_data;
+      upd0[done] = __max_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
-      x_read00.write_en = 1'd1;
+      x_read0_0.write_en = 1'd1;
       x0_0_addr1 = __j0.out;
       x0_0_addr0 = __i0.out;
-      x_read00.in = 1'd1 ? x0_0_read_data;
-      upd1[done] = x_read00.done ? 1'd1;
+      x_read0_0.in = 1'd1 ? x0_0_read_data;
+      upd1[done] = x_read0_0.done ? 1'd1;
     }
     group upd10<"static"=1> {
       x10_0_addr1 = __k0.out;
@@ -198,16 +198,16 @@ component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
       upd12[done] = __i1.done ? 1'd1;
     }
     group upd2<"static"=1> {
-      x_read10.write_en = 1'd1;
+      x_read1_0.write_en = 1'd1;
       x0_0_addr1 = __j0.out;
       x0_0_addr0 = __i0.out;
-      x_read10.in = 1'd1 ? x0_0_read_data;
-      upd2[done] = x_read10.done ? 1'd1;
+      x_read1_0.in = 1'd1 ? x0_0_read_data;
+      upd2[done] = x_read1_0.done ? 1'd1;
     }
     group upd3<"static"=1> {
-      __max0.write_en = 1'd1;
-      __max0.in = 1'd1 ? x_read10.out;
-      upd3[done] = __max0.done ? 1'd1;
+      __max_0.write_en = 1'd1;
+      __max_0.in = 1'd1 ? x_read1_0.out;
+      upd3[done] = __max_0.done ? 1'd1;
     }
     group upd4<"static"=1> {
       __j0.write_en = 1'd1;
@@ -224,18 +224,18 @@ component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
       upd5[done] = __i0.done ? 1'd1;
     }
     group upd6<"static"=1> {
-      x_read20.write_en = 1'd1;
+      x_read2_0.write_en = 1'd1;
       x0_0_addr1 = __j1.out;
       x0_0_addr0 = __i1.out;
-      x_read20.in = 1'd1 ? x0_0_read_data;
-      upd6[done] = x_read20.done ? 1'd1;
+      x_read2_0.in = 1'd1 ? x0_0_read_data;
+      upd6[done] = x_read2_0.done ? 1'd1;
     }
     group upd7<"static"=1> {
-      __exp_sum0.write_en = 1'd1;
-      add2.left = __exp_sum0.out;
-      add2.right = __t10.out;
-      __exp_sum0.in = 1'd1 ? add2.out;
-      upd7[done] = __exp_sum0.done ? 1'd1;
+      __exp_sum_0.write_en = 1'd1;
+      add2.left = __exp_sum_0.out;
+      add2.right = __t1_0.out;
+      __exp_sum_0.in = 1'd1 ? add2.out;
+      upd7[done] = __exp_sum_0.done ? 1'd1;
     }
     group upd8<"static"=1> {
       __j1.write_en = 1'd1;
@@ -245,11 +245,11 @@ component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
       upd8[done] = __j1.done ? 1'd1;
     }
     group upd9<"static"=1> {
-      x_read30.write_en = 1'd1;
+      x_read3_0.write_en = 1'd1;
       x0_0_addr1 = __k0.out;
       x0_0_addr0 = __i1.out;
-      x_read30.in = 1'd1 ? x0_0_read_data;
-      upd9[done] = x_read30.done ? 1'd1;
+      x_read3_0.in = 1'd1 ? x0_0_read_data;
+      upd9[done] = x_read3_0.done ? 1'd1;
     }
   }
   control {
@@ -285,7 +285,7 @@ component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
                 seq {
                   upd6;
                   let5;
-                  invoke exp0(x=__t00.out)();
+                  invoke exp0(x=__t0_0.out)();
                   let6;
                   upd7;
                   upd8;
@@ -298,7 +298,7 @@ component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
             seq {
               upd9;
               let8;
-              invoke exp1(x=__t20.out)();
+              invoke exp1(x=__t2_0.out)();
               let9;
               let10;
               upd10;

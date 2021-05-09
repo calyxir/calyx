@@ -21,7 +21,7 @@ component reshape_1x8(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_read_data:
     __j0 = std_reg(2);
     __k0 = std_reg(2);
     __l0 = std_reg(2);
-    __m0 = std_reg(4);
+    __m_0 = std_reg(4);
     add0 = std_add(4);
     add1 = std_add(2);
     add2 = std_add(2);
@@ -46,7 +46,7 @@ component reshape_1x8(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_read_data:
     le1 = std_le(2);
     le2 = std_le(2);
     le3 = std_le(2);
-    x_read00 = std_reg(32);
+    x_read0_0 = std_reg(32);
   }
   wires {
     group cond0<"static"=0> {
@@ -70,9 +70,9 @@ component reshape_1x8(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_read_data:
       le3.right = const8.out;
     }
     group let0<"static"=1> {
-      __m0.in = const0.out;
-      __m0.write_en = 1'd1;
-      let0[done] = __m0.done;
+      __m_0.in = const0.out;
+      __m_0.write_en = 1'd1;
+      let0[done] = __m_0.done;
     }
     group let1<"static"=1> {
       __i0.in = const1.out;
@@ -95,27 +95,27 @@ component reshape_1x8(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_read_data:
       let4[done] = __l0.done;
     }
     group upd0<"static"=1> {
-      x_read00.write_en = 1'd1;
+      x_read0_0.write_en = 1'd1;
       x0_0_0_0_addr3 = __l0.out;
       x0_0_0_0_addr2 = __k0.out;
       x0_0_0_0_addr1 = __j0.out;
       x0_0_0_0_addr0 = __i0.out;
-      x_read00.in = 1'd1 ? x0_0_0_0_read_data;
-      upd0[done] = x_read00.done ? 1'd1;
+      x_read0_0.in = 1'd1 ? x0_0_0_0_read_data;
+      upd0[done] = x_read0_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
-      x10_0_addr1 = __m0.out;
+      x10_0_addr1 = __m_0.out;
       x10_0_addr0 = const9.out;
       x10_0_write_en = 1'd1;
-      x10_0_write_data = 1'd1 ? x_read00.out;
+      x10_0_write_data = 1'd1 ? x_read0_0.out;
       upd1[done] = x10_0_done ? 1'd1;
     }
     group upd2<"static"=1> {
-      __m0.write_en = 1'd1;
-      add0.left = __m0.out;
+      __m_0.write_en = 1'd1;
+      add0.left = __m_0.out;
       add0.right = const10.out;
-      __m0.in = 1'd1 ? add0.out;
-      upd2[done] = __m0.done ? 1'd1;
+      __m_0.in = 1'd1 ? add0.out;
+      upd2[done] = __m_0.done ? 1'd1;
     }
     group upd3<"static"=1> {
       __l0.write_en = 1'd1;
