@@ -103,12 +103,19 @@ def convert2dat(output_dir, data, extension, round_float_to_fixed):
         shape[k]["width"] = width
 
         def convert(x):
-            NumericType = FixedPoint if is_fp else Bitnum
-            if is_fp and round_float_to_fixed:
-                x = float_to_fixed_point(float(x), width - int_width)
-                x = str(x)
-
-            return NumericType(x, **shape[k]).hex_string(with_prefix=False)
+            with_prefix = False
+            if not is_fp:
+                return Bitnum(x, **shape[k]).hex_string(with_prefix)
+            try:
+                return FixedPoint(x, **shape[k]).hex_string(with_prefix)
+            except InvalidNumericType as error:
+                if round_float_to_fixed:
+                    # Only round if it is not already representable.
+                    fractional_width = width - int_width
+                    x = float_to_fixed_point(float(x), fractional_width)
+                    x = str(x)
+                    return FixedPoint(x, **shape[k]).hex_string(with_prefix)
+                raise error
 
         with path.open("w") as f:
             for v in arr.flatten():
