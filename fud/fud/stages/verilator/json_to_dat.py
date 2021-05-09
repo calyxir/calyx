@@ -106,6 +106,7 @@ def convert2dat(output_dir, data, extension, round_float_to_fixed):
             with_prefix = False
             if not is_fp:
                 return Bitnum(x, **shape[k]).hex_string(with_prefix)
+
             try:
                 return FixedPoint(x, **shape[k]).hex_string(with_prefix)
             except InvalidNumericType as error:
@@ -115,7 +116,8 @@ def convert2dat(output_dir, data, extension, round_float_to_fixed):
                     x = float_to_fixed_point(float(x), fractional_width)
                     x = str(x)
                     return FixedPoint(x, **shape[k]).hex_string(with_prefix)
-                raise error
+                else:
+                    raise error
 
         with path.open("w") as f:
             for v in arr.flatten():
