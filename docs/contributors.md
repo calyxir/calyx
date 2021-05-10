@@ -9,7 +9,7 @@ Here is a list of all the people who have worked on Calyx:
 - [Adrian Sampson](https://adriansampson.net)
 - Ted Bauer
 - YooNa Chang
-- Chris Gyurgyik
+- [Chris Gyurgyik](https://chrispg.dev)
 - Karen Zhang
 - YoungSeok Na
 - Andrii Iermolaiev
