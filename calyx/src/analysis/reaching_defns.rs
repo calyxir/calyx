@@ -21,21 +21,43 @@ impl DefSet {
         }
     }
 
-    fn empty() -> Self {
+    fn new() -> Self {
         DefSet {
             set: HashSet::new(),
         }
     }
 
-    fn kill(&self, writes: &HashSet<ir::Id>, reads: &HashSet<ir::Id>) -> Self {
+    fn kill_from_writeread(
+        &self,
+        writes: &HashSet<ir::Id>,
+        reads: &HashSet<ir::Id>,
+    ) -> (Self, KilledSet) {
+        let mut killed = KilledSet::new();
+        let def = DefSet {
+            set: self
+                .set
+                .iter()
+                .cloned()
+                .filter_map(|(name, grp)| {
+                    if !writes.contains(&name) || reads.contains(&name) {
+                        Some((name, grp))
+                    } else {
+                        killed.insert(name);
+                        None
+                    }
+                })
+                .collect(),
+        };
+        (def, killed)
+    }
+
+    fn kill_from_hashset(&self, killset: &HashSet<ir::Id>) -> Self {
         DefSet {
             set: self
                 .set
                 .iter()
                 .cloned()
-                .filter(|(name, _)| {
-                    !writes.contains(name) || reads.contains(name)
-                })
+                .filter(|(name, _)| !killset.contains(name))
                 .collect(),
         }
     }
@@ -60,10 +82,15 @@ pub struct ReachingDefinitionAnalysis {
 
 impl ReachingDefinitionAnalysis {
     pub fn new(_comp: &ir::Component, control: &ir::Control) -> Self {
-        let initial_set = DefSet::empty();
+        let initial_set = DefSet::new();
         let mut analysis = ReachingDefinitionAnalysis::empty();
 
-        build_reaching_def(control, initial_set, &mut analysis);
+        build_reaching_def(
+            control,
+            initial_set,
+            KilledSet::new(),
+            &mut analysis,
+        );
         analysis
     }
 
@@ -125,17 +152,48 @@ impl ReachingDefinitionAnalysis {
     }
 }
 
+type KilledSet = HashSet<ir::Id>;
+
 fn build_reaching_def(
     c: &ir::Control,
     reach: DefSet,
+    killed: KilledSet,
     rd: &mut ReachingDefinitionAnalysis,
-) -> DefSet {
+) -> (DefSet, KilledSet) {
     match c {
-        ir::Control::Seq(ir::Seq { stmts, .. }) => stmts
-            .iter()
-            .fold(reach, |acc, inner_c| build_reaching_def(inner_c, acc, rd)),
-        ir::Control::Par(_) => {
-            todo!()
+        ir::Control::Seq(ir::Seq { stmts, .. }) => {
+            stmts
+                .iter()
+                .fold((reach, killed), |(acc, killed), inner_c| {
+                    build_reaching_def(inner_c, acc, killed, rd)
+                })
+        }
+        ir::Control::Par(ir::Par { stmts, .. }) => {
+            let (defs, par_killed): (Vec<DefSet>, Vec<KilledSet>) = stmts
+                .iter()
+                .map(|ctrl| {
+                    build_reaching_def(
+                        ctrl,
+                        reach.clone(),
+                        KilledSet::new(),
+                        rd,
+                    )
+                })
+                .unzip();
+
+            let global_killed = par_killed
+                .iter()
+                .fold(KilledSet::new(), |acc, set| &acc | set);
+
+            let par_exit_defs = defs
+                .iter()
+                .zip(par_killed.iter())
+                .map(|(defs, kills)| {
+                    defs.kill_from_hashset(&(&global_killed - kills))
+                })
+                .fold(DefSet::new(), |acc, element| &acc | &element);
+
+            (par_exit_defs, &global_killed | &killed)
         }
         ir::Control::If(ir::If {
             tbranch,
@@ -147,22 +205,40 @@ fn build_reaching_def(
                 attributes: ir::Attributes::default(),
                 group: Rc::clone(cond),
             });
-            let post_cond = build_reaching_def(&fake_enable, reach, rd);
-            let t_case = build_reaching_def(tbranch, post_cond.clone(), rd);
-            let f_case = build_reaching_def(fbranch, post_cond, rd);
-            &t_case | &f_case
+            let (post_cond_def, post_cond_killed) =
+                build_reaching_def(&fake_enable, reach, killed, rd);
+            let (t_case_def, t_case_killed) = build_reaching_def(
+                tbranch,
+                post_cond_def.clone(),
+                post_cond_killed.clone(),
+                rd,
+            );
+            let (f_case_def, f_case_killed) = build_reaching_def(
+                fbranch,
+                post_cond_def,
+                post_cond_killed,
+                rd,
+            );
+            (&t_case_def | &f_case_def, &t_case_killed | &f_case_killed)
         }
         ir::Control::While(ir::While { cond, body, .. }) => {
             let fake_enable = ir::Control::Enable(ir::Enable {
                 attributes: ir::Attributes::default(),
                 group: Rc::clone(cond),
             });
-            let post_cond = build_reaching_def(&fake_enable, reach, rd);
+            let (post_cond_def, post_cond_killed) =
+                build_reaching_def(&fake_enable, reach, killed, rd);
 
-            let round_1 = build_reaching_def(body, post_cond, rd);
-            let post_cond2 = build_reaching_def(&fake_enable, round_1, rd);
+            let (round_1_def, round_1_killed) =
+                build_reaching_def(body, post_cond_def, post_cond_killed, rd);
+            let (post_cond2_def, post_cond2_killed) = build_reaching_def(
+                &fake_enable,
+                round_1_def,
+                round_1_killed,
+                rd,
+            );
             // Twice as nice?
-            build_reaching_def(body, post_cond2, rd)
+            build_reaching_def(body, post_cond2_def, post_cond2_killed, rd)
         }
         ir::Control::Invoke(_) => {
             todo!()
@@ -188,14 +264,15 @@ fn build_reaching_def(
                     .map(|x| x.borrow().name.clone())
                     .collect::<HashSet<_>>();
             // only kill a def if the value is not read.
-            let mut cur_reach = reach.kill(&write_set, &read_set);
+            let (mut cur_reach, killed) =
+                reach.kill_from_writeread(&write_set, &read_set);
             cur_reach.extend(write_set, &en.group.borrow().name);
 
             rd.reach
                 .insert(en.group.borrow().name.clone(), cur_reach.clone());
 
-            cur_reach
+            (cur_reach, killed)
         }
-        ir::Control::Empty(_) => reach,
+        ir::Control::Empty(_) => (reach, killed),
     }
 }
