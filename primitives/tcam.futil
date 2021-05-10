@@ -1,7 +1,9 @@
 // An implementation of Comparator Network Longest Prefix Match (CN-LPM), as described in:
 // "TCAM-based high speed longest prefix matching with fast incremental table updates"
 // Rasmussen et al. (2013) [https://ieeexplore.ieee.org/document/6602288]
-
+//
+// A lengthier write-up on the design can be found at:
+// https://cgyurgyik.github.io/posts/2021/05/tcam-in-calyx/
 
 // Sets the `match_line` signal to high if the value `in` matches the
 // `prefix` with the given `length`. For example, given
