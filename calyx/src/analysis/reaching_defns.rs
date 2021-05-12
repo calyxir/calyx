@@ -240,9 +240,7 @@ fn build_reaching_def(
             // Twice as nice?
             build_reaching_def(body, post_cond2_def, post_cond2_killed, rd)
         }
-        ir::Control::Invoke(_) => {
-            todo!()
-        }
+        ir::Control::Invoke(Invoke) => (reach, killed),
         ir::Control::Enable(en) => {
             let writes =
                 ReadWriteSet::must_write_set(&en.group.borrow().assignments);
