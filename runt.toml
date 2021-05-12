@@ -68,6 +68,16 @@ fud exec -s verilog.data {}.data \
          {} --to dat -q | jq .memories
 """
 
+[[tests]]
+name = "tcam testing"
+paths = [
+  "tests/correctness/tcam/*.futil"
+]
+cmd = """
+fud exec -s verilog.data {}.data \
+         {} --to dat -q | jq .memories
+"""
+
 ## Same as correctness dynamic but runs with static-timing.
 [[tests]]
 name = "correctness static timing"

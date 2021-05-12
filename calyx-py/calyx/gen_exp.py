@@ -1,10 +1,11 @@
 from calyx.py_ast import *
+from calyx.utils import float_to_fixed_point
 from math import factorial, log2
 from typing import List
 from fud.stages.verilator import numeric_types
 
 
-def generate_fp_pow_component(width: int, int_width: int) -> Component:
+def generate_fp_pow_component(width: int, int_width: int, is_signed: bool) -> Component:
     """Generates a fixed point `pow` component, which
     computes the value x**y, where y must be an integer.
     """
@@ -23,11 +24,11 @@ def generate_fp_pow_component(width: int, int_width: int) -> Component:
         Cell(
             mul,
             stdlib.fixed_point_op(
-                "mult_pipe", width, int_width, frac_width, signed=False
+                "mult_pipe", width, int_width, frac_width, signed=is_signed
             ),
         ),
-        Cell(lt, stdlib.op("lt", width, signed=False)),
-        Cell(incr, stdlib.op("add", width, signed=False)),
+        Cell(lt, stdlib.op("lt", width, signed=is_signed)),
+        Cell(incr, stdlib.op("add", width, signed=is_signed)),
     ]
     wires = [
         Group(
@@ -37,7 +38,7 @@ def generate_fp_pow_component(width: int, int_width: int) -> Component:
                     ConstantPort(
                         width,
                         numeric_types.FixedPoint(
-                            "1.0", width, int_width, is_signed=False
+                            "1.0", width, int_width, is_signed=is_signed
                         ).unsigned_integer(),
                     ),
                     CompPort(pow, "in"),
@@ -116,26 +117,25 @@ def generate_fp_pow_component(width: int, int_width: int) -> Component:
         ),
     )
 
-
-def float_to_fixed_point(value: float, N: int) -> float:
-    """Returns a fixed point representation of `value`
-    with the decimal value truncated to `N - 1` places.
-    """
-    w = 2 << (N - 1)
-    return round(value * w) / float(w)
-
-
-def generate_cells(degree: int, width: int, int_width: int) -> List[Cell]:
+def generate_cells(
+    degree: int, width: int, int_width: int, is_signed: bool
+) -> List[Cell]:
     stdlib = Stdlib()
     frac_width = width - int_width
     init_cells = [
+        Cell(CompVar("exponent_value"), stdlib.register(width)),
         Cell(CompVar("int_x"), stdlib.register(width)),
         Cell(CompVar("frac_x"), stdlib.register(width)),
         Cell(CompVar("m"), stdlib.register(width)),
         Cell(CompVar("and0"), stdlib.op("and", width, signed=False)),
         Cell(CompVar("and1"), stdlib.op("and", width, signed=False)),
         Cell(CompVar("rsh"), stdlib.op("rsh", width, signed=False)),
-    ]
+    ] + (
+        [Cell(CompVar("lt"), stdlib.op("lt", width, signed=is_signed))]
+        if is_signed
+        else []
+    )
+
     pow_registers = [
         Cell(CompVar(f"p{i}"), stdlib.register(width)) for i in range(2, degree + 1)
     ]
@@ -150,15 +150,17 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[Cell]:
     adds = [
         Cell(
             CompVar(f"add{i}"),
-            stdlib.fixed_point_op("add", width, int_width, frac_width, signed=False),
+            stdlib.fixed_point_op(
+                "add", width, int_width, frac_width, signed=is_signed
+            ),
         )
         for i in range(1, (degree // 2) + 1)
     ]
-    mult_pipes = [
+    pipes = [
         Cell(
             CompVar(f"mult_pipe{i}"),
             stdlib.fixed_point_op(
-                "mult_pipe", width, int_width, frac_width, signed=False
+                "mult_pipe", width, int_width, frac_width, signed=is_signed
             ),
         )
         for i in range(1, degree + 1)
@@ -171,7 +173,7 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[Cell]:
     for i in range(2, degree + 1):
         fixed_point_value = float_to_fixed_point(1.0 / factorial(i), frac_width)
         value = numeric_types.FixedPoint(
-            str(fixed_point_value), width, int_width, is_signed=False
+            str(fixed_point_value), width, int_width, is_signed=is_signed
         ).unsigned_integer()
         reciprocal_factorials.append(
             Cell(CompVar(f"reciprocal_factorial{i}"), stdlib.constant(width, value))
@@ -185,7 +187,7 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[Cell]:
             stdlib.constant(
                 width,
                 numeric_types.FixedPoint(
-                    "1.0", width, int_width, is_signed=False
+                    "1.0", width, int_width, is_signed=is_signed
                 ).unsigned_integer(),
             ),
         ),
@@ -197,11 +199,32 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[Cell]:
                     str(float_to_fixed_point(2.7182818284, frac_width)),
                     width,
                     int_width,
-                    is_signed=False,
+                    is_signed=is_signed,
                 ).unsigned_integer(),
             ),
         ),
     ]
+    if is_signed:
+        constants.append(
+            Cell(
+                CompVar("negative_one"),
+                stdlib.constant(
+                    width,
+                    numeric_types.FixedPoint(
+                        "-1.0", width, int_width, is_signed=is_signed
+                    ).unsigned_integer(),
+                ),
+            ),
+        )
+        pipes.append(
+            Cell(
+                CompVar(f"div_pipe"),
+                stdlib.fixed_point_op(
+                    "div_pipe", width, int_width, frac_width, signed=is_signed
+                ),
+            )
+        )
+
     return (
         init_cells
         + constants
@@ -209,7 +232,7 @@ def generate_cells(degree: int, width: int, int_width: int) -> List[Cell]:
         + pow_registers
         + sum_registers
         + adds
-        + mult_pipes
+        + pipes
         + reciprocal_factorials
         + pows
     )
@@ -295,65 +318,97 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
     return groups
 
 
-def generate_groups(degree: int, width: int, int_width: int) -> List[Structure]:
+def generate_groups(
+    degree: int, width: int, int_width: int, is_signed: bool
+) -> List[Structure]:
     frac_width = width - int_width
 
-    # Initialization: split up the value `x` into its integer and fractional values.
-    init = [
-        Group(
-            id=CompVar("init"),
+    input = CompVar("exponent_value")
+    init = Group(
+        id=CompVar("init"),
+        connections=[
+            Connect(ConstantPort(1, 1), CompPort(input, "write_en")),
+            Connect(ThisPort(CompVar("x")), CompPort(input, "in")),
+            Connect(CompPort(input, "done"), HolePort(CompVar("init"), "done")),
+        ],
+        static_delay=1,
+    )
+
+    if is_signed:
+        mult_pipe = CompVar("mult_pipe1")
+        negate = Group(
+            id=CompVar("negate"),
             connections=[
+                Connect(CompPort(input, "out"), CompPort(mult_pipe, "left")),
                 Connect(
-                    ThisPort(CompVar("x")),
-                    CompPort(CompVar("and0"), "left"),
-                ),
-                Connect(
-                    ConstantPort(width, 2 ** width - 2 ** frac_width),
-                    CompPort(CompVar("and0"), "right"),
-                ),
-                Connect(
-                    CompPort(CompVar("and0"), "out"),
-                    CompPort(CompVar("rsh"), "left"),
-                ),
-                Connect(
-                    ConstantPort(width, frac_width),
-                    CompPort(CompVar("rsh"), "right"),
-                ),
-                Connect(
-                    ThisPort(CompVar("x")),
-                    CompPort(CompVar("and1"), "left"),
-                ),
-                Connect(
-                    ConstantPort(width, (2 ** frac_width) - 1),
-                    CompPort(CompVar("and1"), "right"),
+                    CompPort(CompVar("negative_one"), "out"),
+                    CompPort(mult_pipe, "right"),
                 ),
                 Connect(
                     ConstantPort(1, 1),
-                    CompPort(CompVar("int_x"), "write_en"),
+                    CompPort(mult_pipe, "go"),
+                    Not(Atom(CompPort(mult_pipe, "done"))),
                 ),
-                Connect(
-                    ConstantPort(1, 1),
-                    CompPort(CompVar("frac_x"), "write_en"),
-                ),
-                Connect(
-                    CompPort(CompVar("rsh"), "out"),
-                    CompPort(CompVar("int_x"), "in"),
-                ),
-                Connect(
-                    CompPort(CompVar("and1"), "out"),
-                    CompPort(CompVar("frac_x"), "in"),
-                ),
-                Connect(
-                    ConstantPort(1, 1),
-                    HolePort(CompVar("init"), "done"),
-                    And(
-                        Atom(CompPort(CompVar("int_x"), "done")),
-                        Atom(CompPort(CompVar("frac_x"), "done")),
-                    ),
-                ),
+                Connect(CompPort(mult_pipe, "done"), CompPort(input, "write_en")),
+                Connect(CompPort(mult_pipe, "out"), CompPort(input, "in")),
+                Connect(CompPort(input, "done"), HolePort(CompVar("negate"), "done")),
             ],
         )
-    ]
+
+    # Initialization: split up the value `x` into its integer and fractional values.
+    split_bits = Group(
+        id=CompVar("split_bits"),
+        connections=[
+            Connect(
+                CompPort(CompVar("exponent_value"), "out"),
+                CompPort(CompVar("and0"), "left"),
+            ),
+            Connect(
+                ConstantPort(width, 2 ** width - 2 ** frac_width),
+                CompPort(CompVar("and0"), "right"),
+            ),
+            Connect(
+                CompPort(CompVar("and0"), "out"),
+                CompPort(CompVar("rsh"), "left"),
+            ),
+            Connect(
+                ConstantPort(width, frac_width),
+                CompPort(CompVar("rsh"), "right"),
+            ),
+            Connect(
+                CompPort(CompVar("exponent_value"), "out"),
+                CompPort(CompVar("and1"), "left"),
+            ),
+            Connect(
+                ConstantPort(width, (2 ** frac_width) - 1),
+                CompPort(CompVar("and1"), "right"),
+            ),
+            Connect(
+                ConstantPort(1, 1),
+                CompPort(CompVar("int_x"), "write_en"),
+            ),
+            Connect(
+                ConstantPort(1, 1),
+                CompPort(CompVar("frac_x"), "write_en"),
+            ),
+            Connect(
+                CompPort(CompVar("rsh"), "out"),
+                CompPort(CompVar("int_x"), "in"),
+            ),
+            Connect(
+                CompPort(CompVar("and1"), "out"),
+                CompPort(CompVar("frac_x"), "in"),
+            ),
+            Connect(
+                ConstantPort(1, 1),
+                HolePort(CompVar("split_bits"), "done"),
+                And(
+                    Atom(CompPort(CompVar("int_x"), "done")),
+                    Atom(CompPort(CompVar("frac_x"), "done")),
+                ),
+            ),
+        ],
+    )
 
     def consume_pow(i: int) -> Group:
         # Write the output of pow{i} to register p{i}.
@@ -421,11 +476,43 @@ def generate_groups(degree: int, width: int, int_width: int) -> List[Structure]:
             )
         ]
 
+    if is_signed:
+        # Take the reciprocal, since the initial value was -x.
+        div_pipe = CompVar("div_pipe")
+        input = CompVar("m")
+        reciprocal = Group(
+            id=CompVar("reciprocal"),
+            connections=[
+                Connect(CompPort(CompVar("one"), "out"), CompPort(div_pipe, "left")),
+                Connect(CompPort(input, "out"), CompPort(div_pipe, "right")),
+                Connect(
+                    ConstantPort(1, 1),
+                    CompPort(div_pipe, "go"),
+                    Not(Atom(CompPort(div_pipe, "done"))),
+                ),
+                Connect(CompPort(div_pipe, "done"), CompPort(input, "write_en")),
+                Connect(CompPort(div_pipe, "out_quotient"), CompPort(input, "in")),
+                Connect(
+                    CompPort(input, "done"), HolePort(CompVar("reciprocal"), "done")
+                ),
+            ],
+        )
+        is_negative = Group(
+            id=CompVar("is_negative"),
+            connections=[
+                Connect(ThisPort(CompVar("x")), CompPort(CompVar("lt"), "left")),
+                Connect(ConstantPort(width, 0), CompPort(CompVar("lt"), "right")),
+                Connect(ConstantPort(1, 1), HolePort(CompVar("is_negative"), "done")),
+            ],
+            static_delay=0,
+        )
+
     # Connect final value to the `out` signal of the component.
     output_register = CompVar("m")
     out = [Connect(CompPort(output_register, "out"), ThisPort(CompVar("out")))]
     return (
-        init
+        [init, split_bits]
+        + ([negate, is_negative, reciprocal] if is_signed else [])
         + [consume_pow(j) for j in range(2, degree + 1)]
         + [multiply_by_reciprocal_factorial(k) for k in range(2, degree + 1)]
         + divide_and_conquer_sums(degree)
@@ -434,7 +521,7 @@ def generate_groups(degree: int, width: int, int_width: int) -> List[Structure]:
     )
 
 
-def generate_control(degree: int) -> Control:
+def generate_control(degree: int, is_signed: bool) -> Control:
     pow_invokes = [
         ParComp(
             [
@@ -475,22 +562,41 @@ def generate_control(degree: int) -> Control:
         )
         Enable_count >>= 1
 
+    ending_sequence = [Enable("add_degree_zero"), Enable("final_multiply")] + (
+        [
+            If(
+                CompPort(CompVar("lt"), "out"),
+                CompVar("is_negative"),
+                Enable("reciprocal"),
+            )
+        ]
+        if is_signed
+        else []
+    )
     return SeqComp(
         [Enable("init")]
+        + (
+            [
+                If(
+                    CompPort(CompVar("lt"), "out"),
+                    CompVar("is_negative"),
+                    Enable("negate"),
+                )
+            ]
+            if is_signed
+            else []
+        )
+        + [Enable("split_bits")]
         + pow_invokes
         + consume_pow
         + mult_by_reciprocal
         + divide_and_conquer
-        + [Enable("add_degree_zero")]
-        + [Enable("final_multiply")]
+        + ending_sequence
     )
 
 
-# TODO(cgyurgyik): Support negative values.
-# We can do this in the following manner:
-#   if (x < 0.0): out = 1 / e^abs(x)
 def generate_exp_taylor_series_approximation(
-    degree: int, width: int, int_width: int
+    degree: int, width: int, int_width: int, is_signed: bool
 ) -> List[Component]:
     """Generates Calyx components to produce the Taylor series
     approximation of e^x to the provided degree. Given this is
@@ -516,11 +622,11 @@ def generate_exp_taylor_series_approximation(
             "exp",
             inputs=[PortDef(CompVar("x"), width)],
             outputs=[PortDef(CompVar("out"), width)],
-            structs=generate_cells(degree, width, int_width)
-            + generate_groups(degree, width, int_width),
-            controls=generate_control(degree),
+            structs=generate_cells(degree, width, int_width, is_signed)
+            + generate_groups(degree, width, int_width, is_signed),
+            controls=generate_control(degree, is_signed),
         ),
-        generate_fp_pow_component(width, int_width),
+        generate_fp_pow_component(width, int_width, is_signed),
     ]
 
 
@@ -534,21 +640,24 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--degree", type=int)
     parser.add_argument("-w", "--width", type=int)
     parser.add_argument("-i", "--int_width", type=int)
+    parser.add_argument("-s", "--is_signed", type=bool)
 
     args = parser.parse_args()
 
-    degree, width, int_width = None, None, None
-    required_fields = [args.degree, args.width, args.int_width]
+    degree, width, int_width, is_signed = None, None, None, None
+    required_fields = [args.degree, args.width, args.int_width, args.is_signed]
     if all(map(lambda x: x is not None, required_fields)):
         degree = args.degree
         width = args.width
         int_width = args.int_width
+        is_signed = args.is_signed
     elif args.file is not None:
         with open(args.file, "r") as f:
             spec = json.load(f)
             degree = spec["degree"]
             width = spec["width"]
             int_width = spec["int_width"]
+            is_signed = spec["is_signed"]
     else:
         parser.error(
             "Need to pass either `-f FILE` or all of `-d DEGREE -w WIDTH -i INT_WIDTH`"
@@ -556,7 +665,9 @@ if __name__ == "__main__":
 
     program = Program(
         imports=[Import("primitives/std.lib")],
-        components=generate_exp_taylor_series_approximation(degree, width, int_width),
+        components=generate_exp_taylor_series_approximation(
+            degree, width, int_width, is_signed
+        ),
     )
     # Append a `main` component for testing purposes.
     program.components.append(

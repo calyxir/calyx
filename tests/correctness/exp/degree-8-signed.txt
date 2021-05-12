@@ -1,0 +1,6 @@
+{
+  "degree": 8,
+  "width": 32,
+  "int_width": 16,
+  "is_signed": true
+}

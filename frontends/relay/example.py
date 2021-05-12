@@ -1,6 +1,6 @@
 import tvm
 from tvm import relay
-from relay_visitor import *
+import relay_visitor
 import sys
 
 
@@ -82,7 +82,7 @@ def vgg_net():
         batch_size=5,
         image_shape=(3, 224, 224),
         num_classes=10,
-        dtype="int32",
+        dtype="float32",
         num_layers=13,
         batch_norm=True,
     )
@@ -153,7 +153,7 @@ relay -r    Displays the Relay IR. Displays Calyx otherwise.
         print(relay_IR)
     else:
         # Compile and dump the Calyx.
-        print(emit_futil(relay_IR))
+        print(relay_visitor.emit_calyx(relay_IR))
 
 
 if __name__ == "__main__":

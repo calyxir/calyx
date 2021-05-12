@@ -1,5 +1,5 @@
 v0.0.4
-fn (%x: Tensor[(1, 10), int32]) {
-  let %x1: Tensor[(1, 10), int32] = nn.softmax(%x);
+fn (%x: Tensor[(1, 10), float32]) {
+  let %x1: Tensor[(1, 10), float32] = nn.softmax(%x);
   %x1
 }
