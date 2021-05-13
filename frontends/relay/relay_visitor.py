@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+import numpy as np
 from tvm import relay, ir
 from tvm.relay.expr_functor import ExprFunctor
 from tvm.relay.function import Function
@@ -23,6 +26,10 @@ class Relay2Calyx(ExprFunctor):
         # A dictionary of currently visited variable nodes,
         # since some nodes may be visited more than once.
         self.id_to_cell: Dict[str, Cell] = {}
+
+        # A dictionary of variable names to dimensionality.
+        # This used for the data in Calyx simulation.
+        self.id_to_shape: Dict[str, Tuple] = {}
 
         # For each Relay CallNode, there is an associated
         # Dahlia FuncDef so that it can be lowered from Dahlia
@@ -61,6 +68,11 @@ class Relay2Calyx(ExprFunctor):
         var_id = self.id(var.name_hint)
 
         cell = get_memory(var_id, var.type_annotation)
+
+        if var.type_annotation.concrete_shape:
+            # Only add the given variable if it is a tensor.
+            self.id_to_shape[var_id] = var.type_annotation.concrete_shape
+
         self.id_to_cell[var_id] = cell
         return cell
 
@@ -176,14 +188,16 @@ class Relay2Calyx(ExprFunctor):
         )
 
 
-def relay_transforms(expr: Function) -> Function:
+def relay_transforms(mod) -> Function:
     """https://tvm.apache.org/docs/api/python/relay/transform.html"""
     transforms = tvm.transform.Sequential(
         [
-            relay.transform.InferType(),
+            relay.transform.SimplifyExpr(),
+            relay.transform.SimplifyInference(),
         ]
     )
-    mod = ir.IRModule.from_expr(expr)
+    if isinstance(mod, relay.Function):
+        mod = tvm.IRModule.from_expr(mod)
     mod = transforms(mod)
     return mod["main"]
 
@@ -210,12 +224,11 @@ def check_naming_convention(func_defs: List[DahliaFuncDef]):
             )
 
 
-def emit_calyx(program) -> str:
+def emit_calyx(relay_ir) -> str:
     """Lowers a Relay function to a Calyx program."""
-    relay_program = relay_transforms(program)
+    relay_ir = relay_transforms(relay_ir)
     visitor = Relay2Calyx()
-    main, func_defs = visitor.visit(relay_program)
-
+    main, func_defs = visitor.visit(relay_ir)
     check_naming_convention(func_defs)
 
     return "\n".join(
@@ -232,8 +245,47 @@ def emit_calyx(program) -> str:
     )
 
 
-if __name__ == "__main__":
-    import sys
+def get_program_dat_memories(relay_ir):
+    """Returns a mapping (id -> tensor size)
+    for each memory in the Relay IR. The format
+    explicitly follows the `dat` format; this
+    is used for Calyx simulation."""
+    visitor = Relay2Calyx()
+    relay_ir = relay_transforms(relay_ir)
+    _, func_defs = visitor.visit(relay_ir)
 
-    relay_function = relay.fromtext(sys.stdin.read())
-    print(emit_calyx(relay_function))
+    memories = {}
+    for id, shape in visitor.id_to_shape.items():
+        memories[id] = {
+            "data": np.zeros(shape).tolist(),
+            "format": {
+                "numeric_type": "fixed_point",
+                "is_signed": True,
+                "width": 32,
+                "frac_width": 16,
+            },
+        }
+
+    return memories
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Lower Relay IR to Calyx.")
+    parser.add_argument("file", help="Path to the Relay IR.")
+
+    args = parser.parse_args()
+    if args.file is None:
+        raise Exception(
+            "The TVM Relay visitor requires a file containing the Relay IR."
+        )
+
+    with open(args.file, "r") as file:
+        relay_ir = file.read()
+    assert (
+        "v0.0.4" in relay_ir
+    ), "TVM Requires `v0.0.4` at the top of the Relay IR file."
+
+    relay_ir = relay.fromtext(relay_ir)
+    print(emit_calyx(relay_ir))

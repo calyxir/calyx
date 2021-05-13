@@ -7,7 +7,7 @@ import toml
 from . import check, errors, exec, utils
 from .config import Configuration
 from .registry import Registry
-from .stages import dahlia, futil, mrxl, systolic, vcdump, verilator, vivado
+from .stages import dahlia, futil, mrxl, relay, systolic, vcdump, verilator, vivado
 
 
 def register_stages(registry, cfg):
@@ -31,6 +31,9 @@ def register_stages(registry, cfg):
 
     # MrXL
     registry.register(mrxl.MrXLStage(cfg))
+
+    # Relay
+    registry.register(relay.RelayStage(cfg))
 
     # Systolic Array
     registry.register(systolic.SystolicStage(cfg))
