@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::analysis::ReadWriteSet;
-use crate::ir;
+use crate::ir::{self, RRC};
 
 pub const INVOKE_PREFIX: &str = "__invoke_";
 
@@ -98,10 +98,10 @@ pub struct ReachingDefinitionAnalysis {
 }
 
 impl ReachingDefinitionAnalysis {
-    pub fn new(_comp: &ir::Component, control: &ir::Control) -> Self {
+    pub fn new(_comp: &ir::Component, control: &mut ir::Control) -> Self {
         let initial_set = DefSet::new();
         let mut analysis = ReachingDefinitionAnalysis::empty();
-        let counter = 0;
+        let counter: u64 = 0;
 
         build_reaching_def(
             control,
@@ -175,23 +175,23 @@ impl ReachingDefinitionAnalysis {
 type KilledSet = HashSet<ir::Id>;
 
 fn build_reaching_def(
-    c: &ir::Control,
+    c: &mut ir::Control,
     reach: DefSet,
     killed: KilledSet,
     rd: &mut ReachingDefinitionAnalysis,
-    mut counter: i32,
+    mut counter: u64,
 ) -> (DefSet, KilledSet) {
     match c {
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             stmts
-                .iter()
+                .iter_mut()
                 .fold((reach, killed), |(acc, killed), inner_c| {
                     build_reaching_def(inner_c, acc, killed, rd, counter)
                 })
         }
         ir::Control::Par(ir::Par { stmts, .. }) => {
             let (defs, par_killed): (Vec<DefSet>, Vec<KilledSet>) = stmts
-                .iter()
+                .iter_mut()
                 .map(|ctrl| {
                     build_reaching_def(
                         ctrl,
@@ -223,12 +223,17 @@ fn build_reaching_def(
             cond,
             ..
         }) => {
-            let fake_enable = ir::Control::Enable(ir::Enable {
+            let mut fake_enable = ir::Control::Enable(ir::Enable {
                 attributes: ir::Attributes::default(),
                 group: Rc::clone(cond),
             });
-            let (post_cond_def, post_cond_killed) =
-                build_reaching_def(&fake_enable, reach, killed, rd, counter);
+            let (post_cond_def, post_cond_killed) = build_reaching_def(
+                &mut fake_enable,
+                reach,
+                killed,
+                rd,
+                counter,
+            );
             let (t_case_def, t_case_killed) = build_reaching_def(
                 tbranch,
                 post_cond_def.clone(),
@@ -246,12 +251,17 @@ fn build_reaching_def(
             (&t_case_def | &f_case_def, &t_case_killed | &f_case_killed)
         }
         ir::Control::While(ir::While { cond, body, .. }) => {
-            let fake_enable = ir::Control::Enable(ir::Enable {
+            let mut fake_enable = ir::Control::Enable(ir::Enable {
                 attributes: ir::Attributes::default(),
                 group: Rc::clone(cond),
             });
-            let (post_cond_def, post_cond_killed) =
-                build_reaching_def(&fake_enable, reach, killed, rd, counter);
+            let (post_cond_def, post_cond_killed) = build_reaching_def(
+                &mut fake_enable,
+                reach,
+                killed,
+                rd,
+                counter,
+            );
 
             let (round_1_def, round_1_killed) = build_reaching_def(
                 body,
@@ -261,7 +271,7 @@ fn build_reaching_def(
                 counter,
             );
             let (post_cond2_def, post_cond2_killed) = build_reaching_def(
-                &fake_enable,
+                &mut fake_enable,
                 round_1_def,
                 round_1_killed,
                 rd,
@@ -278,23 +288,24 @@ fn build_reaching_def(
         }
         ir::Control::Invoke(invoke) => {
             counter += 1;
-            let iterator = invoke
-                .inputs
-                .iter()
-                .chain(invoke.outputs.iter())
-                .filter_map(|(_, port)| {
+            let inputs: Vec<(ir::Id, RRC<ir::Port>)> =
+                invoke.inputs.drain(..).collect();
+            let outputs: Vec<(ir::Id, RRC<ir::Port>)> =
+                invoke.outputs.drain(..).collect();
+
+            let iterator =
+                inputs.iter().chain(outputs.iter()).filter_map(|(_, port)| {
                     if let ir::PortParent::Cell(wc) = &port.borrow().parent {
                         let rc = wc.upgrade();
                         let parent = rc.borrow();
                         if parent.type_name().unwrap_or(&ir::Id::from(""))
                             == "std_reg"
                         {
+                            let name = format!("{}{}", INVOKE_PREFIX, counter);
+                            invoke.attributes.insert(INVOKE_PREFIX, counter);
                             Some((
                                 parent.name.clone(),
-                                GroupOrInvoke::Invoke(ir::Id::from(format!(
-                                    "{}{}",
-                                    INVOKE_PREFIX, counter
-                                ))),
+                                GroupOrInvoke::Invoke(ir::Id::from(name)),
                             ))
                         } else {
                             None
@@ -304,7 +315,13 @@ fn build_reaching_def(
                     }
                 });
 
-            (reach, killed)
+            let mut new_reach = reach;
+            new_reach.set.extend(iterator);
+
+            invoke.inputs = inputs;
+            invoke.outputs = outputs;
+
+            (new_reach, killed)
         }
         ir::Control::Enable(en) => {
             let writes =

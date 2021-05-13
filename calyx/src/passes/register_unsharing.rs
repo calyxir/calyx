@@ -1,7 +1,10 @@
-use crate::analysis::{GroupOrInvoke, ReachingDefinitionAnalysis};
+use crate::analysis::reaching_defns::{
+    GroupOrInvoke, ReachingDefinitionAnalysis, INVOKE_PREFIX,
+};
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Builder, Cell, Group, LibrarySignatures, RRC};
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Default)]
 pub struct RegisterUnsharing {
@@ -23,6 +26,7 @@ struct Bookkeeper {
     widths: HashMap<ir::Id, u64>,
     group_map: HashMap<ir::Id, RRC<Group>>,
     cell_map: HashMap<ir::Id, RRC<Cell>>,
+    invoke_map: HashMap<ir::Id, Vec<(RRC<Cell>, RRC<Cell>)>>,
 }
 
 impl Bookkeeper {
@@ -55,16 +59,20 @@ impl Bookkeeper {
         // There's probably a cleaner way to write this
         // TODO(griffin): fix?
 
-        let analysis =
-            ReachingDefinitionAnalysis::new(&comp, &comp.control.borrow());
+        let analysis = ReachingDefinitionAnalysis::new(
+            &comp,
+            &mut comp.control.borrow_mut(),
+        );
         let group_map = HashMap::new();
         let cell_map = HashMap::new();
+        let invoke_map = HashMap::new();
 
         Self {
             analysis,
             widths,
             group_map,
             cell_map,
+            invoke_map,
         }
     }
 
@@ -133,7 +141,7 @@ impl Bookkeeper {
     ) {
         let mut grp_map: HashMap<&ir::Id, Vec<(RRC<Cell>, RRC<Cell>)>> =
             HashMap::new();
-        let mut invoke_map: HashMap<&ir::Id, Vec<(RRC<Cell>, RRC<Cell>)>> =
+        let mut invoke_map: HashMap<ir::Id, Vec<(RRC<Cell>, RRC<Cell>)>> =
             HashMap::new();
         for (new_name, old_name, grouplist) in rename_list {
             for group_or_invoke in grouplist {
@@ -145,7 +153,7 @@ impl Bookkeeper {
                         ))
                     }
                     GroupOrInvoke::Invoke(invoke) => {
-                        invoke_map.entry(invoke).or_default().push((
+                        invoke_map.entry(invoke.clone()).or_default().push((
                             self.get_cell(builder, old_name),
                             self.get_cell(builder, new_name),
                         ))
@@ -160,7 +168,7 @@ impl Bookkeeper {
             builder.rename_port_uses(&rename_cells, &mut group_ref.assignments)
         }
 
-        // TODO: Rewrite the invoke statements
+        self.invoke_map = invoke_map;
     }
 }
 
@@ -170,12 +178,19 @@ impl Visitor for RegisterUnsharing {
         comp: &mut ir::Component,
         _c: &LibrarySignatures,
     ) -> VisResult {
-        let mut bookkeeper = Bookkeeper::new(comp);
+        self.bookkeeper.replace(Bookkeeper::new(comp));
         let mut builder = Builder::from(comp, _c, false);
 
-        let rename_list = bookkeeper.create_new_regs(&mut builder);
+        let rename_list = self
+            .bookkeeper
+            .as_mut()
+            .unwrap()
+            .create_new_regs(&mut builder);
 
-        bookkeeper.rename(&mut builder, &rename_list);
+        self.bookkeeper
+            .as_mut()
+            .unwrap()
+            .rename(&mut builder, &rename_list);
         // for (group, z) in &bookkeeper.analysis.reach {
         //     println!("Group {}", group);
         //     println!("  {:?}", z);
@@ -187,6 +202,65 @@ impl Visitor for RegisterUnsharing {
         //         println!("   {:?}\n", def);
         //     }
         // }
-        Ok(Action::Stop)
+        Ok(Action::Continue)
+    }
+
+    fn invoke(
+        &mut self,
+        invoke: &mut ir::Invoke,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+    ) -> VisResult {
+        if let Some(name) = extract_meta_name(invoke) {
+            replace_invoke_ports(
+                invoke,
+                &self
+                    .bookkeeper
+                    .as_ref()
+                    .unwrap()
+                    .invoke_map
+                    .get(&name)
+                    .unwrap(),
+            );
+        }
+
+        Ok(Action::Continue)
+    }
+}
+
+fn extract_meta_name(invoke: &ir::Invoke) -> Option<ir::Id> {
+    if let Some(counter) = invoke.attributes.get(INVOKE_PREFIX) {
+        Some(ir::Id::from(format!("{}{}", INVOKE_PREFIX, counter)))
+    } else {
+        None
+    }
+}
+
+fn replace_invoke_ports(
+    invoke: &mut ir::Invoke,
+    rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
+) {
+    let parent_matches = |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> bool {
+        if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
+            Rc::ptr_eq(&cell_wref.upgrade(), cell)
+        } else {
+            false
+        }
+    };
+
+    let get_port =
+        |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> RRC<ir::Port> {
+            Rc::clone(&cell.borrow().get(&port.borrow().name))
+        };
+
+    for (_name, port) in
+        invoke.inputs.iter_mut().chain(invoke.outputs.iter_mut())
+    {
+        if let Some((old, new)) = rewrites
+            .iter()
+            .find(|&(cell, _)| parent_matches(port, cell))
+        {
+            *port = get_port(port, new)
+        }
     }
 }
