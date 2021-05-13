@@ -75,8 +75,8 @@ For example, we can simulate the LeNet ONNX model found [here][lenet] using the 
     python3 frontends/relay/onnx_to_calyx.py \ 
     -n "lenet" \ 
     -d "MNIST" \ 
-    -i "/path/to/four.png" \
-    -onnx "/path/to/lenet.onnx" \ 
+    -i "/path/to/image.png" \
+    -onnx "/path/to/model.onnx" \ 
     -o calyx
 
 - `-n`: The name of the input net. This is mostly used for naming the output files.
