@@ -14,7 +14,7 @@ mod variable_detection;
 pub use graph::GraphAnalysis;
 pub use graph_coloring::GraphColoring;
 pub use live_range_analysis::LiveRangeAnalysis;
-pub use reaching_defns::ReachingDefinitionAnalysis;
+pub use reaching_defns::{GroupOrInvoke, ReachingDefinitionAnalysis};
 pub use read_write_set::ReadWriteSet;
 pub use schedule_conflicts::ScheduleConflicts;
 pub use variable_detection::VariableDetection;

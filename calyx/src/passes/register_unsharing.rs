@@ -1,8 +1,7 @@
-use crate::analysis::ReachingDefinitionAnalysis;
+use crate::analysis::{GroupOrInvoke, ReachingDefinitionAnalysis};
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Builder, Cell, Group, LibrarySignatures, RRC};
-use crate::utils::NameGenerator;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct RegisterUnsharing {}
@@ -70,7 +69,7 @@ impl BookKeeper {
     fn create_new_regs(
         &mut self,
         builder: &mut Builder,
-    ) -> Vec<(ir::Id, ir::Id, Vec<ir::Id>)> {
+    ) -> Vec<(ir::Id, ir::Id, Vec<GroupOrInvoke>)> {
         let overlap = self.analysis.calculate_overlap();
 
         let mut rename_list = vec![];
@@ -128,16 +127,28 @@ impl BookKeeper {
     fn rename(
         &mut self,
         builder: &mut Builder,
-        rename_list: &[(ir::Id, ir::Id, Vec<ir::Id>)],
+        rename_list: &[(ir::Id, ir::Id, Vec<GroupOrInvoke>)],
     ) {
         let mut grp_map: HashMap<&ir::Id, Vec<(RRC<Cell>, RRC<Cell>)>> =
             HashMap::new();
+        let mut invoke_map: HashMap<&ir::Id, Vec<(RRC<Cell>, RRC<Cell>)>> =
+            HashMap::new();
         for (new_name, old_name, grouplist) in rename_list {
-            for group in grouplist {
-                grp_map.entry(group).or_default().push((
-                    self.get_cell(builder, old_name),
-                    self.get_cell(builder, new_name),
-                ))
+            for group_or_invoke in grouplist {
+                match group_or_invoke {
+                    GroupOrInvoke::Group(group) => {
+                        grp_map.entry(group).or_default().push((
+                            self.get_cell(builder, old_name),
+                            self.get_cell(builder, new_name),
+                        ))
+                    }
+                    GroupOrInvoke::Invoke(invoke) => {
+                        invoke_map.entry(invoke).or_default().push((
+                            self.get_cell(builder, old_name),
+                            self.get_cell(builder, new_name),
+                        ))
+                    }
+                }
             }
         }
 
@@ -146,6 +157,8 @@ impl BookKeeper {
             let mut group_ref = group.borrow_mut();
             builder.rename_port_uses(&rename_cells, &mut group_ref.assignments)
         }
+
+        // TODO: Rewrite the invoke statements
     }
 }
 

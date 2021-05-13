@@ -7,17 +7,34 @@ use std::{
 use crate::analysis::ReadWriteSet;
 use crate::ir;
 
+pub const INVOKE_PREFIX: &str = "__invoke_";
+
 type GroupName = ir::Id;
+type InvokeName = ir::Id;
+
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+pub enum GroupOrInvoke {
+    Group(GroupName),
+    Invoke(InvokeName),
+}
+
+impl Into<ir::Id> for GroupOrInvoke {
+    fn into(self) -> ir::Id {
+        match self {
+            GroupOrInvoke::Group(id) | GroupOrInvoke::Invoke(id) => id,
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct DefSet {
-    set: HashSet<(ir::Id, GroupName)>,
+    set: HashSet<(ir::Id, GroupOrInvoke)>,
 }
 
 impl DefSet {
     fn extend(&mut self, writes: HashSet<ir::Id>, grp: &GroupName) {
         for var in writes {
-            self.set.insert((var, grp.clone()));
+            self.set.insert((var, GroupOrInvoke::Group(grp.clone())));
         }
     }
 
@@ -73,23 +90,25 @@ impl BitOr<&DefSet> for &DefSet {
     }
 }
 
-type OverlapMap = HashMap<ir::Id, Vec<HashSet<(ir::Id, GroupName)>>>;
+type OverlapMap = HashMap<ir::Id, Vec<HashSet<(ir::Id, GroupOrInvoke)>>>;
 
 #[derive(Debug)]
 pub struct ReachingDefinitionAnalysis {
-    pub reach: HashMap<GroupName, DefSet>,
+    pub reach: HashMap<GroupOrInvoke, DefSet>,
 }
 
 impl ReachingDefinitionAnalysis {
     pub fn new(_comp: &ir::Component, control: &ir::Control) -> Self {
         let initial_set = DefSet::new();
         let mut analysis = ReachingDefinitionAnalysis::empty();
+        let counter = 0;
 
         build_reaching_def(
             control,
             initial_set,
             KilledSet::new(),
             &mut analysis,
+            counter,
         );
         analysis
     }
@@ -103,12 +122,12 @@ impl ReachingDefinitionAnalysis {
     pub fn calculate_overlap(&self) -> OverlapMap {
         let mut overlap_map: HashMap<
             ir::Id,
-            Vec<HashSet<(ir::Id, GroupName)>>,
+            Vec<HashSet<(ir::Id, GroupOrInvoke)>>,
         > = HashMap::new();
         for (grp, defset) in &self.reach {
             let mut group_overlaps: HashMap<
                 ir::Id,
-                HashSet<(ir::Id, GroupName)>,
+                HashSet<(ir::Id, GroupOrInvoke)>,
             > = HashMap::new();
 
             for (defname, group_name) in &defset.set {
@@ -159,13 +178,14 @@ fn build_reaching_def(
     reach: DefSet,
     killed: KilledSet,
     rd: &mut ReachingDefinitionAnalysis,
+    mut counter: i32,
 ) -> (DefSet, KilledSet) {
     match c {
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             stmts
                 .iter()
                 .fold((reach, killed), |(acc, killed), inner_c| {
-                    build_reaching_def(inner_c, acc, killed, rd)
+                    build_reaching_def(inner_c, acc, killed, rd, counter)
                 })
         }
         ir::Control::Par(ir::Par { stmts, .. }) => {
@@ -177,6 +197,7 @@ fn build_reaching_def(
                         reach.clone(),
                         KilledSet::new(),
                         rd,
+                        counter,
                     )
                 })
                 .unzip();
@@ -206,18 +227,20 @@ fn build_reaching_def(
                 group: Rc::clone(cond),
             });
             let (post_cond_def, post_cond_killed) =
-                build_reaching_def(&fake_enable, reach, killed, rd);
+                build_reaching_def(&fake_enable, reach, killed, rd, counter);
             let (t_case_def, t_case_killed) = build_reaching_def(
                 tbranch,
                 post_cond_def.clone(),
                 post_cond_killed.clone(),
                 rd,
+                counter,
             );
             let (f_case_def, f_case_killed) = build_reaching_def(
                 fbranch,
                 post_cond_def,
                 post_cond_killed,
                 rd,
+                counter,
             );
             (&t_case_def | &f_case_def, &t_case_killed | &f_case_killed)
         }
@@ -227,20 +250,61 @@ fn build_reaching_def(
                 group: Rc::clone(cond),
             });
             let (post_cond_def, post_cond_killed) =
-                build_reaching_def(&fake_enable, reach, killed, rd);
+                build_reaching_def(&fake_enable, reach, killed, rd, counter);
 
-            let (round_1_def, round_1_killed) =
-                build_reaching_def(body, post_cond_def, post_cond_killed, rd);
+            let (round_1_def, round_1_killed) = build_reaching_def(
+                body,
+                post_cond_def,
+                post_cond_killed,
+                rd,
+                counter,
+            );
             let (post_cond2_def, post_cond2_killed) = build_reaching_def(
                 &fake_enable,
                 round_1_def,
                 round_1_killed,
                 rd,
+                counter,
             );
             // Twice as nice?
-            build_reaching_def(body, post_cond2_def, post_cond2_killed, rd)
+            build_reaching_def(
+                body,
+                post_cond2_def,
+                post_cond2_killed,
+                rd,
+                counter,
+            )
         }
-        ir::Control::Invoke(Invoke) => (reach, killed),
+        ir::Control::Invoke(invoke) => {
+            counter += 1;
+            let iterator = invoke
+                .inputs
+                .iter()
+                .chain(invoke.outputs.iter())
+                .filter_map(|(_, port)| {
+                    if let ir::PortParent::Cell(wc) = &port.borrow().parent {
+                        let rc = wc.upgrade();
+                        let parent = rc.borrow();
+                        if parent.type_name().unwrap_or(&ir::Id::from(""))
+                            == "std_reg"
+                        {
+                            Some((
+                                parent.name.clone(),
+                                GroupOrInvoke::Invoke(ir::Id::from(format!(
+                                    "{}{}",
+                                    INVOKE_PREFIX, counter
+                                ))),
+                            ))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                });
+
+            (reach, killed)
+        }
         ir::Control::Enable(en) => {
             let writes =
                 ReadWriteSet::must_write_set(&en.group.borrow().assignments);
@@ -266,8 +330,10 @@ fn build_reaching_def(
                 reach.kill_from_writeread(&write_set, &read_set);
             cur_reach.extend(write_set, &en.group.borrow().name);
 
-            rd.reach
-                .insert(en.group.borrow().name.clone(), cur_reach.clone());
+            rd.reach.insert(
+                GroupOrInvoke::Group(en.group.borrow().name.clone()),
+                cur_reach.clone(),
+            );
 
             (cur_reach, killed)
         }
