@@ -85,7 +85,8 @@ determine what preprocessing should be done on the image. e.g. `"mnist"` or `"im
 - `-i`: The file path to the input image which you want classified.
 - `-onnx`: The file path to the ONNX model.
 - `-o`: The type of output. 
-    1. `tvm`: Executes the ONNX model using the TVM executor. Prints the final softmax value to console.
+    1. `tvm`: Executes the ONNX model using the TVM executor. Prints the final softmax value 
+    to console. No postprocessing is conducted.
     2. `relay`: Output a file with the corresponding Relay program. `<net_name>.relay` 
     3. `calyx`: Output a `.data` file and Calyx program for simulation. `<net_name>.futil`, `<net_name>.data`
     4. `all`: All the above.
