@@ -4,6 +4,7 @@ use crate::passes::{
     InferStaticTiming, Inliner, MergeAssign, MinimizeRegs, Papercut,
     ResourceSharing, SimplifyGuards, StaticTiming, SynthesisPapercut,
     TopDownCompileControl, WellFormed,
+    GuardCanonical,
 };
 use crate::{
     errors::FutilResult,
@@ -38,6 +39,7 @@ impl PassManager {
         register_pass!(pm, MergeAssign);
         register_pass!(pm, TopDownCompileControl);
         register_pass!(pm, SynthesisPapercut);
+        register_pass!(pm, GuardCanonical);
 
         register_alias!(pm, "validate", [WellFormed, Papercut]);
         register_alias!(

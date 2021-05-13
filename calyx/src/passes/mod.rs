@@ -21,6 +21,7 @@ mod static_timing;
 mod synthesis_papercut;
 mod top_down_compile_control;
 mod well_formed;
+mod guard_canonical;
 
 pub use clk_insertion::ClkInsertion;
 pub use collapse_control::CollapseControl;
@@ -42,3 +43,4 @@ pub use static_timing::StaticTiming;
 pub use synthesis_papercut::SynthesisPapercut;
 pub use top_down_compile_control::TopDownCompileControl;
 pub use well_formed::WellFormed;
+pub use guard_canonical::GuardCanonical;
