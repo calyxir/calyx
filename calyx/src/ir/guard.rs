@@ -73,7 +73,7 @@ impl Guard {
             _ => true,
         }
     }
-    
+
     /// Mutates a guard by calling `f` on every leaf in the
     /// guard tree and replacing the leaf with the guard that `f`
     /// returns.
