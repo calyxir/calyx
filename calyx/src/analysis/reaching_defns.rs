@@ -126,18 +126,19 @@ impl ReachingDefinitionAnalysis {
         > = HashMap::new();
         for (grp, defset) in &self.reach {
             let mut group_overlaps: HashMap<
-                ir::Id,
+                &ir::Id,
                 HashSet<(ir::Id, GroupOrInvoke)>,
             > = HashMap::new();
 
             for (defname, group_name) in &defset.set {
-                let set = group_overlaps.entry(defname.clone()).or_default();
+                let set = group_overlaps.entry(defname).or_default();
                 set.insert((defname.clone(), group_name.clone()));
                 set.insert((defname.clone(), grp.clone()));
             }
 
             for (defname, set) in group_overlaps {
-                let overlap_vec = overlap_map.entry(defname).or_default();
+                let overlap_vec =
+                    overlap_map.entry(defname.clone()).or_default();
 
                 if overlap_vec.is_empty() {
                     overlap_vec.push(set)
