@@ -4,7 +4,9 @@ use crate::ir::{self, Builder, Cell, Group, LibrarySignatures, RRC};
 use std::collections::HashMap;
 
 #[derive(Default)]
-pub struct RegisterUnsharing {}
+pub struct RegisterUnsharing {
+    bookkeeper: Option<Bookkeeper>,
+}
 
 impl Named for RegisterUnsharing {
     fn name() -> &'static str {
@@ -16,14 +18,14 @@ impl Named for RegisterUnsharing {
     }
 }
 
-struct BookKeeper {
+struct Bookkeeper {
     analysis: ReachingDefinitionAnalysis,
     widths: HashMap<ir::Id, u64>,
     group_map: HashMap<ir::Id, RRC<Group>>,
     cell_map: HashMap<ir::Id, RRC<Cell>>,
 }
 
-impl BookKeeper {
+impl Bookkeeper {
     fn new(comp: &ir::Component) -> Self {
         let widths = comp
             .cells
@@ -168,7 +170,7 @@ impl Visitor for RegisterUnsharing {
         comp: &mut ir::Component,
         _c: &LibrarySignatures,
     ) -> VisResult {
-        let mut bookkeeper = BookKeeper::new(comp);
+        let mut bookkeeper = Bookkeeper::new(comp);
         let mut builder = Builder::from(comp, _c, false);
 
         let rename_list = bookkeeper.create_new_regs(&mut builder);
