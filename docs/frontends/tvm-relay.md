@@ -81,7 +81,7 @@ For example, we can simulate the LeNet ONNX model found [here][lenet] using the 
 
 - `-n`: The name of the input net. This is mostly used for naming the output files.
 - `-d`: The dataset for which the input will be classified against. This is necessary to 
-determine what preprocessing should be done on the image. e.g. `"mnist", "imagenet"`.
+determine what preprocessing should be done on the image. e.g. `"mnist"` or `"imagenet"`.
 - `-i`: The file path to the input image which you want classified.
 - `-onnx`: The file path to the ONNX model.
 - `-o`: The type of output. 
