@@ -62,6 +62,13 @@ impl Attributes {
     pub fn is_empty(&self) -> bool {
         self.attrs.is_empty()
     }
+
+    pub fn remove<S>(&mut self, key: S) -> Option<u64>
+    where
+        S: ToString,
+    {
+        self.attrs.remove(&key.to_string())
+    }
 }
 
 impl<S> Index<&S> for Attributes

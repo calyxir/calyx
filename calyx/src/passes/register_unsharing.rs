@@ -222,6 +222,7 @@ impl Visitor for RegisterUnsharing {
                     .get(&name)
                     .unwrap(),
             );
+            clear_meta_name(invoke);
         }
 
         Ok(Action::Continue)
@@ -234,6 +235,10 @@ fn extract_meta_name(invoke: &ir::Invoke) -> Option<ir::Id> {
     } else {
         None
     }
+}
+
+fn clear_meta_name(invoke: &mut ir::Invoke) {
+    invoke.attributes.remove(INVOKE_PREFIX);
 }
 
 fn replace_invoke_ports(
