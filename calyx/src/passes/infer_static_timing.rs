@@ -213,10 +213,8 @@ impl InferStaticTiming {
         for port in graph.ports() {
             if port.borrow().is_hole() && port.borrow().name == "done" {
                 let count = graph.writes_to(&*port.borrow()).count();
-                let write_port = graph
-                    .writes_to(&*port.borrow())
-                    .next()
-                    .unwrap();
+                let write_port =
+                    graph.writes_to(&*port.borrow()).next().unwrap();
 
                 if count == 1 && write_port.borrow().is_constant(1, 1) {
                     return true;
