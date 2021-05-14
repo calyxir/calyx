@@ -60,11 +60,45 @@ Try this to run a simple example:
 - `-h`: Help option; shows available examples.
 - `-r`: Dumps the Relay IR. Otherwise, it dumps the Calyx output.
 
+
+Simulate an ONNX Model
+--------------
+
+A simple script is provided to run an Open Neural Network Exchange (ONNX) model.
+In addition to installing TVM Relay above, you'll need the following PIP installations
+for ONNX simulation and image pre-processing:
+
+    pip3 install opencv-python Pillow mxnet onnx simplejson
+
+For example, we can simulate the LeNet ONNX model found [here][lenet] using the following command:
+    
+    python3 frontends/relay/onnx_to_calyx.py \ 
+    -n "lenet" \ 
+    -d "MNIST" \ 
+    -i "/path/to/image.png" \
+    -onnx "/path/to/model.onnx" \ 
+    -o calyx
+
+- `-n`: The name of the input net. This is mostly used for naming the output files.
+- `-d`: The dataset for which the input will be classified against. This is necessary to 
+determine what preprocessing should be done on the image. e.g. `"mnist"` or `"imagenet"`.
+- `-i`: The file path to the input image which you want classified.
+- `-onnx`: The file path to the ONNX model.
+- `-o`: The type of output. 
+    1. `tvm`: Executes the ONNX model using the TVM executor. Prints the final softmax value 
+    to console. No postprocessing is conducted.
+    2. `relay`: Output a file with the corresponding Relay program. `<net_name>.relay` 
+    3. `calyx`: Output a `.data` file and Calyx program for simulation. `<net_name>.futil`, `<net_name>.data`
+    4. `all`: All the above.
+
+
+[lenet]: https://github.com/ekut-es/pico-cnn/blob/master/data/lenet/lenet.onnx
 [relay-lang]: https://github.com/cucapra/calyx/tree/master/frontends/relay
 [roesch-etal]: https://arxiv.org/abs/1904.08368
 [vgg net]: https://github.com/apache/incubator-tvm/blob/main/python/tvm/relay/testing/vgg.py
 [mlp net]: https://github.com/apache/incubator-tvm/blob/main/python/tvm/relay/testing/mlp.py
 [dahlia]: https://github.com/cucapra/dahlia#set-it-up
+[onnx]: https://onnx.ai/
 [tvm]: https://tvm.apache.org
 [tvm-install]: https://tvm.apache.org/docs/install/from_source.html#developers-get-source-from-github
 [relay]: https://tvm.apache.org/docs/api/python/relay/index.html

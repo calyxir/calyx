@@ -20,12 +20,12 @@ component batch_flatten_1x4(x0_0_0_read_data: 32, x0_0_0_done: 1, x10_0_read_dat
     __i0 = std_reg(1);
     __j0 = std_reg(2);
     __k0 = std_reg(2);
-    __l_0 = std_reg(2);
-    add0 = std_add(2);
+    __l_0 = std_reg(3);
+    add0 = std_add(3);
     add1 = std_add(2);
     add2 = std_add(2);
     add3 = std_add(1);
-    const0 = std_const(2,0);
+    const0 = std_const(3,0);
     const1 = std_const(1,0);
     const10 = std_const(1,1);
     const2 = std_const(1,0);
@@ -33,13 +33,12 @@ component batch_flatten_1x4(x0_0_0_read_data: 32, x0_0_0_done: 1, x10_0_read_dat
     const4 = std_const(2,1);
     const5 = std_const(2,0);
     const6 = std_const(2,1);
-    const7 = std_const(2,1);
+    const7 = std_const(3,1);
     const8 = std_const(2,1);
     const9 = std_const(2,1);
     le0 = std_le(1);
     le1 = std_le(2);
     le2 = std_le(2);
-    pad0 = std_pad(2,3);
     x_read0_0 = std_reg(32);
   }
   wires {
@@ -87,8 +86,7 @@ component batch_flatten_1x4(x0_0_0_read_data: 32, x0_0_0_done: 1, x10_0_read_dat
       upd0[done] = x_read0_0.done ? 1'd1;
     }
     group upd1<"static"=1> {
-      x10_0_addr1 = pad0.out;
-      pad0.in = __l_0.out;
+      x10_0_addr1 = __l_0.out;
       x10_0_addr0 = __i0.out;
       x10_0_write_en = 1'd1;
       x10_0_write_data = 1'd1 ? x_read0_0.out;
