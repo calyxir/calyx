@@ -21,12 +21,14 @@ impl Named for RegisterUnsharing {
     }
 }
 
+type RewriteMap<T> = HashMap<T, Vec<(RRC<Cell>, RRC<Cell>)>>;
+
 struct Bookkeeper {
     analysis: ReachingDefinitionAnalysis,
     widths: HashMap<ir::Id, u64>,
     group_map: HashMap<ir::Id, RRC<Group>>,
     cell_map: HashMap<ir::Id, RRC<Cell>>,
-    invoke_map: HashMap<ir::Id, Vec<(RRC<Cell>, RRC<Cell>)>>,
+    invoke_map: RewriteMap<ir::Id>,
 }
 
 impl Bookkeeper {
@@ -127,8 +129,7 @@ impl Bookkeeper {
         if self.group_map.contains_key(group_name) {
             self.group_map.get(group_name).unwrap().clone()
         } else {
-            let group =
-                builder.component.find_group(group_name).unwrap().clone();
+            let group = builder.component.find_group(group_name).unwrap();
             self.group_map.insert(group_name.clone(), group.clone());
             group
         }
@@ -139,10 +140,8 @@ impl Bookkeeper {
         builder: &mut Builder,
         rename_list: &[(ir::Id, ir::Id, Vec<GroupOrInvoke>)],
     ) {
-        let mut grp_map: HashMap<&ir::Id, Vec<(RRC<Cell>, RRC<Cell>)>> =
-            HashMap::new();
-        let mut invoke_map: HashMap<ir::Id, Vec<(RRC<Cell>, RRC<Cell>)>> =
-            HashMap::new();
+        let mut grp_map: RewriteMap<&ir::Id> = HashMap::new();
+        let mut invoke_map: RewriteMap<ir::Id> = HashMap::new();
         for (new_name, old_name, grouplist) in rename_list {
             for group_or_invoke in grouplist {
                 match group_or_invoke {
@@ -261,7 +260,7 @@ fn replace_invoke_ports(
     for (_name, port) in
         invoke.inputs.iter_mut().chain(invoke.outputs.iter_mut())
     {
-        if let Some((old, new)) = rewrites
+        if let Some((_old, new)) = rewrites
             .iter()
             .find(|&(cell, _)| parent_matches(port, cell))
         {
