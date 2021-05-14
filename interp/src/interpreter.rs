@@ -4,6 +4,7 @@
 use super::{environment::Environment, primitives, update::UpdateQueue};
 use calyx::{errors::FutilResult, ir};
 use std::collections::HashMap;
+use std::io;
 
 /// Evaluates a group, given an environment.
 pub fn eval_group(
@@ -30,6 +31,7 @@ fn eval_assigns(
     mut env: Environment,
     component: String,
 ) -> FutilResult<Environment> {
+    
     let cid = ir::Id::from(component.clone());
 
     // Find the done signal in the sequence of assignments
@@ -55,11 +57,20 @@ fn eval_assigns(
         })
         .collect::<Vec<_>>();
 
+
+    // XXX(yoona): At the moment interpreter rejects direct assignment of 1 to the groups
+    // needs to be fixed
+        if write_env.get_from_port(&cid, &done_assign.src.borrow()) == 1 {
+            panic!("TODO: done[group]=1 this group woud but be evaluated ");
+        }
+
     // While done_assign.src is 0
-    // (we use done_assign.src because done_assign.dst is not a cell's port; it should be a group's port)
+    // (we use done_assign.src because done_assign.dst is not a cell's port; it should be a group's port
+ 
     while write_env.get_from_port(&cid, &done_assign.src.borrow()) == 0
         && counter < 5
     {
+        
         env = write_env.clone();
         // println!("Clock cycle {}", counter);
 
@@ -67,7 +78,7 @@ fn eval_assigns(
         let mut uq = UpdateQueue::init(component.clone());
 
         // Iterate through assignment statements
-        for assign in &ok_assigns {
+        for assign in &ok_assigns {            
             // check if the assign.guard != 0
             // should it be evaluating the guard in write_env environment?
             if eval_guard(&cid, &assign.guard, &write_env) != 0 {
@@ -259,7 +270,13 @@ fn is_combinational(
             "done" => false,
             _ => false,
         },
-        "std_const"
+        | "std_mem_d1" => match port.id.as_str() {
+            "write_en" => true,
+            "read_data" => false,
+            "done" => false,
+            _ => false,
+        },
+        | "std_const"
         | "std_slice"
         | "std_lsh"
         | "std_rsh"
@@ -285,6 +302,6 @@ fn is_combinational(
         | "fixed_p_std_div"
         | "fixed_p_std_gt"
         | "fixed_p_std_add_dbit" => true,
-        _ => false,
+        prim => panic!("unknown primitive {}",prim ),
     }
 }

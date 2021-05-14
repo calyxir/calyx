@@ -2,6 +2,7 @@
 
 use super::environment::Environment;
 use calyx::{errors::FutilResult, ir};
+use std::collections::HashMap;
 
 /// Uses the cell's inputs ports to perform any required updates to the
 /// cell's output ports.
@@ -59,6 +60,48 @@ pub fn update_cell_state(
                 }
             }
         }
+        "std_mem_d1" => {
+ 
+            let mut mem = HashMap::new();
+            let out = ir::Id::from("out");
+            let write_en = ir::Id::from("write_en");
+            let done = ir::Id::from("done"); //done id
+            
+            // memory should write to addres
+            if new_env.get(&cid, &cell, &write_en) != 0 {
+                let addr0 = ir::Id::from("addr0"); 
+                let read_data = ir::Id::from("read_data"); 
+                let write_data = ir::Id::from("write_data");  
+
+                new_env.put(
+                    &cid,
+                    cell,
+                    &output[0],
+                    env.get(&cid, &inputs[0], &out),
+                );
+
+                let data = new_env.get(&cid, cell, &write_data);
+                mem.insert(addr0, data);
+                
+            } 
+            // read data
+            if output[0].id == "read_data" {
+                let addr0 = ir::Id::from("addr0"); 
+            
+                let dat = match mem.get(&addr0) {
+                    Some(&num) => num,
+                                 _ => panic!("nothing in the memory"),
+                };
+            
+                new_env.put(
+                   &cid,
+                    cell,
+                    &output[0],
+                    dat
+                ); 
+            }
+            new_env.put(&cid, cell, &done, 1);
+         }
         "std_sqrt" => {
             //TODO; wrong implementation
             // new_env.put(

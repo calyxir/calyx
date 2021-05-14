@@ -63,6 +63,10 @@ impl UpdateQueue {
                     // reg.in = dst port should go here
                     self.add_update(cell.clone(), inputs, outputs, map);
                 }
+                "std_mem_d1" => {
+                    let map: HashMap<String, u64> = HashMap::new();
+                    self.add_update(cell.clone(), inputs, outputs, map);
+                }
                 _ => panic!(
                     "attempted to initalize an update for a combinational cell"
                 ),

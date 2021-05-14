@@ -1,6 +1,6 @@
 //! Inteprets a control in a component.
 
-use super::{environment::Environment, interpret_group::GroupInterpreter};
+use super::{environment::Environment, interpreter, interpret_group::GroupInterpreter};
 use calyx::{
     errors::{Error, FutilResult},
     ir,
@@ -79,7 +79,7 @@ fn eval_seq(
 }
 
 /// Interpret Par
-/// TODO
+/// at the moment behaves like seq
 fn eval_par(
     p: &ir::Par,
     comp: String,
@@ -92,22 +92,45 @@ fn eval_par(
 }
 
 /// Interpret If
-/// TODO
 fn eval_if(
     i: &ir::If,
     comp: String,
-    env: Environment,
+    mut env: Environment,
 ) -> FutilResult<Environment> {
-    Ok(env)
+    //first set the environment for cond
+    env = interpreter::eval_group(i.cond.clone(), env,comp.clone())?;
+
+    let cid = ir::Id::from(comp.clone());
+    // if i.port is not high fbranch else tbranch
+    if env.get_from_port( &cid, &i.port.borrow()) ==0 {
+        env = eval_control(&i.fbranch, comp.clone(), env)?;
+        Ok(env)
+    } else{
+        env = eval_control(&i.tbranch, comp.clone(), env)?;
+        Ok(env)
+    }
 }
 
 /// Interpret While
-/// TODO
+// /// The loop statement is similar to the conditional. It enables
+// cond_group and uses port_name as the conditional value. When the
+// value is high, it executes body_stmt and recomputes the conditional
+// using cond_group.
 fn eval_while(
     w: &ir::While,
     comp: String,
-    env: Environment,
+    mut env: Environment,
 ) -> FutilResult<Environment> {
+    let cid = ir::Id::from(comp.clone());
+    // currently ports don't update properly in mutli-cycle and runs into infinite loop
+    // count needs to be removed when the infinite loop problem is fixed
+    let mut count = 0;
+    while env.get_from_port( &cid, &w.port.borrow()) !=1 && count<5{
+        env = eval_control(&w.body, comp.clone(), env)?;
+        env = interpreter::eval_group(w.cond.clone(), env,comp.clone())?;
+        // count needs to be remved
+        count +=1;
+    }
     Ok(env)
 }
 
