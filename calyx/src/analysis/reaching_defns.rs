@@ -119,7 +119,23 @@ impl ReachingDefinitionAnalysis {
         }
     }
 
-    pub fn calculate_overlap(&self) -> OverlapMap {
+    pub fn calculate_overlap(
+        &self,
+        continuous_assignments: &[ir::Assignment],
+    ) -> OverlapMap {
+        let continuous_regs: Vec<RRC<ir::Cell>> =
+            ReadWriteSet::uses(continuous_assignments)
+                .into_iter()
+                .filter(|cell| {
+                    let cell_ref = cell.borrow();
+                    if let Some(name) = cell_ref.type_name() {
+                        name == "std_reg"
+                    } else {
+                        false
+                    }
+                })
+                .collect();
+
         let mut overlap_map: HashMap<
             ir::Id,
             Vec<HashSet<(ir::Id, GroupOrInvoke)>>,
@@ -134,6 +150,13 @@ impl ReachingDefinitionAnalysis {
                 let set = group_overlaps.entry(defname).or_default();
                 set.insert((defname.clone(), group_name.clone()));
                 set.insert((defname.clone(), grp.clone()));
+
+                for name in &continuous_regs {
+                    set.insert((
+                        name.clone().borrow().name.clone(),
+                        grp.clone(),
+                    ));
+                }
             }
 
             for (defname, set) in group_overlaps {

@@ -82,7 +82,9 @@ impl Bookkeeper {
         &mut self,
         builder: &mut Builder,
     ) -> Vec<(ir::Id, ir::Id, Vec<GroupOrInvoke>)> {
-        let overlap = self.analysis.calculate_overlap();
+        let overlap = self
+            .analysis
+            .calculate_overlap(&builder.component.continuous_assignments);
 
         let mut rename_list = vec![];
 
