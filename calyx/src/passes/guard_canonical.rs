@@ -20,7 +20,7 @@ impl Named for GuardCanonical {
 }
 
 fn update_assigns(assigns: Vec<ir::Assignment>) -> Vec<ir::Assignment> {
-    let mut new_assign : Vec<ir::Assignment> = Vec::new();
+    let mut new_assign: Vec<ir::Assignment> = Vec::new();
     for assign in assigns {
         let guard = &assign.guard;
         if guard.is_port() && assign.src.borrow().is_constant(1, 1) {
@@ -30,8 +30,7 @@ fn update_assigns(assigns: Vec<ir::Assignment>) -> Vec<ir::Assignment> {
                 changed_assign.src = p;
                 new_assign.push(changed_assign);
             }
-        }
-        else {
+        } else {
             new_assign.push(assign);
         }
     }
@@ -44,7 +43,7 @@ impl Visitor for GuardCanonical {
         comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
-        // For each group and continuous assignments, canonicalize guard 
+        // For each group and continuous assignments, canonicalize guard
         // statements that has constant 1 as either a source or a guard.
         // # Example
         // ```
