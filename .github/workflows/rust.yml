@@ -157,6 +157,10 @@ jobs:
       with:
         command: build
         args: --all
+    - name: Install calyx-py
+      run: |
+        cd calyx-py
+        flit install
 
     - name: Install MrXL
       run: |
@@ -172,10 +176,6 @@ jobs:
         fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
         fud config stages.futil.exec './target/debug/futil'
         fud config
-    - name: Install calyx-py
-      run: |
-        cd calyx-py
-        flit install
     - name: Test
       run: |
         unset JAVA_TOOL_OPTIONS

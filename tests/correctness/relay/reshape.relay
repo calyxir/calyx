@@ -1,0 +1,7 @@
+v0.0.4
+fn (%x: Tensor[(1, 2, 2, 2), float32])  {
+  let %x1: Tensor[(1, 8), float32] = reshape(%x, newshape=[-1, 8]);
+  %x1
+}
+
+
