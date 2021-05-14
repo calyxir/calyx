@@ -23,7 +23,9 @@ fn update_assigns(assigns: Vec<ir::Assignment>) -> Vec<ir::Assignment> {
     let mut new_assign: Vec<ir::Assignment> = Vec::new();
     for assign in assigns {
         let guard = &assign.guard;
-        if guard.is_port() && assign.src.borrow().is_constant(1, 1) {
+        if !matches!(**guard, Guard::True)
+            && assign.src.borrow().is_constant(1, 1)
+        {
             for p in guard.all_ports() {
                 let mut changed_assign = assign.clone();
                 changed_assign.guard = Box::new(Guard::True);
