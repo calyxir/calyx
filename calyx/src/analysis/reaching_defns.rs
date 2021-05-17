@@ -29,7 +29,8 @@ impl PartialOrd for GroupOrInvoke {
 impl Ord for GroupOrInvoke {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
-            (GroupOrInvoke::Group(a), GroupOrInvoke::Group(b)) => {
+            (GroupOrInvoke::Group(a), GroupOrInvoke::Group(b))
+            | (GroupOrInvoke::Invoke(a), GroupOrInvoke::Invoke(b)) => {
                 ir::Id::cmp(a, b)
             }
             (GroupOrInvoke::Group(_), GroupOrInvoke::Invoke(_)) => {
@@ -37,9 +38,6 @@ impl Ord for GroupOrInvoke {
             }
             (GroupOrInvoke::Invoke(_), GroupOrInvoke::Group(_)) => {
                 Ordering::Less
-            }
-            (GroupOrInvoke::Invoke(a), GroupOrInvoke::Invoke(b)) => {
-                ir::Id::cmp(a, b)
             }
         }
     }
@@ -150,15 +148,19 @@ impl ReachingDefinitionAnalysis {
         &self,
         continuous_assignments: &[ir::Assignment],
     ) -> OverlapMap {
-        let continuous_regs: Vec<RRC<ir::Cell>> =
+        let continuous_regs: Vec<ir::Id> =
             ReadWriteSet::uses(continuous_assignments)
                 .into_iter()
-                .filter(|cell| {
+                .filter_map(|cell| {
                     let cell_ref = cell.borrow();
                     if let Some(name) = cell_ref.type_name() {
-                        name == "std_reg"
+                        if name == "std_reg" {
+                            Some(cell_ref.name.clone())
+                        } else {
+                            None
+                        }
                     } else {
-                        false
+                        None
                     }
                 })
                 .collect();
@@ -177,13 +179,14 @@ impl ReachingDefinitionAnalysis {
                 let set = group_overlaps.entry(defname).or_default();
                 set.insert((defname.clone(), group_name.clone()));
                 set.insert((defname.clone(), grp.clone()));
+            }
 
-                for name in &continuous_regs {
-                    set.insert((
-                        name.clone().borrow().name.clone(),
-                        grp.clone(),
-                    ));
-                }
+            for name in &continuous_regs {
+                let set = group_overlaps.entry(name).or_default();
+                set.insert((
+                    name.clone(),
+                    GroupOrInvoke::Group("__continuous".into()),
+                ));
             }
 
             for (defname, set) in group_overlaps {
@@ -261,8 +264,7 @@ fn build_reaching_def(
                 .iter()
                 .zip(par_killed.iter())
                 .map(|(defs, kills)| {
-                    let new = defs.kill_from_hashset(&(&global_killed - kills));
-                    new
+                    defs.kill_from_hashset(&(&global_killed - kills))
                 })
                 .fold(DefSet::new(), |acc, element| &acc | &element);
             (par_exit_defs, &global_killed | &killed)

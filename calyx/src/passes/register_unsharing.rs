@@ -8,6 +8,8 @@ use std::rc::Rc;
 
 #[derive(Default)]
 pub struct RegisterUnsharing {
+    // This is an option because it cannot be initialized until the component is
+    // seen
     bookkeeper: Option<Bookkeeper>,
 }
 
@@ -23,6 +25,7 @@ impl Named for RegisterUnsharing {
 
 type RewriteMap<T> = HashMap<T, Vec<(RRC<Cell>, RRC<Cell>)>>;
 
+// A struct for managing the overlapping analysis and rewrite information
 struct Bookkeeper {
     analysis: ReachingDefinitionAnalysis,
     widths: HashMap<ir::Id, u64>,
@@ -32,7 +35,9 @@ struct Bookkeeper {
 }
 
 impl Bookkeeper {
+    // Create a new bookkeeper from the component
     fn new(comp: &ir::Component) -> Self {
+        // width map is needed to create new registers with the proper widths
         let widths = comp
             .cells
             .iter()
@@ -57,6 +62,7 @@ impl Bookkeeper {
                 }
             })
             .collect();
+
         // (griffin) I'm sorry for the above.
         // There's probably a cleaner way to write this
         // TODO(griffin): fix?
@@ -65,8 +71,12 @@ impl Bookkeeper {
             &comp,
             &mut comp.control.borrow_mut(),
         );
+
+        // Used to amortize access to cells and groups that will be needed for
+        // rewriting
         let group_map = HashMap::new();
         let cell_map = HashMap::new();
+
         let invoke_map = HashMap::new();
 
         Self {
@@ -203,7 +213,7 @@ impl Visitor for RegisterUnsharing {
         //     .as_ref()
         //     .unwrap()
         //     .analysis
-        //     .calculate_overlap(&[])
+        //     .calculate_overlap(&builder.component.continuous_assignments)
         // {
         //     println!("Overlapping defns for {}", x);
         //     for def in y {
