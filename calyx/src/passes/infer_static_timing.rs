@@ -207,6 +207,23 @@ impl InferStaticTiming {
         false
     }
 
+    /// Returns true if `graph` contains a `done` hole of a group assigned with
+    /// just 1.
+    fn is_always_done(graph: &GraphAnalysis) -> bool {
+        for port in graph.ports() {
+            if port.borrow().is_hole() && port.borrow().name == "done" {
+                let count = graph.writes_to(&*port.borrow()).count();
+                let write_port =
+                    graph.writes_to(&*port.borrow()).next().unwrap();
+
+                if count == 1 && write_port.borrow().is_constant(1, 1) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// Returns true if `graph` contains writes to "done" ports
     /// that could have dynamic latencies, false otherwise.
     fn contains_dyn_writes(&self, graph: GraphAnalysis) -> bool {
@@ -296,6 +313,11 @@ impl InferStaticTiming {
             .edge_induced_subgraph(|src, dst| self.mem_wrt_dep_graph(src, dst))
             .add_edges(&go_done_edges)
             .remove_isolated_vertices();
+
+        // 0 static latency if always done
+        if Self::is_always_done(&graph) {
+            return Some(0);
+        }
 
         // Give up if a port has multiple writes to it.
         if Self::contains_node_deg_gt_one(graph.clone()) {

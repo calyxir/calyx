@@ -132,12 +132,10 @@ fud e -q {} --from mrxl --to dat -s verilog.data {}.data | jq .memories
 """
 
 [[tests]]
-name = "Relay correctness"
+name = "relay correctness"
 paths = ["tests/correctness/relay/*.relay"]
 cmd = """
-python3 frontends/relay/relay_visitor.py < {} > {}.expect; \
-fud e -q --from futil {}.expect --to dat -s verilog.data {}.data | jq .memories; \
-rm {}.expect;
+fud e -q {} --from relay --to dat -s verilog.data {}.data | jq .memories
 """
 
 ##### Backend Tests #####
@@ -178,7 +176,7 @@ python3 frontends/ntt-pipeline/gen-ntt-pipeline.py {}
 [[tests]]
 name = "relay frontend"
 paths = ["tests/frontend/relay/*.relay"]
-cmd = "python3 frontends/relay/relay_visitor.py < {} -q"
+cmd = "python3 frontends/relay/relay_visitor.py {}"
 
 [[tests]]
 name = "exp frontend"
