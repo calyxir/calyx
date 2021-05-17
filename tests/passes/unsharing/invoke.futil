@@ -1,0 +1,78 @@
+import "primitives/std.lib";
+
+component add(left: 32, right: 32) -> (out: 32) {
+  cells {
+    adder = std_add(32);
+    outpt = std_reg(32);
+  }
+  wires {
+    group do_add {
+      adder.left = left;
+      adder.right = right;
+      outpt.in = adder.out;
+      outpt.write_en = 1'd1;
+      do_add[done] = outpt.done;
+    }
+  out = outpt.out;
+
+  }
+  control {
+    seq {
+      do_add;
+    }
+  }
+}
+
+component main() -> () {
+    cells {
+        x = std_reg(32);
+        y = std_reg(32);
+        my_add = add();
+        result = std_reg(32);
+    }
+
+    wires {
+        group zero_x {
+            x.write_en = 1'd1;
+            x.in = 32'd0;
+            zero_x[done] = x.done;
+        }
+
+        group zero_y {
+            y.write_en = 1'd1;
+            y.in = 32'd0;
+            zero_y[done] = y.done;
+        }
+
+        group one_x {
+            x.write_en = 1'd1;
+            x.in = 32'd1;
+            one_x[done] = x.done;
+        }
+
+        group write_final {
+            result.in = my_add.out;
+            result.write_en = 1'd1;
+            write_final[done] = result.done;
+        }
+
+        group five_y {
+            y.write_en = 1'd1;
+            y.in = 32'd5;
+            five_y[done] = y.done;
+        }
+
+    }
+
+    control {
+        seq{
+            par {zero_x; zero_y; }
+            invoke my_add(left=y.out, right=x.out)();
+            invoke my_add(left=y.out, right=x.out)();
+            invoke my_add(left=y.out, right=x.out)();
+            par {one_x; five_y; }
+            invoke my_add(left=y.out, right=x.out)();
+            write_final;
+        }
+    }
+}
