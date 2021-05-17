@@ -4,6 +4,8 @@ import "primitives/core.futil";
 component main() -> () {
     cells {
         r = std_reg(32);
+        x = std_reg(32);
+        y = std_reg(32);
         add2 = std_add(32);
         flag = std_reg(1);
         other = std_reg(32);
@@ -13,12 +15,18 @@ component main() -> () {
         group zero {
             r.in = 32'd0;
             r.write_en = 1'd1;
+            x.write_en = 1'd1;
+            x.in = 32'd0;
+            y.write_en = 1'd1;
+            y.in = 32'd0;
             zero[done] = r.done;
         }
 
         group one {
             r.in = 32'd1;
             r.write_en = 1'd1;
+            x.write_en = 1'd1;
+            x.in = 32'd1;
             one[done] = r.done;
         }
 
@@ -46,6 +54,8 @@ component main() -> () {
         group five {
             r.in = 32'd5;
             r.write_en = 1'd1;
+            y.write_en = 1'd1;
+            y.in = 32'd5;
             five[done] = r.done;
         }
 
