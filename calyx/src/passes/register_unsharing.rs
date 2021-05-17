@@ -213,16 +213,14 @@ impl Visitor for RegisterUnsharing {
         _sigs: &LibrarySignatures,
     ) -> VisResult {
         if let Some(name) = extract_meta_name(invoke) {
-            replace_invoke_ports(
-                invoke,
-                &self
-                    .bookkeeper
-                    .as_ref()
-                    .unwrap()
-                    .invoke_map
-                    .get(&name)
-                    .unwrap(),
-            );
+            let vec_array =
+                &self.bookkeeper.as_ref().unwrap().invoke_map.get(&name);
+
+            // only do rewrites if there is actually rewriting to do
+            if let Some(rename_vec) = vec_array {
+                replace_invoke_ports(invoke, rename_vec);
+            }
+
             clear_meta_name(invoke);
         }
 
