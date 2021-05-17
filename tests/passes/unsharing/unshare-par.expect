@@ -1,0 +1,54 @@
+import "primitives/core.futil";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    x = std_reg(32);
+    y = std_reg(32);
+    add2 = std_add(32);
+    result = std_reg(32);
+    unshr_x = std_reg(32);
+    unshr_y = std_reg(32);
+  }
+  wires {
+    group zero_x {
+      unshr_x.write_en = 1'd1;
+      unshr_x.in = 32'd0;
+      zero_x[done] = unshr_x.done;
+    }
+    group zero_y {
+      unshr_y.write_en = 1'd1;
+      unshr_y.in = 32'd0;
+      zero_y[done] = unshr_y.done;
+    }
+    group one_x {
+      x.write_en = 1'd1;
+      x.in = 32'd1;
+      one_x[done] = x.done;
+    }
+    group final {
+      add2.left = y.out;
+      add2.right = x.out;
+      result.in = add2.out;
+      result.write_en = 1'd1;
+      final[done] = result.done;
+    }
+    group five_y {
+      y.write_en = 1'd1;
+      y.in = 32'd5;
+      five_y[done] = y.done;
+    }
+  }
+
+  control {
+    seq {
+      par {
+        zero_x;
+        zero_y;
+      }
+      par {
+        one_x;
+        five_y;
+      }
+      final;
+    }
+  }
+}

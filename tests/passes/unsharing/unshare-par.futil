@@ -1,4 +1,4 @@
-
+// -p register-unsharing
 import "primitives/core.futil";
 
 component main() -> () {
