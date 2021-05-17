@@ -253,7 +253,6 @@ fn build_reaching_def(
                 })
                 .unzip();
 
-            dbg!(&par_killed);
             let global_killed = par_killed
                 .iter()
                 .fold(KilledSet::new(), |acc, set| &acc | set);
@@ -262,13 +261,10 @@ fn build_reaching_def(
                 .iter()
                 .zip(par_killed.iter())
                 .map(|(defs, kills)| {
-                    dbg!(defs, &global_killed - kills);
                     let new = defs.kill_from_hashset(&(&global_killed - kills));
-                    dbg!(&new);
                     new
                 })
                 .fold(DefSet::new(), |acc, element| &acc | &element);
-            dbg!(&par_exit_defs);
             (par_exit_defs, &global_killed | &killed)
         }
         ir::Control::If(ir::If {
