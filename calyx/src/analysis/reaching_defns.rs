@@ -123,6 +123,11 @@ pub struct ReachingDefinitionAnalysis {
 }
 
 impl ReachingDefinitionAnalysis {
+    /// Constructs a reaching definition analysis for registers over the given
+    /// control structure. Will include dummy "definitions" for invoke statements
+    /// which can be ignored if one is not rewriting values
+    /// **NOTE**: Assumes that each group appears at only one place in the control
+    /// structure.
     pub fn new(_comp: &ir::Component, control: &mut ir::Control) -> Self {
         let initial_set = DefSet::new();
         let mut analysis = ReachingDefinitionAnalysis::empty();
@@ -144,6 +149,11 @@ impl ReachingDefinitionAnalysis {
         }
     }
 
+    /// Provides a map containing a vector of sets for each register. The sets
+    /// within contain separate groupings of definitions for the given register.
+    /// If the vector contains one set, then all the definitions for the given
+    /// register name must have the same name.
+    /// **NOTE:** Includes dummy "definitions" for continuous assignments
     pub fn calculate_overlap(
         &self,
         continuous_assignments: &[ir::Assignment],
