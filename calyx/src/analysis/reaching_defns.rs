@@ -1,5 +1,7 @@
+use std::cmp::Ordering;
+use std::cmp::{Ord, PartialOrd};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     ops::BitOr,
     rc::Rc,
 };
@@ -18,6 +20,31 @@ pub enum GroupOrInvoke {
     Invoke(InvokeName),
 }
 
+impl PartialOrd for GroupOrInvoke {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for GroupOrInvoke {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (GroupOrInvoke::Group(a), GroupOrInvoke::Group(b)) => {
+                ir::Id::cmp(a, b)
+            }
+            (GroupOrInvoke::Group(_), GroupOrInvoke::Invoke(_)) => {
+                Ordering::Greater
+            }
+            (GroupOrInvoke::Invoke(_), GroupOrInvoke::Group(_)) => {
+                Ordering::Less
+            }
+            (GroupOrInvoke::Invoke(a), GroupOrInvoke::Invoke(b)) => {
+                ir::Id::cmp(a, b)
+            }
+        }
+    }
+}
+
 impl Into<ir::Id> for GroupOrInvoke {
     fn into(self) -> ir::Id {
         match self {
@@ -28,11 +55,11 @@ impl Into<ir::Id> for GroupOrInvoke {
 
 #[derive(Clone, Debug)]
 pub struct DefSet {
-    set: HashSet<(ir::Id, GroupOrInvoke)>,
+    set: BTreeSet<(ir::Id, GroupOrInvoke)>,
 }
 
 impl DefSet {
-    fn extend(&mut self, writes: HashSet<ir::Id>, grp: &GroupName) {
+    fn extend(&mut self, writes: BTreeSet<ir::Id>, grp: &GroupName) {
         for var in writes {
             self.set.insert((var, GroupOrInvoke::Group(grp.clone())));
         }
@@ -40,14 +67,14 @@ impl DefSet {
 
     fn new() -> Self {
         DefSet {
-            set: HashSet::new(),
+            set: BTreeSet::new(),
         }
     }
 
     fn kill_from_writeread(
         &self,
-        writes: &HashSet<ir::Id>,
-        reads: &HashSet<ir::Id>,
+        writes: &BTreeSet<ir::Id>,
+        reads: &BTreeSet<ir::Id>,
     ) -> (Self, KilledSet) {
         let mut killed = KilledSet::new();
         let def = DefSet {
@@ -68,7 +95,7 @@ impl DefSet {
         (def, killed)
     }
 
-    fn kill_from_hashset(&self, killset: &HashSet<ir::Id>) -> Self {
+    fn kill_from_hashset(&self, killset: &BTreeSet<ir::Id>) -> Self {
         DefSet {
             set: self
                 .set
@@ -90,32 +117,32 @@ impl BitOr<&DefSet> for &DefSet {
     }
 }
 
-type OverlapMap = HashMap<ir::Id, Vec<HashSet<(ir::Id, GroupOrInvoke)>>>;
+type OverlapMap = BTreeMap<ir::Id, Vec<BTreeSet<(ir::Id, GroupOrInvoke)>>>;
 
 #[derive(Debug)]
 pub struct ReachingDefinitionAnalysis {
-    pub reach: HashMap<GroupOrInvoke, DefSet>,
+    pub reach: BTreeMap<GroupOrInvoke, DefSet>,
 }
 
 impl ReachingDefinitionAnalysis {
     pub fn new(_comp: &ir::Component, control: &mut ir::Control) -> Self {
         let initial_set = DefSet::new();
         let mut analysis = ReachingDefinitionAnalysis::empty();
-        let counter: u64 = 0;
+        let mut counter: u64 = 0;
 
         build_reaching_def(
             control,
             initial_set,
             KilledSet::new(),
             &mut analysis,
-            counter,
+            &mut counter,
         );
         analysis
     }
 
     fn empty() -> Self {
         ReachingDefinitionAnalysis {
-            reach: HashMap::new(),
+            reach: BTreeMap::new(),
         }
     }
 
@@ -136,15 +163,15 @@ impl ReachingDefinitionAnalysis {
                 })
                 .collect();
 
-        let mut overlap_map: HashMap<
+        let mut overlap_map: BTreeMap<
             ir::Id,
-            Vec<HashSet<(ir::Id, GroupOrInvoke)>>,
-        > = HashMap::new();
+            Vec<BTreeSet<(ir::Id, GroupOrInvoke)>>,
+        > = BTreeMap::new();
         for (grp, defset) in &self.reach {
-            let mut group_overlaps: HashMap<
+            let mut group_overlaps: BTreeMap<
                 &ir::Id,
-                HashSet<(ir::Id, GroupOrInvoke)>,
-            > = HashMap::new();
+                BTreeSet<(ir::Id, GroupOrInvoke)>,
+            > = BTreeMap::new();
 
             for (defname, group_name) in &defset.set {
                 let set = group_overlaps.entry(defname).or_default();
@@ -195,14 +222,14 @@ impl ReachingDefinitionAnalysis {
     }
 }
 
-type KilledSet = HashSet<ir::Id>;
+type KilledSet = BTreeSet<ir::Id>;
 
 fn build_reaching_def(
     c: &mut ir::Control,
     reach: DefSet,
     killed: KilledSet,
     rd: &mut ReachingDefinitionAnalysis,
-    mut counter: u64,
+    counter: &mut u64,
 ) -> (DefSet, KilledSet) {
     match c {
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
@@ -226,6 +253,7 @@ fn build_reaching_def(
                 })
                 .unzip();
 
+            dbg!(&par_killed);
             let global_killed = par_killed
                 .iter()
                 .fold(KilledSet::new(), |acc, set| &acc | set);
@@ -234,10 +262,13 @@ fn build_reaching_def(
                 .iter()
                 .zip(par_killed.iter())
                 .map(|(defs, kills)| {
-                    defs.kill_from_hashset(&(&global_killed - kills))
+                    dbg!(defs, &global_killed - kills);
+                    let new = defs.kill_from_hashset(&(&global_killed - kills));
+                    dbg!(&new);
+                    new
                 })
                 .fold(DefSet::new(), |acc, element| &acc | &element);
-
+            dbg!(&par_exit_defs);
             (par_exit_defs, &global_killed | &killed)
         }
         ir::Control::If(ir::If {
@@ -310,7 +341,7 @@ fn build_reaching_def(
             )
         }
         ir::Control::Invoke(invoke) => {
-            counter += 1;
+            *counter += 1;
             let inputs: Vec<(ir::Id, RRC<ir::Port>)> =
                 invoke.inputs.drain(..).collect();
             let outputs: Vec<(ir::Id, RRC<ir::Port>)> =
@@ -325,7 +356,7 @@ fn build_reaching_def(
                             == "std_reg"
                         {
                             let name = format!("{}{}", INVOKE_PREFIX, counter);
-                            invoke.attributes.insert(INVOKE_PREFIX, counter);
+                            invoke.attributes.insert(INVOKE_PREFIX, *counter);
                             Some((
                                 parent.name.clone(),
                                 GroupOrInvoke::Invoke(ir::Id::from(name)),
@@ -359,13 +390,13 @@ fn build_reaching_def(
                     _ => false,
                 })
                 .map(|x| x.borrow().name.clone())
-                .collect::<HashSet<_>>();
+                .collect::<BTreeSet<_>>();
 
             let read_set =
                 ReadWriteSet::register_reads(&en.group.borrow().assignments)
                     .iter()
                     .map(|x| x.borrow().name.clone())
-                    .collect::<HashSet<_>>();
+                    .collect::<BTreeSet<_>>();
             // only kill a def if the value is not read.
             let (mut cur_reach, killed) =
                 reach.kill_from_writeread(&write_set, &read_set);
