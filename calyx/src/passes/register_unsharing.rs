@@ -192,12 +192,19 @@ impl Visitor for RegisterUnsharing {
             .as_mut()
             .unwrap()
             .rename(&mut builder, &rename_list);
-        // for (group, z) in &bookkeeper.analysis.reach {
-        //     println!("Group {}", group);
+
+        // for (group, z) in &self.bookkeeper.as_ref().unwrap().analysis.reach {
+        //     println!("Group {:?}", group);
         //     println!("  {:?}", z);
         // }
 
-        // for (x, y) in &bookkeeper.analysis.calculate_overlap() {
+        // for (x, y) in &self
+        //     .bookkeeper
+        //     .as_ref()
+        //     .unwrap()
+        //     .analysis
+        //     .calculate_overlap(&[])
+        // {
         //     println!("Overlapping defns for {}", x);
         //     for def in y {
         //         println!("   {:?}\n", def);
