@@ -56,6 +56,22 @@ impl Visitor for WellFormed {
                 return Err(Error::ReservedName(cell.name.clone()));
             }
         }
+
+        // Check if any groups refer to another group's done signal.
+        for group_ref in &comp.groups {
+            let group = group_ref.borrow();
+            for assign in &group.assignments {
+                let dst = assign.dst.borrow();
+                if dst.is_hole() && group.name != dst.get_parent_name() {
+                    return Err(
+                        Error::MalformedStructure(
+                            format!("Group `{}` refers to the done condition of another group (`{}`).",
+                                group.name,
+                                dst.get_parent_name())));
+                }
+            }
+        }
+
         Ok(Action::Continue)
     }
 
