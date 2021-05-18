@@ -42,13 +42,10 @@ impl ReadWriteSet {
                 let port = port_ref.borrow();
                 if let ir::PortParent::Cell(cell_wref) = &port.parent {
                     if &port.name == "out" {
-                        Some(Rc::clone(&cell_wref.upgrade()))
-                    } else {
-                        None
+                        return Some(Rc::clone(&cell_wref.upgrade()));
                     }
-                } else {
-                    None
                 }
+                None
             })
         });
         assigns
@@ -57,13 +54,10 @@ impl ReadWriteSet {
                 let src_ref = assign.src.borrow();
                 if let ir::PortParent::Cell(cell_wref) = &src_ref.parent {
                     if src_ref.name == "out" {
-                        Some(Rc::clone(&cell_wref.upgrade()))
-                    } else {
-                        None
+                        return Some(Rc::clone(&cell_wref.upgrade()));
                     }
-                } else {
-                    None
                 }
+                None
             })
             .chain(guard_ports)
             .filter(|x| {
@@ -104,13 +98,10 @@ impl ReadWriteSet {
                 if let ir::Guard::True = *assignment.guard {
                     let dst_ref = assignment.dst.borrow();
                     if let ir::PortParent::Cell(cell_wref) = &dst_ref.parent {
-                        Some(Rc::clone(&cell_wref.upgrade()))
-                    } else {
-                        None
+                        return Some(Rc::clone(&cell_wref.upgrade()));
                     }
-                } else {
-                    None
                 }
+                None
             })
             .unique_by(|cell| cell.borrow().name.clone())
             .collect()

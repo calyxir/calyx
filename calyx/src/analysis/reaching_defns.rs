@@ -51,7 +51,7 @@ impl Into<ir::Id> for GroupOrInvoke {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct DefSet {
     set: BTreeSet<(ir::Id, GroupOrInvoke)>,
 }
@@ -60,12 +60,6 @@ impl DefSet {
     fn extend(&mut self, writes: BTreeSet<ir::Id>, grp: &GroupName) {
         for var in writes {
             self.set.insert((var, GroupOrInvoke::Group(grp.clone())));
-        }
-    }
-
-    fn new() -> Self {
-        DefSet {
-            set: BTreeSet::new(),
         }
     }
 
@@ -129,7 +123,7 @@ impl ReachingDefinitionAnalysis {
     /// **NOTE**: Assumes that each group appears at only one place in the control
     /// structure.
     pub fn new(_comp: &ir::Component, control: &mut ir::Control) -> Self {
-        let initial_set = DefSet::new();
+        let initial_set = DefSet::default();
         let mut analysis = ReachingDefinitionAnalysis::empty();
         let mut counter: u64 = 0;
 
@@ -165,13 +159,10 @@ impl ReachingDefinitionAnalysis {
                     let cell_ref = cell.borrow();
                     if let Some(name) = cell_ref.type_name() {
                         if name == "std_reg" {
-                            Some(cell_ref.name.clone())
-                        } else {
-                            None
+                            return Some(cell_ref.name.clone());
                         }
-                    } else {
-                        None
                     }
+                    None
                 })
                 .collect();
 
@@ -276,7 +267,7 @@ fn build_reaching_def(
                 .map(|(defs, kills)| {
                     defs.kill_from_hashset(&(&global_killed - kills))
                 })
-                .fold(DefSet::new(), |acc, element| &acc | &element);
+                .fold(DefSet::default(), |acc, element| &acc | &element);
             (par_exit_defs, &global_killed | &killed)
         }
         ir::Control::If(ir::If {
@@ -365,16 +356,13 @@ fn build_reaching_def(
                         {
                             let name = format!("{}{}", INVOKE_PREFIX, counter);
                             invoke.attributes.insert(INVOKE_PREFIX, *counter);
-                            Some((
+                            return Some((
                                 parent.name.clone(),
                                 GroupOrInvoke::Invoke(ir::Id::from(name)),
-                            ))
-                        } else {
-                            None
+                            ));
                         }
-                    } else {
-                        None
                     }
+                    None
                 });
 
             let mut new_reach = reach;

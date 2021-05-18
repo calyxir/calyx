@@ -47,25 +47,16 @@ impl Bookkeeper {
                 {
                     if name == "std_reg" {
                         if let Some(in_port) = c.borrow().find("in") {
-                            Some((
+                            return Some((
                                 c.borrow().name.clone(),
                                 in_port.borrow().width,
-                            ))
-                        } else {
-                            None
+                            ));
                         }
-                    } else {
-                        None
                     }
-                } else {
-                    None
                 }
+                None
             })
             .collect();
-
-        // (griffin) I'm sorry for the above.
-        // There's probably a cleaner way to write this
-        // TODO(griffin): fix?
 
         let analysis = ReachingDefinitionAnalysis::new(
             &comp,
