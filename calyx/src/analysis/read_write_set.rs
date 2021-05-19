@@ -34,7 +34,7 @@ impl ReadWriteSet {
             .collect()
     }
 
-    /// returns the register cells whose out port is read anywhere in the given
+    /// Returns the register cells whose out port is read anywhere in the given
     /// assignments
     pub fn register_reads(assigns: &[ir::Assignment]) -> Vec<RRC<ir::Cell>> {
         let guard_ports = assigns.iter().flat_map(|assign| {
