@@ -9,7 +9,7 @@ use std::{
 use crate::analysis::ReadWriteSet;
 use crate::ir::{self, RRC};
 
-pub const INVOKE_PREFIX: &str = "__invoke_";
+const INVOKE_PREFIX: &str = "__invoke_";
 
 type GroupName = ir::Id;
 type InvokeName = ir::Id;
@@ -177,7 +177,9 @@ impl ReachingDefinitionAnalysis {
     /// within contain separate groupings of definitions for the given register.
     /// If the vector contains one set, then all the definitions for the given
     /// register name must have the same name.
-    /// **NOTE:** Includes dummy "definitions" for continuous assignments
+    /// **NOTE:** Includes dummy "definitions" for continuous assignments and
+    /// uses within groups and invoke statements. This is to ensure that all
+    /// uses of a given register are rewriten with the appropriate name.
     pub fn calculate_overlap(
         &self,
         continuous_assignments: &[ir::Assignment],
@@ -253,6 +255,48 @@ impl ReachingDefinitionAnalysis {
             }
         }
         overlap_map
+    }
+
+    pub fn extract_meta_name(invoke: &ir::Invoke) -> Option<ir::Id> {
+        if let Some(counter) = invoke.attributes.get(INVOKE_PREFIX) {
+            Some(ir::Id::from(format!("{}{}", INVOKE_PREFIX, counter)))
+        } else {
+            None
+        }
+    }
+
+    pub fn clear_meta_name(invoke: &mut ir::Invoke) {
+        invoke.attributes.remove(INVOKE_PREFIX);
+    }
+
+    pub fn replace_invoke_ports(
+        invoke: &mut ir::Invoke,
+        rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
+    ) {
+        let parent_matches =
+            |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> bool {
+                if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
+                    Rc::ptr_eq(&cell_wref.upgrade(), cell)
+                } else {
+                    false
+                }
+            };
+
+        let get_port =
+            |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> RRC<ir::Port> {
+                Rc::clone(&cell.borrow().get(&port.borrow().name))
+            };
+
+        for (_name, port) in
+            invoke.inputs.iter_mut().chain(invoke.outputs.iter_mut())
+        {
+            if let Some((_old, new)) = rewrites
+                .iter()
+                .find(|&(cell, _)| parent_matches(port, cell))
+            {
+                *port = get_port(port, new)
+            }
+        }
     }
 }
 

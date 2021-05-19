@@ -1,10 +1,9 @@
 use crate::analysis::reaching_defns::{
-    GroupOrInvoke, ReachingDefinitionAnalysis, INVOKE_PREFIX,
+    GroupOrInvoke, ReachingDefinitionAnalysis,
 };
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Builder, Cell, Group, LibrarySignatures, RRC};
 use std::collections::HashMap;
-use std::rc::Rc;
 
 #[derive(Default)]
 pub struct RegisterUnsharing {
@@ -67,7 +66,6 @@ impl Bookkeeper {
         // rewriting
         let group_map = HashMap::new();
         let cell_map = HashMap::new();
-
         let invoke_map = HashMap::new();
 
         Self {
@@ -194,23 +192,6 @@ impl Visitor for RegisterUnsharing {
             .unwrap()
             .rename(&mut builder, &rename_list);
 
-        // for (group, z) in &self.bookkeeper.as_ref().unwrap().analysis.reach {
-        //     println!("Group {:?}", group);
-        //     println!("  {:?}", z);
-        // }
-
-        // for (x, y) in &self
-        //     .bookkeeper
-        //     .as_ref()
-        //     .unwrap()
-        //     .analysis
-        //     .calculate_overlap(&builder.component.continuous_assignments)
-        // {
-        //     println!("Overlapping defns for {}", x);
-        //     for def in y {
-        //         println!("   {:?}\n", def);
-        //     }
-        // }
         Ok(Action::Continue)
     }
 
@@ -220,59 +201,22 @@ impl Visitor for RegisterUnsharing {
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
-        if let Some(name) = extract_meta_name(invoke) {
+        if let Some(name) =
+            ReachingDefinitionAnalysis::extract_meta_name(invoke)
+        {
             let vec_array =
                 &self.bookkeeper.as_ref().unwrap().invoke_map.get(&name);
 
             // only do rewrites if there is actually rewriting to do
             if let Some(rename_vec) = vec_array {
-                replace_invoke_ports(invoke, rename_vec);
+                ReachingDefinitionAnalysis::replace_invoke_ports(
+                    invoke, rename_vec,
+                );
             }
 
-            clear_meta_name(invoke);
+            ReachingDefinitionAnalysis::clear_meta_name(invoke);
         }
 
         Ok(Action::Continue)
-    }
-}
-
-fn extract_meta_name(invoke: &ir::Invoke) -> Option<ir::Id> {
-    if let Some(counter) = invoke.attributes.get(INVOKE_PREFIX) {
-        Some(ir::Id::from(format!("{}{}", INVOKE_PREFIX, counter)))
-    } else {
-        None
-    }
-}
-
-fn clear_meta_name(invoke: &mut ir::Invoke) {
-    invoke.attributes.remove(INVOKE_PREFIX);
-}
-
-fn replace_invoke_ports(
-    invoke: &mut ir::Invoke,
-    rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
-) {
-    let parent_matches = |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> bool {
-        if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
-            Rc::ptr_eq(&cell_wref.upgrade(), cell)
-        } else {
-            false
-        }
-    };
-
-    let get_port =
-        |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> RRC<ir::Port> {
-            Rc::clone(&cell.borrow().get(&port.borrow().name))
-        };
-
-    for (_name, port) in
-        invoke.inputs.iter_mut().chain(invoke.outputs.iter_mut())
-    {
-        if let Some((_old, new)) = rewrites
-            .iter()
-            .find(|&(cell, _)| parent_matches(port, cell))
-        {
-            *port = get_port(port, new)
-        }
     }
 }
