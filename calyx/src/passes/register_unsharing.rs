@@ -3,7 +3,7 @@ use crate::analysis::reaching_defns::{
 };
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Builder, Cell, Group, LibrarySignatures, RRC};
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 #[derive(Default)]
 pub struct RegisterUnsharing {
@@ -57,10 +57,8 @@ impl Bookkeeper {
             })
             .collect();
 
-        let analysis = ReachingDefinitionAnalysis::new(
-            &comp,
-            &mut comp.control.borrow_mut(),
-        );
+        let analysis =
+            ReachingDefinitionAnalysis::new(&comp, &comp.control.borrow());
 
         // Used to amortize access to cells and groups that will be needed for
         // rewriting
@@ -76,7 +74,17 @@ impl Bookkeeper {
             invoke_map,
         }
     }
-
+    /// This method takes the reaching definition analysis and uses it to
+    /// determine the set of of overlapping definitions for each register.
+    /// Registers may be split into X registers where X is the number of sets in
+    /// the overlap calculation for that register.
+    ///
+    /// For registers with more than one set (i.e. those which have
+    /// non-overlapping subsets of definitions) this method generates a new
+    /// register name, creates the new register, and associates the new name and
+    /// old name with a vector of location ids (group/invoke stmt). This tuple
+    /// can then be used to rewrite the old name into the new name in the
+    /// corresponding locations.
     fn create_new_regs(
         &mut self,
         builder: &mut Builder,
@@ -201,22 +209,52 @@ impl Visitor for RegisterUnsharing {
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
-        if let Some(name) =
-            ReachingDefinitionAnalysis::extract_meta_name(invoke)
+        if let Some(name) = self
+            .bookkeeper
+            .as_ref()
+            .unwrap()
+            .analysis
+            .meta
+            .fetch_label(invoke)
         {
             let vec_array =
                 &self.bookkeeper.as_ref().unwrap().invoke_map.get(&name);
 
             // only do rewrites if there is actually rewriting to do
             if let Some(rename_vec) = vec_array {
-                ReachingDefinitionAnalysis::replace_invoke_ports(
-                    invoke, rename_vec,
-                );
+                replace_invoke_ports(invoke, rename_vec);
             }
-
-            ReachingDefinitionAnalysis::clear_meta_name(invoke);
         }
 
         Ok(Action::Continue)
+    }
+}
+
+fn replace_invoke_ports(
+    invoke: &mut ir::Invoke,
+    rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
+) {
+    let parent_matches = |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> bool {
+        if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
+            Rc::ptr_eq(&cell_wref.upgrade(), cell)
+        } else {
+            false
+        }
+    };
+
+    let get_port =
+        |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> RRC<ir::Port> {
+            Rc::clone(&cell.borrow().get(&port.borrow().name))
+        };
+
+    for (_name, port) in
+        invoke.inputs.iter_mut().chain(invoke.outputs.iter_mut())
+    {
+        if let Some((_old, new)) = rewrites
+            .iter()
+            .find(|&(cell, _)| parent_matches(port, cell))
+        {
+            *port = get_port(port, new)
+        }
     }
 }

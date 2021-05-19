@@ -1,13 +1,12 @@
+use crate::analysis::ReadWriteSet;
+use crate::ir;
 use std::cmp::Ordering;
 use std::cmp::{Ord, PartialOrd};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     ops::BitOr,
     rc::Rc,
 };
-
-use crate::analysis::ReadWriteSet;
-use crate::ir::{self, RRC};
 
 const INVOKE_PREFIX: &str = "__invoke_";
 
@@ -55,6 +54,20 @@ impl Into<ir::Id> for GroupOrInvoke {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct MetadataMap {
+    map: HashMap<*const ir::Invoke, ir::Id>,
+}
+
+impl MetadataMap {
+    fn attach_label(&mut self, invoke: &ir::Invoke, label: ir::Id) {
+        self.map.insert(invoke as *const ir::Invoke, label);
+    }
+
+    pub fn fetch_label(&self, invoke: &ir::Invoke) -> Option<&ir::Id> {
+        self.map.get(&(invoke as *const ir::Invoke))
+    }
+}
 /// A datastructure used to represent a set of definitions/uses. These are
 /// represented as pairs of (Id, GroupOrInvoke) where the Id is the identifier
 /// being defined, and the second term represents the defining location (or use
@@ -150,6 +163,7 @@ type OverlapMap = BTreeMap<ir::Id, Vec<BTreeSet<(ir::Id, GroupOrInvoke)>>>;
 #[derive(Debug, Default)]
 pub struct ReachingDefinitionAnalysis {
     pub reach: BTreeMap<GroupOrInvoke, DefSet>,
+    pub meta: MetadataMap,
 }
 
 impl ReachingDefinitionAnalysis {
@@ -158,7 +172,7 @@ impl ReachingDefinitionAnalysis {
     /// which can be ignored if one is not rewriting values
     /// **NOTE**: Assumes that each group appears at only one place in the control
     /// structure.
-    pub fn new(_comp: &ir::Component, control: &mut ir::Control) -> Self {
+    pub fn new(_comp: &ir::Component, control: &ir::Control) -> Self {
         let initial_set = DefSet::default();
         let mut analysis = ReachingDefinitionAnalysis::default();
         let mut counter: u64 = 0;
@@ -256,54 +270,12 @@ impl ReachingDefinitionAnalysis {
         }
         overlap_map
     }
-
-    pub fn extract_meta_name(invoke: &ir::Invoke) -> Option<ir::Id> {
-        if let Some(counter) = invoke.attributes.get(INVOKE_PREFIX) {
-            Some(ir::Id::from(format!("{}{}", INVOKE_PREFIX, counter)))
-        } else {
-            None
-        }
-    }
-
-    pub fn clear_meta_name(invoke: &mut ir::Invoke) {
-        invoke.attributes.remove(INVOKE_PREFIX);
-    }
-
-    pub fn replace_invoke_ports(
-        invoke: &mut ir::Invoke,
-        rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
-    ) {
-        let parent_matches =
-            |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> bool {
-                if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
-                    Rc::ptr_eq(&cell_wref.upgrade(), cell)
-                } else {
-                    false
-                }
-            };
-
-        let get_port =
-            |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> RRC<ir::Port> {
-                Rc::clone(&cell.borrow().get(&port.borrow().name))
-            };
-
-        for (_name, port) in
-            invoke.inputs.iter_mut().chain(invoke.outputs.iter_mut())
-        {
-            if let Some((_old, new)) = rewrites
-                .iter()
-                .find(|&(cell, _)| parent_matches(port, cell))
-            {
-                *port = get_port(port, new)
-            }
-        }
-    }
 }
 
 type KilledSet = BTreeSet<ir::Id>;
 
 fn build_reaching_def(
-    c: &mut ir::Control,
+    c: &ir::Control,
     reach: DefSet,
     killed: KilledSet,
     rd: &mut ReachingDefinitionAnalysis,
@@ -312,14 +284,14 @@ fn build_reaching_def(
     match c {
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             stmts
-                .iter_mut()
+                .iter()
                 .fold((reach, killed), |(acc, killed), inner_c| {
                     build_reaching_def(inner_c, acc, killed, rd, counter)
                 })
         }
         ir::Control::Par(ir::Par { stmts, .. }) => {
             let (defs, par_killed): (Vec<DefSet>, Vec<KilledSet>) = stmts
-                .iter_mut()
+                .iter()
                 .map(|ctrl| {
                     build_reaching_def(
                         ctrl,
@@ -350,17 +322,12 @@ fn build_reaching_def(
             cond,
             ..
         }) => {
-            let mut fake_enable = ir::Control::Enable(ir::Enable {
+            let fake_enable = ir::Control::Enable(ir::Enable {
                 attributes: ir::Attributes::default(),
                 group: Rc::clone(cond),
             });
-            let (post_cond_def, post_cond_killed) = build_reaching_def(
-                &mut fake_enable,
-                reach,
-                killed,
-                rd,
-                counter,
-            );
+            let (post_cond_def, post_cond_killed) =
+                build_reaching_def(&fake_enable, reach, killed, rd, counter);
             let (t_case_def, t_case_killed) = build_reaching_def(
                 tbranch,
                 post_cond_def.clone(),
@@ -378,17 +345,12 @@ fn build_reaching_def(
             (&t_case_def | &f_case_def, &t_case_killed | &f_case_killed)
         }
         ir::Control::While(ir::While { cond, body, .. }) => {
-            let mut fake_enable = ir::Control::Enable(ir::Enable {
+            let fake_enable = ir::Control::Enable(ir::Enable {
                 attributes: ir::Attributes::default(),
                 group: Rc::clone(cond),
             });
-            let (post_cond_def, post_cond_killed) = build_reaching_def(
-                &mut fake_enable,
-                reach,
-                killed,
-                rd,
-                counter,
-            );
+            let (post_cond_def, post_cond_killed) =
+                build_reaching_def(&fake_enable, reach, killed, rd, counter);
 
             let (round_1_def, round_1_killed) = build_reaching_def(
                 body,
@@ -398,7 +360,7 @@ fn build_reaching_def(
                 counter,
             );
             let (post_cond2_def, post_cond2_killed) = build_reaching_def(
-                &mut fake_enable,
+                &fake_enable,
                 round_1_def,
                 round_1_killed,
                 rd,
@@ -416,13 +378,12 @@ fn build_reaching_def(
         }
         ir::Control::Invoke(invoke) => {
             *counter += 1;
-            let inputs: Vec<(ir::Id, RRC<ir::Port>)> =
-                invoke.inputs.drain(..).collect();
-            let outputs: Vec<(ir::Id, RRC<ir::Port>)> =
-                invoke.outputs.drain(..).collect();
 
-            let iterator =
-                inputs.iter().chain(outputs.iter()).filter_map(|(_, port)| {
+            let iterator = invoke
+                .inputs
+                .iter()
+                .chain(invoke.outputs.iter())
+                .filter_map(|(_, port)| {
                     if let ir::PortParent::Cell(wc) = &port.borrow().parent {
                         let rc = wc.upgrade();
                         let parent = rc.borrow();
@@ -430,7 +391,10 @@ fn build_reaching_def(
                             == "std_reg"
                         {
                             let name = format!("{}{}", INVOKE_PREFIX, counter);
-                            invoke.attributes.insert(INVOKE_PREFIX, *counter);
+                            rd.meta.attach_label(
+                                invoke,
+                                ir::Id::from(name.clone()),
+                            );
                             return Some((
                                 parent.name.clone(),
                                 GroupOrInvoke::Invoke(ir::Id::from(name)),
@@ -442,9 +406,6 @@ fn build_reaching_def(
 
             let mut new_reach = reach;
             new_reach.set.extend(iterator);
-
-            invoke.inputs = inputs;
-            invoke.outputs = outputs;
 
             (new_reach, killed)
         }
