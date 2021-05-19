@@ -2,7 +2,7 @@ use crate::analysis::reaching_defns::{
     GroupOrInvoke, ReachingDefinitionAnalysis,
 };
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, Builder, Cell, Group, LibrarySignatures, RRC};
+use crate::ir::{self, Builder, Cell, LibrarySignatures, RRC};
 use std::{collections::HashMap, rc::Rc};
 
 #[derive(Default)]
@@ -28,8 +28,6 @@ type RewriteMap<T> = HashMap<T, Vec<(RRC<Cell>, RRC<Cell>)>>;
 struct Bookkeeper {
     analysis: ReachingDefinitionAnalysis,
     widths: HashMap<ir::Id, u64>,
-    group_map: HashMap<ir::Id, RRC<Group>>,
-    cell_map: HashMap<ir::Id, RRC<Cell>>,
     invoke_map: RewriteMap<ir::Id>,
 }
 
@@ -60,17 +58,11 @@ impl Bookkeeper {
         let analysis =
             ReachingDefinitionAnalysis::new(&comp, &comp.control.borrow());
 
-        // Used to amortize access to cells and groups that will be needed for
-        // rewriting
-        let group_map = HashMap::new();
-        let cell_map = HashMap::new();
         let invoke_map = HashMap::new();
 
         Self {
             analysis,
             widths,
-            group_map,
-            cell_map,
             invoke_map,
         }
     }
@@ -120,30 +112,6 @@ impl Bookkeeper {
         rename_list
     }
 
-    fn get_cell(&mut self, builder: &Builder, cell_name: &ir::Id) -> RRC<Cell> {
-        if self.cell_map.contains_key(cell_name) {
-            self.cell_map.get(cell_name).unwrap().clone()
-        } else {
-            let cell = builder.component.find_cell(&cell_name.clone()).unwrap();
-            self.cell_map.insert(cell_name.clone(), cell.clone());
-            cell
-        }
-    }
-
-    fn get_group(
-        &mut self,
-        builder: &Builder,
-        group_name: &ir::Id,
-    ) -> RRC<Group> {
-        if self.group_map.contains_key(group_name) {
-            self.group_map.get(group_name).unwrap().clone()
-        } else {
-            let group = builder.component.find_group(group_name).unwrap();
-            self.group_map.insert(group_name.clone(), group.clone());
-            group
-        }
-    }
-
     fn rename(
         &mut self,
         builder: &mut Builder,
@@ -156,14 +124,14 @@ impl Bookkeeper {
                 match group_or_invoke {
                     GroupOrInvoke::Group(group) => {
                         grp_map.entry(group).or_default().push((
-                            self.get_cell(builder, old_name),
-                            self.get_cell(builder, new_name),
+                            builder.component.find_cell(old_name).unwrap(),
+                            builder.component.find_cell(new_name).unwrap(),
                         ))
                     }
                     GroupOrInvoke::Invoke(invoke) => {
                         invoke_map.entry(invoke.clone()).or_default().push((
-                            self.get_cell(builder, old_name),
-                            self.get_cell(builder, new_name),
+                            builder.component.find_cell(old_name).unwrap(),
+                            builder.component.find_cell(new_name).unwrap(),
                         ))
                     }
                 }
@@ -171,7 +139,7 @@ impl Bookkeeper {
         }
 
         for (grp, rename_cells) in grp_map {
-            let group = self.get_group(builder, grp);
+            let group = builder.component.find_group(grp).unwrap();
             let mut group_ref = group.borrow_mut();
             builder.rename_port_uses(&rename_cells, &mut group_ref.assignments)
         }
