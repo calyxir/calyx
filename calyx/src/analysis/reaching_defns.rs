@@ -14,6 +14,10 @@ pub const INVOKE_PREFIX: &str = "__invoke_";
 type GroupName = ir::Id;
 type InvokeName = ir::Id;
 
+/// A wrapper enum to distinguish between Ids that come from groups and ids that
+/// were fabricated during the analysis for individual invoke statements. This
+/// prevents attempting to look up the ids used for the invoke statements as
+/// there will be no corresponding group.
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub enum GroupOrInvoke {
     Group(GroupName),
@@ -51,6 +55,22 @@ impl Into<ir::Id> for GroupOrInvoke {
     }
 }
 
+/// A datastructure used to represent a set of definitions/uses. These are
+/// represented as pairs of (Id, GroupOrInvoke) where the Id is the identifier
+/// being defined, and the second term represents the defining location (or use
+/// location). In the case of a group, this location is just the group Id. In
+/// the case of an invoke the "location" is a unique label assigned to each
+/// invoke statement that beings with the INVOKE_PREFIX.
+///
+/// Defsets are constructed based on the assignments in a group and the ports in
+/// an invoke. If a group writes to a register then it corresponds to a
+/// definition (REGID, GROUPNAME). Similarly, this can be used to represent a
+/// use of the register REGID in the very same group.
+///
+/// These structs are used both to determine what definitions reach a given
+/// location and are also used to ensure that uses of a given definition (or
+/// group of definitions are appropriately tied to any renaming that the
+/// particular definition undergoes.
 #[derive(Clone, Debug, Default)]
 pub struct DefSet {
     set: BTreeSet<(ir::Id, GroupOrInvoke)>,
@@ -111,7 +131,23 @@ impl BitOr<&DefSet> for &DefSet {
 
 type OverlapMap = BTreeMap<ir::Id, Vec<BTreeSet<(ir::Id, GroupOrInvoke)>>>;
 
-#[derive(Debug)]
+/// A struct used to compute a reaching definition analysis. The only field is a
+/// map between GroupOrInvoke labels and the definitions that exit the given
+/// group or the given Invoke node. This analysis is conservative and will only
+/// kill a definition if the group MUST write the given register and does not
+/// read it. If this is not the case old definitions will remain in the reaching
+/// set as we cannot be certain that they have been killed.
+///
+/// Note that this analysis assumes that groups do not appear more than once
+/// within the control structure and will provide inaccurate results if this
+/// expectation is violated.
+///
+/// Like LiveRangeAnalysis par blocks are treated via a parallel CFG approach.
+/// Concretely this means that after a par block executes any id that is killed
+/// by one arm is killed and all defs introduced (but not killed) by any arm are
+/// defined. Note that this assumes separate arms are not writing the same
+/// register or reading a registe that is written by another arm.
+#[derive(Debug, Default)]
 pub struct ReachingDefinitionAnalysis {
     pub reach: BTreeMap<GroupOrInvoke, DefSet>,
 }
@@ -124,7 +160,7 @@ impl ReachingDefinitionAnalysis {
     /// structure.
     pub fn new(_comp: &ir::Component, control: &mut ir::Control) -> Self {
         let initial_set = DefSet::default();
-        let mut analysis = ReachingDefinitionAnalysis::empty();
+        let mut analysis = ReachingDefinitionAnalysis::default();
         let mut counter: u64 = 0;
 
         build_reaching_def(
@@ -135,12 +171,6 @@ impl ReachingDefinitionAnalysis {
             &mut counter,
         );
         analysis
-    }
-
-    fn empty() -> Self {
-        ReachingDefinitionAnalysis {
-            reach: BTreeMap::new(),
-        }
     }
 
     /// Provides a map containing a vector of sets for each register. The sets
@@ -330,7 +360,8 @@ fn build_reaching_def(
                 rd,
                 counter,
             );
-            // Twice as nice?
+            // Run the analysis a second time to get the fixed point of the
+            // while loop using the defsets calculated during the first iteration
             build_reaching_def(
                 body,
                 post_cond2_def,
