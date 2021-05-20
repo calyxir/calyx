@@ -81,11 +81,8 @@ int main(int argc, char* argv[])
     cl_program program;                 // compute programs
     cl_kernel kernel;                   // compute kernel
 
-    int h_data[MAX_LENGTH];                    // host memory for input vector
     char cl_platform_vendor[1001];
     const char* target_device_name =  argv[2];
-    int h_A_output[MAX_LENGTH];                   // host memory for output vector
-    cl_mem d_A;                         // device memory used for a vector
 
     // int h_B_output[MAX_LENGTH];                   // host memory for output vector
     // cl_mem d_B;                         // device memory used for a vector
@@ -93,16 +90,6 @@ int main(int argc, char* argv[])
     if (argc != 3) {
         printf("Usage: %s xclbin\n", argv[0]);
         return EXIT_FAILURE;
-    }
-
-    // Fill our data sets with pattern
-    int i = 0;
-    for(i = 0; i < MAX_LENGTH; i++) {
-        h_data[i]  = i;
-
-        h_A_output[i] = 0;
-
-        // h_B_output[i] = 0;
     }
 
    // Get all platforms and then select Xilinx platform
@@ -121,7 +108,7 @@ int main(int argc, char* argv[])
     for (unsigned int iplat=0; iplat<platform_count; iplat++) {
         err = clGetPlatformInfo(platforms[iplat], CL_PLATFORM_VENDOR, 1000, (void *)cl_platform_vendor,NULL);
         if (err != CL_SUCCESS) {
-	    printf(  "%s", platforms[iplat]);	
+	    printf(  "%s", platforms[iplat]);
             printf("Error: clGetPlatformInfo(CL_PLATFORM_VENDOR) failed!\n");
             printf("Test failed\n");
             return EXIT_FAILURE;
@@ -244,11 +231,21 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
+    // Fill our data sets with pattern
+    int h_data[MAX_LENGTH];                    // host memory for input vector
+    int h_A_output[MAX_LENGTH];                   // host memory for output vector
+    cl_mem d_A;                         // device memory used for a vector
+    int i = 0;
+    for(i = 0; i < MAX_LENGTH; i++) {
+      h_data[i]  = i;
+      h_A_output[i] = 0;
+      // h_B_output[i] = 0;
+    }
+
     // Create structs to define memory bank mapping
     cl_mem_ext_ptr_t mem_ext;
     mem_ext.obj = NULL;
     mem_ext.param = kernel;
-
 
     mem_ext.flags = 1;
     d_A = clCreateBuffer(context,  CL_MEM_READ_WRITE | CL_MEM_EXT_PTR_XILINX,  sizeof(int) * number_of_words, &mem_ext, NULL);
@@ -264,22 +261,12 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-
     err = clEnqueueWriteBuffer(commands, d_A, CL_TRUE, 0, sizeof(int) * number_of_words, h_data, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         printf("Error: Failed to write to source array h_data!\n");
         printf("Test failed\n");
         return EXIT_FAILURE;
     }
-
-
-    // err = clEnqueueWriteBuffer(commands, d_B, CL_TRUE, 0, sizeof(int) * number_of_words, h_data, 0, NULL, NULL);
-    // if (err != CL_SUCCESS) {
-    //     printf("Error: Failed to write to source array h_data!\n");
-    //     printf("Test failed\n");
-    //     return EXIT_FAILURE;
-    // }
-
 
     // Set the arguments to our compute kernel
     int vector_length = MAX_LENGTH;
@@ -341,7 +328,6 @@ int main(int argc, char* argv[])
     // Shutdown and cleanup
     //-------------------------------------------------------------------------- 
     clReleaseMemObject(d_A);
-
     // clReleaseMemObject(d_B);
 
 

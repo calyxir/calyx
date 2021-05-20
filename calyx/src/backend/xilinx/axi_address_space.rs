@@ -116,7 +116,7 @@ impl AddressSpace {
         address_variable: &str,
         data_variable: &str,
     ) {
-        let mut case = v::Case::new(address_variable.into());
+        let mut case = v::Case::new(address_variable);
 
         for addr in &self.space {
             let mut branch = v::CaseBranch::new(v::Expr::new_ulit_hex(
@@ -146,27 +146,21 @@ impl AddressSpace {
             case.add_branch(branch);
         }
         let mut default = v::CaseDefault::default();
-        default.add_seq(v::Sequential::new_nonblk_assign(
-            data_variable.into(),
-            v::Expr::new_int(0),
-        ));
+        default.add_seq(v::Sequential::new_nonblk_assign(data_variable, 0));
         case.set_default(default);
 
         let mut always = v::ParallelProcess::new_always();
         always.set_event(v::Sequential::new_posedge("ACLK"));
 
-        let mut reset_if = v::SequentialIfElse::new("ARESET".into());
-        reset_if.add_seq(v::Sequential::new_nonblk_assign(
-            data_variable.into(),
-            v::Expr::new_int(0),
-        ));
+        let mut reset_if = v::SequentialIfElse::new("ARESET");
+        reset_if.add_seq(v::Sequential::new_nonblk_assign(data_variable, 0));
 
         let mut if_hs = v::SequentialIfElse::new(handshake);
         if_hs.add_seq(v::Sequential::new_case(case));
 
-        reset_if.set_else(if_hs.into());
+        reset_if.set_else(if_hs);
 
-        always.add_seq(reset_if.into());
+        always.add_seq(reset_if);
         module.add_stmt(always);
     }
 
@@ -185,13 +179,10 @@ impl AddressSpace {
         let mut always = v::ParallelProcess::new_always();
         always.set_event(v::Sequential::new_posedge("ACLK"));
 
-        let mut if_stmt = v::SequentialIfElse::new("ARESET".into());
+        let mut if_stmt = v::SequentialIfElse::new("ARESET");
         let mut else_br = v::SequentialIfElse::new(v::Expr::new_logical_and(
             handshake,
-            v::Expr::new_eq(
-                int_addr.into(),
-                v::Expr::new_int(addr.address as i32),
-            ),
+            v::Expr::new_eq(int_addr, addr.address as i32),
         ));
 
         // XXX(sam) this is a hack to avoid iterating through the bit meanings again
@@ -212,9 +203,9 @@ impl AddressSpace {
             writes_exist = true;
         }
         if writes_exist {
-            if_stmt.set_else(else_br.into());
+            if_stmt.set_else(else_br);
 
-            always.add_seq(if_stmt.into());
+            always.add_seq(if_stmt);
             module.add_stmt(always);
         }
 
@@ -224,21 +215,20 @@ impl AddressSpace {
                 let mut always = v::ParallelProcess::new_always();
                 always.set_event(v::Sequential::new_posedge("ACLK"));
 
-                let mut if_stmt = v::SequentialIfElse::new("ARESET".into());
+                let mut if_stmt = v::SequentialIfElse::new("ARESET");
                 if_stmt.add_seq(v::Sequential::new_nonblk_assign(
                     self.slice(&meaning),
                     v::Expr::new_int(0),
                 ));
 
-                let mut else_br =
-                    v::SequentialIfElse::new(port.as_str().into());
+                let mut else_br = v::SequentialIfElse::new(port.as_str());
                 else_br.add_seq(v::Sequential::new_nonblk_assign(
                     self.slice(&meaning),
                     v::Expr::new_ulit_bin(1, "1"),
                 ));
-                if_stmt.set_else(else_br.into());
+                if_stmt.set_else(else_br);
 
-                always.add_seq(if_stmt.into());
+                always.add_seq(if_stmt);
                 module.add_stmt(always);
             }
         }

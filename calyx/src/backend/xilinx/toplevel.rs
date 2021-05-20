@@ -1,6 +1,6 @@
 use super::{
     axi, control_axi::ControlInterface, fsm, memory_axi::bram,
-    memory_axi::MemoryInterface,
+    memory_axi::MemoryInterface, utils,
 };
 use crate::{
     backend::traits::Backend,
@@ -41,13 +41,14 @@ impl Backend for XilinxInterfaceBackend {
 
         let mut modules = vec![
             top_level(12, 32, &memories),
-            bram(),
+            bram(32, 32, 5),
             axi::Axi4Lite::control_module("Control_axi", 12, 32, &memories),
         ];
 
         for (i, _mem) in memories.iter().enumerate() {
             modules.push(axi::Axi4Lite::memory_module(
                 &format!("Memory_controller_axi_{}", i),
+                512,
                 64,
                 32,
             ))
@@ -103,9 +104,9 @@ fn top_level(
     );
     axi4.add_ports_to(&mut module);
 
-    // TODO: axi master interfaces
+    // add an axi interface for each external memory
     for (idx, _mem) in memories.iter().enumerate() {
-        axi::Axi4Lite::memory_channels(64, 32, &format!("m{}_axi_", idx))
+        axi::Axi4Lite::memory_channels(64, 512, &format!("m{}_axi_", idx))
             .add_ports_to(&mut module);
     }
 
@@ -116,29 +117,6 @@ fn top_level(
     for mem in memories {
         module.add_stmt(v::Decl::new_wire(mem, 64));
     }
-
-    // debugging
-    // module.add_output("DBG_ap_start", 1);
-    // module.add_output("DBG_ap_done", 1);
-    // module.add_output("DBG_timeout", 32);
-    // module.add_output("DBG_counter", 32);
-
-    // module.add_stmt(v::Parallel::Assign(
-    //     "DBG_ap_start".into(),
-    //     "ap_start".into(),
-    // ));
-    // module
-    //     .add_stmt(v::Parallel::Assign("DBG_ap_done".into(), "ap_done".into()));
-    // module
-    //     .add_stmt(v::Parallel::Assign("DBG_timeout".into(), "timeout".into()));
-    // module
-    //     .add_stmt(v::Parallel::Assign("DBG_counter".into(), "counter".into()));
-
-    // TODO: have real interrupt support
-    // module.add_stmt(v::Parallel::Assign(
-    //     "ap_interrupt".into(),
-    //     v::Expr::new_ulit_bin(1, "0"),
-    // ));
 
     // instantiate control interface
     let base_control_axi_interface =
@@ -159,6 +137,7 @@ fn top_level(
     }
     module.add_instance(control_instance);
 
+    // and some wires for each memory
     for mem in memories {
         module.add_decl(v::Decl::new_wire(&format!("{}_copy", mem), 1));
         module.add_decl(v::Decl::new_wire(&format!("{}_copy_done", mem), 1));
@@ -232,26 +211,24 @@ fn top_level(
 
     // add timeout counter
     module.add_decl(v::Decl::new_reg("counter", 32));
-    let mut always_counter = v::ParallelProcess::new_always();
-    always_counter.set_event(v::Sequential::new_posedge("ap_clk"));
-    let mut reset_if = v::SequentialIfElse::new("ap_start".into());
-    reset_if.add_seq(v::Sequential::new_nonblk_assign(
-        "counter".into(),
-        v::Expr::new_add("counter", v::Expr::new_ulit_dec(32, "1")),
+    module.add_stmt(utils::cond_non_blk_assign(
+        "ap_clk",
+        "counter",
+        vec![
+            (
+                Some("ap_start".into()),
+                v::Expr::new_add("counter", v::Expr::new_ulit_dec(32, "1")),
+            ),
+            (None, v::Expr::new_ulit_dec(32, "0")),
+        ],
     ));
-    reset_if.set_else(v::Sequential::new_nonblk_assign(
-        "counter".into(),
-        v::Expr::new_ulit_dec(32, "0"),
-    ));
-    always_counter.add_seq(reset_if.into());
-    module.add_stmt(always_counter);
 
     // done signal
     module.add_stmt(v::Parallel::Assign(
         "ap_done".into(),
         v::Expr::new_logical_or(
             v::Expr::new_gt("counter", "timeout"),
-            "memories_sent".into(),
+            "memories_sent",
         ),
     ));
 

@@ -159,19 +159,17 @@ impl ControlInterface for Axi4Lite {
             .add_stmt(v::Parallel::Assign("BRESP".into(), v::Expr::new_int(0)));
         let mut always = v::ParallelProcess::new_always();
         always.set_event(v::Sequential::new_posedge("ACLK"));
-        let mut reset_if = v::SequentialIfElse::new("ARESET".into());
+        let mut reset_if = v::SequentialIfElse::new("ARESET");
         reset_if.add_seq(v::Sequential::new_nonblk_assign(
-            "waddr".into(),
+            "waddr",
             v::Expr::new_int(0),
         ));
         let mut waddr_write =
             v::SequentialIfElse::new(axi4.write_address.handshake());
-        waddr_write.add_seq(v::Sequential::new_nonblk_assign(
-            "waddr".into(),
-            "AWADDR".into(),
-        ));
-        reset_if.set_else(waddr_write.into());
-        always.add_seq(reset_if.into());
+        waddr_write
+            .add_seq(v::Sequential::new_nonblk_assign("waddr", "AWADDR"));
+        reset_if.set_else(waddr_write);
+        always.add_seq(reset_if);
         module.add_stmt(always);
 
         // addr_space.print_mapping();

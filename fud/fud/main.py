@@ -117,6 +117,7 @@ def register_stages(registry, cfg):
     # Xilinx
     registry.register(xilinx.XilinxStage(cfg))
     registry.register(xilinx.HwEmulationStage(cfg))
+    registry.register(xilinx.HwExecutionStage(cfg))
 
 
 def display_config(args, cfg):

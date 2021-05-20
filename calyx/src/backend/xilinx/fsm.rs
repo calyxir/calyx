@@ -66,10 +66,7 @@ impl LinearFsm {
 
     pub fn state_is(&self, state_name: &str) -> v::Expr {
         let idx = self.map[state_name];
-        v::Expr::new_eq(
-            self.state_reg.as_str().into(),
-            v::Expr::new_int(idx as i32),
-        )
+        v::Expr::new_eq(self.state_reg.as_str(), idx as i32)
     }
 
     pub fn emit(&self, module: &mut v::Module) {
@@ -80,35 +77,25 @@ impl LinearFsm {
         module.add_decl(v::Decl::new_reg(&self.next_reg, width));
 
         // fsm update block
-        let mut parallel = v::ParallelProcess::new_always();
-        parallel.set_event(v::Sequential::new_posedge(&self.clock));
-
-        let mut ifelse = v::SequentialIfElse::new(self.reset.clone());
-        ifelse.add_seq(v::Sequential::new_nonblk_assign(
-            self.state_reg.as_str().into(),
-            v::Expr::new_int(0),
+        module.add_stmt(super::utils::cond_non_blk_assign(
+            &self.clock,
+            self.state_reg.as_ref(),
+            vec![
+                (Some(self.reset.clone()), 0.into()),
+                (None, self.next_reg.clone().into()),
+            ],
         ));
-        ifelse.set_else(v::Sequential::new_nonblk_assign(
-            self.state_reg.as_str().into(),
-            self.next_reg.as_str().into(),
-        ));
-
-        parallel.add_seq(ifelse.into());
-        module.add_stmt(parallel);
 
         let mut parallel = v::ParallelProcess::new_always();
         parallel.set_event(v::Sequential::Wildcard);
 
-        let mut case = v::Case::new(self.state_reg.as_str().into());
+        let mut case = v::Case::new(self.state_reg.as_str());
 
         for (i, state) in self.states.iter().enumerate() {
             for assign in &state.assigns {
                 module.add_stmt(v::Parallel::Assign(
                     assign.clone(),
-                    v::Expr::new_eq(
-                        self.state_reg.as_str().into(),
-                        v::Expr::new_int(i as i32),
-                    ),
+                    v::Expr::new_eq(self.state_reg.as_str(), i as i32),
                 ));
             }
 
@@ -119,22 +106,20 @@ impl LinearFsm {
             let mut ifelse =
                 v::SequentialIfElse::new(state.transition_condition.clone());
             ifelse.add_seq(v::Sequential::new_blk_assign(
-                self.next_reg.as_str().into(),
-                v::Expr::new_int(next_state),
+                self.next_reg.as_str(),
+                next_state,
             ));
             ifelse.set_else(v::Sequential::new_blk_assign(
-                self.next_reg.as_str().into(),
-                v::Expr::new_int(this_state),
+                self.next_reg.as_str(),
+                this_state,
             ));
-            branch.add_seq(ifelse.into());
+            branch.add_seq(ifelse);
             case.add_branch(branch);
         }
 
         let mut default = v::CaseDefault::default();
-        default.add_seq(v::Sequential::new_blk_assign(
-            self.next_reg.as_str().into(),
-            v::Expr::new_int(0),
-        ));
+        default
+            .add_seq(v::Sequential::new_blk_assign(self.next_reg.as_str(), 0));
         case.set_default(default);
 
         parallel.add_seq(v::Sequential::new_case(case));

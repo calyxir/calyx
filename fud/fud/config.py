@@ -66,11 +66,13 @@ DEFAULT_CONFIGURATION = {
         },
         "wdb": {
             "file_extensions": [".wdb"],
+            "mode": "hw_emu",
             "ssh_host": "",
             "ssh_username": "",
             "host": None,
             "save_temps": None,
         },
+        "fpga": {"data": None},
     },
 }
 

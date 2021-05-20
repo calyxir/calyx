@@ -36,6 +36,7 @@ class HwEmulationStage(Stage):
             / "bitstream"
             / "sim_script.tcl"
         )
+        self.mode = self.config["stages", self.target_stage, "mode"]
         self.device = "xilinx_u50_gen3x16_xdma_201920_3"
 
         # remote execution
@@ -151,7 +152,7 @@ class HwEmulationStage(Stage):
                         "&&",
                         self.setup_commands,
                         "&&",
-                        "XCL_EMULATION_MODE=hw_emu",
+                        f"XCL_EMULATION_MODE={self.mode}",
                         "./host",
                         "kernel.xclbin",
                         self.device,
