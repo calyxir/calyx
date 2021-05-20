@@ -1,12 +1,13 @@
-from logging import log
-
-from fud.stages import Stage, SourceType
-from fud import errors
+import logging as log
+import os
+import time
 
 import numpy as np
 import simplejson as sjson
-from contextlib import redirect_stdout, redirect_stderr
-import io
+
+from fud import errors
+from fud.stages import SourceType, Stage
+from fud.utils import TmpDir
 
 
 class HwExecutionStage(Stage):
@@ -40,17 +41,23 @@ class HwExecutionStage(Stage):
                 raise errors.MissingDynamicConfiguration("fpga.data")
 
             data = sjson.load(open(self.data_path), use_decimal=True)
+            xclbin_source = xclbin.open("rb").read()
 
-            with redirect_stderr(io.StringIO()):
-                with redirect_stdout(io.StringIO()):
-                    ctx = self.cl.create_some_context(0)
-                    dev = ctx.devices[0]
-                    cmds = self.cl.CommandQueue(ctx, dev)
-                    prg = self.cl.Program(ctx, [dev], [xclbin.open("rb").read()])
+            # create a temporary directory with an xrt.ini file that redirects
+            # the runtime log to a file so that we can control how it's printed.
+            # This is hacky, but it's the only way to do it
+            tmp_dir = TmpDir()
+            os.chdir(tmp_dir.name)
+            xrt_output_logname = "output.log"
+            with open("xrt.ini", "w+") as f:
+                f.writelines(["[Runtime]\n", f"runtime_log={xrt_output_logname}"])
 
-            with redirect_stderr(io.StringIO()):
-                with redirect_stdout(io.StringIO()):
-                    prg.build()
+            ctx = self.cl.create_some_context(0)
+            dev = ctx.devices[0]
+            cmds = self.cl.CommandQueue(ctx, dev)
+            prg = self.cl.Program(ctx, [dev], [xclbin_source])
+
+            prg.build()
 
             buffers = {}
             for mem in data.keys():
@@ -63,20 +70,24 @@ class HwExecutionStage(Stage):
                 # TODO: use real type information
                 buffers[mem] = buf
 
-            with redirect_stderr(io.StringIO()):
-                with redirect_stdout(io.StringIO()):
-                    prg.Toplevel(cmds, (1,), (1,), np.uint32(10000), *buffers.values())
+            start_time = time.time()
+            prg.Toplevel(cmds, (1,), (1,), np.uint32(10000), *buffers.values())
+            end_time = time.time()
 
             # read the result
-            output = {}
+            output = {"memories": {}, "runtime": end_time - start_time}
             for name, buf in buffers.items():
                 out_buf = np.zeros_like(data[name]["data"]).astype(np.uint32)
                 self.cl.enqueue_copy(cmds, out_buf, buf)
                 buf.release()
-                output[name] = list(map(lambda x: int(x), out_buf))
+                output["memories"][name] = list(map(lambda x: int(x), out_buf))
 
             # cleanup
             del ctx
+            # add xrt log output to our debug output
+            with open(xrt_output_logname, "r") as f:
+                for line in f.readlines():
+                    log.debug(line.strip())
 
             return sjson.dumps(output, indent=2, use_decimal=True)
 
