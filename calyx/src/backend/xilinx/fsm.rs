@@ -7,7 +7,7 @@ pub(crate) struct State {
     transition_condition: v::Expr,
 }
 
-/// A linear finite state machine
+/// A simple linear finite state machine
 pub(crate) struct LinearFsm {
     state_reg: String,
     next_reg: String,
@@ -18,6 +18,7 @@ pub(crate) struct LinearFsm {
 }
 
 impl LinearFsm {
+    /// Create a new fsm with the provided prefix, clock and reset.
     pub fn new<S, T, E>(prefix: S, clock: T, reset: E) -> Self
     where
         S: AsRef<str>,
@@ -34,6 +35,7 @@ impl LinearFsm {
         }
     }
 
+    /// Builder style method for adding a state to this FSM.
     pub fn state<E, S>(
         mut self,
         name: S,
@@ -48,6 +50,7 @@ impl LinearFsm {
         self
     }
 
+    /// Add a state to this FSM.
     pub fn add_state<E, S>(
         &mut self,
         name: S,
@@ -64,11 +67,14 @@ impl LinearFsm {
         });
     }
 
+    /// Generate an expression representing the condition
+    /// that the fsm is in the provided state.
     pub fn state_is(&self, state_name: &str) -> v::Expr {
         let idx = self.map[state_name];
         v::Expr::new_eq(self.state_reg.as_str(), idx as i32)
     }
 
+    /// Given a verilog module, emit the fsm.
     pub fn emit(&self, module: &mut v::Module) {
         let num_states = self.states.len();
         let width = utils::math::bits_needed_for(num_states as u64);

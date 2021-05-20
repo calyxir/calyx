@@ -9,6 +9,7 @@ use crate::{
 };
 use vast::v05::ast as v;
 
+/// A backend that generates the Xilinx interfacing for a Calyx program.
 #[derive(Default)]
 pub struct XilinxInterfaceBackend;
 

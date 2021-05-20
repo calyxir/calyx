@@ -7,6 +7,8 @@ use super::{
 use crate::utils;
 use std::rc::Rc;
 
+/// Represents the interface for a AXI master that controls
+/// a memory with an AXI slave interface.
 pub trait MemoryInterface {
     fn memory_channels(
         address_width: u64,
@@ -273,14 +275,6 @@ fn module_mode_fsm(module: &mut v::Module) -> fsm::LinearFsm {
         .state("done", &["SEND_TO_HOST_DONE".into()], "ARESET"); // send data to host from local bram
     fsm.emit(module);
     fsm
-}
-
-fn track_transaction(
-    axi4: &AxiInterface,
-    module: &mut v::Module,
-    name: &str,
-    data_width: u64,
-) {
 }
 
 fn bram_logic(

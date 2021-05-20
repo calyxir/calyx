@@ -3,6 +3,8 @@ use vast::v05::ast as v;
 use super::axi::{AxiChannel, AxiInterface, ChannelDirection};
 use super::axi_address_space::{AddressSpace, Flags};
 
+/// Represents the AXI control interface that Xilinx expects
+/// kernels to have.
 pub trait ControlInterface {
     fn control_channels(
         address_width: u64,
@@ -17,6 +19,7 @@ pub trait ControlInterface {
     ) -> v::Module;
 }
 
+/// Generate the base address space for the Xilinx control interface.
 fn axi_address_space(address_width: u64, data_width: u64) -> AddressSpace {
     AddressSpace::new(address_width, data_width)
         .address(
@@ -173,8 +176,6 @@ impl ControlInterface for AxiInterface {
         always.add_seq(reset_if);
         module.add_stmt(always);
 
-        // addr_space.print_mapping();
-        // println!("====\n");
         addr_space.output_to_bus(
             &mut module,
             axi4.read_address.handshake(),

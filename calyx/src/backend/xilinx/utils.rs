@@ -1,6 +1,10 @@
 use std::rc::Rc;
 use vast::v05::ast as v;
 
+/// Helper for generating a Verilog conditional inside of
+/// an `always` block. `exprs` is a list of tuples mapping
+/// some condition to a v::Sequential that should be executed
+/// when the condition is true.
 pub fn cond(
     clk: &str,
     exprs: Vec<(Option<v::Expr>, v::Sequential)>,
@@ -23,6 +27,8 @@ pub fn cond(
     }
 }
 
+/// Special case of `cond` where you want to write to the same register
+/// in every branch and you want non-blocking assignments everywhere.
 pub fn cond_non_blk_assign<E>(
     clk: &str,
     var: E,

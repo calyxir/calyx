@@ -5,6 +5,8 @@ use crate::{
 };
 use serde::Serialize;
 
+/// Backend that generates XML that Xilinx needs to define the address
+/// space for a kernel.
 #[derive(Default)]
 pub struct XilinxXmlBackend;
 
@@ -103,24 +105,14 @@ impl Backend for XilinxXmlBackend {
             .find(|comp| comp.attributes.has("toplevel"))
             .ok_or_else(|| Error::Misc("no toplevel".to_string()))?;
 
-        let mut ports = vec![
-            Port {
-                name: "s_axi_control",
-                mode: "slave",
-                range: "0x1000",
-                data_width: 32,
-                port_type: "addressable",
-                base: "0x0",
-            },
-            // Port {
-            //     name: "m00_axi",
-            //     mode: "master",
-            //     range: "0xFFFFFFFFFFFFFFFF",
-            //     data_width: 64,
-            //     port_type: "addressable",
-            //     base: "0x0",
-            // },
-        ];
+        let mut ports = vec![Port {
+            name: "s_axi_control",
+            mode: "slave",
+            range: "0x1000",
+            data_width: 32,
+            port_type: "addressable",
+            base: "0x0",
+        }];
 
         let mut args = vec![Arg {
             name: "timeout",
