@@ -166,6 +166,8 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
     let mut initial = v::ParallelProcess::new_initial();
     wires.iter().for_each(|(name, width, dir)| {
         if *dir == ir::Direction::Input {
+            // HACK: this is not the right way to reset
+            // registers. we should have real reset ports.
             let value = if name.contains("write_en") {
                 String::from("1")
             } else {

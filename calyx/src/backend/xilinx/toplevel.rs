@@ -42,11 +42,11 @@ impl Backend for XilinxInterfaceBackend {
         let mut modules = vec![
             top_level(12, 32, &memories),
             bram(32, 32, 5),
-            axi::Axi4Lite::control_module("Control_axi", 12, 32, &memories),
+            axi::AxiInterface::control_module("Control_axi", 12, 32, &memories),
         ];
 
         for (i, _mem) in memories.iter().enumerate() {
-            modules.push(axi::Axi4Lite::memory_module(
+            modules.push(axi::AxiInterface::memory_module(
                 &format!("Memory_controller_axi_{}", i),
                 512,
                 64,
@@ -97,7 +97,7 @@ fn top_level(
     // module.add_output("ap_interrupt", 1);
 
     // axi control signals
-    let axi4 = axi::Axi4Lite::control_channels(
+    let axi4 = axi::AxiInterface::control_channels(
         address_width,
         data_width,
         "s_axi_control_",
@@ -106,7 +106,7 @@ fn top_level(
 
     // add an axi interface for each external memory
     for (idx, _mem) in memories.iter().enumerate() {
-        axi::Axi4Lite::memory_channels(64, 512, &format!("m{}_axi_", idx))
+        axi::AxiInterface::memory_channels(64, 512, &format!("m{}_axi_", idx))
             .add_ports_to(&mut module);
     }
 
@@ -120,7 +120,7 @@ fn top_level(
 
     // instantiate control interface
     let base_control_axi_interface =
-        axi::Axi4Lite::control_channels(address_width, data_width, "");
+        axi::AxiInterface::control_channels(address_width, data_width, "");
     let mut control_instance =
         v::Instance::new("inst_control_axi", "Control_axi");
     control_instance.connect("ACLK", "ap_clk");
@@ -147,7 +147,8 @@ fn top_level(
     host_transfer_fsm(&mut module, memories);
 
     // instantiate memory controllers
-    let base_master_axi_interface = axi::Axi4Lite::memory_channels(64, 32, "");
+    let base_master_axi_interface =
+        axi::AxiInterface::memory_channels(64, 32, "");
     for (idx, mem) in memories.iter().enumerate() {
         let write_data = format!("{}_write_data", mem);
         let read_data = format!("{}_read_data", mem);

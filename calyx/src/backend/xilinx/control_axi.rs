@@ -1,6 +1,6 @@
 use vast::v05::ast as v;
 
-use super::axi::{Axi4Lite, AxiChannel, ChannelDirection};
+use super::axi::{AxiChannel, AxiInterface, ChannelDirection};
 use super::axi_address_space::{AddressSpace, Flags};
 
 pub trait ControlInterface {
@@ -45,7 +45,7 @@ fn axi_address_space(address_width: u64, data_width: u64) -> AddressSpace {
         )
 }
 
-impl ControlInterface for Axi4Lite {
+impl ControlInterface for AxiInterface {
     fn control_channels(
         address_width: u64,
         data_width: u64,
@@ -136,7 +136,8 @@ impl ControlInterface for Axi4Lite {
         module.add_input("ap_done", 1);
         module.add_output("timeout", 32);
 
-        let axi4 = Axi4Lite::control_channels(address_width, data_width, "");
+        let axi4 =
+            AxiInterface::control_channels(address_width, data_width, "");
         axi4.add_ports_to(&mut module);
 
         // synchronise channels

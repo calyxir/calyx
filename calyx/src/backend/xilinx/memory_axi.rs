@@ -1,7 +1,7 @@
 use vast::v05::ast as v;
 
 use super::{
-    axi::{Axi4Lite, AxiChannel, ChannelDirection},
+    axi::{AxiChannel, AxiInterface, ChannelDirection},
     fsm,
 };
 use crate::utils;
@@ -21,7 +21,7 @@ pub trait MemoryInterface {
     ) -> v::Module;
 }
 
-impl MemoryInterface for Axi4Lite {
+impl MemoryInterface for AxiInterface {
     fn memory_channels(
         address_width: u64,
         data_width: u64,
@@ -107,7 +107,7 @@ impl MemoryInterface for Axi4Lite {
         module.add_input("ARESET", 1);
 
         // add axi interface ports
-        let axi4 = Axi4Lite::memory_channels(bus_addr_width, 512, "");
+        let axi4 = AxiInterface::memory_channels(bus_addr_width, 512, "");
         axi4.add_ports_to(&mut module);
 
         module.add_input("BASE_ADDRESS", bus_addr_width);
@@ -276,7 +276,7 @@ fn module_mode_fsm(module: &mut v::Module) -> fsm::LinearFsm {
 }
 
 fn track_transaction(
-    axi4: &Axi4Lite,
+    axi4: &AxiInterface,
     module: &mut v::Module,
     name: &str,
     data_width: u64,
@@ -284,7 +284,7 @@ fn track_transaction(
 }
 
 fn bram_logic(
-    axi4: &Axi4Lite,
+    axi4: &AxiInterface,
     module: &mut v::Module,
     mode_fsm: &fsm::LinearFsm,
     txn_count: v::Expr,

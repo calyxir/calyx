@@ -17,8 +17,7 @@ pest_derive = "2"
 pest_consume = "1"
 itertools = "0.10"
 lazy_static = "1"
-vast = { git = "https://github.com/vegaluisjose/vast.git", branch = 'type_coercion' }
-# vast = { path = "/home/samthomas/Research/vast" }
+vast = { git = "https://github.com/vegaluisjose/vast.git", branch = 'main' }
 boolean_expression = "=0.4.1"
 linked-hash-map = "0.5"
 smallvec = "1"
