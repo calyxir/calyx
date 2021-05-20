@@ -1,10 +1,8 @@
 import logging as log
-
 from pathlib import Path
-from paramiko import SSHClient
-from scp import SCPClient
 
-from fud.stages import SourceType, Stage, Source
+from fud import errors
+from fud.stages import Source, SourceType, Stage
 from fud.stages.futil import FutilStage
 from fud.utils import TmpDir
 
@@ -53,6 +51,17 @@ class XilinxStage(Stage):
         #     Make temporary directory to store generated files.
         #     """
         #     return TmpDir()
+        @self.step()
+        def import_libs():
+            """Import remote libs."""
+            try:
+                from paramiko import SSHClient
+                from scp import SCPClient
+
+                self.SSHClient = SSHClient
+                self.SCPClient = SCPClient
+            except ModuleNotFoundError:
+                raise errors.RemoteLibsNotInstalled
 
         # Step 2: Compile input using `-b xilinx`
         @self.step()
@@ -95,7 +104,7 @@ class XilinxStage(Stage):
             """
             Establish SSH connection
             """
-            client = SSHClient()
+            client = self.SSHClient()
             client.load_system_host_keys()
             client.connect(self.ssh_host, username=self.ssh_user)
             return client
@@ -119,7 +128,7 @@ class XilinxStage(Stage):
             """
             Copy files over ssh channel
             """
-            with SCPClient(client.get_transport()) as scp:
+            with self.SCPClient(client.get_transport()) as scp:
                 scp.put(xilinx, remote_path=f"{tmpdir}/toplevel.v")
                 scp.put(kernel, remote_path=f"{tmpdir}/main.sv")
                 scp.put(xml, remote_path=f"{tmpdir}/kernel.xml")
@@ -183,7 +192,7 @@ class XilinxStage(Stage):
             """
             local_tmpdir = TmpDir()
             xclbin_path = Path(local_tmpdir.name) / "kernel.xclbin"
-            with SCPClient(client.get_transport()) as scp:
+            with self.SCPClient(client.get_transport()) as scp:
                 scp.get(f"{tmpdir}/xclbin/kernel.xclbin", local_path=str(xclbin_path))
             return xclbin_path.open("rb")
 
@@ -198,6 +207,7 @@ class XilinxStage(Stage):
                 print(tmpdir)
             client.close()
 
+        import_libs()
         xilinx = compile_xilinx(input_data)
         xml = compile_xml(input_data)
         kernel = compile_kernel(input_data)

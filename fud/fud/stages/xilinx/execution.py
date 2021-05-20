@@ -23,16 +23,19 @@ class HwExecutionStage(Stage):
 
         self.data_path = self.config["stages", self.target_stage, "data"]
 
-        try:
-            import pyopencl as cl
-
-            self.cl = cl
-        except ImportError:
-            raise errors.RemoteLibsNotInstalled()
-
         self.setup()
 
     def _define_steps(self, input_data):
+        @self.step()
+        def import_libs():
+            """Import optional libraries"""
+            try:
+                import pyopencl as cl
+
+                self.cl = cl
+            except ImportError:
+                raise errors.RemoteLibsNotInstalled
+
         @self.step()
         def run(xclbin: SourceType.Path) -> SourceType.String:
             """Run the xclbin with datafile"""
@@ -91,5 +94,6 @@ class HwExecutionStage(Stage):
 
             return sjson.dumps(output, indent=2, use_decimal=True)
 
+        import_libs()
         res = run(input_data)
         return res
