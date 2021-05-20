@@ -1,26 +1,34 @@
 use std::{collections::BTreeMap, ops::Range};
 use vast::v05::ast as v;
 
-/// from the perspective of the master
+/// Register flags
 #[derive(Debug)]
 pub(crate) enum Flags {
     Read(String),
     Write,
 }
 
+/// Stores what a range of bits mean for an AXI address.
 pub(crate) struct Meaning {
+    /// The name of the internal register that stores
+    /// this part of the address space.
     internal_register: String,
+    /// The range of the address that holds this meaning.
     address_range: Range<usize>,
+    /// The range of the internal register this address maps to.
     register_range: Range<usize>,
+    /// Flags describing how this register should be used.
     flags: Flags,
 }
 
+/// Stores the meanings for a particular address.
 pub(crate) struct Address {
     address: usize,
     name: String,
     bit_meaning: Vec<Meaning>,
 }
 
+/// Stores a space of addresses.
 pub(crate) struct AddressSpace {
     space: Vec<Address>,
     registers: BTreeMap<String, usize>,
@@ -28,6 +36,7 @@ pub(crate) struct AddressSpace {
     data_width: u64,
 }
 
+/// Helper for generating slice expressions.
 fn slice(name: &str, width: u64, range: &Range<usize>) -> v::Expr {
     if range.len() == 1 {
         if width == 1 {
@@ -45,6 +54,7 @@ fn slice(name: &str, width: u64, range: &Range<usize>) -> v::Expr {
 }
 
 impl AddressSpace {
+    /// Create an address space with a particular address width and data width.
     pub fn new(address_width: u64, data_width: u64) -> Self {
         Self {
             space: Vec::new(),
@@ -54,6 +64,7 @@ impl AddressSpace {
         }
     }
 
+    /// Builder style method for adding an address.
     pub fn address(
         mut self,
         address: usize,
@@ -64,6 +75,21 @@ impl AddressSpace {
         self
     }
 
+    /// Add an address called `name` with meanings: `bit_meaning`.
+    /// For example,
+    /// ```
+    /// space.address(
+    ///   0x0,
+    ///   "CTRL",
+    ///   vec![
+    ///     (0..1, "start", 0..1, Flags::Write)
+    ///     (1..2, "done", 0..1, Flags::Write)
+    ///   ]
+    /// )
+    /// ```
+    /// adds an address called `CTRL` that maps the lowest bit (0) of `0x0` to
+    /// a one bit register called `start` and maps bit 1 of `0x0` to a one bit register
+    /// called `done`.
     pub fn add_address(
         &mut self,
         address: usize,
@@ -94,6 +120,7 @@ impl AddressSpace {
         });
     }
 
+    /// Helper to create slices on meanings.
     fn slice(&self, meaning: &Meaning) -> v::Expr {
         slice(
             &meaning.internal_register,
@@ -102,13 +129,14 @@ impl AddressSpace {
         )
     }
 
+    /// Add declarations for internal registers.
     pub fn internal_registers(&self, module: &mut v::Module) {
         for (register, size) in &self.registers {
             module.add_decl(v::Decl::new_reg(&register, *size as u64));
         }
     }
 
-    /// generate logic for outputting internal registers on the bus
+    /// Generate logic for outputting internal registers on the bus
     pub fn output_to_bus(
         &self,
         module: &mut v::Module,
@@ -164,6 +192,8 @@ impl AddressSpace {
         module.add_stmt(always);
     }
 
+    /// Generate logic for writing / reading from internal registers
+    /// holding state.
     pub fn register_logic(
         &self,
         module: &mut v::Module,
@@ -234,6 +264,7 @@ impl AddressSpace {
         }
     }
 
+    /// Human readable representation of the address space for debugging.
     #[allow(unused)]
     pub fn print_mapping(&self) {
         for addr in &self.space {
