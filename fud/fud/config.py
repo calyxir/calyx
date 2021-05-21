@@ -57,6 +57,26 @@ DEFAULT_CONFIGURATION = {
             "ssh_username": "",
             "remote": None,
         },
+        "xclbin": {
+            "file_extensions": [".xclbin"],
+            "mode": "hw_emu",
+            "device": "xilinx_u50_gen3x16_xdma_201920_3",
+            "temp_location": "/tmp",
+            "ssh_host": "",
+            "ssh_username": "",
+            "save_temps": None,
+        },
+        "wdb": {
+            "file_extensions": [".wdb"],
+            "mode": "hw_emu",
+            "ssh_host": "",
+            "ssh_username": "",
+            "host": None,
+            "save_temps": None,
+            "xilinx_location": "/scratch/opt/Xilinx/2020.2",
+            "xrt_location": "/opt/xilinx/xrt",
+        },
+        "fpga": {"data": None},
     },
 }
 

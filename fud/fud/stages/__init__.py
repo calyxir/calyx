@@ -19,6 +19,7 @@ class SourceType(Enum):
     @Directory: Represents local directory. Data is utils.Directory.
     @Stream: Represents a file stream. Data is a file like object.
     @String: Represents a python string. Data is a string.
+    @Bytes: Represents a python byte string. Data is bytes.
     @UnTyped: Represents anything. No guarantees on what data is.
     """
 
@@ -26,6 +27,7 @@ class SourceType(Enum):
     Directory = auto()
     Stream = auto()
     String = auto()
+    Bytes = auto()
     UnTyped = auto()
 
     def __str__(self):
@@ -37,6 +39,8 @@ class SourceType(Enum):
             return "Stream"
         elif self == SourceType.String:
             return "String"
+        elif self == SourceType.Bytes:
+            return "Bytes"
         elif self == SourceType.UnTyped:
             return "UnTyped"
 
@@ -47,14 +51,19 @@ class Source:
             SourceType.Directory: conv.path_to_directory,
             SourceType.Stream: conv.path_to_stream,
             SourceType.String: lambda p: conv.stream_to_string(conv.path_to_stream(p)),
+            SourceType.Bytes: lambda p: conv.stream_to_bytes(conv.path_to_stream(p)),
         },
         SourceType.Stream: {
             SourceType.Path: conv.stream_to_path,
-            SourceType.String: conv.stream_to_string,
+            SourceType.String: lambda s: conv.bytes_to_string(conv.stream_to_bytes(s)),
+            SourceType.Bytes: conv.stream_to_bytes,
         },
         SourceType.String: {
-            SourceType.Path: lambda s: conv.stream_to_path(conv.string_to_stream(s)),
-            SourceType.Stream: conv.string_to_stream,
+            SourceType.Path: lambda s: conv.stream_to_path(
+                conv.bytes_to_stream(conv.string_to_bytes(s))
+            ),
+            SourceType.Stream: lambda s: conv.bytes_to_stream(conv.stream_to_bytes(s)),
+            SourceType.Bytes: conv.string_to_bytes,
         },
     }
 
@@ -70,6 +79,8 @@ class Source:
                 assert isinstance(data, IOBase)
             elif self.typ == SourceType.String:
                 assert isinstance(data, str)
+            elif self.typ == SourceType.Bytes:
+                assert isinstance(data, bytes)
             elif self.typ == SourceType.UnTyped:
                 # no guarantees on Untyped
                 pass
@@ -185,7 +196,7 @@ class Stage:
     def _define_steps(self, input_data):
         pass
 
-    def run(self, input_data, sp):
+    def run(self, input_data, sp=None):
         assert isinstance(input_data, Source)
 
         # fill in input_data
@@ -193,9 +204,11 @@ class Stage:
 
         # run all the steps
         for step in self.steps:
-            sp.start_step(step.name)
+            if sp is not None:
+                sp.start_step(step.name)
             step()
-            sp.end_step()
+            if sp is not None:
+                sp.end_step()
 
         return self.final_output
 

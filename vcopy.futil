@@ -1,0 +1,42 @@
+import "primitives/std.lib";
+component main<"toplevel"=1>() -> () {
+  cells {
+    @external(1) A0 = std_mem_d1(32,8,5);
+    i = std_reg(5);
+    lt = std_lt(5);
+    add = std_add(5);
+    add2 = std_add(32);
+  }
+  wires {
+    group incr_i {
+      add.left = 5'd1;
+      add.right = i.out;
+      i.in = add.out;
+      i.write_en = 1'd1;
+      incr_i[done] = i.done;
+    }
+
+    group cond {
+      lt.left = i.out;
+      lt.right = 5'd8;
+      cond[done] = 1'd1;
+    }
+
+    group copy {
+      A0.addr0 = i.out;
+      add2.left = A0.read_data;
+      add2.right = 32'x10;
+      A0.write_data = add2.out;
+      A0.write_en = 1'd1;
+      copy[done] = A0.done;
+    }
+  }
+  control {
+    while lt.out with cond {
+      seq {
+        copy;
+        incr_i;
+      }
+    }
+  }
+}

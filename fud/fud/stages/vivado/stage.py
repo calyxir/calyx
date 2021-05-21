@@ -47,6 +47,7 @@ class VivadoBaseStage(Stage):
     def _define_steps(self, verilog_path):
         local_tmpdir = self.setup_environment(verilog_path)
         if self.use_ssh:
+            self.remote_exec.import_libs()
             (client, remote_tmpdir) = self.remote_exec.open_and_transfer(verilog_path)
             self.remote_exec.execute(client, remote_tmpdir, self.cmd)
             self.remote_exec.close_and_transfer(client, remote_tmpdir, local_tmpdir)

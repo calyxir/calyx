@@ -25,6 +25,9 @@ remote = [
        "paramiko",
        "scp"
 ]
+fpga = [
+     "pyopencl"
+]
 
 [tool.flit.scripts]
 fud = "fud.main:main"
