@@ -26,7 +26,7 @@ extern "core.sv" {
   primitive std_reg<"static"=1>[WIDTH](
     in: WIDTH,
     @go(1) write_en: 1,
-    clk: 1
+    @clk(1) clk: 1
   ) -> (
     out: WIDTH,
     @done(1) done: 1
@@ -36,7 +36,7 @@ extern "core.sv" {
     addr0: IDX_SIZE,
     write_data: WIDTH,
     @go(1) write_en: 1,
-    clk: 1
+    @clk(1) clk: 1
   ) -> (
     read_data: WIDTH,
     @done(1) done: 1
@@ -47,7 +47,7 @@ extern "core.sv" {
     addr1: D1_IDX_SIZE,
     write_data: WIDTH,
     @go(1) write_en: 1,
-    clk: 1
+    @clk(1) clk: 1
   ) -> (
     read_data: WIDTH,
     @done(1) done: 1
@@ -67,7 +67,7 @@ extern "core.sv" {
     addr2: D2_IDX_SIZE,
     write_data: WIDTH,
     @go(1) write_en: 1,
-    clk: 1
+    @clk(1) clk: 1
   ) -> (
     read_data: WIDTH,
     @done(1) done: 1
@@ -90,7 +90,7 @@ extern "core.sv" {
     addr3: D3_IDX_SIZE,
     write_data: WIDTH,
     @go(1) write_en: 1,
-    clk: 1
+    @clk(1) clk: 1
   ) -> (
     read_data: WIDTH,
     @done(1) done: 1
