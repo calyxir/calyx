@@ -193,6 +193,7 @@ fn top_level(
     module.add_decl(v::Decl::new_wire("kernel_done", 1));
     kernel_instance.connect_ref("clk", "ap_clk");
     kernel_instance.connect_ref("go", "kernel_start");
+    kernel_instance.connect("reset", v::Expr::new_not("ap_rst_n"));
     kernel_instance.connect_ref("done", "kernel_done");
     for mem in memories {
         let read_data = format!("{}_read_data", mem);

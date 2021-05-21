@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component main<"toplevel"=1>() -> () {
+component main<"toplevel"=1>(@reset(1) reset: 1) -> () {
   cells {
     @external(1) A0 = std_mem_d1(32,8,5);
     i = std_reg(5);
@@ -8,6 +8,7 @@ component main<"toplevel"=1>() -> () {
     add2 = std_add(32);
   }
   wires {
+    i.reset = reset;
     group incr_i {
       add.left = 5'd1;
       add.right = i.out;
