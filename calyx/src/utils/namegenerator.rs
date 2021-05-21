@@ -28,7 +28,7 @@ impl NameGenerator {
     /// ```
     pub fn gen_name<S>(&mut self, prefix: S) -> ir::Id
     where
-        S: ToString,
+        S: Into<ir::Id> + ToString + Clone,
     {
         // Insert default value for this prefix if there is no entry.
         let count = self
@@ -39,18 +39,17 @@ impl NameGenerator {
 
         // If the count is -1, don't create a suffix
         let name = if *count == -1 {
-            prefix.to_string()
+            prefix.clone().into()
         } else {
-            prefix.to_string() + &count.to_string()
+            ir::Id::from(prefix.to_string() + &count.to_string())
         };
 
         // check to see if we've generated this name before, if we have, generate a new one
-        if self.generated_names.contains(&name) {
-            eprintln!("{} existed, trying again", name);
+        if self.generated_names.contains(&name.id) {
             self.gen_name(prefix)
         } else {
             self.generated_names.insert(name.to_string());
-            name.into()
+            name
         }
     }
 }

@@ -122,11 +122,18 @@ impl Visitor for Inliner {
         let mut builder = ir::Builder::from(comp, sigs, false);
 
         // add top_level[go] = this.go
-        let mut asgns = build_assignments!(
-            builder;
-            top_level["go"] = ? this_comp["go"];
-            this_comp["done"] = ? top_level["done"];
-        );
+        let mut asgns = vec![
+            builder.build_assignment(
+                top_level.borrow().get("go"),
+                this_comp.borrow().get_with_attr("go"),
+                ir::Guard::True,
+            ),
+            builder.build_assignment(
+                this_comp.borrow().get_with_attr("done"),
+                top_level.borrow().get("done"),
+                ir::Guard::True,
+            ),
+        ];
         builder.component.continuous_assignments.append(&mut asgns);
 
         // construct analysis graph and find sub-graph of all edges that include a hole

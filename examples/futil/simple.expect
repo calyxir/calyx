@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component main(go: 1, clk: 1) -> (done: 1) {
+component main(@go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (@done(1) done: 1) {
   cells {
     const0 = std_const(32, 4);
     const1 = std_const(32, 5);

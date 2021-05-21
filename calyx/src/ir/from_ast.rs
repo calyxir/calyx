@@ -78,7 +78,7 @@ fn extend_signature(sig: &mut Vec<PortDef>) {
             let mut attributes = Attributes::default();
             attributes.insert(name, 1);
             sig.push(PortDef {
-                name: namegen.gen_name(name),
+                name: namegen.gen_name(name.to_string()),
                 width: Width::Const { value: *width },
                 direction: direction.clone(),
                 attributes,

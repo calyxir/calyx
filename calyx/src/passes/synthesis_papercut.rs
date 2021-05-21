@@ -77,7 +77,7 @@ impl Visitor for SynthesisPapercut {
             if analysis.reads_from(&*read_port.borrow()).next().is_none() {
                 return Err(Error::Papercut(
                     format!(
-                        "Only reads performed on memory `{}'. Synthesis tools will remove this memory. Add @external(1) to cell to turn this into an interface memory.",
+                        "Only writes performed on memory `{}'. Synthesis tools will remove this memory. Add @external(1) to cell to turn this into an interface memory.",
                         mem.to_string()
                     ),
                     mem,
@@ -87,7 +87,7 @@ impl Visitor for SynthesisPapercut {
             if analysis.writes_to(&*write_port.borrow()).next().is_none() {
                 return Err(Error::Papercut(
                     format!(
-                        "Only writes performed on memory `{}'. Synthesis tools will remove this memory. Add @external(1) to cell to turn this into an interface memory.",
+                        "Only reads performed on memory `{}'. Synthesis tools will remove this memory. Add @external(1) to cell to turn this into an interface memory.",
                         mem.to_string()
                     ),
                     mem,
