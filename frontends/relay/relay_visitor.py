@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+import numpy as np
 from tvm import relay, ir
 from tvm.relay.expr_functor import ExprFunctor
 from tvm.relay.function import Function
@@ -7,20 +10,26 @@ from typing import List, Dict
 
 from relay_utils import *
 from calyx.py_ast import *
+from calyx.utils import float_to_fixed_point
+from fud.stages.verilator import numeric_types
 from dahlia_impl import emit_components
 
 
-# TODO(cgyurgyik): Rename from FuTIL -> Calyx
-class Relay2Futil(ExprFunctor):
+class Relay2Calyx(ExprFunctor):
     """The main compilation visitor."""
 
     def __init__(self):
-        super(Relay2Futil, self).__init__()
+        super(Relay2Calyx, self).__init__()
         self.id_dictionary = defaultdict(int)
+        self.function_id_dictionary = defaultdict(int)
 
         # A dictionary of currently visited variable nodes,
         # since some nodes may be visited more than once.
         self.id_to_cell: Dict[str, Cell] = {}
+
+        # A dictionary of variable names to dimensionality.
+        # This used for the data in Calyx simulation.
+        self.id_to_shape: Dict[str, Tuple] = {}
 
         # For each Relay CallNode, there is an associated
         # Dahlia FuncDef so that it can be lowered from Dahlia
@@ -35,10 +44,22 @@ class Relay2Futil(ExprFunctor):
         """
         Provides a unique identification for a given name.
         If 'a' is seen twice, it will produce: 'a', 'a1'.
+        No `_` is used, in accordance with Relay variable
+        names.
         """
         id_number = self.id_dictionary[name]
         self.id_dictionary[name] += 1
-        return f'{name}{"" if id_number == 0 else id_number}'
+        return f"{name}{'' if id_number == 0 else id_number}"
+
+    def func_id(self, function_name):
+        """Used to uniquely identify functions with the
+        same name and arity. Eventually, we'll want to
+        instantiante two instances of the same Calyx
+        component. For example, if `foo_3x3` is seen twice,
+        it will produce: `foo_3x3`, `foo_3x3_1`"""
+        id_number = self.id_dictionary[function_name]
+        self.id_dictionary[function_name] += 1
+        return function_name if id_number == 0 else f"{function_name}_{id_number}"
 
     def visit_var(self, var) -> Cell:
         """Visits a Relay variable and returns the
@@ -47,6 +68,11 @@ class Relay2Futil(ExprFunctor):
         var_id = self.id(var.name_hint)
 
         cell = get_memory(var_id, var.type_annotation)
+
+        if var.type_annotation.concrete_shape:
+            # Only add the given variable if it is a tensor.
+            self.id_to_shape[var_id] = var.type_annotation.concrete_shape
+
         self.id_to_cell[var_id] = cell
         return cell
 
@@ -64,7 +90,16 @@ class Relay2Futil(ExprFunctor):
             # This is done here since we need
             # both the variable id and the value.
             width = get_bitwidth(value.data)
-            cell = Cell(CompVar(dest.id.name), Stdlib().constant(width, value.data))
+
+            if "float" in value.data.dtype:
+                # Convert to fixed point.
+                constant = float_to_fixed_point(value.data.asnumpy(), width // 2)
+                val = numeric_types.FixedPoint(
+                    f"{constant}", width, width // 2, True
+                ).unsigned_integer()
+            else:
+                val = value.data
+            cell = Cell(CompVar(dest.id.name), Stdlib().constant(width, val))
             self.id_to_cell[dest.id.name] = cell
         elif isinstance(value, tvm.relay.Call):
             # Generates cells and control for a Relay Call:
@@ -76,20 +111,22 @@ class Relay2Futil(ExprFunctor):
             # Function names may have a Relay
             # namespace prepended, e.g. `nn.bias_add`.
             # We want to remove these.
-            prefix = func_name.find('.')
+            prefix = func_name.find(".")
             if prefix is not None:
-                func_name = func_name[prefix + 1:]
+                func_name = func_name[prefix + 1 :]
 
-            dims = "_".join([
-                str(i) for i in
-                get_dimension_sizes(dest.comp)
-            ])
-            # Append arity to Relay function.
-            comp_name = f"{func_name}_{dims}"
+            # Append arity to Calyx component name.
+            dims = "x".join([str(i) for i in get_dimension_sizes(dest.comp)])
 
-            comp_id = self.id(comp_name)
-            comp_decl = CompVar(f"{comp_id}_")
-            self.id_to_cell[comp_id] = Cell(comp_decl, CompInst(comp_id, []))
+            # Given functions with the same operator and arity,
+            # append a unique identifier to the preceding. Eventually,
+            # we may want to use the same component and different
+            # instances. This will require careful manipulation
+            # of input and output ports of the two components.
+            comp_name = self.func_id(f"{func_name}_{dims}")
+
+            comp_decl = CompVar(f"{comp_name}_")
+            self.id_to_cell[comp_name] = Cell(comp_decl, CompInst(comp_name, []))
 
             self.controls.append(
                 # Append Invoke control to the `main` component.
@@ -151,29 +188,55 @@ class Relay2Futil(ExprFunctor):
         )
 
 
-def relay_transforms(expr: Function) -> Function:
+def relay_transforms(mod) -> Function:
     """https://tvm.apache.org/docs/api/python/relay/transform.html"""
     transforms = tvm.transform.Sequential(
         [
-            relay.transform.InferType(),
+            relay.transform.SimplifyExpr(),
+            relay.transform.SimplifyInference(),
         ]
     )
-    mod = ir.IRModule.from_expr(expr)
+    if isinstance(mod, relay.Function):
+        mod = tvm.IRModule.from_expr(mod)
     mod = transforms(mod)
     return mod["main"]
 
 
-def emit_futil(program) -> str:
+def check_naming_convention(func_defs: List[DahliaFuncDef]):
+    """Names that begin with the prefix `__` are reserved for
+    the Dahlia programs that are created to implement the
+    respective Relay call nodes. For example, `__x` is
+    not allowed, but `_x` and `x` are OK.
+    """
+
+    def is_reserved(x):
+        return x[:2] == "__"
+
+    for f in func_defs:
+        variables = [v.id.name for v in f.args + [f.dest]]
+        reserved_variables = list(filter(is_reserved, variables))
+        if reserved_variables:
+            raise Exception(
+                f"Relay call node: `{f.function_id}` violates the naming convention. No "
+                "variables should be prefixed with `__`. This is reserved for Dahlia "
+                "local variables used before lowering to Calyx. Offending variable name(s): "
+                f"{', '.join(reserved_variables)}"
+            )
+
+
+def emit_calyx(relay_ir) -> str:
     """Lowers a Relay function to a Calyx program."""
-    relay_program = relay_transforms(program)
-    visitor = Relay2Futil()
-    main, func_defs = visitor.visit(relay_program)
+    relay_ir = relay_transforms(relay_ir)
+    visitor = Relay2Calyx()
+    main, func_defs = visitor.visit(relay_ir)
+    check_naming_convention(func_defs)
+
     return "\n".join(
         (
             Program(
                 imports=[
                     Import("primitives/std.lib"),
-                    Import("primitives/bitnum/math.futil"),
+                    Import("primitives/math.futil"),
                 ],
                 components=[main],
             ).doc(),
@@ -182,8 +245,47 @@ def emit_futil(program) -> str:
     )
 
 
-if __name__ == "__main__":
-    import sys
+def get_program_dat_memories(relay_ir):
+    """Returns a mapping (id -> tensor size)
+    for each memory in the Relay IR. The format
+    explicitly follows the `dat` format; this
+    is used for Calyx simulation."""
+    visitor = Relay2Calyx()
+    relay_ir = relay_transforms(relay_ir)
+    _, func_defs = visitor.visit(relay_ir)
 
-    relay_function = relay.fromtext(sys.stdin.read())
-    print(emit_futil(relay_function))
+    memories = {}
+    for id, shape in visitor.id_to_shape.items():
+        memories[id] = {
+            "data": np.zeros(shape).tolist(),
+            "format": {
+                "numeric_type": "fixed_point",
+                "is_signed": True,
+                "width": 32,
+                "frac_width": 16,
+            },
+        }
+
+    return memories
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Lower Relay IR to Calyx.")
+    parser.add_argument("file", help="Path to the Relay IR.")
+
+    args = parser.parse_args()
+    if args.file is None:
+        raise Exception(
+            "The TVM Relay visitor requires a file containing the Relay IR."
+        )
+
+    with open(args.file, "r") as file:
+        relay_ir = file.read()
+    assert (
+        "v0.0.4" in relay_ir
+    ), "TVM Requires `v0.0.4` at the top of the Relay IR file."
+
+    relay_ir = relay.fromtext(relay_ir)
+    print(emit_calyx(relay_ir))

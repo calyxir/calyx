@@ -1,7 +1,7 @@
 import tvm
 from tvm import relay
-from relay_visitor import *
-import sys
+import relay_visitor
+import relay_utils
 
 
 def tensor_add():
@@ -82,7 +82,7 @@ def vgg_net():
         batch_size=5,
         image_shape=(3, 224, 224),
         num_classes=10,
-        dtype="int32",
+        dtype="float32",
         num_layers=13,
         batch_norm=True,
     )
@@ -114,6 +114,8 @@ def pretty_print_functions():
 
 
 def run_example():
+    import sys
+
     """Runs the example.
     Displays Relay IR if `-r` is found.
     Displays Calyx otherwise."""
@@ -123,7 +125,8 @@ def run_example():
             f"""
 help  -h    Displays available functions to play with.
 relay -r    Displays the Relay IR. Displays Calyx otherwise.
-        \nAvailable functions:"""
+
+Available functions:"""
         )
         pretty_print_functions()
         return
@@ -136,24 +139,14 @@ relay -r    Displays the Relay IR. Displays Calyx otherwise.
         pretty_print_functions()
         return
 
-    # Try optimizing the Relay IR with a few built-in passes.
-    seq = tvm.transform.Sequential(
-        [
-            relay.transform.SimplifyExpr(),
-            relay.transform.SimplifyInference(),
-            relay.transform.ToANormalForm(),
-        ]
-    )
-
-    mod_opt = tvm.IRModule.from_expr(func)
-    mod_opt = seq(mod_opt)
-    relay_IR = mod_opt["main"]
     if "-r" in input:
         # Dump the Relay IR.
-        print(relay_IR)
+        print(relay_utils.python2relay(func))
     else:
+        mod = tvm.IRModule.from_expr(func)
+        relay_ir = mod["main"]
         # Compile and dump the Calyx.
-        print(emit_futil(relay_IR))
+        print(relay_visitor.emit_calyx(relay_ir))
 
 
 if __name__ == "__main__":

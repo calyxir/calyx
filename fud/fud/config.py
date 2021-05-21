@@ -37,11 +37,13 @@ DEFAULT_CONFIGURATION = {
             "file_extensions": [".v", ".sv"],
             "cycle_limit": int(5e8),
             "top_module": "main",
+            "round_float_to_fixed": True,
             "data": None,
         },
         "vcd": {"exec": "vcdump", "file_extensions": [".vcd"]},
         "vcd_json": {"file_extensions": [".json"]},
         "dat": {"file_extensions": [".dat"]},
+        "relay": {"file_extensions": [".relay"], "flags": None},
         "systolic": {"file_extensions": [".systolic"], "flags": None},
         "synth-verilog": {
             "exec": "vivado",

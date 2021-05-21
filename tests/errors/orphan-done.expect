@@ -1,0 +1,4 @@
+---CODE---
+1
+---STDERR---
+Error: Malformed Structure: Group `two` refers to the done condition of another group (`one`).

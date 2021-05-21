@@ -3,6 +3,7 @@ import numpy as np
 from .numeric_types import FixedPoint, Bitnum
 from pathlib import Path
 from fud.errors import InvalidNumericType, Malformed
+from calyx.utils import float_to_fixed_point
 
 
 def parse_dat(path, args):
@@ -64,14 +65,18 @@ def parse_fp_widths(format):
         )
 
 
-def convert2dat(output_dir, data, extension):
-    """Goes through the JSON data and creates
-    a file for each key, flattens the data,
-    and then converts it to bitstrings.
-    Also generates a file named "shape.json" that contains information to
-    de-parse the memory files.
-    Only memory files corresponding to the fields in shape.json should be
-    deparsed.
+def convert2dat(output_dir, data, extension, round_float_to_fixed):
+    """Goes through the JSON data and creates a file for
+    each key, flattens the data, and then converts it to
+    bitstrings. Also generates a file named "shape.json" t
+    hat contains information to de-parse the memory files.
+    Only memory files corresponding to the fields in shape.json
+    should be deparsed.
+
+    `round_float_to_fixed` determines whether floating point
+    representations should be converted to the nearest fixed
+    point. If False, an exception is thrown when a number
+    cannot be represented exactly in fixed point format.
     """
     output_dir = Path(output_dir)
     shape = {}
@@ -98,8 +103,21 @@ def convert2dat(output_dir, data, extension):
         shape[k]["width"] = width
 
         def convert(x):
-            NumericType = FixedPoint if is_fp else Bitnum
-            return NumericType(x, **shape[k]).hex_string(with_prefix=False)
+            with_prefix = False
+            if not is_fp:
+                return Bitnum(x, **shape[k]).hex_string(with_prefix)
+
+            try:
+                return FixedPoint(x, **shape[k]).hex_string(with_prefix)
+            except InvalidNumericType as error:
+                if round_float_to_fixed:
+                    # Only round if it is not already representable.
+                    fractional_width = width - int_width
+                    x = float_to_fixed_point(float(x), fractional_width)
+                    x = str(x)
+                    return FixedPoint(x, **shape[k]).hex_string(with_prefix)
+                else:
+                    raise error
 
         with path.open("w") as f:
             for v in arr.flatten():

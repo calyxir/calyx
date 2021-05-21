@@ -1,4 +1,5 @@
 import "primitives/std.lib";
+import "primitives/unsynthesizable.futil";
 
 //// ANCHOR: component
 component times_10_and_add_1(
@@ -7,7 +8,7 @@ component times_10_and_add_1(
 ) -> (reg_in: 32, reg_write_en: 1) {
   cells {
     add = std_add(32);
-    mult = std_mult(32);
+    mult = std_unsyn_mult(32);
   }
   wires {
     group do_add_and_mul {
