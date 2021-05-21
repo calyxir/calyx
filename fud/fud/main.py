@@ -7,7 +7,17 @@ import toml
 from . import check, errors, exec, utils
 from .config import Configuration
 from .registry import Registry
-from .stages import dahlia, futil, mrxl, relay, systolic, vcdump, verilator, vivado
+from .stages import (
+    dahlia,
+    futil,
+    mrxl,
+    relay,
+    systolic,
+    vcdump,
+    verilator,
+    vivado,
+    xilinx,
+)
 
 
 def register_stages(registry, cfg):
@@ -79,6 +89,22 @@ def register_stages(registry, cfg):
             "Compile Calyx to Calyx to externalize all external memory primitives",
         )
     )
+    registry.register(
+        futil.FutilStage(
+            cfg,
+            "axi-wrapper",
+            "-b xilinx",
+            "Generate the AXI wrapper for Calyx",
+        )
+    )
+    registry.register(
+        futil.FutilStage(
+            cfg,
+            "xilinx-xml",
+            "-b xilinx-xml",
+            "Generate the XML metadata for Xilinx",
+        )
+    )
 
     # Verilator
     registry.register(
@@ -100,6 +126,11 @@ def register_stages(registry, cfg):
 
     # Vcdump
     registry.register(vcdump.VcdumpStage(cfg))
+
+    # Xilinx
+    registry.register(xilinx.XilinxStage(cfg))
+    registry.register(xilinx.HwEmulationStage(cfg))
+    registry.register(xilinx.HwExecutionStage(cfg))
 
 
 def display_config(args, cfg):

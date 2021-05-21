@@ -105,8 +105,8 @@ class RemoteLibsNotInstalled(FudError):
 
     def __init__(self):
         msg = (
-            "Attempted to use remote features without both "
-            + "[paramiko, scp] installed. Install them and try again."
+            "Attempted to use remote features without "
+            + "[paramiko, scp, pyopencl] installed. Install them and try again."
         )
         super().__init__(msg)
 

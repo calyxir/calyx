@@ -109,7 +109,7 @@
               '((futil-font-lock-keywords)))
   (setq-local indent-line-function 'futil-indent-line)
   (puthash 'futil-mode
-           "\\(\\<[[:digit:]]+\\(?:'[bdxo][[:digit:]]+\\)?\\>\\)"
+           "\\(\\<[[:digit:]]+\\(?:'[bdxo]\\([[:digit:]]\\|[A-Fa-f]\\)+\\)?\\>\\)"
            highlight-numbers-modelist))
 
 (provide 'futil-mode)

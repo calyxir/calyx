@@ -15,21 +15,28 @@ class RemoteExecution:
         self.device_files = self.stage.device_files
         self.target_name = self.stage.target_name
         if self.stage.config["stages", self.stage.name, "remote"] is not None:
-            # dynamically import libraries if they are installed
-            try:
-                from paramiko import SSHClient
-                from scp import SCPClient
-
-                self.SSHClient = SSHClient
-                self.SCPClient = SCPClient
-            except ModuleNotFoundError:
-                raise errors.RemoteLibsNotInstalled
-
             self.use_ssh = True
             self.ssh_host = self.stage.config["stages", self.stage.name, "ssh_host"]
             self.ssh_user = self.stage.config["stages", self.stage.name, "ssh_username"]
         else:
             self.use_ssh = False
+
+    def import_libs(self):
+        @self.stage.step()
+        def import_libs():
+            """Import libraries"""
+            if self.use_ssh:
+                # dynamically import libraries if they are installed
+                try:
+                    from paramiko import SSHClient
+                    from scp import SCPClient
+
+                    self.SSHClient = SSHClient
+                    self.SCPClient = SCPClient
+                except ModuleNotFoundError:
+                    raise errors.RemoteLibsNotInstalled
+
+        import_libs()
 
     def open_and_transfer(self, input_path):
         @self.stage.step()
