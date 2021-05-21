@@ -26,7 +26,8 @@ extern "core.sv" {
   primitive std_reg<"static"=1>[WIDTH](
     in: WIDTH,
     @go(1) write_en: 1,
-    @clk(1) clk: 1
+    @clk(1) clk: 1,
+    @reset(1) reset: 1
   ) -> (
     out: WIDTH,
     @done(1) done: 1

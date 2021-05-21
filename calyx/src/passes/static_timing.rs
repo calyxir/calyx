@@ -55,7 +55,7 @@ impl Visitor for StaticTiming {
             let cond = &while_s.cond;
             let port = &while_s.port;
             let body = &data.group;
-            let mut builder = ir::Builder::from(comp, ctx, false);
+            let mut builder = ir::Builder::new(comp, ctx).generated();
 
             // FSM Encoding:
             //   0:   init state. we haven't started loop iterations
@@ -185,7 +185,7 @@ impl Visitor for StaticTiming {
                 tru.borrow().attributes.get("static"),
                 fal.borrow().attributes.get("static"),
             ) {
-                let mut builder = ir::Builder::from(comp, ctx, false);
+                let mut builder = ir::Builder::new(comp, ctx).generated();
                 let if_group = builder.add_group("static_if");
                 if_group
                     .borrow_mut()
@@ -298,7 +298,7 @@ impl Visitor for StaticTiming {
     ) -> VisResult {
         // Early return if this group is not compilable.
         if let Some(max_time) = accumulate_static_time(&s.stmts, cmp::max) {
-            let mut builder = ir::Builder::from(comp, ctx, false);
+            let mut builder = ir::Builder::new(comp, ctx).generated();
 
             let par_group = builder.add_group("static_par");
             par_group.borrow_mut().attributes.insert("static", max_time);
@@ -374,7 +374,7 @@ impl Visitor for StaticTiming {
             return Ok(Action::Continue);
         }
 
-        let mut builder = ir::Builder::from(comp, ctx, false);
+        let mut builder = ir::Builder::new(comp, ctx).generated();
         let fsm_size = get_bit_width_from(1 + total_time.unwrap());
 
         // Create new group for compiling this seq.

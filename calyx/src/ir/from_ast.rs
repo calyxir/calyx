@@ -11,7 +11,6 @@ use crate::{
 use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
 use std::rc::Rc;
 
 /// Context to store the signature information for all defined primitives and
@@ -206,7 +205,7 @@ fn build_component(
             })
             .collect::<Result<_, _>>()?,
     );
-    let mut builder = Builder::from(&mut ir_component, &sig_ctx.lib, false);
+    let mut builder = Builder::new(&mut ir_component, &sig_ctx.lib);
 
     // For each ast::Cell, add a Cell that contains all the
     // required information.

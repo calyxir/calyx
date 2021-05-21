@@ -26,7 +26,7 @@ impl Visitor for ClkInsertion {
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
     ) -> VisResult {
-        let builder = ir::Builder::from(comp, sigs, false);
+        let builder = ir::Builder::new(comp, sigs).generated();
 
         for cell_ref in &builder.component.cells {
             let cell = cell_ref.borrow();

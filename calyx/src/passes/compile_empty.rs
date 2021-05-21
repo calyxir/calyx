@@ -39,7 +39,7 @@ impl Visitor for CompileEmpty {
         let group_ref = match comp.find_group(&CompileEmpty::EMPTY_GROUP) {
             Some(g) => g,
             None => {
-                let mut builder = ir::Builder::from(comp, sigs, false);
+                let mut builder = ir::Builder::new(comp, sigs).generated();
                 // Create a group that always outputs done if it doesn't exist.
 
                 // Add the new group

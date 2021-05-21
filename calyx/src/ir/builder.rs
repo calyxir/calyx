@@ -16,20 +16,34 @@ pub struct Builder<'a> {
     /// Enable validation of components.
     /// Useful for debugging malformed AST errors.
     validate: bool,
+    /// Cells added are generated during a compiler pass.
+    generated: bool,
 }
 
 impl<'a> Builder<'a> {
     /// Instantiate a new builder using for a component.
-    pub fn from(
+    pub fn new(
         component: &'a mut ir::Component,
         lib: &'a LibrarySignatures,
-        validate: bool,
     ) -> Self {
         Self {
             component,
             lib,
-            validate,
+            validate: false,
+            generated: false,
         }
+    }
+
+    /// Enable the validation flag on a builder.
+    pub fn validate(mut self) -> Self {
+        self.validate = true;
+        self
+    }
+
+    /// Enable the generated flag on a builder.
+    pub fn generated(mut self) -> Self {
+        self.generated = true;
+        self
     }
 
     /// Construct a new group and add it to the Component.
@@ -136,6 +150,9 @@ impl<'a> Builder<'a> {
             },
             ports,
         );
+        if self.generated {
+            cell.borrow_mut().add_attribute("generated", 1);
+        }
         self.component.cells.push(Rc::clone(&cell));
         cell
     }

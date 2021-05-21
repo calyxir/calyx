@@ -1,6 +1,5 @@
 use crate::{
     analysis::GraphAnalysis,
-    build_assignments,
     errors::Error,
     ir::traversal::{Action, Named, VisResult, Visitor},
     ir::{self, LibrarySignatures},
@@ -119,7 +118,7 @@ impl Visitor for Inliner {
         };
 
         let this_comp = Rc::clone(&comp.signature);
-        let mut builder = ir::Builder::from(comp, sigs, false);
+        let mut builder = ir::Builder::new(comp, sigs).generated();
 
         // add top_level[go] = this.go
         let mut asgns = vec![
