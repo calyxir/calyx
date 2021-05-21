@@ -110,7 +110,7 @@ impl AddressSpace {
             self.registers
                 .entry(meaning.internal_register.to_string())
                 .and_modify(|size| *size += meaning.register_range.len())
-                .or_insert(meaning.register_range.len());
+                .or_insert_with(|| meaning.register_range.len());
         }
 
         self.space.push(Address {

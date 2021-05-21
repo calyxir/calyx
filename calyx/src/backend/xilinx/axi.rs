@@ -56,7 +56,7 @@ impl AxiChannel {
 
     /// Return an iterator over all the ports defined in this channel
     /// (including valid/ready).
-    pub fn ports<'a>(&'a self) -> impl Iterator<Item = String> + 'a {
+    pub fn ports(&self) -> impl Iterator<Item = String> + '_ {
         vec![self.ready(), self.valid()].into_iter().chain(
             self.data_ports
                 .iter()
@@ -147,7 +147,7 @@ impl AxiInterface {
     }
 
     /// Returns an iterator over all the ports in an AxiInterface.
-    pub fn ports<'a>(&'a self) -> impl Iterator<Item = String> + 'a {
+    pub fn ports(&self) -> impl Iterator<Item = String> + '_ {
         self.read_address
             .ports()
             .chain(self.read_data.ports())

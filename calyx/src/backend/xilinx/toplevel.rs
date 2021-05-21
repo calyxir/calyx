@@ -63,11 +63,10 @@ impl Backend for XilinxInterfaceBackend {
 
         write!(
             file.get_write(),
-            "{}\n{}\n{}{}",
-            "`default_nettype none",
-            "/* verilator lint_off DECLFILENAME */",
+            r#"`default_nettype none
+/* verilator lint_off DECLFILENAME */
+{}`default_nettype wire"#,
             module_string,
-            "`default_nettype wire"
         )?;
 
         Ok(())
@@ -242,7 +241,7 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
     module.add_decl(v::Decl::new_wire("memories_sent", 1));
     module.add_stmt(v::Parallel::Assign(
         "memories_copied".into(),
-        if memories.len() == 0 {
+        if memories.is_empty() {
             panic!("Need some memories")
         } else if memories.len() == 1 {
             format!("{}_copy_done", memories[0]).into()
@@ -257,7 +256,7 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
     ));
     module.add_stmt(v::Parallel::Assign(
         "memories_sent".into(),
-        if memories.len() == 0 {
+        if memories.is_empty() {
             panic!("Need some memories")
         } else if memories.len() == 1 {
             format!("{}_send_done", memories[0]).into()

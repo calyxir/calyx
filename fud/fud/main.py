@@ -7,7 +7,17 @@ import toml
 from . import check, errors, exec, utils
 from .config import Configuration
 from .registry import Registry
-from .stages import dahlia, futil, mrxl, relay, systolic, vcdump, verilator, vivado, xilinx
+from .stages import (
+    dahlia,
+    futil,
+    mrxl,
+    relay,
+    systolic,
+    vcdump,
+    verilator,
+    vivado,
+    xilinx,
+)
 
 
 def register_stages(registry, cfg):

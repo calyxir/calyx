@@ -168,11 +168,12 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
         if *dir == ir::Direction::Input {
             // HACK: this is not the right way to reset
             // registers. we should have real reset ports.
-            let value = if name.contains("write_en") {
-                String::from("0")
-            } else {
-                String::from("0")
-            };
+            let value = String::from("0");
+            // let value = if name.contains("write_en") {
+            //     String::from("0")
+            // } else {
+            //     String::from("0")
+            // };
             initial.add_seq(v::Sequential::new_blk_assign(
                 v::Expr::new_ref(name),
                 v::Expr::new_ulit_dec(*width as u32, &value),
