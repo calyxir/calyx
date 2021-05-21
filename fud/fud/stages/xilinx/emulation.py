@@ -20,7 +20,11 @@ class HwEmulationStage(Stage):
             "Runs Vivado hw emulation",
         )
 
-        self.setup_commands = "source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh && source /opt/xilinx/xrt/setup.sh"
+        xilinx_location = self.config["stages", self.target_stage, "xilinx_location"]
+        xrt_location = self.config["stages", self.target_stage, "xrt_location"]
+        self.setup_commands = (
+            f"source {xilinx_location}/settings64.sh && source {xrt_location}/setup.sh"
+        )
 
         self.host_cpp = self.config["stages", self.target_stage, "host"]
 

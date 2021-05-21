@@ -73,6 +73,8 @@ DEFAULT_CONFIGURATION = {
             "ssh_username": "",
             "host": None,
             "save_temps": None,
+            "xilinx_location": "/scratch/opt/Xilinx/2020.2",
+            "xrt_location": "/opt/xilinx/xrt",
         },
         "fpga": {"data": None},
     },
