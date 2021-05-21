@@ -36,7 +36,7 @@ impl Backend for XilinxInterfaceBackend {
         let toplevel = prog
             .components
             .iter()
-            .find(|comp| comp.attributes.has("toplevel"))
+            .find(|comp| comp.attributes.has("toplevel") || comp.name == "main")
             .ok_or_else(|| Error::Misc("no toplevel".to_string()))?;
         let memories = external_memories(toplevel);
 
