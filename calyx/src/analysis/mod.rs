@@ -6,6 +6,7 @@
 mod graph;
 mod graph_coloring;
 mod live_range_analysis;
+pub mod reaching_defns;
 mod read_write_set;
 mod schedule_conflicts;
 mod variable_detection;
