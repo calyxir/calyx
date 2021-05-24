@@ -118,13 +118,20 @@ fn top_level(
         module.add_stmt(v::Decl::new_wire(mem, 64));
     }
 
+    // reset
+    module.add_stmt(v::Decl::new_wire("reset", 1));
+    module.add_stmt(v::Parallel::Assign(
+        "reset".into(),
+        v::Expr::new_not("ap_rst_n"),
+    ));
+
     // instantiate control interface
     let base_control_axi_interface =
         axi::AxiInterface::control_channels(address_width, data_width, "");
     let mut control_instance =
         v::Instance::new("inst_control_axi", "Control_axi");
     control_instance.connect("ACLK", "ap_clk");
-    control_instance.connect("ARESET", v::Expr::new_not("ap_rst_n"));
+    control_instance.connect("ARESET", "reset");
     for mem in memories {
         control_instance.connect_ref(mem, mem);
     }
@@ -166,7 +173,10 @@ fn top_level(
             &format!("Memory_controller_axi_{}", idx),
         );
         memory_instance.connect("ACLK", "ap_clk");
-        memory_instance.connect("ARESET", v::Expr::new_not("ap_rst_n"));
+        memory_instance.connect(
+            "ARESET",
+            v::Expr::new_logical_or("reset", "memories_sent"),
+        );
         for port in base_master_axi_interface.ports() {
             memory_instance
                 .connect_ref(&port, &format!("m{}_axi_{}", idx, port));
@@ -193,7 +203,8 @@ fn top_level(
     module.add_decl(v::Decl::new_wire("kernel_done", 1));
     kernel_instance.connect_ref("clk", "ap_clk");
     kernel_instance.connect_ref("go", "kernel_start");
-    kernel_instance.connect("reset", v::Expr::new_not("ap_rst_n"));
+    kernel_instance
+        .connect("reset", v::Expr::new_logical_or("reset", "memories_sent"));
     kernel_instance.connect_ref("done", "kernel_done");
     for mem in memories {
         let read_data = format!("{}_read_data", mem);
@@ -230,7 +241,10 @@ fn top_level(
         "ap_done".into(),
         v::Expr::new_logical_or(
             v::Expr::new_gt("counter", "timeout"),
-            "memories_sent",
+            v::Expr::new_eq(
+                "memories_sent",
+                v::Expr::new_ulit_bin(memories.len() as u32, "1"),
+            ),
         ),
     ));
 
@@ -239,7 +253,8 @@ fn top_level(
 
 fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
     module.add_decl(v::Decl::new_wire("memories_copied", 1));
-    module.add_decl(v::Decl::new_wire("memories_sent", 1));
+    // module.add_decl(v::Decl::new_wire("memories_sent", 1));
+    module.add_decl(v::Decl::new_reg("memories_sent", memories.len() as u64));
     module.add_stmt(v::Parallel::Assign(
         "memories_copied".into(),
         if memories.is_empty() {
@@ -255,21 +270,6 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
             )
         },
     ));
-    module.add_stmt(v::Parallel::Assign(
-        "memories_sent".into(),
-        if memories.is_empty() {
-            panic!("Need some memories")
-        } else if memories.len() == 1 {
-            format!("{}_send_done", memories[0]).into()
-        } else {
-            memories[1..].iter().fold(
-                format!("{}_send_done", memories[0]).into(),
-                |acc, elem| {
-                    v::Expr::new_logical_and(acc, format!("{}_send_done", elem))
-                },
-            )
-        },
-    ));
     let copy_start_assigns: Vec<v::Expr> = memories
         .iter()
         .map(|mem| format!("{}_copy", mem).into())
@@ -278,10 +278,45 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
         .iter()
         .map(|mem| format!("{}_send", mem).into())
         .collect();
-    fsm::LinearFsm::new("host_txn_", "ap_clk", v::Expr::new_not("ap_rst_n"))
+    let fsm = fsm::LinearFsm::new("host_txn_", "ap_clk", "reset")
         .state("idle", &[], "ap_start") // idle state
         .state("copy", &copy_start_assigns, "memories_copied") // copy memory state
         .state("run_kernel", &["kernel_start".into()], "kernel_done") // run kernel state
-        .state("send", &send_start_assigns, "memories_sent") // send memory to host state
-        .emit(module);
+        .state("send", &send_start_assigns, "memories_sent"); // send memory to host state
+
+    let mut parallel = v::ParallelProcess::new_always();
+    parallel.set_event(v::Sequential::new_posedge("ap_clk"));
+    let mut ifelse = v::SequentialIfElse::new(fsm.state_is("send"));
+    if memories.len() == 1 {
+        ifelse.add_seq(v::Sequential::new_nonblk_assign(
+            "memories_sent",
+            format!("{}_send_done", memories[0]),
+        ));
+    } else {
+        for (idx, mem) in memories.iter().enumerate() {
+            ifelse.add_seq(v::Sequential::new_nonblk_assign(
+                v::Expr::new_index_bit("memories_sent", idx as i32),
+                format!("{}_send_done", mem),
+            ));
+        }
+    }
+    ifelse.set_else(v::Sequential::new_nonblk_assign("memories_sent", 0));
+    parallel.add_seq(ifelse);
+    module.add_stmt(parallel);
+    fsm.emit(module);
+    // module.add_stmt(v::Parallel::Assign(
+    //     "memories_sent".into(),
+    //     if memories.is_empty() {
+    //         panic!("Need some memories")
+    //     } else if memories.len() == 1 {
+    //         format!("{}_send_done", memories[0]).into()
+    //     } else {
+    //         memories[1..].iter().fold(
+    //             format!("{}_send_done", memories[0]).into(),
+    //             |acc, elem| {
+    //                 v::Expr::new_logical_and(acc, format!("{}_send_done", elem))
+    //             },
+    //         )
+    //     },
+    // ));
 }

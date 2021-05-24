@@ -20,30 +20,49 @@ pub trait ControlInterface {
 }
 
 /// Generate the base address space for the Xilinx control interface.
-fn axi_address_space(address_width: u64, data_width: u64) -> AddressSpace {
+fn axi_address_space(
+    axi: &AxiInterface,
+    address_width: u64,
+    data_width: u64,
+) -> AddressSpace {
     AddressSpace::new(address_width, data_width)
         .address(
             0x0,
             "AP_CONTROL",
             vec![
-                (0..1, "int_ap_start", 0..1, Flags::Write),
+                (
+                    0..1,
+                    "int_ap_start",
+                    0..1,
+                    Flags::default().write().clear_on_handshake("ap_done"),
+                ),
                 (
                     1..2,
                     "int_ap_done",
                     0..1,
-                    Flags::Read("ap_done".to_string()),
+                    Flags::default()
+                        .read("ap_done")
+                        .clear_on_read(axi.read_data.clone(), "raddr"),
                 ),
                 // (2..3, "ap_idle", 0..1),,
             ],
         )
-        .address(0x4, "GIE", vec![(0..1, "int_gie", 0..1, Flags::Write)])
-        .address(0x8, "IER", vec![(0..2, "int_ier", 0..2, Flags::Write)])
+        .address(
+            0x4,
+            "GIE",
+            vec![(0..1, "int_gie", 0..1, Flags::default().write())],
+        )
+        .address(
+            0x8,
+            "IER",
+            vec![(0..2, "int_ier", 0..2, Flags::default().write())],
+        )
         .address(
             0xc,
             "ISR",
             vec![
-                (0..1, "int_isr_done", 0..1, Flags::Write), // XXX should be read
-                (1..2, "int_isr_ready", 0..1, Flags::Write),
+                (0..1, "int_isr_done", 0..1, Flags::default().write()), // XXX should be read
+                (1..2, "int_isr_ready", 0..1, Flags::default().write()),
             ],
         )
 }
@@ -110,12 +129,16 @@ impl ControlInterface for AxiInterface {
         module.add_input("ACLK", 1);
         module.add_input("ARESET", 1);
 
+        let axi4 =
+            AxiInterface::control_channels(address_width, data_width, "");
+
         // define the address space of the control interface
-        let mut addr_space = axi_address_space(address_width, data_width);
+        let mut addr_space =
+            axi_address_space(&axi4, address_width, data_width);
         addr_space.add_address(
             0x10,
             "TIMEOUT",
-            vec![(0..32, "int_timeout", 0..32, Flags::Write)],
+            vec![(0..32, "int_timeout", 0..32, Flags::default().write())],
         );
         for (idx, memory_name) in memories.iter().enumerate() {
             let part0_name = format!("{}_0", memory_name);
@@ -124,12 +147,12 @@ impl ControlInterface for AxiInterface {
             addr_space.add_address(
                 0x18 + (idx * 8),
                 &part0_name,
-                vec![(0..32, &addr_name, 0..32, Flags::Write)],
+                vec![(0..32, &addr_name, 0..32, Flags::default().write())],
             );
             addr_space.add_address(
                 0x1c + (idx * 8),
                 &part1_name,
-                vec![(0..32, &addr_name, 32..64, Flags::Write)],
+                vec![(0..32, &addr_name, 32..64, Flags::default().write())],
             );
 
             module.add_output(memory_name, 64);
@@ -139,8 +162,6 @@ impl ControlInterface for AxiInterface {
         module.add_input("ap_done", 1);
         module.add_output("timeout", 32);
 
-        let axi4 =
-            AxiInterface::control_channels(address_width, data_width, "");
         axi4.add_ports_to(&mut module);
 
         // synchronise channels

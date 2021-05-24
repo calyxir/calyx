@@ -1,11 +1,55 @@
+use super::axi::AxiChannel;
 use std::{collections::BTreeMap, ops::Range};
 use vast::v05::ast as v;
 
-/// Register flags
-#[derive(Debug)]
-pub(crate) enum Flags {
-    Read(String),
-    Write,
+// /// Register flags
+// #[derive(Debug)]
+// enum Flag {
+//     Read(String),
+//     Write,
+// }
+
+#[derive(Debug, Default)]
+pub(crate) struct Flags {
+    read: Option<String>,
+    clear_on_read: Option<(AxiChannel, String)>,
+    clear_on_handshake: Option<String>,
+    write: bool,
+}
+
+impl Flags {
+    pub(crate) fn read<S>(mut self, name: S) -> Self
+    where
+        S: ToString,
+    {
+        self.read = Some(name.to_string());
+        self
+    }
+
+    pub(crate) fn clear_on_read<S>(
+        mut self,
+        axi_channel: AxiChannel,
+        int_addr: S,
+    ) -> Self
+    where
+        S: ToString,
+    {
+        self.clear_on_read = Some((axi_channel, int_addr.to_string()));
+        self
+    }
+
+    pub(crate) fn clear_on_handshake<S>(mut self, name: S) -> Self
+    where
+        S: ToString,
+    {
+        self.clear_on_handshake = Some(name.to_string());
+        self
+    }
+
+    pub(crate) fn write(mut self) -> Self {
+        self.write = true;
+        self
+    }
 }
 
 /// Stores what a range of bits mean for an AXI address.
@@ -211,17 +255,13 @@ impl AddressSpace {
 
         let mut if_stmt = v::SequentialIfElse::new("ARESET");
         let mut else_br = v::SequentialIfElse::new(v::Expr::new_logical_and(
-            handshake,
+            handshake.clone(),
             v::Expr::new_eq(int_addr, addr.address as i32),
         ));
 
         // XXX(sam) this is a hack to avoid iterating through the bit meanings again
         let mut writes_exist: bool = false;
-        for meaning in addr
-            .bit_meaning
-            .iter()
-            .filter(|m| matches!(m.flags, Flags::Write))
-        {
+        for meaning in addr.bit_meaning.iter().filter(|m| m.flags.write) {
             if_stmt.add_seq(v::Sequential::new_nonblk_assign(
                 self.slice(&meaning),
                 v::Expr::new_int(0),
@@ -230,6 +270,14 @@ impl AddressSpace {
                 self.slice(&meaning),
                 slice(data, self.data_width as u64, &meaning.address_range),
             ));
+            if let Some(name) = &meaning.flags.clear_on_handshake {
+                let mut clear_if = v::SequentialIfElse::new(name.as_str());
+                clear_if.add_seq(v::Sequential::new_nonblk_assign(
+                    self.slice(&meaning),
+                    0,
+                ));
+                else_br.set_else(clear_if);
+            }
             writes_exist = true;
         }
         if writes_exist {
@@ -241,24 +289,24 @@ impl AddressSpace {
 
         // port writes to internal register logic
         for meaning in &addr.bit_meaning {
-            if let Flags::Read(port) = &meaning.flags {
-                let mut always = v::ParallelProcess::new_always();
-                always.set_event(v::Sequential::new_posedge("ACLK"));
-
-                let mut if_stmt = v::SequentialIfElse::new("ARESET");
-                if_stmt.add_seq(v::Sequential::new_nonblk_assign(
+            if let Some(port) = &meaning.flags.read {
+                let mut branches = vec![
+                    (Some("ARESET".into()), 0.into()),
+                    (Some(port.as_str().into()), 1.into()),
+                ];
+                if let Some((channel, addr_reg)) = &meaning.flags.clear_on_read
+                {
+                    let cond = v::Expr::new_logical_and(
+                        channel.handshake(),
+                        v::Expr::new_eq(addr_reg.as_str(), addr.address as i32),
+                    );
+                    branches.push((Some(cond), 0.into()));
+                }
+                let always = super::utils::cond_non_blk_assign(
+                    "ACLK",
                     self.slice(&meaning),
-                    v::Expr::new_int(0),
-                ));
-
-                let mut else_br = v::SequentialIfElse::new(port.as_str());
-                else_br.add_seq(v::Sequential::new_nonblk_assign(
-                    self.slice(&meaning),
-                    v::Expr::new_ulit_bin(1, "1"),
-                ));
-                if_stmt.set_else(else_br);
-
-                always.add_seq(if_stmt);
+                    branches,
+                );
                 module.add_stmt(always);
             }
         }
