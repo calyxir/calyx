@@ -2,8 +2,9 @@ use crate::passes::{
     ClkInsertion, CollapseControl, CompileControl, CompileEmpty, CompileInvoke,
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion,
     GuardCanonical, InferStaticTiming, Inliner, MergeAssign, MinimizeRegs,
-    Papercut, ResetInsertion, ResourceSharing, SimplifyGuards, StaticTiming,
-    SynthesisPapercut, TopDownCompileControl, WellFormed,
+    Papercut, RegisterUnsharing, ResetInsertion, ResourceSharing,
+    SimplifyGuards, StaticTiming, SynthesisPapercut, TopDownCompileControl,
+    WellFormed,
 };
 use crate::{
     errors::FutilResult,
@@ -39,6 +40,7 @@ impl PassManager {
         register_pass!(pm, MergeAssign);
         register_pass!(pm, TopDownCompileControl);
         register_pass!(pm, SynthesisPapercut);
+        register_pass!(pm, RegisterUnsharing);
         register_pass!(pm, GuardCanonical);
 
         register_alias!(pm, "validate", [WellFormed, Papercut]);
