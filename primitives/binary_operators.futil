@@ -71,6 +71,10 @@ extern "binary_operators.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: 1);
 
+  primitive std_fp_slt<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](left: WIDTH, right: WIDTH) -> (out: 1);
+
   primitive std_fp_sadd_dwidth<"share"=1>[
     WIDTH1,
     WIDTH2 ,
