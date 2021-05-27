@@ -28,7 +28,7 @@ impl Visitor for ClkInsertion {
     ) -> VisResult {
         let builder = ir::Builder::from(comp, sigs, false);
 
-        for cell_ref in &builder.component.cells {
+        for cell_ref in builder.component.iter_cells() {
             let cell = cell_ref.borrow();
             if let Some(port) = cell.find("clk") {
                 builder.component.continuous_assignments.push(

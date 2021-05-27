@@ -127,14 +127,13 @@ impl Backend for XilinxXmlBackend {
         }];
 
         let memories: Vec<(String, String)> = toplevel
-            .cells
-            .iter()
+            .iter_cells()
             .filter(|cell_ref| {
                 matches!(cell_ref.borrow().get_attribute("external"), Some(&1))
             })
             .enumerate()
             .map(|(i, cell_ref)| {
-                (cell_ref.borrow().name.to_string(), format!("m{}_axi", i))
+                (cell_ref.borrow().name().to_string(), format!("m{}_axi", i))
             })
             .collect();
         // make the lifetime of the &str long enough

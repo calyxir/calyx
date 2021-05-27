@@ -84,7 +84,7 @@ impl<T: ShareComponents> Visitor for T {
     ) -> VisResult {
         self.initialize(&comp, &sigs);
 
-        let cells = comp.cells.iter().filter(|c| self.cell_filter(&c.borrow()));
+        let cells = comp.iter_cells().filter(|c| self.cell_filter(&c.borrow()));
 
         let id_to_type: HashMap<ir::Id, ir::CellType> = cells
             .clone()
@@ -98,8 +98,8 @@ impl<T: ShareComponents> Visitor for T {
         for cell in cells {
             cells_by_type
                 .entry(cell.borrow().prototype.clone())
-                .and_modify(|v| v.push(cell.borrow().name.clone()))
-                .or_insert_with(|| vec![cell.borrow().name.clone()]);
+                .and_modify(|v| v.push(cell.borrow().name().clone()))
+                .or_insert_with(|| vec![cell.borrow().name().clone()]);
         }
 
         let mut graphs_by_type: HashMap<ir::CellType, GraphColoring<ir::Id>> =
@@ -168,7 +168,7 @@ impl<T: ShareComponents> Visitor for T {
         // apply the coloring as a renaming of registers for both groups
         // and continuous assignments
         let builder = ir::Builder::from(comp, sigs, false);
-        for group_ref in &builder.component.groups {
+        for group_ref in builder.component.iter_groups() {
             let mut group = group_ref.borrow_mut();
             let mut assigns: Vec<_> = group.assignments.drain(..).collect();
             builder.rename_port_uses(&coloring, &mut assigns);

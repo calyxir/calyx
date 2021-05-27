@@ -57,11 +57,10 @@ impl ShareComponents for ResourceSharing {
         _sigs: &ir::LibrarySignatures,
     ) {
         self.used_cells_map = component
-            .groups
-            .iter()
+            .iter_groups()
             .map(|group| {
                 (
-                    group.borrow().name.clone(),
+                    group.borrow().name().clone(),
                     analysis::ReadWriteSet::uses(&group.borrow().assignments)
                         .into_iter()
                         .filter(|cell| self.cell_filter(&cell.borrow()))

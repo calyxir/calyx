@@ -369,13 +369,13 @@ impl Visitor for InferStaticTiming {
         _lib: &LibrarySignatures,
     ) -> VisResult {
         let mut latency_result: Option<u64>;
-        for group in &comp.groups {
+        for group in comp.iter_groups() {
             if let Some(latency) = self.infer_latency(&group.borrow()) {
                 let grp = group.borrow();
                 if let Some(curr_lat) = grp.attributes.get("static") {
                     if *curr_lat != latency {
                         return Err(Error::ImpossibleLatencyAnnotation(
-                            grp.name.to_string(),
+                            grp.name().to_string(),
                             *curr_lat,
                             latency,
                         ));

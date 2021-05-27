@@ -69,7 +69,7 @@ impl Visitor for Papercut<'_> {
         // signal of that group.
         // Names of the groups whose `done` hole has been written to.
         let mut hole_writes = HashSet::new();
-        for group in &comp.groups {
+        for group in comp.iter_groups() {
             for assign_ref in &group.borrow().assignments {
                 let assign = assign_ref.dst.borrow();
                 if assign.is_hole() && assign.name == "done" {
@@ -83,10 +83,9 @@ impl Visitor for Papercut<'_> {
         }
 
         let no_done_group = comp
-            .groups
-            .iter()
-            .find(|g| !hole_writes.contains(&g.borrow().name))
-            .map(|g| g.borrow().name.clone());
+            .iter_groups()
+            .find(|g| !hole_writes.contains(&g.borrow().name()))
+            .map(|g| g.borrow().name().clone());
 
         // If there is a group that hasn't been assigned to, throw an error.
         if let Some(g) = no_done_group {
@@ -105,7 +104,7 @@ impl Visitor for Papercut<'_> {
         // For example, for a register, both the `.in' port and the
         // `.write_en' port need to be driven.
 
-        for group in &comp.groups {
+        for group in comp.iter_groups() {
             // 1. Build a map from (instance_name, type) to the signals being
             // driven.
             let mut drives: HashMap<(String, String), Vec<String>> =
@@ -149,7 +148,7 @@ impl Visitor for Papercut<'_> {
                         comp_type);
                             return Err(Error::Papercut(
                                 msg,
-                                group.borrow().name.clone(),
+                                group.borrow().name().clone(),
                             ));
                         }
                     }

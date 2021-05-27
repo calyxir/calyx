@@ -50,7 +50,7 @@ impl PostOrder {
 
         // Construct a graph.
         for comp in &comps {
-            for cell in &comp.cells {
+            for cell in comp.iter_cells() {
                 if let CellType::Component { name } = &cell.borrow().prototype {
                     graph.add_edge(rev_map[&name], rev_map[&comp.name], ());
                 }

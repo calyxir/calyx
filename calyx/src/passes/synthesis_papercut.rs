@@ -43,15 +43,14 @@ impl Visitor for SynthesisPapercut {
     ) -> VisResult {
         // Get all the memory cells.
         let memory_cells = comp
-            .cells
-            .iter()
+            .iter_cells()
             .filter_map(|cell| {
                 let cell = &cell.borrow();
                 if let Some(parent) = cell.type_name() {
                     if self.memories.contains(&parent) {
                         let has_external = cell.get_attribute("external");
                         if has_external.is_none() {
-                            return Some(cell.name.clone());
+                            return Some(cell.name().clone());
                         }
                     }
                 }

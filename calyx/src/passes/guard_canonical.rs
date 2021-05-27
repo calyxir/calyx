@@ -54,7 +54,7 @@ impl Visitor for GuardCanonical {
         // a[done] = r1.done ? 1'd1
         //   -> a[done] = r1.done
         // ```
-        for group in &comp.groups {
+        for group in comp.iter_groups() {
             let assigns = group.borrow_mut().assignments.drain(..).collect();
             group.borrow_mut().assignments = update_assigns(assigns);
         }

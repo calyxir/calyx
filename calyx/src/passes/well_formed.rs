@@ -50,23 +50,23 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Check if any of the cells use a reserved name.
-        for cell_ref in &comp.cells {
+        for cell_ref in comp.iter_cells() {
             let cell = cell_ref.borrow();
-            if self.reserved_names.contains(&cell.name.id) {
-                return Err(Error::ReservedName(cell.name.clone()));
+            if self.reserved_names.contains(&cell.name().id) {
+                return Err(Error::ReservedName(cell.name().clone()));
             }
         }
 
         // Check if any groups refer to another group's done signal.
-        for group_ref in &comp.groups {
+        for group_ref in comp.iter_groups() {
             let group = group_ref.borrow();
             for assign in &group.assignments {
                 let dst = assign.dst.borrow();
-                if dst.is_hole() && group.name != dst.get_parent_name() {
+                if dst.is_hole() && *group.name() != dst.get_parent_name() {
                     return Err(
                         Error::MalformedStructure(
                             format!("Group `{}` refers to the done condition of another group (`{}`).",
-                                group.name,
+                                group.name(),
                                 dst.get_parent_name())));
                 }
             }
@@ -140,9 +140,8 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         let all_groups: HashSet<ir::Id> = comp
-            .groups
-            .iter()
-            .map(|g| g.borrow().name.clone())
+            .iter_groups()
+            .map(|g| g.borrow().name().clone())
             .collect();
         let unused_group =
             all_groups.difference(&self.used_groups).into_iter().next();

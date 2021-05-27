@@ -84,14 +84,14 @@ impl IRPrinter {
 
         // Add the cells
         writeln!(f, "  cells {{")?;
-        for cell in &comp.cells {
+        for cell in comp.iter_cells() {
             Self::write_cell(&cell.borrow(), 4, f)?;
         }
         writeln!(f, "  }}")?;
 
         // Add the wires
         writeln!(f, "  wires {{")?;
-        for group in &comp.groups {
+        for group in comp.iter_groups() {
             Self::write_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
         }

@@ -36,8 +36,7 @@ impl Bookkeeper {
     fn new(comp: &ir::Component) -> Self {
         // width map is needed to create new registers with the proper widths
         let widths = comp
-            .cells
-            .iter()
+            .iter_cells()
             .filter_map(|c| {
                 if let ir::CellType::Primitive { name, .. } =
                     &c.borrow().prototype
@@ -45,7 +44,7 @@ impl Bookkeeper {
                     if name == "std_reg" {
                         if let Some(in_port) = c.borrow().find("in") {
                             return Some((
-                                c.borrow().name.clone(),
+                                c.borrow().name().clone(),
                                 in_port.borrow().width,
                             ));
                         }

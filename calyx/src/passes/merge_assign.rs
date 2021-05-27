@@ -65,7 +65,7 @@ impl Visitor for MergeAssign {
         comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
-        for group in &comp.groups {
+        for group in comp.iter_groups() {
             let assigns = group.borrow_mut().assignments.drain(..).collect();
             let merged = merge_assigns(assigns);
             group.borrow_mut().assignments = merged;

@@ -52,7 +52,7 @@ impl Visitor for DeadCellRemoval {
         _sigs: &LibrarySignatures,
     ) -> VisResult {
         // All cells used in groups
-        for group in &comp.groups {
+        for group in comp.iter_groups() {
             self.used_cells.extend(
                 &mut analysis::ReadWriteSet::uses(&group.borrow().assignments)
                     .into_iter()
