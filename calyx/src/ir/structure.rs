@@ -123,7 +123,7 @@ pub enum CellType {
 #[derive(Debug)]
 pub struct Cell {
     /// Name of this cell.
-    pub name: Id,
+    pub(super) name: Id,
     /// Ports on this cell
     pub ports: SmallVec<[RRC<Port>; 10]>,
     /// Underlying type for this cell
@@ -217,6 +217,11 @@ impl Cell {
     {
         self.attributes.insert(attr.into(), value);
     }
+
+    /// Grants immutable access to the name of this cell.
+    pub fn name(&self) -> &Id {
+        &self.name
+    }
 }
 
 /// Represents a guarded assignment in the program
@@ -236,7 +241,7 @@ pub struct Assignment {
 #[derive(Debug)]
 pub struct Group {
     /// Name of this group
-    pub name: Id,
+    pub(super) name: Id,
 
     /// The assignments used in this group
     pub assignments: Vec<Assignment>,
@@ -272,5 +277,10 @@ impl Group {
                 self.name.to_string()
             )
         })
+    }
+
+    /// Grants immutable access to the name of this group.
+    pub fn name(&self) -> &Id {
+        &self.name
     }
 }
