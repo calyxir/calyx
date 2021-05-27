@@ -119,13 +119,14 @@ impl Component {
         let name = cell.borrow().name().clone();
         self.cells.insert(name, cell);
     }
-
+    /// Iterates through the given vec and adds all the cells to the component.
     pub fn add_cells(&mut self, cells: Vec<RRC<Cell>>) {
         for cell in cells {
             self.add_cell(cell)
         }
     }
 
+    /// Retains only those cells specified by the passed function
     pub fn retain_cells<F>(&mut self, mut f: F)
     where
         F: FnMut(&RRC<Cell>) -> bool,
@@ -137,10 +138,12 @@ impl Component {
         }
     }
 
+    /// Removes all groups on this component
     pub fn clear_groups(&mut self) {
         self.groups.clear();
     }
 
+    /// Returns an iterator with ownership over all the cells previously in the component.
     pub fn drain_cells(&mut self) -> impl Iterator<Item = RRC<Cell>> {
         let drain = std::mem::take(&mut self.cells);
 
