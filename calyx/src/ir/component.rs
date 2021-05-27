@@ -117,4 +117,31 @@ impl Component {
     pub fn add_cell(&mut self, cell: RRC<Cell>) {
         self.cells.insert(cell.borrow().name().clone(), cell);
     }
+
+    pub fn add_cells(&mut self, cells: Vec<RRC<Cell>>) {
+        for cell in cells {
+            self.add_cell(cell)
+        }
+    }
+
+    pub fn retain_cells<F>(&mut self, f: F)
+    where
+        F: FnMut(&RRC<Cell>) -> bool,
+    {
+        for entry in self.cells.entries() {
+            if !f(entry.get()) {
+                entry.remove();
+            }
+        }
+    }
+
+    pub fn clear_groups(&mut self) {
+        self.groups.clear();
+    }
+
+    pub fn drain_cells(&mut self) -> impl Iterator<Item = RRC<Cell>> {
+        let drain = std::mem::take(&mut self.cells);
+
+        drain.into_iter().map(|(_, cell)| cell)
+    }
 }

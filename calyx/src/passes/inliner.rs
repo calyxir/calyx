@@ -210,7 +210,7 @@ impl Visitor for Inliner {
         comp.continuous_assignments = assignments;
 
         // remove all groups
-        comp.groups.clear();
+        comp.clear_groups();
 
         // remove group from control
         Ok(Action::Change(ir::Control::empty()))

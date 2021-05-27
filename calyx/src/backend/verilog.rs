@@ -43,7 +43,10 @@ fn validate_guard(guard: &ir::Guard) -> bool {
 }
 
 /// Returns `Ok` if there are no groups defined.
-fn validate_structure(groups: &[RRC<Group>]) -> FutilResult<()> {
+fn validate_structure<'a, I>(groups: I) -> FutilResult<()>
+where
+    I: Iterator<Item = &'a RRC<Group>>,
+{
     for group in groups {
         for asgn in &group.borrow().assignments {
             let port = asgn.dst.borrow();
@@ -81,7 +84,7 @@ impl Backend for VerilogBackend {
 
     fn validate(ctx: &ir::Context) -> FutilResult<()> {
         for component in &ctx.components {
-            validate_structure(&component.groups)?;
+            validate_structure(component.iter_groups())?;
             validate_control(&component.control.borrow())?;
         }
         Ok(())

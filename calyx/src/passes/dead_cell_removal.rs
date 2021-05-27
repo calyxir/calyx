@@ -68,8 +68,7 @@ impl Visitor for DeadCellRemoval {
         );
 
         // Remove cells that are not used.
-        comp.cells
-            .retain(|c| self.used_cells.contains(&c.borrow().name));
+        comp.retain_cells(|c| self.used_cells.contains(&c.borrow().name()));
 
         Ok(Action::Stop)
     }
