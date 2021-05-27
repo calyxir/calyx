@@ -3,6 +3,7 @@ use super::{
     Id, RRC,
 };
 use crate::utils;
+use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -18,9 +19,9 @@ pub struct Component {
     /// The input/output signature of this component.
     pub signature: RRC<Cell>,
     /// The cells instantiated for this component.
-    pub cells: Vec<RRC<Cell>>,
+    cells: LinkedHashMap<Id, RRC<Cell>>,
     /// Groups of assignment wires.
-    pub groups: Vec<RRC<Group>>,
+    groups: LinkedHashMap<Id, RRC<Group>>,
     /// The set of "continuous assignments", i.e., assignments that are always
     /// active.
     pub continuous_assignments: Vec<Assignment>,
@@ -64,8 +65,8 @@ impl Component {
         Component {
             name: name.as_ref().into(),
             signature: this_sig,
-            cells: vec![],
-            groups: vec![],
+            cells: LinkedHashMap::new(),
+            groups: LinkedHashMap::new(),
             continuous_assignments: vec![],
             control: Rc::new(RefCell::new(Control::empty())),
             namegen: utils::NameGenerator::default(),
@@ -78,10 +79,7 @@ impl Component {
     where
         S: Clone + AsRef<str>,
     {
-        self.groups
-            .iter()
-            .find(|&g| g.borrow().name == *name)
-            .map(|r| Rc::clone(r))
+        self.groups.get(&name.as_ref().into()).map(|r| Rc::clone(r))
     }
 
     /// Return a reference to the cell with `name` if present.
@@ -89,10 +87,7 @@ impl Component {
     where
         S: Clone + AsRef<str>,
     {
-        self.cells
-            .iter()
-            .find(|&g| g.borrow().name == *name)
-            .map(|r| Rc::clone(r))
+        self.cells.get(&name.as_ref().into()).map(|r| Rc::clone(r))
     }
 
     /// Construct a non-conflicting name using the Component's namegenerator.
