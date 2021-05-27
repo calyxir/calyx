@@ -5,6 +5,7 @@ use super::{environment::Environment, interpreter};
 use calyx::{
     errors::{Error, FutilResult},
     ir,
+    ir::RRC,
 };
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -25,11 +26,10 @@ impl GroupInterpreter {
         let comp = get_component(ctx, &self.component)?;
 
         // Intialize environment
-        let map = construct_map(&comp.cells);
+        let map = construct_map(comp.iter_cells());
         let cellmap = comp
-            .cells
-            .iter()
-            .map(|cell| (cell.borrow().name.clone(), Rc::clone(&cell)))
+            .iter_cells()
+            .map(|cell| (cell.borrow().name().clone(), Rc::clone(&cell)))
             .collect::<HashMap<_, _>>();
 
         // Initial state of the environment
@@ -63,9 +63,10 @@ fn get_component(
 }
 
 /// Construct a map from cell ids to a map from the cell's ports' ids to the ports' values
-fn construct_map(
-    cells: &[ir::RRC<ir::Cell>],
-) -> HashMap<ir::Id, HashMap<ir::Id, u64>> {
+fn construct_map<'a, I>(cells: I) -> HashMap<ir::Id, HashMap<ir::Id, u64>>
+where
+    I: Iterator<Item = &'a RRC<ir::Cell>>,
+{
     let mut map = HashMap::new();
     for cell in cells {
         let cb = cell.borrow();
@@ -75,7 +76,7 @@ fn construct_map(
             // A Calyx constant cell's out port is that constant's value
             ir::CellType::Constant { val, .. } => {
                 ports.insert(ir::Id::from("out"), *val);
-                map.insert(cb.name.clone(), ports);
+                map.insert(cb.name().clone(), ports);
             }
             ir::CellType::Primitive { .. } => {
                 for port in &cb.ports {
@@ -87,7 +88,7 @@ fn construct_map(
 
                     ports.insert(pb.name.clone(), initval);
                 }
-                map.insert(cb.name.clone(), ports);
+                map.insert(cb.name().clone(), ports);
             }
             _ => panic!("component"),
         }

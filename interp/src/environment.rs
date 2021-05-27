@@ -126,7 +126,7 @@ impl Environment {
     pub fn get_cell(&self, cell: &ir::Id) -> Option<ir::RRC<ir::Cell>> {
         self.cells
             .values()
-            .find(|&g| g.borrow().name == *cell)
+            .find(|&g| g.borrow().name() == cell)
             .map(|r| Rc::clone(r))
     }
 
