@@ -97,4 +97,24 @@ impl Component {
     {
         self.namegen.gen_name(prefix)
     }
+
+    /// Returns an iterator over the groups contained in this component.
+    pub fn iter_groups(&self) -> impl Iterator<Item = &RRC<Group>> {
+        self.groups.values()
+    }
+
+    /// Returns an iterator over the cells contained in this component.
+    pub fn iter_cells(&self) -> impl Iterator<Item = &RRC<Cell>> {
+        self.cells.values()
+    }
+
+    /// Adds the given group to the component.
+    pub fn add_group(&mut self, group: RRC<Group>) {
+        self.groups.insert(group.borrow().name().clone(), group);
+    }
+
+    /// Adds the given cell to the component.
+    pub fn add_cell(&mut self, cell: RRC<Cell>) {
+        self.cells.insert(cell.borrow().name().clone(), cell);
+    }
 }
