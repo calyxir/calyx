@@ -65,7 +65,7 @@ impl ShareComponents for ResourceSharing {
                     analysis::ReadWriteSet::uses(&group.borrow().assignments)
                         .into_iter()
                         .filter(|cell| self.cell_filter(&cell.borrow()))
-                        .map(|cell| cell.borrow().name.clone())
+                        .map(|cell| cell.borrow().name().clone())
                         .collect::<Vec<_>>(),
                 )
             })

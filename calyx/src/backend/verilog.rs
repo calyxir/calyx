@@ -219,7 +219,7 @@ fn wire_decls(cell: &ir::Cell) -> Vec<(String, u64, ir::Direction)> {
                     | ir::CellType::Primitive { .. } => Some((
                         format!(
                             "{}_{}",
-                            parent.name.as_ref(),
+                            parent.name().as_ref(),
                             port.borrow().name.as_ref()
                         ),
                         port.borrow().width,
@@ -237,7 +237,7 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
     match cell.type_name() {
         Some(ty_name) => {
             let mut inst =
-                v::Instance::new(cell.name.as_ref(), ty_name.as_ref());
+                v::Instance::new(cell.name().as_ref(), ty_name.as_ref());
 
             if let ir::CellType::Primitive { param_binding, .. } =
                 &cell.prototype
@@ -288,7 +288,7 @@ fn port_to_ref(port_ref: RRC<ir::Port>) -> v::Expr {
                 ir::CellType::ThisComponent => v::Expr::new_ref(&port.name),
                 _ => v::Expr::Ref(format!(
                     "{}_{}",
-                    parent.name.as_ref(),
+                    parent.name().as_ref(),
                     port.name.as_ref()
                 )),
             }

@@ -74,8 +74,9 @@ impl Visitor for Papercut<'_> {
                 let assign = assign_ref.dst.borrow();
                 if assign.is_hole() && assign.name == "done" {
                     if let ir::PortParent::Group(group_ref) = &assign.parent {
-                        hole_writes
-                            .insert(group_ref.upgrade().borrow().name.clone());
+                        hole_writes.insert(
+                            group_ref.upgrade().borrow().name().clone(),
+                        );
                     }
                 }
             }
@@ -122,7 +123,7 @@ impl Visitor for Papercut<'_> {
                         &cell.prototype
                     {
                         drives
-                            .entry((cell.name.id.clone(), name.id.clone()))
+                            .entry((cell.name().id.clone(), name.id.clone()))
                             .or_insert_with(Vec::new)
                             .push(dst.name.id.clone())
                     }

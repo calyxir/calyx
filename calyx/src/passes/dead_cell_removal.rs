@@ -41,7 +41,7 @@ impl Visitor for DeadCellRemoval {
                 .map(|(_, port)| port.borrow().get_parent_name()),
         );
 
-        self.used_cells.insert(s.comp.borrow().name.clone());
+        self.used_cells.insert(s.comp.borrow().name().clone());
 
         Ok(Action::Continue)
     }
@@ -56,7 +56,7 @@ impl Visitor for DeadCellRemoval {
             self.used_cells.extend(
                 &mut analysis::ReadWriteSet::uses(&group.borrow().assignments)
                     .into_iter()
-                    .map(|c| c.borrow().name.clone()),
+                    .map(|c| c.borrow().name().clone()),
             )
         }
 
@@ -64,7 +64,7 @@ impl Visitor for DeadCellRemoval {
         self.used_cells.extend(
             &mut analysis::ReadWriteSet::uses(&comp.continuous_assignments)
                 .into_iter()
-                .map(|c| c.borrow().name.clone()),
+                .map(|c| c.borrow().name().clone()),
         );
 
         // Remove cells that are not used.

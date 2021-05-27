@@ -81,7 +81,7 @@ impl Visitor for WellFormed {
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
-        self.used_groups.insert(s.group.borrow().name.clone());
+        self.used_groups.insert(s.group.borrow().name().clone());
         Ok(Action::Continue)
     }
 
@@ -96,7 +96,7 @@ impl Visitor for WellFormed {
                 panic!(
                     "Input argument `{}` for `invoke {}` uses non-output port: `{}`. Input arguments should use output ports.",
                     id,
-                    s.comp.borrow().name,
+                    s.comp.borrow().name(),
                     port.borrow().name)
             }
         }
@@ -105,7 +105,7 @@ impl Visitor for WellFormed {
                 panic!(
                     "Output argument `{}` for `invoke {}` uses non-input port: `{}`. Output arguments should use input ports.",
                     id,
-                    s.comp.borrow().name,
+                    s.comp.borrow().name(),
                     port.borrow().name)
             }
         }
@@ -119,7 +119,7 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Add cond group as a used port.
-        self.used_groups.insert(s.cond.borrow().name.clone());
+        self.used_groups.insert(s.cond.borrow().name().clone());
         Ok(Action::Continue)
     }
 
@@ -130,7 +130,7 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Add cond group as a used port.
-        self.used_groups.insert(s.cond.borrow().name.clone());
+        self.used_groups.insert(s.cond.borrow().name().clone());
         Ok(Action::Continue)
     }
 

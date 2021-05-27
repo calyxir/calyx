@@ -97,7 +97,7 @@ impl Bookkeeper {
                             &[*self.widths.get(name).unwrap()],
                         )
                         .borrow()
-                        .name
+                        .name()
                         .clone();
                     rename_list.push((
                         new_name.clone(),
