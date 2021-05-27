@@ -110,12 +110,14 @@ impl Component {
 
     /// Adds the given group to the component.
     pub fn add_group(&mut self, group: RRC<Group>) {
-        self.groups.insert(group.borrow().name().clone(), group);
+        let name = group.borrow().name().clone();
+        self.groups.insert(name, group);
     }
 
     /// Adds the given cell to the component.
     pub fn add_cell(&mut self, cell: RRC<Cell>) {
-        self.cells.insert(cell.borrow().name().clone(), cell);
+        let name = cell.borrow().name().clone();
+        self.cells.insert(name, cell);
     }
 
     pub fn add_cells(&mut self, cells: Vec<RRC<Cell>>) {
@@ -124,7 +126,7 @@ impl Component {
         }
     }
 
-    pub fn retain_cells<F>(&mut self, f: F)
+    pub fn retain_cells<F>(&mut self, mut f: F)
     where
         F: FnMut(&RRC<Cell>) -> bool,
     {
