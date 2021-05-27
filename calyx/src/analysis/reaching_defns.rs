@@ -205,7 +205,7 @@ impl ReachingDefinitionAnalysis {
                     let cell_ref = cell.borrow();
                     if let Some(name) = cell_ref.type_name() {
                         if name == "std_reg" {
-                            return Some(cell_ref.name.clone());
+                            return Some(cell_ref.name().clone());
                         }
                     }
                     None
@@ -396,7 +396,7 @@ fn build_reaching_def(
                                 ir::Id::from(name.clone()),
                             );
                             return Some((
-                                parent.name.clone(),
+                                parent.name().clone(),
                                 GroupOrInvoke::Invoke(ir::Id::from(name)),
                             ));
                         }
@@ -421,21 +421,21 @@ fn build_reaching_def(
                     ir::CellType::Primitive { name, .. } => name == "std_reg",
                     _ => false,
                 })
-                .map(|x| x.borrow().name.clone())
+                .map(|x| x.borrow().name().clone())
                 .collect::<BTreeSet<_>>();
 
             let read_set =
                 ReadWriteSet::register_reads(&en.group.borrow().assignments)
                     .iter()
-                    .map(|x| x.borrow().name.clone())
+                    .map(|x| x.borrow().name().clone())
                     .collect::<BTreeSet<_>>();
             // only kill a def if the value is not read.
             let (mut cur_reach, killed) =
                 reach.kill_from_writeread(&write_set, &read_set);
-            cur_reach.extend(write_set, &en.group.borrow().name);
+            cur_reach.extend(write_set, &en.group.borrow().name());
 
             rd.reach.insert(
-                GroupOrInvoke::Group(en.group.borrow().name.clone()),
+                GroupOrInvoke::Group(en.group.borrow().name().clone()),
                 cur_reach.clone(),
             );
 

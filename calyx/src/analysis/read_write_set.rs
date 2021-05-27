@@ -30,7 +30,7 @@ impl ReadWriteSet {
                 }
             })
             .chain(guard_ports)
-            .unique_by(|cell| cell.borrow().name.clone())
+            .unique_by(|cell| cell.borrow().name().clone())
             .collect()
     }
 
@@ -67,7 +67,7 @@ impl ReadWriteSet {
                     false
                 }
             })
-            .unique_by(|cell| cell.borrow().name.clone())
+            .unique_by(|cell| cell.borrow().name().clone())
             .collect()
     }
 
@@ -84,7 +84,7 @@ impl ReadWriteSet {
                     None
                 }
             })
-            .unique_by(|cell| cell.borrow().name.clone())
+            .unique_by(|cell| cell.borrow().name().clone())
             .collect()
     }
 
@@ -103,7 +103,7 @@ impl ReadWriteSet {
                 }
                 None
             })
-            .unique_by(|cell| cell.borrow().name.clone())
+            .unique_by(|cell| cell.borrow().name().clone())
             .collect()
     }
 
@@ -114,7 +114,7 @@ impl ReadWriteSet {
         reads.append(&mut Self::write_set(assigns));
         reads
             .into_iter()
-            .unique_by(|cell| cell.borrow().name.clone())
+            .unique_by(|cell| cell.borrow().name().clone())
             .collect()
     }
 }

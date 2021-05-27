@@ -245,7 +245,7 @@ impl LiveRangeAnalysis {
             ReadWriteSet::read_set(&comp.continuous_assignments)
                 .into_iter()
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
-                .map(|c| c.borrow().name.clone())
+                .map(|c| c.borrow().name().clone())
                 .collect::<HashSet<_>>()
                 .into();
         for (_, prop) in ranges.live.iter_mut() {
@@ -312,7 +312,7 @@ impl LiveRangeAnalysis {
             let reads: HashSet<_> = ReadWriteSet::read_set(&assignments)
                 .into_iter()
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
-                .map(|c| c.borrow().name.clone())
+                .map(|c| c.borrow().name().clone())
                 .collect();
 
             let mut writes = HashSet::new();
@@ -323,7 +323,7 @@ impl LiveRangeAnalysis {
             let reads: HashSet<_> = ReadWriteSet::read_set(&group.assignments)
                 .into_iter()
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
-                .map(|c| c.borrow().name.clone())
+                .map(|c| c.borrow().name().clone())
                 .collect();
 
             // only consider write assignments where the guard is true
@@ -337,7 +337,7 @@ impl LiveRangeAnalysis {
             let writes: HashSet<_> = ReadWriteSet::write_set(&assignments)
                 .into_iter()
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
-                .map(|c| c.borrow().name.clone())
+                .map(|c| c.borrow().name().clone())
                 .collect();
 
             (reads.into(), writes.into())
@@ -402,7 +402,7 @@ fn build_live_ranges(
             // set the live set of this node to be the things live on the
             // output of this node plus the things written to in this group
             lr.live
-                .insert(group.borrow().name.clone(), &alive | &writes);
+                .insert(group.borrow().name().clone(), &alive | &writes);
             (alive, &gens | &reads, &kills | &writes)
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => stmts.iter().rev().fold(
