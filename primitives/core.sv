@@ -199,6 +199,17 @@ module std_rsh #(
   assign out = left >> right;
 endmodule
 
+module std_mux #(
+    parameter WIDTH = 32
+) (
+   input wire               logic cond,
+   input wire               logic [WIDTH-1:0] tru,
+   input wire               logic [WIDTH-1:0] fal,
+   output logic [WIDTH-1:0] out
+);
+  assign out = cond ? tru : fal;
+endmodule
+
 /// Memories
 module std_reg #(
     parameter WIDTH = 32
