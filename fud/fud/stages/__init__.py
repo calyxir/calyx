@@ -50,7 +50,9 @@ class Source:
         SourceType.Path: {
             SourceType.Directory: conv.path_to_directory,
             SourceType.Stream: conv.path_to_stream,
-            SourceType.String: lambda p: conv.stream_to_string(conv.path_to_stream(p)),
+            SourceType.String: lambda p: conv.bytes_to_string(
+                conv.stream_to_bytes(conv.path_to_stream(p))
+            ),
             SourceType.Bytes: lambda p: conv.stream_to_bytes(conv.path_to_stream(p)),
         },
         SourceType.Stream: {
