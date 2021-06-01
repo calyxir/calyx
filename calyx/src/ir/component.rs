@@ -1,6 +1,6 @@
 use super::{
-    Assignment, Attributes, Builder, Cell, CellType, Control, Direction,
-    GetName, Group, Id, RRC,
+    Assignment, Attributes, Builder, Cell, CellType, CloneName, Control,
+    Direction, GetName, Group, Id, RRC,
 };
 use crate::utils;
 use linked_hash_map::LinkedHashMap;
@@ -119,7 +119,7 @@ impl<T: GetName> IdList<T> {
     }
 
     pub fn add(&mut self, item: RRC<T>) {
-        let name = item.borrow().name().clone();
+        let name = item.clone_name();
         self.0.insert(name, item);
     }
 

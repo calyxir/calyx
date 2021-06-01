@@ -4,8 +4,7 @@
 use super::{environment::Environment, interpreter};
 use calyx::{
     errors::{Error, FutilResult},
-    ir,
-    ir::RRC,
+    ir::{self, CloneName, RRC},
 };
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -30,7 +29,7 @@ impl GroupInterpreter {
         let cellmap = comp
             .cells
             .iter()
-            .map(|cell| (cell.borrow().name().clone(), Rc::clone(&cell)))
+            .map(|cell| (cell.clone_name(), Rc::clone(&cell)))
             .collect::<HashMap<_, _>>();
 
         // Initial state of the environment

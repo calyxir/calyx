@@ -2,7 +2,7 @@ use crate::analysis::reaching_defns::{
     GroupOrInvoke, ReachingDefinitionAnalysis,
 };
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, Builder, Cell, LibrarySignatures, RRC};
+use crate::ir::{self, Builder, Cell, CloneName, LibrarySignatures, RRC};
 use std::{collections::HashMap, rc::Rc};
 
 #[derive(Default)]
@@ -45,7 +45,7 @@ impl Bookkeeper {
                     if name == "std_reg" {
                         if let Some(in_port) = c.borrow().find("in") {
                             return Some((
-                                c.borrow().name().clone(),
+                                c.clone_name(),
                                 in_port.borrow().width,
                             ));
                         }

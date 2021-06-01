@@ -4,7 +4,7 @@ use crate::{
 };
 use ir::{
     traversal::{Action, VisResult, Visitor},
-    RRC,
+    CloneName, RRC,
 };
 use itertools::Itertools;
 use std::{collections::HashMap, rc::Rc};
@@ -88,12 +88,7 @@ impl<T: ShareComponents> Visitor for T {
             || comp.cells.iter().filter(|c| self.cell_filter(&c.borrow()));
 
         let id_to_type: HashMap<ir::Id, ir::CellType> = cells()
-            .map(|cell| {
-                (
-                    cell.borrow().name().clone(),
-                    cell.borrow().prototype.clone(),
-                )
-            })
+            .map(|cell| (cell.clone_name(), cell.borrow().prototype.clone()))
             .collect();
 
         let mut cells_by_type: HashMap<ir::CellType, Vec<ir::Id>> =
@@ -101,8 +96,8 @@ impl<T: ShareComponents> Visitor for T {
         for cell in cells() {
             cells_by_type
                 .entry(cell.borrow().prototype.clone())
-                .and_modify(|v| v.push(cell.borrow().name().clone()))
-                .or_insert_with(|| vec![cell.borrow().name().clone()]);
+                .and_modify(|v| v.push(cell.clone_name()))
+                .or_insert_with(|| vec![cell.clone_name()]);
         }
 
         let mut graphs_by_type: HashMap<ir::CellType, GraphColoring<ir::Id>> =

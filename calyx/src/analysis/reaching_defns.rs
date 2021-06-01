@@ -1,5 +1,5 @@
 use crate::analysis::ReadWriteSet;
-use crate::ir;
+use crate::ir::{self, CloneName};
 use std::cmp::Ordering;
 use std::cmp::{Ord, PartialOrd};
 use std::{
@@ -421,13 +421,13 @@ fn build_reaching_def(
                     ir::CellType::Primitive { name, .. } => name == "std_reg",
                     _ => false,
                 })
-                .map(|x| x.borrow().name().clone())
+                .map(|x| x.clone_name())
                 .collect::<BTreeSet<_>>();
 
             let read_set =
                 ReadWriteSet::register_reads(&en.group.borrow().assignments)
                     .iter()
-                    .map(|x| x.borrow().name().clone())
+                    .map(|x| x.clone_name())
                     .collect::<BTreeSet<_>>();
             // only kill a def if the value is not read.
             let (mut cur_reach, killed) =
@@ -435,7 +435,7 @@ fn build_reaching_def(
             cur_reach.extend(write_set, &en.group.borrow().name());
 
             rd.reach.insert(
-                GroupOrInvoke::Group(en.group.borrow().name().clone()),
+                GroupOrInvoke::Group(en.group.clone_name()),
                 cur_reach.clone(),
             );
 

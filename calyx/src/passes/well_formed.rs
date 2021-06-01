@@ -1,6 +1,6 @@
 use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, Component, LibrarySignatures};
+use crate::ir::{self, CloneName, Component, LibrarySignatures};
 use std::collections::HashSet;
 
 /// Pass to check if the program is well-formed.
@@ -81,7 +81,7 @@ impl Visitor for WellFormed {
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
-        self.used_groups.insert(s.group.borrow().name().clone());
+        self.used_groups.insert(s.group.clone_name());
         Ok(Action::Continue)
     }
 
@@ -119,7 +119,7 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Add cond group as a used port.
-        self.used_groups.insert(s.cond.borrow().name().clone());
+        self.used_groups.insert(s.cond.clone_name());
         Ok(Action::Continue)
     }
 
@@ -130,7 +130,7 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Add cond group as a used port.
-        self.used_groups.insert(s.cond.borrow().name().clone());
+        self.used_groups.insert(s.cond.clone_name());
         Ok(Action::Continue)
     }
 
@@ -139,11 +139,8 @@ impl Visitor for WellFormed {
         comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
-        let all_groups: HashSet<ir::Id> = comp
-            .groups
-            .iter()
-            .map(|g| g.borrow().name().clone())
-            .collect();
+        let all_groups: HashSet<ir::Id> =
+            comp.groups.iter().map(|g| g.clone_name()).collect();
         let unused_group =
             all_groups.difference(&self.used_groups).into_iter().next();
         match unused_group {

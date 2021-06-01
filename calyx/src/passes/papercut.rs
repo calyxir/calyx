@@ -1,6 +1,6 @@
 use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, LibrarySignatures};
+use crate::ir::{self, CloneName, LibrarySignatures};
 use std::collections::{HashMap, HashSet};
 
 /// Pass to check for common errors such as missing assignments to `done` holes
@@ -74,9 +74,7 @@ impl Visitor for Papercut<'_> {
                 let assign = assign_ref.dst.borrow();
                 if assign.is_hole() && assign.name == "done" {
                     if let ir::PortParent::Group(group_ref) = &assign.parent {
-                        hole_writes.insert(
-                            group_ref.upgrade().borrow().name().clone(),
-                        );
+                        hole_writes.insert(group_ref.upgrade().clone_name());
                     }
                 }
             }
@@ -86,7 +84,7 @@ impl Visitor for Papercut<'_> {
             .groups
             .iter()
             .find(|g| !hole_writes.contains(&g.borrow().name()))
-            .map(|g| g.borrow().name().clone());
+            .map(|g| g.clone_name());
 
         // If there is a group that hasn't been assigned to, throw an error.
         if let Some(g) = no_done_group {
@@ -149,7 +147,7 @@ impl Visitor for Papercut<'_> {
                         comp_type);
                             return Err(Error::Papercut(
                                 msg,
-                                group.borrow().name().clone(),
+                                group.clone_name(),
                             ));
                         }
                     }
