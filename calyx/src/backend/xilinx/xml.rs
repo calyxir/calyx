@@ -127,7 +127,8 @@ impl Backend for XilinxXmlBackend {
         }];
 
         let memories: Vec<(String, String)> = toplevel
-            .iter_cells()
+            .cells
+            .iter()
             .filter(|cell_ref| {
                 matches!(cell_ref.borrow().get_attribute("external"), Some(&1))
             })

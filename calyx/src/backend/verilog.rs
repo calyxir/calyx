@@ -84,7 +84,7 @@ impl Backend for VerilogBackend {
 
     fn validate(ctx: &ir::Context) -> FutilResult<()> {
         for component in &ctx.components {
-            validate_structure(component.iter_groups())?;
+            validate_structure(component.groups.iter())?;
             validate_control(&component.control.borrow())?;
         }
         Ok(())
@@ -158,7 +158,8 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
     }
 
     let wires = comp
-        .iter_cells()
+        .cells
+        .iter()
         .flat_map(|cell| wire_decls(&cell.borrow()))
         .collect_vec();
     // structure wire declarations
@@ -185,7 +186,8 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
     module.add_process(initial);
 
     // cell instances
-    comp.iter_cells()
+    comp.cells
+        .iter()
         .filter_map(|cell| cell_instance(&cell.borrow()))
         .for_each(|instance| {
             module.add_instance(instance);
@@ -371,24 +373,22 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
             ],
         )));
 
-    let memories = || {
-        comp.iter_cells().filter_map(|cell| {
-            let is_external = cell.borrow().get_attribute("external").is_some();
-            if is_external
-                && cell
-                    .borrow()
-                    .type_name()
-                    .map(|proto| proto.id.contains("mem"))
-                    .unwrap_or_default()
-            {
-                Some(cell.borrow().name().id.clone())
-            } else {
-                None
-            }
-        })
-    };
+    let memories = comp.cells.iter().filter_map(|cell| {
+        let is_external = cell.borrow().get_attribute("external").is_some();
+        if is_external
+            && cell
+                .borrow()
+                .type_name()
+                .map(|proto| proto.id.contains("mem"))
+                .unwrap_or_default()
+        {
+            Some(cell.borrow().name().id.clone())
+        } else {
+            None
+        }
+    });
 
-    memories().for_each(|name| {
+    memories.clone().for_each(|name| {
         initial_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$readmemh",
             vec![
@@ -404,7 +404,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
     });
 
     let mut final_block = v::ParallelProcess::new_final();
-    memories().for_each(|name| {
+    memories.for_each(|name| {
         final_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$writememh",
             vec![

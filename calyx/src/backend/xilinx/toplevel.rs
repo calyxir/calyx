@@ -75,7 +75,8 @@ impl Backend for XilinxInterfaceBackend {
 
 fn external_memories(comp: &ir::Component) -> Vec<String> {
     // find external memories
-    comp.iter_cells()
+    comp.cells
+        .iter()
         .filter(|cell_ref| {
             matches!(cell_ref.borrow().get_attribute("external"), Some(&1))
         })

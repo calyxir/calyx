@@ -1,3 +1,4 @@
+use super::CloneName;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
@@ -36,5 +37,11 @@ impl<T> Clone for WRC<T> {
         Self {
             internal: Weak::clone(&self.internal),
         }
+    }
+}
+
+impl<T: CloneName> CloneName for RRC<T> {
+    fn clone_name(&self) -> super::Id {
+        self.borrow().clone_name()
     }
 }

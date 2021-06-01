@@ -50,7 +50,7 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Check if any of the cells use a reserved name.
-        for cell_ref in comp.iter_cells() {
+        for cell_ref in comp.cells.iter() {
             let cell = cell_ref.borrow();
             if self.reserved_names.contains(&cell.name().id) {
                 return Err(Error::ReservedName(cell.name().clone()));
@@ -58,7 +58,7 @@ impl Visitor for WellFormed {
         }
 
         // Check if any groups refer to another group's done signal.
-        for group_ref in comp.iter_groups() {
+        for group_ref in comp.groups.iter() {
             let group = group_ref.borrow();
             for assign in &group.assignments {
                 let dst = assign.dst.borrow();
@@ -140,7 +140,8 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         let all_groups: HashSet<ir::Id> = comp
-            .iter_groups()
+            .groups
+            .iter()
             .map(|g| g.borrow().name().clone())
             .collect();
         let unused_group =

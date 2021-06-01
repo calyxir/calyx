@@ -220,7 +220,7 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
                 .collect::<Result<Vec<_>, _>>()
                 .expect("Failed to build component"),
         );
-        builder.component.add_cell(Rc::clone(&cell));
+        builder.component.cells.add(Rc::clone(&cell));
         cell
     };
 

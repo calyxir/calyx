@@ -43,7 +43,8 @@ impl Visitor for SynthesisPapercut {
     ) -> VisResult {
         // Get all the memory cells.
         let memory_cells = comp
-            .iter_cells()
+            .cells
+            .iter()
             .filter_map(|cell| {
                 let cell = &cell.borrow();
                 if let Some(parent) = cell.type_name() {

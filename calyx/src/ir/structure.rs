@@ -252,7 +252,6 @@ pub struct Group {
     /// Attributes for this group.
     pub attributes: Attributes,
 }
-
 impl Group {
     /// Get a reference to the named hole if it exists.
     pub fn find<S>(&self, name: &S) -> Option<RRC<Port>>
@@ -279,8 +278,33 @@ impl Group {
         })
     }
 
-    /// Grants immutable access to the name of this group.
     pub fn name(&self) -> &Id {
         &self.name
+    }
+}
+
+pub trait GetName {
+    fn name(&self) -> &Id;
+}
+
+impl GetName for Cell {
+    fn name(&self) -> &Id {
+        self.name()
+    }
+}
+
+impl GetName for Group {
+    fn name(&self) -> &Id {
+        self.name()
+    }
+}
+
+pub trait CloneName {
+    fn clone_name(&self) -> super::Id;
+}
+
+impl<T: GetName> CloneName for T {
+    fn clone_name(&self) -> super::Id {
+        self.name().clone()
     }
 }

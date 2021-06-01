@@ -85,7 +85,7 @@ impl<T: ShareComponents> Visitor for T {
         self.initialize(&comp, &sigs);
 
         let cells =
-            || comp.iter_cells().filter(|c| self.cell_filter(&c.borrow()));
+            || comp.cells.iter().filter(|c| self.cell_filter(&c.borrow()));
 
         let id_to_type: HashMap<ir::Id, ir::CellType> = cells()
             .map(|cell| {
@@ -171,7 +171,7 @@ impl<T: ShareComponents> Visitor for T {
         // apply the coloring as a renaming of registers for both groups
         // and continuous assignments
         let builder = ir::Builder::from(comp, sigs, false);
-        for group_ref in builder.component.iter_groups() {
+        for group_ref in builder.component.groups.iter() {
             let mut group = group_ref.borrow_mut();
             let mut assigns: Vec<_> = group.assignments.drain(..).collect();
             builder.rename_port_uses(&coloring, &mut assigns);

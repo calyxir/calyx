@@ -28,20 +28,18 @@ impl Visitor for ClkInsertion {
     ) -> VisResult {
         let builder = ir::Builder::from(comp, sigs, false);
 
-        let mut continuous_assignments =
-            std::mem::take(&mut builder.component.continuous_assignments);
-
-        for cell_ref in builder.component.iter_cells() {
+        for cell_ref in builder.component.cells.iter() {
             let cell = cell_ref.borrow();
             if let Some(port) = cell.find("clk") {
-                continuous_assignments.push(builder.build_assignment(
-                    port,
-                    builder.component.signature.borrow().get("clk"),
-                    ir::Guard::True,
-                ))
+                builder.component.continuous_assignments.push(
+                    builder.build_assignment(
+                        port,
+                        builder.component.signature.borrow().get("clk"),
+                        ir::Guard::True,
+                    ),
+                )
             }
         }
-        comp.continuous_assignments = continuous_assignments;
 
         // we don't need to traverse control
         Ok(Action::Stop)

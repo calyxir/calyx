@@ -62,7 +62,7 @@ impl<'a> Builder<'a> {
         }
 
         // Add the group to the component.
-        self.component.add_group(Rc::clone(&group));
+        self.component.groups.add(Rc::clone(&group));
 
         group
     }
@@ -76,8 +76,9 @@ impl<'a> Builder<'a> {
         // cell.
         if let Some(cell) = self
             .component
-            .iter_cells()
-            .find(|&c| c.borrow().name == name)
+            .cells
+            .iter()
+            .find(|&c| *c.borrow().name() == name)
         {
             return Rc::clone(cell);
         }
@@ -95,7 +96,7 @@ impl<'a> Builder<'a> {
         );
 
         // Add constant to the Component.
-        self.component.add_cell(Rc::clone(&cell));
+        self.component.cells.add(Rc::clone(&cell));
 
         cell
     }
@@ -135,7 +136,7 @@ impl<'a> Builder<'a> {
             },
             ports,
         );
-        self.component.add_cell(Rc::clone(&cell));
+        self.component.cells.add(Rc::clone(&cell));
         cell
     }
 

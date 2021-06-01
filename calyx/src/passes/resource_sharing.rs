@@ -57,7 +57,8 @@ impl ShareComponents for ResourceSharing {
         _sigs: &ir::LibrarySignatures,
     ) {
         self.used_cells_map = component
-            .iter_groups()
+            .groups
+            .iter()
             .map(|group| {
                 (
                     group.borrow().name().clone(),

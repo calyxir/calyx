@@ -1,6 +1,6 @@
 use super::{
-    Assignment, Attributes, Builder, Cell, CellType, Control, Direction, Group,
-    Id, RRC,
+    Assignment, Attributes, Builder, Cell, CellType, Control, Direction,
+    GetName, Group, Id, RRC,
 };
 use crate::utils;
 use linked_hash_map::LinkedHashMap;
@@ -19,9 +19,9 @@ pub struct Component {
     /// The input/output signature of this component.
     pub signature: RRC<Cell>,
     /// The cells instantiated for this component.
-    cells: LinkedHashMap<Id, RRC<Cell>>,
+    pub cells: IdList<Cell>,
     /// Groups of assignment wires.
-    groups: LinkedHashMap<Id, RRC<Group>>,
+    pub groups: IdList<Group>,
     /// The set of "continuous assignments", i.e., assignments that are always
     /// active.
     pub continuous_assignments: Vec<Assignment>,
@@ -65,8 +65,8 @@ impl Component {
         Component {
             name: name.as_ref().into(),
             signature: this_sig,
-            cells: LinkedHashMap::new(),
-            groups: LinkedHashMap::new(),
+            cells: IdList::default(),
+            groups: IdList::default(),
             continuous_assignments: vec![],
             control: Rc::new(RefCell::new(Control::empty())),
             namegen: utils::NameGenerator::default(),
@@ -79,7 +79,7 @@ impl Component {
     where
         S: Clone + AsRef<str>,
     {
-        self.groups.get(&name.as_ref().into()).map(|r| Rc::clone(r))
+        self.groups.find(name)
     }
 
     /// Return a reference to the cell with `name` if present.
@@ -87,7 +87,7 @@ impl Component {
     where
         S: Clone + AsRef<str>,
     {
-        self.cells.get(&name.as_ref().into()).map(|r| Rc::clone(r))
+        self.cells.find(name)
     }
 
     /// Construct a non-conflicting name using the Component's namegenerator.
@@ -97,56 +97,68 @@ impl Component {
     {
         self.namegen.gen_name(prefix)
     }
+}
 
-    /// Returns an iterator over the groups contained in this component.
-    pub fn iter_groups(&self) -> impl Iterator<Item = &RRC<Group>> {
-        self.groups.values()
+#[derive(Debug)]
+pub struct IdList<T: GetName>(LinkedHashMap<Id, RRC<T>>);
+
+impl<T: GetName> IdList<T> {
+    pub fn clear(&mut self) {
+        self.0.clear();
     }
 
-    /// Returns an iterator over the cells contained in this component.
-    pub fn iter_cells(&self) -> impl Iterator<Item = &RRC<Cell>> {
-        self.cells.values()
-    }
-
-    /// Adds the given group to the component.
-    pub fn add_group(&mut self, group: RRC<Group>) {
-        let name = group.borrow().name().clone();
-        self.groups.insert(name, group);
-    }
-
-    /// Adds the given cell to the component.
-    pub fn add_cell(&mut self, cell: RRC<Cell>) {
-        let name = cell.borrow().name().clone();
-        self.cells.insert(name, cell);
-    }
-    /// Iterates through the given vec and adds all the cells to the component.
-    pub fn add_cells(&mut self, cells: Vec<RRC<Cell>>) {
-        for cell in cells {
-            self.add_cell(cell)
-        }
-    }
-
-    /// Retains only those cells specified by the passed function
-    pub fn retain_cells<F>(&mut self, mut f: F)
+    pub fn retain<F>(&mut self, mut f: F)
     where
-        F: FnMut(&RRC<Cell>) -> bool,
+        F: FnMut(&RRC<T>) -> bool,
     {
-        for entry in self.cells.entries() {
+        for entry in self.0.entries() {
             if !f(entry.get()) {
                 entry.remove();
             }
         }
     }
 
-    /// Removes all groups on this component
-    pub fn clear_groups(&mut self) {
-        self.groups.clear();
+    pub fn add(&mut self, item: RRC<T>) {
+        let name = item.borrow().name().clone();
+        self.0.insert(name, item);
     }
 
-    /// Returns an iterator with ownership over all the cells previously in the component.
-    pub fn drain_cells(&mut self) -> impl Iterator<Item = RRC<Cell>> {
-        let drain = std::mem::take(&mut self.cells);
+    pub fn add_multiple(&mut self, items: Vec<RRC<T>>) {
+        for item in items {
+            self.add(item)
+        }
+    }
+
+    pub fn add_multiple_by_ref(&mut self, items: &[RRC<T>]) {
+        for item in items {
+            self.add(item.clone())
+        }
+    }
+
+    pub fn iter(&self) -> impl Clone + Iterator<Item = &RRC<T>> {
+        self.0.values()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut RRC<T>> {
+        self.0.iter_mut().map(|(_id, val)| val)
+    }
+
+    pub fn drain(&mut self) -> impl Iterator<Item = RRC<T>> {
+        let drain = std::mem::take(&mut self.0);
 
         drain.into_iter().map(|(_, cell)| cell)
+    }
+
+    pub fn find<S>(&self, name: &S) -> Option<RRC<T>>
+    where
+        S: Clone + AsRef<str>,
+    {
+        self.0.get(&name.as_ref().into()).map(|r| Rc::clone(r))
+    }
+}
+
+impl<T: GetName> Default for IdList<T> {
+    fn default() -> Self {
+        IdList(LinkedHashMap::new())
     }
 }

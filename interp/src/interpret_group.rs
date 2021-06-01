@@ -26,9 +26,10 @@ impl GroupInterpreter {
         let comp = get_component(ctx, &self.component)?;
 
         // Intialize environment
-        let map = construct_map(comp.iter_cells());
+        let map = construct_map(comp.cells.iter());
         let cellmap = comp
-            .iter_cells()
+            .cells
+            .iter()
             .map(|cell| (cell.borrow().name().clone(), Rc::clone(&cell)))
             .collect::<HashMap<_, _>>();
 

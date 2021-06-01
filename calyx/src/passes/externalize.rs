@@ -60,13 +60,13 @@ impl Visitor for Externalize {
     ) -> VisResult {
         // Extract external cells.
         let (ext_cells, cells): (Vec<_>, Vec<_>) =
-            comp.drain_cells().partition(|cr| {
+            comp.cells.drain().partition(|cr| {
                 let cell = cr.borrow();
                 cell.get_attribute("external") == Some(&1)
             });
 
         // Re-add non-external cells.
-        comp.add_cells(cells);
+        comp.cells.add_multiple(cells);
 
         // Detach the port from the component's cell and attach it to the
         // component's signature.

@@ -52,7 +52,7 @@ impl Visitor for DeadCellRemoval {
         _sigs: &LibrarySignatures,
     ) -> VisResult {
         // All cells used in groups
-        for group in comp.iter_groups() {
+        for group in comp.groups.iter() {
             self.used_cells.extend(
                 &mut analysis::ReadWriteSet::uses(&group.borrow().assignments)
                     .into_iter()
@@ -68,7 +68,8 @@ impl Visitor for DeadCellRemoval {
         );
 
         // Remove cells that are not used.
-        comp.retain_cells(|c| self.used_cells.contains(&c.borrow().name()));
+        comp.cells
+            .retain(|c| self.used_cells.contains(&c.borrow().name()));
 
         Ok(Action::Stop)
     }
