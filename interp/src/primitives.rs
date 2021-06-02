@@ -188,7 +188,7 @@ pub fn update_cell_state(
             cell,
             &output[0],
             (new_env.get(&cid, cell, &inputs[0])
-                > env.get(&cid, cell, &inputs[1])) as u64,
+                < env.get(&cid, cell, &inputs[1])) as u64,
         ),
         "std_eq" => new_env.put(
             &cid,
