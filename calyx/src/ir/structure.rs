@@ -300,11 +300,11 @@ impl GetName for Group {
 }
 
 pub trait CloneName {
-    fn clone_name(&self) -> super::Id;
+    fn clone_name(&self) -> Id;
 }
 
 impl<T: GetName> CloneName for T {
-    fn clone_name(&self) -> super::Id {
+    fn clone_name(&self) -> Id {
         self.name().clone()
     }
 }
