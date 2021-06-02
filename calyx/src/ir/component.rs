@@ -99,14 +99,21 @@ impl Component {
     }
 }
 
+/// A wrapper struct exposing an ordered collection of named entities within an
+/// RRC with deterministic iteration and constant-time look-up on names
+/// directly. The struct assumes that the name of an entity cannot change. Doing
+/// so will introduce incorrect results for look-ups.
 #[derive(Debug)]
 pub struct IdList<T: GetName>(LinkedHashMap<Id, RRC<T>>);
 
 impl<T: GetName> IdList<T> {
+    /// Removes all elements from the collection
     pub fn clear(&mut self) {
         self.0.clear();
     }
 
+    /// Keep only the elements in the collection which satisfy the given
+    /// predicate
     pub fn retain<F>(&mut self, mut f: F)
     where
         F: FnMut(&RRC<T>) -> bool,
@@ -118,37 +125,47 @@ impl<T: GetName> IdList<T> {
         }
     }
 
+    /// Add a new element to the colleciton
     pub fn add(&mut self, item: RRC<T>) {
         let name = item.clone_name();
         self.0.insert(name, item);
     }
 
+    /// Add multiple elements to the collection from an owned vector
     pub fn add_multiple(&mut self, items: Vec<RRC<T>>) {
         for item in items {
             self.add(item)
         }
     }
 
+    /// Add multiple elements to the collection from a slice. This will create
+    /// new clones of the given RRCs.
     pub fn add_multiple_by_ref(&mut self, items: &[RRC<T>]) {
         for item in items {
             self.add(item.clone())
         }
     }
 
+    /// Returns an iterator over immutable references
     pub fn iter(&self) -> impl Clone + Iterator<Item = &RRC<T>> {
         self.0.values()
     }
 
+    /// Returns an iterator over mutable references. Likely a pointless method
+    /// as this is a collection of RRCs.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut RRC<T>> {
         self.0.iter_mut().map(|(_id, val)| val)
     }
 
+    /// Removes all elements from the collection and returns an iterator over
+    /// the owned elements.
     pub fn drain(&mut self) -> impl Iterator<Item = RRC<T>> {
         let drain = std::mem::take(&mut self.0);
 
         drain.into_iter().map(|(_, cell)| cell)
     }
 
+    /// Returns the element indicated by the name, if present, otherwise None.
     pub fn find<S>(&self, name: &S) -> Option<RRC<T>>
     where
         S: Clone + AsRef<str>,

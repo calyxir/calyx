@@ -283,7 +283,9 @@ impl Group {
     }
 }
 
+/// A trait representing something in the IR that has a name.
 pub trait GetName {
+    /// Return a reference to the object's name
     fn name(&self) -> &Id;
 }
 
@@ -299,7 +301,10 @@ impl GetName for Group {
     }
 }
 
+/// A utility trait representing the ability to clone the name of an object.
+/// Automatically definied for anything that implements GetName
 pub trait CloneName {
+    /// Returns a clone of the object's name
     fn clone_name(&self) -> Id;
 }
 
