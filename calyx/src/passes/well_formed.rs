@@ -53,7 +53,7 @@ impl Visitor for WellFormed {
         for cell_ref in comp.cells.iter() {
             let cell = cell_ref.borrow();
             if self.reserved_names.contains(&cell.name().id) {
-                return Err(Error::ReservedName(cell.name().clone()));
+                return Err(Error::ReservedName(cell.clone_name()));
             }
         }
 

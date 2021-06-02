@@ -1,6 +1,6 @@
 use super::{GraphAnalysis, ReadWriteSet};
 use crate::ir;
-use ir::RRC;
+use ir::{CloneName, RRC};
 
 /// Detects if a group is solely being used to update a register.
 pub struct VariableDetection;
@@ -50,6 +50,6 @@ impl VariableDetection {
             return None;
         }
 
-        Some(cell.name().clone())
+        Some(cell.clone_name())
     }
 }

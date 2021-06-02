@@ -205,7 +205,7 @@ impl ReachingDefinitionAnalysis {
                     let cell_ref = cell.borrow();
                     if let Some(name) = cell_ref.type_name() {
                         if name == "std_reg" {
-                            return Some(cell_ref.name().clone());
+                            return Some(cell_ref.clone_name());
                         }
                     }
                     None
@@ -396,7 +396,7 @@ fn build_reaching_def(
                                 ir::Id::from(name.clone()),
                             );
                             return Some((
-                                parent.name().clone(),
+                                parent.clone_name(),
                                 GroupOrInvoke::Invoke(ir::Id::from(name)),
                             ));
                         }

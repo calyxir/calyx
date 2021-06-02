@@ -1,5 +1,5 @@
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, LibrarySignatures, WRC};
+use crate::ir::{self, CloneName, LibrarySignatures, WRC};
 
 #[derive(Default)]
 /// Externalize input/output ports for cells marked with the `@external(1)` attribute.
@@ -75,7 +75,7 @@ impl Visitor for Externalize {
         // which automatically changes the assignments.
         for cell_ref in ext_cells {
             let mut cell = cell_ref.borrow_mut();
-            let name = cell.name().clone();
+            let name = cell.clone_name();
             for port_ref in cell.ports.drain(..) {
                 let port_name = port_ref.borrow().name.clone();
                 // Change the name and the parent of this port.

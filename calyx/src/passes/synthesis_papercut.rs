@@ -1,7 +1,7 @@
 use crate::analysis::GraphAnalysis;
 use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, LibrarySignatures};
+use crate::ir::{self, CloneName, LibrarySignatures};
 use std::collections::HashSet;
 
 const READ_PORT: &str = "read_data";
@@ -51,7 +51,7 @@ impl Visitor for SynthesisPapercut {
                     if self.memories.contains(&parent) {
                         let has_external = cell.get_attribute("external");
                         if has_external.is_none() {
-                            return Some(cell.name().clone());
+                            return Some(cell.clone_name());
                         }
                     }
                 }
