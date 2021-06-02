@@ -124,7 +124,10 @@ impl Environment {
         map
     }
 
-    /// Outputs the cell state; TODO (write to a specified output in the future)
+    /// Outputs the cell state; 
+    //TODO (write to a specified output in the future) We could do the printing
+    //of values here for tracing purposes as discussed. Could also have a 
+    //separate DS that we could put the cell states into for more custom tracing
     pub fn cell_state(&self) {
         let mut cyc1: BTreeMap<
             String,
