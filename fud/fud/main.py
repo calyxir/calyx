@@ -9,14 +9,14 @@ from .config import Configuration
 from .registry import Registry
 from .stages import (
     dahlia,
-    dahlia_hls,
     futil,
     mrxl,
+    relay,
     systolic,
     vcdump,
     verilator,
     vivado,
-    vivado_hls,
+    xilinx,
 )
 
 
@@ -25,22 +25,36 @@ def register_stages(registry, cfg):
     Register stages and command line flags required to generate the results.
     """
     # Dahlia
-    registry.register(dahlia.DahliaStage(cfg))
-    registry.register(dahlia_hls.DahliaHLSStage(cfg))
+    registry.register(
+        dahlia.DahliaStage(
+            cfg, "futil", "-b futil --lower -l error", "Compile Dahlia to Calyx"
+        )
+    )
+    registry.register(
+        dahlia.DahliaStage(
+            cfg,
+            "vivado-hls",
+            "--memory-interface ap_memory",
+            "Compile Dahlia to Vivado C++",
+        )
+    )
 
     # MrXL
     registry.register(mrxl.MrXLStage(cfg))
 
+    # Relay
+    registry.register(relay.RelayStage(cfg))
+
     # Systolic Array
     registry.register(systolic.SystolicStage(cfg))
 
-    # FuTIL
+    # Calyx
     registry.register(
         futil.FutilStage(
             cfg,
             "verilog",
             "-b verilog",
-            "Compile FuTIL to Verilog instrumented for simulation",
+            "Compile Calyx to Verilog instrumented for simulation",
         )
     )
     registry.register(
@@ -48,7 +62,7 @@ def register_stages(registry, cfg):
             cfg,
             "synth-verilog",
             "-b verilog --synthesis -p external",
-            "Compile FuTIL to synthesizable Verilog ",
+            "Compile Calyx to synthesizable Verilog ",
         )
     )
     registry.register(
@@ -56,7 +70,7 @@ def register_stages(registry, cfg):
             cfg,
             "futil-lowered",
             "-b futil",
-            "Compile FuTIL to FuTIL to remove all control and inline groups",
+            "Compile Calyx to Calyx to remove all control and inline groups",
         )
     )
     registry.register(
@@ -64,7 +78,7 @@ def register_stages(registry, cfg):
             cfg,
             "futil-noinline",
             "-b futil -d hole-inliner",
-            "Compile FuTIL to FuTIL to remove all control and inline groups",
+            "Compile Calyx to Calyx to remove all control and inline groups",
         )
     )
     registry.register(
@@ -72,7 +86,23 @@ def register_stages(registry, cfg):
             cfg,
             "futil-externalize",
             "-b futil -p externalize",
-            "Compile FuTIL to FuTIL to externalize all external memory primitives",
+            "Compile Calyx to Calyx to externalize all external memory primitives",
+        )
+    )
+    registry.register(
+        futil.FutilStage(
+            cfg,
+            "axi-wrapper",
+            "-b xilinx",
+            "Generate the AXI wrapper for Calyx",
+        )
+    )
+    registry.register(
+        futil.FutilStage(
+            cfg,
+            "xilinx-xml",
+            "-b xilinx-xml",
+            "Generate the XML metadata for Xilinx",
         )
     )
 
@@ -88,14 +118,19 @@ def register_stages(registry, cfg):
         )
     )
 
-    # Vivado / vivado hls
+    # # Vivado / vivado hls
     registry.register(vivado.VivadoStage(cfg))
     registry.register(vivado.VivadoExtractStage(cfg))
-    registry.register(vivado_hls.VivadoHLSStage(cfg))
-    registry.register(vivado_hls.VivadoHLSExtractStage(cfg))
+    registry.register(vivado.VivadoHLSStage(cfg))
+    registry.register(vivado.VivadoHLSExtractStage(cfg))
 
     # Vcdump
     registry.register(vcdump.VcdumpStage(cfg))
+
+    # Xilinx
+    registry.register(xilinx.XilinxStage(cfg))
+    registry.register(xilinx.HwEmulationStage(cfg))
+    registry.register(xilinx.HwExecutionStage(cfg))
 
 
 def display_config(args, cfg):
@@ -132,7 +167,7 @@ def main():
     parses the arguments, and returns the results."""
 
     parser = argparse.ArgumentParser(
-        description="Driver to execute FuTIL and supporting toolchains"
+        description="Driver to execute Calyx and supporting toolchains"
     )
     # Name of the subparser stored in command
     subparsers = parser.add_subparsers()
@@ -140,8 +175,8 @@ def main():
     config_run(
         subparsers.add_parser(
             "exec",
-            help="Execute one of the FuTIL-related tools",
-            description="Execute one of the FuTIL-related tools",
+            help="Execute one of the Calyx-related tools",
+            description="Execute one of the Calyx-related tools",
             aliases=["e", "ex"],
         )
     )
@@ -179,6 +214,11 @@ def main():
 
     try:
         cfg = Configuration()
+
+        # update the stages config with arguments provided via cmdline
+        if "dynamic_config" in args and args.dynamic_config is not None:
+            for key, value in args.dynamic_config:
+                cfg[["stages"] + key.split(".")] = value
 
         # Build the registry if stage information is going to be used.
         if args.command in ("exec", "info"):

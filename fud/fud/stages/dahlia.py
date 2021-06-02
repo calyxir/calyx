@@ -1,27 +1,30 @@
-from fud.stages import Stage, Step, SourceType
-from ..utils import unwrap_or
+from fud.stages import SourceType, Stage
+
+from ..utils import shell, unwrap_or
 
 
 class DahliaStage(Stage):
-    """
-    Stage that transforms Dahlia programs to FuTIL.
-    """
-
-    def __init__(self, config):
+    def __init__(self, config, dest, flags, descr):
         super().__init__(
-            "dahlia", "futil", config, "Compiles a Dahlia program to FuTIL"
+            "dahlia",
+            dest,
+            SourceType.Path,
+            SourceType.Stream,
+            config,
+            descr,
         )
+        self.flags = flags
+        self.setup()
 
-    def _define(self):
-        main = Step(SourceType.Path)
-        main.set_cmd(
-            " ".join(
-                [
-                    self.cmd,
-                    unwrap_or(self.config["stages", self.name, "flags"], ""),
-                    " -b futil --lower -l error",
-                    "{ctx[input_path]}",
-                ]
-            )
-        )
-        return [main]
+    def _define_steps(self, input_data):
+        cmd = [
+            self.cmd,
+            unwrap_or(self.config["stages", self.name, "flags"], ""),
+            self.flags,
+        ]
+
+        @self.step(description=" ".join(cmd))
+        def run_dahlia(dahlia_prog: SourceType.Path) -> SourceType.Stream:
+            return shell(cmd + [str(dahlia_prog)])
+
+        return run_dahlia(input_data)

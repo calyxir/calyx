@@ -1,0 +1,9 @@
+---CODE---
+1
+---STDERR---
+Error: Calyx Parser:  --> 4:12
+  |
+4 |     r.in = 1'o10;␊
+  |            ^---^
+  |
+  = Cannot represent given literal '10' in 1 bit

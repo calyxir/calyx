@@ -1,0 +1,133 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    @external(1) slhs = std_mem_d1(4, 1, 1);
+    @external(1) srhs = std_mem_d1(4, 1, 1);
+    @external(1) signed_add = std_mem_d1(4, 1, 1);
+    @external(1) signed_sub = std_mem_d1(4, 1, 1);
+    @external(1) signed_mul = std_mem_d1(4, 1, 1);
+    @external(1) signed_div = std_mem_d1(4, 1, 1);
+    @external(1) signed_mod = std_mem_d1(4, 1, 1);
+
+    @external(1) lhs = std_mem_d1(32, 1, 1);
+    @external(1) rhs = std_mem_d1(32, 1, 1);
+    @external(1) unsigned_add = std_mem_d1(32, 1, 1);
+    @external(1) unsigned_sub = std_mem_d1(32, 1, 1);
+    @external(1) unsigned_mul = std_mem_d1(32, 1, 1);
+    @external(1) unsigned_div = std_mem_d1(32, 1, 1);
+    @external(1) unsigned_mod = std_mem_d1(32, 1, 1);
+
+    sadd = std_sadd(4);
+    ssub = std_ssub(4);
+    smul = std_smult_pipe(4);
+    sdiv = std_sdiv_pipe(4);
+    add = std_add(32);
+    sub = std_sub(32);
+    mul = std_mult_pipe(32);
+    div = std_div_pipe(32);
+  }
+  wires {
+    group do_signed_add<"static"=1> {
+      signed_add.write_en = 1'd1;
+      signed_add.addr0 = 1'd0;
+      slhs.addr0 = 1'd0;
+      srhs.addr0 = 1'd0;
+      sadd.left = slhs.read_data;
+      sadd.right = srhs.read_data;
+      signed_add.write_data = sadd.out;
+      do_signed_add[done] = signed_add.done ? 1'd1;
+    }
+    group do_signed_sub<"static"=1> {
+      signed_sub.write_en = 1'd1;
+      signed_sub.addr0 = 1'd0;
+      slhs.addr0 = 1'd0;
+      srhs.addr0 = 1'd0;
+      ssub.left = slhs.read_data;
+      ssub.right = srhs.read_data;
+      signed_sub.write_data = ssub.out;
+      do_signed_sub[done] = signed_sub.done ? 1'd1;
+    }
+    group do_unsigned_add<"static"=1> {
+      unsigned_add.write_en = 1'd1;
+      unsigned_add.addr0 = 1'd0;
+      lhs.addr0 = 1'd0;
+      rhs.addr0 = 1'd0;
+      add.left = lhs.read_data;
+      add.right = rhs.read_data;
+      unsigned_add.write_data = add.out;
+      do_unsigned_add[done] = unsigned_add.done ? 1'd1;
+    }
+    group do_unsigned_sub<"static"=1> {
+      unsigned_sub.write_en = 1'd1;
+      unsigned_sub.addr0 = 1'd0;
+      lhs.addr0 = 1'd0;
+      rhs.addr0 = 1'd0;
+      sub.left = lhs.read_data;
+      sub.right = rhs.read_data;
+      unsigned_sub.write_data = sub.out;
+      do_unsigned_sub[done] = unsigned_sub.done ? 1'd1;
+    }
+    group do_unsigned_mul {
+      unsigned_mul.addr0 = 1'd0;
+      lhs.addr0 = 1'd0;
+      rhs.addr0 = 1'd0;
+      mul.left = lhs.read_data;
+      mul.right = rhs.read_data;
+      unsigned_mul.write_data = mul.out;
+      mul.go = !mul.done ? 1'd1;
+      unsigned_mul.write_en = mul.done;
+      do_unsigned_mul[done] = unsigned_mul.done ? 1'd1;
+    }
+    group do_signed_mul {
+      signed_mul.addr0 = 1'd0;
+      slhs.addr0 = 1'd0;
+      srhs.addr0 = 1'd0;
+      smul.left = slhs.read_data;
+      smul.right = srhs.read_data;
+      signed_mul.write_data = smul.out;
+      smul.go = !smul.done ? 1'd1;
+      signed_mul.write_en = smul.done;
+      do_signed_mul[done] = signed_mul.done ? 1'd1;
+    }
+    group do_unsigned_div_mod {
+      unsigned_div.addr0 = 1'd0;
+      unsigned_mod.addr0 = 1'd0;
+      lhs.addr0 = 1'd0;
+      rhs.addr0 = 1'd0;
+      div.left = lhs.read_data;
+      div.right = rhs.read_data;
+      unsigned_div.write_data = div.out_quotient;
+      unsigned_mod.write_data = div.out_remainder;
+      div.go = !div.done ? 1'd1;
+      unsigned_div.write_en = div.done;
+      unsigned_mod.write_en = div.done;
+      do_unsigned_div_mod[done] = unsigned_div.done & unsigned_mod.done ? 1'd1;
+    }
+    group do_signed_div_mod {
+      signed_div.addr0 = 1'd0;
+      signed_mod.addr0 = 1'd0;
+      slhs.addr0 = 1'd0;
+      srhs.addr0 = 1'd0;
+      sdiv.left = slhs.read_data;
+      sdiv.right = srhs.read_data;
+      signed_div.write_data = sdiv.out_quotient;
+      signed_mod.write_data = sdiv.out_remainder;
+      sdiv.go = !sdiv.done ? 1'd1;
+      signed_div.write_en = sdiv.done;
+      signed_mod.write_en = sdiv.done;
+      do_signed_div_mod[done] = signed_div.done & signed_mod.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      do_signed_add;
+      do_signed_sub;
+      do_signed_mul;
+      do_signed_div_mod;
+      do_unsigned_add;
+      do_unsigned_sub;
+      do_unsigned_mul;
+      do_unsigned_div_mod;
+    }
+  }
+}

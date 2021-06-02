@@ -1,0 +1,7 @@
+v0.0.4
+fn (%x: Tensor[(3), float32]) {
+  let %x1: float32 = 2.5f;
+  let %x2: Tensor[(3), float32] = multiply(%x, %x1);
+  %x2
+}
+

@@ -25,11 +25,13 @@
 //! requires no additional scheduling logic to detect aborts.
 //!
 //! [bsv-rules]: http://wiki.bluespec.com/Home/Rules
-//! [lang-tut]: https://capra.cs.cornell.edu/calyx/tutorial/langtut.html
+//! [lang-tut]: https://capra.cs.cornell.edu/docs/calyx/tutorial/language-tut.html
 pub mod analysis;
 pub mod backend;
+pub mod default_passes;
 pub mod errors;
 pub mod frontend;
 pub mod ir;
+pub mod pass_manager;
 pub mod passes;
 pub mod utils;

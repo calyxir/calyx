@@ -1,0 +1,43 @@
+import "primitives/std.lib";
+component my_add<"share"=1>(left: 32, right: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
+  cells {
+    add = std_add(32);
+  }
+  wires {
+    add.left = left;
+    add.right = right;
+    out = add.out;
+  }
+
+  control {}
+}
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    add0 = my_add();
+    add1 = my_add();
+    x_0 = std_reg(32);
+  }
+  wires {
+    group upd0 {
+      add0.left = x_0.out;
+      add0.right = 32'd1;
+      x_0.in = add0.out;
+      x_0.write_en = 1'd1;
+      upd0[done] = x_0.done ? 1'd1;
+    }
+    group upd1 {
+      add0.left = x_0.out;
+      add0.right = 32'd1;
+      x_0.in = add0.out;
+      x_0.write_en = 1'd1;
+      upd1[done] = x_0.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      upd0;
+      upd1;
+    }
+  }
+}

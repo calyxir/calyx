@@ -1,0 +1,9 @@
+---CODE---
+1
+---STDERR---
+Error: Calyx Parser:  --> 4:12
+  |
+4 |     r.in = 2'd4;␊
+  |            ^--^
+  |
+  = Cannot represent given literal '4' in 2 bits

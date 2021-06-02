@@ -15,13 +15,18 @@ requires = [
          "toml",
          "halo",
          "termcolor",
-         "packaging"
+         "packaging",
+         "numpy",
+         "simplejson"
 ]
 
 [tool.flit.metadata.requires-extra]
 remote = [
        "paramiko",
        "scp"
+]
+fpga = [
+     "pyopencl"
 ]
 
 [tool.flit.scripts]

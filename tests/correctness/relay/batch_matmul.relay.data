@@ -1,0 +1,26 @@
+{
+  "a": {
+    "data": [[[1,2,3], [1,2,3]], [[1,2,3], [1,2,3]]],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  },
+  "b": {
+    "data": [[[1,2,3], [1,2,3]], [[1,2,3], [2,2,2]]],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  },
+  "x": {
+   "data": [[[0,0], [0,0]], [[0,0], [0,0]]],
+   "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+   }
+  }
+}

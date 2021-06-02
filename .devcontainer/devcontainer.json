@@ -1,0 +1,39 @@
+// For format details, see https://aka.ms/vscode-remote/devcontainer.json or this file's README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.134.0/containers/rust
+{
+	"name": "Calyx Visual Studio Code Development Environment",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"runArgs": [ "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined" ],
+    // "runArgs": [  "-u", "1000:1000", "--security-opt", "label=disable" ],
+    "workspaceFolder": "/home/vscode/workspace",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/home/vscode/workspace,type=bind,consistency=delegated",
+
+	// Set *default* container specific settings.json values on container create.
+	"settings": { 
+		"terminal.integrated.shell.linux": "/bin/bash",
+		"lldb.executable": "/usr/bin/lldb",
+		// VS Code don't watch files under ./target
+		"files.watcherExclude": {
+			"**/target/**": true
+		}
+	},
+
+	// Add the IDs of extensions you want installed when the container is created.
+	"extensions": [
+		"bungcip.better-toml",
+		"vadimcn.vscode-lldb",
+		"matklad.rust-analyzer",
+		"mutantdino.resourcemonitor"
+	],
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+
+	// Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": "cargo install runt vcdump && pip3 install flit",
+
+	// Comment out to run as root instead.
+	"remoteUser": "vscode"
+}

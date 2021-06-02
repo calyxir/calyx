@@ -1,6 +1,6 @@
 # Contributors
 
-Here is a list of all the people who have worked on FuTIL:
+Here is a list of all the people who have worked on Calyx:
 
 **Current Contributors**
 
@@ -9,8 +9,10 @@ Here is a list of all the people who have worked on FuTIL:
 - [Adrian Sampson](https://adriansampson.net)
 - Ted Bauer
 - YooNa Chang
-- Chris Gyurgyik
+- [Chris Gyurgyik](https://chrispg.dev)
 - Karen Zhang
+- YoungSeok Na
+- Andrii Iermolaiev
 
 **Previous Contributors**
 

@@ -1,4 +1,4 @@
-//! Passes for the FuTIL compiler.
+//! Passes for the Calyx compiler.
 mod clk_insertion;
 mod collapse_control;
 mod compile_control;
@@ -8,13 +8,16 @@ mod component_interface;
 mod dead_cell_removal;
 mod externalize;
 mod go_insertion;
+mod guard_canonical;
 mod infer_static_timing;
 mod inliner;
 mod math_utilities;
 mod merge_assign;
 mod minimize_regs;
 mod papercut;
+mod register_unsharing;
 mod resource_sharing;
+mod sharing_components;
 mod simplify_guards;
 mod static_timing;
 mod synthesis_papercut;
@@ -30,11 +33,13 @@ pub use component_interface::ComponentInterface;
 pub use dead_cell_removal::DeadCellRemoval;
 pub use externalize::Externalize;
 pub use go_insertion::GoInsertion;
+pub use guard_canonical::GuardCanonical;
 pub use infer_static_timing::InferStaticTiming;
 pub use inliner::Inliner;
 pub use merge_assign::MergeAssign;
 pub use minimize_regs::MinimizeRegs;
 pub use papercut::Papercut;
+pub use register_unsharing::RegisterUnsharing;
 pub use resource_sharing::ResourceSharing;
 pub use simplify_guards::SimplifyGuards;
 pub use static_timing::StaticTiming;

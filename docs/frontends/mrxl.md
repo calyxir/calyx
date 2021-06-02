@@ -1,6 +1,8 @@
 # MrXL
 
-MrXL is an example DSL for demonstrating FuTIL. MrXL programs consist of `map` and `reduce` operations on arrays. For example, this is a dot product implementation:
+> The MrXL frontend is a toy frontend developed for the [frontend tutorial][fronttut]. As such, it is less rigorously tested and might have bugs.
+
+MrXL is an example DSL for demonstrating Calyx. MrXL programs consist of `map` and `reduce` operations on arrays. For example, this is a dot product implementation:
 
     input avec: int[1024]
     input bvec: int[1024]
@@ -14,6 +16,8 @@ The numbers that come right after `map` and `reduce` are parallelism factors tha
 Install
 -------
 
+Install the [calyx-py](../calyx-py.md) library.
+
 The MrXL implementation is in Python and uses [Flit][].
 First, [install flit][flit] (`pip install flit` or similar), and then type the
 following inside `frontend/mrxl`:
@@ -23,7 +27,7 @@ following inside `frontend/mrxl`:
 This creates a symbolic link the mrxl directory and installs the `mrxl` command
 line tool.
 
-By default, [fud](../tools/fud.md) looks for the `mrxl` executable to enable
+By default, [fud](../fud) looks for the `mrxl` executable to enable
 the `mrxl` compilation stage.
 Type `fud check` to make sure `fud` reports that the `mrxl` compiler has been
 found.
@@ -60,3 +64,4 @@ verilog.data` as usual:
 
 
 [flit]: https://flit.readthedocs.io/en/latest/index.html
+[fronttut]: ../tutorial/frontend-tut.md

@@ -1,4 +1,4 @@
-from futil.ast import *
+from calyx.py_ast import *
 
 stdlib = Stdlib()
 temp = CompVar("temp")
@@ -72,7 +72,7 @@ main_component = Component(
     controls=SeqComp(controls),
 )
 
-# Create the FuTIL program.
+# Create the Calyx program.
 program = Program(
     imports=[Import("primitives/std.lib")], components=[foo_component, main_component]
 )

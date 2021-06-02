@@ -44,7 +44,7 @@ pub struct Opts {
     pub group: String,
 }
 
-/// Interpret a group from a FuTIL program
+/// Interpret a group from a Calyx program
 fn main() -> FutilResult<()> {
     let opts = Opts::from_args();
 

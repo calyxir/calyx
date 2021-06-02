@@ -5,7 +5,9 @@ COMMENT = _{ ("//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE) | "/*" ~ (!"*/" ~ ANY)* ~ "*/"
 semi = { ";" }
 
 ident_syms = _{ "_" | "-" | "'" }
-identifier = @{ ASCII_ALPHA+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
+
+// Identifiers may begin with `_` or an ASCII character.
+identifier = @{ ("_" | ASCII_ALPHA)+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
 
 bitwidth = @{ ASCII_DIGIT+ }
 
@@ -212,7 +214,7 @@ connections = {
 
 enable = { at_attributes ~ identifier ~ ";" }
 
-invoke_arg = { identifier ~ "=" ~ port }
+invoke_arg = { identifier ~ "=" ~ (port | num_lit) }
 invoke_args = { (invoke_arg ~ ("," ~ invoke_arg)*)? }
 invoke = { at_attributes ~ "invoke" ~ identifier ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ";" }
 

@@ -3,7 +3,7 @@ requires = ["flit_core >=2,<4"]
 build-backend = "flit_core.buildapi"
 
 [tool.flit.metadata]
-module = "futil"
+module = "calyx"
 author = "FuTIL Authors"
 requires-python = ">=3.4"
-home-page = "https://github.com/cucapra/futil"
+home-page = "https://github.com/cucapra/calyx"

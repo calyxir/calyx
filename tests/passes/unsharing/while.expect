@@ -1,0 +1,67 @@
+import "primitives/core.futil";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    r = std_reg(32);
+    add2 = std_add(32);
+    flag = std_reg(1);
+    other = std_reg(32);
+    unshr_r = std_reg(32);
+    unshr_r0 = std_reg(32);
+    unshr_r1 = std_reg(32);
+  }
+  wires {
+    group zero {
+      unshr_r1.in = 32'd0;
+      unshr_r1.write_en = 1'd1;
+      zero[done] = unshr_r1.done;
+    }
+    group one {
+      unshr_r0.in = 32'd1;
+      unshr_r0.write_en = 1'd1;
+      one[done] = unshr_r0.done;
+    }
+    group cond {
+      flag.in = flag.out ? 1'd0;
+      flag.in = !flag.out ? 1'd1;
+      flag.write_en = 1'd1;
+      cond[done] = flag.done;
+    }
+    group final {
+      add2.left = 32'd154;
+      add2.right = unshr_r0.out;
+      other.in = add2.out;
+      other.write_en = 1'd1;
+      final[done] = other.done;
+    }
+    group alt {
+      r.in = 32'd99;
+      r.write_en = 1'd1;
+      alt[done] = r.done;
+    }
+    group five {
+      unshr_r.in = 32'd5;
+      unshr_r.write_en = 1'd1;
+      five[done] = unshr_r.done;
+    }
+    group set_flag {
+      flag.in = 1'd1;
+      flag.write_en = 1'd1;
+      set_flag[done] = flag.done;
+    }
+  }
+
+  control {
+    seq {
+      set_flag;
+      zero;
+      while flag.out with cond {
+        seq {
+          one;
+        }
+      }
+      final;
+      five;
+      alt;
+    }
+  }
+}

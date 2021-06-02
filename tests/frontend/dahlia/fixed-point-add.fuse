@@ -1,0 +1,2 @@
+let x: ufix<4, 2> = 1.5;
+let y: ufix<4, 2> = x + (1.0 as ufix<4, 2>);

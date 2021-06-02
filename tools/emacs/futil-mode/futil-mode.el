@@ -52,7 +52,7 @@
 
 (setq futil-font-lock-keywords
   (let* ((futil-defn '("component" "cells" "wires" "control" "primitive"))
-         (futil-control '("seq" "par" "if" "while" "else" "with"))
+         (futil-control '("seq" "par" "if" "while" "else" "with" "invoke"))
          (futil-keywords '("prim" "import" "group"))
 
          (futil-defn-regexp (regexp-opt futil-defn 'words))
@@ -109,7 +109,7 @@
               '((futil-font-lock-keywords)))
   (setq-local indent-line-function 'futil-indent-line)
   (puthash 'futil-mode
-           "\\(\\<[[:digit:]]+\\(?:'[bdxo][[:digit:]]+\\)?\\>\\)"
+           "\\(\\<[[:digit:]]+\\(?:'[bdxo]\\([[:digit:]]\\|[A-Fa-f]\\)+\\)?\\>\\)"
            highlight-numbers-modelist))
 
 (provide 'futil-mode)

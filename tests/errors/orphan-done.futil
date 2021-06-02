@@ -1,0 +1,22 @@
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    r = std_reg(32);
+  }
+  wires {
+    group one {
+      r.write_en = 1'd1;
+      r.in = 32'd1;
+      one[done] = r.done;
+    }
+    group two {
+      r.write_en = 1'd1;
+      r.in = 32'd2;
+      one[done] = r.done;
+      two[done] = r.done;
+    }
+  }
+  control {
+    seq { one; two; }
+  }
+}

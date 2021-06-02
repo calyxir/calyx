@@ -1,0 +1,119 @@
+import "primitives/std.lib";
+import "primitives/math.futil";
+component main() -> () {
+  cells {
+    @external(1) x = std_mem_d2(32, 2, 4, 2, 3);
+    @external(1) y = std_mem_d2(32, 2, 1, 2, 1);
+    @external(1) x1 = std_mem_d2(32, 2, 4, 2, 3);
+    add_2x4_ = add_2x4();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      invoke add_2x4_(x0_0_read_data=x.read_data, y0_0_read_data=y.read_data, x10_0_done=x1.done, x10_0_read_data=x1.read_data)(x0_0_addr0=x.addr0, x0_0_addr1=x.addr1, y0_0_addr0=y.addr0, y0_0_addr1=y.addr1, x10_0_write_data=x1.write_data, x10_0_write_en=x1.write_en, x10_0_addr0=x1.addr0, x10_0_addr1=x1.addr1);
+    }
+  }
+}
+component add_2x4(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_done: 1, x10_0_read_data: 32, x10_0_done: 1) -> (x0_0_write_data: 32, x0_0_write_en: 1, x0_0_addr0: 2, x0_0_addr1: 3, y0_0_write_data: 32, y0_0_write_en: 1, y0_0_addr0: 2, y0_0_addr1: 1, x10_0_write_data: 32, x10_0_write_en: 1, x10_0_addr0: 2, x10_0_addr1: 3) {
+  cells {
+    __i0 = std_reg(2);
+    __j0 = std_reg(3);
+    add0 = std_sadd(32);
+    add1 = std_add(3);
+    add2 = std_add(2);
+    const0 = std_const(2,0);
+    const1 = std_const(2,1);
+    const2 = std_const(3,0);
+    const3 = std_const(3,3);
+    const4 = std_const(1,0);
+    const5 = std_const(3,1);
+    const6 = std_const(2,1);
+    le0 = std_le(2);
+    le1 = std_le(3);
+    x_read0_0 = std_reg(32);
+    y_read0_0 = std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = __i0.out;
+      le0.right = const1.out;
+    }
+    group cond1<"static"=0> {
+      cond1[done] = 1'd1;
+      le1.left = __j0.out;
+      le1.right = const3.out;
+    }
+    group let0<"static"=1> {
+      __i0.in = const0.out;
+      __i0.write_en = 1'd1;
+      let0[done] = __i0.done;
+    }
+    group let1<"static"=1> {
+      __j0.in = const2.out;
+      __j0.write_en = 1'd1;
+      let1[done] = __j0.done;
+    }
+    group upd0<"static"=1> {
+      x_read0_0.write_en = 1'd1;
+      x0_0_addr1 = __j0.out;
+      x0_0_addr0 = __i0.out;
+      x_read0_0.in = 1'd1 ? x0_0_read_data;
+      upd0[done] = x_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      y_read0_0.write_en = 1'd1;
+      y0_0_addr1 = const4.out;
+      y0_0_addr0 = __i0.out;
+      y_read0_0.in = 1'd1 ? y0_0_read_data;
+      upd1[done] = y_read0_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      x10_0_addr1 = __j0.out;
+      x10_0_addr0 = __i0.out;
+      x10_0_write_en = 1'd1;
+      add0.left = x_read0_0.out;
+      add0.right = y_read0_0.out;
+      x10_0_write_data = 1'd1 ? add0.out;
+      upd2[done] = x10_0_done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      __j0.write_en = 1'd1;
+      add1.left = __j0.out;
+      add1.right = const5.out;
+      __j0.in = 1'd1 ? add1.out;
+      upd3[done] = __j0.done ? 1'd1;
+    }
+    group upd4<"static"=1> {
+      __i0.write_en = 1'd1;
+      add2.left = __i0.out;
+      add2.right = const6.out;
+      __i0.in = 1'd1 ? add2.out;
+      upd4[done] = __i0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          let1;
+          while le1.out with cond1 {
+            seq {
+              par {
+                upd0;
+                upd1;
+              }
+              upd2;
+              upd3;
+            }
+          }
+          upd4;
+        }
+      }
+    }
+  }
+}
+

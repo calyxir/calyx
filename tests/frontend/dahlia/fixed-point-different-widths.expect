@@ -1,0 +1,40 @@
+import "primitives/std.lib";
+component main() -> () {
+  cells {
+    a_0 = std_reg(3);
+    add0 = std_fp_add_dwidth(3,3,1,2,2,1,4);
+    b_0 = std_reg(3);
+    fp_const0 = std_const(3,5);
+    fp_const1 = std_const(3,5);
+    result_0 = std_reg(4);
+  }
+  wires {
+    group let0<"static"=1> {
+      a_0.in = fp_const0.out;
+      a_0.write_en = 1'd1;
+      let0[done] = a_0.done;
+    }
+    group let1<"static"=1> {
+      b_0.in = fp_const1.out;
+      b_0.write_en = 1'd1;
+      let1[done] = b_0.done;
+    }
+    group upd0<"static"=1> {
+      result_0.write_en = 1'd1;
+      add0.left = a_0.out;
+      add0.right = b_0.out;
+      result_0.in = 1'd1 ? add0.out;
+      upd0[done] = result_0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      par {
+        let0;
+        let1;
+      }
+      upd0;
+    }
+  }
+}
+

@@ -1,5 +1,5 @@
 from . import ast
-from futil.ast import *
+from calyx.py_ast import *
 
 
 def emit_mem_decl(name, size, par):
@@ -10,10 +10,13 @@ def emit_mem_decl(name, size, par):
     stdlib = Stdlib()
     banked_mems = []
     for i in range(par):
-        banked_mems.append(Cell(
-            CompVar(f'{name}_b{i}'),
-            stdlib.mem_d1(32, size // par, 32)
-        ))
+        banked_mems.append(
+            Cell(
+                CompVar(f"{name}_b{i}"),
+                stdlib.mem_d1(32, size // par, 32),
+                is_external=True,
+            )
+        )
     return banked_mems
 
 
@@ -26,17 +29,17 @@ def emit_cond_group(suffix, arr_size, b=None):
     suffix is added to the end to the end of each cell,
     to disambiguate from other `map` or `reduce` implementations.
     """
-    bank_suffix = f'_b{b}_' if b is not None else ""
-    group_id = CompVar(f'cond{bank_suffix}{suffix}')
-    le = CompVar(f'le{bank_suffix}{suffix}')
-    idx = CompVar(f'idx{bank_suffix}{suffix}')
+    bank_suffix = f"_b{b}_" if b is not None else ""
+    group_id = CompVar(f"cond{bank_suffix}{suffix}")
+    le = CompVar(f"le{bank_suffix}{suffix}")
+    idx = CompVar(f"idx{bank_suffix}{suffix}")
     return Group(
         id=group_id,
         connections=[
-            Connect(CompPort(idx, 'out'), CompPort(le, 'left')),
-            Connect(ConstantPort(32, arr_size), CompPort(le, 'right')),
-            Connect(ConstantPort(1, 1), HolePort(group_id, 'done'))
-        ]
+            Connect(CompPort(idx, "out"), CompPort(le, "left")),
+            Connect(ConstantPort(32, arr_size), CompPort(le, "right")),
+            Connect(ConstantPort(1, 1), HolePort(group_id, "done")),
+        ],
     )
 
 
@@ -48,24 +51,24 @@ def emit_idx_group(s_idx, b=None):
     cell name.
     """
     bank_suffix = "_b" + str(b) + "_" if b is not None else ""
-    group_id = CompVar(f'incr_idx{bank_suffix}{s_idx}')
-    adder = CompVar(f'adder_idx{bank_suffix}{s_idx}')
-    idx = CompVar(f'idx{bank_suffix}{s_idx}')
+    group_id = CompVar(f"incr_idx{bank_suffix}{s_idx}")
+    adder = CompVar(f"adder_idx{bank_suffix}{s_idx}")
+    idx = CompVar(f"idx{bank_suffix}{s_idx}")
     return Group(
         id=group_id,
         connections=[
-            Connect(CompPort(idx, 'out'), CompPort(adder, 'left')),
-            Connect(ConstantPort(32, 1), CompPort(adder, 'right')),
-            Connect(ConstantPort(1, 1), CompPort(idx, 'write_en')),
-            Connect(CompPort(adder, 'out'), CompPort(idx, 'in')),
-            Connect(CompPort(idx, 'done'), HolePort(group_id, 'done'))
-        ]
+            Connect(CompPort(idx, "out"), CompPort(adder, "left")),
+            Connect(ConstantPort(32, 1), CompPort(adder, "right")),
+            Connect(ConstantPort(1, 1), CompPort(idx, "write_en")),
+            Connect(CompPort(adder, "out"), CompPort(idx, "in")),
+            Connect(CompPort(idx, "done"), HolePort(group_id, "done")),
+        ],
     )
 
 
 def emit_compute_op(exp, op, dest, name2arr, suffix, bank_suffix):
     """
-    Returns a string containing a FuTIL implementation of a MrXL
+    Returns a string containing a Calyx implementation of a MrXL
     variable or number (exp). op is the type of operation this
     expression is used in. dest is the destination of this expression.
     name2arr maps statement variable names to the array names they're
@@ -74,9 +77,9 @@ def emit_compute_op(exp, op, dest, name2arr, suffix, bank_suffix):
     """
     if isinstance(exp, ast.VarExpr):
         if isinstance(op, ast.Map):
-            return CompPort(CompVar(f'{name2arr[exp.name]}{bank_suffix}'), 'read_data')
+            return CompPort(CompVar(f"{name2arr[exp.name]}{bank_suffix}"), "read_data")
         else:
-            return CompPort(CompVar(f'{dest}'), 'out')
+            return CompPort(CompVar(f"{dest}"), "out")
     else:
         return ConstantPort(32, exp.value)
 
@@ -97,19 +100,15 @@ def emit_eval_body_group(s_idx, stmt, b=None):
     for bi in stmt.op.bind:
         idx = 0 if isinstance(stmt.op, ast.Map) else 1
         name2arr[bi.dest[idx]] = bi.src
-        src = CompVar(f'{bi.src}{bank_suffix}')
-        dest = CompVar(f'idx{bank_suffix}_{s_idx}')
+        src = CompVar(f"{bi.src}{bank_suffix}")
+        dest = CompVar(f"idx{bank_suffix}_{s_idx}")
 
-        mem_offsets.append(
-            Connect(CompPort(dest, 'out'), CompPort(src, 'addr0'))
-        )
+        mem_offsets.append(Connect(CompPort(dest, "out"), CompPort(src, "addr0")))
 
     if isinstance(stmt.op, ast.Map):
-        src = CompVar(f'{stmt.dest}{bank_suffix}')
-        dest = CompVar(f'idx{bank_suffix}_{s_idx}')
-        mem_offsets.append(
-            Connect(CompPort(dest, 'out'), CompPort(src, 'addr0'))
-        )
+        src = CompVar(f"{stmt.dest}{bank_suffix}")
+        dest = CompVar(f"idx{bank_suffix}_{s_idx}")
+        mem_offsets.append(Connect(CompPort(dest, "out"), CompPort(src, "addr0")))
 
     compute_left_op = emit_compute_op(
         stmt.op.body.lhs, stmt.op, stmt.dest, name2arr, s_idx, bank_suffix
@@ -120,32 +119,35 @@ def emit_eval_body_group(s_idx, stmt, b=None):
     )
 
     if isinstance(stmt.op, ast.Map):
-        write_to = CompVar(f'{stmt.dest}{bank_suffix}')
-        adder_op = CompVar(f'adder_op{bank_suffix}_{s_idx}')
-        write_connection = Connect(CompPort(adder_op, 'out'), CompPort(write_to, 'write_data'))
+        write_to = CompVar(f"{stmt.dest}{bank_suffix}")
+        adder_op = CompVar(f"adder_op{bank_suffix}_{s_idx}")
+        write_connection = Connect(
+            CompPort(adder_op, "out"), CompPort(write_to, "write_data")
+        )
     else:
         write_connection = Connect(
-            CompPort(CompVar(f'adder_op{s_idx}'), 'out'),
-            CompPort(CompVar(f'{stmt.dest}'), 'in')
+            CompPort(CompVar(f"adder_op{s_idx}"), "out"),
+            CompPort(CompVar(f"{stmt.dest}"), "in"),
         )
-    group_id = CompVar(f'eval_body{bank_suffix}_{s_idx}')
-    adder = CompVar(f'adder_op{bank_suffix}_{s_idx}')
-    dest = CompVar(f'{stmt.dest}{bank_suffix}')
+    group_id = CompVar(f"eval_body{bank_suffix}_{s_idx}")
+    adder = CompVar(f"adder_op{bank_suffix}_{s_idx}")
+    dest = CompVar(f"{stmt.dest}{bank_suffix}")
     return Group(
         id=group_id,
         connections=[
-                        Connect(ConstantPort(1, 1), CompPort(dest, 'write_en')),
-                        Connect(compute_left_op, CompPort(adder, 'left')),
-                        Connect(compute_right_op, CompPort(adder, 'right')),
-                        write_connection,
-                        Connect(CompPort(dest, 'done'), HolePort(group_id, 'done'))
-                    ] + mem_offsets
+            Connect(ConstantPort(1, 1), CompPort(dest, "write_en")),
+            Connect(compute_left_op, CompPort(adder, "left")),
+            Connect(compute_right_op, CompPort(adder, "right")),
+            write_connection,
+            Connect(CompPort(dest, "done"), HolePort(group_id, "done")),
+        ]
+        + mem_offsets,
     )
 
 
 def gen_reduce_impl(stmt, arr_size, s_idx):
     """
-    Returns a dictionary containing FuTIL cells, wires and
+    Returns a dictionary containing Calyx cells, wires and
     control needed to implement a map statement. Similar
     to gen_map_impl, with an implementation of a body
     of the `reduce` statement instead of an implementation
@@ -155,23 +157,20 @@ def gen_reduce_impl(stmt, arr_size, s_idx):
     stdlib = Stdlib()
     op_name = "mult" if stmt.op.body.op == "mul" else "add"
     cells = [
-        Cell(CompVar(f'le{s_idx}'), stdlib.op('lt', 32, signed=False)),
-        Cell(CompVar(f'idx{s_idx}'), stdlib.register(32)),
-        Cell(CompVar(f'adder_idx{s_idx}'), stdlib.op('add', 32, signed=False)),
-        Cell(CompVar(f'adder_op{s_idx}'), stdlib.op(f'{op_name}', 32, signed=False))
+        Cell(CompVar(f"le{s_idx}"), stdlib.op("lt", 32, signed=False)),
+        Cell(CompVar(f"idx{s_idx}"), stdlib.register(32)),
+        Cell(CompVar(f"adder_idx{s_idx}"), stdlib.op("add", 32, signed=False)),
+        Cell(CompVar(f"adder_op{s_idx}"), stdlib.op(f"{op_name}", 32, signed=False)),
     ]
     wires = [
         emit_cond_group(s_idx, arr_size),
         emit_idx_group(s_idx),
-        emit_eval_body_group(s_idx, stmt, 0)
+        emit_eval_body_group(s_idx, stmt, 0),
     ]
     control = While(
-        port=CompPort(CompVar(f'le{s_idx}'), 'out'),
-        cond=CompVar(f'cond{s_idx}'),
-        body=SeqComp([
-            Enable(f'eval_body{s_idx}'),
-            Enable(f'incr_idx{s_idx}')
-        ])
+        port=CompPort(CompVar(f"le{s_idx}"), "out"),
+        cond=CompVar(f"cond{s_idx}"),
+        body=SeqComp([Enable(f"eval_body{s_idx}"), Enable(f"incr_idx{s_idx}")]),
     )
 
     return {"cells": cells, "wires": wires, "control": control}
@@ -179,7 +178,7 @@ def gen_reduce_impl(stmt, arr_size, s_idx):
 
 def gen_map_impl(stmt, arr_size, bank_factor, s_idx):
     """
-    Returns a dictionary containing FuTIL cells, wires and
+    Returns a dictionary containing Calyx cells, wires and
     control needed to implement a map statement. (See gen_stmt_impl
     for format of the dictionary.)
 
@@ -194,37 +193,49 @@ def gen_map_impl(stmt, arr_size, bank_factor, s_idx):
 
     cells = []
     for b in range(bank_factor):
-        cells.extend([
-            Cell(CompVar(f'le_b{b}_{s_idx}'), stdlib.op('lt', 32, signed=False)),
-            Cell(CompVar(f'idx_b{b}_{s_idx}'), stdlib.register(32)),
-            Cell(CompVar(f'adder_idx_b{b}_{s_idx}'), stdlib.op('add', 32, signed=False)),
-        ])
+        cells.extend(
+            [
+                Cell(CompVar(f"le_b{b}_{s_idx}"), stdlib.op("lt", 32, signed=False)),
+                Cell(CompVar(f"idx_b{b}_{s_idx}"), stdlib.register(32)),
+                Cell(
+                    CompVar(f"adder_idx_b{b}_{s_idx}"),
+                    stdlib.op("add", 32, signed=False),
+                ),
+            ]
+        )
 
     op_name = "mult" if stmt.op.body.op == "mul" else "add"
     for b in range(bank_factor):
         cells.append(
-            Cell(CompVar(f'adder_op_b{b}_{s_idx}'), stdlib.op(f'{op_name}', 32, signed=False))
+            Cell(
+                CompVar(f"adder_op_b{b}_{s_idx}"),
+                stdlib.op(f"{op_name}", 32, signed=False),
+            )
         )
 
     wires = []
     for b in range(bank_factor):
-        wires.extend([
-            emit_cond_group(s_idx, arr_size // bank_factor, b),
-            emit_idx_group(s_idx, b),
-            emit_eval_body_group(s_idx, stmt, b)
-        ])
+        wires.extend(
+            [
+                emit_cond_group(s_idx, arr_size // bank_factor, b),
+                emit_idx_group(s_idx, b),
+                emit_eval_body_group(s_idx, stmt, b),
+            ]
+        )
 
         map_loops = []
         for b in range(bank_factor):
-            b_suffix = f'_b{str(b)}_'
+            b_suffix = f"_b{str(b)}_"
             map_loops.append(
                 While(
-                    CompPort(CompVar(f'le{b_suffix}{s_idx}'), 'out'),
-                    CompVar(f'cond{b_suffix}{s_idx}'),
-                    SeqComp([
-                        Enable(f'eval_body{b_suffix}{s_idx}'),
-                        Enable(f'incr_idx{b_suffix}{s_idx}')
-                    ])
+                    CompPort(CompVar(f"le{b_suffix}{s_idx}"), "out"),
+                    CompVar(f"cond{b_suffix}{s_idx}"),
+                    SeqComp(
+                        [
+                            Enable(f"eval_body{b_suffix}{s_idx}"),
+                            Enable(f"incr_idx{b_suffix}{s_idx}"),
+                        ]
+                    ),
                 )
             )
 
@@ -235,7 +246,7 @@ def gen_map_impl(stmt, arr_size, bank_factor, s_idx):
 
 def gen_stmt_impl(stmt, arr_size, name2par, s_idx):
     """
-    Returns FuTIL cells, wires, and control needed to implement
+    Returns Calyx cells, wires, and control needed to implement
     a MrXL `map` or `reduce` statement. It is a dictionary
     of this form:
     {
@@ -259,7 +270,7 @@ def gen_stmt_impl(stmt, arr_size, name2par, s_idx):
 
 def emit(prog):
     """
-    Returns a string containing a FuTIL program, compiled from `prog`, a MrXL
+    Returns a string containing a Calyx program, compiled from `prog`, a MrXL
     program.
     """
     cells, wires, control = [], [], []
@@ -296,7 +307,7 @@ def emit(prog):
                 cells.append(emit_reg_decl(stmt.dest, 32))
             used_names.append(stmt.dest)
 
-    # Generate FuTIL.
+    # Generate Calyx.
     for i, stmt in enumerate(prog.stmts):
         stmt_impl = gen_stmt_impl(stmt, arr_size, name2par, i)
         cells.extend(stmt_impl["cells"])
@@ -304,15 +315,15 @@ def emit(prog):
         control.append(stmt_impl["control"])
 
     program = Program(
-        imports=[Import('primitives/std.lib')],
+        imports=[Import("primitives/std.lib")],
         components=[
             Component(
-                name='main',
+                name="main",
                 inputs=[],
                 outputs=[],
                 structs=cells + wires,
-                controls=SeqComp(control)
+                controls=SeqComp(control),
             )
-        ]
+        ],
     )
     program.emit()

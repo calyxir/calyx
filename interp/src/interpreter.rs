@@ -31,7 +31,6 @@ fn eval_assigns(
     mut env: Environment,
     component: String,
 ) -> FutilResult<Environment> {
-    
     let cid = ir::Id::from(component.clone());
 
     // Find the done signal in the sequence of assignments
@@ -57,20 +56,18 @@ fn eval_assigns(
         })
         .collect::<Vec<_>>();
 
-
     // XXX(yoona): At the moment interpreter rejects direct assignment of 1 to the groups
     // needs to be fixed
-        if write_env.get_from_port(&cid, &done_assign.src.borrow()) == 1 {
-            panic!("TODO: done[group]=1 this group woud but be evaluated ");
-        }
+    if write_env.get_from_port(&cid, &done_assign.src.borrow()) == 1 {
+        panic!("TODO: done[group]=1 this group woud but be evaluated ");
+    }
 
     // While done_assign.src is 0
     // (we use done_assign.src because done_assign.dst is not a cell's port; it should be a group's port
- 
+
     while write_env.get_from_port(&cid, &done_assign.src.borrow()) == 0
         && counter < 5
     {
-        
         env = write_env.clone();
         // println!("Clock cycle {}", counter);
 
@@ -78,7 +75,7 @@ fn eval_assigns(
         let mut uq = UpdateQueue::init(component.clone());
 
         // Iterate through assignment statements
-        for assign in &ok_assigns {            
+        for assign in &ok_assigns {
             // check if the assign.guard != 0
             // should it be evaluating the guard in write_env environment?
             if eval_guard(&cid, &assign.guard, &write_env) != 0 {
@@ -270,13 +267,13 @@ fn is_combinational(
             "done" => false,
             _ => false,
         },
-        | "std_mem_d1" => match port.id.as_str() {
+        "std_mem_d1" => match port.id.as_str() {
             "write_en" => true,
             "read_data" => false,
             "done" => false,
             _ => false,
         },
-        | "std_const"
+        "std_const"
         | "std_slice"
         | "std_lsh"
         | "std_rsh"
@@ -302,6 +299,39 @@ fn is_combinational(
         | "fixed_p_std_div"
         | "fixed_p_std_gt"
         | "fixed_p_std_add_dbit" => true,
-        prim => panic!("unknown primitive {}",prim ),
+        prim => panic!("unknown primitive {}", prim),
     }
 }
+
+// XXX (Griffin) Below seems to be slightly broken
+
+// /// Initializes values for the update queue, i.e. for non-combinational cells
+// #[allow(clippy::unnecessary_wraps)]
+// fn init_cells(
+//     cell: &ir::Id,
+//     inputs: Vec<ir::Id>,
+//     outputs: Vec<ir::Id>,
+//     mut env: Environment,
+// ) -> FutilResult<Environment> {
+//     let cell_r = env
+//         .get_cell(cell)
+//         .unwrap_or_else(|| panic!("Cannot find cell with name"));
+
+//     // get the cell type
+//     match cell_r.borrow().type_name() {
+//         None => panic!("bad"),
+//         Some(ct) => match ct.id.as_str() {
+//             "std_sqrt" => { //:(
+//                  // has intermediate steps/computation
+//             }
+//             "std_reg" => {
+//                 let map: HashMap<String, u64> = HashMap::new();
+//                 // reg.in = dst port should go here
+//                 env.add_update(cell.clone(), inputs, outputs, map);
+//             }
+//             _ => panic!(
+//                 "attempted to initalize an update for a combinational cell"
+//             ),
+//         },
+//     }
+// }

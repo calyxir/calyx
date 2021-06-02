@@ -1,9 +1,9 @@
-# FuTIL Python Library
+# Calyx Python Library
 
 ## Installation
-To use the FuTIL AST and utilities:
+To use the Calyx AST and utilities:
 1. Install [flit](https://flit.readthedocs.io/en/latest/#install).
-2. Install the `futil` package:
+2. Install the `calyx` package:
 ```
   $ cd calyx-py/
   $ flit install --symlink
@@ -11,4 +11,4 @@ To use the FuTIL AST and utilities:
 
 ## Example
 `test/example.py` generates a component which sums two unsigned integers.
-You can see the outputted FuTIL component in `test/example.expect`.
+You can see the outputted Calyx component in `test/example.expect`.

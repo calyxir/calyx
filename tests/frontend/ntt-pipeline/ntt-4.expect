@@ -9,8 +9,8 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    a = std_mem_d1(32, 4, 3);
-    phis = std_mem_d1(32, 4, 3);
+    @external(1) a = std_mem_d1(32, 4, 3);
+    @external(1) phis = std_mem_d1(32, 4, 3);
     r0 = std_reg(32);
     r1 = std_reg(32);
     r2 = std_reg(32);
@@ -25,10 +25,10 @@ component main() -> () {
     phi1 = std_reg(32);
     phi2 = std_reg(32);
     phi3 = std_reg(32);
-    mod_pipe0 = std_smod_pipe(32);
-    mod_pipe1 = std_smod_pipe(32);
-    mod_pipe2 = std_smod_pipe(32);
-    mod_pipe3 = std_smod_pipe(32);
+    mod_pipe0 = std_sdiv_pipe(32);
+    mod_pipe1 = std_sdiv_pipe(32);
+    mod_pipe2 = std_sdiv_pipe(32);
+    mod_pipe3 = std_sdiv_pipe(32);
     mult_pipe0 = std_smult_pipe(32);
     mult_pipe1 = std_smult_pipe(32);
     add0 = std_sadd(32);
@@ -132,7 +132,7 @@ component main() -> () {
       mod_pipe0.right = 32'd97;
       mod_pipe0.go = !mod_pipe0.done ? 1'd1;
       A0.write_en = mod_pipe0.done;
-      A0.in = mod_pipe0.out;
+      A0.in = mod_pipe0.out_remainder;
       s0_r0_op_mod[done] = A0.done;
     }
     group s0_r1_op_mod {
@@ -142,7 +142,7 @@ component main() -> () {
       mod_pipe1.right = 32'd97;
       mod_pipe1.go = !mod_pipe1.done ? 1'd1;
       A1.write_en = mod_pipe1.done;
-      A1.in = mod_pipe1.out;
+      A1.in = mod_pipe1.out_remainder;
       s0_r1_op_mod[done] = A1.done;
     }
     group s0_r2_op_mod {
@@ -152,7 +152,7 @@ component main() -> () {
       mod_pipe2.right = 32'd97;
       mod_pipe2.go = !mod_pipe2.done ? 1'd1;
       A2.write_en = mod_pipe2.done;
-      A2.in = mod_pipe2.out;
+      A2.in = mod_pipe2.out_remainder;
       s0_r2_op_mod[done] = A2.done;
     }
     group s0_r3_op_mod {
@@ -162,7 +162,7 @@ component main() -> () {
       mod_pipe3.right = 32'd97;
       mod_pipe3.go = !mod_pipe3.done ? 1'd1;
       A3.write_en = mod_pipe3.done;
-      A3.in = mod_pipe3.out;
+      A3.in = mod_pipe3.out_remainder;
       s0_r3_op_mod[done] = A3.done;
     }
     group s1_r0_op_mod {
@@ -172,7 +172,7 @@ component main() -> () {
       mod_pipe0.right = 32'd97;
       mod_pipe0.go = !mod_pipe0.done ? 1'd1;
       A0.write_en = mod_pipe0.done;
-      A0.in = mod_pipe0.out;
+      A0.in = mod_pipe0.out_remainder;
       s1_r0_op_mod[done] = A0.done;
     }
     group s1_r1_op_mod {
@@ -182,7 +182,7 @@ component main() -> () {
       mod_pipe1.right = 32'd97;
       mod_pipe1.go = !mod_pipe1.done ? 1'd1;
       A1.write_en = mod_pipe1.done;
-      A1.in = mod_pipe1.out;
+      A1.in = mod_pipe1.out_remainder;
       s1_r1_op_mod[done] = A1.done;
     }
     group s1_r2_op_mod {
@@ -192,7 +192,7 @@ component main() -> () {
       mod_pipe2.right = 32'd97;
       mod_pipe2.go = !mod_pipe2.done ? 1'd1;
       A2.write_en = mod_pipe2.done;
-      A2.in = mod_pipe2.out;
+      A2.in = mod_pipe2.out_remainder;
       s1_r2_op_mod[done] = A2.done;
     }
     group s1_r3_op_mod {
@@ -202,7 +202,7 @@ component main() -> () {
       mod_pipe3.right = 32'd97;
       mod_pipe3.go = !mod_pipe3.done ? 1'd1;
       A3.write_en = mod_pipe3.done;
-      A3.in = mod_pipe3.out;
+      A3.in = mod_pipe3.out_remainder;
       s1_r3_op_mod[done] = A3.done;
     }
     group epilogue_0 {

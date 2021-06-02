@@ -1,0 +1,20 @@
+{
+  "x": {
+    "data": [[1.0, 2.0, 3.0, 4.0], [8.0, 2.0, 4.0, 2.0]],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": true,
+      "width": 32,
+      "frac_width": 16
+    }
+  },
+  "x1": {
+    "data": [[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": true,
+      "width": 32,
+      "frac_width": 16
+    }
+  }
+}

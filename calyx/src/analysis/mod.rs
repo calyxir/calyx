@@ -1,11 +1,12 @@
 //! Analysis for Calyx programs.
 //!
 //! The analyses construct data-structures that make answering certain queries
-//! about FuTIL programs easier.
+//! about Calyx programs easier.
 
 mod graph;
 mod graph_coloring;
 mod live_range_analysis;
+pub mod reaching_defns;
 mod read_write_set;
 mod schedule_conflicts;
 mod variable_detection;

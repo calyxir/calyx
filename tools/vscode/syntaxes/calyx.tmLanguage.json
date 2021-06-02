@@ -1,0 +1,98 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Calyx",
+	"patterns": [
+		{
+			"include": "#toplevel-keywords"
+		},
+		{
+			"include": "#component-keywords"
+		},
+		{
+			"include": "#control"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#numeric-literals"
+		},
+		{
+			"include": "#comments"
+		}
+	],
+	"repository": {
+		"toplevel-keywords": {
+			"patterns": [
+				{
+					"name": "support.class",
+					"match": "component"
+				},
+				{
+					"name": "keyword.control.import",
+					"match": "import"
+				}
+			]
+		},
+		"component-keywords": {
+			"patterns": [
+				{
+					"name": "support.function.calyx",
+					"match": "\\b(cells|wires|control)\\b"
+				}
+			]
+		},
+		"control": {
+			"patterns": [
+				{
+					"name": "keyword.control.calyx",
+					"match": "\\b(if|while|else|with|group)\\b"
+				}
+			]
+		},
+		"strings": {
+			"name": "string.quoted.double.calyx",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.calyx",
+					"match": "\\\\."
+				}
+			]
+		},
+		"numeric-literals": {
+			"patterns": [
+				{
+					"name": "constant.numeric.calyx",
+					"match": "\\b(\\d+'b[01]+)\\b"
+				},
+				{
+					"name": "constant.numeric.calyx",
+					"match": "\\b(\\d+'o[0-7]+)\\b"
+				},
+				{
+					"name": "constant.numeric.calyx",
+					"match": "\\b(\\d+'d\\d+)\\b"
+				},
+				{
+					"name": "constant.numeric.calyx",
+					"match": "\\b(\\d+'x\\h+)\\b"
+				},
+				{
+					"name": "variable.parameter.calyx",
+					"match": "\\b(\\d+)\\b"
+				}
+			]
+		},
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.double-slash.calyx",
+					"match": "//.*\n"
+				}
+			]
+		}
+	},
+	"scopeName": "source.calyx"
+}

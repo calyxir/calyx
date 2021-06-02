@@ -1,0 +1,7 @@
+component main() -> () {
+  cells { }
+  wires {
+    r.in = 5'xaa;
+  }
+  control { }
+}

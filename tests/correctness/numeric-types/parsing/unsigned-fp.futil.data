@@ -1,0 +1,13 @@
+{
+  "mem0": {
+    "data": [
+      1.25
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 4,
+      "frac_width": 2
+    }
+  }
+}

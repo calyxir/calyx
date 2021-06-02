@@ -1,0 +1,84 @@
+// -p register-unsharing
+import "primitives/core.futil";
+
+component main() -> () {
+    cells {
+        r = std_reg(32);
+        x = std_reg(32);
+        y = std_reg(32);
+        add2 = std_add(32);
+        flag = std_reg(1);
+        other = std_reg(32);
+    }
+
+    wires {
+        group zero {
+            r.in = 32'd0;
+            r.write_en = 1'd1;
+            x.write_en = 1'd1;
+            x.in = 32'd0;
+            y.write_en = 1'd1;
+            y.in = 32'd0;
+            zero[done] = r.done;
+        }
+
+        group one {
+            r.in = 32'd1;
+            r.write_en = 1'd1;
+            x.write_en = 1'd1;
+            x.in = 32'd1;
+            one[done] = r.done;
+        }
+
+        group cond {
+            flag.in = flag.out ? 1'd0;
+            flag.in = !flag.out ? 1'd1;
+            flag.write_en = 1'd1;
+            cond[done] = flag.done;
+        }
+
+        group final {
+            add2.left = 32'd154;
+            add2.right = r.out;
+            other.in = add2.out;
+            other.write_en = 1'd1;
+            final[done] = other.done;
+        }
+
+        group alt {
+            r.in = 32'd99;
+            r.write_en = 1'd1;
+            alt[done] = r.done;
+        }
+
+        group five {
+            r.in = 32'd5;
+            r.write_en = 1'd1;
+            y.write_en = 1'd1;
+            y.in = 32'd5;
+            five[done] = r.done;
+        }
+
+        group set_flag {
+            flag.in = 1'd1;
+            flag.write_en = 1'd1;
+            set_flag[done] = flag.done;
+        }
+    }
+
+    control {
+        seq{
+            set_flag;
+            zero;
+            if flag.out with cond {
+                seq {one;}
+            } else {
+                seq {five;}
+            }
+
+            final;
+            alt;
+
+        }
+    }
+}

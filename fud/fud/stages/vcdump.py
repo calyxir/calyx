@@ -1,11 +1,22 @@
-from fud.stages import Stage, Step, SourceType
+from fud.stages import Stage, SourceType
+from ..utils import shell
 
 
 class VcdumpStage(Stage):
     def __init__(self, config):
-        super().__init__("vcd", "vcd_json", config, "Transform VCD file to JSON")
+        super().__init__(
+            "vcd",
+            "vcd_json",
+            SourceType.Stream,
+            SourceType.Stream,
+            config,
+            "Transform VCD file to JSON",
+        )
+        self.setup()
 
-    def _define(self):
-        main = Step(SourceType.File)
-        main.set_cmd(f"{self.cmd} --pretty")
-        return [main]
+    def _define_steps(self, stream):
+        @self.step(description=f"{self.cmd} --pretty")
+        def run_vcdump(inp_stream: SourceType.Stream) -> SourceType.Stream:
+            return shell(f"{self.cmd} --pretty", stdin=inp_stream)
+
+        return run_vcdump(stream)

@@ -1,6 +1,6 @@
 # Compiler Development
 
-The FuTIL compiler is organized as a set of passes. At a high-level the
+The Calyx compiler is organized as a set of passes. At a high-level the
 compiler:
 
 - Parses the program.

@@ -1,0 +1,129 @@
+extern "binary_operators.sv" {
+  /// =================== Unsigned, Fixed Point =========================
+  primitive std_fp_add<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](left: WIDTH, right: WIDTH) ->(out: WIDTH);
+
+  primitive std_fp_sub<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](left: WIDTH, right: WIDTH)->(out: WIDTH);
+
+  primitive std_fp_mult_pipe[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](
+    clk: 1, go: 1, left: WIDTH, right: WIDTH
+  ) -> (
+    out: WIDTH, done: 1
+  );
+
+  primitive std_fp_div_pipe[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](
+    clk: 1, go: 1, left: WIDTH, right: WIDTH
+  ) -> (
+    out_remainder: WIDTH,
+    out_quotient: WIDTH,
+    done: 1
+  );
+
+  primitive std_fp_gt<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](left: WIDTH, right: WIDTH) -> (out: 1);
+
+  primitive std_fp_add_dwidth<"share"=1>[
+    WIDTH1,
+    WIDTH2,
+    INT_WIDTH1,
+    FRAC_WIDTH1,
+    INT_WIDTH2,
+    FRAC_WIDTH2,
+    OUT_WIDTH
+  ](left: WIDTH1, right: WIDTH2) -> (out: OUT_WIDTH);
+
+  /// =================== Signed, Fixed Point =========================
+  primitive std_fp_sadd<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+
+  primitive std_fp_ssub<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+
+  primitive std_fp_smult_pipe[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](
+    clk: 1, go: 1, left: WIDTH, right: WIDTH
+  ) -> (
+    out: WIDTH, done: 1
+  );
+
+  primitive std_fp_sdiv_pipe[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](
+    clk: 1, go: 1, left: WIDTH, right: WIDTH
+  ) -> (
+    out_remainder: WIDTH,
+    out_quotient: WIDTH,
+    done: 1
+  );
+
+  primitive std_fp_sgt<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](left: WIDTH, right: WIDTH) -> (out: 1);
+
+  primitive std_fp_sadd_dwidth<"share"=1>[
+    WIDTH1,
+    WIDTH2 ,
+    INT_WIDTH1,
+    FRAC_WIDTH1,
+    INT_WIDTH2,
+    FRAC_WIDTH2,
+    OUT_WIDTH
+  ](left: WIDTH1, right: WIDTH2) -> (out: OUT_WIDTH);
+
+  /// =================== Unsigned, Bitnum =========================
+  /// Other unsigned bitnum primitives are found in the core library,
+  /// since they're required for FSM encoding.
+
+  primitive std_mult_pipe[WIDTH](
+    clk: 1, go: 1, left: WIDTH, right: WIDTH
+  ) -> (
+    out: WIDTH, done: 1
+  );
+
+  primitive std_div_pipe<"static"=3>[WIDTH](
+    left: WIDTH, right: WIDTH, @go(1) go: 1, clk: 1
+  ) -> (
+    out_quotient: WIDTH,
+    out_remainder: WIDTH,
+    @done(1) done: 1
+  );
+
+  /// =================== Signed, Bitnum =========================
+  primitive std_sadd<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  primitive std_ssub<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+
+  primitive std_smult_pipe[WIDTH](
+    left: WIDTH, right: WIDTH, go: 1, clk: 1
+  ) -> (
+    out: WIDTH, done: 1
+  );
+
+  primitive std_sdiv_pipe[WIDTH](
+    clk: 1, @go(1) go: 1, left: WIDTH, right: WIDTH
+  ) -> (
+    out_quotient: WIDTH,
+    out_remainder: WIDTH,
+    @done(1) done: 1
+  );
+
+  primitive std_sgt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  primitive std_slt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  primitive std_seq<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  primitive std_sneq<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  primitive std_sge<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  primitive std_sle<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  primitive std_slsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  primitive std_srsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+
+}

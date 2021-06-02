@@ -32,14 +32,14 @@ impl Zero for BoolIdx {
 /// `NodeIndex` in the graph.
 /// The underlying `petgraph::MatrixGraph` stores `()` for node weights and
 /// a boolean to represent the edges.
-pub struct WeightGraph<T: Eq + Hash + Clone> {
+pub struct WeightGraph<T> {
     /// Mapping from T to a unique identifier.
     pub index_map: HashMap<T, NodeIndex>,
     /// Graph representating using identifier.
     pub graph: UnMatrix<(), BoolIdx>,
 }
 
-impl<T: Eq + Hash + Clone> Default for WeightGraph<T> {
+impl<T: Eq + Hash + Clone + Ord> Default for WeightGraph<T> {
     fn default() -> Self {
         WeightGraph {
             index_map: HashMap::new(),
@@ -50,19 +50,20 @@ impl<T: Eq + Hash + Clone> Default for WeightGraph<T> {
 
 impl<T, C> From<C> for WeightGraph<T>
 where
-    T: Eq + Hash + Clone,
+    T: Eq + Hash + Ord,
     C: Iterator<Item = T>,
 {
     fn from(nodes: C) -> Self {
         let mut graph = MatrixGraph::new_undirected();
-        let index_map = nodes.map(|node| (node, graph.add_node(()))).collect();
+        let index_map: HashMap<_, _> =
+            nodes.map(|node| (node, graph.add_node(()))).collect();
         WeightGraph { graph, index_map }
     }
 }
 
 impl<'a, T> WeightGraph<T>
 where
-    T: 'a + Eq + Hash + Clone,
+    T: 'a + Eq + Hash + Clone + Ord,
 {
     /// Add an edge between `a` and `b`.
     #[inline(always)]
@@ -105,15 +106,26 @@ where
         self.index_map.insert(node, idx);
     }
 
+    /// Returns a Map from `NodeIndex` to `T` (the reverse of the index)
     pub fn reverse_index(&self) -> HashMap<NodeIndex, T> {
         self.index_map
             .iter()
             .map(|(k, v)| (*v, k.clone()))
             .collect()
     }
+
+    /// Returns an iterator over references to nodes in the Graph.
+    pub fn nodes(&self) -> impl Iterator<Item = &T> {
+        self.index_map.keys()
+    }
+
+    /// Return the degree of a given node (number of edges connected).
+    pub fn degree(&self, node: &T) -> usize {
+        self.graph.neighbors(self.index_map[node]).count()
+    }
 }
 
-impl<T: Eq + Hash + ToString + Clone> ToString for WeightGraph<T> {
+impl<T: Eq + Hash + ToString + Clone + Ord> ToString for WeightGraph<T> {
     fn to_string(&self) -> String {
         let rev_map = self.reverse_index();
         let keys: Vec<_> = self.index_map.keys().collect();

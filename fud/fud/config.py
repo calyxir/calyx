@@ -11,9 +11,10 @@ from . import errors
 # Global registry. Initialized by main.py.
 REGISTRY = None
 
-wizard_data = {
+# keys to prompt the user for
+WIZARD_DATA = {
     "global": {
-        "futil_directory": "Root Directory of FuTIL repository",
+        "futil_directory": "Root Directory of Calyx repository",
     }
 }
 
@@ -36,11 +37,13 @@ DEFAULT_CONFIGURATION = {
             "file_extensions": [".v", ".sv"],
             "cycle_limit": int(5e8),
             "top_module": "main",
+            "round_float_to_fixed": True,
             "data": None,
         },
         "vcd": {"exec": "vcdump", "file_extensions": [".vcd"]},
         "vcd_json": {"file_extensions": [".json"]},
         "dat": {"file_extensions": [".dat"]},
+        "relay": {"file_extensions": [".relay"], "flags": None},
         "systolic": {"file_extensions": [".systolic"], "flags": None},
         "synth-verilog": {
             "exec": "vivado",
@@ -54,6 +57,26 @@ DEFAULT_CONFIGURATION = {
             "ssh_username": "",
             "remote": None,
         },
+        "xclbin": {
+            "file_extensions": [".xclbin"],
+            "mode": "hw_emu",
+            "device": "xilinx_u50_gen3x16_xdma_201920_3",
+            "temp_location": "/tmp",
+            "ssh_host": "",
+            "ssh_username": "",
+            "save_temps": None,
+        },
+        "wdb": {
+            "file_extensions": [".wdb"],
+            "mode": "hw_emu",
+            "ssh_host": "",
+            "ssh_username": "",
+            "host": None,
+            "save_temps": None,
+            "xilinx_location": "/scratch/opt/Xilinx/2020.2",
+            "xrt_location": "/opt/xilinx/xrt",
+        },
+        "fpga": {"data": None},
     },
 }
 
@@ -110,6 +133,9 @@ class DynamicDict:
 
 
 def wizard(table, data):
+    """
+    Prompt the user for unset keys as specified in `data`.
+    """
     for key in data.keys():
         if not isinstance(table, dict):
             table = {}
@@ -117,7 +143,7 @@ def wizard(table, data):
         if key not in table:
             while True:
                 answer = input(f"{data[key]} is unset (relative paths ok): ")
-                path = Path(answer)
+                path = Path(answer).expanduser()
                 if path.exists():
                     table[key] = str(path.resolve())
                     break
@@ -127,14 +153,13 @@ def wizard(table, data):
     return table
 
 
-def rest_of_path(path):
-    d = None
-    for p in reversed(path):
-        d = {p: d}
-    return d
-
-
 class Configuration:
+    """
+    Wraps the configuration file and provides methods for committing
+    data, displaying configuration data, accessing data, and prompting
+    the user for unset keys.
+    """
+
     def __init__(self):
         """Find the configuration file."""
         self.path = Path(appdirs.user_config_dir("fud"))
@@ -145,18 +170,28 @@ class Configuration:
 
         # load the configuration file
         self.config = DynamicDict(toml.load(self.config_file))
-        self.wizard_data = DynamicDict(wizard_data)
+        self.wizard_data = DynamicDict(WIZARD_DATA)
         self.fill_missing(DEFAULT_CONFIGURATION, self.config.data)
         if ("global", "futil_directory") not in self.config:
             log.warn("global.futil_directory is not set in the configuration")
 
     def commit(self):
+        """
+        Commit the current configuration to a file.
+        """
         toml.dump(self.config.data, self.config_file.open("w"))
 
     def display(self):
+        """
+        Display the current configuration.
+        """
         toml.dump(self.config.data, sys.stdout)
 
     def fill_missing(self, default, config):
+        """
+        Add keys that are defined in the default config but not in
+        the user provided config.
+        """
         if isinstance(default, dict):
             # go over all the keys in the default
             for key in default.keys():
@@ -168,10 +203,13 @@ class Configuration:
         return config
 
     def launch_wizard(self):
+        """
+        Launch the wizard to prompt user for unset keys.
+        """
         changed = False
         for key in self.config.data.keys():
             if key in self.wizard_data.data.keys():
-                self.config.data[key] = wizard(self.config[key], wizard_data[key])
+                self.config.data[key] = wizard(self.config[key], WIZARD_DATA[key])
                 changed = True
         if changed:
             self.commit()

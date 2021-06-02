@@ -1,0 +1,45 @@
+// -p guard-canonical
+
+import "primitives/std.lib";
+component main() -> (out: 1) {
+  cells {
+    r0 = std_reg(1);
+    r1 = std_reg(1);
+    @external(1) mem = std_mem_d1(32, 1, 1);
+  }
+  wires {
+    group a {
+      r0.in = 1'd1;
+      r0.write_en = 1'd1;
+      r1.in = 1'd1;
+      r1.write_en = r0.done;
+      a[done] = r1.done;
+    }
+    group b {
+      r0.in = 1'd1;
+      r0.write_en = 1'd1;
+      r1.in = 1'd1;
+      r1.write_en = r0.done;
+      b[done] = r1.done ? 1'd1;
+    }
+    group c {
+      r0.in = 1'd1;
+      r0.write_en = 1'd1;
+      r1.in = 1'd1;
+      r1.write_en = r0.done;
+      c[done] = 1'd1 ? r1.done;
+    }
+    mem.addr0 = 1'b0;
+    mem.write_data = 32'd42;
+    mem.write_en = 1'b1;
+    done = mem.done ? 1'b1;
+    out = 1'd1 ? mem.done;
+  }
+  control {
+    seq{
+      a;
+      b;
+      c;
+    }
+  }
+}

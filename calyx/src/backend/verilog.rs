@@ -1,4 +1,4 @@
-//! SystemVerilog backend for the FuTIL compiler.
+//! SystemVerilog backend for the Calyx compiler.
 //!
 //! Transforms an [`ir::Context`](crate::ir::Context) into a formatted string that represents a
 //! valid SystemVerilog program.
@@ -95,7 +95,17 @@ impl Backend for VerilogBackend {
         file: &mut OutputFile,
     ) -> FutilResult<()> {
         for extern_path in &ctx.lib.paths {
-            io::copy(&mut File::open(extern_path)?, &mut file.get_write())?;
+            let mut ext = File::open(extern_path).map_err(|err| {
+                let std::io::Error { .. } = err;
+                Error::WriteError(format!("File not found: {}", extern_path))
+            })?;
+            io::copy(&mut ext, &mut file.get_write()).map_err(|err| {
+                let std::io::Error { .. } = err;
+                Error::WriteError(format!(
+                    "File not found: {}",
+                    file.as_path_string()
+                ))
+            })?;
         }
         Ok(())
     }
@@ -107,7 +117,13 @@ impl Backend for VerilogBackend {
             .map(|comp| emit_component(&comp, !ctx.synthesis_mode).to_string())
             .collect::<Vec<_>>();
 
-        write!(file.get_write(), "{}", modules.join("\n"))?;
+        write!(file.get_write(), "{}", modules.join("\n")).map_err(|err| {
+            let std::io::Error { .. } = err;
+            Error::WriteError(format!(
+                "File not found: {}",
+                file.as_path_string()
+            ))
+        })?;
         Ok(())
     }
 }
@@ -150,9 +166,17 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
     let mut initial = v::ParallelProcess::new_initial();
     wires.iter().for_each(|(name, width, dir)| {
         if *dir == ir::Direction::Input {
+            // HACK: this is not the right way to reset
+            // registers. we should have real reset ports.
+            let value = String::from("0");
+            // let value = if name.contains("write_en") {
+            //     String::from("0")
+            // } else {
+            //     String::from("0")
+            // };
             initial.add_seq(v::Sequential::new_blk_assign(
                 v::Expr::new_ref(name),
-                v::Expr::new_ulit_dec(*width as u32, &0.to_string()),
+                v::Expr::new_ulit_dec(*width as u32, &value),
             ));
         }
     });
@@ -307,11 +331,6 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
 //==========================================
 //        Memory input and output
 //==========================================
-/// This cell needs to be initialized
-fn requires_initialization(cell_name: &ir::Id) -> bool {
-    cell_name.id.contains("mem")
-}
-
 /// Generates code of the form:
 /// ```
 /// import "DPI-C" function string futil_getenv (input string env_var);
@@ -352,16 +371,18 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
         )));
 
     let memories = comp.cells.iter().filter_map(|cell| {
-        cell.borrow()
-            .type_name()
-            .map(requires_initialization)
-            .and_then(|yes| {
-                if yes {
-                    Some(cell.borrow().name.id.clone())
-                } else {
-                    None
-                }
-            })
+        let is_external = cell.borrow().get_attribute("external").is_some();
+        if is_external
+            && cell
+                .borrow()
+                .type_name()
+                .map(|proto| proto.id.contains("mem"))
+                .unwrap_or_default()
+        {
+            Some(cell.borrow().name.id.clone())
+        } else {
+            None
+        }
     });
 
     memories.clone().for_each(|name| {

@@ -1,0 +1,6 @@
+{
+  "input_bitwidth": 32,
+  "input_size": 16,
+  "modulus": 16001,
+  "parallel_reduction": 4
+}

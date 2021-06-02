@@ -6,7 +6,7 @@ use crate::ir::{self, LibrarySignatures};
 /// Add the group's `go` signal into the guards of all non-hole assignments
 /// of this group.
 ///
-/// For example, the pass transforms this FuTIL program:
+/// For example, the pass transforms this Calyx program:
 /// ```
 /// group foo {
 ///     x.in = cond ? 32'd1;

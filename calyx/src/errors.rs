@@ -6,10 +6,10 @@ use petgraph::stable_graph::NodeIndex;
 use std::iter::repeat;
 use std::rc::Rc;
 
-/// Standard error type for FuTIL errors.
+/// Standard error type for Calyx errors.
 #[allow(clippy::large_enum_variant)]
 pub enum Error {
-    /// Error while parsing a FuTIL program.
+    /// Error while parsing a Calyx program.
     ParseError(pest_consume::Error<parser::Rule>),
     /// Using a reserved keyword as a program identifier.
     ReservedName(ir::Id),
@@ -19,7 +19,7 @@ pub enum Error {
     /// The input file is invalid (does not exist).
     InvalidFile(String),
     /// Failed to write the output
-    WriteError,
+    WriteError(String),
 
     /// The control program is malformed.
     MalformedControl(String),
@@ -43,7 +43,7 @@ pub enum Error {
     /// An implementation is missing.
     MissingImplementation(&'static str, ir::Id),
 
-    /// Papercut error: signals a commonly made mistake in FuTIL program.
+    /// Papercut error: signals a commonly made mistake in Calyx program.
     Papercut(String, ir::Id),
 
     /// Group "static" latency annotation differed from inferred latency.
@@ -163,8 +163,8 @@ impl std::fmt::Debug for Error {
                 )
             },
             InvalidFile(err) => write!(f, "{}", err),
-            ParseError(err) => write!(f, "FuTIL Parser: {}", err),
-            WriteError => write!(f, "WriteError"),
+            ParseError(err) => write!(f, "Calyx Parser: {}", err),
+            WriteError(msg) => write!(f, "{}", msg),
             MismatchedPortWidths(port1, w1, port2, w2) => {
                 let msg1 = format!("This port has width: {}", w1);
                 let msg2 = format!("This port has width: {}", w2);
@@ -196,12 +196,6 @@ impl From<std::str::Utf8Error> for Error {
     }
 }
 
-impl From<std::fmt::Error> for Error {
-    fn from(_err: std::fmt::Error) -> Self {
-        Error::WriteError
-    }
-}
-
 impl From<pest_consume::Error<parser::Rule>> for Error {
     fn from(e: pest_consume::Error<parser::Rule>) -> Self {
         Error::ParseError(e)
@@ -210,7 +204,7 @@ impl From<pest_consume::Error<parser::Rule>> for Error {
 
 impl From<std::io::Error> for Error {
     fn from(_e: std::io::Error) -> Self {
-        Error::WriteError
+        Error::WriteError("IO Error".to_string())
     }
 }
 

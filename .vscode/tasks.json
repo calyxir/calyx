@@ -1,0 +1,46 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Cargo Build",
+            "command": "cargo",
+            "args": ["build"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "Install the FuTIL Driver",
+            "command": "/home/vscode/.local/bin/flit",
+            "args": ["install", "-s"],
+            "options": {
+                "cwd": "${workspaceFolder}/fud"
+            }
+        },
+        {
+            "label": "Install the FuTIL Python Library",
+            "command": "/home/vscode/.local/bin/flit",
+            "args": ["install", "-s"],
+            "options": {
+                "cwd": "${workspaceFolder}/calyx-py"
+            }
+        },
+        {
+            "label": "Run All Tests",
+            "command": "runt",
+            "dependsOn": ["Cargo Build", "Install the FuTIL Driver", "Install the FuTIL Python Library"]
+        },
+        {
+            "label": "Run Example Program",
+            "command": "cargo",
+            "args": ["run", "--", "examples/futil/simple.futil"],
+            "dependsOn": ["Cargo Build", "Install the FuTIL Driver", "Install the FuTIL Python Library"]
+        },
+        {
+            "label": "Run Example Program(w/ Verilog)",
+            "command": "cargo",
+            "args": ["run", "--", "examples/futil/simple.futil", "-b", "verilog"],
+            "dependsOn": ["Cargo Build", "Install the FuTIL Driver", "Install the FuTIL Python Library"]
+        }
+    ]
+}

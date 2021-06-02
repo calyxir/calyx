@@ -42,10 +42,7 @@ pub struct NamespaceDef {
 impl NamespaceDef {
     /// Parse the program and all of its transitive dependencies to build
     /// a whole program context.
-    pub fn new(
-        file: &Option<PathBuf>,
-        lib_path: &PathBuf,
-    ) -> FutilResult<Self> {
+    pub fn new(file: &Option<PathBuf>, lib_path: &Path) -> FutilResult<Self> {
         let mut namespace = match file {
             Some(file) => parser::FutilParser::parse_file(&file),
             None => {
@@ -326,9 +323,9 @@ pub enum Control {
         /// Name of the component to be invoked.
         comp: ir::Id,
         /// Input assignments
-        inputs: Vec<(ir::Id, Port)>,
+        inputs: Vec<(ir::Id, Atom)>,
         /// Output assignments
-        outputs: Vec<(ir::Id, Port)>,
+        outputs: Vec<(ir::Id, Atom)>,
         /// Attributes
         attributes: ir::Attributes,
     },

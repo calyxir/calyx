@@ -1,0 +1,24 @@
+{
+  "radicand": {
+    "data": [
+      16.25
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 32,
+      "frac_width": 16
+    }
+  },
+  "root": {
+    "data": [
+      0.0
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 32,
+      "frac_width": 16
+    }
+  }
+}

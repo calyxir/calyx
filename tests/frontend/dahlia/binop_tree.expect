@@ -54,7 +54,7 @@ component main() -> () {
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
     group let6 {
-      bin_read1_0.in = div_pipe0.out;
+      bin_read1_0.in = div_pipe0.out_quotient;
       bin_read1_0.write_en = div_pipe0.done;
       let6[done] = bin_read1_0.done;
       div_pipe0.left = d_0.out;

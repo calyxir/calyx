@@ -1,0 +1,84 @@
+import "primitives/std.lib";
+import "primitives/math.futil";
+component main() -> () {
+  cells {
+    @external(1) x = std_mem_d1(32, 1, 1);
+    x1 = std_const(32, 0);
+    @external(1) x2 = std_mem_d1(32, 1, 1);
+    multiply_1_ = multiply_1();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      invoke multiply_1_(x0_read_data=x.read_data, x1=x1.out, x20_done=x2.done, x20_read_data=x2.read_data)(x0_addr0=x.addr0, x20_write_data=x2.write_data, x20_write_en=x2.write_en, x20_addr0=x2.addr0);
+    }
+  }
+}
+component multiply_1(x0_read_data: 32, x0_done: 1, x1: 32, x20_read_data: 32, x20_done: 1) -> (x0_write_data: 32, x0_write_en: 1, x0_addr0: 1, x20_write_data: 32, x20_write_en: 1, x20_addr0: 1) {
+  cells {
+    __i0 = std_reg(1);
+    add0 = std_add(1);
+    bin_read0_0 = std_reg(32);
+    const0 = std_const(1,0);
+    const1 = std_const(1,0);
+    const2 = std_const(1,1);
+    le0 = std_le(1);
+    mult_pipe0 = std_smult_pipe(32);
+    x_read0_0 = std_reg(32);
+  }
+  wires {
+    group cond0<"static"=0> {
+      cond0[done] = 1'd1;
+      le0.left = __i0.out;
+      le0.right = const1.out;
+    }
+    group let0<"static"=1> {
+      __i0.in = const0.out;
+      __i0.write_en = 1'd1;
+      let0[done] = __i0.done;
+    }
+    group let1<"static"=4> {
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      let1[done] = bin_read0_0.done;
+      mult_pipe0.left = x_read0_0.out;
+      mult_pipe0.right = x1;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group upd0<"static"=1> {
+      x_read0_0.write_en = 1'd1;
+      x0_addr0 = __i0.out;
+      x_read0_0.in = 1'd1 ? x0_read_data;
+      upd0[done] = x_read0_0.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      x20_addr0 = __i0.out;
+      x20_write_en = 1'd1;
+      x20_write_data = 1'd1 ? bin_read0_0.out;
+      upd1[done] = x20_done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      __i0.write_en = 1'd1;
+      add0.left = __i0.out;
+      add0.right = const2.out;
+      __i0.in = 1'd1 ? add0.out;
+      upd2[done] = __i0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          upd0;
+          let1;
+          upd1;
+          upd2;
+        }
+      }
+    }
+  }
+}
+

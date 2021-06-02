@@ -50,6 +50,26 @@ pub fn ast_to_ir(
     debug_mode: bool,
     synthesis_mode: bool,
 ) -> FutilResult<Context> {
+    let mut all_names: HashSet<&Id> = HashSet::with_capacity(
+        namespace.components.len() + namespace.externs.len(),
+    );
+
+    let prim_names = namespace
+        .externs
+        .iter()
+        .flat_map(|(_, prims)| prims.iter().map(|prim| &prim.name));
+    let comp_names = namespace.components.iter().map(|comp| &comp.name);
+
+    for bound in prim_names.chain(comp_names) {
+        if all_names.contains(bound) {
+            return Err(Error::AlreadyBound(
+                bound.clone(),
+                "component or primitive".to_string(),
+            ));
+        }
+        all_names.insert(bound);
+    }
+
     // Build the signature context
     let mut sig_ctx = SigCtx {
         lib: namespace.externs.into(),
@@ -162,10 +182,8 @@ fn build_component(
     builder.component.continuous_assignments = continuous_assignments;
 
     // Build the Control ast using ast::Control.
-    let control = Rc::new(RefCell::new(build_control(
-        comp.control,
-        &builder.component,
-    )?));
+    let control =
+        Rc::new(RefCell::new(build_control(comp.control, &mut builder)?));
     builder.component.control = control;
 
     ir_component.attributes = comp.attributes;
@@ -313,7 +331,7 @@ fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> FutilResult<Guard> {
 /// Transform ast::Control to ir::Control.
 fn build_control(
     control: ast::Control,
-    comp: &Component,
+    builder: &mut Builder,
 ) -> FutilResult<Control> {
     Ok(match control {
         ast::Control::Enable {
@@ -321,7 +339,7 @@ fn build_control(
             attributes,
         } => {
             let mut en = Control::enable(Rc::clone(
-                &comp.find_group(&component).ok_or_else(|| {
+                &builder.component.find_group(&component).ok_or_else(|| {
                     Error::Undefined(component.clone(), "group".to_string())
                 })?,
             ));
@@ -334,17 +352,18 @@ fn build_control(
             outputs,
             attributes,
         } => {
-            let cell =
-                Rc::clone(&comp.find_cell(&component).ok_or_else(|| {
+            let cell = Rc::clone(
+                &builder.component.find_cell(&component).ok_or_else(|| {
                     Error::Undefined(component.clone(), "cell".to_string())
-                })?);
+                })?,
+            );
             let inps = inputs
                 .into_iter()
-                .map(|(id, port)| get_port_ref(port, comp).map(|p| (id, p)))
+                .map(|(id, port)| atom_to_port(port, builder).map(|p| (id, p)))
                 .collect::<Result<_, _>>()?;
             let outs = outputs
                 .into_iter()
-                .map(|(id, port)| get_port_ref(port, comp).map(|p| (id, p)))
+                .map(|(id, port)| atom_to_port(port, builder).map(|p| (id, p)))
                 .collect::<Result<_, _>>()?;
             let mut inv = Control::invoke(cell, inps, outs);
             *(inv.get_mut_attributes().unwrap()) = attributes;
@@ -354,7 +373,7 @@ fn build_control(
             let mut s = Control::seq(
                 stmts
                     .into_iter()
-                    .map(|c| build_control(c, comp))
+                    .map(|c| build_control(c, builder))
                     .collect::<FutilResult<Vec<_>>>()?,
             );
             *(s.get_mut_attributes().unwrap()) = attributes;
@@ -364,7 +383,7 @@ fn build_control(
             let mut p = Control::par(
                 stmts
                     .into_iter()
-                    .map(|c| build_control(c, comp))
+                    .map(|c| build_control(c, builder))
                     .collect::<FutilResult<Vec<_>>>()?,
             );
             *(p.get_mut_attributes().unwrap()) = attributes;
@@ -378,12 +397,12 @@ fn build_control(
             attributes,
         } => {
             let mut con = Control::if_(
-                get_port_ref(port, comp)?,
-                Rc::clone(&comp.find_group(&cond).ok_or_else(|| {
-                    Error::Undefined(cond.clone(), "group".to_string())
-                })?),
-                Box::new(build_control(*tbranch, comp)?),
-                Box::new(build_control(*fbranch, comp)?),
+                get_port_ref(port, builder.component)?,
+                Rc::clone(&builder.component.find_group(&cond).ok_or_else(
+                    || Error::Undefined(cond.clone(), "group".to_string()),
+                )?),
+                Box::new(build_control(*tbranch, builder)?),
+                Box::new(build_control(*fbranch, builder)?),
             );
             *(con.get_mut_attributes().unwrap()) = attributes;
             con
@@ -395,11 +414,11 @@ fn build_control(
             attributes,
         } => {
             let mut con = Control::while_(
-                get_port_ref(port, comp)?,
-                Rc::clone(&comp.find_group(&cond).ok_or_else(|| {
-                    Error::Undefined(cond.clone(), "group".to_string())
-                })?),
-                Box::new(build_control(*body, comp)?),
+                get_port_ref(port, builder.component)?,
+                Rc::clone(&builder.component.find_group(&cond).ok_or_else(
+                    || Error::Undefined(cond.clone(), "group".to_string()),
+                )?),
+                Box::new(build_control(*body, builder)?),
             );
             *(con.get_mut_attributes().unwrap()) = attributes;
             con
