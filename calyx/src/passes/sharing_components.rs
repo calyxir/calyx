@@ -84,16 +84,16 @@ impl<T: ShareComponents> Visitor for T {
     ) -> VisResult {
         self.initialize(&comp, &sigs);
 
-        let cells =
-            || comp.cells.iter().filter(|c| self.cell_filter(&c.borrow()));
+        let cells = comp.cells.iter().filter(|c| self.cell_filter(&c.borrow()));
 
-        let id_to_type: HashMap<ir::Id, ir::CellType> = cells()
+        let id_to_type: HashMap<ir::Id, ir::CellType> = cells
+            .clone()
             .map(|cell| (cell.clone_name(), cell.borrow().prototype.clone()))
             .collect();
 
         let mut cells_by_type: HashMap<ir::CellType, Vec<ir::Id>> =
             HashMap::new();
-        for cell in cells() {
+        for cell in cells {
             cells_by_type
                 .entry(cell.borrow().prototype.clone())
                 .and_modify(|v| v.push(cell.clone_name()))
