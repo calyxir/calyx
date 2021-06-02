@@ -1,6 +1,8 @@
 //! Inteprets a control in a component.
 
-use super::{environment::Environment, interpreter, interpret_group::GroupInterpreter};
+use super::{
+    environment::Environment, interpret_group::GroupInterpreter, interpreter,
+};
 use calyx::{
     errors::{Error, FutilResult},
     ir,
@@ -98,14 +100,14 @@ fn eval_if(
     mut env: Environment,
 ) -> FutilResult<Environment> {
     //first set the environment for cond
-    env = interpreter::eval_group(i.cond.clone(), env,comp.clone())?;
+    env = interpreter::eval_group(i.cond.clone(), env, comp.clone())?;
 
     let cid = ir::Id::from(comp.clone());
     // if i.port is not high fbranch else tbranch
-    if env.get_from_port( &cid, &i.port.borrow()) ==0 {
+    if env.get_from_port(&cid, &i.port.borrow()) == 0 {
         env = eval_control(&i.fbranch, comp.clone(), env)?;
         Ok(env)
-    } else{
+    } else {
         env = eval_control(&i.tbranch, comp.clone(), env)?;
         Ok(env)
     }
@@ -125,11 +127,11 @@ fn eval_while(
     // currently ports don't update properly in mutli-cycle and runs into infinite loop
     // count needs to be removed when the infinite loop problem is fixed
     let mut count = 0;
-    while env.get_from_port( &cid, &w.port.borrow()) !=1 && count<5{
+    while env.get_from_port(&cid, &w.port.borrow()) != 1 && count < 5 {
         env = eval_control(&w.body, comp.clone(), env)?;
-        env = interpreter::eval_group(w.cond.clone(), env,comp.clone())?;
+        env = interpreter::eval_group(w.cond.clone(), env, comp.clone())?;
         // count needs to be remved
-        count +=1;
+        count += 1;
     }
     Ok(env)
 }
