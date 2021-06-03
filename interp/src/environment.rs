@@ -7,9 +7,6 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 //use std::rc::Rc;
 
-// #[derive(Serialize, Debug)]
-// struct Cycle (HashMap<String, HashMap<String, u64>>);
-
 /// The environment to interpret a Calyx program.
 #[derive(Clone, Debug)]
 pub struct Environment {
