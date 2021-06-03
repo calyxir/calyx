@@ -1,55 +1,61 @@
 //! Used for the command line interface.
 //! Only interprets a given group in a given component
 
-use super::{environment::Environment, interpreter};
+use super::{environment::Environment, interpreter /*update::Update */};
 use calyx::{
     errors::{Error, FutilResult},
     ir,
 };
 use std::collections::HashMap;
-use std::rc::Rc;
+// use std::rc::Rc;
 
 /// Stores information about the component and group to interpret.
 /// Might be better to make this a subset of a trait implemented by all interpreters, later on
 pub struct GroupInterpreter {
     /// The name of the component with the group to interpret
     pub component: String,
-    /// The name of the group to interpret
-    pub group: String,
+    /// The group to interpret
+    pub group: ir::RRC<ir::Group>,
+    /// The environment for the interpreter.
+    pub environment: Environment,
 }
 
 impl GroupInterpreter {
-    /// Interpret a group, given a context, component name, and group name
-    pub fn interpret(self, ctx: ir::Context) -> FutilResult<()> {
-        // Validation
-        let comp = get_component(ctx, &self.component)?;
+    /// Construct a GroupInterpreter
+    /// comp: Name of component the group is from
+    /// grp: The group to interpret
+    /// env: The initial environment
+    pub fn init(
+        comp: String,
+        grp: ir::RRC<ir::Group>,
+        env: Environment,
+    ) -> Self {
+        Self {
+            component: comp,
+            group: grp,
+            environment: env,
+        }
+    }
 
-        // Intialize environment
-        let map = construct_map(&comp.cells);
-        let cellmap = comp
-            .cells
-            .iter()
-            .map(|cell| (cell.borrow().name.clone(), Rc::clone(&cell)))
-            .collect::<HashMap<_, _>>();
-
-        // Initial state of the environment
-        let environment = Environment::init(map, cellmap);
-        environment.cell_state();
-
-        // Interpret the group
-        let group = comp.find_group(&self.group).ok_or_else(|| {
-            Error::Undefined(ir::Id::from(self.group), "group".to_string())
-        })?;
+    /// Interpret this group
+    pub fn interpret(self) -> FutilResult<Environment> {
+        // Print the initial state of the environment
+        // self.environment.cell_state(self.component.clone());
 
         // Final state of the environment
-        let finalenv = interpreter::eval_group(group, &environment)?;
+        let finalenv = interpreter::eval_group(
+            self.group,
+            self.environment,
+            self.component,
+        )?;
+        // Print out final state of environment
         finalenv.cell_state();
-        Ok(())
+        Ok(finalenv)
     }
 }
 
 /// Get the name of the component to interpret from the context.
-fn get_component(
+fn _get_component(
     ctx: ir::Context,
     component: &str,
 ) -> FutilResult<ir::Component> {
@@ -63,7 +69,7 @@ fn get_component(
 }
 
 /// Construct a map from cell ids to a map from the cell's ports' ids to the ports' values
-fn construct_map(
+fn _construct_map(
     cells: &[ir::RRC<ir::Cell>],
 ) -> HashMap<ir::Id, HashMap<ir::Id, u64>> {
     let mut map = HashMap::new();

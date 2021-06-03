@@ -1,154 +1,164 @@
-use super::primitives;
-use calyx::ir;
-use std::collections::HashMap;
-use std::rc::Rc;
+//! Environment for interpreter.
 
-/// Stores information for updates.
-#[derive(Clone, Debug)]
-pub struct Update {
-    /// The cell to be updated
-    pub cell: ir::Id,
-    /// The vector of input ports
-    pub inputs: Vec<ir::Id>,
-    /// The vector of output ports
-    pub outputs: Vec<ir::Id>,
-    /// Map of intermediate variables
-    /// (could refer to a port or it could be "new", e.g. in the sqrt)
-    pub vars: HashMap<String, u64>,
-}
+//use super::{primitives, update};
+use calyx::ir;
+use serde::Serialize;
+use std::collections::BTreeMap;
+use std::collections::HashMap;
+//use std::rc::Rc;
+
+// #[derive(Serialize, Debug)]
+// struct Cycle (HashMap<String, HashMap<String, u64>>);
+#[derive(Serialize, Debug)]
+struct Cycle(BTreeMap<String, BTreeMap<String, BTreeMap<String, u64>>>);
 
 /// The environment to interpret a Calyx program.
 #[derive(Clone, Debug)]
 pub struct Environment {
-    /// A mapping from cell names to the values on their ports.
-    // XXX: Should not be `pub`.
-    map: HashMap<ir::Id, HashMap<ir::Id, u64>>,
+    /// Stores values of context.
+    /// Maps component names to a mapping from the component's cell names to their ports' values.
+    pub map: HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, u64>>>,
 
-    /// A queue of operations that need to be applied in the future.
-    /// A vector of Updates.
-    update_queue: Vec<Update>,
-
-    // XXX(karen): Will probably need to remove eventually
-    // XXX(rachit): We can probably just "attach" an `ir::Component` here and
-    // use the methods defined on that (like `ir::Component::get_cell`).
-    /// A mapping from cell ids to cells, much like in component.rs.
-    cells: HashMap<ir::Id, ir::RRC<ir::Cell>>,
+    /// A reference to the context.
+    pub context: ir::RRC<ir::Context>,
 }
 
 /// Helper functions for the environment.
 impl Environment {
-    /// Constructor "syntactic sugar"
-    pub fn init(
-        map: HashMap<ir::Id, HashMap<ir::Id, u64>>,
-        cells: HashMap<ir::Id, ir::RRC<ir::Cell>>,
-    ) -> Self {
-        let update_queue: Vec<Update> = Vec::new();
+    /// Construct an environment
+    /// ctx : A context from the IR
+    pub fn init(ctx: ir::RRC<ir::Context>) -> Self {
         Self {
-            map,
-            update_queue,
-            cells,
+            map: Environment::construct_map(&*ctx.borrow()),
+            context: ctx.clone(),
         }
     }
 
-    /// Returns the value on a port, in a cell.
+    /// Returns the value on a port, in a component's cell.
     // XXX(rachit): Deprecate this method in favor of `get_from_port`
-    pub fn get(&self, cell: &ir::Id, port: &ir::Id) -> u64 {
-        self.map[cell][port]
+    pub fn get(&self, component: &ir::Id, cell: &ir::Id, port: &ir::Id) -> u64 {
+        self.map[component][cell][port]
     }
 
-    /// Return the value associated with an ir::Port.
-    pub fn get_from_port(&self, port: &ir::Port) -> u64 {
+    /// Return the value associated with a component's port.
+    pub fn get_from_port(&self, component: &ir::Id, port: &ir::Port) -> u64 {
         if port.is_hole() {
             panic!("Cannot get value from hole")
         }
-        self.map[&port.get_parent_name()][&port.name]
+        self.map[component][&port.get_parent_name()][&port.name]
     }
 
-    /// Puts the mapping from cell to port to val in map.
-    pub fn put(&mut self, cell: &ir::Id, port: &ir::Id, val: u64) {
+    /// Puts a mapping from component to cell to port to val into map.
+    pub fn put(
+        &mut self,
+        comp: &ir::Id,
+        cell: &ir::Id,
+        port: &ir::Id,
+        val: u64,
+    ) {
         self.map
+            .entry(comp.clone())
+            .or_default()
             .entry(cell.clone())
             .or_default()
             .insert(port.clone(), val);
     }
 
-    /// Adds an update to the update queue; TODO; ok to drop prev and next?
-    pub fn add_update(
-        &mut self,
-        ucell: ir::Id,
-        uinput: Vec<ir::Id>,
-        uoutput: Vec<ir::Id>,
-        uvars: HashMap<String, u64>,
-    ) {
-        //println!("add update!");
-        let update = Update {
-            cell: ucell,
-            inputs: uinput,
-            outputs: uoutput,
-            vars: uvars,
-        };
-        self.update_queue.push(update);
+    /// Puts a mapping from component to cell to port to val into map.
+    /// Should this function return the modified environment instead?
+    pub fn _put_cell(&mut self, comp: &ir::Id, cellport: HashMap<ir::Id, u64>) {
+        self.map
+            .entry(comp.clone())
+            .or_default()
+            .insert(comp.clone(), cellport);
     }
 
-    /// Convenience function to remove a particular cell's update from the update queue
-    pub fn remove_update(&mut self, ucell: &ir::Id) {
-        self.update_queue.retain(|u| u.cell != ucell);
-    }
-
-    // TODO: should the return type be FuTIlResult<Environment>?
-    /// Simulates a clock cycle by executing the stored updates.
-    pub fn do_tick(mut self) -> Self {
-        let uq = self.update_queue.clone();
-        for update in uq {
-            let updated = primitives::update_cell_state(
-                &update.cell,
-                &update.inputs,
-                &update.outputs,
-                &self,
-            );
-            match updated {
-                Ok(updated_env) => {
-                    let updated_cell = updated_env
-                        .map
-                        .get(&update.cell)
-                        .unwrap_or_else(|| panic!("Can't get map"))
-                        .clone();
-                    self.map.insert(update.cell.clone(), updated_cell);
-                }
-                _ => panic!("Could not apply update. "),
-            }
-        }
-        self
-    }
-
-    /// Gets the cell based on the name;
+    /// Gets the cell in a component based on the name;
     /// XXX: similar to find_cell in component.rs
-    pub fn get_cell(&self, cell: &ir::Id) -> Option<ir::RRC<ir::Cell>> {
-        self.cells
-            .values()
-            .find(|&g| g.borrow().name == *cell)
-            .map(|r| Rc::clone(r))
+    /// Does this function *need* to be in environment?
+    pub fn get_cell(
+        &self,
+        comp: &ir::Id,
+        cell: &ir::Id,
+    ) -> Option<ir::RRC<ir::Cell>> {
+        let a = self.context.borrow();
+        let temp = a.components.iter().find(|cm| cm.name == *comp)?;
+        temp.find_cell(&(cell.id))
     }
 
-    /// Outputs the cell state; TODO (write to a specified output in the future)
-    pub fn cell_state(&self) {
-        let state_str = self
-            .map
-            .iter()
-            .map(|(cell, ports)| {
-                format!(
-                    "{}\n{}",
-                    cell,
-                    ports
-                        .iter()
-                        .map(|(p, v)| format!("\t{}: {}", p, v))
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
+    /// Maps components to maps from cell ids to a map from the cell's ports' ids to port values
+    fn construct_map(
+        context: &ir::Context,
+    ) -> HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, u64>>> {
+        let mut map = HashMap::new();
+        for comp in &context.components {
+            let mut cell_map = HashMap::new();
+            for cell in &comp.cells {
+                let cb = cell.borrow();
+                let mut ports: HashMap<ir::Id, u64> = HashMap::new();
+                match &cb.prototype {
+                    // A FuTIL constant cell's out port is that constant's value
+                    ir::CellType::Constant { val, .. } => {
+                        ports.insert(ir::Id::from("out"), *val);
+                        cell_map.insert(cb.name.clone(), ports);
+                    }
+                    ir::CellType::Primitive { .. } => {
+                        for port in &cb.ports {
+                            // All ports for primitives are initalized to 0 , unless the cell is an std_const
+                            let pb = port.borrow();
+                            let initval = cb
+                                .get_paramter(&ir::Id::from(
+                                    "value".to_string(),
+                                ))
+                                .unwrap_or(0); //std_const should be the only cell type with the "value" parameter
+                            ports.insert(pb.name.clone(), initval);
+                        }
+                        cell_map.insert(cb.name.clone(), ports);
+                    }
+                    //TODO: handle components
+                    _ => panic!("component"),
+                }
+            }
+            map.insert(comp.name.clone(), cell_map);
+        }
+        map
+    }
 
-        println!("{}\n{}\n{}", "=".repeat(30), state_str, "=".repeat(30))
+    /// Outputs the cell state;
+    ///TODO (write to a specified output in the future) We could do the printing
+    ///of values here for tracing purposes as discussed. Could also have a
+    ///separate DS that we could put the cell states into for more custom tracing
+    pub fn cell_state(&self) {
+        let mut cyc1: BTreeMap<
+            String,
+            BTreeMap<String, BTreeMap<String, u64>>,
+        > = BTreeMap::new();
+        // component id to component cell mappings
+        for (key, value) in &self.map {
+            //println!("{}",key.to_string());
+            let mut cyc2 = BTreeMap::new();
+            // component cell to component port id mappings
+            for (k, v) in value {
+                let mut cyc3 = BTreeMap::new();
+                // port id to port value mappings
+                for (p, i) in v {
+                    cyc3.insert(p.to_string(), *i);
+                }
+                // println!("{}",k.to_string());
+                cyc2.insert(k.to_string(), cyc3);
+            }
+            cyc1.insert(key.to_string(), cyc2);
+        }
+
+        let state_str = Cycle(cyc1);
+
+        // for (key, value) in &cyc1 {
+        //     println!("{}", key);
+        //     for (k,v) in value{
+        //         println!("{}: {}", k, v);
+        //     }
+        // }
+        let serialized = serde_json::to_string(&state_str).unwrap();
+        println!("{}", serialized);
     }
 }
