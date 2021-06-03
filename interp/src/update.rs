@@ -27,7 +27,7 @@ impl UpdateQueue {
     // TODO: incomplete
     pub fn init(component: String) -> Self {
         Self {
-            component: component,
+            component,
             updates: Vec::new(),
             // let mut temp = Vec::new();
             // self.updates = temp;  }
@@ -98,7 +98,7 @@ impl UpdateQueue {
 
     /// Simulates a clock cycle by executing the stored updates.
     pub fn do_tick(self, environment: Environment) -> FutilResult<Environment> {
-        let mut env = environment.clone();
+        let mut env = environment;
         let uq = self.updates.clone();
         // iterate through each update
         for update in uq {

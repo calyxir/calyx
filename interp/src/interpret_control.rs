@@ -53,7 +53,7 @@ fn eval_control(
     comp: String,
     env: Environment,
 ) -> FutilResult<Environment> {
-    let result = match ctrl {
+    match ctrl {
         ir::Control::Seq(s) => eval_seq(s, comp, env),
         ir::Control::Par(p) => eval_par(p, comp, env),
         ir::Control::If(i) => eval_if(i, comp, env),
@@ -61,8 +61,7 @@ fn eval_control(
         ir::Control::Invoke(i) => eval_invoke(i, comp, env),
         ir::Control::Enable(e) => eval_enable(e, comp, env),
         ir::Control::Empty(e) => eval_empty(e, comp, env),
-    };
-    result
+    }
 }
 
 /// Interpret Seq
@@ -102,10 +101,10 @@ fn eval_if(
     let cid = ir::Id::from(comp.clone());
     // if i.port is not high fbranch else tbranch
     if env.get_from_port(&cid, &i.port.borrow()) == 0 {
-        env = eval_control(&i.fbranch, comp.clone(), env)?;
+        env = eval_control(&i.fbranch, comp, env)?;
         Ok(env)
     } else {
-        env = eval_control(&i.tbranch, comp.clone(), env)?;
+        env = eval_control(&i.tbranch, comp, env)?;
         Ok(env)
     }
 }
@@ -135,6 +134,7 @@ fn eval_while(
 
 /// Interpret Invoke
 /// TODO
+#[allow(clippy::unnecessary_wraps)]
 fn eval_invoke(
     _i: &ir::Invoke,
     _comp: String,
@@ -154,11 +154,12 @@ fn eval_enable(
     //println!("Enable group {:?}", e.group.borrow().name);
 
     // TODO
-    let gi = GroupInterpreter::init(comp.clone(), gp, env);
+    let gi = GroupInterpreter::init(comp, gp, env);
     gi.interpret()
 }
 
 /// Interpret Empty
+#[allow(clippy::unnecessary_wraps)]
 fn eval_empty(
     _e: &ir::Empty,
     _comp: String,

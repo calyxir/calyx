@@ -46,7 +46,7 @@ impl GroupInterpreter {
         let finalenv = interpreter::eval_group(
             self.group,
             self.environment,
-            self.component.clone(),
+            self.component,
         )?;
         // Print out final state of environment
         finalenv.cell_state();

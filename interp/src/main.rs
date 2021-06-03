@@ -65,8 +65,10 @@ fn main() -> FutilResult<()> {
     let mn = ir2
         .components
         .into_iter()
-        .find(|cm| cm.name == "main".to_string())
-        .ok_or(Error::Impossible("Cannot find main component".to_string()))?;
+        .find(|cm| cm.name == "main")
+        .ok_or_else(|| {
+            Error::Impossible("Cannot find main component".to_string())
+        })?;
 
     let interpreter: ComponentInterpreter = ComponentInterpreter {
         environment: env,
