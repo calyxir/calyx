@@ -9,8 +9,6 @@ use std::collections::HashMap;
 
 // #[derive(Serialize, Debug)]
 // struct Cycle (HashMap<String, HashMap<String, u64>>);
-#[derive(Serialize, Debug)]
-struct Cycle(BTreeMap<String, BTreeMap<String, BTreeMap<String, u64>>>);
 
 /// The environment to interpret a Calyx program.
 #[derive(Clone, Debug)]
@@ -129,36 +127,31 @@ impl Environment {
     ///of values here for tracing purposes as discussed. Could also have a
     ///separate DS that we could put the cell states into for more custom tracing
     pub fn cell_state(&self) {
-        let mut cyc1: BTreeMap<
-            String,
-            BTreeMap<String, BTreeMap<String, u64>>,
-        > = BTreeMap::new();
-        // component id to component cell mappings
-        for (key, value) in &self.map {
-            //println!("{}",key.to_string());
-            let mut cyc2 = BTreeMap::new();
-            // component cell to component port id mappings
-            for (k, v) in value {
-                let mut cyc3 = BTreeMap::new();
-                // port id to port value mappings
-                for (p, i) in v {
-                    cyc3.insert(p.to_string(), *i);
-                }
-                // println!("{}",k.to_string());
-                cyc2.insert(k.to_string(), cyc3);
-            }
-            cyc1.insert(key.to_string(), cyc2);
-        }
-
-        let state_str = Cycle(cyc1);
-
-        // for (key, value) in &cyc1 {
-        //     println!("{}", key);
-        //     for (k,v) in value{
-        //         println!("{}: {}", k, v);
-        //     }
-        // }
-        let serialized = serde_json::to_string(&state_str).unwrap();
+        let serialized = serde_json::to_string_pretty(&self).unwrap();
         println!("{}", serialized);
+    }
+}
+
+impl Serialize for Environment {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // use collect to make the nested hashmap a nested btreemap
+        let ordered: BTreeMap<_, _> = self
+            .map
+            .iter()
+            .map(|(id, map)| {
+                let inner_map: BTreeMap<_, _> = map
+                    .iter()
+                    .map(|(id, map)| {
+                        let inner_map: BTreeMap<_, _> = map.iter().collect();
+                        (id, inner_map)
+                    })
+                    .collect();
+                (id, inner_map)
+            })
+            .collect();
+        ordered.serialize(serializer)
     }
 }
