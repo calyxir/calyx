@@ -8,7 +8,7 @@ use calyx::{errors::FutilResult, ir};
 pub fn eval_group(
     group: ir::RRC<ir::Group>,
     env: Environment,
-    component: String,
+    component: ir::Id,
 ) -> FutilResult<Environment> {
     eval_assigns(&(group.borrow()).assignments, env, component)
 }
@@ -27,7 +27,7 @@ pub fn eval_group(
 fn eval_assigns(
     assigns: &[ir::Assignment],
     mut env: Environment,
-    component: String,
+    component: ir::Id,
 ) -> FutilResult<Environment> {
     let cid = ir::Id::from(component.clone());
 

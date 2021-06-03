@@ -13,19 +13,19 @@ pub struct Update {
     pub outputs: Vec<ir::Id>,
     /// Map of intermediate variables
     /// (could refer to a port or it could be "new", e.g. in the sqrt)
-    pub vars: HashMap<String, u64>,
+    pub vars: HashMap<ir::Id, u64>,
 }
 
 /// Queue of updates.
 #[derive(Clone, Debug)]
 pub struct UpdateQueue {
-    pub component: String,
+    pub component: ir::Id,
     pub updates: Vec<Update>,
 }
 
 impl UpdateQueue {
     // TODO: incomplete
-    pub fn init(component: String) -> Self {
+    pub fn init(component: ir::Id) -> Self {
         Self {
             component,
             updates: Vec::new(),
@@ -46,7 +46,7 @@ impl UpdateQueue {
         env: Environment,
     ) -> Self {
         let cell_r = env
-            .get_cell(&ir::Id::from(self.component.clone()), cell)
+            .get_cell(&self.component, cell)
             .unwrap_or_else(|| panic!("Cannot find cell with name"));
         // get the cell type
         match cell_r.borrow().type_name() {
@@ -56,12 +56,12 @@ impl UpdateQueue {
                      // has intermediate steps/computation
                 }
                 "std_reg" => {
-                    let map: HashMap<String, u64> = HashMap::new();
+                    let map: HashMap<ir::Id, u64> = HashMap::new();
                     // reg.in = dst port should go here
                     self.add_update(cell.clone(), inputs, outputs, map);
                 }
                 "std_mem_d1" => {
-                    let map: HashMap<String, u64> = HashMap::new();
+                    let map: HashMap<ir::Id, u64> = HashMap::new();
                     self.add_update(cell.clone(), inputs, outputs, map);
                 }
                 _ => panic!(
@@ -78,7 +78,7 @@ impl UpdateQueue {
         ucell: ir::Id,
         uinput: Vec<ir::Id>,
         uoutput: Vec<ir::Id>,
-        uvars: HashMap<String, u64>,
+        uvars: HashMap<ir::Id, u64>,
     ) {
         //println!("add update!");
         let update = Update {

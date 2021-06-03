@@ -35,7 +35,7 @@ impl ComponentInterpreter {
     pub fn interpret(self) -> FutilResult<Environment> {
         let ci: ControlInterpreter = ControlInterpreter::init(
             self.environment,
-            self.component.name.id.clone(),
+            self.component.name.clone(),
             self.component.control,
         );
         ci.interpret()

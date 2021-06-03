@@ -12,7 +12,7 @@ pub fn update_cell_state(
     inputs: &[ir::Id],
     output: &[ir::Id],
     env: &Environment, // should this be a reference
-    component: String,
+    component: ir::Id,
 ) -> FutilResult<Environment> {
     // get the actual cell, based on the id
     // let cell_r = cell.as_ref();

@@ -14,7 +14,7 @@ pub struct ControlInterpreter {
 
     /// The component the control belongs to
     // XX(2/25 meeting): we might not need this? all the information is in the IR
-    pub component: String,
+    pub component: ir::Id,
 
     /// The control to interpret
     pub control: ir::RRC<ir::Control>,
@@ -27,7 +27,7 @@ impl ControlInterpreter {
     /// ctrl : The control to interpret
     pub fn init(
         env: Environment,
-        comp: String,
+        comp: ir::Id,
         ctrl: ir::RRC<ir::Control>,
     ) -> Self {
         Self {
@@ -50,7 +50,7 @@ impl ControlInterpreter {
 /// Helper function to evaluate control
 fn eval_control(
     ctrl: &ir::Control,
-    comp: String,
+    comp: ir::Id,
     env: Environment,
 ) -> FutilResult<Environment> {
     match ctrl {
@@ -67,7 +67,7 @@ fn eval_control(
 /// Interpret Seq
 fn eval_seq(
     s: &ir::Seq,
-    comp: String,
+    comp: ir::Id,
     mut env: Environment,
 ) -> FutilResult<Environment> {
     for stmt in &s.stmts {
@@ -80,7 +80,7 @@ fn eval_seq(
 /// at the moment behaves like seq
 fn eval_par(
     p: &ir::Par,
-    comp: String,
+    comp: ir::Id,
     mut env: Environment,
 ) -> FutilResult<Environment> {
     for stmt in &p.stmts {
@@ -92,7 +92,7 @@ fn eval_par(
 /// Interpret If
 fn eval_if(
     i: &ir::If,
-    comp: String,
+    comp: ir::Id,
     mut env: Environment,
 ) -> FutilResult<Environment> {
     //first set the environment for cond
@@ -116,7 +116,7 @@ fn eval_if(
 // using cond_group.
 fn eval_while(
     w: &ir::While,
-    comp: String,
+    comp: ir::Id,
     mut env: Environment,
 ) -> FutilResult<Environment> {
     let cid = ir::Id::from(comp.clone());
@@ -137,7 +137,7 @@ fn eval_while(
 #[allow(clippy::unnecessary_wraps)]
 fn eval_invoke(
     _i: &ir::Invoke,
-    _comp: String,
+    _comp: ir::Id,
     env: Environment,
 ) -> FutilResult<Environment> {
     Ok(env)
@@ -146,7 +146,7 @@ fn eval_invoke(
 /// Interpret Enable
 fn eval_enable(
     e: &ir::Enable,
-    comp: String,
+    comp: ir::Id,
     env: Environment,
 ) -> FutilResult<Environment> {
     let gp = Rc::clone(&(e.group));
@@ -162,7 +162,7 @@ fn eval_enable(
 #[allow(clippy::unnecessary_wraps)]
 fn eval_empty(
     _e: &ir::Empty,
-    _comp: String,
+    _comp: ir::Id,
     env: Environment,
 ) -> FutilResult<Environment> {
     Ok(env)
