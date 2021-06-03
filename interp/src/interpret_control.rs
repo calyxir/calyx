@@ -79,14 +79,14 @@ fn eval_seq(
 /// Interpret Par
 /// at the moment behaves like seq
 fn eval_par(
-    p: &ir::Par,
-    comp: ir::Id,
-    mut env: Environment,
+    _p: &ir::Par,
+    _comp: ir::Id,
+    mut _env: Environment,
 ) -> FutilResult<Environment> {
-    for stmt in &p.stmts {
-        env = eval_control(stmt, comp.clone(), env)?;
-    }
-    Ok(env)
+    // for stmt in &p.stmts {
+    //     env = eval_control(stmt, comp.clone(), env)?;
+    // }
+    todo!()
 }
 
 /// Interpret If
@@ -98,9 +98,8 @@ fn eval_if(
     //first set the environment for cond
     env = interpreter::eval_group(i.cond.clone(), env, comp.clone())?;
 
-    let cid = ir::Id::from(comp.clone());
     // if i.port is not high fbranch else tbranch
-    if env.get_from_port(&cid, &i.port.borrow()) == 0 {
+    if env.get_from_port(&comp, &i.port.borrow()) == 0 {
         env = eval_control(&i.fbranch, comp, env)?;
         Ok(env)
     } else {
@@ -137,9 +136,9 @@ fn eval_while(
 fn eval_invoke(
     _i: &ir::Invoke,
     _comp: ir::Id,
-    env: Environment,
+    _env: Environment,
 ) -> FutilResult<Environment> {
-    Ok(env)
+    todo!()
 }
 
 /// Interpret Enable
