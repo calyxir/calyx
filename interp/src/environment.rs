@@ -158,7 +158,7 @@ impl Environment {
         //         println!("{}: {}", k, v);
         //     }
         // }
-        let serialized = serde_json::to_string(&state_str).unwrap();
+        let serialized = serde_json::to_string_pretty(&state_str).unwrap();
         println!("{}", serialized);
     }
 }
