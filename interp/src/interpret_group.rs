@@ -49,7 +49,7 @@ impl GroupInterpreter {
             self.component,
         )?;
         // Print out final state of environment
-        finalenv.cell_state();
+        finalenv.print_env();
         Ok(finalenv)
     }
 }
