@@ -3,8 +3,6 @@
 
 use super::{environment::Environment, primitives, update::UpdateQueue};
 use calyx::{errors::FutilResult, ir};
-use std::collections::HashMap;
-use std::io;
 
 /// Evaluates a group, given an environment.
 pub fn eval_group(

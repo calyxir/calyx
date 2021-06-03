@@ -69,7 +69,7 @@ pub fn update_cell_state(
             // memory should write to addres
             if new_env.get(&cid, &cell, &write_en) != 0 {
                 let addr0 = ir::Id::from("addr0");
-                let read_data = ir::Id::from("read_data");
+                let _read_data = ir::Id::from("read_data");
                 let write_data = ir::Id::from("write_data");
 
                 new_env.put(

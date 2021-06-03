@@ -1,12 +1,9 @@
 //! Inteprets a component.
 
 use super::{environment::Environment, interpret_control::ControlInterpreter};
-use calyx::{
-    errors::{Error, FutilResult},
-    ir,
-};
-use std::cell::RefCell;
-use std::rc::Rc;
+use calyx::{errors::FutilResult, ir};
+//use std::cell::RefCell;
+//use std::rc::Rc;
 
 /// Interpret a component.
 pub struct ComponentInterpreter {

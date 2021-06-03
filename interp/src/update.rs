@@ -1,8 +1,5 @@
 use super::{environment::Environment, primitives};
-use calyx::{
-    errors::{Error, FutilResult},
-    ir,
-};
+use calyx::{errors::FutilResult, ir};
 use std::collections::HashMap;
 
 /// Stores information for individual updates.
@@ -46,7 +43,7 @@ impl UpdateQueue {
         cell: &ir::Id,
         inputs: Vec<ir::Id>,
         outputs: Vec<ir::Id>,
-        mut env: Environment,
+        env: Environment,
     ) -> Self {
         let cell_r = env
             .get_cell(&ir::Id::from(self.component.clone()), cell)
@@ -95,7 +92,7 @@ impl UpdateQueue {
 
     /// Convenience function to remove a particular cell's update from the update queue
     /// TODO: what if I have reg0.in = (4) and reg0.in = (5) in the program?
-    pub fn remove_update(&mut self, ucell: &ir::Id) {
+    pub fn _remove_update(&mut self, ucell: &ir::Id) {
         self.updates.retain(|u| u.cell != ucell);
     }
 

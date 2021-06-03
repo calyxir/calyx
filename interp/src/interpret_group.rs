@@ -1,7 +1,7 @@
 //! Used for the command line interface.
 //! Only interprets a given group in a given component
 
-use super::{environment::Environment, interpreter, update::Update};
+use super::{environment::Environment, interpreter /*update::Update */};
 use calyx::{
     errors::{Error, FutilResult},
     ir,
@@ -55,7 +55,7 @@ impl GroupInterpreter {
 }
 
 /// Get the name of the component to interpret from the context.
-fn get_component(
+fn _get_component(
     ctx: ir::Context,
     component: &str,
 ) -> FutilResult<ir::Component> {
@@ -69,7 +69,7 @@ fn get_component(
 }
 
 /// Construct a map from cell ids to a map from the cell's ports' ids to the ports' values
-fn construct_map(
+fn _construct_map(
     cells: &[ir::RRC<ir::Cell>],
 ) -> HashMap<ir::Id, HashMap<ir::Id, u64>> {
     let mut map = HashMap::new();

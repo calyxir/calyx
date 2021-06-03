@@ -3,10 +3,7 @@
 use super::{
     environment::Environment, interpret_group::GroupInterpreter, interpreter,
 };
-use calyx::{
-    errors::{Error, FutilResult},
-    ir,
-};
+use calyx::{errors::FutilResult, ir};
 use std::rc::Rc;
 
 /// Interpret a control.
@@ -139,8 +136,8 @@ fn eval_while(
 /// Interpret Invoke
 /// TODO
 fn eval_invoke(
-    i: &ir::Invoke,
-    comp: String,
+    _i: &ir::Invoke,
+    _comp: String,
     env: Environment,
 ) -> FutilResult<Environment> {
     Ok(env)

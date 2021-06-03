@@ -5,7 +5,7 @@ use calyx::ir;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::rc::Rc;
+//use std::rc::Rc;
 
 // #[derive(Serialize, Debug)]
 // struct Cycle (HashMap<String, HashMap<String, u64>>);
@@ -66,7 +66,7 @@ impl Environment {
 
     /// Puts a mapping from component to cell to port to val into map.
     /// Should this function return the modified environment instead?
-    pub fn put_cell(&mut self, comp: &ir::Id, cellport: HashMap<ir::Id, u64>) {
+    pub fn _put_cell(&mut self, comp: &ir::Id, cellport: HashMap<ir::Id, u64>) {
         self.map
             .entry(comp.clone())
             .or_default()
@@ -124,9 +124,9 @@ impl Environment {
         map
     }
 
-    /// Outputs the cell state; 
+    /// Outputs the cell state;
     ///TODO (write to a specified output in the future) We could do the printing
-    ///of values here for tracing purposes as discussed. Could also have a 
+    ///of values here for tracing purposes as discussed. Could also have a
     ///separate DS that we could put the cell states into for more custom tracing
     pub fn cell_state(&self) {
         let mut cyc1: BTreeMap<
