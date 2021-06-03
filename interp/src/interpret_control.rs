@@ -119,11 +119,10 @@ fn eval_while(
     comp: ir::Id,
     mut env: Environment,
 ) -> FutilResult<Environment> {
-    let cid = ir::Id::from(comp.clone());
     // currently ports don't update properly in mutli-cycle and runs into infinite loop
     // count needs to be removed when the infinite loop problem is fixed
     let mut count = 0;
-    while env.get_from_port(&cid, &w.port.borrow()) != 1 && count < 5 {
+    while env.get_from_port(&comp, &w.port.borrow()) != 1 && count < 5 {
         env = eval_control(&w.body, comp.clone(), env)?;
         env = interpreter::eval_group(w.cond.clone(), env, comp.clone())?;
         // count needs to be remved
