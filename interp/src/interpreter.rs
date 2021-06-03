@@ -29,8 +29,6 @@ fn eval_assigns(
     mut env: Environment,
     component: ir::Id,
 ) -> FutilResult<Environment> {
-    let cid = ir::Id::from(component.clone());
-
     // Find the done signal in the sequence of assignments
     let done_assign = get_done_signal(assigns);
 
@@ -49,21 +47,21 @@ fn eval_assigns(
         .filter(|&a| {
             !a.dst.borrow().is_hole()
                 // dummy way of making sure the map has the a.src cell
-                && env.get_cell(&cid, &get_cell_from_port(&a.src)).is_some()
-                && env.get_cell(&cid, &get_cell_from_port(&a.dst)).is_some()
+                && env.get_cell(&component, &get_cell_from_port(&a.src)).is_some()
+                && env.get_cell(&component, &get_cell_from_port(&a.dst)).is_some()
         })
         .collect::<Vec<_>>();
 
     // XXX(yoona): At the moment interpreter rejects direct assignment of 1 to the groups
     // needs to be fixed
-    if write_env.get_from_port(&cid, &done_assign.src.borrow()) == 1 {
+    if write_env.get_from_port(&component, &done_assign.src.borrow()) == 1 {
         panic!("TODO: done[group]=1 this group woud but be evaluated ");
     }
 
     // While done_assign.src is 0
     // (we use done_assign.src because done_assign.dst is not a cell's port; it should be a group's port
 
-    while write_env.get_from_port(&cid, &done_assign.src.borrow()) == 0
+    while write_env.get_from_port(&component, &done_assign.src.borrow()) == 0
         && counter < 5
     {
         env = write_env.clone();
@@ -76,7 +74,7 @@ fn eval_assigns(
         for assign in &ok_assigns {
             // check if the assign.guard != 0
             // should it be evaluating the guard in write_env environment?
-            if eval_guard(&cid, &assign.guard, &write_env) != 0 {
+            if eval_guard(&component, &assign.guard, &write_env) != 0 {
                 // check if the cells are constants?
                 // cell of assign.src
                 let src_cell = get_cell_from_port(&assign.src);
@@ -85,7 +83,8 @@ fn eval_assigns(
 
                 // perform a read from `env` for assign.src
                 // XXX(karen): should read from the previous iteration's env?
-                let read_val = env.get_from_port(&cid, &assign.src.borrow());
+                let read_val =
+                    env.get_from_port(&component, &assign.src.borrow());
 
                 // update internal state of the cell and
                 // queue any required updates.
@@ -93,13 +92,13 @@ fn eval_assigns(
                 //determine if dst_cell is a combinational cell or not.
                 // If so, it should be immediately evaluated and stored.
                 if is_combinational(
-                    &cid,
+                    &component,
                     &dst_cell,
                     &assign.dst.borrow().name,
                     &env,
                 ) {
                     write_env.put(
-                        &cid,
+                        &component,
                         &dst_cell,
                         &assign.dst.borrow().name,
                         read_val,
@@ -115,7 +114,7 @@ fn eval_assigns(
                     // Also, how to get input and output vectors in general??
                     if &assign.dst.borrow().name != "write_en" {
                         // get dst_cell's input vector
-                        match &write_env.get_cell(&cid, &dst_cell) {
+                        match &write_env.get_cell(&component, &dst_cell) {
                             Some(cell) => {
                                 inputs = vec![
                                     (cell.borrow())
@@ -134,7 +133,7 @@ fn eval_assigns(
                         }
 
                         // get dst_cell's output vector
-                        match &write_env.get_cell(&cid, &dst_cell) {
+                        match &write_env.get_cell(&component, &dst_cell) {
                             Some(cell) => {
                                 outputs = vec![(cell.borrow())
                                     .get("out")
