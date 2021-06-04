@@ -5,6 +5,7 @@ mod interpret_group;
 mod interpreter;
 mod primitives;
 mod update;
+mod values;
 
 use calyx::{
     errors::{Error, FutilResult},

@@ -1,8 +1,239 @@
 //! Defines update methods for the various primitive cells in the Calyx standard library.
 
 use super::environment::Environment;
+use super::values::Value;
 use calyx::{errors::FutilResult, ir};
 use std::collections::HashMap;
+use std::convert::TryInto;
+
+/// Struct for primitives
+// pub enum Prim {
+//     Add,
+// }
+
+/// Numerical Operators
+//have yet to do: std_reg, std_const, std_lsh, std_rsh
+
+//Q -- how to set the done signal high for one cycle? we have
+//no concept of time in here.
+//maybe just make it the interpreter's problem?
+pub struct std_reg {
+    val: Value,
+    done: bool,
+}
+
+impl std_reg {
+    fn recieve(&mut self, input: Value, write_en: bool) {
+        if write_en {
+            self.val = input
+        }
+    }
+    fn set_done_high(&mut self) {
+        self.done = true
+    }
+    fn set_done_low(&mut self) {
+        self.done = false
+    }
+    fn read(&self) -> Value {
+        self.val
+    }
+}
+
+pub struct std_const {
+    out: Value,
+}
+
+impl std_const {
+    //is it execute? how exactly do you instantiate a std_const -- so maybe there is
+    //a [put_in], or something like that?
+
+    fn load(&mut self, val: Value) {
+        self.out = val
+    }
+
+    fn read(&self) -> Value {
+        self.out
+    }
+}
+
+pub struct std_lsh {
+    //doesn't need anything inside really
+}
+
+impl std_lsh {
+    fn execute(val: Value) -> Value {
+        todo!();
+    }
+}
+
+pub struct std_rsh {
+    //doesn't need anything inside really
+}
+
+impl std_rsh {
+    fn execute(val: Value) -> Value {
+        todo!();
+    }
+}
+
+pub struct std_add {
+    //doesn't need anything inside really
+}
+
+impl std_add {
+    fn execute(left: Value, right: Value) -> Value {
+        // error if left and right are different widths
+        //find a bitwidth to give from
+        let left_64 = left.as_u64();
+        let right_64 = right.as_u64();
+        let init_val = left_64 + right_64;
+
+        let init_val_usize: usize = init_val.try_into().unwrap();
+        let bitwidth: usize = left.vec.len();
+        Value::from_init(init_val_usize, bitwidth)
+    }
+}
+
+pub struct std_sub {
+    //doesn't need anything inside really
+}
+
+impl std_sub {
+    fn execute(left: Value, right: Value) -> Value {
+        //find a bitwidth to give from
+        let left_64 = left.as_u64();
+        let right_64 = right.as_u64();
+        let init_val = left_64 - right_64;
+
+        let init_val_usize: usize = init_val.try_into().unwrap();
+        let bitwidth: usize = left.vec.len();
+        Value::from_init(init_val_usize, bitwidth)
+    }
+}
+
+pub struct std_slice {
+    //doesn't need anything inside really
+}
+
+impl std_slice {
+    fn execute(val: Value, width: usize) -> Value {
+        // Truncate the value
+        val.truncate(width);
+    }
+}
+
+pub struct std_pad {
+    //doesn't need anything inside really
+}
+
+impl std_pad {
+    fn execute(val: Value, width: usize) -> Value {
+        // Truncate the value
+        val.ext(width);
+    }
+}
+
+/// Logical Operators - TODO: need to verify
+pub struct std_not {
+    //doesn't need anything inside really
+}
+
+impl std_not {
+    fn execute(val: Value) -> Value {
+        todo!();
+    }
+}
+
+pub struct std_and {
+    //doesn't need anything inside really
+}
+
+impl std_and {
+    fn execute(left: Value, right: Value) -> Value {
+        todo!();
+    }
+}
+
+pub struct std_or {
+    //doesn't need anything inside really
+}
+
+impl std_or {
+    fn execute(left: Value, right: Value) -> Value {
+        todo!();
+    }
+}
+
+pub struct std_xor {
+    //doesn't need anything inside really
+}
+
+impl std_xor {
+    fn execute(left: Value, right: Value) -> Value {
+        todo!();
+    }
+}
+
+/// Comparison Operators
+pub struct std_gt {
+    //doesn't need anything inside really
+}
+
+impl std_gt {
+    fn execute(left: Value, right: Value) -> Value {
+        todo!();
+    }
+}
+
+pub struct std_lt {
+    //doesn't need anything inside really
+}
+
+impl std_lt {
+    fn execute(left: Value, right: Value) -> Value {
+        todo!();
+    }
+}
+
+pub struct std_eq {
+    //doesn't need anything inside really
+}
+
+impl std_eq {
+    fn execute(left: Value, right: Value) -> Value {
+        todo!();
+    }
+}
+
+pub struct std_neq {
+    //doesn't need anything inside really
+}
+
+impl std_neq {
+    fn execute(left: Value, right: Value) -> Value {
+        todo!();
+    }
+}
+
+pub struct std_ge {
+    //doesn't need anything inside really
+}
+
+impl std_ge {
+    fn execute(left: Value, right: Value) -> Value {
+        todo!();
+    }
+}
+
+pub struct std_le {
+    //doesn't need anything inside really
+}
+
+impl std_le {
+    fn execute(left: Value, right: Value) -> Value {
+        todo!();
+    }
+}
 
 /// Uses the cell's inputs ports to perform any required updates to the
 /// cell's output ports.
