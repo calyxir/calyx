@@ -57,15 +57,15 @@ fn main() -> FutilResult<()> {
     // TODO: handle when component, group are not default values
 
     let ctx_ref: &ir::Context = &ctx.borrow();
-    let mn = ctx_ref
+    let main_component = ctx_ref
         .components
         .iter()
-        .find(|cm| cm.name == "main")
+        .find(|&cm| cm.name == "main")
         .ok_or_else(|| {
             Error::Impossible("Cannot find main component".to_string())
         })?;
 
-    match interpret_component(mn, env) {
+    match interpret_component(main_component, env) {
         Ok(e) => {
             e.print_env();
             Ok(())
