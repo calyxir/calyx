@@ -1,7 +1,7 @@
 //! Used for the command line interface.
 //! Only interprets a given group in a given component
 
-use super::{environment::Environment, primitives, update::UpdateQueue};
+use crate::{environment::Environment, primitives, update::UpdateQueue};
 use calyx::{
     errors::{Error, FutilResult},
     ir,
@@ -11,45 +11,6 @@ use std::collections::HashMap;
 
 /// Stores information about the component and group to interpret.
 /// Might be better to make this a subset of a trait implemented by all interpreters, later on
-pub struct GroupInterpreter<'a> {
-    /// The name of the component with the group to interpret
-    component: &'a ir::Id,
-    /// The group to interpret
-    group: ir::RRC<ir::Group>,
-    /// The environment for the interpreter.
-    environment: Environment,
-}
-
-impl<'a> GroupInterpreter<'a> {
-    /// Construct a GroupInterpreter
-    /// comp: Name of component the group is from
-    /// grp: The group to interpret
-    /// env: The initial environment
-    pub fn init(
-        comp: &'a ir::Id,
-        grp: ir::RRC<ir::Group>,
-        env: Environment,
-    ) -> Self {
-        Self {
-            component: comp,
-            group: grp,
-            environment: env,
-        }
-    }
-
-    /// Interpret this group
-    pub fn interpret(self) -> FutilResult<Environment> {
-        // Print the initial state of the environment
-        // self.environment.cell_state(self.component.clone());
-
-        // Final state of the environment
-        let finalenv =
-            eval_group(self.group, self.environment, self.component)?;
-        // Print out final state of environment
-        finalenv.print_env();
-        Ok(finalenv)
-    }
-}
 
 /// Get the name of the component to interpret from the context.
 fn _get_component(
@@ -99,12 +60,12 @@ fn _construct_map(
 }
 
 /// Evaluates a group, given an environment.
-pub fn eval_group(
-    group: ir::RRC<ir::Group>,
+pub fn interpret_group(
+    group: &ir::Group,
     env: Environment,
     component: &ir::Id,
 ) -> FutilResult<Environment> {
-    eval_assigns(&(group.borrow()).assignments, env, component)
+    eval_assigns(&group.assignments, env, component)
 }
 
 // XXX(karen): I think it will need another copy of environment for each

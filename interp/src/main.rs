@@ -3,7 +3,8 @@ use calyx::{
     frontend, ir,
     utils::OutputFile,
 };
-use interp::interpret_component::ComponentInterpreter;
+use interp::environment;
+use interp::interpreter::interpret_component;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -44,29 +45,27 @@ fn main() -> FutilResult<()> {
     let namespace = frontend::NamespaceDef::new(&opts.file, &opts.lib_path)?;
     let ir = ir::from_ast::ast_to_ir(namespace, false, false)?;
 
-    // TODO: very hacky
-    let namespace2 = frontend::NamespaceDef::new(&opts.file, &opts.lib_path)?;
-    let ir2 = ir::from_ast::ast_to_ir(namespace2, false, false)?;
+    let ctx = ir::RRC::new(RefCell::new(ir));
 
-    let temp = ir::RRC::new(RefCell::new(ir));
-
-    let env = environment::Environment::init(Rc::clone(&temp));
+    let env = environment::Environment::init(&ctx);
 
     // Get main component; assuming that opts.component is main
     // TODO: handle when component, group are not default values
-    let mn = ir2
+
+    let ctx_ref: &ir::Context = &ctx.borrow();
+    let mn = ctx_ref
         .components
-        .into_iter()
+        .iter()
         .find(|cm| cm.name == "main")
         .ok_or_else(|| {
             Error::Impossible("Cannot find main component".to_string())
         })?;
 
-    let interpreter: ComponentInterpreter = ComponentInterpreter {
-        environment: env,
-        component: mn,
-    };
-    interpreter.interpret()?;
-
-    Ok(())
+    match interpret_component(mn, env) {
+        Ok(e) => {
+            e.print_env();
+            Ok(())
+        }
+        Err(err) => FutilResult::Err(err),
+    }
 }
