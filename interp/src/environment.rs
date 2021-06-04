@@ -128,16 +128,6 @@ impl Environment {
     }
 }
 
-<<<<<<< HEAD
-        // for (key, value) in &cyc1 {
-        //     println!("{}", key);
-        //     for (k,v) in value{
-        //         println!("{}: {}", k, v);
-        //     }
-        // }
-        let serialized = serde_json::to_string_pretty(&state_str).unwrap();
-        println!("{}", serialized);
-=======
 impl Serialize for Environment {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -159,6 +149,5 @@ impl Serialize for Environment {
             })
             .collect();
         ordered.serialize(serializer)
->>>>>>> master
     }
 }
