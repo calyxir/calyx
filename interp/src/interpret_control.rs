@@ -1,8 +1,8 @@
 //! Inteprets a control in a component.
 
-use super::{
-    environment::Environment, interpret_group::GroupInterpreter, interpreter,
-};
+use super::{environment::Environment, interpret_group::GroupInterpreter};
+
+use super::interpret_group::eval_group;
 use calyx::{errors::FutilResult, ir};
 use std::rc::Rc;
 
@@ -92,7 +92,7 @@ fn eval_if(
     mut env: Environment,
 ) -> FutilResult<Environment> {
     //first set the environment for cond
-    env = interpreter::eval_group(i.cond.clone(), env, comp)?;
+    env = eval_group(i.cond.clone(), env, comp)?;
 
     // if i.port is not high fbranch else tbranch
     if env.get_from_port(&comp, &i.port.borrow()) == 0 {
@@ -119,7 +119,7 @@ fn eval_while(
     let mut count = 0;
     while env.get_from_port(&comp, &w.port.borrow()) != 1 && count < 5 {
         env = eval_control(&w.body, comp, env)?;
-        env = interpreter::eval_group(w.cond.clone(), env, comp)?;
+        env = eval_group(w.cond.clone(), env, comp)?;
         // count needs to be remved
         count += 1;
     }
