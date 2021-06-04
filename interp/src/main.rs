@@ -8,7 +8,6 @@ use interp::environment;
 use interp::interpreter::interpret_component;
 use std::cell::RefCell;
 use std::path::PathBuf;
-use std::rc::Rc;
 use structopt::StructOpt;
 
 /// CLI Options
