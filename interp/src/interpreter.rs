@@ -8,7 +8,7 @@ use calyx::{errors::FutilResult, ir};
 pub fn eval_group(
     group: ir::RRC<ir::Group>,
     env: Environment,
-    component: ir::Id,
+    component: &ir::Id,
 ) -> FutilResult<Environment> {
     eval_assigns(&(group.borrow()).assignments, env, component)
 }
@@ -27,7 +27,7 @@ pub fn eval_group(
 fn eval_assigns(
     assigns: &[ir::Assignment],
     mut env: Environment,
-    component: ir::Id,
+    component: &ir::Id,
 ) -> FutilResult<Environment> {
     // Find the done signal in the sequence of assignments
     let done_assign = get_done_signal(assigns);

@@ -11,22 +11,22 @@ use std::collections::HashMap;
 
 /// Stores information about the component and group to interpret.
 /// Might be better to make this a subset of a trait implemented by all interpreters, later on
-pub struct GroupInterpreter {
+pub struct GroupInterpreter<'a> {
     /// The name of the component with the group to interpret
-    pub component: ir::Id,
+    component: &'a ir::Id,
     /// The group to interpret
-    pub group: ir::RRC<ir::Group>,
+    group: ir::RRC<ir::Group>,
     /// The environment for the interpreter.
-    pub environment: Environment,
+    environment: Environment,
 }
 
-impl GroupInterpreter {
+impl<'a> GroupInterpreter<'a> {
     /// Construct a GroupInterpreter
     /// comp: Name of component the group is from
     /// grp: The group to interpret
     /// env: The initial environment
     pub fn init(
-        comp: ir::Id,
+        comp: &'a ir::Id,
         grp: ir::RRC<ir::Group>,
         env: Environment,
     ) -> Self {
