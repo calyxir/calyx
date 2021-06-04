@@ -1,17 +1,9 @@
-mod environment;
-mod interpret_component;
-mod interpret_control;
-mod interpret_group;
-mod interpreter;
-mod primitives;
-mod update;
-
 use calyx::{
     errors::{Error, FutilResult},
     frontend, ir,
     utils::OutputFile,
 };
-use interpret_component::ComponentInterpreter;
+use interp::interpret_component::ComponentInterpreter;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
