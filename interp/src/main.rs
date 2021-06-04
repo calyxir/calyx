@@ -1,6 +1,7 @@
 use calyx::{
     errors::{Error, FutilResult},
     frontend, ir,
+    pass_manager::PassManager,
     utils::OutputFile,
 };
 use interp::environment;
@@ -46,6 +47,10 @@ fn main() -> FutilResult<()> {
     let ir = ir::from_ast::ast_to_ir(namespace, false, false)?;
 
     let ctx = ir::RRC::new(RefCell::new(ir));
+
+    let pm = PassManager::default_passes()?;
+
+    pm.execute_plan(&mut ctx.borrow_mut(), &["validate".to_string()], &[])?;
 
     let env = environment::Environment::init(&ctx);
 
