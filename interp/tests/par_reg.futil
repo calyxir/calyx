@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-
+//needs work, write enables for registers
 component main() -> () {
   cells {
     a = std_reg(32);
