@@ -7,11 +7,6 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 //use std::rc::Rc;
 
-// #[derive(Serialize, Debug)]
-// struct Cycle (HashMap<String, HashMap<String, u64>>);
-#[derive(Serialize, Debug)]
-struct Cycle(BTreeMap<String, BTreeMap<String, BTreeMap<String, u64>>>);
-
 /// The environment to interpret a Calyx program.
 #[derive(Clone, Debug)]
 pub struct Environment {
@@ -29,7 +24,7 @@ impl Environment {
     /// ctx : A context from the IR
     pub fn init(ctx: ir::RRC<ir::Context>) -> Self {
         Self {
-            map: Environment::construct_map(&*ctx.borrow()),
+            map: Environment::construct_map(&ctx.borrow()),
             context: ctx.clone(),
         }
     }
@@ -128,30 +123,12 @@ impl Environment {
     ///TODO (write to a specified output in the future) We could do the printing
     ///of values here for tracing purposes as discussed. Could also have a
     ///separate DS that we could put the cell states into for more custom tracing
-    pub fn cell_state(&self) {
-        let mut cyc1: BTreeMap<
-            String,
-            BTreeMap<String, BTreeMap<String, u64>>,
-        > = BTreeMap::new();
-        // component id to component cell mappings
-        for (key, value) in &self.map {
-            //println!("{}",key.to_string());
-            let mut cyc2 = BTreeMap::new();
-            // component cell to component port id mappings
-            for (k, v) in value {
-                let mut cyc3 = BTreeMap::new();
-                // port id to port value mappings
-                for (p, i) in v {
-                    cyc3.insert(p.to_string(), *i);
-                }
-                // println!("{}",k.to_string());
-                cyc2.insert(k.to_string(), cyc3);
-            }
-            cyc1.insert(key.to_string(), cyc2);
-        }
+    pub fn print_env(&self) {
+        println!("{}", serde_json::to_string_pretty(&self).unwrap());
+    }
+}
 
-        let state_str = Cycle(cyc1);
-
+<<<<<<< HEAD
         // for (key, value) in &cyc1 {
         //     println!("{}", key);
         //     for (k,v) in value{
@@ -160,5 +137,28 @@ impl Environment {
         // }
         let serialized = serde_json::to_string_pretty(&state_str).unwrap();
         println!("{}", serialized);
+=======
+impl Serialize for Environment {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // use collect to make the nested hashmap a nested btreemap
+        let ordered: BTreeMap<_, _> = self
+            .map
+            .iter()
+            .map(|(id, map)| {
+                let inner_map: BTreeMap<_, _> = map
+                    .iter()
+                    .map(|(id, map)| {
+                        let inner_map: BTreeMap<_, _> = map.iter().collect();
+                        (id, inner_map)
+                    })
+                    .collect();
+                (id, inner_map)
+            })
+            .collect();
+        ordered.serialize(serializer)
+>>>>>>> master
     }
 }

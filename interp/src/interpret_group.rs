@@ -13,7 +13,7 @@ use std::collections::HashMap;
 /// Might be better to make this a subset of a trait implemented by all interpreters, later on
 pub struct GroupInterpreter {
     /// The name of the component with the group to interpret
-    pub component: String,
+    pub component: ir::Id,
     /// The group to interpret
     pub group: ir::RRC<ir::Group>,
     /// The environment for the interpreter.
@@ -26,7 +26,7 @@ impl GroupInterpreter {
     /// grp: The group to interpret
     /// env: The initial environment
     pub fn init(
-        comp: String,
+        comp: ir::Id,
         grp: ir::RRC<ir::Group>,
         env: Environment,
     ) -> Self {
@@ -49,7 +49,7 @@ impl GroupInterpreter {
             self.component,
         )?;
         // Print out final state of environment
-        finalenv.cell_state();
+        finalenv.print_env();
         Ok(finalenv)
     }
 }

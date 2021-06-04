@@ -14,7 +14,7 @@ pub struct ControlInterpreter {
 
     /// The component the control belongs to
     // XX(2/25 meeting): we might not need this? all the information is in the IR
-    pub component: String,
+    pub component: ir::Id,
 
     /// The control to interpret
     pub control: ir::RRC<ir::Control>,
@@ -27,7 +27,7 @@ impl ControlInterpreter {
     /// ctrl : The control to interpret
     pub fn init(
         env: Environment,
-        comp: String,
+        comp: ir::Id,
         ctrl: ir::RRC<ir::Control>,
     ) -> Self {
         Self {
@@ -50,7 +50,7 @@ impl ControlInterpreter {
 /// Helper function to evaluate control
 fn eval_control(
     ctrl: &ir::Control,
-    comp: String,
+    comp: ir::Id,
     env: Environment,
 ) -> FutilResult<Environment> {
     match ctrl {
@@ -67,7 +67,7 @@ fn eval_control(
 /// Interpret Seq
 fn eval_seq(
     s: &ir::Seq,
-    comp: String,
+    comp: ir::Id,
     mut env: Environment,
 ) -> FutilResult<Environment> {
     for stmt in &s.stmts {
@@ -79,28 +79,27 @@ fn eval_seq(
 /// Interpret Par
 /// at the moment behaves like seq
 fn eval_par(
-    p: &ir::Par,
-    comp: String,
-    mut env: Environment,
+    _p: &ir::Par,
+    _comp: ir::Id,
+    mut _env: Environment,
 ) -> FutilResult<Environment> {
-    for stmt in &p.stmts {
-        env = eval_control(stmt, comp.clone(), env)?;
-    }
-    Ok(env)
+    // for stmt in &p.stmts {
+    //     env = eval_control(stmt, comp.clone(), env)?;
+    // }
+    todo!()
 }
 
 /// Interpret If
 fn eval_if(
     i: &ir::If,
-    comp: String,
+    comp: ir::Id,
     mut env: Environment,
 ) -> FutilResult<Environment> {
     //first set the environment for cond
     env = interpreter::eval_group(i.cond.clone(), env, comp.clone())?;
 
-    let cid = ir::Id::from(comp.clone());
     // if i.port is not high fbranch else tbranch
-    if env.get_from_port(&cid, &i.port.borrow()) == 0 {
+    if env.get_from_port(&comp, &i.port.borrow()) == 0 {
         env = eval_control(&i.fbranch, comp, env)?;
         Ok(env)
     } else {
@@ -116,14 +115,13 @@ fn eval_if(
 // using cond_group.
 fn eval_while(
     w: &ir::While,
-    comp: String,
+    comp: ir::Id,
     mut env: Environment,
 ) -> FutilResult<Environment> {
-    let cid = ir::Id::from(comp.clone());
     // currently ports don't update properly in mutli-cycle and runs into infinite loop
     // count needs to be removed when the infinite loop problem is fixed
     let mut count = 0;
-    while env.get_from_port(&cid, &w.port.borrow()) != 1 && count < 5 {
+    while env.get_from_port(&comp, &w.port.borrow()) != 1 && count < 5 {
         env = eval_control(&w.body, comp.clone(), env)?;
         env = interpreter::eval_group(w.cond.clone(), env, comp.clone())?;
         // count needs to be remved
@@ -137,16 +135,16 @@ fn eval_while(
 #[allow(clippy::unnecessary_wraps)]
 fn eval_invoke(
     _i: &ir::Invoke,
-    _comp: String,
-    env: Environment,
+    _comp: ir::Id,
+    _env: Environment,
 ) -> FutilResult<Environment> {
-    Ok(env)
+    todo!()
 }
 
 /// Interpret Enable
 fn eval_enable(
     e: &ir::Enable,
-    comp: String,
+    comp: ir::Id,
     env: Environment,
 ) -> FutilResult<Environment> {
     let gp = Rc::clone(&(e.group));
@@ -162,7 +160,7 @@ fn eval_enable(
 #[allow(clippy::unnecessary_wraps)]
 fn eval_empty(
     _e: &ir::Empty,
-    _comp: String,
+    _comp: ir::Id,
     env: Environment,
 ) -> FutilResult<Environment> {
     Ok(env)
