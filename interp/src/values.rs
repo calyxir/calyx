@@ -10,7 +10,7 @@ pub struct Value {
 }
 
 impl Value {
-    fn new(bitwidth: usize) -> Value {
+    pub fn new(bitwidth: usize) -> Value {
         Value {
             vec: BitVec::with_capacity(bitwidth),
         }
@@ -22,6 +22,16 @@ impl Value {
         Value { vec }
     }
 
+    ///Note that Value is a functional data structure. This returns 
+    ///A Value with uninitialized data.
+    pub fn clear(&self) -> Self {
+        let mut vec = self.vec.clone();
+        vec.truncate(0);
+        Value {
+            vec,
+        }
+    }
+
     /// truncate returns a clone of [self] with [vec] of length [new_size]
     pub fn truncate(&self, new_size: usize) -> Value {
         //our methods are functional, so return a new value
@@ -29,7 +39,6 @@ impl Value {
         //now just truncate the vector in tr
         vec.truncate(new_size);
         Value {
-            // vec: tr.vec.Bitvect::truncate(new_size)
             vec,
         }
     }
@@ -38,7 +47,7 @@ impl Value {
     /// difference between [self.len] and [ext] made up by [0s]
     pub fn ext(&self, ext: usize) -> Value {
         let mut vec = self.vec.clone();
-        for x in 0..(ext - vec.len()) {
+        for _x in 0..(ext - vec.len()) {
             vec.push(false);
         }
         Value { vec }
@@ -50,7 +59,7 @@ impl Value {
     pub fn sext(&self, ext: usize) -> Value {
         let mut vec = self.vec.clone();
         let sign = vec[vec.len() - 1];
-        for x in 0..(ext - vec.len()) {
+        for _x in 0..(ext - vec.len()) {
             vec.push(sign);
         }
         Value { vec }

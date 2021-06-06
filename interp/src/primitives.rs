@@ -2,85 +2,148 @@
 
 use super::environment::Environment;
 use super::values::Value;
+use std::ops::*;
 use calyx::{errors::FutilResult, ir};
 use std::collections::HashMap;
 use std::convert::TryInto;
 
-/// Struct for primitives
-// pub enum Prim {
-//     Add,
-// }
 
-/// Numerical Operators
-//have yet to do: std_reg, std_const, std_lsh, std_rsh
-
-//Q -- how to set the done signal high for one cycle? we have
-//no concept of time in here.
-//maybe just make it the interpreter's problem?
-pub struct std_reg {
-    val: Value,
-    done: bool,
+/// A Standard Register of a certain [width]
+/// Note that StdReg itself doen't have any bookkeeping related to clock cycles.
+/// Nor does it prevent the user from reading a value before the [done] signal is high.
+/// The only check it performs is preventing the user from writing
+/// to the register while the [write_en] signal is low. Rules regarding cycle count,
+/// such as asserting [done] for just one cycle after a write, must be enforced and
+/// carried out by the interpreter.
+pub struct StdReg {
+    pub width: u64, 
+    pub val: Value,
+    pub done: bool,
+    pub write_en: bool,
 }
 
-impl std_reg {
-    fn recieve(&mut self, input: Value, write_en: bool) {
-        if write_en {
-            self.val = input
+impl StdReg {
+    /// New registers have unitialized values -- only specify their widths
+    pub fn new(width: u64) -> StdReg {
+        StdReg {
+            width,
+            val: Value::new(width as usize),
+            done: false,
+            write_en: false,
         }
     }
-    fn set_done_high(&mut self) {
+
+    /// Sets value in register, only if [write_en] is high. Will
+    /// truncate [input] if its [width] exceeds this register's [width]
+    pub fn load_value(&mut self, input: Value) {
+        if self.write_en {
+            self.val = input.truncate(self.width.try_into().unwrap())
+        }
+    }
+
+    /// Given a [u64], sets the corresponding [Value] in the register, only if [write_en] is high.
+    /// Truncates [input]'s corresponding [Value] if its [width] exceeds this register's [width]
+    pub fn load_u64(&mut self, input: u64) {
+        if self.write_en {
+            self.val = Value::from_init::<usize>(input.try_into().unwrap(), self.width.try_into().unwrap())
+        }
+    }
+
+    /// After loading a value into the register, use [set_done_high] to emit the done signal.
+    /// Note that the [StdReg] struct has no sense of time itself. The interpreter is responsible
+    /// For setting the [done] signal high for exactly one cycle.
+    pub fn set_done_high(&mut self) {
         self.done = true
     }
-    fn set_done_low(&mut self) {
+    
+    /// Pairs with [set_done_high]
+    pub fn set_done_low(&mut self) {
         self.done = false
     }
-    fn read(&self) -> Value {
-        self.val
+
+    /// A cycle before trying to load a value into the register, make sure to [set_write_en_high]
+    pub fn set_write_en_high(&mut self) {
+        self.write_en = true
+    }
+
+    pub fn set_write_en_low(&mut self) {
+        self.write_en = false
+    }
+
+    /// Reads the value from the register. Makes no guarantee on the validity of data
+    /// in the register -- the interpreter must check [done] itself.
+    pub fn read_value(&self) -> Value {
+        self.val.clone()
+    }
+
+    pub fn read_u64(&self) -> u64 {
+        self.val.as_u64()
     }
 }
 
-pub struct std_const {
-    out: Value,
+pub struct StdConst {
+    width: u64,
+    val: Value,
 }
 
-impl std_const {
-    //is it execute? how exactly do you instantiate a std_const -- so maybe there is
-    //a [put_in], or something like that?
-
-    fn load(&mut self, val: Value) {
-        self.out = val
+impl StdConst {
+    pub fn new(width: u64, val: Value) -> StdConst {
+        StdConst{
+            width, 
+            val: val.truncate(width as usize),
+        }
     }
-
-    fn read(&self) -> Value {
-        self.out
+    pub fn read_val(&self) -> Value {
+        self.val.clone()
+    }
+    pub fn read_u64(&self) -> u64 {
+        self.val.as_u64()
     }
 }
 
-pub struct std_lsh {
+pub struct StdLsh {
     //doesn't need anything inside really
 }
 
-impl std_lsh {
-    fn execute(val: Value) -> Value {
-        todo!();
+impl StdLsh {
+    pub fn execute(mut val: Value) -> Value {
+        val.vec.remove(val.vec.len() - 1);
+        val.vec.insert(0, false);
+        Value { vec: val.vec }
+    }
+
+    pub fn execute_u64(input: u64) -> u64 {
+        // let val = Value::from_init(input.try_into().unwrap(), 64 as usize);
+        // let val = Value {
+        // }
+        todo!()
     }
 }
 
-pub struct std_rsh {
+pub struct StdRsh {
     //doesn't need anything inside really
 }
 
-impl std_rsh {
-    fn execute(val: Value) -> Value {
-        todo!();
+impl StdRsh {
+    fn execute(mut val: Value) -> Value {
+        val.vec.reverse();
+        val.vec.remove(val.vec.len() - 1);
+        val.vec.insert(0, false);
+        val.vec.reverse();
+        Value { vec: val.vec }
+    }
+    
+    pub fn execute_u64(input: u64) -> u64 {
+        // let val = Value::from_init(input, 64 as usize);
+        todo!()
     }
 }
 
-pub struct std_add {
+pub struct StdAdd {
     //doesn't need anything inside really
 }
 
-impl std_add {
+impl StdAdd {
     fn execute(left: Value, right: Value) -> Value {
         // error if left and right are different widths
         //find a bitwidth to give from
@@ -94,11 +157,11 @@ impl std_add {
     }
 }
 
-pub struct std_sub {
+pub struct StdSub {
     //doesn't need anything inside really
 }
 
-impl std_sub {
+impl StdSub {
     fn execute(left: Value, right: Value) -> Value {
         //find a bitwidth to give from
         let left_64 = left.as_u64();
@@ -111,127 +174,171 @@ impl std_sub {
     }
 }
 
-pub struct std_slice {
+pub struct StdSlice {
     //doesn't need anything inside really
 }
 
-impl std_slice {
+impl StdSlice {
     fn execute(val: Value, width: usize) -> Value {
-        // Truncate the value
-        val.truncate(width);
+        val.truncate(width)
     }
 }
 
-pub struct std_pad {
+pub struct StdPad {
     //doesn't need anything inside really
 }
 
-impl std_pad {
+impl StdPad {
     fn execute(val: Value, width: usize) -> Value {
-        // Truncate the value
-        val.ext(width);
+        val.ext(width)
     }
 }
 
 /// Logical Operators - TODO: need to verify
-pub struct std_not {
+pub struct StdNot {
     //doesn't need anything inside really
 }
 
-impl std_not {
+impl StdNot {
     fn execute(val: Value) -> Value {
-        todo!();
+        Value { vec: val.vec.not() }
     }
 }
 
-pub struct std_and {
+pub struct StdAnd {
     //doesn't need anything inside really
 }
 
-impl std_and {
+impl StdAnd {
     fn execute(left: Value, right: Value) -> Value {
-        todo!();
+        Value { vec: left.vec.bitand(right.vec) }
     }
 }
 
-pub struct std_or {
+pub struct StdOr {
     //doesn't need anything inside really
 }
 
-impl std_or {
+impl StdOr {
     fn execute(left: Value, right: Value) -> Value {
-        todo!();
+        Value { vec: left.vec.bitor(right.vec) }
     }
 }
 
-pub struct std_xor {
+pub struct StdXor {
     //doesn't need anything inside really
 }
 
-impl std_xor {
+impl StdXor {
     fn execute(left: Value, right: Value) -> Value {
-        todo!();
+        Value { vec: left.vec.bitxor(right.vec) }
     }
 }
 
 /// Comparison Operators
-pub struct std_gt {
+// pub trait Execute {
+//     fn execute(left: Value, right: Value, F: Fn(u64, u64) -> u64) -> Value {
+//         let left_64 = left.as_u64();
+//         let right_64 = right.as_u64();      
+//         let init_val_usize: usize = init_val.try_into().unwrap();
+//         let bitwidth: usize = left.vec.len();
+//         Value::from_init(init_val_usize, bitwidth)
+//     }
+// }
+
+pub struct StdGt {
     //doesn't need anything inside really
 }
 
-impl std_gt {
+impl StdGt {
     fn execute(left: Value, right: Value) -> Value {
-        todo!();
+        let left_64 = left.as_u64();
+        let right_64 = right.as_u64();
+        let init_val = left_64 > right_64;
+
+        let init_val_usize: usize = init_val.try_into().unwrap();
+        let bitwidth: usize = left.vec.len();
+        Value::from_init(init_val_usize, bitwidth)
     }
 }
 
-pub struct std_lt {
+pub struct StdLt {
     //doesn't need anything inside really
 }
 
-impl std_lt {
+impl StdLt {
     fn execute(left: Value, right: Value) -> Value {
-        todo!();
+        let left_64 = left.as_u64();
+        let right_64 = right.as_u64();
+        let init_val = left_64 < right_64;
+
+        let init_val_usize: usize = init_val.try_into().unwrap();
+        let bitwidth: usize = left.vec.len();
+        Value::from_init(init_val_usize, bitwidth)
     }
 }
 
-pub struct std_eq {
+pub struct StdEq {
     //doesn't need anything inside really
 }
 
-impl std_eq {
+impl StdEq {
     fn execute(left: Value, right: Value) -> Value {
-        todo!();
+        let left_64 = left.as_u64();
+        let right_64 = right.as_u64();
+        let init_val = left_64 == right_64;
+
+        let init_val_usize: usize = init_val.try_into().unwrap();
+        let bitwidth: usize = left.vec.len();
+        Value::from_init(init_val_usize, bitwidth)
     }
 }
 
-pub struct std_neq {
+pub struct StdNeq {
     //doesn't need anything inside really
 }
 
-impl std_neq {
+impl StdNeq {
     fn execute(left: Value, right: Value) -> Value {
-        todo!();
+        let left_64 = left.as_u64();
+        let right_64 = right.as_u64();
+        let init_val = left_64 != right_64;
+
+        let init_val_usize: usize = init_val.try_into().unwrap();
+        let bitwidth: usize = left.vec.len();
+        Value::from_init(init_val_usize, bitwidth)
     }
 }
 
-pub struct std_ge {
+pub struct StdGe {
     //doesn't need anything inside really
 }
 
-impl std_ge {
+impl StdGe {
     fn execute(left: Value, right: Value) -> Value {
-        todo!();
+        let left_64 = left.as_u64();
+        let right_64 = right.as_u64();
+        let init_val = left_64 >= right_64;
+
+        let init_val_usize: usize = init_val.try_into().unwrap();
+        let bitwidth: usize = left.vec.len();
+        Value::from_init(init_val_usize, bitwidth)
     }
 }
 
-pub struct std_le {
+pub struct StdLe {
     //doesn't need anything inside really
 }
 
-impl std_le {
+impl StdLe {
     fn execute(left: Value, right: Value) -> Value {
-        todo!();
+        let left_64 = left.as_u64();
+        let right_64 = right.as_u64();
+        let init_val = left_64 <= right_64;
+
+        let init_val_usize: usize = init_val.try_into().unwrap();
+        let bitwidth: usize = left.vec.len();
+        Value::from_init(init_val_usize, bitwidth)
     }
 }
 
