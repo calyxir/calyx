@@ -2,11 +2,10 @@
 
 use super::environment::Environment;
 use super::values::Value;
-use std::ops::*;
 use calyx::{errors::FutilResult, ir};
 use std::collections::HashMap;
 use std::convert::TryInto;
-
+use std::ops::*;
 
 /// A Standard Register of a certain [width]
 /// Note that StdReg itself doen't have any bookkeeping related to clock cycles.
@@ -16,7 +15,7 @@ use std::convert::TryInto;
 /// such as asserting [done] for just one cycle after a write, must be enforced and
 /// carried out by the interpreter.
 pub struct StdReg {
-    pub width: u64, 
+    pub width: u64,
     pub val: Value,
     pub done: bool,
     pub write_en: bool,
@@ -45,7 +44,10 @@ impl StdReg {
     /// Truncates [input]'s corresponding [Value] if its [width] exceeds this register's [width]
     pub fn load_u64(&mut self, input: u64) {
         if self.write_en {
-            self.val = Value::from_init::<usize>(input.try_into().unwrap(), self.width.try_into().unwrap())
+            self.val = Value::from_init::<usize>(
+                input.try_into().unwrap(),
+                self.width.try_into().unwrap(),
+            )
         }
     }
 
@@ -55,7 +57,6 @@ impl StdReg {
     pub fn set_done_high(&mut self) {
         self.done = true
     }
-    
     /// Pairs with [set_done_high]
     pub fn set_done_low(&mut self) {
         self.done = false
@@ -88,8 +89,8 @@ pub struct StdConst {
 
 impl StdConst {
     pub fn new(width: u64, val: Value) -> StdConst {
-        StdConst{
-            width, 
+        StdConst {
+            width,
             val: val.truncate(width as usize),
         }
     }
@@ -106,9 +107,11 @@ pub struct StdLsh {
 }
 
 impl StdLsh {
-    pub fn execute(mut val: Value) -> Value {
+    fn execute(mut val: Value) -> Value {
+        val.vec.reverse();
         val.vec.remove(val.vec.len() - 1);
         val.vec.insert(0, false);
+        val.vec.reverse();
         Value { vec: val.vec }
     }
 
@@ -125,14 +128,12 @@ pub struct StdRsh {
 }
 
 impl StdRsh {
-    fn execute(mut val: Value) -> Value {
-        val.vec.reverse();
+    pub fn execute(mut val: Value) -> Value {
         val.vec.remove(val.vec.len() - 1);
         val.vec.insert(0, false);
-        val.vec.reverse();
         Value { vec: val.vec }
     }
-    
+
     pub fn execute_u64(input: u64) -> u64 {
         // let val = Value::from_init(input, 64 as usize);
         todo!()
@@ -211,7 +212,9 @@ pub struct StdAnd {
 
 impl StdAnd {
     fn execute(left: Value, right: Value) -> Value {
-        Value { vec: left.vec.bitand(right.vec) }
+        Value {
+            vec: left.vec.bitand(right.vec),
+        }
     }
 }
 
@@ -221,7 +224,9 @@ pub struct StdOr {
 
 impl StdOr {
     fn execute(left: Value, right: Value) -> Value {
-        Value { vec: left.vec.bitor(right.vec) }
+        Value {
+            vec: left.vec.bitor(right.vec),
+        }
     }
 }
 
@@ -231,7 +236,9 @@ pub struct StdXor {
 
 impl StdXor {
     fn execute(left: Value, right: Value) -> Value {
-        Value { vec: left.vec.bitxor(right.vec) }
+        Value {
+            vec: left.vec.bitxor(right.vec),
+        }
     }
 }
 
@@ -239,7 +246,7 @@ impl StdXor {
 // pub trait Execute {
 //     fn execute(left: Value, right: Value, F: Fn(u64, u64) -> u64) -> Value {
 //         let left_64 = left.as_u64();
-//         let right_64 = right.as_u64();      
+//         let right_64 = right.as_u64();
 //         let init_val_usize: usize = init_val.try_into().unwrap();
 //         let bitwidth: usize = left.vec.len();
 //         Value::from_init(init_val_usize, bitwidth)
