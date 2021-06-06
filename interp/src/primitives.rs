@@ -87,6 +87,8 @@ pub struct StdConst {
     val: Value,
 }
 
+///A component that keeps one value, that can't be rewritten. Is instantiated with the
+///value
 impl StdConst {
     pub fn new(width: u64, val: Value) -> StdConst {
         StdConst {
@@ -94,6 +96,17 @@ impl StdConst {
             val: val.truncate(width as usize),
         }
     }
+
+    pub fn new_from_u64(width: u64, val: u64) -> StdConst {
+        StdConst {
+            width,
+            val: Value::from_init::<usize>(
+                val.try_into().unwrap(),
+                width.try_into().unwrap(),
+            ),
+        }
+    }
+
     pub fn read_val(&self) -> Value {
         self.val.clone()
     }
@@ -102,16 +115,12 @@ impl StdConst {
     }
 }
 
-pub struct StdLsh {
-    //doesn't need anything inside really
-}
+pub struct StdLsh {}
 
 impl StdLsh {
-    fn execute(mut val: Value) -> Value {
-        val.vec.reverse();
+    pub fn execute(mut val: Value) -> Value {
         val.vec.remove(val.vec.len() - 1);
         val.vec.insert(0, false);
-        val.vec.reverse();
         Value { vec: val.vec }
     }
 
@@ -123,14 +132,14 @@ impl StdLsh {
     }
 }
 
-pub struct StdRsh {
-    //doesn't need anything inside really
-}
+pub struct StdRsh {}
 
 impl StdRsh {
     pub fn execute(mut val: Value) -> Value {
+        val.vec.reverse();
         val.vec.remove(val.vec.len() - 1);
         val.vec.insert(0, false);
+        val.vec.reverse();
         Value { vec: val.vec }
     }
 
@@ -140,12 +149,10 @@ impl StdRsh {
     }
 }
 
-pub struct StdAdd {
-    //doesn't need anything inside really
-}
+pub struct StdAdd {}
 
 impl StdAdd {
-    fn execute(left: Value, right: Value) -> Value {
+    pub fn execute(left: Value, right: Value) -> Value {
         // error if left and right are different widths
         //find a bitwidth to give from
         let left_64 = left.as_u64();
@@ -158,12 +165,10 @@ impl StdAdd {
     }
 }
 
-pub struct StdSub {
-    //doesn't need anything inside really
-}
+pub struct StdSub {}
 
 impl StdSub {
-    fn execute(left: Value, right: Value) -> Value {
+    pub fn execute(left: Value, right: Value) -> Value {
         //find a bitwidth to give from
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
@@ -175,67 +180,55 @@ impl StdSub {
     }
 }
 
-pub struct StdSlice {
-    //doesn't need anything inside really
-}
+pub struct StdSlice {}
 
 impl StdSlice {
-    fn execute(val: Value, width: usize) -> Value {
+    pub fn execute(val: Value, width: usize) -> Value {
         val.truncate(width)
     }
 }
 
-pub struct StdPad {
-    //doesn't need anything inside really
-}
+pub struct StdPad {}
 
 impl StdPad {
-    fn execute(val: Value, width: usize) -> Value {
+    pub fn execute(val: Value, width: usize) -> Value {
         val.ext(width)
     }
 }
 
-/// Logical Operators - TODO: need to verify
-pub struct StdNot {
-    //doesn't need anything inside really
-}
+/// Logical Operators
+pub struct StdNot {}
 
 impl StdNot {
-    fn execute(val: Value) -> Value {
+    pub fn execute(val: Value) -> Value {
         Value { vec: val.vec.not() }
     }
 }
 
-pub struct StdAnd {
-    //doesn't need anything inside really
-}
+pub struct StdAnd {}
 
 impl StdAnd {
-    fn execute(left: Value, right: Value) -> Value {
+    pub fn execute(left: Value, right: Value) -> Value {
         Value {
             vec: left.vec.bitand(right.vec),
         }
     }
 }
 
-pub struct StdOr {
-    //doesn't need anything inside really
-}
+pub struct StdOr {}
 
 impl StdOr {
-    fn execute(left: Value, right: Value) -> Value {
+    pub fn execute(left: Value, right: Value) -> Value {
         Value {
             vec: left.vec.bitor(right.vec),
         }
     }
 }
 
-pub struct StdXor {
-    //doesn't need anything inside really
-}
+pub struct StdXor {}
 
 impl StdXor {
-    fn execute(left: Value, right: Value) -> Value {
+    pub fn execute(left: Value, right: Value) -> Value {
         Value {
             vec: left.vec.bitxor(right.vec),
         }
@@ -243,22 +236,10 @@ impl StdXor {
 }
 
 /// Comparison Operators
-// pub trait Execute {
-//     fn execute(left: Value, right: Value, F: Fn(u64, u64) -> u64) -> Value {
-//         let left_64 = left.as_u64();
-//         let right_64 = right.as_u64();
-//         let init_val_usize: usize = init_val.try_into().unwrap();
-//         let bitwidth: usize = left.vec.len();
-//         Value::from_init(init_val_usize, bitwidth)
-//     }
-// }
-
-pub struct StdGt {
-    //doesn't need anything inside really
-}
+pub struct StdGt {}
 
 impl StdGt {
-    fn execute(left: Value, right: Value) -> Value {
+    pub fn execute(left: Value, right: Value) -> Value {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 > right_64;
@@ -269,12 +250,10 @@ impl StdGt {
     }
 }
 
-pub struct StdLt {
-    //doesn't need anything inside really
-}
+pub struct StdLt {}
 
 impl StdLt {
-    fn execute(left: Value, right: Value) -> Value {
+    pub fn execute(left: Value, right: Value) -> Value {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 < right_64;
@@ -285,12 +264,10 @@ impl StdLt {
     }
 }
 
-pub struct StdEq {
-    //doesn't need anything inside really
-}
+pub struct StdEq {}
 
 impl StdEq {
-    fn execute(left: Value, right: Value) -> Value {
+    pub fn execute(left: Value, right: Value) -> Value {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 == right_64;
@@ -301,12 +278,10 @@ impl StdEq {
     }
 }
 
-pub struct StdNeq {
-    //doesn't need anything inside really
-}
+pub struct StdNeq {}
 
 impl StdNeq {
-    fn execute(left: Value, right: Value) -> Value {
+    pub fn execute(left: Value, right: Value) -> Value {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 != right_64;
@@ -317,12 +292,10 @@ impl StdNeq {
     }
 }
 
-pub struct StdGe {
-    //doesn't need anything inside really
-}
+pub struct StdGe {}
 
 impl StdGe {
-    fn execute(left: Value, right: Value) -> Value {
+    pub fn execute(left: Value, right: Value) -> Value {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 >= right_64;
@@ -333,12 +306,10 @@ impl StdGe {
     }
 }
 
-pub struct StdLe {
-    //doesn't need anything inside really
-}
+pub struct StdLe {}
 
 impl StdLe {
-    fn execute(left: Value, right: Value) -> Value {
+    pub fn execute(left: Value, right: Value) -> Value {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 <= right_64;

@@ -22,14 +22,12 @@ impl Value {
         Value { vec }
     }
 
-    ///Note that Value is a functional data structure. This returns 
+    ///Note that Value is a functional data structure. This returns
     ///A Value with uninitialized data.
     pub fn clear(&self) -> Self {
         let mut vec = self.vec.clone();
         vec.truncate(0);
-        Value {
-            vec,
-        }
+        Value { vec }
     }
 
     /// truncate returns a clone of [self] with [vec] of length [new_size]
@@ -38,9 +36,7 @@ impl Value {
         let mut vec = self.vec.clone();
         //now just truncate the vector in tr
         vec.truncate(new_size);
-        Value {
-            vec,
-        }
+        Value { vec }
     }
 
     /// [ext] returns a copy of [self] of length [ext], with the
@@ -83,5 +79,15 @@ impl Into<u64> for Value {
                 * (bit as u64);
         }
         val
+    }
+}
+
+// For testing
+impl std::fmt::Display for Value {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
+        write!(f, "{}", self.vec)
     }
 }
