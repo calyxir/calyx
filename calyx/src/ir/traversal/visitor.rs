@@ -101,7 +101,11 @@ pub trait Visitor {
                 // Create a clone of the reference to the Control
                 // program.
                 let control_ref = Rc::clone(&comp.control);
-                // Borrow the control program mutably and visit it.
+                if let Control::Empty(_) = &*control_ref.borrow() {
+                    // Don't traverse if the control program is empty.
+                    return Ok(Action::Continue);
+                }
+                // Mutably borrow the control program and traverse.
                 control_ref.borrow_mut().visit(self, comp, signatures)?;
                 Ok(Action::Continue)
             })?

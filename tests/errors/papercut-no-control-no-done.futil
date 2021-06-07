@@ -1,0 +1,17 @@
+import "primitives/std.lib";
+
+component main(go: 1) -> (done: 1) {
+  // ANCHOR: cells
+  cells {
+    @external(1) mem = std_mem_d1(32, 1, 1);
+  }
+  // ANCHOR_END: cells
+  // ANCHOR: wires
+  wires {
+      mem.addr0 = 1'b0;
+      mem.write_data = 32'd42;
+      mem.write_en = 1'b1;
+  }
+  // ANCHOR_END: wires
+  control {}
+}

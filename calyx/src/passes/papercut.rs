@@ -65,6 +65,21 @@ impl Visitor for Papercut<'_> {
         comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
+        // If the control program is empty, check that the `done` signal
+        // has been assigned to.
+        if let ir::Control::Empty(..) = *comp.control.borrow() {
+            let done_use =
+                comp.continuous_assignments.iter().find(|assign_ref| {
+                    let assign = assign_ref.dst.borrow();
+                    // If at least one assignment used the `done` port, then
+                    // we're good.
+                    assign.name == "done" && !assign.is_hole()
+                });
+            if done_use.is_none() {
+                return Err(Error::Papercut(format!("Component `{}` has an empty control program and does not assign to the `done` port. Without an assignment to the `done`, the component cannot return control flow.", comp.name.clone()), comp.name.clone()));
+            }
+        }
+
         // For each group, check if there is at least one write to the done
         // signal of that group.
         // Names of the groups whose `done` hole has been written to.
