@@ -1,13 +1,24 @@
+import "primitives/core.futil";
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {
+    r = std_reg(1);
   }
   wires {
+    group do_incr {
+      r.in = 1'd1;
+      r.write_en = 1'd1;
+      do_incr[done] = r.done;
+    }
     group _empty<"static"=0> {
       _empty[done] = 1'd1;
     }
   }
 
   control {
-    _empty;
+    if r.out with do_incr {
+      do_incr;
+    } else {
+      _empty;
+    }
   }
 }

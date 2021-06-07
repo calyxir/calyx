@@ -5,6 +5,8 @@ component main() -> () {
     m0 = std_mem_d1(32, 4, 4);
     @external(1) m1 = std_mem_d1(32, 4, 4);
   }
-  wires {}
+  wires {
+    done = m1.done;
+  }
   control {}
 }
