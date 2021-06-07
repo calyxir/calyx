@@ -123,7 +123,7 @@ pub enum CellType {
 #[derive(Debug)]
 pub struct Cell {
     /// Name of this cell.
-    pub name: Id,
+    pub(super) name: Id,
     /// Ports on this cell
     pub ports: SmallVec<[RRC<Port>; 10]>,
     /// Underlying type for this cell
@@ -242,6 +242,11 @@ impl Cell {
     {
         self.attributes.insert(attr.into(), value);
     }
+
+    /// Grants immutable access to the name of this cell.
+    pub fn name(&self) -> &Id {
+        &self.name
+    }
 }
 
 /// Represents a guarded assignment in the program
@@ -261,7 +266,7 @@ pub struct Assignment {
 #[derive(Debug)]
 pub struct Group {
     /// Name of this group
-    pub name: Id,
+    pub(super) name: Id,
 
     /// The assignments used in this group
     pub assignments: Vec<Assignment>,
@@ -272,7 +277,6 @@ pub struct Group {
     /// Attributes for this group.
     pub attributes: Attributes,
 }
-
 impl Group {
     /// Get a reference to the named hole if it exists.
     pub fn find<S>(&self, name: &S) -> Option<RRC<Port>>
@@ -297,5 +301,40 @@ impl Group {
                 self.name.to_string()
             )
         })
+    }
+
+    pub fn name(&self) -> &Id {
+        &self.name
+    }
+}
+
+/// A trait representing something in the IR that has a name.
+pub trait GetName {
+    /// Return a reference to the object's name
+    fn name(&self) -> &Id;
+}
+
+impl GetName for Cell {
+    fn name(&self) -> &Id {
+        self.name()
+    }
+}
+
+impl GetName for Group {
+    fn name(&self) -> &Id {
+        self.name()
+    }
+}
+
+/// A utility trait representing the ability to clone the name of an object.
+/// Automatically definied for anything that implements GetName
+pub trait CloneName {
+    /// Returns a clone of the object's name
+    fn clone_name(&self) -> Id;
+}
+
+impl<T: GetName> CloneName for T {
+    fn clone_name(&self) -> Id {
+        self.name().clone()
     }
 }

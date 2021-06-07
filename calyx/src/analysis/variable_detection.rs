@@ -1,6 +1,6 @@
 use super::{GraphAnalysis, ReadWriteSet};
 use crate::ir;
-use ir::RRC;
+use ir::{CloneName, RRC};
 
 /// Detects if a group is solely being used to update a register.
 pub struct VariableDetection;
@@ -43,13 +43,13 @@ impl VariableDetection {
         let activation = graph
             .writes_to(&group.get("done").borrow())
             .filter(|src| !src.borrow().is_constant(1, 1))
-            .map(|src| src.borrow().get_parent_name() == cell.name)
+            .map(|src| src.borrow().get_parent_name() == cell.name())
             .collect::<Vec<_>>();
         if activation.len() != 1 || (!activation.is_empty() && !activation[0]) {
             // failed g[done] = reg.done check
             return None;
         }
 
-        Some(cell.name.clone())
+        Some(cell.clone_name())
     }
 }

@@ -152,7 +152,7 @@ impl Visitor for Inliner {
         // map of holes to their guard expressions
         let mut map: Store = HashMap::new();
         let mut assignments = vec![];
-        for group in &builder.component.groups {
+        for group in builder.component.groups.iter() {
             // remove all assignments from group, taking ownership
             let mut group = group.borrow_mut();
             assignments.append(&mut group.assignments.drain(..).collect());

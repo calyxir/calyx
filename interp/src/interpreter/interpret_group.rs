@@ -5,6 +5,7 @@ use crate::{environment::Environment, primitives, update::UpdateQueue};
 use calyx::{
     errors::{Error, FutilResult},
     ir,
+    ir::CloneName,
 };
 use std::collections::HashMap;
 // use std::rc::Rc;
@@ -39,7 +40,7 @@ fn _construct_map(
             // A Calyx constant cell's out port is that constant's value
             ir::CellType::Constant { val, .. } => {
                 ports.insert(ir::Id::from("out"), *val);
-                map.insert(cb.name.clone(), ports);
+                map.insert(cb.clone_name(), ports);
             }
             ir::CellType::Primitive { .. } => {
                 for port in &cb.ports {
@@ -51,7 +52,7 @@ fn _construct_map(
 
                     ports.insert(pb.name.clone(), initval);
                 }
-                map.insert(cb.name.clone(), ports);
+                map.insert(cb.clone_name(), ports);
             }
             _ => panic!("component"),
         }

@@ -1,6 +1,6 @@
 use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, LibrarySignatures};
+use crate::ir::{self, CloneName, LibrarySignatures};
 use std::collections::{HashMap, HashSet};
 
 /// Pass to check for common errors such as missing assignments to `done` holes
@@ -84,13 +84,12 @@ impl Visitor for Papercut<'_> {
         // signal of that group.
         // Names of the groups whose `done` hole has been written to.
         let mut hole_writes = HashSet::new();
-        for group in &comp.groups {
+        for group in comp.groups.iter() {
             for assign_ref in &group.borrow().assignments {
                 let assign = assign_ref.dst.borrow();
                 if assign.is_hole() && assign.name == "done" {
                     if let ir::PortParent::Group(group_ref) = &assign.parent {
-                        hole_writes
-                            .insert(group_ref.upgrade().borrow().name.clone());
+                        hole_writes.insert(group_ref.upgrade().clone_name());
                     }
                 }
             }
@@ -99,8 +98,8 @@ impl Visitor for Papercut<'_> {
         let no_done_group = comp
             .groups
             .iter()
-            .find(|g| !hole_writes.contains(&g.borrow().name))
-            .map(|g| g.borrow().name.clone());
+            .find(|g| !hole_writes.contains(&g.borrow().name()))
+            .map(|g| g.clone_name());
 
         // If there is a group that hasn't been assigned to, throw an error.
         if let Some(g) = no_done_group {
@@ -119,7 +118,7 @@ impl Visitor for Papercut<'_> {
         // For example, for a register, both the `.in' port and the
         // `.write_en' port need to be driven.
 
-        for group in &comp.groups {
+        for group in comp.groups.iter() {
             // 1. Build a map from (instance_name, type) to the signals being
             // driven.
             let mut drives: HashMap<(String, String), Vec<String>> =
@@ -137,7 +136,7 @@ impl Visitor for Papercut<'_> {
                         &cell.prototype
                     {
                         drives
-                            .entry((cell.name.id.clone(), name.id.clone()))
+                            .entry((cell.name().id.clone(), name.id.clone()))
                             .or_insert_with(Vec::new)
                             .push(dst.name.id.clone())
                     }
@@ -161,7 +160,7 @@ When driving the signal `{}.{}' the signal `{}.{}' must also be driven. The prim
                             );
                             return Err(Error::Papercut(
                                 msg,
-                                group.borrow().name.clone(),
+                                group.clone_name(),
                             ));
                         }
                     }
