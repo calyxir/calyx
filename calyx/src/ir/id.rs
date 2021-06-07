@@ -1,5 +1,6 @@
 use crate::errors::Span;
 use derivative::Derivative;
+use serde::Serialize;
 
 /// Represents an identifier in a Futil program
 #[derive(Derivative, Clone, PartialOrd, Ord)]
@@ -68,5 +69,14 @@ impl PartialEq<str> for Id {
 impl<S: AsRef<str>> PartialEq<S> for Id {
     fn eq(&self, other: &S) -> bool {
         self.id == other.as_ref()
+    }
+}
+
+impl Serialize for Id {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.id)
     }
 }

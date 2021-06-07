@@ -1,11 +1,15 @@
 import "primitives/std.lib";
 
+//this test should be analyzed in conjunction with simple_add.futil
+//make sure putting write_en below all other assignments (simple_add_write)
+//produces the same output as putting write_en above all other assignments (simple_add)
+
 component main() -> () {
   cells {
-    const0 = prim std_const(32, 9);
-    const1 = prim std_const(32, 400);
-    add0 = prim std_add(32);
-    reg0 = prim std_reg(32);
+    const0 = std_const(32, 9);
+    const1 = std_const(32, 400);
+    add0 = std_add(32);
+    reg0 = std_reg(32);
 
   }
 

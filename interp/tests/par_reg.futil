@@ -1,0 +1,34 @@
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    a = std_reg(32);
+    b = std_reg(32);
+    c = std_reg(32);
+  }
+
+  wires {
+    group wr_a<"static"=1> {
+      a.in = 32'd1;
+      wr_a[done] = a.done;
+    }
+
+    group wr_b<"static"=1> {
+      b.in = 32'd1;
+      wr_b[done] = b.done;
+    }
+
+    group wr_c<"static"=1> {
+      c.in = 32'd1;
+      wr_c[done] = c.done;
+    }
+  }
+
+  control {
+    par {
+      wr_a;
+      wr_b;
+      wr_c;
+    }
+  }
+}

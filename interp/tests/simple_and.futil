@@ -2,10 +2,10 @@ import "primitives/std.lib";
 
 component main() -> () {
   cells {
-    const0 = prim std_const(32, 13);
-    const1 = prim std_const(32, 10);
-    and0 = prim std_and(32);
-    reg0 = prim std_reg(32);
+    const0 = std_const(32, 13);
+    const1 = std_const(32, 10);
+    and0 = std_and(32);
+    reg0 = std_reg(32);
 
   }
 
