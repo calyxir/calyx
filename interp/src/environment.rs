@@ -1,7 +1,7 @@
 //! Environment for interpreter.
 
 //use super::{primitives, update};
-use calyx::ir;
+use calyx::{ir, ir::CloneName};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -88,14 +88,14 @@ impl Environment {
         let mut map = HashMap::new();
         for comp in &context.components {
             let mut cell_map = HashMap::new();
-            for cell in &comp.cells {
+            for cell in comp.cells.iter() {
                 let cb = cell.borrow();
                 let mut ports: HashMap<ir::Id, u64> = HashMap::new();
                 match &cb.prototype {
                     // A FuTIL constant cell's out port is that constant's value
                     ir::CellType::Constant { val, .. } => {
                         ports.insert(ir::Id::from("out"), *val);
-                        cell_map.insert(cb.name.clone(), ports);
+                        cell_map.insert(cb.clone_name(), ports);
                     }
                     ir::CellType::Primitive { .. } => {
                         for port in &cb.ports {
@@ -108,7 +108,7 @@ impl Environment {
                                 .unwrap_or(0); //std_const should be the only cell type with the "value" parameter
                             ports.insert(pb.name.clone(), initval);
                         }
-                        cell_map.insert(cb.name.clone(), ports);
+                        cell_map.insert(cb.clone_name(), ports);
                     }
                     //TODO: handle components
                     _ => panic!("component"),
