@@ -128,6 +128,12 @@ pub struct Environment {
     /// Maps component names to a mapping from the component's cell names to their ports' values.
     pub map: HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, Value>>>,
 
+    pub clk: u64,
+    ///mapping from cells to prims
+    ///clock count
+    ///use raw pointers for hashmap: ports to values
+    pub pv_map: HashMap<*const ir::Port, Value>,
+
     /// A reference to the context.
     pub context: ir::RRC<ir::Context>,
 }
@@ -140,7 +146,13 @@ impl Environment {
         Self {
             map: Environment::construct_map(&ctx.borrow()),
             context: ctx.clone(),
+            clk: 0,
+            pv_map: Environment::construct_pv_map(),
         }
+    }
+
+    fn construct_pv_map() -> HashMap<*const ir::Port, Value> {
+        todo!();
     }
 
     /// Returns the value on a port, in a component's cell.
@@ -276,7 +288,10 @@ impl Serialize for Environment {
                 let inner_map: BTreeMap<_, _> = map
                     .iter()
                     .map(|(id, map)| {
-                        let inner_map: BTreeMap<_, _> = map.iter().collect();
+                        let inner_map: BTreeMap<_, _> = map
+                            .iter()
+                            .map(|(id, val)| (id, val.as_u64()))
+                            .collect();
                         (id, inner_map)
                     })
                     .collect();
