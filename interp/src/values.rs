@@ -88,6 +88,8 @@ impl std::fmt::Display for Value {
         &self,
         f: &mut std::fmt::Formatter<'_>,
     ) -> Result<(), std::fmt::Error> {
-        write!(f, "{}", self.vec)
+        let mut vec_rev = self.vec.clone();
+        vec_rev.reverse();
+        write!(f, "{}", vec_rev)
     }
 }

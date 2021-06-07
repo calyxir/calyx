@@ -7,6 +7,31 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ops::*;
 
+pub trait ExecuteBinary {
+    fn execute_bin(left: &Value, right: &Value) -> Value;
+}
+
+pub trait Execute {
+    fn execute<'a>(
+        inputs: &'a [(ir::Id, Value)],
+        outputs: &'a [(ir::Id, Value)],
+    ) -> Vec<(ir::Id, Value)>;
+}
+
+impl<T: ExecuteBinary> Execute for T {
+    fn execute<'a>(
+        inputs: &'a [(ir::Id, Value)],
+        outputs: &'a [(ir::Id, Value)],
+    ) -> Vec<(ir::Id, Value)> {
+        let (_, left) = inputs.iter().find(|(id, val)| id == "left").unwrap();
+
+        let (_, right) = inputs.iter().find(|(id, val)| id == "right").unwrap();
+
+        let out = T::execute_bin(left, right);
+        vec![(ir::Id::from("out"), out)]
+    }
+}
+
 /// A Standard Register of a certain [width]
 /// Note that StdReg itself doen't have any bookkeeping related to clock cycles.
 /// Nor does it prevent the user from reading a value before the [done] signal is high.
@@ -151,10 +176,11 @@ impl StdRsh {
 
 pub struct StdAdd {}
 
-impl StdAdd {
-    pub fn execute(left: Value, right: Value) -> Value {
-        // error if left and right are different widths
-        //find a bitwidth to give from
+impl ExecuteBinary for StdAdd {
+    fn execute_bin(left: &Value, right: &Value) -> Value {
+        if left.vec.len() != right.vec.len() {
+            panic!("Width mismatch between two operands.");
+        }
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 + right_64;
@@ -167,9 +193,11 @@ impl StdAdd {
 
 pub struct StdSub {}
 
-impl StdSub {
-    pub fn execute(left: Value, right: Value) -> Value {
-        //find a bitwidth to give from
+impl ExecuteBinary for StdSub {
+    fn execute_bin(left: &Value, right: &Value) -> Value {
+        if left.vec.len() != right.vec.len() {
+            panic!("Width mismatch between two operands.");
+        }
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 - right_64;
@@ -207,30 +235,30 @@ impl StdNot {
 
 pub struct StdAnd {}
 
-impl StdAnd {
-    pub fn execute(left: Value, right: Value) -> Value {
+impl ExecuteBinary for StdAnd {
+    fn execute_bin(left: &Value, right: &Value) -> Value {
         Value {
-            vec: left.vec.bitand(right.vec),
+            vec: left.vec.clone() & right.vec.clone(),
         }
     }
 }
 
 pub struct StdOr {}
 
-impl StdOr {
-    pub fn execute(left: Value, right: Value) -> Value {
+impl ExecuteBinary for StdOr {
+    fn execute_bin(left: &Value, right: &Value) -> Value {
         Value {
-            vec: left.vec.bitor(right.vec),
+            vec: left.vec.clone() | right.vec.clone(),
         }
     }
 }
 
 pub struct StdXor {}
 
-impl StdXor {
-    pub fn execute(left: Value, right: Value) -> Value {
+impl ExecuteBinary for StdXor {
+    fn execute_bin(left: &Value, right: &Value) -> Value {
         Value {
-            vec: left.vec.bitxor(right.vec),
+            vec: left.vec.clone() ^ right.vec.clone(),
         }
     }
 }
@@ -238,85 +266,79 @@ impl StdXor {
 /// Comparison Operators
 pub struct StdGt {}
 
-impl StdGt {
-    pub fn execute(left: Value, right: Value) -> Value {
+impl ExecuteBinary for StdGt {
+    fn execute_bin(left: &Value, right: &Value) -> Value {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 > right_64;
 
         let init_val_usize: usize = init_val.try_into().unwrap();
-        let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val_usize, bitwidth)
+        Value::from_init(init_val_usize, 1 as usize)
     }
 }
 
 pub struct StdLt {}
 
-impl StdLt {
-    pub fn execute(left: Value, right: Value) -> Value {
+impl ExecuteBinary for StdLt {
+    fn execute_bin(left: &Value, right: &Value) -> Value {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 < right_64;
 
         let init_val_usize: usize = init_val.try_into().unwrap();
-        let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val_usize, bitwidth)
+        Value::from_init(init_val_usize, 1 as usize)
     }
 }
 
 pub struct StdEq {}
 
-impl StdEq {
-    pub fn execute(left: Value, right: Value) -> Value {
+impl ExecuteBinary for StdEq {
+    fn execute_bin(left: &Value, right: &Value) -> Value {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 == right_64;
 
         let init_val_usize: usize = init_val.try_into().unwrap();
-        let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val_usize, bitwidth)
+        Value::from_init(init_val_usize, 1 as usize)
     }
 }
 
 pub struct StdNeq {}
 
-impl StdNeq {
-    pub fn execute(left: Value, right: Value) -> Value {
+impl ExecuteBinary for StdNeq {
+    fn execute_bin(left: &Value, right: &Value) -> Value {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 != right_64;
 
         let init_val_usize: usize = init_val.try_into().unwrap();
-        let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val_usize, bitwidth)
+        Value::from_init(init_val_usize, 1 as usize)
     }
 }
 
 pub struct StdGe {}
 
-impl StdGe {
-    pub fn execute(left: Value, right: Value) -> Value {
+impl ExecuteBinary for StdGe {
+    fn execute_bin(left: &Value, right: &Value) -> Value {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 >= right_64;
 
         let init_val_usize: usize = init_val.try_into().unwrap();
-        let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val_usize, bitwidth)
+        Value::from_init(init_val_usize, 1 as usize)
     }
 }
 
 pub struct StdLe {}
 
-impl StdLe {
-    pub fn execute(left: Value, right: Value) -> Value {
+impl ExecuteBinary for StdLe {
+    fn execute_bin(left: &Value, right: &Value) -> Value {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 <= right_64;
 
         let init_val_usize: usize = init_val.try_into().unwrap();
-        let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val_usize, bitwidth)
+        Value::from_init(init_val_usize, 1 as usize)
     }
 }
 
