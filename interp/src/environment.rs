@@ -1,7 +1,6 @@
 //! Environment for interpreter.
 
 use super::{primitives, values::Value};
-use bitvec::prelude::*;
 use calyx::{errors::FutilResult, ir, ir::CloneName};
 use serde::Serialize;
 use std::collections::BTreeMap;
