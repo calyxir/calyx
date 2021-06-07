@@ -7,6 +7,28 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ops::*;
 
+pub enum Primitve {
+    StdAdd(StdAdd),
+    StdReg(StdReg),
+    StdConst(StdConst),
+    StdLsh(StdLsh),
+    StdRsh(StdRsh),
+    StdSub(StdSub),
+    StdSlice(StdSlice),
+    StdPad(StdPad),
+    StdNot(StdNot),
+    StdAnd(StdAnd),
+    StdOr(StdOr),
+    StdXor(StdXor),
+    StdGe(StdGe),
+    StdGt(StdGt),
+    StdEq(StdEq),
+    StdNeq(StdNeq),
+    StdLe(StdLe),
+    StdLt(StdLt),
+    StdMemD1(StdMemD1),
+}
+
 pub trait ExecuteBinary {
     fn execute_bin(&self, left: &Value, right: &Value) -> Value;
 }
@@ -46,6 +68,32 @@ fn check_widths(left: &Value, right: &Value, width: u64) -> () {
         || left.vec.len() != right.vec.len()
     {
         panic!("Width mismatch between the component and the value.");
+    }
+}
+
+//std_memd1 :
+
+pub struct StdMemD1 {
+    pub width: u64,    //size of individual piece of mem
+    pub size: u64,     //# slots of mem
+    pub idx_size: u64, //# bits needed to index a piece of mem
+    pub data: Vec<Value>,
+    pub write_en: bool,
+}
+
+impl StdMemD1 {
+    pub fn new(width: u64, size: u64, idx_size: u64) -> StdMemD1 {
+        let data = vec![
+            Value::zeroes((width as usize).try_into().unwrap());
+            (size as usize).try_into().unwrap()
+        ];
+        StdMemD1 {
+            width,
+            size,
+            idx_size,
+            data,
+            write_en: false,
+        }
     }
 }
 
@@ -132,10 +180,7 @@ impl StdConst {
     pub fn new_from_u64(width: u64, val: u64) -> StdConst {
         StdConst {
             width,
-            val: Value::from_init::<usize, usize>(
-                val.try_into().unwrap(),
-                width.try_into().unwrap(),
-            ),
+            val: Value::try_from_init(val, width).unwrap(),
         }
     }
 
@@ -209,10 +254,8 @@ impl ExecuteBinary for StdAdd {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 + right_64;
-
-        let init_val_usize: usize = init_val.try_into().unwrap();
         let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val_usize, bitwidth)
+        Value::from_init(init_val, bitwidth)
     }
 }
 
@@ -234,9 +277,8 @@ impl ExecuteBinary for StdSub {
         let right_64 = right.as_u64();
         let init_val = left_64 - right_64;
 
-        let init_val_usize: usize = init_val.try_into().unwrap();
         let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val_usize, bitwidth)
+        Value::from_init(init_val, bitwidth)
     }
 }
 
@@ -388,8 +430,7 @@ impl ExecuteBinary for StdGt {
         let right_64 = right.as_u64();
         let init_val = left_64 > right_64;
 
-        let init_val_usize: usize = init_val.try_into().unwrap();
-        Value::from_init(init_val_usize, 1 as usize)
+        Value::from_init(init_val, 1 as usize)
     }
 }
 
@@ -410,8 +451,7 @@ impl ExecuteBinary for StdLt {
         let right_64 = right.as_u64();
         let init_val = left_64 < right_64;
 
-        let init_val_usize: usize = init_val.try_into().unwrap();
-        Value::from_init(init_val_usize, 1 as usize)
+        Value::from_init(init_val, 1 as usize)
     }
 }
 
@@ -432,8 +472,7 @@ impl ExecuteBinary for StdEq {
         let right_64 = right.as_u64();
         let init_val = left_64 == right_64;
 
-        let init_val_usize: usize = init_val.try_into().unwrap();
-        Value::from_init(init_val_usize, 1 as usize)
+        Value::from_init(init_val, 1 as usize)
     }
 }
 
@@ -453,9 +492,7 @@ impl ExecuteBinary for StdNeq {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 != right_64;
-
-        let init_val_usize: usize = init_val.try_into().unwrap();
-        Value::from_init(init_val_usize, 1 as usize)
+        Value::from_init(init_val, 1 as usize)
     }
 }
 
@@ -474,8 +511,7 @@ impl ExecuteBinary for StdGe {
         let right_64 = right.as_u64();
         let init_val = left_64 >= right_64;
 
-        let init_val_usize: usize = init_val.try_into().unwrap();
-        Value::from_init(init_val_usize, 1 as usize)
+        Value::from_init(init_val, 1 as usize)
     }
 }
 
@@ -495,9 +531,7 @@ impl ExecuteBinary for StdLe {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 <= right_64;
-
-        let init_val_usize: usize = init_val.try_into().unwrap();
-        Value::from_init(init_val_usize, 1 as usize)
+        Value::from_init(init_val, 1 as usize)
     }
 }
 

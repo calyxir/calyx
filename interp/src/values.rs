@@ -8,7 +8,7 @@ pub struct ValueError {}
 
 #[derive(Clone, Debug)]
 pub struct Value {
-    pub vec: BitVec<Lsb0, usize>,
+    pub vec: BitVec<Lsb0, u64>,
 }
 
 impl Value {
@@ -18,7 +18,13 @@ impl Value {
         }
     }
 
-    pub fn from_init<T1: Into<usize>, T2: Into<usize>>(
+    pub fn zeroes(bitwidth: usize) -> Value {
+        Value {
+            vec: bitvec![Lsb0, u64; 0; bitwidth],
+        }
+    }
+
+    pub fn from_init<T1: Into<u64>, T2: Into<usize>>(
         initial_val: T1,
         bitwidth: T2,
     ) -> Self {
@@ -32,10 +38,10 @@ impl Value {
         bitwidth: T2,
     ) -> Result<Self, ValueError>
     where
-        T1: TryInto<usize>,
+        T1: TryInto<u64>,
         T2: TryInto<usize>,
     {
-        let (val, width): (usize, usize) =
+        let (val, width): (u64, usize) =
             match (initial_val.try_into(), bitwidth.try_into()) {
                 (Ok(v1), Ok(v2)) => (v1, v2),
                 _ => return Err(ValueError {}),
@@ -105,12 +111,6 @@ impl Into<u64> for Value {
         val
     }
 }
-
-// impl<T:Into<usize>> From<T> for Value {
-//     fn from(input: T) -> Self {
-
-//     }
-// }
 
 // For testing
 impl std::fmt::Display for Value {
