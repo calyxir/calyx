@@ -1,0 +1,34 @@
+{
+  "main": {
+    "_0_1": {
+      "out": 0
+    },
+    "_1_1": {
+      "out": 1
+    },
+    "_1_32": {
+      "out": 1
+    },
+    "_8_32": {
+      "out": 8
+    },
+    "add": {
+      "left": 1,
+      "out": 1,
+      "right": 0
+    },
+    "i": {
+      "addr0": 0,
+      "clk": X,
+      "done": 1,
+      "read_data": 7,
+      "write_data": 8,
+      "write_en": 1
+    },
+    "lt": {
+      "left": 8,
+      "out": 0,
+      "right": 8
+    }
+  }
+}
