@@ -127,9 +127,12 @@ pub struct Environment {
     /// Maps component names to a mapping from the component's cell names to their ports' values.
     pub map: HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, Value>>>,
 
-    pub clk: u64,
-    ///mapping from cells to prims
     ///clock count
+    pub clk: u64,
+
+    ///mapping from cells to prims
+    ///pub cprim_map: HashMap<ir::Cell, >
+
     ///use raw pointers for hashmap: ports to values
     pub pv_map: HashMap<*const ir::Port, Value>,
 
@@ -146,12 +149,21 @@ impl Environment {
             map: Environment::construct_map(&ctx.borrow()),
             context: ctx.clone(),
             clk: 0,
-            pv_map: Environment::construct_pv_map(),
+            pv_map: Environment::construct_pv_map(&ctx.borrow()),
         }
     }
 
-    fn construct_pv_map() -> HashMap<*const ir::Port, Value> {
-        todo!();
+    fn construct_pv_map(ctx: &ir::Context) -> HashMap<*const ir::Port, Value> {
+        let mut map = HashMap::new();
+        for comp in &ctx.components {
+            for cell in comp.cells.iter() {
+                //also iterate over groups cuz they also have ports
+                //iterate over ports, getting their value and putting into map
+                let cll = cell.borrow();
+                for port in &cll.ports {}
+            }
+        }
+        map
     }
 
     /// Returns the value on a port, in a component's cell.
