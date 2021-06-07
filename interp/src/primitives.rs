@@ -8,27 +8,44 @@ use std::convert::TryInto;
 use std::ops::*;
 
 pub trait ExecuteBinary {
-    fn execute_bin(left: &Value, right: &Value) -> Value;
+    fn execute_bin(&self, left: &Value, right: &Value) -> Value;
 }
 
 pub trait Execute {
     fn execute<'a>(
+        &self,
         inputs: &'a [(ir::Id, Value)],
         outputs: &'a [(ir::Id, Value)],
     ) -> Vec<(ir::Id, Value)>;
 }
 
+pub trait ExecuteUnary {
+    fn execute_unary(&self, input: &Value) -> Value;
+}
+
 impl<T: ExecuteBinary> Execute for T {
     fn execute<'a>(
+        &self,
         inputs: &'a [(ir::Id, Value)],
-        outputs: &'a [(ir::Id, Value)],
+        _outputs: &'a [(ir::Id, Value)],
     ) -> Vec<(ir::Id, Value)> {
-        let (_, left) = inputs.iter().find(|(id, val)| id == "left").unwrap();
+        let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
 
-        let (_, right) = inputs.iter().find(|(id, val)| id == "right").unwrap();
+        let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
 
-        let out = T::execute_bin(left, right);
+        let out = T::execute_bin(self, left, right);
         vec![(ir::Id::from("out"), out)]
+    }
+}
+
+/// Ensures the input values are of the appropriate widths, else panics
+fn check_widths(left: &Value, right: &Value, width: u64) -> () {
+    // checks len left == len right == width
+    if width != (left.vec.len() as u64)
+        || width != (right.vec.len() as u64)
+        || left.vec.len() != right.vec.len()
+    {
+        panic!("Width mismatch between the component and the value.");
     }
 }
 
@@ -60,19 +77,9 @@ impl StdReg {
     /// Sets value in register, only if [write_en] is high. Will
     /// truncate [input] if its [width] exceeds this register's [width]
     pub fn load_value(&mut self, input: Value) {
+        check_widths(&input, &input, self.width);
         if self.write_en {
             self.val = input.truncate(self.width.try_into().unwrap())
-        }
-    }
-
-    /// Given a [u64], sets the corresponding [Value] in the register, only if [write_en] is high.
-    /// Truncates [input]'s corresponding [Value] if its [width] exceeds this register's [width]
-    pub fn load_u64(&mut self, input: u64) {
-        if self.write_en {
-            self.val = Value::from_init::<usize>(
-                input.try_into().unwrap(),
-                self.width.try_into().unwrap(),
-            )
         }
     }
 
@@ -125,7 +132,7 @@ impl StdConst {
     pub fn new_from_u64(width: u64, val: u64) -> StdConst {
         StdConst {
             width,
-            val: Value::from_init::<usize>(
+            val: Value::from_init::<usize, usize>(
                 val.try_into().unwrap(),
                 width.try_into().unwrap(),
             ),
@@ -140,47 +147,65 @@ impl StdConst {
     }
 }
 
-pub struct StdLsh {}
+//NOTE: This is implemented incorrectly -- actually needs to take in two inputs. See
+//documentation ( a left input is value to be shifted, right is shift amount )
+pub struct StdLsh {
+    width: u64,
+}
 
 impl StdLsh {
-    pub fn execute(mut val: Value) -> Value {
-        val.vec.remove(val.vec.len() - 1);
-        val.vec.insert(0, false);
-        Value { vec: val.vec }
-    }
-
-    pub fn execute_u64(input: u64) -> u64 {
-        // let val = Value::from_init(input.try_into().unwrap(), 64 as usize);
-        // let val = Value {
-        // }
-        todo!()
+    pub fn new(width: u64) -> StdLsh {
+        StdLsh { width }
     }
 }
 
-pub struct StdRsh {}
+impl ExecuteBinary for StdLsh {
+    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+        //check for width -- if inapropriate, panic!
+        check_widths(left, right, self.width);
+        let mut tr = left.vec.clone();
+        tr.shift_right(right.as_u64() as usize);
+        Value { vec: tr }
+    }
+}
+
+//NOTE: This is implemented incorrectly -- actually needs to take in two inputs. See
+//documentation ( a left input is value to be shifted, right is shift amount )
+pub struct StdRsh {
+    width: u64,
+}
 
 impl StdRsh {
-    pub fn execute(mut val: Value) -> Value {
-        val.vec.reverse();
-        val.vec.remove(val.vec.len() - 1);
-        val.vec.insert(0, false);
-        val.vec.reverse();
-        Value { vec: val.vec }
-    }
-
-    pub fn execute_u64(input: u64) -> u64 {
-        // let val = Value::from_init(input, 64 as usize);
-        todo!()
+    pub fn new(width: u64) -> StdRsh {
+        StdRsh { width }
     }
 }
 
-pub struct StdAdd {}
+impl ExecuteBinary for StdRsh {
+    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+        check_widths(left, right, self.width);
+        let mut tr = left.vec.clone();
+        tr.shift_left(right.as_u64() as usize);
+        Value { vec: tr }
+    }
+}
+
+pub struct StdAdd {
+    width: u64,
+}
+
+impl StdAdd {
+    pub fn new(width: u64) -> StdAdd {
+        StdAdd { width }
+    }
+}
 
 impl ExecuteBinary for StdAdd {
-    fn execute_bin(left: &Value, right: &Value) -> Value {
-        if left.vec.len() != right.vec.len() {
-            panic!("Width mismatch between two operands.");
-        }
+    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+        //the below will check they are all the same width so no need
+        //to check left and right have same width
+        check_widths(left, right, self.width);
+
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 + right_64;
@@ -191,13 +216,20 @@ impl ExecuteBinary for StdAdd {
     }
 }
 
-pub struct StdSub {}
+pub struct StdSub {
+    width: u64,
+}
+
+impl StdSub {
+    pub fn new(width: u64) -> StdSub {
+        StdSub { width }
+    }
+}
 
 impl ExecuteBinary for StdSub {
-    fn execute_bin(left: &Value, right: &Value) -> Value {
-        if left.vec.len() != right.vec.len() {
-            panic!("Width mismatch between two operands.");
-        }
+    //have to add width check here
+    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 - right_64;
@@ -208,55 +240,130 @@ impl ExecuteBinary for StdSub {
     }
 }
 
-pub struct StdSlice {}
+///std_slice<IN_WIDTH, OUT_WIDTH>
+pub struct StdSlice {
+    in_width: u64,
+    out_width: u64,
+}
+
+///Slice out the lower OUT_WIDTH bits of an IN_WIDTH-bit value. Computes in[out_width - 1 : 0]. This component is combinational.
+// Inputs:
+
+// in: IN_WIDTH - An IN_WIDTH-bit value
+// Outputs:
+
+// out: OUT_WIDTH - The lower OUT_WIDTH bits of in
 
 impl StdSlice {
-    pub fn execute(val: Value, width: usize) -> Value {
-        val.truncate(width)
+    pub fn new(in_width: u64, out_width: u64) -> StdSlice {
+        StdSlice {
+            in_width,
+            out_width,
+        }
     }
 }
 
-pub struct StdPad {}
+impl ExecuteUnary for StdSlice {
+    fn execute_unary(&self, input: &Value) -> Value {
+        check_widths(input, input, self.in_width);
+        let tr = input.clone();
+        tr.truncate(self.out_width as usize)
+    }
+}
+
+pub struct StdPad {
+    in_width: u64,
+    out_width: u64,
+}
 
 impl StdPad {
-    pub fn execute(val: Value, width: usize) -> Value {
-        val.ext(width)
+    pub fn new(in_width: u64, out_width: u64) -> StdPad {
+        StdPad {
+            in_width,
+            out_width,
+        }
+    }
+}
+
+impl ExecuteUnary for StdPad {
+    fn execute_unary(&self, input: &Value) -> Value {
+        check_widths(input, input, self.in_width);
+        let pd = input.clone();
+        pd.ext(self.out_width as usize)
     }
 }
 
 /// Logical Operators
-pub struct StdNot {}
+pub struct StdNot {
+    width: u64,
+}
 
 impl StdNot {
-    pub fn execute(val: Value) -> Value {
-        Value { vec: val.vec.not() }
+    pub fn new(width: u64) -> StdNot {
+        StdNot { width }
     }
 }
 
-pub struct StdAnd {}
+impl ExecuteUnary for StdNot {
+    fn execute_unary<'a>(&self, input: &Value) -> Value {
+        check_widths(input, input, self.width);
+        Value {
+            vec: input.vec.clone().not(),
+        }
+    }
+}
+
+pub struct StdAnd {
+    width: u64,
+}
+
+impl StdAnd {
+    pub fn new(width: u64) -> StdAnd {
+        StdAnd { width }
+    }
+}
 
 impl ExecuteBinary for StdAnd {
-    fn execute_bin(left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+        check_widths(left, right, self.width);
         Value {
             vec: left.vec.clone() & right.vec.clone(),
         }
     }
 }
 
-pub struct StdOr {}
+pub struct StdOr {
+    width: u64,
+}
+
+impl StdOr {
+    pub fn new(width: u64) -> StdOr {
+        StdOr { width }
+    }
+}
 
 impl ExecuteBinary for StdOr {
-    fn execute_bin(left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+        check_widths(left, right, self.width);
         Value {
             vec: left.vec.clone() | right.vec.clone(),
         }
     }
 }
 
-pub struct StdXor {}
+pub struct StdXor {
+    width: u64,
+}
+
+impl StdXor {
+    pub fn new(width: u64) -> StdXor {
+        StdXor { width }
+    }
+}
 
 impl ExecuteBinary for StdXor {
-    fn execute_bin(left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+        check_widths(left, right, self.width);
         Value {
             vec: left.vec.clone() ^ right.vec.clone(),
         }
@@ -264,10 +371,19 @@ impl ExecuteBinary for StdXor {
 }
 
 /// Comparison Operators
-pub struct StdGt {}
+pub struct StdGt {
+    width: u64,
+}
+
+impl StdGt {
+    pub fn new(width: u64) -> StdGt {
+        StdGt { width }
+    }
+}
 
 impl ExecuteBinary for StdGt {
-    fn execute_bin(left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 > right_64;
@@ -277,10 +393,19 @@ impl ExecuteBinary for StdGt {
     }
 }
 
-pub struct StdLt {}
+pub struct StdLt {
+    width: u64,
+}
+
+impl StdLt {
+    pub fn new(width: u64) -> StdLt {
+        StdLt { width }
+    }
+}
 
 impl ExecuteBinary for StdLt {
-    fn execute_bin(left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 < right_64;
@@ -290,10 +415,19 @@ impl ExecuteBinary for StdLt {
     }
 }
 
-pub struct StdEq {}
+pub struct StdEq {
+    width: u64,
+}
+
+impl StdEq {
+    pub fn new(width: u64) -> StdEq {
+        StdEq { width }
+    }
+}
 
 impl ExecuteBinary for StdEq {
-    fn execute_bin(left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 == right_64;
@@ -303,10 +437,19 @@ impl ExecuteBinary for StdEq {
     }
 }
 
-pub struct StdNeq {}
+pub struct StdNeq {
+    width: u64,
+}
+
+impl StdNeq {
+    pub fn new(width: u64) -> StdNeq {
+        StdNeq { width }
+    }
+}
 
 impl ExecuteBinary for StdNeq {
-    fn execute_bin(left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 != right_64;
@@ -316,10 +459,17 @@ impl ExecuteBinary for StdNeq {
     }
 }
 
-pub struct StdGe {}
-
+pub struct StdGe {
+    width: u64,
+}
+impl StdGe {
+    pub fn new(width: u64) -> StdGe {
+        StdGe { width }
+    }
+}
 impl ExecuteBinary for StdGe {
-    fn execute_bin(left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 >= right_64;
@@ -329,10 +479,19 @@ impl ExecuteBinary for StdGe {
     }
 }
 
-pub struct StdLe {}
+pub struct StdLe {
+    width: u64,
+}
+
+impl StdLe {
+    pub fn new(width: u64) -> StdLe {
+        StdLe { width }
+    }
+}
 
 impl ExecuteBinary for StdLe {
-    fn execute_bin(left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 <= right_64;

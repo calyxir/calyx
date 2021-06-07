@@ -3,6 +3,8 @@ use std::convert::TryInto;
 
 // Lsb0 means [10010] gives 0 at index 0, 1 at index 1, 0 at index 2, etc
 //from documentation, usize is the best data type to use in bitvec
+#[derive(Debug)]
+pub struct ValueError {}
 
 #[derive(Clone, Debug)]
 pub struct Value {
@@ -16,10 +18,32 @@ impl Value {
         }
     }
 
-    pub fn from_init<T: Into<usize>>(initial_val: T, bitwidth: usize) -> Self {
+    pub fn from_init<T1: Into<usize>, T2: Into<usize>>(
+        initial_val: T1,
+        bitwidth: T2,
+    ) -> Self {
         let mut vec = BitVec::from_element(initial_val.into());
-        vec.resize(bitwidth, false);
+        vec.resize(bitwidth.into(), false);
         Value { vec }
+    }
+
+    pub fn try_from_init<T1, T2>(
+        initial_val: T1,
+        bitwidth: T2,
+    ) -> Result<Self, ValueError>
+    where
+        T1: TryInto<usize>,
+        T2: TryInto<usize>,
+    {
+        let (val, width): (usize, usize) =
+            match (initial_val.try_into(), bitwidth.try_into()) {
+                (Ok(v1), Ok(v2)) => (v1, v2),
+                _ => return Err(ValueError {}),
+            };
+
+        let mut vec = BitVec::from_element(val);
+        vec.resize(width, false);
+        Ok(Value { vec })
     }
 
     ///Note that Value is a functional data structure. This returns
@@ -81,6 +105,12 @@ impl Into<u64> for Value {
         val
     }
 }
+
+// impl<T:Into<usize>> From<T> for Value {
+//     fn from(input: T) -> Self {
+
+//     }
+// }
 
 // For testing
 impl std::fmt::Display for Value {
