@@ -66,7 +66,7 @@ impl Visitor for Externalize {
             });
 
         // Re-add non-external cells.
-        comp.cells.add_multiple(cells);
+        comp.cells.extend(cells);
 
         // Detach the port from the component's cell and attach it to the
         // component's signature.

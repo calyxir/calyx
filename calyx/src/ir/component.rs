@@ -5,6 +5,7 @@ use super::{
 use crate::utils;
 use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
+use std::iter::Extend;
 use std::rc::Rc;
 
 /// The default name of the signature cell in a component.
@@ -131,21 +132,6 @@ impl<T: GetName> IdList<T> {
         self.0.insert(name, item);
     }
 
-    /// Add multiple elements to the collection from an owned vector
-    pub fn add_multiple(&mut self, items: Vec<RRC<T>>) {
-        for item in items {
-            self.add(item)
-        }
-    }
-
-    /// Add multiple elements to the collection from a slice. This will create
-    /// new clones of the given RRCs.
-    pub fn add_multiple_by_ref(&mut self, items: &[RRC<T>]) {
-        for item in items {
-            self.add(item.clone())
-        }
-    }
-
     /// Returns an iterator over immutable references
     pub fn iter(&self) -> impl Clone + Iterator<Item = &RRC<T>> {
         self.0.values()
@@ -177,5 +163,21 @@ impl<T: GetName> IdList<T> {
 impl<T: GetName> Default for IdList<T> {
     fn default() -> Self {
         IdList(LinkedHashMap::new())
+    }
+}
+
+impl<T: GetName> Extend<RRC<T>> for IdList<T> {
+    fn extend<I: IntoIterator<Item = RRC<T>>>(&mut self, iter: I) {
+        for item in iter {
+            self.add(item)
+        }
+    }
+}
+
+impl<'a, T: GetName + 'a> Extend<&'a RRC<T>> for IdList<T> {
+    fn extend<I: IntoIterator<Item = &'a RRC<T>>>(&mut self, iter: I) {
+        for item in iter {
+            self.add(item.clone())
+        }
     }
 }
