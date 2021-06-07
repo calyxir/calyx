@@ -2,7 +2,7 @@ use crate::analysis;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
-    LibrarySignatures,
+    CloneName, LibrarySignatures,
 };
 use std::collections::HashSet;
 
@@ -41,7 +41,7 @@ impl Visitor for DeadCellRemoval {
                 .map(|(_, port)| port.borrow().get_parent_name()),
         );
 
-        self.used_cells.insert(s.comp.borrow().name.clone());
+        self.used_cells.insert(s.comp.clone_name());
 
         Ok(Action::Continue)
     }
@@ -52,11 +52,11 @@ impl Visitor for DeadCellRemoval {
         _sigs: &LibrarySignatures,
     ) -> VisResult {
         // All cells used in groups
-        for group in &comp.groups {
+        for group in comp.groups.iter() {
             self.used_cells.extend(
                 &mut analysis::ReadWriteSet::uses(&group.borrow().assignments)
                     .into_iter()
-                    .map(|c| c.borrow().name.clone()),
+                    .map(|c| c.clone_name()),
             )
         }
 
@@ -64,12 +64,12 @@ impl Visitor for DeadCellRemoval {
         self.used_cells.extend(
             &mut analysis::ReadWriteSet::uses(&comp.continuous_assignments)
                 .into_iter()
-                .map(|c| c.borrow().name.clone()),
+                .map(|c| c.clone_name()),
         );
 
         // Remove cells that are not used.
         comp.cells
-            .retain(|c| self.used_cells.contains(&c.borrow().name));
+            .retain(|c| self.used_cells.contains(&c.borrow().name()));
 
         Ok(Action::Stop)
     }

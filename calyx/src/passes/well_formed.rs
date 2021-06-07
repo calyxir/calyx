@@ -1,6 +1,6 @@
 use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, Component, LibrarySignatures};
+use crate::ir::{self, CloneName, Component, LibrarySignatures};
 use std::collections::HashSet;
 
 /// Pass to check if the program is well-formed.
@@ -50,23 +50,23 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Check if any of the cells use a reserved name.
-        for cell_ref in &comp.cells {
+        for cell_ref in comp.cells.iter() {
             let cell = cell_ref.borrow();
-            if self.reserved_names.contains(&cell.name.id) {
-                return Err(Error::ReservedName(cell.name.clone()));
+            if self.reserved_names.contains(&cell.name().id) {
+                return Err(Error::ReservedName(cell.clone_name()));
             }
         }
 
         // Check if any groups refer to another group's done signal.
-        for group_ref in &comp.groups {
+        for group_ref in comp.groups.iter() {
             let group = group_ref.borrow();
             for assign in &group.assignments {
                 let dst = assign.dst.borrow();
-                if dst.is_hole() && group.name != dst.get_parent_name() {
+                if dst.is_hole() && *group.name() != dst.get_parent_name() {
                     return Err(
                         Error::MalformedStructure(
                             format!("Group `{}` refers to the done condition of another group (`{}`).",
-                                group.name,
+                                group.name(),
                                 dst.get_parent_name())));
                 }
             }
@@ -81,7 +81,7 @@ impl Visitor for WellFormed {
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
-        self.used_groups.insert(s.group.borrow().name.clone());
+        self.used_groups.insert(s.group.clone_name());
         Ok(Action::Continue)
     }
 
@@ -96,7 +96,7 @@ impl Visitor for WellFormed {
                 panic!(
                     "Input argument `{}` for `invoke {}` uses non-output port: `{}`. Input arguments should use output ports.",
                     id,
-                    s.comp.borrow().name,
+                    s.comp.borrow().name(),
                     port.borrow().name)
             }
         }
@@ -105,7 +105,7 @@ impl Visitor for WellFormed {
                 panic!(
                     "Output argument `{}` for `invoke {}` uses non-input port: `{}`. Output arguments should use input ports.",
                     id,
-                    s.comp.borrow().name,
+                    s.comp.borrow().name(),
                     port.borrow().name)
             }
         }
@@ -119,7 +119,7 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Add cond group as a used port.
-        self.used_groups.insert(s.cond.borrow().name.clone());
+        self.used_groups.insert(s.cond.clone_name());
         Ok(Action::Continue)
     }
 
@@ -130,7 +130,7 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Add cond group as a used port.
-        self.used_groups.insert(s.cond.borrow().name.clone());
+        self.used_groups.insert(s.cond.clone_name());
         Ok(Action::Continue)
     }
 
@@ -139,11 +139,8 @@ impl Visitor for WellFormed {
         comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
-        let all_groups: HashSet<ir::Id> = comp
-            .groups
-            .iter()
-            .map(|g| g.borrow().name.clone())
-            .collect();
+        let all_groups: HashSet<ir::Id> =
+            comp.groups.iter().map(|g| g.clone_name()).collect();
         let unused_group =
             all_groups.difference(&self.used_groups).into_iter().next();
         match unused_group {

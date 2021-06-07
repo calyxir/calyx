@@ -43,7 +43,10 @@ fn validate_guard(guard: &ir::Guard) -> bool {
 }
 
 /// Returns `Ok` if there are no groups defined.
-fn validate_structure(groups: &[RRC<Group>]) -> FutilResult<()> {
+fn validate_structure<'a, I>(groups: I) -> FutilResult<()>
+where
+    I: Iterator<Item = &'a RRC<Group>>,
+{
     for group in groups {
         for asgn in &group.borrow().assignments {
             let port = asgn.dst.borrow();
@@ -81,7 +84,7 @@ impl Backend for VerilogBackend {
 
     fn validate(ctx: &ir::Context) -> FutilResult<()> {
         for component in &ctx.components {
-            validate_structure(&component.groups)?;
+            validate_structure(component.groups.iter())?;
             validate_control(&component.control.borrow())?;
         }
         Ok(())
@@ -219,7 +222,7 @@ fn wire_decls(cell: &ir::Cell) -> Vec<(String, u64, ir::Direction)> {
                     | ir::CellType::Primitive { .. } => Some((
                         format!(
                             "{}_{}",
-                            parent.name.as_ref(),
+                            parent.name().as_ref(),
                             port.borrow().name.as_ref()
                         ),
                         port.borrow().width,
@@ -237,7 +240,7 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
     match cell.type_name() {
         Some(ty_name) => {
             let mut inst =
-                v::Instance::new(cell.name.as_ref(), ty_name.as_ref());
+                v::Instance::new(cell.name().as_ref(), ty_name.as_ref());
 
             if let ir::CellType::Primitive { param_binding, .. } =
                 &cell.prototype
@@ -288,7 +291,7 @@ fn port_to_ref(port_ref: RRC<ir::Port>) -> v::Expr {
                 ir::CellType::ThisComponent => v::Expr::new_ref(&port.name),
                 _ => v::Expr::Ref(format!(
                     "{}_{}",
-                    parent.name.as_ref(),
+                    parent.name().as_ref(),
                     port.name.as_ref()
                 )),
             }
@@ -379,7 +382,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
                 .map(|proto| proto.id.contains("mem"))
                 .unwrap_or_default()
         {
-            Some(cell.borrow().name.id.clone())
+            Some(cell.borrow().name().id.clone())
         } else {
             None
         }

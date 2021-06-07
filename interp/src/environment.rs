@@ -2,7 +2,7 @@
 
 use super::{primitives, values::Value};
 use bitvec::prelude::*;
-use calyx::{errors::FutilResult, ir};
+use calyx::{errors::FutilResult, ir, ir::CloneName};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -223,7 +223,7 @@ impl Environment {
         let mut map = HashMap::new();
         for comp in &context.components {
             let mut cell_map = HashMap::new();
-            for cell in &comp.cells {
+            for cell in comp.cells.iter() {
                 let cb = cell.borrow();
                 let mut ports: HashMap<ir::Id, Value> = HashMap::new();
                 match &cb.prototype {
@@ -236,7 +236,7 @@ impl Environment {
                                 (*width as usize).try_into().unwrap(),
                             ),
                         );
-                        cell_map.insert(cb.name.clone(), ports);
+                        cell_map.insert(cb.clone_name(), ports);
                     }
                     ir::CellType::Primitive { .. } => {
                         for port in &cb.ports {
@@ -255,7 +255,7 @@ impl Environment {
                                 ),
                             );
                         }
-                        cell_map.insert(cb.name.clone(), ports);
+                        cell_map.insert(cb.clone_name(), ports);
                     }
                     //TODO: handle components
                     _ => panic!("component"),
