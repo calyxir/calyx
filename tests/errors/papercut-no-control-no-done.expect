@@ -1,0 +1,4 @@
+---CODE---
+1
+---STDERR---
+Error: [Papercut] Component `main` has an empty control program and does not assign to the `done` port. Without an assignment to the `done`, the component cannot return control flow.

@@ -530,7 +530,10 @@ impl Visitor for TopDownCompileControl {
         sigs: &LibrarySignatures,
     ) -> VisResult {
         // Do not try to compile an enable
-        if matches!(*comp.control.borrow(), ir::Control::Enable(..)) {
+        if matches!(
+            *comp.control.borrow(),
+            ir::Control::Enable(..) | ir::Control::Empty(..)
+        ) {
             return Ok(Action::Stop);
         }
 
