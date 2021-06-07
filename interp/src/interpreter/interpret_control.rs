@@ -1,56 +1,13 @@
 //! Inteprets a control in a component.
 
-use super::{
-    environment::Environment, interpret_group::GroupInterpreter, interpreter,
-};
+use super::interpret_group::interpret_group;
+use crate::environment::Environment;
 use calyx::{errors::FutilResult, ir};
-use std::rc::Rc;
-
-/// Interpret a control.
-/// TODO: Attributes, implementation for some component variants
-pub struct ControlInterpreter {
-    /// The environment
-    pub environment: Environment,
-
-    /// The component the control belongs to
-    // XX(2/25 meeting): we might not need this? all the information is in the IR
-    pub component: ir::Id,
-
-    /// The control to interpret
-    pub control: ir::RRC<ir::Control>,
-}
-
-impl ControlInterpreter {
-    /// Construct ControlInterpreter
-    /// env : Initial environment
-    /// comp : Name of the component the Control is from
-    /// ctrl : The control to interpret
-    pub fn init(
-        env: Environment,
-        comp: ir::Id,
-        ctrl: ir::RRC<ir::Control>,
-    ) -> Self {
-        Self {
-            environment: env,
-            component: comp,
-            control: ctrl,
-        }
-    }
-
-    /// Interpret this control
-    pub fn interpret(self) -> FutilResult<Environment> {
-        eval_control(
-            &(*self.control.borrow()),
-            self.component.clone(),
-            self.environment,
-        )
-    }
-}
 
 /// Helper function to evaluate control
-fn eval_control(
+pub fn interpret_control(
     ctrl: &ir::Control,
-    comp: ir::Id,
+    comp: &ir::Id,
     env: Environment,
 ) -> FutilResult<Environment> {
     match ctrl {
@@ -67,11 +24,11 @@ fn eval_control(
 /// Interpret Seq
 fn eval_seq(
     s: &ir::Seq,
-    comp: ir::Id,
+    comp: &ir::Id,
     mut env: Environment,
 ) -> FutilResult<Environment> {
     for stmt in &s.stmts {
-        env = eval_control(stmt, comp.clone(), env)?;
+        env = interpret_control(stmt, comp, env)?;
     }
     Ok(env)
 }
@@ -80,11 +37,11 @@ fn eval_seq(
 /// at the moment behaves like seq
 fn eval_par(
     _p: &ir::Par,
-    _comp: ir::Id,
+    _comp: &ir::Id,
     mut _env: Environment,
 ) -> FutilResult<Environment> {
     // for stmt in &p.stmts {
-    //     env = eval_control(stmt, comp.clone(), env)?;
+    //     env = interpret_control(stmt, comp.clone(), env)?;
     // }
     todo!()
 }
@@ -92,18 +49,18 @@ fn eval_par(
 /// Interpret If
 fn eval_if(
     i: &ir::If,
-    comp: ir::Id,
+    comp: &ir::Id,
     mut env: Environment,
 ) -> FutilResult<Environment> {
     //first set the environment for cond
-    env = interpreter::eval_group(i.cond.clone(), env, comp.clone())?;
+    env = interpret_group(&i.cond.borrow(), env, comp)?;
 
     // if i.port is not high fbranch else tbranch
     if env.get_from_port(&comp, &i.port.borrow()) == 0 {
-        env = eval_control(&i.fbranch, comp, env)?;
+        env = interpret_control(&i.fbranch, comp, env)?;
         Ok(env)
     } else {
-        env = eval_control(&i.tbranch, comp, env)?;
+        env = interpret_control(&i.tbranch, comp, env)?;
         Ok(env)
     }
 }
@@ -115,15 +72,15 @@ fn eval_if(
 // using cond_group.
 fn eval_while(
     w: &ir::While,
-    comp: ir::Id,
+    comp: &ir::Id,
     mut env: Environment,
 ) -> FutilResult<Environment> {
     // currently ports don't update properly in mutli-cycle and runs into infinite loop
     // count needs to be removed when the infinite loop problem is fixed
     let mut count = 0;
     while env.get_from_port(&comp, &w.port.borrow()) != 1 && count < 5 {
-        env = eval_control(&w.body, comp.clone(), env)?;
-        env = interpreter::eval_group(w.cond.clone(), env, comp.clone())?;
+        env = interpret_control(&w.body, comp, env)?;
+        env = interpret_group(&w.cond.borrow(), env, comp)?;
         // count needs to be remved
         count += 1;
     }
@@ -135,7 +92,7 @@ fn eval_while(
 #[allow(clippy::unnecessary_wraps)]
 fn eval_invoke(
     _i: &ir::Invoke,
-    _comp: ir::Id,
+    _comp: &ir::Id,
     _env: Environment,
 ) -> FutilResult<Environment> {
     todo!()
@@ -144,23 +101,17 @@ fn eval_invoke(
 /// Interpret Enable
 fn eval_enable(
     e: &ir::Enable,
-    comp: ir::Id,
+    comp: &ir::Id,
     env: Environment,
 ) -> FutilResult<Environment> {
-    let gp = Rc::clone(&(e.group));
-
-    //println!("Enable group {:?}", e.group.borrow().name);
-
-    // TODO
-    let gi = GroupInterpreter::init(comp, gp, env);
-    gi.interpret()
+    interpret_group(&e.group.borrow(), env, comp)
 }
 
 /// Interpret Empty
 #[allow(clippy::unnecessary_wraps)]
 fn eval_empty(
     _e: &ir::Empty,
-    _comp: ir::Id,
+    _comp: &ir::Id,
     env: Environment,
 ) -> FutilResult<Environment> {
     Ok(env)
