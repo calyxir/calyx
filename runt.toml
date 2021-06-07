@@ -193,7 +193,7 @@ python3 {}
 ##### Examples #####
 
 [[tests]]
-name = "[core] language tutorial"
+name = "language tutorial"
 paths = ["examples/tutorial/*.futil"]
 cmd = """
 fud e {} --to dat -s verilog.data examples/tutorial/data.json -q
