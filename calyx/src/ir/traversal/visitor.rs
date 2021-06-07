@@ -108,7 +108,6 @@ pub trait Visitor {
                 // Mutably borrow the control program and traverse.
                 control_ref.borrow_mut().visit(self, comp, signatures)?;
                 Ok(Action::Continue)
-
             })?
             .and_then(|| self.finish(comp, signatures))?
             .apply_change(&mut comp.control.borrow_mut());
