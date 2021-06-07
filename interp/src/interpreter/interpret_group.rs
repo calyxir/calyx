@@ -1,16 +1,71 @@
-//! Implementation of interpreter
-//! TODO: interpreting components (e.g. in multi-component programs)
+//! Used for the command line interface.
+//! Only interprets a given group in a given component
 
-use super::{environment::Environment, primitives, update::UpdateQueue};
-use calyx::{errors::FutilResult, ir};
+use crate::{environment::Environment, primitives, update::UpdateQueue};
+use calyx::{
+    errors::{Error, FutilResult},
+    ir,
+};
+use std::collections::HashMap;
+// use std::rc::Rc;
+
+/// Stores information about the component and group to interpret.
+/// Might be better to make this a subset of a trait implemented by all interpreters, later on
+
+/// Get the name of the component to interpret from the context.
+fn _get_component(
+    ctx: ir::Context,
+    component: &str,
+) -> FutilResult<ir::Component> {
+    match ctx.components.into_iter().find(|c| c.name.id == *component) {
+        Some(comp) => Ok(comp),
+        None => Err(Error::Undefined(
+            ir::Id::from(component.to_string()),
+            "component".to_string(),
+        )),
+    }
+}
+
+/// Construct a map from cell ids to a map from the cell's ports' ids to the ports' values
+fn _construct_map(
+    cells: &[ir::RRC<ir::Cell>],
+) -> HashMap<ir::Id, HashMap<ir::Id, u64>> {
+    let mut map = HashMap::new();
+    for cell in cells {
+        let cb = cell.borrow();
+        let mut ports: HashMap<ir::Id, u64> = HashMap::new();
+
+        match &cb.prototype {
+            // A Calyx constant cell's out port is that constant's value
+            ir::CellType::Constant { val, .. } => {
+                ports.insert(ir::Id::from("out"), *val);
+                map.insert(cb.name.clone(), ports);
+            }
+            ir::CellType::Primitive { .. } => {
+                for port in &cb.ports {
+                    // All ports for primitives are initalized to 0 , unless the cell is an std_const
+                    let pb = port.borrow();
+                    let initval = cb
+                        .get_paramter(&ir::Id::from("value".to_string()))
+                        .unwrap_or(0); //std_const should be the only cell type with the "value" parameter
+
+                    ports.insert(pb.name.clone(), initval);
+                }
+                map.insert(cb.name.clone(), ports);
+            }
+            _ => panic!("component"),
+        }
+    }
+    map
+}
 
 /// Evaluates a group, given an environment.
-pub fn eval_group(
-    group: ir::RRC<ir::Group>,
+pub fn interpret_group(
+    group: &ir::Group,
     env: Environment,
-    component: ir::Id,
+    component: &ir::Id,
 ) -> FutilResult<Environment> {
-    eval_assigns(&(group.borrow()).assignments, env, component)
+    eval_assigns(&group.assignments, env, component)
 }
 
 // XXX(karen): I think it will need another copy of environment for each
@@ -27,7 +82,7 @@ pub fn eval_group(
 fn eval_assigns(
     assigns: &[ir::Assignment],
     mut env: Environment,
-    component: ir::Id,
+    component: &ir::Id,
 ) -> FutilResult<Environment> {
     // Find the done signal in the sequence of assignments
     let done_assign = get_done_signal(assigns);
@@ -299,36 +354,3 @@ fn is_combinational(
         prim => panic!("unknown primitive {}", prim),
     }
 }
-
-// XXX (Griffin) Below seems to be slightly broken
-
-// /// Initializes values for the update queue, i.e. for non-combinational cells
-// #[allow(clippy::unnecessary_wraps)]
-// fn init_cells(
-//     cell: &ir::Id,
-//     inputs: Vec<ir::Id>,
-//     outputs: Vec<ir::Id>,
-//     mut env: Environment,
-// ) -> FutilResult<Environment> {
-//     let cell_r = env
-//         .get_cell(cell)
-//         .unwrap_or_else(|| panic!("Cannot find cell with name"));
-
-//     // get the cell type
-//     match cell_r.borrow().type_name() {
-//         None => panic!("bad"),
-//         Some(ct) => match ct.id.as_str() {
-//             "std_sqrt" => { //:(
-//                  // has intermediate steps/computation
-//             }
-//             "std_reg" => {
-//                 let map: HashMap<String, u64> = HashMap::new();
-//                 // reg.in = dst port should go here
-//                 env.add_update(cell.clone(), inputs, outputs, map);
-//             }
-//             _ => panic!(
-//                 "attempted to initalize an update for a combinational cell"
-//             ),
-//         },
-//     }
-// }
