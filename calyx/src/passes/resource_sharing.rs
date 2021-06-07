@@ -1,6 +1,6 @@
 use super::sharing_components::ShareComponents;
 use crate::analysis;
-use crate::ir::{self, traversal::Named, RRC};
+use crate::ir::{self, traversal::Named, CloneName, RRC};
 use ir::traversal::ConstructVisitor;
 use std::collections::{HashMap, HashSet};
 
@@ -61,11 +61,11 @@ impl ShareComponents for ResourceSharing {
             .iter()
             .map(|group| {
                 (
-                    group.borrow().name.clone(),
+                    group.clone_name(),
                     analysis::ReadWriteSet::uses(&group.borrow().assignments)
                         .into_iter()
                         .filter(|cell| self.cell_filter(&cell.borrow()))
-                        .map(|cell| cell.borrow().name.clone())
+                        .map(|cell| cell.clone_name())
                         .collect::<Vec<_>>(),
                 )
             })
