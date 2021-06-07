@@ -1,22 +1,13 @@
-mod environment;
-mod interpret_component;
-mod interpret_control;
-mod interpret_group;
-mod interpreter;
-mod primitives;
-mod update;
-mod values;
-
 use calyx::{
     errors::{Error, FutilResult},
     frontend, ir,
+    pass_manager::PassManager,
     utils::OutputFile,
 };
-use interpret_component::ComponentInterpreter;
-use primitives::*;
+use interp::environment;
+use interp::interpreter::interpret_component;
 use std::cell::RefCell;
 use std::path::PathBuf;
-use std::rc::Rc;
 use structopt::StructOpt;
 use values::Value;
 
@@ -208,29 +199,31 @@ fn main() -> FutilResult<()> {
     let namespace = frontend::NamespaceDef::new(&opts.file, &opts.lib_path)?;
     let ir = ir::from_ast::ast_to_ir(namespace, false, false)?;
 
-    // TODO: very hacky
-    let namespace2 = frontend::NamespaceDef::new(&opts.file, &opts.lib_path)?;
-    let ir2 = ir::from_ast::ast_to_ir(namespace2, false, false)?;
+    let ctx = ir::RRC::new(RefCell::new(ir));
 
-    let temp = ir::RRC::new(RefCell::new(ir));
+    let pm = PassManager::default_passes()?;
 
-    let env = environment::Environment::init(Rc::clone(&temp));
+    pm.execute_plan(&mut ctx.borrow_mut(), &["validate".to_string()], &[])?;
+
+    let env = environment::Environment::init(&ctx);
 
     // Get main component; assuming that opts.component is main
     // TODO: handle when component, group are not default values
-    let mn = ir2
+
+    let ctx_ref: &ir::Context = &ctx.borrow();
+    let main_component = ctx_ref
         .components
-        .into_iter()
-        .find(|cm| cm.name == "main")
+        .iter()
+        .find(|&cm| cm.name == "main")
         .ok_or_else(|| {
             Error::Impossible("Cannot find main component".to_string())
         })?;
 
-    let interpreter: ComponentInterpreter = ComponentInterpreter {
-        environment: env,
-        component: mn,
-    };
-    interpreter.interpret()?;
-
-    Ok(())
+    match interpret_component(main_component, env) {
+        Ok(e) => {
+            e.print_env();
+            Ok(())
+        }
+        Err(err) => FutilResult::Err(err),
+    }
 }

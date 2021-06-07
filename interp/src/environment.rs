@@ -136,7 +136,7 @@ pub struct Environment {
 impl Environment {
     /// Construct an environment
     /// ctx : A context from the IR
-    pub fn init(ctx: ir::RRC<ir::Context>) -> Self {
+    pub fn init(ctx: &ir::RRC<ir::Context>) -> Self {
         Self {
             map: Environment::construct_map(&ctx.borrow()),
             context: ctx.clone(),
