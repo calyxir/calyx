@@ -274,6 +274,14 @@ impl ReachingDefinitionAnalysis {
 
 type KilledSet = BTreeSet<ir::Id>;
 
+fn remove_entries_defined_by(set: &mut KilledSet, defs: &DefSet) {
+    let tmp_set: BTreeSet<_> = defs.set.iter().map(|(id, _)| id).collect();
+    *set = std::mem::take(set)
+        .into_iter()
+        .filter(|x| !tmp_set.contains(x))
+        .collect();
+}
+
 fn build_reaching_def(
     c: &ir::Control,
     reach: DefSet,
@@ -349,32 +357,44 @@ fn build_reaching_def(
                 attributes: ir::Attributes::default(),
                 group: Rc::clone(cond),
             });
-            let (post_cond_def, post_cond_killed) =
-                build_reaching_def(&fake_enable, reach, killed, rd, counter);
+            let (post_cond_def, post_cond_killed) = build_reaching_def(
+                &fake_enable,
+                reach.clone(),
+                killed,
+                rd,
+                counter,
+            );
 
-            let (round_1_def, round_1_killed) = build_reaching_def(
+            let (round_1_def, mut round_1_killed) = build_reaching_def(
                 body,
                 post_cond_def,
                 post_cond_killed,
                 rd,
                 counter,
             );
+
+            remove_entries_defined_by(&mut round_1_killed, &reach);
+
             let (post_cond2_def, post_cond2_killed) = build_reaching_def(
                 &fake_enable,
-                round_1_def,
+                &round_1_def | &reach,
                 round_1_killed,
                 rd,
                 counter,
             );
             // Run the analysis a second time to get the fixed point of the
             // while loop using the defsets calculated during the first iteration
-            build_reaching_def(
+            let (final_def, mut final_kill) = build_reaching_def(
                 body,
-                post_cond2_def,
+                post_cond2_def.clone(),
                 post_cond2_killed,
                 rd,
                 counter,
-            )
+            );
+
+            remove_entries_defined_by(&mut final_kill, &post_cond2_def);
+
+            (&final_def | &post_cond2_def, final_kill)
         }
         ir::Control::Invoke(invoke) => {
             *counter += 1;
