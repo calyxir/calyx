@@ -2,22 +2,25 @@ use super::axi::AxiChannel;
 use std::{collections::BTreeMap, ops::Range};
 use vast::v05::ast as v;
 
-// /// Register flags
-// #[derive(Debug)]
-// enum Flag {
-//     Read(String),
-//     Write,
-// }
-
+/// Stores flags for different characteristics
+/// of mmemory mapped registers.
 #[derive(Debug, Default)]
 pub(crate) struct Flags {
+    /// This address is available to be read in the interface.
+    /// The string holds the name of the internal register.
     read: Option<String>,
+    /// Clear the value of the internal register when the given
+    /// channel reads.
     clear_on_read: Option<(AxiChannel, String)>,
+    /// Clear the internal register when there is a successful
+    /// handshake on this channel.
     clear_on_handshake: Option<String>,
+    /// This register can be written to with the interface.
     write: bool,
 }
 
 impl Flags {
+    /// Builder style function that sets the `read` flag.
     pub(crate) fn read<S>(mut self, name: S) -> Self
     where
         S: ToString,
@@ -26,6 +29,7 @@ impl Flags {
         self
     }
 
+    /// Builder style function for setting the `clear_on_read` flag.
     pub(crate) fn clear_on_read<S>(
         mut self,
         axi_channel: AxiChannel,
@@ -38,6 +42,7 @@ impl Flags {
         self
     }
 
+    /// Builder style function for setting the `clear_on_handshake` flag.
     pub(crate) fn clear_on_handshake<S>(mut self, name: S) -> Self
     where
         S: ToString,
@@ -46,6 +51,7 @@ impl Flags {
         self
     }
 
+    /// Builder style function for setting the `write` flag.
     pub(crate) fn write(mut self) -> Self {
         self.write = true;
         self
