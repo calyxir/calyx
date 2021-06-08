@@ -1,6 +1,5 @@
 use crate::{
     analysis::GraphAnalysis,
-    build_assignments,
     errors::Error,
     ir::traversal::{Action, Named, VisResult, Visitor},
     ir::{self, LibrarySignatures},

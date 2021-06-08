@@ -11,7 +11,6 @@ use crate::{
 use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
 use std::rc::Rc;
 
 /// Context to store the signature information for all defined primitives and

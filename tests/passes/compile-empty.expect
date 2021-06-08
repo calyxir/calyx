@@ -1,3 +1,4 @@
+import "primitives/core.futil";
 component main(@go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (@done(1) done: 1) {
   cells {
     r = std_reg(1);
