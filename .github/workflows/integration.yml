@@ -137,6 +137,10 @@ jobs:
         command: build
         args: --all
 
+    - name: Install calyx-py
+      run: |
+        cd calyx-py
+        flit install
     - name: Install fud
       run: |
         cd fud
