@@ -154,12 +154,10 @@ impl Visitor for Papercut<'_> {
                             && !signals.contains(&second.to_string())
                         {
                             let msg = format!(
-                        "Required signal not driven inside the group.\nWhen driving the signal `{}.{}' the signal `{}.{}' must also be driven. The primitive type `{}' requires this invariant.",
-                        inst,
-                        first,
-                        inst,
-                        second,
-                        comp_type);
+                                r#"Required signal not driven inside the group.
+When driving the signal `{}.{}' the signal `{}.{}' must also be driven. The primitive type `{}' requires this invariant."#,
+                                inst, first, inst, second, comp_type
+                            );
                             return Err(Error::Papercut(
                                 msg,
                                 group.clone_name(),

@@ -341,6 +341,7 @@ endmodule
 module main (
     input logic go,
     input logic clk,
+    input logic reset,
     output logic done
 );
     import "DPI-C" function string futil_getenv (input string env_var);

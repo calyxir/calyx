@@ -94,7 +94,7 @@ impl Component {
     /// Construct a non-conflicting name using the Component's namegenerator.
     pub fn generate_name<S>(&mut self, prefix: S) -> Id
     where
-        S: Into<Id> + ToString,
+        S: Into<Id> + ToString + Clone,
     {
         self.namegen.gen_name(prefix)
     }

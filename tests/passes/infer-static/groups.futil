@@ -1,7 +1,7 @@
 // -p infer-static-timing
 import "primitives/std.lib";
 
-component main(go: 1, clk: 1) -> (done: 1) {
+component main() -> () {
   cells {
     r0 = std_reg(1);
     r1 = std_reg(1);

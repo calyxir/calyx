@@ -1,14 +1,17 @@
 use super::{
-    Assignment, Builder, CellType, Component, Context, Control, Direction,
-    GetAttributes, Guard, Id, LibrarySignatures, Port, PortDef, RRC,
+    Assignment, Attributes, Builder, CellType, Component, Context, Control,
+    Direction, GetAttributes, Guard, Id, LibrarySignatures, Port, PortDef,
+    Width, RRC,
 };
 use crate::{
     errors::{Error, FutilResult},
     frontend::ast,
+    utils::NameGenerator,
 };
 use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
 use std::rc::Rc;
 
 /// Context to store the signature information for all defined primitives and
@@ -22,25 +25,65 @@ struct SigCtx {
     lib: LibrarySignatures,
 }
 
+/// Validates a component signature to make sure there are not duplicate ports.
+fn check_signature(sig: &[PortDef]) -> FutilResult<()> {
+    let mut inputs: HashSet<&Id> = HashSet::new();
+    let mut outputs: HashSet<&Id> = HashSet::new();
+    for pd in sig {
+        // check for uniqueness
+        match pd.direction {
+            Direction::Input => {
+                if !inputs.contains(&pd.name) {
+                    inputs.insert(&pd.name);
+                } else {
+                    return Err(Error::AlreadyBound(
+                        pd.name.clone(),
+                        "component".to_string(),
+                    ));
+                }
+            }
+            Direction::Output => {
+                if !outputs.contains(&pd.name) {
+                    outputs.insert(&pd.name);
+                } else {
+                    return Err(Error::AlreadyBound(
+                        pd.name.clone(),
+                        "component".to_string(),
+                    ));
+                }
+            }
+            Direction::Inout => {
+                panic!("Components shouldn't have inout ports.")
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Definition of special interface ports.
+const INTERFACE_PORTS: [(&str, u64, Direction); 4] = [
+    ("go", 1, Direction::Input),
+    ("clk", 1, Direction::Input),
+    ("reset", 1, Direction::Input),
+    ("done", 1, Direction::Output),
+];
+
 /// Extend the signature with magical ports.
 fn extend_signature(sig: &mut Vec<PortDef>) {
-    // XXX(Sam): checking to see if the port exists is a hack.
-    let (mut has_go, mut has_clk, mut has_done) = (false, false, false);
-    sig.iter().for_each(|pd| match pd.name.as_ref() {
-        "go" => has_go = true,
-        "clk" => has_clk = true,
-        "done" => has_done = true,
-        _ => (),
-    });
-
-    if !has_go {
-        sig.push(("go".into(), 1, Direction::Input).into())
-    }
-    if !has_clk {
-        sig.push(("clk".into(), 1, Direction::Input).into())
-    }
-    if !has_done {
-        sig.push(("done".into(), 1, Direction::Output).into())
+    let port_names: HashSet<_> =
+        sig.iter().map(|pd| pd.name.to_string()).collect();
+    let mut namegen = NameGenerator::with_prev_defined_names(port_names);
+    for (name, width, direction) in INTERFACE_PORTS.iter() {
+        if let None = sig.iter().find(|pd| pd.attributes.has(name)) {
+            let mut attributes = Attributes::default();
+            attributes.insert(name, 1);
+            sig.push(PortDef {
+                name: namegen.gen_name(name.to_string()),
+                width: Width::Const { value: *width },
+                direction: direction.clone(),
+                attributes,
+            });
+        }
     }
 }
 
@@ -78,6 +121,7 @@ pub fn ast_to_ir(
 
     // Add component signatures to context
     for comp in &mut namespace.components {
+        check_signature(&comp.signature)?;
         // extend the signature
         extend_signature(&mut comp.signature);
         sig_ctx

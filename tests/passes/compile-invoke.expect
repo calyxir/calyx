@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component exponent(base: 32, exp: 4, go: 1, clk: 1) -> (out: 32, done: 1) {
+component exponent(base: 32, exp: 4, @go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (out: 32, @done(1) done: 1) {
   cells {
     pow = std_reg(32);
   }
@@ -9,7 +9,7 @@ component exponent(base: 32, exp: 4, go: 1, clk: 1) -> (out: 32, done: 1) {
 
   control {}
 }
-component main(go: 1, clk: 1) -> (done: 1) {
+component main(@go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (@done(1) done: 1) {
   cells {
     r = std_reg(32);
     const3 = std_const(4, 3);
