@@ -384,13 +384,17 @@ fn build_reaching_def(
             );
             // Run the analysis a second time to get the fixed point of the
             // while loop using the defsets calculated during the first iteration
-            build_reaching_def(
+            let (final_def, mut final_kill) = build_reaching_def(
                 body,
-                post_cond2_def,
+                post_cond2_def.clone(),
                 post_cond2_killed,
                 rd,
                 counter,
-            )
+            );
+
+            remove_entries_defined_by(&mut final_kill, &post_cond2_def);
+
+            (&final_def | &post_cond2_def, final_kill)
         }
         ir::Control::Invoke(invoke) => {
             *counter += 1;
