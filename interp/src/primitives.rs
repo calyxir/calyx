@@ -31,12 +31,21 @@ pub enum Primitve {
 }
 
 /// For binary operator components that taken in a <left> Value and
-/// <right> Value
+/// <right> Value.
+///
+/// # Example
+/// ```
+/// let std_add = StdAdd::new(5) // A 5 bit adder
+/// let one_plus_two = std_add.execute_bin(
+///     &(Value::try_from_init(1, 5).unwrap()),
+///     &(Value::try_from_init(2, 5).unwrap())
+/// )
+/// ```
 pub trait ExecuteBinary {
     fn execute_bin(&self, left: &Value, right: &Value) -> Value;
 }
 
-/// Only binary operator components have trait [Execute]
+/// Only binary operator components have trait [Execute].
 pub trait Execute {
     fn execute<'a>(
         &self,
@@ -45,7 +54,12 @@ pub trait Execute {
     ) -> Vec<(ir::Id, Value)>;
 }
 
-/// For unary operator components that only take in one input
+/// For unary operator components that only take in one input.
+/// # Example
+/// ```
+///let std_not = StdNot::new(5) // a 5 bit not-er
+/// let not_one = std_not.execute_unary(&(Value::try_from_init(1, 5).unwrap()));
+/// ```
 pub trait ExecuteUnary {
     fn execute_unary(&self, input: &Value) -> Value;
 }
@@ -65,7 +79,7 @@ impl<T: ExecuteBinary> Execute for T {
     }
 }
 
-/// Ensures the input values are of the appropriate widths, else panics
+/// Ensures the input values are of the appropriate widths, else panics.
 fn check_widths(left: &Value, right: &Value, width: u64) -> () {
     if width != (left.vec.len() as u64)
         || width != (right.vec.len() as u64)
@@ -75,23 +89,28 @@ fn check_widths(left: &Value, right: &Value, width: u64) -> () {
     }
 }
 
-///A one-dimensional memory. Initialized with StdMemD1.new(WIDTH, SIZE, IDX_SIZE) where:
-/// WIDTH - Size of an individual memory slot.
-/// SIZE - Number of slots in the memory.
-/// IDX_SIZE - The width of the index given to the memory.
-
-/// To write to a memory, the [write_en] must be high
-/// `addr0: IDX_SIZE - The index to be accessed or updated
-/// write_data: WIDTH - Data to be written to the selected memory slot
-/// write_en: 1 - One bit write enabled signal, causes the memory to write write_data to the slot indexed by addr0
-
-// .read_mem() returns these two signals:
-// read_data: WIDTH - The value stored at addr0. This value is combinational with respect to addr0.
-// done: 1: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
+/// A one-dimensional memory. Initialized with
+/// StdMemD1.new(WIDTH, SIZE, IDX_SIZE) where:
+/// * WIDTH - Size of an individual memory slot.
+/// * SIZE - Number of slots in the memory.
+/// * IDX_SIZE - The width of the index given to the memory.
+///
+/// To write to a memory, the [write_en] must be high.
+/// Inputs:
+/// * addr0: IDX_SIZE - The index to be accessed or updated.
+/// * write_data: WIDTH - Data to be written to the selected memory slot.
+/// * write_en: 1 - One bit write enabled signal, causes the memory to write
+///             write_data to the slot indexed by addr0.
+///
+/// Outputs:
+/// * read_data: WIDTH - The value stored at addr0. This value is combinational
+///              with respect to addr0.
+/// * done: 1 - The done signal for the memory. This signal goes high for one
+///         cycle after finishing a write to the memory.
 pub struct StdMemD1 {
-    pub width: u64,    //size of individual piece of mem
-    pub size: u64,     //# slots of mem
-    pub idx_size: u64, //# bits needed to index a piece of mem
+    pub width: u64,    // size of individual piece of mem
+    pub size: u64,     // # slots of mem
+    pub idx_size: u64, // # bits needed to index a piece of mem
     pub data: Vec<Value>,
     pub write_en: bool,
 }
@@ -112,20 +131,24 @@ impl StdMemD1 {
     }
 }
 //std_memd2 :
+pub struct StdMemD2 {}
+
+impl StdMemD2 {}
 
 //std_memd3 :
+pub struct StdMemD3 {}
+
+impl StdMemD3 {}
 
 //std_memd4 :
+pub struct StdMemD4 {}
 
-/// A Standard Register of a certain [width]
-/// Note that StdReg itself doen't have any bookkeeping related to clock
-/// cycles.
-/// Nor does it prevent the user from reading a value before the [done] signal
-/// is high.
-/// The only check it performs is preventing the user from writing
-/// to the register while the [write_en] signal is low. Rules regarding cycle
-/// count, such as asserting [done] for just one cycle after a write, must be
-/// enforced and carried out by the interpreter.
+impl StdMemD4 {}
+
+/// A Standard Register of a certain [width].
+/// Rules regarding cycle count, such as asserting [done] for just one cycle after a write, must be
+/// enforced and carried out by the interpreter. This register only ensures no writes
+/// occur while [write_en] is low.
 pub struct StdReg {
     pub width: u64,
     pub val: Value,
@@ -145,7 +168,7 @@ impl StdReg {
     }
 
     /// Sets value in register, only if [write_en] is high. Will
-    /// truncate [input] if its [width] exceeds this register's [width]
+    /// truncate [input] if its [width] exceeds this register's [width].
     pub fn load_value(&mut self, input: Value) {
         check_widths(&input, &input, self.width);
         if self.write_en {
@@ -155,18 +178,18 @@ impl StdReg {
 
     /// After loading a value into the register, use [set_done_high] to emit
     /// the done signal. Note that the [StdReg] struct has no sense of time
-    /// itself. The interpreter is responsible
-    /// For setting the [done] signal high for exactly one cycle.
+    /// itself. The interpreter is responsible for setting the [done] signal
+    /// high for exactly one cycle.
     pub fn set_done_high(&mut self) {
         self.done = true
     }
-    /// Pairs with [set_done_high]
+    /// Pairs with [set_done_high].
     pub fn set_done_low(&mut self) {
         self.done = false
     }
 
     /// A cycle before trying to load a value into the register, make sure to
-    /// [set_write_en_high]
+    /// [set_write_en_high].
     pub fn set_write_en_high(&mut self) {
         self.write_en = true
     }
@@ -187,13 +210,14 @@ impl StdReg {
 }
 
 /// A component that keeps one value, that can't be rewritten. Is instantiated
-/// with the value, which must have the same # of bits as [width]
+/// with the value, which must have the same # of bits as [width].
 pub struct StdConst {
     width: u64,
     val: Value,
 }
 
 impl StdConst {
+    /// Instantiates a new constant component
     pub fn new(width: u64, val: Value) -> StdConst {
         check_widths(&val, &val, width);
         StdConst { width, val: val }
@@ -219,7 +243,6 @@ impl StdLsh {
 
 impl ExecuteBinary for StdLsh {
     fn execute_bin(&self, left: &Value, right: &Value) -> Value {
-        //check for width -- if inapropriate, panic!
         check_widths(left, right, self.width);
         let mut tr = left.vec.clone();
         tr.shift_right(right.as_u64() as usize);
@@ -349,7 +372,7 @@ impl ExecuteUnary for StdPad {
     }
 }
 
-/// Logical Operators
+/* =========================== Logical Operators =========================== */
 pub struct StdNot {
     width: u64,
 }
@@ -426,7 +449,7 @@ impl ExecuteBinary for StdXor {
     }
 }
 
-/// Comparison Operators
+/* ========================== Comparison Operators ========================= */
 pub struct StdGt {
     width: u64,
 }
