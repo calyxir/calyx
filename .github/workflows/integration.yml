@@ -1,0 +1,155 @@
+name: Polybench Integration
+
+on: [push]
+
+jobs:
+  build:
+    name: Polybench Integration
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Calyx
+      uses: actions/checkout@v2
+
+    - name: Checkout calyx-evaluation
+      with:
+        repository: 'cucapra/calyx-evaluation'
+
+    - name: Versions
+      id: versions
+      run: |
+        echo "::set-output name=runt::$(grep ver runt.toml | awk '{print $3}' | tr -d '"')"
+        echo "::set-output name=vcdump::$(cargo search vcdump | awk '{print $3}' | tr -d '"')"
+        echo "::set-output name=dahlia::$(git ls-remote https://github.com/cucapra/dahlia.git | awk '{print $1}')"
+        echo "::set-output name=verilator::$(cat versions/verilator)"
+        echo "::set-output name=tvm::$(cat versions/tvm)"
+      shell: bash
+
+    # Install cargo based tools and use some caching magic.
+    - name: Cache runt
+      id: runt-cache
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/bin/runt
+        key: runt-bin-${{ runner.os }}-${{ steps.versions.outputs.runt }}
+
+    - name: Install runt
+      if: steps.runt-cache.outputs.cache-hit != 'true'
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: runt --version ${{ steps.versions.outputs.runt }}
+
+    - name: Cache vcdump
+      id: vcdump-cache
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/bin/vcdump
+        key: vcdump-bin-${{ runner.os }}-${{ steps.versions.outputs.vcdump }}
+
+    - name: Install vcdump
+      if: steps.vcdump-cache.outputs.cache-hit != 'true'
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: vcdump
+
+    - name: Install jq, and SBT
+      run: |
+        echo "deb https://dl.bintray.com/sbt/debian /" | sudo tee -a /etc/apt/sources.list.d/sbt.list
+        sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 642AC823
+        sudo apt-get update
+        sudo apt-get install jq sbt
+
+    - name: Cache Verilator
+      id: verilator-cache
+      uses: actions/cache@v2
+      with:
+        path: ./verilator
+        key: verilator-bin-${{ runner.os }}-${{ steps.versions.outputs.verilator }}
+
+    - name: Build Verilator
+      if: steps.verilator-cache.outputs.cache-hit != 'true'
+      run: |
+        sudo apt-get install git make autoconf g++ flex bison libfl2 libfl-dev
+        git clone https://github.com/verilator/verilator
+        cd verilator
+        git pull
+        git checkout master
+        autoconf
+        ./configure
+        make
+        sudo make install
+
+    - name: Install Verilator
+      run: |
+        cd verilator
+        sudo make install
+
+    - name: Setup Python
+      uses: actions/setup-python@v2
+
+    - name: Install common Python dependencies
+      run: pip3 install numpy flit prettytable wheel hypothesis pytest simplejson
+
+    - name: Cache SBT
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.ivy2/cache
+          ~/.sbt
+        key: ${{ runner.os }}-sbt-${{ hashFiles('dahlia/build.sbt') }}
+
+    # Don't rebuild Dahlia if HEAD hash hasn't changed.
+    - name: Cache Dahlia
+      id: dahlia-cache
+      uses: actions/cache@v2
+      with:
+        path: ./dahlia
+        key: dahlia-dir-${{ runner.os }}-${{ steps.versions.outputs.dahlia }}
+
+    - name: Checkout Dahlia
+      uses: actions/checkout@v2
+      if: steps.dahlia-cache.outputs.cache-hit != 'true'
+      with:
+        repository: cucapra/dahlia
+        path: dahlia
+
+    - name: Build Dahlia
+      if: steps.dahlia-cache.outputs.cache-hit != 'true'
+      run: |
+        cd ./dahlia && sbt assembly
+      shell: bash
+
+    - name: Cache Calyx dependencies
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --all
+
+    - name: Install fud
+      run: |
+        cd fud
+        flit install
+        echo "============= Setting Fud configuration =============="
+        fud config global.futil_directory '/home/runner/work/calyx/calyx'
+        fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
+        fud config stages.futil.exec './target/debug/futil'
+        fud config
+
+    - name: Run benchmarks
+      run: |
+        unset JAVA_TOOL_OPTIONS
+        cd calyx-evaluation/benchmarks
+        # Run the main benchmarks
+        runt -i Correctness -d
+        # Run the unrolled benchmarks
+        runt -i Unrolled -d
