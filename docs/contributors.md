@@ -13,6 +13,7 @@ Here is a list of all the people who have worked on Calyx:
 - Karen Zhang
 - YoungSeok Na
 - Andrii Iermolaiev
+- [Griffin Berlstein](https://griffinberlste.in)
 
 **Previous Contributors**
 
