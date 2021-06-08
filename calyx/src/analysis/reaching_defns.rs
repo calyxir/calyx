@@ -354,14 +354,14 @@ fn build_reaching_def(
 
             let (round_1_def, round_1_killed) = build_reaching_def(
                 body,
-                post_cond_def,
+                post_cond_def.clone(),
                 post_cond_killed,
                 rd,
                 counter,
             );
             let (post_cond2_def, post_cond2_killed) = build_reaching_def(
                 &fake_enable,
-                round_1_def,
+                &round_1_def | &post_cond_def,
                 round_1_killed,
                 rd,
                 counter,
