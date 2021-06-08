@@ -155,6 +155,7 @@ jobs:
       run: |
         unset JAVA_TOOL_OPTIONS
         cd calyx-evaluation/benchmarks
+        fud e -s verilog.data polybench/linear-algebra-gramschmidt.fuse.data polybench/linear-algebra-gramschmidt.fuse --to dat
         # Run the main benchmarks
         runt -i Correctness -d
         # Run the unrolled benchmarks
