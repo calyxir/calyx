@@ -148,13 +148,14 @@ jobs:
         echo "============= Setting Fud configuration =============="
         fud config global.futil_directory '/home/runner/work/calyx/calyx'
         fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
-        fud config stages.futil.exec './target/debug/futil'
+        fud config stages.futil.exec "$(pwd)/target/debug/futil"
         fud config
 
     - name: Run benchmarks
       run: |
         unset JAVA_TOOL_OPTIONS
         cd calyx-evaluation/benchmarks
+        # Run one benchmark to detect any problems with the configuration
         fud e -s verilog.data polybench/linear-algebra-gramschmidt.fuse.data polybench/linear-algebra-gramschmidt.fuse --to dat
         # Run the main benchmarks
         runt -i Correctness -d
