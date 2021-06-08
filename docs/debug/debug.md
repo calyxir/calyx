@@ -30,6 +30,42 @@ Next, re-enable each pass by doing: `-d pre-opt -d post-opt -p <pass1> -p
 It uses the latency information on groups to generate faster hardware.
 Disable it using the flag `-d static-timing`.
 
+## Reducing Test Files
+
+It is often possible to reduce the size of the example program that is
+generating incorrect results.
+In order to perform a reduction, we need to run the program twice, once with
+a "golden workflow" that we trust to generate the right result and once with
+the buggy workflow.
+
+For example, if we've identified the problem to be in one of the Calyx passes,
+the "golden workflow" is running the program without the pass while the buggy
+workflow is running the program with the pass enabled.
+This case is so common that we've written [a script][flag-cmp] that can run
+programs with different set of flags to the Calyx compiler and show the
+difference in the outputs after simulation.
+
+The script is invoked as:
+```
+tools/flag-compare.sh <calyx program> <data>
+```
+
+### Reducing Calyx Programs
+
+The best way to reduce Calyx program deleting group enables from the control
+program and seeing if the generated program still generates the wrong output.
+While doing this, make sure that you're not deleting an update to a loop
+variable which might cause infinite loops.
+
+### Reducing Dahlia Programs
+
+If you're working with Dahlia programs, it is also possible to reduce the
+program with the script since it simply uses `fud` to run the program with the
+simulator.
+As with Calyx reduction, try deleting parts of the program and seeing if the
+flag configurations for the Calyx program still generate different outputs.
+
+
 ## Waveform Debugging
 
 Waveform debugging is the final way of debugging Calyx programs.
@@ -103,3 +139,4 @@ the `fsm` register has the value 1 and check to see if the assignments in
 
 [gtkwave]: http://gtkwave.sourceforge.net/
 [wavetrace]: https://marketplace.visualstudio.com/items?itemName=wavetrace.wavetrace
+[flag-cmp]: https://github.com/cucapra/calyx/blob/master/tools/flag-compare.sh
