@@ -234,7 +234,6 @@ int main(int argc, char* argv[])
     // Fill our data sets with pattern
     int h_data[MAX_LENGTH];                    // host memory for input vector
     int h_A_output[MAX_LENGTH];                   // host memory for output vector
-    cl_mem d_A;                         // device memory used for a vector
     int i = 0;
     for(i = 0; i < MAX_LENGTH; i++) {
       h_data[i]  = i;
@@ -247,6 +246,7 @@ int main(int argc, char* argv[])
     mem_ext.obj = NULL;
     mem_ext.param = kernel;
 
+    cl_mem d_A;                         // device memory used for a vector
     mem_ext.flags = 1;
     d_A = clCreateBuffer(context,  CL_MEM_READ_WRITE | CL_MEM_EXT_PTR_XILINX,  sizeof(int) * number_of_words, &mem_ext, NULL);
 
@@ -256,16 +256,16 @@ int main(int argc, char* argv[])
 
     // if (!(d_A&&d_B)) {
     if (!d_A) {
-        printf("Error: Failed to allocate device memory!\n");
-        printf("Test failed\n");
-        return EXIT_FAILURE;
+      printf("Error: Failed to allocate device memory!\n");
+      printf("Test failed\n");
+      return EXIT_FAILURE;
     }
 
     err = clEnqueueWriteBuffer(commands, d_A, CL_TRUE, 0, sizeof(int) * number_of_words, h_data, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
-        printf("Error: Failed to write to source array h_data!\n");
-        printf("Test failed\n");
-        return EXIT_FAILURE;
+      printf("Error: Failed to write to source array h_data!\n");
+      printf("Test failed\n");
+      return EXIT_FAILURE;
     }
 
     // Set the arguments to our compute kernel
@@ -278,41 +278,47 @@ int main(int argc, char* argv[])
     // err |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &d_B);
 
     if (err != CL_SUCCESS) {
-        printf("Error: Failed to set kernel arguments! %d\n", err);
-        printf("Test failed\n");
-        return EXIT_FAILURE;
+      printf("Error: Failed to set kernel arguments! %d\n", err);
+      printf("Test failed\n");
+      return EXIT_FAILURE;
     }
 
     // Execute the kernel over the entire range of our 1d input data set
     // using the maximum number of work group items for this device
 
-    printf("start!\n");
-    err = clEnqueueTask(commands, kernel, 0, NULL, NULL);
-    if (err) {
-            printf("Error: Failed to execute kernel! %d\n", err);
-            printf("Test failed\n");
-            return EXIT_FAILURE;
-        }
+    int loop = 0;
+    for (loop = 0; loop < 2; loop++) {
+      printf("start!\n");
+      err = clEnqueueTask(commands, kernel, 0, NULL, NULL);
+      if (err) {
+        printf("Error: Failed to execute kernel! %d\n", err);
+        printf("Test failed\n");
+        return EXIT_FAILURE;
+      }
 
-    // Read back the results from the device to verify the output
-    //
-    cl_event readevent;
-    clFinish(commands);
-    printf("end\n");
+      // Read back the results from the device to verify the output
+      //
+      cl_event readevent;
+      clFinish(commands);
+      printf("end\n");
 
-    err = 0;
-    err |= clEnqueueReadBuffer(commands, d_A, CL_TRUE, 0, sizeof(int) * number_of_words, h_A_output, 0, NULL, &readevent);
+      err = 0;
+      err |= clEnqueueReadBuffer(commands, d_A, CL_TRUE, 0, sizeof(int) * number_of_words, h_A_output, 0, NULL, &readevent);
 
-    for (int i = 0; i < 32; i++) {
-      printf("A[%02d]: 0x%08x (%p)\n", i, h_A_output[i], (void *)(&h_A_output[i]));
+      for (int i = 0; i < 32; i++) {
+        printf("A[%02d]: 0x%08x (%p)\n", i, h_A_output[i], (void *)(&h_A_output[i]));
+      }
+
+      if (err != CL_SUCCESS) {
+        printf("Error: Failed to read output array! %d\n", err);
+        printf("Test failed\n");
+        return EXIT_FAILURE;
+      }
+      clWaitForEvents(1, &readevent);
     }
 
-    if (err != CL_SUCCESS) {
-            printf("Error: Failed to read output array! %d\n", err);
-            printf("Test failed\n");
-            return EXIT_FAILURE;
-        }
-    clWaitForEvents(1, &readevent);
+    clReleaseMemObject(d_A);
+
     // Check Results
 
     // for (uint i = 0; i < number_of_words; i++) {
@@ -327,7 +333,6 @@ int main(int argc, char* argv[])
     //--------------------------------------------------------------------------
     // Shutdown and cleanup
     //-------------------------------------------------------------------------- 
-    clReleaseMemObject(d_A);
     // clReleaseMemObject(d_B);
 
 
