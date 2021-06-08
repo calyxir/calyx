@@ -1,4 +1,7 @@
-#!/bin/zsh
+#!/bin/bash
+# Script to run Calyx program with different flag configurations.
+# Usage:
+#   ./flag-compare.sh <calyx program> <data>
 
 set -euf -o pipefail
 
@@ -24,5 +27,7 @@ EXEC2=$!
 wait $EXEC1
 wait $EXEC2
 
+echo "=========================="
 echo "Diff output between files"
 diff out1.json out2.json
+echo "=========================="
