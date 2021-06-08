@@ -73,7 +73,7 @@ fn extend_signature(sig: &mut Vec<PortDef>) {
         sig.iter().map(|pd| pd.name.to_string()).collect();
     let mut namegen = NameGenerator::with_prev_defined_names(port_names);
     for (name, width, direction) in INTERFACE_PORTS.iter() {
-        if let None = sig.iter().find(|pd| pd.attributes.has(name)) {
+        if sig.iter().find(|pd| pd.attributes.has(name)).is_none() {
             let mut attributes = Attributes::default();
             attributes.insert(name, 1);
             sig.push(PortDef {
