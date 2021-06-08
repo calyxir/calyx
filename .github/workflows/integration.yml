@@ -11,6 +11,7 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Checkout calyx-evaluation
+      uses: actions/checkout@v2
       with:
         repository: 'cucapra/calyx-evaluation'
 
