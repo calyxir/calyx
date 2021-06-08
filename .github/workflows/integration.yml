@@ -145,6 +145,7 @@ jobs:
       run: |
         cd fud
         flit install
+        cd ..
         echo "============= Setting Fud configuration =============="
         fud config global.futil_directory '/home/runner/work/calyx/calyx'
         fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
