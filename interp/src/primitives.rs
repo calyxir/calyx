@@ -1,4 +1,5 @@
-//! Defines update methods for the various primitive cells in the Calyx standard library.
+//! Defines update methods for the various primitive cells in the Calyx
+// standard library.
 
 use super::environment::Environment;
 use super::values::Value;
@@ -29,10 +30,13 @@ pub enum Primitve {
     StdMemD1(StdMemD1),
 }
 
+/// For binary operator components that taken in a <left> Value and
+/// <right> Value
 pub trait ExecuteBinary {
     fn execute_bin(&self, left: &Value, right: &Value) -> Value;
 }
 
+/// Only binary operator components have trait [Execute]
 pub trait Execute {
     fn execute<'a>(
         &self,
@@ -41,6 +45,7 @@ pub trait Execute {
     ) -> Vec<(ir::Id, Value)>;
 }
 
+/// For unary operator components that only take in one input
 pub trait ExecuteUnary {
     fn execute_unary(&self, input: &Value) -> Value;
 }
@@ -62,7 +67,6 @@ impl<T: ExecuteBinary> Execute for T {
 
 /// Ensures the input values are of the appropriate widths, else panics
 fn check_widths(left: &Value, right: &Value, width: u64) -> () {
-    // checks len left == len right == width
     if width != (left.vec.len() as u64)
         || width != (right.vec.len() as u64)
         || left.vec.len() != right.vec.len()
@@ -71,8 +75,19 @@ fn check_widths(left: &Value, right: &Value, width: u64) -> () {
     }
 }
 
-//std_memd1 :
+///A one-dimensional memory. Initialized with StdMemD1.new(WIDTH, SIZE, IDX_SIZE) where:
+/// WIDTH - Size of an individual memory slot.
+/// SIZE - Number of slots in the memory.
+/// IDX_SIZE - The width of the index given to the memory.
 
+/// To write to a memory, the [write_en] must be high
+/// `addr0: IDX_SIZE - The index to be accessed or updated
+/// write_data: WIDTH - Data to be written to the selected memory slot
+/// write_en: 1 - One bit write enabled signal, causes the memory to write write_data to the slot indexed by addr0
+
+// .read_mem() returns these two signals:
+// read_data: WIDTH - The value stored at addr0. This value is combinational with respect to addr0.
+// done: 1: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
 pub struct StdMemD1 {
     pub width: u64,    //size of individual piece of mem
     pub size: u64,     //# slots of mem
@@ -96,14 +111,21 @@ impl StdMemD1 {
         }
     }
 }
+//std_memd2 :
+
+//std_memd3 :
+
+//std_memd4 :
 
 /// A Standard Register of a certain [width]
-/// Note that StdReg itself doen't have any bookkeeping related to clock cycles.
-/// Nor does it prevent the user from reading a value before the [done] signal is high.
+/// Note that StdReg itself doen't have any bookkeeping related to clock
+/// cycles.
+/// Nor does it prevent the user from reading a value before the [done] signal
+/// is high.
 /// The only check it performs is preventing the user from writing
-/// to the register while the [write_en] signal is low. Rules regarding cycle count,
-/// such as asserting [done] for just one cycle after a write, must be enforced and
-/// carried out by the interpreter.
+/// to the register while the [write_en] signal is low. Rules regarding cycle
+/// count, such as asserting [done] for just one cycle after a write, must be
+/// enforced and carried out by the interpreter.
 pub struct StdReg {
     pub width: u64,
     pub val: Value,
@@ -131,8 +153,9 @@ impl StdReg {
         }
     }
 
-    /// After loading a value into the register, use [set_done_high] to emit the done signal.
-    /// Note that the [StdReg] struct has no sense of time itself. The interpreter is responsible
+    /// After loading a value into the register, use [set_done_high] to emit
+    /// the done signal. Note that the [StdReg] struct has no sense of time
+    /// itself. The interpreter is responsible
     /// For setting the [done] signal high for exactly one cycle.
     pub fn set_done_high(&mut self) {
         self.done = true
@@ -142,7 +165,8 @@ impl StdReg {
         self.done = false
     }
 
-    /// A cycle before trying to load a value into the register, make sure to [set_write_en_high]
+    /// A cycle before trying to load a value into the register, make sure to
+    /// [set_write_en_high]
     pub fn set_write_en_high(&mut self) {
         self.write_en = true
     }
@@ -151,8 +175,8 @@ impl StdReg {
         self.write_en = false
     }
 
-    /// Reads the value from the register. Makes no guarantee on the validity of data
-    /// in the register -- the interpreter must check [done] itself.
+    /// Reads the value from the register. Makes no guarantee on the validity
+    /// of data in the register -- the interpreter must check [done] itself.
     pub fn read_value(&self) -> Value {
         self.val.clone()
     }
@@ -162,26 +186,17 @@ impl StdReg {
     }
 }
 
+/// A component that keeps one value, that can't be rewritten. Is instantiated
+/// with the value, which must have the same # of bits as [width]
 pub struct StdConst {
     width: u64,
     val: Value,
 }
 
-///A component that keeps one value, that can't be rewritten. Is instantiated with the
-///value
 impl StdConst {
     pub fn new(width: u64, val: Value) -> StdConst {
-        StdConst {
-            width,
-            val: val.truncate(width as usize),
-        }
-    }
-
-    pub fn new_from_u64(width: u64, val: u64) -> StdConst {
-        StdConst {
-            width,
-            val: Value::try_from_init(val, width).unwrap(),
-        }
+        check_widths(&val, &val, width);
+        StdConst { width, val: val }
     }
 
     pub fn read_val(&self) -> Value {
@@ -192,8 +207,6 @@ impl StdConst {
     }
 }
 
-//NOTE: This is implemented incorrectly -- actually needs to take in two inputs. See
-//documentation ( a left input is value to be shifted, right is shift amount )
 pub struct StdLsh {
     width: u64,
 }
@@ -214,8 +227,6 @@ impl ExecuteBinary for StdLsh {
     }
 }
 
-//NOTE: This is implemented incorrectly -- actually needs to take in two inputs. See
-//documentation ( a left input is value to be shifted, right is shift amount )
 pub struct StdRsh {
     width: u64,
 }
@@ -247,10 +258,7 @@ impl StdAdd {
 
 impl ExecuteBinary for StdAdd {
     fn execute_bin(&self, left: &Value, right: &Value) -> Value {
-        //the below will check they are all the same width so no need
-        //to check left and right have same width
         check_widths(left, right, self.width);
-
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 + right_64;
@@ -270,31 +278,31 @@ impl StdSub {
 }
 
 impl ExecuteBinary for StdSub {
-    //have to add width check here
     fn execute_bin(&self, left: &Value, right: &Value) -> Value {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
-        let right_64 = right.as_u64();
-        let init_val = left_64 - right_64;
-
+        // Bitwise subtraction: left - right = left + (!right + 1)
+        let right = Value {
+            vec: !(right.vec.clone()),
+        };
+        let right_64 = right.as_u64() + 1;
+        //need to allow overflow -- we are dealing only with bits
+        let init_val = left_64 + right_64;
         let bitwidth: usize = left.vec.len();
         Value::from_init(init_val, bitwidth)
     }
 }
 
-///std_slice<IN_WIDTH, OUT_WIDTH>
+/// Slice out the lower OUT_WIDTH bits of an IN_WIDTH-bit value. Computes
+/// in[out_width - 1 : 0]. This component is combinational.
+/// Inputs:
+/// in: IN_WIDTH - An IN_WIDTH-bit value
+/// Outputs:
+/// out: OUT_WIDTH - The lower OUT_WIDTH bits of in
 pub struct StdSlice {
     in_width: u64,
     out_width: u64,
 }
-
-///Slice out the lower OUT_WIDTH bits of an IN_WIDTH-bit value. Computes in[out_width - 1 : 0]. This component is combinational.
-// Inputs:
-
-// in: IN_WIDTH - An IN_WIDTH-bit value
-// Outputs:
-
-// out: OUT_WIDTH - The lower OUT_WIDTH bits of in
 
 impl StdSlice {
     pub fn new(in_width: u64, out_width: u64) -> StdSlice {
@@ -313,6 +321,12 @@ impl ExecuteUnary for StdSlice {
     }
 }
 
+/// Given an IN_WIDTH-bit input, zero pad from the left to an output of
+/// OUT_WIDTH-bits. This component is combinational.
+/// Inputs:
+/// in: IN_WIDTH - An IN_WIDTH-bit value to be padded
+/// Outputs:
+/// out: OUT_WIDTH - The paddwd width
 pub struct StdPad {
     in_width: u64,
     out_width: u64,
