@@ -253,7 +253,6 @@ fn top_level(
 
 fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
     module.add_decl(v::Decl::new_wire("memories_copied", 1));
-    // module.add_decl(v::Decl::new_wire("memories_sent", 1));
     module.add_decl(v::Decl::new_reg("memories_sent", memories.len() as u64));
     module.add_stmt(v::Parallel::Assign(
         "memories_copied".into(),
@@ -304,19 +303,4 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
     parallel.add_seq(ifelse);
     module.add_stmt(parallel);
     fsm.emit(module);
-    // module.add_stmt(v::Parallel::Assign(
-    //     "memories_sent".into(),
-    //     if memories.is_empty() {
-    //         panic!("Need some memories")
-    //     } else if memories.len() == 1 {
-    //         format!("{}_send_done", memories[0]).into()
-    //     } else {
-    //         memories[1..].iter().fold(
-    //             format!("{}_send_done", memories[0]).into(),
-    //             |acc, elem| {
-    //                 v::Expr::new_logical_and(acc, format!("{}_send_done", elem))
-    //             },
-    //         )
-    //     },
-    // ));
 }
