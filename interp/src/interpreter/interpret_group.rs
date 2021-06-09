@@ -15,6 +15,14 @@ struct DependencyMap<'a> {
 }
 
 impl<'a> DependencyMap<'a> {
+    fn from_assignments<I: Iterator<Item = &'a ir::Assignment>>(
+        iter: I,
+    ) -> DependencyMap<'a> {
+        let mut map = DependencyMap::default();
+        map.populate_map(iter);
+        map
+    }
+
     fn populate_map<I: Iterator<Item = &'a ir::Assignment>>(
         &mut self,
         iter: I,
