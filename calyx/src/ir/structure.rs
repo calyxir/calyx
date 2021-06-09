@@ -273,7 +273,7 @@ impl Group {
     /// Get a reference to the named hole if it exists.
     pub fn find<S>(&self, name: &S) -> Option<RRC<Port>>
     where
-        S: std::fmt::Display + Clone + AsRef<str>,
+        S: std::fmt::Display + AsRef<str>,
     {
         self.holes
             .iter()
@@ -284,7 +284,7 @@ impl Group {
     /// Get a reference to the named hole or panic.
     pub fn get<S>(&self, name: S) -> RRC<Port>
     where
-        S: std::fmt::Display + Clone + AsRef<str>,
+        S: std::fmt::Display + AsRef<str>,
     {
         self.find(&name).unwrap_or_else(|| {
             panic!(

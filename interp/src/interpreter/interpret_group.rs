@@ -4,8 +4,7 @@
 use crate::{environment::Environment, primitives, update::UpdateQueue};
 use calyx::{
     errors::{Error, FutilResult},
-    ir,
-    ir::CloneName,
+    ir::{self, CloneName, RRC},
 };
 use std::collections::{HashMap, HashSet};
 use std::iter;
@@ -45,6 +44,10 @@ impl<'a> DependencyMap<'a> {
 }
 
 type WorkList<'a> = HashSet<&'a ir::Assignment>;
+
+fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
+    group.find(&"done").unwrap()
+}
 
 /// Get the name of the component to interpret from the context.
 fn _get_component(
