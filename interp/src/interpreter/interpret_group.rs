@@ -7,11 +7,34 @@ use calyx::{
     ir,
     ir::CloneName,
 };
-use std::collections::HashMap;
-// use std::rc::Rc;
+use std::collections::{HashMap, HashSet};
+use std::iter;
+#[derive(Debug, Clone, Default)]
+struct DependencyMap<'a> {
+    map: HashMap<*const ir::Port, HashSet<&'a ir::Assignment>>,
+}
 
-/// Stores information about the component and group to interpret.
-/// Might be better to make this a subset of a trait implemented by all interpreters, later on
+impl<'a> DependencyMap<'a> {
+    fn populate_map<I: Iterator<Item = &'a ir::Assignment>>(
+        &mut self,
+        iter: I,
+    ) {
+        for assignment in iter {
+            let ports = assignment
+                .guard
+                .all_ports()
+                .into_iter()
+                .chain(iter::once(assignment.src.clone()))
+                .chain(iter::once(assignment.dst.clone()));
+            for port in ports {
+                self.map
+                    .entry(&port.borrow() as &ir::Port as *const ir::Port)
+                    .or_default()
+                    .insert(assignment);
+            }
+        }
+    }
+}
 
 /// Get the name of the component to interpret from the context.
 fn _get_component(
