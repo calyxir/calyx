@@ -1,8 +1,7 @@
 //! Defines update methods for the various primitive cells in the Calyx
 // standard library.
-
 use super::environment::Environment;
-use super::values::Value;
+use super::values::{OutputValue, TimeLockedValue, Value};
 use calyx::{errors::FutilResult, ir};
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -31,6 +30,28 @@ pub enum Primitive {
     StdMemD1(StdMemD1),
 }
 
+/// For unary operator components that only take in one input.
+/// *Assumes that all inputs have the name "in", and will return
+/// a (ir::Id, Value) with the Id as "out"*
+/// # Example
+/// ```
+///let std_not = StdNot::new(5) // a 5 bit not-er
+/// let not_one = std_not.execute_unary(&(Value::try_from_init(1, 5).unwrap()));
+/// ```
+pub trait ExecuteUnary {
+    fn execute_unary(&self, input: &Value) -> OutputValue;
+
+    /// Default implementation of [execute] for all unary components
+    /// Unwraps inputs, then sends output based on [execute_unary]
+    fn execute(
+        &self,
+        inputs: &[(ir::Id, Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
+        vec![(ir::Id::from("out"), self.execute_unary(input))]
+    }
+}
+
 /// For binary operator components that taken in a <left> Value and
 /// <right> Value.
 ///
@@ -43,7 +64,21 @@ pub enum Primitive {
 /// )
 /// ```
 pub trait ExecuteBinary {
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value;
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue;
+
+    /// Default implementation of [execute] for all binary components
+    /// Unwraps inputs (left and right), then sends output based on [execute_bin]
+    fn execute<'a>(
+        &self,
+        inputs: &'a [(ir::Id, Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
+
+        let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
+
+        let out = self.execute_bin(left, right);
+        vec![(ir::Id::from("out"), out)]
+    }
 }
 
 /// Only binary operator components have trait [Execute].
@@ -51,33 +86,18 @@ pub trait Execute {
     fn execute<'a>(
         &self,
         inputs: &'a [(ir::Id, Value)],
-        outputs: &'a [(ir::Id, Value)],
-    ) -> Vec<(ir::Id, Value)>;
+    ) -> Vec<(ir::Id, OutputValue)>;
 }
 
-/// For unary operator components that only take in one input.
-/// # Example
-/// ```
-///let std_not = StdNot::new(5) // a 5 bit not-er
-/// let not_one = std_not.execute_unary(&(Value::try_from_init(1, 5).unwrap()));
-/// ```
-pub trait ExecuteUnary {
-    fn execute_unary(&self, input: &Value) -> Value;
-}
-
-impl<T: ExecuteBinary> Execute for T {
-    fn execute<'a>(
-        &self,
+/// ExecuteStateful is a trait implemnted by primitive components such as
+/// StdReg and StdMem (D1 -- D4), allowing their state to be modified.
+pub trait ExecuteStateful {
+    /// Use execute_mut to modify the state of a stateful component.
+    /// No restrictions on exactly how the input(s) look
+    fn execute_mut<'a>(
+        &mut self,
         inputs: &'a [(ir::Id, Value)],
-        _outputs: &'a [(ir::Id, Value)],
-    ) -> Vec<(ir::Id, Value)> {
-        let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
-
-        let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
-
-        let out = T::execute_bin(self, left, right);
-        vec![(ir::Id::from("out"), out)]
-    }
+    ) -> Vec<(ir::Id, OutputValue)>;
 }
 
 /// Ensures the input values are of the appropriate widths, else panics.
@@ -132,6 +152,16 @@ impl StdMemD1 {
         }
     }
 }
+
+// impl ExecuteStateful for StdMemD1 {
+//     fn execute_mut<'a>(
+//         &self,
+//         inputs: &'a [(ir::Id, Value)],
+//         outputs: &'a [(ir::Id, Value)],
+//     ) -> Vec<(ir::Id, Value)> {
+//     }
+// }
+
 //std_memd2 :
 pub struct StdMemD2 {}
 
@@ -149,14 +179,12 @@ impl StdMemD4 {}
 
 /// A Standard Register of a certain [width].
 /// Rules regarding cycle count, such as asserting [done] for just one cycle after a write, must be
-/// enforced and carried out by the interpreter. This register only ensures no writes
-/// occur while [write_en] is low.
+/// enforced and carried out by the interpreter. This register enforces no rules about
+/// when its state can be modified.
 #[derive(Clone, Debug)]
 pub struct StdReg {
     pub width: u64,
     pub val: Value,
-    pub done: bool,
-    pub write_en: bool,
 }
 
 impl StdReg {
@@ -165,8 +193,6 @@ impl StdReg {
         StdReg {
             width,
             val: Value::new(width as usize),
-            done: false,
-            write_en: false,
         }
     }
 
@@ -181,31 +207,8 @@ impl StdReg {
     /// * panics if width of [input] != self.width
     pub fn load_value(&mut self, input: Value) {
         check_widths(&input, &input, self.width);
-        if self.write_en {
-            self.val = input.truncate(self.width.try_into().unwrap())
-        }
-    }
 
-    /// After loading a value into the register, use [set_done_high] to emit
-    /// the done signal. Note that the [StdReg] struct has no sense of time
-    /// itself. The interpreter is responsible for setting the [done] signal
-    /// high for exactly one cycle.
-    pub fn set_done_high(&mut self) {
-        self.done = true
-    }
-    /// Pairs with [set_done_high].
-    pub fn set_done_low(&mut self) {
-        self.done = false
-    }
-
-    /// A cycle before trying to load a value into the register, make sure to
-    /// [set_write_en_high].
-    pub fn set_write_en_high(&mut self) {
-        self.write_en = true
-    }
-
-    pub fn set_write_en_low(&mut self) {
-        self.write_en = false
+        self.val = input.truncate(self.width.try_into().unwrap())
     }
 
     /// Reads the value from the register. Makes no guarantee on the validity
@@ -216,6 +219,57 @@ impl StdReg {
 
     pub fn read_u64(&self) -> u64 {
         self.val.as_u64()
+    }
+}
+
+// fn execute_mut<'a>(
+//     &mut self,
+//     inputs: &'a [(ir::Id, Value)],
+// ) -> Vec<(ir::Id, OutputValue)>;
+
+impl ExecuteStateful for StdReg {
+    fn execute_mut(
+        //have to put lifetimes
+        &mut self,
+        inputs: &[(ir::Id, Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        //unwrap the arguments
+        let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
+        let (_, write_en) =
+            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
+        //write the input to the register
+        if write_en.as_u64() == 1 {
+            let old = self.val;
+            self.val = input.clone();
+            // what's in this vector:
+            // the "out" -- TimeLockedValue ofthe new register data. Needs 1 cycle before readable
+            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
+            // all this coordination is done by the interpreter. We just set it up correctly
+            vec![
+                (
+                    ir::Id::from("out"),
+                    TimeLockedValue::new(self.val.clone(), 1, Some(old)).into(),
+                ),
+                (
+                    ir::Id::from("done"),
+                    TimeLockedValue::new(
+                        Value::from_init(1: u16, 1: u16),
+                        1,
+                        Some(Value::zeroes(1)),
+                    )
+                    .into(),
+                ),
+            ]
+        } else {
+            //if write_en was low, so done is 0 b/c nothing was written here
+            //in this vector i
+            //OUT: the old value in the register, b/c we couldn't write
+            //DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
+            vec![
+                (ir::Id::from("out"), self.val.clone().into()),
+                (ir::Id::from("done"), Value::zeroes(1).into()),
+            ]
+        }
     }
 }
 
@@ -297,11 +351,11 @@ impl ExecuteBinary for StdLsh {
     /// # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let mut tr = left.vec.clone();
         tr.shift_right(right.as_u64() as usize);
-        Value { vec: tr }
+        Value { vec: tr }.into()
     }
 }
 
@@ -344,11 +398,11 @@ impl ExecuteBinary for StdRsh {
     /// # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let mut tr = left.vec.clone();
         tr.shift_left(right.as_u64() as usize);
-        Value { vec: tr }
+        Value { vec: tr }.into()
     }
 }
 
@@ -388,13 +442,13 @@ impl ExecuteBinary for StdAdd {
     /// # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 + right_64;
         let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val, bitwidth)
+        Value::from_init(init_val, bitwidth).into()
     }
 }
 
@@ -439,7 +493,7 @@ impl ExecuteBinary for StdSub {
     /// # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         // Bitwise subtraction: left - right = left + (!right + 1)
@@ -450,7 +504,7 @@ impl ExecuteBinary for StdSub {
         //need to allow overflow -- we are dealing only with bits
         let init_val = left_64 + right_64;
         let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val, bitwidth)
+        Value::from_init(init_val, bitwidth).into()
     }
 }
 
@@ -493,10 +547,10 @@ impl ExecuteUnary for StdSlice {
     /// # Panics
     /// * panics if input's width and self.width are not equal
     ///
-    fn execute_unary(&self, input: &Value) -> Value {
+    fn execute_unary(&self, input: &Value) -> OutputValue {
         check_widths(input, input, self.in_width);
         let tr = input.clone();
-        tr.truncate(self.out_width as usize)
+        tr.truncate(self.out_width as usize).into()
     }
 }
 
@@ -539,10 +593,10 @@ impl ExecuteUnary for StdPad {
     /// # Panics
     /// * panics if input's width and self.width are not equal
     ///
-    fn execute_unary(&self, input: &Value) -> Value {
+    fn execute_unary(&self, input: &Value) -> OutputValue {
         check_widths(input, input, self.in_width);
         let pd = input.clone();
-        pd.ext(self.out_width as usize)
+        pd.ext(self.out_width as usize).into()
     }
 }
 
@@ -578,11 +632,12 @@ impl ExecuteUnary for StdNot {
     /// # Panics
     /// * panics if input's width and self.width are not equal
     ///
-    fn execute_unary<'a>(&self, input: &Value) -> Value {
+    fn execute_unary<'a>(&self, input: &Value) -> OutputValue {
         check_widths(input, input, self.width);
         Value {
             vec: input.vec.clone().not(),
         }
+        .into()
     }
 }
 
@@ -620,11 +675,12 @@ impl ExecuteBinary for StdAnd {
     /// let val_0_3 = std_and_3bit.execute_bin(&val_5_3, &val_2_3);
     /// assert_eq!(val_0_3.as_u64(), 0);
     /// ```
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         Value {
             vec: left.vec.clone() & right.vec.clone(),
         }
+        .into()
     }
 }
 
@@ -657,11 +713,12 @@ impl ExecuteBinary for StdOr {
     /// let val_7_3 = std_or_3bit.execute_bin(&val_5_3, &val_2_3);
     /// assert_eq!(val_7_3.as_u64(), 7);
     /// ```
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         Value {
             vec: left.vec.clone() | right.vec.clone(),
         }
+        .into()
     }
 }
 
@@ -694,11 +751,12 @@ impl ExecuteBinary for StdXor {
     /// let val_5_3 = std_xor_3bit.execute_bin(&val_7_3, &val_2_3);
     /// assert_eq!(val_5_3.as_u64(), 5);
     /// ```
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         Value {
             vec: left.vec.clone() ^ right.vec.clone(),
         }
+        .into()
     }
 }
 
@@ -734,13 +792,13 @@ impl ExecuteBinary for StdGt {
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 > right_64;
 
-        Value::from_init(init_val, 1 as usize)
+        Value::from_init(init_val, 1 as usize).into()
     }
 }
 
@@ -775,13 +833,13 @@ impl ExecuteBinary for StdLt {
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 < right_64;
 
-        Value::from_init(init_val, 1 as usize)
+        Value::from_init(init_val, 1 as usize).into()
     }
 }
 
@@ -820,13 +878,13 @@ impl ExecuteBinary for StdEq {
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 == right_64;
 
-        Value::from_init(init_val, 1 as usize)
+        Value::from_init(init_val, 1 as usize).into()
     }
 }
 
@@ -866,12 +924,12 @@ impl ExecuteBinary for StdNeq {
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 != right_64;
-        Value::from_init(init_val, 1 as usize)
+        Value::from_init(init_val, 1 as usize).into()
     }
 }
 
@@ -908,13 +966,13 @@ impl ExecuteBinary for StdGe {
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 >= right_64;
 
-        Value::from_init(init_val, 1 as usize)
+        Value::from_init(init_val, 1 as usize).into()
     }
 }
 
@@ -949,230 +1007,240 @@ impl ExecuteBinary for StdLe {
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 <= right_64;
-        Value::from_init(init_val, 1 as usize)
+        Value::from_init(init_val, 1 as usize).into()
     }
 }
 
-/// Uses the cell's inputs ports to perform any required updates to the
-/// cell's output ports.
-/// TODO: how to get input and output ports in general? How to "standardize" for combinational or not operations
-pub fn update_cell_state(
-    cell: &ir::Id,
-    inputs: &[ir::Id],
-    output: &[ir::Id],
-    env: &Environment, // should this be a reference
-    component: ir::Id,
-) -> FutilResult<Environment> {
-    // get the actual cell, based on the id
-    // let cell_r = cell.as_ref();
+// Uses the cell's inputs ports to perform any required updates to the
+// cell's output ports.
+// TODO: how to get input and output ports in general? How to "standardize" for combinational or not operations
+// pub fn update_cell_state(
+//     cell: &ir::Id,
+//     inputs: &[ir::Id],
+//     output: &[ir::Id],
+//     env: &Environment, // should this be a reference
+//     component: ir::Id,
+// ) -> FutilResult<Environment> {
+//     // get the actual cell, based on the id
+//     // let cell_r = cell.as_ref();
 
-    let mut new_env = env.clone();
+//     let mut new_env = env.clone();
 
-    let cell_r = new_env
-        .get_cell(&component, cell)
-        .unwrap_or_else(|| panic!("Cannot find cell with name"));
+//     let cell_r = new_env
+//         .get_cell(&component, cell)
+//         .unwrap_or_else(|| panic!("Cannot find cell with name"));
 
-    let temp = cell_r.borrow();
+//     let temp = cell_r.borrow();
 
-    // get the cell type
-    let cell_type = temp.type_name().unwrap_or_else(|| panic!("Futil Const?"));
+//     // get the cell type
+//     let cell_type = temp.type_name().unwrap_or_else(|| panic!("Futil Const?"));
 
-    match cell_type.id.as_str() {
-        "std_reg" => {
-            // TODO: this is wrong...
-            let write_en = ir::Id::from("write_en");
+//     match cell_type.id.as_str() {
+//         "std_reg" => {
+//             // TODO: this is wrong...
+//             let write_en = ir::Id::from("write_en");
 
-            // register's write_en must be high to write reg.out and reg.done
-            if new_env.get(&component, &cell, &write_en) != 0 {
-                let out = ir::Id::from("out"); //assuming reg.in = cell.out, always
-                let inp = ir::Id::from("in"); //assuming reg.in = cell.out, always
-                let done = ir::Id::from("done"); //done id
+//             // register's write_en must be high to write reg.out and reg.done
+//             if new_env.get(&component, &cell, &write_en).as_u64() != 0 {
+//                 let out = ir::Id::from("out"); //assuming reg.in = cell.out, always
+//                 let inp = ir::Id::from("in"); //assuming reg.in = cell.out, always
+//                 let done = ir::Id::from("done"); //done id
 
-                new_env.put(
-                    &component,
-                    cell,
-                    &output[0],
-                    env.get(&component, &inputs[0], &out),
-                ); //reg.in = cell.out; should this be in init?
+//                 new_env.put(
+//                     &component,
+//                     cell,
+//                     &output[0],
+//                     env.get(&component, &inputs[0], &out),
+//                 ); //reg.in = cell.out; should this be in init?
 
-                if output[0].id == "in" {
-                    new_env.put(
-                        &component,
-                        cell,
-                        &out,
-                        new_env.get(&component, cell, &inp),
-                    ); // reg.out = reg.in
-                    new_env.put(&component, cell, &done, 1); // reg.done = 1'd1
-                                                             //new_env.remove_update(cell); // remove from update queue
-                }
-            }
-        }
-        "std_mem_d1" => {
-            let mut mem = HashMap::new();
-            let out = ir::Id::from("out");
-            let write_en = ir::Id::from("write_en");
-            let done = ir::Id::from("done"); //done id
+//                 if output[0].id == "in" {
+//                     new_env.put(
+//                         &component,
+//                         cell,
+//                         &out,
+//                         new_env.get(&component, cell, &inp),
+//                     ); // reg.out = reg.in
+//                     new_env.put(
+//                         &component,
+//                         cell,
+//                         &done,
+//                         Value::try_from_init(1, 1).unwrap(),
+//                     ); // reg.done = 1'd1
+//                        //new_env.remove_update(cell); // remove from update queue
+//                 }
+//             }
+//         }
+//         "std_mem_d1" => {
+//             let mut mem = HashMap::new();
+//             let out = ir::Id::from("out");
+//             let write_en = ir::Id::from("write_en");
+//             let done = ir::Id::from("done"); //done id
 
-            // memory should write to addres
-            if new_env.get(&component, &cell, &write_en) != 0 {
-                let addr0 = ir::Id::from("addr0");
-                let _read_data = ir::Id::from("read_data");
-                let write_data = ir::Id::from("write_data");
+//             // memory should write to addres
+//             if new_env.get(&component, &cell, &write_en).as_u64() != 0 {
+//                 let addr0 = ir::Id::from("addr0");
+//                 let _read_data = ir::Id::from("read_data");
+//                 let write_data = ir::Id::from("write_data");
 
-                new_env.put(
-                    &component,
-                    cell,
-                    &output[0],
-                    env.get(&component, &inputs[0], &out),
-                );
+//                 new_env.put(
+//                     &component,
+//                     cell,
+//                     &output[0],
+//                     env.get(&component, &inputs[0], &out),
+//                 );
 
-                let data = new_env.get(&component, cell, &write_data);
-                mem.insert(addr0, data);
-            }
-            // read data
-            if output[0].id == "read_data" {
-                let addr0 = ir::Id::from("addr0");
+//                 let data = new_env.get(&component, cell, &write_data);
+//                 mem.insert(addr0, data);
+//             }
+//             // read data
+//             if output[0].id == "read_data" {
+//                 let addr0 = ir::Id::from("addr0");
 
-                let dat = match mem.get(&addr0) {
-                    Some(&num) => num,
-                    _ => panic!("nothing in the memory"),
-                };
+//                 let dat = match mem.get(&addr0) {
+//                     Some(&num) => num,
+//                     _ => panic!("nothing in the memory"),
+//                 };
 
-                new_env.put(&component, cell, &output[0], dat);
-            }
-            new_env.put(&component, cell, &done, 1);
-        }
-        "std_sqrt" => {
-            //TODO; wrong implementation
-            // new_env.put(
-            //     cell,
-            //     &output[0],
-            //     ((new_env.get(cell, &inputs[0]) as f64).sqrt()) as u64, // cast to f64 to use sqrt
-            // );
-        }
-        "std_add" => new_env.put(
-            &component,
-            cell,
-            &output[0],
-            new_env.get(&component, cell, &inputs[0])
-                + env.get(&component, cell, &inputs[1]),
-        ),
-        "std_sub" => new_env.put(
-            &component,
-            cell,
-            &output[0],
-            new_env.get(&component, cell, &inputs[0])
-                - env.get(&component, cell, &inputs[1]),
-        ),
-        "std_mod" => {
-            if env.get(&component, cell, &inputs[1]) != 0 {
-                new_env.put(
-                    &component,
-                    cell,
-                    &output[0],
-                    new_env.get(&component, cell, &inputs[0])
-                        % env.get(&component, cell, &inputs[1]),
-                )
-            }
-        }
-        "std_mult" => new_env.put(
-            &component,
-            cell,
-            &output[0],
-            new_env.get(&component, cell, &inputs[0])
-                * env.get(&component, cell, &inputs[1]),
-        ),
-        "std_div" => {
-            // need this condition to avoid divide by 0
-            // (e.g. if only one of left/right ports has been updated from the initial nonzero value?)
-            // TODO: what if the program specifies a divide by 0? how to catch??
-            if env.get(&component, cell, &inputs[1]) != 0 {
-                new_env.put(
-                    &component,
-                    cell,
-                    &output[0],
-                    new_env.get(&component, cell, &inputs[0])
-                        / env.get(&component, cell, &inputs[1]),
-                )
-            }
-        }
-        "std_not" => new_env.put(
-            &component,
-            cell,
-            &output[0],
-            !new_env.get(&component, cell, &inputs[0]),
-        ),
-        "std_and" => new_env.put(
-            &component,
-            cell,
-            &output[0],
-            new_env.get(&component, cell, &inputs[0])
-                & env.get(&component, cell, &inputs[1]),
-        ),
-        "std_or" => new_env.put(
-            &component,
-            cell,
-            &output[0],
-            new_env.get(&component, cell, &inputs[0])
-                | env.get(&component, cell, &inputs[1]),
-        ),
-        "std_xor" => new_env.put(
-            &component,
-            cell,
-            &output[0],
-            new_env.get(&component, cell, &inputs[0])
-                ^ env.get(&component, cell, &inputs[1]),
-        ),
-        "std_gt" => new_env.put(
-            &component,
-            cell,
-            &output[0],
-            (new_env.get(&component, cell, &inputs[0])
-                > env.get(&component, cell, &inputs[1])) as u64,
-        ),
-        "std_lt" => new_env.put(
-            &component,
-            cell,
-            &output[0],
-            (new_env.get(&component, cell, &inputs[0])
-                < env.get(&component, cell, &inputs[1])) as u64,
-        ),
-        "std_eq" => new_env.put(
-            &component,
-            cell,
-            &output[0],
-            (new_env.get(&component, cell, &inputs[0])
-                == env.get(&component, cell, &inputs[1])) as u64,
-        ),
-        "std_neq" => new_env.put(
-            &component,
-            cell,
-            &output[0],
-            (new_env.get(&component, cell, &inputs[0])
-                != env.get(&component, cell, &inputs[1])) as u64,
-        ),
-        "std_ge" => new_env.put(
-            &component,
-            cell,
-            &output[0],
-            (new_env.get(&component, cell, &inputs[0])
-                >= env.get(&component, cell, &inputs[1])) as u64,
-        ),
-        "std_le" => new_env.put(
-            &component,
-            cell,
-            &output[0],
-            (new_env.get(&component, cell, &inputs[0])
-                <= env.get(&component, cell, &inputs[1])) as u64,
-        ),
-        _ => unimplemented!("{}", cell_type),
-    }
+//                 new_env.put(&component, cell, &output[0], dat);
+//             }
+//             new_env.put(
+//                 &component,
+//                 cell,
+//                 &done,
+//                 Value::try_from_init(1, 1).unwrap(),
+//             );
+//         }
+//         "std_sqrt" => {
+//             //TODO; wrong implementation
+//             // new_env.put(
+//             //     cell,
+//             //     &output[0],
+//             //     ((new_env.get(cell, &inputs[0]) as f64).sqrt()) as u64, // cast to f64 to use sqrt
+//             // );
+//         }
+//         "std_add" => new_env.put(
+//             &component,
+//             cell,
+//             &output[0],
+//             new_env.get(&component, cell, &inputs[0])
+//                 + env.get(&component, cell, &inputs[1]),
+//         ),
+//         "std_sub" => new_env.put(
+//             &component,
+//             cell,
+//             &output[0],
+//             new_env.get(&component, cell, &inputs[0])
+//                 - env.get(&component, cell, &inputs[1]),
+//         ),
+//         "std_mod" => {
+//             if env.get(&component, cell, &inputs[1]).as_u64() != 0 {
+//                 new_env.put(
+//                     &component,
+//                     cell,
+//                     &output[0],
+//                     new_env.get(&component, cell, &inputs[0])
+//                         % env.get(&component, cell, &inputs[1]),
+//                 )
+//             }
+//         }
+//         "std_mult" => new_env.put(
+//             &component,
+//             cell,
+//             &output[0],
+//             new_env.get(&component, cell, &inputs[0])
+//                 * env.get(&component, cell, &inputs[1]),
+//         ),
+//         "std_div" => {
+//             // need this condition to avoid divide by 0
+//             // (e.g. if only one of left/right ports has been updated from the initial nonzero value?)
+//             // TODO: what if the program specifies a divide by 0? how to catch??
+//             if env.get(&component, cell, &inputs[1]).a != 0 {
+//                 new_env.put(
+//                     &component,
+//                     cell,
+//                     &output[0],
+//                     new_env.get(&component, cell, &inputs[0])
+//                         / env.get(&component, cell, &inputs[1]),
+//                 )
+//             }
+//         }
+//         "std_not" => new_env.put(
+//             &component,
+//             cell,
+//             &output[0],
+//             !new_env.get(&component, cell, &inputs[0]),
+//         ),
+//         "std_and" => new_env.put(
+//             &component,
+//             cell,
+//             &output[0],
+//             new_env.get(&component, cell, &inputs[0])
+//                 & env.get(&component, cell, &inputs[1]),
+//         ),
+//         "std_or" => new_env.put(
+//             &component,
+//             cell,
+//             &output[0],
+//             new_env.get(&component, cell, &inputs[0])
+//                 | env.get(&component, cell, &inputs[1]),
+//         ),
+//         "std_xor" => new_env.put(
+//             &component,
+//             cell,
+//             &output[0],
+//             new_env.get(&component, cell, &inputs[0])
+//                 ^ env.get(&component, cell, &inputs[1]),
+//         ),
+//         "std_gt" => new_env.put(
+//             &component,
+//             cell,
+//             &output[0],
+//             (new_env.get(&component, cell, &inputs[0])
+//                 > env.get(&component, cell, &inputs[1])) as u64,
+//         ),
+//         "std_lt" => new_env.put(
+//             &component,
+//             cell,
+//             &output[0],
+//             (new_env.get(&component, cell, &inputs[0])
+//                 < env.get(&component, cell, &inputs[1])) as u64,
+//         ),
+//         "std_eq" => new_env.put(
+//             &component,
+//             cell,
+//             &output[0],
+//             (new_env.get(&component, cell, &inputs[0])
+//                 == env.get(&component, cell, &inputs[1])) as u64,
+//         ),
+//         "std_neq" => new_env.put(
+//             &component,
+//             cell,
+//             &output[0],
+//             (new_env.get(&component, cell, &inputs[0])
+//                 != env.get(&component, cell, &inputs[1])) as u64,
+//         ),
+//         "std_ge" => new_env.put(
+//             &component,
+//             cell,
+//             &output[0],
+//             (new_env.get(&component, cell, &inputs[0])
+//                 >= env.get(&component, cell, &inputs[1])) as u64,
+//         ),
+//         "std_le" => new_env.put(
+//             &component,
+//             cell,
+//             &output[0],
+//             (new_env.get(&component, cell, &inputs[0])
+//                 <= env.get(&component, cell, &inputs[1])) as u64,
+//         ),
+//         _ => unimplemented!("{}", cell_type),
+//     }
 
-    // TODO
-    Ok(new_env)
-}
+//     // TODO
+//     Ok(new_env)
+// }
