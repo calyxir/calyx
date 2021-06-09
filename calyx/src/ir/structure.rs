@@ -239,12 +239,14 @@ pub struct Assignment {
 }
 
 impl Hash for Assignment {
+    /// Hashes the assigment based on it's identity.
     fn hash<H: Hasher>(&self, state: &mut H) {
         (self as *const Assignment).hash(state);
     }
 }
 
 impl PartialEq for Assignment {
+    /// Checks whether two assignments have the same identity.
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self, other)
     }
