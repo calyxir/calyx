@@ -35,7 +35,7 @@ pub enum Primitive {
 /// a (ir::Id, Value) with the Id as "out"*
 /// # Example
 /// ```
-///let std_not = StdNot::new(5) // a 5 bit not-er
+/// let std_not = StdNot::new(5); // a 5 bit not-er
 /// let not_one = std_not.execute_unary(&(Value::try_from_init(1, 5).unwrap()));
 /// ```
 pub trait ExecuteUnary {
@@ -57,11 +57,11 @@ pub trait ExecuteUnary {
 ///
 /// # Example
 /// ```
-/// let std_add = StdAdd::new(5) // A 5 bit adder
+/// let std_add = StdAdd::new(5); // A 5 bit adder
 /// let one_plus_two = std_add.execute_bin(
 ///     &(Value::try_from_init(1, 5).unwrap()),
 ///     &(Value::try_from_init(2, 5).unwrap())
-/// )
+/// );
 /// ```
 pub trait ExecuteBinary {
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue;
@@ -106,7 +106,14 @@ fn check_widths(left: &Value, right: &Value, width: u64) -> () {
         || width != (right.vec.len() as u64)
         || left.vec.len() != right.vec.len()
     {
-        panic!("Width mismatch between the component and the value.");
+        panic!("Width mismatch between the component and the inputs.");
+    }
+}
+
+/// Ensures that the input value is of the appropriate width, else panics.
+fn check_width(input: &Value, width: u64) {
+    if width != (input.vec.len() as u64) {
+        panic!("Width mismatch between the component and the input")
     }
 }
 
@@ -134,7 +141,6 @@ pub struct StdMemD1 {
     pub size: u64,     // # slots of mem
     pub idx_size: u64, // # bits needed to index a piece of mem
     pub data: Vec<Value>,
-    pub write_en: bool,
 }
 
 impl StdMemD1 {
@@ -145,37 +151,523 @@ impl StdMemD1 {
         ];
         StdMemD1 {
             width,
-            size,
-            idx_size,
+            size,     //how many slots of memory in the vector
+            idx_size, //the width of the values used to address the memory
             data,
-            write_en: false,
+        }
+    }
+    //when do we read from StdMemD1, and how? How does this coordinate with the time locked value stuff?
+    //why does a write return a TimeLockedValue -- is that now what should be referred to as the value in the register,
+    //and we never actually request a read?
+}
+
+impl ExecuteStateful for StdMemD1 {
+    fn execute_mut(
+        &mut self,
+        inputs: &[(ir::Id, Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        //unwrap the arguments
+        //these come from the primitive definition in verilog
+        //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
+        let (_, input) =
+            inputs.iter().find(|(id, _)| id == "write_data").unwrap();
+        let (_, write_en) =
+            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
+        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
+        //check that addr0 is not out of bounds and that it is the proper width!
+        check_widths(addr0, addr0, self.idx_size); //make a unary one instead of hacking. Also change the panicking
+                                                   //so we don't have to keep using .as_u64()
+        let addr0 = addr0.as_u64();
+        if addr0 >= self.size {
+            panic!(
+                "memory only has {} slots, addr0 tries to access slot {}",
+                self.size, addr0
+            );
+        }
+        //check that input data is the appropriate width as well
+        check_width(input, self.width);
+        let old = self.data[addr0 as usize].clone();
+        // only write to memory if write_en is 1
+        if write_en.as_u64() == 1 {
+            self.data[addr0 as usize] = input.clone();
+            // what's in this vector:
+            // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
+            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
+            // all this coordination is done by the interpreter. We just set it up correctly
+            vec![
+                (
+                    ir::Id::from("read_data"),
+                    TimeLockedValue::new(
+                        self.data[addr0 as usize].clone(),
+                        1,
+                        Some(old),
+                    )
+                    .into(),
+                ),
+                (
+                    ir::Id::from("done"),
+                    TimeLockedValue::new(
+                        Value::from_init(1: u16, 1: u16),
+                        1,
+                        Some(Value::zeroes(1)),
+                    )
+                    .into(),
+                ),
+            ]
+        } else {
+            // if write_en was low, so done is 0 b/c nothing was written here
+            // in this vector i
+            // READ_DATA: (immediate), just the old value b/c write was unsuccessful
+            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
+            vec![
+                (ir::Id::from("read_data"), old.into()),
+                (ir::Id::from("done"), Value::zeroes(1).into()),
+            ]
         }
     }
 }
 
-// impl ExecuteStateful for StdMemD1 {
-//     fn execute_mut<'a>(
-//         &self,
-//         inputs: &'a [(ir::Id, Value)],
-//         outputs: &'a [(ir::Id, Value)],
-//     ) -> Vec<(ir::Id, Value)> {
-//     }
-// }
+///std_memd2 :
+/// A two-dimensional memory.
+/// Parameters:
+/// WIDTH - Size of an individual memory slot.
+/// D0_SIZE - Number of memory slots for the first index.
+/// D1_SIZE - Number of memory slots for the second index.
+/// D0_IDX_SIZE - The width of the first index.
+/// D1_IDX_SIZE - The width of the second index.
+/// Inputs:
+/// addr0: D0_IDX_SIZE - The first index into the memory
+/// addr1: D1_IDX_SIZE - The second index into the memory
+/// write_data: WIDTH - Data to be written to the selected memory slot
+/// write_en: 1 - One bit write enabled signal, causes the memory to write write_data to the slot indexed by addr0 and addr1
+/// Outputs:
+/// read_data: WIDTH - The value stored at mem[addr0][addr1]. This value is combinational with respect to addr0 and addr1.
+/// done: 1: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
+#[derive(Clone, Debug)]
+pub struct StdMemD2 {
+    pub width: u64,   // size of individual piece of mem
+    pub d0_size: u64, // # slots of mem
+    pub d1_size: u64,
+    pub d0_idx_size: u64,
+    pub d1_idx_size: u64, // # bits needed to index a piece of mem
+    pub data: Vec<Vec<Value>>,
+}
 
-//std_memd2 :
-pub struct StdMemD2 {}
+impl StdMemD2 {
+    pub fn new(
+        width: u64,
+        d0_size: u64,
+        d1_size: u64,
+        d0_idx_size: u64,
+        d1_idx_size: u64,
+    ) -> StdMemD2 {
+        //data is a 2d vector
+        let data = vec![
+            vec![
+                Value::zeroes((width as usize).try_into().unwrap());
+                (d1_size as usize).try_into().unwrap()
+            ];
+            (d0_size as usize).try_into().unwrap()
+        ];
+        StdMemD2 {
+            width,
+            d0_size,
+            d1_size,
+            d0_idx_size,
+            d1_idx_size,
+            data,
+        }
+    }
+}
 
-impl StdMemD2 {}
+impl ExecuteStateful for StdMemD2 {
+    fn execute_mut(
+        &mut self,
+        inputs: &[(ir::Id, Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        //unwrap the arguments
+        //these come from the primitive definition in verilog
+        //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
+        let (_, input) =
+            inputs.iter().find(|(id, _)| id == "write_data").unwrap();
+        let (_, write_en) =
+            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
+        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
+        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
+        //check that addr0 is not out of bounds and that it is the proper width!
+        check_widths(addr0, addr0, self.d0_idx_size); //make a unary one instead of hacking. Also change the panicking
+        let addr0 = addr0.as_u64();
+        if addr0 >= self.d0_size {
+            panic!(
+                "memory only has {} slots, addr0 tries to access slot {}",
+                self.d0_size, addr0
+            );
+        }
+        //chech that addr1 is not out of bounds and that it is the proper iwdth
+        check_widths(addr1, addr1, self.d1_idx_size); //make a unary one instead of hacking. Also change the panicking
+        let addr1 = addr1.as_u64();
+        if addr1 >= self.d1_size {
+            panic!(
+                "memory only has {} slots, addr1 tries to access slot {}",
+                self.d1_size, addr1
+            );
+        }
+        //check that input data is the appropriate width as well
+        check_width(input, self.width);
+        let old = self.data[addr0 as usize][addr1 as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
+                                                                     // only write to memory if write_en is 1
+        if write_en.as_u64() == 1 {
+            self.data[addr0 as usize][addr1 as usize] = input.clone();
+            // what's in this vector:
+            // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
+            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
+            // all this coordination is done by the interpreter. We just set it up correctly
+            vec![
+                (
+                    ir::Id::from("read_data"),
+                    TimeLockedValue::new(
+                        self.data[addr0 as usize][addr1 as usize].clone(),
+                        1,
+                        Some(old),
+                    )
+                    .into(),
+                ),
+                (
+                    ir::Id::from("done"),
+                    TimeLockedValue::new(
+                        Value::from_init(1: u16, 1: u16),
+                        1,
+                        Some(Value::zeroes(1)),
+                    )
+                    .into(),
+                ),
+            ]
+        } else {
+            // if write_en was low, so done is 0 b/c nothing was written here
+            // in this vector i
+            // READ_DATA: (immediate), just the old value b/c write was unsuccessful
+            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
+            vec![
+                (ir::Id::from("read_data"), old.into()),
+                (ir::Id::from("done"), Value::zeroes(1).into()),
+            ]
+        }
+    }
+}
 
-//std_memd3 :
-pub struct StdMemD3 {}
+///std_memd3 :
+/// A three-dimensional memory.
+/// Parameters:
+/// WIDTH - Size of an individual memory slot.
+/// D0_SIZE - Number of memory slots for the first index.
+/// D1_SIZE - Number of memory slots for the second index.
+/// D2_SIZE - Number of memory slots for the third index.
+/// D0_IDX_SIZE - The width of the first index.
+/// D1_IDX_SIZE - The width of the second index.
+/// D2_IDX_SIZE - The width of the third index.
+/// Inputs:
+/// addr0: D0_IDX_SIZE - The first index into the memory
+/// addr1: D1_IDX_SIZE - The second index into the memory
+/// addr2: D2_IDX_SIZE - The third index into the memory
+/// write_data: WIDTH - Data to be written to the selected memory slot
+/// write_en: 1 - One bit write enabled signal, causes the memory to write write_data to the slot indexed by addr0, addr1, and addr2
+/// Outputs:
+/// read_data: WIDTH - The value stored at mem[addr0][addr1][addr2]. This value is combinational with respect to addr0, addr1, and addr2.
+/// done: 1: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
+pub struct StdMemD3 {
+    width: u64,
+    d0_size: u64,
+    d1_size: u64,
+    d2_size: u64,
+    d0_idx_size: u64,
+    d1_idx_size: u64,
+    d2_idx_size: u64,
+    data: Vec<Vec<Vec<Value>>>,
+}
 
-impl StdMemD3 {}
+impl StdMemD3 {
+    pub fn new(
+        width: u64,
+        d0_size: u64,
+        d1_size: u64,
+        d2_size: u64,
+        d0_idx_size: u64,
+        d1_idx_size: u64,
+        d2_idx_size: u64,
+    ) -> StdMemD3 {
+        let data =
+            vec![vec![
+                vec![
+                    Value::zeroes((width as usize).try_into().unwrap());
+                    (d2_size as usize).try_into().unwrap()
+                ];
+                (d1_size as usize).try_into().unwrap()
+            ](d0_size as usize)
+            .try_into()
+            .unwrap()];
+        StdMemD3 {
+            width,
+            d0_size,
+            d1_size,
+            d2_size,
+            d0_idx_size,
+            d1_idx_size,
+            d2_idx_size,
+            data,
+        }
+    }
+}
 
-//std_memd4 :
-pub struct StdMemD4 {}
+impl ExecuteStateful for StdMemD3 {
+    fn execute_mut(
+        &mut self,
+        inputs: &[(ir::Id, Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        //unwrap the arguments
+        //these come from the primitive definition in verilog
+        //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
+        let (_, input) =
+            inputs.iter().find(|(id, _)| id == "write_data").unwrap();
+        let (_, write_en) =
+            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
+        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
+        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
+        let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
+        //check that addr0 is not out of bounds and that it is the proper width!
+        check_widths(addr0, addr0, self.d0_idx_size); //make a unary one instead of hacking. Also change the panicking
+        let addr0 = addr0.as_u64();
+        if addr0 >= self.d0_size {
+            panic!(
+                "memory only has {} slots, addr0 tries to access slot {}",
+                self.d0_size, addr0
+            );
+        }
+        //chech that addr1 is not out of bounds and that it is the proper iwdth
+        check_widths(addr1, addr1, self.d1_idx_size); //make a unary one instead of hacking. Also change the panicking
+        let addr1 = addr1.as_u64();
+        if addr1 >= self.d1_size {
+            panic!(
+                "memory only has {} slots, addr1 tries to access slot {}",
+                self.d1_size, addr1
+            );
+        }
+        //check that addr2 is not out of bounds and that it is the proper width
+        check_width(addr2, self.d2_idx_size);
+        let addr2 = addr2.as_u64();
+        if addr2 >= self.d2_size {
+            panic!(
+                "memory only has {} slots, addr2 tries to access slot {}",
+                self.d2_size, addr2
+            );
+        }
+        //check that input data is the appropriate width as well
+        check_width(input, self.width);
+        let old =
+            self.data[addr0 as usize][addr1 as usize][addr2 as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
+                                                                               // only write to memory if write_en is 1
+        if write_en.as_u64() == 1 {
+            self.data[addr0 as usize][addr1 as usize][addr2 as usize] =
+                input.clone();
+            // what's in this vector:
+            // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
+            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
+            // all this coordination is done by the interpreter. We just set it up correctly
+            vec![
+                (
+                    ir::Id::from("read_data"),
+                    TimeLockedValue::new(input.clone(), 1, Some(old)).into(),
+                ),
+                (
+                    ir::Id::from("done"),
+                    TimeLockedValue::new(
+                        Value::from_init(1: u16, 1: u16),
+                        1,
+                        Some(Value::zeroes(1)),
+                    )
+                    .into(),
+                ),
+            ]
+        } else {
+            // if write_en was low, so done is 0 b/c nothing was written here
+            // in this vector i
+            // READ_DATA: (immediate), just the old value b/c write was unsuccessful
+            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
+            vec![
+                (ir::Id::from("read_data"), old.into()),
+                (ir::Id::from("done"), Value::zeroes(1).into()),
+            ]
+        }
+    }
+}
+///std_memd4
+/// std_mem_d4
+/// A four-dimensional memory.
+/// Parameters:
+/// WIDTH - Size of an individual memory slot.
+/// D0_SIZE - Number of memory slots for the first index.
+/// D1_SIZE - Number of memory slots for the second index.
+/// D2_SIZE - Number of memory slots for the third index.
+/// D3_SIZE - Number of memory slots for the fourth index.
+/// D0_IDX_SIZE - The width of the first index.
+/// D1_IDX_SIZE - The width of the second index.
+/// D2_IDX_SIZE - The width of the third index.
+/// D3_IDX_SIZE - The width of the fourth index.
+/// Inputs:
+/// addr0: D0_IDX_SIZE - The first index into the memory
+/// addr1: D1_IDX_SIZE - The second index into the memory
+/// addr2: D2_IDX_SIZE - The third index into the memory
+/// addr3: D3_IDX_SIZE - The fourth index into the memory
+/// write_data: WIDTH - Data to be written to the selected memory slot
+/// write_en: 1 - One bit write enabled signal, causes the memory to write write_data to the slot indexed by addr0, addr1, addr2, and addr3
+/// Outputs:
+/// read_data: WIDTH - The value stored at mem[addr0][addr1][addr2][addr3]. This value is combinational with respect to addr0, addr1, addr2, and addr3.
+/// done: 1: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
 
-impl StdMemD4 {}
+pub struct StdMemD4 {
+    width: u64,
+    d0_size: u64,
+    d1_size: u64,
+    d2_size: u64,
+    d3_size: u64,
+    d0_idx_size: u64,
+    d1_idx_size: u64,
+    d2_idx_size: u64,
+    d3_idx_size: u64,
+    data: Vec<Vec<Vec<Vec<Value>>>>,
+}
+
+impl StdMemD4 {
+    pub fn new(
+        width: u64,
+        d0_size: u64,
+        d1_size: u64,
+        d2_size: u64,
+        d3_size: u64,
+        d0_idx_size: u64,
+        d1_idx_size: u64,
+        d2_idx_size: u64,
+        d3_idx_size: u64,
+    ) -> StdMemD4 {
+        let data = vec![vec![vec![
+            vec![
+                Value::zeroes(
+                    (width as usize).try_into().unwrap()
+                );
+                (d3_size as usize).try_into().unwrap()
+            ];
+            (d2_size as usize).try_into().unwrap()
+        ](d1_size as usize)
+        .try_into()
+        .unwrap()](d0_size as usize)
+        .try_into()
+        .unwrap()];
+        StdMemD4 {
+            width,
+            d0_size,
+            d1_size,
+            d2_size,
+            d3_size,
+            d0_idx_size,
+            d1_idx_size,
+            d2_idx_size,
+            d3_idx_size,
+            data,
+        }
+    }
+}
+
+impl ExecuteStateful for StdMemD4 {
+    fn execute_mut(
+        &mut self,
+        inputs: &[(ir::Id, Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        //unwrap the arguments
+        //these come from the primitive definition in verilog
+        //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
+        let (_, input) =
+            inputs.iter().find(|(id, _)| id == "write_data").unwrap();
+        let (_, write_en) =
+            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
+        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
+        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
+        let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
+        let (_, addr3) = inputs.iter().find(|(id, _)| id == "addr3").unwrap();
+        //check that addr0 is not out of bounds and that it is the proper width!
+        check_widths(addr0, addr0, self.d0_idx_size); //make a unary one instead of hacking. Also change the panicking
+        let addr0 = addr0.as_u64();
+        if addr0 >= self.d0_size {
+            panic!(
+                "memory only has {} slots, addr0 tries to access slot {}",
+                self.d0_size, addr0
+            );
+        }
+        //chech that addr1 is not out of bounds and that it is the proper iwdth
+        check_widths(addr1, addr1, self.d1_idx_size); //make a unary one instead of hacking. Also change the panicking
+        let addr1 = addr1.as_u64();
+        if addr1 >= self.d1_size {
+            panic!(
+                "memory only has {} slots, addr1 tries to access slot {}",
+                self.d1_size, addr1
+            );
+        }
+        //check that addr2 is not out of bounds and that it is the proper width
+        check_width(addr2, self.d2_idx_size);
+        let addr2 = addr2.as_u64();
+        if addr2 >= self.d2_size {
+            panic!(
+                "memory only has {} slots, addr2 tries to access slot {}",
+                self.d2_size, addr2
+            );
+        }
+        //check that addr3 is not out of bounds and that it is the proper width
+        check_width(addr3, self.d3_idx_size);
+        let addr3 = addr3.as_u64();
+        if addr3 >= self.d3_size {
+            panic!(
+                "memory only has {} slots, addr3 tries to access slot {}",
+                self.d3_size, addr3
+            )
+        }
+        //check that input data is the appropriate width as well
+        check_width(input, self.width);
+        let old = self.data[addr0 as usize][addr1 as usize][addr2 as usize]
+            [addr3 as usize]
+            .clone(); //not sure if this could lead to errors (Some(old)) is borrow?
+                      // only write to memory if write_en is 1
+        if write_en.as_u64() == 1 {
+            self.data[addr0 as usize][addr1 as usize][addr2 as usize]
+                [addr3 as usize] = input.clone();
+            // what's in this vector:
+            // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
+            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
+            // all this coordination is done by the interpreter. We just set it up correctly
+            vec![
+                (
+                    ir::Id::from("read_data"),
+                    TimeLockedValue::new(input.clone(), 1, Some(old)).into(),
+                ),
+                (
+                    ir::Id::from("done"),
+                    TimeLockedValue::new(
+                        Value::from_init(1: u16, 1: u16),
+                        1,
+                        Some(Value::zeroes(1)),
+                    )
+                    .into(),
+                ),
+            ]
+        } else {
+            // if write_en was low, so done is 0 b/c nothing was written here
+            // in this vector i
+            // READ_DATA: (immediate), just the old value b/c write was unsuccessful
+            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
+            vec![
+                (ir::Id::from("read_data"), old.into()),
+                (ir::Id::from("done"), Value::zeroes(1).into()),
+            ]
+        }
+    }
+}
 
 /// A Standard Register of a certain [width].
 /// Rules regarding cycle count, such as asserting [done] for just one cycle after a write, must be
@@ -194,21 +686,6 @@ impl StdReg {
             width,
             val: Value::new(width as usize),
         }
-    }
-
-    /// Sets value in register, only if [write_en] is high.
-    /// # Example
-    /// ```
-    /// let reg_16 = StdReg::new(16);
-    /// let val_6_16bit = Value::try_from_init(6, 16).unwrap();
-    /// reg_16.load_value(val_6_16bit);
-    /// ```
-    /// # Panic
-    /// * panics if width of [input] != self.width
-    pub fn load_value(&mut self, input: Value) {
-        check_widths(&input, &input, self.width);
-
-        self.val = input.truncate(self.width.try_into().unwrap())
     }
 
     /// Reads the value from the register. Makes no guarantee on the validity
@@ -261,10 +738,10 @@ impl ExecuteStateful for StdReg {
                 ),
             ]
         } else {
-            //if write_en was low, so done is 0 b/c nothing was written here
-            //in this vector i
-            //OUT: the old value in the register, b/c we couldn't write
-            //DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
+            // if write_en was low, so done is 0 b/c nothing was written here
+            // in this vector i
+            // OUT: the old value in the register, b/c we couldn't write
+            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
             vec![
                 (ir::Id::from("out"), self.val.clone().into()),
                 (ir::Id::from("done"), Value::zeroes(1).into()),
@@ -289,7 +766,7 @@ impl StdConst {
     /// ```
     ///
     /// # Panics
-    /// * Panics if [val] != [width]
+    /// * Panics if [val]'s width != [width]
     pub fn new(width: u64, val: Value) -> StdConst {
         check_widths(&val, &val, width);
         StdConst { width, val: val }
@@ -332,7 +809,7 @@ impl StdLsh {
     /// Instantiate a new StdLsh of a specific width
     /// # Example
     /// ```
-    /// let std_lsh_16_bit = StdLsh::new(16)
+    /// let std_lsh_16_bit = StdLsh::new(16);
     /// ```
     pub fn new(width: u64) -> StdLsh {
         StdLsh { width }
@@ -525,7 +1002,7 @@ impl StdSlice {
     ///
     /// # Example
     /// ```
-    /// let std_slice_6_to_4 = StdSlice::new(6, 4)
+    /// let std_slice_6_to_4 = StdSlice::new(6, 4);
     /// ```
     pub fn new(in_width: u64, out_width: u64) -> StdSlice {
         StdSlice {
@@ -541,7 +1018,7 @@ impl ExecuteUnary for StdSlice {
     /// ```
     /// let val_5_3bits = Value::try_from_init(5, 3); // 5 = [101]
     /// let std_slice_3_to_2 = StdSlice::new(3, 2);
-    /// let val_1_2bits = std_slice_1_to_2.execute_unary(val_5_3bits) // 1 = [01]
+    /// let val_1_2bits = std_slice_1_to_2.execute_unary(val_5_3bits); // 1 = [01]
     /// ```
     ///
     /// # Panics
@@ -587,7 +1064,7 @@ impl ExecuteUnary for StdPad {
     /// ```
     /// let val_5_3bits = Value::try_from_init(5, 3); // 5 = [101]
     /// let std_pad_3_to_5 = StdPad::new(3, 5);
-    /// let val_5_5bits = std_pad_3_to_5.execute_unary(val_5_3bits) // 5 = [00101]
+    /// let val_5_5bits = std_pad_3_to_5.execute_unary(val_5_3bits); // 5 = [00101]
     /// ```
     ///
     /// # Panics
@@ -626,7 +1103,7 @@ impl ExecuteUnary for StdNot {
     /// let val_5_3bits = Value::try_from_init(5, 3); // 5 = [101]
     /// let std_not_3bit = StdNot::new(3);
     /// let val_2_3bits = std_not_3bits.execute_unary(val_5_3bits);
-    /// assert_eq!(val_2_3bits.as_u64(), 2)
+    /// assert_eq!(val_2_3bits.as_u64(), 2);
     /// ```
     ///
     /// # Panics

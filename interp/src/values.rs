@@ -108,7 +108,7 @@ impl Value {
     ///
     /// # Example:
     /// ```
-    /// let val_4_16 = (Value::try_from_init(4, 4).unwrap()).ext(16)
+    /// let val_4_16 = (Value::try_from_init(4, 4).unwrap()).ext(16);
     /// ```
     pub fn ext(&self, ext: usize) -> Value {
         let mut vec = self.vec.clone();
@@ -123,7 +123,7 @@ impl Value {
     /// # Example:
     /// ```
     /// // [1111] -> [11111]. In 2'sC these are both -1
-    /// let val_31_5 = (Value::try_from_init(15, 4).unwrap()).sext(5)
+    /// let val_31_5 = (Value::try_from_init(15, 4).unwrap()).sext(5);
     /// ```
     pub fn sext(&self, ext: usize) -> Value {
         let mut vec = self.vec.clone();
@@ -138,7 +138,7 @@ impl Value {
     ///
     /// # Example
     /// ```
-    /// let unsign_64_16 = (Value::try_from_init(16, 16).unwrap()).as_u64()
+    /// let unsign_64_16 = (Value::try_from_init(16, 16).unwrap()).as_u64();
     /// ```
     pub fn as_u64(&self) -> u64 {
         let mut val: u64 = 0;
@@ -179,20 +179,21 @@ impl std::fmt::Display for Value {
 pub struct TimeLockedValue {
     value: Value,
     count: u64,
-    pub readable_value: Option<Value>, //diff from value, this is intermediate value
-                                       //example: done is 0 until count is 0 then it is 1
+    pub old_value: Option<Value>, //diff from value, this is intermediate value
+                                  //example: done is 0 until count is 0 then it is 1
+                                  //can just access this directly
 }
 
 impl TimeLockedValue {
     pub fn new(
         value: Value,
         count: u64,
-        readable_value: Option<Value>,
+        old_value: Option<Value>,
     ) -> TimeLockedValue {
         TimeLockedValue {
             value,
             count,
-            readable_value,
+            old_value, //what is this again? if a read is requested at time T the value read is the value before time T
         }
     }
 
