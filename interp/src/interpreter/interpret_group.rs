@@ -45,10 +45,9 @@ impl<'a> DependencyMap<'a> {
 
 type WorkList<'a> = HashSet<&'a ir::Assignment>;
 
+// possibly #[inline] here later? Compiler probably knows to do that already
 fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
-    group
-        .find(&"done")
-        .unwrap_or_else(|| panic!("Group {} has no done port?", group.name()))
+    group.get(&"done")
 }
 
 /// Get the name of the component to interpret from the context.
