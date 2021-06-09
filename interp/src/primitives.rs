@@ -1,7 +1,7 @@
 //! Defines update methods for the various primitive cells in the Calyx
 // standard library.
 use super::environment::Environment;
-use super::values::Value;
+use super::values::{OutputValue, TimeLockedValue, Value};
 use calyx::{errors::FutilResult, ir};
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -39,11 +39,14 @@ pub enum Primitive {
 /// let not_one = std_not.execute_unary(&(Value::try_from_init(1, 5).unwrap()));
 /// ```
 pub trait ExecuteUnary {
-    fn execute_unary(&self, input: &Value) -> Value;
+    fn execute_unary(&self, input: &Value) -> OutputValue;
 
     /// Default implementation of [execute] for all unary components
-    /// Unwraps inputs, then sends output based on [execute unary]
-    fn execute(&self, inputs: &[(ir::Id, Value)]) -> Vec<(ir::Id, Value)> {
+    /// Unwraps inputs, then sends output based on [execute_unary]
+    fn execute(
+        &self,
+        inputs: &[(ir::Id, Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
         let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
         vec![(ir::Id::from("out"), self.execute_unary(input))]
     }
@@ -61,13 +64,14 @@ pub trait ExecuteUnary {
 /// )
 /// ```
 pub trait ExecuteBinary {
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value;
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue;
 
+    /// Default implementation of [execute] for all binary components
+    /// Unwraps inputs (left and right), then sends output based on [execute_bin]
     fn execute<'a>(
         &self,
         inputs: &'a [(ir::Id, Value)],
-        _outputs: &'a [(ir::Id, Value)],
-    ) -> Vec<(ir::Id, Value)> {
+    ) -> Vec<(ir::Id, OutputValue)> {
         let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
 
         let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
@@ -82,18 +86,18 @@ pub trait Execute {
     fn execute<'a>(
         &self,
         inputs: &'a [(ir::Id, Value)],
-        outputs: &'a [(ir::Id, Value)],
-    ) -> Vec<(ir::Id, Value)>;
+    ) -> Vec<(ir::Id, OutputValue)>;
 }
 
 /// ExecuteStateful is a trait implemnted by primitive components such as
 /// StdReg and StdMem (D1 -- D4), allowing their state to be modified.
 pub trait ExecuteStateful {
+    /// Use execute_mut to modify the state of a stateful component.
+    /// No restrictions on exactly how the input(s) look
     fn execute_mut<'a>(
         &mut self,
         inputs: &'a [(ir::Id, Value)],
-        outputs: &'a [(ir::Id, Value)],
-    ) -> Vec<(ir::Id, Value)>;
+    ) -> Vec<(ir::Id, OutputValue)>;
 }
 
 /// Ensures the input values are of the appropriate widths, else panics.
@@ -218,23 +222,54 @@ impl StdReg {
     }
 }
 
+// fn execute_mut<'a>(
+//     &mut self,
+//     inputs: &'a [(ir::Id, Value)],
+// ) -> Vec<(ir::Id, OutputValue)>;
+
 impl ExecuteStateful for StdReg {
     fn execute_mut(
         //have to put lifetimes
         &mut self,
-        inputs: &'a [(ir::Id, Value)],
-        outputs: &'a [(ir::Id, Value)],
-    ) -> Vec<(ir::Id, Value)> {
+        inputs: &[(ir::Id, Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
         //unwrap the arguments
         let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
         let (_, write_en) =
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
-        //write the data to the register
+        //write the input to the register
         if write_en.as_u64() == 1 {
-            self.data = input;
+            let old = self.val;
+            self.val = input.clone();
+            // what's in this vector:
+            // the "out" -- TimeLockedValue ofthe new register data. Needs 1 cycle before readable
+            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
+            // all this coordination is done by the interpreter. We just set it up correctly
+            vec![
+                (
+                    ir::Id::from("out"),
+                    TimeLockedValue::new(self.val.clone(), 1, Some(old)).into(),
+                ),
+                (
+                    ir::Id::from("done"),
+                    TimeLockedValue::new(
+                        Value::from_init(1: u16, 1: u16),
+                        1,
+                        Some(Value::zeroes(1)),
+                    )
+                    .into(),
+                ),
+            ]
+        } else {
+            //if write_en was low, so done is 0 b/c nothing was written here
+            //in this vector i
+            //OUT: the old value in the register, b/c we couldn't write
+            //DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
+            vec![
+                (ir::Id::from("out"), self.val.clone().into()),
+                (ir::Id::from("done"), Value::zeroes(1).into()),
+            ]
         }
-        //return what was written
-        vec![(ir::Id::from("out"), input)]
     }
 }
 
@@ -316,11 +351,11 @@ impl ExecuteBinary for StdLsh {
     /// # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let mut tr = left.vec.clone();
         tr.shift_right(right.as_u64() as usize);
-        Value { vec: tr }
+        Value { vec: tr }.into()
     }
 }
 
@@ -363,11 +398,11 @@ impl ExecuteBinary for StdRsh {
     /// # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let mut tr = left.vec.clone();
         tr.shift_left(right.as_u64() as usize);
-        Value { vec: tr }
+        Value { vec: tr }.into()
     }
 }
 
@@ -407,13 +442,13 @@ impl ExecuteBinary for StdAdd {
     /// # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 + right_64;
         let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val, bitwidth)
+        Value::from_init(init_val, bitwidth).into()
     }
 }
 
@@ -458,7 +493,7 @@ impl ExecuteBinary for StdSub {
     /// # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         // Bitwise subtraction: left - right = left + (!right + 1)
@@ -469,7 +504,7 @@ impl ExecuteBinary for StdSub {
         //need to allow overflow -- we are dealing only with bits
         let init_val = left_64 + right_64;
         let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val, bitwidth)
+        Value::from_init(init_val, bitwidth).into()
     }
 }
 
@@ -512,10 +547,10 @@ impl ExecuteUnary for StdSlice {
     /// # Panics
     /// * panics if input's width and self.width are not equal
     ///
-    fn execute_unary(&self, input: &Value) -> Value {
+    fn execute_unary(&self, input: &Value) -> OutputValue {
         check_widths(input, input, self.in_width);
         let tr = input.clone();
-        tr.truncate(self.out_width as usize)
+        tr.truncate(self.out_width as usize).into()
     }
 }
 
@@ -558,10 +593,10 @@ impl ExecuteUnary for StdPad {
     /// # Panics
     /// * panics if input's width and self.width are not equal
     ///
-    fn execute_unary(&self, input: &Value) -> Value {
+    fn execute_unary(&self, input: &Value) -> OutputValue {
         check_widths(input, input, self.in_width);
         let pd = input.clone();
-        pd.ext(self.out_width as usize)
+        pd.ext(self.out_width as usize).into()
     }
 }
 
@@ -597,11 +632,12 @@ impl ExecuteUnary for StdNot {
     /// # Panics
     /// * panics if input's width and self.width are not equal
     ///
-    fn execute_unary<'a>(&self, input: &Value) -> Value {
+    fn execute_unary<'a>(&self, input: &Value) -> OutputValue {
         check_widths(input, input, self.width);
         Value {
             vec: input.vec.clone().not(),
         }
+        .into()
     }
 }
 
@@ -639,11 +675,12 @@ impl ExecuteBinary for StdAnd {
     /// let val_0_3 = std_and_3bit.execute_bin(&val_5_3, &val_2_3);
     /// assert_eq!(val_0_3.as_u64(), 0);
     /// ```
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         Value {
             vec: left.vec.clone() & right.vec.clone(),
         }
+        .into()
     }
 }
 
@@ -676,11 +713,12 @@ impl ExecuteBinary for StdOr {
     /// let val_7_3 = std_or_3bit.execute_bin(&val_5_3, &val_2_3);
     /// assert_eq!(val_7_3.as_u64(), 7);
     /// ```
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         Value {
             vec: left.vec.clone() | right.vec.clone(),
         }
+        .into()
     }
 }
 
@@ -713,11 +751,12 @@ impl ExecuteBinary for StdXor {
     /// let val_5_3 = std_xor_3bit.execute_bin(&val_7_3, &val_2_3);
     /// assert_eq!(val_5_3.as_u64(), 5);
     /// ```
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         Value {
             vec: left.vec.clone() ^ right.vec.clone(),
         }
+        .into()
     }
 }
 
@@ -753,13 +792,13 @@ impl ExecuteBinary for StdGt {
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 > right_64;
 
-        Value::from_init(init_val, 1 as usize)
+        Value::from_init(init_val, 1 as usize).into()
     }
 }
 
@@ -794,13 +833,13 @@ impl ExecuteBinary for StdLt {
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 < right_64;
 
-        Value::from_init(init_val, 1 as usize)
+        Value::from_init(init_val, 1 as usize).into()
     }
 }
 
@@ -839,13 +878,13 @@ impl ExecuteBinary for StdEq {
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 == right_64;
 
-        Value::from_init(init_val, 1 as usize)
+        Value::from_init(init_val, 1 as usize).into()
     }
 }
 
@@ -885,12 +924,12 @@ impl ExecuteBinary for StdNeq {
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 != right_64;
-        Value::from_init(init_val, 1 as usize)
+        Value::from_init(init_val, 1 as usize).into()
     }
 }
 
@@ -927,13 +966,13 @@ impl ExecuteBinary for StdGe {
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 >= right_64;
 
-        Value::from_init(init_val, 1 as usize)
+        Value::from_init(init_val, 1 as usize).into()
     }
 }
 
@@ -968,12 +1007,12 @@ impl ExecuteBinary for StdLe {
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
-    fn execute_bin(&self, left: &Value, right: &Value) -> Value {
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 <= right_64;
-        Value::from_init(init_val, 1 as usize)
+        Value::from_init(init_val, 1 as usize).into()
     }
 }
 

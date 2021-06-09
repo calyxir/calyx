@@ -174,16 +174,66 @@ impl std::fmt::Display for Value {
     }
 }
 
-// example: output of a register will be a TimeLockedValue with a count of 1, 
+// example: output of a register will be a TimeLockedValue with a count of 1,
 // because the new data in the register is only available at the start of the next clock cycle.
 pub struct TimeLockedValue {
     value: Value,
     count: u64,
-    pub readable_value: Option<Value>
+    pub readable_value: Option<Value>, //diff from value, this is intermediate value
+                                       //example: done is 0 until count is 0 then it is 1
 }
 
 impl TimeLockedValue {
-    pub fn dec_count(&m) {
-        
+    pub fn new(
+        value: Value,
+        count: u64,
+        readable_value: Option<Value>,
+    ) -> TimeLockedValue {
+        TimeLockedValue {
+            value,
+            count,
+            readable_value,
+        }
+    }
+
+    pub fn dec_count(&mut self) {
+        self.count -= 1
+    }
+
+    pub fn unlockable(&self) -> bool {
+        self.count == 0
+    }
+
+    pub fn unlock(self) -> Value {
+        if self.unlockable() {
+            self.value
+        } else {
+            panic!("Value cannot be unlocked")
+        }
+    }
+
+    pub fn try_unlock(self) -> OutputValue {
+        if self.unlockable() {
+            OutputValue::ImmediateValue(self.value)
+        } else {
+            OutputValue::LockedValue(self)
+        }
+    }
+}
+
+pub enum OutputValue {
+    ImmediateValue(Value),
+    LockedValue(TimeLockedValue),
+}
+
+impl From<Value> for OutputValue {
+    fn from(input: Value) -> Self {
+        OutputValue::ImmediateValue(input)
+    }
+}
+
+impl From<TimeLockedValue> for OutputValue {
+    fn from(input: TimeLockedValue) -> Self {
+        OutputValue::LockedValue(input)
     }
 }
