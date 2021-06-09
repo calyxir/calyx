@@ -1,6 +1,7 @@
 //! Representation for structure (wires and cells) in a Calyx program.
 use super::{Attributes, GetAttributes, Guard, Id, RRC, WRC};
 use smallvec::SmallVec;
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 /// Direction of a port on a cell.
@@ -236,6 +237,20 @@ pub struct Assignment {
     /// The guard for this assignment.
     pub guard: Box<Guard>,
 }
+
+impl Hash for Assignment {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (self as *const Assignment).hash(state);
+    }
+}
+
+impl PartialEq for Assignment {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(self, other)
+    }
+}
+
+impl Eq for Assignment {}
 
 /// A Group of assignments that perform a logical action.
 #[derive(Debug)]
