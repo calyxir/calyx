@@ -44,6 +44,8 @@ impl<'a> DependencyMap<'a> {
     }
 }
 
+type WorkList<'a> = HashSet<&'a ir::Assignment>;
+
 /// Get the name of the component to interpret from the context.
 fn _get_component(
     ctx: ir::Context,
