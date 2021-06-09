@@ -207,6 +207,126 @@ impl Environment {
                             Primitive::StdLsh(lsh),
                         );
                     }
+                    "std_rsh" => {
+                        let width = Environment::get_width(&cl.ports);
+                        let rsh = primitives::StdRsh::new(width);
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdRsh(rsh),
+                        );
+                    }
+                    "std_sub" => {
+                        let width = Environment::get_width(&cl.ports);
+                        let sub = primitives::StdSub::new(width);
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdSub(sub),
+                        );
+                    }
+                    //add panics
+                    "std_slice" => {
+                        let slc = primitives::StdSlice::new(
+                            *&cl.ports[0].borrow().width,
+                            *&cl.ports[1].borrow().width,
+                        );
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdSlice(slc),
+                        );
+                    }
+                    "std_pad" => {
+                        let pad = primitives::StdPad::new(
+                            *&cl.ports[0].borrow().width,
+                            *&cl.ports[1].borrow().width,
+                        );
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdPad(pad),
+                        );
+                    }
+                    "std_not" => {
+                        let not = primitives::StdNot::new(
+                            *&cl.ports[0].borrow().width,
+                        );
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdNot(not),
+                        );
+                    }
+                    "std_and" => {
+                        let and = primitives::StdAnd::new(
+                            *&cl.ports[0].borrow().width,
+                        );
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdAnd(and),
+                        );
+                    }
+                    "std_or" => {
+                        let or = primitives::StdOr::new(
+                            *&cl.ports[0].borrow().width,
+                        );
+                        map.insert(cl as *const ir::Cell, Primitive::StdOr(or));
+                    }
+                    "std_xor" => {
+                        let xor = primitives::StdXor::new(
+                            *&cl.ports[0].borrow().width,
+                        );
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdXor(xor),
+                        );
+                    }
+                    "std_ge" => {
+                        let ge = primitives::StdGe::new(
+                            *&cl.ports[0].borrow().width,
+                        );
+                        map.insert(cl as *const ir::Cell, Primitive::StdGe(ge));
+                    }
+                    "std_gt" => {
+                        let gt = primitives::StdGt::new(
+                            *&cl.ports[0].borrow().width,
+                        );
+                        map.insert(cl as *const ir::Cell, Primitive::StdGt(gt));
+                    }
+                    "std_eq" => {
+                        let eq = primitives::StdEq::new(
+                            *&cl.ports[0].borrow().width,
+                        );
+                        map.insert(cl as *const ir::Cell, Primitive::StdEq(eq));
+                    }
+                    "std_neq" => {
+                        let neq = primitives::StdNeq::new(
+                            *&cl.ports[0].borrow().width,
+                        );
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdNeq(neq),
+                        );
+                    }
+                    "std_le" => {
+                        let le = primitives::StdLe::new(
+                            *&cl.ports[0].borrow().width,
+                        );
+                        map.insert(cl as *const ir::Cell, Primitive::StdLe(le));
+                    }
+                    "std_lt" => {
+                        let lt = primitives::StdLt::new(
+                            *&cl.ports[0].borrow().width,
+                        );
+                        map.insert(cl as *const ir::Cell, Primitive::StdLt(lt));
+                    }
+                    "std_mem_d1" => {
+                        let m1 = primitives::StdMemD1::new(
+                            *&cl.ports[0].borrow().width,
+                            *&cl.ports[1].borrow().width,
+                            *&cl.ports[2].borrow().width,
+                        );
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdMemD1(m1),
+                        );
+                    }
                 }
             }
         }
