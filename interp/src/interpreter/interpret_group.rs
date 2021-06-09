@@ -48,7 +48,7 @@ type WorkList<'a> = HashSet<&'a ir::Assignment>;
 fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
     group
         .find(&"done")
-        .expect(&format!("Group {} has no done port?", group.name()))
+        .unwrap_or_else(|| panic!("Group {} has no done port?", group.name()))
 }
 
 /// Get the name of the component to interpret from the context.
