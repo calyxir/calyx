@@ -8,7 +8,8 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ops::*;
 
-pub enum Primitve {
+#[derive(Clone, Debug)]
+pub enum Primitive {
     StdAdd(StdAdd),
     StdReg(StdReg),
     StdConst(StdConst),
@@ -107,6 +108,7 @@ fn check_widths(left: &Value, right: &Value, width: u64) -> () {
 ///              with respect to addr0.
 /// * done: 1 - The done signal for the memory. This signal goes high for one
 ///         cycle after finishing a write to the memory.
+#[derive(Clone, Debug)]
 pub struct StdMemD1 {
     pub width: u64,    // size of individual piece of mem
     pub size: u64,     // # slots of mem
@@ -149,6 +151,7 @@ impl StdMemD4 {}
 /// Rules regarding cycle count, such as asserting [done] for just one cycle after a write, must be
 /// enforced and carried out by the interpreter. This register only ensures no writes
 /// occur while [write_en] is low.
+#[derive(Clone, Debug)]
 pub struct StdReg {
     pub width: u64,
     pub val: Value,
@@ -218,6 +221,7 @@ impl StdReg {
 
 /// A component that keeps one value, that can't be rewritten. Is immutable,
 /// and instantiated with the value it holds, which must have the same # of bits as [width].
+#[derive(Clone, Debug)]
 pub struct StdConst {
     width: u64,
     val: Value,
@@ -265,7 +269,7 @@ impl StdConst {
 ///right: WIDTH - A WIDTH-bit value representing the shift amount
 ///Outputs:
 ///out: WIDTH - A WIDTH-bit value equivalent to LEFT << RIGHT
-
+#[derive(Clone, Debug)]
 pub struct StdLsh {
     width: u64,
 }
@@ -311,7 +315,7 @@ impl ExecuteBinary for StdLsh {
 /// Outputs:
 
 /// out: WIDTH - A WIDTH-bit value equivalent to LEFT >> RIGHT
-
+#[derive(Clone, Debug)]
 pub struct StdRsh {
     width: u64,
 }
@@ -355,6 +359,7 @@ impl ExecuteBinary for StdRsh {
 //right: WIDTH - A WIDTH-bit value
 //Outputs:
 //out: WIDTH - A WIDTH-bit value equivalent to LEFT + RIGHT
+#[derive(Clone, Debug)]
 pub struct StdAdd {
     width: u64,
 }
@@ -400,7 +405,7 @@ impl ExecuteBinary for StdAdd {
 /// right: WIDTH - A WIDTH-bit value
 /// Outputs:
 /// out: WIDTH - A WIDTH-bit value equivalent to LEFT - RIGHT
-
+#[derive(Clone, Debug)]
 pub struct StdSub {
     width: u64,
 }
@@ -455,6 +460,7 @@ impl ExecuteBinary for StdSub {
 /// in: IN_WIDTH - An IN_WIDTH-bit value
 /// Outputs:
 /// out: OUT_WIDTH - The lower (from LSB towards MSB) OUT_WIDTH bits of in
+#[derive(Clone, Debug)]
 pub struct StdSlice {
     in_width: u64,
     out_width: u64,
@@ -500,6 +506,7 @@ impl ExecuteUnary for StdSlice {
 /// in: IN_WIDTH - An IN_WIDTH-bit value to be padded
 /// Outputs:
 /// out: OUT_WIDTH - The paddwd width
+#[derive(Clone, Debug)]
 pub struct StdPad {
     in_width: u64,
     out_width: u64,
@@ -546,6 +553,7 @@ impl ExecuteUnary for StdPad {
 /// in: WIDTH - A WIDTH-bit input.
 /// Outputs:
 /// out: WIDTH - The bitwise NOT of the input (~in)
+#[derive(Clone, Debug)]
 pub struct StdNot {
     width: u64,
 }
@@ -586,6 +594,7 @@ impl ExecuteUnary for StdNot {
 /// Outputs:
 
 // out: WIDTH - The bitwise AND of the arguments (left & right)
+#[derive(Clone, Debug)]
 pub struct StdAnd {
     width: u64,
 }
@@ -626,6 +635,7 @@ impl ExecuteBinary for StdAnd {
 /// right: WIDTH - A WIDTH-bit argument
 /// Outputs:
 /// out: WIDTH - The bitwise OR of the arguments (left | right)
+#[derive(Clone, Debug)]
 pub struct StdOr {
     width: u64,
 }
@@ -662,6 +672,7 @@ impl ExecuteBinary for StdOr {
 /// right: WIDTH - A WIDTH-bit argument
 /// Outputs:
 /// out: WIDTH - The bitwise XOR of the arguments (left ^ right)
+#[derive(Clone, Debug)]
 pub struct StdXor {
     width: u64,
 }
@@ -699,6 +710,7 @@ impl ExecuteBinary for StdXor {
 /// right: WIDTH - A WIDTH-bit argument
 /// Outputs:
 /// out: 1 - A single bit output. 1 if left > right else 0.
+#[derive(Clone, Debug)]
 pub struct StdGt {
     width: u64,
 }
@@ -739,6 +751,7 @@ impl ExecuteBinary for StdGt {
 /// right: WIDTH - A WIDTH-bit argument
 /// Outputs:
 /// out: 1 - A single bit output. 1 if left < right else 0.
+#[derive(Clone, Debug)]
 pub struct StdLt {
     width: u64,
 }
@@ -779,6 +792,7 @@ impl ExecuteBinary for StdLt {
 /// right: WIDTH - A WIDTH-bit argument
 /// Outputs:
 /// out: 1 - A single bit output. 1 if left = right else 0.
+#[derive(Clone, Debug)]
 pub struct StdEq {
     width: u64,
 }
@@ -824,6 +838,7 @@ impl ExecuteBinary for StdEq {
 /// Outputs:
 /// out: 1 - A single bit output. 1 if left != right else 0.
 ///
+#[derive(Clone, Debug)]
 pub struct StdNeq {
     width: u64,
 }
@@ -867,6 +882,7 @@ impl ExecuteBinary for StdNeq {
 /// right: WIDTH - A WIDTH-bit argument
 /// Outputs:
 /// out: 1 - A single bit output. 1 if left >= right else 0.
+#[derive(Clone, Debug)]
 pub struct StdGe {
     width: u64,
 }
@@ -909,6 +925,7 @@ impl ExecuteBinary for StdGe {
 /// right: WIDTH - A WIDTH-bit argument
 /// Outputs:
 /// out: 1 - A single bit output. 1 if left <= right else 0.
+#[derive(Clone, Debug)]
 pub struct StdLe {
     width: u64,
 }

@@ -1,6 +1,6 @@
 //! Environment for interpreter.
 
-use super::{primitives, values::try_from_init, values::Value};
+use super::{primitives, values::Value};
 use calyx::{errors::FutilResult, ir, ir::CloneName};
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -131,7 +131,7 @@ pub struct Environment {
     pub clk: u64,
 
     ///mapping from cells to prims
-    ///pub cprim_map: HashMap<ir::Cell, >
+    pub cell_prim_map: HashMap<*const ir::Cell, primitives::Primitive>,
 
     ///use raw pointers for hashmap: ports to values
     pub pv_map: HashMap<*const ir::Port, Value>,
@@ -167,10 +167,7 @@ impl Environment {
                             let pt: &ir::Port = &port.borrow();
                             map.insert(
                                 pt as *const ir::Port,
-                                Value::from_init::<usize>(
-                                    (*val as usize).try_into().unwrap(),
-                                    (*width as usize).try_into().unwrap(),
-                                ),
+                                Value::try_from_init(*val, *width).unwrap(),
                             );
                         }
                     }
@@ -183,7 +180,15 @@ impl Environment {
                             );
                         }
                     }
-                    ir::CellType::Component { .. } => {}
+                    ir::CellType::Component { .. } => {
+                        for port in &cll.ports {
+                            let pt: &ir::Port = &port.borrow();
+                            map.insert(
+                                pt as *const ir::Port,
+                                Value::try_from_init(0, 0).unwrap(),
+                            );
+                        }
+                    }
                     _ => panic!("impossible"),
                 }
             }
@@ -267,10 +272,7 @@ impl Environment {
                     ir::CellType::Constant { val, width } => {
                         ports.insert(
                             ir::Id::from("out"),
-                            Value::from_init::<usize>(
-                                (*val as usize).try_into().unwrap(),
-                                (*width as usize).try_into().unwrap(),
-                            ),
+                            Value::try_from_init(*val, *width).unwrap(),
                         );
                         cell_map.insert(cb.clone_name(), ports);
                     }
@@ -285,10 +287,8 @@ impl Environment {
                                 .unwrap_or(0); //std_const should be the only cell type with the "value" parameter
                             ports.insert(
                                 pb.name.clone(),
-                                Value::from_init::<usize>(
-                                    (initval as usize).try_into().unwrap(),
-                                    (pb.width as usize).try_into().unwrap(),
-                                ),
+                                Value::try_from_init(initval, pb.width)
+                                    .unwrap(),
                             );
                         }
                         cell_map.insert(cb.clone_name(), ports);
