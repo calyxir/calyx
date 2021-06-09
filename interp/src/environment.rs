@@ -1,6 +1,6 @@
 //! Environment for interpreter.
 
-use super::{primitives, values::Value};
+use super::{primitives, values::try_from_init, values::Value};
 use calyx::{errors::FutilResult, ir, ir::CloneName};
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -160,7 +160,32 @@ impl Environment {
                 //also iterate over groups cuz they also have ports
                 //iterate over ports, getting their value and putting into map
                 let cll = cell.borrow();
-                for port in &cll.ports {}
+                //for port in &cll.ports {}
+                match &cll.prototype {
+                    ir::CellType::Constant { val, width } => {
+                        for port in &cll.ports {
+                            let pt: &ir::Port = &port.borrow();
+                            map.insert(
+                                pt as *const ir::Port,
+                                Value::from_init::<usize>(
+                                    (*val as usize).try_into().unwrap(),
+                                    (*width as usize).try_into().unwrap(),
+                                ),
+                            );
+                        }
+                    }
+                    ir::CellType::Primitive { .. } => {
+                        for port in &cll.ports {
+                            let pt: &ir::Port = &port.borrow();
+                            map.insert(
+                                pt as *const ir::Port,
+                                Value::try_from_init(0, 0).unwrap(),
+                            );
+                        }
+                    }
+                    ir::CellType::Component { .. } => {}
+                    _ => panic!("impossible"),
+                }
             }
         }
         map
