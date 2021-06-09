@@ -1,11 +1,11 @@
 //! Environment for interpreter.
 
-use super::{primitives, values::Value};
+use super::{primitives, primitives::Primitive, values::Value};
 use calyx::{errors::FutilResult, ir, ir::CloneName};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::convert::TryInto;
+
 //use std::rc::Rc;
 
 #[derive(Clone, Debug)]
@@ -150,12 +150,82 @@ impl Environment {
             context: ctx.clone(),
             clk: 0,
             pv_map: Environment::construct_pv_map(&ctx.borrow()),
+            cell_prim_map: Environment::construct_cp_map(&ctx.borrow()),
         }
+    }
+
+    fn get_width(ports: &[ir::RRC<ir::Port>]) -> u64 {
+        let mut width = 0;
+        for port in ports {
+            width = port.borrow().width;
+        }
+        width
+    }
+
+    fn construct_cp_map(
+        ctx: &ir::Context,
+    ) -> HashMap<*const ir::Cell, primitives::Primitive> {
+        let mut map = HashMap::new();
+        for comp in &ctx.components {
+            for cell in comp.cells.iter() {
+                let cl: &ir::Cell = &cell.borrow();
+                match cl.name().id.as_str() {
+                    "std_add" => {
+                        let adder = primitives::StdAdd::new(
+                            Environment::get_width(&cl.ports),
+                        );
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdAdd(adder),
+                        );
+                    }
+                    "std_reg" => {
+                        let reg = primitives::StdReg::new(
+                            Environment::get_width(&cl.ports),
+                        );
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdReg(reg),
+                        );
+                    }
+                    "std_const" => {
+                        let width = Environment::get_width(&cl.ports);
+                        let cst = primitives::StdConst::new(
+                            width,
+                            Value::try_from_init(0, width).unwrap(),
+                        );
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdConst(cst),
+                        );
+                    }
+                    "std_lsh" => {
+                        let width = Environment::get_width(&cl.ports);
+                        let lsh = primitives::StdLsh::new(width);
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdLsh(lsh),
+                        );
+                    }
+                }
+            }
+        }
+        map
     }
 
     fn construct_pv_map(ctx: &ir::Context) -> HashMap<*const ir::Port, Value> {
         let mut map = HashMap::new();
         for comp in &ctx.components {
+            for group in comp.groups.iter() {
+                let grp = group.borrow();
+                for hole in &grp.holes {
+                    let pt: &ir::Port = &hole.borrow();
+                    map.insert(
+                        pt as *const ir::Port,
+                        Value::try_from_init(0, 0).unwrap(),
+                    );
+                }
+            }
             for cell in comp.cells.iter() {
                 //also iterate over groups cuz they also have ports
                 //iterate over ports, getting their value and putting into map
