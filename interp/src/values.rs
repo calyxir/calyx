@@ -173,3 +173,17 @@ impl std::fmt::Display for Value {
         write!(f, "{}", vec_rev)
     }
 }
+
+// example: output of a register will be a TimeLockedValue with a count of 1, 
+// because the new data in the register is only available at the start of the next clock cycle.
+pub struct TimeLockedValue {
+    value: Value,
+    count: u64,
+    pub readable_value: Option<Value>
+}
+
+impl TimeLockedValue {
+    pub fn dec_count(&m) {
+        
+    }
+}
