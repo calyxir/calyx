@@ -396,15 +396,16 @@ impl StdMemD3 {
         d2_idx_size: u64,
     ) -> StdMemD3 {
         let data =
-            vec![vec![
+            vec![
                 vec![
-                    Value::zeroes((width as usize).try_into().unwrap());
-                    (d2_size as usize).try_into().unwrap()
+                    vec![
+                        Value::zeroes((width as usize).try_into().unwrap());
+                        (d2_size as usize).try_into().unwrap()
+                    ];
+                    (d1_size as usize).try_into().unwrap()
                 ];
-                (d1_size as usize).try_into().unwrap()
-            ](d0_size as usize)
-            .try_into()
-            .unwrap()];
+                (d0_size as usize).try_into().unwrap()
+            ];
         StdMemD3 {
             width,
             d0_size,
@@ -548,19 +549,20 @@ impl StdMemD4 {
         d2_idx_size: u64,
         d3_idx_size: u64,
     ) -> StdMemD4 {
-        let data = vec![vec![vec![
+        let data =
             vec![
-                Value::zeroes(
-                    (width as usize).try_into().unwrap()
-                );
-                (d3_size as usize).try_into().unwrap()
+                vec![
+                    vec![
+                        vec![
+                            Value::zeroes((width as usize).try_into().unwrap());
+                            (d3_size as usize).try_into().unwrap()
+                        ];
+                        (d2_size as usize).try_into().unwrap()
+                    ];
+                    (d1_size as usize).try_into().unwrap()
+                ];
+                (d0_size as usize).try_into().unwrap()
             ];
-            (d2_size as usize).try_into().unwrap()
-        ](d1_size as usize)
-        .try_into()
-        .unwrap()](d0_size as usize)
-        .try_into()
-        .unwrap()];
         StdMemD4 {
             width,
             d0_size,

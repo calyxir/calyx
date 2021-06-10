@@ -101,23 +101,23 @@ impl UpdateQueue {
         self.updates.retain(|u| u.cell != ucell);
     }
 
-    /// Simulates a clock cycle by executing the stored updates.
-    pub fn do_tick(self, environment: Environment) -> FutilResult<Environment> {
-        let mut env = environment;
-        let uq = self.updates.clone();
-        // iterate through each update
-        for update in uq {
-            let updated = primitives::update_cell_state(
-                &update.cell,
-                &update.inputs,
-                &update.outputs,
-                &(env.clone()),
-                self.component.clone(),
-            )?;
-            env = updated.clone();
-        }
-        Ok(env)
-    }
+    // Simulates a clock cycle by executing the stored updates.
+    // pub fn do_tick(self, environment: Environment) -> FutilResult<Environment> {
+    //     let mut env = environment;
+    //     let uq = self.updates.clone();
+    //     // iterate through each update
+    //     for update in uq {
+    //         let updated = primitives::update_cell_state(
+    //             &update.cell,
+    //             &update.inputs,
+    //             &update.outputs,
+    //             &(env.clone()),
+    //             self.component.clone(),
+    //         )?;
+    //         env = updated.clone();
+    //     }
+    //     Ok(env)
+    // }
 }
 
 /// The environment to interpret a Calyx program.
@@ -125,7 +125,7 @@ impl UpdateQueue {
 pub struct Environment {
     /// Stores values of context.
     /// Maps component names to a mapping from the component's cell names to their ports' values.
-    pub map: HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, Value>>>,
+    //pub map: HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, Value>>>,
 
     ///clock count
     pub clk: u64,
@@ -146,7 +146,7 @@ impl Environment {
     /// ctx : A context from the IR
     pub fn init(ctx: &ir::RRC<ir::Context>) -> Self {
         Self {
-            map: Environment::construct_map(&ctx.borrow()),
+            //map: Environment::construct_map(&ctx.borrow()),
             context: ctx.clone(),
             clk: 0,
             pv_map: Environment::construct_pv_map(&ctx.borrow()),

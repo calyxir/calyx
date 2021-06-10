@@ -52,17 +52,18 @@ fn eval_if(
     comp: &ir::Id,
     mut env: Environment,
 ) -> FutilResult<Environment> {
-    //first set the environment for cond
-    env = interpret_group(&i.cond.borrow(), env, comp)?;
+    todo!()
+    // //first set the environment for cond
+    // env = interpret_group(&i.cond.borrow(), env, comp)?;
 
-    // if i.port is not high fbranch else tbranch
-    if env.get_from_port(&comp, &i.port.borrow()) == 0 {
-        env = interpret_control(&i.fbranch, comp, env)?;
-        Ok(env)
-    } else {
-        env = interpret_control(&i.tbranch, comp, env)?;
-        Ok(env)
-    }
+    // // if i.port is not high fbranch else tbranch
+    // if env.get_from_port(&comp, &i.port.borrow()) == 0 {
+    //     env = interpret_control(&i.fbranch, comp, env)?;
+    //     Ok(env)
+    // } else {
+    //     env = interpret_control(&i.tbranch, comp, env)?;
+    //     Ok(env)
+    // }
 }
 
 /// Interpret While
@@ -75,16 +76,17 @@ fn eval_while(
     comp: &ir::Id,
     mut env: Environment,
 ) -> FutilResult<Environment> {
-    // currently ports don't update properly in mutli-cycle and runs into infinite loop
-    // count needs to be removed when the infinite loop problem is fixed
-    let mut count = 0;
-    while env.get_from_port(&comp, &w.port.borrow()) != 1 && count < 5 {
-        env = interpret_control(&w.body, comp, env)?;
-        env = interpret_group(&w.cond.borrow(), env, comp)?;
-        // count needs to be remved
-        count += 1;
-    }
-    Ok(env)
+    todo!()
+    // // currently ports don't update properly in mutli-cycle and runs into infinite loop
+    // // count needs to be removed when the infinite loop problem is fixed
+    // let mut count = 0;
+    // while env.get_from_port(&comp, &w.port.borrow()) != 1 && count < 5 {
+    //     env = interpret_control(&w.body, comp, env)?;
+    //     env = interpret_group(&w.cond.borrow(), env, comp)?;
+    //     // count needs to be remved
+    //     count += 1;
+    // }
+    // Ok(env)
 }
 
 /// Interpret Invoke
