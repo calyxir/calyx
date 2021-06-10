@@ -1,4 +1,4 @@
-use calyx::ir::{Port, RRC};
+use calyx::ir::{Cell, Port, RRC};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
@@ -28,3 +28,15 @@ impl PartialEq for PortRef {
 }
 
 impl Eq for PortRef {}
+
+impl From<RRC<Port>> for PortRef {
+    fn from(input: RRC<Port>) -> Self {
+        Self(input)
+    }
+}
+
+impl From<&RRC<Port>> for PortRef {
+    fn from(input: &RRC<Port>) -> Self {
+        Self(input.clone())
+    }
+}
