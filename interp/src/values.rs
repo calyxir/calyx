@@ -255,6 +255,10 @@ impl TimeLockedValue {
     }
 }
 
+/// The return type for all primitive components. Combinational components
+/// return [ImmediateValue], which is a wrapper for [Value]. Sequential components
+/// such as registers and memories return [LockedValue], which contains a TimeLockedValue
+/// within it.
 #[derive(Clone, Debug)]
 pub enum OutputValue {
     ImmediateValue(Value),
@@ -262,18 +266,23 @@ pub enum OutputValue {
 }
 
 impl OutputValue {
+    /// Returns the Value contained within an ImmediateValue. Panics if
+    /// called on a LockedValue
     pub fn unwrap_imm(self) -> Value {
         match self {
             OutputValue::ImmediateValue(val) => val,
             _ => panic!("not an immediate value, cannot unwrap_imm"),
         }
     }
+    /// Returns the TimeLockedValue contained within a LockedValue. Panics if
+    /// called on a ImmediateValue
     pub fn unwrap_tlv(self) -> TimeLockedValue {
         match self {
             OutputValue::LockedValue(tlv) => tlv,
             _ => panic!("not a TimeLockedValue value, cannot unwrap_tlv"),
         }
     }
+
     pub fn is_imm(&self) -> bool {
         matches!(self, OutputValue::ImmediateValue(_))
     }

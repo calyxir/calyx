@@ -77,3 +77,6 @@
 //         Err(err) => FutilResult::Err(err),
 //     }
 // }
+fn main() {
+    todo!();
+}

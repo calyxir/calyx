@@ -26,6 +26,9 @@ pub enum Primitive {
     StdLe(StdLe),
     StdLt(StdLt),
     StdMemD1(StdMemD1),
+    StdMemD2(StdMemD2),
+    StdMemD3(StdMemD3),
+    StdMemD4(StdMemD4),
 }
 
 /// For unary operator components that only take in one input.
@@ -146,6 +149,10 @@ pub struct StdMemD1 {
 }
 
 impl StdMemD1 {
+    /// Instantiates a new StdMemD1 storing data of width [width], containing [size]
+    /// slots for memory, accepting indecies (addr0) of width [idx_size].
+    /// Note: if [idx_size] is smaller than the length of [size]'s binary representation,
+    /// you will not be able to access the slots near the end of the memory.
     pub fn new(width: u64, size: u64, idx_size: u64) -> StdMemD1 {
         let data = vec![
             Value::zeroes((width as usize).try_into().unwrap());
@@ -158,12 +165,40 @@ impl StdMemD1 {
             data,
         }
     }
-    //when do we read from StdMemD1, and how? How does this coordinate with the time locked value stuff?
-    //why does a write return a TimeLockedValue -- is that now what should be referred to as the value in the register,
-    //and we never actually request a read?
 }
 
 impl ExecuteStateful for StdMemD1 {
+    /// Takes a slice of tupules. This slice must contain the tupules ("write_data", Value),
+    /// ("write_en", Value), and ("addr0", Value). Attempts to write the [write_data] Value to
+    /// the memory at slot [addr0] if [write_en] is 1. Else does not modify the memory.
+    /// Returns a vector of outputs in this *guaranteed* order <("read_data", OutputValue), ("done", OutputValue)>,
+    /// The OutputValues are both LockedValues if [write_en] is 1. If [write_en] is
+    /// not 1 then the OutputValues are ImmediateValues, [done] being 0 and
+    /// [read_data] being whatever was stored in the memory at address [addr0]
+    /// # Example
+    /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
+    /// use calyx::ir;
+    ///
+    /// let mut std_memd1 = StdMemD1::new(1, 8, 3); //1-bit pieces of data, 8 pieces, need 3 bits to index the memory
+    /// let write_data = (ir::Id::from("write_data"), Value::try_from_init(1, 1).unwrap());
+    /// let write_en = (ir::Id::from("write_en"), Value::try_from_init(1, 1).unwrap());
+    /// let addr0 = (ir::Id::from("addr0"), Value::try_from_init(0, 3).unwrap());
+    /// let output_vals = std_memd1.execute_mut(&[write_data, write_en, addr0]);
+    /// let mut output_vals = output_vals.into_iter();
+    /// let (read_data, done) = (output_vals.next().unwrap(), output_vals.next().unwrap());
+    /// let mut rd = read_data.1.unwrap_tlv();
+    /// let mut d = done.1.unwrap_tlv();
+    /// assert_eq!(rd.get_count(), 1);
+    /// assert_eq!(d.get_count(), 1);
+    /// rd.dec_count(); d.dec_count();
+    /// assert!(rd.unlockable());
+    /// assert_eq!(rd.clone().unlock().as_u64(), Value::try_from_init(1, 1).unwrap().as_u64());
+    /// ```
+    /// # Panics
+    /// Panics if [write_data] is not the same width as self.width. Panics if the width of addr0 does not equal
+    /// self.idx_size.
     fn execute_mut(
         &mut self,
         inputs: &[(ir::Id, Value)],
@@ -256,6 +291,10 @@ pub struct StdMemD2 {
 }
 
 impl StdMemD2 {
+    /// Instantiates a new StdMemD2 storing data of width [width], containing
+    /// [d0_size] * [d1_size] slots for memory, accepting indecies [addr0][addr1] of widths
+    /// [d0_idx_size] and [d1_idx_size] respectively.
+    /// Initially the memory is filled with all 0s.
     pub fn new(
         width: u64,
         d0_size: u64,
@@ -283,6 +322,18 @@ impl StdMemD2 {
 }
 
 impl ExecuteStateful for StdMemD2 {
+    /// Takes a slice of tupules. This slice must contain the tupules ("write_data", Value),
+    /// ("write_en", Value), ("addr0", Value), and ("addr1", Value). Attempts to write the [write_data] Value to
+    /// the memory at slot [addr0][addr1] if [write_en] is 1. Else does not modify the memory.
+    /// Returns a vector of outputs in this *guaranteed* order <("read_data", OutputValue), ("done", OutputValue)>,
+    /// The OutputValues are both LockedValues if [write_en] is 1. If [write_en] is
+    /// not 1 then the OutputValues are ImmediateValues, [done] being 0 and
+    /// [read_data] being whatever was stored in the memory at address [addr0][addr1]
+    /// # Example
+    /// See example in StdMemD1
+    /// # Panics
+    /// Panics if [write_data] is not the same width as self.width. Panics if the width of addr0 does not equal
+    /// self.d0_idx_size. Panics if the width of addr1 does not equal self.d1_idx_size.
     fn execute_mut(
         &mut self,
         inputs: &[(ir::Id, Value)],
@@ -389,6 +440,10 @@ pub struct StdMemD3 {
 }
 
 impl StdMemD3 {
+    /// Instantiates a new StdMemD3 storing data of width [width], containing
+    /// [d0_size] * [d1_size] * [d2_size] slots for memory, accepting indecies [addr0][addr1][addr2] of widths
+    /// [d0_idx_size], [d1_idx_size], and [d2_idx_size] respectively.
+    /// Initially the memory is filled with all 0s.
     pub fn new(
         width: u64,
         d0_size: u64,
@@ -423,6 +478,19 @@ impl StdMemD3 {
 }
 
 impl ExecuteStateful for StdMemD3 {
+    /// Takes a slice of tupules. This slice must contain the tupules ("write_data", Value),
+    /// ("write_en", Value), ("addr0", Value), ("addr1", Value), and ("addr2", Value). Attempts to write the [write_data] Value to
+    /// the memory at slot [addr0][addr1][addr2] if [write_en] is 1. Else does not modify the memory.
+    /// Returns a vector of outputs in this *guaranteed* order <("read_data", OutputValue), ("done", OutputValue)>,
+    /// The OutputValues are both LockedValues if [write_en] is 1. If [write_en] is
+    /// not 1 then the OutputValues are ImmediateValues, [done] being 0 and
+    /// [read_data] being whatever was stored in the memory at address [addr0][addr1][addr2]
+    /// # Example
+    /// See example in StdMemD1
+    /// # Panics
+    /// Panics if [write_data] is not the same width as self.width. Panics if the width of addr0 does not equal
+    /// self.d0_idx_size. Panics if the width of addr1 does not equal self.d1_idx_size. Panics if the
+    /// width of addr2 does not equal self.d2_idx_size.
     fn execute_mut(
         &mut self,
         inputs: &[(ir::Id, Value)],
@@ -541,6 +609,10 @@ pub struct StdMemD4 {
 }
 
 impl StdMemD4 {
+    // Instantiates a new StdMemD3 storing data of width [width], containing
+    /// [d0_size] * [d1_size] * [d2_size] * [d3_size] slots for memory, accepting indecies [addr0][addr1][addr2][addr3] of widths
+    /// [d0_idx_size], [d1_idx_size], [d2_idx_size] and [d3_idx_size] respectively.
+    /// Initially the memory is filled with all 0s.
     pub fn new(
         width: u64,
         d0_size: u64,
@@ -582,6 +654,19 @@ impl StdMemD4 {
 }
 
 impl ExecuteStateful for StdMemD4 {
+    /// Takes a slice of tupules. This slice must contain the tupules ("write_data", Value),
+    /// ("write_en", Value), ("addr0", Value), ("addr1", Value), ("addr2", Value). Attempts to write the [write_data] Value to
+    /// the memory at slot [addr0][addr1][addr2] if [write_en] is 1. Else does not modify the memory.
+    /// Returns a vector of outputs in this *guaranteed* order <("read_data", OutputValue), ("done", OutputValue)>,
+    /// The OutputValues are both LockedValues if [write_en] is 1. If [write_en] is
+    /// not 1 then the OutputValues are ImmediateValues, [done] being 0 and
+    /// [read_data] being whatever was stored in the memory at address [addr0][addr1][addr2][addr3]
+    /// # Example
+    /// See example in StdMemD1
+    /// # Panics
+    /// Panics if [write_data] is not the same width as self.width. Panics if the width of addr0 does not equal
+    /// self.d0_idx_size. Panics if the width of addr1 does not equal self.d1_idx_size. Panics if the
+    /// width of addr2 does not equal self.d2_idx_size. Panics if the width of addr3 does not equal self.d3_idx_size.
     fn execute_mut(
         &mut self,
         inputs: &[(ir::Id, Value)],
