@@ -370,7 +370,7 @@ impl Environment {
                             cl.get_paramter("D3_IDX_SIZE").unwrap(),
                         );
                     }
-                    _ => panic!("Unknown primitive"),
+                    e => panic!("Unknown primitive {}", e),
                 }
             }
         }
