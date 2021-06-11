@@ -66,10 +66,9 @@ impl From<Environment> for WorkingEnvironment {
 impl WorkingEnvironment {
     fn get(&self, port: &ir::Port) -> OutputValueRef {
         let working_val = self.working_env.get(&(port as *const ir::Port));
-        if working_val.is_none() {
-            self.backing_env.get_from_port(port).into()
-        } else {
-            working_val.unwrap().into()
+        match working_val {
+            Some(v) => v.into(),
+            None => self.backing_env.get_from_port(port).into(),
         }
     }
 }
