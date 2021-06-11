@@ -1,4 +1,4 @@
-use calyx::ir::{Cell, Port, RRC};
+use calyx::ir::{Assignment, Cell, Port, RRC};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
@@ -38,5 +38,13 @@ impl From<RRC<Port>> for PortRef {
 impl From<&RRC<Port>> for PortRef {
     fn from(input: &RRC<Port>) -> Self {
         Self(input.clone())
+    }
+}
+
+pub(super) struct AssignmentRef<'a>(&'a Assignment);
+
+impl<'a> Hash for AssignmentRef<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (self.0 as *const Assignment).hash(state);
     }
 }
