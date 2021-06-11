@@ -3,7 +3,7 @@
 use super::{primitives, primitives::Primitive, values::Value};
 use calyx::{ir, ir::CloneName};
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 //use std::rc::Rc;
 
@@ -547,7 +547,23 @@ impl Serialize for Environment {
     where
         S: serde::Serializer,
     {
-        todo!()
+        let mut bmap = BTreeMap::new();
+        let ctx = *self.context.borrow();
+        for comp in ctx.components {
+            let mut inner_map = BTreeMap::new();
+            for cell in comp.cells.iter() {
+                let cl = *cell.borrow();
+                let mut cp_map = BTreeMap::new();
+                for port in cl.ports {
+                    let pt = *port.borrow();
+                    let val = self.get_from_port(&pt);
+                    cp_map.insert(pt.name.id, val.as_u64());
+                }
+                inner_map.insert(cl.name().id, cp_map);
+            }
+            bmap.insert(comp.name.id, inner_map);
+        }
+        bmap.serialize(serializer)
         // // use collect to make the nested hashmap a nested btreemap
         // let ordered: BTreeMap<_, _> = self
         //     .map
