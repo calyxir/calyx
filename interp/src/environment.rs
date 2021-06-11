@@ -388,51 +388,55 @@ impl Environment {
 
     /// Returns the value on a port, in a component's cell.
     // XXX(rachit): Deprecate this method in favor of `get_from_port`
-    pub fn get(
-        &self,
-        component: &ir::Id,
-        cell: &ir::Id,
-        port: &ir::Id,
-    ) -> Value {
-        self.map[component][cell][port]
-    }
+    // pub fn get(
+    //     &self,
+    //     component: &ir::Id,
+    //     cell: &ir::Id,
+    //     port: &ir::Id,
+    // ) -> Value {
+    //     self.map[component][cell][port]
+    // }
 
     /// Return the value associated with a component's port.
-    pub fn get_from_port(&self, component: &ir::Id, port: &ir::Port) -> Value {
-        if port.is_hole() {
-            panic!("Cannot get value from hole")
-        }
-        self.map[component][&port.get_parent_name()][&port.name]
+    pub fn get_from_port(
+        &self,
+        component: &ir::Id,
+        port: &*const ir::Port,
+    ) -> Value {
+        // if port.is_hole() {
+        //     panic!("Cannot get value from hole")
+        // }
+        self.pv_map[port]
     }
 
     /// Puts a mapping from component to cell to port to val into map.
-    pub fn put(
-        &mut self,
-        comp: &ir::Id,
-        cell: &ir::Id,
-        port: &ir::Id,
-        val: Value,
-    ) {
-        self.map
-            .entry(comp.clone())
-            .or_default()
-            .entry(cell.clone())
-            .or_default()
-            .insert(port.clone(), val);
-    }
+    // pub fn put(
+    //     &mut self,
+    //     comp: &ir::Id,
+    //     cell: &ir::Id,
+    //     port: &ir::Id,
+    //     val: Value,
+    // ) {
+    //     self.map
+    //         .entry(comp.clone())
+    //         .or_default()
+    //         .entry(cell.clone())
+    //         .or_default()
+    //         .insert(port.clone(), val);
+    // }
 
     /// Puts a mapping from component to cell to port to val into map.
     /// Should this function return the modified environment instead?
-    pub fn _put_cell(
-        &mut self,
-        comp: &ir::Id,
-        cellport: HashMap<ir::Id, Value>,
-    ) {
-        self.map
-            .entry(comp.clone())
-            .or_default()
-            .insert(comp.clone(), cellport);
-    }
+    // pub fn _put_cell(
+    //     &mut self,
+    //     comp: &ir::Id,
+    //     cellport: HashMap<ir::Id, Value>,
+    // ) {
+    //     self.map
+    //         .entry(comp.clone())
+    //         .or_default()
+    //         .insert(comp.clone(), cellport);
+    // }
 
     /// Gets the cell in a component based on the name;
     /// XXX: similar to find_cell in component.rs
@@ -501,6 +505,7 @@ impl Environment {
     }
 }
 
+//we have to rewrite the printer
 impl Serialize for Environment {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
