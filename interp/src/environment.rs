@@ -161,6 +161,10 @@ impl Environment {
         width
     }
 
+    pub fn insert(&mut self, port: *const ir::Port, value: Value) {
+        self.pv_map.insert(port, value);
+    }
+
     fn construct_cp_map(
         ctx: &ir::Context,
     ) -> HashMap<*const ir::Cell, primitives::Primitive> {

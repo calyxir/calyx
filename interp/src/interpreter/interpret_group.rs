@@ -97,6 +97,58 @@ impl WorkingEnvironment {
             }
         }
     }
+
+    fn do_tick(&mut self) -> Vec<*const ir::Port> {
+        self.backing_env.clk += 1;
+
+        let mut new_vals = vec![];
+        let mut w_env = std::mem::take(&mut self.working_env);
+
+        self.working_env = w_env
+            .drain()
+            .filter_map(|(port, val)| match val {
+                OutputValue::ImmediateValue(iv) => {
+                    self.backing_env.insert(port, iv);
+                    None
+                }
+                OutputValue::LockedValue(mut tlv) => {
+                    tlv.dec_count();
+                    if tlv.unlockable() {
+                        let iv = tlv.unlock();
+                        if iv != self.backing_env.pv_map[&port] {
+                            self.backing_env.insert(port, iv);
+                            new_vals.push(port)
+                        }
+                        None
+                    } else {
+                        Some((port, tlv.into()))
+                    }
+                }
+            })
+            .collect();
+        new_vals
+    }
+
+    fn collapse_env(mut self) -> Environment {
+        let working_env = self.working_env;
+
+        for (port, v) in working_env {
+            match v {
+                OutputValue::ImmediateValue(iv) => {
+                    self.backing_env.insert(port, iv)
+                }
+                OutputValue::LockedValue(tlv) => {
+                    if tlv.unlockable() {
+                        let iv = tlv.unlock();
+                        self.backing_env.insert(port, iv);
+                    } else {
+                        panic!("Group is done with invalid value?")
+                    }
+                }
+            }
+        }
+        self.backing_env
+    }
 }
 
 // possibly #[inline] here later? Compiler probably knows to do that already
@@ -161,9 +213,9 @@ fn grp_is_done(done: OutputValueRef) -> bool {
 /// Evaluates a group, given an environment.
 pub fn interpret_group(
     group: &ir::Group,
-    mut env: Environment,
+    env: Environment,
 ) -> FutilResult<Environment> {
-    let mut dependency_map =
+    let dependency_map =
         DependencyMap::from_assignments(group.assignments.iter());
     let grp_done = get_done_port(&group);
     let mut working_env: WorkingEnvironment = env.into();
@@ -199,13 +251,12 @@ pub fn interpret_group(
                     };
                     let new_assigments = dependency_map.get(&port.borrow());
 
-                    if cell.is_some() {
-                        exec_list.push(cell.unwrap());
+                    if let Some(cell) = cell {
+                        exec_list.push(cell);
                     }
 
-                    if new_assigments.is_some() {
-                        worklist
-                            .extend(new_assigments.unwrap().iter().cloned());
+                    if let Some(new_assigments) = new_assigments {
+                        worklist.extend(new_assigments.iter().cloned());
                     }
                 }
             }
@@ -257,11 +308,19 @@ pub fn interpret_group(
 
             working_env.backing_env.cell_prim_map = prim_map;
         } else {
-            // tick clock
+            let assigns: Vec<AssignmentRef> = working_env
+                .do_tick()
+                .into_iter()
+                .filter_map(|port| dependency_map.map.get(&port))
+                .flatten()
+                .cloned()
+                .collect();
+
+            worklist.extend(assigns.into_iter());
         }
     }
 
-    todo!()
+    Ok(working_env.collapse_env())
 }
 
 // XXX(karen): I think it will need another copy of environment for each
