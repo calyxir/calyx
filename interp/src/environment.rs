@@ -397,7 +397,7 @@ impl Environment {
     // }
 
     /// Return the value associated with a component's port.
-    pub fn get_from_port(&self, component: &ir::Id, port: &ir::Port) -> &Value {
+    pub fn get_from_port(&self, port: &ir::Port) -> &Value {
         // if port.is_hole() {
         //     panic!("Cannot get value from hole")
         // }

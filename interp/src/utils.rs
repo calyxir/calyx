@@ -1,7 +1,7 @@
+use crate::values::{OutputValue, TimeLockedValue, Value};
 use calyx::ir::{Assignment, Cell, Port, RRC};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
-
 pub(super) struct PortRef(RRC<Port>);
 
 impl Deref for PortRef {
@@ -69,5 +69,25 @@ impl<'a> Deref for AssignmentRef<'a> {
 
     fn deref(&self) -> &Self::Target {
         self.0
+    }
+}
+
+pub enum OutputValueRef<'a> {
+    ImmediateValue(&'a Value),
+    LockedValue(&'a TimeLockedValue),
+}
+
+impl<'a> From<&'a Value> for OutputValueRef<'a> {
+    fn from(input: &'a Value) -> Self {
+        Self::ImmediateValue(input)
+    }
+}
+
+impl<'a> From<&'a OutputValue> for OutputValueRef<'a> {
+    fn from(input: &'a OutputValue) -> Self {
+        match input {
+            OutputValue::ImmediateValue(val) => Self::ImmediateValue(val),
+            OutputValue::LockedValue(val) => Self::LockedValue(val),
+        }
     }
 }

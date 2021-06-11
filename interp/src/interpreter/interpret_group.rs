@@ -1,7 +1,8 @@
 //! Used for the command line interface.
 //! Only interprets a given group in a given component
 
-use crate::utils::AssignmentRef;
+use crate::utils::{AssignmentRef, OutputValueRef};
+use crate::values::{OutputValue, TimeLockedValue, Value};
 use crate::{environment::Environment, environment::UpdateQueue, primitives};
 use calyx::{
     errors::{Error, FutilResult},
@@ -44,7 +45,34 @@ impl<'a> DependencyMap<'a> {
     }
 }
 
-type WorkList<'a> = HashSet<&'a ir::Assignment>;
+type WorkList<'a> = HashSet<AssignmentRef<'a>>;
+
+type PortOutputValMap = HashMap<*const ir::Port, OutputValue>;
+
+struct WorkingEnvironment {
+    backing_env: Environment,
+    working_env: PortOutputValMap,
+}
+
+impl From<Environment> for WorkingEnvironment {
+    fn from(input: Environment) -> Self {
+        Self {
+            working_env: PortOutputValMap::default(),
+            backing_env: input,
+        }
+    }
+}
+
+impl WorkingEnvironment {
+    fn get(&self, port: &ir::Port) -> OutputValueRef {
+        let working_val = self.working_env.get(&(port as *const ir::Port));
+        if working_val.is_none() {
+            self.backing_env.get_from_port(port).into()
+        } else {
+            working_val.unwrap().into()
+        }
+    }
+}
 
 // possibly #[inline] here later? Compiler probably knows to do that already
 fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
@@ -101,10 +129,15 @@ fn _construct_map(
 /// Evaluates a group, given an environment.
 pub fn interpret_group(
     group: &ir::Group,
-    env: Environment,
-    component: &ir::Id,
+    mut env: Environment,
 ) -> FutilResult<Environment> {
-    eval_assigns(&group.assignments, env, component)
+    let mut dependency_map =
+        DependencyMap::from_assignments(group.assignments.iter());
+    let done_ref = get_done_port(&group);
+    let mut worklist: WorkList =
+        group.assignments.iter().map(|x| x.into()).collect();
+
+    todo!()
 }
 
 // XXX(karen): I think it will need another copy of environment for each
@@ -272,16 +305,8 @@ fn eval_assigns(
     // Ok(write_env)
 }
 
-/// Evaluate guard implementation
-#[allow(clippy::borrowed_box)]
-// XXX: Allow for this warning. It would make sense to use a reference when we
-// have the `box` match pattern available in Rust.
-fn eval_guard(
-    comp: &ir::Id,
-    guard: &Box<ir::Guard>,
-    env: &Environment,
-) -> bool {
-    match &**guard {
+fn eval_guard(comp: &ir::Id, guard: &ir::Guard, env: &Environment) -> bool {
+    match guard {
         ir::Guard::Or(g1, g2) => {
             eval_guard(comp, g1, env) || eval_guard(comp, g2, env)
         }
@@ -290,31 +315,25 @@ fn eval_guard(
         }
         ir::Guard::Not(g) => !eval_guard(comp, g, &env),
         ir::Guard::Eq(g1, g2) => {
-            env.get_from_port(comp, &g1.borrow())
-                == env.get_from_port(comp, &g2.borrow())
+            env.get_from_port(&g1.borrow()) == env.get_from_port(&g2.borrow())
         }
         ir::Guard::Neq(g1, g2) => {
-            env.get_from_port(comp, &g1.borrow())
-                != env.get_from_port(comp, &g2.borrow())
+            env.get_from_port(&g1.borrow()) != env.get_from_port(&g2.borrow())
         }
         ir::Guard::Gt(g1, g2) => {
-            env.get_from_port(comp, &g1.borrow())
-                > env.get_from_port(comp, &g2.borrow())
+            env.get_from_port(&g1.borrow()) > env.get_from_port(&g2.borrow())
         }
         ir::Guard::Lt(g1, g2) => {
-            env.get_from_port(comp, &g1.borrow())
-                < env.get_from_port(comp, &g2.borrow())
+            env.get_from_port(&g1.borrow()) < env.get_from_port(&g2.borrow())
         }
         ir::Guard::Geq(g1, g2) => {
-            env.get_from_port(comp, &g1.borrow())
-                >= env.get_from_port(comp, &g2.borrow())
+            env.get_from_port(&g1.borrow()) >= env.get_from_port(&g2.borrow())
         }
         ir::Guard::Leq(g1, g2) => {
-            env.get_from_port(comp, &g1.borrow())
-                <= env.get_from_port(comp, &g2.borrow())
+            env.get_from_port(&g1.borrow()) <= env.get_from_port(&g2.borrow())
         }
         ir::Guard::Port(p) => {
-            let val = env.get_from_port(comp, &p.borrow());
+            let val = env.get_from_port(&p.borrow());
             if val.as_u64() == 1 && val.vec.len() == 1 {
                 true
             } else {
