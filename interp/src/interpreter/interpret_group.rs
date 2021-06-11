@@ -248,10 +248,8 @@ pub fn interpret_group(
                         let new_assigments =
                             dependency_map.get(&port_ref.borrow());
 
-                        if new_assigments.is_some() {
-                            worklist.extend(
-                                new_assigments.unwrap().iter().cloned(),
-                            );
+                        if let Some(assign_set) = new_assigments {
+                            worklist.extend(assign_set.iter().cloned());
                         }
                     }
                 }
