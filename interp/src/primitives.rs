@@ -1,9 +1,7 @@
 //! Defines update methods for the various primitive cells in the Calyx
 // standard library.
-use super::environment::Environment;
 use super::values::{OutputValue, TimeLockedValue, Value};
-use calyx::{errors::FutilResult, ir};
-use std::collections::HashMap;
+use calyx::ir;
 use std::convert::TryInto;
 use std::ops::*;
 
@@ -28,6 +26,9 @@ pub enum Primitive {
     StdLe(StdLe),
     StdLt(StdLt),
     StdMemD1(StdMemD1),
+    StdMemD2(StdMemD2),
+    StdMemD3(StdMemD3),
+    StdMemD4(StdMemD4),
 }
 
 /// For unary operator components that only take in one input.
@@ -35,6 +36,8 @@ pub enum Primitive {
 /// a (ir::Id, Value) with the Id as "out"*
 /// # Example
 /// ```
+/// use interp::primitives::*;
+/// use interp::values::*;
 /// let std_not = StdNot::new(5); // a 5 bit not-er
 /// let not_one = std_not.execute_unary(&(Value::try_from_init(1, 5).unwrap()));
 /// ```
@@ -57,6 +60,8 @@ pub trait ExecuteUnary {
 ///
 /// # Example
 /// ```
+/// use interp::primitives::*;
+/// use interp::values::*;
 /// let std_add = StdAdd::new(5); // A 5 bit adder
 /// let one_plus_two = std_add.execute_bin(
 ///     &(Value::try_from_init(1, 5).unwrap()),
@@ -96,7 +101,7 @@ pub trait ExecuteStateful {
     /// No restrictions on exactly how the input(s) look
     fn execute_mut<'a>(
         &mut self,
-        inputs: &'a [(ir::Id, Value)],
+        inputs: &'a [(ir::Id, Value)], //TODO: maybe change these to immutable references?
     ) -> Vec<(ir::Id, OutputValue)>;
 }
 
@@ -144,6 +149,10 @@ pub struct StdMemD1 {
 }
 
 impl StdMemD1 {
+    /// Instantiates a new StdMemD1 storing data of width [width], containing [size]
+    /// slots for memory, accepting indecies (addr0) of width [idx_size].
+    /// Note: if [idx_size] is smaller than the length of [size]'s binary representation,
+    /// you will not be able to access the slots near the end of the memory.
     pub fn new(width: u64, size: u64, idx_size: u64) -> StdMemD1 {
         let data = vec![
             Value::zeroes((width as usize).try_into().unwrap());
@@ -156,12 +165,40 @@ impl StdMemD1 {
             data,
         }
     }
-    //when do we read from StdMemD1, and how? How does this coordinate with the time locked value stuff?
-    //why does a write return a TimeLockedValue -- is that now what should be referred to as the value in the register,
-    //and we never actually request a read?
 }
 
 impl ExecuteStateful for StdMemD1 {
+    /// Takes a slice of tupules. This slice must contain the tupules ("write_data", Value),
+    /// ("write_en", Value), and ("addr0", Value). Attempts to write the [write_data] Value to
+    /// the memory at slot [addr0] if [write_en] is 1. Else does not modify the memory.
+    /// Returns a vector of outputs in this *guaranteed* order <("read_data", OutputValue), ("done", OutputValue)>,
+    /// The OutputValues are both LockedValues if [write_en] is 1. If [write_en] is
+    /// not 1 then the OutputValues are ImmediateValues, [done] being 0 and
+    /// [read_data] being whatever was stored in the memory at address [addr0]
+    /// # Example
+    /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
+    /// use calyx::ir;
+    ///
+    /// let mut std_memd1 = StdMemD1::new(1, 8, 3); //1-bit pieces of data, 8 pieces, need 3 bits to index the memory
+    /// let write_data = (ir::Id::from("write_data"), Value::try_from_init(1, 1).unwrap());
+    /// let write_en = (ir::Id::from("write_en"), Value::try_from_init(1, 1).unwrap());
+    /// let addr0 = (ir::Id::from("addr0"), Value::try_from_init(0, 3).unwrap());
+    /// let output_vals = std_memd1.execute_mut(&[write_data, write_en, addr0]);
+    /// let mut output_vals = output_vals.into_iter();
+    /// let (read_data, done) = (output_vals.next().unwrap(), output_vals.next().unwrap());
+    /// let mut rd = read_data.1.unwrap_tlv();
+    /// let mut d = done.1.unwrap_tlv();
+    /// assert_eq!(rd.get_count(), 1);
+    /// assert_eq!(d.get_count(), 1);
+    /// rd.dec_count(); d.dec_count();
+    /// assert!(rd.unlockable());
+    /// assert_eq!(rd.clone().unlock().as_u64(), Value::try_from_init(1, 1).unwrap().as_u64());
+    /// ```
+    /// # Panics
+    /// Panics if [write_data] is not the same width as self.width. Panics if the width of addr0 does not equal
+    /// self.idx_size.
     fn execute_mut(
         &mut self,
         inputs: &[(ir::Id, Value)],
@@ -207,7 +244,7 @@ impl ExecuteStateful for StdMemD1 {
                 (
                     ir::Id::from("done"),
                     TimeLockedValue::new(
-                        Value::from_init(1: u16, 1: u16),
+                        Value::try_from_init(1, 1).unwrap(),
                         1,
                         Some(Value::zeroes(1)),
                     )
@@ -254,6 +291,10 @@ pub struct StdMemD2 {
 }
 
 impl StdMemD2 {
+    /// Instantiates a new StdMemD2 storing data of width [width], containing
+    /// [d0_size] * [d1_size] slots for memory, accepting indecies [addr0][addr1] of widths
+    /// [d0_idx_size] and [d1_idx_size] respectively.
+    /// Initially the memory is filled with all 0s.
     pub fn new(
         width: u64,
         d0_size: u64,
@@ -281,6 +322,18 @@ impl StdMemD2 {
 }
 
 impl ExecuteStateful for StdMemD2 {
+    /// Takes a slice of tupules. This slice must contain the tupules ("write_data", Value),
+    /// ("write_en", Value), ("addr0", Value), and ("addr1", Value). Attempts to write the [write_data] Value to
+    /// the memory at slot [addr0][addr1] if [write_en] is 1. Else does not modify the memory.
+    /// Returns a vector of outputs in this *guaranteed* order <("read_data", OutputValue), ("done", OutputValue)>,
+    /// The OutputValues are both LockedValues if [write_en] is 1. If [write_en] is
+    /// not 1 then the OutputValues are ImmediateValues, [done] being 0 and
+    /// [read_data] being whatever was stored in the memory at address [addr0][addr1]
+    /// # Example
+    /// See example in StdMemD1
+    /// # Panics
+    /// Panics if [write_data] is not the same width as self.width. Panics if the width of addr0 does not equal
+    /// self.d0_idx_size. Panics if the width of addr1 does not equal self.d1_idx_size.
     fn execute_mut(
         &mut self,
         inputs: &[(ir::Id, Value)],
@@ -294,6 +347,8 @@ impl ExecuteStateful for StdMemD2 {
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
+        //chec that write_data is the exact right width
+        check_width(input, self.width);
         //check that addr0 is not out of bounds and that it is the proper width!
         check_widths(addr0, addr0, self.d0_idx_size); //make a unary one instead of hacking. Also change the panicking
         let addr0 = addr0.as_u64();
@@ -312,8 +367,6 @@ impl ExecuteStateful for StdMemD2 {
                 self.d1_size, addr1
             );
         }
-        //check that input data is the appropriate width as well
-        check_width(input, self.width);
         let old = self.data[addr0 as usize][addr1 as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
                                                                      // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
@@ -335,7 +388,7 @@ impl ExecuteStateful for StdMemD2 {
                 (
                     ir::Id::from("done"),
                     TimeLockedValue::new(
-                        Value::from_init(1: u16, 1: u16),
+                        Value::try_from_init(1, 1).unwrap(),
                         1,
                         Some(Value::zeroes(1)),
                     )
@@ -374,6 +427,7 @@ impl ExecuteStateful for StdMemD2 {
 /// Outputs:
 /// read_data: WIDTH - The value stored at mem[addr0][addr1][addr2]. This value is combinational with respect to addr0, addr1, and addr2.
 /// done: 1: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
+#[derive(Clone, Debug)]
 pub struct StdMemD3 {
     width: u64,
     d0_size: u64,
@@ -386,6 +440,10 @@ pub struct StdMemD3 {
 }
 
 impl StdMemD3 {
+    /// Instantiates a new StdMemD3 storing data of width [width], containing
+    /// [d0_size] * [d1_size] * [d2_size] slots for memory, accepting indecies [addr0][addr1][addr2] of widths
+    /// [d0_idx_size], [d1_idx_size], and [d2_idx_size] respectively.
+    /// Initially the memory is filled with all 0s.
     pub fn new(
         width: u64,
         d0_size: u64,
@@ -420,6 +478,19 @@ impl StdMemD3 {
 }
 
 impl ExecuteStateful for StdMemD3 {
+    /// Takes a slice of tupules. This slice must contain the tupules ("write_data", Value),
+    /// ("write_en", Value), ("addr0", Value), ("addr1", Value), and ("addr2", Value). Attempts to write the [write_data] Value to
+    /// the memory at slot [addr0][addr1][addr2] if [write_en] is 1. Else does not modify the memory.
+    /// Returns a vector of outputs in this *guaranteed* order <("read_data", OutputValue), ("done", OutputValue)>,
+    /// The OutputValues are both LockedValues if [write_en] is 1. If [write_en] is
+    /// not 1 then the OutputValues are ImmediateValues, [done] being 0 and
+    /// [read_data] being whatever was stored in the memory at address [addr0][addr1][addr2]
+    /// # Example
+    /// See example in StdMemD1
+    /// # Panics
+    /// Panics if [write_data] is not the same width as self.width. Panics if the width of addr0 does not equal
+    /// self.d0_idx_size. Panics if the width of addr1 does not equal self.d1_idx_size. Panics if the
+    /// width of addr2 does not equal self.d2_idx_size.
     fn execute_mut(
         &mut self,
         inputs: &[(ir::Id, Value)],
@@ -434,6 +505,8 @@ impl ExecuteStateful for StdMemD3 {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
         let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
+        //chec that write_data is the exact right width
+        check_width(input, self.width);
         //check that addr0 is not out of bounds and that it is the proper width!
         check_widths(addr0, addr0, self.d0_idx_size); //make a unary one instead of hacking. Also change the panicking
         let addr0 = addr0.as_u64();
@@ -461,8 +534,6 @@ impl ExecuteStateful for StdMemD3 {
                 self.d2_size, addr2
             );
         }
-        //check that input data is the appropriate width as well
-        check_width(input, self.width);
         let old =
             self.data[addr0 as usize][addr1 as usize][addr2 as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
                                                                                // only write to memory if write_en is 1
@@ -481,7 +552,7 @@ impl ExecuteStateful for StdMemD3 {
                 (
                     ir::Id::from("done"),
                     TimeLockedValue::new(
-                        Value::from_init(1: u16, 1: u16),
+                        Value::try_from_init(1, 1).unwrap(),
                         1,
                         Some(Value::zeroes(1)),
                     )
@@ -523,7 +594,7 @@ impl ExecuteStateful for StdMemD3 {
 /// Outputs:
 /// read_data: WIDTH - The value stored at mem[addr0][addr1][addr2][addr3]. This value is combinational with respect to addr0, addr1, addr2, and addr3.
 /// done: 1: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
-
+#[derive(Clone, Debug)]
 pub struct StdMemD4 {
     width: u64,
     d0_size: u64,
@@ -538,6 +609,10 @@ pub struct StdMemD4 {
 }
 
 impl StdMemD4 {
+    // Instantiates a new StdMemD3 storing data of width [width], containing
+    /// [d0_size] * [d1_size] * [d2_size] * [d3_size] slots for memory, accepting indecies [addr0][addr1][addr2][addr3] of widths
+    /// [d0_idx_size], [d1_idx_size], [d2_idx_size] and [d3_idx_size] respectively.
+    /// Initially the memory is filled with all 0s.
     pub fn new(
         width: u64,
         d0_size: u64,
@@ -579,6 +654,19 @@ impl StdMemD4 {
 }
 
 impl ExecuteStateful for StdMemD4 {
+    /// Takes a slice of tupules. This slice must contain the tupules ("write_data", Value),
+    /// ("write_en", Value), ("addr0", Value), ("addr1", Value), ("addr2", Value). Attempts to write the [write_data] Value to
+    /// the memory at slot [addr0][addr1][addr2] if [write_en] is 1. Else does not modify the memory.
+    /// Returns a vector of outputs in this *guaranteed* order <("read_data", OutputValue), ("done", OutputValue)>,
+    /// The OutputValues are both LockedValues if [write_en] is 1. If [write_en] is
+    /// not 1 then the OutputValues are ImmediateValues, [done] being 0 and
+    /// [read_data] being whatever was stored in the memory at address [addr0][addr1][addr2][addr3]
+    /// # Example
+    /// See example in StdMemD1
+    /// # Panics
+    /// Panics if [write_data] is not the same width as self.width. Panics if the width of addr0 does not equal
+    /// self.d0_idx_size. Panics if the width of addr1 does not equal self.d1_idx_size. Panics if the
+    /// width of addr2 does not equal self.d2_idx_size. Panics if the width of addr3 does not equal self.d3_idx_size.
     fn execute_mut(
         &mut self,
         inputs: &[(ir::Id, Value)],
@@ -603,6 +691,8 @@ impl ExecuteStateful for StdMemD4 {
                 self.d0_size, addr0
             );
         }
+        //chec that write_data is the exact right width
+        check_width(input, self.width);
         //chech that addr1 is not out of bounds and that it is the proper iwdth
         check_widths(addr1, addr1, self.d1_idx_size); //make a unary one instead of hacking. Also change the panicking
         let addr1 = addr1.as_u64();
@@ -630,8 +720,6 @@ impl ExecuteStateful for StdMemD4 {
                 self.d3_size, addr3
             )
         }
-        //check that input data is the appropriate width as well
-        check_width(input, self.width);
         let old = self.data[addr0 as usize][addr1 as usize][addr2 as usize]
             [addr3 as usize]
             .clone(); //not sure if this could lead to errors (Some(old)) is borrow?
@@ -651,7 +739,7 @@ impl ExecuteStateful for StdMemD4 {
                 (
                     ir::Id::from("done"),
                     TimeLockedValue::new(
-                        Value::from_init(1: u16, 1: u16),
+                        Value::try_from_init(1, 1).unwrap(),
                         1,
                         Some(Value::zeroes(1)),
                     )
@@ -690,12 +778,12 @@ impl StdReg {
         }
     }
 
-    /// Reads the value from the register. Makes no guarantee on the validity
-    /// of data in the register -- the interpreter must check [done] itself.
+    /// warning unsafe deprecated
     pub fn read_value(&self) -> Value {
         self.val.clone()
     }
 
+    /// warning unsafe deprecated
     pub fn read_u64(&self) -> u64 {
         self.val.as_u64()
     }
@@ -716,9 +804,11 @@ impl ExecuteStateful for StdReg {
         let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
         let (_, write_en) =
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
+        //make sure [input] isn't too wide
+        check_width(input, self.width);
         //write the input to the register
         if write_en.as_u64() == 1 {
-            let old = self.val;
+            let old = self.val.clone();
             self.val = input.clone();
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new register data. Needs 1 cycle before readable
@@ -732,7 +822,7 @@ impl ExecuteStateful for StdReg {
                 (
                     ir::Id::from("done"),
                     TimeLockedValue::new(
-                        Value::from_init(1: u16, 1: u16),
+                        Value::try_from_init(1, 1).unwrap(),
                         1,
                         Some(Value::zeroes(1)),
                     )
@@ -764,7 +854,9 @@ impl StdConst {
     /// Instantiates a new constant component
     /// # Example
     /// ```
-    /// let const_16bit_9 = StdConst::new(16, 9);
+    /// use interp::primitives::*;
+    /// use interp::values::*;
+    /// let const_16bit_9 = StdConst::new(16, Value::try_from_init(9, 16).unwrap());
     /// ```
     ///
     /// # Panics
@@ -777,8 +869,10 @@ impl StdConst {
     /// Returns the value this constant component represents
     /// # Example
     /// ```
-    /// let const_16bit_9 = StdConst::new(16, 9);
-    /// let val_9 = const_16bit_9.read_value();
+    /// use interp::primitives::*;
+    /// use interp::values::*;
+    /// let const_16bit_9 = StdConst::new(16, Value::try_from_init(9, 16).unwrap());
+    /// let val_9 = const_16bit_9.read_val();
     /// ```
     pub fn read_val(&self) -> Value {
         self.val.clone()
@@ -787,8 +881,10 @@ impl StdConst {
     /// Returns the u64 corresponding to the value this constant component represents
     /// # Example
     /// ```
-    /// let const_16bit_9 = StdConst::new(16, 9);
-    /// assert_eq!(const_16bit_9.as_u64(), 9);
+    /// use interp::primitives::*;
+    /// use interp::values::*;
+    /// let const_16bit_9 = StdConst::new(16, Value::try_from_init(9, 16).unwrap());
+    /// assert_eq!(const_16bit_9.read_u64(), 9);
     /// ```
     pub fn read_u64(&self) -> u64 {
         self.val.as_u64()
@@ -811,6 +907,7 @@ impl StdLsh {
     /// Instantiate a new StdLsh of a specific width
     /// # Example
     /// ```
+    /// use interp::primitives::*;
     /// let std_lsh_16_bit = StdLsh::new(16);
     /// ```
     pub fn new(width: u64) -> StdLsh {
@@ -822,6 +919,8 @@ impl ExecuteBinary for StdLsh {
     /// Returns the Value representing LEFT << RIGHT
     /// # Example
     /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
     /// let std_lsh_16_bit = StdLsh::new(16);
     /// let val_2_16bit = Value::try_from_init(2, 16).unwrap();
     /// let val_8_16bit = std_lsh_16_bit.execute_bin(&val_2_16bit, &val_2_16bit);
@@ -857,6 +956,7 @@ impl StdRsh {
     /// Instantiate a new StdRsh component with a specified width
     /// # Example
     /// ```
+    /// use interp::primitives::*;
     /// let std_rsh_16bit = StdRsh::new(16);
     /// ```
     pub fn new(width: u64) -> StdRsh {
@@ -868,6 +968,8 @@ impl ExecuteBinary for StdRsh {
     /// Returns the Value representing LEFT >> RIGHT
     /// # Example
     /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
     /// let std_rsh_16_bit = StdRsh::new(16);
     /// let val_8_16bit = Value::try_from_init(8, 16).unwrap();
     /// let val_1_16bit = Value::try_from_init(1, 16).unwrap();
@@ -901,6 +1003,7 @@ impl StdAdd {
     /// Instantiate a new StdAdd with a specified bit width
     /// # Example
     /// ```
+    /// use interp::primitives::*;
     /// let std_add_16bit = StdAdd::new(16);
     /// ```
     pub fn new(width: u64) -> StdAdd {
@@ -912,10 +1015,12 @@ impl ExecuteBinary for StdAdd {
     /// Returns the Value representing LEFT + RIGHT
     /// # Example
     /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
     /// let std_add_16bit = StdAdd::new(16);
     /// let val_8_16bit = Value::try_from_init(8, 16).unwrap();
     /// let val_1_16bit = Value::try_from_init(1, 16).unwrap();
-    /// let val_9_16bit = std_add_16bit.execute_bin(&val_8_16bit, &val_2_1bit);
+    /// let val_9_16bit = std_add_16bit.execute_bin(&val_8_16bit, &val_1_16bit);
     /// ```
     ///
     /// # Panics
@@ -947,6 +1052,7 @@ impl StdSub {
     /// Instantiates a new standard subtraction component
     /// # Example
     /// ```
+    /// use interp::primitives::*;
     /// let std_sub_16bit = StdSub::new(16);
     /// ```
     pub fn new(width: u64) -> StdSub {
@@ -959,6 +1065,8 @@ impl ExecuteBinary for StdSub {
     /// Will overflow if result is negative.
     /// # Examples
     /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
     /// //4 [0100] - 1 [0001] = 3 [0011]
     /// let val_4_4bit = Value::try_from_init(4, 4).unwrap();
     /// let val_1_4bit = Value::try_from_init(1, 4).unwrap();
@@ -966,7 +1074,8 @@ impl ExecuteBinary for StdSub {
     /// let val_3_4bit = std_sub_4_bit.execute_bin(&val_4_4bit, &val_1_4bit);
     /// //4 [0100] - 5 [0101] = -1 [1111] <- as an unsigned binary num, this is 15
     /// let val_5_4bit = Value::try_from_init(5, 4).unwrap();
-    /// assert_eq!(std_sub_4_bit.execute_bin(&val_4_4bit, &val_5_4bit).as_u64(), 15);
+    /// let res = std_sub_4_bit.execute_bin(&val_4_4bit, &val_5_4bit).unwrap_imm();
+    /// assert_eq!(res.as_u64(), 15);
     /// ```
     ///
     /// # Panics
@@ -1004,6 +1113,7 @@ impl StdSlice {
     ///
     /// # Example
     /// ```
+    /// use interp::primitives::*;
     /// let std_slice_6_to_4 = StdSlice::new(6, 4);
     /// ```
     pub fn new(in_width: u64, out_width: u64) -> StdSlice {
@@ -1018,9 +1128,11 @@ impl ExecuteUnary for StdSlice {
     /// Returns the bottom OUT_WIDTH bits of an input with IN_WIDTH
     /// # Example
     /// ```
-    /// let val_5_3bits = Value::try_from_init(5, 3); // 5 = [101]
+    /// use interp::primitives::*;
+    /// use interp::values::*;
+    /// let val_5_3bits = Value::try_from_init(5, 3).unwrap(); // 5 = [101]
     /// let std_slice_3_to_2 = StdSlice::new(3, 2);
-    /// let val_1_2bits = std_slice_1_to_2.execute_unary(val_5_3bits); // 1 = [01]
+    /// let val_1_2bits = std_slice_3_to_2.execute_unary(&val_5_3bits); // 1 = [01]
     /// ```
     ///
     /// # Panics
@@ -1049,6 +1161,7 @@ impl StdPad {
     /// Instantiate instance of StdPad that takes input with width [in_width] and returns output with width [out_width]
     /// # Example
     /// ```
+    /// use interp::primitives::*;
     /// let std_pad_3_to_5 = StdPad::new(3, 5);
     /// ```
     pub fn new(in_width: u64, out_width: u64) -> StdPad {
@@ -1064,9 +1177,11 @@ impl ExecuteUnary for StdPad {
     /// with [input], padded with 0s until index OUT_WIDTH - 1
     /// # Example
     /// ```
-    /// let val_5_3bits = Value::try_from_init(5, 3); // 5 = [101]
+    /// use interp::primitives::*;
+    /// use interp::values::*;
+    /// let val_5_3bits = Value::try_from_init(5, 3).unwrap(); // 5 = [101]
     /// let std_pad_3_to_5 = StdPad::new(3, 5);
-    /// let val_5_5bits = std_pad_3_to_5.execute_unary(val_5_3bits); // 5 = [00101]
+    /// let val_5_5bits = std_pad_3_to_5.execute_unary(&val_5_3bits); // 5 = [00101]
     /// ```
     ///
     /// # Panics
@@ -1102,9 +1217,11 @@ impl ExecuteUnary for StdNot {
     /// Returns a value of length WIDTH representing the bitwise NOT of [input]
     /// # Example
     /// ```
-    /// let val_5_3bits = Value::try_from_init(5, 3); // 5 = [101]
+    /// use interp::primitives::*;
+    /// use interp::values::*;
+    /// let val_5_3bits = Value::try_from_init(5, 3).unwrap(); // 5 = [101]
     /// let std_not_3bit = StdNot::new(3);
-    /// let val_2_3bits = std_not_3bits.execute_unary(val_5_3bits);
+    /// let val_2_3bits = std_not_3bit.execute_unary(&val_5_3bits).unwrap_imm();
     /// assert_eq!(val_2_3bits.as_u64(), 2);
     /// ```
     ///
@@ -1137,6 +1254,7 @@ impl StdAnd {
     /// Instantiate an instance of StdAnd that accepts input of width [width]
     /// # Example
     /// ```
+    /// use interp::primitives::*;
     /// let std_and_4bit = StdAdd::new(4);
     /// ```
     pub fn new(width: u64) -> StdAnd {
@@ -1148,10 +1266,12 @@ impl ExecuteBinary for StdAnd {
     /// Returns the bitwise AND of [left] and [right]
     /// # Example
     /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
     /// let val_5_3 = Value::try_from_init(5, 3).unwrap();
     /// let val_2_3 = Value::try_from_init(2, 3).unwrap();
-    /// let std_and_3bit = StdAdd::new(3);
-    /// let val_0_3 = std_and_3bit.execute_bin(&val_5_3, &val_2_3);
+    /// let std_and_3bit = StdAnd::new(3);
+    /// let val_0_3 = std_and_3bit.execute_bin(&val_5_3, &val_2_3).unwrap_imm();
     /// assert_eq!(val_0_3.as_u64(), 0);
     /// ```
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
@@ -1186,10 +1306,12 @@ impl ExecuteBinary for StdOr {
     /// Returns the bitwise OR of [left] and [right]
     /// # Example
     /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
     /// let val_5_3 = Value::try_from_init(5, 3).unwrap(); // 5 = [101]
     /// let val_2_3 = Value::try_from_init(2, 3).unwrap(); // 2 = [010]
-    /// let std_or_3bit = StOr::new(3);
-    /// let val_7_3 = std_or_3bit.execute_bin(&val_5_3, &val_2_3);
+    /// let std_or_3bit = StdOr::new(3);
+    /// let val_7_3 = std_or_3bit.execute_bin(&val_5_3, &val_2_3).unwrap_imm();
     /// assert_eq!(val_7_3.as_u64(), 7);
     /// ```
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
@@ -1224,10 +1346,12 @@ impl ExecuteBinary for StdXor {
     /// Returns the bitwise XOR of [left] and [right]
     /// # Example
     /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
     /// let val_7_3 = Value::try_from_init(7, 3).unwrap(); // 7 = [111]
     /// let val_2_3 = Value::try_from_init(2, 3).unwrap(); // 2 = [010]
-    /// let std_xor_3bit = StXor::new(3);
-    /// let val_5_3 = std_xor_3bit.execute_bin(&val_7_3, &val_2_3);
+    /// let std_xor_3bit = StdXor::new(3);
+    /// let val_5_3 = std_xor_3bit.execute_bin(&val_7_3, &val_2_3).unwrap_imm();
     /// assert_eq!(val_5_3.as_u64(), 5);
     /// ```
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
@@ -1263,10 +1387,13 @@ impl ExecuteBinary for StdGt {
     /// Returns a single bit-long Value which is 1 if left > right else 0
     /// # Example
     /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
     /// let val_2_3bit = Value::try_from_init(2, 3).unwrap();
     /// let val_1_3bit = Value::try_from_init(1, 3).unwrap();
     /// let std_gt_3bit = StdGt::new(3);
-    /// assert_eq!(std_gt_3bit.execute_bin(&val_2_3.bit, &val_1_3bit).as_u64(), 1);
+    /// let res = std_gt_3bit.execute_bin(&val_2_3bit, &val_1_3bit).unwrap_imm();
+    /// assert_eq!(res.as_u64(), 1);
     /// ```
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
@@ -1304,10 +1431,13 @@ impl ExecuteBinary for StdLt {
     /// Returns a single bit-long Value which is 1 if left < right else 0
     /// # Example
     /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
     /// let val_2_3bit = Value::try_from_init(2, 3).unwrap();
     /// let val_1_3bit = Value::try_from_init(1, 3).unwrap();
     /// let std_lt_3bit = StdLt::new(3);
-    /// assert_eq!(std_lt_3bit.execute_bin(&val_2_3.bit, &val_1_3bit).as_u64(), 0);
+    /// let res = std_lt_3bit.execute_bin(&val_2_3bit, &val_1_3bit).unwrap_imm();
+    /// assert_eq!(res.as_u64(), 0);
     /// ```
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
@@ -1338,6 +1468,7 @@ impl StdEq {
     /// Instantiates a StdEq that only accepts inputs of width [width]
     /// # Example
     /// ```
+    /// use interp::primitives::*;
     /// let std_eq_4bit = StdEq::new(4);
     /// ```
     pub fn new(width: u64) -> StdEq {
@@ -1349,10 +1480,13 @@ impl ExecuteBinary for StdEq {
     /// Returns a single bit-long Value which is 1 if left == right else 0
     /// # Example
     /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
     /// let val_2_3bit = Value::try_from_init(2, 3).unwrap();
     /// let val_1_3bit = Value::try_from_init(1, 3).unwrap();
     /// let std_eq_3bit = StdEq::new(3);
-    /// assert_eq!(std_eq_3bit.execute_bin(&val_2_3.bit, &val_1_3bit).as_u64(), 0);
+    /// let res = std_eq_3bit.execute_bin(&val_2_3bit, &val_1_3bit).unwrap_imm();
+    /// assert_eq!(res.as_u64(), 0);
     /// ```
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
@@ -1384,6 +1518,7 @@ impl StdNeq {
     /// Instantiates a StdNeq component that only accepts inputs of width [width]
     /// /// # Example
     /// ```
+    /// use interp::primitives::*;
     /// let std_neq_4bit = StdNeq::new(4);
     /// ```
     pub fn new(width: u64) -> StdNeq {
@@ -1395,10 +1530,13 @@ impl ExecuteBinary for StdNeq {
     /// Returns a single bit-long Value which is 1 if left != right else 0
     /// # Example
     /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
     /// let val_2_3bit = Value::try_from_init(2, 3).unwrap();
     /// let val_1_3bit = Value::try_from_init(1, 3).unwrap();
     /// let std_neq_3bit = StdNeq::new(3);
-    /// assert_eq!(std_neq_3bit.execute_bin(&val_2_3.bit, &val_1_3bit).as_u64(), 1);
+    /// let res = std_neq_3bit.execute_bin(&val_2_3bit, &val_1_3bit).unwrap_imm();
+    /// assert_eq!(res.as_u64(), 1);
     /// ```
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
@@ -1427,6 +1565,7 @@ impl StdGe {
     /// Instantiate a new StdGe component that accepts only inputs of width [width]
     /// /// # Example
     /// ```
+    /// use interp::primitives::*;
     /// let std_Ge_4bit = StdGe::new(4);
     /// ```
     pub fn new(width: u64) -> StdGe {
@@ -1437,10 +1576,13 @@ impl ExecuteBinary for StdGe {
     /// Returns a single bit-long Value which is 1 if left >= right else 0
     /// # Example
     /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
     /// let val_2_3bit = Value::try_from_init(2, 3).unwrap();
     /// let val_1_3bit = Value::try_from_init(1, 3).unwrap();
     /// let std_ge_3bit = StdGe::new(3);
-    /// assert_eq!(std_ge_3bit.execute_bin(&val_2_3.bit, &val_1_3bit).as_u64(), 1);
+    /// let res = std_ge_3bit.execute_bin(&val_2_3bit, &val_1_3bit).unwrap_imm();
+    /// assert_eq!(res.as_u64(), 1);
     /// ```
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
@@ -1478,10 +1620,13 @@ impl ExecuteBinary for StdLe {
     /// Returns a single bit-long Value which is 1 if left <= right else 0
     /// # Example
     /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
     /// let val_2_3bit = Value::try_from_init(2, 3).unwrap();
     /// let val_1_3bit = Value::try_from_init(1, 3).unwrap();
-    /// let std_lt_3bit = StdLt::new(3);
-    /// assert_eq!(std_lt_3bit.execute_bin(&val_2_3.bit, &val_1_3bit).as_u64(), 0);
+    /// let std_le_3bit = StdLe::new(3);
+    /// let res = std_le_3bit.execute_bin(&val_2_3bit, &val_1_3bit).unwrap_imm();
+    /// assert_eq!(res.as_u64(), 0);
     /// ```
     ///  # Panics
     /// * panics if left's width, right's width and self.width are not all equal
@@ -1494,232 +1639,3 @@ impl ExecuteBinary for StdLe {
         Value::from_init(init_val, 1 as usize).into()
     }
 }
-
-// Uses the cell's inputs ports to perform any required updates to the
-// cell's output ports.
-// TODO: how to get input and output ports in general? How to "standardize" for combinational or not operations
-// pub fn update_cell_state(
-//     cell: &ir::Id,
-//     inputs: &[ir::Id],
-//     output: &[ir::Id],
-//     env: &Environment, // should this be a reference
-//     component: ir::Id,
-// ) -> FutilResult<Environment> {
-//     // get the actual cell, based on the id
-//     // let cell_r = cell.as_ref();
-
-//     let mut new_env = env.clone();
-
-//     let cell_r = new_env
-//         .get_cell(&component, cell)
-//         .unwrap_or_else(|| panic!("Cannot find cell with name"));
-
-//     let temp = cell_r.borrow();
-
-//     // get the cell type
-//     let cell_type = temp.type_name().unwrap_or_else(|| panic!("Futil Const?"));
-
-//     match cell_type.id.as_str() {
-//         "std_reg" => {
-//             // TODO: this is wrong...
-//             let write_en = ir::Id::from("write_en");
-
-//             // register's write_en must be high to write reg.out and reg.done
-//             if new_env.get(&component, &cell, &write_en).as_u64() != 0 {
-//                 let out = ir::Id::from("out"); //assuming reg.in = cell.out, always
-//                 let inp = ir::Id::from("in"); //assuming reg.in = cell.out, always
-//                 let done = ir::Id::from("done"); //done id
-
-//                 new_env.put(
-//                     &component,
-//                     cell,
-//                     &output[0],
-//                     env.get(&component, &inputs[0], &out),
-//                 ); //reg.in = cell.out; should this be in init?
-
-//                 if output[0].id == "in" {
-//                     new_env.put(
-//                         &component,
-//                         cell,
-//                         &out,
-//                         new_env.get(&component, cell, &inp),
-//                     ); // reg.out = reg.in
-//                     new_env.put(
-//                         &component,
-//                         cell,
-//                         &done,
-//                         Value::try_from_init(1, 1).unwrap(),
-//                     ); // reg.done = 1'd1
-//                        //new_env.remove_update(cell); // remove from update queue
-//                 }
-//             }
-//         }
-//         "std_mem_d1" => {
-//             let mut mem = HashMap::new();
-//             let out = ir::Id::from("out");
-//             let write_en = ir::Id::from("write_en");
-//             let done = ir::Id::from("done"); //done id
-
-//             // memory should write to addres
-//             if new_env.get(&component, &cell, &write_en).as_u64() != 0 {
-//                 let addr0 = ir::Id::from("addr0");
-//                 let _read_data = ir::Id::from("read_data");
-//                 let write_data = ir::Id::from("write_data");
-
-//                 new_env.put(
-//                     &component,
-//                     cell,
-//                     &output[0],
-//                     env.get(&component, &inputs[0], &out),
-//                 );
-
-//                 let data = new_env.get(&component, cell, &write_data);
-//                 mem.insert(addr0, data);
-//             }
-//             // read data
-//             if output[0].id == "read_data" {
-//                 let addr0 = ir::Id::from("addr0");
-
-//                 let dat = match mem.get(&addr0) {
-//                     Some(&num) => num,
-//                     _ => panic!("nothing in the memory"),
-//                 };
-
-//                 new_env.put(&component, cell, &output[0], dat);
-//             }
-//             new_env.put(
-//                 &component,
-//                 cell,
-//                 &done,
-//                 Value::try_from_init(1, 1).unwrap(),
-//             );
-//         }
-//         "std_sqrt" => {
-//             //TODO; wrong implementation
-//             // new_env.put(
-//             //     cell,
-//             //     &output[0],
-//             //     ((new_env.get(cell, &inputs[0]) as f64).sqrt()) as u64, // cast to f64 to use sqrt
-//             // );
-//         }
-//         "std_add" => new_env.put(
-//             &component,
-//             cell,
-//             &output[0],
-//             new_env.get(&component, cell, &inputs[0])
-//                 + env.get(&component, cell, &inputs[1]),
-//         ),
-//         "std_sub" => new_env.put(
-//             &component,
-//             cell,
-//             &output[0],
-//             new_env.get(&component, cell, &inputs[0])
-//                 - env.get(&component, cell, &inputs[1]),
-//         ),
-//         "std_mod" => {
-//             if env.get(&component, cell, &inputs[1]).as_u64() != 0 {
-//                 new_env.put(
-//                     &component,
-//                     cell,
-//                     &output[0],
-//                     new_env.get(&component, cell, &inputs[0])
-//                         % env.get(&component, cell, &inputs[1]),
-//                 )
-//             }
-//         }
-//         "std_mult" => new_env.put(
-//             &component,
-//             cell,
-//             &output[0],
-//             new_env.get(&component, cell, &inputs[0])
-//                 * env.get(&component, cell, &inputs[1]),
-//         ),
-//         "std_div" => {
-//             // need this condition to avoid divide by 0
-//             // (e.g. if only one of left/right ports has been updated from the initial nonzero value?)
-//             // TODO: what if the program specifies a divide by 0? how to catch??
-//             if env.get(&component, cell, &inputs[1]).a != 0 {
-//                 new_env.put(
-//                     &component,
-//                     cell,
-//                     &output[0],
-//                     new_env.get(&component, cell, &inputs[0])
-//                         / env.get(&component, cell, &inputs[1]),
-//                 )
-//             }
-//         }
-//         "std_not" => new_env.put(
-//             &component,
-//             cell,
-//             &output[0],
-//             !new_env.get(&component, cell, &inputs[0]),
-//         ),
-//         "std_and" => new_env.put(
-//             &component,
-//             cell,
-//             &output[0],
-//             new_env.get(&component, cell, &inputs[0])
-//                 & env.get(&component, cell, &inputs[1]),
-//         ),
-//         "std_or" => new_env.put(
-//             &component,
-//             cell,
-//             &output[0],
-//             new_env.get(&component, cell, &inputs[0])
-//                 | env.get(&component, cell, &inputs[1]),
-//         ),
-//         "std_xor" => new_env.put(
-//             &component,
-//             cell,
-//             &output[0],
-//             new_env.get(&component, cell, &inputs[0])
-//                 ^ env.get(&component, cell, &inputs[1]),
-//         ),
-//         "std_gt" => new_env.put(
-//             &component,
-//             cell,
-//             &output[0],
-//             (new_env.get(&component, cell, &inputs[0])
-//                 > env.get(&component, cell, &inputs[1])) as u64,
-//         ),
-//         "std_lt" => new_env.put(
-//             &component,
-//             cell,
-//             &output[0],
-//             (new_env.get(&component, cell, &inputs[0])
-//                 < env.get(&component, cell, &inputs[1])) as u64,
-//         ),
-//         "std_eq" => new_env.put(
-//             &component,
-//             cell,
-//             &output[0],
-//             (new_env.get(&component, cell, &inputs[0])
-//                 == env.get(&component, cell, &inputs[1])) as u64,
-//         ),
-//         "std_neq" => new_env.put(
-//             &component,
-//             cell,
-//             &output[0],
-//             (new_env.get(&component, cell, &inputs[0])
-//                 != env.get(&component, cell, &inputs[1])) as u64,
-//         ),
-//         "std_ge" => new_env.put(
-//             &component,
-//             cell,
-//             &output[0],
-//             (new_env.get(&component, cell, &inputs[0])
-//                 >= env.get(&component, cell, &inputs[1])) as u64,
-//         ),
-//         "std_le" => new_env.put(
-//             &component,
-//             cell,
-//             &output[0],
-//             (new_env.get(&component, cell, &inputs[0])
-//                 <= env.get(&component, cell, &inputs[1])) as u64,
-//         ),
-//         _ => unimplemented!("{}", cell_type),
-//     }
-
-//     // TODO
-//     Ok(new_env)
-// }
