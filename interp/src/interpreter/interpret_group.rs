@@ -244,8 +244,7 @@ pub fn interpret_group(
                     let current_val = working_env.get(&port_ref.borrow());
 
                     if current_val != (&val).into() {
-                        let current_val =
-                            working_env.update_val(&port_ref.borrow(), val);
+                        working_env.update_val(&port_ref.borrow(), val);
                         let new_assigments =
                             dependency_map.get(&port_ref.borrow());
 

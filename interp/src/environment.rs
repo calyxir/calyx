@@ -553,41 +553,34 @@ impl Serialize for Environment {
     where
         S: serde::Serializer,
     {
-        let mut bmap = BTreeMap::new();
-        let ctx = *self.context.borrow();
-        for comp in ctx.components {
-            let mut inner_map = BTreeMap::new();
-            for cell in comp.cells.iter() {
-                let cl = *cell.borrow();
-                let mut cp_map = BTreeMap::new();
-                for port in cl.ports {
-                    let pt = *port.borrow();
-                    let val = self.get_from_port(&pt);
-                    cp_map.insert(pt.name.id, val.as_u64());
-                }
-                inner_map.insert(cl.name().id, cp_map);
-            }
-            bmap.insert(comp.name.id, inner_map);
-        }
+        let ctx: &ir::Context = &self.context.borrow();
+
+        let bmap: BTreeMap<_, _> = ctx
+            .components
+            .iter()
+            .map(|comp| {
+                let inner_map: BTreeMap<_, _> = comp
+                    .cells
+                    .iter()
+                    .map(|cell| {
+                        let inner_map: BTreeMap<_, _> = cell
+                            .borrow()
+                            .ports
+                            .iter()
+                            .map(|port| {
+                                (
+                                    port.borrow().name.clone(),
+                                    self.get_from_port(&port.borrow()).as_u64(),
+                                )
+                            })
+                            .collect();
+                        (cell.borrow().name().clone(), inner_map)
+                    })
+                    .collect();
+                (comp.name.clone(), inner_map)
+            })
+            .collect();
+
         bmap.serialize(serializer)
-        // // use collect to make the nested hashmap a nested btreemap
-        // let ordered: BTreeMap<_, _> = self
-        //     .map
-        //     .iter()
-        //     .map(|(id, map)| {
-        //         let inner_map: BTreeMap<_, _> = map
-        //             .iter()
-        //             .map(|(id, map)| {
-        //                 let inner_map: BTreeMap<_, _> = map
-        //                     .iter()
-        //                     .map(|(id, val)| (id, val.as_u64()))
-        //                     .collect();
-        //                 (id, inner_map)
-        //             })
-        //             .collect();
-        //         (id, inner_map)
-        //     })
-        //     .collect();
-        // ordered.serialize(serializer)
     }
 }
