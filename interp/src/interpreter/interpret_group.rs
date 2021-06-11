@@ -44,7 +44,7 @@ impl<'a> DependencyMap<'a> {
     }
 }
 
-type WorkList<'a> = HashSet<&'a ir::Assignment>;
+type WorkList<'a> = HashSet<AssignmentRef<'a>>;
 
 // possibly #[inline] here later? Compiler probably knows to do that already
 fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
