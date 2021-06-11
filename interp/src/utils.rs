@@ -91,3 +91,27 @@ impl<'a> From<&'a OutputValue> for OutputValueRef<'a> {
         }
     }
 }
+
+impl<'a> OutputValueRef<'a> {
+    pub fn unwrap_imm(self) -> &'a Value {
+        match self {
+            OutputValueRef::ImmediateValue(v) => v,
+            _ => panic!("Not an immediate value, cannot unwrap_imm"),
+        }
+    }
+
+    pub fn unwrap_tlv(self) -> &'a TimeLockedValue {
+        match self {
+            OutputValueRef::LockedValue(v) => v,
+            _ => panic!("Not a TimeLockedValue, cannot unwrap_tlv"),
+        }
+    }
+
+    pub fn is_tlv(self) -> bool {
+        matches!(self, OutputValueRef::LockedValue(_))
+    }
+
+    pub fn is_imm(self) -> bool {
+        matches!(self, OutputValueRef::ImmediateValue(_))
+    }
+}
