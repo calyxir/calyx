@@ -511,24 +511,25 @@ impl Serialize for Environment {
     where
         S: serde::Serializer,
     {
-        // use collect to make the nested hashmap a nested btreemap
-        let ordered: BTreeMap<_, _> = self
-            .map
-            .iter()
-            .map(|(id, map)| {
-                let inner_map: BTreeMap<_, _> = map
-                    .iter()
-                    .map(|(id, map)| {
-                        let inner_map: BTreeMap<_, _> = map
-                            .iter()
-                            .map(|(id, val)| (id, val.as_u64()))
-                            .collect();
-                        (id, inner_map)
-                    })
-                    .collect();
-                (id, inner_map)
-            })
-            .collect();
-        ordered.serialize(serializer)
+        todo!()
+        // // use collect to make the nested hashmap a nested btreemap
+        // let ordered: BTreeMap<_, _> = self
+        //     .map
+        //     .iter()
+        //     .map(|(id, map)| {
+        //         let inner_map: BTreeMap<_, _> = map
+        //             .iter()
+        //             .map(|(id, map)| {
+        //                 let inner_map: BTreeMap<_, _> = map
+        //                     .iter()
+        //                     .map(|(id, val)| (id, val.as_u64()))
+        //                     .collect();
+        //                 (id, inner_map)
+        //             })
+        //             .collect();
+        //         (id, inner_map)
+        //     })
+        //     .collect();
+        // ordered.serialize(serializer)
     }
 }
