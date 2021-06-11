@@ -171,7 +171,7 @@ impl Environment {
                 match cl.name().id.as_str() {
                     "std_add" => {
                         let adder = primitives::StdAdd::new(
-                            Environment::get_width(&cl.ports),
+                            cl.get_paramter("WIDTH").unwrap(),
                         );
                         map.insert(
                             cl as *const ir::Cell,
@@ -180,7 +180,7 @@ impl Environment {
                     }
                     "std_reg" => {
                         let reg = primitives::StdReg::new(
-                            Environment::get_width(&cl.ports),
+                            cl.get_paramter("WIDTH").unwrap(),
                         );
                         map.insert(
                             cl as *const ir::Cell,
@@ -188,7 +188,7 @@ impl Environment {
                         );
                     }
                     "std_const" => {
-                        let width = Environment::get_width(&cl.ports);
+                        let width = cl.get_paramter("WIDTH").unwrap();
                         let cst = primitives::StdConst::new(
                             width,
                             Value::try_from_init(0, width).unwrap(),
@@ -199,7 +199,7 @@ impl Environment {
                         );
                     }
                     "std_lsh" => {
-                        let width = Environment::get_width(&cl.ports);
+                        let width = cl.get_paramter("WIDTH").unwrap();
                         let lsh = primitives::StdLsh::new(width);
                         map.insert(
                             cl as *const ir::Cell,
@@ -207,7 +207,7 @@ impl Environment {
                         );
                     }
                     "std_rsh" => {
-                        let width = Environment::get_width(&cl.ports);
+                        let width = cl.get_paramter("WIDTH").unwrap();
                         let rsh = primitives::StdRsh::new(width);
                         map.insert(
                             cl as *const ir::Cell,
@@ -215,18 +215,17 @@ impl Environment {
                         );
                     }
                     "std_sub" => {
-                        let width = Environment::get_width(&cl.ports);
+                        let width = cl.get_paramter("WIDTH").unwrap();
                         let sub = primitives::StdSub::new(width);
                         map.insert(
                             cl as *const ir::Cell,
                             Primitive::StdSub(sub),
                         );
                     }
-                    //add panics
                     "std_slice" => {
                         let slc = primitives::StdSlice::new(
-                            cl.ports[0].borrow().width,
-                            cl.ports[1].borrow().width,
+                            cl.get_paramter("IN_WIDTH").unwrap(),
+                            cl.get_paramter("OUT_WIDTH").unwrap(),
                         );
                         map.insert(
                             cl as *const ir::Cell,
@@ -235,8 +234,8 @@ impl Environment {
                     }
                     "std_pad" => {
                         let pad = primitives::StdPad::new(
-                            cl.ports[0].borrow().width,
-                            cl.ports[1].borrow().width,
+                            cl.get_paramter("IN_WIDTH").unwrap(),
+                            cl.get_paramter("OUT_WIDTH").unwrap(),
                         );
                         map.insert(
                             cl as *const ir::Cell,
@@ -244,72 +243,82 @@ impl Environment {
                         );
                     }
                     "std_not" => {
-                        let not =
-                            primitives::StdNot::new(cl.ports[0].borrow().width);
+                        let not = primitives::StdNot::new(
+                            cl.get_paramter("WIDTH").unwrap(),
+                        );
                         map.insert(
                             cl as *const ir::Cell,
                             Primitive::StdNot(not),
                         );
                     }
                     "std_and" => {
-                        let and =
-                            primitives::StdAnd::new(cl.ports[0].borrow().width);
+                        let and = primitives::StdAnd::new(
+                            cl.get_paramter("WIDTH").unwrap(),
+                        );
                         map.insert(
                             cl as *const ir::Cell,
                             Primitive::StdAnd(and),
                         );
                     }
                     "std_or" => {
-                        let or =
-                            primitives::StdOr::new(cl.ports[0].borrow().width);
+                        let or = primitives::StdOr::new(
+                            cl.get_paramter("WIDTH").unwrap(),
+                        );
                         map.insert(cl as *const ir::Cell, Primitive::StdOr(or));
                     }
                     "std_xor" => {
-                        let xor =
-                            primitives::StdXor::new(cl.ports[0].borrow().width);
+                        let xor = primitives::StdXor::new(
+                            cl.get_paramter("WIDTH").unwrap(),
+                        );
                         map.insert(
                             cl as *const ir::Cell,
                             Primitive::StdXor(xor),
                         );
                     }
                     "std_ge" => {
-                        let ge =
-                            primitives::StdGe::new(cl.ports[0].borrow().width);
+                        let ge = primitives::StdGe::new(
+                            cl.get_paramter("WIDTH").unwrap(),
+                        );
                         map.insert(cl as *const ir::Cell, Primitive::StdGe(ge));
                     }
                     "std_gt" => {
-                        let gt =
-                            primitives::StdGt::new(cl.ports[0].borrow().width);
+                        let gt = primitives::StdGt::new(
+                            cl.get_paramter("WIDTH").unwrap(),
+                        );
                         map.insert(cl as *const ir::Cell, Primitive::StdGt(gt));
                     }
                     "std_eq" => {
-                        let eq =
-                            primitives::StdEq::new(cl.ports[0].borrow().width);
+                        let eq = primitives::StdEq::new(
+                            cl.get_paramter("WIDTH").unwrap(),
+                        );
                         map.insert(cl as *const ir::Cell, Primitive::StdEq(eq));
                     }
                     "std_neq" => {
-                        let neq =
-                            primitives::StdNeq::new(cl.ports[0].borrow().width);
+                        let neq = primitives::StdNeq::new(
+                            cl.get_paramter("WIDTH").unwrap(),
+                        );
                         map.insert(
                             cl as *const ir::Cell,
                             Primitive::StdNeq(neq),
                         );
                     }
                     "std_le" => {
-                        let le =
-                            primitives::StdLe::new(cl.ports[0].borrow().width);
+                        let le = primitives::StdLe::new(
+                            cl.get_paramter("WIDTH").unwrap(),
+                        );
                         map.insert(cl as *const ir::Cell, Primitive::StdLe(le));
                     }
                     "std_lt" => {
-                        let lt =
-                            primitives::StdLt::new(cl.ports[0].borrow().width);
+                        let lt = primitives::StdLt::new(
+                            cl.get_paramter("WIDTH").unwrap(),
+                        );
                         map.insert(cl as *const ir::Cell, Primitive::StdLt(lt));
                     }
                     "std_mem_d1" => {
                         let m1 = primitives::StdMemD1::new(
-                            cl.ports[0].borrow().width,
-                            cl.ports[1].borrow().width,
-                            cl.ports[2].borrow().width,
+                            cl.get_paramter("WIDTH").unwrap(),
+                            cl.get_paramter("SIZE").unwrap(),
+                            cl.get_paramter("IDX_SIZE").unwrap(),
                         );
                         map.insert(
                             cl as *const ir::Cell,
