@@ -325,6 +325,47 @@ impl Environment {
                             Primitive::StdMemD1(m1),
                         );
                     }
+                    "std_mem_d2" => {
+                        let m2 = primitives::StdMemD2::new(
+                            cl.get_paramter("WIDTH").unwrap(),
+                            cl.get_paramter("D0_SIZE").unwrap(),
+                            cl.get_paramter("D1_SIZE").unwrap(),
+                            cl.get_paramter("D0_IDX_SIZE").unwrap(),
+                            cl.get_paramter("D1_IDX_SIZE").unwrap(),
+                        );
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdMemD2(m2),
+                        );
+                    }
+                    "std_mem_d3" => {
+                        let m3 = primitives::StdMemD3::new(
+                            cl.get_paramter("WIDTH").unwrap(),
+                            cl.get_paramter("D0_SIZE").unwrap(),
+                            cl.get_paramter("D1_SIZE").unwrap(),
+                            cl.get_paramter("D2_SIZE").unwrap(),
+                            cl.get_paramter("D0_IDX_SIZE").unwrap(),
+                            cl.get_paramter("D1_IDX_SIZE").unwrap(),
+                            cl.get_paramter("D2_IDX_SIZE").unwrap(),
+                        );
+                        map.insert(
+                            cl as *const ir::Cell,
+                            Primitive::StdMemD3(m3),
+                        );
+                    }
+                    "std_mem_d4" => {
+                        let m4 = primitives::StdMemD4::new(
+                            cl.get_paramter("WIDTH").unwrap(),
+                            cl.get_paramter("D0_SIZE").unwrap(),
+                            cl.get_paramter("D1_SIZE").unwrap(),
+                            cl.get_paramter("D2_SIZE").unwrap(),
+                            cl.get_paramter("D3_SIZE").unwrap(),
+                            cl.get_paramter("D0_IDX_SIZE").unwrap(),
+                            cl.get_paramter("D1_IDX_SIZE").unwrap(),
+                            cl.get_paramter("D2_IDX_SIZE").unwrap(),
+                            cl.get_paramter("D3_IDX_SIZE").unwrap(),
+                        );
+                    }
                     _ => panic!("Unknown primitive"),
                 }
             }
