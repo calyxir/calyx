@@ -1,6 +1,7 @@
 //! Used for the command line interface.
 //! Only interprets a given group in a given component
 
+use crate::utils::AssignmentRef;
 use crate::{environment::Environment, environment::UpdateQueue, primitives};
 use calyx::{
     errors::{Error, FutilResult},
@@ -10,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::iter;
 #[derive(Debug, Clone, Default)]
 struct DependencyMap<'a> {
-    map: HashMap<*const ir::Port, HashSet<&'a ir::Assignment>>,
+    map: HashMap<*const ir::Port, HashSet<AssignmentRef<'a>>>,
 }
 
 impl<'a> DependencyMap<'a> {
@@ -37,7 +38,7 @@ impl<'a> DependencyMap<'a> {
                 self.map
                     .entry(&port.borrow() as &ir::Port as *const ir::Port)
                     .or_default()
-                    .insert(assignment);
+                    .insert(assignment.into());
             }
         }
     }

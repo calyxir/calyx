@@ -41,10 +41,33 @@ impl From<&RRC<Port>> for PortRef {
     }
 }
 
+#[derive(Debug, Clone)]
 pub(super) struct AssignmentRef<'a>(&'a Assignment);
 
 impl<'a> Hash for AssignmentRef<'a> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         (self.0 as *const Assignment).hash(state);
+    }
+}
+
+impl<'a> PartialEq for AssignmentRef<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(self.0 as *const Assignment, other.0 as *const Assignment)
+    }
+}
+
+impl<'a> Eq for AssignmentRef<'a> {}
+
+impl<'a> From<&'a Assignment> for AssignmentRef<'a> {
+    fn from(input: &'a Assignment) -> Self {
+        Self(input)
+    }
+}
+
+impl<'a> Deref for AssignmentRef<'a> {
+    type Target = Assignment;
+
+    fn deref(&self) -> &Self::Target {
+        self.0
     }
 }
