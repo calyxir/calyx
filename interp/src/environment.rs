@@ -388,15 +388,11 @@ impl Environment {
     // }
 
     /// Return the value associated with a component's port.
-    pub fn get_from_port(
-        &self,
-        component: &ir::Id,
-        port: &*const ir::Port,
-    ) -> &Value {
+    pub fn get_from_port(&self, component: &ir::Id, port: &ir::Port) -> &Value {
         // if port.is_hole() {
         //     panic!("Cannot get value from hole")
         // }
-        &self.pv_map[port]
+        &self.pv_map[&(port as *const ir::Port)]
     }
 
     /// Puts a mapping from component to cell to port to val into map.

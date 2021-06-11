@@ -275,43 +275,55 @@ fn eval_assigns(
 #[allow(clippy::borrowed_box)]
 // XXX: Allow for this warning. It would make sense to use a reference when we
 // have the `box` match pattern available in Rust.
-fn eval_guard(comp: &ir::Id, guard: &Box<ir::Guard>, env: &Environment) -> u64 {
-    todo!()
-    // (match &**guard {
-    //     ir::Guard::Or(g1, g2) => {
-    //         (eval_guard(comp, g1, env) == 1) || (eval_guard(comp, g2, env) == 1)
-    //     }
-    //     ir::Guard::And(g1, g2) => {
-    //         (eval_guard(comp, g1, env) == 1) && (eval_guard(comp, g2, env) == 1)
-    //     }
-    //     ir::Guard::Not(g) => eval_guard(comp, g, &env) != 0,
-    //     ir::Guard::Eq(g1, g2) => {
-    //         env.get_from_port(comp, &g1.borrow())
-    //             == env.get_from_port(comp, &g2.borrow())
-    //     }
-    //     ir::Guard::Neq(g1, g2) => {
-    //         env.get_from_port(comp, &g1.borrow())
-    //             != env.get_from_port(comp, &g2.borrow())
-    //     }
-    //     ir::Guard::Gt(g1, g2) => {
-    //         env.get_from_port(comp, &g1.borrow())
-    //             > env.get_from_port(comp, &g2.borrow())
-    //     }
-    //     ir::Guard::Lt(g1, g2) => {
-    //         env.get_from_port(comp, &g1.borrow())
-    //             < env.get_from_port(comp, &g2.borrow())
-    //     }
-    //     ir::Guard::Geq(g1, g2) => {
-    //         env.get_from_port(comp, &g1.borrow())
-    //             >= env.get_from_port(comp, &g2.borrow())
-    //     }
-    //     ir::Guard::Leq(g1, g2) => {
-    //         env.get_from_port(comp, &g1.borrow())
-    //             <= env.get_from_port(comp, &g2.borrow())
-    //     }
-    //     ir::Guard::Port(p) => env.get_from_port(comp, &p.borrow()) != 0,
-    //     ir::Guard::True => true,
-    // }) as u64
+fn eval_guard(
+    comp: &ir::Id,
+    guard: &Box<ir::Guard>,
+    env: &Environment,
+) -> bool {
+    match &**guard {
+        ir::Guard::Or(g1, g2) => {
+            eval_guard(comp, g1, env) || eval_guard(comp, g2, env)
+        }
+        ir::Guard::And(g1, g2) => {
+            eval_guard(comp, g1, env) && eval_guard(comp, g2, env)
+        }
+        ir::Guard::Not(g) => !eval_guard(comp, g, &env),
+        ir::Guard::Eq(g1, g2) => {
+            env.get_from_port(comp, &g1.borrow())
+                == env.get_from_port(comp, &g2.borrow())
+        }
+        ir::Guard::Neq(g1, g2) => {
+            env.get_from_port(comp, &g1.borrow())
+                != env.get_from_port(comp, &g2.borrow())
+        }
+        ir::Guard::Gt(g1, g2) => {
+            env.get_from_port(comp, &g1.borrow())
+                > env.get_from_port(comp, &g2.borrow())
+        }
+        ir::Guard::Lt(g1, g2) => {
+            env.get_from_port(comp, &g1.borrow())
+                < env.get_from_port(comp, &g2.borrow())
+        }
+        ir::Guard::Geq(g1, g2) => {
+            env.get_from_port(comp, &g1.borrow())
+                >= env.get_from_port(comp, &g2.borrow())
+        }
+        ir::Guard::Leq(g1, g2) => {
+            env.get_from_port(comp, &g1.borrow())
+                <= env.get_from_port(comp, &g2.borrow())
+        }
+        ir::Guard::Port(p) => {
+            let val = env.get_from_port(comp, &p.borrow());
+            if val.as_u64() == 1 && val.vec.len() == 1 {
+                true
+            } else {
+                panic!(
+                    "Evaluating the truth value of a wire that is not one bit"
+                )
+            }
+        }
+        ir::Guard::True => true,
+    }
 }
 
 /// Get the cell id a port belongs to.
