@@ -8,7 +8,7 @@ component main() -> () {
   }
 
   wires {
-    group cond<"static"=0> {
+    group cond<"static"=1> {
       reg0.write_en = 1'd1;
       lt.left = 32'd9;
       lt.right = 32'd16;
@@ -32,7 +32,7 @@ component main() -> () {
   }
 
   control {
-    if lt.out with cond {
+    if reg0.out with cond {
       true;
     } else {
       false;
