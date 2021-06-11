@@ -21,6 +21,7 @@ impl Value {
     ///
     /// # Example:
     /// ```
+    /// use interp::values::*;
     /// let empty_val = Value::new(2 as usize);
     /// ```
     pub fn new(bitwidth: usize) -> Value {
@@ -33,6 +34,7 @@ impl Value {
     ///
     /// # Example:
     /// ```
+    /// use interp::values::*;
     /// let zeroed_val = Value::zeroes(2 as usize);
     /// ```
     pub fn zeroes(bitwidth: usize) -> Value {
@@ -46,6 +48,7 @@ impl Value {
     ///
     /// # Example:
     /// ```
+    /// use interp::values::*;
     /// let val_16_16 = Value::from_init(16 as u64, 16 as usize);
     /// ```
     pub fn from_init<T1: Into<u64>, T2: Into<usize>>(
@@ -63,6 +66,7 @@ impl Value {
     ///
     /// # Example:
     /// ```
+    /// use interp::values::*;
     /// let val_16_16 = Value::try_from_init(16, 16).unwrap();
     /// ```
     pub fn try_from_init<T1, T2>(
@@ -96,6 +100,7 @@ impl Value {
     ///
     /// # Example
     /// ```
+    /// use interp::values::*;
     /// let val_4_4 = (Value::try_from_init(4, 16).unwrap()).truncate(4);
     /// ```
     pub fn truncate(&self, new_size: usize) -> Value {
@@ -108,6 +113,7 @@ impl Value {
     ///
     /// # Example:
     /// ```
+    /// use interp::values::*;
     /// let val_4_16 = (Value::try_from_init(4, 4).unwrap()).ext(16);
     /// ```
     pub fn ext(&self, ext: usize) -> Value {
@@ -122,6 +128,7 @@ impl Value {
     ///
     /// # Example:
     /// ```
+    /// use interp::values::*;
     /// // [1111] -> [11111]. In 2'sC these are both -1
     /// let val_31_5 = (Value::try_from_init(15, 4).unwrap()).sext(5);
     /// ```
@@ -138,6 +145,7 @@ impl Value {
     ///
     /// # Example
     /// ```
+    /// use interp::values::*;
     /// let unsign_64_16 = (Value::try_from_init(16, 16).unwrap()).as_u64();
     /// ```
     pub fn as_u64(&self) -> u64 {
@@ -174,17 +182,27 @@ impl std::fmt::Display for Value {
     }
 }
 
-// example: output of a register will be a TimeLockedValue with a count of 1,
-// because the new data in the register is only available at the start of the next clock cycle.
+/// A TimeLockedValue represents the return of a non-combinational component,
+/// such as a register. Since a register only updates with the value of [in] by the next
+/// clock cycle, it returns a TimeLockedValue at the end of [execute_mut] that
+/// has a [count] of 1, [value] being the new value, and [old_value] being the previous value
+/// (undetermined what goes into old_value if the register wasn't previously initialized)
+#[derive(Clone, Debug)]
 pub struct TimeLockedValue {
     value: Value,
     count: u64,
-    pub old_value: Option<Value>, //diff from value, this is intermediate value
-                                  //example: done is 0 until count is 0 then it is 1
-                                  //can just access this directly
+    pub old_value: Option<Value>,
 }
 
 impl TimeLockedValue {
+    /// Create a new TimeLockedValue
+    /// # Example
+    /// use interp::values::*;
+    /// TimeLockedValue::new(
+    ///                 Value::from_init(1: u16, 1: u16),
+    ///                 1,
+    ///                 Some(Value::zeroes(1))
+    ///             )
     pub fn new(
         value: Value,
         count: u64,
@@ -197,14 +215,21 @@ impl TimeLockedValue {
         }
     }
 
+    /// Decrease the counter in the TLV. Once this counter is 0, the TLV is unlockable
+    /// and its value can be read
     pub fn dec_count(&mut self) {
-        self.count -= 1
+        if self.count > 0 {
+            self.count -= 1
+        }
     }
 
+    /// If [self] is unlockable then [self.unlock] will guaranteed return
+    /// [value].
     pub fn unlockable(&self) -> bool {
         self.count == 0
     }
 
+    /// If [self] is unlockable then returns [value] else panics
     pub fn unlock(self) -> Value {
         if self.unlockable() {
             self.value
@@ -213,6 +238,9 @@ impl TimeLockedValue {
         }
     }
 
+    /// Safer version of [unlock]. Returns an OutputValue. Returns
+    /// ImmediateValue(self.value) if [self] is unlockable, else returns
+    /// LockedValue(self).
     pub fn try_unlock(self) -> OutputValue {
         if self.unlockable() {
             OutputValue::ImmediateValue(self.value)
@@ -220,11 +248,47 @@ impl TimeLockedValue {
             OutputValue::LockedValue(self)
         }
     }
+
+    /// Mainly for testing. Gets the value of the [count] in [self]
+    pub fn get_count(&self) -> u64 {
+        self.count
+    }
 }
 
+/// The return type for all primitive components. Combinational components
+/// return [ImmediateValue], which is a wrapper for [Value]. Sequential components
+/// such as registers and memories return [LockedValue], which contains a TimeLockedValue
+/// within it.
+#[derive(Clone, Debug)]
 pub enum OutputValue {
     ImmediateValue(Value),
     LockedValue(TimeLockedValue),
+}
+
+impl OutputValue {
+    /// Returns the Value contained within an ImmediateValue. Panics if
+    /// called on a LockedValue
+    pub fn unwrap_imm(self) -> Value {
+        match self {
+            OutputValue::ImmediateValue(val) => val,
+            _ => panic!("not an immediate value, cannot unwrap_imm"),
+        }
+    }
+    /// Returns the TimeLockedValue contained within a LockedValue. Panics if
+    /// called on a ImmediateValue
+    pub fn unwrap_tlv(self) -> TimeLockedValue {
+        match self {
+            OutputValue::LockedValue(tlv) => tlv,
+            _ => panic!("not a TimeLockedValue value, cannot unwrap_tlv"),
+        }
+    }
+
+    pub fn is_imm(&self) -> bool {
+        matches!(self, OutputValue::ImmediateValue(_))
+    }
+    pub fn is_tlv(&self) -> bool {
+        matches!(self, OutputValue::LockedValue(_))
+    }
 }
 
 impl From<Value> for OutputValue {
