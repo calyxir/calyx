@@ -1,9 +1,8 @@
 //! Environment for interpreter.
 
 use super::{primitives, primitives::Primitive, values::Value};
-use calyx::{errors::FutilResult, ir, ir::CloneName};
+use calyx::{ir, ir::CloneName};
 use serde::Serialize;
-use std::collections::BTreeMap;
 use std::collections::HashMap;
 
 //use std::rc::Rc;
@@ -226,8 +225,8 @@ impl Environment {
                     //add panics
                     "std_slice" => {
                         let slc = primitives::StdSlice::new(
-                            *&cl.ports[0].borrow().width,
-                            *&cl.ports[1].borrow().width,
+                            cl.ports[0].borrow().width,
+                            cl.ports[1].borrow().width,
                         );
                         map.insert(
                             cl as *const ir::Cell,
@@ -236,8 +235,8 @@ impl Environment {
                     }
                     "std_pad" => {
                         let pad = primitives::StdPad::new(
-                            *&cl.ports[0].borrow().width,
-                            *&cl.ports[1].borrow().width,
+                            cl.ports[0].borrow().width,
+                            cl.ports[1].borrow().width,
                         );
                         map.insert(
                             cl as *const ir::Cell,
@@ -245,88 +244,79 @@ impl Environment {
                         );
                     }
                     "std_not" => {
-                        let not = primitives::StdNot::new(
-                            *&cl.ports[0].borrow().width,
-                        );
+                        let not =
+                            primitives::StdNot::new(cl.ports[0].borrow().width);
                         map.insert(
                             cl as *const ir::Cell,
                             Primitive::StdNot(not),
                         );
                     }
                     "std_and" => {
-                        let and = primitives::StdAnd::new(
-                            *&cl.ports[0].borrow().width,
-                        );
+                        let and =
+                            primitives::StdAnd::new(cl.ports[0].borrow().width);
                         map.insert(
                             cl as *const ir::Cell,
                             Primitive::StdAnd(and),
                         );
                     }
                     "std_or" => {
-                        let or = primitives::StdOr::new(
-                            *&cl.ports[0].borrow().width,
-                        );
+                        let or =
+                            primitives::StdOr::new(cl.ports[0].borrow().width);
                         map.insert(cl as *const ir::Cell, Primitive::StdOr(or));
                     }
                     "std_xor" => {
-                        let xor = primitives::StdXor::new(
-                            *&cl.ports[0].borrow().width,
-                        );
+                        let xor =
+                            primitives::StdXor::new(cl.ports[0].borrow().width);
                         map.insert(
                             cl as *const ir::Cell,
                             Primitive::StdXor(xor),
                         );
                     }
                     "std_ge" => {
-                        let ge = primitives::StdGe::new(
-                            *&cl.ports[0].borrow().width,
-                        );
+                        let ge =
+                            primitives::StdGe::new(cl.ports[0].borrow().width);
                         map.insert(cl as *const ir::Cell, Primitive::StdGe(ge));
                     }
                     "std_gt" => {
-                        let gt = primitives::StdGt::new(
-                            *&cl.ports[0].borrow().width,
-                        );
+                        let gt =
+                            primitives::StdGt::new(cl.ports[0].borrow().width);
                         map.insert(cl as *const ir::Cell, Primitive::StdGt(gt));
                     }
                     "std_eq" => {
-                        let eq = primitives::StdEq::new(
-                            *&cl.ports[0].borrow().width,
-                        );
+                        let eq =
+                            primitives::StdEq::new(cl.ports[0].borrow().width);
                         map.insert(cl as *const ir::Cell, Primitive::StdEq(eq));
                     }
                     "std_neq" => {
-                        let neq = primitives::StdNeq::new(
-                            *&cl.ports[0].borrow().width,
-                        );
+                        let neq =
+                            primitives::StdNeq::new(cl.ports[0].borrow().width);
                         map.insert(
                             cl as *const ir::Cell,
                             Primitive::StdNeq(neq),
                         );
                     }
                     "std_le" => {
-                        let le = primitives::StdLe::new(
-                            *&cl.ports[0].borrow().width,
-                        );
+                        let le =
+                            primitives::StdLe::new(cl.ports[0].borrow().width);
                         map.insert(cl as *const ir::Cell, Primitive::StdLe(le));
                     }
                     "std_lt" => {
-                        let lt = primitives::StdLt::new(
-                            *&cl.ports[0].borrow().width,
-                        );
+                        let lt =
+                            primitives::StdLt::new(cl.ports[0].borrow().width);
                         map.insert(cl as *const ir::Cell, Primitive::StdLt(lt));
                     }
                     "std_mem_d1" => {
                         let m1 = primitives::StdMemD1::new(
-                            *&cl.ports[0].borrow().width,
-                            *&cl.ports[1].borrow().width,
-                            *&cl.ports[2].borrow().width,
+                            cl.ports[0].borrow().width,
+                            cl.ports[1].borrow().width,
+                            cl.ports[2].borrow().width,
                         );
                         map.insert(
                             cl as *const ir::Cell,
                             Primitive::StdMemD1(m1),
                         );
                     }
+                    _ => panic!("Unknown primitive"),
                 }
             }
         }
@@ -402,11 +392,11 @@ impl Environment {
         &self,
         component: &ir::Id,
         port: &*const ir::Port,
-    ) -> Value {
+    ) -> &Value {
         // if port.is_hole() {
         //     panic!("Cannot get value from hole")
         // }
-        self.pv_map[port]
+        &self.pv_map[port]
     }
 
     /// Puts a mapping from component to cell to port to val into map.
