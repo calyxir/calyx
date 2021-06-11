@@ -106,7 +106,7 @@ fn eval_enable(
     comp: &ir::Id,
     env: Environment,
 ) -> FutilResult<Environment> {
-    interpret_group(&e.group.borrow(), env, comp)
+    interpret_group(&e.group.borrow(), env)
 }
 
 /// Interpret Empty

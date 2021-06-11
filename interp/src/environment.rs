@@ -539,6 +539,12 @@ impl Environment {
     pub fn print_env(&self) {
         println!("{}", serde_json::to_string_pretty(&self).unwrap());
     }
+
+    pub fn get_prim_mut(&mut self, cell: &ir::Cell) -> &mut Primitive {
+        self.cell_prim_map
+            .get_mut(&(cell as *const ir::Cell))
+            .unwrap()
+    }
 }
 
 //we have to rewrite the printer

@@ -1,15 +1,22 @@
 //! Used for the command line interface.
 //! Only interprets a given group in a given component
 
+use crate::primitives::{
+    Execute, ExecuteBinary, ExecuteStateful, ExecuteUnary,
+};
 use crate::utils::{AssignmentRef, OutputValueRef};
 use crate::values::{OutputValue, TimeLockedValue, Value};
-use crate::{environment::Environment, environment::UpdateQueue, primitives};
+use crate::{
+    environment::Environment, environment::UpdateQueue, primitives,
+    primitives::Primitive,
+};
 use calyx::{
     errors::{Error, FutilResult},
     ir::{self, CloneName, RRC},
 };
 use std::collections::{HashMap, HashSet};
 use std::iter;
+use std::rc::Rc;
 #[derive(Debug, Clone, Default)]
 struct DependencyMap<'a> {
     map: HashMap<*const ir::Port, HashSet<AssignmentRef<'a>>>,
@@ -43,6 +50,10 @@ impl<'a> DependencyMap<'a> {
             }
         }
     }
+
+    fn get(&self, port: &ir::Port) -> Option<&HashSet<AssignmentRef<'a>>> {
+        self.map.get(&(port as *const ir::Port))
+    }
 }
 
 type WorkList<'a> = HashSet<AssignmentRef<'a>>;
@@ -50,8 +61,8 @@ type WorkList<'a> = HashSet<AssignmentRef<'a>>;
 type PortOutputValMap = HashMap<*const ir::Port, OutputValue>;
 
 struct WorkingEnvironment {
-    backing_env: Environment,
-    working_env: PortOutputValMap,
+    pub backing_env: Environment,
+    pub working_env: PortOutputValMap,
 }
 
 impl From<Environment> for WorkingEnvironment {
@@ -69,6 +80,21 @@ impl WorkingEnvironment {
         match working_val {
             Some(v) => v.into(),
             None => self.backing_env.get_from_port(port).into(),
+        }
+    }
+
+    fn update_val(&mut self, port: &ir::Port, value: OutputValue) {
+        self.working_env.insert(port as *const ir::Port, value);
+    }
+
+    fn get_as_val(&self, port: &ir::Port) -> &Value {
+        match self.get(port) {
+            OutputValueRef::ImmediateValue(iv) => iv,
+            OutputValueRef::LockedValue(tlv) => {
+                &tlv.old_value.as_ref().unwrap_or_else(|| {
+                    panic!("Attempting to read an invalid value")
+                })
+            }
         }
     }
 }
@@ -125,6 +151,13 @@ fn _construct_map(
     map
 }
 
+fn grp_is_done(done: OutputValueRef) -> bool {
+    match done {
+        OutputValueRef::ImmediateValue(v) => v.as_u64() == 1,
+        OutputValueRef::LockedValue(_) => false,
+    }
+}
+
 /// Evaluates a group, given an environment.
 pub fn interpret_group(
     group: &ir::Group,
@@ -132,9 +165,104 @@ pub fn interpret_group(
 ) -> FutilResult<Environment> {
     let mut dependency_map =
         DependencyMap::from_assignments(group.assignments.iter());
-    let done_ref = get_done_port(&group);
+    let grp_done = get_done_port(&group);
+    let mut working_env: WorkingEnvironment = env.into();
     let mut worklist: WorkList =
         group.assignments.iter().map(|x| x.into()).collect();
+
+    while !grp_is_done(working_env.get(&grp_done.borrow())) {
+        if !worklist.is_empty() {
+            let mut updates_list = vec![];
+            let mut exec_list: Vec<RRC<ir::Cell>> = vec![];
+
+            // STEP 1 : Evaluate all assignments
+            for assignment in worklist.drain() {
+                if eval_guard(&assignment.guard, &working_env) {
+                    updates_list.push((
+                        Rc::clone(&assignment.src),
+                        working_env.get(&assignment.dst.borrow()),
+                    ));
+                }
+            }
+
+            // STEP 2 : Update values and determine new worklist and exec_list
+            for (port, new_val) in updates_list {
+                let current_val = working_env.get(&port.borrow());
+                // check if the current val of id matches the new update
+                // if yes, do nothing
+                // if no, make the update in the environment and add all dependent
+                // assignments into the worklist and add cell to the execution list
+                if current_val != new_val {
+                    let cell = match &port.borrow().parent {
+                        ir::PortParent::Cell(c) => Some(c.upgrade()),
+                        ir::PortParent::Group(_) => None,
+                    };
+                    let new_assigments = dependency_map.get(&port.borrow());
+
+                    if cell.is_some() {
+                        exec_list.push(cell.unwrap());
+                    }
+
+                    if new_assigments.is_some() {
+                        worklist
+                            .extend(new_assigments.unwrap().iter().cloned());
+                    }
+                }
+            }
+
+            // STEP 3 : Execute cells
+            let mut prim_map =
+                std::mem::take(&mut working_env.backing_env.cell_prim_map);
+
+            for cell in exec_list {
+                let inputs: Vec<(ir::Id, &Value)> = cell
+                    .borrow()
+                    .ports
+                    .iter()
+                    .filter_map(|p| {
+                        let p_ref: &ir::Port = &p.borrow();
+                        match &p_ref.direction {
+                            ir::Direction::Input => Some((
+                                p_ref.name.clone(),
+                                working_env.get_as_val(p_ref),
+                            )),
+                            _ => None,
+                        }
+                    })
+                    .collect();
+
+                let new_vals = prim_map
+                    .get_mut(&(&cell.borrow() as &ir::Cell as *const ir::Cell))
+                    .unwrap()
+                    .exec(&inputs);
+
+                std::mem::drop(inputs);
+
+                for (port, val) in new_vals {
+                    let port_ref = cell.borrow().find(port).unwrap();
+
+                    let current_val = working_env.get(&port_ref.borrow());
+
+                    if current_val != (&val).into() {
+                        let current_val =
+                            working_env.update_val(&port_ref.borrow(), val);
+                        let new_assigments =
+                            dependency_map.get(&port_ref.borrow());
+
+                        if new_assigments.is_some() {
+                            worklist.extend(
+                                new_assigments.unwrap().iter().cloned(),
+                            );
+                        }
+                    }
+                }
+            }
+
+            working_env.backing_env.cell_prim_map = prim_map;
+        } else {
+            // tick clock
+        }
+    }
 
     todo!()
 }
@@ -304,35 +432,31 @@ fn eval_assigns(
     // Ok(write_env)
 }
 
-fn eval_guard(comp: &ir::Id, guard: &ir::Guard, env: &Environment) -> bool {
+fn eval_guard(guard: &ir::Guard, env: &WorkingEnvironment) -> bool {
     match guard {
-        ir::Guard::Or(g1, g2) => {
-            eval_guard(comp, g1, env) || eval_guard(comp, g2, env)
-        }
-        ir::Guard::And(g1, g2) => {
-            eval_guard(comp, g1, env) && eval_guard(comp, g2, env)
-        }
-        ir::Guard::Not(g) => !eval_guard(comp, g, &env),
+        ir::Guard::Or(g1, g2) => eval_guard(g1, env) || eval_guard(g2, env),
+        ir::Guard::And(g1, g2) => eval_guard(g1, env) && eval_guard(g2, env),
+        ir::Guard::Not(g) => !eval_guard(g, &env),
         ir::Guard::Eq(g1, g2) => {
-            env.get_from_port(&g1.borrow()) == env.get_from_port(&g2.borrow())
+            env.get_as_val(&g1.borrow()) == env.get_as_val(&g2.borrow())
         }
         ir::Guard::Neq(g1, g2) => {
-            env.get_from_port(&g1.borrow()) != env.get_from_port(&g2.borrow())
+            env.get_as_val(&g1.borrow()) != env.get_as_val(&g2.borrow())
         }
         ir::Guard::Gt(g1, g2) => {
-            env.get_from_port(&g1.borrow()) > env.get_from_port(&g2.borrow())
+            env.get_as_val(&g1.borrow()) > env.get_as_val(&g2.borrow())
         }
         ir::Guard::Lt(g1, g2) => {
-            env.get_from_port(&g1.borrow()) < env.get_from_port(&g2.borrow())
+            env.get_as_val(&g1.borrow()) < env.get_as_val(&g2.borrow())
         }
         ir::Guard::Geq(g1, g2) => {
-            env.get_from_port(&g1.borrow()) >= env.get_from_port(&g2.borrow())
+            env.get_as_val(&g1.borrow()) >= env.get_as_val(&g2.borrow())
         }
         ir::Guard::Leq(g1, g2) => {
-            env.get_from_port(&g1.borrow()) <= env.get_from_port(&g2.borrow())
+            env.get_as_val(&g1.borrow()) <= env.get_as_val(&g2.borrow())
         }
         ir::Guard::Port(p) => {
-            let val = env.get_from_port(&p.borrow());
+            let val = env.get_as_val(&p.borrow());
             if val.as_u64() == 1 && val.vec.len() == 1 {
                 true
             } else {

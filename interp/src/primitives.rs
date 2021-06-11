@@ -31,6 +31,38 @@ pub enum Primitive {
     StdMemD4(StdMemD4),
 }
 
+impl Primitive {
+    pub fn exec(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        match self {
+            Primitive::StdAdd(add) => add.execute(inputs),
+            Primitive::StdLsh(prim) => prim.execute(inputs),
+            Primitive::StdRsh(prim) => prim.execute(inputs),
+            Primitive::StdSub(prim) => prim.execute(inputs),
+            Primitive::StdSlice(prim) => prim.execute(inputs),
+            Primitive::StdPad(prim) => prim.execute(inputs),
+            Primitive::StdNot(prim) => prim.execute(inputs),
+            Primitive::StdAnd(prim) => prim.execute(inputs),
+            Primitive::StdOr(prim) => prim.execute(inputs),
+            Primitive::StdXor(prim) => prim.execute(inputs),
+            Primitive::StdGe(prim) => prim.execute(inputs),
+            Primitive::StdGt(prim) => prim.execute(inputs),
+            Primitive::StdEq(prim) => prim.execute(inputs),
+            Primitive::StdNeq(prim) => prim.execute(inputs),
+            Primitive::StdLe(prim) => prim.execute(inputs),
+            Primitive::StdLt(prim) => prim.execute(inputs),
+            Primitive::StdReg(prim) => prim.execute_mut(inputs),
+            Primitive::StdMemD1(prim) => prim.execute_mut(inputs),
+            Primitive::StdMemD2(prim) => prim.execute_mut(inputs),
+            Primitive::StdMemD3(prim) => prim.execute_mut(inputs),
+            Primitive::StdMemD4(prim) => prim.execute_mut(inputs),
+            _ => panic!("cell cannot be executed"),
+        }
+    }
+}
+
 /// For unary operator components that only take in one input.
 /// *Assumes that all inputs have the name "in", and will return
 /// a (ir::Id, Value) with the Id as "out"*
@@ -48,7 +80,7 @@ pub trait ExecuteUnary {
     /// Unwraps inputs, then sends output based on [execute_unary]
     fn execute(
         &self,
-        inputs: &[(ir::Id, Value)],
+        inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
         let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
         vec![(ir::Id::from("out"), self.execute_unary(input))]
@@ -75,7 +107,7 @@ pub trait ExecuteBinary {
     /// Unwraps inputs (left and right), then sends output based on [execute_bin]
     fn execute(
         &self,
-        inputs: &[(ir::Id, Value)],
+        inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
         let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
 
@@ -99,7 +131,7 @@ pub trait ExecuteStateful {
     /// No restrictions on exactly how the input(s) look
     fn execute_mut(
         &mut self,
-        inputs: &[(ir::Id, Value)], //TODO: maybe change these to immutable references?
+        inputs: &[(ir::Id, &Value)], //TODO: maybe change these to immutable references?
     ) -> Vec<(ir::Id, OutputValue)>;
 }
 
@@ -196,7 +228,7 @@ impl ExecuteStateful for StdMemD1 {
     /// self.idx_size.
     fn execute_mut(
         &mut self,
-        inputs: &[(ir::Id, Value)],
+        inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
@@ -221,7 +253,7 @@ impl ExecuteStateful for StdMemD1 {
         let old = self.data[addr0 as usize].clone();
         // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.data[addr0 as usize] = input.clone();
+            self.data[addr0 as usize] = (*input).clone();
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
             // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
@@ -328,7 +360,7 @@ impl ExecuteStateful for StdMemD2 {
     /// self.d0_idx_size. Panics if the width of addr1 does not equal self.d1_idx_size.
     fn execute_mut(
         &mut self,
-        inputs: &[(ir::Id, Value)],
+        inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
@@ -362,7 +394,7 @@ impl ExecuteStateful for StdMemD2 {
         let old = self.data[addr0 as usize][addr1 as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
                                                                      // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.data[addr0 as usize][addr1 as usize] = input.clone();
+            self.data[addr0 as usize][addr1 as usize] = (*input).clone();
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
             // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
@@ -482,7 +514,7 @@ impl ExecuteStateful for StdMemD3 {
     /// width of addr2 does not equal self.d2_idx_size.
     fn execute_mut(
         &mut self,
-        inputs: &[(ir::Id, Value)],
+        inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
@@ -528,7 +560,7 @@ impl ExecuteStateful for StdMemD3 {
                                                                                // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
             self.data[addr0 as usize][addr1 as usize][addr2 as usize] =
-                input.clone();
+                (*input).clone();
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
             // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
@@ -536,7 +568,7 @@ impl ExecuteStateful for StdMemD3 {
             vec![
                 (
                     ir::Id::from("read_data"),
-                    TimeLockedValue::new(input.clone(), 1, Some(old)).into(),
+                    TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
                 ),
                 (
                     ir::Id::from("done"),
@@ -656,7 +688,7 @@ impl ExecuteStateful for StdMemD4 {
     /// width of addr2 does not equal self.d2_idx_size. Panics if the width of addr3 does not equal self.d3_idx_size.
     fn execute_mut(
         &mut self,
-        inputs: &[(ir::Id, Value)],
+        inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
@@ -713,7 +745,7 @@ impl ExecuteStateful for StdMemD4 {
                       // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
             self.data[addr0 as usize][addr1 as usize][addr2 as usize]
-                [addr3 as usize] = input.clone();
+                [addr3 as usize] = (*input).clone();
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
             // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
@@ -721,7 +753,7 @@ impl ExecuteStateful for StdMemD4 {
             vec![
                 (
                     ir::Id::from("read_data"),
-                    TimeLockedValue::new(input.clone(), 1, Some(old)).into(),
+                    TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
                 ),
                 (
                     ir::Id::from("done"),
@@ -785,7 +817,7 @@ impl ExecuteStateful for StdReg {
     fn execute_mut(
         //have to put lifetimes
         &mut self,
-        inputs: &[(ir::Id, Value)],
+        inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
         //unwrap the arguments
         let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
@@ -796,7 +828,7 @@ impl ExecuteStateful for StdReg {
         //write the input to the register
         if write_en.as_u64() == 1 {
             let old = self.val.clone();
-            self.val = input.clone();
+            self.val = (*input).clone();
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new register data. Needs 1 cycle before readable
             // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write

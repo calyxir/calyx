@@ -187,7 +187,7 @@ impl std::fmt::Display for Value {
 /// clock cycle, it returns a TimeLockedValue at the end of [execute_mut] that
 /// has a [count] of 1, [value] being the new value, and [old_value] being the previous value
 /// (undetermined what goes into old_value if the register wasn't previously initialized)
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TimeLockedValue {
     value: Value,
     count: u64,
@@ -308,6 +308,8 @@ impl PartialEq for Value {
         self.vec.len() == other.vec.len() && self.vec == other.vec
     }
 }
+
+impl Eq for Value {}
 
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {

@@ -115,3 +115,21 @@ impl<'a> OutputValueRef<'a> {
         matches!(self, OutputValueRef::ImmediateValue(_))
     }
 }
+
+impl<'a> PartialEq for OutputValueRef<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                OutputValueRef::ImmediateValue(v1),
+                OutputValueRef::ImmediateValue(v2),
+            ) => v1 == v2,
+            (
+                OutputValueRef::LockedValue(v1),
+                OutputValueRef::LockedValue(v2),
+            ) => v1 == v2,
+            _ => false,
+        }
+    }
+}
+
+impl<'a> Eq for OutputValueRef<'a> {}
