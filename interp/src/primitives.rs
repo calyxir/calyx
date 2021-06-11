@@ -73,9 +73,9 @@ pub trait ExecuteBinary {
 
     /// Default implementation of [execute] for all binary components
     /// Unwraps inputs (left and right), then sends output based on [execute_bin]
-    fn execute<'a>(
+    fn execute(
         &self,
-        inputs: &'a [(ir::Id, Value)],
+        inputs: &[(ir::Id, Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
         let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
 
@@ -88,10 +88,8 @@ pub trait ExecuteBinary {
 
 /// Only binary operator components have trait [Execute].
 pub trait Execute {
-    fn execute<'a>(
-        &self,
-        inputs: &'a [(ir::Id, Value)],
-    ) -> Vec<(ir::Id, OutputValue)>;
+    fn execute(&self, inputs: &[(ir::Id, Value)])
+        -> Vec<(ir::Id, OutputValue)>;
 }
 
 /// ExecuteStateful is a trait implemnted by primitive components such as
@@ -99,9 +97,9 @@ pub trait Execute {
 pub trait ExecuteStateful {
     /// Use execute_mut to modify the state of a stateful component.
     /// No restrictions on exactly how the input(s) look
-    fn execute_mut<'a>(
+    fn execute_mut(
         &mut self,
-        inputs: &'a [(ir::Id, Value)], //TODO: maybe change these to immutable references?
+        inputs: &[(ir::Id, Value)], //TODO: maybe change these to immutable references?
     ) -> Vec<(ir::Id, OutputValue)>;
 }
 
@@ -154,10 +152,7 @@ impl StdMemD1 {
     /// Note: if [idx_size] is smaller than the length of [size]'s binary representation,
     /// you will not be able to access the slots near the end of the memory.
     pub fn new(width: u64, size: u64, idx_size: u64) -> StdMemD1 {
-        let data = vec![
-            Value::zeroes((width as usize).try_into().unwrap());
-            (size as usize).try_into().unwrap()
-        ];
+        let data = vec![Value::zeroes(width as usize); size as usize];
         StdMemD1 {
             width,
             size,     //how many slots of memory in the vector
@@ -304,11 +299,8 @@ impl StdMemD2 {
     ) -> StdMemD2 {
         //data is a 2d vector
         let data = vec![
-            vec![
-                Value::zeroes((width as usize).try_into().unwrap());
-                (d1_size as usize).try_into().unwrap()
-            ];
-            (d0_size as usize).try_into().unwrap()
+            vec![Value::zeroes(width as usize); d1_size as usize];
+            d0_size as usize
         ];
         StdMemD2 {
             width,
@@ -456,13 +448,10 @@ impl StdMemD3 {
         let data =
             vec![
                 vec![
-                    vec![
-                        Value::zeroes((width as usize).try_into().unwrap());
-                        (d2_size as usize).try_into().unwrap()
-                    ];
-                    (d1_size as usize).try_into().unwrap()
+                    vec![Value::zeroes(width as usize); d2_size as usize];
+                    d1_size as usize
                 ];
-                (d0_size as usize).try_into().unwrap()
+                d0_size as usize
             ];
         StdMemD3 {
             width,
@@ -609,6 +598,7 @@ pub struct StdMemD4 {
 }
 
 impl StdMemD4 {
+    #[allow(clippy::too_many_arguments)]
     // Instantiates a new StdMemD3 storing data of width [width], containing
     /// [d0_size] * [d1_size] * [d2_size] * [d3_size] slots for memory, accepting indecies [addr0][addr1][addr2][addr3] of widths
     /// [d0_idx_size], [d1_idx_size], [d2_idx_size] and [d3_idx_size] respectively.
@@ -628,15 +618,12 @@ impl StdMemD4 {
             vec![
                 vec![
                     vec![
-                        vec![
-                            Value::zeroes((width as usize).try_into().unwrap());
-                            (d3_size as usize).try_into().unwrap()
-                        ];
-                        (d2_size as usize).try_into().unwrap()
+                        vec![Value::zeroes(width as usize); d3_size as usize];
+                        d2_size as usize
                     ];
-                    (d1_size as usize).try_into().unwrap()
+                    d1_size as usize
                 ];
-                (d0_size as usize).try_into().unwrap()
+                d0_size as usize
             ];
         StdMemD4 {
             width,
@@ -1404,7 +1391,7 @@ impl ExecuteBinary for StdGt {
         let right_64 = right.as_u64();
         let init_val = left_64 > right_64;
 
-        Value::from_init(init_val, 1 as usize).into()
+        Value::from_init(init_val, 1_usize).into()
     }
 }
 
@@ -1448,7 +1435,7 @@ impl ExecuteBinary for StdLt {
         let right_64 = right.as_u64();
         let init_val = left_64 < right_64;
 
-        Value::from_init(init_val, 1 as usize).into()
+        Value::from_init(init_val, 1_usize).into()
     }
 }
 
@@ -1497,7 +1484,7 @@ impl ExecuteBinary for StdEq {
         let right_64 = right.as_u64();
         let init_val = left_64 == right_64;
 
-        Value::from_init(init_val, 1 as usize).into()
+        Value::from_init(init_val, 1_usize).into()
     }
 }
 
@@ -1546,7 +1533,7 @@ impl ExecuteBinary for StdNeq {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 != right_64;
-        Value::from_init(init_val, 1 as usize).into()
+        Value::from_init(init_val, 1_usize).into()
     }
 }
 
@@ -1593,7 +1580,7 @@ impl ExecuteBinary for StdGe {
         let right_64 = right.as_u64();
         let init_val = left_64 >= right_64;
 
-        Value::from_init(init_val, 1 as usize).into()
+        Value::from_init(init_val, 1_usize).into()
     }
 }
 
@@ -1636,6 +1623,6 @@ impl ExecuteBinary for StdLe {
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 <= right_64;
-        Value::from_init(init_val, 1 as usize).into()
+        Value::from_init(init_val, 1_usize).into()
     }
 }

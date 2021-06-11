@@ -159,7 +159,7 @@ impl Value {
 }
 
 /* ============== Impls for Values to make them easier to use ============= */
-
+#[allow(clippy::from_over_into)]
 impl Into<u64> for Value {
     fn into(self) -> u64 {
         let mut val: u64 = 0;
