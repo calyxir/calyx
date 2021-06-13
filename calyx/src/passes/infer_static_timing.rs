@@ -402,20 +402,15 @@ impl Visitor for InferStaticTiming {
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
-            if let (Some(bound), Some(cond_time), Some(body_time)) = (
+        if let (Some(bound), Some(cond_time), Some(body_time)) = (
             s.attributes.get("bound").cloned(),
-            s.cond
-                .borrow()
-                .attributes
-                .get("static"),
-            s.body
-                .get_attributes()
-                .and_then(|attr| attr.get("static")),
+            s.cond.borrow().attributes.get("static"),
+            s.body.get_attributes().and_then(|attr| attr.get("static")),
         ) {
             s.attributes.insert(
                 "static",
                 // The conditional is checked `bound + 1` times.
-                bound * body_time + (bound + 1) * cond_time
+                bound * body_time + (bound + 1) * cond_time,
             );
             s.attributes.remove("bound");
         }
