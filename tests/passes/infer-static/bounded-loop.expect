@@ -1,0 +1,41 @@
+import "primitives/core.futil";
+component main<"static"=10>(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    @external(1) i = std_mem_d1(32, 1, 1);
+    @external(1) j = std_mem_d1(32, 1, 1);
+    lt = std_lt(32);
+    add = std_add(32);
+  }
+  wires {
+    group cond<"static"=0> {
+      lt.left = i.read_data;
+      lt.right = 32'd5;
+      cond[done] = 1'd1;
+    }
+    group incr_i<"static"=1> {
+      i.write_data = add.out;
+      i.addr0 = 1'd0;
+      i.write_en = 1'd1;
+      add.right = i.read_data;
+      add.left = 32'd1;
+      incr_i[done] = i.done;
+    }
+    group incr_j<"static"=1> {
+      j.write_data = add.out;
+      j.addr0 = 1'd0;
+      j.write_en = 1'd1;
+      add.right = j.read_data;
+      add.left = 32'd1;
+      incr_j[done] = j.done;
+    }
+  }
+
+  control {
+    @static(10) while lt.out with cond {
+      @static(2) seq {
+        @static(1) incr_i;
+        @static(1) incr_j;
+      }
+    }
+  }
+}
