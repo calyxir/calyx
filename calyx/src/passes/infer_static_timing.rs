@@ -409,7 +409,6 @@ impl Visitor for InferStaticTiming {
         ) {
             s.attributes.insert(
                 "static",
-                // The conditional is checked `bound + 1` times.
                 bound * body_time + (bound + 1) * cond_time,
             );
             s.attributes.remove("bound");
