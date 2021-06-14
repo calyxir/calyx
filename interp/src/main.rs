@@ -4,11 +4,9 @@ use calyx::{
     pass_manager::PassManager,
     utils::OutputFile,
 };
-use interp::primitives::*;
 
 use interp::environment;
 use interp::interpreter::interpret_component;
-use interp::values::Value;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use structopt::StructOpt;

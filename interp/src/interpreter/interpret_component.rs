@@ -12,5 +12,5 @@ pub fn interpret_component(
     comp: &ir::Component,
     env: Environment,
 ) -> FutilResult<Environment> {
-    interpret_control(&comp.control.borrow(), &comp.name, env)
+    interpret_control(&comp.control.borrow(), env)
 }

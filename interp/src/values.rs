@@ -6,7 +6,7 @@ use std::convert::TryInto;
 #[derive(Debug)]
 pub struct ValueError {}
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 /// The type of all inputs and outputs to all components in Calyx.
 /// Wraps a BitVector.
 pub struct Value {
@@ -300,6 +300,13 @@ impl From<Value> for OutputValue {
 impl From<TimeLockedValue> for OutputValue {
     fn from(input: TimeLockedValue) -> Self {
         OutputValue::LockedValue(input)
+    }
+}
+
+/// Returns an uninitialized immediate value.
+impl Default for OutputValue {
+    fn default() -> Self {
+        Value::default().into()
     }
 }
 
