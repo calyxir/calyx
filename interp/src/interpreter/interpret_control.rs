@@ -48,17 +48,6 @@ fn eval_if(i: &ir::If, mut env: Environment) -> FutilResult<Environment> {
         env = interpret_control(&i.tbranch, env).unwrap();
         return Ok(env);
     }
-    // //first set the environment for cond
-    // env = interpret_group(&i.cond.borrow(), env, comp)?;
-
-    // // if i.port is not high fbranch else tbranch
-    // if env.get_from_port(&comp, &i.port.borrow()) == 0 {
-    //     env = interpret_control(&i.fbranch, comp, env)?;
-    //     Ok(env)
-    // } else {
-    //     env = interpret_control(&i.tbranch, comp, env)?;
-    //     Ok(env)
-    // }
 }
 
 /// Interpret While
@@ -66,8 +55,15 @@ fn eval_if(i: &ir::If, mut env: Environment) -> FutilResult<Environment> {
 // cond_group and uses port_name as the conditional value. When the
 // value is high, it executes body_stmt and recomputes the conditional
 // using cond_group.
-fn eval_while(_w: &ir::While, _env: Environment) -> FutilResult<Environment> {
-    todo!()
+fn eval_while(w: &ir::While, mut env: Environment) -> FutilResult<Environment> {
+    env = interpret_group(&w.cond.borrow(), env).unwrap();
+
+    if env.get_from_port(&w.port.borrow()).as_u64() == 1 {
+        env = interpret_control(&w.body, env).unwrap();
+        return eval_while(w, env);
+    }
+
+    return Ok(env);
     // // currently ports don't update properly in mutli-cycle and runs into infinite loop
     // // count needs to be removed when the infinite loop problem is fixed
     // let mut count = 0;
