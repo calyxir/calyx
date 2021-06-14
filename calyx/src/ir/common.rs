@@ -3,10 +3,12 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 /// Alias for a RefCell contained in an Rc reference.
+#[allow(clippy::upper_case_acronyms)]
 pub type RRC<T> = Rc<RefCell<T>>;
 
 /// A Wrapper for a weak RefCell pointer.
 /// Used by parent pointers in the internal representation.
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 pub struct WRC<T> {
     pub(super) internal: Weak<RefCell<T>>,
