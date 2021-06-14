@@ -17,7 +17,7 @@ component main() -> () {
         group wr_reg1 {
             reg1.in = const1.out;
             wr_reg1[done] = reg1.done;
-            reg1.write_en = 1'd1
+            reg1.write_en = 1'd1;
         }
     }
 

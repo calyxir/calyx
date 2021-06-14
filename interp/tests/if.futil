@@ -32,7 +32,7 @@ component main() -> () {
   }
 
   control {
-    if reg0.out with cond {
+    if reg0.out with cond { //reg0 should have a done of 0 at the end of main execution
       true;
     } else {
       false;

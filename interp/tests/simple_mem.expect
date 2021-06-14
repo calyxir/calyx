@@ -1,26 +1,27 @@
 {
   "main": {
+    "_0_1": {
+      "out": 0
+    },
     "_1_1": {
       "out": 1
     },
-    "const0": {
+    "_9_32": {
       "out": 9
     },
-    "const1": {
-      "out": 400
+    "mem": {
+      "addr0": 0,
+      "clk": 0,
+      "done": 0, 
+      "read_data": 9,
+      "write_data": 9,
+      "write_en": 1
     },
     "reg0": {
       "clk": 0,
       "done": 0,
       "in": 9,
       "out": 9,
-      "write_en": 1
-    },
-    "reg1": {
-      "clk": 0,
-      "done": 0,
-      "in": 400,
-      "out": 400,
       "write_en": 1
     }
   }
