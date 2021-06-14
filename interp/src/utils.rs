@@ -1,5 +1,5 @@
 use crate::values::{OutputValue, TimeLockedValue, Value};
-use calyx::ir::{Assignment, Cell, Port, RRC};
+use calyx::ir::{Assignment, Port, RRC};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 pub(super) struct PortRef(RRC<Port>);
@@ -107,25 +107,25 @@ impl<'a> From<&'a OutputValue> for OutputValueRef<'a> {
 }
 
 impl<'a> OutputValueRef<'a> {
-    pub fn unwrap_imm(self) -> &'a Value {
+    pub fn _unwrap_imm(self) -> &'a Value {
         match self {
             OutputValueRef::ImmediateValue(v) => v,
             _ => panic!("Not an immediate value, cannot unwrap_imm"),
         }
     }
 
-    pub fn unwrap_tlv(self) -> &'a TimeLockedValue {
+    pub fn _unwrap_tlv(self) -> &'a TimeLockedValue {
         match self {
             OutputValueRef::LockedValue(v) => v,
             _ => panic!("Not a TimeLockedValue, cannot unwrap_tlv"),
         }
     }
 
-    pub fn is_tlv(self) -> bool {
+    pub fn _is_tlv(self) -> bool {
         matches!(self, OutputValueRef::LockedValue(_))
     }
 
-    pub fn is_imm(self) -> bool {
+    pub fn _is_imm(self) -> bool {
         matches!(self, OutputValueRef::ImmediateValue(_))
     }
 }

@@ -7,28 +7,28 @@ use calyx::{errors::FutilResult, ir};
 /// Helper function to evaluate control
 pub fn interpret_control(
     ctrl: &ir::Control,
-    comp: &ir::Id,
+    continuous_assignments: &[ir::Assignment],
     env: Environment,
 ) -> FutilResult<Environment> {
     match ctrl {
-        ir::Control::Seq(s) => eval_seq(s, comp, env),
-        ir::Control::Par(p) => eval_par(p, comp, env),
-        ir::Control::If(i) => eval_if(i, comp, env),
-        ir::Control::While(w) => eval_while(w, comp, env),
-        ir::Control::Invoke(i) => eval_invoke(i, comp, env),
-        ir::Control::Enable(e) => eval_enable(e, comp, env),
-        ir::Control::Empty(e) => eval_empty(e, comp, env),
+        ir::Control::Seq(s) => eval_seq(s, continuous_assignments, env),
+        ir::Control::Par(p) => eval_par(p, continuous_assignments, env),
+        ir::Control::If(i) => eval_if(i, continuous_assignments, env),
+        ir::Control::While(w) => eval_while(w, continuous_assignments, env),
+        ir::Control::Invoke(i) => eval_invoke(i, continuous_assignments, env),
+        ir::Control::Enable(e) => eval_enable(e, continuous_assignments, env),
+        ir::Control::Empty(e) => eval_empty(e, continuous_assignments, env),
     }
 }
 
 /// Interpret Seq
 fn eval_seq(
     s: &ir::Seq,
-    comp: &ir::Id,
+    continuous_assignments: &[ir::Assignment],
     mut env: Environment,
 ) -> FutilResult<Environment> {
     for stmt in &s.stmts {
-        env = interpret_control(stmt, comp, env)?;
+        env = interpret_control(stmt, continuous_assignments, env)?;
     }
     Ok(env)
 }
@@ -37,7 +37,7 @@ fn eval_seq(
 /// at the moment behaves like seq
 fn eval_par(
     _p: &ir::Par,
-    _comp: &ir::Id,
+    _continuous_assignments: &[ir::Assignment],
     mut _env: Environment,
 ) -> FutilResult<Environment> {
     // for stmt in &p.stmts {
@@ -49,21 +49,21 @@ fn eval_par(
 /// Interpret If
 fn eval_if(
     i: &ir::If,
-    comp: &ir::Id,
+    continuous_assignments: &[ir::Assignment],
     mut env: Environment,
 ) -> FutilResult<Environment> {
-    todo!()
-    // //first set the environment for cond
-    // env = interpret_group(&i.cond.borrow(), env, comp)?;
+    env =
+        interpret_group(&i.cond.borrow(), continuous_assignments, env).unwrap();
 
-    // // if i.port is not high fbranch else tbranch
-    // if env.get_from_port(&comp, &i.port.borrow()) == 0 {
-    //     env = interpret_control(&i.fbranch, comp, env)?;
-    //     Ok(env)
-    // } else {
-    //     env = interpret_control(&i.tbranch, comp, env)?;
-    //     Ok(env)
-    // }
+    if env.get_from_port(&i.port.borrow()).as_u64() == 0 {
+        env =
+            interpret_control(&i.fbranch, continuous_assignments, env).unwrap();
+        Ok(env)
+    } else {
+        env =
+            interpret_control(&i.tbranch, continuous_assignments, env).unwrap();
+        Ok(env)
+    }
 }
 
 /// Interpret While
@@ -73,10 +73,21 @@ fn eval_if(
 // using cond_group.
 fn eval_while(
     w: &ir::While,
-    comp: &ir::Id,
+    continuous_assignments: &[ir::Assignment],
     mut env: Environment,
 ) -> FutilResult<Environment> {
-    todo!()
+    env =
+        interpret_group(&w.cond.borrow(), continuous_assignments, env).unwrap();
+
+    if env.get_from_port(&w.port.borrow()).as_u64() == 1 {
+        eval_while(
+            w,
+            continuous_assignments,
+            interpret_control(&w.body, continuous_assignments, env).unwrap(),
+        )
+    } else {
+        Ok(env)
+    }
     // // currently ports don't update properly in mutli-cycle and runs into infinite loop
     // // count needs to be removed when the infinite loop problem is fixed
     // let mut count = 0;
@@ -94,7 +105,7 @@ fn eval_while(
 #[allow(clippy::unnecessary_wraps)]
 fn eval_invoke(
     _i: &ir::Invoke,
-    _comp: &ir::Id,
+    _continuous_assignments: &[ir::Assignment],
     _env: Environment,
 ) -> FutilResult<Environment> {
     todo!()
@@ -103,17 +114,17 @@ fn eval_invoke(
 /// Interpret Enable
 fn eval_enable(
     e: &ir::Enable,
-    comp: &ir::Id,
+    continuous_assignments: &[ir::Assignment],
     env: Environment,
 ) -> FutilResult<Environment> {
-    interpret_group(&e.group.borrow(), env)
+    interpret_group(&e.group.borrow(), continuous_assignments, env)
 }
 
 /// Interpret Empty
 #[allow(clippy::unnecessary_wraps)]
 fn eval_empty(
     _e: &ir::Empty,
-    _comp: &ir::Id,
+    _continuous_assignments: &[ir::Assignment],
     env: Environment,
 ) -> FutilResult<Environment> {
     Ok(env)

@@ -530,6 +530,12 @@ mod prim_test {
         assert_eq!(const_31.read_u64(), 31);
     }
     #[test]
+    #[should_panic]
+    fn test_std_const_panic() {
+        let val = Value::try_from_init(75, 7).unwrap();
+        let std_const = StdConst::new(5, val);
+    }
+    #[test]
     fn test_std_lsh() {
         // lsh with overflow
         // [11111] (31) -> [11100] (28)
@@ -580,6 +586,14 @@ mod prim_test {
         assert_eq!(res_add.as_u64(), 0);
     }
     #[test]
+    #[should_panic]
+    fn test_std_add_panic() {
+        let add0 = Value::try_from_init(81, 7).unwrap();
+        let add1 = Value::try_from_init(10, 4).unwrap();
+        let add = StdAdd::new(7);
+        let res_add = add.execute_bin(&add0, &add1);
+    }
+    #[test]
     fn test_std_sub() {
         // without overflow
         // sub [0110] (6) from [1010] (10) -> [0100] (4)
@@ -601,6 +615,14 @@ mod prim_test {
         assert_eq!(res_sub.as_u64(), 9);
     }
     #[test]
+    #[should_panic]
+    fn test_std_sub_panic() {
+        let sub0 = Value::try_from_init(52, 6).unwrap();
+        let sub1 = Value::try_from_init(16, 5).unwrap();
+        let sub = StdAdd::new(5);
+        let res_sub = sub.execute_bin(&sub0, &sub1);
+    }
+    #[test]
     fn test_std_slice() {
         // 101 in binary is [1100101], take first 4 bits -> [0101] = 5
         let to_slice = Value::try_from_init(101, 7).unwrap();
@@ -614,6 +636,13 @@ mod prim_test {
         assert_eq!(res_slice.as_u64(), 548);
     }
     #[test]
+    #[should_panic]
+    fn test_std_slice_panic() {
+        let to_slice = Value::try_from_init(3, 2).unwrap();
+        let std_slice = StdSlice::new(7, 4);
+        let res_slice = std_slice.execute_unary(&to_slice);
+    }
+    #[test]
     fn test_std_pad() {
         // Add 2 zeroes, should keep the same value
         let to_pad = Value::try_from_init(101, 7).unwrap();
@@ -624,6 +653,13 @@ mod prim_test {
         let to_pad = Value::try_from_init(1, 7).unwrap();
         let res_pad = std_pad.execute_unary(&to_pad).unwrap_imm();
         assert_eq!(res_pad.as_u64(), 1);
+    }
+    #[test]
+    #[should_panic]
+    fn test_std_pad_panic() {
+        let to_pad = Value::try_from_init(21, 5).unwrap();
+        let std_pad = StdPad::new(3, 9);
+        let res_pad = std_pad.execute_unary(&to_pad);
     }
     /// Logical Operators
     #[test]
@@ -731,6 +767,14 @@ mod prim_test {
         assert_eq!(std_gt.execute_bin(&gt0, &gt0).unwrap_imm().as_u64(), 0);
     }
     #[test]
+    #[should_panic]
+    fn test_std_gt_panic() {
+        let gt0 = Value::try_from_init(9, 4).unwrap();
+        let gt1 = Value::try_from_init(3, 2).unwrap();
+        let std_gt = StdGt::new(3);
+        let res_gt = std_gt.execute_bin(&gt0, &gt1);
+    }
+    #[test]
     fn test_std_lt() {
         let lt0 = Value::try_from_init(7, 16).unwrap();
         let lt1 = Value::try_from_init(3, 16).unwrap();
@@ -739,6 +783,14 @@ mod prim_test {
         assert_eq!(res_lt.as_u64(), 0);
         // 7 < 7 ? no!
         assert_eq!(std_lt.execute_bin(&lt0, &lt0).unwrap_imm().as_u64(), 0);
+    }
+    #[test]
+    #[should_panic]
+    fn test_std_lt_panic() {
+        let lt0 = Value::try_from_init(58, 6).unwrap();
+        let lt1 = Value::try_from_init(12, 4).unwrap();
+        let std_lt = StdLt::new(5);
+        let res_lt = std_lt.execute_bin(&lt0, &lt1);
     }
     #[test]
     fn test_std_eq() {
@@ -755,6 +807,13 @@ mod prim_test {
                 .as_u64(),
             0
         );
+    }
+    #[test]
+    #[should_panic]
+    fn test_std_eq_panic() {
+        let eq0 = Value::try_from_init(42, 6).unwrap();
+        let std_eq = StdEq::new(5);
+        let res_eq = std_eq.execute_bin(&eq0, &eq0);
     }
     #[test]
     fn test_std_neq() {
@@ -774,6 +833,15 @@ mod prim_test {
         );
     }
     #[test]
+    #[should_panic]
+    fn test_std_neq_panic() {
+        let neq0 = Value::try_from_init(45, 6).unwrap();
+        let neq1 = Value::try_from_init(4, 3).unwrap();
+        let std_neq = StdNeq::new(5);
+        let res_neq = std_neq.execute_bin(&neq0, &neq1);
+    }
+
+    #[test]
     fn test_std_ge() {
         let ge0 = Value::try_from_init(35, 8).unwrap();
         let ge1 = Value::try_from_init(165, 8).unwrap();
@@ -785,6 +853,14 @@ mod prim_test {
         assert_eq!(std_ge.execute_bin(&ge0, &ge0).unwrap_imm().as_u64(), 1);
     }
     #[test]
+    #[should_panic]
+    fn test_std_ge_panic() {
+        let ge0 = Value::try_from_init(40, 6).unwrap();
+        let ge1 = Value::try_from_init(75, 7).unwrap();
+        let std_ge = StdGe::new(6);
+        let res_ge = std_ge.execute_bin(&ge0, &ge1);
+    }
+    #[test]
     fn test_std_le() {
         let le0 = Value::try_from_init(12, 4).unwrap();
         let le1 = Value::try_from_init(8, 4).unwrap();
@@ -794,6 +870,14 @@ mod prim_test {
         assert_eq!(res_le.as_u64(), 0);
         //12 <= 12? yes!
         assert_eq!(std_le.execute_bin(&le0, &le0).unwrap_imm().as_u64(), 1);
+    }
+    #[test]
+    #[should_panic]
+    fn test_std_le_panic() {
+        let le0 = Value::try_from_init(93, 7).unwrap();
+        let le1 = Value::try_from_init(68, 7).unwrap();
+        let std_le = StdLe::new(6);
+        let res_le = std_le.execute_bin(&le0, &le1);
     }
 }
 

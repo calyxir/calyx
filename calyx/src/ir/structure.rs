@@ -1,7 +1,7 @@
 //! Representation for structure (wires and cells) in a Calyx program.
 use super::{Attributes, GetAttributes, Guard, Id, RRC, WRC};
 use smallvec::SmallVec;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::rc::Rc;
 
 /// Direction of a port on a cell.
@@ -182,7 +182,7 @@ impl Cell {
     }
 
     /// Get parameter binding from the prototype used to build this cell.
-    pub fn get_paramter<S>(&self, param: S) -> Option<u64>
+    pub fn get_parameter<S>(&self, param: S) -> Option<u64>
     where
         S: std::fmt::Display + Clone + AsRef<str>,
     {

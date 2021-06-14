@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 //! Parser for Calyx programs.
 use super::ast::{self, BitNum, NumType};
 use crate::errors::{self, FutilResult, Span};
@@ -113,6 +115,7 @@ impl FutilParser {
             .map_err(|_| input.error("Expected hexadecimal number"))
     }
     fn decimal(input: Node) -> ParseResult<u64> {
+        #[allow(clippy::from_str_radix_10)]
         u64::from_str_radix(input.as_str(), 10)
             .map_err(|_| input.error("Expected decimal number"))
     }
@@ -365,6 +368,7 @@ impl FutilParser {
         ))
     }
 
+    #[allow(clippy::upper_case_acronyms)]
     fn LHS(input: Node) -> ParseResult<ast::Port> {
         Ok(match_nodes!(
             input.into_children();

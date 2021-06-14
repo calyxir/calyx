@@ -2,7 +2,6 @@
 // standard library.
 use super::values::{OutputValue, TimeLockedValue, Value};
 use calyx::ir;
-use std::convert::TryInto;
 use std::ops::*;
 
 #[derive(Clone, Debug)]
@@ -136,7 +135,7 @@ pub trait ExecuteStateful {
 }
 
 /// Ensures the input values are of the appropriate widths, else panics.
-fn check_widths(left: &Value, right: &Value, width: u64) -> () {
+fn check_widths(left: &Value, right: &Value, width: u64) {
     if width != (left.vec.len() as u64)
         || width != (right.vec.len() as u64)
         || left.vec.len() != right.vec.len()
