@@ -318,6 +318,8 @@ pub fn interpret_group(
             let mut prim_map =
                 std::mem::take(&mut working_env.backing_env.cell_prim_map);
 
+            let mut update_list: Vec<(RRC<ir::Port>, OutputValue)> = vec![];
+
             for cell in exec_list {
                 let inputs: Vec<(ir::Id, &Value)> = cell
                     .borrow()
@@ -347,7 +349,9 @@ pub fn interpret_group(
                         let current_val = working_env.get(&port_ref.borrow());
 
                         if current_val != (&val).into() {
-                            working_env.update_val(&port_ref.borrow(), val);
+                            // defer value update until after all executions
+                            update_list.push((Rc::clone(&port_ref), val));
+
                             let new_assigments =
                                 dependency_map.get(&port_ref.borrow());
 
@@ -357,6 +361,10 @@ pub fn interpret_group(
                         }
                     }
                 }
+            }
+
+            for (port, val) in update_list {
+                working_env.update_val(&port.borrow(), val);
             }
 
             working_env.backing_env.cell_prim_map = prim_map;
