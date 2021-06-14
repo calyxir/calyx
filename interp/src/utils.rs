@@ -72,9 +72,23 @@ impl<'a> Deref for AssignmentRef<'a> {
     }
 }
 
+#[derive(Debug)]
 pub enum OutputValueRef<'a> {
     ImmediateValue(&'a Value),
     LockedValue(&'a TimeLockedValue),
+}
+
+impl<'a> OutputValueRef<'a> {
+    pub fn clone_referenced(&self) -> OutputValue {
+        match &self {
+            OutputValueRef::ImmediateValue(iv) => {
+                OutputValue::ImmediateValue((*iv).clone())
+            }
+            OutputValueRef::LockedValue(tlv) => {
+                OutputValue::LockedValue((*tlv).clone())
+            }
+        }
+    }
 }
 
 impl<'a> From<&'a Value> for OutputValueRef<'a> {

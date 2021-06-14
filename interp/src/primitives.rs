@@ -37,7 +37,7 @@ impl Primitive {
         inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
         match self {
-            Primitive::StdAdd(add) => add.execute(inputs),
+            Primitive::StdAdd(prim) => prim.execute(inputs),
             Primitive::StdLsh(prim) => prim.execute(inputs),
             Primitive::StdRsh(prim) => prim.execute(inputs),
             Primitive::StdSub(prim) => prim.execute(inputs),
@@ -148,7 +148,11 @@ fn check_widths(left: &Value, right: &Value, width: u64) -> () {
 /// Ensures that the input value is of the appropriate width, else panics.
 fn check_width(input: &Value, width: u64) {
     if width != (input.vec.len() as u64) {
-        panic!("Width mismatch between the component and the input")
+        panic!(
+            "Width mismatch between the component {} and the input {}",
+            width,
+            input.vec.len()
+        )
     }
 }
 
@@ -882,7 +886,7 @@ impl StdConst {
     /// * Panics if [val]'s width != [width]
     pub fn new(width: u64, val: Value) -> StdConst {
         check_widths(&val, &val, width);
-        StdConst { width, val: val }
+        StdConst { width, val }
     }
 
     /// Returns the value this constant component represents

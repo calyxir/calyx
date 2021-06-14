@@ -14,6 +14,7 @@ use calyx::{
     errors::{Error, FutilResult},
     ir::{self, CloneName, RRC},
 };
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::iter;
 use std::rc::Rc;
@@ -60,6 +61,7 @@ type WorkList<'a> = HashSet<AssignmentRef<'a>>;
 
 type PortOutputValMap = HashMap<*const ir::Port, OutputValue>;
 
+#[derive(Clone)]
 struct WorkingEnvironment {
     pub backing_env: Environment,
     pub working_env: PortOutputValMap,
@@ -223,6 +225,7 @@ pub fn interpret_group(
         group.assignments.iter().map(|x| x.into()).collect();
 
     while !grp_is_done(working_env.get(&grp_done.borrow())) {
+        let read_env = working_env.clone();
         if !worklist.is_empty() {
             let mut updates_list = vec![];
             let mut exec_list: Vec<RRC<ir::Cell>> = vec![];
@@ -231,8 +234,8 @@ pub fn interpret_group(
             for assignment in worklist.drain() {
                 if eval_guard(&assignment.guard, &working_env) {
                     updates_list.push((
-                        Rc::clone(&assignment.src),
-                        working_env.get(&assignment.dst.borrow()),
+                        Rc::clone(&assignment.dst),
+                        read_env.get(&assignment.src.borrow()),
                     ));
                 }
             }
@@ -244,7 +247,13 @@ pub fn interpret_group(
                 // if yes, do nothing
                 // if no, make the update in the environment and add all dependent
                 // assignments into the worklist and add cell to the execution list
+
+                //  println!("new: {:?}", new_val);
+                //println!("old: {:?}", current_val);
                 if current_val != new_val {
+                    let new_val = new_val.clone_referenced();
+                    working_env.update_val(&port.borrow(), new_val);
+
                     let cell = match &port.borrow().parent {
                         ir::PortParent::Cell(c) => Some(c.upgrade()),
                         ir::PortParent::Group(_) => None,
@@ -282,25 +291,27 @@ pub fn interpret_group(
                     })
                     .collect();
 
-                let new_vals = prim_map
-                    .get_mut(&(&cell.borrow() as &ir::Cell as *const ir::Cell))
-                    .unwrap()
-                    .exec(&inputs);
+                let executable = prim_map
+                    .get_mut(&(&cell.borrow() as &ir::Cell as *const ir::Cell));
 
-                std::mem::drop(inputs);
+                if let Some(prim) = executable {
+                    let new_vals = prim.exec(&inputs);
 
-                for (port, val) in new_vals {
-                    let port_ref = cell.borrow().find(port).unwrap();
+                    drop(inputs);
 
-                    let current_val = working_env.get(&port_ref.borrow());
+                    for (port, val) in new_vals {
+                        let port_ref = cell.borrow().find(port).unwrap();
 
-                    if current_val != (&val).into() {
-                        working_env.update_val(&port_ref.borrow(), val);
-                        let new_assigments =
-                            dependency_map.get(&port_ref.borrow());
+                        let current_val = working_env.get(&port_ref.borrow());
 
-                        if let Some(assign_set) = new_assigments {
-                            worklist.extend(assign_set.iter().cloned());
+                        if current_val != (&val).into() {
+                            working_env.update_val(&port_ref.borrow(), val);
+                            let new_assigments =
+                                dependency_map.get(&port_ref.borrow());
+
+                            if let Some(assign_set) = new_assigments {
+                                worklist.extend(assign_set.iter().cloned());
+                            }
                         }
                     }
                 }
