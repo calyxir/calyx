@@ -192,7 +192,7 @@ fn _construct_map(
                     // All ports for primitives are initalized to 0 , unless the cell is an std_const
                     let pb = port.borrow();
                     let initval = cb
-                        .get_paramter(&ir::Id::from("value".to_string()))
+                        .get_parameter(&ir::Id::from("value".to_string()))
                         .unwrap_or(0); //std_const should be the only cell type with the "value" parameter
 
                     ports.insert(pb.name.clone(), initval);

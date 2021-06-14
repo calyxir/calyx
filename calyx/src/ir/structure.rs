@@ -182,7 +182,7 @@ impl Cell {
     }
 
     /// Get parameter binding from the prototype used to build this cell.
-    pub fn get_paramter<S>(&self, param: S) -> Option<u64>
+    pub fn get_parameter<S>(&self, param: S) -> Option<u64>
     where
         S: std::fmt::Display + Clone + AsRef<str>,
     {
