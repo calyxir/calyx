@@ -31,7 +31,7 @@ component main<"static"=10>(go: 1, clk: 1) -> (done: 1) {
   }
 
   control {
-    @static(10) while lt.out with cond {
+    @bound(5) @static(10) while lt.out with cond {
       @static(2) seq {
         @static(1) incr_i;
         @static(1) incr_j;

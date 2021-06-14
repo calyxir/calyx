@@ -409,7 +409,6 @@ impl Visitor for InferStaticTiming {
         ) {
             s.attributes
                 .insert("static", bound * body_time + (bound + 1) * cond_time);
-            s.attributes.remove("bound");
         }
         Ok(Action::Continue)
     }
