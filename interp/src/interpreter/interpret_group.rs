@@ -412,7 +412,7 @@ fn eval_guard(guard: &ir::Guard, env: &WorkingEnvironment) -> bool {
                 true
             } else {
                 panic!(
-                    "Evaluating the truth value of a wire that is not one bit"
+                    "Evaluating the truth value of a wire '{:?}' that is not one bit", p.borrow().canonical()
                 )
             }
         }
