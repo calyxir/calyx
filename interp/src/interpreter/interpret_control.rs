@@ -80,11 +80,14 @@ fn eval_while(
         interpret_group(&w.cond.borrow(), continuous_assignments, env).unwrap();
 
     if env.get_from_port(&w.port.borrow()).as_u64() == 1 {
-        env = interpret_control(&w.body, continuous_assignments, env).unwrap();
-        return eval_while(w, continuous_assignments, env);
+        eval_while(
+            w,
+            continuous_assignments,
+            interpret_control(&w.body, continuous_assignments, env).unwrap(),
+        )
+    } else {
+        Ok(env)
     }
-
-    return Ok(env);
     // // currently ports don't update properly in mutli-cycle and runs into infinite loop
     // // count needs to be removed when the infinite loop problem is fixed
     // let mut count = 0;
