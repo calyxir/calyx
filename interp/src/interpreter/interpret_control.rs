@@ -7,39 +7,30 @@ use calyx::{errors::FutilResult, ir};
 /// Helper function to evaluate control
 pub fn interpret_control(
     ctrl: &ir::Control,
-    comp: &ir::Id,
     env: Environment,
 ) -> FutilResult<Environment> {
     match ctrl {
-        ir::Control::Seq(s) => eval_seq(s, comp, env),
-        ir::Control::Par(p) => eval_par(p, comp, env),
-        ir::Control::If(i) => eval_if(i, comp, env),
-        ir::Control::While(w) => eval_while(w, comp, env),
-        ir::Control::Invoke(i) => eval_invoke(i, comp, env),
-        ir::Control::Enable(e) => eval_enable(e, comp, env),
-        ir::Control::Empty(e) => eval_empty(e, comp, env),
+        ir::Control::Seq(s) => eval_seq(s, env),
+        ir::Control::Par(p) => eval_par(p, env),
+        ir::Control::If(i) => eval_if(i, env),
+        ir::Control::While(w) => eval_while(w, env),
+        ir::Control::Invoke(i) => eval_invoke(i, env),
+        ir::Control::Enable(e) => eval_enable(e, env),
+        ir::Control::Empty(e) => eval_empty(e, env),
     }
 }
 
 /// Interpret Seq
-fn eval_seq(
-    s: &ir::Seq,
-    comp: &ir::Id,
-    mut env: Environment,
-) -> FutilResult<Environment> {
+fn eval_seq(s: &ir::Seq, mut env: Environment) -> FutilResult<Environment> {
     for stmt in &s.stmts {
-        env = interpret_control(stmt, comp, env)?;
+        env = interpret_control(stmt, env)?;
     }
     Ok(env)
 }
 
 /// Interpret Par
 /// at the moment behaves like seq
-fn eval_par(
-    _p: &ir::Par,
-    _comp: &ir::Id,
-    mut _env: Environment,
-) -> FutilResult<Environment> {
+fn eval_par(_p: &ir::Par, mut _env: Environment) -> FutilResult<Environment> {
     // for stmt in &p.stmts {
     //     env = interpret_control(stmt, comp.clone(), env)?;
     // }
@@ -47,11 +38,7 @@ fn eval_par(
 }
 
 /// Interpret If
-fn eval_if(
-    i: &ir::If,
-    comp: &ir::Id,
-    mut env: Environment,
-) -> FutilResult<Environment> {
+fn eval_if(_i: &ir::If, _env: Environment) -> FutilResult<Environment> {
     todo!()
     // //first set the environment for cond
     // env = interpret_group(&i.cond.borrow(), env, comp)?;
@@ -71,11 +58,7 @@ fn eval_if(
 // cond_group and uses port_name as the conditional value. When the
 // value is high, it executes body_stmt and recomputes the conditional
 // using cond_group.
-fn eval_while(
-    w: &ir::While,
-    comp: &ir::Id,
-    mut env: Environment,
-) -> FutilResult<Environment> {
+fn eval_while(_w: &ir::While, _env: Environment) -> FutilResult<Environment> {
     todo!()
     // // currently ports don't update properly in mutli-cycle and runs into infinite loop
     // // count needs to be removed when the infinite loop problem is fixed
@@ -92,29 +75,17 @@ fn eval_while(
 /// Interpret Invoke
 /// TODO
 #[allow(clippy::unnecessary_wraps)]
-fn eval_invoke(
-    _i: &ir::Invoke,
-    _comp: &ir::Id,
-    _env: Environment,
-) -> FutilResult<Environment> {
+fn eval_invoke(_i: &ir::Invoke, _env: Environment) -> FutilResult<Environment> {
     todo!()
 }
 
 /// Interpret Enable
-fn eval_enable(
-    e: &ir::Enable,
-    comp: &ir::Id,
-    env: Environment,
-) -> FutilResult<Environment> {
+fn eval_enable(e: &ir::Enable, env: Environment) -> FutilResult<Environment> {
     interpret_group(&e.group.borrow(), env)
 }
 
 /// Interpret Empty
 #[allow(clippy::unnecessary_wraps)]
-fn eval_empty(
-    _e: &ir::Empty,
-    _comp: &ir::Id,
-    env: Environment,
-) -> FutilResult<Environment> {
+fn eval_empty(_e: &ir::Empty, env: Environment) -> FutilResult<Environment> {
     Ok(env)
 }

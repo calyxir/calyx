@@ -57,7 +57,7 @@ where
         let mut graph = MatrixGraph::new_undirected();
         let index_map: HashMap<_, _> =
             nodes.map(|node| (node, graph.add_node(()))).collect();
-        WeightGraph { graph, index_map }
+        WeightGraph { index_map, graph }
     }
 }
 
