@@ -165,6 +165,7 @@ impl Environment {
         self.pv_map.insert(port, value);
     }
 
+    //all of these use parameters as values for constuctors
     fn construct_cp_map(
         ctx: &ir::Context,
     ) -> HashMap<*const ir::Cell, primitives::Primitive> {
@@ -392,6 +393,10 @@ impl Environment {
                                 cl.get_paramter("D1_IDX_SIZE").unwrap(),
                                 cl.get_paramter("D2_IDX_SIZE").unwrap(),
                                 cl.get_paramter("D3_IDX_SIZE").unwrap(),
+                            );
+                            map.insert(
+                                cl as *const ir::Cell,
+                                Primitive::StdMemD4(m4),
                             );
                         }
                         e => panic!("Unknown primitive {}", e),
