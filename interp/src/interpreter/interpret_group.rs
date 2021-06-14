@@ -15,6 +15,7 @@ use calyx::{
     ir::{self, CloneName, RRC},
 };
 use std::cell::RefCell;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::iter;
 use std::rc::Rc;
@@ -83,6 +84,14 @@ impl WorkingEnvironment {
             Some(v) => v.into(),
             None => self.backing_env.get_from_port(port).into(),
         }
+    }
+
+    fn entry(
+        &mut self,
+        port: &ir::Port,
+    ) -> std::collections::hash_map::Entry<*const calyx::ir::Port, OutputValue>
+    {
+        self.working_env.entry(port as *const ir::Port)
     }
 
     fn update_val(&mut self, port: &ir::Port, value: OutputValue) {
@@ -225,49 +234,77 @@ pub fn interpret_group(
         group.assignments.iter().map(|x| x.into()).collect();
 
     while !grp_is_done(working_env.get(&grp_done.borrow())) {
-        let read_env = working_env.clone();
         if !worklist.is_empty() {
             let mut updates_list = vec![];
             let mut exec_list: Vec<RRC<ir::Cell>> = vec![];
+            let mut new_worklist = WorkList::new();
 
             // STEP 1 : Evaluate all assignments
             for assignment in worklist.drain() {
                 if eval_guard(&assignment.guard, &working_env) {
-                    updates_list.push((
-                        Rc::clone(&assignment.dst),
-                        read_env.get(&assignment.src.borrow()),
-                    ));
+                    let old_val = working_env.get(&assignment.dst.borrow());
+                    let new_val = working_env.get(&assignment.src.borrow());
+
+                    if old_val != new_val {
+                        updates_list.push(Rc::clone(&assignment.dst));
+
+                        let new_val = match new_val.clone_referenced() {
+                            OutputValue::ImmediateValue(iv) => {
+                                let tmp_old = match old_val.clone_referenced() {
+                                    OutputValue::ImmediateValue(iv) => Some(iv),
+                                    OutputValue::LockedValue(tlv) => {
+                                        tlv.old_value
+                                    }
+                                };
+
+                                OutputValue::LockedValue(TimeLockedValue::new(
+                                    iv, 0, tmp_old,
+                                ))
+                            }
+                            v => v,
+                        };
+
+                        let port = &assignment.dst.borrow();
+
+                        working_env.update_val(&port, new_val);
+
+                        let cell = match &port.parent {
+                            ir::PortParent::Cell(c) => Some(c.upgrade()),
+                            ir::PortParent::Group(_) => None,
+                        };
+                        let new_assigments = dependency_map.get(port);
+
+                        if let Some(cell) = cell {
+                            exec_list.push(cell);
+                        }
+
+                        if let Some(new_assigments) = new_assigments {
+                            new_worklist.extend(new_assigments.iter().cloned());
+                        }
+                    }
                 }
             }
 
+            worklist = new_worklist;
+
             // STEP 2 : Update values and determine new worklist and exec_list
-            for (port, new_val) in updates_list {
-                let current_val = working_env.get(&port.borrow());
+            for port in updates_list {
+                if let Entry::Occupied(entry) =
+                    working_env.entry(&port.borrow())
+                {
+                    let mut_ref = entry.into_mut();
+                    let v = std::mem::take(mut_ref);
+
+                    *mut_ref = if v.is_tlv() {
+                        v.unwrap_tlv().try_unlock()
+                    } else {
+                        v
+                    }
+                }
                 // check if the current val of id matches the new update
                 // if yes, do nothing
                 // if no, make the update in the environment and add all dependent
                 // assignments into the worklist and add cell to the execution list
-
-                //  println!("new: {:?}", new_val);
-                //println!("old: {:?}", current_val);
-                if current_val != new_val {
-                    let new_val = new_val.clone_referenced();
-                    working_env.update_val(&port.borrow(), new_val);
-
-                    let cell = match &port.borrow().parent {
-                        ir::PortParent::Cell(c) => Some(c.upgrade()),
-                        ir::PortParent::Group(_) => None,
-                    };
-                    let new_assigments = dependency_map.get(&port.borrow());
-
-                    if let Some(cell) = cell {
-                        exec_list.push(cell);
-                    }
-
-                    if let Some(new_assigments) = new_assigments {
-                        worklist.extend(new_assigments.iter().cloned());
-                    }
-                }
             }
 
             // STEP 3 : Execute cells
