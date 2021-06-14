@@ -223,6 +223,7 @@ fn grp_is_done(done: OutputValueRef) -> bool {
 /// Evaluates a group, given an environment.
 pub fn interpret_group(
     group: &ir::Group,
+    _continuous_assignments: &[ir::Assignment],
     env: Environment,
 ) -> FutilResult<Environment> {
     let dependency_map =
