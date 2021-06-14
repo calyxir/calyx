@@ -22,7 +22,7 @@
     },
     "reg0": {
       "clk": 0,
-      "done": 1,
+      "done": 0,
       "in": 0,
       "out": 0,
       "write_en": 1
