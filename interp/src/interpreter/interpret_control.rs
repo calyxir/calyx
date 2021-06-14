@@ -52,7 +52,15 @@ fn eval_if(
     comp: &ir::Id,
     mut env: Environment,
 ) -> FutilResult<Environment> {
-    todo!()
+    env = interpret_group(&i.cond.borrow(), env).unwrap();
+
+    if env.get_from_port(&i.port.borrow()).as_u64() == 0 {
+        env = interpret_control(&i.fbranch, comp, env).unwrap();
+        return Ok(env);
+    } else {
+        env = interpret_control(&i.tbranch, comp, env).unwrap();
+        return Ok(env);
+    }
     // //first set the environment for cond
     // env = interpret_group(&i.cond.borrow(), env, comp)?;
 
