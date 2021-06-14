@@ -15,7 +15,7 @@
       "right": 10
     },
     "reg0": {
-      "clk": X,
+      "clk": 0,
       "done": 1,
       "in": 15,
       "out": 15,

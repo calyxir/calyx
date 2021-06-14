@@ -3,19 +3,19 @@
     "_1_1": {
       "out": 1
     },
-    "eq0": {
-      "left": 10,
-      "out": 1,
-      "right": 10
-    },
     "const0": {
       "out": 10
     },
     "const1": {
       "out": 10
     },
+    "eq0": {
+      "left": 10,
+      "out": 1,
+      "right": 10
+    },
     "reg0": {
-      "clk": X,
+      "clk": 0,
       "done": 1,
       "in": 1,
       "out": 1,
