@@ -3,22 +3,37 @@ import "primitives/std.lib";
 component main() -> () {
   cells {
     const1 = std_const(32, 1);
-    const2 = std_const(32, 2);
-
+  
     add1 = std_add(32);
     add2 = std_add(32);
+
+    reg1 = std_reg(32);
+    reg2 = std_reg(32);
+
+    ander = std_and(1);
 
   }
 
   wires {
 
     // add1 and add2 feed into each other
+    // just doing this combinationally doesn't really work, try adding registers and stuff 
     group adds {
-      add1.left = add2.out;
+      reg2.write_en = 1'd1;
+      reg1.write_en = 1'd1;
+      
+      add1.left = reg2.out;
       add1.right = const1.out;
-      add2.left = add1.out;
-      add2.right = const2.out;
-      add_only[done] = add1.done;
+      reg1.in = add1.out;
+
+      add2.left = reg1.out;
+      add2.right = const1.out;
+      reg2.in = add2.out; 
+
+      ander.left = reg2.done;
+      ander.right = reg1.done;
+
+      adds[done] = ander.out;
     }
 
   }

@@ -25,9 +25,7 @@ impl Value {
     /// let empty_val = Value::new(2 as usize);
     /// ```
     pub fn new(bitwidth: usize) -> Value {
-        Value {
-            vec: BitVec::with_capacity(bitwidth),
-        }
+        Value::zeroes(bitwidth)
     }
 
     /// Creates a new Value initialized to all 0s given a bitwidth.
