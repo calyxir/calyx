@@ -264,6 +264,8 @@ pub fn interpret_group(
                             v => v,
                         };
 
+                        // STEP 2 : Update values and determine new worklist and exec_list
+
                         let port = &assignment.dst.borrow();
 
                         working_env.update_val(&port, new_val);
@@ -287,7 +289,7 @@ pub fn interpret_group(
 
             worklist = new_worklist;
 
-            // STEP 2 : Update values and determine new worklist and exec_list
+            // STEP 2.5 : Remove the placeholder TLVs
             for port in updates_list {
                 if let Entry::Occupied(entry) =
                     working_env.entry(&port.borrow())
@@ -298,7 +300,9 @@ pub fn interpret_group(
                     *mut_ref = if v.is_tlv() {
                         v.unwrap_tlv().try_unlock()
                     } else {
-                        v
+                        // this branch should be impossible since the list of
+                        // ports we're iterating over are only those w/ updates
+                        unreachable!()
                     }
                 }
                 // check if the current val of id matches the new update
@@ -308,6 +312,9 @@ pub fn interpret_group(
             }
 
             // STEP 3 : Execute cells
+
+            // split the mutability since we need mut access to just the prim
+            // map
             let mut prim_map =
                 std::mem::take(&mut working_env.backing_env.cell_prim_map);
 
@@ -333,8 +340,6 @@ pub fn interpret_group(
 
                 if let Some(prim) = executable {
                     let new_vals = prim.exec(&inputs);
-
-                    drop(inputs);
 
                     for (port, val) in new_vals {
                         let port_ref = cell.borrow().find(port).unwrap();
