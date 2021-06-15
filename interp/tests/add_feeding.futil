@@ -33,7 +33,7 @@ component main() -> () {
       ander.left = reg2.done;
       ander.right = reg1.done;
 
-      adds[done] = 1'd1; //this should be ander.out but that was giving inifinite loop 
+      adds[done] = ander.out; //this should be ander.out but that was giving inifinite loop 
     }
 
   }
