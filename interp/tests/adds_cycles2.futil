@@ -26,7 +26,7 @@ component main() -> () {
     group add_one_reg {
       reg1.write_en = 1'd1;
       add1.left = const1.out;
-      add1.right = const2.out;
+      add1.right = const1.out;
       reg1.in = add1.out;
       add_one_reg[done] = reg1.done;
     }
