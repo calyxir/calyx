@@ -4,6 +4,7 @@ component main() -> () {
   cells {
     const1 = std_const(32, 1);
     const2 = std_const(32, 2);
+    const3 = std_const(32, 3);
 
     add1 = std_add(32);
     add2 = std_add(32);
@@ -18,7 +19,7 @@ component main() -> () {
     // should finish evaluation immediately
     group add_no_reg {
       add1.left = const1.out;
-      add1.right = const2.out;
+      add1.right = const3.out;
       add_no_reg[done] = 1'd1;
     }
 
@@ -26,7 +27,7 @@ component main() -> () {
     group add_one_reg {
       reg1.write_en = 1'd1;
       add1.left = const1.out;
-      add1.right = const1.out;
+      add1.right = const3.out;
       reg1.in = add1.out;
       add_one_reg[done] = reg1.done;
     }
@@ -36,7 +37,7 @@ component main() -> () {
     group add_two_reg {
       reg1.write_en = 1'd1;
       add1.left = const1.out;
-      add1.right = const2.out;
+      add1.right = const3.out;
       reg1.in = add1.out;
 
       reg2.write_en = reg1.done; // might need to change this?
