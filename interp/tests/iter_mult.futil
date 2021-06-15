@@ -1,0 +1,122 @@
+import "primitives/std.lib";
+
+component main() -> () {
+  //model iterative multiplication of two binary numbers
+  //learned from this video: (https://www.youtube.com/watch?v=U62iP8RkZIk&ab_channel=TutorialsPoint%28India%29Ltd.)
+  //9 (M) * 4 (Q) : [1001] * [0010] = 36 [0010 0100] (AQ)
+
+
+  cells {
+    m = std_reg(4); //multiplicand
+    c = std_reg(1); //carry -- shld be initialized to zeroes
+    a = std_reg(4); //accumulator -- shld be initialized to zeroes
+    q = std_reg(4); //multiplier
+    p = std_mem_d1(4, 2, 1); //hold the final product 
+
+    //will use these shifters and adders
+    add4_a = std_add(4);
+    add4_a2 = std_add(4);
+    add4_q = std_add(4);
+    shiftr_a = std_rsh(4);
+    shiftr_q = std_rsh(4);
+
+    //will also use this slicer to check the last bit 
+    slice_4_to_1 = std_slice(4, 1);
+
+    //for the while loop 
+    lt = std_lt(3); //counting to 4, b/c multiplying 4 bit numbers 
+    i = std_reg(3); //counting to 4 
+    add3 = std_add(3);
+
+    //use this ander to decide when things are done 
+    ander = std_and(1);
+
+    //to shift right some # and put a 1 as MSB, just shift right and add 8 ([1000])
+
+  }
+
+  wires {
+
+    group init {
+        m.write_en = 1'b1;
+        m.in = 4'b1001; // (9)
+        q.write_en = 1'b1;
+        q.in = 4'b0100; // (4)
+
+        ander.left = m.done;
+        ander.right = m.done;
+
+        init[done] = ander.out;
+    }
+
+    group add_and_shift {
+        //add what's in m to a
+
+        //shift caq (carry is result from addition... omg so much)
+
+        add_and_shift[done] = 1'b1; //temp!
+    }
+
+    group shift {
+        //shift caq 
+        shift[done] = 1'b1; //temp!
+    }
+
+
+
+    group cond_while {
+        //check if counter is 4 or more 
+        lt.left = i.out;
+        lt.right = 3'b100;
+        cond_while[done] = 1'b1;
+    }
+
+    group incr_while {
+        //increment the counter by 1
+        i.write_en = 1'b1;
+        add3.right = i.out;
+        add3.left = 3'b1;
+        i.in = add3.out;
+        incr_while[done] = i.done;
+    }
+
+    group cond_if {
+        slice_4_to_1.in = q.out; //get lsb of q
+        cond_if[done] = 1'b1;
+    }
+
+    group wr_qp {
+        p.addr0 = 1'b0;
+        p.write_en = 1'b1;
+        p.write_data = q.out;
+        wr_qp[done] = p.done;
+    }
+
+    group wr_ap {
+        p.addr0 = 1'b1;
+        p.write_en = 1'b1;
+        p.write_data = a.out;
+        wr_ap[done] = p.done;
+    }
+    
+
+  }
+
+  control {
+    seq{
+        init;
+        while lt.out with cond_while { 
+            seq {
+                if slice_4_to_1.out with cond_if {
+                    add_and_shift;
+                } else {
+                    shift;
+                }
+                incr_while;
+            }
+        }
+        wr_qp;
+        wr_ap; // these could be parallel but that's not yet implemented 
+    }
+  }
+}
