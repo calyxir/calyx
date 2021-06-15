@@ -6,8 +6,8 @@ use crate::environment::Environment;
 use crate::utils::{AssignmentRef, CellRef, OutputValueRef};
 use crate::values::{OutputValue, TimeLockedValue, Value};
 use calyx::{
-    errors::{Error, FutilResult},
-    ir::{self, CloneName, RRC},
+    errors::FutilResult,
+    ir::{self, RRC},
 };
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
@@ -194,7 +194,10 @@ pub fn interpret_group(
     let mut comb_cells = CellList::new();
     let mut non_comb_cells = CellList::new();
 
-    while !grp_is_done(working_env.get(&grp_done.borrow())) {
+    while !grp_is_done(working_env.get(&grp_done.borrow()))
+        || !comb_cells.is_empty()
+    // || !assign_worklist.is_empty() ???
+    {
         if !comb_cells.is_empty() {
             let tmp = std::mem::take(&mut comb_cells);
 
@@ -207,7 +210,6 @@ pub fn interpret_group(
             assign_worklist.extend(new_assigns.into_iter())
         } else if !assign_worklist.is_empty() {
             let mut updates_list = vec![];
-            let mut exec_list: Vec<RRC<ir::Cell>> = vec![];
             let mut new_worklist = WorkList::new();
 
             // STEP 1 : Evaluate all assignments
