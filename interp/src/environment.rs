@@ -377,6 +377,10 @@ impl Environment {
             .get_mut(&(cell as *const ir::Cell))
             .unwrap()
     }
+
+    pub fn cell_is_comb(&self, cell: &ir::Cell) -> bool {
+        self.cell_prim_map[&(cell as *const ir::Cell)].is_comb()
+    }
 }
 
 //we have to rewrite the printer

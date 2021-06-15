@@ -60,6 +60,33 @@ impl Primitive {
             _ => panic!("cell cannot be executed"),
         }
     }
+
+    pub fn is_comb(&self) -> bool {
+        match self {
+            Primitive::StdAdd(_)
+            | Primitive::StdConst(_)
+            | Primitive::StdLsh(_)
+            | Primitive::StdRsh(_)
+            | Primitive::StdSub(_)
+            | Primitive::StdSlice(_)
+            | Primitive::StdPad(_)
+            | Primitive::StdNot(_)
+            | Primitive::StdAnd(_)
+            | Primitive::StdOr(_)
+            | Primitive::StdXor(_)
+            | Primitive::StdGe(_)
+            | Primitive::StdGt(_)
+            | Primitive::StdEq(_)
+            | Primitive::StdNeq(_)
+            | Primitive::StdLe(_)
+            | Primitive::StdLt(_) => true,
+            Primitive::StdMemD1(_)
+            | Primitive::StdMemD2(_)
+            | Primitive::StdMemD3(_)
+            | Primitive::StdMemD4(_)
+            | Primitive::StdReg(_) => false,
+        }
+    }
 }
 
 /// For unary operator components that only take in one input.
