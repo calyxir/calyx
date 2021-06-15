@@ -1,5 +1,5 @@
 use crate::values::{OutputValue, TimeLockedValue, Value};
-use calyx::ir::{Assignment, Port, RRC};
+use calyx::ir::{Assignment, Cell, Port, RRC};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 pub(super) struct PortRef(RRC<Port>);
@@ -147,3 +147,48 @@ impl<'a> PartialEq for OutputValueRef<'a> {
 }
 
 impl<'a> Eq for OutputValueRef<'a> {}
+
+pub(super) struct CellRef(RRC<Cell>);
+
+impl<'a> Into<&'a RRC<Cell>> for &'a CellRef {
+    fn into(self) -> &'a RRC<Cell> {
+        &self.0
+    }
+}
+
+impl Deref for CellRef {
+    type Target = RRC<Cell>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Hash for CellRef {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (&self.0.borrow() as &Cell as *const Cell).hash(state);
+    }
+}
+
+impl PartialEq for CellRef {
+    fn eq(&self, other: &Self) -> bool {
+        let self_const: *const Cell = &*self.0.borrow();
+        let other_const: *const Cell = &*other.0.borrow();
+
+        std::ptr::eq(self_const, other_const)
+    }
+}
+
+impl Eq for CellRef {}
+
+impl From<RRC<Cell>> for CellRef {
+    fn from(input: RRC<Cell>) -> Self {
+        Self(input)
+    }
+}
+
+impl From<&RRC<Cell>> for CellRef {
+    fn from(input: &RRC<Cell>) -> Self {
+        Self(input.clone())
+    }
+}
