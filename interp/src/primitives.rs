@@ -31,7 +31,7 @@ pub enum Primitive {
 }
 
 impl Primitive {
-    pub fn exec(
+    pub fn exec_mut(
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
@@ -57,6 +57,36 @@ impl Primitive {
             Primitive::StdMemD2(prim) => prim.execute_mut(inputs),
             Primitive::StdMemD3(prim) => prim.execute_mut(inputs),
             Primitive::StdMemD4(prim) => prim.execute_mut(inputs),
+            _ => panic!("cell cannot be executed"),
+        }
+    }
+
+    pub fn exec(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        match self {
+            Primitive::StdAdd(prim) => prim.execute(inputs),
+            Primitive::StdLsh(prim) => prim.execute(inputs),
+            Primitive::StdRsh(prim) => prim.execute(inputs),
+            Primitive::StdSub(prim) => prim.execute(inputs),
+            Primitive::StdSlice(prim) => prim.execute(inputs),
+            Primitive::StdPad(prim) => prim.execute(inputs),
+            Primitive::StdNot(prim) => prim.execute(inputs),
+            Primitive::StdAnd(prim) => prim.execute(inputs),
+            Primitive::StdOr(prim) => prim.execute(inputs),
+            Primitive::StdXor(prim) => prim.execute(inputs),
+            Primitive::StdGe(prim) => prim.execute(inputs),
+            Primitive::StdGt(prim) => prim.execute(inputs),
+            Primitive::StdEq(prim) => prim.execute(inputs),
+            Primitive::StdNeq(prim) => prim.execute(inputs),
+            Primitive::StdLe(prim) => prim.execute(inputs),
+            Primitive::StdLt(prim) => prim.execute(inputs),
+            Primitive::StdReg(prim) => prim.execute(inputs),
+            Primitive::StdMemD1(prim) => prim.execute(inputs),
+            Primitive::StdMemD2(prim) => prim.execute(inputs),
+            Primitive::StdMemD3(prim) => prim.execute(inputs),
+            Primitive::StdMemD4(prim) => prim.execute(inputs),
             _ => panic!("cell cannot be executed"),
         }
     }
@@ -158,6 +188,11 @@ pub trait ExecuteStateful {
     fn execute_mut(
         &mut self,
         inputs: &[(ir::Id, &Value)], //TODO: maybe change these to immutable references?
+    ) -> Vec<(ir::Id, OutputValue)>;
+
+    fn execute(
+        &self,
+        inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)>;
 }
 
@@ -319,6 +354,29 @@ impl ExecuteStateful for StdMemD1 {
             ]
         }
     }
+
+    fn execute(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
+        //check that addr0 is not out of bounds and that it is the proper width!
+        check_widths(addr0, addr0, self.idx_size); //make a unary one instead of hacking. Also change the panicking
+                                                   //so we don't have to keep using .as_u64()
+        let addr0 = addr0.as_u64();
+        if addr0 >= self.size {
+            panic!(
+                "memory only has {} slots, addr0 tries to access slot {}",
+                self.size, addr0
+            );
+        }
+        //check that input data is the appropriate width as well
+        let old = self.data[addr0 as usize].clone();
+        vec![
+            ("read_data".into(), old.into()),
+            (ir::Id::from("done"), Value::zeroes(1).into()),
+        ]
+    }
 }
 
 ///std_memd2 :
@@ -459,6 +517,39 @@ impl ExecuteStateful for StdMemD2 {
                 (ir::Id::from("done"), Value::zeroes(1).into()),
             ]
         }
+    }
+
+    fn execute(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
+        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
+        //chec that write_data is the exact right width
+        //check that addr0 is not out of bounds and that it is the proper width!
+        check_widths(addr0, addr0, self.d0_idx_size); //make a unary one instead of hacking. Also change the panicking
+        let addr0 = addr0.as_u64();
+        if addr0 >= self.d0_size {
+            panic!(
+                "memory only has {} slots, addr0 tries to access slot {}",
+                self.d0_size, addr0
+            );
+        }
+        //chech that addr1 is not out of bounds and that it is the proper iwdth
+        check_widths(addr1, addr1, self.d1_idx_size); //make a unary one instead of hacking. Also change the panicking
+        let addr1 = addr1.as_u64();
+        if addr1 >= self.d1_size {
+            panic!(
+                "memory only has {} slots, addr1 tries to access slot {}",
+                self.d1_size, addr1
+            );
+        }
+        let old = self.data[addr0 as usize][addr1 as usize].clone();
+
+        vec![
+            (ir::Id::from("read_data"), old.into()),
+            (ir::Id::from("done"), Value::zeroes(1).into()),
+        ]
     }
 }
 
@@ -620,6 +711,48 @@ impl ExecuteStateful for StdMemD3 {
                 (ir::Id::from("done"), Value::zeroes(1).into()),
             ]
         }
+    }
+
+    fn execute(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
+        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
+        let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
+        //check that addr0 is not out of bounds and that it is the proper width!
+        check_widths(addr0, addr0, self.d0_idx_size); //make a unary one instead of hacking. Also change the panicking
+        let addr0 = addr0.as_u64();
+        if addr0 >= self.d0_size {
+            panic!(
+                "memory only has {} slots, addr0 tries to access slot {}",
+                self.d0_size, addr0
+            );
+        }
+        //chech that addr1 is not out of bounds and that it is the proper iwdth
+        check_widths(addr1, addr1, self.d1_idx_size); //make a unary one instead of hacking. Also change the panicking
+        let addr1 = addr1.as_u64();
+        if addr1 >= self.d1_size {
+            panic!(
+                "memory only has {} slots, addr1 tries to access slot {}",
+                self.d1_size, addr1
+            );
+        }
+        //check that addr2 is not out of bounds and that it is the proper width
+        check_width(addr2, self.d2_idx_size);
+        let addr2 = addr2.as_u64();
+        if addr2 >= self.d2_size {
+            panic!(
+                "memory only has {} slots, addr2 tries to access slot {}",
+                self.d2_size, addr2
+            );
+        }
+        let old =
+            self.data[addr0 as usize][addr1 as usize][addr2 as usize].clone();
+        vec![
+            (ir::Id::from("read_data"), old.into()),
+            (ir::Id::from("done"), Value::zeroes(1).into()),
+        ]
     }
 }
 ///std_memd4
@@ -806,6 +939,60 @@ impl ExecuteStateful for StdMemD4 {
             ]
         }
     }
+
+    fn execute(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
+        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
+        let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
+        let (_, addr3) = inputs.iter().find(|(id, _)| id == "addr3").unwrap();
+        //check that addr0 is not out of bounds and that it is the proper width!
+        check_widths(addr0, addr0, self.d0_idx_size); //make a unary one instead of hacking. Also change the panicking
+        let addr0 = addr0.as_u64();
+        if addr0 >= self.d0_size {
+            panic!(
+                "memory only has {} slots, addr0 tries to access slot {}",
+                self.d0_size, addr0
+            );
+        }
+        //chech that addr1 is not out of bounds and that it is the proper iwdth
+        check_widths(addr1, addr1, self.d1_idx_size); //make a unary one instead of hacking. Also change the panicking
+        let addr1 = addr1.as_u64();
+        if addr1 >= self.d1_size {
+            panic!(
+                "memory only has {} slots, addr1 tries to access slot {}",
+                self.d1_size, addr1
+            );
+        }
+        //check that addr2 is not out of bounds and that it is the proper width
+        check_width(addr2, self.d2_idx_size);
+        let addr2 = addr2.as_u64();
+        if addr2 >= self.d2_size {
+            panic!(
+                "memory only has {} slots, addr2 tries to access slot {}",
+                self.d2_size, addr2
+            );
+        }
+        //check that addr3 is not out of bounds and that it is the proper width
+        check_width(addr3, self.d3_idx_size);
+        let addr3 = addr3.as_u64();
+        if addr3 >= self.d3_size {
+            panic!(
+                "memory only has {} slots, addr3 tries to access slot {}",
+                self.d3_size, addr3
+            )
+        }
+        let old = self.data[addr0 as usize][addr1 as usize][addr2 as usize]
+            [addr3 as usize]
+            .clone();
+
+        vec![
+            (ir::Id::from("read_data"), old.into()),
+            (ir::Id::from("done"), Value::zeroes(1).into()),
+        ]
+    }
 }
 
 /// A Standard Register of a certain [width].
@@ -888,6 +1075,16 @@ impl ExecuteStateful for StdReg {
                 (ir::Id::from("done"), Value::zeroes(1).into()),
             ]
         }
+    }
+
+    fn execute(
+        &self,
+        _inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        vec![
+            (ir::Id::from("out"), self.val.clone().into()),
+            (ir::Id::from("done"), Value::zeroes(1).into()),
+        ]
     }
 }
 
