@@ -34,7 +34,7 @@ component main() -> () {
             reg3.in = reg2.out;
 
             //done when reg3 is done 
-            wr[done] = reg3.done;
+            wr[done] = reg3.done; //guard so done only when 
         }
     }
 
