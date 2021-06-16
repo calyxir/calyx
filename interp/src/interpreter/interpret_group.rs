@@ -130,10 +130,10 @@ impl WorkingEnvironment {
 
                     match out.do_tick() {
                         OutputValue::ImmediateValue(iv) => {
-                            if iv != self.backing_env.pv_map[&port] {
-                                self.backing_env.insert(port, iv);
+                            if iv != old_val {
                                 new_vals.push(port)
                             }
+                            self.backing_env.insert(port, iv);
                             None
                         }
                         v @ OutputValue::LockedValue(_) => Some((port, v)),
