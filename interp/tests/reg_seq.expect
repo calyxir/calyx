@@ -12,16 +12,16 @@
     "reg0": {
       "clk": 0,
       "done": 0,
-      "in": 9,
+      "in": 0,
       "out": 9,
-      "write_en": 1
+      "write_en": 0
     },
     "reg1": {
       "clk": 0,
       "done": 0,
-      "in": 400,
+      "in": 0,
       "out": 400,
-      "write_en": 1
+      "write_en": 0
     }
   }
 }

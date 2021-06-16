@@ -22,6 +22,11 @@ component main() -> () {
     
   }
 
+//b/c one group, and reg0 decides
+//when that group's execution is done, 
+//the ending snapshot should include 
+//all values on reg0's ports. That is, 
+//[done] = 1
   control {
     seq {
       op;

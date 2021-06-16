@@ -12,17 +12,17 @@
     "mem": {
       "addr0": 0,
       "clk": 0,
-      "done": 0, 
+      "done": 0,
       "read_data": 9,
-      "write_data": 9,
-      "write_en": 1
+      "write_data": 0,
+      "write_en": 0
     },
     "reg0": {
       "clk": 0,
       "done": 0,
-      "in": 9,
+      "in": 0,
       "out": 9,
-      "write_en": 1
+      "write_en": 0
     }
   }
 }

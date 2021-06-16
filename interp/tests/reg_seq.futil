@@ -21,10 +21,8 @@ component main() -> () {
         }
     }
 
-    //the point of this test case is to make sure that
-    //reg0's done port is zero at the end of execution
-    //b/c reg1 and reg0 can't have done asserted t same time
-    //if they are executed sequentially
+    //both registers should have a low [done] at the end 
+    //of execution, b/c this is not a single-group program
     control {
         seq {
             wr_reg0;

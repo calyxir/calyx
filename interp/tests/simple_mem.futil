@@ -22,6 +22,11 @@ component main() -> () {
     }
   }
 
+//because there are two groups, 
+//no stateful component will have [done] high
+//at the end of execution.
+//the only port that will be asserted is 
+//[out]/[read_data]
   control {
     seq {
       write;

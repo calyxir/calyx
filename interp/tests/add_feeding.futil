@@ -38,6 +38,9 @@ component main() -> () {
 
   }
 
+//b/c there is just one group,
+//all components retain the values on their ports
+// (?) should the two registers still have high dones?
   control {
     seq {
       adds;

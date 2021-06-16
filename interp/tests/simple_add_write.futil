@@ -26,6 +26,10 @@ component main() -> () {
     
   }
 
+//again, b/c this is a single group 
+//and reg0 decides when it ends, the
+//ending snapshot includes assertions on 
+//all of reg0 ports (so [done] = 1)
   control {
     seq {
       op;

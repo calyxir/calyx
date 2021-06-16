@@ -23,14 +23,14 @@
     },
     "reg1": {
       "clk": 0,
-      "done": 0,
+      "done": 1,
       "in": 2,
       "out": 1,
       "write_en": 1
     },
     "reg2": {
       "clk": 0,
-      "done": 0,
+      "done": 1,
       "in": 2,
       "out": 1,
       "write_en": 1

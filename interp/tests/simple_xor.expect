@@ -11,7 +11,7 @@
     },
     "reg0": {
       "clk": 0,
-      "done": 0,
+      "done": 1,
       "in": 7,
       "out": 7,
       "write_en": 1
