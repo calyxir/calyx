@@ -1,0 +1,90 @@
+import "primitives/core.futil";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    m = std_reg(4);
+    c = std_reg(1);
+    a = std_reg(4);
+    q = std_reg(4);
+    pad_5bit = std_pad(4, 5);
+    pad_5bit1 = std_pad(4, 5);
+    pad_5bit2 = std_pad(4, 5);
+    add_5bits = std_add(5);
+    eq_5bits = std_eq(5);
+    add_3bits = std_add(3);
+    rshift_4bits = std_rsh(4);
+    rshift_4bits1 = std_rsh(4);
+    add_4bits = std_add(4);
+    add_4bits1 = std_add(4);
+    slicer = std_slice(4, 1);
+    lt = std_lt(3);
+    i = std_reg(3);
+    cs_wh = std_reg(1);
+    cs_if = std_reg(1);
+    fsm = std_reg(4);
+  }
+  wires {
+    done = fsm.out == 4'd8 ? 1'd1;
+    a.clk = clk;
+    a.in = !(a.done & c.done) & cs_if.out & cs_wh.out & fsm.out == 4'd3 & go | !q.done & !cs_if.out & cs_wh.out & fsm.out == 4'd3 & go | !q.done & cs_if.out & cs_wh.out & fsm.out == 4'd4 & go ? add_4bits.out;
+    a.write_en = !(a.done & c.done) & cs_if.out & cs_wh.out & fsm.out == 4'd3 & go ? 1'd1;
+    a.write_en = !q.done & !cs_if.out & cs_wh.out & fsm.out == 4'd3 & go | !q.done & cs_if.out & cs_wh.out & fsm.out == 4'd4 & go ? q.done;
+    add_3bits.left = !i.done & cs_wh.out & fsm.out == 4'd6 & go ? i.out;
+    add_3bits.right = !i.done & cs_wh.out & fsm.out == 4'd6 & go ? 3'd1;
+    add_4bits.left = !(a.done & c.done) & cs_if.out & cs_wh.out & fsm.out == 4'd3 & go ? m.out;
+    add_4bits.left = !q.done & !cs_if.out & cs_wh.out & fsm.out == 4'd3 & go | !q.done & cs_if.out & cs_wh.out & fsm.out == 4'd4 & go ? rshift_4bits.out;
+    add_4bits.right = c.out & (!q.done & !cs_if.out & cs_wh.out & fsm.out == 4'd3 & go | !q.done & cs_if.out & cs_wh.out & fsm.out == 4'd4 & go) ? 4'd8;
+    add_4bits.right = !(a.done & c.done) & cs_if.out & cs_wh.out & fsm.out == 4'd3 & go ? a.out;
+    add_4bits1.left = !q.done & !cs_if.out & cs_wh.out & fsm.out == 4'd3 & go | !q.done & cs_if.out & cs_wh.out & fsm.out == 4'd4 & go ? rshift_4bits1.out;
+    add_4bits1.right = slicer.out & (!q.done & !cs_if.out & cs_wh.out & fsm.out == 4'd3 & go | !q.done & cs_if.out & cs_wh.out & fsm.out == 4'd4 & go) ? 4'd8;
+    add_5bits.left = !(a.done & c.done) & cs_if.out & cs_wh.out & fsm.out == 4'd3 & go ? pad_5bit.out;
+    add_5bits.right = !(a.done & c.done) & cs_if.out & cs_wh.out & fsm.out == 4'd3 & go ? pad_5bit1.out;
+    c.clk = clk;
+    c.in = !(a.done & c.done) & cs_if.out & cs_wh.out & fsm.out == 4'd3 & go ? eq_5bits.out;
+    c.write_en = !(a.done & c.done) & cs_if.out & cs_wh.out & fsm.out == 4'd3 & go ? 1'd1;
+    cs_if.clk = clk;
+    cs_if.in = cs_wh.out & fsm.out == 4'd6 & go ? 1'd0;
+    cs_if.in = cs_wh.out & fsm.out == 4'd2 & go ? slicer.out;
+    cs_if.write_en = cs_wh.out & fsm.out == 4'd2 & go | cs_wh.out & fsm.out == 4'd6 & go ? 1'd1;
+    cs_wh.clk = clk;
+    cs_wh.in = fsm.out == 4'd8 & go ? 1'd0;
+    cs_wh.in = fsm.out == 4'd1 & go ? lt.out;
+    cs_wh.write_en = fsm.out == 4'd1 & go | fsm.out == 4'd8 & go ? 1'd1;
+    eq_5bits.left = !(a.done & c.done) & cs_if.out & cs_wh.out & fsm.out == 4'd3 & go ? add_5bits.out;
+    eq_5bits.right = !(a.done & c.done) & cs_if.out & cs_wh.out & fsm.out == 4'd3 & go ? pad_5bit2.out;
+    fsm.clk = clk;
+    fsm.in = fsm.out == 4'd8 ? 4'd0;
+    fsm.in = fsm.out == 4'd0 & m.done & q.done & go | fsm.out == 4'd7 & cs_wh.out & go ? 4'd1;
+    fsm.in = fsm.out == 4'd1 & 1'b1 & go ? 4'd2;
+    fsm.in = fsm.out == 4'd2 & 1'b1 & go ? 4'd3;
+    fsm.in = fsm.out == 4'd3 & a.done & c.done & cs_if.out & cs_wh.out & go | fsm.out == 4'd3 & q.done & !cs_if.out & cs_wh.out & go ? 4'd4;
+    fsm.in = fsm.out == 4'd4 & q.done & cs_if.out & cs_wh.out & go ? 4'd5;
+    fsm.in = fsm.out == 4'd5 & cs_if.out & cs_wh.out & go | fsm.out == 4'd4 & !cs_if.out & cs_wh.out & go ? 4'd6;
+    fsm.in = fsm.out == 4'd6 & i.done & cs_wh.out & go ? 4'd7;
+    fsm.in = fsm.out == 4'd2 & !cs_wh.out & go ? 4'd8;
+    fsm.write_en = fsm.out == 4'd0 & m.done & q.done & go | fsm.out == 4'd1 & 1'b1 & go | fsm.out == 4'd2 & 1'b1 & go | fsm.out == 4'd3 & a.done & c.done & cs_if.out & cs_wh.out & go | fsm.out == 4'd4 & q.done & cs_if.out & cs_wh.out & go | fsm.out == 4'd3 & q.done & !cs_if.out & cs_wh.out & go | fsm.out == 4'd5 & cs_if.out & cs_wh.out & go | fsm.out == 4'd4 & !cs_if.out & cs_wh.out & go | fsm.out == 4'd6 & i.done & cs_wh.out & go | fsm.out == 4'd7 & cs_wh.out & go | fsm.out == 4'd2 & !cs_wh.out & go | fsm.out == 4'd8 ? 1'd1;
+    i.clk = clk;
+    i.in = !i.done & cs_wh.out & fsm.out == 4'd6 & go ? add_3bits.out;
+    i.write_en = !i.done & cs_wh.out & fsm.out == 4'd6 & go ? 1'd1;
+    lt.left = fsm.out == 4'd1 & go ? i.out;
+    lt.right = fsm.out == 4'd1 & go ? 3'd4;
+    m.clk = clk;
+    m.in = !(m.done & q.done) & fsm.out == 4'd0 & go ? 4'd9;
+    m.write_en = !(m.done & q.done) & fsm.out == 4'd0 & go ? 1'd1;
+    pad_5bit.in = !(a.done & c.done) & cs_if.out & cs_wh.out & fsm.out == 4'd3 & go ? m.out;
+    pad_5bit1.in = !(a.done & c.done) & cs_if.out & cs_wh.out & fsm.out == 4'd3 & go ? a.out;
+    pad_5bit2.in = !(a.done & c.done) & cs_if.out & cs_wh.out & fsm.out == 4'd3 & go ? add_4bits.out;
+    q.clk = clk;
+    q.in = !(m.done & q.done) & fsm.out == 4'd0 & go ? 4'd4;
+    q.in = !q.done & !cs_if.out & cs_wh.out & fsm.out == 4'd3 & go | !q.done & cs_if.out & cs_wh.out & fsm.out == 4'd4 & go ? add_4bits1.out;
+    q.write_en = !(m.done & q.done) & fsm.out == 4'd0 & go | !a.write_en & (!q.done & !cs_if.out & cs_wh.out & fsm.out == 4'd3 & go | !q.done & cs_if.out & cs_wh.out & fsm.out == 4'd4 & go) ? 1'd1;
+    rshift_4bits.left = !q.done & !cs_if.out & cs_wh.out & fsm.out == 4'd3 & go | !q.done & cs_if.out & cs_wh.out & fsm.out == 4'd4 & go ? a.out;
+    rshift_4bits.right = !q.done & !cs_if.out & cs_wh.out & fsm.out == 4'd3 & go | !q.done & cs_if.out & cs_wh.out & fsm.out == 4'd4 & go ? 4'd1;
+    rshift_4bits1.left = !q.done & !cs_if.out & cs_wh.out & fsm.out == 4'd3 & go | !q.done & cs_if.out & cs_wh.out & fsm.out == 4'd4 & go ? q.out;
+    rshift_4bits1.right = !q.done & !cs_if.out & cs_wh.out & fsm.out == 4'd3 & go | !q.done & cs_if.out & cs_wh.out & fsm.out == 4'd4 & go ? 4'd1;
+    slicer.in = !q.done & !cs_if.out & cs_wh.out & fsm.out == 4'd3 & go | !q.done & cs_if.out & cs_wh.out & fsm.out == 4'd4 & go ? a.out;
+    slicer.in = cs_wh.out & fsm.out == 4'd2 & go ? q.out;
+  }
+
+  control {}
+}
+

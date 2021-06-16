@@ -1,35 +1,41 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
 
 component main() -> () {
   //model iterative multiplication of two binary numbers
   //learned from this video: (https://www.youtube.com/watch?v=U62iP8RkZIk&ab_channel=TutorialsPoint%28India%29Ltd.)
-  //9 (M) * 4 (Q) : [1001] * [0010] = 36 [0010 0100] (AQ)
+  //9 (M) * 4 (Q) : [1001] * [0100] = 36 [0010 0100] (AQ), (A) is accum. which starts [0000]
 
+  //after first run getting 
+  //a = 9 and q = 12:
+  //aq = [1001 1100] which is not 36 :/
 
   cells {
     m = std_reg(4); //multiplicand
-    c = std_reg(1); //carry -- shld be initialized to zeroes
+    c = std_reg(1); //carry -- shld be initialized to zero
     a = std_reg(4); //accumulator -- shld be initialized to zeroes
     q = std_reg(4); //multiplier
-    p = std_mem_d1(4, 2, 1); //hold the final product 
+
+    //to check carry
+    pad_5bit = std_pad(4, 5);
+    pad_5bit1 = std_pad(4, 5);
+    pad_5bit2 = std_pad(4, 5);
+    add_5bits = std_add(5);
+    eq_5bits = std_eq(5);
 
     //will use these shifters and adders
-    add4_a = std_add(4);
-    add4_a2 = std_add(4);
-    add4_q = std_add(4);
-    shiftr_a = std_rsh(4);
-    shiftr_q = std_rsh(4);
+    add_3bits = std_add(3);
+    rshift_4bits = std_rsh(4);
+    rshift_4bits1 = std_rsh(4);
+    add_4bits = std_add(4);
+    add_4bits1 = std_add(4);
 
     //will also use this slicer to check the last bit 
-    slice_4_to_1 = std_slice(4, 1);
-
+    slicer = std_slice(4, 1);
+    
     //for the while loop 
-    lt = std_lt(3); //counting to 4, b/c multiplying 4 bit numbers 
-    i = std_reg(3); //counting to 4 
+    lt = std_lt(3); //counting to 4, b/c multiplying 4 bit numbers (4 = [100])
+    i = std_reg(3); //counting to 4  (4 = [100])
     add3 = std_add(3);
-
-    //use this ander to decide when things are done 
-    ander = std_and(1);
 
     //to shift right some # and put a 1 as MSB, just shift right and add 8 ([1000])
 
@@ -38,85 +44,121 @@ component main() -> () {
   wires {
 
     group init {
-        m.write_en = 1'b1;
-        m.in = 4'b1001; // (9)
-        q.write_en = 1'b1;
-        q.in = 4'b0100; // (4)
+       m.write_en = 1'b1;  
+       q.write_en = 1'b1;
+       m.in = 4'b1001; //m is multiplicand w/ value 9
+       q.in = 4'b0100; //q is multiplier w/ value 4
 
-        ander.left = m.done;
-        ander.right = m.done;
-
-        init[done] = ander.out;
+       init[done] = m.done & q.done ? 1'b1;
     }
 
-    group add_and_shift {
-        //add what's in m to a
+    group add {
+        //a = m+a. populate the carry based on overflow 
+        
+        //pad both m and a up to 5 bits, then add them.
+        //compare that result with (a+m) padded up to 5 bits. If they're
+        //not equal, overflow has occured and c should be 1
 
-        //shift caq (carry is result from addition... omg so much)
+        //create 5bit m and 5bit a
+        pad_5bit.in = m.out; 
+        pad_5bit1.in = a.out;
 
-        add_and_shift[done] = 1'b1; //temp!
+        //add 4bit m and 4bit a
+        add_4bits.left = m.out; 
+        add_4bits.right = a.out; 
+
+        //add 5bit m and 5bit a
+        add_5bits.left = pad_5bit.out; 
+        add_5bits.right = pad_5bit1.out; 
+
+        //pad result of 4bit addition to 5 bit 
+        pad_5bit2.in = add_4bits.out; 
+
+        //compare those two results
+        eq_5bits.left = add_5bits.out; 
+        eq_5bits.right = pad_5bit2.out; 
+
+        //now use this result to fill c 
+        c.write_en = 1'b1; 
+        c.in = eq_5bits.out; 
+
+        //now just write 4bit m + 4bit a to a again 
+        a.write_en = 1'b1; 
+        a.in = add_4bits.out;
+
+        add[done] = a.done & c.done ? 1'b1;        
     }
 
-    group shift {
-        //shift caq 
-        shift[done] = 1'b1; //temp!
+    group shift { 
+        //q goes before a -- first get 
+        //LSB of a, then right shift that into q, 
+        //then right shift c.out into a
+
+        a.write_en = q.done; 
+        q.write_en = !a.write_en ? 1'b1;
+
+        //if c is 1, add 8 to rsh a (8 = [1000], same as shifting c into a, i think)
+        rshift_4bits.left = a.out; //what u r shifting
+        rshift_4bits.right = 4'd1; //shifting by 
+
+        add_4bits.left = rshift_4bits.out; 
+        //here make the decision 
+        add_4bits.right = c.out ? 4'd8; //if c is 1 add 8 else 0 (initialized to 0 i think) 
+        a.in = add_4bits.out;
+
+        //if lsb of a is 1, add 8 to rsh q
+        rshift_4bits1.left = q.out; 
+        rshift_4bits1.right = 4'd1;
+
+        add_4bits1.left = rshift_4bits1.out; 
+        slicer.in = a.out; //use this to make decision
+        add_4bits1.right = slicer.out ? 4'd8;
+        q.in = add_4bits1.out;
+
+        shift[done] = q.done; 
+        
     }
-
-
 
     group cond_while {
-        //check if counter is 4 or more 
-        lt.left = i.out;
-        lt.right = 3'b100;
+        //lt compares i and 4
+        lt.left = i.out; 
+        lt.right = 3'd4;
         cond_while[done] = 1'b1;
     }
 
     group incr_while {
-        //increment the counter by 1
-        i.write_en = 1'b1;
-        add3.right = i.out;
-        add3.left = 3'b1;
-        i.in = add3.out;
+        //i = i + 1
+        i.write_en = 1'b1; 
+        add_3bits.left = i.out; 
+        add_3bits.right = 3'd1; 
+        i.in = add_3bits.out; 
         incr_while[done] = i.done;
     }
 
     group cond_if {
-        slice_4_to_1.in = q.out; //get lsb of q
-        cond_if[done] = 1'b1;
+       //get LSB of Q
+       slicer.in = q.out;
+       cond_if[done] = 1'b1; 
     }
-
-    group wr_qp {
-        p.addr0 = 1'b0;
-        p.write_en = 1'b1;
-        p.write_data = q.out;
-        wr_qp[done] = p.done;
-    }
-
-    group wr_ap {
-        p.addr0 = 1'b1;
-        p.write_en = 1'b1;
-        p.write_data = a.out;
-        wr_ap[done] = p.done;
-    }
-    
 
   }
 
   control {
     seq{
         init;
-        while lt.out with cond_while { 
+        while lt.out with cond_while { //less than 4 iterations
             seq {
-                if slice_4_to_1.out with cond_if {
-                    add_and_shift;
-                } else {
+                if slicer.out with cond_if { //there is a 1 in LSB of Q
+                    seq {
+                        add; 
+                        shift;
+                    }
+                } else { //there is a 0 in LSB of Q
                     shift;
                 }
                 incr_while;
             }
         }
-        wr_qp;
-        wr_ap; // these could be parallel but that's not yet implemented 
     }
   }
 }
