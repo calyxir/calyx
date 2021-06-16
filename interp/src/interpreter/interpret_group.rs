@@ -416,12 +416,14 @@ fn eval_guard(guard: &ir::Guard, env: &WorkingEnvironment) -> bool {
         }
         ir::Guard::Port(p) => {
             let val = env.get_as_val(&p.borrow());
-            if val.as_u64() == 1 && val.vec.len() == 1 {
-                true
-            } else {
+            if val.vec.len() != 1 {
                 panic!(
                     "Evaluating the truth value of a wire '{:?}' that is not one bit", p.borrow().canonical()
                 )
+            } else if val.as_u64() == 1 {
+                true
+            } else {
+                false
             }
         }
         ir::Guard::True => true,
