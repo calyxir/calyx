@@ -4,7 +4,7 @@
 use crate::environment::Environment;
 
 use crate::utils::{AssignmentRef, CellRef, OutputValueRef};
-use crate::values::{OutputValue, TimeLockedValue, Value};
+use crate::values::{OutputValue, ReadableValue, TimeLockedValue, Value};
 use calyx::{
     errors::FutilResult,
     ir::{self, RRC},
@@ -105,12 +105,9 @@ impl WorkingEnvironment {
 
     fn get_as_val(&self, port: &ir::Port) -> &Value {
         match self.get(port) {
-            OutputValueRef::ImmediateValue(iv) => iv,
-            OutputValueRef::LockedValue(tlv) => {
-                &tlv.old_value.as_ref().unwrap_or_else(|| {
-                    panic!("Attempting to read an invalid value")
-                })
-            }
+            OutputValueRef::ImmediateValue(iv) => iv.get_val(),
+            OutputValueRef::LockedValue(tlv) => tlv.get_val(),
+            OutputValueRef::PulseValue(pv) => pv.get_val(),
         }
     }
 
@@ -127,17 +124,25 @@ impl WorkingEnvironment {
                     self.backing_env.insert(port, iv);
                     None
                 }
-                OutputValue::LockedValue(mut tlv) => {
-                    tlv.dec_count();
-                    if tlv.unlockable() {
-                        let iv = tlv.unlock();
-                        if iv != self.backing_env.pv_map[&port] {
-                            self.backing_env.insert(port, iv);
-                            new_vals.push(port)
+                out @ OutputValue::PulseValue(_)
+                | out @ OutputValue::LockedValue(_) => {
+                    let old_val = out.get_val().clone();
+
+                    match out.do_tick() {
+                        OutputValue::ImmediateValue(iv) => {
+                            if iv != self.backing_env.pv_map[&port] {
+                                self.backing_env.insert(port, iv);
+                                new_vals.push(port)
+                            }
+                            None
                         }
-                        None
-                    } else {
-                        Some((port, tlv.into()))
+                        v @ OutputValue::LockedValue(_) => Some((port, v)),
+                        OutputValue::PulseValue(pv) => {
+                            if *pv.get_val() != old_val {
+                                new_vals.push(port);
+                            }
+                            Some((port, pv.into()))
+                        }
                     }
                 }
             })
@@ -161,6 +166,9 @@ impl WorkingEnvironment {
                         panic!("Group is done with an invalid value?")
                     }
                 }
+                OutputValue::PulseValue(v) => {
+                    self.backing_env.insert(port, v.take_val())
+                }
             }
         }
         self.backing_env
@@ -176,6 +184,7 @@ fn grp_is_done(done: OutputValueRef) -> bool {
     match done {
         OutputValueRef::ImmediateValue(v) => v.as_u64() == 1,
         OutputValueRef::LockedValue(_) => false,
+        OutputValueRef::PulseValue(v) => v.get_val().as_u64() == 1,
     }
 }
 
@@ -196,7 +205,7 @@ pub fn interpret_group(
 
     while !grp_is_done(working_env.get(&grp_done.borrow()))
         || !comb_cells.is_empty()
-    // || !assign_worklist.is_empty() ???
+        || !assign_worklist.is_empty()
     {
         if !comb_cells.is_empty() {
             let tmp = std::mem::take(&mut comb_cells);
@@ -205,7 +214,7 @@ pub fn interpret_group(
                 &mut working_env,
                 &dependency_map,
                 tmp.iter().map(|x| x.into()),
-                MutOrImmut::Mut,
+                false,
             );
 
             assign_worklist.extend(new_assigns.into_iter())
@@ -226,6 +235,7 @@ pub fn interpret_group(
                         let tmp_old = match old_val.clone_referenced() {
                             OutputValue::ImmediateValue(iv) => Some(iv),
                             OutputValue::LockedValue(tlv) => tlv.old_value,
+                            OutputValue::PulseValue(pv) => Some(pv.take_val()),
                         };
 
                         let new_val = OutputValue::LockedValue(
@@ -298,7 +308,7 @@ pub fn interpret_group(
                 &mut working_env,
                 &dependency_map,
                 tmp.iter().map(|x| x.into()),
-                MutOrImmut::Mut,
+                false,
             );
             assign_worklist.extend(new_assigns.into_iter())
         }
@@ -319,16 +329,11 @@ pub fn interpret_group(
     Ok(working_env.collapse_env())
 }
 
-enum MutOrImmut {
-    Mut,
-    Immut,
-}
-
 fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     env: &mut WorkingEnvironment,
     dependency_map: &DependencyMap<'a>,
     exec_list: I,
-    mut_flag: MutOrImmut,
+    reset_flag: bool,
 ) -> HashSet<AssignmentRef<'a>> {
     let mut prim_map = std::mem::take(&mut env.backing_env.cell_prim_map);
 
@@ -342,9 +347,10 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
             prim_map.get_mut(&(&cell.borrow() as &ir::Cell as *const ir::Cell));
 
         if let Some(prim) = executable {
-            let new_vals = match mut_flag {
-                MutOrImmut::Mut => prim.exec_mut(&inputs),
-                MutOrImmut::Immut => prim.exec(&inputs),
+            let new_vals = if reset_flag {
+                prim.reset(&inputs)
+            } else {
+                prim.exec_mut(&inputs)
             };
 
             for (port, val) in new_vals {
@@ -416,12 +422,12 @@ fn eval_guard(guard: &ir::Guard, env: &WorkingEnvironment) -> bool {
         }
         ir::Guard::Port(p) => {
             let val = env.get_as_val(&p.borrow());
-            if val.as_u64() == 1 && val.vec.len() == 1 {
-                true
-            } else {
+            if val.vec.len() != 1 {
                 panic!(
                     "Evaluating the truth value of a wire '{:?}' that is not one bit", p.borrow().canonical()
                 )
+            } else {
+                val.as_u64() == 1
             }
         }
         ir::Guard::True => true,
@@ -463,7 +469,7 @@ pub fn finish_group_interpretation(
         &mut working_env,
         &DependencyMap::default(),
         cells.iter(),
-        MutOrImmut::Immut,
+        true,
     );
 
     Ok(working_env.collapse_env())

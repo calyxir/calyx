@@ -1,4 +1,4 @@
-use crate::values::{OutputValue, TimeLockedValue, Value};
+use crate::values::{OutputValue, PulseValue, TimeLockedValue, Value};
 use calyx::ir::{Assignment, Cell, Port, RRC};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
@@ -72,10 +72,11 @@ impl<'a> Deref for AssignmentRef<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum OutputValueRef<'a> {
     ImmediateValue(&'a Value),
     LockedValue(&'a TimeLockedValue),
+    PulseValue(&'a PulseValue),
 }
 
 impl<'a> OutputValueRef<'a> {
@@ -86,6 +87,9 @@ impl<'a> OutputValueRef<'a> {
             }
             OutputValueRef::LockedValue(tlv) => {
                 OutputValue::LockedValue((*tlv).clone())
+            }
+            OutputValueRef::PulseValue(pv) => {
+                OutputValue::PulseValue((*pv).clone())
             }
         }
     }
@@ -102,6 +106,7 @@ impl<'a> From<&'a OutputValue> for OutputValueRef<'a> {
         match input {
             OutputValue::ImmediateValue(val) => Self::ImmediateValue(val),
             OutputValue::LockedValue(val) => Self::LockedValue(val),
+            OutputValue::PulseValue(val) => Self::PulseValue(val),
         }
     }
 }
@@ -130,29 +135,11 @@ impl<'a> OutputValueRef<'a> {
     }
 }
 
-impl<'a> PartialEq for OutputValueRef<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (
-                OutputValueRef::ImmediateValue(v1),
-                OutputValueRef::ImmediateValue(v2),
-            ) => v1 == v2,
-            (
-                OutputValueRef::LockedValue(v1),
-                OutputValueRef::LockedValue(v2),
-            ) => v1 == v2,
-            _ => false,
-        }
-    }
-}
-
-impl<'a> Eq for OutputValueRef<'a> {}
-
 pub(super) struct CellRef(RRC<Cell>);
 
-impl<'a> Into<&'a RRC<Cell>> for &'a CellRef {
-    fn into(self) -> &'a RRC<Cell> {
-        &self.0
+impl<'a> From<&'a CellRef> for &'a RRC<Cell> {
+    fn from(val: &'a CellRef) -> Self {
+        &val.0
     }
 }
 
