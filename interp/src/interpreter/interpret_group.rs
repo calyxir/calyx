@@ -6,8 +6,8 @@ use crate::environment::Environment;
 use crate::utils::{AssignmentRef, CellRef, OutputValueRef};
 use crate::values::{OutputValue, TimeLockedValue, Value};
 use calyx::{
-    errors::{Error, FutilResult},
-    ir::{self, CloneName, RRC},
+    errors::FutilResult,
+    ir::{self, RRC},
 };
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
@@ -194,7 +194,10 @@ pub fn interpret_group(
     let mut comb_cells = CellList::new();
     let mut non_comb_cells = CellList::new();
 
-    while !grp_is_done(working_env.get(&grp_done.borrow())) {
+    while !grp_is_done(working_env.get(&grp_done.borrow()))
+        || !comb_cells.is_empty()
+    // || !assign_worklist.is_empty() ???
+    {
         if !comb_cells.is_empty() {
             let tmp = std::mem::take(&mut comb_cells);
 
@@ -202,12 +205,12 @@ pub fn interpret_group(
                 &mut working_env,
                 &dependency_map,
                 tmp.iter().map(|x| x.into()),
+                MutOrImmut::Mut,
             );
 
             assign_worklist.extend(new_assigns.into_iter())
         } else if !assign_worklist.is_empty() {
             let mut updates_list = vec![];
-            let mut exec_list: Vec<RRC<ir::Cell>> = vec![];
             let mut new_worklist = WorkList::new();
 
             // STEP 1 : Evaluate all assignments
@@ -295,6 +298,7 @@ pub fn interpret_group(
                 &mut working_env,
                 &dependency_map,
                 tmp.iter().map(|x| x.into()),
+                MutOrImmut::Mut,
             );
             assign_worklist.extend(new_assigns.into_iter())
         }
@@ -321,10 +325,16 @@ pub fn interpret_group(
     Ok(working_env.collapse_env())
 }
 
+enum MutOrImmut {
+    Mut,
+    Immut,
+}
+
 fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     env: &mut WorkingEnvironment,
     dependency_map: &DependencyMap<'a>,
     exec_list: I,
+    mut_flag: MutOrImmut,
 ) -> HashSet<AssignmentRef<'a>> {
     let mut prim_map = std::mem::take(&mut env.backing_env.cell_prim_map);
 
@@ -338,7 +348,10 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
             prim_map.get_mut(&(&cell.borrow() as &ir::Cell as *const ir::Cell));
 
         if let Some(prim) = executable {
-            let new_vals = prim.exec(&inputs);
+            let new_vals = match mut_flag {
+                MutOrImmut::Mut => prim.exec_mut(&inputs),
+                MutOrImmut::Immut => prim.exec(&inputs),
+            };
 
             for (port, val) in new_vals {
                 let port_ref = cell.borrow().find(port).unwrap();
@@ -419,4 +432,45 @@ fn eval_guard(guard: &ir::Guard, env: &WorkingEnvironment) -> bool {
         }
         ir::Guard::True => true,
     }
+}
+
+pub fn finish_group_interpretation(
+    group: &ir::Group,
+    _continuous_assignments: &[ir::Assignment],
+    mut env: Environment,
+) -> FutilResult<Environment> {
+    // replace port values for all the assignments
+
+    let done = get_done_port(group);
+
+    let cells: Vec<RRC<ir::Cell>> = group
+        .assignments
+        .iter()
+        .filter_map(|ir::Assignment { dst, .. }| {
+            env.insert(
+                &dst.borrow() as &ir::Port as *const ir::Port,
+                Value::zeroes(dst.borrow().width as usize),
+            );
+            match &dst.borrow().parent {
+                ir::PortParent::Cell(c) => Some(c.upgrade()),
+                ir::PortParent::Group(_) => None,
+            }
+        })
+        .collect();
+
+    env.insert(
+        &done.borrow() as &ir::Port as *const ir::Port,
+        Value::zeroes(1),
+    );
+
+    let mut working_env: WorkingEnvironment = env.into();
+
+    eval_prims(
+        &mut working_env,
+        &DependencyMap::default(),
+        cells.iter(),
+        MutOrImmut::Immut,
+    );
+
+    Ok(working_env.collapse_env())
 }
