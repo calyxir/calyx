@@ -182,7 +182,7 @@ fn grp_is_done(done: OutputValueRef) -> bool {
 /// Evaluates a group, given an environment.
 pub fn interpret_group(
     group: &ir::Group,
-    _continuous_assignments: &[ir::Assignment],
+    continuous_assignments: &[ir::Assignment],
     env: Environment,
 ) -> FutilResult<Environment> {
     let dependency_map =
@@ -310,6 +310,12 @@ pub fn interpret_group(
 
             assign_worklist = assigns;
         }
+    }
+
+    let cont_done = working_env.get(continuous_assignments.filter(|x| x.dst.borrow().name == "done"));
+
+    while !grp_is_done(working_env.get(&cont_done.borrow())) {
+        
     }
 
     Ok(working_env.collapse_env())
