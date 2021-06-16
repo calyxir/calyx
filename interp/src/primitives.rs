@@ -1,6 +1,6 @@
 //! Defines update methods for the various primitive cells in the Calyx
 // standard library.
-use super::values::{OutputValue, TimeLockedValue, Value};
+use super::values::{OutputValue, PulseValue, TimeLockedValue, Value};
 use calyx::ir;
 use std::ops::*;
 
@@ -61,32 +61,32 @@ impl Primitive {
         }
     }
 
-    pub fn exec(
+    pub fn reset(
         &self,
         inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
         match self {
-            Primitive::StdAdd(prim) => prim.execute(inputs),
-            Primitive::StdLsh(prim) => prim.execute(inputs),
-            Primitive::StdRsh(prim) => prim.execute(inputs),
-            Primitive::StdSub(prim) => prim.execute(inputs),
-            Primitive::StdSlice(prim) => prim.execute(inputs),
-            Primitive::StdPad(prim) => prim.execute(inputs),
-            Primitive::StdNot(prim) => prim.execute(inputs),
-            Primitive::StdAnd(prim) => prim.execute(inputs),
-            Primitive::StdOr(prim) => prim.execute(inputs),
-            Primitive::StdXor(prim) => prim.execute(inputs),
-            Primitive::StdGe(prim) => prim.execute(inputs),
-            Primitive::StdGt(prim) => prim.execute(inputs),
-            Primitive::StdEq(prim) => prim.execute(inputs),
-            Primitive::StdNeq(prim) => prim.execute(inputs),
-            Primitive::StdLe(prim) => prim.execute(inputs),
-            Primitive::StdLt(prim) => prim.execute(inputs),
-            Primitive::StdReg(prim) => prim.execute(inputs),
-            Primitive::StdMemD1(prim) => prim.execute(inputs),
-            Primitive::StdMemD2(prim) => prim.execute(inputs),
-            Primitive::StdMemD3(prim) => prim.execute(inputs),
-            Primitive::StdMemD4(prim) => prim.execute(inputs),
+            Primitive::StdAdd(prim) => prim.reset(inputs),
+            Primitive::StdLsh(prim) => prim.reset(inputs),
+            Primitive::StdRsh(prim) => prim.reset(inputs),
+            Primitive::StdSub(prim) => prim.reset(inputs),
+            Primitive::StdSlice(prim) => prim.reset(inputs),
+            Primitive::StdPad(prim) => prim.reset(inputs),
+            Primitive::StdNot(prim) => prim.reset(inputs),
+            Primitive::StdAnd(prim) => prim.reset(inputs),
+            Primitive::StdOr(prim) => prim.reset(inputs),
+            Primitive::StdXor(prim) => prim.reset(inputs),
+            Primitive::StdGe(prim) => prim.reset(inputs),
+            Primitive::StdGt(prim) => prim.reset(inputs),
+            Primitive::StdEq(prim) => prim.reset(inputs),
+            Primitive::StdNeq(prim) => prim.reset(inputs),
+            Primitive::StdLe(prim) => prim.reset(inputs),
+            Primitive::StdLt(prim) => prim.reset(inputs),
+            Primitive::StdReg(prim) => prim.reset(inputs),
+            Primitive::StdMemD1(prim) => prim.reset(inputs),
+            Primitive::StdMemD2(prim) => prim.reset(inputs),
+            Primitive::StdMemD3(prim) => prim.reset(inputs),
+            Primitive::StdMemD4(prim) => prim.reset(inputs),
             _ => panic!("cell cannot be executed"),
         }
     }
@@ -141,6 +141,10 @@ pub trait ExecuteUnary {
         let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
         vec![(ir::Id::from("out"), self.execute_unary(input))]
     }
+
+    fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)> {
+        self.execute(inputs)
+    }
 }
 
 /// For binary operator components that taken in a <left> Value and
@@ -172,12 +176,22 @@ pub trait ExecuteBinary {
         let out = self.execute_bin(left, right);
         vec![(ir::Id::from("out"), out)]
     }
+
+    fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)> {
+        self.execute(inputs)
+    }
 }
 
 /// Only binary operator components have trait [Execute].
 pub trait Execute {
-    fn execute(&self, inputs: &[(ir::Id, Value)])
-        -> Vec<(ir::Id, OutputValue)>;
+    fn execute(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)>;
+
+    fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)> {
+        self.execute(inputs)
+    }
 }
 
 /// ExecuteStateful is a trait implemnted by primitive components such as
@@ -190,10 +204,7 @@ pub trait ExecuteStateful {
         inputs: &[(ir::Id, &Value)], //TODO: maybe change these to immutable references?
     ) -> Vec<(ir::Id, OutputValue)>;
 
-    fn execute(
-        &self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, OutputValue)>;
+    fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)>;
 }
 
 /// Ensures the input values are of the appropriate widths, else panics.
@@ -333,15 +344,7 @@ impl ExecuteStateful for StdMemD1 {
                     )
                     .into(),
                 ),
-                (
-                    ir::Id::from("done"),
-                    TimeLockedValue::new(
-                        Value::try_from_init(1, 1).unwrap(),
-                        1,
-                        Some(Value::zeroes(1)),
-                    )
-                    .into(),
-                ),
+                ("done".into(), PulseValue::one_cycle_one_bit_pulse().into()),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -350,15 +353,12 @@ impl ExecuteStateful for StdMemD1 {
             // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
             vec![
                 (ir::Id::from("read_data"), old.into()),
-                (ir::Id::from("done"), Value::zeroes(1).into()),
+                // (ir::Id::from("done"), Value::zeroes(1).into()),
             ]
         }
     }
 
-    fn execute(
-        &self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, OutputValue)> {
+    fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)> {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         //check that addr0 is not out of bounds and that it is the proper width!
         check_widths(addr0, addr0, self.idx_size); //make a unary one instead of hacking. Also change the panicking
@@ -497,15 +497,7 @@ impl ExecuteStateful for StdMemD2 {
                     )
                     .into(),
                 ),
-                (
-                    ir::Id::from("done"),
-                    TimeLockedValue::new(
-                        Value::try_from_init(1, 1).unwrap(),
-                        1,
-                        Some(Value::zeroes(1)),
-                    )
-                    .into(),
-                ),
+                ("done".into(), PulseValue::one_cycle_one_bit_pulse().into()),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -514,15 +506,12 @@ impl ExecuteStateful for StdMemD2 {
             // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
             vec![
                 (ir::Id::from("read_data"), old.into()),
-                (ir::Id::from("done"), Value::zeroes(1).into()),
+                // (ir::Id::from("done"), Value::zeroes(1).into()),
             ]
         }
     }
 
-    fn execute(
-        &self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, OutputValue)> {
+    fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)> {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
         //chec that write_data is the exact right width
@@ -691,15 +680,7 @@ impl ExecuteStateful for StdMemD3 {
                     ir::Id::from("read_data"),
                     TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
                 ),
-                (
-                    ir::Id::from("done"),
-                    TimeLockedValue::new(
-                        Value::try_from_init(1, 1).unwrap(),
-                        1,
-                        Some(Value::zeroes(1)),
-                    )
-                    .into(),
-                ),
+                ("done".into(), PulseValue::one_cycle_one_bit_pulse().into()),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -708,15 +689,12 @@ impl ExecuteStateful for StdMemD3 {
             // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
             vec![
                 (ir::Id::from("read_data"), old.into()),
-                (ir::Id::from("done"), Value::zeroes(1).into()),
+                // (ir::Id::from("done"), Value::zeroes(1).into()),
             ]
         }
     }
 
-    fn execute(
-        &self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, OutputValue)> {
+    fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)> {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
         let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
@@ -918,15 +896,7 @@ impl ExecuteStateful for StdMemD4 {
                     ir::Id::from("read_data"),
                     TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
                 ),
-                (
-                    ir::Id::from("done"),
-                    TimeLockedValue::new(
-                        Value::try_from_init(1, 1).unwrap(),
-                        1,
-                        Some(Value::zeroes(1)),
-                    )
-                    .into(),
-                ),
+                ("done".into(), PulseValue::one_cycle_one_bit_pulse().into()),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -935,15 +905,12 @@ impl ExecuteStateful for StdMemD4 {
             // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
             vec![
                 (ir::Id::from("read_data"), old.into()),
-                (ir::Id::from("done"), Value::zeroes(1).into()),
+                // (ir::Id::from("done"), Value::zeroes(1).into()),
             ]
         }
     }
 
-    fn execute(
-        &self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, OutputValue)> {
+    fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)> {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
         let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
@@ -1055,15 +1022,7 @@ impl ExecuteStateful for StdReg {
                     ir::Id::from("out"),
                     TimeLockedValue::new(self.val.clone(), 1, Some(old)).into(),
                 ),
-                (
-                    ir::Id::from("done"),
-                    TimeLockedValue::new(
-                        Value::try_from_init(1, 1).unwrap(),
-                        1,
-                        Some(Value::zeroes(1)),
-                    )
-                    .into(),
-                ),
+                ("done".into(), PulseValue::one_cycle_one_bit_pulse().into()),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -1072,12 +1031,12 @@ impl ExecuteStateful for StdReg {
             // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
             vec![
                 (ir::Id::from("out"), self.val.clone().into()),
-                (ir::Id::from("done"), Value::zeroes(1).into()),
+                // (ir::Id::from("done"), Value::zeroes(1).into()),
             ]
         }
     }
 
-    fn execute(
+    fn reset(
         &self,
         _inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
