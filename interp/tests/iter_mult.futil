@@ -3,11 +3,9 @@ import "primitives/core.futil";
 component main() -> () {
   //model iterative multiplication of two binary numbers
   //learned from this video: (https://www.youtube.com/watch?v=U62iP8RkZIk&ab_channel=TutorialsPoint%28India%29Ltd.)
-  //9 (M) * 4 (Q) : [1001] * [0100] = 36 [0010 0100] (AQ), (A) is accum. which starts [0000]
+  //9 (Q) * 4 (M) : [1001] * [0100] = 36 [0010 0100] (AQ), (A) is accum. which starts [0000]
+  //so at end should be A = [0010] (2) and Q = [0100] (4)
 
-  //after first run getting 
-  //a = 9 and q = 12:
-  //aq = [1001 1100] which is not 36 :/
 
   cells {
     m = std_reg(4); //multiplicand
@@ -46,8 +44,8 @@ component main() -> () {
     group init {
        m.write_en = 1'b1;  
        q.write_en = 1'b1;
-       m.in = 4'b1001; //m is multiplicand w/ value 9
-       q.in = 4'b0100; //q is multiplier w/ value 4
+       m.in = 4'b0100; //m is multiplicand w/ value 4
+       q.in = 4'b1001; //q is multiplier w/ value 9
 
        init[done] = m.done & q.done ? 1'b1;
     }
