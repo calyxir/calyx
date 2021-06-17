@@ -116,16 +116,9 @@ component main() -> () {
         add[done] = a.done;        
     }
 
-    group shift { 
-        
-        //first shift LSB of a into q 
-        //then shift c into a 
-        //then set c zero 
+    group shift_q {
+        q.write_en = 1'b1;
 
-        q.write_en = !a.write_en & !c.write_en & !a.done & !c.done & !q.done ? 1'b1;
-        a.write_en = q.done & !c.write_en & !c.done & !a.done ? 1'b1;
-        c.write_en = a.done; 
-       
         //shift LSB of a into q         
         rshift_4bits1.left = q.out; 
         rshift_4bits1.right = 4'd1;
@@ -136,6 +129,11 @@ component main() -> () {
         add_4bits1.right = !slicer.out ? 4'd0;
         q.in = add_4bits1.out;
 
+        shift_q[done] = q.done;
+    }
+
+    group shift_a {
+        a.write_en = 1'b1; 
         //shift c into a 
         rshift_4bits.left = a.out; 
         rshift_4bits.right = 4'd1; 
@@ -144,12 +142,14 @@ component main() -> () {
         add_4bits.right = c.out ? 4'd8; 
         add_4bits.right = !c.out ? 4'd0; 
         a.in = add_4bits.out;
+        shift_a[done] = a.done;
 
-        //set c zero 
+    }
+
+    group shift_c {
+        c.write_en = 1'b1;
         c.in = 1'b0;
-
-        shift[done] = c.done; 
-        
+        shift_c[done] = c.done;
     }
 
     group cond_while {
@@ -186,11 +186,18 @@ component main() -> () {
                         decide_c;
                         fill_a_temp;
                         add; 
-                        shift;
+                        shift_q;
+                        shift_a;
+                        shift_c;
                         incr_num_addshifts;
                     }
                 } else { //there is a 0 in LSB of Q
-                    shift;
+                    seq {
+                        shift_q; 
+                        shift_a; 
+                        shift_c;
+                    }
+                    
                 }
                 incr_while;
             }
