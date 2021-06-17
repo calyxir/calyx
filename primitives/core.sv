@@ -199,6 +199,8 @@ module std_rsh #(
   assign out = left >> right;
 endmodule
 
+/// this primitive is intended to be used
+/// for lowering purposes (not in source programs)
 module std_mux #(
     parameter WIDTH = 32
 ) (
