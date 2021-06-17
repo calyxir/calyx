@@ -28,9 +28,6 @@ component main() -> () {
     add_4bits = std_add(4);
     add_4bits1 = std_add(4);
 
-    //use this neq as a not gate 
-    not = std_neq(1);
-
     //will also use this slicer to check the last bit 
     slicer = std_slice(4, 1);
 
@@ -41,20 +38,9 @@ component main() -> () {
 
     //to shift right some # and put a 1 as MSB, just shift right and add 8 ([1000])
 
-    //this is for debugging purposes 
-    num_addshifts = std_reg(3);
-
   }
 
   wires {
-
-    group incr_num_addshifts {
-        num_addshifts.write_en = 1'b1; 
-        add_3bits.left = num_addshifts.out;
-        add_3bits.right = 3'd1; 
-        num_addshifts.in = add_3bits.out;
-        incr_num_addshifts[done] = num_addshifts.done;
-    }
 
     group init {
 
@@ -181,7 +167,6 @@ component main() -> () {
                         shift_q;
                         shift_a;
                         shift_c;
-                        incr_num_addshifts;
                     }
                 } else { //there is a 0 in LSB of Q
                     seq {
