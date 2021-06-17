@@ -1,24 +1,25 @@
 import "primitives/core.futil";
 
-component main() -> () {
-  //model iterative multiplication of two binary numbers
-  //learned from this video: (https://www.youtube.com/watch?v=U62iP8RkZIk&ab_channel=TutorialsPoint%28India%29Ltd.)
-  //9 (Q) * 4 (M) : [1001] * [0100] = 36 [0010 0100] (AQ), (A) is accum. which starts [0000]
-  //so at end should be A = [0010] (2) and Q = [0100] (4)
 
+//model iterative multiplication of two binary numbers
+//learned from this video: (https://www.youtube.com/watch?v=U62iP8RkZIk&ab_channel=TutorialsPoint%28India%29Ltd.)
+//11 (Q) * 13 (M) : [1011] * [1101] = 143 [1000 1111] (AQ), (A) is accum. which starts [0000]
+//so at end should be A = [1000] (8) and Q = [1111] (15)
+
+
+component main() -> () {
 
   cells {
-    m = std_reg(4); //multiplicand
+    m = std_reg(4); //multiplicand (13)
     c = std_reg(1); //carry -- shld be initialized to zero
     a = std_reg(4); //accumulator -- shld be initialized to zeroes
-    q = std_reg(4); //multiplier
+    q = std_reg(4); //multiplier (11)
 
     //to check carry
     pad_5bit = std_pad(4, 5);
     pad_5bit1 = std_pad(4, 5);
-    pad_5bit2 = std_pad(4, 5);
     add_5bits = std_add(5);
-    eq_5bits = std_eq(5);
+    ge_5bits = std_ge(5); //if the result of adding 5bit a and 5bit m is ge 16, carry is 1
 
     //will use these shifters and adders
     add_3bits = std_add(3);
@@ -42,20 +43,26 @@ component main() -> () {
   wires {
 
     group init {
+
        m.write_en = 1'b1;  
        q.write_en = 1'b1;
-       m.in = 4'b0100; //m is multiplicand w/ value 4
-       q.in = 4'b1001; //q is multiplier w/ value 9
+       m.in = 4'b1011; //m is multiplicand w/ value 11
+       q.in = 4'b1101; //q is multiplier w/ value 13
+       i.write_en = 1'b1; 
+       i.in = 3'b0; //iterator
+       a.write_en = 1'b1; 
+       a.in = 4'd0; //accumulator
+       c.write_en = 1'b1;
+       c.in = 1'b0; //carry
 
-       init[done] = m.done & q.done ? 1'b1;
+       init[done] = m.done & q.done & i.done & a.done & c.done ? 1'b1;
     }
 
     group add {
         //a = m+a. populate the carry based on overflow 
         
-        //pad both m and a up to 5 bits, then add them.
-        //compare that result with (a+m) padded up to 5 bits. If they're
-        //not equal, overflow has occured and c should be 1
+        //if adding 5bit a and 5bit m is greater than or equal to 16,
+        //then overflow has occured in the 4bit addition
 
         //create 5bit m and 5bit a
         pad_5bit.in = m.out; 
@@ -69,16 +76,13 @@ component main() -> () {
         add_5bits.left = pad_5bit.out; 
         add_5bits.right = pad_5bit1.out; 
 
-        //pad result of 4bit addition to 5 bit 
-        pad_5bit2.in = add_4bits.out; 
-
-        //compare those two results
-        eq_5bits.left = add_5bits.out; 
-        eq_5bits.right = pad_5bit2.out; 
+        //5bit sum >= 16 ?
+        ge_5bits.left = add_5bits.out; 
+        ge_5bits.right = 5'd16; 
 
         //now use this result to fill c 
         c.write_en = 1'b1; 
-        c.in = eq_5bits.out; 
+        c.in = ge_5bits.out; 
 
         //now just write 4bit m + 4bit a to a again 
         a.write_en = 1'b1; 
@@ -88,32 +92,38 @@ component main() -> () {
     }
 
     group shift { 
-        //q goes before a -- first get 
-        //LSB of a, then right shift that into q, 
-        //then right shift c.out into a
+        
+        //first shift LSB of a into q 
+        //then shift c into a 
+        //then set c zero 
 
-        a.write_en = q.done; 
-        q.write_en = !a.write_en ? 1'b1;
-
-        //if c is 1, add 8 to rsh a (8 = [1000], same as shifting c into a, i think)
-        rshift_4bits.left = a.out; //what u r shifting
-        rshift_4bits.right = 4'd1; //shifting by 
-
-        add_4bits.left = rshift_4bits.out; 
-        //here make the decision 
-        add_4bits.right = c.out ? 4'd8; //if c is 1 add 8 else 0 (initialized to 0 i think) 
-        a.in = add_4bits.out;
-
-        //if lsb of a is 1, add 8 to rsh q
+        q.write_en = !a.write_en & !c.write_en ? 1'b1;
+        a.write_en = q.done & !c.write_en ? 1'b1;
+        c.write_en = a.done; 
+       
+        //shift LSB of a into q         
         rshift_4bits1.left = q.out; 
         rshift_4bits1.right = 4'd1;
 
         add_4bits1.left = rshift_4bits1.out; 
-        slicer.in = a.out; //use this to make decision
-        add_4bits1.right = slicer.out ? 4'd8;
+        slicer.in = a.out; 
+        add_4bits1.right = slicer.out ? 4'd8; 
+        add_4bits1.right = !slicer.out ? 4'd0;
         q.in = add_4bits1.out;
 
-        shift[done] = q.done; 
+        //shift c into a 
+        rshift_4bits.left = a.out; 
+        rshift_4bits.right = 4'd1; 
+
+        add_4bits.left = rshift_4bits.out; 
+        add_4bits.right = c.out ? 4'd8; 
+        add_4bits.right = !c.out ? 4'd0; 
+        a.in = add_4bits.out;
+
+        //set c zero 
+        c.in = 1'b0;
+
+        shift[done] = c.done; 
         
     }
 
@@ -144,7 +154,7 @@ component main() -> () {
   control {
     seq{
         init;
-        while lt.out with cond_while { //less than 4 iterations
+        while lt.out with cond_while { //just 4 iterations (i starts as 0)
             seq {
                 if slicer.out with cond_if { //there is a 1 in LSB of Q
                     seq {
