@@ -14,6 +14,7 @@ component main() -> () {
     c = std_reg(1); //carry -- shld be initialized to zero
     a = std_reg(4); //accumulator -- shld be initialized to zeroes
     q = std_reg(4); //multiplier (11)
+    a_temp = std_reg(4);
 
     //to check carry
     pad_5bit = std_pad(4, 5);
@@ -28,9 +29,12 @@ component main() -> () {
     add_4bits = std_add(4);
     add_4bits1 = std_add(4);
 
+    //use this neq as a not gate 
+    not = std_neq(1);
+
     //will also use this slicer to check the last bit 
     slicer = std_slice(4, 1);
-    
+
     //for the while loop 
     lt = std_lt(3); //counting to 4, b/c multiplying 4 bit numbers (4 = [100])
     i = std_reg(3); //counting to 4  (4 = [100])
@@ -38,9 +42,20 @@ component main() -> () {
 
     //to shift right some # and put a 1 as MSB, just shift right and add 8 ([1000])
 
+    //this is for debugging purposes 
+    num_addshifts = std_reg(3);
+
   }
 
   wires {
+
+    group incr_num_addshifts {
+        num_addshifts.write_en = 1'b1; 
+        add_3bits.left = num_addshifts.out;
+        add_3bits.right = 3'd1; 
+        num_addshifts.in = add_3bits.out;
+        incr_num_addshifts[done] = num_addshifts.done;
+    }
 
     group init {
 
@@ -58,19 +73,15 @@ component main() -> () {
        init[done] = m.done & q.done & i.done & a.done & c.done ? 1'b1;
     }
 
-    group add {
-        //a = m+a. populate the carry based on overflow 
-        
+    group decide_c {
+        //populate carry based on overflow from m+a 
+       
         //if adding 5bit a and 5bit m is greater than or equal to 16,
-        //then overflow has occured in the 4bit addition
+        //then overflow has occured in the 4bit addition and c should be 1
 
         //create 5bit m and 5bit a
         pad_5bit.in = m.out; 
-        pad_5bit1.in = a.out;
-
-        //add 4bit m and 4bit a
-        add_4bits.left = m.out; 
-        add_4bits.right = a.out; 
+        pad_5bit1.in = a.out; 
 
         //add 5bit m and 5bit a
         add_5bits.left = pad_5bit.out; 
@@ -81,14 +92,28 @@ component main() -> () {
         ge_5bits.right = 5'd16; 
 
         //now use this result to fill c 
-        c.write_en = 1'b1; 
+        c.write_en = 1'b1;
         c.in = ge_5bits.out; 
 
-        //now just write 4bit m + 4bit a to a again 
+        decide_c[done] = c.done;
+    }
+
+    group fill_a_temp {
+        a_temp.write_en = 1'b1; 
+        a_temp.in = a.out; 
+        fill_a_temp[done] = a_temp.done;
+    }
+
+    group add {
+        //a = m+a. 
+        add_4bits.left = a_temp.out;
+        add_4bits.right = m.out;
+
+        //now write that val to a 
         a.write_en = 1'b1; 
         a.in = add_4bits.out;
 
-        add[done] = a.done & c.done ? 1'b1;        
+        add[done] = a.done;        
     }
 
     group shift { 
@@ -97,8 +122,8 @@ component main() -> () {
         //then shift c into a 
         //then set c zero 
 
-        q.write_en = !a.write_en & !c.write_en ? 1'b1;
-        a.write_en = q.done & !c.write_en ? 1'b1;
+        q.write_en = !a.write_en & !c.write_en & !a.done & !c.done & !q.done ? 1'b1;
+        a.write_en = q.done & !c.write_en & !c.done & !a.done ? 1'b1;
         c.write_en = a.done; 
        
         //shift LSB of a into q         
@@ -158,8 +183,11 @@ component main() -> () {
             seq {
                 if slicer.out with cond_if { //there is a 1 in LSB of Q
                     seq {
+                        decide_c;
+                        fill_a_temp;
                         add; 
                         shift;
+                        incr_num_addshifts;
                     }
                 } else { //there is a 0 in LSB of Q
                     shift;
