@@ -1,278 +1,142 @@
-# Debugging Calyx
-This is a document that accumulates tips about how to go about debugging Calyx programs.
+# Debugging Tips
+Debugging Calyx programs that run to completion and generate the wrong value
+can be challenging.
+We can first try to eliminate some common causes of problems.
 
-## Incorrect behavior
-Viewing the value of signals at every clock cycle is a good way to make sure that written
-Calyx program is doing what you expect. Use:
-```
-fud e buggy.futil -o buggy.vcd -s verilog.data 'buggy.data'
-```
-to compile your program into the Value Change Dump (VCD) format. Once you have this file,
-use a wave viewer program like [GTKWave][gtkwave] or [WaveTrace][wavetrace] to look at the
-wave form.
+## Disabling Optimizations
 
-Knowing where to look in the wave form itself can be overwhelming. My favorite method for
-locating something in a waveform is using the `-p compile` flag to generate the control
-fsms in the control program, but leave all the groups in tact so that it's easy to find
-the logical place in the program you want to debug. Consider this `dot-product.futil` taken
-from `examples/futil/dot-product.futil`:
+The first step is disabling optimization passes.
+The Calyx compiler refers to bundles of optimizations using two *aliases*:
+`pre-opt` and `post-opt`.
+`pre-opt` passes run before the main compilation passes that remove the control
+program while `post-opt` passes run after.
+
+To disable the passes, add the flag `-d pre-opt -d post-opt` to compiler invocation:
+1. For the compiler: `futil <filename> -d pre-opt -d post-opt`.
+2. For `fud`: `fud ... -s futil.flags "-d pre-opt -d post-opt"`.
+
+If the execution generates the right result, then one of the optimizations
+passes is incorrect.
+To identify which optimization pass is wrong, add back individual passes and see
+when the execution fails.
+To do so, first run `futil --list-passes` to see the names of the passes that make
+up the `pre-opt` and `post-opt` aliases.
+Next, re-enable each pass by doing: `-d pre-opt -d post-opt -p <pass1> -p
+<pass2>` and so on.
+
+## Disabling Static Timing
+
+`static-timing` is one of the two control compilation passes.
+It uses the latency information on groups to generate faster hardware.
+Disable it using the flag `-d static-timing`.
+
+## Reducing Test Files
+
+It is often possible to reduce the size of the example program that is
+generating incorrect results.
+In order to perform a reduction, we need to run the program twice, once with
+a "golden workflow" that we trust to generate the right result and once with
+the buggy workflow.
+
+For example, if we've identified the problem to be in one of the Calyx passes,
+the "golden workflow" is running the program without the pass while the buggy
+workflow is running the program with the pass enabled.
+This case is so common that we've written [a script][flag-cmp] that can run
+programs with different set of flags to the Calyx compiler and show the
+difference in the outputs after simulation.
+
+The script is invoked as:
 ```
-import "primitives/std.lib";
-component main() -> () {
-  cells {
-    @external(1) A0 = std_mem_d1(32,8,4);
-    A_read0_0 = std_reg(32);
-    @external(1) B0 = std_mem_d1(32,8,4);
-    B_read0_0 = std_reg(32);
-    add0 = std_add(32);
-    add1 = std_add(4);
-    bin_read0_0 = std_reg(32);
-    const0 = std_const(4,0);
-    const1 = std_const(4,7);
-    const2 = std_const(1,0);
-    const3 = std_const(1,0);
-    const4 = std_const(4,1);
-    dot_0 = std_reg(32);
-    i0 = std_reg(4);
-    le0 = std_le(4);
-    mult_pipe0 = std_mult_pipe(32);
-    @external(1) v0 = std_mem_d1(32,1,1);
-  }
-  wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
-      le0.left = i0.out;
-      le0.right = const1.out;
-    }
-    group let0<"static"=1> {
-      i0.in = const0.out;
-      i0.write_en = 1'd1;
-      let0[done] = i0.done;
-    }
-    group let1<"static"=4> {
-      bin_read0_0.in = mult_pipe0.out;
-      bin_read0_0.write_en = mult_pipe0.done;
-      let1[done] = bin_read0_0.done;
-      mult_pipe0.left = A_read0_0.out;
-      mult_pipe0.right = B_read0_0.out;
-      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
-    }
-    group let2<"static"=1> {
-      dot_0.in = bin_read0_0.out;
-      dot_0.write_en = 1'd1;
-      let2[done] = dot_0.done;
-    }
-    group upd0<"static"=1> {
-      A_read0_0.write_en = 1'd1;
-      A0.addr0 = i0.out;
-      A_read0_0.in = 1'd1 ? A0.read_data;
-      upd0[done] = A_read0_0.done ? 1'd1;
-    }
-    group upd1<"static"=1> {
-      B_read0_0.write_en = 1'd1;
-      B0.addr0 = i0.out;
-      B_read0_0.in = 1'd1 ? B0.read_data;
-      upd1[done] = B_read0_0.done ? 1'd1;
-    }
-    group upd2<"static"=1> {
-      v0.addr0 = const3.out;
-      v0.write_en = 1'd1;
-      add0.left = v0.read_data;
-      add0.right = dot_0.out;
-      v0.addr0 = const2.out;
-      v0.write_data = 1'd1 ? add0.out;
-      upd2[done] = v0.done ? 1'd1;
-    }
-    group upd3<"static"=1> {
-      i0.write_en = 1'd1;
-      add1.left = i0.out;
-      add1.right = const4.out;
-      i0.in = 1'd1 ? add1.out;
-      upd3[done] = i0.done ? 1'd1;
-    }
-  }
-  control {
-    seq {
-      let0;
-      while le0.out with cond0 {
-        seq {
-          par {
-            upd0;
-            upd1;
-          }
-          let1;
-          let2;
-          upd2;
-          upd3;
-        }
-      }
-    }
-  }
+tools/flag-compare.sh <calyx program> <data>
+```
+
+### Reducing Calyx Programs
+
+The best way to reduce Calyx program deleting group enables from the control
+program and seeing if the generated program still generates the wrong output.
+While doing this, make sure that you're not deleting an update to a loop
+variable which might cause infinite loops.
+
+### Reducing Dahlia Programs
+
+If you're working with Dahlia programs, it is also possible to reduce the
+program with the script since it simply uses `fud` to run the program with the
+simulator.
+As with Calyx reduction, try deleting parts of the program and seeing if the
+flag configurations for the Calyx program still generate different outputs.
+
+
+## Waveform Debugging
+
+Waveform debugging is the final way of debugging Calyx programs.
+A waveform captures the value of every port at every clock cycle and can be
+viewed using a wave viewer program like [GTKWave][gtkwave] or
+[WaveTrace][wavetrace] to look at the wave form.
+Because of this level of granularity, it generates a lot of information.
+To make the information a little more digestible, we can use information
+generated by Calyx during compilation.
+
+For waveform debugging, we recommend disabling the optimization passes and
+static timing compilation (unless you're debugging these passes).
+In this debugging strategy, we'll do the following:
+1. Dump out the control FSM for the program we're debugging.
+2. Find the FSM states that enable the particular groups that might be misbehaving.
+3. Open the waveform viewer and find clock cycles where the FSM takes the corresponding
+values and identify other signals that we care about.
+
+Consider the control section from [examples/futil/dot-product.futil](https://github.com/cucapra/calyx/blob/master/examples/futil/dot-product.futil):
+```
+{{#include ../../examples/futil/dot-product.futil:control}}
+```
+Suppose that we want to make sure that `let0` is correctly performing its
+computation.
+We can generate the control FSM for the program using:
+
+      futil <filename> -p top-down-cc
+
+This generates a Calyx program with several new groups.
+We want to look for groups with the prefix `tdcc` which look something like
+this:
+```
+group tdcc {
+  let0[go] = !let0[done] & fsm.out == 4'd0 ? 1'd1;
+  cs_wh.in = fsm.out == 4'd1 ? le0.out;
+  cs_wh.write_en = fsm.out == 4'd1 ? 1'd1;
+  cond0[go] = fsm.out == 4'd1 ? 1'd1;
+  par[go] = !par[done] & cs_wh.out & fsm.out == 4'd2 ? 1'd1;
+  let1[go] = !let1[done] & cs_wh.out & fsm.out == 4'd3 ? 1'd1;
+  let2[go] = !let2[done] & cs_wh.out & fsm.out == 4'd4 ? 1'd1;
+  upd2[go] = !upd2[done] & cs_wh.out & fsm.out == 4'd5 ? 1'd1;
+  upd3[go] = !upd3[done] & cs_wh.out & fsm.out == 4'd6 ? 1'd1;
+  ...
 }
 ```
-Suppose that we want to make sure that the group `upd0` is correctly
-reading the value in `A0[i]`. Compiling this program with `futil dot-product.futil -p compile`
-yields:
-```
-import "primitives/std.lib";
-component main(go: 1, clk: 1) -> (done: 1) {
-  cells {
-    @external(1) A0 = std_mem_d1(32, 8, 4);
-    A_read0_0 = std_reg(32);
-    @external(1) B0 = std_mem_d1(32, 8, 4);
-    B_read0_0 = std_reg(32);
-    add0 = std_add(32);
-    add1 = std_add(4);
-    bin_read0_0 = std_reg(32);
-    const0 = std_const(4, 0);
-    const1 = std_const(4, 7);
-    const2 = std_const(1, 0);
-    const3 = std_const(1, 0);
-    const4 = std_const(4, 1);
-    dot_0 = std_reg(32);
-    i0 = std_reg(4);
-    le0 = std_le(4);
-    mult_pipe0 = std_mult_pipe(32);
-    @external(1) v0 = std_mem_d1(32, 1, 1);
-    fsm = std_reg(1);
-    incr = std_add(1);
-    fsm0 = std_reg(4);
-    incr0 = std_add(4);
-    fsm1 = std_reg(4);
-    cond_stored = std_reg(1);
-    incr1 = std_add(4);
-    fsm2 = std_reg(2);
-  }
-  wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
-      le0.left = i0.out;
-      le0.right = const1.out;
-    }
-    group let0<"static"=1> {
-      i0.in = const0.out;
-      i0.write_en = 1'd1;
-      let0[done] = i0.done;
-    }
-    group let1<"static"=4> {
-      bin_read0_0.in = mult_pipe0.out;
-      bin_read0_0.write_en = mult_pipe0.done;
-      let1[done] = bin_read0_0.done;
-      mult_pipe0.left = A_read0_0.out;
-      mult_pipe0.right = B_read0_0.out;
-      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
-    }
-    group let2<"static"=1> {
-      dot_0.in = bin_read0_0.out;
-      dot_0.write_en = 1'd1;
-      let2[done] = dot_0.done;
-    }
-    group upd0<"static"=1> {
-      A_read0_0.write_en = 1'd1;
-      A0.addr0 = i0.out;
-      A_read0_0.in = A0.read_data;
-      upd0[done] = A_read0_0.done ? 1'd1;
-    }
-    group upd1<"static"=1> {
-      B_read0_0.write_en = 1'd1;
-      B0.addr0 = i0.out;
-      B_read0_0.in = B0.read_data;
-      upd1[done] = B_read0_0.done ? 1'd1;
-    }
-    group upd2<"static"=1> {
-      v0.addr0 = const3.out;
-      v0.write_en = 1'd1;
-      add0.left = v0.read_data;
-      add0.right = dot_0.out;
-      v0.addr0 = const2.out;
-      v0.write_data = add0.out;
-      upd2[done] = v0.done ? 1'd1;
-    }
-    group upd3<"static"=1> {
-      i0.write_en = 1'd1;
-      add1.left = i0.out;
-      add1.right = const4.out;
-      i0.in = add1.out;
-      upd3[done] = i0.done ? 1'd1;
-    }
-    group static_par<"static"=1> {
-      incr.left = 1'd1;
-      incr.right = fsm.out;
-      fsm.in = fsm.out != 1'd1 ? incr.out;
-      fsm.write_en = fsm.out != 1'd1 ? 1'd1;
-      static_par[done] = fsm.out == 1'd1 ? 1'd1;
-      upd0[go] = fsm.out < 1'd1 ? 1'd1;
-      upd1[go] = fsm.out < 1'd1 ? 1'd1;
-    }
-    group static_seq<"static"=8> {
-      static_par[go] = fsm0.out == 4'd0 ? 1'd1;
-      let1[go] = fsm0.out >= 4'd1 & fsm0.out < 4'd5 ? 1'd1;
-      let2[go] = fsm0.out == 4'd5 ? 1'd1;
-      upd2[go] = fsm0.out == 4'd6 ? 1'd1;
-      upd3[go] = fsm0.out == 4'd7 ? 1'd1;
-      incr0.left = 4'd1;
-      incr0.right = fsm0.out;
-      fsm0.in = fsm0.out != 4'd8 ? incr0.out;
-      fsm0.write_en = fsm0.out != 4'd8 ? 1'd1;
-      static_seq[done] = fsm0.out == 4'd8 ? 1'd1;
-    }
-    group static_while {
-      incr1.left = fsm1.out;
-      incr1.right = 4'd1;
-      fsm1.in = fsm1.out != 4'd9 ? incr1.out;
-      fsm1.write_en = fsm1.out != 4'd9 ? 1'd1;
-      cond0[go] = fsm1.out < 4'd1 ? 1'd1;
-      cond_stored.write_en = fsm1.out < 4'd1 ? 1'd1;
-      static_seq[go] = cond_stored.out & fsm1.out >= 4'd1 & fsm1.out < 4'd9 ? 1'd1;
-      fsm1.in = fsm1.out == 4'd9 ? 4'd0;
-      fsm1.write_en = fsm1.out == 4'd9 ? 1'd1;
-      static_while[done] = fsm1.out == 4'd1 & !cond_stored.out ? 1'd1;
-      cond_stored.in = fsm1.out < 4'd1 ? le0.out;
-    }
-    group tdcc {
-      let0[go] = !let0[done] & fsm2.out == 2'd0 ? 1'd1;
-      static_while[go] = !static_while[done] & fsm2.out == 2'd1 ? 1'd1;
-      fsm2.in = fsm2.out == 2'd0 & let0[done] ? 2'd1;
-      fsm2.write_en = fsm2.out == 2'd0 & let0[done] ? 1'd1;
-      fsm2.in = fsm2.out == 2'd1 & static_while[done] ? 2'd2;
-      fsm2.write_en = fsm2.out == 2'd1 & static_while[done] ? 1'd1;
-      tdcc[done] = fsm2.out == 2'd2 ? 1'd1;
-    }
-    fsm.in = fsm.out == 1'd1 ? 1'd0;
-    fsm.write_en = fsm.out == 1'd1 ? 1'd1;
-    fsm0.in = fsm0.out == 4'd8 ? 4'd0;
-    fsm0.write_en = fsm0.out == 4'd8 ? 1'd1;
-    fsm1.in = fsm1.out == 4'd1 & !cond_stored.out ? 4'd0;
-    fsm1.write_en = fsm1.out == 4'd1 & !cond_stored.out ? 1'd1;
-    fsm2.in = fsm2.out == 2'd2 ? 2'd0;
-    fsm2.write_en = fsm2.out == 2'd2 ? 1'd1;
-  }
 
-  control {
-    tdcc;
-  }
-}
+The assignments to `let0[go]` indicate what conditions make the `let0` group
+execute.
+In this program, we have:
+
+    let0[go] = !let0[done] & fsm.out == 4'd0 ? 1'd1;
+
+Which states that `let0` will be active when the state of the `fsm` register
+is `0` along with some other conditions.
+The remainder of the group defines how the state in the `fsm` variable changes:
 ```
-The first thing to do is locate the generated group that controls the group `upd0`.
-Look for a group that assigns to `upd0[go]`. This is the group that controls when
-`upd0` should start. In this case, `static_par` is the group that starts `upd0`:
+  ...
+  fsm.in = fsm.out == 4'd0 & let0[done] ? 4'd1;
+  fsm.write_en = fsm.out == 4'd0 & let0[done] ? 1'd1;
+  fsm.in = fsm.out == 4'd1 & cond0[done] ? 4'd2;
+  fsm.write_en = fsm.out == 4'd1 & cond0[done] ? 1'd1;
+  ...
 ```
-    ...
-    group static_par<"static"=1> {
-      incr.left = 1'd1;
-      incr.right = fsm.out;
-      fsm.in = fsm.out != 1'd1 ? incr.out;
-      fsm.write_en = fsm.out != 1'd1 ? 1'd1;
-      static_par[done] = fsm.out == 1'd1 ? 1'd1;
-      upd0[go] = fsm.out < 1'd1 ? 1'd1;    <---- starts upd0
-      upd1[go] = fsm.out < 1'd1 ? 1'd1;
-    }
-    ...
-```
-From the assignment to `upd0[go]`, we can find the fsm register that controls when `upd0` should run.
-In this case the register is called `fsm` and `upd0` is enabled when `fsm.out < 1`.
-You can now open the vcd file, look at the `fsm.out` signal, and use this to orient yourself
-when looking at other signals.
+For example, we can see that when the value of the FSM is 0 and `let0[done]`
+becomes high, the FSM will take the value 1.
+
+Once we have this information, we can open the VCD file and look at points when
+the `fsm` register has the value 1 and check to see if the assignments in
+`let0` activated in the way we expected.
+
 
 [gtkwave]: http://gtkwave.sourceforge.net/
 [wavetrace]: https://marketplace.visualstudio.com/items?itemName=wavetrace.wavetrace
+[flag-cmp]: https://github.com/cucapra/calyx/blob/master/tools/flag-compare.sh

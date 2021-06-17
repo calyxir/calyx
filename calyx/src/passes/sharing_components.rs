@@ -4,7 +4,7 @@ use crate::{
 };
 use ir::{
     traversal::{Action, VisResult, Visitor},
-    RRC,
+    CloneName, RRC,
 };
 use itertools::Itertools;
 use std::{collections::HashMap, rc::Rc};
@@ -88,9 +88,7 @@ impl<T: ShareComponents> Visitor for T {
 
         let id_to_type: HashMap<ir::Id, ir::CellType> = cells
             .clone()
-            .map(|cell| {
-                (cell.borrow().name.clone(), cell.borrow().prototype.clone())
-            })
+            .map(|cell| (cell.clone_name(), cell.borrow().prototype.clone()))
             .collect();
 
         let mut cells_by_type: HashMap<ir::CellType, Vec<ir::Id>> =
@@ -98,8 +96,8 @@ impl<T: ShareComponents> Visitor for T {
         for cell in cells {
             cells_by_type
                 .entry(cell.borrow().prototype.clone())
-                .and_modify(|v| v.push(cell.borrow().name.clone()))
-                .or_insert_with(|| vec![cell.borrow().name.clone()]);
+                .and_modify(|v| v.push(cell.clone_name()))
+                .or_insert_with(|| vec![cell.clone_name()]);
         }
 
         let mut graphs_by_type: HashMap<ir::CellType, GraphColoring<ir::Id>> =
@@ -168,7 +166,7 @@ impl<T: ShareComponents> Visitor for T {
         // apply the coloring as a renaming of registers for both groups
         // and continuous assignments
         let builder = ir::Builder::from(comp, sigs, false);
-        for group_ref in &builder.component.groups {
+        for group_ref in builder.component.groups.iter() {
             let mut group = group_ref.borrow_mut();
             let mut assigns: Vec<_> = group.assignments.drain(..).collect();
             builder.rename_port_uses(&coloring, &mut assigns);

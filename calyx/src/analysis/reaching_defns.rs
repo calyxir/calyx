@@ -1,5 +1,5 @@
 use crate::analysis::ReadWriteSet;
-use crate::ir;
+use crate::ir::{self, CloneName};
 use std::cmp::Ordering;
 use std::cmp::{Ord, PartialOrd};
 use std::{
@@ -205,7 +205,7 @@ impl ReachingDefinitionAnalysis {
                     let cell_ref = cell.borrow();
                     if let Some(name) = cell_ref.type_name() {
                         if name == "std_reg" {
-                            return Some(cell_ref.name.clone());
+                            return Some(cell_ref.clone_name());
                         }
                     }
                     None
@@ -273,6 +273,14 @@ impl ReachingDefinitionAnalysis {
 }
 
 type KilledSet = BTreeSet<ir::Id>;
+
+fn remove_entries_defined_by(set: &mut KilledSet, defs: &DefSet) {
+    let tmp_set: BTreeSet<_> = defs.set.iter().map(|(id, _)| id).collect();
+    *set = std::mem::take(set)
+        .into_iter()
+        .filter(|x| !tmp_set.contains(x))
+        .collect();
+}
 
 fn build_reaching_def(
     c: &ir::Control,
@@ -349,32 +357,44 @@ fn build_reaching_def(
                 attributes: ir::Attributes::default(),
                 group: Rc::clone(cond),
             });
-            let (post_cond_def, post_cond_killed) =
-                build_reaching_def(&fake_enable, reach, killed, rd, counter);
+            let (post_cond_def, post_cond_killed) = build_reaching_def(
+                &fake_enable,
+                reach.clone(),
+                killed,
+                rd,
+                counter,
+            );
 
-            let (round_1_def, round_1_killed) = build_reaching_def(
+            let (round_1_def, mut round_1_killed) = build_reaching_def(
                 body,
                 post_cond_def,
                 post_cond_killed,
                 rd,
                 counter,
             );
+
+            remove_entries_defined_by(&mut round_1_killed, &reach);
+
             let (post_cond2_def, post_cond2_killed) = build_reaching_def(
                 &fake_enable,
-                round_1_def,
+                &round_1_def | &reach,
                 round_1_killed,
                 rd,
                 counter,
             );
             // Run the analysis a second time to get the fixed point of the
             // while loop using the defsets calculated during the first iteration
-            build_reaching_def(
+            let (final_def, mut final_kill) = build_reaching_def(
                 body,
-                post_cond2_def,
+                post_cond2_def.clone(),
                 post_cond2_killed,
                 rd,
                 counter,
-            )
+            );
+
+            remove_entries_defined_by(&mut final_kill, &post_cond2_def);
+
+            (&final_def | &post_cond2_def, final_kill)
         }
         ir::Control::Invoke(invoke) => {
             *counter += 1;
@@ -396,7 +416,7 @@ fn build_reaching_def(
                                 ir::Id::from(name.clone()),
                             );
                             return Some((
-                                parent.name.clone(),
+                                parent.clone_name(),
                                 GroupOrInvoke::Invoke(ir::Id::from(name)),
                             ));
                         }
@@ -421,21 +441,21 @@ fn build_reaching_def(
                     ir::CellType::Primitive { name, .. } => name == "std_reg",
                     _ => false,
                 })
-                .map(|x| x.borrow().name.clone())
+                .map(|x| x.clone_name())
                 .collect::<BTreeSet<_>>();
 
             let read_set =
                 ReadWriteSet::register_reads(&en.group.borrow().assignments)
                     .iter()
-                    .map(|x| x.borrow().name.clone())
+                    .map(|x| x.clone_name())
                     .collect::<BTreeSet<_>>();
             // only kill a def if the value is not read.
             let (mut cur_reach, killed) =
                 reach.kill_from_writeread(&write_set, &read_set);
-            cur_reach.extend(write_set, &en.group.borrow().name);
+            cur_reach.extend(write_set, &en.group.borrow().name());
 
             rd.reach.insert(
-                GroupOrInvoke::Group(en.group.borrow().name.clone()),
+                GroupOrInvoke::Group(en.group.clone_name()),
                 cur_reach.clone(),
             );
 

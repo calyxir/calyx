@@ -7,13 +7,12 @@ component main(go: 1, clk: 1) -> (done: 1) {
     other = std_reg(32);
     unshr_r = std_reg(32);
     unshr_r0 = std_reg(32);
-    unshr_r1 = std_reg(32);
   }
   wires {
     group zero {
-      unshr_r1.in = 32'd0;
-      unshr_r1.write_en = 1'd1;
-      zero[done] = unshr_r1.done;
+      unshr_r0.in = 32'd0;
+      unshr_r0.write_en = 1'd1;
+      zero[done] = unshr_r0.done;
     }
     group one {
       unshr_r0.in = 32'd1;

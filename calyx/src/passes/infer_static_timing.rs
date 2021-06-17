@@ -369,13 +369,13 @@ impl Visitor for InferStaticTiming {
         _lib: &LibrarySignatures,
     ) -> VisResult {
         let mut latency_result: Option<u64>;
-        for group in &comp.groups {
+        for group in comp.groups.iter() {
             if let Some(latency) = self.infer_latency(&group.borrow()) {
                 let grp = group.borrow();
                 if let Some(curr_lat) = grp.attributes.get("static") {
                     if *curr_lat != latency {
                         return Err(Error::ImpossibleLatencyAnnotation(
-                            grp.name.to_string(),
+                            grp.name().to_string(),
                             *curr_lat,
                             latency,
                         ));
@@ -392,6 +392,23 @@ impl Visitor for InferStaticTiming {
                 }
                 None => continue,
             }
+        }
+        Ok(Action::Continue)
+    }
+
+    fn finish_while(
+        &mut self,
+        s: &mut ir::While,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+    ) -> VisResult {
+        if let (Some(bound), Some(cond_time), Some(body_time)) = (
+            s.attributes.get("bound").cloned(),
+            s.cond.borrow().attributes.get("static"),
+            s.body.get_attributes().and_then(|attr| attr.get("static")),
+        ) {
+            s.attributes
+                .insert("static", bound * body_time + (bound + 1) * cond_time);
         }
         Ok(Action::Continue)
     }

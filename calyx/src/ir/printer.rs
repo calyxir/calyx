@@ -84,14 +84,14 @@ impl IRPrinter {
 
         // Add the cells
         writeln!(f, "  cells {{")?;
-        for cell in &comp.cells {
+        for cell in comp.cells.iter() {
             Self::write_cell(&cell.borrow(), 4, f)?;
         }
         writeln!(f, "  }}")?;
 
         // Add the wires
         writeln!(f, "  wires {{")?;
-        for group in &comp.groups {
+        for group in comp.groups.iter() {
             Self::write_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
         }
@@ -134,7 +134,7 @@ impl IRPrinter {
                         Self::format_at_attributes(&cell.attributes)
                     )?
                 }
-                write!(f, "{} = ", cell.name.id)?;
+                write!(f, "{} = ", cell.name().id)?;
                 writeln!(
                     f,
                     "{}({});",
@@ -155,7 +155,7 @@ impl IRPrinter {
                         Self::format_at_attributes(&cell.attributes)
                     )?
                 }
-                writeln!(f, "{} = {}();", cell.name.id, name)
+                writeln!(f, "{} = {}();", cell.name().id, name)
             }
             ir::CellType::Constant { .. } => Ok(()),
             _ => unimplemented!(),
@@ -183,7 +183,7 @@ impl IRPrinter {
         f: &mut F,
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
-        write!(f, "group {}", group.name.id)?;
+        write!(f, "group {}", group.name().id)?;
         if !group.attributes.is_empty() {
             write!(f, "{}", Self::format_attributes(&group.attributes))?;
         }
@@ -208,7 +208,7 @@ impl IRPrinter {
                 if !attributes.is_empty() {
                     write!(f, "{} ", Self::format_at_attributes(&attributes))?
                 }
-                writeln!(f, "{};", group.borrow().name.id)
+                writeln!(f, "{};", group.borrow().name().id)
             }
             ir::Control::Invoke(ir::Invoke {
                 comp,
@@ -219,7 +219,7 @@ impl IRPrinter {
                 if !attributes.is_empty() {
                     write!(f, "{} ", Self::format_at_attributes(&attributes))?
                 }
-                write!(f, "invoke {}(", comp.borrow().name)?;
+                write!(f, "invoke {}(", comp.borrow().name())?;
                 for (i, (arg, port)) in inputs.iter().enumerate() {
                     write!(
                         f,
@@ -285,7 +285,7 @@ impl IRPrinter {
                     f,
                     "if {} with {} {{",
                     Self::get_port_access(&port.borrow()),
-                    cond.borrow().name.id
+                    cond.borrow().name().id
                 )?;
                 Self::write_control(tbranch, indent_level + 2, f)?;
                 write!(f, "{}}}", " ".repeat(indent_level))?;
@@ -310,7 +310,7 @@ impl IRPrinter {
                     f,
                     "while {} with {} {{",
                     Self::get_port_access(&port.borrow()),
-                    cond.borrow().name.id
+                    cond.borrow().name().id
                 )?;
                 Self::write_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
@@ -380,7 +380,7 @@ impl IRPrinter {
                         format!("{}'d{}", width, val)
                     }
                     ir::CellType::ThisComponent => port.name.to_string(),
-                    _ => format!("{}.{}", cell.name.id, port.name.id),
+                    _ => format!("{}.{}", cell.name().id, port.name.id),
                 }
             }
             ir::PortParent::Group(group_wref) => format!(
@@ -393,7 +393,7 @@ impl IRPrinter {
                         port
                     ))
                     .borrow()
-                    .name
+                    .name()
                     .id,
                 port.name.id
             ),

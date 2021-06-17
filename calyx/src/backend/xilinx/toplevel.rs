@@ -80,7 +80,7 @@ fn external_memories(comp: &ir::Component) -> Vec<String> {
         .filter(|cell_ref| {
             matches!(cell_ref.borrow().get_attribute("external"), Some(&1))
         })
-        .map(|cell_ref| cell_ref.borrow().name.to_string())
+        .map(|cell_ref| cell_ref.borrow().name().to_string())
         .collect()
 }
 

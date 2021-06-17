@@ -1,9 +1,11 @@
 use super::{
-    Assignment, Attributes, Builder, Cell, CellType, Control, Direction, Group,
-    Id, RRC,
+    Assignment, Attributes, Builder, Cell, CellType, CloneName, Control,
+    Direction, GetName, Group, Id, RRC,
 };
 use crate::utils;
+use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
+use std::iter::Extend;
 use std::rc::Rc;
 
 /// The default name of the signature cell in a component.
@@ -18,9 +20,9 @@ pub struct Component {
     /// The input/output signature of this component.
     pub signature: RRC<Cell>,
     /// The cells instantiated for this component.
-    pub cells: Vec<RRC<Cell>>,
+    pub cells: IdList<Cell>,
     /// Groups of assignment wires.
-    pub groups: Vec<RRC<Group>>,
+    pub groups: IdList<Group>,
     /// The set of "continuous assignments", i.e., assignments that are always
     /// active.
     pub continuous_assignments: Vec<Assignment>,
@@ -64,8 +66,8 @@ impl Component {
         Component {
             name: name.as_ref().into(),
             signature: this_sig,
-            cells: vec![],
-            groups: vec![],
+            cells: IdList::default(),
+            groups: IdList::default(),
             continuous_assignments: vec![],
             control: Rc::new(RefCell::new(Control::empty())),
             namegen: utils::NameGenerator::default(),
@@ -78,10 +80,7 @@ impl Component {
     where
         S: Clone + AsRef<str>,
     {
-        self.groups
-            .iter()
-            .find(|&g| g.borrow().name == *name)
-            .map(|r| Rc::clone(r))
+        self.groups.find(name)
     }
 
     /// Return a reference to the cell with `name` if present.
@@ -89,10 +88,7 @@ impl Component {
     where
         S: Clone + AsRef<str>,
     {
-        self.cells
-            .iter()
-            .find(|&g| g.borrow().name == *name)
-            .map(|r| Rc::clone(r))
+        self.cells.find(name)
     }
 
     /// Construct a non-conflicting name using the Component's namegenerator.
@@ -101,5 +97,87 @@ impl Component {
         S: Into<Id> + ToString,
     {
         self.namegen.gen_name(prefix)
+    }
+}
+
+/// A wrapper struct exposing an ordered collection of named entities within an
+/// RRC with deterministic iteration and constant-time look-up on names
+/// directly. The struct assumes that the name of an entity cannot change. Doing
+/// so will introduce incorrect results for look-ups.
+#[derive(Debug)]
+pub struct IdList<T: GetName>(LinkedHashMap<Id, RRC<T>>);
+
+impl<T: GetName> IdList<T> {
+    /// Removes all elements from the collection
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    /// Keep only the elements in the collection which satisfy the given
+    /// predicate
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&RRC<T>) -> bool,
+    {
+        for entry in self.0.entries() {
+            if !f(entry.get()) {
+                entry.remove();
+            }
+        }
+    }
+
+    /// Add a new element to the colleciton
+    pub fn add(&mut self, item: RRC<T>) {
+        let name = item.clone_name();
+        self.0.insert(name, item);
+    }
+
+    /// Returns an iterator over immutable references
+    pub fn iter(&self) -> impl Clone + Iterator<Item = &RRC<T>> {
+        self.0.values()
+    }
+
+    /// Returns an iterator over mutable references. Likely a pointless method
+    /// as this is a collection of RRCs.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut RRC<T>> {
+        self.0.iter_mut().map(|(_id, val)| val)
+    }
+
+    /// Removes all elements from the collection and returns an iterator over
+    /// the owned elements.
+    pub fn drain(&mut self) -> impl Iterator<Item = RRC<T>> {
+        let drain = std::mem::take(&mut self.0);
+
+        drain.into_iter().map(|(_, cell)| cell)
+    }
+
+    /// Returns the element indicated by the name, if present, otherwise None.
+    pub fn find<S>(&self, name: &S) -> Option<RRC<T>>
+    where
+        S: Clone + AsRef<str>,
+    {
+        self.0.get(&name.as_ref().into()).map(|r| Rc::clone(r))
+    }
+}
+
+impl<T: GetName> Default for IdList<T> {
+    fn default() -> Self {
+        IdList(LinkedHashMap::new())
+    }
+}
+
+impl<T: GetName> Extend<RRC<T>> for IdList<T> {
+    fn extend<I: IntoIterator<Item = RRC<T>>>(&mut self, iter: I) {
+        for item in iter {
+            self.add(item)
+        }
+    }
+}
+
+impl<'a, T: GetName + 'a> Extend<&'a RRC<T>> for IdList<T> {
+    fn extend<I: IntoIterator<Item = &'a RRC<T>>>(&mut self, iter: I) {
+        for item in iter {
+            self.add(item.clone())
+        }
     }
 }

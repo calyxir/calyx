@@ -57,8 +57,8 @@ impl ShareComponents for MinimizeRegs {
     where
         F: FnMut(Vec<ir::Id>),
     {
-        for group in &comp.groups {
-            let conflicts = self.live.get(&group.borrow().name);
+        for group in comp.groups.iter() {
+            let conflicts = self.live.get(&group.borrow().name());
             add_conflicts(conflicts.iter().cloned().collect());
         }
     }

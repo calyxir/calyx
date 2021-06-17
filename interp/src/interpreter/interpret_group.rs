@@ -1,26 +1,94 @@
-use super::{environment::Environment, primitives};
-use calyx::{errors::FutilResult, ir};
+//! Used for the command line interface.
+//! Only interprets a given group in a given component
+
+use crate::{environment::Environment, primitives, update::UpdateQueue};
+use calyx::{
+    errors::{Error, FutilResult},
+    ir,
+    ir::CloneName,
+};
 use std::collections::HashMap;
+// use std::rc::Rc;
+
+/// Stores information about the component and group to interpret.
+/// Might be better to make this a subset of a trait implemented by all interpreters, later on
+
+/// Get the name of the component to interpret from the context.
+fn _get_component(
+    ctx: ir::Context,
+    component: &str,
+) -> FutilResult<ir::Component> {
+    match ctx.components.into_iter().find(|c| c.name.id == *component) {
+        Some(comp) => Ok(comp),
+        None => Err(Error::Undefined(
+            ir::Id::from(component.to_string()),
+            "component".to_string(),
+        )),
+    }
+}
+
+/// Construct a map from cell ids to a map from the cell's ports' ids to the ports' values
+fn _construct_map(
+    cells: &[ir::RRC<ir::Cell>],
+) -> HashMap<ir::Id, HashMap<ir::Id, u64>> {
+    let mut map = HashMap::new();
+    for cell in cells {
+        let cb = cell.borrow();
+        let mut ports: HashMap<ir::Id, u64> = HashMap::new();
+
+        match &cb.prototype {
+            // A Calyx constant cell's out port is that constant's value
+            ir::CellType::Constant { val, .. } => {
+                ports.insert(ir::Id::from("out"), *val);
+                map.insert(cb.clone_name(), ports);
+            }
+            ir::CellType::Primitive { .. } => {
+                for port in &cb.ports {
+                    // All ports for primitives are initalized to 0 , unless the cell is an std_const
+                    let pb = port.borrow();
+                    let initval = cb
+                        .get_paramter(&ir::Id::from("value".to_string()))
+                        .unwrap_or(0); //std_const should be the only cell type with the "value" parameter
+
+                    ports.insert(pb.name.clone(), initval);
+                }
+                map.insert(cb.clone_name(), ports);
+            }
+            _ => panic!("component"),
+        }
+    }
+    map
+}
 
 /// Evaluates a group, given an environment.
-pub fn eval_group(
-    group: ir::RRC<ir::Group>,
-    env: &Environment,
+pub fn interpret_group(
+    group: &ir::Group,
+    env: Environment,
+    component: &ir::Id,
 ) -> FutilResult<Environment> {
-    eval_assigns(&(group.borrow()).assignments, &env)
+    eval_assigns(&group.assignments, env, component)
 }
 
 // XXX(karen): I think it will need another copy of environment for each
 // iteration of assignment statements
 /// Evaluates a group's assignment statements in an environment.
+/// How this is done:
+/// First, a new write-to environment is cloned from the original read-only environment.
+/// For each clock cycle (until the group's done signal is high):
+/// Then, each assignment statement is checked for its done signal is high.
+/// If that statement's done signal is high:
+/// If the assignment is combinational, it is immediately evaluated result and stored in the write-to environment.
+/// If it is not combinational, then it is added to an update queue, to be evaluated at the end of the current clock cycle.
+/// This continues until the group's done signal is high.
 fn eval_assigns(
     assigns: &[ir::Assignment],
-    env: &Environment,
+    mut env: Environment,
+    component: &ir::Id,
 ) -> FutilResult<Environment> {
     // Find the done signal in the sequence of assignments
     let done_assign = get_done_signal(assigns);
 
-    // e2 = Clone the current environment
+    // Clone the current environment
     let mut write_env = env.clone();
 
     // XXX: Prevent infinite loops. should probably be deleted later
@@ -28,74 +96,72 @@ fn eval_assigns(
     let mut counter = 0;
 
     // Filter out the assignment statements that are not only from cells.
+    // Reorder assignment statements??
     // XXX: for now, also excludes cells not in the env map
     let ok_assigns = assigns
         .iter()
         .filter(|&a| {
             !a.dst.borrow().is_hole()
                 // dummy way of making sure the map has the a.src cell
-                && env.get_cell(&get_cell_from_port(&a.src)).is_some()
-                && env.get_cell(&get_cell_from_port(&a.dst)).is_some()
+                && env.get_cell(&component, &get_cell_from_port(&a.src)).is_some()
+                && env.get_cell(&component, &get_cell_from_port(&a.dst)).is_some()
         })
         .collect::<Vec<_>>();
 
-    // While done_assign.src is 0 (we use done_assign.src because done_assign.dst is not a cell's port; it should be a group's port)
-    while write_env.get_from_port(&done_assign.src.borrow()) == 0 && counter < 5
-    {
-        // println!("Clock cycle {}", counter);
-        /*println!(
-            "state of done_cell {:1} : {:?} \n",
-            &done_cell,
-            write_env.map.get(&done_cell)
-        );*/
-        // "staging" updates
-        //let mut iter_updates = write_env.clone();
+    // XXX(yoona): At the moment interpreter rejects direct assignment of 1 to the groups
+    // needs to be fixed
+    if write_env.get_from_port(&component, &done_assign.src.borrow()) == 1 {
+        panic!("TODO: done[group]=1 this group woud but be evaluated ");
+    }
 
-        // for assign in assigns
+    // While done_assign.src is 0
+    // (we use done_assign.src because done_assign.dst is not a cell's port; it should be a group's port
+
+    while write_env.get_from_port(&component, &done_assign.src.borrow()) == 0
+        && counter < 5
+    {
+        env = write_env.clone();
+        // println!("Clock cycle {}", counter);
+
+        // Update queue for staging updates
+        let mut uq = UpdateQueue::init(component.clone());
+
+        // Iterate through assignment statements
         for assign in &ok_assigns {
             // check if the assign.guard != 0
             // should it be evaluating the guard in write_env environment?
-            if eval_guard(&assign.guard, &write_env) != 0 {
+            if eval_guard(&component, &assign.guard, &write_env) != 0 {
                 // check if the cells are constants?
                 // cell of assign.src
                 let src_cell = get_cell_from_port(&assign.src);
                 // cell of assign.dst
                 let dst_cell = get_cell_from_port(&assign.dst);
 
-                /*println!(
-                    "src cell {:1} port: {:2}, dest cell {:3} port: {:4}",
-                    src_cell,
-                    &assign.src.borrow().name,
-                    dst_cell,
-                    &assign.dst.borrow().name
-                );*/
-
                 // perform a read from `env` for assign.src
                 // XXX(karen): should read from the previous iteration's env?
-                let read_val = env.get_from_port(&assign.src.borrow());
+                let read_val =
+                    env.get_from_port(&component, &assign.src.borrow());
 
                 // update internal state of the cell and
                 // queue any required updates.
 
-                //determine if dst_cell is a combinational cell or not
-                if is_combinational(&dst_cell, &assign.dst.borrow().name, env) {
-                    // write to assign.dst to e2 immediately, if combinational
+                //determine if dst_cell is a combinational cell or not.
+                // If so, it should be immediately evaluated and stored.
+                if is_combinational(
+                    &component,
+                    &dst_cell,
+                    &assign.dst.borrow().name,
+                    &env,
+                ) {
                     write_env.put(
+                        &component,
                         &dst_cell,
                         &assign.dst.borrow().name,
                         read_val,
                     );
 
-                    /*println!(
-                        "reg0.write_en = {}",
-                        write_env.get(
-                            &ir::Id::from("reg0"),
-                            &ir::Id::from("write_en")
-                        )
-                    );*/
-
                     // now, update the internal state of the cell;
-                    // for now, this only includes adds;
+                    // for now, this only includes cells with left and right ports;
                     // TODO (use primitive Cell parameters)
                     let inputs;
                     let outputs;
@@ -104,7 +170,7 @@ fn eval_assigns(
                     // Also, how to get input and output vectors in general??
                     if &assign.dst.borrow().name != "write_en" {
                         // get dst_cell's input vector
-                        match &write_env.get_cell(&dst_cell) {
+                        match &write_env.get_cell(&component, &dst_cell) {
                             Some(cell) => {
                                 inputs = vec![
                                     (cell.borrow())
@@ -123,7 +189,7 @@ fn eval_assigns(
                         }
 
                         // get dst_cell's output vector
-                        match &write_env.get_cell(&dst_cell) {
+                        match &write_env.get_cell(&component, &dst_cell) {
                             Some(cell) => {
                                 outputs = vec![(cell.borrow())
                                     .get("out")
@@ -137,7 +203,11 @@ fn eval_assigns(
 
                         // update the cell state in write_env
                         write_env = primitives::update_cell_state(
-                            &dst_cell, &inputs, &outputs, &write_env,
+                            &dst_cell,
+                            &inputs,
+                            &outputs,
+                            &write_env,
+                            component.clone(),
                         )?;
                     }
                 } else {
@@ -148,21 +218,18 @@ fn eval_assigns(
                     // get dst_cell's output port
                     let outputs = vec![assign.dst.borrow().name.clone()];
 
-                    write_env =
-                        init_cells(&dst_cell, inputs, outputs, write_env)?;
+                    uq = uq.init_cells(
+                        &dst_cell,
+                        inputs,
+                        outputs,
+                        write_env.clone(),
+                    );
                 }
             }
         }
-        // write_env = iter_updates.do_tick()
-        write_env = write_env.do_tick();
+        write_env = uq.do_tick(write_env.clone())?;
         counter += 1;
     }
-
-    /*println!(
-        "\nFinal state of the done cell, i.e. {:1}: {:?} \n",
-        &done_cell,
-        write_env.map.get(&done_cell)
-    );*/
     Ok(write_env)
 }
 
@@ -170,34 +237,40 @@ fn eval_assigns(
 #[allow(clippy::borrowed_box)]
 // XXX: Allow for this warning. It would make sense to use a reference when we
 // have the `box` match pattern available in Rust.
-fn eval_guard(guard: &Box<ir::Guard>, env: &Environment) -> u64 {
+fn eval_guard(comp: &ir::Id, guard: &Box<ir::Guard>, env: &Environment) -> u64 {
     (match &**guard {
         ir::Guard::Or(g1, g2) => {
-            (eval_guard(g1, env) == 1) || (eval_guard(g2, env) == 1)
+            (eval_guard(comp, g1, env) == 1) || (eval_guard(comp, g2, env) == 1)
         }
         ir::Guard::And(g1, g2) => {
-            (eval_guard(g1, env) == 1) && (eval_guard(g2, env) == 1)
+            (eval_guard(comp, g1, env) == 1) && (eval_guard(comp, g2, env) == 1)
         }
-        ir::Guard::Not(g) => eval_guard(g, &env) != 0,
+        ir::Guard::Not(g) => eval_guard(comp, g, &env) != 0,
         ir::Guard::Eq(g1, g2) => {
-            env.get_from_port(&g1.borrow()) == env.get_from_port(&g2.borrow())
+            env.get_from_port(comp, &g1.borrow())
+                == env.get_from_port(comp, &g2.borrow())
         }
         ir::Guard::Neq(g1, g2) => {
-            env.get_from_port(&g1.borrow()) != env.get_from_port(&g2.borrow())
+            env.get_from_port(comp, &g1.borrow())
+                != env.get_from_port(comp, &g2.borrow())
         }
         ir::Guard::Gt(g1, g2) => {
-            env.get_from_port(&g1.borrow()) > env.get_from_port(&g2.borrow())
+            env.get_from_port(comp, &g1.borrow())
+                > env.get_from_port(comp, &g2.borrow())
         }
         ir::Guard::Lt(g1, g2) => {
-            env.get_from_port(&g1.borrow()) < env.get_from_port(&g2.borrow())
+            env.get_from_port(comp, &g1.borrow())
+                < env.get_from_port(comp, &g2.borrow())
         }
         ir::Guard::Geq(g1, g2) => {
-            env.get_from_port(&g1.borrow()) >= env.get_from_port(&g2.borrow())
+            env.get_from_port(comp, &g1.borrow())
+                >= env.get_from_port(comp, &g2.borrow())
         }
         ir::Guard::Leq(g1, g2) => {
-            env.get_from_port(&g1.borrow()) <= env.get_from_port(&g2.borrow())
+            env.get_from_port(comp, &g1.borrow())
+                <= env.get_from_port(comp, &g2.borrow())
         }
-        ir::Guard::Port(p) => env.get_from_port(&p.borrow()) != 0,
+        ir::Guard::Port(p) => env.get_from_port(comp, &p.borrow()) != 0,
         ir::Guard::True => true,
     }) as u64
 }
@@ -222,11 +295,17 @@ fn get_done_signal(assigns: &[ir::Assignment]) -> &ir::Assignment {
         .expect("Group does not have a done signal")
 }
 
-/// Determines if writing a particular cell and cell port is combinational or not. Will need to change implementation later.
-fn is_combinational(cell: &ir::Id, port: &ir::Id, env: &Environment) -> bool {
+/// Determines if writing a particular cell and cell port is combinational or not.
+/// Will need to change implementation later.
+fn is_combinational(
+    component: &ir::Id,
+    cell: &ir::Id,
+    port: &ir::Id,
+    env: &Environment,
+) -> bool {
     // if cell is none,
     let cellg = env
-        .get_cell(cell)
+        .get_cell(component, cell)
         .unwrap_or_else(|| panic!("Cannot find cell with name"));
 
     let cb = cellg.borrow();
@@ -238,6 +317,12 @@ fn is_combinational(cell: &ir::Id, port: &ir::Id, env: &Environment) -> bool {
             // XXX(rachit): Why is this a "combinational" port?
             "write_en" => true,
             "out" => false,
+            "done" => false,
+            _ => false,
+        },
+        "std_mem_d1" => match port.id.as_str() {
+            "write_en" => true,
+            "read_data" => false,
             "done" => false,
             _ => false,
         },
@@ -267,39 +352,6 @@ fn is_combinational(cell: &ir::Id, port: &ir::Id, env: &Environment) -> bool {
         | "fixed_p_std_div"
         | "fixed_p_std_gt"
         | "fixed_p_std_add_dbit" => true,
-        _ => false,
+        prim => panic!("unknown primitive {}", prim),
     }
-}
-
-/// Initializes values for the update queue, i.e. for non-combinational cells
-#[allow(clippy::unnecessary_wraps)]
-fn init_cells(
-    cell: &ir::Id,
-    inputs: Vec<ir::Id>,
-    outputs: Vec<ir::Id>,
-    mut env: Environment,
-) -> FutilResult<Environment> {
-    let cell_r = env
-        .get_cell(cell)
-        .unwrap_or_else(|| panic!("Cannot find cell with name"));
-
-    // get the cell type
-    match cell_r.borrow().type_name() {
-        None => panic!("bad"),
-        Some(ct) => match ct.id.as_str() {
-            "std_sqrt" => { //:(
-                 // has intermediate steps/computation
-            }
-            "std_reg" => {
-                let map: HashMap<String, u64> = HashMap::new();
-                // reg.in = dst port should go here
-                env.add_update(cell.clone(), inputs, outputs, map);
-            }
-            _ => panic!(
-                "attempted to initalize an update for a combinational cell"
-            ),
-        },
-    }
-
-    Ok(env)
 }

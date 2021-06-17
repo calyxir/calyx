@@ -110,10 +110,11 @@ impl Visitor for Inliner {
     ) -> VisResult {
         // get the only group in the enable
         let top_level = match &*comp.control.borrow() {
+            ir::Control::Empty(_) => return Ok(Action::Stop),
             ir::Control::Enable(en) => Rc::clone(&en.group),
             _ => return Err(
                 Error::MalformedControl(
-                    "The hole inliner requires control to be a single enable. Try running `compile-control` before inlining.".to_string()
+                    "The hole inliner requires control to be a single enable. Try running `top-down-cc` before inlining.".to_string()
                 )
             )
         };
@@ -145,7 +146,7 @@ impl Visitor for Inliner {
         // map of holes to their guard expressions
         let mut map: Store = HashMap::new();
         let mut assignments = vec![];
-        for group in &builder.component.groups {
+        for group in builder.component.groups.iter() {
             // remove all assignments from group, taking ownership
             let mut group = group.borrow_mut();
             assignments.append(&mut group.assignments.drain(..).collect());
