@@ -12,7 +12,7 @@
     "a": {
       "addr0": 0,
       "clk": 0,
-      "done": 1,
+      "done": 0,
       "read_data": 0,
       "write_data": 1,
       "write_en": 1
@@ -20,7 +20,7 @@
     "b": {
       "addr0": 0,
       "clk": 0,
-      "done": 1,
+      "done": 0,
       "read_data": 0,
       "write_data": 1,
       "write_en": 1
@@ -28,7 +28,7 @@
     "c": {
       "addr0": 0,
       "clk": 0,
-      "done": 1,
+      "done": 0,
       "read_data": 0,
       "write_data": 1,
       "write_en": 1

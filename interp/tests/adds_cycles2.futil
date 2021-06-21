@@ -1,9 +1,14 @@
 import "primitives/std.lib";
 
+//this test exhibits a bug:
+//we must keep the port assignments to add1 the same throughout all groups
+//otherwise we get an infinite loop 
+
 component main() -> () {
   cells {
     const1 = std_const(32, 1);
     const2 = std_const(32, 2);
+    const3 = std_const(32, 3);
 
     add1 = std_add(32);
     add2 = std_add(32);
@@ -14,11 +19,10 @@ component main() -> () {
   }
 
   wires {
-
     // should finish evaluation immediately
     group add_no_reg {
-      add1.left = const1.out;
-      add1.right = const2.out;
+      add1.left = const2.out;
+      add1.right = const1.out;
       add_no_reg[done] = 1'd1;
     }
 
@@ -35,8 +39,8 @@ component main() -> () {
     // also, at the end, should have reg1.out = 3, reg2.out = 4
     group add_two_reg {
       reg1.write_en = 1'd1;
-      add1.left = const1.out;
-      add1.right = const2.out;
+      add1.left = const2.out;
+      add1.right = const3.out;
       reg1.in = add1.out;
 
       reg2.write_en = reg1.done; // might need to change this?

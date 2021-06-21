@@ -4,22 +4,22 @@
       "out": 1
     },
     "a": {
-      "clk": X,
-      "done": 1,
+      "clk": 0,
+      "done": 0,
       "in": 1,
       "out": 1,
       "write_en": 1
     },
     "b": {
-      "clk": X,
-      "done": 1,
+      "clk": 0,
+      "done": 0,
       "in": 1,
       "out": 1,
       "write_en": 1
     },
     "c": {
-      "clk": X,
-      "done": 1,
+      "clk": 0,
+      "done": 0,
       "in": 1,
       "out": 1,
       "write_en": 1

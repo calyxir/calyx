@@ -213,7 +213,7 @@ fn check_widths(left: &Value, right: &Value, width: u64) {
         || width != (right.vec.len() as u64)
         || left.vec.len() != right.vec.len()
     {
-        panic!("Width mismatch between the component and the inputs.");
+        panic!("Width mismatch between the component and the inputs. Comp width: {}, left: {}, right: {}", width, left.vec.len(), right.vec.len());
     }
 }
 
