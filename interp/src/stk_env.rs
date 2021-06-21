@@ -30,6 +30,13 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
         Smoosher { ds }
     }
 
+    //two notes:
+    //make wrapper struct for read-only environment  (HashMap)
+    //perhaps make internal DS vector to push all the borrows onto so they don't
+    //get dropped...?
+    //write_handle and read_handle internal DS so we can keep the ref alive
+    //and return it
+
     ///get(k) returns an Option containing the most recent binding of k. As in, returns the value associated
     ///with k from the topmost HashMap that contains some key-value pair (k, v). If no HashMap exists with
     ///a key-value pair (k, v), returns None.
@@ -56,7 +63,11 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     ///the Smoosher. Overwrites the existing (k, v') pair if one exists in the topmost HashMap at the time
     ///of the set(k, v) call.
     fn set(&mut self, k: K, v: V) {
-        todo!()
+        //note vecdeque can never be empty b/c initialized w/ a new hashmap
+        if let Some(front) = self.ds.front() {
+            let front_ref = &mut front.borrow_mut();
+            front_ref.insert(k, v);
+        }
     }
 
     //note: if we change everything here to deal with Rc<RefCell...>, then clone
@@ -73,8 +84,9 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     }
 
     ///Returns a reference to the frontmost HashMap
-    fn top() -> () {
-        todo!()
+    fn top(&self) -> &HashMap<K, V> {
+        let mp = self.ds.get(0).unwrap();
+        &mp.borrow()
     }
 
     /// updates [bottom_i] to reflect all bindings contained in the HashMaps of indecies
@@ -86,7 +98,7 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     }
 
     ///merge: note: lateral (collects all forks that are parallel and merge them)
-    fn merge(&mut self, &mut other: Self) -> Self {
+    fn merge(&mut self, other: &mut Self) -> Self {
         todo!()
     }
 
