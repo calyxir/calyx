@@ -396,6 +396,23 @@ impl Visitor for InferStaticTiming {
         Ok(Action::Continue)
     }
 
+    fn finish_while(
+        &mut self,
+        s: &mut ir::While,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+    ) -> VisResult {
+        if let (Some(bound), Some(cond_time), Some(body_time)) = (
+            s.attributes.get("bound").cloned(),
+            s.cond.borrow().attributes.get("static"),
+            s.body.get_attributes().and_then(|attr| attr.get("static")),
+        ) {
+            s.attributes
+                .insert("static", bound * body_time + (bound + 1) * cond_time);
+        }
+        Ok(Action::Continue)
+    }
+
     fn finish_if(
         &mut self,
         s: &mut ir::If,
