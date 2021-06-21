@@ -261,6 +261,7 @@ impl TimeLockedValue {
 pub enum OutputValue {
     ImmediateValue(Value),
     LockedValue(TimeLockedValue),
+    PulseValue(PulseValue),
 }
 
 impl OutputValue {
@@ -301,6 +302,12 @@ impl From<TimeLockedValue> for OutputValue {
     }
 }
 
+impl From<PulseValue> for OutputValue {
+    fn from(input: PulseValue) -> Self {
+        OutputValue::PulseValue(input)
+    }
+}
+
 /// Returns an uninitialized immediate value.
 impl Default for OutputValue {
     fn default() -> Self {
@@ -320,5 +327,149 @@ impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         assert!(self.vec.len() == other.vec.len());
         Some(self.vec.cmp(&other.vec))
+    }
+}
+
+pub trait ReadableValue {
+    fn get_val(&self) -> &Value;
+}
+
+pub trait TickableValue {
+    fn tick(&mut self);
+    fn do_tick(self) -> OutputValue;
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum PulseState {
+    Low,  // inital state of a pulse
+    High, // the moment the pulse is high
+}
+
+/// A return type for primitive components which marks a value with three
+/// states, and initial low value, a high value held for the pulse length, and
+/// finally returning to the original low value. This is similar to
+/// TimeLockedValue but returns to the original value when done, rather than
+/// replacing it.
+//
+// This is used primarially for outputs like "done" which have a fixed time in
+// which they are held high.
+//
+// As a note, the high and low values don't need to have any explicit ordering
+// and, if so desired, this may be used to pulse a lower value rather than a
+// high value
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PulseValue {
+    high_val: Value,
+    low_val: Value,
+    state: PulseState,
+    pulse_length: u64, // how long the value is high
+    current_length: u64,
+}
+
+impl PulseValue {
+    /// Returns a new PulseValue in the inital low state
+    pub fn new(high_val: Value, low_val: Value, pulse_length: u64) -> Self {
+        Self {
+            high_val,
+            low_val,
+            state: PulseState::Low,
+            pulse_length,
+            current_length: 0,
+        }
+    }
+
+    /// Consumes the PulesValue and returns the value appropriate for the
+    /// current state
+    pub fn take_val(self) -> Value {
+        match self.state {
+            PulseState::Low => self.low_val,
+            PulseState::High => self.high_val,
+        }
+    }
+
+    /// A convenience constructor which automatically initializes the pulse with
+    /// a length of 1
+    pub fn one_cycle_pulse(high_val: Value, low_val: Value) -> Self {
+        Self::new(high_val, low_val, 1)
+    }
+
+    /// A convenience constructor for the common use of representing "done"
+    /// signals
+    pub fn one_cycle_one_bit_pulse() -> Self {
+        Self::one_cycle_pulse(Value::from_init(1_u16, 1_u16), Value::zeroes(1))
+    }
+}
+
+impl TickableValue for PulseValue {
+    fn tick(&mut self) {
+        match &self.state {
+            PulseState::Low => self.state = PulseState::High,
+            PulseState::High => self.current_length += 1,
+        }
+    }
+
+    fn do_tick(mut self) -> OutputValue {
+        self.tick();
+        if self.pulse_length == self.current_length {
+            let v = self.low_val.into();
+            v
+        } else {
+            self.into()
+        }
+    }
+}
+
+impl ReadableValue for PulseValue {
+    fn get_val(&self) -> &Value {
+        match &self.state {
+            PulseState::Low => &self.low_val,
+            PulseState::High => &self.high_val,
+        }
+    }
+}
+
+impl ReadableValue for Value {
+    fn get_val(&self) -> &Value {
+        &self
+    }
+}
+
+impl ReadableValue for TimeLockedValue {
+    fn get_val(&self) -> &Value {
+        match &self.old_value {
+            Some(v) => v,
+            None => panic!("Trying to read invalid value"),
+        }
+    }
+}
+
+impl TickableValue for TimeLockedValue {
+    fn tick(&mut self) {
+        self.dec_count()
+    }
+
+    fn do_tick(mut self) -> OutputValue {
+        self.tick();
+        self.try_unlock()
+    }
+}
+
+impl ReadableValue for OutputValue {
+    fn get_val(&self) -> &Value {
+        match &self {
+            OutputValue::ImmediateValue(iv) => iv.get_val(),
+            OutputValue::LockedValue(tlv) => tlv.get_val(),
+            OutputValue::PulseValue(pv) => pv.get_val(),
+        }
+    }
+}
+
+impl OutputValue {
+    pub fn do_tick(self) -> OutputValue {
+        match self {
+            OutputValue::ImmediateValue(v) => v.into(),
+            OutputValue::LockedValue(v) => v.do_tick(),
+            OutputValue::PulseValue(v) => v.do_tick(),
+        }
     }
 }
