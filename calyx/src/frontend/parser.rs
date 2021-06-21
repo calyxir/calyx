@@ -287,8 +287,8 @@ impl FutilParser {
             // XXX(rachit): We expect the signature to be extended to have `go`,
             // `done`, and `clk`.
             [] => Vec::with_capacity(3),
-            [inputs(ins)] => { ins },
-            [outputs(outs)] => { outs },
+            [inputs(ins)] =>  ins ,
+            [outputs(outs)] =>  outs ,
             [inputs(ins), outputs(outs)] => {
                 ins.into_iter().chain(outs.into_iter()).collect()
             },
