@@ -46,7 +46,7 @@ impl Ord for GroupOrInvoke {
     }
 }
 
-#[allow(clippy::clippy::from_over_into)]
+#[allow(clippy::from_over_into)]
 impl Into<ir::Id> for GroupOrInvoke {
     fn into(self) -> ir::Id {
         match self {

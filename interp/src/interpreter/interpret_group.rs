@@ -206,6 +206,7 @@ pub fn interpret_group(
     while !grp_is_done(working_env.get(&grp_done.borrow()))
         || !comb_cells.is_empty()
         || !assign_worklist.is_empty()
+    // Note: May need to remove later
     {
         if !comb_cells.is_empty() {
             let tmp = std::mem::take(&mut comb_cells);
@@ -229,8 +230,14 @@ pub fn interpret_group(
                     let new_val =
                         working_env.get_as_val(&assignment.src.borrow());
 
+                    // no need to make updates if the value has not changed
                     if old_val != new_val.into() {
                         updates_list.push(Rc::clone(&assignment.dst));
+
+                        // Using a TLV to simulate updates happening after reads
+                        // Note: this is a hack and should be removed pending
+                        // changes in the environment structures
+                        // see: https://github.com/cucapra/calyx/issues/549
 
                         let tmp_old = match old_val.clone_referenced() {
                             OutputValue::ImmediateValue(iv) => Some(iv),
@@ -241,8 +248,6 @@ pub fn interpret_group(
                         let new_val = OutputValue::LockedValue(
                             TimeLockedValue::new(new_val.clone(), 0, tmp_old),
                         );
-
-                        // STEP 2 : Update values and determine new worklist and exec_list
 
                         let port = &assignment.dst.borrow();
 
@@ -275,7 +280,7 @@ pub fn interpret_group(
 
             assign_worklist = new_worklist;
 
-            // STEP 2.5 : Remove the placeholder TLVs
+            // Remove the placeholder TLVs
             for port in updates_list {
                 if let Entry::Occupied(entry) =
                     working_env.entry(&port.borrow())
@@ -291,16 +296,7 @@ pub fn interpret_group(
                         unreachable!()
                     }
                 }
-                // check if the current val of id matches the new update
-                // if yes, do nothing
-                // if no, make the update in the environment and add all dependent
-                // assignments into the worklist and add cell to the execution list
             }
-
-            // STEP 3 : Execute cells
-
-            // split the mutability since we need mut access to just the prim
-            // map
         } else if !non_comb_cells.is_empty() {
             let tmp = std::mem::take(&mut non_comb_cells);
 
@@ -335,12 +331,16 @@ pub fn interpret_group(
     Ok(working_env.collapse_env())
 }
 
+// yes I know we don't need two different lifetimes here but they are
+// meaningfully separate so fight me
 fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     env: &mut WorkingEnvironment,
     dependency_map: &DependencyMap<'a>,
     exec_list: I,
-    reset_flag: bool,
+    reset_flag: bool, // reset vals or execute normally
 ) -> HashSet<AssignmentRef<'a>> {
+    // split mutability
+    // TODO: change approach based on new env, once ready
     let mut prim_map = std::mem::take(&mut env.backing_env.cell_prim_map);
 
     let mut update_list: Vec<(RRC<ir::Port>, OutputValue)> = vec![];
@@ -440,6 +440,9 @@ fn eval_guard(guard: &ir::Guard, env: &WorkingEnvironment) -> bool {
     }
 }
 
+/// Concludes interpretation to a group, effectively setting the go signal low
+/// for a given group. This function updates the values in the environment
+/// accordingly using zero as a placeholder for values that are undefined
 pub fn finish_group_interpretation(
     group: &ir::Group,
     _continuous_assignments: &[ir::Assignment],

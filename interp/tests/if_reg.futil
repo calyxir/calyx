@@ -32,6 +32,10 @@ component main() -> () {
   }
 
   control {
+    //similar to [if.futil],
+    //b/c this isn't just 1 group prog, 
+    //reg1 should have [done] low 
+    //at the end of execution (tho prog. ends when reg1.done is high)
     if lt0.out with cond {
       true;
     } else {

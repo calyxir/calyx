@@ -411,8 +411,7 @@ impl TickableValue for PulseValue {
     fn do_tick(mut self) -> OutputValue {
         self.tick();
         if self.pulse_length == self.current_length {
-            let v = self.low_val.into();
-            v
+            self.low_val.into()
         } else {
             self.into()
         }

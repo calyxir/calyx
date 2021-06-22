@@ -1,0 +1,34 @@
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    const0 = std_const(32, 400);
+    const1 = std_const(32, 9);
+    sub0 = std_sub(32);
+    reg0 = std_reg(32);
+
+  }
+
+  wires {
+
+    group op {
+      reg0.write_en = 1'd1;
+      sub0.left = const0.out;
+      sub0.right = const1.out;
+      reg0.in = sub0.out;
+      op[done] = reg0.done;
+    }
+    
+  }
+
+//b/c one group, and reg0 decides
+//when that group's execution is done, 
+//the ending snapshot should include 
+//all values on reg0's ports. That is, 
+//[done] = 1
+  control {
+    seq {
+      op;
+    }
+  }
+}

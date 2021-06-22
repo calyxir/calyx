@@ -90,11 +90,10 @@ fn eval_if(
 
     if cond_flag == 0 {
         env = interpret_control_inner(&i.fbranch, continuous_assignments, env)?;
-        Ok(env)
     } else {
         env = interpret_control_inner(&i.tbranch, continuous_assignments, env)?;
-        Ok(env)
     }
+    Ok(env)
 }
 
 /// Interpret While

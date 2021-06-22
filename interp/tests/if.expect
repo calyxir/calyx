@@ -19,24 +19,24 @@
       "out": 9
     },
     "lt": {
-      "left": 9,
-      "out": 1,
-      "right": 16
+      "left": 0,
+      "out": 0,
+      "right": 0
     },
     "mem": {
       "addr0": 0,
-      "clk": X,
-      "done": 1,
+      "clk": 0,
+      "done": 0,
       "read_data": 4,
-      "write_data": 4,
-      "write_en": 1
+      "write_data": 0,
+      "write_en": 0
     },
     "reg0": {
       "clk": 0,
-      "done": 1,
-      "in": 1,
+      "done": 0,
+      "in": 0,
       "out": 1,
-      "write_en": 1
+      "write_en": 0
     }
   }
 }

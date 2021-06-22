@@ -27,6 +27,7 @@ component main() -> () {
     }
   }
 
+//check that all registers have done port 1 at end of execution!
   control {
     par {
       wr_a;
