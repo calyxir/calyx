@@ -19,15 +19,15 @@ struct DependencyMap<'a> {
     map: HashMap<*const ir::Port, HashSet<AssignmentRef<'a>>>,
 }
 
-impl<'a> DependencyMap<'a> {
-    fn from_assignments<I: Iterator<Item = &'a ir::Assignment>>(
-        iter: I,
-    ) -> DependencyMap<'a> {
+impl<'a, I: Iterator<Item = &'a ir::Assignment>> From<I> for DependencyMap<'a> {
+    fn from(iter: I) -> Self {
         let mut map = DependencyMap::default();
         map.populate_map(iter);
         map
     }
+}
 
+impl<'a> DependencyMap<'a> {
     fn populate_map<I: Iterator<Item = &'a ir::Assignment>>(
         &mut self,
         iter: I,
@@ -191,8 +191,7 @@ pub fn interpret_group(
     _continuous_assignments: &[ir::Assignment],
     env: Environment,
 ) -> FutilResult<Environment> {
-    let dependency_map =
-        DependencyMap::from_assignments(group.assignments.iter());
+    let dependency_map = group.assignments.iter().into();
     let grp_done = get_done_port(&group);
     let mut working_env: WorkingEnvironment = env.into();
     let mut assign_worklist: WorkList =
