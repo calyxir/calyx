@@ -18,22 +18,26 @@ mod prim_test {
             [read_data, done] => match (read_data, done) {
                 (
                     (_, OutputValue::LockedValue(rd)),
-                    (_, OutputValue::LockedValue(d)),
+                    (_, OutputValue::PulseValue(d)),
                 ) => {
                     assert_eq!(rd.get_count(), 1);
-                    assert_eq!(d.get_count(), 1);
+                    assert_eq!(d.get_val().as_u64(), 0);
                     rd.dec_count();
-                    d.dec_count();
+                    d.tick();
                     assert!(rd.unlockable());
-                    assert!(d.unlockable());
                     assert_eq!(
                         rd.clone().unlock().as_u64(),
                         val.clone().as_u64()
                     );
-                    assert_eq!(d.clone().unlock().as_u64(), 1);
+                    assert_eq!(d.get_val().as_u64(), 1);
+                    let d = d.clone().do_tick();
+                    assert!(matches!(d, OutputValue::ImmediateValue(_)));
+                    if let OutputValue::ImmediateValue(iv) = d {
+                        assert_eq!(iv.as_u64(), 0);
+                    }
                 }
                 _ => {
-                    panic!("std_mem did not return 2 LockedValues")
+                    panic!("std_mem did not return the expected output types")
                 }
             },
             _ => panic!("Returned more than 2 outputs"),
@@ -50,13 +54,12 @@ mod prim_test {
         let addr0 = (ir::Id::from("addr0"), &addr);
         let mut mem_out =
             mem_d1.execute_mut(&[input, write_en, addr0]).into_iter();
-        let (read_data, done) =
-            (mem_out.next().unwrap(), mem_out.next().unwrap());
-        assert!(mem_out.next().is_none()); //make sure it's only of length 2
-        let rd = read_data.1.unwrap_imm();
-        let d = done.1.unwrap_imm();
-        assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
-        assert_eq!(d.as_u64(), 0);
+        if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
+            let rd = read_data.1.unwrap_imm();
+            assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
+        } else {
+            panic!()
+        }
     }
     #[test]
     #[should_panic]
@@ -100,22 +103,26 @@ mod prim_test {
             [read_data, done] => match (read_data, done) {
                 (
                     (_, OutputValue::LockedValue(rd)),
-                    (_, OutputValue::LockedValue(d)),
+                    (_, OutputValue::PulseValue(d)),
                 ) => {
                     assert_eq!(rd.get_count(), 1);
-                    assert_eq!(d.get_count(), 1);
+                    assert_eq!(d.get_val().as_u64(), 0);
                     rd.dec_count();
-                    d.dec_count();
+                    d.tick();
                     assert!(rd.unlockable());
-                    assert!(d.unlockable());
+                    assert_eq!(d.get_val().as_u64(), 1);
                     assert_eq!(
                         rd.clone().unlock().as_u64(),
                         val.clone().as_u64()
                     );
-                    assert_eq!(d.clone().unlock().as_u64(), 1);
+                    let d = d.clone().do_tick();
+                    assert!(matches!(d, OutputValue::ImmediateValue(_)));
+                    if let OutputValue::ImmediateValue(iv) = d {
+                        assert_eq!(iv.as_u64(), 0);
+                    }
                 }
                 _ => {
-                    panic!("std_mem did not return 2 LockedValues")
+                    panic!("std_mem did not return a lockedval and a pulseval")
                 }
             },
             _ => panic!("Returned more than 2 outputs"),
@@ -135,13 +142,12 @@ mod prim_test {
         let mut mem_out = mem_d2
             .execute_mut(&[input, write_en, addr0, addr1])
             .into_iter();
-        let (read_data, done) =
-            (mem_out.next().unwrap(), mem_out.next().unwrap());
-        assert!(mem_out.next().is_none()); //make sure it's only of length 2
-        let rd = read_data.1.unwrap_imm();
-        let d = done.1.unwrap_imm();
-        assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
-        assert_eq!(d.as_u64(), 0);
+        if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
+            let rd = read_data.1.unwrap_imm();
+            assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
+        } else {
+            panic!()
+        }
     }
     #[test]
     #[should_panic]
@@ -206,15 +212,23 @@ mod prim_test {
             (mem_out.next().unwrap(), mem_out.next().unwrap());
         assert!(mem_out.next().is_none()); //make sure it's only of length 2
         let mut rd = read_data.1.unwrap_tlv();
-        let mut d = done.1.unwrap_tlv();
-        assert_eq!(rd.get_count(), 1);
-        assert_eq!(d.get_count(), 1);
-        rd.dec_count();
-        d.dec_count();
-        assert!(rd.unlockable());
-        assert!(d.unlockable());
-        assert_eq!(rd.unlock().as_u64(), val.as_u64());
-        assert_eq!(d.unlock().as_u64(), 1);
+        if let OutputValue::PulseValue(mut d) = done.1 {
+            assert_eq!(rd.get_count(), 1);
+            assert_eq!(d.get_val().as_u64(), 0);
+            rd.dec_count();
+            d.tick();
+            assert!(rd.unlockable());
+            assert_eq!(d.get_val().as_u64(), 1);
+
+            assert_eq!(rd.unlock().as_u64(), val.as_u64());
+            let d = d.do_tick();
+            assert!(matches!(d, OutputValue::ImmediateValue(_)));
+            if let OutputValue::ImmediateValue(iv) = d {
+                assert_eq!(iv.as_u64(), 0);
+            }
+        } else {
+            panic!()
+        }
     }
     #[test]
     fn test_mem_d3_imval() {
@@ -230,13 +244,12 @@ mod prim_test {
         let mut mem_out = mem_d3
             .execute_mut(&[input, write_en, addr0, addr1, addr2])
             .into_iter();
-        let (read_data, done) =
-            (mem_out.next().unwrap(), mem_out.next().unwrap());
-        assert!(mem_out.next().is_none()); //make sure it's only of length 2
-        let rd = read_data.1.unwrap_imm();
-        let d = done.1.unwrap_imm();
-        assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
-        assert_eq!(d.as_u64(), 0);
+        if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
+            let rd = read_data.1.unwrap_imm();
+            assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
+        } else {
+            panic!()
+        }
     }
     #[test]
     #[should_panic]
@@ -329,15 +342,23 @@ mod prim_test {
             (mem_out.next().unwrap(), mem_out.next().unwrap());
         assert!(mem_out.next().is_none()); //make sure it's only of length 2
         let mut rd = read_data.1.unwrap_tlv();
-        let mut d = done.1.unwrap_tlv();
-        assert_eq!(rd.get_count(), 1);
-        assert_eq!(d.get_count(), 1);
-        rd.dec_count();
-        d.dec_count();
-        assert!(rd.unlockable());
-        assert!(d.unlockable());
-        assert_eq!(rd.unlock().as_u64(), val.as_u64());
-        assert_eq!(d.unlock().as_u64(), 1);
+        if let OutputValue::PulseValue(mut d) = done.1 {
+            assert_eq!(rd.get_count(), 1);
+            assert_eq!(d.get_val().as_u64(), 0);
+            rd.dec_count();
+            d.tick();
+            assert!(rd.unlockable());
+            assert_eq!(d.get_val().as_u64(), 1);
+
+            assert_eq!(rd.unlock().as_u64(), val.as_u64());
+            let d = d.do_tick();
+            assert!(matches!(d, OutputValue::ImmediateValue(_)));
+            if let OutputValue::ImmediateValue(iv) = d {
+                assert_eq!(iv.as_u64(), 0);
+            }
+        } else {
+            panic!()
+        }
     }
     #[test]
     fn test_mem_d4_imval() {
@@ -357,13 +378,10 @@ mod prim_test {
         let mut mem_out = mem_d4
             .execute_mut(&[input, write_en, addr0, addr1, addr2, addr3])
             .into_iter();
-        let (read_data, done) =
-            (mem_out.next().unwrap(), mem_out.next().unwrap());
-        assert!(mem_out.next().is_none()); //make sure it's only of length 2
-        let rd = read_data.1.unwrap_imm();
-        let d = done.1.unwrap_imm();
-        assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
-        assert_eq!(d.as_u64(), 0);
+        if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
+            let rd = read_data.1.unwrap_imm();
+            assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
+        }
     }
     #[test]
     #[should_panic]
@@ -480,15 +498,24 @@ mod prim_test {
         let (read_data, done) =
             (output_vals.next().unwrap(), output_vals.next().unwrap());
         assert!(output_vals.next().is_none()); //make sure it's only of length 2
-        let mut d = done.1.unwrap_tlv();
-        let mut rd = read_data.1.unwrap_tlv();
-        assert_eq!(rd.get_count(), 1);
-        assert_eq!(d.get_count(), 1);
-        rd.dec_count();
-        d.dec_count();
-        assert!(rd.unlockable());
-        assert!(d.unlockable());
-        assert_eq!(rd.unlock().as_u64(), val.as_u64());
+
+        if let OutputValue::PulseValue(mut d) = done.1 {
+            let mut rd = read_data.1.unwrap_tlv();
+            assert_eq!(rd.get_count(), 1);
+            assert_eq!(d.get_val().as_u64(), 0);
+            rd.dec_count();
+            d.tick();
+            assert!(rd.unlockable());
+            assert_eq!(d.get_val().as_u64(), 1);
+            assert_eq!(rd.unlock().as_u64(), val.as_u64());
+            let d = d.do_tick();
+            assert!(matches!(d, OutputValue::ImmediateValue(_)));
+            if let OutputValue::ImmediateValue(iv) = d {
+                assert_eq!(iv.as_u64(), 0);
+            }
+        } else {
+            panic!()
+        }
     }
 
     #[test]
@@ -503,13 +530,14 @@ mod prim_test {
         let output_vals = reg1.execute_mut(&[input_tup, write_en_tup]);
         println!("output_vals: {:?}", output_vals);
         let mut output_vals = output_vals.into_iter();
-        let (read_data, done) =
-            (output_vals.next().unwrap(), output_vals.next().unwrap());
-        assert!(output_vals.next().is_none()); //make sure it's only of length 2
-        let d = done.1.unwrap_imm();
-        let rd = read_data.1.unwrap_imm();
-        assert_eq!(d.as_u64(), 0);
-        assert_eq!(rd.as_u64(), 0); // assuming this b/c reg1 hasn't been initialized
+        if let (read_data, None) =
+            (output_vals.next().unwrap(), output_vals.next())
+        {
+            let rd = read_data.1.unwrap_imm();
+            assert_eq!(rd.as_u64(), 0); // assuming this b/c reg1 hasn't been initialized
+        } else {
+            panic!()
+        }
     }
     #[test]
     #[should_panic]
