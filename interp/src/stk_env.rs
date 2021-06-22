@@ -4,30 +4,31 @@ use super::{primitives, primitives::Primitive, values::Value};
 use calyx::ir;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::convert::TryInto;
 use std::rc::Rc;
 
 //use push front and pop front and iterator is in right order then
 
-struct Smoosher<K: Eq + std::hash::Hash, V> {
+struct Smoosher<K: Eq + std::hash::Hash + Clone, V: Clone> {
     pub ds: VecDeque<Rc<RefCell<HashMap<K, V>>>>,
-    //note: piece of aux data? to keep track of fork index?
-    //maybe a length to keep track of indecies in general
-    //if two forks are related have to agree on same fork index
-
-    //actually another note, maybe we don't need to keep this in the struct b/c VecDeques
-    //have indecies, so fork index would just be length of current VecDeque - length of original?
-    //maybe a more targeted question is who keeps track of clone(fork?) and original, and how?
+    //the above is so we can keep track of scope
+    //the below is to make getting easy. not sure
+    //if this is too clunky
+    hm: HashMap<K, V>,
 }
 
 //methods we will implement
 // new, get, set, clone, top, bottom, smoosh, diff
-impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
+impl<K: Eq + std::hash::Hash + Clone, V: Clone> Smoosher<K, V> {
     fn new(k: K, v: V) -> Smoosher<K, V> {
         let hm: HashMap<K, V> = HashMap::new();
         let rc_rc_hm: Rc<RefCell<HashMap<K, V>>> = Rc::new(RefCell::new(hm));
         let mut ds: VecDeque<Rc<RefCell<HashMap<K, V>>>> = VecDeque::new();
         ds.push_back(rc_rc_hm);
-        Smoosher { ds }
+        //now create a new hashmap. Invariant: This HM returns all the same
+        //bindings as the HM produced by fully smooshing this Smoosher.
+        let hm: HashMap<K, V> = HashMap::new();
+        Smoosher { ds, hm }
     }
 
     //two notes:
@@ -41,22 +42,12 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     ///with k from the topmost HashMap that contains some key-value pair (k, v). If no HashMap exists with
     ///a key-value pair (k, v), returns None.
     fn get(&self, k: &K) -> Option<&V> {
-        for hm in self.ds.iter() {
-            if let Some(val) = &&hm.borrow().get(k) {
-                return Some(val);
-            }
-        }
-        None
+        self.hm.get(k)
     }
 
     ///forgot why we put this down
-    fn get_mut(&self, k: &K) -> Option<&mut V> {
-        for hm in self.ds.iter() {
-            if let Some(mut val) = &&hm.borrow().get(k) {
-                return Some(&mut *val);
-            }
-        }
-        None
+    fn get_mut(&mut self, k: &K) -> Option<&mut V> {
+        self.hm.get_mut(k)
     }
 
     ///set(k, v) mutates the current Smoosher, inserting the key-value pair (k, v) to the topmost HashMap of
@@ -68,6 +59,8 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
             let front_ref = &mut front.borrow_mut();
             front_ref.insert(k, v);
         }
+        //should also mutate the other HM
+        self.hm.insert(k, v);
     }
 
     //note: if we change everything here to deal with Rc<RefCell...>, then clone
@@ -83,10 +76,9 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
         todo!()
     }
 
-    ///Returns a reference to the frontmost HashMap
-    fn top(&self) -> &HashMap<K, V> {
-        let mp = self.ds.get(0).unwrap();
-        &mp.borrow()
+    ///Returns a RRC of the frontmost HashMap
+    fn top(&self) -> &Rc<RefCell<HashMap<K, V>>> {
+        self.ds.get(0).unwrap()
     }
 
     /// updates [bottom_i] to reflect all bindings contained in the HashMaps of indecies
@@ -102,10 +94,38 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
         todo!()
     }
 
+    fn num_scopes(&self) -> u64 {
+        self.ds.len() as u64
+    }
+
+    fn num_bindings(&self) -> u64 {
+        self.hm.len() as u64
+    }
+
     ///Returns a set of all variables bound in any HashMap in the range
-    ///[bottom_i, top_i]
-    fn list_bound_vars(&self, top_i: u64, bottom_i: u64) -> HashSet<K> {
-        todo!()
+    ///[top_i, bottom_i). [top_i] and [bottom_i] represent distance from the top of the stack,
+    /// 0 being the topmost HashMap.
+    /// If [top_i] < 0 returns a set of all variables bound in any HashMap in the range [0, bottom_i]
+    /// If [bottom_i] > length of stack of HashMaps, returns a set of all variables bound in any HashMap in the
+    /// range [top_i, len).
+    fn list_bound_vars(&self, top_i: u64, bottom_i: u64) -> HashSet<&K> {
+        //note: 0 is frontmost, so i guess the terms top_i and bottom_i are
+        //misleading?
+        let bottom_i = if bottom_i > self.ds.len().try_into().unwrap() {
+            self.ds.len().try_into().unwrap()
+        } else {
+            top_i
+        };
+        let mut hs = HashSet::new();
+        let top_i = if top_i < 0 { 0 } else { top_i };
+        for i in top_i..bottom_i {
+            let hm = self.ds.get(i.try_into().unwrap()).unwrap(); //how to unwrap RcRefCell?
+            let hm = &hm.borrow();
+            for key in hm.keys() {
+                hs.insert(key);
+            }
+        }
+        hs //can't pull out references have to clone
     }
 
     ///in order to set unmodified values to zero
