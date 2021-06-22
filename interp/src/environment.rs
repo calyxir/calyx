@@ -297,7 +297,6 @@ impl Environment {
                 //also iterate over groups cuz they also have ports
                 //iterate over ports, getting their value and putting into map
                 let cll = cell.borrow();
-                //for port in &cll.ports {}
                 match &cll.prototype {
                     ir::CellType::Constant { val, width } => {
                         for port in &cll.ports {
