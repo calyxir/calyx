@@ -203,7 +203,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: fmt
-        args: --all --all-targets -- --check
+        args: --all -- --check
     - name: Clippy version
       uses: actions-rs/cargo@v1
       with:
