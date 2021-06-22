@@ -9,26 +9,21 @@ pub fn interpret_control(
     continuous_assignments: &[ir::Assignment],
     env: Environment,
 ) -> FutilResult<Environment> {
-    match ctrl {
-        ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            if stmts.len() == 1 {
-                match &stmts[0] {
-                    ir::Control::Enable(e) => interpret_group(
-                        &e.group.borrow(),
-                        continuous_assignments,
-                        env,
-                    ),
-                    _ => interpret_control_inner(
-                        ctrl,
-                        continuous_assignments,
-                        env,
-                    ),
-                }
-            } else {
-                interpret_control_inner(ctrl, continuous_assignments, env)
+    if let ir::Control::Seq(ir::Seq { stmts, .. }) = ctrl {
+        if stmts.len() == 1 {
+            match &stmts[0] {
+                ir::Control::Enable(e) => interpret_group(
+                    &e.group.borrow(),
+                    continuous_assignments,
+                    env,
+                ),
+                _ => interpret_control_inner(ctrl, continuous_assignments, env),
             }
+        } else {
+            interpret_control_inner(ctrl, continuous_assignments, env)
         }
-        _ => interpret_control_inner(ctrl, continuous_assignments, env),
+    } else {
+        interpret_control_inner(ctrl, continuous_assignments, env)
     }
 }
 
