@@ -1378,13 +1378,16 @@ impl StdSlice {
 
 impl ValidateInput for StdSlice {
     fn validate_input(&self, inputs: &[(ir::Id, &Value)]) {
-        let in_width = inputs.iter().find_map(|(id, v)| {
-            if id == "in_width" {
-                Some(v)
-            } else {
-                None
-            }
-        });
+        let in_width =
+            inputs.iter().find_map(
+                |(id, v)| {
+                    if id == "in" {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                },
+            );
 
         if let Some(v) = in_width {
             assert_eq!(v.len() as u64, self.in_width)
@@ -1441,13 +1444,16 @@ impl StdPad {
 
 impl ValidateInput for StdPad {
     fn validate_input(&self, inputs: &[(ir::Id, &Value)]) {
-        let in_width = inputs.iter().find_map(|(id, v)| {
-            if id == "in_width" {
-                Some(v)
-            } else {
-                None
-            }
-        });
+        let in_width =
+            inputs.iter().find_map(
+                |(id, v)| {
+                    if id == "in" {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                },
+            );
 
         if let Some(v) = in_width {
             assert_eq!(v.len() as u64, self.in_width)
