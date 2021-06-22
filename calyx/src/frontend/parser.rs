@@ -338,7 +338,7 @@ impl FutilParser {
     fn cell(input: Node) -> ParseResult<ast::Cell> {
         match_nodes!(
             input.clone().into_children();
-            [cell_without_semi(node)] =>
+            [cell_without_semi(_)] =>
                 Err(input.error("Declaration is missing `;`")),
             [cell_without_semi(node), semi(_)] => Ok(node),
         )
@@ -382,7 +382,7 @@ impl FutilParser {
             input.into_children();
             [LHS(port)] => Ok(ast::Atom::Port(port)),
             [num_lit(num)] => Ok(ast::Atom::Num(num)),
-            [bad_num(num)] => unreachable!("bad_num returned non-error result"),
+            [bad_num(_)] => unreachable!("bad_num returned non-error result"),
         )
     }
 
@@ -713,7 +713,7 @@ impl FutilParser {
     fn file(input: Node) -> ParseResult<ast::NamespaceDef> {
         Ok(match_nodes!(
             input.into_children();
-            [imports(imports), extern_or_component(mixed).., EOI] => {
+            [imports(imports), extern_or_component(mixed).., _EOI] => {
                 let mut namespace =
                     ast::NamespaceDef {
                         imports,
