@@ -24,8 +24,8 @@ mod prim_test {
                     assert_eq!(d.get_count(), 1);
                     rd.dec_count();
                     d.dec_count();
-                    assert_eq!(rd.unlockable(), true);
-                    assert_eq!(d.unlockable(), true);
+                    assert!(rd.unlockable());
+                    assert!(d.unlockable());
                     assert_eq!(
                         rd.clone().unlock().as_u64(),
                         val.clone().as_u64()
@@ -45,7 +45,7 @@ mod prim_test {
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(0, 1).unwrap();
         let addr = Value::try_from_init(2, 3).unwrap();
-        let input = (ir::Id::from("write_data"), &val.clone());
+        let input = (ir::Id::from("write_data"), &val);
         let write_en = (ir::Id::from("write_en"), &enable);
         let addr0 = (ir::Id::from("addr0"), &addr);
         let mut mem_out =
@@ -106,8 +106,8 @@ mod prim_test {
                     assert_eq!(d.get_count(), 1);
                     rd.dec_count();
                     d.dec_count();
-                    assert_eq!(rd.unlockable(), true);
-                    assert_eq!(d.unlockable(), true);
+                    assert!(rd.unlockable());
+                    assert!(d.unlockable());
                     assert_eq!(
                         rd.clone().unlock().as_u64(),
                         val.clone().as_u64()
@@ -194,9 +194,9 @@ mod prim_test {
         let val = Value::try_from_init(1, 1).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap(); //so nothing will be written
         let addr0 = Value::try_from_init(1, 1).unwrap();
-        let addr1 = (ir::Id::from("addr1"), &addr0.clone());
-        let addr2 = (ir::Id::from("addr2"), &addr0.clone());
-        let addr0 = (ir::Id::from("addr0"), &addr0.clone());
+        let addr1 = (ir::Id::from("addr1"), &addr0);
+        let addr2 = (ir::Id::from("addr2"), &addr0);
+        let addr0 = (ir::Id::from("addr0"), &addr0);
         let input = (ir::Id::from("write_data"), &val);
         let write_en = (ir::Id::from("write_en"), &enable);
         let mut mem_out = mem_d3
@@ -211,10 +211,10 @@ mod prim_test {
         assert_eq!(d.get_count(), 1);
         rd.dec_count();
         d.dec_count();
-        assert_eq!(rd.unlockable(), true);
-        assert_eq!(d.unlockable(), true);
-        assert_eq!(rd.clone().unlock().as_u64(), val.clone().as_u64());
-        assert_eq!(d.clone().unlock().as_u64(), 1);
+        assert!(rd.unlockable());
+        assert!(d.unlockable());
+        assert_eq!(rd.unlock().as_u64(), val.as_u64());
+        assert_eq!(d.unlock().as_u64(), 1);
     }
     #[test]
     fn test_mem_d3_imval() {
@@ -222,8 +222,8 @@ mod prim_test {
         let val = Value::try_from_init(1, 1).unwrap();
         let enable = Value::try_from_init(0, 1).unwrap(); //so nothing will be written
         let addr0 = Value::try_from_init(1, 1).unwrap();
-        let addr1 = (ir::Id::from("addr1"), &addr0.clone());
-        let addr2 = (ir::Id::from("addr2"), &addr0.clone());
+        let addr1 = (ir::Id::from("addr1"), &addr0);
+        let addr2 = (ir::Id::from("addr2"), &addr0);
         let addr0 = (ir::Id::from("addr0"), &addr0);
         let input = (ir::Id::from("write_data"), &val);
         let write_en = (ir::Id::from("write_en"), &enable);
@@ -334,10 +334,10 @@ mod prim_test {
         assert_eq!(d.get_count(), 1);
         rd.dec_count();
         d.dec_count();
-        assert_eq!(rd.unlockable(), true);
-        assert_eq!(d.unlockable(), true);
-        assert_eq!(rd.clone().unlock().as_u64(), val.clone().as_u64());
-        assert_eq!(d.clone().unlock().as_u64(), 1);
+        assert!(rd.unlockable());
+        assert!(d.unlockable());
+        assert_eq!(rd.unlock().as_u64(), val.as_u64());
+        assert_eq!(d.unlock().as_u64(), 1);
     }
     #[test]
     fn test_mem_d4_imval() {
@@ -486,9 +486,9 @@ mod prim_test {
         assert_eq!(d.get_count(), 1);
         rd.dec_count();
         d.dec_count();
-        assert_eq!(rd.unlockable(), true);
-        assert_eq!(d.unlockable(), true);
-        assert_eq!(rd.clone().unlock().as_u64(), val.clone().as_u64());
+        assert!(rd.unlockable());
+        assert!(d.unlockable());
+        assert_eq!(rd.unlock().as_u64(), val.as_u64());
     }
 
     #[test]
@@ -535,7 +535,7 @@ mod prim_test {
     #[should_panic]
     fn test_std_const_panic() {
         let val = Value::try_from_init(75, 7).unwrap();
-        let std_const = StdConst::new(5, val);
+        StdConst::new(5, val);
     }
     #[test]
     fn test_std_lsh() {
@@ -593,7 +593,7 @@ mod prim_test {
         let add0 = Value::try_from_init(81, 7).unwrap();
         let add1 = Value::try_from_init(10, 4).unwrap();
         let add = StdAdd::new(7);
-        let res_add = add.execute_bin(&add0, &add1);
+        add.execute_bin(&add0, &add1);
     }
     #[test]
     fn test_std_sub() {
@@ -622,7 +622,7 @@ mod prim_test {
         let sub0 = Value::try_from_init(52, 6).unwrap();
         let sub1 = Value::try_from_init(16, 5).unwrap();
         let sub = StdAdd::new(5);
-        let res_sub = sub.execute_bin(&sub0, &sub1);
+        sub.execute_bin(&sub0, &sub1);
     }
     #[test]
     fn test_std_slice() {
@@ -642,7 +642,7 @@ mod prim_test {
     fn test_std_slice_panic() {
         let to_slice = Value::try_from_init(3, 2).unwrap();
         let std_slice = StdSlice::new(7, 4);
-        let res_slice = std_slice.execute_unary(&to_slice);
+        std_slice.execute_unary(&to_slice);
     }
     #[test]
     fn test_std_pad() {
@@ -661,7 +661,7 @@ mod prim_test {
     fn test_std_pad_panic() {
         let to_pad = Value::try_from_init(21, 5).unwrap();
         let std_pad = StdPad::new(3, 9);
-        let res_pad = std_pad.execute_unary(&to_pad);
+        std_pad.execute_unary(&to_pad);
     }
     /// Logical Operators
     #[test]
@@ -774,7 +774,7 @@ mod prim_test {
         let gt0 = Value::try_from_init(9, 4).unwrap();
         let gt1 = Value::try_from_init(3, 2).unwrap();
         let std_gt = StdGt::new(3);
-        let res_gt = std_gt.execute_bin(&gt0, &gt1);
+        std_gt.execute_bin(&gt0, &gt1);
     }
     #[test]
     fn test_std_lt() {
@@ -792,7 +792,7 @@ mod prim_test {
         let lt0 = Value::try_from_init(58, 6).unwrap();
         let lt1 = Value::try_from_init(12, 4).unwrap();
         let std_lt = StdLt::new(5);
-        let res_lt = std_lt.execute_bin(&lt0, &lt1);
+        std_lt.execute_bin(&lt0, &lt1);
     }
     #[test]
     fn test_std_eq() {
@@ -815,7 +815,7 @@ mod prim_test {
     fn test_std_eq_panic() {
         let eq0 = Value::try_from_init(42, 6).unwrap();
         let std_eq = StdEq::new(5);
-        let res_eq = std_eq.execute_bin(&eq0, &eq0);
+        std_eq.execute_bin(&eq0, &eq0);
     }
     #[test]
     fn test_std_neq() {
@@ -840,7 +840,7 @@ mod prim_test {
         let neq0 = Value::try_from_init(45, 6).unwrap();
         let neq1 = Value::try_from_init(4, 3).unwrap();
         let std_neq = StdNeq::new(5);
-        let res_neq = std_neq.execute_bin(&neq0, &neq1);
+        std_neq.execute_bin(&neq0, &neq1);
     }
 
     #[test]
@@ -860,7 +860,7 @@ mod prim_test {
         let ge0 = Value::try_from_init(40, 6).unwrap();
         let ge1 = Value::try_from_init(75, 7).unwrap();
         let std_ge = StdGe::new(6);
-        let res_ge = std_ge.execute_bin(&ge0, &ge1);
+        std_ge.execute_bin(&ge0, &ge1);
     }
     #[test]
     fn test_std_le() {
@@ -879,7 +879,7 @@ mod prim_test {
         let le0 = Value::try_from_init(93, 7).unwrap();
         let le1 = Value::try_from_init(68, 7).unwrap();
         let std_le = StdLe::new(6);
-        let res_le = std_le.execute_bin(&le0, &le1);
+        std_le.execute_bin(&le0, &le1);
     }
 }
 
