@@ -187,6 +187,7 @@ fn grp_is_done(done: OutputValueRef) -> bool {
 /// Evaluates a group, given an environment.
 pub fn interpret_group(
     group: &ir::Group,
+    // TODO (griffin): Use these during interpretation
     _continuous_assignments: &[ir::Assignment],
     env: Environment,
 ) -> FutilResult<Environment> {
