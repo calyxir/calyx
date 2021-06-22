@@ -171,7 +171,6 @@ impl WorkingEnvironment {
     }
 }
 
-// possibly #[inline] here later? Compiler probably knows to do that already
 fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
     group.get(&"done")
 }
