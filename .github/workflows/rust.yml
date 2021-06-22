@@ -4,11 +4,63 @@ on: [push]
 
 jobs:
   build:
+    name: 
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --all
+
+    - name: Versions
+      id: versions
+      run: |
+        echo "::set-output name=runt::$(grep ver runt.toml | awk '{print $3}' | tr -d '"')"
+        echo "::set-output name=vcdump::$(cargo search vcdump | awk '{print $3}' | tr -d '"')"
+      shell: bash
+
+    # Install cargo based tools and use some caching magic.
+    - name: Cache runt
+      id: runt-cache
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/bin/runt
+        key: runt-bin-${{ runner.os }}-${{ steps.versions.outputs.runt }}
+
+    - name: Install runt
+      if: steps.runt-cache.outputs.cache-hit != 'true'
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: runt --version ${{ steps.versions.outputs.runt }}
+
+    - name: Source code tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --manifest-path interp/Cargo.toml
+
+    - name: Runt tests
+      run: |
+        # Run the remaining tests
+        runt interp -d -o fail
+
+
     name: Build and Test
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
       uses: actions/checkout@v2
+
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --all
 
     - name: Versions
       id: versions
@@ -152,11 +204,6 @@ jobs:
           target
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --all
     - name: Install calyx-py
       run: |
         cd calyx-py
