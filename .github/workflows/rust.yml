@@ -203,7 +203,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: fmt
-        args: --all -- --check
+        args: --all --all-targets -- --check
     - name: Clippy version
       uses: actions-rs/cargo@v1
       with:
@@ -213,7 +213,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: clippy
-        args: --all -- --deny warnings
+        args: --all --all-targets -- --deny warnings
 
   lint:
     name: Python Linting
