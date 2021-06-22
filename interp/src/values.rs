@@ -154,6 +154,18 @@ impl Value {
         }
         val
     }
+
+    /// Returns the length (bitwidth) of the value
+    ///
+    /// # Example
+    /// ```
+    /// use interp::values::*;
+    /// let v = Value::from_init(1_u16, 3_u16);
+    /// assert_eq!(v.len(), 3)
+    /// ```
+    pub fn len(&self) -> usize {
+        self.vec.len()
+    }
 }
 
 /* ============== Impls for Values to make them easier to use ============= */

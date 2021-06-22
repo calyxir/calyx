@@ -4,7 +4,6 @@ use calyx::{
     pass_manager::PassManager,
     utils::OutputFile,
 };
-
 use interp::environment;
 use interp::interpreter::interpret_component;
 use std::cell::RefCell;

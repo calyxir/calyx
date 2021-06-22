@@ -1,5 +1,4 @@
 #[cfg(test)]
-#[cfg(test)]
 mod prim_test {
     use crate::primitives::*;
     use crate::values::*;

@@ -9,26 +9,21 @@ pub fn interpret_control(
     continuous_assignments: &[ir::Assignment],
     env: Environment,
 ) -> FutilResult<Environment> {
-    match ctrl {
-        ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            if stmts.len() == 1 {
-                match &stmts[0] {
-                    ir::Control::Enable(e) => interpret_group(
-                        &e.group.borrow(),
-                        continuous_assignments,
-                        env,
-                    ),
-                    _ => interpret_control_inner(
-                        ctrl,
-                        continuous_assignments,
-                        env,
-                    ),
-                }
-            } else {
-                interpret_control_inner(ctrl, continuous_assignments, env)
+    if let ir::Control::Seq(ir::Seq { stmts, .. }) = ctrl {
+        if stmts.len() == 1 {
+            match &stmts[0] {
+                ir::Control::Enable(e) => interpret_group(
+                    &e.group.borrow(),
+                    continuous_assignments,
+                    env,
+                ),
+                _ => interpret_control_inner(ctrl, continuous_assignments, env),
             }
+        } else {
+            interpret_control_inner(ctrl, continuous_assignments, env)
         }
-        _ => interpret_control_inner(ctrl, continuous_assignments, env),
+    } else {
+        interpret_control_inner(ctrl, continuous_assignments, env)
     }
 }
 
@@ -116,24 +111,13 @@ fn eval_while(
     )?;
 
     if cond_val == 1 {
-        eval_while(
+        return eval_while(
             w,
             continuous_assignments,
             interpret_control_inner(&w.body, continuous_assignments, env)?,
-        )
-    } else {
-        Ok(env)
+        );
     }
-    // // currently ports don't update properly in mutli-cycle and runs into infinite loop
-    // // count needs to be removed when the infinite loop problem is fixed
-    // let mut count = 0;
-    // while env.get_from_port(&comp, &w.port.borrow()) != 1 && count < 5 {
-    //     env = interpret_control(&w.body, comp, env)?;
-    //     env = interpret_group(&w.cond.borrow(), env, comp)?;
-    //     // count needs to be remved
-    //     count += 1;
-    // }
-    // Ok(env)
+    Ok(env)
 }
 
 /// Interpret Invoke
