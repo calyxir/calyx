@@ -279,7 +279,7 @@ impl Environment {
                             );
                         }
                     }
-                    _ => panic!("impossible"),
+                    _ => unreachable!(),
                 }
             }
         }
@@ -288,9 +288,6 @@ impl Environment {
 
     /// Return the value associated with a component's port.
     pub fn get_from_port(&self, port: &ir::Port) -> &Value {
-        // if port.is_hole() {
-        //     panic!("Cannot get value from hole")
-        // }
         &self.pv_map[&(port as PortRef)]
     }
 
@@ -324,7 +321,6 @@ impl Environment {
     }
 }
 
-//we have to rewrite the printer
 impl Serialize for Environment {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
