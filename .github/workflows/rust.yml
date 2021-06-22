@@ -3,8 +3,8 @@ name: Rust
 on: [push]
 
 jobs:
-  build:
-    name: 
+  interpreter:
+    name: Test Interpreter
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -50,7 +50,8 @@ jobs:
         runt interp -d -o fail
 
 
-    name: Build and Test
+  compiler:
+    name: Test Compiler
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
