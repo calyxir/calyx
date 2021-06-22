@@ -151,6 +151,8 @@ pub trait ExecuteUnary: ValidateInput {
         self.execute(inputs)
     }
 
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// execution. Preferred over execute.
     fn validate_and_execute(
         &self,
         inputs: &[(ir::Id, &Value)],
@@ -159,6 +161,8 @@ pub trait ExecuteUnary: ValidateInput {
         self.execute(inputs)
     }
 
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// the reset. Preferred over reset.
     fn validate_and_reset(
         &self,
         inputs: &[(ir::Id, &Value)],
@@ -203,6 +207,8 @@ pub trait ExecuteBinary {
         self.execute(inputs)
     }
 
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// execution. Preferred over execute.
     fn validate_and_execute(
         &self,
         inputs: &[(ir::Id, &Value)],
@@ -211,6 +217,8 @@ pub trait ExecuteBinary {
         self.execute(inputs)
     }
 
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// the reset. Preferred over reset.
     fn validate_and_reset(
         &self,
         inputs: &[(ir::Id, &Value)],
@@ -247,6 +255,8 @@ pub trait Execute: ValidateInput {
         self.execute(inputs)
     }
 
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// execution. Preferred over execute.
     fn validate_and_execute(
         &self,
         inputs: &[(ir::Id, &Value)],
@@ -255,6 +265,8 @@ pub trait Execute: ValidateInput {
         self.execute(inputs)
     }
 
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// the reset. Preferred over reset.
     fn validate_and_reset(
         &self,
         inputs: &[(ir::Id, &Value)],
@@ -276,6 +288,8 @@ pub trait ExecuteStateful: ValidateInput {
 
     fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)>;
 
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// execution. Preferred over execute_mut.
     fn validate_and_execute_mut(
         &mut self,
         inputs: &[(ir::Id, &Value)],
@@ -284,6 +298,8 @@ pub trait ExecuteStateful: ValidateInput {
         self.execute_mut(inputs)
     }
 
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// the reset. Preferred over reset.
     fn validate_and_reset(
         &self,
         inputs: &[(ir::Id, &Value)],
