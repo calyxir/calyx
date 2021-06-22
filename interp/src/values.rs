@@ -155,6 +155,7 @@ impl Value {
         val
     }
 
+    #[allow(clippy::len_without_is_empty)]
     /// Returns the length (bitwidth) of the value
     ///
     /// # Example
