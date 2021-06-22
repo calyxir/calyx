@@ -10,9 +10,9 @@ mod prim_test {
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr = Value::try_from_init(2, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr);
         let mut mem_out = mem_d1.execute_mut(&[input, write_en, addr0]);
         match &mut mem_out[..] {
             [read_data, done] => match (read_data, done) {
@@ -45,9 +45,9 @@ mod prim_test {
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(0, 1).unwrap();
         let addr = Value::try_from_init(2, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr);
+        let input = (ir::Id::from("write_data"), &val.clone());
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr);
         let mut mem_out =
             mem_d1.execute_mut(&[input, write_en, addr0]).into_iter();
         let (read_data, done) =
@@ -66,9 +66,9 @@ mod prim_test {
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr = Value::try_from_init(4, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr);
         let mut _mem_out = mem_d1.execute_mut(&[input, write_en, addr0]);
     }
     #[test]
@@ -79,9 +79,9 @@ mod prim_test {
         let val = Value::try_from_init(10, 4).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr = Value::try_from_init(1, 1).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr);
         let mut _mem_out = mem_d1.execute_mut(&[input, write_en, addr0]);
     }
     #[test]
@@ -91,10 +91,10 @@ mod prim_test {
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(2, 3).unwrap();
         let addr_1 = Value::try_from_init(0, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut mem_out = mem_d2.execute_mut(&[input, write_en, addr0, addr1]);
         match &mut mem_out[..] {
             [read_data, done] => match (read_data, done) {
@@ -128,10 +128,10 @@ mod prim_test {
         let enable = Value::try_from_init(0, 1).unwrap();
         let addr_0 = Value::try_from_init(2, 3).unwrap();
         let addr_1 = Value::try_from_init(0, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut mem_out = mem_d2
             .execute_mut(&[input, write_en, addr0, addr1])
             .into_iter();
@@ -152,10 +152,10 @@ mod prim_test {
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(4, 3).unwrap();
         let addr_1 = Value::try_from_init(0, 1).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut _mem_out = mem_d2.execute_mut(&[input, write_en, addr0, addr1]);
     }
     #[test]
@@ -167,10 +167,10 @@ mod prim_test {
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(0, 1).unwrap();
         let addr_1 = Value::try_from_init(4, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut _mem_out = mem_d2.execute_mut(&[input, write_en, addr0, addr1]);
     }
     #[test]
@@ -182,10 +182,10 @@ mod prim_test {
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(0, 1).unwrap();
         let addr_1 = Value::try_from_init(1, 1).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut _mem_out = mem_d2.execute_mut(&[input, write_en, addr0, addr1]);
     }
     #[test]
@@ -194,11 +194,11 @@ mod prim_test {
         let val = Value::try_from_init(1, 1).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap(); //so nothing will be written
         let addr0 = Value::try_from_init(1, 1).unwrap();
-        let addr1 = (ir::Id::from("addr1"), addr0.clone());
-        let addr2 = (ir::Id::from("addr2"), addr0.clone());
-        let addr0 = (ir::Id::from("addr0"), addr0.clone());
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable.clone());
+        let addr1 = (ir::Id::from("addr1"), &addr0.clone());
+        let addr2 = (ir::Id::from("addr2"), &addr0.clone());
+        let addr0 = (ir::Id::from("addr0"), &addr0.clone());
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
         let mut mem_out = mem_d3
             .execute_mut(&[input, write_en, addr0, addr1, addr2])
             .into_iter();
@@ -222,11 +222,11 @@ mod prim_test {
         let val = Value::try_from_init(1, 1).unwrap();
         let enable = Value::try_from_init(0, 1).unwrap(); //so nothing will be written
         let addr0 = Value::try_from_init(1, 1).unwrap();
-        let addr1 = (ir::Id::from("addr1"), addr0.clone());
-        let addr2 = (ir::Id::from("addr2"), addr0.clone());
-        let addr0 = (ir::Id::from("addr0"), addr0.clone());
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable.clone());
+        let addr1 = (ir::Id::from("addr1"), &addr0.clone());
+        let addr2 = (ir::Id::from("addr2"), &addr0.clone());
+        let addr0 = (ir::Id::from("addr0"), &addr0);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
         let mut mem_out = mem_d3
             .execute_mut(&[input, write_en, addr0, addr1, addr2])
             .into_iter();
@@ -248,11 +248,11 @@ mod prim_test {
         let addr_0 = Value::try_from_init(0, 4).unwrap();
         let addr_1 = Value::try_from_init(1, 1).unwrap();
         let addr_2 = Value::try_from_init(1, 1).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
         let mut _mem_out =
             mem_d3.execute_mut(&[input, write_en, addr0, addr1, addr2]);
     }
@@ -266,11 +266,11 @@ mod prim_test {
         let addr_0 = Value::try_from_init(0, 1).unwrap();
         let addr_1 = Value::try_from_init(1, 4).unwrap();
         let addr_2 = Value::try_from_init(1, 1).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
         let mut _mem_out =
             mem_d3.execute_mut(&[input, write_en, addr0, addr1, addr2]);
     }
@@ -284,11 +284,11 @@ mod prim_test {
         let addr_0 = Value::try_from_init(0, 1).unwrap();
         let addr_1 = Value::try_from_init(1, 1).unwrap();
         let addr_2 = Value::try_from_init(1, 4).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
         let mut _mem_out =
             mem_d3.execute_mut(&[input, write_en, addr0, addr1, addr2]);
     }
@@ -302,11 +302,11 @@ mod prim_test {
         let addr_0 = Value::try_from_init(0, 1).unwrap();
         let addr_1 = Value::try_from_init(1, 1).unwrap();
         let addr_2 = Value::try_from_init(1, 1).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
         let mut _mem_out =
             mem_d3.execute_mut(&[input, write_en, addr0, addr1, addr2]);
     }
@@ -316,12 +316,12 @@ mod prim_test {
         let val = Value::try_from_init(1, 1).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap(); //so nothing will be written
         let addr0 = Value::try_from_init(1, 1).unwrap();
-        let addr1 = (ir::Id::from("addr1"), addr0.clone());
-        let addr2 = (ir::Id::from("addr2"), addr0.clone());
-        let addr3 = (ir::Id::from("addr3"), addr0.clone());
-        let addr0 = (ir::Id::from("addr0"), addr0.clone());
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable.clone());
+        let addr1 = (ir::Id::from("addr1"), &addr0);
+        let addr2 = (ir::Id::from("addr2"), &addr0);
+        let addr3 = (ir::Id::from("addr3"), &addr0);
+        let addr0 = (ir::Id::from("addr0"), &addr0);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
         let mut mem_out = mem_d4
             .execute_mut(&[input, write_en, addr0, addr1, addr2, addr3])
             .into_iter();
@@ -348,12 +348,12 @@ mod prim_test {
         let addr_1 = Value::try_from_init(1, 3).unwrap();
         let addr_2 = Value::try_from_init(5, 3).unwrap();
         let addr_3 = Value::try_from_init(2, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
-        let addr3 = (ir::Id::from("addr3"), addr_3);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
+        let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut mem_out = mem_d4
             .execute_mut(&[input, write_en, addr0, addr1, addr2, addr3])
             .into_iter();
@@ -376,12 +376,12 @@ mod prim_test {
         let addr_1 = Value::try_from_init(0, 2).unwrap();
         let addr_2 = Value::try_from_init(1, 2).unwrap();
         let addr_3 = Value::try_from_init(2, 2).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
-        let addr3 = (ir::Id::from("addr3"), addr_3);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
+        let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out =
             mem_d4.execute_mut(&[input, write_en, addr0, addr1, addr2, addr3]);
     }
@@ -396,12 +396,12 @@ mod prim_test {
         let addr_1 = Value::try_from_init(4, 3).unwrap();
         let addr_2 = Value::try_from_init(1, 2).unwrap();
         let addr_3 = Value::try_from_init(2, 2).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
-        let addr3 = (ir::Id::from("addr3"), addr_3);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
+        let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out =
             mem_d4.execute_mut(&[input, write_en, addr0, addr1, addr2, addr3]);
     }
@@ -416,12 +416,12 @@ mod prim_test {
         let addr_1 = Value::try_from_init(1, 2).unwrap();
         let addr_2 = Value::try_from_init(4, 3).unwrap();
         let addr_3 = Value::try_from_init(2, 2).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
-        let addr3 = (ir::Id::from("addr3"), addr_3);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
+        let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out =
             mem_d4.execute_mut(&[input, write_en, addr0, addr1, addr2, addr3]);
     }
@@ -436,12 +436,12 @@ mod prim_test {
         let addr_1 = Value::try_from_init(1, 2).unwrap();
         let addr_2 = Value::try_from_init(2, 2).unwrap();
         let addr_3 = Value::try_from_init(4, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
-        let addr3 = (ir::Id::from("addr3"), addr_3);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
+        let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out =
             mem_d4.execute_mut(&[input, write_en, addr0, addr1, addr2, addr3]);
     }
@@ -456,12 +456,12 @@ mod prim_test {
         let addr_1 = Value::try_from_init(1, 2).unwrap();
         let addr_2 = Value::try_from_init(2, 2).unwrap();
         let addr_3 = Value::try_from_init(3, 2).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
-        let addr3 = (ir::Id::from("addr3"), addr_3);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
+        let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out =
             mem_d4.execute_mut(&[input, write_en, addr0, addr1, addr2, addr3]);
     }
@@ -469,10 +469,11 @@ mod prim_test {
     fn test_std_reg_tlv() {
         let val = Value::try_from_init(16, 6).unwrap();
         let mut reg1 = StdReg::new(6);
-        let input = ir::Id::from("in");
-        let input_tup = (input, val.clone());
-        let write_en = ir::Id::from("write_en");
-        let write_en_tup = (write_en, Value::try_from_init(1, 1).unwrap());
+        let input_tup = (ir::Id::from("in"), &val);
+        let write_en_tup = (
+            ir::Id::from("write_en"),
+            &Value::try_from_init(1, 1).unwrap(),
+        );
         let output_vals = reg1.execute_mut(&[input_tup, write_en_tup]);
         println!("output_vals: {:?}", output_vals);
         let mut output_vals = output_vals.into_iter();
@@ -494,10 +495,11 @@ mod prim_test {
     fn test_std_reg_imval() {
         let val = Value::try_from_init(16, 6).unwrap();
         let mut reg1 = StdReg::new(6);
-        let input = ir::Id::from("in");
-        let input_tup = (input, val.clone());
-        let write_en = ir::Id::from("write_en");
-        let write_en_tup = (write_en, Value::try_from_init(0, 1).unwrap());
+        let input_tup = (ir::Id::from("in"), &val);
+        let write_en_tup = (
+            ir::Id::from("write_en"),
+            &Value::try_from_init(0, 1).unwrap(),
+        );
         let output_vals = reg1.execute_mut(&[input_tup, write_en_tup]);
         println!("output_vals: {:?}", output_vals);
         let mut output_vals = output_vals.into_iter();
@@ -515,10 +517,10 @@ mod prim_test {
         let mut reg1 = StdReg::new(5);
         // now try loading in a value that is too big(??)
         let val = Value::try_from_init(32, 6).unwrap();
-        let input = (ir::Id::from("in"), val);
+        let input = (ir::Id::from("in"), &val);
         let write_en = (
             ir::Id::from("write_en"),
-            Value::try_from_init(1, 1).unwrap(),
+            &Value::try_from_init(1, 1).unwrap(),
         );
         let _output_vals = reg1.execute_mut(&[input, write_en]);
     }
