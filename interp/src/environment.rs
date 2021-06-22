@@ -49,15 +49,6 @@ impl Environment {
 
                 if let ir::CellType::Primitive { name, .. } = &cl.prototype {
                     match name.as_ref() {
-                        "std_add" => {
-                            let adder = primitives::StdAdd::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                            );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdAdd(adder),
-                            );
-                        }
                         "std_reg" => {
                             let reg = primitives::StdReg::new(
                                 cl.get_parameter("WIDTH").unwrap(),
@@ -96,6 +87,15 @@ impl Environment {
                             map.insert(
                                 cl as *const ir::Cell,
                                 Primitive::StdRsh(rsh),
+                            );
+                        }
+                        "std_add" => {
+                            let adder = primitives::StdAdd::new(
+                                cl.get_parameter("WIDTH").unwrap(),
+                            );
+                            map.insert(
+                                cl as *const ir::Cell,
+                                Primitive::StdAdd(adder),
                             );
                         }
                         "std_sub" => {
