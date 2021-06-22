@@ -30,13 +30,6 @@
       "read_data": 4,
       "write_data": 0,
       "write_en": 0
-    },
-    "reg0": {
-      "clk": 0,
-      "done": 0,
-      "in": 0,
-      "out": 1,
-      "write_en": 0
     }
   }
 }
