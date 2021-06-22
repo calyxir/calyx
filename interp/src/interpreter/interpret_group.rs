@@ -14,10 +14,6 @@ use std::collections::{HashMap, HashSet};
 use std::iter;
 use std::rc::Rc;
 
-#[allow(unused_imports)]
-use crate::primitives::{
-    Execute, ExecuteBinary, ExecuteStateful, ExecuteUnary,
-};
 #[derive(Debug, Clone, Default)]
 struct DependencyMap<'a> {
     map: HashMap<*const ir::Port, HashSet<AssignmentRef<'a>>>,
