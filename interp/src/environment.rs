@@ -8,10 +8,6 @@ use std::collections::{BTreeMap, HashMap};
 /// The environment to interpret a Calyx program.
 #[derive(Clone, Debug)]
 pub struct Environment {
-    /// Stores values of context.
-    /// Maps component names to a mapping from the component's cell names to their ports' values.
-    //pub map: HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, Value>>>,
-
     ///clock count
     pub clk: u64,
 
@@ -31,7 +27,6 @@ impl Environment {
     /// ctx : A context from the IR
     pub fn init(ctx: &ir::RRC<ir::Context>) -> Self {
         Self {
-            //map: Environment::construct_map(&ctx.borrow()),
             context: ctx.clone(),
             clk: 0,
             pv_map: Environment::construct_pv_map(&ctx.borrow()),
