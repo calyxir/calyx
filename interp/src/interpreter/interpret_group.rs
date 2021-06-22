@@ -14,9 +14,15 @@ use std::collections::{HashMap, HashSet};
 use std::iter;
 use std::rc::Rc;
 
+type ConstPort = *const ir::Port;
+
+/// A wrapper over a hashmap keyed by raw pointers. It contains a mapping from
+/// output (or inout) ports to a set of assignments which read from/depend on
+/// the given port. This is used to avoid re-running assignments when relevant
+/// values have not changed.
 #[derive(Debug, Clone, Default)]
 struct DependencyMap<'a> {
-    map: HashMap<*const ir::Port, HashSet<AssignmentRef<'a>>>,
+    map: HashMap<ConstPort, HashSet<AssignmentRef<'a>>>,
 }
 
 impl<'a, I: Iterator<Item = &'a ir::Assignment>> From<I> for DependencyMap<'a> {
@@ -45,7 +51,7 @@ impl<'a> DependencyMap<'a> {
                     ir::Direction::Output | ir::Direction::Inout => true,
                 } {
                     self.map
-                        .entry(&port.borrow() as &ir::Port as *const ir::Port)
+                        .entry(&port.borrow() as &ir::Port as ConstPort)
                         .or_default()
                         .insert(assignment.into());
                 }
@@ -54,15 +60,30 @@ impl<'a> DependencyMap<'a> {
     }
 
     fn get(&self, port: &ir::Port) -> Option<&HashSet<AssignmentRef<'a>>> {
-        self.map.get(&(port as *const ir::Port))
+        self.map.get(&(port as ConstPort))
     }
 }
-
+/// An alias for a hashset over Assignments (hashed with a wrapper using
+/// identity). Used to track assignments that need to be (re)evaluated
 type WorkList<'a> = HashSet<AssignmentRef<'a>>;
+
+/// An alias for a hashset over cells (hashed with a wrapper using identity).
+/// Used to track when cells should be (re)evaluated due to changes on one or
+/// more of their inputs
 type CellList = HashSet<CellRef>;
 
-type PortOutputValMap = HashMap<*const ir::Port, OutputValue>;
+/// A wrapper for a map assigning OutputValues to each port. Used in the working
+/// environment to track values that are not of type Value which is used in the
+/// environment.
+// TODO (griffin): Update environment definition to allow for things of type
+//                 OutputValue?
+type PortOutputValMap = HashMap<ConstPort, OutputValue>;
 
+/// A wrapper struct to keep the passed environment and a map tracking the
+/// updates made in the current environment. It is only really needed because
+/// the environment maps to values of type Value, but during group
+/// interpretation, ports need to be mapped to values of type OutputValue
+// TODO (griffin): Update / remove pending changes to environment definition
 #[derive(Clone, Debug)]
 struct WorkingEnvironment {
     pub backing_env: Environment,
@@ -80,7 +101,7 @@ impl From<Environment> for WorkingEnvironment {
 
 impl WorkingEnvironment {
     fn get(&self, port: &ir::Port) -> OutputValueRef {
-        let working_val = self.working_env.get(&(port as *const ir::Port));
+        let working_val = self.working_env.get(&(port as ConstPort));
         match working_val {
             Some(v) => v.into(),
             None => self.backing_env.get_from_port(port).into(),
@@ -90,13 +111,12 @@ impl WorkingEnvironment {
     fn entry(
         &mut self,
         port: &ir::Port,
-    ) -> std::collections::hash_map::Entry<*const calyx::ir::Port, OutputValue>
-    {
-        self.working_env.entry(port as *const ir::Port)
+    ) -> std::collections::hash_map::Entry<ConstPort, OutputValue> {
+        self.working_env.entry(port as ConstPort)
     }
 
     fn update_val(&mut self, port: &ir::Port, value: OutputValue) {
-        self.working_env.insert(port as *const ir::Port, value);
+        self.working_env.insert(port as ConstPort, value);
     }
 
     fn get_as_val(&self, port: &ir::Port) -> &Value {
@@ -107,7 +127,7 @@ impl WorkingEnvironment {
         }
     }
 
-    fn do_tick(&mut self) -> Vec<*const ir::Port> {
+    fn do_tick(&mut self) -> Vec<ConstPort> {
         self.backing_env.clk += 1;
 
         let mut new_vals = vec![];
@@ -320,8 +340,15 @@ pub fn interpret_group(
     Ok(working_env.collapse_env())
 }
 
-// yes I know we don't need two different lifetimes here but they are
-// meaningfully separate so fight me
+/// Evaluates the primitives corresponding to the given iterator of cells, based
+/// on the current environment. Returns a set of assignments that may change
+/// based on the updates to primitive values.
+///
+/// Note: this function could be written with only one lifetime, but it is worth
+/// noting that the returned assignments refs are tied to the dependency map and
+/// thus to the assignments it is referencing meanwhile the lifetime on the
+/// given cell RRCs is unrelated and largely irrelevant as the prim_map is keyed
+/// off of port raw pointers whose lifetime is uncoupled from the cells.
 fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     env: &mut WorkingEnvironment,
     dependency_map: &DependencyMap<'a>,
@@ -446,7 +473,7 @@ pub fn finish_group_interpretation(
         .iter()
         .filter_map(|ir::Assignment { dst, .. }| {
             env.insert(
-                &dst.borrow() as &ir::Port as *const ir::Port,
+                &dst.borrow() as &ir::Port as ConstPort,
                 Value::zeroes(dst.borrow().width as usize),
             );
             match &dst.borrow().parent {
@@ -456,10 +483,7 @@ pub fn finish_group_interpretation(
         })
         .collect();
 
-    env.insert(
-        &done.borrow() as &ir::Port as *const ir::Port,
-        Value::zeroes(1),
-    );
+    env.insert(&done.borrow() as &ir::Port as ConstPort, Value::zeroes(1));
 
     let mut working_env: WorkingEnvironment = env.into();
 
