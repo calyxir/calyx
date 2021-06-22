@@ -9,30 +9,34 @@ mod prim_test {
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr = Value::try_from_init(2, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr);
         let mut mem_out = mem_d1.execute_mut(&[input, write_en, addr0]);
         match &mut mem_out[..] {
             [read_data, done] => match (read_data, done) {
                 (
                     (_, OutputValue::LockedValue(rd)),
-                    (_, OutputValue::LockedValue(d)),
+                    (_, OutputValue::PulseValue(d)),
                 ) => {
                     assert_eq!(rd.get_count(), 1);
-                    assert_eq!(d.get_count(), 1);
+                    assert_eq!(d.get_val().as_u64(), 0);
                     rd.dec_count();
-                    d.dec_count();
-                    assert_eq!(rd.unlockable(), true);
-                    assert_eq!(d.unlockable(), true);
+                    d.tick();
+                    assert!(rd.unlockable());
                     assert_eq!(
                         rd.clone().unlock().as_u64(),
                         val.clone().as_u64()
                     );
-                    assert_eq!(d.clone().unlock().as_u64(), 1);
+                    assert_eq!(d.get_val().as_u64(), 1);
+                    let d = d.clone().do_tick();
+                    assert!(matches!(d, OutputValue::ImmediateValue(_)));
+                    if let OutputValue::ImmediateValue(iv) = d {
+                        assert_eq!(iv.as_u64(), 0);
+                    }
                 }
                 _ => {
-                    panic!("std_mem did not return 2 LockedValues")
+                    panic!("std_mem did not return the expected output types")
                 }
             },
             _ => panic!("Returned more than 2 outputs"),
@@ -44,18 +48,17 @@ mod prim_test {
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(0, 1).unwrap();
         let addr = Value::try_from_init(2, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr);
         let mut mem_out =
             mem_d1.execute_mut(&[input, write_en, addr0]).into_iter();
-        let (read_data, done) =
-            (mem_out.next().unwrap(), mem_out.next().unwrap());
-        assert!(mem_out.next().is_none()); //make sure it's only of length 2
-        let rd = read_data.1.unwrap_imm();
-        let d = done.1.unwrap_imm();
-        assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
-        assert_eq!(d.as_u64(), 0);
+        if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
+            let rd = read_data.1.unwrap_imm();
+            assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
+        } else {
+            panic!()
+        }
     }
     #[test]
     #[should_panic]
@@ -65,9 +68,9 @@ mod prim_test {
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr = Value::try_from_init(4, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr);
         let mut _mem_out = mem_d1.execute_mut(&[input, write_en, addr0]);
     }
     #[test]
@@ -78,9 +81,9 @@ mod prim_test {
         let val = Value::try_from_init(10, 4).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr = Value::try_from_init(1, 1).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr);
         let mut _mem_out = mem_d1.execute_mut(&[input, write_en, addr0]);
     }
     #[test]
@@ -90,31 +93,35 @@ mod prim_test {
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(2, 3).unwrap();
         let addr_1 = Value::try_from_init(0, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut mem_out = mem_d2.execute_mut(&[input, write_en, addr0, addr1]);
         match &mut mem_out[..] {
             [read_data, done] => match (read_data, done) {
                 (
                     (_, OutputValue::LockedValue(rd)),
-                    (_, OutputValue::LockedValue(d)),
+                    (_, OutputValue::PulseValue(d)),
                 ) => {
                     assert_eq!(rd.get_count(), 1);
-                    assert_eq!(d.get_count(), 1);
+                    assert_eq!(d.get_val().as_u64(), 0);
                     rd.dec_count();
-                    d.dec_count();
-                    assert_eq!(rd.unlockable(), true);
-                    assert_eq!(d.unlockable(), true);
+                    d.tick();
+                    assert!(rd.unlockable());
+                    assert_eq!(d.get_val().as_u64(), 1);
                     assert_eq!(
                         rd.clone().unlock().as_u64(),
                         val.clone().as_u64()
                     );
-                    assert_eq!(d.clone().unlock().as_u64(), 1);
+                    let d = d.clone().do_tick();
+                    assert!(matches!(d, OutputValue::ImmediateValue(_)));
+                    if let OutputValue::ImmediateValue(iv) = d {
+                        assert_eq!(iv.as_u64(), 0);
+                    }
                 }
                 _ => {
-                    panic!("std_mem did not return 2 LockedValues")
+                    panic!("std_mem did not return a lockedval and a pulseval")
                 }
             },
             _ => panic!("Returned more than 2 outputs"),
@@ -127,20 +134,19 @@ mod prim_test {
         let enable = Value::try_from_init(0, 1).unwrap();
         let addr_0 = Value::try_from_init(2, 3).unwrap();
         let addr_1 = Value::try_from_init(0, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut mem_out = mem_d2
             .execute_mut(&[input, write_en, addr0, addr1])
             .into_iter();
-        let (read_data, done) =
-            (mem_out.next().unwrap(), mem_out.next().unwrap());
-        assert!(mem_out.next().is_none()); //make sure it's only of length 2
-        let rd = read_data.1.unwrap_imm();
-        let d = done.1.unwrap_imm();
-        assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
-        assert_eq!(d.as_u64(), 0);
+        if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
+            let rd = read_data.1.unwrap_imm();
+            assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
+        } else {
+            panic!()
+        }
     }
     #[test]
     #[should_panic]
@@ -151,10 +157,10 @@ mod prim_test {
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(4, 3).unwrap();
         let addr_1 = Value::try_from_init(0, 1).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut _mem_out = mem_d2.execute_mut(&[input, write_en, addr0, addr1]);
     }
     #[test]
@@ -166,10 +172,10 @@ mod prim_test {
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(0, 1).unwrap();
         let addr_1 = Value::try_from_init(4, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut _mem_out = mem_d2.execute_mut(&[input, write_en, addr0, addr1]);
     }
     #[test]
@@ -181,10 +187,10 @@ mod prim_test {
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(0, 1).unwrap();
         let addr_1 = Value::try_from_init(1, 1).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut _mem_out = mem_d2.execute_mut(&[input, write_en, addr0, addr1]);
     }
     #[test]
@@ -193,11 +199,11 @@ mod prim_test {
         let val = Value::try_from_init(1, 1).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap(); //so nothing will be written
         let addr0 = Value::try_from_init(1, 1).unwrap();
-        let addr1 = (ir::Id::from("addr1"), addr0.clone());
-        let addr2 = (ir::Id::from("addr2"), addr0.clone());
-        let addr0 = (ir::Id::from("addr0"), addr0.clone());
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable.clone());
+        let addr1 = (ir::Id::from("addr1"), &addr0);
+        let addr2 = (ir::Id::from("addr2"), &addr0);
+        let addr0 = (ir::Id::from("addr0"), &addr0);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
         let mut mem_out = mem_d3
             .execute_mut(&[input, write_en, addr0, addr1, addr2])
             .into_iter();
@@ -205,15 +211,23 @@ mod prim_test {
             (mem_out.next().unwrap(), mem_out.next().unwrap());
         assert!(mem_out.next().is_none()); //make sure it's only of length 2
         let mut rd = read_data.1.unwrap_tlv();
-        let mut d = done.1.unwrap_tlv();
-        assert_eq!(rd.get_count(), 1);
-        assert_eq!(d.get_count(), 1);
-        rd.dec_count();
-        d.dec_count();
-        assert_eq!(rd.unlockable(), true);
-        assert_eq!(d.unlockable(), true);
-        assert_eq!(rd.clone().unlock().as_u64(), val.clone().as_u64());
-        assert_eq!(d.clone().unlock().as_u64(), 1);
+        if let OutputValue::PulseValue(mut d) = done.1 {
+            assert_eq!(rd.get_count(), 1);
+            assert_eq!(d.get_val().as_u64(), 0);
+            rd.dec_count();
+            d.tick();
+            assert!(rd.unlockable());
+            assert_eq!(d.get_val().as_u64(), 1);
+
+            assert_eq!(rd.unlock().as_u64(), val.as_u64());
+            let d = d.do_tick();
+            assert!(matches!(d, OutputValue::ImmediateValue(_)));
+            if let OutputValue::ImmediateValue(iv) = d {
+                assert_eq!(iv.as_u64(), 0);
+            }
+        } else {
+            panic!()
+        }
     }
     #[test]
     fn test_mem_d3_imval() {
@@ -221,21 +235,20 @@ mod prim_test {
         let val = Value::try_from_init(1, 1).unwrap();
         let enable = Value::try_from_init(0, 1).unwrap(); //so nothing will be written
         let addr0 = Value::try_from_init(1, 1).unwrap();
-        let addr1 = (ir::Id::from("addr1"), addr0.clone());
-        let addr2 = (ir::Id::from("addr2"), addr0.clone());
-        let addr0 = (ir::Id::from("addr0"), addr0.clone());
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable.clone());
+        let addr1 = (ir::Id::from("addr1"), &addr0);
+        let addr2 = (ir::Id::from("addr2"), &addr0);
+        let addr0 = (ir::Id::from("addr0"), &addr0);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
         let mut mem_out = mem_d3
             .execute_mut(&[input, write_en, addr0, addr1, addr2])
             .into_iter();
-        let (read_data, done) =
-            (mem_out.next().unwrap(), mem_out.next().unwrap());
-        assert!(mem_out.next().is_none()); //make sure it's only of length 2
-        let rd = read_data.1.unwrap_imm();
-        let d = done.1.unwrap_imm();
-        assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
-        assert_eq!(d.as_u64(), 0);
+        if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
+            let rd = read_data.1.unwrap_imm();
+            assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
+        } else {
+            panic!()
+        }
     }
     #[test]
     #[should_panic]
@@ -247,11 +260,11 @@ mod prim_test {
         let addr_0 = Value::try_from_init(0, 4).unwrap();
         let addr_1 = Value::try_from_init(1, 1).unwrap();
         let addr_2 = Value::try_from_init(1, 1).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
         let mut _mem_out =
             mem_d3.execute_mut(&[input, write_en, addr0, addr1, addr2]);
     }
@@ -265,11 +278,11 @@ mod prim_test {
         let addr_0 = Value::try_from_init(0, 1).unwrap();
         let addr_1 = Value::try_from_init(1, 4).unwrap();
         let addr_2 = Value::try_from_init(1, 1).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
         let mut _mem_out =
             mem_d3.execute_mut(&[input, write_en, addr0, addr1, addr2]);
     }
@@ -283,11 +296,11 @@ mod prim_test {
         let addr_0 = Value::try_from_init(0, 1).unwrap();
         let addr_1 = Value::try_from_init(1, 1).unwrap();
         let addr_2 = Value::try_from_init(1, 4).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
         let mut _mem_out =
             mem_d3.execute_mut(&[input, write_en, addr0, addr1, addr2]);
     }
@@ -301,11 +314,11 @@ mod prim_test {
         let addr_0 = Value::try_from_init(0, 1).unwrap();
         let addr_1 = Value::try_from_init(1, 1).unwrap();
         let addr_2 = Value::try_from_init(1, 1).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
         let mut _mem_out =
             mem_d3.execute_mut(&[input, write_en, addr0, addr1, addr2]);
     }
@@ -315,12 +328,12 @@ mod prim_test {
         let val = Value::try_from_init(1, 1).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap(); //so nothing will be written
         let addr0 = Value::try_from_init(1, 1).unwrap();
-        let addr1 = (ir::Id::from("addr1"), addr0.clone());
-        let addr2 = (ir::Id::from("addr2"), addr0.clone());
-        let addr3 = (ir::Id::from("addr3"), addr0.clone());
-        let addr0 = (ir::Id::from("addr0"), addr0.clone());
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable.clone());
+        let addr1 = (ir::Id::from("addr1"), &addr0);
+        let addr2 = (ir::Id::from("addr2"), &addr0);
+        let addr3 = (ir::Id::from("addr3"), &addr0);
+        let addr0 = (ir::Id::from("addr0"), &addr0);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
         let mut mem_out = mem_d4
             .execute_mut(&[input, write_en, addr0, addr1, addr2, addr3])
             .into_iter();
@@ -328,15 +341,23 @@ mod prim_test {
             (mem_out.next().unwrap(), mem_out.next().unwrap());
         assert!(mem_out.next().is_none()); //make sure it's only of length 2
         let mut rd = read_data.1.unwrap_tlv();
-        let mut d = done.1.unwrap_tlv();
-        assert_eq!(rd.get_count(), 1);
-        assert_eq!(d.get_count(), 1);
-        rd.dec_count();
-        d.dec_count();
-        assert_eq!(rd.unlockable(), true);
-        assert_eq!(d.unlockable(), true);
-        assert_eq!(rd.clone().unlock().as_u64(), val.clone().as_u64());
-        assert_eq!(d.clone().unlock().as_u64(), 1);
+        if let OutputValue::PulseValue(mut d) = done.1 {
+            assert_eq!(rd.get_count(), 1);
+            assert_eq!(d.get_val().as_u64(), 0);
+            rd.dec_count();
+            d.tick();
+            assert!(rd.unlockable());
+            assert_eq!(d.get_val().as_u64(), 1);
+
+            assert_eq!(rd.unlock().as_u64(), val.as_u64());
+            let d = d.do_tick();
+            assert!(matches!(d, OutputValue::ImmediateValue(_)));
+            if let OutputValue::ImmediateValue(iv) = d {
+                assert_eq!(iv.as_u64(), 0);
+            }
+        } else {
+            panic!()
+        }
     }
     #[test]
     fn test_mem_d4_imval() {
@@ -347,22 +368,19 @@ mod prim_test {
         let addr_1 = Value::try_from_init(1, 3).unwrap();
         let addr_2 = Value::try_from_init(5, 3).unwrap();
         let addr_3 = Value::try_from_init(2, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val.clone());
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
-        let addr3 = (ir::Id::from("addr3"), addr_3);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
+        let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut mem_out = mem_d4
             .execute_mut(&[input, write_en, addr0, addr1, addr2, addr3])
             .into_iter();
-        let (read_data, done) =
-            (mem_out.next().unwrap(), mem_out.next().unwrap());
-        assert!(mem_out.next().is_none()); //make sure it's only of length 2
-        let rd = read_data.1.unwrap_imm();
-        let d = done.1.unwrap_imm();
-        assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
-        assert_eq!(d.as_u64(), 0);
+        if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
+            let rd = read_data.1.unwrap_imm();
+            assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
+        }
     }
     #[test]
     #[should_panic]
@@ -375,12 +393,12 @@ mod prim_test {
         let addr_1 = Value::try_from_init(0, 2).unwrap();
         let addr_2 = Value::try_from_init(1, 2).unwrap();
         let addr_3 = Value::try_from_init(2, 2).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
-        let addr3 = (ir::Id::from("addr3"), addr_3);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
+        let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out =
             mem_d4.execute_mut(&[input, write_en, addr0, addr1, addr2, addr3]);
     }
@@ -395,12 +413,12 @@ mod prim_test {
         let addr_1 = Value::try_from_init(4, 3).unwrap();
         let addr_2 = Value::try_from_init(1, 2).unwrap();
         let addr_3 = Value::try_from_init(2, 2).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
-        let addr3 = (ir::Id::from("addr3"), addr_3);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
+        let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out =
             mem_d4.execute_mut(&[input, write_en, addr0, addr1, addr2, addr3]);
     }
@@ -415,12 +433,12 @@ mod prim_test {
         let addr_1 = Value::try_from_init(1, 2).unwrap();
         let addr_2 = Value::try_from_init(4, 3).unwrap();
         let addr_3 = Value::try_from_init(2, 2).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
-        let addr3 = (ir::Id::from("addr3"), addr_3);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
+        let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out =
             mem_d4.execute_mut(&[input, write_en, addr0, addr1, addr2, addr3]);
     }
@@ -435,12 +453,12 @@ mod prim_test {
         let addr_1 = Value::try_from_init(1, 2).unwrap();
         let addr_2 = Value::try_from_init(2, 2).unwrap();
         let addr_3 = Value::try_from_init(4, 3).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
-        let addr3 = (ir::Id::from("addr3"), addr_3);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
+        let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out =
             mem_d4.execute_mut(&[input, write_en, addr0, addr1, addr2, addr3]);
     }
@@ -455,12 +473,12 @@ mod prim_test {
         let addr_1 = Value::try_from_init(1, 2).unwrap();
         let addr_2 = Value::try_from_init(2, 2).unwrap();
         let addr_3 = Value::try_from_init(3, 2).unwrap();
-        let input = (ir::Id::from("write_data"), val);
-        let write_en = (ir::Id::from("write_en"), enable);
-        let addr0 = (ir::Id::from("addr0"), addr_0);
-        let addr1 = (ir::Id::from("addr1"), addr_1);
-        let addr2 = (ir::Id::from("addr2"), addr_2);
-        let addr3 = (ir::Id::from("addr3"), addr_3);
+        let input = (ir::Id::from("write_data"), &val);
+        let write_en = (ir::Id::from("write_en"), &enable);
+        let addr0 = (ir::Id::from("addr0"), &addr_0);
+        let addr1 = (ir::Id::from("addr1"), &addr_1);
+        let addr2 = (ir::Id::from("addr2"), &addr_2);
+        let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out =
             mem_d4.execute_mut(&[input, write_en, addr0, addr1, addr2, addr3]);
     }
@@ -468,45 +486,57 @@ mod prim_test {
     fn test_std_reg_tlv() {
         let val = Value::try_from_init(16, 6).unwrap();
         let mut reg1 = StdReg::new(6);
-        let input = ir::Id::from("in");
-        let input_tup = (input, val.clone());
-        let write_en = ir::Id::from("write_en");
-        let write_en_tup = (write_en, Value::try_from_init(1, 1).unwrap());
+        let input_tup = (ir::Id::from("in"), &val);
+        let write_en_tup = (
+            ir::Id::from("write_en"),
+            &Value::try_from_init(1, 1).unwrap(),
+        );
         let output_vals = reg1.execute_mut(&[input_tup, write_en_tup]);
         println!("output_vals: {:?}", output_vals);
         let mut output_vals = output_vals.into_iter();
         let (read_data, done) =
             (output_vals.next().unwrap(), output_vals.next().unwrap());
         assert!(output_vals.next().is_none()); //make sure it's only of length 2
-        let mut d = done.1.unwrap_tlv();
-        let mut rd = read_data.1.unwrap_tlv();
-        assert_eq!(rd.get_count(), 1);
-        assert_eq!(d.get_count(), 1);
-        rd.dec_count();
-        d.dec_count();
-        assert_eq!(rd.unlockable(), true);
-        assert_eq!(d.unlockable(), true);
-        assert_eq!(rd.clone().unlock().as_u64(), val.clone().as_u64());
+
+        if let OutputValue::PulseValue(mut d) = done.1 {
+            let mut rd = read_data.1.unwrap_tlv();
+            assert_eq!(rd.get_count(), 1);
+            assert_eq!(d.get_val().as_u64(), 0);
+            rd.dec_count();
+            d.tick();
+            assert!(rd.unlockable());
+            assert_eq!(d.get_val().as_u64(), 1);
+            assert_eq!(rd.unlock().as_u64(), val.as_u64());
+            let d = d.do_tick();
+            assert!(matches!(d, OutputValue::ImmediateValue(_)));
+            if let OutputValue::ImmediateValue(iv) = d {
+                assert_eq!(iv.as_u64(), 0);
+            }
+        } else {
+            panic!()
+        }
     }
 
     #[test]
     fn test_std_reg_imval() {
         let val = Value::try_from_init(16, 6).unwrap();
         let mut reg1 = StdReg::new(6);
-        let input = ir::Id::from("in");
-        let input_tup = (input, val.clone());
-        let write_en = ir::Id::from("write_en");
-        let write_en_tup = (write_en, Value::try_from_init(0, 1).unwrap());
+        let input_tup = (ir::Id::from("in"), &val);
+        let write_en_tup = (
+            ir::Id::from("write_en"),
+            &Value::try_from_init(0, 1).unwrap(),
+        );
         let output_vals = reg1.execute_mut(&[input_tup, write_en_tup]);
         println!("output_vals: {:?}", output_vals);
         let mut output_vals = output_vals.into_iter();
-        let (read_data, done) =
-            (output_vals.next().unwrap(), output_vals.next().unwrap());
-        assert!(output_vals.next().is_none()); //make sure it's only of length 2
-        let d = done.1.unwrap_imm();
-        let rd = read_data.1.unwrap_imm();
-        assert_eq!(d.as_u64(), 0);
-        assert_eq!(rd.as_u64(), 0); // assuming this b/c reg1 hasn't been initialized
+        if let (read_data, None) =
+            (output_vals.next().unwrap(), output_vals.next())
+        {
+            let rd = read_data.1.unwrap_imm();
+            assert_eq!(rd.as_u64(), 0); // assuming this b/c reg1 hasn't been initialized
+        } else {
+            panic!()
+        }
     }
     #[test]
     #[should_panic]
@@ -514,10 +544,10 @@ mod prim_test {
         let mut reg1 = StdReg::new(5);
         // now try loading in a value that is too big(??)
         let val = Value::try_from_init(32, 6).unwrap();
-        let input = (ir::Id::from("in"), val);
+        let input = (ir::Id::from("in"), &val);
         let write_en = (
             ir::Id::from("write_en"),
-            Value::try_from_init(1, 1).unwrap(),
+            &Value::try_from_init(1, 1).unwrap(),
         );
         let _output_vals = reg1.execute_mut(&[input, write_en]);
     }
@@ -532,7 +562,7 @@ mod prim_test {
     #[should_panic]
     fn test_std_const_panic() {
         let val = Value::try_from_init(75, 7).unwrap();
-        let std_const = StdConst::new(5, val);
+        StdConst::new(5, val);
     }
     #[test]
     fn test_std_lsh() {
@@ -590,7 +620,7 @@ mod prim_test {
         let add0 = Value::try_from_init(81, 7).unwrap();
         let add1 = Value::try_from_init(10, 4).unwrap();
         let add = StdAdd::new(7);
-        let res_add = add.execute_bin(&add0, &add1);
+        add.execute_bin(&add0, &add1);
     }
     #[test]
     fn test_std_sub() {
@@ -619,7 +649,7 @@ mod prim_test {
         let sub0 = Value::try_from_init(52, 6).unwrap();
         let sub1 = Value::try_from_init(16, 5).unwrap();
         let sub = StdAdd::new(5);
-        let res_sub = sub.execute_bin(&sub0, &sub1);
+        sub.execute_bin(&sub0, &sub1);
     }
     #[test]
     fn test_std_slice() {
@@ -639,7 +669,7 @@ mod prim_test {
     fn test_std_slice_panic() {
         let to_slice = Value::try_from_init(3, 2).unwrap();
         let std_slice = StdSlice::new(7, 4);
-        let res_slice = std_slice.execute_unary(&to_slice);
+        std_slice.execute_unary(&to_slice);
     }
     #[test]
     fn test_std_pad() {
@@ -658,7 +688,7 @@ mod prim_test {
     fn test_std_pad_panic() {
         let to_pad = Value::try_from_init(21, 5).unwrap();
         let std_pad = StdPad::new(3, 9);
-        let res_pad = std_pad.execute_unary(&to_pad);
+        std_pad.execute_unary(&to_pad);
     }
     /// Logical Operators
     #[test]
@@ -771,7 +801,7 @@ mod prim_test {
         let gt0 = Value::try_from_init(9, 4).unwrap();
         let gt1 = Value::try_from_init(3, 2).unwrap();
         let std_gt = StdGt::new(3);
-        let res_gt = std_gt.execute_bin(&gt0, &gt1);
+        std_gt.execute_bin(&gt0, &gt1);
     }
     #[test]
     fn test_std_lt() {
@@ -789,7 +819,7 @@ mod prim_test {
         let lt0 = Value::try_from_init(58, 6).unwrap();
         let lt1 = Value::try_from_init(12, 4).unwrap();
         let std_lt = StdLt::new(5);
-        let res_lt = std_lt.execute_bin(&lt0, &lt1);
+        std_lt.execute_bin(&lt0, &lt1);
     }
     #[test]
     fn test_std_eq() {
@@ -812,7 +842,7 @@ mod prim_test {
     fn test_std_eq_panic() {
         let eq0 = Value::try_from_init(42, 6).unwrap();
         let std_eq = StdEq::new(5);
-        let res_eq = std_eq.execute_bin(&eq0, &eq0);
+        std_eq.execute_bin(&eq0, &eq0);
     }
     #[test]
     fn test_std_neq() {
@@ -837,7 +867,7 @@ mod prim_test {
         let neq0 = Value::try_from_init(45, 6).unwrap();
         let neq1 = Value::try_from_init(4, 3).unwrap();
         let std_neq = StdNeq::new(5);
-        let res_neq = std_neq.execute_bin(&neq0, &neq1);
+        std_neq.execute_bin(&neq0, &neq1);
     }
 
     #[test]
@@ -857,7 +887,7 @@ mod prim_test {
         let ge0 = Value::try_from_init(40, 6).unwrap();
         let ge1 = Value::try_from_init(75, 7).unwrap();
         let std_ge = StdGe::new(6);
-        let res_ge = std_ge.execute_bin(&ge0, &ge1);
+        std_ge.execute_bin(&ge0, &ge1);
     }
     #[test]
     fn test_std_le() {
@@ -876,7 +906,7 @@ mod prim_test {
         let le0 = Value::try_from_init(93, 7).unwrap();
         let le1 = Value::try_from_init(68, 7).unwrap();
         let std_le = StdLe::new(6);
-        let res_le = std_le.execute_bin(&le0, &le1);
+        std_le.execute_bin(&le0, &le1);
     }
 }
 

@@ -355,6 +355,7 @@ pub trait TickableValue {
 enum PulseState {
     Low,  // inital state of a pulse
     High, // the moment the pulse is high
+    Low2,
 }
 
 /// A return type for primitive components which marks a value with three
@@ -394,7 +395,7 @@ impl PulseValue {
     /// current state
     pub fn take_val(self) -> Value {
         match self.state {
-            PulseState::Low => self.low_val,
+            PulseState::Low | PulseState::Low2 => self.low_val,
             PulseState::High => self.high_val,
         }
     }
@@ -416,13 +417,19 @@ impl TickableValue for PulseValue {
     fn tick(&mut self) {
         match &self.state {
             PulseState::Low => self.state = PulseState::High,
-            PulseState::High => self.current_length += 1,
+            PulseState::High => {
+                self.current_length += 1;
+                if self.current_length == self.pulse_length {
+                    self.state = PulseState::Low2
+                }
+            }
+            PulseState::Low2 => {} //do nothing since the pulse is over
         }
     }
 
     fn do_tick(mut self) -> OutputValue {
         self.tick();
-        if self.pulse_length == self.current_length {
+        if let PulseState::Low2 = &self.state {
             self.low_val.into()
         } else {
             self.into()
@@ -433,7 +440,7 @@ impl TickableValue for PulseValue {
 impl ReadableValue for PulseValue {
     fn get_val(&self) -> &Value {
         match &self.state {
-            PulseState::Low => &self.low_val,
+            PulseState::Low | PulseState::Low2 => &self.low_val,
             PulseState::High => &self.high_val,
         }
     }

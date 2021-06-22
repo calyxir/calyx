@@ -392,17 +392,24 @@ impl ExecuteStateful for StdMemD1 {
     /// use calyx::ir;
     ///
     /// let mut std_memd1 = StdMemD1::new(1, 8, 3); //1-bit pieces of data, 8 pieces, need 3 bits to index the memory
-    /// let write_data = (ir::Id::from("write_data"), Value::try_from_init(1, 1).unwrap());
-    /// let write_en = (ir::Id::from("write_en"), Value::try_from_init(1, 1).unwrap());
-    /// let addr0 = (ir::Id::from("addr0"), Value::try_from_init(0, 3).unwrap());
-    /// let output_vals = std_memd1.validate_and_execute_mut(&[write_data, write_en, addr0]);
+    /// let write_data = (ir::Id::from("write_data"), &Value::try_from_init(1, 1).unwrap());
+    /// let write_en = (ir::Id::from("write_en"), &Value::try_from_init(1, 1).unwrap());
+    /// let addr0 = (ir::Id::from("addr0"), &Value::try_from_init(0, 3).unwrap());
+    /// let output_vals = std_memd1.execute_mut(&[write_data, write_en, addr0]);
     /// let mut output_vals = output_vals.into_iter();
     /// let (read_data, done) = (output_vals.next().unwrap(), output_vals.next().unwrap());
     /// let mut rd = read_data.1.unwrap_tlv();
-    /// let mut d = done.1.unwrap_tlv();
+    /// if let OutputValue::PulseValue(mut d) = done.1 {
+    ///     assert_eq!(d.get_val().as_u64(), 0);
+    ///     d.tick();
+    ///     assert_eq!(d.get_val().as_u64(), 1);
+    ///     d.tick();
+    ///     assert_eq!(d.get_val().as_u64(), 0);
+    /// } else {
+    ///     panic!()
+    /// }
     /// assert_eq!(rd.get_count(), 1);
-    /// assert_eq!(d.get_count(), 1);
-    /// rd.dec_count(); d.dec_count();
+    /// rd.dec_count();
     /// assert!(rd.unlockable());
     /// assert_eq!(rd.clone().unlock().as_u64(), Value::try_from_init(1, 1).unwrap().as_u64());
     /// ```
