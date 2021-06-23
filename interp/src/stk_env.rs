@@ -9,6 +9,26 @@ use std::rc::Rc;
 
 //use push front and pop front and iterator is in right order then
 
+struct SmoosherIn<'a, K: Eq + std::hash::Hash + Clone, V: Clone> {
+    pub wr: &'a mut Smoosher<K, V>,
+}
+
+impl<'a, K: Eq + std::hash::Hash + Clone, V: Clone> SmoosherIn<'a, K, V> {
+    fn new(sm: Smoosher<K, V>) -> SmoosherIn<'a, K, V> {
+        SmoosherIn { wr: &mut sm }
+    }
+}
+
+struct SmoosherOut<K: Eq + std::hash::Hash + Clone, V: Clone> {
+    pub rd: Smoosher<K, V>,
+}
+
+impl<K: Eq + std::hash::Hash + Clone, V: Clone> SmoosherOut<K, V> {
+    fn new(rd: Smoosher<K, V>) -> Self {
+        Self { rd }
+    }
+}
+
 struct Smoosher<K: Eq + std::hash::Hash + Clone, V: Clone> {
     pub ds: VecDeque<Rc<RefCell<HashMap<K, V>>>>,
     //the above is so we can keep track of scope
