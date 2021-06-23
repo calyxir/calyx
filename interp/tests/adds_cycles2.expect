@@ -1,0 +1,40 @@
+{
+  "main": {
+    "_1_1": {
+      "out": 1
+    },
+    "add1": {
+      "left": 0,
+      "out": 0,
+      "right": 0
+    },
+    "add2": {
+      "left": 0,
+      "out": 0,
+      "right": 0
+    },
+    "const1": {
+      "out": 1
+    },
+    "const2": {
+      "out": 2
+    },
+    "const3": {
+      "out": 3
+    },
+    "reg1": {
+      "clk": 0,
+      "done": 0,
+      "in": 0,
+      "out": 5,
+      "write_en": 0
+    },
+    "reg2": {
+      "clk": 0,
+      "done": 0,
+      "in": 0,
+      "out": 6,
+      "write_en": 0
+    }
+  }
+}

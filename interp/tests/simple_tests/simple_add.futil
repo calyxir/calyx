@@ -1,0 +1,32 @@
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    const0 = std_const(32, 9);
+    const1 = std_const(32, 400);
+    add0 = std_add(32);
+    reg2 = std_reg(32);
+
+  }
+
+  wires {
+
+    group op {
+      reg2.write_en = 1'd1;
+      add0.left = const0.out;
+      add0.right = const1.out;
+      reg2.in = add0.out;
+      op[done] = reg2.done;
+    }
+
+  }
+
+//b/c this prog is just one group, and reg2
+//decides when execution ends, reg2 should
+//have [done] high
+  control {
+    seq {
+      op;
+    }
+  }
+}

@@ -10,29 +10,29 @@
       "out": 1
     },
     "const0": {
-      "out": 0
+      "out": 15
     },
     "const1": {
-      "out": 0
+      "out": 10
     },
     "lt0": {
-      "left": 15,
+      "left": 0,
       "out": 0,
-      "right": 10
-    },
-    "reg": {
-      "clk": X,
-      "done": 1,
-      "in": 10,
-      "out": 10,
-      "write_en": 1
+      "right": 0
     },
     "reg0": {
-      "clk": X,
-      "done": 1,
+      "clk": 0,
+      "done": 0,
       "in": 0,
       "out": 0,
-      "write_en": 1
+      "write_en": 0
+    },
+    "reg1": {
+      "clk": 0,
+      "done": 0,
+      "in": 0,
+      "out": 10,
+      "write_en": 0
     }
   }
 }
