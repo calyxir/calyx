@@ -7,7 +7,8 @@ use calyx::ir;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryInto;
-use std::rc::Rc;
+use std::mem;
+use std::rc::Rc; //got this from the "Learning Rust..." LL book
 
 //Invariant for use that makes implementing easier
 //(this version can be used unsafely):
@@ -22,6 +23,7 @@ pub struct List<T> {
 type Link<T> = Option<Rc<Node<T>>>;
 
 struct Node<T> {
+    //problem: node owns its element (? is this a problem)
     elem: T,
     next: Link<T>,
 }
@@ -77,15 +79,15 @@ impl<'a, T> Iterator for Iter<'a, T> {
 
 //When a new scope is added, head is added to the tail and becomes immutable
 struct Smoosher<K: Eq + std::hash::Hash, V> {
-    head: HashMap<K, V>,       //mutable
-    tail: List<HashMap<K, V>>, //read-only
+    head: HashMap<K, V>,           //mutable
+    tail: Rc<List<HashMap<K, V>>>, //read-only
 }
 
 impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     fn new() -> Smoosher<K, V> {
         Smoosher {
             head: HashMap::new(),
-            tail: List::new(),
+            tail: Rc::new(List::new()),
         }
     }
 
@@ -107,16 +109,33 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
         }
     }
 
+    //doesn't seem possible rn. if you want to edit the binding of a key in a previous
+    //scope... not sure how you could
     fn get_mut(&mut self, k: &K) -> Option<&mut V> {
         todo!()
     }
 
+    //Sets a new binding of [k] to [v] in the highest scope
     fn set(&mut self, k: K, v: V) {
-        todo!()
+        self.head.insert(k, v);
     }
 
-    fn fork(&self) -> Self {
-        todo!()
+    //Returns a new Smoosher and mutates [self]. The new Smoosher has a new scope
+    //as [head] and all of [self] as [tail]. [Self] has a fresh scope pushed onto
+    //it. Invariant this method enforces: you cannot mutate a scope that has children
+    //forks.
+    fn fork(&mut self) -> Self {
+        //first save self's head
+        let old_head = mem::replace(&mut self.head, HashMap::new());
+        //create tail to both Self and the new Smoosher
+        let new_tail = Rc::new(self.tail.push(old_head));
+        //update Self and create new Smoosher
+        self.head = HashMap::new();
+        self.tail = Rc::clone(&new_tail); //will this die after the end of [fork]?
+        Smoosher {
+            head: HashMap::new(),
+            tail: Rc::clone(&new_tail),
+        }
     }
 
     fn new_scope(&mut self) {
