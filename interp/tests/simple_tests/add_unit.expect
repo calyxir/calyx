@@ -1,22 +1,35 @@
-{
-  "main": {
-    "_1_1": {
-      "out": 1
-    },
-    "_3_4": {
-      "out": 3
-    },
-    "add": {
-      "left": 0,
-      "out": 0,
-      "right": 0
-    },
-    "reg0": {
-      "clk": 0,
-      "done": 0,
-      "in": 0,
-      "out": 3,
-      "write_en": 0
+[
+  [
+    "Ports:",
+    {
+      "main": {
+        "_1_1": {
+          "out": 1
+        },
+        "_3_4": {
+          "out": 3
+        },
+        "add": {
+          "left": 0,
+          "out": 0,
+          "right": 0
+        },
+        "reg0": {
+          "clk": 0,
+          "done": 0,
+          "in": 0,
+          "out": 3,
+          "write_en": 0
+        }
+      }
     }
-  }
-}
+  ],
+  [
+    "Memory State:",
+    {
+      "main": {
+        "reg0": "3"
+      }
+    }
+  ]
+]
