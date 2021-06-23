@@ -1,53 +1,47 @@
-[
-  [
-    "Ports:",
-    {
-      "main": {
-        "_1_1": {
-          "out": 1
-        },
-        "add1": {
-          "left": 1,
-          "out": 2,
-          "right": 1
-        },
-        "add2": {
-          "left": 1,
-          "out": 2,
-          "right": 1
-        },
-        "ander": {
-          "left": 1,
-          "out": 1,
-          "right": 1
-        },
-        "const1": {
-          "out": 1
-        },
-        "reg1": {
-          "clk": 0,
-          "done": 1,
-          "in": 2,
-          "out": 1,
-          "write_en": 1
-        },
-        "reg2": {
-          "clk": 0,
-          "done": 1,
-          "in": 2,
-          "out": 1,
-          "write_en": 1
-        }
+{
+  "ports": {
+    "main": {
+      "_1_1": {
+        "out": 1
+      },
+      "add1": {
+        "left": 1,
+        "out": 2,
+        "right": 1
+      },
+      "add2": {
+        "left": 1,
+        "out": 2,
+        "right": 1
+      },
+      "ander": {
+        "left": 1,
+        "out": 1,
+        "right": 1
+      },
+      "const1": {
+        "out": 1
+      },
+      "reg1": {
+        "clk": 0,
+        "done": 1,
+        "in": 2,
+        "out": 1,
+        "write_en": 1
+      },
+      "reg2": {
+        "clk": 0,
+        "done": 1,
+        "in": 2,
+        "out": 1,
+        "write_en": 1
       }
     }
-  ],
-  [
-    "Memory State:",
-    {
-      "main": {
-        "reg1": "1",
-        "reg2": "1"
-      }
+  },
+  "memories": {
+    "main": {
+      "reg1": "1",
+      "reg2": "1"
     }
-  ]
-]
+  }
+}

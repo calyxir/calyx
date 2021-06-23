@@ -387,11 +387,16 @@ impl Serialize for Environment {
             })
             .collect();
 
-        if cell_map.is_empty() {
-            bmap.serialize(serializer)
-        } else {
-            let map_tuple = (("Ports:", bmap), ("Memory State:", cell_map));
-            map_tuple.serialize(serializer)
-        }
+        let p = Printable {
+            ports: bmap,
+            memories: cell_map,
+        };
+        p.serialize(serializer)
     }
+}
+
+#[derive(Serialize)]
+struct Printable {
+    ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
+    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, String>>,
 }

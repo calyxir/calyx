@@ -1,61 +1,55 @@
-[
-  [
-    "Ports:",
-    {
-      "main": {
-        "_14_4": {
-          "out": 14
-        },
-        "_15_4": {
-          "out": 15
-        },
-        "_1_1": {
-          "out": 1
-        },
-        "reg0": {
-          "clk": 0,
-          "done": 0,
-          "in": 0,
-          "out": 0,
-          "write_en": 0
-        },
-        "reg1": {
-          "clk": 0,
-          "done": 0,
-          "in": 0,
-          "out": 1,
-          "write_en": 0
-        },
-        "reg14": {
-          "clk": 0,
-          "done": 0,
-          "in": 0,
-          "out": 14,
-          "write_en": 0
-        },
-        "reg15": {
-          "clk": 0,
-          "done": 0,
-          "in": 0,
-          "out": 15,
-          "write_en": 0
-        },
-        "slicer": {
-          "in": 0,
-          "out": 0
-        }
+{
+  "ports": {
+    "main": {
+      "_14_4": {
+        "out": 14
+      },
+      "_15_4": {
+        "out": 15
+      },
+      "_1_1": {
+        "out": 1
+      },
+      "reg0": {
+        "clk": 0,
+        "done": 0,
+        "in": 0,
+        "out": 0,
+        "write_en": 0
+      },
+      "reg1": {
+        "clk": 0,
+        "done": 0,
+        "in": 0,
+        "out": 1,
+        "write_en": 0
+      },
+      "reg14": {
+        "clk": 0,
+        "done": 0,
+        "in": 0,
+        "out": 14,
+        "write_en": 0
+      },
+      "reg15": {
+        "clk": 0,
+        "done": 0,
+        "in": 0,
+        "out": 15,
+        "write_en": 0
+      },
+      "slicer": {
+        "in": 0,
+        "out": 0
       }
     }
-  ],
-  [
-    "Memory State:",
-    {
-      "main": {
-        "reg0": "0",
-        "reg1": "1",
-        "reg14": "14",
-        "reg15": "15"
-      }
+  },
+  "memories": {
+    "main": {
+      "reg0": "0",
+      "reg1": "1",
+      "reg14": "14",
+      "reg15": "15"
     }
-  ]
-]
+  }
+}

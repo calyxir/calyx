@@ -1,38 +1,32 @@
-[
-  [
-    "Ports:",
-    {
-      "main": {
-        "_1_1": {
-          "out": 1
-        },
-        "add0": {
-          "left": 9,
-          "out": 409,
-          "right": 400
-        },
-        "const0": {
-          "out": 9
-        },
-        "const1": {
-          "out": 400
-        },
-        "reg2": {
-          "clk": 0,
-          "done": 1,
-          "in": 409,
-          "out": 409,
-          "write_en": 1
-        }
+{
+  "ports": {
+    "main": {
+      "_1_1": {
+        "out": 1
+      },
+      "add0": {
+        "left": 9,
+        "out": 409,
+        "right": 400
+      },
+      "const0": {
+        "out": 9
+      },
+      "const1": {
+        "out": 400
+      },
+      "reg2": {
+        "clk": 0,
+        "done": 1,
+        "in": 409,
+        "out": 409,
+        "write_en": 1
       }
     }
-  ],
-  [
-    "Memory State:",
-    {
-      "main": {
-        "reg2": "409"
-      }
+  },
+  "memories": {
+    "main": {
+      "reg2": "409"
     }
-  ]
-]
+  }
+}

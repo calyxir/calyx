@@ -1,42 +1,36 @@
-[
-  [
-    "Ports:",
-    {
-      "main": {
-        "_0_1": {
-          "out": 0
-        },
-        "_1_1": {
-          "out": 1
-        },
-        "_9_32": {
-          "out": 9
-        },
-        "mem": {
-          "addr0": 0,
-          "clk": 0,
-          "done": 0,
-          "read_data": 9,
-          "write_data": 0,
-          "write_en": 0
-        },
-        "reg0": {
-          "clk": 0,
-          "done": 0,
-          "in": 0,
-          "out": 9,
-          "write_en": 0
-        }
+{
+  "ports": {
+    "main": {
+      "_0_1": {
+        "out": 0
+      },
+      "_1_1": {
+        "out": 1
+      },
+      "_9_32": {
+        "out": 9
+      },
+      "mem": {
+        "addr0": 0,
+        "clk": 0,
+        "done": 0,
+        "read_data": 9,
+        "write_data": 0,
+        "write_en": 0
+      },
+      "reg0": {
+        "clk": 0,
+        "done": 0,
+        "in": 0,
+        "out": 9,
+        "write_en": 0
       }
     }
-  ],
-  [
-    "Memory State:",
-    {
-      "main": {
-        "mem": "[9]",
-        "reg0": "9"
-      }
+  },
+  "memories": {
+    "main": {
+      "mem": "[9]",
+      "reg0": "9"
     }
-  ]
-]
+  }
+}
