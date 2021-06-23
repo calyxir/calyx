@@ -22,6 +22,9 @@ pub struct List<T> {
 
 type Link<T> = Option<Rc<Node<T>>>;
 
+//a way to unwrap and grab mutably?
+//
+
 struct Node<T> {
     //problem: node owns its element (? is this a problem)
     elem: T,
@@ -47,6 +50,17 @@ impl<T> List<T> {
     pub fn tail(&self) -> List<T> {
         List {
             head: self.head.as_ref().and_then(|node| node.next.clone()),
+        }
+    }
+
+    //Hacky method that returns a mutable reference to what was the head of the list
+    //replaces head w/ that node's next
+    pub fn mut_head(&mut self) -> Option<&mut T> {
+        if let Some(ref mut node) = Rc::get_mut(&mut self.head.as_ref()) {
+            //problem area
+            return Some(&mut node.elem);
+        } else {
+            return None;
         }
     }
 
@@ -167,12 +181,13 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
             let top = mem::replace(&mut self.head, HashMap::new());
             upd_stk.push(top);
             //now mutably borrow the other nodes and put them on upd_stk
-            let iter = self.tail.iter();
-            let mut count = levels;
-            for hm in iter {
-                if count > 0 {}
-                count -= 1;
-            }
+            //how to mutably borrow the other nodes?
+            // let iter = self.tail.iter();
+            // let mut count = levels;
+            // for hm in iter {
+            //     if count > 0 {}
+            //     count -= 1;
+            // }
         }
         //give a var name to target level
 
