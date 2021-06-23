@@ -139,12 +139,12 @@ impl Primitive {
             | Primitive::StdLt(_) => None,
             Primitive::StdReg(reg) => reg.read_u64().to_string().into(),
             Primitive::StdMemD1(mem) => format!(
-                "{:#?}",
+                "{:?}",
                 mem.data.iter().map(|x| x.as_u64()).collect::<Vec<_>>()
             )
             .into(),
             Primitive::StdMemD2(mem) => format!(
-                "{:#?}",
+                "{:?}",
                 mem.data
                     .iter()
                     .map(|x| x.iter().map(|y| y.as_u64()).collect::<Vec<_>>())
@@ -152,7 +152,7 @@ impl Primitive {
             )
             .into(),
             Primitive::StdMemD3(mem) => format!(
-                "{:#?}",
+                "{:?}",
                 mem.data
                     .iter()
                     .map(|x| x
@@ -166,7 +166,7 @@ impl Primitive {
             )
             .into(),
             Primitive::StdMemD4(mem) => format!(
-                "{:#?}",
+                "{:?}",
                 mem.data
                     .iter()
                     .map(|x| x
