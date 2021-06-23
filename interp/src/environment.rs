@@ -388,7 +388,7 @@ impl Serialize for Environment {
             .collect();
 
         if cell_map.is_empty() {
-            cell_map.serialize(serializer)
+            bmap.serialize(serializer)
         } else {
             let map_tuple = (("Ports:", bmap), ("Memory State:", cell_map));
             map_tuple.serialize(serializer)
