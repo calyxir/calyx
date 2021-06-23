@@ -1,5 +1,7 @@
 //a stack of environments, to be used like a version tree
 
+//This version: linked list! from the rust book detailing how to do linked lists
+
 use super::{primitives, primitives::Primitive, values::Value};
 use calyx::ir;
 use std::cell::RefCell;
