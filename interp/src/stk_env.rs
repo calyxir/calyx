@@ -9,129 +9,144 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryInto;
 use std::rc::Rc;
 
-//use push front and pop front and iterator is in right order then
+//Invariant for use that makes implementing easier
+//(this version can be used unsafely):
+//After fork, a new_scope MUST be pushed. It's unsafe to continue modifying
+//the root of the fork.
 
-struct Smoosher<K: Eq + std::hash::Hash + Clone, V: Clone> {
-    pub ds: VecDeque<Rc<RefCell<HashMap<K, V>>>>,
-    //the above is so we can keep track of scope
-    //the below is to make getting easy. not sure
-    //if this is too clunky
-    hm: HashMap<K, V>,
+// From "Learning Rust with Entirely Too Many Linked Lists" (2018), Chapter 4.5:
+pub struct List<T> {
+    head: Link<T>,
 }
 
-//methods we will implement
-// new, get, set, clone, top, bottom, smoosh, diff
-impl<K: Eq + std::hash::Hash + Clone, V: Clone> Smoosher<K, V> {
-    fn new(k: K, v: V) -> Smoosher<K, V> {
-        let hm: HashMap<K, V> = HashMap::new();
-        let rc_rc_hm: Rc<RefCell<HashMap<K, V>>> = Rc::new(RefCell::new(hm));
-        let mut ds: VecDeque<Rc<RefCell<HashMap<K, V>>>> = VecDeque::new();
-        ds.push_back(rc_rc_hm);
-        //now create a new hashmap. Invariant: This HM returns all the same
-        //bindings as the HM produced by fully smooshing this Smoosher.
-        let hm: HashMap<K, V> = HashMap::new();
-        Smoosher { ds, hm }
+type Link<T> = Option<Rc<Node<T>>>;
+
+struct Node<T> {
+    elem: T,
+    next: Link<T>,
+}
+
+impl<T> List<T> {
+    pub fn new() -> Self {
+        List { head: None }
     }
 
-    //two notes:
-    //make wrapper struct for read-only environment  (HashMap)
-    //perhaps make internal DS vector to push all the borrows onto so they don't
-    //get dropped...?
-    //write_handle and read_handle internal DS so we can keep the ref alive
-    //and return it
-
-    ///get(k) returns an Option containing the most recent binding of k. As in, returns the value associated
-    ///with k from the topmost HashMap that contains some key-value pair (k, v). If no HashMap exists with
-    ///a key-value pair (k, v), returns None.
-    fn get(&self, k: &K) -> Option<&V> {
-        self.hm.get(k)
-    }
-
-    ///forgot why we put this down
-    fn get_mut(&mut self, k: &K) -> Option<&mut V> {
-        self.hm.get_mut(k)
-    }
-
-    ///set(k, v) mutates the current Smoosher, inserting the key-value pair (k, v) to the topmost HashMap of
-    ///the Smoosher. Overwrites the existing (k, v') pair if one exists in the topmost HashMap at the time
-    ///of the set(k, v) call.
-    fn set(&mut self, k: K, v: V) {
-        //note vecdeque can never be empty b/c initialized w/ a new hashmap
-        if let Some(front) = self.ds.front() {
-            let front_ref = &mut front.borrow_mut();
-            front_ref.insert(k, v);
+    //renamed from "append" to "push"
+    pub fn push(&self, elem: T) -> List<T> {
+        List {
+            head: Some(Rc::new(Node {
+                elem,
+                next: self.head.clone(), //hope this clone of an Option<Rc<U<T>>> is ok
+            })),
         }
-        //should also mutate the other HM
-        self.hm.insert(k, v);
     }
 
-    //note: if we change everything here to deal with Rc<RefCell...>, then clone
-    //is simple we just new_scope and fork
+    //List w/o its head. Don't need it for this DS, but including it for practice
+    pub fn tail(&self) -> List<T> {
+        List {
+            head: self.head.as_ref().and_then(|node| node.next.clone()),
+        }
+    }
 
-    ///Returns a copy of the stk_env with a clean HashMap ontop (at front of internal VecDeque)
+    pub fn head(&self) -> Option<&T> {
+        self.head.as_ref().map(|node| &node.elem)
+    }
+
+    pub fn iter(&self) -> Iter<'_, T> {
+        Iter {
+            next: self.head.as_deref(),
+        }
+    }
+}
+
+pub struct Iter<'a, T> {
+    next: Option<&'a Node<T>>,
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.map(|node| {
+            self.next = node.next.as_deref();
+            &node.elem
+        })
+    }
+}
+//
+
+//When a new scope is added, head is added to the tail and becomes immutable
+struct Smoosher<K: Eq + std::hash::Hash, V> {
+    head: HashMap<K, V>,       //mutable
+    tail: List<HashMap<K, V>>, //read-only
+}
+
+impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
+    fn new() -> Smoosher<K, V> {
+        Smoosher {
+            head: HashMap::new(),
+            tail: List::new(),
+        }
+    }
+
+    //Gets the highest-scoped binding containing [k], if it exists.
+    //else returns None.
+    fn get(&self, k: &K) -> Option<&V> {
+        //first check if it's in the highest one
+        if let Some(val) = self.head.get(k) {
+            return Some(val);
+        } else {
+            let iter = self.tail.iter();
+            for hm in iter {
+                if let Some(val) = hm.get(k) {
+                    return Some(val);
+                }
+            }
+            //then check if it's anywhere in the other list
+            return None;
+        }
+    }
+
+    fn get_mut(&mut self, k: &K) -> Option<&mut V> {
+        todo!()
+    }
+
+    fn set(&mut self, k: K, v: V) {
+        todo!()
+    }
+
     fn fork(&self) -> Self {
         todo!()
     }
 
-    ///Add a clean HashMap ontop of internal VecDeque
     fn new_scope(&mut self) {
         todo!()
     }
 
-    ///Returns a RRC of the frontmost HashMap
     fn top(&self) -> &Rc<RefCell<HashMap<K, V>>> {
-        self.ds.get(0).unwrap()
+        todo!()
     }
 
-    /// updates [bottom_i] to reflect all bindings contained in the HashMaps of indecies
-    /// [bottom_i, top_i], with the higher-indecied HashMaps given precedence to
-    /// their bindings, and then removes all HashMaps with index greater than [bottom_i],  
-    /// note: vertical pushing down
     fn smoosh(&mut self, top_i: u64, bottom_i: u64) -> () {
         todo!()
     }
 
-    ///merge: note: lateral (collects all forks that are parallel and merge them)
     fn merge(&mut self, other: &mut Self) -> Self {
         todo!()
     }
 
     fn num_scopes(&self) -> u64 {
-        self.ds.len() as u64
+        todo!()
     }
 
     fn num_bindings(&self) -> u64 {
-        self.hm.len() as u64
+        todo!()
     }
 
-    ///Returns a set of all variables bound in any HashMap in the range
-    ///[top_i, bottom_i). [top_i] and [bottom_i] represent distance from the top of the stack,
-    /// 0 being the topmost HashMap.
-    /// If [top_i] < 0 returns a set of all variables bound in any HashMap in the range [0, bottom_i]
-    /// If [bottom_i] > length of stack of HashMaps, returns a set of all variables bound in any HashMap in the
-    /// range [top_i, len).
     fn list_bound_vars(&self, top_i: u64, bottom_i: u64) -> HashSet<&K> {
-        //note: 0 is frontmost, so i guess the terms top_i and bottom_i are
-        //misleading?
-        let bottom_i = if bottom_i > self.ds.len().try_into().unwrap() {
-            self.ds.len().try_into().unwrap()
-        } else {
-            top_i
-        };
-        let mut hs = HashSet::new();
-        let top_i = if top_i < 0 { 0 } else { top_i };
-        for i in top_i..bottom_i {
-            let hm = self.ds.get(i.try_into().unwrap()).unwrap(); //how to unwrap RcRefCell?
-            let hm = &hm.borrow();
-            for key in hm.keys() {
-                hs.insert(key);
-            }
-        }
-        hs //can't pull out references have to clone
+        todo!()
     }
 
-    ///in order to set unmodified values to zero
-    ///
     fn diff(&self, top_i: u64, bottom_i: u64) -> Vec<(K, V)> {
         todo!()
     }
