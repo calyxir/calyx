@@ -5,21 +5,34 @@ use calyx::ir;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 
+/// A raw pointer reference to a cell. Can only be used as a key, but cannot be
+/// used to access the cell itself
+type CellRef = *const ir::Cell;
+
+/// A raw pointer reference to a port. As with cell, it is only suitable for use
+/// as a key and cannot be used to access the port itself
+type PortRef = *const ir::Port;
+
+/// A map defining primitive implementations for Cells. As it is keyed by
+/// CellRefs the lifetime of the keys is independent of the actual cells
+type PrimitiveMap = HashMap<CellRef, primitives::Primitive>;
+
+/// A map defining values for ports. As it is keyed by PortRefs, the lifetime of
+/// the keys is independent of the ports. However as a result it is flat, rather
+/// than heirarchical which simplifies the access interface
+type PortValMap = HashMap<PortRef, Value>;
+
 /// The environment to interpret a Calyx program.
 #[derive(Clone, Debug)]
 pub struct Environment {
-    /// Stores values of context.
-    /// Maps component names to a mapping from the component's cell names to their ports' values.
-    //pub map: HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, Value>>>,
-
     ///clock count
     pub clk: u64,
 
     ///mapping from cells to prims
-    pub cell_prim_map: HashMap<*const ir::Cell, primitives::Primitive>,
+    pub cell_prim_map: PrimitiveMap,
 
     ///use raw pointers for hashmap: ports to values
-    pub pv_map: HashMap<*const ir::Port, Value>,
+    pub pv_map: PortValMap,
 
     /// A reference to the context.
     pub context: ir::RRC<ir::Context>,
@@ -31,7 +44,6 @@ impl Environment {
     /// ctx : A context from the IR
     pub fn init(ctx: &ir::RRC<ir::Context>) -> Self {
         Self {
-            //map: Environment::construct_map(&ctx.borrow()),
             context: ctx.clone(),
             clk: 0,
             pv_map: Environment::construct_pv_map(&ctx.borrow()),
@@ -39,14 +51,12 @@ impl Environment {
         }
     }
 
-    pub fn insert(&mut self, port: *const ir::Port, value: Value) {
+    pub fn insert(&mut self, port: PortRef, value: Value) {
         self.pv_map.insert(port, value);
     }
 
     //all of these use parameters as values for constuctors
-    fn construct_cp_map(
-        ctx: &ir::Context,
-    ) -> HashMap<*const ir::Cell, primitives::Primitive> {
+    fn construct_cp_map(ctx: &ir::Context) -> PrimitiveMap {
         let mut map = HashMap::new();
         for comp in &ctx.components {
             for cell in comp.cells.iter() {
@@ -54,23 +64,11 @@ impl Environment {
 
                 if let ir::CellType::Primitive { name, .. } = &cl.prototype {
                     match name.as_ref() {
-                        "std_add" => {
-                            let adder = primitives::StdAdd::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                            );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdAdd(adder),
-                            );
-                        }
                         "std_reg" => {
                             let reg = primitives::StdReg::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdReg(reg),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdReg(reg));
                         }
                         "std_const" => {
                             let width = cl.get_parameter("WIDTH").unwrap();
@@ -82,144 +80,102 @@ impl Environment {
                                 )
                                 .unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdConst(cst),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdConst(cst));
                         }
                         "std_lsh" => {
                             let width = cl.get_parameter("WIDTH").unwrap();
                             let lsh = primitives::StdLsh::new(width);
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdLsh(lsh),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdLsh(lsh));
                         }
                         "std_rsh" => {
                             let width = cl.get_parameter("WIDTH").unwrap();
                             let rsh = primitives::StdRsh::new(width);
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdRsh(rsh),
+                            map.insert(cl as CellRef, Primitive::StdRsh(rsh));
+                        }
+                        "std_add" => {
+                            let adder = primitives::StdAdd::new(
+                                cl.get_parameter("WIDTH").unwrap(),
                             );
+                            map.insert(cl as CellRef, Primitive::StdAdd(adder));
                         }
                         "std_sub" => {
                             let width = cl.get_parameter("WIDTH").unwrap();
                             let sub = primitives::StdSub::new(width);
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdSub(sub),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdSub(sub));
                         }
                         "std_slice" => {
                             let slc = primitives::StdSlice::new(
                                 cl.get_parameter("IN_WIDTH").unwrap(),
                                 cl.get_parameter("OUT_WIDTH").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdSlice(slc),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdSlice(slc));
                         }
                         "std_pad" => {
                             let pad = primitives::StdPad::new(
                                 cl.get_parameter("IN_WIDTH").unwrap(),
                                 cl.get_parameter("OUT_WIDTH").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdPad(pad),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdPad(pad));
                         }
                         "std_not" => {
                             let not = primitives::StdNot::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdNot(not),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdNot(not));
                         }
                         "std_and" => {
                             let and = primitives::StdAnd::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdAnd(and),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdAnd(and));
                         }
                         "std_or" => {
                             let or = primitives::StdOr::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdOr(or),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdOr(or));
                         }
                         "std_xor" => {
                             let xor = primitives::StdXor::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdXor(xor),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdXor(xor));
                         }
                         "std_ge" => {
                             let ge = primitives::StdGe::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdGe(ge),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdGe(ge));
                         }
                         "std_gt" => {
                             let gt = primitives::StdGt::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdGt(gt),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdGt(gt));
                         }
                         "std_eq" => {
                             let eq = primitives::StdEq::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdEq(eq),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdEq(eq));
                         }
                         "std_neq" => {
                             let neq = primitives::StdNeq::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdNeq(neq),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdNeq(neq));
                         }
                         "std_le" => {
                             let le = primitives::StdLe::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdLe(le),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdLe(le));
                         }
                         "std_lt" => {
                             let lt = primitives::StdLt::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdLt(lt),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdLt(lt));
                         }
                         "std_mem_d1" => {
                             let m1 = primitives::StdMemD1::new(
@@ -227,10 +183,7 @@ impl Environment {
                                 cl.get_parameter("SIZE").unwrap(),
                                 cl.get_parameter("IDX_SIZE").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdMemD1(m1),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdMemD1(m1));
                         }
                         "std_mem_d2" => {
                             let m2 = primitives::StdMemD2::new(
@@ -240,10 +193,7 @@ impl Environment {
                                 cl.get_parameter("D0_IDX_SIZE").unwrap(),
                                 cl.get_parameter("D1_IDX_SIZE").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdMemD2(m2),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdMemD2(m2));
                         }
                         "std_mem_d3" => {
                             let m3 = primitives::StdMemD3::new(
@@ -255,10 +205,7 @@ impl Environment {
                                 cl.get_parameter("D1_IDX_SIZE").unwrap(),
                                 cl.get_parameter("D2_IDX_SIZE").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdMemD3(m3),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdMemD3(m3));
                         }
                         "std_mem_d4" => {
                             let m4 = primitives::StdMemD4::new(
@@ -272,10 +219,7 @@ impl Environment {
                                 cl.get_parameter("D2_IDX_SIZE").unwrap(),
                                 cl.get_parameter("D3_IDX_SIZE").unwrap(),
                             );
-                            map.insert(
-                                cl as *const ir::Cell,
-                                Primitive::StdMemD4(m4),
-                            );
+                            map.insert(cl as CellRef, Primitive::StdMemD4(m4));
                         }
                         e => panic!("Unknown primitive {}", e),
                     }
@@ -285,15 +229,22 @@ impl Environment {
         map
     }
 
-    fn construct_pv_map(ctx: &ir::Context) -> HashMap<*const ir::Port, Value> {
+    fn construct_pv_map(ctx: &ir::Context) -> PortValMap {
         let mut map = HashMap::new();
         for comp in &ctx.components {
+            for port in comp.signature.borrow().ports.iter() {
+                let pt: &ir::Port = &port.borrow();
+                map.insert(
+                    pt as *const ir::Port,
+                    Value::try_from_init(0, 1).unwrap(),
+                );
+            }
             for group in comp.groups.iter() {
                 let grp = group.borrow();
                 for hole in &grp.holes {
                     let pt: &ir::Port = &hole.borrow();
                     map.insert(
-                        pt as *const ir::Port,
+                        pt as PortRef,
                         Value::try_from_init(0, 1).unwrap(),
                     );
                 }
@@ -302,13 +253,12 @@ impl Environment {
                 //also iterate over groups cuz they also have ports
                 //iterate over ports, getting their value and putting into map
                 let cll = cell.borrow();
-                //for port in &cll.ports {}
                 match &cll.prototype {
                     ir::CellType::Constant { val, width } => {
                         for port in &cll.ports {
                             let pt: &ir::Port = &port.borrow();
                             map.insert(
-                                pt as *const ir::Port,
+                                pt as PortRef,
                                 Value::try_from_init(*val, *width).unwrap(),
                             );
                         }
@@ -317,7 +267,7 @@ impl Environment {
                         for port in &cll.ports {
                             let pt: &ir::Port = &port.borrow();
                             map.insert(
-                                pt as *const ir::Port,
+                                pt as PortRef,
                                 Value::try_from_init(
                                     cll.get_parameter("VALUE")
                                         .unwrap_or_default(),
@@ -331,12 +281,12 @@ impl Environment {
                         for port in &cll.ports {
                             let pt: &ir::Port = &port.borrow();
                             map.insert(
-                                pt as *const ir::Port,
+                                pt as PortRef,
                                 Value::try_from_init(0, 0).unwrap(),
                             );
                         }
                     }
-                    _ => panic!("impossible"),
+                    _ => unreachable!(),
                 }
             }
         }
@@ -345,10 +295,7 @@ impl Environment {
 
     /// Return the value associated with a component's port.
     pub fn get_from_port(&self, port: &ir::Port) -> &Value {
-        // if port.is_hole() {
-        //     panic!("Cannot get value from hole")
-        // }
-        &self.pv_map[&(port as *const ir::Port)]
+        &self.pv_map[&(port as PortRef)]
     }
 
     /// Gets the cell in a component based on the name;
@@ -373,17 +320,14 @@ impl Environment {
     }
 
     pub fn get_prim_mut(&mut self, cell: &ir::Cell) -> &mut Primitive {
-        self.cell_prim_map
-            .get_mut(&(cell as *const ir::Cell))
-            .unwrap()
+        self.cell_prim_map.get_mut(&(cell as CellRef)).unwrap()
     }
 
     pub fn cell_is_comb(&self, cell: &ir::Cell) -> bool {
-        self.cell_prim_map[&(cell as *const ir::Cell)].is_comb()
+        self.cell_prim_map[&(cell as CellRef)].is_comb()
     }
 }
 
-//we have to rewrite the printer
 impl Serialize for Environment {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

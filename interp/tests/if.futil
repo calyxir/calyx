@@ -4,18 +4,15 @@ component main() -> () {
   cells {
     mem = std_mem_d1(32, 1, 1);
     lt = std_lt(32);
-    reg0 = std_reg(1);
   }
 
   wires {
-    group cond<"static"=1> { 
+    group cond<"static"=0> {
       //b/c lt is used in this distinctly not-last group,
       //by end of execution all its ports are 0/X/not asserted.
-      reg0.write_en = 1'd1;
       lt.left = 32'd9;
       lt.right = 32'd16;
-      reg0.in = lt.out;
-      cond[done] = reg0.done;
+      cond[done] = 1'd1;
     }
 
     group true<"static"=1> {
@@ -40,7 +37,7 @@ component main() -> () {
     //contents of [mem] at end, 
     //cuz our serializiation doesn't
     //support that currently
-    if reg0.out with cond { //reg0 should have a done of 0 at the end of main execution
+    if lt.out with cond { //reg0 should have a done of 0 at the end of main execution
       true;
     } else {
       false;
