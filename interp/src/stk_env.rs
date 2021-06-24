@@ -31,7 +31,7 @@ use std::rc::Rc;
 //
 
 // From "Learning Rust with Entirely Too Many Linked Lists" (2018), Chapter 4.5:
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct List<T> {
     head: Link<T>,
 }
@@ -42,7 +42,6 @@ type Link<T> = Option<Rc<Node<T>>>;
 //
 #[derive(Debug)]
 struct Node<T> {
-    //problem: node owns its element (? is this a problem)
     elem: T,
     next: Link<T>,
 }
@@ -56,6 +55,10 @@ impl<T> Clone for List<T> {
 }
 
 impl<T> List<T> {
+    pub fn new() -> Self {
+        List { head: None }
+    }
+
     pub fn is_empty(&self) -> bool {
         if let Some(node) = &self.head {
             false
@@ -64,25 +67,25 @@ impl<T> List<T> {
         }
     }
 
-    //renamed from "append" to "push"
+    /// Returns a list identical to [self], with [elem] pushed onto the front
     pub fn push(&self, elem: T) -> List<T> {
         List {
             head: Some(Rc::new(Node {
                 elem,
-                next: self.head.clone(), //hope this clone of an Option<Rc<U<T>>> is ok
+                next: self.head.clone(),
             })),
         }
     }
 
-    ///List w/o its head.
+    /// Returns a list identical to [self], with its head pointing to the second elem of [self]
     pub fn tail(&self) -> List<T> {
         List {
             head: self.head.as_ref().and_then(|node| node.next.clone()),
         }
     }
 
-    ///Hacky method that consumes the current list, returning
-    ///its head (if it exists), and a list with that head removed (or empty)
+    /// Consumes the current list, returning an Option of the
+    /// element contained in its [head] and its [tail].
     pub fn split(self) -> (Option<T>, Self) {
         if self.is_empty() {
             return (None, self);
@@ -96,6 +99,7 @@ impl<T> List<T> {
         }
     }
 
+    /// Returns an Option of a pointer to the head of this list
     pub fn head(&self) -> Option<&T> {
         self.head.as_ref().map(|node| &node.elem)
     }
@@ -124,15 +128,21 @@ impl<'a, T> Iterator for Iter<'a, T> {
 //
 
 //When a new scope is added, head is added to the tail and becomes immutable
-#[derive(Default, Debug)]
+#[derive(Debug)]
 struct Smoosher<K: Eq + std::hash::Hash, V> {
     head: HashMap<K, V>,       //mutable
     tail: List<HashMap<K, V>>, //read-only
 }
 
 impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
-    ///Gets the highest-scoped binding containing [k], if it exists.
-    ///else returns None.
+    fn new() -> Smoosher<K, V> {
+        Smoosher {
+            head: HashMap::new(),
+            tail: List::new(),
+        }
+    }
+    /// Returns an Option of a pointer to the highest-scoped binding to [k],
+    /// if it exists. Els None.
     fn get(&self, k: &K) -> Option<&V> {
         //first check if it's in the highest one
         if let Some(val) = self.head.get(k) {
@@ -149,21 +159,15 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
         }
     }
 
-    ///doesn't seem possible rn. if you want to edit the binding of a key in a previous
-    ///scope... not sure how you could
-    fn get_mut(&mut self, k: &K) -> Option<&mut V> {
-        todo!()
-    }
-
-    ///Sets a new binding of [k] to [v] in the highest scope
+    /// Sets a new binding of [k] to [v] in the highest scope
     fn set(&mut self, k: K, v: V) {
         self.head.insert(k, v);
     }
 
-    ///Returns a new Smoosher and mutates [self]. The new Smoosher has a new scope
-    ///as [head] and all of [self] as [tail]. [Self] has a fresh scope pushed onto
-    ///it. Invariant this method enforces: you cannot mutate a scope that has children
-    ///forks.
+    /// Returns a new Smoosher and mutates [self]. The new Smoosher has a new scope
+    /// as [head] and all of (pre-mutation) [self] as [tail]. [Self] has a fresh scope pushed onto
+    /// it. Invariant this method enforces: you cannot mutate a scope that has children
+    /// forks.
     fn fork(&mut self) -> Self {
         //first save self's head, and replace it with a clean HM
         let old_head = mem::replace(&mut self.head, HashMap::new()); //can replace with mem::take()
@@ -185,14 +189,30 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
 
     //maybe not necessary VV
 
-    ///Returns a pointer to the newest scope of this Smoosher. A Smoosher upon
-    ///instantiation will always have 1 empty HM as its first scope, so this
-    ///method will always return.
+    /// Returns a pointer to the newest scope of this Smoosher. A Smoosher upon
+    /// instantiation will always have 1 empty HM as its first scope, so this
+    /// method will always meaningfully return.
     fn top(&self) -> &HashMap<K, V> {
         &self.head
     }
 
-    /// Returns a Smoosher
+    /// Returns a Smoosher with all bindings in the topmost scope transposed
+    /// onto the second-newest scope, with the topmost scope then discarded.
+    /// Invariant: [self] must have at least 2 scopes, and neither scope may
+    /// be the root of any fork:
+    ///* [A]   [B]
+    ///   |     |
+    ///    \   /
+    ///     [C]
+    /// Cannot smoosh A into B -- must first MERGE A and B, then smoosh the resulting
+    /// node into C
+    ///* [A]   [B]
+    ///   |     |
+    ///    \   /
+    ///     [C]
+    ///      |
+    ///     [D]
+    /// Cannot smoosh C into D (not even possible with this method)
     fn smoosh_once(self) -> Self {
         //move head to a sep variable
         let wr_head = self.head;
@@ -212,26 +232,88 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
         }
     }
 
-    /// Transposes the bindings from the topmost [levels] HMs onto the HM
-    /// [levels] deep down from the top (topmost HM considered to have index 0).
-    /// Calling self.Smoosh(0) has no effect,
-    /// calling self.Smoosh(1) will transpose the bindings from the topmost scope
-    /// onto the scope directly below it. [Levels] is how many scopes to smoosh
-    /// down. Calling [smoosh_lvl] with a [levels] greater than the number of
-    /// scopes has undefined behavior.
-    /// Required: There exist no forks from any of the topmost [levels] scopes.
+    /// Applies all bindings found in the top [levels] scopes to the [levels]th
+    /// scope. [smoosh(0)] has no effect, while [smoosh(1)] is equivalent to
+    /// [smoosh_once].
+    /// Invariant: None of the top [levels] scopes may be the root of any fork
+    /// Required: [levels] >= # of scopes in the Smoosher
     fn smoosh(self, levels: u64) -> Self {
-        let upd_stk = List::<HashMap<K, V>>::default();
-        todo!()
+        let mut tr = self;
+        for n in 0..levels {
+            tr = tr.smoosh_once();
+        }
+        tr
     }
 
-    ///works on a two branches w/ exactly one layer.
-    ///so both Smooshers have the same head of their [tail]
-    ///
-    fn merge_once(self, other: Self) -> Self {
-        todo!()
+    /// For internal use only
+    /// Set [new] as the topmost scope of [self]
+    fn push_scope(&mut self, new: HashMap<K, V>) {
+        let old_head = mem::replace(&mut self.head, new);
+        self.tail = self.tail.push(old_head);
     }
 
+    /// Consumes two Smooshers, which must have the same # of scopes above
+    /// their shared fork point (no check is performed on this).
+    /// Merges their topmost scope, smooshing that
+    /// resulting scope onto the new head of [self]. Returns a tupule of the
+    /// new self, and [other] with its head removed. Best described by example:
+    /// Smoosher 1: (A, B, E) Smoosher 2: (B, D, E)          
+    /// [A]        [B]
+    ///  |          |
+    /// [C]        [D]
+    ///  |          |
+    ///   \        /
+    ///    \      /
+    ///      [E]
+    /// *merge_once(A, B)
+    /// Smoosher 1: (AmB onto C, E), Smoosher 2: (D, E)
+    /// [Smoosh (AmB) onto C]        [D]
+    ///  |                            |
+    ///   \                          /
+    ///    \                        /
+    ///                 [E]    
+    /// * IMPORTANT INVARIANT: The intersection of the bindings of the two topmost
+    /// scopes MUST be the empty set!   
+    fn merge_once(self, other: Self) -> (Self, Self) {
+        //get both heads of [self] and [other]
+        let mut a_head = self.head;
+        let b_head = other.head;
+        let (a_new_head, a_new_tail) = self.tail.split();
+        let (b_new_head, b_new_tail) = other.tail.split();
+        //create A' and B' from the tails we got above
+        let mut a = Smoosher::new();
+        let mut b = Smoosher::new();
+        if let Some(mut a_new_head) = a_new_head {
+            a = Smoosher {
+                head: a_new_head,
+                tail: a_new_tail,
+            };
+        } else {
+            panic!("trying to merge, but [self] is empty")
+        }
+        if let Some(b_new_head) = b_new_head {
+            b = Smoosher {
+                head: b_new_head,
+                tail: b_new_tail,
+            };
+        } else {
+            panic!("trying to merge, but [other] is empty")
+        }
+        //merge a_head and b_head.
+        //here is why it's important they don't have overlapping writes
+        for (k, v) in b_head {
+            a_head.insert(k, v);
+        }
+        //push_scope this new merged node onto A'
+        a.push_scope(a_head);
+        //smoosh the new scope down one
+        //return A' and B'
+        (a.smoosh_once(), b)
+    }
+
+    //hard to do because we don't know until when to merge... I guess
+    //that constant pointer stuff that compares pointers to see if they
+    //share a node?
     fn merge(self, other: Self) -> Self {
         todo!()
     }
