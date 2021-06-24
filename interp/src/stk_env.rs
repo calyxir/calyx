@@ -150,6 +150,11 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
             tail: List::new(),
         }
     }
+
+    //hacky?
+    pub fn drop(self) {
+        //yea
+    }
     /// Returns an Option of a pointer to the highest-scoped binding to [k],
     /// if it exists. Els None.
     pub fn get(&self, k: &K) -> Option<&V> {
@@ -357,8 +362,44 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
             let (a, b) = Smoosher::merge_once(a, b);
             return Smoosher::merge(a, b);
         } else {
-            let (a, b) = Smoosher::merge_once(a, b);
-            a
+            //merge contents of b into a, then drop b (?), then smoosh?
+            //can't smoosh b/c the fork still exists. How to throw away b?
+            //get both heads of [self] and [other]
+            //from merge_once:
+            let mut a_head = a.head;
+            let b_head = b.head;
+            let (a_new_head, a_new_tail) = a.tail.split();
+            let (b_new_head, b_new_tail) = b.tail.split();
+            //create A' and B' from the tails we got above
+            let mut a = Smoosher::new();
+            let mut b = Smoosher::new();
+            if let Some(mut a_new_head) = a_new_head {
+                a = Smoosher {
+                    head: a_new_head,
+                    tail: a_new_tail,
+                };
+            } else {
+                panic!("trying to merge, but [self] is empty")
+            }
+            if let Some(b_new_head) = b_new_head {
+                b = Smoosher {
+                    head: b_new_head,
+                    tail: b_new_tail,
+                };
+            } else {
+                panic!("trying to merge, but [other] is empty")
+            }
+            //merge a_head and b_head.
+            //here is why it's important they don't have overlapping writes
+            for (k, v) in b_head {
+                a_head.insert(k, v);
+            }
+            //push_scope this new merged node onto A'
+            a.push_scope(a_head);
+            //smoosh the new scope down one, first drop b
+            Smoosher::drop(b);
+            //return A' and B'
+            a.smoosh_once()
         }
     }
 

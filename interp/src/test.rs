@@ -45,6 +45,43 @@ mod stk_env_test {
     }
 
     #[test]
+    fn smoosher_merge_once_basic() {
+        let mut smoosher = Smoosher::new();
+        smoosher.set("alma", 18);
+        let mut smoosher2 = smoosher.fork();
+        //fork should put a new scope on
+        smoosher.set("jonathan", 14);
+        smoosher2.set("alma", 19);
+        smoosher.new_scope();
+        smoosher2.new_scope();
+        smoosher.set("jonathan", 15);
+        smoosher2.set("jenny", 2);
+        let (smoosher, _) = smoosher.merge_once(smoosher2);
+        assert_eq!(*smoosher.get(&"jonathan").unwrap(), 15);
+        assert_eq!(*smoosher.get(&"jenny").unwrap(), 2);
+        assert_eq!(*smoosher.get(&"alma").unwrap(), 18); //only toplevels have merged
+    }
+
+    #[test]
+    fn smoosher_manual_merge() {
+        let mut smoosher = Smoosher::new();
+        smoosher.set("alma", 18);
+        let mut smoosher2 = smoosher.fork();
+        //fork should put a new scope on
+        smoosher.set("jonathan", 14);
+        smoosher2.set("alma", 19);
+        smoosher.new_scope();
+        smoosher2.new_scope();
+        smoosher.set("jonathan", 15);
+        smoosher2.set("jenny", 2);
+        let (smoosher, smoosher2) = smoosher.merge_once(smoosher2);
+        assert_eq!(*smoosher.get(&"jonathan").unwrap(), 15);
+        assert_eq!(*smoosher.get(&"jenny").unwrap(), 2);
+        assert_eq!(*smoosher.get(&"alma").unwrap(), 18); //only toplevels have merged
+                                                         //now try merging again into just one -- manually do merge()
+    }
+
+    #[test]
     fn smoosher_merge_basic() {
         let mut smoosher = Smoosher::new();
         smoosher.set("alma", 18);
