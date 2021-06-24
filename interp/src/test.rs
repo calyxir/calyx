@@ -12,8 +12,10 @@ mod prim_test {
         let input = (ir::Id::from("write_data"), &val);
         let write_en = (ir::Id::from("write_en"), &enable);
         let addr0 = (ir::Id::from("addr0"), &addr);
-        let mut mem_out =
-            mem_d1.validate_and_execute_mut(&[input, write_en, addr0]);
+        let mut mem_out = mem_d1.validate_and_execute_mut(
+            &[input, write_en, addr0],
+            &Value::bit_low(),
+        );
         match &mut mem_out[..] {
             [read_data, done] => match (read_data, done) {
                 (
@@ -53,7 +55,10 @@ mod prim_test {
         let write_en = (ir::Id::from("write_en"), &enable);
         let addr0 = (ir::Id::from("addr0"), &addr);
         let mut mem_out = mem_d1
-            .validate_and_execute_mut(&[input, write_en, addr0])
+            .validate_and_execute_mut(
+                &[input, write_en, addr0],
+                &Value::bit_low(),
+            )
             .into_iter();
         if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
             let rd = read_data.1.unwrap_imm();
@@ -73,8 +78,10 @@ mod prim_test {
         let input = (ir::Id::from("write_data"), &val);
         let write_en = (ir::Id::from("write_en"), &enable);
         let addr0 = (ir::Id::from("addr0"), &addr);
-        let mut _mem_out =
-            mem_d1.validate_and_execute_mut(&[input, write_en, addr0]);
+        let mut _mem_out = mem_d1.validate_and_execute_mut(
+            &[input, write_en, addr0],
+            &Value::bit_low(),
+        );
     }
     #[test]
     #[should_panic]
@@ -87,8 +94,10 @@ mod prim_test {
         let input = (ir::Id::from("write_data"), &val);
         let write_en = (ir::Id::from("write_en"), &enable);
         let addr0 = (ir::Id::from("addr0"), &addr);
-        let mut _mem_out =
-            mem_d1.validate_and_execute_mut(&[input, write_en, addr0]);
+        let mut _mem_out = mem_d1.validate_and_execute_mut(
+            &[input, write_en, addr0],
+            &Value::bit_low(),
+        );
     }
     #[test]
     fn test_mem_d2_tlv() {
@@ -101,8 +110,10 @@ mod prim_test {
         let write_en = (ir::Id::from("write_en"), &enable);
         let addr0 = (ir::Id::from("addr0"), &addr_0);
         let addr1 = (ir::Id::from("addr1"), &addr_1);
-        let mut mem_out =
-            mem_d2.validate_and_execute_mut(&[input, write_en, addr0, addr1]);
+        let mut mem_out = mem_d2.validate_and_execute_mut(
+            &[input, write_en, addr0, addr1],
+            &Value::bit_low(),
+        );
         match &mut mem_out[..] {
             [read_data, done] => match (read_data, done) {
                 (
@@ -144,7 +155,10 @@ mod prim_test {
         let addr0 = (ir::Id::from("addr0"), &addr_0);
         let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut mem_out = mem_d2
-            .validate_and_execute_mut(&[input, write_en, addr0, addr1])
+            .validate_and_execute_mut(
+                &[input, write_en, addr0, addr1],
+                &Value::bit_low(),
+            )
             .into_iter();
         if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
             let rd = read_data.1.unwrap_imm();
@@ -166,8 +180,10 @@ mod prim_test {
         let write_en = (ir::Id::from("write_en"), &enable);
         let addr0 = (ir::Id::from("addr0"), &addr_0);
         let addr1 = (ir::Id::from("addr1"), &addr_1);
-        let mut _mem_out =
-            mem_d2.validate_and_execute_mut(&[input, write_en, addr0, addr1]);
+        let mut _mem_out = mem_d2.validate_and_execute_mut(
+            &[input, write_en, addr0, addr1],
+            &Value::bit_low(),
+        );
     }
     #[test]
     #[should_panic]
@@ -182,8 +198,10 @@ mod prim_test {
         let write_en = (ir::Id::from("write_en"), &enable);
         let addr0 = (ir::Id::from("addr0"), &addr_0);
         let addr1 = (ir::Id::from("addr1"), &addr_1);
-        let mut _mem_out =
-            mem_d2.validate_and_execute_mut(&[input, write_en, addr0, addr1]);
+        let mut _mem_out = mem_d2.validate_and_execute_mut(
+            &[input, write_en, addr0, addr1],
+            &Value::bit_low(),
+        );
     }
     #[test]
     #[should_panic]
@@ -198,8 +216,10 @@ mod prim_test {
         let write_en = (ir::Id::from("write_en"), &enable);
         let addr0 = (ir::Id::from("addr0"), &addr_0);
         let addr1 = (ir::Id::from("addr1"), &addr_1);
-        let mut _mem_out =
-            mem_d2.validate_and_execute_mut(&[input, write_en, addr0, addr1]);
+        let mut _mem_out = mem_d2.validate_and_execute_mut(
+            &[input, write_en, addr0, addr1],
+            &Value::bit_low(),
+        );
     }
     #[test]
     fn test_mem_d3_tlv() {
@@ -213,7 +233,10 @@ mod prim_test {
         let input = (ir::Id::from("write_data"), &val);
         let write_en = (ir::Id::from("write_en"), &enable);
         let mut mem_out = mem_d3
-            .validate_and_execute_mut(&[input, write_en, addr0, addr1, addr2])
+            .validate_and_execute_mut(
+                &[input, write_en, addr0, addr1, addr2],
+                &Value::bit_low(),
+            )
             .into_iter();
         let (read_data, done) =
             (mem_out.next().unwrap(), mem_out.next().unwrap());
@@ -249,7 +272,10 @@ mod prim_test {
         let input = (ir::Id::from("write_data"), &val);
         let write_en = (ir::Id::from("write_en"), &enable);
         let mut mem_out = mem_d3
-            .validate_and_execute_mut(&[input, write_en, addr0, addr1, addr2])
+            .validate_and_execute_mut(
+                &[input, write_en, addr0, addr1, addr2],
+                &Value::bit_low(),
+            )
             .into_iter();
         if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
             let rd = read_data.1.unwrap_imm();
@@ -273,8 +299,10 @@ mod prim_test {
         let addr0 = (ir::Id::from("addr0"), &addr_0);
         let addr1 = (ir::Id::from("addr1"), &addr_1);
         let addr2 = (ir::Id::from("addr2"), &addr_2);
-        let mut _mem_out = mem_d3
-            .validate_and_execute_mut(&[input, write_en, addr0, addr1, addr2]);
+        let mut _mem_out = mem_d3.validate_and_execute_mut(
+            &[input, write_en, addr0, addr1, addr2],
+            &Value::bit_low(),
+        );
     }
     #[test]
     #[should_panic]
@@ -291,8 +319,10 @@ mod prim_test {
         let addr0 = (ir::Id::from("addr0"), &addr_0);
         let addr1 = (ir::Id::from("addr1"), &addr_1);
         let addr2 = (ir::Id::from("addr2"), &addr_2);
-        let mut _mem_out = mem_d3
-            .validate_and_execute_mut(&[input, write_en, addr0, addr1, addr2]);
+        let mut _mem_out = mem_d3.validate_and_execute_mut(
+            &[input, write_en, addr0, addr1, addr2],
+            &Value::bit_low(),
+        );
     }
     #[test]
     #[should_panic]
@@ -309,8 +339,10 @@ mod prim_test {
         let addr0 = (ir::Id::from("addr0"), &addr_0);
         let addr1 = (ir::Id::from("addr1"), &addr_1);
         let addr2 = (ir::Id::from("addr2"), &addr_2);
-        let mut _mem_out = mem_d3
-            .validate_and_execute_mut(&[input, write_en, addr0, addr1, addr2]);
+        let mut _mem_out = mem_d3.validate_and_execute_mut(
+            &[input, write_en, addr0, addr1, addr2],
+            &Value::bit_low(),
+        );
     }
     #[test]
     #[should_panic]
@@ -327,8 +359,10 @@ mod prim_test {
         let addr0 = (ir::Id::from("addr0"), &addr_0);
         let addr1 = (ir::Id::from("addr1"), &addr_1);
         let addr2 = (ir::Id::from("addr2"), &addr_2);
-        let mut _mem_out = mem_d3
-            .validate_and_execute_mut(&[input, write_en, addr0, addr1, addr2]);
+        let mut _mem_out = mem_d3.validate_and_execute_mut(
+            &[input, write_en, addr0, addr1, addr2],
+            &Value::bit_low(),
+        );
     }
     #[test]
     fn test_mem_d4_tlv() {
@@ -343,9 +377,10 @@ mod prim_test {
         let input = (ir::Id::from("write_data"), &val);
         let write_en = (ir::Id::from("write_en"), &enable);
         let mut mem_out = mem_d4
-            .validate_and_execute_mut(&[
-                input, write_en, addr0, addr1, addr2, addr3,
-            ])
+            .validate_and_execute_mut(
+                &[input, write_en, addr0, addr1, addr2, addr3],
+                &Value::bit_low(),
+            )
             .into_iter();
         let (read_data, done) =
             (mem_out.next().unwrap(), mem_out.next().unwrap());
@@ -385,9 +420,10 @@ mod prim_test {
         let addr2 = (ir::Id::from("addr2"), &addr_2);
         let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut mem_out = mem_d4
-            .validate_and_execute_mut(&[
-                input, write_en, addr0, addr1, addr2, addr3,
-            ])
+            .validate_and_execute_mut(
+                &[input, write_en, addr0, addr1, addr2, addr3],
+                &Value::bit_low(),
+            )
             .into_iter();
         if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
             let rd = read_data.1.unwrap_imm();
@@ -411,9 +447,10 @@ mod prim_test {
         let addr1 = (ir::Id::from("addr1"), &addr_1);
         let addr2 = (ir::Id::from("addr2"), &addr_2);
         let addr3 = (ir::Id::from("addr3"), &addr_3);
-        let mut _mem_out = mem_d4.validate_and_execute_mut(&[
-            input, write_en, addr0, addr1, addr2, addr3,
-        ]);
+        let mut _mem_out = mem_d4.validate_and_execute_mut(
+            &[input, write_en, addr0, addr1, addr2, addr3],
+            &Value::bit_low(),
+        );
     }
     #[test]
     #[should_panic]
@@ -432,9 +469,10 @@ mod prim_test {
         let addr1 = (ir::Id::from("addr1"), &addr_1);
         let addr2 = (ir::Id::from("addr2"), &addr_2);
         let addr3 = (ir::Id::from("addr3"), &addr_3);
-        let mut _mem_out = mem_d4.validate_and_execute_mut(&[
-            input, write_en, addr0, addr1, addr2, addr3,
-        ]);
+        let mut _mem_out = mem_d4.validate_and_execute_mut(
+            &[input, write_en, addr0, addr1, addr2, addr3],
+            &Value::bit_low(),
+        );
     }
     #[test]
     #[should_panic]
@@ -453,9 +491,10 @@ mod prim_test {
         let addr1 = (ir::Id::from("addr1"), &addr_1);
         let addr2 = (ir::Id::from("addr2"), &addr_2);
         let addr3 = (ir::Id::from("addr3"), &addr_3);
-        let mut _mem_out = mem_d4.validate_and_execute_mut(&[
-            input, write_en, addr0, addr1, addr2, addr3,
-        ]);
+        let mut _mem_out = mem_d4.validate_and_execute_mut(
+            &[input, write_en, addr0, addr1, addr2, addr3],
+            &Value::bit_low(),
+        );
     }
     #[test]
     #[should_panic]
@@ -474,9 +513,10 @@ mod prim_test {
         let addr1 = (ir::Id::from("addr1"), &addr_1);
         let addr2 = (ir::Id::from("addr2"), &addr_2);
         let addr3 = (ir::Id::from("addr3"), &addr_3);
-        let mut _mem_out = mem_d4.validate_and_execute_mut(&[
-            input, write_en, addr0, addr1, addr2, addr3,
-        ]);
+        let mut _mem_out = mem_d4.validate_and_execute_mut(
+            &[input, write_en, addr0, addr1, addr2, addr3],
+            &Value::bit_low(),
+        );
     }
     #[test]
     #[should_panic]
@@ -495,9 +535,10 @@ mod prim_test {
         let addr1 = (ir::Id::from("addr1"), &addr_1);
         let addr2 = (ir::Id::from("addr2"), &addr_2);
         let addr3 = (ir::Id::from("addr3"), &addr_3);
-        let mut _mem_out = mem_d4.validate_and_execute_mut(&[
-            input, write_en, addr0, addr1, addr2, addr3,
-        ]);
+        let mut _mem_out = mem_d4.validate_and_execute_mut(
+            &[input, write_en, addr0, addr1, addr2, addr3],
+            &Value::bit_low(),
+        );
     }
     #[test]
     fn test_std_reg_tlv() {
@@ -508,8 +549,10 @@ mod prim_test {
             ir::Id::from("write_en"),
             &Value::try_from_init(1, 1).unwrap(),
         );
-        let output_vals =
-            reg1.validate_and_execute_mut(&[input_tup, write_en_tup]);
+        let output_vals = reg1.validate_and_execute_mut(
+            &[input_tup, write_en_tup],
+            &Value::bit_low(),
+        );
         println!("output_vals: {:?}", output_vals);
         let mut output_vals = output_vals.into_iter();
         let (read_data, done) =
@@ -544,8 +587,10 @@ mod prim_test {
             ir::Id::from("write_en"),
             &Value::try_from_init(0, 1).unwrap(),
         );
-        let output_vals =
-            reg1.validate_and_execute_mut(&[input_tup, write_en_tup]);
+        let output_vals = reg1.validate_and_execute_mut(
+            &[input_tup, write_en_tup],
+            &Value::bit_low(),
+        );
         println!("output_vals: {:?}", output_vals);
         let mut output_vals = output_vals.into_iter();
         if let (read_data, None) =
@@ -568,7 +613,8 @@ mod prim_test {
             ir::Id::from("write_en"),
             &Value::try_from_init(1, 1).unwrap(),
         );
-        let _output_vals = reg1.validate_and_execute_mut(&[input, write_en]);
+        let _output_vals = reg1
+            .validate_and_execute_mut(&[input, write_en], &Value::bit_low());
     }
     #[test]
     fn test_std_const() {

@@ -506,7 +506,7 @@ impl ExecuteStateful for StdMemD1 {
     /// let write_data = (ir::Id::from("write_data"), &Value::try_from_init(1, 1).unwrap());
     /// let write_en = (ir::Id::from("write_en"), &Value::try_from_init(1, 1).unwrap());
     /// let addr0 = (ir::Id::from("addr0"), &Value::try_from_init(0, 3).unwrap());
-    /// let output_vals = std_memd1.execute_mut(&[write_data, write_en, addr0]);
+    /// let output_vals = std_memd1.execute_mut(&[write_data, write_en, addr0], &Value::bit_low());
     /// let mut output_vals = output_vals.into_iter();
     /// let (read_data, done) = (output_vals.next().unwrap(), output_vals.next().unwrap());
     /// let mut rd = read_data.1.unwrap_tlv();
