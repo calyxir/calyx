@@ -138,13 +138,13 @@ impl<'a, T> Iterator for Iter<'a, T> {
 
 //When a new scope is added, head is added to the tail and becomes immutable
 #[derive(Debug)]
-struct Smoosher<K: Eq + std::hash::Hash, V> {
+pub struct Smoosher<K: Eq + std::hash::Hash, V> {
     head: HashMap<K, V>,       //mutable
     tail: List<HashMap<K, V>>, //read-only
 }
 
 impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
-    fn new() -> Smoosher<K, V> {
+    pub fn new() -> Smoosher<K, V> {
         Smoosher {
             head: HashMap::new(),
             tail: List::new(),
@@ -152,7 +152,7 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     }
     /// Returns an Option of a pointer to the highest-scoped binding to [k],
     /// if it exists. Els None.
-    fn get(&self, k: &K) -> Option<&V> {
+    pub fn get(&self, k: &K) -> Option<&V> {
         //first check if it's in the highest one
         if let Some(val) = self.head.get(k) {
             return Some(val);
@@ -169,7 +169,7 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     }
 
     /// Sets a new binding of [k] to [v] in the highest scope
-    fn set(&mut self, k: K, v: V) {
+    pub fn set(&mut self, k: K, v: V) {
         self.head.insert(k, v);
     }
 
@@ -177,7 +177,7 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     /// as [head] and all of (pre-mutation) [self] as [tail]. [Self] has a fresh scope pushed onto
     /// it. Invariant this method enforces: you cannot mutate a scope that has children
     /// forks.
-    fn fork(&mut self) -> Self {
+    pub fn fork(&mut self) -> Self {
         //first save self's head, and replace it with a clean HM
         let old_head = mem::replace(&mut self.head, HashMap::new()); //can replace with mem::take()
                                                                      //create tail to both Self and the new Smoosher
@@ -191,7 +191,7 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     }
 
     ///Pushes a new, empty scope onto [self]
-    fn new_scope(&mut self) {
+    pub fn new_scope(&mut self) {
         let old_head = mem::replace(&mut self.head, HashMap::new());
         self.tail = self.tail.push(old_head);
     }
@@ -201,7 +201,7 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     /// Returns a pointer to the newest scope of this Smoosher. A Smoosher upon
     /// instantiation will always have 1 empty HM as its first scope, so this
     /// method will always meaningfully return.
-    fn top(&self) -> &HashMap<K, V> {
+    pub fn top(&self) -> &HashMap<K, V> {
         &self.head
     }
 
@@ -222,7 +222,7 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     ///      |
     ///     [D]
     /// Cannot smoosh C into D (not even possible with this method)
-    fn smoosh_once(self) -> Self {
+    pub fn smoosh_once(self) -> Self {
         //move head to a sep variable
         let wr_head = self.head;
         //now move the head of the tail into the head of the smoosher
@@ -246,7 +246,7 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     /// [smoosh_once].
     /// Invariant: None of the top [levels] scopes may be the root of any fork
     /// Required: [levels] >= # of scopes in the Smoosher
-    fn smoosh(self, levels: u64) -> Self {
+    pub fn smoosh(self, levels: u64) -> Self {
         let mut tr = self;
         for n in 0..levels {
             tr = tr.smoosh_once();
@@ -283,7 +283,7 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     ///                 [E]    
     /// * IMPORTANT INVARIANT: The intersection of the bindings of the two topmost
     /// scopes MUST be the empty set!   
-    fn merge_once(self, other: Self) -> (Self, Self) {
+    pub fn merge_once(self, other: Self) -> (Self, Self) {
         //get both heads of [self] and [other]
         let mut a_head = self.head;
         let b_head = other.head;
@@ -347,7 +347,7 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     ///      [F]
     /// * IMPORTANT INVARIANT: The intersection of the bindings of the two branches
     ///  MUST be the empty set!   
-    fn merge(self, other: Self) -> Self {
+    pub fn merge(self, other: Self) -> Self {
         //we will return A in the end
         //set up A and B
         let mut a = self;
@@ -362,19 +362,19 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
         }
     }
 
-    fn num_scopes(&self) -> u64 {
+    pub fn num_scopes(&self) -> u64 {
         todo!()
     }
 
-    fn num_bindings(&self) -> u64 {
+    pub fn num_bindings(&self) -> u64 {
         todo!()
     }
 
-    fn list_bound_vars(&self, top_i: u64, bottom_i: u64) -> HashSet<&K> {
+    pub fn list_bound_vars(&self, top_i: u64, bottom_i: u64) -> HashSet<&K> {
         todo!()
     }
 
-    fn diff(&self, top_i: u64, bottom_i: u64) -> Vec<(K, V)> {
+    pub fn diff(&self, top_i: u64, bottom_i: u64) -> Vec<(K, V)> {
         todo!()
     }
 }
