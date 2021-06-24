@@ -59,6 +59,15 @@ impl<T> List<T> {
         List { head: None }
     }
 
+    /// Tests if the nodes at the head of [self] and [other] are equal;
+    /// That is if the Rc points to the same loc. Neither list may be
+    /// empty.
+    pub fn same_head(&self, other: &Self) -> bool {
+        let self_head = self.head.as_ref().unwrap();
+        let other_head = other.head.as_ref().unwrap();
+        Rc::as_ptr(self_head) == Rc::as_ptr(other_head)
+    }
+
     pub fn is_empty(&self) -> bool {
         if let Some(node) = &self.head {
             false
@@ -257,7 +266,7 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     /// Merges their topmost scope, smooshing that
     /// resulting scope onto the new head of [self]. Returns a tupule of the
     /// new self, and [other] with its head removed. Best described by example:
-    /// Smoosher 1: (A, B, E) Smoosher 2: (B, D, E)          
+    /// Smoosher 1: (A, C, E) Smoosher 2: (B, D, E)          
     /// [A]        [B]
     ///  |          |
     /// [C]        [D]
@@ -311,11 +320,46 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
         (a.smoosh_once(), b)
     }
 
-    //hard to do because we don't know until when to merge... I guess
-    //that constant pointer stuff that compares pointers to see if they
-    //share a node?
+    /// Checks if the second-from-the-top scope of two
+    /// Smooshers is the same
+    fn same_tail_head(&self, other: &Self) -> bool {
+        List::same_head(&self.tail, &other.tail)
+    }
+
+    /// Consumes two Smooshers, which must have the same # of scopes above
+    /// their shared fork point (no check is performed on this).
+    /// Merges all topmost scopes above the shared fork point, smooshing the resulting
+    /// node onto the fork point. Returns the resulting Smoosher. Example:
+    /// Smoosher 1: (A, C, E) Smoosher 2: (B, D, E)          
+    /// [A]        [B]
+    ///  |          |
+    /// [C]        [D]
+    ///  |          |
+    ///   \        /
+    ///    \      /
+    ///      [E]
+    ///       |
+    ///      [F]
+    /// *merge(A, B)
+    /// Returns:
+    ///      [ABCD merged and smooshed onto E]
+    ///       |
+    ///      [F]
+    /// * IMPORTANT INVARIANT: The intersection of the bindings of the two branches
+    ///  MUST be the empty set!   
     fn merge(self, other: Self) -> Self {
-        todo!()
+        //we will return A in the end
+        //set up A and B
+        let mut a = self;
+        let mut b = other;
+        //while A and B do not have the same tail head, continue to merge
+        if !Smoosher::same_tail_head(&a, &b) {
+            let (a, b) = Smoosher::merge_once(a, b);
+            return Smoosher::merge(a, b);
+        } else {
+            let (a, b) = Smoosher::merge_once(a, b);
+            a
+        }
     }
 
     fn num_scopes(&self) -> u64 {
