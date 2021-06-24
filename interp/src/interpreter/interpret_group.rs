@@ -205,36 +205,30 @@ fn grp_is_done(done: OutputValueRef) -> bool {
 }
 
 pub fn interp_cont(
-    continuous_assignments: &[ir::Assignment],
+    _continuous_assignments: &[ir::Assignment],
     env: Environment,
     comp: &ir::Component,
 ) -> FutilResult<Environment> {
-    // TODO: Set go to high
-    // go find go port for given assignment
-    let dependency_map = continuous_assignments.iter().into();
+    let dependency_map = comp.continuous_assignments.iter().into();
     let mut working_env: WorkingEnvironment = env.into();
-    let mut assign_worklist: WorkList =
-        continuous_assignments.iter().map(|x| x.into()).collect();
+    let mut assign_worklist: WorkList = comp
+        .continuous_assignments
+        .iter()
+        .map(|x| x.into())
+        .collect();
 
-    let sig_ports = comp.signature.borrow().ports.clone();
-    let go_port = sig_ports
-        .clone()
-        .into_iter()
-        .find(|x| x.borrow().name == "go")
-        .unwrap();
+    let sig_port = comp.signature.borrow().ports.clone();
+    let go_port = sig_port.iter().find(|x| x.borrow().name == "go").unwrap();
+    let done_port =
+        sig_port.iter().find(|x| x.borrow().name == "done").unwrap();
+
     let go_high =
         OutputValue::ImmediateValue(Value::try_from_init(1, 1).unwrap());
     working_env.update_val(&go_port.borrow(), go_high);
 
-    let done_port = sig_ports
-        .into_iter()
-        .find(|x| x.borrow().name == "done")
-        .unwrap();
-
     let mut comb_cells = CellList::new();
     let mut non_comb_cells = CellList::new();
 
-    // while !grp_is_done(working_env.get(&(*cont_done).dst.borrow()))
     while !grp_is_done(working_env.get(&done_port.borrow()))
         || !comb_cells.is_empty()
         || !assign_worklist.is_empty()
@@ -280,7 +274,18 @@ pub fn interp_cont(
                         working_env.update_val(&port, new_val);
 
                         let cell = match &port.parent {
-                            ir::PortParent::Cell(c) => Some(c.upgrade()),
+                            ir::PortParent::Cell(c) => {
+                                let cell_ref = c.upgrade();
+                                let flag = matches!(
+                                    cell_ref.borrow().prototype,
+                                    ir::CellType::ThisComponent
+                                );
+                                if flag {
+                                    None
+                                } else {
+                                    Some(cell_ref)
+                                }
+                            }
                             ir::PortParent::Group(_) => None,
                         };
 
@@ -359,7 +364,7 @@ pub fn interp_cont(
 pub fn interpret_group(
     group: &ir::Group,
     // TODO (griffin): Use these during interpretation
-    _continuous_assignments: &[ir::Assignment],
+    continuous_assignments: &[ir::Assignment],
     env: Environment,
 ) -> FutilResult<Environment> {
     let dependency_map = group.assignments.iter().into();
@@ -367,6 +372,7 @@ pub fn interpret_group(
     let mut working_env: WorkingEnvironment = env.into();
     let mut assign_worklist: WorkList =
         group.assignments.iter().map(|x| x.into()).collect();
+    assign_worklist.extend(continuous_assignments.iter().map(|x| x.into()));
     let mut comb_cells = CellList::new();
     let mut non_comb_cells = CellList::new();
 
@@ -421,7 +427,18 @@ pub fn interpret_group(
                         working_env.update_val(&port, new_val);
 
                         let cell = match &port.parent {
-                            ir::PortParent::Cell(c) => Some(c.upgrade()),
+                            ir::PortParent::Cell(c) => {
+                                let cell_ref = c.upgrade();
+                                let flag = matches!(
+                                    cell_ref.borrow().prototype,
+                                    ir::CellType::ThisComponent
+                                );
+                                if flag {
+                                    None
+                                } else {
+                                    Some(cell_ref)
+                                }
+                            }
                             ir::PortParent::Group(_) => None,
                         };
 
