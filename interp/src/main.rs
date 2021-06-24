@@ -37,6 +37,7 @@ pub struct Opts {
     pub group: String,
 }
 
+//first half of this is tests
 /// Interpret a group from a Calyx program
 fn main() -> FutilResult<()> {
     let opts = Opts::from_args();

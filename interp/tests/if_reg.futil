@@ -4,7 +4,7 @@ component main() -> () {
   cells {
     const0 = std_const(32, 15);
     const1 = std_const(32, 10);
-    reg = std_reg(32);
+    reg1 = std_reg(32);
     reg0 = std_reg(1);
     lt0 = std_lt(32);
   }
@@ -19,19 +19,23 @@ component main() -> () {
     }
 
     group true<"static"=1> {
-      reg.write_en = 1'd1;
-      reg.in = 32'd15;
-      true[done] = reg.done;
+      reg1.write_en = 1'd1;
+      reg1.in = 32'd15;
+      true[done] = reg1.done;
     }
 
     group false<"static"=1> {
-      reg.write_en = 1'd1;
-      reg.in = 32'd10;
-      true[done] = reg.done;
+      reg1.write_en = 1'd1;
+      reg1.in = 32'd10;
+      false[done] = reg1.done;
     }
   }
 
   control {
+    //similar to [if.futil],
+    //b/c this isn't just 1 group prog, 
+    //reg1 should have [done] low 
+    //at the end of execution (tho prog. ends when reg1.done is high)
     if lt0.out with cond {
       true;
     } else {

@@ -2,8 +2,8 @@ import "primitives/std.lib";
 
 component main() -> () {
   cells {
-    const1 = prim std_const(32, 400);
-    sqrt0 = prim std_sqrt();
+    const1 = std_const(32, 400);
+    sqrt0 = std_sqrt(32);
 
   }
 

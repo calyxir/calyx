@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 //! Parser for Calyx programs.
 use super::ast::{self, BitNum, NumType};
 use crate::errors::{self, FutilResult, Span};
@@ -113,6 +115,7 @@ impl FutilParser {
             .map_err(|_| input.error("Expected hexadecimal number"))
     }
     fn decimal(input: Node) -> ParseResult<u64> {
+        #[allow(clippy::from_str_radix_10)]
         u64::from_str_radix(input.as_str(), 10)
             .map_err(|_| input.error("Expected decimal number"))
     }
@@ -284,8 +287,8 @@ impl FutilParser {
             // XXX(rachit): We expect the signature to be extended to have `go`,
             // `done`, and `clk`.
             [] => Vec::with_capacity(3),
-            [inputs(ins)] => { ins },
-            [outputs(outs)] => { outs },
+            [inputs(ins)] =>  ins ,
+            [outputs(outs)] =>  outs ,
             [inputs(ins), outputs(outs)] => {
                 ins.into_iter().chain(outs.into_iter()).collect()
             },
@@ -335,7 +338,7 @@ impl FutilParser {
     fn cell(input: Node) -> ParseResult<ast::Cell> {
         match_nodes!(
             input.clone().into_children();
-            [cell_without_semi(node)] =>
+            [cell_without_semi(_)] =>
                 Err(input.error("Declaration is missing `;`")),
             [cell_without_semi(node), semi(_)] => Ok(node),
         )
@@ -365,6 +368,7 @@ impl FutilParser {
         ))
     }
 
+    #[allow(clippy::upper_case_acronyms)]
     fn LHS(input: Node) -> ParseResult<ast::Port> {
         Ok(match_nodes!(
             input.into_children();
@@ -378,7 +382,7 @@ impl FutilParser {
             input.into_children();
             [LHS(port)] => Ok(ast::Atom::Port(port)),
             [num_lit(num)] => Ok(ast::Atom::Num(num)),
-            [bad_num(num)] => unreachable!("bad_num returned non-error result"),
+            [bad_num(_)] => unreachable!("bad_num returned non-error result"),
         )
     }
 
@@ -709,7 +713,7 @@ impl FutilParser {
     fn file(input: Node) -> ParseResult<ast::NamespaceDef> {
         Ok(match_nodes!(
             input.into_children();
-            [imports(imports), extern_or_component(mixed).., EOI] => {
+            [imports(imports), extern_or_component(mixed).., _EOI] => {
                 let mut namespace =
                     ast::NamespaceDef {
                         imports,

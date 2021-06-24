@@ -4,7 +4,7 @@ component main() -> () {
   cells {
     const0 = std_const(32, 10);
     const1 = std_const(32, 10);
-    neq0 = std_neq(32);
+    ge0 = std_ge(32);
     reg0 = std_reg(1);
 
   }
@@ -13,14 +13,19 @@ component main() -> () {
 
     group op {
       reg0.write_en = 1'd1;
-      neq0.left = const0.out;
-      neq0.right = const1.out;
-      reg0.in = neq0.out;
+      ge0.left = const0.out;
+      ge0.right = const1.out;
+      reg0.in = ge0.out;
       op[done] = reg0.done;
     }
     
   }
 
+//b/c one group, and reg0 decides
+//when that group's execution is done, 
+//the ending snapshot should include 
+//all values on reg0's ports. That is, 
+//[done] = 1
   control {
     seq {
       op;

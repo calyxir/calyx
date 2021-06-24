@@ -21,6 +21,9 @@ component main() -> () {
 
   }
 
+//b/c this prog is just one group, and reg2
+//decides when execution ends, reg2 should
+//have [done] high
   control {
     seq {
       op;

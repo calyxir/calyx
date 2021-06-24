@@ -6,13 +6,11 @@ Here is a list of all the people who have worked on Calyx:
 
 - [Sam Thomas](https://sgtpeacock.com/)
 - [Rachit Nigam](https://rachitnigam.com)
+- [Griffin Berlstein](https://griffinberlste.in)
 - [Adrian Sampson](https://adriansampson.net)
-- Ted Bauer
-- YooNa Chang
-- [Chris Gyurgyik](https://chrispg.dev)
-- Karen Zhang
 - YoungSeok Na
 - Andrii Iermolaiev
+- Alma Thaler
 
 **Previous Contributors**
 
@@ -20,5 +18,9 @@ Here is a list of all the people who have worked on Calyx:
 - Kenneth Fang
 - [Zhijing Li](https://tissue3.github.io/)
 - [Yuwei Ye](https://www.viviyye.com/)
+- Ted Bauer
+- YooNa Chang
+- [Chris Gyurgyik](https://chrispg.dev)
+- Karen Zhang
 
 If you're missing from this list, please [add yourself](https://github.com/cucapra/futil/edit/master/docs/contributors.md)!
