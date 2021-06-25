@@ -1,36 +1,44 @@
 {
-  "main": {
-    "_15_4": {
-      "out": 15
-    },
-    "_1_1": {
-      "out": 1
-    },
-    "_8_4": {
-      "out": 8
-    },
-    "adder": {
-      "left": 8,
-      "out": 7,
-      "right": 15
-    },
-    "pad4_5": {
-      "in": 7,
-      "out": 7
-    },
-    "reg0": {
-      "clk": 0,
-      "done": 1,
-      "in": 7,
-      "out": 7,
-      "write_en": 1
-    },
-    "reg1": {
-      "clk": 0,
-      "done": 1,
-      "in": 7,
-      "out": 7,
-      "write_en": 1
+  "ports": {
+    "main": {
+      "_15_4": {
+        "out": 15
+      },
+      "_1_1": {
+        "out": 1
+      },
+      "_8_4": {
+        "out": 8
+      },
+      "adder": {
+        "left": 8,
+        "out": 7,
+        "right": 15
+      },
+      "pad4_5": {
+        "in": 7,
+        "out": 7
+      },
+      "reg0": {
+        "clk": 0,
+        "done": 1,
+        "in": 7,
+        "out": 7,
+        "write_en": 1
+      },
+      "reg1": {
+        "clk": 0,
+        "done": 1,
+        "in": 7,
+        "out": 7,
+        "write_en": 1
+      }
+    }
+  },
+  "memories": {
+    "main": {
+      "reg0": "7",
+      "reg1": "7"
     }
   }
 }
