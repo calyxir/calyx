@@ -10,7 +10,7 @@ component main() -> () {
   }
 
   wires {
-    group cond<"static"=0> {
+    group cond<"static"=1> {
       reg0.write_en = 1'd1;
       lt0.left = const0.out;
       lt0.right = const1.out;
