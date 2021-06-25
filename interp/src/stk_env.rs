@@ -21,7 +21,10 @@ use std::rc::Rc;
 //  _
 // |_|
 //  |
-//=> To merge, both branches must be X levels from their shared root
+//=> To merge, both branches share a common fork point
+//  _
+// |_|
+//  |
 //  _     _
 // |_|   |_|
 //  |     |
@@ -153,6 +156,7 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
 
     /// If [self] and [other] share a fork point, returns a pair (depthA, depthB)
     /// of the depth which the fork point can be found in [self] and [other], respectively.
+    /// NOTE: should be private, only public for testing!
     pub fn shared_fork_point(&self, other: &Self) -> Option<(u64, u64)> {
         //check head
         if std::ptr::eq(&self.head, &other.head) {
@@ -206,7 +210,7 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     /// Returns a new Smoosher and mutates [self]. The new Smoosher has a new scope
     /// as [head] and all of (pre-mutation) [self] as [tail]. [Self] has a fresh scope pushed onto
     /// it. Invariant this method enforces: you cannot mutate a scope that has children
-    /// forks.
+    /// forks (you can only mutate the fresh scope applied atop it)
     pub fn fork(&mut self) -> Self {
         //first save self's head, and replace it with a clean HM
         let old_head = mem::replace(&mut self.head, HashMap::new()); //can replace with mem::take()
@@ -291,93 +295,29 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
         self.tail = self.tail.push(old_head);
     }
 
-    /// Consumes two Smooshers, which must have the same # of scopes above
-    /// their shared fork point (no check is performed on this).
-    /// Merges their topmost scope, smooshing that
-    /// resulting scope onto the new head of [self]. Returns a tupule of the
-    /// new self, and [other] with its head removed. Best described by example:
-    /// Smoosher 1: (A, C, E) Smoosher 2: (B, D, E)          
-    /// [A]        [B]
-    ///  |          |
-    /// [C]        [D]
-    ///  |          |
-    ///   \        /
-    ///    \      /
-    ///      [E]
-    /// *merge_once(A, B)
-    /// Smoosher 1: (AmB onto C, E), Smoosher 2: (D, E)
-    /// [Smoosh (AmB) onto C]        [D]
-    ///  |                            |
-    ///   \                          /
-    ///    \                        /
-    ///                 [E]    
-    /// * IMPORTANT INVARIANT: The intersection of the bindings of the two topmost
-    /// scopes MUST be the empty set!   
-    pub fn merge_once(self, other: Self) -> (Self, Self) {
-        //get both heads of [self] and [other]
-        let mut a_head = self.head;
-        let b_head = other.head;
-        let (a_new_head, a_new_tail) = self.tail.split();
-        let (b_new_head, b_new_tail) = other.tail.split();
-        //create A' and B' from the tails we got above
-        let mut a = Smoosher::new();
-        let mut b = Smoosher::new();
-        if let Some(mut a_new_head) = a_new_head {
-            a = Smoosher {
-                head: a_new_head,
-                tail: a_new_tail,
-            };
-        } else {
-            panic!("trying to merge, but [self] is empty")
-        }
-        if let Some(b_new_head) = b_new_head {
-            b = Smoosher {
-                head: b_new_head,
-                tail: b_new_tail,
-            };
-        } else {
-            panic!("trying to merge, but [other] is empty")
-        }
-        //merge a_head and b_head.
-        //here is why it's important they don't have overlapping writes
-        for (k, v) in b_head {
-            a_head.insert(k, v);
-        }
-        //push_scope this new merged node onto A'
-        a.push_scope(a_head);
-        //smoosh the new scope down one
-        //return A' and B'
-        (a.smoosh_once(), b)
-    }
-
-    /// Checks if the second-from-the-top scope of two
-    /// Smooshers is the same
-    fn same_tail_head(&self, other: &Self) -> bool {
-        List::same_head(&self.tail, &other.tail)
-    }
-
-    /// Consumes two Smooshers, which must have the same # of scopes above
-    /// their shared fork point (no check is performed on this).
+    /// Consumes two Smooshers, which must share a fork point (else fn panics).
     /// Merges all topmost scopes above the shared fork point, smooshing the resulting
     /// node onto the fork point. Returns the resulting Smoosher. Example:
-    /// Smoosher 1: (A, C, E) Smoosher 2: (B, D, E)          
-    /// [A]        [B]
+    /// Smoosher 1: (A, B, C, F, G) Smoosher 2: (D, E, F, G)          
+    /// [A]
+    ///  |
+    /// [B]        [D]
     ///  |          |
-    /// [C]        [D]
+    /// [C]        [E]
     ///  |          |
     ///   \        /
     ///    \      /
-    ///      [E]
-    ///       |
     ///      [F]
-    /// *merge(A, B)
+    ///       |
+    ///      [G]
+    /// *merge(Smoosher_1, Smoosher_2)
     /// Returns:
-    ///      [ABCD merged and smooshed onto E]
+    ///      [ABCDE merged and smooshed onto F]
     ///       |
     ///      [F]
     /// * IMPORTANT INVARIANT: The intersection of the bindings of the two branches
-    ///  MUST be the empty set!  
-    /// * INVARIANT: Branch  
+    ///  MUST be the empty set! Otherwise, no guarantee for which binding will be included
+    /// in the merge.
     pub fn merge(self, other: Self) -> Self {
         //find shared fork point; if doesn't exist, panic
         let mut a = self;
@@ -421,7 +361,22 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     /// [self.list.bound_vars(1)] returns all keys in the top two scopes
     /// Undefined behavior if levels >= (# of scopes)
     pub fn list_bound_vars(&self, levels: u64) -> HashSet<&K> {
-        todo!()
+        let mut tr_hs = HashSet::new();
+        //levels is at least 0, so add everything from head
+        for (k, _) in self.head.iter() {
+            tr_hs.insert(k);
+        }
+        //now iterate and only add if levels > 0
+        let mut levels = levels as i32;
+        for hm in self.tail.iter() {
+            if levels > 0 {
+                for (k, _) in hm.iter() {
+                    tr_hs.insert(k);
+                }
+            }
+            levels -= 1;
+        }
+        tr_hs
     }
 
     /// Returns a Vector of pairs of all (K, V) ([bindings]) found in the top

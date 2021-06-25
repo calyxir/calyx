@@ -129,6 +129,30 @@ mod stk_env_test {
         assert_eq!(*smoosher_merged.get(&"jonathan").unwrap(), 15);
         assert_eq!(*smoosher_merged.get(&"jenny").unwrap(), 3);
     }
+
+    #[test]
+    fn smoosher_list_b_vars() {
+        let mut smoosher = Smoosher::new();
+        smoosher.set("alma", 18);
+        smoosher.new_scope();
+        smoosher.set("jonathan", 14);
+        smoosher.new_scope();
+        smoosher.set("joseph", 19);
+        smoosher.set("ari", 12);
+        //assert lbv 0 is joseph and ari
+        //assert lbv1 is joseph, ari, jonathan
+        let hs0 = Smoosher::list_bound_vars(&smoosher, 0);
+        let hs1 = Smoosher::list_bound_vars(&smoosher, 1);
+        assert!(hs0.contains(&"joseph"));
+        assert!(hs0.contains(&"ari"));
+        assert_eq!(hs0.contains(&"jonathan"), false);
+        assert_eq!(hs0.contains(&"alma"), false);
+        //now test from 1 level deep
+        assert!(hs1.contains(&"joseph"));
+        assert!(hs1.contains(&"ari"));
+        assert!(hs1.contains(&"jonathan"));
+        assert_eq!(hs1.contains(&"alma"), false);
+    }
 }
 
 mod prim_test {
