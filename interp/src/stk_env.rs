@@ -379,17 +379,17 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     ///  MUST be the empty set!  
     /// * INVARIANT: Branch  
     pub fn merge(self, other: Self) -> Self {
-        //we will return A in the end
-        //set up A and B
+        //find shared fork point; if doesn't exist, panic
         let mut a = self;
         let mut b = other;
-        //while A and B do not have the same tail head, continue to merge
-        if !Smoosher::same_tail_head(&a, &b) {
-            let (a, b) = Smoosher::merge_once(a, b);
-            return Smoosher::merge(a, b);
-        } else {
-            //get both heads of [self] and [other]
-            //from merge_once:
+        if let Some((depth_a, depth_b)) = Smoosher::shared_fork_point(&a, &b) {
+            //smoosh [self] and [other] to right before that point
+            a = a.smoosh(depth_a - 1);
+            b = b.smoosh(depth_b - 1);
+
+            //now do merge
+
+            //get both heads of smooshed a and b
             let mut a_head = a.head;
             //merge a_head and b_head.
             for (k, v) in b.head {
@@ -399,7 +399,6 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
             std::mem::drop(b.tail); //b.head already consumed above
                                     //create a'
             let (a_new_head, a_new_tail) = a.tail.split();
-            let mut a = Smoosher::new();
             if let Some(mut a_new_head) = a_new_head {
                 a = Smoosher {
                     head: a_new_head,
@@ -410,8 +409,9 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
             }
             //push_scope this new merged node onto A'
             a.push_scope(a_head);
-            //return A' and B'
             a.smoosh_once()
+        } else {
+            panic!("tried to merge Smooshers with no common fork point")
         }
     }
 
