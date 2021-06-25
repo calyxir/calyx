@@ -151,6 +151,31 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
         }
     }
 
+    /// If [self] and [other] share a fork point, returns a pair (depthA, depthB)
+    /// of the depth which the fork point can be found in [self] and [other], respectively.
+    pub fn shared_fork_point(&self, other: &Self) -> Option<(u64, u64)> {
+        //check head
+        if std::ptr::eq(&self.head, &other.head) {
+            return Some((0, 0));
+        } else {
+            //check tail
+            //these start at 1 b/c head was 0
+            let mut a_depth = 1;
+            let mut b_depth = 1;
+            //iterate and check all other nodes
+            for nd in self.tail.iter() {
+                b_depth = 1;
+                for nd_other in other.tail.iter() {
+                    if std::ptr::eq(nd, nd_other) {
+                        return Some((a_depth, b_depth));
+                    }
+                    b_depth += 1;
+                }
+                a_depth += 1;
+            }
+            return None; //do not share a fork point
+        }
+    }
     //hacky?
     pub fn drop(self) {
         //yea
