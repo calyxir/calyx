@@ -1,6 +1,6 @@
 {
   "main": {
-     "_10_32": {
+    "_10_32": {
       "out": 10
     },
     "_15_32": {
@@ -10,29 +10,29 @@
       "out": 1
     },
     "const0": {
-      "out": 15
+      "out": 0
     },
     "const1": {
-      "out": 10
+      "out": 0
     },
     "lt0": {
       "left": 15,
       "out": 0,
       "right": 10
     },
-    "reg0": {
-      "clk": 0,
-      "done": 1,
-      "in": 0,
-      "out": 0,
-      "write_en": 1
-    }
-    "reg1": {
-      "clk": 0,
+    "reg": {
+      "clk": X,
       "done": 1,
       "in": 10,
       "out": 10,
       "write_en": 1
     },
+    "reg0": {
+      "clk": X,
+      "done": 1,
+      "in": 0,
+      "out": 0,
+      "write_en": 1
+    }
   }
 }
