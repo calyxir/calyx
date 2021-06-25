@@ -351,7 +351,8 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     ///       |
     ///      [F]
     /// * IMPORTANT INVARIANT: The intersection of the bindings of the two branches
-    ///  MUST be the empty set!   
+    ///  MUST be the empty set!  
+    /// * INVARIANT: Branch  
     pub fn merge(self, other: Self) -> Self {
         //we will return A in the end
         //set up A and B
@@ -362,17 +363,18 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
             let (a, b) = Smoosher::merge_once(a, b);
             return Smoosher::merge(a, b);
         } else {
-            //merge contents of b into a, then drop b (?), then smoosh?
-            //can't smoosh b/c the fork still exists. How to throw away b?
             //get both heads of [self] and [other]
             //from merge_once:
             let mut a_head = a.head;
-            let b_head = b.head;
+            //merge a_head and b_head.
+            for (k, v) in b.head {
+                a_head.insert(k, v);
+            }
+            //now drop b
+            std::mem::drop(b.tail); //b.head already consumed above
+                                    //create a'
             let (a_new_head, a_new_tail) = a.tail.split();
-            let (b_new_head, b_new_tail) = b.tail.split();
-            //create A' and B' from the tails we got above
             let mut a = Smoosher::new();
-            let mut b = Smoosher::new();
             if let Some(mut a_new_head) = a_new_head {
                 a = Smoosher {
                     head: a_new_head,
@@ -381,23 +383,9 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
             } else {
                 panic!("trying to merge, but [self] is empty")
             }
-            if let Some(b_new_head) = b_new_head {
-                b = Smoosher {
-                    head: b_new_head,
-                    tail: b_new_tail,
-                };
-            } else {
-                panic!("trying to merge, but [other] is empty")
-            }
-            //merge a_head and b_head.
-            //here is why it's important they don't have overlapping writes
-            for (k, v) in b_head {
-                a_head.insert(k, v);
-            }
+
             //push_scope this new merged node onto A'
             a.push_scope(a_head);
-            //smoosh the new scope down one, first drop b
-            Smoosher::drop(b);
             //return A' and B'
             a.smoosh_once()
         }
