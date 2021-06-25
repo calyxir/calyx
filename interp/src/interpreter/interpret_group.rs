@@ -149,44 +149,6 @@ fn signal_is_high(done: OutputValueRef) -> bool {
     }
 }
 
-pub fn interp_cont(
-    continuous_assignments: &[ir::Assignment],
-    mut env: Environment,
-    comp: &ir::Component,
-) -> FutilResult<Environment> {
-    let comp_sig = comp.signature.borrow();
-
-    let go_port = comp_sig
-        .ports
-        .iter()
-        .find(|x| x.borrow().name == "go")
-        .unwrap();
-
-    let done_port = comp_sig
-        .ports
-        .iter()
-        .find(|x| x.borrow().name == "done")
-        .unwrap();
-
-    env.insert(
-        &go_port.borrow() as &ir::Port as ConstPort,
-        Value::from_init(1_u64, 1_usize),
-    );
-
-    let mut res = interp_assignments(
-        env,
-        &done_port.borrow(),
-        continuous_assignments.iter(),
-    )?;
-
-    res.insert(
-        &go_port.borrow() as &ir::Port as ConstPort,
-        Value::zeroes(1_usize),
-    );
-
-    Ok(res)
-}
-
 pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
     env: Environment,
     done_signal: &ir::Port,
@@ -195,24 +157,7 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
     let assigns = assigns.collect::<Vec<_>>();
     let mut working_env: WorkingEnvironment = env.into();
 
-    let cells = assigns
-        .iter()
-        .filter_map(|ir::Assignment { dst, .. }| match &dst.borrow().parent {
-            ir::PortParent::Cell(c) => {
-                let cell = c.upgrade();
-                match &cell.clone().borrow().prototype {
-                    ir::CellType::Primitive { .. }
-                    | ir::CellType::Constant { .. } => Some(cell),
-                    ir::CellType::Component { .. } => {
-                        // TODO (griffin): We'll need to handle this case at some point
-                        todo!()
-                    }
-                    ir::CellType::ThisComponent => None,
-                }
-            }
-            ir::PortParent::Group(_) => None,
-        })
-        .collect::<Vec<_>>();
+    let cells = get_cells(assigns.iter().copied());
 
     let mut val_changed_flag = false;
 
@@ -294,6 +239,51 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
     Ok(working_env.collapse_env(false))
 }
 
+pub fn interp_cont(
+    continuous_assignments: &[ir::Assignment],
+    mut env: Environment,
+    comp: &ir::Component,
+) -> FutilResult<Environment> {
+    let comp_sig = comp.signature.borrow();
+
+    let go_port = comp_sig
+        .ports
+        .iter()
+        .find(|x| x.borrow().name == "go")
+        .unwrap();
+
+    let done_port = comp_sig
+        .ports
+        .iter()
+        .find(|x| x.borrow().name == "done")
+        .unwrap();
+
+    env.insert(
+        &go_port.borrow() as &ir::Port as ConstPort,
+        Value::bit_high(),
+    );
+
+    let mut res = interp_assignments(
+        env,
+        &done_port.borrow(),
+        continuous_assignments.iter(),
+    )?;
+
+    res.insert(
+        &go_port.borrow() as &ir::Port as ConstPort,
+        Value::bit_low(),
+    );
+
+    // required because of lifetime shennanigans
+    let final_env = finish_interpretation(
+        res,
+        &done_port.borrow(),
+        continuous_assignments.iter(),
+    );
+
+    final_env
+}
+
 /// Evaluates a group, given an environment.
 pub fn interpret_group(
     group: &ir::Group,
@@ -304,6 +294,25 @@ pub fn interpret_group(
     let grp_done = get_done_port(&group);
     let grp_done_ref: &ir::Port = &grp_done.borrow();
     interp_assignments(
+        env,
+        grp_done_ref,
+        group
+            .assignments
+            .iter()
+            .chain(continuous_assignments.iter()),
+    )
+}
+
+pub fn finish_group_interpretation(
+    group: &ir::Group,
+    // TODO (griffin): Use these during interpretation
+    continuous_assignments: &[ir::Assignment],
+    env: Environment,
+) -> FutilResult<Environment> {
+    let grp_done = get_done_port(&group);
+    let grp_done_ref: &ir::Port = &grp_done.borrow();
+
+    finish_interpretation(
         env,
         grp_done_ref,
         group
@@ -434,35 +443,50 @@ fn eval_guard(guard: &ir::Guard, env: &WorkingEnvironment) -> bool {
 /// Concludes interpretation to a group, effectively setting the go signal low
 /// for a given group. This function updates the values in the environment
 /// accordingly using zero as a placeholder for values that are undefined
-pub fn finish_group_interpretation(
-    group: &ir::Group,
-    _continuous_assignments: &[ir::Assignment],
+fn finish_interpretation<'a, I: Iterator<Item = &'a ir::Assignment>>(
     mut env: Environment,
+    done_signal: &ir::Port,
+    assigns: I,
 ) -> FutilResult<Environment> {
     // replace port values for all the assignments
+    let assigns = assigns.collect::<Vec<_>>();
 
-    let done = get_done_port(group);
+    for &ir::Assignment { dst, .. } in &assigns {
+        env.insert(
+            &dst.borrow() as &ir::Port as ConstPort,
+            Value::zeroes(dst.borrow().width as usize),
+        );
+    }
 
-    let cells: Vec<RRC<ir::Cell>> = group
-        .assignments
-        .iter()
-        .filter_map(|ir::Assignment { dst, .. }| {
-            env.insert(
-                &dst.borrow() as &ir::Port as ConstPort,
-                Value::zeroes(dst.borrow().width as usize),
-            );
-            match &dst.borrow().parent {
-                ir::PortParent::Cell(c) => Some(c.upgrade()),
-                ir::PortParent::Group(_) => None,
-            }
-        })
-        .collect();
+    let cells = get_cells(assigns.iter().copied());
 
-    env.insert(&done.borrow() as &ir::Port as ConstPort, Value::zeroes(1));
-
+    env.insert(done_signal as ConstPort, Value::bit_low());
     let mut working_env: WorkingEnvironment = env.into();
-
     eval_prims(&mut working_env, cells.iter(), true);
 
     Ok(working_env.collapse_env(false))
+}
+
+fn get_cells<'a, I>(iter: I) -> Vec<RRC<ir::Cell>>
+where
+    I: Iterator<Item = &'a ir::Assignment>,
+{
+    iter.filter_map(|assign| {
+        match &assign.dst.borrow().parent {
+            ir::PortParent::Cell(c) => {
+                let cell = c.upgrade();
+                match &cell.clone().borrow().prototype {
+                    ir::CellType::Primitive { .. }
+                    | ir::CellType::Constant { .. } => Some(cell),
+                    ir::CellType::Component { .. } => {
+                        // TODO (griffin): We'll need to handle this case at some point
+                        todo!()
+                    }
+                    ir::CellType::ThisComponent => None,
+                }
+            }
+            ir::PortParent::Group(_) => None,
+        }
+    })
+    .collect()
 }
