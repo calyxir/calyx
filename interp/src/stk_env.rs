@@ -383,7 +383,6 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
             } else {
                 panic!("trying to merge, but [self] is empty")
             }
-
             //push_scope this new merged node onto A'
             a.push_scope(a_head);
             //return A' and B'
@@ -391,19 +390,24 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
         }
     }
 
-    pub fn num_scopes(&self) -> u64 {
+    /// Returns a HashSet of references to keys bounded in the
+    /// top [levels] levels of the Smoosher.
+    /// [self.list_bound_vars(0)] returns all keys in the topmost scope
+    /// [self.list.bound_vars(1)] returns all keys in the top two scopes
+    /// Undefined behavior if levels >= (# of scopes)
+    pub fn list_bound_vars(&self, levels: u64) -> HashSet<&K> {
         todo!()
     }
 
-    pub fn num_bindings(&self) -> u64 {
-        todo!()
-    }
-
-    pub fn list_bound_vars(&self, top_i: u64, bottom_i: u64) -> HashSet<&K> {
-        todo!()
-    }
-
-    pub fn diff(&self, top_i: u64, bottom_i: u64) -> Vec<(K, V)> {
+    /// Returns a Vector of pairs of all (K, V) ([bindings]) found in the top
+    /// [levels] levels of the Smoosher that differ from the bindings found
+    /// in the [levels]-th level of the Smoosher.
+    /// Example: Say our Smoosher looked as follows:
+    /// (lvl 3) [(a, 1), (b, 2)] -> [(a, 3)] -> [(c, 4)] -> [(d, 15)] (lvl 0)
+    /// the calling diff(3) on this Smoosher would result in a vector that looks
+    /// as follows:
+    /// [(a, 3), (c, 4), (d, 15)]
+    pub fn diff(&self, levels: u64) -> Vec<(&K, &V)> {
         todo!()
     }
 }

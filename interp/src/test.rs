@@ -6,26 +6,21 @@ mod stk_env_test {
 
     #[test]
     fn smoosher_get_set() {
-        let k = "hey";
-        let v = 2;
         let mut smoosher = Smoosher::new();
-        smoosher.set(k, v);
-        assert_eq!(*smoosher.get(&k).unwrap(), 2);
+        smoosher.set("hey", 2);
+        assert_eq!(*smoosher.get(&"hey").unwrap(), 2);
     }
 
     #[test]
     fn smoosher_get_set_2_scopes() {
-        let k = "hey";
-        let v = 2;
         let mut smoosher = Smoosher::new();
-        smoosher.set(k, v);
+        smoosher.set("hey", 2);
         smoosher.set("alma", 18);
-        assert_eq!(*smoosher.get(&k).unwrap(), 2);
-        let v1 = 3;
+        assert_eq!(*smoosher.get(&"hey").unwrap(), 2);
         smoosher.new_scope();
-        smoosher.set(k, v1);
+        smoosher.set("hey", 3);
         //test a binding shadowed from the top scope
-        assert_eq!(*smoosher.get(&k).unwrap(), 3);
+        assert_eq!(*smoosher.get(&"hey").unwrap(), 3);
         //test a binding found not on top scope
         assert_eq!(*smoosher.get(&"alma").unwrap(), 18);
     }
@@ -42,43 +37,29 @@ mod stk_env_test {
         //test bindings have been maintained
         assert_eq!(*smoosher.get(&"bruh").unwrap(), 3);
         assert_eq!(*smoosher.get(&"alma").unwrap(), 18);
+        //test the right "hey" was written
+        assert_eq!(*smoosher.get(&"hey").unwrap(), 3);
     }
 
-    #[test]
-    fn smoosher_merge_once_basic() {
+    fn smoosher_smoosh_many_lvls() {
         let mut smoosher = Smoosher::new();
+        smoosher.set("hey", 2);
         smoosher.set("alma", 18);
-        let mut smoosher2 = smoosher.fork();
-        //fork should put a new scope on
-        smoosher.set("jonathan", 14);
-        smoosher2.set("alma", 19);
         smoosher.new_scope();
-        smoosher2.new_scope();
-        smoosher.set("jonathan", 15);
-        smoosher2.set("jenny", 2);
-        let (smoosher, _) = smoosher.merge_once(smoosher2);
-        assert_eq!(*smoosher.get(&"jonathan").unwrap(), 15);
-        assert_eq!(*smoosher.get(&"jenny").unwrap(), 2);
-        assert_eq!(*smoosher.get(&"alma").unwrap(), 18); //only toplevels have merged
-    }
-
-    #[test]
-    fn smoosher_manual_merge() {
-        let mut smoosher = Smoosher::new();
-        smoosher.set("alma", 18);
-        let mut smoosher2 = smoosher.fork();
-        //fork should put a new scope on
-        smoosher.set("jonathan", 14);
-        smoosher2.set("alma", 19);
+        smoosher.set("hey", 3);
+        smoosher.set("bruh", 3);
         smoosher.new_scope();
-        smoosher2.new_scope();
-        smoosher.set("jonathan", 15);
-        smoosher2.set("jenny", 2);
-        let (smoosher, smoosher2) = smoosher.merge_once(smoosher2);
-        assert_eq!(*smoosher.get(&"jonathan").unwrap(), 15);
-        assert_eq!(*smoosher.get(&"jenny").unwrap(), 2);
-        assert_eq!(*smoosher.get(&"alma").unwrap(), 18); //only toplevels have merged
-                                                         //now try merging again into just one -- manually do merge()
+        smoosher.set("hey", 7);
+        smoosher.new_scope();
+        smoosher.set("hey", 8);
+        smoosher.new_scope();
+        smoosher.set("hey", 9);
+        let smoosher = smoosher.smoosh(4);
+        //test bindings have been maintained
+        assert_eq!(*smoosher.get(&"bruh").unwrap(), 3);
+        assert_eq!(*smoosher.get(&"alma").unwrap(), 18);
+        //test the right "hey" was written
+        assert_eq!(*smoosher.get(&"hey").unwrap(), 9);
     }
 
     #[test]
@@ -87,12 +68,33 @@ mod stk_env_test {
         smoosher.set("alma", 18);
         smoosher.set("jonathan", 14);
         smoosher.set("jenny", 2);
+        //the below fork adds a new scope to [smoosher]
         let mut smoosher2 = smoosher.fork();
         smoosher2.set("alma", 19);
         smoosher.set("jonathan", 15);
         let smoosher_merged = Smoosher::merge(smoosher, smoosher2);
         assert_eq!(*smoosher_merged.get(&"alma").unwrap(), 19);
         assert_eq!(*smoosher_merged.get(&"jonathan").unwrap(), 15);
+    }
+
+    //tests that we can merge different branch length. should fail now
+    #[test]
+    fn smoosher_merge_complex() {
+        let mut smoosher = Smoosher::new();
+        smoosher.set("alma", 18);
+        smoosher.set("jonathan", 14);
+        smoosher.set("jenny", 2);
+        //the below fork adds a new scope to [smoosher]
+        let mut smoosher2 = smoosher.fork();
+        smoosher2.set("alma", 19);
+        //add another 2 scopes to smoosher, see if that can be merged
+        smoosher.set("jonathan", 15);
+        smoosher.new_scope();
+        smoosher.set("jenny", 3);
+        let smoosher_merged = Smoosher::merge(smoosher, smoosher2);
+        assert_eq!(*smoosher_merged.get(&"alma").unwrap(), 19);
+        assert_eq!(*smoosher_merged.get(&"jonathan").unwrap(), 15);
+        assert_eq!(*smoosher_merged.get(&"jenny").unwrap(), 3);
     }
 }
 
