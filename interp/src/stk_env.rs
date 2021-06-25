@@ -141,12 +141,12 @@ impl<'a, T> Iterator for Iter<'a, T> {
 
 //When a new scope is added, head is added to the tail and becomes immutable
 #[derive(Debug)]
-pub struct Smoosher<K: Eq + std::hash::Hash, V> {
+pub struct Smoosher<K: Eq + std::hash::Hash, V: Eq> {
     head: HashMap<K, V>,       //mutable
     tail: List<HashMap<K, V>>, //read-only
 }
 
-impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
+impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     pub fn new() -> Smoosher<K, V> {
         Smoosher {
             head: HashMap::new(),
@@ -387,7 +387,14 @@ impl<K: Eq + std::hash::Hash, V> Smoosher<K, V> {
     /// the calling diff(3) on this Smoosher would result in a vector that looks
     /// as follows:
     /// [(a, 3), (c, 4), (d, 15)]
+    /// Undefined behavior if [levels] >= # of scopes in this Smoosher
     pub fn diff(&self, levels: u64) -> Vec<(&K, &V)> {
+        //difficulty with this function is that V does not implement Eq
+        //so it will be hard to check if binding (k, v) and (k, v') are different
+        //create hashset of all bindings found in top [levels]
+        //then iterate through the rest of the Smoosher, iterating
+        //through each HM. If some binding in that HM is also contained
+        //in the hashset, remove it.
         todo!()
     }
 }
