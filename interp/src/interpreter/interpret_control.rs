@@ -149,16 +149,7 @@ fn eval_while(
             comp,
         );
     }
-    // // currently ports don't update properly in mutli-cycle and runs into infinite loop
-    // // count needs to be removed when the infinite loop problem is fixed
-    // let mut count = 0;
-    // while env.get_from_port(&comp, &w.port.borrow()) != 1 && count < 5 {
-    //     env = interpret_control(&w.body, comp, env)?;
-    //     env = interpret_group(&w.cond.borrow(), env, comp)?;
-    //     // count needs to be remved
-    //     count += 1;
-    // }
-    // Ok(env)
+    Ok(env)
 }
 
 /// Interpret Invoke
