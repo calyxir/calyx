@@ -11,27 +11,27 @@
         "out": 8
       },
       "adder": {
-        "left": 8,
-        "out": 7,
-        "right": 15
+        "left": 0,
+        "out": 0,
+        "right": 0
       },
       "pad4_5": {
-        "in": 7,
-        "out": 7
+        "in": 0,
+        "out": 0
       },
       "reg0": {
         "clk": 0,
-        "done": 1,
-        "in": 7,
+        "done": 0,
+        "in": 0,
         "out": 7,
-        "write_en": 1
+        "write_en": 0
       },
       "reg1": {
         "clk": 0,
-        "done": 1,
-        "in": 7,
+        "done": 0,
+        "in": 0,
         "out": 7,
-        "write_en": 1
+        "write_en": 0
       }
     }
   },

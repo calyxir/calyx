@@ -6,37 +6,8 @@ use super::interpret_group::{
 use crate::environment::Environment;
 use calyx::{errors::FutilResult, ir};
 
-pub fn interpret_control(
-    ctrl: &ir::Control,
-    continuous_assignments: &[ir::Assignment],
-    env: Environment,
-    comp: &ir::Component,
-) -> FutilResult<Environment> {
-    if let ir::Control::Seq(ir::Seq { stmts, .. }) = ctrl {
-        if stmts.len() == 1 {
-            match &stmts[0] {
-                ir::Control::Enable(e) => interpret_group(
-                    &e.group.borrow(),
-                    continuous_assignments,
-                    env,
-                ),
-                _ => interpret_control_inner(
-                    ctrl,
-                    continuous_assignments,
-                    env,
-                    comp,
-                ),
-            }
-        } else {
-            interpret_control_inner(ctrl, continuous_assignments, env, comp)
-        }
-    } else {
-        interpret_control_inner(ctrl, continuous_assignments, env, comp)
-    }
-}
-
 /// Helper function to evaluate control
-fn interpret_control_inner(
+pub fn interpret_control(
     ctrl: &ir::Control,
     continuous_assignments: &[ir::Assignment],
     env: Environment,
@@ -65,7 +36,7 @@ fn eval_seq(
     comp: &ir::Component,
 ) -> FutilResult<Environment> {
     for stmt in &s.stmts {
-        env = interpret_control_inner(stmt, continuous_assignments, env, comp)?;
+        env = interpret_control(stmt, continuous_assignments, env, comp)?;
     }
     Ok(env)
 }
@@ -99,19 +70,9 @@ fn eval_if(
     )?;
 
     if cond_flag == 0 {
-        env = interpret_control_inner(
-            &i.fbranch,
-            continuous_assignments,
-            env,
-            comp,
-        )?;
+        env = interpret_control(&i.fbranch, continuous_assignments, env, comp)?;
     } else {
-        env = interpret_control_inner(
-            &i.tbranch,
-            continuous_assignments,
-            env,
-            comp,
-        )?;
+        env = interpret_control(&i.tbranch, continuous_assignments, env, comp)?;
     }
     Ok(env)
 }
@@ -140,12 +101,7 @@ fn eval_while(
         return eval_while(
             w,
             continuous_assignments,
-            interpret_control_inner(
-                &w.body,
-                continuous_assignments,
-                env,
-                comp,
-            )?,
+            interpret_control(&w.body, continuous_assignments, env, comp)?,
             comp,
         );
     }
