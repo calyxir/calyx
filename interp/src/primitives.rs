@@ -36,27 +36,27 @@ impl Primitive {
         inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
         match self {
-            Primitive::StdAdd(prim) => prim.execute(inputs),
-            Primitive::StdLsh(prim) => prim.execute(inputs),
-            Primitive::StdRsh(prim) => prim.execute(inputs),
-            Primitive::StdSub(prim) => prim.execute(inputs),
-            Primitive::StdSlice(prim) => prim.execute(inputs),
-            Primitive::StdPad(prim) => prim.execute(inputs),
-            Primitive::StdNot(prim) => prim.execute(inputs),
-            Primitive::StdAnd(prim) => prim.execute(inputs),
-            Primitive::StdOr(prim) => prim.execute(inputs),
-            Primitive::StdXor(prim) => prim.execute(inputs),
-            Primitive::StdGe(prim) => prim.execute(inputs),
-            Primitive::StdGt(prim) => prim.execute(inputs),
-            Primitive::StdEq(prim) => prim.execute(inputs),
-            Primitive::StdNeq(prim) => prim.execute(inputs),
-            Primitive::StdLe(prim) => prim.execute(inputs),
-            Primitive::StdLt(prim) => prim.execute(inputs),
-            Primitive::StdReg(prim) => prim.execute_mut(inputs),
-            Primitive::StdMemD1(prim) => prim.execute_mut(inputs),
-            Primitive::StdMemD2(prim) => prim.execute_mut(inputs),
-            Primitive::StdMemD3(prim) => prim.execute_mut(inputs),
-            Primitive::StdMemD4(prim) => prim.execute_mut(inputs),
+            Primitive::StdAdd(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdLsh(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdRsh(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdSub(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdSlice(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdPad(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdNot(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdAnd(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdOr(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdXor(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdGe(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdGt(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdEq(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdNeq(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdLe(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdLt(prim) => prim.validate_and_execute(inputs),
+            Primitive::StdReg(prim) => prim.validate_and_execute_mut(inputs),
+            Primitive::StdMemD1(prim) => prim.validate_and_execute_mut(inputs),
+            Primitive::StdMemD2(prim) => prim.validate_and_execute_mut(inputs),
+            Primitive::StdMemD3(prim) => prim.validate_and_execute_mut(inputs),
+            Primitive::StdMemD4(prim) => prim.validate_and_execute_mut(inputs),
             _ => panic!("cell cannot be executed"),
         }
     }
@@ -66,27 +66,27 @@ impl Primitive {
         inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
         match self {
-            Primitive::StdAdd(prim) => prim.reset(inputs),
-            Primitive::StdLsh(prim) => prim.reset(inputs),
-            Primitive::StdRsh(prim) => prim.reset(inputs),
-            Primitive::StdSub(prim) => prim.reset(inputs),
-            Primitive::StdSlice(prim) => prim.reset(inputs),
-            Primitive::StdPad(prim) => prim.reset(inputs),
-            Primitive::StdNot(prim) => prim.reset(inputs),
-            Primitive::StdAnd(prim) => prim.reset(inputs),
-            Primitive::StdOr(prim) => prim.reset(inputs),
-            Primitive::StdXor(prim) => prim.reset(inputs),
-            Primitive::StdGe(prim) => prim.reset(inputs),
-            Primitive::StdGt(prim) => prim.reset(inputs),
-            Primitive::StdEq(prim) => prim.reset(inputs),
-            Primitive::StdNeq(prim) => prim.reset(inputs),
-            Primitive::StdLe(prim) => prim.reset(inputs),
-            Primitive::StdLt(prim) => prim.reset(inputs),
-            Primitive::StdReg(prim) => prim.reset(inputs),
-            Primitive::StdMemD1(prim) => prim.reset(inputs),
-            Primitive::StdMemD2(prim) => prim.reset(inputs),
-            Primitive::StdMemD3(prim) => prim.reset(inputs),
-            Primitive::StdMemD4(prim) => prim.reset(inputs),
+            Primitive::StdAdd(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdLsh(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdRsh(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdSub(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdSlice(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdPad(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdNot(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdAnd(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdOr(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdXor(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdGe(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdGt(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdEq(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdNeq(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdLe(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdLt(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdReg(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdMemD1(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdMemD2(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdMemD3(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdMemD4(prim) => prim.validate_and_reset(inputs),
             _ => panic!("cell cannot be executed"),
         }
     }
@@ -117,6 +117,78 @@ impl Primitive {
             | Primitive::StdReg(_) => false,
         }
     }
+
+    pub fn internal_state_as_str(&self) -> Option<String> {
+        match self {
+            Primitive::StdAdd(_)
+            | Primitive::StdConst(_)
+            | Primitive::StdLsh(_)
+            | Primitive::StdRsh(_)
+            | Primitive::StdSub(_)
+            | Primitive::StdSlice(_)
+            | Primitive::StdPad(_)
+            | Primitive::StdNot(_)
+            | Primitive::StdAnd(_)
+            | Primitive::StdOr(_)
+            | Primitive::StdXor(_)
+            | Primitive::StdGe(_)
+            | Primitive::StdGt(_)
+            | Primitive::StdEq(_)
+            | Primitive::StdNeq(_)
+            | Primitive::StdLe(_)
+            | Primitive::StdLt(_) => None,
+            Primitive::StdReg(reg) => reg.read_u64().to_string().into(),
+            Primitive::StdMemD1(mem) => format!(
+                "{:?}",
+                mem.data.iter().map(|x| x.as_u64()).collect::<Vec<_>>()
+            )
+            .into(),
+            Primitive::StdMemD2(mem) => format!(
+                "{:?}",
+                mem.data
+                    .iter()
+                    .map(|x| x.iter().map(|y| y.as_u64()).collect::<Vec<_>>())
+                    .collect::<Vec<_>>()
+            )
+            .into(),
+            Primitive::StdMemD3(mem) => format!(
+                "{:?}",
+                mem.data
+                    .iter()
+                    .map(|x| x
+                        .iter()
+                        .map(|y| y
+                            .iter()
+                            .map(|z| z.as_u64())
+                            .collect::<Vec<_>>())
+                        .collect::<Vec<_>>())
+                    .collect::<Vec<_>>()
+            )
+            .into(),
+            Primitive::StdMemD4(mem) => format!(
+                "{:?}",
+                mem.data
+                    .iter()
+                    .map(|x| x
+                        .iter()
+                        .map(|y| y
+                            .iter()
+                            .map(|z| z
+                                .iter()
+                                .map(|val| val.as_u64())
+                                .collect::<Vec<_>>())
+                            .collect::<Vec<_>>())
+                        .collect::<Vec<_>>())
+                    .collect::<Vec<_>>()
+            )
+            .into(),
+        }
+    }
+}
+
+pub trait ValidateInput {
+    /// Verifies that all the given inputs are of the appropriate size
+    fn validate_input(&self, inputs: &[(ir::Id, &Value)]);
 }
 
 /// For unary operator components that only take in one input.
@@ -129,7 +201,7 @@ impl Primitive {
 /// let std_not = StdNot::new(5); // a 5 bit not-er
 /// let not_one = std_not.execute_unary(&(Value::try_from_init(1, 5).unwrap()));
 /// ```
-pub trait ExecuteUnary {
+pub trait ExecuteUnary: ValidateInput {
     fn execute_unary(&self, input: &Value) -> OutputValue;
 
     /// Default implementation of [execute] for all unary components
@@ -144,6 +216,26 @@ pub trait ExecuteUnary {
 
     fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)> {
         self.execute(inputs)
+    }
+
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// execution. Preferred over execute.
+    fn validate_and_execute(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        self.validate_input(inputs);
+        self.execute(inputs)
+    }
+
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// the reset. Preferred over reset.
+    fn validate_and_reset(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        self.validate_input(inputs);
+        self.reset(inputs)
     }
 }
 
@@ -163,6 +255,7 @@ pub trait ExecuteUnary {
 pub trait ExecuteBinary {
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue;
 
+    fn get_width(&self) -> &u64;
     /// Default implementation of [execute] for all binary components
     /// Unwraps inputs (left and right), then sends output based on [execute_bin]
     fn execute(
@@ -180,10 +273,46 @@ pub trait ExecuteBinary {
     fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)> {
         self.execute(inputs)
     }
+
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// execution. Preferred over execute.
+    fn validate_and_execute(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        self.validate_input(inputs);
+        self.execute(inputs)
+    }
+
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// the reset. Preferred over reset.
+    fn validate_and_reset(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        self.validate_input(inputs);
+        self.reset(inputs)
+    }
+
+    fn validate_input(&self, inputs: &[(ir::Id, &Value)]) {
+        for (id, v) in inputs {
+            match id.as_ref() {
+                "left" => assert_eq!(v.len() as u64, *self.get_width()),
+                "right" => assert_eq!(v.len() as u64, *self.get_width()),
+                _ => {}
+            }
+        }
+    }
+}
+
+impl<T: ExecuteBinary> ValidateInput for T {
+    fn validate_input(&self, inputs: &[(ir::Id, &Value)]) {
+        T::validate_input(&self, inputs)
+    }
 }
 
 /// Only binary operator components have trait [Execute].
-pub trait Execute {
+pub trait Execute: ValidateInput {
     fn execute(
         &self,
         inputs: &[(ir::Id, &Value)],
@@ -192,11 +321,31 @@ pub trait Execute {
     fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)> {
         self.execute(inputs)
     }
+
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// execution. Preferred over execute.
+    fn validate_and_execute(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        self.validate_input(inputs);
+        self.execute(inputs)
+    }
+
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// the reset. Preferred over reset.
+    fn validate_and_reset(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        self.validate_input(inputs);
+        self.reset(inputs)
+    }
 }
 
 /// ExecuteStateful is a trait implemnted by primitive components such as
 /// StdReg and StdMem (D1 -- D4), allowing their state to be modified.
-pub trait ExecuteStateful {
+pub trait ExecuteStateful: ValidateInput {
     /// Use execute_mut to modify the state of a stateful component.
     /// No restrictions on exactly how the input(s) look
     fn execute_mut(
@@ -205,6 +354,26 @@ pub trait ExecuteStateful {
     ) -> Vec<(ir::Id, OutputValue)>;
 
     fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)>;
+
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// execution. Preferred over execute_mut.
+    fn validate_and_execute_mut(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        self.validate_input(inputs);
+        self.execute_mut(inputs)
+    }
+
+    /// A wrapper function which invokes validate_input before proceeding with
+    /// the reset. Preferred over reset.
+    fn validate_and_reset(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        self.validate_input(inputs);
+        self.reset(inputs)
+    }
 }
 
 /// Ensures the input values are of the appropriate widths, else panics.
@@ -213,18 +382,7 @@ fn check_widths(left: &Value, right: &Value, width: u64) {
         || width != (right.vec.len() as u64)
         || left.vec.len() != right.vec.len()
     {
-        panic!("Width mismatch between the component and the inputs.");
-    }
-}
-
-/// Ensures that the input value is of the appropriate width, else panics.
-fn check_width(input: &Value, width: u64) {
-    if width != (input.vec.len() as u64) {
-        panic!(
-            "Width mismatch between the component {} and the input {}",
-            width,
-            input.vec.len()
-        )
+        panic!("Width mismatch between the component and the inputs. Comp width: {}, left: {}, right: {}", width, left.vec.len(), right.vec.len());
     }
 }
 
@@ -270,6 +428,22 @@ impl StdMemD1 {
     }
 }
 
+impl ValidateInput for StdMemD1 {
+    fn validate_input(&self, inputs: &[(ir::Id, &Value)]) {
+        for (id, v) in inputs {
+            match id.as_ref() {
+                "write_data" => assert_eq!(v.len() as u64, self.width),
+                "write_en" => assert_eq!(v.len(), 1),
+                "addr0" => {
+                    assert!(v.as_u64() < self.size);
+                    assert_eq!(v.len() as u64, self.idx_size)
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
 impl ExecuteStateful for StdMemD1 {
     /// Takes a slice of tupules. This slice must contain the tupules ("write_data", Value),
     /// ("write_en", Value), and ("addr0", Value). Attempts to write the [write_data] Value to
@@ -285,17 +459,24 @@ impl ExecuteStateful for StdMemD1 {
     /// use calyx::ir;
     ///
     /// let mut std_memd1 = StdMemD1::new(1, 8, 3); //1-bit pieces of data, 8 pieces, need 3 bits to index the memory
-    /// let write_data = (ir::Id::from("write_data"), Value::try_from_init(1, 1).unwrap());
-    /// let write_en = (ir::Id::from("write_en"), Value::try_from_init(1, 1).unwrap());
-    /// let addr0 = (ir::Id::from("addr0"), Value::try_from_init(0, 3).unwrap());
+    /// let write_data = (ir::Id::from("write_data"), &Value::try_from_init(1, 1).unwrap());
+    /// let write_en = (ir::Id::from("write_en"), &Value::try_from_init(1, 1).unwrap());
+    /// let addr0 = (ir::Id::from("addr0"), &Value::try_from_init(0, 3).unwrap());
     /// let output_vals = std_memd1.execute_mut(&[write_data, write_en, addr0]);
     /// let mut output_vals = output_vals.into_iter();
     /// let (read_data, done) = (output_vals.next().unwrap(), output_vals.next().unwrap());
     /// let mut rd = read_data.1.unwrap_tlv();
-    /// let mut d = done.1.unwrap_tlv();
+    /// if let OutputValue::PulseValue(mut d) = done.1 {
+    ///     assert_eq!(d.get_val().as_u64(), 0);
+    ///     d.tick();
+    ///     assert_eq!(d.get_val().as_u64(), 1);
+    ///     d.tick();
+    ///     assert_eq!(d.get_val().as_u64(), 0);
+    /// } else {
+    ///     panic!()
+    /// }
     /// assert_eq!(rd.get_count(), 1);
-    /// assert_eq!(d.get_count(), 1);
-    /// rd.dec_count(); d.dec_count();
+    /// rd.dec_count();
     /// assert!(rd.unlockable());
     /// assert_eq!(rd.clone().unlock().as_u64(), Value::try_from_init(1, 1).unwrap().as_u64());
     /// ```
@@ -314,18 +495,9 @@ impl ExecuteStateful for StdMemD1 {
         let (_, write_en) =
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-        //check that addr0 is not out of bounds and that it is the proper width!
-        check_widths(addr0, addr0, self.idx_size); //make a unary one instead of hacking. Also change the panicking
-                                                   //so we don't have to keep using .as_u64()
+        //so we don't have to keep using .as_u64()
         let addr0 = addr0.as_u64();
-        if addr0 >= self.size {
-            panic!(
-                "memory only has {} slots, addr0 tries to access slot {}",
-                self.size, addr0
-            );
-        }
-        //check that input data is the appropriate width as well
-        check_width(input, self.width);
+
         let old = self.data[addr0 as usize].clone();
         // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
@@ -360,16 +532,8 @@ impl ExecuteStateful for StdMemD1 {
 
     fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)> {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-        //check that addr0 is not out of bounds and that it is the proper width!
-        check_widths(addr0, addr0, self.idx_size); //make a unary one instead of hacking. Also change the panicking
-                                                   //so we don't have to keep using .as_u64()
+        //so we don't have to keep using .as_u64()
         let addr0 = addr0.as_u64();
-        if addr0 >= self.size {
-            panic!(
-                "memory only has {} slots, addr0 tries to access slot {}",
-                self.size, addr0
-            );
-        }
         //check that input data is the appropriate width as well
         let old = self.data[addr0 as usize].clone();
         vec![
@@ -433,6 +597,26 @@ impl StdMemD2 {
     }
 }
 
+impl ValidateInput for StdMemD2 {
+    fn validate_input(&self, inputs: &[(ir::Id, &Value)]) {
+        for (id, v) in inputs {
+            match id.as_ref() {
+                "write_data" => assert_eq!(v.len() as u64, self.width),
+                "write_en" => assert_eq!(v.len(), 1),
+                "addr0" => {
+                    assert!(v.as_u64() < self.d0_size);
+                    assert_eq!(v.len() as u64, self.d0_idx_size)
+                }
+                "addr1" => {
+                    assert!(v.as_u64() < self.d1_size);
+                    assert_eq!(v.len() as u64, self.d1_idx_size)
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
 impl ExecuteStateful for StdMemD2 {
     /// Takes a slice of tupules. This slice must contain the tupules ("write_data", Value),
     /// ("write_en", Value), ("addr0", Value), and ("addr1", Value). Attempts to write the [write_data] Value to
@@ -460,25 +644,12 @@ impl ExecuteStateful for StdMemD2 {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
         //chec that write_data is the exact right width
-        check_width(input, self.width);
         //check that addr0 is not out of bounds and that it is the proper width!
-        check_widths(addr0, addr0, self.d0_idx_size); //make a unary one instead of hacking. Also change the panicking
         let addr0 = addr0.as_u64();
-        if addr0 >= self.d0_size {
-            panic!(
-                "memory only has {} slots, addr0 tries to access slot {}",
-                self.d0_size, addr0
-            );
-        }
+
         //chech that addr1 is not out of bounds and that it is the proper iwdth
-        check_widths(addr1, addr1, self.d1_idx_size); //make a unary one instead of hacking. Also change the panicking
         let addr1 = addr1.as_u64();
-        if addr1 >= self.d1_size {
-            panic!(
-                "memory only has {} slots, addr1 tries to access slot {}",
-                self.d1_size, addr1
-            );
-        }
+
         let old = self.data[addr0 as usize][addr1 as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
                                                                      // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
@@ -514,25 +685,9 @@ impl ExecuteStateful for StdMemD2 {
     fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)> {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
-        //chec that write_data is the exact right width
-        //check that addr0 is not out of bounds and that it is the proper width!
-        check_widths(addr0, addr0, self.d0_idx_size); //make a unary one instead of hacking. Also change the panicking
         let addr0 = addr0.as_u64();
-        if addr0 >= self.d0_size {
-            panic!(
-                "memory only has {} slots, addr0 tries to access slot {}",
-                self.d0_size, addr0
-            );
-        }
-        //chech that addr1 is not out of bounds and that it is the proper iwdth
-        check_widths(addr1, addr1, self.d1_idx_size); //make a unary one instead of hacking. Also change the panicking
         let addr1 = addr1.as_u64();
-        if addr1 >= self.d1_size {
-            panic!(
-                "memory only has {} slots, addr1 tries to access slot {}",
-                self.d1_size, addr1
-            );
-        }
+
         let old = self.data[addr0 as usize][addr1 as usize].clone();
 
         vec![
@@ -608,6 +763,30 @@ impl StdMemD3 {
     }
 }
 
+impl ValidateInput for StdMemD3 {
+    fn validate_input(&self, inputs: &[(ir::Id, &Value)]) {
+        for (id, v) in inputs {
+            match id.as_ref() {
+                "write_data" => assert_eq!(v.len() as u64, self.width),
+                "write_en" => assert_eq!(v.len(), 1),
+                "addr0" => {
+                    assert!(v.as_u64() < self.d0_size);
+                    assert_eq!(v.len() as u64, self.d0_idx_size)
+                }
+                "addr1" => {
+                    assert!(v.as_u64() < self.d1_size);
+                    assert_eq!(v.len() as u64, self.d1_idx_size)
+                }
+                "addr2" => {
+                    assert!(v.as_u64() < self.d2_size);
+                    assert_eq!(v.len() as u64, self.d2_idx_size)
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
 impl ExecuteStateful for StdMemD3 {
     /// Takes a slice of tupules. This slice must contain the tupules ("write_data", Value),
     /// ("write_en", Value), ("addr0", Value), ("addr1", Value), and ("addr2", Value). Attempts to write the [write_data] Value to
@@ -636,35 +815,11 @@ impl ExecuteStateful for StdMemD3 {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
         let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
-        //chec that write_data is the exact right width
-        check_width(input, self.width);
-        //check that addr0 is not out of bounds and that it is the proper width!
-        check_widths(addr0, addr0, self.d0_idx_size); //make a unary one instead of hacking. Also change the panicking
+
         let addr0 = addr0.as_u64();
-        if addr0 >= self.d0_size {
-            panic!(
-                "memory only has {} slots, addr0 tries to access slot {}",
-                self.d0_size, addr0
-            );
-        }
-        //chech that addr1 is not out of bounds and that it is the proper iwdth
-        check_widths(addr1, addr1, self.d1_idx_size); //make a unary one instead of hacking. Also change the panicking
         let addr1 = addr1.as_u64();
-        if addr1 >= self.d1_size {
-            panic!(
-                "memory only has {} slots, addr1 tries to access slot {}",
-                self.d1_size, addr1
-            );
-        }
-        //check that addr2 is not out of bounds and that it is the proper width
-        check_width(addr2, self.d2_idx_size);
         let addr2 = addr2.as_u64();
-        if addr2 >= self.d2_size {
-            panic!(
-                "memory only has {} slots, addr2 tries to access slot {}",
-                self.d2_size, addr2
-            );
-        }
+
         let old =
             self.data[addr0 as usize][addr1 as usize][addr2 as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
                                                                                // only write to memory if write_en is 1
@@ -699,32 +854,10 @@ impl ExecuteStateful for StdMemD3 {
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
         let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
         //check that addr0 is not out of bounds and that it is the proper width!
-        check_widths(addr0, addr0, self.d0_idx_size); //make a unary one instead of hacking. Also change the panicking
         let addr0 = addr0.as_u64();
-        if addr0 >= self.d0_size {
-            panic!(
-                "memory only has {} slots, addr0 tries to access slot {}",
-                self.d0_size, addr0
-            );
-        }
-        //chech that addr1 is not out of bounds and that it is the proper iwdth
-        check_widths(addr1, addr1, self.d1_idx_size); //make a unary one instead of hacking. Also change the panicking
         let addr1 = addr1.as_u64();
-        if addr1 >= self.d1_size {
-            panic!(
-                "memory only has {} slots, addr1 tries to access slot {}",
-                self.d1_size, addr1
-            );
-        }
-        //check that addr2 is not out of bounds and that it is the proper width
-        check_width(addr2, self.d2_idx_size);
         let addr2 = addr2.as_u64();
-        if addr2 >= self.d2_size {
-            panic!(
-                "memory only has {} slots, addr2 tries to access slot {}",
-                self.d2_size, addr2
-            );
-        }
+
         let old =
             self.data[addr0 as usize][addr1 as usize][addr2 as usize].clone();
         vec![
@@ -813,6 +946,34 @@ impl StdMemD4 {
     }
 }
 
+impl ValidateInput for StdMemD4 {
+    fn validate_input(&self, inputs: &[(ir::Id, &Value)]) {
+        for (id, v) in inputs {
+            match id.as_ref() {
+                "write_data" => assert_eq!(v.len() as u64, self.width),
+                "write_en" => assert_eq!(v.len(), 1),
+                "addr0" => {
+                    assert!(v.as_u64() < self.d0_size);
+                    assert_eq!(v.len() as u64, self.d0_idx_size)
+                }
+                "addr1" => {
+                    assert!(v.as_u64() < self.d1_size);
+                    assert_eq!(v.len() as u64, self.d1_idx_size)
+                }
+                "addr2" => {
+                    assert!(v.as_u64() < self.d2_size);
+                    assert_eq!(v.len() as u64, self.d2_idx_size)
+                }
+                "addr3" => {
+                    assert!(v.as_u64() < self.d3_size);
+                    assert_eq!(v.len() as u64, self.d3_idx_size)
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
 impl ExecuteStateful for StdMemD4 {
     /// Takes a slice of tupules. This slice must contain the tupules ("write_data", Value),
     /// ("write_en", Value), ("addr0", Value), ("addr1", Value), ("addr2", Value). Attempts to write the [write_data] Value to
@@ -842,44 +1003,12 @@ impl ExecuteStateful for StdMemD4 {
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
         let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
         let (_, addr3) = inputs.iter().find(|(id, _)| id == "addr3").unwrap();
-        //check that addr0 is not out of bounds and that it is the proper width!
-        check_widths(addr0, addr0, self.d0_idx_size); //make a unary one instead of hacking. Also change the panicking
+
         let addr0 = addr0.as_u64();
-        if addr0 >= self.d0_size {
-            panic!(
-                "memory only has {} slots, addr0 tries to access slot {}",
-                self.d0_size, addr0
-            );
-        }
-        //chec that write_data is the exact right width
-        check_width(input, self.width);
-        //chech that addr1 is not out of bounds and that it is the proper iwdth
-        check_widths(addr1, addr1, self.d1_idx_size); //make a unary one instead of hacking. Also change the panicking
         let addr1 = addr1.as_u64();
-        if addr1 >= self.d1_size {
-            panic!(
-                "memory only has {} slots, addr1 tries to access slot {}",
-                self.d1_size, addr1
-            );
-        }
-        //check that addr2 is not out of bounds and that it is the proper width
-        check_width(addr2, self.d2_idx_size);
         let addr2 = addr2.as_u64();
-        if addr2 >= self.d2_size {
-            panic!(
-                "memory only has {} slots, addr2 tries to access slot {}",
-                self.d2_size, addr2
-            );
-        }
-        //check that addr3 is not out of bounds and that it is the proper width
-        check_width(addr3, self.d3_idx_size);
         let addr3 = addr3.as_u64();
-        if addr3 >= self.d3_size {
-            panic!(
-                "memory only has {} slots, addr3 tries to access slot {}",
-                self.d3_size, addr3
-            )
-        }
+
         let old = self.data[addr0 as usize][addr1 as usize][addr2 as usize]
             [addr3 as usize]
             .clone(); //not sure if this could lead to errors (Some(old)) is borrow?
@@ -916,41 +1045,11 @@ impl ExecuteStateful for StdMemD4 {
         let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
         let (_, addr3) = inputs.iter().find(|(id, _)| id == "addr3").unwrap();
         //check that addr0 is not out of bounds and that it is the proper width!
-        check_widths(addr0, addr0, self.d0_idx_size); //make a unary one instead of hacking. Also change the panicking
         let addr0 = addr0.as_u64();
-        if addr0 >= self.d0_size {
-            panic!(
-                "memory only has {} slots, addr0 tries to access slot {}",
-                self.d0_size, addr0
-            );
-        }
-        //chech that addr1 is not out of bounds and that it is the proper iwdth
-        check_widths(addr1, addr1, self.d1_idx_size); //make a unary one instead of hacking. Also change the panicking
         let addr1 = addr1.as_u64();
-        if addr1 >= self.d1_size {
-            panic!(
-                "memory only has {} slots, addr1 tries to access slot {}",
-                self.d1_size, addr1
-            );
-        }
-        //check that addr2 is not out of bounds and that it is the proper width
-        check_width(addr2, self.d2_idx_size);
         let addr2 = addr2.as_u64();
-        if addr2 >= self.d2_size {
-            panic!(
-                "memory only has {} slots, addr2 tries to access slot {}",
-                self.d2_size, addr2
-            );
-        }
-        //check that addr3 is not out of bounds and that it is the proper width
-        check_width(addr3, self.d3_idx_size);
         let addr3 = addr3.as_u64();
-        if addr3 >= self.d3_size {
-            panic!(
-                "memory only has {} slots, addr3 tries to access slot {}",
-                self.d3_size, addr3
-            )
-        }
+
         let old = self.data[addr0 as usize][addr1 as usize][addr2 as usize]
             [addr3 as usize]
             .clone();
@@ -992,10 +1091,17 @@ impl StdReg {
     }
 }
 
-// fn execute_mut<'a>(
-//     &mut self,
-//     inputs: &'a [(ir::Id, Value)],
-// ) -> Vec<(ir::Id, OutputValue)>;
+impl ValidateInput for StdReg {
+    fn validate_input(&self, inputs: &[(ir::Id, &Value)]) {
+        for (id, v) in inputs {
+            match id.as_ref() {
+                "in" => assert_eq!(v.len() as u64, self.width),
+                "write_en" => assert_eq!(v.len(), 1),
+                _ => {}
+            }
+        }
+    }
+}
 
 impl ExecuteStateful for StdReg {
     fn execute_mut(
@@ -1007,8 +1113,6 @@ impl ExecuteStateful for StdReg {
         let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
         let (_, write_en) =
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
-        //make sure [input] isn't too wide
-        check_width(input, self.width);
         //write the input to the register
         if write_en.as_u64() == 1 {
             let old = self.val.clone();
@@ -1029,10 +1133,7 @@ impl ExecuteStateful for StdReg {
             // in this vector i
             // OUT: the old value in the register, b/c we couldn't write
             // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
-            vec![
-                (ir::Id::from("out"), self.val.clone().into()),
-                // (ir::Id::from("done"), Value::zeroes(1).into()),
-            ]
+            vec![(ir::Id::from("out"), self.val.clone().into())]
         }
     }
 
@@ -1135,10 +1236,13 @@ impl ExecuteBinary for StdLsh {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        check_widths(left, right, self.width);
         let mut tr = left.vec.clone();
         tr.shift_right(right.as_u64() as usize);
         Value { vec: tr }.into()
+    }
+
+    fn get_width(&self) -> &u64 {
+        &self.width
     }
 }
 
@@ -1185,10 +1289,13 @@ impl ExecuteBinary for StdRsh {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        check_widths(left, right, self.width);
         let mut tr = left.vec.clone();
         tr.shift_left(right.as_u64() as usize);
         Value { vec: tr }.into()
+    }
+
+    fn get_width(&self) -> &u64 {
+        &self.width
     }
 }
 
@@ -1232,12 +1339,15 @@ impl ExecuteBinary for StdAdd {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 + right_64;
         let bitwidth: usize = left.vec.len();
         Value::from_init(init_val, bitwidth).into()
+    }
+
+    fn get_width(&self) -> &u64 {
+        &self.width
     }
 }
 
@@ -1287,7 +1397,6 @@ impl ExecuteBinary for StdSub {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         // Bitwise subtraction: left - right = left + (!right + 1)
         let right = Value {
@@ -1298,6 +1407,10 @@ impl ExecuteBinary for StdSub {
         let init_val = left_64 + right_64;
         let bitwidth: usize = left.vec.len();
         Value::from_init(init_val, bitwidth).into()
+    }
+
+    fn get_width(&self) -> &u64 {
+        &self.width
     }
 }
 
@@ -1329,6 +1442,25 @@ impl StdSlice {
     }
 }
 
+impl ValidateInput for StdSlice {
+    fn validate_input(&self, inputs: &[(ir::Id, &Value)]) {
+        let in_width =
+            inputs.iter().find_map(
+                |(id, v)| {
+                    if id == "in" {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                },
+            );
+
+        if let Some(v) = in_width {
+            assert_eq!(v.len() as u64, self.in_width)
+        }
+    }
+}
+
 impl ExecuteUnary for StdSlice {
     /// Returns the bottom OUT_WIDTH bits of an input with IN_WIDTH
     /// # Example
@@ -1344,7 +1476,6 @@ impl ExecuteUnary for StdSlice {
     /// * panics if input's width and self.width are not equal
     ///
     fn execute_unary(&self, input: &Value) -> OutputValue {
-        check_widths(input, input, self.in_width);
         let tr = input.clone();
         tr.truncate(self.out_width as usize).into()
     }
@@ -1377,6 +1508,25 @@ impl StdPad {
     }
 }
 
+impl ValidateInput for StdPad {
+    fn validate_input(&self, inputs: &[(ir::Id, &Value)]) {
+        let in_width =
+            inputs.iter().find_map(
+                |(id, v)| {
+                    if id == "in" {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                },
+            );
+
+        if let Some(v) = in_width {
+            assert_eq!(v.len() as u64, self.in_width)
+        }
+    }
+}
+
 impl ExecuteUnary for StdPad {
     /// Returns a value of length OUT_WIDITH consisting IN_WIDTH bits corresponding
     /// with [input], padded with 0s until index OUT_WIDTH - 1
@@ -1393,7 +1543,6 @@ impl ExecuteUnary for StdPad {
     /// * panics if input's width and self.width are not equal
     ///
     fn execute_unary(&self, input: &Value) -> OutputValue {
-        check_widths(input, input, self.in_width);
         let pd = input.clone();
         pd.ext(self.out_width as usize).into()
     }
@@ -1418,6 +1567,25 @@ impl StdNot {
     }
 }
 
+impl ValidateInput for StdNot {
+    fn validate_input(&self, inputs: &[(ir::Id, &Value)]) {
+        let in_width =
+            inputs.iter().find_map(
+                |(id, v)| {
+                    if id == "in" {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                },
+            );
+
+        if let Some(v) = in_width {
+            assert_eq!(v.len() as u64, self.width)
+        }
+    }
+}
+
 impl ExecuteUnary for StdNot {
     /// Returns a value of length WIDTH representing the bitwise NOT of [input]
     /// # Example
@@ -1434,7 +1602,6 @@ impl ExecuteUnary for StdNot {
     /// * panics if input's width and self.width are not equal
     ///
     fn execute_unary<'a>(&self, input: &Value) -> OutputValue {
-        check_widths(input, input, self.width);
         Value {
             vec: input.vec.clone().not(),
         }
@@ -1480,11 +1647,14 @@ impl ExecuteBinary for StdAnd {
     /// assert_eq!(val_0_3.as_u64(), 0);
     /// ```
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        check_widths(left, right, self.width);
         Value {
             vec: left.vec.clone() & right.vec.clone(),
         }
         .into()
+    }
+
+    fn get_width(&self) -> &u64 {
+        &self.width
     }
 }
 
@@ -1520,11 +1690,14 @@ impl ExecuteBinary for StdOr {
     /// assert_eq!(val_7_3.as_u64(), 7);
     /// ```
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        check_widths(left, right, self.width);
         Value {
             vec: left.vec.clone() | right.vec.clone(),
         }
         .into()
+    }
+
+    fn get_width(&self) -> &u64 {
+        &self.width
     }
 }
 
@@ -1560,11 +1733,14 @@ impl ExecuteBinary for StdXor {
     /// assert_eq!(val_5_3.as_u64(), 5);
     /// ```
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        check_widths(left, right, self.width);
         Value {
             vec: left.vec.clone() ^ right.vec.clone(),
         }
         .into()
+    }
+
+    fn get_width(&self) -> &u64 {
+        &self.width
     }
 }
 
@@ -1604,12 +1780,15 @@ impl ExecuteBinary for StdGt {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 > right_64;
 
         Value::from_init(init_val, 1_usize).into()
+    }
+
+    fn get_width(&self) -> &u64 {
+        &self.width
     }
 }
 
@@ -1648,12 +1827,15 @@ impl ExecuteBinary for StdLt {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 < right_64;
 
         Value::from_init(init_val, 1_usize).into()
+    }
+
+    fn get_width(&self) -> &u64 {
+        &self.width
     }
 }
 
@@ -1697,12 +1879,15 @@ impl ExecuteBinary for StdEq {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 == right_64;
 
         Value::from_init(init_val, 1_usize).into()
+    }
+
+    fn get_width(&self) -> &u64 {
+        &self.width
     }
 }
 
@@ -1747,11 +1932,14 @@ impl ExecuteBinary for StdNeq {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 != right_64;
         Value::from_init(init_val, 1_usize).into()
+    }
+
+    fn get_width(&self) -> &u64 {
+        &self.width
     }
 }
 
@@ -1793,12 +1981,15 @@ impl ExecuteBinary for StdGe {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 >= right_64;
 
         Value::from_init(init_val, 1_usize).into()
+    }
+
+    fn get_width(&self) -> &u64 {
+        &self.width
     }
 }
 
@@ -1837,10 +2028,13 @@ impl ExecuteBinary for StdLe {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        check_widths(left, right, self.width);
         let left_64 = left.as_u64();
         let right_64 = right.as_u64();
         let init_val = left_64 <= right_64;
         Value::from_init(init_val, 1_usize).into()
+    }
+
+    fn get_width(&self) -> &u64 {
+        &self.width
     }
 }

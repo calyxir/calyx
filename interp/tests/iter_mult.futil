@@ -1,0 +1,184 @@
+import "primitives/core.futil";
+
+
+//model iterative multiplication of two binary numbers
+//learned from this video: (https://www.youtube.com/watch?v=U62iP8RkZIk&ab_channel=TutorialsPoint%28India%29Ltd.)
+//11 (Q) * 13 (M) : [1011] * [1101] = 143 [1000 1111] (AQ), (A) is accum. which starts [0000]
+//so at end should be A = [1000] (8) and Q = [1111] (15)
+
+
+component main() -> () {
+
+  cells {
+    m = std_reg(4); //multiplicand (13)
+    c = std_reg(1); //carry -- shld be initialized to zero
+    a = std_reg(4); //accumulator -- shld be initialized to zeroes
+    q = std_reg(4); //multiplier (11)
+    
+    //to check carry
+    pad_5bit = std_pad(4, 5);
+    pad_5bit1 = std_pad(4, 5);
+    add_5bits = std_add(5);
+    ge_5bits = std_ge(5); //if the result of adding 5bit a and 5bit m is ge 16, carry is 1
+
+    //will use these shifters and adders
+    add_3bits = std_add(3);
+    rshift_4bits = std_rsh(4);
+    rshift_4bits1 = std_rsh(4);
+    add_4bits = std_add(4);
+    add_4bits1 = std_add(4);
+
+    //will also use this slicer to check the last bit 
+    slicer = std_slice(4, 1);
+
+    //for the while loop 
+    lt = std_lt(3); //counting to 4, b/c multiplying 4 bit numbers (4 = [100])
+    i = std_reg(3); //counting to 4  (4 = [100])
+    add3 = std_add(3);
+
+    //to shift right some # and put a 1 as MSB, just shift right and add 8 ([1000])
+
+  }
+
+  wires {
+
+    group init {
+
+       m.write_en = 1'b1;  
+       q.write_en = 1'b1;
+       m.in = 4'b1011; //m is multiplicand w/ value 11
+       q.in = 4'b1101; //q is multiplier w/ value 13
+       i.write_en = 1'b1; 
+       i.in = 3'b0; //iterator
+       a.write_en = 1'b1; 
+       a.in = 4'd0; //accumulator
+       c.write_en = 1'b1;
+       c.in = 1'b0; //carry
+
+       init[done] = m.done & q.done & i.done & a.done & c.done ? 1'b1;
+    }
+
+    group decide_c {
+        //populate carry based on overflow from m+a 
+       
+        //if adding 5bit a and 5bit m is greater than or equal to 16,
+        //then overflow has occured in the 4bit addition and c should be 1
+
+        //create 5bit m and 5bit a
+        pad_5bit.in = m.out; 
+        pad_5bit1.in = a.out; 
+
+        //add 5bit m and 5bit a
+        add_5bits.left = pad_5bit.out; 
+        add_5bits.right = pad_5bit1.out; 
+
+        //5bit sum >= 16 ?
+        ge_5bits.left = add_5bits.out; 
+        ge_5bits.right = 5'd16; 
+
+        //now use this result to fill c 
+        c.write_en = 1'b1;
+        c.in = ge_5bits.out; 
+
+        decide_c[done] = c.done;
+    }
+
+    group add {
+        //a = m+a. 
+        add_4bits.left = a.out;
+        add_4bits.right = m.out;
+
+        //now write that val to a 
+        a.write_en = 1'b1; 
+        a.in = add_4bits.out;
+
+        add[done] = a.done;        
+    }
+
+    group shift_q {
+        q.write_en = 1'b1;
+
+        //shift LSB of a into q         
+        rshift_4bits1.left = q.out; 
+        rshift_4bits1.right = 4'd1;
+
+        add_4bits1.left = rshift_4bits1.out; 
+        slicer.in = a.out; 
+        add_4bits1.right = slicer.out ? 4'd8; 
+        add_4bits1.right = !slicer.out ? 4'd0;
+        q.in = add_4bits1.out;
+
+        shift_q[done] = q.done;
+    }
+
+    group shift_a {
+        a.write_en = 1'b1; 
+        //shift c into a 
+        rshift_4bits.left = a.out; 
+        rshift_4bits.right = 4'd1; 
+
+        add_4bits.left = rshift_4bits.out; 
+        add_4bits.right = c.out ? 4'd8; 
+        add_4bits.right = !c.out ? 4'd0; 
+        a.in = add_4bits.out;
+        shift_a[done] = a.done;
+
+    }
+
+    group shift_c {
+        c.write_en = 1'b1;
+        c.in = 1'b0;
+        shift_c[done] = c.done;
+    }
+
+    group cond_while {
+        //lt compares i and 4
+        lt.left = i.out; 
+        lt.right = 3'd4;
+        cond_while[done] = 1'b1;
+    }
+
+    group incr_while {
+        //i = i + 1
+        i.write_en = 1'b1; 
+        add_3bits.left = i.out; 
+        add_3bits.right = 3'd1; 
+        i.in = add_3bits.out; 
+        incr_while[done] = i.done;
+    }
+
+    group cond_if {
+       //get LSB of Q
+       slicer.in = q.out;
+       cond_if[done] = 1'b1; 
+    }
+
+  }
+
+  control {
+    seq{
+        init;
+        while lt.out with cond_while { //just 4 iterations (i starts as 0)
+            seq {
+                if slicer.out with cond_if { //there is a 1 in LSB of Q
+                    seq {
+                        decide_c;
+                        add; 
+                        shift_q;
+                        shift_a;
+                        shift_c;
+                    }
+                } else { //there is a 0 in LSB of Q
+                    seq {
+                        shift_q; 
+                        shift_a; 
+                        shift_c;
+                    }
+                    
+                }
+                incr_while;
+            }
+        }
+    }
+  }
+}
