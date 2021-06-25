@@ -12,15 +12,15 @@
       },
       "reg0": {
         "clk": 0,
-        "done": 1,
-        "in": 7,
+        "done": 0,
+        "in": 0,
         "out": 7,
-        "write_en": 1
+        "write_en": 0
       },
       "xor0": {
-        "left": 13,
-        "out": 7,
-        "right": 10
+        "left": 0,
+        "out": 0,
+        "right": 0
       }
     }
   },

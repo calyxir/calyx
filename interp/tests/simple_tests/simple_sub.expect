@@ -12,15 +12,15 @@
       },
       "reg0": {
         "clk": 0,
-        "done": 1,
-        "in": 391,
+        "done": 0,
+        "in": 0,
         "out": 391,
-        "write_en": 1
+        "write_en": 0
       },
       "sub0": {
-        "left": 400,
-        "out": 391,
-        "right": 9
+        "left": 0,
+        "out": 0,
+        "right": 0
       }
     }
   },

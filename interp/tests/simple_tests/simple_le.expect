@@ -11,16 +11,16 @@
         "out": 10
       },
       "le0": {
-        "left": 10,
+        "left": 0,
         "out": 1,
-        "right": 10
+        "right": 0
       },
       "reg0": {
         "clk": 0,
-        "done": 1,
-        "in": 1,
+        "done": 0,
+        "in": 0,
         "out": 1,
-        "write_en": 1
+        "write_en": 0
       }
     }
   },
