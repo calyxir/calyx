@@ -156,6 +156,33 @@ impl Primitive {
         }
     }
 
+    pub fn clear_update_buffer(&mut self) {
+        match self {
+            Primitive::StdAdd(_)
+            | Primitive::StdConst(_)
+            | Primitive::StdLsh(_)
+            | Primitive::StdRsh(_)
+            | Primitive::StdSub(_)
+            | Primitive::StdSlice(_)
+            | Primitive::StdPad(_)
+            | Primitive::StdNot(_)
+            | Primitive::StdAnd(_)
+            | Primitive::StdOr(_)
+            | Primitive::StdXor(_)
+            | Primitive::StdGe(_)
+            | Primitive::StdGt(_)
+            | Primitive::StdEq(_)
+            | Primitive::StdNeq(_)
+            | Primitive::StdLe(_)
+            | Primitive::StdLt(_) => {}
+            Primitive::StdReg(reg) => reg.clear_update_buffer(),
+            Primitive::StdMemD1(mem) => mem.clear_update_buffer(),
+            Primitive::StdMemD2(mem) => mem.clear_update_buffer(),
+            Primitive::StdMemD3(mem) => mem.clear_update_buffer(),
+            Primitive::StdMemD4(mem) => mem.clear_update_buffer(),
+        }
+    }
+
     pub fn internal_state_as_str(&self) -> Option<String> {
         match self {
             Primitive::StdAdd(_)
@@ -416,6 +443,8 @@ pub trait ExecuteStateful: ValidateInput {
     }
 
     fn commit_updates(&mut self);
+
+    fn clear_update_buffer(&mut self);
 }
 
 /// Ensures the input values are of the appropriate widths, else panics.
@@ -597,6 +626,10 @@ impl ExecuteStateful for StdMemD1 {
             self.data[idx as usize] = val;
         }
     }
+
+    fn clear_update_buffer(&mut self) {
+        self.update = None;
+    }
 }
 
 ///std_memd2 :
@@ -763,6 +796,10 @@ impl ExecuteStateful for StdMemD2 {
         if let Some((addr0, addr1, val)) = self.update.take() {
             self.data[addr0 as usize][addr1 as usize] = val;
         }
+    }
+
+    fn clear_update_buffer(&mut self) {
+        self.update = None;
     }
 }
 
@@ -952,6 +989,10 @@ impl ExecuteStateful for StdMemD3 {
         if let Some((addr0, addr1, addr2, val)) = self.update.take() {
             self.data[addr0 as usize][addr1 as usize][addr2 as usize] = val;
         }
+    }
+
+    fn clear_update_buffer(&mut self) {
+        self.update = None;
     }
 }
 ///std_memd4
@@ -1166,6 +1207,10 @@ impl ExecuteStateful for StdMemD4 {
                 [addr3 as usize] = val;
         }
     }
+
+    fn clear_update_buffer(&mut self) {
+        self.update = None;
+    }
 }
 
 /// A Standard Register of a certain [width].
@@ -1271,6 +1316,10 @@ impl ExecuteStateful for StdReg {
         if let Some(val) = self.update.take() {
             self.val = val;
         }
+    }
+
+    fn clear_update_buffer(&mut self) {
+        self.update = None;
     }
 }
 

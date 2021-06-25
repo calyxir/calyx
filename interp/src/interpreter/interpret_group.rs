@@ -3,74 +3,17 @@
 
 use crate::environment::Environment;
 
-use crate::utils::{AssignmentRef, CellRef, OutputValueRef};
+use crate::utils::OutputValueRef;
 use crate::values::{OutputValue, ReadableValue, TimeLockedValue, Value};
 use calyx::{
     errors::FutilResult,
     ir::{self, RRC},
 };
 use std::collections::hash_map::Entry;
-use std::collections::{HashMap, HashSet};
-use std::iter;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 type ConstPort = *const ir::Port;
-
-/// A wrapper over a hashmap keyed by raw pointers. It contains a mapping from
-/// output (or inout) ports to a set of assignments which read from/depend on
-/// the given port. This is used to avoid re-running assignments when relevant
-/// values have not changed.
-#[derive(Debug, Clone, Default)]
-struct DependencyMap<'a> {
-    map: HashMap<ConstPort, HashSet<AssignmentRef<'a>>>,
-}
-
-impl<'a, I: Iterator<Item = &'a ir::Assignment>> From<I> for DependencyMap<'a> {
-    fn from(iter: I) -> Self {
-        let mut map = DependencyMap::default();
-        map.populate_map(iter);
-        map
-    }
-}
-
-impl<'a> DependencyMap<'a> {
-    fn populate_map<I: Iterator<Item = &'a ir::Assignment>>(
-        &mut self,
-        iter: I,
-    ) {
-        for assignment in iter {
-            let ports = assignment
-                .guard
-                .all_ports()
-                .into_iter()
-                .chain(iter::once(assignment.src.clone()))
-                .chain(iter::once(assignment.dst.clone()));
-            for port in ports {
-                if match &port.borrow().direction {
-                    ir::Direction::Input => false,
-                    ir::Direction::Output | ir::Direction::Inout => true,
-                } {
-                    self.map
-                        .entry(&port.borrow() as &ir::Port as ConstPort)
-                        .or_default()
-                        .insert(assignment.into());
-                }
-            }
-        }
-    }
-
-    fn get(&self, port: &ir::Port) -> Option<&HashSet<AssignmentRef<'a>>> {
-        self.map.get(&(port as ConstPort))
-    }
-}
-/// An alias for a hashset over Assignments (hashed with a wrapper using
-/// identity). Used to track assignments that need to be (re)evaluated
-type WorkList<'a> = HashSet<AssignmentRef<'a>>;
-
-/// An alias for a hashset over cells (hashed with a wrapper using identity).
-/// Used to track when cells should be (re)evaluated due to changes on one or
-/// more of their inputs
-type CellList = HashSet<CellRef>;
 
 /// A wrapper for a map assigning OutputValues to each port. Used in the working
 /// environment to track values that are not of type Value which is used in the
@@ -260,7 +203,7 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                 match &cell.clone().borrow().prototype {
                     ir::CellType::Primitive { .. }
                     | ir::CellType::Constant { .. } => Some(cell),
-                    ir::CellType::Component { name } => {
+                    ir::CellType::Component { .. } => {
                         // TODO (griffin): We'll need to handle this case at some point
                         todo!()
                     }
@@ -399,6 +342,7 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
 
         if let Some(prim) = executable {
             let new_vals = if reset_flag {
+                prim.clear_update_buffer();
                 prim.reset(&inputs)
             } else {
                 let done_val = if prim.is_comb() {
