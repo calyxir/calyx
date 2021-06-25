@@ -474,10 +474,9 @@ where
     iter.filter_map(|assign| {
         match &assign.dst.borrow().parent {
             ir::PortParent::Cell(c) => {
-                let cell = c.upgrade();
-                match &cell.clone().borrow().prototype {
+                match &c.upgrade().borrow().prototype {
                     ir::CellType::Primitive { .. }
-                    | ir::CellType::Constant { .. } => Some(cell),
+                    | ir::CellType::Constant { .. } => Some(c.upgrade()),
                     ir::CellType::Component { .. } => {
                         // TODO (griffin): We'll need to handle this case at some point
                         todo!()
