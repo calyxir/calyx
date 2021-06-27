@@ -155,6 +155,26 @@ mod stk_env_test {
     }
 
     #[test]
+    fn smoosher_to_hm() {
+        let mut smoosher = Smoosher::new();
+        smoosher.set("alma", 18);
+        smoosher.new_scope();
+        smoosher.set("jonathan", 14);
+        smoosher.new_scope();
+        smoosher.set("joseph", 19);
+        smoosher.new_scope();
+        smoosher.set("joseph", 436);
+        smoosher.set("ari", 12);
+        let hm = smoosher.to_hm();
+        //that type annotation seems a bit wack
+        assert_eq!(hm.len(), 4);
+        assert_eq!(**hm.get(&"alma").unwrap(), 18);
+        assert_eq!(**hm.get(&"jonathan").unwrap(), 14);
+        assert_eq!(**hm.get(&"joseph").unwrap(), 436);
+        assert_eq!(**hm.get(&"ari").unwrap(), 12);
+    }
+
+    #[test]
     fn smoosher_diff_2() {
         let mut smoosher = Smoosher::new();
         smoosher.set("alma", 18);
