@@ -1,6 +1,3 @@
-//a stack of environments, to be used like a version tree
-//This version: linked list! from the rust book detailing how to do linked lists
-
 use super::{primitives, primitives::Primitive, values::Value};
 use calyx::ir;
 use std::cell::RefCell;
@@ -8,30 +5,6 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryInto;
 use std::mem;
 use std::rc::Rc;
-
-//Invariants:
-//=> To Smoosh X levels down, no fork may still exist from any node amongst those
-// X levels. So the stack must look like:
-//  _
-// |_|
-//  |
-//  _
-// |_|
-//  |
-//  _
-// |_|
-//  |
-//=> To merge, both branches share a common fork point
-//  _
-// |_|
-//  |
-//  _     _
-// |_|   |_|
-//  |     |
-//   \ _ /
-//    |*|
-//     |
-//
 
 // From "Learning Rust with Entirely Too Many Linked Lists" (2018), Chapter 4.5:
 #[derive(Debug)]
@@ -41,8 +14,6 @@ pub struct List<T> {
 
 type Link<T> = Option<Rc<Node<T>>>;
 
-//a way to unwrap and grab mutably?
-//
 #[derive(Debug)]
 struct Node<T> {
     elem: T,
@@ -63,8 +34,25 @@ impl<T> List<T> {
     }
 
     /// Tests if the nodes at the head of [self] and [other] are equal;
-    /// That is if the Rc points to the same loc. Neither list may be
-    /// empty.
+    /// that is if the Rc points to the same location. Neither
+    /// # Panics
+    /// Panics if [self] or [other] are empty, though this should not occur
+    /// when using Smooshers.
+    /// # Example
+    /// ```
+    /// use interp::stk_env::List;
+    /// let l1 = List::new().push(1).push(2);
+    /// let l2 = l1.push(3);
+    /// let l3 = l1.push(4);
+    /// if let (Some(_), l2) = List::split(l2) {
+    ///     if let (Some(_), l3) = List::split(l3) {
+    ///         assert!(List::same_head(&l2, &l3));
+    ///     }
+    /// } else {
+    ///    panic!("split gave None")
+    /// }
+    /// ```
+
     pub fn same_head(&self, other: &Self) -> bool {
         let self_head = self.head.as_ref().unwrap();
         let other_head = other.head.as_ref().unwrap();
@@ -137,9 +125,30 @@ impl<'a, T> Iterator for Iter<'a, T> {
         })
     }
 }
-//
 
-//When a new scope is added, head is added to the tail and becomes immutable
+//Invariants:
+//=> To Smoosh X levels down, no fork may still exist from any node amongst those
+// X levels. So the stack must look like:
+//  _
+// |_|
+//  |
+//  _
+// |_|
+//  |
+//  _
+// |_|
+//  |
+//=> To merge, both branches must share a common fork point
+//  _
+// |_|
+//  |
+//  _     _
+// |_|   |_|
+//  |     |
+//   \ _ /
+//    |*|
+//     |
+//
 #[derive(Debug)]
 pub struct Smoosher<K: Eq + std::hash::Hash, V: Eq> {
     head: HashMap<K, V>,       //mutable
