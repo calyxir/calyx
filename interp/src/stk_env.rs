@@ -452,7 +452,16 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// [self] : [(a, 1), (b, 2)], and
     /// [other] : [(a, 1), (b, 3)], then
     /// [self.smoosher_diff(other)] produces the HM [(b, 3)].
-    pub fn smoosher_diff(&self, other: Self) -> HashMap<&K, &V> {
-        todo!()
+    pub fn diff_other(&self, other: &Self) -> HashMap<&K, &V> {
+        let mut self_hm = Smoosher::to_hm(&self);
+        let other_hm = Smoosher::to_hm(&other);
+        for (&k, &v) in other_hm.iter() {
+            if let Some(&v_self) = self_hm.get(k) {
+                if v_self == v {
+                    self_hm.remove(k);
+                }
+            }
+        }
+        self_hm
     }
 }

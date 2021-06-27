@@ -194,6 +194,27 @@ mod stk_env_test {
         assert!(diff_2.contains_key(&"jonathan"));
         assert_eq!(diff_2.contains_key(&"joseph"), false);
     }
+
+    #[test]
+    fn smoosher_diff_other() {
+        let mut smoosher = Smoosher::new();
+        smoosher.set("alma", 18);
+        smoosher.new_scope();
+        smoosher.set("joseph", 19);
+        smoosher.new_scope();
+        smoosher.set("jonathan", 14);
+        let mut smoosher2 = Smoosher::new();
+        smoosher2.set("jonathan", 15);
+        smoosher2.new_scope();
+        smoosher2.set("alma", 19);
+        smoosher2.set("joseph", 19);
+        let diff_2 = smoosher.diff_other(&smoosher2);
+        assert!(diff_2.contains_key(&"alma"));
+        assert_eq!(**diff_2.get(&"alma").unwrap(), 18);
+        assert!(diff_2.contains_key(&"jonathan"));
+        assert_eq!(**diff_2.get(&"jonathan").unwrap(), 14);
+        assert_eq!(diff_2.contains_key(&"joseph"), false);
+    }
 }
 
 mod prim_test {
