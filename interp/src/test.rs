@@ -153,6 +153,27 @@ mod stk_env_test {
         assert!(hs1.contains(&"jonathan"));
         assert_eq!(hs1.contains(&"alma"), false);
     }
+
+    #[test]
+    fn smoosher_diff_2() {
+        let mut smoosher = Smoosher::new();
+        smoosher.set("alma", 18);
+        smoosher.new_scope();
+        smoosher.set("joseph", 19);
+        smoosher.new_scope();
+        smoosher.set("jonathan", 14);
+        smoosher.new_scope();
+        smoosher.set("jonathan", 15);
+        smoosher.new_scope();
+        smoosher.set("alma", 19);
+        smoosher.set("joseph", 19);
+        //there are 5 scopes, check diff 2 and see that the resulting hm
+        //has alma, jonathan, but not joseph.
+        let diff_2 = smoosher.diff(2);
+        assert!(diff_2.contains_key(&"alma"));
+        assert!(diff_2.contains_key(&"jonathan"));
+        assert_eq!(diff_2.contains_key(&"joseph"), false);
+    }
 }
 
 mod prim_test {

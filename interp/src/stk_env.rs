@@ -379,22 +379,58 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         tr_hs
     }
 
-    /// Returns a Vector of pairs of all (K, V) ([bindings]) found in the top
+    /// Returns a HM of all (&K, &V) (bindings of references) found in the top
     /// [levels] levels of the Smoosher that differ from the bindings found
     /// in the [levels]-th level of the Smoosher.
     /// Example: Say our Smoosher looked as follows:
     /// (lvl 3) [(a, 1), (b, 2)] -> [(a, 3)] -> [(c, 4)] -> [(d, 15)] (lvl 0)
-    /// the calling diff(3) on this Smoosher would result in a vector that looks
+    /// the calling diff(3) on this Smoosher would result in a HM that looks
     /// as follows:
     /// [(a, 3), (c, 4), (d, 15)]
+    /// Requires: 0 < [levels] < # of scopes in this smoosher
     /// Undefined behavior if [levels] >= # of scopes in this Smoosher
-    pub fn diff(&self, levels: u64) -> Vec<(&K, &V)> {
-        //difficulty with this function is that V does not implement Eq
-        //so it will be hard to check if binding (k, v) and (k, v') are different
-        //create hashset of all bindings found in top [levels]
-        //then iterate through the rest of the Smoosher, iterating
-        //through each HM. If some binding in that HM is also contained
-        //in the hashset, remove it.
+    pub fn diff(&self, levels: u64) -> HashMap<&K, &V> {
+        if levels == 0 {
+            panic!("cannot compute diff(0)");
+        }
+        //iterate from top (0) to (levels - 1) and add all bindings
+        //continue iterating from (levels - 1) to bottom, check if binding
+        //is in tr HM. If so, remove it.
+        let mut tr = HashMap::new();
+        //first add from head
+        for (k, v) in HashMap::iter(&self.head) {
+            tr.insert(k, v);
+        }
+        //now worry about tail. while 1 <= ind <= levels - 1 insert (preserve scope),
+        //and while ind >= levels, get, check, remove.
+        let mut ind = 1;
+        for nd in List::iter(&self.tail) {
+            for (k, v) in HashMap::iter(nd) {
+                if ind <= (levels - 1) {
+                    //add, but only if the binding isn't yet in the HM (preserve scope)
+                    if None == tr.get(k) {
+                        tr.insert(k, v);
+                    }
+                } else {
+                    //do the check and remove
+                    if let Some(&v_prime) = tr.get(k) {
+                        if v_prime == v {
+                            tr.remove(k); //bc it's not a new binding
+                        }
+                    }
+                }
+                ind += 1;
+            }
+        }
+        tr
+    }
+
+    /// Returns a HM of all (K, V) ([bindings]) found in [self] and absent from
+    /// [other]. For example, if:
+    /// [self] : [(a, 1), (b, 2)], and
+    /// [other] : [(a, 1), (b, 3)], then
+    /// [self.smoosher_diff(other)] produces the HM [(b, 3)].
+    pub fn smoosher_diff(&self, other: Self) -> HashMap<&K, &V> {
         todo!()
     }
 }
