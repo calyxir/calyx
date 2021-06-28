@@ -2,7 +2,7 @@
 //use calyx::ir;
 //use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-//use std::convert::TryInto;
+use std::convert::TryInto;
 use std::mem;
 use std::rc::Rc;
 
@@ -197,6 +197,12 @@ pub struct Smoosher<K: Eq + std::hash::Hash, V: Eq> {
     tail: List<HashMap<K, V>>, //read-only
 }
 
+impl<K: Eq + std::hash::Hash, V: Eq> Into<HashMap<&K, &V>> for Smoosher<K, V> {
+    fn into(self) -> HashMap<&'static K, &'static V> {
+        todo!()
+    }
+}
+
 impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Smoosher<K, V> {
@@ -206,7 +212,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         }
     }
 
-    /// If [self] and [other] share a fork point, returns a pair (depthA, depthB)
+    /// If [self] and [other] share a fork point, returns a pair (depth_a, depth_b)
     /// of the depth which the fork point can be found in [self] and [other], respectively.
     /// NOTE: should be private, only public for testing!
     pub fn shared_fork_point(&self, other: &Self) -> Option<(u64, u64)> {
@@ -219,13 +225,17 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             let mut a_depth = 1;
             //iterate and check all other nodes
             for nd in self.tail.iter() {
-                let mut b_depth = 1;
-                for nd_other in other.tail.iter() {
-                    if std::ptr::eq(nd, nd_other) {
-                        return Some((a_depth, b_depth));
-                    }
-                    b_depth += 1;
+                if let Some(b_dep) =
+                    other.tail.iter().position(|el| std::ptr::eq(nd, el))
+                {
+                    return Some((a_depth, (b_dep + 1).try_into().unwrap()));
                 }
+                // for nd_other in other.tail.iter() {
+                //     if std::ptr::eq(nd, nd_other) {
+                //         return Some((a_depth, b_depth));
+                //     }
+                //     b_depth += 1;
+                // }
                 a_depth += 1;
             }
             None //do not share a fork point
@@ -326,8 +336,8 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```
     pub fn fork(&mut self) -> Self {
         //first save self's head, and replace it with a clean HM
-        let old_head = mem::replace(&mut self.head, HashMap::new()); //can replace with mem::take()
-                                                                     //create tail to both Self and the new Smoosher
+        let old_head = mem::take(&mut self.head); //can replace with mem::take()
+                                                  //create tail to both Self and the new Smoosher
         let new_tail = self.tail.push(old_head);
         //update Self and create new Smoosher
         self.tail = new_tail.clone(); //will this die after the end of [fork]? no
@@ -351,7 +361,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// assert_eq!(*a.get(&"hi!").unwrap(), 2);
     /// ```
     pub fn new_scope(&mut self) {
-        let old_head = mem::replace(&mut self.head, HashMap::new());
+        let old_head = mem::take(&mut self.head);
         self.tail = self.tail.push(old_head);
     }
 
@@ -643,14 +653,11 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             tr_hs.insert(k);
         }
         //now iterate and only add if levels > 0
-        let mut levels = levels as i32;
-        for hm in self.tail.iter() {
-            if levels > 0 {
-                for (k, _) in hm.iter() {
-                    tr_hs.insert(k);
-                }
+
+        for hm in self.tail.iter().take(levels.try_into().unwrap()) {
+            for (k, _) in hm.iter() {
+                tr_hs.insert(k);
             }
-            levels -= 1;
         }
         tr_hs
     }
@@ -703,7 +710,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             for (k, v) in HashMap::iter(nd) {
                 if ind <= (levels - 1) {
                     //add, but only if the binding isn't yet in the HM (preserve scope)
-                    if None == tr.get(k) {
+                    if tr.get(k).is_none() {
                         tr.insert(k, v);
                     }
                 } else {

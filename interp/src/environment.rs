@@ -328,7 +328,6 @@ impl Environment {
     }
 }
 
-//we have to rewrite the printer
 impl Serialize for Environment {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

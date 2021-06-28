@@ -1,5 +1,4 @@
 #[cfg(test)]
-#[cfg(test)]
 
 mod basic_stk_env_test {
     use crate::stk_env::Smoosher;
@@ -90,11 +89,11 @@ mod basic_stk_env_test {
                               //the below fork adds a new scope to [smoosher]
         let mut smoosher2 = smoosher.fork();
         //right now, shared_fork_point should give (1, 1)
-        if let Some((depthA, depthB)) =
+        if let Some((depth_a, depth_b)) =
             Smoosher::shared_fork_point(&smoosher, &smoosher2)
         {
-            assert_eq!(depthA, 1);
-            assert_eq!(depthB, 1)
+            assert_eq!(depth_a, 1);
+            assert_eq!(depth_b, 1)
         } else {
             panic!(
                 "shared_fork_point says forked cousins are unrelated [(1, 1)]"
@@ -104,11 +103,11 @@ mod basic_stk_env_test {
         smoosher.new_scope();
         smoosher2.new_scope();
         //now expecting (3, 2)
-        if let Some((depthA, depthB)) =
+        if let Some((depth_a, depth_b)) =
             Smoosher::shared_fork_point(&smoosher, &smoosher2)
         {
-            assert_eq!(depthA, 3);
-            assert_eq!(depthB, 2)
+            assert_eq!(depth_a, 3);
+            assert_eq!(depth_b, 2)
         } else {
             panic!(
                 "shared_fork_point says forked cousins are unrelated [(3, 2)]"
@@ -333,11 +332,11 @@ mod values_stk_env_test {
                                                                  //the below fork adds a new scope to [smoosher]
         let mut smoosher2 = smoosher.fork();
         //right now, shared_fork_point should give (1, 1)
-        if let Some((depthA, depthB)) =
+        if let Some((depth_a, depth_b)) =
             Smoosher::shared_fork_point(&smoosher, &smoosher2)
         {
-            assert_eq!(depthA, 1);
-            assert_eq!(depthB, 1)
+            assert_eq!(depth_a, 1);
+            assert_eq!(depth_b, 1)
         } else {
             panic!(
                 "shared_fork_point says forked cousins are unrelated [(1, 1)]"
@@ -347,11 +346,11 @@ mod values_stk_env_test {
         smoosher.new_scope();
         smoosher2.new_scope();
         //now expecting (3, 2)
-        if let Some((depthA, depthB)) =
+        if let Some((depth_a, depth_b)) =
             Smoosher::shared_fork_point(&smoosher, &smoosher2)
         {
-            assert_eq!(depthA, 3);
-            assert_eq!(depthB, 2)
+            assert_eq!(depth_a, 3);
+            assert_eq!(depth_b, 2)
         } else {
             panic!(
                 "shared_fork_point says forked cousins are unrelated [(3, 2)]"

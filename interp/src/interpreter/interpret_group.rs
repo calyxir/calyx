@@ -463,10 +463,6 @@ pub fn interpret_group(
                         unreachable!()
                     }
                 }
-                // check if the current val of id matches the new update
-                // if yes, do nothing
-                // if no, make the update in the environment and add all dependent
-                // assignments into the worklist and add cell to the execution list
             }
         } else if !non_comb_cells.is_empty() {
             let tmp = std::mem::take(&mut non_comb_cells);
