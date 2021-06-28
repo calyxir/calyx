@@ -141,7 +141,7 @@ fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
 }
 
 // XXX(Alex): Maybe rename to `eval_is_done`?
-fn signal_is_high(done: OutputValueRef) -> bool {
+fn is_signal_high(done: OutputValueRef) -> bool {
     match done {
         OutputValueRef::ImmediateValue(v) => v.as_u64() == 1,
         OutputValueRef::LockedValue(_) => false,
@@ -161,7 +161,7 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
 
     let mut val_changed_flag = false;
 
-    while !signal_is_high(working_env.get(done_signal)) || val_changed_flag {
+    while !is_signal_high(working_env.get(done_signal)) || val_changed_flag {
         val_changed_flag = false;
 
         // do all assigns
@@ -222,7 +222,7 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
             val_changed_flag = true;
         }
 
-        if !signal_is_high(working_env.get(done_signal)) && !val_changed_flag {
+        if !is_signal_high(working_env.get(done_signal)) && !val_changed_flag {
             working_env.do_tick();
             for cell in cells.iter() {
                 if let Some(x) = working_env
