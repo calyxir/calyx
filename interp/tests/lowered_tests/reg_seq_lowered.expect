@@ -1,19 +1,17 @@
 {
   "ports": {
     "main": {
-      "_0_1": {
+      "_0_2": {
         "out": 0
       },
       "_1_1": {
         "out": 1
       },
-      "_42_32": {
-        "out": 42
+      "_1_2": {
+        "out": 1
       },
-      "add0": {
-        "left": 0,
-        "out": 0,
-        "right": 0
+      "_2_2": {
+        "out": 2
       },
       "const0": {
         "out": 9
@@ -21,27 +19,31 @@
       "const1": {
         "out": 400
       },
-      "mem": {
-        "addr0": 0,
+      "fsm": {
         "clk": 0,
         "done": 0,
-        "read_data": 42,
-        "write_data": 0,
+        "in": 0,
+        "out": 2,
         "write_en": 0
+      },
+      "incr": {
+        "left": 0,
+        "out": 0,
+        "right": 0
       },
       "reg0": {
         "clk": 0,
         "done": 0,
         "in": 0,
-        "out": 409,
+        "out": 400,
         "write_en": 0
       }
     }
   },
   "memories": {
     "main": {
-      "mem": "[42]",
-      "reg0": "409"
+      "fsm": "2",
+      "reg0": "400"
     }
   }
 }

@@ -1,0 +1,33 @@
+import "primitives/core.futil";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    reg15 = std_reg(4);
+    reg1 = std_reg(1);
+    reg14 = std_reg(4);
+    slicer = std_slice(4, 1);
+    fsm = std_reg(2);
+  }
+  wires {
+    done = fsm.out == 2'd3 ? 1'd1;
+    fsm.clk = clk;
+    fsm.in = fsm.out == 2'd3 ? 2'd0;
+    fsm.in = fsm.out == 2'd0 & reg15.done & reg14.done & go ? 2'd1;
+    fsm.in = fsm.out == 2'd1 & reg1.done & go ? 2'd2;
+    fsm.in = fsm.out == 2'd2 & reg1.done & go ? 2'd3;
+    fsm.write_en = fsm.out == 2'd0 & reg15.done & reg14.done & go | fsm.out == 2'd1 & reg1.done & go | fsm.out == 2'd2 & reg1.done & go | fsm.out == 2'd3 ? 1'd1;
+    reg1.clk = clk;
+    reg1.in = !reg1.done & fsm.out == 2'd1 & go | !reg1.done & fsm.out == 2'd2 & go ? slicer.out;
+    reg1.write_en = !reg1.done & fsm.out == 2'd1 & go | !reg1.done & fsm.out == 2'd2 & go ? 1'd1;
+    reg14.clk = clk;
+    reg14.in = !(reg15.done & reg14.done) & fsm.out == 2'd0 & go ? 4'd14;
+    reg14.write_en = !(reg15.done & reg14.done) & fsm.out == 2'd0 & go ? 1'd1;
+    reg15.clk = clk;
+    reg15.in = !(reg15.done & reg14.done) & fsm.out == 2'd0 & go ? 4'd15;
+    reg15.write_en = !(reg15.done & reg14.done) & fsm.out == 2'd0 & go ? 1'd1;
+    slicer.in = !reg1.done & fsm.out == 2'd2 & go ? reg14.out;
+    slicer.in = !reg1.done & fsm.out == 2'd1 & go ? reg15.out;
+  }
+
+  control {}
+}
+
