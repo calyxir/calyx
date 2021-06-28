@@ -69,12 +69,13 @@ fn eval_if(
         env,
     )?;
 
-    if cond_flag == 0 {
-        env = interpret_control(&i.fbranch, continuous_assignments, env, comp)?;
+    let target = if cond_flag == 0 {
+        &i.fbranch
     } else {
-        env = interpret_control(&i.tbranch, continuous_assignments, env, comp)?;
-    }
-    Ok(env)
+        &i.tbranch
+    };
+
+    interpret_control(target, continuous_assignments, env, comp)
 }
 
 /// Interpret While
