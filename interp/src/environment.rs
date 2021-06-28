@@ -361,31 +361,30 @@ impl Serialize for Environment {
             })
             .collect();
 
-        let cell_map: BTreeMap<_, _> = ctx
-            .components
-            .iter()
-            .map(|comp| {
-                let inner_map: BTreeMap<_, _> = comp
-                    .cells
-                    .iter()
-                    .filter_map(|cell| {
-                        if let Some(prim) = self
-                            .cell_prim_map
-                            .get(&(&cell.borrow() as &ir::Cell as CellRef))
-                        {
-                            if let Some(string) = prim.internal_state_as_str() {
-                                return Some((
-                                    cell.borrow().name().clone(),
-                                    string,
-                                ));
-                            }
-                        }
-                        None
-                    })
-                    .collect();
-                (comp.name.clone(), inner_map)
-            })
-            .collect();
+        let cell_map: BTreeMap<_, _> =
+            ctx.components
+                .iter()
+                .map(|comp| {
+                    let inner_map: BTreeMap<_, _> =
+                        comp.cells
+                            .iter()
+                            .filter_map(|cell| {
+                                if let Some(prim) = self.cell_prim_map.get(
+                                    &(&cell.borrow() as &ir::Cell as CellRef),
+                                ) {
+                                    if !prim.is_comb() {
+                                        return Some((
+                                            cell.borrow().name().clone(),
+                                            prim,
+                                        ));
+                                    }
+                                }
+                                None
+                            })
+                            .collect();
+                    (comp.name.clone(), inner_map)
+                })
+                .collect();
 
         let p = Printable {
             ports: bmap,
@@ -396,7 +395,7 @@ impl Serialize for Environment {
 }
 
 #[derive(Serialize)]
-struct Printable {
+struct Printable<'a> {
     ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
-    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, String>>,
+    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, &'a Primitive>>,
 }
