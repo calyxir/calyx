@@ -219,29 +219,6 @@ impl<'a, K: Eq + std::hash::Hash, V: Eq> From<&'a Smoosher<K, V>>
     }
 }
 
-// impl<'a, K: Eq + std::hash::Hash, V: Eq> Into<HashMap<&'a K, &'a V>>
-//     for &'a Smoosher<K, V>
-// {
-//     fn into(self) -> HashMap<&'a K, &'a V> {
-//         //just add all bindings
-//         let mut tr = HashMap::new();
-//         //first add from head
-//         for (k, v) in HashMap::iter(&self.head) {
-//             tr.insert(k, v);
-//         }
-//         //then from tail
-//         for nd in List::iter(&self.tail) {
-//             for (k, v) in HashMap::iter(nd) {
-//                 //add, but only if the binding isn't yet in the HM (preserve scope)
-//                 if None == tr.get(k) {
-//                     tr.insert(k, v);
-//                 }
-//             }
-//         }
-//         tr
-//     }
-// }
-
 impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Smoosher<K, V> {
@@ -302,13 +279,8 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             Some(val)
         } else {
             //then check if it's anywhere in the other list
-            let iter = self.tail.iter();
-            for hm in iter {
-                if let Some(val) = hm.get(k) {
-                    return Some(val);
-                }
-            }
-            None
+            let mut iter = self.tail.iter();
+            iter.find_map(|hm| hm.get(k))
         }
     }
 
