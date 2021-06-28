@@ -206,7 +206,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// If [self] and [other] share a fork point, returns a pair (depthA, depthB)
     /// of the depth which the fork point can be found in [self] and [other], respectively.
     /// NOTE: should be private, only public for testing!
-    pub fn shared_fork_point(&self, other: &Self) -> Option<(u64, u64)> {
+    fn shared_fork_point(&self, other: &Self) -> Option<(u64, u64)> {
         //check head
         if std::ptr::eq(&self.head, &other.head) {
             Some((0, 0))
@@ -797,5 +797,76 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```
     pub fn binded_in_new(&self, k: &K) -> bool {
         self.head.contains_key(k)
+    }
+}
+
+#[cfg(test)]
+mod priv_tests {
+    use super::*;
+
+    #[test]
+    fn smoosher_shared_fork_point() {
+        let mut smoosher = Smoosher::new();
+        smoosher.set("a", 2); //for type inference
+                              //the below fork adds a new scope to [smoosher]
+        let mut smoosher2 = smoosher.fork();
+        //right now, shared_fork_point should give (1, 1)
+        if let Some((depthA, depthB)) =
+            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+        {
+            assert_eq!(depthA, 1);
+            assert_eq!(depthB, 1)
+        } else {
+            panic!(
+                "shared_fork_point says forked cousins are unrelated [(1, 1)]"
+            )
+        }
+        smoosher.new_scope();
+        smoosher.new_scope();
+        smoosher2.new_scope();
+        //now expecting (3, 2)
+        if let Some((depthA, depthB)) =
+            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+        {
+            assert_eq!(depthA, 3);
+            assert_eq!(depthB, 2)
+        } else {
+            panic!(
+                "shared_fork_point says forked cousins are unrelated [(3, 2)]"
+            )
+        }
+    }
+
+    #[test]
+    fn value_shared_fork_point() {
+        let mut smoosher = Smoosher::new();
+        smoosher.set("a", Value::try_from_init(2, 32).unwrap()); //for type inference
+                                                                 //the below fork adds a new scope to [smoosher]
+        let mut smoosher2 = smoosher.fork();
+        //right now, shared_fork_point should give (1, 1)
+        if let Some((depthA, depthB)) =
+            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+        {
+            assert_eq!(depthA, 1);
+            assert_eq!(depthB, 1)
+        } else {
+            panic!(
+                "shared_fork_point says forked cousins are unrelated [(1, 1)]"
+            )
+        }
+        smoosher.new_scope();
+        smoosher.new_scope();
+        smoosher2.new_scope();
+        //now expecting (3, 2)
+        if let Some((depthA, depthB)) =
+            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+        {
+            assert_eq!(depthA, 3);
+            assert_eq!(depthB, 2)
+        } else {
+            panic!(
+                "shared_fork_point says forked cousins are unrelated [(3, 2)]"
+            )
+        }
     }
 }
