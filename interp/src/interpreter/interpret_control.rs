@@ -89,23 +89,23 @@ fn eval_while(
     mut env: Environment,
     comp: &ir::Component,
 ) -> FutilResult<Environment> {
-    env = interpret_group(&w.cond.borrow(), continuous_assignments, env)?;
+    loop {
+        env = interpret_group(&w.cond.borrow(), continuous_assignments, env)?;
 
-    let cond_val = env.get_from_port(&w.port.borrow()).as_u64();
-    env = finish_group_interpretation(
-        &w.cond.borrow(),
-        continuous_assignments,
-        env,
-    )?;
-
-    if cond_val == 1 {
-        return eval_while(
-            w,
+        let cond_val = env.get_from_port(&w.port.borrow()).as_u64();
+        env = finish_group_interpretation(
+            &w.cond.borrow(),
             continuous_assignments,
-            interpret_control(&w.body, continuous_assignments, env, comp)?,
-            comp,
-        );
+            env,
+        )?;
+
+        if cond_val == 0 {
+            break;
+        }
+
+        env = interpret_control(&w.body, continuous_assignments, env, comp)?;
     }
+
     Ok(env)
 }
 
