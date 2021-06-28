@@ -9,6 +9,7 @@ use calyx::{
     errors::FutilResult,
     ir::{self, RRC},
 };
+use itertools::Itertools;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -154,7 +155,7 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
     done_signal: &ir::Port,
     assigns: I,
 ) -> FutilResult<Environment> {
-    let assigns = assigns.collect::<Vec<_>>();
+    let assigns = assigns.collect_vec();
     let mut working_env: WorkingEnvironment = env.into();
 
     let cells = get_cells(assigns.iter().copied());
