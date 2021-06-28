@@ -519,9 +519,24 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         self.tail = self.tail.push(old_head);
     }
 
-    /// Consumes two Smooshers, which must share a fork point (else fn panics).
+    /// ```text
+    /// Consumes two Smooshers, which must share a fork point.
     /// Merges all topmost scopes above the shared fork point, smooshing the resulting
-    /// node onto the fork point. Returns the resulting Smoosher. Example:
+    /// node onto the fork point. Returns the resulting Smoosher.
+    /// ```
+    /// ## IMPORTANT INVARIANT
+    /// ```text
+    /// The intersection of the bindings of the two branches
+    /// MUST be the empty set! Otherwise, no guarantee for which binding will be included
+    /// in the merge.
+    /// ```
+    /// # Panics
+    /// ```text
+    /// Panics if [self] and [other] do not share a common fork point, or if either is [empty]
+    /// ```
+    /// # Examples
+    /// ## Pictorial Example
+    /// ```text
     /// Smoosher 1: (A, B, C, F, G) Smoosher 2: (D, E, F, G)          
     /// [A]
     ///  |
@@ -538,10 +553,34 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// Returns:
     ///      [ABCDE merged and smooshed onto F]
     ///       |
-    ///      [F]
-    /// * IMPORTANT INVARIANT: The intersection of the bindings of the two branches
-    ///  MUST be the empty set! Otherwise, no guarantee for which binding will be included
-    /// in the merge.
+    ///      [G]
+    /// ```
+    /// ## Code Example
+    /// good:
+    /// ```
+    /// use interp::stk_env::Smoosher;
+    /// let mut a = Smoosher::new();
+    /// a.set("hello", 15);
+    /// a.set("hi!", 1);
+    /// a.new_scope();
+    /// a.set("bye", 0);
+    /// let mut b = a.fork();
+    /// a.set("hi!", 3);
+    /// b.set("bye", 2);
+    /// let c = Smoosher::merge(a, b);
+    /// assert_eq!(*c.get(&"hi!").unwrap(), 3);
+    /// assert_eq!(*c.get(&"bye").unwrap(), 2);
+    /// assert_eq!(*c.get(&"hello").unwrap(), 15);
+    /// ```
+    /// will panic:
+    /// ```should_panic
+    /// use interp::stk_env::Smoosher;
+    /// let mut a = Smoosher::new();
+    /// a.set("hello", 15);
+    /// let mut b = Smoosher::new();
+    /// b.set("hey", 13);
+    /// let c = Smoosher::merge(a, b); //there's no common fork point
+    /// ```
     pub fn merge(self, other: Self) -> Self {
         //find shared fork point; if doesn't exist, panic
         let mut a = self;
@@ -579,11 +618,29 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         }
     }
 
+    /// ```text
     /// Returns a HashSet of references to keys bounded in the
     /// top [levels] levels of the Smoosher.
     /// [self.list_bound_vars(0)] returns all keys in the topmost scope
     /// [self.list.bound_vars(1)] returns all keys in the top two scopes
-    /// Undefined behavior if levels >= (# of scopes)
+    /// Undefined behavior if levels >= (# of scopes), or [self] is empty
+    /// ```
+    /// # Example
+    /// ```
+    /// use interp::stk_env::Smoosher;
+    /// let mut a = Smoosher::new();
+    /// a.set("hello", 15);
+    /// a.set("hi!", 1);
+    /// a.new_scope();
+    /// a.set("bye", 0);
+    /// a.set("hello", 0);
+    /// let b = a.list_bound_vars(1);
+    /// assert_eq!(b.len(), 3);
+    /// assert!(b.contains(&"hello"));
+    /// assert!(b.contains(&"hi!"));
+    /// assert!(b.contains(&"bye"));
+    /// ```
+
     pub fn list_bound_vars(&self, levels: u64) -> HashSet<&K> {
         let mut tr_hs = HashSet::new();
         //levels is at least 0, so add everything from head
@@ -603,16 +660,35 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         tr_hs
     }
 
-    /// Returns a HM of all (&K, &V) (bindings of references) found in the top
+    /// ```text
+    /// Returns a HashMap of all (&K, &V) (bindings of references) found in the top
     /// [levels] levels of the Smoosher that differ from the bindings found
-    /// in the [levels]-th level of the Smoosher.
-    /// Example: Say our Smoosher looked as follows:
+    /// in the [levels]-th level of the Smoosher and below.
+    /// ```
+    ///  # Requires
+    ///  0 < [levels] < # of scopes in this smoosher
+    /// # Examples
+    /// ## Pictoral Example
+    /// ```text
+    /// Say our Smoosher A looked as follows:
     /// (lvl 3) [(a, 1), (b, 2)] -> [(a, 3)] -> [(c, 4)] -> [(d, 15)] (lvl 0)
-    /// the calling diff(3) on this Smoosher would result in a HM that looks
-    /// as follows:
+    /// A.diff(3) gives the following HashMap:
     /// [(a, 3), (c, 4), (d, 15)]
-    /// Requires: 0 < [levels] < # of scopes in this smoosher
-    /// Undefined behavior if [levels] >= # of scopes in this Smoosher
+    /// ```
+    /// ## Code Example
+    /// ```
+    /// use interp::stk_env::Smoosher;
+    /// let mut a = Smoosher::new();
+    /// a.set("hello", 15);
+    /// a.set("hi!", 1);
+    /// a.new_scope();
+    /// a.set("bye", 0);
+    /// a.set("hello", 0);
+    /// let diff1 = a.diff(1); //the diff between the topmost scope and all below
+    /// assert_eq!(diff1.len(), 2);
+    /// assert_eq!(**diff1.get(&"hello").unwrap(), 0);
+    /// assert_eq!(**diff1.get(&"bye").unwrap(), 0);
+    /// ```
     pub fn diff(&self, levels: u64) -> HashMap<&K, &V> {
         if levels == 0 {
             panic!("cannot compute diff(0)");
@@ -649,9 +725,11 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         tr
     }
 
+    /// ```text
     /// Returns a HM of all (&K, &V) (bindings of references) found in [self].
     /// A use case would be when you want a HM representing a snapshot of the
     /// current state of the environment, which is easily iterable.
+    /// ```
     pub fn to_hm(&self) -> HashMap<&K, &V> {
         //just add all bindings
         let mut tr = HashMap::new();
@@ -671,11 +749,32 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         tr
     }
 
+    /// ```text
     /// Returns a HM of all (&K, &V) (bindings of references) found in [self] and absent from
-    /// [other]. For example, if:
+    /// [other].
+    /// ```
+    /// # Examples
+    /// ## Text Example
+    /// ```text
     /// [self] : [(a, 1), (b, 2)], and
     /// [other] : [(a, 1), (b, 3)], then
-    /// [self.smoosher_diff(other)] produces the HM [(b, 3)].
+    /// [self.smoosher_diff(other)] produces the HM [(b, 2)].
+    /// ```
+    /// ## Code Example
+    /// ```
+    /// use interp::stk_env::Smoosher;
+    /// let mut a = Smoosher::new();
+    /// a.set("a", 1);
+    /// a.new_scope();
+    /// a.set("b", 2);
+    /// let mut b = Smoosher::new();
+    /// b.set("a", 1);
+    /// b.set("b", 3);
+    /// let diff_a_b = a.diff_other(&b);
+    /// assert_eq!(diff_a_b.len(), 1);
+    /// assert_eq!(**diff_a_b.get(&"b").unwrap(), 2);
+    /// ```
+
     pub fn diff_other(&self, other: &Self) -> HashMap<&K, &V> {
         let mut self_hm = Smoosher::to_hm(&self);
         let other_hm = Smoosher::to_hm(&other);
