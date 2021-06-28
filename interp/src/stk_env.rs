@@ -196,11 +196,51 @@ pub struct Smoosher<K: Eq + std::hash::Hash, V: Eq> {
     tail: List<HashMap<K, V>>, //read-only
 }
 
-impl<K: Eq + std::hash::Hash, V: Eq> Into<HashMap<&K, &V>> for Smoosher<K, V> {
-    fn into(self) -> HashMap<&'static K, &'static V> {
-        todo!()
+impl<'a, K: Eq + std::hash::Hash, V: Eq> From<&'a Smoosher<K, V>>
+    for HashMap<&'a K, &'a V>
+{
+    fn from(item: &'a Smoosher<K, V>) -> Self {
+        //just add all bindings
+        let mut tr = HashMap::new();
+        //first add from head
+        for (k, v) in HashMap::iter(&item.head) {
+            tr.insert(k, v);
+        }
+        //then from tail
+        for nd in List::iter(&item.tail) {
+            for (k, v) in HashMap::iter(nd) {
+                //add, but only if the binding isn't yet in the HM (preserve scope)
+                if None == tr.get(k) {
+                    tr.insert(k, v);
+                }
+            }
+        }
+        tr
     }
 }
+
+// impl<'a, K: Eq + std::hash::Hash, V: Eq> Into<HashMap<&'a K, &'a V>>
+//     for &'a Smoosher<K, V>
+// {
+//     fn into(self) -> HashMap<&'a K, &'a V> {
+//         //just add all bindings
+//         let mut tr = HashMap::new();
+//         //first add from head
+//         for (k, v) in HashMap::iter(&self.head) {
+//             tr.insert(k, v);
+//         }
+//         //then from tail
+//         for nd in List::iter(&self.tail) {
+//             for (k, v) in HashMap::iter(nd) {
+//                 //add, but only if the binding isn't yet in the HM (preserve scope)
+//                 if None == tr.get(k) {
+//                     tr.insert(k, v);
+//                 }
+//             }
+//         }
+//         tr
+//     }
+// }
 
 impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     #[allow(clippy::new_without_default)]

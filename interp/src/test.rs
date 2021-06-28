@@ -2,6 +2,7 @@
 
 mod basic_stk_env_test {
     use crate::stk_env::Smoosher;
+    use std::collections::HashMap;
 
     #[test]
     fn smoosher_get_empty() {
@@ -147,6 +148,26 @@ mod basic_stk_env_test {
     }
 
     #[test]
+    fn smoosher_from() {
+        let mut smoosher = Smoosher::new();
+        smoosher.set("alma", 18);
+        smoosher.new_scope();
+        smoosher.set("jonathan", 14);
+        smoosher.new_scope();
+        smoosher.set("joseph", 19);
+        smoosher.new_scope();
+        smoosher.set("joseph", 436);
+        smoosher.set("ari", 12);
+        let hm: HashMap<&&str, &i32> = HashMap::from(&smoosher);
+        //that type annotation seems a bit wack
+        assert_eq!(hm.len(), 4);
+        assert_eq!(**hm.get(&"alma").unwrap(), 18);
+        assert_eq!(**hm.get(&"jonathan").unwrap(), 14);
+        assert_eq!(**hm.get(&"joseph").unwrap(), 436);
+        assert_eq!(**hm.get(&"ari").unwrap(), 12);
+    }
+
+    #[test]
     fn smoosher_diff_2() {
         let mut smoosher = Smoosher::new();
         smoosher.set("alma", 18);
@@ -194,6 +215,7 @@ mod values_stk_env_test {
     use crate::stk_env::Smoosher;
     #[allow(unused)]
     use crate::values::Value;
+    use std::collections::HashMap;
 
     #[test]
     fn smoosher_val_get_set() {
@@ -348,6 +370,26 @@ mod values_stk_env_test {
         smoosher.set("joseph", Value::try_from_init(436, 32).unwrap());
         smoosher.set("ari", Value::try_from_init(12, 32).unwrap());
         let hm = smoosher.to_hm();
+        //that type annotation seems a bit wack
+        assert_eq!(hm.len(), 4);
+        assert_eq!(hm.get(&"alma").unwrap().as_u64(), 18);
+        assert_eq!(hm.get(&"jonathan").unwrap().as_u64(), 14);
+        assert_eq!(hm.get(&"joseph").unwrap().as_u64(), 436);
+        assert_eq!(hm.get(&"ari").unwrap().as_u64(), 12);
+    }
+
+    #[test]
+    fn value_smoosher_hm_from() {
+        let mut smoosher = Smoosher::new();
+        smoosher.set("alma", Value::try_from_init(18, 32).unwrap());
+        smoosher.new_scope();
+        smoosher.set("jonathan", Value::try_from_init(14, 32).unwrap());
+        smoosher.new_scope();
+        smoosher.set("joseph", Value::try_from_init(19, 32).unwrap());
+        smoosher.new_scope();
+        smoosher.set("joseph", Value::try_from_init(436, 32).unwrap());
+        smoosher.set("ari", Value::try_from_init(12, 32).unwrap());
+        let hm: HashMap<&&str, &Value> = HashMap::from(&smoosher);
         //that type annotation seems a bit wack
         assert_eq!(hm.len(), 4);
         assert_eq!(hm.get(&"alma").unwrap().as_u64(), 18);
