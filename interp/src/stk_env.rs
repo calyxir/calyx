@@ -787,4 +787,23 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         }
         self_hm
     }
+
+    /// ```text
+    /// Returns true if a binding of [k] exists in the topmost scope.
+    /// False if [k] is not binded in the topmost scope (regardless of whether
+    /// or not [k] exists in the entire Smoosher).
+    /// ```
+    /// # Example
+    /// ```
+    /// use interp::stk_env::Smoosher;
+    /// let mut a = Smoosher::new();
+    /// a.set(1, 2);
+    /// a.new_scope();
+    /// a.set(2, 3);
+    /// assert_eq!(a.binded_in_new(&1), false);
+    /// assert!(a.binded_in_new(&2));
+    /// ```
+    pub fn binded_in_new(&self, k: &K) -> bool {
+        self.head.contains_key(k)
+    }
 }
