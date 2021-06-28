@@ -3,6 +3,7 @@
 //use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 //use std::convert::TryInto;
+use super::values; //this is used in the tests below
 use std::mem;
 use std::rc::Rc;
 
@@ -249,13 +250,13 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         if let Some(val) = self.head.get(k) {
             Some(val)
         } else {
+            //then check if it's anywhere in the other list
             let iter = self.tail.iter();
             for hm in iter {
                 if let Some(val) = hm.get(k) {
                     return Some(val);
                 }
             }
-            //then check if it's anywhere in the other list
             None
         }
     }
@@ -524,7 +525,8 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```
     /// # Panics
     /// ```text
-    /// Panics if [self] and [other] do not share a common fork point, or if either is [empty]
+    /// Panics if [self] and [other] do not share a common fork point, or if either is [empty], or
+    /// if their bindings above the fork point are not disjoint.
     /// ```
     /// # Examples
     /// ## Pictorial Example
@@ -588,7 +590,9 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             let mut a_head = a.head;
             //merge a_head and b_head.
             for (k, v) in b.head {
-                a_head.insert(k, v);
+                if let Some(_) = a_head.insert(k, v) {
+                    panic!("arguments of merge are not disjoint");
+                }
             }
             //now drop b
             std::mem::drop(b.tail); //b.head already consumed above
@@ -600,7 +604,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
                     tail: a_new_tail,
                 };
             } else {
-                panic!("trying to merge, but [self] is empty")
+                panic!("trying to merge, but [self] is only 1 scope deep (this is impossible)")
             }
             //push_scope this new merged node onto A'
             a.push_scope(a_head);
@@ -803,7 +807,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
 #[cfg(test)]
 mod priv_tests {
     use super::*;
-
+    use crate::values::Value; //this is used in the tests below
     #[test]
     fn smoosher_shared_fork_point() {
         let mut smoosher = Smoosher::new();
