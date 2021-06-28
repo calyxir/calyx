@@ -12,6 +12,7 @@ use calyx::{
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::rc::Rc;
+use crate::primitives::Primitive;
 
 type ConstPort = *const ir::Port;
 
@@ -134,14 +135,27 @@ impl WorkingEnvironment {
         }
         self.backing_env
     }
+
+    fn dump_state(&self, cell : &ir::Cell) {
+        println!("{} on cycle {}: ", cell.name(), self.backing_env.clk);
+        for p in &cell.ports {
+            let p_ref : &ir::Port = &p.borrow();
+            println!("  {} : {}", p_ref.name, self.get_as_val(p_ref).as_u64());
+        }
+        match self.backing_env.cell_prim_map.get(&(cell as *const ir::Cell)).unwrap() {
+            &Primitive::StdReg(ref reg) => println!("  internal state: {}", reg.val),
+            &Primitive::StdMemD1(ref mem) => println!("  memval : {}", mem.data[0]),
+            _ => {},
+        }
+    }
 }
 
 fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
     group.get(&"done")
 }
 
-// XXX(Alex): Maybe rename to `eval_is_done`?
 fn signal_is_high(done: OutputValueRef) -> bool {
+    // dbg!(&done);
     match done {
         OutputValueRef::ImmediateValue(v) => v.as_u64() == 1,
         OutputValueRef::LockedValue(_) => false,
@@ -159,9 +173,22 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
 
     let cells = get_cells(assigns.iter().copied());
 
+    let fsm = cells.iter().find(|x| x.borrow().name() == "fsm").unwrap().clone();
+    let add = cells.iter().find(|x| x.borrow().name() == "add").unwrap().clone();
+    let cs = cells.iter().find(|x| x.borrow().name() == "cond_stored").unwrap().clone();
+    let lt = cells.iter().find(|x| x.borrow().name() == "lt").unwrap().clone();
+    let i = cells.iter().find(|x| x.borrow().name() == "i").unwrap().clone();
+
+
     let mut val_changed_flag = false;
 
     while !signal_is_high(working_env.get(done_signal)) || val_changed_flag {
+        working_env.dump_state(&fsm.borrow());
+        working_env.dump_state(&add.borrow());
+        working_env.dump_state(&cs.borrow());
+        working_env.dump_state(&lt.borrow());
+        working_env.dump_state(&i.borrow());
+        println!("");
         val_changed_flag = false;
 
         // do all assigns
@@ -170,6 +197,8 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
 
         let mut updates_list = vec![];
         for assignment in &assigns {
+            // if assignment.dst.borrow().name == "done"
+            // println!("{:?}", assignment.);
             if eval_guard(&assignment.guard, &working_env) {
                 let old_val = working_env.get(&assignment.dst.borrow());
                 let new_val = working_env.get_as_val(&assignment.src.borrow());
@@ -201,6 +230,7 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
             }
         }
 
+        
         // Remove the placeholder TLVs
         for port in updates_list {
             if let Entry::Occupied(entry) = working_env.entry(&port.borrow()) {
@@ -212,7 +242,7 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                 } else {
                     // this branch should be impossible since the list of
                     // ports we're iterating over are only those w/ updates
-                    unreachable!()
+                    unreachable!("{:?}, port: {:?}", v, port.borrow().canonical());
                 }
             }
         }

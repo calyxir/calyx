@@ -347,7 +347,7 @@ impl Eq for Value {}
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         assert!(self.vec.len() == other.vec.len());
-        Some(self.vec.cmp(&other.vec))
+        Some(self.as_u64().cmp(&other.as_u64()))
     }
 }
 
