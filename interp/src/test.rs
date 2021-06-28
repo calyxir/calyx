@@ -224,7 +224,9 @@ mod basic_stk_env_test {
 }
 
 mod values_stk_env_test {
+    #[allow(unused)]
     use crate::stk_env::Smoosher;
+    #[allow(unused)]
     use crate::values::Value;
 
     #[test]
@@ -465,8 +467,11 @@ mod values_stk_env_test {
 }
 
 mod prim_test {
+    #[allow(unused)]
     use crate::primitives::*;
+    #[allow(unused)]
     use crate::values::*;
+    #[allow(unused)]
     use calyx::ir;
     #[test]
     fn test_mem_d1_tlv() {

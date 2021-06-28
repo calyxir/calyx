@@ -32,6 +32,7 @@ impl<T> Clone for List<T> {
 /// Taken from "Learning Rust with Entirely Too Many Linked Lists" (2018), Chapter 4.5
 /// Added the [same_head], [is_empty], and [split] functions.
 impl<T> List<T> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         List { head: None }
     }
@@ -197,6 +198,7 @@ pub struct Smoosher<K: Eq + std::hash::Hash, V: Eq> {
 }
 
 impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Smoosher<K, V> {
         Smoosher {
             head: HashMap::new(),
