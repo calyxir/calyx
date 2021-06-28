@@ -1,8 +1,8 @@
-use super::{primitives, primitives::Primitive, values::Value};
-use calyx::ir;
-use std::cell::RefCell;
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::convert::TryInto;
+//use super::{primitives, primitives::Primitive, values::Value};
+//use calyx::ir;
+//use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+//use std::convert::TryInto;
 use std::mem;
 use std::rc::Rc;
 
@@ -32,6 +32,7 @@ impl<T> Clone for List<T> {
 /// Taken from "Learning Rust with Entirely Too Many Linked Lists" (2018), Chapter 4.5
 /// Added the [same_head], [is_empty], and [split] functions.
 impl<T> List<T> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         List { head: None }
     }
@@ -72,11 +73,7 @@ impl<T> List<T> {
     /// assert_eq!(l1.is_empty(), false);
     /// ```
     pub fn is_empty(&self) -> bool {
-        if let Some(node) = &self.head {
-            false
-        } else {
-            true
-        }
+        self.head.is_none()
     }
 
     /// Returns a list identical to [self], with [elem] pushed onto the front
@@ -127,14 +124,12 @@ impl<T> List<T> {
     /// ```
     pub fn split(self) -> (Option<T>, Self) {
         if self.is_empty() {
-            return (None, self);
+            (None, self)
+        } else if let Ok(head) = Rc::try_unwrap(self.head.unwrap()) {
+            let tail_list = List { head: head.next }; //better: not cloning the tail
+            (Some(head.elem), tail_list)
         } else {
-            if let Ok(head) = Rc::try_unwrap(self.head.unwrap()) {
-                let tail_list = List { head: head.next }; //better: not cloning the tail
-                return (Some(head.elem), tail_list);
-            } else {
-                panic!("Cannot unwrap the head of this list. You probably tried Smooshing while a fork exists!")
-            }
+            panic!("Cannot unwrap the head of this list. You probably tried Smooshing while a fork exists!")
         }
     }
 
@@ -200,6 +195,7 @@ pub struct Smoosher<K: Eq + std::hash::Hash, V: Eq> {
 }
 
 impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Smoosher<K, V> {
         Smoosher {
             head: HashMap::new(),
@@ -213,15 +209,14 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     pub fn shared_fork_point(&self, other: &Self) -> Option<(u64, u64)> {
         //check head
         if std::ptr::eq(&self.head, &other.head) {
-            return Some((0, 0));
+            Some((0, 0))
         } else {
             //check tail
             //these start at 1 b/c head was 0
             let mut a_depth = 1;
-            let mut b_depth = 1;
             //iterate and check all other nodes
             for nd in self.tail.iter() {
-                b_depth = 1;
+                let mut b_depth = 1;
                 for nd_other in other.tail.iter() {
                     if std::ptr::eq(nd, nd_other) {
                         return Some((a_depth, b_depth));
@@ -230,7 +225,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
                 }
                 a_depth += 1;
             }
-            return None; //do not share a fork point
+            None //do not share a fork point
         }
     }
     // NOTE: shold be private, only public for testing!
@@ -252,7 +247,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     pub fn get(&self, k: &K) -> Option<&V> {
         //first check if it's in the highest one
         if let Some(val) = self.head.get(k) {
-            return Some(val);
+            Some(val)
         } else {
             let iter = self.tail.iter();
             for hm in iter {
@@ -261,7 +256,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
                 }
             }
             //then check if it's anywhere in the other list
-            return None;
+            None
         }
     }
 
@@ -441,10 +436,10 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             for (k, v) in wr_head {
                 new_head.insert(k, v);
             }
-            return Smoosher {
+            Smoosher {
                 head: new_head,
                 tail: new_tail,
-            };
+            }
         } else {
             panic!("Could not smoosh, because [self] has less than two scopes")
         }
@@ -503,7 +498,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     ///```
     pub fn smoosh(self, levels: u64) -> Self {
         let mut tr = self;
-        for n in 0..levels {
+        for _n in 0..levels {
             tr = tr.smoosh_once();
         }
         tr
@@ -599,7 +594,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             std::mem::drop(b.tail); //b.head already consumed above
                                     //create a'
             let (a_new_head, a_new_tail) = a.tail.split();
-            if let Some(mut a_new_head) = a_new_head {
+            if let Some(a_new_head) = a_new_head {
                 a = Smoosher {
                     head: a_new_head,
                     tail: a_new_tail,

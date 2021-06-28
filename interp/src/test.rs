@@ -46,7 +46,7 @@ mod basic_stk_env_test {
         //test the right "hey" was written
         assert_eq!(*smoosher.get(&"hey").unwrap(), 3);
     }
-
+    #[test]
     fn smoosher_smoosh_many_lvls() {
         let mut smoosher = Smoosher::new();
         smoosher.set("hey", 2);
@@ -224,7 +224,9 @@ mod basic_stk_env_test {
 }
 
 mod values_stk_env_test {
+    #[allow(unused)]
     use crate::stk_env::Smoosher;
+    #[allow(unused)]
     use crate::values::Value;
 
     #[test]
@@ -287,7 +289,7 @@ mod values_stk_env_test {
         //test the right "hey" was written
         assert_eq!(smoosher.get(&"hey").unwrap().as_u64(), 3);
     }
-
+    #[test]
     fn smoosher_smoosh_many_lvls() {
         let mut smoosher = Smoosher::new();
         smoosher.set("hey", Value::try_from_init(2, 32).unwrap());
@@ -465,8 +467,11 @@ mod values_stk_env_test {
 }
 
 mod prim_test {
+    #[allow(unused)]
     use crate::primitives::*;
+    #[allow(unused)]
     use crate::values::*;
+    #[allow(unused)]
     use calyx::ir;
     #[test]
     fn test_mem_d1_tlv() {
