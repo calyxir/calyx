@@ -83,12 +83,6 @@ mod basic_stk_env_test {
         assert_eq!(*smoosher_merged.get(&"jonathan").unwrap(), 15);
     }
 
-    //trying to merge empty
-    #[test]
-    fn merge_empty() {
-        let mut smoosher = Smoosher::new();
-    }
-
     //tests that we can merge different branch length. should fail now
     #[test]
     fn smoosher_merge_complex() {
