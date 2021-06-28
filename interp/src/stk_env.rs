@@ -28,13 +28,16 @@ impl<T> Clone for List<T> {
     }
 }
 
+/// The underlying, functional linked list used by the Smoosher.
+/// Taken from "Learning Rust with Entirely Too Many Linked Lists" (2018), Chapter 4.5
+/// Added the [same_head], [is_empty], and [split] functions.
 impl<T> List<T> {
     pub fn new() -> Self {
         List { head: None }
     }
 
     /// Tests if the nodes at the head of [self] and [other] are equal;
-    /// that is if the Rc points to the same location. Neither
+    /// that is if the Rc points to the same location.
     /// # Panics
     /// Panics if [self] or [other] are empty, though this should not occur
     /// when using Smooshers.
@@ -52,13 +55,25 @@ impl<T> List<T> {
     ///    panic!("split gave None")
     /// }
     /// ```
-
     pub fn same_head(&self, other: &Self) -> bool {
+        if Option::is_none(&self.head) || Option::is_none(&other.head) {
+            panic!("cannot compare empty lists using [same_head]");
+        }
         let self_head = self.head.as_ref().unwrap();
         let other_head = other.head.as_ref().unwrap();
         Rc::as_ptr(self_head) == Rc::as_ptr(other_head)
     }
 
+    /// Tests if the head of [self] is [None], or [Some(nd)]
+    ///
+    /// # Example
+    /// ```
+    /// use interp::stk_env::List;
+    /// let l1 = List::new();
+    /// assert!(l1.is_empty());
+    /// let l1 = l1.push(3);
+    /// assert_eq!(l1.is_empty(), false);
+    /// ```
     pub fn is_empty(&self) -> bool {
         if let Some(node) = &self.head {
             false
@@ -84,8 +99,35 @@ impl<T> List<T> {
         }
     }
 
-    /// Consumes the current list, returning an Option of the
-    /// element contained in its [head] and its [tail].
+    /// Consumes [self], returning a tupule of ([self.head : Option<T>], [self.tail : List<T>]),
+    /// where [tail] is all elements in [self] that are not [head]. If [self] is empty,
+    /// [split] will return ([None], [self])
+    ///
+    /// # Panics
+    /// Because [split] consumes [self], [split] panics if multiple lists exist that
+    /// share (references to the same) elements in their **tail**.
+    /// # Example
+    /// Good:
+    /// ```
+    /// use interp::stk_env::List;
+    /// let l1 = List::new().push(4).push(3);
+    /// if let (Some(hd), l1) = l1.split(){
+    ///     assert_eq!(hd, 3);
+    /// } else {
+    ///     panic!("could not split l1")
+    /// }
+    /// ```
+    /// Shared tail panic:
+    /// ```should_panic
+    /// use interp::stk_env::List;
+    /// let l1 = List::new().push(4).push(3);
+    /// let l2 = l1.push(2);
+    /// //This will panic, because while l1 exists, l2's tail cannot be split:
+    /// if let (Some(hd), l2) = l2.split() {
+    ///     let tup = l2.split();
+    /// }
+    /// l1.push(5);
+    /// ```
     pub fn split(self) -> (Option<T>, Self) {
         if self.is_empty() {
             return (None, self);
@@ -126,29 +168,34 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 }
 
-//Invariants:
-//=> To Smoosh X levels down, no fork may still exist from any node amongst those
-// X levels. So the stack must look like:
-//  _
-// |_|
-//  |
-//  _
-// |_|
-//  |
-//  _
-// |_|
-//  |
-//=> To merge, both branches must share a common fork point
-//  _
-// |_|
-//  |
-//  _     _
-// |_|   |_|
-//  |     |
-//   \ _ /
-//    |*|
-//     |
-//
+///A Stack of HashMaps that supports scoping
+///
+///Invariants:
+///=> To Smoosh X levels down, no fork may still exist from any node amongst those
+/// X levels. So the stack must look like:
+/// ```text
+///  _
+/// |_|
+///  |
+///  _
+/// |_|
+///  |
+///  _
+/// |_|
+///  |
+/// ```
+///=> To merge, both branches must share a common fork point
+/// ```text
+///  _
+/// |_|
+///  |
+///  _     _
+/// |_|   |_|
+///  |     |
+///   \ _ /
+///    |*|
+///     |
+/// ```
 #[derive(Debug)]
 pub struct Smoosher<K: Eq + std::hash::Hash, V: Eq> {
     head: HashMap<K, V>,       //mutable
@@ -189,12 +236,22 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             return None; //do not share a fork point
         }
     }
-    //hacky?
+    // NOTE: shold be private, only public for testing!
     pub fn drop(self) {
         //yea
     }
+
     /// Returns an Option of a pointer to the highest-scoped binding to [k],
-    /// if it exists. Els None.
+    /// if it exists. Else None.
+    ///
+    /// # Example
+    /// ```
+    /// use interp::stk_env::Smoosher;
+    /// let mut smoosher = Smoosher::new();
+    /// smoosher.set("hi!", 1);
+    /// assert_eq!(*smoosher.get(&"hi!").unwrap(), 1);
+    /// assert_eq!(smoosher.get(&"hey"), None);
+    /// ```
     pub fn get(&self, k: &K) -> Option<&V> {
         //first check if it's in the highest one
         if let Some(val) = self.head.get(k) {
@@ -211,15 +268,67 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         }
     }
 
-    /// Sets a new binding of [k] to [v] in the highest scope
+    /// ```text
+    /// Sets a new binding of [k] to [v] in the highest scope.
+    /// Guarantees that all following calls to [get(&k)] will return [&v],
+    /// granted no new binding is set with [set]
+    /// ```
+    /// # Example
+    /// Using one scope:
+    /// ```rust
+    /// use interp::stk_env::Smoosher;
+    /// let mut smoosher = Smoosher::new();
+    /// smoosher.set("hi!", 1);
+    /// assert_eq!(*smoosher.get(&"hi!").unwrap(), 1);
+    /// smoosher.set("hi!", 2);
+    /// assert_eq!(*smoosher.get(&"hi!").unwrap(), 2);
+    /// ```
+    /// More than one scope:
+    /// ```rust
+    /// use interp::stk_env::Smoosher;
+    /// let mut smoosher = Smoosher::new();
+    /// smoosher.set("hi!", 1);
+    /// assert_eq!(*smoosher.get(&"hi!").unwrap(), 1);
+    /// smoosher.new_scope(); //scopes themselves do not affect gets, only new sets do.
+    /// assert_eq!(*smoosher.get(&"hi!").unwrap(), 1);
+    /// smoosher.set("hi!", 2);
+    /// assert_eq!(*smoosher.get(&"hi!").unwrap(), 2);
+    /// ```
     pub fn set(&mut self, k: K, v: V) {
         self.head.insert(k, v);
     }
 
+    /// ```text
     /// Returns a new Smoosher and mutates [self]. The new Smoosher has a new scope
     /// as [head] and all of (pre-mutation) [self] as [tail]. [Self] has a fresh scope pushed onto
     /// it. Invariant this method enforces: you cannot mutate a scope that has children
     /// forks (you can only mutate the fresh scope applied atop it)
+    /// ```
+    /// # Examples
+    /// ## Pictorial Example
+    /// ```text
+    /// [A]
+    /// ```
+    /// let B = A.fork();
+    /// ```text
+    /// [B] [A'] <- Both B and A' point to empty nodes spawned off A
+    ///  |   |
+    ///   \ /
+    ///    |
+    ///   [A]
+    /// ```
+    /// ## Code Example
+    /// ```rust
+    /// use interp::stk_env::Smoosher;
+    /// let mut a = Smoosher::new();
+    /// a.set("hi!", 1);
+    /// let mut b = a.fork();
+    /// a.set("hey", 2);
+    /// b.set("hey", 3);
+    /// assert_eq!(*a.get(&"hi!").unwrap(), *b.get(&"hi!").unwrap());
+    /// assert_eq!(*a.get(&"hey").unwrap(), 2);
+    /// assert_eq!(*b.get(&"hey").unwrap(), 3);
+    /// ```
     pub fn fork(&mut self) -> Self {
         //first save self's head, and replace it with a clean HM
         let old_head = mem::replace(&mut self.head, HashMap::new()); //can replace with mem::take()
@@ -233,31 +342,58 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         }
     }
 
-    ///Pushes a new, empty scope onto [self]
+    ///```text
+    ///Pushes a new, empty scope onto [self]. Doing so has no effect on the
+    ///bindings in [self], until a new [set] is called
+    ///```
+    /// # Example
+    /// ```rust
+    /// use interp::stk_env::Smoosher;
+    /// let mut a = Smoosher::new();
+    /// a.set("hi!", 1);
+    /// a.new_scope();
+    /// a.set("hi!", 2);
+    /// assert_eq!(*a.get(&"hi!").unwrap(), 2);
+    /// ```
     pub fn new_scope(&mut self) {
         let old_head = mem::replace(&mut self.head, HashMap::new());
         self.tail = self.tail.push(old_head);
     }
 
-    //maybe not necessary VV
-
+    /// ```text
     /// Returns a pointer to the newest scope of this Smoosher. A Smoosher upon
     /// instantiation will always have 1 empty HM as its first scope, so this
     /// method will always meaningfully return.
+    /// ```
+    /// # Example
+    /// ```
+    /// use interp::stk_env::Smoosher;
+    /// let mut a = Smoosher::new();
+    /// a.set("hi!", 1);
+    /// a.set("bye", 0);
+    /// let hm = a.top();
+    /// assert_eq!(hm.len(), 2);
+    /// assert_eq!(*hm.get(&"hi!").unwrap(), 1);
+    /// assert_eq!(*hm.get(&"bye").unwrap(), 0);
+    /// ```
     pub fn top(&self) -> &HashMap<K, V> {
         &self.head
     }
 
-    /// Returns a Smoosher with all bindings in the topmost scope transposed
-    /// onto the second-newest scope, with the topmost scope then discarded.
+    /// ```text
+    /// Consumes [self] and returns a Smoosher with all bindings in the topmost scope transposed
+    /// onto the second-newest scope, with the topmost scope then discarded, and
+    /// the second-newest scope now the topmost scope. Has no visible effect on
+    /// methods like [get], as identical keys in different scopes are still shadowed,
+    /// with only the newest key's binding visible.
     /// Invariant: [self] must have at least 2 scopes, and neither scope may
     /// be the root of any fork:
     ///* [A]   [B]
     ///   |     |
     ///    \   /
     ///     [C]
-    /// Cannot smoosh A into B -- must first MERGE A and B, then smoosh the resulting
-    /// node into C
+    /// Cannot smoosh A into C -- calling [merge(A, B)] will result in one node
+    /// containing all bindings in A, B, and the bindings in C not found in A or B, though.
     ///* [A]   [B]
     ///   |     |
     ///    \   /
@@ -265,6 +401,39 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     ///      |
     ///     [D]
     /// Cannot smoosh C into D (not even possible with this method)
+    /// ```
+    /// # Panics
+    /// ```text
+    /// Panics if [self] has less than two scopes, or if any of the scopes are
+    /// the roots of any existing forks
+    ///```
+    /// # Examples
+    /// ## Pictorial Example
+    ///  [A]   
+    ///   |     => [smoosh_once(A, C)] => [A U C\A]
+    ///  [C]
+    /// ## Code Example
+    ///```
+    /// use interp::stk_env::Smoosher;
+    /// let mut a = Smoosher::new();
+    /// a.set("hi!", 1);
+    /// a.set("bye", 0);
+    /// a.new_scope();
+    /// a.set("hi!", 2);
+    /// assert_eq!(*a.get(&"hi!").unwrap(), 2);
+    /// assert_eq!(*a.get(&"bye").unwrap(), 0);
+    /// let a = a.smoosh_once();
+    /// assert_eq!(*a.get(&"hi!").unwrap(), 2);
+    /// assert_eq!(*a.get(&"bye").unwrap(), 0);
+    ///```
+    ///the following should panic:
+    ///```should_panic
+    /// use interp::stk_env::Smoosher;
+    /// let mut a = Smoosher::new();
+    /// a.set("hi!", 1);
+    /// a.set("bye", 0);
+    /// let a = a.smoosh_once(); //not enough scopes to smoosh
+    ///```
     pub fn smoosh_once(self) -> Self {
         //move head to a sep variable
         let wr_head = self.head;
@@ -280,15 +449,61 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
                 tail: new_tail,
             };
         } else {
-            panic!()
+            panic!("Could not smoosh, because [self] has less than two scopes")
         }
     }
 
-    /// Applies all bindings found in the top [levels] scopes to the [levels]th
-    /// scope. [smoosh(0)] has no effect, while [smoosh(1)] is equivalent to
+    /// ```text
+    /// Consumes [self] and returns a Smoosher in which
+    /// all bindings found in the top [levels] scopes of [self] to the [levels]th
+    /// scope are merged. [smoosh(0)] has no effect, while [smoosh(1)] is equivalent to
     /// [smoosh_once].
-    /// Invariant: None of the top [levels] scopes may be the root of any fork
-    /// Required: [levels] >= # of scopes in the Smoosher
+    /// ```
+    /// # Guarantees
+    ///  If [self] has **n** scopes, then
+    /// [self.get(K)] == [self.smoosh(n).get(K)] for all K bound in [self]
+    ///
+    ///  # Invariant
+    /// ```text
+    /// None of the top [levels] scopes may be the root of any fork
+    /// ```
+    /// # Panics
+    /// ```text
+    /// Panics if [levels] >= # of scopes in the Smoosher, or any of the top
+    /// [levels] scopes are the roots of any existing forks.
+    /// ```
+    /// # Examples
+    /// ## Pictorial Examples
+    /// ```text
+    ///  [A]  
+    ///   |
+    ///  [B]
+    ///   |     => [A.smoosh(2)] => [A U B\A U C\(A U B\A)]
+    ///  [C]
+    /// ```
+    /// ## Code Examples
+    ///```
+    /// use interp::stk_env::Smoosher;
+    /// let mut a = Smoosher::new();
+    /// a.set("hi!", 1);
+    /// a.new_scope();
+    /// a.set("bye", 0);
+    /// a.new_scope();
+    /// a.set("hi!", 2);
+    /// let a = a.smoosh(2);
+    /// assert_eq!(*a.get(&"hi!").unwrap(), 2);
+    /// assert_eq!(*a.get(&"bye").unwrap(), 0);
+    ///```
+    ///the following should panic:
+    ///```should_panic
+    /// use interp::stk_env::Smoosher;
+    /// let mut a = Smoosher::new();
+    /// a.set("hi!", 1);
+    /// let b = a.fork();
+    /// a.set("bye", 0);
+    /// let a = a.smoosh(1); //cannot smoosh; a fork point exists in a's tail
+    /// b.get(&"hi!");
+    ///```
     pub fn smoosh(self, levels: u64) -> Self {
         let mut tr = self;
         for n in 0..levels {

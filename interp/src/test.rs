@@ -5,6 +5,12 @@ mod basic_stk_env_test {
     use crate::stk_env::Smoosher;
 
     #[test]
+    fn smoosher_get_empty() {
+        let smoosher = Smoosher::<i32, i32>::new();
+        assert_eq!(None, smoosher.get(&4));
+    }
+
+    #[test]
     fn smoosher_get_set() {
         let mut smoosher = Smoosher::new();
         smoosher.set("hey", 2);
