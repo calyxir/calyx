@@ -68,10 +68,10 @@
   },
   "memories": {
     "main": {
-      "reg_11": "11",
-      "reg_15": "15",
-      "reg_rsh15": "7",
-      "reg_rsh7": "3"
+      "reg_11": 11,
+      "reg_15": 15,
+      "reg_rsh15": 7,
+      "reg_rsh7": 3
     }
   }
 }

@@ -2,6 +2,7 @@
 // standard library.
 use super::values::{OutputValue, PulseValue, TimeLockedValue, Value};
 use calyx::ir;
+use serde::Serialize;
 use std::ops::*;
 
 #[derive(Clone, Debug)]
@@ -182,9 +183,19 @@ impl Primitive {
             Primitive::StdMemD4(mem) => mem.clear_update_buffer(),
         }
     }
+}
 
-    pub fn internal_state_as_str(&self) -> Option<String> {
-        match self {
+impl Serialize for Primitive {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match &self {
+            Primitive::StdReg(prim) => prim.serialize(serializer),
+            Primitive::StdMemD1(prim) => prim.serialize(serializer),
+            Primitive::StdMemD2(prim) => prim.serialize(serializer),
+            Primitive::StdMemD3(prim) => prim.serialize(serializer),
+            Primitive::StdMemD4(prim) => prim.serialize(serializer),
             Primitive::StdAdd(_)
             | Primitive::StdConst(_)
             | Primitive::StdLsh(_)
@@ -201,52 +212,9 @@ impl Primitive {
             | Primitive::StdEq(_)
             | Primitive::StdNeq(_)
             | Primitive::StdLe(_)
-            | Primitive::StdLt(_) => None,
-            Primitive::StdReg(reg) => reg.read_u64().to_string().into(),
-            Primitive::StdMemD1(mem) => format!(
-                "{:?}",
-                mem.data.iter().map(|x| x.as_u64()).collect::<Vec<_>>()
-            )
-            .into(),
-            Primitive::StdMemD2(mem) => format!(
-                "{:?}",
-                mem.data
-                    .iter()
-                    .map(|x| x.iter().map(|y| y.as_u64()).collect::<Vec<_>>())
-                    .collect::<Vec<_>>()
-            )
-            .into(),
-            Primitive::StdMemD3(mem) => format!(
-                "{:?}",
-                mem.data
-                    .iter()
-                    .map(|x| x
-                        .iter()
-                        .map(|y| y
-                            .iter()
-                            .map(|z| z.as_u64())
-                            .collect::<Vec<_>>())
-                        .collect::<Vec<_>>())
-                    .collect::<Vec<_>>()
-            )
-            .into(),
-            Primitive::StdMemD4(mem) => format!(
-                "{:?}",
-                mem.data
-                    .iter()
-                    .map(|x| x
-                        .iter()
-                        .map(|y| y
-                            .iter()
-                            .map(|z| z
-                                .iter()
-                                .map(|val| val.as_u64())
-                                .collect::<Vec<_>>())
-                            .collect::<Vec<_>>())
-                        .collect::<Vec<_>>())
-                    .collect::<Vec<_>>()
-            )
-            .into(),
+            | Primitive::StdLt(_) => {
+                panic!("Primitive {:?} is not serializable", self)
+            }
         }
     }
 }
@@ -410,7 +378,7 @@ pub trait Execute: ValidateInput {
 
 /// ExecuteStateful is a trait implemnted by primitive components such as
 /// StdReg and StdMem (D1 -- D4), allowing their state to be modified.
-pub trait ExecuteStateful: ValidateInput {
+pub trait ExecuteStateful: ValidateInput + Serialize {
     /// Use execute_mut to modify the state of a stateful component.
     /// No restrictions on exactly how the input(s) look
     fn execute_mut(
@@ -640,6 +608,16 @@ impl ExecuteStateful for StdMemD1 {
     }
 }
 
+impl Serialize for StdMemD1 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mem = self.data.iter().map(|x| x.as_u64()).collect::<Vec<_>>();
+        mem.serialize(serializer)
+    }
+}
+
 ///std_memd2 :
 /// A two-dimensional memory.
 /// Parameters:
@@ -808,6 +786,20 @@ impl ExecuteStateful for StdMemD2 {
 
     fn clear_update_buffer(&mut self) {
         self.update = None;
+    }
+}
+
+impl Serialize for StdMemD2 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mem = self
+            .data
+            .iter()
+            .map(|x| x.iter().map(|y| y.as_u64()).collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        mem.serialize(serializer)
     }
 }
 
@@ -1001,6 +993,24 @@ impl ExecuteStateful for StdMemD3 {
 
     fn clear_update_buffer(&mut self) {
         self.update = None;
+    }
+}
+
+impl Serialize for StdMemD3 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mem = self
+            .data
+            .iter()
+            .map(|x| {
+                x.iter()
+                    .map(|y| y.iter().map(|z| z.as_u64()).collect::<Vec<_>>())
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        mem.serialize(serializer)
     }
 }
 ///std_memd4
@@ -1221,6 +1231,32 @@ impl ExecuteStateful for StdMemD4 {
     }
 }
 
+impl Serialize for StdMemD4 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mem = self
+            .data
+            .iter()
+            .map(|x| {
+                x.iter()
+                    .map(|y| {
+                        y.iter()
+                            .map(|z| {
+                                z.iter()
+                                    .map(|val| val.as_u64())
+                                    .collect::<Vec<_>>()
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        mem.serialize(serializer)
+    }
+}
+
 /// A Standard Register of a certain [width].
 /// Rules regarding cycle count, such as asserting [done] for just one cycle after a write, must be
 /// enforced and carried out by the interpreter. This register enforces no rules about
@@ -1328,6 +1364,16 @@ impl ExecuteStateful for StdReg {
 
     fn clear_update_buffer(&mut self) {
         self.update = None;
+    }
+}
+
+impl Serialize for StdReg {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let val = self.val.as_u64();
+        val.serialize(serializer)
     }
 }
 

@@ -1,8 +1,8 @@
 import "primitives/core.futil";
 component main<"static"=10>(go: 1, clk: 1) -> (done: 1) {
   cells {
-    @external(1) i = std_mem_d1(32, 1, 1);
-    @external(1) j = std_mem_d1(32, 1, 1);
+    @external i = std_mem_d1(32, 1, 1);
+    @external j = std_mem_d1(32, 1, 1);
     lt = std_lt(32);
     add = std_add(32);
   }
@@ -33,8 +33,8 @@ component main<"static"=10>(go: 1, clk: 1) -> (done: 1) {
   control {
     @bound(5) @static(10) while lt.out with cond {
       @static(2) seq {
-        @static(1) incr_i;
-        @static(1) incr_j;
+        @static incr_i;
+        @static incr_j;
       }
     }
   }

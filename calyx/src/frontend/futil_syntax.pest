@@ -190,8 +190,11 @@ attributes = {
 }
 
 // @static(1) style annotation
+attr_val = {
+  "(" ~ bitwidth ~ ")"
+}
 at_attribute = {
-      "@" ~ identifier ~ "(" ~ bitwidth ~ ")"
+      "@" ~ identifier ~ attr_val?
 }
 at_attributes = {
       at_attribute*
