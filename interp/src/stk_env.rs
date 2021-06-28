@@ -3,6 +3,8 @@
 //use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
+//use std::convert::TryInto;
+use super::values; //this is used in the tests below
 use std::mem;
 use std::rc::Rc;
 
@@ -39,9 +41,6 @@ impl<T> List<T> {
 
     /// Tests if the nodes at the head of [self] and [other] are equal;
     /// that is if the Rc points to the same location.
-    /// # Panics
-    /// Panics if [self] or [other] are empty, though this should not occur
-    /// when using Smooshers.
     /// # Example
     /// ```
     /// use interp::stk_env::List;
@@ -58,7 +57,7 @@ impl<T> List<T> {
     /// ```
     pub fn same_head(&self, other: &Self) -> bool {
         if Option::is_none(&self.head) || Option::is_none(&other.head) {
-            panic!("cannot compare empty lists using [same_head]");
+            return false;
         }
         let self_head = self.head.as_ref().unwrap();
         let other_head = other.head.as_ref().unwrap();
@@ -215,7 +214,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// If [self] and [other] share a fork point, returns a pair (depth_a, depth_b)
     /// of the depth which the fork point can be found in [self] and [other], respectively.
     /// NOTE: should be private, only public for testing!
-    pub fn shared_fork_point(&self, other: &Self) -> Option<(u64, u64)> {
+    fn shared_fork_point(&self, other: &Self) -> Option<(u64, u64)> {
         //check head
         if std::ptr::eq(&self.head, &other.head) {
             Some((0, 0))
@@ -262,13 +261,13 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         if let Some(val) = self.head.get(k) {
             Some(val)
         } else {
+            //then check if it's anywhere in the other list
             let iter = self.tail.iter();
             for hm in iter {
                 if let Some(val) = hm.get(k) {
                     return Some(val);
                 }
             }
-            //then check if it's anywhere in the other list
             None
         }
     }
@@ -537,7 +536,8 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```
     /// # Panics
     /// ```text
-    /// Panics if [self] and [other] do not share a common fork point, or if either is [empty]
+    /// Panics if [self] and [other] do not share a common fork point, or if either is [empty], or
+    /// if their bindings above the fork point are not disjoint.
     /// ```
     /// # Examples
     /// ## Pictorial Example
@@ -601,7 +601,9 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             let mut a_head = a.head;
             //merge a_head and b_head.
             for (k, v) in b.head {
-                a_head.insert(k, v);
+                if let Some(_) = a_head.insert(k, v) {
+                    panic!("arguments of merge are not disjoint");
+                }
             }
             //now drop b
             std::mem::drop(b.tail); //b.head already consumed above
@@ -613,7 +615,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
                     tail: a_new_tail,
                 };
             } else {
-                panic!("trying to merge, but [self] is empty")
+                panic!("trying to merge, but [self] is only 1 scope deep (this is impossible)")
             }
             //push_scope this new merged node onto A'
             a.push_scope(a_head);
@@ -807,5 +809,76 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```
     pub fn binded_in_new(&self, k: &K) -> bool {
         self.head.contains_key(k)
+    }
+}
+
+#[cfg(test)]
+mod priv_tests {
+    use super::*;
+    use crate::values::Value; //this is used in the tests below
+    #[test]
+    fn smoosher_shared_fork_point() {
+        let mut smoosher = Smoosher::new();
+        smoosher.set("a", 2); //for type inference
+                              //the below fork adds a new scope to [smoosher]
+        let mut smoosher2 = smoosher.fork();
+        //right now, shared_fork_point should give (1, 1)
+        if let Some((depthA, depthB)) =
+            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+        {
+            assert_eq!(depthA, 1);
+            assert_eq!(depthB, 1)
+        } else {
+            panic!(
+                "shared_fork_point says forked cousins are unrelated [(1, 1)]"
+            )
+        }
+        smoosher.new_scope();
+        smoosher.new_scope();
+        smoosher2.new_scope();
+        //now expecting (3, 2)
+        if let Some((depthA, depthB)) =
+            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+        {
+            assert_eq!(depthA, 3);
+            assert_eq!(depthB, 2)
+        } else {
+            panic!(
+                "shared_fork_point says forked cousins are unrelated [(3, 2)]"
+            )
+        }
+    }
+
+    #[test]
+    fn value_shared_fork_point() {
+        let mut smoosher = Smoosher::new();
+        smoosher.set("a", Value::try_from_init(2, 32).unwrap()); //for type inference
+                                                                 //the below fork adds a new scope to [smoosher]
+        let mut smoosher2 = smoosher.fork();
+        //right now, shared_fork_point should give (1, 1)
+        if let Some((depthA, depthB)) =
+            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+        {
+            assert_eq!(depthA, 1);
+            assert_eq!(depthB, 1)
+        } else {
+            panic!(
+                "shared_fork_point says forked cousins are unrelated [(1, 1)]"
+            )
+        }
+        smoosher.new_scope();
+        smoosher.new_scope();
+        smoosher2.new_scope();
+        //now expecting (3, 2)
+        if let Some((depthA, depthB)) =
+            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+        {
+            assert_eq!(depthA, 3);
+            assert_eq!(depthB, 2)
+        } else {
+            panic!(
+                "shared_fork_point says forked cousins are unrelated [(3, 2)]"
+            )
+        }
     }
 }

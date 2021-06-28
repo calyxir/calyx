@@ -82,39 +82,6 @@ mod basic_stk_env_test {
         assert_eq!(*smoosher_merged.get(&"jonathan").unwrap(), 15);
     }
 
-    #[test]
-    fn smoosher_shared_fork_point() {
-        let mut smoosher = Smoosher::new();
-        smoosher.set("a", 2); //for type inference
-                              //the below fork adds a new scope to [smoosher]
-        let mut smoosher2 = smoosher.fork();
-        //right now, shared_fork_point should give (1, 1)
-        if let Some((depth_a, depth_b)) =
-            Smoosher::shared_fork_point(&smoosher, &smoosher2)
-        {
-            assert_eq!(depth_a, 1);
-            assert_eq!(depth_b, 1)
-        } else {
-            panic!(
-                "shared_fork_point says forked cousins are unrelated [(1, 1)]"
-            )
-        }
-        smoosher.new_scope();
-        smoosher.new_scope();
-        smoosher2.new_scope();
-        //now expecting (3, 2)
-        if let Some((depth_a, depth_b)) =
-            Smoosher::shared_fork_point(&smoosher, &smoosher2)
-        {
-            assert_eq!(depth_a, 3);
-            assert_eq!(depth_b, 2)
-        } else {
-            panic!(
-                "shared_fork_point says forked cousins are unrelated [(3, 2)]"
-            )
-        }
-    }
-
     //tests that we can merge different branch length. should fail now
     #[test]
     fn smoosher_merge_complex() {
@@ -323,39 +290,6 @@ mod values_stk_env_test {
         let smoosher_merged = Smoosher::merge(smoosher, smoosher2);
         assert_eq!(smoosher_merged.get(&"alma").unwrap().as_u64(), 19);
         assert_eq!(smoosher_merged.get(&"jonathan").unwrap().as_u64(), 15);
-    }
-
-    #[test]
-    fn smoosher_shared_fork_point() {
-        let mut smoosher = Smoosher::new();
-        smoosher.set("a", Value::try_from_init(2, 32).unwrap()); //for type inference
-                                                                 //the below fork adds a new scope to [smoosher]
-        let mut smoosher2 = smoosher.fork();
-        //right now, shared_fork_point should give (1, 1)
-        if let Some((depth_a, depth_b)) =
-            Smoosher::shared_fork_point(&smoosher, &smoosher2)
-        {
-            assert_eq!(depth_a, 1);
-            assert_eq!(depth_b, 1)
-        } else {
-            panic!(
-                "shared_fork_point says forked cousins are unrelated [(1, 1)]"
-            )
-        }
-        smoosher.new_scope();
-        smoosher.new_scope();
-        smoosher2.new_scope();
-        //now expecting (3, 2)
-        if let Some((depth_a, depth_b)) =
-            Smoosher::shared_fork_point(&smoosher, &smoosher2)
-        {
-            assert_eq!(depth_a, 3);
-            assert_eq!(depth_b, 2)
-        } else {
-            panic!(
-                "shared_fork_point says forked cousins are unrelated [(3, 2)]"
-            )
-        }
     }
 
     //tests that we can merge different branch length. should fail now
