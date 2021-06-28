@@ -46,7 +46,7 @@ mod basic_stk_env_test {
         //test the right "hey" was written
         assert_eq!(*smoosher.get(&"hey").unwrap(), 3);
     }
-
+    #[test]
     fn smoosher_smoosh_many_lvls() {
         let mut smoosher = Smoosher::new();
         smoosher.set("hey", 2);
@@ -287,7 +287,7 @@ mod values_stk_env_test {
         //test the right "hey" was written
         assert_eq!(smoosher.get(&"hey").unwrap().as_u64(), 3);
     }
-
+    #[test]
     fn smoosher_smoosh_many_lvls() {
         let mut smoosher = Smoosher::new();
         smoosher.set("hey", Value::try_from_init(2, 32).unwrap());
