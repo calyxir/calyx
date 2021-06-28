@@ -38,9 +38,6 @@ impl<T> List<T> {
 
     /// Tests if the nodes at the head of [self] and [other] are equal;
     /// that is if the Rc points to the same location.
-    /// # Panics
-    /// Panics if [self] or [other] are empty, though this should not occur
-    /// when using Smooshers.
     /// # Example
     /// ```
     /// use interp::stk_env::List;
@@ -57,7 +54,7 @@ impl<T> List<T> {
     /// ```
     pub fn same_head(&self, other: &Self) -> bool {
         if Option::is_none(&self.head) || Option::is_none(&other.head) {
-            panic!("cannot compare empty lists using [same_head]");
+            return false;
         }
         let self_head = self.head.as_ref().unwrap();
         let other_head = other.head.as_ref().unwrap();
