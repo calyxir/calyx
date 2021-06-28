@@ -3,7 +3,7 @@ component main(go: 1, clk: 1) -> (out: 1, done: 1) {
   cells {
     r0 = std_reg(1);
     r1 = std_reg(1);
-    @external(1) mem = std_mem_d1(32, 1, 1);
+    @external mem = std_mem_d1(32, 1, 1);
   }
   wires {
     group a {
