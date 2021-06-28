@@ -150,7 +150,12 @@ fn is_signal_high(done: OutputValueRef) -> bool {
     }
 }
 
-pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
+/// An internal method that does the main work of interpreting a set of
+/// assignments. It takes the assigments as an interator as continguity of
+/// memory is not a requirement and importantly, the function must also be
+/// provided with a port which will be treated as the revelant done signal for
+/// the execution
+fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
     env: Environment,
     done_signal: &ir::Port,
     assigns: I,
@@ -240,6 +245,13 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
     Ok(working_env.collapse_env(false))
 }
 
+/// Interprets the given set of continuous assigments and returns a result
+/// containing the environment. Note: this is only appropriate to run if the
+/// component does not contain groups and indicates doneness via the component's
+/// done signal.
+///
+/// Prior to evaluation the interpreter sets the value of go to high and it
+/// returns it to low after execution concludes
 pub fn interp_cont(
     continuous_assignments: &[ir::Assignment],
     mut env: Environment,
