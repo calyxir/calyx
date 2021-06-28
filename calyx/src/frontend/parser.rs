@@ -217,10 +217,18 @@ impl FutilParser {
         ))
     }
 
+    fn attr_val(input: Node) -> ParseResult<u64> {
+        Ok(match_nodes!(
+            input.into_children();
+            [bitwidth(num)] => num
+        ))
+    }
+
     fn at_attribute(input: Node) -> ParseResult<(String, u64)> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(key), bitwidth(num)] => (key.id, num)
+            [identifier(key), attr_val(num)] => (key.id, num),
+            [identifier(key)] => (key.id, 1)
         ))
     }
 
