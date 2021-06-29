@@ -168,14 +168,32 @@ impl Value {
     /// ```
     /// use interp::values::*;
     /// let signed_neg_1_4 = (Value::try_from_init(15, 4).unwrap()).as_i64();
+    /// assert_eq!(signed_neg_1_4.as_i64(), -1);
     /// ```
     pub fn as_i64(&self) -> i64 {
+        let vec_len = self.vec.len() as u32;
+        if vec_len == 0 {
+            return 0;
+        }
         let pow_base = -2;
-        //concern: len is not how many slots there r in bitvec, but just how many
-        //have been filled. as in, Value of 8 with 5 bits will have a length of only 4 (and read as -16)
-        let msb_weight =
-            i32::pow(pow_base, (self.vec.len() - 1).try_into().unwrap());
-        todo!()
+        let msb_weight = i64::pow(pow_base, vec_len - 1);
+        let mut place: u32 = 0;
+        let mut tr: i64 = 0;
+        let iter = self.vec.iter().by_ref();
+        //which way will it iterate? Hopefully w/ LsB = 0
+        for b in iter {
+            if *b {
+                if place >= (vec_len - 1).try_into().unwrap() {
+                    //2s complement, so MSB has negative weight
+                    tr += msb_weight;
+                } else {
+                    //before MSB, increase as unsigned bitnum
+                    tr += i64::pow(2, place); //
+                }
+            }
+            place += 1;
+        }
+        tr
     }
 
     #[allow(clippy::len_without_is_empty)]
