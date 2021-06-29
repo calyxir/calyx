@@ -63,3 +63,7 @@ a particular done signal of a primitive will be high.
 Can be attached to a component and indicates that a component can be shared
 across groups. This is used by the `-p resource-sharing` to decide which components
 can be shared.
+
+### `bound(n)`
+Used in `infer-static-timing` and `static-timing` when the number of iterations 
+of a `While` control is known statically, as indicated by `n`.

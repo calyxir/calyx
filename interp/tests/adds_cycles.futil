@@ -39,7 +39,7 @@ component main() -> () {
       add1.right = const2.out;
       reg1.in = add1.out;
 
-      reg2.write_en = reg1.done // might need to change this?
+      reg2.write_en = reg1.done; // might need to change this?
       add2.left = reg1.out;
       add2.right = const1.out;
       reg2.in = add2.out;

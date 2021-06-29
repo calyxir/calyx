@@ -8,7 +8,7 @@ component main() -> () {
   }
 
   wires {
-    group cond<"static"=0> {
+    group cond<"static"=0> { //how can something take 0 cycles?
       lt.left = i.read_data;
       lt.right = 32'd8;
       cond[done] = 1'b1;

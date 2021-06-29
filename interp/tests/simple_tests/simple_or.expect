@@ -1,0 +1,32 @@
+{
+  "ports": {
+    "main": {
+      "_1_1": {
+        "out": 1
+      },
+      "const0": {
+        "out": 13
+      },
+      "const1": {
+        "out": 10
+      },
+      "or0": {
+        "left": 13,
+        "out": 15,
+        "right": 10
+      },
+      "reg0": {
+        "clk": 0,
+        "done": 1,
+        "in": 15,
+        "out": 15,
+        "write_en": 1
+      }
+    }
+  },
+  "memories": {
+    "main": {
+      "reg0": 15
+    }
+  }
+}
