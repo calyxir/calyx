@@ -2,7 +2,7 @@ import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 component main<"static"=1>(@stable(32) @go_port in: 32, go: 1, clk: 1) -> (@stable(0) out: 32, done: 1) {
   cells {
-    @precious out = std_reg(32);
+    @precious r = std_reg(32);
     @external(32) le = std_le(32);
   }
   wires {

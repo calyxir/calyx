@@ -118,7 +118,7 @@ impl<'a> Builder<'a> {
         param_values: &[u64],
     ) -> RRC<ir::Cell>
     where
-        S: Into<ir::Id> + ToString,
+        S: Into<ir::Id> + ToString + Clone,
         P: AsRef<str>,
     {
         let prim_id = ir::Id::from(primitive.as_ref());
