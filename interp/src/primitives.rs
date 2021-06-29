@@ -7,6 +7,7 @@ use std::ops::*;
 
 #[derive(Clone, Debug)]
 pub enum Primitive {
+    StdSgt(StdSgt),
     StdAdd(StdAdd),
     StdReg(StdReg),
     StdConst(StdConst),
@@ -38,6 +39,7 @@ impl Primitive {
         current_done_val: Option<&Value>,
     ) -> Vec<(ir::Id, OutputValue)> {
         match self {
+            Primitive::StdSgt(prim) => prim.validate_and_execute(inputs),
             Primitive::StdAdd(prim) => prim.validate_and_execute(inputs),
             Primitive::StdLsh(prim) => prim.validate_and_execute(inputs),
             Primitive::StdRsh(prim) => prim.validate_and_execute(inputs),
@@ -78,6 +80,7 @@ impl Primitive {
         inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
         match self {
+            Primitive::StdSgt(prim) => prim.validate_and_reset(inputs),
             Primitive::StdAdd(prim) => prim.validate_and_reset(inputs),
             Primitive::StdLsh(prim) => prim.validate_and_reset(inputs),
             Primitive::StdRsh(prim) => prim.validate_and_reset(inputs),
@@ -106,6 +109,7 @@ impl Primitive {
     pub fn is_comb(&self) -> bool {
         match self {
             Primitive::StdAdd(_)
+            | Primitive::StdSgt(_)
             | Primitive::StdConst(_)
             | Primitive::StdLsh(_)
             | Primitive::StdRsh(_)
@@ -133,6 +137,7 @@ impl Primitive {
     pub fn commit_updates(&mut self) {
         match self {
             Primitive::StdAdd(_)
+            | Primitive::StdSgt(_)
             | Primitive::StdConst(_)
             | Primitive::StdLsh(_)
             | Primitive::StdRsh(_)
@@ -160,6 +165,7 @@ impl Primitive {
     pub fn clear_update_buffer(&mut self) {
         match self {
             Primitive::StdAdd(_)
+            | Primitive::StdSgt(_)
             | Primitive::StdConst(_)
             | Primitive::StdLsh(_)
             | Primitive::StdRsh(_)
@@ -197,6 +203,7 @@ impl Serialize for Primitive {
             Primitive::StdMemD3(prim) => prim.serialize(serializer),
             Primitive::StdMemD4(prim) => prim.serialize(serializer),
             Primitive::StdAdd(_)
+            | Primitive::StdSgt(_)
             | Primitive::StdConst(_)
             | Primitive::StdLsh(_)
             | Primitive::StdRsh(_)
@@ -344,7 +351,6 @@ impl<T: ExecuteBinary> ValidateInput for T {
     }
 }
 
-/// Only binary operator components have trait [Execute].
 pub trait Execute: ValidateInput {
     fn execute(
         &self,
@@ -1303,7 +1309,6 @@ impl ValidateInput for StdReg {
 
 impl ExecuteStateful for StdReg {
     fn execute_mut(
-        //have to put lifetimes
         &mut self,
         inputs: &[(ir::Id, &Value)],
         current_done_val: &Value,
@@ -1521,6 +1526,55 @@ impl ExecuteBinary for StdRsh {
         let mut tr = left.vec.clone();
         tr.shift_left(right.as_u64() as usize);
         Value { vec: tr }.into()
+    }
+
+    fn get_width(&self) -> &u64 {
+        &self.width
+    }
+}
+
+//std_sgt
+#[derive(Clone, Debug)]
+pub struct StdSgt {
+    width: u64,
+}
+
+impl StdSgt {
+    /// Instantiate a new StdSgt with a specified bit width
+    /// # Example
+    /// ```
+    /// use interp::primitives::*;
+    /// let std_sgt_16bit = StdSgt::new(16);
+    /// ```
+    pub fn new(width: u64) -> StdSgt {
+        StdSgt { width }
+    }
+}
+
+impl ExecuteBinary for StdSgt {
+    /// Returns a one-bit 1 if LEFT > RIGHT, else 0. Interprets LEFT and RIGHT
+    /// as signed bitnums, meaning the bits of LEFT and RIGHT are read as two's
+    /// complement representation of integers.
+    /// # Example
+    /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
+    /// let std_sgt_4bit = StdSgt::new(4);
+    /// let val_neg_1_4bit = Value::try_from_init(15, 4).unwrap(); //[1111]
+    /// let val_4_4bit = Value::try_from_init(4, 4).unwrap(); //[0100]
+    /// let val_0_4bit = std_sgt_4bit.execute_bin(&val_neg_1_4bit, &val_4_bit);
+    /// assert_eq!(val_0_4bit.as_u64(), 0);
+    /// ```
+    ///
+    /// # Panics
+    /// * panics if left's width, right's width and self.width are not all equal
+    ///
+    fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
+        let left_64 = left.as_u64();
+        let right_64 = right.as_u64();
+        let init_val = left_64 + right_64;
+        let bitwidth: usize = left.vec.len();
+        Value::from_init(init_val, bitwidth).into()
     }
 
     fn get_width(&self) -> &u64 {

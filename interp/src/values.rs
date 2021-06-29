@@ -163,6 +163,21 @@ impl Value {
         val
     }
 
+    /// Converts value into i64 type using 2C representation.
+    /// # Example
+    /// ```
+    /// use interp::values::*;
+    /// let signed_neg_1_4 = (Value::try_from_init(15, 4).unwrap()).as_i64();
+    /// ```
+    pub fn as_i64(&self) -> i64 {
+        let pow_base = -2;
+        //concern: len is not how many slots there r in bitvec, but just how many
+        //have been filled. as in, Value of 8 with 5 bits will have a length of only 4 (and read as -16)
+        let msb_weight =
+            i32::pow(pow_base, (self.vec.len() - 1).try_into().unwrap());
+        todo!()
+    }
+
     #[allow(clippy::len_without_is_empty)]
     /// Returns the length (bitwidth) of the value
     ///
