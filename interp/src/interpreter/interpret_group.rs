@@ -3,74 +3,18 @@
 
 use crate::environment::Environment;
 
-use crate::utils::{AssignmentRef, CellRef, OutputValueRef};
+use crate::utils::OutputValueRef;
 use crate::values::{OutputValue, ReadableValue, TimeLockedValue, Value};
 use calyx::{
     errors::FutilResult,
     ir::{self, RRC},
 };
+use itertools::Itertools;
 use std::collections::hash_map::Entry;
-use std::collections::{HashMap, HashSet};
-use std::iter;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 type ConstPort = *const ir::Port;
-
-/// A wrapper over a hashmap keyed by raw pointers. It contains a mapping from
-/// output (or inout) ports to a set of assignments which read from/depend on
-/// the given port. This is used to avoid re-running assignments when relevant
-/// values have not changed.
-#[derive(Debug, Clone, Default)]
-struct DependencyMap<'a> {
-    map: HashMap<ConstPort, HashSet<AssignmentRef<'a>>>,
-}
-
-impl<'a, I: Iterator<Item = &'a ir::Assignment>> From<I> for DependencyMap<'a> {
-    fn from(iter: I) -> Self {
-        let mut map = DependencyMap::default();
-        map.populate_map(iter);
-        map
-    }
-}
-
-impl<'a> DependencyMap<'a> {
-    fn populate_map<I: Iterator<Item = &'a ir::Assignment>>(
-        &mut self,
-        iter: I,
-    ) {
-        for assignment in iter {
-            let ports = assignment
-                .guard
-                .all_ports()
-                .into_iter()
-                .chain(iter::once(assignment.src.clone()))
-                .chain(iter::once(assignment.dst.clone()));
-            for port in ports {
-                if match &port.borrow().direction {
-                    ir::Direction::Input => false,
-                    ir::Direction::Output | ir::Direction::Inout => true,
-                } {
-                    self.map
-                        .entry(&port.borrow() as &ir::Port as ConstPort)
-                        .or_default()
-                        .insert(assignment.into());
-                }
-            }
-        }
-    }
-
-    fn get(&self, port: &ir::Port) -> Option<&HashSet<AssignmentRef<'a>>> {
-        self.map.get(&(port as ConstPort))
-    }
-}
-/// An alias for a hashset over Assignments (hashed with a wrapper using
-/// identity). Used to track assignments that need to be (re)evaluated
-type WorkList<'a> = HashSet<AssignmentRef<'a>>;
-
-/// An alias for a hashset over cells (hashed with a wrapper using identity).
-/// Used to track when cells should be (re)evaluated due to changes on one or
-/// more of their inputs
-type CellList = HashSet<CellRef>;
 
 /// A wrapper for a map assigning OutputValues to each port. Used in the working
 /// environment to track values that are not of type Value which is used in the
@@ -166,7 +110,7 @@ impl WorkingEnvironment {
         new_vals
     }
 
-    fn collapse_env(mut self) -> Environment {
+    fn collapse_env(mut self, panic_on_invalid_val: bool) -> Environment {
         let working_env = self.working_env;
 
         for (port, v) in working_env {
@@ -178,8 +122,10 @@ impl WorkingEnvironment {
                     if tlv.unlockable() {
                         let iv = tlv.unlock();
                         self.backing_env.insert(port, iv);
-                    } else {
+                    } else if panic_on_invalid_val {
                         panic!("Group is done with an invalid value?")
+                    } else if let Some(old) = tlv.old_value {
+                        self.backing_env.insert(port, old)
                     }
                 }
                 OutputValue::PulseValue(v) => {
@@ -196,7 +142,7 @@ fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
 }
 
 // XXX(Alex): Maybe rename to `eval_is_done`?
-fn grp_is_done(done: OutputValueRef) -> bool {
+fn is_signal_high(done: OutputValueRef) -> bool {
     match done {
         OutputValueRef::ImmediateValue(v) => v.as_u64() == 1,
         OutputValueRef::LockedValue(_) => false,
@@ -204,292 +150,189 @@ fn grp_is_done(done: OutputValueRef) -> bool {
     }
 }
 
-pub fn interp_cont(
-    continuous_assignments: &[ir::Assignment],
+/// An internal method that does the main work of interpreting a set of
+/// assignments. It takes the assigments as an interator as continguity of
+/// memory is not a requirement and importantly, the function must also be
+/// provided with a port which will be treated as the revelant done signal for
+/// the execution
+fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
     env: Environment,
-    comp: &ir::Component,
+    done_signal: &ir::Port,
+    assigns: I,
 ) -> FutilResult<Environment> {
-    // TODO: Set go to high
-    // go find go port for given assignment
-    let dependency_map = continuous_assignments.iter().into();
+    let assigns = assigns.collect_vec();
     let mut working_env: WorkingEnvironment = env.into();
-    let mut assign_worklist: WorkList =
-        continuous_assignments.iter().map(|x| x.into()).collect();
 
-    let sig_ports = comp.signature.borrow().ports.clone();
-    let go_port = sig_ports
-        .clone()
-        .into_iter()
-        .find(|x| x.borrow().name == "go")
-        .unwrap();
-    let go_high =
-        OutputValue::ImmediateValue(Value::try_from_init(1, 1).unwrap());
-    working_env.update_val(&go_port.borrow(), go_high);
+    let cells = get_cells(assigns.iter().copied());
 
-    let done_port = sig_ports
-        .into_iter()
-        .find(|x| x.borrow().name == "done")
-        .unwrap();
+    let mut val_changed_flag = false;
 
-    let mut comb_cells = CellList::new();
-    let mut non_comb_cells = CellList::new();
+    while !is_signal_high(working_env.get(done_signal)) || val_changed_flag {
+        val_changed_flag = false;
 
-    // while !grp_is_done(working_env.get(&(*cont_done).dst.borrow()))
-    while !grp_is_done(working_env.get(&done_port.borrow()))
-        || !comb_cells.is_empty()
-        || !assign_worklist.is_empty()
-    {
-        if !comb_cells.is_empty() {
-            let tmp = std::mem::take(&mut comb_cells);
+        // do all assigns
+        // run all prims
+        // if no change, commit value updates
 
-            let new_assigns = eval_prims(
-                &mut working_env,
-                &dependency_map,
-                tmp.iter().map(|x| x.into()),
-                false,
-            );
-            assign_worklist.extend(new_assigns.into_iter())
-        } else if !assign_worklist.is_empty() {
-            let mut updates_list = vec![];
-            let mut new_worklist = WorkList::new();
+        let mut updates_list = vec![];
+        for assignment in &assigns {
+            if eval_guard(&assignment.guard, &working_env) {
+                let old_val = working_env.get(&assignment.dst.borrow());
+                let new_val = working_env.get_as_val(&assignment.src.borrow());
 
-            // STEP 1 : Evaluate all assignments
-            for assignment in assign_worklist.drain() {
-                if eval_guard(&assignment.guard, &working_env) {
-                    let old_val = working_env.get(&assignment.dst.borrow());
-                    let new_val =
-                        working_env.get_as_val(&assignment.src.borrow());
+                // no need to make updates if the value has not changed
+                if old_val != new_val.into() {
+                    val_changed_flag = true;
+                    updates_list.push(Rc::clone(&assignment.dst));
 
-                    if old_val != new_val.into() {
-                        updates_list.push(Rc::clone(&assignment.dst));
+                    // Using a TLV to simulate updates happening after reads
+                    // Note: this is a hack and should be removed pending
+                    // changes in the environment structures
+                    // see: https://github.com/cucapra/calyx/issues/549
 
-                        let tmp_old = match old_val.clone_referenced() {
-                            OutputValue::ImmediateValue(iv) => Some(iv),
-                            OutputValue::LockedValue(tlv) => tlv.old_value,
-                            OutputValue::PulseValue(pv) => Some(pv.take_val()),
-                        };
+                    let tmp_old = match old_val.clone_referenced() {
+                        OutputValue::ImmediateValue(iv) => Some(iv),
+                        OutputValue::LockedValue(tlv) => tlv.old_value,
+                        OutputValue::PulseValue(pv) => Some(pv.take_val()),
+                    };
 
-                        let new_val = OutputValue::LockedValue(
-                            TimeLockedValue::new(new_val.clone(), 0, tmp_old),
-                        );
+                    let new_val = OutputValue::LockedValue(
+                        TimeLockedValue::new(new_val.clone(), 0, tmp_old),
+                    );
 
-                        // STEP 2 : Update values and determine new worklist and exec_list
+                    let port = &assignment.dst.borrow();
 
-                        let port = &assignment.dst.borrow();
-
-                        working_env.update_val(&port, new_val);
-
-                        let cell = match &port.parent {
-                            ir::PortParent::Cell(c) => Some(c.upgrade()),
-                            ir::PortParent::Group(_) => None,
-                        };
-
-                        if let Some(cell) = cell {
-                            if working_env
-                                .backing_env
-                                .cell_is_comb(&cell.borrow())
-                            {
-                                comb_cells.insert(cell.into());
-                            } else {
-                                non_comb_cells.insert(cell.into());
-                            }
-                        }
-
-                        let new_assigments = dependency_map.get(port);
-
-                        if let Some(new_assigments) = new_assigments {
-                            new_worklist.extend(new_assigments.iter().cloned());
-                        }
-                    }
+                    working_env.update_val(&port, new_val);
                 }
             }
-
-            assign_worklist = new_worklist;
-
-            // STEP 2.5 : Remove the placeholder TLVs
-            for port in updates_list {
-                if let Entry::Occupied(entry) =
-                    working_env.entry(&port.borrow())
-                {
-                    let mut_ref = entry.into_mut();
-                    let v = std::mem::take(mut_ref);
-
-                    *mut_ref = if v.is_tlv() {
-                        v.unwrap_tlv().unlock().into()
-                    } else {
-                        // this branch should be impossible since the list of
-                        // ports we're iterating over are only those w/ updates
-                        unreachable!()
-                    }
-                }
-                // check if the current val of id matches the new update
-                // if yes, do nothing
-                // if no, make the update in the environment and add all dependent
-                // assignments into the worklist and add cell to the execution list
-            }
-        } else if !non_comb_cells.is_empty() {
-            let tmp = std::mem::take(&mut non_comb_cells);
-
-            let new_assigns = eval_prims(
-                &mut working_env,
-                &dependency_map,
-                tmp.iter().map(|x| x.into()),
-                false,
-            );
-            assign_worklist.extend(new_assigns.into_iter())
         }
-        // all are empty
-        else {
-            let assigns: WorkList = working_env
-                .do_tick()
-                .into_iter()
-                .filter_map(|port| dependency_map.map.get(&port))
-                .flatten()
-                .cloned()
-                .collect();
 
-            assign_worklist = assigns;
+        // Remove the placeholder TLVs
+        for port in updates_list {
+            if let Entry::Occupied(entry) = working_env.entry(&port.borrow()) {
+                let mut_ref = entry.into_mut();
+                let v = std::mem::take(mut_ref);
+
+                *mut_ref = if v.is_tlv() {
+                    v.unwrap_tlv().unlock().into()
+                } else {
+                    // this branch should be impossible since the list of
+                    // ports we're iterating over are only those w/ updates
+                    unreachable!()
+                }
+            }
+        }
+
+        let changed = eval_prims(&mut working_env, cells.iter(), false);
+        if changed {
+            val_changed_flag = true;
+        }
+
+        if !is_signal_high(working_env.get(done_signal)) && !val_changed_flag {
+            working_env.do_tick();
+            for cell in cells.iter() {
+                if let Some(x) = working_env
+                    .backing_env
+                    .cell_prim_map
+                    .get_mut(&(&cell.borrow() as &ir::Cell as *const ir::Cell))
+                {
+                    x.commit_updates()
+                }
+            }
         }
     }
 
-    Ok(working_env.collapse_env())
+    Ok(working_env.collapse_env(false))
+}
+
+/// Interprets the given set of continuous assigments and returns a result
+/// containing the environment. Note: this is only appropriate to run if the
+/// component does not contain groups and indicates doneness via the component's
+/// done signal.
+///
+/// Prior to evaluation the interpreter sets the value of go to high and it
+/// returns it to low after execution concludes
+pub fn interp_cont(
+    continuous_assignments: &[ir::Assignment],
+    mut env: Environment,
+    comp: &ir::Component,
+) -> FutilResult<Environment> {
+    let comp_sig = comp.signature.borrow();
+
+    let go_port = comp_sig
+        .ports
+        .iter()
+        .find(|x| x.borrow().name == "go")
+        .unwrap();
+
+    let done_port = comp_sig
+        .ports
+        .iter()
+        .find(|x| x.borrow().name == "done")
+        .unwrap();
+
+    env.insert(
+        &go_port.borrow() as &ir::Port as ConstPort,
+        Value::bit_high(),
+    );
+
+    let mut res = interp_assignments(
+        env,
+        &done_port.borrow(),
+        continuous_assignments.iter(),
+    )?;
+
+    res.insert(
+        &go_port.borrow() as &ir::Port as ConstPort,
+        Value::bit_low(),
+    );
+
+    // required because of lifetime shennanigans
+    let final_env = finish_interpretation(
+        res,
+        &done_port.borrow(),
+        continuous_assignments.iter(),
+    );
+
+    final_env
 }
 
 /// Evaluates a group, given an environment.
 pub fn interpret_group(
     group: &ir::Group,
     // TODO (griffin): Use these during interpretation
-    _continuous_assignments: &[ir::Assignment],
+    continuous_assignments: &[ir::Assignment],
     env: Environment,
 ) -> FutilResult<Environment> {
-    let dependency_map = group.assignments.iter().into();
     let grp_done = get_done_port(&group);
-    let mut working_env: WorkingEnvironment = env.into();
-    let mut assign_worklist: WorkList =
-        group.assignments.iter().map(|x| x.into()).collect();
-    let mut comb_cells = CellList::new();
-    let mut non_comb_cells = CellList::new();
+    let grp_done_ref: &ir::Port = &grp_done.borrow();
+    interp_assignments(
+        env,
+        grp_done_ref,
+        group
+            .assignments
+            .iter()
+            .chain(continuous_assignments.iter()),
+    )
+}
 
-    while !grp_is_done(working_env.get(&grp_done.borrow()))
-        || !comb_cells.is_empty()
-        || !assign_worklist.is_empty()
-    // Note: May need to remove later
-    {
-        if !comb_cells.is_empty() {
-            let tmp = std::mem::take(&mut comb_cells);
+pub fn finish_group_interpretation(
+    group: &ir::Group,
+    // TODO (griffin): Use these during interpretation
+    continuous_assignments: &[ir::Assignment],
+    env: Environment,
+) -> FutilResult<Environment> {
+    let grp_done = get_done_port(&group);
+    let grp_done_ref: &ir::Port = &grp_done.borrow();
 
-            let new_assigns = eval_prims(
-                &mut working_env,
-                &dependency_map,
-                tmp.iter().map(|x| x.into()),
-                false,
-            );
-
-            assign_worklist.extend(new_assigns.into_iter())
-        } else if !assign_worklist.is_empty() {
-            let mut updates_list = vec![];
-            let mut new_worklist = WorkList::new();
-
-            // STEP 1 : Evaluate all assignments
-            for assignment in assign_worklist.drain() {
-                if eval_guard(&assignment.guard, &working_env) {
-                    let old_val = working_env.get(&assignment.dst.borrow());
-                    let new_val =
-                        working_env.get_as_val(&assignment.src.borrow());
-
-                    // no need to make updates if the value has not changed
-                    if old_val != new_val.into() {
-                        updates_list.push(Rc::clone(&assignment.dst));
-
-                        // Using a TLV to simulate updates happening after reads
-                        // Note: this is a hack and should be removed pending
-                        // changes in the environment structures
-                        // see: https://github.com/cucapra/calyx/issues/549
-
-                        let tmp_old = match old_val.clone_referenced() {
-                            OutputValue::ImmediateValue(iv) => Some(iv),
-                            OutputValue::LockedValue(tlv) => tlv.old_value,
-                            OutputValue::PulseValue(pv) => Some(pv.take_val()),
-                        };
-
-                        let new_val = OutputValue::LockedValue(
-                            TimeLockedValue::new(new_val.clone(), 0, tmp_old),
-                        );
-
-                        let port = &assignment.dst.borrow();
-
-                        working_env.update_val(&port, new_val);
-
-                        let cell = match &port.parent {
-                            ir::PortParent::Cell(c) => Some(c.upgrade()),
-                            ir::PortParent::Group(_) => None,
-                        };
-
-                        if let Some(cell) = cell {
-                            if working_env
-                                .backing_env
-                                .cell_is_comb(&cell.borrow())
-                            {
-                                comb_cells.insert(cell.into());
-                            } else {
-                                non_comb_cells.insert(cell.into());
-                            }
-                        }
-
-                        let new_assigments = dependency_map.get(port);
-
-                        if let Some(new_assigments) = new_assigments {
-                            new_worklist.extend(new_assigments.iter().cloned());
-                        }
-                    }
-                }
-            }
-
-            assign_worklist = new_worklist;
-
-            // Remove the placeholder TLVs
-            for port in updates_list {
-                if let Entry::Occupied(entry) =
-                    working_env.entry(&port.borrow())
-                {
-                    let mut_ref = entry.into_mut();
-                    let v = std::mem::take(mut_ref);
-
-                    *mut_ref = if v.is_tlv() {
-                        v.unwrap_tlv().unlock().into()
-                    } else {
-                        // this branch should be impossible since the list of
-                        // ports we're iterating over are only those w/ updates
-                        unreachable!()
-                    }
-                }
-            }
-        } else if !non_comb_cells.is_empty() {
-            let tmp = std::mem::take(&mut non_comb_cells);
-
-            let new_assigns = eval_prims(
-                &mut working_env,
-                &dependency_map,
-                tmp.iter().map(|x| x.into()),
-                false,
-            );
-            assign_worklist.extend(new_assigns.into_iter())
-        }
-        // all are empty
-        else {
-            let assigns: WorkList = working_env
-                .do_tick()
-                .into_iter()
-                .filter_map(|port| dependency_map.map.get(&port))
-                .flatten()
-                .cloned()
-                .collect();
-
-            assign_worklist = assigns;
-        }
-    }
-
-    Ok(working_env.collapse_env())
+    finish_interpretation(
+        env,
+        grp_done_ref,
+        group
+            .assignments
+            .iter()
+            .chain(continuous_assignments.iter()),
+    )
 }
 
 /// Evaluates the primitives corresponding to the given iterator of cells, based
@@ -503,16 +346,15 @@ pub fn interpret_group(
 /// off of port raw pointers whose lifetime is uncoupled from the cells.
 fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     env: &mut WorkingEnvironment,
-    dependency_map: &DependencyMap<'a>,
     exec_list: I,
     reset_flag: bool, // reset vals or execute normally
-) -> HashSet<AssignmentRef<'a>> {
+) -> bool {
+    let mut val_changed = false;
     // split mutability
     // TODO: change approach based on new env, once ready
     let mut prim_map = std::mem::take(&mut env.backing_env.cell_prim_map);
 
     let mut update_list: Vec<(RRC<ir::Port>, OutputValue)> = vec![];
-    let mut assign_list: HashSet<AssignmentRef> = HashSet::new();
 
     for cell in exec_list {
         let inputs = get_inputs(&env, &cell.borrow());
@@ -522,9 +364,15 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
 
         if let Some(prim) = executable {
             let new_vals = if reset_flag {
+                prim.clear_update_buffer();
                 prim.reset(&inputs)
             } else {
-                prim.exec_mut(&inputs)
+                let done_val = if prim.is_comb() {
+                    None
+                } else {
+                    Some(env.get_as_val(&(cell.borrow().get("done").borrow())))
+                };
+                prim.exec_mut(&inputs, done_val)
             };
 
             for (port, val) in new_vals {
@@ -533,13 +381,9 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
                 let current_val = env.get(&port_ref.borrow());
 
                 if current_val != (&val).into() {
+                    val_changed = true;
                     // defer value update until after all executions
                     update_list.push((Rc::clone(&port_ref), val));
-
-                    let new_assigments = dependency_map.get(&port_ref.borrow());
-                    if let Some(assigns) = new_assigments {
-                        assign_list.extend(assigns.iter().cloned());
-                    }
                 }
             }
         }
@@ -550,7 +394,8 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     }
 
     env.backing_env.cell_prim_map = prim_map;
-    assign_list
+
+    val_changed
 }
 
 fn get_inputs<'a>(
@@ -611,40 +456,49 @@ fn eval_guard(guard: &ir::Guard, env: &WorkingEnvironment) -> bool {
 /// Concludes interpretation to a group, effectively setting the go signal low
 /// for a given group. This function updates the values in the environment
 /// accordingly using zero as a placeholder for values that are undefined
-pub fn finish_group_interpretation(
-    group: &ir::Group,
-    _continuous_assignments: &[ir::Assignment],
+fn finish_interpretation<'a, I: Iterator<Item = &'a ir::Assignment>>(
     mut env: Environment,
+    done_signal: &ir::Port,
+    assigns: I,
 ) -> FutilResult<Environment> {
     // replace port values for all the assignments
+    let assigns = assigns.collect::<Vec<_>>();
 
-    let done = get_done_port(group);
+    for &ir::Assignment { dst, .. } in &assigns {
+        env.insert(
+            &dst.borrow() as &ir::Port as ConstPort,
+            Value::zeroes(dst.borrow().width as usize),
+        );
+    }
 
-    let cells: Vec<RRC<ir::Cell>> = group
-        .assignments
-        .iter()
-        .filter_map(|ir::Assignment { dst, .. }| {
-            env.insert(
-                &dst.borrow() as &ir::Port as ConstPort,
-                Value::zeroes(dst.borrow().width as usize),
-            );
-            match &dst.borrow().parent {
-                ir::PortParent::Cell(c) => Some(c.upgrade()),
-                ir::PortParent::Group(_) => None,
-            }
-        })
-        .collect();
+    let cells = get_cells(assigns.iter().copied());
 
-    env.insert(&done.borrow() as &ir::Port as ConstPort, Value::zeroes(1));
-
+    env.insert(done_signal as ConstPort, Value::bit_low());
     let mut working_env: WorkingEnvironment = env.into();
+    eval_prims(&mut working_env, cells.iter(), true);
 
-    eval_prims(
-        &mut working_env,
-        &DependencyMap::default(),
-        cells.iter(),
-        true,
-    );
+    Ok(working_env.collapse_env(false))
+}
 
-    Ok(working_env.collapse_env())
+fn get_cells<'a, I>(iter: I) -> Vec<RRC<ir::Cell>>
+where
+    I: Iterator<Item = &'a ir::Assignment>,
+{
+    iter.filter_map(|assign| {
+        match &assign.dst.borrow().parent {
+            ir::PortParent::Cell(c) => {
+                match &c.upgrade().borrow().prototype {
+                    ir::CellType::Primitive { .. }
+                    | ir::CellType::Constant { .. } => Some(c.upgrade()),
+                    ir::CellType::Component { .. } => {
+                        // TODO (griffin): We'll need to handle this case at some point
+                        todo!()
+                    }
+                    ir::CellType::ThisComponent => None,
+                }
+            }
+            ir::PortParent::Group(_) => None,
+        }
+    })
+    .collect()
 }

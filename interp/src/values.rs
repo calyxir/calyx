@@ -41,6 +41,14 @@ impl Value {
         }
     }
 
+    pub fn bit_high() -> Value {
+        Value::from_init(1_u64, 1_usize)
+    }
+
+    pub fn bit_low() -> Value {
+        Value::from_init(0_u64, 1_usize)
+    }
+
     /// Creates a new Value of a given bitwidth out of an initial_val. It's
     /// safer to use [try_from_init] followed by [unwrap].
     ///
@@ -374,7 +382,8 @@ enum PulseState {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PulseValue {
     high_val: Value,
-    low_val: Value,
+    low_val1: Value,
+    low_val2: Value,
     state: PulseState,
     pulse_length: u64, // how long the value is high
     current_length: u64,
@@ -382,10 +391,16 @@ pub struct PulseValue {
 
 impl PulseValue {
     /// Returns a new PulseValue in the inital low state
-    pub fn new(high_val: Value, low_val: Value, pulse_length: u64) -> Self {
+    pub fn new(
+        low_val1: Value,
+        high_val: Value,
+        low_val2: Value,
+        pulse_length: u64,
+    ) -> Self {
         Self {
             high_val,
-            low_val,
+            low_val1,
+            low_val2,
             state: PulseState::Low,
             pulse_length,
             current_length: 0,
@@ -396,7 +411,8 @@ impl PulseValue {
     /// current state
     pub fn take_val(self) -> Value {
         match self.state {
-            PulseState::Low | PulseState::Low2 => self.low_val,
+            PulseState::Low => self.low_val1,
+            PulseState::Low2 => self.low_val2,
             PulseState::High => self.high_val,
         }
     }
@@ -404,13 +420,13 @@ impl PulseValue {
     /// A convenience constructor which automatically initializes the pulse with
     /// a length of 1
     pub fn one_cycle_pulse(high_val: Value, low_val: Value) -> Self {
-        Self::new(high_val, low_val, 1)
+        Self::new(high_val, low_val.clone(), low_val, 1)
     }
 
     /// A convenience constructor for the common use of representing "done"
     /// signals
     pub fn one_cycle_one_bit_pulse() -> Self {
-        Self::one_cycle_pulse(Value::from_init(1_u16, 1_u16), Value::zeroes(1))
+        Self::one_cycle_pulse(Value::bit_high(), Value::bit_low())
     }
 }
 
@@ -431,7 +447,7 @@ impl TickableValue for PulseValue {
     fn do_tick(mut self) -> OutputValue {
         self.tick();
         if let PulseState::Low2 = &self.state {
-            self.low_val.into()
+            self.low_val2.into()
         } else {
             self.into()
         }
@@ -441,7 +457,8 @@ impl TickableValue for PulseValue {
 impl ReadableValue for PulseValue {
     fn get_val(&self) -> &Value {
         match &self.state {
-            PulseState::Low | PulseState::Low2 => &self.low_val,
+            PulseState::Low => &self.low_val1,
+            PulseState::Low2 => &self.low_val2,
             PulseState::High => &self.high_val,
         }
     }

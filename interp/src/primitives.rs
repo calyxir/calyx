@@ -35,6 +35,7 @@ impl Primitive {
     pub fn exec_mut(
         &mut self,
         inputs: &[(ir::Id, &Value)],
+        current_done_val: Option<&Value>,
     ) -> Vec<(ir::Id, OutputValue)> {
         match self {
             Primitive::StdAdd(prim) => prim.validate_and_execute(inputs),
@@ -53,11 +54,21 @@ impl Primitive {
             Primitive::StdNeq(prim) => prim.validate_and_execute(inputs),
             Primitive::StdLe(prim) => prim.validate_and_execute(inputs),
             Primitive::StdLt(prim) => prim.validate_and_execute(inputs),
-            Primitive::StdReg(prim) => prim.validate_and_execute_mut(inputs),
-            Primitive::StdMemD1(prim) => prim.validate_and_execute_mut(inputs),
-            Primitive::StdMemD2(prim) => prim.validate_and_execute_mut(inputs),
-            Primitive::StdMemD3(prim) => prim.validate_and_execute_mut(inputs),
-            Primitive::StdMemD4(prim) => prim.validate_and_execute_mut(inputs),
+            Primitive::StdReg(prim) => {
+                prim.validate_and_execute_mut(inputs, current_done_val.unwrap())
+            }
+            Primitive::StdMemD1(prim) => {
+                prim.validate_and_execute_mut(inputs, current_done_val.unwrap())
+            }
+            Primitive::StdMemD2(prim) => {
+                prim.validate_and_execute_mut(inputs, current_done_val.unwrap())
+            }
+            Primitive::StdMemD3(prim) => {
+                prim.validate_and_execute_mut(inputs, current_done_val.unwrap())
+            }
+            Primitive::StdMemD4(prim) => {
+                prim.validate_and_execute_mut(inputs, current_done_val.unwrap())
+            }
             _ => panic!("cell cannot be executed"),
         }
     }
@@ -116,6 +127,60 @@ impl Primitive {
             | Primitive::StdMemD3(_)
             | Primitive::StdMemD4(_)
             | Primitive::StdReg(_) => false,
+        }
+    }
+
+    pub fn commit_updates(&mut self) {
+        match self {
+            Primitive::StdAdd(_)
+            | Primitive::StdConst(_)
+            | Primitive::StdLsh(_)
+            | Primitive::StdRsh(_)
+            | Primitive::StdSub(_)
+            | Primitive::StdSlice(_)
+            | Primitive::StdPad(_)
+            | Primitive::StdNot(_)
+            | Primitive::StdAnd(_)
+            | Primitive::StdOr(_)
+            | Primitive::StdXor(_)
+            | Primitive::StdGe(_)
+            | Primitive::StdGt(_)
+            | Primitive::StdEq(_)
+            | Primitive::StdNeq(_)
+            | Primitive::StdLe(_)
+            | Primitive::StdLt(_) => {}
+            Primitive::StdReg(reg) => reg.commit_updates(),
+            Primitive::StdMemD1(mem) => mem.commit_updates(),
+            Primitive::StdMemD2(mem) => mem.commit_updates(),
+            Primitive::StdMemD3(mem) => mem.commit_updates(),
+            Primitive::StdMemD4(mem) => mem.commit_updates(),
+        }
+    }
+
+    pub fn clear_update_buffer(&mut self) {
+        match self {
+            Primitive::StdAdd(_)
+            | Primitive::StdConst(_)
+            | Primitive::StdLsh(_)
+            | Primitive::StdRsh(_)
+            | Primitive::StdSub(_)
+            | Primitive::StdSlice(_)
+            | Primitive::StdPad(_)
+            | Primitive::StdNot(_)
+            | Primitive::StdAnd(_)
+            | Primitive::StdOr(_)
+            | Primitive::StdXor(_)
+            | Primitive::StdGe(_)
+            | Primitive::StdGt(_)
+            | Primitive::StdEq(_)
+            | Primitive::StdNeq(_)
+            | Primitive::StdLe(_)
+            | Primitive::StdLt(_) => {}
+            Primitive::StdReg(reg) => reg.clear_update_buffer(),
+            Primitive::StdMemD1(mem) => mem.clear_update_buffer(),
+            Primitive::StdMemD2(mem) => mem.clear_update_buffer(),
+            Primitive::StdMemD3(mem) => mem.clear_update_buffer(),
+            Primitive::StdMemD4(mem) => mem.clear_update_buffer(),
         }
     }
 }
@@ -318,7 +383,8 @@ pub trait ExecuteStateful: ValidateInput + Serialize {
     /// No restrictions on exactly how the input(s) look
     fn execute_mut(
         &mut self,
-        inputs: &[(ir::Id, &Value)], //TODO: maybe change these to immutable references?
+        inputs: &[(ir::Id, &Value)],
+        current_done_val: &Value,
     ) -> Vec<(ir::Id, OutputValue)>;
 
     fn reset(&self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, OutputValue)>;
@@ -328,9 +394,10 @@ pub trait ExecuteStateful: ValidateInput + Serialize {
     fn validate_and_execute_mut(
         &mut self,
         inputs: &[(ir::Id, &Value)],
+        current_done_val: &Value,
     ) -> Vec<(ir::Id, OutputValue)> {
         self.validate_input(inputs);
-        self.execute_mut(inputs)
+        self.execute_mut(inputs, current_done_val)
     }
 
     /// A wrapper function which invokes validate_input before proceeding with
@@ -342,6 +409,18 @@ pub trait ExecuteStateful: ValidateInput + Serialize {
         self.validate_input(inputs);
         self.reset(inputs)
     }
+
+    /// This function transfers the update held in a primitive's buffer into the
+    /// state contained within the primitive itself. Until this method is
+    /// invoked, the primitive's internal state will remain unchanged by
+    /// execution. This is to prevent ephemeral changes due to repeated
+    /// invocations
+    fn commit_updates(&mut self);
+
+    /// Resets the primitive's update buffer without commiting the held changes,
+    /// effectively reverting the write and ensuring it does not occur. Use to
+    /// reset stateful primitives after a group execution.
+    fn clear_update_buffer(&mut self);
 }
 
 /// Ensures the input values are of the appropriate widths, else panics.
@@ -378,6 +457,7 @@ pub struct StdMemD1 {
     pub size: u64,     // # slots of mem
     pub idx_size: u64, // # bits needed to index a piece of mem
     pub data: Vec<Value>,
+    update: Option<(u64, Value)>,
 }
 
 impl StdMemD1 {
@@ -392,6 +472,7 @@ impl StdMemD1 {
             size,     //how many slots of memory in the vector
             idx_size, //the width of the values used to address the memory
             data,
+            update: None,
         }
     }
 }
@@ -430,7 +511,7 @@ impl ExecuteStateful for StdMemD1 {
     /// let write_data = (ir::Id::from("write_data"), &Value::try_from_init(1, 1).unwrap());
     /// let write_en = (ir::Id::from("write_en"), &Value::try_from_init(1, 1).unwrap());
     /// let addr0 = (ir::Id::from("addr0"), &Value::try_from_init(0, 3).unwrap());
-    /// let output_vals = std_memd1.execute_mut(&[write_data, write_en, addr0]);
+    /// let output_vals = std_memd1.execute_mut(&[write_data, write_en, addr0], &Value::bit_low());
     /// let mut output_vals = output_vals.into_iter();
     /// let (read_data, done) = (output_vals.next().unwrap(), output_vals.next().unwrap());
     /// let mut rd = read_data.1.unwrap_tlv();
@@ -454,6 +535,7 @@ impl ExecuteStateful for StdMemD1 {
     fn execute_mut(
         &mut self,
         inputs: &[(ir::Id, &Value)],
+        current_done_val: &Value,
     ) -> Vec<(ir::Id, OutputValue)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
@@ -469,7 +551,8 @@ impl ExecuteStateful for StdMemD1 {
         let old = self.data[addr0 as usize].clone();
         // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.data[addr0 as usize] = (*input).clone();
+            self.update = Some((addr0, (*input).clone()));
+
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
             // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
@@ -477,14 +560,18 @@ impl ExecuteStateful for StdMemD1 {
             vec![
                 (
                     ir::Id::from("read_data"),
-                    TimeLockedValue::new(
-                        self.data[addr0 as usize].clone(),
+                    TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
+                ),
+                (
+                    "done".into(),
+                    PulseValue::new(
+                        current_done_val.clone(),
+                        Value::bit_high(),
+                        Value::bit_low(),
                         1,
-                        Some(old),
                     )
                     .into(),
                 ),
-                ("done".into(), PulseValue::one_cycle_one_bit_pulse().into()),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -508,6 +595,16 @@ impl ExecuteStateful for StdMemD1 {
             ("read_data".into(), old.into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
         ]
+    }
+
+    fn commit_updates(&mut self) {
+        if let Some((idx, val)) = self.update.take() {
+            self.data[idx as usize] = val;
+        }
+    }
+
+    fn clear_update_buffer(&mut self) {
+        self.update = None;
     }
 }
 
@@ -545,6 +642,7 @@ pub struct StdMemD2 {
     pub d0_idx_size: u64,
     pub d1_idx_size: u64, // # bits needed to index a piece of mem
     pub data: Vec<Vec<Value>>,
+    update: Option<(u64, u64, Value)>,
 }
 
 impl StdMemD2 {
@@ -571,6 +669,7 @@ impl StdMemD2 {
             d0_idx_size,
             d1_idx_size,
             data,
+            update: None,
         }
     }
 }
@@ -611,6 +710,7 @@ impl ExecuteStateful for StdMemD2 {
     fn execute_mut(
         &mut self,
         inputs: &[(ir::Id, &Value)],
+        current_done_val: &Value,
     ) -> Vec<(ir::Id, OutputValue)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
@@ -631,7 +731,7 @@ impl ExecuteStateful for StdMemD2 {
         let old = self.data[addr0 as usize][addr1 as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
                                                                      // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.data[addr0 as usize][addr1 as usize] = (*input).clone();
+            self.update = Some((addr0, addr1, (*input).clone()));
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
             // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
@@ -639,14 +739,18 @@ impl ExecuteStateful for StdMemD2 {
             vec![
                 (
                     ir::Id::from("read_data"),
-                    TimeLockedValue::new(
-                        self.data[addr0 as usize][addr1 as usize].clone(),
+                    TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
+                ),
+                (
+                    "done".into(),
+                    PulseValue::new(
+                        current_done_val.clone(),
+                        Value::bit_high(),
+                        Value::bit_low(),
                         1,
-                        Some(old),
                     )
                     .into(),
                 ),
-                ("done".into(), PulseValue::one_cycle_one_bit_pulse().into()),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -672,6 +776,16 @@ impl ExecuteStateful for StdMemD2 {
             (ir::Id::from("read_data"), old.into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
         ]
+    }
+
+    fn commit_updates(&mut self) {
+        if let Some((addr0, addr1, val)) = self.update.take() {
+            self.data[addr0 as usize][addr1 as usize] = val;
+        }
+    }
+
+    fn clear_update_buffer(&mut self) {
+        self.update = None;
     }
 }
 
@@ -718,6 +832,7 @@ pub struct StdMemD3 {
     d1_idx_size: u64,
     d2_idx_size: u64,
     data: Vec<Vec<Vec<Value>>>,
+    update: Option<(u64, u64, u64, Value)>,
 }
 
 impl StdMemD3 {
@@ -751,6 +866,7 @@ impl StdMemD3 {
             d1_idx_size,
             d2_idx_size,
             data,
+            update: None,
         }
     }
 }
@@ -796,6 +912,7 @@ impl ExecuteStateful for StdMemD3 {
     fn execute_mut(
         &mut self,
         inputs: &[(ir::Id, &Value)],
+        current_done_val: &Value,
     ) -> Vec<(ir::Id, OutputValue)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
@@ -813,11 +930,12 @@ impl ExecuteStateful for StdMemD3 {
         let addr2 = addr2.as_u64();
 
         let old =
-            self.data[addr0 as usize][addr1 as usize][addr2 as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
-                                                                               // only write to memory if write_en is 1
+            self.data[addr0 as usize][addr1 as usize][addr2 as usize].clone();
+        //not sure if this could lead to errors (Some(old)) is borrow?
+        // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.data[addr0 as usize][addr1 as usize][addr2 as usize] =
-                (*input).clone();
+            self.update = Some((addr0, addr1, addr2, (*input).clone()));
+
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
             // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
@@ -827,7 +945,16 @@ impl ExecuteStateful for StdMemD3 {
                     ir::Id::from("read_data"),
                     TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
                 ),
-                ("done".into(), PulseValue::one_cycle_one_bit_pulse().into()),
+                (
+                    "done".into(),
+                    PulseValue::new(
+                        current_done_val.clone(),
+                        Value::bit_high(),
+                        Value::bit_low(),
+                        1,
+                    )
+                    .into(),
+                ),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -856,6 +983,16 @@ impl ExecuteStateful for StdMemD3 {
             (ir::Id::from("read_data"), old.into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
         ]
+    }
+
+    fn commit_updates(&mut self) {
+        if let Some((addr0, addr1, addr2, val)) = self.update.take() {
+            self.data[addr0 as usize][addr1 as usize][addr2 as usize] = val;
+        }
+    }
+
+    fn clear_update_buffer(&mut self) {
+        self.update = None;
     }
 }
 
@@ -911,6 +1048,7 @@ pub struct StdMemD4 {
     d2_idx_size: u64,
     d3_idx_size: u64,
     data: Vec<Vec<Vec<Vec<Value>>>>,
+    update: Option<(u64, u64, u64, u64, Value)>,
 }
 
 impl StdMemD4 {
@@ -952,6 +1090,7 @@ impl StdMemD4 {
             d2_idx_size,
             d3_idx_size,
             data,
+            update: None,
         }
     }
 }
@@ -1001,6 +1140,7 @@ impl ExecuteStateful for StdMemD4 {
     fn execute_mut(
         &mut self,
         inputs: &[(ir::Id, &Value)],
+        current_done_val: &Value,
     ) -> Vec<(ir::Id, OutputValue)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
@@ -1024,8 +1164,8 @@ impl ExecuteStateful for StdMemD4 {
             .clone(); //not sure if this could lead to errors (Some(old)) is borrow?
                       // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.data[addr0 as usize][addr1 as usize][addr2 as usize]
-                [addr3 as usize] = (*input).clone();
+            self.update = Some((addr0, addr1, addr2, addr3, (*input).clone()));
+
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
             // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
@@ -1035,7 +1175,16 @@ impl ExecuteStateful for StdMemD4 {
                     ir::Id::from("read_data"),
                     TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
                 ),
-                ("done".into(), PulseValue::one_cycle_one_bit_pulse().into()),
+                (
+                    "done".into(),
+                    PulseValue::new(
+                        current_done_val.clone(),
+                        Value::bit_high(),
+                        Value::bit_low(),
+                        1,
+                    )
+                    .into(),
+                ),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -1068,6 +1217,17 @@ impl ExecuteStateful for StdMemD4 {
             (ir::Id::from("read_data"), old.into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
         ]
+    }
+
+    fn commit_updates(&mut self) {
+        if let Some((addr0, addr1, addr2, addr3, val)) = self.update.take() {
+            self.data[addr0 as usize][addr1 as usize][addr2 as usize]
+                [addr3 as usize] = val;
+        }
+    }
+
+    fn clear_update_buffer(&mut self) {
+        self.update = None;
     }
 }
 
@@ -1105,6 +1265,7 @@ impl Serialize for StdMemD4 {
 pub struct StdReg {
     pub width: u64,
     pub val: Value,
+    update: Option<Value>,
 }
 
 impl StdReg {
@@ -1113,6 +1274,7 @@ impl StdReg {
         StdReg {
             width,
             val: Value::new(width as usize),
+            update: None,
         }
     }
 
@@ -1144,6 +1306,7 @@ impl ExecuteStateful for StdReg {
         //have to put lifetimes
         &mut self,
         inputs: &[(ir::Id, &Value)],
+        current_done_val: &Value,
     ) -> Vec<(ir::Id, OutputValue)> {
         //unwrap the arguments
         let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
@@ -1151,8 +1314,8 @@ impl ExecuteStateful for StdReg {
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
         //write the input to the register
         if write_en.as_u64() == 1 {
+            self.update = Some((*input).clone());
             let old = self.val.clone();
-            self.val = (*input).clone();
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new register data. Needs 1 cycle before readable
             // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
@@ -1160,9 +1323,18 @@ impl ExecuteStateful for StdReg {
             vec![
                 (
                     ir::Id::from("out"),
-                    TimeLockedValue::new(self.val.clone(), 1, Some(old)).into(),
+                    TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
                 ),
-                ("done".into(), PulseValue::one_cycle_one_bit_pulse().into()),
+                (
+                    "done".into(),
+                    PulseValue::new(
+                        current_done_val.clone(),
+                        Value::bit_high(),
+                        Value::bit_low(),
+                        1,
+                    )
+                    .into(),
+                ),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -1181,6 +1353,16 @@ impl ExecuteStateful for StdReg {
             (ir::Id::from("out"), self.val.clone().into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
         ]
+    }
+
+    fn commit_updates(&mut self) {
+        if let Some(val) = self.update.take() {
+            self.val = val;
+        }
+    }
+
+    fn clear_update_buffer(&mut self) {
+        self.update = None;
     }
 }
 
