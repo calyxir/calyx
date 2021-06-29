@@ -1,7 +1,7 @@
 //! Inteprets a component.
 
 use super::interpret_control::interpret_control;
-use crate::environment::Environment;
+use crate::environment::InterpreterState;
 use calyx::{errors::FutilResult, ir};
 //use std::cell::RefCell;
 //use std::rc::Rc;
@@ -10,8 +10,8 @@ use calyx::{errors::FutilResult, ir};
 
 pub fn interpret_component(
     comp: &ir::Component,
-    env: Environment,
-) -> FutilResult<Environment> {
+    env: InterpreterState,
+) -> FutilResult<InterpreterState> {
     interpret_control(
         &comp.control.borrow(),
         &comp.continuous_assignments,
