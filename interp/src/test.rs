@@ -215,7 +215,6 @@ mod values_stk_env_test {
     use crate::stk_env::Smoosher;
     #[allow(unused)]
     use crate::values::Value;
-    use std::collections::HashMap;
 
     #[test]
     fn smoosher_val_get_set() {
@@ -380,6 +379,7 @@ mod values_stk_env_test {
 
     #[test]
     fn value_smoosher_hm_from() {
+        use std::collections::HashMap;
         let mut smoosher = Smoosher::new();
         smoosher.set("alma", Value::try_from_init(18, 32).unwrap());
         smoosher.new_scope();

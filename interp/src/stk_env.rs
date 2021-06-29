@@ -1,14 +1,10 @@
-//use super::{primitives, primitives::Primitive, values::Value};
-//use calyx::ir;
-//use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
-//use std::convert::TryInto;
-use super::values; //this is used in the tests below
 use std::mem;
 use std::rc::Rc;
 
 // From "Learning Rust with Entirely Too Many Linked Lists" (2018), Chapter 4.5:
+// https://rust-unofficial.github.io/too-many-lists/third-final.html
 #[derive(Debug)]
 pub struct List<T> {
     head: Link<T>,
@@ -465,7 +461,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
                 tail: new_tail,
             }
         } else {
-            panic!("Could not smoosh, because [self] has less than two scopes")
+            panic!("Could not smoosh, because the given smoosher has fewer than two scopes")
         }
     }
 
@@ -522,7 +518,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     ///```
     pub fn smoosh(self, levels: u64) -> Self {
         let mut tr = self;
-        for _n in 0..levels {
+        for _ in 0..levels {
             tr = tr.smoosh_once();
         }
         tr
@@ -613,7 +609,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             let mut a_head = a.head;
             //merge a_head and b_head.
             for (k, v) in b.head {
-                if let Some(_) = a_head.insert(k, v) {
+                if a_head.insert(k, v).is_some() {
                     panic!("arguments of merge are not disjoint");
                 }
             }
@@ -835,11 +831,11 @@ mod priv_tests {
                               //the below fork adds a new scope to [smoosher]
         let mut smoosher2 = smoosher.fork();
         //right now, shared_fork_point should give (1, 1)
-        if let Some((depthA, depthB)) =
+        if let Some((depth_a, depth_b)) =
             Smoosher::shared_fork_point(&smoosher, &smoosher2)
         {
-            assert_eq!(depthA, 1);
-            assert_eq!(depthB, 1)
+            assert_eq!(depth_a, 1);
+            assert_eq!(depth_b, 1)
         } else {
             panic!(
                 "shared_fork_point says forked cousins are unrelated [(1, 1)]"
@@ -849,11 +845,11 @@ mod priv_tests {
         smoosher.new_scope();
         smoosher2.new_scope();
         //now expecting (3, 2)
-        if let Some((depthA, depthB)) =
+        if let Some((depth_a, depth_b)) =
             Smoosher::shared_fork_point(&smoosher, &smoosher2)
         {
-            assert_eq!(depthA, 3);
-            assert_eq!(depthB, 2)
+            assert_eq!(depth_a, 3);
+            assert_eq!(depth_b, 2)
         } else {
             panic!(
                 "shared_fork_point says forked cousins are unrelated [(3, 2)]"
@@ -868,11 +864,11 @@ mod priv_tests {
                                                                  //the below fork adds a new scope to [smoosher]
         let mut smoosher2 = smoosher.fork();
         //right now, shared_fork_point should give (1, 1)
-        if let Some((depthA, depthB)) =
+        if let Some((depth_a, depth_b)) =
             Smoosher::shared_fork_point(&smoosher, &smoosher2)
         {
-            assert_eq!(depthA, 1);
-            assert_eq!(depthB, 1)
+            assert_eq!(depth_a, 1);
+            assert_eq!(depth_b, 1)
         } else {
             panic!(
                 "shared_fork_point says forked cousins are unrelated [(1, 1)]"
@@ -882,11 +878,11 @@ mod priv_tests {
         smoosher.new_scope();
         smoosher2.new_scope();
         //now expecting (3, 2)
-        if let Some((depthA, depthB)) =
+        if let Some((depth_a, depth_b)) =
             Smoosher::shared_fork_point(&smoosher, &smoosher2)
         {
-            assert_eq!(depthA, 3);
-            assert_eq!(depthB, 2)
+            assert_eq!(depth_a, 3);
+            assert_eq!(depth_b, 2)
         } else {
             panic!(
                 "shared_fork_point says forked cousins are unrelated [(3, 2)]"
