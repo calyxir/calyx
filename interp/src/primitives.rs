@@ -1312,7 +1312,6 @@ impl ExecuteStateful for StdReg {
         let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
         let (_, write_en) =
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
-
         //write the input to the register
         if write_en.as_u64() == 1 {
             self.update = Some((*input).clone());
