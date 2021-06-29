@@ -168,7 +168,7 @@ impl Value {
     /// ```
     /// use interp::values::*;
     /// let signed_neg_1_4 = (Value::try_from_init(15, 4).unwrap()).as_i64();
-    /// assert_eq!(signed_neg_1_4.as_i64(), -1);
+    /// assert_eq!(signed_neg_1_4, -1);
     /// ```
     pub fn as_i64(&self) -> i64 {
         let vec_len = self.vec.len() as u32;

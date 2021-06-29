@@ -1562,7 +1562,7 @@ impl ExecuteBinary for StdSgt {
     /// let std_sgt_4bit = StdSgt::new(4);
     /// let val_neg_1_4bit = Value::try_from_init(15, 4).unwrap(); //[1111]
     /// let val_4_4bit = Value::try_from_init(4, 4).unwrap(); //[0100]
-    /// let val_0_4bit = std_sgt_4bit.execute_bin(&val_neg_1_4bit, &val_4_bit);
+    /// let val_0_4bit = std_sgt_4bit.execute_bin(&val_neg_1_4bit, &val_4_4bit).unwrap_imm();
     /// assert_eq!(val_0_4bit.as_u64(), 0);
     /// ```
     ///
@@ -1570,11 +1570,13 @@ impl ExecuteBinary for StdSgt {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        let left_64 = left.as_u64();
-        let right_64 = right.as_u64();
-        let init_val = left_64 + right_64;
-        let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val, bitwidth).into()
+        let left_64 = left.as_i64();
+        let right_64 = right.as_i64();
+        if left_64 > right_64 {
+            Value::bit_high().into()
+        } else {
+            Value::bit_low().into()
+        }
     }
 
     fn get_width(&self) -> &u64 {
