@@ -73,24 +73,14 @@ fn eval_seq(
 /// Interpret Par
 /// at the moment behaves like seq
 fn eval_par(
-    p: &ir::Par,
-    continuous_assignments: &[ir::Assignment],
-    env: Environment,
+    _p: &ir::Par,
+    _continuous_assignments: &[ir::Assignment],
+    mut _env: Environment,
 ) -> FutilResult<Environment> {
-    let mut env_l = Vec::new();
-    for stmt in &p.stmts {
-        let new_env =
-            interpret_control(stmt, continuous_assignments, env.clone())?;
-        env_l.push(new_env);
-    }
-
-    for nenv in env_l {
-        for (pt, v) in nenv.pv_map {
-            if env.pv_map[&pt] != v {}
-        }
-    }
-
-    Ok(env)
+    // for stmt in &p.stmts {
+    //     env = interpret_control(stmt, comp.clone(), env)?;
+    // }
+    todo!()
 }
 
 /// Interpret If
