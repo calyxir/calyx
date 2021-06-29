@@ -24,7 +24,7 @@ type PortValMap = HashMap<PortRef, Value>;
 
 /// The environment to interpret a Calyx program.
 #[derive(Clone, Debug)]
-pub struct Environment {
+pub struct InterpreterState {
     ///clock count
     pub clk: u64,
 
@@ -39,15 +39,15 @@ pub struct Environment {
 }
 
 /// Helper functions for the environment.
-impl Environment {
+impl InterpreterState {
     /// Construct an environment
     /// ctx : A context from the IR
     pub fn init(ctx: &ir::RRC<ir::Context>) -> Self {
         Self {
             context: ctx.clone(),
             clk: 0,
-            pv_map: Environment::construct_pv_map(&ctx.borrow()),
-            cell_prim_map: Environment::construct_cp_map(&ctx.borrow()),
+            pv_map: InterpreterState::construct_pv_map(&ctx.borrow()),
+            cell_prim_map: InterpreterState::construct_cp_map(&ctx.borrow()),
         }
     }
 
@@ -328,7 +328,7 @@ impl Environment {
     }
 }
 
-impl Serialize for Environment {
+impl Serialize for InterpreterState {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
