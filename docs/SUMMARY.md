@@ -6,6 +6,7 @@
   - [Vivado Tools](./fud/synthesis.md)
 - [The Calyx Compiler](./compiler.md)
   - [Primitive Library](./libraries/core.md)
+- [The Calyx Interpreter](./interpreter.md)
 - [Tools](./tools/index.md)
   - [Runt](./tools/runt.md)
   - [`exp` Generator](./tools/exp-generator.md)

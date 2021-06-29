@@ -25,16 +25,6 @@ pub struct Opts {
     /// Path to the primitives library
     #[structopt(long, short, default_value = "..")]
     pub lib_path: PathBuf,
-
-    /// Component to interpret
-    #[structopt(short = "c", long = "component", default_value = "main")]
-    pub component: String,
-
-    /// Group to interpret
-    /// XX(karen): The user can specify a particular group to interpret,
-    /// assuming the group is in `main` if not specified otherwise.
-    #[structopt(short = "g", long = "group", default_value = "main")]
-    pub group: String,
 }
 
 //first half of this is tests
