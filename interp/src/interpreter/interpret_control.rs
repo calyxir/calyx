@@ -6,37 +6,8 @@ use super::interpret_group::{
 use crate::environment::Environment;
 use calyx::{errors::FutilResult, ir};
 
-pub fn interpret_control(
-    ctrl: &ir::Control,
-    continuous_assignments: &[ir::Assignment],
-    env: Environment,
-    comp: &ir::Component,
-) -> FutilResult<Environment> {
-    if let ir::Control::Seq(ir::Seq { stmts, .. }) = ctrl {
-        if stmts.len() == 1 {
-            match &stmts[0] {
-                ir::Control::Enable(e) => interpret_group(
-                    &e.group.borrow(),
-                    continuous_assignments,
-                    env,
-                ),
-                _ => interpret_control_inner(
-                    ctrl,
-                    continuous_assignments,
-                    env,
-                    comp,
-                ),
-            }
-        } else {
-            interpret_control_inner(ctrl, continuous_assignments, env, comp)
-        }
-    } else {
-        interpret_control_inner(ctrl, continuous_assignments, env, comp)
-    }
-}
-
 /// Helper function to evaluate control
-fn interpret_control_inner(
+pub fn interpret_control(
     ctrl: &ir::Control,
     continuous_assignments: &[ir::Assignment],
     env: Environment,
@@ -65,7 +36,7 @@ fn eval_seq(
     comp: &ir::Component,
 ) -> FutilResult<Environment> {
     for stmt in &s.stmts {
-        env = interpret_control_inner(stmt, continuous_assignments, env, comp)?;
+        env = interpret_control(stmt, continuous_assignments, env, comp)?;
     }
     Ok(env)
 }
@@ -98,22 +69,13 @@ fn eval_if(
         env,
     )?;
 
-    if cond_flag == 0 {
-        env = interpret_control_inner(
-            &i.fbranch,
-            continuous_assignments,
-            env,
-            comp,
-        )?;
+    let target = if cond_flag == 0 {
+        &i.fbranch
     } else {
-        env = interpret_control_inner(
-            &i.tbranch,
-            continuous_assignments,
-            env,
-            comp,
-        )?;
-    }
-    Ok(env)
+        &i.tbranch
+    };
+
+    interpret_control(target, continuous_assignments, env, comp)
 }
 
 /// Interpret While
@@ -127,28 +89,23 @@ fn eval_while(
     mut env: Environment,
     comp: &ir::Component,
 ) -> FutilResult<Environment> {
-    env = interpret_group(&w.cond.borrow(), continuous_assignments, env)?;
+    loop {
+        env = interpret_group(&w.cond.borrow(), continuous_assignments, env)?;
 
-    let cond_val = env.get_from_port(&w.port.borrow()).as_u64();
-    env = finish_group_interpretation(
-        &w.cond.borrow(),
-        continuous_assignments,
-        env,
-    )?;
-
-    if cond_val == 1 {
-        return eval_while(
-            w,
+        let cond_val = env.get_from_port(&w.port.borrow()).as_u64();
+        env = finish_group_interpretation(
+            &w.cond.borrow(),
             continuous_assignments,
-            interpret_control_inner(
-                &w.body,
-                continuous_assignments,
-                env,
-                comp,
-            )?,
-            comp,
-        );
+            env,
+        )?;
+
+        if cond_val == 0 {
+            break;
+        }
+
+        env = interpret_control(&w.body, continuous_assignments, env, comp)?;
     }
+
     Ok(env)
 }
 
