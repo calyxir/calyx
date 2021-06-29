@@ -4,7 +4,6 @@
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 //use std::convert::TryInto;
-use super::values; //this is used in the tests below
 use std::mem;
 use std::rc::Rc;
 
