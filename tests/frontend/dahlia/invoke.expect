@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component add(a: 32, b: 32) -> (out: 32) {
+component add(a: 32, b: 32) -> (@stable(1) out: 32) {
   cells {
     add1 = std_add(32);
     tmp_0 = std_reg(32);
