@@ -5,9 +5,9 @@
         "out": 1
       },
       "and0": {
-        "left": 13,
-        "out": 8,
-        "right": 10
+        "left": 0,
+        "out": 0,
+        "right": 0
       },
       "const0": {
         "out": 13
@@ -17,10 +17,10 @@
       },
       "reg0": {
         "clk": 0,
-        "done": 1,
-        "in": 8,
+        "done": 0,
+        "in": 0,
         "out": 8,
-        "write_en": 1
+        "write_en": 0
       }
     }
   },

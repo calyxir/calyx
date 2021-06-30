@@ -11,16 +11,16 @@
         "out": 10
       },
       "neq0": {
-        "left": 10,
+        "left": 0,
         "out": 0,
-        "right": 10
+        "right": 0
       },
       "reg0": {
         "clk": 0,
-        "done": 1,
+        "done": 0,
         "in": 0,
         "out": 0,
-        "write_en": 1
+        "write_en": 0
       }
     }
   },
