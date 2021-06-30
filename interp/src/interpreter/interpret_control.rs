@@ -3,16 +3,16 @@
 use super::interpret_group::{
     finish_group_interpretation, interp_cont, interpret_group,
 };
-use crate::environment::Environment;
+use crate::environment::InterpreterState;
 use calyx::{errors::FutilResult, ir};
 
 /// Helper function to evaluate control
 pub fn interpret_control(
     ctrl: &ir::Control,
     continuous_assignments: &[ir::Assignment],
-    env: Environment,
+    env: InterpreterState,
     comp: &ir::Component,
-) -> FutilResult<Environment> {
+) -> FutilResult<InterpreterState> {
     match ctrl {
         ir::Control::Seq(s) => eval_seq(s, continuous_assignments, env, comp),
         ir::Control::Par(p) => eval_par(p, continuous_assignments, env),
@@ -32,9 +32,9 @@ pub fn interpret_control(
 fn eval_seq(
     s: &ir::Seq,
     continuous_assignments: &[ir::Assignment],
-    mut env: Environment,
+    mut env: InterpreterState,
     comp: &ir::Component,
-) -> FutilResult<Environment> {
+) -> FutilResult<InterpreterState> {
     for stmt in &s.stmts {
         env = interpret_control(stmt, continuous_assignments, env, comp)?;
     }
@@ -46,8 +46,8 @@ fn eval_seq(
 fn eval_par(
     _p: &ir::Par,
     _continuous_assignments: &[ir::Assignment],
-    mut _env: Environment,
-) -> FutilResult<Environment> {
+    mut _env: InterpreterState,
+) -> FutilResult<InterpreterState> {
     // for stmt in &p.stmts {
     //     env = interpret_control(stmt, comp.clone(), env)?;
     // }
@@ -58,9 +58,9 @@ fn eval_par(
 fn eval_if(
     i: &ir::If,
     continuous_assignments: &[ir::Assignment],
-    mut env: Environment,
+    mut env: InterpreterState,
     comp: &ir::Component,
-) -> FutilResult<Environment> {
+) -> FutilResult<InterpreterState> {
     env = interpret_group(&i.cond.borrow(), continuous_assignments, env)?;
     let cond_flag = env.get_from_port(&i.port.borrow()).as_u64();
     env = finish_group_interpretation(
@@ -86,9 +86,9 @@ fn eval_if(
 fn eval_while(
     w: &ir::While,
     continuous_assignments: &[ir::Assignment],
-    mut env: Environment,
+    mut env: InterpreterState,
     comp: &ir::Component,
-) -> FutilResult<Environment> {
+) -> FutilResult<InterpreterState> {
     loop {
         env = interpret_group(&w.cond.borrow(), continuous_assignments, env)?;
 
@@ -115,8 +115,8 @@ fn eval_while(
 fn eval_invoke(
     _i: &ir::Invoke,
     _continuous_assignments: &[ir::Assignment],
-    _env: Environment,
-) -> FutilResult<Environment> {
+    _env: InterpreterState,
+) -> FutilResult<InterpreterState> {
     todo!()
 }
 
@@ -124,8 +124,8 @@ fn eval_invoke(
 fn eval_enable(
     e: &ir::Enable,
     continuous_assignments: &[ir::Assignment],
-    mut env: Environment,
-) -> FutilResult<Environment> {
+    mut env: InterpreterState,
+) -> FutilResult<InterpreterState> {
     env = interpret_group(&e.group.borrow(), continuous_assignments, env)?;
     finish_group_interpretation(&e.group.borrow(), continuous_assignments, env)
 }
@@ -135,9 +135,9 @@ fn eval_enable(
 fn eval_empty(
     _e: &ir::Empty,
     continuous_assignments: &[ir::Assignment],
-    mut env: Environment,
+    mut env: InterpreterState,
     comp: &ir::Component,
-) -> FutilResult<Environment> {
+) -> FutilResult<InterpreterState> {
     env = interp_cont(continuous_assignments, env, comp)?;
     Ok(env)
 }

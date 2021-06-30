@@ -215,6 +215,18 @@ impl<'a, K: Eq + std::hash::Hash, V: Eq> From<&'a Smoosher<K, V>>
     }
 }
 
+impl<K, V> From<HashMap<K, V>> for Smoosher<K, V>
+where
+    K: Eq + std::hash::Hash,
+    V: Eq,
+{
+    fn from(hm: HashMap<K, V>) -> Self {
+        let mut smoosher = Smoosher::new();
+        smoosher.head = hm;
+        smoosher
+    }
+}
+
 impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Smoosher<K, V> {
