@@ -28,7 +28,7 @@ type PortOutputValMap = HashMap<ConstPort, OutputValue>;
 /// the environment maps to values of type Value, but during group
 /// interpretation, ports need to be mapped to values of type OutputValue
 // TODO (griffin): Update / remove pending changes to environment definition
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct WorkingEnvironment {
     pub backing_env: InterpreterState,
     pub working_env: PortOutputValMap,
@@ -231,10 +231,10 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         if !is_signal_high(working_env.get(done_signal)) && !val_changed_flag {
             working_env.do_tick();
             for cell in cells.iter() {
-                if let Some(x) = working_env
-                    .backing_env
-                    .cell_prim_map
-                    .get_mut(&(&cell.borrow() as &ir::Cell as *const ir::Cell))
+                if let Some(x) =
+                    working_env.backing_env.cell_prim_map.borrow_mut().get_mut(
+                        &(&cell.borrow() as &ir::Cell as *const ir::Cell),
+                    )
                 {
                     x.commit_updates()
                 }
@@ -352,7 +352,8 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     let mut val_changed = false;
     // split mutability
     // TODO: change approach based on new env, once ready
-    let mut prim_map = std::mem::take(&mut env.backing_env.cell_prim_map);
+    let ref_clone = env.backing_env.cell_prim_map.clone(); // RC clone
+    let mut prim_map = ref_clone.borrow_mut();
 
     let mut update_list: Vec<(RRC<ir::Port>, OutputValue)> = vec![];
 
@@ -392,8 +393,6 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     for (port, val) in update_list {
         env.update_val(&port.borrow(), val);
     }
-
-    env.backing_env.cell_prim_map = prim_map;
 
     val_changed
 }
