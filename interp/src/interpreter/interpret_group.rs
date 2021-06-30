@@ -10,8 +10,7 @@ use calyx::{
     ir::{self, RRC},
 };
 use itertools::Itertools;
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 type ConstPort = *const ir::Port;
@@ -50,13 +49,6 @@ impl WorkingEnvironment {
             Some(v) => v.into(),
             None => self.backing_env.get_from_port(port).into(),
         }
-    }
-
-    fn entry(
-        &mut self,
-        port: &ir::Port,
-    ) -> std::collections::hash_map::Entry<ConstPort, OutputValue> {
-        self.working_env.entry(port as ConstPort)
     }
 
     fn update_val(&mut self, port: &ir::Port, value: OutputValue) {
@@ -168,6 +160,7 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
     let mut val_changed_flag = false;
 
     while !is_signal_high(working_env.get(done_signal)) || val_changed_flag {
+        let assigned_ports: HashSet<*const ir::Port> = HashSet::new();
         val_changed_flag = false;
 
         // do all assigns
@@ -175,52 +168,35 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         // if no change, commit value updates
 
         let mut updates_list = vec![];
+
+        // compute all updates from the assignments
         for assignment in &assigns {
             if eval_guard(&assignment.guard, &working_env) {
                 let old_val = working_env.get(&assignment.dst.borrow());
-                let new_val = working_env.get_as_val(&assignment.src.borrow());
+                let new_val_ref =
+                    working_env.get_as_val(&assignment.src.borrow());
 
                 // no need to make updates if the value has not changed
-                if old_val != new_val.into() {
+                let port = assignment.dst.clone(); // Rc clone
+                let new_val: OutputValue = new_val_ref.clone().into();
+                updates_list.push((port, new_val));
+
+                if old_val != new_val_ref.into() {
                     val_changed_flag = true;
-                    updates_list.push(Rc::clone(&assignment.dst));
-
-                    // Using a TLV to simulate updates happening after reads
-                    // Note: this is a hack and should be removed pending
-                    // changes in the environment structures
-                    // see: https://github.com/cucapra/calyx/issues/549
-
-                    let tmp_old = match old_val.clone_referenced() {
-                        OutputValue::ImmediateValue(iv) => Some(iv),
-                        OutputValue::LockedValue(tlv) => tlv.old_value,
-                        OutputValue::PulseValue(pv) => Some(pv.take_val()),
-                    };
-
-                    let new_val = OutputValue::LockedValue(
-                        TimeLockedValue::new(new_val.clone(), 0, tmp_old),
-                    );
-
-                    let port = &assignment.dst.borrow();
-
-                    working_env.update_val(&port, new_val);
                 }
             }
         }
 
-        // Remove the placeholder TLVs
-        for port in updates_list {
-            if let Entry::Occupied(entry) = working_env.entry(&port.borrow()) {
-                let mut_ref = entry.into_mut();
-                let v = std::mem::take(mut_ref);
+        // GOALS:
+        // Throw an error if any port was assigned more than once
+        // Zero any ports that were not assigned at all
 
-                *mut_ref = if v.is_tlv() {
-                    v.unwrap_tlv().unlock().into()
-                } else {
-                    // this branch should be impossible since the list of
-                    // ports we're iterating over are only those w/ updates
-                    unreachable!()
-                }
-            }
+        // can approach w/ hashset
+        // or by making the working_env use a stack_env
+
+        // perform all the updates
+        for (port, value) in updates_list {
+            working_env.update_val(&port.borrow(), value);
         }
 
         let changed = eval_prims(&mut working_env, cells.iter(), false);
