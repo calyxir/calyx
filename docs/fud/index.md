@@ -119,8 +119,8 @@ Frontend specific instructions:
 
 ## Adding Synthesis Backends
 
-`fud` supports wraps the Vivado and Vivado HLS tools to generate area and
-resource estimates for Calyx designs.
+`fud` supports wraps the Vivado (`synth-verilog`) and Vivado HLS (`vivado-hls`)
+tools to generate area and resource estimates for Calyx designs.
 See [the instructions](./synthesis.md) to configure them.
 
 ## Working with Stages

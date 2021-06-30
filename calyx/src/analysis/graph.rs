@@ -163,7 +163,7 @@ impl GraphAnalysis {
             }
         }
 
-        Self { graph, nodes }
+        Self { nodes, graph }
     }
 
     /// Return a topological sort of this graph.
@@ -231,7 +231,7 @@ impl GraphAnalysis {
                 }
             },
         );
-        Self { graph, nodes }
+        Self { nodes, graph }
     }
 
     /// Returns all the [`Port`](crate::ir::Port) associated with this instance.

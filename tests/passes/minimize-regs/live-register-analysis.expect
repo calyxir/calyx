@@ -1,11 +1,11 @@
 import "primitives/std.lib";
 component kernel(@go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (@done(1) done: 1) {
   cells {
-    @external(1) A0 = std_mem_d1(32, 32, 6);
+    @external A0 = std_mem_d1(32, 32, 6);
     A_read0_0 = std_reg(32);
-    @external(1) B0 = std_mem_d1(32, 32, 6);
+    @external B0 = std_mem_d1(32, 32, 6);
     B_read0_0 = std_reg(32);
-    @external(1) C0 = std_mem_d1(32, 32, 6);
+    @external C0 = std_mem_d1(32, 32, 6);
     add0 = std_add(6);
     add1 = std_add(6);
     i0 = std_reg(6);

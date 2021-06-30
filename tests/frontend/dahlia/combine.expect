@@ -47,7 +47,7 @@ component main() -> () {
   control {
     seq {
       let0;
-      while le0.out with cond0 {
+      @bound(8) while le0.out with cond0 {
         seq {
           upd0;
           upd1;

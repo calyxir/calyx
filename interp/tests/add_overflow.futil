@@ -1,0 +1,32 @@
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    adder = std_add(4); //we will try adding 8 and 15 and confirm result is 7
+    reg0 = std_reg(4);
+    reg1 = std_reg(5);
+    pad4_5 = std_pad(4, 5);
+  }
+
+  wires {
+    group add {
+      adder.left = 4'd8; 
+      adder.right = 4'd15; 
+
+      reg0.write_en = 1'b1; 
+      reg0.in = adder.out;
+
+      pad4_5.in = adder.out; 
+      reg1.write_en = 1'b1; 
+      reg1.in = pad4_5.out; 
+
+      add[done] = reg0.done & reg1.done ? 1'b1; 
+    }
+  }
+
+  control {
+    seq {
+        add;
+    }
+  }
+}

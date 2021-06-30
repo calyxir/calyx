@@ -2,7 +2,7 @@ use crate::passes::{
     ClkInsertion, CollapseControl, CompileControl, CompileEmpty, CompileInvoke,
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion,
     GuardCanonical, InferStaticTiming, Inliner, MergeAssign, MinimizeRegs,
-    Papercut, RegisterUnsharing, ResetInsertion, ResourceSharing,
+    Papercut, RegisterUnsharing, RegisterUnsharing, ResourceSharing,
     SimplifyGuards, StaticTiming, SynthesisPapercut, TopDownCompileControl,
     WellFormed,
 };

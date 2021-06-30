@@ -1,0 +1,46 @@
+{
+  "ports": {
+    "main": {
+      "_10_32": {
+        "out": 10
+      },
+      "_15_32": {
+        "out": 15
+      },
+      "_1_1": {
+        "out": 1
+      },
+      "const0": {
+        "out": 15
+      },
+      "const1": {
+        "out": 10
+      },
+      "lt0": {
+        "left": 0,
+        "out": 0,
+        "right": 0
+      },
+      "reg0": {
+        "clk": 0,
+        "done": 0,
+        "in": 0,
+        "out": 0,
+        "write_en": 0
+      },
+      "reg1": {
+        "clk": 0,
+        "done": 0,
+        "in": 0,
+        "out": 10,
+        "write_en": 0
+      }
+    }
+  },
+  "memories": {
+    "main": {
+      "reg0": 0,
+      "reg1": 10
+    }
+  }
+}

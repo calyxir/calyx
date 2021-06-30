@@ -1,9 +1,9 @@
 import "primitives/std.lib";
 component main(@go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (@done(1) done: 1) {
   cells {
-    @external(1) A0 = std_mem_d1(32, 8, 4);
+    @external A0 = std_mem_d1(32, 8, 4);
     A_read0_0 = std_reg(32);
-    @external(1) B0 = std_mem_d1(32, 8, 4);
+    @external B0 = std_mem_d1(32, 8, 4);
     B_read0_0 = std_reg(32);
     add0 = std_add(32);
     add1 = std_add(4);
@@ -16,7 +16,7 @@ component main(@go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (@done(1) do
     i0 = std_reg(4);
     le0 = std_le(4);
     mult_pipe0 = std_mult_pipe(32);
-    @external(1) v0 = std_mem_d1(32, 1, 1);
+    @external v0 = std_mem_d1(32, 1, 1);
     fsm = std_reg(1);
     incr = std_add(1);
     fsm0 = std_reg(4);

@@ -21,6 +21,7 @@ extern "core.sv" {
   primitive std_le<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
   primitive std_lsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
   primitive std_rsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  primitive std_mux<"share"=1>[WIDTH](cond: 1, tru: WIDTH, fal: WIDTH) -> (out: WIDTH);
 
   /// Memories
   primitive std_reg<"static"=1>[WIDTH](

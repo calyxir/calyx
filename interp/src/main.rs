@@ -4,6 +4,7 @@ use calyx::{
     pass_manager::PassManager,
     utils::OutputFile,
 };
+
 use interp::environment;
 use interp::interpreter::interpret_component;
 use std::cell::RefCell;
@@ -25,18 +26,9 @@ pub struct Opts {
     /// Path to the primitives library
     #[structopt(long, short, default_value = "..")]
     pub lib_path: PathBuf,
-
-    /// Component to interpret
-    #[structopt(short = "c", long = "component", default_value = "main")]
-    pub component: String,
-
-    /// Group to interpret
-    /// XX(karen): The user can specify a particular group to interpret,
-    /// assuming the group is in `main` if not specified otherwise.
-    #[structopt(short = "g", long = "group", default_value = "main")]
-    pub group: String,
 }
 
+//first half of this is tests
 /// Interpret a group from a Calyx program
 fn main() -> FutilResult<()> {
     let opts = Opts::from_args();

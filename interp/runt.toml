@@ -1,6 +1,16 @@
 ver = "0.2.8"
 
 [[tests]]
+name = "Simple tests"
+paths = [
+    "tests/simple_tests/*.futil"
+]
+
+cmd = """
+../target/debug/interp {}
+"""
+
+[[tests]]
 name = "Interpreter tests"
 paths = [
     "tests/*.futil"
