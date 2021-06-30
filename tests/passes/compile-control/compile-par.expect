@@ -1,13 +1,13 @@
 import "primitives/std.lib";
-component main(@go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (@done(1) done: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     a = std_reg(2);
     b = std_reg(2);
     c = std_reg(2);
-    par_reset = std_reg(1);
-    par_done_reg = std_reg(1);
-    par_done_reg0 = std_reg(1);
-    par_done_reg1 = std_reg(1);
+    @generated par_reset = std_reg(1);
+    @generated par_done_reg = std_reg(1);
+    @generated par_done_reg0 = std_reg(1);
+    @generated par_done_reg1 = std_reg(1);
   }
   wires {
     group A {

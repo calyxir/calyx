@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component add(left: 32, right: 32, @go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (out: 32, @done(1) done: 1) {
+component add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     adder = std_add(32);
     outpt = std_reg(32);
@@ -20,7 +20,7 @@ component add(left: 32, right: 32, @go(1) go: 1, @clk(1) clk: 1, @reset(1) reset
     }
   }
 }
-component main(@go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (@done(1) done: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     x = std_reg(32);
     add_x = std_add(32);

@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component identity<"static"=1>(in: 32, @go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (out: 32, @done(1) done: 1) {
+component identity<"static"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     r = std_reg(32);
   }
@@ -13,11 +13,11 @@ component identity<"static"=1>(in: 32, @go(1) go: 1, @clk(1) clk: 1, @reset(1) r
 
   control {}
 }
-component main(@go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (@done(1) done: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     id = identity();
     current_value = std_reg(32);
-    fsm = std_reg(2);
+    @generated fsm = std_reg(2);
   }
   wires {
     done = fsm.out == 2'd2 ? 1'd1;
@@ -28,6 +28,7 @@ component main(@go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (@done(1) do
     fsm.in = fsm.out == 2'd2 ? 2'd0;
     fsm.in = fsm.out == 2'd0 & id.done & go ? 2'd1;
     fsm.in = fsm.out == 2'd1 & current_value.done & go ? 2'd2;
+    fsm.reset = reset;
     fsm.write_en = fsm.out == 2'd0 & id.done & go | fsm.out == 2'd1 & current_value.done & go | fsm.out == 2'd2 ? 1'd1;
     id.clk = clk;
     id.go = !id.done & fsm.out == 2'd0 & go ? 1'd1;

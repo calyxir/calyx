@@ -1,6 +1,6 @@
 import "primitives/std.lib";
 import "primitives/unsynthesizable.futil";
-component times_10_and_add_1(reg_done: 1, reg_out: 32, @go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (reg_in: 32, reg_write_en: 1, @done(1) done: 1) {
+component times_10_and_add_1(reg_done: 1, reg_out: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (reg_in: 32, reg_write_en: 1, @done done: 1) {
   cells {
     add = std_add(32);
     mult = std_unsyn_mult(32);
@@ -17,11 +17,11 @@ component times_10_and_add_1(reg_done: 1, reg_out: 32, @go(1) go: 1, @clk(1) clk
 
   control {}
 }
-component main(@go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (@done(1) done: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     op = times_10_and_add_1();
     r = std_reg(32);
-    fsm = std_reg(2);
+    @generated fsm = std_reg(2);
   }
   wires {
     done = fsm.out == 2'd2 ? 1'd1;
@@ -29,6 +29,7 @@ component main(@go(1) go: 1, @clk(1) clk: 1, @reset(1) reset: 1) -> (@done(1) do
     fsm.in = fsm.out == 2'd2 ? 2'd0;
     fsm.in = fsm.out == 2'd0 & r.done & go ? 2'd1;
     fsm.in = fsm.out == 2'd1 & op.done & go ? 2'd2;
+    fsm.reset = reset;
     fsm.write_en = fsm.out == 2'd0 & r.done & go | fsm.out == 2'd1 & op.done & go | fsm.out == 2'd2 ? 1'd1;
     op.clk = clk;
     op.go = !op.done & fsm.out == 2'd1 & go ? 1'd1;
