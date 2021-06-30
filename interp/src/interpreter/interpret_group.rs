@@ -136,7 +136,8 @@ impl WorkingEnvironment {
         self.backing_env
     }
 
-    fn dump_state(&self, cell: &ir::Cell) {
+    // For debugging purpose
+    fn _dump_state(&self, cell: &ir::Cell) {
         println!("{} on cycle {}: ", cell.name(), self.backing_env.clk);
         for p in &cell.ports {
             let p_ref: &ir::Port = &p.borrow();
@@ -182,41 +183,41 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
 
     let cells = get_cells(assigns.iter().copied());
 
-    let fsm = cells
-        .iter()
-        .find(|x| x.borrow().name() == "fsm")
-        .unwrap()
-        .clone();
-    let add = cells
-        .iter()
-        .find(|x| x.borrow().name() == "add")
-        .unwrap()
-        .clone();
-    let cs = cells
-        .iter()
-        .find(|x| x.borrow().name() == "cond_stored")
-        .unwrap()
-        .clone();
-    let lt = cells
-        .iter()
-        .find(|x| x.borrow().name() == "lt")
-        .unwrap()
-        .clone();
-    let i = cells
-        .iter()
-        .find(|x| x.borrow().name() == "i")
-        .unwrap()
-        .clone();
+    // let fsm = cells
+    //     .iter()
+    //     .find(|x| x.borrow().name() == "fsm")
+    //     .unwrap()
+    //     .clone();
+    // let add = cells
+    //     .iter()
+    //     .find(|x| x.borrow().name() == "add")
+    //     .unwrap()
+    //     .clone();
+    // let cs = cells
+    //     .iter()
+    //     .find(|x| x.borrow().name() == "cs_wh")
+    //     .unwrap()
+    //     .clone();
+    // let lt = cells
+    //     .iter()
+    //     .find(|x| x.borrow().name() == "lt")
+    //     .unwrap()
+    //     .clone();
+    // let i = cells
+    //     .iter()
+    //     .find(|x| x.borrow().name() == "i")
+    //     .unwrap()
+    //     .clone();
 
     let mut val_changed_flag = false;
 
     while !signal_is_high(working_env.get(done_signal)) || val_changed_flag {
-        working_env.dump_state(&fsm.borrow());
-        working_env.dump_state(&add.borrow());
-        working_env.dump_state(&cs.borrow());
-        working_env.dump_state(&lt.borrow());
-        working_env.dump_state(&i.borrow());
-        println!("");
+        // working_env.dump_state(&fsm.borrow());
+        // working_env.dump_state(&add.borrow());
+        // working_env.dump_state(&cs.borrow());
+        // working_env.dump_state(&lt.borrow());
+        // working_env.dump_state(&i.borrow());
+        // println!("");
         val_changed_flag = false;
 
         // do all assigns
