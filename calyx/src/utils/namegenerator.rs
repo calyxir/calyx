@@ -40,7 +40,7 @@ impl NameGenerator {
                 .or_insert(-1);
 
             let name = if *count == -1 {
-                cur_prefix.clone().into()
+                cur_prefix
             } else {
                 ir::Id::from(cur_prefix.to_string() + &count.to_string())
             };
@@ -48,7 +48,7 @@ impl NameGenerator {
             // If we've not generated this name before, return it.
             if !self.generated_names.contains(&name.id) {
                 self.generated_names.insert(name.to_string());
-                return ir::Id::from(name);
+                return name;
             }
 
             // If the name was generated before, use the current name as the prefix.
