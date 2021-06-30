@@ -160,7 +160,7 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
     let mut val_changed_flag = false;
 
     while !is_signal_high(working_env.get(done_signal)) || val_changed_flag {
-        let assigned_ports: HashSet<*const ir::Port> = HashSet::new();
+        let mut assigned_ports: HashSet<*const ir::Port> = HashSet::new();
         val_changed_flag = false;
 
         // do all assigns
@@ -168,10 +168,19 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         // if no change, commit value updates
 
         let mut updates_list = vec![];
-
         // compute all updates from the assignments
         for assignment in &assigns {
+            //idea for checking no multiple drivers:
+            //hash set of assignment dsts
+            //it's created right above this loop. if contains(), panic
             if eval_guard(&assignment.guard, &working_env) {
+                //first check nothing has been assigned to this destination yet
+                // if assigned_ports.contains(assignment.dst.borrow()) {
+                //     panic!(
+                //         "[interpret_group]: multiple assignments to one port"
+                //     );
+                // }
+                //ok now proceed
                 let old_val = working_env.get(&assignment.dst.borrow());
                 let new_val_ref =
                     working_env.get_as_val(&assignment.src.borrow());
@@ -204,6 +213,8 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
             val_changed_flag = true;
         }
 
+        //if done signal is low and we haven't yet changed anything, means primitives are done,
+        //time to evaluate sequential components
         if !is_signal_high(working_env.get(done_signal)) && !val_changed_flag {
             working_env.do_tick();
             for cell in cells.iter() {
