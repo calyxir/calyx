@@ -28,7 +28,7 @@ impl Visitor for ResetInsertion {
     ) -> VisResult {
         let builder = ir::Builder::new(comp, sigs).generated();
 
-        for cell_ref in &builder.component.cells {
+        for cell_ref in builder.component.cells.iter() {
             let cell = cell_ref.borrow();
             if cell.get_attribute("generated").is_some() {
                 if let Some(port) = cell.find_with_attr("reset") {

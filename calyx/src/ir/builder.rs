@@ -153,7 +153,7 @@ impl<'a> Builder<'a> {
         if self.generated {
             cell.borrow_mut().add_attribute("generated", 1);
         }
-        self.component.cells.push(Rc::clone(&cell));
+        self.component.cells.add(Rc::clone(&cell));
         cell
     }
 

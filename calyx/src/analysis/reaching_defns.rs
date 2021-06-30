@@ -275,8 +275,6 @@ impl ReachingDefinitionAnalysis {
 
 type KilledSet = BTreeSet<ir::Id>;
 
-<<<<<<< HEAD
-=======
 fn remove_entries_defined_by(set: &mut KilledSet, defs: &DefSet) {
     let tmp_set: BTreeSet<_> = defs.set.iter().map(|(id, _)| id).collect();
     *set = std::mem::take(set)
@@ -285,7 +283,6 @@ fn remove_entries_defined_by(set: &mut KilledSet, defs: &DefSet) {
         .collect();
 }
 
->>>>>>> master
 fn build_reaching_def(
     c: &ir::Control,
     reach: DefSet,
@@ -361,12 +358,6 @@ fn build_reaching_def(
                 attributes: ir::Attributes::default(),
                 group: Rc::clone(cond),
             });
-<<<<<<< HEAD
-            let (post_cond_def, post_cond_killed) =
-                build_reaching_def(&fake_enable, reach, killed, rd, counter);
-
-            let (round_1_def, round_1_killed) = build_reaching_def(
-=======
             let (post_cond_def, post_cond_killed) = build_reaching_def(
                 &fake_enable,
                 reach.clone(),
@@ -376,40 +367,24 @@ fn build_reaching_def(
             );
 
             let (round_1_def, mut round_1_killed) = build_reaching_def(
->>>>>>> master
                 body,
                 post_cond_def,
                 post_cond_killed,
                 rd,
                 counter,
             );
-<<<<<<< HEAD
-            let (post_cond2_def, post_cond2_killed) = build_reaching_def(
-                &fake_enable,
-                round_1_def,
-=======
 
             remove_entries_defined_by(&mut round_1_killed, &reach);
 
             let (post_cond2_def, post_cond2_killed) = build_reaching_def(
                 &fake_enable,
                 &round_1_def | &reach,
->>>>>>> master
                 round_1_killed,
                 rd,
                 counter,
             );
             // Run the analysis a second time to get the fixed point of the
             // while loop using the defsets calculated during the first iteration
-<<<<<<< HEAD
-            build_reaching_def(
-                body,
-                post_cond2_def,
-                post_cond2_killed,
-                rd,
-                counter,
-            )
-=======
             let (final_def, mut final_kill) = build_reaching_def(
                 body,
                 post_cond2_def.clone(),
@@ -421,7 +396,6 @@ fn build_reaching_def(
             remove_entries_defined_by(&mut final_kill, &post_cond2_def);
 
             (&final_def | &post_cond2_def, final_kill)
->>>>>>> master
         }
         ir::Control::Invoke(invoke) => {
             *counter += 1;
