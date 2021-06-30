@@ -82,10 +82,10 @@ component main() -> () {
   control {
     seq {
       let0;
-      while le0.out with cond0 {
+      @bound(2) while le0.out with cond0 {
         seq {
           let1;
-          while le1.out with cond1 {
+          @bound(2) while le1.out with cond1 {
             seq {
               par {
                 upd0;
