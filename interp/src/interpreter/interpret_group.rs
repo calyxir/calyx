@@ -3,7 +3,7 @@
 
 use crate::environment::InterpreterState;
 
-use crate::utils::OutputValueRef;
+use crate::utils::{get_const_from_rrc, OutputValueRef};
 use crate::values::{OutputValue, ReadableValue, TimeLockedValue, Value};
 use calyx::{
     errors::FutilResult,
@@ -160,6 +160,7 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
     let mut val_changed_flag = false;
 
     while !is_signal_high(working_env.get(done_signal)) || val_changed_flag {
+        //helps us tell if there are multiple assignments to same port >:0
         let mut assigned_ports: HashSet<*const ir::Port> = HashSet::new();
         val_changed_flag = false;
 
@@ -170,16 +171,18 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         let mut updates_list = vec![];
         // compute all updates from the assignments
         for assignment in &assigns {
-            //idea for checking no multiple drivers:
-            //hash set of assignment dsts
-            //it's created right above this loop. if contains(), panic
             if eval_guard(&assignment.guard, &working_env) {
                 //first check nothing has been assigned to this destination yet
-                // if assigned_ports.contains(assignment.dst.borrow()) {
-                //     panic!(
-                //         "[interpret_group]: multiple assignments to one port"
-                //     );
-                // }
+                if assigned_ports.contains(&get_const_from_rrc(&assignment.dst))
+                {
+                    panic!(
+                        "[interpret_group]: multiple assignments to one port"
+                    );
+                }
+                //now add to the HS, because we are assigning
+                //regardless of whether value has changed this is still a
+                //value driving the port
+                assigned_ports.insert(get_const_from_rrc(&assignment.dst));
                 //ok now proceed
                 let old_val = working_env.get(&assignment.dst.borrow());
                 let new_val_ref =

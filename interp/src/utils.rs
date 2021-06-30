@@ -179,3 +179,8 @@ impl From<&RRC<Cell>> for CellRef {
         Self(input.clone())
     }
 }
+
+//new utility:
+pub fn get_const_from_rrc<T>(input: &RRC<T>) -> *const T {
+    input.as_ptr()
+}
