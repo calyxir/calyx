@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component main<"static"=0>(go: 1, clk: 1) -> (done: 1) {
+component main<"static"=0>(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (done: 1, @done done0: 1) {
   cells {
     r0 = std_reg(1);
     r1 = std_reg(1);

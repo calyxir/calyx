@@ -356,6 +356,18 @@ module std_fp_sgt #(
   assign out = $signed(left > right);
 endmodule
 
+module std_fp_slt #(
+    parameter WIDTH = 32,
+    parameter INT_WIDTH = 16,
+    parameter FRAC_WIDTH = 16
+) (
+   input logic signed [WIDTH-1:0] left,
+   input logic signed [WIDTH-1:0] right,
+   output logic signed            out
+);
+  assign out = $signed(left < right);
+endmodule
+
 /// =================== Unsigned, Bitnum =========================
 module std_mult_pipe #(
     parameter WIDTH = 32
