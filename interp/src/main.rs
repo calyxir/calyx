@@ -26,6 +26,10 @@ pub struct Opts {
     /// Path to the primitives library
     #[structopt(long, short, default_value = "..")]
     pub lib_path: PathBuf,
+
+    /// Path to optional datafile
+    #[structopt(long = "data", short = "d", parse(from_os_str))]
+    pub data_file: Option<PathBuf>,
 }
 
 //first half of this is tests
