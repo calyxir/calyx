@@ -53,7 +53,7 @@ impl Visitor for ComponentInterface {
 
         if let ir::Control::Enable(data) = &*control {
             let this = Rc::clone(&comp.signature);
-            let mut builder = ir::Builder::new(comp, ctx).generated();
+            let mut builder = ir::Builder::new(comp, ctx);
             let group = &data.group;
 
             structure!(builder;
@@ -71,7 +71,7 @@ impl Visitor for ComponentInterface {
             Ok(Action::Stop)
         } else {
             Err(Error::MalformedControl(
-                "component-interface: control program is neither empty nor a single enable."
+                "ComponentInterface: Structure has more than one group"
                     .to_string(),
             ))
         }

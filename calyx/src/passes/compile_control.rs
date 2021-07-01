@@ -73,7 +73,7 @@ impl Visitor for CompileControl {
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
     ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, ctx).generated();
+        let mut builder = ir::Builder::new(comp, ctx);
 
         // create a new group for if related structure
         let if_group = builder.add_group("if");
@@ -172,7 +172,7 @@ impl Visitor for CompileControl {
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
     ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, ctx).generated();
+        let mut builder = ir::Builder::new(comp, ctx);
 
         // create group
         let while_group = builder.add_group("while");
@@ -263,7 +263,7 @@ impl Visitor for CompileControl {
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
     ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, ctx).generated();
+        let mut builder = ir::Builder::new(comp, ctx);
 
         // Create a new group for the seq related structure.
         let seq_group = builder.add_group("seq");
@@ -346,7 +346,7 @@ impl Visitor for CompileControl {
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
     ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, ctx).generated();
+        let mut builder = ir::Builder::new(comp, ctx);
 
         // Name of the parent group.
         let par_group = builder.add_group("par");

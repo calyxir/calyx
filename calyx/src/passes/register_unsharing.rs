@@ -155,7 +155,7 @@ impl Visitor for RegisterUnsharing {
         sigs: &LibrarySignatures,
     ) -> VisResult {
         self.bookkeeper.replace(Bookkeeper::new(comp));
-        let mut builder = ir::Builder::new(comp, sigs).generated();
+        let mut builder = Builder::new(comp, sigs);
 
         let rename_list = self
             .bookkeeper

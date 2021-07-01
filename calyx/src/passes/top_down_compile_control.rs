@@ -441,7 +441,7 @@ impl Visitor for TopDownCompileControl {
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
     ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, sigs).generated();
+        let mut builder = ir::Builder::new(comp, sigs);
 
         // Compilation group
         let par_group = builder.add_group("par");
@@ -538,7 +538,7 @@ impl Visitor for TopDownCompileControl {
         }
 
         let control = Rc::clone(&comp.control);
-        let mut builder = ir::Builder::new(comp, sigs).generated();
+        let mut builder = ir::Builder::new(comp, sigs);
         let mut schedule = Schedule::default();
         calculate_states(
             &control.borrow(),

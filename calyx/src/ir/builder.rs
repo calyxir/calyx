@@ -5,9 +5,13 @@ use smallvec::smallvec;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// An IR builder.
+/// IR builder.
 /// Uses internal references to the component to construct and validate
 /// constructs when needed.
+/// By default, assumes that the cells are being added by a pass and marks
+/// them with the `@generated` attribute.
+///
+/// In order to disable this behavior, call [[ir::Builder::not_generated()]].
 pub struct Builder<'a> {
     /// Component for which this builder is constructing.
     pub component: &'a mut ir::Component,
@@ -30,7 +34,8 @@ impl<'a> Builder<'a> {
             component,
             lib,
             validate: false,
-            generated: false,
+            // By default, assume that builder is called from a pass
+            generated: true,
         }
     }
 
@@ -40,9 +45,9 @@ impl<'a> Builder<'a> {
         self
     }
 
-    /// Enable the generated flag on a builder.
-    pub fn generated(mut self) -> Self {
-        self.generated = true;
+    /// Disable the generated flag on the builder
+    pub fn not_generated(mut self) -> Self {
+        self.generated = false;
         self
     }
 

@@ -24,7 +24,7 @@ impl Visitor for CompileInvoke {
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
     ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, ctx).generated();
+        let mut builder = ir::Builder::new(comp, ctx);
 
         let invoke_group = builder.add_group("invoke");
 

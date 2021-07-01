@@ -165,7 +165,7 @@ impl<T: ShareComponents> Visitor for T {
 
         // apply the coloring as a renaming of registers for both groups
         // and continuous assignments
-        let builder = ir::Builder::new(comp, sigs).generated();
+        let builder = ir::Builder::new(comp, sigs);
         for group_ref in builder.component.groups.iter() {
             let mut group = group_ref.borrow_mut();
             let mut assigns: Vec<_> = group.assignments.drain(..).collect();
