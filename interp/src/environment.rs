@@ -198,31 +198,48 @@ impl InterpreterState {
                             map.insert(cl as ConstCell, Primitive::StdLt(lt));
                         }
                         "std_mem_d1" => {
-                            let m1 = primitives::StdMemD1::new(
+                            let mut m1 = primitives::StdMemD1::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                                 cl.get_parameter("SIZE").unwrap(),
                                 cl.get_parameter("IDX_SIZE").unwrap(),
                             );
+                            if let Some(v) = mems
+                                .as_ref()
+                                .map(|x| x.get(cell_name))
+                                .flatten()
+                            {
+                                m1.initialize_memory(v)
+                            }
+
                             map.insert(
                                 cl as ConstCell,
                                 Primitive::StdMemD1(m1),
                             );
                         }
                         "std_mem_d2" => {
-                            let m2 = primitives::StdMemD2::new(
+                            let mut m2 = primitives::StdMemD2::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                                 cl.get_parameter("D0_SIZE").unwrap(),
                                 cl.get_parameter("D1_SIZE").unwrap(),
                                 cl.get_parameter("D0_IDX_SIZE").unwrap(),
                                 cl.get_parameter("D1_IDX_SIZE").unwrap(),
                             );
+
+                            if let Some(v) = mems
+                                .as_ref()
+                                .map(|x| x.get(cell_name))
+                                .flatten()
+                            {
+                                m2.initialize_memory(v)
+                            }
+
                             map.insert(
                                 cl as ConstCell,
                                 Primitive::StdMemD2(m2),
                             );
                         }
                         "std_mem_d3" => {
-                            let m3 = primitives::StdMemD3::new(
+                            let mut m3 = primitives::StdMemD3::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                                 cl.get_parameter("D0_SIZE").unwrap(),
                                 cl.get_parameter("D1_SIZE").unwrap(),
@@ -231,13 +248,22 @@ impl InterpreterState {
                                 cl.get_parameter("D1_IDX_SIZE").unwrap(),
                                 cl.get_parameter("D2_IDX_SIZE").unwrap(),
                             );
+
+                            if let Some(v) = mems
+                                .as_ref()
+                                .map(|x| x.get(cell_name))
+                                .flatten()
+                            {
+                                m3.initialize_memory(v)
+                            }
+
                             map.insert(
                                 cl as ConstCell,
                                 Primitive::StdMemD3(m3),
                             );
                         }
                         "std_mem_d4" => {
-                            let m4 = primitives::StdMemD4::new(
+                            let mut m4 = primitives::StdMemD4::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                                 cl.get_parameter("D0_SIZE").unwrap(),
                                 cl.get_parameter("D1_SIZE").unwrap(),
@@ -248,6 +274,15 @@ impl InterpreterState {
                                 cl.get_parameter("D2_IDX_SIZE").unwrap(),
                                 cl.get_parameter("D3_IDX_SIZE").unwrap(),
                             );
+
+                            if let Some(v) = mems
+                                .as_ref()
+                                .map(|x| x.get(cell_name))
+                                .flatten()
+                            {
+                                m4.initialize_memory(v)
+                            }
+
                             map.insert(
                                 cl as ConstCell,
                                 Primitive::StdMemD4(m4),
