@@ -43,7 +43,7 @@ fn main() -> FutilResult<()> {
 
     pm.execute_plan(&mut ctx.borrow_mut(), &["validate".to_string()], &[])?;
 
-    let env = environment::Environment::init(&ctx);
+    let env = environment::InterpreterState::init(&ctx);
 
     // Get main component; assuming that opts.component is main
     // TODO: handle when component, group are not default values
