@@ -162,7 +162,8 @@ fn build_component(
             })
             .collect::<Result<_, _>>()?,
     );
-    let mut builder = Builder::from(&mut ir_component, &sig_ctx.lib, false);
+    let mut builder =
+        Builder::new(&mut ir_component, &sig_ctx.lib).not_generated();
 
     // For each ast::Cell, add a Cell that contains all the
     // required information.
