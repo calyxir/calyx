@@ -226,10 +226,7 @@ module std_reg #(
 );
 
   always_ff @(posedge clk) begin
-    if (reset) begin
-       out <= 0;
-       done <= 0;
-    end else if (write_en) begin
+    if (write_en) begin
       out <= in;
       done <= 1'd1;
     end else done <= 1'd0;
