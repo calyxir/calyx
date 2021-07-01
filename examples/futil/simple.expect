@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component main(@go go: 1, @clk clk: 1) -> (@done done: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     const0 = std_const(32, 4);
     const1 = std_const(32, 5);
@@ -17,6 +17,7 @@ component main(@go go: 1, @clk clk: 1) -> (@done done: 1) {
     fsm.in = fsm.out == 2'd2 ? 2'd0;
     fsm.in = fsm.out == 2'd0 & reg0.done & go ? 2'd1;
     fsm.in = fsm.out == 2'd1 & reg1.done & go ? 2'd2;
+    fsm.reset = reset;
     fsm.write_en = fsm.out == 2'd0 & reg0.done & go | fsm.out == 2'd1 & reg1.done & go | fsm.out == 2'd2 ? 1'd1;
     mult.clk = clk;
     mult.go = !mult.done & !reg1.done & fsm.out == 2'd1 & go ? 1'd1;
