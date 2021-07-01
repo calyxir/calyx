@@ -1,7 +1,7 @@
 /// Define a primitive
 ///
 /// ```
-/// binary_primitive!(StdAdd[width](left: width, right: width) : {
+/// binary_primitive!(StdAdd[width](left: width, right: width) {
 ///   let left_64 = left.as_u64();
 ///   let right_64 = right.as_u64();
 ///   let init_val = left_64 + right_64;
@@ -11,7 +11,7 @@
 /// ```
 #[macro_export]
 macro_rules! primitive {
-    ($name:ident[ $( $param:ident ),+]( $( $port:ident : $width:ident ),+ ) : $execute:block ) => {
+    ($name:ident[ $( $param:ident ),+]( $( $port:ident : $width:ident ),+ ) $execute:block ) => {
         pub struct $name {
             $($param: u64),+
         }
