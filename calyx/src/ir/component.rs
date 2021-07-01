@@ -5,6 +5,7 @@ use super::{
 use crate::utils;
 use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::iter::Extend;
 use std::rc::Rc;
 
@@ -51,6 +52,11 @@ impl Component {
         S: AsRef<str>,
         N: AsRef<str>,
     {
+        let port_names: HashSet<_> = ports
+            .iter()
+            .map(|(name, _, _, _)| name.as_ref().to_string())
+            .collect();
+
         let this_sig = Builder::cell_from_signature(
             THIS_ID.into(),
             CellType::ThisComponent,
@@ -70,7 +76,7 @@ impl Component {
             groups: IdList::default(),
             continuous_assignments: vec![],
             control: Rc::new(RefCell::new(Control::empty())),
-            namegen: utils::NameGenerator::default(),
+            namegen: utils::NameGenerator::with_prev_defined_names(port_names),
             attributes: Attributes::default(),
         }
     }

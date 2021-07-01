@@ -91,10 +91,10 @@ component sqrt_1x4(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x10_0_
   control {
     seq {
       let0;
-      while le0.out with cond0 {
+      @bound(1) while le0.out with cond0 {
         seq {
           let1;
-          while le1.out with cond1 {
+          @bound(4) while le1.out with cond1 {
             seq {
               upd0;
               invoke sqrt0(in=x_read0_0.out)();
