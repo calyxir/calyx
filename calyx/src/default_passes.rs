@@ -31,6 +31,7 @@ impl PassManager {
         register_pass!(pm, CompileEmpty);
         register_pass!(pm, Papercut);
         register_pass!(pm, ClkInsertion);
+        register_pass!(pm, ResetInsertion);
         register_pass!(pm, ResourceSharing);
         register_pass!(pm, ResetInsertion);
         register_pass!(pm, DeadCellRemoval);

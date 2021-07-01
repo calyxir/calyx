@@ -26,7 +26,8 @@ impl Visitor for ResetInsertion {
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
     ) -> VisResult {
-        let builder = ir::Builder::new(comp, sigs).generated();
+      
+        let builder = ir::Builder::new(comp, sigs);
 
         for cell_ref in builder.component.cells.iter() {
             let cell = cell_ref.borrow();

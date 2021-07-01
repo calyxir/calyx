@@ -57,12 +57,6 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --all
-
     - name: Versions
       id: versions
       run: |
@@ -224,6 +218,12 @@ jobs:
         fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
         fud config stages.futil.exec './target/debug/futil'
         fud config
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --all
+
     - name: Test
       run: |
         unset JAVA_TOOL_OPTIONS

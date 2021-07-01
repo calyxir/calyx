@@ -25,6 +25,7 @@
         "done": 0,
         "in": 0,
         "out": 3,
+        "reset": 0,
         "write_en": 0
       },
       "reg2": {
@@ -32,6 +33,7 @@
         "done": 0,
         "in": 0,
         "out": 4,
+        "reset": 0,
         "write_en": 0
       }
     }
