@@ -26,6 +26,11 @@ DEFAULT_CONFIGURATION = {
             "file_extensions": [".futil"],
             "flags": None,
         },
+        "interpreter": {
+            "exec": "./target/debug/interp",
+            "flags": None,
+            "data": None,
+        },
         "dahlia": {
             "exec": "dahlia",
             "file_extensions": [".fuse", ".dahlia"],
