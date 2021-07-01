@@ -3,12 +3,12 @@ from pathlib import Path
 import simplejson as sjson
 import numpy as np
 from fud.stages.verilator.numeric_types import FixedPoint, Bitnum
-from fud.errors import InvalidNumericType, Malformed
+from fud.errors import InvalidNumericType
 from fud.stages.verilator.json_to_dat import parse_fp_widths
 from calyx.utils import float_to_fixed_point
 
 
-from ..utils import shell, unwrap_or, TmpDir
+from ..utils import shell, TmpDir
 
 _FILE_NAME = "data.json"
 
