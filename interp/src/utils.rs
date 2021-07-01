@@ -2,7 +2,6 @@ use crate::values::{OutputValue, PulseValue, TimeLockedValue, Value};
 use calyx::errors::Error;
 use calyx::ir::{Assignment, Cell, Id, Port, RRC};
 use serde::Deserialize;
-use serde_json;
 use std::collections::HashMap;
 use std::fs;
 use std::hash::{Hash, Hasher};
