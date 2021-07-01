@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component kernel(go: 1, clk: 1) -> (done: 1) {
+component kernel(@go go: 1, @clk clk: 1) -> (@done done: 1) {
   cells {
     @external A0 = std_mem_d1(32, 32, 6);
     A_read0_0 = std_reg(32);

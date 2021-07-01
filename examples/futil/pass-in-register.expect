@@ -1,6 +1,6 @@
 import "primitives/std.lib";
 import "primitives/unsynthesizable.futil";
-component times_10_and_add_1(reg_done: 1, reg_out: 32, go: 1, clk: 1) -> (reg_in: 32, reg_write_en: 1, done: 1) {
+component times_10_and_add_1(reg_done: 1, reg_out: 32, @go go: 1, @clk clk: 1) -> (reg_in: 32, reg_write_en: 1, @done done: 1) {
   cells {
     add = std_add(32);
     mult = std_unsyn_mult(32);
@@ -17,7 +17,7 @@ component times_10_and_add_1(reg_done: 1, reg_out: 32, go: 1, clk: 1) -> (reg_in
 
   control {}
 }
-component main(go: 1, clk: 1) -> (done: 1) {
+component main(@go go: 1, @clk clk: 1) -> (@done done: 1) {
   cells {
     op = times_10_and_add_1();
     r = std_reg(32);
