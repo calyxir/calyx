@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-component main<"static"=3>(@go go: 1, @clk clk: 1) -> (@done done: 1) {
+component main<"static"=3>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     r = std_reg(32);
     exp0 = exponent();
@@ -22,7 +22,7 @@ component main<"static"=3>(@go go: 1, @clk clk: 1) -> (@done done: 1) {
     }
   }
 }
-component exponent<"static"=2>(base: 32, exp: 4, @go go: 1, @clk clk: 1) -> (out: 32, @done done: 1) {
+component exponent<"static"=2>(base: 32, exp: 4, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     r1 = std_reg(32);
     r2 = std_reg(32);

@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-component main<"static"=10>(@go go: 1, @clk clk: 1) -> (@done done: 1) {
+component main<"static"=10>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     @external i = std_mem_d1(32, 1, 1);
     @external j = std_mem_d1(32, 1, 1);

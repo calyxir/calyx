@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component main(@go go: 1, @clk clk: 1, A_read_data: 32, A_done: 1) -> (@done done: 1, A_addr0: 4, A_write_data: 32, A_write_en: 1, A_clk: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1, A_read_data: 32, A_done: 1) -> (@done done: 1, A_addr0: 4, A_write_data: 32, A_write_en: 1, A_clk: 1) {
   cells {
     B = std_mem_d1(32, 16, 4);
     state = std_reg(32);
