@@ -219,7 +219,6 @@ module std_reg #(
    input wire [ WIDTH-1:0]    in,
    input wire                 write_en,
    input wire                 clk,
-   input wire                 reset,
     // output
    output logic [WIDTH - 1:0] out,
    output logic               done
