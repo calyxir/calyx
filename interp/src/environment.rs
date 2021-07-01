@@ -35,6 +35,7 @@ pub struct InterpreterState {
     pub cell_prim_map: PrimitiveMap,
 
     ///use raw pointers for hashmap: ports to values
+    //this is a Smoosher (see stk_env.rs)
     pub pv_map: PortValMap,
 
     /// A reference to the context.
@@ -320,6 +321,10 @@ impl InterpreterState {
     /// Return the value associated with a component's port.
     pub fn get_from_port(&self, port: &ir::Port) -> &Value {
         &self.pv_map.get(&(port as ConstPort)).unwrap()
+    }
+
+    pub fn get_from_const_port(&self, port: *const ir::Port) -> &Value {
+        &self.pv_map.get(&port).unwrap()
     }
 
     /// Gets the cell in a component based on the name;

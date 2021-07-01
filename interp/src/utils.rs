@@ -93,6 +93,15 @@ impl<'a> OutputValueRef<'a> {
             }
         }
     }
+
+    /// Returns the width of the underlying value (value/tlv/pulsevalue)
+    pub fn width(&self) -> u64 {
+        match &self {
+            OutputValueRef::ImmediateValue(iv) => iv.width(),
+            OutputValueRef::LockedValue(tlv) => tlv.width(),
+            OutputValueRef::PulseValue(pv) => pv.width(),
+        }
+    }
 }
 
 impl<'a> From<&'a Value> for OutputValueRef<'a> {
@@ -126,11 +135,11 @@ impl<'a> OutputValueRef<'a> {
         }
     }
 
-    pub fn _is_tlv(self) -> bool {
+    pub fn _is_tlv(&self) -> bool {
         matches!(self, OutputValueRef::LockedValue(_))
     }
 
-    pub fn _is_imm(self) -> bool {
+    pub fn _is_imm(&self) -> bool {
         matches!(self, OutputValueRef::ImmediateValue(_))
     }
 }

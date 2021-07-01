@@ -3,6 +3,7 @@ import "primitives/core.futil";
 component main() -> () {
     cells {
         const9 = std_const(32, 9);
+        const8 = std_const(32, 8);
         reg0 = std_reg(32);
         reg1 = std_reg(32);
         reg2 = std_reg(32);
@@ -28,7 +29,8 @@ component main() -> () {
             reg3.write_en = reg2.done; 
 
             //write to each the same constant
-            reg0.in = const9.out; 
+            reg0.in = !or2_3_1.out ? const9.out;
+            reg0.in = or2_3_1.out ? const8.out; 
             reg1.in = reg0.out; 
             reg2.in = reg1.out; 
             reg3.in = reg2.out;

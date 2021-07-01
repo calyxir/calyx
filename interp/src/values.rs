@@ -17,6 +17,9 @@ pub struct Value {
 }
 
 impl Value {
+    pub fn width(&self) -> u64 {
+        self.vec.len() as u64
+    }
     /// Creates a Value with the specified bandwidth.
     ///
     /// # Example:
@@ -214,6 +217,10 @@ pub struct TimeLockedValue {
 }
 
 impl TimeLockedValue {
+    /// Returns the width of the underlying value
+    pub fn width(&self) -> u64 {
+        self.value.width()
+    }
     /// Create a new TimeLockedValue
     /// # Example
     /// use interp::values::*;
@@ -390,6 +397,11 @@ pub struct PulseValue {
 }
 
 impl PulseValue {
+    ///(Assuming high_val, low_val1, and low_val2 must all have the same width)
+    ///Returns the width of this value
+    pub fn width(&self) -> u64 {
+        self.high_val.width()
+    }
     /// Returns a new PulseValue in the inital low state
     pub fn new(
         low_val1: Value,

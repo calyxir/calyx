@@ -43,30 +43,46 @@ impl From<InterpreterState> for WorkingEnvironment {
 }
 
 impl WorkingEnvironment {
-    fn get(&self, port: &ir::Port) -> OutputValueRef {
-        let working_val = self.working_env.get(&(port as ConstPort));
+    fn get_const(&self, port: *const ir::Port) -> OutputValueRef {
+        let working_val = self.working_env.get(&port);
         match working_val {
             Some(v) => v.into(),
-            None => self.backing_env.get_from_port(port).into(),
+            None => self.backing_env.get_from_const_port(port).into(),
         }
+    }
+    /// Attempts to first get value from the working_env (PortOutputValMap)
+    /// If doesn't exist, gets from backing_env (InterpreterState)
+    fn get(&self, port: &ir::Port) -> OutputValueRef {
+        self.get_const(port as *const ir::Port)
+    }
+
+    fn update_val_const_port(
+        &mut self,
+        port: *const ir::Port,
+        value: OutputValue,
+    ) {
+        self.working_env.insert(port, value);
     }
 
     fn update_val(&mut self, port: &ir::Port, value: OutputValue) {
-        self.working_env.insert(port as ConstPort, value);
+        self.update_val_const_port(port as *const ir::Port, value);
     }
 
-    fn get_as_val(&self, port: &ir::Port) -> &Value {
-        match self.get(port) {
+    fn get_as_val_const(&self, port: *const ir::Port) -> &Value {
+        match self.get_const(port) {
             OutputValueRef::ImmediateValue(iv) => iv.get_val(),
             OutputValueRef::LockedValue(tlv) => tlv.get_val(),
             OutputValueRef::PulseValue(pv) => pv.get_val(),
         }
     }
 
-    fn do_tick(&mut self) -> Vec<ConstPort> {
+    fn get_as_val(&self, port: &ir::Port) -> &Value {
+        self.get_as_val_const(port as *const ir::Port)
+    }
+
+    fn do_tick(&mut self) {
         self.backing_env.clk += 1;
 
-        let mut new_vals = vec![];
         let mut w_env = std::mem::take(&mut self.working_env);
 
         self.working_env = w_env
@@ -82,24 +98,15 @@ impl WorkingEnvironment {
 
                     match out.do_tick() {
                         OutputValue::ImmediateValue(iv) => {
-                            if iv != old_val {
-                                new_vals.push(port)
-                            }
                             self.backing_env.insert(port, iv);
                             None
                         }
                         v @ OutputValue::LockedValue(_) => Some((port, v)),
-                        OutputValue::PulseValue(pv) => {
-                            if *pv.get_val() != old_val {
-                                new_vals.push(port);
-                            }
-                            Some((port, pv.into()))
-                        }
+                        OutputValue::PulseValue(pv) => Some((port, pv.into())),
                     }
                 }
             })
             .collect();
-        new_vals
     }
 
     fn collapse_env(mut self, panic_on_invalid_val: bool) -> InterpreterState {
@@ -157,6 +164,8 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
 
     let cells = get_cells(assigns.iter().copied());
 
+    let possible_ports: HashSet<*const ir::Port> =
+        assigns.iter().map(|a| get_const_from_rrc(&a.dst)).collect();
     let mut val_changed_flag = false;
 
     while !is_signal_high(working_env.get(done_signal)) || val_changed_flag {
@@ -168,6 +177,8 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         // run all prims
         // if no change, commit value updates
 
+        //how to get all possible ports?
+
         let mut updates_list = vec![];
         // compute all updates from the assignments
         for assignment in &assigns {
@@ -176,7 +187,7 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                 if assigned_ports.contains(&get_const_from_rrc(&assignment.dst))
                 {
                     panic!(
-                        "[interpret_group]: multiple assignments to one port"
+                        "[interpret_group]: multiple assignments to one port: {:?}", assignment.dst.borrow().canonical()
                     );
                 }
                 //now add to the HS, because we are assigning
@@ -199,12 +210,31 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
             }
         }
 
-        // GOALS:
-        // Throw an error if any port was assigned more than once
-        // Zero any ports that were not assigned at all
+        //now assign rest to 0
+        //first get all that need to be 0
+        for port in &possible_ports - &assigned_ports {
+            //need to set to zero, because unassigned
+            //ok now proceed
 
-        // can approach w/ hashset
-        // or by making the working_env use a stack_env
+            //need to find appropriate-sized 0, so just read
+            //width of old_val
+
+            let old_val = working_env.get_as_val_const(port);
+            let old_val_width = old_val.width(); //&assignment.dst.borrow().width()
+            let new_val: OutputValue =
+                Value::try_from_init(0, old_val_width).unwrap().into();
+            //updates_list.push((port, new_val));
+
+            //how to avoid infinite loop?
+            //if old_val is imm value and zero, then that's
+            //when val_changed_flag is false, else true.
+            if old_val.as_u64() != 0 {
+                val_changed_flag = true;
+            }
+
+            //update directly
+            working_env.update_val_const_port(port, new_val);
+        }
 
         // perform all the updates
         for (port, value) in updates_list {
@@ -350,8 +380,7 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     for cell in exec_list {
         let inputs = get_inputs(&env, &cell.borrow());
 
-        let executable =
-            prim_map.get_mut(&(&cell.borrow() as &ir::Cell as *const ir::Cell));
+        let executable = prim_map.get_mut(&get_const_from_rrc(&cell));
 
         if let Some(prim) = executable {
             let new_vals = if reset_flag {
