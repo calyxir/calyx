@@ -152,10 +152,10 @@ impl Visitor for RegisterUnsharing {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _c: &LibrarySignatures,
+        sigs: &LibrarySignatures,
     ) -> VisResult {
         self.bookkeeper.replace(Bookkeeper::new(comp));
-        let mut builder = Builder::from(comp, _c, false);
+        let mut builder = Builder::new(comp, sigs);
 
         let rename_list = self
             .bookkeeper

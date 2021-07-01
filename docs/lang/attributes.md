@@ -67,3 +67,8 @@ can be shared.
 ### `bound(n)`
 Used in `infer-static-timing` and `static-timing` when the number of iterations 
 of a `While` control is known statically, as indicated by `n`.
+
+### `generated`
+Added by [`ir::Builder`][builder] to denote that the cell was added by a pass.
+
+[builder]: https://capra.cs.cornell.edu/docs/calyx/source/calyx/ir/struct.Builder.html

@@ -1,7 +1,7 @@
 import "primitives/std.lib";
 component main() -> () {
   cells {
-    clk = std_reg(32);
+    reg = std_reg(32);
   }
   wires {
   }

@@ -5,9 +5,13 @@ use smallvec::smallvec;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// An IR builder.
+/// IR builder.
 /// Uses internal references to the component to construct and validate
 /// constructs when needed.
+/// By default, assumes that the cells are being added by a pass and marks
+/// them with the `@generated` attribute.
+///
+/// In order to disable this behavior, call [[ir::Builder::not_generated()]].
 pub struct Builder<'a> {
     /// Component for which this builder is constructing.
     pub component: &'a mut ir::Component,
@@ -16,20 +20,35 @@ pub struct Builder<'a> {
     /// Enable validation of components.
     /// Useful for debugging malformed AST errors.
     validate: bool,
+    /// Cells added are generated during a compiler pass.
+    generated: bool,
 }
 
 impl<'a> Builder<'a> {
     /// Instantiate a new builder using for a component.
-    pub fn from(
+    pub fn new(
         component: &'a mut ir::Component,
         lib: &'a LibrarySignatures,
-        validate: bool,
     ) -> Self {
         Self {
             component,
             lib,
-            validate,
+            validate: false,
+            // By default, assume that builder is called from a pass
+            generated: true,
         }
+    }
+
+    /// Enable the validation flag on a builder.
+    pub fn validate(mut self) -> Self {
+        self.validate = true;
+        self
+    }
+
+    /// Disable the generated flag on the builder
+    pub fn not_generated(mut self) -> Self {
+        self.generated = false;
+        self
     }
 
     /// Construct a new group and add it to the Component.
@@ -118,7 +137,7 @@ impl<'a> Builder<'a> {
         param_values: &[u64],
     ) -> RRC<ir::Cell>
     where
-        S: Into<ir::Id> + ToString,
+        S: Into<ir::Id> + ToString + Clone,
         P: AsRef<str>,
     {
         let prim_id = ir::Id::from(primitive.as_ref());
@@ -136,6 +155,9 @@ impl<'a> Builder<'a> {
             },
             ports,
         );
+        if self.generated {
+            cell.borrow_mut().add_attribute("generated", 1);
+        }
         self.component.cells.add(Rc::clone(&cell));
         cell
     }

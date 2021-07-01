@@ -53,7 +53,7 @@ impl Visitor for ComponentInterface {
 
         if let ir::Control::Enable(data) = &*control {
             let this = Rc::clone(&comp.signature);
-            let mut builder = ir::Builder::from(comp, ctx, false);
+            let mut builder = ir::Builder::new(comp, ctx);
             let group = &data.group;
 
             structure!(builder;
