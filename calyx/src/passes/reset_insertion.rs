@@ -6,8 +6,8 @@ use crate::ir::{
 use ir::traversal::{Action, VisResult};
 
 #[derive(Default)]
-/// Adds assignments from a components `clk` port to every
-/// component that contains an input `clk` port.
+/// Adds assignments from a components `reset` port to every
+/// component that contains an input `reset` port.
 pub struct ResetInsertion;
 
 impl Named for ResetInsertion {

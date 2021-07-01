@@ -139,6 +139,10 @@ impl MemoryInterface for AxiInterface {
 
         // module mode fsm
         let mode_fsm = module_mode_fsm(&mut module);
+        // module.add_stmt(v::Parallel::Assign(
+        //     "SEND_TO_HOST_DONE".into(),
+        //     v::Expr::new_mux(mode_fsm.state_is("send"), "send_done", 0),
+        // ));
 
         // count the number of read transactions we've received
         module.add_decl(v::Decl::new_reg(
@@ -171,7 +175,7 @@ impl MemoryInterface for AxiInterface {
             .read_address
             .then(&axi4.read_data)
             .prefix("r")
-            .trigger(mode_fsm.state_is("copy"));
+            .trigger(mode_fsm.next_state_is("copy"));
         read_controller.emit(&mut module);
 
         // increment copy address offset
@@ -210,7 +214,7 @@ impl MemoryInterface for AxiInterface {
             .then(&axi4.write_data)
             .then(&axi4.write_response)
             .prefix("w")
-            .trigger(mode_fsm.state_is("send"));
+            .trigger(mode_fsm.next_state_is("send"));
         write_controller.emit(&mut module);
 
         // increment send address offset

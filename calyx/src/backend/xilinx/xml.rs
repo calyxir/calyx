@@ -10,6 +10,8 @@ use serde::Serialize;
 #[derive(Default)]
 pub struct XilinxXmlBackend;
 
+// TODO(rachit): Document the Xilinx manual used to define this overall XML
+// structure.
 #[derive(Serialize)]
 #[serde(rename = "root", rename_all = "camelCase")]
 struct Root<'a> {
@@ -174,6 +176,7 @@ impl Backend for XilinxXmlBackend {
             kernel: Kernel {
                 name: "Toplevel",
                 language: "ip_c",
+                // XXX(rachit): This hardcoding seems bad.
                 vlnv: "capra.cs.cornell.edu:kernel:Toplevel:1.0",
                 attributes: "",
                 preferred_work_group_size_multiple: 0,
