@@ -80,7 +80,7 @@ pub enum OutputValueRef<'a> {
 }
 
 impl<'a> OutputValueRef<'a> {
-    pub fn clone_referenced(&self) -> OutputValue {
+    pub fn _clone_referenced(&self) -> OutputValue {
         match &self {
             OutputValueRef::ImmediateValue(iv) => {
                 OutputValue::ImmediateValue((*iv).clone())
@@ -91,15 +91,6 @@ impl<'a> OutputValueRef<'a> {
             OutputValueRef::PulseValue(pv) => {
                 OutputValue::PulseValue((*pv).clone())
             }
-        }
-    }
-
-    /// Returns the width of the underlying value (value/tlv/pulsevalue)
-    pub fn width(&self) -> u64 {
-        match &self {
-            OutputValueRef::ImmediateValue(iv) => iv.width(),
-            OutputValueRef::LockedValue(tlv) => tlv.width(),
-            OutputValueRef::PulseValue(pv) => pv.width(),
         }
     }
 }

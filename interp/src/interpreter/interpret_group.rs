@@ -4,7 +4,7 @@
 use crate::environment::InterpreterState;
 
 use crate::utils::{get_const_from_rrc, OutputValueRef};
-use crate::values::{OutputValue, ReadableValue, TimeLockedValue, Value};
+use crate::values::{OutputValue, ReadableValue, Value};
 use calyx::{
     errors::FutilResult,
     ir::{self, RRC},
@@ -93,18 +93,14 @@ impl WorkingEnvironment {
                     None
                 }
                 out @ OutputValue::PulseValue(_)
-                | out @ OutputValue::LockedValue(_) => {
-                    let old_val = out.get_val().clone();
-
-                    match out.do_tick() {
-                        OutputValue::ImmediateValue(iv) => {
-                            self.backing_env.insert(port, iv);
-                            None
-                        }
-                        v @ OutputValue::LockedValue(_) => Some((port, v)),
-                        OutputValue::PulseValue(pv) => Some((port, pv.into())),
+                | out @ OutputValue::LockedValue(_) => match out.do_tick() {
+                    OutputValue::ImmediateValue(iv) => {
+                        self.backing_env.insert(port, iv);
+                        None
                     }
-                }
+                    v @ OutputValue::LockedValue(_) => Some((port, v)),
+                    OutputValue::PulseValue(pv) => Some((port, pv.into())),
+                },
             })
             .collect();
     }
