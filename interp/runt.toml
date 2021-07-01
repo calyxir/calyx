@@ -11,6 +11,26 @@ cmd = """
 """
 
 [[tests]]
+name = "Assorted tests"
+paths = [
+    "tests/assorted_tests/*.futil"
+]
+
+cmd = """
+../target/debug/interp {}
+"""
+
+[[tests]]
+name = "Should panic tests"
+paths = [
+    "tests/should_panic_tests/*.futil"
+]
+
+cmd = """
+../target/debug/interp {}
+"""
+
+[[tests]]
 name = "Interpreter tests"
 paths = [
     "tests/*.futil"
