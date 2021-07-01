@@ -71,7 +71,7 @@ impl Visitor for ComponentInterface {
             Ok(Action::Stop)
         } else {
             Err(Error::MalformedControl(
-                "ComponentInterface: Structure has more than one group"
+                "component-interface: control program is neither empty nor a single enable."
                     .to_string(),
             ))
         }
