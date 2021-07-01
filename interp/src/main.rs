@@ -47,7 +47,9 @@ fn main() -> FutilResult<()> {
 
     pm.execute_plan(&mut ctx.borrow_mut(), &["validate".to_string()], &[])?;
 
-    let env = environment::InterpreterState::init(&ctx);
+    let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
+
+    let env = environment::InterpreterState::init(&ctx, &mems);
 
     // Get main component; assuming that opts.component is main
     // TODO: handle when component, group are not default values

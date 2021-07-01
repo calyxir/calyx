@@ -1,6 +1,7 @@
 //! Environment for interpreter.
 
 use super::stk_env::Smoosher;
+use super::utils::MemoryMap;
 use super::{primitives, primitives::Primitive, values::Value};
 use calyx::ir::{self, RRC};
 use serde::Serialize;
@@ -45,12 +46,15 @@ pub struct InterpreterState {
 impl InterpreterState {
     /// Construct an environment
     /// ctx : A context from the IR
-    pub fn init(ctx: &ir::RRC<ir::Context>) -> Self {
+    pub fn init(ctx: &ir::RRC<ir::Context>, mems: &Option<MemoryMap>) -> Self {
         Self {
             context: ctx.clone(),
             clk: 0,
             pv_map: InterpreterState::construct_pv_map(&ctx.borrow()),
-            cell_prim_map: InterpreterState::construct_cp_map(&ctx.borrow()),
+            cell_prim_map: InterpreterState::construct_cp_map(
+                &ctx.borrow(),
+                mems,
+            ),
         }
     }
 
@@ -59,11 +63,15 @@ impl InterpreterState {
     }
 
     //all of these use parameters as values for constuctors
-    fn construct_cp_map(ctx: &ir::Context) -> PrimitiveMap {
+    fn construct_cp_map(
+        ctx: &ir::Context,
+        mems: &Option<MemoryMap>,
+    ) -> PrimitiveMap {
         let mut map = HashMap::new();
         for comp in &ctx.components {
             for cell in comp.cells.iter() {
                 let cl: &ir::Cell = &cell.borrow();
+                let cell_name = cl.name();
 
                 if let ir::CellType::Primitive { name, .. } = &cl.prototype {
                     match name.as_ref() {
