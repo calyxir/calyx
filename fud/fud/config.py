@@ -30,6 +30,7 @@ DEFAULT_CONFIGURATION = {
             "exec": "./target/debug/interp",
             "flags": None,
             "data": None,
+            "round_float_to_fixed": True,
         },
         "dahlia": {
             "exec": "dahlia",
