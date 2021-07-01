@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main(go: 1, clk: 1) -> (done: 1) {
   cells {
     @external A0 = std_mem_d1(32, 8, 4);
     A_read0_0 = std_reg(32);
@@ -13,14 +13,14 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     const2 = std_const(4, 1);
     i0 = std_reg(4);
     le0 = std_le(4);
-    @generated fsm = std_reg(1);
-    @generated incr = std_add(1);
-    @generated fsm0 = std_reg(2);
-    @generated incr0 = std_add(2);
-    @generated fsm1 = std_reg(3);
-    @generated cond_stored = std_reg(1);
-    @generated incr1 = std_add(3);
-    @generated fsm2 = std_reg(2);
+    fsm = std_reg(1);
+    incr = std_add(1);
+    fsm0 = std_reg(2);
+    incr0 = std_add(2);
+    fsm1 = std_reg(3);
+    cond_stored = std_reg(1);
+    incr1 = std_add(3);
+    fsm2 = std_reg(2);
   }
   wires {
     A0.addr0 = fsm.out < 1'd1 & fsm0.out == 2'd0 & cond_stored.out & fsm1.out >= 3'd1 & fsm1.out < 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? i0.out;
@@ -44,28 +44,23 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     add1.right = fsm0.out == 2'd2 & cond_stored.out & fsm1.out >= 3'd1 & fsm1.out < 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? const2.out;
     cond_stored.clk = clk;
     cond_stored.in = fsm1.out < 3'd1 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? le0.out;
-    cond_stored.reset = reset;
     cond_stored.write_en = fsm1.out < 3'd1 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? 1'd1;
     fsm.clk = clk;
     fsm.in = fsm.out == 1'd1 ? 1'd0;
     fsm.in = fsm.out != 1'd1 & fsm0.out == 2'd0 & cond_stored.out & fsm1.out >= 3'd1 & fsm1.out < 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? incr.out;
-    fsm.reset = reset;
     fsm.write_en = fsm.out != 1'd1 & fsm0.out == 2'd0 & cond_stored.out & fsm1.out >= 3'd1 & fsm1.out < 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm.out == 1'd1 ? 1'd1;
     fsm0.clk = clk;
     fsm0.in = fsm0.out == 2'd3 ? 2'd0;
     fsm0.in = fsm0.out != 2'd3 & cond_stored.out & fsm1.out >= 3'd1 & fsm1.out < 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? incr0.out;
-    fsm0.reset = reset;
     fsm0.write_en = fsm0.out != 2'd3 & cond_stored.out & fsm1.out >= 3'd1 & fsm1.out < 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm0.out == 2'd3 ? 1'd1;
     fsm1.clk = clk;
     fsm1.in = fsm1.out == 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm1.out == 3'd1 & !cond_stored.out ? 3'd0;
     fsm1.in = fsm1.out != 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? incr1.out;
-    fsm1.reset = reset;
     fsm1.write_en = fsm1.out != 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm1.out == 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm1.out == 3'd1 & !cond_stored.out ? 1'd1;
     fsm2.clk = clk;
     fsm2.in = fsm2.out == 2'd2 ? 2'd0;
     fsm2.in = fsm2.out == 2'd0 & i0.done & go ? 2'd1;
     fsm2.in = fsm2.out == 2'd1 & fsm1.out == 3'd1 & !cond_stored.out & go ? 2'd2;
-    fsm2.reset = reset;
     fsm2.write_en = fsm2.out == 2'd0 & i0.done & go | fsm2.out == 2'd1 & fsm1.out == 3'd1 & !cond_stored.out & go | fsm2.out == 2'd2 ? 1'd1;
     i0.clk = clk;
     i0.in = fsm0.out == 2'd2 & cond_stored.out & fsm1.out >= 3'd1 & fsm1.out < 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? add1.out;

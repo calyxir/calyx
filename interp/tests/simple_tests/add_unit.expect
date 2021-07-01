@@ -17,7 +17,6 @@
         "done": 0,
         "in": 0,
         "out": 3,
-        "reset": 0,
         "write_en": 0
       }
     }

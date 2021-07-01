@@ -1,6 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main(go: 1, clk: 1) -> (done: 1) {
   cells {
     add0 = std_sadd(3);
     const0 = std_const(3, 0);

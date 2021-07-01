@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main(go: 1, clk: 1) -> (done: 1) {
   cells {
     r = std_reg(32);
     x = std_reg(32);
@@ -7,8 +7,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     add2 = std_add(32);
     flag = std_reg(1);
     other = std_reg(32);
-    @generated unshr_r = std_reg(32);
-    @generated unshr_r0 = std_reg(32);
+    unshr_r = std_reg(32);
+    unshr_r0 = std_reg(32);
   }
   wires {
     group zero {

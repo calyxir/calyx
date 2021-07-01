@@ -1,11 +1,11 @@
 import "primitives/std.lib";
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main(go: 1, clk: 1) -> (done: 1) {
   cells {
     add = std_add(32);
     lt = std_lt(32);
-    @generated cond_computed = std_reg(1);
-    @generated cond_stored = std_reg(1);
-    @generated done_reg = std_reg(1);
+    cond_computed = std_reg(1);
+    cond_stored = std_reg(1);
+    done_reg = std_reg(1);
   }
   wires {
     group do_add {

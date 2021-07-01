@@ -39,7 +39,6 @@
         "done": 0,
         "in": 0,
         "out": 8,
-        "reset": 0,
         "write_en": 0
       },
       "add3": {
@@ -72,7 +71,6 @@
         "done": 0,
         "in": 0,
         "out": 0,
-        "reset": 0,
         "write_en": 0
       },
       "ge_5bits": {
@@ -85,7 +83,6 @@
         "done": 0,
         "in": 0,
         "out": 4,
-        "reset": 0,
         "write_en": 0
       },
       "lt": {
@@ -98,7 +95,6 @@
         "done": 0,
         "in": 0,
         "out": 11,
-        "reset": 0,
         "write_en": 0
       },
       "pad_5bit": {
@@ -114,7 +110,6 @@
         "done": 0,
         "in": 0,
         "out": 15,
-        "reset": 0,
         "write_en": 0
       },
       "rshift_4bits": {

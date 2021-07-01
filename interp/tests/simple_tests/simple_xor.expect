@@ -15,7 +15,6 @@
         "done": 0,
         "in": 0,
         "out": 7,
-        "reset": 0,
         "write_en": 0
       },
       "xor0": {
