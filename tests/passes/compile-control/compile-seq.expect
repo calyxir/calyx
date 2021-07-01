@@ -4,7 +4,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
     a = std_reg(2);
     b = std_reg(2);
     c = std_reg(2);
-    fsm = std_reg(2);
+    @generated fsm = std_reg(2);
   }
   wires {
     group A {

@@ -5,8 +5,8 @@ component main(go: 1, clk: 1) -> (done: 1) {
     y = std_reg(32);
     add2 = std_add(32);
     result = std_reg(32);
-    unshr_x = std_reg(32);
-    unshr_y = std_reg(32);
+    @generated unshr_x = std_reg(32);
+    @generated unshr_y = std_reg(32);
   }
   wires {
     group zero_x {
