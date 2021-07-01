@@ -63,7 +63,7 @@ component negative_4(x0_read_data: 32, x0_done: 1, x10_read_data: 32, x10_done: 
   control {
     seq {
       let0;
-      while le0.out with cond0 {
+      @bound(4) while le0.out with cond0 {
         seq {
           upd0;
           upd1;

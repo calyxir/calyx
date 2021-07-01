@@ -251,13 +251,13 @@ component batch_matmul_4x7x7(a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_d
   control {
     seq {
       let0;
-      while le0.out with cond0 {
+      @bound(4) while le0.out with cond0 {
         seq {
           let1;
-          while le1.out with cond1 {
+          @bound(7) while le1.out with cond1 {
             seq {
               let2;
-              while le2.out with cond2 {
+              @bound(5) while le2.out with cond2 {
                 seq {
                   upd0;
                   upd1;
@@ -271,16 +271,16 @@ component batch_matmul_4x7x7(a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_d
         }
       }
       let3;
-      while le3.out with cond3 {
+      @bound(4) while le3.out with cond3 {
         seq {
           let4;
-          while le4.out with cond4 {
+          @bound(7) while le4.out with cond4 {
             seq {
               let5;
-              while le5.out with cond5 {
+              @bound(7) while le5.out with cond5 {
                 seq {
                   let6;
-                  while le6.out with cond6 {
+                  @bound(5) while le6.out with cond6 {
                     seq {
                       par {
                         upd5;

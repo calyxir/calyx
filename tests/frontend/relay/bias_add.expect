@@ -145,16 +145,16 @@ component bias_add_1x64x512x256(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, bias0_
   control {
     seq {
       let0;
-      while le0.out with cond0 {
+      @bound(1) while le0.out with cond0 {
         seq {
           let1;
-          while le1.out with cond1 {
+          @bound(64) while le1.out with cond1 {
             seq {
               let2;
-              while le2.out with cond2 {
+              @bound(512) while le2.out with cond2 {
                 seq {
                   let3;
-                  while le3.out with cond3 {
+                  @bound(256) while le3.out with cond3 {
                     seq {
                       par {
                         upd0;

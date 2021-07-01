@@ -303,28 +303,28 @@ component conv2d_5x512x14x14(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, wei
   control {
     seq {
       let0;
-      while le0.out with cond0 {
+      @bound(5) while le0.out with cond0 {
         seq {
           let1;
-          while le1.out with cond1 {
+          @bound(512) while le1.out with cond1 {
             seq {
               let2;
-              while le2.out with cond2 {
+              @bound(14) while le2.out with cond2 {
                 seq {
                   let3;
-                  while le3.out with cond3 {
+                  @bound(14) while le3.out with cond3 {
                     seq {
                       par {
                         let4;
                         seq {
                           let5;
-                          while le4.out with cond4 {
+                          @bound(512) while le4.out with cond4 {
                             seq {
                               let6;
-                              while le5.out with cond5 {
+                              @bound(3) while le5.out with cond5 {
                                 seq {
                                   let7;
-                                  while le6.out with cond6 {
+                                  @bound(3) while le6.out with cond6 {
                                     seq {
                                       par {
                                         seq {
