@@ -70,7 +70,7 @@ component multiply_1(x0_read_data: 32, x0_done: 1, x1: 32, x20_read_data: 32, x2
   control {
     seq {
       let0;
-      while le0.out with cond0 {
+      @bound(1) while le0.out with cond0 {
         seq {
           upd0;
           let1;
