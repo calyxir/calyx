@@ -155,6 +155,17 @@ impl Cell {
             .map(|r| Rc::clone(r))
     }
 
+    /// Get a reference to the first port that has the attribute [[attr]]
+    pub fn find_with_attr<S>(&self, attr: S) -> Option<RRC<Port>>
+    where
+        S: AsRef<str>,
+    {
+        self.ports
+            .iter()
+            .find(|&g| g.borrow().attributes.has(attr.as_ref()))
+            .map(|r| Rc::clone(r))
+    }
+
     /// Get a reference to the named port and throw an error if it doesn't
     /// exist.
     pub fn get<S>(&self, name: S) -> RRC<Port>
@@ -165,6 +176,21 @@ impl Cell {
             panic!(
                 "Port `{}' not found on cell `{}'",
                 name.to_string(),
+                self.name.to_string()
+            )
+        })
+    }
+
+    /// Get a reference to the first port with the attribute `attr` and throw an error if none
+    /// exist.
+    pub fn get_with_attr<S>(&self, attr: S) -> RRC<Port>
+    where
+        S: AsRef<str>,
+    {
+        self.find_with_attr(&attr).unwrap_or_else(|| {
+            panic!(
+                "Port with attribute `{}' not found on cell `{}'",
+                attr.as_ref(),
                 self.name.to_string()
             )
         })
