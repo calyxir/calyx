@@ -13,14 +13,14 @@ component main(go: 1, clk: 1) -> (done: 1) {
     const2 = std_const(4, 1);
     i0 = std_reg(4);
     le0 = std_le(4);
-    fsm = std_reg(1);
-    incr = std_add(1);
-    fsm0 = std_reg(2);
-    incr0 = std_add(2);
-    fsm1 = std_reg(3);
-    cond_stored = std_reg(1);
-    incr1 = std_add(3);
-    fsm2 = std_reg(2);
+    @generated fsm = std_reg(1);
+    @generated incr = std_add(1);
+    @generated fsm0 = std_reg(2);
+    @generated incr0 = std_add(2);
+    @generated fsm1 = std_reg(3);
+    @generated cond_stored = std_reg(1);
+    @generated incr1 = std_add(3);
+    @generated fsm2 = std_reg(2);
   }
   wires {
     A0.addr0 = fsm.out < 1'd1 & fsm0.out == 2'd0 & cond_stored.out & fsm1.out >= 3'd1 & fsm1.out < 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? i0.out;

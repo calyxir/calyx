@@ -17,7 +17,7 @@ component main(go: 1, clk: 1) -> (done: 1) {
   cells {
     id = identity();
     current_value = std_reg(32);
-    fsm = std_reg(2);
+    @generated fsm = std_reg(2);
   }
   wires {
     done = fsm.out == 2'd2 ? 1'd1;

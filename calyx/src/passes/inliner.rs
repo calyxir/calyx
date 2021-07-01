@@ -120,7 +120,7 @@ impl Visitor for Inliner {
         };
 
         let this_comp = Rc::clone(&comp.signature);
-        let mut builder = ir::Builder::from(comp, sigs, false);
+        let mut builder = ir::Builder::new(comp, sigs);
 
         // add top_level[go] = this.go
         let mut asgns = build_assignments!(
