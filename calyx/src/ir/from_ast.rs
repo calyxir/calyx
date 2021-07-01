@@ -60,9 +60,10 @@ fn check_signature(sig: &[PortDef]) -> FutilResult<()> {
 }
 
 /// Definition of special interface ports.
-const INTERFACE_PORTS: [(&str, u64, Direction); 3] = [
+const INTERFACE_PORTS: [(&str, u64, Direction); 4] = [
     ("go", 1, Direction::Input),
     ("clk", 1, Direction::Input),
+    ("reset", 1, Direction::Input),
     ("done", 1, Direction::Output),
 ];
 
