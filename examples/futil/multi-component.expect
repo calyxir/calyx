@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component identity<"static"=1>(in: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
+component identity<"static"=1>(in: 32, @go go: 1, @clk clk: 1) -> (out: 32, @done done: 1) {
   cells {
     r = std_reg(32);
   }
@@ -13,7 +13,7 @@ component identity<"static"=1>(in: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
 
   control {}
 }
-component main(go: 1, clk: 1) -> (done: 1) {
+component main(@go go: 1, @clk clk: 1) -> (@done done: 1) {
   cells {
     id = identity();
     current_value = std_reg(32);

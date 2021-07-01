@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component kernel(go: 1, clk: 1) -> (done: 1) {
+component kernel(@go go: 1, @clk clk: 1) -> (@done done: 1) {
   cells {
     b0 = std_reg(32);
     before0 = std_reg(4);
