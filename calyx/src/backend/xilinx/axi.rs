@@ -1,3 +1,4 @@
+//! Code generation for the AXI interface.
 use super::fsm;
 use vast::v05::ast as v;
 
