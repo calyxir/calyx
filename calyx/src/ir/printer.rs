@@ -15,7 +15,13 @@ impl IRPrinter {
         attrs
             .attrs
             .iter()
-            .map(|(k, v)| format!("@{}({})", k, v))
+            .map(|(k, v)| {
+                if *v == 1 {
+                    format!("@{}", k)
+                } else {
+                    format!("@{}({})", k, v)
+                }
+            })
             .collect::<Vec<_>>()
             .join(" ")
     }

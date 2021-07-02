@@ -74,6 +74,13 @@ impl LinearFsm {
         v::Expr::new_eq(self.state_reg.as_str(), idx as i32)
     }
 
+    /// Generate an expression representing the condition
+    /// that the fsm is in the provided state.
+    pub fn next_state_is(&self, state_name: &str) -> v::Expr {
+        let idx = self.map[state_name];
+        v::Expr::new_eq(self.next_reg.as_str(), idx as i32)
+    }
+
     /// Given a verilog module, emit the fsm.
     pub fn emit(&self, module: &mut v::Module) {
         let num_states = self.states.len();

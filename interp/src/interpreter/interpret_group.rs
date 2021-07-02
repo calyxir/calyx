@@ -1,15 +1,15 @@
 //! Used for the command line interface.
 //! Only interprets a given group in a given component
 
-use crate::environment::Environment;
+use crate::environment::InterpreterState;
 
-use crate::primitives::Primitive;
 use crate::utils::OutputValueRef;
 use crate::values::{OutputValue, ReadableValue, TimeLockedValue, Value};
 use calyx::{
     errors::FutilResult,
     ir::{self, RRC},
 };
+use itertools::Itertools;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -28,14 +28,14 @@ type PortOutputValMap = HashMap<ConstPort, OutputValue>;
 /// the environment maps to values of type Value, but during group
 /// interpretation, ports need to be mapped to values of type OutputValue
 // TODO (griffin): Update / remove pending changes to environment definition
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct WorkingEnvironment {
-    pub backing_env: Environment,
+    pub backing_env: InterpreterState,
     pub working_env: PortOutputValMap,
 }
 
-impl From<Environment> for WorkingEnvironment {
-    fn from(input: Environment) -> Self {
+impl From<InterpreterState> for WorkingEnvironment {
+    fn from(input: InterpreterState) -> Self {
         Self {
             working_env: PortOutputValMap::default(),
             backing_env: input,
@@ -110,7 +110,7 @@ impl WorkingEnvironment {
         new_vals
     }
 
-    fn collapse_env(mut self, panic_on_invalid_val: bool) -> Environment {
+    fn collapse_env(mut self, panic_on_invalid_val: bool) -> InterpreterState {
         let working_env = self.working_env;
 
         for (port, v) in working_env {
@@ -137,35 +137,34 @@ impl WorkingEnvironment {
     }
 
     // For debugging purpose
-    fn _dump_state(&self, cell: &ir::Cell) {
-        println!("{} on cycle {}: ", cell.name(), self.backing_env.clk);
-        for p in &cell.ports {
-            let p_ref: &ir::Port = &p.borrow();
-            println!("  {} : {}", p_ref.name, self.get_as_val(p_ref).as_u64());
-        }
-        match self
-            .backing_env
-            .cell_prim_map
-            .get(&(cell as *const ir::Cell))
-            .unwrap()
-        {
-            &Primitive::StdReg(ref reg) => {
-                println!("  internal state: {}", reg.val)
-            }
-            &Primitive::StdMemD1(ref mem) => {
-                println!("  memval : {}", mem.data[0])
-            }
-            _ => {}
-        }
-    }
+    // fn _dump_state(&self, cell: &ir::Cell) {
+    //     println!("{} on cycle {}: ", cell.name(), self.backing_env.clk);
+    //     for p in &cell.ports {
+    //         let p_ref: &ir::Port = &p.borrow();
+    //         println!("  {} : {}", p_ref.name, self.get_as_val(p_ref).as_u64());
+    //     }
+    //     match self
+    //         .backing_env
+    //         .cell_prim_map
+    //         .get(&(cell as *const ir::Cell))
+    //         .unwrap()
+    //     {
+    //         &Primitive::StdReg(ref reg) => {
+    //             println!("  internal state: {}", reg.val)
+    //         }
+    //         &Primitive::StdMemD1(ref mem) => {
+    //             println!("  memval : {}", mem.data[0])
+    //         }
+    //         _ => {}
+    //     }
+    // }
 }
 
 fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
     group.get(&"done")
 }
 
-fn signal_is_high(done: OutputValueRef) -> bool {
-    // dbg!(&done);
+fn is_signal_high(done: OutputValueRef) -> bool {
     match done {
         OutputValueRef::ImmediateValue(v) => v.as_u64() == 1,
         OutputValueRef::LockedValue(_) => false,
@@ -173,51 +172,24 @@ fn signal_is_high(done: OutputValueRef) -> bool {
     }
 }
 
-pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
-    env: Environment,
+/// An internal method that does the main work of interpreting a set of
+/// assignments. It takes the assigments as an interator as continguity of
+/// memory is not a requirement and importantly, the function must also be
+/// provided with a port which will be treated as the revelant done signal for
+/// the execution
+fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
+    env: InterpreterState,
     done_signal: &ir::Port,
     assigns: I,
-) -> FutilResult<Environment> {
-    let assigns = assigns.collect::<Vec<_>>();
+) -> FutilResult<InterpreterState> {
+    let assigns = assigns.collect_vec();
     let mut working_env: WorkingEnvironment = env.into();
 
     let cells = get_cells(assigns.iter().copied());
 
-    // let fsm = cells
-    //     .iter()
-    //     .find(|x| x.borrow().name() == "fsm")
-    //     .unwrap()
-    //     .clone();
-    // let add = cells
-    //     .iter()
-    //     .find(|x| x.borrow().name() == "add")
-    //     .unwrap()
-    //     .clone();
-    // let cs = cells
-    //     .iter()
-    //     .find(|x| x.borrow().name() == "cs_wh")
-    //     .unwrap()
-    //     .clone();
-    // let lt = cells
-    //     .iter()
-    //     .find(|x| x.borrow().name() == "lt")
-    //     .unwrap()
-    //     .clone();
-    // let i = cells
-    //     .iter()
-    //     .find(|x| x.borrow().name() == "i")
-    //     .unwrap()
-    //     .clone();
-
     let mut val_changed_flag = false;
 
-    while !signal_is_high(working_env.get(done_signal)) || val_changed_flag {
-        // working_env.dump_state(&fsm.borrow());
-        // working_env.dump_state(&add.borrow());
-        // working_env.dump_state(&cs.borrow());
-        // working_env.dump_state(&lt.borrow());
-        // working_env.dump_state(&i.borrow());
-        // println!("");
+    while !is_signal_high(working_env.get(done_signal)) || val_changed_flag {
         val_changed_flag = false;
 
         // do all assigns
@@ -270,7 +242,6 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                 } else {
                     // this branch should be impossible since the list of
                     // ports we're iterating over are only those w/ updates
-                    // unreachable!("{:?}, port: {:?}", v, port.borrow().canonical());
                     panic!(
                         "Multiple assignments to port {:?}",
                         port.borrow().canonical()
@@ -284,13 +255,13 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
             val_changed_flag = true;
         }
 
-        if !signal_is_high(working_env.get(done_signal)) && !val_changed_flag {
+        if !is_signal_high(working_env.get(done_signal)) && !val_changed_flag {
             working_env.do_tick();
             for cell in cells.iter() {
-                if let Some(x) = working_env
-                    .backing_env
-                    .cell_prim_map
-                    .get_mut(&(&cell.borrow() as &ir::Cell as *const ir::Cell))
+                if let Some(x) =
+                    working_env.backing_env.cell_prim_map.borrow_mut().get_mut(
+                        &(&cell.borrow() as &ir::Cell as *const ir::Cell),
+                    )
                 {
                     x.commit_updates()
                 }
@@ -301,11 +272,18 @@ pub fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
     Ok(working_env.collapse_env(false))
 }
 
+/// Interprets the given set of continuous assigments and returns a result
+/// containing the environment. Note: this is only appropriate to run if the
+/// component does not contain groups and indicates doneness via the component's
+/// done signal.
+///
+/// Prior to evaluation the interpreter sets the value of go to high and it
+/// returns it to low after execution concludes
 pub fn interp_cont(
     continuous_assignments: &[ir::Assignment],
-    mut env: Environment,
+    mut env: InterpreterState,
     comp: &ir::Component,
-) -> FutilResult<Environment> {
+) -> FutilResult<InterpreterState> {
     let comp_sig = comp.signature.borrow();
 
     let go_port = comp_sig
@@ -351,8 +329,8 @@ pub fn interpret_group(
     group: &ir::Group,
     // TODO (griffin): Use these during interpretation
     continuous_assignments: &[ir::Assignment],
-    env: Environment,
-) -> FutilResult<Environment> {
+    env: InterpreterState,
+) -> FutilResult<InterpreterState> {
     let grp_done = get_done_port(&group);
     let grp_done_ref: &ir::Port = &grp_done.borrow();
     interp_assignments(
@@ -369,8 +347,8 @@ pub fn finish_group_interpretation(
     group: &ir::Group,
     // TODO (griffin): Use these during interpretation
     continuous_assignments: &[ir::Assignment],
-    env: Environment,
-) -> FutilResult<Environment> {
+    env: InterpreterState,
+) -> FutilResult<InterpreterState> {
     let grp_done = get_done_port(&group);
     let grp_done_ref: &ir::Port = &grp_done.borrow();
 
@@ -401,7 +379,8 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     let mut val_changed = false;
     // split mutability
     // TODO: change approach based on new env, once ready
-    let mut prim_map = std::mem::take(&mut env.backing_env.cell_prim_map);
+    let ref_clone = env.backing_env.cell_prim_map.clone(); // RC clone
+    let mut prim_map = ref_clone.borrow_mut();
 
     let mut update_list: Vec<(RRC<ir::Port>, OutputValue)> = vec![];
 
@@ -441,8 +420,6 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     for (port, val) in update_list {
         env.update_val(&port.borrow(), val);
     }
-
-    env.backing_env.cell_prim_map = prim_map;
 
     val_changed
 }
@@ -506,10 +483,10 @@ fn eval_guard(guard: &ir::Guard, env: &WorkingEnvironment) -> bool {
 /// for a given group. This function updates the values in the environment
 /// accordingly using zero as a placeholder for values that are undefined
 fn finish_interpretation<'a, I: Iterator<Item = &'a ir::Assignment>>(
-    mut env: Environment,
+    mut env: InterpreterState,
     done_signal: &ir::Port,
     assigns: I,
-) -> FutilResult<Environment> {
+) -> FutilResult<InterpreterState> {
     // replace port values for all the assignments
     let assigns = assigns.collect::<Vec<_>>();
 

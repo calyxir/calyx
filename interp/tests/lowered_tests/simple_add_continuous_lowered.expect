@@ -34,14 +34,17 @@
         "done": 0,
         "in": 0,
         "out": 409,
+        "reset": 0,
         "write_en": 0
       }
     }
   },
   "memories": {
     "main": {
-      "mem": "[42]",
-      "reg0": "409"
+      "mem": [
+        42
+      ],
+      "reg0": 409
     }
   }
 }

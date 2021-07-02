@@ -20,13 +20,14 @@
         "done": 0,
         "in": 0,
         "out": 15,
+        "reset": 0,
         "write_en": 0
       }
     }
   },
   "memories": {
     "main": {
-      "reg0": "15"
+      "reg0": 15
     }
   }
 }

@@ -23,14 +23,17 @@
         "done": 0,
         "in": 0,
         "out": 9,
+        "reset": 0,
         "write_en": 0
       }
     }
   },
   "memories": {
     "main": {
-      "mem": "[9]",
-      "reg0": "9"
+      "mem": [
+        9
+      ],
+      "reg0": 9
     }
   }
 }

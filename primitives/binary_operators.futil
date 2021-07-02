@@ -11,7 +11,7 @@ extern "binary_operators.sv" {
   primitive std_fp_mult_pipe[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
-    clk: 1, go: 1, left: WIDTH, right: WIDTH
+    @clk(1) clk: 1, go: 1, left: WIDTH, right: WIDTH
   ) -> (
     out: WIDTH, done: 1
   );
@@ -19,7 +19,7 @@ extern "binary_operators.sv" {
   primitive std_fp_div_pipe[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
-    clk: 1, go: 1, left: WIDTH, right: WIDTH
+    @clk(1) clk: 1, go: 1, left: WIDTH, right: WIDTH
   ) -> (
     out_remainder: WIDTH,
     out_quotient: WIDTH,
@@ -52,7 +52,7 @@ extern "binary_operators.sv" {
   primitive std_fp_smult_pipe[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
-    clk: 1, go: 1, left: WIDTH, right: WIDTH
+    @clk(1) clk: 1, go: 1, left: WIDTH, right: WIDTH
   ) -> (
     out: WIDTH, done: 1
   );
@@ -60,7 +60,7 @@ extern "binary_operators.sv" {
   primitive std_fp_sdiv_pipe[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
-    clk: 1, go: 1, left: WIDTH, right: WIDTH
+    @clk(1) clk: 1, go: 1, left: WIDTH, right: WIDTH
   ) -> (
     out_remainder: WIDTH,
     out_quotient: WIDTH,
@@ -68,6 +68,10 @@ extern "binary_operators.sv" {
   );
 
   primitive std_fp_sgt<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](left: WIDTH, right: WIDTH) -> (out: 1);
+
+  primitive std_fp_slt<"share"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: 1);
 
@@ -86,13 +90,13 @@ extern "binary_operators.sv" {
   /// since they're required for FSM encoding.
 
   primitive std_mult_pipe[WIDTH](
-    clk: 1, go: 1, left: WIDTH, right: WIDTH
+    @clk(1) clk: 1, go: 1, left: WIDTH, right: WIDTH
   ) -> (
     out: WIDTH, done: 1
   );
 
   primitive std_div_pipe<"static"=3>[WIDTH](
-    left: WIDTH, right: WIDTH, @go(1) go: 1, clk: 1
+    left: WIDTH, right: WIDTH, @go(1) go: 1, @clk(1) clk: 1
   ) -> (
     out_quotient: WIDTH,
     out_remainder: WIDTH,
@@ -104,13 +108,13 @@ extern "binary_operators.sv" {
   primitive std_ssub<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
   primitive std_smult_pipe[WIDTH](
-    left: WIDTH, right: WIDTH, go: 1, clk: 1
+    left: WIDTH, right: WIDTH, go: 1, @clk(1) clk: 1
   ) -> (
     out: WIDTH, done: 1
   );
 
   primitive std_sdiv_pipe[WIDTH](
-    clk: 1, @go(1) go: 1, left: WIDTH, right: WIDTH
+    @clk(1) clk: 1, @go(1) go: 1, left: WIDTH, right: WIDTH
   ) -> (
     out_quotient: WIDTH,
     out_remainder: WIDTH,

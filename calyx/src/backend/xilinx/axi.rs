@@ -1,14 +1,17 @@
+//! Code generation for the AXI interface.
 use super::fsm;
 use vast::v05::ast as v;
 
 /// Represents the Direction of a channel
 /// from the perspective of the master interface.
+#[derive(Clone, Debug)]
 pub(crate) enum ChannelDirection {
     Recv,
     Send,
 }
 
 /// Represents a single AXI channel.
+#[derive(Clone, Debug)]
 pub(crate) struct AxiChannel {
     /// The string to prefix all ports with.
     pub prefix: String,

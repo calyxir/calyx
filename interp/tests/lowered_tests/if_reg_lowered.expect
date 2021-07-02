@@ -24,6 +24,7 @@
         "done": 0,
         "in": 0,
         "out": 0,
+        "reset": 0,
         "write_en": 0
       },
       "const0": {
@@ -37,6 +38,7 @@
         "done": 0,
         "in": 0,
         "out": 3,
+        "reset": 0,
         "write_en": 0
       },
       "incr": {
@@ -54,6 +56,7 @@
         "done": 0,
         "in": 0,
         "out": 0,
+        "reset": 0,
         "write_en": 0
       },
       "reg1": {
@@ -61,16 +64,17 @@
         "done": 0,
         "in": 0,
         "out": 10,
+        "reset": 0,
         "write_en": 0
       }
     }
   },
   "memories": {
     "main": {
-      "cond_stored": "0",
-      "fsm": "3",
-      "reg0": "0",
-      "reg1": "10"
+      "cond_stored": 0,
+      "fsm": 3,
+      "reg0": 0,
+      "reg1": 10
     }
   }
 }

@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component main<"static"=3>(go: 1, clk: 1) -> (done: 1) {
+component main<"static"=3>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     a = std_reg(2);
     b = std_reg(2);
@@ -25,9 +25,9 @@ component main<"static"=3>(go: 1, clk: 1) -> (done: 1) {
 
   control {
     @static(3) seq {
-      @static(1) A;
-      @static(1) B;
-      @static(1) C;
+      @static A;
+      @static B;
+      @static C;
     }
   }
 }

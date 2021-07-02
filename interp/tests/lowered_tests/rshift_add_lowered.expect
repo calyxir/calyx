@@ -43,6 +43,7 @@
         "done": 0,
         "in": 0,
         "out": 3,
+        "reset": 0,
         "write_en": 0
       },
       "reg_11": {
@@ -50,6 +51,7 @@
         "done": 0,
         "in": 0,
         "out": 7,
+        "reset": 0,
         "write_en": 0
       },
       "reg_15": {
@@ -57,6 +59,7 @@
         "done": 0,
         "in": 0,
         "out": 15,
+        "reset": 0,
         "write_en": 0
       },
       "reg_rsh15": {
@@ -64,6 +67,7 @@
         "done": 0,
         "in": 0,
         "out": 7,
+        "reset": 0,
         "write_en": 0
       },
       "reg_rsh7": {
@@ -71,6 +75,7 @@
         "done": 0,
         "in": 0,
         "out": 3,
+        "reset": 0,
         "write_en": 0
       },
       "rsh": {
@@ -87,11 +92,11 @@
   },
   "memories": {
     "main": {
-      "fsm": "3",
-      "reg_11": "7",
-      "reg_15": "15",
-      "reg_rsh15": "7",
-      "reg_rsh7": "3"
+      "fsm": 3,
+      "reg_11": 7,
+      "reg_15": 15,
+      "reg_rsh15": 7,
+      "reg_rsh7": 3
     }
   }
 }

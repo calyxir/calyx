@@ -27,6 +27,7 @@
         "done": 0,
         "in": 0,
         "out": 3,
+        "reset": 0,
         "write_en": 0
       },
       "reg1": {
@@ -34,6 +35,7 @@
         "done": 0,
         "in": 0,
         "out": 1,
+        "reset": 0,
         "write_en": 0
       },
       "reg14": {
@@ -41,6 +43,7 @@
         "done": 0,
         "in": 0,
         "out": 14,
+        "reset": 0,
         "write_en": 0
       },
       "reg15": {
@@ -48,6 +51,7 @@
         "done": 0,
         "in": 0,
         "out": 15,
+        "reset": 0,
         "write_en": 0
       },
       "slicer": {
@@ -58,10 +62,10 @@
   },
   "memories": {
     "main": {
-      "fsm": "3",
-      "reg1": "1",
-      "reg14": "14",
-      "reg15": "15"
+      "fsm": 3,
+      "reg1": 1,
+      "reg14": 14,
+      "reg15": 15
     }
   }
 }

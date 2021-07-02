@@ -150,16 +150,16 @@ component reshape_1x8(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_read_data:
     seq {
       let0;
       let1;
-      while le0.out with cond0 {
+      @bound(1) while le0.out with cond0 {
         seq {
           let2;
-          while le1.out with cond1 {
+          @bound(2) while le1.out with cond1 {
             seq {
               let3;
-              while le2.out with cond2 {
+              @bound(2) while le2.out with cond2 {
                 seq {
                   let4;
-                  while le3.out with cond3 {
+                  @bound(2) while le3.out with cond3 {
                     seq {
                       upd0;
                       upd1;

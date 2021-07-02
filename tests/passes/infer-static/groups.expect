@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component main(go: 1, clk: 1) -> (done: 1) {
+component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (done: 1, @done done0: 1) {
   cells {
     r0 = std_reg(1);
     r1 = std_reg(1);
@@ -33,9 +33,9 @@ component main(go: 1, clk: 1) -> (done: 1) {
   control {
     seq {
       @static(0) zero_cycles;
-      @static(1) one_cycle;
+      @static one_cycle;
       @static(2) two_cycles;
-      @static(1) mem_wrt_to_done;
+      @static mem_wrt_to_done;
       mult_wrts_to_done;
     }
   }

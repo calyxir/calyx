@@ -24,6 +24,7 @@
         "done": 0,
         "in": 0,
         "out": 2,
+        "reset": 0,
         "write_en": 0
       },
       "incr": {
@@ -36,14 +37,15 @@
         "done": 0,
         "in": 0,
         "out": 400,
+        "reset": 0,
         "write_en": 0
       }
     }
   },
   "memories": {
     "main": {
-      "fsm": "2",
-      "reg0": "400"
+      "fsm": 2,
+      "reg0": 400
     }
   }
 }

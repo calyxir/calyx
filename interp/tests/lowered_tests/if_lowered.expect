@@ -33,6 +33,7 @@
         "done": 0,
         "in": 0,
         "out": 1,
+        "reset": 0,
         "write_en": 0
       },
       "fsm": {
@@ -40,6 +41,7 @@
         "done": 0,
         "in": 0,
         "out": 2,
+        "reset": 0,
         "write_en": 0
       },
       "incr": {
@@ -64,9 +66,11 @@
   },
   "memories": {
     "main": {
-      "cond_stored": "1",
-      "fsm": "2",
-      "mem": "[4]"
+      "cond_stored": 1,
+      "fsm": 2,
+      "mem": [
+        4
+      ]
     }
   }
 }

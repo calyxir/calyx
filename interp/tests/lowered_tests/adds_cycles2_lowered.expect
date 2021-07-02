@@ -37,6 +37,7 @@
         "done": 0,
         "in": 0,
         "out": 3,
+        "reset": 0,
         "write_en": 0
       },
       "incr": {
@@ -49,6 +50,7 @@
         "done": 0,
         "in": 0,
         "out": 5,
+        "reset": 0,
         "write_en": 0
       },
       "reg2": {
@@ -56,15 +58,16 @@
         "done": 0,
         "in": 0,
         "out": 6,
+        "reset": 0,
         "write_en": 0
       }
     }
   },
   "memories": {
     "main": {
-      "fsm": "3",
-      "reg1": "5",
-      "reg2": "6"
+      "fsm": 3,
+      "reg1": 5,
+      "reg2": 6
     }
   }
 }
