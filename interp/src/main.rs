@@ -27,7 +27,8 @@ pub struct Opts {
     #[structopt(long, short, default_value = "..")]
     pub lib_path: PathBuf,
 
-    /// Path to optional datafile
+    /// Path to optional datafile used to initialze memories. If it is not
+    /// provided memories will be initialzed with zeros
     #[structopt(long = "data", short = "d", parse(from_os_str))]
     pub data_file: Option<PathBuf>,
 }
