@@ -366,6 +366,14 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         }
     }
 
+    pub fn fork_from_tail(&self) -> Self {
+        assert!(self.head.is_empty());
+        Smoosher {
+            head: HashMap::new(),
+            tail: self.tail.clone(),
+        }
+    }
+
     ///```text
     ///Pushes a new, empty scope onto [self]. Doing so has no effect on the
     ///bindings in [self], until a new [set] is called
