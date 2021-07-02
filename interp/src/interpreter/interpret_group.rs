@@ -28,7 +28,6 @@ type PortOutputValMap = HashMap<ConstPort, OutputValue>;
 /// the environment maps to values of type Value, but during group
 /// interpretation, ports need to be mapped to values of type OutputValue
 // TODO (griffin): Update / remove pending changes to environment definition
-#[derive(Debug)]
 struct WorkingEnvironment {
     //InterpreterState has a pv_map which is a Smoosher<*const ir::Port, Value>
     pub backing_env: InterpreterState,
@@ -432,7 +431,7 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
                 } else {
                     Some(env.get_as_val(&(cell.borrow().get("done").borrow())))
                 };
-                prim.exec_mut(&inputs, done_val)
+                prim.execute(&inputs, done_val)
             };
 
             for (port, val) in new_vals {

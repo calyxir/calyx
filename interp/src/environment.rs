@@ -1,8 +1,9 @@
 //! Environment for interpreter.
 
+use super::new_primitives::Primitive;
 use super::stk_env::Smoosher;
 use super::utils::MemoryMap;
-use super::{primitives, primitives::Primitive, values::Value};
+use super::{new_primitives, values::Value};
 use calyx::ir::{self, RRC};
 use serde::Serialize;
 use std::cell::RefCell;
@@ -19,7 +20,8 @@ type ConstPort = *const ir::Port;
 
 /// A map defining primitive implementations for Cells. As it is keyed by
 /// CellRefs the lifetime of the keys is independent of the actual cells
-type PrimitiveMap = RRC<HashMap<ConstCell, primitives::Primitive>>;
+type PrimitiveMap =
+    RRC<HashMap<ConstCell, Box<dyn crate::new_primitives::Primitive>>>;
 
 /// A map defining values for ports. As it is keyed by PortRefs, the lifetime of
 /// the keys is independent of the ports. However as a result it is flat, rather
@@ -27,7 +29,6 @@ type PrimitiveMap = RRC<HashMap<ConstCell, primitives::Primitive>>;
 type PortValMap = Smoosher<ConstPort, Value>;
 
 /// The environment to interpret a Calyx program.
-#[derive(Debug)]
 pub struct InterpreterState {
     ///clock count
     pub clk: u64,
@@ -52,9 +53,9 @@ impl InterpreterState {
             context: ctx.clone(),
             clk: 0,
             pv_map: InterpreterState::construct_pv_map(&ctx.borrow()),
-            cell_prim_map: InterpreterState::construct_cp_map(
+            cell_prim_map: Self::construct_cp_map(
                 &ctx.borrow(),
-                mems,
+                // mems,
             ),
         }
     }
@@ -63,16 +64,41 @@ impl InterpreterState {
         self.pv_map.set(port, value);
     }
 
-    //all of these use parameters as values for constuctors
-    fn construct_cp_map(
-        ctx: &ir::Context,
-        mems: &Option<MemoryMap>,
-    ) -> PrimitiveMap {
+    fn make_primitive(name: ir::Id, params: ir::Binding) -> Box<dyn Primitive> {
+        match name.as_ref() {
+            "std_add" => Box::new(new_primitives::StdAdd::new(params)),
+            "std_sub" => Box::new(new_primitives::StdSub::new(params)),
+        }
+    }
+
+    fn construct_cp_map(ctx: &ir::Context) -> PrimitiveMap {
         let mut map = HashMap::new();
         for comp in &ctx.components {
             for cell in comp.cells.iter() {
                 let cl: &ir::Cell = &cell.borrow();
                 let cell_name = cl.name();
+
+                if let ir::CellType::Primitive {
+                    name,
+                    param_binding,
+                } = cl.prototype
+                {
+                    map.insert(
+                        cl as ConstCell,
+                        Self::make_primitive(name, param_binding),
+                    );
+                }
+            }
+        }
+        Rc::new(RefCell::new(map))
+    }
+
+    //all of these use parameters as values for constuctors
+    /* fn construct_cp_map(ctx: &ir::Context) -> PrimitiveMap {
+        let mut map = HashMap::new();
+        for comp in &ctx.components {
+            for cell in comp.cells.iter() {
+                let cl: &ir::Cell = &cell.borrow();
 
                 if let Some(name) = &cl.type_name() {
                     match name.as_ref() {
@@ -295,7 +321,7 @@ impl InterpreterState {
             }
         }
         Rc::new(RefCell::new(map))
-    }
+    } */
 
     fn construct_pv_map(ctx: &ir::Context) -> PortValMap {
         let mut map = HashMap::new();
@@ -480,5 +506,5 @@ impl Serialize for InterpreterState {
 #[derive(Serialize)]
 struct Printable<'a> {
     ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
-    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, &'a Primitive>>,
+    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, &'a Box<dyn Primitive>>>,
 }

@@ -1,6 +1,3 @@
-use crate::values::{OutputValue, Value};
-use calyx::ir;
-
 /// Define a primitive
 ///
 /// ```
@@ -12,25 +9,24 @@ use calyx::ir;
 ///   Value::from_init(init_val, bitwidth).into()
 /// });
 /// ```
-/// The macro defines several methods for the struct `StdAdd`:
-/// - StdAdd::new(width: u64): Construct a new StdAdd instance with `width`.
-/// - StdAdd::execute(left: &Value, right: &Value): Runs the provided code block.
-/// - StdAdd::validate_input(inputs: &[ir::Id, &values::Value]): Validate the
-///   input ports have the appropriate widths.
+/// The macro implementes the [[Primitive]] trait for the struct.
 ///
 /// TODO(rachit): $out_width is never used.
 #[macro_export]
-macro_rules! primitive {
-    ($name:ident[ $( $param:ident ),+]( $( $port:ident : $width:ident ),+ ) -> ( $( $out:ident : $out_width:ident ),+ ) $execute:block ) => {
+macro_rules! comb_primitive {
+    ($name:ident[
+        $( $param:ident ),+
+    ]( $( $port:ident : $width:ident ),+ ) ->
+     ( $( $out:ident : $out_width:ident ),+ ) $execute:block
+    ) => {
         #[derive(Clone, Debug, Default)]
+        #[allow(non_snake_case)]
         pub struct $name {
             $($param: u64),+
         }
 
-
-        impl Executable for $name {
-
-            fn new(params: ir::Binding) -> Self {
+        impl $name {
+            pub fn new(params: calyx::ir::Binding) -> Self {
                 let mut base = Self::default();
                 for (param, value) in params {
                     match param.as_ref() {
@@ -40,10 +36,16 @@ macro_rules! primitive {
                 }
                 base
             }
+        }
+
+
+        impl Primitive for $name {
+
+            fn is_comb(&self) -> bool { true }
 
             fn validate(
                 &self,
-                inputs: &[(ir::Id, &Value)]
+                inputs: &[(calyx::ir::Id, &crate::values::Value)]
             ) {
                 for (id, v) in inputs {
                     match id.as_ref() {
@@ -55,13 +57,14 @@ macro_rules! primitive {
 
             fn execute(
                 &mut self,
-                inputs: &[(ir::Id, &Value)],
+                inputs: &[(calyx::ir::Id, &crate::values::Value)],
                 // done_val not used in combinational primitives
-                _done_val: Option<&Value>) -> Vec<(ir::Id, OutputValue)> {
+                _done_val: Option<&crate::values::Value>
+            ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
 
                 #[derive(Default)]
                 struct Ports<'a> {
-                    $( $port: Option<&'a Value> ),+
+                    $( $port: Option<&'a crate::values::Value> ),+
                 }
 
                 let mut base = Ports::default();
@@ -73,13 +76,15 @@ macro_rules! primitive {
                     }
                 }
 
-                let exec_func = |$( $port: &Value ),+| -> OutputValue {
+                let exec_func = |$( $port: &Value ),+| -> crate::values::OutputValue {
                     $execute
                 };
 
-                let $( $out ),+ = exec_func(
-                    // TODO(rachit): Better error if this fails
-                    $( base.$port.unwrap() ),+
+                #[allow(unused_parens)]
+                let ($( $out ),+) = exec_func(
+                    $( base
+                        .$port
+                        .expect(&format!("No value for port: {}", stringify!($port)).to_string()) ),+
                 );
 
                 return vec![
@@ -88,13 +93,19 @@ macro_rules! primitive {
 
             }
 
-            fn commit_updates(&mut self) {
-                todo!()
+            // Combination components cannot be reset
+            fn reset(
+                &mut self,
+                inputs: &[(calyx::ir::Id, &crate::values::Value)],
+            ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+                self.execute(inputs, /* Value is not used */ None)
             }
 
-            fn clear_update_buffer(&mut self) {
-                todo!()
-            }
+            // No-op for combinational primitives.
+            fn commit_updates(&mut self) {}
+
+            // No-op for combinational primitives.
+            fn clear_update_buffer(&mut self) {}
         }
     };
 }
