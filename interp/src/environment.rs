@@ -74,7 +74,7 @@ impl InterpreterState {
                 let cl: &ir::Cell = &cell.borrow();
                 let cell_name = cl.name();
 
-                if let ir::CellType::Primitive { name, .. } = &cl.prototype {
+                if let Some(name) = &cl.type_name() {
                     match name.as_ref() {
                         "std_reg" => {
                             let reg = primitives::StdReg::new(
