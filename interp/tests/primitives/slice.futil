@@ -1,0 +1,47 @@
+import "primitives/core.futil";
+
+//confirm slice of length 1 from any # is LSB
+component main() -> () {
+  cells {
+    reg15 = std_reg(4);
+    reg1 = std_reg(1);
+    reg14 = std_reg(4);
+    reg0 = std_reg(1);
+
+    slicer = std_slice(4, 1);
+  }
+
+  wires {
+    group init {
+        reg15.write_en = 1'b1;
+        reg14.write_en = 1'b1;
+
+        reg15.in = 4'd15;
+        reg14.in = 4'd14;
+
+        init[done] = reg15.done & reg14.done ? 1'b1;
+    }
+
+    group slice15 {
+        reg1.write_en = 1'b1;
+        slicer.in = reg15.out;
+        reg1.in = slicer.out;
+        slice15[done] = reg1.done;
+    }
+
+    group slice14 {
+        reg0.write_en = 1'b1;
+        slicer.in = reg14.out;
+        reg0.in = slicer.out;
+        slice14[done] = reg0.done;
+    }
+  }
+
+  control {
+    seq {
+        init;
+        slice15;
+        slice14;
+    }
+  }
+}

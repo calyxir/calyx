@@ -1,0 +1,43 @@
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    reg0 = std_reg(32);
+    reg1 = std_reg(32);
+    reg2 = std_reg(32);
+    reg3 = std_reg(32);
+
+    fsm = std_reg(4);
+  }
+
+  wires {
+    // Check if values written to registers become visible.
+    group wr {
+      // fsm starts with the value 0
+      fsm.in = fsm.out == 4'd0 & reg0.done ? 4'd1;
+      fsm.in = fsm.out == 4'd1 & reg1.done ? 4'd2;
+      fsm.in = fsm.out == 4'd2 & reg2.done ? 4'd3;
+      fsm.in = fsm.out == 4'd3 & reg3.done ? 4'd4;
+      fsm.write_en = 1'd1;
+
+      // Enable writes to registers in specific states.
+      reg0.write_en = fsm.out == 4'd0 ? 1'd1;
+      reg1.write_en = fsm.out == 4'd1 ? 1'd1;
+      reg2.write_en = fsm.out == 4'd2 ? 1'd1;
+      reg3.write_en = fsm.out == 4'd3 ? 1'd1;
+
+      //write to each the same constant
+      reg0.in = 32'd9;
+      reg1.in = reg0.out;
+      reg2.in = reg1.out;
+      reg3.in = reg2.out;
+
+      //done when reg3 is done
+      wr[done] = fsm.out == 4'd4 ? 1'd1;
+    }
+  }
+
+  control {
+    wr;
+  }
+}

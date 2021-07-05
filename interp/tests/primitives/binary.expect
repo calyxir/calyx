@@ -1,0 +1,15 @@
+{
+  "main": {
+    "add_reg": 409,
+    "and_reg": 8,
+    "eq_reg": 1,
+    "ge_reg": 1,
+    "gt_reg": 0,
+    "le_reg": 1,
+    "lt_reg": 0,
+    "neq_reg": 0,
+    "or_reg": 15,
+    "sub_reg": 391,
+    "xor_reg": 7
+  }
+}

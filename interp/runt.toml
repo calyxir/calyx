@@ -1,41 +1,42 @@
 ver = "0.2.8"
 
+# Check basic functionality of the interpreter
 [[tests]]
-name = "Simple tests"
+name = "unit"
 paths = [
-    "tests/simple_tests/*.futil"
+  "tests/unit/*.futil"
 ]
-
 cmd = """
-../target/debug/interp {}
+  ../target/debug/interp {} | jq .memories
 """
 
 [[tests]]
-name = "Interpreter tests"
+name = "primitives"
 paths = [
-    "tests/*.futil"
+    "tests/primitives/*.futil"
 ]
-
 cmd = """
-../target/debug/interp {}
+../target/debug/interp {} | jq .memories
 """
 
 [[tests]]
-name = "Lowered tests"
+name = "control"
 paths = [
-    "tests/lowered_tests/*.futil"
+    "tests/control/*.futil",
+    "tests/control/iteration/*.futil"
 ]
-
 cmd = """
-../target/debug/interp {}
+../target/debug/interp {} | jq .memories
 """
 
 [[tests]]
-name = "Lowered simple tests"
+name = "fully structural"
 paths = [
-    "tests/lowered_tests/lowered_simple_tests/*.futil"
+    "tests/control/*.futil",
+  # Disabled iteration tests due to bug
+  #    "tests/control/iteration/*.futil"
 ]
-
 cmd = """
-../target/debug/interp {}
+../target/debug/futil {} -d static-timing -l ../ | ../target/debug/interp | jq .memories
 """
+expect_dir = "tests/lowered/"
