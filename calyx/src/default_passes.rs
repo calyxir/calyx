@@ -1,3 +1,4 @@
+//! Defines the default passes available to [PassManager].
 use crate::passes::{
     ClkInsertion, CollapseControl, CompileControl, CompileEmpty, CompileInvoke,
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion,

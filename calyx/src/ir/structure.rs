@@ -155,7 +155,7 @@ impl Cell {
             .map(|r| Rc::clone(r))
     }
 
-    /// Get a reference to the first port that has the attribute [[attr]]
+    /// Get a reference to the first port that has the attribute `attr`.
     pub fn find_with_attr<S>(&self, attr: S) -> Option<RRC<Port>>
     where
         S: AsRef<str>,
