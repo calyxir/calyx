@@ -1,4 +1,4 @@
-/// Abstract Syntax Tree for Futil
+//! Abstract Syntax Tree for Calyx
 use super::parser;
 use crate::errors::{Error, FutilResult, Span};
 use crate::ir;
