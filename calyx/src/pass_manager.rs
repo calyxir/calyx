@@ -1,9 +1,12 @@
+//! Define the PassManager structure that is used to construct and run pass
+//! passes.
 use crate::{
     errors::{Error, FutilResult},
     ir,
 };
 use std::collections::{HashMap, HashSet};
 
+/// Top-level type for all passes that transform an [ir::Context]
 pub type PassClosure = Box<dyn Fn(&mut ir::Context) -> FutilResult<()>>;
 
 /// Structure that tracks all registered passes for the compiler.

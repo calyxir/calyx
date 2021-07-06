@@ -1,3 +1,4 @@
+//! Calculate the reaching definitions in a control program.
 use crate::analysis::ReadWriteSet;
 use crate::ir::{self, CloneName};
 use std::cmp::Ordering;
