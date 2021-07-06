@@ -198,9 +198,10 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                 // no need to make updates if the value has not changed
                 let port = assignment.dst.clone(); // Rc clone
                 let new_val: OutputValue = new_val_ref.clone().into();
-                updates_list.push((port, new_val));
 
                 if old_val != new_val_ref.into() {
+                    updates_list.push((port, new_val)); //no point in rewriting same value to this list
+
                     val_changed_flag = true;
                 }
             }
