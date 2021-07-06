@@ -1,0 +1,39 @@
+import "primitives/std.lib";
+component main<"static"=3>(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    const1 = std_const(32, 1);
+    const2 = std_const(32, 2);
+    const3 = std_const(32, 3);
+    add1 = std_add(32);
+    add2 = std_add(32);
+    reg1 = std_reg(32);
+    reg2 = std_reg(32);
+    fsm = std_reg(2);
+    incr = std_add(2);
+  }
+  wires {
+    done = fsm.out == 2'd3 ? 1'd1;
+    add1.left = fsm.out == 2'd0 & go ? const1.out;
+    add1.left = fsm.out < 2'd0 & go | fsm.out >= 2'd1 & fsm.out < 2'd3 & go ? const2.out;
+    add1.right = fsm.out < 2'd0 & go ? const1.out;
+    add1.right = fsm.out == 2'd0 & go ? const2.out;
+    add1.right = fsm.out >= 2'd1 & fsm.out < 2'd3 & go ? const3.out;
+    add2.left = fsm.out >= 2'd1 & fsm.out < 2'd3 & go ? reg1.out;
+    add2.right = fsm.out >= 2'd1 & fsm.out < 2'd3 & go ? const1.out;
+    fsm.clk = clk;
+    fsm.in = fsm.out == 2'd3 ? 2'd0;
+    fsm.in = fsm.out != 2'd3 & go ? incr.out;
+    fsm.write_en = fsm.out != 2'd3 & go | fsm.out == 2'd3 ? 1'd1;
+    incr.left = go ? 2'd1;
+    incr.right = go ? fsm.out;
+    reg1.clk = clk;
+    reg1.in = fsm.out == 2'd0 & go | fsm.out >= 2'd1 & fsm.out < 2'd3 & go ? add1.out;
+    reg1.write_en = fsm.out == 2'd0 & go | fsm.out >= 2'd1 & fsm.out < 2'd3 & go ? 1'd1;
+    reg2.clk = clk;
+    reg2.in = fsm.out >= 2'd1 & fsm.out < 2'd3 & go ? add2.out;
+    reg2.write_en = fsm.out >= 2'd1 & fsm.out < 2'd3 & go ? reg1.done;
+  }
+
+  control {}
+}
+

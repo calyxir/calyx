@@ -1,7 +1,12 @@
 use crate::values::{OutputValue, PulseValue, TimeLockedValue, Value};
-use calyx::ir::{Assignment, Cell, Port, RRC};
+use calyx::errors::Error;
+use calyx::ir::{Assignment, Cell, Id, Port, RRC};
+use serde::Deserialize;
+use std::collections::HashMap;
+use std::fs;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
+use std::path::PathBuf;
 pub(super) struct PortRef(RRC<Port>);
 
 impl Deref for PortRef {
@@ -183,4 +188,37 @@ impl From<&RRC<Cell>> for CellRef {
 //new utility:
 pub fn get_const_from_rrc<T>(input: &RRC<T>) -> *const T {
     input.as_ptr()
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(transparent)]
+pub struct MemoryMap(HashMap<Id, Vec<Value>>);
+
+impl MemoryMap {
+    pub fn inflate_map(path: &Option<PathBuf>) -> Result<Option<Self>, Error> {
+        if let Some(path) = path {
+            let v = fs::read(path)?;
+            let file_contents = std::str::from_utf8(&v)?;
+            let map: MemoryMap = serde_json::from_str(file_contents).unwrap();
+            return Ok(Some(map));
+        }
+
+        Ok(None)
+    }
+}
+
+impl Deref for MemoryMap {
+    type Target = HashMap<Id, Vec<Value>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+use std::ops::DerefMut;
+
+impl DerefMut for MemoryMap {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
 }

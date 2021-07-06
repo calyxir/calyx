@@ -1,4 +1,5 @@
 use bitvec::prelude::*;
+use serde::de::{self, Deserialize, Visitor};
 use std::convert::TryInto;
 
 // Lsb0 means [10010] gives 0 at index 0, 1 at index 1, 0 at index 2, etc
@@ -354,7 +355,7 @@ impl Eq for Value {}
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         assert!(self.vec.len() == other.vec.len());
-        Some(self.vec.cmp(&other.vec))
+        Some(self.as_u64().cmp(&other.as_u64()))
     }
 }
 
@@ -522,5 +523,41 @@ impl OutputValue {
             OutputValue::LockedValue(v) => v.do_tick(),
             OutputValue::PulseValue(v) => v.do_tick(),
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for Value {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct BitVecVisitor;
+
+        impl<'de> Visitor<'de> for BitVecVisitor {
+            type Value = BitVec<Lsb0, u64>;
+
+            fn expecting(
+                &self,
+                formatter: &mut std::fmt::Formatter,
+            ) -> std::fmt::Result {
+                formatter.write_str("Expected bitstring")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                let mut vec = BitVec::<Lsb0, u64>::new();
+                let s = String::from(value);
+                for c in s.chars() {
+                    let bit: bool = c.to_digit(2).unwrap() == 1;
+                    vec.insert(0, bit)
+                }
+                Ok(vec)
+            }
+        }
+
+        let val = deserializer.deserialize_str(BitVecVisitor)?;
+        Ok(crate::values::Value { vec: val })
     }
 }
