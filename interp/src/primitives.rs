@@ -692,7 +692,7 @@ impl StdMemD2 {
 
     #[inline]
     fn calc_addr(&self, addr0: u64, addr1: u64) -> u64 {
-        addr1 + addr0 * self.d1_size
+        addr0 * self.d1_size + addr1
     }
 }
 
@@ -908,7 +908,7 @@ impl StdMemD3 {
 
     #[inline]
     fn calc_addr(&self, addr0: u64, addr1: u64, addr2: u64) -> u64 {
-        addr2 + self.d2_size * (addr1 + addr0 * self.d1_size)
+        self.d2_size * (addr0 * self.d1_size + addr1) + addr2
     }
 }
 
@@ -1153,9 +1153,8 @@ impl StdMemD4 {
 
     #[inline]
     fn calc_addr(&self, addr0: u64, addr1: u64, addr2: u64, addr3: u64) -> u64 {
-        addr3
-            + self.d3_size
-                * (addr2 + self.d2_size * (addr1 + addr0 * self.d1_size))
+        self.d3_size * (self.d2_size * (addr0 * self.d1_size + addr1) + addr2)
+            + addr3
     }
 }
 
