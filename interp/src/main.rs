@@ -26,6 +26,11 @@ pub struct Opts {
     /// Path to the primitives library
     #[structopt(long, short, default_value = "..")]
     pub lib_path: PathBuf,
+
+    /// Path to optional datafile used to initialze memories. If it is not
+    /// provided memories will be initialzed with zeros
+    #[structopt(long = "data", short = "d", parse(from_os_str))]
+    pub data_file: Option<PathBuf>,
 }
 
 //first half of this is tests
@@ -43,7 +48,9 @@ fn main() -> FutilResult<()> {
 
     pm.execute_plan(&mut ctx.borrow_mut(), &["validate".to_string()], &[])?;
 
-    let env = environment::InterpreterState::init(&ctx);
+    let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
+
+    let env = environment::InterpreterState::init(&ctx, &mems);
 
     // Get main component; assuming that opts.component is main
     // TODO: handle when component, group are not default values
