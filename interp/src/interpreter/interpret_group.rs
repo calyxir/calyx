@@ -29,15 +29,16 @@ type PortOutputValMap = HashMap<ConstPort, OutputValue>;
 // TODO (griffin): Update / remove pending changes to environment definition
 #[derive(Debug)]
 struct WorkingEnvironment {
+    //InterpreterState has a pv_map which is a Smoosher<*const ir::Port, Value>
     pub backing_env: InterpreterState,
-    pub working_env: PortOutputValMap,
+    pub working_env: PortOutputValMap, // HashMap<*const ir::Port, OutputValue>
 }
 
 impl From<InterpreterState> for WorkingEnvironment {
     fn from(input: InterpreterState) -> Self {
         Self {
-            working_env: PortOutputValMap::default(),
             backing_env: input,
+            working_env: PortOutputValMap::default(),
         }
     }
 }
@@ -80,6 +81,7 @@ impl WorkingEnvironment {
         self.get_as_val_const(port as *const ir::Port)
     }
 
+    //for use w/ smoosher: maybe add a new scope onto backing_env for the tick?
     fn do_tick(&mut self) {
         self.backing_env.clk += 1;
 
@@ -89,13 +91,13 @@ impl WorkingEnvironment {
             .drain()
             .filter_map(|(port, val)| match val {
                 OutputValue::ImmediateValue(iv) => {
-                    self.backing_env.insert(port, iv);
+                    self.backing_env.insert(port, iv); //if you have an IV, remove from WorkingEnv and put in BackingEnv
                     None
                 }
                 out @ OutputValue::PulseValue(_)
                 | out @ OutputValue::LockedValue(_) => match out.do_tick() {
                     OutputValue::ImmediateValue(iv) => {
-                        self.backing_env.insert(port, iv);
+                        self.backing_env.insert(port, iv); //if you have a Locked/PulseValue, tick it, and if it's now IV, put in BackEnv
                         None
                     }
                     v @ OutputValue::LockedValue(_) => Some((port, v)),
@@ -156,10 +158,19 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
     assigns: I,
 ) -> FutilResult<InterpreterState> {
     let assigns = assigns.collect_vec();
-    let mut working_env: WorkingEnvironment = env.into();
+    let mut working_env: WorkingEnvironment = env.into(); //env as backing_env, fresh slate as working_env
 
     let cells = get_cells(assigns.iter().copied());
 
+    //another issue w/ using smoosher: say we are in tick X. If the guard fails
+    //for a given port N, and that guard has failed since tick X, would we know
+    //to assign N a zero? The first tick has to be done seperately
+    //so that all ports in [assigns] are put in the bottom scope of the Smoosher
+    //(failed guards go in as zeroes)
+    //and the we can trust it to catch unassigned port sin higher scopes using
+    //perhaps smoosher.tail_to_hm() - smoosher.top(). But still the issue of output
+    //values ? No, we don't intend to change the WorkingEnvironment struct, just this
+    //possible_ports stuff
     let possible_ports: HashSet<*const ir::Port> =
         assigns.iter().map(|a| get_const_from_rrc(&a.dst)).collect();
     let mut val_changed_flag = false;
@@ -173,12 +184,14 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         // run all prims
         // if no change, commit value updates
 
-        //how to get all possible ports?
-
         let mut updates_list = vec![];
         // compute all updates from the assignments
         for assignment in &assigns {
             if eval_guard(&assignment.guard, &working_env) {
+                //if we change to smoosher, we need to add functionality that
+                //still prevents multiple drivers to same port, like below
+                //Perhaps use Smoosher's diff_other func?
+
                 //first check nothing has been assigned to this destination yet
                 if assigned_ports.contains(&get_const_from_rrc(&assignment.dst))
                 {
@@ -191,6 +204,9 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                 //value driving the port
                 assigned_ports.insert(get_const_from_rrc(&assignment.dst));
                 //ok now proceed
+                //the below (get) attempts to get from working_env HM first, then
+                //backing_env Smoosher. What does it mean for the value to be in HM?
+                //That it's a locked value?
                 let old_val = working_env.get(&assignment.dst.borrow());
                 let new_val_ref =
                     working_env.get_as_val(&assignment.src.borrow());
