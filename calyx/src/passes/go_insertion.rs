@@ -28,7 +28,7 @@ impl Named for GoInsertion {
     }
 
     fn description() -> &'static str {
-        "removes redudant seq statements"
+        "Inserts `go` signals into the guards of a group's non-hole assignments"
     }
 }
 

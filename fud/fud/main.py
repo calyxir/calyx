@@ -17,6 +17,7 @@ from .stages import (
     verilator,
     vivado,
     xilinx,
+    interpreter,
 )
 
 
@@ -105,6 +106,14 @@ def register_stages(registry, cfg):
             "Generate the XML metadata for Xilinx",
         )
     )
+    registry.register(
+        futil.FutilStage(
+            cfg,
+            "interpreter",
+            "-p none",
+            "Compile Calyx to Calyx",
+        )
+    )
 
     # Verilator
     registry.register(
@@ -131,6 +140,9 @@ def register_stages(registry, cfg):
     registry.register(xilinx.XilinxStage(cfg))
     registry.register(xilinx.HwEmulationStage(cfg))
     registry.register(xilinx.HwExecutionStage(cfg))
+
+    # Interpreter
+    registry.register(interpreter.InterpreterStage(cfg, "", "Run the interpreter"))
 
 
 def display_config(args, cfg):
