@@ -1,0 +1,80 @@
+{
+  "ports": {
+    "main": {
+      "_0_2": {
+        "out": 0
+      },
+      "_10_32": {
+        "out": 10
+      },
+      "_15_32": {
+        "out": 15
+      },
+      "_1_1": {
+        "out": 1
+      },
+      "_1_2": {
+        "out": 1
+      },
+      "_3_2": {
+        "out": 3
+      },
+      "cond_stored": {
+        "clk": 0,
+        "done": 0,
+        "in": 0,
+        "out": 0,
+        "reset": 0,
+        "write_en": 0
+      },
+      "const0": {
+        "out": 15
+      },
+      "const1": {
+        "out": 10
+      },
+      "fsm": {
+        "clk": 0,
+        "done": 0,
+        "in": 0,
+        "out": 3,
+        "reset": 0,
+        "write_en": 0
+      },
+      "incr": {
+        "left": 0,
+        "out": 0,
+        "right": 0
+      },
+      "lt0": {
+        "left": 0,
+        "out": 0,
+        "right": 0
+      },
+      "reg0": {
+        "clk": 0,
+        "done": 0,
+        "in": 0,
+        "out": 0,
+        "reset": 0,
+        "write_en": 0
+      },
+      "reg1": {
+        "clk": 0,
+        "done": 0,
+        "in": 0,
+        "out": 10,
+        "reset": 0,
+        "write_en": 0
+      }
+    }
+  },
+  "memories": {
+    "main": {
+      "cond_stored": 0,
+      "fsm": 3,
+      "reg0": 0,
+      "reg1": 10
+    }
+  }
+}

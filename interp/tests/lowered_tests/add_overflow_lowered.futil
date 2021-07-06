@@ -1,0 +1,24 @@
+import "primitives/core.futil";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    adder = std_add(4);
+    reg0 = std_reg(4);
+    reg1 = std_reg(5);
+    pad4_5 = std_pad(4, 5);
+  }
+  wires {
+    done = reg0.done & reg1.done ? 1'd1;
+    adder.left = go ? 4'd8;
+    adder.right = go ? 4'd15;
+    pad4_5.in = go ? adder.out;
+    reg0.clk = clk;
+    reg0.in = go ? adder.out;
+    reg0.write_en = go ? 1'd1;
+    reg1.clk = clk;
+    reg1.in = go ? pad4_5.out;
+    reg1.write_en = go ? 1'd1;
+  }
+
+  control {}
+}
+

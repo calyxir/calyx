@@ -1,0 +1,28 @@
+import "primitives/core.futil";
+component main<"static"=2>(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    mem = std_mem_d1(32, 1, 1);
+    reg0 = std_reg(32);
+    fsm = std_reg(2);
+    incr = std_add(2);
+  }
+  wires {
+    done = fsm.out == 2'd2 ? 1'd1;
+    fsm.clk = clk;
+    fsm.in = fsm.out == 2'd2 ? 2'd0;
+    fsm.in = fsm.out != 2'd2 & go ? incr.out;
+    fsm.write_en = fsm.out != 2'd2 & go | fsm.out == 2'd2 ? 1'd1;
+    incr.left = go ? 2'd1;
+    incr.right = go ? fsm.out;
+    mem.addr0 = fsm.out == 2'd0 & go | fsm.out == 2'd1 & go ? 1'd0;
+    mem.clk = clk;
+    mem.write_data = fsm.out == 2'd0 & go ? 32'd9;
+    mem.write_en = fsm.out == 2'd0 & go ? 1'd1;
+    reg0.clk = clk;
+    reg0.in = fsm.out == 2'd1 & go ? mem.read_data;
+    reg0.write_en = fsm.out == 2'd1 & go ? 1'd1;
+  }
+
+  control {}
+}
+

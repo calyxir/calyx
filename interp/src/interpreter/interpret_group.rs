@@ -2,7 +2,7 @@
 //! Only interprets a given group in a given component
 
 use crate::environment::InterpreterState;
-
+use crate::primitives::Primitive;
 use crate::utils::OutputValueRef;
 use crate::values::{OutputValue, ReadableValue, TimeLockedValue, Value};
 use calyx::{
@@ -135,13 +135,36 @@ impl WorkingEnvironment {
         }
         self.backing_env
     }
+
+    // For debugging purpose
+    fn _dump_state(&self, cell: &ir::Cell) {
+        println!("{} on cycle {}: ", cell.name(), self.backing_env.clk);
+        for p in &cell.ports {
+            let p_ref: &ir::Port = &p.borrow();
+            println!("  {} : {}", p_ref.name, self.get_as_val(p_ref).as_u64());
+        }
+        match self
+            .backing_env
+            .cell_prim_map
+            .borrow()
+            .get(&(cell as *const ir::Cell))
+            .unwrap()
+        {
+            Primitive::StdReg(ref reg) => {
+                println!("  internal state: {}", reg.val)
+            }
+            Primitive::StdMemD1(ref mem) => {
+                println!("  memval : {}", mem.data[0])
+            }
+            _ => {}
+        }
+    }
 }
 
 fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
     group.get(&"done")
 }
 
-// XXX(Alex): Maybe rename to `eval_is_done`?
 fn is_signal_high(done: OutputValueRef) -> bool {
     match done {
         OutputValueRef::ImmediateValue(v) => v.as_u64() == 1,
@@ -218,7 +241,10 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                 } else {
                     // this branch should be impossible since the list of
                     // ports we're iterating over are only those w/ updates
-                    unreachable!()
+                    panic!(
+                        "Multiple assignments to port {:?}",
+                        port.borrow().canonical()
+                    );
                 }
             }
         }

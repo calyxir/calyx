@@ -1,0 +1,34 @@
+import "primitives/core.futil";
+component main(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    i = std_mem_d1(32, 1, 1);
+    lt = std_lt(32);
+    add = std_add(32);
+    cs_wh = std_reg(1);
+    fsm = std_reg(2);
+  }
+  wires {
+    done = fsm.out == 2'd3 ? 1'd1;
+    add.left = !i.done & cs_wh.out & fsm.out == 2'd1 & go ? 32'd1;
+    add.right = !i.done & cs_wh.out & fsm.out == 2'd1 & go ? i.read_data;
+    cs_wh.clk = clk;
+    cs_wh.in = fsm.out == 2'd3 & go ? 1'd0;
+    cs_wh.in = fsm.out == 2'd0 & go ? lt.out;
+    cs_wh.write_en = fsm.out == 2'd0 & go | fsm.out == 2'd3 & go ? 1'd1;
+    fsm.clk = clk;
+    fsm.in = fsm.out == 2'd2 & cs_wh.out & go | fsm.out == 2'd3 ? 2'd0;
+    fsm.in = fsm.out == 2'd0 & 1'b1 & go ? 2'd1;
+    fsm.in = fsm.out == 2'd1 & i.done & cs_wh.out & go ? 2'd2;
+    fsm.in = fsm.out == 2'd1 & !cs_wh.out & go ? 2'd3;
+    fsm.write_en = fsm.out == 2'd0 & 1'b1 & go | fsm.out == 2'd1 & i.done & cs_wh.out & go | fsm.out == 2'd2 & cs_wh.out & go | fsm.out == 2'd1 & !cs_wh.out & go | fsm.out == 2'd3 ? 1'd1;
+    i.addr0 = !i.done & cs_wh.out & fsm.out == 2'd1 & go ? 1'd0;
+    i.clk = clk;
+    i.write_data = !i.done & cs_wh.out & fsm.out == 2'd1 & go ? add.out;
+    i.write_en = !i.done & cs_wh.out & fsm.out == 2'd1 & go ? 1'd1;
+    lt.left = fsm.out == 2'd0 & go ? i.read_data;
+    lt.right = fsm.out == 2'd0 & go ? 32'd8;
+  }
+
+  control {}
+}
+

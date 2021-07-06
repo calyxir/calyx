@@ -1,0 +1,20 @@
+import "primitives/std.lib";
+component main<"static"=1>(go: 1, clk: 1) -> (done: 1) {
+  cells {
+    const0 = std_const(32, 10);
+    const1 = std_const(32, 10);
+    ge0 = std_ge(32);
+    reg0 = std_reg(1);
+  }
+  wires {
+    done = reg0.done ? 1'd1;
+    ge0.left = go ? const0.out;
+    ge0.right = go ? const1.out;
+    reg0.clk = clk;
+    reg0.in = go ? ge0.out;
+    reg0.write_en = go ? 1'd1;
+  }
+
+  control {}
+}
+

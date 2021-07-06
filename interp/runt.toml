@@ -19,3 +19,23 @@ paths = [
 cmd = """
 ../target/debug/interp {}
 """
+
+[[tests]]
+name = "Lowered tests"
+paths = [
+    "tests/lowered_tests/*.futil"
+]
+
+cmd = """
+../target/debug/interp {}
+"""
+
+[[tests]]
+name = "Lowered simple tests"
+paths = [
+    "tests/lowered_tests/lowered_simple_tests/*.futil"
+]
+
+cmd = """
+../target/debug/interp {}
+"""
