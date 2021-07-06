@@ -141,7 +141,7 @@ def convert_to_json(output_dir, data, round_float_to_fixed):
                 else:
                     raise error
 
-        output_json[k] = list([convert(x) for x in arr.flatten()])
+        output_json[k] = [convert(x) for x in arr.flatten()]
     out_path = output_dir / _FILE_NAME
 
     with out_path.open("w") as f:
