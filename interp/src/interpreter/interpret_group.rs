@@ -150,10 +150,10 @@ impl WorkingEnvironment {
             .get(&(cell as *const ir::Cell))
             .unwrap()
         {
-            &Primitive::StdReg(ref reg) => {
+            Primitive::StdReg(ref reg) => {
                 println!("  internal state: {}", reg.val)
             }
-            &Primitive::StdMemD1(ref mem) => {
+            Primitive::StdMemD1(ref mem) => {
                 println!("  memval : {}", mem.data[0])
             }
             _ => {}
