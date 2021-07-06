@@ -32,11 +32,11 @@ component main() -> () {
         rsh.left = reg_15.out;
         rsh.right = 4'd1; 
 
-        rsh1.left = reg_11.out;
-        rsh1.right = 4'd1; 
+        rsh1.left = reg_11.out; // [0111]
+        rsh1.right = 4'd1;  //[0011] which is 3
 
         reg_rsh15.in = rsh.out; 
-        reg_rsh7.in = rsh1.out;
+        reg_rsh7.in = rsh1.out; //this gets 3
 
         shift[done] = reg_rsh15.done & reg_rsh7.done ? 1'b1; 
     }
@@ -52,7 +52,7 @@ component main() -> () {
         adder1.right = 4'd8; 
 
         reg_15.in = adder.out; 
-        reg_11.in = adder1.out;
+        reg_11.in = adder1.out; //3 + 8 gets 11
 
         add[done] = reg_15.done & reg_11.done ? 1'b1; 
     }

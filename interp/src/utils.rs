@@ -85,7 +85,7 @@ pub enum OutputValueRef<'a> {
 }
 
 impl<'a> OutputValueRef<'a> {
-    pub fn clone_referenced(&self) -> OutputValue {
+    pub fn _clone_referenced(&self) -> OutputValue {
         match &self {
             OutputValueRef::ImmediateValue(iv) => {
                 OutputValue::ImmediateValue((*iv).clone())
@@ -131,11 +131,11 @@ impl<'a> OutputValueRef<'a> {
         }
     }
 
-    pub fn _is_tlv(self) -> bool {
+    pub fn _is_tlv(&self) -> bool {
         matches!(self, OutputValueRef::LockedValue(_))
     }
 
-    pub fn _is_imm(self) -> bool {
+    pub fn _is_imm(&self) -> bool {
         matches!(self, OutputValueRef::ImmediateValue(_))
     }
 }
@@ -183,6 +183,11 @@ impl From<&RRC<Cell>> for CellRef {
     fn from(input: &RRC<Cell>) -> Self {
         Self(input.clone())
     }
+}
+
+//new utility:
+pub fn get_const_from_rrc<T>(input: &RRC<T>) -> *const T {
+    input.as_ptr()
 }
 
 #[derive(Debug, Deserialize)]

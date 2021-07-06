@@ -816,7 +816,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// Returns true if a binding of [k] exists in the topmost scope.
     /// False if [k] is not binded in the topmost scope (regardless of whether
     /// or not [k] exists in the entire Smoosher).
-    /// ```iss
+    /// ```
     /// # Example
     /// ```
     /// use interp::stk_env::Smoosher;

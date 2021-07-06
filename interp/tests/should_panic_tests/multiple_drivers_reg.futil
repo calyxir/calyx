@@ -1,0 +1,26 @@
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    const0 = std_const(32, 13);
+    const1 = std_const(32, 10);
+    reg0 = std_reg(32);
+
+  }
+
+  wires {
+    group op {
+      reg0.write_en = 1'd1;
+      reg0.in = const0.out;
+      reg0.in = const1.out;
+      op[done] = reg0.done;
+    }
+    
+  }
+
+  control {
+    seq {
+      op;
+    }
+  }
+}
