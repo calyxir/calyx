@@ -409,6 +409,9 @@ impl PulseValue {
         low_val2: Value,
         pulse_length: u64,
     ) -> Self {
+        //assert all values have the same width
+        assert!(low_val1.width() == high_val.width());
+        assert!(low_val1.width() == low_val2.width());
         Self {
             high_val,
             low_val1,
