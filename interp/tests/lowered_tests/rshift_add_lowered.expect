@@ -50,7 +50,7 @@
         "clk": 0,
         "done": 0,
         "in": 0,
-        "out": 7,
+        "out": 11,
         "reset": 0,
         "write_en": 0
       },
@@ -93,7 +93,7 @@
   "memories": {
     "main": {
       "fsm": 3,
-      "reg_11": 7,
+      "reg_11": 11,
       "reg_15": 15,
       "reg_rsh15": 7,
       "reg_rsh7": 3
