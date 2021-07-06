@@ -10,6 +10,8 @@ from calyx.utils import float_to_fixed_point
 
 from ..utils import shell, TmpDir
 
+# A local constant used only within this file largely for organizational
+# purposes and to avoid magic strings
 _FILE_NAME = "data.json"
 
 
