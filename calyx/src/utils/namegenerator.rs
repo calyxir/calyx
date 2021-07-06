@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 
 /// Simple HashMap-based name generator that generates new names for each
 /// prefix.
-/// ```
 #[derive(Clone, Debug)]
 pub struct NameGenerator {
     name_hash: HashMap<String, i64>,
