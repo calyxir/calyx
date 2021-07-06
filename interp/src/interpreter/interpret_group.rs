@@ -2,7 +2,7 @@
 //! Only interprets a given group in a given component
 
 use crate::environment::InterpreterState;
-
+use crate::primitives::Primitive;
 use crate::utils::OutputValueRef;
 use crate::values::{OutputValue, ReadableValue, TimeLockedValue, Value};
 use calyx::{
@@ -137,27 +137,28 @@ impl WorkingEnvironment {
     }
 
     // For debugging purpose
-    // fn _dump_state(&self, cell: &ir::Cell) {
-    //     println!("{} on cycle {}: ", cell.name(), self.backing_env.clk);
-    //     for p in &cell.ports {
-    //         let p_ref: &ir::Port = &p.borrow();
-    //         println!("  {} : {}", p_ref.name, self.get_as_val(p_ref).as_u64());
-    //     }
-    //     match self
-    //         .backing_env
-    //         .cell_prim_map
-    //         .get(&(cell as *const ir::Cell))
-    //         .unwrap()
-    //     {
-    //         &Primitive::StdReg(ref reg) => {
-    //             println!("  internal state: {}", reg.val)
-    //         }
-    //         &Primitive::StdMemD1(ref mem) => {
-    //             println!("  memval : {}", mem.data[0])
-    //         }
-    //         _ => {}
-    //     }
-    // }
+    fn _dump_state(&self, cell: &ir::Cell) {
+        println!("{} on cycle {}: ", cell.name(), self.backing_env.clk);
+        for p in &cell.ports {
+            let p_ref: &ir::Port = &p.borrow();
+            println!("  {} : {}", p_ref.name, self.get_as_val(p_ref).as_u64());
+        }
+        match self
+            .backing_env
+            .cell_prim_map
+            .borrow()
+            .get(&(cell as *const ir::Cell))
+            .unwrap()
+        {
+            Primitive::StdReg(ref reg) => {
+                println!("  internal state: {}", reg.val)
+            }
+            Primitive::StdMemD1(ref mem) => {
+                println!("  memval : {}", mem.data[0])
+            }
+            _ => {}
+        }
+    }
 }
 
 fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
