@@ -11,9 +11,9 @@ cmd = """
 """
 
 [[tests]]
-name = "Should panic tests"
+name = "errors"
 paths = [
-    "tests/should_panic_tests/*.futil"
+    "tests/errors/*.futil"
 ]
 
 cmd = """

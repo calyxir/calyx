@@ -221,8 +221,9 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                 //first check nothing has been assigned to this destination yet
                 if assigned_ports.contains(&get_const_from_rrc(&assignment.dst))
                 {
+                    let dst = assignment.dst.borrow();
                     panic!(
-                        "[interpret_group]: multiple assignments to one port: {:?}", assignment.dst.borrow().canonical()
+                        "[interpret_group]: multiple assignments to one port: {}.{}", dst.get_parent_name(), dst.name
                     );
                 }
                 //now add to the HS, because we are assigning
