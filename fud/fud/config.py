@@ -26,6 +26,12 @@ DEFAULT_CONFIGURATION = {
             "file_extensions": [".futil"],
             "flags": None,
         },
+        "interpreter": {
+            "exec": "./target/debug/interp",
+            "flags": None,
+            "data": None,
+            "round_float_to_fixed": True,
+        },
         "dahlia": {
             "exec": "dahlia",
             "file_extensions": [".fuse", ".dahlia"],
@@ -73,7 +79,7 @@ DEFAULT_CONFIGURATION = {
             "ssh_username": "",
             "host": None,
             "save_temps": None,
-            "xilinx_location": "/scratch/opt/Xilinx/2020.2",
+            "xilinx_location": "/scratch/opt/Xilinx/Vitis/2020.2",
             "xrt_location": "/opt/xilinx/xrt",
         },
         "fpga": {"data": None},

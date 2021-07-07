@@ -161,16 +161,16 @@ component relu_2x4x8x32(x0_0_0_0_read_data: 32, x0_0_0_0_done: 1, x10_0_0_0_read
   control {
     seq {
       let0;
-      while le0.out with cond0 {
+      @bound(2) while le0.out with cond0 {
         seq {
           let1;
-          while le1.out with cond1 {
+          @bound(4) while le1.out with cond1 {
             seq {
               let2;
-              while le2.out with cond2 {
+              @bound(8) while le2.out with cond2 {
                 seq {
                   let3;
-                  while le3.out with cond3 {
+                  @bound(32) while le3.out with cond3 {
                     seq {
                       upd0;
                       if gt0.out with cond4 {

@@ -4,6 +4,7 @@ use calyx::{
     pass_manager::PassManager,
     utils::OutputFile,
 };
+
 use interp::environment;
 use interp::interpreter::interpret_component;
 use std::cell::RefCell;
@@ -26,15 +27,10 @@ pub struct Opts {
     #[structopt(long, short, default_value = "..")]
     pub lib_path: PathBuf,
 
-    /// Component to interpret
-    #[structopt(short = "c", long = "component", default_value = "main")]
-    pub component: String,
-
-    /// Group to interpret
-    /// XX(karen): The user can specify a particular group to interpret,
-    /// assuming the group is in `main` if not specified otherwise.
-    #[structopt(short = "g", long = "group", default_value = "main")]
-    pub group: String,
+    /// Path to optional datafile used to initialze memories. If it is not
+    /// provided memories will be initialzed with zeros
+    #[structopt(long = "data", short = "d", parse(from_os_str))]
+    pub data_file: Option<PathBuf>,
 }
 
 //first half of this is tests
@@ -52,7 +48,9 @@ fn main() -> FutilResult<()> {
 
     pm.execute_plan(&mut ctx.borrow_mut(), &["validate".to_string()], &[])?;
 
-    let env = environment::Environment::init(&ctx);
+    let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
+
+    let env = environment::InterpreterState::init(&ctx, &mems);
 
     // Get main component; assuming that opts.component is main
     // TODO: handle when component, group are not default values

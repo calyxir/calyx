@@ -38,8 +38,9 @@ int main(int argc, char **argv, char **env) {
   // initialize simulation inputs and eval once to avoid zero-time reset bug
   // (https://github.com/verilator/verilator/issues/2661)
   top->go = 0;
-  top->eval();
   top->clk = 0;
+  top->reset = 1;
+  top->eval();
 
   int done = 0;
   int ignore_cycles = 5;
@@ -49,7 +50,9 @@ int main(int argc, char **argv, char **env) {
     // Do nothing for a few cycles to avoid zero-time reset bug
     if (ignore_cycles == 0) {
       top->go = 1;
+      top->reset = 0;
     } else {
+      top->reset = 1;
       ignore_cycles--;
     }
     // dump variables into VCD file and toggle clock

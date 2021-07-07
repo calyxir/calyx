@@ -1,0 +1,31 @@
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    add1 = std_add(32);
+    add2 = std_add(32);
+    reg1 = std_reg(32);
+  }
+
+  wires {
+    // Test that combinationally feeding values into adders works.
+    // Computes (1 + 2) + 3.
+    group adds {
+
+      add1.left = 32'd1;
+      add1.right = 32'd2;
+
+      add2.right = 32'd3;
+      add2.left = add1.out;
+
+      reg1.write_en = 1'd1;
+      reg1.in = add2.out;
+
+      adds[done] = reg1.done;
+    }
+  }
+
+  control {
+    adds;
+  }
+}

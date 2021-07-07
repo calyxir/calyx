@@ -1,17 +1,17 @@
 //! Used for the command line interface.
 //! Only interprets a given group in a given component
 
-use crate::environment::Environment;
+use crate::environment::InterpreterState;
 
-use crate::utils::OutputValueRef;
-use crate::values::{OutputValue, ReadableValue, TimeLockedValue, Value};
+use crate::primitives::Primitive;
+use crate::utils::{get_const_from_rrc, OutputValueRef};
+use crate::values::{OutputValue, ReadableValue, Value};
 use calyx::{
     errors::FutilResult,
     ir::{self, RRC},
 };
 use itertools::Itertools;
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 type ConstPort = *const ir::Port;
@@ -28,89 +28,87 @@ type PortOutputValMap = HashMap<ConstPort, OutputValue>;
 /// the environment maps to values of type Value, but during group
 /// interpretation, ports need to be mapped to values of type OutputValue
 // TODO (griffin): Update / remove pending changes to environment definition
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct WorkingEnvironment {
-    pub backing_env: Environment,
-    pub working_env: PortOutputValMap,
+    //InterpreterState has a pv_map which is a Smoosher<*const ir::Port, Value>
+    pub backing_env: InterpreterState,
+    pub working_env: PortOutputValMap, // HashMap<*const ir::Port, OutputValue>
 }
 
-impl From<Environment> for WorkingEnvironment {
-    fn from(input: Environment) -> Self {
+impl From<InterpreterState> for WorkingEnvironment {
+    fn from(input: InterpreterState) -> Self {
         Self {
-            working_env: PortOutputValMap::default(),
             backing_env: input,
+            working_env: PortOutputValMap::default(),
         }
     }
 }
 
 impl WorkingEnvironment {
-    fn get(&self, port: &ir::Port) -> OutputValueRef {
-        let working_val = self.working_env.get(&(port as ConstPort));
+    fn get_const(&self, port: *const ir::Port) -> OutputValueRef {
+        let working_val = self.working_env.get(&port);
         match working_val {
             Some(v) => v.into(),
-            None => self.backing_env.get_from_port(port).into(),
+            None => self.backing_env.get_from_const_port(port).into(),
         }
     }
+    /// Attempts to first get value from the working_env (PortOutputValMap)
+    /// If doesn't exist, gets from backing_env (InterpreterState)
+    fn get(&self, port: &ir::Port) -> OutputValueRef {
+        self.get_const(port as *const ir::Port)
+    }
 
-    fn entry(
+    fn update_val_const_port(
         &mut self,
-        port: &ir::Port,
-    ) -> std::collections::hash_map::Entry<ConstPort, OutputValue> {
-        self.working_env.entry(port as ConstPort)
+        port: *const ir::Port,
+        value: OutputValue,
+    ) {
+        self.working_env.insert(port, value);
     }
 
     fn update_val(&mut self, port: &ir::Port, value: OutputValue) {
-        self.working_env.insert(port as ConstPort, value);
+        self.update_val_const_port(port as *const ir::Port, value);
     }
 
-    fn get_as_val(&self, port: &ir::Port) -> &Value {
-        match self.get(port) {
+    fn get_as_val_const(&self, port: *const ir::Port) -> &Value {
+        match self.get_const(port) {
             OutputValueRef::ImmediateValue(iv) => iv.get_val(),
             OutputValueRef::LockedValue(tlv) => tlv.get_val(),
             OutputValueRef::PulseValue(pv) => pv.get_val(),
         }
     }
 
-    fn do_tick(&mut self) -> Vec<ConstPort> {
+    fn get_as_val(&self, port: &ir::Port) -> &Value {
+        self.get_as_val_const(port as *const ir::Port)
+    }
+
+    //for use w/ smoosher: maybe add a new scope onto backing_env for the tick?
+    fn do_tick(&mut self) {
         self.backing_env.clk += 1;
 
-        let mut new_vals = vec![];
         let mut w_env = std::mem::take(&mut self.working_env);
 
         self.working_env = w_env
             .drain()
             .filter_map(|(port, val)| match val {
                 OutputValue::ImmediateValue(iv) => {
-                    self.backing_env.insert(port, iv);
+                    self.backing_env.insert(port, iv); //if you have an IV, remove from WorkingEnv and put in BackingEnv
                     None
                 }
                 out @ OutputValue::PulseValue(_)
-                | out @ OutputValue::LockedValue(_) => {
-                    let old_val = out.get_val().clone();
-
-                    match out.do_tick() {
-                        OutputValue::ImmediateValue(iv) => {
-                            if iv != old_val {
-                                new_vals.push(port)
-                            }
-                            self.backing_env.insert(port, iv);
-                            None
-                        }
-                        v @ OutputValue::LockedValue(_) => Some((port, v)),
-                        OutputValue::PulseValue(pv) => {
-                            if *pv.get_val() != old_val {
-                                new_vals.push(port);
-                            }
-                            Some((port, pv.into()))
-                        }
+                | out @ OutputValue::LockedValue(_) => match out.do_tick() {
+                    OutputValue::ImmediateValue(iv) => {
+                        self.backing_env.insert(port, iv); //if you have a Locked/PulseValue, tick it, and if it's now IV, put in BackEnv
+                        None
                     }
-                }
+                    v @ OutputValue::LockedValue(_) => Some((port, v)),
+                    OutputValue::PulseValue(pv) => Some((port, pv.into())),
+                },
             })
             .collect();
-        new_vals
     }
 
-    fn collapse_env(mut self, panic_on_invalid_val: bool) -> Environment {
+    fn collapse_env(mut self, panic_on_invalid_val: bool) -> InterpreterState {
         let working_env = self.working_env;
 
         for (port, v) in working_env {
@@ -135,13 +133,36 @@ impl WorkingEnvironment {
         }
         self.backing_env
     }
+
+    // For debugging purpose
+    fn _dump_state(&self, cell: &ir::Cell) {
+        println!("{} on cycle {}: ", cell.name(), self.backing_env.clk);
+        for p in &cell.ports {
+            let p_ref: &ir::Port = &p.borrow();
+            println!("  {} : {}", p_ref.name, self.get_as_val(p_ref).as_u64());
+        }
+        match self
+            .backing_env
+            .cell_prim_map
+            .borrow()
+            .get(&(cell as *const ir::Cell))
+            .unwrap()
+        {
+            Primitive::StdReg(ref reg) => {
+                println!("  internal state: {}", reg.val)
+            }
+            Primitive::StdMemD1(ref mem) => {
+                println!("  memval : {}", mem.data[0])
+            }
+            _ => {}
+        }
+    }
 }
 
 fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
     group.get(&"done")
 }
 
-// XXX(Alex): Maybe rename to `eval_is_done`?
 fn is_signal_high(done: OutputValueRef) -> bool {
     match done {
         OutputValueRef::ImmediateValue(v) => v.as_u64() == 1,
@@ -156,18 +177,31 @@ fn is_signal_high(done: OutputValueRef) -> bool {
 /// provided with a port which will be treated as the revelant done signal for
 /// the execution
 fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
-    env: Environment,
+    env: InterpreterState,
     done_signal: &ir::Port,
     assigns: I,
-) -> FutilResult<Environment> {
+) -> FutilResult<InterpreterState> {
     let assigns = assigns.collect_vec();
-    let mut working_env: WorkingEnvironment = env.into();
+    let mut working_env: WorkingEnvironment = env.into(); //env as backing_env, fresh slate as working_env
 
     let cells = get_cells(assigns.iter().copied());
 
+    //another issue w/ using smoosher: say we are in tick X. If the guard fails
+    //for a given port N, and that guard has failed since tick X, would we know
+    //to assign N a zero? The first tick has to be done seperately
+    //so that all ports in [assigns] are put in the bottom scope of the Smoosher
+    //(failed guards go in as zeroes)
+    //and the we can trust it to catch unassigned port sin higher scopes using
+    //perhaps smoosher.tail_to_hm() - smoosher.top(). But still the issue of output
+    //values ? No, we don't intend to change the WorkingEnvironment struct, just this
+    //possible_ports stuff
+    let possible_ports: HashSet<*const ir::Port> =
+        assigns.iter().map(|a| get_const_from_rrc(&a.dst)).collect();
     let mut val_changed_flag = false;
 
     while !is_signal_high(working_env.get(done_signal)) || val_changed_flag {
+        //helps us tell if there are multiple assignments to same port >:0
+        let mut assigned_ports: HashSet<*const ir::Port> = HashSet::new();
         val_changed_flag = false;
 
         // do all assigns
@@ -175,52 +209,76 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         // if no change, commit value updates
 
         let mut updates_list = vec![];
+        // compute all updates from the assignments
         for assignment in &assigns {
+            // if assignment.dst.borrow().name == "done"
+            // println!("{:?}", assignment.);
             if eval_guard(&assignment.guard, &working_env) {
+                //if we change to smoosher, we need to add functionality that
+                //still prevents multiple drivers to same port, like below
+                //Perhaps use Smoosher's diff_other func?
+
+                //first check nothing has been assigned to this destination yet
+                if assigned_ports.contains(&get_const_from_rrc(&assignment.dst))
+                {
+                    let dst = assignment.dst.borrow();
+                    panic!(
+                        "[interpret_group]: multiple assignments to one port: {}.{}", dst.get_parent_name(), dst.name
+                    );
+                }
+                //now add to the HS, because we are assigning
+                //regardless of whether value has changed this is still a
+                //value driving the port
+                assigned_ports.insert(get_const_from_rrc(&assignment.dst));
+                //ok now proceed
+                //the below (get) attempts to get from working_env HM first, then
+                //backing_env Smoosher. What does it mean for the value to be in HM?
+                //That it's a locked value?
                 let old_val = working_env.get(&assignment.dst.borrow());
-                let new_val = working_env.get_as_val(&assignment.src.borrow());
+                let new_val_ref =
+                    working_env.get_as_val(&assignment.src.borrow());
 
                 // no need to make updates if the value has not changed
-                if old_val != new_val.into() {
+                let port = assignment.dst.clone(); // Rc clone
+                let new_val: OutputValue = new_val_ref.clone().into();
+
+                if old_val != new_val_ref.into() {
+                    updates_list.push((port, new_val)); //no point in rewriting same value to this list
+
                     val_changed_flag = true;
-                    updates_list.push(Rc::clone(&assignment.dst));
-
-                    // Using a TLV to simulate updates happening after reads
-                    // Note: this is a hack and should be removed pending
-                    // changes in the environment structures
-                    // see: https://github.com/cucapra/calyx/issues/549
-
-                    let tmp_old = match old_val.clone_referenced() {
-                        OutputValue::ImmediateValue(iv) => Some(iv),
-                        OutputValue::LockedValue(tlv) => tlv.old_value,
-                        OutputValue::PulseValue(pv) => Some(pv.take_val()),
-                    };
-
-                    let new_val = OutputValue::LockedValue(
-                        TimeLockedValue::new(new_val.clone(), 0, tmp_old),
-                    );
-
-                    let port = &assignment.dst.borrow();
-
-                    working_env.update_val(&port, new_val);
                 }
             }
         }
 
-        // Remove the placeholder TLVs
-        for port in updates_list {
-            if let Entry::Occupied(entry) = working_env.entry(&port.borrow()) {
-                let mut_ref = entry.into_mut();
-                let v = std::mem::take(mut_ref);
+        //now assign rest to 0
+        //first get all that need to be 0
+        for port in &possible_ports - &assigned_ports {
+            //need to set to zero, because unassigned
+            //ok now proceed
 
-                *mut_ref = if v.is_tlv() {
-                    v.unwrap_tlv().unlock().into()
-                } else {
-                    // this branch should be impossible since the list of
-                    // ports we're iterating over are only those w/ updates
-                    unreachable!()
-                }
+            //need to find appropriate-sized 0, so just read
+            //width of old_val
+
+            let old_val = working_env.get_as_val_const(port);
+            let old_val_width = old_val.width(); //&assignment.dst.borrow().width()
+            let new_val: OutputValue =
+                Value::try_from_init(0, old_val_width).unwrap().into();
+            //updates_list.push((port, new_val));
+
+            //how to avoid infinite loop?
+            //if old_val is imm value and zero, then that's
+            //when val_changed_flag is false, else true.
+            if old_val.as_u64() != 0 {
+                val_changed_flag = true;
             }
+
+            //update directly
+            working_env.update_val_const_port(port, new_val);
+        }
+
+        // perform all the updates
+        for (port, value) in updates_list {
+            working_env.update_val(&port.borrow(), value);
         }
 
         let changed = eval_prims(&mut working_env, cells.iter(), false);
@@ -228,13 +286,15 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
             val_changed_flag = true;
         }
 
+        //if done signal is low and we haven't yet changed anything, means primitives are done,
+        //time to evaluate sequential components
         if !is_signal_high(working_env.get(done_signal)) && !val_changed_flag {
             working_env.do_tick();
             for cell in cells.iter() {
-                if let Some(x) = working_env
-                    .backing_env
-                    .cell_prim_map
-                    .get_mut(&(&cell.borrow() as &ir::Cell as *const ir::Cell))
+                if let Some(x) =
+                    working_env.backing_env.cell_prim_map.borrow_mut().get_mut(
+                        &(&cell.borrow() as &ir::Cell as *const ir::Cell),
+                    )
                 {
                     x.commit_updates()
                 }
@@ -254,9 +314,9 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
 /// returns it to low after execution concludes
 pub fn interp_cont(
     continuous_assignments: &[ir::Assignment],
-    mut env: Environment,
+    mut env: InterpreterState,
     comp: &ir::Component,
-) -> FutilResult<Environment> {
+) -> FutilResult<InterpreterState> {
     let comp_sig = comp.signature.borrow();
 
     let go_port = comp_sig
@@ -302,8 +362,8 @@ pub fn interpret_group(
     group: &ir::Group,
     // TODO (griffin): Use these during interpretation
     continuous_assignments: &[ir::Assignment],
-    env: Environment,
-) -> FutilResult<Environment> {
+    env: InterpreterState,
+) -> FutilResult<InterpreterState> {
     let grp_done = get_done_port(&group);
     let grp_done_ref: &ir::Port = &grp_done.borrow();
     interp_assignments(
@@ -320,8 +380,8 @@ pub fn finish_group_interpretation(
     group: &ir::Group,
     // TODO (griffin): Use these during interpretation
     continuous_assignments: &[ir::Assignment],
-    env: Environment,
-) -> FutilResult<Environment> {
+    env: InterpreterState,
+) -> FutilResult<InterpreterState> {
     let grp_done = get_done_port(&group);
     let grp_done_ref: &ir::Port = &grp_done.borrow();
 
@@ -352,15 +412,15 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     let mut val_changed = false;
     // split mutability
     // TODO: change approach based on new env, once ready
-    let mut prim_map = std::mem::take(&mut env.backing_env.cell_prim_map);
+    let ref_clone = env.backing_env.cell_prim_map.clone(); // RC clone
+    let mut prim_map = ref_clone.borrow_mut();
 
     let mut update_list: Vec<(RRC<ir::Port>, OutputValue)> = vec![];
 
     for cell in exec_list {
         let inputs = get_inputs(&env, &cell.borrow());
 
-        let executable =
-            prim_map.get_mut(&(&cell.borrow() as &ir::Cell as *const ir::Cell));
+        let executable = prim_map.get_mut(&get_const_from_rrc(&cell));
 
         if let Some(prim) = executable {
             let new_vals = if reset_flag {
@@ -392,8 +452,6 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     for (port, val) in update_list {
         env.update_val(&port.borrow(), val);
     }
-
-    env.backing_env.cell_prim_map = prim_map;
 
     val_changed
 }
@@ -457,10 +515,10 @@ fn eval_guard(guard: &ir::Guard, env: &WorkingEnvironment) -> bool {
 /// for a given group. This function updates the values in the environment
 /// accordingly using zero as a placeholder for values that are undefined
 fn finish_interpretation<'a, I: Iterator<Item = &'a ir::Assignment>>(
-    mut env: Environment,
+    mut env: InterpreterState,
     done_signal: &ir::Port,
     assigns: I,
-) -> FutilResult<Environment> {
+) -> FutilResult<InterpreterState> {
     // replace port values for all the assignments
     let assigns = assigns.collect::<Vec<_>>();
 

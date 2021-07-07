@@ -2,6 +2,7 @@
 // standard library.
 use super::values::{OutputValue, PulseValue, TimeLockedValue, Value};
 use calyx::ir;
+use itertools::Itertools;
 use serde::Serialize;
 use std::ops::*;
 
@@ -481,6 +482,15 @@ impl StdMemD1 {
             update: None,
         }
     }
+
+    pub fn initialize_memory(&mut self, vals: &[Value]) {
+        assert_eq!(self.size as usize, vals.len());
+
+        for (idx, val) in vals.iter().enumerate() {
+            assert_eq!(val.len(), self.width as usize);
+            self.data[idx] = val.clone()
+        }
+    }
 }
 
 impl ValidateInput for StdMemD1 {
@@ -647,7 +657,7 @@ pub struct StdMemD2 {
     pub d1_size: u64,
     pub d0_idx_size: u64,
     pub d1_idx_size: u64, // # bits needed to index a piece of mem
-    pub data: Vec<Vec<Value>>,
+    pub data: Vec<Value>,
     update: Option<(u64, u64, Value)>,
 }
 
@@ -664,10 +674,8 @@ impl StdMemD2 {
         d1_idx_size: u64,
     ) -> StdMemD2 {
         //data is a 2d vector
-        let data = vec![
-            vec![Value::zeroes(width as usize); d1_size as usize];
-            d0_size as usize
-        ];
+        let data =
+            vec![Value::zeroes(width as usize); (d0_size * d1_size) as usize];
         StdMemD2 {
             width,
             d0_size,
@@ -677,6 +685,20 @@ impl StdMemD2 {
             data,
             update: None,
         }
+    }
+
+    pub fn initialize_memory(&mut self, vals: &[Value]) {
+        assert_eq!((self.d0_size * self.d1_size) as usize, vals.len());
+
+        for (idx, val) in vals.iter().enumerate() {
+            assert_eq!(val.len(), self.width as usize);
+            self.data[idx] = val.clone()
+        }
+    }
+
+    #[inline]
+    fn calc_addr(&self, addr0: u64, addr1: u64) -> u64 {
+        addr0 * self.d1_size + addr1
     }
 }
 
@@ -733,9 +755,10 @@ impl ExecuteStateful for StdMemD2 {
 
         //chech that addr1 is not out of bounds and that it is the proper iwdth
         let addr1 = addr1.as_u64();
+        let real_addr = self.calc_addr(addr0, addr1);
 
-        let old = self.data[addr0 as usize][addr1 as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
-                                                                     // only write to memory if write_en is 1
+        let old = self.data[real_addr as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
+                                                         // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
             self.update = Some((addr0, addr1, (*input).clone()));
             // what's in this vector:
@@ -776,7 +799,9 @@ impl ExecuteStateful for StdMemD2 {
         let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();
 
-        let old = self.data[addr0 as usize][addr1 as usize].clone();
+        let real_addr = self.calc_addr(addr0, addr1);
+
+        let old = self.data[real_addr as usize].clone();
 
         vec![
             (ir::Id::from("read_data"), old.into()),
@@ -786,7 +811,8 @@ impl ExecuteStateful for StdMemD2 {
 
     fn commit_updates(&mut self) {
         if let Some((addr0, addr1, val)) = self.update.take() {
-            self.data[addr0 as usize][addr1 as usize] = val;
+            let real_addr = self.calc_addr(addr0, addr1);
+            self.data[real_addr as usize] = val;
         }
     }
 
@@ -803,7 +829,9 @@ impl Serialize for StdMemD2 {
         let mem = self
             .data
             .iter()
-            .map(|x| x.iter().map(|y| y.as_u64()).collect::<Vec<_>>())
+            .chunks(self.d1_size as usize)
+            .into_iter()
+            .map(|x| x.into_iter().map(|y| y.as_u64()).collect::<Vec<_>>())
             .collect::<Vec<_>>();
         mem.serialize(serializer)
     }
@@ -837,7 +865,7 @@ pub struct StdMemD3 {
     d0_idx_size: u64,
     d1_idx_size: u64,
     d2_idx_size: u64,
-    data: Vec<Vec<Vec<Value>>>,
+    data: Vec<Value>,
     update: Option<(u64, u64, u64, Value)>,
 }
 
@@ -855,14 +883,10 @@ impl StdMemD3 {
         d1_idx_size: u64,
         d2_idx_size: u64,
     ) -> StdMemD3 {
-        let data =
-            vec![
-                vec![
-                    vec![Value::zeroes(width as usize); d2_size as usize];
-                    d1_size as usize
-                ];
-                d0_size as usize
-            ];
+        let data = vec![
+            Value::zeroes(width as usize);
+            (d0_size * d1_size * d2_size) as usize
+        ];
         StdMemD3 {
             width,
             d0_size,
@@ -874,6 +898,23 @@ impl StdMemD3 {
             data,
             update: None,
         }
+    }
+
+    pub fn initialize_memory(&mut self, vals: &[Value]) {
+        assert_eq!(
+            (self.d0_size * self.d1_size * self.d2_size) as usize,
+            vals.len()
+        );
+
+        for (idx, val) in vals.iter().enumerate() {
+            assert_eq!(val.len(), self.width as usize);
+            self.data[idx] = val.clone()
+        }
+    }
+
+    #[inline]
+    fn calc_addr(&self, addr0: u64, addr1: u64, addr2: u64) -> u64 {
+        self.d2_size * (addr0 * self.d1_size + addr1) + addr2
     }
 }
 
@@ -935,8 +976,9 @@ impl ExecuteStateful for StdMemD3 {
         let addr1 = addr1.as_u64();
         let addr2 = addr2.as_u64();
 
-        let old =
-            self.data[addr0 as usize][addr1 as usize][addr2 as usize].clone();
+        let real_addr = self.calc_addr(addr0, addr1, addr2);
+
+        let old = self.data[real_addr as usize].clone();
         //not sure if this could lead to errors (Some(old)) is borrow?
         // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
@@ -983,8 +1025,9 @@ impl ExecuteStateful for StdMemD3 {
         let addr1 = addr1.as_u64();
         let addr2 = addr2.as_u64();
 
-        let old =
-            self.data[addr0 as usize][addr1 as usize][addr2 as usize].clone();
+        let real_addr = self.calc_addr(addr0, addr1, addr2);
+
+        let old = self.data[real_addr as usize].clone();
         vec![
             (ir::Id::from("read_data"), old.into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
@@ -993,7 +1036,9 @@ impl ExecuteStateful for StdMemD3 {
 
     fn commit_updates(&mut self) {
         if let Some((addr0, addr1, addr2, val)) = self.update.take() {
-            self.data[addr0 as usize][addr1 as usize][addr2 as usize] = val;
+            let real_addr = self.calc_addr(addr0, addr1, addr2);
+
+            self.data[real_addr as usize] = val;
         }
     }
 
@@ -1010,9 +1055,15 @@ impl Serialize for StdMemD3 {
         let mem = self
             .data
             .iter()
+            .chunks((self.d2_size * self.d1_size) as usize)
+            .into_iter()
             .map(|x| {
-                x.iter()
-                    .map(|y| y.iter().map(|z| z.as_u64()).collect::<Vec<_>>())
+                x.into_iter()
+                    .chunks(self.d1_size as usize)
+                    .into_iter()
+                    .map(|y| {
+                        y.into_iter().map(|z| z.as_u64()).collect::<Vec<_>>()
+                    })
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
@@ -1053,7 +1104,7 @@ pub struct StdMemD4 {
     d1_idx_size: u64,
     d2_idx_size: u64,
     d3_idx_size: u64,
-    data: Vec<Vec<Vec<Vec<Value>>>>,
+    data: Vec<Value>,
     update: Option<(u64, u64, u64, u64, Value)>,
 }
 
@@ -1074,17 +1125,10 @@ impl StdMemD4 {
         d2_idx_size: u64,
         d3_idx_size: u64,
     ) -> StdMemD4 {
-        let data =
-            vec![
-                vec![
-                    vec![
-                        vec![Value::zeroes(width as usize); d3_size as usize];
-                        d2_size as usize
-                    ];
-                    d1_size as usize
-                ];
-                d0_size as usize
-            ];
+        let data = vec![
+            Value::zeroes(width as usize);
+            (d0_size * d1_size * d2_size * d3_size) as usize
+        ];
         StdMemD4 {
             width,
             d0_size,
@@ -1098,6 +1142,25 @@ impl StdMemD4 {
             data,
             update: None,
         }
+    }
+
+    pub fn initialize_memory(&mut self, vals: &[Value]) {
+        assert_eq!(
+            (self.d0_size * self.d1_size * self.d2_size * self.d3_size)
+                as usize,
+            vals.len()
+        );
+
+        for (idx, val) in vals.iter().enumerate() {
+            assert_eq!(val.len(), self.width as usize);
+            self.data[idx] = val.clone()
+        }
+    }
+
+    #[inline]
+    fn calc_addr(&self, addr0: u64, addr1: u64, addr2: u64, addr3: u64) -> u64 {
+        self.d3_size * (self.d2_size * (addr0 * self.d1_size + addr1) + addr2)
+            + addr3
     }
 }
 
@@ -1165,10 +1228,10 @@ impl ExecuteStateful for StdMemD4 {
         let addr2 = addr2.as_u64();
         let addr3 = addr3.as_u64();
 
-        let old = self.data[addr0 as usize][addr1 as usize][addr2 as usize]
-            [addr3 as usize]
-            .clone(); //not sure if this could lead to errors (Some(old)) is borrow?
-                      // only write to memory if write_en is 1
+        let real_addr = self.calc_addr(addr0, addr1, addr2, addr3);
+
+        let old = self.data[real_addr as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
+                                                         // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
             self.update = Some((addr0, addr1, addr2, addr3, (*input).clone()));
 
@@ -1214,10 +1277,9 @@ impl ExecuteStateful for StdMemD4 {
         let addr1 = addr1.as_u64();
         let addr2 = addr2.as_u64();
         let addr3 = addr3.as_u64();
+        let real_addr = self.calc_addr(addr0, addr1, addr2, addr3);
 
-        let old = self.data[addr0 as usize][addr1 as usize][addr2 as usize]
-            [addr3 as usize]
-            .clone();
+        let old = self.data[real_addr as usize].clone();
 
         vec![
             (ir::Id::from("read_data"), old.into()),
@@ -1227,8 +1289,8 @@ impl ExecuteStateful for StdMemD4 {
 
     fn commit_updates(&mut self) {
         if let Some((addr0, addr1, addr2, addr3, val)) = self.update.take() {
-            self.data[addr0 as usize][addr1 as usize][addr2 as usize]
-                [addr3 as usize] = val;
+            let real_addr = self.calc_addr(addr0, addr1, addr2, addr3);
+            self.data[real_addr as usize] = val;
         }
     }
 
@@ -1245,12 +1307,18 @@ impl Serialize for StdMemD4 {
         let mem = self
             .data
             .iter()
+            .chunks((self.d3_size * self.d2_size * self.d1_size) as usize)
+            .into_iter()
             .map(|x| {
-                x.iter()
+                x.into_iter()
+                    .chunks((self.d2_size * self.d1_size) as usize)
+                    .into_iter()
                     .map(|y| {
-                        y.iter()
+                        y.into_iter()
+                            .chunks(self.d1_size as usize)
+                            .into_iter()
                             .map(|z| {
-                                z.iter()
+                                z.into_iter()
                                     .map(|val| val.as_u64())
                                     .collect::<Vec<_>>()
                             })
@@ -1317,7 +1385,6 @@ impl ExecuteStateful for StdReg {
         let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
         let (_, write_en) =
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
-
         //write the input to the register
         if write_en.as_u64() == 1 {
             self.update = Some((*input).clone());

@@ -1,14 +1,16 @@
 use crate::errors::Span;
 use derivative::Derivative;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Represents an identifier in a Futil program
-#[derive(Derivative, Clone, PartialOrd, Ord)]
+#[derive(Derivative, Clone, PartialOrd, Ord, Deserialize)]
 #[derivative(Hash, Eq, Debug)]
+#[serde(transparent)]
 pub struct Id {
     pub id: String,
     #[derivative(Hash = "ignore")]
     #[derivative(Debug = "ignore")]
+    #[serde(skip)]
     span: Option<Span>,
 }
 
