@@ -58,6 +58,6 @@ paths = [
   #    "tests/control/iteration/*.futil"
 ]
 cmd = """
-../target/debug/futil {} -d static-timing -l ../ | ../target/debug/interp | jq .memories
+../target/debug/futil {} -d static-timing -d pre-opt -d post-opt -l ../ | ../target/debug/interp | jq .memories
 """
 expect_dir = "tests/lowered/"
