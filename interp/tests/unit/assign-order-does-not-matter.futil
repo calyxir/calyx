@@ -1,0 +1,24 @@
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    add0 = std_add(32);
+    reg0 = std_reg(32);
+  }
+
+  wires {
+    // Test that order of assignments does not matter.
+    group op {
+      add0.left = 32'd9;
+      reg0.in = add0.out;
+      op[done] = reg0.done;
+      add0.right = 32'd400;
+      reg0.write_en = 1'd1;
+    }
+
+  }
+
+  control {
+    op;
+  }
+}

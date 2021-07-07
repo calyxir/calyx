@@ -1,5 +1,0 @@
----CODE---
-101
----STDERR---
-thread 'main' panicked at '[interpret_group]: multiple assignments to one port: (Id { id: "add0" }, Id { id: "left" })', interp/src/interpreter/interpret_group.rs:222:21
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

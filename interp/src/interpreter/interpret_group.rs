@@ -211,6 +211,8 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         let mut updates_list = vec![];
         // compute all updates from the assignments
         for assignment in &assigns {
+            // if assignment.dst.borrow().name == "done"
+            // println!("{:?}", assignment.);
             if eval_guard(&assignment.guard, &working_env) {
                 //if we change to smoosher, we need to add functionality that
                 //still prevents multiple drivers to same port, like below
@@ -219,8 +221,9 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                 //first check nothing has been assigned to this destination yet
                 if assigned_ports.contains(&get_const_from_rrc(&assignment.dst))
                 {
+                    let dst = assignment.dst.borrow();
                     panic!(
-                        "[interpret_group]: multiple assignments to one port: {:?}", assignment.dst.borrow().canonical()
+                        "[interpret_group]: multiple assignments to one port: {}.{}", dst.get_parent_name(), dst.name
                     );
                 }
                 //now add to the HS, because we are assigning

@@ -1,0 +1,18 @@
+import "primitives/std.lib";
+
+component main() -> () {
+  cells {
+    sqrt0 = std_sqrt(32);
+  }
+
+  wires {
+    group op {
+      sqrt0.in = 32'd400;
+      op[done] = sqrt0.done;
+    }
+  }
+
+  control {
+    op;
+  }
+}

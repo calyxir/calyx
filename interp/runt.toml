@@ -1,61 +1,63 @@
 ver = "0.2.8"
 
+# Check basic functionality of the interpreter
 [[tests]]
-name = "Simple tests"
+name = "unit"
 paths = [
-    "tests/simple_tests/*.futil"
+  "tests/unit/*.futil"
+]
+cmd = """
+  ../target/debug/interp {} | jq .memories
+"""
+
+[[tests]]
+name = "errors"
+paths = [
+    "tests/errors/*.futil"
 ]
 
 cmd = """
 ../target/debug/interp {}
 """
 
-[[tests]]
-name = "Assorted tests"
-paths = [
-    "tests/assorted_tests/*.futil"
-]
+# [[tests]]
+# name = "Assorted tests"
+# paths = [
+#     "tests/assorted_tests/*.futil"
+# ]
 
+# cmd = """
+# ../target/debug/interp {} | jq .memories
+# """
+
+
+[[tests]]
+name = "primitives"
+paths = [
+    "tests/primitives/*.futil"
+]
 cmd = """
-../target/debug/interp {}
+../target/debug/interp {} | jq .memories
 """
 
 [[tests]]
-name = "Should panic tests"
+name = "control"
 paths = [
-    "tests/should_panic_tests/*.futil"
+    "tests/control/*.futil",
+    "tests/control/iteration/*.futil"
 ]
-
 cmd = """
-../target/debug/interp {}
+../target/debug/interp {} | jq .memories
 """
 
 [[tests]]
-name = "Interpreter tests"
+name = "fully structural"
 paths = [
-    "tests/*.futil"
+    "tests/control/*.futil",
+  # Disabled iteration tests due to bug
+  #    "tests/control/iteration/*.futil"
 ]
-
 cmd = """
-../target/debug/interp {}
+../target/debug/futil {} -d static-timing -d pre-opt -d post-opt -l ../ | ../target/debug/interp | jq .memories
 """
-
-[[tests]]
-name = "Lowered tests"
-paths = [
-    "tests/lowered_tests/*.futil"
-]
-
-cmd = """
-../target/debug/interp {}
-"""
-
-[[tests]]
-name = "Lowered simple tests"
-paths = [
-    "tests/lowered_tests/lowered_simple_tests/*.futil"
-]
-
-cmd = """
-../target/debug/interp {}
-"""
+expect_dir = "tests/lowered/"
