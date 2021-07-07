@@ -8,6 +8,7 @@ use std::ops::*;
 
 #[derive(Clone, Debug)]
 pub enum Primitive {
+    StdMultPipe(StdMultPipe),
     StdSgt(StdSgt),
     StdAdd(StdAdd),
     StdReg(StdReg),
@@ -128,6 +129,7 @@ impl Primitive {
             | Primitive::StdLe(_)
             | Primitive::StdLt(_) => true,
             Primitive::StdMemD1(_)
+            | Primitive::StdMultPipe(_) //for first version will not really be not combinational i think
             | Primitive::StdMemD2(_)
             | Primitive::StdMemD3(_)
             | Primitive::StdMemD4(_)
@@ -155,6 +157,7 @@ impl Primitive {
             | Primitive::StdNeq(_)
             | Primitive::StdLe(_)
             | Primitive::StdLt(_) => {}
+            Primitive::StdMultPipe(mp) => mp.commit_updates(),
             Primitive::StdReg(reg) => reg.commit_updates(),
             Primitive::StdMemD1(mem) => mem.commit_updates(),
             Primitive::StdMemD2(mem) => mem.commit_updates(),
@@ -183,6 +186,7 @@ impl Primitive {
             | Primitive::StdNeq(_)
             | Primitive::StdLe(_)
             | Primitive::StdLt(_) => {}
+            Primitive::StdMultPipe(mp) => mp.clear_update_buffer(),
             Primitive::StdReg(reg) => reg.clear_update_buffer(),
             Primitive::StdMemD1(mem) => mem.clear_update_buffer(),
             Primitive::StdMemD2(mem) => mem.clear_update_buffer(),
@@ -198,6 +202,7 @@ impl Serialize for Primitive {
         S: serde::Serializer,
     {
         match &self {
+            Primitive::StdMultPipe(prim) => prim.serialize(serializer),
             Primitive::StdReg(prim) => prim.serialize(serializer),
             Primitive::StdMemD1(prim) => prim.serialize(serializer),
             Primitive::StdMemD2(prim) => prim.serialize(serializer),
@@ -1449,6 +1454,159 @@ impl Serialize for StdReg {
     }
 }
 
+/// A draft of a non-combinational, unsigned pipelined multiplication primitive
+#[derive(Clone, Debug)]
+pub struct StdMultPipe {
+    pub width: u64,
+    pub left: Value,
+    pub right: Value,
+    pub out: Value,
+    update: Option<Value>, //need an update for left and right... how to do that?
+}
+
+impl StdMultPipe {
+    /// New StdMultPipe have zeroed left and right ports
+    pub fn new(width: u64) -> StdMultPipe {
+        StdMultPipe {
+            width,
+            left: Value::zeroes(width as usize),
+            right: Value::zeroes(width as usize),
+            out: Value::zeroes((width * 2) as usize), //the new width is width shifted to the left (times 2)
+            update: None,
+        }
+    }
+}
+
+impl ValidateInput for StdMultPipe {
+    fn validate_input(&self, inputs: &[(ir::Id, &Value)]) {
+        for (id, v) in inputs {
+            match id.as_ref() {
+                "left" => assert_eq!(v.len() as u64, self.width),
+                "right" => assert_eq!(v.len(), 1),
+                _ => {}
+            }
+        }
+    }
+}
+
+//how std_mult_pipe works:
+//you call execute_mut(left, right).
+//can call that as many times as you want; StdMultPipe will
+//only updates its [out] port once [commit_update] is issued
+
+impl ExecuteStateful for StdMultPipe {
+    /// Writes an update to StdMultPipe based on the Value inputs [left] and [right].
+    /// To commit this update, you must call [commit_updates].
+    /// # Example
+    /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
+    /// use calyx::ir;
+    ///
+    /// let mut mult_pipe = StdMultPipe::new(4); //inputs are 4-bit, output is 8
+    /// let left = (ir::Id::from("left"), &Value::try_from_init(3, 4).unwrap());
+    /// let right = (ir::Id::from("right"), &Value::try_from_init(8, 4).unwrap());
+    /// let output_vals = mult_pipe.execute_mut(&[left, right], &Value::bit_low());
+    /// let mut output_vals = output_vals.into_iter();
+    /// let (out, done) = (output_vals.next().unwrap(), output_vals.next().unwrap());
+    /// let mut out = out.1.unwrap_tlv();
+    /// if let OutputValue::PulseValue(mut d) = done.1 {
+    ///     assert_eq!(d.get_val().as_u64(), 0);
+    ///     d.tick();
+    ///     assert_eq!(d.get_val().as_u64(), 1);
+    ///     d.tick();
+    ///     assert_eq!(d.get_val().as_u64(), 0);
+    /// } else {
+    ///     panic!()
+    /// }
+    /// assert_eq!(out.get_count(), 3); //it takes 3 cycles to do pipelined mult
+    /// out.dec_count();
+    /// out.dec_count();
+    /// out.dec_count();
+    /// assert!(out.unlockable());
+    /// assert_eq!(out.clone().unlock().as_u64(), Value::try_from_init(24, 8).unwrap().as_u64());
+    /// ```
+    /// # Panics
+    /// Panics if [left], [right] are not the same width as self.width.
+    fn execute_mut(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+        current_done_val: &Value,
+    ) -> Vec<(ir::Id, OutputValue)> {
+        //unwrap the arguments -- no "write_en"
+        let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
+        let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
+        //calculate the product -- no "write_en", so no if statement
+        let product = left.as_u64() * right.as_u64();
+        self.update =
+            Some(Value::try_from_init(product, self.width * 2).unwrap());
+        let old = self.out.clone();
+        // what's in this vector:
+        // the "out" -- TimeLockedValue ofthe new mult data. Needs 3 cycles before readable (?)
+        // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
+        // all this coordination is done by the interpreter. We just set it up correctly
+        vec![
+            (
+                ir::Id::from("out"),
+                TimeLockedValue::new(
+                    Value::try_from_init(product, self.width * 2).unwrap(),
+                    3,
+                    Some(old),
+                )
+                .into(),
+            ),
+            (
+                "done".into(),
+                PulseValue::new(
+                    current_done_val.clone(),
+                    Value::bit_high(),
+                    Value::bit_low(),
+                    1,
+                )
+                .into(),
+            ),
+        ]
+    }
+
+    fn reset(
+        &self,
+        _inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, OutputValue)> {
+        vec![
+            (ir::Id::from("out"), self.out.clone().into()),
+            (ir::Id::from("done"), Value::zeroes(1).into()),
+        ]
+    }
+
+    fn commit_updates(&mut self) {
+        //this update is set in [execute_mut]
+        if let Some(out) = self.update.take() {
+            self.out = out;
+        }
+    }
+
+    fn clear_update_buffer(&mut self) {
+        self.update = None;
+    }
+}
+
+impl Serialize for StdMultPipe {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        //don't really know the serializer... can we be more explicit, given
+        //there are only 3 values?
+        let mem = vec![&self.left, &self.right, &self.out]
+            .iter()
+            .chunks(self.width as usize)
+            .into_iter()
+            .map(|x| x.into_iter().map(|y| y.as_u64()).collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        mem.serialize(serializer)
+    }
+}
+
 /// A component that keeps one value, that can't be rewritten. Is immutable,
 /// and instantiated with the value it holds, which must have the same # of bits as [width].
 #[derive(Clone, Debug)]
@@ -1600,7 +1758,7 @@ impl ExecuteBinary for StdRsh {
     }
 }
 
-//std_sgt
+///signed bitnum greater than comparison
 #[derive(Clone, Debug)]
 pub struct StdSgt {
     width: u64,
