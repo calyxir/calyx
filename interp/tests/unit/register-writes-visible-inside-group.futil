@@ -18,7 +18,7 @@ component main() -> () {
       fsm.in = fsm.out == 4'd1 & reg1.done ? 4'd2;
       fsm.in = fsm.out == 4'd2 & reg2.done ? 4'd3;
       fsm.in = fsm.out == 4'd3 & reg3.done ? 4'd4;
-      fsm.write_en = 1'd1;
+      fsm.write_en = (fsm.out == 4'd0 & reg0.done) | (fsm.out == 4'd1 & reg1.done) | (fsm.out == 4'd2 & reg2.done) | (fsm.out == 4'd3 & reg3.done) ? 1'd1;
 
       // Enable writes to registers in specific states.
       reg0.write_en = fsm.out == 4'd0 ? 1'd1;
