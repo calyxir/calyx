@@ -393,7 +393,7 @@ pub trait Execute: ValidateInput {
 }
 
 /// ExecuteStateful is a trait implemnted by primitive components such as
-/// StdReg and StdMem (D1 -- D4), allowing their state to be modified.
+/// StdReg, StdMem (D1 -- D4), and StdMultPipe allowing their state to be modified.
 pub trait ExecuteStateful: ValidateInput + Serialize {
     /// Use execute_mut to modify the state of a stateful component.
     /// No restrictions on exactly how the input(s) look
@@ -1341,9 +1341,7 @@ impl Serialize for StdMemD4 {
 }
 
 /// A Standard Register of a certain [width].
-/// Rules regarding cycle count, such as asserting [done] for just one cycle after a write, must be
-/// enforced and carried out by the interpreter. This register enforces no rules about
-/// when its state can be modified.
+
 #[derive(Clone, Debug)]
 pub struct StdReg {
     pub width: u64,
@@ -1465,18 +1463,18 @@ pub struct StdMultPipe {
     pub left: Value,
     pub right: Value,
     pub out: Value,
-    update: Option<Value>, //make this Option TLV
-                           //so commit updates just dec count + writes
-                           // once count is 0
-                           //want to be able to re-execute StdMultPipe as many times as you want
-                           //before you tick over the clock. Then on (3rd) clock tick (?), the update
-                           //is written to [out]
+    update: Option<TimeLockedValue>, //make this Option TLV
+                                     //so commit updates just dec count + writes
+                                     //once count is 0
+                                     //want to be able to re-execute StdMultPipe as many times as you want
+                                     //before you tick over the clock. Then on (3rd) clock tick (?), the update
+                                     //is written to [out]
 
-                           //should be able to re-assert left and right as much as you want;
-                           //the values will be captured on the clock tick. then those values need
-                           //to be left alone for 2 more cycles before the [out] is written to.
-                           //no guarantee for what happens if you change [left] and [right] during those
-                           //2 cycles
+                                     //should be able to re-assert left and right as much as you want;
+                                     //the values will be captured on the clock tick. then those values need
+                                     //to be left alone for 2 more cycles before the [out] is written to.
+                                     //no guarantee for what happens if you change [left] and [right] during those
+                                     //2 cyclesx
 }
 
 impl StdMultPipe {
@@ -1559,8 +1557,10 @@ impl ExecuteStateful for StdMultPipe {
         let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
         //calculate the product -- no "write_en", so no if statement
         let product = left.as_u64() * right.as_u64();
-        self.update = Some(Value::try_from_init(product, self.width).unwrap());
+        let update_val = Value::try_from_init(product, self.width).unwrap();
         let old = self.out.clone();
+        self.update =
+            Some(TimeLockedValue::new(update_val, 3, Some(old.clone())));
         // what's in this vector:
         // the "out" -- TimeLockedValue ofthe new mult data. Needs 3 cycles before readable (?)
         // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
@@ -1599,10 +1599,45 @@ impl ExecuteStateful for StdMultPipe {
         ]
     }
 
+    /// Currently both a [commit_updates] and decremnter for the TLV in the update
+    ///
+    /// # Example
+    /// ```
+    /// use interp::primitives::*;
+    /// use interp::values::*;
+    /// use calyx::ir;
+    ///
+    /// let mut mult_pipe = StdMultPipe::new(8);
+    /// let left = (ir::Id::from("left"), &Value::try_from_init(3, 8).unwrap());
+    /// let right = (ir::Id::from("right"), &Value::try_from_init(8, 8).unwrap());
+    /// mult_pipe.execute_mut(&[left, right], &Value::bit_low());
+    /// mult_pipe.commit_updates();
+    /// assert_eq!(mult_pipe.out.as_u64(), 0); //should not have been written to yet
+    /// mult_pipe.commit_updates();
+    /// mult_pipe.commit_updates();
+    /// assert_eq!(mult_pipe.out.as_u64(), 24); // has been 3 cycles, should have been written to
+    /// mult_pipe.commit_updates();
+    /// assert_eq!(mult_pipe.out.as_u64(), 24); // committing no updates is fine
+    /// ```
     fn commit_updates(&mut self) {
+        //while TLV in update buffer isn't ready, assign old
+        //once ready (this method does the ticks), assign
         //this update is set in [execute_mut]
-        if let Some(out) = self.update.take() {
-            self.out = out;
+        if let Some(mut out) = self.update.take() {
+            //make TLV in update closer to being ready
+            out.dec_count();
+            if out.unlockable() {
+                self.out = out.unlock();
+                //leave self.update as None?
+            } else {
+                //assign old val
+                //can only do this once; first time you do it,
+                //the old value will be replaced
+                if let Some(old_val) = out.old_value.take() {
+                    self.out = old_val;
+                }
+                self.update = Some(out);
+            }
         }
     }
 
