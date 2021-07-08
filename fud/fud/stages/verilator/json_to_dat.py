@@ -3,7 +3,14 @@ import numpy as np
 from .numeric_types import FixedPoint, Bitnum
 from pathlib import Path
 from fud.errors import InvalidNumericType, Malformed
-from calyx.utils import float_to_fixed_point
+
+
+def float_to_fixed(value: float, N: int) -> float:
+    """Round a float to a new float that could be represented with N
+    fractional bits in a fixed-point representation.
+    """
+    w = 2 << (N - 1)
+    return round(value * w) / float(w)
 
 
 def parse_dat(path, args):
@@ -113,7 +120,7 @@ def convert2dat(output_dir, data, extension, round_float_to_fixed):
                 if round_float_to_fixed:
                     # Only round if it is not already representable.
                     fractional_width = width - int_width
-                    x = float_to_fixed_point(float(x), fractional_width)
+                    x = float_to_fixed(float(x), fractional_width)
                     x = str(x)
                     return FixedPoint(x, **shape[k]).hex_string(with_prefix)
                 else:
