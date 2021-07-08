@@ -4,6 +4,7 @@ use calyx::ir;
 use calyx::ir::RRC;
 
 pub type ConstPort = *const ir::Port;
+pub type ConstCell = *const ir::Cell;
 
 pub fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
     group.get(&"done")
