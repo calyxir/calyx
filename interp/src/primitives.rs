@@ -652,7 +652,7 @@ pub struct StdMemD2 {
     pub d0_idx_size: u64,
     pub d1_idx_size: u64, // # bits needed to index a piece of mem
     pub data: Vec<Value>,
-    update: Option<(u64, u64, Value)>,
+    update: Option<(u64, Value)>,
 }
 
 impl StdMemD2 {
@@ -754,7 +754,8 @@ impl ExecuteStateful for StdMemD2 {
         let old = self.data[real_addr as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
                                                          // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.update = Some((addr0, addr1, (*input).clone()));
+            self.update =
+                Some((self.calc_addr(addr0, addr1), (*input).clone()));
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
             // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
@@ -804,9 +805,8 @@ impl ExecuteStateful for StdMemD2 {
     }
 
     fn commit_updates(&mut self) {
-        if let Some((addr0, addr1, val)) = self.update.take() {
-            let real_addr = self.calc_addr(addr0, addr1);
-            self.data[real_addr as usize] = val;
+        if let Some((addr, val)) = self.update.take() {
+            self.data[addr as usize] = val;
         }
     }
 
@@ -860,7 +860,7 @@ pub struct StdMemD3 {
     d1_idx_size: u64,
     d2_idx_size: u64,
     data: Vec<Value>,
-    update: Option<(u64, u64, u64, Value)>,
+    update: Option<(u64, Value)>,
 }
 
 impl StdMemD3 {
@@ -976,7 +976,8 @@ impl ExecuteStateful for StdMemD3 {
         //not sure if this could lead to errors (Some(old)) is borrow?
         // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.update = Some((addr0, addr1, addr2, (*input).clone()));
+            self.update =
+                Some((self.calc_addr(addr0, addr1, addr2), (*input).clone()));
 
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
@@ -1029,10 +1030,8 @@ impl ExecuteStateful for StdMemD3 {
     }
 
     fn commit_updates(&mut self) {
-        if let Some((addr0, addr1, addr2, val)) = self.update.take() {
-            let real_addr = self.calc_addr(addr0, addr1, addr2);
-
-            self.data[real_addr as usize] = val;
+        if let Some((addr, val)) = self.update.take() {
+            self.data[addr as usize] = val;
         }
     }
 
@@ -1099,7 +1098,7 @@ pub struct StdMemD4 {
     d2_idx_size: u64,
     d3_idx_size: u64,
     data: Vec<Value>,
-    update: Option<(u64, u64, u64, u64, Value)>,
+    update: Option<(u64, Value)>,
 }
 
 impl StdMemD4 {
@@ -1227,7 +1226,10 @@ impl ExecuteStateful for StdMemD4 {
         let old = self.data[real_addr as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
                                                          // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.update = Some((addr0, addr1, addr2, addr3, (*input).clone()));
+            self.update = Some((
+                self.calc_addr(addr0, addr1, addr2, addr3),
+                (*input).clone(),
+            ));
 
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
@@ -1282,9 +1284,8 @@ impl ExecuteStateful for StdMemD4 {
     }
 
     fn commit_updates(&mut self) {
-        if let Some((addr0, addr1, addr2, addr3, val)) = self.update.take() {
-            let real_addr = self.calc_addr(addr0, addr1, addr2, addr3);
-            self.data[real_addr as usize] = val;
+        if let Some((addr, val)) = self.update.take() {
+            self.data[addr as usize] = val;
         }
     }
 
