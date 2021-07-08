@@ -1,6 +1,6 @@
+use super::Primitive;
 use crate::comb_primitive;
 use crate::values::Value;
-use super::Primitive;
 
 // ===================== Unsigned binary operations ======================
 comb_primitive!(StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {

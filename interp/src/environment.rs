@@ -72,6 +72,7 @@ impl InterpreterState {
             "std_sub" => {
                 Box::new(primitives::combinational::StdSub::new(params))
             }
+            "std_reg" => Box::new(primitives::stateful::StdReg::new(params)),
             p => panic!("Unknown primitive: {}", p),
         }
     }
