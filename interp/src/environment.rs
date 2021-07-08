@@ -502,14 +502,14 @@ impl Serialize for InterpreterState {
 
         let p = Printable {
             ports: bmap,
-            // memories: cell_map,
+            memories: cell_map,
         };
         p.serialize(serializer)
     }
 }
 
 #[derive(Serialize)]
-struct Printable {
+struct Printable<'a> {
     ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
-    // memories: BTreeMap<ir::Id, BTreeMap<ir::Id, &'a Box<dyn Primitive>>>,
+    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, &'a Box<dyn Primitive>>>,
 }

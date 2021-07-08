@@ -1,4 +1,4 @@
-use super::Primitive;
+use super::{Primitive, Serializeable};
 use crate::values::{PulseValue, TimeLockedValue, Value};
 use calyx::ir;
 
@@ -100,5 +100,9 @@ impl Primitive for StdReg {
 
     fn clear_update_buffer(&mut self) {
         self.update = None;
+    }
+
+    fn serialize(&self) -> Serializeable {
+        Serializeable::Val(self.data[0].as_u64())
     }
 }
