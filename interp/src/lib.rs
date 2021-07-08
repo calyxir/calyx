@@ -1,6 +1,5 @@
 pub mod environment;
 pub mod interpreter;
-pub mod new_primitives;
 pub mod primitives;
 pub mod stk_env;
 pub mod values;

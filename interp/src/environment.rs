@@ -1,9 +1,9 @@
 //! Environment for interpreter.
 
-use super::new_primitives::Primitive;
+use super::primitives::Primitive;
 use super::stk_env::Smoosher;
 use super::utils::MemoryMap;
-use super::{new_primitives, values::Value};
+use super::{primitives, values::Value};
 use calyx::ir::{self, RRC};
 use serde::Serialize;
 use std::cell::RefCell;
@@ -21,7 +21,7 @@ type ConstPort = *const ir::Port;
 /// A map defining primitive implementations for Cells. As it is keyed by
 /// CellRefs the lifetime of the keys is independent of the actual cells
 type PrimitiveMap =
-    RRC<HashMap<ConstCell, Box<dyn crate::new_primitives::Primitive>>>;
+    RRC<HashMap<ConstCell, Box<dyn crate::primitives::Primitive>>>;
 
 /// A map defining values for ports. As it is keyed by PortRefs, the lifetime of
 /// the keys is independent of the ports. However as a result it is flat, rather
@@ -66,8 +66,13 @@ impl InterpreterState {
 
     fn make_primitive(name: ir::Id, params: ir::Binding) -> Box<dyn Primitive> {
         match name.as_ref() {
-            "std_add" => Box::new(new_primitives::StdAdd::new(params)),
-            "std_sub" => Box::new(new_primitives::StdSub::new(params)),
+            "std_add" => {
+                Box::new(primitives::combinational::StdAdd::new(params))
+            }
+            "std_sub" => {
+                Box::new(primitives::combinational::StdSub::new(params))
+            }
+            p => panic!("Unknown primitive: {}", p),
         }
     }
 
@@ -76,12 +81,11 @@ impl InterpreterState {
         for comp in &ctx.components {
             for cell in comp.cells.iter() {
                 let cl: &ir::Cell = &cell.borrow();
-                let cell_name = cl.name();
 
                 if let ir::CellType::Primitive {
                     name,
                     param_binding,
-                } = cl.prototype
+                } = cl.prototype.clone()
                 {
                     map.insert(
                         cl as ConstCell,
@@ -497,14 +501,14 @@ impl Serialize for InterpreterState {
 
         let p = Printable {
             ports: bmap,
-            memories: cell_map,
+            // memories: cell_map,
         };
         p.serialize(serializer)
     }
 }
 
 #[derive(Serialize)]
-struct Printable<'a> {
+struct Printable {
     ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
-    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, &'a Box<dyn Primitive>>>,
+    // memories: BTreeMap<ir::Id, BTreeMap<ir::Id, &'a Box<dyn Primitive>>>,
 }

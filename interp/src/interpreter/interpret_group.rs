@@ -3,7 +3,6 @@
 
 use crate::environment::InterpreterState;
 
-use crate::primitives::Primitive;
 use crate::utils::{get_const_from_rrc, OutputValueRef};
 use crate::values::{OutputValue, ReadableValue, Value};
 use calyx::{
@@ -134,7 +133,7 @@ impl WorkingEnvironment {
     }
 
     // For debugging purpose
-    fn _dump_state(&self, cell: &ir::Cell) {
+    /*fn _dump_state(&self, cell: &ir::Cell) {
         println!("{} on cycle {}: ", cell.name(), self.backing_env.clk);
         for p in &cell.ports {
             let p_ref: &ir::Port = &p.borrow();
@@ -155,7 +154,7 @@ impl WorkingEnvironment {
             }
             _ => {}
         }
-    }
+    }*/
 }
 
 fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
