@@ -1332,7 +1332,7 @@ impl Serialize for StdMemD4 {
 #[derive(Clone, Debug)]
 pub struct StdReg {
     pub width: u64,
-    pub val: Value,
+    pub data: [Value; 1],
     update: Option<Value>,
 }
 
@@ -1341,19 +1341,9 @@ impl StdReg {
     pub fn new(width: u64) -> StdReg {
         StdReg {
             width,
-            val: Value::new(width as usize),
+            data: [Value::new(width as usize)],
             update: None,
         }
-    }
-
-    /// warning unsafe deprecated
-    pub fn read_value(&self) -> Value {
-        self.val.clone()
-    }
-
-    /// warning unsafe deprecated
-    pub fn read_u64(&self) -> u64 {
-        self.val.as_u64()
     }
 }
 
@@ -1383,7 +1373,6 @@ impl ExecuteStateful for StdReg {
         //write the input to the register
         if write_en.as_u64() == 1 {
             self.update = Some((*input).clone());
-            let old = self.val.clone();
             // what's in this vector:
             // the "out" -- TimeLockedValue ofthe new register data. Needs 1 cycle before readable
             // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
@@ -1391,7 +1380,12 @@ impl ExecuteStateful for StdReg {
             vec![
                 (
                     ir::Id::from("out"),
-                    TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
+                    TimeLockedValue::new(
+                        (*input).clone(),
+                        1,
+                        Some(self.data[0].clone()),
+                    )
+                    .into(),
                 ),
                 (
                     "done".into(),
@@ -1409,7 +1403,7 @@ impl ExecuteStateful for StdReg {
             // in this vector i
             // OUT: the old value in the register, b/c we couldn't write
             // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
-            vec![(ir::Id::from("out"), self.val.clone().into())]
+            vec![(ir::Id::from("out"), self.data[0].clone().into())]
         }
     }
 
@@ -1418,14 +1412,14 @@ impl ExecuteStateful for StdReg {
         _inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)> {
         vec![
-            (ir::Id::from("out"), self.val.clone().into()),
+            (ir::Id::from("out"), self.data[0].clone().into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
         ]
     }
 
     fn commit_updates(&mut self) {
         if let Some(val) = self.update.take() {
-            self.val = val;
+            self.data[0] = val;
         }
     }
 
@@ -1439,7 +1433,7 @@ impl Serialize for StdReg {
     where
         S: serde::Serializer,
     {
-        let val = self.val.as_u64();
+        let val = self.data[0].as_u64();
         val.serialize(serializer)
     }
 }
