@@ -38,9 +38,15 @@ pub trait Primitive {
     fn serialize(&self) -> Serializeable {
         Serializeable::Empty
     }
+
+    // more efficient to override this with true in stateful cases
+    fn has_serializeable_state(&self) -> bool {
+        self.serialize().has_state()
+    }
 }
 
-/// An alias for a vector representing the shape of a multidimensional array
+/// An enum wrapping over a tuple representing the shape of a multi-dimensional
+/// array
 #[derive(Clone)]
 pub enum Shape {
     D1((usize,)),
@@ -57,6 +63,11 @@ impl Shape {
 impl From<usize> for Shape {
     fn from(u: usize) -> Self {
         Shape::D1((u,))
+    }
+}
+impl From<(usize,)> for Shape {
+    fn from(u: (usize,)) -> Self {
+        Shape::D1(u)
     }
 }
 impl From<(usize, usize)> for Shape {
@@ -95,7 +106,7 @@ impl Serialize for Serializeable {
         S: serde::Serializer,
     {
         match self {
-            Serializeable::Empty => todo!(),
+            Serializeable::Empty => serializer.serialize_unit(),
             Serializeable::Val(u) => u.serialize(serializer),
             Serializeable::Array(arr, shape) => {
                 let arr: Vec<&u64> = arr.iter().collect();
