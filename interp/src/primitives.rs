@@ -8,7 +8,6 @@ use std::ops::*;
 
 #[derive(Clone, Debug)]
 pub enum Primitive {
-    StdMultPipe(StdMultPipe),
     StdSgt(StdSgt),
     StdAdd(StdAdd),
     StdReg(StdReg),
@@ -32,6 +31,7 @@ pub enum Primitive {
     StdMemD2(StdMemD2),
     StdMemD3(StdMemD3),
     StdMemD4(StdMemD4),
+    StdMultPipe(StdMultPipe),
 }
 
 impl Primitive {
@@ -73,6 +73,9 @@ impl Primitive {
             Primitive::StdMemD4(prim) => {
                 prim.validate_and_execute_mut(inputs, current_done_val.unwrap())
             }
+            Primitive::StdMultPipe(prim) => {
+                prim.validate_and_execute_mut(inputs, current_done_val.unwrap())
+            }
             _ => panic!("cell cannot be executed"),
         }
     }
@@ -104,6 +107,7 @@ impl Primitive {
             Primitive::StdMemD2(prim) => prim.validate_and_reset(inputs),
             Primitive::StdMemD3(prim) => prim.validate_and_reset(inputs),
             Primitive::StdMemD4(prim) => prim.validate_and_reset(inputs),
+            Primitive::StdMultPipe(prim) => prim.validate_and_reset(inputs),
             _ => panic!("cell cannot be executed"),
         }
     }
@@ -129,7 +133,7 @@ impl Primitive {
             | Primitive::StdLe(_)
             | Primitive::StdLt(_) => true,
             Primitive::StdMemD1(_)
-            | Primitive::StdMultPipe(_) //for first version will not really be not combinational i think
+            | Primitive::StdMultPipe(_)
             | Primitive::StdMemD2(_)
             | Primitive::StdMemD3(_)
             | Primitive::StdMemD4(_)
@@ -1461,7 +1465,18 @@ pub struct StdMultPipe {
     pub left: Value,
     pub right: Value,
     pub out: Value,
-    update: Option<Value>, //need an update for left and right... how to do that?
+    update: Option<Value>, //make this Option TLV
+                           //so commit updates just dec count + writes
+                           // once count is 0
+                           //want to be able to re-execute StdMultPipe as many times as you want
+                           //before you tick over the clock. Then on (3rd) clock tick (?), the update
+                           //is written to [out]
+
+                           //should be able to re-assert left and right as much as you want;
+                           //the values will be captured on the clock tick. then those values need
+                           //to be left alone for 2 more cycles before the [out] is written to.
+                           //no guarantee for what happens if you change [left] and [right] during those
+                           //2 cycles
 }
 
 impl StdMultPipe {
@@ -1471,7 +1486,10 @@ impl StdMultPipe {
             width,
             left: Value::zeroes(width as usize),
             right: Value::zeroes(width as usize),
-            out: Value::zeroes((width * 2) as usize), //the new width is width shifted to the left (times 2)
+            out: Value::zeroes(width as usize),
+            //note on out: if left and right are say 3-bit 7s, out will be cut off
+            //so it's important the user gives left + right padded w/ enough zeroes
+            //as in, it's important the user stay aware of overflow
             update: None,
         }
     }
@@ -1482,7 +1500,7 @@ impl ValidateInput for StdMultPipe {
         for (id, v) in inputs {
             match id.as_ref() {
                 "left" => assert_eq!(v.len() as u64, self.width),
-                "right" => assert_eq!(v.len(), 1),
+                "right" => assert_eq!(v.len() as u64, self.width),
                 _ => {}
             }
         }
@@ -1493,19 +1511,22 @@ impl ValidateInput for StdMultPipe {
 //you call execute_mut(left, right).
 //can call that as many times as you want; StdMultPipe will
 //only updates its [out] port once [commit_update] is issued
+//but, this method still returns the output vector
 
 impl ExecuteStateful for StdMultPipe {
     /// Writes an update to StdMultPipe based on the Value inputs [left] and [right].
-    /// To commit this update, you must call [commit_updates].
+    /// To commit this update, you must call [commit_updates]. Returns a vector
+    /// of OutputValues (TLV of product, Pulse of done). The product will be of width
+    /// twice as large as [left]/[right]/[self.width]
     /// # Example
     /// ```
     /// use interp::primitives::*;
     /// use interp::values::*;
     /// use calyx::ir;
     ///
-    /// let mut mult_pipe = StdMultPipe::new(4); //inputs are 4-bit, output is 8
-    /// let left = (ir::Id::from("left"), &Value::try_from_init(3, 4).unwrap());
-    /// let right = (ir::Id::from("right"), &Value::try_from_init(8, 4).unwrap());
+    /// let mut mult_pipe = StdMultPipe::new(8); //inputs are 4-bit, output is 8
+    /// let left = (ir::Id::from("left"), &Value::try_from_init(3, 8).unwrap());
+    /// let right = (ir::Id::from("right"), &Value::try_from_init(8, 8).unwrap());
     /// let output_vals = mult_pipe.execute_mut(&[left, right], &Value::bit_low());
     /// let mut output_vals = output_vals.into_iter();
     /// let (out, done) = (output_vals.next().unwrap(), output_vals.next().unwrap());
@@ -1538,8 +1559,7 @@ impl ExecuteStateful for StdMultPipe {
         let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
         //calculate the product -- no "write_en", so no if statement
         let product = left.as_u64() * right.as_u64();
-        self.update =
-            Some(Value::try_from_init(product, self.width * 2).unwrap());
+        self.update = Some(Value::try_from_init(product, self.width).unwrap());
         let old = self.out.clone();
         // what's in this vector:
         // the "out" -- TimeLockedValue ofthe new mult data. Needs 3 cycles before readable (?)
@@ -1549,14 +1569,15 @@ impl ExecuteStateful for StdMultPipe {
             (
                 ir::Id::from("out"),
                 TimeLockedValue::new(
-                    Value::try_from_init(product, self.width * 2).unwrap(),
+                    Value::try_from_init(product, self.width).unwrap(),
                     3,
                     Some(old),
                 )
                 .into(),
             ),
             (
-                "done".into(),
+                "done".into(), //rehaul this?
+                //pulsevalues expect done to be asserted next cycle
                 PulseValue::new(
                     current_done_val.clone(),
                     Value::bit_high(),

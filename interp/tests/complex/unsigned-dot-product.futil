@@ -1,0 +1,130 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+//
+
+component main() -> () {
+  cells {
+    add0 = std_add(3); //this was Sadd - return before pushing!
+    const0 = std_const(3,0); // Initialize the counter (3-bit 0)
+    const1 = std_const(3,4);
+    const2 = std_const(3,1); // Increment by 1.
+    counter = std_reg(3);
+    r_2 = std_reg(32);
+    t = std_reg(32);
+    lt0 = std_lt(3);
+    @external(1) mem0 = std_mem_d2(32, 4, 4, 3, 3);
+    @external(1) mem1 = std_mem_d2(32, 4, 4, 3, 3);
+    add1 = std_add(32);
+    mult = std_mult_pipe(32);
+  }
+  wires {
+    group is_less_than<"static"=0> {
+      is_less_than[done] = 1'd1;
+      lt0.left = counter.out;
+      lt0.right = const1.out;
+    } // Control segment for `counter` < `4`.
+
+    group initialize_mem_0 {
+      mem0.addr0 = 3'd0;
+      mem0.addr1 = 3'd0;
+      mem0.write_en = 1'd1;
+      mem0.write_data = 32'd12;
+      mem1.addr0 = 3'd0;
+      mem1.addr1 = 3'd0;
+      mem1.write_en = 1'd1;
+      mem1.write_data = 32'd16;
+      initialize_mem_0[done] = mem0.done & mem1.done ? 1'd1;
+    }
+
+    group initialize_mem_1 {
+      mem0.addr0 = 3'd1;
+      mem0.addr1 = 3'd0;
+      mem0.write_en = 1'd1;
+      mem0.write_data = 32'd10;
+      mem1.addr0 = 3'd1;
+      mem1.addr1 = 3'd0;
+      mem1.write_en = 1'd1;
+      mem1.write_data = 32'd32;
+      initialize_mem_1[done] = mem0.done & mem1.done ? 1'd1;
+    }
+
+    group initialize_mem_2 {
+      mem0.addr0 = 3'd2;
+      mem0.addr1 = 3'd0;
+      mem0.write_en = 1'd1;
+      mem0.write_data = 32'd20;
+      mem1.addr0 = 3'd2;
+      mem1.addr1 = 3'd0;
+      mem1.write_en = 1'd1;
+      mem1.write_data = 32'd8;
+      initialize_mem_2[done] = mem0.done & mem1.done ? 1'd1;
+    }
+
+    group initialize_mem_3 {
+      mem0.addr0 = 3'd3;
+      mem0.addr1 = 3'd0;
+      mem0.write_en = 1'd1;
+      mem0.write_data = 32'd34;
+      mem1.addr0 = 3'd3;
+      mem1.addr1 = 3'd0;
+      mem1.write_en = 1'd1;
+      mem1.write_data = 32'd24;
+      initialize_mem_3[done] = mem0.done & mem1.done ? 1'd1;
+    }
+
+    group initialize_counter<"static"=1> {
+      counter.in = const0.out;
+      counter.write_en = 1'd1;
+      initialize_counter[done] = counter.done;
+    }
+
+    group incr_counter<"static"=1> {
+      counter.write_en = 1'd1;
+      add0.left = counter.out;
+      add0.right = const2.out; // Increment by 1.
+      counter.in = add0.out;
+      incr_counter[done] = counter.done ? 1'd1;
+    }
+
+    group mul {
+      mem0.addr0 = counter.out;
+      mem0.addr1 = 3'd0;
+      mem1.addr0 = counter.out;
+      mem1.addr1 = 3'd0;
+      mult.left = mem0.read_data;
+      mult.right = mem1.read_data;
+      mult.go = !mult.done ? 1'd1;
+      t.write_en = mult.done;
+      //isn't a dot product the sum of the individual entries? make it so 
+      add1.left = t.out;
+      add1.right = mult.out;
+      t.in = add1.out;
+      mul[done] = t.done;
+    }
+
+    group add<"static"=1> {
+      add1.left = t.out;
+      add1.right = r_2.out;
+      r_2.write_en = 1'd1;
+      r_2.in =  add1.out;
+      add[done] = r_2.done;
+    }
+  }
+  control {
+    seq {
+      initialize_counter;
+      initialize_mem_0;
+      initialize_mem_1;
+      initialize_mem_2;
+      initialize_mem_3;
+      while lt0.out with is_less_than {
+        seq {
+          add;
+          mul;
+          incr_counter;
+        }
+      }
+    }
+  }
+}

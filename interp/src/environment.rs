@@ -76,6 +76,15 @@ impl InterpreterState {
 
                 if let ir::CellType::Primitive { name, .. } = &cl.prototype {
                     match name.as_ref() {
+                        "std_mult_pipe" => {
+                            let smp = primitives::StdMultPipe::new(
+                                cl.get_parameter("WIDTH").unwrap(),
+                            );
+                            map.insert(
+                                cl as ConstCell,
+                                Primitive::StdMultPipe(smp),
+                            );
+                        }
                         "std_reg" => {
                             let reg = primitives::StdReg::new(
                                 cl.get_parameter("WIDTH").unwrap(),
