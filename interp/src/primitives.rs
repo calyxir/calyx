@@ -2023,16 +2023,46 @@ impl ExecuteBinary for StdSub {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        let left_64 = left.as_u64();
-        // Bitwise subtraction: left - right = left + (!right + 1)
-        let right = Value {
-            vec: !(right.vec.clone()),
-        };
-        let right_64 = right.as_u64() + 1;
-        //need to allow overflow -- we are dealing only with bits
-        let init_val = left_64 + right_64;
-        let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val, bitwidth).into()
+        //do 2sc subtraction, then if resulting value has a 1 in the MSB, return 0 (this is unsigned)
+
+        //first turn right into ~right + 1
+        let new_right = !right.vec.clone();
+        let adder = StdAdd::new(self.width);
+        let new_right = adder
+            .execute_bin(
+                &Value { vec: new_right },
+                &Value::try_from_init(1, self.width).unwrap(),
+            )
+            .unwrap_imm();
+
+        //now do addition. maybe better to use the adder and unwrap the OutputValue?
+        let a_iter = left.vec.iter().by_ref();
+        let b_iter = new_right.vec.iter().by_ref();
+        let mut c_in = false;
+        let mut sum = BitVec::new();
+        for (ai, bi) in a_iter.zip(b_iter) {
+            sum.push(
+                c_in & !ai & !bi
+                    || bi & !c_in & !ai
+                    || ai & !c_in & !bi
+                    || ai & bi & c_in,
+            );
+            c_in = bi & c_in || ai & c_in || ai & bi || ai & c_in & bi;
+        }
+        //now check if final value is negative (MSB is 1), if so return 0
+        let msb = sum.pop();
+        if let Some(b) = msb {
+            if b {
+                //if msb was 1, that means sum is negative, so return 0
+                return Value::zeroes(self.width as usize).into();
+            } else {
+                sum.push(false); //put a zero at the MSB
+                return Value { vec: sum }.into();
+            }
+        } else {
+            //we subtracted zero bitwidth values?
+            return Value { vec: sum }.into();
+        }
     }
 
     fn get_width(&self) -> &u64 {
