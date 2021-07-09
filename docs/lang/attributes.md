@@ -80,4 +80,7 @@ of a `While` control is known statically, as indicated by `n`.
 ### `generated`
 Added by [`ir::Builder`][builder] to denote that the cell was added by a pass.
 
+### `clk`
+Marks the special clock signal inserted by the `clk-insertion` pass, which helps with lowering to RTL languages that require an explicit clock.
+
 [builder]: https://capra.cs.cornell.edu/docs/calyx/source/calyx/ir/struct.Builder.html
