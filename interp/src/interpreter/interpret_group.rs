@@ -149,7 +149,7 @@ impl WorkingEnvironment {
             .unwrap()
         {
             Primitive::StdReg(ref reg) => {
-                println!("  internal state: {}", reg.val)
+                println!("  internal state: {}", reg.data[0])
             }
             Primitive::StdMemD1(ref mem) => {
                 println!("  memval : {}", mem.data[0])
