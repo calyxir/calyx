@@ -1746,6 +1746,7 @@ impl ExecuteBinary for StdLsh {
     /// let std_lsh_16_bit = StdLsh::new(16);
     /// let val_2_16bit = Value::try_from_init(2, 16).unwrap();
     /// let val_8_16bit = std_lsh_16_bit.execute_bin(&val_2_16bit, &val_2_16bit);
+    /// assert_eq!(val_8_16bit.unwrap_imm().as_u64(), 8);
     /// ```
     ///
     /// # Panics
@@ -1825,15 +1826,38 @@ impl ExecuteBinary for StdRsh {
     /// let val_8_16bit = Value::try_from_init(8, 16).unwrap();
     /// let val_1_16bit = Value::try_from_init(1, 16).unwrap();
     /// let val_4_16bit = std_rsh_16_bit.execute_bin(&val_8_16bit, &val_1_16bit);
+    /// assert_eq!(val_4_16bit.unwrap_imm().as_u64(), 4);
     /// ```
     ///
     /// # Panics
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
+        //remove [right] bits from index 0
+        //extend to proper size
+
+        let mut place = 1;
         let mut tr = left.vec.clone();
-        tr.shift_left(right.as_u64() as usize);
-        Value { vec: tr }.into()
+        //first remove [right] bits
+        for bit in right.vec.iter().by_ref() {
+            if *bit {
+                for _ in 0..place {
+                    if tr.len() > 0 {
+                        tr.remove(0);
+                    }
+                }
+            }
+            place *= 2;
+        }
+        //now resize to proper size, putting 0s at the end (0 is false)
+        tr.resize(self.width as usize, false);
+        let tr = Value { vec: tr };
+        assert_eq!(tr.width(), self.width);
+        //sanity check the widths
+        tr.into()
+        // let mut tr = left.vec.clone();
+        // tr.shift_right(right.as_u64() as usize);
+        // Value { vec: tr }.into()
     }
 
     fn get_width(&self) -> &u64 {
