@@ -84,6 +84,10 @@ impl InterpreterState {
             "std_pad" => Box::new(combinational::StdPad::new(params)),
             "std_reg" => Box::new(stateful::StdReg::new(params)),
             "std_const" => Box::new(stateful::StdConst::new(params)),
+            "std_mem_d1" => {
+                // TODO: (Griffin) Figure out how to re-integrate the memory init
+                Box::new(stateful::StdMemD1::new(params))
+            }
             p => panic!("Unknown primitive: {}", p),
         }
     }
