@@ -366,7 +366,52 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         }
     }
 
-    ///add comms
+    /// ```text
+    /// Returns a new smoosher that is forked from the tail of the self. This is
+    /// needed when we want to have multiple forks from the same fork point,
+    /// since the usual fork() mutates self by adding a new scope onto it. If
+    /// we fork() once, and then for all other fork instances use fork_from_tail(),
+    /// we will have an arbitraty number of forks with a common fork point, so
+    /// after they can be merged with merge_many(). Requires that the head of
+    /// self is empty so that we can only form from tail when we are creating
+    /// multiple forks.
+    /// ```
+    /// # Panics
+    /// ```text
+    /// Panics if [self] has a non-empty head
+    ///```
+    /// # Examples
+    /// ## Pictorial Example
+    /// ```text
+    /// [A]
+    /// ```
+    /// let B = A.fork(); //generates B and A'
+    /// let C = A.fork_from_tail();
+    /// ```text
+    /// [B] [A'] [C]  <- All B, A' and C point to the common fork point A
+    ///  |   |  /
+    ///   \ / /
+    ///    |
+    ///   [A]
+    /// ```
+    /// ## Code Example
+    /// ```rust
+    /// use interp::stk_env::Smoosher;
+    /// let mut a = Smoosher::new();
+    /// a.set("hi!", 1);
+    /// a.set("hey", 4);
+    /// let mut b = a.fork();
+    /// let mut c = a.fork_from_tail();
+    /// a.set("hey", 2);
+    /// b.set("hey", 3);
+    /// c.set("privet", 5);
+    /// assert_eq!(*a.get(&"hi!").unwrap(), *b.get(&"hi!").unwrap());
+    /// assert_eq!(*b.get(&"hi!").unwrap(), *c.get(&"hi!").unwrap());
+    /// assert_eq!(*a.get(&"hey").unwrap(), 2);
+    /// assert_eq!(*c.get(&"hey").unwrap(), 4);
+    /// assert_eq!(*c.get(&"privet").unwrap(), 5);
+    /// assert_eq!(*b.get(&"hey").unwrap(), 3);
+    /// ```
     pub fn fork_from_tail(&self) -> Self {
         assert!(self.head.is_empty());
         Smoosher {
