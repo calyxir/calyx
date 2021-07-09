@@ -53,10 +53,7 @@ impl InterpreterState {
             context: ctx.clone(),
             clk: 0,
             pv_map: InterpreterState::construct_pv_map(&ctx.borrow()),
-            cell_prim_map: Self::construct_cp_map(
-                &ctx.borrow(),
-                // mems,
-            ),
+            cell_prim_map: Self::construct_cp_map(&ctx.borrow(), mems),
         }
     }
 
@@ -64,8 +61,13 @@ impl InterpreterState {
         self.pv_map.set(port, value);
     }
 
-    fn make_primitive(name: ir::Id, params: ir::Binding) -> Box<dyn Primitive> {
-        match name.as_ref() {
+    fn make_primitive(
+        prim_name: ir::Id,
+        params: ir::Binding,
+        cell_name: Option<&ir::Id>,
+        mems: &Option<MemoryMap>,
+    ) -> Box<dyn Primitive> {
+        match prim_name.as_ref() {
             "std_add" => Box::new(combinational::StdAdd::new(params)),
             "std_sub" => Box::new(combinational::StdSub::new(params)),
             "std_lsh" => Box::new(combinational::StdLsh::new(params)),
@@ -85,27 +87,62 @@ impl InterpreterState {
             "std_reg" => Box::new(stateful::StdReg::new(params)),
             "std_const" => Box::new(stateful::StdConst::new(params)),
             "std_mem_d1" => {
-                // TODO: (Griffin) Figure out how to re-integrate the memory init
-                Box::new(stateful::StdMemD1::new(params))
+                let mut prim = Box::new(stateful::StdMemD1::new(params));
+
+                let init = mems
+                    .as_ref()
+                    .and_then(|x| cell_name.and_then(|name| x.get(name)));
+
+                if let Some(vals) = init {
+                    prim.initialize_memory(vals);
+                }
+                prim
             }
             "std_mem_d2" => {
-                // init
-                Box::new(stateful::StdMemD2::new(params))
+                let mut prim = Box::new(stateful::StdMemD2::new(params));
+
+                let init = mems
+                    .as_ref()
+                    .and_then(|x| cell_name.and_then(|name| x.get(name)));
+
+                if let Some(vals) = init {
+                    prim.initialize_memory(vals);
+                }
+                prim
             }
             "std_mem_d3" => {
-                // init
-                Box::new(stateful::StdMemD3::new(params))
+                let mut prim = Box::new(stateful::StdMemD3::new(params));
+
+                let init = mems
+                    .as_ref()
+                    .and_then(|x| cell_name.and_then(|name| x.get(name)));
+
+                if let Some(vals) = init {
+                    prim.initialize_memory(vals);
+                }
+                prim
             }
             "std_mem_d4" => {
-                // init
-                Box::new(stateful::StdMemD4::new(params))
+                let mut prim = Box::new(stateful::StdMemD4::new(params));
+
+                let init = mems
+                    .as_ref()
+                    .and_then(|x| cell_name.and_then(|name| x.get(name)));
+
+                if let Some(vals) = init {
+                    prim.initialize_memory(vals);
+                }
+                prim
             }
 
             p => panic!("Unknown primitive: {}", p),
         }
     }
 
-    fn construct_cp_map(ctx: &ir::Context) -> PrimitiveMap {
+    fn construct_cp_map(
+        ctx: &ir::Context,
+        mems: &Option<MemoryMap>,
+    ) -> PrimitiveMap {
         let mut map = HashMap::new();
         for comp in &ctx.components {
             for cell in comp.cells.iter() {
@@ -116,9 +153,20 @@ impl InterpreterState {
                     param_binding,
                 } = cl.prototype.clone()
                 {
+                    let cell_name = match name.as_ref() {
+                        "std_mem_d1" | "std_mem_d2" | "std_mem_d3"
+                        | "std_mem_d4" => Some(cl.name()),
+                        _ => None,
+                    };
+
                     map.insert(
                         cl as ConstCell,
-                        Self::make_primitive(name, param_binding),
+                        Self::make_primitive(
+                            name,
+                            param_binding,
+                            cell_name,
+                            mems,
+                        ),
                     );
                 }
             }
