@@ -469,6 +469,25 @@ mod prim_test {
     }
 
     #[test]
+    fn sub_above_64() {
+        // without overflow
+        let add0 = Value::try_from_init(57, 1605).unwrap();
+        let add1 = Value::try_from_init(35, 1605).unwrap();
+        let sub = StdSub::new(1605);
+        let res_sub = sub
+            .validate_and_execute(&[
+                ("left".into(), &add0),
+                ("right".into(), &add1),
+            ])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(res_sub, Value::try_from_init(22, 1605).unwrap());
+    }
+
+    #[test]
     fn lsh_above_64() {
         // lsh -- overflow to zero
         let left = Value::try_from_init(31, 275).unwrap();

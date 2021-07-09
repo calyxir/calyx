@@ -2012,7 +2012,8 @@ impl ExecuteBinary for StdSub {
     /// let val_4_4bit = Value::try_from_init(4, 4).unwrap();
     /// let val_1_4bit = Value::try_from_init(1, 4).unwrap();
     /// let std_sub_4_bit = StdSub::new(4);
-    /// let val_3_4bit = std_sub_4_bit.execute_bin(&val_4_4bit, &val_1_4bit);
+    /// let val_3_4bit = std_sub_4_bit.execute_bin(&val_4_4bit, &val_1_4bit).unwrap_imm();
+    /// assert_eq!(val_3_4bit.as_u64(), 3);
     /// //4 [0100] - 5 [0101] = -1 [1111] <- as an unsigned binary num, this is 15
     /// let val_5_4bit = Value::try_from_init(5, 4).unwrap();
     /// let res = std_sub_4_bit.execute_bin(&val_4_4bit, &val_5_4bit).unwrap_imm();
@@ -2023,11 +2024,9 @@ impl ExecuteBinary for StdSub {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        //do 2sc subtraction, then if resulting value has a 1 in the MSB, return 0 (this is unsigned)
-
         //first turn right into ~right + 1
         let new_right = !right.vec.clone();
-        let adder = StdAdd::new(self.width);
+        let adder = StdAdd::new(self.width + 1);
         let new_right = adder
             .execute_bin(
                 &Value { vec: new_right },
@@ -2049,20 +2048,9 @@ impl ExecuteBinary for StdSub {
             );
             c_in = bi & c_in || ai & c_in || ai & bi || ai & c_in & bi;
         }
-        //now check if final value is negative (MSB is 1), if so return 0
-        let msb = sum.pop();
-        if let Some(b) = msb {
-            if b {
-                //if msb was 1, that means sum is negative, so return 0
-                return Value::zeroes(self.width as usize).into();
-            } else {
-                sum.push(false); //put a zero at the MSB
-                return Value { vec: sum }.into();
-            }
-        } else {
-            //we subtracted zero bitwidth values?
-            return Value { vec: sum }.into();
-        }
+        //actually ok if there is overflow from 2sc subtraction (?)
+        //have to check if this is ok behavior
+        return Value { vec: sum }.into();
     }
 
     fn get_width(&self) -> &u64 {
