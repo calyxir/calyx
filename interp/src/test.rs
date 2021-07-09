@@ -557,7 +557,7 @@ mod prim_test {
     }
     #[test]
     fn test_mem_d2_tlv() {
-        let mut mem_d2 = StdMemD2::new(32, 8, 8, 3, 3);
+        let mut mem_d2 = stfl::StdMemD2::from_constants(32, 8, 8, 3, 3);
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(2, 3).unwrap();
@@ -568,7 +568,7 @@ mod prim_test {
         let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut mem_out = mem_d2.validate_and_execute(
             &[input, write_en, addr0, addr1],
-            &Value::bit_low(),
+            Some(&Value::bit_low()),
         );
         match &mut mem_out[..] {
             [read_data, done] => match (read_data, done) {
@@ -601,7 +601,7 @@ mod prim_test {
     }
     #[test]
     fn test_mem_d2_imval() {
-        let mut mem_d2 = StdMemD2::new(32, 8, 8, 3, 3);
+        let mut mem_d2 = stfl::StdMemD2::from_constants(32, 8, 8, 3, 3);
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(0, 1).unwrap();
         let addr_0 = Value::try_from_init(2, 3).unwrap();
@@ -613,7 +613,7 @@ mod prim_test {
         let mut mem_out = mem_d2
             .validate_and_execute(
                 &[input, write_en, addr0, addr1],
-                &Value::bit_low(),
+                Some(&Value::bit_low()),
             )
             .into_iter();
         if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
@@ -627,7 +627,7 @@ mod prim_test {
     #[should_panic]
     fn test_mem_d2_panic_addr0() {
         // Access address larger than the size of memory
-        let mut mem_d2 = StdMemD2::new(32, 2, 1, 2, 1);
+        let mut mem_d2 = stfl::StdMemD2::from_constants(32, 2, 1, 2, 1);
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(4, 3).unwrap();
@@ -638,14 +638,14 @@ mod prim_test {
         let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut _mem_out = mem_d2.validate_and_execute(
             &[input, write_en, addr0, addr1],
-            &Value::bit_low(),
+            Some(&Value::bit_low()),
         );
     }
     #[test]
     #[should_panic]
     fn test_mem_d2_panic_addr1() {
         // Access address larger than the size of memory
-        let mut mem_d2 = StdMemD2::new(32, 2, 1, 2, 1);
+        let mut mem_d2 = stfl::StdMemD2::from_constants(32, 2, 1, 2, 1);
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(0, 1).unwrap();
@@ -656,14 +656,14 @@ mod prim_test {
         let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut _mem_out = mem_d2.validate_and_execute(
             &[input, write_en, addr0, addr1],
-            &Value::bit_low(),
+            Some(&Value::bit_low()),
         );
     }
     #[test]
     #[should_panic]
     fn test_mem_d2_panic_input() {
         // Input width larger than the memory capacity
-        let mut mem_d2 = StdMemD2::new(2, 2, 1, 2, 1);
+        let mut mem_d2 = stfl::StdMemD2::from_constants(2, 2, 1, 2, 1);
         let val = Value::try_from_init(10, 4).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(0, 1).unwrap();
@@ -674,12 +674,12 @@ mod prim_test {
         let addr1 = (ir::Id::from("addr1"), &addr_1);
         let mut _mem_out = mem_d2.validate_and_execute(
             &[input, write_en, addr0, addr1],
-            &Value::bit_low(),
+            Some(&Value::bit_low()),
         );
     }
     #[test]
     fn test_mem_d3_tlv() {
-        let mut mem_d3 = StdMemD3::new(1, 2, 2, 2, 1, 1, 1);
+        let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1);
         let val = Value::try_from_init(1, 1).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap(); //so nothing will be written
         let addr0 = Value::try_from_init(1, 1).unwrap();
@@ -691,7 +691,7 @@ mod prim_test {
         let mut mem_out = mem_d3
             .validate_and_execute(
                 &[input, write_en, addr0, addr1, addr2],
-                &Value::bit_low(),
+                Some(&Value::bit_low()),
             )
             .into_iter();
         let (read_data, done) =
@@ -718,7 +718,7 @@ mod prim_test {
     }
     #[test]
     fn test_mem_d3_imval() {
-        let mut mem_d3 = StdMemD3::new(1, 2, 2, 2, 1, 1, 1);
+        let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1);
         let val = Value::try_from_init(1, 1).unwrap();
         let enable = Value::try_from_init(0, 1).unwrap(); //so nothing will be written
         let addr0 = Value::try_from_init(1, 1).unwrap();
@@ -730,7 +730,7 @@ mod prim_test {
         let mut mem_out = mem_d3
             .validate_and_execute(
                 &[input, write_en, addr0, addr1, addr2],
-                &Value::bit_low(),
+                Some(&Value::bit_low()),
             )
             .into_iter();
         if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
@@ -744,7 +744,7 @@ mod prim_test {
     #[should_panic]
     fn test_mem_d3_panic_addr0() {
         // Access address larger than the size of memory
-        let mut mem_d3 = StdMemD3::new(1, 2, 2, 2, 1, 1, 1); //2 x 2 x 2, storing 1 bit in each slot
+        let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1); //2 x 2 x 2, storing 1 bit in each slot
         let val = Value::try_from_init(1, 1).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(0, 4).unwrap();
@@ -757,14 +757,14 @@ mod prim_test {
         let addr2 = (ir::Id::from("addr2"), &addr_2);
         let mut _mem_out = mem_d3.validate_and_execute(
             &[input, write_en, addr0, addr1, addr2],
-            &Value::bit_low(),
+            Some(&Value::bit_low()),
         );
     }
     #[test]
     #[should_panic]
     fn test_mem_d3_panic_addr1() {
         // Access address larger than the size of memory
-        let mut mem_d3 = StdMemD3::new(1, 2, 2, 2, 1, 1, 1); //2 x 2 x 2, storing 1 bit in each slot
+        let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1); //2 x 2 x 2, storing 1 bit in each slot
         let val = Value::try_from_init(1, 1).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(0, 1).unwrap();
@@ -777,14 +777,14 @@ mod prim_test {
         let addr2 = (ir::Id::from("addr2"), &addr_2);
         let mut _mem_out = mem_d3.validate_and_execute(
             &[input, write_en, addr0, addr1, addr2],
-            &Value::bit_low(),
+            Some(&Value::bit_low()),
         );
     }
     #[test]
     #[should_panic]
     fn test_mem_d3_panic_addr2() {
         // Access address larger than the size of memory
-        let mut mem_d3 = StdMemD3::new(1, 2, 2, 2, 1, 1, 1); //2 x 2 x 2, storing 1 bit in each slot
+        let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1); //2 x 2 x 2, storing 1 bit in each slot
         let val = Value::try_from_init(1, 1).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(0, 1).unwrap();
@@ -797,14 +797,14 @@ mod prim_test {
         let addr2 = (ir::Id::from("addr2"), &addr_2);
         let mut _mem_out = mem_d3.validate_and_execute(
             &[input, write_en, addr0, addr1, addr2],
-            &Value::bit_low(),
+            Some(&Value::bit_low()),
         );
     }
     #[test]
     #[should_panic]
     fn test_mem_d3_panic_input() {
         // Input width larger than the memory capacity
-        let mut mem_d3 = StdMemD3::new(1, 2, 2, 2, 1, 1, 1);
+        let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1);
         let val = Value::try_from_init(10, 4).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(0, 1).unwrap();
@@ -817,12 +817,13 @@ mod prim_test {
         let addr2 = (ir::Id::from("addr2"), &addr_2);
         let mut _mem_out = mem_d3.validate_and_execute(
             &[input, write_en, addr0, addr1, addr2],
-            &Value::bit_low(),
+            Some(&Value::bit_low()),
         );
     }
     #[test]
     fn test_mem_d4_tlv() {
-        let mut mem_d4 = StdMemD4::new(1, 2, 2, 2, 2, 1, 1, 1, 1);
+        let mut mem_d4 =
+            stfl::StdMemD4::from_constants(1, 2, 2, 2, 2, 1, 1, 1, 1);
         let val = Value::try_from_init(1, 1).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap(); //so nothing will be written
         let addr0 = Value::try_from_init(1, 1).unwrap();
@@ -835,7 +836,7 @@ mod prim_test {
         let mut mem_out = mem_d4
             .validate_and_execute(
                 &[input, write_en, addr0, addr1, addr2, addr3],
-                &Value::bit_low(),
+                Some(&Value::bit_low()),
             )
             .into_iter();
         let (read_data, done) =
@@ -862,7 +863,8 @@ mod prim_test {
     }
     #[test]
     fn test_mem_d4_imval() {
-        let mut mem_d4 = StdMemD4::new(32, 8, 8, 8, 8, 3, 3, 3, 3);
+        let mut mem_d4 =
+            stfl::StdMemD4::from_constants(32, 8, 8, 8, 8, 3, 3, 3, 3);
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(0, 1).unwrap();
         let addr_0 = Value::try_from_init(2, 3).unwrap();
@@ -878,7 +880,7 @@ mod prim_test {
         let mut mem_out = mem_d4
             .validate_and_execute(
                 &[input, write_en, addr0, addr1, addr2, addr3],
-                &Value::bit_low(),
+                Some(&Value::bit_low()),
             )
             .into_iter();
         if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
@@ -890,7 +892,8 @@ mod prim_test {
     #[should_panic]
     fn test_mem_d4_panic_addr0() {
         // Access address larger than the size of memory
-        let mut mem_d4 = StdMemD4::new(32, 3, 2, 3, 2, 3, 2, 3, 2);
+        let mut mem_d4 =
+            stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(4, 3).unwrap();
@@ -905,14 +908,15 @@ mod prim_test {
         let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out = mem_d4.validate_and_execute(
             &[input, write_en, addr0, addr1, addr2, addr3],
-            &Value::bit_low(),
+            Some(&Value::bit_low()),
         );
     }
     #[test]
     #[should_panic]
     fn test_mem_d4_panic_addr1() {
         // Access address larger than the size of memory
-        let mut mem_d4 = StdMemD4::new(32, 3, 2, 3, 2, 3, 2, 3, 2);
+        let mut mem_d4 =
+            stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(0, 2).unwrap();
@@ -927,14 +931,15 @@ mod prim_test {
         let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out = mem_d4.validate_and_execute(
             &[input, write_en, addr0, addr1, addr2, addr3],
-            &Value::bit_low(),
+            Some(&Value::bit_low()),
         );
     }
     #[test]
     #[should_panic]
     fn test_mem_d4_panic_addr2() {
         // Access address larger than the size of memory
-        let mut mem_d4 = StdMemD4::new(32, 3, 2, 3, 2, 3, 2, 3, 2);
+        let mut mem_d4 =
+            stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(0, 2).unwrap();
@@ -949,14 +954,15 @@ mod prim_test {
         let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out = mem_d4.validate_and_execute(
             &[input, write_en, addr0, addr1, addr2, addr3],
-            &Value::bit_low(),
+            Some(&Value::bit_low()),
         );
     }
     #[test]
     #[should_panic]
     fn test_mem_d4_panic_addr3() {
         // Access address larger than the size of memory
-        let mut mem_d4 = StdMemD4::new(32, 3, 2, 3, 2, 3, 2, 3, 2);
+        let mut mem_d4 =
+            stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
         let val = Value::try_from_init(5, 32).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(0, 2).unwrap();
@@ -971,14 +977,15 @@ mod prim_test {
         let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out = mem_d4.validate_and_execute(
             &[input, write_en, addr0, addr1, addr2, addr3],
-            &Value::bit_low(),
+            Some(&Value::bit_low()),
         );
     }
     #[test]
     #[should_panic]
     fn test_mem_d4_panic_input() {
         // Input width larger than the memory capacity
-        let mut mem_d4 = StdMemD4::new(32, 3, 2, 3, 2, 3, 2, 3, 2);
+        let mut mem_d4 =
+            stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
         let val = Value::try_from_init(10, 4).unwrap();
         let enable = Value::try_from_init(1, 1).unwrap();
         let addr_0 = Value::try_from_init(0, 2).unwrap();
@@ -993,13 +1000,13 @@ mod prim_test {
         let addr3 = (ir::Id::from("addr3"), &addr_3);
         let mut _mem_out = mem_d4.validate_and_execute(
             &[input, write_en, addr0, addr1, addr2, addr3],
-            &Value::bit_low(),
+            Some(&Value::bit_low()),
         );
     }
     #[test]
     fn test_std_reg_tlv() {
         let val = Value::try_from_init(16, 6).unwrap();
-        let mut reg1 = StdReg::new(6);
+        let mut reg1 = stfl::StdReg::new(6);
         let input_tup = (ir::Id::from("in"), &val);
         let write_en_tup = (
             ir::Id::from("write_en"),

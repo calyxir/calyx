@@ -3,7 +3,6 @@ use calyx::errors::Error;
 use calyx::ir::Binding;
 use calyx::ir::{Assignment, Cell, Id, Port, RRC};
 use serde::Deserialize;
-use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::fs;
 use std::hash::{Hash, Hasher};
@@ -225,7 +224,6 @@ impl DerefMut for MemoryMap {
     }
 }
 
-#[allow(dead_code)]
 pub fn construct_bindings<'a, I, S: 'a>(iter: I) -> Binding
 where
     S: AsRef<str>,

@@ -1,4 +1,5 @@
 use super::{Primitive, Serializeable};
+use crate::utils::construct_bindings;
 use crate::values::{PulseValue, TimeLockedValue, Value};
 use calyx::ir;
 
@@ -200,6 +201,12 @@ pub struct StdMemD1 {
 }
 
 impl StdMemD1 {
+    pub fn from_constants(width: u64, size: u64, idx_size: u64) -> Self {
+        let bindings = construct_bindings(
+            [("WIDTH", width), ("SIZE", size), ("IDX_SIZE", idx_size)].iter(),
+        );
+        Self::new(bindings)
+    }
     /// Instantiates a new StdMemD1 storing data of width [width], containing [size]
     /// slots for memory, accepting indecies (addr0) of width [idx_size].
     /// Note: if [idx_size] is smaller than the length of [size]'s binary representation,
@@ -364,6 +371,26 @@ pub struct StdMemD2 {
 }
 
 impl StdMemD2 {
+    pub fn from_constants(
+        width: u64,
+        d0_size: u64,
+        d1_size: u64,
+        d0_idx_size: u64,
+        d1_idx_size: u64,
+    ) -> Self {
+        let bindings = construct_bindings(
+            [
+                ("WIDTH", width),
+                ("D0_SIZE", d0_size),
+                ("D1_SIZE", d1_size),
+                ("D0_IDX_SIZE", d0_idx_size),
+                ("D1_IDX_SIZE", d1_idx_size),
+            ]
+            .iter(),
+        );
+        Self::new(bindings)
+    }
+
     /// Instantiates a new StdMemD2 storing data of width [width], containing
     /// [d0_size] * [d1_size] slots for memory, accepting indecies [addr0][addr1] of widths
     /// [d0_idx_size] and [d1_idx_size] respectively.
@@ -558,6 +585,29 @@ pub struct StdMemD3 {
 }
 
 impl StdMemD3 {
+    pub fn from_constants(
+        width: u64,
+        d0_size: u64,
+        d1_size: u64,
+        d2_size: u64,
+        d0_idx_size: u64,
+        d1_idx_size: u64,
+        d2_idx_size: u64,
+    ) -> Self {
+        let bindings = construct_bindings(
+            [
+                ("WIDTH", width),
+                ("D0_SIZE", d0_size),
+                ("D1_SIZE", d1_size),
+                ("D2_SIZE", d2_size),
+                ("D0_IDX_SIZE", d0_idx_size),
+                ("D1_IDX_SIZE", d1_idx_size),
+                ("D2_IDX_SIZE", d2_idx_size),
+            ]
+            .iter(),
+        );
+        Self::new(bindings)
+    }
     /// Instantiates a new StdMemD3 storing data of width [width], containing
     /// [d0_size] * [d1_size] * [d2_size] slots for memory, accepting indecies [addr0][addr1][addr2] of widths
     /// [d0_idx_size], [d1_idx_size], and [d2_idx_size] respectively.
@@ -782,6 +832,34 @@ pub struct StdMemD4 {
 }
 
 impl StdMemD4 {
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_constants(
+        width: u64,
+        d0_size: u64,
+        d1_size: u64,
+        d2_size: u64,
+        d3_size: u64,
+        d0_idx_size: u64,
+        d1_idx_size: u64,
+        d2_idx_size: u64,
+        d3_idx_size: u64,
+    ) -> Self {
+        let bindings = construct_bindings(
+            [
+                ("WIDTH", width),
+                ("D0_SIZE", d0_size),
+                ("D1_SIZE", d1_size),
+                ("D2_SIZE", d2_size),
+                ("D3_SIZE", d3_size),
+                ("D0_IDX_SIZE", d0_idx_size),
+                ("D1_IDX_SIZE", d1_idx_size),
+                ("D2_IDX_SIZE", d2_idx_size),
+                ("D3_IDX_SIZE", d3_idx_size),
+            ]
+            .iter(),
+        );
+        Self::new(bindings)
+    }
     // Instantiates a new StdMemD3 storing data of width [width], containing
     /// [d0_size] * [d1_size] * [d2_size] * [d3_size] slots for memory, accepting indecies [addr0][addr1][addr2][addr3] of widths
     /// [d0_idx_size], [d1_idx_size], [d2_idx_size] and [d3_idx_size] respectively.
