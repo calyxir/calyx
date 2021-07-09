@@ -1752,9 +1752,35 @@ impl ExecuteBinary for StdLsh {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        let mut tr = left.vec.clone();
-        tr.shift_right(right.as_u64() as usize);
-        Value { vec: tr }.into()
+        //how to do this without at least casting right to u64/u128?
+
+        let mut place = 1;
+        let mut tr = BitVec::new();
+        //first push the requisite # of zeroes
+        for bit in right.vec.iter().by_ref() {
+            if *bit {
+                for _ in 0..place {
+                    if tr.len() < self.width as usize {
+                        tr.push(false);
+                    }
+                    //no point in appending once we've filled it all with zeroes
+                }
+            }
+            place *= 2;
+        }
+        //then copy over the bits from [left] onto the back (higher-place bits) of
+        //[tr]. Then truncate, aka slicing off the bits that exceed the width of this
+        //component
+        let mut to_append = left.clone().vec;
+        tr.append(&mut to_append);
+        tr.truncate(self.width as usize);
+        let tr = Value { vec: tr };
+        assert_eq!(tr.width(), self.width);
+        //sanity check the widths
+        tr.into()
+        // let mut tr = left.vec.clone();
+        // tr.shift_right(right.as_u64() as usize);
+        // Value { vec: tr }.into()
     }
 
     fn get_width(&self) -> &u64 {
