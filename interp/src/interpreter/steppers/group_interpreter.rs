@@ -55,7 +55,7 @@ impl<'a, 'b> AssignmentInterpreter<'a, 'b> {
                     x.commit_updates()
                 }
             }
-            self.val_changed = Some(true);
+            self.val_changed = None;
         }
     }
 
