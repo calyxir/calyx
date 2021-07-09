@@ -225,6 +225,7 @@ impl DerefMut for MemoryMap {
     }
 }
 
+#[allow(dead_code)]
 pub fn construct_bindings<'a, I, S: 'a>(iter: I) -> Binding
 where
     S: AsRef<str>,
