@@ -1,6 +1,7 @@
 //! Defines update methods for the various primitive cells in the Calyx
 // standard library.
 use super::values::{OutputValue, PulseValue, TimeLockedValue, Value};
+use bitvec::prelude::*;
 use calyx::ir;
 use itertools::Itertools;
 use serde::Serialize;
@@ -1905,11 +1906,23 @@ impl ExecuteBinary for StdAdd {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        let left_64 = left.as_u64();
-        let right_64 = right.as_u64();
-        let init_val = left_64 + right_64;
-        let bitwidth: usize = left.vec.len();
-        Value::from_init(init_val, bitwidth).into()
+        let a_iter = left.vec.iter().by_ref();
+        let b_iter = right.vec.iter().by_ref();
+        let mut c_in = false;
+        let mut sum = BitVec::new();
+        for (ai, bi) in a_iter.zip(b_iter) {
+            sum.push(
+                c_in & !ai & !bi
+                    || bi & !c_in & !ai
+                    || ai & !c_in & !bi
+                    || ai & bi & c_in,
+            );
+            c_in = bi & c_in || ai & c_in || ai & bi || ai & c_in & bi;
+        }
+        let tr = Value { vec: sum };
+        //as a sanity check, check tr has same width as left
+        assert_eq!(tr.width(), left.width());
+        tr.into()
     }
 
     fn get_width(&self) -> &u64 {

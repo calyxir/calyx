@@ -189,6 +189,7 @@ impl Value {
             if *b {
                 if place >= (vec_len - 1).try_into().unwrap() {
                     //2s complement, so MSB has negative weight
+                    //this is the last place
                     tr += msb_weight;
                 } else {
                     //before MSB, increase as unsigned bitnum
