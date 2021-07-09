@@ -1,6 +1,6 @@
 use crate::values::{OutputValue, Value};
 use calyx::ir;
-use ndarray::Array;
+use itertools::Itertools;
 use serde::Serialize;
 
 /// A primitive for the interpreter.
@@ -120,18 +120,54 @@ impl Serialize for Serializeable {
                 // there's probably a better way to write this
                 match shape {
                     Shape::D2(shape) => {
-                        let array = Array::from_shape_vec(*shape, arr).unwrap();
-                        array.serialize(serializer)
+                        let mem = arr
+                            .iter()
+                            .chunks(shape.1)
+                            .into_iter()
+                            .map(|x| x.into_iter().collect::<Vec<_>>())
+                            .collect::<Vec<_>>();
+                        mem.serialize(serializer)
                     }
                     Shape::D3(shape) => {
-                        let array = Array::from_shape_vec(*shape, arr).unwrap();
-                        array.serialize(serializer)
+                        let mem = arr
+                            .iter()
+                            .chunks(shape.2 * shape.1)
+                            .into_iter()
+                            .map(|x| {
+                                x.into_iter()
+                                    .chunks(shape.1)
+                                    .into_iter()
+                                    .map(|y| y.into_iter().collect::<Vec<_>>())
+                                    .collect::<Vec<_>>()
+                            })
+                            .collect::<Vec<_>>();
+                        mem.serialize(serializer)
                     }
                     Shape::D4(shape) => {
-                        let array = Array::from_shape_vec(*shape, arr).unwrap();
-                        array.serialize(serializer)
+                        let mem = arr
+                            .iter()
+                            .chunks(shape.3 * shape.2 * shape.1)
+                            .into_iter()
+                            .map(|x| {
+                                x.into_iter()
+                                    .chunks(shape.2 * shape.1)
+                                    .into_iter()
+                                    .map(|y| {
+                                        y.into_iter()
+                                            .chunks(shape.1)
+                                            .into_iter()
+                                            .map(|z| {
+                                                z.into_iter()
+                                                    .collect::<Vec<_>>()
+                                            })
+                                            .collect::<Vec<_>>()
+                                    })
+                                    .collect::<Vec<_>>()
+                            })
+                            .collect::<Vec<_>>();
+                        mem.serialize(serializer)
                     }
-                    _ => unreachable!(),
+                    Shape::D1(_) => unreachable!(),
                 }
             }
         }
