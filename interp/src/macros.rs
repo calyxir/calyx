@@ -30,7 +30,7 @@ macro_rules! comb_primitive {
                 let mut base = Self::default();
                 for (param, value) in params {
                     match param.as_ref() {
-                        $( stringify!($param) => base.$param = value ),+,
+                        $( $crate::in_fix!($param) => base.$param = value ),+,
                         p => unreachable!(format!("Unknown parameter: {}", p)),
                     }
                 }
@@ -49,7 +49,7 @@ macro_rules! comb_primitive {
             ) {
                 for (id, v) in inputs {
                     match id.as_ref() {
-                        $( stringify!($port) => assert_eq!(v.len() as u64, self.$width) ),+,
+                        $( $crate::in_fix!($port) => assert_eq!(v.len() as u64, self.$width) ),+,
                         p => unreachable!(format!("Unknown port: {}", p)),
                     }
                 }
@@ -72,7 +72,7 @@ macro_rules! comb_primitive {
 
                 for (id, v) in inputs {
                     match id.as_ref() {
-                        $( stringify!($port) => base.$port = Some(v) ),+,
+                        $( $crate::in_fix!($port) => base.$port = Some(v) ),+,
                         p => unreachable!(format!("Unknown port: {}", p)),
                     }
                 }
@@ -86,11 +86,11 @@ macro_rules! comb_primitive {
                     $(self.$param),+,
                     $( base
                         .$port
-                        .expect(&format!("No value for port: {}", stringify!($port)).to_string()) ),+
+                        .expect(&format!("No value for port: {}", $crate::in_fix!($port)).to_string()) ),+
                 );
 
                 return vec![
-                    $( (stringify!($out).into(), $out) ),+
+                    $( ($crate::in_fix!($out).into(), $out) ),+
                 ]
 
             }
@@ -109,5 +109,14 @@ macro_rules! comb_primitive {
             // No-op for combinational primitives.
             fn clear_update_buffer(&mut self) {}
         }
+    };
+}
+#[macro_export]
+macro_rules! in_fix {
+    ( r#in ) => {
+        stringify!(in)
+    };
+    ( $name:ident ) => {
+        stringify!($name)
     };
 }

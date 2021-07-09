@@ -4,12 +4,12 @@ use crate::values::Value;
 use std::ops::Not;
 
 // ===================== Unary operations ======================
-/* comb_primitive!(StdNot[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
+comb_primitive!(StdNot[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
     Value {
         vec: r#in.vec.clone().not(),
     }
     .into()
-}); */
+});
 
 // ===================== Unsigned binary operations ======================
 comb_primitive!(StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
@@ -95,11 +95,11 @@ comb_primitive!(StdNeq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 });
 
 // ===================== Resizing Operations ======================
-/* comb_primitive!(StdSlice[IN_WIDTH, OUT_WIDTH](r#in: IN_WIDTH) -> (out: OUT_WIDTH) {
+comb_primitive!(StdSlice[IN_WIDTH, OUT_WIDTH](r#in: IN_WIDTH) -> (out: OUT_WIDTH) {
     let tr = r#in.clone();
     tr.truncate(OUT_WIDTH as usize).into()
 });
 comb_primitive!(StdPad[IN_WIDTH, OUT_WIDTH](r#in: IN_WIDTH) -> (out: OUT_WIDTH) {
     let pd = r#in.clone();
     pd.ext(OUT_WIDTH as usize).into()
-}); */
+});

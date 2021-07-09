@@ -79,9 +79,9 @@ impl InterpreterState {
             "std_gt" => Box::new(combinational::StdGt::new(params)),
             "std_eq" => Box::new(combinational::StdEq::new(params)),
             "std_neq" => Box::new(combinational::StdNeq::new(params)),
-            /* "std_not" => Box::new(combinational::StdNot::new(params)),
+            "std_not" => Box::new(combinational::StdNot::new(params)),
             "std_slice" => Box::new(combinational::StdSlice::new(params)),
-            "std_pad" => Box::new(combinational::StdPad::new(params)), */
+            "std_pad" => Box::new(combinational::StdPad::new(params)),
             "std_reg" => Box::new(stateful::StdReg::new(params)),
             p => panic!("Unknown primitive: {}", p),
         }
