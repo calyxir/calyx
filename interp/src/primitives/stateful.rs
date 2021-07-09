@@ -2,6 +2,19 @@ use super::{Primitive, Serializeable};
 use crate::values::{PulseValue, TimeLockedValue, Value};
 use calyx::ir;
 
+fn get_param<S>(params: &ir::Binding, target: S) -> Option<u64>
+where
+    S: AsRef<str>,
+{
+    params.iter().find_map(|(id, x)| {
+        if id == target.as_ref() {
+            Some(*x)
+        } else {
+            None
+        }
+    })
+}
+
 /// A register.
 #[derive(Default)]
 pub struct StdReg {
@@ -105,4 +118,50 @@ impl Primitive for StdReg {
     fn serialize(&self) -> Serializeable {
         Serializeable::Val(self.data[0].as_u64())
     }
+}
+
+#[derive(Default, Debug)]
+pub struct StdConst {
+    value: Value,
+}
+
+impl StdConst {
+    pub fn new(params: calyx::ir::Binding) -> Self {
+        let width = get_param(&params, "WIDTH")
+            .expect("Missing width parameter from std_const binding");
+
+        let init_value = get_param(&params, "VALUE")
+            .expect("Missing `vale` param from std_const binding");
+
+        let value = Value::try_from_init(init_value, width).unwrap();
+
+        Self { value }
+    }
+}
+
+impl Primitive for StdConst {
+    fn is_comb(&self) -> bool {
+        true
+    }
+
+    fn validate(&self, _inputs: &[(ir::Id, &Value)]) {}
+
+    fn execute(
+        &mut self,
+        _inputs: &[(ir::Id, &Value)],
+        _done_val: Option<&Value>,
+    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+        vec![("out".into(), self.value.clone().into())]
+    }
+
+    fn reset(
+        &mut self,
+        _inputs: &[(ir::Id, &Value)],
+    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+        vec![("out".into(), self.value.clone().into())]
+    }
+
+    fn commit_updates(&mut self) {}
+
+    fn clear_update_buffer(&mut self) {}
 }

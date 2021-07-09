@@ -83,6 +83,7 @@ impl InterpreterState {
             "std_slice" => Box::new(combinational::StdSlice::new(params)),
             "std_pad" => Box::new(combinational::StdPad::new(params)),
             "std_reg" => Box::new(stateful::StdReg::new(params)),
+            "std_const" => Box::new(stateful::StdConst::new(params)),
             p => panic!("Unknown primitive: {}", p),
         }
     }
