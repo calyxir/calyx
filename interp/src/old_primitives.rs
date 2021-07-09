@@ -8,26 +8,31 @@ use std::ops::*;
 
 #[derive(Clone, Debug)]
 pub enum Primitive {
-    StdConst(StdConst),
 
     StdAdd(StdAdd),
+    StdSub(StdSub),
     StdLsh(StdLsh),
     StdRsh(StdRsh),
-    StdSub(StdSub),
-    StdSlice(StdSlice),
-    StdPad(StdPad),
-    StdNot(StdNot),
+
     StdAnd(StdAnd),
     StdOr(StdOr),
     StdXor(StdXor),
+
     StdGe(StdGe),
     StdGt(StdGt),
-    StdEq(StdEq),
-    StdNeq(StdNeq),
     StdLe(StdLe),
     StdLt(StdLt),
+    StdEq(StdEq),
+    StdNeq(StdNeq),
+    StdNot(StdNot),
+
+    StdSlice(StdSlice),
+    StdPad(StdPad),
 
     StdReg(StdReg),
+
+    // XXX(rachit): Unimplmeneted primitives
+    StdConst(StdConst),
     StdMemD1(StdMemD1),
     StdMemD2(StdMemD2),
     StdMemD3(StdMemD3),

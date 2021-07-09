@@ -1,9 +1,9 @@
 //! Environment for interpreter.
 
-use super::primitives::Primitive;
+use super::primitives::{combinational, stateful, Primitive};
 use super::stk_env::Smoosher;
 use super::utils::MemoryMap;
-use super::{primitives, values::Value};
+use super::values::Value;
 use calyx::ir::{self, RRC};
 use serde::Serialize;
 use std::cell::RefCell;
@@ -66,13 +66,23 @@ impl InterpreterState {
 
     fn make_primitive(name: ir::Id, params: ir::Binding) -> Box<dyn Primitive> {
         match name.as_ref() {
-            "std_add" => {
-                Box::new(primitives::combinational::StdAdd::new(params))
-            }
-            "std_sub" => {
-                Box::new(primitives::combinational::StdSub::new(params))
-            }
-            "std_reg" => Box::new(primitives::stateful::StdReg::new(params)),
+            "std_add" => Box::new(combinational::StdAdd::new(params)),
+            "std_sub" => Box::new(combinational::StdSub::new(params)),
+            "std_lsh" => Box::new(combinational::StdLsh::new(params)),
+            "std_rsh" => Box::new(combinational::StdRsh::new(params)),
+            "std_and" => Box::new(combinational::StdAnd::new(params)),
+            "std_or" => Box::new(combinational::StdOr::new(params)),
+            "std_xor" => Box::new(combinational::StdXor::new(params)),
+            "std_ge" => Box::new(combinational::StdGe::new(params)),
+            "std_le" => Box::new(combinational::StdLe::new(params)),
+            "std_lt" => Box::new(combinational::StdLt::new(params)),
+            "std_gt" => Box::new(combinational::StdGt::new(params)),
+            "std_eq" => Box::new(combinational::StdEq::new(params)),
+            "std_neq" => Box::new(combinational::StdNeq::new(params)),
+            /* "std_not" => Box::new(combinational::StdNot::new(params)),
+            "std_slice" => Box::new(combinational::StdSlice::new(params)),
+            "std_pad" => Box::new(combinational::StdPad::new(params)), */
+            "std_reg" => Box::new(stateful::StdReg::new(params)),
             p => panic!("Unknown primitive: {}", p),
         }
     }

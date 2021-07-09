@@ -55,6 +55,7 @@ macro_rules! comb_primitive {
                 }
             }
 
+            #[allow(non_snake_case,unused)]
             fn execute(
                 &mut self,
                 inputs: &[(calyx::ir::Id, &crate::values::Value)],
@@ -76,12 +77,13 @@ macro_rules! comb_primitive {
                     }
                 }
 
-                let exec_func = |$( $port: &Value ),+| -> crate::values::OutputValue {
+                let exec_func = |$($param: u64),+, $( $port: &Value ),+| -> crate::values::OutputValue {
                     $execute
                 };
 
                 #[allow(unused_parens)]
                 let ($( $out ),+) = exec_func(
+                    $(self.$param),+,
                     $( base
                         .$port
                         .expect(&format!("No value for port: {}", stringify!($port)).to_string()) ),+

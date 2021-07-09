@@ -2,6 +2,10 @@ use crate::values::{OutputValue, Value};
 use calyx::ir;
 use ndarray::Array;
 use serde::Serialize;
+
+/// A primitive for the interpreter.
+/// Roughly corresponds to the cells defined in the primitives library for the Calyx compiler.
+/// Primitives can be either stateful or combinational.
 pub trait Primitive {
     /// Returns true if this primitive is combinational
     fn is_comb(&self) -> bool;
@@ -34,7 +38,7 @@ pub trait Primitive {
     /// reset stateful primitives after a group execution.
     fn clear_update_buffer(&mut self);
 
-    // stateful things should override this
+    /// Serialize the state of this primitive, if any.
     fn serialize(&self) -> Serializeable {
         Serializeable::Empty
     }
