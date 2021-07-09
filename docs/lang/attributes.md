@@ -59,8 +59,11 @@ Can be attached to components, groups, and control statements. They indicate how
 many cycles a component, group, or control statement will take to run and are used
 by `-p static-timing` to generate more efficient control FSMs.
 
-### `go` and `done`
-Used by the `infer-static-timing` pass to configure which ports are used like
+### `go`, `done`, and `reset`
+These three ports are part of the interface to Calyx components.
+They are the mechanism for how an "outer" component invokes an "inner" cell that it contains.
+
+The `go` and `done` attributes are, in particular, used by the `infer-static-timing` pass to configure which ports are used like
 `go` and `done` signals.
 Along with the `static(n)` attribute, this allows the pass to calculate when
 a particular done signal of a primitive will be high.
