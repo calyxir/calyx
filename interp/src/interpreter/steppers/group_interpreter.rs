@@ -155,14 +155,14 @@ impl<'a, 'b> AssignmentInterpreter<'a, 'b> {
             }
         }
     }
-    pub fn step_cycle_convergence(&mut self) {
+    pub fn step(&mut self) {
         self.step_cycle();
         self.step_convergence();
     }
 
     pub fn run_group(&mut self) {
         while !self.is_done() {
-            self.step_cycle_convergence();
+            self.step();
         }
         self.step_convergence();
     }
