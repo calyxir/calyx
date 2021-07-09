@@ -88,6 +88,19 @@ impl InterpreterState {
                 // TODO: (Griffin) Figure out how to re-integrate the memory init
                 Box::new(stateful::StdMemD1::new(params))
             }
+            "std_mem_d2" => {
+                // init
+                Box::new(stateful::StdMemD2::new(params))
+            }
+            "std_mem_d3" => {
+                // init
+                Box::new(stateful::StdMemD3::new(params))
+            }
+            "std_mem_d4" => {
+                // init
+                Box::new(stateful::StdMemD4::new(params))
+            }
+
             p => panic!("Unknown primitive: {}", p),
         }
     }
