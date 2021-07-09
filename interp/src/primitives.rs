@@ -1855,9 +1855,6 @@ impl ExecuteBinary for StdRsh {
         assert_eq!(tr.width(), self.width);
         //sanity check the widths
         tr.into()
-        // let mut tr = left.vec.clone();
-        // tr.shift_right(right.as_u64() as usize);
-        // Value { vec: tr }.into()
     }
 
     fn get_width(&self) -> &u64 {

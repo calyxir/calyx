@@ -167,6 +167,22 @@ impl Value {
         val
     }
 
+    /// Converts value into u128 type. Vector within Value can be of any width.
+    ///
+    /// # Example
+    /// ```
+    /// use interp::values::*;
+    /// let unsign_128_16 = (Value::try_from_init(16, 16).unwrap()).as_u128();
+    /// ```
+    pub fn as_u128(&self) -> u128 {
+        let mut val: u128 = 0;
+        for (index, bit) in self.vec.iter().by_ref().enumerate() {
+            val += u128::pow(2, (index as usize).try_into().unwrap())
+                * (*bit as u128);
+        }
+        val
+    }
+
     /// Converts value into i64 type using 2C representation.
     /// # Example
     /// ```

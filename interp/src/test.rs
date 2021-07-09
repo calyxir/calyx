@@ -448,6 +448,96 @@ mod prim_test {
     use crate::values::*;
     #[allow(unused)]
     use calyx::ir;
+
+    #[test]
+    fn add_above_64() {
+        // without overflow
+        let add0 = Value::try_from_init(17, 165).unwrap();
+        let add1 = Value::try_from_init(35, 165).unwrap();
+        let add = StdAdd::new(165);
+        let res_add = add
+            .validate_and_execute(&[
+                ("left".into(), &add0),
+                ("right".into(), &add1),
+            ])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(res_add, Value::try_from_init(52, 165).unwrap());
+    }
+
+    #[test]
+    fn lsh_above_64() {
+        // lsh -- overflow to zero
+        let left = Value::try_from_init(31, 275).unwrap();
+        let right = Value::try_from_init(275, 275).unwrap();
+        let lsh = StdLsh::new(275);
+        let out = lsh
+            .validate_and_execute(&[
+                ("left".into(), &left),
+                ("right".into(), &right),
+            ])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(out, Value::try_from_init(0, 275).unwrap());
+        // lsh without overflow
+        // lsh [010000] (16) by 1 -> [100000] (32)
+        let left = Value::try_from_init(16, 381).unwrap();
+        let right = Value::try_from_init(1, 381).unwrap();
+        let lsh = StdLsh::new(381);
+        let out = lsh
+            .validate_and_execute(&[
+                ("left".into(), &left),
+                ("right".into(), &right),
+            ])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(out, Value::try_from_init(32, 381).unwrap());
+    }
+
+    #[test]
+    fn rsh_above_64() {
+        // rsh to zero
+        let left = Value::try_from_init(8, 275).unwrap();
+        let right = Value::try_from_init(4, 275).unwrap();
+        let rsh = StdRsh::new(275);
+        let out = rsh
+            .validate_and_execute(&[
+                ("left".into(), &left),
+                ("right".into(), &right),
+            ])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(out, Value::try_from_init(0, 275).unwrap());
+        // rsh without overflow
+        // lsh [101000] (40) by 3 -> [000101] (5)
+        let left = Value::try_from_init(40, 381).unwrap();
+        let right = Value::try_from_init(3, 381).unwrap();
+        let rsh = StdRsh::new(381);
+        let out = rsh
+            .validate_and_execute(&[
+                ("left".into(), &left),
+                ("right".into(), &right),
+            ])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(out, Value::try_from_init(5, 381).unwrap());
+    }
+
     #[test]
     fn test_mem_d1_tlv() {
         let mut mem_d1 = StdMemD1::new(32, 8, 3);
