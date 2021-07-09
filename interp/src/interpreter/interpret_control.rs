@@ -63,7 +63,8 @@ fn state_merger(
 // }
 
 /// Interpret Par
-/// at the moment behaves like seq
+/// current progress for par, will be updated in the next PR considering new
+/// smoosher changes
 fn eval_par(
     p: &ir::Par,
     continuous_assignments: &[ir::Assignment],
