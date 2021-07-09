@@ -44,7 +44,13 @@ impl Primitive for StdReg {
     }
 
     fn validate(&self, inputs: &[(calyx::ir::Id, &Value)]) {
-        todo!()
+        for (id, v) in inputs {
+            match id.as_ref() {
+                "in" => assert_eq!(v.len() as u64, self.width),
+                "write_en" => assert_eq!(v.len(), 1),
+                _ => {}
+            }
+        }
     }
 
     fn execute(
