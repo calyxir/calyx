@@ -348,19 +348,13 @@ impl InterpreterState {
         for comp in &ctx.components {
             for port in comp.signature.borrow().ports.iter() {
                 let pt: &ir::Port = &port.borrow();
-                map.insert(
-                    pt as *const ir::Port,
-                    Value::try_from_init(0, 1).unwrap(),
-                );
+                map.insert(pt as ConstPort, Value::bit_low());
             }
             for group in comp.groups.iter() {
                 let grp = group.borrow();
                 for hole in &grp.holes {
                     let pt: &ir::Port = &hole.borrow();
-                    map.insert(
-                        pt as ConstPort,
-                        Value::try_from_init(0, 1).unwrap(),
-                    );
+                    map.insert(pt as ConstPort, Value::bit_low());
                 }
             }
             for cell in comp.cells.iter() {
