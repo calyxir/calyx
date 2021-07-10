@@ -43,16 +43,16 @@ fn eval_seq(
     Ok(env)
 }
 
-fn state_merger(
-    st1: InterpreterState,
-    st2: InterpreterState,
-) -> InterpreterState {
-    let mut out = environment::InterpreterState::init(&st1.context);
-    out.clk = max(st1.clk, st2.clk);
-    let pv = stk_env::Smoosher::merge(st1.pv_map, st2.pv_map);
-    out.pv_map = pv;
-    out
-}
+// fn state_merger(
+//     st1: InterpreterState,
+//     st2: InterpreterState,
+// ) -> InterpreterState {
+//     let mut out = environment::InterpreterState::init(&st1.context);
+//     out.clk = max(st1.clk, st2.clk);
+//     let pv = stk_env::Smoosher::merge(st1.pv_map, st2.pv_map);
+//     out.pv_map = pv;
+//     out
+// }
 
 // fn folder(env: InterpreterState, new: &InterpreterState) -> InterpreterState {
 //     let nw = new.borrow_mut();
@@ -80,7 +80,7 @@ fn eval_par(
 
     //env = sts.iter().fold(env, folder);
     for st in sts {
-        env = state_merger(env, st);
+        //env = state_merger(env, st);
     }
 
     // for stmt in &p.stmts {
