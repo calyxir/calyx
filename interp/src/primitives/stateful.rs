@@ -53,7 +53,7 @@ impl Primitive for StdReg {
             match id.as_ref() {
                 "in" => assert_eq!(v.len() as u64, self.width),
                 "write_en" => assert_eq!(v.len(), 1),
-                p => unreachable!("Unknown port: {}", p)
+                p => unreachable!("Unknown port: {}", p),
             }
         }
     }
@@ -211,7 +211,7 @@ impl Primitive for StdMemD1 {
                     assert!(v.as_u64() < self.size);
                     assert_eq!(v.len() as u64, self.idx_size)
                 }
-                p => unreachable!("Unknown port: {}", p)
+                p => unreachable!("Unknown port: {}", p),
             }
         }
     }
@@ -411,7 +411,7 @@ impl Primitive for StdMemD2 {
                     assert!(v.as_u64() < self.d1_size);
                     assert_eq!(v.len() as u64, self.d1_idx_size)
                 }
-                p => unreachable!("Unknown port: {}", p)
+                p => unreachable!("Unknown port: {}", p),
             }
         }
     }
@@ -643,7 +643,7 @@ impl Primitive for StdMemD3 {
                     assert!(v.as_u64() < self.d2_size);
                     assert_eq!(v.len() as u64, self.d2_idx_size)
                 }
-                p => unreachable!("Unknown port: {}", p)
+                p => unreachable!("Unknown port: {}", p),
             }
         }
     }
@@ -907,7 +907,7 @@ impl Primitive for StdMemD4 {
                     assert!(v.as_u64() < self.d3_size);
                     assert_eq!(v.len() as u64, self.d3_idx_size)
                 }
-                p => unreachable!("Unknown port: {}", p)
+                p => unreachable!("Unknown port: {}", p),
             }
         }
     }
