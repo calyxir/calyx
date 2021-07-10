@@ -53,7 +53,7 @@ impl Primitive for StdReg {
             match id.as_ref() {
                 "in" => assert_eq!(v.len() as u64, self.width),
                 "write_en" => assert_eq!(v.len(), 1),
-                _ => {}
+                p => unreachable!("Unknown port: {}", p)
             }
         }
     }
@@ -211,7 +211,7 @@ impl Primitive for StdMemD1 {
                     assert!(v.as_u64() < self.size);
                     assert_eq!(v.len() as u64, self.idx_size)
                 }
-                _ => {}
+                p => unreachable!("Unknown port: {}", p)
             }
         }
     }
@@ -401,17 +401,17 @@ impl Primitive for StdMemD2 {
     fn validate(&self, inputs: &[(ir::Id, &Value)]) {
         for (id, v) in inputs {
             match id.as_ref() {
-                "WRITE_DATA" => assert_eq!(v.len() as u64, self.width),
-                "WRITE_EN" => assert_eq!(v.len(), 1),
-                "ADDR0" => {
+                "write_data" => assert_eq!(v.len() as u64, self.width),
+                "write_en" => assert_eq!(v.len(), 1),
+                "addr0" => {
                     assert!(v.as_u64() < self.d0_size);
                     assert_eq!(v.len() as u64, self.d0_idx_size)
                 }
-                "ADDR1" => {
+                "addr1" => {
                     assert!(v.as_u64() < self.d1_size);
                     assert_eq!(v.len() as u64, self.d1_idx_size)
                 }
-                _ => {}
+                p => unreachable!("Unknown port: {}", p)
             }
         }
     }
@@ -629,21 +629,21 @@ impl Primitive for StdMemD3 {
     fn validate(&self, inputs: &[(ir::Id, &Value)]) {
         for (id, v) in inputs {
             match id.as_ref() {
-                "WRITE_DATA" => assert_eq!(v.len() as u64, self.width),
-                "WRITE_EN" => assert_eq!(v.len(), 1),
-                "ADDR0" => {
+                "write_data" => assert_eq!(v.len() as u64, self.width),
+                "write_en" => assert_eq!(v.len(), 1),
+                "addr0" => {
                     assert!(v.as_u64() < self.d0_size);
                     assert_eq!(v.len() as u64, self.d0_idx_size)
                 }
-                "ADDR1" => {
+                "addr1" => {
                     assert!(v.as_u64() < self.d1_size);
                     assert_eq!(v.len() as u64, self.d1_idx_size)
                 }
-                "ADDR2" => {
+                "addr2" => {
                     assert!(v.as_u64() < self.d2_size);
                     assert_eq!(v.len() as u64, self.d2_idx_size)
                 }
-                _ => {}
+                p => unreachable!("Unknown port: {}", p)
             }
         }
     }
@@ -889,25 +889,25 @@ impl Primitive for StdMemD4 {
     fn validate(&self, inputs: &[(ir::Id, &Value)]) {
         for (id, v) in inputs {
             match id.as_ref() {
-                "WRITE_DATA" => assert_eq!(v.len() as u64, self.width),
-                "WRITE_EN" => assert_eq!(v.len(), 1),
-                "ADDR0" => {
+                "write_data" => assert_eq!(v.len() as u64, self.width),
+                "write_en" => assert_eq!(v.len(), 1),
+                "addr0" => {
                     assert!(v.as_u64() < self.d0_size);
                     assert_eq!(v.len() as u64, self.d0_idx_size)
                 }
-                "ADDR1" => {
+                "addr1" => {
                     assert!(v.as_u64() < self.d1_size);
                     assert_eq!(v.len() as u64, self.d1_idx_size)
                 }
-                "ADDR2" => {
+                "addr2" => {
                     assert!(v.as_u64() < self.d2_size);
                     assert_eq!(v.len() as u64, self.d2_idx_size)
                 }
-                "ADDR3" => {
+                "addr3" => {
                     assert!(v.as_u64() < self.d3_size);
                     assert_eq!(v.len() as u64, self.d3_idx_size)
                 }
-                _ => {}
+                p => unreachable!("Unknown port: {}", p)
             }
         }
     }
