@@ -13,7 +13,7 @@ pub struct StdConst {
 impl StdConst {
     pub fn from_constants(value: u64, width: u64) -> Self {
         StdConst {
-            value: Value::try_from_init(value, width).unwrap(),
+            value: Value::from(value, width).unwrap(),
         }
     }
 
@@ -24,7 +24,7 @@ impl StdConst {
         let init_value = get_param(&params, "VALUE")
             .expect("Missing `vale` param from std_const binding");
 
-        let value = Value::try_from_init(init_value, width).unwrap();
+        let value = Value::from(init_value, width).unwrap();
 
         Self { value }
     }

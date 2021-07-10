@@ -217,7 +217,7 @@ mod values_stk_env_test {
     #[test]
     fn smoosher_val_get_set() {
         let mut sm = Smoosher::new();
-        let val = Value::try_from_init(8, 4).unwrap();
+        let val = Value::from(8, 4).unwrap();
         sm.set("reg_out", val);
         assert_eq!(sm.get(&"reg_out").unwrap().as_u64(), 8);
     }
@@ -225,11 +225,11 @@ mod values_stk_env_test {
     #[test]
     fn smoosher_get_set_2_scopes() {
         let mut smoosher = Smoosher::new();
-        smoosher.set("hey", Value::try_from_init(2, 32).unwrap());
-        smoosher.set("alma", Value::try_from_init(18, 32).unwrap());
+        smoosher.set("hey", Value::from(2, 32).unwrap());
+        smoosher.set("alma", Value::from(18, 32).unwrap());
         assert_eq!(smoosher.get(&"hey").unwrap().as_u64(), 2);
         smoosher.new_scope();
-        smoosher.set("hey", Value::try_from_init(3, 32).unwrap());
+        smoosher.set("hey", Value::from(3, 32).unwrap());
         //test a binding shadowed from the top scope
         assert_eq!(smoosher.get(&"hey").unwrap().as_u64(), 3);
         //test a binding found not on top scope
@@ -239,34 +239,28 @@ mod values_stk_env_test {
     #[test]
     fn value_eq_get_set() {
         let mut smoosher = Smoosher::new();
-        smoosher.set("hey", Value::try_from_init(2, 32).unwrap());
-        smoosher.set("alma", Value::try_from_init(18, 32).unwrap());
-        assert_eq!(
-            *smoosher.get(&"hey").unwrap(),
-            Value::try_from_init(2, 32).unwrap()
-        );
+        smoosher.set("hey", Value::from(2, 32).unwrap());
+        smoosher.set("alma", Value::from(18, 32).unwrap());
+        assert_eq!(*smoosher.get(&"hey").unwrap(), Value::from(2, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("hey", Value::try_from_init(3, 32).unwrap());
+        smoosher.set("hey", Value::from(3, 32).unwrap());
         //test a binding shadowed from the top scope
-        assert_eq!(
-            *smoosher.get(&"hey").unwrap(),
-            Value::try_from_init(3, 32).unwrap()
-        );
+        assert_eq!(*smoosher.get(&"hey").unwrap(), Value::from(3, 32).unwrap());
         //test a binding found not on top scope
         assert_eq!(
             *smoosher.get(&"alma").unwrap(),
-            Value::try_from_init(18, 32).unwrap()
+            Value::from(18, 32).unwrap()
         );
     }
 
     #[test]
     fn smoosher_smoosh_basic() {
         let mut smoosher = Smoosher::new();
-        smoosher.set("hey", Value::try_from_init(2, 32).unwrap());
-        smoosher.set("alma", Value::try_from_init(18, 32).unwrap());
+        smoosher.set("hey", Value::from(2, 32).unwrap());
+        smoosher.set("alma", Value::from(18, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("hey", Value::try_from_init(3, 32).unwrap());
-        smoosher.set("bruh", Value::try_from_init(3, 32).unwrap());
+        smoosher.set("hey", Value::from(3, 32).unwrap());
+        smoosher.set("bruh", Value::from(3, 32).unwrap());
         let smoosher = smoosher.smoosh(1);
         //test bindings have been maintained
         assert_eq!(smoosher.get(&"bruh").unwrap().as_u64(), 3);
@@ -277,17 +271,17 @@ mod values_stk_env_test {
     #[test]
     fn smoosher_smoosh_many_lvls() {
         let mut smoosher = Smoosher::new();
-        smoosher.set("hey", Value::try_from_init(2, 32).unwrap());
-        smoosher.set("alma", Value::try_from_init(18, 32).unwrap());
+        smoosher.set("hey", Value::from(2, 32).unwrap());
+        smoosher.set("alma", Value::from(18, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("hey", Value::try_from_init(3, 32).unwrap());
-        smoosher.set("bruh", Value::try_from_init(3, 32).unwrap());
+        smoosher.set("hey", Value::from(3, 32).unwrap());
+        smoosher.set("bruh", Value::from(3, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("hey", Value::try_from_init(7, 32).unwrap());
+        smoosher.set("hey", Value::from(7, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("hey", Value::try_from_init(8, 32).unwrap());
+        smoosher.set("hey", Value::from(8, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("hey", Value::try_from_init(9, 32).unwrap());
+        smoosher.set("hey", Value::from(9, 32).unwrap());
         let smoosher = smoosher.smoosh(4);
         //test bindings have been maintained
         assert_eq!(smoosher.get(&"bruh").unwrap().as_u64(), 3);
@@ -299,13 +293,13 @@ mod values_stk_env_test {
     #[test]
     fn smoosher_merge_basic() {
         let mut smoosher = Smoosher::new();
-        smoosher.set("alma", Value::try_from_init(18, 32).unwrap());
-        smoosher.set("jonathan", Value::try_from_init(14, 32).unwrap());
-        smoosher.set("jenny", Value::try_from_init(2, 32).unwrap());
+        smoosher.set("alma", Value::from(18, 32).unwrap());
+        smoosher.set("jonathan", Value::from(14, 32).unwrap());
+        smoosher.set("jenny", Value::from(2, 32).unwrap());
         //the below fork adds a new scope to [smoosher]
         let mut smoosher2 = smoosher.fork();
-        smoosher2.set("alma", Value::try_from_init(19, 32).unwrap());
-        smoosher.set("jonathan", Value::try_from_init(15, 32).unwrap());
+        smoosher2.set("alma", Value::from(19, 32).unwrap());
+        smoosher.set("jonathan", Value::from(15, 32).unwrap());
         let smoosher_merged = Smoosher::merge(smoosher, smoosher2);
         assert_eq!(smoosher_merged.get(&"alma").unwrap().as_u64(), 19);
         assert_eq!(smoosher_merged.get(&"jonathan").unwrap().as_u64(), 15);
@@ -315,16 +309,16 @@ mod values_stk_env_test {
     #[test]
     fn smoosher_merge_complex() {
         let mut smoosher = Smoosher::new();
-        smoosher.set("alma", Value::try_from_init(18, 32).unwrap());
-        smoosher.set("jonathan", Value::try_from_init(14, 32).unwrap());
-        smoosher.set("jenny", Value::try_from_init(2, 32).unwrap());
+        smoosher.set("alma", Value::from(18, 32).unwrap());
+        smoosher.set("jonathan", Value::from(14, 32).unwrap());
+        smoosher.set("jenny", Value::from(2, 32).unwrap());
         //the below fork adds a new scope to [smoosher]
         let mut smoosher2 = smoosher.fork();
-        smoosher2.set("alma", Value::try_from_init(19, 32).unwrap());
+        smoosher2.set("alma", Value::from(19, 32).unwrap());
         //add another 2 scopes to smoosher, see if that can be merged
-        smoosher.set("jonathan", Value::try_from_init(15, 32).unwrap());
+        smoosher.set("jonathan", Value::from(15, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("jenny", Value::try_from_init(3, 32).unwrap());
+        smoosher.set("jenny", Value::from(3, 32).unwrap());
         let smoosher_merged = Smoosher::merge(smoosher, smoosher2);
         assert_eq!(smoosher_merged.get(&"alma").unwrap().as_u64(), 19);
         assert_eq!(smoosher_merged.get(&"jonathan").unwrap().as_u64(), 15);
@@ -334,12 +328,12 @@ mod values_stk_env_test {
     #[test]
     fn smoosher_list_b_vars() {
         let mut smoosher = Smoosher::new();
-        smoosher.set("alma", Value::try_from_init(18, 32).unwrap());
+        smoosher.set("alma", Value::from(18, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("jonathan", Value::try_from_init(14, 32).unwrap());
+        smoosher.set("jonathan", Value::from(14, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("joseph", Value::try_from_init(19, 32).unwrap());
-        smoosher.set("ari", Value::try_from_init(12, 32).unwrap());
+        smoosher.set("joseph", Value::from(19, 32).unwrap());
+        smoosher.set("ari", Value::from(12, 32).unwrap());
         //assert lbv 0 is joseph and ari
         //assert lbv1 is joseph, ari, jonathan
         let hs0 = Smoosher::list_bound_vars(&smoosher, 0);
@@ -358,14 +352,14 @@ mod values_stk_env_test {
     #[test]
     fn smoosher_to_hm() {
         let mut smoosher = Smoosher::new();
-        smoosher.set("alma", Value::try_from_init(18, 32).unwrap());
+        smoosher.set("alma", Value::from(18, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("jonathan", Value::try_from_init(14, 32).unwrap());
+        smoosher.set("jonathan", Value::from(14, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("joseph", Value::try_from_init(19, 32).unwrap());
+        smoosher.set("joseph", Value::from(19, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("joseph", Value::try_from_init(436, 32).unwrap());
-        smoosher.set("ari", Value::try_from_init(12, 32).unwrap());
+        smoosher.set("joseph", Value::from(436, 32).unwrap());
+        smoosher.set("ari", Value::from(12, 32).unwrap());
         let hm = smoosher.to_hm();
         //that type annotation seems a bit wack
         assert_eq!(hm.len(), 4);
@@ -379,14 +373,14 @@ mod values_stk_env_test {
     fn value_smoosher_hm_from() {
         use std::collections::HashMap;
         let mut smoosher = Smoosher::new();
-        smoosher.set("alma", Value::try_from_init(18, 32).unwrap());
+        smoosher.set("alma", Value::from(18, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("jonathan", Value::try_from_init(14, 32).unwrap());
+        smoosher.set("jonathan", Value::from(14, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("joseph", Value::try_from_init(19, 32).unwrap());
+        smoosher.set("joseph", Value::from(19, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("joseph", Value::try_from_init(436, 32).unwrap());
-        smoosher.set("ari", Value::try_from_init(12, 32).unwrap());
+        smoosher.set("joseph", Value::from(436, 32).unwrap());
+        smoosher.set("ari", Value::from(12, 32).unwrap());
         let hm: HashMap<&&str, &Value> = HashMap::from(&smoosher);
         //that type annotation seems a bit wack
         assert_eq!(hm.len(), 4);
@@ -399,16 +393,16 @@ mod values_stk_env_test {
     #[test]
     fn smoosher_diff_2() {
         let mut smoosher = Smoosher::new();
-        smoosher.set("alma", Value::try_from_init(18, 32).unwrap());
+        smoosher.set("alma", Value::from(18, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("joseph", Value::try_from_init(19, 32).unwrap());
+        smoosher.set("joseph", Value::from(19, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("jonathan", Value::try_from_init(14, 32).unwrap());
+        smoosher.set("jonathan", Value::from(14, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("jonathan", Value::try_from_init(15, 32).unwrap());
+        smoosher.set("jonathan", Value::from(15, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("alma", Value::try_from_init(19, 32).unwrap());
-        smoosher.set("joseph", Value::try_from_init(19, 32).unwrap());
+        smoosher.set("alma", Value::from(19, 32).unwrap());
+        smoosher.set("joseph", Value::from(19, 32).unwrap());
         //there are 5 scopes, check diff 2 and see that the resulting hm
         //has alma, jonathan, but not joseph.
         let diff_2 = smoosher.diff(2);
@@ -420,16 +414,16 @@ mod values_stk_env_test {
     #[test]
     fn smoosher_diff_other() {
         let mut smoosher = Smoosher::new();
-        smoosher.set("alma", Value::try_from_init(18, 32).unwrap());
+        smoosher.set("alma", Value::from(18, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("joseph", Value::try_from_init(19, 32).unwrap());
+        smoosher.set("joseph", Value::from(19, 32).unwrap());
         smoosher.new_scope();
-        smoosher.set("jonathan", Value::try_from_init(14, 32).unwrap());
+        smoosher.set("jonathan", Value::from(14, 32).unwrap());
         let mut smoosher2 = Smoosher::new();
-        smoosher2.set("jonathan", Value::try_from_init(15, 32).unwrap());
+        smoosher2.set("jonathan", Value::from(15, 32).unwrap());
         smoosher2.new_scope();
-        smoosher2.set("alma", Value::try_from_init(19, 32).unwrap());
-        smoosher2.set("joseph", Value::try_from_init(19, 32).unwrap());
+        smoosher2.set("alma", Value::from(19, 32).unwrap());
+        smoosher2.set("joseph", Value::from(19, 32).unwrap());
         let diff_2 = smoosher.diff_other(&smoosher2);
         assert!(diff_2.contains_key(&"alma"));
         assert_eq!(diff_2.get(&"alma").unwrap().as_u64(), 18);

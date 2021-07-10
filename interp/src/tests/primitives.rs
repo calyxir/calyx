@@ -1,23 +1,22 @@
 #[allow(unused)]
+use crate::port_bindings;
+#[allow(unused)]
 use crate::primitives::{combinational as comb, stateful as stfl, Primitive};
 #[allow(unused)]
 use crate::values::{OutputValue, ReadableValue, TickableValue, Value};
-#[cfg(test)]
+#[allow(unused)]
 use calyx::ir;
 
 #[test]
 fn test_mem_d1_tlv() {
-    let mut mem_d1 = stfl::StdMemD1::from_constants(32u64, 8, 3);
-    let val = Value::try_from_init(5, 32).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr = Value::try_from_init(2, 3).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr);
-    let mut mem_out = mem_d1.validate_and_execute(
-        &[input, write_en, addr0],
-        Some(&Value::bit_low()),
-    );
+    let mut mem_d1 = stfl::StdMemD1::from_constants(32, 8, 3);
+    port_bindings![binds;
+        write_data -> (5, 32),
+        write_en -> (1, 1),
+        addr0 -> (2, 3)
+    ];
+    let mut mem_out =
+        mem_d1.validate_and_execute(&binds, Some(&Value::bit_low()));
     match &mut mem_out[..] {
         [read_data, done] => match (read_data, done) {
             (
@@ -29,7 +28,10 @@ fn test_mem_d1_tlv() {
                 rd.dec_count();
                 d.tick();
                 assert!(rd.unlockable());
-                assert_eq!(rd.clone().unlock().as_u64(), val.clone().as_u64());
+                assert_eq!(
+                    rd.clone().unlock().as_u64(),
+                    write_data.clone().as_u64()
+                );
                 assert_eq!(d.get_val().as_u64(), 1);
                 let d = d.clone().do_tick();
                 assert!(matches!(d, OutputValue::ImmediateValue(_)));
@@ -47,17 +49,13 @@ fn test_mem_d1_tlv() {
 #[test]
 fn test_mem_d1_imval() {
     let mut mem_d1 = stfl::StdMemD1::from_constants(32, 8, 3);
-    let val = Value::try_from_init(5, 32).unwrap();
-    let enable = Value::try_from_init(0, 1).unwrap();
-    let addr = Value::try_from_init(2, 3).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr);
+    port_bindings![binds;
+        write_data -> (5, 32),
+        write_en -> (0, 1),
+        addr0 -> (2, 3)
+    ];
     let mut mem_out = mem_d1
-        .validate_and_execute(
-            &[input, write_en, addr0],
-            (&Value::bit_low()).into(),
-        )
+        .validate_and_execute(&binds, (&Value::bit_low()).into())
         .into_iter();
     if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
         let rd = read_data.1.unwrap_imm();
@@ -71,48 +69,37 @@ fn test_mem_d1_imval() {
 fn test_mem_d1_panic_addr() {
     // Access address larger than the size of memory
     let mut mem_d1 = stfl::StdMemD1::from_constants(32, 2, 1);
-    let val = Value::try_from_init(5, 32).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr = Value::try_from_init(4, 3).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr);
-    let mut _mem_out = mem_d1.validate_and_execute(
-        &[input, write_en, addr0],
-        (&Value::bit_low()).into(),
-    );
+    port_bindings![binds;
+        write_data -> (5, 32),
+        write_en -> (1, 1),
+        addr0 -> (4, 3)
+    ];
+    mem_d1.validate_and_execute(&binds, (&Value::bit_low()).into());
 }
 #[test]
 #[should_panic]
 fn test_mem_d1_panic_input() {
     // Input width larger than the memory capacity
     let mut mem_d1 = stfl::StdMemD1::from_constants(2, 2, 1);
-    let val = Value::try_from_init(10, 4).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr = Value::try_from_init(1, 1).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr);
-    let mut _mem_out = mem_d1.validate_and_execute(
-        &[input, write_en, addr0],
-        (&Value::bit_low()).into(),
-    );
+    port_bindings![binds;
+        write_data -> (10, 4),
+        write_en -> (1, 1),
+        addr0 -> (1, 1)
+    ];
+    let mut _mem_out =
+        mem_d1.validate_and_execute(&binds, (&Value::bit_low()).into());
 }
 #[test]
 fn test_mem_d2_tlv() {
     let mut mem_d2 = stfl::StdMemD2::from_constants(32, 8, 8, 3, 3);
-    let val = Value::try_from_init(5, 32).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr_0 = Value::try_from_init(2, 3).unwrap();
-    let addr_1 = Value::try_from_init(0, 3).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
-    let mut mem_out = mem_d2.validate_and_execute(
-        &[input, write_en, addr0, addr1],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        write_data -> (5, 32),
+        write_en -> (1, 1),
+        addr0 -> (2, 3),
+        addr1 -> (0 ,3)
+    ];
+    let mut mem_out =
+        mem_d2.validate_and_execute(&binds, Some(&Value::bit_low()));
     match &mut mem_out[..] {
         [read_data, done] => match (read_data, done) {
             (
@@ -125,7 +112,10 @@ fn test_mem_d2_tlv() {
                 d.tick();
                 assert!(rd.unlockable());
                 assert_eq!(d.get_val().as_u64(), 1);
-                assert_eq!(rd.clone().unlock().as_u64(), val.clone().as_u64());
+                assert_eq!(
+                    rd.clone().unlock().as_u64(),
+                    write_data.clone().as_u64()
+                );
                 let d = d.clone().do_tick();
                 assert!(matches!(d, OutputValue::ImmediateValue(_)));
                 if let OutputValue::ImmediateValue(iv) = d {
@@ -142,19 +132,14 @@ fn test_mem_d2_tlv() {
 #[test]
 fn test_mem_d2_imval() {
     let mut mem_d2 = stfl::StdMemD2::from_constants(32, 8, 8, 3, 3);
-    let val = Value::try_from_init(5, 32).unwrap();
-    let enable = Value::try_from_init(0, 1).unwrap();
-    let addr_0 = Value::try_from_init(2, 3).unwrap();
-    let addr_1 = Value::try_from_init(0, 3).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
+    port_bindings![binds;
+        write_data -> (5, 32),
+        write_en -> (0, 1),
+        addr0 -> (2, 3),
+        addr1 -> (0 ,3)
+    ];
     let mut mem_out = mem_d2
-        .validate_and_execute(
-            &[input, write_en, addr0, addr1],
-            Some(&Value::bit_low()),
-        )
+        .validate_and_execute(&binds, Some(&Value::bit_low()))
         .into_iter();
     if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
         let rd = read_data.1.unwrap_imm();
@@ -168,71 +153,53 @@ fn test_mem_d2_imval() {
 fn test_mem_d2_panic_addr0() {
     // Access address larger than the size of memory
     let mut mem_d2 = stfl::StdMemD2::from_constants(32, 2, 1, 2, 1);
-    let val = Value::try_from_init(5, 32).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr_0 = Value::try_from_init(4, 3).unwrap();
-    let addr_1 = Value::try_from_init(0, 1).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
-    let mut _mem_out = mem_d2.validate_and_execute(
-        &[input, write_en, addr0, addr1],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        write_data -> (5, 32),
+        write_en -> (1, 1),
+        addr0 -> (4, 3),
+        addr1 -> (0 ,3)
+    ];
+    mem_d2.validate_and_execute(&binds, Some(&Value::bit_low()));
 }
 #[test]
 #[should_panic]
 fn test_mem_d2_panic_addr1() {
     // Access address larger than the size of memory
     let mut mem_d2 = stfl::StdMemD2::from_constants(32, 2, 1, 2, 1);
-    let val = Value::try_from_init(5, 32).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr_0 = Value::try_from_init(0, 1).unwrap();
-    let addr_1 = Value::try_from_init(4, 3).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
-    let mut _mem_out = mem_d2.validate_and_execute(
-        &[input, write_en, addr0, addr1],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        write_data -> (5, 32),
+        write_en -> (1, 1),
+        addr0 -> (4, 3),
+        addr1 -> (0 ,3)
+    ];
+    mem_d2.validate_and_execute(&binds, Some(&Value::bit_low()));
 }
+
 #[test]
 #[should_panic]
 fn test_mem_d2_panic_input() {
     // Input width larger than the memory capacity
     let mut mem_d2 = stfl::StdMemD2::from_constants(2, 2, 1, 2, 1);
-    let val = Value::try_from_init(10, 4).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr_0 = Value::try_from_init(0, 1).unwrap();
-    let addr_1 = Value::try_from_init(1, 1).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
-    let mut _mem_out = mem_d2.validate_and_execute(
-        &[input, write_en, addr0, addr1],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        write_data -> (10, 4),
+        write_en -> (1, 1),
+        addr0 -> (0, 1),
+        addr1 -> (1, 1)
+    ];
+    mem_d2.validate_and_execute(&binds, Some(&Value::bit_low()));
 }
 #[test]
 fn test_mem_d3_tlv() {
     let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1);
-    let val = Value::try_from_init(1, 1).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap(); //so nothing will be written
-    let addr0 = Value::try_from_init(1, 1).unwrap();
-    let addr1 = (ir::Id::from("addr1"), &addr0);
-    let addr2 = (ir::Id::from("addr2"), &addr0);
-    let addr0 = (ir::Id::from("addr0"), &addr0);
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
+    port_bindings![binds;
+        write_data -> (1, 1),
+        write_en -> (1, 1),
+        addr0 -> (1, 1),
+        addr1 -> (1, 1),
+        addr2 -> (1, 1)
+    ];
     let mut mem_out = mem_d3
-        .validate_and_execute(
-            &[input, write_en, addr0, addr1, addr2],
-            Some(&Value::bit_low()),
-        )
+        .validate_and_execute(&binds, Some(&Value::bit_low()))
         .into_iter();
     let (read_data, done) = (mem_out.next().unwrap(), mem_out.next().unwrap());
     assert!(mem_out.next().is_none()); //make sure it's only of length 2
@@ -245,7 +212,7 @@ fn test_mem_d3_tlv() {
         assert!(rd.unlockable());
         assert_eq!(d.get_val().as_u64(), 1);
 
-        assert_eq!(rd.unlock().as_u64(), val.as_u64());
+        assert_eq!(rd.unlock().as_u64(), write_data.as_u64());
         let d = d.do_tick();
         assert!(matches!(d, OutputValue::ImmediateValue(_)));
         if let OutputValue::ImmediateValue(iv) = d {
@@ -258,19 +225,15 @@ fn test_mem_d3_tlv() {
 #[test]
 fn test_mem_d3_imval() {
     let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1);
-    let val = Value::try_from_init(1, 1).unwrap();
-    let enable = Value::try_from_init(0, 1).unwrap(); //so nothing will be written
-    let addr0 = Value::try_from_init(1, 1).unwrap();
-    let addr1 = (ir::Id::from("addr1"), &addr0);
-    let addr2 = (ir::Id::from("addr2"), &addr0);
-    let addr0 = (ir::Id::from("addr0"), &addr0);
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
+    port_bindings![binds;
+        write_data -> (1, 1),
+        write_en -> (0, 1),
+        addr0 -> (1, 1),
+        addr1 -> (1, 1),
+        addr2 -> (1, 1)
+    ];
     let mut mem_out = mem_d3
-        .validate_and_execute(
-            &[input, write_en, addr0, addr1, addr2],
-            Some(&Value::bit_low()),
-        )
+        .validate_and_execute(&binds, Some(&Value::bit_low()))
         .into_iter();
     if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
         let rd = read_data.1.unwrap_imm();
@@ -284,98 +247,70 @@ fn test_mem_d3_imval() {
 fn test_mem_d3_panic_addr0() {
     // Access address larger than the size of memory
     let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1); //2 x 2 x 2, storing 1 bit in each slot
-    let val = Value::try_from_init(1, 1).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr_0 = Value::try_from_init(0, 4).unwrap();
-    let addr_1 = Value::try_from_init(1, 1).unwrap();
-    let addr_2 = Value::try_from_init(1, 1).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
-    let addr2 = (ir::Id::from("addr2"), &addr_2);
-    let mut _mem_out = mem_d3.validate_and_execute(
-        &[input, write_en, addr0, addr1, addr2],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        write_data -> (1, 1),
+        write_en -> (1, 1),
+        addr0 -> (0, 4),
+        addr1 -> (1, 1),
+        addr2 -> (1, 1)
+    ];
+    mem_d3.validate_and_execute(&binds, Some(&Value::bit_low()));
 }
 #[test]
 #[should_panic]
 fn test_mem_d3_panic_addr1() {
     // Access address larger than the size of memory
     let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1); //2 x 2 x 2, storing 1 bit in each slot
-    let val = Value::try_from_init(1, 1).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr_0 = Value::try_from_init(0, 1).unwrap();
-    let addr_1 = Value::try_from_init(1, 4).unwrap();
-    let addr_2 = Value::try_from_init(1, 1).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
-    let addr2 = (ir::Id::from("addr2"), &addr_2);
-    let mut _mem_out = mem_d3.validate_and_execute(
-        &[input, write_en, addr0, addr1, addr2],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        write_data -> (1, 1),
+        write_en -> (1, 1),
+        addr0 -> (0, 1),
+        addr1 -> (1, 4),
+        addr2 -> (1, 1)
+    ];
+    mem_d3.validate_and_execute(&binds, Some(&Value::bit_low()));
 }
 #[test]
 #[should_panic]
 fn test_mem_d3_panic_addr2() {
     // Access address larger than the size of memory
     let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1); //2 x 2 x 2, storing 1 bit in each slot
-    let val = Value::try_from_init(1, 1).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr_0 = Value::try_from_init(0, 1).unwrap();
-    let addr_1 = Value::try_from_init(1, 1).unwrap();
-    let addr_2 = Value::try_from_init(1, 4).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
-    let addr2 = (ir::Id::from("addr2"), &addr_2);
-    let mut _mem_out = mem_d3.validate_and_execute(
-        &[input, write_en, addr0, addr1, addr2],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        write_data -> (1, 1),
+        write_en -> (1, 1),
+        addr0 -> (0, 1),
+        addr1 -> (1, 1),
+        addr2 -> (1, 4)
+    ];
+    mem_d3.validate_and_execute(&binds, Some(&Value::bit_low()));
 }
 #[test]
 #[should_panic]
 fn test_mem_d3_panic_input() {
     // Input width larger than the memory capacity
     let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1);
-    let val = Value::try_from_init(10, 4).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr_0 = Value::try_from_init(0, 1).unwrap();
-    let addr_1 = Value::try_from_init(1, 1).unwrap();
-    let addr_2 = Value::try_from_init(1, 1).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
-    let addr2 = (ir::Id::from("addr2"), &addr_2);
-    let mut _mem_out = mem_d3.validate_and_execute(
-        &[input, write_en, addr0, addr1, addr2],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        write_data -> (10, 4),
+        write_en -> (1, 1),
+        addr0 -> (0, 1),
+        addr1 -> (1, 1),
+        addr2 -> (1, 1)
+    ];
+    mem_d3.validate_and_execute(&binds, Some(&Value::bit_low()));
 }
 #[test]
 fn test_mem_d4_tlv() {
     let mut mem_d4 = stfl::StdMemD4::from_constants(1, 2, 2, 2, 2, 1, 1, 1, 1);
-    let val = Value::try_from_init(1, 1).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap(); //so nothing will be written
-    let addr0 = Value::try_from_init(1, 1).unwrap();
-    let addr1 = (ir::Id::from("addr1"), &addr0);
-    let addr2 = (ir::Id::from("addr2"), &addr0);
-    let addr3 = (ir::Id::from("addr3"), &addr0);
-    let addr0 = (ir::Id::from("addr0"), &addr0);
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
+    port_bindings![binds;
+        write_data -> (1, 1),
+        write_en -> (1, 1),
+        addr0 -> (1, 1),
+        addr1 -> (1, 1),
+        addr2 -> (1, 1),
+        addr3 -> (1, 1)
+    ];
     let mut mem_out = mem_d4
-        .validate_and_execute(
-            &[input, write_en, addr0, addr1, addr2, addr3],
-            Some(&Value::bit_low()),
-        )
+        .validate_and_execute(&binds, Some(&Value::bit_low()))
         .into_iter();
     let (read_data, done) = (mem_out.next().unwrap(), mem_out.next().unwrap());
     assert!(mem_out.next().is_none()); //make sure it's only of length 2
@@ -388,7 +323,7 @@ fn test_mem_d4_tlv() {
         assert!(rd.unlockable());
         assert_eq!(d.get_val().as_u64(), 1);
 
-        assert_eq!(rd.unlock().as_u64(), val.as_u64());
+        assert_eq!(rd.unlock().as_u64(), write_data.as_u64());
         let d = d.do_tick();
         assert!(matches!(d, OutputValue::ImmediateValue(_)));
         if let OutputValue::ImmediateValue(iv) = d {
@@ -401,23 +336,16 @@ fn test_mem_d4_tlv() {
 #[test]
 fn test_mem_d4_imval() {
     let mut mem_d4 = stfl::StdMemD4::from_constants(32, 8, 8, 8, 8, 3, 3, 3, 3);
-    let val = Value::try_from_init(5, 32).unwrap();
-    let enable = Value::try_from_init(0, 1).unwrap();
-    let addr_0 = Value::try_from_init(2, 3).unwrap();
-    let addr_1 = Value::try_from_init(1, 3).unwrap();
-    let addr_2 = Value::try_from_init(5, 3).unwrap();
-    let addr_3 = Value::try_from_init(2, 3).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
-    let addr2 = (ir::Id::from("addr2"), &addr_2);
-    let addr3 = (ir::Id::from("addr3"), &addr_3);
+    port_bindings![binds;
+        write_data -> (5, 32),
+        write_en -> (0, 1),
+        addr0 -> (2, 3),
+        addr1 -> (1, 3),
+        addr2 -> (5, 3),
+        addr3 -> (2, 3)
+    ];
     let mut mem_out = mem_d4
-        .validate_and_execute(
-            &[input, write_en, addr0, addr1, addr2, addr3],
-            Some(&Value::bit_low()),
-        )
+        .validate_and_execute(&binds, Some(&Value::bit_low()))
         .into_iter();
     if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
         let rd = read_data.1.unwrap_imm();
@@ -429,124 +357,85 @@ fn test_mem_d4_imval() {
 fn test_mem_d4_panic_addr0() {
     // Access address larger than the size of memory
     let mut mem_d4 = stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
-    let val = Value::try_from_init(5, 32).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr_0 = Value::try_from_init(4, 3).unwrap();
-    let addr_1 = Value::try_from_init(0, 2).unwrap();
-    let addr_2 = Value::try_from_init(1, 2).unwrap();
-    let addr_3 = Value::try_from_init(2, 2).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
-    let addr2 = (ir::Id::from("addr2"), &addr_2);
-    let addr3 = (ir::Id::from("addr3"), &addr_3);
-    let mut _mem_out = mem_d4.validate_and_execute(
-        &[input, write_en, addr0, addr1, addr2, addr3],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        write_data -> (5, 32),
+        write_en -> (1, 1),
+        addr0 -> (4, 3),
+        addr1 -> (0, 2),
+        addr2 -> (1, 2),
+        addr3 -> (2, 2)
+    ];
+    mem_d4.validate_and_execute(&binds, Some(&Value::bit_low()));
 }
 #[test]
 #[should_panic]
 fn test_mem_d4_panic_addr1() {
     // Access address larger than the size of memory
     let mut mem_d4 = stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
-    let val = Value::try_from_init(5, 32).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr_0 = Value::try_from_init(0, 2).unwrap();
-    let addr_1 = Value::try_from_init(4, 3).unwrap();
-    let addr_2 = Value::try_from_init(1, 2).unwrap();
-    let addr_3 = Value::try_from_init(2, 2).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
-    let addr2 = (ir::Id::from("addr2"), &addr_2);
-    let addr3 = (ir::Id::from("addr3"), &addr_3);
-    let mut _mem_out = mem_d4.validate_and_execute(
-        &[input, write_en, addr0, addr1, addr2, addr3],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        write_data -> (5, 32),
+        write_en -> (1, 1),
+        addr0 -> (0, 2),
+        addr1 -> (4, 3),
+        addr2 -> (1, 2),
+        addr3 -> (2, 2)
+    ];
+    mem_d4.validate_and_execute(&binds, Some(&Value::bit_low()));
 }
 #[test]
 #[should_panic]
 fn test_mem_d4_panic_addr2() {
     // Access address larger than the size of memory
     let mut mem_d4 = stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
-    let val = Value::try_from_init(5, 32).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr_0 = Value::try_from_init(0, 2).unwrap();
-    let addr_1 = Value::try_from_init(1, 2).unwrap();
-    let addr_2 = Value::try_from_init(4, 3).unwrap();
-    let addr_3 = Value::try_from_init(2, 2).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
-    let addr2 = (ir::Id::from("addr2"), &addr_2);
-    let addr3 = (ir::Id::from("addr3"), &addr_3);
-    let mut _mem_out = mem_d4.validate_and_execute(
-        &[input, write_en, addr0, addr1, addr2, addr3],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        write_data -> (5, 32),
+        write_en -> (1, 1),
+        addr0 -> (0, 2),
+        addr1 -> (1, 2),
+        addr2 -> (4, 3),
+        addr3 -> (2, 2)
+    ];
+    mem_d4.validate_and_execute(&binds, Some(&Value::bit_low()));
 }
 #[test]
 #[should_panic]
 fn test_mem_d4_panic_addr3() {
     // Access address larger than the size of memory
     let mut mem_d4 = stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
-    let val = Value::try_from_init(5, 32).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr_0 = Value::try_from_init(0, 2).unwrap();
-    let addr_1 = Value::try_from_init(1, 2).unwrap();
-    let addr_2 = Value::try_from_init(2, 2).unwrap();
-    let addr_3 = Value::try_from_init(4, 3).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
-    let addr2 = (ir::Id::from("addr2"), &addr_2);
-    let addr3 = (ir::Id::from("addr3"), &addr_3);
-    let mut _mem_out = mem_d4.validate_and_execute(
-        &[input, write_en, addr0, addr1, addr2, addr3],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        write_data -> (5, 32),
+        write_en -> (1, 1),
+        addr0 -> (0, 2),
+        addr1 -> (1, 2),
+        addr2 -> (2, 2),
+        addr3 -> (4, 3)
+    ];
+    mem_d4.validate_and_execute(&binds, Some(&Value::bit_low()));
 }
 #[test]
 #[should_panic]
 fn test_mem_d4_panic_input() {
     // Input width larger than the memory capacity
     let mut mem_d4 = stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
-    let val = Value::try_from_init(10, 4).unwrap();
-    let enable = Value::try_from_init(1, 1).unwrap();
-    let addr_0 = Value::try_from_init(0, 2).unwrap();
-    let addr_1 = Value::try_from_init(1, 2).unwrap();
-    let addr_2 = Value::try_from_init(2, 2).unwrap();
-    let addr_3 = Value::try_from_init(3, 2).unwrap();
-    let input = (ir::Id::from("write_data"), &val);
-    let write_en = (ir::Id::from("write_en"), &enable);
-    let addr0 = (ir::Id::from("addr0"), &addr_0);
-    let addr1 = (ir::Id::from("addr1"), &addr_1);
-    let addr2 = (ir::Id::from("addr2"), &addr_2);
-    let addr3 = (ir::Id::from("addr3"), &addr_3);
-    let mut _mem_out = mem_d4.validate_and_execute(
-        &[input, write_en, addr0, addr1, addr2, addr3],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        write_enable -> (1, 1),
+        write_data -> (10, 4),
+        addr0 -> (0, 2),
+        addr1 -> (1, 2),
+        addr2 -> (2, 2),
+        addr3 -> (3, 2)
+    ];
+    mem_d4.validate_and_execute(&binds, Some(&Value::bit_low()));
 }
 #[test]
 fn test_std_reg_tlv() {
-    let val = Value::try_from_init(16, 6).unwrap();
     let mut reg1 = stfl::StdReg::from_constants(6);
-    let input_tup = (ir::Id::from("in"), &val);
-    let write_en_tup = (
-        ir::Id::from("write_en"),
-        &Value::try_from_init(1, 1).unwrap(),
-    );
-    let output_vals = reg1.validate_and_execute(
-        &[input_tup, write_en_tup],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        r#in -> (16, 6),
+        write_en -> (1, 1)
+    ];
+    let output_vals =
+        reg1.validate_and_execute(&binds, Some(&Value::bit_low()));
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
     let (read_data, done) =
@@ -561,7 +450,7 @@ fn test_std_reg_tlv() {
         d.tick();
         assert!(rd.unlockable());
         assert_eq!(d.get_val().as_u64(), 1);
-        assert_eq!(rd.unlock().as_u64(), val.as_u64());
+        assert_eq!(rd.unlock().as_u64(), r#in.as_u64());
         let d = d.do_tick();
         assert!(matches!(d, OutputValue::ImmediateValue(_)));
         if let OutputValue::ImmediateValue(iv) = d {
@@ -574,17 +463,13 @@ fn test_std_reg_tlv() {
 
 #[test]
 fn test_std_reg_imval() {
-    let val = Value::try_from_init(16, 6).unwrap();
     let mut reg1 = stfl::StdReg::from_constants(6);
-    let input_tup = (ir::Id::from("in"), &val);
-    let write_en_tup = (
-        ir::Id::from("write_en"),
-        &Value::try_from_init(0, 1).unwrap(),
-    );
-    let output_vals = reg1.validate_and_execute(
-        &[input_tup, write_en_tup],
-        Some(&Value::bit_low()),
-    );
+    port_bindings![binds;
+        r#in -> (16, 6),
+        write_en -> (0, 1)
+    ];
+    let output_vals =
+        reg1.validate_and_execute(&binds, Some(&Value::bit_low()));
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
     if let (read_data, None) = (output_vals.next().unwrap(), output_vals.next())
@@ -600,15 +485,13 @@ fn test_std_reg_imval() {
 fn reg_too_big() {
     let mut reg1 = stfl::StdReg::from_constants(5);
     // now try loading in a value that is too big(??)
-    let val = Value::try_from_init(32, 6).unwrap();
-    let input = (ir::Id::from("in"), &val);
-    let write_en = (
-        ir::Id::from("write_en"),
-        &Value::try_from_init(1, 1).unwrap(),
-    );
-    let _output_vals =
-        reg1.validate_and_execute(&[input, write_en], Some(&Value::bit_low()));
+    port_bindings![binds;
+        r#in -> (32, 6),
+        write_en -> (1, 1)
+    ];
+    reg1.validate_and_execute(&binds, Some(&Value::bit_low()));
 }
+
 /* #[test]
 fn test_std_const() {
 let val_31 = Value::try_from_init(31, 5).unwrap();
@@ -622,18 +505,18 @@ fn test_std_const_panic() {
 let val = Value::try_from_init(75, 7).unwrap();
 comb::StdConst::from_constants(5, val);
 } */
+
 #[test]
 fn test_std_lsh() {
     // lsh with overflow
     // [11111] (31) -> [11100] (28)
-    let left = Value::try_from_init(31, 5).unwrap();
-    let right = Value::try_from_init(2, 5).unwrap(); //lsh takes only values as parameters
     let mut lsh = comb::StdLsh::from_constants(5);
+    port_bindings![binds;
+        left -> (31, 5),
+        right -> (2, 5)
+    ];
     let out = lsh
-        .validate_and_execute(
-            &[("left".into(), &left), ("right".into(), &right)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -641,16 +524,16 @@ fn test_std_lsh() {
         .unwrap_imm();
     println!("lsh of 31 by 2: {}", out);
     assert_eq!(out.as_u64(), 28);
+
     // lsh without overflow
     // lsh [010000] (16) by 1 -> [100000] (32)
-    let left = Value::try_from_init(16, 6).unwrap();
-    let right = Value::try_from_init(1, 6).unwrap();
     let mut lsh = comb::StdLsh::from_constants(6);
+    port_bindings![binds;
+        left -> (16, 6),
+        right -> (1, 6)
+    ];
     let out = lsh
-        .validate_and_execute(
-            &[("left".into(), &left), ("right".into(), &right)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -662,14 +545,13 @@ fn test_std_lsh() {
 fn test_std_rsh() {
     // Not sure how to catagorize this
     // [1111] (15) -> [0011] (3)
-    let left = Value::try_from_init(15, 4).unwrap();
-    let right = Value::try_from_init(2, 4).unwrap();
     let mut rsh = comb::StdRsh::from_constants(4);
+    port_bindings![binds;
+        left -> (15, 4),
+        right -> (2, 4)
+    ];
     let out = rsh
-        .validate_and_execute(
-            &[("left".into(), &left), ("right".into(), &right)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -678,13 +560,12 @@ fn test_std_rsh() {
     assert_eq!(out.as_u64(), 3);
     // Division by 2
     // [1000] (8) -> [0100] ( 4)
-    let left = Value::try_from_init(8, 4).unwrap();
-    let right = Value::try_from_init(1, 4).unwrap();
+    port_bindings![binds;
+        left -> (8, 4),
+        right -> (1, 4)
+    ];
     let out = rsh
-        .validate_and_execute(
-            &[("left".into(), &left), ("right".into(), &right)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -696,14 +577,13 @@ fn test_std_rsh() {
 fn test_std_add() {
     // without overflow
     // add [0011] (3) and [1010] (10) -> [1101] (13)
-    let add0 = Value::try_from_init(3, 4).unwrap();
-    let add1 = Value::try_from_init(10, 4).unwrap();
     let mut add = comb::StdAdd::from_constants(4);
+    port_bindings![binds;
+        left -> (3, 4),
+        right -> (10, 4)
+    ];
     let res_add = add
-        .validate_and_execute(
-            &[("left".into(), &add0), ("right".into(), &add1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -712,13 +592,12 @@ fn test_std_add() {
     assert_eq!(res_add.as_u64(), 13);
     // with overflow
     // add [1010] (10) and [0110] (6) -> [0000] (0)
-    let add0 = Value::try_from_init(10, 4).unwrap();
-    let add1 = Value::try_from_init(6, 4).unwrap();
+    port_bindings![binds;
+        left -> (10, 4),
+        right -> (6, 4)
+    ];
     let res_add = add
-        .validate_and_execute(
-            &[("left".into(), &add0), ("right".into(), &add1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -729,26 +608,24 @@ fn test_std_add() {
 #[test]
 #[should_panic]
 fn test_std_add_panic() {
-    let add0 = Value::try_from_init(81, 7).unwrap();
-    let add1 = Value::try_from_init(10, 4).unwrap();
     let mut add = comb::StdAdd::from_constants(7);
-    add.validate_and_execute(
-        &[("left".into(), &add0), ("right".into(), &add1)],
-        None,
-    );
+    port_bindings![binds;
+        left -> (81, 7),
+        right -> (10, 4)
+    ];
+    add.validate_and_execute(&binds, None);
 }
 #[test]
 fn test_std_sub() {
     // without overflow
     // sub [0110] (6) from [1010] (10) -> [0100] (4)
-    let sub0 = Value::try_from_init(10, 4).unwrap();
-    let sub1 = Value::try_from_init(6, 4).unwrap();
     let mut sub = comb::StdSub::from_constants(4);
+    port_bindings![binds;
+        left -> (10, 4),
+        right -> (6, 4)
+    ];
     let res_sub = sub
-        .validate_and_execute(
-            &[("left".into(), &sub0), ("right".into(), &sub1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -758,12 +635,12 @@ fn test_std_sub() {
     // with overflow (would produce a negative #, depending on how program thinks abt this...)
     // sub [1011] (11) from [1010] (10) ->  [1010] + [0101] = [1111] which is -1 in 2bc and 15 unsigned
     // for some reason producing [0101] ? that's just 'right + 1
-    let sub1 = Value::try_from_init(11, 4).unwrap();
+    port_bindings![binds;
+        left -> (10, 4),
+        right -> (11, 4)
+    ];
     let res_sub = sub
-        .validate_and_execute(
-            &[("left".into(), &sub0), ("right".into(), &sub1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -771,13 +648,13 @@ fn test_std_sub() {
         .unwrap_imm();
     assert_eq!(res_sub.as_u64(), 15);
     // sub [1111] (15) from [1000] (8) -> [1000] + [0001] which is [1001] -7 in 2c but 9 in unsigned
-    let sub0 = Value::try_from_init(8, 4).unwrap();
-    let sub1 = Value::try_from_init(15, 4).unwrap();
+
+    port_bindings![binds;
+        left -> (8, 4),
+        right -> (15, 4)
+    ];
     let res_sub = sub
-        .validate_and_execute(
-            &[("left".into(), &sub0), ("right".into(), &sub1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -788,18 +665,17 @@ fn test_std_sub() {
 #[test]
 #[should_panic]
 fn test_std_sub_panic() {
-    let sub0 = Value::try_from_init(52, 6).unwrap();
-    let sub1 = Value::try_from_init(16, 5).unwrap();
     let mut sub = comb::StdAdd::from_constants(5);
-    sub.validate_and_execute(
-        &[("left".into(), &sub0), ("right".into(), &sub1)],
-        None,
-    );
+    port_bindings![binds;
+        left -> (52, 6),
+        right -> (16, 5)
+    ];
+    sub.validate_and_execute(&binds, None);
 }
 #[test]
 fn test_std_slice() {
     // 101 in binary is [1100101], take first 4 bits -> [0101] = 5
-    let to_slice = Value::try_from_init(101, 7).unwrap();
+    let to_slice = Value::from(101, 7).unwrap();
     let mut std_slice = comb::StdSlice::from_constants(7, 4);
     let res_slice = std_slice
         .validate_and_execute(&[("in".into(), &to_slice)], None)
@@ -810,7 +686,7 @@ fn test_std_slice() {
         .unwrap_imm(); //note that once we implement execute_unary, have to change this
     assert_eq!(res_slice.as_u64(), 5);
     // Slice the entire bit
-    let to_slice = Value::try_from_init(548, 10).unwrap();
+    let to_slice = Value::from(548, 10).unwrap();
     let mut std_slice = comb::StdSlice::from_constants(10, 10);
     let res_slice = std_slice
         .validate_and_execute(&[("in".into(), &to_slice)], None)
@@ -824,14 +700,14 @@ fn test_std_slice() {
 #[test]
 #[should_panic]
 fn test_std_slice_panic() {
-    let to_slice = Value::try_from_init(3, 2).unwrap();
+    let to_slice = Value::from(3, 2).unwrap();
     let mut std_slice = comb::StdSlice::from_constants(7, 4);
     std_slice.validate_and_execute(&[("in".into(), &to_slice)], None);
 }
 #[test]
 fn test_std_pad() {
     // Add 2 zeroes, should keep the same value
-    let to_pad = Value::try_from_init(101, 7).unwrap();
+    let to_pad = Value::from(101, 7).unwrap();
     let mut std_pad = comb::StdPad::from_constants(7, 9);
     let res_pad = std_pad
         .validate_and_execute(&[("in".into(), &to_pad)], None)
@@ -842,7 +718,7 @@ fn test_std_pad() {
         .unwrap_imm();
     assert_eq!(res_pad.as_u64(), 101);
     // hard to think of another test case but just to have 2:
-    let to_pad = Value::try_from_init(1, 7).unwrap();
+    let to_pad = Value::from(1, 7).unwrap();
     let res_pad = std_pad
         .validate_and_execute(&[("in".into(), &to_pad)], None)
         .into_iter()
@@ -855,7 +731,7 @@ fn test_std_pad() {
 #[test]
 #[should_panic]
 fn test_std_pad_panic() {
-    let to_pad = Value::try_from_init(21, 5).unwrap();
+    let to_pad = Value::from(21, 5).unwrap();
     let mut std_pad = comb::StdPad::from_constants(3, 9);
     std_pad.validate_and_execute(&[("in".into(), &to_pad)], None);
 }
@@ -863,7 +739,7 @@ fn test_std_pad_panic() {
 #[test]
 fn test_std_not() {
     // ![1010] (!10) -> [0101] (5)
-    let not0 = Value::try_from_init(10, 4).unwrap();
+    let not0 = Value::from(10, 4).unwrap();
     let mut std_not = comb::StdNot::from_constants(4);
     let res_not = std_not
         .validate_and_execute(&[("in".into(), &not0)], None)
@@ -874,7 +750,7 @@ fn test_std_not() {
         .unwrap_imm();
     assert_eq!(res_not.as_u64(), 5);
     // ![0000] (!0) -> [1111] (15)
-    let not0 = Value::try_from_init(0, 4).unwrap();
+    let not0 = Value::from(0, 4).unwrap();
     let res_not = std_not
         .validate_and_execute(&[("in".into(), &not0)], None)
         .into_iter()
@@ -889,7 +765,7 @@ fn test_std_not() {
 #[should_panic]
 fn test_std_not_panic() {
     //input too short
-    let not0 = Value::try_from_init(0, 4).unwrap();
+    let not0 = Value::from(0, 4).unwrap();
     let mut std_not = comb::StdNot::from_constants(5);
     std_not
         .validate_and_execute(&[("in".into(), &not0)], None)
@@ -903,14 +779,13 @@ fn test_std_not_panic() {
 #[test]
 fn test_std_and() {
     //101: [1100101], 78: [1001110] & -> [1000100] which is 68
-    let and0 = Value::try_from_init(101, 7).unwrap();
-    let and1 = Value::try_from_init(78, 7).unwrap();
     let mut std_and = comb::StdAnd::from_constants(7);
+    port_bindings![binds;
+        left -> (101, 7),
+        right -> (78, 7)
+    ];
     let res_and = std_and
-        .validate_and_execute(
-            &[("left".into(), &and0), ("right".into(), &and1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -918,14 +793,14 @@ fn test_std_and() {
         .unwrap_imm();
     assert_eq!(res_and.as_u64(), 68);
     //[1010] (10) & [0101] (5) is [0000]
-    let and0 = Value::try_from_init(10, 4).unwrap();
-    let and1 = Value::try_from_init(5, 4).unwrap();
+
     let mut std_and = comb::StdAnd::from_constants(4);
+    port_bindings![binds;
+        left -> (10, 4),
+        right -> (5, 4)
+    ];
     let res_and = std_and
-        .validate_and_execute(
-            &[("left".into(), &and0), ("right".into(), &and1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -937,14 +812,13 @@ fn test_std_and() {
 #[test]
 #[should_panic]
 fn test_std_and_panic() {
-    let and0 = Value::try_from_init(91, 7).unwrap();
-    let and1 = Value::try_from_init(43, 6).unwrap();
     let mut std_and = comb::StdAnd::from_constants(7);
+    port_bindings![binds;
+        left -> (91, 7),
+        right -> (43, 6)
+    ];
     std_and
-        .validate_and_execute(
-            &[("left".into(), &and0), ("right".into(), &and1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -955,14 +829,13 @@ fn test_std_and_panic() {
 #[test]
 fn test_std_or() {
     //[101] (5) or [011] (3) is [111] (7)
-    let or0 = Value::try_from_init(5, 3).unwrap();
-    let or1 = Value::try_from_init(3, 3).unwrap();
     let mut std_or = comb::StdOr::from_constants(3);
+    port_bindings![binds;
+        left -> (5, 3),
+        right -> (3, 3)
+    ];
     let res_or = std_or
-        .validate_and_execute(
-            &[("left".into(), &or0), ("right".into(), &or1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -971,32 +844,30 @@ fn test_std_or() {
     assert_eq!(res_or.as_u64(), 7);
     //anything or zero is itself
     //[001] (1) or [000] (0) is [001] (1)
-    let or0 = Value::try_from_init(1, 3).unwrap();
-    let or1 = Value::try_from_init(0, 3).unwrap();
+    port_bindings![binds;
+        left -> (1, 3),
+        right -> (0, 3)
+    ];
     let res_or = std_or
-        .validate_and_execute(
-            &[("left".into(), &or0), ("right".into(), &or1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
         .unwrap()
         .unwrap_imm();
-    assert_eq!(res_or.as_u64(), or0.as_u64());
+    assert_eq!(res_or.as_u64(), left.as_u64());
 }
 
 #[test]
 #[should_panic]
 fn test_std_or_panic() {
-    let or0 = Value::try_from_init(16, 5).unwrap();
-    let or1 = Value::try_from_init(78, 7).unwrap();
     let mut std_or = comb::StdOr::from_constants(5);
+    port_bindings![binds;
+        left -> (16, 5),
+        right -> (78, 7)
+    ];
     std_or
-        .validate_and_execute(
-            &[("left".into(), &or0), ("right".into(), &or1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1006,14 +877,13 @@ fn test_std_or_panic() {
 #[test]
 fn test_std_xor() {
     //[101] (5) XOR [011] (3) is [110] (6)
-    let xor0 = Value::try_from_init(5, 3).unwrap();
-    let xor1 = Value::try_from_init(3, 3).unwrap();
     let mut std_xor = comb::StdXor::from_constants(3);
+    port_bindings![binds;
+        left -> (5, 3),
+        right -> (3, 3)
+    ];
     let res_xor = std_xor
-        .validate_and_execute(
-            &[("left".into(), &xor0), ("right".into(), &xor1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1021,12 +891,13 @@ fn test_std_xor() {
         .unwrap_imm();
     assert_eq!(res_xor.as_u64(), 6);
     //anything xor itself is 0
+    port_bindings![binds;
+        left -> (5, 3),
+        right -> (5, 3)
+    ];
     assert_eq!(
         std_xor
-            .validate_and_execute(
-                &[("left".into(), &xor0), ("right".into(), &xor0)],
-                None
-            )
+            .validate_and_execute(&binds, None)
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1039,14 +910,13 @@ fn test_std_xor() {
 #[test]
 #[should_panic]
 fn test_std_xor_panic() {
-    let xor0 = Value::try_from_init(56, 6).unwrap();
-    let xor1 = Value::try_from_init(92, 7).unwrap();
     let mut std_xor = comb::StdXor::from_constants(6);
+    port_bindings![binds;
+        left -> (56, 6),
+        right -> (92, 7)
+    ];
     std_xor
-        .validate_and_execute(
-            &[("left".into(), &xor0), ("right".into(), &xor1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1059,14 +929,13 @@ fn test_std_xor_panic() {
 // equals
 #[test]
 fn test_std_gt() {
-    let gt0 = Value::try_from_init(7, 16).unwrap();
-    let gt1 = Value::try_from_init(3, 16).unwrap();
     let mut std_gt = comb::StdGt::from_constants(16);
+    port_bindings![binds;
+        left -> (7 ,16),
+        right -> (3, 16)
+    ];
     let res_gt = std_gt
-        .validate_and_execute(
-            &[("left".into(), &gt0), ("right".into(), &gt1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1074,12 +943,13 @@ fn test_std_gt() {
         .unwrap_imm();
     assert_eq!(res_gt.as_u64(), 1);
     //7 > 7 ? no!
+    port_bindings![binds;
+        left -> (7, 16),
+        right -> (7, 16)
+    ];
     assert_eq!(
         std_gt
-            .validate_and_execute(
-                &[("left".into(), &gt0), ("right".into(), &gt0)],
-                None
-            )
+            .validate_and_execute(&binds, None)
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1092,24 +962,22 @@ fn test_std_gt() {
 #[test]
 #[should_panic]
 fn test_std_gt_panic() {
-    let gt0 = Value::try_from_init(9, 4).unwrap();
-    let gt1 = Value::try_from_init(3, 2).unwrap();
     let mut std_gt = comb::StdGt::from_constants(3);
-    std_gt.validate_and_execute(
-        &[("left".into(), &gt0), ("right".into(), &gt1)],
-        None,
-    );
+    port_bindings![binds;
+        left -> (9, 4),
+        right -> (3, 2)
+    ];
+    std_gt.validate_and_execute(&binds, None);
 }
 #[test]
 fn test_std_lt() {
-    let lt0 = Value::try_from_init(7, 16).unwrap();
-    let lt1 = Value::try_from_init(3, 16).unwrap();
     let mut std_lt = comb::StdLt::from_constants(16);
+    port_bindings![binds;
+        left -> (7, 16),
+        right -> (3, 16)
+    ];
     let res_lt = std_lt
-        .validate_and_execute(
-            &[("left".into(), &lt0), ("right".into(), &lt1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1117,12 +985,13 @@ fn test_std_lt() {
         .unwrap_imm();
     assert_eq!(res_lt.as_u64(), 0);
     // 7 < 7 ? no!
+    port_bindings![binds;
+        left -> (7, 16),
+        right -> (7, 16)
+    ];
     assert_eq!(
         std_lt
-            .validate_and_execute(
-                &[("left".into(), &lt0), ("right".into(), &lt0)],
-                None
-            )
+            .validate_and_execute(&binds, None)
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1135,24 +1004,22 @@ fn test_std_lt() {
 #[test]
 #[should_panic]
 fn test_std_lt_panic() {
-    let lt0 = Value::try_from_init(58, 6).unwrap();
-    let lt1 = Value::try_from_init(12, 4).unwrap();
     let mut std_lt = comb::StdLt::from_constants(5);
-    std_lt.validate_and_execute(
-        &[("left".into(), &lt0), ("right".into(), &lt1)],
-        None,
-    );
+    port_bindings![binds;
+        left -> (58, 6),
+        right -> (12, 4)
+    ];
+    std_lt.validate_and_execute(&binds, None);
 }
 #[test]
 fn test_std_eq() {
-    let eq0 = Value::try_from_init(4, 16).unwrap();
-    let eq1 = Value::try_from_init(4, 16).unwrap();
     let mut std_eq = comb::StdEq::from_constants(16);
+    port_bindings![binds;
+        left -> (4, 16),
+        right -> (4, 16)
+    ];
     let res_eq = std_eq
-        .validate_and_execute(
-            &[("left".into(), &eq0), ("right".into(), &eq1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1160,15 +1027,13 @@ fn test_std_eq() {
         .unwrap_imm();
     assert_eq!(res_eq.as_u64(), 1);
     // 4 = 5 ? no!
+    port_bindings![binds;
+        left -> (4, 16),
+        right -> (5, 16)
+    ];
     assert_eq!(
         std_eq
-            .validate_and_execute(
-                &[
-                    ("left".into(), &eq0),
-                    ("right".into(), &(Value::try_from_init(5, 16).unwrap()))
-                ],
-                None
-            )
+            .validate_and_execute(&binds, None)
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1181,23 +1046,22 @@ fn test_std_eq() {
 #[test]
 #[should_panic]
 fn test_std_eq_panic() {
-    let eq0 = Value::try_from_init(42, 6).unwrap();
     let mut std_eq = comb::StdEq::from_constants(5);
-    std_eq.validate_and_execute(
-        &[("left".into(), &eq0), ("right".into(), &eq0)],
-        None,
-    );
+    port_bindings![binds;
+        left -> (42, 6),
+        right -> (42, 6)
+    ];
+    std_eq.validate_and_execute(&binds, None);
 }
 #[test]
 fn test_std_neq() {
-    let neq0 = Value::try_from_init(4, 16).unwrap();
-    let neq1 = Value::try_from_init(4, 16).unwrap();
     let mut std_neq = comb::StdNeq::from_constants(16);
+    port_bindings![binds;
+        left -> (4, 16),
+        right -> (4, 16)
+    ];
     let res_neq = std_neq
-        .validate_and_execute(
-            &[("left".into(), &neq0), ("right".into(), &neq1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1206,15 +1070,13 @@ fn test_std_neq() {
     //4 != 4 ? no!
     assert!(res_neq.as_u64() == 0);
     // 4 != 5? yes!
+    port_bindings![binds;
+        left -> (4, 16),
+        right -> (5, 16)
+    ];
     assert_eq!(
         std_neq
-            .validate_and_execute(
-                &[
-                    ("left".into(), &neq0),
-                    ("right".into(), &(Value::try_from_init(5, 16).unwrap()))
-                ],
-                None
-            )
+            .validate_and_execute(&binds, None)
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1227,25 +1089,23 @@ fn test_std_neq() {
 #[test]
 #[should_panic]
 fn test_std_neq_panic() {
-    let neq0 = Value::try_from_init(45, 6).unwrap();
-    let neq1 = Value::try_from_init(4, 3).unwrap();
     let mut std_neq = comb::StdNeq::from_constants(5);
-    std_neq.validate_and_execute(
-        &[("left".into(), &neq0), ("right".into(), &neq1)],
-        None,
-    );
+    port_bindings![binds;
+        left -> (45, 6),
+        right -> (4, 3)
+    ];
+    std_neq.validate_and_execute(&binds, None);
 }
 
 #[test]
 fn test_std_ge() {
-    let ge0 = Value::try_from_init(35, 8).unwrap();
-    let ge1 = Value::try_from_init(165, 8).unwrap();
     let mut std_ge = comb::StdGe::from_constants(8);
+    port_bindings![binds;
+        left -> (35, 8),
+        right -> (165, 8)
+    ];
     let res_ge = std_ge
-        .validate_and_execute(
-            &[("left".into(), &ge0), ("right".into(), &ge1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1254,12 +1114,13 @@ fn test_std_ge() {
     //35 >= 165 ? no!
     assert_eq!(res_ge.as_u64(), 0);
     // 35 >= 35 ? yes
+    port_bindings![binds;
+        left -> (35, 8),
+        right -> (35, 8)
+    ];
     assert_eq!(
         std_ge
-            .validate_and_execute(
-                &[("left".into(), &ge0), ("right".into(), &ge0)],
-                None
-            )
+            .validate_and_execute(&binds, None)
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1272,24 +1133,22 @@ fn test_std_ge() {
 #[test]
 #[should_panic]
 fn test_std_ge_panic() {
-    let ge0 = Value::try_from_init(40, 6).unwrap();
-    let ge1 = Value::try_from_init(75, 7).unwrap();
     let mut std_ge = comb::StdGe::from_constants(6);
-    std_ge.validate_and_execute(
-        &[("left".into(), &ge0), ("right".into(), &ge1)],
-        None,
-    );
+    port_bindings![binds;
+        left -> (40, 6),
+        right -> (75, 7)
+    ];
+    std_ge.validate_and_execute(&binds, None);
 }
 #[test]
 fn test_std_le() {
-    let le0 = Value::try_from_init(12, 4).unwrap();
-    let le1 = Value::try_from_init(8, 4).unwrap();
     let mut std_le = comb::StdLe::from_constants(4);
+    port_bindings![binds;
+        left -> (12, 4),
+        right -> (8, 4)
+    ];
     let res_le = std_le
-        .validate_and_execute(
-            &[("left".into(), &le0), ("right".into(), &le1)],
-            None,
-        )
+        .validate_and_execute(&binds, None)
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1298,12 +1157,13 @@ fn test_std_le() {
     //12 <= 4 ? no!
     assert_eq!(res_le.as_u64(), 0);
     //12 <= 12? yes!
+    port_bindings![binds;
+        left -> (12, 4),
+        right -> (12, 4)
+    ];
     assert_eq!(
         std_le
-            .validate_and_execute(
-                &[("left".into(), &le0), ("right".into(), &le0)],
-                None
-            )
+            .validate_and_execute(&binds, None)
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1316,11 +1176,10 @@ fn test_std_le() {
 #[test]
 #[should_panic]
 fn test_std_le_panic() {
-    let le0 = Value::try_from_init(93, 7).unwrap();
-    let le1 = Value::try_from_init(68, 7).unwrap();
     let mut std_le = comb::StdLe::from_constants(6);
-    std_le.validate_and_execute(
-        &[("left".into(), &le0), ("right".into(), &le1)],
-        None,
-    );
+    port_bindings![binds;
+        left -> (93, 7),
+        right -> (68, 7)
+    ];
+    std_le.validate_and_execute(&binds, None);
 }

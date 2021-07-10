@@ -198,7 +198,7 @@ impl InterpreterState {
                             let pt: &ir::Port = &port.borrow();
                             map.insert(
                                 pt as ConstPort,
-                                Value::try_from_init(*val, *width).unwrap(),
+                                Value::from(*val, *width).unwrap(),
                             );
                         }
                     }
@@ -207,7 +207,7 @@ impl InterpreterState {
                             let pt: &ir::Port = &port.borrow();
                             map.insert(
                                 pt as ConstPort,
-                                Value::try_from_init(
+                                Value::from(
                                     cll.get_parameter("VALUE")
                                         .unwrap_or_default(),
                                     pt.width,
@@ -221,7 +221,7 @@ impl InterpreterState {
                             let pt: &ir::Port = &port.borrow();
                             map.insert(
                                 pt as ConstPort,
-                                Value::try_from_init(0, 0).unwrap(),
+                                Value::from(0, 0).unwrap(),
                             );
                         }
                     }

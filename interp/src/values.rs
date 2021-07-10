@@ -79,7 +79,7 @@ impl Value {
     /// use interp::values::*;
     /// let val_16_16 = Value::try_from_init(16, 16).unwrap();
     /// ```
-    pub fn try_from_init<T1, T2>(
+    pub fn from<T1, T2>(
         initial_val: T1,
         bitwidth: T2,
     ) -> Result<Self, ValueError>

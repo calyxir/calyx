@@ -9,7 +9,8 @@
 ///   Value::from_init(init_val, bitwidth).into()
 /// });
 /// ```
-/// The macro implementes the [[Primitive]] trait for the struct.
+/// The macro implementes the [[Primitive]] trait for the struct as well as
+/// `StdAdd::new(bindings: ir::Params)` and `StdAdd::from_constants(ports)`
 ///
 /// TODO(rachit): $out_width is never used.
 #[macro_export]
@@ -102,7 +103,7 @@ macro_rules! comb_primitive {
 
             }
 
-            // Combination components cannot be reset
+            // Combinational components cannot be reset
             fn reset(
                 &mut self,
                 inputs: &[(calyx::ir::Id, &crate::values::Value)],
@@ -118,7 +119,10 @@ macro_rules! comb_primitive {
         }
     };
 }
+
 #[macro_export]
+/// Internal macro used to homogenize representation for raw identifiers in
+/// port names.
 macro_rules! in_fix {
     ( r#in ) => {
         stringify!(in)
@@ -126,4 +130,19 @@ macro_rules! in_fix {
     ( $name:ident ) => {
         stringify!($name)
     };
+}
+
+#[macro_export]
+/// Helper macro to generate port bindings.
+/// ```
+/// port_bindings![
+///     "write_en" -> (1, 1),
+///     "in" -> (16, 32)
+/// ]
+/// ```
+macro_rules! port_bindings {
+    ( $binds: ident; $( $port: ident -> ($val: literal, $width: literal) ),+ ) => {
+        $( let $port = crate::values::Value::from($val, $width).unwrap(); )+
+        let $binds = vec![ $( (calyx::ir::Id::from(crate::in_fix!($port)), &$port) ),+ ];
+    }
 }
