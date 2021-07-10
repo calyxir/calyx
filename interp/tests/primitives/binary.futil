@@ -1,0 +1,124 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+component main() -> () {
+  cells {
+    add0 = std_add(32);
+    and0 = std_and(32);
+    eq0 = std_eq(32);
+    ge0 = std_ge(32);
+    xor0 = std_xor(32);
+    sub0 = std_sub(32);
+    or0 = std_or(32);
+    gt0 = std_gt(32);
+    lt0 = std_lt(32);
+    neq0 = std_neq(32);
+    le0 = std_le(32);
+
+    or_reg = std_reg(32);
+    sub_reg = std_reg(32);
+    xor_reg = std_reg(32);
+    add_reg = std_reg(32);
+    and_reg = std_reg(32);
+
+    lt_reg = std_reg(1);
+    le_reg = std_reg(1);
+    neq_reg = std_reg(1);
+    gt_reg = std_reg(1);
+    ge_reg = std_reg(1);
+    eq_reg = std_reg(1);
+
+    /** Not implemented yet
+    div_reg = std_reg(32);
+    mult_reg = std_reg(32);
+    mod_reg = std_reg(32);
+
+    mod0 = std_mod(32);
+    div0 = std_div(32);
+    mult0 = std_mult(32);
+    **/
+  }
+  wires {
+    group op {
+      add0.left = 32'd9;
+      add0.right = 32'd400;
+      add_reg.in = add0.out;
+
+      and0.left = 32'd13;
+      and0.right = 32'd10;
+      and_reg.in = and0.out; // expect 8
+
+      eq0.left = 32'd10;
+      eq0.right = 32'd10;
+      eq_reg.in = eq0.out; // expect 1
+
+      ge0.left = 32'd10;
+      ge0.right = 32'd10;
+      ge_reg.in = ge0.out; // expect 1
+
+      xor0.left = 32'd13;
+      xor0.right = 32'd10;
+      xor_reg.in = xor0.out; // expect 7
+
+      sub0.left = 32'd400;
+      sub0.right = 32'd9;
+      sub_reg.in = sub0.out; // expect 391
+
+      or0.left = 32'd13;
+      or0.right = 32'd10;
+      or_reg.in = or0.out; // expect 15
+
+      gt0.left = 32'd10;
+      gt0.right = 32'd10;
+      gt_reg.in = gt0.out; // expect 0
+
+      lt0.left = 32'd10;
+      lt0.right = 32'd10;
+      lt_reg.in = lt0.out; // expect 0
+
+      le0.left = 32'd10;
+      le0.right = 32'd10;
+      le_reg.in = le0.out; // expect 1
+
+      neq0.left = 32'd10;
+      neq0.right = 32'd10;
+      neq_reg.in = neq0.out; // expect 0
+
+      xor_reg.write_en = 1'd1;
+      sub_reg.write_en = 1'd1;
+      or_reg.write_en = 1'd1;
+      ge_reg.write_en = 1'd1;
+      eq_reg.write_en = 1'd1;
+      add_reg.write_en = 1'd1;
+      and_reg.write_en = 1'd1;
+      gt_reg.write_en = 1'd1;
+      lt_reg.write_en = 1'd1;
+      le_reg.write_en = 1'd1;
+      neq_reg.write_en = 1'd1;
+
+      /** Not yet implemeted
+      mult_reg.write_en = 1'd1;
+      mult0.left = 32'd400;
+      mult0.right = 32'd9;
+      mult_reg.in = mult0.out;
+
+      mod0.left = 32'd400;
+      mod0.right = 32'd9;
+      mod_reg.in = mod0.out;
+      mod_reg.write_en = 1'd1;
+
+
+      div_reg.write_en = 1'd1;
+      div0.left = 32'd400;
+      div0.right = 32'd9;
+      div_reg.in = div0.out;
+      **/
+
+      // All registers are done at the same time.
+      op[done] = add_reg.done;
+    }
+  }
+  control {
+    op;
+  }
+}

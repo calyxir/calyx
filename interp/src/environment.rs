@@ -1,6 +1,7 @@
 //! Environment for interpreter.
 
 use super::stk_env::Smoosher;
+use super::utils::MemoryMap;
 use super::{primitives, primitives::Primitive, values::Value};
 use calyx::ir::{self, RRC};
 use serde::Serialize;
@@ -35,6 +36,7 @@ pub struct InterpreterState {
     pub cell_prim_map: PrimitiveMap,
 
     ///use raw pointers for hashmap: ports to values
+    //this is a Smoosher (see stk_env.rs)
     pub pv_map: PortValMap,
 
     /// A reference to the context.
@@ -45,12 +47,15 @@ pub struct InterpreterState {
 impl InterpreterState {
     /// Construct an environment
     /// ctx : A context from the IR
-    pub fn init(ctx: &ir::RRC<ir::Context>) -> Self {
+    pub fn init(ctx: &ir::RRC<ir::Context>, mems: &Option<MemoryMap>) -> Self {
         Self {
             context: ctx.clone(),
             clk: 0,
             pv_map: InterpreterState::construct_pv_map(&ctx.borrow()),
-            cell_prim_map: InterpreterState::construct_cp_map(&ctx.borrow()),
+            cell_prim_map: InterpreterState::construct_cp_map(
+                &ctx.borrow(),
+                mems,
+            ),
         }
     }
 
@@ -59,11 +64,15 @@ impl InterpreterState {
     }
 
     //all of these use parameters as values for constuctors
-    fn construct_cp_map(ctx: &ir::Context) -> PrimitiveMap {
+    fn construct_cp_map(
+        ctx: &ir::Context,
+        mems: &Option<MemoryMap>,
+    ) -> PrimitiveMap {
         let mut map = HashMap::new();
         for comp in &ctx.components {
             for cell in comp.cells.iter() {
                 let cl: &ir::Cell = &cell.borrow();
+                let cell_name = cl.name();
 
                 if let ir::CellType::Primitive { name, .. } = &cl.prototype {
                     match name.as_ref() {
@@ -190,31 +199,48 @@ impl InterpreterState {
                             map.insert(cl as ConstCell, Primitive::StdLt(lt));
                         }
                         "std_mem_d1" => {
-                            let m1 = primitives::StdMemD1::new(
+                            let mut m1 = primitives::StdMemD1::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                                 cl.get_parameter("SIZE").unwrap(),
                                 cl.get_parameter("IDX_SIZE").unwrap(),
                             );
+                            if let Some(v) = mems
+                                .as_ref()
+                                .map(|x| x.get(cell_name))
+                                .flatten()
+                            {
+                                m1.initialize_memory(v)
+                            }
+
                             map.insert(
                                 cl as ConstCell,
                                 Primitive::StdMemD1(m1),
                             );
                         }
                         "std_mem_d2" => {
-                            let m2 = primitives::StdMemD2::new(
+                            let mut m2 = primitives::StdMemD2::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                                 cl.get_parameter("D0_SIZE").unwrap(),
                                 cl.get_parameter("D1_SIZE").unwrap(),
                                 cl.get_parameter("D0_IDX_SIZE").unwrap(),
                                 cl.get_parameter("D1_IDX_SIZE").unwrap(),
                             );
+
+                            if let Some(v) = mems
+                                .as_ref()
+                                .map(|x| x.get(cell_name))
+                                .flatten()
+                            {
+                                m2.initialize_memory(v)
+                            }
+
                             map.insert(
                                 cl as ConstCell,
                                 Primitive::StdMemD2(m2),
                             );
                         }
                         "std_mem_d3" => {
-                            let m3 = primitives::StdMemD3::new(
+                            let mut m3 = primitives::StdMemD3::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                                 cl.get_parameter("D0_SIZE").unwrap(),
                                 cl.get_parameter("D1_SIZE").unwrap(),
@@ -223,13 +249,22 @@ impl InterpreterState {
                                 cl.get_parameter("D1_IDX_SIZE").unwrap(),
                                 cl.get_parameter("D2_IDX_SIZE").unwrap(),
                             );
+
+                            if let Some(v) = mems
+                                .as_ref()
+                                .map(|x| x.get(cell_name))
+                                .flatten()
+                            {
+                                m3.initialize_memory(v)
+                            }
+
                             map.insert(
                                 cl as ConstCell,
                                 Primitive::StdMemD3(m3),
                             );
                         }
                         "std_mem_d4" => {
-                            let m4 = primitives::StdMemD4::new(
+                            let mut m4 = primitives::StdMemD4::new(
                                 cl.get_parameter("WIDTH").unwrap(),
                                 cl.get_parameter("D0_SIZE").unwrap(),
                                 cl.get_parameter("D1_SIZE").unwrap(),
@@ -240,6 +275,15 @@ impl InterpreterState {
                                 cl.get_parameter("D2_IDX_SIZE").unwrap(),
                                 cl.get_parameter("D3_IDX_SIZE").unwrap(),
                             );
+
+                            if let Some(v) = mems
+                                .as_ref()
+                                .map(|x| x.get(cell_name))
+                                .flatten()
+                            {
+                                m4.initialize_memory(v)
+                            }
+
                             map.insert(
                                 cl as ConstCell,
                                 Primitive::StdMemD4(m4),
@@ -320,6 +364,10 @@ impl InterpreterState {
     /// Return the value associated with a component's port.
     pub fn get_from_port(&self, port: &ir::Port) -> &Value {
         &self.pv_map.get(&(port as ConstPort)).unwrap()
+    }
+
+    pub fn get_from_const_port(&self, port: *const ir::Port) -> &Value {
+        &self.pv_map.get(&port).unwrap()
     }
 
     /// Gets the cell in a component based on the name;

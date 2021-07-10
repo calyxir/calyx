@@ -5,10 +5,7 @@ use std::cmp::max;
 use super::interpret_group::{
     finish_group_interpretation, interp_cont, interpret_group,
 };
-use crate::{
-    environment::{self, InterpreterState},
-    stk_env,
-};
+use crate::environment::InterpreterState;
 use calyx::{errors::FutilResult, ir};
 
 /// Helper function to evaluate control

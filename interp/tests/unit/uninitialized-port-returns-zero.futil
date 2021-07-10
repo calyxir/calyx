@@ -1,0 +1,24 @@
+import "primitives/std.lib";
+
+
+component main() -> () {
+  cells {
+    add = std_add(4);
+    reg0 = std_reg(4);
+  }
+
+  wires {
+    // Reading an uninitialized port returns 0.
+    // Register should contain 3
+    group op {
+      add.left = 4'd3;
+      reg0.write_en = 1'b1;
+      reg0.in = add.out;
+      op[done] = reg0.done;
+    }
+  }
+
+  control {
+    op;
+  }
+}

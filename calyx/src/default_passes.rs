@@ -1,9 +1,11 @@
+//! Defines the default passes available to [PassManager].
 use crate::passes::{
     ClkInsertion, CollapseControl, CompileControl, CompileEmpty, CompileInvoke,
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion,
     GuardCanonical, InferStaticTiming, Inliner, MergeAssign, MinimizeRegs,
-    Papercut, RegisterUnsharing, ResourceSharing, SimplifyGuards, StaticTiming,
-    SynthesisPapercut, TopDownCompileControl, WellFormed,
+    Papercut, RegisterUnsharing, ResetInsertion, ResourceSharing,
+    SimplifyGuards, StaticTiming, SynthesisPapercut, TopDownCompileControl,
+    WellFormed,
 };
 use crate::{
     errors::FutilResult,
@@ -30,6 +32,7 @@ impl PassManager {
         register_pass!(pm, CompileEmpty);
         register_pass!(pm, Papercut);
         register_pass!(pm, ClkInsertion);
+        register_pass!(pm, ResetInsertion);
         register_pass!(pm, ResourceSharing);
         register_pass!(pm, DeadCellRemoval);
         register_pass!(pm, MinimizeRegs);
@@ -67,6 +70,7 @@ impl PassManager {
                 ComponentInterface,
                 Inliner,
                 ClkInsertion,
+                ResetInsertion,
                 MergeAssign,
             ]
         );

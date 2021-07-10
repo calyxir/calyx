@@ -143,7 +143,7 @@ Congratulations! You've simulated your first hardware design with Calyx.
 
 - [How does the language work?](./tutorial/language-tut.md)
 - [How do I install Calyx frontends?](./fud/index.html#dahlia-fronted)
-- [Examples with `fud`](./fud/exmaples.md)
+- [Examples with `fud`](./fud/examples.md)
 - [How do I write a frontend for Calyx?](./tutorial/frontend-tut.md)
 
 

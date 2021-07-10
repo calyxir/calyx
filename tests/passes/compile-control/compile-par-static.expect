@@ -1,11 +1,11 @@
 import "primitives/std.lib";
-component main(go: 1, clk: 1) -> (done: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     a = std_reg(2);
     b = std_reg(2);
     c = std_reg(2);
-    fsm = std_reg(1);
-    incr = std_add(1);
+    @generated fsm = std_reg(1);
+    @generated incr = std_add(1);
   }
   wires {
     group A<"static"=1> {

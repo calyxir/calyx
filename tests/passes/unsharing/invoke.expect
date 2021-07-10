@@ -1,5 +1,5 @@
 import "primitives/std.lib";
-component add(left: 32, right: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
+component add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     adder = std_add(32);
     outpt = std_reg(32);
@@ -21,14 +21,14 @@ component add(left: 32, right: 32, go: 1, clk: 1) -> (out: 32, done: 1) {
     }
   }
 }
-component main(go: 1, clk: 1) -> (done: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     x = std_reg(32);
     y = std_reg(32);
     my_add = add();
     result = std_reg(32);
-    unshr_x = std_reg(32);
-    unshr_y = std_reg(32);
+    @generated unshr_x = std_reg(32);
+    @generated unshr_y = std_reg(32);
   }
   wires {
     group zero_x {

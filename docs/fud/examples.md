@@ -57,3 +57,16 @@ fud exec \
   -s verilog.data examples/dahlia/dot-product.fuse.data
 ```
 
+**Interpreting Calyx.**
+In addition to Verilator, fud can execute Calyx programs using the experimental [interpreter](../interpreter.md).
+
+```bash
+# Execute a Calyx program without compiling it,
+# producing a JSON snapshot of the final state.
+# === Calyx:   tests/correctness/while.futil
+# === data:    tests/correctness/while.futil.data
+fud exec \
+  tests/correctness/while.futil \
+  -s interpreter.data tests/correctness/while.futil.data \
+  --to interpreter-out
+```
