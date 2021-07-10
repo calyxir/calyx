@@ -3,7 +3,7 @@ use crate::utils::construct_bindings;
 use crate::values::{PulseValue, TimeLockedValue, Value};
 use calyx::ir;
 
-fn get_param<S>(params: &ir::Binding, target: S) -> Option<u64>
+pub(super) fn get_param<S>(params: &ir::Binding, target: S) -> Option<u64>
 where
     S: AsRef<str>,
 {
@@ -25,17 +25,21 @@ pub struct StdReg {
 }
 
 impl StdReg {
-    pub fn new(params: ir::Binding) -> Self {
-        let width = params
-            .iter()
-            .find(|(n, _)| n.as_ref() == "WIDTH")
-            .expect("Missing `width` param from std_reg binding")
-            .1;
+    pub fn from_constants(width: u64) -> Self {
         StdReg {
             width,
             data: [Value::new(width as usize)],
             update: None,
         }
+    }
+
+    pub fn new(params: ir::Binding) -> Self {
+        let width = params
+            .iter()
+            .find(|(n, _)| n.as_ref() == "WIDTH")
+            .expect("Missing `WIDTH` param from std_reg binding")
+            .1;
+        Self::from_constants(width)
     }
 }
 
@@ -125,52 +129,6 @@ impl Primitive for StdReg {
     fn serialize(&self) -> Serializeable {
         Serializeable::Val(self.data[0].as_u64())
     }
-}
-
-#[derive(Default, Debug)]
-pub struct StdConst {
-    value: Value,
-}
-
-impl StdConst {
-    pub fn new(params: calyx::ir::Binding) -> Self {
-        let width = get_param(&params, "WIDTH")
-            .expect("Missing width parameter from std_const binding");
-
-        let init_value = get_param(&params, "VALUE")
-            .expect("Missing `vale` param from std_const binding");
-
-        let value = Value::try_from_init(init_value, width).unwrap();
-
-        Self { value }
-    }
-}
-
-impl Primitive for StdConst {
-    fn is_comb(&self) -> bool {
-        true
-    }
-
-    fn validate(&self, _inputs: &[(ir::Id, &Value)]) {}
-
-    fn execute(
-        &mut self,
-        _inputs: &[(ir::Id, &Value)],
-        _done_val: Option<&Value>,
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
-        vec![("out".into(), self.value.clone().into())]
-    }
-
-    fn reset(
-        &mut self,
-        _inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
-        vec![("out".into(), self.value.clone().into())]
-    }
-
-    fn commit_updates(&mut self) {}
-
-    fn clear_update_buffer(&mut self) {}
 }
 
 /// A one-dimensional memory. Initialized with
@@ -443,13 +401,13 @@ impl Primitive for StdMemD2 {
     fn validate(&self, inputs: &[(ir::Id, &Value)]) {
         for (id, v) in inputs {
             match id.as_ref() {
-                "write_data" => assert_eq!(v.len() as u64, self.width),
-                "write_en" => assert_eq!(v.len(), 1),
-                "addr0" => {
+                "WRITE_DATA" => assert_eq!(v.len() as u64, self.width),
+                "WRITE_EN" => assert_eq!(v.len(), 1),
+                "ADDR0" => {
                     assert!(v.as_u64() < self.d0_size);
                     assert_eq!(v.len() as u64, self.d0_idx_size)
                 }
-                "addr1" => {
+                "ADDR1" => {
                     assert!(v.as_u64() < self.d1_size);
                     assert_eq!(v.len() as u64, self.d1_idx_size)
                 }
@@ -671,17 +629,17 @@ impl Primitive for StdMemD3 {
     fn validate(&self, inputs: &[(ir::Id, &Value)]) {
         for (id, v) in inputs {
             match id.as_ref() {
-                "write_data" => assert_eq!(v.len() as u64, self.width),
-                "write_en" => assert_eq!(v.len(), 1),
-                "addr0" => {
+                "WRITE_DATA" => assert_eq!(v.len() as u64, self.width),
+                "WRITE_EN" => assert_eq!(v.len(), 1),
+                "ADDR0" => {
                     assert!(v.as_u64() < self.d0_size);
                     assert_eq!(v.len() as u64, self.d0_idx_size)
                 }
-                "addr1" => {
+                "ADDR1" => {
                     assert!(v.as_u64() < self.d1_size);
                     assert_eq!(v.len() as u64, self.d1_idx_size)
                 }
-                "addr2" => {
+                "ADDR2" => {
                     assert!(v.as_u64() < self.d2_size);
                     assert_eq!(v.len() as u64, self.d2_idx_size)
                 }
@@ -931,21 +889,21 @@ impl Primitive for StdMemD4 {
     fn validate(&self, inputs: &[(ir::Id, &Value)]) {
         for (id, v) in inputs {
             match id.as_ref() {
-                "write_data" => assert_eq!(v.len() as u64, self.width),
-                "write_en" => assert_eq!(v.len(), 1),
-                "addr0" => {
+                "WRITE_DATA" => assert_eq!(v.len() as u64, self.width),
+                "WRITE_EN" => assert_eq!(v.len(), 1),
+                "ADDR0" => {
                     assert!(v.as_u64() < self.d0_size);
                     assert_eq!(v.len() as u64, self.d0_idx_size)
                 }
-                "addr1" => {
+                "ADDR1" => {
                     assert!(v.as_u64() < self.d1_size);
                     assert_eq!(v.len() as u64, self.d1_idx_size)
                 }
-                "addr2" => {
+                "ADDR2" => {
                     assert!(v.as_u64() < self.d2_size);
                     assert_eq!(v.len() as u64, self.d2_idx_size)
                 }
-                "addr3" => {
+                "ADDR3" => {
                     assert!(v.as_u64() < self.d3_size);
                     assert_eq!(v.len() as u64, self.d3_idx_size)
                 }
@@ -1020,10 +978,14 @@ impl Primitive for StdMemD4 {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, crate::values::OutputValue)> {
-        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
-        let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
-        let (_, addr3) = inputs.iter().find(|(id, _)| id == "addr3").unwrap();
+        let (_, addr0) =
+            inputs.into_iter().find(|(id, _)| id == "addr0").unwrap();
+        let (_, addr1) =
+            inputs.into_iter().find(|(id, _)| id == "addr1").unwrap();
+        let (_, addr2) =
+            inputs.into_iter().find(|(id, _)| id == "addr2").unwrap();
+        let (_, addr3) =
+            inputs.into_iter().find(|(id, _)| id == "addr3").unwrap();
         //check that addr0 is not out of bounds and that it is the proper width!
         let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();

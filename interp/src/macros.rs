@@ -36,6 +36,13 @@ macro_rules! comb_primitive {
                 }
                 base
             }
+
+            #[allow(non_snake_case)]
+            pub fn from_constants($( $param: u64 ),+) -> Self {
+                $name {
+                    $($param),+
+                }
+            }
         }
 
 

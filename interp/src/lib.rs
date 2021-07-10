@@ -6,5 +6,5 @@ pub mod values;
 pub use utils::MemoryMap;
 
 mod macros;
-mod test;
+mod tests;
 mod utils;
