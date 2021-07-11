@@ -349,6 +349,7 @@ impl Serialize for InterpreterState {
 }
 
 #[derive(Serialize)]
+#[allow(clippy::borrowed_box)]
 struct Printable<'a> {
     ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
     memories: BTreeMap<ir::Id, BTreeMap<ir::Id, &'a Box<dyn Primitive>>>,

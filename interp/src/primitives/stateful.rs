@@ -978,14 +978,10 @@ impl Primitive for StdMemD4 {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, crate::values::OutputValue)> {
-        let (_, addr0) =
-            inputs.into_iter().find(|(id, _)| id == "addr0").unwrap();
-        let (_, addr1) =
-            inputs.into_iter().find(|(id, _)| id == "addr1").unwrap();
-        let (_, addr2) =
-            inputs.into_iter().find(|(id, _)| id == "addr2").unwrap();
-        let (_, addr3) =
-            inputs.into_iter().find(|(id, _)| id == "addr3").unwrap();
+        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
+        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
+        let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
+        let (_, addr3) = inputs.iter().find(|(id, _)| id == "addr3").unwrap();
         //check that addr0 is not out of bounds and that it is the proper width!
         let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();
