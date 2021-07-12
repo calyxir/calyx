@@ -504,8 +504,8 @@ mod prim_test {
             .unwrap()
             .unwrap_imm();
         assert_eq!(out, Value::try_from_init(0, 275).unwrap());
-        // lsh without overflow
-        // lsh [010000] (16) by 1 -> [100000] (32)
+        //lsh without overflow
+        //lsh [010000] (16) by 1 -> [100000] (32)
         let left = Value::try_from_init(16, 381).unwrap();
         let right = Value::try_from_init(1, 381).unwrap();
         let lsh = StdLsh::new(381);

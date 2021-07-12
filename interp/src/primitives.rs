@@ -1753,21 +1753,46 @@ impl ExecuteBinary for StdLsh {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        //how to do this without at least casting right to u64/u128?
+        //to avoid the casting overflow,
+        //we know that [left], [right], and [self]
+        //are capped at bitwidths as large as largest u64 (2^64 - 1 = 1.84 * 10^19 ...)
+        //so, if [self] has a width greater than 64,
+        //and the 65th index is a 1, we just automatically return a 0 of the
+        //appropriate bitwidth!
 
-        let mut place = 1;
+        if self.width > 64 {
+            //check if right is greater than or equal to  2 ^ 64
+            let r_vec = &right.vec;
+            let mut index: u64 = 0;
+            for bit in r_vec.iter().by_ref() {
+                if (index >= 64) & *bit {
+                    return Value::zeroes(self.width as usize).into();
+                }
+                index += 1;
+            }
+        }
+
+        //but that's not the only problem. we can't let [place] get to
+        //2^64 or above. However the right value couldn't have even been specified
+        //to be greater than or equal to 2^64, because it's constrained by u64.
+        //so instead of incrementing [place], just calculate place, but only
+        //when [bit] is 1, which can only be true for bits below the 65th (first
+        // bit is 2^0)
+
+        let mut index: u32 = 0;
         let mut tr = BitVec::new();
         //first push the requisite # of zeroes
         for bit in right.vec.iter().by_ref() {
             if *bit {
-                for _ in 0..place {
+                //not possible for bit to be 1 after the 64th bit
+                for _ in 0..u64::pow(2, index) {
                     if tr.len() < self.width as usize {
                         tr.push(false);
                     }
                     //no point in appending once we've filled it all with zeroes
                 }
             }
-            place *= 2;
+            index += 1;
         }
         //then copy over the bits from [left] onto the back (higher-place bits) of
         //[tr]. Then truncate, aka slicing off the bits that exceed the width of this
@@ -1779,9 +1804,6 @@ impl ExecuteBinary for StdLsh {
         assert_eq!(tr.width(), self.width);
         //sanity check the widths
         tr.into()
-        // let mut tr = left.vec.clone();
-        // tr.shift_right(right.as_u64() as usize);
-        // Value { vec: tr }.into()
     }
 
     fn get_width(&self) -> &u64 {

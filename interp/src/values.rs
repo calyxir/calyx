@@ -236,9 +236,12 @@ impl Value {
 impl Into<u64> for Value {
     fn into(self) -> u64 {
         let mut val: u64 = 0;
+        //panics if value has more than 64 bits
         for (index, bit) in self.vec.into_iter().enumerate() {
-            val += u64::pow(2, (index as usize).try_into().unwrap())
-                * (bit as u64);
+            if bit {
+                val += u64::pow(2, (index as usize).try_into().unwrap())
+                    * (bit as u64);
+            }
         }
         val
     }
