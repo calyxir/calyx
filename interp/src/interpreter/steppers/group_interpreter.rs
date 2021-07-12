@@ -7,18 +7,18 @@ use calyx::ir::{self, Assignment, Cell, Port, RRC};
 use itertools::Itertools;
 use std::collections::HashSet;
 
-pub struct AssignmentInterpreter<'a, 'b> {
+pub struct AssignmentInterpreter<'a> {
     state: WorkingEnvironment,
-    done_port: &'b Port,
+    done_port: &'a Port,
     assigns: Vec<&'a Assignment>,
     cells: Vec<RRC<Cell>>,
     val_changed: Option<bool>,
 }
 
-impl<'a, 'b> AssignmentInterpreter<'a, 'b> {
+impl<'a> AssignmentInterpreter<'a> {
     pub fn new<I>(
         env: InterpreterState,
-        done_signal: &'b Port,
+        done_signal: &'a Port,
         assigns: I,
     ) -> Self
     where
@@ -160,6 +160,11 @@ impl<'a, 'b> AssignmentInterpreter<'a, 'b> {
         self.step_convergence();
     }
 
+    pub fn run_and_deconstruct(mut self) -> InterpreterState {
+        self.run_group();
+        self.deconstruct()
+    }
+
     pub fn run_group(&mut self) {
         while !self.is_done() {
             self.step();
@@ -172,15 +177,20 @@ impl<'a, 'b> AssignmentInterpreter<'a, 'b> {
         simulation_utils::is_signal_high(self.state.get(self.done_port))
     }
 
-    pub fn deconstruct_no_check(self) -> InterpreterState {
+    pub fn deconstruct(self) -> InterpreterState {
         if self.is_deconstructable() {
-            self.state.collapse_env(false)
+            self.deconstruct_no_check()
         } else {
             panic!("Group simulation has not finished executing and cannot be deconstructed")
         }
     }
 
-    fn is_deconstructable(&self) -> bool {
+    #[inline]
+    pub fn deconstruct_no_check(self) -> InterpreterState {
+        self.state.collapse_env(false)
+    }
+
+    pub fn is_deconstructable(&self) -> bool {
         self.is_done()
             && self.val_changed.is_some()
             && !self.val_changed.unwrap()

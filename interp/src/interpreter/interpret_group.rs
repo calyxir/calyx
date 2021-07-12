@@ -98,7 +98,7 @@ pub fn interpret_group(
     let grp_done = get_done_port(&group);
     let grp_done_ref: &ir::Port = &grp_done.borrow();
 
-    let mut interp = AssignmentInterpreter::new(
+    let interp = AssignmentInterpreter::new(
         env,
         grp_done_ref,
         group
@@ -107,9 +107,7 @@ pub fn interpret_group(
             .chain(continuous_assignments.iter()),
     );
 
-    interp.run_group();
-
-    Ok(interp.deconstruct_no_check())
+    Ok(interp.run_and_deconstruct())
 }
 
 pub fn finish_group_interpretation(
