@@ -1858,18 +1858,31 @@ impl ExecuteBinary for StdRsh {
         //remove [right] bits from index 0
         //extend to proper size
 
-        let mut place = 1;
+        //same check as in LSH
+        if self.width > 64 {
+            //check if right is greater than or equal to  2 ^ 64
+            let r_vec = &right.vec;
+            let mut index: u64 = 0;
+            for bit in r_vec.iter().by_ref() {
+                if (index >= 64) & *bit {
+                    return Value::zeroes(self.width as usize).into();
+                }
+                index += 1;
+            }
+        }
+
+        let mut index: u32 = 0;
         let mut tr = left.vec.clone();
         //first remove [right] bits
         for bit in right.vec.iter().by_ref() {
             if *bit {
-                for _ in 0..place {
+                for _ in 0..u64::pow(2, index) {
                     if tr.len() > 0 {
                         tr.remove(0);
                     }
                 }
             }
-            place *= 2;
+            index += 1;
         }
         //now resize to proper size, putting 0s at the end (0 is false)
         tr.resize(self.width as usize, false);
