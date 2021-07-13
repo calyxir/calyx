@@ -2459,11 +2459,22 @@ impl ExecuteBinary for StdGt {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        let left_64 = left.as_u64();
-        let right_64 = right.as_u64();
-        let init_val = left_64 > right_64;
+        let a_iter = left.vec.iter().by_ref();
+        let b_iter = right.vec.iter().by_ref();
+        let mut tr = false;
 
-        Value::from_init(init_val, 1_usize).into()
+        //as we proceed up in magnitude, it doesn't matter which port was less
+        //b/c [100....000] > [011....111] always.
+        //but if ai = bi, it matters which was higher previously
+        for (ai, bi) in a_iter.zip(b_iter) {
+            tr = ai & !bi || tr & !bi || tr & ai;
+        }
+
+        if tr {
+            Value::bit_high().into()
+        } else {
+            Value::bit_low().into()
+        }
     }
 
     fn get_width(&self) -> &u64 {
