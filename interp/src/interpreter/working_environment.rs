@@ -22,7 +22,6 @@ type PortOutputValMap = HashMap<ConstPort, OutputValue>;
 /// the environment maps to values of type Value, but during group
 /// interpretation, ports need to be mapped to values of type OutputValue
 // TODO (griffin): Update / remove pending changes to environment definition
-#[derive(Debug)]
 pub(super) struct WorkingEnvironment {
     //InterpreterState has a pv_map which is a Smoosher<*const ir::Port, Value>
     pub backing_env: InterpreterState,
@@ -131,29 +130,29 @@ impl WorkingEnvironment {
         self.backing_env
     }
 
-    // For debugging purpose
-    pub fn _dump_state(&self, cell: &ir::Cell) {
-        println!("{} on cycle {}: ", cell.name(), self.backing_env.clk);
-        for p in &cell.ports {
-            let p_ref: &ir::Port = &p.borrow();
-            println!("  {} : {}", p_ref.name, self.get_as_val(p_ref).as_u64());
-        }
-        match self
-            .backing_env
-            .cell_prim_map
-            .borrow()
-            .get(&(cell as *const ir::Cell))
-            .unwrap()
-        {
-            Primitive::StdReg(ref reg) => {
-                println!("  internal state: {}", reg.val)
-            }
-            Primitive::StdMemD1(ref mem) => {
-                println!("  memval : {}", mem.data[0])
-            }
-            _ => {}
-        }
-    }
+    // // For debugging purpose
+    // pub fn _dump_state(&self, cell: &ir::Cell) {
+    //     println!("{} on cycle {}: ", cell.name(), self.backing_env.clk);
+    //     for p in &cell.ports {
+    //         let p_ref: &ir::Port = &p.borrow();
+    //         println!("  {} : {}", p_ref.name, self.get_as_val(p_ref).as_u64());
+    //     }
+    //     match self
+    //         .backing_env
+    //         .cell_prim_map
+    //         .borrow()
+    //         .get(&(cell as *const ir::Cell))
+    //         .unwrap()
+    //     {
+    //         Primitive::StdReg(ref reg) => {
+    //             println!("  internal state: {}", reg.val)
+    //         }
+    //         Primitive::StdMemD1(ref mem) => {
+    //             println!("  memval : {}", mem.data[0])
+    //         }
+    //         _ => {}
+    //     }
+    // }
 
     pub fn eval_guard(&self, guard: &ir::Guard) -> bool {
         match guard {
@@ -249,7 +248,7 @@ impl WorkingEnvironment {
                                 &(cell.borrow().get("done").borrow()),
                             ))
                         };
-                    prim.exec_mut(&inputs, done_val)
+                    prim.validate_and_execute(&inputs, done_val)
                 };
 
                 for (port, val) in new_vals {

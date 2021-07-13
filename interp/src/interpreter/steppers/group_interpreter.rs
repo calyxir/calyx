@@ -130,7 +130,7 @@ impl<'a> AssignmentInterpreter<'a> {
                 let old_val = self.state.get_as_val_const(port);
                 let old_val_width = old_val.width(); //&assignment.dst.borrow().width()
                 let new_val: OutputValue =
-                    Value::try_from_init(0, old_val_width).unwrap().into();
+                    Value::from(0, old_val_width).unwrap().into();
                 //updates_list.push((port, new_val));
 
                 //how to avoid infinite loop?
