@@ -1,8 +1,9 @@
 //! Environment for interpreter.
 
+use super::primitives::{combinational, stateful, Primitive};
 use super::stk_env::Smoosher;
 use super::utils::MemoryMap;
-use super::{primitives, primitives::Primitive, values::Value};
+use super::values::Value;
 use calyx::ir::{self, RRC};
 use serde::Serialize;
 use std::cell::RefCell;
@@ -19,7 +20,8 @@ type ConstPort = *const ir::Port;
 
 /// A map defining primitive implementations for Cells. As it is keyed by
 /// CellRefs the lifetime of the keys is independent of the actual cells
-type PrimitiveMap = RRC<HashMap<ConstCell, primitives::Primitive>>;
+type PrimitiveMap =
+    RRC<HashMap<ConstCell, Box<dyn crate::primitives::Primitive>>>;
 
 /// A map defining values for ports. As it is keyed by PortRefs, the lifetime of
 /// the keys is independent of the ports. However as a result it is flat, rather
@@ -27,7 +29,6 @@ type PrimitiveMap = RRC<HashMap<ConstCell, primitives::Primitive>>;
 type PortValMap = Smoosher<ConstPort, Value>;
 
 /// The environment to interpret a Calyx program.
-#[derive(Debug)]
 pub struct InterpreterState {
     ///clock count
     pub clk: u64,
@@ -52,10 +53,7 @@ impl InterpreterState {
             context: ctx.clone(),
             clk: 0,
             pv_map: InterpreterState::construct_pv_map(&ctx.borrow()),
-            cell_prim_map: InterpreterState::construct_cp_map(
-                &ctx.borrow(),
-                mems,
-            ),
+            cell_prim_map: Self::construct_cp_map(&ctx.borrow(), mems),
         }
     }
 
@@ -63,7 +61,84 @@ impl InterpreterState {
         self.pv_map.set(port, value);
     }
 
-    //all of these use parameters as values for constuctors
+    fn make_primitive(
+        prim_name: ir::Id,
+        params: ir::Binding,
+        cell_name: Option<&ir::Id>,
+        mems: &Option<MemoryMap>,
+    ) -> Box<dyn Primitive> {
+        match prim_name.as_ref() {
+            "std_add" => Box::new(combinational::StdAdd::new(params)),
+            "std_sub" => Box::new(combinational::StdSub::new(params)),
+            "std_lsh" => Box::new(combinational::StdLsh::new(params)),
+            "std_rsh" => Box::new(combinational::StdRsh::new(params)),
+            "std_and" => Box::new(combinational::StdAnd::new(params)),
+            "std_or" => Box::new(combinational::StdOr::new(params)),
+            "std_xor" => Box::new(combinational::StdXor::new(params)),
+            "std_ge" => Box::new(combinational::StdGe::new(params)),
+            "std_le" => Box::new(combinational::StdLe::new(params)),
+            "std_lt" => Box::new(combinational::StdLt::new(params)),
+            "std_gt" => Box::new(combinational::StdGt::new(params)),
+            "std_eq" => Box::new(combinational::StdEq::new(params)),
+            "std_neq" => Box::new(combinational::StdNeq::new(params)),
+            "std_not" => Box::new(combinational::StdNot::new(params)),
+            "std_slice" => Box::new(combinational::StdSlice::new(params)),
+            "std_pad" => Box::new(combinational::StdPad::new(params)),
+            "std_reg" => Box::new(stateful::StdReg::new(params)),
+            "std_const" => Box::new(combinational::StdConst::new(params)),
+            "std_mem_d1" => {
+                let mut prim = Box::new(stateful::StdMemD1::new(params));
+
+                let init = mems
+                    .as_ref()
+                    .and_then(|x| cell_name.and_then(|name| x.get(name)));
+
+                if let Some(vals) = init {
+                    prim.initialize_memory(vals);
+                }
+                prim
+            }
+            "std_mem_d2" => {
+                let mut prim = Box::new(stateful::StdMemD2::new(params));
+
+                let init = mems
+                    .as_ref()
+                    .and_then(|x| cell_name.and_then(|name| x.get(name)));
+
+                if let Some(vals) = init {
+                    prim.initialize_memory(vals);
+                }
+                prim
+            }
+            "std_mem_d3" => {
+                let mut prim = Box::new(stateful::StdMemD3::new(params));
+
+                let init = mems
+                    .as_ref()
+                    .and_then(|x| cell_name.and_then(|name| x.get(name)));
+
+                if let Some(vals) = init {
+                    prim.initialize_memory(vals);
+                }
+                prim
+            }
+            "std_mem_d4" => {
+                let mut prim = Box::new(stateful::StdMemD4::new(params));
+
+                let init = mems
+                    .as_ref()
+                    .and_then(|x| cell_name.and_then(|name| x.get(name)));
+
+                if let Some(vals) = init {
+                    prim.initialize_memory(vals);
+                }
+                prim
+            }
+
+            p => panic!("Unknown primitive: {}", p),
+        }
+    }
+
     fn construct_cp_map(
         ctx: &ir::Context,
         mems: &Option<MemoryMap>,
@@ -72,225 +147,27 @@ impl InterpreterState {
         for comp in &ctx.components {
             for cell in comp.cells.iter() {
                 let cl: &ir::Cell = &cell.borrow();
-                let cell_name = cl.name();
 
-                if let ir::CellType::Primitive { name, .. } = &cl.prototype {
-                    match name.as_ref() {
-                        "std_reg" => {
-                            let reg = primitives::StdReg::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                            );
-                            map.insert(cl as ConstCell, Primitive::StdReg(reg));
-                        }
-                        "std_const" => {
-                            let width = cl.get_parameter("WIDTH").unwrap();
-                            let cst = primitives::StdConst::new(
-                                width,
-                                Value::try_from_init(
-                                    cl.get_parameter("VALUE").unwrap(),
-                                    width,
-                                )
-                                .unwrap(),
-                            );
-                            map.insert(
-                                cl as ConstCell,
-                                Primitive::StdConst(cst),
-                            );
-                        }
-                        "std_lsh" => {
-                            let width = cl.get_parameter("WIDTH").unwrap();
-                            let lsh = primitives::StdLsh::new(width);
-                            map.insert(cl as ConstCell, Primitive::StdLsh(lsh));
-                        }
-                        "std_rsh" => {
-                            let width = cl.get_parameter("WIDTH").unwrap();
-                            let rsh = primitives::StdRsh::new(width);
-                            map.insert(cl as ConstCell, Primitive::StdRsh(rsh));
-                        }
-                        "std_add" => {
-                            let adder = primitives::StdAdd::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                            );
-                            map.insert(
-                                cl as ConstCell,
-                                Primitive::StdAdd(adder),
-                            );
-                        }
-                        "std_sub" => {
-                            let width = cl.get_parameter("WIDTH").unwrap();
-                            let sub = primitives::StdSub::new(width);
-                            map.insert(cl as ConstCell, Primitive::StdSub(sub));
-                        }
-                        "std_slice" => {
-                            let slc = primitives::StdSlice::new(
-                                cl.get_parameter("IN_WIDTH").unwrap(),
-                                cl.get_parameter("OUT_WIDTH").unwrap(),
-                            );
-                            map.insert(
-                                cl as ConstCell,
-                                Primitive::StdSlice(slc),
-                            );
-                        }
-                        "std_pad" => {
-                            let pad = primitives::StdPad::new(
-                                cl.get_parameter("IN_WIDTH").unwrap(),
-                                cl.get_parameter("OUT_WIDTH").unwrap(),
-                            );
-                            map.insert(cl as ConstCell, Primitive::StdPad(pad));
-                        }
-                        "std_not" => {
-                            let not = primitives::StdNot::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                            );
-                            map.insert(cl as ConstCell, Primitive::StdNot(not));
-                        }
-                        "std_and" => {
-                            let and = primitives::StdAnd::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                            );
-                            map.insert(cl as ConstCell, Primitive::StdAnd(and));
-                        }
-                        "std_or" => {
-                            let or = primitives::StdOr::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                            );
-                            map.insert(cl as ConstCell, Primitive::StdOr(or));
-                        }
-                        "std_xor" => {
-                            let xor = primitives::StdXor::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                            );
-                            map.insert(cl as ConstCell, Primitive::StdXor(xor));
-                        }
-                        "std_ge" => {
-                            let ge = primitives::StdGe::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                            );
-                            map.insert(cl as ConstCell, Primitive::StdGe(ge));
-                        }
-                        "std_gt" => {
-                            let gt = primitives::StdGt::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                            );
-                            map.insert(cl as ConstCell, Primitive::StdGt(gt));
-                        }
-                        "std_eq" => {
-                            let eq = primitives::StdEq::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                            );
-                            map.insert(cl as ConstCell, Primitive::StdEq(eq));
-                        }
-                        "std_neq" => {
-                            let neq = primitives::StdNeq::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                            );
-                            map.insert(cl as ConstCell, Primitive::StdNeq(neq));
-                        }
-                        "std_le" => {
-                            let le = primitives::StdLe::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                            );
-                            map.insert(cl as ConstCell, Primitive::StdLe(le));
-                        }
-                        "std_lt" => {
-                            let lt = primitives::StdLt::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                            );
-                            map.insert(cl as ConstCell, Primitive::StdLt(lt));
-                        }
-                        "std_mem_d1" => {
-                            let mut m1 = primitives::StdMemD1::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                                cl.get_parameter("SIZE").unwrap(),
-                                cl.get_parameter("IDX_SIZE").unwrap(),
-                            );
-                            if let Some(v) = mems
-                                .as_ref()
-                                .map(|x| x.get(cell_name))
-                                .flatten()
-                            {
-                                m1.initialize_memory(v)
-                            }
+                if let ir::CellType::Primitive {
+                    name,
+                    param_binding,
+                } = cl.prototype.clone()
+                {
+                    let cell_name = match name.as_ref() {
+                        "std_mem_d1" | "std_mem_d2" | "std_mem_d3"
+                        | "std_mem_d4" => Some(cl.name()),
+                        _ => None,
+                    };
 
-                            map.insert(
-                                cl as ConstCell,
-                                Primitive::StdMemD1(m1),
-                            );
-                        }
-                        "std_mem_d2" => {
-                            let mut m2 = primitives::StdMemD2::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                                cl.get_parameter("D0_SIZE").unwrap(),
-                                cl.get_parameter("D1_SIZE").unwrap(),
-                                cl.get_parameter("D0_IDX_SIZE").unwrap(),
-                                cl.get_parameter("D1_IDX_SIZE").unwrap(),
-                            );
-
-                            if let Some(v) = mems
-                                .as_ref()
-                                .map(|x| x.get(cell_name))
-                                .flatten()
-                            {
-                                m2.initialize_memory(v)
-                            }
-
-                            map.insert(
-                                cl as ConstCell,
-                                Primitive::StdMemD2(m2),
-                            );
-                        }
-                        "std_mem_d3" => {
-                            let mut m3 = primitives::StdMemD3::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                                cl.get_parameter("D0_SIZE").unwrap(),
-                                cl.get_parameter("D1_SIZE").unwrap(),
-                                cl.get_parameter("D2_SIZE").unwrap(),
-                                cl.get_parameter("D0_IDX_SIZE").unwrap(),
-                                cl.get_parameter("D1_IDX_SIZE").unwrap(),
-                                cl.get_parameter("D2_IDX_SIZE").unwrap(),
-                            );
-
-                            if let Some(v) = mems
-                                .as_ref()
-                                .map(|x| x.get(cell_name))
-                                .flatten()
-                            {
-                                m3.initialize_memory(v)
-                            }
-
-                            map.insert(
-                                cl as ConstCell,
-                                Primitive::StdMemD3(m3),
-                            );
-                        }
-                        "std_mem_d4" => {
-                            let mut m4 = primitives::StdMemD4::new(
-                                cl.get_parameter("WIDTH").unwrap(),
-                                cl.get_parameter("D0_SIZE").unwrap(),
-                                cl.get_parameter("D1_SIZE").unwrap(),
-                                cl.get_parameter("D2_SIZE").unwrap(),
-                                cl.get_parameter("D3_SIZE").unwrap(),
-                                cl.get_parameter("D0_IDX_SIZE").unwrap(),
-                                cl.get_parameter("D1_IDX_SIZE").unwrap(),
-                                cl.get_parameter("D2_IDX_SIZE").unwrap(),
-                                cl.get_parameter("D3_IDX_SIZE").unwrap(),
-                            );
-
-                            if let Some(v) = mems
-                                .as_ref()
-                                .map(|x| x.get(cell_name))
-                                .flatten()
-                            {
-                                m4.initialize_memory(v)
-                            }
-
-                            map.insert(
-                                cl as ConstCell,
-                                Primitive::StdMemD4(m4),
-                            );
-                        }
-                        e => panic!("Unknown primitive {}", e),
-                    }
+                    map.insert(
+                        cl as ConstCell,
+                        Self::make_primitive(
+                            name,
+                            param_binding,
+                            cell_name,
+                            mems,
+                        ),
+                    );
                 }
             }
         }
@@ -302,19 +179,13 @@ impl InterpreterState {
         for comp in &ctx.components {
             for port in comp.signature.borrow().ports.iter() {
                 let pt: &ir::Port = &port.borrow();
-                map.insert(
-                    pt as *const ir::Port,
-                    Value::try_from_init(0, 1).unwrap(),
-                );
+                map.insert(pt as ConstPort, Value::bit_low());
             }
             for group in comp.groups.iter() {
                 let grp = group.borrow();
                 for hole in &grp.holes {
                     let pt: &ir::Port = &hole.borrow();
-                    map.insert(
-                        pt as ConstPort,
-                        Value::try_from_init(0, 1).unwrap(),
-                    );
+                    map.insert(pt as ConstPort, Value::bit_low());
                 }
             }
             for cell in comp.cells.iter() {
@@ -327,7 +198,7 @@ impl InterpreterState {
                             let pt: &ir::Port = &port.borrow();
                             map.insert(
                                 pt as ConstPort,
-                                Value::try_from_init(*val, *width).unwrap(),
+                                Value::from(*val, *width).unwrap(),
                             );
                         }
                     }
@@ -336,7 +207,7 @@ impl InterpreterState {
                             let pt: &ir::Port = &port.borrow();
                             map.insert(
                                 pt as ConstPort,
-                                Value::try_from_init(
+                                Value::from(
                                     cll.get_parameter("VALUE")
                                         .unwrap_or_default(),
                                     pt.width,
@@ -350,7 +221,7 @@ impl InterpreterState {
                             let pt: &ir::Port = &port.borrow();
                             map.insert(
                                 pt as ConstPort,
-                                Value::try_from_init(0, 0).unwrap(),
+                                Value::from(0, 0).unwrap(),
                             );
                         }
                     }
@@ -478,7 +349,8 @@ impl Serialize for InterpreterState {
 }
 
 #[derive(Serialize)]
+#[allow(clippy::borrowed_box)]
 struct Printable<'a> {
     ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
-    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, &'a Primitive>>,
+    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, &'a Box<dyn Primitive>>>,
 }

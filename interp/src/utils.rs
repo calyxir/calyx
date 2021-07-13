@@ -1,5 +1,6 @@
 use crate::values::{OutputValue, PulseValue, TimeLockedValue, Value};
 use calyx::errors::Error;
+use calyx::ir::Binding;
 use calyx::ir::{Assignment, Cell, Id, Port, RRC};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -221,4 +222,16 @@ impl DerefMut for MemoryMap {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
+}
+
+pub fn construct_bindings<'a, I, S: 'a>(iter: I) -> Binding
+where
+    S: AsRef<str>,
+    I: Iterator<Item = &'a (S, u64)>,
+{
+    let mut vec = Binding::new();
+    for (name, val) in iter {
+        vec.push((name.as_ref().into(), *val))
+    }
+    vec
 }
