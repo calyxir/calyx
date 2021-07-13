@@ -3,9 +3,9 @@ use crate::passes::{
     ClkInsertion, CollapseControl, CompileControl, CompileEmpty, CompileInvoke,
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion,
     GuardCanonical, InferStaticTiming, Inliner, MergeAssign, MinimizeRegs,
-    Papercut, ParToSeq, RegisterUnsharing, ResetInsertion, ResourceSharing,
-    SimplifyGuards, StaticTiming, SynthesisPapercut, TopDownCompileControl,
-    WellFormed,
+    Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
+    ResourceSharing, SimplifyGuards, StaticTiming, SynthesisPapercut,
+    TopDownCompileControl, WellFormed,
 };
 use crate::{
     errors::CalyxResult,
@@ -44,12 +44,14 @@ impl PassManager {
         register_pass!(pm, RegisterUnsharing);
         register_pass!(pm, GuardCanonical);
         register_pass!(pm, ParToSeq);
+        register_pass!(pm, RemoveCombGroups);
 
         register_alias!(pm, "validate", [WellFormed, Papercut, GuardCanonical]);
         register_alias!(
             pm,
             "pre-opt",
             [
+                GuardCanonical,
                 InferStaticTiming,
                 CollapseControl,
                 ResourceSharing,
