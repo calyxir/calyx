@@ -6,7 +6,6 @@ use crate::ir::{self, LibrarySignatures};
 /// Useful for debugging problems with `par`.
 ///
 /// # Example
-/// 1. Collapses nested `seq`:
 /// ```
 /// par {
 ///     par { A; B }
@@ -18,7 +17,7 @@ use crate::ir::{self, LibrarySignatures};
 /// seq { seq { A; B } C; }
 /// ```
 ///
-/// To remove uneccessarily nested `par` blocks, run collapse control.
+/// To remove uneccessarily nested `par` blocks, run collapse-control.
 pub struct ParToSeq;
 
 impl Named for ParToSeq {
