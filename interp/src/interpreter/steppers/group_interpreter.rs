@@ -1,16 +1,46 @@
-use super::super::simulation_utils::{self, ConstCell, ConstPort};
+use super::super::simulation_utils::{
+    self, get_done_port, ConstCell, ConstPort,
+};
 use super::super::working_environment::WorkingEnvironment;
 use crate::environment::InterpreterState;
 use crate::utils::get_const_from_rrc;
 use crate::values::{OutputValue, ReadableValue, Value};
 use calyx::ir::{self, Assignment, Cell, Port, RRC};
-use itertools::Itertools;
 use std::collections::HashSet;
+
+/// An internal wrapper enum which allows the Assignment Interpreter to own the
+/// assignments it iterates over
+enum AssignmentOwner<'a> {
+    Ref(Vec<&'a Assignment>),
+    Owned(Vec<Assignment>),
+}
+
+impl<'a> AssignmentOwner<'a> {
+    // I'm sorry
+    fn iter(&self) -> Box<dyn Iterator<Item = &Assignment> + '_> {
+        match self {
+            AssignmentOwner::Ref(assigns) => {
+                Box::new((*assigns).iter().copied())
+            }
+            AssignmentOwner::Owned(assigns) => Box::new((*assigns).iter()),
+        }
+    }
+
+    fn from_vec(vec: Vec<Assignment>) -> Self {
+        Self::Owned(vec)
+    }
+}
+
+impl<'a, I: Iterator<Item = &'a Assignment>> From<I> for AssignmentOwner<'a> {
+    fn from(iter: I) -> Self {
+        Self::Ref(iter.collect())
+    }
+}
 
 pub struct AssignmentInterpreter<'a> {
     state: WorkingEnvironment,
-    done_port: &'a Port,
-    assigns: Vec<&'a Assignment>,
+    done_port: ConstPort,
+    assigns: AssignmentOwner<'a>,
     cells: Vec<RRC<Cell>>,
     val_changed: Option<bool>,
 }
@@ -18,7 +48,7 @@ pub struct AssignmentInterpreter<'a> {
 impl<'a> AssignmentInterpreter<'a> {
     pub fn new<I>(
         env: InterpreterState,
-        done_signal: &'a Port,
+        done_signal: ConstPort,
         assigns: I,
     ) -> Self
     where
@@ -26,8 +56,27 @@ impl<'a> AssignmentInterpreter<'a> {
     {
         let state = env.into();
         let done_port = done_signal;
-        let assigns = assigns.collect_vec();
-        let cells = simulation_utils::get_dst_cells(assigns.iter().copied());
+        let assigns: AssignmentOwner = assigns.into();
+        let cells = simulation_utils::get_dst_cells(assigns.iter());
+
+        Self {
+            state,
+            done_port,
+            assigns,
+            cells,
+            val_changed: None,
+        }
+    }
+
+    pub fn new_owned(
+        env: InterpreterState,
+        done_signal: ConstPort,
+        vec: Vec<Assignment>,
+    ) -> Self {
+        let state = env.into();
+        let done_port = done_signal;
+        let assigns: AssignmentOwner = AssignmentOwner::from_vec(vec);
+        let cells = simulation_utils::get_dst_cells(assigns.iter());
 
         Self {
             state,
@@ -77,7 +126,7 @@ impl<'a> AssignmentInterpreter<'a> {
             let mut updates_list = vec![];
 
             // compute all updates from the assignments
-            for assignment in &self.assigns {
+            for assignment in self.assigns.iter() {
                 // if assignment.dst.borrow().name == "done"
                 // println!("{:?}", assignment.);
                 if self.state.eval_guard(&assignment.guard) {
@@ -161,11 +210,11 @@ impl<'a> AssignmentInterpreter<'a> {
     }
 
     pub fn run_and_deconstruct(mut self) -> InterpreterState {
-        self.run_group();
+        self.run();
         self.deconstruct()
     }
 
-    pub fn run_group(&mut self) {
+    pub fn run(&mut self) {
         while !self.is_done() {
             self.step();
         }
@@ -174,7 +223,7 @@ impl<'a> AssignmentInterpreter<'a> {
 
     #[inline]
     pub fn is_done(&self) -> bool {
-        simulation_utils::is_signal_high(self.state.get(self.done_port))
+        simulation_utils::is_signal_high(self.state.get_const(self.done_port))
     }
 
     pub fn deconstruct(self) -> InterpreterState {
@@ -196,12 +245,23 @@ impl<'a> AssignmentInterpreter<'a> {
             && !self.val_changed.unwrap()
     }
 
+    /// The inerpreter must have finished executing first
+    pub fn reset<I: Iterator<Item = &'a ir::Assignment>>(
+        self,
+        assigns: I,
+    ) -> InterpreterState {
+        let done_signal = self.done_port;
+        let env = self.deconstruct();
+
+        Self::finish_interpretation(env, done_signal, assigns)
+    }
+
     /// Concludes interpretation to a group, effectively setting the go signal low
     /// for a given group. This function updates the values in the environment
     /// accordingly using zero as a placeholder for values that are undefined
     pub fn finish_interpretation<I: Iterator<Item = &'a ir::Assignment>>(
         mut env: InterpreterState,
-        done_signal: &ir::Port,
+        done_signal: ConstPort,
         assigns: I,
     ) -> InterpreterState {
         // replace port values for all the assignments

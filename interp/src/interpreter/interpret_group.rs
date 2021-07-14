@@ -62,14 +62,14 @@ pub fn interp_cont(
         &go_port.borrow() as &ir::Port as ConstPort,
         Value::bit_high(),
     );
-    let done_prt_ref = &done_port.borrow();
+    let done_prt_ref = &done_port.borrow() as &ir::Port as *const ir::Port;
 
     let mut assign_interp = AssignmentInterpreter::new(
         env,
         done_prt_ref,
         continuous_assignments.iter(),
     );
-    assign_interp.run_group();
+    assign_interp.run();
 
     let mut res = assign_interp.deconstruct_no_check();
 
@@ -81,7 +81,7 @@ pub fn interp_cont(
     // required because of lifetime shennanigans
     let final_env = AssignmentInterpreter::finish_interpretation(
         res,
-        &done_port.borrow(),
+        &done_port.borrow() as &ir::Port as ConstPort,
         continuous_assignments.iter(),
     );
 
