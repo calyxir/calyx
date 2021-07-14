@@ -450,6 +450,80 @@ mod prim_test {
     use calyx::ir;
 
     #[test]
+    fn test_std_gt_above64() {
+        //u64::max is 2^64  - 1, which is greater than 1433
+        let gt0 = Value::try_from_init(u64::MAX, 716).unwrap();
+        let gt1 = Value::try_from_init(14333, 716).unwrap();
+        let std_gt = StdGt::new(716);
+        let res_gt = std_gt
+            .validate_and_execute(&[
+                ("left".into(), &gt0),
+                ("right".into(), &gt1),
+            ])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(res_gt.as_u64(), 1);
+        //7 > 7 ? no!
+        let std_gt = StdGt::new(423);
+        let gt0 = Value::try_from_init(7, 423).unwrap();
+        let gt1 = Value::try_from_init(7, 423).unwrap();
+        assert_eq!(
+            std_gt
+                .validate_and_execute(&[
+                    ("left".into(), &gt0),
+                    ("right".into(), &gt0)
+                ])
+                .into_iter()
+                .next()
+                .map(|(_, v)| v)
+                .unwrap()
+                .unwrap_imm()
+                .as_u64(),
+            0
+        );
+    }
+
+    #[test]
+    fn test_std_lt_above64() {
+        //7298791842 < 17298791842
+        let lt0 = Value::try_from_init(7298791842 as u64, 2716).unwrap();
+        let lt1 = Value::try_from_init(17298791842 as u64, 2716).unwrap();
+        let std_lt = StdLt::new(2716);
+        let res_lt = std_lt
+            .validate_and_execute(&[
+                ("left".into(), &lt0),
+                ("right".into(), &lt1),
+            ])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(res_lt.as_u64(), 1);
+        //3_000_000 < 3_000_000 ? no!
+        let std_lt = StdLt::new(2423);
+        let lt0 = Value::try_from_init(3_000_000, 2423).unwrap();
+        let lt1 = Value::try_from_init(3_000_000, 2423).unwrap();
+        assert_eq!(
+            std_lt
+                .validate_and_execute(&[
+                    ("left".into(), &lt0),
+                    ("right".into(), &lt1)
+                ])
+                .into_iter()
+                .next()
+                .map(|(_, v)| v)
+                .unwrap()
+                .unwrap_imm()
+                .as_u64(),
+            0
+        );
+    }
+
+    #[test]
     fn add_above_64() {
         // without overflow
         let add0 = Value::try_from_init(17, 165).unwrap();
