@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["The FuTIL authors"]
 edition = "2018"
 
+[lib]
+doctest = false # Don't run doc tests
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -12,8 +15,9 @@ calyx = { path = "../calyx" }
 bitvec = "0.22.3"
 smallvec = "1.6.1"
 
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 itertools = "0.10.1"
+
 [dependencies.serde_with]
 version = "1.6.4"

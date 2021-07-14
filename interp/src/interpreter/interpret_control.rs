@@ -49,15 +49,9 @@ fn eval_par(
     mut env: InterpreterState,
     comp: &ir::Component,
 ) -> FutilResult<InterpreterState> {
-    let mut sts: Vec<InterpreterState> = Vec::new();
 
-    for stmt in &p.stmts {
-        let new =
-            interpret_control(stmt, continuous_assignments, env.fork(), comp)?;
-        sts.push(new);
-    }
+    todo!("par control operator")
 
-    Ok(env)
 }
 
 /// Interpret If
@@ -123,7 +117,7 @@ fn eval_invoke(
     _continuous_assignments: &[ir::Assignment],
     _env: InterpreterState,
 ) -> FutilResult<InterpreterState> {
-    todo!()
+    todo!("invoke control operator")
 }
 
 /// Interpret Enable
