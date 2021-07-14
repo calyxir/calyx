@@ -682,8 +682,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             //now drop b
             std::mem::drop(b.tail); //b.head already consumed above
                                     //create a'
-            let (a_new_head, a_new_tail) = a.tail.split();
-            if let Some(a_new_head) = a_new_head {
+            if let (Some(a_new_head), a_new_tail) = a.tail.split() {
                 a = Smoosher {
                     head: a_new_head,
                     tail: a_new_tail,
@@ -822,8 +821,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             std::mem::drop(sm.tail);
         }
 
-        let (a_new_head, a_new_tail) = a.tail.split();
-        if let Some(a_new_head) = a_new_head {
+        if let (Some(a_new_head), a_new_tail) = a.tail.split() {
             a = Smoosher {
                 head: a_new_head,
                 tail: a_new_tail,
