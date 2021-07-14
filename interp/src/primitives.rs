@@ -2764,7 +2764,7 @@ impl ExecuteBinary for StdLe {
         let b_iter = right.vec.iter().by_ref();
         let mut tr = true; //diff between le and lt is just assume they are equal
 
-        //tr represents a < b
+        //tr represents a <= b
         for (ai, bi) in a_iter.zip(b_iter) {
             tr = !ai & bi | tr & !ai | tr & bi;
         }

@@ -161,8 +161,12 @@ impl Value {
     pub fn as_u64(&self) -> u64 {
         let mut val: u64 = 0;
         for (index, bit) in self.vec.iter().by_ref().enumerate() {
-            val += u64::pow(2, (index as usize).try_into().unwrap())
-                * (*bit as u64);
+            if *bit {
+                //protects against panic in case of # less than u64::max in
+                // value of width greater than 64
+                val += u64::pow(2, (index as usize).try_into().unwrap())
+                    * (*bit as u64);
+            }
         }
         val
     }

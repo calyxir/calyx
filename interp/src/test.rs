@@ -1604,6 +1604,33 @@ mod prim_test {
             .unwrap_imm();
         assert_eq!(res_slice.as_u64(), 548);
     }
+
+    #[test]
+    fn test_std_slice_above64() {
+        // 101 in binary is [1100101], take first 4 bits -> [0101] = 5
+        let to_slice = Value::try_from_init(101, 337).unwrap();
+        let std_slice = StdSlice::new(337, 4);
+        let res_slice = std_slice
+            .validate_and_execute(&[("in".into(), &to_slice)])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm(); //note that once we implement execute_unary, have to change this
+        assert_eq!(res_slice.as_u64(), 5);
+        // Slice the entire bit
+        let to_slice = Value::try_from_init(548, 1320).unwrap();
+        let std_slice = StdSlice::new(1320, 1320);
+        let res_slice = std_slice
+            .validate_and_execute(&[("in".into(), &to_slice)])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(res_slice.as_u64(), 548);
+    }
+
     #[test]
     #[should_panic]
     fn test_std_slice_panic() {
@@ -1635,6 +1662,32 @@ mod prim_test {
             .unwrap_imm();
         assert_eq!(res_pad.as_u64(), 1);
     }
+
+    #[test]
+    fn test_std_pad_above64() {
+        // Add 2 zeroes, should keep the same value
+        let to_pad = Value::try_from_init(101, 7).unwrap();
+        let std_pad = StdPad::new(7, 4329);
+        let res_pad = std_pad
+            .validate_and_execute(&[("in".into(), &to_pad)])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(res_pad.as_u64(), 101);
+        // hard to think of another test case but just to have 2:
+        let to_pad = Value::try_from_init(1, 7).unwrap();
+        let res_pad = std_pad
+            .validate_and_execute(&[("in".into(), &to_pad)])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(res_pad.as_u64(), 1);
+    }
+
     #[test]
     #[should_panic]
     fn test_std_pad_panic() {
