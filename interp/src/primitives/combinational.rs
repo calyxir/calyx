@@ -58,6 +58,12 @@ impl Primitive for StdConst {
     fn clear_update_buffer(&mut self) {}
 }
 
+// ===================== New core ======================
+comb_primitive!(StdMux[WIDTH](cond: WIDTH, left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+    //cond isn't width wide, it's 1... but that gives compiler error, why?
+});
+
 // ===================== Unary operations ======================
 comb_primitive!(StdNot[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
     Value {
@@ -118,6 +124,46 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //actually ok if there is overflow from 2sc subtraction (?)
     //have to check if this is ok behavior
     return Value { vec: sum }.into();
+    todo!()
+});
+comb_primitive!(StdMultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+comb_primitive!(StdDivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+// ===================== Signed binary operations ======================
+comb_primitive!(StdSmultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+comb_primitive!(StdSdivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+// ===================== Unsigned FP binary operations ======================
+comb_primitive!(StdFpAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+comb_primitive!(StdFpSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+comb_primitive!(StdFpMultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+comb_primitive!(StdFpDivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+
+// ===================== Signed FP binary operations ======================
+comb_primitive!(StdFpSadd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+comb_primitive!(StdFpSsub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+comb_primitive!(StdFpSmultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+comb_primitive!(StdFpSdivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     todo!()
 });
 
@@ -213,6 +259,13 @@ comb_primitive!(StdRsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         tr.into()
 });
 
+// ===================== Signed Shift Operations ======================
+comb_primitive!(StdSlsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+todo!()
+});
+comb_primitive!(StdSrsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+todo!()
+});
 // ===================== Logial Operations ======================
 comb_primitive!(StdAnd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     Value {
@@ -328,6 +381,36 @@ comb_primitive!(StdNeq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     }
 
     Value::bit_low().into()
+});
+
+// ===================== Signed Comparison Operations ======================
+comb_primitive!(StdSgt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+comb_primitive!(StdSlt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+comb_primitive!(StdSge[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+comb_primitive!(StdSle[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+comb_primitive!(StdSeq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+comb_primitive!(StdSneq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+
+// ===================== Unsigned FP Comparison Operators ======================
+comb_primitive!(StdFpGt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
+});
+
+// ===================== Signed FP Comparison Operators ======================
+comb_primitive!(StdFpSgt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    todo!()
 });
 
 // ===================== Resizing Operations ======================
