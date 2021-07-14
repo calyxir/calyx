@@ -702,7 +702,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```text
     /// Consumes a smoosher and a list of other smooshers to be merged. The list
     /// can be any length.
-    /// Merges all topmost scopes above the shared fork point for all smooshers,
+    /// Merges all topmost scopes above the first shared fork point for all smooshers,
     /// finally smooshing the resulting top node onto the fork point. Returns
     /// the resulting Smoosher.
     /// ```
@@ -797,14 +797,10 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
                 if dp_first == 0 {
                     dp_first = depth_a;
                     smooshed.push(sm.smoosh(depth_b - 1));
+                } else if dp_first != depth_a {
+                    panic!("The common fork differs for one or more smooshers")
                 } else {
-                    if dp_first != depth_a {
-                        panic!(
-                            "The common fork differs for one or more smooshers"
-                        )
-                    } else {
-                        smooshed.push(sm.smoosh(depth_b - 1));
-                    }
+                    smooshed.push(sm.smoosh(depth_b - 1));
                 }
             } else {
                 panic!("No common fork for a pair of smooshers")
