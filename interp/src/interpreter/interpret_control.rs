@@ -44,14 +44,12 @@ fn eval_seq(
 /// Interpret Par
 
 fn eval_par(
-    p: &ir::Par,
-    continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState,
-    comp: &ir::Component,
+    _p: &ir::Par,
+    _continuous_assignments: &[ir::Assignment],
+    mut _env: InterpreterState,
+    _comp: &ir::Component,
 ) -> FutilResult<InterpreterState> {
-
     todo!("par control operator")
-
 }
 
 /// Interpret If
