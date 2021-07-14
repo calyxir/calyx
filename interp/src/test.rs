@@ -474,7 +474,44 @@ mod prim_test {
             std_gt
                 .validate_and_execute(&[
                     ("left".into(), &gt0),
-                    ("right".into(), &gt0)
+                    ("right".into(), &gt1)
+                ])
+                .into_iter()
+                .next()
+                .map(|(_, v)| v)
+                .unwrap()
+                .unwrap_imm()
+                .as_u64(),
+            0
+        );
+    }
+
+    #[test]
+    fn test_std_eq_above64() {
+        //u64::max is 2^64  - 1, which is equal to u64::max
+        let eq0 = Value::try_from_init(u64::MAX, 716).unwrap();
+        let eq1 = Value::try_from_init(u64::MAX, 716).unwrap();
+        let std_eq = StdEq::new(716);
+        let res_eq = std_eq
+            .validate_and_execute(&[
+                ("left".into(), &eq0),
+                ("right".into(), &eq1),
+            ])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(res_eq.as_u64(), 1);
+        //123456 = 12377456 ? no!
+        let std_eq = StdEq::new(421113);
+        let eq0 = Value::try_from_init(123456, 421113).unwrap();
+        let eq1 = Value::try_from_init(12377456, 421113).unwrap();
+        assert_eq!(
+            std_eq
+                .validate_and_execute(&[
+                    ("left".into(), &eq0),
+                    ("right".into(), &eq1)
                 ])
                 .into_iter()
                 .next()
