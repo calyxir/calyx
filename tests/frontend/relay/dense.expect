@@ -54,6 +54,7 @@ component dense_1x10(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_
     le3 = std_le(4);
     le4 = std_le(13);
     mult_pipe0 = std_smult_pipe(32);
+    red_read00 = std_reg(32);
     x_read0_0 = std_reg(32);
     y_read0_0 = std_reg(32);
   }
@@ -121,6 +122,13 @@ component dense_1x10(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_
       __product_0.write_en = 1'd1;
       let6[done] = __product_0.done;
     }
+    group let7<"static"=1> {
+      red_read00.in = x10_0_read_data;
+      red_read00.write_en = 1'd1;
+      let7[done] = red_read00.done;
+      x10_0_addr1 = __j1.out;
+      x10_0_addr0 = __i1.out;
+    }
     group upd0<"static"=1> {
       y_read0_0.write_en = 1'd1;
       y0_0_addr1 = __j0.out;
@@ -167,10 +175,8 @@ component dense_1x10(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_
       x10_0_addr1 = __j1.out;
       x10_0_addr0 = __i1.out;
       x10_0_write_en = 1'd1;
-      add2.left = x10_0_read_data;
+      add2.left = red_read00.out;
       add2.right = __product_0.out;
-      x10_0_addr1 = __j1.out;
-      x10_0_addr0 = __i1.out;
       x10_0_write_data = 1'd1 ? add2.out;
       upd6[done] = x10_0_done ? 1'd1;
     }
@@ -227,6 +233,7 @@ component dense_1x10(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_
                   }
                   let5;
                   let6;
+                  let7;
                   upd6;
                   upd7;
                 }

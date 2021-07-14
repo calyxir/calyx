@@ -68,6 +68,7 @@ component batch_matmul_4x7x7(a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_d
     le5 = std_le(3);
     le6 = std_le(3);
     mult_pipe0 = std_smult_pipe(32);
+    red_read00 = std_reg(32);
   }
   wires {
     group cond0<"static"=0> {
@@ -153,6 +154,14 @@ component batch_matmul_4x7x7(a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_d
       __product_0.write_en = 1'd1;
       let8[done] = __product_0.done;
     }
+    group let9<"static"=1> {
+      red_read00.in = x0_0_0_read_data;
+      red_read00.write_en = 1'd1;
+      let9[done] = red_read00.done;
+      x0_0_0_addr2 = __j1.out;
+      x0_0_0_addr1 = __i1.out;
+      x0_0_0_addr0 = __batch1.out;
+    }
     group upd0<"static"=1> {
       b_read0_0.write_en = 1'd1;
       b0_0_0_addr2 = __j0.out;
@@ -225,11 +234,8 @@ component batch_matmul_4x7x7(a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_d
       x0_0_0_addr1 = __i1.out;
       x0_0_0_addr0 = __batch1.out;
       x0_0_0_write_en = 1'd1;
-      add3.left = x0_0_0_read_data;
+      add3.left = red_read00.out;
       add3.right = __product_0.out;
-      x0_0_0_addr2 = __j1.out;
-      x0_0_0_addr1 = __i1.out;
-      x0_0_0_addr0 = __batch1.out;
       x0_0_0_write_data = 1'd1 ? add3.out;
       upd7[done] = x0_0_0_done ? 1'd1;
     }
@@ -288,6 +294,7 @@ component batch_matmul_4x7x7(a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_d
                       }
                       let7;
                       let8;
+                      let9;
                       upd7;
                       upd8;
                     }

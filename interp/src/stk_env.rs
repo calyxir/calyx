@@ -433,7 +433,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     ///```
     /// # Examples
     /// ## Pictorial Example
-    ///  [A]   
+    ///  [A]
     ///   |     => [smoosh_once(A, C)] => [A U C\A]
     ///  [C]
     /// ## Code Example
@@ -499,7 +499,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// # Examples
     /// ## Pictorial Examples
     /// ```text
-    ///  [A]  
+    ///  [A]
     ///   |
     ///  [B]
     ///   |     => [A.smoosh(2)] => [A U B\A U C\(A U B\A)]
@@ -562,7 +562,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// # Examples
     /// ## Pictorial Example
     /// ```text
-    /// Smoosher 1: (A, B, C, F, G) Smoosher 2: (D, E, F, G)          
+    /// Smoosher 1: (A, B, C, F, G) Smoosher 2: (D, E, F, G)
     /// [A]
     ///  |
     /// [B]        [D]
@@ -872,8 +872,8 @@ mod priv_tests {
     #[test]
     fn value_shared_fork_point() {
         let mut smoosher = Smoosher::new();
-        smoosher.set("a", Value::try_from_init(2, 32).unwrap()); //for type inference
-                                                                 //the below fork adds a new scope to [smoosher]
+        smoosher.set("a", Value::from(2, 32).unwrap()); //for type inference
+                                                        //the below fork adds a new scope to [smoosher]
         let mut smoosher2 = smoosher.fork();
         //right now, shared_fork_point should give (1, 1)
         if let Some((depth_a, depth_b)) =

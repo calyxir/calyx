@@ -4,9 +4,7 @@ import simplejson as sjson
 import numpy as np
 from fud.stages.verilator.numeric_types import FixedPoint, Bitnum
 from fud.errors import InvalidNumericType
-from fud.stages.verilator.json_to_dat import parse_fp_widths
-from calyx.utils import float_to_fixed_point
-
+from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
 
 from ..utils import shell, TmpDir
 
@@ -135,7 +133,7 @@ def convert_to_json(output_dir, data, round_float_to_fixed):
                 if round_float_to_fixed:
                     # Only round if it is not already representable.
                     fractional_width = width - int_width
-                    x = float_to_fixed_point(float(x), fractional_width)
+                    x = float_to_fixed(float(x), fractional_width)
                     x = str(x)
                     return FixedPoint(x, **shape[k]).bit_string(with_prefix)
                 else:

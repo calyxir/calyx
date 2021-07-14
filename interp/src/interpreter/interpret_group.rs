@@ -3,7 +3,6 @@
 
 use crate::environment::InterpreterState;
 
-use crate::primitives::Primitive;
 use crate::utils::{get_const_from_rrc, OutputValueRef};
 use crate::values::{OutputValue, ReadableValue, Value};
 use calyx::{
@@ -28,7 +27,6 @@ type PortOutputValMap = HashMap<ConstPort, OutputValue>;
 /// the environment maps to values of type Value, but during group
 /// interpretation, ports need to be mapped to values of type OutputValue
 // TODO (griffin): Update / remove pending changes to environment definition
-#[derive(Debug)]
 struct WorkingEnvironment {
     //InterpreterState has a pv_map which is a Smoosher<*const ir::Port, Value>
     pub backing_env: InterpreterState,
@@ -135,7 +133,7 @@ impl WorkingEnvironment {
     }
 
     // For debugging purpose
-    fn _dump_state(&self, cell: &ir::Cell) {
+    /*fn _dump_state(&self, cell: &ir::Cell) {
         println!("{} on cycle {}: ", cell.name(), self.backing_env.clk);
         for p in &cell.ports {
             let p_ref: &ir::Port = &p.borrow();
@@ -149,14 +147,14 @@ impl WorkingEnvironment {
             .unwrap()
         {
             Primitive::StdReg(ref reg) => {
-                println!("  internal state: {}", reg.val)
+                println!("  internal state: {}", reg.data[0])
             }
             Primitive::StdMemD1(ref mem) => {
                 println!("  memval : {}", mem.data[0])
             }
             _ => {}
         }
-    }
+    }*/
 }
 
 fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
@@ -262,7 +260,7 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
             let old_val = working_env.get_as_val_const(port);
             let old_val_width = old_val.width(); //&assignment.dst.borrow().width()
             let new_val: OutputValue =
-                Value::try_from_init(0, old_val_width).unwrap().into();
+                Value::from(0, old_val_width).unwrap().into();
             //updates_list.push((port, new_val));
 
             //how to avoid infinite loop?
@@ -432,7 +430,7 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
                 } else {
                     Some(env.get_as_val(&(cell.borrow().get("done").borrow())))
                 };
-                prim.exec_mut(&inputs, done_val)
+                prim.execute(&inputs, done_val)
             };
 
             for (port, val) in new_vals {
