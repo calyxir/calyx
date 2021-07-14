@@ -87,33 +87,37 @@ comb_primitive!(StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     tr.into()
 });
 comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    // //first turn right into ~right + 1
-    // let new_right = !right.vec.clone();
-    // let adder = StdAdd::new(WIDTH + 1);
-    // let new_right = adder
-    //     .execute_bin(
-    //         &Value { vec: new_right },
-    //         &Value::try_from_init(1, WIDTH).unwrap(),
-    //     )
-    //     .unwrap_imm();
+    //first turn right into ~right + 1
+    let new_right = !right.vec.clone();
+    let mut adder = StdAdd::from_constants(WIDTH + 1);
+    let new_right = adder
+        .execute(
+            &[("left".into(), &Value { vec: new_right }),
+            ("right".into(), &Value::from(1, WIDTH).unwrap())], None
+        )
+        .into_iter()
+        .next()
+        .map(|(_, v)| v)
+        .unwrap()
+        .unwrap_imm();
 
-    // //now do addition. maybe better to use the adder and unwrap the OutputValue?
-    // let a_iter = left.vec.iter().by_ref();
-    // let b_iter = new_right.vec.iter().by_ref();
-    // let mut c_in = false;
-    // let mut sum = BitVec::new();
-    // for (ai, bi) in a_iter.zip(b_iter) {
-    //     sum.push(
-    //         c_in & !ai & !bi
-    //             || bi & !c_in & !ai
-    //             || ai & !c_in & !bi
-    //             || ai & bi & c_in,
-    //     );
-    //     c_in = bi & c_in || ai & c_in || ai & bi || ai & c_in & bi;
-    // }
-    // //actually ok if there is overflow from 2sc subtraction (?)
-    // //have to check if this is ok behavior
-    // return Value { vec: sum }.into();
+    //now do addition. maybe better to use the adder and unwrap the OutputValue?
+    let a_iter = left.vec.iter().by_ref();
+    let b_iter = new_right.vec.iter().by_ref();
+    let mut c_in = false;
+    let mut sum = BitVec::new();
+    for (ai, bi) in a_iter.zip(b_iter) {
+        sum.push(
+            c_in & !ai & !bi
+                || bi & !c_in & !ai
+                || ai & !c_in & !bi
+                || ai & bi & c_in,
+        );
+        c_in = bi & c_in || ai & c_in || ai & bi || ai & c_in & bi;
+    }
+    //actually ok if there is overflow from 2sc subtraction (?)
+    //have to check if this is ok behavior
+    return Value { vec: sum }.into();
     todo!()
 });
 

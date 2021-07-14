@@ -1068,7 +1068,7 @@ fn test_std_gt() {
 fn test_std_gt_above64() {
     let mut std_gt = comb::StdGt::from_constants(716);
     port_bindings![binds;
-        left -> (184467440, 716),
+        left -> (18446744073709551615_u64, 716),
         right -> (14333, 716)
     ];
     let res_gt = std_gt
@@ -1097,7 +1097,7 @@ fn test_std_gt_above64() {
         0
     );
 }
-
+#[test]
 #[should_panic]
 fn test_std_gt_panic() {
     let mut std_gt = comb::StdGt::from_constants(3);
@@ -1146,7 +1146,7 @@ fn test_std_lt_above64() {
     let mut std_lt = comb::StdLt::from_constants(2706);
     port_bindings![binds;
         left -> (72987918, 2706),
-        right -> (172987918, 2706)
+        right -> (18446744073709551615_u64, 2706)
     ];
     let res_lt = std_lt
         .validate_and_execute(&binds, None)
@@ -1222,8 +1222,8 @@ fn test_std_eq() {
 fn test_std_eq_above64() {
     let mut std_eq = comb::StdEq::from_constants(716);
     port_bindings![binds;
-        left -> (184467440, 716),
-        right -> (184467440, 716)
+        left -> (18446744073709551615_u64, 716),
+        right -> (18446744073709551615_u64, 716)
     ];
     let res_eq = std_eq
         .validate_and_execute(&binds, None)
@@ -1300,8 +1300,8 @@ fn test_std_neq() {
 fn test_std_neq_above64() {
     let mut std_neq = comb::StdNeq::from_constants(4321);
     port_bindings![binds;
-        left -> (184467440, 4321),
-        right -> (184467440, 4321)
+        left -> (18446744073709551615_u64, 4321),
+        right -> (18446744073709551615_u64, 4321)
     ];
     let res_neq = std_neq
         .validate_and_execute(&binds, None)
@@ -1313,8 +1313,8 @@ fn test_std_neq_above64() {
     //max != max ? no!
     assert!(res_neq.as_u64() == 0);
     port_bindings![binds;
-    left -> (184467440, 4321),
-    right -> (18446744, 4321)
+    left -> (18446744073709551615_u64, 4321),
+    right -> (18446744073709500000_u64, 4321)
     ];
     assert_eq!(
         std_neq
@@ -1378,7 +1378,7 @@ fn test_std_ge() {
 fn test_std_ge_above64() {
     let mut std_ge = comb::StdGe::from_constants(716);
     port_bindings![binds;
-        left -> (184467440, 716),
+        left -> (18446744073709551615_u64, 716),
         right -> (14333, 716)
     ];
     let res_ge = std_ge
