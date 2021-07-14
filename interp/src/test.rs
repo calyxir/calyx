@@ -524,6 +524,43 @@ mod prim_test {
     }
 
     #[test]
+    fn test_std_neq_above64() {
+        //u64::max is 2^64  - 1, which is equal to u64::max
+        let neq0 = Value::try_from_init(u64::MAX, 716).unwrap();
+        let neq1 = Value::try_from_init(u64::MAX, 716).unwrap();
+        let std_neq = StdNeq::new(716);
+        let res_neq = std_neq
+            .validate_and_execute(&[
+                ("left".into(), &neq0),
+                ("right".into(), &neq1),
+            ])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(res_neq.as_u64(), 0);
+        //123456 = 12377456 ? no!
+        let std_neq = StdNeq::new(421113);
+        let neq0 = Value::try_from_init(123456, 421113).unwrap();
+        let neq1 = Value::try_from_init(12377456, 421113).unwrap();
+        assert_eq!(
+            std_neq
+                .validate_and_execute(&[
+                    ("left".into(), &neq0),
+                    ("right".into(), &neq1)
+                ])
+                .into_iter()
+                .next()
+                .map(|(_, v)| v)
+                .unwrap()
+                .unwrap_imm()
+                .as_u64(),
+            1
+        );
+    }
+
+    #[test]
     fn test_std_lt_above64() {
         //7298791842 < 17298791842
         let lt0 = Value::try_from_init(7298791842 as u64, 2716).unwrap();

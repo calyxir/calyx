@@ -2589,20 +2589,15 @@ impl ExecuteBinary for StdEq {
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
         let a_iter = left.vec.iter().by_ref();
         let b_iter = right.vec.iter().by_ref();
-        let mut tr = true;
 
         //tr represents a = b
         for (ai, bi) in a_iter.zip(b_iter) {
-            tr = tr & bi & ai || tr & !bi & !ai;
+            if !ai & bi || !bi & ai {
+                return Value::bit_low().into();
+            }
         }
 
-        //same as gt, just reverse the if.
-        //but actually not so if they are equal... should change the loop
-        if tr {
-            Value::bit_high().into()
-        } else {
-            Value::bit_low().into()
-        }
+        Value::bit_high().into()
     }
 
     fn get_width(&self) -> &u64 {
@@ -2651,10 +2646,17 @@ impl ExecuteBinary for StdNeq {
     /// * panics if left's width, right's width and self.width are not all equal
     ///
     fn execute_bin(&self, left: &Value, right: &Value) -> OutputValue {
-        let left_64 = left.as_u64();
-        let right_64 = right.as_u64();
-        let init_val = left_64 != right_64;
-        Value::from_init(init_val, 1_usize).into()
+        let a_iter = left.vec.iter().by_ref();
+        let b_iter = right.vec.iter().by_ref();
+
+        //tr represents a = b
+        for (ai, bi) in a_iter.zip(b_iter) {
+            if bi & !ai || !bi & ai {
+                return Value::bit_high().into();
+            }
+        }
+
+        Value::bit_low().into()
     }
 
     fn get_width(&self) -> &u64 {
