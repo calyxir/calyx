@@ -487,6 +487,43 @@ mod prim_test {
     }
 
     #[test]
+    fn test_std_ge_above64() {
+        //u64::max is 2^64  - 1, which is greater than 1433
+        let ge0 = Value::try_from_init(u64::MAX, 716).unwrap();
+        let ge1 = Value::try_from_init(14333, 716).unwrap();
+        let std_ge = StdGe::new(716);
+        let res_ge = std_ge
+            .validate_and_execute(&[
+                ("left".into(), &ge0),
+                ("right".into(), &ge1),
+            ])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(res_ge.as_u64(), 1);
+        //7 >= 7 ? yes!
+        let std_ge = StdGe::new(423);
+        let ge0 = Value::try_from_init(7, 423).unwrap();
+        let ge1 = Value::try_from_init(7, 423).unwrap();
+        assert_eq!(
+            std_ge
+                .validate_and_execute(&[
+                    ("left".into(), &ge0),
+                    ("right".into(), &ge1)
+                ])
+                .into_iter()
+                .next()
+                .map(|(_, v)| v)
+                .unwrap()
+                .unwrap_imm()
+                .as_u64(),
+            1
+        );
+    }
+
+    #[test]
     fn test_std_eq_above64() {
         //u64::max is 2^64  - 1, which is equal to u64::max
         let eq0 = Value::try_from_init(u64::MAX, 716).unwrap();
@@ -594,6 +631,43 @@ mod prim_test {
                 .unwrap_imm()
                 .as_u64(),
             0
+        );
+    }
+
+    #[test]
+    fn test_std_le_above64() {
+        //7298791842 < 17298791842
+        let le0 = Value::try_from_init(7298791842 as u64, 2716).unwrap();
+        let le1 = Value::try_from_init(17298791842 as u64, 2716).unwrap();
+        let std_le = StdLe::new(2716);
+        let res_le = std_le
+            .validate_and_execute(&[
+                ("left".into(), &le0),
+                ("right".into(), &le1),
+            ])
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm();
+        assert_eq!(res_le.as_u64(), 1);
+        //3_000_000 <= 3_000_000 ? yes
+        let std_le = StdLe::new(2423);
+        let le0 = Value::try_from_init(3_000_000, 2423).unwrap();
+        let le1 = Value::try_from_init(3_000_000, 2423).unwrap();
+        assert_eq!(
+            std_le
+                .validate_and_execute(&[
+                    ("left".into(), &le0),
+                    ("right".into(), &le1)
+                ])
+                .into_iter()
+                .next()
+                .map(|(_, v)| v)
+                .unwrap()
+                .unwrap_imm()
+                .as_u64(),
+            1
         );
     }
 
