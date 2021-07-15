@@ -126,9 +126,6 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     return Value { vec: sum }.into();
     todo!()
 });
-comb_primitive!(StdMultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
-});
 comb_primitive!(StdDivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     todo!()
 });

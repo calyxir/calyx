@@ -8,6 +8,160 @@ use crate::values::{OutputValue, ReadableValue, TickableValue, Value};
 use calyx::ir;
 
 #[test]
+fn test_std_mult_pipe() {
+    let mut std_mult = stfl::StdMultPipe::from_constants(16);
+    port_bindings![binds;
+        left -> (3, 16),
+        right -> (5, 16),
+        go -> (1, 1)
+    ];
+    let first_go =
+        std_mult.validate_and_execute(&binds, Some(&Value::bit_low()));
+    assert_eq!(first_go.len(), 1); //should be no done val
+    let mut second_go =
+        std_mult.validate_and_execute(&binds, Some(&Value::bit_low()));
+    assert_eq!(second_go.len(), 2); //should be a done val and TLV that will both be high next cycle
+    match &mut second_go[..] {
+        [out, done] => match (out, done) {
+            (
+                (_, OutputValue::LockedValue(rd)),
+                (_, OutputValue::PulseValue(d)),
+            ) => {
+                assert_eq!(rd.get_count(), 1);
+                assert_eq!(d.get_val().as_u64(), 0);
+                rd.dec_count();
+                d.tick();
+                assert!(rd.unlockable());
+                assert_eq!(
+                    rd.clone().unlock().as_u64(), //the product should be 15
+                    15
+                );
+                //check done value goes to zero
+                assert_eq!(d.get_val().as_u64(), 1);
+                let d = d.clone().do_tick();
+                assert!(matches!(d, OutputValue::ImmediateValue(_)));
+                if let OutputValue::ImmediateValue(iv) = d {
+                    assert_eq!(iv.as_u64(), 0);
+                }
+            }
+            _ => {
+                panic!("std_mult_pipe did not return the expected output types")
+            }
+        },
+        _ => panic!("std_mult_pipe returned more than 2 outputs"),
+    }
+    //now commit updates, and see if changing inputs will give a vec that still has 15
+    std_mult.commit_updates();
+    port_bindings![binds;
+        left -> (7, 16),
+        right -> (5, 16),
+        go -> (1, 1)
+    ];
+    let mut diff_inputs =
+        std_mult.validate_and_execute(&binds, Some(&Value::bit_low()));
+    match &mut diff_inputs[..] {
+        [out] => {
+            match out {
+                (_, OutputValue::ImmediateValue(val)) => {
+                    assert_eq!(val.as_u64(), 15);
+                }
+                _ => {
+                    panic!("std_mult_pipe did not return an IV after just 1 execute")
+                }
+            }
+        }
+        _ => panic!(
+            "std_mult_pipe returned more than 1 output after just 1 execute"
+        ),
+    }
+}
+
+#[test]
+fn test_std_div_pipe() {
+    let mut std_div = stfl::StdDivPipe::from_constants(16);
+    port_bindings![binds;
+        left -> (12, 16),
+        right -> (3, 16),
+        go -> (1, 1)
+    ];
+    let first_go =
+        std_div.validate_and_execute(&binds, Some(&Value::bit_low()));
+    assert_eq!(first_go.len(), 2); //should be no done val
+    let mut second_go =
+        std_div.validate_and_execute(&binds, Some(&Value::bit_low()));
+    assert_eq!(second_go.len(), 3); //should be a done val and TLV that will both be high next cycle
+    match &mut second_go[..] {
+        [out_quotient, out_remainder, done] => {
+            match (out_quotient, out_remainder, done) {
+                (
+                    (_, OutputValue::LockedValue(q)),
+                    (_, OutputValue::LockedValue(r)),
+                    (_, OutputValue::PulseValue(d)),
+                ) => {
+                    assert_eq!(q.get_count(), 1);
+                    assert_eq!(r.get_count(), 1);
+                    assert_eq!(d.get_val().as_u64(), 0);
+                    q.dec_count();
+                    r.dec_count();
+                    d.tick();
+                    assert!(q.unlockable());
+                    assert_eq!(
+                        q.clone().unlock().as_u64(), //the quotient (12/3) should be 4
+                        4
+                    );
+                    assert!(r.unlockable());
+                    assert_eq!(
+                        r.clone().unlock().as_u64(), //the remainder (12%3) should be 0
+                        0
+                    );
+                    //check done value goes to zero
+                    assert_eq!(d.get_val().as_u64(), 1);
+                    let d = d.clone().do_tick();
+                    assert!(matches!(d, OutputValue::ImmediateValue(_)));
+                    if let OutputValue::ImmediateValue(iv) = d {
+                        assert_eq!(iv.as_u64(), 0);
+                    }
+                }
+                _ => {
+                    panic!(
+                        "std_div_pipe did not return the expected output types"
+                    )
+                }
+            }
+        }
+        _ => panic!(
+            "std_div_pipe did not return exactly 3 outputs on 2nd execution"
+        ),
+    }
+    //now commit updates, and see if changing inputs will give a vec that still has 4 and 0
+    std_div.commit_updates();
+    port_bindings![binds;
+        left -> (7, 16),
+        right -> (5, 16),
+        go -> (1, 1)
+    ];
+    let mut diff_inputs =
+        std_div.validate_and_execute(&binds, Some(&Value::bit_low()));
+    match &mut diff_inputs[..] {
+        [out_quotient, out_remainder] => match (out_quotient, out_remainder) {
+            (
+                (_, OutputValue::ImmediateValue(q)),
+                (_, OutputValue::ImmediateValue(r)),
+            ) => {
+                assert_eq!(q.as_u64(), 4);
+                assert_eq!(r.as_u64(), 0);
+            }
+            _ => {
+                panic!("std_div_pipe did not return 2 IVs after just 1 execute")
+            }
+        },
+        _ => panic!(
+            "std_mult_pipe returned more than 1 output after just 1 execute"
+        ),
+    }
+}
+
+#[test]
 fn test_mem_d1_tlv() {
     let mut mem_d1 = stfl::StdMemD1::from_constants(32, 8, 3);
     port_bindings![binds;
